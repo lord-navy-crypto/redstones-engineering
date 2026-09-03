@@ -28,7 +28,7 @@ Alpha 1.0.9 intentionally makes five mature ecosystem libraries part of the RSE 
 | Jade | `15.10.6` | Client + Server | engineering HUD, port/domain/state diagnostics and server-backed data providers |
 | GeckoLib | `4.9.2` | Client + Server | articulated servo, cylinder, valve and machine animation architecture |
 | Cloth Config | `15.0.140` | Client | maintainable configuration screens and tuning UI |
-| Fusion | `1.3.15` | Client | connected textures, advanced models and topology-aware engineering visuals |
+| Fusion | `1.3.14` (`1.3.14-neoforge-mc1.21.1` Maven artifact) | Client | connected textures, advanced models and topology-aware engineering visuals |
 
 NeoForge metadata declares these dependencies with `type="required"`. Missing dependencies stop startup on the side where they are required. RSE does **not** shade or bundle their jars; users or modpacks install them normally.
 
