@@ -1,7 +1,9 @@
 {
-  "variants": {
-    "": {
-      "model": "redstoneengineering:block/instrument_cable"
+  "multipart": [
+    {
+      "apply": {
+        "model": "redstoneengineering:block/instrument_cable"
+      }
     }
-  }
+  ]
 }
