@@ -68,6 +68,16 @@ public final class TransmissionTopology {
         return false;
     }
 
+    public static boolean instrumentPort(BlockState s, Direction mediumToDevice) {
+        var b = s.getBlock();
+        if (b instanceof InstrumentCableBlock || b instanceof OscilloscopeBlock || b instanceof LogicAnalyzerBlock) return true;
+        if (b instanceof SignalProbeBlock) {
+            Direction probeToCable = deviceToMedium(mediumToDevice);
+            return probeToCable == s.getValue(SignalProbeBlock.FACING).getOpposite();
+        }
+        return false;
+    }
+
     public static boolean copperPort(BlockState s, Direction mediumToDevice) {
         var b=s.getBlock();
         if (b instanceof CopperWireBlock || b instanceof CopperCableJunctionBlock || b instanceof CopperVoltageSourceBlock
