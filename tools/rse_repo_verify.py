@@ -32,8 +32,8 @@ license_file = require_file("LICENSE")
 gradle_props = require_file("gradle.properties")
 workflow = require_file(".github/workflows/build.yml")
 gitignore = require_file(".gitignore")
-contributing = require_file("CONTRIBUTING.md")
-changelog = require_file("CHANGELOG.md")
+require_file("CONTRIBUTING.md")
+require_file("CHANGELOG.md")
 
 props = parse_properties(gradle_props)
 expected_stable = {
@@ -66,6 +66,18 @@ if readme.exists():
             failed.append(f"README missing project metadata: {token}")
     if version and version not in text:
         failed.append(f"README does not mention current artifact version {version}")
+
+# The current version must have a matching milestone manifest. Historical manifests
+# may stay in the repository, but only the current one is part of the sync contract.
+if version:
+    core = version.split("-", 1)[0]
+    manifest_rel = "ALPHA" + core.replace(".", "_") + "_MANIFEST.txt"
+    manifest = require_file(manifest_rel)
+    if manifest.exists():
+        text = manifest.read_text(errors="ignore")
+        for token in [version, "License: MIT", "Java: 21"]:
+            if token not in text:
+                failed.append(f"{manifest_rel} missing: {token}")
 
 if license_file.exists():
     text = license_file.read_text(errors="ignore")
