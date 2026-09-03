@@ -1,0 +1,26 @@
+Redstone Systems Engineering — Alpha 1.0.13
+Artifact version: 1.0.13-alpha
+Minecraft: 1.21.1
+NeoForge: 21.1.249
+Java: 21
+License: MIT
+
+Milestone: Copper Circuit Topology & Control Renovation III
+
+Core changes:
+- Added PortKind.ELECTRICAL for explicit copper-domain engineering ports.
+- Added DirectionalCopperProcessorBlock for shared BACK input -> FRONT output topology.
+- Copper Series Resistor, Capacitor, and Fuse now use the shared directional copper contract.
+- Copper Voltage Source exposes multi-face COPPER ELECTRICAL OUTPUT ports matching its existing network-node behavior.
+- Copper Resistive Load exposes multi-face terminal INPUT ports and remains a non-transparent sink.
+- Copper Circuit Meter exposes a single non-invasive FACING measurement port.
+- Existing DomainNetwork and CircuitPhysics remain authoritative for electrical propagation and component behavior.
+- Jade reads these ports automatically through the existing EngineeringPortProvider integration.
+
+Executable verification:
+- Existing Alpha 1.0.11/1.0.12 topology and directional GameTests remain required.
+- Copper axial port direction is tested in Minecraft GameTest.
+- Source -> wire -> series resistor -> wire -> load propagation is tested at runtime.
+- Fuse trip and protected-output cutoff are tested at runtime.
+- Side-feed rejection for axial copper processors is tested at runtime.
+- CI gate: runGameTestServer
