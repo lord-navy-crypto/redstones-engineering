@@ -19,6 +19,7 @@ src/main/resources/data/redstoneengineering/recipe/pneumatic_proportional_valve.
 src/main/resources/data/redstoneengineering/recipe/operations_monitor.json
 src/main/java/dev/redstoneengineering/physics/PneumaticNetwork.java
 tools/rse_alpha104_verify.py
+tools/rse_alpha105_quality_verify.py
 tools/rse_alpha106_engineering_verify.py
 .github/workflows/build.yml
 CHANGELOG.md
