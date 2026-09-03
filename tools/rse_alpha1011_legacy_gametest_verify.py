@@ -62,15 +62,19 @@ require(tests,
         "terminalDirectionFollowsMode",
         "explicitConvertersBridgeDomains")
 
-template = root / "src/main/resources/data/redstoneengineering/structures/empty5x4x5.nbt"
+# Minecraft 1.21.x loads structure templates from data/<namespace>/structure (singular).
+template = root / "src/main/resources/data/redstoneengineering/structure/empty5x4x5.nbt"
+legacy_template = root / "src/main/resources/data/redstoneengineering/structures/empty5x4x5.nbt"
 if not template.exists():
-    failed.append("missing GameTest template empty5x4x5.nbt")
+    failed.append("missing GameTest template at singular structure path")
 else:
     data = template.read_bytes()
     if len(data) < 64:
         failed.append("GameTest template is unexpectedly small")
     if data[:2] != b"\x1f\x8b":
         failed.append("GameTest template is not gzip-compressed NBT")
+if legacy_template.exists():
+    failed.append("legacy plural structures/ GameTest path must not remain")
 
 require("ALPHA1_0_11_MANIFEST.txt", "1.0.11-alpha", "runGameTestServer", "Topology GameTests")
 require("docs/ALPHA1_0_11_LEGACY_RENOVATION_AND_GAMETEST.md",
@@ -82,6 +86,10 @@ if "rse_alpha1011_legacy_gametest_verify.py" not in workflow:
 if "runGameTestServer" not in workflow:
     failed.append("workflow missing executable GameTest server gate")
 
+main_source = text("src/main/java/dev/redstoneengineering/RedstoneEngineering.java")
+if "1.0.0-alpha.1" in main_source:
+    failed.append("legacy hard-coded startup version 1.0.0-alpha.1 remains in RedstoneEngineering.java")
+
 if failed:
     print("RSE Alpha 1.0.11 legacy renovation + GameTest verification: FAIL")
     for item in failed:
@@ -91,6 +99,6 @@ if failed:
 print("RSE Alpha 1.0.11 legacy renovation + GameTest verification: PASS")
 print(" terminal/junction/transducer/converter migration: PASS")
 print(" domain-specific converter ports: PASS")
-print(" gzip GameTest structure resource: PASS")
+print(" singular Minecraft structure resource path: PASS")
 print(" executable topology GameTest registration: PASS")
 print(" CI runGameTestServer gate: PASS")
