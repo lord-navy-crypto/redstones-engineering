@@ -3,6 +3,7 @@ package dev.redstoneengineering.client;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.blockentity.MechatronicsVisualBlockEntity;
 import dev.redstoneengineering.visualization.MechatronicsVisualState;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import software.bernie.geckolib.animation.AnimationState;
 import software.bernie.geckolib.cache.object.GeoBone;
@@ -21,7 +22,7 @@ public final class MechatronicsGeoModel extends GeoModel<MechatronicsVisualBlock
 
     @Override
     public ResourceLocation getModelResource(MechatronicsVisualBlockEntity animatable) {
-        String path = animatable.getBlockState().getBlock().builtInRegistryHolder().key().location().getPath();
+        String path = BuiltInRegistries.BLOCK.getKey(animatable.getBlockState().getBlock()).getPath();
         if (path.equals("servo_actuator")) return SERVO_MODEL;
         if (path.equals("pneumatic_cylinder")) return CYLINDER_MODEL;
         return VALVE_MODEL;
@@ -47,14 +48,11 @@ public final class MechatronicsGeoModel extends GeoModel<MechatronicsVisualBlock
 
         GeoBone shaft = getAnimationProcessor().getBone("shaft");
         if (shaft != null) {
-            // 0..15 servo travel becomes 0..270 degrees of real shaft rotation.
             shaft.setRotY((float) (state.position01() * Math.PI * 1.5));
         }
 
         GeoBone rod = getAnimationProcessor().getBone("rod");
         if (rod != null) {
-            // Position follows physics. Faster physics velocity produces larger
-            // authoritative position steps; brake freezes position/velocity upstream.
             rod.setPosZ((float) (state.position01() * 7.0));
         }
 
