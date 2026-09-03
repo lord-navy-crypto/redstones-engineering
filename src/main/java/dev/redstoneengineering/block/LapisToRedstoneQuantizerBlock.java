@@ -2,6 +2,13 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.core.domain.EngineeringDomain;
+import dev.redstoneengineering.core.port.EngineeringPort;
+import dev.redstoneengineering.core.port.EngineeringPortProvider;
+import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
+import dev.redstoneengineering.core.port.PortDirection;
+import dev.redstoneengineering.core.port.PortKind;
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -22,41 +29,142 @@ import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.List;
+import java.util.Optional;
+
 /** Explicit Lapis continuous-like -> vanilla Redstone 0..15 quantizer. */
-public class LapisToRedstoneQuantizerBlock extends Block {
+public class LapisToRedstoneQuantizerBlock extends Block implements EngineeringPortProvider {
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final IntegerProperty POWER = IntegerProperty.create("power", 0, 15);
 
-    public LapisToRedstoneQuantizerBlock(Properties p) {
-        super(p);
+    public LapisToRedstoneQuantizerBlock(Properties properties) {
+        super(properties);
         registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH).setValue(POWER, 0));
     }
 
-    @Override public MapCodec<LapisToRedstoneQuantizerBlock> codec() { return RedstoneEngineering.LAPIS_TO_REDSTONE_QUANTIZER_CODEC.value(); }
-    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> b) { b.add(FACING, POWER); }
-    @Override public BlockState getStateForPlacement(BlockPlaceContext c) { return defaultBlockState().setValue(FACING, c.getHorizontalDirection().getOpposite()); }
-    private Direction outputSide(BlockState s) { return s.getValue(FACING); }
-    private Direction inputSide(BlockState s) { return outputSide(s).getOpposite(); }
-    @Override public boolean canConnectRedstone(BlockState s, BlockGetter l, BlockPos p, @Nullable Direction d) { return d != null && d == outputSide(s).getOpposite(); }
-    @Override protected boolean isSignalSource(BlockState s) { return true; }
-    @Override protected int getSignal(BlockState s, BlockGetter l, BlockPos p, Direction d) { return d == outputSide(s).getOpposite() ? s.getValue(POWER) : 0; }
-    @Override protected void onPlace(BlockState s, Level l, BlockPos p, BlockState old, boolean moved) { super.onPlace(s,l,p,old,moved); if(!l.isClientSide) l.scheduleTick(p,this,1); }
-    @Override protected void neighborChanged(BlockState s, Level l, BlockPos p, Block nb, BlockPos np, boolean moved) { if(!l.isClientSide) l.scheduleTick(p,this,1); }
-    @Override protected void tick(BlockState s, ServerLevel l, BlockPos p, RandomSource r) {
-        var sample = DomainNetwork.sampleLapis(l, p.relative(inputSide(s)));
-        int power = sample.valid() ? Math.round(sample.value() * 15.0f / 100.0f) : 0;
-        if(power != s.getValue(POWER)) {
-            l.setBlock(p, s.setValue(POWER, power), Block.UPDATE_CLIENTS);
-            l.updateNeighborsAt(p, this);
-            l.updateNeighborsAt(p.relative(outputSide(s)), this);
-        }
-        l.scheduleTick(p,this,2);
+    @Override
+    public MapCodec<LapisToRedstoneQuantizerBlock> codec() {
+        return RedstoneEngineering.LAPIS_TO_REDSTONE_QUANTIZER_CODEC.value();
     }
-    @Override protected InteractionResult useWithoutItem(BlockState s, Level l, BlockPos p, Player pl, BlockHitResult h) {
-        if(!l.isClientSide) {
-            var sample=DomainNetwork.sampleLapis(l,p.relative(inputSide(s)));
-            pl.displayClientMessage(Component.literal("Lapis → Redstone Quantizer | input="+(sample.valid()?String.format("%.2f",sample.value()/100.0):"INVALID")+" | output="+s.getValue(POWER)+"/15"),true);
+
+    @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        builder.add(FACING, POWER);
+    }
+
+    @Override
+    public BlockState getStateForPlacement(BlockPlaceContext context) {
+        return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
+    }
+
+    private Direction outputSide(BlockState state) {
+        return state.getValue(FACING);
+    }
+
+    private Direction inputSide(BlockState state) {
+        return outputSide(state).getOpposite();
+    }
+
+    @Override
+    public List<EngineeringPort> engineeringPorts(BlockState state) {
+        return List.of(
+                new EngineeringPort(
+                        "LAPIS INPUT",
+                        inputSide(state),
+                        EngineeringDomain.LAPIS,
+                        PortKind.CONVERTER,
+                        PortDirection.INPUT,
+                        false,
+                        "normalized"
+                ),
+                new EngineeringPort(
+                        "REDSTONE OUTPUT",
+                        outputSide(state),
+                        EngineeringDomain.REDSTONE,
+                        PortKind.CONVERTER,
+                        PortDirection.OUTPUT,
+                        true,
+                        "signal"
+                )
+        );
+    }
+
+    @Override
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
+            Level level,
+            BlockPos pos,
+            BlockState state,
+            Direction side
+    ) {
+        Optional<EngineeringPort> port = engineeringPort(state, side);
+        if (port.isEmpty()) return Optional.empty();
+
+        if (side == inputSide(state)) {
+            var sample = DomainNetwork.sampleLapis(level, pos.relative(inputSide(state)));
+            PortQuality quality = sample.valid() ? PortQuality.VALID : PortQuality.NO_SIGNAL;
+            return Optional.of(new EngineeringPortSnapshot(
+                    port.get(),
+                    sample.valid() ? sample.value() / 100.0 : 0.0,
+                    0.0,
+                    1.0,
+                    quality
+            ));
         }
-        return InteractionResult.sidedSuccess(l.isClientSide);
+        return Optional.of(EngineeringPortSnapshot.redstone(
+                port.get(),
+                state.getValue(POWER),
+                PortQuality.VALID
+        ));
+    }
+
+    @Override
+    public boolean canConnectRedstone(BlockState state, BlockGetter level, BlockPos pos, @Nullable Direction direction) {
+        return direction != null && direction == outputSide(state).getOpposite();
+    }
+
+    @Override
+    protected boolean isSignalSource(BlockState state) {
+        return true;
+    }
+
+    @Override
+    protected int getSignal(BlockState state, BlockGetter level, BlockPos pos, Direction direction) {
+        return direction == outputSide(state).getOpposite() ? state.getValue(POWER) : 0;
+    }
+
+    @Override
+    protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
+        super.onPlace(state, level, pos, oldState, moved);
+        if (!level.isClientSide) level.scheduleTick(pos, this, 1);
+    }
+
+    @Override
+    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighbor, BlockPos neighborPos, boolean moved) {
+        if (!level.isClientSide) level.scheduleTick(pos, this, 1);
+    }
+
+    @Override
+    protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+        var sample = DomainNetwork.sampleLapis(level, pos.relative(inputSide(state)));
+        int power = sample.valid() ? Math.round(sample.value() * 15.0f / 100.0f) : 0;
+        if (power != state.getValue(POWER)) {
+            level.setBlock(pos, state.setValue(POWER, power), Block.UPDATE_CLIENTS);
+            level.updateNeighborsAt(pos, this);
+            level.updateNeighborsAt(pos.relative(outputSide(state)), this);
+        }
+        level.scheduleTick(pos, this, 2);
+    }
+
+    @Override
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+        if (!level.isClientSide) {
+            var sample = DomainNetwork.sampleLapis(level, pos.relative(inputSide(state)));
+            player.displayClientMessage(Component.literal(
+                    "Lapis → Redstone Quantizer | input="
+                            + (sample.valid() ? String.format("%.2f", sample.value() / 100.0) : "INVALID")
+                            + " | output=" + state.getValue(POWER) + "/15"
+            ), true);
+        }
+        return InteractionResult.sidedSuccess(level.isClientSide);
     }
 }
