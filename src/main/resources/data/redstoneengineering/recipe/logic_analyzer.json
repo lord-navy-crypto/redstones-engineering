@@ -3,22 +3,15 @@
   "category": "redstone",
   "pattern": [
     "QRQ",
-    "AOA",
-    "QRQ"
+    "CAC",
+    "QOQ"
   ],
   "key": {
-    "Q": {
-      "item": "minecraft:quartz"
-    },
-    "R": {
-      "item": "minecraft:redstone"
-    },
-    "A": {
-      "item": "redstoneengineering:signal_analyzer"
-    },
-    "O": {
-      "item": "minecraft:observer"
-    }
+    "Q": { "item": "minecraft:quartz" },
+    "R": { "item": "minecraft:redstone" },
+    "C": { "item": "minecraft:comparator" },
+    "A": { "item": "redstoneengineering:signal_analyzer" },
+    "O": { "item": "minecraft:observer" }
   },
   "result": {
     "id": "redstoneengineering:logic_analyzer",
