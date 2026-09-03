@@ -26,14 +26,11 @@ import net.minecraft.world.phys.BlockHitResult;
 import javax.annotation.Nullable;
 
 public class OscilloscopeBlock extends Block implements EntityBlock {
-    public static final DirectionProperty FACING =
-            BlockStateProperties.HORIZONTAL_FACING;
+    public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
 
     public OscilloscopeBlock(Properties properties) {
         super(properties);
-        registerDefaultState(
-                stateDefinition.any().setValue(FACING, Direction.NORTH)
-        );
+        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH));
     }
 
     @Override
@@ -50,9 +47,7 @@ public class OscilloscopeBlock extends Block implements EntityBlock {
     }
 
     @Override
-    protected void createBlockStateDefinition(
-            StateDefinition.Builder<Block, BlockState> builder
-    ) {
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         builder.add(FACING);
     }
 
@@ -91,9 +86,7 @@ public class OscilloscopeBlock extends Block implements EntityBlock {
             BlockPos pos,
             RandomSource random
     ) {
-        InstrumentNetwork.ProbeSnapshot snapshot =
-                InstrumentNetwork.scan(level, pos);
-
+        InstrumentNetwork.ProbeSnapshot snapshot = InstrumentNetwork.scan(level, pos);
         int a = snapshot.valid(0) ? snapshot.values()[0] : -1;
         int b = snapshot.valid(1) ? snapshot.values()[1] : -1;
 
@@ -113,33 +106,59 @@ public class OscilloscopeBlock extends Block implements EntityBlock {
             BlockHitResult hitResult
     ) {
         if (!level.isClientSide
-                && level.getBlockEntity(pos)
-                instanceof OscilloscopeBlockEntity scope) {
+                && level.getBlockEntity(pos) instanceof OscilloscopeBlockEntity scope) {
 
             if (player.isShiftKeyDown()) {
                 scope.arm();
-                player.displayClientMessage(Component.literal("Oscilloscope | trigger armed | "+scope.triggerStatus()), true);
+                player.displayClientMessage(
+                        Component.literal("Oscilloscope | trigger armed | " + scope.triggerStatus()),
+                        true
+                );
             } else if (hitResult.getDirection() == Direction.UP) {
                 scope.cycleTriggerMode();
-                player.displayClientMessage(Component.literal("Oscilloscope | trigger mode → "+scope.triggerStatus()), true);
+                player.displayClientMessage(
+                        Component.literal("Oscilloscope | trigger mode → " + scope.triggerStatus()),
+                        true
+                );
             } else if (hitResult.getDirection() == state.getValue(FACING).getClockWise()) {
                 scope.cycleTriggerLevel();
-                player.displayClientMessage(Component.literal("Oscilloscope | trigger level/channel → "+scope.triggerStatus()), true);
+                player.displayClientMessage(
+                        Component.literal("Oscilloscope | trigger level/channel → " + scope.triggerStatus()),
+                        true
+                );
             } else if (hitResult.getDirection() == state.getValue(FACING).getCounterClockWise()) {
                 scope.cycleTriggerChannel();
-                player.displayClientMessage(Component.literal("Oscilloscope | trigger source → "+scope.triggerStatus()), true);
+                player.displayClientMessage(
+                        Component.literal("Oscilloscope | trigger source → " + scope.triggerStatus()),
+                        true
+                );
             } else if (hitResult.getDirection() == Direction.DOWN) {
                 scope.moveCursorA();
-                player.displayClientMessage(Component.literal("Oscilloscope | cursor A moved | Δ="+scope.cursorDeltaSamples()+" samples"), true);
+                player.displayClientMessage(
+                        Component.literal("Oscilloscope | cursor A moved | Δ=" + scope.cursorDeltaSamples() + " samples"),
+                        true
+                );
             } else if (hitResult.getDirection() == state.getValue(FACING)) {
                 scope.moveCursorB();
-                player.displayClientMessage(Component.literal("Oscilloscope | cursor B moved | Δ="+scope.cursorDeltaSamples()+" samples"), true);
+                player.displayClientMessage(
+                        Component.literal("Oscilloscope | cursor B moved | Δ=" + scope.cursorDeltaSamples() + " samples"),
+                        true
+                );
             } else {
                 InstrumentNetwork.ProbeSnapshot snapshot = InstrumentNetwork.scan(level, pos);
                 player.displayClientMessage(Component.literal(
-                    "Scope | "+scope.triggerStatus()+" | A="+snapshot.status(0)+" ["+scope.waveform(0)+"] min/max/p2p="+scope.minimum(0)+"/"+scope.maximum(0)+"/"+scope.peakToPeak(0)+" period≈"+scope.estimatedPeriodSamples(0)+" samples"
-                    +" | B="+snapshot.status(1)+" ["+scope.waveform(1)+"] min/max/p2p="+scope.minimum(1)+"/"+scope.maximum(1)+"/"+scope.peakToPeak(1)+" period≈"+scope.estimatedPeriodSamples(1)+" samples"
-                    +" | cursors Δ="+scope.cursorDeltaSamples()+" samples"), true);
+                        "Scope | " + scope.triggerStatus()
+                                + " | " + snapshot.networkStatus()
+                                + " | A=" + snapshot.status(0)
+                                + " [" + scope.waveform(0) + "]"
+                                + " min/max/p2p=" + scope.minimum(0) + "/" + scope.maximum(0) + "/" + scope.peakToPeak(0)
+                                + " period≈" + scope.estimatedPeriodSamples(0) + " samples"
+                                + " | B=" + snapshot.status(1)
+                                + " [" + scope.waveform(1) + "]"
+                                + " min/max/p2p=" + scope.minimum(1) + "/" + scope.maximum(1) + "/" + scope.peakToPeak(1)
+                                + " period≈" + scope.estimatedPeriodSamples(1) + " samples"
+                                + " | cursors Δ=" + scope.cursorDeltaSamples() + " samples"
+                ), true);
             }
         }
 
