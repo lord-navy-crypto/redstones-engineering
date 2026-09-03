@@ -40,7 +40,8 @@ jobs:
             tools/rse_alpha10_verify.py \
             tools/rse_alpha102_second_layer_verify.py \
             tools/rse_alpha103_pneumatic_hotfix_verify.py \
-            tools/rse_alpha103_closed_loop_verify.py
+            tools/rse_alpha103_closed_loop_verify.py \
+            tools/rse_alpha104_verify.py
           do
             if [[ -f "$verifier" ]]; then
               echo "==> $verifier"
@@ -65,7 +66,7 @@ jobs:
       - name: Upload verified build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: rse-1.0.3-alpha-${{ github.sha }}
+          name: rse-verified-${{ github.sha }}
           path: |
             build/libs/*.jar
             build/libs/SHA256SUMS.txt
