@@ -176,6 +176,7 @@ public final class InstrumentNetwork {
                     + " duplicateProbes=" + duplicateProbes()
                     + " depth=" + maxProbeDepth
                     + " cableDepth=" + maxCableDepth
+                    + " scan=" + (bounded ? "BOUNDED" : "TRUNCATED")
                     + " integrity=" + integrity();
         }
     }
