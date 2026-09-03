@@ -6,7 +6,7 @@ All notable RSE engineering milestones are recorded here. RSE remains in alpha d
 
 - Future work should remain behind a focused branch/PR and pass the repository verification workflow before being merged into `main`.
 
-## [1.0.5-alpha] — Quality candidate
+## [1.0.5-alpha] — 2026-09-03
 
 ### Measurement quality
 
@@ -44,13 +44,15 @@ All notable RSE engineering milestones are recorded here. RSE remains in alpha d
 - Added `tools/rse_source_quality_audit.py` for Java package/path consistency, brace/whitespace smoke checks, JSON parsing, resource-name collisions, local model-reference integrity, item-model pairing, BlockState cardinality, and root hygiene.
 - Added `tools/rse_reference_model_tests.py` for deterministic `0..15`, calibration, rolling-metric, topology-integrity, and analyzer-timebase mathematics.
 - Added `tools/rse_alpha105_quality_verify.py` for Alpha 1.0.5 implementation and regression contracts.
+- Made the Alpha 1.0.4 verifier forward-compatible so it continues to protect 1.0.4 topology contracts on later Alpha versions instead of hard-coding the old version number.
 - CI now validates all Python verifier syntax with `compileall`.
 - CI explicitly runs Gradle `test` in addition to `compileJava` and clean `build`.
 - All Alpha 1.0.3 and Alpha 1.0.4 regression verifiers remain required.
 
 ### Validation status
 
-- Branch must pass the strengthened quality ladder before merge to `main`.
+- Alpha 1.0.5 was squash-merged into `main` at commit `48036c377a95d0d9891697a4cfb75c681f9b269e` after the strengthened PR quality ladder passed.
+- The canonical `main` commit then independently passed verifier syntax, repository/source/resource audits, deterministic reference-model tests, all historical Alpha regression verifiers, Alpha 1.0.5 quality verification, Java 21 `compileJava`, Gradle `test`, clean Gradle build, SHA-256 generation, and verified artifact upload.
 - Local `runClient` quality/calibration and save/reload validation remains required before a public Alpha 1.0.5 release candidate.
 
 ## [1.0.4-alpha] — 2026-09-03
