@@ -83,21 +83,30 @@ Test date:
 | Duplicate probe | Duplicate one channel | Channel status becomes AMBIGUOUS rather than last-writer-wins | NOT TESTED |
 | Existing trigger/edge | Exercise trigger source and edge controls | Existing behavior remains intact | NOT TESTED |
 
-## 7. Pneumatic Cylinder feedback topology
+## 7. Pneumatic Cylinder feedback and terminal topology
 
-Build:
+Reference build:
 
 ```text
 Compressor → Pipe → Cylinder(BACK)
 Cylinder(FRONT) → redstone dust / analyzer
 ```
 
+Isolation test build:
+
+```text
+Upstream pneumatic network → Cylinder(BACK) [ Cylinder ] FRONT → Pipe → downstream pneumatic receiver
+```
+
 | Test | Procedure | Expected | Result |
 | --- | --- | --- | --- |
 | Pneumatic input | Apply pressure to BACK | Position approaches pressure-derived target | NOT TESTED |
 | Front feedback | Read FACING/FRONT | Outputs position 0..15 | NOT TESTED |
-| Side isolation | Put dust on left/right/back sides | No cylinder feedback signal on those sides | NOT TESTED |
+| Redstone side isolation | Put dust on left/right/back sides | No cylinder feedback signal on those sides | NOT TESTED |
 | Feedback analyzer | Place Analyzer on cylinder FRONT | Analyzer reads cylinder position feedback | NOT TESTED |
+| Terminal actuator | Put Pneumatic Pipe/Receiver beyond FRONT | Upstream pressure does not pass through cylinder | NOT TESTED |
+| Side pneumatic isolation | Put pneumatic pipe beside cylinder | Side branch is not joined through cylinder | NOT TESTED |
+| Network separation | Build two pneumatic networks on BACK and FRONT | Cylinder does not merge the two networks during discovery | NOT TESTED |
 | Pressure diagnostics | Vary source pressure | Current/peak pressure update | NOT TESTED |
 | Reversal diagnostics | Raise then lower target | Motion reversal count updates | NOT TESTED |
 
