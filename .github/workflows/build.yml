@@ -1,0 +1,54 @@
+name: RSE Build Verification
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+
+      - name: Static verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          for verifier in \
+            tools/rse_redstone_verify.py \
+            tools/rse_full_audit.py \
+            tools/rse_alpha10_verify.py \
+            tools/rse_alpha102_second_layer_verify.py \
+            tools/rse_alpha103_pneumatic_hotfix_verify.py \
+            tools/rse_alpha103_closed_loop_verify.py
+          do
+            if [[ -f "$verifier" ]]; then
+              echo "==> $verifier"
+              python3 "$verifier"
+            fi
+          done
+
+      - name: Compile Java
+        run: ./gradlew compileJava --no-daemon --stacktrace
+
+      - name: Clean build
+        run: ./gradlew clean build --no-daemon --stacktrace

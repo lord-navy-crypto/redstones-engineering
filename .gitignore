@@ -40,10 +40,14 @@ repo/
 !**/src/**/repo/
 
 # RSE local/build files
-.github/workflows/
 .gradle/
 build/
 run/
 .idea/
 .DS_Store
 *.log
+
+# Java compiler temporary/crash artifacts
+javac.*.args
+hs_err_pid*.log
+replay_pid*.log

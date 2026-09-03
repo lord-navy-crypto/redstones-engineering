@@ -1,6 +1,0 @@
--proc:none
--Xmaxerrs
-10000
-@/tmp/rse103_javafiles.txt
--d
-/tmp/rse103_javac_out

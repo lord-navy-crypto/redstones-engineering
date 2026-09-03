@@ -1,5 +1,4 @@
 ALPHA1_0_3_MANIFEST.txt
-javac.20260903_025519.args
 docs/ALPHA1_0_3_CLOSED_LOOP_DIAGNOSTICS.md
 tools/rse_alpha103_closed_loop_verify.py
 src/main/java/dev/redstoneengineering/RedstoneEngineering.java
