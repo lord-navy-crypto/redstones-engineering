@@ -4,6 +4,7 @@ import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.physics.PneumaticNetwork;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.visualization.MechatronicsVisualState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -35,6 +36,15 @@ public class PneumaticCylinderBlock extends DirectionalDomainBlock {
     @Override
     public MapCodec<PneumaticCylinderBlock> codec() {
         return RedstoneEngineering.PNEUMATIC_CYLINDER_CODEC.value();
+    }
+
+    /** Renderer-facing immutable projection; never creates or mutates simulation state. */
+    public static MechatronicsVisualState visualState(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        if (runtime == null || runtime.length < RUNTIME_SIZE) {
+            return MechatronicsVisualState.cylinder(0, 0, 0);
+        }
+        return MechatronicsVisualState.cylinder(runtime[0], runtime[3], runtime[2]);
     }
 
     @Override
