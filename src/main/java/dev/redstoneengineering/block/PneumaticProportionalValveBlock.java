@@ -3,6 +3,7 @@ package dev.redstoneengineering.block;
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.physics.PneumaticNetwork;
+import dev.redstoneengineering.visualization.MechatronicsVisualState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -30,6 +31,14 @@ public class PneumaticProportionalValveBlock extends DirectionalDomainBlock {
 
     public static int opening(Level level, BlockPos pos) {
         return Math.max(0, Math.min(15, level.getSignal(pos.above(), Direction.UP)));
+    }
+
+    /** Renderer-facing immutable projection; reads command/pressure but never writes simulation state. */
+    public static MechatronicsVisualState visualState(Level level, BlockPos pos) {
+        return MechatronicsVisualState.valve(
+                opening(level, pos),
+                PneumaticNetwork.pressure(level, pos)
+        );
     }
 
     @Override protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighbor, BlockPos neighborPos, boolean moved) {
