@@ -14,4 +14,5 @@ src/main/java/dev/redstoneengineering/instrument/InstrumentNetwork.java
 src/main/java/dev/redstoneengineering/block/OscilloscopeBlock.java
 src/main/java/dev/redstoneengineering/block/LogicAnalyzerBlock.java
 src/main/java/dev/redstoneengineering/block/PneumaticCylinderBlock.java
+src/main/java/dev/redstoneengineering/physics/PneumaticNetwork.java
 src/main/resources/assets/redstoneengineering/blockstates/signal_analyzer.json
