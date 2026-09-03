@@ -1,0 +1,20 @@
+RSE v0.1.0-alpha.5 Eight Domain Foundation overlay
+
+This is an overlay for an already-working alpha.4 project.
+It intentionally does NOT contain a Bash installer.
+
+Changed:
+- RedstoneEngineering.java registration / creative tab
+- en_us / zh_cn language files
+
+Added:
+- EngineeringDomain enum
+- DomainNetwork / MagneticPhysics / ThermalPhysics
+- DomainBlock base class
+- 17 new domain blocks
+- 17 textures
+- blockstates/models/item models
+- recipes + loot tables
+- design + test docs
+
+After overlay, set mod_version=0.1.0-alpha.5 in gradle.properties and run ./gradlew build.

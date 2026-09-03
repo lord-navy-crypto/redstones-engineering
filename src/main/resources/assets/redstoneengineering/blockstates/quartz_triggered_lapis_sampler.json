@@ -1,0 +1,9 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "redstoneengineering:block/quartz_triggered_lapis_sampler"
+      }
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "redstoneengineering:block/entity_density_sensor"
+      }
+    }
+  ]
+}

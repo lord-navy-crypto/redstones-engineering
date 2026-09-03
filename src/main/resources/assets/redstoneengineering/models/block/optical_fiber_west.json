@@ -1,0 +1,39 @@
+{
+  "textures": {
+    "line": "redstoneengineering:block/optical_fiber"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        6,
+        6
+      ],
+      "to": [
+        6,
+        10,
+        10
+      ],
+      "faces": {
+        "down": {
+          "texture": "#line"
+        },
+        "up": {
+          "texture": "#line"
+        },
+        "north": {
+          "texture": "#line"
+        },
+        "south": {
+          "texture": "#line"
+        },
+        "west": {
+          "texture": "#line"
+        },
+        "east": {
+          "texture": "#line"
+        }
+      }
+    }
+  ]
+}

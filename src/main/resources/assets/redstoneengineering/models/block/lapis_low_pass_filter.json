@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "front": "redstoneengineering:block/lapis_low_pass_filter_front",
+    "side": "redstoneengineering:block/lapis_low_pass_filter",
+    "top": "redstoneengineering:block/lapis_low_pass_filter_top"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "redstoneengineering:block/differential_data_pair"
+      }
+    }
+  ]
+}

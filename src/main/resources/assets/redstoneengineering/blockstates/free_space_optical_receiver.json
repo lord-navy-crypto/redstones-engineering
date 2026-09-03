@@ -1,0 +1,9 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "redstoneengineering:block/free_space_optical_receiver"
+      }
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "textures": {
+    "line": "redstoneengineering:block/quartz_timing_line"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        6
+      ],
+      "to": [
+        6,
+        2,
+        10
+      ],
+      "faces": {
+        "down": {
+          "texture": "#line"
+        },
+        "up": {
+          "texture": "#line"
+        },
+        "north": {
+          "texture": "#line"
+        },
+        "south": {
+          "texture": "#line"
+        },
+        "west": {
+          "texture": "#line"
+        },
+        "east": {
+          "texture": "#line"
+        }
+      }
+    }
+  ]
+}

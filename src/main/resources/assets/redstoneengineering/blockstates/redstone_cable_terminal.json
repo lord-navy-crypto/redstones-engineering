@@ -1,0 +1,82 @@
+{
+  "multipart": [
+    {
+      "when": {
+        "output_mode": "false",
+        "facing": "north"
+      },
+      "apply": {
+        "model": "redstoneengineering:block/redstone_cable_terminal_input"
+      }
+    },
+    {
+      "when": {
+        "output_mode": "false",
+        "facing": "east"
+      },
+      "apply": {
+        "model": "redstoneengineering:block/redstone_cable_terminal_input",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "output_mode": "false",
+        "facing": "south"
+      },
+      "apply": {
+        "model": "redstoneengineering:block/redstone_cable_terminal_input",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "output_mode": "false",
+        "facing": "west"
+      },
+      "apply": {
+        "model": "redstoneengineering:block/redstone_cable_terminal_input",
+        "y": 270
+      }
+    },
+    {
+      "when": {
+        "output_mode": "true",
+        "facing": "north"
+      },
+      "apply": {
+        "model": "redstoneengineering:block/redstone_cable_terminal_output"
+      }
+    },
+    {
+      "when": {
+        "output_mode": "true",
+        "facing": "east"
+      },
+      "apply": {
+        "model": "redstoneengineering:block/redstone_cable_terminal_output",
+        "y": 90
+      }
+    },
+    {
+      "when": {
+        "output_mode": "true",
+        "facing": "south"
+      },
+      "apply": {
+        "model": "redstoneengineering:block/redstone_cable_terminal_output",
+        "y": 180
+      }
+    },
+    {
+      "when": {
+        "output_mode": "true",
+        "facing": "west"
+      },
+      "apply": {
+        "model": "redstoneengineering:block/redstone_cable_terminal_output",
+        "y": 270
+      }
+    }
+  ]
+}

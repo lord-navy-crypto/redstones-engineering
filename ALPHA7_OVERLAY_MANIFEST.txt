@@ -1,0 +1,30 @@
+RSE v0.1.0-alpha.7.1 — Transmission + Redstone Core + Sensors — Stability Fixed
+
+Cumulative overlay over the established RSE alpha.4+ project.
+
+Transmission architecture:
+- Vanilla redstone dust remains the default world-facing planar medium.
+- Insulated Redstone Signal Cable provides explicit 3-D routing without replacing vanilla dust.
+- Redstone Cable Junction provides explicit turns/branches.
+- Redstone Cable Terminal defines cable <-> vanilla redstone boundaries.
+- Lapis / Quartz / Amethyst use thin planar traces rather than blocky cables.
+- Optical / Copper use explicit cable/fiber routing.
+- Iron remains field-based; Thermal remains state/contact-based.
+
+Redstone improvements:
+- Adjustable Redstone Reference Source (0..15).
+- Analyzer/Probe can inspect insulated redstone cable.
+- New sensors: local light, tank level, entity density.
+- Existing engineering range sensor retained.
+- New Analog Redstone Indicator actuator/display.
+
+Stability architecture inherited from alpha.6.1:
+- High-cardinality runtime measurements are NOT BlockState properties.
+- Approximate enumerated RSE state space reduced from ~775k to only a few thousand.
+- Non-redstone network recomputation budget capped at 128 nodes.
+- Network scans do not walk into unloaded chunks.
+- Quartz clocks update networks on transitions instead of unconditional per-tick whole-network recomputation.
+- Heavy processors use reduced polling where appropriate.
+
+Safety invariant:
+BlockState is for compact configuration/topology/model-visible state only. Histories, counters, transient measurements, high-resolution values, noise, charge, flux, EMF and similar runtime quantities belong in runtime/BlockEntity-style state.

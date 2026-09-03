@@ -1,0 +1,39 @@
+{
+  "textures": {
+    "line": "redstoneengineering:block/redstone_signal_cable"
+  },
+  "elements": [
+    {
+      "from": [
+        6,
+        10,
+        6
+      ],
+      "to": [
+        10,
+        16,
+        10
+      ],
+      "faces": {
+        "down": {
+          "texture": "#line"
+        },
+        "up": {
+          "texture": "#line"
+        },
+        "north": {
+          "texture": "#line"
+        },
+        "south": {
+          "texture": "#line"
+        },
+        "west": {
+          "texture": "#line"
+        },
+        "east": {
+          "texture": "#line"
+        }
+      }
+    }
+  ]
+}

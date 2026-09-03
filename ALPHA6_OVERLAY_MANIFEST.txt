@@ -1,0 +1,28 @@
+RSE v0.1.0-alpha.6 Engineering Depth Pass
+
+Cumulative overlay over the verified alpha.4 project. Includes alpha.5 eight-domain foundations and alpha.6 engineering-depth mechanisms.
+
+Invariant: the original 14 Redstone instruments remain Redstone-only.
+
+alpha.6 new tools (24):
+Lapis (3): Noise Source, Low-Pass Filter, Precision Meter
+Quartz (4): Lab Oscillator, Clock Divider, Phase Delay, Stability Monitor
+Amethyst (3): Frequency Filter, Tuned Resonator, Spectrum Analyzer
+Optical (4): Power Meter, 1x2 Splitter, Channel Filter, Attenuator
+Copper (4): Series Resistor, Capacitor, Fuse, Circuit Meter
+Iron/Magnetic (3): Permanent Magnet, Induction Coil, Magnetic Gradient Meter
+Thermal (3): Electrical Heater, Radiator, Calorimeter
+
+Deepened foundations:
+- Lapis validity/source conflict
+- Quartz clock-domain validity/conflict
+- Amethyst amplitude + attenuation
+- Optical attenuation + channel conflict
+- Thermal Mass heat capacity
+- Magnetic field includes permanent magnets
+
+Approximation policy:
+- No SPICE/MNA solver
+- No full Maxwell solver
+- No molecular thermal simulation
+- Reduced-order macroscopic models expose measurable engineering trade-offs.

@@ -1,0 +1,13 @@
+# Apply over Alpha 1.0.2
+cd ~/Desktop/RedstoneSystemsEngineering
+cp -R . "../RedstoneSystemsEngineering_backup_$(date +%Y%m%d_%H%M%S)"
+rm -rf /tmp/rse_alpha103 && mkdir -p /tmp/rse_alpha103
+unzip ~/Downloads/RSE_v1.0_alpha1_0_3_CLOSED_LOOP_DIAGNOSTICS_delta_overlay.zip -d /tmp/rse_alpha103
+rsync -av /tmp/rse_alpha103/ ./
+python3 tools/rse_redstone_verify.py .
+python3 tools/rse_full_audit.py .
+python3 tools/rse_alpha10_verify.py .
+python3 tools/rse_alpha10_refinement_verify.py .
+python3 tools/rse_alpha102_second_layer_verify.py .
+python3 tools/rse_alpha103_closed_loop_verify.py .
+./gradlew compileJava

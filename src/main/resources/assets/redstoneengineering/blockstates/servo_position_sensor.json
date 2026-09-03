@@ -1,0 +1,9 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "redstoneengineering:block/servo_position_sensor"
+      }
+    }
+  ]
+}

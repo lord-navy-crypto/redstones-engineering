@@ -1,0 +1,13 @@
+RSE v0.1.0-alpha.8.0.2 — Full Audit / Reliability Baseline
+
+Focus:
+- full source-tree audit from legacy Redstone instrumentation through Alpha 8 transducers
+- redstone direction/processor correctness
+- bounded multi-domain graph semantics
+- driver-conflict detection
+- runtime-state cleanup
+- measurement correctness
+- NeoForge 1.21.1 recipe normalization
+- permanent static audit gates
+
+This is an overlay for the user's current cumulative RSE project.

@@ -1,0 +1,73 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "probe": "redstoneengineering:block/signal_probe_2",
+    "particle": "redstoneengineering:block/signal_probe_2"
+  },
+  "elements": [
+    {
+      "from": [
+        5,
+        5,
+        0
+      ],
+      "to": [
+        11,
+        11,
+        3
+      ],
+      "faces": {
+        "north": {
+          "texture": "#probe"
+        },
+        "south": {
+          "texture": "#probe"
+        },
+        "east": {
+          "texture": "#probe"
+        },
+        "west": {
+          "texture": "#probe"
+        },
+        "up": {
+          "texture": "#probe"
+        },
+        "down": {
+          "texture": "#probe"
+        }
+      }
+    },
+    {
+      "from": [
+        7,
+        7,
+        3
+      ],
+      "to": [
+        9,
+        9,
+        9
+      ],
+      "faces": {
+        "north": {
+          "texture": "#probe"
+        },
+        "south": {
+          "texture": "#probe"
+        },
+        "east": {
+          "texture": "#probe"
+        },
+        "west": {
+          "texture": "#probe"
+        },
+        "up": {
+          "texture": "#probe"
+        },
+        "down": {
+          "texture": "#probe"
+        }
+      }
+    }
+  ]
+}

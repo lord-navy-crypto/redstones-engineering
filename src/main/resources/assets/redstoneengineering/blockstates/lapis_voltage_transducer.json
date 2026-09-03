@@ -1,0 +1,9 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "redstoneengineering:block/lapis_voltage_transducer"
+      }
+    }
+  ]
+}

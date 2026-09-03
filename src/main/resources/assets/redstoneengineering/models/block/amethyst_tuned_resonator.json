@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "front": "redstoneengineering:block/amethyst_tuned_resonator_front",
+    "side": "redstoneengineering:block/amethyst_tuned_resonator",
+    "top": "redstoneengineering:block/amethyst_tuned_resonator_top"
+  }
+}

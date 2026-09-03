@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": [
+    " C ",
+    "SRS",
+    " C "
+  ],
+  "key": {
+    "C": {
+      "item": "minecraft:copper_ingot"
+    },
+    "S": {
+      "item": "minecraft:string"
+    },
+    "R": {
+      "item": "redstoneengineering:instrument_cable"
+    }
+  },
+  "result": {
+    "id": "redstoneengineering:shielded_instrument_cable",
+    "count": 1
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "front": "redstoneengineering:block/copper_capacitor_front",
+    "side": "redstoneengineering:block/copper_capacitor",
+    "top": "redstoneengineering:block/copper_capacitor_top"
+  }
+}

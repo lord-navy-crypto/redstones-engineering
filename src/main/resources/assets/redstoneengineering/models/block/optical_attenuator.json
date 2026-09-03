@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "front": "redstoneengineering:block/optical_attenuator_front",
+    "side": "redstoneengineering:block/optical_attenuator",
+    "top": "redstoneengineering:block/optical_attenuator_top"
+  }
+}

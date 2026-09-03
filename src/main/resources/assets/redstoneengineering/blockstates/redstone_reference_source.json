@@ -1,0 +1,9 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "redstoneengineering:block/redstone_reference_source"
+      }
+    }
+  ]
+}

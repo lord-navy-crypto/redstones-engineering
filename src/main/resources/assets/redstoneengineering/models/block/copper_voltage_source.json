@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "redstoneengineering:block/copper_voltage_source"
+  }
+}

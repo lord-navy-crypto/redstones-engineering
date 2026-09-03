@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "front": "redstoneengineering:block/optical_splitter_front",
+    "side": "redstoneengineering:block/optical_splitter",
+    "top": "redstoneengineering:block/optical_splitter_top"
+  }
+}

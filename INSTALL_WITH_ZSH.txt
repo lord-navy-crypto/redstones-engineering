@@ -1,0 +1,46 @@
+RSE v0.1.0-alpha.7.1 — STABILITY FIXED — zsh / Terminal install
+
+Prerequisite: alpha.4 or later project; alpha.7.1 is cumulative and includes the alpha.5/alpha.6/alpha.7 feature layers plus the alpha.6.1 stability architecture.
+
+1) Stop any existing Gradle daemon and back up:
+
+cd ~/Desktop/RedstoneSystemsEngineering
+./gradlew --stop
+cp -R src ~/Desktop/RSE-src-backup-before-alpha7_1
+
+2) Overlay alpha.7.1:
+
+rm -rf /tmp/rse-alpha7_1
+mkdir -p /tmp/rse-alpha7_1
+unzip -q ~/Downloads/RSE_v0.1_alpha7_1_STABILITY_FIXED_overlay.zip -d /tmp/rse-alpha7_1
+rsync -av /tmp/rse-alpha7_1/ ~/Desktop/RedstoneSystemsEngineering/
+
+3) Set version:
+
+python3 - <<'PY'
+from pathlib import Path
+p=Path('gradle.properties')
+lines=p.read_text().splitlines()
+out=[]; found=False
+for line in lines:
+    if line.startswith('mod_version='):
+        out.append('mod_version=0.1.0-alpha.7.1'); found=True
+    else:
+        out.append(line)
+if not found:
+    out.append('mod_version=0.1.0-alpha.7.1')
+p.write_text('\n'.join(out)+'\n')
+PY
+
+4) Verify source/version before build:
+
+grep '^mod_version=' gradle.properties
+find src/main/java/dev/redstoneengineering -type f | grep -E 'RedstoneSignalCable|RedstoneCableJunction|RedstoneCableTerminal|LightSensor|TankLevel|EntityDensity|AnalogIndicator' | sort
+
+5) Safe build first:
+
+./gradlew clean build --no-daemon --console=plain
+
+6) Only after BUILD SUCCESSFUL, launch with a log:
+
+./gradlew runClient --no-daemon --stacktrace 2>&1 | tee ~/Desktop/RSE-alpha7_1-run.log

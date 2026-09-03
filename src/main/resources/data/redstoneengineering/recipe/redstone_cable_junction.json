@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " C ",
+    "CXC",
+    " C "
+  ],
+  "key": {
+    "C": {
+      "item": "minecraft:redstone"
+    },
+    "X": {
+      "item": "minecraft:iron_nugget"
+    }
+  },
+  "result": {
+    "id": "redstoneengineering:redstone_cable_junction",
+    "count": 2
+  }
+}

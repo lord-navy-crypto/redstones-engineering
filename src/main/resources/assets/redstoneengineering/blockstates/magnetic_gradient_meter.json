@@ -1,0 +1,9 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "redstoneengineering:block/magnetic_gradient_meter"
+      }
+    }
+  ]
+}

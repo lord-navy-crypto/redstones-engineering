@@ -1,0 +1,9 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "redstoneengineering:block/tank_level_sensor"
+      }
+    }
+  ]
+}

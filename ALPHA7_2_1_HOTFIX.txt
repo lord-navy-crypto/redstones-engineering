@@ -1,0 +1,6 @@
+RSE 0.1.0-alpha.7.2.1 compile hotfix
+Fixes DomainNetwork.surfaceEdgeAllowed(): invalid Java expression
+  if(!d.getAxis()!=Direction.Axis.Y)return false;
+changed to
+  if (d.getAxis() != Direction.Axis.Y) return false;
+This preserves the intended rule: Lapis/Quartz/Amethyst surface traces only form horizontal edges.

@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": [
+    "DED",
+    "OEO",
+    "DED"
+  ],
+  "key": {
+    "D": {
+      "item": "redstoneengineering:diamond_shard"
+    },
+    "E": {
+      "item": "minecraft:end_stone"
+    },
+    "O": {
+      "item": "minecraft:obsidian"
+    }
+  },
+  "result": {
+    "id": "redstoneengineering:phonon_conduit",
+    "count": 4
+  }
+}

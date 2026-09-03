@@ -1,0 +1,19 @@
+RSE Alpha 1.0 Integrated Engineering Overlay
+Base target: Alpha 8.0.2 reconstructed baseline
+Minecraft: 1.21.1
+NeoForge target used by project history: 21.1.249
+Java target: 21
+
+Static merged inventory at packaging:
+- Registered blocks: 116
+- Java files: 159
+- JSON files: 655
+- New Alpha 1.0 checked blocks: 43
+
+Verification:
+- tools/rse_redstone_verify.py PASS
+- tools/rse_full_audit.py PASS
+- tools/rse_alpha10_verify.py PASS
+
+IMPORTANT: Static verification is not a real Gradle/NeoForge compile.
+Run compileJava, clean build, and runClient on the user's Mac before calling the release build-confirmed.

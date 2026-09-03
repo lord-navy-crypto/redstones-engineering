@@ -1,0 +1,9 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "redstoneengineering:block/sculk_vibration_interface"
+      }
+    }
+  ]
+}

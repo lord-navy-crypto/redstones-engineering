@@ -1,0 +1,9 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "redstoneengineering:block/amethyst_spectrum_analyzer"
+      }
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": [
+    " G ",
+    "LQL",
+    " C "
+  ],
+  "key": {
+    "G": {
+      "item": "minecraft:glass_bottle"
+    },
+    "L": {
+      "item": "minecraft:lapis_lazuli"
+    },
+    "Q": {
+      "item": "minecraft:quartz"
+    },
+    "C": {
+      "item": "minecraft:copper_ingot"
+    }
+  },
+  "result": {
+    "id": "redstoneengineering:molecular_cloud_receiver",
+    "count": 1
+  }
+}

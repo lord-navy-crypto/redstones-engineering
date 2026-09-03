@@ -1,0 +1,9 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "redstoneengineering:block/quartz_lab_oscillator"
+      }
+    }
+  ]
+}

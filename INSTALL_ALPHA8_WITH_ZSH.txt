@@ -1,0 +1,13 @@
+RSE v0.1.0-alpha.8 — Sensors & Transducers Pass
+Baseline: working alpha.7.3
+
+cd ~/Desktop/RedstoneSystemsEngineering
+./gradlew --stop
+cp -R src ~/Desktop/RSE-src-backup-before-alpha8
+
+Extract overlay and rsync into the project. Set mod_version=0.1.0-alpha.8.
+Then:
+python3 tools/rse_verify.py
+./gradlew compileJava --no-daemon --console=plain
+./gradlew clean build --no-daemon --console=plain
+./gradlew runClient --no-daemon --stacktrace

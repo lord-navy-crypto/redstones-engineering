@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "front": "redstoneengineering:block/optical_channel_filter_front",
+    "side": "redstoneengineering:block/optical_channel_filter",
+    "top": "redstoneengineering:block/optical_channel_filter_top"
+  }
+}

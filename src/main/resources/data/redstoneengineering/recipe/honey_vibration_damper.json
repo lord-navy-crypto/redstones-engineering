@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": [
+    "HHH"
+  ],
+  "key": {
+    "H": {
+      "item": "minecraft:honey_bottle"
+    }
+  },
+  "result": {
+    "id": "redstoneengineering:honey_vibration_damper",
+    "count": 4
+  }
+}

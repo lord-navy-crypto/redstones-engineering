@@ -1,0 +1,9 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "redstoneengineering:block/redstone_to_lapis_scaler"
+      }
+    }
+  ]
+}

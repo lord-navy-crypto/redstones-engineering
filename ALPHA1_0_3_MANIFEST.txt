@@ -1,0 +1,3 @@
+RSE Alpha 1.0.3 — Closed-Loop Systems & Diagnostics
+Adds/strengthens PID manual-auto behavior, servo velocity mode, bus/radio diagnostics, pneumatic proportional/safety/actuation components, and IOE state classification.
+This overlay still requires real NeoForge compileJava/build/runClient validation on the target Mac.

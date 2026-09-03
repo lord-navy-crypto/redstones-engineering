@@ -1,0 +1,41 @@
+RSE Alpha 1.0.2 Second-Layer Engineering Refinement
+Base: Alpha 1.0.1 Engineering Refinement FULL overlay
+
+Changed/new files:
+docs/ALPHA1_0_2_SECOND_LAYER_ENGINEERING.md
+src/main/java/dev/redstoneengineering/RedstoneEngineering.java
+src/main/java/dev/redstoneengineering/block/LogicAnalyzerBlock.java
+src/main/java/dev/redstoneengineering/block/OperationsMonitorBlock.java
+src/main/java/dev/redstoneengineering/block/OscilloscopeBlock.java
+src/main/java/dev/redstoneengineering/block/PidControllerBlock.java
+src/main/java/dev/redstoneengineering/block/PneumaticCheckValveBlock.java
+src/main/java/dev/redstoneengineering/block/PneumaticFlowMeterBlock.java
+src/main/java/dev/redstoneengineering/block/PneumaticValveBlock.java
+src/main/java/dev/redstoneengineering/block/RadioReceiverBlock.java
+src/main/java/dev/redstoneengineering/block/SerialDataLineBlock.java
+src/main/java/dev/redstoneengineering/block/ServoActuatorBlock.java
+src/main/java/dev/redstoneengineering/block/ServoPositionSensorBlock.java
+src/main/java/dev/redstoneengineering/blockentity/LogicAnalyzerBlockEntity.java
+src/main/java/dev/redstoneengineering/blockentity/OscilloscopeBlockEntity.java
+src/main/java/dev/redstoneengineering/physics/DataBusNetwork.java
+src/main/java/dev/redstoneengineering/physics/PneumaticNetwork.java
+src/main/java/dev/redstoneengineering/physics/RadioKernel.java
+src/main/java/dev/redstoneengineering/physics/SerialNetwork.java
+src/main/resources/assets/redstoneengineering/blockstates/pneumatic_check_valve.json
+src/main/resources/assets/redstoneengineering/blockstates/pneumatic_flow_meter.json
+src/main/resources/assets/redstoneengineering/blockstates/pneumatic_valve.json
+src/main/resources/assets/redstoneengineering/lang/en_us.json
+src/main/resources/assets/redstoneengineering/lang/zh_cn.json
+src/main/resources/assets/redstoneengineering/models/block/pneumatic_check_valve.json
+src/main/resources/assets/redstoneengineering/models/block/pneumatic_flow_meter.json
+src/main/resources/assets/redstoneengineering/models/block/pneumatic_valve.json
+src/main/resources/assets/redstoneengineering/models/item/pneumatic_check_valve.json
+src/main/resources/assets/redstoneengineering/models/item/pneumatic_flow_meter.json
+src/main/resources/assets/redstoneengineering/models/item/pneumatic_valve.json
+src/main/resources/data/redstoneengineering/loot_table/blocks/pneumatic_check_valve.json
+src/main/resources/data/redstoneengineering/loot_table/blocks/pneumatic_flow_meter.json
+src/main/resources/data/redstoneengineering/loot_table/blocks/pneumatic_valve.json
+src/main/resources/data/redstoneengineering/recipe/pneumatic_check_valve.json
+src/main/resources/data/redstoneengineering/recipe/pneumatic_flow_meter.json
+src/main/resources/data/redstoneengineering/recipe/pneumatic_valve.json
+tools/rse_alpha102_second_layer_verify.py

@@ -1,0 +1,9 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "redstoneengineering:block/lapis_to_redstone_quantizer"
+      }
+    }
+  ]
+}

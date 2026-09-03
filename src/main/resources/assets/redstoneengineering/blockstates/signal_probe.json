@@ -1,0 +1,96 @@
+{
+  "variants": {
+    "channel=0,facing=north": {
+      "model": "redstoneengineering:block/signal_probe_0"
+    },
+    "channel=1,facing=north": {
+      "model": "redstoneengineering:block/signal_probe_1"
+    },
+    "channel=2,facing=north": {
+      "model": "redstoneengineering:block/signal_probe_2"
+    },
+    "channel=3,facing=north": {
+      "model": "redstoneengineering:block/signal_probe_3"
+    },
+    "channel=0,facing=east": {
+      "model": "redstoneengineering:block/signal_probe_0",
+      "y": 90
+    },
+    "channel=1,facing=east": {
+      "model": "redstoneengineering:block/signal_probe_1",
+      "y": 90
+    },
+    "channel=2,facing=east": {
+      "model": "redstoneengineering:block/signal_probe_2",
+      "y": 90
+    },
+    "channel=3,facing=east": {
+      "model": "redstoneengineering:block/signal_probe_3",
+      "y": 90
+    },
+    "channel=0,facing=south": {
+      "model": "redstoneengineering:block/signal_probe_0",
+      "y": 180
+    },
+    "channel=1,facing=south": {
+      "model": "redstoneengineering:block/signal_probe_1",
+      "y": 180
+    },
+    "channel=2,facing=south": {
+      "model": "redstoneengineering:block/signal_probe_2",
+      "y": 180
+    },
+    "channel=3,facing=south": {
+      "model": "redstoneengineering:block/signal_probe_3",
+      "y": 180
+    },
+    "channel=0,facing=west": {
+      "model": "redstoneengineering:block/signal_probe_0",
+      "y": 270
+    },
+    "channel=1,facing=west": {
+      "model": "redstoneengineering:block/signal_probe_1",
+      "y": 270
+    },
+    "channel=2,facing=west": {
+      "model": "redstoneengineering:block/signal_probe_2",
+      "y": 270
+    },
+    "channel=3,facing=west": {
+      "model": "redstoneengineering:block/signal_probe_3",
+      "y": 270
+    },
+    "channel=0,facing=up": {
+      "model": "redstoneengineering:block/signal_probe_0",
+      "x": 270
+    },
+    "channel=1,facing=up": {
+      "model": "redstoneengineering:block/signal_probe_1",
+      "x": 270
+    },
+    "channel=2,facing=up": {
+      "model": "redstoneengineering:block/signal_probe_2",
+      "x": 270
+    },
+    "channel=3,facing=up": {
+      "model": "redstoneengineering:block/signal_probe_3",
+      "x": 270
+    },
+    "channel=0,facing=down": {
+      "model": "redstoneengineering:block/signal_probe_0",
+      "x": 90
+    },
+    "channel=1,facing=down": {
+      "model": "redstoneengineering:block/signal_probe_1",
+      "x": 90
+    },
+    "channel=2,facing=down": {
+      "model": "redstoneengineering:block/signal_probe_2",
+      "x": 90
+    },
+    "channel=3,facing=down": {
+      "model": "redstoneengineering:block/signal_probe_3",
+      "x": 90
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "redstoneengineering:block/redstone_to_lapis_scaler"
+  }
+}

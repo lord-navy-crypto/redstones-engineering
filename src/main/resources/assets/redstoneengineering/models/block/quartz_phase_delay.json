@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/orientable",
+  "textures": {
+    "front": "redstoneengineering:block/quartz_phase_delay_front",
+    "side": "redstoneengineering:block/quartz_phase_delay",
+    "top": "redstoneengineering:block/quartz_phase_delay_top"
+  }
+}

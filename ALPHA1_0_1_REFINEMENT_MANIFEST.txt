@@ -1,0 +1,19 @@
+RSE Alpha 1.0.1 Engineering Refinement FULL Overlay
+
+Base target: Alpha 8.0.2 reconstructed baseline
+Includes: Alpha 1.0 Integrated Engineering + Alpha 1.0.1 refinement
+Minecraft: 1.21.1
+NeoForge project target: 21.1.249
+Java: 21
+
+Overlay files copied from merged tree: 280
+Merged inventory: 116 registered blocks / 159 Java files / 655 JSON resources
+
+Static validation PASS:
+- tools/rse_redstone_verify.py
+- tools/rse_full_audit.py
+- tools/rse_alpha10_verify.py
+- tools/rse_alpha10_refinement_verify.py
+
+Important: this overlay corrects the earlier Alpha 1.0 delivery package that accidentally omitted src/ code in the downloadable ZIP.
+Real Gradle/NeoForge compile is still required on the target Mac.

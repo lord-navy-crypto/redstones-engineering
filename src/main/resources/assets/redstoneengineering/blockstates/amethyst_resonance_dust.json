@@ -1,0 +1,41 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "redstoneengineering:block/amethyst_resonance_dust_center"
+      }
+    },
+    {
+      "when": {
+        "north": "true"
+      },
+      "apply": {
+        "model": "redstoneengineering:block/amethyst_resonance_dust_north"
+      }
+    },
+    {
+      "when": {
+        "east": "true"
+      },
+      "apply": {
+        "model": "redstoneengineering:block/amethyst_resonance_dust_east"
+      }
+    },
+    {
+      "when": {
+        "south": "true"
+      },
+      "apply": {
+        "model": "redstoneengineering:block/amethyst_resonance_dust_south"
+      }
+    },
+    {
+      "when": {
+        "west": "true"
+      },
+      "apply": {
+        "model": "redstoneengineering:block/amethyst_resonance_dust_west"
+      }
+    }
+  ]
+}

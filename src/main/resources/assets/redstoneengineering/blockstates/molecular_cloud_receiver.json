@@ -1,0 +1,9 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "redstoneengineering:block/molecular_cloud_receiver"
+      }
+    }
+  ]
+}

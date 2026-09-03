@@ -1,0 +1,9 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "redstoneengineering:block/eight_bit_data_bus"
+      }
+    }
+  ]
+}

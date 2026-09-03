@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "redstoneengineering:block/lapis_precision_source"
+  }
+}

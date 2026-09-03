@@ -1,0 +1,14 @@
+RSE v0.1.0-alpha.7.3 — Verification / Network Kernel Hardening
+
+Base: alpha.7.2.1 (compile-hotfixed topology pass)
+
+Changes:
+- Corrects surface-trace semantics: reject Y-axis only; allow horizontal X/Z propagation.
+- Introduces shared NetworkKernel with MAX_NODES=128.
+- Records last scan size / truncation for Redstone cable, Copper, Optical, Lapis, Quartz, Amethyst.
+- Cable right-click diagnostics show network node budget status.
+- Strengthens RuntimeIntStore with layout migration guard, entry counting, and level clear support.
+- Keeps unloaded-chunk traversal guard.
+- Adds a Python static release verifier.
+- Adds alpha.7.3 release-gate and topology test matrices.
+- No new gameplay blocks. This is an architecture/stability release.

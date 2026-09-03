@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "particle": "redstoneengineering:block/redstone_cable_terminal_side",
+    "down": "redstoneengineering:block/redstone_cable_terminal_side",
+    "up": "redstoneengineering:block/redstone_cable_terminal_side",
+    "north": "redstoneengineering:block/redstone_cable_terminal_output_front",
+    "south": "redstoneengineering:block/redstone_cable_terminal_back",
+    "west": "redstoneengineering:block/redstone_cable_terminal_side",
+    "east": "redstoneengineering:block/redstone_cable_terminal_side"
+  }
+}
