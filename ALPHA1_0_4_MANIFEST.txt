@@ -1,0 +1,32 @@
+RSE Alpha 1.0.4 — Instrumentation & Explicit Topology
+Artifact version: 1.0.4-alpha
+Minecraft: 1.21.1
+NeoForge: 21.1.249
+Java: 21
+License: MIT
+
+Engineering focus:
+- Signal Analyzer TAP/INLINE measurement topologies.
+- Continuous analyzer diagnostics stored outside BlockState.
+- Direction-aware analyzer/probe measurement for directional sources.
+- Instrument-network cable/probe/channel/ambiguity/bounded-scan diagnostics.
+- Oscilloscope and Logic Analyzer topology visibility.
+- Pneumatic Cylinder directional 0..15 position-feedback output.
+- Pneumatic Cylinder terminal one-port topology: BACK pressure input, no pneumatic pass-through.
+- Milestone-agnostic repository verification and Alpha 1.0.4 regression gate.
+
+Compatibility invariants:
+- Vanilla-facing redstone remains 0..15.
+- TAP instrumentation remains non-invasive.
+- INLINE Analyzer remains a bounded 0..15 TEST→OUT measurement pass-through.
+- High-cardinality measurements remain transient/runtime data.
+- Cylinders cannot bridge separate pneumatic networks.
+- Existing Alpha 1.0.3 PID/Servo/Bus/Radio/Pneumatic/IOE verification remains required.
+
+Validation gate:
+- repository/static verification
+- Alpha 1.0.4 verifier
+- Java 21 compileJava
+- clean Gradle build
+- SHA-256 + CI artifact upload
+- local runClient critical-path test matrix before public release

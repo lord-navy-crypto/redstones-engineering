@@ -24,6 +24,26 @@ public final class PneumaticNetwork {
                 block instanceof PneumaticCylinderBlock;
     }
 
+    /**
+     * Physical network discovery is mostly undirected, but terminal actuators must
+     * not bridge otherwise separate networks. A cylinder participates only through
+     * its BACK/input face.
+     */
+    private static boolean discoveryConnects(Level level, BlockPos aPos, BlockPos bPos) {
+        BlockState a = level.getBlockState(aPos);
+        BlockState b = level.getBlockState(bPos);
+
+        if (a.getBlock() instanceof PneumaticCylinderBlock) {
+            Direction input = a.getValue(DirectionalDomainBlock.FACING).getOpposite();
+            return bPos.equals(aPos.relative(input));
+        }
+        if (b.getBlock() instanceof PneumaticCylinderBlock) {
+            Direction input = b.getValue(DirectionalDomainBlock.FACING).getOpposite();
+            return aPos.equals(bPos.relative(input));
+        }
+        return true;
+    }
+
     public static Set<BlockPos> collect(Level level, BlockPos start) {
         Set<BlockPos> seen = new HashSet<>();
         ArrayDeque<BlockPos> queue = new ArrayDeque<>();
@@ -34,7 +54,12 @@ public final class PneumaticNetwork {
             if (!seen.add(pos)) continue;
             for (Direction direction : Direction.values()) {
                 BlockPos next = pos.relative(direction);
-                if (level.hasChunkAt(next) && isNode(level, next) && !seen.contains(next)) queue.addLast(next);
+                if (level.hasChunkAt(next)
+                        && isNode(level, next)
+                        && discoveryConnects(level, pos, next)
+                        && !seen.contains(next)) {
+                    queue.addLast(next);
+                }
             }
         }
         return seen;
@@ -62,6 +87,17 @@ public final class PneumaticNetwork {
         if (b.getBlock() instanceof PneumaticProportionalValveBlock) {
             Direction facing = b.getValue(DirectionalDomainBlock.FACING);
             if (!from.equals(to.relative(facing.getOpposite()))) return false;
+        }
+
+        // A pneumatic cylinder is a terminal one-port sink/actuator, not an inline pipe.
+        // Flow may enter only through BACK/input. Once pressure reaches the cylinder,
+        // it is consumed as actuator state and never propagates through FRONT or a side.
+        if (a.getBlock() instanceof PneumaticCylinderBlock) {
+            return false;
+        }
+        if (b.getBlock() instanceof PneumaticCylinderBlock) {
+            Direction input = b.getValue(DirectionalDomainBlock.FACING).getOpposite();
+            if (!from.equals(to.relative(input))) return false;
         }
         return true;
     }
@@ -115,8 +151,11 @@ public final class PneumaticNetwork {
             if (nextPressure <= 0) continue;
             for (Direction direction : Direction.values()) {
                 BlockPos next = node.pos.relative(direction);
-                if (nodes.contains(next) && permits(level, node.pos, next) && nextPressure > best.getOrDefault(next, -1))
+                if (nodes.contains(next)
+                        && permits(level, node.pos, next)
+                        && nextPressure > best.getOrDefault(next, -1)) {
                     queue.addLast(new Node(next, nextPressure));
+                }
             }
         }
 
