@@ -21,7 +21,8 @@ for token in [
     "jade_version=15.10.6",
     "geckolib_version=4.9.2",
     "cloth_config_version=15.0.140",
-    "fusion_version=1.3.15",
+    "fusion_version=1.3.14",
+    "fusion_maven_version=1.3.14-neoforge-mc1.21.1",
 ]:
     if token not in props:
         failed.append(f"gradle.properties missing {token}")
@@ -32,7 +33,7 @@ for token in [
     'implementation "maven.modrinth:nvQzSEkH:${jade_modrinth_version}"',
     'implementation "software.bernie.geckolib:geckolib-neoforge-${minecraft_version}:${geckolib_version}"',
     'implementation "me.shedaniel.cloth:cloth-config-neoforge:${cloth_config_version}"',
-    'implementation "maven.modrinth:fusion-connected-textures:${fusion_version}"',
+    'implementation "maven.modrinth:fusion-connected-textures:${fusion_maven_version}"',
     'url = "https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/"',
     'url = "https://maven.shedaniel.me/"',
 ]:
