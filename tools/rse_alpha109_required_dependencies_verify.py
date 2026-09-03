@@ -15,8 +15,15 @@ def text(rel: str) -> str:
     return p.read_text(errors="ignore")
 
 props = text("gradle.properties")
+match = re.search(r"^mod_version=(\d+)\.(\d+)\.(\d+)-alpha(?:[.-][0-9A-Za-z.-]+)?$", props, re.MULTILINE)
+if not match:
+    failed.append("gradle.properties missing alpha semantic version")
+else:
+    current = tuple(map(int, match.groups()))
+    if current < (1, 0, 9):
+        failed.append(f"Alpha 1.0.9 required dependency regression requires version >= 1.0.9-alpha, found {current}")
+
 for token in [
-    "mod_version=1.0.9-alpha",
     "jei_version=19.27.0.336",
     "jade_version=15.10.6",
     "geckolib_version=4.9.2",
@@ -63,19 +70,12 @@ for forbidden in [
         failed.append(f"legacy optional dependency form still present: {forbidden}")
 
 integration = text("src/main/java/dev/redstoneengineering/integration/IntegrationStatus.java")
-for token in [
-    "GECKOLIB_MOD_ID",
-    "CLOTH_CONFIG_MOD_ID",
-    "FUSION_MOD_ID",
-    "requiredPlatform",
-    "MISSING",
-]:
+for token in ["GECKOLIB_MOD_ID", "CLOTH_CONFIG_MOD_ID", "FUSION_MOD_ID", "requiredPlatform", "MISSING"]:
     if token not in integration:
         failed.append(f"IntegrationStatus missing {token}")
 
 policy = text("docs/DEPENDENCY_POLICY.md")
-policy_lower = policy.lower()
-if "required platform" not in policy_lower:
+if "required platform" not in policy.lower():
     failed.append("dependency policy missing required platform")
 for token in ["JEI", "Jade", "GeckoLib", "Cloth Config", "Fusion"]:
     if token not in policy:
@@ -96,9 +96,6 @@ if failed:
         print(" -", item)
     sys.exit(1)
 
-print("RSE Alpha 1.0.9 required dependency verification: PASS")
-print(" JEI required client platform: PASS")
-print(" Jade required client/server diagnostics platform: PASS")
-print(" GeckoLib required animation platform: PASS")
-print(" Cloth Config required client configuration platform: PASS")
-print(" Fusion required client rendering platform: PASS")
+print("RSE Alpha 1.0.9 required dependency regression: PASS")
+print(" required five-library platform retained: PASS")
+print(" forward-compatible version gate: PASS")

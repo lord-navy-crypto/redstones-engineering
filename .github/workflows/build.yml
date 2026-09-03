@@ -51,7 +51,8 @@ jobs:
             tools/rse_alpha106_engineering_verify.py \
             tools/rse_alpha107_legacy_wiring_verify.py \
             tools/rse_alpha108_dependency_verify.py \
-            tools/rse_alpha109_required_dependencies_verify.py
+            tools/rse_alpha109_required_dependencies_verify.py \
+            tools/rse_alpha1010_port_architecture_verify.py
           do
             if [[ -f "$verifier" ]]; then
               echo "==> $verifier"
