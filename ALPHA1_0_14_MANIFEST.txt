@@ -1,0 +1,42 @@
+Redstone Systems Engineering — Alpha 1.0.14
+Artifact version: 1.0.14-alpha
+Minecraft: 1.21.1
+NeoForge: 21.1.249
+Java: 21
+License: MIT
+
+Milestone: Metrology & Uncertainty
+
+Engineering objective:
+- Upgrade RSE sensors from value-only devices into measurement systems that report how trustworthy a reading is.
+- Preserve the vanilla-compatible 0..15 world-facing signal boundary while keeping richer measurement metadata in transient engineering runtime state.
+- Keep measurement error concepts separate: bias is reported explicitly; uncertainty is a diagnostic proxy rather than a claim of formal GUM expanded uncertainty.
+
+Metrology core:
+- MeasurementSnapshot: immutable reading + Repeatability + bias + drift + noise + resolution + saturation + sample age + sample count + uncertainty proxy + quality.
+- MeasurementQuality: GOOD, DEGRADED, SATURATED, STALE, INVALID.
+- MetrologyTracker: 32-sample rolling residual window with repeatability, first-difference noise, half-window drift, bias and conservative RSS uncertainty-proxy estimates.
+- MetrologyStore: weak level-scoped transient storage that keeps high-cardinality diagnostics out of BlockState.
+
+Sensor integration:
+- Tank Level Sensor now conditions its physical reading through the existing SensorModel before publishing a 0..15 redstone output.
+- The same sample feeds metrology diagnostics without changing the vanilla-facing signal contract.
+- Fluid columns beyond the 0..15 representable range explicitly report SATURATED rather than silently pretending the clipped reading is exact.
+- Readout exposes repeatability, bias, drift, noise, resolution, sample age, samples, uncertainty proxy and quality.
+
+Alpha 1.0.13 visualization completion included in this promotion:
+- GeckoLib visual block entity, model, renderer and client registration for Servo Actuator, Pneumatic Cylinder and Proportional Valve.
+- Immutable simulation-to-render snapshots and RuntimeIntStore.peek() enforce one-way data flow.
+- Servo shaft rotation, pneumatic rod extension, valve spool travel and pressure indicators are derived only from simulation state.
+
+Verification contracts:
+- Stable reference-aligned measurements classify GOOD.
+- Bias/drift produce DEGRADED quality and nontrivial uncertainty proxy.
+- Saturation and stale sample age are explicit quality states.
+- Visualization projection remains normalized and read-only.
+- Previous topology, copper, dependency and engineering regression gates remain required.
+
+HARD INVARIANTS:
+1. GeckoLib may display simulation state but must never determine physics state.
+2. World-facing engineering signals remain bounded to vanilla-compatible 0..15 unless a domain explicitly defines an internal richer representation.
+3. Measurement uncertainty proxy is diagnostic metadata; it is not interchangeable with measurement error or formal expanded uncertainty.

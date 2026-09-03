@@ -38,6 +38,22 @@ public final class RuntimeIntStore {
         return created;
     }
 
+    /**
+     * Read-only snapshot for visualization/diagnostics.
+     *
+     * Unlike get(), this never creates, resizes or exposes the backing array.
+     * That one-way boundary is what keeps render FPS and renderer lifecycle from
+     * becoming an accidental physics input.
+     */
+    public static synchronized int[] peek(Level level, String key, BlockPos pos) {
+        Map<String, Map<Long, int[]>> byKey = DATA.get(level);
+        if (byKey == null) return null;
+        Map<Long, int[]> byPos = byKey.get(key);
+        if (byPos == null) return null;
+        int[] existing = byPos.get(pos.asLong());
+        return existing == null ? null : existing.clone();
+    }
+
     public static synchronized void remove(Level level, String key, BlockPos pos) {
         Map<String, Map<Long, int[]>> byKey = DATA.get(level);
         if (byKey == null) return;

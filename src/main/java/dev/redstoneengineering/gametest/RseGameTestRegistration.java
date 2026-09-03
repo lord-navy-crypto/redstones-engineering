@@ -15,5 +15,6 @@ public final class RseGameTestRegistration {
     public static void registerGameTests(RegisterGameTestsEvent event) {
         event.register(RseTopologyGameTests.class);
         event.register(RseCopperGameTests.class);
+        event.register(RseMetrologyGameTests.class);
     }
 }

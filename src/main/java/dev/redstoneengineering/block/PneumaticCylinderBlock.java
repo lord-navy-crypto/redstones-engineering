@@ -2,8 +2,10 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.blockentity.MechatronicsVisualBlockEntity;
 import dev.redstoneengineering.physics.PneumaticNetwork;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.visualization.MechatronicsVisualState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -13,6 +15,9 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.EntityBlock;
+import net.minecraft.world.level.block.RenderShape;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 
@@ -24,7 +29,7 @@ import javax.annotation.Nullable;
  * Pressure drives a finite-rate 0..15 position state while feedback remains a
  * deliberately directional engineering port rather than an all-side signal source.
  */
-public class PneumaticCylinderBlock extends DirectionalDomainBlock {
+public class PneumaticCylinderBlock extends DirectionalDomainBlock implements EntityBlock {
     private static final String KEY = "pneumatic_cylinder";
     private static final int RUNTIME_SIZE = 11;
 
@@ -35,6 +40,25 @@ public class PneumaticCylinderBlock extends DirectionalDomainBlock {
     @Override
     public MapCodec<PneumaticCylinderBlock> codec() {
         return RedstoneEngineering.PNEUMATIC_CYLINDER_CODEC.value();
+    }
+
+    @Override
+    public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
+        return new MechatronicsVisualBlockEntity(pos, state);
+    }
+
+    @Override
+    public RenderShape getRenderShape(BlockState state) {
+        return RenderShape.ENTITYBLOCK_ANIMATED;
+    }
+
+    /** Renderer-facing immutable projection; never creates or mutates simulation state. */
+    public static MechatronicsVisualState visualState(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        if (runtime == null || runtime.length < RUNTIME_SIZE) {
+            return MechatronicsVisualState.cylinder(0, 0, 0);
+        }
+        return MechatronicsVisualState.cylinder(runtime[0], runtime[3], runtime[2]);
     }
 
     @Override
@@ -81,6 +105,7 @@ public class PneumaticCylinderBlock extends DirectionalDomainBlock {
         }
         runtime[10]++; // actuator samples
 
+        MechatronicsVisualBlockEntity.push(level, pos, visualState(level, pos));
         if (runtime[0] != oldPosition) {
             level.updateNeighborsAt(pos, this);
             level.updateNeighborsAt(outputPos(pos, state), this);
