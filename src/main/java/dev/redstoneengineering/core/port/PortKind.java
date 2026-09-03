@@ -4,6 +4,7 @@ package dev.redstoneengineering.core.port;
 public enum PortKind {
     REDSTONE_ANALOG,
     REDSTONE_BINARY,
+    ELECTRICAL,
     SENSOR,
     CONTROL,
     TRIGGER,
