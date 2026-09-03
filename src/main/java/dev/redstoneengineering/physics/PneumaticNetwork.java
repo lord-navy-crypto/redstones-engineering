@@ -3,6 +3,7 @@ package dev.redstoneengineering.physics;
 import dev.redstoneengineering.block.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
@@ -79,7 +80,6 @@ public final class PneumaticNetwork {
             if (!from.equals(to.relative(facing.getOpposite()))) return false;
         }
 
-        // A proportional valve is an inline BACK -> FRONT device. Reverse propagation is intentionally blocked.
         if (a.getBlock() instanceof PneumaticProportionalValveBlock) {
             Direction facing = a.getValue(DirectionalDomainBlock.FACING);
             if (!to.equals(from.relative(facing))) return false;
@@ -89,12 +89,7 @@ public final class PneumaticNetwork {
             if (!from.equals(to.relative(facing.getOpposite()))) return false;
         }
 
-        // A pneumatic cylinder is a terminal one-port sink/actuator, not an inline pipe.
-        // Flow may enter only through BACK/input. Once pressure reaches the cylinder,
-        // it is consumed as actuator state and never propagates through FRONT or a side.
-        if (a.getBlock() instanceof PneumaticCylinderBlock) {
-            return false;
-        }
+        if (a.getBlock() instanceof PneumaticCylinderBlock) return false;
         if (b.getBlock() instanceof PneumaticCylinderBlock) {
             Direction input = b.getValue(DirectionalDomainBlock.FACING).getOpposite();
             if (!from.equals(to.relative(input))) return false;
@@ -118,6 +113,23 @@ public final class PneumaticNetwork {
                 diag[0]++;
                 diag[1] = excess;
                 diag[2] += excess;
+
+                // Visual feedback is event-driven: particles appear only when the
+                // relief valve actually clamps/vents excess pressure.
+                if (level instanceof ServerLevel server) {
+                    int count = excess >= 25 ? 3 : 1;
+                    server.sendParticles(
+                            ParticleTypes.CLOUD,
+                            pos.getX() + 0.5,
+                            pos.getY() + 0.9,
+                            pos.getZ() + 0.5,
+                            count,
+                            0.18,
+                            0.08,
+                            0.18,
+                            0.02
+                    );
+                }
                 pressure = setpoint;
             }
         }
