@@ -13,7 +13,7 @@ permissions:
 jobs:
   verify-and-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
 
     steps:
       - name: Checkout
@@ -34,6 +34,7 @@ jobs:
         run: |
           set -euo pipefail
           for verifier in \
+            tools/rse_repo_verify.py \
             tools/rse_redstone_verify.py \
             tools/rse_full_audit.py \
             tools/rse_alpha10_verify.py \
