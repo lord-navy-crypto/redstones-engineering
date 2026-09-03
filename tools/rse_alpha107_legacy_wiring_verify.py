@@ -21,8 +21,13 @@ def require(rel, *tokens):
             failed.append(f"{rel}: missing {token!r}")
 
 props = text("gradle.properties")
-if not re.search(r"^mod_version=1\.0\.7-alpha(?:[.-][0-9A-Za-z.-]+)?$", props, re.MULTILINE):
-    failed.append("gradle.properties is not 1.0.7-alpha")
+version_match = re.search(r"^mod_version=(\d+)\.(\d+)\.(\d+)-alpha(?:[.-][0-9A-Za-z.-]+)?$", props, re.MULTILINE)
+if not version_match:
+    failed.append("gradle.properties does not contain a supported alpha semantic version")
+else:
+    version_tuple = tuple(map(int, version_match.groups()))
+    if version_tuple < (1, 0, 7):
+        failed.append(f"Alpha 1.0.7 regression requires version >= 1.0.7-alpha, found {version_tuple}")
 
 require("src/main/java/dev/redstoneengineering/block/PortDiagnostics.java",
         "DOMAIN_MISMATCH", "connectedCable", "surfaceTrace", "directionalFlow", "INSULATED_REDSTONE", "INSTRUMENT_BUS")
@@ -64,6 +69,7 @@ if failed:
     raise SystemExit(1)
 
 print("RSE Alpha 1.0.7 legacy wiring verification: PASS")
+print(" forward-compatible version gate: PASS")
 print(" instrument bus physical-edge traversal: PASS")
 print(" port/mismatch diagnostics: PASS")
 print(" redstone 0..15 boundary retained: PASS")
