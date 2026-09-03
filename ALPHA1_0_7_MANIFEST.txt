@@ -1,5 +1,8 @@
 RSE Alpha 1.0.7 — Legacy Wiring & Port Diagnostics
 Version: 1.0.7-alpha
+Minecraft: 1.21.1
+NeoForge: 21.1.249
+Java: 21
 License: MIT
 
 Renovates early wiring rather than adding another machine layer.
