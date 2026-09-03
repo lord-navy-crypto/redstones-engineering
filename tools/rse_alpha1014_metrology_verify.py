@@ -113,7 +113,7 @@ require(
     "src/main/java/dev/redstoneengineering/block/TankLevelSensorBlock.java",
     "SensorModel.condition",
     "MetrologyStore.tracker",
-    "Repeatability",
+    "repeatability",
     "uncertainty",
     "saturated",
 )
