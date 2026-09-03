@@ -83,6 +83,18 @@ check_file(
     ],
 )
 
+check_file(
+    "src/main/java/dev/redstoneengineering/physics/PneumaticNetwork.java",
+    [
+        "discoveryConnects",
+        "terminal one-port sink/actuator",
+        "if (a.getBlock() instanceof PneumaticCylinderBlock)",
+        "if (b.getBlock() instanceof PneumaticCylinderBlock)",
+        "to.relative(input)",
+        "return false;",
+    ],
+)
+
 # Analyzer model must not require enumerating MODE × OUTPUT state combinations.
 blockstate = root / "src/main/resources/assets/redstoneengineering/blockstates/signal_analyzer.json"
 if not blockstate.exists():
@@ -133,4 +145,5 @@ print(" direction-aware analyzer/probe measurement: PASS")
 print(" instrument-network topology diagnostics: PASS")
 print(" scope/logic topology visibility: PASS")
 print(" pneumatic cylinder directional feedback: PASS")
+print(" pneumatic cylinder terminal network topology: PASS")
 print(" resource/version/high-cardinality guards: PASS")
