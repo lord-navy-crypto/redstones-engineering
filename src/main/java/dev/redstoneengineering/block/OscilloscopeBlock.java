@@ -40,10 +40,7 @@ public class OscilloscopeBlock extends Block implements EntityBlock {
 
     @Override
     public BlockState getStateForPlacement(BlockPlaceContext context) {
-        return defaultBlockState().setValue(
-                FACING,
-                context.getHorizontalDirection().getOpposite()
-        );
+        return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
     }
 
     @Override
@@ -75,17 +72,12 @@ public class OscilloscopeBlock extends Block implements EntityBlock {
             boolean movedByPiston
     ) {
         if (!level.isClientSide && !state.is(oldState.getBlock())) {
-            level.scheduleTick(pos, this, 2);
+            level.scheduleTick(pos, this, OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS);
         }
     }
 
     @Override
-    protected void tick(
-            BlockState state,
-            ServerLevel level,
-            BlockPos pos,
-            RandomSource random
-    ) {
+    protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         InstrumentNetwork.ProbeSnapshot snapshot = InstrumentNetwork.scan(level, pos);
         int a = snapshot.valid(0) ? snapshot.values()[0] : -1;
         int b = snapshot.valid(1) ? snapshot.values()[1] : -1;
@@ -94,7 +86,7 @@ public class OscilloscopeBlock extends Block implements EntityBlock {
             scope.addSample(a, b);
         }
 
-        level.scheduleTick(pos, this, 2);
+        level.scheduleTick(pos, this, OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS);
     }
 
     @Override
@@ -123,7 +115,7 @@ public class OscilloscopeBlock extends Block implements EntityBlock {
             } else if (hitResult.getDirection() == state.getValue(FACING).getClockWise()) {
                 scope.cycleTriggerLevel();
                 player.displayClientMessage(
-                        Component.literal("Oscilloscope | trigger level/channel → " + scope.triggerStatus()),
+                        Component.literal("Oscilloscope | trigger level → " + scope.triggerStatus()),
                         true
                 );
             } else if (hitResult.getDirection() == state.getValue(FACING).getCounterClockWise()) {
@@ -135,33 +127,59 @@ public class OscilloscopeBlock extends Block implements EntityBlock {
             } else if (hitResult.getDirection() == Direction.DOWN) {
                 scope.moveCursorA();
                 player.displayClientMessage(
-                        Component.literal("Oscilloscope | cursor A moved | Δ=" + scope.cursorDeltaSamples() + " samples"),
+                        Component.literal(
+                                "Oscilloscope | cursor A moved | Δ="
+                                        + scope.cursorDeltaSamples() + " samples / "
+                                        + scope.cursorDeltaTicks() + " ticks"
+                        ),
                         true
                 );
             } else if (hitResult.getDirection() == state.getValue(FACING)) {
                 scope.moveCursorB();
                 player.displayClientMessage(
-                        Component.literal("Oscilloscope | cursor B moved | Δ=" + scope.cursorDeltaSamples() + " samples"),
+                        Component.literal(
+                                "Oscilloscope | cursor B moved | Δ="
+                                        + scope.cursorDeltaSamples() + " samples / "
+                                        + scope.cursorDeltaTicks() + " ticks"
+                        ),
                         true
                 );
             } else {
                 InstrumentNetwork.ProbeSnapshot snapshot = InstrumentNetwork.scan(level, pos);
                 player.displayClientMessage(Component.literal(
                         "Scope | " + scope.triggerStatus()
+                                + " | samplePeriod=" + OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS + "t"
+                                + " capture=" + scope.sampleCount() + "/32"
                                 + " | " + snapshot.networkStatus()
-                                + " | A=" + snapshot.status(0)
-                                + " [" + scope.waveform(0) + "]"
-                                + " min/max/p2p=" + scope.minimum(0) + "/" + scope.maximum(0) + "/" + scope.peakToPeak(0)
-                                + " period≈" + scope.estimatedPeriodSamples(0) + " samples"
-                                + " | B=" + snapshot.status(1)
-                                + " [" + scope.waveform(1) + "]"
-                                + " min/max/p2p=" + scope.minimum(1) + "/" + scope.maximum(1) + "/" + scope.peakToPeak(1)
-                                + " period≈" + scope.estimatedPeriodSamples(1) + " samples"
-                                + " | cursors Δ=" + scope.cursorDeltaSamples() + " samples"
+                                + channelStatus(scope, snapshot, 0, "A")
+                                + channelStatus(scope, snapshot, 1, "B")
+                                + " | cursors Δ=" + scope.cursorDeltaSamples()
+                                + " samples/" + scope.cursorDeltaTicks() + "t"
                 ), true);
             }
         }
 
         return InteractionResult.sidedSuccess(level.isClientSide);
+    }
+
+    private static String channelStatus(
+            OscilloscopeBlockEntity scope,
+            InstrumentNetwork.ProbeSnapshot snapshot,
+            int channel,
+            String name
+    ) {
+        return " | " + name + "=" + snapshot.status(channel)
+                + " [" + scope.waveform(channel) + "]"
+                + " coverage=" + scope.coveragePercent(channel) + "%/" + scope.captureQuality(channel)
+                + " min/max/p2p=" + scope.minimum(channel) + "/" + scope.maximum(channel) + "/" + scope.peakToPeak(channel)
+                + " avg=" + decimal100(scope.average100(channel))
+                + " meanStep=" + decimal100(scope.meanStep100(channel))
+                + " period≈" + scope.estimatedPeriodSamples(channel) + " samples/"
+                + scope.estimatedPeriodTicks(channel) + "t";
+    }
+
+    private static String decimal100(int value100) {
+        if (value100 < 0) return "N/A";
+        return (value100 / 100) + "." + String.format("%02d", value100 % 100);
     }
 }
