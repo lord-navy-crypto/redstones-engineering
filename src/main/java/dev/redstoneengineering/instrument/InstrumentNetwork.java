@@ -12,20 +12,29 @@ import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.Set;
 
-/** Bounded instrumentation network carrying measurement probes rather than redstone power. */
+/**
+ * Bounded instrumentation network carrying measurement probes rather than
+ * redstone power. Alpha 1.0.5 also reports topology depth and structural
+ * integrity so an instrument can distinguish a valid capture from a wiring
+ * problem.
+ */
 public final class InstrumentNetwork {
     private static final int MAX_VISITED = NetworkKernel.MAX_NODES;
 
     private InstrumentNetwork() {}
 
+    private record CableVisit(BlockPos pos, int depth) {}
+
     public static ProbeSnapshot scan(Level level, BlockPos instrumentPos) {
         int[] values = {-1, -1, -1, -1};
         int[] counts = {0, 0, 0, 0};
 
-        ArrayDeque<BlockPos> queue = new ArrayDeque<>();
+        ArrayDeque<CableVisit> queue = new ArrayDeque<>();
         Set<BlockPos> visited = new HashSet<>();
         Set<BlockPos> seenProbes = new HashSet<>();
         boolean truncated = false;
+        int maxCableDepth = 0;
+        int maxProbeDepth = 0;
 
         for (Direction direction : Direction.values()) {
             BlockPos neighbor = instrumentPos.relative(direction);
@@ -33,7 +42,7 @@ public final class InstrumentNetwork {
             BlockState state = level.getBlockState(neighbor);
 
             if (state.getBlock() instanceof InstrumentCableBlock) {
-                queue.add(neighbor);
+                queue.add(new CableVisit(neighbor, 1));
             } else if (state.getBlock() instanceof SignalProbeBlock probe) {
                 if (seenProbes.add(neighbor)) {
                     recordProbe(level, neighbor, state, probe, values, counts);
@@ -46,8 +55,11 @@ public final class InstrumentNetwork {
                 truncated = true;
                 break;
             }
-            BlockPos cablePos = queue.removeFirst();
+
+            CableVisit visit = queue.removeFirst();
+            BlockPos cablePos = visit.pos();
             if (!visited.add(cablePos)) continue;
+            maxCableDepth = Math.max(maxCableDepth, visit.depth());
 
             for (Direction direction : Direction.values()) {
                 BlockPos neighbor = cablePos.relative(direction);
@@ -55,10 +67,13 @@ public final class InstrumentNetwork {
 
                 BlockState state = level.getBlockState(neighbor);
                 if (state.getBlock() instanceof InstrumentCableBlock) {
-                    if (!visited.contains(neighbor)) queue.addLast(neighbor);
+                    if (!visited.contains(neighbor)) {
+                        queue.addLast(new CableVisit(neighbor, visit.depth() + 1));
+                    }
                 } else if (state.getBlock() instanceof SignalProbeBlock probe) {
                     if (seenProbes.add(neighbor)) {
                         recordProbe(level, neighbor, state, probe, values, counts);
+                        maxProbeDepth = Math.max(maxProbeDepth, visit.depth());
                     }
                 }
             }
@@ -70,7 +85,9 @@ public final class InstrumentNetwork {
                 counts,
                 !truncated,
                 visited.size(),
-                seenProbes.size()
+                seenProbes.size(),
+                maxCableDepth,
+                maxProbeDepth
         );
     }
 
@@ -86,7 +103,7 @@ public final class InstrumentNetwork {
         int value = probe.sample(level, pos, state);
         counts[channel]++;
         if (counts[channel] == 1) values[channel] = value;
-        else values[channel] = -1; // duplicate probes are deliberately invalid
+        else values[channel] = -1;
     }
 
     public record ProbeSnapshot(
@@ -94,7 +111,9 @@ public final class InstrumentNetwork {
             int[] counts,
             boolean bounded,
             int cableNodes,
-            int probeNodes
+            int probeNodes,
+            int maxCableDepth,
+            int maxProbeDepth
     ) {
         public boolean valid(int channel) {
             return channel >= 0
@@ -113,6 +132,12 @@ public final class InstrumentNetwork {
             return duplicates;
         }
 
+        public int duplicateProbes() {
+            int duplicates = 0;
+            for (int count : counts) duplicates += Math.max(0, count - 1);
+            return duplicates;
+        }
+
         public int activeChannels() {
             int active = 0;
             for (int channel = 0; channel < 4; channel++) {
@@ -121,18 +146,38 @@ public final class InstrumentNetwork {
             return active;
         }
 
+        public int validChannels() {
+            int valid = 0;
+            for (int channel = 0; channel < 4; channel++) {
+                if (valid(channel)) valid++;
+            }
+            return valid;
+        }
+
         public String status(int channel) {
+            if (channel < 0 || channel >= 4) return "INVALID CHANNEL";
             if (counts[channel] == 0) return "NO PROBE";
             if (counts[channel] > 1) return "AMBIGUOUS";
             return Integer.toString(values[channel]);
         }
 
+        public String integrity() {
+            if (!bounded) return "TRUNCATED";
+            if (duplicateChannels() > 0) return "AMBIGUOUS";
+            if (probeNodes == 0) return "NO_PROBES";
+            return "OK";
+        }
+
         public String networkStatus() {
             return "instrumentNet cables=" + cableNodes
                     + " probes=" + probeNodes
-                    + " channels=" + activeChannels() + "/4"
+                    + " channels=" + validChannels() + "/" + activeChannels() + "/4 valid/active"
                     + " duplicateChannels=" + duplicateChannels()
-                    + " scan=" + (bounded ? "BOUNDED" : "TRUNCATED");
+                    + " duplicateProbes=" + duplicateProbes()
+                    + " depth=" + maxProbeDepth
+                    + " cableDepth=" + maxCableDepth
+                    + " scan=" + (bounded ? "BOUNDED" : "TRUNCATED")
+                    + " integrity=" + integrity();
         }
     }
 }

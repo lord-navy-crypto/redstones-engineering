@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import json
+import re
 import sys
 
 root = Path(sys.argv[1] if len(sys.argv) > 1 else ".")
@@ -107,10 +108,17 @@ else:
     except Exception as exc:
         failed.append(f"signal_analyzer blockstate JSON invalid: {exc}")
 
-# Version/documentation contract.
+# Regression-version contract: this verifier protects features introduced in
+# Alpha 1.0.4 and must remain valid for later alpha milestones. Reject only a
+# version older than 1.0.4 or an unexpected version format.
 props = (root / "gradle.properties").read_text(errors="ignore") if (root / "gradle.properties").exists() else ""
-if "mod_version=1.0.4-alpha" not in props:
-    failed.append("gradle.properties is not 1.0.4-alpha")
+match = re.search(r"^mod_version=(\d+)\.(\d+)\.(\d+)-alpha(?:[.-][0-9A-Za-z.-]+)?$", props, re.MULTILINE)
+if not match:
+    failed.append("gradle.properties has no recognized alpha mod_version")
+else:
+    version_tuple = tuple(map(int, match.groups()))
+    if version_tuple < (1, 0, 4):
+        failed.append(f"Alpha 1.0.4 regression verifier requires version >=1.0.4-alpha, got {version_tuple}")
 
 for rel in [
     "docs/ALPHA1_0_4_INSTRUMENTATION_TOPOLOGY.md",
@@ -134,16 +142,16 @@ for forbidden in [
         failed.append(f"high-cardinality runtime data leaked into BlockState: {forbidden}")
 
 if failed:
-    print("RSE Alpha 1.0.4 verification: FAIL")
+    print("RSE Alpha 1.0.4 regression verification: FAIL")
     for item in failed:
         print(" -", item)
     sys.exit(1)
 
-print("RSE Alpha 1.0.4 instrumentation/topology verification: PASS")
+print("RSE Alpha 1.0.4 instrumentation/topology regression verification: PASS")
 print(" analyzer TAP/INLINE + transient diagnostics: PASS")
 print(" direction-aware analyzer/probe measurement: PASS")
 print(" instrument-network topology diagnostics: PASS")
 print(" scope/logic topology visibility: PASS")
 print(" pneumatic cylinder directional feedback: PASS")
 print(" pneumatic cylinder terminal network topology: PASS")
-print(" resource/version/high-cardinality guards: PASS")
+print(" resource/forward-version/high-cardinality guards: PASS")

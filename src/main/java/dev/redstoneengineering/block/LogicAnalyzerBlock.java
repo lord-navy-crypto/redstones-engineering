@@ -46,10 +46,7 @@ public class LogicAnalyzerBlock extends Block implements EntityBlock {
 
     @Override
     public BlockState getStateForPlacement(BlockPlaceContext context) {
-        return defaultBlockState().setValue(
-                FACING,
-                context.getHorizontalDirection().getOpposite()
-        );
+        return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
     }
 
     @Override
@@ -81,17 +78,12 @@ public class LogicAnalyzerBlock extends Block implements EntityBlock {
             boolean movedByPiston
     ) {
         if (!level.isClientSide && !state.is(oldState.getBlock())) {
-            level.scheduleTick(pos, this, 1);
+            level.scheduleTick(pos, this, LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS);
         }
     }
 
     @Override
-    protected void tick(
-            BlockState state,
-            ServerLevel level,
-            BlockPos pos,
-            RandomSource random
-    ) {
+    protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         InstrumentNetwork.ProbeSnapshot snapshot = InstrumentNetwork.scan(level, pos);
         int threshold = state.getValue(THRESHOLD);
         int mask = 0;
@@ -107,7 +99,7 @@ public class LogicAnalyzerBlock extends Block implements EntityBlock {
             analyzer.addSample(mask, validMask);
         }
 
-        level.scheduleTick(pos, this, 1);
+        level.scheduleTick(pos, this, LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS);
     }
 
     @Override
@@ -128,9 +120,7 @@ public class LogicAnalyzerBlock extends Block implements EntityBlock {
                         true
                 );
             } else if (hitResult.getDirection() == Direction.UP) {
-                int nextThreshold = state.getValue(THRESHOLD) >= 15
-                        ? 1
-                        : state.getValue(THRESHOLD) + 1;
+                int nextThreshold = state.getValue(THRESHOLD) >= 15 ? 1 : state.getValue(THRESHOLD) + 1;
                 level.setBlock(pos, state.setValue(THRESHOLD, nextThreshold), Block.UPDATE_CLIENTS);
                 player.displayClientMessage(
                         Component.literal("Logic Analyzer | threshold → " + nextThreshold),
@@ -151,13 +141,21 @@ public class LogicAnalyzerBlock extends Block implements EntityBlock {
             } else if (hitResult.getDirection() == Direction.DOWN) {
                 analyzer.moveCursorA();
                 player.displayClientMessage(
-                        Component.literal("Logic Analyzer | cursor A moved | Δ=" + analyzer.cursorDeltaSamples() + " samples"),
+                        Component.literal(
+                                "Logic Analyzer | cursor A moved | Δ="
+                                        + analyzer.cursorDeltaSamples() + " samples/"
+                                        + analyzer.cursorDeltaTicks() + "t"
+                        ),
                         true
                 );
             } else if (hitResult.getDirection() == state.getValue(FACING)) {
                 analyzer.moveCursorB();
                 player.displayClientMessage(
-                        Component.literal("Logic Analyzer | cursor B moved | Δ=" + analyzer.cursorDeltaSamples() + " samples"),
+                        Component.literal(
+                                "Logic Analyzer | cursor B moved | Δ="
+                                        + analyzer.cursorDeltaSamples() + " samples/"
+                                        + analyzer.cursorDeltaTicks() + "t"
+                        ),
                         true
                 );
             } else {
@@ -165,7 +163,10 @@ public class LogicAnalyzerBlock extends Block implements EntityBlock {
                 StringBuilder text = new StringBuilder(
                         "Logic | threshold=" + state.getValue(THRESHOLD)
                                 + " | " + analyzer.triggerStatus()
-                                + " | cursors Δ=" + analyzer.cursorDeltaSamples() + " samples"
+                                + " | samplePeriod=" + LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS + "t"
+                                + " capture=" + analyzer.sampleCount() + "/32"
+                                + " | cursors Δ=" + analyzer.cursorDeltaSamples() + " samples/"
+                                + analyzer.cursorDeltaTicks() + "t"
                                 + " | " + snapshot.networkStatus()
                 );
                 for (int channel = 0; channel < 4; channel++) {
@@ -175,11 +176,19 @@ public class LogicAnalyzerBlock extends Block implements EntityBlock {
                             .append(snapshot.status(channel))
                             .append(":")
                             .append(analyzer.waveform(channel))
+                            .append(" coverage=")
+                            .append(analyzer.coveragePercent(channel))
+                            .append("%/")
+                            .append(analyzer.captureQuality(channel))
                             .append(" ↑")
                             .append(analyzer.rising(channel))
                             .append(" ↓")
                             .append(analyzer.falling(channel))
-                            .append(" duty=")
+                            .append(" edges=")
+                            .append(analyzer.edgeCount(channel))
+                            .append(" transitionRate=")
+                            .append(analyzer.transitionRatePercent(channel))
+                            .append("% duty=")
                             .append(analyzer.dutyPercent(channel))
                             .append("%");
                 }

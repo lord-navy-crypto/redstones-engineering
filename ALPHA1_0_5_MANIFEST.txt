@@ -1,0 +1,38 @@
+RSE Alpha 1.0.5 — Quality, Calibration & Regression Hardening
+Artifact version: 1.0.5-alpha
+Minecraft: 1.21.1
+NeoForge: 21.1.249
+Java: 21
+License: MIT
+
+Engineering focus:
+- Signal Analyzer 16-sample rolling measurement window.
+- Rolling average, peak-to-peak, mean-step, sample-age and stability classification.
+- Small persistent display calibration offset (-2..+2) that never changes INLINE raw pass-through.
+- Instrument-network depth, valid/active channel, duplicate-probe and structural-integrity diagnostics.
+- Oscilloscope capture coverage, average/activity metrics and sample-to-tick timebase reporting.
+- Logic Analyzer capture coverage, transition-rate diagnostics and sample-to-tick timebase reporting.
+- Trigger post-capture progress persisted across save/reload for Scope and Logic Analyzer.
+- Repository-wide Java/JSON/model-reference/source-quality audit.
+- Deterministic reference-model tests for 0..15, calibration, rolling metrics, topology integrity and timebase contracts.
+
+Compatibility invariants:
+- Vanilla-facing redstone remains 0..15.
+- Analyzer TAP remains non-invasive.
+- Analyzer INLINE OUT remains raw and is not modified by display calibration.
+- High-cardinality measurement data stays outside BlockState.
+- Alpha 1.0.4 explicit topology and terminal pneumatic actuator contracts remain required.
+- All earlier Alpha regression verifiers remain in CI.
+
+Validation gate:
+- Python verifier syntax check
+- repository metadata/hygiene verification
+- source/resource quality audit
+- deterministic reference-model tests
+- all previous Alpha regression verifiers
+- Alpha 1.0.5 quality verifier
+- Java 21 compileJava
+- Gradle test
+- clean Gradle build
+- SHA-256 + verified CI artifact upload
+- local runClient quality/test matrix before public release
