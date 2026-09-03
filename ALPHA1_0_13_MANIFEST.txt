@@ -5,22 +5,28 @@ NeoForge: 21.1.249
 Java: 21
 License: MIT
 
-Milestone: Copper Circuit Topology & Control Renovation III
+Milestone: Copper Topology + Mechatronics Visualization
 
-Core changes:
+Preserved copper topology work:
 - Added PortKind.ELECTRICAL for explicit copper-domain engineering ports.
 - Added DirectionalCopperProcessorBlock for shared BACK input -> FRONT output topology.
-- Copper Series Resistor, Capacitor, and Fuse now use the shared directional copper contract.
-- Copper Voltage Source exposes multi-face COPPER ELECTRICAL OUTPUT ports matching its existing network-node behavior.
+- Copper Series Resistor, Capacitor, and Fuse use the shared directional copper contract.
+- Copper Voltage Source exposes multi-face COPPER ELECTRICAL OUTPUT ports matching network-node behavior.
 - Copper Resistive Load exposes multi-face terminal INPUT ports and remains a non-transparent sink.
 - Copper Circuit Meter exposes a single non-invasive FACING measurement port.
 - Existing DomainNetwork and CircuitPhysics remain authoritative for electrical propagation and component behavior.
-- Jade reads these ports automatically through the existing EngineeringPortProvider integration.
+
+Mechatronics visualization completion carried into the Alpha 1.0.14 promotion branch:
+- GeckoLib 4.9.2 now renders Servo Actuator, Pneumatic Cylinder, and Pneumatic Proportional Valve through a shared MechatronicsVisualBlockEntity.
+- Servo simulation position maps to shaft rotation; applied velocity controls the rate of authoritative position change; brake freezes motion in physics before the snapshot reaches rendering.
+- Pneumatic Cylinder pressure/position maps to piston-rod extension and a pressure indicator.
+- Proportional Valve opening 0..15 maps to valve-spool position.
+- RuntimeIntStore.peek() returns cloned read-only runtime snapshots and never creates/resizes simulation state.
+- MechatronicsVisualState is immutable and renderer-facing.
+- HARD INVARIANT: GeckoLib displays simulation state only. Rendering, FPS, model bones, and animation lifecycle never write physics state.
 
 Executable verification:
 - Existing Alpha 1.0.11/1.0.12 topology and directional GameTests remain required.
-- Copper axial port direction is tested in Minecraft GameTest.
-- Source -> wire -> series resistor -> wire -> load propagation is tested at runtime.
-- Fuse trip and protected-output cutoff are tested at runtime.
-- Side-feed rejection for axial copper processors is tested at runtime.
-- CI gate: runGameTestServer
+- Copper axial port direction and runtime propagation tests remain required.
+- Alpha 1.0.14 RseMetrologyGameTests includes a visualization-projection contract.
+- CI gate: compileJava + runGameTestServer + clean build.
