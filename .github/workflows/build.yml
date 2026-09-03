@@ -29,19 +29,25 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x gradlew
 
-      - name: Static verification
+      - name: Validate verifier syntax
+        run: python3 -m compileall -q tools
+
+      - name: Static and reference verification
         shell: bash
         run: |
           set -euo pipefail
           for verifier in \
             tools/rse_repo_verify.py \
+            tools/rse_source_quality_audit.py \
+            tools/rse_reference_model_tests.py \
             tools/rse_redstone_verify.py \
             tools/rse_full_audit.py \
             tools/rse_alpha10_verify.py \
             tools/rse_alpha102_second_layer_verify.py \
             tools/rse_alpha103_pneumatic_hotfix_verify.py \
             tools/rse_alpha103_closed_loop_verify.py \
-            tools/rse_alpha104_verify.py
+            tools/rse_alpha104_verify.py \
+            tools/rse_alpha105_quality_verify.py
           do
             if [[ -f "$verifier" ]]; then
               echo "==> $verifier"
@@ -51,6 +57,9 @@ jobs:
 
       - name: Compile Java
         run: ./gradlew compileJava --no-daemon --stacktrace
+
+      - name: Gradle tests
+        run: ./gradlew test --no-daemon --stacktrace
 
       - name: Clean build
         run: ./gradlew clean build --no-daemon --stacktrace
