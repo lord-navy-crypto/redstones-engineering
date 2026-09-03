@@ -1,5 +1,7 @@
 # Redstone Systems Engineering (RSE)
 
+[![RSE Build Verification](https://github.com/lord-navy-crypto/redstones-engineering/actions/workflows/build.yml/badge.svg)](https://github.com/lord-navy-crypto/redstones-engineering/actions/workflows/build.yml)
+
 **Redstone Systems Engineering** is a NeoForge engineering-systems mod for Minecraft that extends vanilla redstone without replacing it.
 
 RSE treats the vanilla **0–15 redstone signal as the world-facing engineering boundary** and builds instrumentation, signal conditioning, sampling, control, actuation, diagnostics, communications, and operations tools around it.
@@ -18,6 +20,8 @@ RSE treats the vanilla **0–15 redstone signal as the world-facing engineering 
 | Mod ID | `redstoneengineering` |
 | License | **MIT** |
 | Language | Java |
+| CI status | Static verification + `compileJava` + clean build confirmed on `main` |
+| Interactive release gate | Local `runClient` Alpha 1.0.3 test matrix |
 
 Alpha 1.0.3 keeps the project **Vanilla-first**: ordinary redstone remains useful, while RSE adds engineering behavior where measurement, non-ideal response, diagnostics, topology, and control logic matter.
 
@@ -54,7 +58,12 @@ Alpha 1.0.3 closes several gaps between the earlier design documents and the act
 - Pneumatic proportional control, relief/safety behavior and finite actuator components.
 - IOE operating-state classification using queue, running state, downtime and instability proxies.
 
-See [`docs/ALPHA1_0_3_CLOSED_LOOP_DIAGNOSTICS.md`](docs/ALPHA1_0_3_CLOSED_LOOP_DIAGNOSTICS.md) for the milestone-specific engineering notes.
+Milestone references:
+
+- [`docs/ALPHA1_0_3_CLOSED_LOOP_DIAGNOSTICS.md`](docs/ALPHA1_0_3_CLOSED_LOOP_DIAGNOSTICS.md) — engineering behavior and port contracts.
+- [`docs/ALPHA1_0_3_TEST_MATRIX.md`](docs/ALPHA1_0_3_TEST_MATRIX.md) — repeatable local `runClient` validation.
+- [`CHANGELOG.md`](CHANGELOG.md) — milestone history and validation state.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — engineering and verification rules for changes.
 
 ## Reference calculations
 
@@ -112,7 +121,7 @@ The current Alpha 1.0.3 controller applies a one-signal-unit deadband, bounded i
 I_candidate = clamp(I_previous + e, -180, 180)
 D_filtered  = low_pass(e - e_previous)
 u_raw       = bias + P + I + D
-u            = clamp(u_raw, 0, 15)
+u           = clamp(u_raw, 0, 15)
 ```
 
 When the controller transfers **Manual → Auto**, the bias is recomputed around the previous manual output to reduce the control-output bump.
@@ -181,23 +190,26 @@ Launch the development client:
 
 Build output is placed under `build/libs/`.
 
-## Verification
+## Verification and CI artifacts
 
 The repository contains static engineering audits under [`tools/`](tools/) and a GitHub Actions workflow at [`.github/workflows/build.yml`](.github/workflows/build.yml).
 
 The automated verification pipeline checks:
 
-1. RSE static/audit invariants.
-2. Alpha milestone-specific feature contracts.
-3. Alpha 1.0.3 closed-loop and pneumatic integrity.
-4. Java compilation with JDK 21.
-5. A clean Gradle build.
+1. Repository metadata/version/license/hygiene invariants.
+2. RSE static/audit invariants.
+3. Alpha milestone-specific feature contracts.
+4. Alpha 1.0.3 closed-loop and pneumatic integrity.
+5. Java compilation with JDK 21.
+6. A clean Gradle build.
+7. SHA-256 generation for built JARs.
+8. Upload of the verified JAR(s) and `SHA256SUMS.txt` as a short-retention GitHub Actions artifact.
 
-`runClient` remains a local interactive validation step because the Minecraft client is not launched in the headless CI runner.
+The CI artifact is a **test binary**, not a tagged public release. `runClient` remains a local interactive validation step because the Minecraft client is not launched in the headless CI runner.
 
 ## Repository status
 
-The pre-integrity-fix Alpha 1.0.3 baseline has already completed a successful local Gradle build on macOS/JDK 21. Changes to control/diagnostic behavior are validated on a dedicated branch/PR before being merged to `main` so that a passing source baseline is not replaced blindly.
+The integrity-hardened Alpha 1.0.3 source is merged into `main`, and `main` has passed repository/static verification, Java 21 `compileJava`, and a clean Gradle build in GitHub Actions. The remaining public-release gate is interactive `runClient` validation of the Alpha 1.0.3 critical paths using the documented test matrix.
 
 ## License
 
@@ -207,3 +219,4 @@ RSE is released under the **MIT License**. See [`LICENSE`](LICENSE).
 
 - Repository: <https://github.com/lord-navy-crypto/redstones-engineering>
 - Issues: <https://github.com/lord-navy-crypto/redstones-engineering/issues>
+- Actions: <https://github.com/lord-navy-crypto/redstones-engineering/actions>
