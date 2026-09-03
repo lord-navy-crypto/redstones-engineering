@@ -55,7 +55,8 @@ jobs:
             tools/rse_alpha1010_port_architecture_verify.py \
             tools/rse_alpha1010_jade_hud_verify.py \
             tools/rse_alpha1011_legacy_gametest_verify.py \
-            tools/rse_alpha1012_directional_io_verify.py
+            tools/rse_alpha1012_directional_io_verify.py \
+            tools/rse_alpha1013_copper_topology_verify.py
           do
             if [[ -f "$verifier" ]]; then
               echo "==> $verifier"
