@@ -6,6 +6,7 @@ Java: 21
 License: MIT
 
 Milestone: Copper Topology + Mechatronics Visualization
+Legacy milestone retained: Copper Circuit Topology & Control Renovation III
 
 Preserved copper topology work:
 - Added PortKind.ELECTRICAL for explicit copper-domain engineering ports.
