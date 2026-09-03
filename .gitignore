@@ -1,18 +1,17 @@
 ### Gradle ###
-.gradle
+.gradle/
 build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/**/build/
 
 ### IntelliJ IDEA ###
 .idea/
+.run/
 *.iws
 *.iml
 *.ipr
 out/
 !**/src/**/out/
-
-.run/
 
 ### Eclipse ###
 .apt_generated
@@ -29,25 +28,24 @@ bin/
 ### VS Code ###
 .vscode/
 
-### Mac OS ###
+### macOS ###
 .DS_Store
 
-### Minecraft Modding ###
+### Minecraft / NeoForge development runtime ###
 run/
 !**/src/**/run/
 **/src/generated/**/.cache/
 repo/
 !**/src/**/repo/
 
-# RSE local/build files
-.gradle/
-build/
-run/
-.idea/
-.DS_Store
+### Logs, compiler scratch files, and crash diagnostics ###
 *.log
-
-# Java compiler temporary/crash artifacts
 javac.*.args
 hs_err_pid*.log
 replay_pid*.log
+*.hprof
+
+### Local environment files ###
+.env
+.env.*
+!.env.example
