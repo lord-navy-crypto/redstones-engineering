@@ -47,7 +47,6 @@ require(
     "state.getValue(OUTPUT)",
     "calibratedReading",
 )
-# Calibration must never be substituted into the signal path.
 forbid(analyzer, "requestedOutput = state.getValue(MODE) == INLINE ? calibrated")
 
 require(
@@ -102,15 +101,18 @@ require(
     "cursorDeltaTicks",
 )
 
-# The Alpha 1.0.4 topology contract remains mandatory. Check implementation
-# structure rather than relying on a particular comment sentence.
+# Alpha 1.0.4 topology remains mandatory. Verify executable structure instead
+# of a particular comment sentence so later refactors can preserve the contract.
 require(
     "src/main/java/dev/redstoneengineering/physics/PneumaticNetwork.java",
     "PneumaticCylinderBlock",
     "discoveryConnects",
-    "terminal one-port sink/actuator",
-    "if (a.getBlock() instanceof PneumaticCylinderBlock)",
-    "if (b.getBlock() instanceof PneumaticCylinderBlock)",
+    "Direction input = a.getValue(DirectionalDomainBlock.FACING).getOpposite();",
+    "Direction input = b.getValue(DirectionalDomainBlock.FACING).getOpposite();",
+    "bPos.equals(aPos.relative(input))",
+    "aPos.equals(bPos.relative(input))",
+    "if (a.getBlock() instanceof PneumaticCylinderBlock) return false;",
+    "from.equals(to.relative(input))",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/PneumaticCylinderBlock.java",
@@ -118,7 +120,6 @@ require(
     "direction.getOpposite() == outputSide(state)",
 )
 
-# Analyzer blockstate must remain model-efficient despite MODE/OUTPUT/CALIBRATION.
 blockstate = root / "src/main/resources/assets/redstoneengineering/blockstates/signal_analyzer.json"
 if not blockstate.exists():
     failed.append("missing signal_analyzer blockstate")
@@ -132,10 +133,17 @@ else:
     except Exception as exc:
         failed.append(f"signal_analyzer JSON invalid: {exc}")
 
-# Version and milestone synchronization.
+# This is a historical regression verifier, not a version pin. Require a valid
+# Alpha version at or newer than 1.0.5 so the quality contract survives 1.0.6+.
 props = text("gradle.properties")
-if "mod_version=1.0.5-alpha" not in props:
-    failed.append("gradle.properties is not 1.0.5-alpha")
+match = re.search(r"^mod_version=(\d+)\.(\d+)\.(\d+)-alpha(?:[.-][0-9A-Za-z.-]+)?$", props, re.MULTILINE)
+if not match:
+    failed.append("gradle.properties has no recognized alpha mod_version")
+else:
+    version_tuple = tuple(map(int, match.groups()))
+    if version_tuple < (1, 0, 5):
+        failed.append(f"Alpha 1.0.5 regression verifier requires version >=1.0.5-alpha, got {version_tuple}")
+
 for rel in [
     "ALPHA1_0_5_MANIFEST.txt",
     "ALPHA1_0_5_CHANGED_FILES.txt",
@@ -146,7 +154,6 @@ for rel in [
     if not (root / rel).exists():
         failed.append(f"missing: {rel}")
 
-# CI must run both legacy regressions and the new mathematical/quality checks.
 workflow = text(".github/workflows/build.yml")
 for token in [
     "rse_alpha104_verify.py",
@@ -160,7 +167,6 @@ for token in [
     if token not in workflow:
         failed.append(f"workflow missing quality gate: {token}")
 
-# All JSON must still parse, and no runtime-quality metric may leak into BlockState.
 for path in (root / "src/main/resources").rglob("*.json"):
     try:
         json.loads(path.read_text())
@@ -178,7 +184,6 @@ for forbidden in [
     if forbidden in java_text:
         failed.append(f"high-cardinality runtime metric leaked into BlockState: {forbidden}")
 
-# Keep the existing wide-property guard, but also flag obvious accidental huge ranges.
 for path in (root / "src/main/java/dev/redstoneengineering").rglob("*.java"):
     body = path.read_text(errors="ignore")
     for match in re.finditer(r'IntegerProperty\.create\([^,]+,\s*(-?\d+)\s*,\s*(-?\d+)\s*\)', body):
@@ -187,16 +192,16 @@ for path in (root / "src/main/java/dev/redstoneengineering").rglob("*.java"):
             failed.append(f"high-cardinality BlockState in {path.name}: {lo}..{hi}")
 
 if failed:
-    print("RSE Alpha 1.0.5 quality verification: FAIL")
+    print("RSE Alpha 1.0.5 quality regression verification: FAIL")
     for item in failed:
         print(" -", item)
     raise SystemExit(1)
 
-print("RSE Alpha 1.0.5 quality verification: PASS")
+print("RSE Alpha 1.0.5 quality regression verification: PASS")
 print("  analyzer rolling quality + display calibration: PASS")
 print("  raw INLINE 0..15 pass-through invariant: PASS")
 print("  instrument topology depth/integrity diagnostics: PASS")
 print("  scope/logic capture coverage + timebase metrics: PASS")
 print("  trigger save/reload progress persistence: PASS")
 print("  Alpha 1.0.4 topology regression: PASS")
-print("  JSON/version/workflow/high-cardinality guards: PASS")
+print("  JSON/forward-version/workflow/high-cardinality guards: PASS")
