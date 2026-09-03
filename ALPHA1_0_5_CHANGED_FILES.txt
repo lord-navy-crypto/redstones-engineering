@@ -8,6 +8,7 @@ docs/ALPHA1_0_5_QUALITY_CALIBRATION.md
 docs/ALPHA1_0_5_TEST_MATRIX.md
 tools/rse_source_quality_audit.py
 tools/rse_reference_model_tests.py
+tools/rse_alpha104_verify.py
 tools/rse_alpha105_quality_verify.py
 src/main/java/dev/redstoneengineering/block/SignalAnalyzerBlock.java
 src/main/java/dev/redstoneengineering/instrument/InstrumentNetwork.java
