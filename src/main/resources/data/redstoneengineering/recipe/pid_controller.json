@@ -2,23 +2,16 @@
   "type": "minecraft:crafting_shaped",
   "category": "redstone",
   "pattern": [
-    " Q ",
-    "RCR",
-    " L "
+    "QCQ",
+    "RSC",
+    "QLQ"
   ],
   "key": {
-    "Q": {
-      "item": "minecraft:quartz"
-    },
-    "R": {
-      "item": "minecraft:redstone"
-    },
-    "C": {
-      "item": "minecraft:copper_ingot"
-    },
-    "L": {
-      "item": "minecraft:lapis_lazuli"
-    }
+    "Q": { "item": "minecraft:quartz" },
+    "C": { "item": "minecraft:comparator" },
+    "R": { "item": "minecraft:redstone" },
+    "S": { "item": "redstoneengineering:signal_conditioner" },
+    "L": { "item": "minecraft:lapis_lazuli" }
   },
   "result": {
     "id": "redstoneengineering:pid_controller",
