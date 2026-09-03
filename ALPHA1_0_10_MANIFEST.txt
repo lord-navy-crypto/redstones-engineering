@@ -17,5 +17,11 @@ First migration wave:
 - Engineering Light Sensor, Entity Density Sensor, Tank Level Sensor, and Analog Process Indicator expose explicit legacy port contracts.
 - Insulated Redstone Cable and Instrument Bus expose connected-face bidirectional ports.
 
+Jade engineering HUD:
+- Added a server-backed, read-only adapter over EngineeringPortProvider.
+- Jade shows the current targeted face's domain, role/direction, value/range/normalized level, quality, and vanilla-redstone compatibility when available.
+- Structural/multi-channel ports are displayed without inventing scalar measurements.
+- All snownee.jade imports are isolated under integration/jade; the HUD does not mutate simulation state.
+
 Dependency boundary:
 JEI, Jade, GeckoLib, Cloth Config and Fusion remain required platform libraries, but RSE physics/control/topology packages do not import their client APIs. Integrations consume the engineering core; they do not define it.
