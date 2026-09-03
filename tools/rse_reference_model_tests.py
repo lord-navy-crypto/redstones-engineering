@@ -85,7 +85,8 @@ def main() -> None:
 
     assert_equal(stability([7, 7, 7]), "WARMUP", "warmup classification")
     assert_equal(stability([7, 7, 7, 7]), "STEADY", "steady classification")
-    assert_equal(stability([7, 8, 8, 7, 7, 8]), "STABLE", "stable classification")
+    # Two one-step changes over seven intervals => meanStep ~= 0.29 <= 0.50.
+    assert_equal(stability([7, 7, 8, 8, 8, 7, 7, 7]), "STABLE", "stable classification")
     assert_equal(stability([5, 7, 8, 6, 7, 8]), "DYNAMIC", "dynamic classification")
     assert_equal(stability([0, 15, 0, 15]), "HIGH_VARIATION", "high-variation classification")
 
