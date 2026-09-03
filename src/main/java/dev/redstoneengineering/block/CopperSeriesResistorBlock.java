@@ -18,35 +18,81 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
-public class CopperSeriesResistorBlock extends DirectionalDomainBlock {
+/** Axial copper resistor: BACK input, FRONT output. */
+public class CopperSeriesResistorBlock extends DirectionalCopperProcessorBlock {
     public static final IntegerProperty RESISTANCE = IntegerProperty.create("resistance", 1, 15);
     private static final String KEY = "copper_series_resistor";
-    public CopperSeriesResistorBlock(Properties p) { super(p); registerDefaultState(defaultBlockState().setValue(RESISTANCE, 4)); }
-    @Override public MapCodec<CopperSeriesResistorBlock> codec() { return RedstoneEngineering.COPPER_SERIES_RESISTOR_CODEC.value(); }
-    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> b) { super.createBlockStateDefinition(b); b.add(RESISTANCE); }
 
-    @Override protected void onPlace(BlockState s, Level l, BlockPos p, BlockState old, boolean moved) { super.onPlace(s, l, p, old, moved); if (!l.isClientSide) l.scheduleTick(p, this, 2); }
-    @Override protected void onRemove(BlockState s, Level l, BlockPos p, BlockState ns, boolean moved) { if (!s.is(ns.getBlock())) { if (l instanceof ServerLevel sl) DomainNetwork.driveCopper(sl, outputPos(p,s), p, 0); RuntimeIntStore.remove(l, KEY, p); } super.onRemove(s, l, p, ns, moved); }
-    @Override protected void tick(BlockState s, ServerLevel l, BlockPos p, RandomSource r) {
-        int vin = DomainNetwork.sampleCopperVoltage(l, inputPos(p, s));
-        double loadR = CircuitPhysics.equivalentLoadResistance(l, outputPos(p, s), 128);
-        int out = CircuitPhysics.divider(vin, s.getValue(RESISTANCE), loadR);
-        RuntimeIntStore.get(l, KEY, p, 1)[0] = out;
-        DomainNetwork.driveCopper(l, outputPos(p, s), p, out);
-        l.scheduleTick(p, this, 2);
+    public CopperSeriesResistorBlock(Properties properties) {
+        super(properties);
+        registerDefaultState(defaultBlockState().setValue(RESISTANCE, 4));
     }
+
+    @Override
+    public MapCodec<CopperSeriesResistorBlock> codec() {
+        return RedstoneEngineering.COPPER_SERIES_RESISTOR_CODEC.value();
+    }
+
+    @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        super.createBlockStateDefinition(builder);
+        builder.add(RESISTANCE);
+    }
+
+    @Override
+    protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
+        super.onPlace(state, level, pos, oldState, movedByPiston);
+        if (!level.isClientSide) level.scheduleTick(pos, this, 2);
+    }
+
+    @Override
+    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
+        if (!state.is(newState.getBlock())) {
+            if (level instanceof ServerLevel serverLevel) {
+                DomainNetwork.driveCopper(serverLevel, outputPos(pos, state), pos, 0);
+            }
+            RuntimeIntStore.remove(level, KEY, pos);
+        }
+        super.onRemove(state, level, pos, newState, movedByPiston);
+    }
+
+    @Override
+    protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+        int inputVoltage = DomainNetwork.sampleCopperVoltage(level, inputPos(pos, state));
+        double loadResistance = CircuitPhysics.equivalentLoadResistance(level, outputPos(pos, state), 128);
+        int outputVoltage = CircuitPhysics.divider(inputVoltage, state.getValue(RESISTANCE), loadResistance);
+
+        RuntimeIntStore.get(level, KEY, pos, 1)[0] = outputVoltage;
+        DomainNetwork.driveCopper(level, outputPos(pos, state), pos, outputVoltage);
+        level.scheduleTick(pos, this, 2);
+    }
+
     public static int outputVoltage(Level level, BlockPos pos) {
         return RuntimeIntStore.get(level, KEY, pos, 1)[0];
     }
 
-    @Override protected InteractionResult useWithoutItem(BlockState s, Level l, BlockPos p, Player pl, BlockHitResult hit) {
-        if (!l.isClientSide) {
-            int rr = s.getValue(RESISTANCE); rr = rr >= 15 ? 1 : rr + 1;
-            BlockState n = s.setValue(RESISTANCE, rr); l.setBlock(p, n, Block.UPDATE_CLIENTS);
-            double load = CircuitPhysics.equivalentLoadResistance(l, outputPos(p, n), 128);
-            int out = RuntimeIntStore.get(l, KEY, p, 1)[0];
-            pl.displayClientMessage(Component.literal(String.format("Copper series resistor | Rs=%d | estimated Rload=%.2f | Vout=%d", rr, load, out)), true);
+    @Override
+    protected int observedOutputVoltage(Level level, BlockPos pos, BlockState state) {
+        return outputVoltage(level, pos);
+    }
+
+    @Override
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+        if (!level.isClientSide) {
+            int resistance = state.getValue(RESISTANCE);
+            resistance = resistance >= 15 ? 1 : resistance + 1;
+            BlockState next = state.setValue(RESISTANCE, resistance);
+            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+
+            double load = CircuitPhysics.equivalentLoadResistance(level, outputPos(pos, next), 128);
+            int output = outputVoltage(level, pos);
+            player.displayClientMessage(Component.literal(String.format(
+                    "Copper series resistor | BACK input -> FRONT output | Rs=%d | estimated Rload=%.2f | Vout=%d",
+                    resistance,
+                    load,
+                    output
+            )), true);
         }
-        return InteractionResult.sidedSuccess(l.isClientSide);
+        return InteractionResult.sidedSuccess(level.isClientSide);
     }
 }
