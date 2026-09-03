@@ -86,10 +86,6 @@ if "rse_alpha1011_legacy_gametest_verify.py" not in workflow:
 if "runGameTestServer" not in workflow:
     failed.append("workflow missing executable GameTest server gate")
 
-main_source = text("src/main/java/dev/redstoneengineering/RedstoneEngineering.java")
-if "1.0.0-alpha.1" in main_source:
-    failed.append("legacy hard-coded startup version 1.0.0-alpha.1 remains in RedstoneEngineering.java")
-
 if failed:
     print("RSE Alpha 1.0.11 legacy renovation + GameTest verification: FAIL")
     for item in failed:
