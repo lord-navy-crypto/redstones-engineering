@@ -53,3 +53,21 @@ jobs:
 
       - name: Clean build
         run: ./gradlew clean build --no-daemon --stacktrace
+
+      - name: Generate SHA-256 checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd build/libs
+          sha256sum *.jar > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Upload verified build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rse-1.0.3-alpha-${{ github.sha }}
+          path: |
+            build/libs/*.jar
+            build/libs/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
