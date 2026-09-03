@@ -1,9 +1,13 @@
 package dev.redstoneengineering.gametest;
 
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.block.AnalogIndicatorBlock;
 import dev.redstoneengineering.block.ConnectedCableBlock;
+import dev.redstoneengineering.block.DirectionalRedstoneEndpointBlock;
+import dev.redstoneengineering.block.EngineeringLightSensorBlock;
 import dev.redstoneengineering.block.LapisToRedstoneQuantizerBlock;
 import dev.redstoneengineering.block.RedstoneCableTerminalBlock;
+import dev.redstoneengineering.block.RedstoneReferenceSourceBlock;
 import dev.redstoneengineering.block.RedstoneToLapisScalerBlock;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
@@ -12,6 +16,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -152,5 +157,95 @@ public final class RseTopologyGameTests {
             return;
         }
         helper.succeed();
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE)
+    public static void directionalRedstoneEndpointsExposeOnlyPhysicalPorts(GameTestHelper helper) {
+        BlockPos probePos = new BlockPos(1, 1, 1);
+
+        RedstoneReferenceSourceBlock source = RedstoneEngineering.REDSTONE_REFERENCE_SOURCE.get();
+        BlockState sourceState = source.defaultBlockState()
+                .setValue(DirectionalRedstoneEndpointBlock.FACING, Direction.EAST)
+                .setValue(RedstoneReferenceSourceBlock.POWER, 11);
+        EngineeringPortProvider sourceProvider = source;
+        var sourceOut = sourceProvider.engineeringPort(sourceState, Direction.EAST).orElse(null);
+        if (sourceOut == null || sourceOut.direction() != PortDirection.OUTPUT) {
+            helper.fail("Reference source must expose one physical FRONT output", probePos);
+            return;
+        }
+        if (sourceProvider.engineeringPort(sourceState, Direction.WEST).isPresent()) {
+            helper.fail("Reference source BACK must not be an engineering output", probePos);
+            return;
+        }
+        // Physical FRONT=EAST is queried by vanilla redstone with direction WEST.
+        if (!source.canConnectRedstone(sourceState, helper.getLevel(), helper.absolutePos(probePos), Direction.WEST)
+                || source.canConnectRedstone(sourceState, helper.getLevel(), helper.absolutePos(probePos), Direction.EAST)) {
+            helper.fail("Reference source redstone connectivity does not match FRONT-only query semantics", probePos);
+            return;
+        }
+
+        EngineeringLightSensorBlock sensor = RedstoneEngineering.ENGINEERING_LIGHT_SENSOR.get();
+        BlockState sensorState = sensor.defaultBlockState()
+                .setValue(DirectionalRedstoneEndpointBlock.FACING, Direction.SOUTH)
+                .setValue(EngineeringLightSensorBlock.POWER, 7);
+        EngineeringPortProvider sensorProvider = sensor;
+        var sensorOut = sensorProvider.engineeringPort(sensorState, Direction.SOUTH).orElse(null);
+        if (sensorOut == null || sensorOut.direction() != PortDirection.OUTPUT) {
+            helper.fail("Directional sensor must expose FRONT output", probePos);
+            return;
+        }
+        if (sensorProvider.engineeringPort(sensorState, Direction.NORTH).isPresent()) {
+            helper.fail("Directional sensor BACK must not expose an output", probePos);
+            return;
+        }
+
+        AnalogIndicatorBlock indicator = RedstoneEngineering.ANALOG_INDICATOR.get();
+        BlockState indicatorState = indicator.defaultBlockState()
+                .setValue(DirectionalRedstoneEndpointBlock.FACING, Direction.EAST);
+        EngineeringPortProvider indicatorProvider = indicator;
+        var indicatorInput = indicatorProvider.engineeringPort(indicatorState, Direction.WEST).orElse(null);
+        if (indicatorInput == null || indicatorInput.direction() != PortDirection.INPUT) {
+            helper.fail("Analog indicator must expose BACK input", probePos);
+            return;
+        }
+        if (indicatorProvider.engineeringPort(indicatorState, Direction.EAST).isPresent()) {
+            helper.fail("Analog indicator FRONT display face must not be an electrical input", probePos);
+            return;
+        }
+        helper.succeed();
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 40)
+    public static void analogIndicatorReadsBackOnly(GameTestHelper helper) {
+        BlockPos indicatorPos = new BlockPos(2, 1, 2);
+        BlockPos backPos = indicatorPos.west();
+        BlockPos sidePos = indicatorPos.north();
+        BlockState indicator = RedstoneEngineering.ANALOG_INDICATOR.get().defaultBlockState()
+                .setValue(DirectionalRedstoneEndpointBlock.FACING, Direction.EAST);
+
+        helper.setBlock(backPos, Blocks.REDSTONE_BLOCK.defaultBlockState());
+        helper.setBlock(indicatorPos, indicator);
+
+        helper.runAfterDelay(2, () -> {
+            BlockState powered = helper.getBlockState(indicatorPos);
+            if (powered.getValue(AnalogIndicatorBlock.LEVEL) != 15) {
+                helper.fail("Analog indicator did not read full-strength BACK input", indicatorPos);
+                return;
+            }
+
+            helper.setBlock(backPos, Blocks.AIR.defaultBlockState());
+            helper.setBlock(sidePos, Blocks.REDSTONE_BLOCK.defaultBlockState());
+
+            helper.runAfterDelay(2, () -> {
+                BlockState sidePowered = helper.getBlockState(indicatorPos);
+                if (sidePowered.getValue(AnalogIndicatorBlock.LEVEL) != 0) {
+                    helper.fail("Analog indicator incorrectly accepted a SIDE input", indicatorPos);
+                    return;
+                }
+                helper.succeed();
+            });
+        });
     }
 }

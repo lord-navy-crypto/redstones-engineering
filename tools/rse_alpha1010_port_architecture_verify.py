@@ -21,6 +21,7 @@ def require(rel: str, *tokens: str) -> None:
         if token not in body:
             failed.append(f"{rel}: missing {token!r}")
 
+
 props = text("gradle.properties")
 match = re.search(r"^mod_version=(\d+)\.(\d+)\.(\d+)-alpha(?:[.-][0-9A-Za-z.-]+)?$", props, re.MULTILINE)
 if not match or tuple(map(int, match.groups())) < (1, 0, 10):
@@ -39,16 +40,35 @@ require("src/main/java/dev/redstoneengineering/core/port/PortCompatibility.java"
 require("src/main/java/dev/redstoneengineering/core/domain/EngineeringDomain.java",
         "INSULATED_REDSTONE", "INSTRUMENT_BUS", "PNEUMATIC")
 
+# Representative migrations may implement the contract directly or inherit it
+# from a deliberately shared base introduced by a later milestone. The historical
+# Alpha 1.0.10 invariant is that these devices expose the EngineeringPort contract,
+# not that every leaf class duplicates the same methods forever.
 for rel in [
     "src/main/java/dev/redstoneengineering/block/DirectionalSignalBlock.java",
-    "src/main/java/dev/redstoneengineering/block/EngineeringLightSensorBlock.java",
-    "src/main/java/dev/redstoneengineering/block/EntityDensitySensorBlock.java",
-    "src/main/java/dev/redstoneengineering/block/TankLevelSensorBlock.java",
     "src/main/java/dev/redstoneengineering/block/AnalogIndicatorBlock.java",
     "src/main/java/dev/redstoneengineering/block/RedstoneSignalCableBlock.java",
     "src/main/java/dev/redstoneengineering/block/InstrumentCableBlock.java",
 ]:
     require(rel, "EngineeringPortProvider", "engineeringPorts")
+
+sensor_base = "src/main/java/dev/redstoneengineering/block/DirectionalRedstoneSensorBlock.java"
+if (root / sensor_base).exists():
+    require(sensor_base, "EngineeringPortProvider", "engineeringPorts", "engineeringSnapshot")
+    for rel in [
+        "src/main/java/dev/redstoneengineering/block/EngineeringLightSensorBlock.java",
+        "src/main/java/dev/redstoneengineering/block/EntityDensitySensorBlock.java",
+        "src/main/java/dev/redstoneengineering/block/TankLevelSensorBlock.java",
+    ]:
+        require(rel, "extends DirectionalRedstoneSensorBlock")
+else:
+    # Historical pre-1.0.12 layout: each sensor implemented the contract directly.
+    for rel in [
+        "src/main/java/dev/redstoneengineering/block/EngineeringLightSensorBlock.java",
+        "src/main/java/dev/redstoneengineering/block/EntityDensitySensorBlock.java",
+        "src/main/java/dev/redstoneengineering/block/TankLevelSensorBlock.java",
+    ]:
+        require(rel, "EngineeringPortProvider", "engineeringPorts")
 
 require("src/main/java/dev/redstoneengineering/block/DirectionalSignalBlock.java",
         "\"INPUT\"", "\"OUTPUT\"", "PortDirection.INPUT", "PortDirection.OUTPUT", "engineeringSnapshot")
@@ -101,6 +121,6 @@ if failed:
 print("RSE Alpha 1.0.10 engineering-port architecture verification: PASS")
 print(" static port descriptor + runtime snapshot separation: PASS")
 print(" domain/direction compatibility model: PASS")
-print(" representative legacy migration: PASS")
+print(" representative legacy migration/inheritance: PASS")
 print(" required-dependency core boundary: PASS")
 print(" vanilla 0..15 runtime snapshot bound: PASS")

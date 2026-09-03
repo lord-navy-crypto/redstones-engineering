@@ -1,7 +1,5 @@
 package dev.redstoneengineering.block;
 
-import com.mojang.serialization.MapCodec;
-import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.EngineeringPort;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
@@ -9,35 +7,28 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.signal.EngineeringSignal;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
-import net.minecraft.world.phys.BlockHitResult;
 
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
 
-/** Adjustable 0..15 laboratory reference source with a single FRONT output port. */
-public class RedstoneReferenceSourceBlock extends DirectionalRedstoneEndpointBlock implements EngineeringPortProvider {
+/** Shared FRONT-only 0..15 redstone output contract for engineering sensors. */
+public abstract class DirectionalRedstoneSensorBlock extends DirectionalRedstoneEndpointBlock implements EngineeringPortProvider {
     public static final IntegerProperty POWER = IntegerProperty.create("power", 0, 15);
 
-    public RedstoneReferenceSourceBlock(Properties properties) {
+    protected DirectionalRedstoneSensorBlock(Properties properties) {
         super(properties);
         registerDefaultState(defaultBlockState().setValue(POWER, 0));
-    }
-
-    @Override
-    public MapCodec<RedstoneReferenceSourceBlock> codec() {
-        return RedstoneEngineering.REDSTONE_REFERENCE_SOURCE_CODEC.value();
     }
 
     @Override
@@ -49,10 +40,10 @@ public class RedstoneReferenceSourceBlock extends DirectionalRedstoneEndpointBlo
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         return List.of(new EngineeringPort(
-                "REFERENCE OUT",
+                "SENSOR OUT",
                 frontSide(state),
                 EngineeringDomain.REDSTONE,
-                PortKind.REDSTONE_ANALOG,
+                PortKind.SENSOR,
                 PortDirection.OUTPUT,
                 true,
                 "signal"
@@ -95,26 +86,25 @@ public class RedstoneReferenceSourceBlock extends DirectionalRedstoneEndpointBlo
     }
 
     @Override
-    protected InteractionResult useWithoutItem(
-            BlockState state,
-            Level level,
-            BlockPos pos,
-            Player player,
-            BlockHitResult hit
-    ) {
-        if (!level.isClientSide) {
-            int value = state.getValue(POWER) + (player.isShiftKeyDown() ? -1 : 1);
-            if (value < 0) value = 15;
-            if (value > 15) value = 0;
+    protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
+        super.onPlace(state, level, pos, oldState, moved);
+        if (!level.isClientSide && !state.is(oldState.getBlock())) level.scheduleTick(pos, this, 1);
+    }
 
-            BlockState next = state.setValue(POWER, value);
-            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            notifyFrontOutput(level, pos, next);
-            player.displayClientMessage(Component.literal(
-                    "Redstone Reference Source = " + value + "/15"
-                            + " | FRONT OUT=" + frontSide(next).getName()
-            ), true);
+    protected final void updateSensorOutput(
+            ServerLevel level,
+            BlockPos pos,
+            BlockState state,
+            int measuredValue,
+            int nextSampleDelay
+    ) {
+        int value = EngineeringSignal.clamp(measuredValue);
+        BlockState current = state;
+        if (value != state.getValue(POWER)) {
+            current = state.setValue(POWER, value);
+            level.setBlock(pos, current, Block.UPDATE_CLIENTS);
+            notifyFrontOutput(level, pos, current);
         }
-        return InteractionResult.sidedSuccess(level.isClientSide);
+        level.scheduleTick(pos, this, nextSampleDelay);
     }
 }

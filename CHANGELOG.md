@@ -6,6 +6,24 @@ All notable RSE engineering milestones are recorded here. RSE remains in alpha d
 
 - Future work should remain behind a focused branch/PR and pass the repository verification workflow before being merged into `main`.
 
+## [1.0.12-alpha] — 2026-09-03
+
+### Directional I/O renovation
+
+- Added `DirectionalRedstoneEndpointBlock` to centralize horizontal FRONT/BACK placement and Minecraft's reversed redstone-query convention for vanilla-compatible engineering endpoints.
+- Added `DirectionalRedstoneSensorBlock` so sensor families share one FRONT-only `REDSTONE / SENSOR / OUTPUT` contract and a common bounded 0..15 update path.
+- Rewrote the early compressed Redstone Reference Source implementation and changed it from six-face output to one explicit FRONT output.
+- Migrated Engineering Light Sensor, Tank Level Sensor, and Entity Density Sensor from six-face outputs to the shared FRONT-only sensor contract.
+- Replaced Analog Process Indicator's `LEGACY_OMNIDIRECTIONAL` behavior with a physical FRONT display and one BACK redstone input.
+- Preserved the vanilla 0..15 world-facing boundary and kept the new orientation state low-cardinality.
+
+### Runtime verification
+
+- Extended `RseTopologyGameTests` with directional endpoint EngineeringPort/connectivity assertions.
+- Added an in-world Analog Indicator test that reads 15 from a real BACK redstone block and rejects the same source when moved to a SIDE face.
+- Added `tools/rse_alpha1012_directional_io_verify.py`, milestone documentation, and a test matrix.
+- Preserved the Alpha 1.0.11 cable/junction placement-order, cross-domain isolation, terminal, and converter GameTests.
+
 ## [1.0.11-alpha] — 2026-09-03
 
 ### Legacy renovation wave II
