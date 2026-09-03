@@ -1,0 +1,31 @@
+RSE Alpha 1.0.8 — Dependency & Interoperability Foundation
+Artifact version: 1.0.8-alpha
+Minecraft: 1.21.1
+NeoForge: 21.1.249
+Java: 21
+License: MIT
+
+Purpose:
+- Keep RSE core launchable with NeoForge alone.
+- Make NeoForge native capability/GameTest infrastructure the preferred core interoperability path.
+- Add reproducible optional JEI and Jade development/runtime integrations.
+- Pin optional integration versions in gradle.properties.
+- Prevent accidental conversion of optional integrations into required/shaded dependencies.
+
+Optional development integrations:
+- JEI 19.27.0.336 (Minecraft 1.21.1 NeoForge)
+- Jade 15.10.6+neoforge (Minecraft 1.21.1; Modrinth version id eYz2YBGT)
+
+Architecture:
+- JEI API: compileOnly
+- JEI full mod: localRuntime
+- Jade: compileOnly + localRuntime
+- RSE required external mod dependency: none beyond NeoForge/Minecraft
+
+Validation gate:
+- dependency policy verifier
+- repository/source/reference/historical regression suite
+- Java 21 compileJava
+- Gradle test
+- clean build
+- SHA-256 and verified CI artifact
