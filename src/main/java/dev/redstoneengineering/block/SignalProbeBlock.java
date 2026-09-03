@@ -20,6 +20,7 @@ import net.minecraft.world.phys.BlockHitResult;
 
 import javax.annotation.Nullable;
 
+/** Non-invasive channel probe for the RSE instrument network. */
 public class SignalProbeBlock extends Block {
     public static final DirectionProperty FACING = BlockStateProperties.FACING;
     public static final IntegerProperty CHANNEL = IntegerProperty.create("channel", 0, 3);
@@ -66,10 +67,13 @@ public class SignalProbeBlock extends Block {
         Direction targetSide = state.getValue(FACING);
         BlockPos targetPos = pos.relative(targetSide);
 
+        // Pass the physical probe direction so directional sources are measured
+        // on the face actually connected to the instrument, not by strongest-side output.
         return SignalAnalyzerBlock.measureNode(
                 level,
                 targetPos,
-                level.getBlockState(targetPos)
+                level.getBlockState(targetPos),
+                targetSide
         );
     }
 
@@ -89,6 +93,7 @@ public class SignalProbeBlock extends Block {
                                 "Probe " + channelName(state.getValue(CHANNEL))
                                         + " | test=" + state.getValue(FACING).getName()
                                         + " | value=" + value + "/15"
+                                        + " | direction-aware"
                         ),
                         true
                 );
