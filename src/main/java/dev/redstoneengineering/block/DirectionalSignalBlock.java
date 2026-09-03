@@ -1,5 +1,12 @@
 package dev.redstoneengineering.block;
 
+import dev.redstoneengineering.core.domain.EngineeringDomain;
+import dev.redstoneengineering.core.port.EngineeringPort;
+import dev.redstoneengineering.core.port.EngineeringPortProvider;
+import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
+import dev.redstoneengineering.core.port.PortDirection;
+import dev.redstoneengineering.core.port.PortKind;
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.signal.EngineeringSignal;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -16,8 +23,16 @@ import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 
 import javax.annotation.Nullable;
+import java.util.List;
+import java.util.Optional;
 
-public abstract class DirectionalSignalBlock extends Block {
+/**
+ * Shared directional 0..15 processor base.
+ *
+ * <p>Alpha 1.0.10 makes BACK/FRONT a real EngineeringPort contract so every
+ * subclass automatically exposes the same topology to diagnostics and UI.</p>
+ */
+public abstract class DirectionalSignalBlock extends Block implements EngineeringPortProvider {
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final IntegerProperty OUTPUT = IntegerProperty.create("output", 0, 15);
 
@@ -32,8 +47,7 @@ public abstract class DirectionalSignalBlock extends Block {
 
     @Override
     public BlockState getStateForPlacement(BlockPlaceContext context) {
-        return defaultBlockState()
-                .setValue(FACING, context.getHorizontalDirection().getOpposite());
+        return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
     }
 
     @Override
@@ -74,14 +88,52 @@ public abstract class DirectionalSignalBlock extends Block {
     }
 
     @Override
+    public List<EngineeringPort> engineeringPorts(BlockState state) {
+        return List.of(
+                new EngineeringPort(
+                        "INPUT",
+                        inputSide(state),
+                        EngineeringDomain.REDSTONE,
+                        PortKind.REDSTONE_ANALOG,
+                        PortDirection.INPUT,
+                        true,
+                        "signal"
+                ),
+                new EngineeringPort(
+                        "OUTPUT",
+                        outputSide(state),
+                        EngineeringDomain.REDSTONE,
+                        PortKind.REDSTONE_ANALOG,
+                        PortDirection.OUTPUT,
+                        true,
+                        "signal"
+                )
+        );
+    }
+
+    @Override
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
+            Level level,
+            BlockPos pos,
+            BlockState state,
+            Direction side
+    ) {
+        Optional<EngineeringPort> descriptor = engineeringPort(state, side);
+        if (descriptor.isEmpty()) return Optional.empty();
+        int value = side == outputSide(state)
+                ? state.getValue(OUTPUT)
+                : readInputFrom(level, pos, side);
+        return Optional.of(EngineeringPortSnapshot.redstone(descriptor.get(), value, PortQuality.VALID));
+    }
+
+    @Override
     public boolean canConnectRedstone(
             BlockState state,
             BlockGetter level,
             BlockPos pos,
             @Nullable Direction direction
     ) {
-        return direction != null
-                && isEngineeringPort(state, direction.getOpposite());
+        return direction != null && isEngineeringPort(state, direction.getOpposite());
     }
 
     protected int readBackInput(Level level, BlockPos pos, BlockState state) {
@@ -96,10 +148,7 @@ public abstract class DirectionalSignalBlock extends Block {
     protected void updateOutput(Level level, BlockPos pos, BlockState state, int requestedOutput) {
         int output = EngineeringSignal.clamp(requestedOutput);
         int oldOutput = state.getValue(OUTPUT);
-
-        if (oldOutput == output) {
-            return;
-        }
+        if (oldOutput == output) return;
 
         BlockState next = state.setValue(OUTPUT, output);
         level.setBlock(pos, next, Block.UPDATE_CLIENTS);
@@ -114,9 +163,7 @@ public abstract class DirectionalSignalBlock extends Block {
 
     @Override
     protected int getSignal(BlockState state, BlockGetter level, BlockPos pos, Direction direction) {
-        return direction == outputSide(state).getOpposite()
-                ? state.getValue(OUTPUT)
-                : 0;
+        return direction == outputSide(state).getOpposite() ? state.getValue(OUTPUT) : 0;
     }
 
     @Override
@@ -128,9 +175,7 @@ public abstract class DirectionalSignalBlock extends Block {
             BlockPos neighborPos,
             boolean movedByPiston
     ) {
-        if (!level.isClientSide) {
-            level.scheduleTick(pos, this, 1);
-        }
+        if (!level.isClientSide) level.scheduleTick(pos, this, 1);
     }
 
     @Override
@@ -141,9 +186,7 @@ public abstract class DirectionalSignalBlock extends Block {
             BlockState oldState,
             boolean movedByPiston
     ) {
-        if (!level.isClientSide && !state.is(oldState.getBlock())) {
-            level.scheduleTick(pos, this, 1);
-        }
+        if (!level.isClientSide && !state.is(oldState.getBlock())) level.scheduleTick(pos, this, 1);
     }
 
     @Override
@@ -162,10 +205,5 @@ public abstract class DirectionalSignalBlock extends Block {
     }
 
     @Override
-    protected abstract void tick(
-            BlockState state,
-            ServerLevel level,
-            BlockPos pos,
-            RandomSource random
-    );
+    protected abstract void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random);
 }

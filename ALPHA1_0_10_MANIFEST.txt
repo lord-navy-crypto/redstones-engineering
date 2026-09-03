@@ -1,0 +1,21 @@
+RSE Alpha 1.0.10 — Engineering Port Architecture
+Artifact version: 1.0.10-alpha
+Minecraft: 1.21.1
+NeoForge: 21.1.249
+Java: 21
+License: MIT
+
+Core renovation:
+- EngineeringPort now owns physical side, engineering domain, semantic kind, flow direction, vanilla-redstone compatibility, and unit.
+- EngineeringPortSnapshot separates dynamic value/quality from BlockState.
+- EngineeringPortProvider gives diagnostics and ecosystem adapters one common contract.
+- PortCompatibility centralizes domain and flow-direction checks.
+- PortQuality standardizes VALID / NO_SIGNAL / SATURATED / STALE / FAULT / DOMAIN_MISMATCH / TOPOLOGY_ERROR.
+
+First migration wave:
+- DirectionalSignalBlock and all subclasses inherit BACK input / FRONT output port descriptors.
+- Engineering Light Sensor, Entity Density Sensor, Tank Level Sensor, and Analog Process Indicator expose explicit legacy port contracts.
+- Insulated Redstone Cable and Instrument Bus expose connected-face bidirectional ports.
+
+Dependency boundary:
+JEI, Jade, GeckoLib, Cloth Config and Fusion remain required platform libraries, but RSE physics/control/topology packages do not import their client APIs. Integrations consume the engineering core; they do not define it.

@@ -1,5 +1,6 @@
 package dev.redstoneengineering.core.port;
 
+/** Semantic purpose of an engineering port, independent of signal direction. */
 public enum PortKind {
     REDSTONE_ANALOG,
     REDSTONE_BINARY,
@@ -8,5 +9,11 @@ public enum PortKind {
     TRIGGER,
     ENABLE,
     RESET,
-    TAP
+    TAP,
+    BUS,
+    MEASUREMENT,
+    ACTUATOR,
+    FEEDBACK,
+    AUXILIARY,
+    SAFETY
 }

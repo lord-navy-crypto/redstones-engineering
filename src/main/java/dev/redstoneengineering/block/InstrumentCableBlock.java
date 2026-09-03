@@ -2,6 +2,11 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.core.domain.EngineeringDomain;
+import dev.redstoneengineering.core.port.EngineeringPort;
+import dev.redstoneengineering.core.port.EngineeringPortProvider;
+import dev.redstoneengineering.core.port.PortDirection;
+import dev.redstoneengineering.core.port.PortKind;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -12,8 +17,11 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /** Six-direction measurement bus carrying probe channels rather than redstone power. */
-public class InstrumentCableBlock extends ConnectedCableBlock {
+public class InstrumentCableBlock extends ConnectedCableBlock implements EngineeringPortProvider {
     public InstrumentCableBlock(Properties properties) {
         super(properties);
     }
@@ -28,10 +36,28 @@ public class InstrumentCableBlock extends ConnectedCableBlock {
         return TransmissionTopology.instrumentPort(neighbor, direction);
     }
 
-    /** Instrument buses are deliberately multi-drop; unlike power cable, a branch is valid. */
     @Override
     protected int maxConnections() {
         return 6;
+    }
+
+    @Override
+    public List<EngineeringPort> engineeringPorts(BlockState state) {
+        List<EngineeringPort> ports = new ArrayList<>();
+        for (Direction side : Direction.values()) {
+            if (connected(state, side)) {
+                ports.add(new EngineeringPort(
+                        "INSTRUMENT_BUS",
+                        side,
+                        EngineeringDomain.INSTRUMENT_BUS,
+                        PortKind.BUS,
+                        PortDirection.BIDIRECTIONAL,
+                        false,
+                        "channel"
+                ));
+            }
+        }
+        return List.copyOf(ports);
     }
 
     @Override
@@ -40,6 +66,7 @@ public class InstrumentCableBlock extends ConnectedCableBlock {
             String type = this instanceof ShieldedInstrumentCableBlock ? "Shielded Instrument Bus" : "Instrument Bus Cable";
             player.displayClientMessage(Component.literal(
                     type + " | " + PortDiagnostics.connectedCable(level, pos, state, PortDiagnostics.Domain.INSTRUMENT)
+                            + " | engineeringPorts=" + engineeringPorts(state).size()
                             + " | ports=" + connectionCount(state)
             ), true);
         }

@@ -10,17 +10,31 @@
 
 | Item | Current RSE baseline |
 | --- | --- |
-| Development milestone | **Alpha 1.0.9 — Required Ecosystem Platform** |
-| Artifact version | `1.0.9-alpha` |
+| Development milestone | **Alpha 1.0.10 — Engineering Port Architecture** |
+| Artifact version | `1.0.10-alpha` |
 | Minecraft | `1.21.1` |
 | NeoForge | `21.1.249` |
 | Java | `21` |
 | Mod ID | `redstoneengineering` |
 | License | **MIT** |
 
+## Alpha 1.0.10 — Engineering Port Contract
+
+The first large post-dependency renovation replaces scattered per-block port descriptions with a shared core contract:
+
+- `EngineeringPort` — physical side, engineering domain, semantic kind, flow direction, vanilla compatibility and unit;
+- `EngineeringPortSnapshot` — dynamic value/range/quality kept outside BlockState;
+- `EngineeringPortProvider` — one API for blocks to expose descriptors and observations;
+- `PortCompatibility` — centralized direct domain/direction compatibility;
+- `PortQuality` — `VALID`, `NO_SIGNAL`, `SATURATED`, `STALE`, `FAULT`, `DOMAIN_MISMATCH`, `TOPOLOGY_ERROR`.
+
+The first migration wave covers the shared `DirectionalSignalBlock` family, Engineering Light Sensor, Entity Density Sensor, Tank Level Sensor, Analog Process Indicator, Insulated Redstone Cable and Instrument Bus. This lets later Jade/Fusion/Cloth/GeckoLib/JEI integration read one authoritative engineering model instead of reimplementing block logic.
+
+See [`docs/ALPHA1_0_10_ENGINEERING_PORT_ARCHITECTURE.md`](docs/ALPHA1_0_10_ENGINEERING_PORT_ARCHITECTURE.md).
+
 ## Required dependencies
 
-Alpha 1.0.9 intentionally makes five mature ecosystem libraries part of the RSE platform contract. They are no longer optional compatibility mods.
+Five mature ecosystem libraries are part of the RSE platform contract:
 
 | Dependency | Pinned development version | Required side | RSE purpose |
 | --- | --- | --- | --- |
@@ -30,21 +44,22 @@ Alpha 1.0.9 intentionally makes five mature ecosystem libraries part of the RSE 
 | Cloth Config | `15.0.140` | Client | maintainable configuration screens and tuning UI |
 | Fusion | `1.3.14` (`1.3.14-neoforge-mc1.21.1` Maven artifact) | Client | connected textures, advanced models and topology-aware engineering visuals |
 
-NeoForge metadata declares these dependencies with `type="required"`. Missing dependencies stop startup on the side where they are required. RSE does **not** shade or bundle their jars; users or modpacks install them normally.
+NeoForge metadata declares these dependencies with `type="required"`. RSE does not shade or bundle their jars.
 
 See [`docs/DEPENDENCY_POLICY.md`](docs/DEPENDENCY_POLICY.md).
 
 ## Native engineering core
 
-Dependencies provide UI, diagnostics, animation and rendering infrastructure. RSE still owns its engineering model and uses NeoForge directly for:
+Dependencies provide UI, diagnostics, animation and rendering infrastructure. RSE still owns:
 
-- capabilities and sided interoperability;
-- GameTest infrastructure;
-- registries and lifecycle;
-- networking and data generation;
-- transmission domains and explicit ports;
-- measurement, conditioning, sampling and control;
-- pneumatics, mechatronics, reliability and operations models.
+- physics, measurement and signal models;
+- explicit engineering ports and transmission domains;
+- topology and network behavior;
+- sampling and feedback control;
+- pneumatics and mechatronics;
+- reliability, safety and operations diagnostics.
+
+The dependency direction is one-way: integrations read RSE state; they never define physical connectivity or control behavior.
 
 ## Transmission-domain rule
 
@@ -54,9 +69,10 @@ RSE deliberately does **not** turn every wire into a universal cable. Different 
 - `COPPER` — simplified electrical/voltage network;
 - `LAPIS_PRECISION` — precision continuous-like signal domain;
 - `QUARTZ_TIMING` — clock/timing domain;
-- `INSTRUMENT_BUS` — measurement-channel transport.
+- `INSTRUMENT_BUS` — measurement-channel transport;
+- pneumatic, optical, magnetic, resonance and thermal domains remain explicit.
 
-Cross-domain conversion happens through explicit terminals, transducers, scalers, emitters/receivers, or other documented interfaces.
+Cross-domain conversion happens through documented terminals, transducers, scalers, emitters/receivers or converters.
 
 ## Engineering systems represented
 
@@ -83,7 +99,7 @@ Throughput, utilization, cycle time, downtime, queue/WIP proxies, operating-stat
 7. Keep high-cardinality runtime data out of BlockState.
 8. Keep automation inspectable.
 9. Treat regression gates as part of the product.
-10. Use mature dependencies aggressively when they simplify development or unlock stronger engineering features.
+10. Use mature dependencies where they remove duplicate infrastructure, while keeping physics/control/topology authoritative in RSE.
 
 ## Reference calculations
 
@@ -117,7 +133,7 @@ P_out ≈ (P_in × opening + 7) / 15
 
 ## Verification architecture
 
-CI runs verifier syntax, repository/source/resource audits, deterministic reference models, historical Alpha regressions, required-dependency policy checks, Java 21 `compileJava`, Gradle tests, a clean build, SHA-256 generation, and verified artifact upload. Dependency resolution is part of the compile gate, so broken Maven coordinates fail CI immediately.
+CI runs verifier syntax, repository/source/resource audits, deterministic reference models, historical Alpha regressions, required-dependency checks, the Alpha 1.0.10 engineering-port architecture gate, Java 21 compilation, Gradle tests, a clean build, SHA-256 generation and verified artifact upload.
 
 Interactive Minecraft behavior remains a separate `runClient` gate.
 
@@ -137,10 +153,10 @@ Build output is under `build/libs/`.
 - [`CHANGELOG.md`](CHANGELOG.md)
 - [`CONTRIBUTING.md`](CONTRIBUTING.md)
 - [`docs/DEPENDENCY_POLICY.md`](docs/DEPENDENCY_POLICY.md)
+- [`docs/ALPHA1_0_10_ENGINEERING_PORT_ARCHITECTURE.md`](docs/ALPHA1_0_10_ENGINEERING_PORT_ARCHITECTURE.md)
 - [`docs/ENGINEERING_LANGUAGE_AND_CURRICULUM.md`](docs/ENGINEERING_LANGUAGE_AND_CURRICULUM.md)
 - [`docs/CRAFTING_PROGRESSION.md`](docs/CRAFTING_PROGRESSION.md)
 - [`docs/ALPHA1_0_7_LEGACY_WIRING_PORTS.md`](docs/ALPHA1_0_7_LEGACY_WIRING_PORTS.md)
-- [`docs/ALPHA1_0_7_TEST_MATRIX.md`](docs/ALPHA1_0_7_TEST_MATRIX.md)
 
 ## License
 
