@@ -1,4 +1,38 @@
 package dev.redstoneengineering.block;
-import com.mojang.serialization.MapCodec;import dev.redstoneengineering.RedstoneEngineering;import dev.redstoneengineering.physics.RedstoneCableNetwork;import dev.redstoneengineering.physics.NetworkKernel;import dev.redstoneengineering.physics.RuntimeIntStore;import net.minecraft.core.BlockPos;import net.minecraft.core.Direction;import net.minecraft.network.chat.Component;import net.minecraft.server.level.ServerLevel;import net.minecraft.world.InteractionResult;import net.minecraft.world.entity.player.Player;import net.minecraft.world.level.BlockGetter;import net.minecraft.world.level.Level;import net.minecraft.world.level.block.state.BlockState;import net.minecraft.world.phys.BlockHitResult;
-/** 3-D insulated signal cable. It bends automatically; branch degree >2 requires a Junction. */
-public class RedstoneSignalCableBlock extends ConnectedCableBlock{private static final String KEY="redstone_cable";public RedstoneSignalCableBlock(Properties p){super(p);}@Override public MapCodec<RedstoneSignalCableBlock> codec(){return RedstoneEngineering.REDSTONE_SIGNAL_CABLE_CODEC.value();}@Override protected boolean canConnectTo(BlockGetter l,BlockPos p,Direction d,BlockState n){return TransmissionTopology.redstoneCablePort(n,d);}public static void setPower(Level l,BlockPos p,int power){RuntimeIntStore.get(l,KEY,p,1)[0]=Math.max(0,Math.min(15,power));}public static int power(Level l,BlockPos p){return RuntimeIntStore.get(l,KEY,p,1)[0];}@Override protected void onPlace(BlockState s,Level l,BlockPos p,BlockState o,boolean m){super.onPlace(s,l,p,o,m);if(l instanceof ServerLevel sl)RedstoneCableNetwork.recompute(sl,p);}@Override protected void neighborChanged(BlockState s,Level l,BlockPos p,net.minecraft.world.level.block.Block b,BlockPos np,boolean m){super.neighborChanged(s,l,p,b,np,m);if(l instanceof ServerLevel sl)RedstoneCableNetwork.recompute(sl,p);}@Override protected void onRemove(BlockState s,Level l,BlockPos p,BlockState ns,boolean m){if(!s.is(ns.getBlock()))RuntimeIntStore.remove(l,KEY,p);super.onRemove(s,l,p,ns,m);}@Override protected InteractionResult useWithoutItem(BlockState s,Level l,BlockPos p,Player pl,BlockHitResult h){if(!l.isClientSide)pl.displayClientMessage(Component.literal((topologyValid(s)?"Insulated Redstone Cable":"TOPOLOGY ERROR — use Cable Junction for branches")+" | ports="+connectionCount(s)+" | "+power(l,p)+"/15 | "+NetworkKernel.summary(l,"redstone_cable")),true);return InteractionResult.sidedSuccess(l.isClientSide);}}
+
+import com.mojang.serialization.MapCodec;
+import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.physics.NetworkKernel;
+import dev.redstoneengineering.physics.RedstoneCableNetwork;
+import dev.redstoneengineering.physics.RuntimeIntStore;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+
+/** 3-D insulated 0..15 signal cable. Bends automatically; explicit Junctions provide branches. */
+public class RedstoneSignalCableBlock extends ConnectedCableBlock {
+    private static final String KEY = "redstone_cable";
+    public RedstoneSignalCableBlock(Properties p) { super(p); }
+    @Override public MapCodec<RedstoneSignalCableBlock> codec() { return RedstoneEngineering.REDSTONE_SIGNAL_CABLE_CODEC.value(); }
+    @Override protected boolean canConnectTo(BlockGetter l, BlockPos p, Direction d, BlockState n) { return TransmissionTopology.redstoneCablePort(n, d); }
+    public static void setPower(Level l, BlockPos p, int power) { RuntimeIntStore.get(l, KEY, p, 1)[0] = Math.max(0, Math.min(15, power)); }
+    public static int power(Level l, BlockPos p) { return RuntimeIntStore.get(l, KEY, p, 1)[0]; }
+    @Override protected void onPlace(BlockState s, Level l, BlockPos p, BlockState o, boolean m) { super.onPlace(s,l,p,o,m); if (l instanceof ServerLevel sl) RedstoneCableNetwork.recompute(sl,p); }
+    @Override protected void neighborChanged(BlockState s, Level l, BlockPos p, net.minecraft.world.level.block.Block b, BlockPos np, boolean m) { super.neighborChanged(s,l,p,b,np,m); if (l instanceof ServerLevel sl) RedstoneCableNetwork.recompute(sl,p); }
+    @Override protected void onRemove(BlockState s, Level l, BlockPos p, BlockState ns, boolean m) { if (!s.is(ns.getBlock())) RuntimeIntStore.remove(l,KEY,p); super.onRemove(s,l,p,ns,m); }
+    @Override protected InteractionResult useWithoutItem(BlockState s, Level l, BlockPos p, Player pl, BlockHitResult h) {
+        if (!l.isClientSide) pl.displayClientMessage(Component.literal(
+                (topologyValid(s) ? "Insulated Redstone Cable" : "TOPOLOGY ERROR — use Cable Junction for branches")
+                        + " | " + PortDiagnostics.connectedCable(l,p,s,PortDiagnostics.Domain.INSULATED_REDSTONE)
+                        + " | signal=" + power(l,p) + "/15 | " + NetworkKernel.summary(l,"redstone_cable")
+        ), true);
+        return InteractionResult.sidedSuccess(l.isClientSide);
+    }
+}
