@@ -13,7 +13,7 @@ Engineering objective:
 - Keep measurement error concepts separate: bias is reported explicitly; uncertainty is a diagnostic proxy rather than a claim of formal GUM expanded uncertainty.
 
 Metrology core:
-- MeasurementSnapshot: immutable reading + repeatability + bias + drift + noise + resolution + saturation + sample age + sample count + uncertainty proxy + quality.
+- MeasurementSnapshot: immutable reading + Repeatability + bias + drift + noise + resolution + saturation + sample age + sample count + uncertainty proxy + quality.
 - MeasurementQuality: GOOD, DEGRADED, SATURATED, STALE, INVALID.
 - MetrologyTracker: 32-sample rolling residual window with repeatability, first-difference noise, half-window drift, bias and conservative RSS uncertainty-proxy estimates.
 - MetrologyStore: weak level-scoped transient storage that keeps high-cardinality diagnostics out of BlockState.
