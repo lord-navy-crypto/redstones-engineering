@@ -6,21 +6,55 @@ All notable RSE engineering milestones are recorded here. RSE remains in alpha d
 
 - Future work should remain behind a focused branch/PR and pass the repository verification workflow before being merged into `main`.
 
+## [1.0.11-alpha] — 2026-09-03
+
+### Legacy renovation wave II
+
+- Migrated Redstone Cable Terminal to the shared `EngineeringPortProvider` contract with explicit Vanilla/Cable port direction that follows terminal mode.
+- Reworked the early one-line Redstone Cable Junction implementation into maintainable source and exposed connected faces as `INSULATED_REDSTONE` bidirectional BUS ports.
+- Migrated Copper Cable Junction to explicit `COPPER` bidirectional BUS ports and runtime voltage snapshots.
+- Migrated the shared Lapis transducer base so the entire transducer family exposes a forward `LAPIS_PRECISION` sensor output with runtime quality.
+- Added `PortKind.CONVERTER` and migrated Redstone → Lapis and Lapis → Redstone conversion blocks to explicit cross-domain input/output contracts.
+
+### Executable Minecraft topology verification
+
+- Added a dedicated `empty5x4x5` GameTest structure and NeoForge 1.21.1 `RegisterGameTestsEvent` registration.
+- Added in-world tests proving Redstone Cable ↔ Redstone Junction connectivity and Redstone Cable ↔ Copper Junction isolation.
+- Added tests for Redstone Cable Terminal mode-dependent port direction and both explicit Redstone/Lapis converter contracts.
+- Promoted `./gradlew runGameTestServer --no-daemon --stacktrace` to a required GitHub Actions gate before the clean build.
+- Added `tools/rse_alpha1011_legacy_gametest_verify.py` and milestone documentation.
+
+## [1.0.10-alpha] — 2026-09-03
+
+### Engineering Port Architecture
+
+- Expanded the early port descriptor into a shared `EngineeringPort` contract carrying physical side, domain, semantic kind, direction, vanilla compatibility, and units.
+- Added `EngineeringPortSnapshot`, `EngineeringPortProvider`, `PortQuality`, and `PortCompatibility` while keeping high-cardinality runtime observations out of BlockState.
+- Migrated the Directional Signal family, legacy light/tank/entity sensors, Analog Indicator, Insulated Redstone Cable, and Instrument Bus to the common contract.
+- Added the first real required-dependency consumer: a server-backed, read-only Jade engineering HUD that displays the targeted port's domain, direction, value/range, quality, and structural state.
+- Enforced a dependency boundary so Jade remains in `integration/jade` and cannot become a second simulation model.
+
+## [1.0.9-alpha] — 2026-09-03
+
+### Required ecosystem platform
+
+- Promoted JEI `19.27.0.336`, Jade `15.10.6`, GeckoLib `4.9.2`, Cloth Config `15.0.140`, and Fusion `1.3.14` to deliberate required RSE platform dependencies on their appropriate runtime sides.
+- Switched the Gradle development classpath from optional `compileOnly`/`localRuntime` forms to direct implementations so RSE can build integrations against the APIs without fallback glue.
+- Kept physics, topology, control, and diagnostics authoritative in RSE while reserving the ecosystem libraries for recipe information, HUD diagnostics, animation, configuration UI, and advanced visual rendering.
+- Added required-dependency policy verification and real Maven-resolution gates.
+
 ## [1.0.8-alpha] — Dependency & Interoperability Foundation
 
 ### Dependency architecture
 
-- Kept the RSE core launchable with Minecraft 1.21.1 + NeoForge alone.
-- Added JEI `19.27.0.336` through its official Maven as compile-only API plus full `localRuntime` development mod.
-- Added Jade `15.10.6+neoforge` as compile-only + `localRuntime` using a narrowly filtered Modrinth Maven repository.
-- Added centralized optional-integration detection through `IntegrationStatus` without importing optional-mod classes into the RSE core startup path.
-- Added `docs/DEPENDENCY_POLICY.md` to classify native, optional, future feature-driven, and disallowed accidental dependency patterns.
+- Established the first JEI/Jade integration foundation before Alpha 1.0.9 intentionally promoted the ecosystem platform to required dependencies.
+- Added JEI `19.27.0.336` and Jade `15.10.6` to the development environment and centralized integration detection through `IntegrationStatus`.
+- Added `docs/DEPENDENCY_POLICY.md` and dependency-resolution verification.
 
 ### Quality gates
 
 - Added `tools/rse_alpha108_dependency_verify.py`.
-- CI now verifies that JEI/Jade remain optional, are not shaded/bundled, and are not declared as required NeoForge dependencies.
-- CI Java compilation also resolves the pinned ecosystem artifacts so a stale or invalid Maven coordinate fails before merge.
+- CI Java compilation resolves the pinned ecosystem artifacts so stale or invalid Maven coordinates fail before merge.
 - Made the Alpha 1.0.7 verifier forward-compatible so later versions continue to protect legacy wiring/port contracts.
 
 ## [1.0.7-alpha] — Legacy Wiring & Port Diagnostics
