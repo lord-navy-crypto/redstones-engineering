@@ -1,0 +1,23 @@
+Redstone Systems Engineering — Alpha 1.0.12
+Artifact version: 1.0.12-alpha
+Minecraft: 1.21.1
+NeoForge: 21.1.249
+Java: 21
+License: MIT
+
+Milestone: Directional I/O Renovation
+
+Core changes:
+- Added DirectionalRedstoneEndpointBlock for explicit FRONT/BACK vanilla-redstone topology.
+- Added DirectionalRedstoneSensorBlock for reusable FRONT-only 0..15 sensor output.
+- Redstone Reference Source now exposes one FRONT output instead of six-face output.
+- Engineering Light, Tank Level, and Entity Density sensors now expose one FRONT output.
+- Analog Process Indicator now uses FRONT as display face and BACK as its only redstone input.
+- Existing vanilla 0..15 signal boundary is preserved.
+- Jade continues to consume the shared EngineeringPortProvider contract without defining simulation behavior.
+
+Executable verification:
+- Existing Alpha 1.0.11 cable/junction topology GameTests remain required.
+- Directional endpoint port contracts are exercised in Minecraft GameTest.
+- Analog Indicator is tested with a real BACK redstone source and a rejected SIDE source.
+- CI gate: runGameTestServer
