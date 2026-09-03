@@ -2,23 +2,16 @@
   "type": "minecraft:crafting_shaped",
   "category": "redstone",
   "pattern": [
-    " Q ",
-    "CLC",
-    " R "
+    "QOQ",
+    "CMC",
+    "QLQ"
   ],
   "key": {
-    "Q": {
-      "item": "minecraft:quartz"
-    },
-    "C": {
-      "item": "minecraft:copper_ingot"
-    },
-    "L": {
-      "item": "minecraft:clock"
-    },
-    "R": {
-      "item": "minecraft:redstone"
-    }
+    "Q": { "item": "minecraft:quartz" },
+    "O": { "item": "minecraft:observer" },
+    "C": { "item": "minecraft:copper_ingot" },
+    "M": { "item": "minecraft:clock" },
+    "L": { "item": "redstoneengineering:logic_analyzer" }
   },
   "result": {
     "id": "redstoneengineering:operations_monitor",
