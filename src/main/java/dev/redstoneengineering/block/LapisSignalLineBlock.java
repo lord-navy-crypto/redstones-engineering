@@ -27,5 +27,11 @@ public class LapisSignalLineBlock extends SurfaceTraceBlock {
     @Override protected void onPlace(BlockState s,Level l,BlockPos p,BlockState old,boolean moved){super.onPlace(s,l,p,old,moved);if(l instanceof ServerLevel sl)DomainNetwork.recomputeLapis(sl,p);}
     @Override protected void neighborChanged(BlockState s,Level l,BlockPos p,net.minecraft.world.level.block.Block nb,BlockPos np,boolean moved){super.neighborChanged(s,l,p,nb,np,moved);if(l instanceof ServerLevel sl)DomainNetwork.recomputeLapis(sl,p);}
     @Override protected void onRemove(BlockState s,Level l,BlockPos p,BlockState ns,boolean moved){if(!s.is(ns.getBlock()))RuntimeIntStore.remove(l,KEY,p);super.onRemove(s,l,p,ns,moved);}
-    @Override protected InteractionResult useWithoutItem(BlockState s,Level l,BlockPos p,Player pl,BlockHitResult hit){if(!l.isClientSide)pl.displayClientMessage(Component.literal(valid(l,p)?"Lapis precision trace = "+String.format("%.2f",value(l,p)/100.0):"Lapis precision trace = INVALID / source conflict"),true);return InteractionResult.sidedSuccess(l.isClientSide);}
+    @Override protected InteractionResult useWithoutItem(BlockState s,Level l,BlockPos p,Player pl,BlockHitResult hit){
+        if(!l.isClientSide){
+            String signal=valid(l,p)?"value="+String.format("%.2f",value(l,p)/100.0):"INVALID / source conflict";
+            pl.displayClientMessage(Component.literal("Lapis Precision Trace | "+signal+" | "+PortDiagnostics.surfaceTrace(l,p,s,PortDiagnostics.Domain.LAPIS)),true);
+        }
+        return InteractionResult.sidedSuccess(l.isClientSide);
+    }
 }

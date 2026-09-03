@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 import struct
 import sys
 from pathlib import Path
@@ -59,42 +60,21 @@ def require_png_16(rel: str) -> None:
         failed.append(f"texture must be 16x16: {rel} is {width}x{height}")
 
 
-require("gradle.properties", "mod_version=1.0.6-alpha", "mod_license=MIT")
-require(
-    "ALPHA1_0_6_MANIFEST.txt",
-    "Engineering Language & Progression",
-    "1.0.6-alpha",
-    "License: MIT",
-)
+props = read("gradle.properties")
+match = re.search(r"^mod_version=(\d+)\.(\d+)\.(\d+)-alpha(?:[.-][0-9A-Za-z.-]+)?$", props, re.MULTILINE)
+if not match:
+    failed.append("gradle.properties has no recognized alpha mod_version")
+elif tuple(map(int, match.groups())) < (1, 0, 6):
+    failed.append("Alpha 1.0.6 regression requires version >= 1.0.6-alpha")
+if "mod_license=MIT" not in props:
+    failed.append("gradle.properties is missing MIT license")
 
-require(
-    "src/main/resources/assets/redstoneengineering/lang/en_us.json",
-    '"Instrumentation Signal Analyzer"',
-    '"4-Channel Engineering Oscilloscope"',
-    '"Analog Signal Conditioner"',
-    '"Discrete PID Controller"',
-    '"Position/Velocity Servo Actuator"',
-    '"Production Operations Monitor"',
-    '"Pneumatic Safety Relief Valve"',
-)
-require(
-    "src/main/resources/assets/redstoneengineering/lang/zh_cn.json",
-    '"仪器信号分析仪"',
-    '"四通道工程示波器"',
-    '"模拟信号调理器"',
-    '"离散 PID 控制器"',
-    '"位置/速度伺服执行器"',
-    '"生产运维监测器"',
-    '"气动安全泄压阀"',
-)
+require("ALPHA1_0_6_MANIFEST.txt", "Engineering Language & Progression", "1.0.6-alpha", "License: MIT")
+require("src/main/resources/assets/redstoneengineering/lang/en_us.json", '"Instrumentation Signal Analyzer"', '"4-Channel Engineering Oscilloscope"', '"Analog Signal Conditioner"', '"Discrete PID Controller"', '"Position/Velocity Servo Actuator"', '"Production Operations Monitor"', '"Pneumatic Safety Relief Valve"')
+require("src/main/resources/assets/redstoneengineering/lang/zh_cn.json", '"仪器信号分析仪"', '"四通道工程示波器"', '"模拟信号调理器"', '"离散 PID 控制器"', '"位置/速度伺服执行器"', '"生产运维监测器"', '"气动安全泄压阀"')
 
-for rel in [
-    "docs/ENGINEERING_LANGUAGE_AND_CURRICULUM.md",
-    "docs/CRAFTING_PROGRESSION.md",
-    "ALPHA1_0_6_CHANGED_FILES.txt",
-]:
-    if not (root / rel).exists():
-        failed.append(f"missing: {rel}")
+for rel in ["docs/ENGINEERING_LANGUAGE_AND_CURRICULUM.md", "docs/CRAFTING_PROGRESSION.md", "ALPHA1_0_6_CHANGED_FILES.txt"]:
+    if not (root / rel).exists(): failed.append(f"missing: {rel}")
 
 recipe_requires("signal_analyzer", "minecraft:copper_ingot", "minecraft:glass", "minecraft:quartz")
 recipe_requires("oscilloscope", "redstoneengineering:signal_analyzer", "minecraft:quartz")
@@ -104,10 +84,7 @@ recipe_requires("servo_actuator", "minecraft:piston", "minecraft:comparator")
 recipe_requires("pneumatic_proportional_valve", "redstoneengineering:pneumatic_valve", "minecraft:comparator")
 recipe_requires("operations_monitor", "redstoneengineering:logic_analyzer", "minecraft:clock", "minecraft:observer")
 
-require(
-    "src/main/resources/assets/redstoneengineering/models/block/pneumatic_relief_valve.json",
-    "redstoneengineering:block/pneumatic_relief_valve",
-)
+require("src/main/resources/assets/redstoneengineering/models/block/pneumatic_relief_valve.json", "redstoneengineering:block/pneumatic_relief_valve")
 for rel in [
     "src/main/resources/assets/redstoneengineering/textures/block/signal_analyzer_front.png",
     "src/main/resources/assets/redstoneengineering/textures/block/calibration_module_front.png",
@@ -115,26 +92,15 @@ for rel in [
 ]:
     require_png_16(rel)
 
-require(
-    "src/main/java/dev/redstoneengineering/physics/PneumaticNetwork.java",
-    "ParticleTypes.CLOUD",
-    "sendParticles",
-    "relief valve actually clamps/vents excess pressure",
-)
-
+require("src/main/java/dev/redstoneengineering/physics/PneumaticNetwork.java", "ParticleTypes.CLOUD", "sendParticles", "relief valve actually clamps/vents excess pressure")
 workflow = read(".github/workflows/build.yml")
-if "rse_alpha106_engineering_verify.py" not in workflow:
-    failed.append("workflow does not run Alpha 1.0.6 verifier")
+if "rse_alpha106_engineering_verify.py" not in workflow: failed.append("workflow does not run Alpha 1.0.6 verifier")
 
 if failed:
     print("RSE Alpha 1.0.6 engineering verification: FAIL")
-    for item in failed:
-        print(" -", item)
+    for item in failed: print(" -", item)
     raise SystemExit(1)
 
-print("RSE Alpha 1.0.6 engineering verification: PASS")
-print(" engineering terminology EN/ZH: PASS")
-print(" tiered recipe dependencies: PASS")
-print(" 16x16 engineering texture assets: PASS")
-print(" event-driven pneumatic safety particles: PASS")
-print(" curriculum/progression documentation: PASS")
+print("RSE Alpha 1.0.6 engineering regression verification: PASS")
+print(" engineering terminology/progression/assets/safety feedback retained: PASS")
+print(" forward-version contract: PASS")

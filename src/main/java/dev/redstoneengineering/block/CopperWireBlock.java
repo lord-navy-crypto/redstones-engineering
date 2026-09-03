@@ -1,4 +1,38 @@
 package dev.redstoneengineering.block;
-import com.mojang.serialization.MapCodec;import dev.redstoneengineering.RedstoneEngineering;import dev.redstoneengineering.physics.DomainNetwork;import dev.redstoneengineering.physics.NetworkKernel;import dev.redstoneengineering.physics.RuntimeIntStore;import net.minecraft.core.BlockPos;import net.minecraft.core.Direction;import net.minecraft.network.chat.Component;import net.minecraft.server.level.ServerLevel;import net.minecraft.world.InteractionResult;import net.minecraft.world.entity.player.Player;import net.minecraft.world.level.BlockGetter;import net.minecraft.world.level.Level;import net.minecraft.world.level.block.state.BlockState;import net.minecraft.world.phys.BlockHitResult;
-/** 3-D copper cable. Bends are automatic; a physical branch/splice requires Copper Junction. */
-public class CopperWireBlock extends ConnectedCableBlock{private static final String KEY="copper_cable";public CopperWireBlock(Properties p){super(p);}@Override public MapCodec<CopperWireBlock> codec(){return RedstoneEngineering.COPPER_WIRE_CODEC.value();}@Override protected boolean canConnectTo(BlockGetter l,BlockPos p,Direction d,BlockState n){return TransmissionTopology.copperPort(n,d);}public static void setVoltage(Level l,BlockPos p,int v){RuntimeIntStore.get(l,KEY,p,1)[0]=Math.max(0,Math.min(15,v));}public static int voltage(Level l,BlockPos p){return RuntimeIntStore.get(l,KEY,p,1)[0];}@Override protected void onPlace(BlockState s,Level l,BlockPos p,BlockState o,boolean m){super.onPlace(s,l,p,o,m);if(l instanceof ServerLevel sl)DomainNetwork.recomputeCopper(sl,p);}@Override protected void neighborChanged(BlockState s,Level l,BlockPos p,net.minecraft.world.level.block.Block b,BlockPos np,boolean m){super.neighborChanged(s,l,p,b,np,m);if(l instanceof ServerLevel sl)DomainNetwork.recomputeCopper(sl,p);}@Override protected void onRemove(BlockState s,Level l,BlockPos p,BlockState ns,boolean m){if(!s.is(ns.getBlock()))RuntimeIntStore.remove(l,KEY,p);super.onRemove(s,l,p,ns,m);}@Override protected InteractionResult useWithoutItem(BlockState s,Level l,BlockPos p,Player pl,BlockHitResult h){if(!l.isClientSide)pl.displayClientMessage(Component.literal((topologyValid(s)?"Copper electrical cable":"TOPOLOGY ERROR — use Copper Junction for branches")+" | ports="+connectionCount(s)+" | V="+voltage(l,p)+"/15 | "+NetworkKernel.summary(l,"copper")),true);return InteractionResult.sidedSuccess(l.isClientSide);}}
+
+import com.mojang.serialization.MapCodec;
+import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.physics.DomainNetwork;
+import dev.redstoneengineering.physics.NetworkKernel;
+import dev.redstoneengineering.physics.RuntimeIntStore;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+
+/** 3-D copper electrical cable. Bends automatically; explicit Copper Junctions provide branches. */
+public class CopperWireBlock extends ConnectedCableBlock {
+    private static final String KEY = "copper_cable";
+    public CopperWireBlock(Properties p) { super(p); }
+    @Override public MapCodec<CopperWireBlock> codec() { return RedstoneEngineering.COPPER_WIRE_CODEC.value(); }
+    @Override protected boolean canConnectTo(BlockGetter l, BlockPos p, Direction d, BlockState n) { return TransmissionTopology.copperPort(n,d); }
+    public static void setVoltage(Level l, BlockPos p, int v) { RuntimeIntStore.get(l,KEY,p,1)[0] = Math.max(0,Math.min(15,v)); }
+    public static int voltage(Level l, BlockPos p) { return RuntimeIntStore.get(l,KEY,p,1)[0]; }
+    @Override protected void onPlace(BlockState s, Level l, BlockPos p, BlockState o, boolean m) { super.onPlace(s,l,p,o,m); if (l instanceof ServerLevel sl) DomainNetwork.recomputeCopper(sl,p); }
+    @Override protected void neighborChanged(BlockState s, Level l, BlockPos p, net.minecraft.world.level.block.Block b, BlockPos np, boolean m) { super.neighborChanged(s,l,p,b,np,m); if (l instanceof ServerLevel sl) DomainNetwork.recomputeCopper(sl,p); }
+    @Override protected void onRemove(BlockState s, Level l, BlockPos p, BlockState ns, boolean m) { if (!s.is(ns.getBlock())) RuntimeIntStore.remove(l,KEY,p); super.onRemove(s,l,p,ns,m); }
+    @Override protected InteractionResult useWithoutItem(BlockState s, Level l, BlockPos p, Player pl, BlockHitResult h) {
+        if (!l.isClientSide) pl.displayClientMessage(Component.literal(
+                (topologyValid(s) ? "Copper Electrical Cable" : "TOPOLOGY ERROR — use Copper Junction for branches")
+                        + " | " + PortDiagnostics.connectedCable(l,p,s,PortDiagnostics.Domain.COPPER)
+                        + " | V=" + voltage(l,p) + "/15 | " + NetworkKernel.summary(l,"copper")
+        ), true);
+        return InteractionResult.sidedSuccess(l.isClientSide);
+    }
+}
