@@ -10,19 +10,46 @@
 
 | Item | Current RSE baseline |
 | --- | --- |
-| Development milestone | **Alpha 1.0.7 — Legacy Wiring & Port Diagnostics** |
-| Artifact version | `1.0.7-alpha` |
+| Development milestone | **Alpha 1.0.8 — Dependency & Interoperability Foundation** |
+| Artifact version | `1.0.8-alpha` |
 | Minecraft | `1.21.1` |
 | NeoForge | `21.1.249` |
 | Java | `21` |
 | Mod ID | `redstoneengineering` |
 | License | **MIT** |
+| Required mod dependency | **NeoForge only** |
+| Optional dev/runtime integrations | **JEI + Jade** |
 
-Alpha 1.0.7 renovates early wiring and measurement-bus code so physical connections, network traversal, and player-facing port diagnostics follow one engineering contract.
+Alpha 1.0.8 establishes a controlled dependency policy: mature ecosystem APIs may be used when they clearly improve RSE, while the engineering simulation remains launchable without optional quality-of-life mods.
+
+## Alpha 1.0.8 — dependency foundation
+
+### Built into the RSE core
+
+RSE continues to use NeoForge-native facilities for the parts that belong to the engineering architecture itself:
+
+- sided/block capability infrastructure for future interoperable engineering ports;
+- GameTest run infrastructure for topology and in-game behavior tests;
+- data generation, configuration, registries, networking, and normal NeoForge lifecycle facilities;
+- RSE transmission domains, measurement models, port diagnostics, control logic, pneumatics, and operations models.
+
+### Optional integrations available to development
+
+**JEI 19.27.0.336** is now available through the official JEI Maven as compile-only APIs plus a full local runtime mod. This prepares recipe/use browsing and future RSE engineering recipe information without making JEI mandatory.
+
+**Jade 15.10.6+neoforge** for Minecraft 1.21.1 is now available as compile-only + local-runtime integration. This prepares an optional engineering HUD for port direction, transmission domain, measurements, and diagnostics without making Jade mandatory.
+
+RSE also includes a centralized optional-integration detector so later compatibility code can safely distinguish `AVAILABLE` from `ABSENT` integrations without contaminating core simulation code.
+
+See [`docs/DEPENDENCY_POLICY.md`](docs/DEPENDENCY_POLICY.md).
+
+### Not added merely as empty dependencies
+
+GeckoLib, Ponder, Fusion, YACL and similar libraries remain candidates. They will be added only together with the feature that materially benefits from them—for example articulated actuator animation, interactive engineering tutorials, or connected visual materials.
 
 ## Alpha 1.0.7 — legacy wiring renovation
 
-- **Instrument Cable** is now a six-direction `ConnectedCableBlock` multi-drop measurement bus rather than a plain adjacency-scanned block.
+- **Instrument Cable** is a six-direction `ConnectedCableBlock` multi-drop measurement bus rather than a plain adjacency-scanned block.
 - **InstrumentNetwork** traverses only real connected cable edges.
 - **Signal Probe** keeps its sensing face pointed at the measured target; its opposite/back face is the instrumentation-bus connection.
 - **Insulated Redstone, Copper, Lapis and Quartz** report exact connected directions.
@@ -43,7 +70,7 @@ RSE deliberately does **not** turn every wire into a universal cable. Different 
 - `INSTRUMENT_BUS` — measurement-channel transport;
 - optical and resonance domains remain separate as well.
 
-Cross-domain conversion should happen through explicit terminals, transducers, scalers, emitters/receivers, or other documented interfaces.
+Cross-domain conversion happens through explicit terminals, transducers, scalers, emitters/receivers, or other documented interfaces.
 
 ## Engineering language and progression
 
@@ -95,6 +122,7 @@ Throughput, utilization, cycle time, downtime, queue/WIP proxies, operating-stat
 7. Keep high-cardinality runtime data out of BlockState.
 8. Keep automation inspectable.
 9. Treat regression gates as part of the product.
+10. Use mature dependencies when they solve a real problem, but keep optional integrations optional.
 
 ## Reference calculations
 
@@ -128,7 +156,9 @@ P_out ≈ (P_in × opening + 7) / 15
 
 ## Verification architecture
 
-CI runs verifier syntax, repository/source/resource audits, deterministic reference models, historical Alpha regressions, the current milestone verifier, Java 21 `compileJava`, Gradle `test`, a clean build, SHA-256 generation, and verified artifact upload. Interactive Minecraft behavior remains a separate `runClient` gate.
+CI runs verifier syntax, repository/source/resource audits, deterministic reference models, historical Alpha regressions, dependency-policy checks, Java 21 `compileJava`, Gradle `test`, a clean build, SHA-256 generation, and verified artifact upload. `compileJava` also proves that the pinned optional integration artifacts can be resolved from their configured repositories.
+
+Interactive Minecraft behavior remains a separate `runClient` gate.
 
 ## Build
 
@@ -145,6 +175,7 @@ Build output is under `build/libs/`.
 
 - [`CHANGELOG.md`](CHANGELOG.md)
 - [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- [`docs/DEPENDENCY_POLICY.md`](docs/DEPENDENCY_POLICY.md)
 - [`docs/ENGINEERING_LANGUAGE_AND_CURRICULUM.md`](docs/ENGINEERING_LANGUAGE_AND_CURRICULUM.md)
 - [`docs/CRAFTING_PROGRESSION.md`](docs/CRAFTING_PROGRESSION.md)
 - [`docs/ALPHA1_0_7_LEGACY_WIRING_PORTS.md`](docs/ALPHA1_0_7_LEGACY_WIRING_PORTS.md)
