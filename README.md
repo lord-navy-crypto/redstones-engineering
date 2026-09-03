@@ -4,7 +4,7 @@
 
 **Redstone Systems Engineering** is a NeoForge engineering-systems mod for Minecraft that extends vanilla redstone without replacing it.
 
-RSE keeps the vanilla **0–15 redstone signal as the world-facing engineering boundary** and builds measurement, conditioning, sampling, control, actuation, diagnostics, communications, and operations tools around it.
+RSE keeps the vanilla **0–15 redstone signal as the world-facing engineering boundary** and builds measurement, conditioning, sampling, control, actuation, diagnostics, communications, safety, and operations tools around it.
 
 > **Engineering path:** Measurement → Conditioning → Sampling → Control → Actuation → Optimization
 
@@ -12,177 +12,101 @@ RSE keeps the vanilla **0–15 redstone signal as the world-facing engineering b
 
 | Item | Current RSE baseline |
 | --- | --- |
-| Development milestone | **Alpha 1.0.5 — Quality, Calibration & Regression Hardening** |
-| Artifact version | `1.0.5-alpha` |
+| Development milestone | **Alpha 1.0.6 — Engineering Language & Progression** |
+| Artifact version | `1.0.6-alpha` |
 | Minecraft | `1.21.1` |
 | NeoForge | `21.1.249` |
 | Java | `21` |
 | Mod ID | `redstoneengineering` |
 | License | **MIT** |
-| Language | Java |
 
-Alpha 1.0.5 is a quality milestone. It deepens **measurement quality, capture integrity, save/reload consistency, source/resource auditing, and regression detection** rather than adding blocks for the sake of block count.
+Alpha 1.0.6 translates the core block set into more precise engineering vocabulary, introduces a tiered crafting progression, begins a coherent engineering visual language, and adds event-driven safety feedback for pneumatic relief.
+
+## Engineering language
+
+Representative in-game translations now include:
+
+- **Instrumentation Signal Analyzer** — measurement / metrology;
+- **4-Channel Engineering Oscilloscope** — waveform capture;
+- **Analog Signal Conditioner** — gain/offset/threshold conditioning;
+- **Instrument Calibration Reference** — metrology reference;
+- **Sample-and-Hold Module** — data acquisition;
+- **4-Channel Logic Analyzer** — digital timing diagnostics;
+- **Discrete PID Controller** — feedback control;
+- **Position/Velocity Servo Actuator** — mechatronic actuation;
+- **Position Feedback Transducer** — feedback sensing;
+- **Fault Watchdog Timer / Latched Fault Memory / Redundant Signal Voter** — reliability and safety;
+- **Pneumatic Proportional Control Valve / Pneumatic Safety Relief Valve / Pneumatic Linear Actuator** — fluid-power control;
+- **Production Operations Monitor** — industrial and operations engineering.
+
+The full translation and discipline map is in [`docs/ENGINEERING_LANGUAGE_AND_CURRICULUM.md`](docs/ENGINEERING_LANGUAGE_AND_CURRICULUM.md).
+
+## Crafting progression
+
+Recipes now follow engineering dependency more strongly than raw rarity:
+
+1. **Tier 1 — Basic Measurement**: probes, instrumentation cable, Signal Analyzer.
+2. **Tier 2 — Signal Processing & Data Acquisition**: conditioner, calibration, oscilloscope, logic analyzer.
+3. **Tier 3 — Control & Mechatronics**: PID, PWM, servo, proportional pneumatic control.
+4. **Tier 4 — Safety & Reliability**: watchdog, redundancy, fault memory, relief protection.
+5. **Tier 5 — Integrated Operations**: Operations Monitor and system-level networks.
+
+Examples:
+
+- Oscilloscope and Logic Analyzer require a Signal Analyzer.
+- PID requires a Signal Conditioner and comparator logic.
+- Pneumatic Proportional Control Valve requires a Pneumatic Isolation Valve plus comparator control.
+- Production Operations Monitor requires a Logic Analyzer, clock and observer.
+
+See [`docs/CRAFTING_PROGRESSION.md`](docs/CRAFTING_PROGRESSION.md).
+
+## Visual and feedback language
+
+Alpha 1.0.6 starts a consistent visual hierarchy:
+
+- instrumentation: dark chassis, cyan measurement screen/grid, amber calibration/status accents;
+- calibration: dial/scale visual language;
+- safety: metal body + red safety marking + visible pressure indication;
+- pneumatic relief: cloud particles appear **only when excess pressure is actually vented**, not as constant decoration.
+
+The first refreshed textures cover the Signal Analyzer front panel, Calibration Module front panel, and Pneumatic Safety Relief Valve.
+
+## Engineering systems already represented
+
+### Engineering Physics
+Measurement, calibration, uncertainty proxies, electromagnetism, thermal/optical experiments, resonators, and model-versus-measurement reasoning.
+
+### Electrical & Computer Engineering
+Analog conditioning, sampling, timing, oscillators, PWM, buses, serial/differential links, radio, instrumentation, digital diagnostics, watchdogs and control implementation.
+
+### Mechanical / Mechatronics
+Servo motion, position feedback, pneumatic pressure networks, regulators, valves, relief protection, cylinders, vibration and damping.
+
+### Industrial & Operations Engineering
+Throughput, utilization, cycle time, downtime, queue/WIP proxies, operating-state classification, fault handling and system reliability.
+
+## School-angle development
+
+RSE remains one coherent system, but different academic perspectives guide depth:
+
+- **Michigan-style Engineering Physics + ECE + ME + IOE:** physical modeling → measurement → feedback → actuation → operations.
+- **UIUC-style ECE depth:** signals, circuits, timing, data acquisition, communications and control implementation.
+- **UW–Madison-style Engineering Physics / experimental systems:** calibration, uncertainty, instrument response, field/thermal/optical measurement and model-vs-data comparison.
+- **CMU-style ECE / robotics systems:** sensor fusion, fault-aware autonomy, actuator feedback, distributed communication and system diagnostics.
+
+Recommended next additions are uncertainty/metrology, fault injection, sensor fusion/state estimation, system identification, reliability dashboards, and energy/efficiency accounting.
 
 ## Design principles
 
-1. **Preserve the 0–15 boundary.** Normal Minecraft-facing redstone remains compatible with vanilla signal strengths.
-2. **Measure before controlling.** Probes, analyzers, scopes, monitors, and diagnostics are first-class engineering systems.
-3. **Make ports explicit.** Input, output, feedback, inhibit, measurement, and domain ports should have understandable directions.
-4. **Separate measurement from intervention.** Instrument calibration may change a displayed reading but must not silently alter the circuit under test.
-5. **Configuration should have physical meaning.** Gain, threshold, slew, setpoint, channel, valve opening, pressure limit, and controller tuning represent engineering concepts.
-6. **Model useful non-ideal behavior.** Saturation, finite slew, loss, contention, interference, pressure drop, queue buildup, and safety limits are intentional.
-7. **Avoid BlockState explosion.** High-cardinality runtime measurements belong in transient/runtime storage or dedicated data structures.
-8. **Keep automation inspectable.** Control and optimization features expose state and diagnostics instead of acting as unexplained magic blocks.
-9. **Regression gates are part of the product.** A new feature is not accepted if it breaks older validated engineering contracts.
-
-## Alpha 1.0.5 focus
-
-### Signal Analyzer: recent-window quality
-
-Signal Analyzer keeps the Alpha 1.0.4 `TAP` and `INLINE` topologies and now adds a **16-sample rolling window**.
-
-Recent diagnostics include:
-
-- rolling average;
-- peak-to-peak range;
-- mean absolute sample step;
-- sample age;
-- `WARMUP`, `STEADY`, `STABLE`, `DYNAMIC`, or `HIGH_VARIATION` classification.
-
-Lifetime diagnostics remain separate:
-
-- sample count;
-- lifetime min/max;
-- total changes;
-- rising/falling changes;
-- last and maximum delta;
-- time since last change;
-- mode/calibration switch counts.
-
-This distinction matters because an old transient should not make a currently stable signal look permanently unstable.
-
-### Analyzer display calibration
-
-Analyzer now has a small persistent display calibration offset:
-
-```text
--2, -1, 0, +1, +2
-```
-
-Displayed value:
-
-```text
-S_display = clamp(S_raw + calibration_offset, 0, 15)
-```
-
-The critical rule is:
-
-```text
-INLINE OUT = S_raw
-```
-
-Calibration changes the instrument readout only. It does **not** condition or modify the downstream redstone signal.
-
-Interaction summary:
-
-```text
-Right-click UP:         TAP ↔ INLINE
-Shift + UP:             reset transient analyzer statistics
-Right-click DOWN:       cycle display calibration -2..+2
-Shift + other face:     six-side raw survey
-Other normal click:     raw + calibrated + rolling/lifetime diagnostics
-```
-
-### Instrument-network structural integrity
-
-Instrument networks now report:
-
-- cable count;
-- probe count;
-- valid channels;
-- active channels;
-- duplicate channels;
-- duplicate probes;
-- maximum cable depth;
-- maximum probe depth;
-- structural integrity state.
-
-Integrity states:
-
-```text
-OK
-NO_PROBES
-AMBIGUOUS
-TRUNCATED
-```
-
-Duplicate channels remain deliberately invalid rather than using last-writer-wins behavior.
-
-### Oscilloscope capture quality
-
-Oscilloscope now reports:
-
-- sample period: `2 ticks`;
-- capture count;
-- valid-sample coverage;
-- `NO_DATA`, `WARMUP`, `COMPLETE`, `PARTIAL`, or `POOR_COVERAGE` capture state;
-- average signal value;
-- mean absolute sample step;
-- min/max/peak-to-peak;
-- estimated period in samples and ticks;
-- cursor delta in samples and ticks.
-
-Post-trigger progress is now persisted across save/reload.
-
-### Logic Analyzer capture quality
-
-Logic Analyzer now reports:
-
-- sample period: `1 tick`;
-- capture coverage per channel;
-- edge count;
-- transition rate;
-- duty cycle;
-- capture-quality classification;
-- cursor timing in samples and ticks.
-
-Its post-trigger capture progress is also persisted across save/reload.
-
-## Alpha 1.0.4 topology foundation
-
-Alpha 1.0.5 preserves the topology work completed in Alpha 1.0.4:
-
-- Analyzer `TAP` is non-invasive.
-- Analyzer `INLINE` has explicit TEST and opposite OUT signal-path faces.
-- Direction-aware measurement reads the actual tested face of directional sources.
-- Redstone dust and explicit RSE conductor nodes report their own node power.
-- Instrument networks expose bounded/ambiguous topology diagnostics.
-- Pneumatic Cylinder emits position feedback only from FRONT/FACING.
-- Pneumatic Cylinder is a terminal one-port pneumatic actuator: pressure enters BACK and cannot pass through FRONT/sides to bridge another network.
-
-## Alpha 1.0.3 control foundation
-
-The current quality work also preserves:
-
-- PID **AUTO/MANUAL**, output limits, anti-windup, deadband, filtered derivative, and bumpless Manual→Auto transfer;
-- Servo **POSITION/VELOCITY**, centered `7=stop` velocity command, brake, and soft-limit diagnostics;
-- Data Bus physical-driver versus distinct-value contention diagnostics;
-- accumulated Radio valid/undecodable/collision/dropout diagnostics;
-- Pneumatic proportional and relief/safety behavior;
-- IOE operating-state classification and queue/downtime metrics.
-
-## Engineering systems
-
-RSE currently includes or develops:
-
-- **Instrumentation & measurement** — probes, analyzer, oscilloscope, logic analyzer, instrumentation cable, measurement windows, calibration, capture coverage, and topology diagnostics.
-- **Signal conditioning** — gain, offset, clamp, threshold, deadband, and mapping primitives.
-- **Digital systems & communications** — data buses, serial-style information systems, contention diagnostics, and radio links.
-- **Closed-loop control** — PID control with manual/auto operation and response diagnostics.
-- **Mechatronics** — finite-speed servo behavior with position/velocity control.
-- **Pneumatics** — compressors, reservoirs, pipes, regulators, valves, flow measurement, safety relief, and terminal cylinders.
-- **Operations / IOE** — throughput, utilization, cycle time, downtime, queue/WIP, and operating-state classification.
-- **Additional domains** — mechanical, thermal, and other experimental engineering systems under the same measurement/control philosophy.
+1. Preserve the vanilla **0–15** boundary.
+2. Measure before controlling.
+3. Make ports explicit.
+4. Separate measurement from intervention.
+5. Give configuration physical meaning.
+6. Model useful non-ideal behavior.
+7. Keep high-cardinality runtime data out of BlockState.
+8. Keep automation inspectable.
+9. Treat regression gates as part of the product.
 
 ## Reference calculations
 
@@ -208,20 +132,7 @@ meanStep = sum(|x_i - x_(i-1)|) / (n - 1)
 ```text
 S_display = clamp(S_raw + offset, 0, 15)
 offset ∈ {-2, -1, 0, +1, +2}
-```
-
-INLINE remains:
-
-```text
-S_out = S_raw
-```
-
-### Signal conditioning
-
-```text
-Gain:       S_out = clamp(round(G × S_in), 0, 15)
-Offset:     S_out = clamp(S_in + b, 0, 15)
-Threshold:  S_out = S_in if S_in >= T else 0
+INLINE OUT = S_raw
 ```
 
 ### PID reference model
@@ -240,11 +151,11 @@ u            = clamp(u_raw, 0, 15)
 v_command = S_command - 7
 ```
 
-`7 = stop`, values below 7 command reverse motion, and values above 7 command forward motion.
+`7 = stop`, lower values command reverse motion, and higher values command forward motion.
 
-### Pneumatic proportional-valve model
+### Pneumatic proportional control
 
-The pneumatic domain currently uses an internal pressure scale of approximately `0..100` while redstone commands remain `0..15`:
+The pneumatic domain uses an internal pressure scale of approximately `0..100`, while redstone commands remain `0..15`:
 
 ```text
 P_out ≈ (P_in × opening + 7) / 15
@@ -252,36 +163,29 @@ P_out ≈ (P_in × opening + 7) / 15
 
 ### Operations metrics
 
-For a 60-second monitoring window:
-
 ```text
 utilization = running_ticks / window_ticks
 throughput  = completed_cycles / minute
 average_WIP = sum(queue_proxy) / sampled_ticks
 ```
 
-## Quality and verification architecture
+## Verification architecture
 
-Alpha 1.0.5 treats verification as an engineering layer.
+CI runs:
 
-CI now runs this ladder:
+1. Python verifier syntax;
+2. repository and source/resource audits;
+3. deterministic reference-model tests;
+4. historical Alpha regression verifiers;
+5. current milestone verifier;
+6. Java 21 `compileJava`;
+7. Gradle `test`;
+8. clean Gradle build;
+9. SHA-256 generation and verified artifact upload.
 
-1. **Python verifier syntax** — `python3 -m compileall -q tools`.
-2. **Repository verifier** — metadata, version, license, workflow, and root hygiene.
-3. **Source/resource quality audit** — Java package/path consistency, brace/whitespace smoke checks, JSON parse/collision checks, local model-reference integrity, item-model pairing, BlockState cardinality, and temporary-file detection.
-4. **Deterministic reference-model tests** — `0..15`, calibration isolation, rolling metrics, topology integrity, and timebase mathematics.
-5. **Historical regression verifiers** — redstone plus previous Alpha milestones.
-6. **Alpha 1.0.5 verifier** — quality/calibration/save-reload contracts.
-7. **Java 21 `compileJava`**.
-8. **Gradle `test`**.
-9. **Clean Gradle build**.
-10. **SHA-256 generation and verified JAR artifact upload**.
+Interactive Minecraft behavior remains a separate `runClient` gate.
 
-CI proves repository/build integrity. Interactive Minecraft behavior remains a separate `runClient` validation gate.
-
-## Build and development
-
-Requirements: **JDK 21**, Git, and the included NeoForge/Gradle project.
+## Build
 
 ```bash
 ./gradlew compileJava --no-daemon --stacktrace
@@ -290,24 +194,17 @@ Requirements: **JDK 21**, Git, and the included NeoForge/Gradle project.
 ./gradlew runClient
 ```
 
-Build output is placed under `build/libs/`.
+Build output is under `build/libs/`.
 
 ## Documentation
 
-- [`CHANGELOG.md`](CHANGELOG.md) — milestone history.
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — engineering and verification rules.
-- [`docs/ALPHA1_0_5_QUALITY_CALIBRATION.md`](docs/ALPHA1_0_5_QUALITY_CALIBRATION.md) — current quality/calibration engineering contract.
-- [`docs/ALPHA1_0_5_TEST_MATRIX.md`](docs/ALPHA1_0_5_TEST_MATRIX.md) — current interactive validation matrix.
-- [`docs/ALPHA1_0_4_INSTRUMENTATION_TOPOLOGY.md`](docs/ALPHA1_0_4_INSTRUMENTATION_TOPOLOGY.md) — explicit measurement/topology foundation.
-- [`docs/ALPHA1_0_4_TEST_MATRIX.md`](docs/ALPHA1_0_4_TEST_MATRIX.md) — Alpha 1.0.4 interactive matrix.
-- [`docs/ALPHA1_0_3_CLOSED_LOOP_DIAGNOSTICS.md`](docs/ALPHA1_0_3_CLOSED_LOOP_DIAGNOSTICS.md) — control/diagnostics foundation.
+- [`CHANGELOG.md`](CHANGELOG.md)
+- [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- [`docs/ENGINEERING_LANGUAGE_AND_CURRICULUM.md`](docs/ENGINEERING_LANGUAGE_AND_CURRICULUM.md)
+- [`docs/CRAFTING_PROGRESSION.md`](docs/CRAFTING_PROGRESSION.md)
+- [`docs/ALPHA1_0_5_QUALITY_CALIBRATION.md`](docs/ALPHA1_0_5_QUALITY_CALIBRATION.md)
+- [`docs/ALPHA1_0_5_TEST_MATRIX.md`](docs/ALPHA1_0_5_TEST_MATRIX.md)
 
 ## License
 
 RSE is released under the **MIT License**. See [`LICENSE`](LICENSE).
-
-## Project links
-
-- Repository: <https://github.com/lord-navy-crypto/redstones-engineering>
-- Issues: <https://github.com/lord-navy-crypto/redstones-engineering/issues>
-- Actions: <https://github.com/lord-navy-crypto/redstones-engineering/actions>
