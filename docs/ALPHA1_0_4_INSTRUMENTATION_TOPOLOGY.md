@@ -114,7 +114,7 @@ Alpha 1.0.4 adds topology metadata to each `ProbeSnapshot`:
 cableNodes
 probeNodes
 activeChannels
- duplicateChannels
+duplicateChannels
 bounded / truncated
 ```
 
@@ -128,18 +128,35 @@ instrumentNet cables=12 probes=3 channels=3/4 duplicateChannels=0 scan=BOUNDED
 
 This makes wiring mistakes diagnosable without turning instrument cable into a power network.
 
-## 6. Pneumatic Cylinder explicit feedback topology
+## 6. Pneumatic Cylinder explicit feedback and terminal topology
 
-The Pneumatic Cylinder is a cross-domain device: pneumatic pressure drives mechanical position, while redstone exposes a feedback measurement.
+The Pneumatic Cylinder is a cross-domain terminal actuator: pneumatic pressure drives mechanical position, while redstone exposes a feedback measurement.
 
-Alpha 1.0.4 makes that feedback directional.
+Alpha 1.0.4 makes both sides of that contract explicit:
 
 ```text
 BACK/FACING.opposite = pneumatic input
 FRONT/FACING         = redstone position feedback, 0..15
 ```
 
-The cylinder no longer behaves like an all-side redstone source.
+The cylinder no longer behaves like an all-side redstone source, and it no longer behaves like an inline pneumatic pipe.
+
+### Terminal pneumatic behavior
+
+The pneumatic solver treats the cylinder as a **one-port sink/actuator**:
+
+- pressure may enter only through `BACK`;
+- a cylinder cannot bridge two pneumatic networks;
+- pressure does not propagate from the cylinder through `FRONT` or either side;
+- network discovery follows the same one-port topology, so a network beyond a cylinder is not accidentally merged into the upstream network.
+
+Conceptually:
+
+```text
+pipe → BACK [ Cylinder ] FRONT → redstone feedback
+                    X
+              no pneumatic pass-through
+```
 
 Feedback mapping remains:
 
@@ -173,8 +190,9 @@ Alpha 1.0.4 must preserve these invariants:
 6. Duplicate instrument channels remain invalid/ambiguous.
 7. Instrument-network scanning is bounded.
 8. Pneumatic Cylinder feedback is emitted only through its explicit FRONT/FACING port.
-9. Pneumatic domain data and redstone feedback remain conceptually separate.
-10. Existing Alpha 1.0.3 PID/Servo/Bus/Radio/Pneumatic/IOE verification must continue to pass.
+9. Pneumatic Cylinder accepts pneumatic pressure only through BACK and cannot pass pressure through itself.
+10. Pneumatic domain data and redstone feedback remain conceptually separate.
+11. Existing Alpha 1.0.3 PID/Servo/Bus/Radio/Pneumatic/IOE verification must continue to pass.
 
 ## 8. Validation
 
