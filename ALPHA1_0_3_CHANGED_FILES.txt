@@ -1,6 +1,13 @@
+README.md
+LICENSE
+gradle.properties
+.github/workflows/build.yml
 ALPHA1_0_3_MANIFEST.txt
+ALPHA1_0_3_CHANGED_FILES.txt
 docs/ALPHA1_0_3_CLOSED_LOOP_DIAGNOSTICS.md
+tools/rse_repo_verify.py
 tools/rse_alpha103_closed_loop_verify.py
+src/main/templates/META-INF/neoforge.mods.toml
 src/main/java/dev/redstoneengineering/RedstoneEngineering.java
 src/main/java/dev/redstoneengineering/physics/DataBusNetwork.java
 src/main/java/dev/redstoneengineering/physics/PneumaticNetwork.java
