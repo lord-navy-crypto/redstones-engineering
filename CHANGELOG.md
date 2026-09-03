@@ -6,6 +6,31 @@ All notable RSE engineering milestones are recorded here. RSE remains in alpha d
 
 - Future work should remain behind a focused branch/PR and pass the repository verification workflow before being merged into `main`.
 
+## [1.0.8-alpha] — Dependency & Interoperability Foundation
+
+### Dependency architecture
+
+- Kept the RSE core launchable with Minecraft 1.21.1 + NeoForge alone.
+- Added JEI `19.27.0.336` through its official Maven as compile-only API plus full `localRuntime` development mod.
+- Added Jade `15.10.6+neoforge` as compile-only + `localRuntime` using a narrowly filtered Modrinth Maven repository.
+- Added centralized optional-integration detection through `IntegrationStatus` without importing optional-mod classes into the RSE core startup path.
+- Added `docs/DEPENDENCY_POLICY.md` to classify native, optional, future feature-driven, and disallowed accidental dependency patterns.
+
+### Quality gates
+
+- Added `tools/rse_alpha108_dependency_verify.py`.
+- CI now verifies that JEI/Jade remain optional, are not shaded/bundled, and are not declared as required NeoForge dependencies.
+- CI Java compilation also resolves the pinned ecosystem artifacts so a stale or invalid Maven coordinate fails before merge.
+- Made the Alpha 1.0.7 verifier forward-compatible so later versions continue to protect legacy wiring/port contracts.
+
+## [1.0.7-alpha] — Legacy Wiring & Port Diagnostics
+
+- Upgraded Instrument Cable to a six-direction connected instrumentation bus.
+- Made InstrumentNetwork traverse physical connected edges rather than raw adjacency.
+- Clarified Signal Probe sensing face versus instrumentation-bus connection face.
+- Added domain/port diagnostics for insulated redstone, copper, lapis, quartz, instrumentation cable, and cable terminals.
+- Preserved explicit cross-domain isolation with `DOMAIN_MISMATCH` diagnostics.
+
 ## [1.0.6-alpha] — Engineering Language & Progression
 
 ### Engineering vocabulary

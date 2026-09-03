@@ -49,7 +49,8 @@ jobs:
             tools/rse_alpha104_verify.py \
             tools/rse_alpha105_quality_verify.py \
             tools/rse_alpha106_engineering_verify.py \
-            tools/rse_alpha107_legacy_wiring_verify.py
+            tools/rse_alpha107_legacy_wiring_verify.py \
+            tools/rse_alpha108_dependency_verify.py
           do
             if [[ -f "$verifier" ]]; then
               echo "==> $verifier"
@@ -57,7 +58,7 @@ jobs:
             fi
           done
 
-      - name: Compile Java
+      - name: Compile Java and resolve optional integration APIs
         run: ./gradlew compileJava --no-daemon --stacktrace
 
       - name: Gradle tests
