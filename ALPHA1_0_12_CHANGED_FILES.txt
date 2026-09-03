@@ -6,6 +6,7 @@ gradle.properties
 .github/workflows/build.yml
 docs/ALPHA1_0_12_DIRECTIONAL_IO_RENOVATION.md
 docs/ALPHA1_0_12_TEST_MATRIX.md
+tools/rse_alpha1010_port_architecture_verify.py
 tools/rse_alpha1012_directional_io_verify.py
 src/main/java/dev/redstoneengineering/block/DirectionalRedstoneEndpointBlock.java
 src/main/java/dev/redstoneengineering/block/DirectionalRedstoneSensorBlock.java
