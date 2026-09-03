@@ -62,7 +62,6 @@ if (root / sensor_base).exists():
     ]:
         require(rel, "extends DirectionalRedstoneSensorBlock")
 else:
-    # Historical pre-1.0.12 layout: each sensor implemented the contract directly.
     for rel in [
         "src/main/java/dev/redstoneengineering/block/EngineeringLightSensorBlock.java",
         "src/main/java/dev/redstoneengineering/block/EntityDensitySensorBlock.java",
@@ -77,8 +76,6 @@ require("src/main/java/dev/redstoneengineering/block/RedstoneSignalCableBlock.ja
 require("src/main/java/dev/redstoneengineering/block/InstrumentCableBlock.java",
         "EngineeringDomain.INSTRUMENT_BUS", "PortKind.BUS", "PortDirection.BIDIRECTIONAL")
 
-# Required ecosystem libraries may be used by adapters/UI, but the engineering
-# model must never import client integration APIs directly.
 forbidden_imports = [
     "mezz.jei",
     "snownee.jade",
@@ -99,14 +96,15 @@ for token in ["mezz.jei", "nvQzSEkH", "geckolib-neoforge", "cloth-config-neoforg
     if token not in build:
         failed.append(f"required dependency disappeared from build.gradle: {token}")
 
-for rel in ["ALPHA1_0_10_MANIFEST.txt", "docs/ALPHA1_0_10_ENGINEERING_PORT_ARCHITECTURE.md"]:
-    if not (root / rel).exists():
-        failed.append(f"missing {rel}")
-
+# Historical release evidence belongs in the historical manifest/documentation.
+# The README is allowed to advance to the current Alpha instead of permanently
+# retaining every old artifact-version literal.
+require("ALPHA1_0_10_MANIFEST.txt", "1.0.10-alpha")
+require("docs/ALPHA1_0_10_ENGINEERING_PORT_ARCHITECTURE.md", "Engineering Port")
 readme = text("README.md")
-for token in ["Alpha 1.0.10", "1.0.10-alpha", "Engineering Port Contract"]:
+for token in ["Alpha 1.0.10", "Engineering Port Contract"]:
     if token not in readme:
-        failed.append(f"README missing {token}")
+        failed.append(f"README missing historical architecture reference {token}")
 
 workflow = text(".github/workflows/build.yml")
 if "rse_alpha1010_port_architecture_verify.py" not in workflow:
@@ -123,4 +121,4 @@ print(" static port descriptor + runtime snapshot separation: PASS")
 print(" domain/direction compatibility model: PASS")
 print(" representative legacy migration/inheritance: PASS")
 print(" required-dependency core boundary: PASS")
-print(" vanilla 0..15 runtime snapshot bound: PASS")
+print(" forward-compatible historical documentation gate: PASS")

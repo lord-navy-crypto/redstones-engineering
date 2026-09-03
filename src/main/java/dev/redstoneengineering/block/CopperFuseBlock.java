@@ -19,16 +19,86 @@ import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
-public class CopperFuseBlock extends DirectionalDomainBlock {
+/** Axial copper safety element: BACK input, FRONT protected output. */
+public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
     private static final String KEY = "copper_fuse";
-    public static final IntegerProperty RATING=IntegerProperty.create("rating",1,15);
-    public static final BooleanProperty TRIPPED=BooleanProperty.create("tripped");
-    public CopperFuseBlock(Properties p){super(p);registerDefaultState(defaultBlockState().setValue(RATING,4).setValue(TRIPPED,false));}
-    @Override public MapCodec<CopperFuseBlock> codec(){return RedstoneEngineering.COPPER_FUSE_CODEC.value();}
-    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block,BlockState>b){super.createBlockStateDefinition(b);b.add(RATING,TRIPPED);}
-    @Override protected void onPlace(BlockState s,Level l,BlockPos p,BlockState old,boolean moved){super.onPlace(s,l,p,old,moved);if(!l.isClientSide)l.scheduleTick(p,this,2);}
-    @Override protected void tick(BlockState s,ServerLevel l,BlockPos p,RandomSource r){int vin=DomainNetwork.sampleCopperVoltage(l,inputPos(p,s));double loadR=CircuitPhysics.equivalentLoadResistance(l,outputPos(p,s),128);double current=CircuitPhysics.current(vin,loadR);boolean trip=s.getValue(TRIPPED)||current>s.getValue(RATING);BlockState n=s.setValue(TRIPPED,trip);if(n!=s)l.setBlock(p,n,Block.UPDATE_CLIENTS);int out=trip?0:vin;RuntimeIntStore.get(l,KEY,p,1)[0]=out;DomainNetwork.driveCopper(l,outputPos(p,n),p,out);l.scheduleTick(p,this,2);}
-    public static int outputVoltage(Level level, BlockPos pos){return RuntimeIntStore.get(level,KEY,pos,1)[0];}
-    @Override protected void onRemove(BlockState s,Level l,BlockPos p,BlockState ns,boolean moved){if(!s.is(ns.getBlock())){if(l instanceof ServerLevel sl)DomainNetwork.driveCopper(sl,outputPos(p,s),p,0);RuntimeIntStore.remove(l,KEY,p);}super.onRemove(s,l,p,ns,moved);}
-    @Override protected InteractionResult useWithoutItem(BlockState s,Level l,BlockPos p,Player pl,BlockHitResult hit){if(!l.isClientSide){BlockState n=s;if(pl.isShiftKeyDown())n=s.setValue(TRIPPED,false);else{int rating=s.getValue(RATING);n=s.setValue(RATING,rating>=15?1:rating+1);}l.setBlock(p,n,Block.UPDATE_CLIENTS);pl.displayClientMessage(Component.literal("Copper fuse | current rating="+n.getValue(RATING)+" | "+(n.getValue(TRIPPED)?"TRIPPED":"armed")+(pl.isShiftKeyDown()?" | reset":"")),true);}return InteractionResult.sidedSuccess(l.isClientSide);}
+    public static final IntegerProperty RATING = IntegerProperty.create("rating", 1, 15);
+    public static final BooleanProperty TRIPPED = BooleanProperty.create("tripped");
+
+    public CopperFuseBlock(Properties properties) {
+        super(properties);
+        registerDefaultState(defaultBlockState().setValue(RATING, 4).setValue(TRIPPED, false));
+    }
+
+    @Override
+    public MapCodec<CopperFuseBlock> codec() {
+        return RedstoneEngineering.COPPER_FUSE_CODEC.value();
+    }
+
+    @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        super.createBlockStateDefinition(builder);
+        builder.add(RATING, TRIPPED);
+    }
+
+    @Override
+    protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
+        super.onPlace(state, level, pos, oldState, movedByPiston);
+        if (!level.isClientSide) level.scheduleTick(pos, this, 2);
+    }
+
+    @Override
+    protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+        int inputVoltage = DomainNetwork.sampleCopperVoltage(level, inputPos(pos, state));
+        double loadResistance = CircuitPhysics.equivalentLoadResistance(level, outputPos(pos, state), 128);
+        double current = CircuitPhysics.current(inputVoltage, loadResistance);
+        boolean tripped = state.getValue(TRIPPED) || current > state.getValue(RATING);
+        BlockState next = state.setValue(TRIPPED, tripped);
+
+        if (next != state) level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        int outputVoltage = tripped ? 0 : inputVoltage;
+        RuntimeIntStore.get(level, KEY, pos, 1)[0] = outputVoltage;
+        DomainNetwork.driveCopper(level, outputPos(pos, next), pos, outputVoltage);
+        level.scheduleTick(pos, this, 2);
+    }
+
+    public static int outputVoltage(Level level, BlockPos pos) {
+        return RuntimeIntStore.get(level, KEY, pos, 1)[0];
+    }
+
+    @Override
+    protected int observedOutputVoltage(Level level, BlockPos pos, BlockState state) {
+        return outputVoltage(level, pos);
+    }
+
+    @Override
+    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
+        if (!state.is(newState.getBlock())) {
+            if (level instanceof ServerLevel serverLevel) {
+                DomainNetwork.driveCopper(serverLevel, outputPos(pos, state), pos, 0);
+            }
+            RuntimeIntStore.remove(level, KEY, pos);
+        }
+        super.onRemove(state, level, pos, newState, movedByPiston);
+    }
+
+    @Override
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+        if (!level.isClientSide) {
+            BlockState next = state;
+            if (player.isShiftKeyDown()) {
+                next = state.setValue(TRIPPED, false);
+            } else {
+                int rating = state.getValue(RATING);
+                next = state.setValue(RATING, rating >= 15 ? 1 : rating + 1);
+            }
+            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+            player.displayClientMessage(Component.literal(
+                    "Copper fuse | BACK input -> FRONT protected output | current rating=" + next.getValue(RATING)
+                            + " | " + (next.getValue(TRIPPED) ? "TRIPPED" : "armed")
+                            + (player.isShiftKeyDown() ? " | reset" : "")
+            ), true);
+        }
+        return InteractionResult.sidedSuccess(level.isClientSide);
+    }
 }

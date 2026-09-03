@@ -18,49 +18,91 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
-public class CopperCapacitorBlock extends DirectionalDomainBlock {
+/** Axial copper RC element: BACK input, FRONT output. */
+public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
     public static final IntegerProperty C_INDEX = IntegerProperty.create("capacitance", 0, 3);
     private static final String KEY = "copper_capacitor";
 
-    public CopperCapacitorBlock(Properties p) { super(p); registerDefaultState(defaultBlockState().setValue(C_INDEX, 1)); }
-    @Override public MapCodec<CopperCapacitorBlock> codec() { return RedstoneEngineering.COPPER_CAPACITOR_CODEC.value(); }
-    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> b) { super.createBlockStateDefinition(b); b.add(C_INDEX); }
-    private static int tau(int i) { return switch (i) { case 0 -> 2; case 1 -> 4; case 2 -> 8; default -> 16; }; }
+    public CopperCapacitorBlock(Properties properties) {
+        super(properties);
+        registerDefaultState(defaultBlockState().setValue(C_INDEX, 1));
+    }
 
-    @Override protected void onPlace(BlockState s, Level l, BlockPos p, BlockState old, boolean moved) {
-        super.onPlace(s, l, p, old, moved);
-        if (!l.isClientSide) l.scheduleTick(p, this, 2);
+    @Override
+    public MapCodec<CopperCapacitorBlock> codec() {
+        return RedstoneEngineering.COPPER_CAPACITOR_CODEC.value();
     }
-    @Override protected void onRemove(BlockState s, Level l, BlockPos p, BlockState ns, boolean moved) {
-        if (!s.is(ns.getBlock())) {
-            if (l instanceof ServerLevel sl) DomainNetwork.driveCopper(sl, outputPos(p,s), p, 0);
-            RuntimeIntStore.remove(l, KEY, p);
+
+    @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        super.createBlockStateDefinition(builder);
+        builder.add(C_INDEX);
+    }
+
+    private static int tau(int index) {
+        return switch (index) {
+            case 0 -> 2;
+            case 1 -> 4;
+            case 2 -> 8;
+            default -> 16;
+        };
+    }
+
+    @Override
+    protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
+        super.onPlace(state, level, pos, oldState, movedByPiston);
+        if (!level.isClientSide) level.scheduleTick(pos, this, 2);
+    }
+
+    @Override
+    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
+        if (!state.is(newState.getBlock())) {
+            if (level instanceof ServerLevel serverLevel) {
+                DomainNetwork.driveCopper(serverLevel, outputPos(pos, state), pos, 0);
+            }
+            RuntimeIntStore.remove(level, KEY, pos);
         }
-        super.onRemove(s, l, p, ns, moved);
+        super.onRemove(state, level, pos, newState, movedByPiston);
     }
-    @Override protected void tick(BlockState s, ServerLevel l, BlockPos p, RandomSource r) {
-        int vin = DomainNetwork.sampleCopperVoltage(l, inputPos(p, s));
-        int target = (int)Math.round(vin / 15.0 * 100.0);
-        int[] rt = RuntimeIntStore.get(l, KEY, p, 1);
-        int delta = target - rt[0];
-        int step = delta == 0 ? 0 : (int)Math.copySign(Math.max(1, Math.abs(delta) / tau(s.getValue(C_INDEX))), delta);
-        rt[0] = EngineeringMath.clamp(rt[0] + step, 0, 100);
-        int vout = EngineeringMath.clamp((int)Math.round(rt[0] / 100.0 * 15.0), 0, 15);
-        DomainNetwork.driveCopper(l, outputPos(p, s), p, vout);
-        l.scheduleTick(p, this, 2);
+
+    @Override
+    protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+        int inputVoltage = DomainNetwork.sampleCopperVoltage(level, inputPos(pos, state));
+        int targetCharge = (int) Math.round(inputVoltage / 15.0 * 100.0);
+        int[] runtime = RuntimeIntStore.get(level, KEY, pos, 1);
+        int delta = targetCharge - runtime[0];
+        int step = delta == 0
+                ? 0
+                : (int) Math.copySign(Math.max(1, Math.abs(delta) / tau(state.getValue(C_INDEX))), delta);
+
+        runtime[0] = EngineeringMath.clamp(runtime[0] + step, 0, 100);
+        int outputVoltage = EngineeringMath.clamp((int) Math.round(runtime[0] / 100.0 * 15.0), 0, 15);
+        DomainNetwork.driveCopper(level, outputPos(pos, state), pos, outputVoltage);
+        level.scheduleTick(pos, this, 2);
     }
+
     public static int outputVoltage(Level level, BlockPos pos) {
         int charge = RuntimeIntStore.get(level, KEY, pos, 1)[0];
-        return EngineeringMath.clamp((int)Math.round(charge / 100.0 * 15.0), 0, 15);
+        return EngineeringMath.clamp((int) Math.round(charge / 100.0 * 15.0), 0, 15);
     }
 
-    @Override protected InteractionResult useWithoutItem(BlockState s, Level l, BlockPos p, Player pl, BlockHitResult hit) {
-        if (!l.isClientSide) {
-            int ci = (s.getValue(C_INDEX) + 1) % 4;
-            BlockState n = s.setValue(C_INDEX, ci); l.setBlock(p, n, Block.UPDATE_CLIENTS);
-            int charge = RuntimeIntStore.get(l, KEY, p, 1)[0];
-            pl.displayClientMessage(Component.literal("Copper capacitor | C-index=" + (ci + 1) + " | RC time-constant proxy=" + tau(ci) + " ticks | charge=" + charge + "%"), true);
+    @Override
+    protected int observedOutputVoltage(Level level, BlockPos pos, BlockState state) {
+        return outputVoltage(level, pos);
+    }
+
+    @Override
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+        if (!level.isClientSide) {
+            int capacitanceIndex = (state.getValue(C_INDEX) + 1) % 4;
+            BlockState next = state.setValue(C_INDEX, capacitanceIndex);
+            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+            int charge = RuntimeIntStore.get(level, KEY, pos, 1)[0];
+            player.displayClientMessage(Component.literal(
+                    "Copper capacitor | BACK input -> FRONT output | C-index=" + (capacitanceIndex + 1)
+                            + " | RC time-constant proxy=" + tau(capacitanceIndex) + " ticks | charge=" + charge + "%"
+            ), true);
         }
-        return InteractionResult.sidedSuccess(l.isClientSide);
+        return InteractionResult.sidedSuccess(level.isClientSide);
     }
 }
