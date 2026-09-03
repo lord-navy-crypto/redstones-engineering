@@ -2,6 +2,7 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.blockentity.MechatronicsVisualBlockEntity;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.visualization.MechatronicsVisualState;
 import net.minecraft.core.BlockPos;
@@ -15,6 +16,9 @@ import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.EntityBlock;
+import net.minecraft.world.level.block.RenderShape;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
@@ -29,7 +33,7 @@ import javax.annotation.Nullable;
  * BACK=command, UP=mode (0=POSITION, >0=VELOCITY), RIGHT=BRAKE.
  * In velocity mode command 7=stop, 0..6 reverse, 8..15 forward.
  */
-public class ServoActuatorBlock extends Block {
+public class ServoActuatorBlock extends Block implements EntityBlock {
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final IntegerProperty SLEW = IntegerProperty.create("slew", 0, 2);
 
@@ -60,6 +64,16 @@ public class ServoActuatorBlock extends Block {
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> b) {
         b.add(FACING, SLEW);
+    }
+
+    @Override
+    public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
+        return new MechatronicsVisualBlockEntity(pos, state);
+    }
+
+    @Override
+    public RenderShape getRenderShape(BlockState state) {
+        return RenderShape.ENTITYBLOCK_ANIMATED;
     }
 
     @Override
@@ -179,6 +193,7 @@ public class ServoActuatorBlock extends Block {
         }
         if (!brake && r[3] != 0 && r[0] == oldPosition && appliedVelocity == 0) r[5]++;
 
+        MechatronicsVisualBlockEntity.push(l, p, visualState(l, p, s));
         l.updateNeighborsAt(p, this);
         l.scheduleTick(p, this, 2);
     }
@@ -188,12 +203,14 @@ public class ServoActuatorBlock extends Block {
         if (!l.isClientSide) {
             if (pl.isShiftKeyDown()) {
                 RuntimeIntStore.remove(l, KEY, p);
+                MechatronicsVisualBlockEntity.push(l, p, visualState(l, p, s));
                 pl.displayClientMessage(Component.literal("Servo homed; trajectory diagnostics reset"), true);
             } else {
                 int n = (s.getValue(SLEW) + 1) % 3;
                 BlockState ns = s.setValue(SLEW, n);
                 l.setBlock(p, ns, Block.UPDATE_CLIENTS);
                 int[] r = RuntimeIntStore.get(l, KEY, p, RUNTIME_SIZE);
+                MechatronicsVisualBlockEntity.push(l, p, visualState(l, p, ns));
                 String mode = r[13] == VELOCITY_MODE ? "VELOCITY" : "POSITION";
                 pl.displayClientMessage(Component.literal(
                         "Servo mode=" + mode
