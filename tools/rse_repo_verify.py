@@ -14,18 +14,48 @@ def require_file(rel: str) -> Path:
     return path
 
 
+def parse_properties(path: Path) -> dict[str, str]:
+    props: dict[str, str] = {}
+    if not path.exists():
+        return props
+    for raw in path.read_text(errors="ignore").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        props[key.strip()] = value.strip()
+    return props
+
+
 readme = require_file("README.md")
 license_file = require_file("LICENSE")
 gradle_props = require_file("gradle.properties")
 workflow = require_file(".github/workflows/build.yml")
 gitignore = require_file(".gitignore")
-manifest = require_file("ALPHA1_0_3_MANIFEST.txt")
+contributing = require_file("CONTRIBUTING.md")
+changelog = require_file("CHANGELOG.md")
+
+props = parse_properties(gradle_props)
+expected_stable = {
+    "minecraft_version": "1.21.1",
+    "neo_version": "21.1.249",
+    "mod_id": "redstoneengineering",
+    "mod_name": "Redstone Systems Engineering",
+    "mod_license": "MIT",
+    "mod_group_id": "dev.redstoneengineering",
+}
+for key, value in expected_stable.items():
+    if props.get(key) != value:
+        failed.append(f"gradle.properties {key}={props.get(key)!r}; expected {value!r}")
+
+version = props.get("mod_version", "")
+if not re.fullmatch(r"\d+\.\d+\.\d+-alpha(?:[.-][0-9A-Za-z.-]+)?", version):
+    failed.append(f"unexpected alpha mod_version format: {version!r}")
 
 if readme.exists():
     text = readme.read_text(errors="ignore")
     for token in [
         "Redstone Systems Engineering",
-        "Alpha 1.0.3",
         "Minecraft",
         "NeoForge",
         "Java",
@@ -34,6 +64,8 @@ if readme.exists():
     ]:
         if token not in text:
             failed.append(f"README missing project metadata: {token}")
+    if version and version not in text:
+        failed.append(f"README does not mention current artifact version {version}")
 
 if license_file.exists():
     text = license_file.read_text(errors="ignore")
@@ -42,30 +74,17 @@ if license_file.exists():
     if "Copyright (c) 2026 lord-navy-crypto" not in text:
         failed.append("LICENSE copyright line is missing or unexpected")
 
-if gradle_props.exists():
-    props = {}
-    for line in gradle_props.read_text(errors="ignore").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        props[key.strip()] = value.strip()
-    expected = {
-        "minecraft_version": "1.21.1",
-        "neo_version": "21.1.249",
-        "mod_id": "redstoneengineering",
-        "mod_name": "Redstone Systems Engineering",
-        "mod_license": "MIT",
-        "mod_version": "1.0.3-alpha",
-        "mod_group_id": "dev.redstoneengineering",
-    }
-    for key, value in expected.items():
-        if props.get(key) != value:
-            failed.append(f"gradle.properties {key}={props.get(key)!r}; expected {value!r}")
-
 if workflow.exists():
     text = workflow.read_text(errors="ignore")
-    for token in ["actions/checkout@", "actions/setup-java@", "java-version: '21'", "compileJava", "clean build"]:
+    for token in [
+        "actions/checkout@",
+        "actions/setup-java@",
+        "java-version: '21'",
+        "compileJava",
+        "clean build",
+        "SHA256SUMS.txt",
+        "actions/upload-artifact@",
+    ]:
         if token not in text:
             failed.append(f"workflow missing: {token}")
 
@@ -76,25 +95,28 @@ if gitignore.exists():
     if "javac.*.args" not in lines:
         failed.append(".gitignore should ignore javac.*.args")
 
-if manifest.exists():
-    text = manifest.read_text(errors="ignore")
-    for token in ["Alpha 1.0.3", "1.0.3-alpha", "License: MIT", "Java: 21"]:
-        if token not in text:
-            failed.append(f"manifest missing: {token}")
-
-# Repository root should not contain local javac argument scratch files.
 for path in root.glob("javac.*.args"):
     failed.append(f"temporary compiler scratch file tracked/present: {path.name}")
 
-# Catch an accidentally restored MDK/example description in the project metadata.
+# Catch accidentally restored MDK/example metadata.
 template = root / "src/main/templates/META-INF/neoforge.mods.toml"
 if template.exists():
     text = template.read_text(errors="ignore")
     if "Example mod description" in text or "change.me" in text:
         failed.append("NeoForge metadata still contains MDK example placeholders")
-    for token in ["lord-navy-crypto", "Redstone Systems Engineering", "${mod_license}", "${mod_version}"]:
+    for token in [
+        "lord-navy-crypto",
+        "Redstone Systems Engineering",
+        "${mod_license}",
+        "${mod_version}",
+    ]:
         if token not in text:
             failed.append(f"NeoForge metadata missing: {token}")
+
+# No duplicate Finder/overlay-style root artifacts such as `build 2.gradle`.
+for path in root.iterdir():
+    if path.is_file() and re.search(r" 2(?:\.|$)", path.name):
+        failed.append(f"duplicate-looking root artifact: {path.name}")
 
 if failed:
     print("RSE repository verification: FAIL")
@@ -103,4 +125,4 @@ if failed:
     sys.exit(1)
 
 print("RSE repository verification: PASS")
-print(" metadata/version/license/workflow/hygiene checks: PASS")
+print(f" metadata/version/license/workflow/hygiene checks: PASS ({version})")
