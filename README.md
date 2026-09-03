@@ -10,29 +10,56 @@
 
 | Item | Current RSE baseline |
 | --- | --- |
-| Development milestone | **Alpha 1.0.13 — Copper Circuit Topology & Control Renovation III** |
-| Artifact version | `1.0.13-alpha` |
+| Development milestone | **Alpha 1.0.14 — Metrology & Uncertainty** |
+| Artifact version | `1.0.14-alpha` |
 | Minecraft | `1.21.1` |
 | NeoForge | `21.1.249` |
 | Java | `21` |
 | Mod ID | `redstoneengineering` |
 | License | **MIT** |
 
-## Alpha 1.0.13 — Copper Circuit Topology & Control Renovation III
+## Alpha 1.0.14 — Metrology & Uncertainty
 
-Alpha 1.0.13 brings the early copper electrical system onto the same Engineering Port architecture used by modern RSE instrumentation while preserving the existing electrical simulation.
+Alpha 1.0.14 upgrades RSE sensors from value-only devices into measurement systems that can also describe how trustworthy a reading is. The vanilla-facing engineering contract is still bounded to `0..15`; richer quality metadata stays in transient engineering runtime state rather than exploding BlockState cardinality.
 
-The renovation introduces `PortKind.ELECTRICAL` and a shared `DirectionalCopperProcessorBlock` for axial two-port components. Copper Series Resistor, Copper Capacitor, and Copper Fuse now expose explicit **BACK COPPER INPUT → FRONT COPPER OUTPUT** contracts with live `0..15 V-eq` snapshots for Jade. Their resistor-divider, RC and fuse-trip behavior remains owned by `CircuitPhysics`, `DomainNetwork`, and runtime state rather than by the UI layer.
+The shared metrology layer now represents:
 
-Other copper devices keep their real physical roles instead of being forced into the same shape:
+- **Repeatability** — short-window spread of repeated residuals;
+- **Bias** — mean reading-minus-reference residual;
+- **Drift** — change between earlier and later portions of the rolling window;
+- **Noise** — first-difference noise proxy;
+- **Resolution** — finite instrument/quantization resolution;
+- **Saturation** — explicit indication that the real condition exceeded the representable range;
+- **Sample age** — how old the most recent measurement is;
+- **Measurement uncertainty proxy** — a conservative diagnostic RSS proxy, explicitly not a claim of formal GUM expanded uncertainty.
+
+`MeasurementSnapshot`, `MeasurementQuality`, `MetrologyTracker`, and `MetrologyStore` provide the reusable architecture. The tracker uses a 32-sample rolling residual window and reports `GOOD`, `DEGRADED`, `SATURATED`, `STALE`, or `INVALID` quality without confusing uncertainty with measurement error.
+
+The Tank Level Sensor is the first direct sensor integration. Its physical fluid-column state passes through the existing `SensorModel`, produces the same vanilla-compatible `0..15` redstone output, and simultaneously feeds repeatability/bias/drift/noise/resolution/sample-age/saturation diagnostics. Fluid columns above the representable range now report `SATURATED` instead of silently presenting a clipped reading as exact.
+
+## Alpha 1.0.13 — Copper Topology + Mechatronics Visualization
+
+Alpha 1.0.13 preserves the completed copper electrical renovation while also completing the intended first real GeckoLib mechatronics visualization layer.
+
+The copper renovation introduced `PortKind.ELECTRICAL` and a shared `DirectionalCopperProcessorBlock` for axial two-port components. Copper Series Resistor, Copper Capacitor, and Copper Fuse expose explicit **BACK COPPER INPUT → FRONT COPPER OUTPUT** contracts with live `0..15 V-eq` snapshots for Jade. Their resistor-divider, RC and fuse-trip behavior remains owned by `CircuitPhysics`, `DomainNetwork`, and runtime state rather than by the UI layer.
+
+Other copper devices keep their real physical roles:
 
 - Copper Voltage Source — multi-face `COPPER / ELECTRICAL / OUTPUT` node;
 - Copper Resistive Load — multi-face terminal `INPUT` sink that never becomes a transparent conductor;
 - Copper Circuit Meter — one non-invasive `FACING / MEASUREMENT / INPUT` port.
 
-The Minecraft GameTest suite now includes real copper-domain behavior: source-to-load propagation through a series resistor, attenuation under load, fuse trip and protected-output cutoff, and rejection of a SIDE feed on an axial processor. All previous cable/junction and directional-redstone tests remain required.
+The mechatronics completion now uses GeckoLib `4.9.2` for three articulated machines:
 
-See [`docs/ALPHA1_0_13_COPPER_TOPOLOGY_RENOVATION.md`](docs/ALPHA1_0_13_COPPER_TOPOLOGY_RENOVATION.md) and [`docs/ALPHA1_0_13_TEST_MATRIX.md`](docs/ALPHA1_0_13_TEST_MATRIX.md).
+- Servo Actuator — authoritative simulation `position` drives shaft rotation; simulation velocity controls the rate of position change; brake stops motion in physics before rendering sees the state;
+- Pneumatic Cylinder — pressure and position drive piston-rod extension plus a pressure indicator;
+- Pneumatic Proportional Valve — `opening 0..15` drives valve-spool position.
+
+The critical dependency direction is enforced in code: `RuntimeIntStore.peek()` returns cloned read-only snapshots, `MechatronicsVisualState` is immutable, and a synchronized `MechatronicsVisualBlockEntity` mirrors state to the client. **GeckoLib only displays simulation state; renderer FPS, bones, animation controllers, or client lifecycle never determine physics state.**
+
+The Minecraft GameTest suite includes real copper-domain behavior plus metrology/visualization contracts. All previous cable/junction and directional-redstone tests remain required.
+
+See [`ALPHA1_0_13_MANIFEST.txt`](ALPHA1_0_13_MANIFEST.txt) and [`ALPHA1_0_14_MANIFEST.txt`](ALPHA1_0_14_MANIFEST.txt).
 
 ## Alpha 1.0.12 — Directional I/O Renovation
 
@@ -116,13 +143,13 @@ Cross-domain conversion happens through documented terminals, transducers, scale
 ## Engineering systems represented
 
 ### Engineering Physics
-Measurement, calibration, uncertainty proxies, electromagnetism, thermal/optical experiments, resonators, and model-versus-measurement reasoning.
+Measurement, calibration, repeatability, bias, drift, noise, resolution, uncertainty proxies, electromagnetism, thermal/optical experiments, resonators, and model-versus-measurement reasoning.
 
 ### Electrical & Computer Engineering
 Analog conditioning, sampling, timing, oscillators, PWM, buses, serial/differential links, radio, instrumentation, digital diagnostics, watchdogs and control implementation.
 
 ### Mechanical / Mechatronics
-Servo motion, position feedback, pneumatic pressure networks, regulators, valves, relief protection, cylinders, vibration and damping.
+Servo motion, position feedback, articulated visualization, pneumatic pressure networks, regulators, valves, relief protection, cylinders, vibration and damping.
 
 ### Industrial & Operations Engineering
 Throughput, utilization, cycle time, downtime, queue/WIP proxies, operating-state classification, fault handling and system reliability.
@@ -140,6 +167,7 @@ Throughput, utilization, cycle time, downtime, queue/WIP proxies, operating-stat
 9. Treat regression gates as part of the product.
 10. Use mature dependencies where they remove duplicate infrastructure, while keeping physics/control/topology authoritative in RSE.
 11. Prefer executable Minecraft behavior tests for topology contracts that source-only verification cannot prove.
+12. Treat rendering as a downstream observer: visualization may consume physics state but never author it.
 
 ## Reference calculations
 
@@ -163,6 +191,16 @@ S_display = clamp(S_raw + offset, 0, 15)
 INLINE OUT = S_raw
 ```
 
+Metrology diagnostic decomposition:
+
+```text
+residual = reading - reference
+bias = mean(residual)
+repeatability ≈ stddev(residual)
+drift ≈ mean(late residuals) - mean(early residuals)
+uncertainty proxy ≈ RSS(repeatability, noise, drift, calibration residual, quantization)
+```
+
 PID reference form:
 
 ```text
@@ -179,9 +217,9 @@ P_out ≈ (P_in × opening + 7) / 15
 
 ## Verification architecture
 
-CI runs verifier syntax, repository/source/resource audits, deterministic reference models, historical Alpha regressions, required-dependency checks, Engineering Port/Jade gates, legacy-renovation checks, directional-I/O guards, the Alpha 1.0.13 copper topology verifier, Java 21 compilation, Gradle tests, **NeoForge Minecraft topology GameTests**, a clean build, SHA-256 generation and verified artifact upload.
+CI runs verifier syntax, repository/source/resource audits, deterministic reference models, historical Alpha regressions, required-dependency checks, Engineering Port/Jade gates, legacy-renovation checks, directional-I/O guards, Alpha 1.0.13 copper topology guards, **Alpha 1.0.14 metrology + GeckoLib one-way-boundary verification**, Java 21 compilation, Gradle tests, **NeoForge Minecraft GameTests**, a clean build, SHA-256 generation and verified artifact upload.
 
-Interactive visual/UX behavior remains a separate `runClient` gate, but physical topology, directional I/O and copper runtime propagation have an executable `runGameTestServer` gate.
+Interactive visual/UX behavior remains a separate `runClient` gate, while the simulation-to-render ownership boundary, metrology math, physical topology, directional I/O and copper runtime propagation have automated source/reference/GameTest gates.
 
 ## Build and test
 
@@ -198,6 +236,8 @@ Build output is under `build/libs/`.
 ## Documentation
 
 - [`CHANGELOG.md`](CHANGELOG.md)
+- [`ALPHA1_0_14_MANIFEST.txt`](ALPHA1_0_14_MANIFEST.txt)
+- [`ALPHA1_0_13_MANIFEST.txt`](ALPHA1_0_13_MANIFEST.txt)
 - [`CONTRIBUTING.md`](CONTRIBUTING.md)
 - [`docs/DEPENDENCY_POLICY.md`](docs/DEPENDENCY_POLICY.md)
 - [`docs/ALPHA1_0_13_COPPER_TOPOLOGY_RENOVATION.md`](docs/ALPHA1_0_13_COPPER_TOPOLOGY_RENOVATION.md)
