@@ -1,0 +1,19 @@
+RSE Alpha 1.0.9 — Required Ecosystem Platform
+Artifact version: 1.0.9-alpha
+Minecraft: 1.21.1
+NeoForge: 21.1.249
+Java: 21
+License: MIT
+
+Required platform dependencies:
+- JEI 19.27.0.336 — required CLIENT
+- Jade 15.10.6 — required BOTH
+- GeckoLib 4.9.2 — required BOTH
+- Cloth Config 15.0.140 — required CLIENT
+- Fusion 1.3.14 — required CLIENT (Maven artifact: 1.3.14-neoforge-mc1.21.1)
+
+Architecture decision:
+Alpha 1.0.9 intentionally promotes these libraries from optional/candidate status into the RSE platform contract. Missing dependencies must prevent startup on the declared side. The dependencies are installed normally and are not shaded into the RSE jar.
+
+Engineering purpose:
+JEI supports progression and recipe information; Jade supports engineering HUD/data diagnostics; GeckoLib supports articulated machine animation; Cloth Config supports maintainable configuration screens; Fusion supports connected and advanced engineering visuals.

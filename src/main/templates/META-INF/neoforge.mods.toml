@@ -32,3 +32,43 @@ type="required"
 versionRange="${minecraft_version_range}"
 ordering="NONE"
 side="BOTH"
+
+# Required client engineering UX platform.
+[[dependencies.${mod_id}]]
+modId="jei"
+type="required"
+versionRange="[${jei_version},20)"
+ordering="AFTER"
+side="CLIENT"
+
+# Required engineering HUD/data-provider platform.
+[[dependencies.${mod_id}]]
+modId="jade"
+type="required"
+versionRange="[${jade_version},16)"
+ordering="AFTER"
+side="BOTH"
+
+# Required animation platform for articulated machines and actuators.
+[[dependencies.${mod_id}]]
+modId="geckolib"
+type="required"
+versionRange="[${geckolib_version},5)"
+ordering="AFTER"
+side="BOTH"
+
+# Required configuration-screen platform.
+[[dependencies.${mod_id}]]
+modId="cloth_config"
+type="required"
+versionRange="[${cloth_config_version},16)"
+ordering="AFTER"
+side="CLIENT"
+
+# Required connected-texture/model platform for engineering visual topology.
+[[dependencies.${mod_id}]]
+modId="fusion"
+type="required"
+versionRange="[${fusion_version},2)"
+ordering="AFTER"
+side="CLIENT"

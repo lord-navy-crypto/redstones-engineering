@@ -1,73 +1,71 @@
 # RSE Dependency Policy
 
-RSE uses external libraries when they materially improve engineering quality, interoperability, testing, rendering, or player understanding. Dependencies are not avoided for ideological reasons, but they are classified by whether the core simulation truly requires them.
+RSE deliberately uses mature external libraries when they make engineering development faster, more powerful, and easier to maintain. Beginning with Alpha 1.0.9, the project no longer treats the primary ecosystem stack as optional compatibility.
 
-## Tier 0 — core / built in
+## Required platform
 
-These are part of the RSE core architecture and require no third-party mod beyond NeoForge:
+The following five mods/libraries are part of the RSE platform contract.
 
-- NeoForge sided/block capabilities for interoperability and future port abstraction;
-- NeoForge GameTest infrastructure for in-game topology and behavior tests;
-- NeoForge data generation;
-- NeoForge `ModConfigSpec` configuration;
-- NeoForge registry and networking facilities;
-- RSE transmission domains, port diagnostics, measurement, control, and runtime models.
-
-RSE must remain launchable with **NeoForge alone**.
-
-## Tier 1 — optional ecosystem integrations, available in the dev runtime
-
-### JEI
+### JEI — required client dependency
 
 Purpose:
+- recipe and use browsing;
+- engineering progression discovery;
+- future RSE recipe categories, machine information, and transfer helpers.
 
-- recipe browsing;
-- recipe/use discovery for the growing engineering progression;
-- future RSE engineering-category information.
+Pinned development version: `19.27.0.336` for Minecraft 1.21.1 NeoForge.
 
-Policy:
-
-- compile against JEI public APIs with `compileOnly`;
-- load the complete JEI mod through `localRuntime` for development/testing;
-- never publish JEI as a required transitive dependency of RSE.
-
-Pinned development version for Minecraft 1.21.1 NeoForge: `19.27.0.336`.
-
-### Jade
+### Jade — required client/server dependency
 
 Purpose:
+- engineering HUD;
+- port direction and transmission-domain diagnostics;
+- measurement, machine state, network, pneumatic, and control-loop information;
+- server-backed data providers when richer diagnostics are needed.
 
-- future optional engineering HUD for domain, port direction, measurement, network, and state diagnostics;
-- make legacy and advanced equipment easier to test without requiring a large RSE GUI.
+Pinned development version: `15.10.6` for Minecraft 1.21.1 NeoForge.
 
-Policy:
+### GeckoLib — required client/server dependency
 
-- compile against the Jade artifact with `compileOnly`;
-- load Jade through `localRuntime` for development/testing;
-- keep all Jade-specific behavior optional;
-- RSE core code must not require Jade classes during ordinary startup.
+Purpose:
+- articulated servo, cylinder, valve, relay, mechanism, and machine animation;
+- reusable animation controllers instead of custom one-off renderer state machines;
+- animated blocks/items/entities where engineering motion matters.
 
-Pinned development artifact: Jade `15.10.6+neoforge` for Minecraft 1.21.1 (`eYz2YBGT` on Modrinth Maven).
+Pinned development version: `4.9.2` for Minecraft 1.21.1 NeoForge.
 
-## Tier 2 — add only when a feature uses them
+### Cloth Config — required client dependency
 
-Candidates include:
+Purpose:
+- consistent configuration screens;
+- easier tuning of instrumentation, visualization, accessibility, diagnostics, and client engineering preferences;
+- avoid hand-building every configuration GUI.
 
-- **GeckoLib** for servo, cylinder, valve, or other articulated engineering animations;
-- **Ponder** for interactive engineering tutorials;
-- **Fusion** or another rendering/resource solution for connected visual materials where it does not determine simulation topology.
+Pinned development version: `15.0.140` for Minecraft 1.21.1 NeoForge.
 
-These should not be added merely because they are popular. A PR adding one must include the feature that benefits from it and a clear fallback/compatibility decision.
+### Fusion — required client dependency
 
-## Dependency safety rules
+Purpose:
+- connected textures and advanced model/resource behavior;
+- visually continuous cables, panels, casings, pipes, buses, and engineering materials;
+- reduce custom rendering code for topology-aware visual presentation.
 
-1. Do not shade or bundle third-party mod jars into the RSE jar unless a future dependency explicitly supports and requires that model.
-2. Do not change JEI/Jade from optional to required without a documented architecture reason.
-3. Core simulation, world loading, wiring, measurement, PID, pneumatics, and operations logic must not depend on optional integration mods.
-4. Use `localRuntime` for optional mods needed during `runClient` development tests.
-5. Pin versions in `gradle.properties` so CI and local development resolve the same artifacts.
-6. Prefer creator/official Maven repositories when available; use a narrowly filtered repository for Modrinth artifacts.
-7. Any new required dependency must be reviewed for Minecraft/NeoForge version support, maintenance state, license, and release impact.
+Pinned mod version: `1.3.14` for Minecraft 1.21.1 NeoForge. The reproducible Modrinth Maven artifact is `1.3.14-neoforge-mc1.21.1`.
+
+## Native NeoForge remains foundational
+
+RSE still uses NeoForge facilities directly for capabilities, GameTest, data generation, registries, networking, lifecycle, and core simulation. External dependencies extend the platform; they do not replace the engineering model.
+
+## Hard-dependency rules
+
+1. The five platform dependencies must be declared in Gradle and in generated NeoForge metadata.
+2. NeoForge metadata uses `type="required"`; missing required dependencies must stop startup on the relevant side.
+3. JEI, Cloth Config, and Fusion are required on the client side.
+4. Jade and GeckoLib are required on both client and server because RSE plans to use server-side diagnostics/data and shared animation-aware machine architecture.
+5. Versions are pinned in `gradle.properties` for reproducible development and CI.
+6. CI must resolve all five artifacts, compile Java, run tests, and produce a clean verified build.
+7. Do not shade these mods into the RSE jar. Users/modpacks install the required dependencies normally, keeping licensing, updates, and loader behavior explicit.
+8. New dependencies may be added when they materially simplify implementation or unlock a major engineering feature; avoiding dependencies is not a design goal.
 
 ## Current architecture
 
@@ -76,14 +74,12 @@ Minecraft 1.21.1
        ↓
 NeoForge 21.1.249
        ↓
-RSE core
- ├─ native capability / GameTest foundation
- ├─ engineering simulation
- ├─ port/domain diagnostics
- └─ optional integration detection
-       │
-       ├─ JEI (optional dev/runtime integration)
-       └─ Jade (optional dev/runtime integration)
+RSE 1.0.9-alpha
+ ├─ JEI          [required client]
+ ├─ Jade         [required both]
+ ├─ GeckoLib     [required both]
+ ├─ Cloth Config [required client]
+ └─ Fusion       [required client]
+       ↓
+measurement → conditioning → sampling → control → actuation → optimization
 ```
-
-This keeps the engineering platform interoperable without turning every quality-of-life integration into a mandatory installation requirement.

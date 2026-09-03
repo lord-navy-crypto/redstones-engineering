@@ -19,18 +19,12 @@ sourceSets.main.resources {
 }
 
 repositories {
-    // Official JEI developer Maven.
     maven {
         name = "BlameJared"
         url = "https://maven.blamejared.com"
-        content {
-            includeGroup "mezz.jei"
-        }
+        content { includeGroup "mezz.jei" }
     }
 
-    // Jade 1.21.1 is consumed as an optional development/runtime integration.
-    // Modrinth recommends exclusive content so the maven.modrinth group cannot
-    // accidentally resolve from another repository.
     exclusiveContent {
         forRepository {
             maven {
@@ -38,9 +32,23 @@ repositories {
                 url = "https://api.modrinth.com/maven"
             }
         }
-        filter {
-            includeGroup "maven.modrinth"
+        filter { includeGroup "maven.modrinth" }
+    }
+
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = "GeckoLib"
+                url = "https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/"
+            }
         }
+        filter { includeGroupAndSubgroups "software.bernie.geckolib" }
+    }
+
+    maven {
+        name = "Shedaniel"
+        url = "https://maven.shedaniel.me/"
+        content { includeGroup "me.shedaniel.cloth" }
     }
 }
 
@@ -70,7 +78,6 @@ neoForge {
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
 
-        // Native NeoForge GameTest infrastructure remains part of the RSE core.
         gameTestServer {
             type = "gameTestServer"
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
@@ -94,24 +101,13 @@ neoForge {
     }
 }
 
-// localRuntime lets us test optional ecosystem integrations without publishing
-// them as required transitive dependencies of RSE.
-configurations {
-    runtimeClasspath.extendsFrom localRuntime
-}
-
 dependencies {
-    // JEI: compile against its public API and load the complete mod only in the
-    // local development runtime. Players may run RSE without JEI installed.
-    compileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
-    compileOnly "mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}"
-    localRuntime "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
-
-    // Jade: the published 1.21.1 NeoForge artifact contains the API used by
-    // compatibility code. It is compile-only for RSE and local-runtime for
-    // development, so it is not a required player dependency.
-    compileOnly "maven.modrinth:nvQzSEkH:${jade_modrinth_version}"
-    localRuntime "maven.modrinth:nvQzSEkH:${jade_modrinth_version}"
+    // Alpha 1.0.9 required platform. These are deliberate hard dependencies.
+    implementation "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
+    implementation "maven.modrinth:nvQzSEkH:${jade_modrinth_version}"
+    implementation "software.bernie.geckolib:geckolib-neoforge-${minecraft_version}:${geckolib_version}"
+    implementation "me.shedaniel.cloth:cloth-config-neoforge:${cloth_config_version}"
+    implementation "maven.modrinth:fusion-connected-textures:${fusion_maven_version}"
 }
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
@@ -124,6 +120,11 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
             mod_name               : mod_name,
             mod_license            : mod_license,
             mod_version            : mod_version,
+            jei_version            : jei_version,
+            jade_version           : jade_version,
+            geckolib_version       : geckolib_version,
+            cloth_config_version   : cloth_config_version,
+            fusion_version         : fusion_version,
     ]
     inputs.properties replaceProperties
     expand replaceProperties
