@@ -1,7 +1,7 @@
 package dev.redstoneengineering.blockentity;
 
 import dev.redstoneengineering.RedstoneEngineering;
-import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -17,7 +17,7 @@ public final class MechatronicsBlockEntityRegistry {
 
     @SubscribeEvent
     public static void register(RegisterEvent event) {
-        event.register(BuiltInRegistries.BLOCK_ENTITY_TYPE, registry -> {
+        event.register(Registries.BLOCK_ENTITY_TYPE, registry -> {
             TYPE = BlockEntityType.Builder.of(
                     MechatronicsVisualBlockEntity::new,
                     RedstoneEngineering.SERVO_ACTUATOR.get(),
