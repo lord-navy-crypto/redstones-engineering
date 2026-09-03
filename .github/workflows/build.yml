@@ -53,7 +53,8 @@ jobs:
             tools/rse_alpha108_dependency_verify.py \
             tools/rse_alpha109_required_dependencies_verify.py \
             tools/rse_alpha1010_port_architecture_verify.py \
-            tools/rse_alpha1010_jade_hud_verify.py
+            tools/rse_alpha1010_jade_hud_verify.py \
+            tools/rse_alpha1011_legacy_gametest_verify.py
           do
             if [[ -f "$verifier" ]]; then
               echo "==> $verifier"
@@ -66,6 +67,9 @@ jobs:
 
       - name: Gradle tests
         run: ./gradlew test --no-daemon --stacktrace
+
+      - name: Minecraft topology GameTests
+        run: ./gradlew runGameTestServer --no-daemon --stacktrace
 
       - name: Clean build
         run: ./gradlew clean build --no-daemon --stacktrace
