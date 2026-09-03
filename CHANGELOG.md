@@ -6,6 +6,25 @@ All notable RSE engineering milestones are recorded here. RSE remains in alpha d
 
 - Future work should remain behind a focused branch/PR and pass the repository verification workflow before being merged into `main`.
 
+## [1.0.13-alpha] — 2026-09-03
+
+### Copper circuit topology renovation
+
+- Added `PortKind.ELECTRICAL` and a shared `DirectionalCopperProcessorBlock` contract for axial copper components.
+- Migrated Copper Series Resistor, Copper Capacitor, and Copper Fuse to explicit **BACK INPUT → FRONT OUTPUT** engineering ports without changing their `DomainNetwork`/`CircuitPhysics` ownership.
+- Reworked the early compact implementations of the series resistor, capacitor, fuse, voltage source, resistive load, and circuit meter into maintainable source.
+- Exposed Copper Voltage Source as a multi-face electrical OUTPUT node matching its existing network behavior.
+- Exposed Copper Resistive Load as a multi-face terminal INPUT sink that remains non-transparent to propagation.
+- Exposed Copper Circuit Meter as a single non-invasive FACING measurement port.
+- Jade now obtains copper-domain topology and live voltage-equivalent snapshots through the common Engineering Port contract without copper-specific HUD simulation code.
+
+### Runtime verification
+
+- Added `RseCopperGameTests` and registered it alongside the existing topology suite.
+- Added runtime tests for axial copper port direction, source→wire→series-resistor→wire→load attenuation, fuse trip/output cutoff, and SIDE-feed rejection.
+- Added `tools/rse_alpha1013_copper_topology_verify.py`, milestone documentation, and a dedicated test matrix.
+- Preserved all Alpha 1.0.11 cable/junction and Alpha 1.0.12 directional-I/O GameTests.
+
 ## [1.0.12-alpha] — 2026-09-03
 
 ### Directional I/O renovation
