@@ -4,21 +4,14 @@
   "pattern": [
     " R ",
     "CPC",
-    " I "
+    "IKI"
   ],
   "key": {
-    "R": {
-      "item": "minecraft:redstone"
-    },
-    "C": {
-      "item": "minecraft:copper_ingot"
-    },
-    "P": {
-      "item": "minecraft:piston"
-    },
-    "I": {
-      "item": "minecraft:iron_ingot"
-    }
+    "R": { "item": "minecraft:redstone" },
+    "C": { "item": "minecraft:copper_ingot" },
+    "P": { "item": "minecraft:piston" },
+    "I": { "item": "minecraft:iron_ingot" },
+    "K": { "item": "minecraft:comparator" }
   },
   "result": {
     "id": "redstoneengineering:servo_actuator",

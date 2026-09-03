@@ -2,20 +2,15 @@
   "type": "minecraft:crafting_shaped",
   "category": "redstone",
   "pattern": [
-    "GRG",
-    "RAR",
-    "GRG"
+    "GQG",
+    "CAC",
+    "GQG"
   ],
   "key": {
-    "G": {
-      "item": "minecraft:glass"
-    },
-    "R": {
-      "item": "minecraft:redstone"
-    },
-    "A": {
-      "item": "redstoneengineering:signal_analyzer"
-    }
+    "G": { "item": "minecraft:glass" },
+    "Q": { "item": "minecraft:quartz" },
+    "C": { "item": "minecraft:copper_ingot" },
+    "A": { "item": "redstoneengineering:signal_analyzer" }
   },
   "result": {
     "id": "redstoneengineering:oscilloscope",

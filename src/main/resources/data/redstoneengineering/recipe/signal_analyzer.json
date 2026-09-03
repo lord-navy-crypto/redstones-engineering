@@ -2,20 +2,15 @@
   "type": "minecraft:crafting_shaped",
   "category": "redstone",
   "pattern": [
-    "IRI",
-    " R ",
-    "IQI"
+    "CGC",
+    "RQR",
+    " C "
   ],
   "key": {
-    "I": {
-      "item": "minecraft:iron_ingot"
-    },
-    "R": {
-      "item": "minecraft:redstone"
-    },
-    "Q": {
-      "item": "minecraft:quartz"
-    }
+    "C": { "item": "minecraft:copper_ingot" },
+    "G": { "item": "minecraft:glass" },
+    "R": { "item": "minecraft:redstone" },
+    "Q": { "item": "minecraft:quartz" }
   },
   "result": {
     "id": "redstoneengineering:signal_analyzer",

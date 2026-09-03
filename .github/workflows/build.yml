@@ -47,7 +47,8 @@ jobs:
             tools/rse_alpha103_pneumatic_hotfix_verify.py \
             tools/rse_alpha103_closed_loop_verify.py \
             tools/rse_alpha104_verify.py \
-            tools/rse_alpha105_quality_verify.py
+            tools/rse_alpha105_quality_verify.py \
+            tools/rse_alpha106_engineering_verify.py
           do
             if [[ -f "$verifier" ]]; then
               echo "==> $verifier"

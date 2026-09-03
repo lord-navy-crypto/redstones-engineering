@@ -3,19 +3,14 @@
   "category": "redstone",
   "pattern": [
     "CRC",
-    " I ",
-    "CRC"
+    " V ",
+    "CKC"
   ],
   "key": {
-    "C": {
-      "item": "minecraft:copper_ingot"
-    },
-    "R": {
-      "item": "minecraft:redstone"
-    },
-    "I": {
-      "item": "minecraft:iron_ingot"
-    }
+    "C": { "item": "minecraft:copper_ingot" },
+    "R": { "item": "minecraft:redstone" },
+    "V": { "item": "redstoneengineering:pneumatic_valve" },
+    "K": { "item": "minecraft:comparator" }
   },
   "result": {
     "id": "redstoneengineering:pneumatic_proportional_valve",

@@ -84,15 +84,21 @@ check_file(
     ],
 )
 
+# Verify the terminal-actuator contract from executable topology logic rather
+# than from comments. Discovery may reach a cylinder only through BACK/input;
+# propagation may enter that input but can never leave the cylinder as a pipe.
 check_file(
     "src/main/java/dev/redstoneengineering/physics/PneumaticNetwork.java",
     [
         "discoveryConnects",
-        "terminal one-port sink/actuator",
         "if (a.getBlock() instanceof PneumaticCylinderBlock)",
         "if (b.getBlock() instanceof PneumaticCylinderBlock)",
-        "to.relative(input)",
-        "return false;",
+        "Direction input = a.getValue(DirectionalDomainBlock.FACING).getOpposite();",
+        "Direction input = b.getValue(DirectionalDomainBlock.FACING).getOpposite();",
+        "bPos.equals(aPos.relative(input))",
+        "aPos.equals(bPos.relative(input))",
+        "if (a.getBlock() instanceof PneumaticCylinderBlock) return false;",
+        "from.equals(to.relative(input))",
     ],
 )
 

@@ -6,6 +6,35 @@ All notable RSE engineering milestones are recorded here. RSE remains in alpha d
 
 - Future work should remain behind a focused branch/PR and pass the repository verification workflow before being merged into `main`.
 
+## [1.0.6-alpha] — Engineering Language & Progression
+
+### Engineering vocabulary
+
+- Renamed the core instrumentation/control/mechatronics/operations devices with more precise engineering terminology in English and Chinese.
+- Added explicit discipline mapping for Engineering Physics, ECE, Mechanical/Mechatronics, and IOE.
+- Added school-angle development guidance for Michigan-style interdisciplinary engineering, UIUC-style ECE depth, UW–Madison-style experimental/engineering-physics depth, and CMU-style ECE/robotics systems thinking.
+
+### Crafting progression
+
+- Organized representative devices into five engineering tiers: basic measurement, acquisition/processing, control/mechatronics, safety/reliability, and integrated operations.
+- Signal Analyzer now uses copper, glass, quartz, and redstone as a Tier-1 instrument.
+- Oscilloscope and Logic Analyzer now depend on the Signal Analyzer.
+- PID Controller now depends on Signal Conditioner and comparator logic.
+- Servo Actuator now uses piston, copper, iron, redstone, and comparator control components.
+- Pneumatic Proportional Control Valve now depends on a Pneumatic Isolation Valve and comparator control.
+- Operations Monitor now depends on a Logic Analyzer, clock, and observer.
+
+### Visual language and feedback
+
+- Added refreshed 16×16 engineering pixel art for the Signal Analyzer front panel and Calibration Module front panel.
+- Replaced the Pneumatic Relief Valve's generic redstone-block appearance with a dedicated metal/safety/gauge texture.
+- Added cloud particles only when a Pneumatic Safety Relief Valve actually vents excess pressure.
+
+### Verification
+
+- Added `tools/rse_alpha106_engineering_verify.py` to check terminology, tier dependencies, PNG dimensions, safety particle implementation, documentation, and version synchronization.
+- Preserved all previous repository/source/reference-model and Alpha regression gates.
+
 ## [1.0.5-alpha] — 2026-09-03
 
 ### Measurement quality
@@ -45,76 +74,23 @@ All notable RSE engineering milestones are recorded here. RSE remains in alpha d
 - Added `tools/rse_reference_model_tests.py` for deterministic `0..15`, calibration, rolling-metric, topology-integrity, and analyzer-timebase mathematics.
 - Added `tools/rse_alpha105_quality_verify.py` for Alpha 1.0.5 implementation and regression contracts.
 - Made the Alpha 1.0.4 verifier forward-compatible so it continues to protect 1.0.4 topology contracts on later Alpha versions instead of hard-coding the old version number.
-- CI now validates all Python verifier syntax with `compileall`.
-- CI explicitly runs Gradle `test` in addition to `compileJava` and clean `build`.
-- All Alpha 1.0.3 and Alpha 1.0.4 regression verifiers remain required.
+- CI validates Python verifier syntax, Gradle `test`, Java compilation, clean build, SHA-256, and verified artifacts.
 
 ### Validation status
 
 - Alpha 1.0.5 was squash-merged into `main` at commit `48036c377a95d0d9891697a4cfb75c681f9b269e` after the strengthened PR quality ladder passed.
-- The canonical `main` commit then independently passed verifier syntax, repository/source/resource audits, deterministic reference-model tests, all historical Alpha regression verifiers, Alpha 1.0.5 quality verification, Java 21 `compileJava`, Gradle `test`, clean Gradle build, SHA-256 generation, and verified artifact upload.
-- Local `runClient` quality/calibration and save/reload validation remains required before a public Alpha 1.0.5 release candidate.
+- The canonical `main` commit independently passed the full quality ladder.
 
 ## [1.0.4-alpha] — 2026-09-03
 
-### Instrumentation and topology
-
 - Added Signal Analyzer `TAP` and `INLINE` measurement topologies.
-- `TAP` remains completely non-invasive; `INLINE` provides an explicit TEST input and opposite-side raw `0..15` pass-through output.
-- Added continuous analyzer min/max/change/rising/falling/delta/stability/sample diagnostics in transient runtime storage.
-- Added direction-aware measurement for active directional sources.
-- Preserved direct node-value measurement for redstone dust and RSE conductors.
-- Added instrument cable/probe/channel/ambiguity/bounded-scan topology diagnostics.
-- Exposed network topology summaries in Oscilloscope and Logic Analyzer status.
-
-### Pneumatic / feedback topology
-
-- Changed Pneumatic Cylinder redstone position feedback from all-side emission to an explicit FRONT/FACING output.
-- Preserved pneumatic input on BACK.
-- Made the Cylinder a terminal one-port pneumatic actuator so it cannot bridge pressure through FRONT/sides into another network.
-- Added peak-pressure, motion-reversal, and sample-count diagnostics.
-
-### Repository and validation
-
-- Advanced artifact version to `1.0.4-alpha`.
-- Made repository verification milestone-agnostic.
-- Added Alpha 1.0.4 verifier and interactive test documentation.
-- Main branch passed static verification, Java 21 `compileJava`, clean Gradle build, SHA-256 generation, and verified artifact upload after merge.
+- Added direction-aware measurement and instrumentation topology diagnostics.
+- Made Pneumatic Cylinder position feedback directional and made the cylinder a terminal one-port pneumatic actuator.
+- Added Alpha 1.0.4 regression verification and interactive test documentation.
 
 ## [1.0.3-alpha] — 2026-09-03
 
-### Closed-loop control
-
-- Completed PID Manual/Auto operation using explicit engineering ports.
-- Added bounded manual output, output saturation, anti-windup, derivative filtering, deadband, and bumpless Manual→Auto transfer.
-- Preserved step-response rise-time, settling-time, overshoot, saturation, and controller-runtime diagnostics.
-
-### Mechatronics
-
-- Added Servo Position and Velocity modes.
-- Added centered velocity command semantics (`7=stop`, lower=reverse, higher=forward).
-- Added braking, bounded slew/acceleration behavior, `0..15` soft limits, and soft-limit-hit diagnostics.
-
-### Digital systems and communications
-
-- Separated data-bus physical driver count from distinct driven values.
-- Added conflict, contention, and same-value multi-driver diagnostics.
-- Added accumulated radio valid/undecodable/collision/dropout/channel-handoff diagnostics.
-- Kept decoded radio payload and link-quality/noise measurements separate.
-
-### Pneumatics
-
-- Integrated Pneumatic Proportional Valve, Pneumatic Relief Valve, and Pneumatic Cylinder.
-- Added network recognition, proportional pressure limiting, relief/safety behavior, and actuator diagnostics.
-- Preserved the redstone `0..15` command boundary while using a richer internal pneumatic pressure scale.
-
-### Operations / IOE
-
-- Added derived operating-state classification: `NOMINAL`, `CONGESTED`, `NOISY`, `UNSTABLE`, `OVERLOADED`, `SAFETY_LIMITED`, and `FAILED`.
-- Added starvation, blocked/fault, high-queue-running, longest-downtime, queue-variation, and run-state-transition metrics.
-
-### Repository and validation
-
-- Replaced the NeoForge MDK README with RSE-specific engineering documentation and reference calculations.
-- Added MIT licensing and aligned NeoForge/Gradle metadata.
-- Added repository hygiene verification, Java 21 GitHub Actions compile/build validation, and SHA-256-addressed test artifacts.
+- Completed PID Manual/Auto control, anti-windup and bumpless transfer.
+- Added Servo Position/Velocity modes, braking and soft-limit diagnostics.
+- Strengthened bus/radio diagnostics, pneumatic proportional/safety/actuation components and IOE operating-state classification.
+- Added MIT licensing, repository hardening and GitHub Actions build verification.

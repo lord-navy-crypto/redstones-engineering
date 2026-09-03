@@ -1,0 +1,19 @@
+RSE Alpha 1.0.6 — Engineering Language & Progression
+Artifact version: 1.0.6-alpha
+Minecraft: 1.21.1
+NeoForge: 21.1.249
+Java: 21
+License: MIT
+
+Focus:
+- translate core devices into professional engineering terminology;
+- organize representative survival recipes into measurement → acquisition → control → safety → operations tiers;
+- add curriculum/discipline mapping for Engineering Physics, ECE, Mechanical/Mechatronics, and IOE;
+- begin a coherent engineering pixel-art visual language;
+- add event-driven pneumatic relief particles tied to real safety venting.
+
+Invariants:
+- vanilla-facing redstone remains 0..15;
+- display calibration remains non-invasive;
+- existing Alpha 1.0.3/1.0.4/1.0.5 engineering contracts remain regression-gated;
+- particles are feedback for real state changes, not continuous decoration.
