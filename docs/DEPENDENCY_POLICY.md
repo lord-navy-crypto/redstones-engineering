@@ -50,7 +50,7 @@ Purpose:
 - visually continuous cables, panels, casings, pipes, buses, and engineering materials;
 - reduce custom rendering code for topology-aware visual presentation.
 
-Pinned development version: `1.3.15` for Minecraft 1.21.1 NeoForge.
+Pinned mod version: `1.3.14` for Minecraft 1.21.1 NeoForge. The reproducible Modrinth Maven artifact is `1.3.14-neoforge-mc1.21.1`.
 
 ## Native NeoForge remains foundational
 
