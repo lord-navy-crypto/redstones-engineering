@@ -102,11 +102,15 @@ require(
     "cursorDeltaTicks",
 )
 
-# The 1.0.4 topology contract remains mandatory.
+# The Alpha 1.0.4 topology contract remains mandatory. Check implementation
+# structure rather than relying on a particular comment sentence.
 require(
     "src/main/java/dev/redstoneengineering/physics/PneumaticNetwork.java",
     "PneumaticCylinderBlock",
-    "Cylinder is a terminal actuator",
+    "discoveryConnects",
+    "terminal one-port sink/actuator",
+    "if (a.getBlock() instanceof PneumaticCylinderBlock)",
+    "if (b.getBlock() instanceof PneumaticCylinderBlock)",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/PneumaticCylinderBlock.java",
