@@ -10,19 +10,35 @@
 
 | Item | Current RSE baseline |
 | --- | --- |
-| Development milestone | **Alpha 1.0.12 — Directional I/O Renovation** |
-| Artifact version | `1.0.12-alpha` |
+| Development milestone | **Alpha 1.0.13 — Copper Circuit Topology & Control Renovation III** |
+| Artifact version | `1.0.13-alpha` |
 | Minecraft | `1.21.1` |
 | NeoForge | `21.1.249` |
 | Java | `21` |
 | Mod ID | `redstoneengineering` |
 | License | **MIT** |
 
+## Alpha 1.0.13 — Copper Circuit Topology & Control Renovation III
+
+Alpha 1.0.13 brings the early copper electrical system onto the same Engineering Port architecture used by modern RSE instrumentation while preserving the existing electrical simulation.
+
+The renovation introduces `PortKind.ELECTRICAL` and a shared `DirectionalCopperProcessorBlock` for axial two-port components. Copper Series Resistor, Copper Capacitor, and Copper Fuse now expose explicit **BACK COPPER INPUT → FRONT COPPER OUTPUT** contracts with live `0..15 V-eq` snapshots for Jade. Their resistor-divider, RC and fuse-trip behavior remains owned by `CircuitPhysics`, `DomainNetwork`, and runtime state rather than by the UI layer.
+
+Other copper devices keep their real physical roles instead of being forced into the same shape:
+
+- Copper Voltage Source — multi-face `COPPER / ELECTRICAL / OUTPUT` node;
+- Copper Resistive Load — multi-face terminal `INPUT` sink that never becomes a transparent conductor;
+- Copper Circuit Meter — one non-invasive `FACING / MEASUREMENT / INPUT` port.
+
+The Minecraft GameTest suite now includes real copper-domain behavior: source-to-load propagation through a series resistor, attenuation under load, fuse trip and protected-output cutoff, and rejection of a SIDE feed on an axial processor. All previous cable/junction and directional-redstone tests remain required.
+
+See [`docs/ALPHA1_0_13_COPPER_TOPOLOGY_RENOVATION.md`](docs/ALPHA1_0_13_COPPER_TOPOLOGY_RENOVATION.md) and [`docs/ALPHA1_0_13_TEST_MATRIX.md`](docs/ALPHA1_0_13_TEST_MATRIX.md).
+
 ## Alpha 1.0.12 — Directional I/O Renovation
 
-Alpha 1.0.12 removes another early-system ambiguity: vanilla-redstone endpoints that had clear engineering meaning but still accepted or emitted signals on every face.
+Alpha 1.0.12 removed another early-system ambiguity: vanilla-redstone endpoints that had clear engineering meaning but still accepted or emitted signals on every face.
 
-The directional endpoint renovation adds two shared foundations:
+The directional endpoint renovation added two shared foundations:
 
 - `DirectionalRedstoneEndpointBlock` — a low-cardinality horizontal `FACING` contract with explicit FRONT/BACK helpers and centralized handling of Minecraft's reversed redstone-query direction;
 - `DirectionalRedstoneSensorBlock` — one reusable FRONT-only `REDSTONE / SENSOR / OUTPUT` port, bounded `0..15` output, shared server update logic, and EngineeringPort snapshots for Jade.
@@ -33,32 +49,19 @@ Migrated devices now have physical I/O that agrees with their engineering role:
 - Engineering Light Sensor — measured brightness, **FRONT output only**;
 - Tank Level Sensor — bounded fluid-column measurement, **FRONT output only**;
 - Entity Density Sensor — bounded nearby-entity count, **FRONT output only**;
-- Analog Process Indicator — **FRONT display / BACK input only**, replacing its old `LEGACY_OMNIDIRECTIONAL` behavior.
+- Analog Process Indicator — **FRONT display / BACK input only**, replacing its old omnidirectional behavior.
 
-Minecraft GameTests now exercise these rules as runtime behavior. In particular, the Analog Indicator must read a real redstone block on BACK as 15 and must return to 0 when that source is moved to a SIDE face. The earlier Cable↔Junction placement-order and cross-domain isolation tests remain required.
-
-See [`docs/ALPHA1_0_12_DIRECTIONAL_IO_RENOVATION.md`](docs/ALPHA1_0_12_DIRECTIONAL_IO_RENOVATION.md) and [`docs/ALPHA1_0_12_TEST_MATRIX.md`](docs/ALPHA1_0_12_TEST_MATRIX.md).
+Minecraft GameTests exercise these rules as runtime behavior, including a real BACK redstone source and rejected SIDE source for the Analog Indicator.
 
 ## Alpha 1.0.11 — Legacy Renovation Wave II + Topology GameTests
 
-Alpha 1.0.11 continued the post-dependency renovation by moving more early RSE infrastructure onto the shared Engineering Port Contract and by making critical topology rules executable inside Minecraft rather than only checking source tokens.
+Alpha 1.0.11 moved more early RSE infrastructure onto the shared Engineering Port Contract and made critical topology rules executable inside Minecraft rather than only checking source tokens.
 
-The second migration wave covers:
-
-- Redstone Cable Terminal — explicit Vanilla/Cable input-output ports that reverse with terminal mode;
-- Insulated Redstone Junction and Copper Junction — only physically connected faces become bidirectional BUS ports in their own domains;
-- the shared Lapis transducer family — a forward `LAPIS_PRECISION` sensor output with runtime value and quality;
-- Redstone → Lapis Scaler — explicit `BACK REDSTONE INPUT → FRONT LAPIS OUTPUT` conversion;
-- Lapis → Redstone Quantizer — explicit `BACK LAPIS INPUT → FRONT REDSTONE OUTPUT` conversion;
-- `PortKind.CONVERTER` — a first-class semantic marker for intentional cross-domain boundaries.
-
-CI launches NeoForge's Minecraft GameTest server and executes in-world topology regressions. The suite proves that insulated redstone cable connects to an insulated-redstone junction in either placement order, refuses a direct copper-junction connection, that terminal port directions follow mode, and that the two Redstone/Lapis converters expose the intended engineering domains.
-
-See [`docs/ALPHA1_0_11_LEGACY_RENOVATION_AND_GAMETEST.md`](docs/ALPHA1_0_11_LEGACY_RENOVATION_AND_GAMETEST.md).
+The migration covered Redstone Cable Terminal, Redstone/Copper junctions, the shared Lapis transducer family, Redstone→Lapis scaler and Lapis→Redstone quantizer. CI launches NeoForge's Minecraft GameTest server and proves insulated-redstone Cable↔Junction connectivity in either placement order, cross-domain isolation, terminal-mode direction and explicit converter domains.
 
 ## Alpha 1.0.10 — Engineering Port Contract
 
-The historical Alpha 1.0.10 (`1.0.10-alpha`) Engineering Port Contract is the architectural base for later renovation waves. It replaced scattered per-block port descriptions with a shared core contract:
+Alpha 1.0.10 established the architectural base used by later renovation waves:
 
 - `EngineeringPort` — physical side, engineering domain, semantic kind, flow direction, vanilla compatibility and unit;
 - `EngineeringPortSnapshot` — dynamic value/range/quality kept outside BlockState;
@@ -66,9 +69,7 @@ The historical Alpha 1.0.10 (`1.0.10-alpha`) Engineering Port Contract is the ar
 - `PortCompatibility` — centralized direct domain/direction compatibility;
 - `PortQuality` — `VALID`, `NO_SIGNAL`, `SATURATED`, `STALE`, `FAULT`, `DOMAIN_MISMATCH`, `TOPOLOGY_ERROR`.
 
-The first migration wave covered the shared `DirectionalSignalBlock` family, Engineering Light Sensor, Entity Density Sensor, Tank Level Sensor, Analog Process Indicator, Insulated Redstone Cable and Instrument Bus. Jade then became the first required dependency to consume this contract through a server-backed, read-only engineering HUD.
-
-See [`docs/ALPHA1_0_10_ENGINEERING_PORT_ARCHITECTURE.md`](docs/ALPHA1_0_10_ENGINEERING_PORT_ARCHITECTURE.md).
+Jade became the first required dependency to consume this contract through a server-backed, read-only engineering HUD.
 
 ## Required dependencies
 
@@ -76,7 +77,7 @@ Five mature ecosystem libraries are part of the RSE platform contract:
 
 | Dependency | Pinned development version | Required side | RSE purpose |
 | --- | --- | --- | --- |
-| JEI | `19.27.0.336` | Client | recipe/use browsing, engineering progression and future machine/recipe information |
+| JEI | `19.27.0.336` | Client | recipe/use browsing, engineering progression and machine/recipe information |
 | Jade | `15.10.6` | Client + Server | engineering HUD, port/domain/state diagnostics and server-backed data providers |
 | GeckoLib | `4.9.2` | Client + Server | articulated servo, cylinder, valve and machine animation architecture |
 | Cloth Config | `15.0.140` | Client | maintainable configuration screens and tuning UI |
@@ -149,6 +150,12 @@ S ∈ {0, …, 15}
 x = S / 15
 ```
 
+Copper series divider:
+
+```text
+Vout = Vin × Rload / (Rseries + Rload)
+```
+
 Analyzer calibration remains display-only:
 
 ```text
@@ -172,9 +179,9 @@ P_out ≈ (P_in × opening + 7) / 15
 
 ## Verification architecture
 
-CI runs verifier syntax, repository/source/resource audits, deterministic reference models, historical Alpha regressions, required-dependency checks, the Engineering Port/Jade gates, legacy-renovation checks, the Alpha 1.0.12 directional-I/O guard, Java 21 compilation, Gradle tests, **NeoForge Minecraft topology GameTests**, a clean build, SHA-256 generation and verified artifact upload.
+CI runs verifier syntax, repository/source/resource audits, deterministic reference models, historical Alpha regressions, required-dependency checks, Engineering Port/Jade gates, legacy-renovation checks, directional-I/O guards, the Alpha 1.0.13 copper topology verifier, Java 21 compilation, Gradle tests, **NeoForge Minecraft topology GameTests**, a clean build, SHA-256 generation and verified artifact upload.
 
-Interactive visual/UX behavior remains a separate `runClient` gate, but physical topology and directional I/O also have an executable `runGameTestServer` gate.
+Interactive visual/UX behavior remains a separate `runClient` gate, but physical topology, directional I/O and copper runtime propagation have an executable `runGameTestServer` gate.
 
 ## Build and test
 
@@ -193,6 +200,8 @@ Build output is under `build/libs/`.
 - [`CHANGELOG.md`](CHANGELOG.md)
 - [`CONTRIBUTING.md`](CONTRIBUTING.md)
 - [`docs/DEPENDENCY_POLICY.md`](docs/DEPENDENCY_POLICY.md)
+- [`docs/ALPHA1_0_13_COPPER_TOPOLOGY_RENOVATION.md`](docs/ALPHA1_0_13_COPPER_TOPOLOGY_RENOVATION.md)
+- [`docs/ALPHA1_0_13_TEST_MATRIX.md`](docs/ALPHA1_0_13_TEST_MATRIX.md)
 - [`docs/ALPHA1_0_12_DIRECTIONAL_IO_RENOVATION.md`](docs/ALPHA1_0_12_DIRECTIONAL_IO_RENOVATION.md)
 - [`docs/ALPHA1_0_12_TEST_MATRIX.md`](docs/ALPHA1_0_12_TEST_MATRIX.md)
 - [`docs/ALPHA1_0_11_LEGACY_RENOVATION_AND_GAMETEST.md`](docs/ALPHA1_0_11_LEGACY_RENOVATION_AND_GAMETEST.md)
@@ -200,7 +209,6 @@ Build output is under `build/libs/`.
 - [`docs/ALPHA1_0_10_JADE_ENGINEERING_HUD.md`](docs/ALPHA1_0_10_JADE_ENGINEERING_HUD.md)
 - [`docs/ENGINEERING_LANGUAGE_AND_CURRICULUM.md`](docs/ENGINEERING_LANGUAGE_AND_CURRICULUM.md)
 - [`docs/CRAFTING_PROGRESSION.md`](docs/CRAFTING_PROGRESSION.md)
-- [`docs/ALPHA1_0_7_LEGACY_WIRING_PORTS.md`](docs/ALPHA1_0_7_LEGACY_WIRING_PORTS.md)
 
 ## License
 
