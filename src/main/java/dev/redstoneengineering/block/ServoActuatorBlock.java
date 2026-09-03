@@ -3,6 +3,7 @@ package dev.redstoneengineering.block;
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.visualization.MechatronicsVisualState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -93,6 +94,20 @@ public class ServoActuatorBlock extends Block {
 
     private static int clamp(int value, int lo, int hi) {
         return Math.max(lo, Math.min(hi, value));
+    }
+
+    /** Renderer-facing immutable projection; never creates or mutates simulation state. */
+    public static MechatronicsVisualState visualState(Level level, BlockPos pos, BlockState state) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        if (runtime == null || runtime.length < RUNTIME_SIZE) {
+            return MechatronicsVisualState.servo(0, 0, false, STEP[state.getValue(SLEW)]);
+        }
+        return MechatronicsVisualState.servo(
+                runtime[0],
+                runtime[2],
+                runtime[4] != 0,
+                STEP[state.getValue(SLEW)]
+        );
     }
 
     @Override
