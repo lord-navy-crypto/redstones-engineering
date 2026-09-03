@@ -12,12 +12,15 @@ Engineering focus:
 - Instrument-network cable/probe/channel/ambiguity/bounded-scan diagnostics.
 - Oscilloscope and Logic Analyzer topology visibility.
 - Pneumatic Cylinder directional 0..15 position-feedback output.
+- Pneumatic Cylinder terminal one-port topology: BACK pressure input, no pneumatic pass-through.
 - Milestone-agnostic repository verification and Alpha 1.0.4 regression gate.
 
 Compatibility invariants:
 - Vanilla-facing redstone remains 0..15.
 - TAP instrumentation remains non-invasive.
+- INLINE Analyzer remains a bounded 0..15 TEST→OUT measurement pass-through.
 - High-cardinality measurements remain transient/runtime data.
+- Cylinders cannot bridge separate pneumatic networks.
 - Existing Alpha 1.0.3 PID/Servo/Bus/Radio/Pneumatic/IOE verification remains required.
 
 Validation gate:
