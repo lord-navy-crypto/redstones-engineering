@@ -1,17 +1,254 @@
 package dev.redstoneengineering.blockentity;
-import dev.redstoneengineering.RedstoneEngineering;import net.minecraft.core.*;import net.minecraft.core.HolderLookup;import net.minecraft.nbt.CompoundTag;import net.minecraft.world.level.block.entity.BlockEntity;import net.minecraft.world.level.block.state.BlockState;
-/** Four-channel logic analyzer with edge trigger and cursor timing. */
-public class LogicAnalyzerBlockEntity extends BlockEntity{
- private static final int CAP=32;private final int[]m=new int[CAP],v=new int[CAP],rise=new int[4],fall=new int[4];private int index=0,count=0,lastMask=0,lastValid=0,triggerChannel=0,triggerEdge=1,cursorA=0,cursorB=8;private boolean armed=true,triggered=false;private int post=0;
- public LogicAnalyzerBlockEntity(BlockPos p,BlockState s){super(RedstoneEngineering.LOGIC_ANALYZER_BLOCK_ENTITY.get(),p,s);}
- public void addSample(int mask,int valid){int common=valid&lastValid;boolean fire=false;for(int c=0;c<4;c++){int bit=1<<c;if((common&bit)==0)continue;boolean before=(lastMask&bit)!=0,now=(mask&bit)!=0;if(!before&&now)rise[c]++;if(before&&!now)fall[c]++;if(armed&&c==triggerChannel&&((triggerEdge==1&&!before&&now)||(triggerEdge==2&&before&&!now)))fire=true;}if(armed||triggered){m[index]=mask;v[index]=valid;if(armed&&fire){armed=false;triggered=true;post=0;}if(triggered)post++;index=(index+1)%CAP;count=Math.min(CAP,count+1);if(triggered&&post>=CAP/2)triggered=false;}lastMask=mask;lastValid=valid;setChanged();}
- public void clear(){for(int i=0;i<CAP;i++){m[i]=0;v[i]=0;}for(int i=0;i<4;i++){rise[i]=0;fall[i]=0;}index=count=lastMask=lastValid=0;armed=true;triggered=false;post=0;setChanged();}
- public void arm(){armed=true;triggered=false;post=0;setChanged();} public void cycleTriggerChannel(){triggerChannel=(triggerChannel+1)%4;arm();} public void cycleTriggerEdge(){triggerEdge=triggerEdge==1?2:1;arm();}
- public void moveCursorA(){cursorA=(cursorA+1)%16;setChanged();}public void moveCursorB(){cursorB=(cursorB+1)%16;setChanged();}public int cursorDeltaSamples(){return Math.abs(cursorB-cursorA);}public String triggerStatus(){return "CH"+(triggerChannel+1)+" "+(triggerEdge==1?"RISING":"FALLING")+" "+(armed?"ARMED":triggered?"TRIGGERED":"HOLD");}
- public int rising(int c){return rise[c];}public int falling(int c){return fall[c];}
- public int highSamples(int c){int bit=1<<c,n=0;for(int i=0;i<count;i++){int src=(index-count+i+CAP)%CAP;if((v[src]&bit)!=0&&(m[src]&bit)!=0)n++;}return n;}public int validSamples(int c){int bit=1<<c,n=0;for(int i=0;i<count;i++)if((v[(index-count+i+CAP)%CAP]&bit)!=0)n++;return n;}public int dutyPercent(int c){int n=validSamples(c);return n==0?0:(highSamples(c)*100)/n;}
- public String waveform(int c){if(count==0)return"∅";StringBuilder b=new StringBuilder();int s=Math.max(0,count-16),bit=1<<c;for(int i=s;i<count;i++){int src=(index-count+i+CAP)%CAP;b.append((v[src]&bit)==0?'·':(m[src]&bit)!=0?'█':'_');}return b.toString();}
- @Override protected void loadAdditional(CompoundTag t,HolderLookup.Provider r){super.loadAdditional(t,r);copy(t.getIntArray("masks"),m);copy(t.getIntArray("validMasks"),v);copy(t.getIntArray("rising"),rise);copy(t.getIntArray("falling"),fall);index=Math.max(0,Math.min(CAP-1,t.getInt("index")));count=Math.max(0,Math.min(CAP,t.getInt("count")));lastMask=t.getInt("lastMask");lastValid=t.getInt("lastValidMask");triggerChannel=Math.max(0,Math.min(3,t.getInt("triggerChannel")));triggerEdge=Math.max(1,Math.min(2,t.getInt("triggerEdge")));cursorA=Math.max(0,Math.min(15,t.getInt("cursorA")));cursorB=Math.max(0,Math.min(15,t.getInt("cursorB")));armed=t.getBoolean("armed");triggered=t.getBoolean("triggered");}
- private static void copy(int[]s,int[]d){for(int i=0;i<Math.min(s.length,d.length);i++)d[i]=s[i];}
- @Override protected void saveAdditional(CompoundTag t,HolderLookup.Provider r){super.saveAdditional(t,r);t.putIntArray("masks",m);t.putIntArray("validMasks",v);t.putIntArray("rising",rise);t.putIntArray("falling",fall);t.putInt("index",index);t.putInt("count",count);t.putInt("lastMask",lastMask);t.putInt("lastValidMask",lastValid);t.putInt("triggerChannel",triggerChannel);t.putInt("triggerEdge",triggerEdge);t.putInt("cursorA",cursorA);t.putInt("cursorB",cursorB);t.putBoolean("armed",armed);t.putBoolean("triggered",triggered);}
+
+import dev.redstoneengineering.RedstoneEngineering;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+
+/** Four-channel logic analyzer with edge trigger, cursor timing and capture coverage diagnostics. */
+public class LogicAnalyzerBlockEntity extends BlockEntity {
+    private static final int CHANNELS = 4;
+    private static final int CAPACITY = 32;
+    public static final int SAMPLE_PERIOD_TICKS = 1;
+
+    private final int[] masks = new int[CAPACITY];
+    private final int[] validMasks = new int[CAPACITY];
+    private final int[] rising = new int[CHANNELS];
+    private final int[] falling = new int[CHANNELS];
+
+    private int index = 0;
+    private int count = 0;
+    private int lastMask = 0;
+    private int lastValidMask = 0;
+    private int triggerChannel = 0;
+    private int triggerEdge = 1; // 1 rising, 2 falling
+    private int cursorA = 0;
+    private int cursorB = 8;
+    private boolean armed = true;
+    private boolean triggered = false;
+    private int postTriggerSamples = 0;
+
+    public LogicAnalyzerBlockEntity(BlockPos pos, BlockState state) {
+        super(RedstoneEngineering.LOGIC_ANALYZER_BLOCK_ENTITY.get(), pos, state);
+    }
+
+    public void addSample(int mask, int validMask) {
+        int common = validMask & lastValidMask;
+        boolean fire = false;
+
+        for (int channel = 0; channel < CHANNELS; channel++) {
+            int bit = 1 << channel;
+            if ((common & bit) == 0) continue;
+            boolean before = (lastMask & bit) != 0;
+            boolean now = (mask & bit) != 0;
+            if (!before && now) rising[channel]++;
+            if (before && !now) falling[channel]++;
+            if (armed && channel == triggerChannel
+                    && ((triggerEdge == 1 && !before && now)
+                    || (triggerEdge == 2 && before && !now))) {
+                fire = true;
+            }
+        }
+
+        if (armed || triggered) {
+            masks[index] = mask;
+            validMasks[index] = validMask;
+            if (armed && fire) {
+                armed = false;
+                triggered = true;
+                postTriggerSamples = 0;
+            }
+            if (triggered) postTriggerSamples++;
+            index = (index + 1) % CAPACITY;
+            count = Math.min(CAPACITY, count + 1);
+            if (triggered && postTriggerSamples >= CAPACITY / 2) triggered = false;
+        }
+
+        lastMask = mask;
+        lastValidMask = validMask;
+        setChanged();
+    }
+
+    private static boolean validChannel(int channel) {
+        return channel >= 0 && channel < CHANNELS;
+    }
+
+    public void clear() {
+        for (int i = 0; i < CAPACITY; i++) {
+            masks[i] = 0;
+            validMasks[i] = 0;
+        }
+        for (int i = 0; i < CHANNELS; i++) {
+            rising[i] = 0;
+            falling[i] = 0;
+        }
+        index = 0;
+        count = 0;
+        lastMask = 0;
+        lastValidMask = 0;
+        armed = true;
+        triggered = false;
+        postTriggerSamples = 0;
+        setChanged();
+    }
+
+    public void arm() {
+        armed = true;
+        triggered = false;
+        postTriggerSamples = 0;
+        setChanged();
+    }
+
+    public void cycleTriggerChannel() {
+        triggerChannel = (triggerChannel + 1) % CHANNELS;
+        arm();
+    }
+
+    public void cycleTriggerEdge() {
+        triggerEdge = triggerEdge == 1 ? 2 : 1;
+        arm();
+    }
+
+    public void moveCursorA() {
+        cursorA = (cursorA + 1) % 16;
+        setChanged();
+    }
+
+    public void moveCursorB() {
+        cursorB = (cursorB + 1) % 16;
+        setChanged();
+    }
+
+    public int cursorDeltaSamples() {
+        return Math.abs(cursorB - cursorA);
+    }
+
+    public int cursorDeltaTicks() {
+        return cursorDeltaSamples() * SAMPLE_PERIOD_TICKS;
+    }
+
+    public String triggerStatus() {
+        return "CH" + (triggerChannel + 1) + " "
+                + (triggerEdge == 1 ? "RISING" : "FALLING") + " "
+                + (armed ? "ARMED" : triggered ? "TRIGGERED" : "HOLD");
+    }
+
+    public int sampleCount() {
+        return count;
+    }
+
+    public int rising(int channel) {
+        return validChannel(channel) ? rising[channel] : 0;
+    }
+
+    public int falling(int channel) {
+        return validChannel(channel) ? falling[channel] : 0;
+    }
+
+    public int edgeCount(int channel) {
+        return rising(channel) + falling(channel);
+    }
+
+    public int highSamples(int channel) {
+        if (!validChannel(channel)) return 0;
+        int bit = 1 << channel;
+        int high = 0;
+        for (int i = 0; i < count; i++) {
+            int source = (index - count + i + CAPACITY) % CAPACITY;
+            if ((validMasks[source] & bit) != 0 && (masks[source] & bit) != 0) high++;
+        }
+        return high;
+    }
+
+    public int validSamples(int channel) {
+        if (!validChannel(channel)) return 0;
+        int bit = 1 << channel;
+        int valid = 0;
+        for (int i = 0; i < count; i++) {
+            if ((validMasks[(index - count + i + CAPACITY) % CAPACITY] & bit) != 0) valid++;
+        }
+        return valid;
+    }
+
+    public int coveragePercent(int channel) {
+        return count == 0 ? 0 : (validSamples(channel) * 100) / count;
+    }
+
+    public int dutyPercent(int channel) {
+        int valid = validSamples(channel);
+        return valid == 0 ? 0 : (highSamples(channel) * 100) / valid;
+    }
+
+    public int transitionRatePercent(int channel) {
+        int valid = validSamples(channel);
+        if (valid < 2) return 0;
+        return Math.min(100, (edgeCount(channel) * 100) / (valid - 1));
+    }
+
+    public String captureQuality(int channel) {
+        if (!validChannel(channel) || count == 0) return "NO_DATA";
+        int coverage = coveragePercent(channel);
+        if (coverage == 100) return count < 8 ? "WARMUP" : "COMPLETE";
+        if (coverage >= 75) return "PARTIAL";
+        return "POOR_COVERAGE";
+    }
+
+    public String waveform(int channel) {
+        if (!validChannel(channel)) return "?";
+        if (count == 0) return "∅";
+        StringBuilder builder = new StringBuilder();
+        int start = Math.max(0, count - 16);
+        int bit = 1 << channel;
+        for (int i = start; i < count; i++) {
+            int source = (index - count + i + CAPACITY) % CAPACITY;
+            builder.append((validMasks[source] & bit) == 0 ? '·' : (masks[source] & bit) != 0 ? '█' : '_');
+        }
+        return builder.toString();
+    }
+
+    @Override
+    protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
+        super.loadAdditional(tag, registries);
+        copy(tag.getIntArray("masks"), masks);
+        copy(tag.getIntArray("validMasks"), validMasks);
+        copy(tag.getIntArray("rising"), rising);
+        copy(tag.getIntArray("falling"), falling);
+        index = Math.max(0, Math.min(CAPACITY - 1, tag.getInt("index")));
+        count = Math.max(0, Math.min(CAPACITY, tag.getInt("count")));
+        lastMask = tag.getInt("lastMask");
+        lastValidMask = tag.getInt("lastValidMask");
+        triggerChannel = Math.max(0, Math.min(CHANNELS - 1, tag.getInt("triggerChannel")));
+        triggerEdge = Math.max(1, Math.min(2, tag.getInt("triggerEdge")));
+        cursorA = Math.max(0, Math.min(15, tag.getInt("cursorA")));
+        cursorB = Math.max(0, Math.min(15, tag.getInt("cursorB")));
+        armed = tag.getBoolean("armed");
+        triggered = tag.getBoolean("triggered");
+        postTriggerSamples = Math.max(0, Math.min(CAPACITY, tag.getInt("postTriggerSamples")));
+    }
+
+    private static void copy(int[] source, int[] destination) {
+        for (int i = 0; i < Math.min(source.length, destination.length); i++) destination[i] = source[i];
+    }
+
+    @Override
+    protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
+        super.saveAdditional(tag, registries);
+        tag.putIntArray("masks", masks);
+        tag.putIntArray("validMasks", validMasks);
+        tag.putIntArray("rising", rising);
+        tag.putIntArray("falling", falling);
+        tag.putInt("index", index);
+        tag.putInt("count", count);
+        tag.putInt("lastMask", lastMask);
+        tag.putInt("lastValidMask", lastValidMask);
+        tag.putInt("triggerChannel", triggerChannel);
+        tag.putInt("triggerEdge", triggerEdge);
+        tag.putInt("cursorA", cursorA);
+        tag.putInt("cursorB", cursorB);
+        tag.putBoolean("armed", armed);
+        tag.putBoolean("triggered", triggered);
+        tag.putInt("postTriggerSamples", postTriggerSamples);
+    }
 }
