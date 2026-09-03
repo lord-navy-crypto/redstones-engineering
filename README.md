@@ -10,17 +10,34 @@
 
 | Item | Current RSE baseline |
 | --- | --- |
-| Development milestone | **Alpha 1.0.10 — Engineering Port Architecture** |
-| Artifact version | `1.0.10-alpha` |
+| Development milestone | **Alpha 1.0.11 — Legacy Renovation Wave II + Topology GameTests** |
+| Artifact version | `1.0.11-alpha` |
 | Minecraft | `1.21.1` |
 | NeoForge | `21.1.249` |
 | Java | `21` |
 | Mod ID | `redstoneengineering` |
 | License | **MIT** |
 
+## Alpha 1.0.11 — Legacy Renovation Wave II + Topology GameTests
+
+Alpha 1.0.11 continues the post-dependency renovation by moving more early RSE infrastructure onto the shared Engineering Port Contract and by making critical topology rules executable inside Minecraft rather than only checking source tokens.
+
+The second migration wave covers:
+
+- Redstone Cable Terminal — explicit Vanilla/Cable input-output ports that reverse with terminal mode;
+- Insulated Redstone Junction and Copper Junction — only physically connected faces become bidirectional BUS ports in their own domains;
+- the shared Lapis transducer family — a forward `LAPIS_PRECISION` sensor output with runtime value and quality;
+- Redstone → Lapis Scaler — explicit `BACK REDSTONE INPUT → FRONT LAPIS OUTPUT` conversion;
+- Lapis → Redstone Quantizer — explicit `BACK LAPIS INPUT → FRONT REDSTONE OUTPUT` conversion;
+- `PortKind.CONVERTER` — a first-class semantic marker for intentional cross-domain boundaries.
+
+CI now launches NeoForge's Minecraft GameTest server and executes in-world topology regressions. Current tests prove that insulated redstone cable connects to an insulated-redstone junction, refuses a direct copper-junction connection, that terminal port directions follow mode, and that the two Redstone/Lapis converters expose the intended engineering domains.
+
+See [`docs/ALPHA1_0_11_LEGACY_RENOVATION_AND_GAMETEST.md`](docs/ALPHA1_0_11_LEGACY_RENOVATION_AND_GAMETEST.md).
+
 ## Alpha 1.0.10 — Engineering Port Contract
 
-The first large post-dependency renovation replaces scattered per-block port descriptions with a shared core contract:
+The historical Alpha 1.0.10 (`1.0.10-alpha`) Engineering Port Contract is the architectural base for later renovation waves. It replaced scattered per-block port descriptions with a shared core contract:
 
 - `EngineeringPort` — physical side, engineering domain, semantic kind, flow direction, vanilla compatibility and unit;
 - `EngineeringPortSnapshot` — dynamic value/range/quality kept outside BlockState;
@@ -28,7 +45,7 @@ The first large post-dependency renovation replaces scattered per-block port des
 - `PortCompatibility` — centralized direct domain/direction compatibility;
 - `PortQuality` — `VALID`, `NO_SIGNAL`, `SATURATED`, `STALE`, `FAULT`, `DOMAIN_MISMATCH`, `TOPOLOGY_ERROR`.
 
-The first migration wave covers the shared `DirectionalSignalBlock` family, Engineering Light Sensor, Entity Density Sensor, Tank Level Sensor, Analog Process Indicator, Insulated Redstone Cable and Instrument Bus. This lets later Jade/Fusion/Cloth/GeckoLib/JEI integration read one authoritative engineering model instead of reimplementing block logic.
+The first migration wave covered the shared `DirectionalSignalBlock` family, Engineering Light Sensor, Entity Density Sensor, Tank Level Sensor, Analog Process Indicator, Insulated Redstone Cable and Instrument Bus. Jade then became the first required dependency to consume this contract through a server-backed, read-only engineering HUD.
 
 See [`docs/ALPHA1_0_10_ENGINEERING_PORT_ARCHITECTURE.md`](docs/ALPHA1_0_10_ENGINEERING_PORT_ARCHITECTURE.md).
 
@@ -100,6 +117,7 @@ Throughput, utilization, cycle time, downtime, queue/WIP proxies, operating-stat
 8. Keep automation inspectable.
 9. Treat regression gates as part of the product.
 10. Use mature dependencies where they remove duplicate infrastructure, while keeping physics/control/topology authoritative in RSE.
+11. Prefer executable Minecraft behavior tests for topology contracts that source-only verification cannot prove.
 
 ## Reference calculations
 
@@ -133,15 +151,16 @@ P_out ≈ (P_in × opening + 7) / 15
 
 ## Verification architecture
 
-CI runs verifier syntax, repository/source/resource audits, deterministic reference models, historical Alpha regressions, required-dependency checks, the Alpha 1.0.10 engineering-port architecture gate, Java 21 compilation, Gradle tests, a clean build, SHA-256 generation and verified artifact upload.
+CI runs verifier syntax, repository/source/resource audits, deterministic reference models, historical Alpha regressions, required-dependency checks, the Alpha 1.0.10 engineering-port/Jade gates, the Alpha 1.0.11 legacy-renovation gate, Java 21 compilation, Gradle tests, **NeoForge Minecraft topology GameTests**, a clean build, SHA-256 generation and verified artifact upload.
 
-Interactive Minecraft behavior remains a separate `runClient` gate.
+Interactive visual/UX behavior remains a separate `runClient` gate, but core topology now also has an executable `runGameTestServer` gate.
 
-## Build
+## Build and test
 
 ```bash
 ./gradlew compileJava --no-daemon --stacktrace
 ./gradlew test --no-daemon --stacktrace
+./gradlew runGameTestServer --no-daemon --stacktrace
 ./gradlew clean build --no-daemon --stacktrace
 ./gradlew runClient
 ```
@@ -153,7 +172,9 @@ Build output is under `build/libs/`.
 - [`CHANGELOG.md`](CHANGELOG.md)
 - [`CONTRIBUTING.md`](CONTRIBUTING.md)
 - [`docs/DEPENDENCY_POLICY.md`](docs/DEPENDENCY_POLICY.md)
+- [`docs/ALPHA1_0_11_LEGACY_RENOVATION_AND_GAMETEST.md`](docs/ALPHA1_0_11_LEGACY_RENOVATION_AND_GAMETEST.md)
 - [`docs/ALPHA1_0_10_ENGINEERING_PORT_ARCHITECTURE.md`](docs/ALPHA1_0_10_ENGINEERING_PORT_ARCHITECTURE.md)
+- [`docs/ALPHA1_0_10_JADE_ENGINEERING_HUD.md`](docs/ALPHA1_0_10_JADE_ENGINEERING_HUD.md)
 - [`docs/ENGINEERING_LANGUAGE_AND_CURRICULUM.md`](docs/ENGINEERING_LANGUAGE_AND_CURRICULUM.md)
 - [`docs/CRAFTING_PROGRESSION.md`](docs/CRAFTING_PROGRESSION.md)
 - [`docs/ALPHA1_0_7_LEGACY_WIRING_PORTS.md`](docs/ALPHA1_0_7_LEGACY_WIRING_PORTS.md)
