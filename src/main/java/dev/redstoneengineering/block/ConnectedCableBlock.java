@@ -17,46 +17,149 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 /**
  * Six-direction 3-D cable topology. Live voltage/light/signal values belong in
  * runtime storage, leaving only 2^6 = 64 cheap topology states.
+ *
+ * <p>Connection state is deliberately kept symmetric. When one RSE cable-like
+ * block is placed beside another, both endpoints are refreshed immediately;
+ * correctness therefore does not depend on which endpoint happened to receive
+ * a vanilla neighbor notification first.</p>
  */
 public abstract class ConnectedCableBlock extends DomainBlock {
-    public static final BooleanProperty NORTH=BooleanProperty.create("north");
-    public static final BooleanProperty EAST=BooleanProperty.create("east");
-    public static final BooleanProperty SOUTH=BooleanProperty.create("south");
-    public static final BooleanProperty WEST=BooleanProperty.create("west");
-    public static final BooleanProperty UP=BooleanProperty.create("up");
-    public static final BooleanProperty DOWN=BooleanProperty.create("down");
+    public static final BooleanProperty NORTH = BooleanProperty.create("north");
+    public static final BooleanProperty EAST = BooleanProperty.create("east");
+    public static final BooleanProperty SOUTH = BooleanProperty.create("south");
+    public static final BooleanProperty WEST = BooleanProperty.create("west");
+    public static final BooleanProperty UP = BooleanProperty.create("up");
+    public static final BooleanProperty DOWN = BooleanProperty.create("down");
 
-    private static final VoxelShape C=Block.box(6,6,6,10,10,10);
-    private static final VoxelShape N=Block.box(6,6,0,10,10,6),E=Block.box(10,6,6,16,10,10),S=Block.box(6,6,10,10,10,16),W=Block.box(0,6,6,6,10,10),U=Block.box(6,10,6,10,16,10),D=Block.box(6,0,6,10,6,10);
+    private static final VoxelShape CENTER = Block.box(6, 6, 6, 10, 10, 10);
+    private static final VoxelShape NORTH_ARM = Block.box(6, 6, 0, 10, 10, 6);
+    private static final VoxelShape EAST_ARM = Block.box(10, 6, 6, 16, 10, 10);
+    private static final VoxelShape SOUTH_ARM = Block.box(6, 6, 10, 10, 10, 16);
+    private static final VoxelShape WEST_ARM = Block.box(0, 6, 6, 6, 10, 10);
+    private static final VoxelShape UP_ARM = Block.box(6, 10, 6, 10, 16, 10);
+    private static final VoxelShape DOWN_ARM = Block.box(6, 0, 6, 10, 6, 10);
 
-    protected ConnectedCableBlock(Properties p){
-        super(p);
-        registerDefaultState(stateDefinition.any().setValue(NORTH,false).setValue(EAST,false).setValue(SOUTH,false).setValue(WEST,false).setValue(UP,false).setValue(DOWN,false));
+    protected ConnectedCableBlock(Properties properties) {
+        super(properties);
+        registerDefaultState(stateDefinition.any()
+                .setValue(NORTH, false)
+                .setValue(EAST, false)
+                .setValue(SOUTH, false)
+                .setValue(WEST, false)
+                .setValue(UP, false)
+                .setValue(DOWN, false));
     }
 
-    protected abstract boolean canConnectTo(BlockGetter level,BlockPos self,Direction direction,BlockState neighbor);
+    protected abstract boolean canConnectTo(
+            BlockGetter level,
+            BlockPos self,
+            Direction direction,
+            BlockState neighbor
+    );
+
     /** Plain cable has two ends. Branches should use a Junction/Splitter. */
-    protected int maxConnections(){return 2;}
-
-    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block,BlockState>b){b.add(NORTH,EAST,SOUTH,WEST,UP,DOWN);}
-    @Override public BlockState getStateForPlacement(BlockPlaceContext c){return withConnections(defaultBlockState(),c.getLevel(),c.getClickedPos());}
-
-    protected final BlockState withConnections(BlockState s,BlockGetter level,BlockPos pos){
-        for(Direction d:Direction.values())s=s.setValue(prop(d),canConnectTo(level,pos,d,level.getBlockState(pos.relative(d))));
-        return s;
+    protected int maxConnections() {
+        return 2;
     }
-    protected final void refreshConnections(Level level,BlockPos pos,BlockState state){BlockState n=withConnections(state,level,pos);if(n!=state)level.setBlock(pos,n,Block.UPDATE_CLIENTS);}
-    public final boolean topologyValid(BlockState s){return connectionCount(s)<=maxConnections();}
-    public static int connectionCount(BlockState s){int n=0;for(Direction d:Direction.values())if(connected(s,d))n++;return n;}
-    public static boolean connected(BlockState s,Direction d){return s.hasProperty(prop(d))&&s.getValue(prop(d));}
-    private static BooleanProperty prop(Direction d){return switch(d){case NORTH->NORTH;case EAST->EAST;case SOUTH->SOUTH;case WEST->WEST;case UP->UP;case DOWN->DOWN;};}
 
-    @Override protected void onPlace(BlockState s,Level l,BlockPos p,BlockState old,boolean moved){super.onPlace(s,l,p,old,moved);refreshConnections(l,p,s);}
-    @Override protected void neighborChanged(BlockState s,Level l,BlockPos p,Block nb,BlockPos np,boolean moved){refreshConnections(l,p,s);}
+    @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        builder.add(NORTH, EAST, SOUTH, WEST, UP, DOWN);
+    }
 
-    @Override public VoxelShape getShape(BlockState s,BlockGetter l,BlockPos p,CollisionContext c){
-        VoxelShape sh=C;
-        if(s.getValue(NORTH))sh=Shapes.joinUnoptimized(sh,N,BooleanOp.OR);if(s.getValue(EAST))sh=Shapes.joinUnoptimized(sh,E,BooleanOp.OR);if(s.getValue(SOUTH))sh=Shapes.joinUnoptimized(sh,S,BooleanOp.OR);if(s.getValue(WEST))sh=Shapes.joinUnoptimized(sh,W,BooleanOp.OR);if(s.getValue(UP))sh=Shapes.joinUnoptimized(sh,U,BooleanOp.OR);if(s.getValue(DOWN))sh=Shapes.joinUnoptimized(sh,D,BooleanOp.OR);
-        return sh;
+    @Override
+    public BlockState getStateForPlacement(BlockPlaceContext context) {
+        return withConnections(defaultBlockState(), context.getLevel(), context.getClickedPos());
+    }
+
+    protected final BlockState withConnections(BlockState state, BlockGetter level, BlockPos pos) {
+        for (Direction direction : Direction.values()) {
+            state = state.setValue(
+                    property(direction),
+                    canConnectTo(level, pos, direction, level.getBlockState(pos.relative(direction)))
+            );
+        }
+        return state;
+    }
+
+    protected final void refreshConnections(Level level, BlockPos pos, BlockState state) {
+        BlockState refreshed = withConnections(state, level, pos);
+        if (refreshed != state) {
+            level.setBlock(pos, refreshed, Block.UPDATE_CLIENTS);
+        }
+    }
+
+    /**
+     * Refresh both endpoints after placement. This is intentionally explicit:
+     * structure placement, GameTest placement, commands, and player placement
+     * do not all arrive through exactly the same notification path.
+     */
+    private void refreshAdjacentCableConnections(Level level, BlockPos pos) {
+        for (Direction direction : Direction.values()) {
+            BlockPos neighborPos = pos.relative(direction);
+            BlockState neighborState = level.getBlockState(neighborPos);
+            if (neighborState.getBlock() instanceof ConnectedCableBlock neighborCable) {
+                neighborCable.refreshConnections(level, neighborPos, neighborState);
+            }
+        }
+    }
+
+    public final boolean topologyValid(BlockState state) {
+        return connectionCount(state) <= maxConnections();
+    }
+
+    public static int connectionCount(BlockState state) {
+        int count = 0;
+        for (Direction direction : Direction.values()) {
+            if (connected(state, direction)) count++;
+        }
+        return count;
+    }
+
+    public static boolean connected(BlockState state, Direction direction) {
+        BooleanProperty property = property(direction);
+        return state.hasProperty(property) && state.getValue(property);
+    }
+
+    private static BooleanProperty property(Direction direction) {
+        return switch (direction) {
+            case NORTH -> NORTH;
+            case EAST -> EAST;
+            case SOUTH -> SOUTH;
+            case WEST -> WEST;
+            case UP -> UP;
+            case DOWN -> DOWN;
+        };
+    }
+
+    @Override
+    protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
+        super.onPlace(state, level, pos, oldState, moved);
+        refreshConnections(level, pos, state);
+        refreshAdjacentCableConnections(level, pos);
+    }
+
+    @Override
+    protected void neighborChanged(
+            BlockState state,
+            Level level,
+            BlockPos pos,
+            Block neighbor,
+            BlockPos neighborPos,
+            boolean moved
+    ) {
+        refreshConnections(level, pos, state);
+    }
+
+    @Override
+    public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+        VoxelShape shape = CENTER;
+        if (state.getValue(NORTH)) shape = Shapes.joinUnoptimized(shape, NORTH_ARM, BooleanOp.OR);
+        if (state.getValue(EAST)) shape = Shapes.joinUnoptimized(shape, EAST_ARM, BooleanOp.OR);
+        if (state.getValue(SOUTH)) shape = Shapes.joinUnoptimized(shape, SOUTH_ARM, BooleanOp.OR);
+        if (state.getValue(WEST)) shape = Shapes.joinUnoptimized(shape, WEST_ARM, BooleanOp.OR);
+        if (state.getValue(UP)) shape = Shapes.joinUnoptimized(shape, UP_ARM, BooleanOp.OR);
+        if (state.getValue(DOWN)) shape = Shapes.joinUnoptimized(shape, DOWN_ARM, BooleanOp.OR);
+        return shape;
     }
 }

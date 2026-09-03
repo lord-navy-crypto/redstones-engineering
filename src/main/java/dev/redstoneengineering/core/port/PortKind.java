@@ -12,6 +12,7 @@ public enum PortKind {
     TAP,
     BUS,
     MEASUREMENT,
+    CONVERTER,
     ACTUATOR,
     FEEDBACK,
     AUXILIARY,

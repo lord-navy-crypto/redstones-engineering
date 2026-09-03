@@ -1,0 +1,27 @@
+RSE Alpha 1.0.11 — Legacy Renovation Wave II + Topology GameTests
+Version: 1.0.11-alpha
+Minecraft: 1.21.1
+NeoForge: 21.1.249
+Java: 21
+License: MIT
+
+Core renovation:
+- PortKind.CONVERTER added for explicit domain converters.
+- Redstone Cable Terminal migrated to EngineeringPortProvider.
+- Redstone Cable Junction migrated to EngineeringPortProvider.
+- Copper Cable Junction migrated to EngineeringPortProvider.
+- Abstract Lapis Transducer family migrated to EngineeringPortProvider.
+- Redstone -> Lapis Scaler migrated to explicit REDSTONE INPUT / LAPIS OUTPUT ports.
+- Lapis -> Redstone Quantizer migrated to explicit LAPIS INPUT / REDSTONE OUTPUT ports.
+
+Executable GameTests:
+- insulated redstone cable connects to redstone junction;
+- insulated redstone cable rejects copper junction;
+- cable terminal reverses input/output port direction with mode;
+- explicit converters expose the correct cross-domain ports.
+
+CI gate:
+./gradlew runGameTestServer --no-daemon --stacktrace
+
+Required ecosystem platform remains:
+JEI / Jade / GeckoLib / Cloth Config / Fusion

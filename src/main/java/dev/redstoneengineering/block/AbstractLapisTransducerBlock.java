@@ -1,9 +1,17 @@
 package dev.redstoneengineering.block;
 
+import dev.redstoneengineering.core.domain.EngineeringDomain;
+import dev.redstoneengineering.core.port.EngineeringPort;
+import dev.redstoneengineering.core.port.EngineeringPortProvider;
+import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
+import dev.redstoneengineering.core.port.PortDirection;
+import dev.redstoneengineering.core.port.PortKind;
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.physics.SensorModel;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
@@ -16,11 +24,14 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
+import java.util.List;
+import java.util.Optional;
+
 /**
- * Common physical-quantity -> Lapis transducer behavior for alpha.8.
+ * Common physical-quantity -> Lapis transducer behavior.
  * BlockState stores only small player configuration; live measurements are runtime data.
  */
-public abstract class AbstractLapisTransducerBlock extends DirectionalDomainBlock {
+public abstract class AbstractLapisTransducerBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
     public static final IntegerProperty PROFILE = IntegerProperty.create("profile", 0, 3);
 
     protected AbstractLapisTransducerBlock(Properties properties) {
@@ -39,6 +50,38 @@ public abstract class AbstractLapisTransducerBlock extends DirectionalDomainBloc
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
         builder.add(PROFILE);
+    }
+
+    @Override
+    public List<EngineeringPort> engineeringPorts(BlockState state) {
+        return List.of(new EngineeringPort(
+                "LAPIS OUTPUT",
+                outputSide(state),
+                EngineeringDomain.LAPIS,
+                PortKind.SENSOR,
+                PortDirection.OUTPUT,
+                false,
+                "normalized"
+        ));
+    }
+
+    @Override
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
+            Level level,
+            BlockPos pos,
+            BlockState state,
+            Direction side
+    ) {
+        Optional<EngineeringPort> port = engineeringPort(state, side);
+        if (port.isEmpty()) return Optional.empty();
+        PortQuality quality = valid(level, pos) ? PortQuality.VALID : PortQuality.NO_SIGNAL;
+        return Optional.of(new EngineeringPortSnapshot(
+                port.get(),
+                output(level, pos) / 100.0,
+                0.0,
+                1.0,
+                quality
+        ));
     }
 
     @Override
