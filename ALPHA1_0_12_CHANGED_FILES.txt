@@ -1,0 +1,17 @@
+ALPHA1_0_12_MANIFEST.txt
+ALPHA1_0_12_CHANGED_FILES.txt
+README.md
+CHANGELOG.md
+gradle.properties
+.github/workflows/build.yml
+docs/ALPHA1_0_12_DIRECTIONAL_IO_RENOVATION.md
+docs/ALPHA1_0_12_TEST_MATRIX.md
+tools/rse_alpha1012_directional_io_verify.py
+src/main/java/dev/redstoneengineering/block/DirectionalRedstoneEndpointBlock.java
+src/main/java/dev/redstoneengineering/block/DirectionalRedstoneSensorBlock.java
+src/main/java/dev/redstoneengineering/block/RedstoneReferenceSourceBlock.java
+src/main/java/dev/redstoneengineering/block/EngineeringLightSensorBlock.java
+src/main/java/dev/redstoneengineering/block/TankLevelSensorBlock.java
+src/main/java/dev/redstoneengineering/block/EntityDensitySensorBlock.java
+src/main/java/dev/redstoneengineering/block/AnalogIndicatorBlock.java
+src/main/java/dev/redstoneengineering/gametest/RseTopologyGameTests.java
