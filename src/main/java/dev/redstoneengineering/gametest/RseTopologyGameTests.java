@@ -24,25 +24,42 @@ public final class RseTopologyGameTests {
     @PrefixGameTestTemplate(false)
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE)
     public static void redstoneCableConnectsToRedstoneJunction(GameTestHelper helper) {
-        BlockPos cablePos = new BlockPos(1, 1, 2);
-        BlockPos junctionPos = new BlockPos(2, 1, 2);
+        BlockPos cableFirst = new BlockPos(1, 1, 1);
+        BlockPos junctionSecond = new BlockPos(2, 1, 1);
+        BlockPos junctionFirst = new BlockPos(1, 1, 3);
+        BlockPos cableSecond = new BlockPos(2, 1, 3);
 
-        helper.setBlock(cablePos, RedstoneEngineering.REDSTONE_SIGNAL_CABLE.get().defaultBlockState());
-        helper.setBlock(junctionPos, RedstoneEngineering.REDSTONE_CABLE_JUNCTION.get().defaultBlockState());
+        // Order A: cable exists first, then junction arrives.
+        helper.setBlock(cableFirst, RedstoneEngineering.REDSTONE_SIGNAL_CABLE.get().defaultBlockState());
+        helper.setBlock(junctionSecond, RedstoneEngineering.REDSTONE_CABLE_JUNCTION.get().defaultBlockState());
+
+        // Order B: junction exists first, then cable arrives.
+        helper.setBlock(junctionFirst, RedstoneEngineering.REDSTONE_CABLE_JUNCTION.get().defaultBlockState());
+        helper.setBlock(cableSecond, RedstoneEngineering.REDSTONE_SIGNAL_CABLE.get().defaultBlockState());
 
         helper.runAfterDelay(2, () -> {
-            BlockState cable = helper.getBlockState(cablePos);
-            BlockState junction = helper.getBlockState(junctionPos);
-            if (!ConnectedCableBlock.connected(cable, Direction.EAST)) {
-                helper.fail("Insulated redstone cable did not connect east to its junction", cablePos);
-                return;
-            }
-            if (!ConnectedCableBlock.connected(junction, Direction.WEST)) {
-                helper.fail("Redstone junction did not connect west to insulated cable", junctionPos);
-                return;
-            }
+            assertConnectedPair(helper, cableFirst, Direction.EAST, junctionSecond, Direction.WEST, "cable-first");
+            assertConnectedPair(helper, cableSecond, Direction.WEST, junctionFirst, Direction.EAST, "junction-first");
             helper.succeed();
         });
+    }
+
+    private static void assertConnectedPair(
+            GameTestHelper helper,
+            BlockPos cablePos,
+            Direction cableSide,
+            BlockPos junctionPos,
+            Direction junctionSide,
+            String order
+    ) {
+        BlockState cable = helper.getBlockState(cablePos);
+        BlockState junction = helper.getBlockState(junctionPos);
+        if (!ConnectedCableBlock.connected(cable, cableSide)) {
+            helper.fail("Insulated redstone cable did not connect to its junction (" + order + ")", cablePos);
+        }
+        if (!ConnectedCableBlock.connected(junction, junctionSide)) {
+            helper.fail("Redstone junction did not connect to insulated cable (" + order + ")", junctionPos);
+        }
     }
 
     @PrefixGameTestTemplate(false)
