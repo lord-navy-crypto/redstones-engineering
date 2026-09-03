@@ -1,3 +1,13 @@
 RSE Alpha 1.0.3 — Closed-Loop Systems & Diagnostics
-Adds/strengthens PID manual-auto behavior, servo velocity mode, bus/radio diagnostics, pneumatic proportional/safety/actuation components, and IOE state classification.
-This overlay still requires real NeoForge compileJava/build/runClient validation on the target Mac.
+Artifact version: 1.0.3-alpha
+Minecraft: 1.21.1
+NeoForge: 21.1.249
+Java: 21
+License: MIT
+
+Alpha 1.0.3 completes/strengthens PID Manual-Auto behavior, servo Velocity mode and braking, data-bus contention diagnostics, accumulated radio diagnostics, pneumatic proportional/safety/actuation components, and IOE operating-state classification.
+
+Validation status:
+- Pre-integrity-fix Alpha 1.0.3 baseline: local Gradle build confirmed on the target Mac/JDK 21.
+- Integrity-fix branch: must pass repository static verification, Alpha 1.0.3 verification, compileJava, and clean build in GitHub Actions before merge.
+- runClient: interactive local validation step; not executed in headless CI.
