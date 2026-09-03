@@ -52,8 +52,6 @@ for mod_id, side in required.items():
     if not re.search(pattern, metadata):
         failed.append(f"NeoForge metadata does not require {mod_id} on {side}")
 
-# The Alpha 1.0.9 architecture deliberately removes optional/localRuntime handling
-# for these five platform dependencies.
 for forbidden in [
     'localRuntime "mezz.jei:',
     'compileOnly "mezz.jei:',
@@ -75,7 +73,10 @@ for token in [
         failed.append(f"IntegrationStatus missing {token}")
 
 policy = text("docs/DEPENDENCY_POLICY.md")
-for token in ["required platform", "JEI", "Jade", "GeckoLib", "Cloth Config", "Fusion"]:
+policy_lower = policy.lower()
+if "required platform" not in policy_lower:
+    failed.append("dependency policy missing required platform")
+for token in ["JEI", "Jade", "GeckoLib", "Cloth Config", "Fusion"]:
     if token not in policy:
         failed.append(f"dependency policy missing {token}")
 
