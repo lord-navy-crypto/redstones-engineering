@@ -4,7 +4,47 @@ All notable RSE engineering milestones are recorded here. RSE is still in alpha 
 
 ## [Unreleased]
 
-- No committed feature set yet. New work should remain behind a branch/PR and pass the repository verification workflow before being described here.
+- Future work should remain behind a focused branch/PR and pass the repository verification workflow before being merged into `main`.
+
+## [1.0.4-alpha] — Development candidate
+
+### Instrumentation
+
+- Added Signal Analyzer `TAP` and `INLINE` measurement topologies.
+- `TAP` remains completely non-invasive; `INLINE` provides an explicit TEST input and opposite-side `0..15` pass-through output.
+- Added continuous analyzer min/max/change/rising/falling/delta/stability/sample diagnostics in transient runtime storage.
+- Added analyzer statistic reset and retained six-side survey behavior.
+
+### Measurement correctness
+
+- Added direction-aware measurement for active directional sources.
+- Signal Analyzer and Signal Probe now sample the physical tested face instead of substituting the strongest unrelated source face.
+- Preserved direct node-value measurement for redstone dust and RSE conductors so attenuated nodes are not contaminated by adjacent stronger sources.
+
+### Instrument-network topology
+
+- Added instrument cable-node and probe-node counts.
+- Added active-channel and duplicate/ambiguous-channel diagnostics.
+- Added bounded/truncated scan status to `ProbeSnapshot`.
+- Exposed instrument-network topology summaries in Oscilloscope and Logic Analyzer status output.
+
+### Pneumatic / feedback topology
+
+- Changed Pneumatic Cylinder redstone position feedback from all-side emission to an explicit FRONT/FACING output port.
+- Preserved pneumatic input on the back side.
+- Added peak-pressure, motion-reversal, and sample-count diagnostics to the cylinder readout.
+
+### Repository and validation
+
+- Advanced artifact version to `1.0.4-alpha`.
+- Made repository verification milestone-agnostic instead of hard-coding Alpha 1.0.3.
+- Added Alpha 1.0.4 static verification and interactive test documentation.
+- Made CI artifact names version-neutral/commit-addressed (`rse-verified-<sha>`).
+
+### Validation status
+
+- Alpha 1.0.4 remains a development candidate until its PR passes static verification, Java 21 `compileJava`, clean Gradle build, SHA-256 generation, and artifact upload.
+- Interactive `runClient` validation remains required before any public Alpha 1.0.4 release candidate is created.
 
 ## [1.0.3-alpha] — 2026-09-03
 
