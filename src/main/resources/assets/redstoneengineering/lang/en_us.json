@@ -1,4 +1,5 @@
 {
+  "config.jade.plugin_redstoneengineering.engineering_ports": "Engineering Ports",
   "block.redstoneengineering.signal_analyzer": "Instrumentation Signal Analyzer",
   "block.redstoneengineering.oscilloscope": "4-Channel Engineering Oscilloscope",
   "block.redstoneengineering.signal_conditioner": "Analog Signal Conditioner",
