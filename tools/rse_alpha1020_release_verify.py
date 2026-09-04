@@ -7,6 +7,7 @@ than gameplay semantics, which remain covered by the historical verifiers and Ga
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
@@ -18,6 +19,7 @@ EXPECTED_VERSION = "1.0.20-alpha"
 EXPECTED_MINECRAFT = "1.21.1"
 EXPECTED_NEOFORGE = "21.1.249"
 EXPECTED_JAVA = "21"
+EXPECTED_LICENSE = "MPL-2.0"
 
 
 def read(relative: str) -> str:
@@ -39,6 +41,7 @@ for key, expected in (
     ("mod_version", EXPECTED_VERSION),
     ("minecraft_version", EXPECTED_MINECRAFT),
     ("neo_version", EXPECTED_NEOFORGE),
+    ("mod_license", EXPECTED_LICENSE),
 ):
     if not re.search(rf"(?m)^{re.escape(key)}={re.escape(expected)}$", gradle_properties):
         errors.append(f"gradle.properties does not pin {key}={expected}")
@@ -53,9 +56,13 @@ if f"NeoForge: {EXPECTED_NEOFORGE}" not in manifest:
     errors.append(f"manifest NeoForge baseline is not {EXPECTED_NEOFORGE}")
 if f"Java: {EXPECTED_JAVA}" not in manifest:
     errors.append(f"manifest Java baseline is not {EXPECTED_JAVA}")
+if f"License: {EXPECTED_LICENSE}" not in manifest:
+    errors.append(f"manifest license is not {EXPECTED_LICENSE}")
 
 if 'version="${mod_version}"' not in mods_template:
     errors.append("NeoForge metadata must derive the mod version from ${mod_version}")
+if 'license="${mod_license}"' not in mods_template:
+    errors.append("NeoForge metadata must derive the license from ${mod_license}")
 
 for dependency in ("jei", "jade", "geckolib", "cloth_config", "fusion"):
     if f'modId="{dependency}"' not in mods_template:
@@ -109,6 +116,38 @@ for provider_id in sorted(jade_provider_ids):
     if f'"{translation_key}"' not in lang_en_us:
         errors.append(f"missing Jade config translation: {translation_key}")
 
+model_dir = root / "src/main/resources/assets/redstoneengineering/models/block"
+texture_dir = root / "src/main/resources/assets/redstoneengineering/textures/block"
+model_count = 0
+rse_texture_refs = 0
+if not model_dir.is_dir():
+    errors.append("missing RSE block model directory")
+else:
+    for model_file in sorted(model_dir.glob("*.json")):
+        model_count += 1
+        try:
+            model_data = json.loads(model_file.read_text())
+        except json.JSONDecodeError as exc:
+            errors.append(f"invalid block model JSON {model_file.name}: {exc}")
+            continue
+        textures = model_data.get("textures", {})
+        if not isinstance(textures, dict):
+            continue
+        for slot, texture_ref in textures.items():
+            if not isinstance(texture_ref, str):
+                continue
+            if texture_ref.startswith("minecraft:block/"):
+                errors.append(
+                    f"vanilla placeholder texture remains in {model_file.name} [{slot}]: {texture_ref}"
+                )
+            if texture_ref.startswith("redstoneengineering:block/"):
+                rse_texture_refs += 1
+                relative_texture = texture_ref.removeprefix("redstoneengineering:block/") + ".png"
+                if not (texture_dir / relative_texture).is_file():
+                    errors.append(
+                        f"missing RSE texture for {model_file.name} [{slot}]: {relative_texture}"
+                    )
+
 for required_workflow_text in (
     "runGameTestServer",
     "sha256sum *.jar > SHA256SUMS.txt",
@@ -134,9 +173,11 @@ if errors:
 print("RSE Alpha 1.0.20 release verification: PASS")
 print(f"  artifact version: {EXPECTED_VERSION}")
 print(f"  Minecraft / NeoForge / Java: {EXPECTED_MINECRAFT} / {EXPECTED_NEOFORGE} / {EXPECTED_JAVA}")
+print(f"  license: {EXPECTED_LICENSE}")
 print("  manifest -> testing guide link: PASS")
 print("  required dependency metadata: PASS")
 print("  Gradle publishing syntax: PASS")
 print(f"  Jade provider config translations: {len(jade_provider_ids)} PASS")
+print(f"  block models / RSE texture refs: {model_count} / {rse_texture_refs} PASS")
 print(f"  artifact upload action: v{artifact_action.group(1)}")
 print("  GameTest + checksum + artifact gates: PASS")
