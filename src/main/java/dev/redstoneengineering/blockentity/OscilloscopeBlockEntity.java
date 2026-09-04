@@ -11,6 +11,7 @@ import net.minecraft.world.level.block.state.BlockState;
 public class OscilloscopeBlockEntity extends BlockEntity {
     private static final int CHANNELS = 2;
     private static final int CAPACITY = 32;
+    public static final int DISPLAY_SAMPLES = 16;
     public static final int SAMPLE_PERIOD_TICKS = 2;
 
     private final int[][] history = new int[CHANNELS][CAPACITY];
@@ -109,13 +110,56 @@ public class OscilloscopeBlockEntity extends BlockEntity {
     }
 
     public void moveCursorA() {
-        cursorA = (cursorA + 1) % 16;
+        cursorA = (cursorA + 1) % DISPLAY_SAMPLES;
         setChanged();
     }
 
     public void moveCursorB() {
-        cursorB = (cursorB + 1) % 16;
+        cursorB = (cursorB + 1) % DISPLAY_SAMPLES;
         setChanged();
+    }
+
+    public int triggerLevel() {
+        return triggerLevel;
+    }
+
+    public int triggerChannel() {
+        return triggerChannel;
+    }
+
+    public int triggerMode() {
+        return triggerMode;
+    }
+
+    public boolean armed() {
+        return armed;
+    }
+
+    public boolean triggered() {
+        return triggered;
+    }
+
+    public int cursorA() {
+        return cursorA;
+    }
+
+    public int cursorB() {
+        return cursorB;
+    }
+
+    /**
+     * Returns one of the last 16 chronological display samples. Missing warm-up slots are -1.
+     * This bounded accessor lets the server menu synchronize the real capture without exposing
+     * the internal 32-sample ring buffer to client code.
+     */
+    public int displaySample(int channel, int slot) {
+        if (!validChannel(channel) || slot < 0 || slot >= DISPLAY_SAMPLES) return -1;
+        int[] values = recent(channel);
+        int available = Math.min(DISPLAY_SAMPLES, values.length);
+        int padding = DISPLAY_SAMPLES - available;
+        if (slot < padding) return -1;
+        int source = values.length - available + (slot - padding);
+        return values[source];
     }
 
     public String triggerStatus() {
@@ -136,7 +180,7 @@ public class OscilloscopeBlockEntity extends BlockEntity {
         if (!validChannel(channel)) return -1;
         int[] values = recent(channel);
         if (values.length == 0) return -1;
-        int base = Math.max(0, values.length - 16);
+        int base = Math.max(0, values.length - DISPLAY_SAMPLES);
         int sampleIndex = base + (second ? cursorB : cursorA);
         sampleIndex = Math.min(values.length - 1, sampleIndex);
         return values[sampleIndex];
@@ -255,7 +299,7 @@ public class OscilloscopeBlockEntity extends BlockEntity {
         int[] values = recent(channel);
         if (values.length == 0) return "∅";
         StringBuilder builder = new StringBuilder();
-        int start = Math.max(0, values.length - 16);
+        int start = Math.max(0, values.length - DISPLAY_SAMPLES);
         for (int i = start; i < values.length; i++) {
             if (values[i] < 0) builder.append("·");
             else builder.append(bars[Math.max(0, Math.min(7, (int) Math.round(values[i] / 15.0 * 7.0)))]);
@@ -286,8 +330,8 @@ public class OscilloscopeBlockEntity extends BlockEntity {
         triggerMode = Math.max(0, Math.min(2, tag.getInt("triggerMode")));
         armed = tag.getBoolean("armed");
         triggered = tag.getBoolean("triggered");
-        cursorA = Math.max(0, Math.min(15, tag.getInt("cursorA")));
-        cursorB = Math.max(0, Math.min(15, tag.getInt("cursorB")));
+        cursorA = Math.max(0, Math.min(DISPLAY_SAMPLES - 1, tag.getInt("cursorA")));
+        cursorB = Math.max(0, Math.min(DISPLAY_SAMPLES - 1, tag.getInt("cursorB")));
         lastA = tag.contains("lastA") ? tag.getInt("lastA") : -1;
         lastB = tag.contains("lastB") ? tag.getInt("lastB") : -1;
         samplesSinceTrigger = Math.max(0, Math.min(CAPACITY, tag.getInt("samplesSinceTrigger")));
