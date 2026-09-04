@@ -14,16 +14,19 @@ import dev.redstoneengineering.physics.DataBusNetwork;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
 
@@ -67,7 +70,7 @@ public class RedstoneByteEncoderBlock extends DirectionalDomainBlock implements 
             Level level,
             BlockPos pos,
             BlockState state,
-            net.minecraft.core.Direction side
+            Direction side
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
@@ -83,6 +86,16 @@ public class RedstoneByteEncoderBlock extends DirectionalDomainBlock implements 
                 255.0,
                 valid ? PortQuality.VALID : PortQuality.NO_SIGNAL
         ));
+    }
+
+    @Override
+    public boolean canConnectRedstone(
+            BlockState state,
+            BlockGetter level,
+            BlockPos pos,
+            @Nullable Direction direction
+    ) {
+        return direction != null && direction.getOpposite() == inputSide(state);
     }
 
     private void update(ServerLevel level, BlockPos pos, BlockState state) {
