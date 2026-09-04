@@ -46,6 +46,8 @@ See [`ALPHA1_0_20_MANIFEST.txt`](ALPHA1_0_20_MANIFEST.txt).
 
 ## Alpha 1.0.19 — Acceptance UX & Evidence Presentation
 
+Historical artifact: `1.0.19-alpha`.
+
 Alpha 1.0.19 makes the engineering acceptance contract visible during normal play without turning Jade into a second controller or diagnostic engine. When the player inspects a **PID Controller**, the server-backed Jade provider combines the authoritative all-face topology snapshot, the read-only closed-loop commissioning snapshot, and the Alpha 1.0.18 acceptance evaluator.
 
 The default HUD is intentionally compact:
