@@ -3,7 +3,7 @@ Artifact: 1.0.20-alpha
 Minecraft: 1.21.1
 NeoForge: 21.1.249
 Java: 21
-License: MIT
+License: MPL-2.0
 
 Milestone: Commissioning Run History & Baseline Comparison
 Public alpha testing guide: docs/ALPHA1_0_20_TESTING_GUIDE.md

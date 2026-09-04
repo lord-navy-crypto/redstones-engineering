@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:block/cube_all",
   "textures": {
-    "all": "minecraft:block/glowstone"
+    "all": "redstoneengineering:block/free_space_optical_transmitter"
   }
 }

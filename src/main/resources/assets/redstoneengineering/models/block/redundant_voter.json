@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:block/cube_all",
   "textures": {
-    "all": "minecraft:block/lime_concrete"
+    "all": "redstoneengineering:block/redundant_voter"
   }
 }

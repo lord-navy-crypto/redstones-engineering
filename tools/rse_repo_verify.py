@@ -41,7 +41,7 @@ expected_stable = {
     "neo_version": "21.1.249",
     "mod_id": "redstoneengineering",
     "mod_name": "Redstone Systems Engineering",
-    "mod_license": "MIT",
+    "mod_license": "MPL-2.0",
     "mod_group_id": "dev.redstoneengineering",
 }
 for key, value in expected_stable.items():
@@ -60,7 +60,7 @@ if readme.exists():
         "NeoForge",
         "Java",
         "Reference calculations",
-        "MIT License",
+        "MPL-2.0",
     ]:
         if token not in text:
             failed.append(f"README missing project metadata: {token}")
@@ -75,16 +75,16 @@ if version:
     manifest = require_file(manifest_rel)
     if manifest.exists():
         text = manifest.read_text(errors="ignore")
-        for token in [version, "License: MIT", "Java: 21"]:
+        for token in [version, "License: MPL-2.0", "Java: 21"]:
             if token not in text:
                 failed.append(f"{manifest_rel} missing: {token}")
 
 if license_file.exists():
     text = license_file.read_text(errors="ignore")
-    if not text.startswith("MIT License"):
-        failed.append("LICENSE is not an MIT License text")
-    if "Copyright (c) 2026 lord-navy-crypto" not in text:
-        failed.append("LICENSE copyright line is missing or unexpected")
+    if "Mozilla Public License" not in text or "2.0" not in text:
+        failed.append("LICENSE does not identify the Mozilla Public License 2.0")
+    if "mozilla.org/MPL/2.0/" not in text and "www.mozilla.org/MPL/2.0/" not in text:
+        failed.append("LICENSE does not provide the MPL 2.0 license location")
 
 if workflow.exists():
     text = workflow.read_text(errors="ignore")

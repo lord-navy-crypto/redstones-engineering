@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:block/cube_all",
   "textures": {
-    "all": "minecraft:block/lapis_block"
+    "all": "redstoneengineering:block/eight_bit_data_bus"
   }
 }

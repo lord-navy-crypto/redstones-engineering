@@ -16,7 +16,7 @@
 | NeoForge | `21.1.249` |
 | Java | `21` |
 | Mod ID | `redstoneengineering` |
-| License | **MIT** |
+| License | **MPL-2.0** |
 
 ## Alpha 1.0.20 — Commissioning Run History & Baseline Comparison
 
@@ -315,4 +315,4 @@ Build output is under `build/libs/`.
 
 ## License
 
-RSE is released under the **MIT License**. See [`LICENSE`](LICENSE).
+RSE is released under the **Mozilla Public License 2.0 (MPL-2.0)**. See [`LICENSE`](LICENSE).

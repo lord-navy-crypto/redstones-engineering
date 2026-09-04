@@ -66,9 +66,11 @@ if not match:
     failed.append("gradle.properties has no recognized alpha mod_version")
 elif tuple(map(int, match.groups())) < (1, 0, 6):
     failed.append("Alpha 1.0.6 regression requires version >= 1.0.6-alpha")
-if "mod_license=MIT" not in props:
-    failed.append("gradle.properties is missing MIT license")
+if "mod_license=MPL-2.0" not in props:
+    failed.append("gradle.properties is missing current MPL-2.0 license")
 
+# Alpha 1.0.6 is a historical milestone document and retains the license recorded
+# for that historical artifact. The active repository license is checked above.
 require("ALPHA1_0_6_MANIFEST.txt", "Engineering Language & Progression", "1.0.6-alpha", "License: MIT")
 require("src/main/resources/assets/redstoneengineering/lang/en_us.json", '"Instrumentation Signal Analyzer"', '"4-Channel Engineering Oscilloscope"', '"Analog Signal Conditioner"', '"Discrete PID Controller"', '"Position/Velocity Servo Actuator"', '"Production Operations Monitor"', '"Pneumatic Safety Relief Valve"')
 require("src/main/resources/assets/redstoneengineering/lang/zh_cn.json", '"仪器信号分析仪"', '"四通道工程示波器"', '"模拟信号调理器"', '"离散 PID 控制器"', '"位置/速度伺服执行器"', '"生产运维监测器"', '"气动安全泄压阀"')

@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:block/cube_all",
   "textures": {
-    "all": "minecraft:block/gray_wool"
+    "all": "redstoneengineering:block/shielded_instrument_cable"
   }
 }

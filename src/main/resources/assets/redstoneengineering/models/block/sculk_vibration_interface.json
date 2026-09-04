@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:block/cube_all",
   "textures": {
-    "all": "minecraft:block/sculk"
+    "all": "redstoneengineering:block/sculk_vibration_interface"
   }
 }
