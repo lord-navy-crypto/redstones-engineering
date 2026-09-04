@@ -1,0 +1,23 @@
+Redstone Systems Engineering — Alpha 1.0.16
+Artifact: 1.0.16-alpha
+Minecraft: 1.21.1
+NeoForge: 21.1.249
+Java: 21
+License: MIT
+
+Milestone: Closed-Loop Commissioning & Fault Injection
+
+Contracts:
+- PID/plant physics remain authoritative; commissioning diagnostics consume read-only runtime snapshots.
+- World-facing vanilla redstone remains bounded to 0..15.
+- Commissioning exposes setpoint, process value, error, rise90, settling, overshoot, saturation events, step age and status.
+- Baseline-versus-disturbed comparison reports score loss, settling penalty, overshoot increase and saturation increase.
+- Fault injection is explicit and bounded. Lapis noise remains in its 0..100 precision domain; Quartz delay remains in timing ticks.
+- Lapis Noise Source is the repeatable NOISE injection primitive.
+- Quartz Phase Delay is the bounded LATENCY injection primitive.
+- Rendering/UI/diagnostics never write simulation state.
+
+Verification:
+- rse_alpha1016_commissioning_verify.py
+- RseCommissioningGameTests
+- Java 21 compile/test/GameTest/clean-build CI

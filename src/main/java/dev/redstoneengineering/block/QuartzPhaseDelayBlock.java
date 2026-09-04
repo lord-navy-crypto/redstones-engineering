@@ -2,6 +2,7 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.diagnostics.FaultInjectionModel;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import net.minecraft.core.BlockPos;
@@ -17,6 +18,7 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
+/** Quartz timing-line edge delay that doubles as a bounded latency fault injector. */
 public class QuartzPhaseDelayBlock extends DirectionalDomainBlock {
     public static final IntegerProperty DELAY = IntegerProperty.create("delay", 1, 8);
     private static final String KEY = "quartz_phase_delay";
@@ -31,7 +33,8 @@ public class QuartzPhaseDelayBlock extends DirectionalDomainBlock {
         int[] rt = RuntimeIntStore.get(l, KEY, p, 3); // pending, prev, out
         rt[2] = 0;
         if (rt[0] > 0) { rt[0]--; if (rt[0] == 0) rt[2] = 1; }
-        if (in.valid() && in.active() && rt[1] == 0 && rt[0] == 0 && rt[2] == 0) rt[0] = s.getValue(DELAY);
+        int injectedDelay = FaultInjectionModel.latencyTicks(s.getValue(DELAY), 8);
+        if (in.valid() && in.active() && rt[1] == 0 && rt[0] == 0 && rt[2] == 0) rt[0] = injectedDelay;
         rt[1] = in.active() ? 1 : 0;
         DomainNetwork.driveQuartz(l, outputPos(p, s), p, rt[2] == 1, in.periodTicks(), in.valid());
         l.scheduleTick(p, this, 1);
@@ -40,7 +43,7 @@ public class QuartzPhaseDelayBlock extends DirectionalDomainBlock {
         if (!l.isClientSide) {
             int d = s.getValue(DELAY); d = d >= 8 ? 1 : d + 1;
             BlockState n = s.setValue(DELAY, d); l.setBlock(p, n, Block.UPDATE_CLIENTS);
-            pl.displayClientMessage(Component.literal("Quartz edge-delay | rising edge delay=" + d + " ticks"), true);
+            pl.displayClientMessage(Component.literal("Fault injection [LATENCY] | Quartz rising-edge delay=" + d + " ticks"), true);
         }
         return InteractionResult.sidedSuccess(l.isClientSide);
     }

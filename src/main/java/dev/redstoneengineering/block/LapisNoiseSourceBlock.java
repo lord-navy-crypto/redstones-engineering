@@ -2,6 +2,7 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.diagnostics.FaultInjectionModel;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.EngineeringMath;
 import dev.redstoneengineering.physics.RuntimeIntStore;
@@ -18,7 +19,10 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
-/** Stability-hotfix: configuration stays small; the changing sample is runtime data. */
+/**
+ * Repeatable Lapis-domain noise source used both as a source and as a commissioning fault injector.
+ * Configuration stays small; the changing sample is transient runtime data.
+ */
 public class LapisNoiseSourceBlock extends DomainBlock {
     // 21 baseline steps -> 0..100 in increments of 5.
     public static final IntegerProperty BASELINE = IntegerProperty.create("baseline", 0, 20);
@@ -57,8 +61,9 @@ public class LapisNoiseSourceBlock extends DomainBlock {
     @Override protected void tick(BlockState s, ServerLevel l, BlockPos p, RandomSource r) {
         int base = s.getValue(BASELINE) * 5;
         int noise = s.getValue(NOISE) * 2;
-        int delta = noise == 0 ? 0 : r.nextInt(noise * 2 + 1) - noise;
-        RuntimeIntStore.get(l, KEY, p, 1)[0] = EngineeringMath.clamp(base + delta, 0, 100);
+        // Position + game time gives repeatable fault sequences without introducing persistent state.
+        int sample = FaultInjectionModel.addDeterministicNoise(base, noise, l.getGameTime(), p.asLong(), 0, 100);
+        RuntimeIntStore.get(l, KEY, p, 1)[0] = sample;
         DomainNetwork.recomputeLapis(l, p);
         l.scheduleTick(p, this, 4);
     }
@@ -76,9 +81,10 @@ public class LapisNoiseSourceBlock extends DomainBlock {
             l.setBlock(p, n, Block.UPDATE_CLIENTS);
             int current = currentValue(l, p, n);
             pl.displayClientMessage(Component.literal(
-                    "Lapis noise source | baseline=" + String.format("%.2f", n.getValue(BASELINE) * 0.05)
+                    "Fault injection [NOISE] | Lapis baseline=" + String.format("%.2f", n.getValue(BASELINE) * 0.05)
                             + " | noise=±" + String.format("%.2f", n.getValue(NOISE) * 0.02)
-                            + " | now=" + String.format("%.2f", current / 100.0)), true);
+                            + " | now=" + String.format("%.2f", current / 100.0)
+                            + " | shift-click=noise, click=baseline"), true);
         }
         return InteractionResult.sidedSuccess(l.isClientSide);
     }
