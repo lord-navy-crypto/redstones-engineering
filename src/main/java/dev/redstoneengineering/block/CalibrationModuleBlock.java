@@ -2,8 +2,15 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.core.domain.EngineeringDomain;
+import dev.redstoneengineering.core.port.EngineeringPort;
+import dev.redstoneengineering.core.port.PortDirection;
+import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.signal.SignalMath;
+import dev.redstoneengineering.metrology.MeasurementSnapshot;
+import dev.redstoneengineering.metrology.MetrologySupport;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
@@ -16,8 +23,17 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
+import java.util.List;
+
+/**
+ * Calibration processor.
+ * BACK = observed instrument signal, LEFT = known reference, FRONT = calibrated output.
+ * The five historical transfer profiles remain available while Alpha 1.0.15 adds
+ * live residual/uncertainty validation against the independent reference input.
+ */
 public class CalibrationModuleBlock extends DirectionalSignalBlock {
     public static final IntegerProperty PROFILE = IntegerProperty.create("profile", 0, 4);
+    private static final String CHANNEL = "calibration_module";
 
     public CalibrationModuleBlock(Properties properties) {
         super(properties);
@@ -35,10 +51,38 @@ public class CalibrationModuleBlock extends DirectionalSignalBlock {
         builder.add(PROFILE);
     }
 
+    private Direction referenceSide(BlockState state) {
+        return leftOf(outputSide(state));
+    }
+
+    @Override
+    protected boolean isEngineeringPort(BlockState state, Direction side) {
+        return super.isEngineeringPort(state, side) || side == referenceSide(state);
+    }
+
+    @Override
+    public List<EngineeringPort> engineeringPorts(BlockState state) {
+        return List.of(
+                new EngineeringPort("OBSERVED", inputSide(state), EngineeringDomain.REDSTONE,
+                        PortKind.MEASUREMENT, PortDirection.INPUT, true, "signal"),
+                new EngineeringPort("REFERENCE", referenceSide(state), EngineeringDomain.REDSTONE,
+                        PortKind.MEASUREMENT, PortDirection.INPUT, true, "signal"),
+                new EngineeringPort("CALIBRATED", outputSide(state), EngineeringDomain.REDSTONE,
+                        PortKind.REDSTONE_ANALOG, PortDirection.OUTPUT, true, "signal")
+        );
+    }
+
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        int input = readBackInput(level, pos, state);
-        updateOutput(level, pos, state, calibrate(input, state.getValue(PROFILE)));
+        int observed = readBackInput(level, pos, state);
+        int reference = readInputFrom(level, pos, referenceSide(state));
+        int corrected = calibrate(observed, state.getValue(PROFILE));
+        MetrologySupport.sample(level, CHANNEL, pos, corrected, reference, false, 1.0, 30L);
+        updateOutput(level, pos, state, corrected);
+    }
+
+    public static MeasurementSnapshot measurement(Level level, BlockPos pos) {
+        return MetrologySupport.snapshot(level, CHANNEL, pos, 1.0, 30L);
     }
 
     @Override
@@ -55,18 +99,21 @@ public class CalibrationModuleBlock extends DirectionalSignalBlock {
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
             level.scheduleTick(pos, this, 1);
 
-            int input = readBackInput(level, pos, next);
-            int output = calibrate(input, profile);
-
-            player.displayClientMessage(
-                    Component.literal(
-                            "Calibration | " + profileName(profile)
-                                    + " | IN=" + input + " → OUT=" + output
-                    ),
-                    true
+            int observed = readBackInput(level, pos, next);
+            int reference = readInputFrom(level, pos, referenceSide(next));
+            int corrected = calibrate(observed, profile);
+            MeasurementSnapshot m = MetrologySupport.sample(
+                    level, CHANNEL, pos, corrected, reference, false, 1.0, 30L
             );
-        }
 
+            player.displayClientMessage(Component.literal(
+                    "Calibration | " + profileName(profile)
+                            + " | OBSERVED=" + observed
+                            + " REF=" + reference
+                            + " → OUT=" + corrected
+                            + " | " + MetrologySupport.compactDiagnostics(m)
+            ), true);
+        }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
 

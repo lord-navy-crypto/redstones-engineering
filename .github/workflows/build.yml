@@ -58,6 +58,7 @@ jobs:
             tools/rse_alpha1012_directional_io_verify.py \
             tools/rse_alpha1013_copper_topology_verify.py \
             tools/rse_alpha1014_metrology_verify.py \
+            tools/rse_alpha1015_metrology_rollout_verify.py \
             tools/rse_visual_assets_verify.py
           do
             if [[ -f "$verifier" ]]; then

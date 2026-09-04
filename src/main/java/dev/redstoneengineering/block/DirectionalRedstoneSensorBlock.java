@@ -7,6 +7,9 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.metrology.MeasurementSnapshot;
+import dev.redstoneengineering.metrology.MetrologyStore;
+import dev.redstoneengineering.metrology.MetrologySupport;
 import dev.redstoneengineering.signal.EngineeringSignal;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -37,48 +40,52 @@ public abstract class DirectionalRedstoneSensorBlock extends DirectionalRedstone
         builder.add(POWER);
     }
 
+    /** Override to opt this sensor into the shared metrology architecture. */
+    protected String metrologyChannel() { return null; }
+    protected double metrologyResolution() { return 1.0; }
+    protected long metrologyStaleAfterTicks() { return 30L; }
+
+    protected final MeasurementSnapshot sampleMeasurement(
+            ServerLevel level, BlockPos pos, double reading, double reference, boolean saturated
+    ) {
+        String channel = metrologyChannel();
+        if (channel == null) throw new IllegalStateException("Sensor has no metrology channel");
+        return MetrologySupport.sample(
+                level, channel, pos, reading, reference, saturated,
+                metrologyResolution(), metrologyStaleAfterTicks()
+        );
+    }
+
+    protected final MeasurementSnapshot sensorMeasurement(Level level, BlockPos pos) {
+        String channel = metrologyChannel();
+        if (channel == null) throw new IllegalStateException("Sensor has no metrology channel");
+        return MetrologySupport.snapshot(level, channel, pos, metrologyResolution(), metrologyStaleAfterTicks());
+    }
+
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         return List.of(new EngineeringPort(
-                "SENSOR OUT",
-                frontSide(state),
-                EngineeringDomain.REDSTONE,
-                PortKind.SENSOR,
-                PortDirection.OUTPUT,
-                true,
-                "signal"
+                "SENSOR OUT", frontSide(state), EngineeringDomain.REDSTONE,
+                PortKind.SENSOR, PortDirection.OUTPUT, true, "signal"
         ));
     }
 
     @Override
-    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
-            Level level,
-            BlockPos pos,
-            BlockState state,
-            Direction side
-    ) {
-        return engineeringPort(state, side)
-                .map(port -> EngineeringPortSnapshot.redstone(
-                        port,
-                        state.getValue(POWER),
-                        PortQuality.VALID
-                ));
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
+        return engineeringPort(state, side).map(port -> {
+            PortQuality quality = PortQuality.VALID;
+            if (metrologyChannel() != null) quality = MetrologySupport.portQuality(sensorMeasurement(level, pos));
+            return EngineeringPortSnapshot.redstone(port, state.getValue(POWER), quality);
+        });
     }
 
     @Override
-    public boolean canConnectRedstone(
-            BlockState state,
-            BlockGetter level,
-            BlockPos pos,
-            @Nullable Direction direction
-    ) {
+    public boolean canConnectRedstone(BlockState state, BlockGetter level, BlockPos pos, @Nullable Direction direction) {
         return direction != null && connectionMatches(direction, frontSide(state));
     }
 
     @Override
-    protected boolean isSignalSource(BlockState state) {
-        return true;
-    }
+    protected boolean isSignalSource(BlockState state) { return true; }
 
     @Override
     protected int getSignal(BlockState state, BlockGetter level, BlockPos pos, Direction direction) {
@@ -91,12 +98,16 @@ public abstract class DirectionalRedstoneSensorBlock extends DirectionalRedstone
         if (!level.isClientSide && !state.is(oldState.getBlock())) level.scheduleTick(pos, this, 1);
     }
 
+    @Override
+    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
+        if (!state.is(newState.getBlock()) && metrologyChannel() != null) {
+            MetrologyStore.remove(level, metrologyChannel(), pos);
+        }
+        super.onRemove(state, level, pos, newState, moved);
+    }
+
     protected final void updateSensorOutput(
-            ServerLevel level,
-            BlockPos pos,
-            BlockState state,
-            int measuredValue,
-            int nextSampleDelay
+            ServerLevel level, BlockPos pos, BlockState state, int measuredValue, int nextSampleDelay
     ) {
         int value = EngineeringSignal.clamp(measuredValue);
         BlockState current = state;
