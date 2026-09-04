@@ -89,7 +89,7 @@ public class SignalProbeBlock extends Block implements EngineeringPortProvider {
                         PortKind.BUS,
                         PortDirection.OUTPUT,
                         false,
-                        "channel"
+                        "signal"
                 )
         );
     }
