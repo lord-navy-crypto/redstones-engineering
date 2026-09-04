@@ -30,10 +30,12 @@ require(
 require(
     "src/main/java/dev/redstoneengineering/physics/DataBusDriver.java",
     "interface DataBusDriver",
+    "drivesDataBusAt",
 )
 require(
     "src/main/java/dev/redstoneengineering/physics/DataBusNetwork.java",
-    "instanceof DataBusDriver",
+    "instanceof DataBusDriver driver",
+    "driver.drivesDataBusAt(neighbor, neighborState, pos)",
     "driverCount > 0 && distinctValues == 1",
     "releaseDriver",
     "clearNode",
@@ -65,6 +67,8 @@ contracts = {
     ),
     "src/main/java/dev/redstoneengineering/block/RedstoneByteEncoderBlock.java": (
         "DataBusDriver",
+        "drivesDataBusAt",
+        "outputPos(driverPos, driverState).equals(busPos)",
         "EngineeringDomain.REDSTONE",
         "EngineeringDomain.DATA_BUS_8",
         "canConnectRedstone",
@@ -93,6 +97,8 @@ contracts = {
     ),
     "src/main/java/dev/redstoneengineering/block/DeserializerBlock.java": (
         "DataBusDriver",
+        "drivesDataBusAt",
+        "outputPos(driverPos, driverState).equals(busPos)",
         "EngineeringDomain.SERIAL_DATA",
         "EngineeringDomain.DATA_BUS_8",
         "DataBusNetwork.releaseDriver",
@@ -157,10 +163,7 @@ require(
 )
 
 # Communication payload must remain runtime data rather than a 256-state BlockState field.
-joined = "\n".join(
-    read(rel)
-    for rel in contracts
-)
+joined = "\n".join(read(rel) for rel in contracts)
 for forbidden in (
     'IntegerProperty.create("byte", 0, 255)',
     'IntegerProperty.create("payload", 0, 255)',
@@ -181,7 +184,7 @@ if errors:
 
 print("RSE fourth-eight digital communication verification: PASS")
 print("  explicit DATA_BUS_8 / SERIAL_DATA / DIFFERENTIAL_DATA domains: PASS")
-print("  ghost-driver + floating-bus validity guards: PASS")
+print("  ghost-driver + floating-bus + physical-output alignment guards: PASS")
 print("  serial/differential topology invalidation: PASS")
 print("  eight communication devices expose inspectable engineering contracts: PASS")
 print("  Field Device Inspector communication projection: PASS")
