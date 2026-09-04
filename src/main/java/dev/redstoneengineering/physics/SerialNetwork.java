@@ -63,30 +63,43 @@ public final class SerialNetwork {
     ) {
         Set<BlockPos> nodes = collect(level, start);
         if (nodes.isEmpty()) return;
-        int resolvedQuality = Math.max(0, Math.min(100, quality - nodes.size() / 4));
+        int resolvedValue = value & 0xFF;
+        int resolvedPeriod = Math.max(1, period);
+        int resolvedQuality = valid ? Math.max(0, Math.min(100, quality - nodes.size() / 4)) : 0;
         int now = (int) Math.min(Integer.MAX_VALUE, level.getGameTime());
         for (BlockPos pos : nodes) {
+            int oldValue = InformationRuntime.value(level, "serial", pos) & 0xFF;
+            int oldPeriod = Math.max(1, InformationRuntime.aux(level, "serial", pos));
+            int oldQuality = InformationRuntime.quality(level, "serial", pos);
+            boolean oldValid = InformationRuntime.valid(level, "serial", pos);
+            boolean effectiveChanged = oldValue != resolvedValue
+                    || oldPeriod != resolvedPeriod
+                    || oldQuality != resolvedQuality
+                    || oldValid != valid;
+
             InformationRuntime.write(
                     level,
                     "serial",
                     pos,
-                    value & 0xFF,
-                    Math.max(1, period),
+                    resolvedValue,
+                    resolvedPeriod,
                     valid,
-                    valid ? resolvedQuality : 0
+                    resolvedQuality
             );
             int[] diagnostics = RuntimeIntStore.get(level, DIAG_KEY, pos, DIAG_SIZE);
             diagnostics[0]++;
-            diagnostics[1] = Math.max(1, period);
-            diagnostics[2] = valid ? resolvedQuality : 0;
+            diagnostics[1] = resolvedPeriod;
+            diagnostics[2] = resolvedQuality;
             diagnostics[3] = nodes.size();
             if (diagnostics[4] > 0) diagnostics[5] = Math.max(1, now - diagnostics[4]);
             diagnostics[4] = now;
             diagnostics[6] = valid ? 1 : 0;
             diagnostics[7] = diagnostics[5] == 0
                     ? 0
-                    : Math.min(100, (Math.max(1, period) * 100) / Math.max(1, diagnostics[5]));
-            level.updateNeighborsAt(pos, level.getBlockState(pos).getBlock());
+                    : Math.min(100, (resolvedPeriod * 100) / Math.max(1, diagnostics[5]));
+            if (effectiveChanged) {
+                level.updateNeighborsAt(pos, level.getBlockState(pos).getBlock());
+            }
         }
         NetworkKernel.recordScan(level, "serial", nodes.size(), nodes.size() >= NetworkKernel.MAX_NODES);
     }
@@ -137,12 +150,20 @@ public final class SerialNetwork {
 
     public static void invalidate(ServerLevel level, Set<BlockPos> nodes) {
         for (BlockPos pos : nodes) {
+            int oldValue = InformationRuntime.value(level, "serial", pos) & 0xFF;
+            int oldPeriod = Math.max(1, InformationRuntime.aux(level, "serial", pos));
+            int oldQuality = InformationRuntime.quality(level, "serial", pos);
+            boolean oldValid = InformationRuntime.valid(level, "serial", pos);
+            boolean effectiveChanged = oldValue != 0 || oldPeriod != 1 || oldQuality != 0 || oldValid;
+
             InformationRuntime.write(level, "serial", pos, 0, 1, false, 0);
             int[] diagnostics = RuntimeIntStore.get(level, DIAG_KEY, pos, DIAG_SIZE);
             diagnostics[2] = 0;
             diagnostics[3] = nodes.size();
             diagnostics[6] = 0;
-            level.updateNeighborsAt(pos, level.getBlockState(pos).getBlock());
+            if (effectiveChanged) {
+                level.updateNeighborsAt(pos, level.getBlockState(pos).getBlock());
+            }
         }
     }
 
