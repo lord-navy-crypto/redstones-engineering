@@ -41,7 +41,8 @@ require("src/main/java/dev/redstoneengineering/diagnostics/acceptance/Acceptance
 require("src/main/java/dev/redstoneengineering/diagnostics/acceptance/AcceptanceEvidenceTimeline.java",
         "DEFAULT_CAPACITY = 8", "List.copyOf", "compareLatestToPrevious", "while (records.size() > capacity)")
 require("src/main/java/dev/redstoneengineering/diagnostics/acceptance/AcceptanceEvidenceStore.java",
-        "MAX_CONTROLLERS_PER_LEVEL = 256", "MAX_RECORDS_PER_CONTROLLER", "WeakHashMap", "capture", "history", "compareLatestToPrevious")
+        "MAX_CONTROLLERS_PER_LEVEL = 256", "MAX_RECORDS_PER_CONTROLLER", "WeakHashMap", "new LinkedHashMap<>()",
+        "capture", "history", "compareLatestToPrevious", "insertion-ordered rather than access-ordered")
 require("src/main/java/dev/redstoneengineering/block/PidControllerBlock.java",
         "h.getDirection() == outputSide(s)", "captureAcceptanceEvidence", "AcceptanceEvidenceStore.capture", "Shift+FRONT")
 require("src/main/java/dev/redstoneengineering/integration/jade/EngineeringPortJadeProvider.java",
@@ -63,10 +64,11 @@ if store.exists():
         ".scheduleTick(",
         "DomainNetwork.drive",
         "DomainNetwork.recompute",
+        "0.75f, true",
     ]
     for token in forbidden:
         if token in text:
-            failed.append(f"evidence history must stay outside simulation state; found forbidden token {token!r}")
+            failed.append(f"evidence history must stay observer-neutral/outside simulation state; found forbidden token {token!r}")
 
 jade = root / "src/main/java/dev/redstoneengineering/integration/jade/EngineeringPortJadeProvider.java"
 if jade.exists() and "AcceptanceEvidenceStore.capture(" in jade.read_text(errors="ignore"):
@@ -82,5 +84,6 @@ print("RSE Alpha 1.0.20 run-history verification: PASS")
 print(" explicit player-owned capture action: PASS")
 print(" bounded transient evidence history: PASS")
 print(" immutable record + comparison contracts: PASS")
+print(" observer-neutral retention order: PASS")
 print(" Jade observer-only history presentation: PASS")
 print(" no BlockState/physics ownership leakage: PASS")
