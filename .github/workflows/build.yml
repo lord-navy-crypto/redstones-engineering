@@ -65,7 +65,8 @@ jobs:
             tools/rse_alpha1019_acceptance_ux_verify.py \
             tools/rse_alpha1020_run_history_verify.py \
             tools/rse_alpha1020_release_verify.py \
-            tools/rse_visual_assets_verify.py
+            tools/rse_visual_assets_verify.py \
+            tools/rse_functional_correctness_verify.py
           do
             if [[ -f "$verifier" ]]; then
               echo "==> $verifier"
