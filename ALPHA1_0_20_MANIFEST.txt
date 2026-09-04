@@ -1,0 +1,24 @@
+Redstone Systems Engineering — Alpha 1.0.20
+Artifact: 1.0.20-alpha
+Minecraft: 1.21.1
+NeoForge: 21.1.249
+Java: 21
+License: MIT
+
+Milestone: Commissioning Run History & Baseline Comparison
+
+Contracts:
+- Acceptance history is created only by an explicit player action: Shift + right-click the PID Controller FRONT face.
+- Ordinary right-click keeps tuning-preset cycling; Shift + right-click on non-FRONT faces keeps the established PID runtime-reset action.
+- Each record freezes the existing authoritative EngineeringAcceptanceSnapshot plus game tick, tuning preset, and a monotonic local sequence number.
+- A controller retains at most 8 records and a level retains at most 256 controller timelines; history cannot grow without bound.
+- Run history lives outside BlockState and outside PID RuntimeIntStore. It is diagnostic runtime evidence and is intentionally transient in Alpha 1.0.20.
+- Latest-versus-previous comparison reports commissioning-score delta, topology-issue delta, and IMPROVED/SAME/REGRESSED/INCOMPARABLE trend.
+- Jade may read and present captured history, but HUD polling never creates records and never becomes sampling, simulation, topology, or controller authority.
+- Vanilla-compatible world-facing redstone remains bounded to 0..15.
+
+Verification:
+- rse_alpha1020_run_history_verify.py
+- RseAcceptanceGameTests.capturedRunTimelineIsBoundedImmutableAndComparable
+- Historical topology/metrology/commissioning/acceptance/Jade gates
+- Java 21 compile/test/GameTest/clean-build CI

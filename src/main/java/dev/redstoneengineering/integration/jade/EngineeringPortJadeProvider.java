@@ -6,6 +6,9 @@ import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.diagnostics.ClosedLoopCommissioning;
 import dev.redstoneengineering.diagnostics.CommissioningSnapshot;
+import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceComparison;
+import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceRecord;
+import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceStore;
 import dev.redstoneengineering.diagnostics.acceptance.EngineeringAcceptance;
 import dev.redstoneengineering.diagnostics.acceptance.EngineeringAcceptanceIssue;
 import dev.redstoneengineering.diagnostics.acceptance.EngineeringAcceptancePresentation;
@@ -28,13 +31,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
-/**
- * Server-backed Jade view of the targeted face, read-only topology, and PID acceptance evidence.
- *
- * <p>The provider serializes only presentation data derived from native RSE contracts. Runtime
- * values, topology ownership, commissioning, and acceptance remain server-authoritative; the HUD
- * never becomes a controller, sampler, or topology solver.</p>
- */
+/** Server-backed read-only Engineering Port, topology, acceptance, and captured-run evidence HUD. */
 public enum EngineeringPortJadeProvider implements IBlockComponentProvider, IServerDataProvider<BlockAccessor> {
     INSTANCE;
 
@@ -70,12 +67,13 @@ public enum EngineeringPortJadeProvider implements IBlockComponentProvider, ISer
     private static final String KEY_ACCEPTANCE_HEADLINE = "rse_acceptance_headline";
     private static final String KEY_ACCEPTANCE_ISSUE_LINE = "rse_acceptance_issue_line";
     private static final String KEY_ACCEPTANCE_TRACE = "rse_acceptance_trace";
+    private static final String KEY_EVIDENCE_COUNT = "rse_acceptance_history_count";
+    private static final String KEY_EVIDENCE_LATEST = "rse_acceptance_history_latest";
+    private static final String KEY_EVIDENCE_COMPARISON = "rse_acceptance_history_comparison";
 
     @Override
     public void appendServerData(CompoundTag data, BlockAccessor accessor) {
-        if (!(accessor.getBlock() instanceof EngineeringPortProvider provider)) {
-            return;
-        }
+        if (!(accessor.getBlock() instanceof EngineeringPortProvider provider)) return;
 
         BlockState state = accessor.getBlockState();
         List<EngineeringPort> ports = provider.engineeringPorts(state);
@@ -88,10 +86,7 @@ public enum EngineeringPortJadeProvider implements IBlockComponentProvider, ISer
         data.putInt(KEY_TOPOLOGY_CONNECTED, topology.connectedCount());
         data.putInt(KEY_TOPOLOGY_ISSUES, topology.issueCount());
         for (TopologyFaceSnapshot face : topology.faces()) {
-            data.putString(
-                    KEY_TOPOLOGY_FACE_PREFIX + face.side().getName(),
-                    face.hasPort() ? face.compact() : ""
-            );
+            data.putString(KEY_TOPOLOGY_FACE_PREFIX + face.side().getName(), face.hasPort() ? face.compact() : "");
         }
 
         if (accessor.getBlock() instanceof PidControllerBlock) {
@@ -114,11 +109,7 @@ public enum EngineeringPortJadeProvider implements IBlockComponentProvider, ISer
         data.putBoolean(KEY_REDSTONE, descriptor.redstoneConnectable());
 
         Optional<EngineeringPortSnapshot> snapshot = provider.engineeringSnapshot(
-                accessor.getLevel(),
-                accessor.getPosition(),
-                state,
-                accessor.getSide()
-        );
+                accessor.getLevel(), accessor.getPosition(), state, accessor.getSide());
         if (snapshot.isEmpty()) {
             data.putBoolean(KEY_HAS_SNAPSHOT, false);
             return;
@@ -156,14 +147,23 @@ public enum EngineeringPortJadeProvider implements IBlockComponentProvider, ISer
             data.putString(KEY_ACCEPTANCE_ISSUE_CODE, issue.code());
             data.putString(KEY_ACCEPTANCE_ISSUE_DETAIL, issue.detail());
         }
+
+        List<AcceptanceEvidenceRecord> history = AcceptanceEvidenceStore.history(
+                accessor.getLevel(), accessor.getPosition());
+        data.putInt(KEY_EVIDENCE_COUNT, history.size());
+        if (!history.isEmpty()) {
+            AcceptanceEvidenceRecord latest = history.get(history.size() - 1);
+            data.putString(KEY_EVIDENCE_LATEST, latest.compact());
+            AcceptanceEvidenceComparison comparison = AcceptanceEvidenceStore.compareLatestToPrevious(
+                    accessor.getLevel(), accessor.getPosition()).orElse(null);
+            if (comparison != null) data.putString(KEY_EVIDENCE_COMPARISON, comparison.compact());
+        }
     }
 
     @Override
     public void appendTooltip(ITooltip tooltip, BlockAccessor accessor, IPluginConfig config) {
         CompoundTag data = accessor.getServerData();
-        if (!data.getBoolean(KEY_PRESENT)) {
-            return;
-        }
+        if (!data.getBoolean(KEY_PRESENT)) return;
 
         int count = data.getInt(KEY_COUNT);
         String side = data.getString(KEY_SIDE).toUpperCase(Locale.ROOT);
@@ -174,48 +174,36 @@ public enum EngineeringPortJadeProvider implements IBlockComponentProvider, ISer
             return;
         }
 
-        tooltip.add(Component.literal(
-                "RSE " + side + " • " + data.getString(KEY_LABEL)
-        ));
-        tooltip.add(Component.literal(
-                data.getString(KEY_DOMAIN)
-                        + " • " + data.getString(KEY_KIND)
-                        + " • " + data.getString(KEY_DIRECTION)
-        ));
+        tooltip.add(Component.literal("RSE " + side + " • " + data.getString(KEY_LABEL)));
+        tooltip.add(Component.literal(data.getString(KEY_DOMAIN)
+                + " • " + data.getString(KEY_KIND)
+                + " • " + data.getString(KEY_DIRECTION)));
 
         if (data.getBoolean(KEY_HAS_SNAPSHOT)) {
             double value = data.getDouble(KEY_VALUE);
             double minimum = data.getDouble(KEY_MINIMUM);
             double maximum = data.getDouble(KEY_MAXIMUM);
             int percent = (int) Math.round(data.getDouble(KEY_NORMALIZED) * 100.0);
-            tooltip.add(Component.literal(
-                    "Value " + format(value)
-                            + " " + data.getString(KEY_UNIT)
-                            + " | range " + format(minimum) + ".." + format(maximum)
-                            + " | " + percent + "%"
-            ));
+            tooltip.add(Component.literal("Value " + format(value)
+                    + " " + data.getString(KEY_UNIT)
+                    + " | range " + format(minimum) + ".." + format(maximum)
+                    + " | " + percent + "%"));
             tooltip.add(Component.literal("Quality: " + data.getString(KEY_QUALITY)));
         } else {
             tooltip.add(Component.literal("Value: structural / multi-channel port"));
         }
 
-        if (data.getBoolean(KEY_REDSTONE)) {
-            tooltip.add(Component.literal("Vanilla redstone attachment: YES"));
-        }
+        if (data.getBoolean(KEY_REDSTONE)) tooltip.add(Component.literal("Vanilla redstone attachment: YES"));
         appendTopology(tooltip, data, count);
         appendAcceptance(tooltip, data);
     }
 
     private static void appendTopology(ITooltip tooltip, CompoundTag data, int portCount) {
-        tooltip.add(Component.literal(
-                "Topology: connected " + data.getInt(KEY_TOPOLOGY_CONNECTED) + "/" + portCount
-                        + " | issues " + data.getInt(KEY_TOPOLOGY_ISSUES)
-        ));
+        tooltip.add(Component.literal("Topology: connected " + data.getInt(KEY_TOPOLOGY_CONNECTED) + "/" + portCount
+                + " | issues " + data.getInt(KEY_TOPOLOGY_ISSUES)));
         for (Direction direction : Direction.values()) {
             String face = data.getString(KEY_TOPOLOGY_FACE_PREFIX + direction.getName());
-            if (!face.isBlank()) {
-                tooltip.add(Component.literal("• " + face));
-            }
+            if (!face.isBlank()) tooltip.add(Component.literal("• " + face));
         }
     }
 
@@ -226,12 +214,17 @@ public enum EngineeringPortJadeProvider implements IBlockComponentProvider, ISer
             String issueLine = data.getString(KEY_ACCEPTANCE_ISSUE_LINE);
             if (!issueLine.isBlank()) tooltip.add(Component.literal(issueLine));
         }
+        if (data.getInt(KEY_EVIDENCE_COUNT) > 0) {
+            String history = "Captured runs: " + data.getInt(KEY_EVIDENCE_COUNT)
+                    + " | " + data.getString(KEY_EVIDENCE_LATEST);
+            String comparison = data.getString(KEY_EVIDENCE_COMPARISON);
+            if (!comparison.isBlank()) history += " | " + comparison;
+            tooltip.add(Component.literal(history));
+        }
     }
 
     private static String format(double value) {
-        if (Math.abs(value - Math.rint(value)) < 1.0e-9) {
-            return Long.toString(Math.round(value));
-        }
+        if (Math.abs(value - Math.rint(value)) < 1.0e-9) return Long.toString(Math.round(value));
         return String.format(Locale.ROOT, "%.2f", value);
     }
 
