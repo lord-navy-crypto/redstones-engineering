@@ -1,0 +1,29 @@
+ALPHA 1.0.15 — METROLOGY ROLLOUT & CALIBRATION
+
+Artifact version: 1.0.15-alpha
+Minecraft: 1.21.1
+NeoForge: 21.1.249
+Java: 21
+License: MIT
+
+PURPOSE
+Promote Alpha 1.0.14 metrology from a Tank Level Sensor demonstration into shared measurement infrastructure used across redstone, electrical, pneumatic and mechatronic instruments.
+
+DELIVERED
+- MetrologySupport shared sampling, snapshots, bounded conditioning, Engineering Port quality projection and diagnostic formatting.
+- Engineering Light Sensor: conditioned repeated measurements with bias/noise/drift/age/uncertainty metadata.
+- Entity Density Sensor: preserves the physical count before clamping so >15 occupancy is explicitly SATURATED.
+- Tank Level Sensor: migrated to shared metrology support while preserving its existing static measurement API.
+- Servo Position Sensor: compares conditioned feedback against authoritative servo position.
+- Copper Circuit Meter: scheduled non-invasive voltage sampling independent of Jade/UI polling.
+- Pneumatic Flow Meter: scheduled 0..100 flow-proxy measurement with explicit range saturation.
+- Calibration Module: BACK observed input + LEFT known reference + FRONT calibrated output, with live residual and uncertainty diagnostics while retaining all five historical transfer profiles.
+- Measurement quality is projected to the Engineering Port contract only where an equivalent state exists; DEGRADED remains diagnostic metadata rather than being mislabeled as FAULT.
+- Runtime metrology remains level-scoped transient state and never expands BlockState cardinality.
+
+HARD INVARIANTS
+1. World-facing redstone signals remain bounded to 0..15.
+2. Measurement uncertainty proxy is diagnostic metadata, not formal GUM expanded uncertainty and not interchangeable with signed measurement error/bias.
+3. UI/Jade/render polling must never determine sample cadence or authoritative physics state.
+4. Scheduled instrument sampling owns metrology history for copper and pneumatic meters.
+5. GeckoLib remains display-only and cannot determine simulation state.

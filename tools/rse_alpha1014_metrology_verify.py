@@ -31,45 +31,22 @@ if not match or tuple(map(int, match.groups())) < (1, 0, 14):
 # Alpha 1.0.13 completion: real GeckoLib path and one-way physics -> rendering boundary.
 require(
     "src/main/java/dev/redstoneengineering/physics/RuntimeIntStore.java",
-    "int[] peek(",
-    "existing.clone()",
-    "never creates",
+    "int[] peek(", "existing.clone()", "never creates",
 )
 require(
     "src/main/java/dev/redstoneengineering/visualization/MechatronicsVisualState.java",
-    "public record MechatronicsVisualState",
-    "position01",
-    "velocitySigned",
-    "braked",
-    "opening01",
-    "pressure01",
+    "public record MechatronicsVisualState", "position01", "velocitySigned", "braked", "opening01", "pressure01",
 )
 require(
     "src/main/java/dev/redstoneengineering/blockentity/MechatronicsVisualBlockEntity.java",
-    "implements GeoBlockEntity",
-    "MechatronicsVisualState",
-    "acceptAuthoritativeSnapshot",
-    "getUpdatePacket",
-    "getUpdateTag",
-    "No renderer API is exposed back",
+    "implements GeoBlockEntity", "MechatronicsVisualState", "acceptAuthoritativeSnapshot", "getUpdatePacket", "getUpdateTag", "No renderer API is exposed back",
 )
 require(
     "src/main/java/dev/redstoneengineering/client/MechatronicsGeoModel.java",
-    "extends GeoModel<MechatronicsVisualBlockEntity>",
-    "setCustomAnimations",
-    'getBone("shaft")',
-    'getBone("rod")',
-    'getBone("spool")',
+    "extends GeoModel<MechatronicsVisualBlockEntity>", "setCustomAnimations", 'getBone("shaft")', 'getBone("rod")', 'getBone("spool")',
 )
-require(
-    "src/main/java/dev/redstoneengineering/client/MechatronicsGeoRenderer.java",
-    "extends GeoBlockRenderer<MechatronicsVisualBlockEntity>",
-)
-require(
-    "src/main/java/dev/redstoneengineering/client/MechatronicsClientRegistration.java",
-    "EntityRenderersEvent.RegisterRenderers",
-    "registerBlockEntityRenderer",
-)
+require("src/main/java/dev/redstoneengineering/client/MechatronicsGeoRenderer.java", "extends GeoBlockRenderer<MechatronicsVisualBlockEntity>")
+require("src/main/java/dev/redstoneengineering/client/MechatronicsClientRegistration.java", "EntityRenderersEvent.RegisterRenderers", "registerBlockEntityRenderer")
 for rel in [
     "src/main/java/dev/redstoneengineering/block/ServoActuatorBlock.java",
     "src/main/java/dev/redstoneengineering/block/PneumaticCylinderBlock.java",
@@ -80,54 +57,43 @@ for rel in [
 # Alpha 1.0.14: shared metrology semantics and sensor integration.
 require(
     "src/main/java/dev/redstoneengineering/metrology/MeasurementSnapshot.java",
-    "repeatability",
-    "bias",
-    "drift",
-    "noise",
-    "resolution",
-    "sampleAgeTicks",
-    "uncertaintyProxy",
+    "repeatability", "bias", "drift", "noise", "resolution", "sampleAgeTicks", "uncertaintyProxy",
 )
 require(
     "src/main/java/dev/redstoneengineering/metrology/MeasurementQuality.java",
-    "GOOD",
-    "DEGRADED",
-    "SATURATED",
-    "STALE",
-    "INVALID",
+    "GOOD", "DEGRADED", "SATURATED", "STALE", "INVALID",
 )
 require(
     "src/main/java/dev/redstoneengineering/metrology/MetrologyTracker.java",
-    "WINDOW = 32",
-    "standardDeviation",
-    "firstDifferenceNoise",
-    "halfWindowDrift",
-    "uncertaintyProxy",
+    "WINDOW = 32", "standardDeviation", "firstDifferenceNoise", "halfWindowDrift", "uncertaintyProxy",
 )
-require(
-    "src/main/java/dev/redstoneengineering/metrology/MetrologyStore.java",
-    "WeakHashMap",
-    "MetrologyTracker",
-)
-require(
-    "src/main/java/dev/redstoneengineering/block/TankLevelSensorBlock.java",
-    "SensorModel.condition",
-    "MetrologyStore.tracker",
-    "repeatability",
-    "uncertainty",
-    "saturated",
-)
+require("src/main/java/dev/redstoneengineering/metrology/MetrologyStore.java", "WeakHashMap", "MetrologyTracker")
+
+# The original 1.0.14 Tank integration called SensorModel and MetrologyStore directly.
+# Later milestones may legitimately delegate those same contracts through a shared
+# metrology facade. Verify the behavior chain, not one historical call-site shape.
+tank_rel = "src/main/java/dev/redstoneengineering/block/TankLevelSensorBlock.java"
+tank = text(tank_rel)
+legacy_tank = all(token in tank for token in [
+    "SensorModel.condition", "MetrologyStore.tracker", "repeatability", "uncertainty", "saturated"
+])
+delegated_tank = all(token in tank for token in [
+    "MetrologySupport.conditionRedstone", "sampleMeasurement", "MetrologySupport.snapshot", "saturated"
+])
+if not (legacy_tank or delegated_tank):
+    failed.append(f"{tank_rel}: missing direct or delegated Alpha 1.0.14 metrology integration")
+if delegated_tank:
+    require(
+        "src/main/java/dev/redstoneengineering/metrology/MetrologySupport.java",
+        "SensorModel.condition", "MetrologyStore.tracker", "repeatability", "uncertaintyProxy",
+    )
+
 require(
     "src/main/java/dev/redstoneengineering/gametest/RseMetrologyGameTests.java",
-    "stableMeasurementReportsGoodQuality",
-    "driftAndBiasDegradeMeasurementQuality",
-    "saturationAndAgeAreExplicitQualityStates",
-    "visualizationProjectionIsNormalizedAndImmutable",
+    "stableMeasurementReportsGoodQuality", "driftAndBiasDegradeMeasurementQuality",
+    "saturationAndAgeAreExplicitQualityStates", "visualizationProjectionIsNormalizedAndImmutable",
 )
-require(
-    "src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java",
-    "event.register(RseMetrologyGameTests.class)",
-)
+require("src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java", "event.register(RseMetrologyGameTests.class)")
 
 for rel in [
     "src/main/resources/assets/redstoneengineering/geo/block/servo_actuator.geo.json",
@@ -161,5 +127,5 @@ print("RSE Alpha 1.0.14 metrology verification: PASS")
 print(" GeckoLib physics-to-render one-way boundary: PASS")
 print(" repeatability/bias/drift/noise/resolution/age/saturation: PASS")
 print(" uncertainty proxy and quality states: PASS")
-print(" Tank Level Sensor integration: PASS")
+print(" Tank Level Sensor direct-or-delegated integration: PASS")
 print(" executable metrology GameTests present: PASS")
