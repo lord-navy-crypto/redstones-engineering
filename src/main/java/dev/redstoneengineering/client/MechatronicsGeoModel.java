@@ -18,11 +18,13 @@ public final class MechatronicsGeoModel extends GeoModel<MechatronicsVisualBlock
     private static final ResourceLocation CYLINDER_MODEL = id("geo/block/pneumatic_cylinder.geo.json");
     private static final ResourceLocation VALVE_MODEL = id("geo/block/pneumatic_proportional_valve.geo.json");
     private static final ResourceLocation ANIMATIONS = id("animations/block/mechatronics.animation.json");
-    private static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath("minecraft", "textures/block/iron_block.png");
+    private static final ResourceLocation SERVO_TEXTURE = id("textures/block/servo_actuator.png");
+    private static final ResourceLocation CYLINDER_TEXTURE = id("textures/block/pneumatic_cylinder.png");
+    private static final ResourceLocation VALVE_TEXTURE = id("textures/block/pneumatic_proportional_valve.png");
 
     @Override
     public ResourceLocation getModelResource(MechatronicsVisualBlockEntity animatable) {
-        String path = BuiltInRegistries.BLOCK.getKey(animatable.getBlockState().getBlock()).getPath();
+        String path = blockPath(animatable);
         if (path.equals("servo_actuator")) return SERVO_MODEL;
         if (path.equals("pneumatic_cylinder")) return CYLINDER_MODEL;
         return VALVE_MODEL;
@@ -30,7 +32,10 @@ public final class MechatronicsGeoModel extends GeoModel<MechatronicsVisualBlock
 
     @Override
     public ResourceLocation getTextureResource(MechatronicsVisualBlockEntity animatable) {
-        return TEXTURE;
+        String path = blockPath(animatable);
+        if (path.equals("servo_actuator")) return SERVO_TEXTURE;
+        if (path.equals("pneumatic_cylinder")) return CYLINDER_TEXTURE;
+        return VALVE_TEXTURE;
     }
 
     @Override
@@ -65,6 +70,10 @@ public final class MechatronicsGeoModel extends GeoModel<MechatronicsVisualBlock
         if (pressureIndicator != null) {
             pressureIndicator.setScaleY((float) Math.max(0.05, state.pressure01()));
         }
+    }
+
+    private static String blockPath(MechatronicsVisualBlockEntity animatable) {
+        return BuiltInRegistries.BLOCK.getKey(animatable.getBlockState().getBlock()).getPath();
     }
 
     private static ResourceLocation id(String path) {
