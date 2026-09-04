@@ -22,7 +22,7 @@
 
 Alpha 1.0.15 promotes the measurement-quality architecture introduced in 1.0.14 from a single-sensor demonstration into shared, multi-domain instrumentation infrastructure.
 
-`MetrologySupport` now centralizes scheduled sampling, snapshots, deterministic bounded sensor conditioning, Engineering Port quality projection, and diagnostic formatting. The rollout covers:
+`MetrologySupport` centralizes scheduled sampling, snapshots, deterministic bounded sensor conditioning, Engineering Port quality projection, and diagnostic formatting. The rollout covers:
 
 - **Engineering Light Sensor** — conditioned repeated light measurements;
 - **Entity Density Sensor** — preserves the physical count before clamping so over-range occupancy is explicitly `SATURATED`;
@@ -39,7 +39,7 @@ BACK  : OBSERVED INPUT   — instrument under test
 FRONT : CALIBRATED OUTPUT
 ```
 
-Its five historical transfer profiles remain available. The module continuously records corrected reading versus reference so signed residual/bias remains distinct from the **measurement uncertainty proxy**. The uncertainty proxy is diagnostic engineering metadata; it is not a claim of formal GUM expanded uncertainty and is not interchangeable with measurement error.
+Its five historical transfer profiles remain available. The module records corrected reading versus reference so signed residual/bias remains distinct from the **measurement uncertainty proxy**. The uncertainty proxy is diagnostic engineering metadata; it is not formal GUM expanded uncertainty and is not interchangeable with measurement error.
 
 Sampling ownership remains server-side and deterministic. UI, Jade, GeckoLib, rendering, and client polling may observe measurements but never define sampling cadence or authoritative physics state.
 
@@ -47,32 +47,11 @@ See [`ALPHA1_0_15_MANIFEST.txt`](ALPHA1_0_15_MANIFEST.txt) and [`docs/ALPHA1_0_1
 
 ## Alpha 1.0.14 — Metrology & Uncertainty
 
-Alpha 1.0.14 established the reusable metrology core:
-
-- **Repeatability** — short-window spread of repeated residuals;
-- **Bias** — mean reading-minus-reference residual;
-- **Drift** — change between earlier and later rolling-window residuals;
-- **Noise** — first-difference noise proxy;
-- **Resolution** — finite instrument/quantization resolution;
-- **Saturation** — explicit indication that the real condition exceeded the representable range;
-- **Sample age** — age of the most recent measurement;
-- **Measurement uncertainty proxy** — conservative diagnostic RSS proxy.
-
-`MeasurementSnapshot`, `MeasurementQuality`, `MetrologyTracker`, and `MetrologyStore` keep this high-cardinality diagnostic state outside BlockState. Quality states are `GOOD`, `DEGRADED`, `SATURATED`, `STALE`, and `INVALID`.
+Alpha 1.0.14 established `MeasurementSnapshot`, `MeasurementQuality`, `MetrologyTracker`, and `MetrologyStore` plus repeatability, bias, drift, noise, resolution, saturation, sample age, and a measurement uncertainty proxy. High-cardinality diagnostic state remains outside BlockState and the Tank Level Sensor provided the first direct integration.
 
 ## Alpha 1.0.13 — Copper Topology + Mechatronics Visualization
 
-Alpha 1.0.13 completed explicit copper electrical topology and the first GeckoLib mechatronics visualization layer.
-
-Copper Series Resistor, Copper Capacitor, Copper Fuse, Copper Voltage Source, Copper Resistive Load, and Copper Circuit Meter expose engineering roles through `EngineeringPortProvider` while `CircuitPhysics` and `DomainNetwork` remain authoritative.
-
-GeckoLib `4.9.2` visualizes three articulated machines:
-
-- Servo Actuator;
-- Pneumatic Cylinder;
-- Pneumatic Proportional Valve.
-
-The dependency direction is intentionally one-way:
+Alpha 1.0.13 completed explicit copper electrical topology and the first GeckoLib mechatronics visualization layer. Copper devices expose Engineering Port roles while `CircuitPhysics` and `DomainNetwork` remain authoritative. GeckoLib `4.9.2` visualizes Servo Actuator, Pneumatic Cylinder, and Pneumatic Proportional Valve through a one-way dependency:
 
 ```text
 Simulation / Physics State → synchronized visual state → GeckoLib animation
@@ -80,18 +59,20 @@ Simulation / Physics State → synchronized visual state → GeckoLib animation
 
 GeckoLib, renderer FPS, client lifecycle, bones, or animation controllers **never determine physics state**.
 
+## Historical architecture milestones
+
+These historical contracts remain active regression targets and are intentionally named here because newer milestones build on them rather than replacing them.
+
+- **Alpha 1.0.10 — Engineering Port Contract** — introduced `EngineeringPort`, `EngineeringPortSnapshot`, `EngineeringPortProvider`, `PortCompatibility`, `PortQuality`, and the server-backed **Jade Engineering HUD** observer boundary.
+- **Alpha 1.0.11 — Legacy Renovation Wave II + Topology GameTests** — migrated cable terminals, redstone/copper junctions, Lapis transducers and cross-domain converters, and promoted executable NeoForge GameTests into CI.
+- **Alpha 1.0.12 — Directional I/O Renovation** — established explicit FRONT/BACK redstone endpoints and directional sensor/indicator behavior while retaining the 0..15 boundary.
+- **Alpha 1.0.13 — Copper Topology + Mechatronics Visualization** — established axial copper contracts, runtime copper GameTests and the GeckoLib display-only mechatronics boundary.
+- **Alpha 1.0.14 — Metrology & Uncertainty** — established reusable measurement quality and uncertainty-proxy infrastructure.
+- **Alpha 1.0.15 — Metrology Rollout & Calibration** — applies that infrastructure across multiple engineering domains and adds reference-versus-observed calibration.
+
 ## Engineering Port architecture
 
-RSE uses explicit engineering ports rather than treating every block face as interchangeable. A port describes:
-
-- physical side;
-- engineering domain;
-- semantic kind;
-- input/output/bidirectional direction;
-- vanilla compatibility;
-- engineering unit.
-
-`EngineeringPortSnapshot` carries live value/range/quality separately from static topology. `PortQuality` includes `VALID`, `NO_SIGNAL`, `SATURATED`, `STALE`, `FAULT`, `DOMAIN_MISMATCH`, and `TOPOLOGY_ERROR`.
+The **Engineering Port Contract** describes physical side, engineering domain, semantic kind, input/output/bidirectional direction, vanilla compatibility, and unit. `EngineeringPortSnapshot` carries live value/range/quality separately from static topology. `PortQuality` includes `VALID`, `NO_SIGNAL`, `SATURATED`, `STALE`, `FAULT`, `DOMAIN_MISMATCH`, and `TOPOLOGY_ERROR`.
 
 ## Required dependencies
 
@@ -105,9 +86,7 @@ Five mature ecosystem libraries are part of the RSE platform contract:
 | Cloth Config | `15.0.140` | Client | configuration and tuning UI |
 | Fusion | `1.3.14` (`1.3.14-neoforge-mc1.21.1`) | Client | connected textures, advanced models, topology-aware visuals |
 
-RSE does not shade or bundle their jars. Physics, topology, measurement, control, reliability and operations behavior remain native RSE responsibilities.
-
-See [`docs/DEPENDENCY_POLICY.md`](docs/DEPENDENCY_POLICY.md).
+RSE does not shade or bundle their jars. Physics, topology, measurement, control, reliability and operations behavior remain native RSE responsibilities. See [`docs/DEPENDENCY_POLICY.md`](docs/DEPENDENCY_POLICY.md).
 
 ## Transmission-domain rule
 
@@ -141,9 +120,9 @@ Throughput, utilization, cycle time, downtime, queue/WIP proxies, operating-stat
 Recipes follow engineering dependency rather than raw rarity alone:
 
 1. **Basic Measurement** — probes, references, analyzers, sensors;
-2. **Signal Processing & DAQ** — conditioners, filters, sample-and-hold, scopes;
+2. **Signal Processing & Data Acquisition** — conditioners, filters, sample-and-hold, scopes;
 3. **Control & Mechatronics** — PID, PWM, servo, pneumatic control;
-4. **Safety & Reliability** — watchdog, voter, fault latch, relief protection;
+4. **System Safety & Reliability** — watchdog, voter, fault latch, relief protection;
 5. **Operations & Integrated Systems** — communications, multi-sensor networks, production monitoring.
 
 See [`docs/CRAFTING_PROGRESSION.md`](docs/CRAFTING_PROGRESSION.md).
@@ -166,35 +145,13 @@ See [`docs/CRAFTING_PROGRESSION.md`](docs/CRAFTING_PROGRESSION.md).
 
 ## Reference calculations
 
-Redstone normalization:
-
 ```text
-S ∈ {0, …, 15}
-x = S / 15
-```
-
-Copper series divider:
-
-```text
-Vout = Vin × Rload / (Rseries + Rload)
-```
-
-Metrology diagnostic decomposition:
-
-```text
-residual = reading - reference
-bias = mean(residual)
-repeatability ≈ stddev(residual)
-drift ≈ mean(late residuals) - mean(early residuals)
-uncertainty proxy ≈ RSS(repeatability, noise, drift, bias, quantization)
-```
-
-PID reference form:
-
-```text
-e = setpoint - process
-I_candidate = clamp(I_previous + e, -180, 180)
-u = clamp(bias + P + I + D, 0, 15)
+Redstone: x = S / 15,  S ∈ {0, …, 15}
+Copper divider: Vout = Vin × Rload / (Rseries + Rload)
+Metrology residual: residual = reading - reference
+Bias: mean(residual)
+Uncertainty proxy ≈ RSS(repeatability, noise, drift, bias, quantization)
+PID: e = setpoint - process
 ```
 
 ## Verification architecture
@@ -227,6 +184,7 @@ Build output is under `build/libs/`.
 - [`docs/ALPHA1_0_12_DIRECTIONAL_IO_RENOVATION.md`](docs/ALPHA1_0_12_DIRECTIONAL_IO_RENOVATION.md)
 - [`docs/ALPHA1_0_11_LEGACY_RENOVATION_AND_GAMETEST.md`](docs/ALPHA1_0_11_LEGACY_RENOVATION_AND_GAMETEST.md)
 - [`docs/ALPHA1_0_10_ENGINEERING_PORT_ARCHITECTURE.md`](docs/ALPHA1_0_10_ENGINEERING_PORT_ARCHITECTURE.md)
+- [`docs/ALPHA1_0_10_JADE_ENGINEERING_HUD.md`](docs/ALPHA1_0_10_JADE_ENGINEERING_HUD.md)
 - [`docs/ENGINEERING_LANGUAGE_AND_CURRICULUM.md`](docs/ENGINEERING_LANGUAGE_AND_CURRICULUM.md)
 - [`docs/CRAFTING_PROGRESSION.md`](docs/CRAFTING_PROGRESSION.md)
 - [`CONTRIBUTING.md`](CONTRIBUTING.md)
