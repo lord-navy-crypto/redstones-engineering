@@ -149,6 +149,9 @@ publishing {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+    // Keep deprecation locations visible in CI so NeoForge/API drift cannot hide behind
+    // javac's generic "uses or overrides a deprecated API" summary.
+    options.compilerArgs.add('-Xlint:deprecation')
 }
 
 idea {
