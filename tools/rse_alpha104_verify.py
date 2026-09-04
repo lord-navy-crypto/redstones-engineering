@@ -19,6 +19,19 @@ def check_file(rel: str, tokens: list[str]) -> None:
         failed.append(f"{rel}: missing {', '.join(missing)}")
 
 
+def check_any(rel: str, alternatives: list[list[str]], label: str) -> None:
+    """Accept either a historical implementation shape or its formal-UI successor."""
+    path = root / rel
+    if not path.exists():
+        failed.append(f"missing {rel}")
+        return
+    text = path.read_text(errors="ignore")
+    if not any(all(token in text for token in group) for group in alternatives):
+        failed.append(f"{rel}: missing {label}")
+
+
+# Alpha 1.0.4 analyzer physics remains protected even though later UI milestones
+# moved transient presentation from action-bar prose into server-synchronized menus.
 check_file(
     "src/main/java/dev/redstoneengineering/block/SignalAnalyzerBlock.java",
     [
@@ -26,15 +39,35 @@ check_file(
         "IntegerProperty.create(\"output\", 0, 15)",
         "TAP",
         "INLINE",
-        "non-invasive side tap",
         "RUNTIME_SIZE",
         "SAMPLE_PERIOD_TICKS",
         "measureNode(",
         "instrumentToTarget",
         "targetState.isSignalSource()",
-        "stableFor=",
-        "modeSwitches=",
         "direction.getOpposite()",
+        "UiSnapshot",
+        "stableAgeTicks",
+        "modeSwitches",
+    ],
+)
+check_file(
+    "src/main/java/dev/redstoneengineering/ui/menu/SignalAnalyzerMenu.java",
+    [
+        "SignalAnalyzerBlock.uiSnapshot",
+        "stableAgeTicks",
+        "modeSwitches",
+        "calibrationSwitches",
+        "DISPLAY_SAMPLES",
+    ],
+)
+check_file(
+    "src/main/java/dev/redstoneengineering/client/ui/SignalAnalyzerScreen.java",
+    [
+        "NON-INVASIVE",
+        "TAP",
+        "INLINE",
+        "Calibration",
+        "stableAgeTicks",
     ],
 )
 
@@ -62,15 +95,32 @@ check_file(
     ],
 )
 
-check_file(
-    "src/main/java/dev/redstoneengineering/block/OscilloscopeBlock.java",
-    ["snapshot.networkStatus()", "InstrumentNetwork.scan"],
-)
-
-check_file(
-    "src/main/java/dev/redstoneengineering/block/LogicAnalyzerBlock.java",
-    ["snapshot.networkStatus()", "InstrumentNetwork.scan"],
-)
+# Historical versions rendered networkStatus() directly from right-click prose.
+# UI Wave II keeps the same InstrumentNetwork scan authoritative on the server and
+# synchronizes the topology fields through each menu instead.
+for block_rel, menu_rel in [
+    (
+        "src/main/java/dev/redstoneengineering/block/OscilloscopeBlock.java",
+        "src/main/java/dev/redstoneengineering/ui/menu/OscilloscopeMenu.java",
+    ),
+    (
+        "src/main/java/dev/redstoneengineering/block/LogicAnalyzerBlock.java",
+        "src/main/java/dev/redstoneengineering/ui/menu/LogicAnalyzerMenu.java",
+    ),
+]:
+    check_file(block_rel, ["InstrumentNetwork.scan"])
+    check_file(
+        menu_rel,
+        [
+            "InstrumentNetwork.scan",
+            "cableNodes",
+            "probeNodes",
+            "validChannels",
+            "activeChannels",
+            "duplicateChannels",
+            "bounded",
+        ],
+    )
 
 check_file(
     "src/main/java/dev/redstoneengineering/block/PneumaticCylinderBlock.java",
@@ -157,7 +207,7 @@ print("RSE Alpha 1.0.4 instrumentation/topology regression verification: PASS")
 print(" analyzer TAP/INLINE + transient diagnostics: PASS")
 print(" direction-aware analyzer/probe measurement: PASS")
 print(" instrument-network topology diagnostics: PASS")
-print(" scope/logic topology visibility: PASS")
+print(" scope/logic topology visibility through formal UI snapshots: PASS")
 print(" pneumatic cylinder directional feedback: PASS")
 print(" pneumatic cylinder terminal network topology: PASS")
 print(" resource/forward-version/high-cardinality guards: PASS")
