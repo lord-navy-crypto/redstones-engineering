@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Alpha 1.0.15 metrology rollout and calibration architecture gate."""
 from pathlib import Path
+import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 
 checks = {
-    "gradle.properties": ["mod_version=1.0.15-alpha"],
     "src/main/java/dev/redstoneengineering/metrology/MetrologySupport.java": [
         "conditionBounded", "conditionRedstone", "portQuality", "compactDiagnostics",
     ],
@@ -47,6 +47,20 @@ checks = {
 }
 
 errors = []
+
+# Historical gates must survive later Alpha releases: require >= 1.0.15 rather than
+# pinning the repository forever to the milestone that introduced the contract.
+props = ROOT / "gradle.properties"
+if not props.is_file():
+    errors.append("missing gradle.properties")
+else:
+    text = props.read_text(encoding="utf-8")
+    match = re.search(r"(?m)^mod_version=(\d+)\.(\d+)\.(\d+)-alpha(?:[.-][0-9A-Za-z.-]+)?$", text)
+    if not match:
+        errors.append("gradle.properties: invalid alpha mod_version")
+    elif tuple(map(int, match.groups())) < (1, 0, 15):
+        errors.append("gradle.properties: Alpha 1.0.15 gate requires version >= 1.0.15-alpha")
+
 for rel, required in checks.items():
     path = ROOT / rel
     if not path.is_file():
@@ -64,6 +78,7 @@ if errors:
     raise SystemExit(1)
 
 print("RSE Alpha 1.0.15 metrology rollout verification: PASS")
+print(" forward-compatible milestone version gate: PASS")
 print(" shared multi-domain metrology support: PASS")
 print(" explicit saturation + scheduled sampling ownership: PASS")
 print(" three-port calibration comparison workflow: PASS")
