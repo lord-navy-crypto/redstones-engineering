@@ -44,7 +44,9 @@ require("src/main/java/dev/redstoneengineering/diagnostics/acceptance/Acceptance
         "MAX_CONTROLLERS_PER_LEVEL = 256", "MAX_RECORDS_PER_CONTROLLER", "WeakHashMap", "new LinkedHashMap<>()",
         "capture", "history", "compareLatestToPrevious", "insertion-ordered rather than access-ordered")
 require("src/main/java/dev/redstoneengineering/block/PidControllerBlock.java",
-        "h.getDirection() == outputSide(s)", "captureAcceptanceEvidence", "AcceptanceEvidenceStore.capture", "Shift+FRONT")
+        "h.getDirection() == outputSide(s)", "captureAcceptanceEvidence", "AcceptanceEvidenceStore.capture", "Shift+FRONT",
+        "protected void onRemove", "state.getBlock() != newState.getBlock()", "RuntimeIntStore.remove(level, KEY, pos)",
+        "AcceptanceEvidenceStore.clear(level, pos)")
 require("src/main/java/dev/redstoneengineering/integration/jade/EngineeringPortJadeProvider.java",
         "KEY_EVIDENCE_COUNT", "KEY_EVIDENCE_LATEST", "KEY_EVIDENCE_COMPARISON", "AcceptanceEvidenceStore.history")
 require("src/main/java/dev/redstoneengineering/gametest/RseAcceptanceGameTests.java",
@@ -85,5 +87,6 @@ print(" explicit player-owned capture action: PASS")
 print(" bounded transient evidence history: PASS")
 print(" immutable record + comparison contracts: PASS")
 print(" observer-neutral retention order: PASS")
+print(" PID removal clears runtime + captured evidence: PASS")
 print(" Jade observer-only history presentation: PASS")
 print(" no BlockState/physics ownership leakage: PASS")
