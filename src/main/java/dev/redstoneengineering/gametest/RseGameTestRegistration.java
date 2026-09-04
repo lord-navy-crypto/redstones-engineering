@@ -17,5 +17,6 @@ public final class RseGameTestRegistration {
         event.register(RseCopperGameTests.class);
         event.register(RseMetrologyGameTests.class);
         event.register(RseCommissioningGameTests.class);
+        event.register(RseEngineeringUxGameTests.class);
     }
 }
