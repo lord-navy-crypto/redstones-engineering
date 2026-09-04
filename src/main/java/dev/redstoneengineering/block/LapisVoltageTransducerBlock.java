@@ -2,6 +2,7 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.EngineeringMath;
 import net.minecraft.core.BlockPos;
@@ -15,6 +16,7 @@ public class LapisVoltageTransducerBlock extends AbstractLapisTransducerBlock {
     @Override protected String runtimeKey() { return "lapis_voltage_transducer"; }
     @Override protected String instrumentName() { return "Lapis Voltage Transducer"; }
     @Override protected String rangeText(BlockState state) { return "Copper V-level 0..15"; }
+    @Override protected EngineeringDomain inputDomain() { return EngineeringDomain.COPPER; }
     @Override protected Measurement sense(ServerLevel level, BlockPos pos, BlockState state) {
         BlockPos probe = inputPos(pos, state);
         BlockState s = level.getBlockState(probe);
