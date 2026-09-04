@@ -40,10 +40,17 @@ public final class DifferentialNetwork {
     public static void drive(ServerLevel level, BlockPos start, int bit) {
         Set<BlockPos> nodes = collect(level, start);
         if (nodes.isEmpty()) return;
+        int resolvedBit = bit & 1;
         int quality = Math.max(20, 100 - nodes.size() / 3);
         for (BlockPos pos : nodes) {
-            InformationRuntime.write(level, "diff", pos, bit & 1, 0, true, quality);
-            level.updateNeighborsAt(pos, level.getBlockState(pos).getBlock());
+            int oldBit = InformationRuntime.value(level, "diff", pos) & 1;
+            int oldQuality = InformationRuntime.quality(level, "diff", pos);
+            boolean oldValid = InformationRuntime.valid(level, "diff", pos);
+            boolean effectiveChanged = oldBit != resolvedBit || oldQuality != quality || !oldValid;
+            InformationRuntime.write(level, "diff", pos, resolvedBit, 0, true, quality);
+            if (effectiveChanged) {
+                level.updateNeighborsAt(pos, level.getBlockState(pos).getBlock());
+            }
         }
         NetworkKernel.recordScan(level, "diff", nodes.size(), nodes.size() >= NetworkKernel.MAX_NODES);
     }
@@ -85,8 +92,14 @@ public final class DifferentialNetwork {
 
     public static void invalidate(ServerLevel level, Set<BlockPos> nodes) {
         for (BlockPos pos : nodes) {
+            int oldBit = InformationRuntime.value(level, "diff", pos) & 1;
+            int oldQuality = InformationRuntime.quality(level, "diff", pos);
+            boolean oldValid = InformationRuntime.valid(level, "diff", pos);
+            boolean effectiveChanged = oldBit != 0 || oldQuality != 0 || oldValid;
             InformationRuntime.write(level, "diff", pos, 0, 0, false, 0);
-            level.updateNeighborsAt(pos, level.getBlockState(pos).getBlock());
+            if (effectiveChanged) {
+                level.updateNeighborsAt(pos, level.getBlockState(pos).getBlock());
+            }
         }
     }
 
