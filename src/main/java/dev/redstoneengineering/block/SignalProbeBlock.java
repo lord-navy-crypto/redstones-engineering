@@ -9,9 +9,11 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
@@ -56,9 +58,7 @@ public class SignalProbeBlock extends Block implements EngineeringPortProvider {
     }
 
     @Override
-    protected void createBlockStateDefinition(
-            StateDefinition.Builder<Block, BlockState> builder
-    ) {
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         builder.add(FACING, CHANNEL);
     }
 
@@ -95,12 +95,7 @@ public class SignalProbeBlock extends Block implements EngineeringPortProvider {
     }
 
     @Override
-    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
-            Level level,
-            BlockPos pos,
-            BlockState state,
-            Direction side
-    ) {
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         return Optional.of(EngineeringPortSnapshot.redstone(
@@ -111,21 +106,13 @@ public class SignalProbeBlock extends Block implements EngineeringPortProvider {
     }
 
     @Override
-    public boolean canConnectRedstone(
-            BlockState state,
-            BlockGetter level,
-            BlockPos pos,
-            @Nullable Direction direction
-    ) {
+    public boolean canConnectRedstone(BlockState state, BlockGetter level, BlockPos pos, @Nullable Direction direction) {
         return false;
     }
 
     public int sample(Level level, BlockPos pos, BlockState state) {
         Direction targetSide = testSide(state);
         BlockPos targetPos = pos.relative(targetSide);
-
-        // Pass the physical probe direction so directional sources are measured
-        // on the face actually connected to the instrument, not by strongest-side output.
         return SignalAnalyzerBlock.measureNode(
                 level,
                 targetPos,
@@ -142,7 +129,7 @@ public class SignalProbeBlock extends Block implements EngineeringPortProvider {
             Player player,
             BlockHitResult hitResult
     ) {
-        if (!level.isClientSide) {
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
                 int value = sample(level, pos, state);
                 player.displayClientMessage(
@@ -156,21 +143,9 @@ public class SignalProbeBlock extends Block implements EngineeringPortProvider {
                         true
                 );
             } else {
-                int nextChannel = (state.getValue(CHANNEL) + 1) % 4;
-                BlockState next = state.setValue(CHANNEL, nextChannel);
-                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-
-                player.displayClientMessage(
-                        Component.literal(
-                                "Probe channel → " + channelName(nextChannel)
-                                        + " | TEST=" + testSide(next).getName()
-                                        + " | BUS=" + busSide(next).getName()
-                        ),
-                        true
-                );
+                FieldDeviceUi.open(serverPlayer, pos);
             }
         }
-
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
 
