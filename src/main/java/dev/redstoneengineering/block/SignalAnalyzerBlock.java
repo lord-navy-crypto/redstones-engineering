@@ -4,13 +4,16 @@ import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.signal.EngineeringSignal;
+import dev.redstoneengineering.ui.menu.SignalAnalyzerMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
@@ -41,11 +44,12 @@ public class SignalAnalyzerBlock extends Block {
     // Encoded 0..4 => calibration offset -2..+2. Small persistent configuration only.
     public static final IntegerProperty CALIBRATION = IntegerProperty.create("calibration", 0, 4);
 
-    private static final int TAP = 0;
-    private static final int INLINE = 1;
+    public static final int TAP = 0;
+    public static final int INLINE = 1;
+    public static final int DISPLAY_SAMPLES = 16;
     private static final String KEY = "signal_analyzer";
     private static final int SAMPLE_PERIOD_TICKS = 2;
-    private static final int WINDOW = 16;
+    private static final int WINDOW = DISPLAY_SAMPLES;
     private static final int WINDOW_BASE = 17;
     private static final int RUNTIME_SIZE = WINDOW_BASE + WINDOW;
 
@@ -206,6 +210,113 @@ public class SignalAnalyzerBlock extends Block {
         r[13] = Math.min(WINDOW, r[13] + 1);
     }
 
+    public record UiSnapshot(
+            int mode,
+            int calibrationOffset,
+            int raw,
+            int calibrated,
+            int output,
+            int lifeMin,
+            int lifeMax,
+            int changes,
+            int rising,
+            int falling,
+            int lastDelta,
+            int maxDelta,
+            int windowCount,
+            int average100,
+            int peakToPeak,
+            int meanStep100,
+            int stableAgeTicks,
+            int sampleAgeTicks,
+            int totalSamples,
+            int modeSwitches,
+            int calibrationSwitches,
+            int[] samples
+    ) {}
+
+    /** Bounded, read-only server snapshot consumed by the Engineering UI menu. */
+    public static UiSnapshot uiSnapshot(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof SignalAnalyzerBlock)) return new UiSnapshot(
+                TAP, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, -1, 0, 0, 0, new int[DISPLAY_SAMPLES]
+        );
+
+        int raw = sampleTarget(level, pos, state);
+        int calibrated = calibratedReading(state, raw);
+        int[] r = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
+        int now = (int) Math.min(Integer.MAX_VALUE, level.getGameTime());
+        int count = Math.max(0, Math.min(WINDOW, r[13]));
+        int stableAge = r[8] == 0 ? 0 : Math.max(0, now - r[7]);
+        int sampleAge = r[8] == 0 ? -1 : Math.max(0, now - r[14]);
+        int[] samples = new int[DISPLAY_SAMPLES];
+        for (int i = 0; i < DISPLAY_SAMPLES; i++) samples[i] = -1;
+        int padding = DISPLAY_SAMPLES - count;
+        for (int i = 0; i < count; i++) samples[padding + i] = rollingSample(r, count, i);
+
+        return new UiSnapshot(
+                state.getValue(MODE),
+                calibrationOffset(state),
+                raw,
+                calibrated,
+                state.getValue(OUTPUT),
+                r[8] == 0 ? raw : r[2],
+                r[8] == 0 ? raw : r[3],
+                r[4],
+                r[5],
+                r[6],
+                r[9],
+                r[10],
+                count,
+                rollingAverage100(r, count),
+                rollingPeakToPeak(r, count),
+                rollingMeanStep100(r, count),
+                stableAge,
+                sampleAge,
+                r[0],
+                r[11],
+                r[15],
+                samples
+        );
+    }
+
+    /** Applies only bounded UI intent on the logical server; measurement remains tick-authoritative. */
+    public static boolean applyUiAction(Level level, BlockPos pos, int action) {
+        if (level.isClientSide) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof SignalAnalyzerBlock analyzer)) return false;
+
+        switch (action) {
+            case SignalAnalyzerMenu.BUTTON_MODE_TOGGLE -> {
+                int nextMode = state.getValue(MODE) == TAP ? INLINE : TAP;
+                BlockState next = state
+                        .setValue(MODE, nextMode)
+                        .setValue(OUTPUT, nextMode == INLINE ? state.getValue(OUTPUT) : 0);
+                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+                RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE)[11]++;
+                level.updateNeighborsAt(pos, analyzer);
+                level.updateNeighborsAt(pos.relative(inlineOutputSide(next)), analyzer);
+                level.scheduleTick(pos, analyzer, 1);
+            }
+            case SignalAnalyzerMenu.BUTTON_CALIBRATION_DECREASE -> {
+                int encoded = Math.floorMod(state.getValue(CALIBRATION) - 1, 5);
+                level.setBlock(pos, state.setValue(CALIBRATION, encoded), Block.UPDATE_CLIENTS);
+                RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE)[15]++;
+            }
+            case SignalAnalyzerMenu.BUTTON_CALIBRATION_INCREASE -> {
+                int encoded = (state.getValue(CALIBRATION) + 1) % 5;
+                level.setBlock(pos, state.setValue(CALIBRATION, encoded), Block.UPDATE_CLIENTS);
+                RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE)[15]++;
+            }
+            case SignalAnalyzerMenu.BUTTON_RESET_HISTORY -> RuntimeIntStore.remove(level, KEY, pos);
+            default -> {
+                return false;
+            }
+        }
+        return true;
+    }
+
     @Override
     protected InteractionResult useWithoutItem(
             BlockState state,
@@ -214,49 +325,19 @@ public class SignalAnalyzerBlock extends Block {
             Player player,
             BlockHitResult hitResult
     ) {
-        if (!level.isClientSide) {
-            Direction clicked = hitResult.getDirection();
-            if (player.isShiftKeyDown() && clicked == Direction.UP) {
-                RuntimeIntStore.remove(level, KEY, pos);
-                player.displayClientMessage(Component.literal("Analyzer statistics reset"), true);
-            } else if (player.isShiftKeyDown()) {
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown()) {
                 showSixSideSurvey(level, pos, player);
-            } else if (clicked == Direction.UP) {
-                int nextMode = state.getValue(MODE) == TAP ? INLINE : TAP;
-                BlockState next = state
-                        .setValue(MODE, nextMode)
-                        .setValue(OUTPUT, nextMode == INLINE ? state.getValue(OUTPUT) : 0);
-                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-                RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE)[11]++;
-                level.updateNeighborsAt(pos, this);
-                level.updateNeighborsAt(pos.relative(inlineOutputSide(next)), this);
-                level.scheduleTick(pos, this, 1);
-                player.displayClientMessage(
-                        Component.literal(
-                                "Analyzer mode → " + modeName(nextMode)
-                                        + (nextMode == TAP
-                                        ? " | non-invasive side tap"
-                                        : " | TEST=input OPPOSITE=raw 0..15 pass-through")
-                        ),
-                        true
-                );
-            } else if (clicked == Direction.DOWN) {
-                int encoded = (state.getValue(CALIBRATION) + 1) % 5;
-                BlockState next = state.setValue(CALIBRATION, encoded);
-                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-                RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE)[15]++;
-                player.displayClientMessage(
-                        Component.literal(
-                                "Analyzer calibration offset → " + signed(encoded - 2)
-                                        + " | display only; INLINE OUT remains raw"
-                        ),
-                        true
-                );
             } else {
-                showMeasurement(level, pos, state, player);
+                serverPlayer.openMenu(
+                        new SimpleMenuProvider(
+                                (containerId, inventory, ignored) -> new SignalAnalyzerMenu(containerId, inventory, pos),
+                                Component.translatable("block.redstoneengineering.signal_analyzer")
+                        ),
+                        data -> data.writeBlockPos(pos)
+                );
             }
         }
-
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
 
@@ -429,6 +510,6 @@ public class SignalAnalyzerBlock extends Block {
             case WEST -> "W";
             case UP -> "U";
             case DOWN -> "D";
-        };
+        });
     }
 }
