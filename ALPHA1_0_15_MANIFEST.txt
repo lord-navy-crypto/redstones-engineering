@@ -4,6 +4,7 @@ Artifact version: 1.0.15-alpha
 Minecraft: 1.21.1
 NeoForge: 21.1.249
 Java: 21
+License: MIT
 
 PURPOSE
 Promote Alpha 1.0.14 metrology from a Tank Level Sensor demonstration into shared measurement infrastructure used across redstone, electrical, pneumatic and mechatronic instruments.
