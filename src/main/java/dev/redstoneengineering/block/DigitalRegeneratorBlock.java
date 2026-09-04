@@ -40,10 +40,7 @@ public class DigitalRegeneratorBlock extends DirectionalDomainBlock implements E
         registerDefaultState(defaultBlockState().setValue(THRESHOLD, 1));
     }
 
-    @Override
-    public MapCodec<DigitalRegeneratorBlock> codec() {
-        return RedstoneEngineering.DIGITAL_REGENERATOR_CODEC.value();
-    }
+    @Override public MapCodec<DigitalRegeneratorBlock> codec() { return RedstoneEngineering.DIGITAL_REGENERATOR_CODEC.value(); }
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
@@ -58,55 +55,28 @@ public class DigitalRegeneratorBlock extends DirectionalDomainBlock implements E
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         return List.of(
-                new EngineeringPort(
-                        "SERIAL IN",
-                        inputSide(state),
-                        EngineeringDomain.SERIAL_DATA,
-                        PortKind.CONVERTER,
-                        PortDirection.INPUT,
-                        false,
-                        "byte"
-                ),
-                new EngineeringPort(
-                        "REGENERATED SERIAL OUT",
-                        outputSide(state),
-                        EngineeringDomain.SERIAL_DATA,
-                        PortKind.CONVERTER,
-                        PortDirection.OUTPUT,
-                        false,
-                        "byte"
-                )
+                new EngineeringPort("SERIAL IN", inputSide(state), EngineeringDomain.SERIAL_DATA,
+                        PortKind.CONVERTER, PortDirection.INPUT, false, "byte"),
+                new EngineeringPort("REGENERATED SERIAL OUT", outputSide(state), EngineeringDomain.SERIAL_DATA,
+                        PortKind.CONVERTER, PortDirection.OUTPUT, false, "byte")
         );
     }
 
     @Override
-    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
-            Level level,
-            BlockPos pos,
-            BlockState state,
-            Direction side
-    ) {
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         if (side == inputSide(state)) {
             BlockPos input = inputPos(pos, state);
             boolean valid = InformationRuntime.valid(level, "serial", input);
-            return Optional.of(new EngineeringPortSnapshot(
-                    port.get(),
+            return Optional.of(new EngineeringPortSnapshot(port.get(),
                     InformationRuntime.value(level, "serial", input) & 0xFF,
-                    0.0,
-                    255.0,
-                    valid ? PortQuality.VALID : PortQuality.NO_SIGNAL
-            ));
+                    0.0, 255.0, valid ? PortQuality.VALID : PortQuality.NO_SIGNAL));
         }
         boolean valid = InformationRuntime.valid(level, "serial", pos);
-        return Optional.of(new EngineeringPortSnapshot(
-                port.get(),
+        return Optional.of(new EngineeringPortSnapshot(port.get(),
                 InformationRuntime.value(level, "serial", pos) & 0xFF,
-                0.0,
-                255.0,
-                valid ? PortQuality.VALID : PortQuality.FAULT
-        ));
+                0.0, 255.0, valid ? PortQuality.VALID : PortQuality.FAULT));
     }
 
     private void update(ServerLevel level, BlockPos pos, BlockState state) {
@@ -136,15 +106,11 @@ public class DigitalRegeneratorBlock extends DirectionalDomainBlock implements E
     }
 
     @Override
-    protected void neighborChanged(
-            BlockState state,
-            Level level,
-            BlockPos pos,
-            Block neighborBlock,
-            BlockPos neighborPos,
-            boolean movedByPiston
-    ) {
-        if (level instanceof ServerLevel serverLevel) update(serverLevel, pos, state);
+    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock,
+                                   BlockPos neighborPos, boolean movedByPiston) {
+        if (level instanceof ServerLevel serverLevel && neighborPos.equals(inputPos(pos, state))) {
+            update(serverLevel, pos, state);
+        }
     }
 
     @Override
@@ -161,13 +127,8 @@ public class DigitalRegeneratorBlock extends DirectionalDomainBlock implements E
     }
 
     @Override
-    protected InteractionResult useWithoutItem(
-            BlockState state,
-            Level level,
-            BlockPos pos,
-            Player player,
-            BlockHitResult hit
-    ) {
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos,
+                                               Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
                 int nextThreshold = (state.getValue(THRESHOLD) + 1) % 3;
@@ -178,8 +139,7 @@ public class DigitalRegeneratorBlock extends DirectionalDomainBlock implements E
                 player.displayClientMessage(Component.literal(
                         "Digital regenerator minQuality=" + minimumQuality(nextThreshold) + "%"
                                 + " inputQuality=" + inputQuality + "%"
-                                + " output=" + (InformationRuntime.valid(level, "serial", pos) ? "VALID" : "REJECTED")
-                ), true);
+                                + " output=" + (InformationRuntime.valid(level, "serial", pos) ? "VALID" : "REJECTED")), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
             }
