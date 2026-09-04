@@ -6,6 +6,7 @@ Java: 21
 License: MIT
 
 Milestone: Commissioning Run History & Baseline Comparison
+Public alpha testing guide: docs/ALPHA1_0_20_TESTING_GUIDE.md
 
 Contracts:
 - Acceptance history is created only by an explicit player action: Shift + right-click the PID Controller FRONT face.

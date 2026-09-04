@@ -4,19 +4,20 @@ import dev.redstoneengineering.RedstoneEngineering;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.entity.BlockEntityType;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.registries.RegisterEvent;
 
 /** Registers the shared GeckoLib visualization block entity without touching physics registration. */
-@EventBusSubscriber(modid = RedstoneEngineering.MOD_ID)
+@Mod(RedstoneEngineering.MOD_ID)
 public final class MechatronicsBlockEntityRegistry {
     private static BlockEntityType<MechatronicsVisualBlockEntity> TYPE;
 
-    private MechatronicsBlockEntityRegistry() {}
+    public MechatronicsBlockEntityRegistry(IEventBus modBus) {
+        modBus.addListener(MechatronicsBlockEntityRegistry::register);
+    }
 
-    @SubscribeEvent
-    public static void register(RegisterEvent event) {
+    private static void register(RegisterEvent event) {
         event.register(Registries.BLOCK_ENTITY_TYPE, registry -> {
             TYPE = BlockEntityType.Builder.of(
                     MechatronicsVisualBlockEntity::new,

@@ -4,7 +4,8 @@
 This catches structural mistakes that feature-specific verifiers can miss:
 package/path mismatches, malformed or empty resources, local model references that
 point nowhere, duplicate case-insensitive resource names, trailing whitespace,
-high-cardinality BlockState ranges, and deprecated event-subscriber declarations.
+high-cardinality BlockState ranges, deprecated event registration APIs, and
+Gradle DSL forms that are already scheduled for removal.
 """
 
 from __future__ import annotations
@@ -47,10 +48,13 @@ for path in java_root.rglob("*.java"):
             errors.append(f"trailing whitespace: {path.relative_to(root)}:{line_no}")
             break
 
-    # NeoForge 21.1 infers the correct event bus from the subscribed event type.
-    # Explicit EventBusSubscriber bus selectors are deprecated and generated compiler warnings.
-    if "@EventBusSubscriber" in body and re.search(r"\bbus\s*=\s*(?:EventBusSubscriber\.)?Bus\.", body):
-        errors.append(f"deprecated explicit EventBusSubscriber bus selector: {path.relative_to(root)}")
+    # NeoForge 21.1 supports direct IEventBus listener registration and the annotation
+    # event subscriber path is deprecated in the pinned API. Keep repository-owned event
+    # registration warning-free rather than suppressing removal warnings.
+    if "@EventBusSubscriber" in body:
+        errors.append(f"deprecated EventBusSubscriber annotation: {path.relative_to(root)}")
+    if "@SubscribeEvent" in body:
+        errors.append(f"deprecated SubscribeEvent annotation: {path.relative_to(root)}")
 
     for prop in re.finditer(
         r'IntegerProperty\.create\([^,]+,\s*(-?\d+)\s*,\s*(-?\d+)\s*\)',
@@ -113,7 +117,7 @@ if blockstates_dir.exists():
             errors.append(f"block has model/blockstate but no item model: {stem}")
 
 
-# 5) Repository root hygiene.
+# 5) Repository root and build-script hygiene.
 for path in root.iterdir():
     if not path.is_file():
         continue
@@ -123,6 +127,14 @@ for path in root.iterdir():
         errors.append(f"copy-like root artifact: {path.name}")
     if re.search(r"\s+\d+(?:\.|$)", path.name):
         errors.append(f"duplicate-looking numbered root artifact: {path.name}")
+
+build_gradle = root / "build.gradle"
+if build_gradle.exists():
+    gradle_body = build_gradle.read_text(errors="ignore")
+    # Gradle 8 warns that Groovy space-assignment syntax such as `url "..."`
+    # is deprecated and will be removed in Gradle 10. Require property assignment.
+    if re.search(r"(?m)^\s*url\s+['\"]", gradle_body):
+        errors.append("deprecated Gradle Groovy space assignment for Maven repository url")
 
 
 if errors:
@@ -135,8 +147,9 @@ print("RSE source quality audit: PASS")
 print(f"  Java sources checked: {len(list(java_root.rglob('*.java')))}")
 print(f"  JSON resources checked: {len(json_paths)}")
 print("  package/path + braces + whitespace: PASS")
-print("  deprecated event-subscriber selectors: PASS")
+print("  deprecated annotation event registration: PASS")
 print("  JSON parse + case-collision checks: PASS")
 print("  local model reference integrity: PASS")
 print("  block/item model pairing: PASS")
 print("  BlockState cardinality + root hygiene: PASS")
+print("  Gradle DSL assignment hygiene: PASS")
