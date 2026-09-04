@@ -33,6 +33,7 @@ manifest = read("ALPHA1_0_20_MANIFEST.txt")
 mods_template = read("src/main/templates/META-INF/neoforge.mods.toml")
 build_gradle = read("build.gradle")
 workflow = read(".github/workflows/build.yml")
+lang_en_us = read("src/main/resources/assets/redstoneengineering/lang/en_us.json")
 
 for key, expected in (
     ("mod_version", EXPECTED_VERSION),
@@ -88,6 +89,26 @@ for required in (
 if re.search(r"(?m)^\s*url\s+['\"]", build_gradle):
     errors.append("build.gradle still uses deprecated Groovy space assignment for repository url")
 
+jade_source_dir = root / "src/main/java/dev/redstoneengineering/integration/jade"
+jade_uid_pattern = re.compile(
+    r'private\s+static\s+final\s+ResourceLocation\s+UID\s*=\s*ResourceLocation\.parse\(\s*"redstoneengineering:([a-z0-9_./-]+)"\s*\)'
+)
+jade_provider_ids: set[str] = set()
+if not jade_source_dir.is_dir():
+    errors.append("missing RSE Jade integration source directory")
+else:
+    for source in jade_source_dir.glob("*.java"):
+        for uid_match in jade_uid_pattern.finditer(source.read_text(errors="ignore")):
+            jade_provider_ids.add(uid_match.group(1))
+
+if not jade_provider_ids:
+    errors.append("release verifier found no RSE Jade provider UID declarations")
+
+for provider_id in sorted(jade_provider_ids):
+    translation_key = f"config.jade.plugin_redstoneengineering.{provider_id}"
+    if f'"{translation_key}"' not in lang_en_us:
+        errors.append(f"missing Jade config translation: {translation_key}")
+
 for required_workflow_text in (
     "runGameTestServer",
     "sha256sum *.jar > SHA256SUMS.txt",
@@ -116,5 +137,6 @@ print(f"  Minecraft / NeoForge / Java: {EXPECTED_MINECRAFT} / {EXPECTED_NEOFORGE
 print("  manifest -> testing guide link: PASS")
 print("  required dependency metadata: PASS")
 print("  Gradle publishing syntax: PASS")
+print(f"  Jade provider config translations: {len(jade_provider_ids)} PASS")
 print(f"  artifact upload action: v{artifact_action.group(1)}")
 print("  GameTest + checksum + artifact gates: PASS")
