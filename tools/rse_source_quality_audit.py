@@ -3,8 +3,8 @@
 
 This catches structural mistakes that feature-specific verifiers can miss:
 package/path mismatches, malformed or empty resources, local model references that
-point nowhere, duplicate case-insensitive resource names, trailing whitespace and
-high-cardinality BlockState ranges.
+point nowhere, duplicate case-insensitive resource names, trailing whitespace,
+high-cardinality BlockState ranges, and deprecated event-subscriber declarations.
 """
 
 from __future__ import annotations
@@ -46,6 +46,11 @@ for path in java_root.rglob("*.java"):
         if line.rstrip() != line:
             errors.append(f"trailing whitespace: {path.relative_to(root)}:{line_no}")
             break
+
+    # NeoForge 21.1 infers the correct event bus from the subscribed event type.
+    # Explicit EventBusSubscriber bus selectors are deprecated and generated compiler warnings.
+    if "@EventBusSubscriber" in body and re.search(r"\bbus\s*=\s*(?:EventBusSubscriber\.)?Bus\.", body):
+        errors.append(f"deprecated explicit EventBusSubscriber bus selector: {path.relative_to(root)}")
 
     for prop in re.finditer(
         r'IntegerProperty\.create\([^,]+,\s*(-?\d+)\s*,\s*(-?\d+)\s*\)',
@@ -130,6 +135,7 @@ print("RSE source quality audit: PASS")
 print(f"  Java sources checked: {len(list(java_root.rglob('*.java')))}")
 print(f"  JSON resources checked: {len(json_paths)}")
 print("  package/path + braces + whitespace: PASS")
+print("  deprecated event-subscriber selectors: PASS")
 print("  JSON parse + case-collision checks: PASS")
 print("  local model reference integrity: PASS")
 print("  block/item model pairing: PASS")
