@@ -36,18 +36,38 @@ analyzer = "src/main/java/dev/redstoneengineering/block/SignalAnalyzerBlock.java
 require(
     analyzer,
     'IntegerProperty.create("calibration", 0, 4)',
-    "WINDOW = 16",
+    "DISPLAY_SAMPLES = 16",
     "rollingAverage100",
     "rollingPeakToPeak",
     "rollingMeanStep100",
-    "stabilityClass",
-    "sampleAge=",
-    "display only; INLINE OUT remains raw",
+    "stableAgeTicks",
+    "sampleAgeTicks",
+    "UiSnapshot",
     "requestedOutput = state.getValue(MODE) == INLINE ? measured : 0",
     "state.getValue(OUTPUT)",
     "calibratedReading",
 )
 forbid(analyzer, "requestedOutput = state.getValue(MODE) == INLINE ? calibrated")
+
+# Later UI milestones moved variation classification and sample-age presentation
+# out of action-bar prose and into the formal, server-synchronized Engineering UI.
+require(
+    "src/main/java/dev/redstoneengineering/ui/menu/SignalAnalyzerMenu.java",
+    "SignalAnalyzerBlock.uiSnapshot",
+    "sampleAgeTicks",
+    "stableAgeTicks",
+    "average100",
+    "peakToPeak",
+    "meanStep100",
+)
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/SignalAnalyzerScreen.java",
+    "stabilityClass",
+    "sampleAgeTicks",
+    "DISPLAY ONLY",
+    "INLINE",
+    "RAW",
+)
 
 require(
     "src/main/java/dev/redstoneengineering/instrument/InstrumentNetwork.java",
@@ -70,6 +90,7 @@ require(
     "meanStep100",
     "estimatedPeriodTicks",
     "captureQuality",
+    "cursorDeltaTicks",
     'tag.putInt("samplesSinceTrigger"',
     'tag.getInt("samplesSinceTrigger")',
 )
@@ -81,24 +102,44 @@ require(
     "coveragePercent",
     "transitionRatePercent",
     "captureQuality",
+    "cursorDeltaTicks",
     'tag.putInt("postTriggerSamples"',
     'tag.getInt("postTriggerSamples")',
 )
 
+# Scope/logic quality metrics are still computed by the authoritative BlockEntity,
+# but are now synchronized and presented through dedicated menus/screens.
 require(
-    "src/main/java/dev/redstoneengineering/block/OscilloscopeBlock.java",
-    "capture=",
-    "coverage=",
-    "meanStep=",
+    "src/main/java/dev/redstoneengineering/ui/menu/OscilloscopeMenu.java",
+    "coveragePercent",
+    "meanStep100",
     "estimatedPeriodTicks",
-    "cursorDeltaTicks",
+    "cursorA",
+    "cursorB",
+    "displaySample",
 )
 require(
-    "src/main/java/dev/redstoneengineering/block/LogicAnalyzerBlock.java",
-    "capture=",
+    "src/main/java/dev/redstoneengineering/client/ui/OscilloscopeScreen.java",
+    "Capture",
     "coverage=",
-    "transitionRate=",
-    "cursorDeltaTicks",
+    "meanStep=",
+    "period≈",
+    "Cursor Δ",
+)
+require(
+    "src/main/java/dev/redstoneengineering/ui/menu/LogicAnalyzerMenu.java",
+    "coveragePercent",
+    "transitionRatePercent",
+    "cursorA",
+    "cursorB",
+    "displayState",
+)
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/LogicAnalyzerScreen.java",
+    "Capture",
+    "coverage=",
+    "transition=",
+    "Cursor Δ",
 )
 
 # Alpha 1.0.4 topology remains mandatory. Verify executable structure instead
@@ -133,8 +174,6 @@ else:
     except Exception as exc:
         failed.append(f"signal_analyzer JSON invalid: {exc}")
 
-# This is a historical regression verifier, not a version pin. Require a valid
-# Alpha version at or newer than 1.0.5 so the quality contract survives 1.0.6+.
 props = text("gradle.properties")
 match = re.search(r"^mod_version=(\d+)\.(\d+)\.(\d+)-alpha(?:[.-][0-9A-Za-z.-]+)?$", props, re.MULTILINE)
 if not match:
@@ -201,7 +240,7 @@ print("RSE Alpha 1.0.5 quality regression verification: PASS")
 print("  analyzer rolling quality + display calibration: PASS")
 print("  raw INLINE 0..15 pass-through invariant: PASS")
 print("  instrument topology depth/integrity diagnostics: PASS")
-print("  scope/logic capture coverage + timebase metrics: PASS")
+print("  scope/logic capture coverage + timebase metrics through formal UI: PASS")
 print("  trigger save/reload progress persistence: PASS")
 print("  Alpha 1.0.4 topology regression: PASS")
 print("  JSON/forward-version/workflow/high-cardinality guards: PASS")
