@@ -98,6 +98,11 @@ public class RedstoneByteEncoderBlock extends DirectionalDomainBlock implements 
         return direction != null && direction.getOpposite() == inputSide(state);
     }
 
+    @Override
+    public boolean drivesDataBusAt(BlockPos driverPos, BlockState driverState, BlockPos busPos) {
+        return outputPos(driverPos, driverState).equals(busPos);
+    }
+
     private void update(ServerLevel level, BlockPos pos, BlockState state) {
         int value = Math.max(0, Math.min(15, level.getSignal(inputPos(pos, state), inputSide(state))));
         InformationRuntime.write(level, "bus8_out", pos, value, 0, true, 100);
