@@ -103,12 +103,21 @@ public final class DataBusNetwork {
         boolean conflict = distinctValues > 1;
         boolean sameValueMultiDriver = driverCount > 1 && distinctValues == 1;
         int value = values.isEmpty() ? 0 : values.iterator().next();
+        int resolvedValue = valid ? value : 0;
+        int resolvedQuality = valid ? 100 : 0;
 
         NetworkKernel.recordDriverState(level, "bus8", driverCount);
         int now = (int) Math.min(Integer.MAX_VALUE, level.getGameTime());
 
         for (BlockPos pos : nodes) {
-            InformationRuntime.write(level, "bus8", pos, valid ? value : 0, 0, valid, valid ? 100 : 0);
+            int oldValue = InformationRuntime.value(level, "bus8", pos) & 0xFF;
+            boolean oldValid = InformationRuntime.valid(level, "bus8", pos);
+            int oldQuality = InformationRuntime.quality(level, "bus8", pos);
+            boolean effectiveChanged = oldValue != resolvedValue
+                    || oldValid != valid
+                    || oldQuality != resolvedQuality;
+
+            InformationRuntime.write(level, "bus8", pos, resolvedValue, 0, valid, resolvedQuality);
             int[] diagnostics = RuntimeIntStore.get(level, DIAG_KEY, pos, DIAG_SIZE);
             diagnostics[0]++;
             diagnostics[1] = nodes.size();
@@ -122,7 +131,13 @@ public final class DataBusNetwork {
             if (conflict) diagnostics[9]++;
             if (sameValueMultiDriver) diagnostics[10]++;
             diagnostics[11] = valid ? 1 : 0;
-            level.updateNeighborsAt(pos, level.getBlockState(pos).getBlock());
+
+            // A network recompute is often triggered by a neighbor notification. Emitting
+            // another notification when the effective bus state is identical creates an
+            // artificial feedback loop. Notify endpoints only for an observable state change.
+            if (effectiveChanged) {
+                level.updateNeighborsAt(pos, level.getBlockState(pos).getBlock());
+            }
         }
     }
 
