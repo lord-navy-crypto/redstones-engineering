@@ -91,11 +91,18 @@ if re.search(r"(?m)^\s*url\s+['\"]", build_gradle):
 for required_workflow_text in (
     "runGameTestServer",
     "sha256sum *.jar > SHA256SUMS.txt",
-    "actions/upload-artifact@v4",
     "if-no-files-found: error",
 ):
     if required_workflow_text not in workflow:
         errors.append(f"release workflow missing gate: {required_workflow_text}")
+
+artifact_action = re.search(r"(?m)^\s*uses:\s*actions/upload-artifact@v(\d+)\s*$", workflow)
+if not artifact_action:
+    errors.append("release workflow is missing the actions/upload-artifact gate")
+elif int(artifact_action.group(1)) < 6:
+    errors.append(
+        f"release workflow uses actions/upload-artifact@v{artifact_action.group(1)}; Alpha 1.0.20 requires Node 24-capable v6 or newer"
+    )
 
 if errors:
     print("RSE Alpha 1.0.20 release verification: FAIL")
@@ -109,4 +116,5 @@ print(f"  Minecraft / NeoForge / Java: {EXPECTED_MINECRAFT} / {EXPECTED_NEOFORGE
 print("  manifest -> testing guide link: PASS")
 print("  required dependency metadata: PASS")
 print("  Gradle publishing syntax: PASS")
+print(f"  artifact upload action: v{artifact_action.group(1)}")
 print("  GameTest + checksum + artifact gates: PASS")
