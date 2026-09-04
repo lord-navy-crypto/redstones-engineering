@@ -10,13 +10,31 @@
 
 | Item | Current RSE baseline |
 | --- | --- |
-| Development milestone | **Alpha 1.0.16 — Closed-Loop Commissioning & Fault Injection** |
-| Artifact version | `1.0.16-alpha` |
+| Development milestone | **Alpha 1.0.17 — Engineering UX & Topology Visualization** |
+| Artifact version | `1.0.17-alpha` |
 | Minecraft | `1.21.1` |
 | NeoForge | `21.1.249` |
 | Java | `21` |
 | Mod ID | `redstoneengineering` |
 | License | **MIT** |
+
+## Alpha 1.0.17 — Engineering UX & Topology Visualization
+
+Alpha 1.0.17 makes the Engineering Port architecture legible in normal play without creating a second simulation model. `EngineeringTopologyView` projects the authoritative `EngineeringPortProvider`, live `EngineeringPortSnapshot`, and existing `PortCompatibility` rules into immutable all-face diagnostics.
+
+Every physical face is classified as `CONNECTED`, `OPEN`, `ISOLATED`, `DOMAIN_MISMATCH`, `DIRECTION_MISMATCH`, or `UNLOADED`. The projection records the port domain, semantic kind, input/output direction, neighbor identity, live measurement quality when available, and compact issue counts. It does **not** solve networks, schedule ticks, mutate BlockState, write runtime stores, or drive machine physics.
+
+The server-backed **Jade Engineering HUD** keeps its targeted-face detail and now adds an all-face topology summary. A player can inspect, for example, whether FRONT is a control output, BACK is a sensor input, a side is isolated, or a neighboring interface is wrong-domain/wrong-direction without guessing from block orientation alone.
+
+```text
+Targeted face: value / range / quality
+Topology: connected ports / total ports / issues
+Per face: DOMAIN / DIRECTION → LINK STATUS [QUALITY]
+```
+
+This is deliberately a downstream observer layer: transmission/network ownership remains in the existing RSE topology and simulation code. Vanilla-compatible world-facing redstone remains **0..15**.
+
+See [`ALPHA1_0_17_MANIFEST.txt`](ALPHA1_0_17_MANIFEST.txt).
 
 ## Alpha 1.0.16 — Closed-Loop Commissioning & Fault Injection
 
@@ -88,6 +106,7 @@ These historical contracts remain active regression targets and are intentionall
 - **Alpha 1.0.14 — Metrology & Uncertainty** — established reusable measurement quality and uncertainty-proxy infrastructure.
 - **Alpha 1.0.15 — Metrology Rollout & Calibration** — applies that infrastructure across multiple engineering domains and adds reference-versus-observed calibration.
 - **Alpha 1.0.16 — Closed-Loop Commissioning & Fault Injection** — promotes PID response metrics into a stable commissioning snapshot and adds repeatable typed disturbance testing.
+- **Alpha 1.0.17 — Engineering UX & Topology Visualization** — exposes all-face port/link/quality diagnostics as a read-only projection in the Jade Engineering HUD.
 
 ## Engineering Port architecture
 
@@ -162,6 +181,7 @@ See [`docs/CRAFTING_PROGRESSION.md`](docs/CRAFTING_PROGRESSION.md).
 12. Treat rendering and UI as downstream observers.
 13. Keep instrument sample cadence owned by simulation, never by HUD/render polling.
 14. Commission control loops against baseline and disturbed conditions before optimization.
+15. Visualize authoritative ports/topology; never duplicate the topology solver in UI code.
 
 ## Reference calculations
 
@@ -173,13 +193,14 @@ Bias: mean(residual)
 Uncertainty proxy ≈ RSS(repeatability, noise, drift, bias, quantization)
 PID: e = setpoint - process
 Commissioning score = bounded penalty model(error, settling, overshoot, saturation)
+Topology face = EngineeringPort descriptor + live snapshot + PortCompatibility(local, neighbor)
 ```
 
 ## Verification architecture
 
-CI runs verifier syntax, repository/source/resource audits, deterministic reference models, historical Alpha regressions, dependency checks, Engineering Port/Jade gates, legacy-renovation checks, directional-I/O guards, copper topology guards, **Alpha 1.0.14 metrology**, **Alpha 1.0.15 multi-domain rollout/calibration**, **Alpha 1.0.16 closed-loop commissioning/fault-injection verification**, Java 21 compilation, Gradle tests, **NeoForge Minecraft GameTests**, a clean build, SHA-256 generation and verified artifact upload.
+CI runs verifier syntax, repository/source/resource audits, deterministic reference models, historical Alpha regressions, dependency checks, Engineering Port/Jade gates, legacy-renovation checks, directional-I/O guards, copper topology guards, **Alpha 1.0.14 metrology**, **Alpha 1.0.15 multi-domain rollout/calibration**, **Alpha 1.0.16 closed-loop commissioning/fault injection**, **Alpha 1.0.17 engineering UX/topology visualization**, Java 21 compilation, Gradle tests, **NeoForge Minecraft GameTests**, a clean build, SHA-256 generation and verified artifact upload.
 
-Interactive visual/UX behavior remains a separate `runClient` gate. Automated gates protect simulation-to-render ownership, metrology math, physical topology, directional I/O, copper runtime propagation, calibration semantics, commissioning read-only ownership, fault bounds and sampling ownership.
+Interactive visual/UX behavior remains a separate `runClient` gate. Automated gates protect simulation-to-render ownership, metrology math, physical topology, directional I/O, copper runtime propagation, calibration semantics, commissioning read-only ownership, fault bounds, all-face topology projection and sampling ownership.
 
 ## Build and test
 
@@ -196,6 +217,7 @@ Build output is under `build/libs/`.
 ## Documentation
 
 - [`CHANGELOG.md`](CHANGELOG.md)
+- [`ALPHA1_0_17_MANIFEST.txt`](ALPHA1_0_17_MANIFEST.txt)
 - [`ALPHA1_0_16_MANIFEST.txt`](ALPHA1_0_16_MANIFEST.txt)
 - [`ALPHA1_0_15_MANIFEST.txt`](ALPHA1_0_15_MANIFEST.txt)
 - [`ALPHA1_0_14_MANIFEST.txt`](ALPHA1_0_14_MANIFEST.txt)

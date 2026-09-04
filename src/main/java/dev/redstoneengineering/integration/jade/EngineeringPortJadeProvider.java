@@ -3,6 +3,10 @@ package dev.redstoneengineering.integration.jade;
 import dev.redstoneengineering.core.port.EngineeringPort;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
+import dev.redstoneengineering.diagnostics.topology.EngineeringTopologyView;
+import dev.redstoneengineering.diagnostics.topology.TopologyFaceSnapshot;
+import dev.redstoneengineering.diagnostics.topology.TopologyVisualizationSnapshot;
+import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -18,7 +22,7 @@ import java.util.Locale;
 import java.util.Optional;
 
 /**
- * Server-backed Jade view of the face currently targeted by the player.
+ * Server-backed Jade view of the targeted face plus the read-only all-face topology projection.
  *
  * <p>The provider serializes only presentation data derived from the native RSE
  * contract. Runtime cable values and other server-owned observations therefore
@@ -45,6 +49,9 @@ public enum EngineeringPortJadeProvider implements IBlockComponentProvider, ISer
     private static final String KEY_MAXIMUM = "rse_ep_maximum";
     private static final String KEY_NORMALIZED = "rse_ep_normalized";
     private static final String KEY_QUALITY = "rse_ep_quality";
+    private static final String KEY_TOPOLOGY_CONNECTED = "rse_ep_topology_connected";
+    private static final String KEY_TOPOLOGY_ISSUES = "rse_ep_topology_issues";
+    private static final String KEY_TOPOLOGY_FACE_PREFIX = "rse_ep_topology_face_";
 
     @Override
     public void appendServerData(CompoundTag data, BlockAccessor accessor) {
@@ -57,6 +64,17 @@ public enum EngineeringPortJadeProvider implements IBlockComponentProvider, ISer
         data.putBoolean(KEY_PRESENT, true);
         data.putInt(KEY_COUNT, ports.size());
         data.putString(KEY_SIDE, accessor.getSide().getName());
+
+        TopologyVisualizationSnapshot topology = EngineeringTopologyView.inspect(
+                accessor.getLevel(), accessor.getPosition(), state);
+        data.putInt(KEY_TOPOLOGY_CONNECTED, topology.connectedCount());
+        data.putInt(KEY_TOPOLOGY_ISSUES, topology.issueCount());
+        for (TopologyFaceSnapshot face : topology.faces()) {
+            data.putString(
+                    KEY_TOPOLOGY_FACE_PREFIX + face.side().getName(),
+                    face.hasPort() ? face.compact() : ""
+            );
+        }
 
         Optional<EngineeringPort> port = provider.engineeringPort(state, accessor.getSide());
         if (port.isEmpty()) {
@@ -104,6 +122,7 @@ public enum EngineeringPortJadeProvider implements IBlockComponentProvider, ISer
         String side = data.getString(KEY_SIDE).toUpperCase(Locale.ROOT);
         if (!data.getBoolean(KEY_HAS_PORT)) {
             tooltip.add(Component.literal("RSE ports: " + count + " | " + side + " = ISOLATED"));
+            appendTopology(tooltip, data, count);
             return;
         }
 
@@ -134,6 +153,20 @@ public enum EngineeringPortJadeProvider implements IBlockComponentProvider, ISer
 
         if (data.getBoolean(KEY_REDSTONE)) {
             tooltip.add(Component.literal("Vanilla redstone attachment: YES"));
+        }
+        appendTopology(tooltip, data, count);
+    }
+
+    private static void appendTopology(ITooltip tooltip, CompoundTag data, int portCount) {
+        tooltip.add(Component.literal(
+                "Topology: connected " + data.getInt(KEY_TOPOLOGY_CONNECTED) + "/" + portCount
+                        + " | issues " + data.getInt(KEY_TOPOLOGY_ISSUES)
+        ));
+        for (Direction direction : Direction.values()) {
+            String face = data.getString(KEY_TOPOLOGY_FACE_PREFIX + direction.getName());
+            if (!face.isBlank()) {
+                tooltip.add(Component.literal("• " + face));
+            }
         }
     }
 

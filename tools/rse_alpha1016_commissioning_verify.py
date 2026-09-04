@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import re
 import sys
 
 root = Path(sys.argv[1] if len(sys.argv) > 1 else ".")
@@ -60,9 +61,19 @@ require(
     "src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java",
     "event.register(RseCommissioningGameTests.class)",
 )
-require("gradle.properties", "mod_version=1.0.16-alpha")
 require("README.md", "Alpha 1.0.16", "Closed-Loop Commissioning & Fault Injection")
 require("ALPHA1_0_16_MANIFEST.txt", "1.0.16-alpha", "License: MIT", "Java: 21")
+
+props = root / "gradle.properties"
+if not props.exists():
+    failed.append("missing: gradle.properties")
+else:
+    text = props.read_text(errors="ignore")
+    match = re.search(r"(?m)^mod_version=(\d+)\.(\d+)\.(\d+)-alpha(?:[.-][0-9A-Za-z.-]+)?$", text)
+    if not match:
+        failed.append("gradle.properties has invalid alpha mod_version")
+    elif tuple(map(int, match.groups())) < (1, 0, 16):
+        failed.append("Alpha 1.0.16 gate requires version >= 1.0.16-alpha")
 
 probe = root / "src/main/java/dev/redstoneengineering/diagnostics/ClosedLoopCommissioning.java"
 if probe.exists():
@@ -77,4 +88,5 @@ if failed:
     sys.exit(1)
 
 print("RSE Alpha 1.0.16 commissioning verification: PASS")
+print(" forward-compatible milestone version gate: PASS")
 print(" read-only PID commissioning + bounded fault injection + GameTest contracts: PASS")

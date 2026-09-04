@@ -1,0 +1,22 @@
+Redstone Systems Engineering — Alpha 1.0.17
+Artifact: 1.0.17-alpha
+Minecraft: 1.21.1
+NeoForge: 21.1.249
+Java: 21
+License: MIT
+
+Milestone: Engineering UX & Topology Visualization
+
+Contracts:
+- Topology visualization is a read-only projection of EngineeringPortProvider descriptors, live EngineeringPortSnapshot observations, and PortCompatibility rules.
+- Visualization never becomes a second topology solver and never writes BlockState, RuntimeIntStore, network registries, controller state, or machine physics.
+- Each physical face is classified as CONNECTED, OPEN, ISOLATED, DOMAIN_MISMATCH, DIRECTION_MISMATCH, or UNLOADED.
+- The Jade Engineering HUD preserves targeted-face detail and adds an all-face topology summary with domain, direction, link status, and live quality where available.
+- Immediate neighbor classification uses the existing Engineering Port contract; transmission/network ownership remains in the existing simulation and topology code.
+- Vanilla-compatible world-facing redstone remains bounded to 0..15.
+
+Verification:
+- rse_alpha1017_engineering_ux_verify.py
+- RseEngineeringUxGameTests
+- Historical Engineering Port/Jade/topology/metrology/commissioning gates
+- Java 21 compile/test/GameTest/clean-build CI
