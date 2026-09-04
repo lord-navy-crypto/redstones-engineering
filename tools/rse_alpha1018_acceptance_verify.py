@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import re
 import sys
 
 root = Path(sys.argv[1] if len(sys.argv) > 1 else ".")
@@ -15,6 +16,20 @@ def require(rel: str, *tokens: str) -> None:
     for token in tokens:
         if token not in text:
             failed.append(f"{rel} missing token: {token}")
+
+
+def require_min_alpha_version(minimum: tuple[int, int, int]) -> None:
+    path = root / "gradle.properties"
+    if not path.exists():
+        failed.append("missing: gradle.properties")
+        return
+    match = re.search(r"^mod_version=(\d+)\.(\d+)\.(\d+)-alpha$", path.read_text(errors="ignore"), re.MULTILINE)
+    if not match:
+        failed.append("gradle.properties missing parseable alpha mod_version")
+        return
+    current = tuple(int(part) for part in match.groups())
+    if current < minimum:
+        failed.append(f"mod_version {current} is older than required Alpha {minimum}")
 
 
 require(
@@ -43,7 +58,7 @@ require(
     "src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java",
     "event.register(RseAcceptanceGameTests.class)",
 )
-require("gradle.properties", "mod_version=1.0.18-alpha")
+require_min_alpha_version((1, 0, 18))
 require("ALPHA1_0_18_MANIFEST.txt", "1.0.18-alpha", "Engineering Acceptance & Traceability", "Java: 21")
 
 acceptance = root / "src/main/java/dev/redstoneengineering/diagnostics/acceptance/EngineeringAcceptance.java"
