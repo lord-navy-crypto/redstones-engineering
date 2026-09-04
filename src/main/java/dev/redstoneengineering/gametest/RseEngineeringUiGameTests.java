@@ -29,6 +29,7 @@ public final class RseEngineeringUiGameTests {
     public static void conditionerUiActionsDriveAuthoritativeWorldState(GameTestHelper helper) {
         BlockPos sourcePos = new BlockPos(1, 1, 2);
         BlockPos conditionerPos = new BlockPos(2, 1, 2);
+        BlockPos conditionerWorldPos = helper.absolutePos(conditionerPos);
 
         helper.setBlock(sourcePos, RedstoneEngineering.REDSTONE_REFERENCE_SOURCE.get()
                 .defaultBlockState()
@@ -41,9 +42,9 @@ public final class RseEngineeringUiGameTests {
                 .setValue(SignalConditionerBlock.PARAM, 2));
 
         boolean modeChanged = SignalConditionerBlock.applyConfigurationAction(
-                helper.getLevel(), conditionerPos, SignalConditionerMenu.BUTTON_MODE_NEXT);
+                helper.getLevel(), conditionerWorldPos, SignalConditionerMenu.BUTTON_MODE_NEXT);
         boolean paramChanged = SignalConditionerBlock.applyConfigurationAction(
-                helper.getLevel(), conditionerPos, SignalConditionerMenu.BUTTON_PARAM_INCREASE);
+                helper.getLevel(), conditionerWorldPos, SignalConditionerMenu.BUTTON_PARAM_INCREASE);
 
         if (!modeChanged || !paramChanged) {
             helper.fail("Conditioner rejected a valid server-side Engineering UI action", conditionerPos);
@@ -72,6 +73,7 @@ public final class RseEngineeringUiGameTests {
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 40)
     public static void pidUiActionChangesOnlyBoundedTuningPreset(GameTestHelper helper) {
         BlockPos pidPos = new BlockPos(2, 1, 2);
+        BlockPos pidWorldPos = helper.absolutePos(pidPos);
         helper.setBlock(pidPos, RedstoneEngineering.PID_CONTROLLER.get()
                 .defaultBlockState()
                 .setValue(DirectionalSignalBlock.FACING, Direction.NORTH)
@@ -81,7 +83,7 @@ public final class RseEngineeringUiGameTests {
         int outputBefore = before.getValue(DirectionalSignalBlock.OUTPUT);
 
         if (!PidControllerBlock.applyTuningAction(
-                helper.getLevel(), pidPos, PidControllerMenu.BUTTON_TUNING_NEXT)) {
+                helper.getLevel(), pidWorldPos, PidControllerMenu.BUTTON_TUNING_NEXT)) {
             helper.fail("PID rejected a valid Engineering UI tuning action", pidPos);
             return;
         }
@@ -97,14 +99,14 @@ public final class RseEngineeringUiGameTests {
         }
 
         PidControllerBlock.applyTuningAction(
-                helper.getLevel(), pidPos, PidControllerMenu.BUTTON_TUNING_NEXT);
+                helper.getLevel(), pidWorldPos, PidControllerMenu.BUTTON_TUNING_NEXT);
         if (helper.getBlockState(pidPos).getValue(PidControllerBlock.TUNING) != 0) {
             helper.fail("PID tuning preset did not wrap within the bounded 0..3 range", pidPos);
             return;
         }
 
         PidControllerBlock.applyTuningAction(
-                helper.getLevel(), pidPos, PidControllerMenu.BUTTON_TUNING_PREVIOUS);
+                helper.getLevel(), pidWorldPos, PidControllerMenu.BUTTON_TUNING_PREVIOUS);
         if (helper.getBlockState(pidPos).getValue(PidControllerBlock.TUNING) != 3) {
             helper.fail("PID tuning previous action did not wrap within 0..3", pidPos);
             return;
