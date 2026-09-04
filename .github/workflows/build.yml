@@ -74,7 +74,7 @@ jobs:
           done
 
       - name: Compile Java and resolve required dependency platform
-        run: ./gradlew compileJava --no-daemon --stack-up --warning-mode all
+        run: ./gradlew compileJava --no-daemon --stacktrace --warning-mode all
 
       - name: Gradle tests
         run: ./gradlew test --no-daemon --stacktrace
