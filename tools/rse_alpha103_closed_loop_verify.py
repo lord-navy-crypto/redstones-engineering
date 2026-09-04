@@ -8,7 +8,18 @@ root = Path(sys.argv[1] if len(sys.argv) > 1 else ".")
 checks = {
     "PID manual/auto + bumpless": (
         "src/main/java/dev/redstoneengineering/block/PidControllerBlock.java",
-        ["AUTO_MODE", "MANUAL_MODE", "DOWN=manual", "manual→auto", "MAX_OUT", "integralState"],
+        [
+            "AUTO_MODE",
+            "MANUAL_MODE",
+            "DOWN=manual",
+            "manual→auto",
+            "MAX_OUT",
+            "candidateIntegral",
+            "rt[17]",
+            "rt[18]",
+            "rt[19]",
+            "rt[20]",
+        ],
     ),
     "Servo velocity mode + braking": (
         "src/main/java/dev/redstoneengineering/block/ServoActuatorBlock.java",
