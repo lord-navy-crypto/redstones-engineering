@@ -176,6 +176,62 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
                 labelValue(graphics, "Output byte", byteText(menu.secondary()), 137);
                 statusLine(graphics, "Decision", menu.dataValid() ? "ACCEPT / RE-SHAPED" : "REJECT", validityColor(), 157);
             }
+            case FieldDeviceMenu.KIND_DIFFERENTIAL_DRIVER -> {
+                statusBadge(graphics, "REDSTONE → DIFFERENTIAL", validityColor(), 16, 80);
+                labelValue(graphics, "Input bit", Integer.toString(menu.primary()), 105);
+                labelValue(graphics, "Driven bit", Integer.toString(menu.secondary()), 121);
+                labelValue(graphics, "Link quality", menu.qualityPercent() + "%", 137);
+                statusLine(graphics, "Driver", validityText(), validityColor(), 157);
+            }
+            case FieldDeviceMenu.KIND_DIFFERENTIAL_RECEIVER -> {
+                statusBadge(graphics, "DIFFERENTIAL → REDSTONE", validityColor(), 16, 80);
+                labelValue(graphics, "Received bit", Integer.toString(menu.primary()), 105);
+                labelValue(graphics, "Redstone output", menu.secondary() + " / 15", 121);
+                labelValue(graphics, "Link quality", menu.qualityPercent() + "%", 137);
+                statusLine(graphics, "Decode", validityText(), validityColor(), 157);
+            }
+            case FieldDeviceMenu.KIND_RADIO_TRANSMITTER -> {
+                statusBadge(graphics, "RADIO TRANSMITTER", validityColor(), 16, 80);
+                labelValue(graphics, "Payload", menu.primary() + " / 15", 105);
+                labelValue(graphics, "Channel", Integer.toString(menu.secondary()), 121);
+                labelValue(graphics, "Nominal range", menu.tertiary() + " blocks", 137);
+                statusLine(graphics, "UP antenna", validityText(), validityColor(), 157);
+            }
+            case FieldDeviceMenu.KIND_RADIO_RECEIVER -> {
+                statusBadge(graphics, "RADIO RECEIVER", validityColor(), 16, 80);
+                labelValue(graphics, "Payload", menu.primary() + " / 15", 105);
+                labelValue(graphics, "Channel", Integer.toString(menu.secondary()), 121);
+                labelValue(graphics, "Quality / drivers", menu.qualityPercent() + "% / " + menu.driverCount(), 137);
+                statusLine(graphics, "Estimated latency", menu.tertiary() + " ticks", validityColor(), 157);
+            }
+            case FieldDeviceMenu.KIND_FREE_OPTICAL_TRANSMITTER -> {
+                statusBadge(graphics, "FREE-SPACE OPTICAL TX", validityColor(), 16, 80);
+                labelValue(graphics, "Redstone input", menu.primary() + " / 15", 105);
+                labelValue(graphics, "Channel", Integer.toString(menu.secondary()), 121);
+                labelValue(graphics, "Optical launch power", menu.tertiary() + " / 15", 137);
+                statusLine(graphics, "FRONT beam", validityText(), validityColor(), 157);
+            }
+            case FieldDeviceMenu.KIND_FREE_OPTICAL_RECEIVER -> {
+                statusBadge(graphics, "FREE-SPACE OPTICAL RX", validityColor(), 16, 80);
+                labelValue(graphics, "Optical power", menu.primary() + " / 15", 105);
+                labelValue(graphics, "Redstone output", menu.secondary() + " / 15", 121);
+                labelValue(graphics, "Channel / quality", menu.tertiary() + " / " + menu.qualityPercent() + "%", 137);
+                statusLine(graphics, "LOS decode", validityText(), validityColor(), 157);
+            }
+            case FieldDeviceMenu.KIND_QUARTZ_DIVIDER -> {
+                statusBadge(graphics, "QUARTZ CLOCK DIVIDER", validityColor(), 16, 80);
+                labelValue(graphics, "Input period", menu.primary() + " ticks", 105);
+                labelValue(graphics, "Output period", menu.secondary() + " ticks", 121);
+                labelValue(graphics, "Division", "÷" + menu.tertiary(), 137);
+                statusLine(graphics, "Timing output", validityText(), validityColor(), 157);
+            }
+            case FieldDeviceMenu.KIND_QUARTZ_STABILITY -> {
+                statusBadge(graphics, "QUARTZ STABILITY MONITOR", validityColor(), 16, 80);
+                labelValue(graphics, "Measured period", menu.primary() + " ticks", 105);
+                labelValue(graphics, "Nominal period", menu.tertiary() + " ticks", 121);
+                labelValue(graphics, "Absolute error", menu.secondary() + " ticks", 137);
+                statusLine(graphics, "Metrology", validityText(), validityColor(), 157);
+            }
             default -> renderCableOverview(graphics);
         }
     }
@@ -245,6 +301,23 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             case FieldDeviceMenu.KIND_DESERIALIZER -> renderDirectionalPorts(graphics, "BACK • SERIAL_DATA INPUT", "FRONT • DATA_BUS_8 OUTPUT");
             case FieldDeviceMenu.KIND_DIFFERENTIAL_PAIR -> renderMediumPorts(graphics, "DIFFERENTIAL_DATA • BIDIRECTIONAL BIT LINK");
             case FieldDeviceMenu.KIND_DIGITAL_REGENERATOR -> renderDirectionalPorts(graphics, "BACK • SERIAL_DATA INPUT", "FRONT • REGENERATED SERIAL OUTPUT");
+            case FieldDeviceMenu.KIND_DIFFERENTIAL_DRIVER -> renderDirectionalPorts(graphics, "BACK • REDSTONE BIT INPUT", "FRONT • DIFFERENTIAL_DATA OUTPUT");
+            case FieldDeviceMenu.KIND_DIFFERENTIAL_RECEIVER -> renderDirectionalPorts(graphics, "BACK • DIFFERENTIAL_DATA INPUT", "FRONT • REDSTONE OUTPUT");
+            case FieldDeviceMenu.KIND_RADIO_TRANSMITTER -> {
+                statusLine(graphics, "UP", "RADIO_DATA ANTENNA OUTPUT", INFO, 105);
+                statusLine(graphics, "OTHER FIVE FACES", "REDSTONE PAYLOAD INPUT", GOOD, 125);
+            }
+            case FieldDeviceMenu.KIND_RADIO_RECEIVER -> {
+                statusLine(graphics, "UP", "RADIO_DATA ANTENNA INPUT", INFO, 105);
+                statusLine(graphics, directionName(menu.facingOrdinal()), "FRONT • REDSTONE OUTPUT", GOOD, 125);
+            }
+            case FieldDeviceMenu.KIND_FREE_OPTICAL_TRANSMITTER -> renderDirectionalPorts(graphics, "BACK • REDSTONE POWER INPUT", "FRONT • OPTICAL BEAM OUTPUT");
+            case FieldDeviceMenu.KIND_FREE_OPTICAL_RECEIVER -> renderDirectionalPorts(graphics, "BACK • OPTICAL BEAM INPUT", "FRONT • REDSTONE OUTPUT");
+            case FieldDeviceMenu.KIND_QUARTZ_DIVIDER -> renderDirectionalPorts(graphics, "BACK • QUARTZ TIMING INPUT", "FRONT • DIVIDED QUARTZ OUTPUT");
+            case FieldDeviceMenu.KIND_QUARTZ_STABILITY -> {
+                statusLine(graphics, oppositeDirectionName(menu.facingOrdinal()), "BACK • QUARTZ TIMING MEASUREMENT", GOOD, 105);
+                graphics.drawString(font, "Monitor is observer-only: FRONT is deliberately not a timing driver.", 16, 131, MUTED, false);
+            }
             default -> { }
         }
     }
@@ -284,6 +357,17 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
                 labelValue(graphics, "Minimum input quality", DigitalRegeneratorBlock.minimumQuality(menu.tertiary()) + "%", 96);
                 graphics.drawString(font, "The server accepts the frame only when input quality clears this threshold.", 16, 163, MUTED, false);
             }
+            case FieldDeviceMenu.KIND_RADIO_TRANSMITTER,
+                 FieldDeviceMenu.KIND_RADIO_RECEIVER,
+                 FieldDeviceMenu.KIND_FREE_OPTICAL_TRANSMITTER,
+                 FieldDeviceMenu.KIND_FREE_OPTICAL_RECEIVER -> {
+                labelValue(graphics, "Channel", Integer.toString(menu.secondary()), 80);
+                graphics.drawString(font, "Channel is bounded 0..3; Shift-right-click the device to advance it.", 16, 163, MUTED, false);
+            }
+            case FieldDeviceMenu.KIND_QUARTZ_DIVIDER -> {
+                labelValue(graphics, "Division", "÷" + menu.tertiary(), 80);
+                graphics.drawString(font, "Division is bounded to 2, 4, 8, or 16; Shift-right-click advances it.", 16, 163, MUTED, false);
+            }
             default -> {
                 statusLine(graphics, "Configuration", isCommunicationDevice() ? "READ-ONLY COMMUNICATION DEVICE" : "READ-ONLY TOPOLOGY DEVICE", MUTED, 82);
                 graphics.drawString(font, isCommunicationDevice()
@@ -303,11 +387,16 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
         } else if (isCommunicationDevice()) {
             statusLine(graphics, "Runtime payload", validityText(), validityColor(), 122);
             labelValue(graphics, "Quality", menu.qualityPercent() + "%", 142);
-            if (menu.kind() == FieldDeviceMenu.KIND_DATA_BUS_8) {
+            if (menu.kind() == FieldDeviceMenu.KIND_DATA_BUS_8
+                    || menu.kind() == FieldDeviceMenu.KIND_RADIO_RECEIVER) {
                 labelValue(graphics, "Drivers", Integer.toString(menu.driverCount()), 162);
             } else {
                 labelValue(graphics, "Compatible links", Integer.toString(menu.connectionCount()), 162);
             }
+        } else if (isTimingDevice()) {
+            statusLine(graphics, "Timing snapshot", validityText(), validityColor(), 122);
+            labelValue(graphics, "Measured/input period", menu.primary() + " ticks", 142);
+            labelValue(graphics, "Output/error", Integer.toString(menu.secondary()), 162);
         } else {
             statusLine(graphics, "Server snapshot", "VALID • synchronized", GOOD, 122);
             labelValue(graphics, "Orientation", directionName(menu.facingOrdinal()), 142);
@@ -332,7 +421,12 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
 
     private boolean isCommunicationDevice() {
         return menu.kind() >= FieldDeviceMenu.KIND_DATA_BUS_8
-                && menu.kind() <= FieldDeviceMenu.KIND_DIGITAL_REGENERATOR;
+                && menu.kind() <= FieldDeviceMenu.KIND_FREE_OPTICAL_RECEIVER;
+    }
+
+    private boolean isTimingDevice() {
+        return menu.kind() == FieldDeviceMenu.KIND_QUARTZ_DIVIDER
+                || menu.kind() == FieldDeviceMenu.KIND_QUARTZ_STABILITY;
     }
 
     private String deviceName() {
@@ -352,6 +446,14 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             case FieldDeviceMenu.KIND_DESERIALIZER -> "DESERIALIZER";
             case FieldDeviceMenu.KIND_DIFFERENTIAL_PAIR -> "DIFFERENTIAL DATA PAIR";
             case FieldDeviceMenu.KIND_DIGITAL_REGENERATOR -> "DIGITAL REGENERATOR";
+            case FieldDeviceMenu.KIND_DIFFERENTIAL_DRIVER -> "DIFFERENTIAL DRIVER";
+            case FieldDeviceMenu.KIND_DIFFERENTIAL_RECEIVER -> "DIFFERENTIAL RECEIVER";
+            case FieldDeviceMenu.KIND_RADIO_TRANSMITTER -> "RADIO TRANSMITTER";
+            case FieldDeviceMenu.KIND_RADIO_RECEIVER -> "RADIO RECEIVER";
+            case FieldDeviceMenu.KIND_FREE_OPTICAL_TRANSMITTER -> "FREE-SPACE OPTICAL TRANSMITTER";
+            case FieldDeviceMenu.KIND_FREE_OPTICAL_RECEIVER -> "FREE-SPACE OPTICAL RECEIVER";
+            case FieldDeviceMenu.KIND_QUARTZ_DIVIDER -> "QUARTZ CLOCK DIVIDER";
+            case FieldDeviceMenu.KIND_QUARTZ_STABILITY -> "QUARTZ STABILITY MONITOR";
             default -> "UNKNOWN";
         };
     }
