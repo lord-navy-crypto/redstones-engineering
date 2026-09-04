@@ -37,17 +37,17 @@ public final class DataBusNetwork {
 
     public static Set<BlockPos> collect(Level level, BlockPos start) {
         Set<BlockPos> seen = new HashSet<>();
-        ArrayDeque<BlockPos> q = new ArrayDeque<>();
+        ArrayDeque<BlockPos> queue = new ArrayDeque<>();
         if (!(level.getBlockState(start).getBlock() instanceof EightBitDataBusBlock)) return seen;
-        q.add(start);
-        while (!q.isEmpty() && seen.size() < MAX_NODES) {
-            BlockPos p = q.removeFirst();
-            if (!seen.add(p)) continue;
-            for (Direction d : Direction.values()) {
-                BlockPos n = p.relative(d);
-                if (!level.hasChunkAt(n)) continue;
-                if (level.getBlockState(n).getBlock() instanceof EightBitDataBusBlock && !seen.contains(n)) {
-                    q.addLast(n);
+        queue.add(start);
+        while (!queue.isEmpty() && seen.size() < MAX_NODES) {
+            BlockPos pos = queue.removeFirst();
+            if (!seen.add(pos)) continue;
+            for (Direction direction : Direction.values()) {
+                BlockPos next = pos.relative(direction);
+                if (!level.hasChunkAt(next)) continue;
+                if (level.getBlockState(next).getBlock() instanceof EightBitDataBusBlock && !seen.contains(next)) {
+                    queue.addLast(next);
                 }
             }
         }
@@ -58,8 +58,21 @@ public final class DataBusNetwork {
         Set<BlockPos> nodes = collect(level, start);
         if (nodes.isEmpty()) return;
         String key = "bus8_driver:" + driver.asLong();
-        for (BlockPos p : nodes) InformationRuntime.write(level, key, p, value & 0xFF, 0, valid, 100);
+        for (BlockPos pos : nodes) {
+            InformationRuntime.write(level, key, pos, value & 0xFF, 0, valid, 100);
+        }
         resolve(level, nodes);
+    }
+
+    public static void releaseDriver(ServerLevel level, BlockPos driver, BlockPos busStart) {
+        InformationRuntime.clear(level, "bus8_out", driver);
+        Set<BlockPos> nodes = collect(level, busStart);
+        if (!nodes.isEmpty()) resolve(level, nodes);
+    }
+
+    public static void clearNode(Level level, BlockPos pos) {
+        InformationRuntime.clear(level, "bus8", pos);
+        RuntimeIntStore.remove(level, DIAG_KEY, pos);
     }
 
     public static void resolve(ServerLevel level, Set<BlockPos> nodes) {
@@ -68,19 +81,19 @@ public final class DataBusNetwork {
 
         // Count physical driver positions separately from distinct values. A driver
         // touching multiple bus nodes is still one driver, not several.
-        for (BlockPos p : nodes) {
-            for (Direction d : Direction.values()) {
-                BlockPos n = p.relative(d);
-                if (InformationRuntime.valid(level, "bus8_out", n)) {
-                    drivers.add(n.immutable());
-                    values.add(InformationRuntime.value(level, "bus8_out", n) & 0xFF);
+        for (BlockPos pos : nodes) {
+            for (Direction direction : Direction.values()) {
+                BlockPos neighbor = pos.relative(direction);
+                if (InformationRuntime.valid(level, "bus8_out", neighbor)) {
+                    drivers.add(neighbor.immutable());
+                    values.add(InformationRuntime.value(level, "bus8_out", neighbor) & 0xFF);
                 }
             }
         }
 
         int driverCount = drivers.size();
         int distinctValues = values.size();
-        boolean valid = distinctValues <= 1;
+        boolean valid = driverCount > 0 && distinctValues == 1;
         boolean contention = driverCount > 1;
         boolean conflict = distinctValues > 1;
         boolean sameValueMultiDriver = driverCount > 1 && distinctValues == 1;
@@ -89,55 +102,59 @@ public final class DataBusNetwork {
         NetworkKernel.recordDriverState(level, "bus8", driverCount);
         int now = (int) Math.min(Integer.MAX_VALUE, level.getGameTime());
 
-        for (BlockPos p : nodes) {
-            InformationRuntime.write(level, "bus8", p, valid ? value : 0, 0, valid, valid ? 100 : 0);
-            int[] d = RuntimeIntStore.get(level, DIAG_KEY, p, DIAG_SIZE);
-            d[0]++;
-            d[1] = nodes.size();
-            d[2] = driverCount;
-            d[3] = distinctValues;
-            if (d[4] > 0) d[5] = Math.max(1, now - d[4]);
-            d[4] = now;
-            d[6] = value;
-            d[7] = d[5] == 0 ? 0 : Math.min(100, 100 / Math.max(1, d[5]));
-            if (contention) d[8]++;
-            if (conflict) d[9]++;
-            if (sameValueMultiDriver) d[10]++;
-            d[11] = valid ? 1 : 0;
-            level.updateNeighborsAt(p, level.getBlockState(p).getBlock());
+        for (BlockPos pos : nodes) {
+            InformationRuntime.write(level, "bus8", pos, valid ? value : 0, 0, valid, valid ? 100 : 0);
+            int[] diagnostics = RuntimeIntStore.get(level, DIAG_KEY, pos, DIAG_SIZE);
+            diagnostics[0]++;
+            diagnostics[1] = nodes.size();
+            diagnostics[2] = driverCount;
+            diagnostics[3] = distinctValues;
+            if (diagnostics[4] > 0) diagnostics[5] = Math.max(1, now - diagnostics[4]);
+            diagnostics[4] = now;
+            diagnostics[6] = value;
+            diagnostics[7] = diagnostics[5] == 0 ? 0 : Math.min(100, 100 / Math.max(1, diagnostics[5]));
+            if (contention) diagnostics[8]++;
+            if (conflict) diagnostics[9]++;
+            if (sameValueMultiDriver) diagnostics[10]++;
+            diagnostics[11] = valid ? 1 : 0;
+            level.updateNeighborsAt(pos, level.getBlockState(pos).getBlock());
         }
     }
 
-    public static int sample(Level level, BlockPos p) {
-        if (level.getBlockState(p).getBlock() instanceof EightBitDataBusBlock) {
-            return InformationRuntime.value(level, "bus8", p) & 0xFF;
+    public static int sample(Level level, BlockPos pos) {
+        if (level.getBlockState(pos).getBlock() instanceof EightBitDataBusBlock) {
+            return InformationRuntime.value(level, "bus8", pos) & 0xFF;
         }
-        return InformationRuntime.value(level, "bus8_out", p) & 0xFF;
+        return InformationRuntime.value(level, "bus8_out", pos) & 0xFF;
     }
 
-    public static Diagnostics getDiagnostics(Level level, BlockPos p) {
-        int[] d = RuntimeIntStore.get(level, DIAG_KEY, p, DIAG_SIZE);
-        return new Diagnostics(d[0], d[1], d[2], d[3], d[8], d[9], d[10], d[5], d[7], d[11] != 0);
+    public static Diagnostics getDiagnostics(Level level, BlockPos pos) {
+        int[] diagnostics = RuntimeIntStore.get(level, DIAG_KEY, pos, DIAG_SIZE);
+        return new Diagnostics(
+                diagnostics[0], diagnostics[1], diagnostics[2], diagnostics[3],
+                diagnostics[8], diagnostics[9], diagnostics[10], diagnostics[5],
+                diagnostics[7], diagnostics[11] != 0
+        );
     }
 
-    public static String diagnostics(Level level, BlockPos p) {
-        Diagnostics d = getDiagnostics(level, p);
-        return "updates=" + d.updates()
-                + " nodes=" + d.nodes()
-                + " driverCount=" + d.driverCount()
-                + " distinct=" + d.distinctValues()
-                + " contention=" + d.contentionFrames()
-                + " conflicts=" + d.conflictFrames()
-                + " same-value-multidriver=" + d.sameValueMultiDriverFrames()
-                + " interarrival=" + d.interarrivalTicks() + "t"
-                + " activity≈" + d.activityPercent() + "%"
-                + " valid=" + d.valid();
+    public static String diagnostics(Level level, BlockPos pos) {
+        Diagnostics diagnostics = getDiagnostics(level, pos);
+        return "updates=" + diagnostics.updates()
+                + " nodes=" + diagnostics.nodes()
+                + " driverCount=" + diagnostics.driverCount()
+                + " distinct=" + diagnostics.distinctValues()
+                + " contention=" + diagnostics.contentionFrames()
+                + " conflicts=" + diagnostics.conflictFrames()
+                + " same-value-multidriver=" + diagnostics.sameValueMultiDriverFrames()
+                + " interarrival=" + diagnostics.interarrivalTicks() + "t"
+                + " activity≈" + diagnostics.activityPercent() + "%"
+                + " valid=" + diagnostics.valid();
     }
 
-    public static boolean valid(Level level, BlockPos p) {
-        if (level.getBlockState(p).getBlock() instanceof EightBitDataBusBlock) {
-            return InformationRuntime.valid(level, "bus8", p);
+    public static boolean valid(Level level, BlockPos pos) {
+        if (level.getBlockState(pos).getBlock() instanceof EightBitDataBusBlock) {
+            return InformationRuntime.valid(level, "bus8", pos);
         }
-        return InformationRuntime.valid(level, "bus8_out", p);
+        return InformationRuntime.valid(level, "bus8_out", pos);
     }
 }
