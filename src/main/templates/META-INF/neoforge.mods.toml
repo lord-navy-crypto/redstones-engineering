@@ -16,6 +16,19 @@ Redstone Systems Engineering (RSE) extends vanilla Minecraft redstone into a
 Minecraft-native engineering systems laboratory while preserving the familiar
 0-15 world-facing redstone signal boundary.
 
+Required platform dependencies:
+- JEI ${jei_version} or newer compatible 19.x release
+- Jade ${jade_version} or newer compatible 15.x release
+- GeckoLib ${geckolib_version} or newer compatible 4.x release
+- Cloth Config ${cloth_config_version} or newer compatible 15.x release
+- Fusion ${fusion_version} or newer compatible 1.x release
+
+Minecraft ${minecraft_version}
+NeoForge ${neo_version} or newer compatible release
+
+RSE uses these dependencies as intentional runtime platform requirements rather
+than optional compatibility integrations.
+
 RSE is organized around an engineering workflow:
 measurement -> conditioning -> sampling -> control -> actuation ->
 optimization -> acceptance -> evidence -> comparison.
@@ -31,19 +44,6 @@ Core engineering modules include:
 - Mechatronics, actuators, feedback, and machine-control components
 - Diagnostics, commissioning, fault handling, and acceptance evidence
 - Engineering UI, topology visualization, and operations monitoring
-
-Required platform dependencies:
-- JEI ${jei_version} or newer compatible 19.x release
-- Jade ${jade_version} or newer compatible 15.x release
-- GeckoLib ${geckolib_version} or newer compatible 4.x release
-- Cloth Config ${cloth_config_version} or newer compatible 15.x release
-- Fusion ${fusion_version} or newer compatible 1.x release
-
-Minecraft ${minecraft_version}
-NeoForge ${neo_version} or newer compatible release
-
-RSE uses these dependencies as intentional runtime platform requirements rather
-than optional compatibility integrations.
 '''
 
 [[dependencies.${mod_id}]]
