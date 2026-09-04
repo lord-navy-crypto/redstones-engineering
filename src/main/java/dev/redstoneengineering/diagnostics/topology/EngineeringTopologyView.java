@@ -54,6 +54,17 @@ public final class EngineeringTopologyView {
         return new TopologyVisualizationSnapshot(faces, portCount, connectedCount, issueCount);
     }
 
+    /** Pure status projection used by tests and alternate diagnostic surfaces. */
+    public static TopologyLinkStatus classify(EngineeringPort local, EngineeringPort remote) {
+        PortCompatibility.Result result = PortCompatibility.evaluate(local, remote);
+        return switch (result.status()) {
+            case COMPATIBLE -> TopologyLinkStatus.CONNECTED;
+            case DOMAIN_MISMATCH -> TopologyLinkStatus.DOMAIN_MISMATCH;
+            case DIRECTION_MISMATCH -> TopologyLinkStatus.DIRECTION_MISMATCH;
+            case ISOLATED -> TopologyLinkStatus.ISOLATED;
+        };
+    }
+
     private static TopologyFaceSnapshot inspectPort(
             Level level,
             BlockPos pos,
@@ -78,12 +89,6 @@ public final class EngineeringTopologyView {
         }
 
         PortCompatibility.Result result = PortCompatibility.evaluate(local, remote);
-        TopologyLinkStatus status = switch (result.status()) {
-            case COMPATIBLE -> TopologyLinkStatus.CONNECTED;
-            case DOMAIN_MISMATCH -> TopologyLinkStatus.DOMAIN_MISMATCH;
-            case DIRECTION_MISMATCH -> TopologyLinkStatus.DIRECTION_MISMATCH;
-            case ISOLATED -> TopologyLinkStatus.ISOLATED;
-        };
-        return new TopologyFaceSnapshot(side, local, observation, status, neighborId, result.detail());
+        return new TopologyFaceSnapshot(side, local, observation, classify(local, remote), neighborId, result.detail());
     }
 }
