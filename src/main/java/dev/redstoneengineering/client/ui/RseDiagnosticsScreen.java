@@ -35,6 +35,7 @@ public final class RseDiagnosticsScreen extends Screen {
     private static final int TEXT = 0xFFE8EDF2;
     private static final int MUTED = 0xFF98A5B0;
     private static final int INFO = 0xFF9EC8FF;
+    private static final int GOOD = 0xFF68D391;
     private static final int WARN = 0xFFF6C453;
     private static final int ERROR = 0xFFF06A6A;
     private static final int ACCENT = 0xFFE05555;
@@ -42,6 +43,8 @@ public final class RseDiagnosticsScreen extends Screen {
     private final Screen parent;
     private Filter filter = Filter.ALL;
     private int page;
+    private String feedback = "";
+    private int feedbackTicks;
 
     public RseDiagnosticsScreen(Screen parent) {
         super(Component.literal("RSE Diagnostics Console"));
@@ -58,6 +61,7 @@ public final class RseDiagnosticsScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal("Clear"), button -> {
                     RseDiagnostics.clear();
                     page = 0;
+                    showFeedback("SESSION BUFFER CLEARED");
                 })
                 .bounds(178, bottom, 58, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Filter: " + filter.label), button -> {
@@ -70,6 +74,13 @@ public final class RseDiagnosticsScreen extends Screen {
                 .bounds(width - 78, bottom, 30, 20).build());
         addRenderableWidget(Button.builder(Component.literal(">"), button -> page = Math.max(0, page - 1))
                 .bounds(width - 42, bottom, 30, 20).build());
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        if (feedbackTicks > 0) feedbackTicks--;
+        if (feedbackTicks == 0) feedback = "";
     }
 
     @Override
@@ -90,21 +101,28 @@ public final class RseDiagnosticsScreen extends Screen {
         graphics.drawString(font, "WARN " + warnCount, width - 190, 30, WARN, false);
         graphics.drawString(font, "ERROR " + errorCount, width - 126, 30, ERROR, false);
 
+        graphics.drawString(font, "OBSERVER ONLY • SESSION LOCAL", 23, 54, GOOD, false);
+        graphics.drawString(font, "VIEW " + filter.label, 213, 54, INFO, false);
+        if (!feedback.isEmpty()) {
+            graphics.drawString(font, feedback, width - font.width(feedback) - 23, height - 56, GOOD, false);
+        }
+
         renderEntries(graphics);
         super.render(graphics, mouseX, mouseY, partialTick);
     }
 
     private void renderEntries(GuiGraphics graphics) {
         List<RseDiagnosticEntry> entries = filteredEntries();
-        int rows = Math.max(4, (height - 105) / 12);
+        int rows = Math.max(4, (height - 120) / 12);
         int maxPage = entries.isEmpty() ? 0 : Math.max(0, (entries.size() - 1) / rows);
         page = Math.min(page, maxPage);
 
         int endExclusive = Math.max(0, entries.size() - page * rows);
         int start = Math.max(0, endExclusive - rows);
-        int y = 57;
+        int y = 70;
         if (entries.isEmpty()) {
             graphics.drawString(font, "No matching RSE diagnostics have been captured in this session.", 23, y, MUTED, false);
+            graphics.drawString(font, "Run the device, reproduce the issue, then return here to inspect evidence.", 23, y + 16, INFO, false);
             return;
         }
 
@@ -134,6 +152,12 @@ public final class RseDiagnosticsScreen extends Screen {
     private void copyReport() {
         Minecraft minecraft = Minecraft.getInstance();
         minecraft.keyboardHandler.setClipboard(RseDiagnostics.exportReport(runtimeSummary()));
+        showFeedback("REPORT COPIED");
+    }
+
+    private void showFeedback(String message) {
+        feedback = message;
+        feedbackTicks = 60;
     }
 
     private String runtimeSummary() {
