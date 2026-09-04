@@ -136,6 +136,7 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
         rt[2] += (rawDerivative - rt[2]) / Math.max(1, dSmooth);
         rt[1] = controlError;
 
+        // Candidate integral with conditional-commit anti-windup at the 0..15 actuator boundary.
         int candidateIntegral = clamp(rt[0] + controlError, -180, 180);
         int pTerm = kp * controlError;
         int iTerm = kiDiv == 0 ? 0 : candidateIntegral / kiDiv;
