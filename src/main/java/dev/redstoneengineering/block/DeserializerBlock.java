@@ -30,67 +30,35 @@ import java.util.Optional;
 
 /** Recovers the most recent framed serial byte and drives a local 8-bit bus segment. */
 public class DeserializerBlock extends DirectionalDomainBlock implements EngineeringPortProvider, DataBusDriver {
-    public DeserializerBlock(Properties properties) {
-        super(properties);
-    }
+    public DeserializerBlock(Properties properties) { super(properties); }
 
-    @Override
-    public MapCodec<DeserializerBlock> codec() {
-        return RedstoneEngineering.DESERIALIZER_CODEC.value();
-    }
+    @Override public MapCodec<DeserializerBlock> codec() { return RedstoneEngineering.DESERIALIZER_CODEC.value(); }
 
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         return List.of(
-                new EngineeringPort(
-                        "SERIAL IN",
-                        inputSide(state),
-                        EngineeringDomain.SERIAL_DATA,
-                        PortKind.CONVERTER,
-                        PortDirection.INPUT,
-                        false,
-                        "byte"
-                ),
-                new EngineeringPort(
-                        "BYTE OUT",
-                        outputSide(state),
-                        EngineeringDomain.DATA_BUS_8,
-                        PortKind.CONVERTER,
-                        PortDirection.OUTPUT,
-                        false,
-                        "byte"
-                )
+                new EngineeringPort("SERIAL IN", inputSide(state), EngineeringDomain.SERIAL_DATA,
+                        PortKind.CONVERTER, PortDirection.INPUT, false, "byte"),
+                new EngineeringPort("BYTE OUT", outputSide(state), EngineeringDomain.DATA_BUS_8,
+                        PortKind.CONVERTER, PortDirection.OUTPUT, false, "byte")
         );
     }
 
     @Override
-    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
-            Level level,
-            BlockPos pos,
-            BlockState state,
-            Direction side
-    ) {
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         if (side == inputSide(state)) {
             BlockPos input = inputPos(pos, state);
             boolean valid = InformationRuntime.valid(level, "serial", input);
-            return Optional.of(new EngineeringPortSnapshot(
-                    port.get(),
+            return Optional.of(new EngineeringPortSnapshot(port.get(),
                     InformationRuntime.value(level, "serial", input) & 0xFF,
-                    0.0,
-                    255.0,
-                    valid ? PortQuality.VALID : PortQuality.NO_SIGNAL
-            ));
+                    0.0, 255.0, valid ? PortQuality.VALID : PortQuality.NO_SIGNAL));
         }
         boolean valid = InformationRuntime.valid(level, "bus8_out", pos);
-        return Optional.of(new EngineeringPortSnapshot(
-                port.get(),
+        return Optional.of(new EngineeringPortSnapshot(port.get(),
                 InformationRuntime.value(level, "bus8_out", pos) & 0xFF,
-                0.0,
-                255.0,
-                valid ? PortQuality.VALID : PortQuality.NO_SIGNAL
-        ));
+                0.0, 255.0, valid ? PortQuality.VALID : PortQuality.NO_SIGNAL));
     }
 
     @Override
@@ -110,15 +78,11 @@ public class DeserializerBlock extends DirectionalDomainBlock implements Enginee
     }
 
     @Override
-    protected void neighborChanged(
-            BlockState state,
-            Level level,
-            BlockPos pos,
-            Block neighborBlock,
-            BlockPos neighborPos,
-            boolean movedByPiston
-    ) {
-        if (level instanceof ServerLevel serverLevel) update(serverLevel, pos, state);
+    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock,
+                                   BlockPos neighborPos, boolean movedByPiston) {
+        if (level instanceof ServerLevel serverLevel && neighborPos.equals(inputPos(pos, state))) {
+            update(serverLevel, pos, state);
+        }
     }
 
     @Override
@@ -136,19 +100,12 @@ public class DeserializerBlock extends DirectionalDomainBlock implements Enginee
     }
 
     @Override
-    protected InteractionResult useWithoutItem(
-            BlockState state,
-            Level level,
-            BlockPos pos,
-            Player player,
-            BlockHitResult hit
-    ) {
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
                 player.displayClientMessage(Component.literal(
                         "Deserializer byte=" + (InformationRuntime.value(level, "bus8_out", pos) & 0xFF)
-                                + " valid=" + InformationRuntime.valid(level, "bus8_out", pos)
-                ), true);
+                                + " valid=" + InformationRuntime.valid(level, "bus8_out", pos)), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
             }
