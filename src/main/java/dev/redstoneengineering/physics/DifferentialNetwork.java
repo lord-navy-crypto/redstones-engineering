@@ -1,4 +1,96 @@
 package dev.redstoneengineering.physics;
-import dev.redstoneengineering.block.DifferentialDataPairBlock;import net.minecraft.core.*;import net.minecraft.server.level.ServerLevel;import net.minecraft.world.level.Level;import java.util.*;
-/** Digital differential pair model. Common-mode noise is represented as quality loss, not value corruption until quality reaches zero. */
-public final class DifferentialNetwork{private DifferentialNetwork(){}public static Set<BlockPos> collect(Level l,BlockPos start){Set<BlockPos>s=new HashSet<>();ArrayDeque<BlockPos>q=new ArrayDeque<>();if(!(l.getBlockState(start).getBlock() instanceof DifferentialDataPairBlock))return s;q.add(start);while(!q.isEmpty()&&s.size()<NetworkKernel.MAX_NODES){BlockPos p=q.removeFirst();if(!s.add(p))continue;for(Direction d:Direction.values()){BlockPos n=p.relative(d);if(l.hasChunkAt(n)&&l.getBlockState(n).getBlock() instanceof DifferentialDataPairBlock&&!s.contains(n))q.addLast(n);}}return s;}public static void drive(ServerLevel l,BlockPos start,int bit){Set<BlockPos>nodes=collect(l,start);int q=Math.max(20,100-nodes.size()/3);for(BlockPos p:nodes){InformationRuntime.write(l,"diff",p,bit&1,0,true,q);l.updateNeighborsAt(p,l.getBlockState(p).getBlock());}NetworkKernel.recordScan(l,"diff",nodes.size(),nodes.size()>=NetworkKernel.MAX_NODES);}}
+
+import dev.redstoneengineering.block.DifferentialDataPairBlock;
+import dev.redstoneengineering.block.DifferentialDriverBlock;
+import dev.redstoneengineering.block.DirectionalDomainBlock;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
+
+import java.util.ArrayDeque;
+import java.util.HashSet;
+import java.util.Set;
+
+/** Digital differential pair model with bounded propagation and topology recomputation. */
+public final class DifferentialNetwork {
+    private DifferentialNetwork() {}
+
+    public static Set<BlockPos> collect(Level level, BlockPos start) {
+        Set<BlockPos> seen = new HashSet<>();
+        ArrayDeque<BlockPos> queue = new ArrayDeque<>();
+        if (!(level.getBlockState(start).getBlock() instanceof DifferentialDataPairBlock)) return seen;
+        queue.add(start);
+        while (!queue.isEmpty() && seen.size() < NetworkKernel.MAX_NODES) {
+            BlockPos pos = queue.removeFirst();
+            if (!seen.add(pos)) continue;
+            for (Direction direction : Direction.values()) {
+                BlockPos next = pos.relative(direction);
+                if (level.hasChunkAt(next)
+                        && level.getBlockState(next).getBlock() instanceof DifferentialDataPairBlock
+                        && !seen.contains(next)) {
+                    queue.addLast(next);
+                }
+            }
+        }
+        return seen;
+    }
+
+    public static void drive(ServerLevel level, BlockPos start, int bit) {
+        Set<BlockPos> nodes = collect(level, start);
+        if (nodes.isEmpty()) return;
+        int quality = Math.max(20, 100 - nodes.size() / 3);
+        for (BlockPos pos : nodes) {
+            InformationRuntime.write(level, "diff", pos, bit & 1, 0, true, quality);
+            level.updateNeighborsAt(pos, level.getBlockState(pos).getBlock());
+        }
+        NetworkKernel.recordScan(level, "diff", nodes.size(), nodes.size() >= NetworkKernel.MAX_NODES);
+    }
+
+    public static void recompute(ServerLevel level, BlockPos start) {
+        Set<BlockPos> nodes = collect(level, start);
+        if (nodes.isEmpty()) return;
+
+        BlockPos driverPos = null;
+        int bit = 0;
+        for (BlockPos pairPos : nodes) {
+            for (Direction direction : Direction.values()) {
+                BlockPos candidatePos = pairPos.relative(direction);
+                if (!level.hasChunkAt(candidatePos)) continue;
+                BlockState candidateState = level.getBlockState(candidatePos);
+                if (!(candidateState.getBlock() instanceof DifferentialDriverBlock)) continue;
+                Direction output = candidateState.getValue(DirectionalDomainBlock.FACING);
+                if (!candidatePos.relative(output).equals(pairPos)) continue;
+                if (!InformationRuntime.valid(level, "diff_out", candidatePos)) continue;
+                if (driverPos != null && !driverPos.equals(candidatePos)) {
+                    NetworkKernel.recordDriverState(level, "diff", 2);
+                    invalidate(level, nodes);
+                    return;
+                }
+                driverPos = candidatePos.immutable();
+                bit = InformationRuntime.value(level, "diff_out", candidatePos) & 1;
+            }
+        }
+
+        if (driverPos == null) {
+            NetworkKernel.recordDriverState(level, "diff", 0);
+            invalidate(level, nodes);
+            return;
+        }
+
+        NetworkKernel.recordDriverState(level, "diff", 1);
+        drive(level, start, bit);
+    }
+
+    public static void invalidate(ServerLevel level, Set<BlockPos> nodes) {
+        for (BlockPos pos : nodes) {
+            InformationRuntime.write(level, "diff", pos, 0, 0, false, 0);
+            level.updateNeighborsAt(pos, level.getBlockState(pos).getBlock());
+        }
+    }
+
+    public static void clearNode(Level level, BlockPos pos) {
+        InformationRuntime.clear(level, "diff", pos);
+    }
+}
