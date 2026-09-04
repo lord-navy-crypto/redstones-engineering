@@ -73,7 +73,7 @@ jobs:
           done
 
       - name: Compile Java and resolve required dependency platform
-        run: ./gradlew compileJava --no-daemon --stacktrace
+        run: ./gradlew compileJava --no-daemon --stacktrace --warning-mode all
 
       - name: Gradle tests
         run: ./gradlew test --no-daemon --stacktrace
@@ -82,7 +82,7 @@ jobs:
         run: ./gradlew runGameTestServer --no-daemon --stacktrace
 
       - name: Clean build
-        run: ./gradlew clean build --no-daemon --stacktrace
+        run: ./gradlew clean build --no-daemon --stacktrace --warning-mode all
 
       - name: Generate SHA-256 checksums
         shell: bash
