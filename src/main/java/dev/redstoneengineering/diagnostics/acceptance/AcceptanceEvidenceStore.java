@@ -17,6 +17,9 @@ import java.util.WeakHashMap;
  * most 256 controller timelines and each controller retains at most 8 records. The explicit limits
  * prevent inspection history from becoming an unbounded memory sink while a future dedicated
  * persistence device can be introduced without changing controller physics.
+ *
+ * <p>Controller eviction is insertion-ordered rather than access-ordered. Read-only observers such
+ * as Jade therefore cannot change retention priority merely by inspecting a controller.</p>
  */
 public final class AcceptanceEvidenceStore {
     public static final int MAX_CONTROLLERS_PER_LEVEL = 256;
@@ -34,7 +37,7 @@ public final class AcceptanceEvidenceStore {
             EngineeringAcceptanceSnapshot acceptance
     ) {
         LinkedHashMap<Long, AcceptanceEvidenceTimeline> byPos = DATA.computeIfAbsent(
-                level, ignored -> new LinkedHashMap<>(16, 0.75f, true));
+                level, ignored -> new LinkedHashMap<>());
         long key = pos.asLong();
         AcceptanceEvidenceTimeline timeline = byPos.get(key);
         if (timeline == null) {
