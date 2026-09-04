@@ -79,12 +79,14 @@ public final class DataBusNetwork {
         Set<Integer> values = new HashSet<>();
         Set<BlockPos> drivers = new HashSet<>();
 
-        // Count physical driver positions separately from distinct values. A driver
-        // touching multiple bus nodes is still one driver, not several.
+        // Runtime payload alone is never proof of a live driver. The adjacent block
+        // must still implement the explicit DataBusDriver contract, preventing stale
+        // `bus8_out` state or unrelated blocks from becoming ghost drivers.
         for (BlockPos pos : nodes) {
             for (Direction direction : Direction.values()) {
                 BlockPos neighbor = pos.relative(direction);
-                if (InformationRuntime.valid(level, "bus8_out", neighbor)) {
+                if (level.getBlockState(neighbor).getBlock() instanceof DataBusDriver
+                        && InformationRuntime.valid(level, "bus8_out", neighbor)) {
                     drivers.add(neighbor.immutable());
                     values.add(InformationRuntime.value(level, "bus8_out", neighbor) & 0xFF);
                 }
