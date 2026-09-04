@@ -44,7 +44,12 @@ public abstract class AbstractLapisTransducerBlock extends DirectionalDomainBloc
     protected abstract String runtimeKey();
     protected abstract String instrumentName();
     protected abstract String rangeText(BlockState state);
+    protected abstract EngineeringDomain inputDomain();
     protected abstract Measurement sense(ServerLevel level, BlockPos pos, BlockState state);
+
+    protected String inputPortLabel() {
+        return inputDomain().label() + " INPUT";
+    }
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
@@ -54,15 +59,26 @@ public abstract class AbstractLapisTransducerBlock extends DirectionalDomainBloc
 
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
-        return List.of(new EngineeringPort(
-                "LAPIS OUTPUT",
-                outputSide(state),
-                EngineeringDomain.LAPIS,
-                PortKind.SENSOR,
-                PortDirection.OUTPUT,
-                false,
-                "normalized"
-        ));
+        return List.of(
+                new EngineeringPort(
+                        inputPortLabel(),
+                        inputSide(state),
+                        inputDomain(),
+                        PortKind.MEASUREMENT,
+                        PortDirection.INPUT,
+                        false,
+                        "normalized"
+                ),
+                new EngineeringPort(
+                        "LAPIS OUTPUT",
+                        outputSide(state),
+                        EngineeringDomain.LAPIS,
+                        PortKind.SENSOR,
+                        PortDirection.OUTPUT,
+                        false,
+                        "normalized"
+                )
+        );
     }
 
     @Override
@@ -74,6 +90,27 @@ public abstract class AbstractLapisTransducerBlock extends DirectionalDomainBloc
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
+
+        if (side == inputSide(state)) {
+            if (level instanceof ServerLevel server) {
+                Measurement raw = sense(server, pos, state);
+                return Optional.of(new EngineeringPortSnapshot(
+                        port.get(),
+                        Math.max(0, Math.min(100, raw.normalized())) / 100.0,
+                        0.0,
+                        1.0,
+                        raw.valid() ? PortQuality.VALID : PortQuality.NO_SIGNAL
+                ));
+            }
+            return Optional.of(new EngineeringPortSnapshot(
+                    port.get(),
+                    0.0,
+                    0.0,
+                    1.0,
+                    PortQuality.STALE
+            ));
+        }
+
         PortQuality quality = valid(level, pos) ? PortQuality.VALID : PortQuality.NO_SIGNAL;
         return Optional.of(new EngineeringPortSnapshot(
                 port.get(),
