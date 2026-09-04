@@ -1,7 +1,7 @@
 plugins {
     id 'java-library'
     id 'maven-publish'
-    id 'net.neoforged.moddev' version '2.0.146'
+    id 'net.neoforged.moddev' version '2.2.146'
     id 'idea'
 }
 
@@ -56,7 +56,8 @@ base {
     archivesName = mod_id
 }
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+java.toolchain.languageVersion = JavaLanguage
+        .of(21)
 
 neoForge {
     version = project.neo_version
@@ -142,7 +143,7 @@ publishing {
     }
     repositories {
         maven {
-            url "file://${project.projectDir}/repo"
+            url = uri("file://${project.projectDir}/repo")
         }
     }
 }
