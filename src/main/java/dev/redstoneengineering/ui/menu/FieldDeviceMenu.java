@@ -1,16 +1,10 @@
 package dev.redstoneengineering.ui.menu;
 
-import dev.redstoneengineering.block.ConnectedCableBlock;
-import dev.redstoneengineering.block.DirectionalRedstoneEndpointBlock;
-import dev.redstoneengineering.block.DirectionalSignalBlock;
-import dev.redstoneengineering.block.InstrumentCableBlock;
-import dev.redstoneengineering.block.PrecisionFilterBlock;
-import dev.redstoneengineering.block.RedstoneCableJunctionBlock;
-import dev.redstoneengineering.block.RedstoneCableTerminalBlock;
-import dev.redstoneengineering.block.RedstoneReferenceSourceBlock;
-import dev.redstoneengineering.block.RedstoneSignalCableBlock;
-import dev.redstoneengineering.block.SignalProbeBlock;
+import dev.redstoneengineering.block.*;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
+import dev.redstoneengineering.core.port.PortCompatibility;
+import dev.redstoneengineering.physics.DataBusNetwork;
+import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.RedstoneCableNetwork;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import net.minecraft.core.BlockPos;
@@ -35,6 +29,14 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int KIND_REDSTONE_CABLE = 5;
     public static final int KIND_REDSTONE_JUNCTION = 6;
     public static final int KIND_INSTRUMENT_CABLE = 7;
+    public static final int KIND_DATA_BUS_8 = 8;
+    public static final int KIND_ENCODER = 9;
+    public static final int KIND_DECODER = 10;
+    public static final int KIND_SERIAL_LINE = 11;
+    public static final int KIND_SERIALIZER = 12;
+    public static final int KIND_DESERIALIZER = 13;
+    public static final int KIND_DIFFERENTIAL_PAIR = 14;
+    public static final int KIND_DIGITAL_REGENERATOR = 15;
 
     public static final int BUTTON_PRIMARY_DECREASE = 0;
     public static final int BUTTON_PRIMARY_INCREASE = 1;
@@ -53,6 +55,9 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
     private final DataSlot connectionCount = trackedInt();
     private final DataSlot connectionMask = trackedInt();
     private final DataSlot topologyValid = trackedInt();
+    private final DataSlot dataValid = trackedInt();
+    private final DataSlot quality = trackedInt();
+    private final DataSlot driverCount = trackedInt();
 
     public FieldDeviceMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -83,6 +88,9 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
         connectionCount.set(0);
         connectionMask.set(0);
         topologyValid.set(1);
+        dataValid.set(1);
+        quality.set(100);
+        driverCount.set(0);
 
         if (block instanceof EngineeringPortProvider provider) {
             portCount.set(provider.engineeringPorts(state).size());
@@ -117,6 +125,62 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             fillCableTopology(state, junction);
         } else if (block instanceof InstrumentCableBlock cable) {
             fillCableTopology(state, cable);
+        } else if (block instanceof EightBitDataBusBlock bus) {
+            primary.set(DataBusNetwork.sample(level, blockPos));
+            DataBusNetwork.Diagnostics diagnostics = DataBusNetwork.getDiagnostics(level, blockPos);
+            dataValid.set(DataBusNetwork.valid(level, blockPos) ? 1 : 0);
+            quality.set(DataBusNetwork.valid(level, blockPos) ? 100 : 0);
+            driverCount.set(diagnostics.driverCount());
+            fillCompatibleTopology(state, bus);
+        } else if (block instanceof RedstoneByteEncoderBlock encoder) {
+            Direction output = state.getValue(DirectionalDomainBlock.FACING);
+            primary.set(providerValue(encoder, state, output.getOpposite()));
+            secondary.set(InformationRuntime.value(level, "bus8_out", blockPos) & 0xFF);
+            dataValid.set(InformationRuntime.valid(level, "bus8_out", blockPos) ? 1 : 0);
+            facing.set(output.ordinal());
+        } else if (block instanceof ByteToRedstoneDecoderBlock decoder) {
+            Direction output = state.getValue(DirectionalSignalBlock.FACING);
+            primary.set(providerValue(decoder, state, output.getOpposite()));
+            secondary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+            dataValid.set(DataBusNetwork.valid(level, blockPos.relative(output.getOpposite())) ? 1 : 0);
+            facing.set(output.ordinal());
+        } else if (block instanceof SerialDataLineBlock line) {
+            primary.set(InformationRuntime.value(level, "serial", blockPos) & 0xFF);
+            secondary.set(Math.max(1, InformationRuntime.aux(level, "serial", blockPos)));
+            dataValid.set(InformationRuntime.valid(level, "serial", blockPos) ? 1 : 0);
+            quality.set(Math.max(0, Math.min(100, InformationRuntime.quality(level, "serial", blockPos))));
+            fillCompatibleTopology(state, line);
+        } else if (block instanceof SerializerBlock serializer) {
+            Direction output = state.getValue(DirectionalDomainBlock.FACING);
+            primary.set(providerValue(serializer, state, output.getOpposite()));
+            secondary.set(InformationRuntime.value(level, "serial", blockPos) & 0xFF);
+            tertiary.set(Math.max(1, InformationRuntime.aux(level, "serial", blockPos)));
+            dataValid.set(InformationRuntime.valid(level, "serial", blockPos) ? 1 : 0);
+            quality.set(Math.max(0, Math.min(100, InformationRuntime.quality(level, "serial", blockPos))));
+            facing.set(output.ordinal());
+        } else if (block instanceof DeserializerBlock deserializer) {
+            Direction output = state.getValue(DirectionalDomainBlock.FACING);
+            BlockPos inputPos = blockPos.relative(output.getOpposite());
+            primary.set(InformationRuntime.value(level, "serial", inputPos) & 0xFF);
+            secondary.set(InformationRuntime.value(level, "bus8_out", blockPos) & 0xFF);
+            tertiary.set(Math.max(1, InformationRuntime.aux(level, "serial", inputPos)));
+            dataValid.set(InformationRuntime.valid(level, "bus8_out", blockPos) ? 1 : 0);
+            quality.set(Math.max(0, Math.min(100, InformationRuntime.quality(level, "serial", inputPos))));
+            facing.set(output.ordinal());
+        } else if (block instanceof DifferentialDataPairBlock pair) {
+            primary.set(InformationRuntime.value(level, "diff", blockPos) & 1);
+            dataValid.set(InformationRuntime.valid(level, "diff", blockPos) ? 1 : 0);
+            quality.set(Math.max(0, Math.min(100, InformationRuntime.quality(level, "diff", blockPos))));
+            fillCompatibleTopology(state, pair);
+        } else if (block instanceof DigitalRegeneratorBlock regenerator) {
+            Direction output = state.getValue(DirectionalDomainBlock.FACING);
+            BlockPos inputPos = blockPos.relative(output.getOpposite());
+            primary.set(Math.max(0, Math.min(100, InformationRuntime.quality(level, "serial", inputPos))));
+            secondary.set(InformationRuntime.value(level, "serial", blockPos) & 0xFF);
+            tertiary.set(state.getValue(DigitalRegeneratorBlock.THRESHOLD));
+            dataValid.set(InformationRuntime.valid(level, "serial", blockPos) ? 1 : 0);
+            quality.set(Math.max(0, Math.min(100, InformationRuntime.quality(level, "serial", blockPos))));
+            facing.set(output.ordinal());
         }
     }
 
@@ -134,6 +198,25 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             if (ConnectedCableBlock.connected(state, direction)) mask |= 1 << direction.ordinal();
         }
         connectionMask.set(mask);
+    }
+
+    private void fillCompatibleTopology(BlockState state, EngineeringPortProvider provider) {
+        int mask = 0;
+        int issues = 0;
+        for (Direction direction : Direction.values()) {
+            var localPort = provider.engineeringPort(state, direction);
+            if (localPort.isEmpty()) continue;
+            BlockState neighborState = level.getBlockState(blockPos.relative(direction));
+            if (!(neighborState.getBlock() instanceof EngineeringPortProvider neighborProvider)) continue;
+            var neighborPort = neighborProvider.engineeringPort(neighborState, direction.getOpposite());
+            if (neighborPort.isEmpty()) continue;
+            PortCompatibility.Result compatibility = PortCompatibility.evaluate(localPort.get(), neighborPort.get());
+            if (compatibility.compatible()) mask |= 1 << direction.ordinal();
+            else issues++;
+        }
+        connectionMask.set(mask);
+        connectionCount.set(Integer.bitCount(mask));
+        topologyValid.set(issues == 0 ? 1 : 0);
     }
 
     @Override
@@ -187,6 +270,14 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             level.updateNeighborsAt(blockPos, terminal);
             level.updateNeighborsAt(blockPos.relative(terminal.vanillaSide(next)), terminal);
             changed = true;
+        } else if (block instanceof DigitalRegeneratorBlock regenerator) {
+            int threshold = state.getValue(DigitalRegeneratorBlock.THRESHOLD);
+            if (id == BUTTON_PRIMARY_DECREASE) threshold = Math.floorMod(threshold - 1, 3);
+            else if (id == BUTTON_PRIMARY_INCREASE) threshold = (threshold + 1) % 3;
+            else return false;
+            level.setBlock(blockPos, state.setValue(DigitalRegeneratorBlock.THRESHOLD, threshold), Block.UPDATE_CLIENTS);
+            level.scheduleTick(blockPos, regenerator, 1);
+            changed = true;
         }
 
         if (changed) {
@@ -204,6 +295,14 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
         if (block instanceof RedstoneSignalCableBlock) return KIND_REDSTONE_CABLE;
         if (block instanceof RedstoneCableJunctionBlock) return KIND_REDSTONE_JUNCTION;
         if (block instanceof InstrumentCableBlock) return KIND_INSTRUMENT_CABLE;
+        if (block instanceof EightBitDataBusBlock) return KIND_DATA_BUS_8;
+        if (block instanceof RedstoneByteEncoderBlock) return KIND_ENCODER;
+        if (block instanceof ByteToRedstoneDecoderBlock) return KIND_DECODER;
+        if (block instanceof SerialDataLineBlock) return KIND_SERIAL_LINE;
+        if (block instanceof SerializerBlock) return KIND_SERIALIZER;
+        if (block instanceof DeserializerBlock) return KIND_DESERIALIZER;
+        if (block instanceof DifferentialDataPairBlock) return KIND_DIFFERENTIAL_PAIR;
+        if (block instanceof DigitalRegeneratorBlock) return KIND_DIGITAL_REGENERATOR;
         return KIND_UNKNOWN;
     }
 
@@ -216,4 +315,7 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
     public int connectionCount() { return connectionCount.get(); }
     public int connectionMask() { return connectionMask.get(); }
     public boolean topologyValid() { return topologyValid.get() != 0; }
+    public boolean dataValid() { return dataValid.get() != 0; }
+    public int qualityPercent() { return quality.get(); }
+    public int driverCount() { return driverCount.get(); }
 }

@@ -15,6 +15,7 @@ import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
+import dev.redstoneengineering.core.port.PortQuality;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
@@ -51,9 +52,13 @@ public final class RseThirdEightAcceptanceGameTests {
                 helper.fail("Temperature transducer did not expose THERMAL input -> LAPIS output port contract", sensorPos);
                 return;
             }
+            if (!rawInputEquals(helper, sensor, sensorPos, state, 0.80)) {
+                helper.fail("Temperature transducer raw THERMAL input snapshot was not exactly 0.80", sensorPos);
+                return;
+            }
             int output = sensor.output(helper.getLevel(), helper.absolutePos(sensorPos));
-            if (!sensor.valid(helper.getLevel(), helper.absolutePos(sensorPos)) || output < 77 || output > 83) {
-                helper.fail("Temperature transducer did not publish the expected bounded FAST-profile reading near 0.80", sensorPos);
+            if (!sensor.valid(helper.getLevel(), helper.absolutePos(sensorPos)) || output < 78 || output > 84) {
+                helper.fail("Temperature transducer FAST output escaped the exact noise+quantization envelope 0.78..0.84", sensorPos);
                 return;
             }
             helper.succeed();
@@ -105,9 +110,13 @@ public final class RseThirdEightAcceptanceGameTests {
                 helper.fail("Optical transducer input was not classified as an OPTICAL measurement port", sensorPos);
                 return;
             }
+            if (!rawInputEquals(helper, sensor, sensorPos, state, 0.80)) {
+                helper.fail("Optical transducer raw intensity snapshot was not exactly 0.80", sensorPos);
+                return;
+            }
             int output = sensor.output(helper.getLevel(), helper.absolutePos(sensorPos));
-            if (!sensor.valid(helper.getLevel(), helper.absolutePos(sensorPos)) || output < 77 || output > 83) {
-                helper.fail("Optical intensity 12/15 was not converted to a bounded Lapis reading near 0.80", sensorPos);
+            if (!sensor.valid(helper.getLevel(), helper.absolutePos(sensorPos)) || output < 78 || output > 84) {
+                helper.fail("Optical transducer FAST output escaped the exact noise+quantization envelope 0.78..0.84", sensorPos);
                 return;
             }
             helper.succeed();
@@ -130,9 +139,13 @@ public final class RseThirdEightAcceptanceGameTests {
                 helper.fail("Voltage transducer input was not classified as a COPPER measurement port", sensorPos);
                 return;
             }
+            if (!rawInputEquals(helper, sensor, sensorPos, state, 0.80)) {
+                helper.fail("Voltage transducer raw COPPER input snapshot was not exactly 0.80", sensorPos);
+                return;
+            }
             int output = sensor.output(helper.getLevel(), helper.absolutePos(sensorPos));
-            if (!sensor.valid(helper.getLevel(), helper.absolutePos(sensorPos)) || output < 77 || output > 83) {
-                helper.fail("Copper 12/15 source was not converted to a bounded Lapis reading near 0.80", sensorPos);
+            if (!sensor.valid(helper.getLevel(), helper.absolutePos(sensorPos)) || output < 78 || output > 84) {
+                helper.fail("Voltage transducer FAST output escaped the exact noise+quantization envelope 0.78..0.84", sensorPos);
                 return;
             }
             helper.succeed();
@@ -248,7 +261,7 @@ public final class RseThirdEightAcceptanceGameTests {
             }
             var output = sampler.engineeringSnapshot(
                     helper.getLevel(), helper.absolutePos(samplerPos), state, Direction.EAST).orElse(null);
-            if (output == null || output.quality().name().equals("NO_SIGNAL") || Math.abs(output.value() - 0.70) > 0.001) {
+            if (output == null || output.quality() == PortQuality.NO_SIGNAL || Math.abs(output.value() - 0.70) > 0.001) {
                 helper.fail("Quartz rising edge did not capture and hold the 0.70 Lapis sample", samplerPos);
                 return;
             }
@@ -260,6 +273,20 @@ public final class RseThirdEightAcceptanceGameTests {
         return state
                 .setValue(AbstractLapisTransducerBlock.FACING, Direction.EAST)
                 .setValue(AbstractLapisTransducerBlock.PROFILE, 0);
+    }
+
+    private static boolean rawInputEquals(
+            GameTestHelper helper,
+            AbstractLapisTransducerBlock sensor,
+            BlockPos relativePos,
+            BlockState state,
+            double expected
+    ) {
+        var snapshot = sensor.engineeringSnapshot(
+                helper.getLevel(), helper.absolutePos(relativePos), state, Direction.WEST).orElse(null);
+        return snapshot != null
+                && snapshot.quality() == PortQuality.VALID
+                && Math.abs(snapshot.value() - expected) <= 0.001;
     }
 
     private static boolean hasPort(
