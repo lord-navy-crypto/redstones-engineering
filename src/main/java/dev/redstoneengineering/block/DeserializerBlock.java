@@ -9,6 +9,7 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.DataBusDriver;
 import dev.redstoneengineering.physics.DataBusNetwork;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.ui.FieldDeviceUi;
@@ -28,7 +29,7 @@ import java.util.List;
 import java.util.Optional;
 
 /** Recovers the most recent framed serial byte and drives a local 8-bit bus segment. */
-public class DeserializerBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
+public class DeserializerBlock extends DirectionalDomainBlock implements EngineeringPortProvider, DataBusDriver {
     public DeserializerBlock(Properties properties) {
         super(properties);
     }
