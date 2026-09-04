@@ -95,10 +95,10 @@ public final class RseMetrologyGameTests {
     public static void calibrationComparisonSeparatesResidualFromUncertainty(GameTestHelper helper) {
         MetrologyTracker tracker = new MetrologyTracker(1.0, 30);
         MeasurementSnapshot snapshot = null;
-        for (int i = 0; i < MetrologyTracker.WINDOW; i++) snapshot = tracker.sample(7.0, 8.0, false, i);
+        for (int i = 0; i < MetrologyTracker.WINDOW; i++) snapshot = tracker.sample(6.5, 8.0, false, i);
         if (snapshot == null
-                || Math.abs(snapshot.bias() + 1.0) > 1.0e-9
-                || snapshot.uncertaintyProxy() < 1.0
+                || Math.abs(snapshot.bias() + 1.5) > 1.0e-9
+                || snapshot.uncertaintyProxy() < 1.5
                 || snapshot.quality() != MeasurementQuality.DEGRADED) {
             helper.fail("Calibration comparison must expose signed residual bias separately from uncertainty proxy", MARKER);
             return;
