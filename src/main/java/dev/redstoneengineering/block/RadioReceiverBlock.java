@@ -148,9 +148,18 @@ public class RadioReceiverBlock extends PassiveDirectionalSignalBlock {
                 var rx = RadioKernel.receivePacket(level, pos, channel);
                 updateOutput(level, pos, next, rx.value());
                 player.displayClientMessage(Component.literal(
-                        "Radio RX channel=" + channel + " payload=" + rx.value() + "/15"
-                                + " quality=" + rx.quality() + "% drivers=" + rx.drivers()
-                                + (rx.collision() ? " COLLISION" : rx.valid() ? " VALID" : " UNDECODABLE")), true);
+                        "Radio RX channel=" + channel
+                                + " payload=" + rx.value() + "/15"
+                                + " quality=" + rx.quality() + "%"
+                                + " drivers=" + rx.drivers()
+                                + " latency≈" + rx.latencyTicks() + "t"
+                                + " | samples=" + diagnostics[0]
+                                + " valid=" + diagnostics[1]
+                                + " undecodable=" + diagnostics[2]
+                                + " collisions=" + diagnostics[3]
+                                + " dropouts=" + diagnostics[4]
+                                + " handoffs=" + diagnostics[5]
+                                + (rx.collision() ? " | COLLISION" : rx.valid() ? " | VALID" : " | UNDECODABLE")), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
             }
