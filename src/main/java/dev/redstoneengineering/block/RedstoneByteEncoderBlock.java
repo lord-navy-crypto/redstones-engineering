@@ -32,46 +32,22 @@ import java.util.Optional;
 
 /** Explicit scalar-to-byte bridge. Vanilla redstone strength is never silently treated as binary. */
 public class RedstoneByteEncoderBlock extends DirectionalDomainBlock implements EngineeringPortProvider, DataBusDriver {
-    public RedstoneByteEncoderBlock(Properties properties) {
-        super(properties);
-    }
+    public RedstoneByteEncoderBlock(Properties properties) { super(properties); }
 
-    @Override
-    public MapCodec<RedstoneByteEncoderBlock> codec() {
-        return RedstoneEngineering.REDSTONE_BYTE_ENCODER_CODEC.value();
-    }
+    @Override public MapCodec<RedstoneByteEncoderBlock> codec() { return RedstoneEngineering.REDSTONE_BYTE_ENCODER_CODEC.value(); }
 
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         return List.of(
-                new EngineeringPort(
-                        "REDSTONE SCALAR IN",
-                        inputSide(state),
-                        EngineeringDomain.REDSTONE,
-                        PortKind.CONVERTER,
-                        PortDirection.INPUT,
-                        true,
-                        "signal"
-                ),
-                new EngineeringPort(
-                        "BYTE OUT",
-                        outputSide(state),
-                        EngineeringDomain.DATA_BUS_8,
-                        PortKind.CONVERTER,
-                        PortDirection.OUTPUT,
-                        false,
-                        "byte"
-                )
+                new EngineeringPort("REDSTONE SCALAR IN", inputSide(state), EngineeringDomain.REDSTONE,
+                        PortKind.CONVERTER, PortDirection.INPUT, true, "signal"),
+                new EngineeringPort("BYTE OUT", outputSide(state), EngineeringDomain.DATA_BUS_8,
+                        PortKind.CONVERTER, PortDirection.OUTPUT, false, "byte")
         );
     }
 
     @Override
-    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
-            Level level,
-            BlockPos pos,
-            BlockState state,
-            Direction side
-    ) {
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         if (side == inputSide(state)) {
@@ -79,22 +55,13 @@ public class RedstoneByteEncoderBlock extends DirectionalDomainBlock implements 
             return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value, PortQuality.VALID));
         }
         boolean valid = InformationRuntime.valid(level, "bus8_out", pos);
-        return Optional.of(new EngineeringPortSnapshot(
-                port.get(),
+        return Optional.of(new EngineeringPortSnapshot(port.get(),
                 InformationRuntime.value(level, "bus8_out", pos) & 0xFF,
-                0.0,
-                255.0,
-                valid ? PortQuality.VALID : PortQuality.NO_SIGNAL
-        ));
+                0.0, 255.0, valid ? PortQuality.VALID : PortQuality.NO_SIGNAL));
     }
 
     @Override
-    public boolean canConnectRedstone(
-            BlockState state,
-            BlockGetter level,
-            BlockPos pos,
-            @Nullable Direction direction
-    ) {
+    public boolean canConnectRedstone(BlockState state, BlockGetter level, BlockPos pos, @Nullable Direction direction) {
         return direction != null && direction.getOpposite() == inputSide(state);
     }
 
@@ -119,15 +86,11 @@ public class RedstoneByteEncoderBlock extends DirectionalDomainBlock implements 
     }
 
     @Override
-    protected void neighborChanged(
-            BlockState state,
-            Level level,
-            BlockPos pos,
-            Block neighborBlock,
-            BlockPos neighborPos,
-            boolean movedByPiston
-    ) {
-        if (level instanceof ServerLevel serverLevel) update(serverLevel, pos, state);
+    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock,
+                                   BlockPos neighborPos, boolean movedByPiston) {
+        if (level instanceof ServerLevel serverLevel && neighborPos.equals(inputPos(pos, state))) {
+            update(serverLevel, pos, state);
+        }
     }
 
     @Override
@@ -139,18 +102,11 @@ public class RedstoneByteEncoderBlock extends DirectionalDomainBlock implements 
     }
 
     @Override
-    protected InteractionResult useWithoutItem(
-            BlockState state,
-            Level level,
-            BlockPos pos,
-            Player player,
-            BlockHitResult hit
-    ) {
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
                 player.displayClientMessage(Component.literal(
-                        "Encoder: redstone 0-15 -> byte " + InformationRuntime.value(level, "bus8_out", pos)
-                ), true);
+                        "Encoder: redstone 0-15 -> byte " + InformationRuntime.value(level, "bus8_out", pos)), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
             }
