@@ -1,5 +1,6 @@
 package dev.redstoneengineering.client.ui;
 
+import dev.redstoneengineering.block.DigitalRegeneratorBlock;
 import dev.redstoneengineering.block.SignalProbeBlock;
 import dev.redstoneengineering.ui.menu.FieldDeviceMenu;
 import net.minecraft.client.gui.GuiGraphics;
@@ -8,7 +9,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
-/** Context-sensitive inspector for probes, small processors, terminals and cable topology. */
+/** Context-sensitive inspector for probes, processors, communication media, terminals and cable topology. */
 public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> {
     private Button decrease;
     private Button increase;
@@ -49,7 +50,8 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
         if (decrease == null) return;
         boolean primaryAdjust = menu.kind() == FieldDeviceMenu.KIND_PROBE
                 || menu.kind() == FieldDeviceMenu.KIND_FILTER
-                || menu.kind() == FieldDeviceMenu.KIND_REFERENCE;
+                || menu.kind() == FieldDeviceMenu.KIND_REFERENCE
+                || menu.kind() == FieldDeviceMenu.KIND_DIGITAL_REGENERATOR;
         decrease.active = primaryAdjust;
         increase.active = primaryAdjust;
         toggle.active = menu.kind() == FieldDeviceMenu.KIND_TERMINAL;
@@ -71,6 +73,10 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             case FieldDeviceMenu.KIND_REFERENCE -> {
                 decrease.setMessage(Component.literal("− Output"));
                 increase.setMessage(Component.literal("Output +"));
+            }
+            case FieldDeviceMenu.KIND_DIGITAL_REGENERATOR -> {
+                decrease.setMessage(Component.literal("− Threshold"));
+                increase.setMessage(Component.literal("Threshold +"));
             }
             default -> {
                 decrease.setMessage(Component.literal("−"));
@@ -124,8 +130,74 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
                 labelValue(graphics, "Cable face", oppositeDirectionName(menu.facingOrdinal()), 153);
                 signalBar(graphics, menu.primary(), 170);
             }
+            case FieldDeviceMenu.KIND_DATA_BUS_8 -> renderByteBusOverview(graphics);
+            case FieldDeviceMenu.KIND_ENCODER -> {
+                statusBadge(graphics, "REDSTONE → BYTE", menu.dataValid() ? GOOD : WARN, 16, 80);
+                labelValue(graphics, "Redstone input", menu.primary() + " / 15", 105);
+                labelValue(graphics, "Byte output", byteText(menu.secondary()), 121);
+                labelValue(graphics, "FRONT", directionName(menu.facingOrdinal()), 137);
+                statusLine(graphics, "Output validity", validityText(), validityColor(), 157);
+            }
+            case FieldDeviceMenu.KIND_DECODER -> {
+                statusBadge(graphics, "BYTE → REDSTONE", menu.dataValid() ? GOOD : WARN, 16, 80);
+                labelValue(graphics, "Byte input", byteText(menu.primary()), 105);
+                labelValue(graphics, "Redstone output", menu.secondary() + " / 15", 121);
+                labelValue(graphics, "FRONT", directionName(menu.facingOrdinal()), 137);
+                statusLine(graphics, "Conversion", menu.primary() > 15 ? "SATURATED TO 15" : validityText(), menu.primary() > 15 ? WARN : validityColor(), 153);
+                signalBar(graphics, menu.secondary(), 170);
+            }
+            case FieldDeviceMenu.KIND_SERIAL_LINE -> renderSerialLineOverview(graphics);
+            case FieldDeviceMenu.KIND_SERIALIZER -> {
+                statusBadge(graphics, "BYTE → SERIAL FRAME", validityColor(), 16, 80);
+                labelValue(graphics, "Bus input", byteText(menu.primary()), 105);
+                labelValue(graphics, "Serial payload", byteText(menu.secondary()), 121);
+                labelValue(graphics, "Frame period", menu.tertiary() + " ticks", 137);
+                statusLine(graphics, "Output", validityText() + " • Q=" + menu.qualityPercent() + "%", validityColor(), 157);
+            }
+            case FieldDeviceMenu.KIND_DESERIALIZER -> {
+                statusBadge(graphics, "SERIAL → BYTE", validityColor(), 16, 80);
+                labelValue(graphics, "Serial input", byteText(menu.primary()), 105);
+                labelValue(graphics, "Bus output", byteText(menu.secondary()), 121);
+                labelValue(graphics, "Frame period", menu.tertiary() + " ticks", 137);
+                statusLine(graphics, "Output", validityText() + " • input Q=" + menu.qualityPercent() + "%", validityColor(), 157);
+            }
+            case FieldDeviceMenu.KIND_DIFFERENTIAL_PAIR -> {
+                statusBadge(graphics, "DIFFERENTIAL DATA", validityColor(), 16, 80);
+                labelValue(graphics, "Bit", Integer.toString(menu.primary()), 105);
+                labelValue(graphics, "Link quality", menu.qualityPercent() + "%", 121);
+                labelValue(graphics, "Compatible links", Integer.toString(menu.connectionCount()), 137);
+                statusLine(graphics, "Payload", validityText(), validityColor(), 157);
+            }
+            case FieldDeviceMenu.KIND_DIGITAL_REGENERATOR -> {
+                int minimum = DigitalRegeneratorBlock.minimumQuality(menu.tertiary());
+                statusBadge(graphics, "DIGITAL REGENERATOR", validityColor(), 16, 80);
+                labelValue(graphics, "Input quality", menu.primary() + "%", 105);
+                labelValue(graphics, "Decision threshold", minimum + "%", 121);
+                labelValue(graphics, "Output byte", byteText(menu.secondary()), 137);
+                statusLine(graphics, "Decision", menu.dataValid() ? "ACCEPT / RE-SHAPED" : "REJECT", validityColor(), 157);
+            }
             default -> renderCableOverview(graphics);
         }
+    }
+
+    private void renderByteBusOverview(GuiGraphics graphics) {
+        String state = !menu.dataValid()
+                ? (menu.driverCount() == 0 ? "NO VALID DRIVER" : "BUS CONFLICT")
+                : (menu.driverCount() > 1 ? "VALID • CONTENTION" : "VALID");
+        int color = !menu.dataValid() ? (menu.driverCount() == 0 ? WARN : BAD) : (menu.driverCount() > 1 ? WARN : GOOD);
+        statusBadge(graphics, "8-BIT DATA BUS", color, 16, 80);
+        labelValue(graphics, "Payload", byteText(menu.primary()), 105);
+        labelValue(graphics, "Driver count", Integer.toString(menu.driverCount()), 121);
+        labelValue(graphics, "Compatible links", Integer.toString(menu.connectionCount()), 137);
+        statusLine(graphics, "Bus state", state, color, 157);
+    }
+
+    private void renderSerialLineOverview(GuiGraphics graphics) {
+        statusBadge(graphics, "SERIAL DATA LINE", validityColor(), 16, 80);
+        labelValue(graphics, "Payload", byteText(menu.primary()), 105);
+        labelValue(graphics, "Period", menu.secondary() + " ticks", 121);
+        labelValue(graphics, "Quality", menu.qualityPercent() + "%", 137);
+        statusLine(graphics, "Frame", validityText(), validityColor(), 157);
     }
 
     private void renderCableOverview(GuiGraphics graphics) {
@@ -148,24 +220,45 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             statusLine(graphics, "Topology", menu.topologyValid() ? "VALID" : "INVALID", menu.topologyValid() ? GOOD : BAD, 122);
             graphics.drawString(font, "Cable ports are physical graph edges; absent faces are not virtual ports.", 16, 146, MUTED, false);
             graphics.drawString(font, "Junctions intentionally allow branching; plain signal cable remains two-ended.", 16, 164, INFO, false);
-        } else {
-            switch (menu.kind()) {
-                case FieldDeviceMenu.KIND_PROBE -> {
-                    statusLine(graphics, directionName(menu.facingOrdinal()), "TEST • REDSTONE MEASUREMENT INPUT", GOOD, 105);
-                    statusLine(graphics, oppositeDirectionName(menu.facingOrdinal()), "INSTRUMENT BUS OUTPUT", INFO, 125);
-                }
-                case FieldDeviceMenu.KIND_FILTER -> {
-                    statusLine(graphics, oppositeDirectionName(menu.facingOrdinal()), "BACK • REDSTONE INPUT", GOOD, 105);
-                    statusLine(graphics, directionName(menu.facingOrdinal()), "FRONT • REDSTONE OUTPUT", GOOD, 125);
-                }
-                case FieldDeviceMenu.KIND_REFERENCE -> statusLine(graphics, directionName(menu.facingOrdinal()), "REFERENCE OUT • REDSTONE 0..15", GOOD, 105);
-                case FieldDeviceMenu.KIND_TERMINAL -> {
-                    statusLine(graphics, directionName(menu.facingOrdinal()), menu.tertiary() == 1 ? "VANILLA OUT" : "VANILLA IN", GOOD, 105);
-                    statusLine(graphics, oppositeDirectionName(menu.facingOrdinal()), menu.tertiary() == 1 ? "CABLE IN" : "CABLE OUT", INFO, 125);
-                }
-                default -> { }
-            }
+            return;
         }
+
+        switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_PROBE -> {
+                statusLine(graphics, directionName(menu.facingOrdinal()), "TEST • REDSTONE MEASUREMENT INPUT", GOOD, 105);
+                statusLine(graphics, oppositeDirectionName(menu.facingOrdinal()), "INSTRUMENT BUS OUTPUT", INFO, 125);
+            }
+            case FieldDeviceMenu.KIND_FILTER -> {
+                statusLine(graphics, oppositeDirectionName(menu.facingOrdinal()), "BACK • REDSTONE INPUT", GOOD, 105);
+                statusLine(graphics, directionName(menu.facingOrdinal()), "FRONT • REDSTONE OUTPUT", GOOD, 125);
+            }
+            case FieldDeviceMenu.KIND_REFERENCE -> statusLine(graphics, directionName(menu.facingOrdinal()), "REFERENCE OUT • REDSTONE 0..15", GOOD, 105);
+            case FieldDeviceMenu.KIND_TERMINAL -> {
+                statusLine(graphics, directionName(menu.facingOrdinal()), menu.tertiary() == 1 ? "VANILLA OUT" : "VANILLA IN", GOOD, 105);
+                statusLine(graphics, oppositeDirectionName(menu.facingOrdinal()), menu.tertiary() == 1 ? "CABLE IN" : "CABLE OUT", INFO, 125);
+            }
+            case FieldDeviceMenu.KIND_DATA_BUS_8 -> renderMediumPorts(graphics, "DATA_BUS_8 • BIDIRECTIONAL BYTE BUS");
+            case FieldDeviceMenu.KIND_ENCODER -> renderDirectionalPorts(graphics, "BACK • REDSTONE INPUT", "FRONT • DATA_BUS_8 OUTPUT");
+            case FieldDeviceMenu.KIND_DECODER -> renderDirectionalPorts(graphics, "BACK • DATA_BUS_8 INPUT", "FRONT • REDSTONE OUTPUT");
+            case FieldDeviceMenu.KIND_SERIAL_LINE -> renderMediumPorts(graphics, "SERIAL_DATA • BIDIRECTIONAL LINK");
+            case FieldDeviceMenu.KIND_SERIALIZER -> renderDirectionalPorts(graphics, "BACK • DATA_BUS_8 INPUT", "FRONT • SERIAL_DATA OUTPUT");
+            case FieldDeviceMenu.KIND_DESERIALIZER -> renderDirectionalPorts(graphics, "BACK • SERIAL_DATA INPUT", "FRONT • DATA_BUS_8 OUTPUT");
+            case FieldDeviceMenu.KIND_DIFFERENTIAL_PAIR -> renderMediumPorts(graphics, "DIFFERENTIAL_DATA • BIDIRECTIONAL BIT LINK");
+            case FieldDeviceMenu.KIND_DIGITAL_REGENERATOR -> renderDirectionalPorts(graphics, "BACK • SERIAL_DATA INPUT", "FRONT • REGENERATED SERIAL OUTPUT");
+            default -> { }
+        }
+    }
+
+    private void renderMediumPorts(GuiGraphics graphics, String medium) {
+        statusLine(graphics, "All six faces", medium, INFO, 105);
+        labelValue(graphics, "Compatible neighbors", connectedFaces(), 125);
+        statusLine(graphics, "Topology", menu.topologyValid() ? "NO DOMAIN MISMATCH" : "DOMAIN/DIRECTION ISSUE", menu.topologyValid() ? GOOD : BAD, 145);
+    }
+
+    private void renderDirectionalPorts(GuiGraphics graphics, String back, String front) {
+        statusLine(graphics, oppositeDirectionName(menu.facingOrdinal()), back, GOOD, 105);
+        statusLine(graphics, directionName(menu.facingOrdinal()), front, INFO, 125);
+        graphics.drawString(font, "Other faces expose no communication port.", 16, 151, MUTED, false);
     }
 
     private void renderConfigure(GuiGraphics graphics) {
@@ -186,9 +279,16 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
                 labelValue(graphics, "Boundary direction", menu.tertiary() == 1 ? "CABLE → VANILLA" : "VANILLA → CABLE", 80);
                 graphics.drawString(font, "Toggle reverses the explicit conversion boundary and recomputes the cable network.", 16, 163, MUTED, false);
             }
+            case FieldDeviceMenu.KIND_DIGITAL_REGENERATOR -> {
+                labelValue(graphics, "Threshold index", Integer.toString(menu.tertiary()), 80);
+                labelValue(graphics, "Minimum input quality", DigitalRegeneratorBlock.minimumQuality(menu.tertiary()) + "%", 96);
+                graphics.drawString(font, "The server accepts the frame only when input quality clears this threshold.", 16, 163, MUTED, false);
+            }
             default -> {
-                statusLine(graphics, "Configuration", "READ-ONLY TOPOLOGY DEVICE", MUTED, 82);
-                graphics.drawString(font, "Cable shape is derived from actual neighboring engineering ports.", 16, 163, MUTED, false);
+                statusLine(graphics, "Configuration", isCommunicationDevice() ? "READ-ONLY COMMUNICATION DEVICE" : "READ-ONLY TOPOLOGY DEVICE", MUTED, 82);
+                graphics.drawString(font, isCommunicationDevice()
+                        ? "Payload and quality are runtime state; configuration stays at the explicit converter/source."
+                        : "Cable shape is derived from actual neighboring engineering ports.", 16, 163, MUTED, false);
             }
         }
     }
@@ -200,6 +300,14 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             labelValue(graphics, "Connection count", Integer.toString(menu.connectionCount()), 122);
             statusLine(graphics, "Topology", menu.topologyValid() ? "PASS" : "FAIL", menu.topologyValid() ? GOOD : BAD, 142);
             labelValue(graphics, "Faces", connectedFaces(), 162);
+        } else if (isCommunicationDevice()) {
+            statusLine(graphics, "Runtime payload", validityText(), validityColor(), 122);
+            labelValue(graphics, "Quality", menu.qualityPercent() + "%", 142);
+            if (menu.kind() == FieldDeviceMenu.KIND_DATA_BUS_8) {
+                labelValue(graphics, "Drivers", Integer.toString(menu.driverCount()), 162);
+            } else {
+                labelValue(graphics, "Compatible links", Integer.toString(menu.connectionCount()), 162);
+            }
         } else {
             statusLine(graphics, "Server snapshot", "VALID • synchronized", GOOD, 122);
             labelValue(graphics, "Orientation", directionName(menu.facingOrdinal()), 142);
@@ -209,7 +317,9 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
 
     private void renderHistory(GuiGraphics graphics) {
         graphics.drawString(font, "This field device does not retain a local time-series history.", 16, 84, TEXT, false);
-        graphics.drawString(font, "Use Signal Analyzer, Oscilloscope, or Logic Analyzer for historical evidence.", 16, 103, INFO, false);
+        graphics.drawString(font, isCommunicationDevice()
+                ? "Network diagnostics retain bounded counters; payload itself remains runtime state."
+                : "Use Signal Analyzer, Oscilloscope, or Logic Analyzer for historical evidence.", 16, 103, INFO, false);
         sectionRule(graphics, 126);
         graphics.drawString(font, "The inspector intentionally stays lightweight: inspect, configure, verify topology.", 16, 140, MUTED, false);
     }
@@ -218,6 +328,11 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
         return menu.kind() == FieldDeviceMenu.KIND_REDSTONE_CABLE
                 || menu.kind() == FieldDeviceMenu.KIND_REDSTONE_JUNCTION
                 || menu.kind() == FieldDeviceMenu.KIND_INSTRUMENT_CABLE;
+    }
+
+    private boolean isCommunicationDevice() {
+        return menu.kind() >= FieldDeviceMenu.KIND_DATA_BUS_8
+                && menu.kind() <= FieldDeviceMenu.KIND_DIGITAL_REGENERATOR;
     }
 
     private String deviceName() {
@@ -229,8 +344,24 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             case FieldDeviceMenu.KIND_REDSTONE_CABLE -> "INSULATED REDSTONE CABLE";
             case FieldDeviceMenu.KIND_REDSTONE_JUNCTION -> "REDSTONE CABLE JUNCTION";
             case FieldDeviceMenu.KIND_INSTRUMENT_CABLE -> "INSTRUMENT BUS CABLE";
+            case FieldDeviceMenu.KIND_DATA_BUS_8 -> "8-BIT DATA BUS";
+            case FieldDeviceMenu.KIND_ENCODER -> "REDSTONE BYTE ENCODER";
+            case FieldDeviceMenu.KIND_DECODER -> "BYTE TO REDSTONE DECODER";
+            case FieldDeviceMenu.KIND_SERIAL_LINE -> "SERIAL DATA LINE";
+            case FieldDeviceMenu.KIND_SERIALIZER -> "SERIALIZER";
+            case FieldDeviceMenu.KIND_DESERIALIZER -> "DESERIALIZER";
+            case FieldDeviceMenu.KIND_DIFFERENTIAL_PAIR -> "DIFFERENTIAL DATA PAIR";
+            case FieldDeviceMenu.KIND_DIGITAL_REGENERATOR -> "DIGITAL REGENERATOR";
             default -> "UNKNOWN";
         };
+    }
+
+    private String validityText() {
+        return menu.dataValid() ? "VALID" : "INVALID / NO SIGNAL";
+    }
+
+    private int validityColor() {
+        return menu.dataValid() ? GOOD : WARN;
     }
 
     private String connectedFaces() {
@@ -241,6 +372,11 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             else text.append(" · ").append(direction.getName().toUpperCase());
         }
         return text.isEmpty() ? "NONE" : text.toString();
+    }
+
+    private static String byteText(int value) {
+        int bounded = Math.max(0, Math.min(255, value));
+        return bounded + " / 255 (0x" + String.format("%02X", bounded) + ")";
     }
 
     private static String directionName(int ordinal) {
