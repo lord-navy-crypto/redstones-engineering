@@ -1,0 +1,23 @@
+Redstone Systems Engineering — Alpha 1.0.19
+Artifact: 1.0.19-alpha
+Minecraft: 1.21.1
+NeoForge: 21.1.249
+Java: 21
+License: MIT
+
+Milestone: Acceptance UX & Evidence Presentation
+
+Contracts:
+- The Jade Engineering HUD surfaces acceptance only for PID controllers; ordinary sensors, cables, converters, and instruments keep their existing port/topology diagnostics.
+- Server-side HUD data joins the existing Alpha 1.0.17 topology snapshot, Alpha 1.0.16 commissioning snapshot, and Alpha 1.0.18 acceptance evaluator.
+- The default HUD remains concise: one acceptance/commissioning headline plus the first issue line only when evidence contains an issue.
+- Structured server data preserves acceptance status, commissioning status/score, issue count, first issue code/detail, and the deterministic acceptance trace key.
+- EngineeringAcceptancePresentation formats immutable evidence only and never re-evaluates or mutates physics, topology, sampling, or control state.
+- Jade remains a downstream observer. It never writes BlockState, RuntimeIntStore, network registries, controller state, sampling cadence, or machine physics.
+- Vanilla-compatible world-facing redstone remains bounded to 0..15.
+
+Verification:
+- rse_alpha1019_acceptance_ux_verify.py
+- RseAcceptanceGameTests.acceptancePresentationIsConciseAndTraceable
+- Historical Engineering Port/Jade/topology/metrology/commissioning/acceptance gates
+- Java 21 compile/test/GameTest/clean-build CI

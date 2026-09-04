@@ -4,6 +4,7 @@ import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.diagnostics.CommissioningSnapshot;
 import dev.redstoneengineering.diagnostics.CommissioningStatus;
 import dev.redstoneengineering.diagnostics.acceptance.EngineeringAcceptance;
+import dev.redstoneengineering.diagnostics.acceptance.EngineeringAcceptancePresentation;
 import dev.redstoneengineering.diagnostics.acceptance.EngineeringAcceptanceSnapshot;
 import dev.redstoneengineering.diagnostics.acceptance.EngineeringAcceptanceStatus;
 import dev.redstoneengineering.diagnostics.topology.TopologyVisualizationSnapshot;
@@ -14,7 +15,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.List;
 
-/** Executable contracts for Alpha 1.0.18 engineering acceptance and traceability. */
+/** Executable contracts for Alpha 1.0.18 acceptance and Alpha 1.0.19 evidence presentation. */
 public final class RseAcceptanceGameTests {
     private static final String TEMPLATE = "empty5x4x5";
     private static final BlockPos MARKER = new BlockPos(2, 1, 2);
@@ -57,6 +58,24 @@ public final class RseAcceptanceGameTests {
                 || !pass.accepted()
                 || !pass.issues().isEmpty()) {
             helper.fail("Acceptance must distinguish missing evidence, marginal commissioning, and pass", MARKER);
+            return;
+        }
+        helper.succeed();
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE)
+    public static void acceptancePresentationIsConciseAndTraceable(GameTestHelper helper) {
+        TopologyVisualizationSnapshot mismatch = new TopologyVisualizationSnapshot(List.of(), 6, 5, 1);
+        EngineeringAcceptanceSnapshot acceptance = EngineeringAcceptance.evaluate(
+                mismatch, commissioning(96, CommissioningStatus.PASS));
+        String headline = EngineeringAcceptancePresentation.headline(acceptance);
+        String issueLine = EngineeringAcceptancePresentation.firstIssueLine(acceptance);
+
+        if (!headline.equals("Acceptance: FAIL | commissioning=PASS 96/100")
+                || !issueLine.contains(EngineeringAcceptance.TOPOLOGY_MISMATCH)
+                || !acceptance.traceKey().equals("topology=5/6:issues=1|commissioning=PASS:score=96|acceptance=FAIL")) {
+            helper.fail("Acceptance UX must preserve verdict, score, issue code, and deterministic trace evidence", MARKER);
             return;
         }
         helper.succeed();

@@ -1,8 +1,15 @@
 package dev.redstoneengineering.integration.jade;
 
+import dev.redstoneengineering.block.PidControllerBlock;
 import dev.redstoneengineering.core.port.EngineeringPort;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
+import dev.redstoneengineering.diagnostics.ClosedLoopCommissioning;
+import dev.redstoneengineering.diagnostics.CommissioningSnapshot;
+import dev.redstoneengineering.diagnostics.acceptance.EngineeringAcceptance;
+import dev.redstoneengineering.diagnostics.acceptance.EngineeringAcceptanceIssue;
+import dev.redstoneengineering.diagnostics.acceptance.EngineeringAcceptancePresentation;
+import dev.redstoneengineering.diagnostics.acceptance.EngineeringAcceptanceSnapshot;
 import dev.redstoneengineering.diagnostics.topology.EngineeringTopologyView;
 import dev.redstoneengineering.diagnostics.topology.TopologyFaceSnapshot;
 import dev.redstoneengineering.diagnostics.topology.TopologyVisualizationSnapshot;
@@ -22,11 +29,11 @@ import java.util.Locale;
 import java.util.Optional;
 
 /**
- * Server-backed Jade view of the targeted face plus the read-only all-face topology projection.
+ * Server-backed Jade view of the targeted face, read-only topology, and PID acceptance evidence.
  *
- * <p>The provider serializes only presentation data derived from the native RSE
- * contract. Runtime cable values and other server-owned observations therefore
- * do not need to be guessed on the client.</p>
+ * <p>The provider serializes only presentation data derived from native RSE contracts. Runtime
+ * values, topology ownership, commissioning, and acceptance remain server-authoritative; the HUD
+ * never becomes a controller, sampler, or topology solver.</p>
  */
 public enum EngineeringPortJadeProvider implements IBlockComponentProvider, IServerDataProvider<BlockAccessor> {
     INSTANCE;
@@ -53,6 +60,17 @@ public enum EngineeringPortJadeProvider implements IBlockComponentProvider, ISer
     private static final String KEY_TOPOLOGY_ISSUES = "rse_ep_topology_issues";
     private static final String KEY_TOPOLOGY_FACE_PREFIX = "rse_ep_topology_face_";
 
+    private static final String KEY_ACCEPTANCE_PRESENT = "rse_acceptance_present";
+    private static final String KEY_ACCEPTANCE_STATUS = "rse_acceptance_status";
+    private static final String KEY_COMMISSIONING_STATUS = "rse_acceptance_commissioning_status";
+    private static final String KEY_COMMISSIONING_SCORE = "rse_acceptance_commissioning_score";
+    private static final String KEY_ACCEPTANCE_ISSUE_COUNT = "rse_acceptance_issue_count";
+    private static final String KEY_ACCEPTANCE_ISSUE_CODE = "rse_acceptance_issue_code";
+    private static final String KEY_ACCEPTANCE_ISSUE_DETAIL = "rse_acceptance_issue_detail";
+    private static final String KEY_ACCEPTANCE_HEADLINE = "rse_acceptance_headline";
+    private static final String KEY_ACCEPTANCE_ISSUE_LINE = "rse_acceptance_issue_line";
+    private static final String KEY_ACCEPTANCE_TRACE = "rse_acceptance_trace";
+
     @Override
     public void appendServerData(CompoundTag data, BlockAccessor accessor) {
         if (!(accessor.getBlock() instanceof EngineeringPortProvider provider)) {
@@ -74,6 +92,10 @@ public enum EngineeringPortJadeProvider implements IBlockComponentProvider, ISer
                     KEY_TOPOLOGY_FACE_PREFIX + face.side().getName(),
                     face.hasPort() ? face.compact() : ""
             );
+        }
+
+        if (accessor.getBlock() instanceof PidControllerBlock) {
+            appendAcceptanceServerData(data, accessor, topology);
         }
 
         Optional<EngineeringPort> port = provider.engineeringPort(state, accessor.getSide());
@@ -111,6 +133,31 @@ public enum EngineeringPortJadeProvider implements IBlockComponentProvider, ISer
         data.putString(KEY_QUALITY, observation.quality().name());
     }
 
+    private static void appendAcceptanceServerData(
+            CompoundTag data,
+            BlockAccessor accessor,
+            TopologyVisualizationSnapshot topology
+    ) {
+        CommissioningSnapshot commissioning = ClosedLoopCommissioning.inspectPid(
+                accessor.getLevel(), accessor.getPosition());
+        EngineeringAcceptanceSnapshot acceptance = EngineeringAcceptance.evaluate(topology, commissioning);
+
+        data.putBoolean(KEY_ACCEPTANCE_PRESENT, true);
+        data.putString(KEY_ACCEPTANCE_STATUS, acceptance.status().name());
+        data.putString(KEY_COMMISSIONING_STATUS, acceptance.commissioningStatus().name());
+        data.putInt(KEY_COMMISSIONING_SCORE, acceptance.commissioningScore());
+        data.putInt(KEY_ACCEPTANCE_ISSUE_COUNT, acceptance.issues().size());
+        data.putString(KEY_ACCEPTANCE_HEADLINE, EngineeringAcceptancePresentation.headline(acceptance));
+        data.putString(KEY_ACCEPTANCE_ISSUE_LINE, EngineeringAcceptancePresentation.firstIssueLine(acceptance));
+        data.putString(KEY_ACCEPTANCE_TRACE, acceptance.traceKey());
+
+        if (!acceptance.issues().isEmpty()) {
+            EngineeringAcceptanceIssue issue = acceptance.issues().get(0);
+            data.putString(KEY_ACCEPTANCE_ISSUE_CODE, issue.code());
+            data.putString(KEY_ACCEPTANCE_ISSUE_DETAIL, issue.detail());
+        }
+    }
+
     @Override
     public void appendTooltip(ITooltip tooltip, BlockAccessor accessor, IPluginConfig config) {
         CompoundTag data = accessor.getServerData();
@@ -123,6 +170,7 @@ public enum EngineeringPortJadeProvider implements IBlockComponentProvider, ISer
         if (!data.getBoolean(KEY_HAS_PORT)) {
             tooltip.add(Component.literal("RSE ports: " + count + " | " + side + " = ISOLATED"));
             appendTopology(tooltip, data, count);
+            appendAcceptance(tooltip, data);
             return;
         }
 
@@ -155,6 +203,7 @@ public enum EngineeringPortJadeProvider implements IBlockComponentProvider, ISer
             tooltip.add(Component.literal("Vanilla redstone attachment: YES"));
         }
         appendTopology(tooltip, data, count);
+        appendAcceptance(tooltip, data);
     }
 
     private static void appendTopology(ITooltip tooltip, CompoundTag data, int portCount) {
@@ -167,6 +216,15 @@ public enum EngineeringPortJadeProvider implements IBlockComponentProvider, ISer
             if (!face.isBlank()) {
                 tooltip.add(Component.literal("• " + face));
             }
+        }
+    }
+
+    private static void appendAcceptance(ITooltip tooltip, CompoundTag data) {
+        if (!data.getBoolean(KEY_ACCEPTANCE_PRESENT)) return;
+        tooltip.add(Component.literal(data.getString(KEY_ACCEPTANCE_HEADLINE)));
+        if (data.getInt(KEY_ACCEPTANCE_ISSUE_COUNT) > 0) {
+            String issueLine = data.getString(KEY_ACCEPTANCE_ISSUE_LINE);
+            if (!issueLine.isBlank()) tooltip.add(Component.literal(issueLine));
         }
     }
 

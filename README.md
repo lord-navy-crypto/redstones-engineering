@@ -4,23 +4,45 @@
 
 **Redstone Systems Engineering** is a NeoForge engineering-systems mod for Minecraft that extends vanilla redstone without replacing it. RSE keeps the vanilla **0–15 redstone signal as the world-facing engineering boundary** and builds measurement, conditioning, sampling, control, actuation, diagnostics, communications, safety, reliability, and operations tools around it.
 
-> **Engineering path:** Measurement → Conditioning → Sampling → Control → Actuation → Optimization → Acceptance
+> **Engineering path:** Measurement → Conditioning → Sampling → Control → Actuation → Optimization → Acceptance → Evidence
 
 ## Project information
 
 | Item | Current RSE baseline |
 | --- | --- |
-| Development milestone | **Alpha 1.0.18 — Engineering Acceptance & Traceability** |
-| Artifact version | `1.0.18-alpha` |
+| Development milestone | **Alpha 1.0.19 — Acceptance UX & Evidence Presentation** |
+| Artifact version | `1.0.19-alpha` |
 | Minecraft | `1.21.1` |
 | NeoForge | `21.1.249` |
 | Java | `21` |
 | Mod ID | `redstoneengineering` |
 | License | **MIT** |
 
+## Alpha 1.0.19 — Acceptance UX & Evidence Presentation
+
+Alpha 1.0.19 makes the engineering acceptance contract visible during normal play without turning Jade into a second controller or diagnostic engine. When the player inspects a **PID Controller**, the server-backed Jade provider combines the authoritative all-face topology snapshot, the read-only closed-loop commissioning snapshot, and the Alpha 1.0.18 acceptance evaluator.
+
+The default HUD is intentionally compact:
+
+```text
+Acceptance: PASS | commissioning=PASS 94/100
+```
+
+When acceptance evidence contains an issue, one additional evidence line is shown, for example:
+
+```text
+Evidence: TOPOLOGY_MISMATCH - 1 domain/direction topology mismatch(es)
+```
+
+The server payload also retains structured acceptance status, commissioning status/score, issue count, first issue code/detail, and the deterministic `traceKey()`. That richer evidence is available for regression tests and future advanced diagnostics without forcing it into the normal HUD. Ordinary sensors, cables, converters, and instruments continue to show their existing targeted-face and topology diagnostics and do not receive irrelevant `NOT_READY` acceptance messages.
+
+`EngineeringAcceptancePresentation` formats immutable evidence only. Jade never writes controller state, network state, sampling cadence, BlockState, or machine physics. Vanilla-compatible world-facing redstone remains **0..15**.
+
+See [`ALPHA1_0_19_MANIFEST.txt`](ALPHA1_0_19_MANIFEST.txt).
+
 ## Alpha 1.0.18 — Engineering Acceptance & Traceability
 
-Alpha 1.0.18 closes the loop between **what RSE measures**, **what its topology says is physically connected**, and **whether a controlled system has actually been commissioned successfully**. The new `EngineeringAcceptance` layer consumes the immutable topology projection introduced in 1.0.17 and the closed-loop commissioning snapshot introduced in 1.0.16, then produces one deterministic engineering verdict:
+Alpha 1.0.18 closes the loop between **what RSE measures**, **what its topology says is physically connected**, and **whether a controlled system has actually been commissioned successfully**. The `EngineeringAcceptance` layer consumes the immutable topology projection introduced in 1.0.17 and the closed-loop commissioning snapshot introduced in 1.0.16, then produces one deterministic engineering verdict:
 
 ```text
 NOT_READY | PASS | MARGINAL | FAIL
@@ -30,7 +52,7 @@ Acceptance deliberately does not become another simulator or controller. It does
 
 A known Engineering Port `DOMAIN_MISMATCH` or `DIRECTION_MISMATCH` is a structural acceptance failure even when commissioning otherwise passes. By contrast, `OPEN`, `ISOLATED`, and `UNLOADED` remain observations rather than automatic failures, preserving the topology semantics established in 1.0.17. Healthy topology plus unavailable, idle, or still-running commissioning evidence is `NOT_READY`; established commissioning `MARGINAL` and `FAIL` states retain their original severity.
 
-`EngineeringAcceptanceSnapshot` records topology counts, commissioning state and score, a final verdict, immutable issue records, and a deterministic `traceKey()`. Stable issue codes (`TOPOLOGY_MISMATCH`, `COMMISSIONING_NOT_READY`, `COMMISSIONING_MARGINAL`, `COMMISSIONING_FAIL`) make results suitable for regression tests, logs, and future read-only HUD surfaces without granting those surfaces authority over simulation.
+`EngineeringAcceptanceSnapshot` records topology counts, commissioning state and score, a final verdict, immutable issue records, and a deterministic `traceKey()`. Stable issue codes (`TOPOLOGY_MISMATCH`, `COMMISSIONING_NOT_READY`, `COMMISSIONING_MARGINAL`, `COMMISSIONING_FAIL`) make results suitable for regression tests, logs, and read-only HUD surfaces without granting those surfaces authority over simulation.
 
 See [`ALPHA1_0_18_MANIFEST.txt`](ALPHA1_0_18_MANIFEST.txt).
 
@@ -124,6 +146,7 @@ These historical contracts remain active regression targets and are intentionall
 - **Alpha 1.0.16 — Closed-Loop Commissioning & Fault Injection** — promotes PID response metrics into a stable commissioning snapshot and adds repeatable typed disturbance testing.
 - **Alpha 1.0.17 — Engineering UX & Topology Visualization** — exposes all-face port/link/quality diagnostics as a read-only projection in the Jade Engineering HUD.
 - **Alpha 1.0.18 — Engineering Acceptance & Traceability** — combines authoritative topology and commissioning evidence into a deterministic read-only engineering verdict with stable trace codes.
+- **Alpha 1.0.19 — Acceptance UX & Evidence Presentation** — exposes PID acceptance evidence through concise server-backed Jade diagnostics while retaining a deterministic trace.
 
 ## Engineering Port architecture
 
@@ -136,7 +159,7 @@ Five mature ecosystem libraries are part of the RSE platform contract:
 | Dependency | Pinned development version | Required side | RSE purpose |
 | --- | --- | --- | --- |
 | JEI | `19.27.0.336` | Client | recipe/use browsing and engineering progression |
-| Jade | `15.10.6` | Client + Server | engineering HUD and server-backed port diagnostics |
+| Jade | `15.10.6` | Client + Server | engineering HUD and server-backed port/acceptance diagnostics |
 | GeckoLib | `4.9.2` | Client + Server | articulated machine visualization |
 | Cloth Config | `15.0.140` | Client | configuration and tuning UI |
 | Fusion | `1.3.14` (`1.3.14-neoforge-mc1.21.1`) | Client | connected textures, advanced models, topology-aware visuals |
@@ -179,7 +202,7 @@ Recipes follow engineering dependency rather than raw rarity alone:
 3. **Control & Mechatronics** — PID, PWM, servo, pneumatic control;
 4. **System Safety & Reliability** — watchdog, voter, fault latch, relief protection;
 5. **Operations & Integrated Systems** — communications, multi-sensor networks, production monitoring;
-6. **Commissioning & Acceptance** — inspect topology, inject bounded faults, compare responses, and record an engineering verdict.
+6. **Commissioning & Acceptance** — inspect topology, inject bounded faults, compare responses, record an engineering verdict, and inspect its evidence.
 
 See [`docs/CRAFTING_PROGRESSION.md`](docs/CRAFTING_PROGRESSION.md).
 
@@ -201,6 +224,7 @@ See [`docs/CRAFTING_PROGRESSION.md`](docs/CRAFTING_PROGRESSION.md).
 14. Commission control loops against baseline and disturbed conditions before optimization.
 15. Visualize authoritative ports/topology; never duplicate the topology solver in UI code.
 16. Accept systems from authoritative evidence; never let an acceptance report become a second controller or simulator.
+17. Present engineering evidence progressively: concise by default, structured and traceable underneath.
 
 ## Reference calculations
 
@@ -214,13 +238,14 @@ PID: e = setpoint - process
 Commissioning score = bounded penalty model(error, settling, overshoot, saturation)
 Topology face = EngineeringPort descriptor + live snapshot + PortCompatibility(local, neighbor)
 Acceptance verdict = topology evidence + established commissioning status (read-only)
+Acceptance HUD = concise projection(acceptance snapshot), never a second evaluator
 ```
 
 ## Verification architecture
 
-CI runs verifier syntax, repository/source/resource audits, deterministic reference models, historical Alpha regressions, dependency checks, Engineering Port/Jade gates, legacy-renovation checks, directional-I/O guards, copper topology guards, **Alpha 1.0.14 metrology**, **Alpha 1.0.15 multi-domain rollout/calibration**, **Alpha 1.0.16 closed-loop commissioning/fault injection**, **Alpha 1.0.17 engineering UX/topology visualization**, **Alpha 1.0.18 engineering acceptance/traceability**, Java 21 compilation, Gradle tests, **NeoForge Minecraft GameTests**, a clean build, SHA-256 generation and verified artifact upload.
+CI runs verifier syntax, repository/source/resource audits, deterministic reference models, historical Alpha regressions, dependency checks, Engineering Port/Jade gates, legacy-renovation checks, directional-I/O guards, copper topology guards, **Alpha 1.0.14 metrology**, **Alpha 1.0.15 multi-domain rollout/calibration**, **Alpha 1.0.16 closed-loop commissioning/fault injection**, **Alpha 1.0.17 engineering UX/topology visualization**, **Alpha 1.0.18 engineering acceptance/traceability**, **Alpha 1.0.19 acceptance UX/evidence presentation**, Java 21 compilation, Gradle tests, **NeoForge Minecraft GameTests**, a clean build, SHA-256 generation and verified artifact upload.
 
-Interactive visual/UX behavior remains a separate `runClient` gate. Automated gates protect simulation-to-render ownership, metrology math, physical topology, directional I/O, copper runtime propagation, calibration semantics, commissioning read-only ownership, fault bounds, all-face topology projection, acceptance evidence ownership and sampling ownership.
+Interactive visual/UX behavior remains a separate `runClient` gate. Automated gates protect simulation-to-render ownership, metrology math, physical topology, directional I/O, copper runtime propagation, calibration semantics, commissioning read-only ownership, fault bounds, all-face topology projection, acceptance evidence ownership, HUD read-only ownership and sampling ownership.
 
 ## Build and test
 
@@ -237,6 +262,7 @@ Build output is under `build/libs/`.
 ## Documentation
 
 - [`CHANGELOG.md`](CHANGELOG.md)
+- [`ALPHA1_0_19_MANIFEST.txt`](ALPHA1_0_19_MANIFEST.txt)
 - [`ALPHA1_0_18_MANIFEST.txt`](ALPHA1_0_18_MANIFEST.txt)
 - [`ALPHA1_0_17_MANIFEST.txt`](ALPHA1_0_17_MANIFEST.txt)
 - [`ALPHA1_0_16_MANIFEST.txt`](ALPHA1_0_16_MANIFEST.txt)
