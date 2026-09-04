@@ -6,6 +6,20 @@
 
 > **Engineering path:** Measurement → Conditioning → Sampling → Control → Actuation → Optimization → Acceptance → Evidence → Comparison
 
+## Required dependencies
+
+Five mature ecosystem libraries are part of the RSE platform contract:
+
+| Dependency | Pinned development version | Required side | RSE purpose |
+| --- | --- | --- | --- |
+| JEI | `19.27.0.336` | Client | recipe/use browsing and engineering progression |
+| Jade | `15.10.6` | Client + Server | engineering HUD and server-backed port/acceptance/run-history diagnostics |
+| GeckoLib | `4.9.2` | Client + Server | articulated machine visualization |
+| Cloth Config | `15.0.140` | Client | configuration and tuning UI |
+| Fusion | `1.3.14` (`1.3.14-neoforge-mc1.21.1`) | Client | connected textures, advanced models, topology-aware visuals |
+
+RSE does not shade or bundle their jars. Physics, topology, measurement, control, reliability and operations behavior remain native RSE responsibilities. See [`docs/DEPENDENCY_POLICY.md`](docs/DEPENDENCY_POLICY.md).
+
 ## Project information
 
 | Item | Current RSE baseline |
@@ -180,20 +194,6 @@ These historical contracts remain active regression targets and are intentionall
 ## Engineering Port architecture
 
 The **Engineering Port Contract** describes physical side, engineering domain, semantic kind, input/output/bidirectional direction, vanilla compatibility, and unit. `EngineeringPortSnapshot` carries live value/range/quality separately from static topology. `PortQuality` includes `VALID`, `NO_SIGNAL`, `SATURATED`, `STALE`, `FAULT`, `DOMAIN_MISMATCH`, and `TOPOLOGY_ERROR`.
-
-## Required dependencies
-
-Five mature ecosystem libraries are part of the RSE platform contract:
-
-| Dependency | Pinned development version | Required side | RSE purpose |
-| --- | --- | --- | --- |
-| JEI | `19.27.0.336` | Client | recipe/use browsing and engineering progression |
-| Jade | `15.10.6` | Client + Server | engineering HUD and server-backed port/acceptance/run-history diagnostics |
-| GeckoLib | `4.9.2` | Client + Server | articulated machine visualization |
-| Cloth Config | `15.0.140` | Client | configuration and tuning UI |
-| Fusion | `1.3.14` (`1.3.14-neoforge-mc1.21.1`) | Client | connected textures, advanced models, topology-aware visuals |
-
-RSE does not shade or bundle their jars. Physics, topology, measurement, control, reliability and operations behavior remain native RSE responsibilities. See [`docs/DEPENDENCY_POLICY.md`](docs/DEPENDENCY_POLICY.md).
 
 ## Transmission-domain rule
 
