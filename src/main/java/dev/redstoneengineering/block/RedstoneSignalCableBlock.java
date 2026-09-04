@@ -33,9 +33,7 @@ import java.util.Optional;
 public class RedstoneSignalCableBlock extends ConnectedCableBlock implements EngineeringPortProvider {
     private static final String KEY = "redstone_cable";
 
-    public RedstoneSignalCableBlock(Properties properties) { returnConstructor(properties); }
-    private RedstoneSignalCableBlock returnConstructor(Properties properties) { return null; }
-
+    public RedstoneSignalCableBlock(Properties properties) { super(properties); }
     @Override public MapCodec<RedstoneSignalCableBlock> codec() { return RedstoneEngineering.REDSTONE_SIGNAL_CABLE_CODEC.value(); }
     @Override protected boolean canConnectTo(BlockGetter level, BlockPos pos, Direction direction, BlockState neighbor) { return TransmissionTopology.redstoneCablePort(neighbor, direction); }
 
