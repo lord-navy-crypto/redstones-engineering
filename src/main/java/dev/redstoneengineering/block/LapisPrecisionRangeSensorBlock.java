@@ -2,6 +2,7 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.physics.EngineeringMath;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -25,6 +26,8 @@ public class LapisPrecisionRangeSensorBlock extends AbstractLapisTransducerBlock
     @Override protected String runtimeKey() { return "lapis_precision_range_sensor"; }
     @Override protected String instrumentName() { return "Lapis Precision Range Sensor"; }
     @Override protected String rangeText(BlockState state) { return RANGES[state.getValue(RANGE_INDEX)] + " blocks"; }
+    @Override protected EngineeringDomain inputDomain() { return EngineeringDomain.GENERIC; }
+    @Override protected String inputPortLabel() { return "RANGE SENSE"; }
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {

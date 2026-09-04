@@ -4,12 +4,15 @@ import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.blockentity.LogicAnalyzerBlockEntity;
 import dev.redstoneengineering.instrument.InstrumentNetwork;
+import dev.redstoneengineering.ui.menu.LogicAnalyzerMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
@@ -55,12 +58,7 @@ public class LogicAnalyzerBlock extends Block implements EntityBlock {
     }
 
     @Override
-    public boolean canConnectRedstone(
-            BlockState state,
-            BlockGetter level,
-            BlockPos pos,
-            @Nullable Direction direction
-    ) {
+    public boolean canConnectRedstone(BlockState state, BlockGetter level, BlockPos pos, @Nullable Direction direction) {
         return false;
     }
 
@@ -70,13 +68,7 @@ public class LogicAnalyzerBlock extends Block implements EntityBlock {
     }
 
     @Override
-    protected void onPlace(
-            BlockState state,
-            Level level,
-            BlockPos pos,
-            BlockState oldState,
-            boolean movedByPiston
-    ) {
+    protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         if (!level.isClientSide && !state.is(oldState.getBlock())) {
             level.scheduleTick(pos, this, LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS);
         }
@@ -102,6 +94,35 @@ public class LogicAnalyzerBlock extends Block implements EntityBlock {
         level.scheduleTick(pos, this, LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS);
     }
 
+    /** Bounded server-side intent used by the Engineering UI and its GameTests. */
+    public static boolean applyUiAction(Level level, BlockPos pos, int action) {
+        if (level.isClientSide || !(level.getBlockEntity(pos) instanceof LogicAnalyzerBlockEntity analyzer)) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof LogicAnalyzerBlock block)) return false;
+
+        switch (action) {
+            case LogicAnalyzerMenu.BUTTON_ARM -> analyzer.arm();
+            case LogicAnalyzerMenu.BUTTON_THRESHOLD_DECREASE -> {
+                int next = state.getValue(THRESHOLD) <= 1 ? 15 : state.getValue(THRESHOLD) - 1;
+                level.setBlock(pos, state.setValue(THRESHOLD, next), Block.UPDATE_CLIENTS);
+            }
+            case LogicAnalyzerMenu.BUTTON_THRESHOLD_INCREASE -> {
+                int next = state.getValue(THRESHOLD) >= 15 ? 1 : state.getValue(THRESHOLD) + 1;
+                level.setBlock(pos, state.setValue(THRESHOLD, next), Block.UPDATE_CLIENTS);
+            }
+            case LogicAnalyzerMenu.BUTTON_TRIGGER_CHANNEL -> analyzer.cycleTriggerChannel();
+            case LogicAnalyzerMenu.BUTTON_TRIGGER_EDGE -> analyzer.cycleTriggerEdge();
+            case LogicAnalyzerMenu.BUTTON_CURSOR_A -> analyzer.moveCursorA();
+            case LogicAnalyzerMenu.BUTTON_CURSOR_B -> analyzer.moveCursorB();
+            case LogicAnalyzerMenu.BUTTON_CLEAR -> analyzer.clear();
+            default -> { return false; }
+        }
+        if (action == LogicAnalyzerMenu.BUTTON_THRESHOLD_DECREASE || action == LogicAnalyzerMenu.BUTTON_THRESHOLD_INCREASE) {
+            level.scheduleTick(pos, block, 1);
+        }
+        return true;
+    }
+
     @Override
     protected InteractionResult useWithoutItem(
             BlockState state,
@@ -110,92 +131,22 @@ public class LogicAnalyzerBlock extends Block implements EntityBlock {
             Player player,
             BlockHitResult hitResult
     ) {
-        if (!level.isClientSide
-                && level.getBlockEntity(pos) instanceof LogicAnalyzerBlockEntity analyzer) {
-
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
-                analyzer.arm();
-                player.displayClientMessage(
-                        Component.literal("Logic Analyzer | trigger armed | " + analyzer.triggerStatus()),
-                        true
-                );
-            } else if (hitResult.getDirection() == Direction.UP) {
-                int nextThreshold = state.getValue(THRESHOLD) >= 15 ? 1 : state.getValue(THRESHOLD) + 1;
-                level.setBlock(pos, state.setValue(THRESHOLD, nextThreshold), Block.UPDATE_CLIENTS);
-                player.displayClientMessage(
-                        Component.literal("Logic Analyzer | threshold → " + nextThreshold),
-                        true
-                );
-            } else if (hitResult.getDirection() == state.getValue(FACING).getClockWise()) {
-                analyzer.cycleTriggerChannel();
-                player.displayClientMessage(
-                        Component.literal("Logic Analyzer | trigger source → " + analyzer.triggerStatus()),
-                        true
-                );
-            } else if (hitResult.getDirection() == state.getValue(FACING).getCounterClockWise()) {
-                analyzer.cycleTriggerEdge();
-                player.displayClientMessage(
-                        Component.literal("Logic Analyzer | trigger edge → " + analyzer.triggerStatus()),
-                        true
-                );
-            } else if (hitResult.getDirection() == Direction.DOWN) {
-                analyzer.moveCursorA();
-                player.displayClientMessage(
-                        Component.literal(
-                                "Logic Analyzer | cursor A moved | Δ="
-                                        + analyzer.cursorDeltaSamples() + " samples/"
-                                        + analyzer.cursorDeltaTicks() + "t"
-                        ),
-                        true
-                );
-            } else if (hitResult.getDirection() == state.getValue(FACING)) {
-                analyzer.moveCursorB();
-                player.displayClientMessage(
-                        Component.literal(
-                                "Logic Analyzer | cursor B moved | Δ="
-                                        + analyzer.cursorDeltaSamples() + " samples/"
-                                        + analyzer.cursorDeltaTicks() + "t"
-                        ),
-                        true
-                );
-            } else {
-                InstrumentNetwork.ProbeSnapshot snapshot = InstrumentNetwork.scan(level, pos);
-                StringBuilder text = new StringBuilder(
-                        "Logic | threshold=" + state.getValue(THRESHOLD)
-                                + " | " + analyzer.triggerStatus()
-                                + " | samplePeriod=" + LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS + "t"
-                                + " capture=" + analyzer.sampleCount() + "/32"
-                                + " | cursors Δ=" + analyzer.cursorDeltaSamples() + " samples/"
-                                + analyzer.cursorDeltaTicks() + "t"
-                                + " | " + snapshot.networkStatus()
-                );
-                for (int channel = 0; channel < 4; channel++) {
-                    text.append(" | ")
-                            .append(SignalProbeBlock.channelName(channel))
-                            .append("=")
-                            .append(snapshot.status(channel))
-                            .append(":")
-                            .append(analyzer.waveform(channel))
-                            .append(" coverage=")
-                            .append(analyzer.coveragePercent(channel))
-                            .append("%/")
-                            .append(analyzer.captureQuality(channel))
-                            .append(" ↑")
-                            .append(analyzer.rising(channel))
-                            .append(" ↓")
-                            .append(analyzer.falling(channel))
-                            .append(" edges=")
-                            .append(analyzer.edgeCount(channel))
-                            .append(" transitionRate=")
-                            .append(analyzer.transitionRatePercent(channel))
-                            .append("% duty=")
-                            .append(analyzer.dutyPercent(channel))
-                            .append("%");
+                if (level.getBlockEntity(pos) instanceof LogicAnalyzerBlockEntity analyzer) {
+                    analyzer.arm();
+                    player.displayClientMessage(Component.literal("Logic Analyzer | trigger armed | " + analyzer.triggerStatus()), true);
                 }
-                player.displayClientMessage(Component.literal(text.toString()), true);
+            } else {
+                serverPlayer.openMenu(
+                        new SimpleMenuProvider(
+                                (containerId, inventory, ignored) -> new LogicAnalyzerMenu(containerId, inventory, pos),
+                                Component.translatable("block.redstoneengineering.logic_analyzer")
+                        ),
+                        data -> data.writeBlockPos(pos)
+                );
             }
         }
-
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
 }

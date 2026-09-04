@@ -12,10 +12,12 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.NetworkKernel;
 import dev.redstoneengineering.physics.RedstoneCableNetwork;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.BlockGetter;
@@ -41,23 +43,15 @@ public class RedstoneSignalCableBlock extends ConnectedCableBlock implements Eng
         for (Direction side : Direction.values()) {
             if (connected(state, side)) {
                 ports.add(new EngineeringPort(
-                        "CABLE",
-                        side,
-                        EngineeringDomain.REDSTONE,
-                        PortKind.REDSTONE_ANALOG,
-                        PortDirection.BIDIRECTIONAL,
-                        false,
-                        "signal"
-                ));
+                        "CABLE", side, EngineeringDomain.REDSTONE, PortKind.REDSTONE_ANALOG,
+                        PortDirection.BIDIRECTIONAL, false, "signal"));
             }
         }
         return List.copyOf(ports);
     }
 
-    @Override
-    public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
-        return engineeringPort(state, side)
-                .map(port -> EngineeringPortSnapshot.redstone(port, power(level, pos), PortQuality.VALID));
+    @Override public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
+        return engineeringPort(state, side).map(port -> EngineeringPortSnapshot.redstone(port, power(level, pos), PortQuality.VALID));
     }
 
     public static void setPower(Level level, BlockPos pos, int power) {
@@ -68,32 +62,35 @@ public class RedstoneSignalCableBlock extends ConnectedCableBlock implements Eng
         return RuntimeIntStore.get(level, KEY, pos, 1)[0];
     }
 
-    @Override
-    protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
+    @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
         super.onPlace(state, level, pos, oldState, moved);
         if (level instanceof ServerLevel serverLevel) RedstoneCableNetwork.recompute(serverLevel, pos);
     }
 
-    @Override
-    protected void neighborChanged(BlockState state, Level level, BlockPos pos, net.minecraft.world.level.block.Block block, BlockPos neighborPos, boolean moved) {
+    @Override protected void neighborChanged(BlockState state, Level level, BlockPos pos, net.minecraft.world.level.block.Block block, BlockPos neighborPos, boolean moved) {
         super.neighborChanged(state, level, pos, block, neighborPos, moved);
         if (level instanceof ServerLevel serverLevel) RedstoneCableNetwork.recompute(serverLevel, pos);
     }
 
-    @Override
-    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
+    @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
         if (!state.is(newState.getBlock())) RuntimeIntStore.remove(level, KEY, pos);
         super.onRemove(state, level, pos, newState, moved);
     }
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (!level.isClientSide) player.displayClientMessage(Component.literal(
-                (topologyValid(state) ? "Insulated Redstone Cable" : "TOPOLOGY ERROR — use Cable Junction for branches")
-                        + " | " + PortDiagnostics.connectedCable(level, pos, state, PortDiagnostics.Domain.INSULATED_REDSTONE)
-                        + " | engineeringPorts=" + engineeringPorts(state).size()
-                        + " | signal=" + power(level, pos) + "/15 | " + NetworkKernel.summary(level, "redstone_cable")
-        ), true);
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown()) {
+                player.displayClientMessage(Component.literal(
+                        (topologyValid(state) ? "Insulated Redstone Cable" : "TOPOLOGY ERROR — use Cable Junction for branches")
+                                + " | " + PortDiagnostics.connectedCable(level, pos, state, PortDiagnostics.Domain.INSULATED_REDSTONE)
+                                + " | engineeringPorts=" + engineeringPorts(state).size()
+                                + " | signal=" + power(level, pos) + "/15 | " + NetworkKernel.summary(level, "redstone_cable")
+                ), true);
+            } else {
+                FieldDeviceUi.open(serverPlayer, pos);
+            }
+        }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
 }
