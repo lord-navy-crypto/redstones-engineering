@@ -12,7 +12,16 @@ def need(path,*terms):
     checks.append((ok,str(path),terms))
 need(Path('src/main/java/dev/redstoneengineering/blockentity/OscilloscopeBlockEntity.java'),'triggerMode','cursorDeltaSamples','estimatedPeriodSamples','peakToPeak')
 need(Path('src/main/java/dev/redstoneengineering/blockentity/LogicAnalyzerBlockEntity.java'),'triggerChannel','cursorDeltaSamples','dutyPercent','armed')
-need(Path('src/main/java/dev/redstoneengineering/block/PidControllerBlock.java'),'rise90','overshoot','anti-windup')
+# Check the actual PID response/anti-windup implementation, not legacy action-bar wording.
+need(
+    Path('src/main/java/dev/redstoneengineering/block/PidControllerBlock.java'),
+    'updateStepDiagnostics',
+    'candidateIntegral',
+    'saturatedHigh',
+    'saturatedLow',
+    'rt[10]',
+    'rt[14]'
+)
 need(Path('src/main/java/dev/redstoneengineering/block/ServoActuatorBlock.java'),'trajectory diagnostics','settle=','travel=')
 need(Path('src/main/java/dev/redstoneengineering/physics/SerialNetwork.java'),'serial_diag','utilization')
 need(Path('src/main/java/dev/redstoneengineering/physics/DataBusNetwork.java'),'bus8_diag','interarrival')
@@ -33,7 +42,7 @@ if failed:
     raise SystemExit(1)
 print('RSE Alpha 1.0.2 second-layer verification: PASS')
 print('  instrumentation triggers/cursors: PASS')
-print('  PID process-response metrics: PASS')
+print('  PID process-response metrics + anti-windup implementation: PASS')
 print('  servo trajectory diagnostics: PASS')
 print('  serial/bus diagnostics: PASS')
 print('  radio interference/latency model: PASS')

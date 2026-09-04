@@ -12,12 +12,15 @@ import dev.redstoneengineering.diagnostics.acceptance.EngineeringAcceptanceSnaps
 import dev.redstoneengineering.diagnostics.topology.EngineeringTopologyView;
 import dev.redstoneengineering.diagnostics.topology.TopologyVisualizationSnapshot;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.ui.menu.PidControllerMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -219,6 +222,24 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
         l.scheduleTick(p, this, 2);
     }
 
+    /** Applies only the existing bounded tuning-preset selection on the logical server. */
+    public static boolean applyTuningAction(Level level, BlockPos pos, int action) {
+        if (level.isClientSide) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof PidControllerBlock)) return false;
+
+        int current = state.getValue(TUNING);
+        int next = switch (action) {
+            case PidControllerMenu.BUTTON_TUNING_PREVIOUS -> (current + 3) % 4;
+            case PidControllerMenu.BUTTON_TUNING_NEXT -> (current + 1) % 4;
+            default -> -1;
+        };
+        if (next < 0) return false;
+
+        level.setBlock(pos, state.setValue(TUNING, next), Block.UPDATE_CLIENTS);
+        return true;
+    }
+
     @Override
     protected InteractionResult useWithoutItem(BlockState s, Level l, BlockPos p, Player pl, BlockHitResult h) {
         if (!l.isClientSide) {
@@ -229,30 +250,15 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
                 updateOutput(l, p, s, 0);
                 pl.displayClientMessage(Component.literal(
                         "PID runtime reset | Shift+FRONT captures acceptance evidence"), true);
-            } else {
-                int next = (s.getValue(TUNING) + 1) % 4;
-                BlockState ns = s.setValue(TUNING, next);
-                l.setBlock(p, ns, Block.UPDATE_CLIENTS);
-                int[] rt = RuntimeIntStore.get(l, KEY, p, RUNTIME_SIZE);
-                String name = switch (next) {
-                    case 0 -> "P-GENTLE";
-                    case 1 -> "PI";
-                    case 2 -> "PID-BALANCED";
-                    default -> "PID-AGGRESSIVE";
-                };
-                String mode = rt[17] == MANUAL_MODE ? "MANUAL" : "AUTO";
-                pl.displayClientMessage(Component.literal(
-                        "PID " + name + " mode=" + mode
-                                + " out=" + outputValue(l, p, ns)
-                                + " err=" + rt[1]
-                                + " integralState=" + rt[0]
-                                + " dFilt=" + rt[2]
-                                + " bias=" + rt[20]
-                                + " manual=" + rt[18]
-                                + " transfers=" + rt[19]
-                                + " sat=" + rt[5]
-                                + " | step rise90=" + rt[10] + "t settle=" + rt[11] + "t overshoot=" + rt[14]
-                                + " | Shift+FRONT=capture evidence; other Shift+click=reset"), true);
+            } else if (pl instanceof ServerPlayer serverPlayer) {
+                serverPlayer.openMenu(
+                        new SimpleMenuProvider(
+                                (containerId, inventory, ignored) ->
+                                        new PidControllerMenu(containerId, inventory, p),
+                                Component.translatable("block.redstoneengineering.pid_controller")
+                        ),
+                        data -> data.writeBlockPos(p)
+                );
             }
         }
         return InteractionResult.sidedSuccess(l.isClientSide);
