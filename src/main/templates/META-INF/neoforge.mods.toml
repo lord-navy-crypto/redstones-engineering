@@ -7,16 +7,43 @@ issueTrackerURL="https://github.com/lord-navy-crypto/redstones-engineering/issue
 modId="${mod_id}"
 version="${mod_version}"
 displayName="${mod_name}"
+logoFile="rse_logo.png"
+logoBlur=false
 displayURL="https://github.com/lord-navy-crypto/redstones-engineering"
 authors="lord-navy-crypto"
 description='''
 Redstone Systems Engineering (RSE) extends vanilla Minecraft redstone into a
-Minecraft-native engineering systems laboratory. It preserves the 0–15 redstone
-boundary while adding instrumentation, signal conditioning, sampling, control,
-diagnostics, data buses, radio links, pneumatics, mechatronics, operations
-monitoring, and other engineering primitives.
+Minecraft-native engineering systems laboratory while preserving the familiar
+0-15 world-facing redstone signal boundary.
 
-Design path: measurement -> conditioning -> sampling -> control -> actuation -> optimization.
+RSE is organized around an engineering workflow:
+measurement -> conditioning -> sampling -> control -> actuation ->
+optimization -> acceptance -> evidence -> comparison.
+
+Core engineering modules include:
+- Instrumentation and signal measurement
+- Signal conditioning and analog processing
+- Sampling, timing, and digital signal processing
+- PID and closed-loop control
+- Sensors, transducers, and calibration systems
+- Electrical, optical, magnetic, thermal, and pneumatic systems
+- Data buses, serial links, differential signaling, and radio communication
+- Mechatronics, actuators, feedback, and machine-control components
+- Diagnostics, commissioning, fault handling, and acceptance evidence
+- Engineering UI, topology visualization, and operations monitoring
+
+Required platform dependencies:
+- JEI ${jei_version} or newer compatible 19.x release
+- Jade ${jade_version} or newer compatible 15.x release
+- GeckoLib ${geckolib_version} or newer compatible 4.x release
+- Cloth Config ${cloth_config_version} or newer compatible 15.x release
+- Fusion ${fusion_version} or newer compatible 1.x release
+
+Minecraft ${minecraft_version}
+NeoForge ${neo_version} or newer compatible release
+
+RSE uses these dependencies as intentional runtime platform requirements rather
+than optional compatibility integrations.
 '''
 
 [[dependencies.${mod_id}]]
