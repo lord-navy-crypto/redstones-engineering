@@ -4,7 +4,9 @@ import dev.redstoneengineering.block.*;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.PortCompatibility;
 import dev.redstoneengineering.physics.DataBusNetwork;
+import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.InformationRuntime;
+import dev.redstoneengineering.physics.RadioKernel;
 import dev.redstoneengineering.physics.RedstoneCableNetwork;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import net.minecraft.core.BlockPos;
@@ -37,6 +39,14 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int KIND_DESERIALIZER = 13;
     public static final int KIND_DIFFERENTIAL_PAIR = 14;
     public static final int KIND_DIGITAL_REGENERATOR = 15;
+    public static final int KIND_DIFFERENTIAL_DRIVER = 16;
+    public static final int KIND_DIFFERENTIAL_RECEIVER = 17;
+    public static final int KIND_RADIO_TRANSMITTER = 18;
+    public static final int KIND_RADIO_RECEIVER = 19;
+    public static final int KIND_FREE_OPTICAL_TRANSMITTER = 20;
+    public static final int KIND_FREE_OPTICAL_RECEIVER = 21;
+    public static final int KIND_QUARTZ_DIVIDER = 22;
+    public static final int KIND_QUARTZ_STABILITY = 23;
 
     public static final int BUTTON_PRIMARY_DECREASE = 0;
     public static final int BUTTON_PRIMARY_INCREASE = 1;
@@ -181,6 +191,75 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             dataValid.set(InformationRuntime.valid(level, "serial", blockPos) ? 1 : 0);
             quality.set(Math.max(0, Math.min(100, InformationRuntime.quality(level, "serial", blockPos))));
             facing.set(output.ordinal());
+        } else if (block instanceof DifferentialDriverBlock driver) {
+            Direction output = state.getValue(DirectionalDomainBlock.FACING);
+            primary.set(providerValue(driver, state, output.getOpposite()));
+            secondary.set(InformationRuntime.value(level, "diff_out", blockPos) & 1);
+            dataValid.set(InformationRuntime.valid(level, "diff_out", blockPos) ? 1 : 0);
+            quality.set(Math.max(0, Math.min(100, InformationRuntime.quality(level, "diff_out", blockPos))));
+            facing.set(output.ordinal());
+        } else if (block instanceof DifferentialReceiverBlock receiver) {
+            Direction output = state.getValue(DirectionalSignalBlock.FACING);
+            BlockPos inputPos = blockPos.relative(output.getOpposite());
+            primary.set(InformationRuntime.value(level, "diff", inputPos) & 1);
+            secondary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+            dataValid.set(InformationRuntime.valid(level, "diff", inputPos) ? 1 : 0);
+            quality.set(Math.max(0, Math.min(100, InformationRuntime.quality(level, "diff", inputPos))));
+            facing.set(output.ordinal());
+        } else if (block instanceof RadioTransmitterBlock transmitter) {
+            int payload = providerValue(transmitter, state, Direction.UP);
+            primary.set(payload);
+            secondary.set(state.getValue(RadioTransmitterBlock.CHANNEL));
+            tertiary.set(RadioKernel.RANGE);
+            dataValid.set(payload > 0 ? 1 : 0);
+            quality.set(payload > 0 ? 100 : 0);
+            driverCount.set(payload > 0 ? 1 : 0);
+        } else if (block instanceof RadioReceiverBlock receiver) {
+            var reception = RadioKernel.receivePacket(level, blockPos, state.getValue(RadioReceiverBlock.CHANNEL));
+            primary.set(reception.value());
+            secondary.set(state.getValue(RadioReceiverBlock.CHANNEL));
+            tertiary.set(reception.latencyTicks());
+            dataValid.set(reception.valid() ? 1 : 0);
+            quality.set(Math.max(0, Math.min(100, reception.quality())));
+            driverCount.set(reception.drivers());
+            facing.set(state.getValue(DirectionalSignalBlock.FACING).ordinal());
+        } else if (block instanceof FreeSpaceOpticalTransmitterBlock transmitter) {
+            Direction output = state.getValue(DirectionalDomainBlock.FACING);
+            primary.set(providerValue(transmitter, state, output.getOpposite()));
+            secondary.set(state.getValue(FreeSpaceOpticalTransmitterBlock.CHANNEL));
+            tertiary.set(providerValue(transmitter, state, output));
+            dataValid.set(primary.get() > 0 ? 1 : 0);
+            quality.set(primary.get() > 0 ? 100 : 0);
+            facing.set(output.ordinal());
+        } else if (block instanceof FreeSpaceOpticalReceiverBlock receiver) {
+            Direction output = state.getValue(DirectionalSignalBlock.FACING);
+            primary.set(providerValue(receiver, state, output.getOpposite()));
+            secondary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+            tertiary.set(state.getValue(FreeSpaceOpticalReceiverBlock.CHANNEL));
+            boolean valid = InformationRuntime.valid(level, "free_optical", blockPos)
+                    && InformationRuntime.aux(level, "free_optical", blockPos) == state.getValue(FreeSpaceOpticalReceiverBlock.CHANNEL);
+            dataValid.set(valid ? 1 : 0);
+            quality.set(Math.max(0, Math.min(100, InformationRuntime.quality(level, "free_optical", blockPos))));
+            facing.set(output.ordinal());
+        } else if (block instanceof QuartzClockDividerBlock divider) {
+            Direction output = state.getValue(DirectionalDomainBlock.FACING);
+            var input = DomainNetwork.sampleQuartz(level, blockPos.relative(output.getOpposite()));
+            var divided = DomainNetwork.sampleQuartz(level, blockPos.relative(output));
+            primary.set(input.periodTicks());
+            secondary.set(divided.periodTicks());
+            tertiary.set(QuartzClockDividerBlock.division(state.getValue(QuartzClockDividerBlock.DIV_INDEX)));
+            dataValid.set(divided.valid() ? 1 : 0);
+            quality.set(divided.valid() ? 100 : 0);
+            facing.set(output.ordinal());
+        } else if (block instanceof QuartzStabilityMonitorBlock monitor) {
+            Direction output = state.getValue(DirectionalDomainBlock.FACING);
+            var input = DomainNetwork.sampleQuartz(level, blockPos.relative(output.getOpposite()));
+            primary.set(monitor.measuredPeriod(level, blockPos));
+            secondary.set(monitor.nominalError(level, blockPos));
+            tertiary.set(input.periodTicks());
+            dataValid.set(input.valid() && primary.get() > 0 ? 1 : 0);
+            quality.set(dataValid.get() != 0 ? 100 : 0);
+            facing.set(output.ordinal());
         }
     }
 
@@ -303,6 +382,14 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
         if (block instanceof DeserializerBlock) return KIND_DESERIALIZER;
         if (block instanceof DifferentialDataPairBlock) return KIND_DIFFERENTIAL_PAIR;
         if (block instanceof DigitalRegeneratorBlock) return KIND_DIGITAL_REGENERATOR;
+        if (block instanceof DifferentialDriverBlock) return KIND_DIFFERENTIAL_DRIVER;
+        if (block instanceof DifferentialReceiverBlock) return KIND_DIFFERENTIAL_RECEIVER;
+        if (block instanceof RadioTransmitterBlock) return KIND_RADIO_TRANSMITTER;
+        if (block instanceof RadioReceiverBlock) return KIND_RADIO_RECEIVER;
+        if (block instanceof FreeSpaceOpticalTransmitterBlock) return KIND_FREE_OPTICAL_TRANSMITTER;
+        if (block instanceof FreeSpaceOpticalReceiverBlock) return KIND_FREE_OPTICAL_RECEIVER;
+        if (block instanceof QuartzClockDividerBlock) return KIND_QUARTZ_DIVIDER;
+        if (block instanceof QuartzStabilityMonitorBlock) return KIND_QUARTZ_STABILITY;
         return KIND_UNKNOWN;
     }
 
