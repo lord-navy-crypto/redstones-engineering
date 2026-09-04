@@ -2,6 +2,13 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.core.domain.EngineeringDomain;
+import dev.redstoneengineering.core.port.EngineeringPort;
+import dev.redstoneengineering.core.port.EngineeringPortProvider;
+import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
+import dev.redstoneengineering.core.port.PortDirection;
+import dev.redstoneengineering.core.port.PortKind;
+import dev.redstoneengineering.core.port.PortQuality;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -19,9 +26,11 @@ import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
 import javax.annotation.Nullable;
+import java.util.List;
+import java.util.Optional;
 
 /** Non-invasive channel probe for the RSE instrument network. */
-public class SignalProbeBlock extends Block {
+public class SignalProbeBlock extends Block implements EngineeringPortProvider {
     public static final DirectionProperty FACING = BlockStateProperties.FACING;
     public static final IntegerProperty CHANNEL = IntegerProperty.create("channel", 0, 3);
 
@@ -53,6 +62,54 @@ public class SignalProbeBlock extends Block {
         builder.add(FACING, CHANNEL);
     }
 
+    private static Direction testSide(BlockState state) {
+        return state.getValue(FACING);
+    }
+
+    private static Direction busSide(BlockState state) {
+        return testSide(state).getOpposite();
+    }
+
+    @Override
+    public List<EngineeringPort> engineeringPorts(BlockState state) {
+        return List.of(
+                new EngineeringPort(
+                        "TEST",
+                        testSide(state),
+                        EngineeringDomain.REDSTONE,
+                        PortKind.MEASUREMENT,
+                        PortDirection.INPUT,
+                        false,
+                        "signal"
+                ),
+                new EngineeringPort(
+                        "INSTRUMENT BUS CH " + channelName(state.getValue(CHANNEL)),
+                        busSide(state),
+                        EngineeringDomain.INSTRUMENT_BUS,
+                        PortKind.BUS,
+                        PortDirection.OUTPUT,
+                        false,
+                        "channel"
+                )
+        );
+    }
+
+    @Override
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
+            Level level,
+            BlockPos pos,
+            BlockState state,
+            Direction side
+    ) {
+        Optional<EngineeringPort> port = engineeringPort(state, side);
+        if (port.isEmpty()) return Optional.empty();
+        return Optional.of(EngineeringPortSnapshot.redstone(
+                port.get(),
+                sample(level, pos, state),
+                PortQuality.VALID
+        ));
+    }
+
     @Override
     public boolean canConnectRedstone(
             BlockState state,
@@ -64,7 +121,7 @@ public class SignalProbeBlock extends Block {
     }
 
     public int sample(Level level, BlockPos pos, BlockState state) {
-        Direction targetSide = state.getValue(FACING);
+        Direction targetSide = testSide(state);
         BlockPos targetPos = pos.relative(targetSide);
 
         // Pass the physical probe direction so directional sources are measured
@@ -91,9 +148,10 @@ public class SignalProbeBlock extends Block {
                 player.displayClientMessage(
                         Component.literal(
                                 "Probe " + channelName(state.getValue(CHANNEL))
-                                        + " | test=" + state.getValue(FACING).getName()
+                                        + " | TEST=" + testSide(state).getName()
+                                        + " | BUS=" + busSide(state).getName()
                                         + " | value=" + value + "/15"
-                                        + " | direction-aware"
+                                        + " | direction-aware • non-invasive"
                         ),
                         true
                 );
@@ -105,6 +163,8 @@ public class SignalProbeBlock extends Block {
                 player.displayClientMessage(
                         Component.literal(
                                 "Probe channel → " + channelName(nextChannel)
+                                        + " | TEST=" + testSide(next).getName()
+                                        + " | BUS=" + busSide(next).getName()
                         ),
                         true
                 );
