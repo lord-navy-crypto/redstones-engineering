@@ -1,7 +1,10 @@
 package dev.redstoneengineering.ui;
 
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.ui.menu.LogicAnalyzerMenu;
+import dev.redstoneengineering.ui.menu.OscilloscopeMenu;
 import dev.redstoneengineering.ui.menu.PidControllerMenu;
+import dev.redstoneengineering.ui.menu.SignalAnalyzerMenu;
 import dev.redstoneengineering.ui.menu.SignalConditionerMenu;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.inventory.MenuType;
@@ -27,6 +30,15 @@ public final class EngineeringUiRegistration {
 
     public static final DeferredHolder<MenuType<?>, MenuType<PidControllerMenu>> PID_CONTROLLER =
             MENUS.register("pid_controller", () -> IMenuTypeExtension.create(PidControllerMenu::new));
+
+    public static final DeferredHolder<MenuType<?>, MenuType<OscilloscopeMenu>> OSCILLOSCOPE =
+            MENUS.register("oscilloscope", () -> IMenuTypeExtension.create(OscilloscopeMenu::new));
+
+    public static final DeferredHolder<MenuType<?>, MenuType<LogicAnalyzerMenu>> LOGIC_ANALYZER =
+            MENUS.register("logic_analyzer", () -> IMenuTypeExtension.create(LogicAnalyzerMenu::new));
+
+    public static final DeferredHolder<MenuType<?>, MenuType<SignalAnalyzerMenu>> SIGNAL_ANALYZER =
+            MENUS.register("signal_analyzer", () -> IMenuTypeExtension.create(SignalAnalyzerMenu::new));
 
     public EngineeringUiRegistration(IEventBus modBus) {
         MENUS.register(modBus);
