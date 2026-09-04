@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """RSE visual resource integrity audit.
 
-Keeps block texture references, particle sprites, and GeckoLib machine textures
-inside the redstoneengineering namespace. Vanilla parent geometry is allowed;
-vanilla placeholder *textures* are not.
+Checks semantic RSE texture references, inherited/explicit particle sprites, and
+GeckoLib mechatronics texture dispatch without changing simulation behavior.
 """
 from __future__ import annotations
 
@@ -17,16 +16,17 @@ ASSETS = ROOT / "src/main/resources/assets/redstoneengineering"
 BLOCK_MODELS = ASSETS / "models/block"
 BLOCK_TEXTURES = ASSETS / "textures/block"
 GEO_MODELS = ASSETS / "geo/block"
+MECH_MODEL = ROOT / "src/main/java/dev/redstoneengineering/client/MechatronicsGeoModel.java"
 
 PLACEHOLDER_TEXTURES = {
     "minecraft:block/iron_block",
     "minecraft:textures/block/iron_block.png",
 }
-MACHINE_TEXTURES = {
-    "servo_actuator": GEO_MODELS / "servo_actuator.geo.json",
-    "pneumatic_cylinder": GEO_MODELS / "pneumatic_cylinder.geo.json",
-    "pneumatic_proportional_valve": GEO_MODELS / "pneumatic_proportional_valve.geo.json",
-}
+MACHINES = (
+    "servo_actuator",
+    "pneumatic_cylinder",
+    "pneumatic_proportional_valve",
+)
 RESOURCE_NAME = re.compile(r"^[a-z0-9_./-]+$")
 
 
@@ -64,14 +64,11 @@ def main() -> int:
         print("RSE visual audit: required asset directories are missing", file=sys.stderr)
         return 2
 
-    # Resource names must be stable, portable Minecraft identifiers.
     for texture in BLOCK_TEXTURES.rglob("*.png"):
         rel = texture.relative_to(BLOCK_TEXTURES).as_posix()
         if not RESOURCE_NAME.fullmatch(rel):
             errors.append(f"{texture.relative_to(ROOT)}: non-canonical texture resource name")
 
-    # Ordinary block models: ban known placeholder textures, validate RSE refs,
-    # and keep simple cube particle sprites synchronized with their body texture.
     for model in sorted(BLOCK_MODELS.rglob("*.json")):
         data = load_json(model, errors)
         if data is None:
@@ -89,36 +86,44 @@ def main() -> int:
             if ref.startswith("redstoneengineering:block/") and not rse_block_texture_exists(ref):
                 errors.append(f"{model.relative_to(ROOT)}: missing texture for {ref!r}")
 
-        # cube_all models with an explicit body texture should explicitly declare
-        # the same particle sprite. This makes hit/break particles deterministic.
+        # minecraft:block/cube_all already defines particle="#all". A child may
+        # omit particle and inherit it; if the child overrides particle, keep it
+        # synchronized with the body texture.
         if data.get("parent") == "minecraft:block/cube_all" and isinstance(textures.get("all"), str):
             particle = textures.get("particle")
-            if particle != textures["all"]:
+            if particle is not None and particle not in (textures["all"], "#all"):
                 errors.append(
-                    f"{model.relative_to(ROOT)}: cube_all particle must match textures.all "
+                    f"{model.relative_to(ROOT)}: cube_all particle override must match textures.all "
                     f"({textures['all']!r}), got {particle!r}"
                 )
 
-    # GeckoLib mechatronics models: render-only assets must use semantic RSE
-    # textures rather than the vanilla iron-block placeholder.
-    for machine, geo_path in MACHINE_TEXTURES.items():
-        expected_file = BLOCK_TEXTURES / f"{machine}.png"
-        if not expected_file.is_file():
-            errors.append(f"{expected_file.relative_to(ROOT)}: required semantic machine texture is missing")
-        data = load_json(geo_path, errors)
-        if data is None:
-            continue
-        strings = list(walk_strings(data))
-        for ref in strings:
-            if ref in PLACEHOLDER_TEXTURES or "minecraft:textures/block/iron_block" in ref:
-                errors.append(f"{geo_path.relative_to(ROOT)}: vanilla iron-block placeholder remains: {ref!r}")
-        expected_ref = f"redstoneengineering:textures/block/{machine}.png"
-        texture_refs = [s for s in strings if "textures/" in s and s.endswith(".png")]
-        if expected_ref not in texture_refs:
-            errors.append(
-                f"{geo_path.relative_to(ROOT)}: expected semantic texture {expected_ref!r}; "
-                f"found {texture_refs or 'none'}"
-            )
+    # GeckoLib geometry files are geometry-only; texture selection lives in the
+    # Java GeoModel. Validate both sides instead of requiring a texture field in
+    # .geo.json files.
+    for machine in MACHINES:
+        geo_path = GEO_MODELS / f"{machine}.geo.json"
+        texture_path = BLOCK_TEXTURES / f"{machine}.png"
+        if not geo_path.is_file():
+            errors.append(f"{geo_path.relative_to(ROOT)}: required GeckoLib geometry is missing")
+        else:
+            data = load_json(geo_path, errors)
+            if data is not None:
+                for ref in walk_strings(data):
+                    if ref in PLACEHOLDER_TEXTURES or "minecraft:textures/block/iron_block" in ref:
+                        errors.append(f"{geo_path.relative_to(ROOT)}: vanilla iron-block placeholder remains: {ref!r}")
+        if not texture_path.is_file():
+            errors.append(f"{texture_path.relative_to(ROOT)}: required semantic machine texture is missing")
+
+    if not MECH_MODEL.is_file():
+        errors.append(f"{MECH_MODEL.relative_to(ROOT)}: GeckoLib texture dispatcher is missing")
+    else:
+        java = MECH_MODEL.read_text(encoding="utf-8")
+        if "minecraft\", \"textures/block/iron_block.png" in java or "minecraft:textures/block/iron_block.png" in java:
+            errors.append(f"{MECH_MODEL.relative_to(ROOT)}: vanilla iron-block GeckoLib placeholder remains")
+        for machine in MACHINES:
+            expected = f'textures/block/{machine}.png'
+            if expected not in java:
+                errors.append(f"{MECH_MODEL.relative_to(ROOT)}: missing semantic GeckoLib texture {expected!r}")
 
     if errors:
         print(f"RSE visual asset audit FAILED ({len(errors)} issue(s)):", file=sys.stderr)
@@ -126,7 +131,7 @@ def main() -> int:
             print(f" - {error}", file=sys.stderr)
         return 1
 
-    print("RSE visual asset audit passed: block textures, particles, and GeckoLib machine resources are consistent.")
+    print("RSE visual asset audit passed: semantic textures, inherited/explicit particles, and GeckoLib resources are consistent.")
     return 0
 
 
