@@ -42,55 +42,27 @@ public class SerializerBlock extends DirectionalDomainBlock implements Engineeri
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         return List.of(
-                new EngineeringPort(
-                        "BYTE IN",
-                        inputSide(state),
-                        EngineeringDomain.DATA_BUS_8,
-                        PortKind.CONVERTER,
-                        PortDirection.INPUT,
-                        false,
-                        "byte"
-                ),
-                new EngineeringPort(
-                        "SERIAL OUT",
-                        outputSide(state),
-                        EngineeringDomain.SERIAL_DATA,
-                        PortKind.CONVERTER,
-                        PortDirection.OUTPUT,
-                        false,
-                        "byte"
-                )
+                new EngineeringPort("BYTE IN", inputSide(state), EngineeringDomain.DATA_BUS_8,
+                        PortKind.CONVERTER, PortDirection.INPUT, false, "byte"),
+                new EngineeringPort("SERIAL OUT", outputSide(state), EngineeringDomain.SERIAL_DATA,
+                        PortKind.CONVERTER, PortDirection.OUTPUT, false, "byte")
         );
     }
 
     @Override
-    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
-            Level level,
-            BlockPos pos,
-            BlockState state,
-            Direction side
-    ) {
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         if (side == inputSide(state)) {
             BlockPos input = inputPos(pos, state);
             boolean valid = DataBusNetwork.valid(level, input);
-            return Optional.of(new EngineeringPortSnapshot(
-                    port.get(),
-                    DataBusNetwork.sample(level, input),
-                    0.0,
-                    255.0,
-                    valid ? PortQuality.VALID : PortQuality.NO_SIGNAL
-            ));
+            return Optional.of(new EngineeringPortSnapshot(port.get(), DataBusNetwork.sample(level, input),
+                    0.0, 255.0, valid ? PortQuality.VALID : PortQuality.NO_SIGNAL));
         }
         boolean valid = InformationRuntime.valid(level, "serial", pos);
-        return Optional.of(new EngineeringPortSnapshot(
-                port.get(),
+        return Optional.of(new EngineeringPortSnapshot(port.get(),
                 InformationRuntime.value(level, "serial", pos) & 0xFF,
-                0.0,
-                255.0,
-                valid ? PortQuality.VALID : PortQuality.NO_SIGNAL
-        ));
+                0.0, 255.0, valid ? PortQuality.VALID : PortQuality.NO_SIGNAL));
     }
 
     private void update(ServerLevel level, BlockPos pos, BlockState state) {
@@ -111,15 +83,13 @@ public class SerializerBlock extends DirectionalDomainBlock implements Engineeri
     }
 
     @Override
-    protected void neighborChanged(
-            BlockState state,
-            Level level,
-            BlockPos pos,
-            Block neighborBlock,
-            BlockPos neighborPos,
-            boolean movedByPiston
-    ) {
-        if (level instanceof ServerLevel serverLevel) update(serverLevel, pos, state);
+    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock,
+                                   BlockPos neighborPos, boolean movedByPiston) {
+        // Only the physical BYTE IN face changes the serializer's source state.
+        // Output-line notifications must not feed back and overwrite the source snapshot.
+        if (level instanceof ServerLevel serverLevel && neighborPos.equals(inputPos(pos, state))) {
+            update(serverLevel, pos, state);
+        }
     }
 
     @Override
@@ -136,19 +106,13 @@ public class SerializerBlock extends DirectionalDomainBlock implements Engineeri
     }
 
     @Override
-    protected InteractionResult useWithoutItem(
-            BlockState state,
-            Level level,
-            BlockPos pos,
-            Player player,
-            BlockHitResult hit
-    ) {
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos,
+                                               Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
                 player.displayClientMessage(Component.literal(
                         "Serializer framed byte=" + (InformationRuntime.value(level, "serial", pos) & 0xFF)
-                                + " @ 8t/word valid=" + InformationRuntime.valid(level, "serial", pos)
-                ), true);
+                                + " @ 8t/word valid=" + InformationRuntime.valid(level, "serial", pos)), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
             }
