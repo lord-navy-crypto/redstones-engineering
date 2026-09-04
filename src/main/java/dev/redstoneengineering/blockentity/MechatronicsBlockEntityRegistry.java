@@ -9,7 +9,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.registries.RegisterEvent;
 
 /** Registers the shared GeckoLib visualization block entity without touching physics registration. */
-@EventBusSubscriber(modid = RedstoneEngineering.MOD_ID, bus = EventBusSubscriber.Bus.MOD)
+@EventBusSubscriber(modid = RedstoneEngineering.MOD_ID)
 public final class MechatronicsBlockEntityRegistry {
     private static BlockEntityType<MechatronicsVisualBlockEntity> TYPE;
 
