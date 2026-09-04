@@ -62,6 +62,7 @@ jobs:
             tools/rse_alpha1016_commissioning_verify.py \
             tools/rse_alpha1017_engineering_ux_verify.py \
             tools/rse_alpha1018_acceptance_verify.py \
+            tools/rse_alpha1019_acceptance_ux_verify.py \
             tools/rse_visual_assets_verify.py
           do
             if [[ -f "$verifier" ]]; then

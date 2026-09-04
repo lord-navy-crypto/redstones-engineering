@@ -4,23 +4,45 @@
 
 **Redstone Systems Engineering** is a NeoForge engineering-systems mod for Minecraft that extends vanilla redstone without replacing it. RSE keeps the vanilla **0–15 redstone signal as the world-facing engineering boundary** and builds measurement, conditioning, sampling, control, actuation, diagnostics, communications, safety, reliability, and operations tools around it.
 
-> **Engineering path:** Measurement → Conditioning → Sampling → Control → Actuation → Optimization → Acceptance
+> **Engineering path:** Measurement → Conditioning → Sampling → Control → Actuation → Optimization → Acceptance → Evidence
 
 ## Project information
 
 | Item | Current RSE baseline |
 | --- | --- |
-| Development milestone | **Alpha 1.0.18 — Engineering Acceptance & Traceability** |
-| Artifact version | `1.0.18-alpha` |
+| Development milestone | **Alpha 1.0.19 — Acceptance UX & Evidence Presentation** |
+| Artifact version | `1.0.19-alpha` |
 | Minecraft | `1.21.1` |
 | NeoForge | `21.1.249` |
 | Java | `21` |
 | Mod ID | `redstoneengineering` |
 | License | **MIT** |
 
+## Alpha 1.0.19 — Acceptance UX & Evidence Presentation
+
+Alpha 1.0.19 makes the engineering acceptance contract visible during normal play without turning Jade into a second controller or diagnostic engine. When the player inspects a **PID Controller**, the server-backed Jade provider combines the authoritative all-face topology snapshot, the read-only closed-loop commissioning snapshot, and the Alpha 1.0.18 acceptance evaluator.
+
+The default HUD is intentionally compact:
+
+```text
+Acceptance: PASS | commissioning=PASS 94/100
+```
+
+When acceptance evidence contains an issue, one additional evidence line is shown, for example:
+
+```text
+Evidence: TOPOLOGY_MISMATCH - 1 domain/direction topology mismatch(es)
+```
+
+The server payload also retains structured acceptance status, commissioning status/score, issue count, first issue code/detail, and the deterministic `traceKey()`. That richer evidence is available for regression tests and future advanced diagnostics without forcing it into the normal HUD. Ordinary sensors, cables, converters, and instruments continue to show their existing targeted-face and topology diagnostics and do not receive irrelevant `NOT_READY` acceptance messages.
+
+`EngineeringAcceptancePresentation` formats immutable evidence only. Jade never writes controller state, network state, sampling cadence, BlockState, or machine physics. Vanilla-compatible world-facing redstone remains **0..15**.
+
+See [`ALPHA1_0_19_MANIFEST.txt`](ALPHA1_0_19_MANIFEST.txt).
+
 ## Alpha 1.0.18 — Engineering Acceptance & Traceability
 
-Alpha 1.0.18 closes the loop between **what RSE measures**, **what its topology says is physically connected**, and **whether a controlled system has actually been commissioned successfully**. The new `EngineeringAcceptance` layer consumes the immutable topology projection introduced in 1.0.17 and the closed-loop commissioning snapshot introduced in 1.0.16, then produces one deterministic engineering verdict:
+Alpha 1.0.18 closes the loop between **what RSE measures**, **what its topology says is physically connected**, and **whether a controlled system has actually been commissioned successfully**. The `EngineeringAcceptance` layer consumes the immutable topology projection introduced in 1.0.17 and the closed-loop commissioning snapshot introduced in 1.0.16, then produces one deterministic engineering verdict:
 
 ```text
 NOT_READY | PASS | MARGINAL | FAIL
@@ -30,7 +52,7 @@ Acceptance deliberately does not become another simulator or controller. It does
 
 A known Engineering Port `DOMAIN_MISMATCH` or `DIRECTION_MISMATCH` is a structural acceptance failure even when commissioning otherwise passes. By contrast, `OPEN`, `ISOLATED`, and `UNLOADED` remain observations rather than automatic failures, preserving the topology semantics established in 1.0.17. Healthy topology plus unavailable, idle, or still-running commissioning evidence is `NOT_READY`; established commissioning `MARGINAL` and `FAIL` states retain their original severity.
 
-`EngineeringAcceptanceSnapshot` records topology counts, commissioning state and score, a final verdict, immutable issue records, and a deterministic `traceKey()`. Stable issue codes (`TOPOLOGY_MISMATCH`, `COMMISSIONING_NOT_READY`, `COMMISSIONING_MARGINAL`, `COMMISSIONING_FAIL`) make results suitable for regression tests, logs, and future read-only HUD surfaces without granting those surfaces authority over simulation.
+`EngineeringAcceptanceSnapshot` records topology counts, commissioning state and score, a final verdict, immutable issue records, and a deterministic `traceKey()`. Stable issue codes (`TOPOLOGY_MISMATCH`, `COMMISSIONING_NOT_READY`, `COMMISSIONING_MARGINAL`, `COMMISSIONING_FAIL`) make results suitable for regression tests, logs, and read-only HUD surfaces without granting those surfaces authority over simulation.
 
 See [`ALPHA1_0_18_MANIFEST.txt`](ALPHA1_0_18_MANIFEST.txt).
 
@@ -40,90 +62,54 @@ Alpha 1.0.17 makes the Engineering Port architecture legible in normal play with
 
 Every physical face is classified as `CONNECTED`, `OPEN`, `ISOLATED`, `DOMAIN_MISMATCH`, `DIRECTION_MISMATCH`, or `UNLOADED`. The projection records the port domain, semantic kind, input/output direction, neighbor identity, live measurement quality when available, and compact issue counts. It does **not** solve networks, schedule ticks, mutate BlockState, write runtime stores, or drive machine physics.
 
-The server-backed **Jade Engineering HUD** keeps its targeted-face detail and now adds an all-face topology summary. A player can inspect, for example, whether FRONT is a control output, BACK is a sensor input, a side is isolated, or a neighboring interface is wrong-domain/wrong-direction without guessing from block orientation alone.
-
-```text
-Targeted face: value / range / quality
-Topology: connected ports / total ports / issues
-Per face: DOMAIN / DIRECTION → LINK STATUS [QUALITY]
-```
-
-This is deliberately a downstream observer layer: transmission/network ownership remains in the existing RSE topology and simulation code. Vanilla-compatible world-facing redstone remains **0..15**.
+The server-backed **Jade Engineering HUD** keeps its targeted-face detail and adds an all-face topology summary. A player can inspect whether FRONT is a control output, BACK is a sensor input, a side is isolated, or a neighboring interface is wrong-domain/wrong-direction without guessing from block orientation alone.
 
 See [`ALPHA1_0_17_MANIFEST.txt`](ALPHA1_0_17_MANIFEST.txt).
 
 ## Alpha 1.0.16 — Closed-Loop Commissioning & Fault Injection
 
-Alpha 1.0.16 turns the existing PID step-response counters into a stable, read-only commissioning contract and connects existing laboratory disturbance devices to an explicit fault-injection workflow.
+Alpha 1.0.16 turns the existing PID step-response counters into a stable, read-only commissioning contract and connects laboratory disturbance devices to an explicit fault-injection workflow. Commissioning exposes setpoint, process value, control output, error, rise/settling time, overshoot, saturation events, mode state and a bounded score. Baseline-versus-disturbed comparison makes controller tuning testable under controlled non-ideal conditions.
 
-`ClosedLoopCommissioning` consumes the PID runtime only through `RuntimeIntStore.peek()`. It exposes setpoint, process value, control output, error, 90% rise time, settling time, overshoot, saturation events, step age, operating mode, inhibit state, mode-transfer count, a bounded commissioning score and `IDLE/RUNNING/PASS/MARGINAL/FAIL` status. Diagnostics never create, resize or mutate controller state.
-
-Commissioning supports **baseline-versus-disturbed comparison** through `CommissioningComparison`, reporting score loss, settling penalty, overshoot increase and saturation increase. This makes controller tuning testable under controlled non-ideal conditions instead of judging a loop only by whether it eventually reaches the setpoint.
-
-Fault-injection primitives remain physically typed rather than becoming a universal cable feature:
-
-- **Lapis Noise Source → NOISE fault injection** — deterministic position/time-seeded disturbance in the existing `0..100` Lapis precision domain;
-- **Quartz Phase Delay → LATENCY fault injection** — bounded rising-edge delay in the Quartz timing domain;
-- `FaultInjectionModel` also provides bounded bias, dropout and actuator-saturation primitives for repeatable engineering tests.
-
-The world-facing vanilla redstone boundary remains **0..15**. Fault injection changes test conditions; it does not give UI, rendering, GeckoLib, Jade, or diagnostics ownership of simulation state.
+- **Lapis Noise Source → NOISE fault injection** — deterministic bounded disturbance;
+- **Quartz Phase Delay → LATENCY fault injection** — bounded rising-edge delay;
+- bias, dropout and actuator-saturation primitives remain explicit engineering test conditions.
 
 See [`ALPHA1_0_16_MANIFEST.txt`](ALPHA1_0_16_MANIFEST.txt).
 
 ## Alpha 1.0.15 — Metrology Rollout & Calibration
 
-Alpha 1.0.15 promotes the measurement-quality architecture introduced in 1.0.14 from a single-sensor demonstration into shared, multi-domain instrumentation infrastructure.
+Alpha 1.0.15 promotes measurement quality into shared multi-domain infrastructure. `MetrologySupport` centralizes scheduled sampling, snapshots, deterministic bounded sensor conditioning, Engineering Port quality projection, and diagnostic formatting across light, entity density, tank level, servo position, copper circuit and pneumatic flow measurements.
 
-`MetrologySupport` centralizes scheduled sampling, snapshots, deterministic bounded sensor conditioning, Engineering Port quality projection, and diagnostic formatting. The rollout covers:
-
-- **Engineering Light Sensor** — conditioned repeated light measurements;
-- **Entity Density Sensor** — preserves the physical count before clamping so over-range occupancy is explicitly `SATURATED`;
-- **Tank Level Sensor** — migrated to shared support while preserving its public measurement snapshot API;
-- **Servo Position Sensor** — compares sensor feedback with authoritative servo simulation state;
-- **Copper Circuit Meter** — scheduled voltage measurement independent of Jade/HUD polling rate;
-- **Pneumatic Flow Meter** — scheduled `0..100` flow-proxy measurement with explicit over-range detection.
-
-The **Calibration Module** is now a real comparison instrument:
-
-```text
-LEFT  : REFERENCE INPUT  — known reference
-BACK  : OBSERVED INPUT   — instrument under test
-FRONT : CALIBRATED OUTPUT
-```
-
-Its five historical transfer profiles remain available. The module records corrected reading versus reference so signed residual/bias remains distinct from the **measurement uncertainty proxy**. The uncertainty proxy is diagnostic engineering metadata; it is not formal GUM expanded uncertainty and is not interchangeable with measurement error.
-
-Sampling ownership remains server-side and deterministic. UI, Jade, GeckoLib, rendering, and client polling may observe measurements but never define sampling cadence or authoritative physics state.
+The **Calibration Module** compares a known reference against an observed instrument channel while preserving signed residual/bias separately from the measurement uncertainty proxy. Sampling ownership remains server-side and deterministic.
 
 See [`ALPHA1_0_15_MANIFEST.txt`](ALPHA1_0_15_MANIFEST.txt) and [`docs/ALPHA1_0_15_METROLOGY_ROLLOUT.md`](docs/ALPHA1_0_15_METROLOGY_ROLLOUT.md).
 
 ## Alpha 1.0.14 — Metrology & Uncertainty
 
-Alpha 1.0.14 established `MeasurementSnapshot`, `MeasurementQuality`, `MetrologyTracker`, and `MetrologyStore` plus repeatability, bias, drift, noise, resolution, saturation, sample age, and a measurement uncertainty proxy. High-cardinality diagnostic state remains outside BlockState and the Tank Level Sensor provided the first direct integration.
+Alpha 1.0.14 established `MeasurementSnapshot`, `MeasurementQuality`, `MetrologyTracker`, and `MetrologyStore` plus repeatability, bias, drift, noise, resolution, saturation, sample age, and a measurement uncertainty proxy.
 
 ## Alpha 1.0.13 — Copper Topology + Mechatronics Visualization
 
-Alpha 1.0.13 completed explicit copper electrical topology and the first GeckoLib mechatronics visualization layer. Copper devices expose Engineering Port roles while `CircuitPhysics` and `DomainNetwork` remain authoritative. GeckoLib `4.9.2` visualizes Servo Actuator, Pneumatic Cylinder, and Pneumatic Proportional Valve through a one-way dependency:
+Alpha 1.0.13 completed explicit copper electrical topology and the first GeckoLib mechatronics visualization layer. Copper devices expose Engineering Port roles while `CircuitPhysics` and `DomainNetwork` remain authoritative. GeckoLib visualizes Servo Actuator, Pneumatic Cylinder, and Pneumatic Proportional Valve through a one-way dependency:
 
 ```text
 Simulation / Physics State → synchronized visual state → GeckoLib animation
 ```
 
-GeckoLib, renderer FPS, client lifecycle, bones, or animation controllers **never determine physics state**.
-
 ## Historical architecture milestones
 
-These historical contracts remain active regression targets and are intentionally named here because newer milestones build on them rather than replacing them.
+These historical contracts remain active regression targets and newer milestones build on them rather than replacing them.
 
-- **Alpha 1.0.10 — Engineering Port Contract** — introduced `EngineeringPort`, `EngineeringPortSnapshot`, `EngineeringPortProvider`, `PortCompatibility`, `PortQuality`, and the server-backed **Jade Engineering HUD** observer boundary.
-- **Alpha 1.0.11 — Legacy Renovation Wave II + Topology GameTests** — migrated cable terminals, redstone/copper junctions, Lapis transducers and cross-domain converters, and promoted executable NeoForge GameTests into CI.
-- **Alpha 1.0.12 — Directional I/O Renovation** — established explicit FRONT/BACK redstone endpoints and directional sensor/indicator behavior while retaining the 0..15 boundary.
-- **Alpha 1.0.13 — Copper Topology + Mechatronics Visualization** — established axial copper contracts, runtime copper GameTests and the GeckoLib display-only mechatronics boundary.
-- **Alpha 1.0.14 — Metrology & Uncertainty** — established reusable measurement quality and uncertainty-proxy infrastructure.
-- **Alpha 1.0.15 — Metrology Rollout & Calibration** — applies that infrastructure across multiple engineering domains and adds reference-versus-observed calibration.
-- **Alpha 1.0.16 — Closed-Loop Commissioning & Fault Injection** — promotes PID response metrics into a stable commissioning snapshot and adds repeatable typed disturbance testing.
-- **Alpha 1.0.17 — Engineering UX & Topology Visualization** — exposes all-face port/link/quality diagnostics as a read-only projection in the Jade Engineering HUD.
-- **Alpha 1.0.18 — Engineering Acceptance & Traceability** — combines authoritative topology and commissioning evidence into a deterministic read-only engineering verdict with stable trace codes.
+- **Alpha 1.0.10 — Engineering Port Contract** — introduced descriptors, runtime snapshots, compatibility, quality and the server-backed Jade observer boundary.
+- **Alpha 1.0.11 — Legacy Renovation + Topology GameTests** — migrated legacy topology and promoted executable NeoForge GameTests into CI.
+- **Alpha 1.0.12 — Directional I/O Renovation** — established explicit FRONT/BACK redstone endpoints and directional sensor/indicator behavior.
+- **Alpha 1.0.13 — Copper Topology + Mechatronics Visualization** — established axial copper contracts and display-only GeckoLib visualization.
+- **Alpha 1.0.14 — Metrology & Uncertainty** — established reusable measurement-quality infrastructure.
+- **Alpha 1.0.15 — Metrology Rollout & Calibration** — expanded metrology across domains and added reference-versus-observed calibration.
+- **Alpha 1.0.16 — Closed-Loop Commissioning & Fault Injection** — added stable commissioning evidence and typed disturbance testing.
+- **Alpha 1.0.17 — Engineering UX & Topology Visualization** — exposed all-face port/link/quality diagnostics in Jade.
+- **Alpha 1.0.18 — Engineering Acceptance & Traceability** — combined topology and commissioning evidence into deterministic verdicts.
+- **Alpha 1.0.19 — Acceptance UX & Evidence Presentation** — exposes PID acceptance evidence through concise server-backed Jade diagnostics while retaining a deterministic trace.
 
 ## Engineering Port architecture
 
@@ -131,12 +117,10 @@ The **Engineering Port Contract** describes physical side, engineering domain, s
 
 ## Required dependencies
 
-Five mature ecosystem libraries are part of the RSE platform contract:
-
 | Dependency | Pinned development version | Required side | RSE purpose |
 | --- | --- | --- | --- |
 | JEI | `19.27.0.336` | Client | recipe/use browsing and engineering progression |
-| Jade | `15.10.6` | Client + Server | engineering HUD and server-backed port diagnostics |
+| Jade | `15.10.6` | Client + Server | engineering HUD and server-backed diagnostics |
 | GeckoLib | `4.9.2` | Client + Server | articulated machine visualization |
 | Cloth Config | `15.0.140` | Client | configuration and tuning UI |
 | Fusion | `1.3.14` (`1.3.14-neoforge-mc1.21.1`) | Client | connected textures, advanced models, topology-aware visuals |
@@ -179,7 +163,7 @@ Recipes follow engineering dependency rather than raw rarity alone:
 3. **Control & Mechatronics** — PID, PWM, servo, pneumatic control;
 4. **System Safety & Reliability** — watchdog, voter, fault latch, relief protection;
 5. **Operations & Integrated Systems** — communications, multi-sensor networks, production monitoring;
-6. **Commissioning & Acceptance** — inspect topology, inject bounded faults, compare responses, and record an engineering verdict.
+6. **Commissioning & Acceptance** — inspect topology, inject bounded faults, compare responses, record a verdict, and inspect its evidence.
 
 See [`docs/CRAFTING_PROGRESSION.md`](docs/CRAFTING_PROGRESSION.md).
 
@@ -201,6 +185,7 @@ See [`docs/CRAFTING_PROGRESSION.md`](docs/CRAFTING_PROGRESSION.md).
 14. Commission control loops against baseline and disturbed conditions before optimization.
 15. Visualize authoritative ports/topology; never duplicate the topology solver in UI code.
 16. Accept systems from authoritative evidence; never let an acceptance report become a second controller or simulator.
+17. Present engineering evidence progressively: concise by default, structured and traceable underneath.
 
 ## Reference calculations
 
@@ -214,13 +199,14 @@ PID: e = setpoint - process
 Commissioning score = bounded penalty model(error, settling, overshoot, saturation)
 Topology face = EngineeringPort descriptor + live snapshot + PortCompatibility(local, neighbor)
 Acceptance verdict = topology evidence + established commissioning status (read-only)
+Acceptance HUD = concise projection(acceptance snapshot), never a second evaluator
 ```
 
 ## Verification architecture
 
-CI runs verifier syntax, repository/source/resource audits, deterministic reference models, historical Alpha regressions, dependency checks, Engineering Port/Jade gates, legacy-renovation checks, directional-I/O guards, copper topology guards, **Alpha 1.0.14 metrology**, **Alpha 1.0.15 multi-domain rollout/calibration**, **Alpha 1.0.16 closed-loop commissioning/fault injection**, **Alpha 1.0.17 engineering UX/topology visualization**, **Alpha 1.0.18 engineering acceptance/traceability**, Java 21 compilation, Gradle tests, **NeoForge Minecraft GameTests**, a clean build, SHA-256 generation and verified artifact upload.
+CI runs verifier syntax, repository/source/resource audits, deterministic reference models, historical Alpha regressions, dependency checks, Engineering Port/Jade gates, legacy-renovation checks, directional-I/O guards, copper topology guards, **Alpha 1.0.14 metrology**, **Alpha 1.0.15 rollout/calibration**, **Alpha 1.0.16 commissioning/fault injection**, **Alpha 1.0.17 topology UX**, **Alpha 1.0.18 acceptance/traceability**, **Alpha 1.0.19 acceptance UX/evidence presentation**, Java 21 compilation, Gradle tests, **NeoForge Minecraft GameTests**, a clean build, SHA-256 generation and verified artifact upload.
 
-Interactive visual/UX behavior remains a separate `runClient` gate. Automated gates protect simulation-to-render ownership, metrology math, physical topology, directional I/O, copper runtime propagation, calibration semantics, commissioning read-only ownership, fault bounds, all-face topology projection, acceptance evidence ownership and sampling ownership.
+Interactive visual behavior remains a separate `runClient` gate. Automated gates protect simulation-to-render ownership, metrology math, physical topology, directional I/O, copper runtime propagation, calibration semantics, commissioning ownership, fault bounds, topology projection, acceptance evidence ownership, HUD read-only ownership and sampling ownership.
 
 ## Build and test
 
@@ -237,6 +223,7 @@ Build output is under `build/libs/`.
 ## Documentation
 
 - [`CHANGELOG.md`](CHANGELOG.md)
+- [`ALPHA1_0_19_MANIFEST.txt`](ALPHA1_0_19_MANIFEST.txt)
 - [`ALPHA1_0_18_MANIFEST.txt`](ALPHA1_0_18_MANIFEST.txt)
 - [`ALPHA1_0_17_MANIFEST.txt`](ALPHA1_0_17_MANIFEST.txt)
 - [`ALPHA1_0_16_MANIFEST.txt`](ALPHA1_0_16_MANIFEST.txt)
