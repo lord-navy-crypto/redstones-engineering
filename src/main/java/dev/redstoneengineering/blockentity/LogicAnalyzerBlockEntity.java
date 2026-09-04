@@ -11,6 +11,7 @@ import net.minecraft.world.level.block.state.BlockState;
 public class LogicAnalyzerBlockEntity extends BlockEntity {
     private static final int CHANNELS = 4;
     private static final int CAPACITY = 32;
+    public static final int DISPLAY_SAMPLES = 16;
     public static final int SAMPLE_PERIOD_TICKS = 1;
 
     private final int[] masks = new int[CAPACITY];
@@ -112,13 +113,50 @@ public class LogicAnalyzerBlockEntity extends BlockEntity {
     }
 
     public void moveCursorA() {
-        cursorA = (cursorA + 1) % 16;
+        cursorA = (cursorA + 1) % DISPLAY_SAMPLES;
         setChanged();
     }
 
     public void moveCursorB() {
-        cursorB = (cursorB + 1) % 16;
+        cursorB = (cursorB + 1) % DISPLAY_SAMPLES;
         setChanged();
+    }
+
+    public int triggerChannel() {
+        return triggerChannel;
+    }
+
+    public int triggerEdge() {
+        return triggerEdge;
+    }
+
+    public boolean armed() {
+        return armed;
+    }
+
+    public boolean triggered() {
+        return triggered;
+    }
+
+    public int cursorA() {
+        return cursorA;
+    }
+
+    public int cursorB() {
+        return cursorB;
+    }
+
+    /** Returns -1 for invalid/missing, 0 for LOW and 1 for HIGH in a 16-sample display window. */
+    public int displayState(int channel, int slot) {
+        if (!validChannel(channel) || slot < 0 || slot >= DISPLAY_SAMPLES) return -1;
+        int available = Math.min(DISPLAY_SAMPLES, count);
+        int padding = DISPLAY_SAMPLES - available;
+        if (slot < padding) return -1;
+        int chronological = count - available + (slot - padding);
+        int source = (index - count + chronological + CAPACITY) % CAPACITY;
+        int bit = 1 << channel;
+        if ((validMasks[source] & bit) == 0) return -1;
+        return (masks[source] & bit) != 0 ? 1 : 0;
     }
 
     public int cursorDeltaSamples() {
@@ -199,7 +237,7 @@ public class LogicAnalyzerBlockEntity extends BlockEntity {
         if (!validChannel(channel)) return "?";
         if (count == 0) return "∅";
         StringBuilder builder = new StringBuilder();
-        int start = Math.max(0, count - 16);
+        int start = Math.max(0, count - DISPLAY_SAMPLES);
         int bit = 1 << channel;
         for (int i = start; i < count; i++) {
             int source = (index - count + i + CAPACITY) % CAPACITY;
@@ -221,8 +259,8 @@ public class LogicAnalyzerBlockEntity extends BlockEntity {
         lastValidMask = tag.getInt("lastValidMask");
         triggerChannel = Math.max(0, Math.min(CHANNELS - 1, tag.getInt("triggerChannel")));
         triggerEdge = Math.max(1, Math.min(2, tag.getInt("triggerEdge")));
-        cursorA = Math.max(0, Math.min(15, tag.getInt("cursorA")));
-        cursorB = Math.max(0, Math.min(15, tag.getInt("cursorB")));
+        cursorA = Math.max(0, Math.min(DISPLAY_SAMPLES - 1, tag.getInt("cursorA")));
+        cursorB = Math.max(0, Math.min(DISPLAY_SAMPLES - 1, tag.getInt("cursorB")));
         armed = tag.getBoolean("armed");
         triggered = tag.getBoolean("triggered");
         postTriggerSamples = Math.max(0, Math.min(CAPACITY, tag.getInt("postTriggerSamples")));
