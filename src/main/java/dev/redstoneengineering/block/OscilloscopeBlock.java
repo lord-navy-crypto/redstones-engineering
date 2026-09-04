@@ -4,12 +4,15 @@ import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.blockentity.OscilloscopeBlockEntity;
 import dev.redstoneengineering.instrument.InstrumentNetwork;
+import dev.redstoneengineering.ui.menu.OscilloscopeMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
@@ -49,12 +52,7 @@ public class OscilloscopeBlock extends Block implements EntityBlock {
     }
 
     @Override
-    public boolean canConnectRedstone(
-            BlockState state,
-            BlockGetter level,
-            BlockPos pos,
-            @Nullable Direction direction
-    ) {
+    public boolean canConnectRedstone(BlockState state, BlockGetter level, BlockPos pos, @Nullable Direction direction) {
         return false;
     }
 
@@ -64,13 +62,7 @@ public class OscilloscopeBlock extends Block implements EntityBlock {
     }
 
     @Override
-    protected void onPlace(
-            BlockState state,
-            Level level,
-            BlockPos pos,
-            BlockState oldState,
-            boolean movedByPiston
-    ) {
+    protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         if (!level.isClientSide && !state.is(oldState.getBlock())) {
             level.scheduleTick(pos, this, OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS);
         }
@@ -79,14 +71,26 @@ public class OscilloscopeBlock extends Block implements EntityBlock {
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         InstrumentNetwork.ProbeSnapshot snapshot = InstrumentNetwork.scan(level, pos);
-        int a = snapshot.valid(0) ? snapshot.values()[0] : -1;
-        int b = snapshot.valid(1) ? snapshot.values()[1] : -1;
-
         if (level.getBlockEntity(pos) instanceof OscilloscopeBlockEntity scope) {
-            scope.addSample(a, b);
+            scope.addSample(snapshot.valueOr(0, -1), snapshot.valueOr(1, -1));
         }
-
         level.scheduleTick(pos, this, OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS);
+    }
+
+    /** Bounded server-side intent used by the Engineering UI and its GameTests. */
+    public static boolean applyUiAction(Level level, BlockPos pos, int action) {
+        if (level.isClientSide || !(level.getBlockEntity(pos) instanceof OscilloscopeBlockEntity scope)) return false;
+        switch (action) {
+            case OscilloscopeMenu.BUTTON_ARM -> scope.arm();
+            case OscilloscopeMenu.BUTTON_TRIGGER_MODE -> scope.cycleTriggerMode();
+            case OscilloscopeMenu.BUTTON_TRIGGER_CHANNEL -> scope.cycleTriggerChannel();
+            case OscilloscopeMenu.BUTTON_TRIGGER_LEVEL -> scope.cycleTriggerLevel();
+            case OscilloscopeMenu.BUTTON_CURSOR_A -> scope.moveCursorA();
+            case OscilloscopeMenu.BUTTON_CURSOR_B -> scope.moveCursorB();
+            case OscilloscopeMenu.BUTTON_CLEAR -> scope.clear();
+            default -> { return false; }
+        }
+        return true;
     }
 
     @Override
@@ -97,89 +101,22 @@ public class OscilloscopeBlock extends Block implements EntityBlock {
             Player player,
             BlockHitResult hitResult
     ) {
-        if (!level.isClientSide
-                && level.getBlockEntity(pos) instanceof OscilloscopeBlockEntity scope) {
-
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
-                scope.arm();
-                player.displayClientMessage(
-                        Component.literal("Oscilloscope | trigger armed | " + scope.triggerStatus()),
-                        true
-                );
-            } else if (hitResult.getDirection() == Direction.UP) {
-                scope.cycleTriggerMode();
-                player.displayClientMessage(
-                        Component.literal("Oscilloscope | trigger mode → " + scope.triggerStatus()),
-                        true
-                );
-            } else if (hitResult.getDirection() == state.getValue(FACING).getClockWise()) {
-                scope.cycleTriggerLevel();
-                player.displayClientMessage(
-                        Component.literal("Oscilloscope | trigger level → " + scope.triggerStatus()),
-                        true
-                );
-            } else if (hitResult.getDirection() == state.getValue(FACING).getCounterClockWise()) {
-                scope.cycleTriggerChannel();
-                player.displayClientMessage(
-                        Component.literal("Oscilloscope | trigger source → " + scope.triggerStatus()),
-                        true
-                );
-            } else if (hitResult.getDirection() == Direction.DOWN) {
-                scope.moveCursorA();
-                player.displayClientMessage(
-                        Component.literal(
-                                "Oscilloscope | cursor A moved | Δ="
-                                        + scope.cursorDeltaSamples() + " samples / "
-                                        + scope.cursorDeltaTicks() + " ticks"
-                        ),
-                        true
-                );
-            } else if (hitResult.getDirection() == state.getValue(FACING)) {
-                scope.moveCursorB();
-                player.displayClientMessage(
-                        Component.literal(
-                                "Oscilloscope | cursor B moved | Δ="
-                                        + scope.cursorDeltaSamples() + " samples / "
-                                        + scope.cursorDeltaTicks() + " ticks"
-                        ),
-                        true
-                );
+                if (level.getBlockEntity(pos) instanceof OscilloscopeBlockEntity scope) {
+                    scope.arm();
+                    player.displayClientMessage(Component.literal("Oscilloscope | trigger armed | " + scope.triggerStatus()), true);
+                }
             } else {
-                InstrumentNetwork.ProbeSnapshot snapshot = InstrumentNetwork.scan(level, pos);
-                player.displayClientMessage(Component.literal(
-                        "Scope | " + scope.triggerStatus()
-                                + " | samplePeriod=" + OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS + "t"
-                                + " capture=" + scope.sampleCount() + "/32"
-                                + " | " + snapshot.networkStatus()
-                                + channelStatus(scope, snapshot, 0, "A")
-                                + channelStatus(scope, snapshot, 1, "B")
-                                + " | cursors Δ=" + scope.cursorDeltaSamples()
-                                + " samples/" + scope.cursorDeltaTicks() + "t"
-                ), true);
+                serverPlayer.openMenu(
+                        new SimpleMenuProvider(
+                                (containerId, inventory, ignored) -> new OscilloscopeMenu(containerId, inventory, pos),
+                                Component.translatable("block.redstoneengineering.oscilloscope")
+                        ),
+                        data -> data.writeBlockPos(pos)
+                );
             }
         }
-
         return InteractionResult.sidedSuccess(level.isClientSide);
-    }
-
-    private static String channelStatus(
-            OscilloscopeBlockEntity scope,
-            InstrumentNetwork.ProbeSnapshot snapshot,
-            int channel,
-            String name
-    ) {
-        return " | " + name + "=" + snapshot.status(channel)
-                + " [" + scope.waveform(channel) + "]"
-                + " coverage=" + scope.coveragePercent(channel) + "%/" + scope.captureQuality(channel)
-                + " min/max/p2p=" + scope.minimum(channel) + "/" + scope.maximum(channel) + "/" + scope.peakToPeak(channel)
-                + " avg=" + decimal100(scope.average100(channel))
-                + " meanStep=" + decimal100(scope.meanStep100(channel))
-                + " period≈" + scope.estimatedPeriodSamples(channel) + " samples/"
-                + scope.estimatedPeriodTicks(channel) + "t";
-    }
-
-    private static String decimal100(int value100) {
-        if (value100 < 0) return "N/A";
-        return (value100 / 100) + "." + String.format("%02d", value100 % 100);
     }
 }
