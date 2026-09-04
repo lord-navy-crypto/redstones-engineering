@@ -3,9 +3,11 @@ package dev.redstoneengineering.block;
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.core.signal.SignalMath;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -40,12 +42,8 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock {
         int input = readBackInput(level, pos, state);
         int current = state.getValue(OUTPUT);
         int nextValue = SignalMath.approach(current, input, state.getValue(RATE));
-
         updateOutput(level, pos, state, nextValue);
-
-        if (nextValue != input) {
-            level.scheduleTick(pos, this, 1);
-        }
+        if (nextValue != input) level.scheduleTick(pos, this, 1);
     }
 
     @Override
@@ -56,20 +54,23 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock {
             Player player,
             BlockHitResult hitResult
     ) {
-        if (!level.isClientSide) {
-            int rate = state.getValue(RATE);
-            rate = rate >= 4 ? 1 : rate + 1;
-            BlockState next = state.setValue(RATE, rate);
-            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            level.scheduleTick(pos, this, 1);
-
-            player.displayClientMessage(
-                    Component.literal(
-                            "Precision Filter | slew=" + rate
-                                    + " signal-step/tick | current=" + next.getValue(OUTPUT)
-                    ),
-                    true
-            );
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown()) {
+                int rate = state.getValue(RATE);
+                rate = rate >= 4 ? 1 : rate + 1;
+                BlockState next = state.setValue(RATE, rate);
+                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+                level.scheduleTick(pos, this, 1);
+                player.displayClientMessage(
+                        Component.literal(
+                                "Precision Filter | slew=" + rate
+                                        + " signal-step/tick | current=" + next.getValue(OUTPUT)
+                        ),
+                        true
+                );
+            } else {
+                FieldDeviceUi.open(serverPlayer, pos);
+            }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
