@@ -30,6 +30,9 @@ public final class EngineeringUiClientRegistration {
     private static void registerScreens(RegisterMenuScreensEvent event) {
         event.register(EngineeringUiRegistration.SIGNAL_CONDITIONER.get(), SignalConditionerScreen::new);
         event.register(EngineeringUiRegistration.PID_CONTROLLER.get(), PidControllerScreen::new);
+        event.register(EngineeringUiRegistration.OSCILLOSCOPE.get(), OscilloscopeScreen::new);
+        event.register(EngineeringUiRegistration.LOGIC_ANALYZER.get(), LogicAnalyzerScreen::new);
+        event.register(EngineeringUiRegistration.SIGNAL_ANALYZER.get(), SignalAnalyzerScreen::new);
     }
 
     private static void addInventoryDiagnosticsButton(ScreenEvent.Init.Post event) {
