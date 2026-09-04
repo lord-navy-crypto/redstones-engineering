@@ -118,10 +118,10 @@ def main() -> int:
         errors.append(f"{MECH_MODEL.relative_to(ROOT)}: GeckoLib texture dispatcher is missing")
     else:
         java = MECH_MODEL.read_text(encoding="utf-8")
-        if "minecraft\", \"textures/block/iron_block.png" in java or "minecraft:textures/block/iron_block.png" in java:
+        if "textures/block/iron_block.png" in java:
             errors.append(f"{MECH_MODEL.relative_to(ROOT)}: vanilla iron-block GeckoLib placeholder remains")
         for machine in MACHINES:
-            expected = f'textures/block/{machine}.png'
+            expected = f"textures/block/{machine}.png"
             if expected not in java:
                 errors.append(f"{MECH_MODEL.relative_to(ROOT)}: missing semantic GeckoLib texture {expected!r}")
 
