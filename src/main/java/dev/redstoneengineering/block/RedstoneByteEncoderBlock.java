@@ -9,6 +9,7 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.DataBusDriver;
 import dev.redstoneengineering.physics.DataBusNetwork;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.ui.FieldDeviceUi;
@@ -27,7 +28,7 @@ import java.util.List;
 import java.util.Optional;
 
 /** Explicit scalar-to-byte bridge. Vanilla redstone strength is never silently treated as binary. */
-public class RedstoneByteEncoderBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
+public class RedstoneByteEncoderBlock extends DirectionalDomainBlock implements EngineeringPortProvider, DataBusDriver {
     public RedstoneByteEncoderBlock(Properties properties) {
         super(properties);
     }
