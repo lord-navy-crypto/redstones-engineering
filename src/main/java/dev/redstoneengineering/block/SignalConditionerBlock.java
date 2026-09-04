@@ -3,11 +3,14 @@ package dev.redstoneengineering.block;
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.core.signal.SignalMath;
+import dev.redstoneengineering.ui.menu.SignalConditionerMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -95,6 +98,47 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
         };
     }
 
+    public static int inspectInput(Level level, BlockPos pos, BlockState state) {
+        if (!(state.getBlock() instanceof SignalConditionerBlock conditioner)) return 0;
+        return conditioner.readBackInput(level, pos, state);
+    }
+
+    /**
+     * Applies a bounded configuration action on the logical server.
+     * IDs intentionally match SignalConditionerMenu's four buttons.
+     */
+    public static boolean applyConfigurationAction(Level level, BlockPos pos, int action) {
+        if (level.isClientSide) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof SignalConditionerBlock conditioner)) return false;
+
+        int mode = state.getValue(MODE);
+        int param = state.getValue(PARAM);
+        BlockState next;
+
+        switch (action) {
+            case SignalConditionerMenu.BUTTON_MODE_PREVIOUS -> {
+                int nextMode = (mode + 4) % 5;
+                next = state.setValue(MODE, nextMode).setValue(PARAM, defaultParam(nextMode));
+            }
+            case SignalConditionerMenu.BUTTON_MODE_NEXT -> {
+                int nextMode = (mode + 1) % 5;
+                next = state.setValue(MODE, nextMode).setValue(PARAM, defaultParam(nextMode));
+            }
+            case SignalConditionerMenu.BUTTON_PARAM_DECREASE ->
+                    next = state.setValue(PARAM, cycleParam(mode, param, -1));
+            case SignalConditionerMenu.BUTTON_PARAM_INCREASE ->
+                    next = state.setValue(PARAM, cycleParam(mode, param, 1));
+            default -> {
+                return false;
+            }
+        }
+
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        level.scheduleTick(pos, conditioner, 1);
+        return true;
+    }
+
     @Override
     protected InteractionResult useWithoutItem(
             BlockState state,
@@ -103,50 +147,36 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
             Player player,
             BlockHitResult hitResult
     ) {
-        if (!level.isClientSide) {
-            BlockState next;
-
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
-                next = state.setValue(
-                        PARAM,
-                        nextParam(
-                                state.getValue(MODE),
-                                state.getValue(PARAM)
-                        )
+                applyConfigurationAction(level, pos, SignalConditionerMenu.BUTTON_PARAM_INCREASE);
+                BlockState next = level.getBlockState(pos);
+                int input = inspectInput(level, pos, next);
+                int output = calculate(
+                        input,
+                        next.getValue(OUTPUT),
+                        next.getValue(MODE),
+                        next.getValue(PARAM)
+                );
+                player.displayClientMessage(
+                        Component.literal(
+                                "Conditioner quick-adjust | " + modeName(next.getValue(MODE))
+                                        + " " + parameterText(next.getValue(MODE), next.getValue(PARAM))
+                                        + " | IN=" + input + " OUT≈" + output
+                                        + " | normal right-click opens Engineering UI"
+                        ),
+                        true
                 );
             } else {
-                int mode = (state.getValue(MODE) + 1) % 5;
-
-                next = state
-                        .setValue(MODE, mode)
-                        .setValue(PARAM, defaultParam(mode));
+                serverPlayer.openMenu(
+                        new SimpleMenuProvider(
+                                (containerId, inventory, ignored) ->
+                                        new SignalConditionerMenu(containerId, inventory, pos),
+                                Component.translatable("block.redstoneengineering.signal_conditioner")
+                        ),
+                        data -> data.writeBlockPos(pos)
+                );
             }
-
-            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            level.scheduleTick(pos, this, 1);
-
-            int input = readBackInput(level, pos, next);
-            int output = calculate(
-                    input,
-                    next.getValue(OUTPUT),
-                    next.getValue(MODE),
-                    next.getValue(PARAM)
-            );
-
-            player.displayClientMessage(
-                    Component.literal(
-                            "Conditioner | IN=" + input
-                                    + " | " + modeName(next.getValue(MODE))
-                                    + " " + parameterText(
-                                            next.getValue(MODE),
-                                            next.getValue(PARAM)
-                                    )
-                                    + " | OUT≈" + output
-                                    + " | IN=" + inputSide(next).getName()
-                                    + " OUT=" + outputSide(next).getName()
-                    ),
-                    true
-            );
         }
 
         return InteractionResult.sidedSuccess(level.isClientSide);
@@ -163,14 +193,21 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
         };
     }
 
-    private static int nextParam(int mode, int param) {
-        return switch (mode) {
-            case 0 -> param >= 4 ? 1 : Math.max(1, param + 1);
-            case 1 -> param >= 10 ? 0 : param + 1;
-            case 2, 3 -> param >= 15 ? 1 : Math.max(1, param + 1);
-            case 4 -> param >= 4 ? 1 : Math.max(1, param + 1);
-            default -> param;
+    private static int cycleParam(int mode, int param, int delta) {
+        int min = switch (mode) {
+            case 1 -> 0;
+            default -> 1;
         };
+        int max = switch (mode) {
+            case 0, 4 -> 4;
+            case 1 -> 10;
+            case 2, 3 -> 15;
+            default -> 15;
+        };
+        int next = param + Integer.signum(delta);
+        if (next > max) return min;
+        if (next < min) return max;
+        return next;
     }
 
     private static String modeName(int mode) {
