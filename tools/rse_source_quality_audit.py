@@ -4,7 +4,8 @@
 This catches structural mistakes that feature-specific verifiers can miss:
 package/path mismatches, malformed or empty resources, local model references that
 point nowhere, duplicate case-insensitive resource names, trailing whitespace,
-high-cardinality BlockState ranges, and deprecated event registration APIs.
+high-cardinality BlockState ranges, deprecated event registration APIs, and
+Gradle DSL forms that are already scheduled for removal.
 """
 
 from __future__ import annotations
@@ -116,7 +117,7 @@ if blockstates_dir.exists():
             errors.append(f"block has model/blockstate but no item model: {stem}")
 
 
-# 5) Repository root hygiene.
+# 5) Repository root and build-script hygiene.
 for path in root.iterdir():
     if not path.is_file():
         continue
@@ -126,6 +127,14 @@ for path in root.iterdir():
         errors.append(f"copy-like root artifact: {path.name}")
     if re.search(r"\s+\d+(?:\.|$)", path.name):
         errors.append(f"duplicate-looking numbered root artifact: {path.name}")
+
+build_gradle = root / "build.gradle"
+if build_gradle.exists():
+    gradle_body = build_gradle.read_text(errors="ignore")
+    # Gradle 8 warns that Groovy space-assignment syntax such as `url "..."`
+    # is deprecated and will be removed in Gradle 10. Require property assignment.
+    if re.search(r"(?m)^\s*url\s+['\"]", gradle_body):
+        errors.append("deprecated Gradle Groovy space assignment for Maven repository url")
 
 
 if errors:
@@ -143,3 +152,4 @@ print("  JSON parse + case-collision checks: PASS")
 print("  local model reference integrity: PASS")
 print("  block/item model pairing: PASS")
 print("  BlockState cardinality + root hygiene: PASS")
+print("  Gradle DSL assignment hygiene: PASS")
