@@ -7,9 +7,11 @@ import dev.redstoneengineering.core.port.EngineeringPort;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.BlockGetter;
@@ -22,24 +24,13 @@ import java.util.List;
 
 /** Six-direction measurement bus carrying probe channels rather than redstone power. */
 public class InstrumentCableBlock extends ConnectedCableBlock implements EngineeringPortProvider {
-    public InstrumentCableBlock(Properties properties) {
-        super(properties);
-    }
+    public InstrumentCableBlock(Properties properties) { super(properties); }
 
-    @Override
-    public MapCodec<? extends InstrumentCableBlock> codec() {
-        return RedstoneEngineering.INSTRUMENT_CABLE_CODEC.value();
-    }
-
-    @Override
-    protected boolean canConnectTo(BlockGetter level, BlockPos self, Direction direction, BlockState neighbor) {
+    @Override public MapCodec<? extends InstrumentCableBlock> codec() { return RedstoneEngineering.INSTRUMENT_CABLE_CODEC.value(); }
+    @Override protected boolean canConnectTo(BlockGetter level, BlockPos self, Direction direction, BlockState neighbor) {
         return TransmissionTopology.instrumentPort(neighbor, direction);
     }
-
-    @Override
-    protected int maxConnections() {
-        return 6;
-    }
+    @Override protected int maxConnections() { return 6; }
 
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
@@ -47,14 +38,8 @@ public class InstrumentCableBlock extends ConnectedCableBlock implements Enginee
         for (Direction side : Direction.values()) {
             if (connected(state, side)) {
                 ports.add(new EngineeringPort(
-                        "INSTRUMENT_BUS",
-                        side,
-                        EngineeringDomain.INSTRUMENT_BUS,
-                        PortKind.BUS,
-                        PortDirection.BIDIRECTIONAL,
-                        false,
-                        "channel"
-                ));
+                        "INSTRUMENT_BUS", side, EngineeringDomain.INSTRUMENT_BUS,
+                        PortKind.BUS, PortDirection.BIDIRECTIONAL, false, "channel"));
             }
         }
         return List.copyOf(ports);
@@ -62,13 +47,17 @@ public class InstrumentCableBlock extends ConnectedCableBlock implements Enginee
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (!level.isClientSide) {
-            String type = this instanceof ShieldedInstrumentCableBlock ? "Shielded Instrument Bus" : "Instrument Bus Cable";
-            player.displayClientMessage(Component.literal(
-                    type + " | " + PortDiagnostics.connectedCable(level, pos, state, PortDiagnostics.Domain.INSTRUMENT)
-                            + " | engineeringPorts=" + engineeringPorts(state).size()
-                            + " | ports=" + connectionCount(state)
-            ), true);
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown()) {
+                String type = this instanceof ShieldedInstrumentCableBlock ? "Shielded Instrument Bus" : "Instrument Bus Cable";
+                player.displayClientMessage(Component.literal(
+                        type + " | " + PortDiagnostics.connectedCable(level, pos, state, PortDiagnostics.Domain.INSTRUMENT)
+                                + " | engineeringPorts=" + engineeringPorts(state).size()
+                                + " | ports=" + connectionCount(state)
+                ), true);
+            } else {
+                FieldDeviceUi.open(serverPlayer, pos);
+            }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
