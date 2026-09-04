@@ -5,6 +5,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayDeque;
 import java.util.HashSet;
@@ -80,12 +81,14 @@ public final class DataBusNetwork {
         Set<BlockPos> drivers = new HashSet<>();
 
         // Runtime payload alone is never proof of a live driver. The adjacent block
-        // must still implement the explicit DataBusDriver contract, preventing stale
-        // `bus8_out` state or unrelated blocks from becoming ghost drivers.
+        // must implement DataBusDriver and its declared physical output must actually
+        // terminate on this bus node. This rejects stale data and wrong-face adjacency.
         for (BlockPos pos : nodes) {
             for (Direction direction : Direction.values()) {
                 BlockPos neighbor = pos.relative(direction);
-                if (level.getBlockState(neighbor).getBlock() instanceof DataBusDriver
+                BlockState neighborState = level.getBlockState(neighbor);
+                if (neighborState.getBlock() instanceof DataBusDriver driver
+                        && driver.drivesDataBusAt(neighbor, neighborState, pos)
                         && InformationRuntime.valid(level, "bus8_out", neighbor)) {
                     drivers.add(neighbor.immutable());
                     values.add(InformationRuntime.value(level, "bus8_out", neighbor) & 0xFF);
