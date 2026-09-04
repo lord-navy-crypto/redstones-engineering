@@ -5,6 +5,7 @@ import dev.redstoneengineering.diagnostics.CommissioningSnapshot;
 import dev.redstoneengineering.diagnostics.CommissioningStatus;
 import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceComparison;
 import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceRecord;
+import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceStore;
 import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceTimeline;
 import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceTrend;
 import dev.redstoneengineering.diagnostics.acceptance.EngineeringAcceptance;
@@ -12,9 +13,11 @@ import dev.redstoneengineering.diagnostics.acceptance.EngineeringAcceptancePrese
 import dev.redstoneengineering.diagnostics.acceptance.EngineeringAcceptanceSnapshot;
 import dev.redstoneengineering.diagnostics.acceptance.EngineeringAcceptanceStatus;
 import dev.redstoneengineering.diagnostics.topology.TopologyVisualizationSnapshot;
+import dev.redstoneengineering.physics.RuntimeIntStore;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.level.block.Blocks;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.List;
@@ -101,6 +104,37 @@ public final class RseAcceptanceGameTests {
                 || comparison.scoreDelta() != 22
                 || !immutable) {
             helper.fail("Captured acceptance history must remain bounded, immutable to callers, and comparable", MARKER);
+            return;
+        }
+        helper.succeed();
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE)
+    public static void removingPidClearsTransientRuntimeAndEvidence(GameTestHelper helper) {
+        BlockPos absolute = helper.absolutePos(MARKER);
+        helper.setBlock(MARKER, RedstoneEngineering.PID_CONTROLLER.get().defaultBlockState());
+
+        int[] runtime = RuntimeIntStore.get(helper.getLevel(), "pid", absolute, 22);
+        runtime[0] = 73;
+        TopologyVisualizationSnapshot healthy = new TopologyVisualizationSnapshot(List.of(), 6, 6, 0);
+        AcceptanceEvidenceStore.capture(
+                helper.getLevel(), absolute, helper.getLevel().getGameTime(), 2,
+                EngineeringAcceptance.evaluate(healthy, commissioning(94, CommissioningStatus.PASS)));
+
+        if (RuntimeIntStore.peek(helper.getLevel(), "pid", absolute) == null
+                || AcceptanceEvidenceStore.history(helper.getLevel(), absolute).isEmpty()) {
+            helper.fail("GameTest failed to seed PID transient runtime/evidence before removal", MARKER);
+            return;
+        }
+
+        helper.setBlock(MARKER, Blocks.AIR.defaultBlockState());
+        if (RuntimeIntStore.peek(helper.getLevel(), "pid", absolute) != null) {
+            helper.fail("Removed PID left stale controller runtime at its former position", MARKER);
+            return;
+        }
+        if (!AcceptanceEvidenceStore.history(helper.getLevel(), absolute).isEmpty()) {
+            helper.fail("Removed PID left stale acceptance history for a future controller at the same position", MARKER);
             return;
         }
         helper.succeed();

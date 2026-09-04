@@ -205,6 +205,15 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
     }
 
     @Override
+    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
+        if (state.getBlock() != newState.getBlock()) {
+            RuntimeIntStore.remove(level, KEY, pos);
+            AcceptanceEvidenceStore.clear(level, pos);
+        }
+        super.onRemove(state, level, pos, newState, movedByPiston);
+    }
+
+    @Override
     protected void tick(BlockState s, ServerLevel l, BlockPos p, RandomSource r) {
         updateOutput(l, p, s, outputValue(l, p, s));
         l.scheduleTick(p, this, 2);

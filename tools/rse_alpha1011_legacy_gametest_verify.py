@@ -54,7 +54,12 @@ require("src/main/java/dev/redstoneengineering/block/LapisToRedstoneQuantizerBlo
 
 registration = "src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java"
 tests = "src/main/java/dev/redstoneengineering/gametest/RseTopologyGameTests.java"
-require(registration, "RegisterGameTestsEvent", "event.register(RseTopologyGameTests.class)", "Bus.MOD")
+require(registration,
+        "@EventBusSubscriber", "modid = RedstoneEngineering.MOD_ID",
+        "RegisterGameTestsEvent", "event.register(RseTopologyGameTests.class)")
+registration_body = text(registration)
+if "bus = Bus.MOD" in registration_body or "bus = EventBusSubscriber.Bus.MOD" in registration_body:
+    failed.append("GameTest registration uses deprecated explicit EventBusSubscriber bus selector")
 require(tests,
         "@GameTest", "PrefixGameTestTemplate(false)", "empty5x4x5",
         "redstoneCableConnectsToRedstoneJunction",
@@ -97,4 +102,5 @@ print(" terminal/junction/transducer/converter migration: PASS")
 print(" domain-specific converter ports: PASS")
 print(" singular Minecraft structure resource path: PASS")
 print(" executable topology GameTest registration: PASS")
+print(" modern event-bus registration contract: PASS")
 print(" CI runGameTestServer gate: PASS")
