@@ -10,13 +10,31 @@
 
 | Item | Current RSE baseline |
 | --- | --- |
-| Development milestone | **Alpha 1.0.15 — Metrology Rollout & Calibration** |
-| Artifact version | `1.0.15-alpha` |
+| Development milestone | **Alpha 1.0.16 — Closed-Loop Commissioning & Fault Injection** |
+| Artifact version | `1.0.16-alpha` |
 | Minecraft | `1.21.1` |
 | NeoForge | `21.1.249` |
 | Java | `21` |
 | Mod ID | `redstoneengineering` |
 | License | **MIT** |
+
+## Alpha 1.0.16 — Closed-Loop Commissioning & Fault Injection
+
+Alpha 1.0.16 turns the existing PID step-response counters into a stable, read-only commissioning contract and connects existing laboratory disturbance devices to an explicit fault-injection workflow.
+
+`ClosedLoopCommissioning` consumes the PID runtime only through `RuntimeIntStore.peek()`. It exposes setpoint, process value, control output, error, 90% rise time, settling time, overshoot, saturation events, step age, operating mode, inhibit state, mode-transfer count, a bounded commissioning score and `IDLE/RUNNING/PASS/MARGINAL/FAIL` status. Diagnostics never create, resize or mutate controller state.
+
+Commissioning supports **baseline-versus-disturbed comparison** through `CommissioningComparison`, reporting score loss, settling penalty, overshoot increase and saturation increase. This makes controller tuning testable under controlled non-ideal conditions instead of judging a loop only by whether it eventually reaches the setpoint.
+
+Fault-injection primitives remain physically typed rather than becoming a universal cable feature:
+
+- **Lapis Noise Source → NOISE fault injection** — deterministic position/time-seeded disturbance in the existing `0..100` Lapis precision domain;
+- **Quartz Phase Delay → LATENCY fault injection** — bounded rising-edge delay in the Quartz timing domain;
+- `FaultInjectionModel` also provides bounded bias, dropout and actuator-saturation primitives for repeatable engineering tests.
+
+The world-facing vanilla redstone boundary remains **0..15**. Fault injection changes test conditions; it does not give UI, rendering, GeckoLib, Jade, or diagnostics ownership of simulation state.
+
+See [`ALPHA1_0_16_MANIFEST.txt`](ALPHA1_0_16_MANIFEST.txt).
 
 ## Alpha 1.0.15 — Metrology Rollout & Calibration
 
@@ -69,6 +87,7 @@ These historical contracts remain active regression targets and are intentionall
 - **Alpha 1.0.13 — Copper Topology + Mechatronics Visualization** — established axial copper contracts, runtime copper GameTests and the GeckoLib display-only mechatronics boundary.
 - **Alpha 1.0.14 — Metrology & Uncertainty** — established reusable measurement quality and uncertainty-proxy infrastructure.
 - **Alpha 1.0.15 — Metrology Rollout & Calibration** — applies that infrastructure across multiple engineering domains and adds reference-versus-observed calibration.
+- **Alpha 1.0.16 — Closed-Loop Commissioning & Fault Injection** — promotes PID response metrics into a stable commissioning snapshot and adds repeatable typed disturbance testing.
 
 ## Engineering Port architecture
 
@@ -142,6 +161,7 @@ See [`docs/CRAFTING_PROGRESSION.md`](docs/CRAFTING_PROGRESSION.md).
 11. Prefer executable Minecraft behavior tests for contracts that source-only verification cannot prove.
 12. Treat rendering and UI as downstream observers.
 13. Keep instrument sample cadence owned by simulation, never by HUD/render polling.
+14. Commission control loops against baseline and disturbed conditions before optimization.
 
 ## Reference calculations
 
@@ -152,13 +172,14 @@ Metrology residual: residual = reading - reference
 Bias: mean(residual)
 Uncertainty proxy ≈ RSS(repeatability, noise, drift, bias, quantization)
 PID: e = setpoint - process
+Commissioning score = bounded penalty model(error, settling, overshoot, saturation)
 ```
 
 ## Verification architecture
 
-CI runs verifier syntax, repository/source/resource audits, deterministic reference models, historical Alpha regressions, dependency checks, Engineering Port/Jade gates, legacy-renovation checks, directional-I/O guards, copper topology guards, **Alpha 1.0.14 metrology**, **Alpha 1.0.15 multi-domain rollout/calibration verification**, Java 21 compilation, Gradle tests, **NeoForge Minecraft GameTests**, a clean build, SHA-256 generation and verified artifact upload.
+CI runs verifier syntax, repository/source/resource audits, deterministic reference models, historical Alpha regressions, dependency checks, Engineering Port/Jade gates, legacy-renovation checks, directional-I/O guards, copper topology guards, **Alpha 1.0.14 metrology**, **Alpha 1.0.15 multi-domain rollout/calibration**, **Alpha 1.0.16 closed-loop commissioning/fault-injection verification**, Java 21 compilation, Gradle tests, **NeoForge Minecraft GameTests**, a clean build, SHA-256 generation and verified artifact upload.
 
-Interactive visual/UX behavior remains a separate `runClient` gate. Automated gates protect simulation-to-render ownership, metrology math, physical topology, directional I/O, copper runtime propagation, calibration semantics and sampling ownership.
+Interactive visual/UX behavior remains a separate `runClient` gate. Automated gates protect simulation-to-render ownership, metrology math, physical topology, directional I/O, copper runtime propagation, calibration semantics, commissioning read-only ownership, fault bounds and sampling ownership.
 
 ## Build and test
 
@@ -175,6 +196,7 @@ Build output is under `build/libs/`.
 ## Documentation
 
 - [`CHANGELOG.md`](CHANGELOG.md)
+- [`ALPHA1_0_16_MANIFEST.txt`](ALPHA1_0_16_MANIFEST.txt)
 - [`ALPHA1_0_15_MANIFEST.txt`](ALPHA1_0_15_MANIFEST.txt)
 - [`ALPHA1_0_14_MANIFEST.txt`](ALPHA1_0_14_MANIFEST.txt)
 - [`ALPHA1_0_13_MANIFEST.txt`](ALPHA1_0_13_MANIFEST.txt)
