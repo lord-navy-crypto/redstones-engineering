@@ -4,21 +4,49 @@
 
 **Redstone Systems Engineering** is a NeoForge engineering-systems mod for Minecraft that extends vanilla redstone without replacing it. RSE keeps the vanilla **0–15 redstone signal as the world-facing engineering boundary** and builds measurement, conditioning, sampling, control, actuation, diagnostics, communications, safety, reliability, and operations tools around it.
 
-> **Engineering path:** Measurement → Conditioning → Sampling → Control → Actuation → Optimization → Acceptance → Evidence
+> **Engineering path:** Measurement → Conditioning → Sampling → Control → Actuation → Optimization → Acceptance → Evidence → Comparison
 
 ## Project information
 
 | Item | Current RSE baseline |
 | --- | --- |
-| Development milestone | **Alpha 1.0.19 — Acceptance UX & Evidence Presentation** |
-| Artifact version | `1.0.19-alpha` |
+| Development milestone | **Alpha 1.0.20 — Commissioning Run History & Baseline Comparison** |
+| Artifact version | `1.0.20-alpha` |
 | Minecraft | `1.21.1` |
 | NeoForge | `21.1.249` |
 | Java | `21` |
 | Mod ID | `redstoneengineering` |
 | License | **MIT** |
 
+## Alpha 1.0.20 — Commissioning Run History & Baseline Comparison
+
+Alpha 1.0.20 turns the acceptance result from a momentary HUD observation into an **explicitly captured engineering run record**. A player can crouch and right-click the **FRONT face of a PID Controller** to freeze the current authoritative acceptance snapshot together with game tick, tuning preset, and a monotonic local sequence number.
+
+```text
+Shift + FRONT click → capture acceptance evidence
+Normal click         → cycle PID tuning preset
+Shift + other face   → reset PID runtime
+```
+
+Capture is intentionally player-owned. Jade does not create records, renderer FPS does not define record cadence, and the PID controller does not automatically accumulate history every tick. This keeps a commissioning record conceptually close to an engineer choosing when to document a test result.
+
+`AcceptanceEvidenceTimeline` retains at most **8 records per PID Controller**. `AcceptanceEvidenceStore` retains at most **256 controller timelines per loaded level** and lives outside BlockState and outside the PID `RuntimeIntStore`. The Alpha 1.0.20 history is deliberately **transient diagnostic evidence**, not durable world-save data; that boundary avoids pretending an in-memory alpha cache is a permanent laboratory notebook.
+
+The latest two captured runs can be compared through `AcceptanceEvidenceComparison`:
+
+```text
+#2→#3 IMPROVED Δscore=+22 Δissues=0
+```
+
+Comparison reports commissioning-score delta, topology-issue delta, and an `IMPROVED / SAME / REGRESSED / INCOMPARABLE` trend. Topology issue changes take priority, then final acceptance severity, then commissioning score. `NOT_READY` evidence remains incomparable rather than being treated as a misleading numerical improvement or regression.
+
+The Jade Engineering HUD remains read-only and adds captured-run history only when records actually exist. It can show the latest record and latest-versus-previous comparison, but HUD polling cannot capture, delete, or rewrite evidence.
+
+See [`ALPHA1_0_20_MANIFEST.txt`](ALPHA1_0_20_MANIFEST.txt).
+
 ## Alpha 1.0.19 — Acceptance UX & Evidence Presentation
+
+Historical artifact: `1.0.19-alpha`.
 
 Alpha 1.0.19 makes the engineering acceptance contract visible during normal play without turning Jade into a second controller or diagnostic engine. When the player inspects a **PID Controller**, the server-backed Jade provider combines the authoritative all-face topology snapshot, the read-only closed-loop commissioning snapshot, and the Alpha 1.0.18 acceptance evaluator.
 
@@ -147,6 +175,7 @@ These historical contracts remain active regression targets and are intentionall
 - **Alpha 1.0.17 — Engineering UX & Topology Visualization** — exposes all-face port/link/quality diagnostics as a read-only projection in the Jade Engineering HUD.
 - **Alpha 1.0.18 — Engineering Acceptance & Traceability** — combines authoritative topology and commissioning evidence into a deterministic read-only engineering verdict with stable trace codes.
 - **Alpha 1.0.19 — Acceptance UX & Evidence Presentation** — exposes PID acceptance evidence through concise server-backed Jade diagnostics while retaining a deterministic trace.
+- **Alpha 1.0.20 — Commissioning Run History & Baseline Comparison** — adds explicit bounded capture of acceptance runs and deterministic latest-versus-previous comparison.
 
 ## Engineering Port architecture
 
@@ -159,7 +188,7 @@ Five mature ecosystem libraries are part of the RSE platform contract:
 | Dependency | Pinned development version | Required side | RSE purpose |
 | --- | --- | --- | --- |
 | JEI | `19.27.0.336` | Client | recipe/use browsing and engineering progression |
-| Jade | `15.10.6` | Client + Server | engineering HUD and server-backed port/acceptance diagnostics |
+| Jade | `15.10.6` | Client + Server | engineering HUD and server-backed port/acceptance/run-history diagnostics |
 | GeckoLib | `4.9.2` | Client + Server | articulated machine visualization |
 | Cloth Config | `15.0.140` | Client | configuration and tuning UI |
 | Fusion | `1.3.14` (`1.3.14-neoforge-mc1.21.1`) | Client | connected textures, advanced models, topology-aware visuals |
@@ -202,7 +231,7 @@ Recipes follow engineering dependency rather than raw rarity alone:
 3. **Control & Mechatronics** — PID, PWM, servo, pneumatic control;
 4. **System Safety & Reliability** — watchdog, voter, fault latch, relief protection;
 5. **Operations & Integrated Systems** — communications, multi-sensor networks, production monitoring;
-6. **Commissioning & Acceptance** — inspect topology, inject bounded faults, compare responses, record an engineering verdict, and inspect its evidence.
+6. **Commissioning & Acceptance** — inspect topology, inject bounded faults, compare responses, record a verdict, explicitly capture runs, and compare evidence.
 
 See [`docs/CRAFTING_PROGRESSION.md`](docs/CRAFTING_PROGRESSION.md).
 
@@ -225,6 +254,7 @@ See [`docs/CRAFTING_PROGRESSION.md`](docs/CRAFTING_PROGRESSION.md).
 15. Visualize authoritative ports/topology; never duplicate the topology solver in UI code.
 16. Accept systems from authoritative evidence; never let an acceptance report become a second controller or simulator.
 17. Present engineering evidence progressively: concise by default, structured and traceable underneath.
+18. Capture run history explicitly, bound its memory cost, and distinguish transient evidence from durable persistence.
 
 ## Reference calculations
 
@@ -239,13 +269,15 @@ Commissioning score = bounded penalty model(error, settling, overshoot, saturati
 Topology face = EngineeringPort descriptor + live snapshot + PortCompatibility(local, neighbor)
 Acceptance verdict = topology evidence + established commissioning status (read-only)
 Acceptance HUD = concise projection(acceptance snapshot), never a second evaluator
+Run comparison: Δscore = candidate score - baseline score
+Run comparison: Δissues = candidate topology issues - baseline topology issues
 ```
 
 ## Verification architecture
 
-CI runs verifier syntax, repository/source/resource audits, deterministic reference models, historical Alpha regressions, dependency checks, Engineering Port/Jade gates, legacy-renovation checks, directional-I/O guards, copper topology guards, **Alpha 1.0.14 metrology**, **Alpha 1.0.15 multi-domain rollout/calibration**, **Alpha 1.0.16 closed-loop commissioning/fault injection**, **Alpha 1.0.17 engineering UX/topology visualization**, **Alpha 1.0.18 engineering acceptance/traceability**, **Alpha 1.0.19 acceptance UX/evidence presentation**, Java 21 compilation, Gradle tests, **NeoForge Minecraft GameTests**, a clean build, SHA-256 generation and verified artifact upload.
+CI runs verifier syntax, repository/source/resource audits, deterministic reference models, historical Alpha regressions, dependency checks, Engineering Port/Jade gates, legacy-renovation checks, directional-I/O guards, copper topology guards, **Alpha 1.0.14 metrology**, **Alpha 1.0.15 multi-domain rollout/calibration**, **Alpha 1.0.16 closed-loop commissioning/fault injection**, **Alpha 1.0.17 engineering UX/topology visualization**, **Alpha 1.0.18 engineering acceptance/traceability**, **Alpha 1.0.19 acceptance UX/evidence presentation**, **Alpha 1.0.20 commissioning run-history/baseline comparison**, Java 21 compilation, Gradle tests, **NeoForge Minecraft GameTests**, a clean build, SHA-256 generation and verified artifact upload.
 
-Interactive visual/UX behavior remains a separate `runClient` gate. Automated gates protect simulation-to-render ownership, metrology math, physical topology, directional I/O, copper runtime propagation, calibration semantics, commissioning read-only ownership, fault bounds, all-face topology projection, acceptance evidence ownership, HUD read-only ownership and sampling ownership.
+Interactive visual/UX behavior remains a separate `runClient` gate. Automated gates protect simulation-to-render ownership, metrology math, physical topology, directional I/O, copper runtime propagation, calibration semantics, commissioning read-only ownership, fault bounds, all-face topology projection, acceptance evidence ownership, explicit-capture history ownership, HUD read-only ownership and sampling ownership.
 
 ## Build and test
 
@@ -262,6 +294,7 @@ Build output is under `build/libs/`.
 ## Documentation
 
 - [`CHANGELOG.md`](CHANGELOG.md)
+- [`ALPHA1_0_20_MANIFEST.txt`](ALPHA1_0_20_MANIFEST.txt)
 - [`ALPHA1_0_19_MANIFEST.txt`](ALPHA1_0_19_MANIFEST.txt)
 - [`ALPHA1_0_18_MANIFEST.txt`](ALPHA1_0_18_MANIFEST.txt)
 - [`ALPHA1_0_17_MANIFEST.txt`](ALPHA1_0_17_MANIFEST.txt)

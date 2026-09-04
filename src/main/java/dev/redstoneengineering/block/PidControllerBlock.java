@@ -2,6 +2,15 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.diagnostics.ClosedLoopCommissioning;
+import dev.redstoneengineering.diagnostics.CommissioningSnapshot;
+import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceComparison;
+import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceRecord;
+import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceStore;
+import dev.redstoneengineering.diagnostics.acceptance.EngineeringAcceptance;
+import dev.redstoneengineering.diagnostics.acceptance.EngineeringAcceptanceSnapshot;
+import dev.redstoneengineering.diagnostics.topology.EngineeringTopologyView;
+import dev.redstoneengineering.diagnostics.topology.TopologyVisualizationSnapshot;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -40,20 +49,13 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
 
     // Kp numerator, Ki divisor, Kd numerator, derivative smoothing divisor.
     private static final int[][] PRESETS = {
-            {1, 0, 0, 2},   // P: gentle
-            {2, 24, 0, 2},  // PI: slow plant / zero steady-state error
-            {2, 18, 1, 3},  // PID: balanced default
-            {3, 14, 2, 4}   // PID+: aggressive, more derivative damping
+            {1, 0, 0, 2},
+            {2, 24, 0, 2},
+            {2, 18, 1, 3},
+            {3, 14, 2, 4}
     };
 
-    /*
-     * Runtime layout (transient, intentionally not BlockState):
-     *  0 integralState, 1 previousError, 2 filteredDerivative, 3 output,
-     *  4 inhibit, 5 saturationEvents, 6 process,
-     *  7..16 step-response diagnostics,
-     * 17 mode, 18 manualOutput, 19 modeTransfers,
-     * 20 controllerBias, 21 initialized.
-     */
+    /* Runtime layout: controller state + step-response diagnostics; intentionally not BlockState. */
     private static final int RUNTIME_SIZE = 22;
 
     public PidControllerBlock(Properties p) {
@@ -92,7 +94,7 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
         int[] rt = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
 
         if (rt[21] == 0) {
-            rt[20] = 8; // neutral controller bias used by the original alpha controller
+            rt[20] = 8;
             rt[17] = AUTO_MODE;
             rt[21] = 1;
         }
@@ -102,8 +104,6 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
         int[] k = PRESETS[state.getValue(TUNING)];
         int kp = k[0], kiDiv = k[1], kd = k[2], dSmooth = k[3];
 
-        // Track mode changes before computing the new output. On manual→auto,
-        // solve the bias around the previous manual output so the transfer is bumpless.
         if (requestedMode != rt[17]) {
             if (rt[17] == MANUAL_MODE && requestedMode == AUTO_MODE) {
                 rt[1] = controlError;
@@ -124,7 +124,6 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
         }
 
         if (requestedMode == MANUAL_MODE) {
-            // Keep derivative history aligned while the operator owns the output.
             rt[1] = controlError;
             rt[2] = 0;
             rt[3] = manualOutput;
@@ -137,7 +136,7 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
         rt[2] += (rawDerivative - rt[2]) / Math.max(1, dSmooth);
         rt[1] = controlError;
 
-        // Candidate integral. Commit only when not driving farther into saturation (anti-windup).
+        // Candidate integral with conditional-commit anti-windup at the 0..15 actuator boundary.
         int candidateIntegral = clamp(rt[0] + controlError, -180, 180);
         int pTerm = kp * controlError;
         int iTerm = kiDiv == 0 ? 0 : candidateIntegral / kiDiv;
@@ -178,9 +177,7 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
         int base = rt[15];
         int step = setpoint - base;
         rt[9] = step >= 0 ? Math.max(rt[9], process) : Math.min(rt[9], process);
-        int overshoot = step >= 0
-                ? Math.max(0, process - setpoint)
-                : Math.max(0, setpoint - process);
+        int overshoot = step >= 0 ? Math.max(0, process - setpoint) : Math.max(0, setpoint - process);
         rt[14] = Math.max(rt[14], overshoot);
 
         if (rt[10] == 0 && Math.abs(step) >= 2) {
@@ -216,10 +213,13 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
     @Override
     protected InteractionResult useWithoutItem(BlockState s, Level l, BlockPos p, Player pl, BlockHitResult h) {
         if (!l.isClientSide) {
-            if (pl.isShiftKeyDown()) {
+            if (pl.isShiftKeyDown() && h.getDirection() == outputSide(s)) {
+                captureAcceptanceEvidence(s, l, p, pl);
+            } else if (pl.isShiftKeyDown()) {
                 RuntimeIntStore.remove(l, KEY, p);
                 updateOutput(l, p, s, 0);
-                pl.displayClientMessage(Component.literal("PID runtime reset (integral/derivative/bias cleared)"), true);
+                pl.displayClientMessage(Component.literal(
+                        "PID runtime reset | Shift+FRONT captures acceptance evidence"), true);
             } else {
                 int next = (s.getValue(TUNING) + 1) % 4;
                 BlockState ns = s.setValue(TUNING, next);
@@ -243,9 +243,22 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
                                 + " transfers=" + rt[19]
                                 + " sat=" + rt[5]
                                 + " | step rise90=" + rt[10] + "t settle=" + rt[11] + "t overshoot=" + rt[14]
-                                + " | UP=MANUAL/AUTO DOWN=manual RIGHT=inhibit"), true);
+                                + " | Shift+FRONT=capture evidence; other Shift+click=reset"), true);
             }
         }
         return InteractionResult.sidedSuccess(l.isClientSide);
+    }
+
+    private static void captureAcceptanceEvidence(BlockState state, Level level, BlockPos pos, Player player) {
+        TopologyVisualizationSnapshot topology = EngineeringTopologyView.inspect(level, pos, state);
+        CommissioningSnapshot commissioning = ClosedLoopCommissioning.inspectPid(level, pos);
+        EngineeringAcceptanceSnapshot acceptance = EngineeringAcceptance.evaluate(topology, commissioning);
+        AcceptanceEvidenceRecord record = AcceptanceEvidenceStore.capture(
+                level, pos, level.getGameTime(), state.getValue(TUNING), acceptance);
+        AcceptanceEvidenceComparison comparison = AcceptanceEvidenceStore.compareLatestToPrevious(level, pos).orElse(null);
+
+        String message = "Captured acceptance " + record.compact();
+        if (comparison != null) message += " | " + comparison.compact();
+        player.displayClientMessage(Component.literal(message), true);
     }
 }
