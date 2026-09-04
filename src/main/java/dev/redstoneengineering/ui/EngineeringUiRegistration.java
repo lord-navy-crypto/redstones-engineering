@@ -1,6 +1,7 @@
 package dev.redstoneengineering.ui;
 
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.ui.menu.FieldDeviceMenu;
 import dev.redstoneengineering.ui.menu.LogicAnalyzerMenu;
 import dev.redstoneengineering.ui.menu.OscilloscopeMenu;
 import dev.redstoneengineering.ui.menu.PidControllerMenu;
@@ -39,6 +40,9 @@ public final class EngineeringUiRegistration {
 
     public static final DeferredHolder<MenuType<?>, MenuType<SignalAnalyzerMenu>> SIGNAL_ANALYZER =
             MENUS.register("signal_analyzer", () -> IMenuTypeExtension.create(SignalAnalyzerMenu::new));
+
+    public static final DeferredHolder<MenuType<?>, MenuType<FieldDeviceMenu>> FIELD_DEVICE =
+            MENUS.register("field_device", () -> IMenuTypeExtension.create(FieldDeviceMenu::new));
 
     public EngineeringUiRegistration(IEventBus modBus) {
         MENUS.register(modBus);
