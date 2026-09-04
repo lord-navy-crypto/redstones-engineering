@@ -18,5 +18,6 @@ public final class RseGameTestRegistration {
         event.register(RseMetrologyGameTests.class);
         event.register(RseCommissioningGameTests.class);
         event.register(RseEngineeringUxGameTests.class);
+        event.register(RseAcceptanceGameTests.class);
     }
 }

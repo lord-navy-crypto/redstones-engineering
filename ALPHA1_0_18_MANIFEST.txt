@@ -1,0 +1,25 @@
+Redstone Systems Engineering — Alpha 1.0.18
+Artifact: 1.0.18-alpha
+Minecraft: 1.21.1
+NeoForge: 21.1.249
+Java: 21
+License: MIT
+
+Milestone: Engineering Acceptance & Traceability
+
+Contracts:
+- Engineering acceptance consumes immutable topology and commissioning snapshots; it never samples or mutates authoritative simulation state directly.
+- Verdicts are explicit: NOT_READY, PASS, MARGINAL, or FAIL.
+- Known Engineering Port domain/direction mismatches fail acceptance even if closed-loop commissioning otherwise passes.
+- Unavailable, idle, or running commissioning evidence remains NOT_READY when topology is structurally healthy.
+- MARGINAL and FAIL commissioning states preserve their severity without redefining the established commissioning score.
+- Trace output carries deterministic topology counts, commissioning state/score, acceptance status, and stable issue codes.
+- OPEN, ISOLATED, and UNLOADED faces remain observational states rather than automatic failures; Alpha 1.0.17 topologyIssue semantics remain authoritative.
+- Vanilla-compatible world-facing redstone remains bounded to 0..15.
+- UI, Jade, rendering, and diagnostics remain downstream observers and never gain authority over physics, topology, sampling, or control.
+
+Verification:
+- rse_alpha1018_acceptance_verify.py
+- RseAcceptanceGameTests
+- Historical topology/Jade/metrology/commissioning gates
+- Java 21 compile/test/GameTest/clean-build CI
