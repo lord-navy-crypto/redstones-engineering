@@ -10,10 +10,12 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.RedstoneCableNetwork;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
@@ -46,28 +48,12 @@ public class RedstoneCableTerminalBlock extends Block implements EngineeringPort
                 .setValue(POWER, 0));
     }
 
-    @Override
-    public MapCodec<RedstoneCableTerminalBlock> codec() {
-        return RedstoneEngineering.REDSTONE_CABLE_TERMINAL_CODEC.value();
-    }
+    @Override public MapCodec<RedstoneCableTerminalBlock> codec() { return RedstoneEngineering.REDSTONE_CABLE_TERMINAL_CODEC.value(); }
+    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { builder.add(FACING, OUTPUT_MODE, POWER); }
+    @Override public BlockState getStateForPlacement(BlockPlaceContext context) { return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite()); }
 
-    @Override
-    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING, OUTPUT_MODE, POWER);
-    }
-
-    @Override
-    public BlockState getStateForPlacement(BlockPlaceContext context) {
-        return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
-    }
-
-    public Direction vanillaSide(BlockState state) {
-        return state.getValue(FACING);
-    }
-
-    public Direction cableSide(BlockState state) {
-        return vanillaSide(state).getOpposite();
-    }
+    public Direction vanillaSide(BlockState state) { return state.getValue(FACING); }
+    public Direction cableSide(BlockState state) { return vanillaSide(state).getOpposite(); }
 
     public int externalInput(Level level, BlockPos pos, BlockState state) {
         Direction direction = vanillaSide(state);
@@ -79,59 +65,31 @@ public class RedstoneCableTerminalBlock extends Block implements EngineeringPort
         boolean cableToVanilla = state.getValue(OUTPUT_MODE);
         EngineeringPort vanilla = new EngineeringPort(
                 cableToVanilla ? "VANILLA OUT" : "VANILLA IN",
-                vanillaSide(state),
-                EngineeringDomain.REDSTONE,
-                PortKind.CONVERTER,
-                cableToVanilla ? PortDirection.OUTPUT : PortDirection.INPUT,
-                true,
-                "signal"
-        );
+                vanillaSide(state), EngineeringDomain.REDSTONE, PortKind.CONVERTER,
+                cableToVanilla ? PortDirection.OUTPUT : PortDirection.INPUT, true, "signal");
         EngineeringPort cable = new EngineeringPort(
                 cableToVanilla ? "CABLE IN" : "CABLE OUT",
-                cableSide(state),
-                EngineeringDomain.REDSTONE,
-                PortKind.CONVERTER,
-                cableToVanilla ? PortDirection.INPUT : PortDirection.OUTPUT,
-                false,
-                "signal"
-        );
+                cableSide(state), EngineeringDomain.REDSTONE, PortKind.CONVERTER,
+                cableToVanilla ? PortDirection.INPUT : PortDirection.OUTPUT, false, "signal");
         return List.of(vanilla, cable);
     }
 
     @Override
-    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
-            Level level,
-            BlockPos pos,
-            BlockState state,
-            Direction side
-    ) {
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> resolved = engineeringPort(state, side);
         if (resolved.isEmpty()) return Optional.empty();
-
-        int signal;
-        if (side == vanillaSide(state) && !state.getValue(OUTPUT_MODE)) {
-            signal = externalInput(level, pos, state);
-        } else {
-            signal = state.getValue(POWER);
-        }
+        int signal = side == vanillaSide(state) && !state.getValue(OUTPUT_MODE)
+                ? externalInput(level, pos, state)
+                : state.getValue(POWER);
         return Optional.of(EngineeringPortSnapshot.redstone(resolved.get(), signal, PortQuality.VALID));
     }
 
-    @Override
-    public boolean canConnectRedstone(BlockState state, BlockGetter level, BlockPos pos, @Nullable Direction direction) {
+    @Override public boolean canConnectRedstone(BlockState state, BlockGetter level, BlockPos pos, @Nullable Direction direction) {
         return direction != null && direction == vanillaSide(state).getOpposite();
     }
-
-    @Override
-    protected boolean isSignalSource(BlockState state) {
-        return state.getValue(OUTPUT_MODE);
-    }
-
-    @Override
-    protected int getSignal(BlockState state, BlockGetter level, BlockPos pos, Direction direction) {
-        return state.getValue(OUTPUT_MODE) && direction == vanillaSide(state).getOpposite()
-                ? state.getValue(POWER)
-                : 0;
+    @Override protected boolean isSignalSource(BlockState state) { return state.getValue(OUTPUT_MODE); }
+    @Override protected int getSignal(BlockState state, BlockGetter level, BlockPos pos, Direction direction) {
+        return state.getValue(OUTPUT_MODE) && direction == vanillaSide(state).getOpposite() ? state.getValue(POWER) : 0;
     }
 
     @Override
@@ -147,16 +105,19 @@ public class RedstoneCableTerminalBlock extends Block implements EngineeringPort
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (!level.isClientSide) {
-            BlockState next = state.setValue(OUTPUT_MODE, !state.getValue(OUTPUT_MODE));
-            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            if (level instanceof ServerLevel server) RedstoneCableNetwork.recompute(server, pos);
-            level.updateNeighborsAt(pos, this);
-            level.updateNeighborsAt(pos.relative(vanillaSide(next)), this);
-            player.displayClientMessage(Component.literal(
-                    "Redstone Cable Terminal | " + PortDiagnostics.terminal(next, this)
-                            + " | signal=" + next.getValue(POWER) + "/15"
-            ), true);
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown()) {
+                BlockState next = state.setValue(OUTPUT_MODE, !state.getValue(OUTPUT_MODE));
+                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+                if (level instanceof ServerLevel server) RedstoneCableNetwork.recompute(server, pos);
+                level.updateNeighborsAt(pos, this);
+                level.updateNeighborsAt(pos.relative(vanillaSide(next)), this);
+                player.displayClientMessage(Component.literal(
+                        "Redstone Cable Terminal | " + PortDiagnostics.terminal(next, this)
+                                + " | signal=" + next.getValue(POWER) + "/15"), true);
+            } else {
+                FieldDeviceUi.open(serverPlayer, pos);
+            }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
@@ -166,9 +127,7 @@ public class RedstoneCableTerminalBlock extends Block implements EngineeringPort
         if (!state.is(newState.getBlock())) {
             level.updateNeighborsAt(pos, this);
             level.updateNeighborsAt(pos.relative(vanillaSide(state)), this);
-            if (level instanceof ServerLevel server) {
-                RedstoneCableNetwork.recompute(server, pos.relative(cableSide(state)));
-            }
+            if (level instanceof ServerLevel server) RedstoneCableNetwork.recompute(server, pos.relative(cableSide(state)));
         }
         super.onRemove(state, level, pos, newState, moved);
     }
