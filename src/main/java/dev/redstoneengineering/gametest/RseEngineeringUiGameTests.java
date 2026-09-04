@@ -33,7 +33,7 @@ public final class RseEngineeringUiGameTests {
         helper.setBlock(sourcePos, RedstoneEngineering.REDSTONE_REFERENCE_SOURCE.get()
                 .defaultBlockState()
                 .setValue(RedstoneReferenceSourceBlock.FACING, Direction.EAST)
-                .setValue(RedstoneReferenceSourceBlock.LEVEL, 6));
+                .setValue(RedstoneReferenceSourceBlock.POWER, 6));
         helper.setBlock(conditionerPos, RedstoneEngineering.SIGNAL_CONDITIONER.get()
                 .defaultBlockState()
                 .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
