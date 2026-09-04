@@ -26,7 +26,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
 
-/** Front-facing process display with a single BACK redstone input port. */
+/** Front-facing process measurement display with a single BACK redstone input port. */
 public class AnalogIndicatorBlock extends DirectionalRedstoneEndpointBlock implements EngineeringPortProvider {
     public static final IntegerProperty LEVEL = IntegerProperty.create("level", 0, 15);
 
@@ -52,7 +52,7 @@ public class AnalogIndicatorBlock extends DirectionalRedstoneEndpointBlock imple
                 "SIGNAL IN",
                 backSide(state),
                 EngineeringDomain.REDSTONE,
-                PortKind.ACTUATOR,
+                PortKind.MEASUREMENT,
                 PortDirection.INPUT,
                 true,
                 "signal"
@@ -122,6 +122,7 @@ public class AnalogIndicatorBlock extends DirectionalRedstoneEndpointBlock imple
                     "Analog Process Indicator = " + state.getValue(LEVEL) + "/15"
                             + " | FRONT display=" + frontSide(state).getName()
                             + " BACK IN=" + backSide(state).getName()
+                            + " | readout-only"
             ), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
