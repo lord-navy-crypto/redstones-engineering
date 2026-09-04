@@ -93,6 +93,11 @@ public class DeserializerBlock extends DirectionalDomainBlock implements Enginee
         ));
     }
 
+    @Override
+    public boolean drivesDataBusAt(BlockPos driverPos, BlockState driverState, BlockPos busPos) {
+        return outputPos(driverPos, driverState).equals(busPos);
+    }
+
     private void update(ServerLevel level, BlockPos pos, BlockState state) {
         BlockPos input = inputPos(pos, state);
         BlockPos output = outputPos(pos, state);
