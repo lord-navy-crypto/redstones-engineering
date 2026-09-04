@@ -55,11 +55,20 @@ require("src/main/java/dev/redstoneengineering/block/LapisToRedstoneQuantizerBlo
 registration = "src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java"
 tests = "src/main/java/dev/redstoneengineering/gametest/RseTopologyGameTests.java"
 require(registration,
-        "@EventBusSubscriber", "modid = RedstoneEngineering.MOD_ID",
-        "RegisterGameTestsEvent", "event.register(RseTopologyGameTests.class)")
+        "@Mod(RedstoneEngineering.MOD_ID)",
+        "IEventBus",
+        "modBus.addListener(RseGameTestRegistration::registerGameTests)",
+        "RegisterGameTestsEvent",
+        "event.register(RseTopologyGameTests.class)")
 registration_body = text(registration)
-if "bus = Bus.MOD" in registration_body or "bus = EventBusSubscriber.Bus.MOD" in registration_body:
-    failed.append("GameTest registration uses deprecated explicit EventBusSubscriber bus selector")
+for deprecated in (
+    "@EventBusSubscriber",
+    "@SubscribeEvent",
+    "bus = Bus.MOD",
+    "bus = EventBusSubscriber.Bus.MOD",
+):
+    if deprecated in registration_body:
+        failed.append(f"GameTest registration retains deprecated event registration token {deprecated!r}")
 require(tests,
         "@GameTest", "PrefixGameTestTemplate(false)", "empty5x4x5",
         "redstoneCableConnectsToRedstoneJunction",
@@ -102,5 +111,5 @@ print(" terminal/junction/transducer/converter migration: PASS")
 print(" domain-specific converter ports: PASS")
 print(" singular Minecraft structure resource path: PASS")
 print(" executable topology GameTest registration: PASS")
-print(" modern event-bus registration contract: PASS")
+print(" modern mod-event listener registration: PASS")
 print(" CI runGameTestServer gate: PASS")
