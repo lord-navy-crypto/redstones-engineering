@@ -2,6 +2,7 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.physics.EngineeringMath;
 import dev.redstoneengineering.physics.MagneticPhysics;
 import net.minecraft.core.BlockPos;
@@ -15,6 +16,7 @@ public class LapisMagneticTransducerBlock extends AbstractLapisTransducerBlock {
     @Override protected String runtimeKey() { return "lapis_magnetic_transducer"; }
     @Override protected String instrumentName() { return "Lapis Hall / Field Transducer"; }
     @Override protected String rangeText(BlockState state) { return "B-level 0..15, radius 6"; }
+    @Override protected EngineeringDomain inputDomain() { return EngineeringDomain.IRON_MAGNETIC; }
     @Override protected Measurement sense(ServerLevel level, BlockPos pos, BlockState state) {
         int b = MagneticPhysics.fieldAt(level, inputPos(pos, state), 6);
         int normalized = Math.round(EngineeringMath.clamp(b, 0, 15) * 100.0f / 15.0f);
