@@ -6,7 +6,7 @@ RSE is still alpha software. Back up any world you care about before testing, an
 
 ## Supported test baseline
 
-| Component | Alpha 219.0.20 baseline |
+| Component | Alpha 1.0.20 baseline |
 | --- | --- |
 | Minecraft | `1.21.1` |
 | NeoForge | `21.1.249` |
@@ -111,7 +111,7 @@ For engineering-behavior bugs, also describe the physical topology: block names,
 - **Medium** — functional defect with a practical workaround or limited scope.
 - **Low** — visual, wording, usability, or polish issue that does not change authoritative behavior.
 
-## Important Alpha 1.20 boundaries
+## Important Alpha 1.0.20 boundaries
 
 The following are intentional architecture boundaries and should be preserved while fixing bugs:
 
