@@ -8,13 +8,13 @@ import dev.redstoneengineering.block.QuartzClockDividerBlock;
 import dev.redstoneengineering.block.QuartzOscillatorBlock;
 import dev.redstoneengineering.block.QuartzStabilityMonitorBlock;
 import dev.redstoneengineering.block.RadioReceiverBlock;
+import dev.redstoneengineering.block.RadioTransmitterBlock;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.InformationRuntime;
-import dev.redstoneengineering.physics.RadioKernel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
@@ -105,7 +105,6 @@ public final class RseFifthEightAcceptanceGameTests {
         BlockPos txPos = new BlockPos(2, 1, 2);
         BlockPos antennaPower = new BlockPos(2, 2, 2);
         BlockPos sidePower = new BlockPos(1, 1, 2);
-        BlockPos probePos = new BlockPos(4, 1, 2);
 
         helper.setBlock(antennaPower, Blocks.REDSTONE_BLOCK.defaultBlockState());
         helper.setBlock(txPos, RedstoneEngineering.RADIO_TRANSMITTER.get().defaultBlockState());
@@ -119,15 +118,21 @@ public final class RseFifthEightAcceptanceGameTests {
                 helper.fail("Radio TX did not expose its UP RADIO_DATA antenna", txPos);
                 return;
             }
-            if (RadioKernel.receivePacket(helper.getLevel(), helper.absolutePos(probePos), 0).valid()) {
-                helper.fail("Redstone above the antenna face incorrectly became a radio payload input", txPos);
+            var idleSnapshot = tx.engineeringSnapshot(
+                    helper.getLevel(), helper.absolutePos(txPos), state, Direction.UP).orElse(null);
+            if (idleSnapshot == null || Math.round(idleSnapshot.value()) != 0
+                    || idleSnapshot.quality() != PortQuality.NO_SIGNAL) {
+                helper.fail("Redstone above the antenna face incorrectly became a local radio payload input", txPos);
                 return;
             }
             helper.setBlock(sidePower, Blocks.REDSTONE_BLOCK.defaultBlockState());
             helper.runAfterDelay(3, () -> {
-                var reception = RadioKernel.receivePacket(helper.getLevel(), helper.absolutePos(probePos), 0);
-                if (!reception.valid() || reception.value() != 15 || reception.drivers() != 1) {
-                    helper.fail("Radio TX did not transmit its strongest non-antenna redstone payload", txPos);
+                BlockState poweredState = helper.getBlockState(txPos);
+                var drivenSnapshot = tx.engineeringSnapshot(
+                        helper.getLevel(), helper.absolutePos(txPos), poweredState, Direction.UP).orElse(null);
+                if (drivenSnapshot == null || Math.round(drivenSnapshot.value()) != 15
+                        || drivenSnapshot.quality() != PortQuality.VALID) {
+                    helper.fail("Radio TX did not publish its strongest non-antenna redstone payload to the antenna", txPos);
                     return;
                 }
                 helper.succeed();
@@ -138,6 +143,7 @@ public final class RseFifthEightAcceptanceGameTests {
     @PrefixGameTestTemplate(false)
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 80)
     public static void radioReceiverReportsAntennaAndRejectsSameChannelCollision(GameTestHelper helper) {
+        final int testChannel = 3;
         BlockPos txAPos = new BlockPos(0, 1, 1);
         BlockPos txBPos = new BlockPos(0, 1, 3);
         BlockPos powerAPos = new BlockPos(0, 0, 1);
@@ -145,9 +151,11 @@ public final class RseFifthEightAcceptanceGameTests {
         BlockPos rxPos = new BlockPos(3, 1, 2);
 
         helper.setBlock(powerAPos, Blocks.REDSTONE_BLOCK.defaultBlockState());
-        helper.setBlock(txAPos, RedstoneEngineering.RADIO_TRANSMITTER.get().defaultBlockState());
+        helper.setBlock(txAPos, RedstoneEngineering.RADIO_TRANSMITTER.get().defaultBlockState()
+                .setValue(RadioTransmitterBlock.CHANNEL, testChannel));
         helper.setBlock(rxPos, RedstoneEngineering.RADIO_RECEIVER.get().defaultBlockState()
-                .setValue(DirectionalSignalBlock.FACING, Direction.EAST));
+                .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
+                .setValue(RadioReceiverBlock.CHANNEL, testChannel));
 
         helper.runAfterDelay(8, () -> {
             BlockState state = helper.getBlockState(rxPos);
@@ -159,7 +167,8 @@ public final class RseFifthEightAcceptanceGameTests {
                 return;
             }
             helper.setBlock(powerBPos, Blocks.REDSTONE_BLOCK.defaultBlockState());
-            helper.setBlock(txBPos, RedstoneEngineering.RADIO_TRANSMITTER.get().defaultBlockState());
+            helper.setBlock(txBPos, RedstoneEngineering.RADIO_TRANSMITTER.get().defaultBlockState()
+                    .setValue(RadioTransmitterBlock.CHANNEL, testChannel));
             helper.runAfterDelay(8, () -> {
                 BlockState collisionState = helper.getBlockState(rxPos);
                 var snapshot = receiver.engineeringSnapshot(

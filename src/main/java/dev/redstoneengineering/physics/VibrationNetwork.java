@@ -66,6 +66,9 @@ public final class VibrationNetwork {
                 level.scheduleTick(node.pos, block, SlimeVibrationConduitBlock.PACKET_TTL_TICKS);
             } else if (block instanceof HoneyVibrationDamperBlock) {
                 loss = 4;
+                InformationRuntime.write(level, "mech_wave", node.pos,
+                        node.amplitude, boundedFrequency, true, 80);
+                level.scheduleTick(node.pos, block, HoneyVibrationDamperBlock.PACKET_TTL_TICKS);
             } else if (block instanceof MechanicalVibrationReceiverBlock) {
                 Direction expectedInput = state.getValue(DirectionalSignalBlock.FACING).getOpposite();
                 if (node.arrivalSide != expectedInput) continue;

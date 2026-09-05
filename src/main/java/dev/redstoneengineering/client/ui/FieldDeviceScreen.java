@@ -200,22 +200,63 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
                 labelValue(graphics, "Frequency", Integer.toString(menu.secondary()), 121);
                 statusLine(graphics, "Emission", validityText(), validityColor(), 141);
             }
-            case FieldDeviceMenu.KIND_SLIME_VIBRATION -> {
-                statusBadge(graphics, "SLIME VIBRATION CONDUIT", validityColor(), 16, 80);
+            case FieldDeviceMenu.KIND_SLIME_VIBRATION -> waveMediumOverview(graphics, "SLIME VIBRATION CONDUIT", "Packet amplitude", "Packet frequency");
+            case FieldDeviceMenu.KIND_MECHANICAL_RECEIVER -> receiverOverview(graphics, "MECHANICAL VIBRATION RECEIVER", "Wave amplitude", "Wave frequency", menu.tertiary());
+            case FieldDeviceMenu.KIND_HONEY_DAMPER -> {
+                statusBadge(graphics, "HONEY VIBRATION DAMPER", validityColor(), 16, 80);
                 labelValue(graphics, "Packet amplitude", menu.primary() + " / 15", 105);
                 labelValue(graphics, "Packet frequency", Integer.toString(menu.secondary()), 121);
-                labelValue(graphics, "Runtime quality", menu.qualityPercent() + "%", 137);
-                statusLine(graphics, "Transient packet", validityText(), validityColor(), 157);
+                labelValue(graphics, "Loss / update", menu.tertiary() + " amplitude", 137);
+                statusLine(graphics, "Damped transient", validityText(), validityColor(), 157);
             }
-            case FieldDeviceMenu.KIND_MECHANICAL_RECEIVER -> {
-                statusBadge(graphics, "MECHANICAL VIBRATION RECEIVER", validityColor(), 16, 80);
-                labelValue(graphics, "Wave amplitude", menu.primary() + " / 15", 105);
-                labelValue(graphics, "Wave frequency", Integer.toString(menu.secondary()), 121);
-                labelValue(graphics, "Redstone output", menu.tertiary() + " / 15", 137);
-                statusLine(graphics, "BACK decode", validityText(), validityColor(), 157);
+            case FieldDeviceMenu.KIND_SCULK_INTERFACE -> {
+                statusBadge(graphics, "SCULK VIBRATION INTERFACE", validityColor(), 16, 80);
+                labelValue(graphics, "Current event code", menu.primary() + " / 15", 105);
+                labelValue(graphics, "Event count", Integer.toString(menu.secondary()), 121);
+                labelValue(graphics, "Last code / transitions", menu.tertiary() + " / " + menu.driverCount(), 137);
+                statusLine(graphics, "Event input", validityText(), validityColor(), 157);
             }
+            case FieldDeviceMenu.KIND_HYDRO_TUBE -> {
+                statusBadge(graphics, "HYDROACOUSTIC TUBE", validityColor(), 16, 80);
+                labelValue(graphics, "Pressure amplitude", menu.primary() + " / 15", 105);
+                labelValue(graphics, "Frequency", Integer.toString(menu.secondary()), 121);
+                labelValue(graphics, "Medium", hydroMedium(menu.tertiary()), 137);
+                statusLine(graphics, "Transient wave", validityText(), validityColor(), 157);
+            }
+            case FieldDeviceMenu.KIND_HYDRO_EXCITER -> {
+                statusBadge(graphics, "HYDROACOUSTIC EXCITER", validityColor(), 16, 80);
+                labelValue(graphics, "Drive amplitude", menu.primary() + " / 15", 105);
+                labelValue(graphics, "Frequency", Integer.toString(menu.secondary()), 121);
+                labelValue(graphics, "Quality", menu.qualityPercent() + "%", 137);
+                statusLine(graphics, "Pressure emission", validityText(), validityColor(), 157);
+            }
+            case FieldDeviceMenu.KIND_HYDRO_RECEIVER -> receiverOverview(graphics, "HYDROACOUSTIC RECEIVER", "Pressure amplitude", "Frequency", menu.tertiary());
+            case FieldDeviceMenu.KIND_PHONON_CONDUIT -> waveMediumOverview(graphics, "PHONON CONDUIT", "Pulse amplitude", "Pulse auxiliary");
+            case FieldDeviceMenu.KIND_THERMAL_ENCODER -> {
+                statusBadge(graphics, "THERMAL PULSE ENCODER", validityColor(), 16, 80);
+                labelValue(graphics, "Redstone drive", menu.primary() + " / 15", 105);
+                labelValue(graphics, "Quality", menu.qualityPercent() + "%", 121);
+                statusLine(graphics, "Pulse emission", validityText(), validityColor(), 141);
+            }
+            case FieldDeviceMenu.KIND_THERMAL_RECEIVER -> directionalOverview(graphics, "THERMAL PULSE RECEIVER", "Pulse input", menu.primary() + " / 15", "Redstone output", menu.secondary() + " / 15");
             default -> renderCableOverview(graphics);
         }
+    }
+
+    private void waveMediumOverview(GuiGraphics graphics, String title, String primaryLabel, String secondaryLabel) {
+        statusBadge(graphics, title, validityColor(), 16, 80);
+        labelValue(graphics, primaryLabel, menu.primary() + " / 15", 105);
+        labelValue(graphics, secondaryLabel, Integer.toString(menu.secondary()), 121);
+        labelValue(graphics, "Runtime quality", menu.qualityPercent() + "%", 137);
+        statusLine(graphics, "Transient packet", validityText(), validityColor(), 157);
+    }
+
+    private void receiverOverview(GuiGraphics graphics, String title, String primaryLabel, String secondaryLabel, int output) {
+        statusBadge(graphics, title, validityColor(), 16, 80);
+        labelValue(graphics, primaryLabel, menu.primary() + " / 15", 105);
+        labelValue(graphics, secondaryLabel, Integer.toString(menu.secondary()), 121);
+        labelValue(graphics, "Redstone output", output + " / 15", 137);
+        statusLine(graphics, "BACK decode", validityText(), validityColor(), 157);
     }
 
     private void directionalOverview(GuiGraphics graphics, String title, String left, String leftValue, String right, String rightValue) {
@@ -293,6 +334,14 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             case FieldDeviceMenu.KIND_MECHANICAL_EXCITER -> { statusLine(graphics, "DOWN", "REDSTONE DRIVE INPUT", GOOD, 105); statusLine(graphics, "UP + HORIZONTAL", "MECHANICAL_VIBRATION OUTPUT", INFO, 125); }
             case FieldDeviceMenu.KIND_SLIME_VIBRATION -> renderMediumPorts(graphics, "MECHANICAL_VIBRATION • BIDIRECTIONAL TRANSIENT PATH");
             case FieldDeviceMenu.KIND_MECHANICAL_RECEIVER -> renderDirectionalPorts(graphics, "BACK • MECHANICAL_VIBRATION INPUT", "FRONT • REDSTONE OUTPUT");
+            case FieldDeviceMenu.KIND_HONEY_DAMPER -> renderMediumPorts(graphics, "MECHANICAL_VIBRATION • HIGH-LOSS BIDIRECTIONAL PATH");
+            case FieldDeviceMenu.KIND_SCULK_INTERFACE -> renderDirectionalPorts(graphics, "BACK • SCULK EVENT-CODE REDSTONE INPUT", "FRONT • EVENT-CODE REDSTONE OUTPUT");
+            case FieldDeviceMenu.KIND_HYDRO_TUBE -> renderMediumPorts(graphics, "HYDROACOUSTIC • BIDIRECTIONAL PRESSURE PATH");
+            case FieldDeviceMenu.KIND_HYDRO_EXCITER -> { statusLine(graphics, "DOWN", "REDSTONE DRIVE INPUT", GOOD, 105); statusLine(graphics, "UP + HORIZONTAL", "HYDROACOUSTIC OUTPUT", INFO, 125); }
+            case FieldDeviceMenu.KIND_HYDRO_RECEIVER -> renderDirectionalPorts(graphics, "BACK • HYDROACOUSTIC INPUT", "FRONT • REDSTONE OUTPUT");
+            case FieldDeviceMenu.KIND_PHONON_CONDUIT -> renderMediumPorts(graphics, "PHONON_THERMAL • BIDIRECTIONAL PULSE PATH");
+            case FieldDeviceMenu.KIND_THERMAL_ENCODER -> { statusLine(graphics, "DOWN", "REDSTONE DRIVE INPUT", GOOD, 105); statusLine(graphics, "UP + HORIZONTAL", "PHONON_THERMAL OUTPUT", INFO, 125); }
+            case FieldDeviceMenu.KIND_THERMAL_RECEIVER -> renderDirectionalPorts(graphics, "BACK • PHONON_THERMAL INPUT", "FRONT • REDSTONE OUTPUT");
             default -> { }
         }
     }
@@ -320,6 +369,7 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             case FieldDeviceMenu.KIND_AMETHYST_FILTER -> { labelValue(graphics, "Target frequency", Integer.toString(menu.tertiary()), 80); graphics.drawString(font, "Target selection remains server-side; output readback is authoritative.", 16, 163, MUTED, false); }
             case FieldDeviceMenu.KIND_AMETHYST_TUNED -> { labelValue(graphics, "Natural f / Q", menu.primary() + " / " + menu.tertiary(), 80); graphics.drawString(font, "Tuning remains server-side; this screen never calculates resonance.", 16, 163, MUTED, false); }
             case FieldDeviceMenu.KIND_MECHANICAL_EXCITER -> { labelValue(graphics, "Excitation frequency", Integer.toString(menu.secondary()), 80); graphics.drawString(font, "DOWN drive and emitted packet are authoritative server state.", 16, 163, MUTED, false); }
+            case FieldDeviceMenu.KIND_HYDRO_TUBE -> { labelValue(graphics, "Hydroacoustic medium", hydroMedium(menu.tertiary()), 80); graphics.drawString(font, "Medium cycling remains a bounded server-side quick action.", 16, 163, MUTED, false); }
             default -> { statusLine(graphics, "Configuration", isWaveDevice() ? "READ-ONLY WAVE DEVICE" : isCommunicationDevice() ? "READ-ONLY COMMUNICATION DEVICE" : "READ-ONLY TOPOLOGY DEVICE", MUTED, 82); graphics.drawString(font, "Runtime payloads remain outside high-cardinality BlockState.", 16, 163, MUTED, false); }
         }
     }
@@ -372,7 +422,7 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
     }
 
     private boolean isWaveDevice() {
-        return menu.kind() >= FieldDeviceMenu.KIND_AMETHYST_RESONATOR && menu.kind() <= FieldDeviceMenu.KIND_MECHANICAL_RECEIVER;
+        return menu.kind() >= FieldDeviceMenu.KIND_AMETHYST_RESONATOR && menu.kind() <= FieldDeviceMenu.KIND_THERMAL_RECEIVER;
     }
 
     private String deviceName() {
@@ -408,6 +458,14 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             case FieldDeviceMenu.KIND_MECHANICAL_EXCITER -> "MECHANICAL EXCITER";
             case FieldDeviceMenu.KIND_SLIME_VIBRATION -> "SLIME VIBRATION CONDUIT";
             case FieldDeviceMenu.KIND_MECHANICAL_RECEIVER -> "MECHANICAL VIBRATION RECEIVER";
+            case FieldDeviceMenu.KIND_HONEY_DAMPER -> "HONEY VIBRATION DAMPER";
+            case FieldDeviceMenu.KIND_SCULK_INTERFACE -> "SCULK VIBRATION INTERFACE";
+            case FieldDeviceMenu.KIND_HYDRO_TUBE -> "HYDROACOUSTIC TUBE";
+            case FieldDeviceMenu.KIND_HYDRO_EXCITER -> "HYDROACOUSTIC EXCITER";
+            case FieldDeviceMenu.KIND_HYDRO_RECEIVER -> "HYDROACOUSTIC RECEIVER";
+            case FieldDeviceMenu.KIND_PHONON_CONDUIT -> "PHONON CONDUIT";
+            case FieldDeviceMenu.KIND_THERMAL_ENCODER -> "THERMAL PULSE ENCODER";
+            case FieldDeviceMenu.KIND_THERMAL_RECEIVER -> "THERMAL PULSE RECEIVER";
             default -> "UNKNOWN";
         };
     }
@@ -423,6 +481,14 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             else text.append(" · ").append(direction.getName().toUpperCase());
         }
         return text.isEmpty() ? "NONE" : text.toString();
+    }
+
+    private static String hydroMedium(int value) {
+        return switch (value) {
+            case 1 -> "MILK-MODEL";
+            case 2 -> "LAVA";
+            default -> "WATER";
+        };
     }
 
     private static String byteText(int value) {
