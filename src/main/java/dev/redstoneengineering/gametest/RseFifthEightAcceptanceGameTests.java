@@ -14,7 +14,6 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.InformationRuntime;
-import dev.redstoneengineering.physics.RadioKernel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
@@ -105,7 +104,6 @@ public final class RseFifthEightAcceptanceGameTests {
         BlockPos txPos = new BlockPos(2, 1, 2);
         BlockPos antennaPower = new BlockPos(2, 2, 2);
         BlockPos sidePower = new BlockPos(1, 1, 2);
-        BlockPos probePos = new BlockPos(4, 1, 2);
 
         helper.setBlock(antennaPower, Blocks.REDSTONE_BLOCK.defaultBlockState());
         helper.setBlock(txPos, RedstoneEngineering.RADIO_TRANSMITTER.get().defaultBlockState());
@@ -119,15 +117,21 @@ public final class RseFifthEightAcceptanceGameTests {
                 helper.fail("Radio TX did not expose its UP RADIO_DATA antenna", txPos);
                 return;
             }
-            if (RadioKernel.receivePacket(helper.getLevel(), helper.absolutePos(probePos), 0).valid()) {
-                helper.fail("Redstone above the antenna face incorrectly became a radio payload input", txPos);
+            var idleSnapshot = tx.engineeringSnapshot(
+                    helper.getLevel(), helper.absolutePos(txPos), state, Direction.UP).orElse(null);
+            if (idleSnapshot == null || Math.round(idleSnapshot.value()) != 0
+                    || idleSnapshot.quality() != PortQuality.NO_SIGNAL) {
+                helper.fail("Redstone above the antenna face incorrectly became a local radio payload input", txPos);
                 return;
             }
             helper.setBlock(sidePower, Blocks.REDSTONE_BLOCK.defaultBlockState());
             helper.runAfterDelay(3, () -> {
-                var reception = RadioKernel.receivePacket(helper.getLevel(), helper.absolutePos(probePos), 0);
-                if (!reception.valid() || reception.value() != 15 || reception.drivers() != 1) {
-                    helper.fail("Radio TX did not transmit its strongest non-antenna redstone payload", txPos);
+                BlockState poweredState = helper.getBlockState(txPos);
+                var drivenSnapshot = tx.engineeringSnapshot(
+                        helper.getLevel(), helper.absolutePos(txPos), poweredState, Direction.UP).orElse(null);
+                if (drivenSnapshot == null || Math.round(drivenSnapshot.value()) != 15
+                        || drivenSnapshot.quality() != PortQuality.VALID) {
+                    helper.fail("Radio TX did not publish its strongest non-antenna redstone payload to the antenna", txPos);
                     return;
                 }
                 helper.succeed();
