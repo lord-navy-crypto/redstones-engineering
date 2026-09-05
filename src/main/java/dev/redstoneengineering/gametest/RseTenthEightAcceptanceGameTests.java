@@ -313,6 +313,10 @@ public final class RseTenthEightAcceptanceGameTests {
         }
     }
 
+    /**
+     * Sources legitimately publish four horizontal ports. Surface traces instead
+     * publish only the directions represented by their real connection arms.
+     */
     private static void assertFourHorizontalPorts(
             GameTestHelper helper,
             BlockPos pos,
@@ -321,14 +325,41 @@ public final class RseTenthEightAcceptanceGameTests {
             PortDirection direction
     ) {
         BlockState state = helper.getBlockState(pos);
-        if (provider.engineeringPorts(state).size() != 4
+        boolean topologyTrace = state.getBlock() instanceof LapisSignalLineBlock
+                || state.getBlock() instanceof QuartzTimingLineBlock;
+
+        if (topologyTrace) {
+            int expected = 0;
+            for (Direction side : Direction.Plane.HORIZONTAL) {
+                boolean connected = SurfaceTraceBlock.connected(state, side);
+                var port = provider.engineeringPort(state, side).orElse(null);
+                if (connected) {
+                    expected++;
+                    if (port == null || port.domain() != domain || port.direction() != direction) {
+                        helper.fail("Surface trace engineering port disagreed with its physical connection arm", pos);
+                        return;
+                    }
+                } else if (port != null) {
+                    helper.fail("Surface trace exposed an engineering port with no physical connection arm", pos);
+                    return;
+                }
+            }
+            if (provider.engineeringPorts(state).size() != expected) {
+                helper.fail("Surface trace engineering-port count disagreed with physical topology", pos);
+                return;
+            }
+        } else if (provider.engineeringPorts(state).size() != 4
                 || provider.engineeringPorts(state).stream().anyMatch(port ->
                 port.side().getAxis() == Direction.Axis.Y
                         || port.domain() != domain
-                        || port.direction() != direction)
-                || provider.engineeringPort(state, Direction.UP).isPresent()
+                        || port.direction() != direction)) {
+            helper.fail("Foundational domain source did not expose exactly four horizontal ports", pos);
+            return;
+        }
+
+        if (provider.engineeringPort(state, Direction.UP).isPresent()
                 || provider.engineeringPort(state, Direction.DOWN).isPresent()) {
-            helper.fail("Foundational domain device did not expose exactly four horizontal ports", pos);
+            helper.fail("Foundational horizontal domain exposed a vertical engineering port", pos);
         }
     }
 }

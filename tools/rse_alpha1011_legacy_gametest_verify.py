@@ -41,8 +41,11 @@ for rel in [
 
 require("src/main/java/dev/redstoneengineering/block/RedstoneCableTerminalBlock.java",
         "VANILLA IN", "VANILLA OUT", "CABLE IN", "CABLE OUT", "PortKind.CONVERTER")
+# The insulated cable and its explicit branch box are the same 0..15 analog
+# electrical medium. BUS was the historical placeholder; REDSTONE_ANALOG is the
+# truthful post-audit contract and must remain consistent with the cable itself.
 require("src/main/java/dev/redstoneengineering/block/RedstoneCableJunctionBlock.java",
-        "EngineeringDomain.REDSTONE", "PortKind.BUS", "PortDirection.BIDIRECTIONAL")
+        "EngineeringDomain.REDSTONE", "PortKind.REDSTONE_ANALOG", "PortDirection.BIDIRECTIONAL")
 require("src/main/java/dev/redstoneengineering/block/CopperCableJunctionBlock.java",
         "EngineeringDomain.COPPER", "PortKind.BUS", "PortDirection.BIDIRECTIONAL")
 require("src/main/java/dev/redstoneengineering/block/AbstractLapisTransducerBlock.java",
