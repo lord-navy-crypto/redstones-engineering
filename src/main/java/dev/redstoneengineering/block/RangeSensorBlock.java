@@ -2,11 +2,20 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.core.domain.EngineeringDomain;
+import dev.redstoneengineering.core.port.EngineeringPort;
+import dev.redstoneengineering.core.port.EngineeringPortProvider;
+import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
+import dev.redstoneengineering.core.port.PortDirection;
+import dev.redstoneengineering.core.port.PortKind;
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.signal.EngineeringSignal;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.LivingEntity;
@@ -24,8 +33,10 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 
 import javax.annotation.Nullable;
+import java.util.List;
+import java.util.Optional;
 
-public class RangeSensorBlock extends Block {
+public class RangeSensorBlock extends Block implements EngineeringPortProvider {
     public static final DirectionProperty FACING =
             BlockStateProperties.HORIZONTAL_FACING;
 
@@ -71,6 +82,32 @@ public class RangeSensorBlock extends Block {
             StateDefinition.Builder<Block, BlockState> builder
     ) {
         builder.add(FACING, OUTPUT, MODE, RANGE_MODE, RESPONSE);
+    }
+
+    public static Direction sensingSide(BlockState state) { return state.getValue(FACING); }
+    public static Direction outputSide(BlockState state) { return sensingSide(state).getOpposite(); }
+    public static int configuredRange(BlockState state) { return rangeForMode(state.getValue(RANGE_MODE)); }
+    public static int detectedDistance(Level level, BlockPos pos, BlockState state) {
+        return detectDistance(level, pos, sensingSide(state), configuredRange(state), state.getValue(MODE));
+    }
+
+    @Override
+    public List<EngineeringPort> engineeringPorts(BlockState state) {
+        return List.of(new EngineeringPort(
+                "RANGE SIGNAL OUT", outputSide(state), EngineeringDomain.REDSTONE,
+                PortKind.SENSOR, PortDirection.OUTPUT, true, "signal"
+        ));
+    }
+
+    @Override
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
+            Level level, BlockPos pos, BlockState state, Direction side
+    ) {
+        Optional<EngineeringPort> port = engineeringPort(state, side);
+        return port.map(value -> EngineeringPortSnapshot.redstone(
+                value, state.getValue(OUTPUT),
+                detectedDistance(level, pos, state) > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL
+        ));
     }
 
     @Override
@@ -189,7 +226,11 @@ public class RangeSensorBlock extends Block {
             Player player,
             BlockHitResult hitResult
     ) {
-        if (!level.isClientSide) {
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (!player.isShiftKeyDown()) {
+                FieldDeviceUi.open(serverPlayer, pos);
+                return InteractionResult.CONSUME;
+            }
             BlockState next = state;
             Direction sensingFace = state.getValue(FACING);
 
@@ -198,7 +239,7 @@ public class RangeSensorBlock extends Block {
                         RESPONSE,
                         (state.getValue(RESPONSE) + 1) % 4
                 );
-            } else if (player.isShiftKeyDown()) {
+            } else if (hitResult.getDirection() == sensingFace.getOpposite()) {
                 next = next.setValue(
                         RANGE_MODE,
                         (state.getValue(RANGE_MODE) + 1) % 3

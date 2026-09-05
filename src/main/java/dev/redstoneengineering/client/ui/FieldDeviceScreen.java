@@ -44,10 +44,12 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
         boolean primaryAdjust = menu.kind() == FieldDeviceMenu.KIND_PROBE
                 || menu.kind() == FieldDeviceMenu.KIND_FILTER
                 || menu.kind() == FieldDeviceMenu.KIND_REFERENCE
-                || menu.kind() == FieldDeviceMenu.KIND_DIGITAL_REGENERATOR;
+                || menu.kind() == FieldDeviceMenu.KIND_DIGITAL_REGENERATOR
+                || menu.kind() == FieldDeviceMenu.KIND_PRESSURE_REGULATOR;
         decrease.active = primaryAdjust;
         increase.active = primaryAdjust;
-        toggle.active = menu.kind() == FieldDeviceMenu.KIND_TERMINAL;
+        toggle.active = menu.kind() == FieldDeviceMenu.KIND_TERMINAL
+                || menu.kind() == FieldDeviceMenu.KIND_PNEUMATIC_VALVE;
         boolean presets = menu.kind() == FieldDeviceMenu.KIND_REFERENCE;
         preset0.active = presets;
         preset5.active = presets;
@@ -58,9 +60,12 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             case FieldDeviceMenu.KIND_FILTER -> { decrease.setMessage(Component.literal("− Slew")); increase.setMessage(Component.literal("Slew +")); }
             case FieldDeviceMenu.KIND_REFERENCE -> { decrease.setMessage(Component.literal("− Output")); increase.setMessage(Component.literal("Output +")); }
             case FieldDeviceMenu.KIND_DIGITAL_REGENERATOR -> { decrease.setMessage(Component.literal("− Threshold")); increase.setMessage(Component.literal("Threshold +")); }
+            case FieldDeviceMenu.KIND_PRESSURE_REGULATOR -> { decrease.setMessage(Component.literal("− Setpoint")); increase.setMessage(Component.literal("Setpoint +")); }
             default -> { decrease.setMessage(Component.literal("−")); increase.setMessage(Component.literal("+")); }
         }
-        toggle.setMessage(Component.literal(menu.tertiary() == 1 ? "Cable → Vanilla" : "Vanilla → Cable"));
+        toggle.setMessage(Component.literal(menu.kind() == FieldDeviceMenu.KIND_PNEUMATIC_VALVE
+                ? (menu.tertiary() == 1 ? "Close valve" : "Open valve")
+                : (menu.tertiary() == 1 ? "Cable → Vanilla" : "Vanilla → Cable")));
     }
 
     @Override
@@ -76,6 +81,68 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
 
     private void renderOverview(GuiGraphics graphics) {
         switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_AIR_COMPRESSOR -> {
+                statusBadge(graphics, "AIR COMPRESSOR", menu.tertiary() > 0 ? GOOD : INFO, 16, 80);
+                labelValue(graphics, "Command", menu.primary() + " / 15", 105);
+                labelValue(graphics, "Commanded pressure", menu.secondary() + " / 100", 121);
+                labelValue(graphics, "Outlet pressure", menu.tertiary() + " / 100", 137);
+                signalBar(graphics, menu.primary(), 157);
+            }
+            case FieldDeviceMenu.KIND_PNEUMATIC_PIPE -> pneumaticOverview(graphics, "PNEUMATIC PIPE", "Line pressure", menu.primary(), 0);
+            case FieldDeviceMenu.KIND_AIR_RESERVOIR -> pneumaticOverview(graphics, "AIR RESERVOIR", "Stored / line", menu.primary(), menu.secondary());
+            case FieldDeviceMenu.KIND_PRESSURE_REGULATOR -> pneumaticOverview(graphics, "PRESSURE REGULATOR", "Pressure / setpoint", menu.primary(), menu.secondary());
+            case FieldDeviceMenu.KIND_PNEUMATIC_RECEIVER -> {
+                statusBadge(graphics, "PNEUMATIC RECEIVER", menu.dataValid() ? GOOD : WARN, 16, 80);
+                labelValue(graphics, "Pressure input", menu.primary() + " / 100", 105);
+                labelValue(graphics, "Redstone output", menu.secondary() + " / 15", 121);
+                labelValue(graphics, "Conversion", "PNEUMATIC → REDSTONE", 137);
+                signalBar(graphics, menu.secondary(), 157);
+            }
+            case FieldDeviceMenu.KIND_PNEUMATIC_VALVE -> {
+                statusBadge(graphics, menu.tertiary() == 1 ? "VALVE OPEN" : "VALVE CLOSED", menu.tertiary() == 1 ? GOOD : WARN, 16, 80);
+                labelValue(graphics, "Back / front pressure", menu.primary() + " / " + menu.secondary(), 105);
+                labelValue(graphics, "Flow path", "BACK ↔ FRONT", 121);
+                labelValue(graphics, "Declared ports", Integer.toString(menu.portCount()), 137);
+            }
+            case FieldDeviceMenu.KIND_PNEUMATIC_CHECK_VALVE -> pneumaticOverview(graphics, "PNEUMATIC CHECK VALVE", "Inlet / outlet", menu.primary(), menu.secondary());
+            case FieldDeviceMenu.KIND_PNEUMATIC_FLOW_METER -> {
+                statusBadge(graphics, "PNEUMATIC FLOW METER", menu.dataValid() ? GOOD : WARN, 16, 80);
+                labelValue(graphics, "Flow proxy / ΔP", menu.primary() + " / " + menu.secondary(), 105);
+                labelValue(graphics, "Pin / Pout", menu.tertiary() + " / " + menu.driverCount(), 121);
+                labelValue(graphics, "Measurement", menu.dataValid() ? "SAMPLED" : "WAITING", 137);
+            }
+            case FieldDeviceMenu.KIND_EDGE_DETECTOR -> {
+                statusBadge(graphics, "EDGE DETECTOR", menu.dataValid() ? GOOD : WARN, 16, 80);
+                labelValue(graphics, "Input / output", menu.primary() + " / " + menu.secondary(), 105);
+                labelValue(graphics, "Mode", edgeMode(menu.tertiary()), 121);
+                labelValue(graphics, "Pulse remaining", menu.driverCount() + " ticks", 137);
+                signalBar(graphics, menu.secondary(), 157);
+            }
+            case FieldDeviceMenu.KIND_PULSE_SHAPER -> {
+                statusBadge(graphics, "PULSE SHAPER", menu.dataValid() ? GOOD : WARN, 16, 80);
+                labelValue(graphics, "Input / output", menu.primary() + " / " + menu.secondary(), 105);
+                labelValue(graphics, "Configured width", menu.tertiary() + " ticks", 121);
+                labelValue(graphics, "Pulse remaining", menu.driverCount() + " ticks", 137);
+                signalBar(graphics, menu.secondary(), 157);
+            }
+            case FieldDeviceMenu.KIND_SIGNAL_TAP -> {
+                statusBadge(graphics, "NON-INVASIVE SIGNAL TAP", GOOD, 16, 80);
+                labelValue(graphics, "Input", menu.primary() + " / 15", 105);
+                labelValue(graphics, "Through / tap", menu.secondary() + " / " + menu.tertiary(), 121);
+                labelValue(graphics, "Declared ports", Integer.toString(menu.portCount()), 137);
+                signalBar(graphics, menu.secondary(), 157);
+            }
+            case FieldDeviceMenu.KIND_RANGE_SENSOR -> {
+                statusBadge(graphics, "RANGE SENSOR", validityColor(), 16, 80);
+                labelValue(graphics, "Detected distance", menu.dataValid() ? menu.primary() + " blocks" : "NO TARGET", 105);
+                labelValue(graphics, "Configured range", menu.tertiary() + " blocks", 121);
+                labelValue(graphics, "Redstone output", menu.secondary() + " / 15", 137);
+                signalBar(graphics, menu.secondary(), 157);
+            }
+            case FieldDeviceMenu.KIND_LAPIS_LINE -> mediumFoundationOverview(graphics, "LAPIS PRECISION TRACE", "Value", menu.primary() + " / 100");
+            case FieldDeviceMenu.KIND_LAPIS_SOURCE -> mediumFoundationOverview(graphics, "LAPIS PRECISION SOURCE", "Source value", menu.primary() + " / 100");
+            case FieldDeviceMenu.KIND_QUARTZ_LINE -> mediumFoundationOverview(graphics, "QUARTZ TIMING TRACE", "Clock / period", (menu.primary() == 1 ? "HIGH" : "LOW") + " / " + menu.secondary() + "t");
+            case FieldDeviceMenu.KIND_QUARTZ_OSCILLATOR -> mediumFoundationOverview(graphics, "QUARTZ OSCILLATOR", "Clock / period", (menu.primary() == 1 ? "HIGH" : "LOW") + " / " + menu.secondary() + "t");
             case FieldDeviceMenu.KIND_PROBE -> {
                 statusBadge(graphics, "NON-INVASIVE PROBE", GOOD, 16, 80);
                 labelValue(graphics, "Channel", SignalProbeBlock.channelName(menu.secondary()), 104);
@@ -334,6 +401,22 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
         statusLine(graphics, "Frame", validityText(), validityColor(), 157);
     }
 
+    private void mediumFoundationOverview(GuiGraphics graphics, String title, String label, String value) {
+        statusBadge(graphics, title, validityColor(), 16, 80);
+        labelValue(graphics, label, value, 105);
+        labelValue(graphics, "Compatible links", Integer.toString(menu.connectionCount()), 121);
+        labelValue(graphics, "Declared ports", Integer.toString(menu.portCount()), 137);
+        statusLine(graphics, "Domain state", validityText(), validityColor(), 157);
+    }
+
+    private void pneumaticOverview(GuiGraphics graphics, String title, String label, int primary, int secondary) {
+        statusBadge(graphics, title, menu.dataValid() ? GOOD : INFO, 16, 80);
+        labelValue(graphics, label, secondary > 0 ? primary + " / " + secondary : primary + " / 100", 105);
+        labelValue(graphics, "Compatible links", Integer.toString(menu.connectionCount()), 121);
+        labelValue(graphics, "Declared ports", Integer.toString(menu.portCount()), 137);
+        statusLine(graphics, "Domain", "PNEUMATIC", INFO, 157);
+    }
+
     private void renderCableOverview(GuiGraphics graphics) {
         statusBadge(graphics, menu.topologyValid() ? "TOPOLOGY VALID" : "TOPOLOGY ERROR", menu.topologyValid() ? GOOD : BAD, 16, 80);
         labelValue(graphics, "Connections", menu.connectionCount() + " / 6", 105);
@@ -357,6 +440,31 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             return;
         }
         switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_AIR_COMPRESSOR -> {
+                statusLine(graphics, "DOWN", "REDSTONE PRESSURE COMMAND INPUT", GOOD, 105);
+                statusLine(graphics, "UP", "PNEUMATIC COMPRESSED-AIR OUTPUT", INFO, 125);
+            }
+            case FieldDeviceMenu.KIND_PNEUMATIC_PIPE -> renderMediumPorts(graphics, "PNEUMATIC • SIX-WAY BIDIRECTIONAL PIPE");
+            case FieldDeviceMenu.KIND_AIR_RESERVOIR -> renderMediumPorts(graphics, "PNEUMATIC • SIX-WAY ACCUMULATOR MANIFOLD");
+            case FieldDeviceMenu.KIND_PRESSURE_REGULATOR -> renderMediumPorts(graphics, "PNEUMATIC • SIX-WAY REGULATED MANIFOLD");
+            case FieldDeviceMenu.KIND_PNEUMATIC_RECEIVER -> renderDirectionalPorts(graphics, "BACK • PNEUMATIC INPUT", "FRONT • REDSTONE OUTPUT");
+            case FieldDeviceMenu.KIND_PNEUMATIC_VALVE -> renderDirectionalPorts(graphics, "BACK • PNEUMATIC BIDIRECTIONAL", "FRONT • PNEUMATIC BIDIRECTIONAL");
+            case FieldDeviceMenu.KIND_PNEUMATIC_CHECK_VALVE -> renderDirectionalPorts(graphics, "BACK • PNEUMATIC INPUT", "FRONT • PNEUMATIC OUTPUT");
+            case FieldDeviceMenu.KIND_PNEUMATIC_FLOW_METER -> renderDirectionalPorts(graphics, "BACK • PNEUMATIC MEASUREMENT INPUT", "FRONT • PNEUMATIC MEASUREMENT OUTPUT");
+            case FieldDeviceMenu.KIND_EDGE_DETECTOR -> renderDirectionalPorts(graphics, "BACK • REDSTONE EDGE INPUT", "FRONT • BINARY PULSE OUTPUT");
+            case FieldDeviceMenu.KIND_PULSE_SHAPER -> renderDirectionalPorts(graphics, "BACK • REDSTONE TRIGGER INPUT", "FRONT • SHAPED PULSE OUTPUT");
+            case FieldDeviceMenu.KIND_SIGNAL_TAP -> {
+                renderDirectionalPorts(graphics, "BACK • REDSTONE INPUT", "FRONT • THROUGH OUTPUT");
+                statusLine(graphics, "LEFT", "NON-INVASIVE TAP OUTPUT", GOOD, 145);
+            }
+            case FieldDeviceMenu.KIND_RANGE_SENSOR -> {
+                statusLine(graphics, directionName(menu.facingOrdinal()), "SENSING APERTURE • NO WIRED PORT", INFO, 105);
+                statusLine(graphics, oppositeDirectionName(menu.facingOrdinal()), "REDSTONE SENSOR OUTPUT", GOOD, 125);
+            }
+            case FieldDeviceMenu.KIND_LAPIS_LINE -> renderMediumPorts(graphics, "LAPIS_PRECISION • HORIZONTAL BIDIRECTIONAL TRACE");
+            case FieldDeviceMenu.KIND_LAPIS_SOURCE -> renderMediumPorts(graphics, "LAPIS_PRECISION • FOUR HORIZONTAL OUTPUTS");
+            case FieldDeviceMenu.KIND_QUARTZ_LINE -> renderMediumPorts(graphics, "QUARTZ_TIMING • HORIZONTAL BIDIRECTIONAL TRACE");
+            case FieldDeviceMenu.KIND_QUARTZ_OSCILLATOR -> renderMediumPorts(graphics, "QUARTZ_TIMING • FOUR HORIZONTAL OUTPUTS");
             case FieldDeviceMenu.KIND_PROBE -> { statusLine(graphics, directionName(menu.facingOrdinal()), "TEST • REDSTONE MEASUREMENT INPUT", GOOD, 105); statusLine(graphics, oppositeDirectionName(menu.facingOrdinal()), "INSTRUMENT BUS OUTPUT", INFO, 125); }
             case FieldDeviceMenu.KIND_FILTER -> renderDirectionalPorts(graphics, "BACK • REDSTONE INPUT", "FRONT • REDSTONE OUTPUT");
             case FieldDeviceMenu.KIND_REFERENCE -> statusLine(graphics, directionName(menu.facingOrdinal()), "REFERENCE OUT • REDSTONE 0..15", GOOD, 105);
@@ -437,6 +545,8 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             case FieldDeviceMenu.KIND_REFERENCE -> { labelValue(graphics, "Reference output", menu.primary() + " / 15", 80); graphics.drawString(font, "Use ±1 adjustment or lab presets.", 16, 163, MUTED, false); }
             case FieldDeviceMenu.KIND_TERMINAL -> { labelValue(graphics, "Boundary direction", menu.tertiary() == 1 ? "CABLE → VANILLA" : "VANILLA → CABLE", 80); graphics.drawString(font, "Toggle recomputes the cable network on the server.", 16, 163, MUTED, false); }
             case FieldDeviceMenu.KIND_DIGITAL_REGENERATOR -> { labelValue(graphics, "Minimum input quality", DigitalRegeneratorBlock.minimumQuality(menu.tertiary()) + "%", 80); graphics.drawString(font, "Server accepts frames only above threshold.", 16, 163, MUTED, false); }
+            case FieldDeviceMenu.KIND_PRESSURE_REGULATOR -> { labelValue(graphics, "Pressure setpoint", menu.secondary() + " / 100", 80); graphics.drawString(font, "Use ± to select 25 / 50 / 75 / 100 on the server.", 16, 163, MUTED, false); }
+            case FieldDeviceMenu.KIND_PNEUMATIC_VALVE -> { labelValue(graphics, "Valve state", menu.tertiary() == 1 ? "OPEN" : "CLOSED", 80); graphics.drawString(font, "Toggle recomputes both adjacent pneumatic components.", 16, 163, MUTED, false); }
             case FieldDeviceMenu.KIND_AMETHYST_RESONATOR -> { labelValue(graphics, "Frequency / amplitude", menu.primary() + " / " + menu.secondary(), 80); graphics.drawString(font, "Configuration remains server-side; Inspector is synchronized readback in this wave.", 16, 163, MUTED, false); }
             case FieldDeviceMenu.KIND_AMETHYST_FILTER -> { labelValue(graphics, "Target frequency", Integer.toString(menu.tertiary()), 80); graphics.drawString(font, "Target selection remains server-side; output readback is authoritative.", 16, 163, MUTED, false); }
             case FieldDeviceMenu.KIND_AMETHYST_TUNED -> { labelValue(graphics, "Natural f / Q", menu.primary() + " / " + menu.tertiary(), 80); graphics.drawString(font, "Tuning remains server-side; this screen never calculates resonance.", 16, 163, MUTED, false); }
@@ -458,6 +568,10 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             statusLine(graphics, "Runtime payload", validityText(), validityColor(), 122);
             labelValue(graphics, "Quality", menu.qualityPercent() + "%", 142);
             labelValue(graphics, "Links / drivers", menu.connectionCount() + " / " + menu.driverCount(), 162);
+        } else if (isPneumaticDevice()) {
+            statusLine(graphics, "Pneumatic snapshot", validityText(), validityColor(), 122);
+            labelValue(graphics, "Primary / secondary", menu.primary() + " / " + menu.secondary(), 142);
+            labelValue(graphics, "Aux / outlet", menu.tertiary() + " / " + menu.driverCount(), 162);
         } else if (isTimingDevice()) {
             statusLine(graphics, "Timing snapshot", validityText(), validityColor(), 122);
             labelValue(graphics, "Measured/input period", menu.primary() + " ticks", 142);
@@ -499,7 +613,15 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
     }
 
     private boolean isTimingDevice() {
-        return menu.kind() == FieldDeviceMenu.KIND_QUARTZ_DIVIDER || menu.kind() == FieldDeviceMenu.KIND_QUARTZ_STABILITY;
+        return menu.kind() == FieldDeviceMenu.KIND_QUARTZ_DIVIDER
+                || menu.kind() == FieldDeviceMenu.KIND_QUARTZ_STABILITY
+                || menu.kind() == FieldDeviceMenu.KIND_QUARTZ_LINE
+                || menu.kind() == FieldDeviceMenu.KIND_QUARTZ_OSCILLATOR;
+    }
+
+    private boolean isPneumaticDevice() {
+        return menu.kind() >= FieldDeviceMenu.KIND_AIR_COMPRESSOR
+                && menu.kind() <= FieldDeviceMenu.KIND_PNEUMATIC_FLOW_METER;
     }
 
     private boolean isWaveDevice() {
@@ -512,6 +634,22 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
 
     private String deviceName() {
         return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_AIR_COMPRESSOR -> "AIR COMPRESSOR";
+            case FieldDeviceMenu.KIND_PNEUMATIC_PIPE -> "PNEUMATIC PIPE";
+            case FieldDeviceMenu.KIND_AIR_RESERVOIR -> "AIR RESERVOIR";
+            case FieldDeviceMenu.KIND_PRESSURE_REGULATOR -> "PRESSURE REGULATOR";
+            case FieldDeviceMenu.KIND_PNEUMATIC_RECEIVER -> "PNEUMATIC RECEIVER";
+            case FieldDeviceMenu.KIND_PNEUMATIC_VALVE -> "PNEUMATIC VALVE";
+            case FieldDeviceMenu.KIND_PNEUMATIC_CHECK_VALVE -> "PNEUMATIC CHECK VALVE";
+            case FieldDeviceMenu.KIND_PNEUMATIC_FLOW_METER -> "PNEUMATIC FLOW METER";
+            case FieldDeviceMenu.KIND_EDGE_DETECTOR -> "EDGE DETECTOR";
+            case FieldDeviceMenu.KIND_PULSE_SHAPER -> "PULSE SHAPER";
+            case FieldDeviceMenu.KIND_SIGNAL_TAP -> "SIGNAL TAP";
+            case FieldDeviceMenu.KIND_RANGE_SENSOR -> "RANGE SENSOR";
+            case FieldDeviceMenu.KIND_LAPIS_LINE -> "LAPIS SIGNAL LINE";
+            case FieldDeviceMenu.KIND_LAPIS_SOURCE -> "LAPIS PRECISION SOURCE";
+            case FieldDeviceMenu.KIND_QUARTZ_LINE -> "QUARTZ TIMING LINE";
+            case FieldDeviceMenu.KIND_QUARTZ_OSCILLATOR -> "QUARTZ OSCILLATOR";
             case FieldDeviceMenu.KIND_PROBE -> "SIGNAL PROBE";
             case FieldDeviceMenu.KIND_FILTER -> "PRECISION FILTER";
             case FieldDeviceMenu.KIND_REFERENCE -> "REFERENCE SOURCE";
@@ -580,6 +718,14 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             case 1 -> "MILK-MODEL";
             case 2 -> "LAVA";
             default -> "WATER";
+        };
+    }
+
+    private static String edgeMode(int value) {
+        return switch (value) {
+            case 1 -> "FALLING";
+            case 2 -> "BOTH";
+            default -> "RISING";
         };
     }
 

@@ -49,3 +49,7 @@ replay_pid*.log
 .env
 .env.*
 !.env.example
+
+### Python verifier caches ###
+__pycache__/
+*.py[cod]

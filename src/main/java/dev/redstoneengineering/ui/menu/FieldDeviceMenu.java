@@ -7,6 +7,7 @@ import dev.redstoneengineering.instrument.InstrumentShieldingAudit;
 import dev.redstoneengineering.physics.DataBusNetwork;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.InformationRuntime;
+import dev.redstoneengineering.physics.PneumaticNetwork;
 import dev.redstoneengineering.physics.RadioKernel;
 import dev.redstoneengineering.physics.RedstoneCableNetwork;
 import dev.redstoneengineering.physics.VibrationNetwork;
@@ -72,6 +73,22 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int KIND_REDUNDANT_VOTER = 44;
     public static final int KIND_FAULT_LATCH = 45;
     public static final int KIND_OPERATIONS_MONITOR = 46;
+    public static final int KIND_AIR_COMPRESSOR = 47;
+    public static final int KIND_PNEUMATIC_PIPE = 48;
+    public static final int KIND_AIR_RESERVOIR = 49;
+    public static final int KIND_PRESSURE_REGULATOR = 50;
+    public static final int KIND_PNEUMATIC_RECEIVER = 51;
+    public static final int KIND_PNEUMATIC_VALVE = 52;
+    public static final int KIND_PNEUMATIC_CHECK_VALVE = 53;
+    public static final int KIND_PNEUMATIC_FLOW_METER = 54;
+    public static final int KIND_EDGE_DETECTOR = 55;
+    public static final int KIND_PULSE_SHAPER = 56;
+    public static final int KIND_SIGNAL_TAP = 57;
+    public static final int KIND_RANGE_SENSOR = 58;
+    public static final int KIND_LAPIS_LINE = 59;
+    public static final int KIND_LAPIS_SOURCE = 60;
+    public static final int KIND_QUARTZ_LINE = 61;
+    public static final int KIND_QUARTZ_OSCILLATOR = 62;
 
     public static final int BUTTON_PRIMARY_DECREASE = 0;
     public static final int BUTTON_PRIMARY_INCREASE = 1;
@@ -121,7 +138,107 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
         driverCount.set(0);
         portCount.set(block instanceof EngineeringPortProvider provider ? provider.engineeringPorts(state).size() : 0);
 
-        if (block instanceof SignalProbeBlock probe) {
+        if (block instanceof AirCompressorBlock compressor) {
+            primary.set(AirCompressorBlock.commandSignal(level, blockPos));
+            secondary.set(AirCompressorBlock.commandedPressure(level, blockPos));
+            tertiary.set(PneumaticNetwork.pressure(level, blockPos));
+            fillCompatibleTopology(state, compressor);
+        } else if (block instanceof PneumaticPipeBlock pipe) {
+            primary.set(PneumaticNetwork.pressure(level, blockPos));
+            dataValid.set(primary.get() > 0 ? 1 : 0);
+            quality.set(dataValid.get() != 0 ? 100 : 0);
+            fillCompatibleTopology(state, pipe);
+        } else if (block instanceof AirReservoirBlock reservoir) {
+            primary.set(AirReservoirBlock.storedPressure(level, blockPos));
+            secondary.set(PneumaticNetwork.pressure(level, blockPos));
+            fillCompatibleTopology(state, reservoir);
+        } else if (block instanceof PressureRegulatorBlock regulator) {
+            primary.set(PneumaticNetwork.pressure(level, blockPos));
+            secondary.set(PressureRegulatorBlock.setpointPressure(state));
+            tertiary.set(state.getValue(PressureRegulatorBlock.SETPOINT));
+            fillCompatibleTopology(state, regulator);
+        } else if (block instanceof PneumaticReceiverBlock receiver) {
+            Direction output = state.getValue(DirectionalSignalBlock.FACING);
+            primary.set(providerValue(receiver, state, output.getOpposite()));
+            secondary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+            dataValid.set(primary.get() > 0 ? 1 : 0);
+            quality.set(dataValid.get() != 0 ? 100 : 0);
+            facing.set(output.ordinal());
+            fillCompatibleTopology(state, receiver);
+        } else if (block instanceof PneumaticValveBlock valve) {
+            Direction output = state.getValue(DirectionalDomainBlock.FACING);
+            primary.set(providerValue(valve, state, output.getOpposite()));
+            secondary.set(providerValue(valve, state, output));
+            tertiary.set(state.getValue(PneumaticValveBlock.OPEN) ? 1 : 0);
+            facing.set(output.ordinal());
+            fillCompatibleTopology(state, valve);
+        } else if (block instanceof PneumaticCheckValveBlock valve) {
+            Direction output = state.getValue(DirectionalDomainBlock.FACING);
+            primary.set(providerValue(valve, state, output.getOpposite()));
+            secondary.set(providerValue(valve, state, output));
+            facing.set(output.ordinal());
+            fillCompatibleTopology(state, valve);
+        } else if (block instanceof PneumaticFlowMeterBlock meter) {
+            primary.set(PneumaticFlowMeterBlock.flowProxy(level, blockPos));
+            secondary.set(PneumaticFlowMeterBlock.pressureDrop(level, blockPos));
+            tertiary.set(PneumaticFlowMeterBlock.inletPressure(level, blockPos));
+            driverCount.set(PneumaticFlowMeterBlock.outletPressure(level, blockPos));
+            var measurement = PneumaticFlowMeterBlock.measurement(level, blockPos);
+            dataValid.set(measurement.sampleCount() > 0 ? 1 : 0);
+            quality.set(dataValid.get() != 0 ? 100 : 0);
+            facing.set(state.getValue(DirectionalDomainBlock.FACING).ordinal());
+            fillCompatibleTopology(state, meter);
+        } else if (block instanceof EdgeDetectorBlock detector) {
+            Direction output = state.getValue(DirectionalSignalBlock.FACING);
+            primary.set(providerValue(detector, state, output.getOpposite()));
+            secondary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+            tertiary.set(state.getValue(EdgeDetectorBlock.MODE));
+            driverCount.set(EdgeDetectorBlock.pulseRemaining(level, blockPos));
+            dataValid.set(EdgeDetectorBlock.initialized(level, blockPos) ? 1 : 0);
+            facing.set(output.ordinal());
+        } else if (block instanceof PulseShaperBlock shaper) {
+            Direction output = state.getValue(DirectionalSignalBlock.FACING);
+            primary.set(providerValue(shaper, state, output.getOpposite()));
+            secondary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+            tertiary.set(state.getValue(PulseShaperBlock.WIDTH));
+            driverCount.set(PulseShaperBlock.pulseRemaining(level, blockPos));
+            dataValid.set(PulseShaperBlock.initialized(level, blockPos) ? 1 : 0);
+            facing.set(output.ordinal());
+        } else if (block instanceof SignalTapBlock tap) {
+            Direction output = state.getValue(DirectionalSignalBlock.FACING);
+            primary.set(providerValue(tap, state, output.getOpposite()));
+            secondary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+            tertiary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+            facing.set(output.ordinal());
+            fillCompatibleTopology(state, tap);
+        } else if (block instanceof RangeSensorBlock sensor) {
+            primary.set(RangeSensorBlock.detectedDistance(level, blockPos, state));
+            secondary.set(state.getValue(RangeSensorBlock.OUTPUT));
+            tertiary.set(RangeSensorBlock.configuredRange(state));
+            driverCount.set(state.getValue(RangeSensorBlock.RESPONSE));
+            dataValid.set(primary.get() > 0 ? 1 : 0);
+            quality.set(dataValid.get() != 0 ? 100 : 0);
+            facing.set(RangeSensorBlock.sensingSide(state).ordinal());
+        } else if (block instanceof LapisSignalLineBlock line) {
+            primary.set(LapisSignalLineBlock.value(level, blockPos));
+            dataValid.set(LapisSignalLineBlock.valid(level, blockPos) ? 1 : 0);
+            quality.set(dataValid.get() != 0 ? 100 : 0);
+            fillCompatibleTopology(state, line);
+        } else if (block instanceof LapisPrecisionSourceBlock source) {
+            primary.set(state.getValue(LapisPrecisionSourceBlock.VALUE));
+            fillCompatibleTopology(state, source);
+        } else if (block instanceof QuartzTimingLineBlock line) {
+            primary.set(QuartzTimingLineBlock.active(level, blockPos) ? 1 : 0);
+            secondary.set(QuartzTimingLineBlock.period(level, blockPos));
+            dataValid.set(QuartzTimingLineBlock.valid(level, blockPos) ? 1 : 0);
+            quality.set(dataValid.get() != 0 ? 100 : 0);
+            fillCompatibleTopology(state, line);
+        } else if (block instanceof QuartzOscillatorBlock oscillator) {
+            primary.set(state.getValue(QuartzOscillatorBlock.ACTIVE) ? 1 : 0);
+            secondary.set(QuartzTimingLineBlock.periodTicks(state.getValue(QuartzOscillatorBlock.PERIOD_INDEX)));
+            tertiary.set(state.getValue(QuartzOscillatorBlock.PERIOD_INDEX));
+            fillCompatibleTopology(state, oscillator);
+        } else if (block instanceof SignalProbeBlock probe) {
             primary.set(probe.sample(level, blockPos, state));
             secondary.set(state.getValue(SignalProbeBlock.CHANNEL));
             facing.set(state.getValue(SignalProbeBlock.FACING).ordinal());
@@ -533,6 +650,24 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             level.setBlock(blockPos, state.setValue(DigitalRegeneratorBlock.THRESHOLD, threshold), Block.UPDATE_CLIENTS);
             level.scheduleTick(blockPos, regenerator, 1);
             changed = true;
+        } else if (block instanceof PressureRegulatorBlock regulator) {
+            int setpoint = state.getValue(PressureRegulatorBlock.SETPOINT);
+            if (id == BUTTON_PRIMARY_DECREASE) setpoint = setpoint <= 1 ? 4 : setpoint - 1;
+            else if (id == BUTTON_PRIMARY_INCREASE) setpoint = setpoint >= 4 ? 1 : setpoint + 1;
+            else return false;
+            level.setBlock(blockPos, state.setValue(PressureRegulatorBlock.SETPOINT, setpoint), Block.UPDATE_CLIENTS);
+            if (level instanceof net.minecraft.server.level.ServerLevel server) {
+                PneumaticNetwork.recompute(server, blockPos);
+            }
+            changed = true;
+        } else if (block instanceof PneumaticValveBlock valve) {
+            if (id != BUTTON_TOGGLE) return false;
+            level.setBlock(blockPos, state.setValue(PneumaticValveBlock.OPEN,
+                    !state.getValue(PneumaticValveBlock.OPEN)), Block.UPDATE_CLIENTS);
+            if (level instanceof net.minecraft.server.level.ServerLevel server) {
+                PneumaticNetwork.recomputeAround(server, blockPos);
+            }
+            changed = true;
         }
 
         if (changed) {
@@ -543,6 +678,22 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
     }
 
     private static int kindOf(Block block) {
+        if (block instanceof AirCompressorBlock) return KIND_AIR_COMPRESSOR;
+        if (block instanceof PneumaticPipeBlock) return KIND_PNEUMATIC_PIPE;
+        if (block instanceof AirReservoirBlock) return KIND_AIR_RESERVOIR;
+        if (block instanceof PressureRegulatorBlock) return KIND_PRESSURE_REGULATOR;
+        if (block instanceof PneumaticReceiverBlock) return KIND_PNEUMATIC_RECEIVER;
+        if (block instanceof PneumaticValveBlock) return KIND_PNEUMATIC_VALVE;
+        if (block instanceof PneumaticCheckValveBlock) return KIND_PNEUMATIC_CHECK_VALVE;
+        if (block instanceof PneumaticFlowMeterBlock) return KIND_PNEUMATIC_FLOW_METER;
+        if (block instanceof EdgeDetectorBlock) return KIND_EDGE_DETECTOR;
+        if (block instanceof PulseShaperBlock) return KIND_PULSE_SHAPER;
+        if (block instanceof SignalTapBlock) return KIND_SIGNAL_TAP;
+        if (block instanceof RangeSensorBlock) return KIND_RANGE_SENSOR;
+        if (block instanceof LapisSignalLineBlock) return KIND_LAPIS_LINE;
+        if (block instanceof LapisPrecisionSourceBlock) return KIND_LAPIS_SOURCE;
+        if (block instanceof QuartzTimingLineBlock) return KIND_QUARTZ_LINE;
+        if (block instanceof QuartzOscillatorBlock) return KIND_QUARTZ_OSCILLATOR;
         if (block instanceof SignalProbeBlock) return KIND_PROBE;
         if (block instanceof PrecisionFilterBlock) return KIND_FILTER;
         if (block instanceof RedstoneReferenceSourceBlock) return KIND_REFERENCE;
