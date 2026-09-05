@@ -26,6 +26,8 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
+import java.util.Optional;
+
 /** Final tail campaign: two environmental sensors and five Soul-domain devices. */
 public final class RseFifteenthSevenAcceptanceGameTests {
     private static final String TEMPLATE = "empty5x4x5";
