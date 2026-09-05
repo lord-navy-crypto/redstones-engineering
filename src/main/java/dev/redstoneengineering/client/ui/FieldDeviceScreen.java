@@ -45,7 +45,10 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
                 || menu.kind() == FieldDeviceMenu.KIND_FILTER
                 || menu.kind() == FieldDeviceMenu.KIND_REFERENCE
                 || menu.kind() == FieldDeviceMenu.KIND_DIGITAL_REGENERATOR
-                || menu.kind() == FieldDeviceMenu.KIND_PRESSURE_REGULATOR;
+                || menu.kind() == FieldDeviceMenu.KIND_PRESSURE_REGULATOR
+                || menu.kind() == FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE
+                || menu.kind() == FieldDeviceMenu.KIND_PERMANENT_MAGNET
+                || menu.kind() == FieldDeviceMenu.KIND_INDUCTION_COIL;
         decrease.active = primaryAdjust;
         increase.active = primaryAdjust;
         toggle.active = menu.kind() == FieldDeviceMenu.KIND_TERMINAL
@@ -61,6 +64,9 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             case FieldDeviceMenu.KIND_REFERENCE -> { decrease.setMessage(Component.literal("− Output")); increase.setMessage(Component.literal("Output +")); }
             case FieldDeviceMenu.KIND_DIGITAL_REGENERATOR -> { decrease.setMessage(Component.literal("− Threshold")); increase.setMessage(Component.literal("Threshold +")); }
             case FieldDeviceMenu.KIND_PRESSURE_REGULATOR -> { decrease.setMessage(Component.literal("− Setpoint")); increase.setMessage(Component.literal("Setpoint +")); }
+            case FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE -> { decrease.setMessage(Component.literal("− Relief")); increase.setMessage(Component.literal("Relief +")); }
+            case FieldDeviceMenu.KIND_PERMANENT_MAGNET -> { decrease.setMessage(Component.literal("− Strength")); increase.setMessage(Component.literal("Strength +")); }
+            case FieldDeviceMenu.KIND_INDUCTION_COIL -> { decrease.setMessage(Component.literal("− Turns")); increase.setMessage(Component.literal("Turns +")); }
             default -> { decrease.setMessage(Component.literal("−")); increase.setMessage(Component.literal("+")); }
         }
         toggle.setMessage(Component.literal(menu.kind() == FieldDeviceMenu.KIND_PNEUMATIC_VALVE
@@ -110,6 +116,56 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
                 labelValue(graphics, "Flow proxy / ΔP", menu.primary() + " / " + menu.secondary(), 105);
                 labelValue(graphics, "Pin / Pout", menu.tertiary() + " / " + menu.driverCount(), 121);
                 labelValue(graphics, "Measurement", menu.dataValid() ? "SAMPLED" : "WAITING", 137);
+            }
+            case FieldDeviceMenu.KIND_PNEUMATIC_PROPORTIONAL_VALVE -> {
+                statusBadge(graphics, "PROPORTIONAL VALVE", menu.dataValid() ? GOOD : WARN, 16, 80);
+                labelValue(graphics, "Inlet / outlet", menu.primary() + " / " + menu.secondary(), 105);
+                labelValue(graphics, "Opening command", menu.tertiary() + " / 15", 121);
+                labelValue(graphics, "Body pressure", menu.driverCount() + " / 100", 137);
+            }
+            case FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE -> {
+                statusBadge(graphics, menu.dataValid() ? "RELIEF ARMED" : "VENTING", menu.dataValid() ? GOOD : WARN, 16, 80);
+                labelValue(graphics, "Inlet / limited outlet", menu.primary() + " / " + menu.secondary(), 105);
+                labelValue(graphics, "Safety setpoint", menu.tertiary() + " / 100", 121);
+                labelValue(graphics, "Vent events", Integer.toString(menu.driverCount()), 137);
+            }
+            case FieldDeviceMenu.KIND_PNEUMATIC_CYLINDER -> {
+                statusBadge(graphics, "PNEUMATIC ACTUATOR", menu.dataValid() ? GOOD : INFO, 16, 80);
+                labelValue(graphics, "Pressure", menu.primary() + " / 100", 105);
+                labelValue(graphics, "Position / target", menu.secondary() + " / " + menu.tertiary(), 121);
+                labelValue(graphics, "Accumulated travel", Integer.toString(menu.driverCount()), 137);
+                signalBar(graphics, menu.secondary(), 157);
+            }
+            case FieldDeviceMenu.KIND_ELECTROMAGNET -> {
+                statusBadge(graphics, "COPPER → MAGNETIC", validityColor(), 16, 80);
+                labelValue(graphics, "Field / copper drive", menu.primary() + " / " + menu.secondary(), 105);
+                labelValue(graphics, "Copper input faces", Integer.toString(menu.portCount()), 121);
+                labelValue(graphics, "Magnetic output", "FREE-SPACE SCALAR FIELD", 137);
+            }
+            case FieldDeviceMenu.KIND_PERMANENT_MAGNET -> {
+                statusBadge(graphics, "PERMANENT FIELD SOURCE", GOOD, 16, 80);
+                labelValue(graphics, "Field strength", menu.primary() + " / 15", 105);
+                labelValue(graphics, "North marker", directionName(menu.facingOrdinal()), 121);
+                labelValue(graphics, "Wired ports", "NONE • FREE-SPACE FIELD", 137);
+            }
+            case FieldDeviceMenu.KIND_INDUCTION_COIL -> {
+                statusBadge(graphics, "MAGNETIC INDUCTION", validityColor(), 16, 80);
+                labelValue(graphics, "Local field", menu.primary() + " / 15", 105);
+                labelValue(graphics, "Induced output", menu.secondary() + " / 15", 121);
+                labelValue(graphics, "Turns index", Integer.toString(menu.tertiary()), 137);
+                signalBar(graphics, menu.secondary(), 157);
+            }
+            case FieldDeviceMenu.KIND_MAGNETIC_FIELD_SENSOR -> {
+                statusBadge(graphics, "MAGNETIC FIELD SENSOR", validityColor(), 16, 80);
+                labelValue(graphics, "Scalar field", menu.primary() + " / 15", 105);
+                labelValue(graphics, "Sample radius", "6 blocks", 121);
+                labelValue(graphics, "Wired output", "NONE • OBSERVER", 137);
+            }
+            case FieldDeviceMenu.KIND_MAGNETIC_GRADIENT_METER -> {
+                statusBadge(graphics, "MAGNETIC GRADIENT", validityColor(), 16, 80);
+                labelValue(graphics, "Local field", menu.primary() + " / 15", 105);
+                labelValue(graphics, "ΔBx / ΔBy", menu.secondary() + " / " + menu.tertiary(), 121);
+                labelValue(graphics, "ΔBz", Integer.toString(menu.driverCount()), 137);
             }
             case FieldDeviceMenu.KIND_EDGE_DETECTOR -> {
                 statusBadge(graphics, "EDGE DETECTOR", menu.dataValid() ? GOOD : WARN, 16, 80);
@@ -451,6 +507,19 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             case FieldDeviceMenu.KIND_PNEUMATIC_VALVE -> renderDirectionalPorts(graphics, "BACK • PNEUMATIC BIDIRECTIONAL", "FRONT • PNEUMATIC BIDIRECTIONAL");
             case FieldDeviceMenu.KIND_PNEUMATIC_CHECK_VALVE -> renderDirectionalPorts(graphics, "BACK • PNEUMATIC INPUT", "FRONT • PNEUMATIC OUTPUT");
             case FieldDeviceMenu.KIND_PNEUMATIC_FLOW_METER -> renderDirectionalPorts(graphics, "BACK • PNEUMATIC MEASUREMENT INPUT", "FRONT • PNEUMATIC MEASUREMENT OUTPUT");
+            case FieldDeviceMenu.KIND_PNEUMATIC_PROPORTIONAL_VALVE -> {
+                renderDirectionalPorts(graphics, "BACK • PNEUMATIC INPUT", "FRONT • THROTTLED PNEUMATIC OUTPUT");
+                statusLine(graphics, "UP", "REDSTONE OPENING COMMAND", GOOD, 145);
+            }
+            case FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE -> renderDirectionalPorts(graphics, "BACK • PNEUMATIC SAFETY INPUT", "FRONT • LIMITED PNEUMATIC OUTPUT");
+            case FieldDeviceMenu.KIND_PNEUMATIC_CYLINDER -> renderDirectionalPorts(graphics, "BACK • PNEUMATIC ACTUATION INPUT", "FRONT • REDSTONE POSITION FEEDBACK");
+            case FieldDeviceMenu.KIND_ELECTROMAGNET -> renderMediumPorts(graphics, "COPPER • SIX-FACE ACTUATOR INPUT; FIELD IS FREE-SPACE");
+            case FieldDeviceMenu.KIND_PERMANENT_MAGNET, FieldDeviceMenu.KIND_MAGNETIC_FIELD_SENSOR,
+                    FieldDeviceMenu.KIND_MAGNETIC_GRADIENT_METER -> {
+                statusLine(graphics, "FREE SPACE", "IRON_MAGNETIC FIELD • NO WIRED PORT", INFO, 105);
+                graphics.drawString(font, "The Inspector does not invent adjacency ports for field sensing.", 16, 131, MUTED, false);
+            }
+            case FieldDeviceMenu.KIND_INDUCTION_COIL -> renderDirectionalPorts(graphics, "BACK • MAGNETIC SENSE APERTURE", "FRONT • COPPER INDUCED OUTPUT");
             case FieldDeviceMenu.KIND_EDGE_DETECTOR -> renderDirectionalPorts(graphics, "BACK • REDSTONE EDGE INPUT", "FRONT • BINARY PULSE OUTPUT");
             case FieldDeviceMenu.KIND_PULSE_SHAPER -> renderDirectionalPorts(graphics, "BACK • REDSTONE TRIGGER INPUT", "FRONT • SHAPED PULSE OUTPUT");
             case FieldDeviceMenu.KIND_SIGNAL_TAP -> {
@@ -547,6 +616,9 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             case FieldDeviceMenu.KIND_DIGITAL_REGENERATOR -> { labelValue(graphics, "Minimum input quality", DigitalRegeneratorBlock.minimumQuality(menu.tertiary()) + "%", 80); graphics.drawString(font, "Server accepts frames only above threshold.", 16, 163, MUTED, false); }
             case FieldDeviceMenu.KIND_PRESSURE_REGULATOR -> { labelValue(graphics, "Pressure setpoint", menu.secondary() + " / 100", 80); graphics.drawString(font, "Use ± to select 25 / 50 / 75 / 100 on the server.", 16, 163, MUTED, false); }
             case FieldDeviceMenu.KIND_PNEUMATIC_VALVE -> { labelValue(graphics, "Valve state", menu.tertiary() == 1 ? "OPEN" : "CLOSED", 80); graphics.drawString(font, "Toggle recomputes both adjacent pneumatic components.", 16, 163, MUTED, false); }
+            case FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE -> { labelValue(graphics, "Relief setpoint", menu.tertiary() + " / 100", 80); graphics.drawString(font, "Setpoint changes are bounded and recomputed on the server.", 16, 163, MUTED, false); }
+            case FieldDeviceMenu.KIND_PERMANENT_MAGNET -> { labelValue(graphics, "Source strength", menu.primary() + " / 15", 80); graphics.drawString(font, "Strength changes on the server; orientation is a visual N marker.", 16, 163, MUTED, false); }
+            case FieldDeviceMenu.KIND_INDUCTION_COIL -> { labelValue(graphics, "Turns index", Integer.toString(menu.tertiary()), 80); graphics.drawString(font, "Turns scale |ΔΦ|; induced voltage remains server-authoritative.", 16, 163, MUTED, false); }
             case FieldDeviceMenu.KIND_AMETHYST_RESONATOR -> { labelValue(graphics, "Frequency / amplitude", menu.primary() + " / " + menu.secondary(), 80); graphics.drawString(font, "Configuration remains server-side; Inspector is synchronized readback in this wave.", 16, 163, MUTED, false); }
             case FieldDeviceMenu.KIND_AMETHYST_FILTER -> { labelValue(graphics, "Target frequency", Integer.toString(menu.tertiary()), 80); graphics.drawString(font, "Target selection remains server-side; output readback is authoritative.", 16, 163, MUTED, false); }
             case FieldDeviceMenu.KIND_AMETHYST_TUNED -> { labelValue(graphics, "Natural f / Q", menu.primary() + " / " + menu.tertiary(), 80); graphics.drawString(font, "Tuning remains server-side; this screen never calculates resonance.", 16, 163, MUTED, false); }
@@ -572,6 +644,10 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             statusLine(graphics, "Pneumatic snapshot", validityText(), validityColor(), 122);
             labelValue(graphics, "Primary / secondary", menu.primary() + " / " + menu.secondary(), 142);
             labelValue(graphics, "Aux / outlet", menu.tertiary() + " / " + menu.driverCount(), 162);
+        } else if (isMagneticDevice()) {
+            statusLine(graphics, "Magnetic snapshot", validityText(), validityColor(), 122);
+            labelValue(graphics, "Field / derived X", menu.primary() + " / " + menu.secondary(), 142);
+            labelValue(graphics, "Derived Y / Z", menu.tertiary() + " / " + menu.driverCount(), 162);
         } else if (isTimingDevice()) {
             statusLine(graphics, "Timing snapshot", validityText(), validityColor(), 122);
             labelValue(graphics, "Measured/input period", menu.primary() + " ticks", 142);
@@ -620,8 +696,15 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
     }
 
     private boolean isPneumaticDevice() {
-        return menu.kind() >= FieldDeviceMenu.KIND_AIR_COMPRESSOR
-                && menu.kind() <= FieldDeviceMenu.KIND_PNEUMATIC_FLOW_METER;
+        return (menu.kind() >= FieldDeviceMenu.KIND_AIR_COMPRESSOR
+                && menu.kind() <= FieldDeviceMenu.KIND_PNEUMATIC_FLOW_METER)
+                || (menu.kind() >= FieldDeviceMenu.KIND_PNEUMATIC_PROPORTIONAL_VALVE
+                && menu.kind() <= FieldDeviceMenu.KIND_PNEUMATIC_CYLINDER);
+    }
+
+    private boolean isMagneticDevice() {
+        return menu.kind() >= FieldDeviceMenu.KIND_ELECTROMAGNET
+                && menu.kind() <= FieldDeviceMenu.KIND_MAGNETIC_GRADIENT_METER;
     }
 
     private boolean isWaveDevice() {
@@ -650,6 +733,14 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             case FieldDeviceMenu.KIND_LAPIS_SOURCE -> "LAPIS PRECISION SOURCE";
             case FieldDeviceMenu.KIND_QUARTZ_LINE -> "QUARTZ TIMING LINE";
             case FieldDeviceMenu.KIND_QUARTZ_OSCILLATOR -> "QUARTZ OSCILLATOR";
+            case FieldDeviceMenu.KIND_PNEUMATIC_PROPORTIONAL_VALVE -> "PNEUMATIC PROPORTIONAL VALVE";
+            case FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE -> "PNEUMATIC RELIEF VALVE";
+            case FieldDeviceMenu.KIND_PNEUMATIC_CYLINDER -> "PNEUMATIC CYLINDER";
+            case FieldDeviceMenu.KIND_ELECTROMAGNET -> "ELECTROMAGNET";
+            case FieldDeviceMenu.KIND_PERMANENT_MAGNET -> "PERMANENT MAGNET";
+            case FieldDeviceMenu.KIND_INDUCTION_COIL -> "INDUCTION COIL";
+            case FieldDeviceMenu.KIND_MAGNETIC_FIELD_SENSOR -> "MAGNETIC FIELD SENSOR";
+            case FieldDeviceMenu.KIND_MAGNETIC_GRADIENT_METER -> "MAGNETIC GRADIENT METER";
             case FieldDeviceMenu.KIND_PROBE -> "SIGNAL PROBE";
             case FieldDeviceMenu.KIND_FILTER -> "PRECISION FILTER";
             case FieldDeviceMenu.KIND_REFERENCE -> "REFERENCE SOURCE";

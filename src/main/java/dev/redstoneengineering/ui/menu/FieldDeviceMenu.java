@@ -89,6 +89,14 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int KIND_LAPIS_SOURCE = 60;
     public static final int KIND_QUARTZ_LINE = 61;
     public static final int KIND_QUARTZ_OSCILLATOR = 62;
+    public static final int KIND_PNEUMATIC_PROPORTIONAL_VALVE = 63;
+    public static final int KIND_PNEUMATIC_RELIEF_VALVE = 64;
+    public static final int KIND_PNEUMATIC_CYLINDER = 65;
+    public static final int KIND_ELECTROMAGNET = 66;
+    public static final int KIND_PERMANENT_MAGNET = 67;
+    public static final int KIND_INDUCTION_COIL = 68;
+    public static final int KIND_MAGNETIC_FIELD_SENSOR = 69;
+    public static final int KIND_MAGNETIC_GRADIENT_METER = 70;
 
     public static final int BUTTON_PRIMARY_DECREASE = 0;
     public static final int BUTTON_PRIMARY_INCREASE = 1;
@@ -188,6 +196,63 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             quality.set(dataValid.get() != 0 ? 100 : 0);
             facing.set(state.getValue(DirectionalDomainBlock.FACING).ordinal());
             fillCompatibleTopology(state, meter);
+        } else if (block instanceof PneumaticProportionalValveBlock valve) {
+            Direction output = state.getValue(DirectionalDomainBlock.FACING);
+            primary.set(providerValue(valve, state, output.getOpposite()));
+            secondary.set(providerValue(valve, state, output));
+            tertiary.set(PneumaticProportionalValveBlock.opening(level, blockPos));
+            driverCount.set(PneumaticNetwork.pressure(level, blockPos));
+            dataValid.set(primary.get() > 0 ? 1 : 0);
+            quality.set(dataValid.get() != 0 ? 100 : 0);
+            facing.set(output.ordinal());
+            fillCompatibleTopology(state, valve);
+        } else if (block instanceof PneumaticReliefValveBlock valve) {
+            Direction output = state.getValue(DirectionalDomainBlock.FACING);
+            primary.set(providerValue(valve, state, output.getOpposite()));
+            secondary.set(providerValue(valve, state, output));
+            tertiary.set(state.getValue(PneumaticReliefValveBlock.SETPOINT) * 25);
+            driverCount.set(PneumaticReliefValveBlock.ventEvents(level, blockPos));
+            dataValid.set(PneumaticReliefValveBlock.venting(level, blockPos) ? 0 : 1);
+            quality.set(dataValid.get() != 0 ? 100 : 60);
+            facing.set(output.ordinal());
+            fillCompatibleTopology(state, valve);
+        } else if (block instanceof PneumaticCylinderBlock cylinder) {
+            primary.set(PneumaticCylinderBlock.pressure(level, blockPos));
+            secondary.set(PneumaticCylinderBlock.position(level, blockPos));
+            tertiary.set(PneumaticCylinderBlock.target(level, blockPos));
+            driverCount.set(PneumaticCylinderBlock.travel(level, blockPos));
+            dataValid.set(primary.get() > 0 ? 1 : 0);
+            quality.set(dataValid.get() != 0 ? 100 : 0);
+            facing.set(state.getValue(DirectionalDomainBlock.FACING).ordinal());
+            fillCompatibleTopology(state, cylinder);
+        } else if (block instanceof ElectromagnetBlock magnet) {
+            primary.set(state.getValue(ElectromagnetBlock.FIELD));
+            secondary.set(dev.redstoneengineering.physics.MagneticPhysics.adjacentCopperLevel(level, blockPos));
+            dataValid.set(primary.get() > 0 ? 1 : 0);
+            quality.set(dataValid.get() != 0 ? 100 : 0);
+            fillCompatibleTopology(state, magnet);
+        } else if (block instanceof PermanentMagnetBlock) {
+            primary.set(state.getValue(PermanentMagnetBlock.STRENGTH));
+            facing.set(state.getValue(PermanentMagnetBlock.FACING).ordinal());
+        } else if (block instanceof InductionCoilBlock coil) {
+            primary.set(dev.redstoneengineering.physics.MagneticPhysics.fieldAt(level, blockPos, 6));
+            secondary.set(InductionCoilBlock.outputVoltage(level, blockPos));
+            tertiary.set(state.getValue(InductionCoilBlock.TURNS));
+            dataValid.set(primary.get() > 0 ? 1 : 0);
+            quality.set(dataValid.get() != 0 ? 100 : 0);
+            facing.set(state.getValue(DirectionalDomainBlock.FACING).ordinal());
+            fillCompatibleTopology(state, coil);
+        } else if (block instanceof MagneticFieldSensorBlock) {
+            primary.set(state.getValue(MagneticFieldSensorBlock.FIELD));
+            dataValid.set(primary.get() > 0 ? 1 : 0);
+            quality.set(dataValid.get() != 0 ? 100 : 0);
+        } else if (block instanceof MagneticGradientMeterBlock) {
+            primary.set(dev.redstoneengineering.physics.MagneticPhysics.fieldAt(level, blockPos, 6));
+            secondary.set(MagneticGradientMeterBlock.gradientX(level, blockPos));
+            tertiary.set(MagneticGradientMeterBlock.gradientY(level, blockPos));
+            driverCount.set(MagneticGradientMeterBlock.gradientZ(level, blockPos));
+            dataValid.set(primary.get() > 0 ? 1 : 0);
+            quality.set(dataValid.get() != 0 ? 100 : 0);
         } else if (block instanceof EdgeDetectorBlock detector) {
             Direction output = state.getValue(DirectionalSignalBlock.FACING);
             primary.set(providerValue(detector, state, output.getOpposite()));
@@ -668,6 +733,29 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
                 PneumaticNetwork.recomputeAround(server, blockPos);
             }
             changed = true;
+        } else if (block instanceof PneumaticReliefValveBlock) {
+            int setpoint = state.getValue(PneumaticReliefValveBlock.SETPOINT);
+            if (id == BUTTON_PRIMARY_DECREASE) setpoint = setpoint <= 1 ? 4 : setpoint - 1;
+            else if (id == BUTTON_PRIMARY_INCREASE) setpoint = setpoint >= 4 ? 1 : setpoint + 1;
+            else return false;
+            level.setBlock(blockPos, state.setValue(PneumaticReliefValveBlock.SETPOINT, setpoint), Block.UPDATE_CLIENTS);
+            if (level instanceof net.minecraft.server.level.ServerLevel server) PneumaticNetwork.recomputeAround(server, blockPos);
+            changed = true;
+        } else if (block instanceof PermanentMagnetBlock) {
+            int strength = state.getValue(PermanentMagnetBlock.STRENGTH);
+            if (id == BUTTON_PRIMARY_DECREASE) strength = strength <= 1 ? 15 : strength - 1;
+            else if (id == BUTTON_PRIMARY_INCREASE) strength = strength >= 15 ? 1 : strength + 1;
+            else return false;
+            level.setBlock(blockPos, state.setValue(PermanentMagnetBlock.STRENGTH, strength), Block.UPDATE_CLIENTS);
+            changed = true;
+        } else if (block instanceof InductionCoilBlock coil) {
+            int turns = state.getValue(InductionCoilBlock.TURNS);
+            if (id == BUTTON_PRIMARY_DECREASE) turns = turns <= 1 ? 4 : turns - 1;
+            else if (id == BUTTON_PRIMARY_INCREASE) turns = turns >= 4 ? 1 : turns + 1;
+            else return false;
+            level.setBlock(blockPos, state.setValue(InductionCoilBlock.TURNS, turns), Block.UPDATE_CLIENTS);
+            level.scheduleTick(blockPos, coil, 1);
+            changed = true;
         }
 
         if (changed) {
@@ -686,6 +774,14 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
         if (block instanceof PneumaticValveBlock) return KIND_PNEUMATIC_VALVE;
         if (block instanceof PneumaticCheckValveBlock) return KIND_PNEUMATIC_CHECK_VALVE;
         if (block instanceof PneumaticFlowMeterBlock) return KIND_PNEUMATIC_FLOW_METER;
+        if (block instanceof PneumaticProportionalValveBlock) return KIND_PNEUMATIC_PROPORTIONAL_VALVE;
+        if (block instanceof PneumaticReliefValveBlock) return KIND_PNEUMATIC_RELIEF_VALVE;
+        if (block instanceof PneumaticCylinderBlock) return KIND_PNEUMATIC_CYLINDER;
+        if (block instanceof ElectromagnetBlock) return KIND_ELECTROMAGNET;
+        if (block instanceof PermanentMagnetBlock) return KIND_PERMANENT_MAGNET;
+        if (block instanceof InductionCoilBlock) return KIND_INDUCTION_COIL;
+        if (block instanceof MagneticFieldSensorBlock) return KIND_MAGNETIC_FIELD_SENSOR;
+        if (block instanceof MagneticGradientMeterBlock) return KIND_MAGNETIC_GRADIENT_METER;
         if (block instanceof EdgeDetectorBlock) return KIND_EDGE_DETECTOR;
         if (block instanceof PulseShaperBlock) return KIND_PULSE_SHAPER;
         if (block instanceof SignalTapBlock) return KIND_SIGNAL_TAP;
