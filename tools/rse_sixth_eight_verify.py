@@ -45,7 +45,9 @@ contracts = {
     "src/main/java/dev/redstoneengineering/block/AmethystResonanceDustBlock.java": (
         "implements EngineeringPortProvider",
         "EngineeringDomain.AMETHYST",
-        '"RESONANCE BUS"',
+        "PortKind.BUS",
+        "PortDirection.BIDIRECTIONAL",
+        "SurfaceTraceBlock.connected",
         "setResonance",
         "FieldDeviceUi.open",
     ),
