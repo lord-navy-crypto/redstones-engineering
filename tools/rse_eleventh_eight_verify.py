@@ -63,7 +63,10 @@ require(
 require(
     "src/main/java/dev/redstoneengineering/block/PermanentMagnetBlock.java",
     "implements EngineeringPortProvider",
-    "return List.of()",
+    "EngineeringDomain.IRON_MAGNETIC",
+    '"MAGNETIC FIELD "',
+    "PortDirection.OUTPUT",
+    "false, \"field\"",
     "free-space",
     "FieldDeviceUi.open",
 )
@@ -81,17 +84,22 @@ require(
 require(
     "src/main/java/dev/redstoneengineering/block/MagneticFieldSensorBlock.java",
     "implements EngineeringPortProvider",
-    "return List.of()",
-    "free-space",
+    "EngineeringDomain.IRON_MAGNETIC",
+    '"MAGNETIC APERTURE "',
+    "PortKind.MEASUREMENT",
+    "PortDirection.INPUT",
     "FieldDeviceUi.open",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/MagneticGradientMeterBlock.java",
     "implements EngineeringPortProvider",
+    "EngineeringDomain.IRON_MAGNETIC",
+    '"GRADIENT APERTURE "',
+    "PortKind.MEASUREMENT",
+    "PortDirection.INPUT",
     "gradientX",
     "gradientY",
     "gradientZ",
-    "return List.of()",
     "FieldDeviceUi.open",
 )
 require(
@@ -154,7 +162,7 @@ print("RSE eleventh-eight actuation/safety verification: PASS")
 print("  proportional control and relief safety contracts: PASS")
 print("  cylinder actuation/feedback lifecycle: PASS")
 print("  copper-to-magnetic conversion boundary: PASS")
-print("  free-space field observer semantics: PASS")
+print("  free-space magnetic interfaces are inspectable but non-wired: PASS")
 print("  induction transient and cleanup contract: PASS")
 print("  Field Device Inspector projection kinds 63-70: PASS")
 print("  eight executable eleventh-batch GameTests registered: PASS")
