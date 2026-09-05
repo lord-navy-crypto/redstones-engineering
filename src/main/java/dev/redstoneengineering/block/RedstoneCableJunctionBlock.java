@@ -28,7 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/** Explicit multi-port splice/branch for insulated redstone cable. */
+/** Explicit multi-port splice/branch for the insulated 0..15 redstone domain. */
 public class RedstoneCableJunctionBlock extends ConnectedCableBlock implements EngineeringPortProvider {
     private static final String KEY = "redstone_junction";
 
@@ -51,8 +51,9 @@ public class RedstoneCableJunctionBlock extends ConnectedCableBlock implements E
         for (Direction direction : Direction.values()) {
             if (!connected(state, direction)) continue;
             ports.add(new EngineeringPort(
-                    "CABLE " + direction.getName().toUpperCase(), direction,
-                    EngineeringDomain.REDSTONE, PortKind.BUS, PortDirection.BIDIRECTIONAL, false, "signal"));
+                    "INSULATED BRANCH " + direction.getName().toUpperCase(), direction,
+                    EngineeringDomain.REDSTONE, PortKind.REDSTONE_ANALOG,
+                    PortDirection.BIDIRECTIONAL, false, "signal"));
         }
         return List.copyOf(ports);
     }
@@ -74,8 +75,10 @@ public class RedstoneCableJunctionBlock extends ConnectedCableBlock implements E
     }
 
     @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
-        if (!state.is(newState.getBlock())) RuntimeIntStore.remove(level, KEY, pos);
+        boolean removed = !state.is(newState.getBlock());
+        if (removed) RuntimeIntStore.remove(level, KEY, pos);
         super.onRemove(state, level, pos, newState, moved);
+        if (removed && level instanceof ServerLevel server) RedstoneCableNetwork.recomputeAround(server, pos);
     }
 
     @Override
@@ -83,8 +86,8 @@ public class RedstoneCableJunctionBlock extends ConnectedCableBlock implements E
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
                 player.displayClientMessage(Component.literal(
-                        "Redstone Cable Junction | ports=" + connectionCount(state)
-                                + " | " + power(level, pos) + "/15"), true);
+                        "Insulated Redstone Junction | ports=" + connectionCount(state)
+                                + " | signal=" + power(level, pos) + "/15"), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
             }
