@@ -179,6 +179,18 @@ public final class RseEighthEightAcceptanceGameTests {
                 helper.fail("Servo position sensor did not bridge mechanical position into redstone feedback", sensorPos);
                 return;
             }
+            // NeoForge direction is the queried neighbor direction, so EAST maps to physical WEST/BACK.
+            if (RedstoneEngineering.SERVO_POSITION_SENSOR.get().canConnectRedstone(
+                    state, helper.getLevel(), helper.absolutePos(sensorPos), Direction.EAST)) {
+                helper.fail("Servo position sensor mechanical BACK incorrectly accepted vanilla redstone", sensorPos);
+                return;
+            }
+            // WEST query maps to physical EAST/FRONT and must retain vanilla feedback output connectivity.
+            if (!RedstoneEngineering.SERVO_POSITION_SENSOR.get().canConnectRedstone(
+                    state, helper.getLevel(), helper.absolutePos(sensorPos), Direction.WEST)) {
+                helper.fail("Servo position sensor REDSTONE FRONT stopped advertising output connectivity", sensorPos);
+                return;
+            }
             helper.succeed();
         });
     }
