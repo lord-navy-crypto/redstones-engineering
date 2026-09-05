@@ -129,10 +129,8 @@ public final class PneumaticNetwork {
             int setpoint = state.getValue(PneumaticReliefValveBlock.SETPOINT) * 25;
             if (pressure > setpoint) {
                 int excess = pressure - setpoint;
-                int[] diag = RuntimeIntStore.get(level, "pneumatic_relief", pos, 3);
-                diag[0]++;
-                diag[1] = excess;
-                diag[2] += excess;
+                // "pneumatic_relief" runtime diagnostics are owned by PneumaticReliefValveBlock.
+                PneumaticReliefValveBlock.recordVent(level, pos, excess);
 
                 if (level instanceof ServerLevel server) {
                     int count = excess >= 25 ? 3 : 1;
@@ -149,6 +147,8 @@ public final class PneumaticNetwork {
                     );
                 }
                 pressure = setpoint;
+            } else {
+                PneumaticReliefValveBlock.clearVenting(level, pos);
             }
         }
         return Math.max(0, Math.min(100, pressure));
@@ -195,6 +195,9 @@ public final class PneumaticNetwork {
         for (BlockPos pos : nodes) {
             int pressure = best.getOrDefault(pos, 0);
             var block = level.getBlockState(pos).getBlock();
+            if (block instanceof PneumaticReliefValveBlock && pressure <= 0) {
+                PneumaticReliefValveBlock.clearVenting(level, pos);
+            }
             InformationRuntime.write(level, "pneumatic", pos, pressure, 0, true, quality);
             level.updateNeighborsAt(pos, block);
         }
