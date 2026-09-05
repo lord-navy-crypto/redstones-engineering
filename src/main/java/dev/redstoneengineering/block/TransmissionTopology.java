@@ -92,7 +92,8 @@ public final class TransmissionTopology {
 
     public static boolean opticalPort(BlockState s, Direction mediumToDevice) {
         var b=s.getBlock();
-        if (b instanceof OpticalFiberBlock || b instanceof OpticalFiberJunctionBlock || b instanceof OpticalEmitterBlock || b instanceof OpticalReceiverBlock) return true;
+        if (b instanceof OpticalFiberJunctionBlock) return !s.getValue(OpticalFiberJunctionBlock.SERVICE_OPEN);
+        if (b instanceof OpticalFiberBlock || b instanceof OpticalEmitterBlock || b instanceof OpticalReceiverBlock) return true;
         if (b instanceof OpticalChannelFilterBlock || b instanceof OpticalAttenuatorBlock) return onFrontBack(s, mediumToDevice);
         if (b instanceof LapisOpticalTransducerBlock) return onBack(s, mediumToDevice);
         if (b instanceof OpticalSplitterBlock) {
