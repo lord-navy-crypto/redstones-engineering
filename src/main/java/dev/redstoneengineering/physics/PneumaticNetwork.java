@@ -39,9 +39,13 @@ public final class PneumaticNetwork {
      */
     private static boolean exposesPneumaticEdge(BlockState state, BlockPos self, BlockPos other) {
         var block = state.getBlock();
-        if (block instanceof PneumaticReceiverBlock || block instanceof PneumaticCylinderBlock) {
+        if (block instanceof PneumaticReceiverBlock) {
             Direction facing = directionalFacing(state);
             return other.equals(self.relative(facing.getOpposite()));
+        }
+        if (block instanceof PneumaticCylinderBlock) {
+            Direction input = state.getValue(DirectionalDomainBlock.FACING).getOpposite();
+            return other.equals(self.relative(input));
         }
         if (block instanceof PneumaticValveBlock || block instanceof PneumaticCheckValveBlock ||
                 block instanceof PneumaticFlowMeterBlock || block instanceof PneumaticProportionalValveBlock ||
@@ -56,6 +60,16 @@ public final class PneumaticNetwork {
     private static boolean discoveryConnects(Level level, BlockPos aPos, BlockPos bPos) {
         BlockState a = level.getBlockState(aPos);
         BlockState b = level.getBlockState(bPos);
+
+        // Keep the terminal-cylinder contract explicit for regression readability and executable auditability.
+        if (a.getBlock() instanceof PneumaticCylinderBlock) {
+            Direction input = a.getValue(DirectionalDomainBlock.FACING).getOpposite();
+            return bPos.equals(aPos.relative(input)) && exposesPneumaticEdge(b, bPos, aPos);
+        }
+        if (b.getBlock() instanceof PneumaticCylinderBlock) {
+            Direction input = b.getValue(DirectionalDomainBlock.FACING).getOpposite();
+            return aPos.equals(bPos.relative(input)) && exposesPneumaticEdge(a, aPos, bPos);
+        }
         return exposesPneumaticEdge(a, aPos, bPos) && exposesPneumaticEdge(b, bPos, aPos);
     }
 
@@ -113,7 +127,10 @@ public final class PneumaticNetwork {
                 b.getBlock() instanceof PneumaticReliefValveBlock) && !directionalBackwardEntry(b, from, to)) return false;
 
         if (a.getBlock() instanceof PneumaticCylinderBlock) return false;
-        if (b.getBlock() instanceof PneumaticCylinderBlock) return directionalBackwardEntry(b, from, to);
+        if (b.getBlock() instanceof PneumaticCylinderBlock) {
+            Direction input = b.getValue(DirectionalDomainBlock.FACING).getOpposite();
+            return from.equals(to.relative(input));
+        }
         return true;
     }
 
