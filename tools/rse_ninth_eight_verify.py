@@ -31,19 +31,35 @@ require(
     "src/main/java/dev/redstoneengineering/physics/PneumaticNetwork.java",
     "exposesPneumaticEdge",
     "discoveryConnects",
+    "AirCompressorBlock",
+    "other.equals(self.above())",
     "PneumaticReceiverBlock",
     "PneumaticValveBlock",
     "PneumaticCheckValveBlock",
     "PneumaticFlowMeterBlock",
-    "PneumaticProportionalValveBlock",
-    "PneumaticReliefValveBlock",
     "directionalForward",
     "directionalBackwardEntry",
     "recomputeAround",
-    "PneumaticReliefValveBlock.recordVent",
-    "PneumaticReliefValveBlock.clearVenting",
-    '"pneumatic_relief"',
 )
+
+require(
+    "src/main/java/dev/redstoneengineering/block/AirCompressorBlock.java",
+    "implements EngineeringPortProvider",
+    '"PRESSURE COMMAND"',
+    '"COMPRESSED AIR OUT"',
+    "Direction.DOWN",
+    "Direction.UP",
+    "EngineeringDomain.REDSTONE",
+    "EngineeringDomain.PNEUMATIC",
+    "commandSignal",
+    "direction.getOpposite() == Direction.DOWN",
+    'InformationRuntime.clear(level, "pneumatic", pos)',
+    "PneumaticNetwork.recomputeAround",
+    "FieldDeviceUi.open",
+)
+compressor = read("src/main/java/dev/redstoneengineering/block/AirCompressorBlock.java")
+if compressor and "getBestNeighborSignal" in compressor:
+    errors.append("AirCompressorBlock must not accept implicit redstone from arbitrary faces")
 
 require(
     "src/main/java/dev/redstoneengineering/block/PneumaticPipeBlock.java",
@@ -62,6 +78,18 @@ require(
     "PortDirection.BIDIRECTIONAL",
     "storedPressure",
     'InformationRuntime.clear(level, "air_reservoir", pos)',
+    'InformationRuntime.clear(level, "pneumatic", pos)',
+    "PneumaticNetwork.recomputeAround",
+    "FieldDeviceUi.open",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/PressureRegulatorBlock.java",
+    "extends DomainBlock implements EngineeringPortProvider",
+    '"REGULATED AIR"',
+    "EngineeringDomain.PNEUMATIC",
+    "PortKind.BUS",
+    "PortDirection.BIDIRECTIONAL",
+    "setpointPressure",
     'InformationRuntime.clear(level, "pneumatic", pos)',
     "PneumaticNetwork.recomputeAround",
     "FieldDeviceUi.open",
@@ -107,55 +135,22 @@ require(
     "PneumaticNetwork.recomputeAround",
     "FieldDeviceUi.open",
 )
-require(
-    "src/main/java/dev/redstoneengineering/block/PneumaticProportionalValveBlock.java",
-    "EntityBlock, EngineeringPortProvider",
-    '"PNEUMATIC IN"',
-    '"PNEUMATIC OUT"',
-    '"OPENING COMMAND"',
-    "EngineeringDomain.PNEUMATIC",
-    "EngineeringDomain.REDSTONE",
-    "direction.getOpposite() == Direction.UP",
-    "PneumaticNetwork.recomputeAround",
-    "FieldDeviceUi.open",
-)
-require(
-    "src/main/java/dev/redstoneengineering/block/PneumaticReliefValveBlock.java",
-    "implements EngineeringPortProvider",
-    '"PNEUMATIC IN"',
-    '"LIMITED OUT"',
-    "DIAG_SIZE = 4",
-    "recordVent",
-    "clearVenting",
-    "if (diag[3] == 0) diag[0]++",
-    "RuntimeIntStore.remove",
-    "PneumaticNetwork.recomputeAround",
-    "FieldDeviceUi.open",
-)
 
-# Supporting lifecycle regression: source removal must not leave a ghost pressure driver.
-require(
-    "src/main/java/dev/redstoneengineering/block/AirCompressorBlock.java",
-    'InformationRuntime.clear(level, "pneumatic", pos)',
-    "PneumaticNetwork.recomputeAround",
-)
-
-# Runtime pressure/flow/counters are high-cardinality and must stay outside BlockState.
+# Runtime pressure/flow data are high-cardinality and must stay outside BlockState.
 joined = "\n".join(read(rel) for rel in (
+    "src/main/java/dev/redstoneengineering/block/AirCompressorBlock.java",
     "src/main/java/dev/redstoneengineering/block/PneumaticPipeBlock.java",
     "src/main/java/dev/redstoneengineering/block/AirReservoirBlock.java",
+    "src/main/java/dev/redstoneengineering/block/PressureRegulatorBlock.java",
     "src/main/java/dev/redstoneengineering/block/PneumaticReceiverBlock.java",
     "src/main/java/dev/redstoneengineering/block/PneumaticValveBlock.java",
     "src/main/java/dev/redstoneengineering/block/PneumaticCheckValveBlock.java",
     "src/main/java/dev/redstoneengineering/block/PneumaticFlowMeterBlock.java",
-    "src/main/java/dev/redstoneengineering/block/PneumaticProportionalValveBlock.java",
-    "src/main/java/dev/redstoneengineering/block/PneumaticReliefValveBlock.java",
 ))
 for forbidden in (
     'IntegerProperty.create("pressure",',
     'IntegerProperty.create("stored_pressure",',
     'IntegerProperty.create("flow",',
-    'IntegerProperty.create("vent_events",',
 ):
     if forbidden in joined:
         errors.append(f"ninth-eight high-cardinality runtime leaked into BlockState: {forbidden}")
@@ -163,14 +158,14 @@ for forbidden in (
 # Exactly eight executable ninth-batch acceptance tests.
 tests = "src/main/java/dev/redstoneengineering/gametest/RseNinthEightAcceptanceGameTests.java"
 for method in (
+    "compressorSeparatesDownCommandFromUpPneumaticOutlet",
     "pneumaticPipeBreakRecomputesSeparatedIsland",
     "airReservoirStoresAndClearsTransientPressure",
+    "pressureRegulatorIsSixWayAndClampsSetpoint",
     "pneumaticReceiverIsTerminalConverterNotBridge",
     "manualValveUsesAxialPortsAndClosedStateSplitsFlow",
     "checkValveAllowsBackToFrontAndRejectsReverse",
     "flowMeterReportsDirectionalDropAndClearsRuntime",
-    "proportionalValveUsesUpCommandAndAxialPneumaticPorts",
-    "reliefValveClampsAndCountsVentEdges",
 ):
     require(tests, f"void {method}(GameTestHelper helper)")
 body = read(tests)
@@ -186,17 +181,16 @@ if workflow and "rse_ninth_eight_verify.py" not in workflow:
     errors.append("workflow does not gate the ninth-eight verifier")
 
 if errors:
-    print("RSE ninth-eight pneumatic verification: FAIL")
+    print("RSE ninth-eight pneumatic foundation verification: FAIL")
     for error in errors:
         print(" -", error)
     raise SystemExit(1)
 
-print("RSE ninth-eight pneumatic verification: PASS")
-print("  physical pneumatic edge topology + terminal isolation: PASS")
-print("  six-way pipe/reservoir contracts + split-network recomputation: PASS")
-print("  receiver PNEUMATIC-to-REDSTONE domain isolation: PASS")
-print("  axial manual/check/flow/proportional/relief contracts: PASS")
-print("  flow metrology + transient lifecycle cleanup: PASS")
-print("  compressor ghost-source cleanup: PASS")
-print("  relief overpressure edge-count diagnostics: PASS")
+print("RSE ninth-eight pneumatic foundation verification: PASS")
+print("  compressor DOWN-redstone / UP-pneumatic isolation: PASS")
+print("  physical pneumatic discovery + terminal isolation: PASS")
+print("  pipe/reservoir/regulator manifold contracts: PASS")
+print("  receiver PNEUMATIC-to-REDSTONE conversion: PASS")
+print("  axial manual/check/flow-meter contracts: PASS")
+print("  split-network + runtime/metrology cleanup: PASS")
 print("  eight executable ninth-batch GameTests registered: PASS")
