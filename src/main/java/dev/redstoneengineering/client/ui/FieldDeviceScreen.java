@@ -9,7 +9,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
-/** Context-sensitive inspector for probes, processors, communication media, timing and wave devices. */
+/** Context-sensitive inspector for probes, processors, communication media, timing, wave and CPS devices. */
 public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> {
     private Button decrease;
     private Button increase;
@@ -239,6 +239,55 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
                 statusLine(graphics, "Pulse emission", validityText(), validityColor(), 141);
             }
             case FieldDeviceMenu.KIND_THERMAL_RECEIVER -> directionalOverview(graphics, "THERMAL PULSE RECEIVER", "Pulse input", menu.primary() + " / 15", "Redstone output", menu.secondary() + " / 15");
+            case FieldDeviceMenu.KIND_SHIELDED_INSTRUMENT_CABLE -> {
+                statusBadge(graphics, "SHIELDED INSTRUMENT BUS", menu.dataValid() ? GOOD : WARN, 16, 80);
+                labelValue(graphics, "Shielding coverage", menu.primary() + "%", 105);
+                labelValue(graphics, "Shielded / unshielded", menu.secondary() + " / " + menu.tertiary(), 121);
+                labelValue(graphics, "Cable nodes", Integer.toString(menu.driverCount()), 137);
+                statusLine(graphics, "Audit", menu.dataValid() ? "BOUNDED" : "TRUNCATED", validityColor(), 157);
+            }
+            case FieldDeviceMenu.KIND_WATCHDOG -> {
+                statusBadge(graphics, "HEARTBEAT WATCHDOG", validityColor(), 16, 80);
+                labelValue(graphics, "Heartbeat age", menu.primary() + " ticks", 105);
+                labelValue(graphics, "Timeout", menu.secondary() + " ticks", 121);
+                labelValue(graphics, "Timeouts / transitions", menu.tertiary() + " / " + menu.driverCount(), 137);
+                statusLine(graphics, "Safety state", menu.dataValid() ? "HEALTHY" : "TIMED OUT", validityColor(), 157);
+            }
+            case FieldDeviceMenu.KIND_SERVO_ACTUATOR -> {
+                statusBadge(graphics, "SERVO ACTUATOR", validityColor(), 16, 80);
+                labelValue(graphics, "Position / command", menu.primary() + " / " + menu.secondary(), 105);
+                labelValue(graphics, "Applied velocity", Integer.toString(menu.tertiary()), 121);
+                labelValue(graphics, "Soft-limit hits", Integer.toString(menu.driverCount()), 137);
+                statusLine(graphics, "Actuator", menu.dataValid() ? "ENABLED" : "BRAKED", validityColor(), 157);
+            }
+            case FieldDeviceMenu.KIND_SERVO_POSITION_SENSOR -> {
+                statusBadge(graphics, "SERVO POSITION SENSOR", validityColor(), 16, 80);
+                labelValue(graphics, "Mechanical position", menu.primary() + " / 15", 105);
+                labelValue(graphics, "Redstone feedback", menu.secondary() + " / 15", 121);
+                labelValue(graphics, "Metrology samples", Integer.toString(menu.tertiary()), 137);
+                statusLine(graphics, "Feedback", validityText(), validityColor(), 157);
+            }
+            case FieldDeviceMenu.KIND_REDUNDANT_VOTER -> {
+                statusBadge(graphics, "2oo3 REDUNDANT VOTER", validityColor(), 16, 80);
+                labelValue(graphics, "Median output", menu.primary() + " / 15", 105);
+                labelValue(graphics, "Spread / tolerance", menu.secondary() + " / ±" + menu.tertiary(), 121);
+                labelValue(graphics, "Disagreement events", Integer.toString(menu.driverCount()), 137);
+                statusLine(graphics, "Voting health", menu.dataValid() ? "OK" : "DEGRADED", validityColor(), 157);
+            }
+            case FieldDeviceMenu.KIND_FAULT_LATCH -> {
+                statusBadge(graphics, "FAULT LATCH", validityColor(), 16, 80);
+                labelValue(graphics, "Latched output", menu.primary() + " / 15", 105);
+                labelValue(graphics, "Trips / resets", menu.secondary() + " / " + menu.tertiary(), 121);
+                labelValue(graphics, "Reset active", menu.driverCount() == 0 ? "NO" : "YES", 137);
+                statusLine(graphics, "Safety memory", menu.dataValid() ? "CLEAR" : "FAULT LATCHED", validityColor(), 157);
+            }
+            case FieldDeviceMenu.KIND_OPERATIONS_MONITOR -> {
+                statusBadge(graphics, "OPERATIONS MONITOR • OBSERVER", validityColor(), 16, 80);
+                labelValue(graphics, "Queue / WIP", menu.primary() + " / 15", 105);
+                labelValue(graphics, "Throughput last60s", menu.secondary() + " cycles/min", 121);
+                labelValue(graphics, "Downtime", menu.tertiary() + " ticks", 137);
+                statusLine(graphics, "System state", operationsState(menu.driverCount()), validityColor(), 157);
+            }
             default -> renderCableOverview(graphics);
         }
     }
@@ -302,7 +351,9 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             labelValue(graphics, "Connected faces", connectedFaces(), 102);
             statusLine(graphics, "Topology", menu.topologyValid() ? "VALID" : "INVALID", menu.topologyValid() ? GOOD : BAD, 122);
             graphics.drawString(font, "Cable ports are physical graph edges; absent faces are not virtual ports.", 16, 146, MUTED, false);
-            graphics.drawString(font, "Junctions intentionally allow branching; plain signal cable remains two-ended.", 16, 164, INFO, false);
+            graphics.drawString(font, menu.kind() == FieldDeviceMenu.KIND_SHIELDED_INSTRUMENT_CABLE
+                    ? "Shielding coverage is audited without altering the measurement solver."
+                    : "Junctions intentionally allow branching; plain signal cable remains two-ended.", 16, 164, INFO, false);
             return;
         }
         switch (menu.kind()) {
@@ -342,6 +393,27 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             case FieldDeviceMenu.KIND_PHONON_CONDUIT -> renderMediumPorts(graphics, "PHONON_THERMAL • BIDIRECTIONAL PULSE PATH");
             case FieldDeviceMenu.KIND_THERMAL_ENCODER -> { statusLine(graphics, "DOWN", "REDSTONE DRIVE INPUT", GOOD, 105); statusLine(graphics, "UP + HORIZONTAL", "PHONON_THERMAL OUTPUT", INFO, 125); }
             case FieldDeviceMenu.KIND_THERMAL_RECEIVER -> renderDirectionalPorts(graphics, "BACK • PHONON_THERMAL INPUT", "FRONT • REDSTONE OUTPUT");
+            case FieldDeviceMenu.KIND_WATCHDOG -> renderDirectionalPorts(graphics, "BACK • HEARTBEAT TRIGGER INPUT", "FRONT • TIMEOUT SAFETY OUTPUT");
+            case FieldDeviceMenu.KIND_SERVO_ACTUATOR -> {
+                statusLine(graphics, oppositeDirectionName(menu.facingOrdinal()), "BACK • REDSTONE COMMAND", GOOD, 105);
+                statusLine(graphics, directionName(menu.facingOrdinal()), "FRONT • MECHATRONIC_POSITION OUTPUT", INFO, 125);
+                graphics.drawString(font, "UP=MODE • RIGHT=BRAKE are explicit REDSTONE control/safety inputs.", 16, 151, MUTED, false);
+            }
+            case FieldDeviceMenu.KIND_SERVO_POSITION_SENSOR -> renderDirectionalPorts(graphics, "BACK • MECHATRONIC_POSITION FEEDBACK", "FRONT • REDSTONE FEEDBACK OUTPUT");
+            case FieldDeviceMenu.KIND_REDUNDANT_VOTER -> {
+                statusLine(graphics, "BACK + LEFT + RIGHT", "REDSTONE MEASUREMENT INPUTS A/B/C", GOOD, 105);
+                statusLine(graphics, directionName(menu.facingOrdinal()), "FRONT • VOTED SAFETY OUTPUT", INFO, 125);
+            }
+            case FieldDeviceMenu.KIND_FAULT_LATCH -> {
+                statusLine(graphics, oppositeDirectionName(menu.facingOrdinal()), "BACK • FAULT INPUT", GOOD, 105);
+                statusLine(graphics, directionName(menu.facingOrdinal()), "FRONT • LATCHED FAULT OUTPUT", INFO, 125);
+                graphics.drawString(font, "RIGHT is an explicit RESET input with priority over FAULT.", 16, 151, MUTED, false);
+            }
+            case FieldDeviceMenu.KIND_OPERATIONS_MONITOR -> {
+                statusLine(graphics, "DOWN", "MACHINE RUNNING • MEASUREMENT INPUT", GOOD, 105);
+                statusLine(graphics, "UP", "COMPLETED-CYCLE • TRIGGER INPUT", GOOD, 125);
+                statusLine(graphics, "HORIZONTAL FOUR", "QUEUE / WIP • MEASUREMENT INPUTS", INFO, 145);
+            }
             default -> { }
         }
     }
@@ -370,7 +442,7 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             case FieldDeviceMenu.KIND_AMETHYST_TUNED -> { labelValue(graphics, "Natural f / Q", menu.primary() + " / " + menu.tertiary(), 80); graphics.drawString(font, "Tuning remains server-side; this screen never calculates resonance.", 16, 163, MUTED, false); }
             case FieldDeviceMenu.KIND_MECHANICAL_EXCITER -> { labelValue(graphics, "Excitation frequency", Integer.toString(menu.secondary()), 80); graphics.drawString(font, "DOWN drive and emitted packet are authoritative server state.", 16, 163, MUTED, false); }
             case FieldDeviceMenu.KIND_HYDRO_TUBE -> { labelValue(graphics, "Hydroacoustic medium", hydroMedium(menu.tertiary()), 80); graphics.drawString(font, "Medium cycling remains a bounded server-side quick action.", 16, 163, MUTED, false); }
-            default -> { statusLine(graphics, "Configuration", isWaveDevice() ? "READ-ONLY WAVE DEVICE" : isCommunicationDevice() ? "READ-ONLY COMMUNICATION DEVICE" : "READ-ONLY TOPOLOGY DEVICE", MUTED, 82); graphics.drawString(font, "Runtime payloads remain outside high-cardinality BlockState.", 16, 163, MUTED, false); }
+            default -> { statusLine(graphics, "Configuration", isWaveDevice() ? "READ-ONLY WAVE DEVICE" : isCommunicationDevice() ? "READ-ONLY COMMUNICATION DEVICE" : isCpsDevice() ? "READ-ONLY CPS / RELIABILITY DEVICE" : "READ-ONLY TOPOLOGY DEVICE", MUTED, 82); graphics.drawString(font, "Runtime payloads remain outside high-cardinality BlockState.", 16, 163, MUTED, false); }
         }
     }
 
@@ -380,7 +452,8 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
         if (isCable()) {
             labelValue(graphics, "Connection count", Integer.toString(menu.connectionCount()), 122);
             statusLine(graphics, "Topology", menu.topologyValid() ? "PASS" : "FAIL", menu.topologyValid() ? GOOD : BAD, 142);
-            labelValue(graphics, "Faces", connectedFaces(), 162);
+            labelValue(graphics, menu.kind() == FieldDeviceMenu.KIND_SHIELDED_INSTRUMENT_CABLE ? "Shielding / faces" : "Faces",
+                    menu.kind() == FieldDeviceMenu.KIND_SHIELDED_INSTRUMENT_CABLE ? menu.primary() + "% / " + connectedFaces() : connectedFaces(), 162);
         } else if (isCommunicationDevice()) {
             statusLine(graphics, "Runtime payload", validityText(), validityColor(), 122);
             labelValue(graphics, "Quality", menu.qualityPercent() + "%", 142);
@@ -393,6 +466,10 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             statusLine(graphics, "Wave snapshot", validityText(), validityColor(), 122);
             labelValue(graphics, "Primary / secondary", menu.primary() + " / " + menu.secondary(), 142);
             labelValue(graphics, "Quality / topology", menu.qualityPercent() + "% / " + (menu.topologyValid() ? "PASS" : "FAIL"), 162);
+        } else if (isCpsDevice()) {
+            statusLine(graphics, "CPS snapshot", validityText(), validityColor(), 122);
+            labelValue(graphics, "Primary / secondary", menu.primary() + " / " + menu.secondary(), 142);
+            labelValue(graphics, "Aux / events-state", menu.tertiary() + " / " + menu.driverCount(), 162);
         } else {
             statusLine(graphics, "Server snapshot", "VALID • synchronized", GOOD, 122);
             labelValue(graphics, "Orientation", directionName(menu.facingOrdinal()), 142);
@@ -404,13 +481,17 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
         graphics.drawString(font, "This field device does not retain a local time-series history.", 16, 84, TEXT, false);
         graphics.drawString(font, isWaveDevice() ? "Use Spectrum Analyzer or Oscilloscope for historical/frequency evidence."
                 : isCommunicationDevice() ? "Network diagnostics retain bounded counters; payload remains runtime state."
+                : isCpsDevice() ? "CPS counters are bounded runtime evidence; use dedicated commissioning views for history."
                 : "Use Signal Analyzer, Oscilloscope, or Logic Analyzer for historical evidence.", 16, 103, INFO, false);
         sectionRule(graphics, 126);
         graphics.drawString(font, "Inspector stays lightweight: observe authoritative state, ports and topology.", 16, 140, MUTED, false);
     }
 
     private boolean isCable() {
-        return menu.kind() == FieldDeviceMenu.KIND_REDSTONE_CABLE || menu.kind() == FieldDeviceMenu.KIND_REDSTONE_JUNCTION || menu.kind() == FieldDeviceMenu.KIND_INSTRUMENT_CABLE;
+        return menu.kind() == FieldDeviceMenu.KIND_REDSTONE_CABLE
+                || menu.kind() == FieldDeviceMenu.KIND_REDSTONE_JUNCTION
+                || menu.kind() == FieldDeviceMenu.KIND_INSTRUMENT_CABLE
+                || menu.kind() == FieldDeviceMenu.KIND_SHIELDED_INSTRUMENT_CABLE;
     }
 
     private boolean isCommunicationDevice() {
@@ -423,6 +504,10 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
 
     private boolean isWaveDevice() {
         return menu.kind() >= FieldDeviceMenu.KIND_AMETHYST_RESONATOR && menu.kind() <= FieldDeviceMenu.KIND_THERMAL_RECEIVER;
+    }
+
+    private boolean isCpsDevice() {
+        return menu.kind() >= FieldDeviceMenu.KIND_WATCHDOG && menu.kind() <= FieldDeviceMenu.KIND_OPERATIONS_MONITOR;
     }
 
     private String deviceName() {
@@ -466,6 +551,13 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             case FieldDeviceMenu.KIND_PHONON_CONDUIT -> "PHONON CONDUIT";
             case FieldDeviceMenu.KIND_THERMAL_ENCODER -> "THERMAL PULSE ENCODER";
             case FieldDeviceMenu.KIND_THERMAL_RECEIVER -> "THERMAL PULSE RECEIVER";
+            case FieldDeviceMenu.KIND_SHIELDED_INSTRUMENT_CABLE -> "SHIELDED INSTRUMENT CABLE";
+            case FieldDeviceMenu.KIND_WATCHDOG -> "HEARTBEAT WATCHDOG";
+            case FieldDeviceMenu.KIND_SERVO_ACTUATOR -> "SERVO ACTUATOR";
+            case FieldDeviceMenu.KIND_SERVO_POSITION_SENSOR -> "SERVO POSITION SENSOR";
+            case FieldDeviceMenu.KIND_REDUNDANT_VOTER -> "2oo3 REDUNDANT VOTER";
+            case FieldDeviceMenu.KIND_FAULT_LATCH -> "FAULT LATCH";
+            case FieldDeviceMenu.KIND_OPERATIONS_MONITOR -> "OPERATIONS MONITOR";
             default -> "UNKNOWN";
         };
     }
@@ -488,6 +580,18 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             case 1 -> "MILK-MODEL";
             case 2 -> "LAVA";
             default -> "WATER";
+        };
+    }
+
+    private static String operationsState(int ordinal) {
+        return switch (ordinal) {
+            case 1 -> "CONGESTED";
+            case 2 -> "NOISY";
+            case 3 -> "UNSTABLE";
+            case 4 -> "OVERLOADED";
+            case 5 -> "SAFETY_LIMITED";
+            case 6 -> "FAILED";
+            default -> "NOMINAL";
         };
     }
 

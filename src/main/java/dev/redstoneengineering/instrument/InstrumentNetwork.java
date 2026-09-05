@@ -2,6 +2,7 @@ package dev.redstoneengineering.instrument;
 
 import dev.redstoneengineering.block.ConnectedCableBlock;
 import dev.redstoneengineering.block.InstrumentCableBlock;
+import dev.redstoneengineering.block.ShieldedInstrumentCableBlock;
 import dev.redstoneengineering.block.SignalProbeBlock;
 import dev.redstoneengineering.block.TransmissionTopology;
 import dev.redstoneengineering.physics.NetworkKernel;
@@ -29,6 +30,8 @@ public final class InstrumentNetwork {
         boolean truncated = false;
         int maxCableDepth = 0;
         int maxProbeDepth = 0;
+        int shieldedCableNodes = 0;
+        int unshieldedCableNodes = 0;
 
         for (Direction direction : Direction.values()) {
             BlockPos neighbor = instrumentPos.relative(direction);
@@ -53,6 +56,8 @@ public final class InstrumentNetwork {
             if (!visited.add(cablePos)) continue;
             maxCableDepth = Math.max(maxCableDepth, visit.depth());
             BlockState cableState = level.getBlockState(cablePos);
+            if (cableState.getBlock() instanceof ShieldedInstrumentCableBlock) shieldedCableNodes++;
+            else if (cableState.getBlock() instanceof InstrumentCableBlock) unshieldedCableNodes++;
 
             for (Direction direction : Direction.values()) {
                 if (!ConnectedCableBlock.connected(cableState, direction)) continue;
@@ -75,7 +80,9 @@ public final class InstrumentNetwork {
         }
 
         NetworkKernel.recordScan(level, "instrument", visited.size(), truncated);
-        return new ProbeSnapshot(values, counts, !truncated, visited.size(), seenProbes.size(), maxCableDepth, maxProbeDepth);
+        return new ProbeSnapshot(
+                values, counts, !truncated, visited.size(), seenProbes.size(),
+                maxCableDepth, maxProbeDepth, shieldedCableNodes, unshieldedCableNodes);
     }
 
     private static void recordProbe(Level level, BlockPos pos, BlockState state, SignalProbeBlock probe, int[] values, int[] counts) {
@@ -86,13 +93,34 @@ public final class InstrumentNetwork {
         else values[channel] = -1;
     }
 
-    public record ProbeSnapshot(int[] values, int[] counts, boolean bounded, int cableNodes, int probeNodes, int maxCableDepth, int maxProbeDepth) {
+    public record ProbeSnapshot(
+            int[] values,
+            int[] counts,
+            boolean bounded,
+            int cableNodes,
+            int probeNodes,
+            int maxCableDepth,
+            int maxProbeDepth,
+            int shieldedCableNodes,
+            int unshieldedCableNodes
+    ) {
         public boolean valid(int channel) { return channel >= 0 && channel < 4 && counts[channel] == 1 && values[channel] >= 0; }
         public int valueOr(int channel, int fallback) { return valid(channel) ? values[channel] : fallback; }
         public int duplicateChannels() { int duplicates = 0; for (int count : counts) if (count > 1) duplicates++; return duplicates; }
         public int duplicateProbes() { int duplicates = 0; for (int count : counts) duplicates += Math.max(0, count - 1); return duplicates; }
         public int activeChannels() { int active = 0; for (int channel = 0; channel < 4; channel++) if (counts[channel] > 0) active++; return active; }
         public int validChannels() { int valid = 0; for (int channel = 0; channel < 4; channel++) if (valid(channel)) valid++; return valid; }
+        public int shieldingCoveragePercent() {
+            int total = shieldedCableNodes + unshieldedCableNodes;
+            return total == 0 ? 0 : (100 * shieldedCableNodes) / total;
+        }
+        public String shieldingIntegrity() {
+            if (!bounded) return "TRUNCATED";
+            if (cableNodes == 0) return "NO_CABLE";
+            if (unshieldedCableNodes == 0) return "FULLY_SHIELDED";
+            if (shieldedCableNodes == 0) return "UNSHIELDED";
+            return "MIXED_SHIELDING";
+        }
         public String status(int channel) {
             if (channel < 0 || channel >= 4) return "INVALID CHANNEL";
             if (counts[channel] == 0) return "NO PROBE";
@@ -113,6 +141,9 @@ public final class InstrumentNetwork {
                     + " duplicateProbes=" + duplicateProbes()
                     + " depth=" + maxProbeDepth
                     + " cableDepth=" + maxCableDepth
+                    + " shielded=" + shieldedCableNodes + "/" + cableNodes
+                    + " shieldingCoverage=" + shieldingCoveragePercent() + "%"
+                    + " shielding=" + shieldingIntegrity()
                     + " scan=" + (bounded ? "BOUNDED" : "TRUNCATED")
                     + " integrity=" + integrity();
         }
