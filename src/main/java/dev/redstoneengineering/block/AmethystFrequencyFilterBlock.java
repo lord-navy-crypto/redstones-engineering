@@ -62,7 +62,7 @@ public class AmethystFrequencyFilterBlock extends DirectionalDomainBlock impleme
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        DomainNetwork.AmethystSignal signal = DomainNetwork.sampleAmethyst(
+        DomainNetwork.AmethystSample signal = DomainNetwork.sampleAmethyst(
                 level, side == inputSide(state) ? inputPos(pos, state) : outputPos(pos, state));
         return Optional.of(new EngineeringPortSnapshot(
                 port.get(), Math.max(0, Math.min(15, signal.amplitude())), 0.0, 15.0,
