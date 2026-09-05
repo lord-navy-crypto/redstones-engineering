@@ -11,7 +11,6 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.metrology.MeasurementSnapshot;
 import dev.redstoneengineering.metrology.MetrologyStore;
 import dev.redstoneengineering.metrology.MetrologySupport;
-import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -19,10 +18,12 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
 
@@ -58,6 +59,12 @@ public class ServoPositionSensorBlock extends PassiveDirectionalSignalBlock {
         MeasurementSnapshot measurement = measurement(level, pos);
         return Optional.of(EngineeringPortSnapshot.redstone(port.get(), state.getValue(OUTPUT),
                 present ? MetrologySupport.portQuality(measurement) : PortQuality.NO_SIGNAL));
+    }
+
+    /** BACK is a mechanical-position interface, so vanilla redstone may connect only to FRONT output. */
+    @Override
+    public boolean canConnectRedstone(BlockState state, BlockGetter level, BlockPos pos, @Nullable Direction direction) {
+        return direction != null && direction.getOpposite() == outputSide(state);
     }
 
     @Override
