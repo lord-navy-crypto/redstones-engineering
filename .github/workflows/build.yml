@@ -72,7 +72,8 @@ jobs:
             tools/rse_fourth_eight_verify.py \
             tools/rse_fifth_eight_verify.py \
             tools/rse_sixth_eight_verify.py \
-            tools/rse_seventh_eight_verify.py
+            tools/rse_seventh_eight_verify.py \
+            tools/rse_eighth_eight_verify.py
           do
             if [[ -f "$verifier" ]]; then
               echo "==> $verifier"
