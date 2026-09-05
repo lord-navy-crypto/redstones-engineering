@@ -34,6 +34,7 @@ import java.util.Optional;
 public class PneumaticReliefValveBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
     public static final IntegerProperty SETPOINT = IntegerProperty.create("setpoint", 1, 4);
     private static final String RUNTIME = "pneumatic_relief";
+    private static final int DIAG_SIZE = 4; // events, lastExcess, totalVentedProxy, previousVenting
 
     public PneumaticReliefValveBlock(Properties properties) {
         super(properties);
@@ -77,16 +78,27 @@ public class PneumaticReliefValveBlock extends DirectionalDomainBlock implements
         ));
     }
 
-    public static int ventEvents(Level level, BlockPos pos) {
-        return RuntimeIntStore.get(level, RUNTIME, pos, 3)[0];
+    private static int[] diagnostics(Level level, BlockPos pos) {
+        return RuntimeIntStore.get(level, RUNTIME, pos, DIAG_SIZE);
     }
 
-    public static int lastExcess(Level level, BlockPos pos) {
-        return RuntimeIntStore.get(level, RUNTIME, pos, 3)[1];
+    public static int ventEvents(Level level, BlockPos pos) { return diagnostics(level, pos)[0]; }
+    public static int lastExcess(Level level, BlockPos pos) { return diagnostics(level, pos)[1]; }
+    public static int totalVentedProxy(Level level, BlockPos pos) { return diagnostics(level, pos)[2]; }
+    public static boolean venting(Level level, BlockPos pos) { return diagnostics(level, pos)[3] != 0; }
+
+    /** Called by the pneumatic solver. Repeated solver passes during one overpressure episode count one event. */
+    public static void recordVent(Level level, BlockPos pos, int excess) {
+        int[] diag = diagnostics(level, pos);
+        if (diag[3] == 0) diag[0]++;
+        diag[1] = Math.max(0, excess);
+        diag[2] += Math.max(0, excess);
+        diag[3] = 1;
     }
 
-    public static int totalVentedProxy(Level level, BlockPos pos) {
-        return RuntimeIntStore.get(level, RUNTIME, pos, 3)[2];
+    /** Re-arms the event edge once pressure is no longer above the configured setpoint. */
+    public static void clearVenting(Level level, BlockPos pos) {
+        diagnostics(level, pos)[3] = 0;
     }
 
     @Override
