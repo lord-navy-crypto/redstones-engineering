@@ -2,11 +2,22 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.core.domain.EngineeringDomain;
+import dev.redstoneengineering.core.port.EngineeringPort;
+import dev.redstoneengineering.core.port.EngineeringPortProvider;
+import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
+import dev.redstoneengineering.core.port.PortDirection;
+import dev.redstoneengineering.core.port.PortKind;
+import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.PneumaticNetwork;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
@@ -16,9 +27,13 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
-/** Safety relief valve. Clamps local/downstream network pressure above a configurable setpoint. */
-public class PneumaticReliefValveBlock extends DirectionalDomainBlock {
+import java.util.List;
+import java.util.Optional;
+
+/** Safety relief valve. BACK is inlet, FRONT is pressure-limited outlet, excess pressure vents to ambient. */
+public class PneumaticReliefValveBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
     public static final IntegerProperty SETPOINT = IntegerProperty.create("setpoint", 1, 4);
+    private static final String RUNTIME = "pneumatic_relief";
 
     public PneumaticReliefValveBlock(Properties properties) {
         super(properties);
@@ -29,26 +44,83 @@ public class PneumaticReliefValveBlock extends DirectionalDomainBlock {
         return RedstoneEngineering.PNEUMATIC_RELIEF_VALVE_CODEC.value();
     }
 
-    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+    @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
         builder.add(SETPOINT);
     }
 
-    @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
-        super.onPlace(state, level, pos, oldState, moved);
-        if (level instanceof ServerLevel server) PneumaticNetwork.recompute(server, pos);
+    @Override
+    public List<EngineeringPort> engineeringPorts(BlockState state) {
+        return List.of(
+                new EngineeringPort(
+                        "PNEUMATIC IN", inputSide(state), EngineeringDomain.PNEUMATIC,
+                        PortKind.SAFETY, PortDirection.INPUT, false, "pressure"
+                ),
+                new EngineeringPort(
+                        "LIMITED OUT", outputSide(state), EngineeringDomain.PNEUMATIC,
+                        PortKind.SAFETY, PortDirection.OUTPUT, false, "pressure"
+                )
+        );
     }
 
-    @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (!level.isClientSide) {
-            int next = state.getValue(SETPOINT) % 4 + 1;
-            BlockState newState = state.setValue(SETPOINT, next);
-            level.setBlock(pos, newState, Block.UPDATE_CLIENTS);
-            if (level instanceof ServerLevel server) PneumaticNetwork.recompute(server, pos);
-            int[] diag = RuntimeIntStore.get(level, "pneumatic_relief", pos, 3);
-            player.displayClientMessage(Component.literal(
-                    "Relief valve setpoint=" + (next * 25) + "/100 ventEvents=" + diag[0] +
-                    " lastExcess=" + diag[1] + " totalVentedProxy=" + diag[2]), true);
+    @Override
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
+            Level level, BlockPos pos, BlockState state, Direction side
+    ) {
+        Optional<EngineeringPort> descriptor = engineeringPort(state, side);
+        if (descriptor.isEmpty()) return Optional.empty();
+        int pressure = PneumaticNetwork.pressure(level, pos.relative(side));
+        return Optional.of(new EngineeringPortSnapshot(
+                descriptor.get(), pressure, 0.0, 100.0,
+                pressure > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL
+        ));
+    }
+
+    public static int ventEvents(Level level, BlockPos pos) {
+        return RuntimeIntStore.get(level, RUNTIME, pos, 3)[0];
+    }
+
+    public static int lastExcess(Level level, BlockPos pos) {
+        return RuntimeIntStore.get(level, RUNTIME, pos, 3)[1];
+    }
+
+    public static int totalVentedProxy(Level level, BlockPos pos) {
+        return RuntimeIntStore.get(level, RUNTIME, pos, 3)[2];
+    }
+
+    @Override
+    protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
+        super.onPlace(state, level, pos, oldState, moved);
+        if (level instanceof ServerLevel server) PneumaticNetwork.recomputeAround(server, pos);
+    }
+
+    @Override
+    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
+        if (!state.is(newState.getBlock()) && level instanceof ServerLevel server) {
+            RuntimeIntStore.remove(level, RUNTIME, pos);
+            InformationRuntime.clear(level, "pneumatic", pos);
+            PneumaticNetwork.recomputeAround(server, pos);
+        }
+        super.onRemove(state, level, pos, newState, moved);
+    }
+
+    @Override
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown()) {
+                int next = state.getValue(SETPOINT) % 4 + 1;
+                BlockState newState = state.setValue(SETPOINT, next);
+                level.setBlock(pos, newState, Block.UPDATE_CLIENTS);
+                if (level instanceof ServerLevel server) PneumaticNetwork.recomputeAround(server, pos);
+                player.displayClientMessage(Component.literal(
+                        "Relief valve setpoint=" + (next * 25) + "/100 ventEvents=" + ventEvents(level, pos)
+                                + " lastExcess=" + lastExcess(level, pos)
+                                + " totalVentedProxy=" + totalVentedProxy(level, pos)
+                ), true);
+            } else {
+                FieldDeviceUi.open(serverPlayer, pos);
+            }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
