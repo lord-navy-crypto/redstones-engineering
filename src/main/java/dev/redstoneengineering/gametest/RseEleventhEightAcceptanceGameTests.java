@@ -169,11 +169,16 @@ public final class RseEleventhEightAcceptanceGameTests {
         helper.setBlock(magnet, RedstoneEngineering.PERMANENT_MAGNET.get().defaultBlockState()
                 .setValue(PermanentMagnetBlock.STRENGTH, 15));
         EngineeringPortProvider provider = RedstoneEngineering.PERMANENT_MAGNET.get();
-        if (!provider.engineeringPorts(helper.getBlockState(magnet)).isEmpty()
+        BlockState state = helper.getBlockState(magnet);
+        if (provider.engineeringPorts(state).size() != 6
+                || provider.engineeringPorts(state).stream().anyMatch(port ->
+                port.domain() != EngineeringDomain.IRON_MAGNETIC
+                        || port.direction() != PortDirection.OUTPUT
+                        || port.redstoneConnectable())
                 || MagneticPhysics.fieldAt(helper.getLevel(), helper.absolutePos(sample), 6) <= 0
                 || RedstoneEngineering.PERMANENT_MAGNET.get().canConnectRedstone(
-                helper.getBlockState(magnet), helper.getLevel(), helper.absolutePos(magnet), Direction.WEST)) {
-            helper.fail("Permanent magnet invented a wired port or failed its free-space field", magnet);
+                state, helper.getLevel(), helper.absolutePos(magnet), Direction.WEST)) {
+            helper.fail("Permanent magnet free-space interface became wired/redstone or failed its field", magnet);
             return;
         }
         helper.succeed();
@@ -220,10 +225,16 @@ public final class RseEleventhEightAcceptanceGameTests {
         helper.setBlock(sensor, RedstoneEngineering.MAGNETIC_FIELD_SENSOR.get().defaultBlockState());
 
         helper.runAfterDelay(7, () -> {
-            if (helper.getBlockState(sensor).getValue(MagneticFieldSensorBlock.FIELD) <= 0
-                    || !((EngineeringPortProvider) RedstoneEngineering.MAGNETIC_FIELD_SENSOR.get())
-                    .engineeringPorts(helper.getBlockState(sensor)).isEmpty()) {
-                helper.fail("Magnetic field sensor failed observer-only free-space sensing", sensor);
+            EngineeringPortProvider provider = RedstoneEngineering.MAGNETIC_FIELD_SENSOR.get();
+            BlockState state = helper.getBlockState(sensor);
+            if (state.getValue(MagneticFieldSensorBlock.FIELD) <= 0
+                    || provider.engineeringPorts(state).size() != 6
+                    || provider.engineeringPorts(state).stream().anyMatch(port ->
+                    port.domain() != EngineeringDomain.IRON_MAGNETIC
+                            || port.kind() != PortKind.MEASUREMENT
+                            || port.direction() != PortDirection.INPUT
+                            || port.redstoneConnectable())) {
+                helper.fail("Magnetic field sensor failed non-wired observer-only free-space sensing", sensor);
                 return;
             }
             helper.setBlock(magnet, Blocks.AIR.defaultBlockState());
@@ -247,12 +258,18 @@ public final class RseEleventhEightAcceptanceGameTests {
                 .setValue(PermanentMagnetBlock.STRENGTH, 15));
         BlockPos world = helper.absolutePos(meter);
         EngineeringPortProvider provider = RedstoneEngineering.MAGNETIC_GRADIENT_METER.get();
+        BlockState state = helper.getBlockState(meter);
         if (MagneticPhysics.fieldAt(helper.getLevel(), world, 6) <= 0
                 || MagneticGradientMeterBlock.gradientX(helper.getLevel(), world) == 0
-                || !provider.engineeringPorts(helper.getBlockState(meter)).isEmpty()
+                || provider.engineeringPorts(state).size() != 6
+                || provider.engineeringPorts(state).stream().anyMatch(port ->
+                port.domain() != EngineeringDomain.IRON_MAGNETIC
+                        || port.kind() != PortKind.MEASUREMENT
+                        || port.direction() != PortDirection.INPUT
+                        || port.redstoneConnectable())
                 || RedstoneEngineering.MAGNETIC_GRADIENT_METER.get().canConnectRedstone(
-                helper.getBlockState(meter), helper.getLevel(), world, Direction.WEST)) {
-            helper.fail("Gradient meter failed observer-only spatial-field measurement", meter);
+                state, helper.getLevel(), world, Direction.WEST)) {
+            helper.fail("Gradient meter failed non-wired observer-only spatial-field measurement", meter);
             return;
         }
         helper.succeed();

@@ -220,8 +220,19 @@ public final class PneumaticNetwork {
             if (block instanceof PneumaticReliefValveBlock && pressure <= 0) {
                 PneumaticReliefValveBlock.clearVenting(level, pos);
             }
+
+            // Many pneumatic blocks recompute their component from neighborChanged().
+            // Re-notifying every node on every no-op solver pass creates a synchronous
+            // recompute -> neighbor update -> recompute feedback loop. Publish runtime first,
+            // then wake vanilla endpoints only when the observable network state changed.
+            int oldPressure = InformationRuntime.value(level, "pneumatic", pos);
+            int oldQuality = InformationRuntime.quality(level, "pneumatic", pos);
+            boolean oldValid = InformationRuntime.valid(level, "pneumatic", pos);
+            boolean effectiveChanged = oldPressure != pressure || oldQuality != quality || !oldValid;
             InformationRuntime.write(level, "pneumatic", pos, pressure, 0, true, quality);
-            level.updateNeighborsAt(pos, block);
+            if (effectiveChanged) {
+                level.updateNeighborsAt(pos, block);
+            }
         }
 
         for (BlockPos pos : nodes) {

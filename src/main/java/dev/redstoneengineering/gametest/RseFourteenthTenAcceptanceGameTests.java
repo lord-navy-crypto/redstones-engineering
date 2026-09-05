@@ -120,8 +120,12 @@ public final class RseFourteenthTenAcceptanceGameTests {
         helper.runAfterDelay(7, () -> {
             IronCoreBlock block = RedstoneEngineering.IRON_CORE.get();
             BlockState state = helper.getBlockState(core);
-            if (!block.engineeringPorts(state).isEmpty()) {
-                helper.fail("Iron core incorrectly exposed wired adjacency ports for a free-space magnetic material", core);
+            if (block.engineeringPorts(state).size() != 6
+                    || block.engineeringPorts(state).stream().anyMatch(port ->
+                    port.domain() != EngineeringDomain.IRON_MAGNETIC
+                            || port.direction() != PortDirection.BIDIRECTIONAL
+                            || port.redstoneConnectable())) {
+                helper.fail("Iron core free-space coupling interface became wired/redstone or incomplete", core);
                 return;
             }
             if (!state.getValue(IronCoreBlock.MAGNETIZED)) {

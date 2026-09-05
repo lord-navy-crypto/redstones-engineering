@@ -47,7 +47,11 @@ contracts = {
     ),
     "src/main/java/dev/redstoneengineering/block/IronCoreBlock.java": (
         "implements EngineeringPortProvider",
-        "return List.of();",
+        '"MAGNETIC COUPLING "',
+        "EngineeringDomain.IRON_MAGNETIC",
+        "PortKind.AUXILIARY",
+        "PortDirection.BIDIRECTIONAL",
+        'false, "remanence"',
         "free-space magnetic material",
         "remanent",
         "neighborChanged",
@@ -166,7 +170,7 @@ if "runGameTestServer" not in workflow:
 
 print("RSE fourteenth-ten thermal/Lapis/Quartz/sensor verification: PASS")
 print("  passive thermal sink and observer boundaries: PASS")
-print("  temperature sensing and magnetic free-space semantics: PASS")
+print("  temperature sensing and inspectable non-wired magnetic free-space semantics: PASS")
 print("  Lapis source/filter/meter lifecycle and observer contracts: PASS")
 print("  Quartz source/delay lifecycle and timing ports: PASS")
 print("  optical-aperture to redstone-output sensor boundary: PASS")

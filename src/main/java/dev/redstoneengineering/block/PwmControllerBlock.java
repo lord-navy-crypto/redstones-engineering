@@ -2,6 +2,12 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.core.domain.EngineeringDomain;
+import dev.redstoneengineering.core.port.EngineeringPort;
+import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
+import dev.redstoneengineering.core.port.PortDirection;
+import dev.redstoneengineering.core.port.PortKind;
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -17,6 +23,9 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
+
+import java.util.List;
+import java.util.Optional;
 
 public class PwmControllerBlock extends DirectionalSignalBlock {
     public static final IntegerProperty PERIOD_MODE = IntegerProperty.create("period_mode", 0, 3);
@@ -34,6 +43,34 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
     @Override protected boolean isEngineeringPort(BlockState state, Direction side) {
         Direction facing = state.getValue(FACING);
         return side == inputSide(state) || side == outputSide(state) || side == leftOf(facing);
+    }
+
+    @Override
+    public List<EngineeringPort> engineeringPorts(BlockState state) {
+        Direction facing = state.getValue(FACING);
+        return List.of(
+                new EngineeringPort("COMMAND IN", inputSide(state), EngineeringDomain.REDSTONE,
+                        PortKind.REDSTONE_ANALOG, PortDirection.INPUT, true, "signal"),
+                new EngineeringPort("PWM OUT", outputSide(state), EngineeringDomain.REDSTONE,
+                        PortKind.REDSTONE_BINARY, PortDirection.OUTPUT, true, "signal"),
+                new EngineeringPort("INHIBIT", leftOf(facing), EngineeringDomain.REDSTONE,
+                        PortKind.SAFETY, PortDirection.INPUT, true, "signal")
+        );
+    }
+
+    @Override
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
+            Level level, BlockPos pos, BlockState state, Direction side
+    ) {
+        Optional<EngineeringPort> port = engineeringPort(state, side);
+        if (port.isEmpty()) return Optional.empty();
+        Direction facing = state.getValue(FACING);
+        int value;
+        if (side == outputSide(state)) value = state.getValue(OUTPUT);
+        else if (side == inputSide(state)) value = readBackInput(level, pos, state);
+        else if (side == leftOf(facing)) value = readInputFrom(level, pos, side);
+        else return Optional.empty();
+        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value, PortQuality.VALID));
     }
 
     @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {

@@ -2,6 +2,13 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.core.domain.EngineeringDomain;
+import dev.redstoneengineering.core.port.EngineeringPort;
+import dev.redstoneengineering.core.port.EngineeringPortProvider;
+import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
+import dev.redstoneengineering.core.port.PortDirection;
+import dev.redstoneengineering.core.port.PortKind;
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.signal.EngineeringSignal;
 import dev.redstoneengineering.ui.menu.SignalAnalyzerMenu;
@@ -27,15 +34,18 @@ import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
 import javax.annotation.Nullable;
+import java.util.List;
+import java.util.Optional;
 
 /**
  * Engineering signal analyzer with explicit topology, calibration and rolling
  * measurement-quality diagnostics.
  *
- * TAP mode is non-invasive. INLINE mode measures TEST/FACING and reproduces the
- * raw 0..15 sample on the opposite OUT face. Calibration changes display only.
+ * <p>TAP mode is a non-invasive measurement aperture. INLINE mode makes the
+ * TEST and OUT faces a real 0..15 redstone path. Calibration affects display
+ * only; it never mutates the physical pass-through value.</p>
  */
-public class SignalAnalyzerBlock extends Block {
+public class SignalAnalyzerBlock extends Block implements EngineeringPortProvider {
     public static final DirectionProperty FACING = BlockStateProperties.FACING;
     public static final IntegerProperty MODE = IntegerProperty.create("mode", 0, 1);
     public static final IntegerProperty OUTPUT = IntegerProperty.create("output", 0, 15);
@@ -61,21 +71,38 @@ public class SignalAnalyzerBlock extends Block {
     }
 
     @Override public MapCodec<SignalAnalyzerBlock> codec() { return RedstoneEngineering.SIGNAL_ANALYZER_CODEC.value(); }
-
-    @Override
-    public BlockState getStateForPlacement(BlockPlaceContext context) {
-        return defaultBlockState().setValue(FACING, context.getClickedFace().getOpposite());
-    }
-
-    @Override
-    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING, MODE, OUTPUT, CALIBRATION);
-    }
+    @Override public BlockState getStateForPlacement(BlockPlaceContext context) { return defaultBlockState().setValue(FACING, context.getClickedFace().getOpposite()); }
+    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { builder.add(FACING, MODE, OUTPUT, CALIBRATION); }
 
     private static Direction testSide(BlockState state) { return state.getValue(FACING); }
     private static Direction inlineOutputSide(BlockState state) { return testSide(state).getOpposite(); }
     private static int calibrationOffset(BlockState state) { return state.getValue(CALIBRATION) - 2; }
     private static int calibratedReading(BlockState state, int raw) { return EngineeringSignal.clamp(raw + calibrationOffset(state)); }
+
+    @Override
+    public List<EngineeringPort> engineeringPorts(BlockState state) {
+        EngineeringPort test = new EngineeringPort(
+                state.getValue(MODE) == INLINE ? "TEST IN" : "TAP APERTURE",
+                testSide(state), EngineeringDomain.REDSTONE,
+                state.getValue(MODE) == INLINE ? PortKind.REDSTONE_ANALOG : PortKind.MEASUREMENT,
+                PortDirection.INPUT, state.getValue(MODE) == INLINE, "signal");
+        if (state.getValue(MODE) == TAP) return List.of(test);
+        return List.of(
+                test,
+                new EngineeringPort(
+                        "INLINE OUT", inlineOutputSide(state), EngineeringDomain.REDSTONE,
+                        PortKind.REDSTONE_ANALOG, PortDirection.OUTPUT, true, "signal"));
+    }
+
+    @Override
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
+        Optional<EngineeringPort> port = engineeringPort(state, side);
+        if (port.isEmpty()) return Optional.empty();
+        int value = side == inlineOutputSide(state) && state.getValue(MODE) == INLINE
+                ? state.getValue(OUTPUT)
+                : sampleTarget(level, pos, state);
+        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value, PortQuality.VALID));
+    }
 
     @Override
     public boolean canConnectRedstone(BlockState state, BlockGetter level, BlockPos pos, @Nullable Direction direction) {
@@ -115,6 +142,18 @@ public class SignalAnalyzerBlock extends Block {
             level.updateNeighborsAt(pos.relative(inlineOutputSide(next)), this);
         }
         level.scheduleTick(pos, this, SAMPLE_PERIOD_TICKS);
+    }
+
+    @Override
+    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
+        if (!state.is(newState.getBlock())) {
+            RuntimeIntStore.remove(level, KEY, pos);
+            if (state.getValue(MODE) == INLINE) {
+                level.updateNeighborsAt(pos, this);
+                level.updateNeighborsAt(pos.relative(inlineOutputSide(state)), this);
+            }
+        }
+        super.onRemove(state, level, pos, newState, movedByPiston);
     }
 
     private static int sampleTarget(Level level, BlockPos pos, BlockState state) {
@@ -315,18 +354,10 @@ public class SignalAnalyzerBlock extends Block {
     }
 
     public static int measureNode(Level level, BlockPos targetPos, BlockState targetState, @Nullable Direction instrumentToTarget) {
-        if (targetState.getBlock() instanceof RedstoneSignalCableBlock) {
-            return EngineeringSignal.clamp(RedstoneSignalCableBlock.power(level, targetPos));
-        }
-        if (targetState.getBlock() instanceof RedstoneCableJunctionBlock) {
-            return EngineeringSignal.clamp(RedstoneCableJunctionBlock.power(level, targetPos));
-        }
-        if (targetState.getBlock() instanceof RedstoneCableTerminalBlock) {
-            return EngineeringSignal.clamp(targetState.getValue(RedstoneCableTerminalBlock.POWER));
-        }
-        if (targetState.getBlock() instanceof RedStoneWireBlock) {
-            return EngineeringSignal.clamp(targetState.getValue(RedStoneWireBlock.POWER));
-        }
+        if (targetState.getBlock() instanceof RedstoneSignalCableBlock) return EngineeringSignal.clamp(RedstoneSignalCableBlock.power(level, targetPos));
+        if (targetState.getBlock() instanceof RedstoneCableJunctionBlock) return EngineeringSignal.clamp(RedstoneCableJunctionBlock.power(level, targetPos));
+        if (targetState.getBlock() instanceof RedstoneCableTerminalBlock) return EngineeringSignal.clamp(targetState.getValue(RedstoneCableTerminalBlock.POWER));
+        if (targetState.getBlock() instanceof RedStoneWireBlock) return EngineeringSignal.clamp(targetState.getValue(RedStoneWireBlock.POWER));
 
         if (instrumentToTarget != null) {
             int directional = targetState.getSignal(level, targetPos, instrumentToTarget);

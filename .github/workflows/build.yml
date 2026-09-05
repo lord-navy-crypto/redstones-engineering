@@ -42,6 +42,9 @@ jobs:
             tools/rse_reference_model_tests.py \
             tools/rse_redstone_verify.py \
             tools/rse_full_audit.py \
+            tools/rse_122_block_total_audit.py \
+            tools/rse_122_block_closure_verify.py \
+            tools/rse_neighbor_update_audit.py \
             tools/rse_alpha10_verify.py \
             tools/rse_alpha102_second_layer_verify.py \
             tools/rse_alpha103_pneumatic_hotfix_verify.py \
@@ -88,6 +91,16 @@ jobs:
             fi
           done
 
+      - name: Upload 122-block audit report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: rse-122-block-audit-${{ github.sha }}
+          path: .rse-audit/*
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Compile Java and resolve required dependency platform
         run: ./gradlew compileJava --no-daemon --stacktrace --warning-mode all
 
@@ -95,7 +108,26 @@ jobs:
         run: ./gradlew test --no-daemon --stacktrace
 
       - name: Minecraft topology GameTests
-        run: ./gradlew runGameTestServer --no-daemon --stacktrace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .rse-audit
+          ./gradlew runGameTestServer --no-daemon --stacktrace 2>&1 | tee .rse-audit/gametest-server.log
+          if grep -Fq "Too many chained neighbor updates" .rse-audit/gametest-server.log; then
+            echo "::error::GameTest server triggered the chained-neighbor-update safety cutoff"
+            grep -F "Too many chained neighbor updates" .rse-audit/gametest-server.log | head -n 40 || true
+            exit 1
+          fi
+
+      - name: Upload GameTest runtime log
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: rse-gametest-runtime-${{ github.sha }}
+          path: .rse-audit/gametest-server.log
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Clean build
         run: ./gradlew clean build --no-daemon --stacktrace --warning-mode all
