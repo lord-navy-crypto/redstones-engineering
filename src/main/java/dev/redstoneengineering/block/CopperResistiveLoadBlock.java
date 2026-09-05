@@ -9,6 +9,7 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.CopperNetworkSupport;
 import dev.redstoneengineering.physics.DomainNetwork;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -51,7 +52,7 @@ public class CopperResistiveLoadBlock extends DomainBlock implements Engineering
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         return Arrays.stream(Direction.values())
                 .map(side -> new EngineeringPort(
-                        "LOAD",
+                        "COPPER LOAD",
                         side,
                         EngineeringDomain.COPPER,
                         PortKind.ELECTRICAL,
@@ -81,6 +82,7 @@ public class CopperResistiveLoadBlock extends DomainBlock implements Engineering
 
     @Override
     protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighbor, BlockPos neighborPos, boolean movedByPiston) {
+        super.neighborChanged(state, level, pos, neighbor, neighborPos, movedByPiston);
         if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeCopper(serverLevel, pos);
     }
 
@@ -91,6 +93,14 @@ public class CopperResistiveLoadBlock extends DomainBlock implements Engineering
     }
 
     @Override
+    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
+        super.onRemove(state, level, pos, newState, movedByPiston);
+        if (!state.is(newState.getBlock()) && level instanceof ServerLevel serverLevel) {
+            CopperNetworkSupport.recomputeAround(serverLevel, pos);
+        }
+    }
+
+    @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
             BlockState next = state;
@@ -98,6 +108,9 @@ public class CopperResistiveLoadBlock extends DomainBlock implements Engineering
                 int resistance = state.getValue(RESISTANCE);
                 next = state.setValue(RESISTANCE, resistance >= 15 ? 1 : resistance + 1);
                 level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+                if (level instanceof ServerLevel serverLevel) {
+                    CopperNetworkSupport.recomputeAround(serverLevel, pos);
+                }
             }
             double voltage = next.getValue(VOLTAGE);
             double resistance = next.getValue(RESISTANCE);
