@@ -97,7 +97,7 @@ public class CopperCircuitMeterBlock extends DomainBlock implements EngineeringP
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         return List.of(new EngineeringPort(
-                "COPPER MEASURE",
+                "MEASURE",
                 state.getValue(FACING),
                 EngineeringDomain.COPPER,
                 PortKind.MEASUREMENT,
