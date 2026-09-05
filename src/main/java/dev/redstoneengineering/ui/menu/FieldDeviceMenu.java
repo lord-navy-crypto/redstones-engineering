@@ -3,6 +3,7 @@ package dev.redstoneengineering.ui.menu;
 import dev.redstoneengineering.block.*;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.PortCompatibility;
+import dev.redstoneengineering.instrument.InstrumentShieldingAudit;
 import dev.redstoneengineering.physics.DataBusNetwork;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.InformationRuntime;
@@ -64,6 +65,13 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int KIND_PHONON_CONDUIT = 37;
     public static final int KIND_THERMAL_ENCODER = 38;
     public static final int KIND_THERMAL_RECEIVER = 39;
+    public static final int KIND_SHIELDED_INSTRUMENT_CABLE = 40;
+    public static final int KIND_WATCHDOG = 41;
+    public static final int KIND_SERVO_ACTUATOR = 42;
+    public static final int KIND_SERVO_POSITION_SENSOR = 43;
+    public static final int KIND_REDUNDANT_VOTER = 44;
+    public static final int KIND_FAULT_LATCH = 45;
+    public static final int KIND_OPERATIONS_MONITOR = 46;
 
     public static final int BUTTON_PRIMARY_DECREASE = 0;
     public static final int BUTTON_PRIMARY_INCREASE = 1;
@@ -137,6 +145,15 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
         } else if (block instanceof RedstoneCableJunctionBlock junction) {
             primary.set(RedstoneCableJunctionBlock.power(level, blockPos));
             fillCableTopology(state, junction);
+        } else if (block instanceof ShieldedInstrumentCableBlock cable) {
+            fillCableTopology(state, cable);
+            InstrumentShieldingAudit.ShieldingSnapshot shielding = InstrumentShieldingAudit.inspect(level, blockPos);
+            primary.set(shielding.coveragePercent());
+            secondary.set(shielding.shieldedNodes());
+            tertiary.set(shielding.unshieldedNodes());
+            dataValid.set(shielding.bounded() ? 1 : 0);
+            quality.set(shielding.bounded() ? shielding.coveragePercent() : 0);
+            driverCount.set(shielding.cableNodes());
         } else if (block instanceof InstrumentCableBlock cable) {
             fillCableTopology(state, cable);
         } else if (block instanceof EightBitDataBusBlock bus) {
@@ -363,6 +380,54 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             dataValid.set(InformationRuntime.valid(level, "thermal_pulse", blockPos) ? 1 : 0);
             quality.set(boundedQuality("thermal_pulse", blockPos));
             facing.set(state.getValue(DirectionalSignalBlock.FACING).ordinal());
+        } else if (block instanceof WatchdogBlock) {
+            primary.set(WatchdogBlock.ageTicks(level, blockPos));
+            secondary.set(WatchdogBlock.timeoutTicks(state.getValue(WatchdogBlock.TIMEOUT)));
+            tertiary.set(WatchdogBlock.timeoutCount(level, blockPos));
+            driverCount.set(WatchdogBlock.transitionCount(level, blockPos));
+            dataValid.set(state.getValue(DirectionalSignalBlock.OUTPUT) == 0 ? 1 : 0);
+            quality.set(dataValid.get() != 0 ? 100 : 0);
+            facing.set(state.getValue(DirectionalSignalBlock.FACING).ordinal());
+        } else if (block instanceof ServoActuatorBlock) {
+            primary.set(ServoActuatorBlock.position(level, blockPos));
+            secondary.set(ServoActuatorBlock.command(level, blockPos));
+            tertiary.set(ServoActuatorBlock.velocity(level, blockPos));
+            driverCount.set(ServoActuatorBlock.softLimitHits(level, blockPos));
+            dataValid.set(ServoActuatorBlock.braking(level, blockPos) ? 0 : 1);
+            quality.set(ServoActuatorBlock.braking(level, blockPos) ? 50 : 100);
+            facing.set(state.getValue(ServoActuatorBlock.FACING).ordinal());
+        } else if (block instanceof ServoPositionSensorBlock sensor) {
+            Direction output = state.getValue(DirectionalSignalBlock.FACING);
+            primary.set(providerValue(sensor, state, output.getOpposite()));
+            secondary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+            var measurement = ServoPositionSensorBlock.measurement(level, blockPos);
+            tertiary.set((int) Math.min(Integer.MAX_VALUE, measurement.sampleCount()));
+            dataValid.set(measurement.sampleCount() > 0 ? 1 : 0);
+            quality.set(dataValid.get() != 0 ? 100 : 0);
+            facing.set(output.ordinal());
+        } else if (block instanceof RedundantVoterBlock) {
+            primary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+            secondary.set(RedundantVoterBlock.spread(level, blockPos));
+            tertiary.set(RedundantVoterBlock.toleranceValue(state.getValue(RedundantVoterBlock.TOLERANCE)));
+            driverCount.set(RedundantVoterBlock.disagreementCount(level, blockPos));
+            dataValid.set(RedundantVoterBlock.degraded(level, blockPos) ? 0 : 1);
+            quality.set(dataValid.get() != 0 ? 100 : 0);
+            facing.set(state.getValue(DirectionalSignalBlock.FACING).ordinal());
+        } else if (block instanceof FaultLatchBlock) {
+            primary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+            secondary.set(FaultLatchBlock.tripCount(level, blockPos));
+            tertiary.set(FaultLatchBlock.resetCount(level, blockPos));
+            driverCount.set(FaultLatchBlock.resetActive(level, blockPos) ? 1 : 0);
+            dataValid.set(FaultLatchBlock.latched(level, blockPos) ? 0 : 1);
+            quality.set(dataValid.get() != 0 ? 100 : 0);
+            facing.set(state.getValue(DirectionalSignalBlock.FACING).ordinal());
+        } else if (block instanceof OperationsMonitorBlock) {
+            primary.set(OperationsMonitorBlock.queueNow(level, blockPos));
+            secondary.set(OperationsMonitorBlock.throughputLastWindow(level, blockPos));
+            tertiary.set(OperationsMonitorBlock.downtimeTicks(level, blockPos));
+            driverCount.set(OperationsMonitorBlock.stateOrdinal(level, blockPos));
+            dataValid.set(driverCount.get() == OperationsMonitorBlock.SystemState.FAILED.ordinal() ? 0 : 1);
+            quality.set(dataValid.get() != 0 ? 100 : 0);
         }
     }
 
@@ -484,6 +549,7 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
         if (block instanceof RedstoneCableTerminalBlock) return KIND_TERMINAL;
         if (block instanceof RedstoneSignalCableBlock) return KIND_REDSTONE_CABLE;
         if (block instanceof RedstoneCableJunctionBlock) return KIND_REDSTONE_JUNCTION;
+        if (block instanceof ShieldedInstrumentCableBlock) return KIND_SHIELDED_INSTRUMENT_CABLE;
         if (block instanceof InstrumentCableBlock) return KIND_INSTRUMENT_CABLE;
         if (block instanceof EightBitDataBusBlock) return KIND_DATA_BUS_8;
         if (block instanceof RedstoneByteEncoderBlock) return KIND_ENCODER;
@@ -517,6 +583,12 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
         if (block instanceof PhononConduitBlock) return KIND_PHONON_CONDUIT;
         if (block instanceof ThermalPulseEncoderBlock) return KIND_THERMAL_ENCODER;
         if (block instanceof ThermalPulseReceiverBlock) return KIND_THERMAL_RECEIVER;
+        if (block instanceof WatchdogBlock) return KIND_WATCHDOG;
+        if (block instanceof ServoActuatorBlock) return KIND_SERVO_ACTUATOR;
+        if (block instanceof ServoPositionSensorBlock) return KIND_SERVO_POSITION_SENSOR;
+        if (block instanceof RedundantVoterBlock) return KIND_REDUNDANT_VOTER;
+        if (block instanceof FaultLatchBlock) return KIND_FAULT_LATCH;
+        if (block instanceof OperationsMonitorBlock) return KIND_OPERATIONS_MONITOR;
         return KIND_UNKNOWN;
     }
 
