@@ -2,9 +2,17 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.core.domain.EngineeringDomain;
+import dev.redstoneengineering.core.port.EngineeringPort;
+import dev.redstoneengineering.core.port.EngineeringPortProvider;
+import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
+import dev.redstoneengineering.core.port.PortDirection;
+import dev.redstoneengineering.core.port.PortKind;
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
@@ -17,26 +25,100 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
+import java.util.List;
+import java.util.Optional;
+
 /** Pulse activity is transient runtime data; frequency/amplitude remain persistent configuration. */
-public class AmethystResonatorBlock extends DomainBlock {
-    public static final IntegerProperty FREQUENCY = IntegerProperty.create("frequency",1,15);
-    public static final IntegerProperty AMPLITUDE = IntegerProperty.create("amplitude",1,15);
+public class AmethystResonatorBlock extends DomainBlock implements EngineeringPortProvider {
+    public static final IntegerProperty FREQUENCY = IntegerProperty.create("frequency", 1, 15);
+    public static final IntegerProperty AMPLITUDE = IntegerProperty.create("amplitude", 1, 15);
     private static final String KEY = "amethyst_resonator";
-    public AmethystResonatorBlock(Properties p) { super(p); registerDefaultState(defaultBlockState().setValue(FREQUENCY,1).setValue(AMPLITUDE,12)); }
-    @Override public MapCodec<AmethystResonatorBlock> codec() { return RedstoneEngineering.AMETHYST_RESONATOR_CODEC.value(); }
-    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block,BlockState> b) { b.add(FREQUENCY, AMPLITUDE); }
-    public static boolean isActive(Level l, BlockPos p) { return RuntimeIntStore.get(l, KEY, p, 1)[0] == 1; }
-    @Override protected void onRemove(BlockState s, Level l, BlockPos p, BlockState ns, boolean moved) { if (!s.is(ns.getBlock())) RuntimeIntStore.remove(l,KEY,p); if (l instanceof ServerLevel sl && !s.is(ns.getBlock())) DomainNetwork.recomputeAmethyst(sl,p); super.onRemove(s,l,p,ns,moved); }
-    @Override protected void tick(BlockState s, ServerLevel l, BlockPos p, RandomSource r) { if (isActive(l,p)) { RuntimeIntStore.get(l,KEY,p,1)[0]=0; DomainNetwork.recomputeAmethyst(l,p); } }
-    @Override protected InteractionResult useWithoutItem(BlockState s, Level l, BlockPos p, Player pl, BlockHitResult hit) {
-        if (!l.isClientSide) {
-            BlockState n = s;
-            if (pl.isShiftKeyDown()) { RuntimeIntStore.get(l,KEY,p,1)[0]=1; l.scheduleTick(p,this,4); }
-            else if (hit.getDirection() == net.minecraft.core.Direction.UP || hit.getDirection() == net.minecraft.core.Direction.DOWN) { int a=s.getValue(AMPLITUDE); n=s.setValue(AMPLITUDE,a>=15?1:a+1); l.setBlock(p,n,Block.UPDATE_CLIENTS); }
-            else { int f=s.getValue(FREQUENCY); n=s.setValue(FREQUENCY,f>=15?1:f+1); l.setBlock(p,n,Block.UPDATE_CLIENTS); }
-            if (l instanceof ServerLevel sl) DomainNetwork.recomputeAmethyst(sl,p);
-            pl.displayClientMessage(Component.literal("Amethyst resonator | f="+n.getValue(FREQUENCY)+" | amplitude="+n.getValue(AMPLITUDE)+(isActive(l,p)?" | PULSE":"")),true);
+
+    public AmethystResonatorBlock(Properties properties) {
+        super(properties);
+        registerDefaultState(defaultBlockState().setValue(FREQUENCY, 1).setValue(AMPLITUDE, 12));
+    }
+
+    @Override
+    public MapCodec<AmethystResonatorBlock> codec() {
+        return RedstoneEngineering.AMETHYST_RESONATOR_CODEC.value();
+    }
+
+    @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        builder.add(FREQUENCY, AMPLITUDE);
+    }
+
+    @Override
+    public List<EngineeringPort> engineeringPorts(BlockState state) {
+        return List.of(
+                sourcePort(Direction.NORTH), sourcePort(Direction.SOUTH),
+                sourcePort(Direction.WEST), sourcePort(Direction.EAST)
+        );
+    }
+
+    private static EngineeringPort sourcePort(Direction side) {
+        return new EngineeringPort("RESONANCE OUT", side, EngineeringDomain.AMETHYST,
+                PortKind.BUS, PortDirection.OUTPUT, false, "amplitude");
+    }
+
+    @Override
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
+            Level level, BlockPos pos, BlockState state, Direction side
+    ) {
+        Optional<EngineeringPort> port = engineeringPort(state, side);
+        if (port.isEmpty()) return Optional.empty();
+        int amplitude = isActive(level, pos) ? state.getValue(AMPLITUDE) : 0;
+        return Optional.of(new EngineeringPortSnapshot(
+                port.get(), amplitude, 0.0, 15.0,
+                amplitude > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+    }
+
+    public static boolean isActive(Level level, BlockPos pos) {
+        return RuntimeIntStore.get(level, KEY, pos, 1)[0] == 1;
+    }
+
+    @Override
+    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
+        if (!state.is(newState.getBlock())) {
+            RuntimeIntStore.remove(level, KEY, pos);
+            if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeAmethyst(serverLevel, pos);
         }
-        return InteractionResult.sidedSuccess(l.isClientSide);
+        super.onRemove(state, level, pos, newState, movedByPiston);
+    }
+
+    @Override
+    protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+        if (isActive(level, pos)) {
+            RuntimeIntStore.get(level, KEY, pos, 1)[0] = 0;
+            DomainNetwork.recomputeAmethyst(level, pos);
+        }
+    }
+
+    @Override
+    protected InteractionResult useWithoutItem(
+            BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit
+    ) {
+        if (!level.isClientSide) {
+            BlockState next = state;
+            if (player.isShiftKeyDown()) {
+                RuntimeIntStore.get(level, KEY, pos, 1)[0] = 1;
+                level.scheduleTick(pos, this, 4);
+            } else if (hit.getDirection() == Direction.UP || hit.getDirection() == Direction.DOWN) {
+                int amplitude = state.getValue(AMPLITUDE);
+                next = state.setValue(AMPLITUDE, amplitude >= 15 ? 1 : amplitude + 1);
+                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+            } else {
+                int frequency = state.getValue(FREQUENCY);
+                next = state.setValue(FREQUENCY, frequency >= 15 ? 1 : frequency + 1);
+                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+            }
+            if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeAmethyst(serverLevel, pos);
+            player.displayClientMessage(Component.literal(
+                    "Amethyst resonator | f=" + next.getValue(FREQUENCY)
+                            + " | amplitude=" + next.getValue(AMPLITUDE)
+                            + (isActive(level, pos) ? " | PULSE" : "")), true);
+        }
+        return InteractionResult.sidedSuccess(level.isClientSide);
     }
 }
