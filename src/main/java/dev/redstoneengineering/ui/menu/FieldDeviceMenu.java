@@ -56,6 +56,14 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int KIND_MECHANICAL_EXCITER = 29;
     public static final int KIND_SLIME_VIBRATION = 30;
     public static final int KIND_MECHANICAL_RECEIVER = 31;
+    public static final int KIND_HONEY_DAMPER = 32;
+    public static final int KIND_SCULK_INTERFACE = 33;
+    public static final int KIND_HYDRO_TUBE = 34;
+    public static final int KIND_HYDRO_EXCITER = 35;
+    public static final int KIND_HYDRO_RECEIVER = 36;
+    public static final int KIND_PHONON_CONDUIT = 37;
+    public static final int KIND_THERMAL_ENCODER = 38;
+    public static final int KIND_THERMAL_RECEIVER = 39;
 
     public static final int BUTTON_PRIMARY_DECREASE = 0;
     public static final int BUTTON_PRIMARY_INCREASE = 1;
@@ -154,7 +162,7 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             primary.set(InformationRuntime.value(level, "serial", blockPos) & 0xFF);
             secondary.set(Math.max(1, InformationRuntime.aux(level, "serial", blockPos)));
             dataValid.set(InformationRuntime.valid(level, "serial", blockPos) ? 1 : 0);
-            quality.set(Math.max(0, Math.min(100, InformationRuntime.quality(level, "serial", blockPos))));
+            quality.set(boundedQuality("serial", blockPos));
             fillCompatibleTopology(state, line);
         } else if (block instanceof SerializerBlock serializer) {
             Direction output = state.getValue(DirectionalDomainBlock.FACING);
@@ -162,45 +170,45 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             secondary.set(InformationRuntime.value(level, "serial", blockPos) & 0xFF);
             tertiary.set(Math.max(1, InformationRuntime.aux(level, "serial", blockPos)));
             dataValid.set(InformationRuntime.valid(level, "serial", blockPos) ? 1 : 0);
-            quality.set(Math.max(0, Math.min(100, InformationRuntime.quality(level, "serial", blockPos))));
+            quality.set(boundedQuality("serial", blockPos));
             facing.set(output.ordinal());
-        } else if (block instanceof DeserializerBlock deserializer) {
+        } else if (block instanceof DeserializerBlock) {
             Direction output = state.getValue(DirectionalDomainBlock.FACING);
             BlockPos inputPos = blockPos.relative(output.getOpposite());
             primary.set(InformationRuntime.value(level, "serial", inputPos) & 0xFF);
             secondary.set(InformationRuntime.value(level, "bus8_out", blockPos) & 0xFF);
             tertiary.set(Math.max(1, InformationRuntime.aux(level, "serial", inputPos)));
             dataValid.set(InformationRuntime.valid(level, "bus8_out", blockPos) ? 1 : 0);
-            quality.set(Math.max(0, Math.min(100, InformationRuntime.quality(level, "serial", inputPos))));
+            quality.set(boundedQuality("serial", inputPos));
             facing.set(output.ordinal());
         } else if (block instanceof DifferentialDataPairBlock pair) {
             primary.set(InformationRuntime.value(level, "diff", blockPos) & 1);
             dataValid.set(InformationRuntime.valid(level, "diff", blockPos) ? 1 : 0);
-            quality.set(Math.max(0, Math.min(100, InformationRuntime.quality(level, "diff", blockPos))));
+            quality.set(boundedQuality("diff", blockPos));
             fillCompatibleTopology(state, pair);
-        } else if (block instanceof DigitalRegeneratorBlock regenerator) {
+        } else if (block instanceof DigitalRegeneratorBlock) {
             Direction output = state.getValue(DirectionalDomainBlock.FACING);
             BlockPos inputPos = blockPos.relative(output.getOpposite());
-            primary.set(Math.max(0, Math.min(100, InformationRuntime.quality(level, "serial", inputPos))));
+            primary.set(boundedQuality("serial", inputPos));
             secondary.set(InformationRuntime.value(level, "serial", blockPos) & 0xFF);
             tertiary.set(state.getValue(DigitalRegeneratorBlock.THRESHOLD));
             dataValid.set(InformationRuntime.valid(level, "serial", blockPos) ? 1 : 0);
-            quality.set(Math.max(0, Math.min(100, InformationRuntime.quality(level, "serial", blockPos))));
+            quality.set(boundedQuality("serial", blockPos));
             facing.set(output.ordinal());
         } else if (block instanceof DifferentialDriverBlock driver) {
             Direction output = state.getValue(DirectionalDomainBlock.FACING);
             primary.set(providerValue(driver, state, output.getOpposite()));
             secondary.set(InformationRuntime.value(level, "diff_out", blockPos) & 1);
             dataValid.set(InformationRuntime.valid(level, "diff_out", blockPos) ? 1 : 0);
-            quality.set(Math.max(0, Math.min(100, InformationRuntime.quality(level, "diff_out", blockPos))));
+            quality.set(boundedQuality("diff_out", blockPos));
             facing.set(output.ordinal());
-        } else if (block instanceof DifferentialReceiverBlock receiver) {
+        } else if (block instanceof DifferentialReceiverBlock) {
             Direction output = state.getValue(DirectionalSignalBlock.FACING);
             BlockPos inputPos = blockPos.relative(output.getOpposite());
             primary.set(InformationRuntime.value(level, "diff", inputPos) & 1);
             secondary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             dataValid.set(InformationRuntime.valid(level, "diff", inputPos) ? 1 : 0);
-            quality.set(Math.max(0, Math.min(100, InformationRuntime.quality(level, "diff", inputPos))));
+            quality.set(boundedQuality("diff", inputPos));
             facing.set(output.ordinal());
         } else if (block instanceof RadioTransmitterBlock transmitter) {
             int payload = providerValue(transmitter, state, Direction.UP);
@@ -210,7 +218,7 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             dataValid.set(payload > 0 ? 1 : 0);
             quality.set(payload > 0 ? 100 : 0);
             driverCount.set(payload > 0 ? 1 : 0);
-        } else if (block instanceof RadioReceiverBlock receiver) {
+        } else if (block instanceof RadioReceiverBlock) {
             var reception = RadioKernel.receivePacket(level, blockPos, state.getValue(RadioReceiverBlock.CHANNEL));
             primary.set(reception.value());
             secondary.set(state.getValue(RadioReceiverBlock.CHANNEL));
@@ -235,9 +243,9 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             boolean valid = InformationRuntime.valid(level, "free_optical", blockPos)
                     && InformationRuntime.aux(level, "free_optical", blockPos) == state.getValue(FreeSpaceOpticalReceiverBlock.CHANNEL);
             dataValid.set(valid ? 1 : 0);
-            quality.set(Math.max(0, Math.min(100, InformationRuntime.quality(level, "free_optical", blockPos))));
+            quality.set(boundedQuality("free_optical", blockPos));
             facing.set(output.ordinal());
-        } else if (block instanceof QuartzClockDividerBlock divider) {
+        } else if (block instanceof QuartzClockDividerBlock) {
             Direction output = state.getValue(DirectionalDomainBlock.FACING);
             var input = DomainNetwork.sampleQuartz(level, blockPos.relative(output.getOpposite()));
             var divided = DomainNetwork.sampleQuartz(level, blockPos.relative(output));
@@ -267,7 +275,7 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             dataValid.set(AmethystResonanceDustBlock.active(level, blockPos) ? 1 : 0);
             quality.set(dataValid.get() != 0 ? 100 : 0);
             fillCompatibleTopology(state, dust);
-        } else if (block instanceof AmethystFrequencyFilterBlock filter) {
+        } else if (block instanceof AmethystFrequencyFilterBlock) {
             Direction output = state.getValue(DirectionalDomainBlock.FACING);
             var input = DomainNetwork.sampleAmethyst(level, blockPos.relative(output.getOpposite()));
             var filtered = DomainNetwork.sampleAmethyst(level, blockPos.relative(output));
@@ -300,21 +308,75 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             dataValid.set(InformationRuntime.valid(level, "mech_exciter", blockPos) ? 1 : 0);
             quality.set(dataValid.get() != 0 ? 100 : 0);
         } else if (block instanceof SlimeVibrationConduitBlock conduit) {
-            VibrationNetwork.Wave wave = VibrationNetwork.sample(level, blockPos);
-            primary.set(wave.amplitude());
-            secondary.set(wave.frequency());
-            dataValid.set(wave.valid() ? 1 : 0);
-            quality.set(Math.max(0, Math.min(100, InformationRuntime.quality(level, "mech_wave", blockPos))));
-            fillCompatibleTopology(state, conduit);
+            readMechanicalWave(conduit, state);
         } else if (block instanceof MechanicalVibrationReceiverBlock) {
             VibrationNetwork.Wave wave = VibrationNetwork.sample(level, blockPos);
             primary.set(wave.amplitude());
             secondary.set(wave.frequency());
             tertiary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             dataValid.set(wave.valid() ? 1 : 0);
-            quality.set(Math.max(0, Math.min(100, InformationRuntime.quality(level, "mech_wave", blockPos))));
+            quality.set(boundedQuality("mech_wave", blockPos));
+            facing.set(state.getValue(DirectionalSignalBlock.FACING).ordinal());
+        } else if (block instanceof HoneyVibrationDamperBlock damper) {
+            readMechanicalWave(damper, state);
+            tertiary.set(4);
+        } else if (block instanceof SculkVibrationInterfaceBlock sculk) {
+            primary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+            secondary.set(sculk.eventCount(level, blockPos));
+            tertiary.set(sculk.lastEventCode(level, blockPos));
+            driverCount.set(sculk.transitionCount(level, blockPos));
+            dataValid.set(primary.get() > 0 ? 1 : 0);
+            quality.set(primary.get() > 0 ? 100 : 0);
+            facing.set(state.getValue(DirectionalSignalBlock.FACING).ordinal());
+        } else if (block instanceof HydroacousticTubeBlock tube) {
+            primary.set(InformationRuntime.value(level, "hydro", blockPos));
+            secondary.set(InformationRuntime.aux(level, "hydro", blockPos));
+            tertiary.set(state.getValue(HydroacousticTubeBlock.MEDIUM));
+            dataValid.set(InformationRuntime.valid(level, "hydro", blockPos) ? 1 : 0);
+            quality.set(boundedQuality("hydro", blockPos));
+            fillCompatibleTopology(state, tube);
+        } else if (block instanceof HydroacousticExciterBlock) {
+            primary.set(InformationRuntime.value(level, "hydro_exciter", blockPos));
+            secondary.set(state.getValue(HydroacousticExciterBlock.FREQUENCY));
+            dataValid.set(InformationRuntime.valid(level, "hydro_exciter", blockPos) ? 1 : 0);
+            quality.set(boundedQuality("hydro_exciter", blockPos));
+        } else if (block instanceof HydroacousticReceiverBlock) {
+            primary.set(InformationRuntime.value(level, "hydro", blockPos));
+            secondary.set(InformationRuntime.aux(level, "hydro", blockPos));
+            tertiary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+            dataValid.set(InformationRuntime.valid(level, "hydro", blockPos) ? 1 : 0);
+            quality.set(boundedQuality("hydro", blockPos));
+            facing.set(state.getValue(DirectionalSignalBlock.FACING).ordinal());
+        } else if (block instanceof PhononConduitBlock conduit) {
+            primary.set(InformationRuntime.value(level, "thermal_pulse", blockPos));
+            secondary.set(InformationRuntime.aux(level, "thermal_pulse", blockPos));
+            dataValid.set(InformationRuntime.valid(level, "thermal_pulse", blockPos) ? 1 : 0);
+            quality.set(boundedQuality("thermal_pulse", blockPos));
+            fillCompatibleTopology(state, conduit);
+        } else if (block instanceof ThermalPulseEncoderBlock) {
+            primary.set(InformationRuntime.value(level, "thermal_encoder", blockPos));
+            dataValid.set(InformationRuntime.valid(level, "thermal_encoder", blockPos) ? 1 : 0);
+            quality.set(boundedQuality("thermal_encoder", blockPos));
+        } else if (block instanceof ThermalPulseReceiverBlock) {
+            primary.set(InformationRuntime.value(level, "thermal_pulse", blockPos));
+            secondary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+            dataValid.set(InformationRuntime.valid(level, "thermal_pulse", blockPos) ? 1 : 0);
+            quality.set(boundedQuality("thermal_pulse", blockPos));
             facing.set(state.getValue(DirectionalSignalBlock.FACING).ordinal());
         }
+    }
+
+    private void readMechanicalWave(EngineeringPortProvider provider, BlockState state) {
+        VibrationNetwork.Wave wave = VibrationNetwork.sample(level, blockPos);
+        primary.set(wave.amplitude());
+        secondary.set(wave.frequency());
+        dataValid.set(wave.valid() ? 1 : 0);
+        quality.set(boundedQuality("mech_wave", blockPos));
+        fillCompatibleTopology(state, provider);
+    }
+
+    private int boundedQuality(String channel, BlockPos pos) {
+        return Math.max(0, Math.min(100, InformationRuntime.quality(level, channel, pos)));
     }
 
     private int providerValue(EngineeringPortProvider provider, BlockState state, Direction side) {
@@ -447,6 +509,14 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
         if (block instanceof MechanicalExciterBlock) return KIND_MECHANICAL_EXCITER;
         if (block instanceof SlimeVibrationConduitBlock) return KIND_SLIME_VIBRATION;
         if (block instanceof MechanicalVibrationReceiverBlock) return KIND_MECHANICAL_RECEIVER;
+        if (block instanceof HoneyVibrationDamperBlock) return KIND_HONEY_DAMPER;
+        if (block instanceof SculkVibrationInterfaceBlock) return KIND_SCULK_INTERFACE;
+        if (block instanceof HydroacousticTubeBlock) return KIND_HYDRO_TUBE;
+        if (block instanceof HydroacousticExciterBlock) return KIND_HYDRO_EXCITER;
+        if (block instanceof HydroacousticReceiverBlock) return KIND_HYDRO_RECEIVER;
+        if (block instanceof PhononConduitBlock) return KIND_PHONON_CONDUIT;
+        if (block instanceof ThermalPulseEncoderBlock) return KIND_THERMAL_ENCODER;
+        if (block instanceof ThermalPulseReceiverBlock) return KIND_THERMAL_RECEIVER;
         return KIND_UNKNOWN;
     }
 
