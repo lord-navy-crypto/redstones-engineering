@@ -9,6 +9,7 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.CopperNetworkSupport;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import net.minecraft.core.BlockPos;
@@ -65,7 +66,7 @@ public class CopperCableJunctionBlock extends ConnectedCableBlock implements Eng
                     PortKind.BUS,
                     PortDirection.BIDIRECTIONAL,
                     false,
-                    "Veq"
+                    "V-eq"
             ));
         }
         return List.copyOf(ports);
@@ -85,7 +86,7 @@ public class CopperCableJunctionBlock extends ConnectedCableBlock implements Eng
                 voltage(level, pos),
                 0.0,
                 15.0,
-                PortQuality.VALID
+                topologyValid(state) ? PortQuality.VALID : PortQuality.TOPOLOGY_ERROR
         ));
     }
 
@@ -112,5 +113,8 @@ public class CopperCableJunctionBlock extends ConnectedCableBlock implements Eng
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
         if (!state.is(newState.getBlock())) RuntimeIntStore.remove(level, KEY, pos);
         super.onRemove(state, level, pos, newState, moved);
+        if (!state.is(newState.getBlock()) && level instanceof ServerLevel server) {
+            CopperNetworkSupport.recomputeAround(server, pos);
+        }
     }
 }
