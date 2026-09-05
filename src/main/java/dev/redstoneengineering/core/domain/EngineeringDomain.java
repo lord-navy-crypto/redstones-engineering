@@ -25,6 +25,7 @@ public enum EngineeringDomain {
     HYDROACOUSTIC("HYDROACOUSTIC"),
     PHONON_THERMAL("PHONON_THERMAL"),
     PNEUMATIC("PNEUMATIC"),
+    SOUL_FLUX("SOUL_FLUX"),
     GENERIC("GENERIC");
 
     private final String label;
