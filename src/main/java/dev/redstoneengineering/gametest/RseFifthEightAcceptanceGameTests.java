@@ -8,6 +8,7 @@ import dev.redstoneengineering.block.QuartzClockDividerBlock;
 import dev.redstoneengineering.block.QuartzOscillatorBlock;
 import dev.redstoneengineering.block.QuartzStabilityMonitorBlock;
 import dev.redstoneengineering.block.RadioReceiverBlock;
+import dev.redstoneengineering.block.RadioTransmitterBlock;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.PortDirection;
@@ -142,6 +143,7 @@ public final class RseFifthEightAcceptanceGameTests {
     @PrefixGameTestTemplate(false)
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 80)
     public static void radioReceiverReportsAntennaAndRejectsSameChannelCollision(GameTestHelper helper) {
+        final int testChannel = 3;
         BlockPos txAPos = new BlockPos(0, 1, 1);
         BlockPos txBPos = new BlockPos(0, 1, 3);
         BlockPos powerAPos = new BlockPos(0, 0, 1);
@@ -149,9 +151,11 @@ public final class RseFifthEightAcceptanceGameTests {
         BlockPos rxPos = new BlockPos(3, 1, 2);
 
         helper.setBlock(powerAPos, Blocks.REDSTONE_BLOCK.defaultBlockState());
-        helper.setBlock(txAPos, RedstoneEngineering.RADIO_TRANSMITTER.get().defaultBlockState());
+        helper.setBlock(txAPos, RedstoneEngineering.RADIO_TRANSMITTER.get().defaultBlockState()
+                .setValue(RadioTransmitterBlock.CHANNEL, testChannel));
         helper.setBlock(rxPos, RedstoneEngineering.RADIO_RECEIVER.get().defaultBlockState()
-                .setValue(DirectionalSignalBlock.FACING, Direction.EAST));
+                .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
+                .setValue(RadioReceiverBlock.CHANNEL, testChannel));
 
         helper.runAfterDelay(8, () -> {
             BlockState state = helper.getBlockState(rxPos);
@@ -163,7 +167,8 @@ public final class RseFifthEightAcceptanceGameTests {
                 return;
             }
             helper.setBlock(powerBPos, Blocks.REDSTONE_BLOCK.defaultBlockState());
-            helper.setBlock(txBPos, RedstoneEngineering.RADIO_TRANSMITTER.get().defaultBlockState());
+            helper.setBlock(txBPos, RedstoneEngineering.RADIO_TRANSMITTER.get().defaultBlockState()
+                    .setValue(RadioTransmitterBlock.CHANNEL, testChannel));
             helper.runAfterDelay(8, () -> {
                 BlockState collisionState = helper.getBlockState(rxPos);
                 var snapshot = receiver.engineeringSnapshot(
