@@ -61,6 +61,7 @@ require(
     JAVA / "block/OpticalFiberJunctionBlock.java",
     'BooleanProperty.create("service_open")',
     "SERVICE_OPEN",
+    "public void setServiceOpen",
     "SERVICE OPEN — segments isolated",
     "DomainNetwork.recomputeOpticalAround(server, pos)",
 )
@@ -68,6 +69,19 @@ require(
     JAVA / "block/TransmissionTopology.java",
     "b instanceof OpticalFiberJunctionBlock",
     "!s.getValue(OpticalFiberJunctionBlock.SERVICE_OPEN)",
+)
+
+# The two highest-risk behavioral changes have executable in-world regressions.
+require(
+    JAVA / "gametest/RseInterconnectRefactorGameTests.java",
+    "void insulatedRedstoneCutClearsSeparatedOutput",
+    "void opticalServiceSpliceIsolatesAndRestores",
+    "RedstoneCableTerminalBlock.POWER",
+    "setServiceOpen",
+)
+require(
+    JAVA / "gametest/RseGameTestRegistration.java",
+    "event.register(RseInterconnectRefactorGameTests.class);",
 )
 
 # Diamond shard must no longer be the full vanilla diamond icon.
