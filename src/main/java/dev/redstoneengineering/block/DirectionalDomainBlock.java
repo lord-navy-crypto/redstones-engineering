@@ -33,7 +33,7 @@ public abstract class DirectionalDomainBlock extends DomainBlock {
     protected BlockPos inputPos(BlockPos pos, BlockState state) { return pos.relative(inputSide(state)); }
     protected BlockPos outputPos(BlockPos pos, BlockState state) { return pos.relative(outputSide(state)); }
 
-    protected static Direction leftOf(Direction facing) {
+    public static Direction leftOf(Direction facing) {
         return switch (facing) {
             case NORTH -> Direction.WEST;
             case WEST -> Direction.SOUTH;

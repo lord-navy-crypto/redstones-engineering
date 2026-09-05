@@ -256,6 +256,18 @@ public final class DomainNetwork {
         }
     }
 
+    /** Recompute each adjacent optical component independently after a node is removed. */
+    public static void recomputeOpticalAround(ServerLevel level, BlockPos changedPos) {
+        for (Direction direction : Direction.values()) {
+            BlockPos neighbor = changedPos.relative(direction);
+            Block block = level.getBlockState(neighbor).getBlock();
+            if (block instanceof OpticalFiberBlock || block instanceof OpticalFiberJunctionBlock
+                    || block instanceof OpticalEmitterBlock || block instanceof OpticalReceiverBlock) {
+                recomputeOptical(level, neighbor);
+            }
+        }
+    }
+
     public static OpticalSample sampleOptical(Level level, BlockPos pos) {
         var s = level.getBlockState(pos);
         if (s.getBlock() instanceof OpticalFiberBlock) return new OpticalSample(OpticalFiberBlock.intensity(level,pos), OpticalFiberBlock.channel(level,pos), OpticalFiberBlock.valid(level,pos));
