@@ -59,15 +59,26 @@ public class CopperCircuitMeterBlock extends DomainBlock implements EngineeringP
         builder.add(FACING);
     }
 
+    public static int sampledVoltage(Level level, BlockPos pos, BlockState state) {
+        BlockPos target = pos.relative(state.getValue(FACING));
+        return DomainNetwork.sampleCopperVoltage(level, target, pos);
+    }
+
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
+        super.onPlace(state, level, pos, oldState, moved);
         if (!level.isClientSide && !state.is(oldState.getBlock())) level.scheduleTick(pos, this, 1);
     }
 
     @Override
+    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighbor, BlockPos neighborPos, boolean moved) {
+        super.neighborChanged(state, level, pos, neighbor, neighborPos, moved);
+        if (!level.isClientSide) level.scheduleTick(pos, this, 1);
+    }
+
+    @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        BlockPos target = pos.relative(state.getValue(FACING));
-        int referenceVoltage = DomainNetwork.sampleCopperVoltage(level, target, pos);
+        int referenceVoltage = sampledVoltage(level, pos, state);
         double reading = MetrologySupport.conditionRedstone(level, pos, referenceVoltage, SENSOR_PROFILE);
         MetrologySupport.sample(level, CHANNEL, pos, reading, referenceVoltage, false, 1.0, 30L);
         level.scheduleTick(pos, this, SAMPLE_PERIOD);
@@ -105,12 +116,12 @@ public class CopperCircuitMeterBlock extends DomainBlock implements EngineeringP
     ) {
         Optional<EngineeringPort> descriptor = engineeringPort(state, side);
         if (descriptor.isEmpty()) return Optional.empty();
-        MeasurementSnapshot m = measurement(level, pos);
-        double value = m.sampleCount() > 0
-                ? m.reading()
-                : DomainNetwork.sampleCopperVoltage(level, pos.relative(side), pos);
+        MeasurementSnapshot measurement = measurement(level, pos);
+        double value = measurement.sampleCount() > 0
+                ? measurement.reading()
+                : sampledVoltage(level, pos, state);
         return Optional.of(new EngineeringPortSnapshot(
-                descriptor.get(), value, 0.0, 15.0, MetrologySupport.portQuality(m)
+                descriptor.get(), value, 0.0, 15.0, MetrologySupport.portQuality(measurement)
         ));
     }
 
@@ -119,14 +130,14 @@ public class CopperCircuitMeterBlock extends DomainBlock implements EngineeringP
         if (!level.isClientSide) {
             BlockPos target = pos.relative(state.getValue(FACING));
             BlockState targetState = level.getBlockState(target);
-            int voltage = DomainNetwork.sampleCopperVoltage(level, target, pos);
+            int voltage = sampledVoltage(level, pos, state);
             double resistance = targetState.getBlock() instanceof CopperResistiveLoadBlock
                     ? targetState.getValue(CopperResistiveLoadBlock.RESISTANCE)
                     : CircuitPhysics.equivalentLoadResistance(level, target, 128);
             double current = CircuitPhysics.current(voltage, resistance);
             double power = voltage * current;
             player.displayClientMessage(Component.literal(String.format(
-                    "Copper circuit meter | V=%.2f | Req=%.2f | I≈%.3f | P≈%.3f | %s",
+                    "Copper circuit meter | observer-only | V=%.2f | Req=%.2f | I≈%.3f | P≈%.3f | %s",
                     (double) voltage,
                     resistance,
                     current,

@@ -3,6 +3,7 @@ package dev.redstoneengineering.block;
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.physics.CircuitPhysics;
+import dev.redstoneengineering.physics.CopperNetworkSupport;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import net.minecraft.core.BlockPos;
@@ -54,6 +55,9 @@ public class CopperSeriesResistorBlock extends DirectionalCopperProcessorBlock {
             RuntimeIntStore.remove(level, KEY, pos);
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
+        if (!state.is(newState.getBlock()) && level instanceof ServerLevel serverLevel) {
+            CopperNetworkSupport.recomputeAround(serverLevel, pos);
+        }
     }
 
     @Override
@@ -83,6 +87,7 @@ public class CopperSeriesResistorBlock extends DirectionalCopperProcessorBlock {
             resistance = resistance >= 15 ? 1 : resistance + 1;
             BlockState next = state.setValue(RESISTANCE, resistance);
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+            level.scheduleTick(pos, this, 1);
 
             double load = CircuitPhysics.equivalentLoadResistance(level, outputPos(pos, next), 128);
             int output = outputVoltage(level, pos);

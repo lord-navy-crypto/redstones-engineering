@@ -3,6 +3,7 @@ package dev.redstoneengineering.block;
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.physics.CircuitPhysics;
+import dev.redstoneengineering.physics.CopperNetworkSupport;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import net.minecraft.core.BlockPos;
@@ -80,6 +81,9 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
             RuntimeIntStore.remove(level, KEY, pos);
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
+        if (!state.is(newState.getBlock()) && level instanceof ServerLevel serverLevel) {
+            CopperNetworkSupport.recomputeAround(serverLevel, pos);
+        }
     }
 
     @Override
@@ -93,10 +97,11 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
                 next = state.setValue(RATING, rating >= 15 ? 1 : rating + 1);
             }
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+            level.scheduleTick(pos, this, 1);
             player.displayClientMessage(Component.literal(
                     "Copper fuse | BACK input -> FRONT protected output | current rating=" + next.getValue(RATING)
                             + " | " + (next.getValue(TRIPPED) ? "TRIPPED" : "armed")
-                            + (player.isShiftKeyDown() ? " | reset" : "")
+                            + (player.isShiftKeyDown() ? " | reset requested; protection re-evaluates next tick" : "")
             ), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
