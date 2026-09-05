@@ -102,7 +102,15 @@ public class OpticalFiberJunctionBlock extends ConnectedCableBlock implements En
         super.onRemove(state, level, pos, newState, moved);
     }
 
-    private void setServiceOpen(Level level, BlockPos pos, BlockState state, boolean open) {
+    /**
+     * Explicit maintenance control used by player interaction and GameTests.
+     * Opening a splice removes its physical arms and independently resolves both
+     * adjacent optical components; closing it rebuilds continuity and resolves
+     * the joined component again.
+     */
+    public void setServiceOpen(Level level, BlockPos pos, boolean open) {
+        BlockState state = level.getBlockState(pos);
+        if (!state.is(this) || state.getValue(SERVICE_OPEN) == open) return;
         BlockState next = state.setValue(SERVICE_OPEN, open);
         level.setBlock(pos, next, Block.UPDATE_ALL);
         refreshConnections(level, pos, next);
@@ -117,7 +125,7 @@ public class OpticalFiberJunctionBlock extends ConnectedCableBlock implements En
         if(!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
                 boolean open = !state.getValue(SERVICE_OPEN);
-                setServiceOpen(level, pos, state, open);
+                setServiceOpen(level, pos, open);
                 player.displayClientMessage(Component.literal(
                         "Optical service splice | " + (open ? "SERVICE OPEN — segments isolated" : "CLOSED — continuity restored")), true);
             } else {
