@@ -71,6 +71,16 @@ public final class RseSixthEightAcceptanceGameTests {
         helper.setBlock(a, RedstoneEngineering.AMETHYST_RESONANCE_DUST.get().defaultBlockState());
         helper.setBlock(b, RedstoneEngineering.AMETHYST_RESONANCE_DUST.get().defaultBlockState());
         helper.setBlock(c, RedstoneEngineering.AMETHYST_RESONANCE_DUST.get().defaultBlockState());
+
+        // GameTestHelper#setBlock does not model a player's placement context, so
+        // make the intended physical A <-> B <-> C trace explicit. The solver is
+        // deliberately topology-aware and must not invent an edge from adjacency.
+        helper.setBlock(a, helper.getBlockState(a).setValue(AmethystResonanceDustBlock.EAST, true));
+        helper.setBlock(b, helper.getBlockState(b)
+                .setValue(AmethystResonanceDustBlock.WEST, true)
+                .setValue(AmethystResonanceDustBlock.EAST, true));
+        helper.setBlock(c, helper.getBlockState(c).setValue(AmethystResonanceDustBlock.WEST, true));
+
         DomainNetwork.driveAmethyst(helper.getLevel(), helper.absolutePos(a), true, 5, 11);
 
         helper.runAfterDelay(2, () -> {
