@@ -136,6 +136,28 @@ require(
     "FieldDeviceUi.open",
 )
 
+require(
+    "src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java",
+    "KIND_AIR_COMPRESSOR = 47",
+    "KIND_PNEUMATIC_PIPE = 48",
+    "KIND_AIR_RESERVOIR = 49",
+    "KIND_PRESSURE_REGULATOR = 50",
+    "KIND_PNEUMATIC_RECEIVER = 51",
+    "KIND_PNEUMATIC_VALVE = 52",
+    "KIND_PNEUMATIC_CHECK_VALVE = 53",
+    "KIND_PNEUMATIC_FLOW_METER = 54",
+    "AirCompressorBlock.commandSignal",
+    "AirReservoirBlock.storedPressure",
+    "PneumaticFlowMeterBlock.flowProxy",
+)
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/FieldDeviceScreen.java",
+    "PNEUMATIC COMPRESSED-AIR OUTPUT",
+    "PNEUMATIC • SIX-WAY BIDIRECTIONAL PIPE",
+    "PNEUMATIC → REDSTONE",
+    "PNEUMATIC FLOW METER",
+)
+
 # Runtime pressure/flow data are high-cardinality and must stay outside BlockState.
 joined = "\n".join(read(rel) for rel in (
     "src/main/java/dev/redstoneengineering/block/AirCompressorBlock.java",
@@ -193,4 +215,5 @@ print("  pipe/reservoir/regulator manifold contracts: PASS")
 print("  receiver PNEUMATIC-to-REDSTONE conversion: PASS")
 print("  axial manual/check/flow-meter contracts: PASS")
 print("  split-network + runtime/metrology cleanup: PASS")
+print("  Field Device Inspector pneumatic projection kinds 47-54: PASS")
 print("  eight executable ninth-batch GameTests registered: PASS")

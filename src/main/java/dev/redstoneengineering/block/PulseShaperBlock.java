@@ -3,9 +3,11 @@ package dev.redstoneengineering.block;
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -55,8 +57,16 @@ public class PulseShaperBlock extends DirectionalSignalBlock {
         super.onRemove(state, level, pos, newState, moved);
     }
 
+    public static int lastInput(Level level, BlockPos pos) { return RuntimeIntStore.get(level, KEY, pos, 3)[0]; }
+    public static int pulseRemaining(Level level, BlockPos pos) { return RuntimeIntStore.get(level, KEY, pos, 3)[1]; }
+    public static boolean initialized(Level level, BlockPos pos) { return RuntimeIntStore.get(level, KEY, pos, 3)[2] == 1; }
+
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
-        if (!level.isClientSide) {
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (!player.isShiftKeyDown()) {
+                FieldDeviceUi.open(serverPlayer, pos);
+                return InteractionResult.CONSUME;
+            }
             int width = state.getValue(WIDTH); width = width >= 8 ? 1 : width + 1;
             BlockState next = state.setValue(WIDTH, width); level.setBlock(pos, next, Block.UPDATE_CLIENTS);
             player.displayClientMessage(Component.literal("Pulse Shaper | width=" + width + " ticks"), true);

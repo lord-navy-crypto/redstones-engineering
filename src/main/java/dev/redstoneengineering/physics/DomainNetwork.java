@@ -53,6 +53,19 @@ public final class DomainNetwork {
         }
     }
 
+    /** Recompute every horizontal Lapis component adjacent to a removed/split node. */
+    public static void recomputeLapisAround(ServerLevel level, BlockPos changedPos) {
+        for (Direction direction : Direction.Plane.HORIZONTAL) {
+            BlockPos neighbor = changedPos.relative(direction);
+            Block block = level.getBlockState(neighbor).getBlock();
+            if (block instanceof LapisSignalLineBlock
+                    || block instanceof LapisPrecisionSourceBlock
+                    || block instanceof LapisNoiseSourceBlock) {
+                recomputeLapis(level, neighbor);
+            }
+        }
+    }
+
     public static LapisSample sampleLapis(Level level, BlockPos pos) {
         var s = level.getBlockState(pos);
         if (s.getBlock() instanceof LapisSignalLineBlock) return new LapisSample(LapisSignalLineBlock.value(level,pos), LapisSignalLineBlock.valid(level,pos));
@@ -105,6 +118,19 @@ public final class DomainNetwork {
         for (BlockPos p : nodes) {
             if (level.getBlockState(p).getBlock() instanceof QuartzTimingLineBlock) {
                 QuartzTimingLineBlock.setTiming(level,p,active,period,valid);
+            }
+        }
+    }
+
+    /** Recompute every horizontal Quartz component adjacent to a removed/split node. */
+    public static void recomputeQuartzAround(ServerLevel level, BlockPos changedPos) {
+        for (Direction direction : Direction.Plane.HORIZONTAL) {
+            BlockPos neighbor = changedPos.relative(direction);
+            Block block = level.getBlockState(neighbor).getBlock();
+            if (block instanceof QuartzTimingLineBlock
+                    || block instanceof QuartzOscillatorBlock
+                    || block instanceof QuartzLabOscillatorBlock) {
+                recomputeQuartz(level, neighbor);
             }
         }
     }
