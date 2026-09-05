@@ -152,17 +152,25 @@ public final class RseFifteenthSevenAcceptanceGameTests {
     public static void soulInjectorConvertsRedstoneCommandIntoFlux(GameTestHelper helper) {
         BlockPos injector = new BlockPos(2, 1, 2);
         BlockPos conduit = new BlockPos(3, 1, 2);
-        BlockPos power = new BlockPos(1, 1, 2);
+        BlockPos power = injector.above();
 
         helper.setBlock(conduit, RedstoneEngineering.SOUL_SOIL_CONDUIT.get().defaultBlockState());
-        helper.setBlock(power, Blocks.REDSTONE_BLOCK.defaultBlockState());
         helper.setBlock(injector, RedstoneEngineering.SOUL_FLUX_INJECTOR.get().defaultBlockState());
+        helper.setBlock(power, Blocks.REDSTONE_BLOCK.defaultBlockState());
 
         helper.runAfterDelay(6, () -> {
             SoulFluxInjectorBlock block = RedstoneEngineering.SOUL_FLUX_INJECTOR.get();
             BlockState state = helper.getBlockState(injector);
+            if (!hasPort(block, state, Direction.UP, EngineeringDomain.REDSTONE, PortKind.CONTROL, PortDirection.INPUT, true)) {
+                helper.fail("Soul injector did not expose dedicated UP redstone command input", injector);
+                return;
+            }
             if (!hasPort(block, state, Direction.EAST, EngineeringDomain.SOUL_FLUX, PortKind.CONVERTER, PortDirection.OUTPUT, false)) {
                 helper.fail("Soul injector did not expose its SOUL_FLUX converter output", injector);
+                return;
+            }
+            if (SoulFluxInjectorBlock.commandSignal(helper.getLevel(), helper.absolutePos(injector)) <= 0) {
+                helper.fail("Soul injector did not read the UP redstone command", injector);
                 return;
             }
             if (SoulFluxNetwork.charge(helper.getLevel(), helper.absolutePos(conduit)) <= 0) {
