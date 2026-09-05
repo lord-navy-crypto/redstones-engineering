@@ -32,6 +32,8 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock {
     public static final IntegerProperty THRESHOLD = IntegerProperty.create("threshold",0,3);
     private static final int[] LEVELS={1,4,8,12};
     private static final String KEY="fault_latch";
+    // [latched, tripEvents, resetEvents, previousResetLevel]
+    private static final int RUNTIME_SIZE = 4;
 
     public FaultLatchBlock(Properties p){super(p);registerDefaultState(defaultBlockState().setValue(THRESHOLD,0));}
     @Override public MapCodec<FaultLatchBlock> codec(){return RedstoneEngineering.FAULT_LATCH_CODEC.value();}
@@ -58,15 +60,38 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock {
         Direction front = outputSide(state);
         int value = side == front ? state.getValue(OUTPUT) : readInputFrom(level, pos, side);
         return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value,
-                latched(level, pos) ? PortQuality.FAULT : PortQuality.VALID));
+                side == front && latched(level, pos) ? PortQuality.FAULT : PortQuality.VALID));
     }
 
-    @Override protected int computeOutput(Level l,BlockPos p,BlockState s){int[]rt=RuntimeIntStore.get(l,KEY,p,3);int reset=readInputFrom(l,p,rightOf(outputSide(s)));if(reset>0){rt[0]=0;rt[2]++;}int fault=readBackInput(l,p,s);if(fault>=LEVELS[s.getValue(THRESHOLD)]&&rt[0]==0){rt[0]=1;rt[1]++;}return rt[0]!=0?15:0;}
+    @Override
+    protected int computeOutput(Level level, BlockPos pos, BlockState state) {
+        int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
+        int reset = readInputFrom(level, pos, rightOf(outputSide(state)));
+        boolean resetHigh = reset > 0;
+
+        // RESET is edge-counted, level-enforced, and has priority over FAULT.
+        // A held reset cannot inflate counters or allow same-tick re-latching.
+        if (resetHigh) {
+            if (runtime[3] == 0) runtime[2]++;
+            runtime[3] = 1;
+            runtime[0] = 0;
+            return 0;
+        }
+        runtime[3] = 0;
+
+        int fault = readBackInput(level, pos, state);
+        if (fault >= thresholdValue(state.getValue(THRESHOLD)) && runtime[0] == 0) {
+            runtime[0] = 1;
+            runtime[1]++;
+        }
+        return runtime[0] != 0 ? 15 : 0;
+    }
 
     public static int thresholdValue(int index) { return LEVELS[Math.max(0, Math.min(LEVELS.length - 1, index))]; }
     public static boolean latched(Level level, BlockPos pos) { int[]rt=RuntimeIntStore.peek(level,KEY,pos); return rt!=null&&rt.length>0&&rt[0]!=0; }
     public static int tripCount(Level level, BlockPos pos) { int[]rt=RuntimeIntStore.peek(level,KEY,pos); return rt==null||rt.length<2?0:rt[1]; }
     public static int resetCount(Level level, BlockPos pos) { int[]rt=RuntimeIntStore.peek(level,KEY,pos); return rt==null||rt.length<3?0:rt[2]; }
+    public static boolean resetActive(Level level, BlockPos pos) { int[]rt=RuntimeIntStore.peek(level,KEY,pos); return rt!=null&&rt.length>3&&rt[3]!=0; }
 
     @Override protected void onPlace(BlockState s,Level l,BlockPos p,BlockState o,boolean m){super.onPlace(s,l,p,o,m);if(l instanceof ServerLevel sl)sl.scheduleTick(p,this,2);}
     @Override protected void tick(BlockState s,ServerLevel l,BlockPos p,RandomSource rnd){updateOutput(l,p,s,outputValue(l,p,s));l.scheduleTick(p,this,2);}
@@ -77,11 +102,18 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock {
         super.onRemove(state, level, pos, newState, movedByPiston);
     }
 
-    @Override protected InteractionResult useWithoutItem(BlockState s,Level l,BlockPos p,Player pl,BlockHitResult h){
-        if(!l.isClientSide && pl instanceof ServerPlayer serverPlayer){
-            if(pl.isShiftKeyDown()){int[] rt=RuntimeIntStore.get(l,KEY,p,3);rt[0]=0;rt[2]++;updateOutput(l,p,s,0);pl.displayClientMessage(net.minecraft.network.chat.Component.literal("Fault latch manual reset"),true);}
-            else FieldDeviceUi.open(serverPlayer,p);
+    @Override
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+        if(!level.isClientSide && player instanceof ServerPlayer serverPlayer){
+            if(player.isShiftKeyDown()){
+                int[] runtime=RuntimeIntStore.get(level,KEY,pos,RUNTIME_SIZE);
+                runtime[0]=0;
+                runtime[2]++;
+                runtime[3]=0;
+                updateOutput(level,pos,state,0);
+                player.displayClientMessage(net.minecraft.network.chat.Component.literal("Fault latch manual reset"),true);
+            } else FieldDeviceUi.open(serverPlayer,pos);
         }
-        return InteractionResult.sidedSuccess(l.isClientSide);
+        return InteractionResult.sidedSuccess(level.isClientSide);
     }
 }
