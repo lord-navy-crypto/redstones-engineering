@@ -16,3 +16,5 @@ This pass treats guided optical behavior as a real engineering domain. Fiber and
 The audit also closes a lifecycle defect in the prior optical network: removing a node now recomputes each adjacent component independently instead of accidentally combining split components into one graph. The Inspector projects optical intensity, channel, direction, loss/filter configuration, connection masks, and topology validity without inventing redstone ports.
 
 Eight dedicated GameTests and the twelfth verifier gate source/receiver propagation, invalid source handling, splitter topology, channel filtering, attenuation, power-meter face truthfulness, splice cleanup, and domain declarations.
+
+Acceptance requires the full repository verifier suite plus all 132 Minecraft GameTests on Java 21.
