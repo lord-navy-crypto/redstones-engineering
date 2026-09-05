@@ -87,21 +87,36 @@ require_all(gradient, (
     "PortKind.MEASUREMENT",
 ), "MagneticGradientMeterBlock.java")
 
-# Precision Filter, PWM and Sample-and-Hold intentionally inherit their two-face REDSTONE
-# provider/snapshot contract from DirectionalSignalBlock. The closure gate must verify that
-# real inheritance path instead of demanding a redundant implements clause in each subclass.
+# Precision Filter intentionally inherits the common two-face REDSTONE contract.
 require_all(directional, (
     "implements EngineeringPortProvider",
     "EngineeringDomain.REDSTONE",
     "engineeringSnapshot(",
     "canConnectRedstone(",
 ), "DirectionalSignalBlock.java")
-for name, source, class_name in (
-    ("PrecisionFilterBlock.java", precision, "PrecisionFilterBlock"),
-    ("PwmControllerBlock.java", pwm, "PwmControllerBlock"),
-    ("SampleHoldBlock.java", sample_hold, "SampleHoldBlock"),
-):
-    require(source, f"class {class_name} extends DirectionalSignalBlock", name)
+require(precision, "class PrecisionFilterBlock extends DirectionalSignalBlock", "PrecisionFilterBlock.java")
+
+# PWM and Sample-and-Hold inherit the base electrical behavior but expose additional physical
+# control faces. Those faces must be present in the same engineering descriptor/snapshot layer
+# used by Jade and the Field Device Inspector.
+require_all(pwm, (
+    "class PwmControllerBlock extends DirectionalSignalBlock",
+    '"COMMAND IN"',
+    '"PWM OUT"',
+    '"INHIBIT"',
+    "PortKind.SAFETY",
+    "engineeringSnapshot(",
+), "PwmControllerBlock.java")
+require_all(sample_hold, (
+    "class SampleHoldBlock extends DirectionalSignalBlock",
+    '"VALUE IN"',
+    '"HELD OUT"',
+    '"TRIGGER"',
+    '"RESET"',
+    "PortKind.TRIGGER",
+    "PortKind.RESET",
+    "engineeringSnapshot(",
+), "SampleHoldBlock.java")
 
 count = len(re.findall(r"@GameTest\s*\(", gt))
 if count != 4:
@@ -109,6 +124,8 @@ if count != 4:
 require(reg, "event.register(RseTotalAuditClosureGameTests.class);", "RseGameTestRegistration.java")
 require(workflow, "tools/rse_122_block_total_audit.py", "build.yml")
 require(workflow, "tools/rse_122_block_closure_verify.py", "build.yml")
+require(workflow, "tools/rse_neighbor_update_audit.py", "build.yml")
+require(workflow, 'Too many chained neighbor updates', "build.yml")
 require(total_audit, "EXPECTED_REGISTERED = 122", "rse_122_block_total_audit.py")
 require(total_audit, '"pid_controller"', "rse_122_block_total_audit.py")
 
@@ -120,5 +137,6 @@ if errors:
 
 print("RSE 122-BLOCK CLOSURE VERIFY: PASS")
 print("  closure targets: signal analyzer, scope, logic analyzer, magnetic free-space quartet")
-print("  static-evidence closure: precision filter, PWM controller, sample-and-hold via DirectionalSignalBlock")
+print("  static-evidence closure: precision filter plus truthful PWM/sample-hold control faces")
+print("  neighbor-update storm runtime gate: present")
 print("  closure GameTests: 4")
