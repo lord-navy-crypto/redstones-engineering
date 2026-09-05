@@ -24,10 +24,11 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/** Redstone-like resonance dust: automatic N/E/S/W topology, runtime f/A payload. */
+/** Redstone-like resonance dust: automatic N/E/S/W topology, runtime frequency/amplitude payload. */
 public class AmethystResonanceDustBlock extends SurfaceTraceBlock implements EngineeringPortProvider {
     private static final String KEY = "amethyst_trace";
 
@@ -47,14 +48,15 @@ public class AmethystResonanceDustBlock extends SurfaceTraceBlock implements Eng
 
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
-        return List.of(
-                resonancePort(Direction.NORTH), resonancePort(Direction.SOUTH),
-                resonancePort(Direction.WEST), resonancePort(Direction.EAST)
-        );
+        List<EngineeringPort> ports = new ArrayList<>();
+        for (Direction side : Direction.Plane.HORIZONTAL) {
+            if (SurfaceTraceBlock.connected(state, side)) ports.add(resonancePort(side));
+        }
+        return List.copyOf(ports);
     }
 
     private static EngineeringPort resonancePort(Direction side) {
-        return new EngineeringPort("RESONANCE BUS", side, EngineeringDomain.AMETHYST,
+        return new EngineeringPort("RESONANCE TRACE " + side.getName().toUpperCase(), side, EngineeringDomain.AMETHYST,
                 PortKind.BUS, PortDirection.BIDIRECTIONAL, false, "amplitude");
     }
 
@@ -105,8 +107,21 @@ public class AmethystResonanceDustBlock extends SurfaceTraceBlock implements Eng
 
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
-        if (!state.is(newState.getBlock())) RuntimeIntStore.remove(level, KEY, pos);
+        boolean removed = !state.is(newState.getBlock());
+        if (removed) RuntimeIntStore.remove(level, KEY, pos);
         super.onRemove(state, level, pos, newState, movedByPiston);
+        if (removed && level instanceof ServerLevel serverLevel) recomputeAround(serverLevel, pos);
+    }
+
+    /** Re-evaluate every horizontal component created when a trace is cut. */
+    private static void recomputeAround(ServerLevel level, BlockPos changedPos) {
+        for (Direction direction : Direction.Plane.HORIZONTAL) {
+            BlockPos neighbor = changedPos.relative(direction);
+            var block = level.getBlockState(neighbor).getBlock();
+            if (block instanceof AmethystResonanceDustBlock || block instanceof AmethystResonatorBlock) {
+                DomainNetwork.recomputeAmethyst(level, neighbor);
+            }
+        }
     }
 
     @Override
