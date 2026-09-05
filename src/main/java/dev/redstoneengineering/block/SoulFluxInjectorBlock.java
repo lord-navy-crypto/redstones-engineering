@@ -24,11 +24,14 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 
 import javax.annotation.Nullable;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/** Redstone-commanded converter that injects bounded fictional Soul Flux into adjacent nodes. */
+/**
+ * Redstone-commanded converter that injects bounded fictional Soul Flux into adjacent nodes.
+ * UP is the dedicated command input; the other five faces are Soul-Flux outputs.
+ */
 public class SoulFluxInjectorBlock extends Block implements EngineeringPortProvider {
     public SoulFluxInjectorBlock(Properties properties) {
         super(properties);
@@ -41,17 +44,29 @@ public class SoulFluxInjectorBlock extends Block implements EngineeringPortProvi
 
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
-        return Arrays.stream(Direction.values())
-                .map(side -> new EngineeringPort(
-                        "REDSTONE→SOUL FLUX",
-                        side,
-                        EngineeringDomain.SOUL_FLUX,
-                        PortKind.CONVERTER,
-                        PortDirection.OUTPUT,
-                        false,
-                        "flux"
-                ))
-                .toList();
+        List<EngineeringPort> ports = new ArrayList<>();
+        ports.add(new EngineeringPort(
+                "REDSTONE COMMAND",
+                Direction.UP,
+                EngineeringDomain.REDSTONE,
+                PortKind.CONTROL,
+                PortDirection.INPUT,
+                true,
+                "signal"
+        ));
+        for (Direction side : Direction.values()) {
+            if (side == Direction.UP) continue;
+            ports.add(new EngineeringPort(
+                    "SOUL FLUX OUT",
+                    side,
+                    EngineeringDomain.SOUL_FLUX,
+                    PortKind.CONVERTER,
+                    PortDirection.OUTPUT,
+                    false,
+                    "flux"
+            ));
+        }
+        return List.copyOf(ports);
     }
 
     @Override
@@ -60,6 +75,10 @@ public class SoulFluxInjectorBlock extends Block implements EngineeringPortProvi
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
+        if (side == Direction.UP) {
+            return Optional.of(EngineeringPortSnapshot.redstone(
+                    port.get(), commandSignal(level, pos), PortQuality.VALID));
+        }
         BlockPos target = pos.relative(side);
         if (!SoulFluxNetwork.isNode(level, target)) {
             return Optional.of(new EngineeringPortSnapshot(
@@ -73,7 +92,11 @@ public class SoulFluxInjectorBlock extends Block implements EngineeringPortProvi
     public boolean canConnectRedstone(
             BlockState state, BlockGetter level, BlockPos pos, @Nullable Direction direction
     ) {
-        return direction != null;
+        return direction != null && direction.getOpposite() == Direction.UP;
+    }
+
+    public static int commandSignal(Level level, BlockPos pos) {
+        return Math.max(0, Math.min(15, level.getSignal(pos.above(), Direction.UP)));
     }
 
     @Override
@@ -87,19 +110,18 @@ public class SoulFluxInjectorBlock extends Block implements EngineeringPortProvi
             BlockState state, Level level, BlockPos pos, Block neighborBlock, BlockPos neighborPos, boolean movedByPiston
     ) {
         super.neighborChanged(state, level, pos, neighborBlock, neighborPos, movedByPiston);
-        if (!level.isClientSide) level.scheduleTick(pos, this, 1);
+        if (!level.isClientSide && neighborPos.equals(pos.above())) level.scheduleTick(pos, this, 1);
     }
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        int command = level.getBestNeighborSignal(pos);
+        int command = commandSignal(level, pos);
         if (command <= 0) return;
         int packet = command * 4;
         for (Direction direction : Direction.values()) {
+            if (direction == Direction.UP) continue;
             BlockPos target = pos.relative(direction);
-            if (SoulFluxNetwork.isNode(level, target)) {
-                SoulFluxNetwork.inject(level, target, packet);
-            }
+            if (SoulFluxNetwork.isNode(level, target)) SoulFluxNetwork.inject(level, target, packet);
         }
     }
 
@@ -108,11 +130,11 @@ public class SoulFluxInjectorBlock extends Block implements EngineeringPortProvi
             BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit
     ) {
         if (!level.isClientSide) {
-            int command = level.getBestNeighborSignal(pos);
+            int command = commandSignal(level, pos);
             player.displayClientMessage(Component.literal(
-                    "Soul Flux injector | REDSTONE command=" + command + "/15"
+                    "Soul Flux injector | UP REDSTONE command=" + command + "/15"
                             + " → packet=" + (command * 4) + "/60"
-                            + " | six-face SOUL_FLUX converter output | Minecraft-fictional physics"), true);
+                            + " | five-face SOUL_FLUX output | Minecraft-fictional physics"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
