@@ -3,6 +3,13 @@ package dev.redstoneengineering.block;
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.blockentity.LogicAnalyzerBlockEntity;
+import dev.redstoneengineering.core.domain.EngineeringDomain;
+import dev.redstoneengineering.core.port.EngineeringPort;
+import dev.redstoneengineering.core.port.EngineeringPortProvider;
+import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
+import dev.redstoneengineering.core.port.PortDirection;
+import dev.redstoneengineering.core.port.PortKind;
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.instrument.InstrumentNetwork;
 import dev.redstoneengineering.ui.menu.LogicAnalyzerMenu;
 import net.minecraft.core.BlockPos;
@@ -28,50 +35,54 @@ import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
 import javax.annotation.Nullable;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
 
-public class LogicAnalyzerBlock extends Block implements EntityBlock {
+/** Four-channel digital observer on the non-invasive RSE instrument bus. */
+public class LogicAnalyzerBlock extends Block implements EntityBlock, EngineeringPortProvider {
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final IntegerProperty THRESHOLD = IntegerProperty.create("threshold", 1, 15);
 
     public LogicAnalyzerBlock(Properties properties) {
         super(properties);
-        registerDefaultState(
-                stateDefinition.any()
-                        .setValue(FACING, Direction.NORTH)
-                        .setValue(THRESHOLD, 8)
-        );
+        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH).setValue(THRESHOLD, 8));
+    }
+
+    @Override public MapCodec<LogicAnalyzerBlock> codec() { return RedstoneEngineering.LOGIC_ANALYZER_CODEC.value(); }
+    @Override public BlockState getStateForPlacement(BlockPlaceContext context) { return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite()); }
+    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { builder.add(FACING, THRESHOLD); }
+
+    /** Six physical faces attach to one logical four-channel Instrument Bus. */
+    @Override
+    public List<EngineeringPort> engineeringPorts(BlockState state) {
+        return Arrays.stream(Direction.values())
+                .map(side -> new EngineeringPort(
+                        "INSTRUMENT BUS " + side.getName().toUpperCase(), side,
+                        EngineeringDomain.INSTRUMENT_BUS, PortKind.BUS, PortDirection.INPUT,
+                        false, "active-channels"))
+                .toList();
     }
 
     @Override
-    public MapCodec<LogicAnalyzerBlock> codec() {
-        return RedstoneEngineering.LOGIC_ANALYZER_CODEC.value();
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
+        Optional<EngineeringPort> port = engineeringPort(state, side);
+        if (port.isEmpty()) return Optional.empty();
+        if (!(level.getBlockEntity(pos) instanceof LogicAnalyzerBlockEntity analyzer) || analyzer.sampleCount() <= 0) {
+            return Optional.of(new EngineeringPortSnapshot(port.get(), 0.0, 0.0, 4.0, PortQuality.NO_SIGNAL));
+        }
+        int active = 0;
+        for (int channel = 0; channel < 4; channel++) if (analyzer.validSamples(channel) > 0) active++;
+        return Optional.of(new EngineeringPortSnapshot(
+                port.get(), active, 0.0, 4.0, active > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL));
     }
 
-    @Override
-    public BlockState getStateForPlacement(BlockPlaceContext context) {
-        return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
-    }
-
-    @Override
-    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING, THRESHOLD);
-    }
-
-    @Override
-    public boolean canConnectRedstone(BlockState state, BlockGetter level, BlockPos pos, @Nullable Direction direction) {
-        return false;
-    }
-
-    @Override
-    public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
-        return new LogicAnalyzerBlockEntity(pos, state);
-    }
+    @Override public boolean canConnectRedstone(BlockState state, BlockGetter level, BlockPos pos, @Nullable Direction direction) { return false; }
+    @Override public BlockEntity newBlockEntity(BlockPos pos, BlockState state) { return new LogicAnalyzerBlockEntity(pos, state); }
 
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
-        if (!level.isClientSide && !state.is(oldState.getBlock())) {
-            level.scheduleTick(pos, this, LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS);
-        }
+        if (!level.isClientSide && !state.is(oldState.getBlock())) level.scheduleTick(pos, this, LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS);
     }
 
     @Override
@@ -80,26 +91,19 @@ public class LogicAnalyzerBlock extends Block implements EntityBlock {
         int threshold = state.getValue(THRESHOLD);
         int mask = 0;
         int validMask = 0;
-
         for (int channel = 0; channel < 4; channel++) {
             if (!snapshot.valid(channel)) continue;
             validMask |= 1 << channel;
             if (snapshot.values()[channel] >= threshold) mask |= 1 << channel;
         }
-
-        if (level.getBlockEntity(pos) instanceof LogicAnalyzerBlockEntity analyzer) {
-            analyzer.addSample(mask, validMask);
-        }
-
+        if (level.getBlockEntity(pos) instanceof LogicAnalyzerBlockEntity analyzer) analyzer.addSample(mask, validMask);
         level.scheduleTick(pos, this, LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS);
     }
 
-    /** Bounded server-side intent used by the Engineering UI and its GameTests. */
     public static boolean applyUiAction(Level level, BlockPos pos, int action) {
         if (level.isClientSide || !(level.getBlockEntity(pos) instanceof LogicAnalyzerBlockEntity analyzer)) return false;
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof LogicAnalyzerBlock block)) return false;
-
         switch (action) {
             case LogicAnalyzerMenu.BUTTON_ARM -> analyzer.arm();
             case LogicAnalyzerMenu.BUTTON_THRESHOLD_DECREASE -> {
@@ -117,20 +121,12 @@ public class LogicAnalyzerBlock extends Block implements EntityBlock {
             case LogicAnalyzerMenu.BUTTON_CLEAR -> analyzer.clear();
             default -> { return false; }
         }
-        if (action == LogicAnalyzerMenu.BUTTON_THRESHOLD_DECREASE || action == LogicAnalyzerMenu.BUTTON_THRESHOLD_INCREASE) {
-            level.scheduleTick(pos, block, 1);
-        }
+        if (action == LogicAnalyzerMenu.BUTTON_THRESHOLD_DECREASE || action == LogicAnalyzerMenu.BUTTON_THRESHOLD_INCREASE) level.scheduleTick(pos, block, 1);
         return true;
     }
 
     @Override
-    protected InteractionResult useWithoutItem(
-            BlockState state,
-            Level level,
-            BlockPos pos,
-            Player player,
-            BlockHitResult hitResult
-    ) {
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
                 if (level.getBlockEntity(pos) instanceof LogicAnalyzerBlockEntity analyzer) {
