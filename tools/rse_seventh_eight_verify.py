@@ -45,7 +45,8 @@ require(
 require(
     "src/main/java/dev/redstoneengineering/physics/VibrationNetwork.java",
     "HoneyVibrationDamperBlock",
-    "return 4",
+    "loss = 4;",
+    "HoneyVibrationDamperBlock.PACKET_TTL_TICKS",
 )
 
 contracts = {
@@ -99,7 +100,7 @@ contracts = {
     "src/main/java/dev/redstoneengineering/block/ThermalPulseEncoderBlock.java": (
         "implements EngineeringPortProvider",
         "EngineeringDomain.PHONON_THERMAL",
-        '"DRIVE IN", Direction.DOWN',
+        '"REDSTONE DRIVE", Direction.DOWN',
         "neighborPos.equals(pos.below())",
         "ThermalPulseKernel.send",
         "FieldDeviceUi.open",
