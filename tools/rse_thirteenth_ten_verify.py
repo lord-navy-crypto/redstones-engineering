@@ -78,7 +78,7 @@ contracts = {
     ),
     "src/main/java/dev/redstoneengineering/block/CopperCircuitMeterBlock.java": (
         "implements EngineeringPortProvider",
-        '"COPPER MEASURE"',
+        '"MEASURE"',
         "PortKind.MEASUREMENT",
         "sampledVoltage",
         "neighborChanged",
