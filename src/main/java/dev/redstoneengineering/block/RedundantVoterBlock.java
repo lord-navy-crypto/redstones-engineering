@@ -31,6 +31,8 @@ public class RedundantVoterBlock extends PassiveDirectionalSignalBlock {
     public static final IntegerProperty TOLERANCE = IntegerProperty.create("tolerance",0,3);
     private static final int[] TOL = {0,1,2,4};
     private static final String KEY="redundant_voter";
+    // [spread, degraded, maxSpread, disagreementEvents, previousDegraded]
+    private static final int RUNTIME_SIZE = 5;
 
     public RedundantVoterBlock(Properties p){ super(p); registerDefaultState(defaultBlockState().setValue(TOLERANCE,1)); }
     @Override public MapCodec<RedundantVoterBlock> codec(){return RedstoneEngineering.REDUNDANT_VOTER_CODEC.value();}
@@ -60,17 +62,27 @@ public class RedundantVoterBlock extends PassiveDirectionalSignalBlock {
         if (port.isEmpty()) return Optional.empty();
         Direction front = outputSide(state);
         int value = side == front ? state.getValue(OUTPUT) : readInputFrom(level, pos, side);
-        int[] rt = RuntimeIntStore.peek(level, KEY, pos);
-        boolean degraded = rt != null && rt.length > 1 && rt[1] != 0;
         return Optional.of(EngineeringPortSnapshot.redstone(
-                port.get(), value, degraded ? PortQuality.FAULT : PortQuality.VALID));
+                port.get(), value, degraded(level, pos) ? PortQuality.FAULT : PortQuality.VALID));
     }
 
     private int[] inputs(Level l,BlockPos p,BlockState s){Direction f=outputSide(s),a=inputSide(s),b=leftOf(f),c=rightOf(f);return new int[]{readInputFrom(l,p,a),readInputFrom(l,p,b),readInputFrom(l,p,c)};}
-    @Override protected int computeOutput(Level l,BlockPos p,BlockState s){
-        int[] raw=inputs(l,p,s); int[] v=raw.clone(); Arrays.sort(v); int spread=v[2]-v[0]; int[]rt=RuntimeIntStore.get(l,KEY,p,4);
-        rt[0]=spread; rt[1]=spread>TOL[s.getValue(TOLERANCE)]?1:0; rt[2]=Math.max(rt[2],spread); if(rt[1]!=0)rt[3]++;
-        return v[1];
+
+    @Override
+    protected int computeOutput(Level level, BlockPos pos, BlockState state) {
+        int[] raw = inputs(level, pos, state);
+        int[] sorted = raw.clone();
+        Arrays.sort(sorted);
+        int spread = sorted[2] - sorted[0];
+        int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
+        boolean degradedNow = spread > toleranceValue(state.getValue(TOLERANCE));
+
+        runtime[0] = spread;
+        runtime[1] = degradedNow ? 1 : 0;
+        runtime[2] = Math.max(runtime[2], spread);
+        if (degradedNow && runtime[4] == 0) runtime[3]++;
+        runtime[4] = degradedNow ? 1 : 0;
+        return sorted[1];
     }
 
     public static int toleranceValue(int index) { return TOL[Math.max(0, Math.min(TOL.length - 1, index))]; }
@@ -85,11 +97,14 @@ public class RedundantVoterBlock extends PassiveDirectionalSignalBlock {
         super.onRemove(state, level, pos, newState, movedByPiston);
     }
 
-    @Override protected InteractionResult useWithoutItem(BlockState s,Level l,BlockPos p,Player pl,BlockHitResult h){
-        if(!l.isClientSide && pl instanceof ServerPlayer serverPlayer){
-            if(pl.isShiftKeyDown()){RuntimeIntStore.remove(l,KEY,p);pl.displayClientMessage(net.minecraft.network.chat.Component.literal("Voter diagnostics reset"),true);}
-            else FieldDeviceUi.open(serverPlayer,p);
+    @Override
+    protected InteractionResult useWithoutItem(BlockState state,Level level,BlockPos pos,Player player,BlockHitResult hit){
+        if(!level.isClientSide && player instanceof ServerPlayer serverPlayer){
+            if(player.isShiftKeyDown()){
+                RuntimeIntStore.remove(level,KEY,pos);
+                player.displayClientMessage(net.minecraft.network.chat.Component.literal("Voter diagnostics reset"),true);
+            } else FieldDeviceUi.open(serverPlayer,pos);
         }
-        return InteractionResult.sidedSuccess(l.isClientSide);
+        return InteractionResult.sidedSuccess(level.isClientSide);
     }
 }
