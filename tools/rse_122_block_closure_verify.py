@@ -34,6 +34,7 @@ iron = read(BLOCK / "IronCoreBlock.java")
 magnet = read(BLOCK / "PermanentMagnetBlock.java")
 field = read(BLOCK / "MagneticFieldSensorBlock.java")
 gradient = read(BLOCK / "MagneticGradientMeterBlock.java")
+directional = read(BLOCK / "DirectionalSignalBlock.java")
 precision = read(BLOCK / "PrecisionFilterBlock.java")
 pwm = read(BLOCK / "PwmControllerBlock.java")
 sample_hold = read(BLOCK / "SampleHoldBlock.java")
@@ -86,11 +87,21 @@ require_all(gradient, (
     "PortKind.MEASUREMENT",
 ), "MagneticGradientMeterBlock.java")
 
-# These three had runtime acceptance coverage but were the only blocks not named by a static
-# verifier in the first matrix. Naming and probing their stable architecture here closes that gap.
-require_all(precision, ("class PrecisionFilterBlock", "EngineeringPortProvider"), "PrecisionFilterBlock.java")
-require_all(pwm, ("class PwmControllerBlock", "EngineeringPortProvider"), "PwmControllerBlock.java")
-require_all(sample_hold, ("class SampleHoldBlock", "EngineeringPortProvider"), "SampleHoldBlock.java")
+# Precision Filter, PWM and Sample-and-Hold intentionally inherit their two-face REDSTONE
+# provider/snapshot contract from DirectionalSignalBlock. The closure gate must verify that
+# real inheritance path instead of demanding a redundant implements clause in each subclass.
+require_all(directional, (
+    "implements EngineeringPortProvider",
+    "EngineeringDomain.REDSTONE",
+    "engineeringSnapshot(",
+    "canConnectRedstone(",
+), "DirectionalSignalBlock.java")
+for name, source, class_name in (
+    ("PrecisionFilterBlock.java", precision, "PrecisionFilterBlock"),
+    ("PwmControllerBlock.java", pwm, "PwmControllerBlock"),
+    ("SampleHoldBlock.java", sample_hold, "SampleHoldBlock"),
+):
+    require(source, f"class {class_name} extends DirectionalSignalBlock", name)
 
 count = len(re.findall(r"@GameTest\s*\(", gt))
 if count != 4:
@@ -109,5 +120,5 @@ if errors:
 
 print("RSE 122-BLOCK CLOSURE VERIFY: PASS")
 print("  closure targets: signal analyzer, scope, logic analyzer, magnetic free-space quartet")
-print("  static-evidence closure: precision filter, PWM controller, sample-and-hold")
+print("  static-evidence closure: precision filter, PWM controller, sample-and-hold via DirectionalSignalBlock")
 print("  closure GameTests: 4")
