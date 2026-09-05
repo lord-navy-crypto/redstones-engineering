@@ -33,6 +33,7 @@ require(
     '"CONTROL OUT"', '"MODE SELECT"', '"MANUAL OUTPUT IN"',
     "PortKind.FEEDBACK", "PortKind.SAFETY",
     "AcceptanceEvidenceStore.clear",
+    "PidControllerMenu",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/WatchdogBlock.java",
@@ -91,6 +92,43 @@ require(
     "RuntimeIntStore.remove",
     "starved=", "blocked/fault=", "highQueueRun=",
     "FieldDeviceUi.open",
+)
+
+require(
+    "src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java",
+    "KIND_SHIELDED_INSTRUMENT_CABLE = 40",
+    "KIND_WATCHDOG = 41",
+    "KIND_SERVO_ACTUATOR = 42",
+    "KIND_SERVO_POSITION_SENSOR = 43",
+    "KIND_REDUNDANT_VOTER = 44",
+    "KIND_FAULT_LATCH = 45",
+    "KIND_OPERATIONS_MONITOR = 46",
+    "InstrumentShieldingAudit.inspect",
+    "WatchdogBlock.ageTicks",
+    "ServoActuatorBlock.position",
+    "RedundantVoterBlock.disagreementCount",
+    "FaultLatchBlock.resetCount",
+    "OperationsMonitorBlock.queueNow",
+)
+menu_body = read("src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java")
+if menu_body:
+    shielded = menu_body.find("if (block instanceof ShieldedInstrumentCableBlock)")
+    generic = menu_body.find("if (block instanceof InstrumentCableBlock)")
+    if shielded < 0 or generic < 0 or shielded > generic:
+        errors.append("ShieldedInstrumentCableBlock must be matched before generic InstrumentCableBlock")
+
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/FieldDeviceScreen.java",
+    "SHIELDED INSTRUMENT BUS",
+    "HEARTBEAT WATCHDOG",
+    "SERVO ACTUATOR",
+    "SERVO POSITION SENSOR",
+    "2oo3 REDUNDANT VOTER",
+    "FAULT LATCH",
+    "OPERATIONS MONITOR • OBSERVER",
+    "MECHATRONIC_POSITION OUTPUT",
+    "RESET input with priority over FAULT",
+    "READ-ONLY CPS / RELIABILITY DEVICE",
 )
 
 # High-cardinality runtime/diagnostic data must remain outside BlockState.
@@ -152,4 +190,5 @@ print("  first-class mechatronic-position feedback domain: PASS")
 print("  servo actuator/sensor lifecycle and port contracts: PASS")
 print("  edge-count voter disagreement + deterministic fault reset: PASS")
 print("  observer-only operations monitor six-port contract: PASS")
+print("  Field Device Inspector CPS projection kinds 40-46: PASS")
 print("  eight executable eighth-batch GameTests registered: PASS")
