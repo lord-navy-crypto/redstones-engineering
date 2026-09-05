@@ -34,11 +34,14 @@ public final class PneumaticNetwork {
 
     /**
      * Whether an adjacent pneumatic node touches a real physical pneumatic port on this block.
-     * Pipes/reservoirs/sources remain manifold-style nodes. Inline devices are axial and terminal
-     * devices participate only through their pneumatic BACK face.
+     * Pipes/reservoirs/regulators remain manifold-style nodes. Inline devices are axial, terminal
+     * devices participate only through their pneumatic BACK face, and compressors emit only UP.
      */
     private static boolean exposesPneumaticEdge(BlockState state, BlockPos self, BlockPos other) {
         var block = state.getBlock();
+        if (block instanceof AirCompressorBlock) {
+            return other.equals(self.above());
+        }
         if (block instanceof PneumaticReceiverBlock) {
             Direction facing = directionalFacing(state);
             return other.equals(self.relative(facing.getOpposite()));
