@@ -139,19 +139,26 @@ public class OperationsMonitorBlock extends Block implements EngineeringPortProv
     public static int queueNow(Level level, BlockPos pos) { return runtime(level,pos,13); }
     public static int downtimeTicks(Level level, BlockPos pos) { return runtime(level,pos,11); }
     public static int stateOrdinal(Level level, BlockPos pos) { return runtime(level,pos,25); }
+    public static int starvedTicks(Level level, BlockPos pos) { return runtime(level,pos,20); }
+    public static int blockedFaultTicks(Level level, BlockPos pos) { return runtime(level,pos,21); }
+    public static int highQueueRunTicks(Level level, BlockPos pos) { return runtime(level,pos,22); }
 
     /** Shared expert/UI summary retained as an observer-only projection of server runtime. */
     public static String compactDiagnostics(Level level, BlockPos pos) {
         int[] r = RuntimeIntStore.peek(level, KEY, pos);
         if (r == null || r.length < RUNTIME_SIZE) {
-            return "Operations state=NOMINAL | throughput last60s=0 cycles/min | downtime=0.0s | QUEUE now=0";
+            return "Operations state=NOMINAL | throughput last60s=0 cycles/min | downtime=0.0s | QUEUE now=0"
+                    + " | starved=0 blocked/fault=0 highQueueRun=0";
         }
         SystemState state = SystemState.values()[Math.max(0, Math.min(SystemState.values().length - 1, r[25]))];
         return "Operations state=" + state
                 + " | throughput last60s=" + r[5] + " cycles/min"
                 + " | downtime=" + String.format(java.util.Locale.ROOT, "%.1f", r[11] / 20.0) + "s"
                 + " | QUEUE now=" + r[13]
-                + " cycle last/avg/max=" + r[8] + "/" + r[9] + "/" + r[10] + "t";
+                + " cycle last/avg/max=" + r[8] + "/" + r[9] + "/" + r[10] + "t"
+                + " | starved=" + r[20]
+                + " blocked/fault=" + r[21]
+                + " highQueueRun=" + r[22];
     }
 
     @Override
