@@ -9,6 +9,7 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.CopperNetworkSupport;
 import dev.redstoneengineering.physics.DomainNetwork;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -50,7 +51,7 @@ public class CopperVoltageSourceBlock extends DomainBlock implements Engineering
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         return Arrays.stream(Direction.values())
                 .map(side -> new EngineeringPort(
-                        "SOURCE",
+                        "COPPER SOURCE",
                         side,
                         EngineeringDomain.COPPER,
                         PortKind.ELECTRICAL,
@@ -86,10 +87,10 @@ public class CopperVoltageSourceBlock extends DomainBlock implements Engineering
 
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
-        if (level instanceof ServerLevel serverLevel && !state.is(newState.getBlock())) {
-            DomainNetwork.recomputeCopper(serverLevel, pos);
-        }
         super.onRemove(state, level, pos, newState, movedByPiston);
+        if (!state.is(newState.getBlock()) && level instanceof ServerLevel serverLevel) {
+            CopperNetworkSupport.recomputeAround(serverLevel, pos);
+        }
     }
 
     @Override
@@ -101,7 +102,7 @@ public class CopperVoltageSourceBlock extends DomainBlock implements Engineering
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
             if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeCopper(serverLevel, pos);
             player.displayClientMessage(Component.literal(
-                    "Copper voltage source | multi-face source node | V-level=" + voltage + "/15"
+                    "Copper voltage source | six-face COPPER output | V-level=" + voltage + "/15"
             ), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
