@@ -1,6 +1,11 @@
 package dev.redstoneengineering.core.domain;
 
-/** Stable engineering-domain identifiers used by RSE ports and diagnostics. */
+/**
+ * First-class engineering domains carried by RSE ports and diagnostics.
+ *
+ * <p>The enum names stay stable for source compatibility while {@link #label()}
+ * exposes the more explicit player-facing engineering medium.</p>
+ */
 public enum EngineeringDomain {
     REDSTONE("INSULATED_REDSTONE"),
     LAPIS("LAPIS_PRECISION"),
@@ -19,13 +24,13 @@ public enum EngineeringDomain {
     PNEUMATIC("PNEUMATIC"),
     GENERIC("GENERIC");
 
-    private final String id;
+    private final String label;
 
-    EngineeringDomain(String id) {
-        this.id = id;
+    EngineeringDomain(String label) {
+        this.label = label;
     }
 
-    public String id() {
-        return id;
+    public String label() {
+        return label;
     }
 }
