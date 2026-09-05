@@ -3,8 +3,9 @@
 
 This audit is intentionally different from the historical batch verifiers. It derives the
 registered block set from RedstoneEngineering.java, maps each registered id to its Java class,
-walks local inheritance, checks resources and engineering contracts, measures direct GameTest
-and static-verifier evidence, and reconciles the complete 15-batch audit ledger.
+walks local inheritance and directly referenced block-support helpers, checks resources and
+engineering contracts, measures direct GameTest/static-verifier evidence, and reconciles the
+complete 15-batch audit ledger.
 
 Hard failures are reserved for objective coverage/integrity regressions. Quality gaps are
 reported and ranked so they can be hardened without turning heuristic scoring into a false
@@ -105,6 +106,11 @@ SUSPICIOUS_RUNTIME_PROPERTIES = {
     "history", "raw", "filtered", "peak", "sample_count", "runtime", "stored_flux",
 }
 
+# These devices call into a state-owning network but do not own runtime state at their own
+# position. Keeping this explicit prevents "uses a network" from being confused with "must clear
+# local network state". The injector only writes adjacent Soul nodes through SoulFluxNetwork.inject.
+STATELESS_NETWORK_CLIENTS = {"SoulFluxInjectorBlock"}
+
 
 def text(path: Path) -> str:
     try:
@@ -129,6 +135,22 @@ def inheritance_chain(class_name: str) -> list[tuple[str, Path, str]]:
         match = re.search(r"\bclass\s+" + re.escape(current) + r"\b[^\{]*?\bextends\s+([A-Za-z0-9_]+)", source, re.S)
         current = match.group(1) if match else ""
     return chain
+
+
+def direct_block_support_source(source: str) -> str:
+    """Include directly referenced local *Support helpers in contract detection.
+
+    Some block families deliberately centralize port descriptors in a package-private helper
+    (for example OpticalPortSupport). That helper is part of the block's static engineering
+    contract even though it is not in the Java inheritance chain.
+    """
+    chunks: list[str] = []
+    names = sorted(set(re.findall(r"\b([A-Z][A-Za-z0-9_]*(?:PortSupport|Support))\.", source)))
+    for name in names:
+        path = BLOCK_DIR / f"{name}.java"
+        if path.is_file():
+            chunks.append(text(path))
+    return "\n".join(chunks)
 
 
 def registration_data(main: str) -> tuple[list[str], dict[str, str]]:
@@ -225,10 +247,15 @@ def audit_block(block_id: str, class_name: str | None, batches: list[int], game_
 
     source = "\n".join(src for _, _, src in chain)
     own_source = chain[0][2]
+    support_source = direct_block_support_source(own_source)
+    contract_source = source + ("\n" + support_source if support_source else "")
+    result["support_helpers"] = sorted(set(re.findall(
+        r"\b([A-Z][A-Za-z0-9_]*(?:PortSupport|Support))\.", own_source
+    )))
 
-    ports = "EngineeringPortProvider" in source or "engineeringPorts(" in source
-    domain = "EngineeringDomain." in source
-    snapshot = "engineeringSnapshot(" in source or "MeasurementSnapshot" in source
+    ports = "EngineeringPortProvider" in contract_source or "engineeringPorts(" in contract_source
+    domain = "EngineeringDomain." in contract_source
+    snapshot = "engineeringSnapshot(" in contract_source or "MeasurementSnapshot" in contract_source
     result["ports"] = ports
     result["domain"] = domain
     result["snapshot"] = snapshot
@@ -237,7 +264,7 @@ def audit_block(block_id: str, class_name: str | None, batches: list[int], game_
         findings.append("no explicit/inherited EngineeringPortProvider contract detected")
     if not domain:
         score -= 15
-        findings.append("no explicit engineering domain detected in local inheritance chain")
+        findings.append("no explicit engineering domain detected in inheritance/support contract")
     if not snapshot:
         score -= 7
         findings.append("no engineering snapshot/metrology surface detected")
@@ -263,6 +290,10 @@ def audit_block(block_id: str, class_name: str | None, batches: list[int], game_
         "PneumaticNetwork", "OpticalNetwork", "DataBusNetwork", "SerialDataNetwork",
     )
     stateful = any(token in source for token in stateful_tokens)
+    if class_name in STATELESS_NETWORK_CLIENTS:
+        local_owner_tokens = ("RuntimeIntStore", "RuntimeLongStore", "DomainDriverRegistry")
+        stateful = any(token in own_source for token in local_owner_tokens)
+        result["state_ownership_note"] = "network client only; no local runtime/network state ownership"
     cleanup_tokens = (
         "onRemove(", "RuntimeIntStore.remove", "RuntimeLongStore.remove", ".clear(",
         ".release(", "recomputeAround", "releaseDriver", "removeDriver",
