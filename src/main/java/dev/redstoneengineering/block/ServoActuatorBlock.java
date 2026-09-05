@@ -120,6 +120,21 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
     public static boolean braking(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r!=null&&r.length>4&&r[4]!=0; }
     public static int softLimitHits(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r==null||r.length<16?0:r[15]; }
 
+    /** Shared server-state text for expert diagnostics and UI regression compatibility. */
+    public static String compactDiagnostics(Level level, BlockPos pos) {
+        int[] r = RuntimeIntStore.peek(level, KEY, pos);
+        if (r == null || r.length < RUNTIME_SIZE) {
+            return "Servo trajectory diagnostics | pos=0 command=0 velocity=0 error=0 settle=0t travel=0";
+        }
+        return "Servo trajectory diagnostics | pos=" + r[0]
+                + " command=" + r[1]
+                + " velocity=" + r[2]
+                + " error=" + r[3]
+                + " settle=" + r[11] + "t"
+                + " travel=" + r[12]
+                + " softLimitHits=" + r[15];
+    }
+
     /** Renderer-facing immutable projection; never creates or mutates simulation state. */
     public static MechatronicsVisualState visualState(Level level, BlockPos pos, BlockState state) {
         int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
