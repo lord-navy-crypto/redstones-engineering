@@ -65,6 +65,8 @@ require(
     "src/main/java/dev/redstoneengineering/block/ServoPositionSensorBlock.java",
     '"SERVO POSITION IN"', '"REDSTONE FEEDBACK OUT"',
     "EngineeringDomain.MECHATRONIC_POSITION",
+    "canConnectRedstone",
+    "direction.getOpposite() == outputSide(state)",
     "MetrologyStore.remove",
     "FieldDeviceUi.open",
 )
@@ -164,6 +166,11 @@ for method in (
     "operationsMonitorIsObserverOnlyAndClassifiesBlockedWork",
 ):
     require(tests, f"void {method}(GameTestHelper helper)")
+require(
+    tests,
+    "mechanical BACK incorrectly accepted vanilla redstone",
+    "REDSTONE FRONT stopped advertising output connectivity",
+)
 body = read(tests)
 if body and len(re.findall(r"@GameTest\(", body)) != 8:
     errors.append("eighth-eight acceptance class must contain exactly eight @GameTest methods")
@@ -187,7 +194,7 @@ print("  complete PID multi-port control topology: PASS")
 print("  watchdog heartbeat lifecycle + timeout diagnostics: PASS")
 print("  observer-only instrument shielding coverage audit: PASS")
 print("  first-class mechatronic-position feedback domain: PASS")
-print("  servo actuator/sensor lifecycle and port contracts: PASS")
+print("  servo actuator/sensor lifecycle + electrical-isolation contracts: PASS")
 print("  edge-count voter disagreement + deterministic fault reset: PASS")
 print("  observer-only operations monitor six-port contract: PASS")
 print("  Field Device Inspector CPS projection kinds 40-46: PASS")
