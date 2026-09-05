@@ -60,7 +60,7 @@ require(
 require(
     JAVA / "block/OpticalFiberJunctionBlock.java",
     'BooleanProperty.create("service_open")',
-    "protected int maxConnections()" if False else "SERVICE_OPEN",
+    "SERVICE_OPEN",
     "SERVICE OPEN — segments isolated",
     "DomainNetwork.recomputeOpticalAround(server, pos)",
 )
