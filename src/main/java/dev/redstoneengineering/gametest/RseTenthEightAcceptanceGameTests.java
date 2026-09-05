@@ -11,6 +11,7 @@ import dev.redstoneengineering.block.QuartzOscillatorBlock;
 import dev.redstoneengineering.block.QuartzTimingLineBlock;
 import dev.redstoneengineering.block.RangeSensorBlock;
 import dev.redstoneengineering.block.RedstoneReferenceSourceBlock;
+import dev.redstoneengineering.block.SurfaceTraceBlock;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.PortDirection;
@@ -177,8 +178,11 @@ public final class RseTenthEightAcceptanceGameTests {
         BlockPos lineB = new BlockPos(3, 1, 2);
         helper.setBlock(source, RedstoneEngineering.LAPIS_PRECISION_SOURCE.get().defaultBlockState()
                 .setValue(LapisPrecisionSourceBlock.VALUE, 60));
-        helper.setBlock(lineA, RedstoneEngineering.LAPIS_SIGNAL_LINE.get().defaultBlockState());
-        helper.setBlock(lineB, RedstoneEngineering.LAPIS_SIGNAL_LINE.get().defaultBlockState());
+        helper.setBlock(lineA, RedstoneEngineering.LAPIS_SIGNAL_LINE.get().defaultBlockState()
+                .setValue(SurfaceTraceBlock.WEST, true)
+                .setValue(SurfaceTraceBlock.EAST, true));
+        helper.setBlock(lineB, RedstoneEngineering.LAPIS_SIGNAL_LINE.get().defaultBlockState()
+                .setValue(SurfaceTraceBlock.WEST, true));
         DomainNetwork.recomputeLapis(helper.getLevel(), helper.absolutePos(source));
 
         helper.runAfterDelay(3, () -> {
@@ -233,8 +237,11 @@ public final class RseTenthEightAcceptanceGameTests {
         BlockPos lineB = new BlockPos(3, 1, 2);
         helper.setBlock(oscillator, RedstoneEngineering.QUARTZ_OSCILLATOR.get().defaultBlockState()
                 .setValue(QuartzOscillatorBlock.PERIOD_INDEX, 2));
-        helper.setBlock(lineA, RedstoneEngineering.QUARTZ_TIMING_LINE.get().defaultBlockState());
-        helper.setBlock(lineB, RedstoneEngineering.QUARTZ_TIMING_LINE.get().defaultBlockState());
+        helper.setBlock(lineA, RedstoneEngineering.QUARTZ_TIMING_LINE.get().defaultBlockState()
+                .setValue(SurfaceTraceBlock.WEST, true)
+                .setValue(SurfaceTraceBlock.EAST, true));
+        helper.setBlock(lineB, RedstoneEngineering.QUARTZ_TIMING_LINE.get().defaultBlockState()
+                .setValue(SurfaceTraceBlock.WEST, true));
         DomainNetwork.recomputeQuartz(helper.getLevel(), helper.absolutePos(oscillator));
 
         helper.runAfterDelay(4, () -> {
