@@ -8,6 +8,7 @@ import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.RadioKernel;
 import dev.redstoneengineering.physics.RedstoneCableNetwork;
+import dev.redstoneengineering.physics.VibrationNetwork;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -47,6 +48,14 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int KIND_FREE_OPTICAL_RECEIVER = 21;
     public static final int KIND_QUARTZ_DIVIDER = 22;
     public static final int KIND_QUARTZ_STABILITY = 23;
+    public static final int KIND_AMETHYST_RESONATOR = 24;
+    public static final int KIND_AMETHYST_DUST = 25;
+    public static final int KIND_AMETHYST_FILTER = 26;
+    public static final int KIND_AMETHYST_TUNED = 27;
+    public static final int KIND_AMETHYST_SPECTRUM = 28;
+    public static final int KIND_MECHANICAL_EXCITER = 29;
+    public static final int KIND_SLIME_VIBRATION = 30;
+    public static final int KIND_MECHANICAL_RECEIVER = 31;
 
     public static final int BUTTON_PRIMARY_DECREASE = 0;
     public static final int BUTTON_PRIMARY_INCREASE = 1;
@@ -74,13 +83,8 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
     }
 
     public FieldDeviceMenu(int containerId, Inventory inventory, BlockPos pos) {
-        super(
-                EngineeringUiRegistration.FIELD_DEVICE.get(),
-                containerId,
-                inventory,
-                pos,
-                inventory.player.level().getBlockState(pos).getBlock()
-        );
+        super(EngineeringUiRegistration.FIELD_DEVICE.get(), containerId, inventory, pos,
+                inventory.player.level().getBlockState(pos).getBlock());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
     }
 
@@ -88,9 +92,7 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
     protected void refreshAuthoritativeSnapshot() {
         BlockState state = level.getBlockState(blockPos);
         Block block = state.getBlock();
-
-        int resolvedKind = kindOf(block);
-        kind.set(resolvedKind);
+        kind.set(kindOf(block));
         primary.set(0);
         secondary.set(0);
         tertiary.set(0);
@@ -101,12 +103,7 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
         dataValid.set(1);
         quality.set(100);
         driverCount.set(0);
-
-        if (block instanceof EngineeringPortProvider provider) {
-            portCount.set(provider.engineeringPorts(state).size());
-        } else {
-            portCount.set(0);
-        }
+        portCount.set(block instanceof EngineeringPortProvider provider ? provider.engineeringPorts(state).size() : 0);
 
         if (block instanceof SignalProbeBlock probe) {
             primary.set(probe.sample(level, blockPos, state));
@@ -114,8 +111,7 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             facing.set(state.getValue(SignalProbeBlock.FACING).ordinal());
         } else if (block instanceof PrecisionFilterBlock filter) {
             Direction output = state.getValue(DirectionalSignalBlock.FACING);
-            Direction input = output.getOpposite();
-            primary.set(providerValue(filter, state, input));
+            primary.set(providerValue(filter, state, output.getOpposite()));
             secondary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             tertiary.set(state.getValue(PrecisionFilterBlock.RATE));
             facing.set(output.ordinal());
@@ -260,13 +256,70 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             dataValid.set(input.valid() && primary.get() > 0 ? 1 : 0);
             quality.set(dataValid.get() != 0 ? 100 : 0);
             facing.set(output.ordinal());
+        } else if (block instanceof AmethystResonatorBlock) {
+            primary.set(state.getValue(AmethystResonatorBlock.FREQUENCY));
+            secondary.set(state.getValue(AmethystResonatorBlock.AMPLITUDE));
+            dataValid.set(AmethystResonatorBlock.isActive(level, blockPos) ? 1 : 0);
+            quality.set(dataValid.get() != 0 ? 100 : 0);
+        } else if (block instanceof AmethystResonanceDustBlock dust) {
+            primary.set(AmethystResonanceDustBlock.frequency(level, blockPos));
+            secondary.set(AmethystResonanceDustBlock.amplitude(level, blockPos));
+            dataValid.set(AmethystResonanceDustBlock.active(level, blockPos) ? 1 : 0);
+            quality.set(dataValid.get() != 0 ? 100 : 0);
+            fillCompatibleTopology(state, dust);
+        } else if (block instanceof AmethystFrequencyFilterBlock filter) {
+            Direction output = state.getValue(DirectionalDomainBlock.FACING);
+            var input = DomainNetwork.sampleAmethyst(level, blockPos.relative(output.getOpposite()));
+            var filtered = DomainNetwork.sampleAmethyst(level, blockPos.relative(output));
+            primary.set(input.frequency());
+            secondary.set(filtered.amplitude());
+            tertiary.set(state.getValue(AmethystFrequencyFilterBlock.TARGET));
+            dataValid.set(filtered.active() ? 1 : 0);
+            quality.set(filtered.active() ? 100 : 0);
+            facing.set(output.ordinal());
+        } else if (block instanceof AmethystTunedResonatorBlock) {
+            Direction output = state.getValue(DirectionalDomainBlock.FACING);
+            var resonant = DomainNetwork.sampleAmethyst(level, blockPos.relative(output));
+            primary.set(state.getValue(AmethystTunedResonatorBlock.NATURAL));
+            secondary.set(resonant.amplitude());
+            tertiary.set(state.getValue(AmethystTunedResonatorBlock.Q_INDEX));
+            dataValid.set(resonant.active() ? 1 : 0);
+            quality.set(resonant.active() ? 100 : 0);
+            facing.set(output.ordinal());
+        } else if (block instanceof AmethystSpectrumAnalyzerBlock) {
+            var spectrum = AmethystSpectrumAnalyzerBlock.spectrum(level, blockPos);
+            primary.set(spectrum.dominantFrequency());
+            secondary.set(spectrum.energy());
+            tertiary.set(spectrum.activeBands());
+            driverCount.set(spectrum.samples());
+            dataValid.set(spectrum.samples() > 0 ? 1 : 0);
+            quality.set(dataValid.get() != 0 ? 100 : 0);
+        } else if (block instanceof MechanicalExciterBlock) {
+            primary.set(InformationRuntime.value(level, "mech_exciter", blockPos));
+            secondary.set(state.getValue(MechanicalExciterBlock.FREQUENCY));
+            dataValid.set(InformationRuntime.valid(level, "mech_exciter", blockPos) ? 1 : 0);
+            quality.set(dataValid.get() != 0 ? 100 : 0);
+        } else if (block instanceof SlimeVibrationConduitBlock conduit) {
+            VibrationNetwork.Wave wave = VibrationNetwork.sample(level, blockPos);
+            primary.set(wave.amplitude());
+            secondary.set(wave.frequency());
+            dataValid.set(wave.valid() ? 1 : 0);
+            quality.set(Math.max(0, Math.min(100, InformationRuntime.quality(level, "mech_wave", blockPos))));
+            fillCompatibleTopology(state, conduit);
+        } else if (block instanceof MechanicalVibrationReceiverBlock) {
+            VibrationNetwork.Wave wave = VibrationNetwork.sample(level, blockPos);
+            primary.set(wave.amplitude());
+            secondary.set(wave.frequency());
+            tertiary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+            dataValid.set(wave.valid() ? 1 : 0);
+            quality.set(Math.max(0, Math.min(100, InformationRuntime.quality(level, "mech_wave", blockPos))));
+            facing.set(state.getValue(DirectionalSignalBlock.FACING).ordinal());
         }
     }
 
     private int providerValue(EngineeringPortProvider provider, BlockState state, Direction side) {
         return provider.engineeringSnapshot(level, blockPos, state, side)
-                .map(snapshot -> (int) Math.round(snapshot.value()))
-                .orElse(0);
+                .map(snapshot -> (int) Math.round(snapshot.value())).orElse(0);
     }
 
     private void fillCableTopology(BlockState state, ConnectedCableBlock cable) {
@@ -338,14 +391,10 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             changed = true;
         } else if (block instanceof RedstoneCableTerminalBlock terminal) {
             if (id != BUTTON_TOGGLE) return false;
-            BlockState next = state.setValue(
-                    RedstoneCableTerminalBlock.OUTPUT_MODE,
-                    !state.getValue(RedstoneCableTerminalBlock.OUTPUT_MODE)
-            );
+            BlockState next = state.setValue(RedstoneCableTerminalBlock.OUTPUT_MODE,
+                    !state.getValue(RedstoneCableTerminalBlock.OUTPUT_MODE));
             level.setBlock(blockPos, next, Block.UPDATE_CLIENTS);
-            if (level instanceof net.minecraft.server.level.ServerLevel server) {
-                RedstoneCableNetwork.recompute(server, blockPos);
-            }
+            if (level instanceof net.minecraft.server.level.ServerLevel server) RedstoneCableNetwork.recompute(server, blockPos);
             level.updateNeighborsAt(blockPos, terminal);
             level.updateNeighborsAt(blockPos.relative(terminal.vanillaSide(next)), terminal);
             changed = true;
@@ -390,6 +439,14 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
         if (block instanceof FreeSpaceOpticalReceiverBlock) return KIND_FREE_OPTICAL_RECEIVER;
         if (block instanceof QuartzClockDividerBlock) return KIND_QUARTZ_DIVIDER;
         if (block instanceof QuartzStabilityMonitorBlock) return KIND_QUARTZ_STABILITY;
+        if (block instanceof AmethystResonatorBlock) return KIND_AMETHYST_RESONATOR;
+        if (block instanceof AmethystResonanceDustBlock) return KIND_AMETHYST_DUST;
+        if (block instanceof AmethystFrequencyFilterBlock) return KIND_AMETHYST_FILTER;
+        if (block instanceof AmethystTunedResonatorBlock) return KIND_AMETHYST_TUNED;
+        if (block instanceof AmethystSpectrumAnalyzerBlock) return KIND_AMETHYST_SPECTRUM;
+        if (block instanceof MechanicalExciterBlock) return KIND_MECHANICAL_EXCITER;
+        if (block instanceof SlimeVibrationConduitBlock) return KIND_SLIME_VIBRATION;
+        if (block instanceof MechanicalVibrationReceiverBlock) return KIND_MECHANICAL_RECEIVER;
         return KIND_UNKNOWN;
     }
 
