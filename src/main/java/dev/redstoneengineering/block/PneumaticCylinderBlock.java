@@ -3,13 +3,22 @@ package dev.redstoneengineering.block;
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.blockentity.MechatronicsVisualBlockEntity;
+import dev.redstoneengineering.core.domain.EngineeringDomain;
+import dev.redstoneengineering.core.port.EngineeringPort;
+import dev.redstoneengineering.core.port.EngineeringPortProvider;
+import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
+import dev.redstoneengineering.core.port.PortDirection;
+import dev.redstoneengineering.core.port.PortKind;
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.PneumaticNetwork;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import dev.redstoneengineering.visualization.MechatronicsVisualState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -22,6 +31,8 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 
 import javax.annotation.Nullable;
+import java.util.List;
+import java.util.Optional;
 
 /**
  * Lumped pneumatic linear actuator.
@@ -29,7 +40,7 @@ import javax.annotation.Nullable;
  * Pressure drives a finite-rate 0..15 position state while feedback remains a
  * deliberately directional engineering port rather than an all-side signal source.
  */
-public class PneumaticCylinderBlock extends DirectionalDomainBlock implements EntityBlock {
+public class PneumaticCylinderBlock extends DirectionalDomainBlock implements EntityBlock, EngineeringPortProvider {
     private static final String KEY = "pneumatic_cylinder";
     private static final int RUNTIME_SIZE = 11;
 
@@ -52,6 +63,31 @@ public class PneumaticCylinderBlock extends DirectionalDomainBlock implements En
         return RenderShape.ENTITYBLOCK_ANIMATED;
     }
 
+    @Override
+    public List<EngineeringPort> engineeringPorts(BlockState state) {
+        return List.of(
+                new EngineeringPort("PNEUMATIC IN", inputSide(state), EngineeringDomain.PNEUMATIC,
+                        PortKind.ACTUATOR, PortDirection.INPUT, false, "pressure"),
+                new EngineeringPort("POSITION FEEDBACK", outputSide(state), EngineeringDomain.REDSTONE,
+                        PortKind.FEEDBACK, PortDirection.OUTPUT, true, "signal")
+        );
+    }
+
+    @Override
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
+            Level level, BlockPos pos, BlockState state, Direction side
+    ) {
+        Optional<EngineeringPort> descriptor = engineeringPort(state, side);
+        if (descriptor.isEmpty()) return Optional.empty();
+        if (side == inputSide(state)) {
+            int pressure = PneumaticNetwork.pressure(level, inputPos(pos, state));
+            return Optional.of(new EngineeringPortSnapshot(descriptor.get(), pressure, 0.0, 100.0,
+                    pressure > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+        }
+        return Optional.of(EngineeringPortSnapshot.redstone(
+                descriptor.get(), position(level, pos), PortQuality.VALID));
+    }
+
     /** Renderer-facing immutable projection; never creates or mutates simulation state. */
     public static MechatronicsVisualState visualState(Level level, BlockPos pos) {
         int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
@@ -71,6 +107,14 @@ public class PneumaticCylinderBlock extends DirectionalDomainBlock implements En
     ) {
         super.onPlace(state, level, pos, oldState, moved);
         if (level instanceof ServerLevel server) server.scheduleTick(pos, this, 2);
+    }
+
+    @Override
+    protected void neighborChanged(
+            BlockState state, Level level, BlockPos pos, net.minecraft.world.level.block.Block neighbor,
+            BlockPos neighborPos, boolean moved
+    ) {
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, this, 1);
     }
 
     @Override
@@ -110,7 +154,33 @@ public class PneumaticCylinderBlock extends DirectionalDomainBlock implements En
             level.updateNeighborsAt(pos, this);
             level.updateNeighborsAt(outputPos(pos, state), this);
         }
-        level.scheduleTick(pos, this, 2);
+        if (runtime[0] != target) level.scheduleTick(pos, this, 2);
+    }
+
+    public static int position(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length < RUNTIME_SIZE ? 0 : runtime[0];
+    }
+
+    public static int target(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length < RUNTIME_SIZE ? 0 : runtime[1];
+    }
+
+    public static int pressure(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length < RUNTIME_SIZE ? 0 : runtime[2];
+    }
+
+    public static int travel(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length < RUNTIME_SIZE ? 0 : runtime[5];
+    }
+
+    @Override
+    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
+        if (!state.is(newState.getBlock())) RuntimeIntStore.remove(level, KEY, pos);
+        super.onRemove(state, level, pos, newState, moved);
     }
 
     @Override
@@ -133,7 +203,7 @@ public class PneumaticCylinderBlock extends DirectionalDomainBlock implements En
     ) {
         if (!(level instanceof Level realLevel)) return 0;
         if (side != outputSide(state).getOpposite()) return 0;
-        return RuntimeIntStore.get(realLevel, KEY, pos, RUNTIME_SIZE)[0];
+        return position(realLevel, pos);
     }
 
     @Override
@@ -149,7 +219,11 @@ public class PneumaticCylinderBlock extends DirectionalDomainBlock implements En
             Player player,
             BlockHitResult hit
     ) {
-        if (!level.isClientSide) {
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (!player.isShiftKeyDown()) {
+                FieldDeviceUi.open(serverPlayer, pos);
+                return InteractionResult.CONSUME;
+            }
             int[] r = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
             player.displayClientMessage(Component.literal(
                     "Pneumatic cylinder"
