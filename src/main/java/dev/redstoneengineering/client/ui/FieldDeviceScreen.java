@@ -48,7 +48,10 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
                 || menu.kind() == FieldDeviceMenu.KIND_PRESSURE_REGULATOR
                 || menu.kind() == FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE
                 || menu.kind() == FieldDeviceMenu.KIND_PERMANENT_MAGNET
-                || menu.kind() == FieldDeviceMenu.KIND_INDUCTION_COIL;
+                || menu.kind() == FieldDeviceMenu.KIND_INDUCTION_COIL
+                || menu.kind() == FieldDeviceMenu.KIND_OPTICAL_EMITTER
+                || menu.kind() == FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER
+                || menu.kind() == FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR;
         decrease.active = primaryAdjust;
         increase.active = primaryAdjust;
         toggle.active = menu.kind() == FieldDeviceMenu.KIND_TERMINAL
@@ -67,6 +70,9 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             case FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE -> { decrease.setMessage(Component.literal("− Relief")); increase.setMessage(Component.literal("Relief +")); }
             case FieldDeviceMenu.KIND_PERMANENT_MAGNET -> { decrease.setMessage(Component.literal("− Strength")); increase.setMessage(Component.literal("Strength +")); }
             case FieldDeviceMenu.KIND_INDUCTION_COIL -> { decrease.setMessage(Component.literal("− Turns")); increase.setMessage(Component.literal("Turns +")); }
+            case FieldDeviceMenu.KIND_OPTICAL_EMITTER -> { decrease.setMessage(Component.literal("− Intensity")); increase.setMessage(Component.literal("Intensity +")); }
+            case FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER -> { decrease.setMessage(Component.literal("− Channel")); increase.setMessage(Component.literal("Channel +")); }
+            case FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR -> { decrease.setMessage(Component.literal("− Loss")); increase.setMessage(Component.literal("Loss +")); }
             default -> { decrease.setMessage(Component.literal("−")); increase.setMessage(Component.literal("+")); }
         }
         toggle.setMessage(Component.literal(menu.kind() == FieldDeviceMenu.KIND_PNEUMATIC_VALVE
@@ -166,6 +172,59 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
                 labelValue(graphics, "Local field", menu.primary() + " / 15", 105);
                 labelValue(graphics, "ΔBx / ΔBy", menu.secondary() + " / " + menu.tertiary(), 121);
                 labelValue(graphics, "ΔBz", Integer.toString(menu.driverCount()), 137);
+            }
+            case FieldDeviceMenu.KIND_OPTICAL_FIBER -> {
+                statusBadge(graphics, "OPTICAL FIBER", menu.dataValid() ? GOOD : WARN, 16, 80);
+                labelValue(graphics, "Intensity / channel", menu.primary() + " / " + menu.secondary(), 105);
+                labelValue(graphics, "Topology", menu.topologyValid() ? "PASSIVE TWO-ENDED" : "BRANCH ERROR", 121);
+                labelValue(graphics, "Connected faces", connectedFaces(), 137);
+                signalBar(graphics, menu.primary(), 157);
+            }
+            case FieldDeviceMenu.KIND_OPTICAL_EMITTER -> {
+                statusBadge(graphics, "OPTICAL EMITTER", menu.dataValid() ? GOOD : INFO, 16, 80);
+                labelValue(graphics, "Intensity / channel", menu.primary() + " / " + menu.secondary(), 105);
+                labelValue(graphics, "Output", "SIX-FACE GUIDED OPTICAL", 121);
+                labelValue(graphics, "Compatible faces", Integer.toString(menu.connectionCount()), 137);
+                signalBar(graphics, menu.primary(), 157);
+            }
+            case FieldDeviceMenu.KIND_OPTICAL_RECEIVER -> {
+                statusBadge(graphics, "OPTICAL RECEIVER", menu.dataValid() ? GOOD : WARN, 16, 80);
+                labelValue(graphics, "Intensity / channel", menu.primary() + " / " + menu.secondary(), 105);
+                labelValue(graphics, "Input", "SIX-FACE GUIDED OPTICAL", 121);
+                labelValue(graphics, "Signal", menu.dataValid() ? "VALID" : "DARK / INVALID", 137);
+                signalBar(graphics, menu.primary(), 157);
+            }
+            case FieldDeviceMenu.KIND_OPTICAL_POWER_METER -> {
+                statusBadge(graphics, "OPTICAL POWER METER", menu.dataValid() ? GOOD : WARN, 16, 80);
+                labelValue(graphics, "Measured intensity", menu.primary() + " / 15", 105);
+                labelValue(graphics, "Channel", Integer.toString(menu.secondary()), 121);
+                labelValue(graphics, "Probe face", directionName(menu.facingOrdinal()), 137);
+                signalBar(graphics, menu.primary(), 157);
+            }
+            case FieldDeviceMenu.KIND_OPTICAL_SPLITTER -> {
+                statusBadge(graphics, "OPTICAL 1×2 SPLITTER", menu.dataValid() ? GOOD : WARN, 16, 80);
+                labelValue(graphics, "Input / A / B", menu.primary() + " / " + menu.secondary() + " / " + menu.tertiary(), 105);
+                labelValue(graphics, "Ideal branch loss", "3 dB each", 121);
+                labelValue(graphics, "Orientation", directionName(menu.facingOrdinal()), 137);
+            }
+            case FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER -> {
+                statusBadge(graphics, "OPTICAL CHANNEL FILTER", menu.dataValid() ? GOOD : WARN, 16, 80);
+                labelValue(graphics, "Input / output", menu.primary() + " / " + menu.secondary(), 105);
+                labelValue(graphics, "Pass channel", Integer.toString(menu.tertiary()), 121);
+                labelValue(graphics, "Insertion loss", "1 intensity step", 137);
+            }
+            case FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR -> {
+                statusBadge(graphics, "OPTICAL ATTENUATOR", menu.dataValid() ? GOOD : WARN, 16, 80);
+                labelValue(graphics, "Input / output", menu.primary() + " / " + menu.secondary(), 105);
+                labelValue(graphics, "Loss index", Integer.toString(menu.tertiary()), 121);
+                labelValue(graphics, "Orientation", directionName(menu.facingOrdinal()), 137);
+            }
+            case FieldDeviceMenu.KIND_OPTICAL_FIBER_JUNCTION -> {
+                statusBadge(graphics, "OPTICAL SPLICE", menu.dataValid() ? GOOD : WARN, 16, 80);
+                labelValue(graphics, "Intensity / channel", menu.primary() + " / " + menu.secondary(), 105);
+                labelValue(graphics, "Connected faces", connectedFaces(), 121);
+                labelValue(graphics, "Topology", menu.topologyValid() ? "PASSIVE TWO-ENDED" : "BRANCH ERROR", 137);
+                signalBar(graphics, menu.primary(), 157);
             }
             case FieldDeviceMenu.KIND_EDGE_DETECTOR -> {
                 statusBadge(graphics, "EDGE DETECTOR", menu.dataValid() ? GOOD : WARN, 16, 80);
@@ -520,6 +579,20 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
                 graphics.drawString(font, "The Inspector does not invent adjacency ports for field sensing.", 16, 131, MUTED, false);
             }
             case FieldDeviceMenu.KIND_INDUCTION_COIL -> renderDirectionalPorts(graphics, "BACK • MAGNETIC SENSE APERTURE", "FRONT • COPPER INDUCED OUTPUT");
+            case FieldDeviceMenu.KIND_OPTICAL_FIBER -> renderMediumPorts(graphics, "OPTICAL • CONNECTED FACES ONLY • PASSIVE TWO-ENDED PATH");
+            case FieldDeviceMenu.KIND_OPTICAL_EMITTER -> renderMediumPorts(graphics, "OPTICAL • SIX-FACE OUTPUT SOURCE");
+            case FieldDeviceMenu.KIND_OPTICAL_RECEIVER -> renderMediumPorts(graphics, "OPTICAL • SIX-FACE INPUT OBSERVER");
+            case FieldDeviceMenu.KIND_OPTICAL_POWER_METER -> {
+                statusLine(graphics, directionName(menu.facingOrdinal()), "OPTICAL MEASUREMENT INPUT", GOOD, 105);
+                graphics.drawString(font, "The opposite faces expose no invented ports.", 16, 131, MUTED, false);
+            }
+            case FieldDeviceMenu.KIND_OPTICAL_SPLITTER -> {
+                renderDirectionalPorts(graphics, "BACK • OPTICAL INPUT", "FRONT • OPTICAL OUTPUT A");
+                statusLine(graphics, "LEFT", "OPTICAL OUTPUT B", INFO, 145);
+            }
+            case FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER -> renderDirectionalPorts(graphics, "BACK • OPTICAL INPUT", "FRONT • FILTERED OPTICAL OUTPUT");
+            case FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR -> renderDirectionalPorts(graphics, "BACK • OPTICAL INPUT", "FRONT • ATTENUATED OPTICAL OUTPUT");
+            case FieldDeviceMenu.KIND_OPTICAL_FIBER_JUNCTION -> renderMediumPorts(graphics, "OPTICAL • CONNECTED FACES ONLY • PASSIVE SPLICE");
             case FieldDeviceMenu.KIND_EDGE_DETECTOR -> renderDirectionalPorts(graphics, "BACK • REDSTONE EDGE INPUT", "FRONT • BINARY PULSE OUTPUT");
             case FieldDeviceMenu.KIND_PULSE_SHAPER -> renderDirectionalPorts(graphics, "BACK • REDSTONE TRIGGER INPUT", "FRONT • SHAPED PULSE OUTPUT");
             case FieldDeviceMenu.KIND_SIGNAL_TAP -> {
@@ -619,6 +692,9 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             case FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE -> { labelValue(graphics, "Relief setpoint", menu.tertiary() + " / 100", 80); graphics.drawString(font, "Setpoint changes are bounded and recomputed on the server.", 16, 163, MUTED, false); }
             case FieldDeviceMenu.KIND_PERMANENT_MAGNET -> { labelValue(graphics, "Source strength", menu.primary() + " / 15", 80); graphics.drawString(font, "Strength changes on the server; orientation is a visual N marker.", 16, 163, MUTED, false); }
             case FieldDeviceMenu.KIND_INDUCTION_COIL -> { labelValue(graphics, "Turns index", Integer.toString(menu.tertiary()), 80); graphics.drawString(font, "Turns scale |ΔΦ|; induced voltage remains server-authoritative.", 16, 163, MUTED, false); }
+            case FieldDeviceMenu.KIND_OPTICAL_EMITTER -> { labelValue(graphics, "Intensity / channel", menu.primary() + " / " + menu.secondary(), 80); graphics.drawString(font, "Intensity is bounded 0..15; channel is carried as runtime payload.", 16, 163, MUTED, false); }
+            case FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER -> { labelValue(graphics, "Pass channel", Integer.toString(menu.tertiary()), 80); graphics.drawString(font, "Only the selected channel passes; output loses one intensity step.", 16, 163, MUTED, false); }
+            case FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR -> { labelValue(graphics, "Loss index", Integer.toString(menu.tertiary()), 80); graphics.drawString(font, "Loss is bounded 0..8 and applied on the server.", 16, 163, MUTED, false); }
             case FieldDeviceMenu.KIND_AMETHYST_RESONATOR -> { labelValue(graphics, "Frequency / amplitude", menu.primary() + " / " + menu.secondary(), 80); graphics.drawString(font, "Configuration remains server-side; Inspector is synchronized readback in this wave.", 16, 163, MUTED, false); }
             case FieldDeviceMenu.KIND_AMETHYST_FILTER -> { labelValue(graphics, "Target frequency", Integer.toString(menu.tertiary()), 80); graphics.drawString(font, "Target selection remains server-side; output readback is authoritative.", 16, 163, MUTED, false); }
             case FieldDeviceMenu.KIND_AMETHYST_TUNED -> { labelValue(graphics, "Natural f / Q", menu.primary() + " / " + menu.tertiary(), 80); graphics.drawString(font, "Tuning remains server-side; this screen never calculates resonance.", 16, 163, MUTED, false); }
@@ -648,6 +724,10 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             statusLine(graphics, "Magnetic snapshot", validityText(), validityColor(), 122);
             labelValue(graphics, "Field / derived X", menu.primary() + " / " + menu.secondary(), 142);
             labelValue(graphics, "Derived Y / Z", menu.tertiary() + " / " + menu.driverCount(), 162);
+        } else if (isOpticalDevice()) {
+            statusLine(graphics, "Optical snapshot", validityText(), validityColor(), 122);
+            labelValue(graphics, "Primary / secondary", menu.primary() + " / " + menu.secondary(), 142);
+            labelValue(graphics, "Aux / topology", menu.tertiary() + " / " + (menu.topologyValid() ? "PASS" : "FAIL"), 162);
         } else if (isTimingDevice()) {
             statusLine(graphics, "Timing snapshot", validityText(), validityColor(), 122);
             labelValue(graphics, "Measured/input period", menu.primary() + " ticks", 142);
@@ -707,6 +787,11 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
                 && menu.kind() <= FieldDeviceMenu.KIND_MAGNETIC_GRADIENT_METER;
     }
 
+    private boolean isOpticalDevice() {
+        return menu.kind() >= FieldDeviceMenu.KIND_OPTICAL_FIBER
+                && menu.kind() <= FieldDeviceMenu.KIND_OPTICAL_FIBER_JUNCTION;
+    }
+
     private boolean isWaveDevice() {
         return menu.kind() >= FieldDeviceMenu.KIND_AMETHYST_RESONATOR && menu.kind() <= FieldDeviceMenu.KIND_THERMAL_RECEIVER;
     }
@@ -741,6 +826,14 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             case FieldDeviceMenu.KIND_INDUCTION_COIL -> "INDUCTION COIL";
             case FieldDeviceMenu.KIND_MAGNETIC_FIELD_SENSOR -> "MAGNETIC FIELD SENSOR";
             case FieldDeviceMenu.KIND_MAGNETIC_GRADIENT_METER -> "MAGNETIC GRADIENT METER";
+            case FieldDeviceMenu.KIND_OPTICAL_FIBER -> "OPTICAL FIBER";
+            case FieldDeviceMenu.KIND_OPTICAL_EMITTER -> "OPTICAL EMITTER";
+            case FieldDeviceMenu.KIND_OPTICAL_RECEIVER -> "OPTICAL RECEIVER";
+            case FieldDeviceMenu.KIND_OPTICAL_POWER_METER -> "OPTICAL POWER METER";
+            case FieldDeviceMenu.KIND_OPTICAL_SPLITTER -> "OPTICAL SPLITTER";
+            case FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER -> "OPTICAL CHANNEL FILTER";
+            case FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR -> "OPTICAL ATTENUATOR";
+            case FieldDeviceMenu.KIND_OPTICAL_FIBER_JUNCTION -> "OPTICAL FIBER JUNCTION";
             case FieldDeviceMenu.KIND_PROBE -> "SIGNAL PROBE";
             case FieldDeviceMenu.KIND_FILTER -> "PRECISION FILTER";
             case FieldDeviceMenu.KIND_REFERENCE -> "REFERENCE SOURCE";
