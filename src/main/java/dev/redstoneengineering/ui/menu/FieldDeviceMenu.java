@@ -97,6 +97,14 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int KIND_INDUCTION_COIL = 68;
     public static final int KIND_MAGNETIC_FIELD_SENSOR = 69;
     public static final int KIND_MAGNETIC_GRADIENT_METER = 70;
+    public static final int KIND_OPTICAL_FIBER = 71;
+    public static final int KIND_OPTICAL_EMITTER = 72;
+    public static final int KIND_OPTICAL_RECEIVER = 73;
+    public static final int KIND_OPTICAL_POWER_METER = 74;
+    public static final int KIND_OPTICAL_SPLITTER = 75;
+    public static final int KIND_OPTICAL_CHANNEL_FILTER = 76;
+    public static final int KIND_OPTICAL_ATTENUATOR = 77;
+    public static final int KIND_OPTICAL_FIBER_JUNCTION = 78;
 
     public static final int BUTTON_PRIMARY_DECREASE = 0;
     public static final int BUTTON_PRIMARY_INCREASE = 1;
@@ -253,6 +261,59 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             driverCount.set(MagneticGradientMeterBlock.gradientZ(level, blockPos));
             dataValid.set(primary.get() > 0 ? 1 : 0);
             quality.set(dataValid.get() != 0 ? 100 : 0);
+        } else if (block instanceof OpticalFiberBlock fiber) {
+            primary.set(OpticalFiberBlock.intensity(level, blockPos));
+            secondary.set(OpticalFiberBlock.channel(level, blockPos));
+            dataValid.set(OpticalFiberBlock.valid(level, blockPos) ? 1 : 0);
+            quality.set(dataValid.get() != 0 ? 100 : 0);
+            fillCableTopology(state, fiber);
+        } else if (block instanceof OpticalEmitterBlock emitter) {
+            primary.set(state.getValue(OpticalEmitterBlock.INTENSITY));
+            secondary.set(state.getValue(OpticalEmitterBlock.CHANNEL));
+            dataValid.set(primary.get() > 0 ? 1 : 0);
+            quality.set(dataValid.get() != 0 ? 100 : 0);
+            fillCompatibleTopology(state, emitter);
+        } else if (block instanceof OpticalReceiverBlock receiver) {
+            primary.set(OpticalReceiverBlock.intensity(level, blockPos));
+            secondary.set(OpticalReceiverBlock.channel(level, blockPos));
+            dataValid.set(OpticalReceiverBlock.valid(level, blockPos) ? 1 : 0);
+            quality.set(dataValid.get() != 0 ? 100 : 0);
+            fillCompatibleTopology(state, receiver);
+        } else if (block instanceof OpticalPowerMeterBlock meter) {
+            var sample = DomainNetwork.sampleOptical(level, blockPos.relative(state.getValue(OpticalPowerMeterBlock.FACING)));
+            primary.set(sample.intensity());
+            secondary.set(sample.channel());
+            dataValid.set(sample.valid() ? 1 : 0);
+            quality.set(dataValid.get() != 0 ? 100 : 0);
+            facing.set(state.getValue(OpticalPowerMeterBlock.FACING).ordinal());
+            fillCompatibleTopology(state, meter);
+        } else if (block instanceof OpticalSplitterBlock splitter) {
+            Direction output = state.getValue(DirectionalDomainBlock.FACING);
+            primary.set(providerValue(splitter, state, output.getOpposite()));
+            secondary.set(providerValue(splitter, state, output));
+            tertiary.set(providerValue(splitter, state, DirectionalDomainBlock.leftOf(output)));
+            facing.set(output.ordinal());
+            fillCompatibleTopology(state, splitter);
+        } else if (block instanceof OpticalChannelFilterBlock filter) {
+            Direction output = state.getValue(DirectionalDomainBlock.FACING);
+            primary.set(providerValue(filter, state, output.getOpposite()));
+            secondary.set(providerValue(filter, state, output));
+            tertiary.set(state.getValue(OpticalChannelFilterBlock.TARGET));
+            facing.set(output.ordinal());
+            fillCompatibleTopology(state, filter);
+        } else if (block instanceof OpticalAttenuatorBlock attenuator) {
+            Direction output = state.getValue(DirectionalDomainBlock.FACING);
+            primary.set(providerValue(attenuator, state, output.getOpposite()));
+            secondary.set(providerValue(attenuator, state, output));
+            tertiary.set(state.getValue(OpticalAttenuatorBlock.LOSS));
+            facing.set(output.ordinal());
+            fillCompatibleTopology(state, attenuator);
+        } else if (block instanceof OpticalFiberJunctionBlock junction) {
+            primary.set(OpticalFiberJunctionBlock.intensity(level, blockPos));
+            secondary.set(OpticalFiberJunctionBlock.channel(level, blockPos));
+            dataValid.set(OpticalFiberJunctionBlock.valid(level, blockPos) ? 1 : 0);
+            quality.set(dataValid.get() != 0 ? 100 : 0);
+            fillCableTopology(state, junction);
         } else if (block instanceof EdgeDetectorBlock detector) {
             Direction output = state.getValue(DirectionalSignalBlock.FACING);
             primary.set(providerValue(detector, state, output.getOpposite()));
@@ -756,6 +817,34 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             level.setBlock(blockPos, state.setValue(InductionCoilBlock.TURNS, turns), Block.UPDATE_CLIENTS);
             level.scheduleTick(blockPos, coil, 1);
             changed = true;
+        } else if (block instanceof OpticalEmitterBlock) {
+            int value = state.getValue(OpticalEmitterBlock.INTENSITY);
+            if (id == BUTTON_PRIMARY_DECREASE) value = value <= 0 ? 15 : value - 1;
+            else if (id == BUTTON_PRIMARY_INCREASE) value = value >= 15 ? 0 : value + 1;
+            else if (id == BUTTON_PRESET_0) value = 0;
+            else if (id == BUTTON_PRESET_5) value = 5;
+            else if (id == BUTTON_PRESET_10) value = 10;
+            else if (id == BUTTON_PRESET_15) value = 15;
+            else return false;
+            level.setBlock(blockPos, state.setValue(OpticalEmitterBlock.INTENSITY, value), Block.UPDATE_CLIENTS);
+            if (level instanceof net.minecraft.server.level.ServerLevel server) DomainNetwork.recomputeOptical(server, blockPos);
+            changed = true;
+        } else if (block instanceof OpticalChannelFilterBlock filter) {
+            int target = state.getValue(OpticalChannelFilterBlock.TARGET);
+            if (id == BUTTON_PRIMARY_DECREASE) target = Math.floorMod(target - 1, 16);
+            else if (id == BUTTON_PRIMARY_INCREASE) target = (target + 1) % 16;
+            else return false;
+            level.setBlock(blockPos, state.setValue(OpticalChannelFilterBlock.TARGET, target), Block.UPDATE_CLIENTS);
+            level.scheduleTick(blockPos, filter, 1);
+            changed = true;
+        } else if (block instanceof OpticalAttenuatorBlock attenuator) {
+            int loss = state.getValue(OpticalAttenuatorBlock.LOSS);
+            if (id == BUTTON_PRIMARY_DECREASE) loss = loss <= 0 ? 8 : loss - 1;
+            else if (id == BUTTON_PRIMARY_INCREASE) loss = loss >= 8 ? 0 : loss + 1;
+            else return false;
+            level.setBlock(blockPos, state.setValue(OpticalAttenuatorBlock.LOSS, loss), Block.UPDATE_CLIENTS);
+            level.scheduleTick(blockPos, attenuator, 1);
+            changed = true;
         }
 
         if (changed) {
@@ -782,6 +871,14 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
         if (block instanceof InductionCoilBlock) return KIND_INDUCTION_COIL;
         if (block instanceof MagneticFieldSensorBlock) return KIND_MAGNETIC_FIELD_SENSOR;
         if (block instanceof MagneticGradientMeterBlock) return KIND_MAGNETIC_GRADIENT_METER;
+        if (block instanceof OpticalFiberBlock) return KIND_OPTICAL_FIBER;
+        if (block instanceof OpticalEmitterBlock) return KIND_OPTICAL_EMITTER;
+        if (block instanceof OpticalReceiverBlock) return KIND_OPTICAL_RECEIVER;
+        if (block instanceof OpticalPowerMeterBlock) return KIND_OPTICAL_POWER_METER;
+        if (block instanceof OpticalSplitterBlock) return KIND_OPTICAL_SPLITTER;
+        if (block instanceof OpticalChannelFilterBlock) return KIND_OPTICAL_CHANNEL_FILTER;
+        if (block instanceof OpticalAttenuatorBlock) return KIND_OPTICAL_ATTENUATOR;
+        if (block instanceof OpticalFiberJunctionBlock) return KIND_OPTICAL_FIBER_JUNCTION;
         if (block instanceof EdgeDetectorBlock) return KIND_EDGE_DETECTOR;
         if (block instanceof PulseShaperBlock) return KIND_PULSE_SHAPER;
         if (block instanceof SignalTapBlock) return KIND_SIGNAL_TAP;
