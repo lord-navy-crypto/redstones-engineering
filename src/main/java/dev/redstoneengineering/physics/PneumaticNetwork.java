@@ -10,7 +10,7 @@ import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.*;
 
-/** Lumped compressed-air network with line loss, regulators, isolation, one-way protection and safety relief. */
+/** Lumped compressed-air network with explicit physical ports, line loss, regulation and safety devices. */
 public final class PneumaticNetwork {
     private PneumaticNetwork() {}
     private record Node(BlockPos pos, int pressure) {}
@@ -25,24 +25,38 @@ public final class PneumaticNetwork {
                 block instanceof PneumaticCylinderBlock;
     }
 
+    private static Direction directionalFacing(BlockState state) {
+        if (state.getBlock() instanceof PneumaticReceiverBlock) {
+            return state.getValue(DirectionalSignalBlock.FACING);
+        }
+        return state.getValue(DirectionalDomainBlock.FACING);
+    }
+
     /**
-     * Physical network discovery is mostly undirected, but terminal actuators must
-     * not bridge otherwise separate networks. A cylinder participates only through
-     * its BACK/input face.
+     * Whether an adjacent pneumatic node touches a real physical pneumatic port on this block.
+     * Pipes/reservoirs/sources remain manifold-style nodes. Inline devices are axial and terminal
+     * devices participate only through their pneumatic BACK face.
      */
+    private static boolean exposesPneumaticEdge(BlockState state, BlockPos self, BlockPos other) {
+        var block = state.getBlock();
+        if (block instanceof PneumaticReceiverBlock || block instanceof PneumaticCylinderBlock) {
+            Direction facing = directionalFacing(state);
+            return other.equals(self.relative(facing.getOpposite()));
+        }
+        if (block instanceof PneumaticValveBlock || block instanceof PneumaticCheckValveBlock ||
+                block instanceof PneumaticFlowMeterBlock || block instanceof PneumaticProportionalValveBlock ||
+                block instanceof PneumaticReliefValveBlock) {
+            Direction facing = directionalFacing(state);
+            return other.equals(self.relative(facing)) || other.equals(self.relative(facing.getOpposite()));
+        }
+        return true;
+    }
+
+    /** Physical discovery is undirected, but only real pneumatic ports may join one component. */
     private static boolean discoveryConnects(Level level, BlockPos aPos, BlockPos bPos) {
         BlockState a = level.getBlockState(aPos);
         BlockState b = level.getBlockState(bPos);
-
-        if (a.getBlock() instanceof PneumaticCylinderBlock) {
-            Direction input = a.getValue(DirectionalDomainBlock.FACING).getOpposite();
-            return bPos.equals(aPos.relative(input));
-        }
-        if (b.getBlock() instanceof PneumaticCylinderBlock) {
-            Direction input = b.getValue(DirectionalDomainBlock.FACING).getOpposite();
-            return aPos.equals(bPos.relative(input));
-        }
-        return true;
+        return exposesPneumaticEdge(a, aPos, bPos) && exposesPneumaticEdge(b, bPos, aPos);
     }
 
     public static Set<BlockPos> collect(Level level, BlockPos start) {
@@ -66,34 +80,40 @@ public final class PneumaticNetwork {
         return seen;
     }
 
+    private static boolean directionalForward(BlockState state, BlockPos from, BlockPos to) {
+        Direction facing = directionalFacing(state);
+        return to.equals(from.relative(facing));
+    }
+
+    private static boolean directionalBackwardEntry(BlockState state, BlockPos from, BlockPos to) {
+        Direction facing = directionalFacing(state);
+        return from.equals(to.relative(facing.getOpposite()));
+    }
+
     private static boolean permits(Level level, BlockPos from, BlockPos to) {
         BlockState a = level.getBlockState(from), b = level.getBlockState(to);
+        if (!discoveryConnects(level, from, to)) return false;
+
         if (a.getBlock() instanceof PneumaticValveBlock && !a.getValue(PneumaticValveBlock.OPEN)) return false;
         if (b.getBlock() instanceof PneumaticValveBlock && !b.getValue(PneumaticValveBlock.OPEN)) return false;
 
-        if (a.getBlock() instanceof PneumaticCheckValveBlock) {
-            Direction facing = a.getValue(DirectionalDomainBlock.FACING);
-            if (!to.equals(from.relative(facing))) return false;
-        }
-        if (b.getBlock() instanceof PneumaticCheckValveBlock) {
-            Direction facing = b.getValue(DirectionalDomainBlock.FACING);
-            if (!from.equals(to.relative(facing.getOpposite()))) return false;
-        }
+        // Terminal receivers consume pressure but never bridge it onward.
+        if (a.getBlock() instanceof PneumaticReceiverBlock) return false;
+        if (b.getBlock() instanceof PneumaticReceiverBlock) return directionalBackwardEntry(b, from, to);
 
-        if (a.getBlock() instanceof PneumaticProportionalValveBlock) {
-            Direction facing = a.getValue(DirectionalDomainBlock.FACING);
-            if (!to.equals(from.relative(facing))) return false;
-        }
-        if (b.getBlock() instanceof PneumaticProportionalValveBlock) {
-            Direction facing = b.getValue(DirectionalDomainBlock.FACING);
-            if (!from.equals(to.relative(facing.getOpposite()))) return false;
-        }
+        if (a.getBlock() instanceof PneumaticCheckValveBlock && !directionalForward(a, from, to)) return false;
+        if (b.getBlock() instanceof PneumaticCheckValveBlock && !directionalBackwardEntry(b, from, to)) return false;
+
+        // These devices have an explicit BACK inlet and FRONT outlet.
+        if ((a.getBlock() instanceof PneumaticFlowMeterBlock ||
+                a.getBlock() instanceof PneumaticProportionalValveBlock ||
+                a.getBlock() instanceof PneumaticReliefValveBlock) && !directionalForward(a, from, to)) return false;
+        if ((b.getBlock() instanceof PneumaticFlowMeterBlock ||
+                b.getBlock() instanceof PneumaticProportionalValveBlock ||
+                b.getBlock() instanceof PneumaticReliefValveBlock) && !directionalBackwardEntry(b, from, to)) return false;
 
         if (a.getBlock() instanceof PneumaticCylinderBlock) return false;
-        if (b.getBlock() instanceof PneumaticCylinderBlock) {
-            Direction input = b.getValue(DirectionalDomainBlock.FACING).getOpposite();
-            if (!from.equals(to.relative(input))) return false;
-        }
+        if (b.getBlock() instanceof PneumaticCylinderBlock) return directionalBackwardEntry(b, from, to);
         return true;
     }
 
@@ -114,8 +134,6 @@ public final class PneumaticNetwork {
                 diag[1] = excess;
                 diag[2] += excess;
 
-                // Visual feedback is event-driven: particles appear only when the
-                // relief valve actually clamps/vents excess pressure.
                 if (level instanceof ServerLevel server) {
                     int count = excess >= 25 ? 3 : 1;
                     server.sendParticles(
@@ -193,6 +211,28 @@ public final class PneumaticNetwork {
             runtime[1] = dp;
             runtime[2] = pin;
             runtime[3] = pout;
+        }
+    }
+
+    /**
+     * Recompute every physically adjacent component after placement/removal/orientation changes.
+     * This prevents stale pressure surviving when one component is split into several islands.
+     */
+    public static void recomputeAround(ServerLevel level, BlockPos changedPos) {
+        Set<BlockPos> covered = new HashSet<>();
+        if (isNode(level, changedPos)) {
+            Set<BlockPos> component = collect(level, changedPos);
+            if (!component.isEmpty()) {
+                recompute(level, changedPos);
+                covered.addAll(component);
+            }
+        }
+        for (Direction direction : Direction.values()) {
+            BlockPos neighbor = changedPos.relative(direction);
+            if (!isNode(level, neighbor) || covered.contains(neighbor)) continue;
+            Set<BlockPos> component = collect(level, neighbor);
+            recompute(level, neighbor);
+            covered.addAll(component);
         }
     }
 
