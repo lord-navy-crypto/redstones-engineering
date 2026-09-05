@@ -2,6 +2,7 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.physics.CopperNetworkSupport;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.EngineeringMath;
 import dev.redstoneengineering.physics.RuntimeIntStore;
@@ -63,6 +64,9 @@ public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
             RuntimeIntStore.remove(level, KEY, pos);
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
+        if (!state.is(newState.getBlock()) && level instanceof ServerLevel serverLevel) {
+            CopperNetworkSupport.recomputeAround(serverLevel, pos);
+        }
     }
 
     @Override
@@ -97,6 +101,7 @@ public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
             int capacitanceIndex = (state.getValue(C_INDEX) + 1) % 4;
             BlockState next = state.setValue(C_INDEX, capacitanceIndex);
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+            level.scheduleTick(pos, this, 1);
             int charge = RuntimeIntStore.get(level, KEY, pos, 1)[0];
             player.displayClientMessage(Component.literal(
                     "Copper capacitor | BACK input -> FRONT output | C-index=" + (capacitanceIndex + 1)
