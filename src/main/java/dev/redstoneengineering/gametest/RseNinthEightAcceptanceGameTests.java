@@ -1,11 +1,12 @@
 package dev.redstoneengineering.gametest;
 
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.block.AirCompressorBlock;
 import dev.redstoneengineering.block.DirectionalDomainBlock;
 import dev.redstoneengineering.block.DirectionalSignalBlock;
 import dev.redstoneengineering.block.PneumaticFlowMeterBlock;
-import dev.redstoneengineering.block.PneumaticReliefValveBlock;
 import dev.redstoneengineering.block.PneumaticValveBlock;
+import dev.redstoneengineering.block.PressureRegulatorBlock;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.PortDirection;
@@ -19,18 +20,71 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-/** Ninth block-by-block acceptance campaign: pneumatic transport, control, safety and metrology integrity. */
+/** Ninth block-by-block acceptance campaign: pneumatic source, transport, regulation and metrology integrity. */
 public final class RseNinthEightAcceptanceGameTests {
     private static final String TEMPLATE = "empty5x4x5";
 
     private RseNinthEightAcceptanceGameTests() {}
 
     @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 70)
+    public static void compressorSeparatesDownCommandFromUpPneumaticOutlet(GameTestHelper helper) {
+        BlockPos compressor = new BlockPos(2, 1, 2);
+        BlockPos command = compressor.below();
+        BlockPos outlet = compressor.above();
+        BlockPos sidePipe = compressor.east();
+        helper.setBlock(compressor, RedstoneEngineering.AIR_COMPRESSOR.get().defaultBlockState());
+        helper.setBlock(command, Blocks.REDSTONE_BLOCK.defaultBlockState());
+        helper.setBlock(outlet, RedstoneEngineering.PNEUMATIC_PIPE.get().defaultBlockState());
+        helper.setBlock(sidePipe, RedstoneEngineering.PNEUMATIC_PIPE.get().defaultBlockState());
+        recompute(helper, compressor);
+
+        helper.runAfterDelay(3, () -> {
+            BlockState state = helper.getBlockState(compressor);
+            EngineeringPortProvider provider = RedstoneEngineering.AIR_COMPRESSOR.get();
+            var commandPort = provider.engineeringPort(state, Direction.DOWN).orElse(null);
+            var outletPort = provider.engineeringPort(state, Direction.UP).orElse(null);
+            BlockPos world = helper.absolutePos(compressor);
+            if (provider.engineeringPorts(state).size() != 2
+                    || commandPort == null || commandPort.domain() != EngineeringDomain.REDSTONE
+                    || commandPort.direction() != PortDirection.INPUT
+                    || outletPort == null || outletPort.domain() != EngineeringDomain.PNEUMATIC
+                    || outletPort.direction() != PortDirection.OUTPUT
+                    || AirCompressorBlock.commandSignal(helper.getLevel(), world) != 15
+                    || PneumaticNetwork.pressure(helper.getLevel(), helper.absolutePos(outlet)) <= 0
+                    || PneumaticNetwork.pressure(helper.getLevel(), helper.absolutePos(sidePipe)) != 0
+                    || PneumaticNetwork.collect(helper.getLevel(), world).contains(helper.absolutePos(sidePipe))) {
+                helper.fail("Compressor did not enforce DOWN REDSTONE -> UP PNEUMATIC physical isolation", compressor);
+                return;
+            }
+            if (!RedstoneEngineering.AIR_COMPRESSOR.get().canConnectRedstone(
+                    state, helper.getLevel(), world, Direction.UP)
+                    || RedstoneEngineering.AIR_COMPRESSOR.get().canConnectRedstone(
+                    state, helper.getLevel(), world, Direction.WEST)) {
+                helper.fail("Compressor vanilla-redstone connectivity did not match its DOWN command port", compressor);
+                return;
+            }
+            helper.setBlock(command, Blocks.AIR.defaultBlockState());
+            helper.setBlock(compressor.west(), Blocks.REDSTONE_BLOCK.defaultBlockState());
+            recompute(helper, compressor);
+            helper.runAfterDelay(2, () -> {
+                if (AirCompressorBlock.commandedPressure(helper.getLevel(), world) != 0
+                        || PneumaticNetwork.pressure(helper.getLevel(), helper.absolutePos(outlet)) != 0) {
+                    helper.fail("Side redstone incorrectly commanded the compressor after DOWN command was removed", compressor);
+                    return;
+                }
+                helper.succeed();
+            });
+        });
+    }
+
+    @PrefixGameTestTemplate(false)
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 60)
     public static void pneumaticPipeBreakRecomputesSeparatedIsland(GameTestHelper helper) {
         BlockPos source = new BlockPos(1, 1, 2);
-        BlockPos pipeA = new BlockPos(2, 1, 2);
-        BlockPos pipeB = new BlockPos(3, 1, 2);
+        BlockPos outlet = source.above();
+        BlockPos pipeA = new BlockPos(2, 2, 2);
+        BlockPos pipeB = new BlockPos(3, 2, 2);
         placePoweredCompressor(helper, source);
         helper.setBlock(pipeA, RedstoneEngineering.PNEUMATIC_PIPE.get().defaultBlockState());
         helper.setBlock(pipeB, RedstoneEngineering.PNEUMATIC_PIPE.get().defaultBlockState());
@@ -39,8 +93,9 @@ public final class RseNinthEightAcceptanceGameTests {
         helper.runAfterDelay(3, () -> {
             EngineeringPortProvider pipe = RedstoneEngineering.PNEUMATIC_PIPE.get();
             if (pipe.engineeringPorts(helper.getBlockState(pipeA)).size() != 6
+                    || PneumaticNetwork.pressure(helper.getLevel(), helper.absolutePos(outlet)) <= 0
                     || PneumaticNetwork.pressure(helper.getLevel(), helper.absolutePos(pipeB)) <= 0) {
-                helper.fail("Six-way pneumatic pipe did not propagate source pressure", pipeB);
+                helper.fail("Six-way pneumatic pipe did not propagate the compressor UP outlet", pipeB);
                 return;
             }
             helper.setBlock(pipeA, Blocks.AIR.defaultBlockState());
@@ -58,7 +113,7 @@ public final class RseNinthEightAcceptanceGameTests {
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 70)
     public static void airReservoirStoresAndClearsTransientPressure(GameTestHelper helper) {
         BlockPos source = new BlockPos(1, 1, 2);
-        BlockPos reservoir = new BlockPos(2, 1, 2);
+        BlockPos reservoir = new BlockPos(2, 2, 2);
         placePoweredCompressor(helper, source);
         helper.setBlock(reservoir, RedstoneEngineering.AIR_RESERVOIR.get().defaultBlockState());
         recompute(helper, source);
@@ -85,10 +140,38 @@ public final class RseNinthEightAcceptanceGameTests {
 
     @PrefixGameTestTemplate(false)
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 60)
+    public static void pressureRegulatorIsSixWayAndClampsSetpoint(GameTestHelper helper) {
+        BlockPos source = new BlockPos(1, 1, 2);
+        BlockPos regulator = new BlockPos(2, 2, 2);
+        BlockPos downstream = new BlockPos(3, 2, 2);
+        placePoweredCompressor(helper, source);
+        helper.setBlock(regulator, RedstoneEngineering.PRESSURE_REGULATOR.get().defaultBlockState()
+                .setValue(PressureRegulatorBlock.SETPOINT, 2));
+        helper.setBlock(downstream, RedstoneEngineering.PNEUMATIC_PIPE.get().defaultBlockState());
+        recompute(helper, source);
+
+        helper.runAfterDelay(3, () -> {
+            EngineeringPortProvider provider = RedstoneEngineering.PRESSURE_REGULATOR.get();
+            int regulated = PneumaticNetwork.pressure(helper.getLevel(), helper.absolutePos(regulator));
+            int after = PneumaticNetwork.pressure(helper.getLevel(), helper.absolutePos(downstream));
+            if (provider.engineeringPorts(helper.getBlockState(regulator)).size() != 6
+                    || provider.engineeringPorts(helper.getBlockState(regulator)).stream()
+                    .anyMatch(port -> port.domain() != EngineeringDomain.PNEUMATIC
+                            || port.direction() != PortDirection.BIDIRECTIONAL)
+                    || regulated != 50 || after != 49) {
+                helper.fail("Pressure regulator did not expose six pneumatic ports or clamp 50/100 setpoint", regulator);
+                return;
+            }
+            helper.succeed();
+        });
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 60)
     public static void pneumaticReceiverIsTerminalConverterNotBridge(GameTestHelper helper) {
         BlockPos source = new BlockPos(1, 1, 2);
-        BlockPos receiverPos = new BlockPos(2, 1, 2);
-        BlockPos frontPipe = new BlockPos(3, 1, 2);
+        BlockPos receiverPos = new BlockPos(2, 2, 2);
+        BlockPos frontPipe = new BlockPos(3, 2, 2);
         placePoweredCompressor(helper, source);
         helper.setBlock(receiverPos, RedstoneEngineering.PNEUMATIC_RECEIVER.get().defaultBlockState()
                 .setValue(DirectionalSignalBlock.FACING, Direction.EAST));
@@ -127,9 +210,9 @@ public final class RseNinthEightAcceptanceGameTests {
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 70)
     public static void manualValveUsesAxialPortsAndClosedStateSplitsFlow(GameTestHelper helper) {
         BlockPos source = new BlockPos(1, 1, 2);
-        BlockPos valvePos = new BlockPos(2, 1, 2);
-        BlockPos frontPipe = new BlockPos(3, 1, 2);
-        BlockPos sidePipe = new BlockPos(2, 1, 1);
+        BlockPos valvePos = new BlockPos(2, 2, 2);
+        BlockPos frontPipe = new BlockPos(3, 2, 2);
+        BlockPos sidePipe = new BlockPos(2, 2, 1);
         placePoweredCompressor(helper, source);
         helper.setBlock(valvePos, RedstoneEngineering.PNEUMATIC_VALVE.get().defaultBlockState()
                 .setValue(DirectionalDomainBlock.FACING, Direction.EAST));
@@ -163,33 +246,34 @@ public final class RseNinthEightAcceptanceGameTests {
     @PrefixGameTestTemplate(false)
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 80)
     public static void checkValveAllowsBackToFrontAndRejectsReverse(GameTestHelper helper) {
-        BlockPos back = new BlockPos(1, 1, 2);
-        BlockPos valve = new BlockPos(2, 1, 2);
-        BlockPos front = new BlockPos(3, 1, 2);
-        placePoweredCompressor(helper, back);
+        BlockPos leftCompressor = new BlockPos(1, 1, 2);
+        BlockPos backPipe = leftCompressor.above();
+        BlockPos valve = new BlockPos(2, 2, 2);
+        BlockPos frontPipe = new BlockPos(3, 2, 2);
+        placePoweredCompressor(helper, leftCompressor);
         helper.setBlock(valve, RedstoneEngineering.PNEUMATIC_CHECK_VALVE.get().defaultBlockState()
                 .setValue(DirectionalDomainBlock.FACING, Direction.EAST));
-        helper.setBlock(front, RedstoneEngineering.PNEUMATIC_PIPE.get().defaultBlockState());
-        recompute(helper, back);
+        helper.setBlock(frontPipe, RedstoneEngineering.PNEUMATIC_PIPE.get().defaultBlockState());
+        recompute(helper, leftCompressor);
 
         helper.runAfterDelay(3, () -> {
             EngineeringPortProvider provider = RedstoneEngineering.PNEUMATIC_CHECK_VALVE.get();
             BlockState state = helper.getBlockState(valve);
             if (provider.engineeringPort(state, Direction.WEST).orElseThrow().direction() != PortDirection.INPUT
                     || provider.engineeringPort(state, Direction.EAST).orElseThrow().direction() != PortDirection.OUTPUT
-                    || PneumaticNetwork.pressure(helper.getLevel(), helper.absolutePos(front)) <= 0) {
+                    || PneumaticNetwork.pressure(helper.getLevel(), helper.absolutePos(frontPipe)) <= 0) {
                 helper.fail("Check valve did not pass BACK -> FRONT pressure", valve);
                 return;
             }
 
-            helper.setBlock(back.above(), Blocks.AIR.defaultBlockState());
-            helper.setBlock(back, RedstoneEngineering.PNEUMATIC_PIPE.get().defaultBlockState());
-            helper.setBlock(front, RedstoneEngineering.AIR_COMPRESSOR.get().defaultBlockState());
-            helper.setBlock(front.above(), Blocks.REDSTONE_BLOCK.defaultBlockState());
-            recompute(helper, front);
+            helper.setBlock(leftCompressor.below(), Blocks.AIR.defaultBlockState());
+            helper.setBlock(leftCompressor, Blocks.AIR.defaultBlockState());
+            BlockPos reverseCompressor = new BlockPos(3, 1, 2);
+            placePoweredCompressor(helper, reverseCompressor);
+            recompute(helper, reverseCompressor);
             helper.runAfterDelay(3, () -> {
-                if (PneumaticNetwork.pressure(helper.getLevel(), helper.absolutePos(back)) != 0) {
-                    helper.fail("Check valve leaked FRONT -> BACK reverse pressure", back);
+                if (PneumaticNetwork.pressure(helper.getLevel(), helper.absolutePos(backPipe)) != 0) {
+                    helper.fail("Check valve leaked FRONT -> BACK reverse pressure", backPipe);
                     return;
                 }
                 helper.succeed();
@@ -201,9 +285,9 @@ public final class RseNinthEightAcceptanceGameTests {
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 70)
     public static void flowMeterReportsDirectionalDropAndClearsRuntime(GameTestHelper helper) {
         BlockPos source = new BlockPos(1, 1, 2);
-        BlockPos meter = new BlockPos(2, 1, 2);
-        BlockPos frontPipe = new BlockPos(3, 1, 2);
-        BlockPos sidePipe = new BlockPos(2, 1, 1);
+        BlockPos meter = new BlockPos(2, 2, 2);
+        BlockPos frontPipe = new BlockPos(3, 2, 2);
+        BlockPos sidePipe = new BlockPos(2, 2, 1);
         placePoweredCompressor(helper, source);
         helper.setBlock(meter, RedstoneEngineering.PNEUMATIC_FLOW_METER.get().defaultBlockState()
                 .setValue(DirectionalDomainBlock.FACING, Direction.EAST));
@@ -233,93 +317,10 @@ public final class RseNinthEightAcceptanceGameTests {
         });
     }
 
-    @PrefixGameTestTemplate(false)
-    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 70)
-    public static void proportionalValveUsesUpCommandAndAxialPneumaticPorts(GameTestHelper helper) {
-        BlockPos source = new BlockPos(1, 1, 2);
-        BlockPos valve = new BlockPos(2, 1, 2);
-        BlockPos frontPipe = new BlockPos(3, 1, 2);
-        BlockPos sidePipe = new BlockPos(2, 1, 1);
-        placePoweredCompressor(helper, source);
-        helper.setBlock(valve, RedstoneEngineering.PNEUMATIC_PROPORTIONAL_VALVE.get().defaultBlockState()
-                .setValue(DirectionalDomainBlock.FACING, Direction.EAST));
-        helper.setBlock(valve.above(), Blocks.REDSTONE_BLOCK.defaultBlockState());
-        helper.setBlock(frontPipe, RedstoneEngineering.PNEUMATIC_PIPE.get().defaultBlockState());
-        helper.setBlock(sidePipe, RedstoneEngineering.PNEUMATIC_PIPE.get().defaultBlockState());
-        recompute(helper, source);
-
-        helper.runAfterDelay(3, () -> {
-            EngineeringPortProvider provider = RedstoneEngineering.PNEUMATIC_PROPORTIONAL_VALVE.get();
-            BlockState state = helper.getBlockState(valve);
-            var command = provider.engineeringPort(state, Direction.UP).orElse(null);
-            if (provider.engineeringPorts(state).size() != 3
-                    || command == null || command.domain() != EngineeringDomain.REDSTONE
-                    || command.direction() != PortDirection.INPUT
-                    || PneumaticNetwork.pressure(helper.getLevel(), helper.absolutePos(frontPipe)) <= 0
-                    || PneumaticNetwork.pressure(helper.getLevel(), helper.absolutePos(sidePipe)) != 0) {
-                helper.fail("Proportional valve did not enforce UP command + BACK -> FRONT pneumatic topology", valve);
-                return;
-            }
-            helper.setBlock(valve.above(), Blocks.AIR.defaultBlockState());
-            recompute(helper, source);
-            helper.runAfterDelay(3, () -> {
-                if (PneumaticNetwork.pressure(helper.getLevel(), helper.absolutePos(frontPipe)) != 0) {
-                    helper.fail("Zero opening command did not isolate proportional-valve outlet", frontPipe);
-                    return;
-                }
-                helper.succeed();
-            });
-        });
-    }
-
-    @PrefixGameTestTemplate(false)
-    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 90)
-    public static void reliefValveClampsAndCountsVentEdges(GameTestHelper helper) {
-        BlockPos source = new BlockPos(1, 1, 2);
-        BlockPos relief = new BlockPos(2, 1, 2);
-        BlockPos frontPipe = new BlockPos(3, 1, 2);
-        BlockPos sidePipe = new BlockPos(2, 1, 1);
-        placePoweredCompressor(helper, source);
-        helper.setBlock(relief, RedstoneEngineering.PNEUMATIC_RELIEF_VALVE.get().defaultBlockState()
-                .setValue(DirectionalDomainBlock.FACING, Direction.EAST));
-        helper.setBlock(frontPipe, RedstoneEngineering.PNEUMATIC_PIPE.get().defaultBlockState());
-        helper.setBlock(sidePipe, RedstoneEngineering.PNEUMATIC_PIPE.get().defaultBlockState());
-        recompute(helper, source);
-
-        helper.runAfterDelay(3, () -> {
-            BlockPos world = helper.absolutePos(relief);
-            int downstream = PneumaticNetwork.pressure(helper.getLevel(), helper.absolutePos(frontPipe));
-            if (downstream <= 0 || downstream > 74
-                    || PneumaticNetwork.pressure(helper.getLevel(), helper.absolutePos(sidePipe)) != 0
-                    || PneumaticReliefValveBlock.ventEvents(helper.getLevel(), world) != 1) {
-                helper.fail("Relief valve did not clamp 75/100 setpoint or count the first vent edge", relief);
-                return;
-            }
-            recompute(helper, source);
-            recompute(helper, source);
-            if (PneumaticReliefValveBlock.ventEvents(helper.getLevel(), world) != 1) {
-                helper.fail("Sustained overpressure inflated relief vent event count", relief);
-                return;
-            }
-            helper.setBlock(source.above(), Blocks.AIR.defaultBlockState());
-            recompute(helper, source);
-            helper.runAfterDelay(2, () -> {
-                helper.setBlock(source.above(), Blocks.REDSTONE_BLOCK.defaultBlockState());
-                recompute(helper, source);
-                helper.runAfterDelay(2, () -> {
-                    if (PneumaticReliefValveBlock.ventEvents(helper.getLevel(), world) != 2) {
-                        helper.fail("Relief valve did not re-arm its vent edge after pressure returned below setpoint", relief);
-                        return;
-                    }
-                    helper.succeed();
-                });
-            });
-        });
-    }
-
     private static void placePoweredCompressor(GameTestHelper helper, BlockPos pos) {
         helper.setBlock(pos, RedstoneEngineering.AIR_COMPRESSOR.get().defaultBlockState());
-        helper.setBlock(pos.above(), Blocks.REDSTONE_BLOCK.defaultBlockState());
+        helper.setBlock(pos.below(), Blocks.REDSTONE_BLOCK.defaultBlockState());
+        helper.setBlock(pos.above(), RedstoneEngineering.PNEUMATIC_PIPE.get().defaultBlockState());
     }
 
     private static void recompute(GameTestHelper helper, BlockPos relativePos) {
