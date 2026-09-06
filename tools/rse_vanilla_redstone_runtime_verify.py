@@ -70,6 +70,7 @@ for needle in (
     "uniqueSourcePositions",
     "hotspotEventCount",
     "NeighborNotifyEvent observations=0",
+    "RUNTIME |",
 ):
     need(report, needle, "VanillaRedstoneRuntimeReport.java")
 
@@ -90,7 +91,7 @@ for needle in (
     "inspectVanillaRuntime",
     "vanillaDiagnosticSummary",
     "VanillaRedstoneRuntimeTelemetry.inspect",
-    "RUNTIME |",
+    "runtime.summary()",
 ):
     need(debugger, needle, "TopologyDebuggerBlock.java")
 
