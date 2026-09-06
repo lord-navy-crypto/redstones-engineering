@@ -34,7 +34,7 @@ for token in (
     "SystemEventKind.ELECTRICAL_READY",
     '"COPPER_FUSE_READY"',
     "current > state.getValue(RATING)",
-    "READY is emitted only after a safe server re-evaluation",
+    "READY only after a safe server re-evaluation",
 ):
     if fuse and token not in fuse:
         errors.append(f"CopperFuseBlock missing protection/event contract {token!r}")
