@@ -97,54 +97,51 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
     }
 
     private void renderHistory(GuiGraphics graphics) {
+        int x = 38;
+        int y = 82;
+        int width = 260;
+        int height = 84;
+        int inset = 3;
+        int samples = OscilloscopeBlockEntity.DISPLAY_SAMPLES;
+
         graphics.drawString(font, "0", 17, 165, MUTED, false);
         graphics.drawString(font, "15", 12, 85, MUTED, false);
-        fullTrace(graphics, 0, 38, 82, 260, 84, INFO);
-        fullTrace(graphics, 1, 38, 82, 260, 84, GOOD);
-        drawCursor(graphics, menu.cursorA(), 38, 82, 260, 84, WARN);
-        drawCursor(graphics, menu.cursorB(), 38, 82, 260, 84, 0xFFE879F9);
-        graphics.drawString(font, "A/B traces share the 0..15 vertical scale • 16 most recent samples", 16, 173, MUTED, false);
-        graphics.drawString(font, "Cursor Δ=" + Math.abs(menu.cursorB() - menu.cursorA()) + " samples", 16, 187, TEXT, false);
+        EngineeringPlot.analogFrame(graphics, x, y, width, height);
+        EngineeringPlot.horizontalMarker(graphics, menu.triggerLevel(), 0, 15,
+                x + inset, y + inset, width - inset * 2, height - inset * 2, WARN);
+        plotChannel(graphics, 0, x + inset, y + inset, width - inset * 2, height - inset * 2, INFO);
+        plotChannel(graphics, 1, x + inset, y + inset, width - inset * 2, height - inset * 2, GOOD);
+        EngineeringPlot.verticalMarker(graphics, menu.cursorA(), samples, x, y, width, height, WARN);
+        EngineeringPlot.verticalMarker(graphics, menu.cursorB(), samples, x, y, width, height, 0xFFE879F9);
+
+        graphics.drawString(font, "A", 269, 86, INFO, false);
+        graphics.drawString(font, "B", 280, 86, GOOD, false);
+        graphics.drawString(font, "T", 291, 86, WARN, false);
+        graphics.drawString(font, "A/B traces • T=trigger level • synchronized 0..15 samples", 16, 173, MUTED, false);
+        graphics.drawString(font,
+                "Cursor Δ=" + Math.abs(menu.cursorB() - menu.cursorA()) + " samples / "
+                        + Math.abs(menu.cursorB() - menu.cursorA()) * OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS + "t",
+                16, 187, TEXT, false);
     }
 
     private void miniTrace(GuiGraphics graphics, int channel, int x, int y, int width, int height, int color) {
-        graphics.fill(x, y, x + width, y + height, 0xFF10141A);
-        plot(graphics, channel, x + 2, y + 2, width - 4, height - 4, color);
+        EngineeringPlot.analogFrame(graphics, x, y, width, height);
+        plotChannel(graphics, channel, x + 2, y + 2, width - 4, height - 4, color);
     }
 
-    private void fullTrace(GuiGraphics graphics, int channel, int x, int y, int width, int height, int color) {
-        graphics.fill(x, y, x + width, y + height, 0xFF10141A);
-        graphics.fill(x, y + height / 2, x + width, y + height / 2 + 1, 0xFF2C3642);
-        plot(graphics, channel, x + 3, y + 3, width - 6, height - 6, color);
-    }
-
-    private void plot(GuiGraphics graphics, int channel, int x, int y, int width, int height, int color) {
-        int previousX = -1;
-        int previousY = -1;
-        for (int slot = 0; slot < OscilloscopeBlockEntity.DISPLAY_SAMPLES; slot++) {
-            int sample = menu.displaySample(channel, slot);
-            if (sample < 0) {
-                previousX = -1;
-                previousY = -1;
-                continue;
-            }
-            int px = x + Math.round(slot * width / 15.0f);
-            int py = y + height - Math.round(sample * height / 15.0f);
-            if (previousX >= 0) {
-                int x1 = Math.min(previousX, px);
-                int x2 = Math.max(previousX, px);
-                graphics.fill(x1, previousY, x2 + 1, previousY + 1, color);
-                graphics.fill(px, Math.min(previousY, py), px + 1, Math.max(previousY, py) + 1, color);
-            }
-            graphics.fill(px - 1, py - 1, px + 2, py + 2, color);
-            previousX = px;
-            previousY = py;
-        }
-    }
-
-    private void drawCursor(GuiGraphics graphics, int slot, int x, int y, int width, int height, int color) {
-        int px = x + Math.round(slot * width / 15.0f);
-        graphics.fill(px, y, px + 1, y + height, color);
+    private void plotChannel(GuiGraphics graphics, int channel, int x, int y, int width, int height, int color) {
+        EngineeringPlot.analogTrace(
+                graphics,
+                OscilloscopeBlockEntity.DISPLAY_SAMPLES,
+                slot -> menu.displaySample(channel, slot),
+                0,
+                15,
+                x,
+                y,
+                width,
+                height,
+                color
+        );
     }
 
     private String triggerText() {

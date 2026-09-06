@@ -47,7 +47,8 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
         labelValue(graphics, "Calibration", signed(menu.calibrationOffset()), 131);
         labelValue(graphics, "World output", menu.mode() == SignalAnalyzerBlock.INLINE ? menu.output() + " / 15 RAW" : "DISCONNECTED", 146);
         graphics.drawString(font, "ROLLING WINDOW", 16, 164, MUTED, false);
-        analogTrace(graphics, 98, 160, 200, 22, INFO);
+        EngineeringPlot.analogFrame(graphics, 98, 160, 200, 22);
+        plotTrace(graphics, 100, 162, 196, 18, INFO);
         graphics.drawString(font, "avg=" + decimal100(menu.average100()) + "  p2p=" + menu.peakToPeak(), 16, 187, TEXT, false);
     }
 
@@ -86,40 +87,44 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
     }
 
     private void renderHistory(GuiGraphics graphics) {
+        int x = 38;
+        int y = 82;
+        int width = 260;
+        int height = 84;
+
         graphics.drawString(font, "15", 13, 84, MUTED, false);
         graphics.drawString(font, "0", 18, 162, MUTED, false);
-        graphics.fill(38, 82, 298, 166, 0xFF10141A);
-        analogTrace(graphics, 42, 86, 250, 76, INFO);
+        EngineeringPlot.analogFrame(graphics, x, y, width, height);
+        plotTrace(graphics, x + 4, y + 4, width - 8, height - 8, INFO);
+        if (menu.windowCount() > 0) {
+            int meanRounded = Math.max(0, Math.min(15, Math.round(menu.average100() / 100.0f)));
+            EngineeringPlot.horizontalMarker(graphics, meanRounded, 0, 15,
+                    x + 4, y + 4, width - 8, height - 8, GOOD);
+            graphics.drawString(font, "μ", 287, 86, GOOD, false);
+        }
         graphics.drawString(font,
                 "window=" + menu.windowCount() + "/16  avg=" + decimal100(menu.average100())
                         + "  p2p=" + menu.peakToPeak() + "  meanStep=" + decimal100(menu.meanStep100()),
                 16, 175, TEXT, false);
         graphics.drawString(font,
                 "samples=" + menu.totalSamples() + "  mode switches=" + menu.modeSwitches()
-                        + "  calibration switches=" + menu.calibrationSwitches(),
+                        + "  calibration switches=" + menu.calibrationSwitches() + "  μ=rounded mean",
                 16, 188, MUTED, false);
     }
 
-    private void analogTrace(GuiGraphics graphics, int x, int y, int width, int height, int color) {
-        int previousX = -1;
-        int previousY = -1;
-        for (int slot = 0; slot < SignalAnalyzerBlock.DISPLAY_SAMPLES; slot++) {
-            int sample = menu.sample(slot);
-            if (sample < 0) {
-                previousX = -1;
-                previousY = -1;
-                continue;
-            }
-            int px = x + Math.round(slot * width / 15.0f);
-            int py = y + height - Math.round(sample * height / 15.0f);
-            if (previousX >= 0) {
-                graphics.fill(Math.min(previousX, px), previousY, Math.max(previousX, px) + 1, previousY + 1, color);
-                graphics.fill(px, Math.min(previousY, py), px + 1, Math.max(previousY, py) + 1, color);
-            }
-            graphics.fill(px - 1, py - 1, px + 2, py + 2, color);
-            previousX = px;
-            previousY = py;
-        }
+    private void plotTrace(GuiGraphics graphics, int x, int y, int width, int height, int color) {
+        EngineeringPlot.analogTrace(
+                graphics,
+                SignalAnalyzerBlock.DISPLAY_SAMPLES,
+                menu::sample,
+                0,
+                15,
+                x,
+                y,
+                width,
+                height,
+                color
+        );
     }
 
     private String modeName() {

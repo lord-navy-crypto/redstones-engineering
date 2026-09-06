@@ -55,9 +55,19 @@ public final class LogicAnalyzerScreen extends EngineeringScreen<LogicAnalyzerMe
         labelValue(graphics, "Trigger", "CH " + channelName(menu.triggerChannel()) + " " + edgeName(menu.triggerEdge()), 114);
         labelValue(graphics, "Capture", menu.sampleCount() + "/32 samples", 129);
         for (int channel = 0; channel < 4; channel++) {
-            int y = 148 + channel * 11;
-            graphics.drawString(font, channelName(channel), 16, y, channelColor(channel), false);
-            digitalTrace(graphics, channel, 38, y - 1, 260, 9, channelColor(channel));
+            int lane = channel;
+            int y = 148 + lane * 11;
+            graphics.drawString(font, channelName(lane), 16, y, channelColor(lane), false);
+            EngineeringPlot.digitalTrace(
+                    graphics,
+                    LogicAnalyzerBlockEntity.DISPLAY_SAMPLES,
+                    slot -> menu.displayState(lane, slot),
+                    38,
+                    y - 1,
+                    260,
+                    9,
+                    channelColor(lane)
+            );
         }
     }
 
@@ -95,44 +105,37 @@ public final class LogicAnalyzerScreen extends EngineeringScreen<LogicAnalyzerMe
     }
 
     private void renderHistory(GuiGraphics graphics) {
-        graphics.fill(38, 80, 298, 166, 0xFF10141A);
+        int x = 38;
+        int y = 80;
+        int width = 260;
+        int height = 86;
+        int samples = LogicAnalyzerBlockEntity.DISPLAY_SAMPLES;
+
+        EngineeringPlot.analogFrame(graphics, x, y, width, height);
         for (int channel = 0; channel < 4; channel++) {
-            int y = 88 + channel * 19;
-            graphics.drawString(font, channelName(channel), 16, y, channelColor(channel), false);
-            digitalTrace(graphics, channel, 42, y, 250, 12, channelColor(channel));
+            int lane = channel;
+            int laneY = 88 + lane * 19;
+            graphics.drawString(font, channelName(lane), 16, laneY, channelColor(lane), false);
+            EngineeringPlot.digitalTrace(
+                    graphics,
+                    samples,
+                    slot -> menu.displayState(lane, slot),
+                    42,
+                    laneY,
+                    250,
+                    12,
+                    channelColor(lane)
+            );
         }
-        drawCursor(graphics, menu.cursorA(), 42, 80, 250, 86, WARN);
-        drawCursor(graphics, menu.cursorB(), 42, 80, 250, 86, 0xFFE879F9);
-        graphics.drawString(font, "HIGH/LOW timing • '·' equivalent slots are invalid/missing probes", 16, 175, MUTED, false);
-        graphics.drawString(font, "Cursor Δ=" + Math.abs(menu.cursorB() - menu.cursorA()) + "t", 16, 188, TEXT, false);
-    }
-
-    private void digitalTrace(GuiGraphics graphics, int channel, int x, int y, int width, int height, int color) {
-        int previousX = -1;
-        int previousY = -1;
-        for (int slot = 0; slot < LogicAnalyzerBlockEntity.DISPLAY_SAMPLES; slot++) {
-            int state = menu.displayState(channel, slot);
-            int px = x + Math.round(slot * width / 15.0f);
-            if (state < 0) {
-                graphics.fill(px - 1, y + height / 2, px + 2, y + height / 2 + 2, MUTED);
-                previousX = -1;
-                previousY = -1;
-                continue;
-            }
-            int py = state == 1 ? y : y + height;
-            if (previousX >= 0) {
-                graphics.fill(Math.min(previousX, px), previousY, Math.max(previousX, px) + 1, previousY + 1, color);
-                graphics.fill(px, Math.min(previousY, py), px + 1, Math.max(previousY, py) + 1, color);
-            }
-            graphics.fill(px - 1, py - 1, px + 2, py + 2, color);
-            previousX = px;
-            previousY = py;
-        }
-    }
-
-    private void drawCursor(GuiGraphics graphics, int slot, int x, int y, int width, int height, int color) {
-        int px = x + Math.round(slot * width / 15.0f);
-        graphics.fill(px, y, px + 1, y + height, color);
+        EngineeringPlot.verticalMarker(graphics, menu.cursorA(), samples, 42, y, 250, height, WARN);
+        EngineeringPlot.verticalMarker(graphics, menu.cursorB(), samples, 42, y, 250, height, 0xFFE879F9);
+        graphics.drawString(font, "A", 271, 82, WARN, false);
+        graphics.drawString(font, "B", 282, 82, 0xFFE879F9, false);
+        graphics.drawString(font, "HIGH/LOW timing • gaps mark invalid or missing probe samples", 16, 175, MUTED, false);
+        graphics.drawString(font,
+                "Cursor Δ=" + Math.abs(menu.cursorB() - menu.cursorA()) + " samples / "
+                        + Math.abs(menu.cursorB() - menu.cursorA()) * LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS + "t",
+                16, 188, TEXT, false);
     }
 
     private String captureState() {
