@@ -10,6 +10,7 @@ import dev.redstoneengineering.block.SignalAnalyzerBlock;
 import dev.redstoneengineering.block.SignalConditionerBlock;
 import dev.redstoneengineering.blockentity.LogicAnalyzerBlockEntity;
 import dev.redstoneengineering.blockentity.OscilloscopeBlockEntity;
+import dev.redstoneengineering.diagnostics.PidTelemetryStore;
 import dev.redstoneengineering.ui.menu.LogicAnalyzerMenu;
 import dev.redstoneengineering.ui.menu.OscilloscopeMenu;
 import dev.redstoneengineering.ui.menu.PidControllerMenu;
@@ -19,8 +20,11 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+
+import java.util.List;
 
 /**
  * Runtime guards for server-authoritative actions exposed through Engineering UI.
@@ -118,6 +122,64 @@ public final class RseEngineeringUiGameTests {
             return;
         }
         helper.succeed();
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 80)
+    public static void pidTrendTelemetryIsServerOwnedAndBounded(GameTestHelper helper) {
+        BlockPos pidPos = new BlockPos(2, 1, 2);
+        BlockPos worldPos = helper.absolutePos(pidPos);
+        helper.setBlock(pidPos, RedstoneEngineering.PID_CONTROLLER.get()
+                .defaultBlockState()
+                .setValue(DirectionalSignalBlock.FACING, Direction.NORTH));
+
+        helper.runAfterDelay(6, () -> {
+            List<Integer> natural = PidTelemetryStore.snapshot(helper.getLevel(), worldPos);
+            if (natural.isEmpty()) {
+                helper.fail("Scheduled PID control ticks did not emit authoritative trend telemetry", pidPos);
+                return;
+            }
+
+            for (int i = 0; i < 40; i++) {
+                PidTelemetryStore.record(helper.getLevel(), worldPos, i, i + 1, i + 2);
+            }
+            List<Integer> bounded = PidTelemetryStore.snapshot(helper.getLevel(), worldPos);
+            if (bounded.size() != PidTelemetryStore.MAX_SAMPLES_PER_CONTROLLER) {
+                helper.fail("PID trend telemetry did not retain exactly the bounded 32-sample tail", pidPos);
+                return;
+            }
+            int latest = bounded.get(bounded.size() - 1);
+            if (PidTelemetryStore.setpoint(latest) != 7
+                    || PidTelemetryStore.processValue(latest) != 8
+                    || PidTelemetryStore.controlOutput(latest) != 9) {
+                helper.fail("PID packed trend sample did not preserve clamped SP/PV/OUT channels", pidPos);
+                return;
+            }
+            helper.succeed();
+        });
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 60)
+    public static void pidTrendTelemetryClearsWithControllerLifecycle(GameTestHelper helper) {
+        BlockPos pidPos = new BlockPos(2, 1, 2);
+        BlockPos worldPos = helper.absolutePos(pidPos);
+        helper.setBlock(pidPos, RedstoneEngineering.PID_CONTROLLER.get()
+                .defaultBlockState()
+                .setValue(DirectionalSignalBlock.FACING, Direction.NORTH));
+
+        helper.runAfterDelay(6, () -> {
+            if (PidTelemetryStore.snapshot(helper.getLevel(), worldPos).isEmpty()) {
+                helper.fail("PID trend telemetry was not populated before lifecycle cleanup test", pidPos);
+                return;
+            }
+            helper.setBlock(pidPos, Blocks.AIR);
+            if (!PidTelemetryStore.snapshot(helper.getLevel(), worldPos).isEmpty()) {
+                helper.fail("Removing PID controller left ghost trend telemetry behind", pidPos);
+                return;
+            }
+            helper.succeed();
+        });
     }
 
     @PrefixGameTestTemplate(false)
