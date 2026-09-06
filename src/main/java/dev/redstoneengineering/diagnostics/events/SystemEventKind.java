@@ -7,6 +7,8 @@ public enum SystemEventKind {
     ALARM_CLEARED(false),
     INTERLOCK_TRIPPED(true),
     INTERLOCK_READY(false),
+    ELECTRICAL_TRIP(true),
+    ELECTRICAL_READY(false),
     SEQUENCE_STARTED(false),
     SEQUENCE_STEP(false),
     SEQUENCE_COMPLETED(false),
