@@ -53,6 +53,11 @@ need(
     'EngineeringChartRenderer.drawWaveform','EngineeringChartRenderer.drawLimitHitMarkers',
     'ERROR (SP − PV)','menu.telemetryGameTime','steadyStateError'
 )
+need(
+    Path('src/main/java/dev/redstoneengineering/gametest/RseEngineeringUiGameTests.java'),
+    'PidTelemetryHistory.captureSample','telemetry.count() != 24','telemetry.timeSpanTicks() != 805',
+    'telemetry.meanAbsError100() != 400','telemetry.recentAbsError100() != 420'
+)
 need(Path('src/main/java/dev/redstoneengineering/block/ServoActuatorBlock.java'),'trajectory diagnostics','settle=','travel=')
 need(Path('src/main/java/dev/redstoneengineering/physics/SerialNetwork.java'),'serial_diag','utilization')
 need(Path('src/main/java/dev/redstoneengineering/physics/DataBusNetwork.java'),'bus8_diag','interarrival')
@@ -76,6 +81,7 @@ print('  instrumentation triggers/cursors: PASS')
 print('  authoritative logic gameTime + digital timing visualization: PASS')
 print('  PID process-response metrics + anti-windup implementation: PASS')
 print('  PID authoritative SP/PV/OUT/error multi-trend telemetry: PASS')
+print('  deterministic bounded PID telemetry evidence: PASS')
 print('  servo trajectory diagnostics: PASS')
 print('  serial/bus diagnostics: PASS')
 print('  radio interference/latency model: PASS')
