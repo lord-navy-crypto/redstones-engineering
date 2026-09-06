@@ -1,6 +1,7 @@
 package dev.redstoneengineering;
 
 import dev.redstoneengineering.diagnostics.redstone.VanillaRedstoneRuntimeTelemetry;
+import dev.redstoneengineering.diagnostics.redstone.VanillaRedstoneTargetHistory;
 import dev.redstoneengineering.gametest.RseVanillaRedstoneBehaviorGameTests;
 import dev.redstoneengineering.gametest.RseVanillaRedstoneRuntimeGameTests;
 import dev.redstoneengineering.gametest.RseVanillaRedstoneTimingGameTests;
@@ -14,6 +15,7 @@ import net.neoforged.neoforge.event.RegisterGameTestsEvent;
 public final class VanillaRedstoneRuntimeRegistration {
     public VanillaRedstoneRuntimeRegistration(IEventBus modBus) {
         NeoForge.EVENT_BUS.addListener(VanillaRedstoneRuntimeTelemetry::onNeighborNotify);
+        NeoForge.EVENT_BUS.addListener(VanillaRedstoneTargetHistory::onNeighborNotify);
         modBus.addListener(VanillaRedstoneRuntimeRegistration::registerGameTests);
     }
 
