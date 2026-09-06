@@ -66,17 +66,46 @@ Phase 2 therefore preserves the Phase-1 behavior boundary:
 
 ## Phase 3 — Timing and Order Analysis
 
-Build on runtime evidence to explain:
+Phase 3 builds on the Phase-2 event ring and adds bounded **timing evidence** without pretending that an event listener can see Minecraft internals that it does not expose.
 
-- configured repeater timing;
-- observed signal transition timing;
-- pulse-width issues;
-- likely order-sensitive circuits;
-- observer feedback;
-- QC-dependent activation evidence;
-- chunk-boundary or unloaded-boundary diagnostic uncertainty.
+The timing report uses **server game ticks** (`ServerLevel.getGameTime()`) as its only timebase. It can therefore measure and report:
 
-The tool must report evidence and confidence rather than claim a causal sequence that has not been observed.
+- first and last observed event game ticks within the bounded query window;
+- active tick span occupied by the observations;
+- minimum and maximum inter-observation spacing in game ticks;
+- minimum and maximum spacing between separately observed state transitions;
+- the number of same-tick observation pairs;
+- same-tick pairs originating from distinct source positions;
+- the monotonic listener observation-sequence range represented by the report.
+
+Every retained event receives a monotonically increasing observer sequence number when RSE receives it. This sequence is useful for repeatable diagnostics and for detecting that two events were observed in a stable order within the same server tick. Its semantics are deliberately labeled:
+
+`ORDER=OBSERVED_EVENT_ORDER_ONLY`
+
+That label means the sequence is the order in which the RSE listener received events. It is **not causal update order**, not scheduler priority, not redstone solver order, and **not sub-tick time**. Phase 3 uses no wall-clock nanosecond timestamps because that would create false precision for server simulation ordering.
+
+Configured timing and observed timing also remain separate. For example, a repeater configured to three redstone ticks contributes **6 game ticks** of configured delay evidence in the structural profile; an observed transition spacing of six game ticks is runtime evidence. The debugger may present both, but it does not claim causal equivalence unless a stronger future experiment establishes it.
+
+The Topology Debugger now combines three evidence layers for vanilla targets:
+
+1. bounded structural profile;
+2. bounded NeighborNotifyEvent runtime profile;
+3. bounded timing/order report.
+
+Phase 3 also adds region-scoped observer-cache reset for GameTest isolation. Clearing RSE telemetry only clears diagnostic memory; it never changes world blocks, scheduled ticks, redstone power, or vanilla behavior.
+
+Current Phase-3 boundaries therefore remain strict:
+
+- no vanilla-redstone mixin;
+- no replacement solver;
+- no event cancellation;
+- no telemetry-owned BlockState mutation or neighbor update;
+- no wall-clock timing used as simulation timing;
+- no claim that listener order is causal Minecraft update order;
+- no claim of sub-tick timing precision;
+- bounded radius/window/history remain inherited from Phase 2.
+
+This foundation is intentionally narrower than the complete Phase-3 roadmap. Pulse-width classification, observer-feedback classification, QC activation correlation, and confidence-scored order-sensitive-circuit diagnosis should be layered on top of these measured primitives instead of guessed from static topology alone.
 
 ## Phase 4 — Reliability and Optimization Guidance
 
@@ -114,6 +143,7 @@ VRE does not replace the RSE EngineeringPort system. The views are complementary
 Vanilla redstone target
         -> bounded structural VRE diagnostics
         -> bounded runtime NeighborNotifyEvent telemetry
+        -> bounded game-tick timing / listener-order evidence
 
 RSE engineering device
         -> EngineeringTopologyView / EngineeringPort diagnostics
