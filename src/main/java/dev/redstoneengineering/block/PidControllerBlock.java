@@ -10,6 +10,7 @@ import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.diagnostics.ClosedLoopCommissioning;
 import dev.redstoneengineering.diagnostics.CommissioningSnapshot;
+import dev.redstoneengineering.diagnostics.PidTelemetryHistory;
 import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceComparison;
 import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceRecord;
 import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceStore;
@@ -254,6 +255,7 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (state.getBlock() != newState.getBlock()) {
             RuntimeIntStore.remove(level, KEY, pos);
+            PidTelemetryHistory.clear(level, pos);
             AcceptanceEvidenceStore.clear(level, pos);
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
@@ -262,6 +264,7 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
     @Override
     protected void tick(BlockState s, ServerLevel l, BlockPos p, RandomSource r) {
         updateOutput(l, p, s, outputValue(l, p, s));
+        PidTelemetryHistory.capture(l, p, ClosedLoopCommissioning.inspectPid(l, p), l.getGameTime());
         l.scheduleTick(p, this, 2);
     }
 
@@ -290,6 +293,7 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
                 captureAcceptanceEvidence(s, l, p, pl);
             } else if (pl.isShiftKeyDown()) {
                 RuntimeIntStore.remove(l, KEY, p);
+                PidTelemetryHistory.clear(l, p);
                 updateOutput(l, p, s, 0);
                 pl.displayClientMessage(Component.literal(
                         "PID runtime reset | Shift+FRONT captures acceptance evidence"), true);
