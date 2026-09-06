@@ -9,6 +9,10 @@ import net.minecraft.world.entity.player.Inventory;
 
 /** Level-2 engineering workbench for PID commissioning and tuning-preset selection. */
 public final class PidControllerScreen extends EngineeringScreen<PidControllerMenu> {
+    private static final int SP_COLOR = WARN;
+    private static final int PV_COLOR = GOOD;
+    private static final int OUT_COLOR = INFO;
+
     public PidControllerScreen(PidControllerMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
     }
@@ -76,14 +80,34 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
     }
 
     private void renderHistory(GuiGraphics graphics) {
-        statusBadge(graphics, "EVIDENCE " + menu.historyCount() + " / 8", menu.historyCount() >= 8 ? WARN : INFO, 16, 82);
-        graphics.drawString(font, "Shift + FRONT", 16, 107, TEXT, false);
-        graphics.drawString(font, "Capture the current authoritative acceptance evidence.", 112, 107, INFO, false);
-        graphics.drawString(font, "Shift + other face", 16, 126, TEXT, false);
-        graphics.drawString(font, "Reset transient PID runtime state.", 112, 126, WARN, false);
-        sectionRule(graphics, 146);
-        graphics.drawString(font, "History is bounded to 8 runs and remains transient in Alpha 1.0.20.", 16, 157, MUTED, false);
-        graphics.drawString(font, "Use captured runs to compare commissioning results, not to drive physics.", 16, 174, MUTED, false);
+        int x = 38;
+        int y = 80;
+        int width = 260;
+        int height = 64;
+
+        EngineeringPlot.analogFrame(graphics, x, y, width, height);
+        EngineeringPlot.analogTrace(
+                graphics, PidControllerMenu.TREND_SAMPLES, menu::trendSetpoint,
+                0, 15, x, y, width, height, SP_COLOR);
+        EngineeringPlot.analogTrace(
+                graphics, PidControllerMenu.TREND_SAMPLES, menu::trendProcessValue,
+                0, 15, x, y, width, height, PV_COLOR);
+        EngineeringPlot.analogTrace(
+                graphics, PidControllerMenu.TREND_SAMPLES, menu::trendControlOutput,
+                0, 15, x, y, width, height, OUT_COLOR);
+
+        graphics.drawString(font, "15", 18, y - 3, MUTED, false);
+        graphics.drawString(font, "0", 24, y + height - 4, MUTED, false);
+        graphics.drawString(font, "SP", 45, 150, SP_COLOR, false);
+        graphics.drawString(font, "PV", 74, 150, PV_COLOR, false);
+        graphics.drawString(font, "OUT", 103, 150, OUT_COLOR, false);
+        graphics.drawString(font, "newest →", 240, 150, MUTED, false);
+        graphics.drawString(font,
+                menu.trendCount() + "/32 authoritative samples • 2t/sample • transient",
+                16, 163, MUTED, false);
+
+        statusBadge(graphics, "EVIDENCE " + menu.historyCount() + " / 8", menu.historyCount() >= 8 ? WARN : INFO, 16, 177);
+        graphics.drawString(font, "Shift+FRONT capture • Shift+other face resets runtime + trend", 112, 180, TEXT, false);
     }
 
     private String operatingState() {
