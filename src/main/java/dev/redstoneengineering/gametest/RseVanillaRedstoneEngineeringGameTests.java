@@ -5,6 +5,7 @@ import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.block.DirectionalSignalBlock;
 import dev.redstoneengineering.block.TopologyDebuggerBlock;
 import dev.redstoneengineering.diagnostics.redstone.VanillaRedstoneEngineeringProfile;
+import dev.redstoneengineering.diagnostics.redstone.VanillaRedstoneTargetSnapshot;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
@@ -35,8 +36,6 @@ public final class RseVanillaRedstoneEngineeringGameTests {
         BlockPos dustB = new BlockPos(2, 1, 2);
         BlockPos repeater = new BlockPos(3, 1, 2);
 
-        // The empty GameTest template has no support floor. Vanilla wire/repeaters obey their
-        // normal survival rules, so the fixture must build real support before placing them.
         supportLine(helper, 0, 3, 2);
         helper.setBlock(source, Blocks.REDSTONE_BLOCK.defaultBlockState());
         helper.setBlock(repeater, Blocks.REPEATER.defaultBlockState()
@@ -56,6 +55,12 @@ public final class RseVanillaRedstoneEngineeringGameTests {
             if (report.repeaterCount() != 1 || report.configuredRepeaterDelayGameTicks() != 8) {
                 helper.fail("Vanilla profiler did not read configured repeater timing", repeater); return;
             }
+            var target = VanillaRedstoneTargetSnapshot.inspect(helper.getLevel(), helper.absolutePos(repeater));
+            if (target.kind() != VanillaRedstoneTargetSnapshot.REPEATER
+                    || target.configuredDelayGameTicks() != 8
+                    || target.facing() != Direction.EAST.ordinal()) {
+                helper.fail("Vanilla component snapshot did not preserve repeater configuration evidence", repeater); return;
+            }
             helper.succeed();
         });
     }
@@ -68,8 +73,6 @@ public final class RseVanillaRedstoneEngineeringGameTests {
         BlockPos piston = new BlockPos(3, 1, 2);
         supportLine(helper, 1, 3, 2);
         helper.setBlock(dust, Blocks.REDSTONE_WIRE.defaultBlockState());
-        // Observer and piston use their own six-direction facing properties. Default states are
-        // intentionally sufficient because this acceptance test concerns profiler neutrality.
         helper.setBlock(observer, Blocks.OBSERVER.defaultBlockState());
         helper.setBlock(piston, Blocks.PISTON.defaultBlockState());
 
@@ -95,8 +98,6 @@ public final class RseVanillaRedstoneEngineeringGameTests {
         BlockPos target = new BlockPos(1, 1, 2);
         BlockPos debugger = new BlockPos(2, 1, 2);
         supportLine(helper, 1, 2, 2);
-        // A stable unpowered repeater is enough to prove mode routing without introducing a
-        // powered dust interaction with the debugger's own redstone alarm output.
         helper.setBlock(target, Blocks.REPEATER.defaultBlockState()
                 .setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH));
         helper.setBlock(debugger, EngineeringSystemsModule.TOPOLOGY_DEBUGGER.get().defaultBlockState()

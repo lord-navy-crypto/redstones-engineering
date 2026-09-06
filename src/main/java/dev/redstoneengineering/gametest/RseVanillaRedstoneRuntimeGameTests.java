@@ -5,6 +5,7 @@ import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.block.DirectionalSignalBlock;
 import dev.redstoneengineering.block.TopologyDebuggerBlock;
 import dev.redstoneengineering.diagnostics.redstone.VanillaRedstoneRuntimeTelemetry;
+import dev.redstoneengineering.diagnostics.redstone.VanillaRedstoneTargetHistory;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
@@ -36,6 +37,7 @@ public final class RseVanillaRedstoneRuntimeGameTests {
             var level = helper.getLevel();
             BlockPos absoluteWire = helper.absolutePos(wire);
             VanillaRedstoneRuntimeTelemetry.clearRegion(level, absoluteWire, 4);
+            VanillaRedstoneTargetHistory.clear(level);
             BlockState before = level.getBlockState(absoluteWire);
 
             // NeoForge patches Level.updateNeighborsAt to post the real server NeighborNotifyEvent.
@@ -44,6 +46,12 @@ public final class RseVanillaRedstoneRuntimeGameTests {
             var report = VanillaRedstoneRuntimeTelemetry.inspect(level, absoluteWire, 4, 20);
             if (report.neighborNotificationEvents() < 1 || report.notifiedSideTotal() < 1) {
                 helper.fail("Runtime telemetry did not receive the real vanilla neighbor-notify event", wire); return;
+            }
+            var history = VanillaRedstoneTargetHistory.inspect(level, absoluteWire, 20);
+            if (history.count() < 1
+                    || history.values()[VanillaRedstoneTargetHistory.DISPLAY_SAMPLES - 1] != 0
+                    || history.latestGameTime() < 0) {
+                helper.fail("Exact-target VRE history did not retain the wire observation on server gameTime", wire); return;
             }
             if (!level.getBlockState(absoluteWire).equals(before)) {
                 helper.fail("Observer-only runtime telemetry mutated the observed redstone wire", wire); return;
@@ -66,7 +74,6 @@ public final class RseVanillaRedstoneRuntimeGameTests {
             level.updateNeighborsAt(absoluteLamp, Blocks.REDSTONE_LAMP);
             BlockState lit = Blocks.REDSTONE_LAMP.defaultBlockState()
                     .setValue(BlockStateProperties.LIT, true);
-            // Fixture mutation only: flag 2 updates clients without manufacturing a notify count.
             level.setBlock(absoluteLamp, lit, 2);
             BlockState beforeObservation = level.getBlockState(absoluteLamp);
             level.updateNeighborsAt(absoluteLamp, Blocks.REDSTONE_LAMP);
