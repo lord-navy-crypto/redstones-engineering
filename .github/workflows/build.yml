@@ -46,6 +46,7 @@ jobs:
             tools/rse_plant_scope_persistence_verify.py \
             tools/rse_vanilla_redstone_engineering_verify.py \
             tools/rse_vanilla_redstone_runtime_verify.py \
+            tools/rse_vanilla_redstone_timing_verify.py \
             tools/rse_alpha10_verify.py \
             tools/rse_alpha102_second_layer_verify.py \
             tools/rse_alpha103_pneumatic_hotfix_verify.py \
@@ -127,8 +128,8 @@ jobs:
             exit 1
           fi
           test_count="$(printf '%s\n' "$summary_line" | sed -E 's/.*All ([0-9]+) required tests passed.*/\1/')"
-          if [[ ! "$test_count" =~ ^[0-9]+$ ]] || (( test_count < 180 )); then
-            echo "::error::Expected at least 180 GameTests after Vanilla Redstone runtime telemetry; observed: $test_count"
+          if [[ ! "$test_count" =~ ^[0-9]+$ ]] || (( test_count < 183 )); then
+            echo "::error::Expected at least 183 GameTests after Vanilla Redstone timing/order analysis; observed: $test_count"
             exit 1
           fi
           echo "Verified GameTest completion: $test_count required tests passed"
