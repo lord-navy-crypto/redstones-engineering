@@ -39,6 +39,12 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     private final DataSlot[] periodTicks = new DataSlot[2];
     private final DataSlot[][] display = new DataSlot[2][OscilloscopeBlockEntity.DISPLAY_SAMPLES];
 
+    // One shared timestamp per simultaneous A/B sample. A long is synchronized as latest hi/lo
+    // plus a small per-slot age, preserving exact server gameTime without client-side sampling.
+    private final DataSlot latestGameTimeLow = trackedInt();
+    private final DataSlot latestGameTimeHigh = trackedInt();
+    private final DataSlot[] displayAgeTicks = new DataSlot[OscilloscopeBlockEntity.DISPLAY_SAMPLES];
+
     private final DataSlot cableNodes = trackedInt();
     private final DataSlot probeNodes = trackedInt();
     private final DataSlot validChannels = trackedInt();
@@ -73,6 +79,9 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
                 display[channel][slot] = trackedInt();
             }
         }
+        for (int slot = 0; slot < OscilloscopeBlockEntity.DISPLAY_SAMPLES; slot++) {
+            displayAgeTicks[slot] = trackedInt();
+        }
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
     }
 
@@ -87,6 +96,13 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
         captureState.set(scope.armed() ? 1 : scope.triggered() ? 2 : 0);
         cursorA.set(scope.cursorA());
         cursorB.set(scope.cursorB());
+
+        long latestGameTime = Math.max(0L, scope.latestSampleGameTime());
+        latestGameTimeLow.set((int) latestGameTime);
+        latestGameTimeHigh.set((int) (latestGameTime >>> 32));
+        for (int slot = 0; slot < OscilloscopeBlockEntity.DISPLAY_SAMPLES; slot++) {
+            displayAgeTicks[slot].set(scope.displaySampleAgeTicks(slot));
+        }
 
         for (int channel = 0; channel < 2; channel++) {
             current[channel].set(scope.current(channel));
@@ -140,6 +156,24 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     public int meanStep100(int channel) { return meanStep100[channel].get(); }
     public int periodTicks(int channel) { return periodTicks[channel].get(); }
     public int displaySample(int channel, int slot) { return display[channel][slot].get(); }
+
+    /** Reconstructs the exact server-captured gameTime from synchronized latest time + sample age. */
+    public long displayGameTime(int slot) {
+        if (slot < 0 || slot >= OscilloscopeBlockEntity.DISPLAY_SAMPLES || sampleCount() <= 0) return -1L;
+        int age = displayAgeTicks[slot].get();
+        if (age < 0) return -1L;
+        long latest = ((long) latestGameTimeHigh.get() << 32) | (latestGameTimeLow.get() & 0xFFFFFFFFL);
+        return latest - age;
+    }
+
+    public int cursorDeltaTicks() {
+        long a = displayGameTime(cursorA());
+        long b = displayGameTime(cursorB());
+        if (a < 0 || b < 0) return Math.abs(cursorB() - cursorA()) * OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS;
+        long delta = Math.abs(b - a);
+        return delta > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) delta;
+    }
+
     public int cableNodes() { return cableNodes.get(); }
     public int probeNodes() { return probeNodes.get(); }
     public int validChannels() { return validChannels.get(); }
