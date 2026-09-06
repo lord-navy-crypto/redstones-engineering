@@ -68,7 +68,8 @@ tests = read("src/main/java/dev/redstoneengineering/gametest/RseCopperGameTests.
 for token in (
     "fuseTripBecomesPlantFirstOutElectricalEvidence",
     "FirstOutAnalysis.latestWithin",
-    "SystemEventScope.around",
+    "new SystemEventScope(absoluteFuse, 1)",
+    "event.source().equals(absoluteFuse)",
     "SystemEventKind.ELECTRICAL_TRIP",
     "fuseReadyRequiresVerifiedSafeReevaluation",
     "readyBeforeSafe != 0",
@@ -76,6 +77,8 @@ for token in (
 ):
     if tests and token not in tests:
         errors.append(f"Copper protection runtime evidence missing {token!r}")
+if tests and "SystemEventTimeline.clear(helper.getLevel())" in tests:
+    errors.append("Copper protection GameTests must not clear the shared level-wide event timeline")
 
 workflow = read(".github/workflows/build.yml")
 if workflow and "tools/rse_electrical_protection_events_verify.py" not in workflow:
@@ -91,7 +94,7 @@ if errors:
 
 print("RSE electrical protection event verification: PASS")
 print(" server-authoritative overcurrent trip evidence: PASS")
-print(" plant-scoped first-out integration: PASS")
+print(" source-isolated cell-scoped first-out integration: PASS")
 print(" guarded safe-reset/READY semantics: PASS")
 print(" Operations Monitor electrical event rendering: PASS")
 print(" executable electrical protection lifecycle GameTests: PASS")
