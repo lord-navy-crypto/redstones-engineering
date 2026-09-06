@@ -133,9 +133,8 @@ public final class RseEngineeringUiGameTests {
                 return;
             }
 
-            // Move to FREE capture and prove the bounded ring retains exact, irregular server times.
-            scope.cycleTriggerMode(); // RISING -> FALLING
-            scope.cycleTriggerMode(); // FALLING -> FREE
+            scope.cycleTriggerMode();
+            scope.cycleTriggerMode();
             scope.clear();
             for (int i = 0; i < 40; i++) {
                 int a = i % 4 < 2 ? 0 : 15;
@@ -207,8 +206,6 @@ public final class RseEngineeringUiGameTests {
                 return;
             }
 
-            // CH A carries a 12-tick-period square wave; trigger CH B stays LOW so the capture
-            // remains armed and fills the complete 32-sample bounded ring at irregular 3-tick spacing.
             analyzer.clear();
             for (int i = 0; i < 40; i++) {
                 int mask = i % 4 < 2 ? 0 : 1;
@@ -271,10 +268,41 @@ public final class RseEngineeringUiGameTests {
                 helper.fail("Calibration changed the physical INLINE output instead of display-only readback", analyzerPos);
                 return;
             }
+
             if (!SignalAnalyzerBlock.applyUiAction(helper.getLevel(), worldPos, SignalAnalyzerMenu.BUTTON_RESET_HISTORY)) {
                 helper.fail("Signal Analyzer rejected history reset", analyzerPos);
                 return;
             }
+
+            for (int i = 0; i < 20; i++) {
+                int value = switch (i % 4) {
+                    case 0 -> 0;
+                    case 1, 3 -> 5;
+                    default -> 15;
+                };
+                SignalAnalyzerBlock.captureSample(helper.getLevel(), worldPos, value, 3000L + (long) i * i);
+            }
+            SignalAnalyzerBlock.UiSnapshot retained = SignalAnalyzerBlock.uiSnapshot(helper.getLevel(), worldPos);
+            if (retained.windowCount() != 16 || retained.totalSamples() != 20) {
+                helper.fail("Signal Analyzer did not retain exactly its bounded 16-sample trend window", analyzerPos);
+                return;
+            }
+            if (retained.sampleTimes()[0] != 3016L
+                    || retained.latestSampleGameTime() != 3361L
+                    || retained.sampleTimes()[15] != 3361L
+                    || retained.timeSpanTicks() != 345) {
+                helper.fail("Signal Analyzer trend timing did not preserve irregular authoritative gameTime", analyzerPos);
+                return;
+            }
+            if (retained.windowTransitions() != 15
+                    || retained.saturationCount() != 8
+                    || retained.average100() != 625
+                    || retained.peakToPeak() != 15) {
+                helper.fail("Signal Analyzer rolling transition/saturation/variation evidence is incorrect", analyzerPos);
+                return;
+            }
+
+            SignalAnalyzerBlock.applyUiAction(helper.getLevel(), worldPos, SignalAnalyzerMenu.BUTTON_RESET_HISTORY);
             if (SignalAnalyzerBlock.uiSnapshot(helper.getLevel(), worldPos).totalSamples() != 0) {
                 helper.fail("Signal Analyzer history reset did not clear runtime statistics", analyzerPos);
                 return;
