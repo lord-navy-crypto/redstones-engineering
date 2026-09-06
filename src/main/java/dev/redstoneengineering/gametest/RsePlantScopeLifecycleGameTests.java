@@ -22,9 +22,17 @@ public final class RsePlantScopeLifecycleGameTests {
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 40)
     public static void plantScopeExcludesUnrelatedRemoteIncident(GameTestHelper helper) {
         BlockPos anchor = helper.absolutePos(new BlockPos(2, 1, 2));
-        BlockPos local = anchor.offset(3, 0, 0);
+        // GameTests share one Level and run concurrently. Use a deliberately tiny explicit scope here
+        // so neighboring test structures cannot contribute unrelated event evidence. Production/default
+        // operations views still use DEFAULT_PLANT_RADIUS=32, asserted separately below.
+        BlockPos local = anchor;
         BlockPos remote = anchor.offset(SystemEventScope.DEFAULT_PLANT_RADIUS + 40, 0, 0);
-        SystemEventScope scope = SystemEventScope.around(anchor);
+        SystemEventScope scope = new SystemEventScope(anchor, 2);
+        SystemEventScope defaultScope = SystemEventScope.around(anchor);
+        if (defaultScope.radiusBlocks() != SystemEventScope.DEFAULT_PLANT_RADIUS
+                || defaultScope.radiusBlocks() != 32) {
+            helper.fail("Default plant scope radius changed unexpectedly", new BlockPos(2, 1, 2)); return;
+        }
 
         SystemEventTimeline.record(helper.getLevel(), local, SystemEventKind.INTERLOCK_TRIPPED, 3,
                 "LOCAL_PRESSURE_LOW", "Local plant permissive lost");
