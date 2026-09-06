@@ -92,6 +92,68 @@ public final class EngineeringChartRenderer {
         }
     }
 
+    /**
+     * Marks observed analog value changes. Missing/non-monotonic samples break continuity, so a
+     * transition marker is never invented across a telemetry gap.
+     */
+    public static void drawChangeMarkers(
+            GuiGraphics graphics,
+            Series series,
+            int x,
+            int y,
+            int width,
+            int height,
+            int color
+    ) {
+        long firstTime = firstTime(series);
+        long lastTime = lastTime(series);
+        if (firstTime < 0 || lastTime < 0) return;
+
+        int previousValue = -1;
+        long previousTime = -1L;
+        for (int slot = 0; slot < series.size(); slot++) {
+            int value = series.valueAt(slot);
+            long gameTime = series.gameTimeAt(slot);
+            if (value < 0 || gameTime < 0 || (previousTime >= 0 && gameTime < previousTime)) {
+                previousValue = -1;
+                previousTime = gameTime;
+                continue;
+            }
+            if (previousValue >= 0 && value != previousValue) {
+                int px = mapTime(gameTime, firstTime, lastTime, x, Math.max(1, width));
+                graphics.fill(px, y, px + 1, y + Math.min(5, height), color);
+            }
+            previousValue = value;
+            previousTime = gameTime;
+        }
+    }
+
+    /** Marks retained samples that touch the configured lower/upper engineering limits. */
+    public static void drawLimitHitMarkers(
+            GuiGraphics graphics,
+            Series series,
+            int x,
+            int y,
+            int width,
+            int height,
+            int minimum,
+            int maximum,
+            int color
+    ) {
+        long firstTime = firstTime(series);
+        long lastTime = lastTime(series);
+        if (firstTime < 0 || lastTime < 0 || maximum <= minimum) return;
+
+        for (int slot = 0; slot < series.size(); slot++) {
+            int value = series.valueAt(slot);
+            long gameTime = series.gameTimeAt(slot);
+            if (value < 0 || gameTime < 0 || (value > minimum && value < maximum)) continue;
+            int px = mapTime(gameTime, firstTime, lastTime, x, Math.max(1, width));
+            if (value <= minimum) graphics.fill(px - 1, y + height - 3, px + 2, y + height, color);
+            else graphics.fill(px - 1, y, px + 2, y + 3, color);
+        }
+    }
+
     /** Shared digital-lane primitive for logic/timing instruments. */
     public static void drawDigitalLane(
             GuiGraphics graphics,

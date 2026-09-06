@@ -34,6 +34,7 @@ import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
 import javax.annotation.Nullable;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -44,6 +45,9 @@ import java.util.Optional;
  * <p>TAP mode is a non-invasive measurement aperture. INLINE mode makes the
  * TEST and OUT faces a real 0..15 redstone path. Calibration affects display
  * only; it never mutates the physical pass-through value.</p>
+ *
+ * <p>Rolling trend evidence is server-authoritative. Every retained sample is paired with the
+ * logical-server gameTime at which it was captured; the client only renders synchronized data.</p>
  */
 public class SignalAnalyzerBlock extends Block implements EngineeringPortProvider {
     public static final DirectionProperty FACING = BlockStateProperties.FACING;
@@ -59,7 +63,10 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
     private static final int SAMPLE_PERIOD_TICKS = 2;
     private static final int WINDOW = DISPLAY_SAMPLES;
     private static final int WINDOW_BASE = 17;
-    private static final int RUNTIME_SIZE = WINDOW_BASE + WINDOW;
+    private static final int TIME_LOW_BASE = WINDOW_BASE + WINDOW;
+    private static final int TIME_HIGH_BASE = TIME_LOW_BASE + WINDOW;
+    private static final int LAST_CHANGE_HIGH_INDEX = TIME_HIGH_BASE + WINDOW;
+    private static final int RUNTIME_SIZE = LAST_CHANGE_HIGH_INDEX + 1;
 
     public SignalAnalyzerBlock(Properties properties) {
         super(properties);
@@ -133,7 +140,7 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         int measured = sampleTarget(level, pos, state);
-        recordSample(level, pos, measured);
+        captureSample(level, pos, measured, level.getGameTime());
         int requestedOutput = state.getValue(MODE) == INLINE ? measured : 0;
         if (state.getValue(OUTPUT) != requestedOutput) {
             BlockState next = state.setValue(OUTPUT, requestedOutput);
@@ -162,17 +169,20 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
         return measureNode(level, targetPos, level.getBlockState(targetPos), side);
     }
 
-    /** Runtime: totals/latest/min/max/edges/timestamps + 16-sample ring at 17..32. */
-    private static void recordSample(Level level, BlockPos pos, int measured) {
+    /**
+     * Records one authoritative measurement sample. This bounded capture primitive is also useful
+     * for deterministic validation; it does not change the analyzer's physical redstone output.
+     */
+    public static void captureSample(Level level, BlockPos pos, int measured, long gameTime) {
         int[] r = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
-        int now = (int) Math.min(Integer.MAX_VALUE, level.getGameTime());
+        measured = EngineeringSignal.clamp(measured);
         r[0]++;
-        r[14] = now;
+        r[14] = low32(gameTime);
         if (r[8] == 0) {
             r[1] = measured;
             r[2] = measured;
             r[3] = measured;
-            r[7] = now;
+            writeLastChangeTime(r, gameTime);
             r[8] = 1;
         } else {
             r[2] = Math.min(r[2], measured);
@@ -183,12 +193,14 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
             if (delta != 0) {
                 r[4]++;
                 if (delta > 0) r[5]++; else r[6]++;
-                r[7] = now;
+                writeLastChangeTime(r, gameTime);
             }
             r[1] = measured;
         }
         int write = Math.floorMod(r[12], WINDOW);
         r[WINDOW_BASE + write] = measured;
+        r[TIME_LOW_BASE + write] = low32(gameTime);
+        r[TIME_HIGH_BASE + write] = high32(gameTime);
         r[12] = (write + 1) % WINDOW;
         r[13] = Math.min(WINDOW, r[13] + 1);
     }
@@ -210,39 +222,55 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
             int average100,
             int peakToPeak,
             int meanStep100,
+            int windowTransitions,
+            int saturationCount,
             int stableAgeTicks,
             int sampleAgeTicks,
+            int timeSpanTicks,
             int totalSamples,
             int modeSwitches,
             int calibrationSwitches,
-            int[] samples
+            long latestSampleGameTime,
+            int[] samples,
+            long[] sampleTimes
     ) {}
 
     public static UiSnapshot uiSnapshot(Level level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof SignalAnalyzerBlock)) {
             int[] empty = new int[DISPLAY_SAMPLES];
-            java.util.Arrays.fill(empty, -1);
+            long[] emptyTimes = new long[DISPLAY_SAMPLES];
+            Arrays.fill(empty, -1);
+            Arrays.fill(emptyTimes, -1L);
             return new UiSnapshot(TAP, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, -1, 0, 0, 0, empty);
+                    0, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, -1L, empty, emptyTimes);
         }
 
         int raw = sampleTarget(level, pos, state);
         int[] r = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
-        int now = (int) Math.min(Integer.MAX_VALUE, level.getGameTime());
+        long now = level.getGameTime();
         int count = Math.max(0, Math.min(WINDOW, r[13]));
         int[] samples = new int[DISPLAY_SAMPLES];
-        java.util.Arrays.fill(samples, -1);
+        long[] sampleTimes = new long[DISPLAY_SAMPLES];
+        Arrays.fill(samples, -1);
+        Arrays.fill(sampleTimes, -1L);
         int padding = DISPLAY_SAMPLES - count;
-        for (int i = 0; i < count; i++) samples[padding + i] = rollingSample(r, count, i);
+        for (int i = 0; i < count; i++) {
+            samples[padding + i] = rollingSample(r, count, i);
+            sampleTimes[padding + i] = rollingSampleTime(r, count, i);
+        }
 
+        long latestTime = count <= 0 ? -1L : rollingSampleTime(r, count, count - 1);
+        long firstTime = count <= 0 ? -1L : rollingSampleTime(r, count, 0);
         return new UiSnapshot(
                 state.getValue(MODE), calibrationOffset(state), raw, calibratedReading(state, raw), state.getValue(OUTPUT),
                 r[8] == 0 ? raw : r[2], r[8] == 0 ? raw : r[3], r[4], r[5], r[6], r[9], r[10], count,
                 rollingAverage100(r, count), rollingPeakToPeak(r, count), rollingMeanStep100(r, count),
-                r[8] == 0 ? 0 : Math.max(0, now - r[7]),
-                r[8] == 0 ? -1 : Math.max(0, now - r[14]),
-                r[0], r[11], r[15], samples
+                rollingTransitionCount(r, count), rollingSaturationCount(r, count),
+                r[8] == 0 ? 0 : ageTicks(now, readLastChangeTime(r)),
+                latestTime < 0 ? -1 : ageTicks(now, latestTime),
+                count < 2 ? 0 : durationTicks(latestTime - firstTime),
+                r[0], r[11], r[15], latestTime, samples, sampleTimes
         );
     }
 
@@ -319,17 +347,69 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
         int total = 0;
         int before = rollingSample(r, count, 0);
         for (int i = 1; i < count; i++) {
-            int now = rollingSample(r, count, i);
-            total += Math.abs(now - before);
-            before = now;
+            int current = rollingSample(r, count, i);
+            total += Math.abs(current - before);
+            before = current;
         }
         return (total * 100 + (count - 1) / 2) / (count - 1);
     }
 
+    private static int rollingTransitionCount(int[] r, int count) {
+        if (count < 2) return 0;
+        int transitions = 0;
+        int before = rollingSample(r, count, 0);
+        for (int i = 1; i < count; i++) {
+            int current = rollingSample(r, count, i);
+            if (current != before) transitions++;
+            before = current;
+        }
+        return transitions;
+    }
+
+    private static int rollingSaturationCount(int[] r, int count) {
+        int saturated = 0;
+        for (int i = 0; i < count; i++) {
+            int value = rollingSample(r, count, i);
+            if (value == 0 || value == 15) saturated++;
+        }
+        return saturated;
+    }
+
     private static int rollingSample(int[] r, int count, int chronologicalIndex) {
-        int oldest = Math.floorMod(r[12] - count, WINDOW);
-        int slot = (oldest + chronologicalIndex) % WINDOW;
+        int slot = rollingSlot(r, count, chronologicalIndex);
         return r[WINDOW_BASE + slot];
+    }
+
+    private static long rollingSampleTime(int[] r, int count, int chronologicalIndex) {
+        int slot = rollingSlot(r, count, chronologicalIndex);
+        return joinLong(r[TIME_LOW_BASE + slot], r[TIME_HIGH_BASE + slot]);
+    }
+
+    private static int rollingSlot(int[] r, int count, int chronologicalIndex) {
+        int oldest = Math.floorMod(r[12] - count, WINDOW);
+        return (oldest + chronologicalIndex) % WINDOW;
+    }
+
+    private static void writeLastChangeTime(int[] r, long gameTime) {
+        r[7] = low32(gameTime);
+        r[LAST_CHANGE_HIGH_INDEX] = high32(gameTime);
+    }
+
+    private static long readLastChangeTime(int[] r) {
+        return joinLong(r[7], r[LAST_CHANGE_HIGH_INDEX]);
+    }
+
+    private static int low32(long value) { return (int) value; }
+    private static int high32(long value) { return (int) (value >>> 32); }
+    private static long joinLong(int low, int high) {
+        return Integer.toUnsignedLong(low) | ((long) high << 32);
+    }
+    private static int ageTicks(long now, long then) {
+        return then < 0 || now < then ? -1 : durationTicks(now - then);
+    }
+    private static int durationTicks(long ticks) {
+        if (ticks <= 0) return 0;
+        return (int) Math.min(Integer.MAX_VALUE, ticks);
     }
 
     private static void showSixSideSurvey(Level level, BlockPos analyzerPos, Player player) {
