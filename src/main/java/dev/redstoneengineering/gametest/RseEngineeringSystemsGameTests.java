@@ -8,6 +8,9 @@ import dev.redstoneengineering.block.FaultInjectorBlock;
 import dev.redstoneengineering.block.SafetyInterlockBlock;
 import dev.redstoneengineering.block.SequenceControllerBlock;
 import dev.redstoneengineering.block.TopologyDebuggerBlock;
+import dev.redstoneengineering.diagnostics.events.FirstOutAnalysis;
+import dev.redstoneengineering.diagnostics.events.SystemEventKind;
+import dev.redstoneengineering.diagnostics.events.SystemEventTimeline;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
@@ -97,6 +100,55 @@ public final class RseEngineeringSystemsGameTests {
                 if (helper.getBlockState(debugger).getValue(DirectionalSignalBlock.OUTPUT) != 0 || TopologyDebuggerBlock.scanCount(helper.getLevel(), helper.absolutePos(debugger)) == 0) { helper.fail("Topology debugger did not return clear state for non-port target", debugger); return; }
                 helper.succeed();
             });
+        });
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 120)
+    public static void systemTimelineCapturesAlarmLifecycleAndFirstOut(GameTestHelper helper) {
+        SystemEventTimeline.clear(helper.getLevel());
+        BlockPos alarm = new BlockPos(2, 1, 2);
+        BlockPos condition = new BlockPos(1, 1, 2);
+        BlockPos reset = new BlockPos(2, 1, 3);
+        helper.setBlock(alarm, EngineeringSystemsModule.ALARM_PROCESSOR.get().defaultBlockState()
+                .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
+                .setValue(AlarmProcessorBlock.SEVERITY, 2));
+        helper.setBlock(condition, Blocks.REDSTONE_BLOCK.defaultBlockState());
+        helper.runAfterDelay(4, () -> {
+            var firstOut = FirstOutAnalysis.latest(helper.getLevel());
+            if (firstOut.isEmpty() || firstOut.get().firstOut().kind() != SystemEventKind.ALARM_RAISED) {
+                helper.fail("First-out did not identify the raised alarm", alarm); return;
+            }
+            helper.setBlock(condition, Blocks.AIR.defaultBlockState());
+            helper.setBlock(reset, Blocks.REDSTONE_BLOCK.defaultBlockState());
+            helper.runAfterDelay(4, () -> {
+                boolean cleared = SystemEventTimeline.snapshot(helper.getLevel()).stream()
+                        .anyMatch(event -> event.kind() == SystemEventKind.ALARM_CLEARED);
+                if (!cleared) { helper.fail("Alarm clear was not written to system timeline", alarm); return; }
+                helper.succeed();
+            });
+        });
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 100)
+    public static void firstOutPreservesEarliestAbnormalEventInIncident(GameTestHelper helper) {
+        SystemEventTimeline.clear(helper.getLevel());
+        BlockPos first = helper.absolutePos(new BlockPos(1, 1, 1));
+        BlockPos second = helper.absolutePos(new BlockPos(3, 1, 3));
+        SystemEventTimeline.record(helper.getLevel(), first, SystemEventKind.INTERLOCK_TRIPPED, 3,
+                "PRESSURE_LOW", "Pneumatic permissive lost");
+        helper.runAfterDelay(5, () -> {
+            SystemEventTimeline.record(helper.getLevel(), second, SystemEventKind.ALARM_RAISED, 2,
+                    "CYLINDER_TIMEOUT", "Cylinder did not reach commanded position");
+            var firstOut = FirstOutAnalysis.latest(helper.getLevel());
+            if (firstOut.isEmpty() || !"PRESSURE_LOW".equals(firstOut.get().firstOut().code())) {
+                helper.fail("First-out did not preserve earliest abnormal evidence", new BlockPos(1, 1, 1)); return;
+            }
+            if (firstOut.get().downstreamObservations().stream().noneMatch(event -> "CYLINDER_TIMEOUT".equals(event.code()))) {
+                helper.fail("First-out incident did not retain downstream observation", new BlockPos(3, 1, 3)); return;
+            }
+            helper.succeed();
         });
     }
 }
