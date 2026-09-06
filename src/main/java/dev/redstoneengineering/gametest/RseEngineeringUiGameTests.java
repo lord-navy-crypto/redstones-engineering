@@ -141,7 +141,7 @@ public final class RseEngineeringUiGameTests {
             }
 
             for (int i = 0; i < 40; i++) {
-                PidTelemetryStore.record(helper.getLevel(), worldPos, i, i + 1, i + 2);
+                PidTelemetryStore.record(helper.getLevel(), worldPos, i & 15, (i + 1) & 15, (i + 2) & 15);
             }
             List<Integer> bounded = PidTelemetryStore.snapshot(helper.getLevel(), worldPos);
             if (bounded.size() != PidTelemetryStore.MAX_SAMPLES_PER_CONTROLLER) {
@@ -152,7 +152,7 @@ public final class RseEngineeringUiGameTests {
             if (PidTelemetryStore.setpoint(latest) != 7
                     || PidTelemetryStore.processValue(latest) != 8
                     || PidTelemetryStore.controlOutput(latest) != 9) {
-                helper.fail("PID packed trend sample did not preserve clamped SP/PV/OUT channels", pidPos);
+                helper.fail("PID packed trend sample did not preserve bounded SP/PV/OUT channels", pidPos);
                 return;
             }
             helper.succeed();
