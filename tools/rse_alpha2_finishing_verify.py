@@ -145,7 +145,7 @@ require(
 require(
     "src/main/java/dev/redstoneengineering/diagnostics/redstone/VanillaRedstoneRuntimeTelemetry.java",
     "MAX_EVENTS_PER_LEVEL = 4096",
-    "MAX_PREVIOUS_STATES_PER_LEVEL = 1024",
+    "MAX_STATE_POSITIONS = 1024",
 )
 
 chart_screens = (
