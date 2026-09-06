@@ -11,7 +11,20 @@ def need(path,*terms):
     ok=p.exists() and all(t in txt for t in terms)
     checks.append((ok,str(path),terms))
 need(Path('src/main/java/dev/redstoneengineering/blockentity/OscilloscopeBlockEntity.java'),'triggerMode','cursorDeltaSamples','estimatedPeriodSamples','peakToPeak')
-need(Path('src/main/java/dev/redstoneengineering/blockentity/LogicAnalyzerBlockEntity.java'),'triggerChannel','cursorDeltaSamples','dutyPercent','armed')
+need(
+    Path('src/main/java/dev/redstoneengineering/blockentity/LogicAnalyzerBlockEntity.java'),
+    'triggerChannel','cursorDeltaSamples','dutyPercent','armed',
+    'sampleTimes','displaySampleGameTime','estimatedPeriodTicks','lastCompleteHighPulseTicks','lastRisingAgeTicks'
+)
+need(
+    Path('src/main/java/dev/redstoneengineering/client/ui/EngineeringChartRenderer.java'),
+    'drawDigitalLane','drawDigitalEdgeMarkers','drawTimeMarker','drawGameTimeAxis'
+)
+need(
+    Path('src/main/java/dev/redstoneengineering/client/ui/LogicAnalyzerScreen.java'),
+    'EngineeringChartRenderer.drawDigitalLane','EngineeringChartRenderer.drawDigitalEdgeMarkers',
+    'menu.displayGameTime','menu.cursorDeltaTicks'
+)
 # Check the actual PID response/anti-windup implementation, not legacy action-bar wording.
 need(
     Path('src/main/java/dev/redstoneengineering/block/PidControllerBlock.java'),
@@ -42,6 +55,7 @@ if failed:
     raise SystemExit(1)
 print('RSE Alpha 1.0.2 second-layer verification: PASS')
 print('  instrumentation triggers/cursors: PASS')
+print('  authoritative logic gameTime + digital timing visualization: PASS')
 print('  PID process-response metrics + anti-windup implementation: PASS')
 print('  servo trajectory diagnostics: PASS')
 print('  serial/bus diagnostics: PASS')
