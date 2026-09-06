@@ -2,12 +2,13 @@ package dev.redstoneengineering;
 
 import dev.redstoneengineering.diagnostics.redstone.VanillaRedstoneRuntimeTelemetry;
 import dev.redstoneengineering.gametest.RseVanillaRedstoneRuntimeGameTests;
+import dev.redstoneengineering.gametest.RseVanillaRedstoneTimingGameTests;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterGameTestsEvent;
 
-/** Explicit lifecycle wiring for observer-only Vanilla Redstone runtime telemetry. */
+/** Explicit lifecycle wiring for observer-only Vanilla Redstone runtime/timing telemetry. */
 @Mod(RedstoneEngineering.MOD_ID)
 public final class VanillaRedstoneRuntimeRegistration {
     public VanillaRedstoneRuntimeRegistration(IEventBus modBus) {
@@ -17,5 +18,6 @@ public final class VanillaRedstoneRuntimeRegistration {
 
     private static void registerGameTests(RegisterGameTestsEvent event) {
         event.register(RseVanillaRedstoneRuntimeGameTests.class);
+        event.register(RseVanillaRedstoneTimingGameTests.class);
     }
 }

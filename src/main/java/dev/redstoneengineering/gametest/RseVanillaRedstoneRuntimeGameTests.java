@@ -35,7 +35,7 @@ public final class RseVanillaRedstoneRuntimeGameTests {
         helper.runAfterDelay(2, () -> {
             var level = helper.getLevel();
             BlockPos absoluteWire = helper.absolutePos(wire);
-            VanillaRedstoneRuntimeTelemetry.clear(level);
+            VanillaRedstoneRuntimeTelemetry.clearRegion(level, absoluteWire, 4);
             BlockState before = level.getBlockState(absoluteWire);
 
             // NeoForge patches Level.updateNeighborsAt to post the real server NeighborNotifyEvent.
@@ -61,7 +61,7 @@ public final class RseVanillaRedstoneRuntimeGameTests {
         helper.runAfterDelay(2, () -> {
             var level = helper.getLevel();
             BlockPos absoluteLamp = helper.absolutePos(lamp);
-            VanillaRedstoneRuntimeTelemetry.clear(level);
+            VanillaRedstoneRuntimeTelemetry.clearRegion(level, absoluteLamp, 4);
 
             level.updateNeighborsAt(absoluteLamp, Blocks.REDSTONE_LAMP);
             BlockState lit = Blocks.REDSTONE_LAMP.defaultBlockState()
@@ -102,7 +102,7 @@ public final class RseVanillaRedstoneRuntimeGameTests {
             BlockPos absoluteTarget = helper.absolutePos(target);
             BlockPos absoluteDebugger = helper.absolutePos(debugger);
             BlockState debuggerState = level.getBlockState(absoluteDebugger);
-            VanillaRedstoneRuntimeTelemetry.clear(level);
+            VanillaRedstoneRuntimeTelemetry.clearRegion(level, absoluteTarget, 4);
             level.updateNeighborsAt(absoluteTarget, Blocks.REPEATER);
 
             var runtime = TopologyDebuggerBlock.inspectVanillaRuntime(level, absoluteDebugger, debuggerState);

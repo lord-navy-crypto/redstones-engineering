@@ -14,6 +14,7 @@ import dev.redstoneengineering.diagnostics.redstone.VanillaRedstoneDiagnosticsRe
 import dev.redstoneengineering.diagnostics.redstone.VanillaRedstoneEngineeringProfile;
 import dev.redstoneengineering.diagnostics.redstone.VanillaRedstoneRuntimeReport;
 import dev.redstoneengineering.diagnostics.redstone.VanillaRedstoneRuntimeTelemetry;
+import dev.redstoneengineering.diagnostics.redstone.VanillaRedstoneTimingReport;
 import dev.redstoneengineering.diagnostics.topology.EngineeringTopologyView;
 import dev.redstoneengineering.diagnostics.topology.TopologyDiagnosticsReport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
@@ -33,7 +34,7 @@ import java.util.Optional;
 
 /**
  * Observer-oriented topology debugger. RSE devices use formal EngineeringPort topology;
- * vanilla redstone targets use the bounded Vanilla Redstone Engineering profiler.
+ * vanilla redstone targets use bounded structural, runtime, and timing evidence.
  * The diagnostic layer never rewrites vanilla redstone state or runs a replacement solver.
  */
 public class TopologyDebuggerBlock extends PassiveDirectionalSignalBlock {
@@ -95,12 +96,17 @@ public class TopologyDebuggerBlock extends PassiveDirectionalSignalBlock {
         return VanillaRedstoneRuntimeTelemetry.inspect(level, targetPos(pos, debuggerState));
     }
 
+    public static VanillaRedstoneTimingReport inspectVanillaTiming(
+            ServerLevel level, BlockPos pos, BlockState debuggerState) {
+        return VanillaRedstoneRuntimeTelemetry.inspectTiming(level, targetPos(pos, debuggerState));
+    }
+
     public static String vanillaDiagnosticSummary(
             ServerLevel level, BlockPos pos, BlockState debuggerState) {
         VanillaRedstoneDiagnosticsReport structural = inspectVanillaTarget(level, pos, debuggerState);
         VanillaRedstoneRuntimeReport runtime = inspectVanillaRuntime(level, pos, debuggerState);
-        // Runtime report carries the explicit "RUNTIME |" observation prefix.
-        return structural.summary() + " | " + runtime.summary();
+        VanillaRedstoneTimingReport timing = inspectVanillaTiming(level, pos, debuggerState);
+        return structural.summary() + " | " + runtime.summary() + " | " + timing.summary();
     }
 
     @Override
@@ -137,7 +143,7 @@ public class TopologyDebuggerBlock extends PassiveDirectionalSignalBlock {
         runtime[6]++;
         runtime[7] = issue ? 1 : 0;
         recordTopologyTransition(level, pos, issue, previousIssue, report.summary());
-        // Runtime telemetry is evidence only in Phase 2. It does not drive this alarm output.
+        // Phase 2/3 runtime and timing telemetry are evidence only and do not drive this alarm output.
         // QC/fan-out/density also remain advisories; incomplete observation alone is a fault.
         return issue ? 15 : 0;
     }
