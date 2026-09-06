@@ -7,8 +7,11 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
-/** Two-channel scope UI backed by the authoritative 32-sample capture engine. */
+/** Two-channel scope UI backed by the authoritative bounded capture engine. */
 public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu> {
+    private final EngineeringChartRenderer.Series channelA = new ScopeSeries(0);
+    private final EngineeringChartRenderer.Series channelB = new ScopeSeries(1);
+
     public OscilloscopeScreen(OscilloscopeMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
     }
@@ -52,9 +55,9 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
         labelValue(graphics, "Trigger", triggerText(), 114);
         labelValue(graphics, "CH A / CH B", value(menu.current(0)) + " / " + value(menu.current(1)), 129);
         graphics.drawString(font, "CH A", 16, 148, INFO, false);
-        miniTrace(graphics, 0, 50, 145, 240, 18, INFO);
+        miniTrace(graphics, channelA, 50, 145, 240, 18, INFO);
         graphics.drawString(font, "CH B", 16, 170, GOOD, false);
-        miniTrace(graphics, 1, 50, 167, 240, 18, GOOD);
+        miniTrace(graphics, channelB, 50, 167, 240, 18, GOOD);
     }
 
     private void renderPorts(GuiGraphics graphics) {
@@ -73,7 +76,8 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
         labelValue(graphics, "Trigger level", menu.triggerLevel() + " / 15", 110);
         labelValue(graphics, "Cursors", "A=" + menu.cursorA() + " B=" + menu.cursorB(), 125);
         labelValue(graphics, "Cursor Δ", Math.abs(menu.cursorB() - menu.cursorA()) + " samples / "
-                + Math.abs(menu.cursorB() - menu.cursorA()) * OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS + "t", 140);
+                + menu.cursorDeltaTicks() + "t", 140);
+        graphics.drawString(font, "Cursor timing comes from captured server gameTime.", 16, 164, MUTED, false);
         graphics.drawString(font, "All controls are validated on the logical server.", 16, 178, MUTED, false);
     }
 
@@ -97,54 +101,39 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
     }
 
     private void renderHistory(GuiGraphics graphics) {
-        graphics.drawString(font, "0", 17, 165, MUTED, false);
-        graphics.drawString(font, "15", 12, 85, MUTED, false);
-        fullTrace(graphics, 0, 38, 82, 260, 84, INFO);
-        fullTrace(graphics, 1, 38, 82, 260, 84, GOOD);
-        drawCursor(graphics, menu.cursorA(), 38, 82, 260, 84, WARN);
-        drawCursor(graphics, menu.cursorB(), 38, 82, 260, 84, 0xFFE879F9);
-        graphics.drawString(font, "A/B traces share the 0..15 vertical scale • 16 most recent samples", 16, 173, MUTED, false);
-        graphics.drawString(font, "Cursor Δ=" + Math.abs(menu.cursorB() - menu.cursorA()) + " samples", 16, 187, TEXT, false);
+        int chartX = 38;
+        int chartY = 82;
+        int chartWidth = 260;
+        int chartHeight = 80;
+
+        EngineeringChartRenderer.drawFrame(graphics, chartX, chartY, chartWidth, chartHeight, 0, 15, true);
+        EngineeringChartRenderer.drawWaveform(graphics, channelA, chartX, chartY, chartWidth, chartHeight, 0, 15, INFO);
+        EngineeringChartRenderer.drawWaveform(graphics, channelB, chartX, chartY, chartWidth, chartHeight, 0, 15, GOOD);
+        EngineeringChartRenderer.drawTimeMarker(
+                graphics, channelA, menu.displayGameTime(menu.cursorA()), chartX, chartY, chartWidth, chartHeight, WARN);
+        EngineeringChartRenderer.drawTimeMarker(
+                graphics, channelA, menu.displayGameTime(menu.cursorB()), chartX, chartY, chartWidth, chartHeight, 0xFFE879F9);
+
+        graphics.drawString(font, "15", 13, chartY - 2, MUTED, false);
+        graphics.drawString(font, "10", 13, chartY + 24, MUTED, false);
+        graphics.drawString(font, "5", 18, chartY + 50, MUTED, false);
+        graphics.drawString(font, "0", 18, chartY + 73, MUTED, false);
+        EngineeringChartRenderer.drawGameTimeAxis(graphics, font, channelA, chartX, chartY + chartHeight + 3, chartWidth);
+        graphics.drawString(font, "A/B • server gameTime • 0..15", 16, 178, MUTED, false);
+        graphics.drawString(font, "Cursor Δ=" + menu.cursorDeltaTicks() + "t", 16, 190, TEXT, false);
     }
 
-    private void miniTrace(GuiGraphics graphics, int channel, int x, int y, int width, int height, int color) {
-        graphics.fill(x, y, x + width, y + height, 0xFF10141A);
-        plot(graphics, channel, x + 2, y + 2, width - 4, height - 4, color);
-    }
-
-    private void fullTrace(GuiGraphics graphics, int channel, int x, int y, int width, int height, int color) {
-        graphics.fill(x, y, x + width, y + height, 0xFF10141A);
-        graphics.fill(x, y + height / 2, x + width, y + height / 2 + 1, 0xFF2C3642);
-        plot(graphics, channel, x + 3, y + 3, width - 6, height - 6, color);
-    }
-
-    private void plot(GuiGraphics graphics, int channel, int x, int y, int width, int height, int color) {
-        int previousX = -1;
-        int previousY = -1;
-        for (int slot = 0; slot < OscilloscopeBlockEntity.DISPLAY_SAMPLES; slot++) {
-            int sample = menu.displaySample(channel, slot);
-            if (sample < 0) {
-                previousX = -1;
-                previousY = -1;
-                continue;
-            }
-            int px = x + Math.round(slot * width / 15.0f);
-            int py = y + height - Math.round(sample * height / 15.0f);
-            if (previousX >= 0) {
-                int x1 = Math.min(previousX, px);
-                int x2 = Math.max(previousX, px);
-                graphics.fill(x1, previousY, x2 + 1, previousY + 1, color);
-                graphics.fill(px, Math.min(previousY, py), px + 1, Math.max(previousY, py) + 1, color);
-            }
-            graphics.fill(px - 1, py - 1, px + 2, py + 2, color);
-            previousX = px;
-            previousY = py;
-        }
-    }
-
-    private void drawCursor(GuiGraphics graphics, int slot, int x, int y, int width, int height, int color) {
-        int px = x + Math.round(slot * width / 15.0f);
-        graphics.fill(px, y, px + 1, y + height, color);
+    private void miniTrace(
+            GuiGraphics graphics,
+            EngineeringChartRenderer.Series series,
+            int x,
+            int y,
+            int width,
+            int height,
+            int color
+    ) {
+        EngineeringChartRenderer.drawFrame(graphics, x, y, width, height, 0, 15, false);
+        EngineeringChartRenderer.drawWaveform(graphics, series, x, y, width, height, 0, 15, color);
     }
 
     private String triggerText() {
@@ -212,5 +201,28 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
     private static String decimal100(int value) {
         if (value < 0) return "N/A";
         return (value / 100) + "." + String.format("%02d", value % 100);
+    }
+
+    private final class ScopeSeries implements EngineeringChartRenderer.Series {
+        private final int channel;
+
+        private ScopeSeries(int channel) {
+            this.channel = channel;
+        }
+
+        @Override
+        public int size() {
+            return OscilloscopeBlockEntity.DISPLAY_SAMPLES;
+        }
+
+        @Override
+        public int valueAt(int slot) {
+            return menu.displaySample(channel, slot);
+        }
+
+        @Override
+        public long gameTimeAt(int slot) {
+            return menu.displayGameTime(slot);
+        }
     }
 }

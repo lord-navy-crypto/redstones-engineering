@@ -91,7 +91,7 @@ public class OscilloscopeBlock extends Block implements EntityBlock, Engineering
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         InstrumentNetwork.ProbeSnapshot snapshot = InstrumentNetwork.scan(level, pos);
         if (level.getBlockEntity(pos) instanceof OscilloscopeBlockEntity scope) {
-            scope.addSample(snapshot.valueOr(0, -1), snapshot.valueOr(1, -1));
+            scope.addSample(level.getGameTime(), snapshot.valueOr(0, -1), snapshot.valueOr(1, -1));
         }
         level.scheduleTick(pos, this, OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS);
     }
