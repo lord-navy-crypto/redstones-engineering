@@ -55,17 +55,18 @@ public final class LogicAnalyzerScreen extends EngineeringScreen<LogicAnalyzerMe
         labelValue(graphics, "Trigger", "CH " + channelName(menu.triggerChannel()) + " " + edgeName(menu.triggerEdge()), 114);
         labelValue(graphics, "Capture", menu.sampleCount() + "/32 samples", 129);
         for (int channel = 0; channel < 4; channel++) {
-            int y = 148 + channel * 11;
-            graphics.drawString(font, channelName(channel), 16, y, channelColor(channel), false);
+            int lane = channel;
+            int y = 148 + lane * 11;
+            graphics.drawString(font, channelName(lane), 16, y, channelColor(lane), false);
             EngineeringPlot.digitalTrace(
                     graphics,
                     LogicAnalyzerBlockEntity.DISPLAY_SAMPLES,
-                    slot -> menu.displayState(channel, slot),
+                    slot -> menu.displayState(lane, slot),
                     38,
                     y - 1,
                     260,
                     9,
-                    channelColor(channel)
+                    channelColor(lane)
             );
         }
     }
@@ -112,17 +113,18 @@ public final class LogicAnalyzerScreen extends EngineeringScreen<LogicAnalyzerMe
 
         EngineeringPlot.analogFrame(graphics, x, y, width, height);
         for (int channel = 0; channel < 4; channel++) {
-            int laneY = 88 + channel * 19;
-            graphics.drawString(font, channelName(channel), 16, laneY, channelColor(channel), false);
+            int lane = channel;
+            int laneY = 88 + lane * 19;
+            graphics.drawString(font, channelName(lane), 16, laneY, channelColor(lane), false);
             EngineeringPlot.digitalTrace(
                     graphics,
                     samples,
-                    slot -> menu.displayState(channel, slot),
+                    slot -> menu.displayState(lane, slot),
                     42,
                     laneY,
                     250,
                     12,
-                    channelColor(channel)
+                    channelColor(lane)
             );
         }
         EngineeringPlot.verticalMarker(graphics, menu.cursorA(), samples, 42, y, 250, height, WARN);
