@@ -45,8 +45,16 @@ require_all(alarm, ("ALARM_PROCESSOR_CODEC.value()", "IntegerProperty.create(\"s
 require_all(debugger, ("TOPOLOGY_DEBUGGER_CODEC.value()", "EngineeringTopologyView.inspect", "TopologyDiagnosticsReport", '"TOPOLOGY ALARM OUT"', "report.hasIssue()", "RuntimeIntStore.remove(level, KEY, pos)"), "TopologyDebuggerBlock.java")
 
 count = len(re.findall(r"@GameTest\s*\(", gt))
-if count != 5: errors.append(f"RseEngineeringSystemsGameTests.java: expected exactly 5 @GameTest methods, found {count}")
-for needle in ("EngineeringSystemsModule.SEQUENCE_CONTROLLER.get().defaultBlockState()", "EngineeringSystemsModule.SAFETY_INTERLOCK.get().defaultBlockState()", "EngineeringSystemsModule.FAULT_INJECTOR.get().defaultBlockState()", "EngineeringSystemsModule.ALARM_PROCESSOR.get().defaultBlockState()", "EngineeringSystemsModule.TOPOLOGY_DEBUGGER.get().defaultBlockState()"):
+if count < 7: errors.append(f"RseEngineeringSystemsGameTests.java: expected at least 7 @GameTest methods, found {count}")
+for needle in (
+    "EngineeringSystemsModule.SEQUENCE_CONTROLLER.get().defaultBlockState()",
+    "EngineeringSystemsModule.SAFETY_INTERLOCK.get().defaultBlockState()",
+    "EngineeringSystemsModule.FAULT_INJECTOR.get().defaultBlockState()",
+    "EngineeringSystemsModule.ALARM_PROCESSOR.get().defaultBlockState()",
+    "EngineeringSystemsModule.TOPOLOGY_DEBUGGER.get().defaultBlockState()",
+    "systemTimelineCapturesAlarmLifecycleAndFirstOut",
+    "firstOutPreservesEarliestAbnormalEventInIncident",
+):
     require(gt, needle, "RseEngineeringSystemsGameTests.java")
 
 for block_id in ("sequence_controller", "safety_interlock", "fault_injector", "alarm_processor", "topology_debugger"):
@@ -63,4 +71,4 @@ print("  systems extension: 5 blocks")
 print("  aggregate closure target: 127 blocks")
 print("  registry lifecycle: DeferredRegister only; no eager Block construction")
 print("  event registration: explicit IEventBus listeners")
-print("  executable systems GameTests: 5")
+print(f"  executable systems GameTests: {count}")
