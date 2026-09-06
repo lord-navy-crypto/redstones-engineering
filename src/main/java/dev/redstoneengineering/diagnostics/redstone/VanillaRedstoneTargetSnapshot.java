@@ -30,8 +30,6 @@ public record VanillaRedstoneTargetSnapshot(
     public static final int DISPENSER_DROPPER = 6;
     public static final int SOURCE = 7;
 
-    private VanillaRedstoneTargetSnapshot {}
-
     public static VanillaRedstoneTargetSnapshot inspect(Level level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
         int kind = kindOf(state);
