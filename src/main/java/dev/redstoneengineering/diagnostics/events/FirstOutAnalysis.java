@@ -7,10 +7,11 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * First-out analysis over the bounded system timeline.
+ * First-out analysis over bounded event evidence.
  *
  * <p>"First out" means the earliest recorded abnormal event in the latest bounded incident cluster.
- * Later entries are downstream observations in time, not a claim of proven physical causality.</p>
+ * Later entries are downstream observations in time, not a claim of proven physical causality.
+ * Plant-facing consumers should prefer {@link #latestWithin(Level, SystemEventScope)}.</p>
  */
 public final class FirstOutAnalysis {
     public static final long INCIDENT_GAP_TICKS = 200L;
@@ -36,8 +37,17 @@ public final class FirstOutAnalysis {
         }
     }
 
+    /** Level-wide diagnostic query retained for expert/global views. */
     public static Optional<Snapshot> latest(Level level) {
-        List<SystemEventRecord> events = SystemEventTimeline.snapshot(level);
+        return analyze(SystemEventTimeline.snapshot(level));
+    }
+
+    /** Plant-scoped first-out query for ordinary operations/dashboard use. */
+    public static Optional<Snapshot> latestWithin(Level level, SystemEventScope scope) {
+        return analyze(SystemEventTimeline.within(level, scope));
+    }
+
+    private static Optional<Snapshot> analyze(List<SystemEventRecord> events) {
         if (events.isEmpty()) return Optional.empty();
 
         int lastAbnormal = -1;
