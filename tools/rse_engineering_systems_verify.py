@@ -36,20 +36,34 @@ gt = read(GT)
 require_all(module, (
     "@Mod(RedstoneEngineering.MOD_ID)",
     "SYSTEM_BLOCK_COUNT = 3",
-    "modBus.addListener(EngineeringSystemsModule::register);",
-    "modBus.addListener(EngineeringSystemsModule::addCreativeTabItems);",
-    "modBus.addListener(EngineeringSystemsModule::registerGameTests);",
-    'helper.register(id("sequence_controller"), SEQUENCE_CONTROLLER);',
-    'helper.register(id("safety_interlock"), SAFETY_INTERLOCK);',
-    'helper.register(id("fault_injector"), FAULT_INJECTOR);',
+    "DeferredRegister<MapCodec<? extends Block>> BLOCK_TYPES",
+    "DeferredRegister.Blocks BLOCKS",
+    "DeferredRegister.Items ITEMS",
+    "BLOCK_TYPES.register(modBus);",
+    "BLOCKS.register(modBus);",
+    "ITEMS.register(modBus);",
+    'DeferredBlock<SequenceControllerBlock> SEQUENCE_CONTROLLER',
+    'DeferredBlock<SafetyInterlockBlock> SAFETY_INTERLOCK',
+    'DeferredBlock<FaultInjectorBlock> FAULT_INJECTOR',
+    'BLOCKS.registerBlock("sequence_controller"',
+    'BLOCKS.registerBlock("safety_interlock"',
+    'BLOCKS.registerBlock("fault_injector"',
     "BuildCreativeModeTabContentsEvent",
     "event.register(RseEngineeringSystemsGameTests.class);",
 ), "EngineeringSystemsModule.java")
 if "@EventBusSubscriber" in module or "@SubscribeEvent" in module:
     errors.append("EngineeringSystemsModule.java: deprecated annotation event registration reintroduced")
+for direct in (
+    "public static final SequenceControllerBlock SEQUENCE_CONTROLLER",
+    "public static final SafetyInterlockBlock SAFETY_INTERLOCK",
+    "public static final FaultInjectorBlock FAULT_INJECTOR",
+):
+    if direct in module:
+        errors.append(f"EngineeringSystemsModule.java: eager block construction contract reintroduced: {direct}")
 
 require_all(sequence, (
     "extends PassiveDirectionalSignalBlock",
+    "SEQUENCE_CONTROLLER_CODEC.value()",
     '"RUN / ENABLE"', '"ADVANCE"', '"RESET"', '"HOLD"', '"STEP CODE"',
     "RuntimeIntStore.remove(level, KEY, pos)",
     "engineeringSnapshot(",
@@ -58,6 +72,7 @@ require_all(sequence, (
 
 require_all(interlock, (
     "extends PassiveDirectionalSignalBlock",
+    "SAFETY_INTERLOCK_CODEC.value()",
     '"PERMISSIVE A"', '"PERMISSIVE B"', '"PERMISSIVE C"', '"PERMIT OUT"',
     "failedMask(",
     "compactDiagnostics(",
@@ -65,6 +80,7 @@ require_all(interlock, (
 ), "SafetyInterlockBlock.java")
 
 require_all(fault, (
+    "FAULT_INJECTOR_CODEC.value()",
     "IntegerProperty.create(\"mode\", 0, 3)",
     '"STUCK LOW"', '"STUCK HIGH"', '"BIAS +4"', '"BIAS -4"',
     "PortQuality.FAULT",
@@ -76,9 +92,9 @@ count = len(re.findall(r"@GameTest\s*\(", gt))
 if count != 3:
     errors.append(f"RseEngineeringSystemsGameTests.java: expected exactly 3 @GameTest methods, found {count}")
 for needle in (
-    "EngineeringSystemsModule.SEQUENCE_CONTROLLER",
-    "EngineeringSystemsModule.SAFETY_INTERLOCK",
-    "EngineeringSystemsModule.FAULT_INJECTOR",
+    "EngineeringSystemsModule.SEQUENCE_CONTROLLER.get().defaultBlockState()",
+    "EngineeringSystemsModule.SAFETY_INTERLOCK.get().defaultBlockState()",
+    "EngineeringSystemsModule.FAULT_INJECTOR.get().defaultBlockState()",
 ):
     require(gt, needle, "RseEngineeringSystemsGameTests.java")
 
@@ -104,5 +120,6 @@ print("RSE ENGINEERING SYSTEMS VERIFY: PASS")
 print("  legacy audited core: 122 blocks")
 print("  systems extension: 3 blocks")
 print("  aggregate closure target: 125 blocks")
+print("  registry lifecycle: DeferredRegister only; no eager Block construction")
 print("  event registration: explicit IEventBus listeners")
 print("  executable systems GameTests: 3")
