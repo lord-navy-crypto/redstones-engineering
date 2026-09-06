@@ -10,6 +10,10 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.diagnostics.IndustrialOperationsAssessment;
+import dev.redstoneengineering.diagnostics.OperationsDashboardSnapshot;
+import dev.redstoneengineering.diagnostics.events.FirstOutAnalysis;
+import dev.redstoneengineering.diagnostics.events.SystemEventKind;
+import dev.redstoneengineering.diagnostics.events.SystemEventTimeline;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
@@ -109,15 +113,32 @@ public class OperationsMonitorBlock extends Block implements EngineeringPortProv
         if (run == 0 && queue > 0) r[21]++;
         if (run == 1 && queue >= 10) r[22]++;
 
+        int previousStateOrdinal = r[25];
         r[0] = run; r[1] = cycle; r[3]++; if (run == 1) r[4]++;
         r[13] = queue; r[14] += queue; r[15] = Math.max(r[15], queue);
-        r[25] = classifySystemState(run, queue, r).ordinal();
+        SystemState nextState = classifySystemState(run, queue, r);
+        r[25] = nextState.ordinal();
+        if (previousStateOrdinal != r[25]) {
+            SystemState previous = SystemState.values()[Math.max(0, Math.min(SystemState.values().length - 1, previousStateOrdinal))];
+            SystemEventTimeline.record(l, p, SystemEventKind.OPERATIONS_STATE_CHANGED, severity(nextState),
+                    "OPERATIONS_" + nextState,
+                    "Operations state " + previous + " -> " + nextState + "; queue=" + queue + "; run=" + run);
+        }
 
         if (r[3] >= WINDOW_TICKS) {
             r[5] = r[2]; r[6] = r[4]; r[16] = r[14] / Math.max(1, r[3]); r[17] = r[15];
             r[2] = 0; r[3] = 0; r[4] = 0; r[14] = 0; r[15] = 0; r[23] = 0; r[24] = 0;
         }
         l.scheduleTick(p, this, 1);
+    }
+
+    private static int severity(SystemState state) {
+        return switch (state) {
+            case FAILED -> 3;
+            case SAFETY_LIMITED, OVERLOADED -> 2;
+            case CONGESTED, NOISY, UNSTABLE -> 1;
+            case NOMINAL -> 0;
+        };
     }
 
     private static SystemState classifySystemState(int run, int queue, int[] r) {
@@ -143,6 +164,7 @@ public class OperationsMonitorBlock extends Block implements EngineeringPortProv
     public static int starvedTicks(Level level, BlockPos pos) { return runtime(level,pos,20); }
     public static int blockedFaultTicks(Level level, BlockPos pos) { return runtime(level,pos,21); }
     public static int highQueueRunTicks(Level level, BlockPos pos) { return runtime(level,pos,22); }
+    public static OperationsDashboardSnapshot dashboard(Level level, BlockPos pos) { return OperationsDashboardSnapshot.inspect(level, pos); }
 
     /** Shared expert/UI summary retained as an observer-only projection of server runtime. */
     public static String compactDiagnostics(Level level, BlockPos pos) {
@@ -154,6 +176,7 @@ public class OperationsMonitorBlock extends Block implements EngineeringPortProv
         }
         SystemState state = SystemState.values()[Math.max(0, Math.min(SystemState.values().length - 1, r[25]))];
         IndustrialOperationsAssessment.Snapshot ioe = IndustrialOperationsAssessment.inspect(level, pos);
+        OperationsDashboardSnapshot dashboard = OperationsDashboardSnapshot.inspect(level, pos);
         return "Operations state=" + state
                 + " | throughput last60s=" + r[5] + " cycles/min"
                 + " | downtime=" + String.format(java.util.Locale.ROOT, "%.1f", r[11] / 20.0) + "s"
@@ -163,7 +186,10 @@ public class OperationsMonitorBlock extends Block implements EngineeringPortProv
                 + " queuePressure=" + ioe.queuePressurePercent() + "%"
                 + " | starved=" + r[20]
                 + " blocked/fault=" + r[21]
-                + " highQueueRun=" + r[22];
+                + " highQueueRun=" + r[22]
+                + " | events recent=" + dashboard.recentEvents()
+                + " abnormal=" + dashboard.recentAbnormalEvents()
+                + " | " + dashboard.firstOut().map(FirstOutAnalysis.Snapshot::compact).orElse("FIRST OUT: none");
     }
 
     @Override
