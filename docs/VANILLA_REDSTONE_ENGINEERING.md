@@ -18,7 +18,7 @@ The first phase is observation and explanation only.
 
 The existing Topology Debugger can inspect a vanilla-redstone target and switch from RSE EngineeringPort topology to a bounded vanilla profile. The profile follows directly adjacent redstone-relevant components only and therefore must not claim to be an exact Minecraft update graph.
 
-Current evidence includes:
+Current structural evidence includes:
 
 - redstone dust count and powered-dust count;
 - maximum observed dust power within the 0..15 vanilla boundary;
@@ -29,22 +29,40 @@ Current evidence includes:
 - possible quasi-connectivity dependency evidence for QC-capable blocks;
 - unloaded traversal boundaries and traversal-cap status.
 
-QC, observer density, component density, and fan-out are **advisories**, not automatic faults. In phase one, the Topology Debugger raises its existing alarm only when the diagnostic observation itself is incomplete because a relevant boundary is unloaded or the bounded traversal cap is reached.
+QC, observer density, component density, and fan-out are **advisories**, not automatic faults. The Topology Debugger raises its existing topology alarm only when the structural diagnostic observation itself is incomplete because a relevant boundary is unloaded or the bounded traversal cap is reached.
 
 ## Phase 2 — Runtime Update Profiling
 
-A later phase may add server-authoritative telemetry for actual redstone-related update activity. It must measure real events instead of converting structural density into a fabricated updates-per-second metric.
+Phase 2 adds server-authoritative, observer-only telemetry for actual NeoForge physics-notification traffic associated with vanilla-redstone components.
 
-Candidate outputs:
+The source is NeoForge's server-side `BlockEvent.NeighborNotifyEvent`. RSE listens on `NeoForge.EVENT_BUS` and records two deliberately separate kinds of runtime evidence:
 
-- actual redstone-relevant neighbor notifications over a bounded rolling window;
-- update hotspots;
-- cascade depth where observable without changing vanilla scheduling;
-- repeated/redundant-update evidence;
-- observer pulse activity;
-- per-plant redstone activity summaries.
+- **Neighbor Notification Events** — actual event-bus observations emitted by the NeoForge/Minecraft physics-notification path;
+- **Observed State Transitions** — changes in selected vanilla-redstone state signatures between successive event observations at the same position, including dust `POWER`, `POWERED`, `LIT`, and `EXTENDED` where those properties exist.
 
-Any event hook must remain read-only and bounded.
+These are real observations but they have strict semantics. Neighbor Notification Events are **not solver-evaluation counts**, and Observed State Transitions are not a claim to capture every internal block-state transition. Neither metric is TPS cost, CPU time, or an exact update-order trace.
+
+Runtime retention and query scope are bounded:
+
+- at most **4096** notification samples retained per loaded level;
+- at most **1024** remembered source positions for transition comparison;
+- level keys are weakly retained so the observer cache does not own world lifecycle;
+- default query radius: **16 blocks**;
+- hard query-radius cap: **64 blocks**;
+- default rolling window: **100 game ticks**;
+- hard rolling-window cap: **1200 game ticks**.
+
+The runtime report exposes notification count, total notified sides, forced-redstone-update flags, observed state-transition count, unique source positions, and the busiest observed source position in the selected window. It intentionally does not derive a fabricated updates-per-second number from a partially populated rolling window.
+
+The Topology Debugger now combines the bounded structural profile with this runtime report when inspecting a vanilla-redstone target. Runtime telemetry remains evidence only: it does not drive the debugger's alarm output, schedule vanilla ticks, cancel NeoForge events, mutate BlockState, or replace Minecraft's redstone solver.
+
+Phase 2 therefore preserves the Phase-1 behavior boundary:
+
+- no RSE mixin into vanilla redstone;
+- no replacement solver;
+- no changes to dust attenuation, repeaters, comparators, observers, pistons, quasi-connectivity, or vanilla update order;
+- no unbounded world scan;
+- no claim that event observations equal internal solver work.
 
 ## Phase 3 — Timing and Order Analysis
 
@@ -90,11 +108,12 @@ Any optimized mode must be explicitly optional and fail closed to vanilla semant
 
 ## Architectural boundary
 
-VRE does not replace the RSE EngineeringPort system. The two views are complementary:
+VRE does not replace the RSE EngineeringPort system. The views are complementary:
 
 ```text
 Vanilla redstone target
-        -> bounded VRE diagnostics
+        -> bounded structural VRE diagnostics
+        -> bounded runtime NeighborNotifyEvent telemetry
 
 RSE engineering device
         -> EngineeringTopologyView / EngineeringPort diagnostics
