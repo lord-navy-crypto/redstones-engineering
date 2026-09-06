@@ -1,0 +1,7 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": ["QCQ", "RMR", "QTQ"],
+  "key": {"Q": {"item": "minecraft:quartz"}, "C": {"item": "minecraft:comparator"}, "R": {"item": "minecraft:redstone"}, "M": {"item": "minecraft:spyglass"}, "T": {"item": "minecraft:redstone_torch"}},
+  "result": {"id": "redstoneengineering:topology_debugger", "count": 1}
+}

@@ -1,0 +1,7 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": ["RLR", "LCL", "RTR"],
+  "key": {"R": {"item": "minecraft:redstone"}, "L": {"item": "minecraft:redstone_lamp"}, "C": {"item": "minecraft:comparator"}, "T": {"item": "minecraft:redstone_torch"}},
+  "result": {"id": "redstoneengineering:alarm_processor", "count": 1}
+}
