@@ -8,6 +8,8 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.diagnostics.events.SystemEventKind;
+import dev.redstoneengineering.diagnostics.events.SystemEventTimeline;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
@@ -65,9 +67,7 @@ public class SafetyInterlockBlock extends PassiveDirectionalSignalBlock {
     }
 
     @Override
-    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
-            Level level, BlockPos pos, BlockState state, Direction side
-    ) {
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         Direction front = outputSide(state);
@@ -86,8 +86,18 @@ public class SafetyInterlockBlock extends PassiveDirectionalSignalBlock {
         int permit = mask == 0 ? 1 : 0;
 
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
+        int previousPermit = runtime[4];
         runtime[0] = mask;
-        if (permit != runtime[4]) runtime[3]++;
+        if (permit != previousPermit) {
+            runtime[3]++;
+            if (permit == 0) {
+                SystemEventTimeline.record(level, pos, SystemEventKind.INTERLOCK_TRIPPED, 3,
+                        "INTERLOCK_TRIPPED", "Permit removed; failed permissive mask=" + mask);
+            } else {
+                SystemEventTimeline.record(level, pos, SystemEventKind.INTERLOCK_READY, 0,
+                        "INTERLOCK_READY", "All permissives valid; permit restored");
+            }
+        }
         runtime[4] = permit;
         if (permit != 0) runtime[2]++;
         else runtime[1]++;
