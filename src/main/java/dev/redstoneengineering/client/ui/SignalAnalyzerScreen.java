@@ -9,6 +9,12 @@ import net.minecraft.world.entity.player.Inventory;
 
 /** Metrology-focused analyzer panel with rolling history and explicit TAP/INLINE semantics. */
 public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzerMenu> {
+    private final EngineeringChartRenderer.Series trendSeries = new EngineeringChartRenderer.Series() {
+        @Override public int size() { return SignalAnalyzerBlock.DISPLAY_SAMPLES; }
+        @Override public int valueAt(int slot) { return menu.sample(slot); }
+        @Override public long gameTimeAt(int slot) { return menu.displayGameTime(slot); }
+    };
+
     public SignalAnalyzerScreen(SignalAnalyzerMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
     }
@@ -47,8 +53,13 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
         labelValue(graphics, "Calibration", signed(menu.calibrationOffset()), 131);
         labelValue(graphics, "World output", menu.mode() == SignalAnalyzerBlock.INLINE ? menu.output() + " / 15 RAW" : "DISCONNECTED", 146);
         graphics.drawString(font, "ROLLING WINDOW", 16, 164, MUTED, false);
-        analogTrace(graphics, 98, 160, 200, 22, INFO);
-        graphics.drawString(font, "avg=" + decimal100(menu.average100()) + "  p2p=" + menu.peakToPeak(), 16, 187, TEXT, false);
+        EngineeringChartRenderer.drawFrame(graphics, 98, 160, 200, 22, 0, 15, false);
+        EngineeringChartRenderer.drawWaveform(graphics, trendSeries, 98, 160, 200, 22, 0, 15, INFO);
+        EngineeringChartRenderer.drawLimitHitMarkers(graphics, trendSeries, 98, 160, 200, 22, 0, 15, WARN);
+        graphics.drawString(font,
+                "avg=" + decimal100(menu.average100()) + "  p2p=" + menu.peakToPeak()
+                        + "  Δ=" + menu.windowTransitions(),
+                16, 187, TEXT, false);
     }
 
     private void renderPorts(GuiGraphics graphics) {
@@ -80,46 +91,33 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
         labelValue(graphics, "Changes", Integer.toString(menu.changes()), 97);
         labelValue(graphics, "Edges", "↑" + menu.rising() + " ↓" + menu.falling(), 112);
         labelValue(graphics, "Last / max Δ", menu.lastDelta() + " / " + menu.maxDelta(), 127);
-        labelValue(graphics, "Stable for", menu.stableAgeTicks() + "t", 142);
-        labelValue(graphics, "Sample age", menu.sampleAgeTicks() < 0 ? "N/A" : menu.sampleAgeTicks() + "t", 157);
+        labelValue(graphics, "Stable / sample age",
+                menu.stableAgeTicks() + "t / " + (menu.sampleAgeTicks() < 0 ? "N/A" : menu.sampleAgeTicks() + "t"), 142);
+        labelValue(graphics, "Window evidence",
+                "trans=" + menu.windowTransitions() + " sat=" + menu.saturationCount() + " span=" + menu.timeSpanTicks() + "t", 157);
         statusLine(graphics, "Variation", stabilityClass(), stabilityColor(), 177);
     }
 
     private void renderHistory(GuiGraphics graphics) {
         graphics.drawString(font, "15", 13, 84, MUTED, false);
-        graphics.drawString(font, "0", 18, 162, MUTED, false);
-        graphics.fill(38, 82, 298, 166, 0xFF10141A);
-        analogTrace(graphics, 42, 86, 250, 76, INFO);
+        graphics.drawString(font, "0", 18, 153, MUTED, false);
+        EngineeringChartRenderer.drawFrame(graphics, 38, 82, 260, 78, 0, 15, true);
+        EngineeringChartRenderer.drawWaveform(graphics, trendSeries, 38, 82, 260, 78, 0, 15, INFO);
+        EngineeringChartRenderer.drawChangeMarkers(graphics, trendSeries, 38, 82, 260, 78, ACCENT);
+        EngineeringChartRenderer.drawLimitHitMarkers(graphics, trendSeries, 38, 82, 260, 78, 0, 15, WARN);
+        EngineeringChartRenderer.drawGameTimeAxis(graphics, font, trendSeries, 38, 163, 260);
         graphics.drawString(font,
                 "window=" + menu.windowCount() + "/16  avg=" + decimal100(menu.average100())
                         + "  p2p=" + menu.peakToPeak() + "  meanStep=" + decimal100(menu.meanStep100()),
-                16, 175, TEXT, false);
+                16, 176, TEXT, false);
         graphics.drawString(font,
-                "samples=" + menu.totalSamples() + "  mode switches=" + menu.modeSwitches()
-                        + "  calibration switches=" + menu.calibrationSwitches(),
-                16, 188, MUTED, false);
-    }
-
-    private void analogTrace(GuiGraphics graphics, int x, int y, int width, int height, int color) {
-        int previousX = -1;
-        int previousY = -1;
-        for (int slot = 0; slot < SignalAnalyzerBlock.DISPLAY_SAMPLES; slot++) {
-            int sample = menu.sample(slot);
-            if (sample < 0) {
-                previousX = -1;
-                previousY = -1;
-                continue;
-            }
-            int px = x + Math.round(slot * width / 15.0f);
-            int py = y + height - Math.round(sample * height / 15.0f);
-            if (previousX >= 0) {
-                graphics.fill(Math.min(previousX, px), previousY, Math.max(previousX, px) + 1, previousY + 1, color);
-                graphics.fill(px, Math.min(previousY, py), px + 1, Math.max(previousY, py) + 1, color);
-            }
-            graphics.fill(px - 1, py - 1, px + 2, py + 2, color);
-            previousX = px;
-            previousY = py;
-        }
+                "transitions=" + menu.windowTransitions() + "  saturation=" + menu.saturationCount()
+                        + "  span=" + menu.timeSpanTicks() + "t",
+                16, 189, TEXT, false);
+        graphics.drawString(font,
+                "samples=" + menu.totalSamples() + "  mode=" + menu.modeSwitches()
+                        + "  calibration=" + menu.calibrationSwitches(),
+                16, 202, MUTED, false);
     }
 
     private String modeName() {
