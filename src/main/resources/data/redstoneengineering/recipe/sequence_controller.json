@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": ["QRQ", "RCR", "QTQ"],
+  "key": {
+    "Q": { "item": "minecraft:quartz" },
+    "R": { "item": "minecraft:redstone" },
+    "C": { "item": "minecraft:comparator" },
+    "T": { "item": "minecraft:redstone_torch" }
+  },
+  "result": { "id": "redstoneengineering:sequence_controller", "count": 1 }
+}

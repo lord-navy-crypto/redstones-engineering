@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Static closure gate for findings from the repository-wide 122-block audit."""
+"""Static closure gate for the audited 122-block core plus systems extensions."""
 from pathlib import Path
 import re
+import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -10,6 +11,7 @@ GT = ROOT / "src/main/java/dev/redstoneengineering/gametest/RseTotalAuditClosure
 REG = ROOT / "src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java"
 WORKFLOW = ROOT / ".github/workflows/build.yml"
 TOTAL_AUDIT = ROOT / "tools/rse_122_block_total_audit.py"
+SYSTEMS_VERIFY = ROOT / "tools/rse_engineering_systems_verify.py"
 
 errors: list[str] = []
 
@@ -129,14 +131,37 @@ require(workflow, 'Too many chained neighbor updates', "build.yml")
 require(total_audit, "EXPECTED_REGISTERED = 122", "rse_122_block_total_audit.py")
 require(total_audit, '"pid_controller"', "rse_122_block_total_audit.py")
 
+# The systems verifier is intentionally chained from this already-required CI gate. This keeps
+# the historical 122-block total audit intact while making the aggregate 122 + 3 systems closure
+# a hard failure if registration, resources, ports, cleanup, or GameTests regress.
+if not SYSTEMS_VERIFY.exists():
+    errors.append("missing tools/rse_engineering_systems_verify.py")
+else:
+    proc = subprocess.run(
+        [sys.executable, str(SYSTEMS_VERIFY)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if proc.stdout:
+        print(proc.stdout, end="")
+    if proc.stderr:
+        print(proc.stderr, end="", file=sys.stderr)
+    if proc.returncode != 0:
+        errors.append(f"engineering systems verifier failed with exit code {proc.returncode}")
+
 if errors:
-    print("RSE 122-BLOCK CLOSURE VERIFY: FAIL")
+    print("RSE 125-BLOCK AGGREGATE CLOSURE VERIFY: FAIL")
     for error in errors:
         print(" -", error)
     sys.exit(1)
 
-print("RSE 122-BLOCK CLOSURE VERIFY: PASS")
+print("RSE 125-BLOCK AGGREGATE CLOSURE VERIFY: PASS")
+print("  historical deep-audit core: 122")
+print("  systems extension: 3")
 print("  closure targets: signal analyzer, scope, logic analyzer, magnetic free-space quartet")
 print("  static-evidence closure: precision filter plus truthful PWM/sample-hold control faces")
+print("  systems closure: sequence controller, safety interlock, fault injector")
 print("  neighbor-update storm runtime gate: present")
-print("  closure GameTests: 4")
+print("  legacy closure GameTests: 4")

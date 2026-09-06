@@ -114,11 +114,32 @@ jobs:
           set -euo pipefail
           mkdir -p .rse-audit
           ./gradlew runGameTestServer --no-daemon --stacktrace 2>&1 | tee .rse-audit/gametest-server.log
+
           if grep -Fq "Too many chained neighbor updates" .rse-audit/gametest-server.log; then
             echo "::error::GameTest server triggered the chained-neighbor-update safety cutoff"
             grep -F "Too many chained neighbor updates" .rse-audit/gametest-server.log | head -n 40 || true
             exit 1
           fi
+
+          if grep -Eiq "Mod loading has failed|Failed to start the minecraft server|Failed to create mod instance|ModLoadingCrashException" .rse-audit/gametest-server.log; then
+            echo "::error::GameTest server did not reach a healthy mod-loaded runtime"
+            grep -Ei "Mod loading has failed|Failed to start the minecraft server|Failed to create mod instance|ModLoadingCrashException" .rse-audit/gametest-server.log | head -n 80 || true
+            exit 1
+          fi
+
+          summary_line="$(grep -E 'All [0-9]+ required tests passed :\)' .rse-audit/gametest-server.log | tail -n 1 || true)"
+          if [[ -z "$summary_line" ]]; then
+            echo "::error::GameTest process exited without the required all-tests-passed summary"
+            tail -n 160 .rse-audit/gametest-server.log || true
+            exit 1
+          fi
+
+          test_count="$(printf '%s\n' "$summary_line" | sed -E 's/.*All ([0-9]+) required tests passed.*/\1/')"
+          if [[ ! "$test_count" =~ ^[0-9]+$ ]] || (( test_count < 168 )); then
+            echo "::error::Expected at least 168 GameTests after the engineering-systems extension; observed: $test_count"
+            exit 1
+          fi
+          echo "Verified GameTest completion: $test_count required tests passed"
 
       - name: Upload GameTest runtime log
         if: always()

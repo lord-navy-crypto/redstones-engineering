@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": ["ITI", "RCR", "ITI"],
+  "key": {
+    "I": { "item": "minecraft:iron_ingot" },
+    "T": { "item": "minecraft:redstone_torch" },
+    "R": { "item": "minecraft:redstone" },
+    "C": { "item": "minecraft:comparator" }
+  },
+  "result": { "id": "redstoneengineering:safety_interlock", "count": 1 }
+}
