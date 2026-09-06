@@ -20,8 +20,16 @@ def need(src: str, needle: str, label: str) -> None:
 
 profile = read("src/main/java/dev/redstoneengineering/diagnostics/redstone/VanillaRedstoneEngineeringProfile.java")
 report = read("src/main/java/dev/redstoneengineering/diagnostics/redstone/VanillaRedstoneDiagnosticsReport.java")
+target = read("src/main/java/dev/redstoneengineering/diagnostics/redstone/VanillaRedstoneTargetSnapshot.java")
+history = read("src/main/java/dev/redstoneengineering/diagnostics/redstone/VanillaRedstoneTargetHistory.java")
 debugger = read("src/main/java/dev/redstoneengineering/block/TopologyDebuggerBlock.java")
+menu = read("src/main/java/dev/redstoneengineering/ui/menu/TopologyDebuggerMenu.java")
+screen = read("src/main/java/dev/redstoneengineering/client/ui/TopologyDebuggerScreen.java")
+ui_common = read("src/main/java/dev/redstoneengineering/ui/EngineeringUiRegistration.java")
+ui_client = read("src/main/java/dev/redstoneengineering/client/ui/EngineeringUiClientRegistration.java")
+runtime_registration = read("src/main/java/dev/redstoneengineering/VanillaRedstoneRuntimeRegistration.java")
 gt = read("src/main/java/dev/redstoneengineering/gametest/RseVanillaRedstoneEngineeringGameTests.java")
+runtime_gt = read("src/main/java/dev/redstoneengineering/gametest/RseVanillaRedstoneRuntimeGameTests.java")
 module = read("src/main/java/dev/redstoneengineering/EngineeringSystemsModule.java")
 workflow = read(".github/workflows/build.yml")
 doc = read("docs/VANILLA_REDSTONE_ENGINEERING.md")
@@ -50,14 +58,54 @@ for needle in (
     need(report, needle, "VanillaRedstoneDiagnosticsReport.java")
 
 for needle in (
+    "DUST = 1", "REPEATER = 2", "COMPARATOR = 3", "OBSERVER = 4",
+    "RedStoneWireBlock.POWER", 'intProperty(state, "delay", -1)',
+    'stringProperty(state, "mode", "")', 'directionProperty(state, "facing")'
+):
+    need(target, needle, "VanillaRedstoneTargetSnapshot.java")
+
+for needle in (
+    "MAX_EVENTS_PER_LEVEL = 2048", "DISPLAY_SAMPLES = 24", "WeakHashMap",
+    "onNeighborNotify", "sample.source().equals(target)", "latestGameTime", "transitionCount"
+):
+    need(history, needle, "VanillaRedstoneTargetHistory.java")
+
+for needle in (
     "targetsVanillaRedstone",
     "inspectVanillaTarget",
     "VanillaRedstoneEngineeringProfile",
     "computeVanillaOutput",
     "EngineeringTopologyView.inspect",
     "report.hasIssue()",
+    "new TopologyDebuggerMenu",
+    "openMenu",
 ):
     need(debugger, needle, "TopologyDebuggerBlock.java")
+
+for needle in (
+    "VanillaRedstoneTargetSnapshot.inspect",
+    "VanillaRedstoneRuntimeTelemetry.inspect",
+    "VanillaRedstoneRuntimeTelemetry.inspectTiming",
+    "VanillaRedstoneRuntimeTelemetry.inspectBehavior",
+    "VanillaRedstoneTargetHistory.inspect",
+    "timelineLatestTimeLow",
+    "timelineAges",
+):
+    need(menu, needle, "TopologyDebuggerMenu.java")
+
+for needle in (
+    "VANILLA BEHAVIOR IMMUTABILITY",
+    "EngineeringChartRenderer.drawWaveform",
+    "EngineeringChartRenderer.drawChangeMarkers",
+    "EngineeringChartRenderer.drawGameTimeAxis",
+    "Exact target-source observations only",
+    "logical-server gameTime",
+):
+    need(screen, needle, "TopologyDebuggerScreen.java")
+
+need(ui_common, "MenuType<TopologyDebuggerMenu>", "EngineeringUiRegistration.java")
+need(ui_client, "TopologyDebuggerScreen::new", "EngineeringUiClientRegistration.java")
+need(runtime_registration, "VanillaRedstoneTargetHistory::onNeighborNotify", "VanillaRedstoneRuntimeRegistration.java")
 
 for name in (
     "vanillaProfileFindsPoweredDustAndTimingComponents",
@@ -65,6 +113,8 @@ for name in (
     "topologyDebuggerSelectsVanillaRedstoneMode",
 ):
     need(gt, name, "RseVanillaRedstoneEngineeringGameTests.java")
+need(gt, "VanillaRedstoneTargetSnapshot.inspect", "RseVanillaRedstoneEngineeringGameTests.java")
+need(runtime_gt, "VanillaRedstoneTargetHistory.inspect", "RseVanillaRedstoneRuntimeGameTests.java")
 
 count = len(re.findall(r"@GameTest\s*\(", gt))
 if count != 3:
@@ -78,10 +128,13 @@ if minimum_match is None or int(minimum_match.group(1)) < 177:
 need(doc, "Diagnostics Only", "VANILLA_REDSTONE_ENGINEERING.md")
 need(doc, "No mixins", "VANILLA_REDSTONE_ENGINEERING.md")
 
-# Phase one is observation only: no world mutation, no replacement solver, no vanilla mixin.
+# Observation/presentation layers must not mutate world state or become a replacement solver.
 for label, src in (
     ("VanillaRedstoneEngineeringProfile.java", profile),
     ("VanillaRedstoneDiagnosticsReport.java", report),
+    ("VanillaRedstoneTargetSnapshot.java", target),
+    ("VanillaRedstoneTargetHistory.java", history),
+    ("TopologyDebuggerMenu.java", menu),
 ):
     for forbidden in ("setBlock(", "scheduleTick(", "updateNeighborsAt(", "neighborChanged("):
         if forbidden in src:
@@ -91,7 +144,7 @@ java_root = ROOT / "src/main/java"
 for path in java_root.rglob("*.java"):
     text = path.read_text(encoding="utf-8")
     if "@Mixin(RedStoneWireBlock" in text or "@Mixin(value = RedStoneWireBlock" in text:
-        errors.append(f"{path.relative_to(ROOT)}: phase-one VRE must not replace/mixin vanilla redstone wire")
+        errors.append(f"{path.relative_to(ROOT)}: VRE must not replace/mixin vanilla redstone wire")
 
 if errors:
     print("RSE VANILLA REDSTONE ENGINEERING VERIFY: FAIL")
@@ -103,6 +156,9 @@ print("RSE VANILLA REDSTONE ENGINEERING VERIFY: PASS")
 print("  vanilla behavior modification: NONE (Diagnostics Only)")
 print("  bounded adjacent-component traversal: <=256 nodes / <=24 Manhattan blocks")
 print("  dust 0..15 + configured repeater timing evidence: PASS")
+print("  component snapshots for dust/repeater/comparator/observer: PASS")
+print("  exact-target event timeline: <=24 display samples / server gameTime")
+print("  server-backed Topology Debugger engineering overlay: PASS")
+print("  shared chart rendering + read-only authority boundary: PASS")
 print("  QC/fan-out/density classifications remain advisories: PASS")
-print("  Topology Debugger vanilla-mode routing: PASS")
 print("  executable VRE foundation GameTests: 3")
