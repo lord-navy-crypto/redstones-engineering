@@ -40,7 +40,7 @@ public class SafetyInterlockBlock extends PassiveDirectionalSignalBlock {
 
     @Override
     public MapCodec<SafetyInterlockBlock> codec() {
-        return EngineeringSystemsModule.SAFETY_INTERLOCK_CODEC;
+        return EngineeringSystemsModule.SAFETY_INTERLOCK_CODEC.value();
     }
 
     @Override
