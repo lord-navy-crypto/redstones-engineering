@@ -102,7 +102,7 @@ public final class TopologyDebuggerScreen extends EngineeringScreen<TopologyDebu
         int width = 288;
         EngineeringChartRenderer.drawFrame(graphics, x, 94, width, 70, 0, 15, true);
         EngineeringChartRenderer.drawWaveform(graphics, targetTimeline, x, 94, width, 70, 0, 15, ACCENT);
-        EngineeringChartRenderer.drawChangeMarkers(graphics, targetTimeline, x, 94, width, 70, 0, 15, WARN);
+        EngineeringChartRenderer.drawChangeMarkers(graphics, targetTimeline, x, 94, width, 70, WARN);
         EngineeringChartRenderer.drawGameTimeAxis(graphics, font, targetTimeline, x, 168, width);
         graphics.drawString(font, "Exact target-source observations only; gaps mean no retained target event.",
                 16, 187, MUTED, false);
