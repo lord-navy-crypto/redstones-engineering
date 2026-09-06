@@ -224,17 +224,26 @@ public final class RseCopperGameTests {
                         .setValue(CopperResistiveLoadBlock.RESISTANCE, 4)
         );
 
-        helper.runAfterDelay(14, () -> {
-            var trip = SystemEventTimeline.snapshot(helper.getLevel()).stream()
-                    .filter(event -> event.kind() == SystemEventKind.ELECTRICAL_TRIP)
-                    .filter(event -> event.source().equals(absoluteFuse))
-                    .findFirst()
-                    .orElse(null);
-            if (trip == null || !trip.abnormal()) {
-                helper.fail("Copper fuse trip was not recorded as abnormal authoritative electrical evidence", fusePos);
+        awaitElectricalTripEvidence(helper, fusePos, absoluteFuse, cellScope, 0);
+    }
+
+    private static void awaitElectricalTripEvidence(
+            GameTestHelper helper,
+            BlockPos fusePos,
+            BlockPos absoluteFuse,
+            SystemEventScope cellScope,
+            int elapsedTicks
+    ) {
+        var trip = SystemEventTimeline.snapshot(helper.getLevel()).stream()
+                .filter(event -> event.kind() == SystemEventKind.ELECTRICAL_TRIP)
+                .filter(event -> event.source().equals(absoluteFuse))
+                .findFirst()
+                .orElse(null);
+        if (trip != null) {
+            if (!trip.abnormal()) {
+                helper.fail("Copper fuse trip event was retained but not classified abnormal", fusePos);
                 return;
             }
-
             var firstOut = FirstOutAnalysis.latestWithin(helper.getLevel(), cellScope).orElse(null);
             if (firstOut == null
                     || firstOut.firstOut().kind() != SystemEventKind.ELECTRICAL_TRIP
@@ -243,7 +252,21 @@ public final class RseCopperGameTests {
                 return;
             }
             helper.succeed();
-        });
+            return;
+        }
+
+        if (elapsedTicks >= 30) {
+            BlockState fuse = helper.getBlockState(fusePos);
+            helper.fail(
+                    "Copper fuse trip evidence was never observed within 30 ticks; tripped="
+                            + fuse.getValue(CopperFuseBlock.TRIPPED)
+                            + "; timelineSize=" + SystemEventTimeline.size(helper.getLevel()),
+                    fusePos
+            );
+            return;
+        }
+        helper.runAfterDelay(1, () -> awaitElectricalTripEvidence(
+                helper, fusePos, absoluteFuse, cellScope, elapsedTicks + 1));
     }
 
     @PrefixGameTestTemplate(false)
