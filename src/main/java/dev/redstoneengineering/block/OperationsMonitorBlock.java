@@ -15,7 +15,7 @@ import dev.redstoneengineering.diagnostics.events.FirstOutAnalysis;
 import dev.redstoneengineering.diagnostics.events.SystemEventKind;
 import dev.redstoneengineering.diagnostics.events.SystemEventTimeline;
 import dev.redstoneengineering.physics.RuntimeIntStore;
-import dev.redstoneengineering.ui.FieldDeviceUi;
+import dev.redstoneengineering.ui.OperationsMonitorUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -203,9 +203,10 @@ public class OperationsMonitorBlock extends Block implements EngineeringPortProv
         if (!l.isClientSide && pl instanceof ServerPlayer serverPlayer) {
             if (pl.isShiftKeyDown()) {
                 RuntimeIntStore.remove(l, KEY, p);
-                pl.displayClientMessage(net.minecraft.network.chat.Component.literal("Operations monitor statistics reset"), true);
+                pl.displayClientMessage(net.minecraft.network.chat.Component.literal(
+                        "Operations monitor statistics reset; plant event evidence retained"), true);
             } else {
-                FieldDeviceUi.open(serverPlayer, p);
+                OperationsMonitorUi.open(serverPlayer, p);
             }
         }
         return InteractionResult.sidedSuccess(l.isClientSide);
