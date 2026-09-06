@@ -19,12 +19,15 @@ import dev.redstoneengineering.diagnostics.redstone.VanillaRedstoneTimingReport;
 import dev.redstoneengineering.diagnostics.topology.EngineeringTopologyView;
 import dev.redstoneengineering.diagnostics.topology.TopologyDiagnosticsReport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.ui.menu.TopologyDebuggerMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
@@ -192,15 +195,17 @@ public class TopologyDebuggerBlock extends PassiveDirectionalSignalBlock {
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
-            String summary;
-            if (targetsVanillaRedstone(level, pos, state) && level instanceof ServerLevel server) {
-                summary = vanillaDiagnosticSummary(server, pos, state);
-            } else if (targetsVanillaRedstone(level, pos, state)) {
-                summary = inspectVanillaTarget(level, pos, state).summary();
+            if (targetsVanillaRedstone(level, pos, state) && player instanceof ServerPlayer serverPlayer) {
+                serverPlayer.openMenu(
+                        new SimpleMenuProvider(
+                                (containerId, inventory, ignored) -> new TopologyDebuggerMenu(containerId, inventory, pos),
+                                Component.translatable("block.redstoneengineering.topology_debugger")
+                        ),
+                        data -> data.writeBlockPos(pos)
+                );
             } else {
-                summary = inspectTarget(level, pos, state).summary();
+                player.displayClientMessage(Component.literal(inspectTarget(level, pos, state).summary()), true);
             }
-            player.displayClientMessage(Component.literal(summary), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
