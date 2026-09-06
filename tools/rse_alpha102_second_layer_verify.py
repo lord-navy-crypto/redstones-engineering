@@ -18,14 +18,15 @@ need(
 )
 need(
     Path('src/main/java/dev/redstoneengineering/client/ui/EngineeringChartRenderer.java'),
-    'drawDigitalLane','drawDigitalEdgeMarkers','drawTimeMarker','drawGameTimeAxis'
+    'drawDigitalLane','drawDigitalEdgeMarkers','drawTimeMarker','drawGameTimeAxis',
+    'drawChangeMarkers','drawLimitHitMarkers'
 )
 need(
     Path('src/main/java/dev/redstoneengineering/client/ui/LogicAnalyzerScreen.java'),
     'EngineeringChartRenderer.drawDigitalLane','EngineeringChartRenderer.drawDigitalEdgeMarkers',
     'menu.displayGameTime','menu.cursorDeltaTicks'
 )
-# Check the actual PID response/anti-windup implementation, not legacy action-bar wording.
+# Check the actual PID response/anti-windup implementation and the observer-only trend layer.
 need(
     Path('src/main/java/dev/redstoneengineering/block/PidControllerBlock.java'),
     'updateStepDiagnostics',
@@ -33,7 +34,24 @@ need(
     'saturatedHigh',
     'saturatedLow',
     'rt[10]',
-    'rt[14]'
+    'rt[14]',
+    'PidTelemetryHistory.capture',
+    'PidTelemetryHistory.clear'
+)
+need(
+    Path('src/main/java/dev/redstoneengineering/diagnostics/PidTelemetryHistory.java'),
+    'DISPLAY_SAMPLES = 24','WeakHashMap','captureSample','latestGameTime','recentAbsError100',
+    'repeated controller evaluation in the same game tick'
+)
+need(
+    Path('src/main/java/dev/redstoneengineering/ui/menu/PidControllerMenu.java'),
+    'telemetryLatestTimeLow','telemetryAges','telemetrySaturationMask','telemetryGameTime',
+    'PidTelemetryHistory.DISPLAY_SAMPLES'
+)
+need(
+    Path('src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java'),
+    'EngineeringChartRenderer.drawWaveform','EngineeringChartRenderer.drawLimitHitMarkers',
+    'ERROR (SP − PV)','menu.telemetryGameTime','steadyStateError'
 )
 need(Path('src/main/java/dev/redstoneengineering/block/ServoActuatorBlock.java'),'trajectory diagnostics','settle=','travel=')
 need(Path('src/main/java/dev/redstoneengineering/physics/SerialNetwork.java'),'serial_diag','utilization')
@@ -57,6 +75,7 @@ print('RSE Alpha 1.0.2 second-layer verification: PASS')
 print('  instrumentation triggers/cursors: PASS')
 print('  authoritative logic gameTime + digital timing visualization: PASS')
 print('  PID process-response metrics + anti-windup implementation: PASS')
+print('  PID authoritative SP/PV/OUT/error multi-trend telemetry: PASS')
 print('  servo trajectory diagnostics: PASS')
 print('  serial/bus diagnostics: PASS')
 print('  radio interference/latency model: PASS')
