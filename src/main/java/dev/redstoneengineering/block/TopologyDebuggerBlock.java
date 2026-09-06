@@ -8,6 +8,8 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.diagnostics.events.SystemEventKind;
+import dev.redstoneengineering.diagnostics.events.SystemEventTimeline;
 import dev.redstoneengineering.diagnostics.topology.EngineeringTopologyView;
 import dev.redstoneengineering.diagnostics.topology.TopologyDiagnosticsReport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
@@ -31,8 +33,8 @@ import java.util.Optional;
  */
 public class TopologyDebuggerBlock extends PassiveDirectionalSignalBlock {
     private static final String KEY = "topology_debugger";
-    // [ports, connected, open, mismatch, unloaded, faults, scans]
-    private static final int RUNTIME_SIZE = 7;
+    // [ports, connected, open, mismatch, unloaded, faults, scans, previousIssue]
+    private static final int RUNTIME_SIZE = 8;
 
     public TopologyDebuggerBlock(Properties properties) {
         super(properties);
@@ -74,6 +76,8 @@ public class TopologyDebuggerBlock extends PassiveDirectionalSignalBlock {
     protected int computeOutput(Level level, BlockPos pos, BlockState state) {
         TopologyDiagnosticsReport report = inspectTarget(level, pos, state);
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
+        boolean issue = report.hasIssue();
+        boolean previousIssue = runtime[7] != 0;
         runtime[0] = report.portCount();
         runtime[1] = report.connectedCount();
         runtime[2] = report.openCount();
@@ -81,7 +85,17 @@ public class TopologyDebuggerBlock extends PassiveDirectionalSignalBlock {
         runtime[4] = report.unloadedCount();
         runtime[5] = report.faultSampleCount();
         runtime[6]++;
-        return report.hasIssue() ? 15 : 0;
+        runtime[7] = issue ? 1 : 0;
+        if (issue != previousIssue) {
+            if (issue) {
+                SystemEventTimeline.record(level, pos, SystemEventKind.TOPOLOGY_ISSUE, 2,
+                        "TOPOLOGY_ISSUE", report.summary());
+            } else {
+                SystemEventTimeline.record(level, pos, SystemEventKind.TOPOLOGY_CLEAR, 0,
+                        "TOPOLOGY_CLEAR", report.summary());
+            }
+        }
+        return issue ? 15 : 0;
     }
 
     public static int scanCount(Level level, BlockPos pos) {

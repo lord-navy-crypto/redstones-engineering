@@ -16,8 +16,14 @@ alarm=read(BLOCK/"AlarmProcessorBlock.java"); debug=read(BLOCK/"TopologyDebugger
 for s in ("SEVERITY", '"ALARM CONDITION"', '"ACKNOWLEDGE"', '"RESET / CLEAR"', "condition <= 0", "PortQuality.FAULT", "RuntimeIntStore.remove(level, KEY, pos)"): need(alarm,s,"AlarmProcessorBlock.java")
 for s in ("EngineeringTopologyView.inspect", "TopologyDiagnosticsReport", '"TOPOLOGY ALARM OUT"', "report.hasIssue()", "RuntimeIntStore.remove(level, KEY, pos)"): need(debug,s,"TopologyDebuggerBlock.java")
 for s in ("DOMAIN_MISMATCH", "DIRECTION_MISMATCH", "PortQuality.FAULT", "disconnectedIsland", "hasIssue()", "summary()"): need(report,s,"TopologyDiagnosticsReport.java")
-need(gt,"alarmProcessorLatchesAndRequiresHealthyReset","RseEngineeringSystemsGameTests.java"); need(gt,"topologyDebuggerFlagsDanglingEngineeringTarget","RseEngineeringSystemsGameTests.java")
-if len(re.findall(r"@GameTest\s*\(",gt)) != 5: errors.append("RseEngineeringSystemsGameTests.java: expected exactly 5 systems GameTests")
+for name in (
+    "alarmProcessorLatchesAndRequiresHealthyReset",
+    "topologyDebuggerFlagsDanglingEngineeringTarget",
+    "systemTimelineCapturesAlarmLifecycleAndFirstOut",
+    "firstOutPreservesEarliestAbnormalEventInIncident",
+): need(gt,name,"RseEngineeringSystemsGameTests.java")
+count=len(re.findall(r"@GameTest\s*\(",gt))
+if count < 7: errors.append(f"RseEngineeringSystemsGameTests.java: expected at least 7 systems GameTests, found {count}")
 if errors:
     print("RSE ALARM + TOPOLOGY DIAGNOSTICS VERIFY: FAIL")
     for e in errors: print(" -",e)
@@ -27,4 +33,4 @@ print("  latched alarm + acknowledge + healthy-reset semantics: PASS")
 print("  severity-coded redstone alarm output: PASS")
 print("  observer-only topology explanation layer: PASS")
 print("  dangling/mismatch/unloaded/fault/disconnected classifications: PASS")
-print("  executable systems GameTests: 5")
+print(f"  executable systems GameTests: {count}")

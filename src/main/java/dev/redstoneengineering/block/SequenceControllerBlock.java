@@ -8,6 +8,8 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.diagnostics.events.SystemEventKind;
+import dev.redstoneengineering.diagnostics.events.SystemEventTimeline;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
@@ -28,9 +30,6 @@ import java.util.Optional;
 /**
  * Four-step finite-state sequence controller.
  * BACK=RUN/ENABLE, LEFT=ADVANCE edge, RIGHT=RESET, UP=HOLD, FRONT=step code 0..4.
- *
- * <p>The controller deliberately does not become a general computer: it is a small,
- * inspectable industrial sequence primitive that composes with vanilla redstone.</p>
  */
 public class SequenceControllerBlock extends PassiveDirectionalSignalBlock {
     private static final String KEY = "sequence_controller";
@@ -74,9 +73,7 @@ public class SequenceControllerBlock extends PassiveDirectionalSignalBlock {
     }
 
     @Override
-    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
-            Level level, BlockPos pos, BlockState state, Direction side
-    ) {
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         int value = side == outputSide(state) ? state.getValue(OUTPUT) : readInputFrom(level, pos, side);
@@ -95,9 +92,12 @@ public class SequenceControllerBlock extends PassiveDirectionalSignalBlock {
 
         if (reset > 0) {
             if (runtime[0] != 0) {
+                int oldStep = runtime[0];
                 runtime[0] = 0;
                 runtime[3]++;
                 runtime[5]++;
+                SystemEventTimeline.record(level, pos, SystemEventKind.SEQUENCE_RESET, 1,
+                        "SEQUENCE_RESET", "Reset forced sequence from step=" + oldStep + " to IDLE");
             }
             runtime[1] = advance > 0 ? 1 : 0;
             runtime[2] = run > 0 ? 1 : 0;
@@ -106,8 +106,11 @@ public class SequenceControllerBlock extends PassiveDirectionalSignalBlock {
 
         if (run <= 0) {
             if (runtime[0] != 0) {
+                int oldStep = runtime[0];
                 runtime[0] = 0;
                 runtime[3]++;
+                SystemEventTimeline.record(level, pos, SystemEventKind.SEQUENCE_RESET, 1,
+                        "SEQUENCE_STOPPED", "RUN removed at step=" + oldStep + "; sequence returned to IDLE");
             }
             runtime[1] = advance > 0 ? 1 : 0;
             runtime[2] = 0;
@@ -117,6 +120,8 @@ public class SequenceControllerBlock extends PassiveDirectionalSignalBlock {
         if (runtime[2] == 0 && runtime[0] == 0) {
             runtime[0] = 1;
             runtime[3]++;
+            SystemEventTimeline.record(level, pos, SystemEventKind.SEQUENCE_STARTED, 0,
+                    "SEQUENCE_STARTED", "RUN rising edge entered STEP 1");
         }
         runtime[2] = 1;
 
@@ -128,11 +133,16 @@ public class SequenceControllerBlock extends PassiveDirectionalSignalBlock {
 
         boolean risingAdvance = advance > 0 && runtime[1] == 0;
         if (risingAdvance && runtime[0] > 0) {
+            int oldStep = runtime[0];
             if (runtime[0] < 4) {
                 runtime[0]++;
+                SystemEventTimeline.record(level, pos, SystemEventKind.SEQUENCE_STEP, 0,
+                        "SEQUENCE_STEP", "Advance edge moved step=" + oldStep + " -> " + runtime[0]);
             } else {
                 runtime[0] = 0;
                 runtime[4]++;
+                SystemEventTimeline.record(level, pos, SystemEventKind.SEQUENCE_COMPLETED, 0,
+                        "SEQUENCE_COMPLETED", "STEP 4 completed cycle=" + runtime[4]);
             }
             runtime[3]++;
         }
@@ -178,11 +188,16 @@ public class SequenceControllerBlock extends PassiveDirectionalSignalBlock {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
                 int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
+                int oldStep = runtime[0];
                 runtime[0] = 0;
                 runtime[1] = 0;
                 runtime[2] = 0;
                 runtime[5]++;
                 updateOutput(level, pos, state, 0);
+                if (oldStep != 0) {
+                    SystemEventTimeline.record(level, pos, SystemEventKind.SEQUENCE_RESET, 1,
+                            "SEQUENCE_OPERATOR_RESET", "Operator reset sequence from step=" + oldStep);
+                }
                 player.displayClientMessage(Component.literal("Sequence reset | waiting for RUN rising edge"), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
