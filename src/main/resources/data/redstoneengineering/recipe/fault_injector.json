@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": ["ARA", "LCL", "ARA"],
+  "key": {
+    "A": { "item": "minecraft:amethyst_shard" },
+    "R": { "item": "minecraft:redstone" },
+    "L": { "item": "minecraft:lever" },
+    "C": { "item": "minecraft:comparator" }
+  },
+  "result": { "id": "redstoneengineering:fault_injector", "count": 1 }
+}
