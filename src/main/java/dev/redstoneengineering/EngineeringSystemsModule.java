@@ -5,7 +5,7 @@ import dev.redstoneengineering.block.FaultInjectorBlock;
 import dev.redstoneengineering.block.SafetyInterlockBlock;
 import dev.redstoneengineering.block.SequenceControllerBlock;
 import dev.redstoneengineering.gametest.RseEngineeringSystemsGameTests;
-import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.BlockItem;
@@ -15,7 +15,7 @@ import net.minecraft.world.level.material.MapColor;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
-import net.neoforged.neoforge.gametest.RegisterGameTestsEvent;
+import net.neoforged.neoforge.event.RegisterGameTestsEvent;
 import net.neoforged.neoforge.registries.RegisterEvent;
 
 /**
@@ -66,17 +66,17 @@ public final class EngineeringSystemsModule {
     }
 
     private static void register(RegisterEvent event) {
-        event.register(BuiltInRegistries.BLOCK_TYPE, helper -> {
+        event.register(Registries.BLOCK_TYPE, helper -> {
             helper.register(id("sequence_controller"), SEQUENCE_CONTROLLER_CODEC);
             helper.register(id("safety_interlock"), SAFETY_INTERLOCK_CODEC);
             helper.register(id("fault_injector"), FAULT_INJECTOR_CODEC);
         });
-        event.register(BuiltInRegistries.BLOCK, helper -> {
+        event.register(Registries.BLOCK, helper -> {
             helper.register(id("sequence_controller"), SEQUENCE_CONTROLLER);
             helper.register(id("safety_interlock"), SAFETY_INTERLOCK);
             helper.register(id("fault_injector"), FAULT_INJECTOR);
         });
-        event.register(BuiltInRegistries.ITEM, helper -> {
+        event.register(Registries.ITEM, helper -> {
             helper.register(id("sequence_controller"), SEQUENCE_CONTROLLER_ITEM);
             helper.register(id("safety_interlock"), SAFETY_INTERLOCK_ITEM);
             helper.register(id("fault_injector"), FAULT_INJECTOR_ITEM);
