@@ -7,6 +7,7 @@ import dev.redstoneengineering.block.SafetyInterlockBlock;
 import dev.redstoneengineering.block.SequenceControllerBlock;
 import dev.redstoneengineering.block.TopologyDebuggerBlock;
 import dev.redstoneengineering.gametest.RseEngineeringSystemsGameTests;
+import dev.redstoneengineering.gametest.RsePlantScopeLifecycleGameTests;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.BlockItem;
@@ -92,6 +93,7 @@ public final class EngineeringSystemsModule {
 
     private static void registerGameTests(RegisterGameTestsEvent event) {
         event.register(RseEngineeringSystemsGameTests.class);
+        event.register(RsePlantScopeLifecycleGameTests.class);
     }
 
     public static String summary() {
