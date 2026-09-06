@@ -36,8 +36,17 @@ public final class LogicAnalyzerMenu extends EngineeringDeviceMenu {
     private final DataSlot[] transitionRate = new DataSlot[4];
     private final DataSlot[] rising = new DataSlot[4];
     private final DataSlot[] falling = new DataSlot[4];
+    private final DataSlot[] periodTicks = new DataSlot[4];
+    private final DataSlot[] pulseWidthTicks = new DataSlot[4];
+    private final DataSlot[] lastRisingAgeTicks = new DataSlot[4];
     private final DataSlot[] channelProbeCounts = new DataSlot[4];
     private final DataSlot[][] display = new DataSlot[4][LogicAnalyzerBlockEntity.DISPLAY_SAMPLES];
+
+    // The four channels share one simultaneous capture timestamp. Synchronize latest gameTime as
+    // hi/lo plus per-display-slot age so clients never derive timing from their own tick cadence.
+    private final DataSlot latestGameTimeLow = trackedInt();
+    private final DataSlot latestGameTimeHigh = trackedInt();
+    private final DataSlot[] displayAgeTicks = new DataSlot[LogicAnalyzerBlockEntity.DISPLAY_SAMPLES];
 
     private final DataSlot cableNodes = trackedInt();
     private final DataSlot probeNodes = trackedInt();
@@ -64,10 +73,16 @@ public final class LogicAnalyzerMenu extends EngineeringDeviceMenu {
             transitionRate[channel] = trackedInt();
             rising[channel] = trackedInt();
             falling[channel] = trackedInt();
+            periodTicks[channel] = trackedInt();
+            pulseWidthTicks[channel] = trackedInt();
+            lastRisingAgeTicks[channel] = trackedInt();
             channelProbeCounts[channel] = trackedInt();
             for (int slot = 0; slot < LogicAnalyzerBlockEntity.DISPLAY_SAMPLES; slot++) {
                 display[channel][slot] = trackedInt();
             }
+        }
+        for (int slot = 0; slot < LogicAnalyzerBlockEntity.DISPLAY_SAMPLES; slot++) {
+            displayAgeTicks[slot] = trackedInt();
         }
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
     }
@@ -86,12 +101,22 @@ public final class LogicAnalyzerMenu extends EngineeringDeviceMenu {
         cursorA.set(analyzer.cursorA());
         cursorB.set(analyzer.cursorB());
 
+        long latestGameTime = Math.max(0L, analyzer.latestSampleGameTime());
+        latestGameTimeLow.set((int) latestGameTime);
+        latestGameTimeHigh.set((int) (latestGameTime >>> 32));
+        for (int slot = 0; slot < LogicAnalyzerBlockEntity.DISPLAY_SAMPLES; slot++) {
+            displayAgeTicks[slot].set(analyzer.displaySampleAgeTicks(slot));
+        }
+
         for (int channel = 0; channel < 4; channel++) {
             coverage[channel].set(analyzer.coveragePercent(channel));
             duty[channel].set(analyzer.dutyPercent(channel));
             transitionRate[channel].set(analyzer.transitionRatePercent(channel));
             rising[channel].set(analyzer.rising(channel));
             falling[channel].set(analyzer.falling(channel));
+            periodTicks[channel].set(analyzer.estimatedPeriodTicks(channel));
+            pulseWidthTicks[channel].set(analyzer.lastCompleteHighPulseTicks(channel));
+            lastRisingAgeTicks[channel].set(analyzer.lastRisingAgeTicks(channel));
             for (int slot = 0; slot < LogicAnalyzerBlockEntity.DISPLAY_SAMPLES; slot++) {
                 display[channel][slot].set(analyzer.displayState(channel, slot));
             }
@@ -133,7 +158,36 @@ public final class LogicAnalyzerMenu extends EngineeringDeviceMenu {
     public int transitionRate(int channel) { return transitionRate[channel].get(); }
     public int rising(int channel) { return rising[channel].get(); }
     public int falling(int channel) { return falling[channel].get(); }
+    public int periodTicks(int channel) { return periodTicks[channel].get(); }
+    public int pulseWidthTicks(int channel) { return pulseWidthTicks[channel].get(); }
+    public int lastRisingAgeTicks(int channel) { return lastRisingAgeTicks[channel].get(); }
     public int displayState(int channel, int slot) { return display[channel][slot].get(); }
+
+    /** Reconstructs exact server capture time from synchronized latest gameTime + slot age. */
+    public long displayGameTime(int slot) {
+        if (slot < 0 || slot >= LogicAnalyzerBlockEntity.DISPLAY_SAMPLES || sampleCount() <= 0) return -1L;
+        int age = displayAgeTicks[slot].get();
+        if (age < 0) return -1L;
+        long latest = ((long) latestGameTimeHigh.get() << 32) | (latestGameTimeLow.get() & 0xFFFFFFFFL);
+        return latest - age;
+    }
+
+    public int cursorDeltaTicks() {
+        long a = displayGameTime(cursorA());
+        long b = displayGameTime(cursorB());
+        if (a < 0 || b < 0) return Math.abs(cursorB() - cursorA()) * LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS;
+        long delta = Math.abs(b - a);
+        return delta > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) delta;
+    }
+
+    /** Signed latest-rising-edge offset relative to the configured trigger channel. */
+    public int relativeRisingTicks(int channel) {
+        int referenceAge = lastRisingAgeTicks(triggerChannel());
+        int channelAge = lastRisingAgeTicks(channel);
+        if (referenceAge < 0 || channelAge < 0) return Integer.MIN_VALUE;
+        return referenceAge - channelAge;
+    }
+
     public int probeCount(int channel) { return channelProbeCounts[channel].get(); }
     public int cableNodes() { return cableNodes.get(); }
     public int probeNodes() { return probeNodes.get(); }

@@ -96,7 +96,9 @@ public class LogicAnalyzerBlock extends Block implements EntityBlock, Engineerin
             validMask |= 1 << channel;
             if (snapshot.values()[channel] >= threshold) mask |= 1 << channel;
         }
-        if (level.getBlockEntity(pos) instanceof LogicAnalyzerBlockEntity analyzer) analyzer.addSample(mask, validMask);
+        if (level.getBlockEntity(pos) instanceof LogicAnalyzerBlockEntity analyzer) {
+            analyzer.addSample(level.getGameTime(), mask, validMask);
+        }
         level.scheduleTick(pos, this, LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS);
     }
 

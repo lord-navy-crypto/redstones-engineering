@@ -7,7 +7,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
-/** Four-channel logic analyzer with edge trigger, cursor timing and capture coverage diagnostics. */
+/** Four-channel logic analyzer with edge trigger, authoritative timing and bounded capture diagnostics. */
 public class LogicAnalyzerBlockEntity extends BlockEntity {
     private static final int CHANNELS = 4;
     private static final int CAPACITY = 32;
@@ -16,6 +16,7 @@ public class LogicAnalyzerBlockEntity extends BlockEntity {
 
     private final int[] masks = new int[CAPACITY];
     private final int[] validMasks = new int[CAPACITY];
+    private final long[] sampleTimes = new long[CAPACITY];
     private final int[] rising = new int[CHANNELS];
     private final int[] falling = new int[CHANNELS];
 
@@ -33,9 +34,11 @@ public class LogicAnalyzerBlockEntity extends BlockEntity {
 
     public LogicAnalyzerBlockEntity(BlockPos pos, BlockState state) {
         super(RedstoneEngineering.LOGIC_ANALYZER_BLOCK_ENTITY.get(), pos, state);
+        for (int i = 0; i < CAPACITY; i++) sampleTimes[i] = -1L;
     }
 
-    public void addSample(int mask, int validMask) {
+    /** Records a thresholded four-channel sample at the real logical-server gameTime. */
+    public void addSample(long gameTime, int mask, int validMask) {
         int common = validMask & lastValidMask;
         boolean fire = false;
 
@@ -56,6 +59,7 @@ public class LogicAnalyzerBlockEntity extends BlockEntity {
         if (armed || triggered) {
             masks[index] = mask;
             validMasks[index] = validMask;
+            sampleTimes[index] = Math.max(0L, gameTime);
             if (armed && fire) {
                 armed = false;
                 triggered = true;
@@ -72,6 +76,18 @@ public class LogicAnalyzerBlockEntity extends BlockEntity {
         setChanged();
     }
 
+    /** Compatibility helper for tests/tools; production sampling passes gameTime explicitly. */
+    public void addSample(int mask, int validMask) {
+        long gameTime;
+        if (getLevel() != null) {
+            gameTime = getLevel().getGameTime();
+        } else {
+            long latest = latestSampleGameTime();
+            gameTime = latest < 0 ? 0L : latest + SAMPLE_PERIOD_TICKS;
+        }
+        addSample(gameTime, mask, validMask);
+    }
+
     private static boolean validChannel(int channel) {
         return channel >= 0 && channel < CHANNELS;
     }
@@ -80,6 +96,7 @@ public class LogicAnalyzerBlockEntity extends BlockEntity {
         for (int i = 0; i < CAPACITY; i++) {
             masks[i] = 0;
             validMasks[i] = 0;
+            sampleTimes[i] = -1L;
         }
         for (int i = 0; i < CHANNELS; i++) {
             rising[i] = 0;
@@ -153,18 +170,45 @@ public class LogicAnalyzerBlockEntity extends BlockEntity {
         int padding = DISPLAY_SAMPLES - available;
         if (slot < padding) return -1;
         int chronological = count - available + (slot - padding);
-        int source = (index - count + chronological + CAPACITY) % CAPACITY;
+        int source = sourceIndex(chronological);
         int bit = 1 << channel;
         if ((validMasks[source] & bit) == 0) return -1;
         return (masks[source] & bit) != 0 ? 1 : 0;
+    }
+
+    /** Returns the exact server gameTime paired with a displayed sample, or -1 during warm-up. */
+    public long displaySampleGameTime(int slot) {
+        if (slot < 0 || slot >= DISPLAY_SAMPLES) return -1L;
+        int available = Math.min(DISPLAY_SAMPLES, count);
+        int padding = DISPLAY_SAMPLES - available;
+        if (slot < padding) return -1L;
+        int chronological = count - available + (slot - padding);
+        return sampleTimes[sourceIndex(chronological)];
+    }
+
+    public long latestSampleGameTime() {
+        if (count == 0) return -1L;
+        return sampleTimes[(index - 1 + CAPACITY) % CAPACITY];
+    }
+
+    /** Compact synchronization form: age from the latest authoritative sample in ticks. */
+    public int displaySampleAgeTicks(int slot) {
+        long latest = latestSampleGameTime();
+        long sample = displaySampleGameTime(slot);
+        if (latest < 0 || sample < 0 || sample > latest) return -1;
+        return clampTicks(latest - sample);
     }
 
     public int cursorDeltaSamples() {
         return Math.abs(cursorB - cursorA);
     }
 
+    /** Uses retained server gameTime when both cursors point at valid capture slots. */
     public int cursorDeltaTicks() {
-        return cursorDeltaSamples() * SAMPLE_PERIOD_TICKS;
+        long a = displaySampleGameTime(cursorA);
+        long b = displaySampleGameTime(cursorB);
+        if (a < 0 || b < 0) return cursorDeltaSamples() * SAMPLE_PERIOD_TICKS;
+        return clampTicks(Math.abs(b - a));
     }
 
     public String triggerStatus() {
@@ -194,7 +238,7 @@ public class LogicAnalyzerBlockEntity extends BlockEntity {
         int bit = 1 << channel;
         int high = 0;
         for (int i = 0; i < count; i++) {
-            int source = (index - count + i + CAPACITY) % CAPACITY;
+            int source = sourceIndex(i);
             if ((validMasks[source] & bit) != 0 && (masks[source] & bit) != 0) high++;
         }
         return high;
@@ -205,7 +249,7 @@ public class LogicAnalyzerBlockEntity extends BlockEntity {
         int bit = 1 << channel;
         int valid = 0;
         for (int i = 0; i < count; i++) {
-            if ((validMasks[(index - count + i + CAPACITY) % CAPACITY] & bit) != 0) valid++;
+            if ((validMasks[sourceIndex(i)] & bit) != 0) valid++;
         }
         return valid;
     }
@@ -225,6 +269,91 @@ public class LogicAnalyzerBlockEntity extends BlockEntity {
         return Math.min(100, (edgeCount(channel) * 100) / (valid - 1));
     }
 
+    /** Average rising-edge period from complete, contiguous, timestamped evidence only. */
+    public int estimatedPeriodTicks(int channel) {
+        if (!validChannel(channel) || count < 3) return -1;
+        long lastRise = -1L;
+        long total = 0L;
+        int intervals = 0;
+        int previousState = -1;
+        long previousTime = -1L;
+        for (int i = 0; i < count; i++) {
+            int state = chronologicalState(channel, i);
+            long time = chronologicalTime(i);
+            if (state < 0 || time < 0 || (previousTime >= 0 && time < previousTime)) {
+                previousState = -1;
+                previousTime = time;
+                lastRise = -1L;
+                continue;
+            }
+            if (previousState == 0 && state == 1) {
+                if (lastRise >= 0L && time >= lastRise) {
+                    total += time - lastRise;
+                    intervals++;
+                }
+                lastRise = time;
+            }
+            previousState = state;
+            previousTime = time;
+        }
+        return intervals == 0 ? -1 : clampTicks(Math.max(1L, total / intervals));
+    }
+
+    /** Most recent complete HIGH pulse width; missing samples invalidate an unfinished pulse. */
+    public int lastCompleteHighPulseTicks(int channel) {
+        if (!validChannel(channel) || count < 2) return -1;
+        long highStart = -1L;
+        long lastWidth = -1L;
+        int previousState = -1;
+        long previousTime = -1L;
+        for (int i = 0; i < count; i++) {
+            int state = chronologicalState(channel, i);
+            long time = chronologicalTime(i);
+            if (state < 0 || time < 0 || (previousTime >= 0 && time < previousTime)) {
+                previousState = -1;
+                previousTime = time;
+                highStart = -1L;
+                continue;
+            }
+            if (previousState == 0 && state == 1) highStart = time;
+            if (previousState == 1 && state == 0 && highStart >= 0L && time >= highStart) {
+                lastWidth = time - highStart;
+                highStart = -1L;
+            }
+            previousState = state;
+            previousTime = time;
+        }
+        return lastWidth < 0L ? -1 : clampTicks(lastWidth);
+    }
+
+    /** Age of the most recent observed rising edge relative to the newest retained sample. */
+    public int lastRisingAgeTicks(int channel) {
+        long latest = latestSampleGameTime();
+        long rise = lastRisingGameTime(channel);
+        if (latest < 0 || rise < 0 || rise > latest) return -1;
+        return clampTicks(latest - rise);
+    }
+
+    private long lastRisingGameTime(int channel) {
+        if (!validChannel(channel)) return -1L;
+        int previousState = -1;
+        long previousTime = -1L;
+        long lastRise = -1L;
+        for (int i = 0; i < count; i++) {
+            int state = chronologicalState(channel, i);
+            long time = chronologicalTime(i);
+            if (state < 0 || time < 0 || (previousTime >= 0 && time < previousTime)) {
+                previousState = -1;
+                previousTime = time;
+                continue;
+            }
+            if (previousState == 0 && state == 1) lastRise = time;
+            previousState = state;
+            previousTime = time;
+        }
+        return lastRise;
+    }
+
     public String captureQuality(int channel) {
         if (!validChannel(channel) || count == 0) return "NO_DATA";
         int coverage = coveragePercent(channel);
@@ -240,10 +369,31 @@ public class LogicAnalyzerBlockEntity extends BlockEntity {
         int start = Math.max(0, count - DISPLAY_SAMPLES);
         int bit = 1 << channel;
         for (int i = start; i < count; i++) {
-            int source = (index - count + i + CAPACITY) % CAPACITY;
+            int source = sourceIndex(i);
             builder.append((validMasks[source] & bit) == 0 ? '·' : (masks[source] & bit) != 0 ? '█' : '_');
         }
         return builder.toString();
+    }
+
+    private int sourceIndex(int chronologicalIndex) {
+        return (index - count + chronologicalIndex + CAPACITY) % CAPACITY;
+    }
+
+    private int chronologicalState(int channel, int chronologicalIndex) {
+        if (!validChannel(channel) || chronologicalIndex < 0 || chronologicalIndex >= count) return -1;
+        int source = sourceIndex(chronologicalIndex);
+        int bit = 1 << channel;
+        if ((validMasks[source] & bit) == 0) return -1;
+        return (masks[source] & bit) != 0 ? 1 : 0;
+    }
+
+    private long chronologicalTime(int chronologicalIndex) {
+        if (chronologicalIndex < 0 || chronologicalIndex >= count) return -1L;
+        return sampleTimes[sourceIndex(chronologicalIndex)];
+    }
+
+    private static int clampTicks(long ticks) {
+        return ticks > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) Math.max(0L, ticks);
     }
 
     @Override
@@ -251,6 +401,8 @@ public class LogicAnalyzerBlockEntity extends BlockEntity {
         super.loadAdditional(tag, registries);
         copy(tag.getIntArray("masks"), masks);
         copy(tag.getIntArray("validMasks"), validMasks);
+        long[] savedTimes = tag.getLongArray("sampleTimes");
+        for (int i = 0; i < CAPACITY; i++) sampleTimes[i] = i < savedTimes.length ? savedTimes[i] : -1L;
         copy(tag.getIntArray("rising"), rising);
         copy(tag.getIntArray("falling"), falling);
         index = Math.max(0, Math.min(CAPACITY - 1, tag.getInt("index")));
@@ -275,6 +427,7 @@ public class LogicAnalyzerBlockEntity extends BlockEntity {
         super.saveAdditional(tag, registries);
         tag.putIntArray("masks", masks);
         tag.putIntArray("validMasks", validMasks);
+        tag.putLongArray("sampleTimes", sampleTimes);
         tag.putIntArray("rising", rising);
         tag.putIntArray("falling", falling);
         tag.putInt("index", index);

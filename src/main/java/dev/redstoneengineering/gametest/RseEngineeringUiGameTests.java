@@ -206,6 +206,37 @@ public final class RseEngineeringUiGameTests {
                 helper.fail("Logic Analyzer UI state was not applied to authoritative capture configuration", logicPos);
                 return;
             }
+
+            // CH A carries a 12-tick-period square wave; trigger CH B stays LOW so the capture
+            // remains armed and fills the complete 32-sample bounded ring at irregular 3-tick spacing.
+            analyzer.clear();
+            for (int i = 0; i < 40; i++) {
+                int mask = i % 4 < 2 ? 0 : 1;
+                analyzer.addSample(2000L + i * 3L, mask, 0b1111);
+            }
+            if (analyzer.sampleCount() != 32) {
+                helper.fail("Logic Analyzer capture exceeded or failed to fill its bounded 32-sample history", logicPos);
+                return;
+            }
+            if (analyzer.latestSampleGameTime() != 2117L
+                    || analyzer.displaySampleGameTime(0) != 2072L
+                    || analyzer.displaySampleAgeTicks(0) != 45
+                    || analyzer.displaySampleAgeTicks(LogicAnalyzerBlockEntity.DISPLAY_SAMPLES - 1) != 0) {
+                helper.fail("Logic Analyzer display timing did not preserve authoritative server gameTime", logicPos);
+                return;
+            }
+            if (analyzer.estimatedPeriodTicks(0) != 12 || analyzer.lastCompleteHighPulseTicks(0) != 6) {
+                helper.fail("Logic Analyzer period/pulse metrics were not derived from complete timestamped edges", logicPos);
+                return;
+            }
+            if (analyzer.lastRisingAgeTicks(0) != 3 || analyzer.lastRisingAgeTicks(1) != -1) {
+                helper.fail("Logic Analyzer latest-edge timing did not preserve channel-specific observed evidence", logicPos);
+                return;
+            }
+            if (analyzer.cursorDeltaTicks() != 24) {
+                helper.fail("Logic Analyzer cursor delta used sample-index timing instead of captured gameTime", logicPos);
+                return;
+            }
             helper.succeed();
         });
     }
