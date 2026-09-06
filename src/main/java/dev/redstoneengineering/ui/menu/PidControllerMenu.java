@@ -5,6 +5,7 @@ import dev.redstoneengineering.block.PidControllerBlock;
 import dev.redstoneengineering.diagnostics.ClosedLoopCommissioning;
 import dev.redstoneengineering.diagnostics.CommissioningSnapshot;
 import dev.redstoneengineering.diagnostics.CommissioningStatus;
+import dev.redstoneengineering.diagnostics.PidTelemetryStore;
 import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceStore;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import net.minecraft.core.BlockPos;
@@ -14,10 +15,13 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.DataSlot;
 import net.minecraft.world.level.block.state.BlockState;
 
+import java.util.List;
+
 /** Read-only commissioning telemetry plus bounded server-side tuning actions for the PID controller. */
 public final class PidControllerMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_TUNING_PREVIOUS = 0;
     public static final int BUTTON_TUNING_NEXT = 1;
+    public static final int TREND_SAMPLES = PidTelemetryStore.MAX_SAMPLES_PER_CONTROLLER;
 
     private final DataSlot tuning = trackedInt();
     private final DataSlot available = trackedInt();
@@ -35,6 +39,8 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     private final DataSlot inhibited = trackedInt();
     private final DataSlot modeTransfers = trackedInt();
     private final DataSlot historyCount = trackedInt();
+    private final DataSlot trendCount = trackedInt();
+    private final DataSlot[] trend = trackedInts(TREND_SAMPLES);
 
     public PidControllerMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -73,6 +79,14 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
         inhibited.set(snapshot.inhibited() ? 1 : 0);
         modeTransfers.set(snapshot.modeTransfers());
         historyCount.set(AcceptanceEvidenceStore.history(level, blockPos).size());
+
+        List<Integer> samples = PidTelemetryStore.snapshot(level, blockPos);
+        int count = Math.min(TREND_SAMPLES, samples.size());
+        int pad = TREND_SAMPLES - count;
+        trendCount.set(count);
+        for (int slot = 0; slot < TREND_SAMPLES; slot++) {
+            trend[slot].set(slot < pad ? -1 : samples.get(slot - pad));
+        }
     }
 
     @Override
@@ -102,6 +116,23 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     public boolean inhibited() { return inhibited.get() != 0; }
     public int modeTransfers() { return modeTransfers.get(); }
     public int historyCount() { return historyCount.get(); }
+    public int trendCount() { return trendCount.get(); }
+
+    public int trendSetpoint(int slot) {
+        return PidTelemetryStore.setpoint(trendPacked(slot));
+    }
+
+    public int trendProcessValue(int slot) {
+        return PidTelemetryStore.processValue(trendPacked(slot));
+    }
+
+    public int trendControlOutput(int slot) {
+        return PidTelemetryStore.controlOutput(trendPacked(slot));
+    }
+
+    private int trendPacked(int slot) {
+        return slot >= 0 && slot < TREND_SAMPLES ? trend[slot].get() : -1;
+    }
 
     public CommissioningStatus status() {
         CommissioningStatus[] values = CommissioningStatus.values();
