@@ -165,6 +165,8 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
             case ALARM_CLEARED -> "ALM-";
             case INTERLOCK_TRIPPED -> "TRIP";
             case INTERLOCK_READY -> "RDY";
+            case ELECTRICAL_TRIP -> "E-TRP";
+            case ELECTRICAL_READY -> "E-RDY";
             case SEQUENCE_STARTED -> "SEQ+";
             case SEQUENCE_STEP -> "STEP";
             case SEQUENCE_COMPLETED -> "DONE";
