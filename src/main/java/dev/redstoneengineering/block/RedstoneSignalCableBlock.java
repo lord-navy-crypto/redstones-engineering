@@ -43,7 +43,8 @@ public class RedstoneSignalCableBlock extends ConnectedCableBlock implements Eng
         for (Direction side : Direction.values()) {
             if (connected(state, side)) {
                 ports.add(new EngineeringPort(
-                        "CABLE", side, EngineeringDomain.REDSTONE, PortKind.REDSTONE_ANALOG,
+                        "INSULATED SIGNAL " + side.getName().toUpperCase(), side,
+                        EngineeringDomain.REDSTONE, PortKind.REDSTONE_ANALOG,
                         PortDirection.BIDIRECTIONAL, false, "signal"));
             }
         }
@@ -73,8 +74,10 @@ public class RedstoneSignalCableBlock extends ConnectedCableBlock implements Eng
     }
 
     @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
-        if (!state.is(newState.getBlock())) RuntimeIntStore.remove(level, KEY, pos);
+        boolean removed = !state.is(newState.getBlock());
+        if (removed) RuntimeIntStore.remove(level, KEY, pos);
         super.onRemove(state, level, pos, newState, moved);
+        if (removed && level instanceof ServerLevel serverLevel) RedstoneCableNetwork.recomputeAround(serverLevel, pos);
     }
 
     @Override

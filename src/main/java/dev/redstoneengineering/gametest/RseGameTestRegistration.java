@@ -37,5 +37,6 @@ public final class RseGameTestRegistration {
         event.register(RseFourteenthTenAcceptanceGameTests.class);
         event.register(RseFifteenthSevenAcceptanceGameTests.class);
         event.register(RseTotalAuditClosureGameTests.class);
+        event.register(RseInterconnectRefactorGameTests.class);
     }
 }

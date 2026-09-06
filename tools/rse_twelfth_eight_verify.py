@@ -4,8 +4,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
+
 def read(rel: str) -> str:
     return (ROOT / rel).read_text(encoding="utf-8")
+
 
 targets = {
     "OpticalFiberBlock.java": ("implements EngineeringPortProvider", "EngineeringDomain.OPTICAL", "RuntimeIntStore.peek", "recomputeOpticalAround"),
@@ -15,7 +17,15 @@ targets = {
     "OpticalSplitterBlock.java": ("implements EngineeringPortProvider", "OPTICAL OUTPUT A", "OPTICAL OUTPUT B", "recomputeOpticalAround"),
     "OpticalChannelFilterBlock.java": ("implements EngineeringPortProvider", "OPTICAL FILTERED OUTPUT", "TARGET", "recomputeOpticalAround"),
     "OpticalAttenuatorBlock.java": ("implements EngineeringPortProvider", "OPTICAL ATTENUATED OUTPUT", "LOSS", "recomputeOpticalAround"),
-    "OpticalFiberJunctionBlock.java": ("implements EngineeringPortProvider", "OPTICAL SPLICE", "RuntimeIntStore.peek", "recomputeOpticalAround"),
+    # A junction is now an explicit two-ended service splice rather than a
+    # cosmetic duplicate of fiber. It may isolate both sides, but never branch.
+    "OpticalFiberJunctionBlock.java": (
+        "implements EngineeringPortProvider",
+        "OPTICAL SERVICE SPLICE",
+        "SERVICE_OPEN",
+        "RuntimeIntStore.peek",
+        "recomputeOpticalAround",
+    ),
 }
 
 for name, needles in targets.items():
@@ -28,6 +38,14 @@ network = read("src/main/java/dev/redstoneengineering/physics/DomainNetwork.java
 for needle in ("recomputeOpticalAround", "opticalEdgeAllowed", "addRawOpticalClaims"):
     if needle not in network:
         raise SystemExit(f"DomainNetwork missing {needle}")
+
+topology = read("src/main/java/dev/redstoneengineering/block/TransmissionTopology.java")
+for needle in (
+    "b instanceof OpticalFiberJunctionBlock",
+    "!s.getValue(OpticalFiberJunctionBlock.SERVICE_OPEN)",
+):
+    if needle not in topology:
+        raise SystemExit(f"TransmissionTopology missing optical splice isolation contract {needle}")
 
 menu = read("src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java")
 screen = read("src/main/java/dev/redstoneengineering/client/ui/FieldDeviceScreen.java")

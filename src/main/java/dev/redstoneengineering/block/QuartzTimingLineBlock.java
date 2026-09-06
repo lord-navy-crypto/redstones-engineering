@@ -24,6 +24,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -38,8 +39,12 @@ public class QuartzTimingLineBlock extends SurfaceTraceBlock implements Engineer
     public static boolean active(Level l,BlockPos p){return RuntimeIntStore.get(l,KEY,p,3)[0]==1;}
     public static int period(Level l,BlockPos p){return RuntimeIntStore.get(l,KEY,p,3)[1];}
     public static boolean valid(Level l,BlockPos p){return RuntimeIntStore.get(l,KEY,p,3)[2]==1;}
-    private static EngineeringPort port(Direction side){return new EngineeringPort("QUARTZ TIMING BUS",side, EngineeringDomain.QUARTZ, PortKind.BUS, PortDirection.BIDIRECTIONAL,false,"clock");}
-    @Override public List<EngineeringPort> engineeringPorts(BlockState s){return List.of(port(Direction.NORTH),port(Direction.SOUTH),port(Direction.WEST),port(Direction.EAST));}
+    private static EngineeringPort port(Direction side){return new EngineeringPort("QUARTZ TIMING TRACE "+side.getName().toUpperCase(),side, EngineeringDomain.QUARTZ, PortKind.BUS, PortDirection.BIDIRECTIONAL,false,"clock");}
+    @Override public List<EngineeringPort> engineeringPorts(BlockState s){
+        List<EngineeringPort> ports=new ArrayList<>();
+        for(Direction side:Direction.Plane.HORIZONTAL) if(SurfaceTraceBlock.connected(s,side)) ports.add(port(side));
+        return List.copyOf(ports);
+    }
     @Override public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level l,BlockPos p,BlockState s,Direction side){Optional<EngineeringPort>d=engineeringPort(s,side);return d.map(port->new EngineeringPortSnapshot(port,active(l,p)?1.0:0.0,0.0,1.0,valid(l,p)?PortQuality.VALID:PortQuality.NO_SIGNAL));}
     @Override protected void onPlace(BlockState s,Level l,BlockPos p,BlockState o,boolean m){super.onPlace(s,l,p,o,m);if(l instanceof ServerLevel sl)DomainNetwork.recomputeQuartz(sl,p);}
     @Override protected void neighborChanged(BlockState s,Level l,BlockPos p,net.minecraft.world.level.block.Block b,BlockPos np,boolean m){super.neighborChanged(s,l,p,b,np,m);if(l instanceof ServerLevel sl)DomainNetwork.recomputeQuartz(sl,p);}
