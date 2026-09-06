@@ -22,11 +22,6 @@ public record VanillaRedstoneRuntimeReport(
         return neighborNotificationEvents > 0;
     }
 
-    public double eventsPerSecond() {
-        if (windowTicks <= 0) return 0.0D;
-        return neighborNotificationEvents * 20.0D / windowTicks;
-    }
-
     public String summary() {
         if (!hasTelemetry()) {
             return "RUNTIME | NeighborNotifyEvent observations=0/" + windowTicks + "t";
