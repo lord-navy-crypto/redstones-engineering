@@ -54,15 +54,7 @@ Runtime retention and query scope are bounded:
 
 The runtime report exposes notification count, total notified sides, forced-redstone-update flags, observed state-transition count, unique source positions, and the busiest observed source position in the selected window. It intentionally does not derive a fabricated updates-per-second number from a partially populated rolling window.
 
-The Topology Debugger now combines the bounded structural profile with this runtime report when inspecting a vanilla-redstone target. Runtime telemetry remains evidence only: it does not drive the debugger's alarm output, schedule vanilla ticks, cancel NeoForge events, mutate BlockState, or replace Minecraft's redstone solver.
-
-Phase 2 therefore preserves the Phase-1 behavior boundary:
-
-- no RSE mixin into vanilla redstone;
-- no replacement solver;
-- no changes to dust attenuation, repeaters, comparators, observers, pistons, quasi-connectivity, or vanilla update order;
-- no unbounded world scan;
-- no claim that event observations equal internal solver work.
+The Topology Debugger combines the bounded structural profile with this runtime report when inspecting a vanilla-redstone target. Runtime telemetry remains evidence only: it does not drive the debugger's alarm output, schedule vanilla ticks, cancel NeoForge events, mutate BlockState, or replace Minecraft's redstone solver.
 
 ## Phase 3 — Timing and Order Analysis
 
@@ -84,28 +76,50 @@ Every retained event receives a monotonically increasing observer sequence numbe
 
 That label means the sequence is the order in which the RSE listener received events. It is **not causal update order**, not scheduler priority, not redstone solver order, and **not sub-tick time**. Phase 3 uses no wall-clock nanosecond timestamps because that would create false precision for server simulation ordering.
 
-Configured timing and observed timing also remain separate. For example, a repeater configured to three redstone ticks contributes **6 game ticks** of configured delay evidence in the structural profile; an observed transition spacing of six game ticks is runtime evidence. The debugger may present both, but it does not claim causal equivalence unless a stronger future experiment establishes it.
+Configured timing and observed timing remain separate. A repeater configured to three redstone ticks contributes **6 game ticks** of configured-delay evidence; an observed transition spacing of six game ticks is runtime evidence. The debugger may present both, but it does not claim causal equivalence.
 
-The Topology Debugger now combines three evidence layers for vanilla targets:
+Phase 3 also adds region-scoped observer-cache reset for repeatable diagnostics and GameTest isolation. Clearing RSE telemetry only clears diagnostic memory; it never changes world blocks, scheduled ticks, redstone power, or vanilla behavior.
+
+### Phase 3B — Behavior Classification
+
+The second Phase-3 layer converts measured structural/runtime/timing evidence into conservative engineering classifications. These classifications deliberately stop short of causal claims.
+
+**Observed pulse width.** Each telemetry sample carries a small activity projection when the observed block exposes dust `POWER`, `POWERED`, `LIT`, or `EXTENDED`. A pulse is counted only when the selected query window contains a complete observed inactive→active→inactive sequence for the same source. The report is explicitly labeled `PULSE=OBSERVED_COMPLETE_ONLY`. A missing edge therefore means “no complete pulse observed,” not “no pulse occurred.” Width is measured in server game ticks; there is no sub-tick precision claim.
+
+**Observer feedback candidate.** A same-tick listener pattern in which the same observer source is seen, a distinct source is then seen, and that observer source is seen again is reported as `OBSERVER_FEEDBACK_CANDIDATE`. This is a bounded return-pattern observation, not proof that Minecraft's internal causal update graph contains a feedback loop.
+
+**QC activity correlation.** The structural profiler already marks a possible QC dependency when a QC-capable block lacks ordinary direct neighbor power while the position above has neighbor power. When a bounded runtime window around such a structural candidate also contains observed activity, the behavior layer reports `QC_ACTIVITY_CORRELATION`. Every summary carries `QC=CORRELATION_NOT_CAUSATION`; the diagnostic does not claim that the observed event was caused by quasi-connectivity.
+
+**Order-sensitivity candidate.** Same-tick distinct-source order evidence, repeated ordered source pairs across multiple ticks, observed state transitions, and observer/QC evidence contribute to a conservative evidence score. The report exposes `NONE`, `LOW`, `MEDIUM`, or `HIGH` candidate confidence. `HIGH` still means high confidence that the measured evidence deserves order-sensitivity investigation; it is not proof of causal update order. If the structural profile is incomplete because of an unloaded boundary or traversal cap, confidence is downgraded and `EVIDENCE_INCOMPLETE_BOUNDARY` is reported.
+
+The behavior layer therefore uses these explicit semantic labels:
+
+- `PULSE=OBSERVED_COMPLETE_ONLY`
+- `OBSERVER_FEEDBACK_CANDIDATE`
+- `QC=CORRELATION_NOT_CAUSATION`
+- `ORDER_SENSITIVITY_CANDIDATE`
+- `ORDER=OBSERVED_EVENT_ORDER_ONLY`
+
+The Topology Debugger now combines four evidence layers for a vanilla target:
 
 1. bounded structural profile;
-2. bounded NeighborNotifyEvent runtime profile;
-3. bounded timing/order report.
+2. bounded `NeighborNotifyEvent` runtime profile;
+3. bounded game-tick timing / listener-order report;
+4. bounded behavior-classification report.
 
-Phase 3 also adds region-scoped observer-cache reset for GameTest isolation. Clearing RSE telemetry only clears diagnostic memory; it never changes world blocks, scheduled ticks, redstone power, or vanilla behavior.
+None of the Phase-3B classifications drive the Topology Debugger's redstone alarm output. They are advisory evidence for engineering diagnosis and future redesign guidance.
 
-Current Phase-3 boundaries therefore remain strict:
+Current VRE behavior boundaries remain strict:
 
 - no vanilla-redstone mixin;
 - no replacement solver;
 - no event cancellation;
-- no telemetry-owned BlockState mutation or neighbor update;
-- no wall-clock timing used as simulation timing;
+- no telemetry-owned BlockState mutation, scheduled tick, or neighbor update;
+- no wall-clock timing presented as simulation timing;
+- no claim that notification events equal internal solver evaluations;
 - no claim that listener order is causal Minecraft update order;
 - no claim of sub-tick timing precision;
-- bounded radius/window/history remain inherited from Phase 2.
-
-This foundation is intentionally narrower than the complete Phase-3 roadmap. Pulse-width classification, observer-feedback classification, QC activation correlation, and confidence-scored order-sensitive-circuit diagnosis should be layered on top of these measured primitives instead of guessed from static topology alone.
+- bounded radius/window/history inherited from Phase 2.
 
 ## Phase 4 — Reliability and Optimization Guidance
 
@@ -115,7 +129,7 @@ Use the diagnostics to recommend player-controlled redesigns before changing the
 - reduce unnecessary fan-out;
 - replace fragile order dependencies;
 - identify long dust runs and timing bottlenecks;
-- expose feedback loops;
+- expose feedback-loop candidates;
 - compare two circuit designs using repeatable measurements.
 
 This is the preferred form of optimization because it preserves vanilla behavior.
@@ -144,6 +158,7 @@ Vanilla redstone target
         -> bounded structural VRE diagnostics
         -> bounded runtime NeighborNotifyEvent telemetry
         -> bounded game-tick timing / listener-order evidence
+        -> bounded pulse / feedback / QC / order-sensitivity classifications
 
 RSE engineering device
         -> EngineeringTopologyView / EngineeringPort diagnostics
