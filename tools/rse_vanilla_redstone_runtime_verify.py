@@ -108,7 +108,9 @@ need(gt, "level.updateNeighborsAt", "RseVanillaRedstoneRuntimeGameTests.java")
 need(gt, "VanillaRedstoneRuntimeTelemetry.clear", "RseVanillaRedstoneRuntimeGameTests.java")
 
 need(workflow, "tools/rse_vanilla_redstone_runtime_verify.py", "build.yml")
-need(workflow, "test_count < 180", "build.yml")
+minimum_match = re.search(r"test_count < ([0-9]+)", workflow)
+if minimum_match is None or int(minimum_match.group(1)) < 180:
+    errors.append("build.yml: GameTest floor must remain at least 180 after VRE runtime telemetry")
 need(doc, "Phase 2 — Runtime Update Profiling", "VANILLA_REDSTONE_ENGINEERING.md")
 need(doc, "Neighbor Notification Events", "VANILLA_REDSTONE_ENGINEERING.md")
 need(doc, "Observed State Transitions", "VANILLA_REDSTONE_ENGINEERING.md")
