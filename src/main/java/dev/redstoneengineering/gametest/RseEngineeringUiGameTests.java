@@ -132,6 +132,31 @@ public final class RseEngineeringUiGameTests {
                 helper.fail("Oscilloscope block entity was not present for UI action test", scopePos);
                 return;
             }
+
+            // Move to FREE capture and prove the bounded ring retains exact, irregular server times.
+            scope.cycleTriggerMode(); // RISING -> FALLING
+            scope.cycleTriggerMode(); // FALLING -> FREE
+            scope.clear();
+            for (int i = 0; i < 40; i++) {
+                int a = i % 4 < 2 ? 0 : 15;
+                scope.addSample(1000L + i * 3L, a, 7);
+            }
+            if (scope.sampleCount() != 32) {
+                helper.fail("Oscilloscope capture exceeded or failed to fill its bounded 32-sample history", scopePos);
+                return;
+            }
+            if (scope.latestSampleGameTime() != 1117L
+                    || scope.displaySampleGameTime(0) != 1072L
+                    || scope.displaySampleAgeTicks(0) != 45
+                    || scope.displaySampleAgeTicks(OscilloscopeBlockEntity.DISPLAY_SAMPLES - 1) != 0) {
+                helper.fail("Oscilloscope display timing did not preserve authoritative server gameTime", scopePos);
+                return;
+            }
+            if (scope.estimatedPeriodTicks(0) != 12) {
+                helper.fail("Oscilloscope period estimate used sample-index timing instead of captured gameTime", scopePos);
+                return;
+            }
+
             int modeBefore = scope.triggerMode();
             int levelBefore = scope.triggerLevel();
             int cursorBefore = scope.cursorA();
