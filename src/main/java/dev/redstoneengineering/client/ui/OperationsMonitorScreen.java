@@ -8,7 +8,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
-/** Dedicated observer-only IOE console with a bounded plant event timeline and first-out marker. */
+/** Dedicated observer-only IOE console with bounded plant event and incident evidence. */
 public final class OperationsMonitorScreen extends EngineeringScreen<OperationsMonitorMenu> {
     private static final int EVENT_CELL_WIDTH = 33;
     private static final int EVENT_CELL_GAP = 2;
@@ -52,12 +52,12 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
-        statusLine(graphics, "System state", menu.state().name(), stateColor(menu.state()), 84);
-        statusLine(graphics, "Dominant constraint", menu.dominantConstraint().name(), constraintColor(menu.dominantConstraint()), 102);
-        labelValue(graphics, "Retained plant events", Integer.toString(menu.retainedEvents()), 120);
-        labelValue(graphics, "Recent events (60s)", Integer.toString(menu.recentEvents()), 138);
-        statusLine(graphics, "Recent abnormal", Integer.toString(menu.recentAbnormalEvents()), menu.recentAbnormalEvents() > 0 ? WARN : GOOD, 156);
-        graphics.drawString(font, "Scope: 32-block plant radius • event evidence is server authoritative.", 16, 176, MUTED, false);
+        statusLine(graphics, "System state", menu.state().name(), stateColor(menu.state()), 82);
+        statusLine(graphics, "Dominant constraint", menu.dominantConstraint().name(), constraintColor(menu.dominantConstraint()), 100);
+        statusLine(graphics, "Latest incident", menu.incidentPresent() ? "EVIDENCE AVAILABLE" : "NONE", menu.incidentPresent() ? WARN : GOOD, 118);
+        labelValue(graphics, "First-out source", menu.incidentPresent() ? firstOutLocation() : "—", 136);
+        labelValue(graphics, "Incident span", menu.incidentPresent() ? formatTicks(menu.incidentDurationTicks()) : "—", 154);
+        labelValue(graphics, "Follow-up evidence", menu.incidentPresent() ? evidenceText() : "0", 172);
     }
 
     private void renderHistory(GuiGraphics graphics) {
@@ -103,9 +103,20 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
 
     private String firstOutText() {
         if (menu.firstOutKindOrdinal() < 0) return "none";
-        String visible = menu.firstOutSlot() >= 0 ? " • visible" : " • before visible tail";
+        String visible = menu.firstOutSlot() >= 0 ? "visible" : "before tail";
         return shortKind(menu.firstOutKindOrdinal()) + " S" + menu.firstOutSeverity()
-                + " • " + ageText(menu.firstOutAgeTicks()) + visible;
+                + " • " + ageText(menu.firstOutAgeTicks())
+                + " • " + firstOutLocation() + " • " + visible;
+    }
+
+    private String firstOutLocation() {
+        return "Δ(" + signed(menu.firstOutDx()) + "," + signed(menu.firstOutDy()) + "," + signed(menu.firstOutDz()) + ")";
+    }
+
+    private String evidenceText() {
+        return menu.downstreamObservations() + " downstream • "
+                + menu.abnormalDownstreamObservations() + " abnormal • trace "
+                + menu.evidenceTraceEntries() + "/12";
     }
 
     private int firstOutColor() {
@@ -173,5 +184,9 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
 
     private static String formatTicks(int ticks) {
         return String.format(java.util.Locale.ROOT, "%.1fs", Math.max(0, ticks) / 20.0);
+    }
+
+    private static String signed(int value) {
+        return value > 0 ? "+" + value : Integer.toString(value);
     }
 }
