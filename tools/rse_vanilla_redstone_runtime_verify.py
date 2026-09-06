@@ -45,9 +45,11 @@ for needle in (
     "BlockStateProperties.POWERED",
     "BlockStateProperties.LIT",
     "BlockStateProperties.EXTENDED",
-    "public static void clear(ServerLevel level)",
 ):
     need(telemetry, needle, "VanillaRedstoneRuntimeTelemetry.java")
+
+if re.search(r"public\s+static\s+(?:synchronized\s+)?void\s+clear\s*\(ServerLevel\s+level\)", telemetry) is None:
+    errors.append("VanillaRedstoneRuntimeTelemetry.java: missing public static clear(ServerLevel) lifecycle reset")
 
 for forbidden in (
     "setCanceled(",
