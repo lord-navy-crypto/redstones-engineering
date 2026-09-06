@@ -8,7 +8,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
-/** Four-channel digital timing UI with real capture, edge counts and probe integrity. */
+/** Four-channel digital timing UI with real capture, edges, pulse metrics and probe integrity. */
 public final class LogicAnalyzerScreen extends EngineeringScreen<LogicAnalyzerMenu> {
     public LogicAnalyzerScreen(LogicAnalyzerMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -57,7 +57,9 @@ public final class LogicAnalyzerScreen extends EngineeringScreen<LogicAnalyzerMe
         for (int channel = 0; channel < 4; channel++) {
             int y = 148 + channel * 11;
             graphics.drawString(font, channelName(channel), 16, y, channelColor(channel), false);
-            digitalTrace(graphics, channel, 38, y - 1, 260, 9, channelColor(channel));
+            EngineeringChartRenderer.Series series = series(channel);
+            EngineeringChartRenderer.drawDigitalLane(graphics, series, 38, y - 1, 260, 9, 1, channelColor(channel));
+            EngineeringChartRenderer.drawDigitalEdgeMarkers(graphics, series, 38, y - 1, 260, 9, 1, GOOD, WARN);
         }
     }
 
@@ -75,7 +77,7 @@ public final class LogicAnalyzerScreen extends EngineeringScreen<LogicAnalyzerMe
         labelValue(graphics, "Trigger edge", edgeName(menu.triggerEdge()), 110);
         labelValue(graphics, "Cursors", "A=" + menu.cursorA() + " B=" + menu.cursorB(), 125);
         labelValue(graphics, "Cursor Δ", Math.abs(menu.cursorB() - menu.cursorA()) + " samples / "
-                + Math.abs(menu.cursorB() - menu.cursorA()) * LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS + "t", 140);
+                + menu.cursorDeltaTicks() + "t server time", 140);
         graphics.drawString(font, "Threshold and trigger controls never bypass the server capture engine.", 16, 178, MUTED, false);
     }
 
@@ -88,51 +90,43 @@ public final class LogicAnalyzerScreen extends EngineeringScreen<LogicAnalyzerMe
                             + "% transition=" + menu.transitionRate(channel) + "%",
                     54, y, TEXT, false);
             graphics.drawString(font,
-                    "edges ↑" + menu.rising(channel) + " ↓" + menu.falling(channel),
+                    "↑" + menu.rising(channel) + " ↓" + menu.falling(channel)
+                            + "  T=" + timing(menu.periodTicks(channel))
+                            + "  HIGH=" + timing(menu.pulseWidthTicks(channel))
+                            + "  Δ↑=" + relativeTiming(menu.relativeRisingTicks(channel)),
                     54, y + 12, MUTED, false);
         }
         statusLine(graphics, "Network", networkIntegrity(), networkColor(), 183);
     }
 
     private void renderHistory(GuiGraphics graphics) {
-        graphics.fill(38, 80, 298, 166, 0xFF10141A);
+        EngineeringChartRenderer.drawFrame(graphics, 38, 80, 260, 86, 0, 1, false);
         for (int channel = 0; channel < 4; channel++) {
-            int y = 88 + channel * 19;
+            int y = 87 + channel * 18;
             graphics.drawString(font, channelName(channel), 16, y, channelColor(channel), false);
-            digitalTrace(graphics, channel, 42, y, 250, 12, channelColor(channel));
+            EngineeringChartRenderer.Series series = series(channel);
+            EngineeringChartRenderer.drawDigitalLane(graphics, series, 42, y, 250, 12, 1, channelColor(channel));
+            EngineeringChartRenderer.drawDigitalEdgeMarkers(graphics, series, 42, y, 250, 12, 1, GOOD, WARN);
         }
-        drawCursor(graphics, menu.cursorA(), 42, 80, 250, 86, WARN);
-        drawCursor(graphics, menu.cursorB(), 42, 80, 250, 86, 0xFFE879F9);
-        graphics.drawString(font, "HIGH/LOW timing • '·' equivalent slots are invalid/missing probes", 16, 175, MUTED, false);
-        graphics.drawString(font, "Cursor Δ=" + Math.abs(menu.cursorB() - menu.cursorA()) + "t", 16, 188, TEXT, false);
+
+        EngineeringChartRenderer.Series timeSeries = series(menu.triggerChannel());
+        EngineeringChartRenderer.drawTimeMarker(
+                graphics, timeSeries, menu.displayGameTime(menu.cursorA()), 42, 80, 250, 86, WARN);
+        EngineeringChartRenderer.drawTimeMarker(
+                graphics, timeSeries, menu.displayGameTime(menu.cursorB()), 42, 80, 250, 86, 0xFFE879F9);
+        EngineeringChartRenderer.drawGameTimeAxis(graphics, font, timeSeries, 42, 168, 250);
+        graphics.drawString(font, "↑/↓ markers use observed edges; dots mark invalid/missing probe samples.", 16, 180, MUTED, false);
+        graphics.drawString(font,
+                "Cursor Δ=" + Math.abs(menu.cursorB() - menu.cursorA()) + " samples / " + menu.cursorDeltaTicks() + "t",
+                16, 192, TEXT, false);
     }
 
-    private void digitalTrace(GuiGraphics graphics, int channel, int x, int y, int width, int height, int color) {
-        int previousX = -1;
-        int previousY = -1;
-        for (int slot = 0; slot < LogicAnalyzerBlockEntity.DISPLAY_SAMPLES; slot++) {
-            int state = menu.displayState(channel, slot);
-            int px = x + Math.round(slot * width / 15.0f);
-            if (state < 0) {
-                graphics.fill(px - 1, y + height / 2, px + 2, y + height / 2 + 2, MUTED);
-                previousX = -1;
-                previousY = -1;
-                continue;
-            }
-            int py = state == 1 ? y : y + height;
-            if (previousX >= 0) {
-                graphics.fill(Math.min(previousX, px), previousY, Math.max(previousX, px) + 1, previousY + 1, color);
-                graphics.fill(px, Math.min(previousY, py), px + 1, Math.max(previousY, py) + 1, color);
-            }
-            graphics.fill(px - 1, py - 1, px + 2, py + 2, color);
-            previousX = px;
-            previousY = py;
-        }
-    }
-
-    private void drawCursor(GuiGraphics graphics, int slot, int x, int y, int width, int height, int color) {
-        int px = x + Math.round(slot * width / 15.0f);
-        graphics.fill(px, y, px + 1, y + height, color);
+    private EngineeringChartRenderer.Series series(int channel) {
+        return new EngineeringChartRenderer.Series() {
+            @Override public int size() { return LogicAnalyzerBlockEntity.DISPLAY_SAMPLES; }
+            @Override public int valueAt(int slot) { return menu.displayState(channel, slot); }
+            @Override public long gameTimeAt(int slot) { return menu.displayGameTime(slot); }
+        };
     }
 
     private String captureState() {
@@ -173,6 +167,15 @@ public final class LogicAnalyzerScreen extends EngineeringScreen<LogicAnalyzerMe
 
     private int probeColor(int channel) {
         return menu.probeCount(channel) == 1 ? GOOD : menu.probeCount(channel) > 1 ? WARN : MUTED;
+    }
+
+    private static String timing(int ticks) {
+        return ticks < 0 ? "N/A" : ticks + "t";
+    }
+
+    private static String relativeTiming(int ticks) {
+        if (ticks == Integer.MIN_VALUE) return "N/A";
+        return (ticks > 0 ? "+" : "") + ticks + "t";
     }
 
     private static String channelName(int channel) {
