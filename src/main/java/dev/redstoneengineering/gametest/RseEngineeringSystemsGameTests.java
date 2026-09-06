@@ -27,7 +27,7 @@ public final class RseEngineeringSystemsGameTests {
         BlockPos advance = new BlockPos(2, 1, 1);
         BlockPos reset = new BlockPos(2, 1, 3);
 
-        helper.setBlock(controller, EngineeringSystemsModule.SEQUENCE_CONTROLLER.defaultBlockState()
+        helper.setBlock(controller, EngineeringSystemsModule.SEQUENCE_CONTROLLER.get().defaultBlockState()
                 .setValue(DirectionalSignalBlock.FACING, Direction.EAST));
         helper.setBlock(run, Blocks.REDSTONE_BLOCK.defaultBlockState());
 
@@ -73,7 +73,7 @@ public final class RseEngineeringSystemsGameTests {
         BlockPos b = new BlockPos(2, 1, 1);
         BlockPos c = new BlockPos(2, 1, 3);
 
-        helper.setBlock(interlock, EngineeringSystemsModule.SAFETY_INTERLOCK.defaultBlockState()
+        helper.setBlock(interlock, EngineeringSystemsModule.SAFETY_INTERLOCK.get().defaultBlockState()
                 .setValue(DirectionalSignalBlock.FACING, Direction.EAST));
         helper.setBlock(a, Blocks.REDSTONE_BLOCK.defaultBlockState());
         helper.setBlock(b, Blocks.REDSTONE_BLOCK.defaultBlockState());
@@ -103,7 +103,7 @@ public final class RseEngineeringSystemsGameTests {
         BlockPos input = new BlockPos(1, 1, 2);
         BlockPos arm = new BlockPos(2, 1, 3);
 
-        helper.setBlock(injector, EngineeringSystemsModule.FAULT_INJECTOR.defaultBlockState()
+        helper.setBlock(injector, EngineeringSystemsModule.FAULT_INJECTOR.get().defaultBlockState()
                 .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
                 .setValue(FaultInjectorBlock.MODE, 3));
         helper.setBlock(input, Blocks.REDSTONE_BLOCK.defaultBlockState());
