@@ -5,6 +5,7 @@ import dev.redstoneengineering.block.OperationsMonitorBlock;
 import dev.redstoneengineering.diagnostics.IndustrialOperationsAssessment;
 import dev.redstoneengineering.diagnostics.OperationsDashboardSnapshot;
 import dev.redstoneengineering.diagnostics.OperationsEventWindow;
+import dev.redstoneengineering.diagnostics.OperationsIncidentSummary;
 import dev.redstoneengineering.diagnostics.events.SystemEventKind;
 import dev.redstoneengineering.diagnostics.events.SystemEventRecord;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
@@ -37,6 +38,15 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
     private final DataSlot firstOutSeverity = trackedInt();
     private final DataSlot firstOutAge = trackedInt();
 
+    private final DataSlot incidentPresent = trackedInt();
+    private final DataSlot firstOutDx = trackedInt();
+    private final DataSlot firstOutDy = trackedInt();
+    private final DataSlot firstOutDz = trackedInt();
+    private final DataSlot incidentDuration = trackedInt();
+    private final DataSlot downstreamObservations = trackedInt();
+    private final DataSlot abnormalDownstreamObservations = trackedInt();
+    private final DataSlot evidenceTraceEntries = trackedInt();
+
     private final DataSlot[] eventKinds = trackedInts(EVENT_SLOTS);
     private final DataSlot[] eventSeverities = trackedInts(EVENT_SLOTS);
     private final DataSlot[] eventAges = trackedInts(EVENT_SLOTS);
@@ -64,6 +74,7 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
         OperationsDashboardSnapshot dashboard = OperationsDashboardSnapshot.inspect(level, blockPos);
         IndustrialOperationsAssessment.Snapshot operations = dashboard.operations();
         OperationsEventWindow window = OperationsEventWindow.inspect(level, dashboard);
+        OperationsIncidentSummary incident = OperationsIncidentSummary.inspect(level, blockPos, dashboard);
 
         queue.set(operations.queueNow());
         throughput.set(operations.throughputCyclesPerMinute());
@@ -75,6 +86,15 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
         retainedEvents.set(dashboard.retainedEvents());
         recentEvents.set(dashboard.recentEvents());
         recentAbnormalEvents.set(dashboard.recentAbnormalEvents());
+
+        incidentPresent.set(incident.present() ? 1 : 0);
+        firstOutDx.set(incident.firstOutDx());
+        firstOutDy.set(incident.firstOutDy());
+        firstOutDz.set(incident.firstOutDz());
+        incidentDuration.set((int) Math.min(MAX_SYNC_AGE_TICKS, incident.incidentDurationTicks()));
+        downstreamObservations.set(incident.downstreamObservations());
+        abnormalDownstreamObservations.set(incident.abnormalDownstreamObservations());
+        evidenceTraceEntries.set(incident.evidenceTraceEntries());
 
         List<SystemEventRecord> events = window.events();
         int count = Math.min(EVENT_SLOTS, events.size());
@@ -124,6 +144,15 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
     public int firstOutKindOrdinal() { return firstOutKind.get(); }
     public int firstOutSeverity() { return firstOutSeverity.get(); }
     public int firstOutAgeTicks() { return firstOutAge.get(); }
+
+    public boolean incidentPresent() { return incidentPresent.get() != 0; }
+    public int firstOutDx() { return firstOutDx.get(); }
+    public int firstOutDy() { return firstOutDy.get(); }
+    public int firstOutDz() { return firstOutDz.get(); }
+    public int incidentDurationTicks() { return incidentDuration.get(); }
+    public int downstreamObservations() { return downstreamObservations.get(); }
+    public int abnormalDownstreamObservations() { return abnormalDownstreamObservations.get(); }
+    public int evidenceTraceEntries() { return evidenceTraceEntries.get(); }
 
     public OperationsMonitorBlock.SystemState state() {
         OperationsMonitorBlock.SystemState[] values = OperationsMonitorBlock.SystemState.values();
