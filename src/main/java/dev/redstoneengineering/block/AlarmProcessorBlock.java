@@ -8,6 +8,8 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.diagnostics.events.SystemEventKind;
+import dev.redstoneengineering.diagnostics.events.SystemEventTimeline;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -96,22 +98,30 @@ public class AlarmProcessorBlock extends PassiveDirectionalSignalBlock {
         boolean resetRising = reset > 0 && runtime[7] == 0;
 
         if (conditionRising) {
+            int severity = state.getValue(SEVERITY);
             runtime[0] = 1;
             runtime[1] = 1;
             runtime[2]++;
-            runtime[8] = state.getValue(SEVERITY);
+            runtime[8] = severity;
+            SystemEventTimeline.record(level, pos, SystemEventKind.ALARM_RAISED, severity,
+                    "ALARM_RAISED", "Alarm condition rose; severity=" + severity);
         }
         if (runtime[0] != 0) runtime[9]++;
         if (ackRising && runtime[0] != 0 && runtime[1] != 0) {
             runtime[1] = 0;
             runtime[3]++;
+            SystemEventTimeline.record(level, pos, SystemEventKind.ALARM_ACKNOWLEDGED, 1,
+                    "ALARM_ACK", "Latched alarm acknowledged by control input");
         }
         // A reset is fail-safe: it can only clear a latched alarm after the process condition is healthy.
         if (resetRising && condition <= 0 && runtime[0] != 0) {
+            int clearedSeverity = runtime[8];
             runtime[0] = 0;
             runtime[1] = 0;
             runtime[4]++;
             runtime[8] = 0;
+            SystemEventTimeline.record(level, pos, SystemEventKind.ALARM_CLEARED, 0,
+                    "ALARM_CLEARED", "Healthy reset cleared severity=" + clearedSeverity + " alarm");
         }
 
         runtime[5] = condition > 0 ? 1 : 0;
@@ -179,6 +189,8 @@ public class AlarmProcessorBlock extends PassiveDirectionalSignalBlock {
                 if (runtime[0] != 0 && runtime[1] != 0) {
                     runtime[1] = 0;
                     runtime[3]++;
+                    SystemEventTimeline.record(level, pos, SystemEventKind.ALARM_ACKNOWLEDGED, 1,
+                            "ALARM_ACK", "Latched alarm acknowledged by operator");
                 }
                 player.displayClientMessage(Component.literal(compactDiagnostics(level, pos)), true);
             } else {
