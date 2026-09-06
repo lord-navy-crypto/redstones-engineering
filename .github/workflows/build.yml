@@ -87,7 +87,8 @@ jobs:
             tools/rse_thirteenth_ten_verify.py \
             tools/rse_fourteenth_ten_verify.py \
             tools/rse_fifteenth_seven_verify.py \
-            tools/rse_alpha2_finishing_verify.py
+            tools/rse_alpha2_finishing_verify.py \
+            tools/rse_alpha2_second_pass_verify.py
           do
             if [[ -f "$verifier" ]]; then
               echo "==> $verifier"
@@ -130,8 +131,8 @@ jobs:
             exit 1
           fi
           test_count="$(printf '%s\n' "$summary_line" | sed -E 's/.*All ([0-9]+) required tests passed.*/\1/')"
-          if [[ ! "$test_count" =~ ^[0-9]+$ ]] || (( test_count < 187 )); then
-            echo "::error::Expected at least 187 GameTests after Vanilla Redstone behavior classification; observed: $test_count"
+          if [[ ! "$test_count" =~ ^[0-9]+$ ]] || (( test_count < 192 )); then
+            echo "::error::Expected at least 192 GameTests after Alpha 2 destructive second-pass coverage; observed: $test_count"
             exit 1
           fi
           echo "Verified GameTest completion: $test_count required tests passed"
