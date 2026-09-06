@@ -32,12 +32,18 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
     private final DataSlot average100 = trackedInt();
     private final DataSlot peakToPeak = trackedInt();
     private final DataSlot meanStep100 = trackedInt();
+    private final DataSlot windowTransitions = trackedInt();
+    private final DataSlot saturationCount = trackedInt();
     private final DataSlot stableAge = trackedInt();
     private final DataSlot sampleAge = trackedInt();
+    private final DataSlot timeSpan = trackedInt();
     private final DataSlot totalSamples = trackedInt();
     private final DataSlot modeSwitches = trackedInt();
     private final DataSlot calibrationSwitches = trackedInt();
+    private final DataSlot latestTimeLow = trackedInt();
+    private final DataSlot latestTimeHigh = trackedInt();
     private final DataSlot[] samples = new DataSlot[SignalAnalyzerBlock.DISPLAY_SAMPLES];
+    private final DataSlot[] sampleAges = new DataSlot[SignalAnalyzerBlock.DISPLAY_SAMPLES];
 
     public SignalAnalyzerMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -51,7 +57,10 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
                 pos,
                 RedstoneEngineering.SIGNAL_ANALYZER.get()
         );
-        for (int i = 0; i < samples.length; i++) samples[i] = trackedInt();
+        for (int i = 0; i < samples.length; i++) {
+            samples[i] = trackedInt();
+            sampleAges[i] = trackedInt();
+        }
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
     }
 
@@ -74,12 +83,23 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
         average100.set(snapshot.average100());
         peakToPeak.set(snapshot.peakToPeak());
         meanStep100.set(snapshot.meanStep100());
+        windowTransitions.set(snapshot.windowTransitions());
+        saturationCount.set(snapshot.saturationCount());
         stableAge.set(snapshot.stableAgeTicks());
         sampleAge.set(snapshot.sampleAgeTicks());
+        timeSpan.set(snapshot.timeSpanTicks());
         totalSamples.set(snapshot.totalSamples());
         modeSwitches.set(snapshot.modeSwitches());
         calibrationSwitches.set(snapshot.calibrationSwitches());
-        for (int i = 0; i < samples.length; i++) samples[i].set(snapshot.samples()[i]);
+
+        long latest = snapshot.latestSampleGameTime();
+        latestTimeLow.set((int) latest);
+        latestTimeHigh.set((int) (latest >>> 32));
+        for (int i = 0; i < samples.length; i++) {
+            samples[i].set(snapshot.samples()[i]);
+            long time = snapshot.sampleTimes()[i];
+            sampleAges[i].set(time < 0 || latest < time ? -1 : durationTicks(latest - time));
+        }
     }
 
     @Override
@@ -110,10 +130,28 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
     public int average100() { return average100.get(); }
     public int peakToPeak() { return peakToPeak.get(); }
     public int meanStep100() { return meanStep100.get(); }
+    public int windowTransitions() { return windowTransitions.get(); }
+    public int saturationCount() { return saturationCount.get(); }
     public int stableAgeTicks() { return stableAge.get(); }
     public int sampleAgeTicks() { return sampleAge.get(); }
+    public int timeSpanTicks() { return timeSpan.get(); }
     public int totalSamples() { return totalSamples.get(); }
     public int modeSwitches() { return modeSwitches.get(); }
     public int calibrationSwitches() { return calibrationSwitches.get(); }
     public int sample(int slot) { return samples[slot].get(); }
+
+    public long latestSampleGameTime() {
+        return Integer.toUnsignedLong(latestTimeLow.get()) | ((long) latestTimeHigh.get() << 32);
+    }
+
+    public long displayGameTime(int slot) {
+        int age = sampleAges[slot].get();
+        long latest = latestSampleGameTime();
+        return age < 0 || latest < 0 ? -1L : latest - age;
+    }
+
+    private static int durationTicks(long ticks) {
+        if (ticks <= 0) return 0;
+        return (int) Math.min(Integer.MAX_VALUE, ticks);
+    }
 }
