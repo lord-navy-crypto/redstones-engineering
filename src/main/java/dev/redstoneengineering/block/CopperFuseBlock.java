@@ -153,7 +153,7 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
                     current,
                     next.getValue(TRIPPED) ? "TRIPPED" : "armed",
                     player.isShiftKeyDown()
-                            ? " | reset requested; READY is emitted only after a safe server re-evaluation"
+                            ? " | reset requested; protection re-evaluates next tick; READY only after a safe server re-evaluation"
                             : ""
             )), true);
         }
