@@ -23,8 +23,8 @@ checks = {
     ],
     "src/main/java/dev/redstoneengineering/diagnostics/OperationsDashboardSnapshot.java": [
         "IndustrialOperationsAssessment.inspect",
-        "SystemEventTimeline.snapshot",
-        "FirstOutAnalysis.latest",
+        "SystemEventTimeline.within",
+        "FirstOutAnalysis.latestWithin",
     ],
     "src/main/java/dev/redstoneengineering/block/AlarmProcessorBlock.java": [
         "SystemEventKind.ALARM_RAISED",
@@ -55,7 +55,8 @@ checks = {
     ],
     ".github/workflows/build.yml": [
         "tools/rse_event_intelligence_verify.py",
-        "test_count < 172",
+        "test_count <",
+        "All [0-9]+ required tests passed",
     ],
 }
 

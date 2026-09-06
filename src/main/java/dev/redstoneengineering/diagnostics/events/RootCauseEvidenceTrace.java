@@ -37,8 +37,17 @@ public final class RootCauseEvidenceTrace {
         }
     }
 
+    /** Level-wide expert query. */
     public static Optional<Trace> latest(Level level) {
-        Optional<FirstOutAnalysis.Snapshot> first = FirstOutAnalysis.latest(level);
+        return fromIncident(FirstOutAnalysis.latest(level));
+    }
+
+    /** Plant-scoped query used by normal operations views. */
+    public static Optional<Trace> latestWithin(Level level, SystemEventScope scope) {
+        return fromIncident(FirstOutAnalysis.latestWithin(level, scope));
+    }
+
+    private static Optional<Trace> fromIncident(Optional<FirstOutAnalysis.Snapshot> first) {
         if (first.isEmpty()) return Optional.empty();
         FirstOutAnalysis.Snapshot incident = first.get();
         ArrayList<Entry> entries = new ArrayList<>();
