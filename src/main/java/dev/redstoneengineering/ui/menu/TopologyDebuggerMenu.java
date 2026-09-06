@@ -59,8 +59,8 @@ public final class TopologyDebuggerMenu extends EngineeringDeviceMenu {
     private final DataSlot timelineCount = trackedInt();
     private final DataSlot timelineSpan = trackedInt();
     private final DataSlot timelineTransitions = trackedInt();
-    private final DataSlot timelineLatestLow = trackedInt();
-    private final DataSlot timelineLatestHigh = trackedInt();
+    private final DataSlot timelineLatestTimeLow = trackedInt();
+    private final DataSlot timelineLatestTimeHigh = trackedInt();
     private final DataSlot timelineTransitionMask = trackedInt();
     private final DataSlot[] timelineValues = new DataSlot[VanillaRedstoneTargetHistory.DISPLAY_SAMPLES];
     private final DataSlot[] timelineAges = new DataSlot[VanillaRedstoneTargetHistory.DISPLAY_SAMPLES];
@@ -134,8 +134,8 @@ public final class TopologyDebuggerMenu extends EngineeringDeviceMenu {
         timelineSpan.set(history.timeSpanTicks());
         timelineTransitions.set(history.transitionCount());
         long latest = history.latestGameTime();
-        timelineLatestLow.set((int) latest);
-        timelineLatestHigh.set((int) (latest >>> 32));
+        timelineLatestTimeLow.set((int) latest);
+        timelineLatestTimeHigh.set((int) (latest >>> 32));
         int transitionMask = 0;
         for (int i = 0; i < VanillaRedstoneTargetHistory.DISPLAY_SAMPLES; i++) {
             timelineValues[i].set(history.values()[i]);
@@ -185,7 +185,7 @@ public final class TopologyDebuggerMenu extends EngineeringDeviceMenu {
     public boolean timelineTransition(int slot) { return (timelineTransitionMask.get() & (1 << slot)) != 0; }
 
     public long timelineLatestGameTime() {
-        return Integer.toUnsignedLong(timelineLatestLow.get()) | ((long) timelineLatestHigh.get() << 32);
+        return Integer.toUnsignedLong(timelineLatestTimeLow.get()) | ((long) timelineLatestTimeHigh.get() << 32);
     }
 
     public long timelineGameTime(int slot) {
