@@ -1,4 +1,3 @@
 {
-  "parent": "minecraft:block/cube_all",
-  "textures": { "all": "redstoneengineering:block/fault_latch" }
+  "parent": "redstoneengineering:block/fault_latch"
 }

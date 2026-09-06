@@ -1,4 +1,3 @@
 {
-  "parent": "minecraft:block/cube_all",
-  "textures": { "all": "redstoneengineering:block/pid_controller" }
+  "parent": "redstoneengineering:block/pid_controller"
 }
