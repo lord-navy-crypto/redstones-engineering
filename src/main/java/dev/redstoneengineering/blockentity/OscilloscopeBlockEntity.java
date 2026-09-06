@@ -7,7 +7,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 
-/** Two-channel scope with trigger, cursors, timing and capture-quality metrics. */
+/** Two-channel scope with trigger, cursors, authoritative timing and capture-quality metrics. */
 public class OscilloscopeBlockEntity extends BlockEntity {
     private static final int CHANNELS = 2;
     private static final int CAPACITY = 32;
@@ -15,6 +15,7 @@ public class OscilloscopeBlockEntity extends BlockEntity {
     public static final int SAMPLE_PERIOD_TICKS = 2;
 
     private final int[][] history = new int[CHANNELS][CAPACITY];
+    private final long[] sampleTimes = new long[CAPACITY];
     private int index = 0;
     private int count = 0;
     private int triggerLevel = 8;
@@ -33,7 +34,8 @@ public class OscilloscopeBlockEntity extends BlockEntity {
         clearHistoryOnly();
     }
 
-    public void addSample(int a, int b) {
+    /** Records one simultaneous two-channel sample at the real logical-server gameTime. */
+    public void addSample(long gameTime, int a, int b) {
         int na = normalize(a);
         int nb = normalize(b);
         int current = triggerChannel == 0 ? na : nb;
@@ -45,6 +47,7 @@ public class OscilloscopeBlockEntity extends BlockEntity {
         if (triggerMode == 0 || armed || triggered) {
             history[0][index] = na;
             history[1][index] = nb;
+            sampleTimes[index] = Math.max(0L, gameTime);
             if (armed && triggerMode != 0 && edge) {
                 triggered = true;
                 armed = false;
@@ -61,6 +64,18 @@ public class OscilloscopeBlockEntity extends BlockEntity {
         setChanged();
     }
 
+    /** Compatibility helper for tests/tools; production sampling passes gameTime explicitly. */
+    public void addSample(int a, int b) {
+        long gameTime;
+        if (getLevel() != null) {
+            gameTime = getLevel().getGameTime();
+        } else {
+            long latest = latestSampleGameTime();
+            gameTime = latest < 0 ? 0L : latest + SAMPLE_PERIOD_TICKS;
+        }
+        addSample(gameTime, a, b);
+    }
+
     private static int normalize(int value) {
         return value < 0 ? -1 : Math.max(0, Math.min(15, value));
     }
@@ -73,6 +88,7 @@ public class OscilloscopeBlockEntity extends BlockEntity {
         for (int c = 0; c < CHANNELS; c++) {
             for (int i = 0; i < CAPACITY; i++) history[c][i] = -1;
         }
+        for (int i = 0; i < CAPACITY; i++) sampleTimes[i] = -1L;
         index = 0;
         count = 0;
         lastA = -1;
@@ -162,6 +178,31 @@ public class OscilloscopeBlockEntity extends BlockEntity {
         return values[source];
     }
 
+    /** Returns the exact server gameTime paired with a displayed sample, or -1 during warm-up. */
+    public long displaySampleGameTime(int slot) {
+        if (slot < 0 || slot >= DISPLAY_SAMPLES) return -1L;
+        long[] times = recentTimes();
+        int available = Math.min(DISPLAY_SAMPLES, times.length);
+        int padding = DISPLAY_SAMPLES - available;
+        if (slot < padding) return -1L;
+        int source = times.length - available + (slot - padding);
+        return times[source];
+    }
+
+    public long latestSampleGameTime() {
+        if (count == 0) return -1L;
+        return sampleTimes[(index - 1 + CAPACITY) % CAPACITY];
+    }
+
+    /** Compact synchronization form: age from the latest authoritative sample in ticks. */
+    public int displaySampleAgeTicks(int slot) {
+        long latest = latestSampleGameTime();
+        long sample = displaySampleGameTime(slot);
+        if (latest < 0 || sample < 0 || sample > latest) return -1;
+        long age = latest - sample;
+        return age > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) age;
+    }
+
     public String triggerStatus() {
         String mode = triggerMode == 0 ? "FREE" : triggerMode == 1 ? "RISING" : "FALLING";
         return mode + " CH" + (triggerChannel == 0 ? "A" : "B") + " @" + triggerLevel + " "
@@ -172,8 +213,13 @@ public class OscilloscopeBlockEntity extends BlockEntity {
         return Math.abs(cursorB - cursorA);
     }
 
+    /** Uses captured gameTime when both cursors point at retained samples. */
     public int cursorDeltaTicks() {
-        return cursorDeltaSamples() * SAMPLE_PERIOD_TICKS;
+        long a = displaySampleGameTime(cursorA);
+        long b = displaySampleGameTime(cursorB);
+        if (a < 0 || b < 0) return cursorDeltaSamples() * SAMPLE_PERIOD_TICKS;
+        long delta = Math.abs(b - a);
+        return delta > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) delta;
     }
 
     public int cursorValue(int channel, boolean second) {
@@ -280,9 +326,29 @@ public class OscilloscopeBlockEntity extends BlockEntity {
         return intervals == 0 ? -1 : Math.max(1, total / intervals);
     }
 
+    /** Estimates a complete rising-edge period from real captured server gameTime intervals. */
     public int estimatedPeriodTicks(int channel) {
-        int samples = estimatedPeriodSamples(channel);
-        return samples < 0 ? -1 : samples * SAMPLE_PERIOD_TICKS;
+        if (!validChannel(channel)) return -1;
+        int[] values = recent(channel);
+        long[] times = recentTimes();
+        if (values.length < 4 || times.length != values.length) return -1;
+        int threshold = 8;
+        long last = -1L;
+        long total = 0L;
+        int intervals = 0;
+        for (int i = 1; i < values.length; i++) {
+            if (values[i - 1] >= 0 && values[i] >= 0 && times[i] >= 0
+                    && values[i - 1] < threshold && values[i] >= threshold) {
+                if (last >= 0 && times[i] >= last) {
+                    total += times[i] - last;
+                    intervals++;
+                }
+                last = times[i];
+            }
+        }
+        if (intervals == 0) return -1;
+        long average = Math.max(1L, total / intervals);
+        return average > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) average;
     }
 
     public String captureQuality(int channel) {
@@ -316,6 +382,14 @@ public class OscilloscopeBlockEntity extends BlockEntity {
         return values;
     }
 
+    private long[] recentTimes() {
+        long[] times = new long[count];
+        for (int i = 0; i < count; i++) {
+            times[i] = sampleTimes[(index - count + i + CAPACITY) % CAPACITY];
+        }
+        return times;
+    }
+
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
@@ -323,6 +397,8 @@ public class OscilloscopeBlockEntity extends BlockEntity {
             int[] saved = tag.getIntArray("history" + c);
             for (int i = 0; i < CAPACITY; i++) history[c][i] = i < saved.length ? saved[i] : -1;
         }
+        long[] savedTimes = tag.getLongArray("sampleTimes");
+        for (int i = 0; i < CAPACITY; i++) sampleTimes[i] = i < savedTimes.length ? savedTimes[i] : -1L;
         index = Math.max(0, Math.min(CAPACITY - 1, tag.getInt("index")));
         count = Math.max(0, Math.min(CAPACITY, tag.getInt("count")));
         triggerLevel = Math.max(1, Math.min(15, tag.getInt("triggerLevel")));
@@ -341,6 +417,7 @@ public class OscilloscopeBlockEntity extends BlockEntity {
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.saveAdditional(tag, registries);
         for (int c = 0; c < CHANNELS; c++) tag.putIntArray("history" + c, history[c]);
+        tag.putLongArray("sampleTimes", sampleTimes);
         tag.putInt("index", index);
         tag.putInt("count", count);
         tag.putInt("triggerLevel", triggerLevel);
