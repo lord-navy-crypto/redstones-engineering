@@ -52,7 +52,6 @@ required = {
     "src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java": [
         "PidControllerMenu",
         "BUTTON_TUNING_NEXT",
-        "Shift + FRONT",
     ],
     "src/main/java/dev/redstoneengineering/client/ui/EngineeringUiClientRegistration.java": [
         "RegisterMenuScreensEvent",
@@ -70,6 +69,10 @@ for rel, tokens in required.items():
     for token in tokens:
         if body and token not in body:
             errors.append(f"{rel}: missing UI contract token {token!r}")
+
+pid_screen = read("src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java")
+if pid_screen and "Shift + FRONT" not in pid_screen and "Shift+FRONT" not in pid_screen:
+    errors.append("PidControllerScreen missing acceptance-capture interaction guidance")
 
 client_dir = root / "src/main/java/dev/redstoneengineering/client/ui"
 if client_dir.is_dir():
