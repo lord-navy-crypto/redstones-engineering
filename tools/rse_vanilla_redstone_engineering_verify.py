@@ -114,7 +114,13 @@ for name in (
 ):
     need(gt, name, "RseVanillaRedstoneEngineeringGameTests.java")
 need(gt, "VanillaRedstoneTargetSnapshot.inspect", "RseVanillaRedstoneEngineeringGameTests.java")
-need(runtime_gt, "VanillaRedstoneTargetHistory.inspect", "RseVanillaRedstoneRuntimeGameTests.java")
+for needle in (
+    "VanillaRedstoneTargetHistory.clear(level)",
+    "VanillaRedstoneTargetHistory.inspect",
+    "history.latestGameTime() < 0",
+    "VanillaRedstoneTargetHistory.DISPLAY_SAMPLES - 1",
+):
+    need(runtime_gt, needle, "RseVanillaRedstoneRuntimeGameTests.java")
 
 count = len(re.findall(r"@GameTest\s*\(", gt))
 if count != 3:
