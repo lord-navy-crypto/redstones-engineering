@@ -56,7 +56,8 @@ for needle in (
 need(module, "event.register(RsePlantScopeLifecycleGameTests.class);", "EngineeringSystemsModule.java")
 need(doc, "Persistence is not a universal upgrade.", "PERSISTENCE_AND_PLANT_SCOPE_CONTRACT.md")
 need(workflow, "tools/rse_plant_scope_persistence_verify.py", "build.yml")
-need(workflow, "test_count < 174", "build.yml")
+need(workflow, "test_count <", "build.yml")
+need(workflow, "All [0-9]+ required tests passed", "build.yml")
 
 # No plant/event projection may become a second simulator.
 for label, src in (("SystemEventScope.java", scope), ("OperationsDashboardSnapshot.java", dashboard), ("RuntimePersistenceContract.java", contract)):
@@ -75,4 +76,4 @@ print("  default plant incident radius: 32 blocks")
 print("  hard scope radius cap: 128 blocks")
 print("  operations dashboard first-out isolation: PASS")
 print("  runtime persistence contract: explicit")
-print("  new registered lifecycle GameTests: 2")
+print("  registered lifecycle GameTests: 2")

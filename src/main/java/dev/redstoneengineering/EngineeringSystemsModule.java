@@ -8,6 +8,7 @@ import dev.redstoneengineering.block.SequenceControllerBlock;
 import dev.redstoneengineering.block.TopologyDebuggerBlock;
 import dev.redstoneengineering.gametest.RseEngineeringSystemsGameTests;
 import dev.redstoneengineering.gametest.RsePlantScopeLifecycleGameTests;
+import dev.redstoneengineering.gametest.RseVanillaRedstoneEngineeringGameTests;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.BlockItem;
@@ -94,9 +95,10 @@ public final class EngineeringSystemsModule {
     private static void registerGameTests(RegisterGameTestsEvent event) {
         event.register(RseEngineeringSystemsGameTests.class);
         event.register(RsePlantScopeLifecycleGameTests.class);
+        event.register(RseVanillaRedstoneEngineeringGameTests.class);
     }
 
     public static String summary() {
-        return "Engineering Systems: Sequence / Interlock / Fault / Alarm / Topology Diagnostics";
+        return "Engineering Systems: Sequence / Interlock / Fault / Alarm / Topology Diagnostics / Vanilla Redstone Engineering";
     }
 }

@@ -10,6 +10,8 @@ import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.diagnostics.events.SystemEventKind;
 import dev.redstoneengineering.diagnostics.events.SystemEventTimeline;
+import dev.redstoneengineering.diagnostics.redstone.VanillaRedstoneDiagnosticsReport;
+import dev.redstoneengineering.diagnostics.redstone.VanillaRedstoneEngineeringProfile;
 import dev.redstoneengineering.diagnostics.topology.EngineeringTopologyView;
 import dev.redstoneengineering.diagnostics.topology.TopologyDiagnosticsReport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
@@ -28,12 +30,14 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Observer-only topology debugger. It inspects the block behind itself and emits a redstone alarm
- * on FRONT when the target has dangling/mismatched/unloaded/faulted engineering interfaces.
+ * Observer-oriented topology debugger. RSE devices use formal EngineeringPort topology;
+ * vanilla redstone targets use the bounded Vanilla Redstone Engineering profiler.
+ * The diagnostic layer never rewrites vanilla redstone state or runs a replacement solver.
  */
 public class TopologyDebuggerBlock extends PassiveDirectionalSignalBlock {
     private static final String KEY = "topology_debugger";
-    // [ports, connected, open, mismatch, unloaded, faults, scans, previousIssue]
+    // Engineering mode: [ports, connected, open, mismatch, unloaded, faults, scans, previousIssue]
+    // Vanilla mode:     [nodes, dust, poweredDust, timing, observers, qcRisk, scans, previousIssue]
     private static final int RUNTIME_SIZE = 8;
 
     public TopologyDebuggerBlock(Properties properties) {
@@ -65,15 +69,29 @@ public class TopologyDebuggerBlock extends PassiveDirectionalSignalBlock {
                 value > 0 ? PortQuality.FAULT : PortQuality.VALID));
     }
 
-    public static TopologyDiagnosticsReport inspectTarget(Level level, BlockPos pos, BlockState debuggerState) {
+    private static BlockPos targetPos(BlockPos pos, BlockState debuggerState) {
         Direction back = debuggerState.getValue(FACING).getOpposite();
-        BlockPos targetPos = pos.relative(back);
+        return pos.relative(back);
+    }
+
+    public static boolean targetsVanillaRedstone(Level level, BlockPos pos, BlockState debuggerState) {
+        return VanillaRedstoneEngineeringProfile.isVanillaRedstoneTarget(level.getBlockState(targetPos(pos, debuggerState)));
+    }
+
+    public static TopologyDiagnosticsReport inspectTarget(Level level, BlockPos pos, BlockState debuggerState) {
+        BlockPos targetPos = targetPos(pos, debuggerState);
         BlockState targetState = level.getBlockState(targetPos);
         return TopologyDiagnosticsReport.from(EngineeringTopologyView.inspect(level, targetPos, targetState));
     }
 
+    public static VanillaRedstoneDiagnosticsReport inspectVanillaTarget(Level level, BlockPos pos, BlockState debuggerState) {
+        return VanillaRedstoneEngineeringProfile.inspect(level, targetPos(pos, debuggerState));
+    }
+
     @Override
     protected int computeOutput(Level level, BlockPos pos, BlockState state) {
+        if (targetsVanillaRedstone(level, pos, state)) return computeVanillaOutput(level, pos, state);
+
         TopologyDiagnosticsReport report = inspectTarget(level, pos, state);
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
         boolean issue = report.hasIssue();
@@ -86,16 +104,38 @@ public class TopologyDebuggerBlock extends PassiveDirectionalSignalBlock {
         runtime[5] = report.faultSampleCount();
         runtime[6]++;
         runtime[7] = issue ? 1 : 0;
-        if (issue != previousIssue) {
-            if (issue) {
-                SystemEventTimeline.record(level, pos, SystemEventKind.TOPOLOGY_ISSUE, 2,
-                        "TOPOLOGY_ISSUE", report.summary());
-            } else {
-                SystemEventTimeline.record(level, pos, SystemEventKind.TOPOLOGY_CLEAR, 0,
-                        "TOPOLOGY_CLEAR", report.summary());
-            }
-        }
+        recordTopologyTransition(level, pos, issue, previousIssue, report.summary());
         return issue ? 15 : 0;
+    }
+
+    private static int computeVanillaOutput(Level level, BlockPos pos, BlockState state) {
+        VanillaRedstoneDiagnosticsReport report = inspectVanillaTarget(level, pos, state);
+        int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
+        boolean issue = report.hasTopologyIssue();
+        boolean previousIssue = runtime[7] != 0;
+        runtime[0] = report.nodeCount();
+        runtime[1] = report.dustCount();
+        runtime[2] = report.poweredDustCount();
+        runtime[3] = report.timingComponentCount();
+        runtime[4] = report.observerCount();
+        runtime[5] = report.possibleQcDependencyCount();
+        runtime[6]++;
+        runtime[7] = issue ? 1 : 0;
+        recordTopologyTransition(level, pos, issue, previousIssue, report.summary());
+        // Phase one treats QC/fan-out/density as advisories, not faults. Only an incomplete
+        // observation (unloaded boundary or traversal cap) raises the existing topology alarm.
+        return issue ? 15 : 0;
+    }
+
+    private static void recordTopologyTransition(Level level, BlockPos pos, boolean issue, boolean previousIssue, String summary) {
+        if (issue == previousIssue) return;
+        if (issue) {
+            SystemEventTimeline.record(level, pos, SystemEventKind.TOPOLOGY_ISSUE, 2,
+                    "TOPOLOGY_ISSUE", summary);
+        } else {
+            SystemEventTimeline.record(level, pos, SystemEventKind.TOPOLOGY_CLEAR, 0,
+                    "TOPOLOGY_CLEAR", summary);
+        }
     }
 
     public static int scanCount(Level level, BlockPos pos) {
@@ -123,7 +163,12 @@ public class TopologyDebuggerBlock extends PassiveDirectionalSignalBlock {
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (!level.isClientSide) player.displayClientMessage(Component.literal(inspectTarget(level, pos, state).summary()), true);
+        if (!level.isClientSide) {
+            String summary = targetsVanillaRedstone(level, pos, state)
+                    ? inspectVanillaTarget(level, pos, state).summary()
+                    : inspectTarget(level, pos, state).summary();
+            player.displayClientMessage(Component.literal(summary), true);
+        }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
 }
