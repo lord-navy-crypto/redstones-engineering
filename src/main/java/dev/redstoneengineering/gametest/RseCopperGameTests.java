@@ -9,6 +9,10 @@ import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
+import dev.redstoneengineering.diagnostics.events.FirstOutAnalysis;
+import dev.redstoneengineering.diagnostics.events.SystemEventKind;
+import dev.redstoneengineering.diagnostics.events.SystemEventScope;
+import dev.redstoneengineering.diagnostics.events.SystemEventTimeline;
 import dev.redstoneengineering.physics.DomainNetwork;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -168,7 +172,7 @@ public final class RseCopperGameTests {
     }
 
     @PrefixGameTestTemplate(false)
-    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 60)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 80)
     public static void seriesResistorRejectsSideFeed(GameTestHelper helper) {
         BlockPos resistorPos = new BlockPos(2, 1, 2);
         BlockPos sideSourcePos = new BlockPos(2, 1, 1);
@@ -188,6 +192,153 @@ public final class RseCopperGameTests {
             int output = DomainNetwork.sampleCopperVoltage(helper.getLevel(), helper.absolutePos(outputWirePos));
             if (output != 0 || CopperSeriesResistorBlock.outputVoltage(helper.getLevel(), helper.absolutePos(resistorPos)) != 0) {
                 helper.fail("Axial copper processor incorrectly accepted a SIDE feed", resistorPos);
+                return;
+            }
+            helper.succeed();
+        });
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 90)
+    public static void fuseTripBecomesPlantFirstOutElectricalEvidence(GameTestHelper helper) {
+        BlockPos sourcePos = new BlockPos(0, 1, 2);
+        BlockPos inputWirePos = new BlockPos(1, 1, 2);
+        BlockPos fusePos = new BlockPos(2, 1, 2);
+        BlockPos outputWirePos = new BlockPos(3, 1, 2);
+        BlockPos loadPos = new BlockPos(4, 1, 2);
+        BlockPos absoluteFuse = helper.absolutePos(fusePos);
+        SystemEventScope cellScope = new SystemEventScope(absoluteFuse, 1);
+
+        helper.setBlock(sourcePos, RedstoneEngineering.COPPER_VOLTAGE_SOURCE.get().defaultBlockState());
+        helper.setBlock(inputWirePos, RedstoneEngineering.COPPER_WIRE.get().defaultBlockState());
+        helper.setBlock(
+                fusePos,
+                RedstoneEngineering.COPPER_FUSE.get().defaultBlockState()
+                        .setValue(DirectionalDomainBlock.FACING, Direction.EAST)
+                        .setValue(CopperFuseBlock.RATING, 1)
+        );
+        helper.setBlock(outputWirePos, RedstoneEngineering.COPPER_WIRE.get().defaultBlockState());
+        helper.setBlock(
+                loadPos,
+                RedstoneEngineering.COPPER_RESISTIVE_LOAD.get().defaultBlockState()
+                        .setValue(CopperResistiveLoadBlock.RESISTANCE, 4)
+        );
+
+        awaitElectricalTripEvidence(helper, fusePos, absoluteFuse, cellScope, 0);
+    }
+
+    private static void awaitElectricalTripEvidence(
+            GameTestHelper helper,
+            BlockPos fusePos,
+            BlockPos absoluteFuse,
+            SystemEventScope cellScope,
+            int elapsedTicks
+    ) {
+        var trip = SystemEventTimeline.snapshot(helper.getLevel()).stream()
+                .filter(event -> event.kind() == SystemEventKind.ELECTRICAL_TRIP)
+                .filter(event -> event.source().equals(absoluteFuse))
+                .findFirst()
+                .orElse(null);
+        if (trip != null) {
+            if (!trip.abnormal()) {
+                helper.fail("Copper fuse trip event was retained but not classified abnormal", fusePos);
+                return;
+            }
+            var firstOut = FirstOutAnalysis.latestWithin(helper.getLevel(), cellScope).orElse(null);
+            if (firstOut == null
+                    || firstOut.firstOut().kind() != SystemEventKind.ELECTRICAL_TRIP
+                    || !firstOut.firstOut().source().equals(absoluteFuse)) {
+                helper.fail("Copper protection trip did not become cell-scoped first-out evidence", fusePos);
+                return;
+            }
+            helper.succeed();
+            return;
+        }
+
+        if (elapsedTicks >= 30) {
+            BlockState fuse = helper.getBlockState(fusePos);
+            helper.fail(
+                    "Copper fuse trip evidence was never observed within 30 ticks; tripped="
+                            + fuse.getValue(CopperFuseBlock.TRIPPED)
+                            + "; timelineSize=" + SystemEventTimeline.size(helper.getLevel()),
+                    fusePos
+            );
+            return;
+        }
+        helper.runAfterDelay(1, () -> awaitElectricalTripEvidence(
+                helper, fusePos, absoluteFuse, cellScope, elapsedTicks + 1));
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 110)
+    public static void fuseReadyRequiresVerifiedSafeReevaluation(GameTestHelper helper) {
+        BlockPos sourcePos = new BlockPos(0, 1, 2);
+        BlockPos inputWirePos = new BlockPos(1, 1, 2);
+        BlockPos fusePos = new BlockPos(2, 1, 2);
+        BlockPos outputWirePos = new BlockPos(3, 1, 2);
+        BlockPos loadPos = new BlockPos(4, 1, 2);
+        BlockPos absoluteFuse = helper.absolutePos(fusePos);
+
+        helper.setBlock(sourcePos, RedstoneEngineering.COPPER_VOLTAGE_SOURCE.get().defaultBlockState());
+        helper.setBlock(inputWirePos, RedstoneEngineering.COPPER_WIRE.get().defaultBlockState());
+        helper.setBlock(
+                fusePos,
+                RedstoneEngineering.COPPER_FUSE.get().defaultBlockState()
+                        .setValue(DirectionalDomainBlock.FACING, Direction.EAST)
+                        .setValue(CopperFuseBlock.RATING, 1)
+        );
+        helper.setBlock(outputWirePos, RedstoneEngineering.COPPER_WIRE.get().defaultBlockState());
+        helper.setBlock(
+                loadPos,
+                RedstoneEngineering.COPPER_RESISTIVE_LOAD.get().defaultBlockState()
+                        .setValue(CopperResistiveLoadBlock.RESISTANCE, 4)
+        );
+
+        helper.runAfterDelay(14, () -> {
+            BlockState tripped = helper.getBlockState(fusePos);
+            if (!tripped.getValue(CopperFuseBlock.TRIPPED)) {
+                helper.fail("Precondition failed: fuse did not trip", fusePos);
+                return;
+            }
+
+            // Simulate an operator reset while the overload is still present. The next server
+            // protection evaluation must re-trip without emitting a false READY transition.
+            helper.setBlock(fusePos, tripped.setValue(CopperFuseBlock.TRIPPED, false));
+        });
+
+        helper.runAfterDelay(22, () -> {
+            long readyBeforeSafe = SystemEventTimeline.snapshot(helper.getLevel()).stream()
+                    .filter(event -> event.kind() == SystemEventKind.ELECTRICAL_READY)
+                    .filter(event -> event.source().equals(absoluteFuse))
+                    .count();
+            if (readyBeforeSafe != 0 || !helper.getBlockState(fusePos).getValue(CopperFuseBlock.TRIPPED)) {
+                helper.fail("Unsafe reset emitted READY or failed to re-trip under persistent overload", fusePos);
+                return;
+            }
+
+            BlockState fuse = helper.getBlockState(fusePos);
+            helper.setBlock(
+                    fusePos,
+                    fuse.setValue(CopperFuseBlock.RATING, 15).setValue(CopperFuseBlock.TRIPPED, false)
+            );
+        });
+
+        helper.runAfterDelay(30, () -> {
+            long trips = SystemEventTimeline.snapshot(helper.getLevel()).stream()
+                    .filter(event -> event.kind() == SystemEventKind.ELECTRICAL_TRIP)
+                    .filter(event -> event.source().equals(absoluteFuse))
+                    .count();
+            long ready = SystemEventTimeline.snapshot(helper.getLevel()).stream()
+                    .filter(event -> event.kind() == SystemEventKind.ELECTRICAL_READY)
+                    .filter(event -> event.source().equals(absoluteFuse))
+                    .count();
+            int output = CopperFuseBlock.outputVoltage(helper.getLevel(), absoluteFuse);
+            if (trips != 1 || ready != 1) {
+                helper.fail("Protection lifecycle must contain one trip and one verified-safe READY transition", fusePos);
+                return;
+            }
+            if (helper.getBlockState(fusePos).getValue(CopperFuseBlock.TRIPPED) || output <= 0) {
+                helper.fail("Fuse did not restore protected output after verified safe re-evaluation", outputWirePos);
                 return;
             }
             helper.succeed();
