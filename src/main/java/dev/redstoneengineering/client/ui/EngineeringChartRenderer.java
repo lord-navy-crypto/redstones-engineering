@@ -92,7 +92,7 @@ public final class EngineeringChartRenderer {
         }
     }
 
-    /** Shared digital-lane primitive for the Logic Analyzer phase. */
+    /** Shared digital-lane primitive for logic/timing instruments. */
     public static void drawDigitalLane(
             GuiGraphics graphics,
             Series series,
@@ -109,24 +109,75 @@ public final class EngineeringChartRenderer {
 
         int lowY = y + height - 2;
         int highY = y + 2;
+        int missingY = y + height / 2;
         int previousX = -1;
         int previousY = -1;
         for (int slot = 0; slot < series.size(); slot++) {
             int value = series.valueAt(slot);
             long gameTime = series.gameTimeAt(slot);
-            if (value < 0 || gameTime < 0) {
+            if (gameTime < 0) {
                 previousX = -1;
                 previousY = -1;
                 continue;
             }
             int px = mapTime(gameTime, firstTime, lastTime, x, Math.max(1, width));
+            if (value < 0) {
+                graphics.fill(px - 1, missingY, px + 2, missingY + 2, LABEL);
+                previousX = -1;
+                previousY = -1;
+                continue;
+            }
             int py = value >= threshold ? highY : lowY;
             if (previousX >= 0) {
                 graphics.fill(Math.min(previousX, px), previousY, Math.max(previousX, px) + 1, previousY + 1, color);
                 graphics.fill(px, Math.min(previousY, py), px + 1, Math.max(previousY, py) + 1, color);
             }
+            graphics.fill(px - 1, py - 1, px + 2, py + 2, color);
             previousX = px;
             previousY = py;
+        }
+    }
+
+    /**
+     * Draws compact rising/falling edge ticks from the same synchronized digital series.
+     * Invalid samples break continuity, so the renderer never invents an edge across missing data.
+     */
+    public static void drawDigitalEdgeMarkers(
+            GuiGraphics graphics,
+            Series series,
+            int x,
+            int y,
+            int width,
+            int height,
+            int threshold,
+            int risingColor,
+            int fallingColor
+    ) {
+        long firstTime = firstTime(series);
+        long lastTime = lastTime(series);
+        if (firstTime < 0 || lastTime < 0) return;
+
+        int previousValue = -1;
+        long previousTime = -1L;
+        for (int slot = 0; slot < series.size(); slot++) {
+            int value = series.valueAt(slot);
+            long gameTime = series.gameTimeAt(slot);
+            if (value < 0 || gameTime < 0 || (previousTime >= 0 && gameTime < previousTime)) {
+                previousValue = -1;
+                previousTime = gameTime;
+                continue;
+            }
+            if (previousValue >= 0) {
+                boolean beforeHigh = previousValue >= threshold;
+                boolean nowHigh = value >= threshold;
+                if (beforeHigh != nowHigh) {
+                    int px = mapTime(gameTime, firstTime, lastTime, x, Math.max(1, width));
+                    if (nowHigh) graphics.fill(px, y, px + 1, y + Math.min(4, height), risingColor);
+                    else graphics.fill(px, y + Math.max(0, height - 4), px + 1, y + height, fallingColor);
+                }
+            }
+            previousValue = value;
+            previousTime = gameTime;
         }
     }
 
