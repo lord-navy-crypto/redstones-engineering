@@ -9,9 +9,11 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.neoforged.neoforge.event.level.BlockEvent;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.WeakHashMap;
@@ -58,6 +60,7 @@ public final class VanillaRedstoneRuntimeTelemetry {
                 event.getNotifiedSides().size(),
                 event.getForceRedstoneUpdate(),
                 transition,
+                observedActiveState(state),
                 signature
         ));
         while (telemetry.events.size() > MAX_EVENTS_PER_LEVEL) telemetry.events.removeFirst();
@@ -185,6 +188,126 @@ public final class VanillaRedstoneRuntimeTelemetry {
                 sameTickOrderedPairs, sameTickDistinctSourcePairs, firstSequence, lastSequence);
     }
 
+    public static VanillaRedstoneBehaviorReport inspectBehavior(ServerLevel level, BlockPos anchor) {
+        return inspectBehavior(level, anchor, DEFAULT_RADIUS_BLOCKS, DEFAULT_WINDOW_TICKS);
+    }
+
+    /**
+     * Derives bounded behavior evidence from already-observed runtime samples and the read-only
+     * structural profile. Classifications are advisory correlations/candidates, never causal proof.
+     */
+    public static VanillaRedstoneBehaviorReport inspectBehavior(
+            ServerLevel level,
+            BlockPos anchor,
+            int requestedRadius,
+            long requestedWindowTicks
+    ) {
+        QueryBounds bounds = bounds(level, requestedRadius, requestedWindowTicks);
+        LevelTelemetry telemetry = telemetry(level);
+        VanillaRedstoneDiagnosticsReport structural = VanillaRedstoneEngineeringProfile.inspect(level, anchor);
+
+        int observations = 0;
+        int transitions = 0;
+        int completePulses = 0;
+        int narrowPulses = 0;
+        int observerFeedbackCandidates = 0;
+        int sameTickDistinctPairs = 0;
+        long minPulseWidth = Long.MAX_VALUE;
+        long maxPulseWidth = Long.MIN_VALUE;
+
+        Map<BlockPos, Integer> lastActivity = new HashMap<>();
+        Map<BlockPos, Long> activeStartTick = new HashMap<>();
+        Map<ObservedPair, Set<Long>> orderedPairTicks = new HashMap<>();
+        NeighborNotificationSample previous = null;
+        NeighborNotificationSample previousPrevious = null;
+
+        for (NeighborNotificationSample sample : telemetry.events) {
+            if (!included(sample, anchor, bounds)) continue;
+            observations++;
+            if (sample.observedStateTransition()) transitions++;
+
+            int activity = sample.observedActiveState();
+            if (activity >= 0) {
+                Integer prior = lastActivity.put(sample.source(), activity);
+                if (prior != null && prior == 0 && activity == 1) {
+                    activeStartTick.put(sample.source(), sample.gameTime());
+                } else if (prior != null && prior == 1 && activity == 0) {
+                    Long start = activeStartTick.remove(sample.source());
+                    if (start != null) {
+                        long width = Math.max(0L, sample.gameTime() - start);
+                        completePulses++;
+                        minPulseWidth = Math.min(minPulseWidth, width);
+                        maxPulseWidth = Math.max(maxPulseWidth, width);
+                        if (width <= 1L) narrowPulses++;
+                    }
+                }
+            }
+
+            if (previous != null
+                    && previous.gameTime() == sample.gameTime()
+                    && !previous.source().equals(sample.source())) {
+                sameTickDistinctPairs++;
+                orderedPairTicks.computeIfAbsent(
+                        new ObservedPair(previous.source(), sample.source()), ignored -> new HashSet<>())
+                        .add(sample.gameTime());
+            }
+
+            if (previousPrevious != null
+                    && previous != null
+                    && previousPrevious.gameTime() == sample.gameTime()
+                    && previous.gameTime() == sample.gameTime()
+                    && previousPrevious.source().equals(sample.source())
+                    && !previous.source().equals(sample.source())
+                    && "minecraft:observer".equals(sample.sourceKind())) {
+                observerFeedbackCandidates++;
+            }
+
+            previousPrevious = previous;
+            previous = sample;
+        }
+
+        int recurrentOrderedPairs = 0;
+        for (Set<Long> ticks : orderedPairTicks.values()) {
+            if (ticks.size() >= 2) recurrentOrderedPairs++;
+        }
+
+        int qcCandidates = structural.possibleQcDependencyCount();
+        int qcCorrelatedRuntimeEvents = qcCandidates > 0 ? observations : 0;
+        int evidenceScore = 0;
+        if (sameTickDistinctPairs > 0) evidenceScore++;
+        if (recurrentOrderedPairs > 0) evidenceScore++;
+        if (transitions > 0) evidenceScore++;
+        if (observerFeedbackCandidates > 0 || qcCorrelatedRuntimeEvents > 0) evidenceScore++;
+
+        String confidence;
+        if (evidenceScore >= 4 && recurrentOrderedPairs > 0) confidence = "HIGH";
+        else if (evidenceScore >= 2) confidence = "MEDIUM";
+        else if (evidenceScore >= 1) confidence = "LOW";
+        else confidence = "NONE";
+        if (structural.hasTopologyIssue()) {
+            confidence = switch (confidence) {
+                case "HIGH" -> "MEDIUM";
+                case "MEDIUM" -> "LOW";
+                default -> confidence;
+            };
+        }
+
+        List<String> advisories = new ArrayList<>();
+        if (narrowPulses > 0) advisories.add("NARROW_OBSERVED_PULSE");
+        if (observerFeedbackCandidates > 0) advisories.add("OBSERVER_FEEDBACK_CANDIDATE");
+        if (qcCorrelatedRuntimeEvents > 0) advisories.add("QC_ACTIVITY_CORRELATION");
+        if (!"NONE".equals(confidence)) advisories.add("ORDER_SENSITIVITY_CANDIDATE");
+        if (structural.hasTopologyIssue()) advisories.add("EVIDENCE_INCOMPLETE_BOUNDARY");
+
+        return new VanillaRedstoneBehaviorReport(
+                anchor.immutable(), bounds.radius(), bounds.windowTicks(), observations, transitions,
+                completePulses,
+                minPulseWidth == Long.MAX_VALUE ? -1L : minPulseWidth,
+                maxPulseWidth == Long.MIN_VALUE ? -1L : maxPulseWidth,
+                narrowPulses, observerFeedbackCandidates, qcCandidates, qcCorrelatedRuntimeEvents,
+                recurrentOrderedPairs, evidenceScore, confidence, List.copyOf(advisories));
+    }
+
     public static int retainedEventCount(ServerLevel level) {
         return telemetry(level).events.size();
     }
@@ -217,6 +340,22 @@ public final class VanillaRedstoneRuntimeTelemetry {
         return LEVELS.computeIfAbsent(level, ignored -> new LevelTelemetry());
     }
 
+    private static int observedActiveState(BlockState state) {
+        if (state.hasProperty(RedStoneWireBlock.POWER)) {
+            return state.getValue(RedStoneWireBlock.POWER) > 0 ? 1 : 0;
+        }
+        if (state.hasProperty(BlockStateProperties.POWERED)) {
+            return state.getValue(BlockStateProperties.POWERED) ? 1 : 0;
+        }
+        if (state.hasProperty(BlockStateProperties.LIT)) {
+            return state.getValue(BlockStateProperties.LIT) ? 1 : 0;
+        }
+        if (state.hasProperty(BlockStateProperties.EXTENDED)) {
+            return state.getValue(BlockStateProperties.EXTENDED) ? 1 : 0;
+        }
+        return -1;
+    }
+
     private static String stateSignature(BlockState state) {
         StringBuilder signature = new StringBuilder(BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString());
         if (state.hasProperty(RedStoneWireBlock.POWER)) {
@@ -246,6 +385,7 @@ public final class VanillaRedstoneRuntimeTelemetry {
     }
 
     private record QueryBounds(int radius, long windowTicks, long minimumTick) {}
+    private record ObservedPair(BlockPos first, BlockPos second) {}
 
     public record NeighborNotificationSample(
             long observationSequence,
@@ -255,6 +395,7 @@ public final class VanillaRedstoneRuntimeTelemetry {
             int notifiedSideCount,
             boolean forceRedstoneUpdate,
             boolean observedStateTransition,
+            int observedActiveState,
             String stateSignature
     ) {}
 }
