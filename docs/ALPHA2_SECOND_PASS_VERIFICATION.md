@@ -6,6 +6,8 @@ Alpha 2 is under **FEATURE FREEZE**. This stage does not add normal blocks or ne
 
 The automated layer intentionally combines exhaustive static/per-block evidence with horizontal destructive runtime checks.
 
+Because the repository workflow is scoped to pull requests targeting `main`, the stacked second-pass PR is temporarily retargeted to `main` only while full-stack CI is executed. After a green run, its base must be restored to `existing-content-upgrade-vanilla-overlay-phase5` and the direct Phase5 -> second-pass comparison must remain ahead with zero commits behind.
+
 ### Frozen architecture prerequisites
 
 - Historical core registry: **122/122**
