@@ -93,7 +93,7 @@ require(
     "PortDirection.INPUT",
     "RuntimeIntStore.remove",
     "starved=", "blocked/fault=", "highQueueRun=",
-    "FieldDeviceUi.open",
+    "OperationsMonitorUi.open",
 )
 
 require(

@@ -34,6 +34,7 @@ public final class EngineeringUiClientRegistration {
         event.register(EngineeringUiRegistration.LOGIC_ANALYZER.get(), LogicAnalyzerScreen::new);
         event.register(EngineeringUiRegistration.SIGNAL_ANALYZER.get(), SignalAnalyzerScreen::new);
         event.register(EngineeringUiRegistration.FIELD_DEVICE.get(), FieldDeviceScreen::new);
+        event.register(EngineeringUiRegistration.OPERATIONS_MONITOR.get(), OperationsMonitorScreen::new);
     }
 
     private static void addInventoryDiagnosticsButton(ScreenEvent.Init.Post event) {
