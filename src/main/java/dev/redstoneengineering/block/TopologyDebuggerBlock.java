@@ -12,6 +12,8 @@ import dev.redstoneengineering.diagnostics.events.SystemEventKind;
 import dev.redstoneengineering.diagnostics.events.SystemEventTimeline;
 import dev.redstoneengineering.diagnostics.redstone.VanillaRedstoneDiagnosticsReport;
 import dev.redstoneengineering.diagnostics.redstone.VanillaRedstoneEngineeringProfile;
+import dev.redstoneengineering.diagnostics.redstone.VanillaRedstoneRuntimeReport;
+import dev.redstoneengineering.diagnostics.redstone.VanillaRedstoneRuntimeTelemetry;
 import dev.redstoneengineering.diagnostics.topology.EngineeringTopologyView;
 import dev.redstoneengineering.diagnostics.topology.TopologyDiagnosticsReport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
@@ -88,6 +90,19 @@ public class TopologyDebuggerBlock extends PassiveDirectionalSignalBlock {
         return VanillaRedstoneEngineeringProfile.inspect(level, targetPos(pos, debuggerState));
     }
 
+    public static VanillaRedstoneRuntimeReport inspectVanillaRuntime(
+            ServerLevel level, BlockPos pos, BlockState debuggerState) {
+        return VanillaRedstoneRuntimeTelemetry.inspect(level, targetPos(pos, debuggerState));
+    }
+
+    public static String vanillaDiagnosticSummary(
+            ServerLevel level, BlockPos pos, BlockState debuggerState) {
+        VanillaRedstoneDiagnosticsReport structural = inspectVanillaTarget(level, pos, debuggerState);
+        VanillaRedstoneRuntimeReport runtime = inspectVanillaRuntime(level, pos, debuggerState);
+        // Runtime report carries the explicit "RUNTIME |" observation prefix.
+        return structural.summary() + " | " + runtime.summary();
+    }
+
     @Override
     protected int computeOutput(Level level, BlockPos pos, BlockState state) {
         if (targetsVanillaRedstone(level, pos, state)) return computeVanillaOutput(level, pos, state);
@@ -122,8 +137,8 @@ public class TopologyDebuggerBlock extends PassiveDirectionalSignalBlock {
         runtime[6]++;
         runtime[7] = issue ? 1 : 0;
         recordTopologyTransition(level, pos, issue, previousIssue, report.summary());
-        // Phase one treats QC/fan-out/density as advisories, not faults. Only an incomplete
-        // observation (unloaded boundary or traversal cap) raises the existing topology alarm.
+        // Runtime telemetry is evidence only in Phase 2. It does not drive this alarm output.
+        // QC/fan-out/density also remain advisories; incomplete observation alone is a fault.
         return issue ? 15 : 0;
     }
 
@@ -164,9 +179,14 @@ public class TopologyDebuggerBlock extends PassiveDirectionalSignalBlock {
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
-            String summary = targetsVanillaRedstone(level, pos, state)
-                    ? inspectVanillaTarget(level, pos, state).summary()
-                    : inspectTarget(level, pos, state).summary();
+            String summary;
+            if (targetsVanillaRedstone(level, pos, state) && level instanceof ServerLevel server) {
+                summary = vanillaDiagnosticSummary(server, pos, state);
+            } else if (targetsVanillaRedstone(level, pos, state)) {
+                summary = inspectVanillaTarget(level, pos, state).summary();
+            } else {
+                summary = inspectTarget(level, pos, state).summary();
+            }
             player.displayClientMessage(Component.literal(summary), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
