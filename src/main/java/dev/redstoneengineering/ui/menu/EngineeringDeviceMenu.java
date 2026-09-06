@@ -37,6 +37,14 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
         return slot;
     }
 
+    /** Allocate a compact fixed-size synchronized integer vector for bounded engineering telemetry. */
+    protected DataSlot[] trackedInts(int count) {
+        int bounded = Math.max(0, count);
+        DataSlot[] slots = new DataSlot[bounded];
+        for (int i = 0; i < bounded; i++) slots[i] = trackedInt();
+        return slots;
+    }
+
     public BlockPos blockPos() {
         return blockPos;
     }
