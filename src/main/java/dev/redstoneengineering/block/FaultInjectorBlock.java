@@ -45,7 +45,7 @@ public class FaultInjectorBlock extends PassiveDirectionalSignalBlock {
 
     @Override
     public MapCodec<FaultInjectorBlock> codec() {
-        return EngineeringSystemsModule.FAULT_INJECTOR_CODEC;
+        return EngineeringSystemsModule.FAULT_INJECTOR_CODEC.value();
     }
 
     @Override
