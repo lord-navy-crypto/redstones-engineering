@@ -105,7 +105,7 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
         EngineeringChartRenderer.drawGameTimeAxis(graphics, font, processSeries, chartX, 134, chartWidth);
 
         graphics.drawString(font, "ERROR (SP − PV)", 16, 147, TEXT, false);
-        graphics.drawString(font, "Shift+FRONT captures acceptance evidence", 156, 147, MUTED, false);
+        graphics.drawString(font, "Shift + FRONT captures acceptance evidence", 156, 147, MUTED, false);
         EngineeringChartRenderer.drawFrame(graphics, chartX, 157, chartWidth, 25, -15, 15, true);
         graphics.fill(chartX + 1, 169, chartX + chartWidth - 1, 170, BORDER);
         EngineeringChartRenderer.drawWaveform(graphics, errorSeries, chartX, 157, chartWidth, 25, -15, 15, WARN);
