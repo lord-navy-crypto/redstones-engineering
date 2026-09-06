@@ -9,6 +9,7 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.diagnostics.IndustrialOperationsAssessment;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
@@ -148,14 +149,18 @@ public class OperationsMonitorBlock extends Block implements EngineeringPortProv
         int[] r = RuntimeIntStore.peek(level, KEY, pos);
         if (r == null || r.length < RUNTIME_SIZE) {
             return "Operations state=NOMINAL | throughput last60s=0 cycles/min | downtime=0.0s | QUEUE now=0"
+                    + " | IOE constraint=NONE queuePressure=0%"
                     + " | starved=0 blocked/fault=0 highQueueRun=0";
         }
         SystemState state = SystemState.values()[Math.max(0, Math.min(SystemState.values().length - 1, r[25]))];
+        IndustrialOperationsAssessment.Snapshot ioe = IndustrialOperationsAssessment.inspect(level, pos);
         return "Operations state=" + state
                 + " | throughput last60s=" + r[5] + " cycles/min"
                 + " | downtime=" + String.format(java.util.Locale.ROOT, "%.1f", r[11] / 20.0) + "s"
                 + " | QUEUE now=" + r[13]
                 + " cycle last/avg/max=" + r[8] + "/" + r[9] + "/" + r[10] + "t"
+                + " | IOE constraint=" + ioe.dominantConstraint()
+                + " queuePressure=" + ioe.queuePressurePercent() + "%"
                 + " | starved=" + r[20]
                 + " blocked/fault=" + r[21]
                 + " highQueueRun=" + r[22];
