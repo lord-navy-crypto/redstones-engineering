@@ -43,7 +43,7 @@ public class SequenceControllerBlock extends PassiveDirectionalSignalBlock {
 
     @Override
     public MapCodec<SequenceControllerBlock> codec() {
-        return EngineeringSystemsModule.SEQUENCE_CONTROLLER_CODEC;
+        return EngineeringSystemsModule.SEQUENCE_CONTROLLER_CODEC.value();
     }
 
     @Override
