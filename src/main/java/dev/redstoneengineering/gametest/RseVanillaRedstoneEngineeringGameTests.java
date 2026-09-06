@@ -68,11 +68,10 @@ public final class RseVanillaRedstoneEngineeringGameTests {
         BlockPos piston = new BlockPos(3, 1, 2);
         supportLine(helper, 1, 3, 2);
         helper.setBlock(dust, Blocks.REDSTONE_WIRE.defaultBlockState());
-        // Observer uses a six-direction facing property, not HorizontalDirectionalBlock.FACING.
-        // Its default state is sufficient here because this test concerns profiler neutrality.
+        // Observer and piston use their own six-direction facing properties. Default states are
+        // intentionally sufficient because this acceptance test concerns profiler neutrality.
         helper.setBlock(observer, Blocks.OBSERVER.defaultBlockState());
-        helper.setBlock(piston, Blocks.PISTON.defaultBlockState()
-                .setValue(HorizontalDirectionalBlock.FACING, Direction.EAST));
+        helper.setBlock(piston, Blocks.PISTON.defaultBlockState());
 
         BlockState dustBefore = helper.getBlockState(dust);
         BlockState observerBefore = helper.getBlockState(observer);
