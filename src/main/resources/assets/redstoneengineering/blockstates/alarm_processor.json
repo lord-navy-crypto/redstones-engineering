@@ -1,0 +1,5 @@
+{
+  "multipart": [
+    { "apply": { "model": "redstoneengineering:block/alarm_processor" } }
+  ]
+}

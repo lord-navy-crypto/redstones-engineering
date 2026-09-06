@@ -1,0 +1,4 @@
+{
+  "type": "minecraft:block",
+  "pools": [{"rolls": 1, "entries": [{"type": "minecraft:item", "name": "redstoneengineering:topology_debugger"}], "conditions": [{"condition": "minecraft:survives_explosion"}]}]
+}
