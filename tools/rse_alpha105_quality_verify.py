@@ -40,8 +40,16 @@ require(
     "rollingAverage100",
     "rollingPeakToPeak",
     "rollingMeanStep100",
+    "rollingTransitionCount",
+    "rollingSaturationCount",
     "stableAgeTicks",
     "sampleAgeTicks",
+    "timeSpanTicks",
+    "latestSampleGameTime",
+    "sampleTimes",
+    "TIME_LOW_BASE",
+    "TIME_HIGH_BASE",
+    "captureSample(level, pos, measured, level.getGameTime())",
     "UiSnapshot",
     "requestedOutput = state.getValue(MODE) == INLINE ? measured : 0",
     "state.getValue(OUTPUT)",
@@ -59,6 +67,11 @@ require(
     "average100",
     "peakToPeak",
     "meanStep100",
+    "windowTransitions",
+    "saturationCount",
+    "sampleAges",
+    "latestSampleGameTime",
+    "displayGameTime",
 )
 require(
     "src/main/java/dev/redstoneengineering/client/ui/SignalAnalyzerScreen.java",
@@ -67,6 +80,24 @@ require(
     "DISPLAY ONLY",
     "INLINE",
     "RAW",
+    "EngineeringChartRenderer.drawWaveform",
+    "EngineeringChartRenderer.drawChangeMarkers",
+    "EngineeringChartRenderer.drawLimitHitMarkers",
+    "EngineeringChartRenderer.drawGameTimeAxis",
+)
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/EngineeringChartRenderer.java",
+    "drawChangeMarkers",
+    "drawLimitHitMarkers",
+    "gameTimeAt",
+)
+require(
+    "src/main/java/dev/redstoneengineering/gametest/RseEngineeringUiGameTests.java",
+    "SignalAnalyzerBlock.captureSample",
+    "3000L + (long) i * i",
+    "retained.timeSpanTicks() != 345",
+    "retained.windowTransitions() != 15",
+    "retained.saturationCount() != 8",
 )
 
 require(
@@ -238,6 +269,7 @@ if failed:
 
 print("RSE Alpha 1.0.5 quality regression verification: PASS")
 print("  analyzer rolling quality + display calibration: PASS")
+print("  analyzer authoritative gameTime + shared trend/transition/saturation visualization: PASS")
 print("  raw INLINE 0..15 pass-through invariant: PASS")
 print("  instrument topology depth/integrity diagnostics: PASS")
 print("  scope/logic capture coverage + timebase metrics through formal UI: PASS")
