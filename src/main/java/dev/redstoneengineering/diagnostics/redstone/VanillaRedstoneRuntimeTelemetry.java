@@ -109,6 +109,11 @@ public final class VanillaRedstoneRuntimeTelemetry {
         return telemetry(level).events.size();
     }
 
+    /** Clears only RSE observer telemetry; it never changes any world or redstone state. */
+    public static synchronized void clear(ServerLevel level) {
+        LEVELS.remove(level);
+    }
+
     private static synchronized LevelTelemetry telemetry(ServerLevel level) {
         return LEVELS.computeIfAbsent(level, ignored -> new LevelTelemetry());
     }
