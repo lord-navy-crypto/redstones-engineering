@@ -35,7 +35,9 @@ need(
     'saturatedLow',
     'rt[10]',
     'rt[14]',
-    'PidTelemetryHistory.capture',
+    'actualSetpoint = readBackInput(l, p, s)',
+    'actualProcess = readInputFrom(l, p, leftOf(outputSide(s)))',
+    'PidTelemetryHistory.captureSample',
     'PidTelemetryHistory.clear'
 )
 need(
@@ -80,7 +82,7 @@ print('RSE Alpha 1.0.2 second-layer verification: PASS')
 print('  instrumentation triggers/cursors: PASS')
 print('  authoritative logic gameTime + digital timing visualization: PASS')
 print('  PID process-response metrics + anti-windup implementation: PASS')
-print('  PID authoritative SP/PV/OUT/error multi-trend telemetry: PASS')
+print('  PID authoritative literal SP/PV/OUT/error multi-trend telemetry: PASS')
 print('  deterministic bounded PID telemetry evidence: PASS')
 print('  servo trajectory diagnostics: PASS')
 print('  serial/bus diagnostics: PASS')
