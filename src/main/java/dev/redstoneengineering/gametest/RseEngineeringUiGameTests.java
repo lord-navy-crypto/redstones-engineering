@@ -10,6 +10,7 @@ import dev.redstoneengineering.block.SignalAnalyzerBlock;
 import dev.redstoneengineering.block.SignalConditionerBlock;
 import dev.redstoneengineering.blockentity.LogicAnalyzerBlockEntity;
 import dev.redstoneengineering.blockentity.OscilloscopeBlockEntity;
+import dev.redstoneengineering.diagnostics.PidTelemetryHistory;
 import dev.redstoneengineering.ui.menu.LogicAnalyzerMenu;
 import dev.redstoneengineering.ui.menu.OscilloscopeMenu;
 import dev.redstoneengineering.ui.menu.PidControllerMenu;
@@ -115,6 +116,40 @@ public final class RseEngineeringUiGameTests {
         PidControllerBlock.applyTuningAction(helper.getLevel(), pidWorldPos, PidControllerMenu.BUTTON_TUNING_PREVIOUS);
         if (helper.getBlockState(pidPos).getValue(PidControllerBlock.TUNING) != 3) {
             helper.fail("PID tuning previous action did not wrap within 0..3", pidPos);
+            return;
+        }
+
+        PidTelemetryHistory.clear(helper.getLevel(), pidWorldPos);
+        int saturationEvents = 0;
+        for (int i = 0; i < 30; i++) {
+            int process = switch (i % 4) {
+                case 0 -> 0;
+                case 1 -> 5;
+                case 2 -> 9;
+                default -> 10;
+            };
+            int error = 10 - process;
+            boolean saturated = i > 0 && i % 5 == 0;
+            if (saturated) saturationEvents++;
+            int output = saturated ? 15 : Math.min(15, 5 + error);
+            PidTelemetryHistory.captureSample(
+                    helper.getLevel(), pidWorldPos, 4000L + (long) i * i,
+                    10, process, output, error, saturationEvents);
+        }
+
+        PidTelemetryHistory.Snapshot telemetry = PidTelemetryHistory.snapshot(helper.getLevel(), pidWorldPos);
+        if (telemetry.count() != 24
+                || telemetry.sampleTimes()[0] != 4036L
+                || telemetry.latestGameTime() != 4841L
+                || telemetry.timeSpanTicks() != 805) {
+            helper.fail("PID telemetry did not preserve its bounded irregular server-gameTime window", pidPos);
+            return;
+        }
+        if (telemetry.saturationHits() != 4
+                || telemetry.maxAbsError() != 10
+                || telemetry.meanAbsError100() != 400
+                || telemetry.recentAbsError100() != 420) {
+            helper.fail("PID telemetry error/saturation diagnostics are inconsistent with retained evidence", pidPos);
             return;
         }
         helper.succeed();

@@ -5,6 +5,7 @@ import dev.redstoneengineering.block.PidControllerBlock;
 import dev.redstoneengineering.diagnostics.ClosedLoopCommissioning;
 import dev.redstoneengineering.diagnostics.CommissioningSnapshot;
 import dev.redstoneengineering.diagnostics.CommissioningStatus;
+import dev.redstoneengineering.diagnostics.PidTelemetryHistory;
 import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceStore;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import net.minecraft.core.BlockPos;
@@ -33,8 +34,24 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     private final DataSlot status = trackedInt();
     private final DataSlot manualMode = trackedInt();
     private final DataSlot inhibited = trackedInt();
+    private final DataSlot stepActive = trackedInt();
     private final DataSlot modeTransfers = trackedInt();
     private final DataSlot historyCount = trackedInt();
+
+    private final DataSlot telemetryCount = trackedInt();
+    private final DataSlot telemetryTimeSpan = trackedInt();
+    private final DataSlot telemetrySaturationHits = trackedInt();
+    private final DataSlot telemetryMaxAbsError = trackedInt();
+    private final DataSlot telemetryMeanAbsError100 = trackedInt();
+    private final DataSlot telemetryRecentAbsError100 = trackedInt();
+    private final DataSlot telemetryLatestTimeLow = trackedInt();
+    private final DataSlot telemetryLatestTimeHigh = trackedInt();
+    private final DataSlot telemetrySaturationMask = trackedInt();
+    private final DataSlot[] telemetrySetpoints = new DataSlot[PidTelemetryHistory.DISPLAY_SAMPLES];
+    private final DataSlot[] telemetryProcessValues = new DataSlot[PidTelemetryHistory.DISPLAY_SAMPLES];
+    private final DataSlot[] telemetryOutputs = new DataSlot[PidTelemetryHistory.DISPLAY_SAMPLES];
+    private final DataSlot[] telemetryErrors = new DataSlot[PidTelemetryHistory.DISPLAY_SAMPLES];
+    private final DataSlot[] telemetryAges = new DataSlot[PidTelemetryHistory.DISPLAY_SAMPLES];
 
     public PidControllerMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -48,6 +65,13 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
                 pos,
                 RedstoneEngineering.PID_CONTROLLER.get()
         );
+        for (int i = 0; i < PidTelemetryHistory.DISPLAY_SAMPLES; i++) {
+            telemetrySetpoints[i] = trackedInt();
+            telemetryProcessValues[i] = trackedInt();
+            telemetryOutputs[i] = trackedInt();
+            telemetryErrors[i] = trackedInt();
+            telemetryAges[i] = trackedInt();
+        }
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
     }
 
@@ -71,8 +95,32 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
         status.set(snapshot.status().ordinal());
         manualMode.set(snapshot.manualMode() ? 1 : 0);
         inhibited.set(snapshot.inhibited() ? 1 : 0);
+        stepActive.set(snapshot.stepActive() ? 1 : 0);
         modeTransfers.set(snapshot.modeTransfers());
         historyCount.set(AcceptanceEvidenceStore.history(level, blockPos).size());
+
+        PidTelemetryHistory.Snapshot telemetry = PidTelemetryHistory.snapshot(level, blockPos);
+        telemetryCount.set(telemetry.count());
+        telemetryTimeSpan.set(telemetry.timeSpanTicks());
+        telemetrySaturationHits.set(telemetry.saturationHits());
+        telemetryMaxAbsError.set(telemetry.maxAbsError());
+        telemetryMeanAbsError100.set(telemetry.meanAbsError100());
+        telemetryRecentAbsError100.set(telemetry.recentAbsError100());
+        long latest = telemetry.latestGameTime();
+        telemetryLatestTimeLow.set((int) latest);
+        telemetryLatestTimeHigh.set((int) (latest >>> 32));
+
+        int saturationMask = 0;
+        for (int i = 0; i < PidTelemetryHistory.DISPLAY_SAMPLES; i++) {
+            telemetrySetpoints[i].set(telemetry.setpoints()[i]);
+            telemetryProcessValues[i].set(telemetry.processValues()[i]);
+            telemetryOutputs[i].set(telemetry.outputs()[i]);
+            telemetryErrors[i].set(telemetry.errors()[i]);
+            if (telemetry.saturationOutputs()[i] >= 0) saturationMask |= 1 << i;
+            long time = telemetry.sampleTimes()[i];
+            telemetryAges[i].set(time < 0 || latest < time ? -1 : durationTicks(latest - time));
+        }
+        telemetrySaturationMask.set(saturationMask);
     }
 
     @Override
@@ -100,12 +148,40 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     public int score() { return score.get(); }
     public boolean manualMode() { return manualMode.get() != 0; }
     public boolean inhibited() { return inhibited.get() != 0; }
+    public boolean stepActive() { return stepActive.get() != 0; }
     public int modeTransfers() { return modeTransfers.get(); }
     public int historyCount() { return historyCount.get(); }
+
+    public int telemetryCount() { return telemetryCount.get(); }
+    public int telemetryTimeSpanTicks() { return telemetryTimeSpan.get(); }
+    public int telemetrySaturationHits() { return telemetrySaturationHits.get(); }
+    public int telemetryMaxAbsError() { return telemetryMaxAbsError.get(); }
+    public int telemetryMeanAbsError100() { return telemetryMeanAbsError100.get(); }
+    public int telemetryRecentAbsError100() { return telemetryRecentAbsError100.get(); }
+    public int telemetrySetpoint(int slot) { return telemetrySetpoints[slot].get(); }
+    public int telemetryProcessValue(int slot) { return telemetryProcessValues[slot].get(); }
+    public int telemetryOutput(int slot) { return telemetryOutputs[slot].get(); }
+    public int telemetryError(int slot) { return telemetryErrors[slot].get(); }
+    public boolean telemetrySaturated(int slot) { return (telemetrySaturationMask.get() & (1 << slot)) != 0; }
+
+    public long telemetryLatestGameTime() {
+        return Integer.toUnsignedLong(telemetryLatestTimeLow.get()) | ((long) telemetryLatestTimeHigh.get() << 32);
+    }
+
+    public long telemetryGameTime(int slot) {
+        int age = telemetryAges[slot].get();
+        long latest = telemetryLatestGameTime();
+        return age < 0 || latest < 0 ? -1L : latest - age;
+    }
 
     public CommissioningStatus status() {
         CommissioningStatus[] values = CommissioningStatus.values();
         int index = Math.max(0, Math.min(values.length - 1, status.get()));
         return values[index];
+    }
+
+    private static int durationTicks(long ticks) {
+        if (ticks <= 0) return 0;
+        return (int) Math.min(Integer.MAX_VALUE, ticks);
     }
 }

@@ -1,6 +1,7 @@
 package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.diagnostics.CommissioningStatus;
+import dev.redstoneengineering.diagnostics.PidTelemetryHistory;
 import dev.redstoneengineering.ui.menu.PidControllerMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -9,8 +10,19 @@ import net.minecraft.world.entity.player.Inventory;
 
 /** Level-2 engineering workbench for PID commissioning and tuning-preset selection. */
 public final class PidControllerScreen extends EngineeringScreen<PidControllerMenu> {
+    private final EngineeringChartRenderer.Series setpointSeries;
+    private final EngineeringChartRenderer.Series processSeries;
+    private final EngineeringChartRenderer.Series outputSeries;
+    private final EngineeringChartRenderer.Series errorSeries;
+    private final EngineeringChartRenderer.Series saturationSeries;
+
     public PidControllerScreen(PidControllerMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
+        this.setpointSeries = new PidSeries(0);
+        this.processSeries = new PidSeries(1);
+        this.outputSeries = new PidSeries(2);
+        this.errorSeries = new PidSeries(3);
+        this.saturationSeries = new PidSeries(4);
     }
 
     @Override
@@ -43,8 +55,9 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
         labelValue(graphics, "Setpoint (SP)", menu.setpoint() + " / 15", 101);
         labelValue(graphics, "Process value (PV)", menu.processValue() + " / 15", 116);
         labelValue(graphics, "Error (SP − PV)", signed(menu.error()), 131);
-        labelValue(graphics, "Control output", menu.controlOutput() + " / 15", 146);
-        labelValue(graphics, "Acceptance score", menu.available() ? menu.score() + " / 100" : "N/A", 161);
+        labelValue(graphics, "Control output (OUT)", menu.controlOutput() + " / 15", 146);
+        labelValue(graphics, "Telemetry", menu.telemetryCount() + " / " + PidTelemetryHistory.DISPLAY_SAMPLES
+                + " • " + menu.telemetryTimeSpanTicks() + " gt", 161);
         signalBar(graphics, menu.controlOutput(), 177);
     }
 
@@ -70,20 +83,32 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
         labelValue(graphics, "Rise to 90%", metricTicks(menu.rise90Ticks()), 96);
         labelValue(graphics, "Settling time", metricTicks(menu.settlingTicks()), 112);
         labelValue(graphics, "Overshoot", Integer.toString(menu.overshoot()), 128);
-        labelValue(graphics, "Saturation events", Integer.toString(menu.saturationEvents()), 144);
-        labelValue(graphics, "Mode transfers", Integer.toString(menu.modeTransfers()), 160);
-        statusLine(graphics, "Inhibit", menu.inhibited() ? "ACTIVE • OUTPUT FORCED LOW" : "CLEAR", menu.inhibited() ? BAD : GOOD, 176);
+        labelValue(graphics, "Anti-windup events", Integer.toString(menu.saturationEvents()), 144);
+        labelValue(graphics, "Window mean |error|", hundredths(menu.telemetryMeanAbsError100()), 160);
+        labelValue(graphics, "Steady-state |error|", steadyStateError(), 176);
     }
 
     private void renderHistory(GuiGraphics graphics) {
-        statusBadge(graphics, "EVIDENCE " + menu.historyCount() + " / 8", menu.historyCount() >= 8 ? WARN : INFO, 16, 82);
-        graphics.drawString(font, "Shift + FRONT", 16, 107, TEXT, false);
-        graphics.drawString(font, "Capture the current authoritative acceptance evidence.", 112, 107, INFO, false);
-        graphics.drawString(font, "Shift + other face", 16, 126, TEXT, false);
-        graphics.drawString(font, "Reset transient PID runtime state.", 112, 126, WARN, false);
-        sectionRule(graphics, 146);
-        graphics.drawString(font, "History is bounded to 8 runs and remains transient in Alpha 1.0.20.", 16, 157, MUTED, false);
-        graphics.drawString(font, "Use captured runs to compare commissioning results, not to drive physics.", 16, 174, MUTED, false);
+        graphics.drawString(font, "SP", 16, 80, ACCENT, false);
+        graphics.drawString(font, "PV", 40, 80, INFO, false);
+        graphics.drawString(font, "OUT", 64, 80, GOOD, false);
+        graphics.drawString(font, "SAT", 96, 80, BAD, false);
+        graphics.drawString(font, "EVIDENCE " + menu.historyCount() + " / 8", 218, 80, MUTED, false);
+
+        int chartX = 16;
+        int chartWidth = 288;
+        EngineeringChartRenderer.drawFrame(graphics, chartX, 89, chartWidth, 43, 0, 15, true);
+        EngineeringChartRenderer.drawWaveform(graphics, setpointSeries, chartX, 89, chartWidth, 43, 0, 15, ACCENT);
+        EngineeringChartRenderer.drawWaveform(graphics, processSeries, chartX, 89, chartWidth, 43, 0, 15, INFO);
+        EngineeringChartRenderer.drawWaveform(graphics, outputSeries, chartX, 89, chartWidth, 43, 0, 15, GOOD);
+        EngineeringChartRenderer.drawLimitHitMarkers(graphics, saturationSeries, chartX, 89, chartWidth, 43, 0, 15, BAD);
+        EngineeringChartRenderer.drawGameTimeAxis(graphics, font, processSeries, chartX, 134, chartWidth);
+
+        graphics.drawString(font, "ERROR (SP − PV)", 16, 147, TEXT, false);
+        graphics.drawString(font, "Shift + FRONT captures acceptance evidence", 156, 147, MUTED, false);
+        EngineeringChartRenderer.drawFrame(graphics, chartX, 157, chartWidth, 25, -15, 15, true);
+        graphics.fill(chartX + 1, 169, chartX + chartWidth - 1, 170, BORDER);
+        EngineeringChartRenderer.drawWaveform(graphics, errorSeries, chartX, 157, chartWidth, 25, -15, 15, WARN);
     }
 
     private String operatingState() {
@@ -99,6 +124,11 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
     private String commissioningState() {
         if (!menu.available()) return "COMMISSIONING N/A";
         return "COMMISSIONING " + menu.status().name();
+    }
+
+    private String steadyStateError() {
+        if (menu.stepActive() || menu.settlingTicks() <= 0 || menu.telemetryRecentAbsError100() < 0) return "N/A";
+        return hundredths(menu.telemetryRecentAbsError100());
     }
 
     private static String tuningName(int tuning) {
@@ -132,11 +162,16 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
     }
 
     private static String metricTicks(int ticks) {
-        return ticks > 0 ? ticks + " ticks" : "—";
+        return ticks > 0 ? ticks + " ticks" : "N/A";
     }
 
     private static String signed(int value) {
         return value > 0 ? "+" + value : Integer.toString(value);
+    }
+
+    private static String hundredths(int value100) {
+        if (value100 < 0) return "N/A";
+        return (value100 / 100) + "." + String.format("%02d", value100 % 100);
     }
 
     private static int statusColor(CommissioningStatus status) {
@@ -146,5 +181,35 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
             case FAIL -> BAD;
             case IDLE, UNAVAILABLE -> MUTED;
         };
+    }
+
+    private final class PidSeries implements EngineeringChartRenderer.Series {
+        private final int kind;
+
+        private PidSeries(int kind) {
+            this.kind = kind;
+        }
+
+        @Override
+        public int size() {
+            return PidTelemetryHistory.DISPLAY_SAMPLES;
+        }
+
+        @Override
+        public int valueAt(int slot) {
+            return switch (kind) {
+                case 0 -> menu.telemetrySetpoint(slot);
+                case 1 -> menu.telemetryProcessValue(slot);
+                case 2 -> menu.telemetryOutput(slot);
+                case 3 -> menu.telemetryError(slot);
+                case 4 -> menu.telemetrySaturated(slot) ? menu.telemetryOutput(slot) : -1;
+                default -> -1;
+            };
+        }
+
+        @Override
+        public long gameTimeAt(int slot) {
+            return menu.telemetryGameTime(slot);
+        }
     }
 }
