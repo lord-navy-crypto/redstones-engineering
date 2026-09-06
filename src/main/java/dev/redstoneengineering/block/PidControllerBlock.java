@@ -264,7 +264,23 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
     @Override
     protected void tick(BlockState s, ServerLevel l, BlockPos p, RandomSource r) {
         updateOutput(l, p, s, outputValue(l, p, s));
-        PidTelemetryHistory.capture(l, p, ClosedLoopCommissioning.inspectPid(l, p), l.getGameTime());
+
+        // Trend telemetry records the literal external SP/PV inputs for this completed server cycle.
+        // ClosedLoopCommissioning intentionally keeps step-response targets, which may ignore a
+        // one-level SP change; the trend must not inherit that diagnostic threshold.
+        int actualSetpoint = readBackInput(l, p, s);
+        int actualProcess = readInputFrom(l, p, leftOf(outputSide(s)));
+        CommissioningSnapshot commissioning = ClosedLoopCommissioning.inspectPid(l, p);
+        PidTelemetryHistory.captureSample(
+                l,
+                p,
+                l.getGameTime(),
+                actualSetpoint,
+                actualProcess,
+                commissioning.controlOutput(),
+                actualSetpoint - actualProcess,
+                commissioning.saturationEvents()
+        );
         l.scheduleTick(p, this, 2);
     }
 
