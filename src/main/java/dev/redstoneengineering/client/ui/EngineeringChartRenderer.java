@@ -169,16 +169,17 @@ public final class EngineeringChartRenderer {
         graphics.drawString(font, end, x + width - font.width(end), y, LABEL, false);
     }
 
+    /** Time-domain bounds come from capture timestamps even when a signal sample is N/A. */
     public static long firstTime(Series series) {
         for (int slot = 0; slot < series.size(); slot++) {
-            if (series.valueAt(slot) >= 0 && series.gameTimeAt(slot) >= 0) return series.gameTimeAt(slot);
+            if (series.gameTimeAt(slot) >= 0) return series.gameTimeAt(slot);
         }
         return -1L;
     }
 
     public static long lastTime(Series series) {
         for (int slot = series.size() - 1; slot >= 0; slot--) {
-            if (series.valueAt(slot) >= 0 && series.gameTimeAt(slot) >= 0) return series.gameTimeAt(slot);
+            if (series.gameTimeAt(slot) >= 0) return series.gameTimeAt(slot);
         }
         return -1L;
     }
