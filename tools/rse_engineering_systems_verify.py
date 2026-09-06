@@ -34,13 +34,19 @@ fault = read(BLOCK_DIR / "FaultInjectorBlock.java")
 gt = read(GT)
 
 require_all(module, (
+    "@Mod(RedstoneEngineering.MOD_ID)",
     "SYSTEM_BLOCK_COUNT = 3",
+    "modBus.addListener(EngineeringSystemsModule::register);",
+    "modBus.addListener(EngineeringSystemsModule::addCreativeTabItems);",
+    "modBus.addListener(EngineeringSystemsModule::registerGameTests);",
     'helper.register(id("sequence_controller"), SEQUENCE_CONTROLLER);',
     'helper.register(id("safety_interlock"), SAFETY_INTERLOCK);',
     'helper.register(id("fault_injector"), FAULT_INJECTOR);',
     "BuildCreativeModeTabContentsEvent",
     "event.register(RseEngineeringSystemsGameTests.class);",
 ), "EngineeringSystemsModule.java")
+if "@EventBusSubscriber" in module or "@SubscribeEvent" in module:
+    errors.append("EngineeringSystemsModule.java: deprecated annotation event registration reintroduced")
 
 require_all(sequence, (
     "extends PassiveDirectionalSignalBlock",
@@ -98,4 +104,5 @@ print("RSE ENGINEERING SYSTEMS VERIFY: PASS")
 print("  legacy audited core: 122 blocks")
 print("  systems extension: 3 blocks")
 print("  aggregate closure target: 125 blocks")
+print("  event registration: explicit IEventBus listeners")
 print("  executable systems GameTests: 3")

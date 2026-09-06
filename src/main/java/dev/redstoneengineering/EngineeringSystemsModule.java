@@ -10,12 +10,10 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.gametest.RegisterGameTestsEvent;
 import net.neoforged.neoforge.registries.RegisterEvent;
@@ -24,10 +22,11 @@ import net.neoforged.neoforge.registries.RegisterEvent;
  * Systems-level extension registry.
  *
  * <p>The historical 122-block core remains registered by {@link RedstoneEngineering}.
- * These three blocks are registered through NeoForge RegisterEvent so the legacy audit
- * stays stable while the systems closure gate explicitly audits the 122 + 3 aggregate.</p>
+ * These three blocks use a separate mod entrypoint with explicit IEventBus listeners,
+ * matching the repository's warning-free event-registration policy while keeping the
+ * systems extension independently auditable.</p>
  */
-@EventBusSubscriber(modid = RedstoneEngineering.MOD_ID)
+@Mod(RedstoneEngineering.MOD_ID)
 public final class EngineeringSystemsModule {
     public static final int SYSTEM_BLOCK_COUNT = 3;
 
@@ -38,15 +37,25 @@ public final class EngineeringSystemsModule {
     public static final MapCodec<FaultInjectorBlock> FAULT_INJECTOR_CODEC =
             BlockBehaviour.simpleCodec(FaultInjectorBlock::new);
 
-    public static final SequenceControllerBlock SEQUENCE_CONTROLLER = new SequenceControllerBlock(machineProps(MapColor.COLOR_PURPLE));
-    public static final SafetyInterlockBlock SAFETY_INTERLOCK = new SafetyInterlockBlock(machineProps(MapColor.COLOR_RED));
-    public static final FaultInjectorBlock FAULT_INJECTOR = new FaultInjectorBlock(machineProps(MapColor.COLOR_ORANGE));
+    public static final SequenceControllerBlock SEQUENCE_CONTROLLER =
+            new SequenceControllerBlock(machineProps(MapColor.COLOR_PURPLE));
+    public static final SafetyInterlockBlock SAFETY_INTERLOCK =
+            new SafetyInterlockBlock(machineProps(MapColor.COLOR_RED));
+    public static final FaultInjectorBlock FAULT_INJECTOR =
+            new FaultInjectorBlock(machineProps(MapColor.COLOR_ORANGE));
 
-    public static final BlockItem SEQUENCE_CONTROLLER_ITEM = new BlockItem(SEQUENCE_CONTROLLER, new Item.Properties());
-    public static final BlockItem SAFETY_INTERLOCK_ITEM = new BlockItem(SAFETY_INTERLOCK, new Item.Properties());
-    public static final BlockItem FAULT_INJECTOR_ITEM = new BlockItem(FAULT_INJECTOR, new Item.Properties());
+    public static final BlockItem SEQUENCE_CONTROLLER_ITEM =
+            new BlockItem(SEQUENCE_CONTROLLER, new Item.Properties());
+    public static final BlockItem SAFETY_INTERLOCK_ITEM =
+            new BlockItem(SAFETY_INTERLOCK, new Item.Properties());
+    public static final BlockItem FAULT_INJECTOR_ITEM =
+            new BlockItem(FAULT_INJECTOR, new Item.Properties());
 
-    private EngineeringSystemsModule() {}
+    public EngineeringSystemsModule(IEventBus modBus) {
+        modBus.addListener(EngineeringSystemsModule::register);
+        modBus.addListener(EngineeringSystemsModule::addCreativeTabItems);
+        modBus.addListener(EngineeringSystemsModule::registerGameTests);
+    }
 
     private static ResourceLocation id(String path) {
         return ResourceLocation.fromNamespaceAndPath(RedstoneEngineering.MOD_ID, path);
@@ -56,8 +65,7 @@ public final class EngineeringSystemsModule {
         return BlockBehaviour.Properties.of().mapColor(color).strength(2.0F);
     }
 
-    @SubscribeEvent
-    public static void register(RegisterEvent event) {
+    private static void register(RegisterEvent event) {
         event.register(BuiltInRegistries.BLOCK_TYPE, helper -> {
             helper.register(id("sequence_controller"), SEQUENCE_CONTROLLER_CODEC);
             helper.register(id("safety_interlock"), SAFETY_INTERLOCK_CODEC);
@@ -75,16 +83,14 @@ public final class EngineeringSystemsModule {
         });
     }
 
-    @SubscribeEvent
-    public static void addCreativeTabItems(BuildCreativeModeTabContentsEvent event) {
+    private static void addCreativeTabItems(BuildCreativeModeTabContentsEvent event) {
         if (!event.getTabKey().location().equals(id("rse"))) return;
         event.accept(SEQUENCE_CONTROLLER_ITEM);
         event.accept(SAFETY_INTERLOCK_ITEM);
         event.accept(FAULT_INJECTOR_ITEM);
     }
 
-    @SubscribeEvent
-    public static void registerGameTests(RegisterGameTestsEvent event) {
+    private static void registerGameTests(RegisterGameTestsEvent event) {
         event.register(RseEngineeringSystemsGameTests.class);
     }
 
