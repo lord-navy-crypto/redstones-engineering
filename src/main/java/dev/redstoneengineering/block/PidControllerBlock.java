@@ -10,6 +10,7 @@ import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.diagnostics.ClosedLoopCommissioning;
 import dev.redstoneengineering.diagnostics.CommissioningSnapshot;
+import dev.redstoneengineering.diagnostics.PidTelemetryStore;
 import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceComparison;
 import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceRecord;
 import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceStore;
@@ -166,7 +167,7 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
         if (rt[4] != 0) {
             rt[3] = 0;
             rt[6] = process;
-            return 0;
+            return recordTelemetry(level, pos, setpoint, process, 0);
         }
 
         if (requestedMode == MANUAL_MODE) {
@@ -175,7 +176,7 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
             rt[3] = manualOutput;
             rt[6] = process;
             updateStepDiagnostics(level, rt, setpoint, process, rawError);
-            return manualOutput;
+            return recordTelemetry(level, pos, setpoint, process, manualOutput);
         }
 
         int rawDerivative = controlError - rt[1];
@@ -201,7 +202,12 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
         rt[3] = out;
         rt[6] = process;
         updateStepDiagnostics(level, rt, setpoint, process, rawError);
-        return out;
+        return recordTelemetry(level, pos, setpoint, process, out);
+    }
+
+    private static int recordTelemetry(Level level, BlockPos pos, int setpoint, int process, int output) {
+        PidTelemetryStore.record(level, pos, setpoint, process, output);
+        return output;
     }
 
     private static void updateStepDiagnostics(Level level, int[] rt, int setpoint, int process, int error) {
@@ -254,6 +260,7 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (state.getBlock() != newState.getBlock()) {
             RuntimeIntStore.remove(level, KEY, pos);
+            PidTelemetryStore.clear(level, pos);
             AcceptanceEvidenceStore.clear(level, pos);
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
@@ -290,9 +297,10 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
                 captureAcceptanceEvidence(s, l, p, pl);
             } else if (pl.isShiftKeyDown()) {
                 RuntimeIntStore.remove(l, KEY, p);
+                PidTelemetryStore.clear(l, p);
                 updateOutput(l, p, s, 0);
                 pl.displayClientMessage(Component.literal(
-                        "PID runtime reset | Shift+FRONT captures acceptance evidence"), true);
+                        "PID runtime + trend reset | Shift+FRONT captures acceptance evidence"), true);
             } else if (pl instanceof ServerPlayer serverPlayer) {
                 serverPlayer.openMenu(
                         new SimpleMenuProvider(
