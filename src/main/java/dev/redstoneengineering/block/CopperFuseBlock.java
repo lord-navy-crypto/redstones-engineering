@@ -2,6 +2,8 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.diagnostics.events.SystemEventKind;
+import dev.redstoneengineering.diagnostics.events.SystemEventTimeline;
 import dev.redstoneengineering.physics.CircuitPhysics;
 import dev.redstoneengineering.physics.CopperNetworkSupport;
 import dev.redstoneengineering.physics.DomainNetwork;
@@ -20,9 +22,15 @@ import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
+import java.util.Locale;
+
 /** Axial copper safety element: BACK input, FRONT protected output. */
 public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
     private static final String KEY = "copper_fuse";
+    private static final int RUNTIME_SIZE = 3;
+    private static final int OUTPUT_VOLTAGE = 0;
+    private static final int LAST_EVALUATED_TRIP = 1;
+    private static final int PROTECTION_STATE_INITIALIZED = 2;
     public static final IntegerProperty RATING = IntegerProperty.create("rating", 1, 15);
     public static final BooleanProperty TRIPPED = BooleanProperty.create("tripped");
 
@@ -50,21 +58,56 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+        int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
+        if (runtime[PROTECTION_STATE_INITIALIZED] == 0) {
+            // A persisted TRIPPED block is historical state, not evidence that a new incident occurred now.
+            runtime[LAST_EVALUATED_TRIP] = state.getValue(TRIPPED) ? 1 : 0;
+            runtime[PROTECTION_STATE_INITIALIZED] = 1;
+        }
+
         int inputVoltage = DomainNetwork.sampleCopperVoltage(level, inputPos(pos, state));
         double loadResistance = CircuitPhysics.equivalentLoadResistance(level, outputPos(pos, state), 128);
         double current = CircuitPhysics.current(inputVoltage, loadResistance);
         boolean tripped = state.getValue(TRIPPED) || current > state.getValue(RATING);
-        BlockState next = state.setValue(TRIPPED, tripped);
+        int tripState = tripped ? 1 : 0;
 
+        if (runtime[LAST_EVALUATED_TRIP] != tripState) {
+            if (tripped) {
+                SystemEventTimeline.record(
+                        level,
+                        pos,
+                        SystemEventKind.ELECTRICAL_TRIP,
+                        2,
+                        "COPPER_FUSE_TRIP",
+                        String.format(Locale.ROOT,
+                                "Copper fuse overcurrent trip; inputV=%d; Req=%.3f; I≈%.3f; rating=%d; protectedOutput=0",
+                                inputVoltage, loadResistance, current, state.getValue(RATING))
+                );
+            } else {
+                SystemEventTimeline.record(
+                        level,
+                        pos,
+                        SystemEventKind.ELECTRICAL_READY,
+                        0,
+                        "COPPER_FUSE_READY",
+                        String.format(Locale.ROOT,
+                                "Copper fuse protection ready after verified safe re-evaluation; inputV=%d; Req=%.3f; I≈%.3f; rating=%d",
+                                inputVoltage, loadResistance, current, state.getValue(RATING))
+                );
+            }
+            runtime[LAST_EVALUATED_TRIP] = tripState;
+        }
+
+        BlockState next = state.setValue(TRIPPED, tripped);
         if (next != state) level.setBlock(pos, next, Block.UPDATE_CLIENTS);
         int outputVoltage = tripped ? 0 : inputVoltage;
-        RuntimeIntStore.get(level, KEY, pos, 1)[0] = outputVoltage;
+        runtime[OUTPUT_VOLTAGE] = outputVoltage;
         DomainNetwork.driveCopper(level, outputPos(pos, next), pos, outputVoltage);
         level.scheduleTick(pos, this, 2);
     }
 
     public static int outputVoltage(Level level, BlockPos pos) {
-        return RuntimeIntStore.get(level, KEY, pos, 1)[0];
+        return RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE)[OUTPUT_VOLTAGE];
     }
 
     @Override
@@ -98,11 +141,21 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
             }
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
             level.scheduleTick(pos, this, 1);
-            player.displayClientMessage(Component.literal(
-                    "Copper fuse | BACK input -> FRONT protected output | current rating=" + next.getValue(RATING)
-                            + " | " + (next.getValue(TRIPPED) ? "TRIPPED" : "armed")
-                            + (player.isShiftKeyDown() ? " | reset requested; protection re-evaluates next tick" : "")
-            ), true);
+
+            int inputVoltage = DomainNetwork.sampleCopperVoltage(level, inputPos(pos, next));
+            double loadResistance = CircuitPhysics.equivalentLoadResistance(level, outputPos(pos, next), 128);
+            double current = CircuitPhysics.current(inputVoltage, loadResistance);
+            player.displayClientMessage(Component.literal(String.format(Locale.ROOT,
+                    "Copper fuse | BACK input -> FRONT protected output | rating=%d | V=%d | Req=%.3f | I≈%.3f | %s%s",
+                    next.getValue(RATING),
+                    inputVoltage,
+                    loadResistance,
+                    current,
+                    next.getValue(TRIPPED) ? "TRIPPED" : "armed",
+                    player.isShiftKeyDown()
+                            ? " | reset requested; READY is emitted only after a safe server re-evaluation"
+                            : ""
+            )), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
