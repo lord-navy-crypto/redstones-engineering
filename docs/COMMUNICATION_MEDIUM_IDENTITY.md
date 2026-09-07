@@ -26,6 +26,18 @@ A communication medium is justified only when it has all of the following:
 
 Adding a new cable, frequency band, or protocol name without a new engineering decision is not sufficient.
 
+## Communication choice hierarchy
+
+Players should normally choose a medium by answering a few engineering questions instead of memorizing arbitrary block rankings:
+
+1. **How much information must move?** One discrete state, a byte, or a scalar signal?
+2. **Does geometry matter?** Must there be a cable route, a direct line of sight, or a material propagation path?
+3. **What is the dominant constraint?** Wiring density, timing pressure, link margin, shared-channel interference, topology discipline, or attenuation?
+4. **How should failure look?** Hard contention, stale information, gradual quality loss, collision/dropout, obstruction, or broken path?
+5. **How will the player diagnose it?** Analyzer timing, bus-driver evidence, channel/interference evidence, optical topology, or medium-path evidence?
+
+No medium should be the universal upgrade of another. A more advanced-looking medium is only better when its own trade-off fits the system being built.
+
 ## Current medium roles
 
 | Medium | Primary advantage | Main cost / constraint | Characteristic failure | Engineering use |
