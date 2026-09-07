@@ -85,7 +85,7 @@ public class RedstoneCableTerminalBlock extends Block implements EngineeringPort
                 }
             }
         }
-        return sourceState.getBlock().canConnectRedstone(sourceState, level, sourcePos, direction);
+        return sourceState.getBlock().canConnectRedstone(sourceState, level, sourcePos, direction.getOpposite());
     }
 
     @Override
