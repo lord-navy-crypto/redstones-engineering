@@ -2,39 +2,55 @@ package dev.redstoneengineering.physics;
 
 import dev.redstoneengineering.block.*;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.world.level.Level;
 
 /**
  * Lightweight macroscopic magnetic helpers.
  *
- * The model is deliberately bounded and gameplay-oriented: nearby source
- * strengths are accumulated with an inverse-square-style falloff, while
- * unloaded chunks and positions outside the requested spherical radius are
- * never scanned.
+ * <p>The model is deliberately bounded and gameplay-oriented: nearby source
+ * strengths are accumulated with an inverse-square-style falloff. Coverage is
+ * explicit so a real measured zero cannot be confused with an incomplete scan.</p>
  */
 public final class MagneticPhysics {
     private MagneticPhysics() {}
 
-    /** Highest adjacent Copper-domain voltage visible to a local load/coil. */
+    /** Bounded free-space field measurement plus scan-coverage evidence. */
+    public record FieldSample(int field, int scannedCells, int expectedCells, boolean complete) {}
+
+    /** Highest legitimate adjacent Copper feed visible to a local sink/coil. */
     public static int adjacentCopperLevel(Level level, BlockPos pos) {
-        int best = 0;
-        for (Direction d : Direction.values()) {
-            BlockPos neighbor = pos.relative(d);
-            if (!level.hasChunkAt(neighbor)) continue;
-            best = Math.max(best, DomainNetwork.sampleCopperVoltage(level, neighbor));
-        }
-        return EngineeringMath.clamp(best, 0, 15);
+        return CopperNetworkSupport.terminalInput(level, pos).voltage();
+    }
+
+    /** Approximate local magnetic-field magnitude in the RSE 0..15 field scale. */
+    public static int fieldAt(Level level, BlockPos origin, int radius) {
+        return fieldSample(level, origin, radius).field();
     }
 
     /**
-     * Approximate local magnetic-field magnitude in the RSE 0..15 field scale.
-     * Only blocks inside a sphere of {@code radius} are considered.
+     * Full field measurement used by sensors. Unloaded cells are excluded from
+     * the numerical sum and make {@code complete=false} instead of silently
+     * turning an unknown region into a confirmed zero field.
      */
-    public static int fieldAt(Level level, BlockPos origin, int radius) {
+    public static FieldSample fieldSample(Level level, BlockPos origin, int radius) {
+        return fieldSample(level, origin, radius, true);
+    }
+
+    /**
+     * External applied field for magnetizing a soft core. Existing remanent iron
+     * cores are excluded so remanence cannot recursively magnetize neighboring
+     * cores without an actual permanent/electromagnetic source.
+     */
+    public static int appliedFieldAt(Level level, BlockPos origin, int radius) {
+        return fieldSample(level, origin, radius, false).field();
+    }
+
+    private static FieldSample fieldSample(Level level, BlockPos origin, int radius, boolean includeRemanence) {
         int safeRadius = Math.max(0, Math.min(16, radius));
         int radiusSquared = safeRadius * safeRadius;
         double sum = 0.0;
+        int scanned = 0;
+        int expected = 0;
         BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
 
         for (int dx = -safeRadius; dx <= safeRadius; dx++) {
@@ -43,28 +59,29 @@ public final class MagneticPhysics {
                     if (dx == 0 && dy == 0 && dz == 0) continue;
                     int r2i = dx * dx + dy * dy + dz * dz;
                     if (r2i > radiusSquared) continue;
+                    expected++;
 
                     cursor.set(origin.getX() + dx, origin.getY() + dy, origin.getZ() + dz);
                     if (!level.hasChunkAt(cursor)) continue;
+                    scanned++;
 
                     var state = level.getBlockState(cursor);
                     int source = 0;
                     if (state.getBlock() instanceof ElectromagnetBlock) {
                         source = state.getValue(ElectromagnetBlock.FIELD);
-                    } else if (state.getBlock() instanceof IronCoreBlock
+                    } else if (includeRemanence && state.getBlock() instanceof IronCoreBlock
                             && state.getValue(IronCoreBlock.MAGNETIZED)) {
                         source = 6;
                     } else if (state.getBlock() instanceof PermanentMagnetBlock) {
                         source = state.getValue(PermanentMagnetBlock.STRENGTH);
                     }
 
-                    if (source > 0) {
-                        sum += source / Math.max(1.0, (double) r2i);
-                    }
+                    if (source > 0) sum += source / Math.max(1.0, (double) r2i);
                 }
             }
         }
 
-        return EngineeringMath.clamp((int) Math.round(sum), 0, 15);
+        int field = EngineeringMath.clamp((int) Math.round(sum), 0, 15);
+        return new FieldSample(field, scanned, expected, scanned == expected);
     }
 }
