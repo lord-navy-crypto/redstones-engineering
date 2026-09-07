@@ -47,11 +47,9 @@ for token in ("FilterState", "filterState", "runtimePresent", "RuntimeIntStore.p
 require("RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE)" in lowpass,
         "Lapis Low-Pass server tick lost authoritative runtime write")
 
-# 34: precision meter preserves upstream source-conflict quality.
-require("LapisSignalLineBlock.quality" in meter,
-        "Lapis Precision Meter must preserve trace source-conflict quality")
-require("PortQuality.TOPOLOGY_ERROR" in meter,
-        "Lapis Precision Meter must expose source conflict rather than generic no-signal")
+# 34: precision meter preserves upstream source-conflict quality rather than re-deriving validity.
+require("LapisSignalLineBlock.quality" in meter and "case TOPOLOGY_ERROR" in meter,
+        "Lapis Precision Meter must preserve and surface source conflict quality")
 
 # 35: lab oscillator exposes realized jitter as read-only evidence.
 for token in ("TimingEvidence", "LAST_HALF_INTERVAL_SLOT", "LAST_JITTER_OFFSET_SLOT", "RuntimeIntStore.peek"):
