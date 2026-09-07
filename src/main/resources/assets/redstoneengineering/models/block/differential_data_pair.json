@@ -1,6 +1,7 @@
 {
-  "parent": "minecraft:block/cube_all",
+  "parent": "redstoneengineering:block/instrument_cable",
   "textures": {
-    "all": "redstoneengineering:block/differential_data_pair"
+    "cable": "redstoneengineering:block/differential_data_pair",
+    "particle": "redstoneengineering:block/differential_data_pair"
   }
 }
