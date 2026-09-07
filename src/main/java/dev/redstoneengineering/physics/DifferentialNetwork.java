@@ -1,8 +1,11 @@
 package dev.redstoneengineering.physics;
 
+import dev.redstoneengineering.block.ConnectedCableBlock;
 import dev.redstoneengineering.block.DifferentialDataPairBlock;
 import dev.redstoneengineering.block.DifferentialDriverBlock;
 import dev.redstoneengineering.block.DirectionalDomainBlock;
+import dev.redstoneengineering.block.RedstoneCableJunctionBlock;
+import dev.redstoneengineering.block.TransmissionTopology;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -19,14 +22,36 @@ import java.util.Set;
  * <p>RSE differential data intentionally sacrifices payload density for stronger link margin than
  * framed serial wiring. It is suited to discrete control, heartbeat and protection-state signals;
  * it is not a byte-stream replacement and does not attempt to reproduce real-world line voltages.</p>
+ *
+ * <p>Direct pair-to-pair continuity is planar. Vertical transitions require a Signal Junction
+ * Point resolved to DIFFERENTIAL, and mixed-media junctions are excluded from the graph.</p>
  */
 public final class DifferentialNetwork {
     private DifferentialNetwork() {}
 
+    private static boolean isNode(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        return state.getBlock() instanceof DifferentialDataPairBlock
+                || state.getBlock() instanceof RedstoneCableJunctionBlock
+                && state.getValue(RedstoneCableJunctionBlock.MEDIUM) == TransmissionTopology.SignalMedium.DIFFERENTIAL;
+    }
+
+    private static boolean edgeAllowed(Level level, BlockPos from, BlockPos to, Direction direction) {
+        BlockState a = level.getBlockState(from);
+        BlockState b = level.getBlockState(to);
+        if (!isNode(level, from) || !isNode(level, to)) return false;
+        boolean aJunction = a.getBlock() instanceof RedstoneCableJunctionBlock;
+        boolean bJunction = b.getBlock() instanceof RedstoneCableJunctionBlock;
+        if (aJunction && bJunction) return false;
+        if (!aJunction && !bJunction && direction.getAxis() == Direction.Axis.Y) return false;
+        return ConnectedCableBlock.connected(a, direction)
+                && ConnectedCableBlock.connected(b, direction.getOpposite());
+    }
+
     public static Set<BlockPos> collect(Level level, BlockPos start) {
         Set<BlockPos> seen = new HashSet<>();
         ArrayDeque<BlockPos> queue = new ArrayDeque<>();
-        if (!(level.getBlockState(start).getBlock() instanceof DifferentialDataPairBlock)) return seen;
+        if (!isNode(level, start)) return seen;
         queue.add(start);
         while (!queue.isEmpty() && seen.size() < NetworkKernel.MAX_NODES) {
             BlockPos pos = queue.removeFirst();
@@ -34,7 +59,8 @@ public final class DifferentialNetwork {
             for (Direction direction : Direction.values()) {
                 BlockPos next = pos.relative(direction);
                 if (level.hasChunkAt(next)
-                        && level.getBlockState(next).getBlock() instanceof DifferentialDataPairBlock
+                        && isNode(level, next)
+                        && edgeAllowed(level, pos, next, direction)
                         && !seen.contains(next)) {
                     queue.addLast(next);
                 }
@@ -47,7 +73,6 @@ public final class DifferentialNetwork {
         Set<BlockPos> nodes = collect(level, start);
         if (nodes.isEmpty()) return;
         int resolvedBit = bit & 1;
-        // RSE-native link-margin abstraction: low information density buys stronger length tolerance.
         int quality = Math.max(70, 100 - Math.max(0, nodes.size() - 1) / 8);
         for (BlockPos pos : nodes) {
             int oldBit = InformationRuntime.value(level, "diff", pos) & 1;
@@ -69,6 +94,7 @@ public final class DifferentialNetwork {
         BlockPos driverPos = null;
         int bit = 0;
         for (BlockPos pairPos : nodes) {
+            if (!(level.getBlockState(pairPos).getBlock() instanceof DifferentialDataPairBlock)) continue;
             for (Direction direction : Direction.values()) {
                 BlockPos candidatePos = pairPos.relative(direction);
                 if (!level.hasChunkAt(candidatePos)) continue;
