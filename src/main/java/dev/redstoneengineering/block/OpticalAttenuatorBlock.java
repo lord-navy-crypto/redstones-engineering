@@ -35,14 +35,8 @@ import java.util.Optional;
 public class OpticalAttenuatorBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
     public static final IntegerProperty LOSS = IntegerProperty.create("loss", 0, 8);
 
-    public record AttenuationEvidence(
-            int inputIntensity,
-            int channel,
-            PortQuality inputQuality,
-            int loss,
-            int expectedOutputIntensity,
-            boolean fullyAttenuated
-    ) {}
+    public record AttenuationEvidence(int inputIntensity, int channel, PortQuality inputQuality,
+                                      int loss, int expectedOutputIntensity, boolean fullyAttenuated) {}
 
     public OpticalAttenuatorBlock(Properties properties) {
         super(properties);
@@ -56,31 +50,23 @@ public class OpticalAttenuatorBlock extends DirectionalDomainBlock implements En
         Direction output = state.getValue(FACING);
         OpticalObservationSupport.Observation input = OpticalObservationSupport.observe(level, pos.relative(output.getOpposite()));
         int loss = state.getValue(LOSS);
-        int out = input.quality() == PortQuality.VALID
-                ? EngineeringMath.opticalAfterLoss(input.intensity(), loss)
-                : 0;
-        return new AttenuationEvidence(
-                input.intensity(), input.channel(), input.quality(), loss, out,
+        int out = input.quality() == PortQuality.VALID ? EngineeringMath.opticalAfterLoss(input.intensity(), loss) : 0;
+        return new AttenuationEvidence(input.intensity(), input.channel(), input.quality(), loss, out,
                 input.quality() == PortQuality.VALID && input.intensity() > 0 && out == 0);
     }
 
-    @Override
-    public List<EngineeringPort> engineeringPorts(BlockState state) {
+    @Override public List<EngineeringPort> engineeringPorts(BlockState state) {
         return List.of(
-                new EngineeringPort("OPTICAL INPUT", inputSide(state), EngineeringDomain.OPTICAL,
-                        PortKind.CONVERTER, PortDirection.INPUT, false, "intensity"),
-                new EngineeringPort("OPTICAL ATTENUATED OUTPUT", outputSide(state), EngineeringDomain.OPTICAL,
-                        PortKind.CONVERTER, PortDirection.OUTPUT, false, "intensity"));
+                new EngineeringPort("OPTICAL INPUT", inputSide(state), EngineeringDomain.OPTICAL, PortKind.CONVERTER, PortDirection.INPUT, false, "intensity"),
+                new EngineeringPort("OPTICAL ATTENUATED OUTPUT", outputSide(state), EngineeringDomain.OPTICAL, PortKind.CONVERTER, PortDirection.OUTPUT, false, "intensity"));
     }
 
-    @Override
-    public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
+    @Override public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         BlockPos samplePos = side == inputSide(state) ? inputPos(pos, state) : outputPos(pos, state);
         OpticalObservationSupport.Observation observation = OpticalObservationSupport.observe(level, samplePos);
-        return Optional.of(new EngineeringPortSnapshot(
-                port.get(), observation.intensity(), 0.0, 15.0, observation.quality()));
+        return Optional.of(new EngineeringPortSnapshot(port.get(), observation.intensity(), 0.0, 15.0, observation.quality()));
     }
 
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
@@ -88,22 +74,26 @@ public class OpticalAttenuatorBlock extends DirectionalDomainBlock implements En
         if (!level.isClientSide) level.scheduleTick(pos, this, 2);
     }
 
-    @Override
-    protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+    @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         AttenuationEvidence evidence = evidence(level, pos, state);
         boolean driven = evidence.inputQuality() == PortQuality.VALID && evidence.expectedOutputIntensity() > 0;
-        DomainNetwork.driveOptical(
-                level, outputPos(pos, state), pos,
+        DomainNetwork.driveOptical(level, outputPos(pos, state), pos,
                 evidence.expectedOutputIntensity(), evidence.channel(), driven);
         level.scheduleTick(pos, this, 2);
     }
 
-    private void invalidateOutput(ServerLevel level, BlockPos pos, BlockState state) {
-        DomainNetwork.driveOptical(level, outputPos(pos, state), pos, 0, 0, false);
+    public static void invalidateOutput(ServerLevel level, BlockPos pos, BlockState state) {
+        Direction output = state.getValue(FACING);
+        DomainNetwork.driveOptical(level, pos.relative(output), pos, 0, 0, false);
     }
 
-    @Override
-    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState next, boolean moved) {
+    /** Shared by direct interaction and FieldDevice UI so configuration changes never leave stale carrier state. */
+    public static void configurationChanged(ServerLevel level, BlockPos pos, BlockState state) {
+        invalidateOutput(level, pos, state);
+        if (state.getBlock() instanceof OpticalAttenuatorBlock attenuator) level.scheduleTick(pos, attenuator, 1);
+    }
+
+    @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState next, boolean moved) {
         if (!state.is(next.getBlock()) && level instanceof ServerLevel serverLevel) {
             invalidateOutput(serverLevel, pos, state);
             DomainNetwork.recomputeOpticalAround(serverLevel, pos);
@@ -111,8 +101,7 @@ public class OpticalAttenuatorBlock extends DirectionalDomainBlock implements En
         super.onRemove(state, level, pos, next, moved);
     }
 
-    @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+    @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer && !player.isShiftKeyDown()) {
             FieldDeviceUi.open(serverPlayer, pos);
         } else if (!level.isClientSide) {
@@ -120,11 +109,7 @@ public class OpticalAttenuatorBlock extends DirectionalDomainBlock implements En
             loss = loss >= 8 ? 0 : loss + 1;
             BlockState next = state.setValue(LOSS, loss);
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            if (level instanceof ServerLevel serverLevel) {
-                // Parameter changes invalidate the previous transfer result immediately.
-                invalidateOutput(serverLevel, pos, next);
-                serverLevel.scheduleTick(pos, this, 1);
-            }
+            if (level instanceof ServerLevel serverLevel) configurationChanged(serverLevel, pos, next);
             AttenuationEvidence evidence = evidence(level, pos, next);
             player.displayClientMessage(Component.literal(
                     "Optical attenuator | loss index=" + loss
