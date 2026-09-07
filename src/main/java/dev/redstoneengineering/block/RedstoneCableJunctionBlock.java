@@ -9,7 +9,6 @@ import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
-import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DataBusNetwork;
 import dev.redstoneengineering.physics.DifferentialNetwork;
 import dev.redstoneengineering.physics.RedstoneCableNetwork;
@@ -25,6 +24,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
@@ -122,8 +122,10 @@ public class RedstoneCableJunctionBlock extends ConnectedCableBlock implements E
         RuntimeIntStore.get(level, KEY, pos, 1)[0] = Math.max(0, Math.min(15, power));
     }
 
+    /** Observer-only readback; network recomputation owns runtime creation. */
     public static int power(Level level, BlockPos pos) {
-        return RuntimeIntStore.get(level, KEY, pos, 1)[0];
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length < 1 ? 0 : runtime[0];
     }
 
     @Override
@@ -147,7 +149,8 @@ public class RedstoneCableJunctionBlock extends ConnectedCableBlock implements E
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         if (state.getValue(MEDIUM) == SignalMedium.REDSTONE) {
-            return Optional.of(EngineeringPortSnapshot.redstone(port.get(), power(level, pos), PortQuality.VALID));
+            return Optional.of(EngineeringPortSnapshot.redstone(
+                    port.get(), power(level, pos), RedstoneCableNetwork.sourceEvidence(level, pos).quality()));
         }
         return Optional.empty();
     }
@@ -176,7 +179,10 @@ public class RedstoneCableJunctionBlock extends ConnectedCableBlock implements E
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
         boolean removed = !state.is(newState.getBlock());
-        if (removed) RuntimeIntStore.remove(level, KEY, pos);
+        if (removed) {
+            RuntimeIntStore.remove(level, KEY, pos);
+            RedstoneCableNetwork.removeEvidence(level, pos);
+        }
         super.onRemove(state, level, pos, newState, moved);
         if (removed && level instanceof ServerLevel server) {
             RedstoneCableNetwork.recomputeAround(server, pos);
@@ -198,7 +204,10 @@ public class RedstoneCableJunctionBlock extends ConnectedCableBlock implements E
                 String status = medium == SignalMedium.MISMATCH
                         ? "MISMATCH — mixed media blocked; use a dedicated converter"
                         : medium == SignalMedium.NONE ? "NO MEDIUM" : "medium=" + medium.getSerializedName();
-                if (medium == SignalMedium.REDSTONE) status += " signal=" + power(level, pos) + "/15";
+                if (medium == SignalMedium.REDSTONE) {
+                    RedstoneCableNetwork.SourceEvidence evidence = RedstoneCableNetwork.sourceEvidence(level, pos);
+                    status += " signal=" + power(level, pos) + "/15 sources=" + evidence.sourceCount() + " quality=" + evidence.quality();
+                }
                 player.displayClientMessage(Component.literal(
                         "Signal Junction Point | " + status + " | ports=" + connectionCount(state)), true);
             } else {
