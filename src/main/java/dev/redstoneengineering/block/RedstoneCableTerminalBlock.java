@@ -78,10 +78,14 @@ public class RedstoneCableTerminalBlock extends Block implements EngineeringPort
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> resolved = engineeringPort(state, side);
         if (resolved.isEmpty()) return Optional.empty();
-        int signal = side == vanillaSide(state) && !state.getValue(OUTPUT_MODE)
+        boolean cableToVanilla = state.getValue(OUTPUT_MODE);
+        int signal = side == vanillaSide(state) && !cableToVanilla
                 ? externalInput(level, pos, state)
                 : state.getValue(POWER);
-        return Optional.of(EngineeringPortSnapshot.redstone(resolved.get(), signal, PortQuality.VALID));
+        PortQuality quality = cableToVanilla
+                ? RedstoneCableNetwork.sourceEvidence(level, pos).quality()
+                : PortQuality.VALID;
+        return Optional.of(EngineeringPortSnapshot.redstone(resolved.get(), signal, quality));
     }
 
     @Override public boolean canConnectRedstone(BlockState state, BlockGetter level, BlockPos pos, @Nullable Direction direction) {
@@ -107,14 +111,21 @@ public class RedstoneCableTerminalBlock extends Block implements EngineeringPort
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
-                BlockState next = state.setValue(OUTPUT_MODE, !state.getValue(OUTPUT_MODE));
+                // Clear the cached value before the role changes. This prevents a
+                // one-update stale pulse when INPUT→OUTPUT turns the block into a
+                // Vanilla signal source before the cable network has recomputed.
+                BlockState next = state
+                        .setValue(OUTPUT_MODE, !state.getValue(OUTPUT_MODE))
+                        .setValue(POWER, 0);
                 level.setBlock(pos, next, Block.UPDATE_CLIENTS);
                 if (level instanceof ServerLevel server) RedstoneCableNetwork.recompute(server, pos);
                 level.updateNeighborsAt(pos, this);
                 level.updateNeighborsAt(pos.relative(vanillaSide(next)), this);
+                RedstoneCableNetwork.SourceEvidence evidence = RedstoneCableNetwork.sourceEvidence(level, pos);
                 player.displayClientMessage(Component.literal(
-                        "Redstone Cable Terminal | " + PortDiagnostics.terminal(next, this)
-                                + " | signal=" + next.getValue(POWER) + "/15"), true);
+                        "Redstone Cable Terminal | " + PortDiagnostics.terminal(level.getBlockState(pos), this)
+                                + " | signal=" + level.getBlockState(pos).getValue(POWER) + "/15"
+                                + " | cableSources=" + evidence.sourceCount() + " quality=" + evidence.quality()), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
             }
@@ -125,6 +136,7 @@ public class RedstoneCableTerminalBlock extends Block implements EngineeringPort
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
         if (!state.is(newState.getBlock())) {
+            RedstoneCableNetwork.removeEvidence(level, pos);
             level.updateNeighborsAt(pos, this);
             level.updateNeighborsAt(pos.relative(vanillaSide(state)), this);
             if (level instanceof ServerLevel server) RedstoneCableNetwork.recompute(server, pos.relative(cableSide(state)));
