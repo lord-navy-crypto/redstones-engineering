@@ -33,11 +33,18 @@ import java.util.Optional;
 /**
  * Repeatable Lapis-domain noise source used both as a source and as a commissioning fault injector.
  * Configuration stays small; the changing sample is transient runtime data.
+ *
+ * <p>A numeric sample of zero is a legitimate generated value. Initialization therefore has its
+ * own runtime flag instead of abusing zero as an "unset" sentinel. Observer APIs use peek() and
+ * can never create or rewrite the source's physical sample.</p>
  */
 public class LapisNoiseSourceBlock extends DomainBlock implements EngineeringPortProvider {
     public static final IntegerProperty BASELINE = IntegerProperty.create("baseline", 0, 20);
     public static final IntegerProperty NOISE = IntegerProperty.create("noise", 0, 10);
     private static final String KEY = "lapis_noise";
+    private static final int SAMPLE_SLOT = 0;
+    private static final int INITIALIZED_SLOT = 1;
+    private static final int RUNTIME_SIZE = 2;
 
     public LapisNoiseSourceBlock(Properties properties) {
         super(properties);
@@ -49,14 +56,8 @@ public class LapisNoiseSourceBlock extends DomainBlock implements EngineeringPor
 
     private static EngineeringPort port(Direction side) {
         return new EngineeringPort(
-                "LAPIS NOISE OUT",
-                side,
-                EngineeringDomain.LAPIS,
-                PortKind.BUS,
-                PortDirection.OUTPUT,
-                false,
-                "precision"
-        );
+                "LAPIS NOISE OUT", side, EngineeringDomain.LAPIS,
+                PortKind.BUS, PortDirection.OUTPUT, false, "precision");
     }
 
     @Override
@@ -70,16 +71,31 @@ public class LapisNoiseSourceBlock extends DomainBlock implements EngineeringPor
                 port, currentValue(level, pos, state), 0.0, 100.0, PortQuality.VALID));
     }
 
+    /** Observer-neutral current sample. Before the first server write, configuration is the readback fallback only. */
     public static int currentValue(Level level, BlockPos pos, BlockState state) {
-        int[] runtime = RuntimeIntStore.get(level, KEY, pos, 1);
-        if (runtime[0] == 0 && state.getValue(BASELINE) > 0) runtime[0] = state.getValue(BASELINE) * 5;
-        return EngineeringMath.clamp(runtime[0], 0, 100);
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        if (runtime != null && runtime.length == RUNTIME_SIZE && runtime[INITIALIZED_SLOT] == 1) {
+            return EngineeringMath.clamp(runtime[SAMPLE_SLOT], 0, 100);
+        }
+        return EngineeringMath.clamp(state.getValue(BASELINE) * 5, 0, 100);
+    }
+
+    public static boolean sampleInitialized(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime != null && runtime.length == RUNTIME_SIZE && runtime[INITIALIZED_SLOT] == 1;
+    }
+
+    /** Authoritative physics write used by placement, the scheduler and deterministic runtime tests. */
+    public static void setSample(Level level, BlockPos pos, int sample) {
+        int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
+        runtime[SAMPLE_SLOT] = EngineeringMath.clamp(sample, 0, 100);
+        runtime[INITIALIZED_SLOT] = 1;
     }
 
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
         super.onPlace(state, level, pos, oldState, moved);
-        if (!level.isClientSide) {
-            RuntimeIntStore.get(level, KEY, pos, 1)[0] = state.getValue(BASELINE) * 5;
+        if (!level.isClientSide && !state.is(oldState.getBlock())) {
+            setSample(level, pos, state.getValue(BASELINE) * 5);
             if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeLapis(serverLevel, pos);
             level.scheduleTick(pos, this, 1);
         }
@@ -97,7 +113,7 @@ public class LapisNoiseSourceBlock extends DomainBlock implements EngineeringPor
         int base = state.getValue(BASELINE) * 5;
         int noise = state.getValue(NOISE) * 2;
         int sample = FaultInjectionModel.addDeterministicNoise(base, noise, level.getGameTime(), pos.asLong(), 0, 100);
-        RuntimeIntStore.get(level, KEY, pos, 1)[0] = sample;
+        setSample(level, pos, sample);
         DomainNetwork.recomputeLapis(level, pos);
         level.scheduleTick(pos, this, 4);
     }
@@ -113,7 +129,7 @@ public class LapisNoiseSourceBlock extends DomainBlock implements EngineeringPor
                 next = state.setValue(BASELINE, baseline >= 20 ? 0 : baseline + 1);
             }
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            RuntimeIntStore.get(level, KEY, pos, 1)[0] = next.getValue(BASELINE) * 5;
+            setSample(level, pos, next.getValue(BASELINE) * 5);
             if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeLapis(serverLevel, pos);
             level.scheduleTick(pos, this, 1);
             int current = currentValue(level, pos, next);
@@ -121,7 +137,7 @@ public class LapisNoiseSourceBlock extends DomainBlock implements EngineeringPor
                     "Fault injection [NOISE] | four-way LAPIS source | baseline=" + String.format("%.2f", next.getValue(BASELINE) * 0.05)
                             + " | noise=±" + String.format("%.2f", next.getValue(NOISE) * 0.02)
                             + " | now=" + String.format("%.2f", current / 100.0)
-                            + " | shift-click=noise, click=baseline"), true);
+                            + " | zero is a valid sample | shift-click=noise, click=baseline"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
