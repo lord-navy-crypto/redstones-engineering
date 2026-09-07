@@ -63,23 +63,39 @@ public class IronCoreBlock extends DomainBlock implements EngineeringPortProvide
         return MagneticPhysics.appliedFieldAt(level, pos, APPLIED_FIELD_RADIUS);
     }
 
+    /**
+     * Apply the soft-core hysteresis rule at a concrete lifecycle boundary. Strong external
+     * field magnetizes immediately; remanence then persists until the explicit demagnetize
+     * action. This prevents placement/neighbor ordering from deciding whether a core ever
+     * observes an already-present magnetic source.
+     */
+    private void refreshMagnetization(ServerLevel level, BlockPos pos, BlockState state) {
+        if (state.getValue(MAGNETIZED)) return;
+        if (appliedField(level, pos) >= MAGNETIZE_THRESHOLD) {
+            level.setBlock(pos, state.setValue(MAGNETIZED, true), Block.UPDATE_CLIENTS);
+        }
+    }
+
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
         super.onPlace(state, level, pos, oldState, moved);
-        if (!level.isClientSide) level.scheduleTick(pos, this, 1);
+        if (level instanceof ServerLevel serverLevel) {
+            refreshMagnetization(serverLevel, pos, state);
+            serverLevel.scheduleTick(pos, this, 1);
+        }
     }
 
     @Override
     protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighbor, BlockPos neighborPos, boolean movedByPiston) {
         super.neighborChanged(state, level, pos, neighbor, neighborPos, movedByPiston);
-        if (!level.isClientSide) level.scheduleTick(pos, this, 1);
+        if (level instanceof ServerLevel serverLevel) {
+            refreshMagnetization(serverLevel, pos, state);
+            serverLevel.scheduleTick(pos, this, 1);
+        }
     }
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        int appliedField = appliedField(level, pos);
-        if (appliedField >= MAGNETIZE_THRESHOLD && !state.getValue(MAGNETIZED)) {
-            level.setBlock(pos, state.setValue(MAGNETIZED, true), Block.UPDATE_CLIENTS);
-        }
+        refreshMagnetization(level, pos, state);
         level.scheduleTick(pos, this, 5);
     }
 
