@@ -30,34 +30,36 @@ import net.minecraft.world.phys.BlockHitResult;
 import java.util.List;
 import java.util.Optional;
 
-/** Quartz timing divider with runtime edge count and explicit timing-domain ports. */
+/** Quartz timing divider. First observation of a HIGH input establishes phase; it is not a fabricated edge. */
 public class QuartzClockDividerBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
     public static final IntegerProperty DIV_INDEX = IntegerProperty.create("division", 0, 3);
     private static final String KEY = "quartz_divider";
+    private static final int COUNT_SLOT = 0;
+    private static final int PREVIOUS_SLOT = 1;
+    private static final int OUTPUT_SLOT = 2;
+    private static final int INITIALIZED_SLOT = 3;
+    private static final int RUNTIME_SIZE = 4;
 
     public QuartzClockDividerBlock(Properties properties) {
         super(properties);
         registerDefaultState(defaultBlockState().setValue(DIV_INDEX, 0));
     }
 
-    @Override
-    public MapCodec<QuartzClockDividerBlock> codec() {
-        return RedstoneEngineering.QUARTZ_CLOCK_DIVIDER_CODEC.value();
-    }
-
-    @Override
-    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        super.createBlockStateDefinition(builder);
-        builder.add(DIV_INDEX);
-    }
+    @Override public MapCodec<QuartzClockDividerBlock> codec() { return RedstoneEngineering.QUARTZ_CLOCK_DIVIDER_CODEC.value(); }
+    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { super.createBlockStateDefinition(builder); builder.add(DIV_INDEX); }
 
     public static int division(int index) {
-        return switch (index) {
-            case 0 -> 2;
-            case 1 -> 4;
-            case 2 -> 8;
-            default -> 16;
-        };
+        return switch (index) { case 0 -> 2; case 1 -> 4; case 2 -> 8; default -> 16; };
+    }
+
+    public static boolean initialized(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime != null && runtime.length == RUNTIME_SIZE && runtime[INITIALIZED_SLOT] == 1;
+    }
+
+    public static int countedEdges(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length != RUNTIME_SIZE ? 0 : runtime[COUNT_SLOT];
     }
 
     @Override
@@ -66,36 +68,29 @@ public class QuartzClockDividerBlock extends DirectionalDomainBlock implements E
                 new EngineeringPort("QUARTZ CLOCK IN", inputSide(state), EngineeringDomain.QUARTZ,
                         PortKind.TRIGGER, PortDirection.INPUT, false, "ticks"),
                 new EngineeringPort("DIVIDED CLOCK OUT", outputSide(state), EngineeringDomain.QUARTZ,
-                        PortKind.TRIGGER, PortDirection.OUTPUT, false, "ticks")
-        );
+                        PortKind.TRIGGER, PortDirection.OUTPUT, false, "ticks"));
     }
 
     @Override
-    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
-            Level level, BlockPos pos, BlockState state, Direction side
-    ) {
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        DomainNetwork.QuartzSample sample = side == inputSide(state)
-                ? DomainNetwork.sampleQuartz(level, inputPos(pos, state))
-                : DomainNetwork.sampleQuartz(level, outputPos(pos, state));
-        return Optional.of(new EngineeringPortSnapshot(
-                port.get(), sample.periodTicks(), 0.0, 4096.0,
-                sample.valid() ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+        BlockPos samplePos = side == inputSide(state) ? inputPos(pos, state) : outputPos(pos, state);
+        DomainNetwork.QuartzSample sample = DomainNetwork.sampleQuartz(level, samplePos);
+        PortQuality quality = level.getBlockState(samplePos).getBlock() instanceof QuartzTimingLineBlock
+                ? QuartzTimingLineBlock.quality(level, samplePos)
+                : (sample.valid() ? PortQuality.VALID : PortQuality.NO_SIGNAL);
+        return Optional.of(new EngineeringPortSnapshot(port.get(), sample.periodTicks(), 0.0, 4096.0, quality));
     }
 
-    @Override
-    protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
+    @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
         if (!level.isClientSide) level.scheduleTick(pos, this, 1);
     }
 
-    @Override
-    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
+    @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock())) {
-            if (level instanceof ServerLevel serverLevel) {
-                DomainNetwork.driveQuartz(serverLevel, outputPos(pos, state), pos, false, 1, false);
-            }
+            if (level instanceof ServerLevel serverLevel) DomainNetwork.driveQuartz(serverLevel, outputPos(pos, state), pos, false, 1, false);
             RuntimeIntStore.remove(level, KEY, pos);
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
@@ -103,34 +98,44 @@ public class QuartzClockDividerBlock extends DirectionalDomainBlock implements E
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        var input = DomainNetwork.sampleQuartz(level, inputPos(pos, state));
-        int[] runtime = RuntimeIntStore.get(level, KEY, pos, 3); // count, prev, out
-        boolean rising = input.valid() && input.active() && runtime[1] == 0;
+        DomainNetwork.QuartzSample input = DomainNetwork.sampleQuartz(level, inputPos(pos, state));
+        int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
         int divisor = division(state.getValue(DIV_INDEX));
-        if (rising) runtime[0] = (runtime[0] + 1) % divisor;
-        runtime[2] = runtime[0] < divisor / 2 ? 1 : 0;
-        runtime[1] = input.active() ? 1 : 0;
+
+        if (!input.valid()) {
+            runtime[PREVIOUS_SLOT] = 0;
+            runtime[OUTPUT_SLOT] = 0;
+            runtime[INITIALIZED_SLOT] = 0;
+            DomainNetwork.driveQuartz(level, outputPos(pos, state), pos, false, 1, false);
+            level.scheduleTick(pos, this, 1);
+            return;
+        }
+
+        if (runtime[INITIALIZED_SLOT] == 0) {
+            runtime[PREVIOUS_SLOT] = input.active() ? 1 : 0;
+            runtime[INITIALIZED_SLOT] = 1;
+        } else {
+            boolean rising = input.active() && runtime[PREVIOUS_SLOT] == 0;
+            if (rising) runtime[COUNT_SLOT] = (runtime[COUNT_SLOT] + 1) % divisor;
+            runtime[PREVIOUS_SLOT] = input.active() ? 1 : 0;
+        }
+
+        runtime[OUTPUT_SLOT] = runtime[COUNT_SLOT] < divisor / 2 ? 1 : 0;
         int outputPeriod = Math.min(4096, Math.max(1, input.periodTicks()) * divisor);
-        DomainNetwork.driveQuartz(
-                level, outputPos(pos, state), pos, runtime[2] == 1, outputPeriod, input.valid());
+        DomainNetwork.driveQuartz(level, outputPos(pos, state), pos, runtime[OUTPUT_SLOT] == 1, outputPeriod, true);
         level.scheduleTick(pos, this, 1);
     }
 
     @Override
-    protected InteractionResult useWithoutItem(
-            BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit
-    ) {
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
                 int index = (state.getValue(DIV_INDEX) + 1) % 4;
                 BlockState next = state.setValue(DIV_INDEX, index);
                 level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-                int[] runtime = RuntimeIntStore.get(level, KEY, pos, 3);
-                runtime[0] = 0;
-                runtime[1] = 0;
-                runtime[2] = 0;
-                player.displayClientMessage(Component.literal(
-                        "Quartz divider | ÷" + division(index)), true);
+                RuntimeIntStore.remove(level, KEY, pos);
+                level.scheduleTick(pos, this, 1);
+                player.displayClientMessage(Component.literal("Quartz divider | ÷" + division(index) + " | phase re-arms on next valid clock sample"), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
             }

@@ -27,24 +27,20 @@ import net.minecraft.world.phys.BlockHitResult;
 import java.util.List;
 import java.util.Optional;
 
+/** Exact-frequency selector: unlike a tuned resonator it never supplies resonant gain or bandwidth. */
 public class AmethystFrequencyFilterBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
     public static final IntegerProperty TARGET = IntegerProperty.create("target", 1, 15);
+
+    public record FilterEvidence(int inputFrequency, int inputAmplitude, int targetFrequency,
+                                 boolean inputActive, boolean matched, int expectedOutputAmplitude) {}
 
     public AmethystFrequencyFilterBlock(Properties properties) {
         super(properties);
         registerDefaultState(defaultBlockState().setValue(TARGET, 1));
     }
 
-    @Override
-    public MapCodec<AmethystFrequencyFilterBlock> codec() {
-        return RedstoneEngineering.AMETHYST_FREQUENCY_FILTER_CODEC.value();
-    }
-
-    @Override
-    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        super.createBlockStateDefinition(builder);
-        builder.add(TARGET);
-    }
+    @Override public MapCodec<AmethystFrequencyFilterBlock> codec() { return RedstoneEngineering.AMETHYST_FREQUENCY_FILTER_CODEC.value(); }
+    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { super.createBlockStateDefinition(builder); builder.add(TARGET); }
 
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
@@ -52,40 +48,53 @@ public class AmethystFrequencyFilterBlock extends DirectionalDomainBlock impleme
                 new EngineeringPort("RESONANCE IN", inputSide(state), EngineeringDomain.AMETHYST,
                         PortKind.CONVERTER, PortDirection.INPUT, false, "amplitude"),
                 new EngineeringPort("FILTERED OUT", outputSide(state), EngineeringDomain.AMETHYST,
-                        PortKind.CONVERTER, PortDirection.OUTPUT, false, "amplitude")
-        );
+                        PortKind.CONVERTER, PortDirection.OUTPUT, false, "amplitude"));
+    }
+
+    public static FilterEvidence evidence(Level level, BlockPos pos, BlockState state) {
+        Direction facing = state.getValue(DirectionalDomainBlock.FACING);
+        DomainNetwork.AmethystSample input = DomainNetwork.sampleAmethyst(level, pos.relative(facing.getOpposite()));
+        boolean matched = input.active() && input.frequency() == state.getValue(TARGET);
+        int out = matched ? Math.max(0, input.amplitude() - 1) : 0;
+        return new FilterEvidence(input.frequency(), input.amplitude(), state.getValue(TARGET), input.active(), matched, out);
+    }
+
+    private static PortQuality qualityAt(Level level, BlockPos samplePos, DomainNetwork.AmethystSample sample) {
+        if (level.getBlockState(samplePos).getBlock() instanceof AmethystResonanceDustBlock) {
+            return switch (AmethystResonanceDustBlock.status(level, samplePos)) {
+                case ACTIVE -> PortQuality.VALID;
+                case FREQUENCY_CONFLICT -> PortQuality.TOPOLOGY_ERROR;
+                case IDLE -> PortQuality.NO_SIGNAL;
+            };
+        }
+        return sample.active() ? PortQuality.VALID : PortQuality.NO_SIGNAL;
     }
 
     @Override
-    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
-            Level level, BlockPos pos, BlockState state, Direction side
-    ) {
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        DomainNetwork.AmethystSample signal = DomainNetwork.sampleAmethyst(
-                level, side == inputSide(state) ? inputPos(pos, state) : outputPos(pos, state));
+        BlockPos samplePos = side == inputSide(state) ? inputPos(pos, state) : outputPos(pos, state);
+        DomainNetwork.AmethystSample signal = DomainNetwork.sampleAmethyst(level, samplePos);
         return Optional.of(new EngineeringPortSnapshot(
                 port.get(), Math.max(0, Math.min(15, signal.amplitude())), 0.0, 15.0,
-                signal.active() ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+                qualityAt(level, samplePos, signal)));
     }
 
-    @Override
-    protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
+    @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
         if (!level.isClientSide) level.scheduleTick(pos, this, 2);
     }
 
-    @Override
-    protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        var input = DomainNetwork.sampleAmethyst(level, inputPos(pos, state));
-        boolean pass = input.active() && input.frequency() == state.getValue(TARGET);
-        DomainNetwork.driveAmethyst(level, outputPos(pos, state), pass,
-                input.frequency(), Math.max(0, input.amplitude() - 1));
+    @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+        FilterEvidence evidence = evidence(level, pos, state);
+        DomainNetwork.driveAmethyst(level, outputPos(pos, state),
+                evidence.matched() && evidence.expectedOutputAmplitude() > 0,
+                evidence.inputFrequency(), evidence.expectedOutputAmplitude());
         level.scheduleTick(pos, this, 2);
     }
 
-    @Override
-    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
+    @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock()) && level instanceof ServerLevel serverLevel) {
             DomainNetwork.driveAmethyst(serverLevel, outputPos(pos, state), false, 0, 0);
         }
@@ -93,16 +102,18 @@ public class AmethystFrequencyFilterBlock extends DirectionalDomainBlock impleme
     }
 
     @Override
-    protected InteractionResult useWithoutItem(
-            BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit
-    ) {
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
             int frequency = state.getValue(TARGET);
             frequency = frequency >= 15 ? 1 : frequency + 1;
             BlockState next = state.setValue(TARGET, frequency);
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+            level.scheduleTick(pos, this, 1);
+            FilterEvidence evidence = evidence(level, pos, next);
             player.displayClientMessage(Component.literal(
-                    "Amethyst frequency filter | pass f=" + frequency + " | insertion loss=1 amplitude"), true);
+                    "Amethyst frequency filter | exact pass f=" + frequency + " | insertion loss=1"
+                            + (evidence.inputActive() ? " | input f=" + evidence.inputFrequency() + " A=" + evidence.inputAmplitude()
+                            + " | " + (evidence.matched() ? "PASS" : "REJECT") : " | no active input")), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }

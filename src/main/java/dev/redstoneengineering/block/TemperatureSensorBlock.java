@@ -28,8 +28,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+/** Six-face thermal observer with explicit loaded-coverage evidence. */
 public class TemperatureSensorBlock extends DomainBlock implements EngineeringPortProvider {
     public static final IntegerProperty TEMPERATURE = IntegerProperty.create("temperature", 0, 100);
+
+    public record ThermalObservation(int targetTemperature, int thermalBodies, int loadedFaces, boolean complete) {}
 
     public TemperatureSensorBlock(Properties properties) {
         super(properties);
@@ -37,23 +40,32 @@ public class TemperatureSensorBlock extends DomainBlock implements EngineeringPo
     }
 
     @Override public MapCodec<TemperatureSensorBlock> codec() { return RedstoneEngineering.TEMPERATURE_SENSOR_CODEC.value(); }
+    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { builder.add(TEMPERATURE); }
 
-    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(TEMPERATURE);
+    public static ThermalObservation observe(Level level, BlockPos pos) {
+        int sum = 0;
+        int bodies = 0;
+        int loaded = 0;
+        for (Direction direction : Direction.values()) {
+            BlockPos neighborPos = pos.relative(direction);
+            if (!level.hasChunkAt(neighborPos)) continue;
+            loaded++;
+            BlockState neighbor = level.getBlockState(neighborPos);
+            if (neighbor.getBlock() instanceof ThermalMassBlock) {
+                sum += neighbor.getValue(ThermalMassBlock.TEMPERATURE);
+                bodies++;
+            }
+        }
+        int target = bodies > 0 ? sum / bodies : ThermalPhysics.environmentTarget(level, pos);
+        return new ThermalObservation(target, bodies, loaded, loaded == Direction.values().length);
     }
 
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         return Arrays.stream(Direction.values())
                 .map(side -> new EngineeringPort(
-                        "THERMAL SENSE",
-                        side,
-                        EngineeringDomain.THERMAL,
-                        PortKind.SENSOR,
-                        PortDirection.INPUT,
-                        false,
-                        "T-index"
-                ))
+                        "THERMAL SENSE", side, EngineeringDomain.THERMAL,
+                        PortKind.SENSOR, PortDirection.INPUT, false, "T-index"))
                 .toList();
     }
 
@@ -61,13 +73,19 @@ public class TemperatureSensorBlock extends DomainBlock implements EngineeringPo
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        BlockState target = level.getBlockState(pos.relative(side));
+        BlockPos targetPos = pos.relative(side);
+        if (!level.hasChunkAt(targetPos)) {
+            return Optional.of(new EngineeringPortSnapshot(port.get(), state.getValue(TEMPERATURE), 0.0, 100.0, PortQuality.NO_SIGNAL));
+        }
+        BlockState target = level.getBlockState(targetPos);
         if (target.getBlock() instanceof ThermalMassBlock) {
             return Optional.of(new EngineeringPortSnapshot(
                     port.get(), target.getValue(ThermalMassBlock.TEMPERATURE), 0.0, 100.0, PortQuality.VALID));
         }
+        ThermalObservation observation = observe(level, pos);
         return Optional.of(new EngineeringPortSnapshot(
-                port.get(), state.getValue(TEMPERATURE), 0.0, 100.0, PortQuality.NO_SIGNAL));
+                port.get(), state.getValue(TEMPERATURE), 0.0, 100.0,
+                observation.complete() ? PortQuality.VALID : PortQuality.NO_SIGNAL));
     }
 
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
@@ -82,26 +100,22 @@ public class TemperatureSensorBlock extends DomainBlock implements EngineeringPo
     }
 
     @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        int sum = 0;
-        int count = 0;
-        for (Direction direction : Direction.values()) {
-            BlockState neighbor = level.getBlockState(pos.relative(direction));
-            if (neighbor.getBlock() instanceof ThermalMassBlock) {
-                sum += neighbor.getValue(ThermalMassBlock.TEMPERATURE);
-                count++;
-            }
-        }
-        int temperature = count > 0 ? sum / count : ThermalPhysics.environmentTarget(level, pos);
-        if (temperature != state.getValue(TEMPERATURE)) {
-            level.setBlock(pos, state.setValue(TEMPERATURE, temperature), Block.UPDATE_CLIENTS);
+        ThermalObservation observation = observe(level, pos);
+        // Partial unloaded coverage is not silently treated as a complete measurement.
+        if (observation.complete() && observation.targetTemperature() != state.getValue(TEMPERATURE)) {
+            level.setBlock(pos, state.setValue(TEMPERATURE, observation.targetTemperature()), Block.UPDATE_CLIENTS);
         }
         level.scheduleTick(pos, this, 10);
     }
 
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
+            ThermalObservation observation = observe(level, pos);
             player.displayClientMessage(Component.literal(
-                    "Temperature sensor | six-face THERMAL observer | T-index=" + state.getValue(TEMPERATURE) + "/100 | physical state only"), true);
+                    "Temperature sensor | six-face THERMAL observer | T-index=" + state.getValue(TEMPERATURE)
+                            + "/100 | thermal bodies=" + observation.thermalBodies()
+                            + " | coverage=" + observation.loadedFaces() + "/6"
+                            + (observation.complete() ? " COMPLETE" : " INCOMPLETE — cached reading retained")), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }

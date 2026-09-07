@@ -29,10 +29,15 @@ import net.minecraft.world.phys.BlockHitResult;
 import java.util.List;
 import java.util.Optional;
 
-/** First-order discrete low-pass filter with runtime output storage. */
+/** First-order discrete low-pass filter with observer-neutral runtime readback. */
 public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
     public static final IntegerProperty ALPHA = IntegerProperty.create("alpha", 0, 3);
     private static final String KEY = "lapis_lpf";
+    private static final int OUTPUT_SLOT = 0;
+    private static final int VALID_SLOT = 1;
+    private static final int RUNTIME_SIZE = 2;
+
+    public record FilterState(int output, boolean valid) {}
 
     public LapisLowPassFilterBlock(Properties properties) {
         super(properties);
@@ -42,13 +47,24 @@ public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements E
     @Override public MapCodec<LapisLowPassFilterBlock> codec() { return RedstoneEngineering.LAPIS_LOW_PASS_FILTER_CODEC.value(); }
     @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { super.createBlockStateDefinition(builder); builder.add(ALPHA); }
 
-    private static double alpha(int index) {
+    public static double alpha(int index) {
         return switch (index) {
             case 0 -> 0.10;
             case 1 -> 0.25;
             case 2 -> 0.50;
             default -> 0.75;
         };
+    }
+
+    public static FilterState filterState(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        if (runtime == null || runtime.length != RUNTIME_SIZE) return new FilterState(0, false);
+        return new FilterState(EngineeringMath.clamp(runtime[OUTPUT_SLOT], 0, 100), runtime[VALID_SLOT] == 1);
+    }
+
+    public static boolean runtimePresent(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime != null && runtime.length == RUNTIME_SIZE;
     }
 
     @Override
@@ -66,15 +82,17 @@ public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements E
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         if (side == inputSide(state)) {
-            DomainNetwork.LapisSample sample = DomainNetwork.sampleLapis(level, inputPos(pos, state));
-            return Optional.of(new EngineeringPortSnapshot(
-                    port.get(), sample.value(), 0.0, 100.0,
-                    sample.valid() ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+            BlockPos input = inputPos(pos, state);
+            DomainNetwork.LapisSample sample = DomainNetwork.sampleLapis(level, input);
+            PortQuality quality = level.getBlockState(input).getBlock() instanceof LapisSignalLineBlock
+                    ? LapisSignalLineBlock.quality(level, input)
+                    : (sample.valid() ? PortQuality.VALID : PortQuality.NO_SIGNAL);
+            return Optional.of(new EngineeringPortSnapshot(port.get(), sample.value(), 0.0, 100.0, quality));
         }
-        int[] runtime = RuntimeIntStore.get(level, KEY, pos, 2);
+        FilterState runtime = filterState(level, pos);
         return Optional.of(new EngineeringPortSnapshot(
-                port.get(), runtime[0], 0.0, 100.0,
-                runtime[1] == 1 ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+                port.get(), runtime.output(), 0.0, 100.0,
+                runtime.valid() ? PortQuality.VALID : PortQuality.NO_SIGNAL));
     }
 
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
@@ -101,16 +119,16 @@ public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements E
 
     @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         DomainNetwork.LapisSample input = DomainNetwork.sampleLapis(level, inputPos(pos, state));
-        int[] runtime = RuntimeIntStore.get(level, KEY, pos, 2); // output, valid
+        int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
         if (input.valid()) {
-            int previous = runtime[1] == 0 ? input.value() : runtime[0];
-            runtime[0] = EngineeringMath.clamp(
+            int previous = runtime[VALID_SLOT] == 0 ? input.value() : runtime[OUTPUT_SLOT];
+            runtime[OUTPUT_SLOT] = EngineeringMath.clamp(
                     (int) Math.round(previous + alpha(state.getValue(ALPHA)) * (input.value() - previous)), 0, 100);
-            runtime[1] = 1;
-            DomainNetwork.driveLapis(level, outputPos(pos, state), pos, runtime[0], true);
+            runtime[VALID_SLOT] = 1;
+            DomainNetwork.driveLapis(level, outputPos(pos, state), pos, runtime[OUTPUT_SLOT], true);
         } else {
-            runtime[0] = 0;
-            runtime[1] = 0;
+            runtime[OUTPUT_SLOT] = 0;
+            runtime[VALID_SLOT] = 0;
             DomainNetwork.driveLapis(level, outputPos(pos, state), pos, 0, false);
         }
         level.scheduleTick(pos, this, 2);
@@ -122,10 +140,11 @@ public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements E
             BlockState next = state.setValue(ALPHA, index);
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
             level.scheduleTick(pos, this, 1);
-            int[] runtime = RuntimeIntStore.get(level, KEY, pos, 2);
+            FilterState runtime = filterState(level, pos);
             player.displayClientMessage(Component.literal(
                     "Lapis low-pass | BACK input → FRONT output | alpha=" + alpha(index)
-                            + " | output=" + String.format("%.2f", runtime[0] / 100.0)), true);
+                            + " | output=" + (runtime.valid() ? String.format("%.2f", runtime.output() / 100.0) : "NO SIGNAL")
+                            + " | diagnostic readback is observer-neutral"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
