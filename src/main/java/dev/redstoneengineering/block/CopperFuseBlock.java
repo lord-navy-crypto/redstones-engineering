@@ -29,11 +29,15 @@ import java.util.Locale;
 /** Axial copper safety element: BACK input, FRONT protected output. */
 public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
     private static final String KEY = "copper_fuse";
+    private static final String QUALITY_KEY = "copper_fuse_quality";
     private static final int OUTPUT_VOLTAGE = 0;
     private static final int LAST_EVALUATED_TRIP = 1;
     private static final int PROTECTION_STATE_INITIALIZED = 2;
-    private static final int INPUT_QUALITY = 3;
-    private static final int RUNTIME_SIZE = 4;
+    // Preserve the established electrical-protection runtime layout. New diagnostic
+    // quality evidence is intentionally stored under a separate runtime key.
+    private static final int RUNTIME_SIZE = 3;
+    private static final int INPUT_QUALITY = 0;
+    private static final int QUALITY_RUNTIME_SIZE = 1;
     public static final IntegerProperty RATING = IntegerProperty.create("rating", 1, 15);
     public static final BooleanProperty TRIPPED = BooleanProperty.create("tripped");
 
@@ -66,7 +70,7 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
         }
 
         CopperObservationSupport.Observation input = CopperObservationSupport.observe(level, inputPos(pos, state), pos);
-        runtime[INPUT_QUALITY] = input.quality().ordinal();
+        RuntimeIntStore.get(level, QUALITY_KEY, pos, QUALITY_RUNTIME_SIZE)[INPUT_QUALITY] = input.quality().ordinal();
         int inputVoltage = input.quality() == PortQuality.VALID ? input.voltage() : 0;
         double loadResistance = CircuitPhysics.equivalentLoadResistance(level, outputPos(pos, state), 128);
         double current = CircuitPhysics.current(inputVoltage, loadResistance);
@@ -113,6 +117,11 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
         return runtime != null && runtime.length == RUNTIME_SIZE ? runtime : null;
     }
 
+    private static int[] qualitySnapshot(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, QUALITY_KEY, pos);
+        return runtime != null && runtime.length == QUALITY_RUNTIME_SIZE ? runtime : null;
+    }
+
     public static int outputVoltage(Level level, BlockPos pos) {
         int[] runtime = snapshot(level, pos);
         return runtime == null ? 0 : runtime[OUTPUT_VOLTAGE];
@@ -121,8 +130,9 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
     public static PortQuality outputQuality(Level level, BlockPos pos, BlockState state) {
         if (state.getValue(TRIPPED)) return PortQuality.FAULT;
         int[] runtime = snapshot(level, pos);
-        if (runtime == null || runtime[PROTECTION_STATE_INITIALIZED] == 0) return PortQuality.STALE;
-        int index = Math.max(0, Math.min(PortQuality.values().length - 1, runtime[INPUT_QUALITY]));
+        int[] quality = qualitySnapshot(level, pos);
+        if (runtime == null || runtime[PROTECTION_STATE_INITIALIZED] == 0 || quality == null) return PortQuality.STALE;
+        int index = Math.max(0, Math.min(PortQuality.values().length - 1, quality[INPUT_QUALITY]));
         return PortQuality.values()[index];
     }
 
@@ -139,6 +149,7 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
         if (!state.is(newState.getBlock())) {
             if (level instanceof ServerLevel serverLevel) DomainNetwork.driveCopper(serverLevel, outputPos(pos, state), pos, 0);
             RuntimeIntStore.remove(level, KEY, pos);
+            RuntimeIntStore.remove(level, QUALITY_KEY, pos);
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
         if (!state.is(newState.getBlock()) && level instanceof ServerLevel serverLevel) {
