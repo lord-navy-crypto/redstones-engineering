@@ -30,6 +30,12 @@ public class TankLevelSensorBlock extends DirectionalRedstoneSensorBlock {
     private static final String METROLOGY_CHANNEL = "tank_level";
     private static final int SENSOR_PROFILE = 2; // PRECISION
     private static final int SAMPLE_PERIOD_TICKS = 10;
+    private static final int MAX_SCAN_HEIGHT = 16;
+
+    /** Physical column observation. complete=false means an unloaded cell hid the true top of the column. */
+    public record ColumnSample(int fluidBlocks, int scannedCells, int expectedCells, boolean complete) {
+        public boolean saturated() { return complete && fluidBlocks > 15; }
+    }
 
     public TankLevelSensorBlock(Properties properties) {
         super(properties);
@@ -76,38 +82,65 @@ public class TankLevelSensorBlock extends DirectionalRedstoneSensorBlock {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         if (side == Direction.UP) {
-            int physical = physicalCount(level, pos);
+            ColumnSample sample = columnSample(level, pos);
+            PortQuality quality = !sample.complete()
+                    ? PortQuality.STALE
+                    : sample.saturated() ? PortQuality.SATURATED : PortQuality.VALID;
             return Optional.of(new EngineeringPortSnapshot(
-                    port.get(), Math.min(15, physical), 0.0, 15.0,
-                    physical > 15 ? PortQuality.SATURATED : PortQuality.VALID));
+                    port.get(), Math.min(15, sample.fluidBlocks()), 0.0, 15.0, quality));
         }
         return Optional.of(EngineeringPortSnapshot.redstone(
                 port.get(), state.getValue(POWER), MetrologySupport.portQuality(sensorMeasurement(level, pos))));
     }
 
-    public static int physicalCount(Level level, BlockPos pos) {
+    /**
+     * Scan upward until the first loaded empty cell or the 16-block measurement
+     * ceiling. An unloaded cell is unknown coverage, never a confirmed fluid-air
+     * boundary.
+     */
+    public static ColumnSample columnSample(Level level, BlockPos pos) {
         int count = 0;
-        for (int i = 1; i <= 16; i++) {
+        int scanned = 0;
+        for (int i = 1; i <= MAX_SCAN_HEIGHT; i++) {
             BlockPos sample = pos.above(i);
-            if (!level.hasChunkAt(sample) || level.getFluidState(sample).isEmpty()) break;
+            if (!level.hasChunkAt(sample)) {
+                return new ColumnSample(count, scanned, MAX_SCAN_HEIGHT, false);
+            }
+            scanned++;
+            if (level.getFluidState(sample).isEmpty()) {
+                return new ColumnSample(count, scanned, scanned, true);
+            }
             count++;
         }
-        return count;
+        return new ColumnSample(count, scanned, MAX_SCAN_HEIGHT, true);
+    }
+
+    /** Compatibility numeric accessor; use columnSample when certainty matters. */
+    public static int physicalCount(Level level, BlockPos pos) {
+        return columnSample(level, pos).fluidBlocks();
     }
 
     @Override
     protected void neighborChanged(
             BlockState state, Level level, BlockPos pos, Block neighbor, BlockPos neighborPos, boolean movedByPiston
     ) {
-        super.neighborChanged(state, level, pos, neighbor, neighborPos, movedByPiston);
+        super.neighborChanged(state, level, pos, blockOrSelf(neighbor), neighborPos, movedByPiston);
         if (!level.isClientSide) level.scheduleTick(pos, this, 1);
     }
 
+    private static Block blockOrSelf(Block block) { return block; }
+
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        int physicalCount = physicalCount(level, pos);
-        boolean saturated = physicalCount > 15;
-        double reference = Math.min(15, physicalCount);
+        ColumnSample column = columnSample(level, pos);
+        if (!column.complete()) {
+            // Retain the last trustworthy output/sample. Its age will naturally
+            // transition to STALE if coverage remains incomplete.
+            level.scheduleTick(pos, this, SAMPLE_PERIOD_TICKS);
+            return;
+        }
+        boolean saturated = column.saturated();
+        double reference = Math.min(15, column.fluidBlocks());
         double reading = MetrologySupport.conditionRedstone(level, pos, reference, SENSOR_PROFILE);
         sampleMeasurement(level, pos, reading, reference, saturated);
         updateSensorOutput(level, pos, state, (int) Math.round(reading), SAMPLE_PERIOD_TICKS);
@@ -126,8 +159,11 @@ public class TankLevelSensorBlock extends DirectionalRedstoneSensorBlock {
             BlockHitResult hit
     ) {
         if (!level.isClientSide) {
+            ColumnSample column = columnSample(level, pos);
             player.displayClientMessage(Component.literal(
-                    "Tank Level Sensor | UP column=" + physicalCount(level, pos) + " blocks"
+                    "Tank Level Sensor | UP column=" + column.fluidBlocks() + " blocks"
+                            + " | coverage=" + column.scannedCells() + "/" + column.expectedCells()
+                            + " " + (column.complete() ? "COMPLETE" : "INCOMPLETE")
                             + " | Reading=" + state.getValue(POWER) + "/15"
                             + " | " + MetrologySupport.compactDiagnostics(measurement(level, pos))
                             + " | FRONT OUT=" + frontSide(state).getName()
