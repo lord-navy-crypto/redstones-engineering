@@ -12,16 +12,18 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * Bounded 8-bit bus resolver.
- * Multiple different values produce BUS-CONFLICT; multiple drivers carrying the
- * same value remain electrically usable but are recorded as same-value-multidriver contention.
+ * Bounded local parallel 8-bit bus resolver.
+ *
+ * <p>The bus trades high payload density and immediate shared access for local loading and driver
+ * coordination. Different driven values are a hard BUS-CONFLICT. Same-value multiple drivers remain
+ * logically usable, but consume RSE bus margin instead of behaving as if redundant driving were free.</p>
  */
 public final class DataBusNetwork {
     private DataBusNetwork() {}
 
     public static final int MAX_NODES = NetworkKernel.MAX_NODES;
     private static final String DIAG_KEY = "bus8_diag";
-    private static final int DIAG_SIZE = 12;
+    private static final int DIAG_SIZE = 13;
 
     public record Diagnostics(
             int updates,
@@ -33,6 +35,7 @@ public final class DataBusNetwork {
             int sameValueMultiDriverFrames,
             int interarrivalTicks,
             int activityPercent,
+            int qualityPercent,
             boolean valid
     ) {}
 
@@ -104,7 +107,14 @@ public final class DataBusNetwork {
         boolean sameValueMultiDriver = driverCount > 1 && distinctValues == 1;
         int value = values.isEmpty() ? 0 : values.iterator().next();
         int resolvedValue = valid ? value : 0;
-        int resolvedQuality = valid ? 100 : 0;
+
+        // RSE-native bus margin: a larger local bus and same-value multi-driving both cost margin.
+        // Different-value contention remains a hard invalid state rather than randomized corruption.
+        int loadingPenalty = Math.max(0, nodes.size() - 1) / 2;
+        int contentionPenalty = sameValueMultiDriver ? Math.min(30, (driverCount - 1) * 12) : 0;
+        int resolvedQuality = valid
+                ? Math.max(35, 100 - loadingPenalty - contentionPenalty)
+                : 0;
 
         NetworkKernel.recordDriverState(level, "bus8", driverCount);
         int now = (int) Math.min(Integer.MAX_VALUE, level.getGameTime());
@@ -131,6 +141,7 @@ public final class DataBusNetwork {
             if (conflict) diagnostics[9]++;
             if (sameValueMultiDriver) diagnostics[10]++;
             diagnostics[11] = valid ? 1 : 0;
+            diagnostics[12] = resolvedQuality;
 
             // A network recompute is often triggered by a neighbor notification. Emitting
             // another notification when the effective bus state is identical creates an
@@ -153,7 +164,7 @@ public final class DataBusNetwork {
         return new Diagnostics(
                 diagnostics[0], diagnostics[1], diagnostics[2], diagnostics[3],
                 diagnostics[8], diagnostics[9], diagnostics[10], diagnostics[5],
-                diagnostics[7], diagnostics[11] != 0
+                diagnostics[7], diagnostics[12], diagnostics[11] != 0
         );
     }
 
@@ -168,6 +179,8 @@ public final class DataBusNetwork {
                 + " same-value-multidriver=" + diagnostics.sameValueMultiDriverFrames()
                 + " interarrival=" + diagnostics.interarrivalTicks() + "t"
                 + " activity≈" + diagnostics.activityPercent() + "%"
+                + " quality=" + diagnostics.qualityPercent() + "%"
+                + " age=" + InformationRuntime.ageTicks(level, "bus8", pos) + "t"
                 + " valid=" + diagnostics.valid();
     }
 

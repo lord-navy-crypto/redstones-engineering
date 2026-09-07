@@ -9,6 +9,7 @@ import net.minecraft.world.level.Level;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -35,8 +36,25 @@ public final class ElectricalReliabilityAssessment {
         public boolean protectionActive() { return activeTripCount > 0; }
     }
 
+    /**
+     * Live server projection over the plant-scoped retained evidence window.
+     *
+     * <p>The timeline is intentionally bounded and transient. Therefore counts produced here are
+     * retained-window evidence, not lifetime asset statistics.</p>
+     */
     public static Snapshot inspect(Level level, SystemEventScope scope) {
-        if (level == null || scope == null) return new Snapshot(0, 0, 0, 0, 0L, -1L, -1L);
+        if (level == null || scope == null) return none();
+        return project(SystemEventTimeline.within(level, scope), level.getGameTime());
+    }
+
+    /**
+     * Pure chronological projection used by diagnostics, tests and future bounded recorders.
+     *
+     * <p>The supplied list must be oldest-to-newest. This method does not mutate the timeline and
+     * does not imply that the live transient ring retains the same evidence indefinitely.</p>
+     */
+    public static Snapshot project(List<SystemEventRecord> events, long nowTick) {
+        if (events == null || events.isEmpty()) return none();
 
         Map<BlockPos, Long> activeTrips = new HashMap<>();
         Set<BlockPos> previouslyTripped = new HashSet<>();
@@ -47,7 +65,8 @@ public final class ElectricalReliabilityAssessment {
         long lastTripTick = -1L;
         long lastRecoveryDuration = -1L;
 
-        for (SystemEventRecord event : SystemEventTimeline.within(level, scope)) {
+        for (SystemEventRecord event : events) {
+            if (event == null) continue;
             if (event.kind() == SystemEventKind.ELECTRICAL_TRIP) {
                 trips++;
                 if (!previouslyTripped.add(event.source())) repeats++;
@@ -64,7 +83,7 @@ public final class ElectricalReliabilityAssessment {
             }
         }
 
-        long now = level.getGameTime();
+        long now = Math.max(0L, nowTick);
         long downtime = completedDowntime;
         for (long start : activeTrips.values()) downtime += Math.max(0L, now - start);
         long lastTripAge = lastTripTick < 0 ? -1L : Math.max(0L, now - lastTripTick);
@@ -78,5 +97,9 @@ public final class ElectricalReliabilityAssessment {
                 lastTripAge,
                 lastRecoveryDuration
         );
+    }
+
+    private static Snapshot none() {
+        return new Snapshot(0, 0, 0, 0, 0L, -1L, -1L);
     }
 }

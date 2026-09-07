@@ -13,7 +13,13 @@ import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.Set;
 
-/** Digital differential pair model with bounded propagation and topology recomputation. */
+/**
+ * Bounded one-bit high-integrity link.
+ *
+ * <p>RSE differential data intentionally sacrifices payload density for stronger link margin than
+ * framed serial wiring. It is suited to discrete control, heartbeat and protection-state signals;
+ * it is not a byte-stream replacement and does not attempt to reproduce real-world line voltages.</p>
+ */
 public final class DifferentialNetwork {
     private DifferentialNetwork() {}
 
@@ -41,7 +47,8 @@ public final class DifferentialNetwork {
         Set<BlockPos> nodes = collect(level, start);
         if (nodes.isEmpty()) return;
         int resolvedBit = bit & 1;
-        int quality = Math.max(20, 100 - nodes.size() / 3);
+        // RSE-native link-margin abstraction: low information density buys stronger length tolerance.
+        int quality = Math.max(70, 100 - Math.max(0, nodes.size() - 1) / 8);
         for (BlockPos pos : nodes) {
             int oldBit = InformationRuntime.value(level, "diff", pos) & 1;
             int oldQuality = InformationRuntime.quality(level, "diff", pos);
