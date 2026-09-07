@@ -31,6 +31,9 @@ import java.util.Optional;
 
 /** Converts one 8-bit bus word into a framed serial payload. */
 public class SerializerBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
+    /** Slow authority watchdog: normal source changes remain neighbor-driven, coverage loss is bounded. */
+    private static final int WATCHDOG_TICKS = 16;
+
     public SerializerBlock(Properties properties) {
         super(properties);
     }
@@ -86,15 +89,14 @@ public class SerializerBlock extends DirectionalDomainBlock implements Engineeri
         super.onPlace(state, level, pos, oldState, movedByPiston);
         if (level instanceof ServerLevel serverLevel) {
             update(serverLevel, pos, state);
-            serverLevel.scheduleTick(pos, this, 2);
+            serverLevel.scheduleTick(pos, this, WATCHDOG_TICKS);
         }
     }
 
     @Override
     protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock,
                                    BlockPos neighborPos, boolean movedByPiston) {
-        // Only the physical BYTE IN face changes the serializer's source state.
-        // Output-line notifications must not feed back and overwrite the source snapshot.
+        // Normal loaded-topology changes are event-driven; the watchdog only closes coverage/lifecycle gaps.
         if (level instanceof ServerLevel serverLevel && neighborPos.equals(inputPos(pos, state))) {
             update(serverLevel, pos, state);
         }
@@ -103,7 +105,7 @@ public class SerializerBlock extends DirectionalDomainBlock implements Engineeri
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         update(level, pos, state);
-        level.scheduleTick(pos, this, 2);
+        level.scheduleTick(pos, this, WATCHDOG_TICKS);
     }
 
     @Override
