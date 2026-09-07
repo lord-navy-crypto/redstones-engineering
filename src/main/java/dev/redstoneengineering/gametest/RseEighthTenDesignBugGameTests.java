@@ -1,7 +1,6 @@
 package dev.redstoneengineering.gametest;
 
 import dev.redstoneengineering.RedstoneEngineering;
-import dev.redstoneengineering.block.ConnectedCableBlock;
 import dev.redstoneengineering.block.DirectionalDomainBlock;
 import dev.redstoneengineering.block.DirectionalRedstoneEndpointBlock;
 import dev.redstoneengineering.block.LapisPrecisionSourceBlock;
@@ -241,20 +240,18 @@ public final class RseEighthTenDesignBugGameTests {
         InformationRuntime.write(helper.getLevel(), "bus8_out", helper.absolutePos(northEncoder), 7, 0, true, 100);
         DataBusNetwork.resolve(helper.getLevel(), DataBusNetwork.collect(helper.getLevel(), helper.absolutePos(bus)));
 
-        helper.runAfterDelay(3, () -> {
-            var inputSnapshot = RedstoneEngineering.SERIALIZER.get().engineeringSnapshot(
-                    helper.getLevel(), helper.absolutePos(serializer), helper.getBlockState(serializer), Direction.WEST).orElseThrow();
-            var outputSnapshot = RedstoneEngineering.SERIALIZER.get().engineeringSnapshot(
-                    helper.getLevel(), helper.absolutePos(serializer), helper.getBlockState(serializer), Direction.EAST).orElseThrow();
-            InformationRuntime.Snapshot source = InformationRuntime.snapshot(helper.getLevel(), "serial", helper.absolutePos(serializer));
-            if (inputSnapshot.quality() != PortQuality.TOPOLOGY_ERROR
-                    || outputSnapshot.quality() != PortQuality.TOPOLOGY_ERROR
-                    || source.valid()) {
-                helper.fail("Serializer turned conflicted bus state into a valid serial frame", serializer);
-                return;
-            }
-            helper.succeed();
-        });
+        var inputSnapshot = RedstoneEngineering.SERIALIZER.get().engineeringSnapshot(
+                helper.getLevel(), helper.absolutePos(serializer), helper.getBlockState(serializer), Direction.WEST).orElseThrow();
+        var outputSnapshot = RedstoneEngineering.SERIALIZER.get().engineeringSnapshot(
+                helper.getLevel(), helper.absolutePos(serializer), helper.getBlockState(serializer), Direction.EAST).orElseThrow();
+        InformationRuntime.Snapshot source = InformationRuntime.snapshot(helper.getLevel(), "serial", helper.absolutePos(serializer));
+        if (inputSnapshot.quality() != PortQuality.TOPOLOGY_ERROR
+                || outputSnapshot.quality() != PortQuality.TOPOLOGY_ERROR
+                || source.valid()) {
+            helper.fail("Serializer turned conflicted bus state into a valid serial frame", serializer);
+            return;
+        }
+        helper.succeed();
     }
 
     @PrefixGameTestTemplate(false)
@@ -275,20 +272,18 @@ public final class RseEighthTenDesignBugGameTests {
         InformationRuntime.write(helper.getLevel(), "serial", helper.absolutePos(east), 31, 8, true, 100);
         SerialNetwork.recompute(helper.getLevel(), helper.absolutePos(line));
 
-        helper.runAfterDelay(3, () -> {
-            var inputSnapshot = RedstoneEngineering.DESERIALIZER.get().engineeringSnapshot(
-                    helper.getLevel(), helper.absolutePos(deserializer), helper.getBlockState(deserializer), Direction.NORTH).orElseThrow();
-            var outputSnapshot = RedstoneEngineering.DESERIALIZER.get().engineeringSnapshot(
-                    helper.getLevel(), helper.absolutePos(deserializer), helper.getBlockState(deserializer), Direction.SOUTH).orElseThrow();
-            InformationRuntime.Snapshot source = InformationRuntime.snapshot(helper.getLevel(), "bus8_out", helper.absolutePos(deserializer));
-            if (inputSnapshot.quality() != PortQuality.TOPOLOGY_ERROR
-                    || outputSnapshot.quality() != PortQuality.TOPOLOGY_ERROR
-                    || source.valid()) {
-                helper.fail("Deserializer turned serial driver conflict into a valid bus source", deserializer);
-                return;
-            }
-            helper.succeed();
-        });
+        var inputSnapshot = RedstoneEngineering.DESERIALIZER.get().engineeringSnapshot(
+                helper.getLevel(), helper.absolutePos(deserializer), helper.getBlockState(deserializer), Direction.NORTH).orElseThrow();
+        var outputSnapshot = RedstoneEngineering.DESERIALIZER.get().engineeringSnapshot(
+                helper.getLevel(), helper.absolutePos(deserializer), helper.getBlockState(deserializer), Direction.SOUTH).orElseThrow();
+        InformationRuntime.Snapshot source = InformationRuntime.snapshot(helper.getLevel(), "bus8_out", helper.absolutePos(deserializer));
+        if (inputSnapshot.quality() != PortQuality.TOPOLOGY_ERROR
+                || outputSnapshot.quality() != PortQuality.TOPOLOGY_ERROR
+                || source.valid()) {
+            helper.fail("Deserializer turned serial driver conflict into a valid bus source", deserializer);
+            return;
+        }
+        helper.succeed();
     }
 
     @PrefixGameTestTemplate(false)
