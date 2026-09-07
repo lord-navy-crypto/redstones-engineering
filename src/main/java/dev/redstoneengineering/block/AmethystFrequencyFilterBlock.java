@@ -52,7 +52,8 @@ public class AmethystFrequencyFilterBlock extends DirectionalDomainBlock impleme
     }
 
     public static FilterEvidence evidence(Level level, BlockPos pos, BlockState state) {
-        DomainNetwork.AmethystSample input = DomainNetwork.sampleAmethyst(level, inputPos(pos, state));
+        Direction facing = state.getValue(DirectionalDomainBlock.FACING);
+        DomainNetwork.AmethystSample input = DomainNetwork.sampleAmethyst(level, pos.relative(facing.getOpposite()));
         boolean matched = input.active() && input.frequency() == state.getValue(TARGET);
         int out = matched ? Math.max(0, input.amplitude() - 1) : 0;
         return new FilterEvidence(input.frequency(), input.amplitude(), state.getValue(TARGET), input.active(), matched, out);
