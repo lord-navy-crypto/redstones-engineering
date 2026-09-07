@@ -58,7 +58,9 @@ public class DifferentialDataPairBlock extends ConnectedCableBlock implements En
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         List<EngineeringPort> ports = new ArrayList<>();
         for (Direction side : Direction.values()) {
-            if (!connected(state, side)) continue;
+            // Horizontal faces remain potential ports when open. Vertical capability is
+            // intentionally materialized only by a same-medium Signal Junction arm.
+            if (side.getAxis() == Direction.Axis.Y && !connected(state, side)) continue;
             ports.add(new EngineeringPort(
                     "DIFFERENTIAL DATA",
                     side,
