@@ -12,12 +12,14 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DataBusDriver;
 import dev.redstoneengineering.physics.DataBusNetwork;
 import dev.redstoneengineering.physics.InformationRuntime;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.BlockGetter;
@@ -50,14 +52,15 @@ public class RedstoneByteEncoderBlock extends DirectionalDomainBlock implements 
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
+        var input = RedstoneObservationSupport.observe(level, pos, inputSide(state));
         if (side == inputSide(state)) {
-            int value = Math.max(0, Math.min(15, level.getSignal(inputPos(pos, state), inputSide(state))));
-            return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value, PortQuality.VALID));
+            return Optional.of(EngineeringPortSnapshot.redstone(port.get(), input.value(), input.quality()));
         }
-        boolean valid = InformationRuntime.valid(level, "bus8_out", pos);
+        InformationRuntime.Snapshot output = InformationRuntime.snapshot(level, "bus8_out", pos);
+        PortQuality quality = output.ageTicks() < 0 ? PortQuality.STALE : input.quality();
         return Optional.of(new EngineeringPortSnapshot(port.get(),
-                InformationRuntime.value(level, "bus8_out", pos) & 0xFF,
-                0.0, 255.0, valid ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+                output.value() & 0xFF,
+                0.0, 255.0, quality));
     }
 
     @Override
@@ -71,8 +74,10 @@ public class RedstoneByteEncoderBlock extends DirectionalDomainBlock implements 
     }
 
     private void update(ServerLevel level, BlockPos pos, BlockState state) {
-        int value = Math.max(0, Math.min(15, level.getSignal(inputPos(pos, state), inputSide(state))));
-        InformationRuntime.write(level, "bus8_out", pos, value, 0, true, 100);
+        var input = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+        InformationRuntime.Snapshot previous = InformationRuntime.snapshot(level, "bus8_out", pos);
+        int value = input.valid() ? input.value() : input.quality() == PortQuality.STALE ? previous.value() & 0xFF : 0;
+        InformationRuntime.write(level, "bus8_out", pos, value, 0, input.valid(), input.valid() ? 100 : 0);
         BlockPos output = outputPos(pos, state);
         if (level.getBlockState(output).getBlock() instanceof EightBitDataBusBlock) {
             DataBusNetwork.resolve(level, DataBusNetwork.collect(level, output));
@@ -82,7 +87,10 @@ public class RedstoneByteEncoderBlock extends DirectionalDomainBlock implements 
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
-        if (level instanceof ServerLevel serverLevel) update(serverLevel, pos, state);
+        if (level instanceof ServerLevel serverLevel) {
+            update(serverLevel, pos, state);
+            serverLevel.scheduleTick(pos, this, 2);
+        }
     }
 
     @Override
@@ -91,6 +99,12 @@ public class RedstoneByteEncoderBlock extends DirectionalDomainBlock implements 
         if (level instanceof ServerLevel serverLevel && neighborPos.equals(inputPos(pos, state))) {
             update(serverLevel, pos, state);
         }
+    }
+
+    @Override
+    protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+        update(level, pos, state);
+        level.scheduleTick(pos, this, 2);
     }
 
     @Override
@@ -105,8 +119,12 @@ public class RedstoneByteEncoderBlock extends DirectionalDomainBlock implements 
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
+                var input = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+                InformationRuntime.Snapshot output = InformationRuntime.snapshot(level, "bus8_out", pos);
                 player.displayClientMessage(Component.literal(
-                        "Encoder: redstone 0-15 -> byte " + InformationRuntime.value(level, "bus8_out", pos)), true);
+                        "Encoder: redstone=" + input.value() + "/15 " + input.quality()
+                                + " -> byte=" + (output.value() & 0xFF)
+                                + " valid=" + output.valid()), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
             }
