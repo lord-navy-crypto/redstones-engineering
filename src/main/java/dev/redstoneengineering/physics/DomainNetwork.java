@@ -199,18 +199,8 @@ public final class DomainNetwork {
                     tieConflict = true;
                 }
             }
-            if (tieConflict && bestAmp > 0) {
-                // A real equal-strength, different-frequency contention is not silence.
-                // Preserve it explicitly so observers can distinguish conflict from IDLE.
-                AmethystResonanceDustBlock.setResonance(
-                        level, p, 0, 0, AmethystResonanceDustBlock.ResonanceStatus.FREQUENCY_CONFLICT);
-            } else if (bestAmp > 0) {
-                AmethystResonanceDustBlock.setResonance(
-                        level, p, bestFreq, bestAmp, AmethystResonanceDustBlock.ResonanceStatus.ACTIVE);
-            } else {
-                AmethystResonanceDustBlock.setResonance(
-                        level, p, 0, 0, AmethystResonanceDustBlock.ResonanceStatus.IDLE);
-            }
+            boolean active = bestAmp > 0 && !tieConflict;
+            AmethystResonanceDustBlock.setResonance(level, p, active ? bestFreq : 0, active ? bestAmp : 0);
         }
     }
 
@@ -266,7 +256,7 @@ public final class DomainNetwork {
         }
     }
 
-    /** Recompute every optical component adjacent to a removed/split node. */
+    /** Recompute each adjacent optical component independently after a node is removed. */
     public static void recomputeOpticalAround(ServerLevel level, BlockPos changedPos) {
         for (Direction direction : Direction.values()) {
             BlockPos neighbor = changedPos.relative(direction);
@@ -298,12 +288,20 @@ public final class DomainNetwork {
         List<DomainDriverRegistry.Claim> claims = new ArrayList<>(DomainDriverRegistry.activeClaims(level, "optical", nodes));
         addRawOpticalClaims(level, nodes, claims);
         NetworkKernel.recordDriverState(level, "optical", claims.size());
-        boolean ok = claims.size() == 1;
-        int resolvedIntensity = ok ? EngineeringMath.clamp(claims.get(0).a(),0,15) : 0;
-        int resolvedChannel = ok ? EngineeringMath.clamp(claims.get(0).b(),0,15) : 0;
-        BlockPos source = ok ? claims.get(0).outputStart() : start;
-        Map<BlockPos,Integer> distance=distancesOptical(level,nodes,source);
-        for(BlockPos p:nodes){var state=level.getBlockState(p);int arriving=ok?Math.max(0,resolvedIntensity-distance.getOrDefault(p,0)/16):0;boolean validNode=ok&&arriving>0;if(state.getBlock() instanceof OpticalFiberBlock)OpticalFiberBlock.setOptical(level,p,arriving,resolvedChannel,validNode);else if(state.getBlock() instanceof OpticalFiberJunctionBlock)OpticalFiberJunctionBlock.setOptical(level,p,arriving,resolvedChannel,validNode);else if(state.getBlock() instanceof OpticalReceiverBlock)OpticalReceiverBlock.setOptical(level,p,arriving,resolvedChannel,validNode);}
+        boolean one = claims.size() == 1;
+        DomainDriverRegistry.Claim claim = one ? claims.get(0) : null;
+        int baseIntensity = one ? claim.a() : 0;
+        int resolvedChannel = one ? claim.b() : 0;
+        BlockPos sourceStart = one ? claim.outputStart() : start;
+        Map<BlockPos,Integer> distance = distancesOptical(level, nodes, sourceStart);
+        for (BlockPos p : nodes) {
+            var state = level.getBlockState(p);
+            int arriving = one ? Math.max(0, baseIntensity - distance.getOrDefault(p, 0) / 16) : 0;
+            boolean ok = one && arriving > 0;
+            if (state.getBlock() instanceof OpticalFiberBlock) OpticalFiberBlock.setOptical(level, p, arriving, resolvedChannel, ok);
+            else if (state.getBlock() instanceof OpticalFiberJunctionBlock) OpticalFiberJunctionBlock.setOptical(level, p, arriving, resolvedChannel, ok);
+            else if (state.getBlock() instanceof OpticalReceiverBlock) OpticalReceiverBlock.setOptical(level, p, arriving, resolvedChannel, ok);
+        }
     }
 
     public static void driveOptical(ServerLevel level, BlockPos start, int intensity, int channel, boolean valid) {
@@ -312,7 +310,7 @@ public final class DomainNetwork {
         for(BlockPos p:nodes){var state=level.getBlockState(p);int arriving=valid?Math.max(0,intensity-distance.getOrDefault(p,0)/16):0;boolean ok=valid&&arriving>0;if(state.getBlock() instanceof OpticalFiberBlock)OpticalFiberBlock.setOptical(level,p,arriving,EngineeringMath.clamp(channel,0,15),ok);else if(state.getBlock() instanceof OpticalFiberJunctionBlock)OpticalFiberJunctionBlock.setOptical(level,p,arriving,EngineeringMath.clamp(channel,0,15),ok);else if(state.getBlock() instanceof OpticalReceiverBlock)OpticalReceiverBlock.setOptical(level,p,arriving,EngineeringMath.clamp(channel,0,15),ok);}
     }
 
-    // ---------------- Copper: simplified DC-like domain ----------------
+    // ---------------- Copper: simplified macroscopic electrical domain ----------------
     public static void recomputeCopper(ServerLevel level, BlockPos start) {
         Set<BlockPos> nodes = collectCopper(level, start, p -> {
             var b = level.getBlockState(p).getBlock();
@@ -522,7 +520,7 @@ public final class DomainNetwork {
 
     private static Map<BlockPos,Integer> distancesHorizontalTrace(ServerLevel level,Set<BlockPos> nodes,BlockPos start,Class<?> mediumClass){Map<BlockPos,Integer>d=new HashMap<>();if(!nodes.contains(start))return d;ArrayDeque<BlockPos>q=new ArrayDeque<>();d.put(start,0);q.add(start);while(!q.isEmpty()){BlockPos p=q.removeFirst();int d0=d.get(p);for(Direction dir:Direction.Plane.HORIZONTAL){BlockPos n=p.relative(dir);if(nodes.contains(n)&&!d.containsKey(n)&&surfaceEdgeAllowed(level,p,n,dir,mediumClass)){d.put(n,d0+1);q.addLast(n);}}}return d;}
 
-    private static Map<BlockPos,Integer> distancesHorizontal(Set<BlockPos> nodes,BlockPos start){Map<BlockPos,Integer>d=new HashMap<>();if(!nodes.contains(start))return d;ArrayDeque<BlockPos>q=new ArrayDeque<>();d.put(start,0);q.add(start);while(!q.isEmpty()){BlockPos p=q.removeFirst();int d0=d.get(p);for(Direction dir:Direction.values()){BlockPos n=p.relative(dir);if(nodes.contains(n)&&!d.containsKey(n)){d.put(n,d0+1);q.addLast(n);}}}return d;}
+    private static Map<BlockPos,Integer> distancesHorizontal(Set<BlockPos> nodes,BlockPos start){Map<BlockPos,Integer>d=new HashMap<>();if(!nodes.contains(start))return d;ArrayDeque<BlockPos>q=new ArrayDeque<>();d.put(start,0);q.add(start);while(!q.isEmpty()){BlockPos p=q.removeFirst();int d0=d.get(p);for(Direction dir:Direction.Plane.HORIZONTAL){BlockPos n=p.relative(dir);if(nodes.contains(n)&&!d.containsKey(n)){d.put(n,d0+1);q.addLast(n);}}}return d;}
 
     private static void addRawLapisClaims(ServerLevel level, Set<BlockPos> nodes, List<DomainDriverRegistry.Claim> claims) {
         Set<BlockPos> seen=new HashSet<>();
@@ -564,22 +562,59 @@ public final class DomainNetwork {
         return dist;
     }
 
-    private static Set<BlockPos> collectHorizontal(ServerLevel level,BlockPos start,String domain,java.util.function.Predicate<BlockPos>allowed){return collectHorizontalEdges(level,start,domain,allowed,(a,b,d)->true);}
-
-    private static Set<BlockPos> collectHorizontalEdges(ServerLevel level,BlockPos start,String domain,java.util.function.Predicate<BlockPos>allowed,EdgeRule rule){
-        Set<BlockPos>visited=new LinkedHashSet<>();ArrayDeque<BlockPos>q=new ArrayDeque<>();
-        if(level.hasChunkAt(start)&&allowed.test(start))q.add(start);else for(Direction d:Direction.Plane.HORIZONTAL){BlockPos n=start.relative(d);if(level.hasChunkAt(n)&&allowed.test(n))q.add(n);}
-        while(!q.isEmpty()&&visited.size()<MAX_NODES){BlockPos p=q.removeFirst();if(!visited.add(p))continue;for(Direction d:Direction.Plane.HORIZONTAL){BlockPos n=p.relative(d);if(!visited.contains(n)&&level.hasChunkAt(n)&&allowed.test(n)&&rule.ok(p,n,d))q.addLast(n);}}
-        NetworkKernel.recordScan(level,domain,visited.size(),!q.isEmpty());return visited;
+    private static boolean surfaceEdgeAllowed(ServerLevel level,BlockPos a,BlockPos b,Direction d,Class<?> mediumClass){
+        if (d.getAxis() == Direction.Axis.Y) return false;
+        BlockState sa=level.getBlockState(a),sb=level.getBlockState(b);
+        boolean am=mediumClass.isInstance(sa.getBlock()),bm=mediumClass.isInstance(sb.getBlock());
+        if(!am&&!bm)return false;
+        if(am && !SurfaceTraceBlock.connected(sa,d))return false;
+        if(bm && !SurfaceTraceBlock.connected(sb,d.getOpposite()))return false;
+        return true;
     }
 
-    private static boolean surfaceEdgeAllowed(ServerLevel level, BlockPos a, BlockPos b, Direction d, Class<?> mediumClass) {
-        BlockState sa = level.getBlockState(a), sb = level.getBlockState(b);
-        boolean aTrace = mediumClass.isInstance(sa.getBlock());
-        boolean bTrace = mediumClass.isInstance(sb.getBlock());
-        if (!aTrace && !bTrace) return false;
-        if (aTrace && (!SurfaceTraceBlock.connected(sa, d))) return false;
-        if (bTrace && (!SurfaceTraceBlock.connected(sb, d.getOpposite()))) return false;
-        return true;
+    private static Set<BlockPos> collectHorizontalEdges(ServerLevel level,BlockPos start,String domain,java.util.function.Predicate<BlockPos> allowed,EdgeRule rule){
+        Set<BlockPos> visited=new LinkedHashSet<>();ArrayDeque<BlockPos> q=new ArrayDeque<>();
+        if(level.hasChunkAt(start)&&allowed.test(start))q.add(start);else for(Direction d:Direction.Plane.HORIZONTAL){BlockPos n=start.relative(d);if(level.hasChunkAt(n)&&allowed.test(n))q.add(n);}
+        while(!q.isEmpty()&&visited.size()<MAX_NODES){BlockPos p=q.removeFirst();if(!visited.add(p))continue;for(Direction d:Direction.Plane.HORIZONTAL){BlockPos n=p.relative(d);if(!visited.contains(n)&&level.hasChunkAt(n)&&allowed.test(n)&&rule.ok(p,n,d))q.addLast(n);}}
+        NetworkKernel.recordScan(level,domain,visited.size(),!q.isEmpty());
+        return visited;
+    }
+
+    private static Set<BlockPos> collectHorizontal(ServerLevel level, BlockPos start, java.util.function.Predicate<BlockPos> allowed) {
+        Set<BlockPos> visited = new LinkedHashSet<>();
+        ArrayDeque<BlockPos> q = new ArrayDeque<>();
+        if (level.hasChunkAt(start) && allowed.test(start)) q.add(start);
+        else for (Direction d : Direction.Plane.HORIZONTAL) {
+            BlockPos n = start.relative(d);
+            if (level.hasChunkAt(n) && allowed.test(n)) q.add(n);
+        }
+        while (!q.isEmpty() && visited.size() < MAX_NODES) {
+            BlockPos p = q.removeFirst();
+            if (!visited.add(p)) continue;
+            for (Direction d : Direction.Plane.HORIZONTAL) {
+                BlockPos n = p.relative(d);
+                if (!visited.contains(n) && level.hasChunkAt(n) && allowed.test(n)) q.addLast(n);
+            }
+        }
+        return visited;
+    }
+
+    private static Set<BlockPos> collect(ServerLevel level, BlockPos start, java.util.function.Predicate<BlockPos> allowed) {
+        Set<BlockPos> visited = new LinkedHashSet<>();
+        ArrayDeque<BlockPos> q = new ArrayDeque<>();
+        if (level.hasChunkAt(start) && allowed.test(start)) q.add(start);
+        else for (Direction d : Direction.values()) {
+            BlockPos n = start.relative(d);
+            if (level.hasChunkAt(n) && allowed.test(n)) q.add(n);
+        }
+        while (!q.isEmpty() && visited.size() < MAX_NODES) {
+            BlockPos p = q.removeFirst();
+            if (!visited.add(p)) continue;
+            for (Direction d : Direction.values()) {
+                BlockPos n = p.relative(d);
+                if (!visited.contains(n) && level.hasChunkAt(n) && allowed.test(n)) q.addLast(n);
+            }
+        }
+        return visited;
     }
 }
