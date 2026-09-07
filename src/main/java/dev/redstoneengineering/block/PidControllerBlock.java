@@ -18,6 +18,7 @@ import dev.redstoneengineering.diagnostics.acceptance.EngineeringAcceptance;
 import dev.redstoneengineering.diagnostics.acceptance.EngineeringAcceptanceSnapshot;
 import dev.redstoneengineering.diagnostics.topology.EngineeringTopologyView;
 import dev.redstoneengineering.diagnostics.topology.TopologyVisualizationSnapshot;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.menu.PidControllerMenu;
 import net.minecraft.core.BlockPos;
@@ -48,7 +49,8 @@ import java.util.Optional;
  *
  * The controller keeps its engineering boundary at 0..15 while retaining
  * internal integral/derivative state and a controller bias for bumpless
- * manual→auto transfer.
+ * manual→auto transfer. AUTO requires real setpoint and process evidence;
+ * missing/unknown required inputs fail safe instead of becoming fabricated zeroes.
  */
 public class PidControllerBlock extends PassiveDirectionalSignalBlock {
     public static final IntegerProperty TUNING = IntegerProperty.create("tuning", 0, 3);
@@ -60,7 +62,6 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
     private static final int MAX_OUT = 15;
     private static final int DEADBAND = 1;
 
-    // Kp numerator, Ki divisor, Kd numerator, derivative smoothing divisor.
     private static final int[][] PRESETS = {
             {1, 0, 0, 2},
             {2, 24, 0, 2},
@@ -68,7 +69,6 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
             {3, 14, 2, 4}
     };
 
-    /* Runtime layout: controller state + step-response diagnostics; intentionally not BlockState. */
     private static final int RUNTIME_SIZE = 22;
 
     public PidControllerBlock(Properties p) {
@@ -116,6 +116,40 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
         );
     }
 
+    private RedstoneObservationSupport.Observation observe(Level level, BlockPos pos, Direction side) {
+        return RedstoneObservationSupport.observe(level, pos, side);
+    }
+
+    private static boolean usable(RedstoneObservationSupport.Observation observation) {
+        return observation.valid();
+    }
+
+    private static PortQuality requiredQuality(RedstoneObservationSupport.Observation... observations) {
+        for (RedstoneObservationSupport.Observation observation : observations) {
+            if (observation.quality() == PortQuality.STALE) return PortQuality.STALE;
+        }
+        for (RedstoneObservationSupport.Observation observation : observations) {
+            if (!observation.valid()) return observation.quality();
+        }
+        return PortQuality.VALID;
+    }
+
+    private PortQuality controlOutputQuality(Level level, BlockPos pos, BlockState state) {
+        Direction front = outputSide(state);
+        RedstoneObservationSupport.Observation inhibit = observe(level, pos, rightOf(front));
+        if (inhibit.quality() == PortQuality.STALE) return PortQuality.STALE;
+        if (inhibit.valid() && inhibit.value() > 0) return PortQuality.VALID;
+
+        RedstoneObservationSupport.Observation mode = observe(level, pos, Direction.UP);
+        if (mode.quality() == PortQuality.STALE) return PortQuality.STALE;
+        boolean manual = mode.valid() && mode.value() > 0;
+        if (manual) return requiredQuality(observe(level, pos, Direction.DOWN));
+        return requiredQuality(
+                observe(level, pos, inputSide(state)),
+                observe(level, pos, leftOf(front))
+        );
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(
             Level level, BlockPos pos, BlockState state, Direction side
@@ -123,27 +157,59 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         Direction front = outputSide(state);
-        int value;
-        if (side == front) value = state.getValue(OUTPUT);
-        else if (side == inputSide(state)) value = readBackInput(level, pos, state);
-        else value = readInputFrom(level, pos, side);
-        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value, PortQuality.VALID));
+        if (side == front) {
+            return Optional.of(EngineeringPortSnapshot.redstone(
+                    port.get(), state.getValue(OUTPUT), controlOutputQuality(level, pos, state)));
+        }
+        RedstoneObservationSupport.Observation observation = observe(level, pos, side);
+        return Optional.of(EngineeringPortSnapshot.redstone(
+                port.get(), observation.value(), observation.quality()));
     }
 
     @Override
     protected int computeOutput(Level level, BlockPos pos, BlockState state) {
         Direction front = outputSide(state);
-        int setpoint = readBackInput(level, pos, state);
-        int process = readInputFrom(level, pos, leftOf(front));
-        int inhibit = readInputFrom(level, pos, rightOf(front));
-        int requestedMode = readInputFrom(level, pos, Direction.UP) > 0 ? MANUAL_MODE : AUTO_MODE;
-        int manualOutput = clamp(readInputFrom(level, pos, Direction.DOWN), MIN_OUT, MAX_OUT);
+        RedstoneObservationSupport.Observation setpointObservation = observe(level, pos, inputSide(state));
+        RedstoneObservationSupport.Observation processObservation = observe(level, pos, leftOf(front));
+        RedstoneObservationSupport.Observation inhibitObservation = observe(level, pos, rightOf(front));
+        RedstoneObservationSupport.Observation modeObservation = observe(level, pos, Direction.UP);
+        RedstoneObservationSupport.Observation manualObservation = observe(level, pos, Direction.DOWN);
+
+        int setpoint = usable(setpointObservation) ? setpointObservation.value() : 0;
+        int process = usable(processObservation) ? processObservation.value() : 0;
+        int inhibit = usable(inhibitObservation) ? inhibitObservation.value() : 0;
+        int requestedMode = usable(modeObservation) && modeObservation.value() > 0 ? MANUAL_MODE : AUTO_MODE;
+        int manualOutput = clamp(usable(manualObservation) ? manualObservation.value() : 0, MIN_OUT, MAX_OUT);
         int[] rt = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
 
         if (rt[21] == 0) {
             rt[20] = 8;
             rt[17] = AUTO_MODE;
             rt[21] = 1;
+        }
+
+        // Unknown safety/mode coverage fails safe and must not mutate controller history as a fake zero sample.
+        if (inhibitObservation.quality() == PortQuality.STALE || modeObservation.quality() == PortQuality.STALE) {
+            rt[3] = 0;
+            return 0;
+        }
+
+        rt[4] = inhibit > 0 ? 1 : 0;
+        if (rt[4] != 0) {
+            rt[3] = 0;
+            if (usable(processObservation)) rt[6] = process;
+            return usable(setpointObservation) && usable(processObservation)
+                    ? recordTelemetry(level, pos, setpoint, process, 0) : 0;
+        }
+
+        // Required signal evidence is mode-dependent. Do not commit mode transfer against fabricated zeroes.
+        if (requestedMode == MANUAL_MODE && !usable(manualObservation)) {
+            rt[3] = 0;
+            return 0;
+        }
+        if (requestedMode == AUTO_MODE && (!usable(setpointObservation) || !usable(processObservation))) {
+            rt[3] = 0;
+            return 0;
         }
 
         int rawError = setpoint - process;
@@ -162,28 +228,23 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
             rt[19]++;
         }
         rt[18] = manualOutput;
-        rt[4] = inhibit > 0 ? 1 : 0;
-
-        if (rt[4] != 0) {
-            rt[3] = 0;
-            rt[6] = process;
-            return recordTelemetry(level, pos, setpoint, process, 0);
-        }
 
         if (requestedMode == MANUAL_MODE) {
             rt[1] = controlError;
             rt[2] = 0;
             rt[3] = manualOutput;
-            rt[6] = process;
-            updateStepDiagnostics(level, rt, setpoint, process, rawError);
-            return recordTelemetry(level, pos, setpoint, process, manualOutput);
+            if (usable(processObservation)) rt[6] = process;
+            if (usable(setpointObservation) && usable(processObservation)) {
+                updateStepDiagnostics(level, rt, setpoint, process, rawError);
+                return recordTelemetry(level, pos, setpoint, process, manualOutput);
+            }
+            return manualOutput;
         }
 
         int rawDerivative = controlError - rt[1];
         rt[2] += (rawDerivative - rt[2]) / Math.max(1, dSmooth);
         rt[1] = controlError;
 
-        // Candidate integral with conditional-commit anti-windup at the 0..15 actuator boundary.
         int candidateIntegral = clamp(rt[0] + controlError, -180, 180);
         int pTerm = kp * controlError;
         int iTerm = kiDiv == 0 ? 0 : candidateIntegral / kiDiv;

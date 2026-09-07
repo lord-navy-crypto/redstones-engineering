@@ -8,6 +8,7 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.DifferentialNetwork;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
@@ -52,15 +53,15 @@ public class DifferentialReceiverBlock extends PassiveDirectionalSignalBlock {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         BlockPos input = inputPos(pos, state);
-        boolean valid = InformationRuntime.valid(level, "diff", input);
-        int quality = InformationRuntime.quality(level, "diff", input);
+        InformationRuntime.Snapshot snapshot = InformationRuntime.snapshot(level, "diff", input);
+        PortQuality quality = DifferentialNetwork.quality(level, input);
         if (side == inputSide(state)) {
             return Optional.of(new EngineeringPortSnapshot(
-                    port.get(), InformationRuntime.value(level, "diff", input) & 1,
-                    0.0, 1.0, valid && quality > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+                    port.get(), snapshot.value() & 1,
+                    0.0, 1.0, quality));
         }
         return Optional.of(EngineeringPortSnapshot.redstone(
-                port.get(), state.getValue(OUTPUT), valid && quality > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+                port.get(), state.getValue(OUTPUT), quality));
     }
 
     @Override
@@ -73,9 +74,9 @@ public class DifferentialReceiverBlock extends PassiveDirectionalSignalBlock {
     @Override
     protected int computeOutput(Level level, BlockPos pos, BlockState state) {
         BlockPos input = inputPos(pos, state);
-        return InformationRuntime.valid(level, "diff", input)
-                && InformationRuntime.quality(level, "diff", input) > 0
-                && InformationRuntime.value(level, "diff", input) != 0 ? 15 : 0;
+        PortQuality quality = DifferentialNetwork.quality(level, input);
+        InformationRuntime.Snapshot snapshot = InformationRuntime.snapshot(level, "diff", input);
+        return quality == PortQuality.VALID && snapshot.valid() && (snapshot.value() & 1) != 0 ? 15 : 0;
     }
 
     @Override

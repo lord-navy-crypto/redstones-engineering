@@ -29,10 +29,12 @@ for token in (
         errors.append(f"PidTelemetryStore missing bounded server contract {token!r}")
 
 block = read("src/main/java/dev/redstoneengineering/block/PidControllerBlock.java")
+# Verify the three authoritative output paths still publish telemetry without coupling the
+# contract to a particular Java return/conditional spelling.
 for token in (
-    "return recordTelemetry(level, pos, setpoint, process, 0);",
-    "return recordTelemetry(level, pos, setpoint, process, manualOutput);",
-    "return recordTelemetry(level, pos, setpoint, process, out);",
+    "recordTelemetry(level, pos, setpoint, process, 0)",
+    "recordTelemetry(level, pos, setpoint, process, manualOutput)",
+    "recordTelemetry(level, pos, setpoint, process, out)",
     "PidTelemetryStore.clear(level, pos);",
     "PidTelemetryStore.clear(l, p);",
 ):

@@ -127,11 +127,21 @@ public final class RseEngineeringUiGameTests {
     @PrefixGameTestTemplate(false)
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 80)
     public static void pidTrendTelemetryIsServerOwnedAndBounded(GameTestHelper helper) {
+        BlockPos setpointPos = new BlockPos(1, 1, 2);
         BlockPos pidPos = new BlockPos(2, 1, 2);
+        BlockPos processPos = new BlockPos(2, 1, 1);
         BlockPos worldPos = helper.absolutePos(pidPos);
+        helper.setBlock(setpointPos, RedstoneEngineering.REDSTONE_REFERENCE_SOURCE.get()
+                .defaultBlockState()
+                .setValue(RedstoneReferenceSourceBlock.FACING, Direction.EAST)
+                .setValue(RedstoneReferenceSourceBlock.POWER, 0));
+        helper.setBlock(processPos, RedstoneEngineering.REDSTONE_REFERENCE_SOURCE.get()
+                .defaultBlockState()
+                .setValue(RedstoneReferenceSourceBlock.FACING, Direction.SOUTH)
+                .setValue(RedstoneReferenceSourceBlock.POWER, 0));
         helper.setBlock(pidPos, RedstoneEngineering.PID_CONTROLLER.get()
                 .defaultBlockState()
-                .setValue(DirectionalSignalBlock.FACING, Direction.NORTH));
+                .setValue(DirectionalSignalBlock.FACING, Direction.EAST));
 
         helper.runAfterDelay(6, () -> {
             List<Integer> natural = PidTelemetryStore.snapshot(helper.getLevel(), worldPos);
@@ -162,11 +172,21 @@ public final class RseEngineeringUiGameTests {
     @PrefixGameTestTemplate(false)
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 60)
     public static void pidTrendTelemetryClearsWithControllerLifecycle(GameTestHelper helper) {
+        BlockPos setpointPos = new BlockPos(1, 1, 2);
         BlockPos pidPos = new BlockPos(2, 1, 2);
+        BlockPos processPos = new BlockPos(2, 1, 1);
         BlockPos worldPos = helper.absolutePos(pidPos);
+        helper.setBlock(setpointPos, RedstoneEngineering.REDSTONE_REFERENCE_SOURCE.get()
+                .defaultBlockState()
+                .setValue(RedstoneReferenceSourceBlock.FACING, Direction.EAST)
+                .setValue(RedstoneReferenceSourceBlock.POWER, 0));
+        helper.setBlock(processPos, RedstoneEngineering.REDSTONE_REFERENCE_SOURCE.get()
+                .defaultBlockState()
+                .setValue(RedstoneReferenceSourceBlock.FACING, Direction.SOUTH)
+                .setValue(RedstoneReferenceSourceBlock.POWER, 0));
         helper.setBlock(pidPos, RedstoneEngineering.PID_CONTROLLER.get()
                 .defaultBlockState()
-                .setValue(DirectionalSignalBlock.FACING, Direction.NORTH));
+                .setValue(DirectionalSignalBlock.FACING, Direction.EAST));
 
         helper.runAfterDelay(6, () -> {
             if (PidTelemetryStore.snapshot(helper.getLevel(), worldPos).isEmpty()) {

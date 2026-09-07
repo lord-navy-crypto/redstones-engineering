@@ -8,9 +8,9 @@ import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
-import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.PneumaticNetwork;
+import dev.redstoneengineering.physics.PneumaticObservationSupport;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -59,15 +59,15 @@ public class AirReservoirBlock extends Block implements EngineeringPortProvider 
     ) {
         Optional<EngineeringPort> descriptor = engineeringPort(state, side);
         if (descriptor.isEmpty()) return Optional.empty();
-        int pressure = PneumaticNetwork.pressure(level, pos);
+        PneumaticObservationSupport.Observation observation = PneumaticObservationSupport.observe(level, pos);
         return Optional.of(new EngineeringPortSnapshot(
-                descriptor.get(), pressure, 0.0, 100.0,
-                pressure > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL
+                descriptor.get(), observation.pressure(), 0.0, 100.0, observation.quality()
         ));
     }
 
+    /** Observer-only stored pressure readback. */
     public static int storedPressure(Level level, BlockPos pos) {
-        return InformationRuntime.value(level, "air_reservoir", pos);
+        return Math.max(0, Math.min(100, InformationRuntime.snapshot(level, "air_reservoir", pos).value()));
     }
 
     @Override
@@ -83,7 +83,8 @@ public class AirReservoirBlock extends Block implements EngineeringPortProvider 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         int stored = storedPressure(level, pos);
-        int line = InformationRuntime.value(level, "pneumatic", pos);
+        InformationRuntime.Snapshot lineSnapshot = InformationRuntime.snapshot(level, "pneumatic", pos);
+        int line = lineSnapshot.ageTicks() >= 0 && lineSnapshot.valid() ? lineSnapshot.value() : 0;
         int next = stored;
         if (line > stored) next = Math.min(line, stored + 5);
         else if (stored > 0) next = stored - 1;
@@ -107,9 +108,10 @@ public class AirReservoirBlock extends Block implements EngineeringPortProvider 
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
                 int stored = storedPressure(level, pos);
-                int line = InformationRuntime.value(level, "pneumatic", pos);
+                PneumaticObservationSupport.Observation line = PneumaticObservationSupport.observe(level, pos);
                 player.displayClientMessage(Component.literal(
-                        "Air reservoir stored=" + stored + "/100 line=" + line + "/100 chargeRate<=5/10t leak=1/10t"
+                        "Air reservoir stored=" + stored + "/100 line=" + line.pressure() + "/100 quality=" + line.quality()
+                                + " chargeRate<=5/10t leak=1/10t"
                 ), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);

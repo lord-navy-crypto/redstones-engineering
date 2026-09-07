@@ -8,6 +8,7 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
@@ -27,11 +28,17 @@ import net.minecraft.world.phys.BlockHitResult;
 import java.util.List;
 import java.util.Optional;
 
-/** Heartbeat watchdog with configurable timeout. Any BACK input transition resets the timer. */
+/** Heartbeat watchdog with configurable timeout. Only an observed input transition resets the timer. */
 public class WatchdogBlock extends PassiveDirectionalSignalBlock {
     public static final IntegerProperty TIMEOUT = IntegerProperty.create("timeout", 0, 3);
     private static final int[] TIMEOUT_TICKS = {20, 40, 80, 160};
     private static final String KEY = "watchdog";
+    private static final int LAST_VALUE = 0;
+    private static final int AGE = 1;
+    private static final int TRANSITIONS = 2;
+    private static final int TIMEOUTS = 3;
+    private static final int SOURCE_SEEN = 4;
+    private static final int RUNTIME_SIZE = 5;
 
     public WatchdogBlock(Properties p) {
         super(p);
@@ -56,29 +63,43 @@ public class WatchdogBlock extends PassiveDirectionalSignalBlock {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         if (side == inputSide(state)) {
-            return Optional.of(EngineeringPortSnapshot.redstone(port.get(), readBackInput(level, pos, state), PortQuality.VALID));
+            RedstoneObservationSupport.Observation heartbeat = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+            return Optional.of(EngineeringPortSnapshot.redstone(port.get(), heartbeat.value(), heartbeat.quality()));
         }
         return Optional.of(EngineeringPortSnapshot.redstone(port.get(), state.getValue(OUTPUT), PortQuality.VALID));
     }
 
     @Override protected int computeOutput(Level l, BlockPos p, BlockState s) {
-        int[] rt = RuntimeIntStore.get(l, KEY, p, 4);
-        return rt[1] >= timeoutTicks(s.getValue(TIMEOUT)) ? 15 : 0;
+        int[] rt = RuntimeIntStore.peek(l, KEY, p);
+        int age = rt == null || rt.length <= AGE ? 0 : rt[AGE];
+        return age >= timeoutTicks(s.getValue(TIMEOUT)) ? 15 : 0;
     }
 
     private void sample(ServerLevel l, BlockPos p, BlockState s) {
-        int[] rt = RuntimeIntStore.get(l, KEY, p, 4);
-        int now = readBackInput(l, p, s);
-        if (now != rt[0]) {
-            rt[0] = now;
-            rt[1] = 0;
-            rt[2]++;
+        int[] rt = RuntimeIntStore.get(l, KEY, p, RUNTIME_SIZE);
+        RedstoneObservationSupport.Observation heartbeat = RedstoneObservationSupport.observe(l, p, inputSide(s));
+        if (heartbeat.valid()) {
+            int now = heartbeat.value();
+            if (rt[SOURCE_SEEN] == 0) {
+                // A source appearing is only a baseline. It is not a fabricated heartbeat edge.
+                rt[LAST_VALUE] = now;
+                rt[SOURCE_SEEN] = 1;
+                rt[AGE] = Math.min(12000, rt[AGE] + 2);
+            } else if (now != rt[LAST_VALUE]) {
+                rt[LAST_VALUE] = now;
+                rt[AGE] = 0;
+                rt[TRANSITIONS]++;
+            } else {
+                rt[AGE] = Math.min(12000, rt[AGE] + 2);
+            }
         } else {
-            rt[1] = Math.min(12000, rt[1] + 2);
+            // Unknown/missing coverage cannot masquerade as a LOW transition.
+            rt[SOURCE_SEEN] = 0;
+            rt[AGE] = Math.min(12000, rt[AGE] + 2);
         }
         int before = s.getValue(OUTPUT);
         int out = computeOutput(l, p, s);
-        if (before == 0 && out > 0) rt[3]++;
+        if (before == 0 && out > 0) rt[TIMEOUTS]++;
         updateOutput(l, p, s, out);
     }
 
@@ -88,17 +109,17 @@ public class WatchdogBlock extends PassiveDirectionalSignalBlock {
 
     public static int ageTicks(Level level, BlockPos pos) {
         int[] rt = RuntimeIntStore.peek(level, KEY, pos);
-        return rt == null || rt.length < 2 ? 0 : rt[1];
+        return rt == null || rt.length <= AGE ? 0 : rt[AGE];
     }
 
     public static int transitionCount(Level level, BlockPos pos) {
         int[] rt = RuntimeIntStore.peek(level, KEY, pos);
-        return rt == null || rt.length < 3 ? 0 : rt[2];
+        return rt == null || rt.length <= TRANSITIONS ? 0 : rt[TRANSITIONS];
     }
 
     public static int timeoutCount(Level level, BlockPos pos) {
         int[] rt = RuntimeIntStore.peek(level, KEY, pos);
-        return rt == null || rt.length < 4 ? 0 : rt[3];
+        return rt == null || rt.length <= TIMEOUTS ? 0 : rt[TIMEOUTS];
     }
 
     @Override protected void onPlace(BlockState s, Level l, BlockPos p, BlockState o, boolean m) { super.onPlace(s,l,p,o,m); if(l instanceof ServerLevel sl) sl.scheduleTick(p,this,2); }
