@@ -27,55 +27,99 @@ import java.util.Optional;
 /** 3-D glowglass fiber. Passive fiber has two ends; optical branching requires Splitter. */
 public class OpticalFiberBlock extends ConnectedCableBlock implements EngineeringPortProvider {
     private static final String KEY = "optical_fiber";
+    private static final int INTENSITY = 0;
+    private static final int CHANNEL = 1;
+    private static final int VALID = 2;
+    private static final int DRIVER_COUNT = 3;
+    private static final int RUNTIME_SIZE = 4;
 
     public OpticalFiberBlock(Properties p) { super(p); }
     @Override public MapCodec<OpticalFiberBlock> codec() { return RedstoneEngineering.OPTICAL_FIBER_CODEC.value(); }
     @Override protected boolean canConnectTo(BlockGetter l, BlockPos p, Direction d, BlockState n) { return TransmissionTopology.opticalPort(n, d); }
 
-    public static void setOptical(Level l, BlockPos p, int i, int c, boolean v) {
-        int[] r = RuntimeIntStore.get(l, KEY, p, 3);
-        r[0] = v ? Math.max(0, Math.min(15, i)) : 0;
-        r[1] = v ? Math.max(0, Math.min(15, c)) : 0;
-        r[2] = v && r[0] > 0 ? 1 : 0;
+    /** Authoritative optical solver write, including source-ownership evidence. */
+    public static void setOptical(Level level, BlockPos pos, int intensity, int channel, boolean valid) {
+        int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
+        runtime[INTENSITY] = valid ? Math.max(0, Math.min(15, intensity)) : 0;
+        runtime[CHANNEL] = valid ? Math.max(0, Math.min(15, channel)) : 0;
+        runtime[VALID] = valid && runtime[INTENSITY] > 0 ? 1 : 0;
+        int drivers = Math.max(0, NetworkKernel.stats(level, "optical").activeDrivers());
+        runtime[DRIVER_COUNT] = valid && drivers == 0 ? 1 : drivers;
     }
-    public static int intensity(Level l, BlockPos p) { int[] r = RuntimeIntStore.peek(l, KEY, p); return r == null ? 0 : r[0]; }
-    public static int channel(Level l, BlockPos p) { int[] r = RuntimeIntStore.peek(l, KEY, p); return r == null ? 0 : r[1]; }
-    public static boolean valid(Level l, BlockPos p) { int[] r = RuntimeIntStore.peek(l, KEY, p); return r != null && r.length > 2 && r[2] == 1; }
 
-    @Override public List<EngineeringPort> engineeringPorts(BlockState s) {
+    public static int intensity(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length <= INTENSITY ? 0 : runtime[INTENSITY];
+    }
+
+    public static int channel(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length <= CHANNEL ? 0 : runtime[CHANNEL];
+    }
+
+    public static boolean valid(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime != null && runtime.length > VALID && runtime[VALID] == 1;
+    }
+
+    public static int driverCount(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length <= DRIVER_COUNT ? 0 : runtime[DRIVER_COUNT];
+    }
+
+    public static PortQuality quality(Level level, BlockPos pos, BlockState state) {
+        if (!((OpticalFiberBlock) state.getBlock()).topologyValid(state)) return PortQuality.TOPOLOGY_ERROR;
+        if (driverCount(level, pos) > 1) return PortQuality.TOPOLOGY_ERROR;
+        return valid(level, pos) ? PortQuality.VALID : PortQuality.NO_SIGNAL;
+    }
+
+    @Override public List<EngineeringPort> engineeringPorts(BlockState state) {
         List<EngineeringPort> ports = new ArrayList<>();
-        for (Direction d : Direction.values()) if (ConnectedCableBlock.connected(s, d)) {
-            ports.add(new EngineeringPort("OPTICAL FIBER", d, EngineeringDomain.OPTICAL,
+        for (Direction direction : Direction.values()) if (ConnectedCableBlock.connected(state, direction)) {
+            ports.add(new EngineeringPort("OPTICAL FIBER", direction, EngineeringDomain.OPTICAL,
                     PortKind.BUS, PortDirection.BIDIRECTIONAL, false, "intensity"));
         }
         return ports;
     }
-    @Override public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level l, BlockPos p, BlockState s, Direction side) {
-        return engineeringPort(s, side).map(port -> new EngineeringPortSnapshot(port, intensity(l, p), 0.0, 15.0,
-                valid(l, p) ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+
+    @Override
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
+        return engineeringPort(state, side).map(port -> new EngineeringPortSnapshot(
+                port, intensity(level, pos), 0.0, 15.0, quality(level, pos, state)));
     }
-    @Override protected void neighborChanged(BlockState s, Level l, BlockPos p, net.minecraft.world.level.block.Block b, BlockPos np, boolean m) {
-        super.neighborChanged(s, l, p, b, np, m);
-        if (l instanceof ServerLevel sl) DomainNetwork.recomputeOptical(sl, p);
+
+    @Override protected void neighborChanged(BlockState state, Level level, BlockPos pos, net.minecraft.world.level.block.Block block, BlockPos neighborPos, boolean moved) {
+        super.neighborChanged(state, level, pos, block, neighborPos, moved);
+        if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeOptical(serverLevel, pos);
     }
-    @Override protected void onPlace(BlockState s, Level l, BlockPos p, BlockState o, boolean m) {
-        super.onPlace(s, l, p, o, m);
-        if (l instanceof ServerLevel sl) DomainNetwork.recomputeOptical(sl, p);
+
+    @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState old, boolean moved) {
+        super.onPlace(state, level, pos, old, moved);
+        if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeOptical(serverLevel, pos);
     }
-    @Override protected void onRemove(BlockState s, Level l, BlockPos p, BlockState ns, boolean m) {
-        if (!s.is(ns.getBlock())) {
-            RuntimeIntStore.remove(l, KEY, p);
-            if (l instanceof ServerLevel sl) DomainNetwork.recomputeOpticalAround(sl, p);
+
+    @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState next, boolean moved) {
+        if (!state.is(next.getBlock())) {
+            RuntimeIntStore.remove(level, KEY, pos);
+            if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeOpticalAround(serverLevel, pos);
         }
-        super.onRemove(s, l, p, ns, m);
+        super.onRemove(state, level, pos, next, moved);
     }
-    @Override protected InteractionResult useWithoutItem(BlockState s, Level l, BlockPos p, Player pl, BlockHitResult h) {
-        if (!l.isClientSide && pl instanceof ServerPlayer sp && !pl.isShiftKeyDown()) FieldDeviceUi.open(sp, p);
-        else if (!l.isClientSide) {
-            String t = topologyValid(s) ? (valid(l, p) ? "Glowglass fiber | I=" + intensity(l, p) + "/15 | channel=" + channel(l, p) : "Glowglass fiber | DARK / channel conflict")
-                    : "OPTICAL TOPOLOGY ERROR — passive fiber cannot branch; use Optical Splitter";
-            pl.displayClientMessage(Component.literal(t + " | " + NetworkKernel.summary(l, "optical")), true);
+
+    @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer && !player.isShiftKeyDown()) {
+            FieldDeviceUi.open(serverPlayer, pos);
+        } else if (!level.isClientSide) {
+            PortQuality quality = quality(level, pos, state);
+            String text = switch (quality) {
+                case VALID -> "Glowglass fiber | I=" + intensity(level, pos) + "/15 | channel=" + channel(level, pos);
+                case TOPOLOGY_ERROR -> driverCount(level, pos) > 1
+                        ? "OPTICAL SOURCE CONFLICT — drivers=" + driverCount(level, pos)
+                        : "OPTICAL TOPOLOGY ERROR — passive fiber cannot branch; use Optical Splitter";
+                default -> "Glowglass fiber | DARK / NO SOURCE";
+            };
+            player.displayClientMessage(Component.literal(text + " | " + NetworkKernel.summary(level, "optical")), true);
         }
-        return InteractionResult.sidedSuccess(l.isClientSide);
+        return InteractionResult.sidedSuccess(level.isClientSide);
     }
 }
