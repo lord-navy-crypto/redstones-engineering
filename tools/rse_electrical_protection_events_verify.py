@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import re
 import sys
 
 root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
@@ -83,8 +84,13 @@ if tests and "SystemEventTimeline.clear(helper.getLevel())" in tests:
 workflow = read(".github/workflows/build.yml")
 if workflow and "tools/rse_electrical_protection_events_verify.py" not in workflow:
     errors.append("Electrical protection verifier is not wired into CI")
-if workflow and "test_count < 195" not in workflow:
-    errors.append("Minecraft runtime gate has not been raised to at least 195 GameTests")
+if workflow:
+    # This milestone established a minimum of 195 runtime GameTests. Later milestones are
+    # expected to raise the gate, so verify the threshold monotonically instead of pinning
+    # this older verifier to the exact historical string `test_count < 195`.
+    thresholds = [int(value) for value in re.findall(r"test_count\s*<\s*(\d+)", workflow)]
+    if not thresholds or max(thresholds) < 195:
+        errors.append("Minecraft runtime gate has not been raised to at least 195 GameTests")
 
 if errors:
     print("RSE electrical protection event verification: FAIL")

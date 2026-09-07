@@ -2,6 +2,7 @@ package dev.redstoneengineering.ui.menu;
 
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.block.OperationsMonitorBlock;
+import dev.redstoneengineering.diagnostics.ElectricalReliabilityAssessment;
 import dev.redstoneengineering.diagnostics.IndustrialOperationsAssessment;
 import dev.redstoneengineering.diagnostics.OperationsDashboardSnapshot;
 import dev.redstoneengineering.diagnostics.OperationsEventWindow;
@@ -47,6 +48,14 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
     private final DataSlot abnormalDownstreamObservations = trackedInt();
     private final DataSlot evidenceTraceEntries = trackedInt();
 
+    private final DataSlot electricalTrips = trackedInt();
+    private final DataSlot electricalRecoveries = trackedInt();
+    private final DataSlot electricalRepeatTrips = trackedInt();
+    private final DataSlot electricalActiveTrips = trackedInt();
+    private final DataSlot electricalDowntime = trackedInt();
+    private final DataSlot electricalLastTripAge = trackedInt();
+    private final DataSlot electricalLastRecoveryDuration = trackedInt();
+
     private final DataSlot[] eventKinds = trackedInts(EVENT_SLOTS);
     private final DataSlot[] eventSeverities = trackedInts(EVENT_SLOTS);
     private final DataSlot[] eventAges = trackedInts(EVENT_SLOTS);
@@ -56,13 +65,8 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
     }
 
     public OperationsMonitorMenu(int containerId, Inventory inventory, BlockPos pos) {
-        super(
-                EngineeringUiRegistration.OPERATIONS_MONITOR.get(),
-                containerId,
-                inventory,
-                pos,
-                RedstoneEngineering.OPERATIONS_MONITOR.get()
-        );
+        super(EngineeringUiRegistration.OPERATIONS_MONITOR.get(), containerId, inventory, pos,
+                RedstoneEngineering.OPERATIONS_MONITOR.get());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
     }
 
@@ -75,6 +79,8 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
         IndustrialOperationsAssessment.Snapshot operations = dashboard.operations();
         OperationsEventWindow window = OperationsEventWindow.inspect(level, dashboard);
         OperationsIncidentSummary incident = OperationsIncidentSummary.inspect(level, blockPos, dashboard);
+        ElectricalReliabilityAssessment.Snapshot electrical =
+                ElectricalReliabilityAssessment.inspect(level, dashboard.eventScope());
 
         queue.set(operations.queueNow());
         throughput.set(operations.throughputCyclesPerMinute());
@@ -91,10 +97,18 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
         firstOutDx.set(incident.firstOutDx());
         firstOutDy.set(incident.firstOutDy());
         firstOutDz.set(incident.firstOutDz());
-        incidentDuration.set((int) Math.min(MAX_SYNC_AGE_TICKS, incident.incidentDurationTicks()));
+        incidentDuration.set(syncTicks(incident.incidentDurationTicks()));
         downstreamObservations.set(incident.downstreamObservations());
         abnormalDownstreamObservations.set(incident.abnormalDownstreamObservations());
         evidenceTraceEntries.set(incident.evidenceTraceEntries());
+
+        electricalTrips.set(electrical.tripCount());
+        electricalRecoveries.set(electrical.recoveryCount());
+        electricalRepeatTrips.set(electrical.repeatTripCount());
+        electricalActiveTrips.set(electrical.activeTripCount());
+        electricalDowntime.set(syncTicks(electrical.electricalDowntimeTicks()));
+        electricalLastTripAge.set(syncOptionalTicks(electrical.lastTripAgeTicks()));
+        electricalLastRecoveryDuration.set(syncOptionalTicks(electrical.lastRecoveryDurationTicks()));
 
         List<SystemEventRecord> events = window.events();
         int count = Math.min(EVENT_SLOTS, events.size());
@@ -127,10 +141,9 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
         }
     }
 
-    private int ageTicks(long eventTick) {
-        long age = Math.max(0L, level.getGameTime() - eventTick);
-        return (int) Math.min(MAX_SYNC_AGE_TICKS, age);
-    }
+    private int ageTicks(long eventTick) { return syncTicks(Math.max(0L, level.getGameTime() - eventTick)); }
+    private static int syncTicks(long ticks) { return (int) Math.min(MAX_SYNC_AGE_TICKS, Math.max(0L, ticks)); }
+    private static int syncOptionalTicks(long ticks) { return ticks < 0 ? -1 : syncTicks(ticks); }
 
     public int queue() { return queue.get(); }
     public int throughput() { return throughput.get(); }
@@ -154,6 +167,14 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
     public int abnormalDownstreamObservations() { return abnormalDownstreamObservations.get(); }
     public int evidenceTraceEntries() { return evidenceTraceEntries.get(); }
 
+    public int electricalTripCount() { return electricalTrips.get(); }
+    public int electricalRecoveryCount() { return electricalRecoveries.get(); }
+    public int electricalRepeatTripCount() { return electricalRepeatTrips.get(); }
+    public int electricalActiveTripCount() { return electricalActiveTrips.get(); }
+    public int electricalDowntimeTicks() { return electricalDowntime.get(); }
+    public int electricalLastTripAgeTicks() { return electricalLastTripAge.get(); }
+    public int electricalLastRecoveryDurationTicks() { return electricalLastRecoveryDuration.get(); }
+
     public OperationsMonitorBlock.SystemState state() {
         OperationsMonitorBlock.SystemState[] values = OperationsMonitorBlock.SystemState.values();
         return values[clampIndex(state.get(), values.length)];
@@ -164,17 +185,9 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
         return values[clampIndex(dominantConstraint.get(), values.length)];
     }
 
-    public int eventKindOrdinal(int slot) {
-        return validSlot(slot) ? eventKinds[slot].get() : -1;
-    }
-
-    public int eventSeverity(int slot) {
-        return validSlot(slot) ? eventSeverities[slot].get() : -1;
-    }
-
-    public int eventAgeTicks(int slot) {
-        return validSlot(slot) ? eventAges[slot].get() : -1;
-    }
+    public int eventKindOrdinal(int slot) { return validSlot(slot) ? eventKinds[slot].get() : -1; }
+    public int eventSeverity(int slot) { return validSlot(slot) ? eventSeverities[slot].get() : -1; }
+    public int eventAgeTicks(int slot) { return validSlot(slot) ? eventAges[slot].get() : -1; }
 
     public boolean eventAbnormal(int slot) {
         int kind = eventKindOrdinal(slot);
@@ -184,10 +197,7 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
         return values[index].abnormal() || eventSeverity(slot) >= 2;
     }
 
-    private static boolean validSlot(int slot) {
-        return slot >= 0 && slot < EVENT_SLOTS;
-    }
-
+    private static boolean validSlot(int slot) { return slot >= 0 && slot < EVENT_SLOTS; }
     private static int clampIndex(int value, int length) {
         return Math.max(0, Math.min(Math.max(0, length - 1), value));
     }

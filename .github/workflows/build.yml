@@ -80,6 +80,7 @@ jobs:
             tools/rse_operations_event_timeline_verify.py \
             tools/rse_operations_incident_drilldown_verify.py \
             tools/rse_electrical_protection_events_verify.py \
+            tools/rse_electrical_reliability_verify.py \
             tools/rse_fourth_eight_verify.py \
             tools/rse_fifth_eight_verify.py \
             tools/rse_sixth_eight_verify.py \
@@ -134,8 +135,8 @@ jobs:
             exit 1
           fi
           test_count="$(printf '%s\n' "$summary_line" | sed -E 's/.*All ([0-9]+) required tests passed.*/\1/')"
-          if [[ ! "$test_count" =~ ^[0-9]+$ ]] || (( test_count < 195 )); then
-            echo "::error::Expected at least 195 GameTests after electrical protection event coverage; observed: $test_count"
+          if [[ ! "$test_count" =~ ^[0-9]+$ ]] || (( test_count < 197 )); then
+            echo "::error::Expected at least 197 GameTests after electrical reliability evidence coverage; observed: $test_count"
             exit 1
           fi
           echo "Verified GameTest completion: $test_count required tests passed"
