@@ -47,12 +47,13 @@ public class RedstoneSignalCableBlock extends ConnectedCableBlock implements Eng
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         List<EngineeringPort> ports = new ArrayList<>();
         for (Direction side : Direction.values()) {
-            if (connected(state, side)) {
-                ports.add(new EngineeringPort(
-                        "INSULATED SIGNAL " + side.getName().toUpperCase(), side,
-                        EngineeringDomain.REDSTONE, PortKind.REDSTONE_ANALOG,
-                        PortDirection.BIDIRECTIONAL, false, "signal"));
-            }
+            // Open N/E/S/W faces remain legitimate cable ports. UP/DOWN are only
+            // exposed when a Signal Junction has created that vertical physical arm.
+            if (side.getAxis() == Direction.Axis.Y && !connected(state, side)) continue;
+            ports.add(new EngineeringPort(
+                    "INSULATED SIGNAL " + side.getName().toUpperCase(), side,
+                    EngineeringDomain.REDSTONE, PortKind.REDSTONE_ANALOG,
+                    PortDirection.BIDIRECTIONAL, false, "signal"));
         }
         return List.copyOf(ports);
     }
