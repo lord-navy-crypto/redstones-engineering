@@ -132,13 +132,6 @@ public class RedstoneCableTerminalBlock extends Block implements EngineeringPort
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
         super.onPlace(state, level, pos, oldState, moved);
-        if (state.is(oldState.getBlock())
-                && state.getValue(OUTPUT_MODE) != oldState.getValue(OUTPUT_MODE)
-                && state.getValue(POWER) != 0) {
-            // Any mode-change path (GUI, right-click, command, future API) must
-            // invalidate the old role's cached signal before recomputation.
-            level.setBlock(pos, state.setValue(POWER, 0), Block.UPDATE_CLIENTS);
-        }
         if (level instanceof ServerLevel server) RedstoneCableNetwork.recompute(server, pos);
     }
 
