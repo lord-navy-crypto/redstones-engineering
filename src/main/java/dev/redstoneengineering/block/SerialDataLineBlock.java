@@ -20,17 +20,21 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/** Simplified serial link stores framed byte payload + symbol period at runtime. */
-public class SerialDataLineBlock extends Block implements EngineeringPortProvider {
+/**
+ * Framed serial-data cable. Direct line continuity/branching is planar; vertical
+ * transitions require the unified Signal Junction Point.
+ */
+public class SerialDataLineBlock extends ConnectedCableBlock implements EngineeringPortProvider {
     public SerialDataLineBlock(Properties properties) {
         super(properties);
     }
@@ -41,18 +45,31 @@ public class SerialDataLineBlock extends Block implements EngineeringPortProvide
     }
 
     @Override
+    protected boolean canConnectTo(BlockGetter level, BlockPos self, Direction direction, BlockState neighbor) {
+        return TransmissionTopology.serialPort(level, self, direction, neighbor);
+    }
+
+    @Override
+    protected int maxConnections() {
+        return 6;
+    }
+
+    @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
-        return Arrays.stream(Direction.values())
-                .map(side -> new EngineeringPort(
-                        "SERIAL DATA",
-                        side,
-                        EngineeringDomain.SERIAL_DATA,
-                        PortKind.BUS,
-                        PortDirection.BIDIRECTIONAL,
-                        false,
-                        "byte"
-                ))
-                .toList();
+        List<EngineeringPort> ports = new ArrayList<>();
+        for (Direction side : Direction.values()) {
+            if (!connected(state, side)) continue;
+            ports.add(new EngineeringPort(
+                    "SERIAL DATA",
+                    side,
+                    EngineeringDomain.SERIAL_DATA,
+                    PortKind.BUS,
+                    PortDirection.BIDIRECTIONAL,
+                    false,
+                    "byte"
+            ));
+        }
+        return List.copyOf(ports);
     }
 
     @Override
@@ -77,6 +94,19 @@ public class SerialDataLineBlock extends Block implements EngineeringPortProvide
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
+        if (!level.isClientSide) level.scheduleTick(pos, this, 1);
+    }
+
+    @Override
+    protected void neighborChanged(
+            BlockState state,
+            Level level,
+            BlockPos pos,
+            Block neighborBlock,
+            BlockPos neighborPos,
+            boolean movedByPiston
+    ) {
+        super.neighborChanged(state, level, pos, neighborBlock, neighborPos, movedByPiston);
         if (!level.isClientSide) level.scheduleTick(pos, this, 1);
     }
 
@@ -117,6 +147,8 @@ public class SerialDataLineBlock extends Block implements EngineeringPortProvide
                                 + " period=" + Math.max(1, InformationRuntime.aux(level, "serial", pos)) + "t"
                                 + " quality=" + InformationRuntime.quality(level, "serial", pos) + "%"
                                 + " valid=" + InformationRuntime.valid(level, "serial", pos)
+                                + " | ports=" + connectionCount(state)
+                                + " | routing=PLANAR; vertical via Signal Junction Point"
                                 + " | " + SerialNetwork.diagnostics(level, pos)
                 ), true);
             } else {
