@@ -3,6 +3,7 @@ package dev.redstoneengineering.block;
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
+import dev.redstoneengineering.physics.CopperObservationSupport;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.EngineeringMath;
 import net.minecraft.core.BlockPos;
@@ -19,23 +20,20 @@ public class LapisVoltageTransducerBlock extends AbstractLapisTransducerBlock {
     @Override protected EngineeringDomain inputDomain() { return EngineeringDomain.COPPER; }
     @Override protected Measurement sense(ServerLevel level, BlockPos pos, BlockState state) {
         BlockPos probe = inputPos(pos, state);
-        BlockState s = level.getBlockState(probe);
-        boolean valid = s.getBlock() instanceof CopperWireBlock
-                || s.getBlock() instanceof CopperVoltageSourceBlock
-                || s.getBlock() instanceof CopperResistiveLoadBlock
-                || s.getBlock() instanceof CopperCapacitorBlock
-                || s.getBlock() instanceof CopperSeriesResistorBlock
-                || s.getBlock() instanceof CopperFuseBlock
-                || s.getBlock() instanceof InductionCoilBlock
-                || s.getBlock() instanceof CopperCableJunctionBlock;
-        int v = DomainNetwork.sampleCopperVoltage(level, probe, pos);
-        // Directional processors are measurable only when the probe is on a real
-        // input/output face. Side-face attachment is not a valid electrical node.
-        if (s.hasProperty(DirectionalDomainBlock.FACING)) {
-            var facing = s.getValue(DirectionalDomainBlock.FACING);
-            valid = valid && (pos.equals(probe.relative(facing)) || pos.equals(probe.relative(facing.getOpposite())));
+        if (!level.hasChunkAt(probe)) {
+            return new Measurement(0, dev.redstoneengineering.core.port.PortQuality.STALE, "Copper coverage unavailable");
         }
+
+        // DomainNetwork owns the numerical voltage. CopperObservationSupport independently
+        // owns source/topology evidence, so an isolated wire is not promoted to VALID merely
+        // because its numeric voltage happens to be zero.
+        int v = DomainNetwork.sampleCopperVoltage(level, probe, pos);
+        CopperObservationSupport.Observation observation = CopperObservationSupport.measure(level, probe, pos);
         int normalized = Math.round(EngineeringMath.clamp(v, 0, 15) * 100.0f / 15.0f);
-        return new Measurement(normalized, valid, valid ? "V-level=" + v + "/15" : "invalid probe face");
+        return new Measurement(
+                normalized,
+                observation.quality(),
+                "V-level=" + v + "/15 quality=" + observation.quality()
+        );
     }
 }
