@@ -81,6 +81,7 @@ jobs:
             tools/rse_operations_incident_drilldown_verify.py \
             tools/rse_electrical_protection_events_verify.py \
             tools/rse_electrical_reliability_verify.py \
+            tools/rse_reliability_retention_contract_verify.py \
             tools/rse_communication_medium_identity_verify.py \
             tools/rse_fourth_eight_verify.py \
             tools/rse_fifth_eight_verify.py \
