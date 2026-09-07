@@ -1,0 +1,39 @@
+name: Instrument Cable Visual Topology
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/main/resources/assets/redstoneengineering/blockstates/instrument_cable.json'
+      - 'src/main/resources/assets/redstoneengineering/blockstates/shielded_instrument_cable.json'
+      - 'src/main/resources/assets/redstoneengineering/models/block/instrument_cable*.json'
+      - 'src/main/resources/assets/redstoneengineering/models/block/shielded_instrument_cable*.json'
+      - 'src/main/java/dev/redstoneengineering/block/ConnectedCableBlock.java'
+      - 'src/main/java/dev/redstoneengineering/block/InstrumentCableBlock.java'
+      - 'src/main/java/dev/redstoneengineering/instrument/InstrumentNetwork.java'
+      - 'tools/rse_instrument_cable_visual_topology_verify.py'
+      - '.github/workflows/instrument-cable-visual.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/main/resources/assets/redstoneengineering/blockstates/instrument_cable.json'
+      - 'src/main/resources/assets/redstoneengineering/blockstates/shielded_instrument_cable.json'
+      - 'src/main/resources/assets/redstoneengineering/models/block/instrument_cable*.json'
+      - 'src/main/resources/assets/redstoneengineering/models/block/shielded_instrument_cable*.json'
+      - 'src/main/java/dev/redstoneengineering/block/ConnectedCableBlock.java'
+      - 'src/main/java/dev/redstoneengineering/block/InstrumentCableBlock.java'
+      - 'src/main/java/dev/redstoneengineering/instrument/InstrumentNetwork.java'
+      - 'tools/rse_instrument_cable_visual_topology_verify.py'
+      - '.github/workflows/instrument-cable-visual.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-visual-topology:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Verify dynamic cable rendering contract
+        run: python3 tools/rse_instrument_cable_visual_topology_verify.py
