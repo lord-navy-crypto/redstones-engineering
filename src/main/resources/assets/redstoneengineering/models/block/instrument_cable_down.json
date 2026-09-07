@@ -1,0 +1,4 @@
+{
+  "parent": "redstoneengineering:block/redstone_signal_cable_down",
+  "textures": { "line": "redstoneengineering:block/instrument_cable", "particle": "redstoneengineering:block/instrument_cable" }
+}
