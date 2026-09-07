@@ -59,7 +59,9 @@ public class EightBitDataBusBlock extends ConnectedCableBlock implements Enginee
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         List<EngineeringPort> ports = new ArrayList<>();
         for (Direction side : Direction.values()) {
-            if (!connected(state, side)) continue;
+            // Horizontal faces are always potential cable ports. Vertical faces only
+            // become physical ports when a same-medium Signal Junction created the arm.
+            if (side.getAxis() == Direction.Axis.Y && !connected(state, side)) continue;
             ports.add(new EngineeringPort(
                     "8-BIT DATA BUS",
                     side,
