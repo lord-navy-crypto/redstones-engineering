@@ -1,9 +1,11 @@
 {
   "multipart": [
-    {
-      "apply": {
-        "model": "redstoneengineering:block/instrument_cable"
-      }
-    }
+    { "apply": { "model": "redstoneengineering:block/instrument_cable_center" } },
+    { "when": { "north": "true" }, "apply": { "model": "redstoneengineering:block/instrument_cable_north" } },
+    { "when": { "east": "true" }, "apply": { "model": "redstoneengineering:block/instrument_cable_east" } },
+    { "when": { "south": "true" }, "apply": { "model": "redstoneengineering:block/instrument_cable_south" } },
+    { "when": { "west": "true" }, "apply": { "model": "redstoneengineering:block/instrument_cable_west" } },
+    { "when": { "up": "true" }, "apply": { "model": "redstoneengineering:block/instrument_cable_up" } },
+    { "when": { "down": "true" }, "apply": { "model": "redstoneengineering:block/instrument_cable_down" } }
   ]
 }
