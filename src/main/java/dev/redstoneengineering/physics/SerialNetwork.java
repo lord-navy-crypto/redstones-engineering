@@ -1,9 +1,12 @@
 package dev.redstoneengineering.physics;
 
+import dev.redstoneengineering.block.ConnectedCableBlock;
 import dev.redstoneengineering.block.DigitalRegeneratorBlock;
 import dev.redstoneengineering.block.DirectionalDomainBlock;
+import dev.redstoneengineering.block.RedstoneCableJunctionBlock;
 import dev.redstoneengineering.block.SerialDataLineBlock;
 import dev.redstoneengineering.block.SerializerBlock;
+import dev.redstoneengineering.block.TransmissionTopology;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -33,10 +36,29 @@ public final class SerialNetwork {
 
     private record Driver(BlockPos pos, int value, int period, int quality) {}
 
+    private static boolean isNode(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        return state.getBlock() instanceof SerialDataLineBlock
+                || state.getBlock() instanceof RedstoneCableJunctionBlock
+                && state.getValue(RedstoneCableJunctionBlock.MEDIUM) == TransmissionTopology.SignalMedium.SERIAL;
+    }
+
+    private static boolean edgeAllowed(Level level, BlockPos from, BlockPos to, Direction direction) {
+        BlockState a = level.getBlockState(from);
+        BlockState b = level.getBlockState(to);
+        if (!isNode(level, from) || !isNode(level, to)) return false;
+        boolean aJunction = a.getBlock() instanceof RedstoneCableJunctionBlock;
+        boolean bJunction = b.getBlock() instanceof RedstoneCableJunctionBlock;
+        if (aJunction && bJunction) return false;
+        if (!aJunction && !bJunction && direction.getAxis() == Direction.Axis.Y) return false;
+        return ConnectedCableBlock.connected(a, direction)
+                && ConnectedCableBlock.connected(b, direction.getOpposite());
+    }
+
     public static Set<BlockPos> collect(Level level, BlockPos start) {
         Set<BlockPos> seen = new HashSet<>();
         ArrayDeque<BlockPos> queue = new ArrayDeque<>();
-        if (!(level.getBlockState(start).getBlock() instanceof SerialDataLineBlock)) return seen;
+        if (!isNode(level, start)) return seen;
         queue.add(start);
         while (!queue.isEmpty() && seen.size() < NetworkKernel.MAX_NODES) {
             BlockPos pos = queue.removeFirst();
@@ -44,7 +66,8 @@ public final class SerialNetwork {
             for (Direction direction : Direction.values()) {
                 BlockPos next = pos.relative(direction);
                 if (level.hasChunkAt(next)
-                        && level.getBlockState(next).getBlock() instanceof SerialDataLineBlock
+                        && isNode(level, next)
+                        && edgeAllowed(level, pos, next, direction)
                         && !seen.contains(next)) {
                     queue.addLast(next);
                 }
@@ -111,6 +134,7 @@ public final class SerialNetwork {
         Set<BlockPos> seenDrivers = new HashSet<>();
         Driver driver = null;
         for (BlockPos linePos : nodes) {
+            if (!(level.getBlockState(linePos).getBlock() instanceof SerialDataLineBlock)) continue;
             for (Direction direction : Direction.values()) {
                 BlockPos candidatePos = linePos.relative(direction);
                 if (!level.hasChunkAt(candidatePos) || !seenDrivers.add(candidatePos.immutable())) continue;
