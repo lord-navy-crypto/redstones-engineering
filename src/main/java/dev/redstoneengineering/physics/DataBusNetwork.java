@@ -47,6 +47,7 @@ public final class DataBusNetwork {
     ) {}
 
     private static boolean isNode(Level level, BlockPos pos) {
+        if (!level.hasChunkAt(pos)) return false;
         BlockState state = level.getBlockState(pos);
         return state.getBlock() instanceof EightBitDataBusBlock
                 || state.getBlock() instanceof RedstoneCableJunctionBlock
@@ -175,6 +176,7 @@ public final class DataBusNetwork {
     }
 
     public static int sample(Level level, BlockPos pos) {
+        if (!level.hasChunkAt(pos)) return 0;
         InformationRuntime.Snapshot snapshot = InformationRuntime.snapshot(
                 level,
                 isNode(level, pos) ? "bus8" : "bus8_out",
@@ -197,6 +199,7 @@ public final class DataBusNetwork {
 
     /** Observer-neutral bus quality: never creates payload or diagnostic runtime. */
     public static PortQuality quality(Level level, BlockPos pos) {
+        if (!level.hasChunkAt(pos)) return PortQuality.STALE;
         boolean node = isNode(level, pos);
         InformationRuntime.Snapshot snapshot = InformationRuntime.snapshot(level, node ? "bus8" : "bus8_out", pos);
         if (snapshot.ageTicks() < 0) return PortQuality.STALE;
@@ -225,6 +228,7 @@ public final class DataBusNetwork {
     }
 
     public static boolean valid(Level level, BlockPos pos) {
+        if (!level.hasChunkAt(pos)) return false;
         InformationRuntime.Snapshot snapshot = InformationRuntime.snapshot(
                 level,
                 isNode(level, pos) ? "bus8" : "bus8_out",
