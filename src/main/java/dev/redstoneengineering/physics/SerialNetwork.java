@@ -39,6 +39,7 @@ public final class SerialNetwork {
     private record Driver(BlockPos pos, int value, int period, int quality) {}
 
     private static boolean isNode(Level level, BlockPos pos) {
+        if (!level.hasChunkAt(pos)) return false;
         BlockState state = level.getBlockState(pos);
         return state.getBlock() instanceof SerialDataLineBlock
                 || state.getBlock() instanceof RedstoneCableJunctionBlock
@@ -93,10 +94,11 @@ public final class SerialNetwork {
         int resolvedQuality = valid ? Math.max(0, Math.min(100, quality - nodes.size() / 4)) : 0;
         int now = (int) Math.min(Integer.MAX_VALUE, level.getGameTime());
         for (BlockPos pos : nodes) {
-            int oldValue = InformationRuntime.value(level, "serial", pos) & 0xFF;
-            int oldPeriod = Math.max(1, InformationRuntime.aux(level, "serial", pos));
-            int oldQuality = InformationRuntime.quality(level, "serial", pos);
-            boolean oldValid = InformationRuntime.valid(level, "serial", pos);
+            InformationRuntime.Snapshot old = InformationRuntime.snapshot(level, "serial", pos);
+            int oldValue = old.value() & 0xFF;
+            int oldPeriod = Math.max(1, old.selector());
+            int oldQuality = old.qualityPercent();
+            boolean oldValid = old.valid();
             boolean effectiveChanged = oldValue != resolvedValue
                     || oldPeriod != resolvedPeriod
                     || oldQuality != resolvedQuality
@@ -148,13 +150,14 @@ public final class SerialNetwork {
                 }
                 Direction output = candidateState.getValue(DirectionalDomainBlock.FACING);
                 if (!candidatePos.relative(output).equals(linePos)) continue;
-                if (!InformationRuntime.valid(level, "serial", candidatePos)) continue;
+                InformationRuntime.Snapshot source = InformationRuntime.snapshot(level, "serial", candidatePos);
+                if (!source.valid()) continue;
 
                 Driver candidate = new Driver(
                         candidatePos.immutable(),
-                        InformationRuntime.value(level, "serial", candidatePos) & 0xFF,
-                        Math.max(1, InformationRuntime.aux(level, "serial", candidatePos)),
-                        Math.max(0, Math.min(100, InformationRuntime.quality(level, "serial", candidatePos)))
+                        source.value() & 0xFF,
+                        Math.max(1, source.selector()),
+                        Math.max(0, Math.min(100, source.qualityPercent()))
                 );
                 if (driver != null && !driver.pos().equals(candidate.pos())) {
                     NetworkKernel.recordDriverState(level, "serial", 2);
@@ -181,10 +184,11 @@ public final class SerialNetwork {
 
     private static void invalidate(ServerLevel level, Set<BlockPos> nodes, int driverCount) {
         for (BlockPos pos : nodes) {
-            int oldValue = InformationRuntime.value(level, "serial", pos) & 0xFF;
-            int oldPeriod = Math.max(1, InformationRuntime.aux(level, "serial", pos));
-            int oldQuality = InformationRuntime.quality(level, "serial", pos);
-            boolean oldValid = InformationRuntime.valid(level, "serial", pos);
+            InformationRuntime.Snapshot old = InformationRuntime.snapshot(level, "serial", pos);
+            int oldValue = old.value() & 0xFF;
+            int oldPeriod = Math.max(1, old.selector());
+            int oldQuality = old.qualityPercent();
+            boolean oldValid = old.valid();
             boolean effectiveChanged = oldValue != 0 || oldPeriod != 1 || oldQuality != 0 || oldValid;
 
             InformationRuntime.write(level, "serial", pos, 0, 1, false, 0);
@@ -223,6 +227,7 @@ public final class SerialNetwork {
 
     /** Observer-neutral serial quality with explicit no-driver versus conflict evidence. */
     public static PortQuality quality(Level level, BlockPos pos) {
+        if (!level.hasChunkAt(pos)) return PortQuality.STALE;
         InformationRuntime.Snapshot snapshot = InformationRuntime.snapshot(level, "serial", pos);
         if (snapshot.ageTicks() < 0) return PortQuality.STALE;
         Diagnostics diagnostics = getDiagnostics(level, pos);
