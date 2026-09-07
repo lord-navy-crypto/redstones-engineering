@@ -30,6 +30,9 @@ import java.util.Optional;
 /** Calorimeter measurement history is runtime data, not a combinatorial BlockState. */
 public class ThermalCalorimeterBlock extends DomainBlock implements EngineeringPortProvider {
     private static final String KEY = "thermal_calorimeter";
+
+    public record History(int lastTemperature, int deltaTemperature, boolean initialized) {}
+
     public ThermalCalorimeterBlock(Properties properties) { super(properties); }
     @Override public MapCodec<ThermalCalorimeterBlock> codec() { return RedstoneEngineering.THERMAL_CALORIMETER_CODEC.value(); }
 
@@ -89,14 +92,22 @@ public class ThermalCalorimeterBlock extends DomainBlock implements EngineeringP
         level.scheduleTick(pos, this, 20);
     }
 
+    /** Observer-only access to retained calorimeter history. */
+    public static History history(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        if (runtime == null || runtime.length < 2) return new History(0, 0, false);
+        int delta = runtime[1] == 0 ? 0 : runtime[1] - 100;
+        return new History(runtime[0], delta, true);
+    }
+
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
             Sample sample = sample(level, pos);
-            int[] rt = RuntimeIntStore.get(level, KEY, pos, 2);
-            int delta = rt[1] == 0 ? 0 : rt[1] - 100;
-            int relativeHeat = delta * sample.heatCapacity();
-            player.displayClientMessage(Component.literal("Thermal calorimeter | six-face observer only | T=" + sample.temperature() + "/100 | ΔT/20t=" + delta
-                    + " | heat-capacity index=" + sample.heatCapacity() + " | relative C·ΔT=" + relativeHeat), true);
+            History history = history(level, pos);
+            int relativeHeat = history.deltaTemperature() * sample.heatCapacity();
+            player.displayClientMessage(Component.literal("Thermal calorimeter | six-face observer only | T=" + sample.temperature() + "/100 | ΔT/20t=" + history.deltaTemperature()
+                    + " | heat-capacity index=" + sample.heatCapacity() + " | relative C·ΔT=" + relativeHeat
+                    + " | " + (history.initialized() ? "VALID HISTORY" : "STALE HISTORY")), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
