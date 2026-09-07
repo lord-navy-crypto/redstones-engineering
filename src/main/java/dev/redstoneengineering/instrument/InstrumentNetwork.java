@@ -5,6 +5,7 @@ import dev.redstoneengineering.block.InstrumentCableBlock;
 import dev.redstoneengineering.block.ShieldedInstrumentCableBlock;
 import dev.redstoneengineering.block.SignalProbeBlock;
 import dev.redstoneengineering.block.TransmissionTopology;
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.NetworkKernel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -109,7 +110,32 @@ public final class InstrumentNetwork {
         public int duplicateChannels() { int duplicates = 0; for (int count : counts) if (count > 1) duplicates++; return duplicates; }
         public int duplicateProbes() { int duplicates = 0; for (int count : counts) duplicates += Math.max(0, count - 1); return duplicates; }
         public int activeChannels() { int active = 0; for (int channel = 0; channel < 4; channel++) if (counts[channel] > 0) active++; return active; }
-        public int validChannels() { int valid = 0; for (int channel = 0; channel < 4; channel++) if (valid(channel)) valid++; return valid; }
+        public int validChannels() { return validChannelsInMask(0xF); }
+        public int validChannelsInMask(int channelMask) {
+            int valid = 0;
+            for (int channel = 0; channel < 4; channel++) {
+                if ((channelMask & (1 << channel)) != 0 && valid(channel)) valid++;
+            }
+            return valid;
+        }
+        public int duplicateChannelsInMask(int channelMask) {
+            int duplicates = 0;
+            for (int channel = 0; channel < 4; channel++) {
+                if ((channelMask & (1 << channel)) != 0 && counts[channel] > 1) duplicates++;
+            }
+            return duplicates;
+        }
+        /**
+         * Observer-facing quality for the requested logical channels. The scan remains the
+         * authoritative topology evidence: truncation or duplicate ownership is a topology
+         * error, while an otherwise healthy bus with no selected probes is simply NO_SIGNAL.
+         */
+        public PortQuality qualityForMask(int channelMask) {
+            int mask = channelMask & 0xF;
+            if (!bounded) return PortQuality.TOPOLOGY_ERROR;
+            if (duplicateChannelsInMask(mask) > 0) return PortQuality.TOPOLOGY_ERROR;
+            return validChannelsInMask(mask) > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL;
+        }
         public int shieldingCoveragePercent() {
             int total = shieldedCableNodes + unshieldedCableNodes;
             return total == 0 ? 0 : (100 * shieldedCableNodes) / total;

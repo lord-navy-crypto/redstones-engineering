@@ -18,9 +18,16 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
+/** Converts level transitions into bounded redstone event pulses with inspectable transient evidence. */
 public class EdgeDetectorBlock extends DirectionalSignalBlock {
     public static final IntegerProperty MODE = IntegerProperty.create("mode", 0, 2);
     private static final String KEY = "redstone_edge_detector";
+    private static final int RUNTIME_SIZE = 5;
+    private static final int LAST_INPUT_SLOT = 0;
+    private static final int PULSE_TICKS_SLOT = 1;
+    private static final int INITIALIZED_SLOT = 2;
+    private static final int EDGE_COUNT = 3;
+    private static final int LAST_EDGE_TICK = 4;
 
     public EdgeDetectorBlock(Properties properties) {
         super(properties);
@@ -34,28 +41,32 @@ public class EdgeDetectorBlock extends DirectionalSignalBlock {
 
     @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         boolean now = readBackInput(level, pos, state) > 0;
-        int[] rt = RuntimeIntStore.get(level, KEY, pos, 3); // last, remaining, initialized
-        if (rt[2] == 0) {
-            rt[0] = now ? 1 : 0;
-            rt[1] = 0;
-            rt[2] = 1;
+        int[] rt = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
+        if (rt[INITIALIZED_SLOT] == 0) {
+            rt[LAST_INPUT_SLOT] = now ? 1 : 0;
+            rt[PULSE_TICKS_SLOT] = 0;
+            rt[INITIALIZED_SLOT] = 1;
             updateOutput(level, pos, state, 0);
             return;
         }
 
-        boolean last = rt[0] == 1;
-        int remaining = rt[1];
+        boolean last = rt[LAST_INPUT_SLOT] == 1;
+        int remaining = rt[PULSE_TICKS_SLOT];
         boolean edge = switch (state.getValue(MODE)) {
             case 0 -> !last && now;
             case 1 -> last && !now;
             case 2 -> last != now;
             default -> false;
         };
-        if (edge) remaining = 2;
+        if (edge) {
+            remaining = 2;
+            rt[EDGE_COUNT]++;
+            rt[LAST_EDGE_TICK] = boundedTick(level.getGameTime());
+        }
 
         updateOutput(level, pos, state, remaining > 0 ? 15 : 0);
-        rt[0] = now ? 1 : 0;
-        rt[1] = Math.max(0, remaining - 1);
+        rt[LAST_INPUT_SLOT] = now ? 1 : 0;
+        rt[PULSE_TICKS_SLOT] = Math.max(0, remaining - 1);
         if (remaining > 0) level.scheduleTick(pos, this, 1);
     }
 
@@ -64,9 +75,33 @@ public class EdgeDetectorBlock extends DirectionalSignalBlock {
         super.onRemove(state, level, pos, newState, moved);
     }
 
-    public static int lastInput(Level level, BlockPos pos) { return RuntimeIntStore.get(level, KEY, pos, 3)[0]; }
-    public static int pulseRemaining(Level level, BlockPos pos) { return RuntimeIntStore.get(level, KEY, pos, 3)[1]; }
-    public static boolean initialized(Level level, BlockPos pos) { return RuntimeIntStore.get(level, KEY, pos, 3)[2] == 1; }
+    /** Read-only diagnostic accessors must never initialize the detector or create a false edge. */
+    public static int lastInput(Level level, BlockPos pos) {
+        int[] rt = RuntimeIntStore.peek(level, KEY, pos);
+        return rt == null || rt.length < RUNTIME_SIZE ? 0 : rt[LAST_INPUT_SLOT];
+    }
+    public static int pulseRemaining(Level level, BlockPos pos) {
+        int[] rt = RuntimeIntStore.peek(level, KEY, pos);
+        return rt == null || rt.length < RUNTIME_SIZE ? 0 : Math.max(0, rt[PULSE_TICKS_SLOT]);
+    }
+    public static boolean initialized(Level level, BlockPos pos) {
+        int[] rt = RuntimeIntStore.peek(level, KEY, pos);
+        return rt != null && rt.length >= RUNTIME_SIZE && rt[INITIALIZED_SLOT] == 1;
+    }
+    public static int edgeCount(Level level, BlockPos pos) {
+        int[] rt = RuntimeIntStore.peek(level, KEY, pos);
+        return rt == null || rt.length < RUNTIME_SIZE ? 0 : Math.max(0, rt[EDGE_COUNT]);
+    }
+    public static int lastEdgeAgeTicks(Level level, BlockPos pos) {
+        int[] rt = RuntimeIntStore.peek(level, KEY, pos);
+        if (rt == null || rt.length < RUNTIME_SIZE || rt[EDGE_COUNT] <= 0) return -1;
+        long age = Math.max(0L, level.getGameTime() - Integer.toUnsignedLong(rt[LAST_EDGE_TICK]));
+        return (int) Math.min(Integer.MAX_VALUE, age);
+    }
+
+    private static int boundedTick(long tick) {
+        return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, tick));
+    }
 
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
@@ -76,7 +111,10 @@ public class EdgeDetectorBlock extends DirectionalSignalBlock {
             }
             BlockState next = state.setValue(MODE, (state.getValue(MODE) + 1) % 3);
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            player.displayClientMessage(Component.literal("Edge Detector | mode=" + modeName(next.getValue(MODE))), true);
+            player.displayClientMessage(Component.literal(
+                    "Edge Detector | mode=" + modeName(next.getValue(MODE))
+                            + " | edges=" + edgeCount(level, pos)
+                            + " | lastEdgeAge=" + lastEdgeAgeTicks(level, pos) + "t"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }

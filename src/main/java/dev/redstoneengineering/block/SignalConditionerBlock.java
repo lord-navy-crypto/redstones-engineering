@@ -2,9 +2,12 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.core.signal.SignalMath;
 import dev.redstoneengineering.ui.menu.SignalConditionerMenu;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -19,6 +22,15 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
+import java.util.Optional;
+
+/**
+ * Real-time redstone signal conditioner.
+ *
+ * <p>This block deliberately owns bounded transfer shaping (gain, offset, clamp,
+ * threshold and deadband). It does not own reference-based calibration or time-domain
+ * smoothing; those remain distinct jobs for Calibration Module and Precision Filter.</p>
+ */
 public class SignalConditionerBlock extends DirectionalSignalBlock {
     public static final IntegerProperty MODE =
             IntegerProperty.create("mode", 0, 4);
@@ -98,6 +110,37 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
         };
     }
 
+    /**
+     * Returns true only when a static transfer mode is currently hitting the 0..15 boundary.
+     * Threshold HIGH and deadband hold are intentional transfer semantics, not saturation.
+     */
+    public static boolean limitingActive(Level level, BlockPos pos, BlockState state) {
+        if (!(state.getBlock() instanceof SignalConditionerBlock conditioner)) return false;
+        int input = conditioner.readBackInput(level, pos, state);
+        int mode = state.getValue(MODE);
+        int param = state.getValue(PARAM);
+        return switch (mode) {
+            case 0 -> input * Math.max(1, Math.min(4, param)) > 15;
+            case 1 -> {
+                int raw = input + (Math.min(10, param) - 5);
+                yield raw < 0 || raw > 15;
+            }
+            case 2 -> input > Math.max(1, param);
+            default -> false;
+        };
+    }
+
+    @Override
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
+            Level level, BlockPos pos, BlockState state, Direction side
+    ) {
+        Optional<EngineeringPortSnapshot> base = super.engineeringSnapshot(level, pos, state, side);
+        if (base.isEmpty() || side != outputSide(state) || !limitingActive(level, pos, state)) return base;
+        EngineeringPortSnapshot snapshot = base.get();
+        return Optional.of(new EngineeringPortSnapshot(
+                snapshot.port(), snapshot.value(), snapshot.minimum(), snapshot.maximum(), PortQuality.SATURATED));
+    }
+
     public static int inspectInput(Level level, BlockPos pos, BlockState state) {
         if (!(state.getBlock() instanceof SignalConditionerBlock conditioner)) return 0;
         return conditioner.readBackInput(level, pos, state);
@@ -163,6 +206,7 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
                                 "Conditioner quick-adjust | " + modeName(next.getValue(MODE))
                                         + " " + parameterText(next.getValue(MODE), next.getValue(PARAM))
                                         + " | IN=" + input + " OUT≈" + output
+                                        + " | limiting=" + (limitingActive(level, pos, next) ? "YES" : "NO")
                                         + " | normal right-click opens Engineering UI"
                         ),
                         true

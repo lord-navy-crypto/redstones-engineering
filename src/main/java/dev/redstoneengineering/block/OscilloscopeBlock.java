@@ -9,7 +9,6 @@ import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
-import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.instrument.InstrumentNetwork;
 import dev.redstoneengineering.ui.menu.OscilloscopeMenu;
 import net.minecraft.core.BlockPos;
@@ -41,6 +40,7 @@ import java.util.Optional;
 /** Two-channel observer on the non-invasive RSE instrument bus. */
 public class OscilloscopeBlock extends Block implements EntityBlock, EngineeringPortProvider {
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
+    private static final int OBSERVED_CHANNEL_MASK = 0b0011;
 
     public OscilloscopeBlock(Properties properties) {
         super(properties);
@@ -65,18 +65,19 @@ public class OscilloscopeBlock extends Block implements EntityBlock, Engineering
                 .toList();
     }
 
+    /**
+     * Port quality is the live A/B bus condition, not historical capture validity. This keeps a
+     * disconnected or conflicting bus from looking healthy merely because the scope still owns
+     * older samples in its bounded capture buffer.
+     */
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        if (!(level.getBlockEntity(pos) instanceof OscilloscopeBlockEntity scope) || scope.sampleCount() <= 0) {
-            return Optional.of(new EngineeringPortSnapshot(port.get(), 0.0, 0.0, 2.0, PortQuality.NO_SIGNAL));
-        }
-        int active = 0;
-        if (scope.validSamples(0) > 0) active++;
-        if (scope.validSamples(1) > 0) active++;
+        InstrumentNetwork.ProbeSnapshot bus = InstrumentNetwork.scan(level, pos);
         return Optional.of(new EngineeringPortSnapshot(
-                port.get(), active, 0.0, 2.0, active > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+                port.get(), bus.validChannelsInMask(OBSERVED_CHANNEL_MASK), 0.0, 2.0,
+                bus.qualityForMask(OBSERVED_CHANNEL_MASK)));
     }
 
     @Override public boolean canConnectRedstone(BlockState state, BlockGetter level, BlockPos pos, @Nullable Direction direction) { return false; }
@@ -117,7 +118,11 @@ public class OscilloscopeBlock extends Block implements EntityBlock, Engineering
             if (player.isShiftKeyDown()) {
                 if (level.getBlockEntity(pos) instanceof OscilloscopeBlockEntity scope) {
                     scope.arm();
-                    player.displayClientMessage(Component.literal("Oscilloscope | trigger armed | " + scope.triggerStatus()), true);
+                    InstrumentNetwork.ProbeSnapshot bus = InstrumentNetwork.scan(level, pos);
+                    player.displayClientMessage(Component.literal(
+                            "Oscilloscope | trigger armed | " + scope.triggerStatus()
+                                    + " | bus=" + bus.qualityForMask(OBSERVED_CHANNEL_MASK)
+                                    + " A/B-valid=" + bus.validChannelsInMask(OBSERVED_CHANNEL_MASK) + "/2"), true);
                 }
             } else {
                 serverPlayer.openMenu(

@@ -26,9 +26,19 @@ import net.minecraft.world.phys.BlockHitResult;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Sampled-data boundary: VALUE is captured only on the configured TRIGGER edge and then held.
+ * Capture age/count are transient evidence, not additional physics or persistent history.
+ */
 public class SampleHoldBlock extends DirectionalSignalBlock {
     public static final IntegerProperty TRIGGER_MODE = IntegerProperty.create("trigger_mode", 0, 2);
     private static final String KEY = "redstone_sample_hold";
+    private static final int RUNTIME_SIZE = 5;
+    private static final int HELD_SLOT = 0;
+    private static final int TRIGGER_STATE_SLOT = 1;
+    private static final int INITIALIZED_SLOT = 2;
+    private static final int CAPTURE_COUNT = 3;
+    private static final int LAST_CAPTURE_TICK = 4;
 
     public SampleHoldBlock(Properties properties) {
         super(properties); registerDefaultState(defaultBlockState().setValue(TRIGGER_MODE, 0));
@@ -73,11 +83,11 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
     }
 
     private int[] runtime(Level level, BlockPos pos, BlockState state, boolean triggerNow) {
-        int[] rt = RuntimeIntStore.get(level, KEY, pos, 3); // held, triggered, initialized
-        if (rt[2] == 0) {
-            rt[0] = state.getValue(OUTPUT); // preserve held output across reload
-            rt[1] = triggerNow ? 1 : 0;     // avoid a false edge after reload
-            rt[2] = 1;
+        int[] rt = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
+        if (rt[INITIALIZED_SLOT] == 0) {
+            rt[HELD_SLOT] = state.getValue(OUTPUT); // preserve held output across reload
+            rt[TRIGGER_STATE_SLOT] = triggerNow ? 1 : 0; // avoid a false edge after reload
+            rt[INITIALIZED_SLOT] = 1;
         }
         return rt;
     }
@@ -87,22 +97,45 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
         boolean triggerNow = readInputFrom(level, pos, leftOf(facing)) > 0;
         boolean resetNow = readInputFrom(level, pos, rightOf(facing)) > 0;
         int[] rt = runtime(level, pos, state, triggerNow);
-        boolean triggerBefore = rt[1] == 1;
+        boolean triggerBefore = rt[TRIGGER_STATE_SLOT] == 1;
         boolean rising = !triggerBefore && triggerNow;
         boolean falling = triggerBefore && !triggerNow;
         boolean sample = switch (state.getValue(TRIGGER_MODE)) {
             case 0 -> rising; case 1 -> falling; case 2 -> rising || falling; default -> rising;
         };
 
-        if (resetNow) rt[0] = 0;
-        else if (sample) rt[0] = readBackInput(level, pos, state);
-        rt[1] = triggerNow ? 1 : 0;
-        updateOutput(level, pos, state, rt[0]);
+        if (resetNow) {
+            rt[HELD_SLOT] = 0;
+        } else if (sample) {
+            rt[HELD_SLOT] = readBackInput(level, pos, state);
+            rt[CAPTURE_COUNT]++;
+            rt[LAST_CAPTURE_TICK] = boundedTick(level.getGameTime());
+        }
+        rt[TRIGGER_STATE_SLOT] = triggerNow ? 1 : 0;
+        updateOutput(level, pos, state, rt[HELD_SLOT]);
     }
 
     @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
         if (!state.is(newState.getBlock())) RuntimeIntStore.remove(level, KEY, pos);
         super.onRemove(state, level, pos, newState, moved);
+    }
+
+    /** Observer-neutral number of real trigger captures retained in this transient runtime. */
+    public static int captureCount(Level level, BlockPos pos) {
+        int[] rt = RuntimeIntStore.peek(level, KEY, pos);
+        return rt == null || rt.length < RUNTIME_SIZE ? 0 : Math.max(0, rt[CAPTURE_COUNT]);
+    }
+
+    /** Age of the most recent real capture, or -1 when no capture evidence exists. */
+    public static int sampleAgeTicks(Level level, BlockPos pos) {
+        int[] rt = RuntimeIntStore.peek(level, KEY, pos);
+        if (rt == null || rt.length < RUNTIME_SIZE || rt[CAPTURE_COUNT] <= 0) return -1;
+        long age = Math.max(0L, level.getGameTime() - Integer.toUnsignedLong(rt[LAST_CAPTURE_TICK]));
+        return (int) Math.min(Integer.MAX_VALUE, age);
+    }
+
+    private static int boundedTick(long tick) {
+        return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, tick));
     }
 
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
@@ -111,14 +144,20 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
             boolean triggerNow = readInputFrom(level, pos, leftOf(facing)) > 0;
             int[] rt = runtime(level, pos, state, triggerNow);
             if (player.isShiftKeyDown()) {
-                rt[0] = 0; rt[1] = triggerNow ? 1 : 0; rt[2] = 1;
+                rt[HELD_SLOT] = 0;
+                rt[TRIGGER_STATE_SLOT] = triggerNow ? 1 : 0;
+                rt[INITIALIZED_SLOT] = 1;
                 updateOutput(level, pos, state, 0);
-                player.displayClientMessage(Component.literal("Sample & Hold | cleared"), true);
+                player.displayClientMessage(Component.literal(
+                        "Sample & Hold | held value cleared | captures=" + rt[CAPTURE_COUNT]
+                                + " | lastCaptureAge=" + sampleAgeTicks(level, pos) + "t"), true);
             } else {
                 int mode = (state.getValue(TRIGGER_MODE) + 1) % 3;
                 BlockState next = state.setValue(TRIGGER_MODE, mode); level.setBlock(pos, next, Block.UPDATE_CLIENTS);
                 player.displayClientMessage(Component.literal(
-                        "Sample & Hold | mode=" + modeName(mode) + " | held=" + rt[0]
+                        "Sample & Hold | mode=" + modeName(mode) + " | held=" + rt[HELD_SLOT]
+                                + " | captures=" + rt[CAPTURE_COUNT]
+                                + " | sampleAge=" + sampleAgeTicks(level, pos) + "t"
                                 + " | VALUE=" + inputSide(next).getName() + " | OUT=" + outputSide(next).getName()
                                 + " | TRIGGER=" + leftOf(facing).getName() + " | RESET=" + rightOf(facing).getName()), true);
             }
