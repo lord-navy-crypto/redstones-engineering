@@ -9,7 +9,6 @@ import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
-import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.instrument.InstrumentNetwork;
 import dev.redstoneengineering.ui.menu.LogicAnalyzerMenu;
 import net.minecraft.core.BlockPos;
@@ -43,6 +42,7 @@ import java.util.Optional;
 public class LogicAnalyzerBlock extends Block implements EntityBlock, EngineeringPortProvider {
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final IntegerProperty THRESHOLD = IntegerProperty.create("threshold", 1, 15);
+    private static final int OBSERVED_CHANNEL_MASK = 0b1111;
 
     public LogicAnalyzerBlock(Properties properties) {
         super(properties);
@@ -64,17 +64,15 @@ public class LogicAnalyzerBlock extends Block implements EntityBlock, Engineerin
                 .toList();
     }
 
+    /** Live topology health is reported separately from the analyzer's retained timing capture. */
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        if (!(level.getBlockEntity(pos) instanceof LogicAnalyzerBlockEntity analyzer) || analyzer.sampleCount() <= 0) {
-            return Optional.of(new EngineeringPortSnapshot(port.get(), 0.0, 0.0, 4.0, PortQuality.NO_SIGNAL));
-        }
-        int active = 0;
-        for (int channel = 0; channel < 4; channel++) if (analyzer.validSamples(channel) > 0) active++;
+        InstrumentNetwork.ProbeSnapshot bus = InstrumentNetwork.scan(level, pos);
         return Optional.of(new EngineeringPortSnapshot(
-                port.get(), active, 0.0, 4.0, active > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+                port.get(), bus.validChannelsInMask(OBSERVED_CHANNEL_MASK), 0.0, 4.0,
+                bus.qualityForMask(OBSERVED_CHANNEL_MASK)));
     }
 
     @Override public boolean canConnectRedstone(BlockState state, BlockGetter level, BlockPos pos, @Nullable Direction direction) { return false; }
@@ -131,7 +129,11 @@ public class LogicAnalyzerBlock extends Block implements EntityBlock, Engineerin
             if (player.isShiftKeyDown()) {
                 if (level.getBlockEntity(pos) instanceof LogicAnalyzerBlockEntity analyzer) {
                     analyzer.arm();
-                    player.displayClientMessage(Component.literal("Logic Analyzer | trigger armed | " + analyzer.triggerStatus()), true);
+                    InstrumentNetwork.ProbeSnapshot bus = InstrumentNetwork.scan(level, pos);
+                    player.displayClientMessage(Component.literal(
+                            "Logic Analyzer | trigger armed | " + analyzer.triggerStatus()
+                                    + " | bus=" + bus.qualityForMask(OBSERVED_CHANNEL_MASK)
+                                    + " valid=" + bus.validChannelsInMask(OBSERVED_CHANNEL_MASK) + "/4"), true);
                 }
             } else {
                 serverPlayer.openMenu(
