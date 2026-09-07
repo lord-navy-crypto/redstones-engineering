@@ -54,7 +54,8 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
     }
 
     public static ResponseEvidence response(Level level, BlockPos pos, BlockState state) {
-        DomainNetwork.AmethystSample input = DomainNetwork.sampleAmethyst(level, inputPos(pos, state));
+        Direction facing = state.getValue(DirectionalDomainBlock.FACING);
+        DomainNetwork.AmethystSample input = DomainNetwork.sampleAmethyst(level, pos.relative(facing.getOpposite()));
         int natural = state.getValue(NATURAL);
         int q = state.getValue(Q_INDEX);
         int bandwidth = 5 - q;
