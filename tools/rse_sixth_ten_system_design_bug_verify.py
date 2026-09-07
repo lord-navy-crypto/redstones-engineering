@@ -109,8 +109,9 @@ require(
     "externalSourcePresent",
     "externalInput(level, pos, state) > 0",
     "port.direction() != PortDirection.INPUT",
-    "state.getValue(OUTPUT_MODE) != oldState.getValue(OUTPUT_MODE)",
+    "direction.getOpposite()",
     ".setValue(POWER, 0)",
+    "RedstoneCableNetwork.recompute",
     "RedstoneCableNetwork.sourceEvidence",
     "RedstoneCableNetwork.removeEvidence",
 )
@@ -182,9 +183,14 @@ for method in methods:
         raise SystemExit(f"{tests_rel}: missing GameTest method {method}")
 if tests.count("@GameTest(") != 10:
     raise SystemExit(f"expected 10 sixth-ten GameTests, found {tests.count('@GameTest(')}")
-for token in ("emptyTerminal", "PortQuality.NO_SIGNAL", "RedstoneReferenceSourceBlock.POWER, 0"):
+for token in (
+    "emptyTerminal",
+    "PortQuality.NO_SIGNAL",
+    "RedstoneReferenceSourceBlock.POWER, 0",
+    "RedstoneCableNetwork.recompute(helper.getLevel(), helper.absolutePos(terminal))",
+):
     if token not in tests:
-        raise SystemExit(f"{tests_rel}: valid-zero/no-source regression is missing {token!r}")
+        raise SystemExit(f"{tests_rel}: valid-zero/no-source or mode-recompute regression is missing {token!r}")
 
 registration = read("src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java")
 if "event.register(RseSixthTenDesignBugGameTests.class);" not in registration:
