@@ -3,8 +3,8 @@ package dev.redstoneengineering.block;
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
-import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.EngineeringMath;
+import dev.redstoneengineering.physics.OpticalObservationSupport;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.state.BlockState;
@@ -18,8 +18,13 @@ public class LapisOpticalTransducerBlock extends AbstractLapisTransducerBlock {
     @Override protected String rangeText(BlockState state) { return "optical intensity 0..15"; }
     @Override protected EngineeringDomain inputDomain() { return EngineeringDomain.OPTICAL; }
     @Override protected Measurement sense(ServerLevel level, BlockPos pos, BlockState state) {
-        var sample = DomainNetwork.sampleOptical(level, inputPos(pos, state));
-        int normalized = Math.round(EngineeringMath.clamp(sample.intensity(), 0, 15) * 100.0f / 15.0f);
-        return new Measurement(normalized, sample.valid(), "I=" + sample.intensity() + "/15 channel=" + sample.channel());
+        OpticalObservationSupport.Observation observation = OpticalObservationSupport.observe(level, inputPos(pos, state));
+        int normalized = Math.round(EngineeringMath.clamp(observation.intensity(), 0, 15) * 100.0f / 15.0f);
+        return new Measurement(
+                normalized,
+                observation.quality(),
+                "I=" + observation.intensity() + "/15 channel=" + observation.channel()
+                        + " quality=" + observation.quality()
+        );
     }
 }

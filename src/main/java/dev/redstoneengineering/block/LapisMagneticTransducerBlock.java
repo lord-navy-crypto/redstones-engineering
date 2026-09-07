@@ -3,6 +3,7 @@ package dev.redstoneengineering.block;
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.EngineeringMath;
 import dev.redstoneengineering.physics.MagneticPhysics;
 import net.minecraft.core.BlockPos;
@@ -42,11 +43,15 @@ public class LapisMagneticTransducerBlock extends AbstractLapisTransducerBlock {
     protected Measurement sense(ServerLevel level, BlockPos pos, BlockState state) {
         // Magnetic field is sampled at the transducer body, matching MagneticFieldSensorBlock.
         // The BACK engineering port communicates which side is the sensing boundary, but using
-        // inputPos here would place the scan origin on an adjacent magnetic source. fieldAt()
-        // deliberately excludes its origin to prevent a sensor from self-counting, so that would
-        // incorrectly make an immediately adjacent magnet disappear from the measurement.
-        int field = MagneticPhysics.fieldAt(level, pos, 6);
-        int normalized = Math.round(EngineeringMath.clamp(field, 0, 15) * 100.0f / 15.0f);
-        return new Measurement(normalized, true, "B-level=" + field + "/15");
+        // inputPos here would place the scan origin on an adjacent magnetic source. fieldSample()
+        // deliberately excludes its origin to prevent a sensor from self-counting.
+        MagneticPhysics.FieldSample sample = MagneticPhysics.fieldSample(level, pos, 6);
+        int normalized = Math.round(EngineeringMath.clamp(sample.field(), 0, 15) * 100.0f / 15.0f);
+        PortQuality quality = sample.complete() ? PortQuality.VALID : PortQuality.STALE;
+        return new Measurement(
+                normalized,
+                quality,
+                "B-level=" + sample.field() + "/15 coverage=" + sample.scannedCells() + "/" + sample.expectedCells()
+        );
     }
 }

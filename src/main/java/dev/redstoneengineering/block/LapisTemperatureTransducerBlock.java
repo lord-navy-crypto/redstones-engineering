@@ -3,6 +3,7 @@ package dev.redstoneengineering.block;
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.EngineeringMath;
 import dev.redstoneengineering.physics.ThermalPhysics;
 import net.minecraft.core.BlockPos;
@@ -19,11 +20,14 @@ public class LapisTemperatureTransducerBlock extends AbstractLapisTransducerBloc
     @Override protected EngineeringDomain inputDomain() { return EngineeringDomain.THERMAL; }
     @Override protected Measurement sense(ServerLevel level, BlockPos pos, BlockState state) {
         BlockPos probe = inputPos(pos, state);
+        if (!level.hasChunkAt(probe)) {
+            return new Measurement(0, PortQuality.STALE, "thermal coverage unavailable");
+        }
         BlockState s = level.getBlockState(probe);
         int t;
         if (s.getBlock() instanceof ThermalMassBlock) t = s.getValue(ThermalMassBlock.TEMPERATURE);
         else if (s.getBlock() instanceof TemperatureSensorBlock) t = s.getValue(TemperatureSensorBlock.TEMPERATURE);
         else t = ThermalPhysics.environmentTarget(level, probe);
-        return new Measurement(EngineeringMath.clamp(t, 0, 100), true, "T-index=" + t);
+        return new Measurement(EngineeringMath.clamp(t, 0, 100), PortQuality.VALID, "T-index=" + t);
     }
 }

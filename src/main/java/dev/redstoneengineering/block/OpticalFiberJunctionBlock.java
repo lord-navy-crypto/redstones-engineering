@@ -122,6 +122,11 @@ public class OpticalFiberJunctionBlock extends ConnectedCableBlock implements En
         if (!state.is(this) || state.getValue(SERVICE_OPEN) == open) return;
         BlockState next = state.setValue(SERVICE_OPEN, open);
         level.setBlock(pos, next, Block.UPDATE_ALL);
+        if (open) {
+            // Maintenance isolation is a hard carrier boundary. Do not leave a hidden
+            // pre-isolation carrier cached at the splice while both segments are open.
+            RuntimeIntStore.remove(level, KEY, pos);
+        }
         refreshConnections(level, pos, next);
         level.updateNeighborsAt(pos, this);
         if (level instanceof ServerLevel server) {

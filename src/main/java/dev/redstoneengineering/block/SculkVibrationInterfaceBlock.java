@@ -19,6 +19,7 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 
@@ -28,6 +29,12 @@ import java.util.Optional;
 /** Engineering interface for vanilla Sculk/calibrated-sensor event-code redstone output. */
 public class SculkVibrationInterfaceBlock extends PassiveDirectionalSignalBlock {
     private static final String KEY = "sculk_interface";
+    private static final int CURRENT_CODE = 0;
+    private static final int EVENT_COUNT = 1;
+    private static final int LAST_EVENT_CODE = 2;
+    private static final int LAST_EVENT_TICK = 3;
+    private static final int TRANSITION_COUNT = 4;
+    private static final int RUNTIME_SIZE = 5;
 
     public SculkVibrationInterfaceBlock(Properties properties) {
         super(properties);
@@ -64,37 +71,70 @@ public class SculkVibrationInterfaceBlock extends PassiveDirectionalSignalBlock 
         return Math.max(0, Math.min(15, level.getSignal(inputPos(pos, state), inputSide(state))));
     }
 
+    /**
+     * Own one authoritative sample transition. Neighbor notifications call this immediately so
+     * a short event-code pulse cannot disappear before the next scheduled tick; the periodic
+     * tick still provides continuous reconciliation when no neighbor notification is produced.
+     */
+    private void captureSample(ServerLevel level, BlockPos pos, BlockState state) {
+        int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
+        int now = computeOutput(level, pos, state);
+        if (now > 0 && runtime[CURRENT_CODE] == 0) {
+            runtime[EVENT_COUNT]++;
+            runtime[LAST_EVENT_CODE] = now;
+            runtime[LAST_EVENT_TICK] = (int) Math.min(Integer.MAX_VALUE, level.getGameTime());
+        }
+        if (now != runtime[CURRENT_CODE]) runtime[TRANSITION_COUNT]++;
+        runtime[CURRENT_CODE] = now;
+        updateOutput(level, pos, state, now);
+    }
+
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
-        if (level instanceof ServerLevel serverLevel) serverLevel.scheduleTick(pos, this, 1);
+        if (level instanceof ServerLevel serverLevel) {
+            captureSample(serverLevel, pos, state);
+            serverLevel.scheduleTick(pos, this, 1);
+        }
+    }
+
+    @Override
+    protected void neighborChanged(
+            BlockState state,
+            Level level,
+            BlockPos pos,
+            Block neighborBlock,
+            BlockPos neighborPos,
+            boolean movedByPiston
+    ) {
+        super.neighborChanged(state, level, pos, neighborBlock, neighborPos, movedByPiston);
+        if (level instanceof ServerLevel serverLevel) {
+            captureSample(serverLevel, pos, state);
+        }
     }
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        int[] runtime = RuntimeIntStore.get(level, KEY, pos, 5);
-        int now = computeOutput(level, pos, state);
-        if (now > 0 && runtime[0] == 0) {
-            runtime[1]++;
-            runtime[2] = now;
-            runtime[3] = (int) Math.min(Integer.MAX_VALUE, level.getGameTime());
-        }
-        if (now != runtime[0]) runtime[4]++;
-        runtime[0] = now;
-        updateOutput(level, pos, state, now);
+        captureSample(level, pos, state);
         level.scheduleTick(pos, this, 1);
     }
 
+    /** Observer-only telemetry access; UI inspection must not create event history. */
+    private static int runtimeValue(Level level, BlockPos pos, int index) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length <= index ? 0 : runtime[index];
+    }
+
     public int eventCount(Level level, BlockPos pos) {
-        return RuntimeIntStore.get(level, KEY, pos, 5)[1];
+        return runtimeValue(level, pos, EVENT_COUNT);
     }
 
     public int lastEventCode(Level level, BlockPos pos) {
-        return RuntimeIntStore.get(level, KEY, pos, 5)[2];
+        return runtimeValue(level, pos, LAST_EVENT_CODE);
     }
 
     public int transitionCount(Level level, BlockPos pos) {
-        return RuntimeIntStore.get(level, KEY, pos, 5)[4];
+        return runtimeValue(level, pos, TRANSITION_COUNT);
     }
 
     @Override
