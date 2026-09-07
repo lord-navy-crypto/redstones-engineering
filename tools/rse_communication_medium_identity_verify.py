@@ -74,6 +74,9 @@ require(
     "docs/COMMUNICATION_MEDIUM_IDENTITY.md",
     "Shared information envelope",
     "Medium identity rule",
+    "Communication choice hierarchy",
+    "How much information must move?",
+    "No medium should be the universal upgrade of another",
     "8-bit Data Bus",
     "Serial Data",
     "Differential Data",
@@ -120,6 +123,7 @@ if errors:
 
 print("RSE communication medium identity verification: PASS")
 print(" shared payload/selector/validity/quality/freshness envelope: PASS")
+print(" engineering choice hierarchy + non-dominance rule: PASS")
 print(" 8-bit bus local-loading + contention identity: PASS")
 print(" serial timing/utilization identity preserved: PASS")
 print(" differential one-bit high-integrity identity: PASS")
