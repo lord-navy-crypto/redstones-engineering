@@ -26,6 +26,7 @@ public final class MetrologySupport {
                 .sample(reading, reference, saturated, level.getGameTime());
     }
 
+    /** Observer-only snapshot. Reading diagnostics must never create measurement state. */
     public static MeasurementSnapshot snapshot(
             Level level,
             String channel,
@@ -33,8 +34,10 @@ public final class MetrologySupport {
             double resolution,
             long staleAfterTicks
     ) {
-        return MetrologyStore.tracker(level, channel, pos, resolution, staleAfterTicks)
-                .snapshot(level.getGameTime());
+        MetrologyTracker tracker = MetrologyStore.peek(level, channel, pos);
+        return tracker == null
+                ? MeasurementSnapshot.invalid(resolution)
+                : tracker.snapshot(level.getGameTime());
     }
 
     /** Deterministic sensor conditioning over an arbitrary bounded engineering range. */
