@@ -81,7 +81,8 @@ require(
     "OBSERVED_CHANNEL_MASK = 0b0011",
     "InstrumentNetwork.scan(level, pos)",
     "qualityForMask(OBSERVED_CHANNEL_MASK)",
-    "current bus failure must not be hidden",
+    "historical capture validity",
+    "disconnected or conflicting bus",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/LogicAnalyzerBlock.java",
@@ -122,7 +123,7 @@ require(
     "RuntimeIntStore.peek",
     "captureCount",
     "sampleAgeTicks",
-    "Reload initialization must not fabricate",
+    "avoid a false edge after reload",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/EdgeDetectorBlock.java",
