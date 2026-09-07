@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Static contracts for the sixth 10-block design + bug audit (registered blocks 51-60)."""
 from pathlib import Path
-import re
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -20,51 +19,85 @@ def require(rel: str, *tokens: str) -> None:
         raise SystemExit(f"{rel}: missing sixth-ten contract tokens {missing}")
 
 
+# 51: induction must be derivative-based, observer-neutral, and coverage-safe.
+induction_rel = "src/main/java/dev/redstoneengineering/block/InductionCoilBlock.java"
 require(
-    "src/main/java/dev/redstoneengineering/block/InductionCoilBlock.java",
-    '"MAGNETIC SENSE"', '"INDUCED COPPER OUT"',
-    "RuntimeIntStore.peek", "MagneticPhysics.fieldSample", "PortQuality.STALE",
-    "delta * s.getValue(TURNS)",
+    induction_rel,
+    '"MAGNETIC SENSE"',
+    '"INDUCED COPPER OUT"',
+    "RuntimeIntStore.peek",
+    "MagneticPhysics.fieldSample",
+    "BASELINE_VALID",
+    "if (sample.complete())",
+    "delta * state.getValue(TURNS)",
+    "Coverage changes are not physics",
+    "PortQuality.STALE",
 )
+induction = read(induction_rel)
+tick_body = induction.split("protected void tick", 1)[1].split("public static int outputVoltage", 1)[0]
+if "MagneticPhysics.fieldAt" in tick_body:
+    raise SystemExit("Induction tick bypasses coverage-aware fieldSample and may turn chunk coverage into fake EMF")
+if "runtime[BASELINE_VALID] = 0" not in tick_body:
+    raise SystemExit("Induction tick does not invalidate its derivative baseline when coverage is incomplete")
+
+# 52: a complete zero gradient is a legitimate measured zero, not NO_SIGNAL.
 require(
     "src/main/java/dev/redstoneengineering/block/MagneticGradientMeterBlock.java",
-    "record GradientSample", "MagneticPhysics.fieldSample", "plus.complete() && minus.complete()",
+    "record GradientSample",
+    "MagneticPhysics.fieldSample",
+    "plus.complete() && minus.complete()",
     "sample.complete() ? PortQuality.VALID : PortQuality.STALE",
 )
 gradient = read("src/main/java/dev/redstoneengineering/block/MagneticGradientMeterBlock.java")
 if "component == 0 ? PortQuality.NO_SIGNAL" in gradient:
     raise SystemExit("MagneticGradientMeterBlock still confuses a real zero gradient with NO_SIGNAL")
 
+# 53-55: electrical/thermal role boundaries and observer-only retained history.
 require(
     "src/main/java/dev/redstoneengineering/block/ThermalHeaterBlock.java",
-    "CopperNetworkSupport.terminalInputOnSide", "input.quality()", "CircuitPhysics.power",
+    "CopperNetworkSupport.terminalInputOnSide",
+    "input.quality()",
+    "CircuitPhysics.power",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/ThermalRadiatorBlock.java",
-    "Passive heat sink", "Math.max(ThermalPhysics.AMBIENT, t - cooling)",
+    "Passive heat sink",
+    "Math.max(ThermalPhysics.AMBIENT, t - cooling)",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/ThermalCalorimeterBlock.java",
-    "record History", "RuntimeIntStore.peek", "STALE HISTORY", "RuntimeIntStore.remove",
+    "record History",
+    "RuntimeIntStore.peek",
+    "STALE HISTORY",
+    "RuntimeIntStore.remove",
 )
 calorimeter = read("src/main/java/dev/redstoneengineering/block/ThermalCalorimeterBlock.java")
 use_body = calorimeter.split("useWithoutItem", 1)[1] if "useWithoutItem" in calorimeter else ""
 if "RuntimeIntStore.get" in use_body:
     raise SystemExit("ThermalCalorimeter inspection still creates history runtime")
 
+# 56-57: insulated redstone retains strongest-value multi-source behavior while
+# evidence distinguishes real attached sources, valid driven zero, and no source.
+network_rel = "src/main/java/dev/redstoneengineering/physics/RedstoneCableNetwork.java"
 require(
-    "src/main/java/dev/redstoneengineering/physics/RedstoneCableNetwork.java",
-    "record SourceEvidence", 'EVIDENCE_KEY = "redstone_cable_source_evidence"',
-    "sourceCount++", "sourceCount > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL",
-    "PriorityQueue<Node>", "bestVoltage" if False else "best.put(pos, power)",
+    network_rel,
+    "record SourceEvidence",
+    'EVIDENCE_KEY = "redstone_cable_source_evidence"',
+    "sourceCount++",
+    "sourceCount > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL",
+    "PriorityQueue<Node>",
+    "best.put(pos, power)",
+    "terminal.externalSourcePresent(level, pos, state)",
 )
-network = read("src/main/java/dev/redstoneengineering/physics/RedstoneCableNetwork.java")
+network = read(network_rel)
 if "sourceCount > 1 ? PortQuality.TOPOLOGY_ERROR" in network:
     raise SystemExit("Insulated redstone must retain Vanilla-like multi-source strongest-value semantics")
 
 require(
     "src/main/java/dev/redstoneengineering/block/RedstoneSignalCableBlock.java",
-    "RuntimeIntStore.peek", "RedstoneCableNetwork.sourceEvidence", "RedstoneCableNetwork.removeEvidence",
+    "RuntimeIntStore.peek",
+    "RedstoneCableNetwork.sourceEvidence",
+    "RedstoneCableNetwork.removeEvidence",
 )
 cable = read("src/main/java/dev/redstoneengineering/block/RedstoneSignalCableBlock.java")
 power_body = cable.split("public static int power", 1)[1].split("@Override", 1)[0]
@@ -73,30 +106,49 @@ if "RuntimeIntStore.get" in power_body:
 
 require(
     "src/main/java/dev/redstoneengineering/block/RedstoneCableTerminalBlock.java",
+    "externalSourcePresent",
+    "externalInput(level, pos, state) > 0",
+    "port.direction() != PortDirection.INPUT",
     "state.getValue(OUTPUT_MODE) != oldState.getValue(OUTPUT_MODE)",
-    ".setValue(POWER, 0)", "RedstoneCableNetwork.sourceEvidence", "RedstoneCableNetwork.removeEvidence",
+    ".setValue(POWER, 0)",
+    "RedstoneCableNetwork.sourceEvidence",
+    "RedstoneCableNetwork.removeEvidence",
 )
+
+# 58: the laboratory reference is a single-ended source and zero remains valid data.
 require(
     "src/main/java/dev/redstoneengineering/block/RedstoneReferenceSourceBlock.java",
-    'IntegerProperty.create("power", 0, 15)', '"REFERENCE OUT"',
-    "PortDirection.OUTPUT", "PortQuality.VALID",
+    'IntegerProperty.create("power", 0, 15)',
+    '"REFERENCE OUT"',
+    "PortDirection.OUTPUT",
+    "PortQuality.VALID",
 )
 reference = read("src/main/java/dev/redstoneengineering/block/RedstoneReferenceSourceBlock.java")
 if reference.count("new EngineeringPort(") != 1:
     raise SystemExit("Redstone Reference Source must remain a single-FRONT engineering source")
 
+# 59-60: before the first measurement or under incomplete coverage, state is stale/unknown,
+# not a fabricated fault or a fabricated physical zero.
 require(
     "src/main/java/dev/redstoneengineering/metrology/MetrologySupport.java",
-    "measurement.sampleCount() == 0", "return PortQuality.STALE", "awaiting first sample",
+    "measurement.sampleCount() == 0",
+    "return PortQuality.STALE",
+    "awaiting first sample",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/EngineeringLightSensorBlock.java",
-    "MetrologySupport.portQuality(sensorMeasurement(level, pos))", "conditionRedstone", "sampleMeasurement",
+    "MetrologySupport.portQuality(sensorMeasurement(level, pos))",
+    "conditionRedstone",
+    "sampleMeasurement",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/TankLevelSensorBlock.java",
-    "record ColumnSample", "if (!level.hasChunkAt(sample))", "false);",
-    "if (!column.complete())", "Retain the last trustworthy output/sample", "PortQuality.STALE",
+    "record ColumnSample",
+    "PortQuality quality()",
+    "if (!level.hasChunkAt(sample))",
+    "if (!column.complete())",
+    "Retain the last trustworthy output/sample",
+    "PortQuality.STALE",
 )
 tank = read("src/main/java/dev/redstoneengineering/block/TankLevelSensorBlock.java")
 if "!level.hasChunkAt(sample) || level.getFluidState(sample).isEmpty()" in tank:
@@ -105,7 +157,9 @@ if "!level.hasChunkAt(sample) || level.getFluidState(sample).isEmpty()" in tank:
 # Junction is shared infrastructure touched by the cable audit: redstone readback must also be observer-only.
 require(
     "src/main/java/dev/redstoneengineering/block/RedstoneCableJunctionBlock.java",
-    "RuntimeIntStore.peek", "RedstoneCableNetwork.sourceEvidence", "RedstoneCableNetwork.removeEvidence",
+    "RuntimeIntStore.peek",
+    "RedstoneCableNetwork.sourceEvidence",
+    "RedstoneCableNetwork.removeEvidence",
 )
 
 # Exactly ten executable regression scenes, one for each audited registered block.
@@ -128,6 +182,9 @@ for method in methods:
         raise SystemExit(f"{tests_rel}: missing GameTest method {method}")
 if tests.count("@GameTest(") != 10:
     raise SystemExit(f"expected 10 sixth-ten GameTests, found {tests.count('@GameTest(')}")
+for token in ("emptyTerminal", "PortQuality.NO_SIGNAL", "RedstoneReferenceSourceBlock.POWER, 0"):
+    if token not in tests:
+        raise SystemExit(f"{tests_rel}: valid-zero/no-source regression is missing {token!r}")
 
 registration = read("src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java")
 if "event.register(RseSixthTenDesignBugGameTests.class);" not in registration:
@@ -142,10 +199,10 @@ if "test_count < 249" not in workflow:
     raise SystemExit("workflow GameTest floor was not raised to 249")
 
 print("RSE sixth-ten system design + bug verification: PASS")
-print("  induction transient/read-only evidence: PASS")
+print("  induction transient/read-only/coverage evidence: PASS")
 print("  magnetic zero-gradient + coverage semantics: PASS")
 print("  heater/radiator/calorimeter role boundaries: PASS")
-print("  insulated redstone value/source/terminal lifecycle: PASS")
+print("  insulated redstone actual-source/value/terminal lifecycle: PASS")
 print("  reference valid-zero and FRONT-only source: PASS")
 print("  metrology first-sample STALE + tank coverage semantics: PASS")
 print("  ten executable sixth-ten GameTests registered: PASS")
