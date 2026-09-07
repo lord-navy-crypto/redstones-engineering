@@ -8,10 +8,8 @@ import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
-import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.CircuitPhysics;
 import dev.redstoneengineering.physics.CopperNetworkSupport;
-import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.EngineeringMath;
 import dev.redstoneengineering.physics.MagneticPhysics;
 import net.minecraft.core.BlockPos;
@@ -78,10 +76,9 @@ public class ThermalHeaterBlock extends DomainBlock implements EngineeringPortPr
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        int voltage = DomainNetwork.sampleCopperVoltage(level, pos.relative(side), pos);
+        CopperNetworkSupport.TerminalInput input = CopperNetworkSupport.terminalInputOnSide(level, pos, side);
         return Optional.of(new EngineeringPortSnapshot(
-                port.get(), voltage, 0.0, 15.0,
-                voltage > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL
+                port.get(), input.voltage(), 0.0, 15.0, input.quality()
         ));
     }
 
@@ -108,7 +105,8 @@ public class ThermalHeaterBlock extends DomainBlock implements EngineeringPortPr
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        int voltage = MagneticPhysics.adjacentCopperLevel(level, pos);
+        CopperNetworkSupport.TerminalInput input = CopperNetworkSupport.terminalInput(level, pos);
+        int voltage = input.quality() == dev.redstoneengineering.core.port.PortQuality.VALID ? input.voltage() : 0;
         int resistance = resistance(state);
         double power = CircuitPhysics.power(voltage, resistance);
         int target = EngineeringMath.clamp(20 + (int) Math.round(power / 3.0), 20, 100);
@@ -129,13 +127,14 @@ public class ThermalHeaterBlock extends DomainBlock implements EngineeringPortPr
                 level.scheduleTick(pos, this, 1);
                 if (level instanceof ServerLevel serverLevel) CopperNetworkSupport.recomputeAround(serverLevel, pos);
             }
-            int voltage = MagneticPhysics.adjacentCopperLevel(level, pos);
+            CopperNetworkSupport.TerminalInput input = CopperNetworkSupport.terminalInput(level, pos);
+            int voltage = input.voltage();
             int resistance = resistance(state);
             double current = CircuitPhysics.current(voltage, resistance);
             double power = CircuitPhysics.power(voltage, resistance);
             player.displayClientMessage(Component.literal(String.format(
-                    "Thermal heater | COPPER terminal converter | V=%d | R=%d | I=%.2f | P=%.2f | T-index=%d/100",
-                    voltage, resistance, current, power, state.getValue(TEMPERATURE))), true);
+                    "Thermal heater | COPPER terminal converter | V=%d | quality=%s | R=%d | I=%.2f | P=%.2f | T-index=%d/100",
+                    voltage, input.quality(), resistance, current, power, state.getValue(TEMPERATURE))), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
