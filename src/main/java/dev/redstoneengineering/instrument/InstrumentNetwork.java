@@ -2,6 +2,7 @@ package dev.redstoneengineering.instrument;
 
 import dev.redstoneengineering.block.ConnectedCableBlock;
 import dev.redstoneengineering.block.InstrumentCableBlock;
+import dev.redstoneengineering.block.RedstoneCableJunctionBlock;
 import dev.redstoneengineering.block.ShieldedInstrumentCableBlock;
 import dev.redstoneengineering.block.SignalProbeBlock;
 import dev.redstoneengineering.block.TransmissionTopology;
@@ -16,11 +17,27 @@ import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.Set;
 
-/** Bounded instrumentation network whose graph follows the same physical ports shown by cable BlockState. */
+/** Bounded instrumentation network whose graph follows the same physical ports shown in-world. */
 public final class InstrumentNetwork {
     private static final int MAX_VISITED = NetworkKernel.MAX_NODES;
     private InstrumentNetwork() {}
     private record CableVisit(BlockPos pos, int depth) {}
+
+    private static boolean isInstrumentNode(BlockState state) {
+        return state.getBlock() instanceof InstrumentCableBlock
+                || state.getBlock() instanceof RedstoneCableJunctionBlock
+                && state.getValue(RedstoneCableJunctionBlock.MEDIUM) == TransmissionTopology.SignalMedium.INSTRUMENT;
+    }
+
+    private static boolean edgeAllowed(BlockState from, BlockState to, Direction direction) {
+        if (!isInstrumentNode(from) || !isInstrumentNode(to)) return false;
+        boolean fromJunction = from.getBlock() instanceof RedstoneCableJunctionBlock;
+        boolean toJunction = to.getBlock() instanceof RedstoneCableJunctionBlock;
+        if (fromJunction && toJunction) return false;
+        if (!fromJunction && !toJunction && direction.getAxis() == Direction.Axis.Y) return false;
+        return ConnectedCableBlock.connected(from, direction)
+                && ConnectedCableBlock.connected(to, direction.getOpposite());
+    }
 
     public static ProbeSnapshot scan(Level level, BlockPos instrumentPos) {
         int[] values = {-1, -1, -1, -1};
@@ -38,7 +55,7 @@ public final class InstrumentNetwork {
             BlockPos neighbor = instrumentPos.relative(direction);
             if (!level.hasChunkAt(neighbor)) continue;
             BlockState state = level.getBlockState(neighbor);
-            if (state.getBlock() instanceof InstrumentCableBlock
+            if (isInstrumentNode(state)
                     && ConnectedCableBlock.connected(state, direction.getOpposite())) {
                 queue.add(new CableVisit(neighbor, 1));
             } else if (state.getBlock() instanceof SignalProbeBlock probe
@@ -66,8 +83,8 @@ public final class InstrumentNetwork {
                 if (neighbor.equals(instrumentPos) || !level.hasChunkAt(neighbor)) continue;
                 BlockState state = level.getBlockState(neighbor);
 
-                if (state.getBlock() instanceof InstrumentCableBlock) {
-                    if (ConnectedCableBlock.connected(state, direction.getOpposite()) && !visited.contains(neighbor)) {
+                if (isInstrumentNode(state)) {
+                    if (edgeAllowed(cableState, state, direction) && !visited.contains(neighbor)) {
                         queue.addLast(new CableVisit(neighbor, visit.depth() + 1));
                     }
                 } else if (state.getBlock() instanceof SignalProbeBlock probe
@@ -125,11 +142,6 @@ public final class InstrumentNetwork {
             }
             return duplicates;
         }
-        /**
-         * Observer-facing quality for the requested logical channels. The scan remains the
-         * authoritative topology evidence: truncation or duplicate ownership is a topology
-         * error, while an otherwise healthy bus with no selected probes is simply NO_SIGNAL.
-         */
         public PortQuality qualityForMask(int channelMask) {
             int mask = channelMask & 0xF;
             if (!bounded) return PortQuality.TOPOLOGY_ERROR;
