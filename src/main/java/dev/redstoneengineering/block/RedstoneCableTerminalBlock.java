@@ -60,6 +60,34 @@ public class RedstoneCableTerminalBlock extends Block implements EngineeringPort
         return Math.max(0, Math.min(15, level.getSignal(pos.relative(direction), direction)));
     }
 
+    /**
+     * Distinguish an actually attached zero-valued source from an empty terminal.
+     * Positive vanilla power is sufficient evidence. For a legitimate 0 source,
+     * use either an engineering REDSTONE output/bidirectional port or vanilla's
+     * redstone-connectability contract on the adjacent face.
+     */
+    public boolean externalSourcePresent(Level level, BlockPos pos, BlockState state) {
+        Direction direction = vanillaSide(state);
+        BlockPos sourcePos = pos.relative(direction);
+        if (!level.hasChunkAt(sourcePos)) return false;
+        if (externalInput(level, pos, state) > 0) return true;
+
+        BlockState sourceState = level.getBlockState(sourcePos);
+        if (sourceState.isAir()) return false;
+        if (sourceState.getBlock() instanceof EngineeringPortProvider provider) {
+            Optional<EngineeringPort> sourcePort = provider.engineeringPort(sourceState, direction.getOpposite());
+            if (sourcePort.isPresent()) {
+                EngineeringPort port = sourcePort.get();
+                if (port.domain() == EngineeringDomain.REDSTONE
+                        && port.redstoneConnectable()
+                        && port.direction() != PortDirection.INPUT) {
+                    return true;
+                }
+            }
+        }
+        return sourceState.getBlock().canConnectRedstone(sourceState, level, sourcePos, direction);
+    }
+
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         boolean cableToVanilla = state.getValue(OUTPUT_MODE);
@@ -84,7 +112,7 @@ public class RedstoneCableTerminalBlock extends Block implements EngineeringPort
                 : state.getValue(POWER);
         PortQuality quality = cableToVanilla
                 ? RedstoneCableNetwork.sourceEvidence(level, pos).quality()
-                : PortQuality.VALID;
+                : externalSourcePresent(level, pos, state) ? PortQuality.VALID : PortQuality.NO_SIGNAL;
         return Optional.of(EngineeringPortSnapshot.redstone(resolved.get(), signal, quality));
     }
 
@@ -104,14 +132,12 @@ public class RedstoneCableTerminalBlock extends Block implements EngineeringPort
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
         super.onPlace(state, level, pos, oldState, moved);
-        BlockState effective = state;
         if (state.is(oldState.getBlock())
                 && state.getValue(OUTPUT_MODE) != oldState.getValue(OUTPUT_MODE)
                 && state.getValue(POWER) != 0) {
             // Any mode-change path (GUI, right-click, command, future API) must
             // invalidate the old role's cached signal before recomputation.
-            effective = state.setValue(POWER, 0);
-            level.setBlock(pos, effective, Block.UPDATE_CLIENTS);
+            level.setBlock(pos, state.setValue(POWER, 0), Block.UPDATE_CLIENTS);
         }
         if (level instanceof ServerLevel server) RedstoneCableNetwork.recompute(server, pos);
     }
