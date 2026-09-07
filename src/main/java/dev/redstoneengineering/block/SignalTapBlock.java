@@ -25,15 +25,14 @@ import net.minecraft.world.phys.BlockHitResult;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Three-port signal copier. "Non-invasive" means the TAP port never back-drives or
+ * changes the main IN -> THROUGH transfer. The TAP is still an active 0..15 output,
+ * not an idealized zero-loading measurement probe.
+ */
 public class SignalTapBlock extends DirectionalSignalBlock {
-    public SignalTapBlock(Properties properties) {
-        super(properties);
-    }
-
-    @Override
-    public MapCodec<SignalTapBlock> codec() {
-        return RedstoneEngineering.SIGNAL_TAP_CODEC.value();
-    }
+    public SignalTapBlock(Properties properties) { super(properties); }
+    @Override public MapCodec<SignalTapBlock> codec() { return RedstoneEngineering.SIGNAL_TAP_CODEC.value(); }
 
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
@@ -49,9 +48,7 @@ public class SignalTapBlock extends DirectionalSignalBlock {
     }
 
     @Override
-    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
-            Level level, BlockPos pos, BlockState state, Direction side
-    ) {
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> descriptor = engineeringPort(state, side);
         if (descriptor.isEmpty()) return Optional.empty();
         int value = side == inputSide(state) ? readInputFrom(level, pos, side) : state.getValue(OUTPUT);
@@ -61,18 +58,13 @@ public class SignalTapBlock extends DirectionalSignalBlock {
     @Override
     protected boolean isEngineeringPort(BlockState state, Direction side) {
         Direction facing = state.getValue(FACING);
-        return side == inputSide(state)
-                || side == outputSide(state)
-                || side == leftOf(facing);
+        return side == inputSide(state) || side == outputSide(state) || side == leftOf(facing);
     }
 
     @Override
     protected int getSignal(BlockState state, BlockGetter level, BlockPos pos, Direction direction) {
         Direction facing = state.getValue(FACING);
-        if (direction == outputSide(state).getOpposite()
-                || direction == leftOf(facing).getOpposite()) {
-            return state.getValue(OUTPUT);
-        }
+        if (direction == outputSide(state).getOpposite() || direction == leftOf(facing).getOpposite()) return state.getValue(OUTPUT);
         return 0;
     }
 
@@ -83,27 +75,18 @@ public class SignalTapBlock extends DirectionalSignalBlock {
     }
 
     @Override
-    protected InteractionResult useWithoutItem(
-            BlockState state,
-            Level level,
-            BlockPos pos,
-            Player player,
-            BlockHitResult hitResult
-    ) {
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (!player.isShiftKeyDown()) {
                 FieldDeviceUi.open(serverPlayer, pos);
                 return InteractionResult.CONSUME;
             }
-            player.displayClientMessage(
-                    Component.literal(
-                            "Signal Tap | IN=" + inputSide(state).getName()
-                                    + " | THROUGH=" + outputSide(state).getName()
-                                    + " | TAP=" + leftOf(state.getValue(FACING)).getName()
-                                    + " | value=" + state.getValue(OUTPUT) + "/15"
-                    ),
-                    true
-            );
+            player.displayClientMessage(Component.literal(
+                    "Signal Tap | IN=" + inputSide(state).getName()
+                            + " | THROUGH=" + outputSide(state).getName()
+                            + " | TAP COPY=" + leftOf(state.getValue(FACING)).getName()
+                            + " | value=" + state.getValue(OUTPUT) + "/15"
+                            + " | main path preserved; tap cannot back-drive IN/THROUGH"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
