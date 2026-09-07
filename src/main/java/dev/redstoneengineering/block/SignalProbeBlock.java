@@ -98,11 +98,9 @@ public class SignalProbeBlock extends Block implements EngineeringPortProvider {
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
+        int measured = sample(level, pos, state);
         return Optional.of(EngineeringPortSnapshot.redstone(
-                port.get(),
-                sample(level, pos, state),
-                PortQuality.VALID
-        ));
+                port.get(), measured, measurementPresent(level, pos, state, measured) ? PortQuality.VALID : PortQuality.NO_SIGNAL));
     }
 
     @Override
@@ -119,6 +117,16 @@ public class SignalProbeBlock extends Block implements EngineeringPortProvider {
                 level.getBlockState(targetPos),
                 targetSide
         );
+    }
+
+    /**
+     * Zero is a valid engineering value when a real target exists. An open aperture with no
+     * target and no observed signal is NO_SIGNAL, preventing "0" from being mistaken for a
+     * confirmed zero-level measurement.
+     */
+    public static boolean measurementPresent(Level level, BlockPos pos, BlockState state, int measured) {
+        BlockState target = level.getBlockState(pos.relative(testSide(state)));
+        return measured > 0 || !target.isAir();
     }
 
     @Override
@@ -138,6 +146,7 @@ public class SignalProbeBlock extends Block implements EngineeringPortProvider {
                                         + " | TEST=" + testSide(state).getName()
                                         + " | BUS=" + busSide(state).getName()
                                         + " | value=" + value + "/15"
+                                        + " | measurement=" + (measurementPresent(level, pos, state, value) ? "VALID" : "NO_SIGNAL")
                                         + " | direction-aware • non-invasive"
                         ),
                         true
