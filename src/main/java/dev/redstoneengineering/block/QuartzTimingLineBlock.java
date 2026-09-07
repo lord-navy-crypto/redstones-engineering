@@ -10,6 +10,7 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
+import dev.redstoneengineering.physics.NetworkKernel;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
@@ -35,7 +36,11 @@ public class QuartzTimingLineBlock extends SurfaceTraceBlock implements Engineer
     @Override public MapCodec<QuartzTimingLineBlock> codec(){return RedstoneEngineering.QUARTZ_TIMING_LINE_CODEC.value();}
     @Override protected boolean canConnectTo(BlockGetter l,BlockPos p,Direction d,BlockState n){return d.getAxis().isHorizontal()&&TransmissionTopology.quartzPort(n,d);}
     public static int periodTicks(int index){return switch(index){case 0->2;case 1->4;case 2->8;case 3->16;default->32;};}
-    public static void setTiming(Level l,BlockPos p,boolean active,int periodTicks,boolean valid){setTiming(l,p,active,periodTicks,valid,valid?1:0);}
+    public static void setTiming(Level l,BlockPos p,boolean active,int periodTicks,boolean valid){
+        NetworkKernel.ScanStats stats=NetworkKernel.stats(l,"quartz");
+        int sources=valid?1:(stats.driverConflict()?stats.activeDrivers():0);
+        setTiming(l,p,active,periodTicks,valid,sources);
+    }
     public static void setTiming(Level l,BlockPos p,boolean active,int periodTicks,boolean valid,int sourceCount){int[]r=RuntimeIntStore.get(l,KEY,p,4);r[0]=active&&valid?1:0;r[1]=valid?Math.max(1,Math.min(4096,periodTicks)):0;r[2]=valid?1:0;r[3]=Math.max(0,sourceCount);}
     private static int[] snapshot(Level l,BlockPos p){int[]r=RuntimeIntStore.peek(l,KEY,p);return r!=null&&r.length==4?r:null;}
     public static boolean active(Level l,BlockPos p){int[]r=snapshot(l,p);return r!=null&&r[0]==1;}
