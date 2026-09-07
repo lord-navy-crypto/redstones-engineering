@@ -71,7 +71,13 @@ public class OpticalAttenuatorBlock extends DirectionalDomainBlock implements En
 
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
         super.onPlace(state, level, pos, oldState, moved);
-        if (!level.isClientSide) level.scheduleTick(pos, this, 2);
+        if (!(level instanceof ServerLevel serverLevel)) return;
+        if (state.is(oldState.getBlock()) && oldState.hasProperty(LOSS)
+                && state.getValue(LOSS).intValue() != oldState.getValue(LOSS).intValue()) {
+            configurationChanged(serverLevel, pos, state);
+        } else {
+            serverLevel.scheduleTick(pos, this, 2);
+        }
     }
 
     @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
@@ -87,7 +93,7 @@ public class OpticalAttenuatorBlock extends DirectionalDomainBlock implements En
         DomainNetwork.driveOptical(level, pos.relative(output), pos, 0, 0, false);
     }
 
-    /** Shared by direct interaction and FieldDevice UI so configuration changes never leave stale carrier state. */
+    /** Shared state-transition hook so every configuration path clears the previous carrier first. */
     public static void configurationChanged(ServerLevel level, BlockPos pos, BlockState state) {
         invalidateOutput(level, pos, state);
         if (state.getBlock() instanceof OpticalAttenuatorBlock attenuator) level.scheduleTick(pos, attenuator, 1);
@@ -109,7 +115,6 @@ public class OpticalAttenuatorBlock extends DirectionalDomainBlock implements En
             loss = loss >= 8 ? 0 : loss + 1;
             BlockState next = state.setValue(LOSS, loss);
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            if (level instanceof ServerLevel serverLevel) configurationChanged(serverLevel, pos, next);
             AttenuationEvidence evidence = evidence(level, pos, next);
             player.displayClientMessage(Component.literal(
                     "Optical attenuator | loss index=" + loss
