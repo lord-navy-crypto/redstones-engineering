@@ -31,6 +31,8 @@ import java.util.Optional;
 public class LapisPrecisionMeterBlock extends DomainBlock implements EngineeringPortProvider {
     public static final DirectionProperty FACING = BlockStateProperties.FACING;
 
+    public record MeterReading(int value, PortQuality quality) {}
+
     public LapisPrecisionMeterBlock(Properties properties) {
         super(properties);
         registerDefaultState(defaultBlockState().setValue(FACING, Direction.NORTH));
@@ -43,36 +45,42 @@ public class LapisPrecisionMeterBlock extends DomainBlock implements Engineering
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         return List.of(new EngineeringPort(
-                "LAPIS MEASURE",
-                state.getValue(FACING),
-                EngineeringDomain.LAPIS,
-                PortKind.MEASUREMENT,
-                PortDirection.INPUT,
-                false,
-                "precision"
-        ));
+                "LAPIS MEASURE", state.getValue(FACING), EngineeringDomain.LAPIS,
+                PortKind.MEASUREMENT, PortDirection.INPUT, false, "precision"));
+    }
+
+    public static MeterReading reading(Level level, BlockPos pos, BlockState state) {
+        BlockPos samplePos = pos.relative(state.getValue(FACING));
+        if (!level.hasChunkAt(samplePos)) return new MeterReading(0, PortQuality.NO_SIGNAL);
+        DomainNetwork.LapisSample sample = DomainNetwork.sampleLapis(level, samplePos);
+        PortQuality quality = level.getBlockState(samplePos).getBlock() instanceof LapisSignalLineBlock
+                ? LapisSignalLineBlock.quality(level, samplePos)
+                : (sample.valid() ? PortQuality.VALID : PortQuality.NO_SIGNAL);
+        return new MeterReading(sample.value(), quality);
     }
 
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        DomainNetwork.LapisSample sample = DomainNetwork.sampleLapis(level, pos.relative(state.getValue(FACING)));
+        MeterReading reading = reading(level, pos, state);
         return Optional.of(new EngineeringPortSnapshot(
-                port.get(), sample.value(), 0.0, 100.0,
-                sample.valid() ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+                port.get(), reading.value(), 0.0, 100.0, reading.quality()));
     }
 
     public static DomainNetwork.LapisSample sampledValue(Level level, BlockPos pos, BlockState state) {
-        return DomainNetwork.sampleLapis(level, pos.relative(state.getValue(FACING)));
+        MeterReading reading = reading(level, pos, state);
+        return new DomainNetwork.LapisSample(reading.value(), reading.quality() == PortQuality.VALID);
     }
 
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
-            DomainNetwork.LapisSample sample = sampledValue(level, pos, state);
-            player.displayClientMessage(Component.literal(sample.valid()
-                    ? "Lapis precision meter | observer only | value=" + String.format("%.3f", sample.value() / 100.0) + " | resolution=0.01"
-                    : "Lapis precision meter | observer only | INVALID / no unique source"), true);
+            MeterReading reading = reading(level, pos, state);
+            player.displayClientMessage(Component.literal(switch (reading.quality()) {
+                case VALID -> "Lapis precision meter | observer only | value=" + String.format("%.3f", reading.value() / 100.0) + " | resolution=0.01";
+                case TOPOLOGY_ERROR -> "Lapis precision meter | observer only | SOURCE CONFLICT — no arbitrary source selected";
+                default -> "Lapis precision meter | observer only | INVALID / no unique source";
+            }), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
