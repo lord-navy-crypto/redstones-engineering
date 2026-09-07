@@ -8,9 +8,10 @@ import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
-import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.PneumaticNetwork;
+import dev.redstoneengineering.physics.PneumaticObservationSupport;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -39,8 +40,13 @@ public class AirCompressorBlock extends Block implements EngineeringPortProvider
         return RedstoneEngineering.AIR_COMPRESSOR_CODEC.value();
     }
 
+    public static RedstoneObservationSupport.Observation commandObservation(Level level, BlockPos pos) {
+        return RedstoneObservationSupport.observe(level, pos, Direction.DOWN);
+    }
+
     public static int commandSignal(Level level, BlockPos pos) {
-        return Math.max(0, Math.min(15, level.getSignal(pos.below(), Direction.DOWN)));
+        RedstoneObservationSupport.Observation observation = commandObservation(level, pos);
+        return observation.valid() ? observation.value() : 0;
     }
 
     public static int commandedPressure(Level level, BlockPos pos) {
@@ -64,13 +70,13 @@ public class AirCompressorBlock extends Block implements EngineeringPortProvider
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         if (side == Direction.DOWN) {
+            RedstoneObservationSupport.Observation command = commandObservation(level, pos);
             return Optional.of(EngineeringPortSnapshot.redstone(
-                    port.get(), commandSignal(level, pos), PortQuality.VALID));
+                    port.get(), command.value(), command.quality()));
         }
-        int pressure = PneumaticNetwork.pressure(level, pos);
+        PneumaticObservationSupport.Observation pressure = PneumaticObservationSupport.observe(level, pos);
         return Optional.of(new EngineeringPortSnapshot(
-                port.get(), pressure, 0.0, 100.0,
-                pressure > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+                port.get(), pressure.pressure(), 0.0, 100.0, pressure.quality()));
     }
 
     @Override
