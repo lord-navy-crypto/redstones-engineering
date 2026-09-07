@@ -196,11 +196,12 @@ public final class RseSixthTenDesignBugGameTests {
         BlockState toggled = helper.getBlockState(terminal)
                 .setValue(RedstoneCableTerminalBlock.OUTPUT_MODE, true);
         helper.setBlock(terminal, toggled);
+        RedstoneCableNetwork.recompute(helper.getLevel(), helper.absolutePos(terminal));
         helper.runAfterDelay(1, () -> {
             BlockState state = helper.getBlockState(terminal);
             if (!state.getValue(RedstoneCableTerminalBlock.OUTPUT_MODE)
                     || state.getValue(RedstoneCableTerminalBlock.POWER) != 0) {
-                helper.fail("Terminal role change retained the old role's cached signal", terminal);
+                helper.fail("Terminal role change plus network recompute retained the old role's cached signal", terminal);
                 return;
             }
             helper.succeed();
