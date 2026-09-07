@@ -4,9 +4,12 @@ import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.EngineeringPort;
+import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.core.signal.SignalMath;
+import dev.redstoneengineering.metrology.MeasurementQuality;
 import dev.redstoneengineering.metrology.MeasurementSnapshot;
 import dev.redstoneengineering.metrology.MetrologySupport;
 import net.minecraft.core.BlockPos;
@@ -24,12 +27,17 @@ import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Calibration processor.
  * BACK = observed instrument signal, LEFT = known reference, FRONT = calibrated output.
  * The five historical transfer profiles remain available while Alpha 1.0.15 adds
  * live residual/uncertainty validation against the independent reference input.
+ *
+ * <p>Unlike the Signal Conditioner, this block earns its place from traceability evidence:
+ * its output quality is derived from the OBSERVED-vs-REFERENCE metrology record rather than
+ * from the transfer profile alone.</p>
  */
 public class CalibrationModuleBlock extends DirectionalSignalBlock {
     public static final IntegerProperty PROFILE = IntegerProperty.create("profile", 0, 4);
@@ -83,6 +91,24 @@ public class CalibrationModuleBlock extends DirectionalSignalBlock {
 
     public static MeasurementSnapshot measurement(Level level, BlockPos pos) {
         return MetrologySupport.snapshot(level, CHANNEL, pos, 1.0, 30L);
+    }
+
+    @Override
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
+            Level level, BlockPos pos, BlockState state, Direction side
+    ) {
+        Optional<EngineeringPortSnapshot> base = super.engineeringSnapshot(level, pos, state, side);
+        if (base.isEmpty() || side != outputSide(state)) return base;
+        EngineeringPortSnapshot snapshot = base.get();
+        MeasurementQuality quality = measurement(level, pos).quality();
+        PortQuality portQuality = switch (quality) {
+            case GOOD, DEGRADED -> PortQuality.VALID;
+            case SATURATED -> PortQuality.SATURATED;
+            case STALE -> PortQuality.STALE;
+            case INVALID -> PortQuality.NO_SIGNAL;
+        };
+        return Optional.of(new EngineeringPortSnapshot(
+                snapshot.port(), snapshot.value(), snapshot.minimum(), snapshot.maximum(), portQuality));
     }
 
     @Override
