@@ -156,7 +156,7 @@ public class AmethystSpectrumAnalyzerBlock extends DomainBlock implements Engine
         super.onPlace(state, level, pos, oldState, movedByPiston);
         if (level instanceof ServerLevel serverLevel && !state.is(oldState.getBlock())) {
             scan(serverLevel, pos);
-            serverLevel.scheduleTick(pos, this, SAMPLE_PERIOD_TICKS);
+            serverLevel.scheduleTick(pos, this, 1);
         }
     }
 
