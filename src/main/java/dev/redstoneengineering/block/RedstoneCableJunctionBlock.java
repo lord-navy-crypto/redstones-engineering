@@ -9,8 +9,11 @@ import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
+import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.instrument.InstrumentNetwork;
 import dev.redstoneengineering.physics.DataBusNetwork;
 import dev.redstoneengineering.physics.DifferentialNetwork;
+import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.RedstoneCableNetwork;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.physics.SerialNetwork;
@@ -24,7 +27,6 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
@@ -144,15 +146,38 @@ public class RedstoneCableJunctionBlock extends ConnectedCableBlock implements E
         return List.copyOf(ports);
     }
 
+    private static EngineeringPortSnapshot informationSnapshot(
+            EngineeringPort port,
+            InformationRuntime.Snapshot sample,
+            double maximum
+    ) {
+        PortQuality quality = sample.ageTicks() < 0
+                ? PortQuality.STALE
+                : sample.valid() ? PortQuality.VALID : PortQuality.NO_SIGNAL;
+        return new EngineeringPortSnapshot(port, sample.value(), 0.0, maximum, quality);
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        if (state.getValue(MEDIUM) == SignalMedium.REDSTONE) {
-            return Optional.of(EngineeringPortSnapshot.redstone(
+
+        return switch (state.getValue(MEDIUM)) {
+            case REDSTONE -> Optional.of(EngineeringPortSnapshot.redstone(
                     port.get(), power(level, pos), RedstoneCableNetwork.sourceEvidence(level, pos).quality()));
-        }
-        return Optional.empty();
+            case INSTRUMENT -> {
+                InstrumentNetwork.ProbeSnapshot bus = InstrumentNetwork.scan(level, pos);
+                yield Optional.of(new EngineeringPortSnapshot(
+                        port.get(), bus.validChannelsInMask(0xF), 0.0, 4.0, bus.qualityForMask(0xF)));
+            }
+            case DATA_BUS_8 -> Optional.of(informationSnapshot(
+                    port.get(), InformationRuntime.snapshot(level, "bus8", pos), 255.0));
+            case SERIAL -> Optional.of(informationSnapshot(
+                    port.get(), InformationRuntime.snapshot(level, "serial", pos), 255.0));
+            case DIFFERENTIAL -> Optional.of(informationSnapshot(
+                    port.get(), InformationRuntime.snapshot(level, "diff", pos), 1.0));
+            case NONE, MISMATCH -> Optional.empty();
+        };
     }
 
     @Override
