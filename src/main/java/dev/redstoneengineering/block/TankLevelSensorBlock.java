@@ -35,6 +35,10 @@ public class TankLevelSensorBlock extends DirectionalRedstoneSensorBlock {
     /** Physical column observation. complete=false means an unloaded cell hid the true top of the column. */
     public record ColumnSample(int fluidBlocks, int scannedCells, int expectedCells, boolean complete) {
         public boolean saturated() { return complete && fluidBlocks > 15; }
+        public PortQuality quality() {
+            if (!complete) return PortQuality.STALE;
+            return saturated() ? PortQuality.SATURATED : PortQuality.VALID;
+        }
     }
 
     public TankLevelSensorBlock(Properties properties) {
@@ -83,11 +87,8 @@ public class TankLevelSensorBlock extends DirectionalRedstoneSensorBlock {
         if (port.isEmpty()) return Optional.empty();
         if (side == Direction.UP) {
             ColumnSample sample = columnSample(level, pos);
-            PortQuality quality = !sample.complete()
-                    ? PortQuality.STALE
-                    : sample.saturated() ? PortQuality.SATURATED : PortQuality.VALID;
             return Optional.of(new EngineeringPortSnapshot(
-                    port.get(), Math.min(15, sample.fluidBlocks()), 0.0, 15.0, quality));
+                    port.get(), Math.min(15, sample.fluidBlocks()), 0.0, 15.0, sample.quality()));
         }
         return Optional.of(EngineeringPortSnapshot.redstone(
                 port.get(), state.getValue(POWER), MetrologySupport.portQuality(sensorMeasurement(level, pos))));
@@ -124,11 +125,9 @@ public class TankLevelSensorBlock extends DirectionalRedstoneSensorBlock {
     protected void neighborChanged(
             BlockState state, Level level, BlockPos pos, Block neighbor, BlockPos neighborPos, boolean movedByPiston
     ) {
-        super.neighborChanged(state, level, pos, blockOrSelf(neighbor), neighborPos, movedByPiston);
+        super.neighborChanged(state, level, pos, neighbor, neighborPos, movedByPiston);
         if (!level.isClientSide) level.scheduleTick(pos, this, 1);
     }
-
-    private static Block blockOrSelf(Block block) { return block; }
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
