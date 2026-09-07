@@ -48,13 +48,11 @@ registration = text("gametest/RseGameTestRegistration.java")
 tests = text("gametest/RseFifthTenDesignBugGameTests.java")
 workflow = (ROOT / ".github/workflows/build.yml").read_text(encoding="utf-8")
 
-# 41: scheduled sampling owns writes; UI/diagnostics are observer-only and conflicts/coverage are explicit.
 for token in ("CONFLICT_SAMPLES", "SCANNED_CELLS", "EXPECTED_CELLS", "RuntimeIntStore.peek", "PortQuality.TOPOLOGY_ERROR"):
     require(token in spectrum, f"Spectrum Analyzer evidence missing {token}")
 use_body = method_body(spectrum, "protected InteractionResult useWithoutItem")
 require("scan(" not in use_body, "Spectrum Analyzer inspection must not trigger a physics scan")
 
-# 42-45: one shared read-only optical quality path, with splitter quantization and stale-output invalidation.
 for name, source in (("Power Meter", power_meter), ("Splitter", splitter), ("Channel Filter", channel_filter), ("Attenuator", attenuator)):
     require("OpticalObservationSupport" in source, f"Optical {name} does not preserve upstream carrier quality")
 for token in ("OpticalFiberBlock.quality", "OpticalReceiverBlock.quality", "PortQuality.TOPOLOGY_ERROR"):
@@ -66,7 +64,6 @@ for name, source, prop in (("Channel Filter", channel_filter, "TARGET"), ("Atten
     require(f"oldState.hasProperty({prop})" in source,
             f"Optical {name} must catch every same-block configuration path")
 
-# 46-48: output diagnostics must never allocate runtime; source quality is retained in server-owned runtime evidence.
 for name, source in (("Series Resistor", resistor), ("Capacitor", capacitor), ("Fuse", fuse)):
     body = method_body(source, "public static int outputVoltage")
     require("RuntimeIntStore.get" not in body, f"Copper {name} outputVoltage inspection allocates runtime")
@@ -81,7 +78,6 @@ require("CopperObservationSupport" in copper_base and "observedOutputQuality" in
 require("Non-recursive" in copper_support and "cyclic processor layout" in copper_support,
         "Copper observation helper must document its non-recursive boundary")
 
-# 49: metrology snapshot is a real peek; no-data is not created by UI inspection.
 snapshot_body = method_body(metrology_support, "public static MeasurementSnapshot snapshot")
 require("MetrologyStore.peek" in snapshot_body and "MetrologyStore.tracker" not in snapshot_body,
         "Metrology snapshot still creates tracker state")
@@ -90,9 +86,8 @@ require("entryCount" in metrology_store and "peek(" in metrology_store,
 require("measurementQuality" in circuit_meter and "PortQuality.STALE" in circuit_meter,
         "Copper Circuit Meter must separate pre-sample/stale evidence from FAULT")
 
-# 50: retain intentionally scalar, free-space, non-wired magnetic identity.
-for token in ("SourceEvidence", "scalarFieldModel", "wired", "SCALAR MAGNETIC FIELD", "orientation marker only in scalar solver"):
-    require(token in magnet, f"Permanent Magnet scalar/free-space contract missing {token}")
+for token in ("SourceEvidence", "scalarFieldModel", "wired", '"MAGNETIC FIELD "', "scalar free-space", "orientation marker only in scalar solver"):
+    require(token in magnet, f"Permanent Magnet scalar/free-space compatibility contract missing {token}")
 
 require("RseFifthTenDesignBugGameTests.class" in registration,
         "Fifth-ten design/bug GameTests are not registered")
@@ -121,6 +116,6 @@ print("  Optical power/split/filter/attenuator quality semantics: PASS")
 print("  Optical retuning stale-carrier prevention: PASS")
 print("  Copper R/C/fuse observer-neutral source-quality evidence: PASS")
 print("  Copper metrology snapshot ownership boundary: PASS")
-print("  Permanent Magnet scalar free-space identity: PASS")
+print("  Permanent Magnet scalar free-space identity + legacy label: PASS")
 print("  nine executable fifth-ten GameTests registered: PASS")
 print("  fixed-content architecture: 127 blocks; no new block/domain required")
