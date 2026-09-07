@@ -34,9 +34,9 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
     public static final IntegerProperty TRIGGER_MODE = IntegerProperty.create("trigger_mode", 0, 2);
     private static final String KEY = "redstone_sample_hold";
     private static final int RUNTIME_SIZE = 5;
-    private static final int HELD = 0;
-    private static final int TRIGGERED = 1;
-    private static final int INITIALIZED = 2;
+    private static final int HELD_SLOT = 0;
+    private static final int TRIGGER_STATE_SLOT = 1;
+    private static final int INITIALIZED_SLOT = 2;
     private static final int CAPTURE_COUNT = 3;
     private static final int LAST_CAPTURE_TICK = 4;
 
@@ -84,10 +84,10 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
 
     private int[] runtime(Level level, BlockPos pos, BlockState state, boolean triggerNow) {
         int[] rt = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
-        if (rt[INITIALIZED] == 0) {
-            rt[HELD] = state.getValue(OUTPUT); // preserve held output across reload
-            rt[TRIGGERED] = triggerNow ? 1 : 0; // avoid a false edge after reload
-            rt[INITIALIZED] = 1;
+        if (rt[INITIALIZED_SLOT] == 0) {
+            rt[HELD_SLOT] = state.getValue(OUTPUT); // preserve held output across reload
+            rt[TRIGGER_STATE_SLOT] = triggerNow ? 1 : 0; // avoid a false edge after reload
+            rt[INITIALIZED_SLOT] = 1;
         }
         return rt;
     }
@@ -97,7 +97,7 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
         boolean triggerNow = readInputFrom(level, pos, leftOf(facing)) > 0;
         boolean resetNow = readInputFrom(level, pos, rightOf(facing)) > 0;
         int[] rt = runtime(level, pos, state, triggerNow);
-        boolean triggerBefore = rt[TRIGGERED] == 1;
+        boolean triggerBefore = rt[TRIGGER_STATE_SLOT] == 1;
         boolean rising = !triggerBefore && triggerNow;
         boolean falling = triggerBefore && !triggerNow;
         boolean sample = switch (state.getValue(TRIGGER_MODE)) {
@@ -105,14 +105,14 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
         };
 
         if (resetNow) {
-            rt[HELD] = 0;
+            rt[HELD_SLOT] = 0;
         } else if (sample) {
-            rt[HELD] = readBackInput(level, pos, state);
+            rt[HELD_SLOT] = readBackInput(level, pos, state);
             rt[CAPTURE_COUNT]++;
             rt[LAST_CAPTURE_TICK] = boundedTick(level.getGameTime());
         }
-        rt[TRIGGERED] = triggerNow ? 1 : 0;
-        updateOutput(level, pos, state, rt[HELD]);
+        rt[TRIGGER_STATE_SLOT] = triggerNow ? 1 : 0;
+        updateOutput(level, pos, state, rt[HELD_SLOT]);
     }
 
     @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
@@ -144,9 +144,9 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
             boolean triggerNow = readInputFrom(level, pos, leftOf(facing)) > 0;
             int[] rt = runtime(level, pos, state, triggerNow);
             if (player.isShiftKeyDown()) {
-                rt[HELD] = 0;
-                rt[TRIGGERED] = triggerNow ? 1 : 0;
-                rt[INITIALIZED] = 1;
+                rt[HELD_SLOT] = 0;
+                rt[TRIGGER_STATE_SLOT] = triggerNow ? 1 : 0;
+                rt[INITIALIZED_SLOT] = 1;
                 updateOutput(level, pos, state, 0);
                 player.displayClientMessage(Component.literal(
                         "Sample & Hold | held value cleared | captures=" + rt[CAPTURE_COUNT]
@@ -155,7 +155,7 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
                 int mode = (state.getValue(TRIGGER_MODE) + 1) % 3;
                 BlockState next = state.setValue(TRIGGER_MODE, mode); level.setBlock(pos, next, Block.UPDATE_CLIENTS);
                 player.displayClientMessage(Component.literal(
-                        "Sample & Hold | mode=" + modeName(mode) + " | held=" + rt[HELD]
+                        "Sample & Hold | mode=" + modeName(mode) + " | held=" + rt[HELD_SLOT]
                                 + " | captures=" + rt[CAPTURE_COUNT]
                                 + " | sampleAge=" + sampleAgeTicks(level, pos) + "t"
                                 + " | VALUE=" + inputSide(next).getName() + " | OUT=" + outputSide(next).getName()
