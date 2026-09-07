@@ -34,6 +34,7 @@ import java.util.Optional;
 public class DigitalRegeneratorBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
     public static final IntegerProperty THRESHOLD = IntegerProperty.create("threshold", 0, 2);
     private static final int[] MIN_QUALITY = {20, 40, 60};
+    private static final int WATCHDOG_TICKS = 16;
 
     public DigitalRegeneratorBlock(Properties properties) {
         super(properties);
@@ -62,32 +63,44 @@ public class DigitalRegeneratorBlock extends DirectionalDomainBlock implements E
         );
     }
 
+    private PortQuality inputQuality(Level level, BlockPos pos, BlockState state) {
+        return SerialNetwork.quality(level, inputPos(pos, state));
+    }
+
+    private PortQuality outputQuality(Level level, BlockPos pos, BlockState state) {
+        PortQuality upstream = inputQuality(level, pos, state);
+        if (upstream != PortQuality.VALID && upstream != PortQuality.SATURATED) return upstream;
+        InformationRuntime.Snapshot input = InformationRuntime.snapshot(level, "serial", inputPos(pos, state));
+        if (!input.valid()) return PortQuality.FAULT;
+        return input.qualityPercent() >= minimumQuality(state.getValue(THRESHOLD))
+                ? PortQuality.VALID : PortQuality.FAULT;
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         if (side == inputSide(state)) {
-            BlockPos input = inputPos(pos, state);
-            boolean valid = InformationRuntime.valid(level, "serial", input);
-            return Optional.of(new EngineeringPortSnapshot(port.get(),
-                    InformationRuntime.value(level, "serial", input) & 0xFF,
-                    0.0, 255.0, valid ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+            InformationRuntime.Snapshot input = InformationRuntime.snapshot(level, "serial", inputPos(pos, state));
+            return Optional.of(new EngineeringPortSnapshot(port.get(), input.value() & 0xFF,
+                    0.0, 255.0, inputQuality(level, pos, state)));
         }
-        boolean valid = InformationRuntime.valid(level, "serial", pos);
-        return Optional.of(new EngineeringPortSnapshot(port.get(),
-                InformationRuntime.value(level, "serial", pos) & 0xFF,
-                0.0, 255.0, valid ? PortQuality.VALID : PortQuality.FAULT));
+        InformationRuntime.Snapshot output = InformationRuntime.snapshot(level, "serial", pos);
+        return Optional.of(new EngineeringPortSnapshot(port.get(), output.value() & 0xFF,
+                0.0, 255.0, outputQuality(level, pos, state)));
     }
 
     private void update(ServerLevel level, BlockPos pos, BlockState state) {
-        BlockPos input = inputPos(pos, state);
+        BlockPos inputPos = inputPos(pos, state);
         BlockPos output = outputPos(pos, state);
-        int inputQuality = InformationRuntime.quality(level, "serial", input);
-        boolean valid = InformationRuntime.valid(level, "serial", input)
-                && inputQuality >= minimumQuality(state.getValue(THRESHOLD));
-        int value = InformationRuntime.value(level, "serial", input) & 0xFF;
-        int period = Math.max(1, InformationRuntime.aux(level, "serial", input));
-        InformationRuntime.write(level, "serial", pos, value, period, valid, valid ? 100 : 0);
+        InformationRuntime.Snapshot input = InformationRuntime.snapshot(level, "serial", inputPos);
+        PortQuality upstream = SerialNetwork.quality(level, inputPos);
+        boolean accepted = (upstream == PortQuality.VALID || upstream == PortQuality.SATURATED)
+                && input.valid()
+                && input.qualityPercent() >= minimumQuality(state.getValue(THRESHOLD));
+        int period = Math.max(1, input.selector());
+        InformationRuntime.write(level, "serial", pos, input.value() & 0xFF, period,
+                accepted, accepted ? 100 : 0);
         if (level.getBlockState(output).getBlock() instanceof SerialDataLineBlock) {
             SerialNetwork.recompute(level, output);
         }
@@ -96,13 +109,16 @@ public class DigitalRegeneratorBlock extends DirectionalDomainBlock implements E
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
-        if (level instanceof ServerLevel serverLevel) serverLevel.scheduleTick(pos, this, 2);
+        if (level instanceof ServerLevel serverLevel) {
+            update(serverLevel, pos, state);
+            serverLevel.scheduleTick(pos, this, WATCHDOG_TICKS);
+        }
     }
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         update(level, pos, state);
-        level.scheduleTick(pos, this, 2);
+        level.scheduleTick(pos, this, WATCHDOG_TICKS);
     }
 
     @Override
@@ -135,11 +151,11 @@ public class DigitalRegeneratorBlock extends DirectionalDomainBlock implements E
                 BlockState next = state.setValue(THRESHOLD, nextThreshold);
                 level.setBlock(pos, next, Block.UPDATE_CLIENTS);
                 update(serverPlayer.serverLevel(), pos, next);
-                int inputQuality = InformationRuntime.quality(level, "serial", inputPos(pos, next));
+                InformationRuntime.Snapshot input = InformationRuntime.snapshot(level, "serial", inputPos(pos, next));
                 player.displayClientMessage(Component.literal(
                         "Digital regenerator minQuality=" + minimumQuality(nextThreshold) + "%"
-                                + " inputQuality=" + inputQuality + "%"
-                                + " output=" + (InformationRuntime.valid(level, "serial", pos) ? "VALID" : "REJECTED")), true);
+                                + " inputQuality=" + input.qualityPercent() + "%"
+                                + " state=" + outputQuality(level, pos, next)), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
             }
