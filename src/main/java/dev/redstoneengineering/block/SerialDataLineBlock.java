@@ -58,7 +58,9 @@ public class SerialDataLineBlock extends ConnectedCableBlock implements Engineer
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         List<EngineeringPort> ports = new ArrayList<>();
         for (Direction side : Direction.values()) {
-            if (!connected(state, side)) continue;
+            // Horizontal faces describe connectable cable capability even when open.
+            // UP/DOWN are exposed only after a same-medium junction creates a live arm.
+            if (side.getAxis() == Direction.Axis.Y && !connected(state, side)) continue;
             ports.add(new EngineeringPort(
                     "SERIAL DATA",
                     side,
