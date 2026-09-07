@@ -23,9 +23,9 @@ public class EdgeDetectorBlock extends DirectionalSignalBlock {
     public static final IntegerProperty MODE = IntegerProperty.create("mode", 0, 2);
     private static final String KEY = "redstone_edge_detector";
     private static final int RUNTIME_SIZE = 5;
-    private static final int LAST = 0;
-    private static final int REMAINING = 1;
-    private static final int INITIALIZED = 2;
+    private static final int LAST_INPUT_SLOT = 0;
+    private static final int PULSE_TICKS_SLOT = 1;
+    private static final int INITIALIZED_SLOT = 2;
     private static final int EDGE_COUNT = 3;
     private static final int LAST_EDGE_TICK = 4;
 
@@ -42,16 +42,16 @@ public class EdgeDetectorBlock extends DirectionalSignalBlock {
     @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         boolean now = readBackInput(level, pos, state) > 0;
         int[] rt = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
-        if (rt[INITIALIZED] == 0) {
-            rt[LAST] = now ? 1 : 0;
-            rt[REMAINING] = 0;
-            rt[INITIALIZED] = 1;
+        if (rt[INITIALIZED_SLOT] == 0) {
+            rt[LAST_INPUT_SLOT] = now ? 1 : 0;
+            rt[PULSE_TICKS_SLOT] = 0;
+            rt[INITIALIZED_SLOT] = 1;
             updateOutput(level, pos, state, 0);
             return;
         }
 
-        boolean last = rt[LAST] == 1;
-        int remaining = rt[REMAINING];
+        boolean last = rt[LAST_INPUT_SLOT] == 1;
+        int remaining = rt[PULSE_TICKS_SLOT];
         boolean edge = switch (state.getValue(MODE)) {
             case 0 -> !last && now;
             case 1 -> last && !now;
@@ -65,8 +65,8 @@ public class EdgeDetectorBlock extends DirectionalSignalBlock {
         }
 
         updateOutput(level, pos, state, remaining > 0 ? 15 : 0);
-        rt[LAST] = now ? 1 : 0;
-        rt[REMAINING] = Math.max(0, remaining - 1);
+        rt[LAST_INPUT_SLOT] = now ? 1 : 0;
+        rt[PULSE_TICKS_SLOT] = Math.max(0, remaining - 1);
         if (remaining > 0) level.scheduleTick(pos, this, 1);
     }
 
@@ -78,15 +78,15 @@ public class EdgeDetectorBlock extends DirectionalSignalBlock {
     /** Read-only diagnostic accessors must never initialize the detector or create a false edge. */
     public static int lastInput(Level level, BlockPos pos) {
         int[] rt = RuntimeIntStore.peek(level, KEY, pos);
-        return rt == null || rt.length < RUNTIME_SIZE ? 0 : rt[LAST];
+        return rt == null || rt.length < RUNTIME_SIZE ? 0 : rt[LAST_INPUT_SLOT];
     }
     public static int pulseRemaining(Level level, BlockPos pos) {
         int[] rt = RuntimeIntStore.peek(level, KEY, pos);
-        return rt == null || rt.length < RUNTIME_SIZE ? 0 : Math.max(0, rt[REMAINING]);
+        return rt == null || rt.length < RUNTIME_SIZE ? 0 : Math.max(0, rt[PULSE_TICKS_SLOT]);
     }
     public static boolean initialized(Level level, BlockPos pos) {
         int[] rt = RuntimeIntStore.peek(level, KEY, pos);
-        return rt != null && rt.length >= RUNTIME_SIZE && rt[INITIALIZED] == 1;
+        return rt != null && rt.length >= RUNTIME_SIZE && rt[INITIALIZED_SLOT] == 1;
     }
     public static int edgeCount(Level level, BlockPos pos) {
         int[] rt = RuntimeIntStore.peek(level, KEY, pos);
