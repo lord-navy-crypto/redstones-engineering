@@ -8,7 +8,6 @@ import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
-import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.NetworkKernel;
 import dev.redstoneengineering.physics.RedstoneCableNetwork;
 import dev.redstoneengineering.physics.RuntimeIntStore;
@@ -59,15 +58,18 @@ public class RedstoneSignalCableBlock extends ConnectedCableBlock implements Eng
     }
 
     @Override public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
-        return engineeringPort(state, side).map(port -> EngineeringPortSnapshot.redstone(port, power(level, pos), PortQuality.VALID));
+        RedstoneCableNetwork.SourceEvidence evidence = RedstoneCableNetwork.sourceEvidence(level, pos);
+        return engineeringPort(state, side).map(port -> EngineeringPortSnapshot.redstone(port, power(level, pos), evidence.quality()));
     }
 
     public static void setPower(Level level, BlockPos pos, int power) {
         RuntimeIntStore.get(level, KEY, pos, 1)[0] = Math.max(0, Math.min(15, power));
     }
 
+    /** Observer-only cable value. Network recomputation owns creation of runtime state. */
     public static int power(Level level, BlockPos pos) {
-        return RuntimeIntStore.get(level, KEY, pos, 1)[0];
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length < 1 ? 0 : runtime[0];
     }
 
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
@@ -82,7 +84,10 @@ public class RedstoneSignalCableBlock extends ConnectedCableBlock implements Eng
 
     @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
         boolean removed = !state.is(newState.getBlock());
-        if (removed) RuntimeIntStore.remove(level, KEY, pos);
+        if (removed) {
+            RuntimeIntStore.remove(level, KEY, pos);
+            RedstoneCableNetwork.removeEvidence(level, pos);
+        }
         super.onRemove(state, level, pos, newState, moved);
         if (removed && level instanceof ServerLevel serverLevel) RedstoneCableNetwork.recomputeAround(serverLevel, pos);
     }
@@ -91,11 +96,13 @@ public class RedstoneSignalCableBlock extends ConnectedCableBlock implements Eng
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
+                RedstoneCableNetwork.SourceEvidence evidence = RedstoneCableNetwork.sourceEvidence(level, pos);
                 player.displayClientMessage(Component.literal(
                         "Insulated Redstone Cable"
                                 + " | " + PortDiagnostics.connectedCable(level, pos, state, PortDiagnostics.Domain.INSULATED_REDSTONE)
                                 + " | engineeringPorts=" + engineeringPorts(state).size()
                                 + " | signal=" + power(level, pos) + "/15"
+                                + " | sources=" + evidence.sourceCount() + " quality=" + evidence.quality()
                                 + " | routing=PLANAR; vertical via Signal Junction Point"
                                 + " | " + NetworkKernel.summary(level, "redstone_cable")
                 ), true);
