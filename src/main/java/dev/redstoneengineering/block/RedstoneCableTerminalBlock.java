@@ -60,6 +60,34 @@ public class RedstoneCableTerminalBlock extends Block implements EngineeringPort
         return Math.max(0, Math.min(15, level.getSignal(pos.relative(direction), direction)));
     }
 
+    /**
+     * Distinguish an actually attached zero-valued source from an empty terminal.
+     * Positive vanilla power is sufficient evidence. For a legitimate 0 source,
+     * use either an engineering REDSTONE output/bidirectional port or vanilla's
+     * redstone-connectability contract on the adjacent face.
+     */
+    public boolean externalSourcePresent(Level level, BlockPos pos, BlockState state) {
+        Direction direction = vanillaSide(state);
+        BlockPos sourcePos = pos.relative(direction);
+        if (!level.hasChunkAt(sourcePos)) return false;
+        if (externalInput(level, pos, state) > 0) return true;
+
+        BlockState sourceState = level.getBlockState(sourcePos);
+        if (sourceState.isAir()) return false;
+        if (sourceState.getBlock() instanceof EngineeringPortProvider provider) {
+            Optional<EngineeringPort> sourcePort = provider.engineeringPort(sourceState, direction.getOpposite());
+            if (sourcePort.isPresent()) {
+                EngineeringPort port = sourcePort.get();
+                if (port.domain() == EngineeringDomain.REDSTONE
+                        && port.redstoneConnectable()
+                        && port.direction() != PortDirection.INPUT) {
+                    return true;
+                }
+            }
+        }
+        return sourceState.getBlock().canConnectRedstone(sourceState, level, sourcePos, direction);
+    }
+
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         boolean cableToVanilla = state.getValue(OUTPUT_MODE);
@@ -78,10 +106,14 @@ public class RedstoneCableTerminalBlock extends Block implements EngineeringPort
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> resolved = engineeringPort(state, side);
         if (resolved.isEmpty()) return Optional.empty();
-        int signal = side == vanillaSide(state) && !state.getValue(OUTPUT_MODE)
+        boolean cableToVanilla = state.getValue(OUTPUT_MODE);
+        int signal = side == vanillaSide(state) && !cableToVanilla
                 ? externalInput(level, pos, state)
                 : state.getValue(POWER);
-        return Optional.of(EngineeringPortSnapshot.redstone(resolved.get(), signal, PortQuality.VALID));
+        PortQuality quality = cableToVanilla
+                ? RedstoneCableNetwork.sourceEvidence(level, pos).quality()
+                : externalSourcePresent(level, pos, state) ? PortQuality.VALID : PortQuality.NO_SIGNAL;
+        return Optional.of(EngineeringPortSnapshot.redstone(resolved.get(), signal, quality));
     }
 
     @Override public boolean canConnectRedstone(BlockState state, BlockGetter level, BlockPos pos, @Nullable Direction direction) {
@@ -100,6 +132,13 @@ public class RedstoneCableTerminalBlock extends Block implements EngineeringPort
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
         super.onPlace(state, level, pos, oldState, moved);
+        if (state.is(oldState.getBlock())
+                && state.getValue(OUTPUT_MODE) != oldState.getValue(OUTPUT_MODE)
+                && state.getValue(POWER) != 0) {
+            // Any mode-change path (GUI, right-click, command, future API) must
+            // invalidate the old role's cached signal before recomputation.
+            level.setBlock(pos, state.setValue(POWER, 0), Block.UPDATE_CLIENTS);
+        }
         if (level instanceof ServerLevel server) RedstoneCableNetwork.recompute(server, pos);
     }
 
@@ -107,14 +146,18 @@ public class RedstoneCableTerminalBlock extends Block implements EngineeringPort
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
-                BlockState next = state.setValue(OUTPUT_MODE, !state.getValue(OUTPUT_MODE));
+                BlockState next = state
+                        .setValue(OUTPUT_MODE, !state.getValue(OUTPUT_MODE))
+                        .setValue(POWER, 0);
                 level.setBlock(pos, next, Block.UPDATE_CLIENTS);
                 if (level instanceof ServerLevel server) RedstoneCableNetwork.recompute(server, pos);
                 level.updateNeighborsAt(pos, this);
                 level.updateNeighborsAt(pos.relative(vanillaSide(next)), this);
+                RedstoneCableNetwork.SourceEvidence evidence = RedstoneCableNetwork.sourceEvidence(level, pos);
                 player.displayClientMessage(Component.literal(
-                        "Redstone Cable Terminal | " + PortDiagnostics.terminal(next, this)
-                                + " | signal=" + next.getValue(POWER) + "/15"), true);
+                        "Redstone Cable Terminal | " + PortDiagnostics.terminal(level.getBlockState(pos), this)
+                                + " | signal=" + level.getBlockState(pos).getValue(POWER) + "/15"
+                                + " | cableSources=" + evidence.sourceCount() + " quality=" + evidence.quality()), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
             }
@@ -125,6 +168,7 @@ public class RedstoneCableTerminalBlock extends Block implements EngineeringPort
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
         if (!state.is(newState.getBlock())) {
+            RedstoneCableNetwork.removeEvidence(level, pos);
             level.updateNeighborsAt(pos, this);
             level.updateNeighborsAt(pos.relative(vanillaSide(state)), this);
             if (level instanceof ServerLevel server) RedstoneCableNetwork.recompute(server, pos.relative(cableSide(state)));
