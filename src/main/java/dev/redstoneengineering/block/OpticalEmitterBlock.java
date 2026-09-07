@@ -13,7 +13,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -30,40 +29,63 @@ public class OpticalEmitterBlock extends DomainBlock implements EngineeringPortP
     public static final IntegerProperty INTENSITY = IntegerProperty.create("intensity", 0, 15);
     public static final IntegerProperty CHANNEL = IntegerProperty.create("channel", 0, 15);
 
-    public OpticalEmitterBlock(Properties p) { super(p); registerDefaultState(defaultBlockState().setValue(INTENSITY, 8).setValue(CHANNEL, 0)); }
+    public OpticalEmitterBlock(Properties p) {
+        super(p);
+        registerDefaultState(defaultBlockState().setValue(INTENSITY, 8).setValue(CHANNEL, 0));
+    }
+
     @Override public MapCodec<OpticalEmitterBlock> codec() { return RedstoneEngineering.OPTICAL_EMITTER_CODEC.value(); }
     @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> b) { b.add(INTENSITY, CHANNEL); }
-    @Override public List<EngineeringPort> engineeringPorts(BlockState s) {
+
+    @Override
+    public List<EngineeringPort> engineeringPorts(BlockState state) {
         List<EngineeringPort> ports = new ArrayList<>();
-        for (Direction d : Direction.values()) ports.add(new EngineeringPort("OPTICAL EMISSION", d,
-                EngineeringDomain.OPTICAL, PortKind.BUS, PortDirection.OUTPUT, false, "intensity"));
+        for (Direction direction : Direction.values()) {
+            ports.add(new EngineeringPort("OPTICAL EMISSION", direction,
+                    EngineeringDomain.OPTICAL, PortKind.BUS, PortDirection.OUTPUT, false, "intensity"));
+        }
         return ports;
     }
-    @Override public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level l, BlockPos p, BlockState s, Direction side) {
-        return engineeringPort(s, side).map(port -> new EngineeringPortSnapshot(port, s.getValue(INTENSITY), 0.0, 15.0,
-                s.getValue(INTENSITY) > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+
+    @Override
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
+        // A configured zero-intensity source is still a valid source setting; downstream
+        // passive fiber correctly reports DARK/NO_SIGNAL because no carrier is present.
+        return engineeringPort(state, side).map(port -> new EngineeringPortSnapshot(
+                port, state.getValue(INTENSITY), 0.0, 15.0, PortQuality.VALID));
     }
-    @Override protected void onPlace(BlockState s, Level l, BlockPos p, BlockState old, boolean moved) {
-        super.onPlace(s, l, p, old, moved);
-        if (l instanceof ServerLevel sl) DomainNetwork.recomputeOptical(sl, p);
+
+    @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState old, boolean moved) {
+        super.onPlace(state, level, pos, old, moved);
+        if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeOptical(serverLevel, pos);
     }
-    @Override protected void neighborChanged(BlockState s, Level l, BlockPos p, Block nb, BlockPos np, boolean moved) {
-        if (l instanceof ServerLevel sl) DomainNetwork.recomputeOptical(sl, p);
+
+    @Override
+    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighbor, BlockPos neighborPos, boolean moved) {
+        if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeOptical(serverLevel, pos);
     }
-    @Override protected void onRemove(BlockState s, Level l, BlockPos p, BlockState ns, boolean moved) {
-        if (!s.is(ns.getBlock()) && l instanceof ServerLevel sl) DomainNetwork.recomputeOpticalAround(sl, p);
-        super.onRemove(s, l, p, ns, moved);
-    }
-    @Override protected InteractionResult useWithoutItem(BlockState s, Level l, BlockPos p, Player pl, BlockHitResult hit) {
-        if (!l.isClientSide && pl instanceof ServerPlayer sp && !pl.isShiftKeyDown()) FieldDeviceUi.open(sp, p);
-        else if (!l.isClientSide) {
-            BlockState n = pl.isShiftKeyDown()
-                    ? s.setValue(CHANNEL, (s.getValue(CHANNEL) + 1) % 16)
-                    : s.setValue(INTENSITY, s.getValue(INTENSITY) >= 15 ? 0 : s.getValue(INTENSITY) + 1);
-            l.setBlock(p, n, Block.UPDATE_CLIENTS);
-            if (l instanceof ServerLevel sl) DomainNetwork.recomputeOptical(sl, p);
-            pl.displayClientMessage(Component.literal("Optical emitter | intensity=" + n.getValue(INTENSITY) + "/15 | channel=" + n.getValue(CHANNEL)), true);
+
+    @Override
+    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState next, boolean moved) {
+        if (!state.is(next.getBlock()) && level instanceof ServerLevel serverLevel) {
+            DomainNetwork.recomputeOpticalAround(serverLevel, pos);
         }
-        return InteractionResult.sidedSuccess(l.isClientSide);
+        super.onRemove(state, level, pos, next, moved);
+    }
+
+    @Override
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer && !player.isShiftKeyDown()) {
+            FieldDeviceUi.open(serverPlayer, pos);
+        } else if (!level.isClientSide) {
+            BlockState next = player.isShiftKeyDown()
+                    ? state.setValue(CHANNEL, (state.getValue(CHANNEL) + 1) % 16)
+                    : state.setValue(INTENSITY, state.getValue(INTENSITY) >= 15 ? 0 : state.getValue(INTENSITY) + 1);
+            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+            if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeOptical(serverLevel, pos);
+            player.displayClientMessage(Component.literal(
+                    "Optical emitter | intensity=" + next.getValue(INTENSITY) + "/15 | channel=" + next.getValue(CHANNEL)), true);
+        }
+        return InteractionResult.sidedSuccess(level.isClientSide);
     }
 }

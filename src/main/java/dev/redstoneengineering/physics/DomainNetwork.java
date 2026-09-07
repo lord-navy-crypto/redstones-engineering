@@ -40,7 +40,7 @@ public final class DomainNetwork {
             if (state.getBlock() instanceof LapisPrecisionSourceBlock && rawSeen.add(p)) {
                 claims.add(new DomainDriverRegistry.Claim(p, p, state.getValue(LapisPrecisionSourceBlock.VALUE), 0, 0, state.getBlock().getClass().getName()));
             } else if (state.getBlock() instanceof LapisNoiseSourceBlock && rawSeen.add(p)) {
-                claims.add(new DomainDriverRegistry.Claim(p, p, LapisNoiseSourceBlock.currentValue(level,p,state), 0, 0, state.getBlock().getClass().getName()));
+                claims.add(new DomainDriverRegistry.Claim(p, p, LapisNoiseSourceBlock.currentValue(level,p,state), 0, 0,state.getBlock().getClass().getName()));
             }
         }
         NetworkKernel.recordDriverState(level, "lapis", claims.size());
@@ -369,8 +369,6 @@ public final class DomainNetwork {
                 if (s.getBlock() instanceof InductionCoilBlock) return InductionCoilBlock.outputVoltage(level,pos);
             }
             if (observerPos.equals(input)) {
-                // The processor input node is the adjacent copper medium, not an
-                // invented value stored on the processor body itself.
                 return sampleCopperVoltage(level, input);
             }
         }
@@ -409,7 +407,6 @@ public final class DomainNetwork {
             int score = best.getOrDefault(p, 0);
             if (score <= 0) continue;
             var currentBlock = level.getBlockState(p).getBlock();
-            // Loads consume voltage but are not transparent conductors.
             if (currentBlock instanceof CopperResistiveLoadBlock
                     || currentBlock instanceof ElectromagnetBlock
                     || currentBlock instanceof ThermalHeaterBlock) continue;
@@ -444,43 +441,58 @@ public final class DomainNetwork {
         if(sb.getBlock() instanceof ConnectedCableBlock cb && (!cb.topologyValid(sb) || !ConnectedCableBlock.connected(sb,d.getOpposite()))) return false;
         return true;
     }
+
     private static boolean copperEdgeAllowed(ServerLevel level, BlockPos a, BlockPos b, Direction d) {
         BlockState sa=level.getBlockState(a), sb=level.getBlockState(b);
         if(sa.getBlock() instanceof ConnectedCableBlock ca && (!ca.topologyValid(sa) || !ConnectedCableBlock.connected(sa,d))) return false;
         if(sb.getBlock() instanceof ConnectedCableBlock cb && (!cb.topologyValid(sb) || !ConnectedCableBlock.connected(sb,d.getOpposite()))) return false;
         return true;
     }
+
     private static Set<BlockPos> collectOptical(ServerLevel level, BlockPos start, java.util.function.Predicate<BlockPos> allowed) {
         return collectEdges(level,start,"optical",allowed,(a,b,d)->opticalEdgeAllowed(level,a,b,d), p -> {
             var block = level.getBlockState(p).getBlock();
             return block instanceof OpticalReceiverBlock || block instanceof OpticalEmitterBlock;
-        });
+        }, p -> level.getBlockState(p).getBlock() instanceof OpticalEmitterBlock);
     }
+
     private static Set<BlockPos> collectCopper(ServerLevel level, BlockPos start, java.util.function.Predicate<BlockPos> allowed) {
         return collectEdges(level,start,"copper",allowed,(a,b,d)->copperEdgeAllowed(level,a,b,d), p -> {
             var block = level.getBlockState(p).getBlock();
             return block instanceof CopperResistiveLoadBlock || block instanceof ElectromagnetBlock
                     || block instanceof ThermalHeaterBlock || block instanceof CopperVoltageSourceBlock;
-        });
+        }, p -> level.getBlockState(p).getBlock() instanceof CopperVoltageSourceBlock);
     }
+
     private interface EdgeRule { boolean ok(BlockPos a, BlockPos b, Direction d); }
-    private static Set<BlockPos> collectEdges(ServerLevel level, BlockPos start, String domain, java.util.function.Predicate<BlockPos> allowed, EdgeRule rule) {
-        return collectEdges(level,start,domain,allowed,rule,p -> false);
+
+    private static Set<BlockPos> collectEdges(ServerLevel level, BlockPos start, String domain,
+                                              java.util.function.Predicate<BlockPos> allowed, EdgeRule rule) {
+        return collectEdges(level,start,domain,allowed,rule,p -> false,p -> false);
     }
-    private static Set<BlockPos> collectEdges(ServerLevel level, BlockPos start, String domain, java.util.function.Predicate<BlockPos> allowed, EdgeRule rule, java.util.function.Predicate<BlockPos> terminal) {
+
+    /**
+     * Bounded edge traversal with explicit terminal/source semantics.
+     * A sink is opaque even when it happens to be the recompute seed. Only a terminal
+     * that is explicitly classified as a source may fan out when it is the start.
+     */
+    private static Set<BlockPos> collectEdges(ServerLevel level, BlockPos start, String domain,
+                                              java.util.function.Predicate<BlockPos> allowed, EdgeRule rule,
+                                              java.util.function.Predicate<BlockPos> terminal,
+                                              java.util.function.Predicate<BlockPos> sourceTerminal) {
         Set<BlockPos> visited=new LinkedHashSet<>();ArrayDeque<BlockPos> q=new ArrayDeque<>();
         if(level.hasChunkAt(start)&&allowed.test(start))q.add(start);else for(Direction d:Direction.values()){BlockPos n=start.relative(d);if(level.hasChunkAt(n)&&allowed.test(n))q.add(n);}
         while(!q.isEmpty()&&visited.size()<MAX_NODES){
             BlockPos p=q.removeFirst();
             if(!visited.add(p))continue;
-            // Loads/receivers are endpoints. The explicit start may expand so a
-            // source placed into the world can seed its adjacent conductor(s).
-            if(!p.equals(start)&&terminal.test(p))continue;
+            boolean sourceSeed = p.equals(start) && sourceTerminal.test(p);
+            if(terminal.test(p) && !sourceSeed) continue;
             for(Direction d:Direction.values()){BlockPos n=p.relative(d);if(!visited.contains(n)&&level.hasChunkAt(n)&&allowed.test(n)&&rule.ok(p,n,d))q.addLast(n);}
         }
         NetworkKernel.recordScan(level,domain,visited.size(),!q.isEmpty());
         return visited;
     }
+
     private static Map<BlockPos,Integer> distancesOptical(ServerLevel level, Set<BlockPos> nodes, BlockPos start) {
         Map<BlockPos,Integer> dist = new HashMap<>();
         if (!nodes.contains(start)) return dist;
@@ -491,9 +503,10 @@ public final class DomainNetwork {
             BlockPos p = q.removeFirst();
             int d0 = dist.get(p);
             var block = level.getBlockState(p).getBlock();
-            // A receiver terminates an optical path. An emitter is only allowed
-            // to fan out when it is the source of this path, never as a relay.
-            if (p != start && (block instanceof OpticalReceiverBlock || block instanceof OpticalEmitterBlock)) continue;
+            // Receivers are always sinks. An emitter may fan out only when it is
+            // the source start; an emitter encountered later is another terminal.
+            if (block instanceof OpticalReceiverBlock
+                    || (block instanceof OpticalEmitterBlock && !p.equals(start))) continue;
             for (Direction dir : Direction.values()) {
                 BlockPos n = p.relative(dir);
                 if (nodes.contains(n) && !dist.containsKey(n) && opticalEdgeAllowed(level,p,n,dir)) {
@@ -513,14 +526,17 @@ public final class DomainNetwork {
         Set<BlockPos> seen=new HashSet<>();
         for(BlockPos p:nodes) for(Direction d:Direction.Plane.HORIZONTAL){BlockPos n=p.relative(d);if(!level.hasChunkAt(n)||!seen.add(n))continue;BlockState s=level.getBlockState(n);if(s.getBlock() instanceof LapisPrecisionSourceBlock)claims.add(new DomainDriverRegistry.Claim(n,p,s.getValue(LapisPrecisionSourceBlock.VALUE),0,0,s.getBlock().getClass().getName()));else if(s.getBlock() instanceof LapisNoiseSourceBlock)claims.add(new DomainDriverRegistry.Claim(n,p,LapisNoiseSourceBlock.currentValue(level,n,s),0,0,s.getBlock().getClass().getName()));}
     }
+
     private static void addRawQuartzClaims(ServerLevel level, Set<BlockPos> nodes, List<DomainDriverRegistry.Claim> claims) {
         Set<BlockPos> seen=new HashSet<>();
         for(BlockPos p:nodes) for(Direction d:Direction.Plane.HORIZONTAL){BlockPos n=p.relative(d);if(!level.hasChunkAt(n)||!seen.add(n))continue;BlockState s=level.getBlockState(n);if(s.getBlock() instanceof QuartzOscillatorBlock)claims.add(new DomainDriverRegistry.Claim(n,p,s.getValue(QuartzOscillatorBlock.ACTIVE)?1:0,QuartzTimingLineBlock.periodTicks(s.getValue(QuartzOscillatorBlock.PERIOD_INDEX)),0,s.getBlock().getClass().getName()));else if(s.getBlock() instanceof QuartzLabOscillatorBlock)claims.add(new DomainDriverRegistry.Claim(n,p,s.getValue(QuartzLabOscillatorBlock.ACTIVE)?1:0,QuartzTimingLineBlock.periodTicks(s.getValue(QuartzLabOscillatorBlock.PERIOD_INDEX)),0,s.getBlock().getClass().getName()));}
     }
+
     private static void addRawOpticalClaims(ServerLevel level, Set<BlockPos> nodes, List<DomainDriverRegistry.Claim> claims) {
         Set<BlockPos> seen=new HashSet<>();
         for(BlockPos p:nodes) for(Direction d:Direction.values()){BlockPos n=p.relative(d);if(!level.hasChunkAt(n)||!seen.add(n))continue;BlockState s=level.getBlockState(n);if(s.getBlock() instanceof OpticalEmitterBlock && opticalEdgeAllowed(level,p,n,d))claims.add(new DomainDriverRegistry.Claim(n,p,s.getValue(OpticalEmitterBlock.INTENSITY),s.getValue(OpticalEmitterBlock.CHANNEL),0,s.getBlock().getClass().getName()));}
     }
+
     private static void addRawCopperClaims(ServerLevel level, Set<BlockPos> nodes, List<DomainDriverRegistry.Claim> claims) {
         Set<BlockPos> seen=new HashSet<>();
         for(BlockPos p:nodes) for(Direction d:Direction.values()){BlockPos n=p.relative(d);if(!level.hasChunkAt(n)||!seen.add(n))continue;BlockState s=level.getBlockState(n);if(s.getBlock() instanceof CopperVoltageSourceBlock && copperEdgeAllowed(level,p,n,d))claims.add(new DomainDriverRegistry.Claim(n,p,s.getValue(CopperVoltageSourceBlock.VOLTAGE),0,0,s.getBlock().getClass().getName()));}
@@ -550,12 +566,12 @@ public final class DomainNetwork {
         if (d.getAxis() == Direction.Axis.Y) return false;
         BlockState sa=level.getBlockState(a),sb=level.getBlockState(b);
         boolean am=mediumClass.isInstance(sa.getBlock()),bm=mediumClass.isInstance(sb.getBlock());
-        // Devices do not directly wire to one another; a physical trace must participate.
         if(!am&&!bm)return false;
         if(am && !SurfaceTraceBlock.connected(sa,d))return false;
         if(bm && !SurfaceTraceBlock.connected(sb,d.getOpposite()))return false;
         return true;
     }
+
     private static Set<BlockPos> collectHorizontalEdges(ServerLevel level,BlockPos start,String domain,java.util.function.Predicate<BlockPos> allowed,EdgeRule rule){
         Set<BlockPos> visited=new LinkedHashSet<>();ArrayDeque<BlockPos> q=new ArrayDeque<>();
         if(level.hasChunkAt(start)&&allowed.test(start))q.add(start);else for(Direction d:Direction.Plane.HORIZONTAL){BlockPos n=start.relative(d);if(level.hasChunkAt(n)&&allowed.test(n))q.add(n);}

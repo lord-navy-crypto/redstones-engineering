@@ -11,6 +11,7 @@ import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.CopperNetworkSupport;
 import dev.redstoneengineering.physics.DomainNetwork;
+import dev.redstoneengineering.physics.NetworkKernel;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -26,6 +27,9 @@ import java.util.Optional;
 /** Explicit multi-port copper splice/branch box. */
 public class CopperCableJunctionBlock extends ConnectedCableBlock implements EngineeringPortProvider {
     private static final String KEY = "copper_junction";
+    private static final int VOLTAGE_INDEX = 0;
+    private static final int DRIVER_COUNT_INDEX = 1;
+    private static final int RUNTIME_SIZE = 2;
 
     public CopperCableJunctionBlock(Properties properties) {
         super(properties);
@@ -47,11 +51,25 @@ public class CopperCableJunctionBlock extends ConnectedCableBlock implements Eng
     }
 
     public static void setVoltage(Level level, BlockPos pos, int voltage) {
-        RuntimeIntStore.get(level, KEY, pos, 1)[0] = Math.max(0, Math.min(15, voltage));
+        int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
+        runtime[VOLTAGE_INDEX] = Math.max(0, Math.min(15, voltage));
+        runtime[DRIVER_COUNT_INDEX] = Math.max(0, NetworkKernel.stats(level, "copper").activeDrivers());
     }
 
     public static int voltage(Level level, BlockPos pos) {
-        return RuntimeIntStore.get(level, KEY, pos, 1)[0];
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length <= VOLTAGE_INDEX ? 0 : runtime[VOLTAGE_INDEX];
+    }
+
+    public static int driverCount(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length <= DRIVER_COUNT_INDEX ? 0 : runtime[DRIVER_COUNT_INDEX];
+    }
+
+    private static PortQuality quality(Level level, BlockPos pos) {
+        int drivers = driverCount(level, pos);
+        if (drivers > 1) return PortQuality.TOPOLOGY_ERROR;
+        return drivers == 1 ? PortQuality.VALID : PortQuality.NO_SIGNAL;
     }
 
     @Override
@@ -81,12 +99,9 @@ public class CopperCableJunctionBlock extends ConnectedCableBlock implements Eng
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
+        PortQuality quality = topologyValid(state) ? quality(level, pos) : PortQuality.TOPOLOGY_ERROR;
         return Optional.of(new EngineeringPortSnapshot(
-                port.get(),
-                voltage(level, pos),
-                0.0,
-                15.0,
-                topologyValid(state) ? PortQuality.VALID : PortQuality.TOPOLOGY_ERROR
+                port.get(), voltage(level, pos), 0.0, 15.0, quality
         ));
     }
 

@@ -86,6 +86,7 @@ jobs:
             tools/rse_signal_junction_topology_verify.py \
             tools/rse_first_ten_system_design_verify.py \
             tools/rse_second_ten_system_design_verify.py \
+            tools/rse_third_ten_system_design_bug_verify.py \
             tools/rse_fourth_eight_verify.py \
             tools/rse_fifth_eight_verify.py \
             tools/rse_sixth_eight_verify.py \
@@ -140,8 +141,8 @@ jobs:
             exit 1
           fi
           test_count="$(printf '%s\n' "$summary_line" | sed -E 's/.*All ([0-9]+) required tests passed.*/\1/')"
-          if [[ ! "$test_count" =~ ^[0-9]+$ ]] || (( test_count < 214 )); then
-            echo "::error::Expected at least 214 GameTests after second-ten system-design coverage; observed: $test_count"
+          if [[ ! "$test_count" =~ ^[0-9]+$ ]] || (( test_count < 222 )); then
+            echo "::error::Expected at least 222 GameTests after third-ten design/bug coverage; observed: $test_count"
             exit 1
           fi
           echo "Verified GameTest completion: $test_count required tests passed"

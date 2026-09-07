@@ -31,6 +31,9 @@ import java.util.Optional;
 /** 3-D copper electrical cable. Bends automatically; explicit Copper Junctions provide branches. */
 public class CopperWireBlock extends ConnectedCableBlock implements EngineeringPortProvider {
     private static final String KEY = "copper_cable";
+    private static final int VOLTAGE_INDEX = 0;
+    private static final int DRIVER_COUNT_INDEX = 1;
+    private static final int RUNTIME_SIZE = 2;
 
     public CopperWireBlock(Properties p) { super(p); }
 
@@ -41,12 +44,29 @@ public class CopperWireBlock extends ConnectedCableBlock implements EngineeringP
         return TransmissionTopology.copperPort(neighbor, direction);
     }
 
+    /** Authoritative solver write. Driver evidence is captured with the resolved node value. */
     public static void setVoltage(Level level, BlockPos pos, int voltage) {
-        RuntimeIntStore.get(level, KEY, pos, 1)[0] = Math.max(0, Math.min(15, voltage));
+        int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
+        runtime[VOLTAGE_INDEX] = Math.max(0, Math.min(15, voltage));
+        runtime[DRIVER_COUNT_INDEX] = Math.max(0, NetworkKernel.stats(level, "copper").activeDrivers());
     }
 
+    /** Observer-neutral: inspecting a never-solved cable must not create runtime physics state. */
     public static int voltage(Level level, BlockPos pos) {
-        return RuntimeIntStore.get(level, KEY, pos, 1)[0];
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length <= VOLTAGE_INDEX ? 0 : runtime[VOLTAGE_INDEX];
+    }
+
+    public static int driverCount(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length <= DRIVER_COUNT_INDEX ? 0 : runtime[DRIVER_COUNT_INDEX];
+    }
+
+    public static PortQuality quality(Level level, BlockPos pos, BlockState state) {
+        if (!((CopperWireBlock) state.getBlock()).topologyValid(state)) return PortQuality.TOPOLOGY_ERROR;
+        int drivers = driverCount(level, pos);
+        if (drivers > 1) return PortQuality.TOPOLOGY_ERROR;
+        return drivers == 1 ? PortQuality.VALID : PortQuality.NO_SIGNAL;
     }
 
     @Override
@@ -81,7 +101,7 @@ public class CopperWireBlock extends ConnectedCableBlock implements EngineeringP
                 voltage(level, pos),
                 0.0,
                 15.0,
-                topologyValid(state) ? PortQuality.VALID : PortQuality.TOPOLOGY_ERROR
+                quality(level, pos, state)
         ));
     }
 
@@ -120,6 +140,8 @@ public class CopperWireBlock extends ConnectedCableBlock implements EngineeringP
                     (topologyValid(state) ? "Copper Electrical Cable" : "TOPOLOGY ERROR — use Copper Junction for branches")
                             + " | " + PortDiagnostics.connectedCable(level, pos, state, PortDiagnostics.Domain.COPPER)
                             + " | V=" + voltage(level, pos) + "/15"
+                            + " | drivers=" + driverCount(level, pos)
+                            + " | quality=" + quality(level, pos, state)
                             + " | ports=" + engineeringPorts(state).size()
                             + " | " + NetworkKernel.summary(level, "copper")
             ), true);

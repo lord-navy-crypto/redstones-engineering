@@ -33,9 +33,13 @@ public class ThermalMassBlock extends DomainBlock implements EngineeringPortProv
     public static final IntegerProperty TEMPERATURE = IntegerProperty.create("temperature", 0, 100);
     public static final IntegerProperty HEAT_CAPACITY = IntegerProperty.create("heat_capacity", 1, 4);
 
+    public record ThermalState(int current, int environment, int neighborAverage, int target, int maxStep, int capacity) {}
+
     public ThermalMassBlock(Properties properties) {
         super(properties);
-        registerDefaultState(defaultBlockState().setValue(TEMPERATURE, ThermalPhysics.AMBIENT).setValue(HEAT_CAPACITY, 2));
+        registerDefaultState(defaultBlockState()
+                .setValue(TEMPERATURE, ThermalPhysics.AMBIENT)
+                .setValue(HEAT_CAPACITY, 2));
     }
 
     @Override public MapCodec<ThermalMassBlock> codec() { return RedstoneEngineering.THERMAL_MASS_CODEC.value(); }
@@ -49,32 +53,28 @@ public class ThermalMassBlock extends DomainBlock implements EngineeringPortProv
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         return Arrays.stream(Direction.values())
                 .map(side -> new EngineeringPort(
-                        "THERMAL BODY",
-                        side,
-                        EngineeringDomain.THERMAL,
-                        PortKind.BUS,
-                        PortDirection.BIDIRECTIONAL,
-                        false,
-                        "T-index"
-                ))
+                        "THERMAL BODY", side, EngineeringDomain.THERMAL,
+                        PortKind.BUS, PortDirection.BIDIRECTIONAL, false, "T-index"))
                 .toList();
     }
 
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(
-            Level level,
-            BlockPos pos,
-            BlockState state,
-            Direction side
+            Level level, BlockPos pos, BlockState state, Direction side
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         return port.map(value -> new EngineeringPortSnapshot(
-                value,
-                state.getValue(TEMPERATURE),
-                0.0,
-                100.0,
-                PortQuality.VALID
-        ));
+                value, state.getValue(TEMPERATURE), 0.0, 100.0, PortQuality.VALID));
+    }
+
+    public static ThermalState thermalState(Level level, BlockPos pos, BlockState state) {
+        int current = state.getValue(TEMPERATURE);
+        int environment = ThermalPhysics.environmentTarget(level, pos);
+        int neighbors = ThermalPhysics.neighborThermalAverage(level, pos, current);
+        int target = (environment * 2 + neighbors) / 3;
+        int capacity = state.getValue(HEAT_CAPACITY);
+        int maxStep = Math.max(1, 5 - capacity);
+        return new ThermalState(current, environment, neighbors, target, maxStep, capacity);
     }
 
     @Override
@@ -91,15 +91,10 @@ public class ThermalMassBlock extends DomainBlock implements EngineeringPortProv
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        int current = state.getValue(TEMPERATURE);
-        int env = ThermalPhysics.environmentTarget(level, pos);
-        int neighbors = ThermalPhysics.neighborThermalAverage(level, pos, current);
-        int target = (env * 2 + neighbors) / 3;
-        int capacity = state.getValue(HEAT_CAPACITY);
-        int maxStep = Math.max(1, 5 - capacity);
-        int next = ThermalPhysics.approach(current, target, maxStep);
-        if (next != current) level.setBlock(pos, state.setValue(TEMPERATURE, next), Block.UPDATE_CLIENTS);
-        level.scheduleTick(pos, this, 5 * capacity);
+        ThermalState thermal = thermalState(level, pos, state);
+        int next = ThermalPhysics.approach(thermal.current(), thermal.target(), thermal.maxStep());
+        if (next != thermal.current()) level.setBlock(pos, state.setValue(TEMPERATURE, next), Block.UPDATE_CLIENTS);
+        level.scheduleTick(pos, this, 5 * thermal.capacity());
     }
 
     @Override
@@ -112,10 +107,14 @@ public class ThermalMassBlock extends DomainBlock implements EngineeringPortProv
                 level.setBlock(pos, state, Block.UPDATE_CLIENTS);
                 level.scheduleTick(pos, this, 1);
             }
+            ThermalState thermal = thermalState(level, pos, state);
             player.displayClientMessage(Component.literal(
-                    "Thermal mass | six-face THERMAL body | T-index=" + state.getValue(TEMPERATURE)
-                            + "/100 | heat-capacity index=" + state.getValue(HEAT_CAPACITY)
-            ), true);
+                    "Thermal mass | T=" + thermal.current() + "/100"
+                            + " | env=" + thermal.environment()
+                            + " | neighbor=" + thermal.neighborAverage()
+                            + " | target=" + thermal.target()
+                            + " | capacity=" + thermal.capacity()
+                            + " | max-step=" + thermal.maxStep()), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
