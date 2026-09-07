@@ -8,9 +8,9 @@ import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
-import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DifferentialNetwork;
 import dev.redstoneengineering.physics.InformationRuntime;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -49,21 +49,25 @@ public class DifferentialDriverBlock extends DirectionalDomainBlock implements E
         );
     }
 
+    private RedstoneObservationSupport.Observation inputObservation(Level level, BlockPos pos, BlockState state) {
+        return RedstoneObservationSupport.observe(level, pos, inputSide(state));
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(
             Level level, BlockPos pos, BlockState state, Direction side
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
+        RedstoneObservationSupport.Observation input = inputObservation(level, pos, state);
         if (side == inputSide(state)) {
-            int signal = level.getSignal(inputPos(pos, state), inputSide(state));
             return Optional.of(new EngineeringPortSnapshot(
-                    port.get(), signal > 0 ? 1.0 : 0.0, 0.0, 1.0, PortQuality.VALID));
+                    port.get(), input.value() > 0 ? 1.0 : 0.0, 0.0, 1.0, input.quality()));
         }
-        boolean valid = InformationRuntime.valid(level, "diff_out", pos);
+        InformationRuntime.Snapshot output = InformationRuntime.snapshot(level, "diff_out", pos);
         return Optional.of(new EngineeringPortSnapshot(
-                port.get(), InformationRuntime.value(level, "diff_out", pos) & 1,
-                0.0, 1.0, valid ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+                port.get(), output.value() & 1,
+                0.0, 1.0, input.quality()));
     }
 
     @Override
@@ -74,12 +78,12 @@ public class DifferentialDriverBlock extends DirectionalDomainBlock implements E
     }
 
     private void update(ServerLevel level, BlockPos pos, BlockState state) {
-        int bit = level.getSignal(inputPos(pos, state), inputSide(state)) > 0 ? 1 : 0;
-        int oldBit = InformationRuntime.value(level, "diff_out", pos) & 1;
-        boolean oldValid = InformationRuntime.valid(level, "diff_out", pos);
-        InformationRuntime.write(level, "diff_out", pos, bit, 0, true, 100);
+        RedstoneObservationSupport.Observation input = inputObservation(level, pos, state);
+        int bit = input.value() > 0 ? 1 : 0;
+        InformationRuntime.Snapshot previous = InformationRuntime.snapshot(level, "diff_out", pos);
+        InformationRuntime.write(level, "diff_out", pos, bit, 0, input.valid(), input.valid() ? 100 : 0);
         BlockPos output = outputPos(pos, state);
-        if ((oldBit != bit || !oldValid)
+        if ((previous.value() != bit || previous.valid() != input.valid())
                 && level.getBlockState(output).getBlock() instanceof DifferentialDataPairBlock) {
             DifferentialNetwork.recompute(level, output);
         }
