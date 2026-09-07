@@ -52,15 +52,16 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
-        statusLine(graphics, "System state", menu.state().name(), stateColor(menu.state()), 80);
-        statusLine(graphics, "Latest incident", menu.incidentPresent() ? "EVIDENCE AVAILABLE" : "NONE", menu.incidentPresent() ? WARN : GOOD, 96);
-        labelValue(graphics, "First-out source", menu.incidentPresent() ? firstOutLocation() : "—", 112);
-        labelValue(graphics, "Incident span", menu.incidentPresent() ? formatTicks(menu.incidentDurationTicks()) : "—", 128);
-        labelValue(graphics, "Electrical trips / recovered", menu.electricalTripCount() + " / " + menu.electricalRecoveryCount(), 144);
-        labelValue(graphics, "Electrical downtime", formatTicks(menu.electricalDowntimeTicks()), 160);
-        labelValue(graphics, "Protection status", protectionText(), 176);
+        statusLine(graphics, "System state", menu.state().name(), stateColor(menu.state()), 78);
+        statusLine(graphics, "Latest incident", menu.incidentPresent() ? "EVIDENCE AVAILABLE" : "NONE", menu.incidentPresent() ? WARN : GOOD, 94);
+        labelValue(graphics, "First-out source", menu.incidentPresent() ? firstOutLocation() : "—", 110);
+        labelValue(graphics, "Incident span", menu.incidentPresent() ? formatTicks(menu.incidentDurationTicks()) : "—", 126);
+        labelValue(graphics, "Follow-up evidence", menu.incidentPresent() ? evidenceText() : "0", 142);
+        labelValue(graphics, "Electrical trips / recovered", menu.electricalTripCount() + " / " + menu.electricalRecoveryCount(), 158);
+        labelValue(graphics, "Electrical downtime", formatTicks(menu.electricalDowntimeTicks()), 174);
+        labelValue(graphics, "Protection status", protectionText(), 190);
         graphics.drawString(font, "Evidence metrics only • MTBF/MTTR withheld until durable exposure + maintenance semantics exist.",
-                16, 193, MUTED, false);
+                16, 207, MUTED, false);
     }
 
     private void renderHistory(GuiGraphics graphics) {
@@ -91,6 +92,12 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
         }
         graphics.drawString(font, "oldest", 18, 180, MUTED, false);
         graphics.drawString(font, "newest →", 244, 180, MUTED, false);
+    }
+
+    private String evidenceText() {
+        return menu.downstreamObservations() + " downstream • "
+                + menu.abnormalDownstreamObservations() + " abnormal • trace "
+                + menu.evidenceTraceEntries() + "/12";
     }
 
     private String protectionText() {
