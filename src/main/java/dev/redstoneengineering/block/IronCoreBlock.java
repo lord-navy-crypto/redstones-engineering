@@ -9,6 +9,7 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.MagneticPhysics;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -30,6 +31,8 @@ import java.util.Optional;
 /** Soft iron core with intentionally persistent remanence until manually demagnetized. */
 public class IronCoreBlock extends DomainBlock implements EngineeringPortProvider {
     public static final BooleanProperty MAGNETIZED = BooleanProperty.create("magnetized");
+    private static final int MAGNETIZE_THRESHOLD = 8;
+    private static final int APPLIED_FIELD_RADIUS = 2;
 
     public IronCoreBlock(Properties properties) {
         super(properties);
@@ -39,10 +42,7 @@ public class IronCoreBlock extends DomainBlock implements EngineeringPortProvide
     @Override public MapCodec<IronCoreBlock> codec() { return RedstoneEngineering.IRON_CORE_CODEC.value(); }
     @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { builder.add(MAGNETIZED); }
 
-    /**
-     * Magnetic coupling is free-space rather than a wired adjacency network. These six non-redstone
-     * interfaces describe field coupling through each face for diagnostics; they do not create cable edges.
-     */
+    /** Free-space magnetic coupling metadata; these are not wired cable edges. */
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         return Arrays.stream(Direction.values())
@@ -59,6 +59,10 @@ public class IronCoreBlock extends DomainBlock implements EngineeringPortProvide
                 port, state.getValue(MAGNETIZED) ? 1.0 : 0.0, 0.0, 1.0, PortQuality.VALID));
     }
 
+    public static int appliedField(Level level, BlockPos pos) {
+        return MagneticPhysics.appliedFieldAt(level, pos, APPLIED_FIELD_RADIUS);
+    }
+
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
         super.onPlace(state, level, pos, oldState, moved);
         if (!level.isClientSide) level.scheduleTick(pos, this, 1);
@@ -70,20 +74,17 @@ public class IronCoreBlock extends DomainBlock implements EngineeringPortProvide
         if (!level.isClientSide) level.scheduleTick(pos, this, 1);
     }
 
-    @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        boolean strong = false;
-        for (Direction direction : Direction.values()) {
-            BlockState neighbor = level.getBlockState(pos.relative(direction));
-            if (neighbor.getBlock() instanceof ElectromagnetBlock && neighbor.getValue(ElectromagnetBlock.FIELD) >= 8) {
-                strong = true;
-                break;
-            }
+    @Override
+    protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+        int appliedField = appliedField(level, pos);
+        if (appliedField >= MAGNETIZE_THRESHOLD && !state.getValue(MAGNETIZED)) {
+            level.setBlock(pos, state.setValue(MAGNETIZED, true), Block.UPDATE_CLIENTS);
         }
-        if (strong && !state.getValue(MAGNETIZED)) level.setBlock(pos, state.setValue(MAGNETIZED, true), Block.UPDATE_CLIENTS);
         level.scheduleTick(pos, this, 5);
     }
 
-    @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+    @Override
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
             BlockState next = state;
             if (player.isShiftKeyDown() && state.getValue(MAGNETIZED)) {
@@ -94,6 +95,8 @@ public class IronCoreBlock extends DomainBlock implements EngineeringPortProvide
             player.displayClientMessage(Component.literal(
                     "Iron core | free-space magnetic material | "
                             + (next.getValue(MAGNETIZED) ? "remanent magnetized state" : "soft magnetic core")
+                            + " | applied-field=" + appliedField(level, pos) + "/15"
+                            + " | threshold=" + MAGNETIZE_THRESHOLD
                             + (player.isShiftKeyDown() ? " | demagnetize" : "")), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
