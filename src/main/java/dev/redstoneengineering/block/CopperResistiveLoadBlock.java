@@ -81,9 +81,11 @@ public class CopperResistiveLoadBlock extends DomainBlock implements Engineering
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
-        // A load is always a sink. Recompute from adjacent components so it can never
-        // become the traversal seed that accidentally joins two otherwise isolated nets.
-        if (level instanceof ServerLevel serverLevel) CopperNetworkSupport.recomputeAround(serverLevel, pos);
+        // Only real placement/replacement changes topology. Internal VOLTAGE/RESISTANCE
+        // state updates on the same load must never recursively retrigger network solving.
+        if (!state.is(oldState.getBlock()) && level instanceof ServerLevel serverLevel) {
+            CopperNetworkSupport.recomputeAround(serverLevel, pos);
+        }
     }
 
     @Override
