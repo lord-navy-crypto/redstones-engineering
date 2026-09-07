@@ -32,6 +32,9 @@ import java.util.Optional;
 
 /** Recovers the most recent framed serial byte and drives a local 8-bit bus segment. */
 public class DeserializerBlock extends DirectionalDomainBlock implements EngineeringPortProvider, DataBusDriver {
+    /** Slow authority watchdog: normal frame changes are neighbor-driven, coverage loss is bounded. */
+    private static final int WATCHDOG_TICKS = 16;
+
     public DeserializerBlock(Properties properties) { super(properties); }
 
     @Override public MapCodec<DeserializerBlock> codec() { return RedstoneEngineering.DESERIALIZER_CODEC.value(); }
@@ -98,14 +101,14 @@ public class DeserializerBlock extends DirectionalDomainBlock implements Enginee
         super.onPlace(state, level, pos, oldState, movedByPiston);
         if (level instanceof ServerLevel serverLevel) {
             update(serverLevel, pos, state);
-            serverLevel.scheduleTick(pos, this, 2);
+            serverLevel.scheduleTick(pos, this, WATCHDOG_TICKS);
         }
     }
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         update(level, pos, state);
-        level.scheduleTick(pos, this, 2);
+        level.scheduleTick(pos, this, WATCHDOG_TICKS);
     }
 
     @Override
