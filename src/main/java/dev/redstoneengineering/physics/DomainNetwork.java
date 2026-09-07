@@ -199,8 +199,16 @@ public final class DomainNetwork {
                     tieConflict = true;
                 }
             }
-            boolean active = bestAmp > 0 && !tieConflict;
-            AmethystResonanceDustBlock.setResonance(level, p, active ? bestFreq : 0, active ? bestAmp : 0);
+            if (tieConflict && bestAmp > 0) {
+                AmethystResonanceDustBlock.setResonance(
+                        level, p, 0, 0, AmethystResonanceDustBlock.ResonanceStatus.FREQUENCY_CONFLICT);
+            } else if (bestAmp > 0) {
+                AmethystResonanceDustBlock.setResonance(
+                        level, p, bestFreq, bestAmp, AmethystResonanceDustBlock.ResonanceStatus.ACTIVE);
+            } else {
+                AmethystResonanceDustBlock.setResonance(
+                        level, p, 0, 0, AmethystResonanceDustBlock.ResonanceStatus.IDLE);
+            }
         }
     }
 
