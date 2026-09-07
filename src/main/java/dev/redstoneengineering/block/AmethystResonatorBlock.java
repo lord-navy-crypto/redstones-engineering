@@ -28,7 +28,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import java.util.List;
 import java.util.Optional;
 
-/** Pulse activity is transient runtime data; frequency/amplitude remain persistent configuration. */
+/** Pulse activity is transient runtime data; frequency/amplitude remain persistent source configuration. */
 public class AmethystResonatorBlock extends DomainBlock implements EngineeringPortProvider {
     public static final IntegerProperty FREQUENCY = IntegerProperty.create("frequency", 1, 15);
     public static final IntegerProperty AMPLITUDE = IntegerProperty.create("amplitude", 1, 15);
@@ -38,44 +38,31 @@ public class AmethystResonatorBlock extends DomainBlock implements EngineeringPo
         super(properties);
         registerDefaultState(defaultBlockState().setValue(FREQUENCY, 1).setValue(AMPLITUDE, 12));
     }
-
-    @Override
-    public MapCodec<AmethystResonatorBlock> codec() {
-        return RedstoneEngineering.AMETHYST_RESONATOR_CODEC.value();
-    }
-
-    @Override
-    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FREQUENCY, AMPLITUDE);
-    }
+    @Override public MapCodec<AmethystResonatorBlock> codec() { return RedstoneEngineering.AMETHYST_RESONATOR_CODEC.value(); }
+    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { builder.add(FREQUENCY, AMPLITUDE); }
 
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
-        return List.of(
-                sourcePort(Direction.NORTH), sourcePort(Direction.SOUTH),
-                sourcePort(Direction.WEST), sourcePort(Direction.EAST)
-        );
+        return List.of(sourcePort(Direction.NORTH), sourcePort(Direction.SOUTH), sourcePort(Direction.WEST), sourcePort(Direction.EAST));
     }
-
     private static EngineeringPort sourcePort(Direction side) {
         return new EngineeringPort("RESONANCE OUT", side, EngineeringDomain.AMETHYST,
                 PortKind.BUS, PortDirection.OUTPUT, false, "amplitude");
     }
 
     @Override
-    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
-            Level level, BlockPos pos, BlockState state, Direction side
-    ) {
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         int amplitude = isActive(level, pos) ? state.getValue(AMPLITUDE) : 0;
-        return Optional.of(new EngineeringPortSnapshot(
-                port.get(), amplitude, 0.0, 15.0,
+        return Optional.of(new EngineeringPortSnapshot(port.get(), amplitude, 0.0, 15.0,
                 amplitude > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL));
     }
 
+    /** Observer-neutral activity readback: inspection cannot create a pulse. */
     public static boolean isActive(Level level, BlockPos pos) {
-        return RuntimeIntStore.get(level, KEY, pos, 1)[0] == 1;
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime != null && runtime.length == 1 && runtime[0] == 1;
     }
 
     @Override
@@ -96,9 +83,7 @@ public class AmethystResonatorBlock extends DomainBlock implements EngineeringPo
     }
 
     @Override
-    protected InteractionResult useWithoutItem(
-            BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit
-    ) {
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
             BlockState next = state;
             if (player.isShiftKeyDown()) {
@@ -115,9 +100,9 @@ public class AmethystResonatorBlock extends DomainBlock implements EngineeringPo
             }
             if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeAmethyst(serverLevel, pos);
             player.displayClientMessage(Component.literal(
-                    "Amethyst resonator | f=" + next.getValue(FREQUENCY)
+                    "Amethyst Resonator | role=BASE SOURCE | f=" + next.getValue(FREQUENCY)
                             + " | amplitude=" + next.getValue(AMPLITUDE)
-                            + (isActive(level, pos) ? " | PULSE" : "")), true);
+                            + (isActive(level, pos) ? " | PULSE ACTIVE" : " | idle")), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
