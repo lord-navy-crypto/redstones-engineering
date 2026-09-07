@@ -10,6 +10,7 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.MagneticPhysics;
+import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -30,9 +31,17 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-/** Observer-only scalar magnetic-field sensor with six free-space apertures. */
+/** Observer-only scalar magnetic-field sensor with explicit free-space scan coverage. */
 public class MagneticFieldSensorBlock extends DomainBlock implements EngineeringPortProvider {
     public static final IntegerProperty FIELD = IntegerProperty.create("field", 0, 15);
+    private static final String KEY = "magnetic_field_sensor";
+    private static final int SCANNED = 0;
+    private static final int EXPECTED = 1;
+    private static final int INITIALIZED = 2;
+    private static final int RUNTIME_SIZE = 3;
+    private static final int RADIUS = 6;
+
+    public record Observation(int field, int scannedCells, int expectedCells, boolean initialized, boolean complete) {}
 
     public MagneticFieldSensorBlock(Properties properties) {
         super(properties);
@@ -42,7 +51,6 @@ public class MagneticFieldSensorBlock extends DomainBlock implements Engineering
     @Override public MapCodec<MagneticFieldSensorBlock> codec() { return RedstoneEngineering.MAGNETIC_FIELD_SENSOR_CODEC.value(); }
     @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { builder.add(FIELD); }
 
-    /** Non-wired apertures document omnidirectional free-space sensing for the engineering HUD. */
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         return Arrays.stream(Direction.values())
@@ -53,21 +61,47 @@ public class MagneticFieldSensorBlock extends DomainBlock implements Engineering
                 .toList();
     }
 
+    public static Observation observation(Level level, BlockPos pos, BlockState state) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        if (runtime == null || runtime.length != RUNTIME_SIZE || runtime[INITIALIZED] == 0) {
+            return new Observation(state.getValue(FIELD), 0, 0, false, false);
+        }
+        int scanned = Math.max(0, runtime[SCANNED]);
+        int expected = Math.max(0, runtime[EXPECTED]);
+        return new Observation(state.getValue(FIELD), scanned, expected, true, scanned == expected);
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
-        return engineeringPort(state, side).map(port -> EngineeringPortSnapshot.redstone(
-                port, state.getValue(FIELD), state.getValue(FIELD) > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+        Optional<EngineeringPort> port = engineeringPort(state, side);
+        if (port.isEmpty()) return Optional.empty();
+        Observation observation = observation(level, pos, state);
+        return Optional.of(EngineeringPortSnapshot.redstone(
+                port.get(), observation.field(), observation.complete() ? PortQuality.VALID : PortQuality.NO_SIGNAL));
     }
 
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
         super.onPlace(state, level, pos, oldState, moved);
-        if (!level.isClientSide) level.scheduleTick(pos, this, 5);
+        if (!level.isClientSide) level.scheduleTick(pos, this, 1);
     }
 
-    @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        int field = MagneticPhysics.fieldAt(level, pos, 6);
-        if (field != state.getValue(FIELD)) level.setBlock(pos, state.setValue(FIELD, field), Block.UPDATE_CLIENTS);
+    @Override
+    protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+        MagneticPhysics.FieldSample sample = MagneticPhysics.fieldSample(level, pos, RADIUS);
+        int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
+        runtime[SCANNED] = sample.scannedCells();
+        runtime[EXPECTED] = sample.expectedCells();
+        runtime[INITIALIZED] = 1;
+        if (sample.field() != state.getValue(FIELD)) {
+            level.setBlock(pos, state.setValue(FIELD, sample.field()), Block.UPDATE_CLIENTS);
+        }
         level.scheduleTick(pos, this, 5);
+    }
+
+    @Override
+    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState next, boolean moved) {
+        if (!state.is(next.getBlock())) RuntimeIntStore.remove(level, KEY, pos);
+        super.onRemove(state, level, pos, next, moved);
     }
 
     @Override
@@ -77,9 +111,12 @@ public class MagneticFieldSensorBlock extends DomainBlock implements Engineering
                 FieldDeviceUi.open(serverPlayer, pos);
                 return InteractionResult.CONSUME;
             }
+            Observation observation = observation(level, pos, state);
             player.displayClientMessage(Component.literal(
-                    "Magnetic field sensor | B-level=" + state.getValue(FIELD)
-                            + "/15 | free-space radius=6 | observer-only"), true);
+                    "Magnetic field sensor | B-level=" + observation.field() + "/15"
+                            + " | radius=" + RADIUS
+                            + " | coverage=" + observation.scannedCells() + "/" + observation.expectedCells()
+                            + " | " + (observation.complete() ? "VALID" : "INCOMPLETE")), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
