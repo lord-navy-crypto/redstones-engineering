@@ -81,7 +81,8 @@ public final class RseEighthTenDesignBugGameTests {
     public static void quartzSamplerRequiresObservedLowToHighEdge(GameTestHelper helper) {
         BlockPos lapis = new BlockPos(1, 1, 2);
         BlockPos sampler = new BlockPos(2, 1, 2);
-        BlockPos quartz = new BlockPos(2, 1, 3);
+        // FACING EAST -> LEFT is NORTH.
+        BlockPos quartz = new BlockPos(2, 1, 1);
         helper.setBlock(lapis, RedstoneEngineering.LAPIS_PRECISION_SOURCE.get().defaultBlockState()
                 .setValue(LapisPrecisionSourceBlock.VALUE, 80));
         helper.setBlock(sampler, RedstoneEngineering.QUARTZ_TRIGGERED_LAPIS_SAMPLER.get().defaultBlockState()
