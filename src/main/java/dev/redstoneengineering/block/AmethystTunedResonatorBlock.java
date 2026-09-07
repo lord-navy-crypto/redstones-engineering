@@ -28,9 +28,14 @@ import net.minecraft.world.phys.BlockHitResult;
 import java.util.List;
 import java.util.Optional;
 
+/** Tuned resonance response: finite bandwidth and possible gain, deliberately distinct from exact filtering. */
 public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
     public static final IntegerProperty NATURAL = IntegerProperty.create("natural", 1, 15);
     public static final IntegerProperty Q_INDEX = IntegerProperty.create("q", 1, 4);
+
+    public record ResponseEvidence(int inputFrequency, int inputAmplitude, int naturalFrequency,
+                                   int qIndex, int bandwidth, int frequencyError,
+                                   int outputAmplitude, boolean saturated, boolean responding) {}
 
     public AmethystTunedResonatorBlock(Properties properties) {
         super(properties);
@@ -38,28 +43,55 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
     }
 
     @Override public MapCodec<AmethystTunedResonatorBlock> codec() { return RedstoneEngineering.AMETHYST_TUNED_RESONATOR_CODEC.value(); }
-
-    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        super.createBlockStateDefinition(builder);
-        builder.add(NATURAL, Q_INDEX);
-    }
+    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { super.createBlockStateDefinition(builder); builder.add(NATURAL, Q_INDEX); }
 
     @Override public List<EngineeringPort> engineeringPorts(BlockState state) {
         return List.of(
                 new EngineeringPort("RESONANCE IN", inputSide(state), EngineeringDomain.AMETHYST,
                         PortKind.CONVERTER, PortDirection.INPUT, false, "amplitude"),
                 new EngineeringPort("RESONANT OUT", outputSide(state), EngineeringDomain.AMETHYST,
-                        PortKind.CONVERTER, PortDirection.OUTPUT, false, "amplitude")
-        );
+                        PortKind.CONVERTER, PortDirection.OUTPUT, false, "amplitude"));
+    }
+
+    public static ResponseEvidence response(Level level, BlockPos pos, BlockState state) {
+        DomainNetwork.AmethystSample input = DomainNetwork.sampleAmethyst(level, inputPos(pos, state));
+        int natural = state.getValue(NATURAL);
+        int q = state.getValue(Q_INDEX);
+        int bandwidth = 5 - q;
+        int diff = input.active() ? Math.abs(input.frequency() - natural) : 99;
+        int raw = 0;
+        if (input.active()) {
+            if (diff == 0) raw = input.amplitude() + q * 2;
+            else if (diff <= bandwidth) raw = input.amplitude() - Math.max(1, diff * q);
+        }
+        int output = EngineeringMath.clamp(raw, 0, 15);
+        return new ResponseEvidence(
+                input.frequency(), input.amplitude(), natural, q, bandwidth, diff,
+                output, raw > 15, input.active() && output > 0);
+    }
+
+    private static PortQuality qualityAt(Level level, BlockPos samplePos, DomainNetwork.AmethystSample sample) {
+        if (level.getBlockState(samplePos).getBlock() instanceof AmethystResonanceDustBlock) {
+            return switch (AmethystResonanceDustBlock.status(level, samplePos)) {
+                case ACTIVE -> PortQuality.VALID;
+                case FREQUENCY_CONFLICT -> PortQuality.TOPOLOGY_ERROR;
+                case IDLE -> PortQuality.NO_SIGNAL;
+            };
+        }
+        return sample.active() ? PortQuality.VALID : PortQuality.NO_SIGNAL;
     }
 
     @Override public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        DomainNetwork.AmethystSample signal = DomainNetwork.sampleAmethyst(
-                level, side == inputSide(state) ? inputPos(pos, state) : outputPos(pos, state));
-        return Optional.of(new EngineeringPortSnapshot(port.get(), Math.max(0, Math.min(15, signal.amplitude())),
-                0.0, 15.0, signal.active() ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+        BlockPos samplePos = side == inputSide(state) ? inputPos(pos, state) : outputPos(pos, state);
+        DomainNetwork.AmethystSample signal = DomainNetwork.sampleAmethyst(level, samplePos);
+        PortQuality quality = qualityAt(level, samplePos, signal);
+        if (side == outputSide(state) && quality == PortQuality.VALID && response(level, pos, state).saturated()) {
+            quality = PortQuality.SATURATED;
+        }
+        return Optional.of(new EngineeringPortSnapshot(
+                port.get(), Math.max(0, Math.min(15, signal.amplitude())), 0.0, 15.0, quality));
     }
 
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
@@ -68,16 +100,9 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
     }
 
     @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        var input = DomainNetwork.sampleAmethyst(level, inputPos(pos, state));
-        int diff = input.active() ? Math.abs(input.frequency() - state.getValue(NATURAL)) : 99;
-        int q = state.getValue(Q_INDEX);
-        int bandwidth = 5 - q;
-        int amplitude = 0;
-        if (input.active()) {
-            if (diff == 0) amplitude = EngineeringMath.clamp(input.amplitude() + q * 2, 0, 15);
-            else if (diff <= bandwidth) amplitude = EngineeringMath.clamp(input.amplitude() - Math.max(1, diff * q), 0, 15);
-        }
-        DomainNetwork.driveAmethyst(level, outputPos(pos, state), amplitude > 0, input.frequency(), amplitude);
+        ResponseEvidence response = response(level, pos, state);
+        DomainNetwork.driveAmethyst(
+                level, outputPos(pos, state), response.responding(), response.inputFrequency(), response.outputAmplitude());
         level.scheduleTick(pos, this, 2);
     }
 
@@ -99,8 +124,14 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
                 next = state.setValue(NATURAL, frequency >= 15 ? 1 : frequency + 1);
             }
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            player.displayClientMessage(Component.literal("Tuned amethyst resonator | f0=" + next.getValue(NATURAL)
-                    + " | Q-index=" + next.getValue(Q_INDEX) + " | higher Q = narrower selectivity"), true);
+            level.scheduleTick(pos, this, 1);
+            ResponseEvidence response = response(level, pos, next);
+            player.displayClientMessage(Component.literal(
+                    "Tuned amethyst resonator | f0=" + response.naturalFrequency()
+                            + " | Q-index=" + response.qIndex() + " | bandwidth=±" + response.bandwidth()
+                            + (response.inputFrequency() > 0 ? " | input f=" + response.inputFrequency()
+                            + " Δf=" + response.frequencyError() + " | expected Aout=" + response.outputAmplitude()
+                            + (response.saturated() ? " SATURATED" : "") : " | no active input")), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
