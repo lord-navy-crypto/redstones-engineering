@@ -37,6 +37,28 @@ public final class CopperNetworkSupport {
         }
     }
 
+    /** Read one physical terminal face. INPUT-only neighbors are never sources. */
+    public static TerminalInput terminalInputOnSide(Level level, BlockPos consumerPos, Direction side) {
+        BlockPos neighborPos = consumerPos.relative(side);
+        if (!level.hasChunkAt(neighborPos)) return new TerminalInput(0, 0, PortQuality.NO_SIGNAL);
+        BlockState neighborState = level.getBlockState(neighborPos);
+        if (!(neighborState.getBlock() instanceof EngineeringPortProvider provider)) {
+            return new TerminalInput(0, 0, PortQuality.NO_SIGNAL);
+        }
+
+        Direction neighborFace = side.getOpposite();
+        var descriptor = provider.engineeringPort(neighborState, neighborFace).orElse(null);
+        if (descriptor == null || descriptor.domain() != EngineeringDomain.COPPER
+                || descriptor.direction() == PortDirection.INPUT) {
+            return new TerminalInput(0, 0, PortQuality.NO_SIGNAL);
+        }
+
+        var snapshot = provider.engineeringSnapshot(level, neighborPos, neighborState, neighborFace).orElse(null);
+        if (snapshot == null) return new TerminalInput(1, 0, PortQuality.NO_SIGNAL);
+        int voltage = Math.max(0, Math.min(15, (int) Math.round(snapshot.value())));
+        return new TerminalInput(1, voltage, snapshot.quality());
+    }
+
     /**
      * Read the strongest legitimate adjacent Copper feed without ever treating an
      * INPUT-only device as a source. Multiple real feeds are allowed in the reduced
@@ -49,22 +71,12 @@ public final class CopperNetworkSupport {
         PortQuality worst = PortQuality.NO_SIGNAL;
 
         for (Direction side : Direction.values()) {
-            BlockPos neighborPos = consumerPos.relative(side);
-            if (!level.hasChunkAt(neighborPos)) continue;
-            BlockState neighborState = level.getBlockState(neighborPos);
-            if (!(neighborState.getBlock() instanceof EngineeringPortProvider provider)) continue;
-
-            Direction neighborFace = side.getOpposite();
-            var descriptor = provider.engineeringPort(neighborState, neighborFace).orElse(null);
-            if (descriptor == null || descriptor.domain() != EngineeringDomain.COPPER) continue;
-            if (descriptor.direction() == PortDirection.INPUT) continue;
-
-            feeds++;
-            var snapshot = provider.engineeringSnapshot(level, neighborPos, neighborState, neighborFace).orElse(null);
-            if (snapshot == null) continue;
-            bestVoltage = Math.max(bestVoltage, (int) Math.round(snapshot.value()));
-            if (snapshot.quality() == PortQuality.VALID) valid = true;
-            worst = combineQuality(worst, snapshot.quality());
+            TerminalInput face = terminalInputOnSide(level, consumerPos, side);
+            if (face.connectedFeeds() == 0) continue;
+            feeds += face.connectedFeeds();
+            bestVoltage = Math.max(bestVoltage, face.voltage());
+            if (face.quality() == PortQuality.VALID) valid = true;
+            worst = combineQuality(worst, face.quality());
         }
 
         if (feeds == 0) return new TerminalInput(0, 0, PortQuality.NO_SIGNAL);
