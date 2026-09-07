@@ -55,7 +55,7 @@ public class PermanentMagnetBlock extends DomainBlock implements EngineeringPort
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         return Arrays.stream(Direction.values())
                 .map(side -> new EngineeringPort(
-                        "SCALAR MAGNETIC FIELD " + side.getName().toUpperCase(), side,
+                        "MAGNETIC FIELD " + side.getName().toUpperCase(), side,
                         EngineeringDomain.IRON_MAGNETIC, PortKind.AUXILIARY,
                         PortDirection.OUTPUT, false, "field"))
                 .toList();
