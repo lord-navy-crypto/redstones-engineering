@@ -29,13 +29,19 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/** 3-D insulated 0..15 signal cable. Bends automatically; explicit Junctions provide branches. */
+/**
+ * Insulated 0..15 signal cable. Direct runs may branch in the horizontal plane;
+ * vertical transitions are legal only through the unified Signal Junction Point.
+ */
 public class RedstoneSignalCableBlock extends ConnectedCableBlock implements EngineeringPortProvider {
     private static final String KEY = "redstone_cable";
 
     public RedstoneSignalCableBlock(Properties properties) { super(properties); }
     @Override public MapCodec<RedstoneSignalCableBlock> codec() { return RedstoneEngineering.REDSTONE_SIGNAL_CABLE_CODEC.value(); }
-    @Override protected boolean canConnectTo(BlockGetter level, BlockPos pos, Direction direction, BlockState neighbor) { return TransmissionTopology.redstoneCablePort(neighbor, direction); }
+    @Override protected boolean canConnectTo(BlockGetter level, BlockPos pos, Direction direction, BlockState neighbor) {
+        return TransmissionTopology.redstoneCablePort(level, pos, direction, neighbor);
+    }
+    @Override protected int maxConnections() { return 6; }
 
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
@@ -85,10 +91,12 @@ public class RedstoneSignalCableBlock extends ConnectedCableBlock implements Eng
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
                 player.displayClientMessage(Component.literal(
-                        (topologyValid(state) ? "Insulated Redstone Cable" : "TOPOLOGY ERROR — use Cable Junction for branches")
+                        "Insulated Redstone Cable"
                                 + " | " + PortDiagnostics.connectedCable(level, pos, state, PortDiagnostics.Domain.INSULATED_REDSTONE)
                                 + " | engineeringPorts=" + engineeringPorts(state).size()
-                                + " | signal=" + power(level, pos) + "/15 | " + NetworkKernel.summary(level, "redstone_cable")
+                                + " | signal=" + power(level, pos) + "/15"
+                                + " | routing=PLANAR; vertical via Signal Junction Point"
+                                + " | " + NetworkKernel.summary(level, "redstone_cable")
                 ), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
