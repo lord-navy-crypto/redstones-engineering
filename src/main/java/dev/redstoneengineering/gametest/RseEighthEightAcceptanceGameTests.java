@@ -34,10 +34,12 @@ public final class RseEighthEightAcceptanceGameTests {
     public static void pidExposesSixControlPortsAndInhibitDominates(GameTestHelper helper) {
         BlockPos pidPos = new BlockPos(2, 1, 2);
         BlockPos setpointPos = pidPos.west();
+        BlockPos processPos = pidPos.north();
         BlockPos inhibitPos = pidPos.south();
         BlockState pidState = RedstoneEngineering.PID_CONTROLLER.get().defaultBlockState()
                 .setValue(DirectionalSignalBlock.FACING, Direction.EAST);
         helper.setBlock(setpointPos, Blocks.REDSTONE_BLOCK.defaultBlockState());
+        helper.setBlock(processPos, reference(Direction.SOUTH, 0));
         helper.setBlock(inhibitPos, Blocks.REDSTONE_BLOCK.defaultBlockState());
         helper.setBlock(pidPos, pidState);
 
@@ -74,6 +76,7 @@ public final class RseEighthEightAcceptanceGameTests {
     public static void watchdogTimesOutAndHeartbeatRecovers(GameTestHelper helper) {
         BlockPos watchdogPos = new BlockPos(2, 1, 2);
         BlockPos heartbeatPos = watchdogPos.west();
+        helper.setBlock(heartbeatPos, reference(Direction.EAST, 0));
         helper.setBlock(watchdogPos, RedstoneEngineering.WATCHDOG.get().defaultBlockState()
                 .setValue(DirectionalSignalBlock.FACING, Direction.EAST));
 
@@ -83,7 +86,7 @@ public final class RseEighthEightAcceptanceGameTests {
                 helper.fail("Watchdog did not assert its timeout after the configured heartbeat age", watchdogPos);
                 return;
             }
-            helper.setBlock(heartbeatPos, Blocks.REDSTONE_BLOCK.defaultBlockState());
+            helper.setBlock(heartbeatPos, reference(Direction.EAST, 15));
             helper.runAfterDelay(4, () -> {
                 if (helper.getBlockState(watchdogPos).getValue(DirectionalSignalBlock.OUTPUT) != 0
                         || WatchdogBlock.transitionCount(helper.getLevel(), helper.absolutePos(watchdogPos)) < 1) {
@@ -179,13 +182,11 @@ public final class RseEighthEightAcceptanceGameTests {
                 helper.fail("Servo position sensor did not bridge mechanical position into redstone feedback", sensorPos);
                 return;
             }
-            // NeoForge direction is the queried neighbor direction, so EAST maps to physical WEST/BACK.
             if (RedstoneEngineering.SERVO_POSITION_SENSOR.get().canConnectRedstone(
                     state, helper.getLevel(), helper.absolutePos(sensorPos), Direction.EAST)) {
                 helper.fail("Servo position sensor mechanical BACK incorrectly accepted vanilla redstone", sensorPos);
                 return;
             }
-            // WEST query maps to physical EAST/FRONT and must retain vanilla feedback output connectivity.
             if (!RedstoneEngineering.SERVO_POSITION_SENSOR.get().canConnectRedstone(
                     state, helper.getLevel(), helper.absolutePos(sensorPos), Direction.WEST)) {
                 helper.fail("Servo position sensor REDSTONE FRONT stopped advertising output connectivity", sensorPos);
