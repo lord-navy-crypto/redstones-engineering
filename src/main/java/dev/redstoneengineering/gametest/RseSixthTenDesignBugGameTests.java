@@ -14,7 +14,6 @@ import dev.redstoneengineering.block.ThermalMassBlock;
 import dev.redstoneengineering.block.ThermalRadiatorBlock;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.PortQuality;
-import dev.redstoneengineering.metrology.MeasurementSnapshot;
 import dev.redstoneengineering.metrology.MetrologySupport;
 import dev.redstoneengineering.physics.RedstoneCableNetwork;
 import dev.redstoneengineering.physics.RuntimeIntStore;
@@ -23,7 +22,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -139,7 +137,9 @@ public final class RseSixthTenDesignBugGameTests {
         BlockPos reference = new BlockPos(0, 1, 1);
         BlockPos terminal = new BlockPos(1, 1, 1);
         BlockPos cable = new BlockPos(2, 1, 1);
+        BlockPos emptyTerminal = new BlockPos(1, 1, 3);
         BlockPos isolated = new BlockPos(2, 1, 3);
+
         helper.setBlock(reference, RedstoneEngineering.REDSTONE_REFERENCE_SOURCE.get().defaultBlockState()
                 .setValue(DirectionalRedstoneEndpointBlock.FACING, Direction.EAST)
                 .setValue(RedstoneReferenceSourceBlock.POWER, 0));
@@ -147,16 +147,26 @@ public final class RseSixthTenDesignBugGameTests {
                 .setValue(RedstoneCableTerminalBlock.FACING, Direction.WEST)
                 .setValue(RedstoneCableTerminalBlock.OUTPUT_MODE, false));
         helper.setBlock(cable, RedstoneEngineering.REDSTONE_SIGNAL_CABLE.get().defaultBlockState());
+
+        // Same cable topology, but this INPUT terminal has nothing on its vanilla side.
+        helper.setBlock(emptyTerminal, RedstoneEngineering.REDSTONE_CABLE_TERMINAL.get().defaultBlockState()
+                .setValue(RedstoneCableTerminalBlock.FACING, Direction.WEST)
+                .setValue(RedstoneCableTerminalBlock.OUTPUT_MODE, false));
         helper.setBlock(isolated, RedstoneEngineering.REDSTONE_SIGNAL_CABLE.get().defaultBlockState());
 
         helper.runAfterDelay(3, () -> {
             BlockPos cableWorld = helper.absolutePos(cable);
+            BlockPos emptyTerminalWorld = helper.absolutePos(emptyTerminal);
             BlockPos isolatedWorld = helper.absolutePos(isolated);
             RedstoneCableNetwork.SourceEvidence driven = RedstoneCableNetwork.sourceEvidence(helper.getLevel(), cableWorld);
             RedstoneCableNetwork.SourceEvidence none = RedstoneCableNetwork.sourceEvidence(helper.getLevel(), isolatedWorld);
+            var emptyTerminalSnapshot = RedstoneEngineering.REDSTONE_CABLE_TERMINAL.get().engineeringSnapshot(
+                    helper.getLevel(), emptyTerminalWorld, helper.getBlockState(emptyTerminal), Direction.WEST).orElseThrow();
+
             if (RedstoneSignalCableBlock.power(helper.getLevel(), cableWorld) != 0
                     || driven.sourceCount() < 1 || driven.quality() != PortQuality.VALID
-                    || none.sourceCount() != 0 || none.quality() != PortQuality.NO_SIGNAL) {
+                    || none.sourceCount() != 0 || none.quality() != PortQuality.NO_SIGNAL
+                    || emptyTerminalSnapshot.quality() != PortQuality.NO_SIGNAL) {
                 helper.fail("Insulated redstone cable failed valid-zero versus no-source evidence", cable);
                 return;
             }
