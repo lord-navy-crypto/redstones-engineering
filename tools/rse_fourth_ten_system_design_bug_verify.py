@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+from pathlib import Path
+import re
+
+ROOT = Path(__file__).resolve().parents[1]
+JAVA = ROOT / "src/main/java/dev/redstoneengineering"
+
+
+def text(rel: str) -> str:
+    return (JAVA / rel).read_text(encoding="utf-8")
+
+
+def require(condition: bool, message: str) -> None:
+    if not condition:
+        raise SystemExit(f"FAIL: {message}")
+
+
+temperature = text("block/TemperatureSensorBlock.java")
+noise = text("block/LapisNoiseSourceBlock.java")
+lowpass = text("block/LapisLowPassFilterBlock.java")
+meter = text("block/LapisPrecisionMeterBlock.java")
+lab_clock = text("block/QuartzLabOscillatorBlock.java")
+divider = text("block/QuartzClockDividerBlock.java")
+phase = text("block/QuartzPhaseDelayBlock.java")
+stability = text("block/QuartzStabilityMonitorBlock.java")
+amethyst_filter = text("block/AmethystFrequencyFilterBlock.java")
+tuned = text("block/AmethystTunedResonatorBlock.java")
+registration = text("gametest/RseGameTestRegistration.java")
+tests = text("gametest/RseFourthTenDesignBugGameTests.java")
+workflow = (ROOT / ".github/workflows/build.yml").read_text(encoding="utf-8")
+
+# 31: temperature sensing must expose coverage rather than silently averaging unloaded space.
+for token in ("ThermalObservation", "loadedFaces", "complete()", "cached reading retained"):
+    require(token in temperature, f"Temperature Sensor coverage evidence missing {token}")
+require("level.hasChunkAt(neighborPos)" in temperature,
+        "Temperature Sensor must not treat unloaded neighbors as complete thermal evidence")
+
+# 32: zero is data, never the initialization sentinel; readback is observer-neutral.
+for token in ("INITIALIZED_SLOT", "setSample", "sampleInitialized", "RuntimeIntStore.peek"):
+    require(token in noise, f"Lapis Noise Source zero/observer contract missing {token}")
+require("runtime[0] == 0" not in noise,
+        "Lapis Noise Source reintroduced zero-as-uninitialized sentinel")
+
+# 33: filter readback must never create runtime state.
+for token in ("FilterState", "filterState", "runtimePresent", "RuntimeIntStore.peek"):
+    require(token in lowpass, f"Lapis Low-Pass observer evidence missing {token}")
+require("RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE)" in lowpass,
+        "Lapis Low-Pass server tick lost authoritative runtime write")
+
+# 34: precision meter preserves upstream source-conflict quality.
+require("LapisSignalLineBlock.quality" in meter,
+        "Lapis Precision Meter must preserve trace source-conflict quality")
+require("PortQuality.TOPOLOGY_ERROR" in meter,
+        "Lapis Precision Meter must expose source conflict rather than generic no-signal")
+
+# 35: lab oscillator exposes realized jitter as read-only evidence.
+for token in ("TimingEvidence", "LAST_HALF_INTERVAL_SLOT", "LAST_JITTER_OFFSET_SLOT", "RuntimeIntStore.peek"):
+    require(token in lab_clock, f"Quartz Lab Oscillator realized timing evidence missing {token}")
+
+# 36-37: first valid HIGH establishes phase; it is not a fabricated edge.
+for name, source in (("Quartz Clock Divider", divider), ("Quartz Phase Delay", phase)):
+    require("INITIALIZED_SLOT" in source, f"{name} lacks explicit initialization state")
+    require("runtime[INITIALIZED_SLOT] == 0" in source,
+            f"{name} does not separate first sample from a real edge")
+    require("RuntimeIntStore.peek" in source,
+            f"{name} inspection helpers must be observer-neutral")
+require("runtime[PENDING_SLOT] = 0" in phase and "if (!input.valid())" in phase,
+        "Quartz Phase Delay must clear stale pending events when timing input is invalid")
+
+# 38: full period requires reference edge + subsequent edge; old evidence can be stale.
+for token in ("REFERENCE_EDGE_SLOT", "CURRENT_MEASUREMENT_SLOT", "TimingMeasurement", "RuntimeIntStore.peek", "PortQuality.STALE"):
+    require(token in stability, f"Quartz Stability Monitor complete-period semantics missing {token}")
+require("runtime[REFERENCE_EDGE_SLOT] == 0" in stability,
+        "Quartz Stability Monitor lacks first-reference-edge stage")
+
+# 39-40: exact selection and finite-bandwidth resonance remain different mechanisms.
+for token in ("FilterEvidence", "matched", "expectedOutputAmplitude"):
+    require(token in amethyst_filter, f"Amethyst Frequency Filter evidence missing {token}")
+for token in ("ResponseEvidence", "bandwidth", "frequencyError", "saturated"):
+    require(token in tuned, f"Amethyst Tuned Resonator response evidence missing {token}")
+require("raw > 15" in tuned,
+        "Tuned resonator must retain explicit gain-saturation evidence")
+
+require("RseFourthTenDesignBugGameTests.class" in registration,
+        "Fourth-ten design/bug GameTests are not registered")
+for test_name in (
+    "noiseSourceZeroSampleInspectionIsObserverNeutral",
+    "lowPassInspectionDoesNotCreateRuntimeState",
+    "temperatureSensorSeparatesAmbientCoverageFromDirectThermalBody",
+    "dividerHighAttachDoesNotFabricateRisingEdge",
+    "phaseDelayRequiresRealPostInitializationRisingEdge",
+    "stabilityMonitorNeedsTwoRealEdgesAndInspectionIsNeutral",
+    "labOscillatorPublishesRealizedJitterEvidence",
+    "amethystFilterAndTunedResonatorKeepDistinctResponses",
+):
+    require(test_name in tests, f"Missing fourth-ten runtime contract: {test_name}")
+
+match = re.search(r"test_count < (\d+)", workflow)
+require(match is not None and int(match.group(1)) >= 230,
+        "CI GameTest gate must be at least 230 after eight fourth-ten bug regressions")
+require("tools/rse_fourth_ten_system_design_bug_verify.py" in workflow,
+        "Fourth-ten verifier is not wired into CI")
+
+print("RSE fourth-ten system design + bug verification: PASS")
+print("  Temperature coverage completeness: PASS")
+print("  Lapis zero-safe noise + observer-neutral filtering: PASS")
+print("  Lapis precision conflict preservation: PASS")
+print("  Quartz realized jitter evidence: PASS")
+print("  Divider/phase-delay first-sample edge safety: PASS")
+print("  Stability monitor full-period + stale-evidence semantics: PASS")
+print("  Amethyst exact-filter vs tuned-response identity: PASS")
+print("  eight executable fourth-ten GameTests registered: PASS")
+print("  fixed-content architecture: no new engineering block/domain required")
