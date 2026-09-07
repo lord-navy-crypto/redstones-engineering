@@ -43,11 +43,12 @@ public class InstrumentCableBlock extends ConnectedCableBlock implements Enginee
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         List<EngineeringPort> ports = new ArrayList<>();
         for (Direction side : Direction.values()) {
-            if (connected(state, side)) {
-                ports.add(new EngineeringPort(
-                        "INSTRUMENT BUS", side, EngineeringDomain.INSTRUMENT_BUS,
-                        PortKind.BUS, PortDirection.BIDIRECTIONAL, false, "channel"));
-            }
+            // Planar faces advertise connectable measurement-bus capability even when open.
+            // A vertical port exists only when the visible arm was created by a junction.
+            if (side.getAxis() == Direction.Axis.Y && !connected(state, side)) continue;
+            ports.add(new EngineeringPort(
+                    "INSTRUMENT BUS", side, EngineeringDomain.INSTRUMENT_BUS,
+                    PortKind.BUS, PortDirection.BIDIRECTIONAL, false, "channel"));
         }
         return List.copyOf(ports);
     }
