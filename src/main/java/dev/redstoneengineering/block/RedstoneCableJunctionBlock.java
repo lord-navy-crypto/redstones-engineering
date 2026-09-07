@@ -149,11 +149,9 @@ public class RedstoneCableJunctionBlock extends ConnectedCableBlock implements E
     private static EngineeringPortSnapshot informationSnapshot(
             EngineeringPort port,
             InformationRuntime.Snapshot sample,
-            double maximum
+            double maximum,
+            PortQuality quality
     ) {
-        PortQuality quality = sample.ageTicks() < 0
-                ? PortQuality.STALE
-                : sample.valid() ? PortQuality.VALID : PortQuality.NO_SIGNAL;
         return new EngineeringPortSnapshot(port, sample.value(), 0.0, maximum, quality);
     }
 
@@ -171,11 +169,14 @@ public class RedstoneCableJunctionBlock extends ConnectedCableBlock implements E
                         port.get(), bus.validChannelsInMask(0xF), 0.0, 4.0, bus.qualityForMask(0xF)));
             }
             case DATA_BUS_8 -> Optional.of(informationSnapshot(
-                    port.get(), InformationRuntime.snapshot(level, "bus8", pos), 255.0));
+                    port.get(), InformationRuntime.snapshot(level, "bus8", pos), 255.0,
+                    DataBusNetwork.quality(level, pos)));
             case SERIAL -> Optional.of(informationSnapshot(
-                    port.get(), InformationRuntime.snapshot(level, "serial", pos), 255.0));
+                    port.get(), InformationRuntime.snapshot(level, "serial", pos), 255.0,
+                    SerialNetwork.quality(level, pos)));
             case DIFFERENTIAL -> Optional.of(informationSnapshot(
-                    port.get(), InformationRuntime.snapshot(level, "diff", pos), 1.0));
+                    port.get(), InformationRuntime.snapshot(level, "diff", pos), 1.0,
+                    DifferentialNetwork.quality(level, pos)));
             case NONE, MISMATCH -> Optional.empty();
         };
     }
