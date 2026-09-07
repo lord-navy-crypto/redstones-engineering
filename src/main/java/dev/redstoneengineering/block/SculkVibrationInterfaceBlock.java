@@ -7,7 +7,7 @@ import dev.redstoneengineering.core.port.EngineeringPort;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
-import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
@@ -55,20 +55,25 @@ public class SculkVibrationInterfaceBlock extends PassiveDirectionalSignalBlock 
         );
     }
 
+    private RedstoneObservationSupport.Observation inputObservation(Level level, BlockPos pos, BlockState state) {
+        return RedstoneObservationSupport.observe(level, pos, inputSide(state));
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(
             Level level, BlockPos pos, BlockState state, Direction side
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        int value = side == inputSide(state) ? computeOutput(level, pos, state) : state.getValue(OUTPUT);
-        return Optional.of(EngineeringPortSnapshot.redstone(
-                port.get(), value, value > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+        RedstoneObservationSupport.Observation observation = inputObservation(level, pos, state);
+        int value = side == inputSide(state) ? observation.value() : state.getValue(OUTPUT);
+        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value, observation.quality()));
     }
 
     @Override
     protected int computeOutput(Level level, BlockPos pos, BlockState state) {
-        return Math.max(0, Math.min(15, level.getSignal(inputPos(pos, state), inputSide(state))));
+        RedstoneObservationSupport.Observation observation = inputObservation(level, pos, state);
+        return observation.valid() ? Math.max(0, Math.min(15, observation.value())) : 0;
     }
 
     /**
