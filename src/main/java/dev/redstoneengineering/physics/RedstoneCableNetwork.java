@@ -27,9 +27,9 @@ import java.util.Set;
  * Direct cable branches are planar; only a Signal Junction Point resolved to
  * REDSTONE may carry the network vertically.
  *
- * <p>Multiple terminal inputs intentionally retain Vanilla-like strongest-value
- * resolution. Source count is nevertheless retained as observer evidence so a
- * real zero driven by a terminal can be distinguished from an undriven cable.</p>
+ * <p>Multiple real terminal inputs intentionally retain Vanilla-like strongest-value
+ * resolution. Source count is retained as observer evidence so a real zero driven
+ * by an attached source can be distinguished from an empty/undriven network.</p>
  */
 public final class RedstoneCableNetwork {
     private static final int MAX_NODES = NetworkKernel.MAX_NODES;
@@ -81,7 +81,8 @@ public final class RedstoneCableNetwork {
         for (BlockPos pos : nodes) {
             BlockState state = level.getBlockState(pos);
             if (state.getBlock() instanceof RedstoneCableTerminalBlock terminal
-                    && !state.getValue(RedstoneCableTerminalBlock.OUTPUT_MODE)) {
+                    && !state.getValue(RedstoneCableTerminalBlock.OUTPUT_MODE)
+                    && terminal.externalSourcePresent(level, pos, state)) {
                 sourceCount++;
                 int power = terminal.externalInput(level, pos, state);
                 best.put(pos, power);
