@@ -33,7 +33,7 @@ public class PulseShaperBlock extends DirectionalSignalBlock {
 
     @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         boolean now = readBackInput(level, pos, state) > 0;
-        int[] rt = RuntimeIntStore.get(level, KEY, pos, 3); // last, remaining, initialized
+        int[] rt = RuntimeIntStore.get(level, KEY, pos, 3); // last input, remaining pulse ticks, initialized
         if (rt[2] == 0) {
             rt[0] = now ? 1 : 0;
             rt[1] = 0;
@@ -57,9 +57,26 @@ public class PulseShaperBlock extends DirectionalSignalBlock {
         super.onRemove(state, level, pos, newState, moved);
     }
 
-    public static int lastInput(Level level, BlockPos pos) { return RuntimeIntStore.get(level, KEY, pos, 3)[0]; }
-    public static int pulseRemaining(Level level, BlockPos pos) { return RuntimeIntStore.get(level, KEY, pos, 3)[1]; }
-    public static boolean initialized(Level level, BlockPos pos) { return RuntimeIntStore.get(level, KEY, pos, 3)[2] == 1; }
+    private static int[] snapshot(Level level, BlockPos pos) {
+        int[] rt = RuntimeIntStore.peek(level, KEY, pos);
+        return rt != null && rt.length == 3 ? rt : null;
+    }
+
+    /** Observer-neutral chronology readback: querying diagnostics never creates pulse runtime. */
+    public static int lastInput(Level level, BlockPos pos) {
+        int[] rt = snapshot(level, pos);
+        return rt == null ? 0 : rt[0];
+    }
+
+    public static int pulseRemaining(Level level, BlockPos pos) {
+        int[] rt = snapshot(level, pos);
+        return rt == null ? 0 : rt[1];
+    }
+
+    public static boolean initialized(Level level, BlockPos pos) {
+        int[] rt = snapshot(level, pos);
+        return rt != null && rt[2] == 1;
+    }
 
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
@@ -69,7 +86,8 @@ public class PulseShaperBlock extends DirectionalSignalBlock {
             }
             int width = state.getValue(WIDTH); width = width >= 8 ? 1 : width + 1;
             BlockState next = state.setValue(WIDTH, width); level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            player.displayClientMessage(Component.literal("Pulse Shaper | width=" + width + " ticks"), true);
+            player.displayClientMessage(Component.literal(
+                    "Pulse Shaper | one-shot width=" + width + "t | remaining=" + pulseRemaining(level, pos) + "t"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
