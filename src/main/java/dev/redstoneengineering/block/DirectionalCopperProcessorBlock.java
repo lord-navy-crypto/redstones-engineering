@@ -7,7 +7,7 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
-import dev.redstoneengineering.physics.DomainNetwork;
+import dev.redstoneengineering.physics.CopperObservationSupport;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.Level;
@@ -19,9 +19,8 @@ import java.util.Optional;
 /**
  * Shared engineering-port contract for axial copper-domain processors.
  *
- * <p>The physical topology is BACK input to FRONT output. DomainNetwork owns
- * propagation and component physics; this class only standardizes topology and
- * observability for diagnostics such as Jade and GameTest.</p>
+ * <p>The physical topology is BACK input to FRONT output. Processor physics owns
+ * runtime writes; this class only exposes read-only input/output evidence.</p>
  */
 public abstract class DirectionalCopperProcessorBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
     protected DirectionalCopperProcessorBlock(Properties properties) {
@@ -32,23 +31,11 @@ public abstract class DirectionalCopperProcessorBlock extends DirectionalDomainB
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         return List.of(
                 new EngineeringPort(
-                        "INPUT",
-                        inputSide(state),
-                        EngineeringDomain.COPPER,
-                        PortKind.ELECTRICAL,
-                        PortDirection.INPUT,
-                        false,
-                        "V-eq"
-                ),
+                        "INPUT", inputSide(state), EngineeringDomain.COPPER,
+                        PortKind.ELECTRICAL, PortDirection.INPUT, false, "V-eq"),
                 new EngineeringPort(
-                        "OUTPUT",
-                        outputSide(state),
-                        EngineeringDomain.COPPER,
-                        PortKind.ELECTRICAL,
-                        PortDirection.OUTPUT,
-                        false,
-                        "V-eq"
-                )
+                        "OUTPUT", outputSide(state), EngineeringDomain.COPPER,
+                        PortKind.ELECTRICAL, PortDirection.OUTPUT, false, "V-eq")
         );
     }
 
@@ -62,18 +49,35 @@ public abstract class DirectionalCopperProcessorBlock extends DirectionalDomainB
         Optional<EngineeringPort> descriptor = engineeringPort(state, side);
         if (descriptor.isEmpty()) return Optional.empty();
 
-        int voltage = side == inputSide(state)
-                ? DomainNetwork.sampleCopperVoltage(level, inputPos(pos, state))
-                : observedOutputVoltage(level, pos, state);
+        if (side == inputSide(state)) {
+            CopperObservationSupport.Observation input = CopperObservationSupport.observe(
+                    level, inputPos(pos, state), pos);
+            return Optional.of(new EngineeringPortSnapshot(
+                    descriptor.get(),
+                    Math.max(0, Math.min(15, input.voltage())),
+                    0.0,
+                    15.0,
+                    input.quality()
+            ));
+        }
+
         return Optional.of(new EngineeringPortSnapshot(
                 descriptor.get(),
-                Math.max(0, Math.min(15, voltage)),
+                Math.max(0, Math.min(15, observedOutputVoltage(level, pos, state))),
                 0.0,
                 15.0,
-                PortQuality.VALID
+                observedOutputQuality(level, pos, state)
         ));
     }
 
     /** Runtime output value owned by the concrete component simulation. */
     protected abstract int observedOutputVoltage(Level level, BlockPos pos, BlockState state);
+
+    /**
+     * Runtime output quality owned by the concrete component simulation. The default
+     * preserves compatibility for any future subclass; audited processors override it.
+     */
+    protected PortQuality observedOutputQuality(Level level, BlockPos pos, BlockState state) {
+        return PortQuality.VALID;
+    }
 }
