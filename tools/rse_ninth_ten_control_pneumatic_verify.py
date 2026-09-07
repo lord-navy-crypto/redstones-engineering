@@ -27,7 +27,7 @@ require(
     "SerialNetwork.quality",
     "InformationRuntime.snapshot",
     "WATCHDOG_TICKS = 16",
-    "PortQuality.TOPOLOGY_ERROR",
+    "return upstream;",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/DifferentialDriverBlock.java",
