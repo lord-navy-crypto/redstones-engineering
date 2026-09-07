@@ -3,6 +3,7 @@ package dev.redstoneengineering.block;
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.EngineeringMath;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -16,6 +17,13 @@ import net.minecraft.world.level.block.state.properties.IntegerProperty;
 public class LapisPrecisionRangeSensorBlock extends AbstractLapisTransducerBlock {
     public static final IntegerProperty RANGE_INDEX = IntegerProperty.create("range_index", 0, 3);
     private static final int[] RANGES = {8, 16, 32, 64};
+
+    public record RangeSample(int distance, int maxRange, boolean complete) {
+        public PortQuality quality() {
+            if (!complete) return PortQuality.STALE;
+            return distance < 0 ? PortQuality.NO_SIGNAL : PortQuality.VALID;
+        }
+    }
 
     public LapisPrecisionRangeSensorBlock(Properties p) {
         super(p);
@@ -35,23 +43,35 @@ public class LapisPrecisionRangeSensorBlock extends AbstractLapisTransducerBlock
         builder.add(RANGE_INDEX);
     }
 
-    @Override
-    protected Measurement sense(ServerLevel level, BlockPos pos, BlockState state) {
+    public static RangeSample rangeSample(ServerLevel level, BlockPos pos, BlockState state) {
         int max = RANGES[state.getValue(RANGE_INDEX)];
-        Direction direction = inputSide(state);
-        int distance = -1;
+        Direction direction = state.getValue(DirectionalDomainBlock.FACING).getOpposite();
         for (int i = 1; i <= max; i++) {
             BlockPos p = pos.relative(direction, i);
-            if (!level.hasChunkAt(p)) break;
+            if (!level.hasChunkAt(p)) return new RangeSample(-1, max, false);
             BlockState target = level.getBlockState(p);
             if (!target.isAir() || !level.getFluidState(p).isEmpty()) {
-                distance = i;
-                break;
+                return new RangeSample(i, max, true);
             }
         }
-        if (distance < 0) return new Measurement(0, false, "no target within " + max + " blocks");
-        int normalized = Math.round(EngineeringMath.clamp(distance, 0, max) * 100.0f / max);
-        return new Measurement(normalized, true, "distance=" + distance + "/" + max + " blocks");
+        return new RangeSample(-1, max, true);
+    }
+
+    @Override
+    protected Measurement sense(ServerLevel level, BlockPos pos, BlockState state) {
+        RangeSample sample = rangeSample(level, pos, state);
+        if (sample.quality() == PortQuality.STALE) {
+            return new Measurement(0, PortQuality.STALE,
+                    "range coverage incomplete before " + sample.maxRange() + " blocks");
+        }
+        if (sample.quality() == PortQuality.NO_SIGNAL) {
+            return new Measurement(0, PortQuality.NO_SIGNAL,
+                    "no target within " + sample.maxRange() + " blocks");
+        }
+        int normalized = Math.round(EngineeringMath.clamp(sample.distance(), 0, sample.maxRange())
+                * 100.0f / sample.maxRange());
+        return new Measurement(normalized, PortQuality.VALID,
+                "distance=" + sample.distance() + "/" + sample.maxRange() + " blocks");
     }
 
     @Override
@@ -60,6 +80,13 @@ public class LapisPrecisionRangeSensorBlock extends AbstractLapisTransducerBlock
             int next = (state.getValue(RANGE_INDEX) + 1) & 3;
             state = state.setValue(RANGE_INDEX, next);
             level.setBlock(pos, state, Block.UPDATE_CLIENTS);
+            if (level instanceof ServerLevel server) {
+                // Range configuration changes the physical aperture. Drop the old
+                // sample immediately rather than relabeling it under the new range.
+                dev.redstoneengineering.physics.RuntimeIntStore.remove(server, runtimeKey(), pos);
+                dev.redstoneengineering.physics.DomainNetwork.driveLapis(server, outputPos(pos, state), pos, 0, false);
+                server.scheduleTick(pos, this, 1);
+            }
             player.displayClientMessage(net.minecraft.network.chat.Component.literal("Precision Range Sensor range = " + RANGES[next] + " blocks"), true);
             return net.minecraft.world.InteractionResult.SUCCESS;
         }
