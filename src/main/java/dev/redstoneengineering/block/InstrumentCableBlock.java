@@ -5,8 +5,10 @@ import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.EngineeringPort;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
+import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
+import dev.redstoneengineering.instrument.InstrumentNetwork;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -21,6 +23,7 @@ import net.minecraft.world.phys.BlockHitResult;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /** Six-direction measurement bus carrying probe channels rather than redstone power. */
 public class InstrumentCableBlock extends ConnectedCableBlock implements EngineeringPortProvider {
@@ -45,15 +48,33 @@ public class InstrumentCableBlock extends ConnectedCableBlock implements Enginee
         return List.copyOf(ports);
     }
 
+    /**
+     * A cable port reports logical channel health, not electrical power. The value is the
+     * number of uniquely owned probe channels visible on the bounded bus; duplicate channel
+     * ownership or a truncated scan is surfaced as TOPOLOGY_ERROR instead of silently choosing
+     * a probe. Shielding remains a separate integrity dimension.
+     */
+    @Override
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
+        Optional<EngineeringPort> port = engineeringPort(state, side);
+        if (port.isEmpty()) return Optional.empty();
+        InstrumentNetwork.ProbeSnapshot bus = InstrumentNetwork.scan(level, pos);
+        return Optional.of(new EngineeringPortSnapshot(
+                port.get(), bus.validChannelsInMask(0xF), 0.0, 4.0, bus.qualityForMask(0xF)));
+    }
+
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
                 String type = this instanceof ShieldedInstrumentCableBlock ? "Shielded Instrument Bus" : "Instrument Bus Cable";
+                InstrumentNetwork.ProbeSnapshot bus = InstrumentNetwork.scan(level, pos);
                 player.displayClientMessage(Component.literal(
                         type + " | " + PortDiagnostics.connectedCable(level, pos, state, PortDiagnostics.Domain.INSTRUMENT)
                                 + " | engineeringPorts=" + engineeringPorts(state).size()
                                 + " | ports=" + connectionCount(state)
+                                + " | channels=" + bus.validChannels() + "/" + bus.activeChannels()
+                                + " valid/active | integrity=" + bus.integrity()
                 ), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
