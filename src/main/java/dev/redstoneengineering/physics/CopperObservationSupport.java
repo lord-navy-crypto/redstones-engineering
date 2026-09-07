@@ -31,6 +31,7 @@ public final class CopperObservationSupport {
         }
     }
 
+    /** Observe an upstream source/output that is physically facing {@code observerPos}. */
     public static Observation observe(Level level, BlockPos pos, BlockPos observerPos) {
         if (!level.hasChunkAt(pos)) return new Observation(0, PortQuality.NO_SIGNAL);
         BlockState state = level.getBlockState(pos);
@@ -86,5 +87,19 @@ public final class CopperObservationSupport {
         }
 
         return new Observation(0, PortQuality.NO_SIGNAL);
+    }
+
+    /**
+     * Measure a Copper node as a diagnostic target. Unlike {@link #observe}, a terminal
+     * load may be measured without being reclassified as an upstream source.
+     */
+    public static Observation measure(Level level, BlockPos pos, BlockPos observerPos) {
+        if (!level.hasChunkAt(pos)) return new Observation(0, PortQuality.NO_SIGNAL);
+        BlockState state = level.getBlockState(pos);
+        if (state.getBlock() instanceof CopperResistiveLoadBlock) {
+            CopperNetworkSupport.TerminalInput input = CopperResistiveLoadBlock.input(level, pos);
+            return new Observation(input.voltage(), input.quality());
+        }
+        return observe(level, pos, observerPos);
     }
 }
