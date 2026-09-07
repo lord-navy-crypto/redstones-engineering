@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Static contracts for the sixth 10-block design + bug audit (registered blocks 51-60)."""
 from pathlib import Path
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -195,8 +196,9 @@ if "event.register(RseFifthTenDesignBugGameTests.class);" not in registration:
 workflow = read(".github/workflows/build.yml")
 if "rse_sixth_ten_system_design_bug_verify.py" not in workflow:
     raise SystemExit("workflow does not gate the sixth-ten verifier")
-if "test_count < 249" not in workflow:
-    raise SystemExit("workflow GameTest floor was not raised to 249")
+match = re.search(r"test_count < (\d+)", workflow)
+if match is None or int(match.group(1)) < 249:
+    raise SystemExit("workflow GameTest floor must remain at least 249")
 
 print("RSE sixth-ten system design + bug verification: PASS")
 print("  induction transient/read-only/coverage evidence: PASS")
