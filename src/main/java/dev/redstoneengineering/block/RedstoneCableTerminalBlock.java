@@ -104,6 +104,15 @@ public class RedstoneCableTerminalBlock extends Block implements EngineeringPort
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
         super.onPlace(state, level, pos, oldState, moved);
+        BlockState effective = state;
+        if (state.is(oldState.getBlock())
+                && state.getValue(OUTPUT_MODE) != oldState.getValue(OUTPUT_MODE)
+                && state.getValue(POWER) != 0) {
+            // Any mode-change path (GUI, right-click, command, future API) must
+            // invalidate the old role's cached signal before recomputation.
+            effective = state.setValue(POWER, 0);
+            level.setBlock(pos, effective, Block.UPDATE_CLIENTS);
+        }
         if (level instanceof ServerLevel server) RedstoneCableNetwork.recompute(server, pos);
     }
 
@@ -111,9 +120,6 @@ public class RedstoneCableTerminalBlock extends Block implements EngineeringPort
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
-                // Clear the cached value before the role changes. This prevents a
-                // one-update stale pulse when INPUT→OUTPUT turns the block into a
-                // Vanilla signal source before the cable network has recomputed.
                 BlockState next = state
                         .setValue(OUTPUT_MODE, !state.getValue(OUTPUT_MODE))
                         .setValue(POWER, 0);
