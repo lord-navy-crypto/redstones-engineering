@@ -8,6 +8,7 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.CopperObservationSupport;
+import dev.redstoneengineering.physics.DomainNetwork;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.Level;
@@ -20,7 +21,9 @@ import java.util.Optional;
  * Shared engineering-port contract for axial copper-domain processors.
  *
  * <p>The physical topology is BACK input to FRONT output. Processor physics owns
- * runtime writes; this class only exposes read-only input/output evidence.</p>
+ * runtime writes; this class only exposes read-only input/output evidence. Copper
+ * voltage values continue to come from the authoritative DomainNetwork sampler,
+ * while CopperObservationSupport carries the independent quality classification.</p>
  */
 public abstract class DirectionalCopperProcessorBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
     protected DirectionalCopperProcessorBlock(Properties properties) {
@@ -50,11 +53,12 @@ public abstract class DirectionalCopperProcessorBlock extends DirectionalDomainB
         if (descriptor.isEmpty()) return Optional.empty();
 
         if (side == inputSide(state)) {
-            CopperObservationSupport.Observation input = CopperObservationSupport.observe(
-                    level, inputPos(pos, state), pos);
+            BlockPos inputPos = inputPos(pos, state);
+            CopperObservationSupport.Observation input = CopperObservationSupport.observe(level, inputPos, pos);
+            int voltage = DomainNetwork.sampleCopperVoltage(level, inputPos, pos);
             return Optional.of(new EngineeringPortSnapshot(
                     descriptor.get(),
-                    Math.max(0, Math.min(15, input.voltage())),
+                    Math.max(0, Math.min(15, voltage)),
                     0.0,
                     15.0,
                     input.quality()
