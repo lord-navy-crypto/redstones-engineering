@@ -25,13 +25,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/** Six-direction measurement bus carrying probe channels rather than redstone power. */
+/**
+ * Measurement-bus cable carrying probe channels rather than redstone power.
+ * Direct cable runs and branches are planar; UP/DOWN transitions require the
+ * unified Signal Junction Point.
+ */
 public class InstrumentCableBlock extends ConnectedCableBlock implements EngineeringPortProvider {
     public InstrumentCableBlock(Properties properties) { super(properties); }
 
     @Override public MapCodec<? extends InstrumentCableBlock> codec() { return RedstoneEngineering.INSTRUMENT_CABLE_CODEC.value(); }
     @Override protected boolean canConnectTo(BlockGetter level, BlockPos self, Direction direction, BlockState neighbor) {
-        return TransmissionTopology.instrumentPort(neighbor, direction);
+        return TransmissionTopology.instrumentCablePort(level, self, direction, neighbor);
     }
     @Override protected int maxConnections() { return 6; }
 
@@ -39,11 +43,12 @@ public class InstrumentCableBlock extends ConnectedCableBlock implements Enginee
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         List<EngineeringPort> ports = new ArrayList<>();
         for (Direction side : Direction.values()) {
-            if (connected(state, side)) {
-                ports.add(new EngineeringPort(
-                        "INSTRUMENT_BUS", side, EngineeringDomain.INSTRUMENT_BUS,
-                        PortKind.BUS, PortDirection.BIDIRECTIONAL, false, "channel"));
-            }
+            // Planar faces advertise connectable measurement-bus capability even when open.
+            // A vertical port exists only when the visible arm was created by a junction.
+            if (side.getAxis() == Direction.Axis.Y && !connected(state, side)) continue;
+            ports.add(new EngineeringPort(
+                    "INSTRUMENT BUS", side, EngineeringDomain.INSTRUMENT_BUS,
+                    PortKind.BUS, PortDirection.BIDIRECTIONAL, false, "channel"));
         }
         return List.copyOf(ports);
     }
@@ -73,6 +78,7 @@ public class InstrumentCableBlock extends ConnectedCableBlock implements Enginee
                         type + " | " + PortDiagnostics.connectedCable(level, pos, state, PortDiagnostics.Domain.INSTRUMENT)
                                 + " | engineeringPorts=" + engineeringPorts(state).size()
                                 + " | ports=" + connectionCount(state)
+                                + " | routing=PLANAR; vertical via Signal Junction Point"
                                 + " | channels=" + bus.validChannels() + "/" + bus.activeChannels()
                                 + " valid/active | integrity=" + bus.integrity()
                 ), true);

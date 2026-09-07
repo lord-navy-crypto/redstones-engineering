@@ -1,0 +1,4 @@
+{
+  "parent": "redstoneengineering:block/redstone_signal_cable_center",
+  "textures": {"line": "redstoneengineering:block/serial_data_line", "particle": "redstoneengineering:block/serial_data_line"}
+}

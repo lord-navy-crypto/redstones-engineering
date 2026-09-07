@@ -31,10 +31,13 @@ else:
 
 require("src/main/java/dev/redstoneengineering/block/PortDiagnostics.java",
         "DOMAIN_MISMATCH", "connectedCable", "surfaceTrace", "directionalFlow", "INSULATED_REDSTONE", "INSTRUMENT_BUS")
+# Alpha 1.0.7 originally guarded physical-edge instrument traversal through the
+# state-only instrumentPort helper. The newer cable-aware helper preserves that
+# endpoint contract and adds planar-line + same-medium vertical-junction routing.
 require("src/main/java/dev/redstoneengineering/block/InstrumentCableBlock.java",
-        "extends ConnectedCableBlock", "TransmissionTopology.instrumentPort", "return 6", "PortDiagnostics.connectedCable")
+        "extends ConnectedCableBlock", "TransmissionTopology.instrumentCablePort", "return 6", "PortDiagnostics.connectedCable")
 require("src/main/java/dev/redstoneengineering/block/TransmissionTopology.java",
-        "instrumentPort", "SignalProbeBlock.FACING", "OscilloscopeBlock", "LogicAnalyzerBlock")
+        "instrumentPort", "instrumentCablePort", "SignalProbeBlock.FACING", "OscilloscopeBlock", "LogicAnalyzerBlock")
 require("src/main/java/dev/redstoneengineering/instrument/InstrumentNetwork.java",
         "ConnectedCableBlock.connected", "TransmissionTopology.instrumentPort", "direction.getOpposite()")
 require("src/main/java/dev/redstoneengineering/block/RedstoneSignalCableBlock.java",
@@ -71,6 +74,7 @@ if failed:
 print("RSE Alpha 1.0.7 legacy wiring verification: PASS")
 print(" forward-compatible version gate: PASS")
 print(" instrument bus physical-edge traversal: PASS")
+print(" planar cable + same-medium junction refinement: PASS")
 print(" port/mismatch diagnostics: PASS")
 print(" redstone 0..15 boundary retained: PASS")
 print(" legacy trace/cable diagnostics: PASS")

@@ -1,0 +1,4 @@
+{
+  "parent": "redstoneengineering:block/redstone_signal_cable_down",
+  "textures": {"line": "redstoneengineering:block/eight_bit_data_bus", "particle": "redstoneengineering:block/eight_bit_data_bus"}
+}

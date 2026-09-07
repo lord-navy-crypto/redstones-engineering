@@ -1,6 +1,9 @@
 package dev.redstoneengineering.physics;
 
+import dev.redstoneengineering.block.ConnectedCableBlock;
 import dev.redstoneengineering.block.EightBitDataBusBlock;
+import dev.redstoneengineering.block.RedstoneCableJunctionBlock;
+import dev.redstoneengineering.block.TransmissionTopology;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -17,6 +20,9 @@ import java.util.Set;
  * <p>The bus trades high payload density and immediate shared access for local loading and driver
  * coordination. Different driven values are a hard BUS-CONFLICT. Same-value multiple drivers remain
  * logically usable, but consume RSE bus margin instead of behaving as if redundant driving were free.</p>
+ *
+ * <p>Graph topology follows the visible cable arms. Direct bus-to-bus edges are horizontal;
+ * vertical edges require a Signal Junction Point resolved specifically to DATA_BUS_8.</p>
  */
 public final class DataBusNetwork {
     private DataBusNetwork() {}
@@ -39,10 +45,29 @@ public final class DataBusNetwork {
             boolean valid
     ) {}
 
+    private static boolean isNode(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        return state.getBlock() instanceof EightBitDataBusBlock
+                || state.getBlock() instanceof RedstoneCableJunctionBlock
+                && state.getValue(RedstoneCableJunctionBlock.MEDIUM) == TransmissionTopology.SignalMedium.DATA_BUS_8;
+    }
+
+    private static boolean edgeAllowed(Level level, BlockPos from, BlockPos to, Direction direction) {
+        BlockState a = level.getBlockState(from);
+        BlockState b = level.getBlockState(to);
+        if (!isNode(level, from) || !isNode(level, to)) return false;
+        boolean aJunction = a.getBlock() instanceof RedstoneCableJunctionBlock;
+        boolean bJunction = b.getBlock() instanceof RedstoneCableJunctionBlock;
+        if (aJunction && bJunction) return false;
+        if (!aJunction && !bJunction && direction.getAxis() == Direction.Axis.Y) return false;
+        return ConnectedCableBlock.connected(a, direction)
+                && ConnectedCableBlock.connected(b, direction.getOpposite());
+    }
+
     public static Set<BlockPos> collect(Level level, BlockPos start) {
         Set<BlockPos> seen = new HashSet<>();
         ArrayDeque<BlockPos> queue = new ArrayDeque<>();
-        if (!(level.getBlockState(start).getBlock() instanceof EightBitDataBusBlock)) return seen;
+        if (!isNode(level, start)) return seen;
         queue.add(start);
         while (!queue.isEmpty() && seen.size() < MAX_NODES) {
             BlockPos pos = queue.removeFirst();
@@ -50,7 +75,7 @@ public final class DataBusNetwork {
             for (Direction direction : Direction.values()) {
                 BlockPos next = pos.relative(direction);
                 if (!level.hasChunkAt(next)) continue;
-                if (level.getBlockState(next).getBlock() instanceof EightBitDataBusBlock && !seen.contains(next)) {
+                if (isNode(level, next) && edgeAllowed(level, pos, next, direction) && !seen.contains(next)) {
                     queue.addLast(next);
                 }
             }
@@ -85,8 +110,9 @@ public final class DataBusNetwork {
 
         // Runtime payload alone is never proof of a live driver. The adjacent block
         // must implement DataBusDriver and its declared physical output must actually
-        // terminate on this bus node. This rejects stale data and wrong-face adjacency.
+        // terminate on a real bus cable node. Junctions only route; they never become drivers.
         for (BlockPos pos : nodes) {
+            if (!(level.getBlockState(pos).getBlock() instanceof EightBitDataBusBlock)) continue;
             for (Direction direction : Direction.values()) {
                 BlockPos neighbor = pos.relative(direction);
                 BlockState neighborState = level.getBlockState(neighbor);
@@ -108,8 +134,6 @@ public final class DataBusNetwork {
         int value = values.isEmpty() ? 0 : values.iterator().next();
         int resolvedValue = valid ? value : 0;
 
-        // RSE-native bus margin: a larger local bus and same-value multi-driving both cost margin.
-        // Different-value contention remains a hard invalid state rather than randomized corruption.
         int loadingPenalty = Math.max(0, nodes.size() - 1) / 2;
         int contentionPenalty = sameValueMultiDriver ? Math.min(30, (driverCount - 1) * 12) : 0;
         int resolvedQuality = valid
@@ -143,9 +167,6 @@ public final class DataBusNetwork {
             diagnostics[11] = valid ? 1 : 0;
             diagnostics[12] = resolvedQuality;
 
-            // A network recompute is often triggered by a neighbor notification. Emitting
-            // another notification when the effective bus state is identical creates an
-            // artificial feedback loop. Notify endpoints only for an observable state change.
             if (effectiveChanged) {
                 level.updateNeighborsAt(pos, level.getBlockState(pos).getBlock());
             }
@@ -153,7 +174,7 @@ public final class DataBusNetwork {
     }
 
     public static int sample(Level level, BlockPos pos) {
-        if (level.getBlockState(pos).getBlock() instanceof EightBitDataBusBlock) {
+        if (isNode(level, pos)) {
             return InformationRuntime.value(level, "bus8", pos) & 0xFF;
         }
         return InformationRuntime.value(level, "bus8_out", pos) & 0xFF;
@@ -185,7 +206,7 @@ public final class DataBusNetwork {
     }
 
     public static boolean valid(Level level, BlockPos pos) {
-        if (level.getBlockState(pos).getBlock() instanceof EightBitDataBusBlock) {
+        if (isNode(level, pos)) {
             return InformationRuntime.valid(level, "bus8", pos);
         }
         return InformationRuntime.valid(level, "bus8_out", pos);

@@ -1,9 +1,11 @@
 {
   "multipart": [
-    {
-      "apply": {
-        "model": "redstoneengineering:block/differential_data_pair"
-      }
-    }
+    {"apply":{"model":"redstoneengineering:block/differential_data_pair_center"}},
+    {"when":{"north":"true"},"apply":{"model":"redstoneengineering:block/differential_data_pair_north"}},
+    {"when":{"east":"true"},"apply":{"model":"redstoneengineering:block/differential_data_pair_east"}},
+    {"when":{"south":"true"},"apply":{"model":"redstoneengineering:block/differential_data_pair_south"}},
+    {"when":{"west":"true"},"apply":{"model":"redstoneengineering:block/differential_data_pair_west"}},
+    {"when":{"up":"true"},"apply":{"model":"redstoneengineering:block/differential_data_pair_up"}},
+    {"when":{"down":"true"},"apply":{"model":"redstoneengineering:block/differential_data_pair_down"}}
   ]
 }

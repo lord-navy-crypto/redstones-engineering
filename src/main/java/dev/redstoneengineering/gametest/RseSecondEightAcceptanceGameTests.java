@@ -188,7 +188,7 @@ public final class RseSecondEightAcceptanceGameTests {
 
     @PrefixGameTestTemplate(false)
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 50)
-    public static void junctionProvidesExplicitThreeWayBranch(GameTestHelper helper) {
+    public static void junctionRoutesSameMediumThreeWayNode(GameTestHelper helper) {
         BlockPos sourcePos = new BlockPos(0, 1, 2);
         BlockPos inputTerminal = new BlockPos(1, 1, 2);
         BlockPos cable = new BlockPos(2, 1, 2);
@@ -210,14 +210,14 @@ public final class RseSecondEightAcceptanceGameTests {
                     || !ConnectedCableBlock.connected(junctionState, Direction.WEST)
                     || !ConnectedCableBlock.connected(junctionState, Direction.NORTH)
                     || !ConnectedCableBlock.connected(junctionState, Direction.SOUTH)) {
-                helper.fail("Redstone Cable Junction must be the explicit valid three-way branch primitive", junction);
+                helper.fail("Signal Junction Point must accept a valid same-medium three-way routing node", junction);
                 return;
             }
             int junctionPower = RedstoneCableJunctionBlock.power(helper.getLevel(), helper.absolutePos(junction));
             int north = helper.getBlockState(northOutput).getValue(RedstoneCableTerminalBlock.POWER);
             int south = helper.getBlockState(southOutput).getValue(RedstoneCableTerminalBlock.POWER);
             if (junctionPower != 13 || north != 13 || south != 13) {
-                helper.fail("Junction branch did not distribute one authoritative cable signal to both output terminals", junction);
+                helper.fail("Same-medium junction routing did not distribute one authoritative cable signal to both outputs", junction);
                 return;
             }
             helper.succeed();
@@ -226,21 +226,29 @@ public final class RseSecondEightAcceptanceGameTests {
 
     @PrefixGameTestTemplate(false)
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 40)
-    public static void plainSignalCableRejectsImplicitThreeWayBranch(GameTestHelper helper) {
+    public static void plainSignalCableAllowsPlanarThreeWayButRejectsVerticalStack(GameTestHelper helper) {
         BlockPos center = new BlockPos(2, 1, 2);
+        BlockPos above = center.above();
         helper.setBlock(center, RedstoneEngineering.REDSTONE_SIGNAL_CABLE.get().defaultBlockState());
         helper.setBlock(center.north(), RedstoneEngineering.REDSTONE_SIGNAL_CABLE.get().defaultBlockState());
         helper.setBlock(center.south(), RedstoneEngineering.REDSTONE_SIGNAL_CABLE.get().defaultBlockState());
         helper.setBlock(center.east(), RedstoneEngineering.REDSTONE_SIGNAL_CABLE.get().defaultBlockState());
+        helper.setBlock(above, RedstoneEngineering.REDSTONE_SIGNAL_CABLE.get().defaultBlockState());
 
         helper.runAfterDelay(3, () -> {
             BlockState state = helper.getBlockState(center);
+            BlockState aboveState = helper.getBlockState(above);
             if (ConnectedCableBlock.connectionCount(state) != 3) {
-                helper.fail("Precondition failed: plain cable did not observe its three neighboring cable arms", center);
+                helper.fail("Planar cable must expose exactly its three N/E/S horizontal arms", center);
                 return;
             }
-            if (RedstoneEngineering.REDSTONE_SIGNAL_CABLE.get().topologyValid(state)) {
-                helper.fail("Plain insulated cable silently accepted a branch that must use a Cable Junction", center);
+            if (!RedstoneEngineering.REDSTONE_SIGNAL_CABLE.get().topologyValid(state)) {
+                helper.fail("Plain insulated cable must accept horizontal three-way routing without a junction", center);
+                return;
+            }
+            if (ConnectedCableBlock.connected(state, Direction.UP)
+                    || ConnectedCableBlock.connected(aboveState, Direction.DOWN)) {
+                helper.fail("Directly stacked signal cables formed a forbidden vertical edge without a Signal Junction Point", center);
                 return;
             }
             helper.succeed();

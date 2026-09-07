@@ -4,6 +4,7 @@ import dev.redstoneengineering.block.ConnectedCableBlock;
 import dev.redstoneengineering.block.RedstoneCableJunctionBlock;
 import dev.redstoneengineering.block.RedstoneCableTerminalBlock;
 import dev.redstoneengineering.block.RedstoneSignalCableBlock;
+import dev.redstoneengineering.block.TransmissionTopology;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -21,7 +22,8 @@ import java.util.Set;
 
 /**
  * Bounded 0..15 propagation for the insulated-redstone domain.
- * Plain cable is two-ended; explicit Junctions provide branching.
+ * Direct cable branches are planar; only a Signal Junction Point resolved to
+ * REDSTONE may carry the network vertically.
  */
 public final class RedstoneCableNetwork {
     private static final int MAX_NODES = NetworkKernel.MAX_NODES;
@@ -33,11 +35,6 @@ public final class RedstoneCableNetwork {
         if (!nodes.isEmpty()) recomputeComponent(level, nodes);
     }
 
-    /**
-     * Recompute every component adjacent to a removed or deliberately isolated node.
-     * A single recompute(start-at-the-gap) is not sufficient because the gap may have
-     * split one former network into several independent components.
-     */
     public static void recomputeAround(ServerLevel level, BlockPos changedPos) {
         Set<BlockPos> processed = new HashSet<>();
         for (Direction direction : Direction.values()) {
@@ -150,10 +147,12 @@ public final class RedstoneCableNetwork {
     }
 
     private static boolean allowed(ServerLevel level, BlockPos pos) {
-        var block = level.getBlockState(pos).getBlock();
+        BlockState state = level.getBlockState(pos);
+        var block = state.getBlock();
         return block instanceof RedstoneSignalCableBlock
+                || block instanceof RedstoneCableTerminalBlock
                 || block instanceof RedstoneCableJunctionBlock
-                || block instanceof RedstoneCableTerminalBlock;
+                && state.getValue(RedstoneCableJunctionBlock.MEDIUM) == TransmissionTopology.SignalMedium.REDSTONE;
     }
 
     private record Node(BlockPos pos, int power) {}

@@ -20,17 +20,21 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/** Two-wire conceptual differential medium. Payload remains digital; quality models common-mode rejection. */
-public class DifferentialDataPairBlock extends Block implements EngineeringPortProvider {
+/**
+ * Two-wire conceptual differential-data cable. Direct continuity/branching is planar;
+ * vertical transitions require the unified Signal Junction Point.
+ */
+public class DifferentialDataPairBlock extends ConnectedCableBlock implements EngineeringPortProvider {
     public DifferentialDataPairBlock(Properties properties) {
         super(properties);
     }
@@ -41,18 +45,33 @@ public class DifferentialDataPairBlock extends Block implements EngineeringPortP
     }
 
     @Override
+    protected boolean canConnectTo(BlockGetter level, BlockPos self, Direction direction, BlockState neighbor) {
+        return TransmissionTopology.differentialPort(level, self, direction, neighbor);
+    }
+
+    @Override
+    protected int maxConnections() {
+        return 6;
+    }
+
+    @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
-        return Arrays.stream(Direction.values())
-                .map(side -> new EngineeringPort(
-                        "DIFFERENTIAL DATA",
-                        side,
-                        EngineeringDomain.DIFFERENTIAL_DATA,
-                        PortKind.BUS,
-                        PortDirection.BIDIRECTIONAL,
-                        false,
-                        "bit"
-                ))
-                .toList();
+        List<EngineeringPort> ports = new ArrayList<>();
+        for (Direction side : Direction.values()) {
+            // Horizontal faces remain potential ports when open. Vertical capability is
+            // intentionally materialized only by a same-medium Signal Junction arm.
+            if (side.getAxis() == Direction.Axis.Y && !connected(state, side)) continue;
+            ports.add(new EngineeringPort(
+                    "DIFFERENTIAL DATA",
+                    side,
+                    EngineeringDomain.DIFFERENTIAL_DATA,
+                    PortKind.BUS,
+                    PortDirection.BIDIRECTIONAL,
+                    false,
+                    "bit"
+            ));
+        }
+        return List.copyOf(ports);
     }
 
     @Override
@@ -77,6 +96,19 @@ public class DifferentialDataPairBlock extends Block implements EngineeringPortP
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
+        if (!level.isClientSide) level.scheduleTick(pos, this, 1);
+    }
+
+    @Override
+    protected void neighborChanged(
+            BlockState state,
+            Level level,
+            BlockPos pos,
+            Block neighborBlock,
+            BlockPos neighborPos,
+            boolean movedByPiston
+    ) {
+        super.neighborChanged(state, level, pos, neighborBlock, neighborPos, movedByPiston);
         if (!level.isClientSide) level.scheduleTick(pos, this, 1);
     }
 
@@ -116,6 +148,8 @@ public class DifferentialDataPairBlock extends Block implements EngineeringPortP
                         "Differential pair: bit=" + (InformationRuntime.value(level, "diff", pos) & 1)
                                 + " quality=" + InformationRuntime.quality(level, "diff", pos) + "%"
                                 + " valid=" + InformationRuntime.valid(level, "diff", pos)
+                                + " | ports=" + connectionCount(state)
+                                + " | routing=PLANAR; vertical via Signal Junction Point"
                 ), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
