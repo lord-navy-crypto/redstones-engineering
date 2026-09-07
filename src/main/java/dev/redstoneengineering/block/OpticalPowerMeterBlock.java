@@ -9,6 +9,7 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.OpticalObservationSupport;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
@@ -45,9 +46,13 @@ public class OpticalPowerMeterBlock extends DomainBlock implements EngineeringPo
     @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { builder.add(FACING); }
 
     public static Measurement measurement(Level level, BlockPos pos, BlockState state) {
-        OpticalObservationSupport.Observation observation = OpticalObservationSupport.observe(
-                level, pos.relative(state.getValue(FACING)));
-        return new Measurement(observation.intensity(), observation.channel(), observation.quality());
+        BlockPos target = pos.relative(state.getValue(FACING));
+        // Preserve the established guided-optical ownership boundary: DomainNetwork
+        // remains the authoritative value sampler; the observation helper adds the
+        // independent carrier/topology quality classification without rewriting it.
+        DomainNetwork.OpticalSample sample = DomainNetwork.sampleOptical(level, target);
+        OpticalObservationSupport.Observation observation = OpticalObservationSupport.observe(level, target);
+        return new Measurement(sample.intensity(), sample.channel(), observation.quality());
     }
 
     @Override
