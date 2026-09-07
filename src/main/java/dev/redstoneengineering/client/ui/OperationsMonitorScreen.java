@@ -8,7 +8,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
-/** Dedicated observer-only IOE console with bounded plant event and incident evidence. */
+/** Dedicated observer-only IOE console with bounded plant event, incident, and reliability evidence. */
 public final class OperationsMonitorScreen extends EngineeringScreen<OperationsMonitorMenu> {
     private static final int EVENT_CELL_WIDTH = 33;
     private static final int EVENT_CELL_GAP = 2;
@@ -52,20 +52,22 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
-        statusLine(graphics, "System state", menu.state().name(), stateColor(menu.state()), 82);
-        statusLine(graphics, "Dominant constraint", menu.dominantConstraint().name(), constraintColor(menu.dominantConstraint()), 100);
-        statusLine(graphics, "Latest incident", menu.incidentPresent() ? "EVIDENCE AVAILABLE" : "NONE", menu.incidentPresent() ? WARN : GOOD, 118);
-        labelValue(graphics, "First-out source", menu.incidentPresent() ? firstOutLocation() : "—", 136);
-        labelValue(graphics, "Incident span", menu.incidentPresent() ? formatTicks(menu.incidentDurationTicks()) : "—", 154);
-        labelValue(graphics, "Follow-up evidence", menu.incidentPresent() ? evidenceText() : "0", 172);
+        statusLine(graphics, "System state", menu.state().name(), stateColor(menu.state()), 80);
+        statusLine(graphics, "Latest incident", menu.incidentPresent() ? "EVIDENCE AVAILABLE" : "NONE", menu.incidentPresent() ? WARN : GOOD, 96);
+        labelValue(graphics, "First-out source", menu.incidentPresent() ? firstOutLocation() : "—", 112);
+        labelValue(graphics, "Incident span", menu.incidentPresent() ? formatTicks(menu.incidentDurationTicks()) : "—", 128);
+        labelValue(graphics, "Electrical trips / recovered", menu.electricalTripCount() + " / " + menu.electricalRecoveryCount(), 144);
+        labelValue(graphics, "Electrical downtime", formatTicks(menu.electricalDowntimeTicks()), 160);
+        labelValue(graphics, "Protection status", protectionText(), 176);
+        graphics.drawString(font, "Evidence metrics only • MTBF/MTTR withheld until durable exposure + maintenance semantics exist.",
+                16, 193, MUTED, false);
     }
 
     private void renderHistory(GuiGraphics graphics) {
         statusBadge(graphics, "PLANT EVENT TIMELINE • 8-EVENT TAIL", INFO, 16, 79);
         graphics.drawString(font,
                 "recent/retained " + menu.recentEvents() + "/" + menu.retainedEvents()
-                        + " • abnormal " + menu.recentAbnormalEvents(),
-                16, 99, TEXT, false);
+                        + " • abnormal " + menu.recentAbnormalEvents(), 16, 99, TEXT, false);
         statusLine(graphics, "FIRST OUT", firstOutText(), firstOutColor(), 116);
 
         int x0 = 18;
@@ -79,19 +81,25 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
                 graphics.drawString(font, "—", x + 13, y0 + 14, MUTED, false);
                 continue;
             }
-
             int color = eventColor(slot);
             graphics.fill(x, y0, x + EVENT_CELL_WIDTH, y0 + 3, color);
             if (menu.eventAbnormal(slot)) graphics.fill(x, y0, x + 3, y0 + height, color);
             if (slot == menu.firstOutSlot()) drawFirstOutFrame(graphics, x, y0, EVENT_CELL_WIDTH, height);
-
             graphics.drawString(font, shortKind(kind), x + 5, y0 + 8, color, false);
             graphics.drawString(font, ageText(menu.eventAgeTicks(slot)), x + 5, y0 + 22, MUTED, false);
             if (slot == menu.firstOutSlot()) graphics.drawString(font, "F", x + EVENT_CELL_WIDTH - 8, y0 + 8, WARN, false);
         }
-
         graphics.drawString(font, "oldest", 18, 180, MUTED, false);
         graphics.drawString(font, "newest →", 244, 180, MUTED, false);
+    }
+
+    private String protectionText() {
+        if (menu.electricalActiveTripCount() > 0) {
+            return "ACTIVE " + menu.electricalActiveTripCount() + " • repeat " + menu.electricalRepeatTripCount()
+                    + " • last trip " + optionalAge(menu.electricalLastTripAgeTicks());
+        }
+        return "READY • repeat " + menu.electricalRepeatTripCount()
+                + " • last recovery " + optionalDuration(menu.electricalLastRecoveryDurationTicks());
     }
 
     private void drawFirstOutFrame(GuiGraphics graphics, int x, int y, int width, int height) {
@@ -105,90 +113,58 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
         if (menu.firstOutKindOrdinal() < 0) return "none";
         String visible = menu.firstOutSlot() >= 0 ? "visible" : "before tail";
         return shortKind(menu.firstOutKindOrdinal()) + " S" + menu.firstOutSeverity()
-                + " • " + ageText(menu.firstOutAgeTicks())
-                + " • " + firstOutLocation() + " • " + visible;
+                + " • " + ageText(menu.firstOutAgeTicks()) + " • " + firstOutLocation() + " • " + visible;
     }
 
     private String firstOutLocation() {
         return "Δ(" + signed(menu.firstOutDx()) + "," + signed(menu.firstOutDy()) + "," + signed(menu.firstOutDz()) + ")";
     }
 
-    private String evidenceText() {
-        return menu.downstreamObservations() + " downstream • "
-                + menu.abnormalDownstreamObservations() + " abnormal • trace "
-                + menu.evidenceTraceEntries() + "/12";
-    }
-
-    private int firstOutColor() {
-        return menu.firstOutKindOrdinal() < 0 ? GOOD : severityColor(menu.firstOutSeverity());
-    }
-
+    private int firstOutColor() { return menu.firstOutKindOrdinal() < 0 ? GOOD : severityColor(menu.firstOutSeverity()); }
     private int eventColor(int slot) {
         int severity = menu.eventSeverity(slot);
         if (menu.eventAbnormal(slot) && severity < 2) return WARN;
         return severityColor(severity);
     }
-
     private static int severityColor(int severity) {
-        return switch (severity) {
-            case 3 -> BAD;
-            case 2 -> WARN;
-            case 1 -> INFO;
-            default -> GOOD;
-        };
+        return switch (severity) { case 3 -> BAD; case 2 -> WARN; case 1 -> INFO; default -> GOOD; };
     }
-
     private static int stateColor(OperationsMonitorBlock.SystemState state) {
         return switch (state) {
             case NOMINAL -> GOOD;
-            case CONGESTED, NOISY, UNSTABLE -> WARN;
-            case OVERLOADED, SAFETY_LIMITED -> WARN;
+            case CONGESTED, NOISY, UNSTABLE, OVERLOADED, SAFETY_LIMITED -> WARN;
             case FAILED -> BAD;
         };
     }
-
     private static int constraintColor(IndustrialOperationsAssessment.Constraint constraint) {
         return switch (constraint) {
             case NONE -> GOOD;
-            case STARVED, BLOCKED, HIGH_WIP, UNSTABLE -> WARN;
-            case SAFETY_LIMITED -> WARN;
+            case STARVED, BLOCKED, HIGH_WIP, UNSTABLE, SAFETY_LIMITED -> WARN;
             case FAILED -> BAD;
         };
     }
-
     private static String shortKind(int ordinal) {
         SystemEventKind[] kinds = SystemEventKind.values();
         if (ordinal < 0 || ordinal >= kinds.length) return "?";
         return switch (kinds[ordinal]) {
-            case ALARM_RAISED -> "ALM+";
-            case ALARM_ACKNOWLEDGED -> "ACK";
-            case ALARM_CLEARED -> "ALM-";
-            case INTERLOCK_TRIPPED -> "TRIP";
-            case INTERLOCK_READY -> "RDY";
-            case ELECTRICAL_TRIP -> "E-TRP";
-            case ELECTRICAL_READY -> "E-RDY";
-            case SEQUENCE_STARTED -> "SEQ+";
-            case SEQUENCE_STEP -> "STEP";
-            case SEQUENCE_COMPLETED -> "DONE";
-            case SEQUENCE_RESET -> "RST";
-            case TOPOLOGY_ISSUE -> "TOPO";
-            case TOPOLOGY_CLEAR -> "CLR";
+            case ALARM_RAISED -> "ALM+"; case ALARM_ACKNOWLEDGED -> "ACK"; case ALARM_CLEARED -> "ALM-";
+            case INTERLOCK_TRIPPED -> "TRIP"; case INTERLOCK_READY -> "RDY";
+            case ELECTRICAL_TRIP -> "E-TRP"; case ELECTRICAL_READY -> "E-RDY";
+            case SEQUENCE_STARTED -> "SEQ+"; case SEQUENCE_STEP -> "STEP"; case SEQUENCE_COMPLETED -> "DONE";
+            case SEQUENCE_RESET -> "RST"; case TOPOLOGY_ISSUE -> "TOPO"; case TOPOLOGY_CLEAR -> "CLR";
             case OPERATIONS_STATE_CHANGED -> "OPS";
         };
     }
-
     private static String ageText(int ticks) {
         if (ticks < 0) return "—";
         if (ticks < 20) return ticks + "t";
         int seconds = ticks / 20;
         return seconds < 100 ? seconds + "s" : ">99s";
     }
-
+    private static String optionalAge(int ticks) { return ticks < 0 ? "—" : ageText(ticks) + " ago"; }
+    private static String optionalDuration(int ticks) { return ticks < 0 ? "—" : formatTicks(ticks); }
     private static String formatTicks(int ticks) {
         return String.format(java.util.Locale.ROOT, "%.1fs", Math.max(0, ticks) / 20.0);
     }
-
-    private static String signed(int value) {
-        return value > 0 ? "+" + value : Integer.toString(value);
-    }
+    private static String signed(int value) { return value > 0 ? "+" + value : Integer.toString(value); }
 }
