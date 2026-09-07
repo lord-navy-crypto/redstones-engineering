@@ -18,6 +18,10 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
+/**
+ * Dynamic slew filter. It intentionally owns response speed, not static gain/offset or
+ * reference calibration, so a temporary input/output lag is expected engineering behavior.
+ */
 public class PrecisionFilterBlock extends DirectionalSignalBlock {
     public static final IntegerProperty RATE = IntegerProperty.create("rate", 1, 4);
 
@@ -46,6 +50,20 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock {
         if (nextValue != input) level.scheduleTick(pos, this, 1);
     }
 
+    public static int input(Level level, BlockPos pos, BlockState state) {
+        if (!(state.getBlock() instanceof PrecisionFilterBlock filter)) return 0;
+        return filter.readBackInput(level, pos, state);
+    }
+
+    /** Absolute distance still to travel before the bounded slew response reaches the input. */
+    public static int lag(Level level, BlockPos pos, BlockState state) {
+        return Math.abs(input(level, pos, state) - state.getValue(OUTPUT));
+    }
+
+    public static boolean settled(Level level, BlockPos pos, BlockState state) {
+        return lag(level, pos, state) == 0;
+    }
+
     @Override
     protected InteractionResult useWithoutItem(
             BlockState state,
@@ -61,10 +79,16 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock {
                 BlockState next = state.setValue(RATE, rate);
                 level.setBlock(pos, next, Block.UPDATE_CLIENTS);
                 level.scheduleTick(pos, this, 1);
+                int in = input(level, pos, next);
+                int out = next.getValue(OUTPUT);
+                int lag = Math.abs(in - out);
                 player.displayClientMessage(
                         Component.literal(
                                 "Precision Filter | slew=" + rate
-                                        + " signal-step/tick | current=" + next.getValue(OUTPUT)
+                                        + " signal-step/tick | IN=" + in
+                                        + " OUT=" + out
+                                        + " | lag=" + lag
+                                        + " | " + (lag == 0 ? "SETTLED" : "SETTLING")
                         ),
                         true
                 );
