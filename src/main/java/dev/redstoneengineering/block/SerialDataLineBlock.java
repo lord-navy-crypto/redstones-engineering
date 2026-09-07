@@ -8,7 +8,6 @@ import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
-import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.SerialNetwork;
 import dev.redstoneengineering.ui.FieldDeviceUi;
@@ -83,13 +82,13 @@ public class SerialDataLineBlock extends ConnectedCableBlock implements Engineer
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        boolean valid = InformationRuntime.valid(level, "serial", pos);
+        InformationRuntime.Snapshot snapshot = InformationRuntime.snapshot(level, "serial", pos);
         return Optional.of(new EngineeringPortSnapshot(
                 port.get(),
-                InformationRuntime.value(level, "serial", pos) & 0xFF,
+                snapshot.value() & 0xFF,
                 0.0,
                 255.0,
-                valid ? PortQuality.VALID : PortQuality.NO_SIGNAL
+                SerialNetwork.quality(level, pos)
         ));
     }
 
@@ -144,11 +143,12 @@ public class SerialDataLineBlock extends ConnectedCableBlock implements Engineer
     ) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
+                InformationRuntime.Snapshot snapshot = InformationRuntime.snapshot(level, "serial", pos);
                 player.displayClientMessage(Component.literal(
-                        "Serial: byte=" + (InformationRuntime.value(level, "serial", pos) & 0xFF)
-                                + " period=" + Math.max(1, InformationRuntime.aux(level, "serial", pos)) + "t"
-                                + " quality=" + InformationRuntime.quality(level, "serial", pos) + "%"
-                                + " valid=" + InformationRuntime.valid(level, "serial", pos)
+                        "Serial: byte=" + (snapshot.value() & 0xFF)
+                                + " period=" + Math.max(1, snapshot.selector()) + "t"
+                                + " quality=" + snapshot.qualityPercent() + "%"
+                                + " state=" + SerialNetwork.quality(level, pos)
                                 + " | ports=" + connectionCount(state)
                                 + " | routing=PLANAR; vertical via Signal Junction Point"
                                 + " | " + SerialNetwork.diagnostics(level, pos)
