@@ -8,9 +8,7 @@ import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
-import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.CopperNetworkSupport;
-import dev.redstoneengineering.physics.DomainNetwork;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -31,6 +29,7 @@ import java.util.Optional;
 /** Terminal copper load: it may be fed from any face but never propagates through itself. */
 public class CopperResistiveLoadBlock extends DomainBlock implements EngineeringPortProvider {
     public static final IntegerProperty RESISTANCE = IntegerProperty.create("resistance", 1, 15);
+    /** Coarse cached body voltage retained for compatibility; snapshots resolve the actual input face. */
     public static final IntegerProperty VOLTAGE = IntegerProperty.create("voltage", 0, 15);
 
     public CopperResistiveLoadBlock(Properties properties) {
@@ -52,44 +51,39 @@ public class CopperResistiveLoadBlock extends DomainBlock implements Engineering
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         return Arrays.stream(Direction.values())
                 .map(side -> new EngineeringPort(
-                        "COPPER LOAD",
-                        side,
-                        EngineeringDomain.COPPER,
-                        PortKind.ELECTRICAL,
-                        PortDirection.INPUT,
-                        false,
-                        "V-eq"
-                ))
+                        "COPPER LOAD", side, EngineeringDomain.COPPER,
+                        PortKind.ELECTRICAL, PortDirection.INPUT, false, "V-eq"))
                 .toList();
     }
 
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(
-            Level level,
-            BlockPos pos,
-            BlockState state,
-            Direction side
+            Level level, BlockPos pos, BlockState state, Direction side
     ) {
         Optional<EngineeringPort> descriptor = engineeringPort(state, side);
-        return descriptor.map(port -> new EngineeringPortSnapshot(
-                port,
-                state.getValue(VOLTAGE),
-                0.0,
-                15.0,
-                PortQuality.VALID
-        ));
+        if (descriptor.isEmpty()) return Optional.empty();
+        CopperNetworkSupport.TerminalInput input = CopperNetworkSupport.terminalInputOnSide(level, pos, side);
+        return Optional.of(new EngineeringPortSnapshot(
+                descriptor.get(), input.voltage(), 0.0, 15.0, input.quality()));
+    }
+
+    /** Aggregate terminal evidence for UI/diagnostics; INPUT-only neighbors never count as feeds. */
+    public static CopperNetworkSupport.TerminalInput input(Level level, BlockPos pos) {
+        return CopperNetworkSupport.terminalInput(level, pos);
     }
 
     @Override
     protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighbor, BlockPos neighborPos, boolean movedByPiston) {
         super.neighborChanged(state, level, pos, neighbor, neighborPos, movedByPiston);
-        if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeCopper(serverLevel, pos);
+        if (level instanceof ServerLevel serverLevel) CopperNetworkSupport.recomputeAround(serverLevel, pos);
     }
 
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
-        if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeCopper(serverLevel, pos);
+        // A load is always a sink. Recompute from adjacent components so it can never
+        // become the traversal seed that accidentally joins two otherwise isolated nets.
+        if (level instanceof ServerLevel serverLevel) CopperNetworkSupport.recomputeAround(serverLevel, pos);
     }
 
     @Override
@@ -108,21 +102,16 @@ public class CopperResistiveLoadBlock extends DomainBlock implements Engineering
                 int resistance = state.getValue(RESISTANCE);
                 next = state.setValue(RESISTANCE, resistance >= 15 ? 1 : resistance + 1);
                 level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-                if (level instanceof ServerLevel serverLevel) {
-                    CopperNetworkSupport.recomputeAround(serverLevel, pos);
-                }
+                if (level instanceof ServerLevel serverLevel) CopperNetworkSupport.recomputeAround(serverLevel, pos);
             }
-            double voltage = next.getValue(VOLTAGE);
+            CopperNetworkSupport.TerminalInput input = CopperNetworkSupport.terminalInput(level, pos);
+            double voltage = input.voltage();
             double resistance = next.getValue(RESISTANCE);
             double current = voltage / resistance;
             double power = voltage * current;
             player.displayClientMessage(Component.literal(String.format(
-                    "Electrical load | terminal sink | V=%.1f | R=%.1f | I=V/R=%.2f | P=VI=%.2f",
-                    voltage,
-                    resistance,
-                    current,
-                    power
-            )), true);
+                    "Electrical load | terminal sink | feeds=%d | %s | V=%.1f | R=%.1f | I=V/R=%.2f | P=VI=%.2f",
+                    input.connectedFeeds(), input.quality(), voltage, resistance, current, power)), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
