@@ -10,6 +10,7 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -36,6 +37,7 @@ import java.util.Optional;
 public class RedstoneToLapisScalerBlock extends Block implements EngineeringPortProvider {
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     private static final String KEY = "redstone_to_lapis_scaler";
+    private static final int RUNTIME_SIZE = 2; // last trustworthy value, encoded quality
 
     public RedstoneToLapisScalerBlock(Properties properties) {
         super(properties);
@@ -65,9 +67,21 @@ public class RedstoneToLapisScalerBlock extends Block implements EngineeringPort
         return outputSide(state).getOpposite();
     }
 
-    private int inputSignal(Level level, BlockPos pos, BlockState state) {
-        Direction input = inputSide(state);
-        return Math.max(0, Math.min(15, level.getSignal(pos.relative(input), input)));
+    private static int encodeQuality(PortQuality quality) {
+        return quality.ordinal() + 1;
+    }
+
+    public static int outputValue(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length != RUNTIME_SIZE ? 0 : runtime[0];
+    }
+
+    public static PortQuality outputQuality(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        if (runtime == null || runtime.length != RUNTIME_SIZE || runtime[1] <= 0) return PortQuality.STALE;
+        int ordinal = runtime[1] - 1;
+        PortQuality[] values = PortQuality.values();
+        return ordinal >= 0 && ordinal < values.length ? values[ordinal] : PortQuality.STALE;
     }
 
     @Override
@@ -104,15 +118,15 @@ public class RedstoneToLapisScalerBlock extends Block implements EngineeringPort
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         if (side == inputSide(state)) {
-            return Optional.of(EngineeringPortSnapshot.redstone(port.get(), inputSignal(level, pos, state), PortQuality.VALID));
+            var observation = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+            return Optional.of(EngineeringPortSnapshot.redstone(port.get(), observation.value(), observation.quality()));
         }
-        int value = RuntimeIntStore.get(level, KEY, pos, 1)[0];
         return Optional.of(new EngineeringPortSnapshot(
                 port.get(),
-                value / 100.0,
+                outputValue(level, pos) / 100.0,
                 0.0,
                 1.0,
-                PortQuality.VALID
+                outputQuality(level, pos)
         ));
     }
 
@@ -134,10 +148,21 @@ public class RedstoneToLapisScalerBlock extends Block implements EngineeringPort
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        int redstone = inputSignal(level, pos, state);
-        int value = Math.round(redstone * 100.0f / 15.0f);
-        RuntimeIntStore.get(level, KEY, pos, 1)[0] = value;
-        DomainNetwork.driveLapis(level, pos.relative(outputSide(state)), pos, value, true);
+        var observation = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+        int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
+        PortQuality quality = observation.quality();
+        runtime[1] = encodeQuality(quality);
+
+        if (quality == PortQuality.STALE) {
+            // Unknown coverage must not keep a previously valid source claim alive.
+            DomainNetwork.driveLapis(level, pos.relative(outputSide(state)), pos, runtime[0], false);
+        } else if (observation.valid()) {
+            runtime[0] = Math.round(observation.value() * 100.0f / 15.0f);
+            DomainNetwork.driveLapis(level, pos.relative(outputSide(state)), pos, runtime[0], true);
+        } else {
+            runtime[0] = 0;
+            DomainNetwork.driveLapis(level, pos.relative(outputSide(state)), pos, 0, false);
+        }
         level.scheduleTick(pos, this, 2);
     }
 
@@ -155,10 +180,12 @@ public class RedstoneToLapisScalerBlock extends Block implements EngineeringPort
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
-            int value = RuntimeIntStore.get(level, KEY, pos, 1)[0];
+            var input = RedstoneObservationSupport.observe(level, pos, inputSide(state));
             player.displayClientMessage(Component.literal(
-                    "Redstone → Lapis Scaler | input=" + inputSignal(level, pos, state) + "/15"
-                            + " | output=" + String.format("%.2f", value / 100.0)
+                    "Redstone → Lapis Scaler | input=" + input.value() + "/15"
+                            + " quality=" + input.quality()
+                            + " | output=" + String.format("%.2f", outputValue(level, pos) / 100.0)
+                            + " quality=" + outputQuality(level, pos)
             ), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);

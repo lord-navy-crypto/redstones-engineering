@@ -69,23 +69,24 @@ public class ByteToRedstoneDecoderBlock extends PassiveDirectionalSignalBlock {
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
+        BlockPos input = inputPos(pos, state);
+        PortQuality inputQuality = DataBusNetwork.quality(level, input);
+        int byteValue = DataBusNetwork.sample(level, input);
         if (side == inputSide(state)) {
-            BlockPos input = inputPos(pos, state);
-            boolean valid = DataBusNetwork.valid(level, input);
             return Optional.of(new EngineeringPortSnapshot(
                     port.get(),
-                    DataBusNetwork.sample(level, input),
+                    byteValue,
                     0.0,
                     255.0,
-                    valid ? PortQuality.VALID : PortQuality.NO_SIGNAL
+                    inputQuality
             ));
         }
-        BlockPos input = inputPos(pos, state);
-        boolean saturated = DataBusNetwork.valid(level, input) && DataBusNetwork.sample(level, input) > 15;
+        PortQuality outputQuality = inputQuality;
+        if (inputQuality == PortQuality.VALID && byteValue > 15) outputQuality = PortQuality.SATURATED;
         return Optional.of(EngineeringPortSnapshot.redstone(
                 port.get(),
                 state.getValue(OUTPUT),
-                saturated ? PortQuality.SATURATED : PortQuality.VALID
+                outputQuality
         ));
     }
 
@@ -102,7 +103,7 @@ public class ByteToRedstoneDecoderBlock extends PassiveDirectionalSignalBlock {
     @Override
     protected int computeOutput(Level level, BlockPos pos, BlockState state) {
         BlockPos input = inputPos(pos, state);
-        if (!DataBusNetwork.valid(level, input)) return 0;
+        if (DataBusNetwork.quality(level, input) != PortQuality.VALID) return 0;
         return Math.min(15, DataBusNetwork.sample(level, input));
     }
 
@@ -116,8 +117,11 @@ public class ByteToRedstoneDecoderBlock extends PassiveDirectionalSignalBlock {
     ) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
+                BlockPos input = inputPos(pos, state);
                 player.displayClientMessage(Component.literal(
-                        "Byte decoder output = " + outputValue(level, pos, state) + "/15"
+                        "Byte decoder input=" + DataBusNetwork.sample(level, input)
+                                + " quality=" + DataBusNetwork.quality(level, input)
+                                + " | output=" + outputValue(level, pos, state) + "/15"
                 ), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);

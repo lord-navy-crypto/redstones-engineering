@@ -6,6 +6,7 @@ import dev.redstoneengineering.block.DifferentialDriverBlock;
 import dev.redstoneengineering.block.DirectionalDomainBlock;
 import dev.redstoneengineering.block.RedstoneCableJunctionBlock;
 import dev.redstoneengineering.block.TransmissionTopology;
+import dev.redstoneengineering.core.port.PortQuality;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -28,6 +29,9 @@ import java.util.Set;
  */
 public final class DifferentialNetwork {
     private DifferentialNetwork() {}
+
+    private static final String DIAG_KEY = "diff_diag";
+    private static final int DIAG_SIZE = 1; // active driver count for this resolved component
 
     private static boolean isNode(Level level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
@@ -80,6 +84,7 @@ public final class DifferentialNetwork {
             boolean oldValid = InformationRuntime.valid(level, "diff", pos);
             boolean effectiveChanged = oldBit != resolvedBit || oldQuality != quality || !oldValid;
             InformationRuntime.write(level, "diff", pos, resolvedBit, 0, true, quality);
+            RuntimeIntStore.get(level, DIAG_KEY, pos, DIAG_SIZE)[0] = 1;
             if (effectiveChanged) {
                 level.updateNeighborsAt(pos, level.getBlockState(pos).getBlock());
             }
@@ -105,7 +110,7 @@ public final class DifferentialNetwork {
                 if (!InformationRuntime.valid(level, "diff_out", candidatePos)) continue;
                 if (driverPos != null && !driverPos.equals(candidatePos)) {
                     NetworkKernel.recordDriverState(level, "diff", 2);
-                    invalidate(level, nodes);
+                    invalidate(level, nodes, 2);
                     return;
                 }
                 driverPos = candidatePos.immutable();
@@ -115,7 +120,7 @@ public final class DifferentialNetwork {
 
         if (driverPos == null) {
             NetworkKernel.recordDriverState(level, "diff", 0);
-            invalidate(level, nodes);
+            invalidate(level, nodes, 0);
             return;
         }
 
@@ -124,19 +129,41 @@ public final class DifferentialNetwork {
     }
 
     public static void invalidate(ServerLevel level, Set<BlockPos> nodes) {
+        invalidate(level, nodes, 0);
+    }
+
+    private static void invalidate(ServerLevel level, Set<BlockPos> nodes, int driverCount) {
         for (BlockPos pos : nodes) {
             int oldBit = InformationRuntime.value(level, "diff", pos) & 1;
             int oldQuality = InformationRuntime.quality(level, "diff", pos);
             boolean oldValid = InformationRuntime.valid(level, "diff", pos);
             boolean effectiveChanged = oldBit != 0 || oldQuality != 0 || oldValid;
             InformationRuntime.write(level, "diff", pos, 0, 0, false, 0);
+            RuntimeIntStore.get(level, DIAG_KEY, pos, DIAG_SIZE)[0] = Math.max(0, driverCount);
             if (effectiveChanged) {
                 level.updateNeighborsAt(pos, level.getBlockState(pos).getBlock());
             }
         }
     }
 
+    public static int driverCount(Level level, BlockPos pos) {
+        int[] diagnostics = RuntimeIntStore.peek(level, DIAG_KEY, pos);
+        return diagnostics == null || diagnostics.length != DIAG_SIZE ? 0 : Math.max(0, diagnostics[0]);
+    }
+
+    /** Observer-neutral differential quality with explicit no-driver versus conflict evidence. */
+    public static PortQuality quality(Level level, BlockPos pos) {
+        if (!level.hasChunkAt(pos)) return PortQuality.STALE;
+        InformationRuntime.Snapshot snapshot = InformationRuntime.snapshot(level, "diff", pos);
+        if (snapshot.ageTicks() < 0) return PortQuality.STALE;
+        int drivers = driverCount(level, pos);
+        if (drivers == 0) return PortQuality.NO_SIGNAL;
+        if (drivers > 1) return PortQuality.TOPOLOGY_ERROR;
+        return snapshot.valid() ? PortQuality.VALID : PortQuality.FAULT;
+    }
+
     public static void clearNode(Level level, BlockPos pos) {
         InformationRuntime.clear(level, "diff", pos);
+        RuntimeIntStore.remove(level, DIAG_KEY, pos);
     }
 }

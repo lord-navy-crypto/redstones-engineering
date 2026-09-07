@@ -61,8 +61,17 @@ require("inputObservation" in snapshot_body and "PortQuality.VALID" not in snaps
         "Analog Indicator snapshot still fabricates unconditional VALID")
 
 # 63 — every advertised information-medium junction port must have a diagnostic snapshot.
-for token in ('case INSTRUMENT', 'case DATA_BUS_8', 'case SERIAL', 'case DIFFERENTIAL', "InformationRuntime.snapshot", "PortQuality.STALE"):
+for token in ('case INSTRUMENT', 'case DATA_BUS_8', 'case SERIAL', 'case DIFFERENTIAL', "InformationRuntime.snapshot"):
     require(token in junction, f"Signal Junction non-redstone snapshot contract missing {token}")
+require(
+    "PortQuality.STALE" in junction
+    or all(token in junction for token in (
+        "DataBusNetwork.quality(level, pos)",
+        "SerialNetwork.quality(level, pos)",
+        "DifferentialNetwork.quality(level, pos)",
+    )),
+    "Signal Junction non-redstone snapshot contract lost explicit stale/quality projection",
+)
 
 # 64 — opening an optical service splice is a hard isolation boundary, including retained runtime.
 service_body = method_body(optical_junction, "public void setServiceOpen")

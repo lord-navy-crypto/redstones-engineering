@@ -8,7 +8,6 @@ import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
-import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DataBusNetwork;
 import dev.redstoneengineering.physics.NetworkKernel;
 import dev.redstoneengineering.ui.FieldDeviceUi;
@@ -84,17 +83,12 @@ public class EightBitDataBusBlock extends ConnectedCableBlock implements Enginee
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        DataBusNetwork.Diagnostics diagnostics = DataBusNetwork.getDiagnostics(level, pos);
-        PortQuality quality;
-        if (diagnostics.driverCount() == 0) quality = PortQuality.NO_SIGNAL;
-        else if (!diagnostics.valid()) quality = PortQuality.FAULT;
-        else quality = PortQuality.VALID;
         return Optional.of(new EngineeringPortSnapshot(
                 port.get(),
                 DataBusNetwork.sample(level, pos),
                 0.0,
                 255.0,
-                quality
+                DataBusNetwork.quality(level, pos)
         ));
     }
 
@@ -149,9 +143,11 @@ public class EightBitDataBusBlock extends ConnectedCableBlock implements Enginee
     ) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
+                int sample = DataBusNetwork.sample(level, pos);
                 player.displayClientMessage(Component.literal(
-                        "8-bit Bus = " + DataBusNetwork.sample(level, pos)
-                                + " (0x" + String.format("%02X", DataBusNetwork.sample(level, pos)) + ")"
+                        "8-bit Bus = " + sample
+                                + " (0x" + String.format("%02X", sample) + ")"
+                                + " | quality=" + DataBusNetwork.quality(level, pos)
                                 + " | ports=" + connectionCount(state)
                                 + " | routing=PLANAR; vertical via Signal Junction Point"
                                 + " | " + DataBusNetwork.diagnostics(level, pos)
