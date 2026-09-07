@@ -14,6 +14,7 @@ import dev.redstoneengineering.metrology.MetrologyStore;
 import dev.redstoneengineering.metrology.MetrologySupport;
 import dev.redstoneengineering.physics.CircuitPhysics;
 import dev.redstoneengineering.physics.CopperObservationSupport;
+import dev.redstoneengineering.physics.DomainNetwork;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -56,11 +57,16 @@ public class CopperCircuitMeterBlock extends DomainBlock implements EngineeringP
 
     public static CopperObservationSupport.Observation targetObservation(Level level, BlockPos pos, BlockState state) {
         BlockPos target = pos.relative(state.getValue(FACING));
-        return CopperObservationSupport.measure(level, target, pos);
+        CopperObservationSupport.Observation qualityEvidence = CopperObservationSupport.measure(level, target, pos);
+        // Preserve Alpha 1.0.13 simulation ownership: numerical voltage comes from DomainNetwork;
+        // the observation layer adds source/topology quality without mutating physics state.
+        int voltage = DomainNetwork.sampleCopperVoltage(level, target, pos);
+        return new CopperObservationSupport.Observation(voltage, qualityEvidence.quality());
     }
 
     public static int sampledVoltage(Level level, BlockPos pos, BlockState state) {
-        return targetObservation(level, pos, state).voltage();
+        BlockPos target = pos.relative(state.getValue(FACING));
+        return DomainNetwork.sampleCopperVoltage(level, target, pos);
     }
 
     @Override
