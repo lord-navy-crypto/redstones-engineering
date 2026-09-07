@@ -33,7 +33,7 @@ require(
     "src/main/java/dev/redstoneengineering/physics/PrecisionObservationSupport.java",
     "LapisSignalLineBlock.quality",
     "QuartzTimingLineBlock.quality",
-    "PortQuality.TOPOLOGY_ERROR" if False else "PortQuality.STALE",
+    "PortQuality.STALE",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/LapisToRedstoneQuantizerBlock.java",
@@ -90,13 +90,15 @@ require(
     "src/main/java/dev/redstoneengineering/block/SerializerBlock.java",
     "DataBusNetwork.quality",
     'InformationRuntime.snapshot(level, "serial", pos)',
-    "serverLevel.scheduleTick(pos, this, 2)",
+    "WATCHDOG_TICKS = 16",
+    "scheduleTick(pos, this, WATCHDOG_TICKS)",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/DeserializerBlock.java",
     "SerialNetwork.quality",
     'InformationRuntime.snapshot(level, "bus8_out", pos)',
-    "serverLevel.scheduleTick(pos, this, 2)",
+    "WATCHDOG_TICKS = 16",
+    "scheduleTick(pos, this, WATCHDOG_TICKS)",
 )
 require(
     "src/main/java/dev/redstoneengineering/physics/DifferentialNetwork.java",
@@ -163,6 +165,7 @@ print("  Quartz observed-edge chronology and held-sample quality: PASS")
 print("  8-bit bus observer neutrality + conflict evidence: PASS")
 print("  encoder/decoder source-quality conversion boundary: PASS")
 print("  serial no-driver/conflict quality + converter propagation: PASS")
+print("  serializer/deserializer event-driven updates + bounded watchdog: PASS")
 print("  differential no-driver/conflict quality: PASS")
 print("  unified junction preserves communication quality: PASS")
 print("  ten executable eighth-ten GameTests registered: PASS")
