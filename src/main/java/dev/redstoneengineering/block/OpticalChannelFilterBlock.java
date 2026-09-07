@@ -2,18 +2,24 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
-import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
-import dev.redstoneengineering.core.port.*;
+import dev.redstoneengineering.core.port.EngineeringPort;
+import dev.redstoneengineering.core.port.EngineeringPortProvider;
+import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
+import dev.redstoneengineering.core.port.PortDirection;
+import dev.redstoneengineering.core.port.PortKind;
+import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.DomainNetwork;
+import dev.redstoneengineering.physics.OpticalObservationSupport;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -21,15 +27,101 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
+import java.util.List;
+import java.util.Optional;
+
+/** Exact optical channel selector with one-level insertion loss and explicit rejection evidence. */
 public class OpticalChannelFilterBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
-    public static final IntegerProperty TARGET=IntegerProperty.create("target",0,15);
-    public OpticalChannelFilterBlock(Properties p){super(p);registerDefaultState(defaultBlockState().setValue(TARGET,0));}
-    @Override public MapCodec<OpticalChannelFilterBlock> codec(){return RedstoneEngineering.OPTICAL_CHANNEL_FILTER_CODEC.value();}
-    @Override public java.util.List<EngineeringPort> engineeringPorts(BlockState s){return java.util.List.of(new EngineeringPort("OPTICAL INPUT",inputSide(s),EngineeringDomain.OPTICAL,PortKind.CONVERTER,PortDirection.INPUT,false,"intensity"),new EngineeringPort("OPTICAL FILTERED OUTPUT",outputSide(s),EngineeringDomain.OPTICAL,PortKind.CONVERTER,PortDirection.OUTPUT,false,"intensity"));}
-    @Override public java.util.Optional<EngineeringPortSnapshot> engineeringSnapshot(Level l,BlockPos p,BlockState s,Direction side){return engineeringPort(s,side).map(port->{BlockPos sample=side==inputSide(s)?inputPos(p,s):outputPos(p,s);var x=DomainNetwork.sampleOptical(l,sample);return new EngineeringPortSnapshot(port,x.intensity(),0.0,15.0,x.valid()?PortQuality.VALID:PortQuality.NO_SIGNAL);});}
-    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block,BlockState>b){super.createBlockStateDefinition(b);b.add(TARGET);}
-    @Override protected void onPlace(BlockState s,Level l,BlockPos p,BlockState old,boolean moved){super.onPlace(s,l,p,old,moved);if(!l.isClientSide)l.scheduleTick(p,this,2);}
-    @Override protected void tick(BlockState s,ServerLevel l,BlockPos p,RandomSource r){var in=DomainNetwork.sampleOptical(l,inputPos(p,s));boolean pass=in.valid()&&in.channel()==s.getValue(TARGET);DomainNetwork.driveOptical(l,outputPos(p,s),p,Math.max(0,in.intensity()-1),in.channel(),pass&&in.intensity()>1);l.scheduleTick(p,this,2);}
-    @Override protected void onRemove(BlockState s,Level l,BlockPos p,BlockState ns,boolean moved){if(!s.is(ns.getBlock())&&l instanceof ServerLevel sl){DomainNetwork.driveOptical(sl,outputPos(p,s),p,0,0,false);DomainNetwork.recomputeOpticalAround(sl,p);}super.onRemove(s,l,p,ns,moved);}
-    @Override protected InteractionResult useWithoutItem(BlockState s,Level l,BlockPos p,Player pl,BlockHitResult hit){if(!l.isClientSide&&pl instanceof ServerPlayer sp&&!pl.isShiftKeyDown())FieldDeviceUi.open(sp,p);else if(!l.isClientSide){int c=(s.getValue(TARGET)+1)%16;BlockState n=s.setValue(TARGET,c);l.setBlock(p,n,Block.UPDATE_CLIENTS);pl.displayClientMessage(Component.literal("Optical channel filter | pass channel="+c+" | insertion loss=1"),true);}return InteractionResult.sidedSuccess(l.isClientSide);}
+    public static final IntegerProperty TARGET = IntegerProperty.create("target", 0, 15);
+
+    public record FilterEvidence(int inputIntensity, int inputChannel, PortQuality inputQuality,
+                                 int targetChannel, boolean matched, int expectedOutputIntensity) {}
+
+    public OpticalChannelFilterBlock(Properties properties) {
+        super(properties);
+        registerDefaultState(defaultBlockState().setValue(TARGET, 0));
+    }
+
+    @Override public MapCodec<OpticalChannelFilterBlock> codec() { return RedstoneEngineering.OPTICAL_CHANNEL_FILTER_CODEC.value(); }
+    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { super.createBlockStateDefinition(builder); builder.add(TARGET); }
+
+    public static FilterEvidence evidence(Level level, BlockPos pos, BlockState state) {
+        Direction output = state.getValue(FACING);
+        OpticalObservationSupport.Observation input = OpticalObservationSupport.observe(level, pos.relative(output.getOpposite()));
+        int target = state.getValue(TARGET);
+        boolean matched = input.quality() == PortQuality.VALID && input.intensity() > 0 && input.channel() == target;
+        int outputIntensity = matched ? Math.max(0, input.intensity() - 1) : 0;
+        return new FilterEvidence(input.intensity(), input.channel(), input.quality(), target, matched, outputIntensity);
+    }
+
+    @Override public List<EngineeringPort> engineeringPorts(BlockState state) {
+        return List.of(
+                new EngineeringPort("OPTICAL INPUT", inputSide(state), EngineeringDomain.OPTICAL, PortKind.CONVERTER, PortDirection.INPUT, false, "intensity"),
+                new EngineeringPort("OPTICAL FILTERED OUTPUT", outputSide(state), EngineeringDomain.OPTICAL, PortKind.CONVERTER, PortDirection.OUTPUT, false, "intensity"));
+    }
+
+    @Override public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
+        Optional<EngineeringPort> port = engineeringPort(state, side);
+        if (port.isEmpty()) return Optional.empty();
+        BlockPos samplePos = side == inputSide(state) ? inputPos(pos, state) : outputPos(pos, state);
+        OpticalObservationSupport.Observation observation = OpticalObservationSupport.observe(level, samplePos);
+        return Optional.of(new EngineeringPortSnapshot(port.get(), observation.intensity(), 0.0, 15.0, observation.quality()));
+    }
+
+    @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
+        super.onPlace(state, level, pos, oldState, moved);
+        if (!(level instanceof ServerLevel serverLevel)) return;
+        if (state.is(oldState.getBlock()) && oldState.hasProperty(TARGET)
+                && state.getValue(TARGET).intValue() != oldState.getValue(TARGET).intValue()) {
+            configurationChanged(serverLevel, pos, state);
+        } else {
+            serverLevel.scheduleTick(pos, this, 2);
+        }
+    }
+
+    @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+        FilterEvidence evidence = evidence(level, pos, state);
+        boolean driven = evidence.matched() && evidence.expectedOutputIntensity() > 0;
+        DomainNetwork.driveOptical(level, outputPos(pos, state), pos,
+                evidence.expectedOutputIntensity(), evidence.inputChannel(), driven);
+        level.scheduleTick(pos, this, 2);
+    }
+
+    public static void invalidateOutput(ServerLevel level, BlockPos pos, BlockState state) {
+        Direction output = state.getValue(FACING);
+        DomainNetwork.driveOptical(level, pos.relative(output), pos, 0, 0, false);
+    }
+
+    /** Shared state-transition hook so every configuration path clears the previous carrier first. */
+    public static void configurationChanged(ServerLevel level, BlockPos pos, BlockState state) {
+        invalidateOutput(level, pos, state);
+        if (state.getBlock() instanceof OpticalChannelFilterBlock filter) level.scheduleTick(pos, filter, 1);
+    }
+
+    @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState next, boolean moved) {
+        if (!state.is(next.getBlock()) && level instanceof ServerLevel serverLevel) {
+            invalidateOutput(serverLevel, pos, state);
+            DomainNetwork.recomputeOpticalAround(serverLevel, pos);
+        }
+        super.onRemove(state, level, pos, next, moved);
+    }
+
+    @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer && !player.isShiftKeyDown()) {
+            FieldDeviceUi.open(serverPlayer, pos);
+        } else if (!level.isClientSide) {
+            int channel = (state.getValue(TARGET) + 1) % 16;
+            BlockState next = state.setValue(TARGET, channel);
+            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+            FilterEvidence evidence = evidence(level, pos, next);
+            player.displayClientMessage(Component.literal(
+                    "Optical channel filter | pass channel=" + channel + " | insertion loss=1"
+                            + " | input quality=" + evidence.inputQuality()
+                            + (evidence.inputIntensity() > 0
+                            ? " | input ch=" + evidence.inputChannel() + " I=" + evidence.inputIntensity()
+                                    + " | " + (evidence.matched() ? "PASS" : "REJECT")
+                            : " | no carrier")), true);
+        }
+        return InteractionResult.sidedSuccess(level.isClientSide);
+    }
 }

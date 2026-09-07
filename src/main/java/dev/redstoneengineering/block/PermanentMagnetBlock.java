@@ -30,10 +30,12 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-/** Static Minecraft-scale magnetic field source; field coupling is free-space, never wired. */
+/** Static Minecraft-scale scalar magnetic field source; field coupling is free-space, never wired. */
 public class PermanentMagnetBlock extends DomainBlock implements EngineeringPortProvider {
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final IntegerProperty STRENGTH = IntegerProperty.create("strength", 1, 15);
+
+    public record SourceEvidence(int strength, Direction northMarker, boolean scalarFieldModel, boolean wired) {}
 
     public PermanentMagnetBlock(Properties properties) {
         super(properties);
@@ -44,7 +46,11 @@ public class PermanentMagnetBlock extends DomainBlock implements EngineeringPort
     @Override public BlockState getStateForPlacement(BlockPlaceContext context) { return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite()); }
     @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { builder.add(FACING, STRENGTH); }
 
-    /** Six diagnostic field faces describe free-space emission without creating network edges. */
+    public static SourceEvidence evidence(BlockState state) {
+        return new SourceEvidence(state.getValue(STRENGTH), state.getValue(FACING), true, false);
+    }
+
+    /** Six diagnostic faces describe free-space observation of one scalar source, not six wired outputs. */
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         return Arrays.stream(Direction.values())
@@ -57,8 +63,9 @@ public class PermanentMagnetBlock extends DomainBlock implements EngineeringPort
 
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
+        SourceEvidence evidence = evidence(state);
         return engineeringPort(state, side).map(port -> new EngineeringPortSnapshot(
-                port, state.getValue(STRENGTH), 0.0, 15.0, PortQuality.VALID));
+                port, evidence.strength(), 0.0, 15.0, PortQuality.VALID));
     }
 
     @Override
@@ -71,9 +78,11 @@ public class PermanentMagnetBlock extends DomainBlock implements EngineeringPort
             int strength = state.getValue(STRENGTH);
             BlockState next = state.setValue(STRENGTH, strength >= 15 ? 1 : strength + 1);
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+            SourceEvidence evidence = evidence(next);
             player.displayClientMessage(Component.literal(
-                    "Permanent magnet | N-marker=" + next.getValue(FACING)
-                            + " | scalar B-source=" + next.getValue(STRENGTH) + "/15"), true);
+                    "Permanent magnet | scalar free-space B-source=" + evidence.strength() + "/15"
+                            + " | N-marker=" + evidence.northMarker() + " (orientation marker only in scalar solver)"
+                            + " | wired=" + evidence.wired()), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }

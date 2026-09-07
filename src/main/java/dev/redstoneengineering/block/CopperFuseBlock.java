@@ -2,10 +2,12 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.diagnostics.events.SystemEventKind;
 import dev.redstoneengineering.diagnostics.events.SystemEventTimeline;
 import dev.redstoneengineering.physics.CircuitPhysics;
 import dev.redstoneengineering.physics.CopperNetworkSupport;
+import dev.redstoneengineering.physics.CopperObservationSupport;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import net.minecraft.core.BlockPos;
@@ -27,10 +29,15 @@ import java.util.Locale;
 /** Axial copper safety element: BACK input, FRONT protected output. */
 public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
     private static final String KEY = "copper_fuse";
-    private static final int RUNTIME_SIZE = 3;
+    private static final String QUALITY_KEY = "copper_fuse_quality";
     private static final int OUTPUT_VOLTAGE = 0;
     private static final int LAST_EVALUATED_TRIP = 1;
     private static final int PROTECTION_STATE_INITIALIZED = 2;
+    // Preserve the established electrical-protection runtime layout. New diagnostic
+    // quality evidence is intentionally stored under a separate runtime key.
+    private static final int RUNTIME_SIZE = 3;
+    private static final int INPUT_QUALITY = 0;
+    private static final int QUALITY_RUNTIME_SIZE = 1;
     public static final IntegerProperty RATING = IntegerProperty.create("rating", 1, 15);
     public static final BooleanProperty TRIPPED = BooleanProperty.create("tripped");
 
@@ -39,10 +46,7 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
         registerDefaultState(defaultBlockState().setValue(RATING, 4).setValue(TRIPPED, false));
     }
 
-    @Override
-    public MapCodec<CopperFuseBlock> codec() {
-        return RedstoneEngineering.COPPER_FUSE_CODEC.value();
-    }
+    @Override public MapCodec<CopperFuseBlock> codec() { return RedstoneEngineering.COPPER_FUSE_CODEC.value(); }
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
@@ -65,7 +69,9 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
             runtime[PROTECTION_STATE_INITIALIZED] = 1;
         }
 
-        int inputVoltage = DomainNetwork.sampleCopperVoltage(level, inputPos(pos, state));
+        CopperObservationSupport.Observation input = CopperObservationSupport.observe(level, inputPos(pos, state), pos);
+        RuntimeIntStore.get(level, QUALITY_KEY, pos, QUALITY_RUNTIME_SIZE)[INPUT_QUALITY] = input.quality().ordinal();
+        int inputVoltage = input.quality() == PortQuality.VALID ? input.voltage() : 0;
         double loadResistance = CircuitPhysics.equivalentLoadResistance(level, outputPos(pos, state), 128);
         double current = CircuitPhysics.current(inputVoltage, loadResistance);
         boolean tripped = state.getValue(TRIPPED) || current > state.getValue(RATING);
@@ -106,22 +112,44 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
         level.scheduleTick(pos, this, 2);
     }
 
-    public static int outputVoltage(Level level, BlockPos pos) {
-        return RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE)[OUTPUT_VOLTAGE];
+    private static int[] snapshot(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime != null && runtime.length == RUNTIME_SIZE ? runtime : null;
     }
 
-    @Override
-    protected int observedOutputVoltage(Level level, BlockPos pos, BlockState state) {
-        return outputVoltage(level, pos);
+    private static int[] qualitySnapshot(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, QUALITY_KEY, pos);
+        return runtime != null && runtime.length == QUALITY_RUNTIME_SIZE ? runtime : null;
     }
+
+    public static int outputVoltage(Level level, BlockPos pos) {
+        int[] runtime = snapshot(level, pos);
+        return runtime == null ? 0 : runtime[OUTPUT_VOLTAGE];
+    }
+
+    public static PortQuality outputQuality(Level level, BlockPos pos, BlockState state) {
+        if (state.getValue(TRIPPED)) return PortQuality.FAULT;
+        int[] runtime = snapshot(level, pos);
+        int[] quality = qualitySnapshot(level, pos);
+        if (runtime == null || runtime[PROTECTION_STATE_INITIALIZED] == 0 || quality == null) return PortQuality.STALE;
+        int index = Math.max(0, Math.min(PortQuality.values().length - 1, quality[INPUT_QUALITY]));
+        return PortQuality.values()[index];
+    }
+
+    public static boolean protectionInitialized(Level level, BlockPos pos) {
+        int[] runtime = snapshot(level, pos);
+        return runtime != null && runtime[PROTECTION_STATE_INITIALIZED] == 1;
+    }
+
+    @Override protected int observedOutputVoltage(Level level, BlockPos pos, BlockState state) { return outputVoltage(level, pos); }
+    @Override protected PortQuality observedOutputQuality(Level level, BlockPos pos, BlockState state) { return outputQuality(level, pos, state); }
 
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock())) {
-            if (level instanceof ServerLevel serverLevel) {
-                DomainNetwork.driveCopper(serverLevel, outputPos(pos, state), pos, 0);
-            }
+            if (level instanceof ServerLevel serverLevel) DomainNetwork.driveCopper(serverLevel, outputPos(pos, state), pos, 0);
             RuntimeIntStore.remove(level, KEY, pos);
+            RuntimeIntStore.remove(level, QUALITY_KEY, pos);
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
         if (!state.is(newState.getBlock()) && level instanceof ServerLevel serverLevel) {
@@ -142,16 +170,19 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
             level.scheduleTick(pos, this, 1);
 
-            int inputVoltage = DomainNetwork.sampleCopperVoltage(level, inputPos(pos, next));
+            CopperObservationSupport.Observation input = CopperObservationSupport.observe(level, inputPos(pos, next), pos);
+            int inputVoltage = input.quality() == PortQuality.VALID ? input.voltage() : 0;
             double loadResistance = CircuitPhysics.equivalentLoadResistance(level, outputPos(pos, next), 128);
             double current = CircuitPhysics.current(inputVoltage, loadResistance);
             player.displayClientMessage(Component.literal(String.format(Locale.ROOT,
-                    "Copper fuse | BACK input -> FRONT protected output | rating=%d | V=%d | Req=%.3f | I≈%.3f | %s%s",
+                    "Copper fuse | BACK input -> FRONT protected output | rating=%d | V=%d | Req=%.3f | I≈%.3f | %s | inputQuality=%s | outputQuality=%s%s",
                     next.getValue(RATING),
                     inputVoltage,
                     loadResistance,
                     current,
                     next.getValue(TRIPPED) ? "TRIPPED" : "armed",
+                    input.quality(),
+                    outputQuality(level, pos, next),
                     player.isShiftKeyDown()
                             ? " | reset requested; protection re-evaluates next tick; READY only after a safe server re-evaluation"
                             : ""
