@@ -4,6 +4,7 @@ import dev.redstoneengineering.block.ConnectedCableBlock;
 import dev.redstoneengineering.block.EightBitDataBusBlock;
 import dev.redstoneengineering.block.RedstoneCableJunctionBlock;
 import dev.redstoneengineering.block.TransmissionTopology;
+import dev.redstoneengineering.core.port.PortQuality;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -174,19 +175,37 @@ public final class DataBusNetwork {
     }
 
     public static int sample(Level level, BlockPos pos) {
-        if (isNode(level, pos)) {
-            return InformationRuntime.value(level, "bus8", pos) & 0xFF;
-        }
-        return InformationRuntime.value(level, "bus8_out", pos) & 0xFF;
+        InformationRuntime.Snapshot snapshot = InformationRuntime.snapshot(
+                level,
+                isNode(level, pos) ? "bus8" : "bus8_out",
+                pos
+        );
+        return snapshot.value() & 0xFF;
     }
 
     public static Diagnostics getDiagnostics(Level level, BlockPos pos) {
-        int[] diagnostics = RuntimeIntStore.get(level, DIAG_KEY, pos, DIAG_SIZE);
+        int[] diagnostics = RuntimeIntStore.peek(level, DIAG_KEY, pos);
+        if (diagnostics == null || diagnostics.length != DIAG_SIZE) {
+            return new Diagnostics(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false);
+        }
         return new Diagnostics(
                 diagnostics[0], diagnostics[1], diagnostics[2], diagnostics[3],
                 diagnostics[8], diagnostics[9], diagnostics[10], diagnostics[5],
                 diagnostics[7], diagnostics[12], diagnostics[11] != 0
         );
+    }
+
+    /** Observer-neutral bus quality: never creates payload or diagnostic runtime. */
+    public static PortQuality quality(Level level, BlockPos pos) {
+        boolean node = isNode(level, pos);
+        InformationRuntime.Snapshot snapshot = InformationRuntime.snapshot(level, node ? "bus8" : "bus8_out", pos);
+        if (snapshot.ageTicks() < 0) return PortQuality.STALE;
+        if (!node) return snapshot.valid() ? PortQuality.VALID : PortQuality.NO_SIGNAL;
+
+        Diagnostics diagnostics = getDiagnostics(level, pos);
+        if (diagnostics.driverCount() == 0) return PortQuality.NO_SIGNAL;
+        if (diagnostics.distinctValues() > 1 || !diagnostics.valid()) return PortQuality.TOPOLOGY_ERROR;
+        return PortQuality.VALID;
     }
 
     public static String diagnostics(Level level, BlockPos pos) {
@@ -206,9 +225,11 @@ public final class DataBusNetwork {
     }
 
     public static boolean valid(Level level, BlockPos pos) {
-        if (isNode(level, pos)) {
-            return InformationRuntime.valid(level, "bus8", pos);
-        }
-        return InformationRuntime.valid(level, "bus8_out", pos);
+        InformationRuntime.Snapshot snapshot = InformationRuntime.snapshot(
+                level,
+                isNode(level, pos) ? "bus8" : "bus8_out",
+                pos
+        );
+        return snapshot.valid();
     }
 }
