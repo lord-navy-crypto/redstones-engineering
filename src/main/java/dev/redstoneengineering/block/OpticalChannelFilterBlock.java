@@ -34,14 +34,8 @@ import java.util.Optional;
 public class OpticalChannelFilterBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
     public static final IntegerProperty TARGET = IntegerProperty.create("target", 0, 15);
 
-    public record FilterEvidence(
-            int inputIntensity,
-            int inputChannel,
-            PortQuality inputQuality,
-            int targetChannel,
-            boolean matched,
-            int expectedOutputIntensity
-    ) {}
+    public record FilterEvidence(int inputIntensity, int inputChannel, PortQuality inputQuality,
+                                 int targetChannel, boolean matched, int expectedOutputIntensity) {}
 
     public OpticalChannelFilterBlock(Properties properties) {
         super(properties);
@@ -55,31 +49,23 @@ public class OpticalChannelFilterBlock extends DirectionalDomainBlock implements
         Direction output = state.getValue(FACING);
         OpticalObservationSupport.Observation input = OpticalObservationSupport.observe(level, pos.relative(output.getOpposite()));
         int target = state.getValue(TARGET);
-        boolean matched = input.quality() == PortQuality.VALID
-                && input.intensity() > 0
-                && input.channel() == target;
+        boolean matched = input.quality() == PortQuality.VALID && input.intensity() > 0 && input.channel() == target;
         int outputIntensity = matched ? Math.max(0, input.intensity() - 1) : 0;
-        return new FilterEvidence(
-                input.intensity(), input.channel(), input.quality(), target, matched, outputIntensity);
+        return new FilterEvidence(input.intensity(), input.channel(), input.quality(), target, matched, outputIntensity);
     }
 
-    @Override
-    public List<EngineeringPort> engineeringPorts(BlockState state) {
+    @Override public List<EngineeringPort> engineeringPorts(BlockState state) {
         return List.of(
-                new EngineeringPort("OPTICAL INPUT", inputSide(state), EngineeringDomain.OPTICAL,
-                        PortKind.CONVERTER, PortDirection.INPUT, false, "intensity"),
-                new EngineeringPort("OPTICAL FILTERED OUTPUT", outputSide(state), EngineeringDomain.OPTICAL,
-                        PortKind.CONVERTER, PortDirection.OUTPUT, false, "intensity"));
+                new EngineeringPort("OPTICAL INPUT", inputSide(state), EngineeringDomain.OPTICAL, PortKind.CONVERTER, PortDirection.INPUT, false, "intensity"),
+                new EngineeringPort("OPTICAL FILTERED OUTPUT", outputSide(state), EngineeringDomain.OPTICAL, PortKind.CONVERTER, PortDirection.OUTPUT, false, "intensity"));
     }
 
-    @Override
-    public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
+    @Override public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         BlockPos samplePos = side == inputSide(state) ? inputPos(pos, state) : outputPos(pos, state);
         OpticalObservationSupport.Observation observation = OpticalObservationSupport.observe(level, samplePos);
-        return Optional.of(new EngineeringPortSnapshot(
-                port.get(), observation.intensity(), 0.0, 15.0, observation.quality()));
+        return Optional.of(new EngineeringPortSnapshot(port.get(), observation.intensity(), 0.0, 15.0, observation.quality()));
     }
 
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
@@ -87,22 +73,26 @@ public class OpticalChannelFilterBlock extends DirectionalDomainBlock implements
         if (!level.isClientSide) level.scheduleTick(pos, this, 2);
     }
 
-    @Override
-    protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+    @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         FilterEvidence evidence = evidence(level, pos, state);
         boolean driven = evidence.matched() && evidence.expectedOutputIntensity() > 0;
-        DomainNetwork.driveOptical(
-                level, outputPos(pos, state), pos,
+        DomainNetwork.driveOptical(level, outputPos(pos, state), pos,
                 evidence.expectedOutputIntensity(), evidence.inputChannel(), driven);
         level.scheduleTick(pos, this, 2);
     }
 
-    private void invalidateOutput(ServerLevel level, BlockPos pos, BlockState state) {
-        DomainNetwork.driveOptical(level, outputPos(pos, state), pos, 0, 0, false);
+    public static void invalidateOutput(ServerLevel level, BlockPos pos, BlockState state) {
+        Direction output = state.getValue(FACING);
+        DomainNetwork.driveOptical(level, pos.relative(output), pos, 0, 0, false);
     }
 
-    @Override
-    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState next, boolean moved) {
+    /** Shared by direct interaction and FieldDevice UI so configuration changes never leave stale carrier state. */
+    public static void configurationChanged(ServerLevel level, BlockPos pos, BlockState state) {
+        invalidateOutput(level, pos, state);
+        if (state.getBlock() instanceof OpticalChannelFilterBlock filter) level.scheduleTick(pos, filter, 1);
+    }
+
+    @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState next, boolean moved) {
         if (!state.is(next.getBlock()) && level instanceof ServerLevel serverLevel) {
             invalidateOutput(serverLevel, pos, state);
             DomainNetwork.recomputeOpticalAround(serverLevel, pos);
@@ -110,19 +100,14 @@ public class OpticalChannelFilterBlock extends DirectionalDomainBlock implements
         super.onRemove(state, level, pos, next, moved);
     }
 
-    @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+    @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer && !player.isShiftKeyDown()) {
             FieldDeviceUi.open(serverPlayer, pos);
         } else if (!level.isClientSide) {
             int channel = (state.getValue(TARGET) + 1) % 16;
             BlockState next = state.setValue(TARGET, channel);
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            if (level instanceof ServerLevel serverLevel) {
-                // The old target is no longer authoritative. Darken immediately, then recompute on the server tick.
-                invalidateOutput(serverLevel, pos, next);
-                serverLevel.scheduleTick(pos, this, 1);
-            }
+            if (level instanceof ServerLevel serverLevel) configurationChanged(serverLevel, pos, next);
             FilterEvidence evidence = evidence(level, pos, next);
             player.displayClientMessage(Component.literal(
                     "Optical channel filter | pass channel=" + channel + " | insertion loss=1"
