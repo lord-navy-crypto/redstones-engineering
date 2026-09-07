@@ -9,6 +9,7 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
+import dev.redstoneengineering.physics.NetworkKernel;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
@@ -37,6 +38,11 @@ import java.util.Optional;
 public class OpticalFiberJunctionBlock extends ConnectedCableBlock implements EngineeringPortProvider {
     public static final BooleanProperty SERVICE_OPEN = BooleanProperty.create("service_open");
     private static final String KEY = "optical_junction";
+    private static final int INTENSITY = 0;
+    private static final int CHANNEL = 1;
+    private static final int VALID = 2;
+    private static final int DRIVER_COUNT = 3;
+    private static final int RUNTIME_SIZE = 4;
 
     public OpticalFiberJunctionBlock(Properties properties) {
         super(properties);
@@ -59,14 +65,24 @@ public class OpticalFiberJunctionBlock extends ConnectedCableBlock implements En
     }
 
     public static void setOptical(Level level, BlockPos pos, int intensity, int channel, boolean valid) {
-        int[] rt = RuntimeIntStore.get(level, KEY, pos, 3);
-        rt[0] = valid ? Math.max(0, Math.min(15, intensity)) : 0;
-        rt[1] = valid ? Math.max(0, Math.min(15, channel)) : 0;
-        rt[2] = valid && rt[0] > 0 ? 1 : 0;
+        int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
+        runtime[INTENSITY] = valid ? Math.max(0, Math.min(15, intensity)) : 0;
+        runtime[CHANNEL] = valid ? Math.max(0, Math.min(15, channel)) : 0;
+        runtime[VALID] = valid && runtime[INTENSITY] > 0 ? 1 : 0;
+        int drivers = Math.max(0, NetworkKernel.stats(level, "optical").activeDrivers());
+        runtime[DRIVER_COUNT] = valid && drivers == 0 ? 1 : drivers;
     }
-    public static int intensity(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r==null?0:r[0]; }
-    public static int channel(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r==null?0:r[1]; }
-    public static boolean valid(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r!=null&&r.length>2&&r[2]==1; }
+
+    public static int intensity(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r==null?0:r[INTENSITY]; }
+    public static int channel(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r==null?0:r[CHANNEL]; }
+    public static boolean valid(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r!=null&&r.length>VALID&&r[VALID]==1; }
+    public static int driverCount(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r==null||r.length<=DRIVER_COUNT?0:r[DRIVER_COUNT]; }
+
+    private static PortQuality quality(Level level, BlockPos pos, BlockState state) {
+        if (state.getValue(SERVICE_OPEN)) return PortQuality.NO_SIGNAL;
+        if (!((OpticalFiberJunctionBlock) state.getBlock()).topologyValid(state) || driverCount(level,pos)>1) return PortQuality.TOPOLOGY_ERROR;
+        return valid(level,pos) ? PortQuality.VALID : PortQuality.NO_SIGNAL;
+    }
 
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
@@ -77,8 +93,7 @@ public class OpticalFiberJunctionBlock extends ConnectedCableBlock implements En
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         return engineeringPort(state, side).map(port -> new EngineeringPortSnapshot(
-                port, intensity(level,pos), 0.0, 15.0,
-                valid(level,pos) ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+                port, intensity(level,pos), 0.0, 15.0, quality(level,pos,state)));
     }
 
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved){
@@ -102,12 +117,6 @@ public class OpticalFiberJunctionBlock extends ConnectedCableBlock implements En
         super.onRemove(state, level, pos, newState, moved);
     }
 
-    /**
-     * Explicit maintenance control used by player interaction and GameTests.
-     * Opening a splice removes its physical arms and independently resolves both
-     * adjacent optical components; closing it rebuilds continuity and resolves
-     * the joined component again.
-     */
     public void setServiceOpen(Level level, BlockPos pos, boolean open) {
         BlockState state = level.getBlockState(pos);
         if (!state.is(this) || state.getValue(SERVICE_OPEN) == open) return;
