@@ -10,6 +10,7 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
+import dev.redstoneengineering.physics.NetworkKernel;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
@@ -35,7 +36,11 @@ public class LapisSignalLineBlock extends SurfaceTraceBlock implements Engineeri
     @Override public MapCodec<LapisSignalLineBlock> codec(){return RedstoneEngineering.LAPIS_SIGNAL_LINE_CODEC.value();}
     @Override protected boolean canConnectTo(BlockGetter l,BlockPos p,Direction d,BlockState n){return d.getAxis()!=Direction.Axis.Y&&TransmissionTopology.lapisPort(n,d);}
 
-    public static void setSignal(Level l,BlockPos p,int value,boolean valid){setSignal(l,p,value,valid,valid?1:0);}
+    public static void setSignal(Level l,BlockPos p,int value,boolean valid){
+        NetworkKernel.ScanStats stats=NetworkKernel.stats(l,"lapis");
+        int sources=valid?1:(stats.driverConflict()?stats.activeDrivers():0);
+        setSignal(l,p,value,valid,sources);
+    }
     public static void setSignal(Level l,BlockPos p,int value,boolean valid,int sourceCount){
         int[] r=RuntimeIntStore.get(l,KEY,p,3);
         r[0]=valid?Math.max(0,Math.min(100,value)):0;
