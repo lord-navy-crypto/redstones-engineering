@@ -18,6 +18,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
@@ -53,23 +54,27 @@ public class SerializerBlock extends DirectionalDomainBlock implements Engineeri
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
+        BlockPos input = inputPos(pos, state);
+        PortQuality inputQuality = DataBusNetwork.quality(level, input);
         if (side == inputSide(state)) {
-            BlockPos input = inputPos(pos, state);
-            boolean valid = DataBusNetwork.valid(level, input);
             return Optional.of(new EngineeringPortSnapshot(port.get(), DataBusNetwork.sample(level, input),
-                    0.0, 255.0, valid ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+                    0.0, 255.0, inputQuality));
         }
-        boolean valid = InformationRuntime.valid(level, "serial", pos);
+        InformationRuntime.Snapshot output = InformationRuntime.snapshot(level, "serial", pos);
+        PortQuality quality = output.ageTicks() < 0 ? PortQuality.STALE : inputQuality;
         return Optional.of(new EngineeringPortSnapshot(port.get(),
-                InformationRuntime.value(level, "serial", pos) & 0xFF,
-                0.0, 255.0, valid ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+                output.value() & 0xFF,
+                0.0, 255.0, quality));
     }
 
     private void update(ServerLevel level, BlockPos pos, BlockState state) {
         BlockPos input = inputPos(pos, state);
         BlockPos output = outputPos(pos, state);
-        int value = DataBusNetwork.sample(level, input);
-        boolean valid = DataBusNetwork.valid(level, input);
+        PortQuality inputQuality = DataBusNetwork.quality(level, input);
+        boolean valid = inputQuality == PortQuality.VALID;
+        InformationRuntime.Snapshot previous = InformationRuntime.snapshot(level, "serial", pos);
+        int value = valid ? DataBusNetwork.sample(level, input)
+                : inputQuality == PortQuality.STALE ? previous.value() & 0xFF : 0;
         InformationRuntime.write(level, "serial", pos, value, 8, valid, valid ? 100 : 0);
         if (level.getBlockState(output).getBlock() instanceof SerialDataLineBlock) {
             SerialNetwork.recompute(level, output);
@@ -79,7 +84,10 @@ public class SerializerBlock extends DirectionalDomainBlock implements Engineeri
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
-        if (level instanceof ServerLevel serverLevel) update(serverLevel, pos, state);
+        if (level instanceof ServerLevel serverLevel) {
+            update(serverLevel, pos, state);
+            serverLevel.scheduleTick(pos, this, 2);
+        }
     }
 
     @Override
@@ -90,6 +98,12 @@ public class SerializerBlock extends DirectionalDomainBlock implements Engineeri
         if (level instanceof ServerLevel serverLevel && neighborPos.equals(inputPos(pos, state))) {
             update(serverLevel, pos, state);
         }
+    }
+
+    @Override
+    protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+        update(level, pos, state);
+        level.scheduleTick(pos, this, 2);
     }
 
     @Override
@@ -110,9 +124,13 @@ public class SerializerBlock extends DirectionalDomainBlock implements Engineeri
                                                Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
+                InformationRuntime.Snapshot output = InformationRuntime.snapshot(level, "serial", pos);
+                PortQuality inputQuality = DataBusNetwork.quality(level, inputPos(pos, state));
                 player.displayClientMessage(Component.literal(
-                        "Serializer framed byte=" + (InformationRuntime.value(level, "serial", pos) & 0xFF)
-                                + " @ 8t/word valid=" + InformationRuntime.valid(level, "serial", pos)), true);
+                        "Serializer framed byte=" + (output.value() & 0xFF)
+                                + " @ 8t/word"
+                                + " | inputQuality=" + inputQuality
+                                + " | sourceValid=" + output.valid()), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
             }
