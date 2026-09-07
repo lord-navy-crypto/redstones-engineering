@@ -1,6 +1,7 @@
 {
-  "parent": "minecraft:block/cube_all",
+  "parent": "redstoneengineering:block/instrument_cable",
   "textures": {
-    "all": "redstoneengineering:block/eight_bit_data_bus"
+    "cable": "redstoneengineering:block/eight_bit_data_bus",
+    "particle": "redstoneengineering:block/eight_bit_data_bus"
   }
 }
