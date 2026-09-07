@@ -1,9 +1,11 @@
 {
   "multipart": [
-    {
-      "apply": {
-        "model": "redstoneengineering:block/serial_data_line"
-      }
-    }
+    {"apply":{"model":"redstoneengineering:block/serial_data_line_center"}},
+    {"when":{"north":"true"},"apply":{"model":"redstoneengineering:block/serial_data_line_north"}},
+    {"when":{"east":"true"},"apply":{"model":"redstoneengineering:block/serial_data_line_east"}},
+    {"when":{"south":"true"},"apply":{"model":"redstoneengineering:block/serial_data_line_south"}},
+    {"when":{"west":"true"},"apply":{"model":"redstoneengineering:block/serial_data_line_west"}},
+    {"when":{"up":"true"},"apply":{"model":"redstoneengineering:block/serial_data_line_up"}},
+    {"when":{"down":"true"},"apply":{"model":"redstoneengineering:block/serial_data_line_down"}}
   ]
 }

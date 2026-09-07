@@ -1,0 +1,4 @@
+{
+  "parent": "redstoneengineering:block/redstone_signal_cable_east",
+  "textures": {"line": "redstoneengineering:block/differential_data_pair", "particle": "redstoneengineering:block/differential_data_pair"}
+}
