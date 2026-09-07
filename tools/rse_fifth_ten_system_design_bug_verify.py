@@ -78,7 +78,7 @@ require("state.getValue(TRIPPED)" in fuse and "PortQuality.FAULT" in fuse,
         "Copper Fuse must expose a tripped output as FAULT")
 require("CopperObservationSupport" in copper_base and "observedOutputQuality" in copper_base,
         "Directional Copper snapshots are still unconditional VALID")
-require("cannot\n * recurse forever" in copper_support or "cannot\n * recurse" in copper_support or "cannot\n" in copper_support,
+require("Non-recursive" in copper_support and "cyclic processor layout" in copper_support,
         "Copper observation helper must document its non-recursive boundary")
 
 # 49: metrology snapshot is a real peek; no-data is not created by UI inspection.
