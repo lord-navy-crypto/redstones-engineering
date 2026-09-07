@@ -20,17 +20,22 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/** 8-bit bundled data medium. Runtime payload; no 256-way BlockState explosion. */
-public class EightBitDataBusBlock extends Block implements EngineeringPortProvider {
+/**
+ * 8-bit bundled data cable. Runtime payload remains outside BlockState; topology is
+ * explicit and visible. Direct bus runs branch horizontally, while vertical routing
+ * requires the unified Signal Junction Point.
+ */
+public class EightBitDataBusBlock extends ConnectedCableBlock implements EngineeringPortProvider {
     public EightBitDataBusBlock(Properties properties) {
         super(properties);
     }
@@ -41,18 +46,31 @@ public class EightBitDataBusBlock extends Block implements EngineeringPortProvid
     }
 
     @Override
+    protected boolean canConnectTo(BlockGetter level, BlockPos self, Direction direction, BlockState neighbor) {
+        return TransmissionTopology.dataBusPort(level, self, direction, neighbor);
+    }
+
+    @Override
+    protected int maxConnections() {
+        return 6;
+    }
+
+    @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
-        return Arrays.stream(Direction.values())
-                .map(side -> new EngineeringPort(
-                        "8-BIT DATA BUS",
-                        side,
-                        EngineeringDomain.DATA_BUS_8,
-                        PortKind.BUS,
-                        PortDirection.BIDIRECTIONAL,
-                        false,
-                        "byte"
-                ))
-                .toList();
+        List<EngineeringPort> ports = new ArrayList<>();
+        for (Direction side : Direction.values()) {
+            if (!connected(state, side)) continue;
+            ports.add(new EngineeringPort(
+                    "8-BIT DATA BUS",
+                    side,
+                    EngineeringDomain.DATA_BUS_8,
+                    PortKind.BUS,
+                    PortDirection.BIDIRECTIONAL,
+                    false,
+                    "byte"
+            ));
+        }
+        return List.copyOf(ports);
     }
 
     @Override
@@ -93,6 +111,7 @@ public class EightBitDataBusBlock extends Block implements EngineeringPortProvid
             BlockPos neighborPos,
             boolean movedByPiston
     ) {
+        super.neighborChanged(state, level, pos, neighborBlock, neighborPos, movedByPiston);
         if (!level.isClientSide) level.scheduleTick(pos, this, 1);
     }
 
@@ -131,6 +150,8 @@ public class EightBitDataBusBlock extends Block implements EngineeringPortProvid
                 player.displayClientMessage(Component.literal(
                         "8-bit Bus = " + DataBusNetwork.sample(level, pos)
                                 + " (0x" + String.format("%02X", DataBusNetwork.sample(level, pos)) + ")"
+                                + " | ports=" + connectionCount(state)
+                                + " | routing=PLANAR; vertical via Signal Junction Point"
                                 + " | " + DataBusNetwork.diagnostics(level, pos)
                                 + " | " + NetworkKernel.summary(level, "bus8")
                 ), true);
