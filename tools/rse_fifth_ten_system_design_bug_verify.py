@@ -69,12 +69,29 @@ for name, source in (("Series Resistor", resistor), ("Capacitor", capacitor), ("
     require("RuntimeIntStore.get" not in body, f"Copper {name} outputVoltage inspection allocates runtime")
     require("RuntimeIntStore.peek" in source, f"Copper {name} lacks observer-only runtime readback")
     require("PortQuality" in source, f"Copper {name} lacks explicit output quality")
-require("stored charge is a legitimate local energy source" in capacitor,
-        "Copper Capacitor lost stored-energy identity")
+
+# Capacitor identity is behavioral, not prose: charge is retained in runtime, drives the
+# output independently of the current input, and a nonzero stored charge remains VALID
+# after the upstream source becomes NO_SIGNAL while hard faults still propagate.
+cap_quality = method_body(capacitor, "public static PortQuality outputQuality")
+cap_tick = method_body(capacitor, "protected void tick")
+for token in ("CHARGE_SLOT", "outputVoltageFromCharge", "DomainNetwork.driveCopper"):
+    require(token in cap_tick or token in capacitor, f"Copper Capacitor stored-energy path missing {token}")
+require("runtime[CHARGE_SLOT] > 0 || inputQuality == PortQuality.VALID" in cap_quality,
+        "Copper Capacitor no longer treats retained charge as a legitimate local source")
+require("PortQuality.TOPOLOGY_ERROR" in cap_quality and "PortQuality.FAULT" in cap_quality,
+        "Copper Capacitor must not hide hard upstream faults behind retained charge")
+require("return PortQuality.VALID" in cap_quality,
+        "Copper Capacitor retained charge no longer publishes valid output quality")
+
 require("state.getValue(TRIPPED)" in fuse and "PortQuality.FAULT" in fuse,
         "Copper Fuse must expose a tripped output as FAULT")
+require("RUNTIME_SIZE = 3" in fuse and "QUALITY_KEY" in fuse,
+        "Copper Fuse must preserve protection runtime layout while separating quality evidence")
 require("CopperObservationSupport" in copper_base and "observedOutputQuality" in copper_base,
         "Directional Copper snapshots are still unconditional VALID")
+require("DomainNetwork.sampleCopperVoltage" in copper_base and "DomainNetwork.sampleCopperVoltage" in circuit_meter,
+        "Copper numerical voltage ownership must remain in DomainNetwork")
 require("Non-recursive" in copper_support and "cyclic processor layout" in copper_support,
         "Copper observation helper must document its non-recursive boundary")
 
@@ -115,6 +132,7 @@ print("  Amethyst spectrum observer/conflict/coverage evidence: PASS")
 print("  Optical power/split/filter/attenuator quality semantics: PASS")
 print("  Optical retuning stale-carrier prevention: PASS")
 print("  Copper R/C/fuse observer-neutral source-quality evidence: PASS")
+print("  Capacitor retained-energy structural contract: PASS")
 print("  Copper metrology snapshot ownership boundary: PASS")
 print("  Permanent Magnet scalar free-space identity + legacy label: PASS")
 print("  nine executable fifth-ten GameTests registered: PASS")
