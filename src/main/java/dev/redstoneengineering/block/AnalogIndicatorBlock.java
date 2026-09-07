@@ -30,6 +30,8 @@ import java.util.Optional;
 public class AnalogIndicatorBlock extends DirectionalRedstoneEndpointBlock implements EngineeringPortProvider {
     public static final IntegerProperty LEVEL = IntegerProperty.create("level", 0, 15);
 
+    public record InputObservation(int value, PortQuality quality) {}
+
     public AnalogIndicatorBlock(Properties properties) {
         super(properties);
         registerDefaultState(defaultBlockState().setValue(LEVEL, 0));
@@ -59,6 +61,42 @@ public class AnalogIndicatorBlock extends DirectionalRedstoneEndpointBlock imple
         ));
     }
 
+    /**
+     * Read a redstone value and its independent source evidence. A connected source
+     * configured to zero is a real measurement; an empty back face is NO_SIGNAL.
+     * Missing chunk coverage is STALE and must not overwrite the last displayed value.
+     */
+    public InputObservation inputObservation(Level level, BlockPos pos, BlockState state) {
+        Direction back = backSide(state);
+        BlockPos sourcePos = pos.relative(back);
+        if (!level.hasChunkAt(sourcePos)) {
+            return new InputObservation(state.getValue(LEVEL), PortQuality.STALE);
+        }
+
+        int value = readBackInput(level, pos, state);
+        if (value > 0) return new InputObservation(value, PortQuality.VALID);
+
+        BlockState sourceState = level.getBlockState(sourcePos);
+        if (sourceState.isAir()) return new InputObservation(0, PortQuality.NO_SIGNAL);
+
+        if (sourceState.getBlock() instanceof EngineeringPortProvider provider) {
+            Optional<EngineeringPort> sourcePort = provider.engineeringPort(sourceState, back.getOpposite());
+            if (sourcePort.isPresent()) {
+                EngineeringPort port = sourcePort.get();
+                if (port.domain() == EngineeringDomain.REDSTONE
+                        && port.redstoneConnectable()
+                        && port.direction() != PortDirection.INPUT) {
+                    return new InputObservation(0, PortQuality.VALID);
+                }
+            }
+        }
+
+        if (sourceState.getBlock().canConnectRedstone(sourceState, level, sourcePos, back)) {
+            return new InputObservation(0, PortQuality.VALID);
+        }
+        return new InputObservation(0, PortQuality.NO_SIGNAL);
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(
             Level level,
@@ -66,12 +104,11 @@ public class AnalogIndicatorBlock extends DirectionalRedstoneEndpointBlock imple
             BlockState state,
             Direction side
     ) {
-        return engineeringPort(state, side)
-                .map(port -> EngineeringPortSnapshot.redstone(
-                        port,
-                        state.getValue(LEVEL),
-                        PortQuality.VALID
-                ));
+        Optional<EngineeringPort> port = engineeringPort(state, side);
+        if (port.isEmpty()) return Optional.empty();
+        InputObservation observation = inputObservation(level, pos, state);
+        return Optional.of(EngineeringPortSnapshot.redstone(
+                port.get(), observation.value(), observation.quality()));
     }
 
     @Override
@@ -103,7 +140,9 @@ public class AnalogIndicatorBlock extends DirectionalRedstoneEndpointBlock imple
     }
 
     private void update(Level level, BlockPos pos, BlockState state) {
-        int value = readBackInput(level, pos, state);
+        InputObservation observation = inputObservation(level, pos, state);
+        if (observation.quality() == PortQuality.STALE) return;
+        int value = observation.value();
         if (value != state.getValue(LEVEL)) {
             level.setBlock(pos, state.setValue(LEVEL, value), Block.UPDATE_CLIENTS);
         }
@@ -118,8 +157,10 @@ public class AnalogIndicatorBlock extends DirectionalRedstoneEndpointBlock imple
             BlockHitResult hit
     ) {
         if (!level.isClientSide) {
+            InputObservation observation = inputObservation(level, pos, state);
             player.displayClientMessage(Component.literal(
                     "Analog Process Indicator = " + state.getValue(LEVEL) + "/15"
+                            + " | inputQuality=" + observation.quality()
                             + " | FRONT display=" + frontSide(state).getName()
                             + " BACK IN=" + backSide(state).getName()
                             + " | readout-only"
