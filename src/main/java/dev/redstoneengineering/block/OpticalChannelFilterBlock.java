@@ -70,7 +70,13 @@ public class OpticalChannelFilterBlock extends DirectionalDomainBlock implements
 
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
         super.onPlace(state, level, pos, oldState, moved);
-        if (!level.isClientSide) level.scheduleTick(pos, this, 2);
+        if (!(level instanceof ServerLevel serverLevel)) return;
+        if (state.is(oldState.getBlock()) && oldState.hasProperty(TARGET)
+                && state.getValue(TARGET).intValue() != oldState.getValue(TARGET).intValue()) {
+            configurationChanged(serverLevel, pos, state);
+        } else {
+            serverLevel.scheduleTick(pos, this, 2);
+        }
     }
 
     @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
@@ -86,7 +92,7 @@ public class OpticalChannelFilterBlock extends DirectionalDomainBlock implements
         DomainNetwork.driveOptical(level, pos.relative(output), pos, 0, 0, false);
     }
 
-    /** Shared by direct interaction and FieldDevice UI so configuration changes never leave stale carrier state. */
+    /** Shared state-transition hook so every configuration path clears the previous carrier first. */
     public static void configurationChanged(ServerLevel level, BlockPos pos, BlockState state) {
         invalidateOutput(level, pos, state);
         if (state.getBlock() instanceof OpticalChannelFilterBlock filter) level.scheduleTick(pos, filter, 1);
@@ -107,7 +113,6 @@ public class OpticalChannelFilterBlock extends DirectionalDomainBlock implements
             int channel = (state.getValue(TARGET) + 1) % 16;
             BlockState next = state.setValue(TARGET, channel);
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            if (level instanceof ServerLevel serverLevel) configurationChanged(serverLevel, pos, next);
             FilterEvidence evidence = evidence(level, pos, next);
             player.displayClientMessage(Component.literal(
                     "Optical channel filter | pass channel=" + channel + " | insertion loss=1"
