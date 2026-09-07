@@ -10,6 +10,7 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
+import dev.redstoneengineering.physics.NetworkKernel;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
@@ -28,29 +29,40 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/** Auto-connecting floor precision trace. Live value is runtime data, not BlockState. */
+/** Auto-connecting planar precision trace. Live value and source-ownership evidence are transient runtime data. */
 public class LapisSignalLineBlock extends SurfaceTraceBlock implements EngineeringPortProvider {
-    private static final String KEY="lapis_trace";
+    private static final String KEY = "lapis_trace";
     public LapisSignalLineBlock(Properties p){super(p);}
     @Override public MapCodec<LapisSignalLineBlock> codec(){return RedstoneEngineering.LAPIS_SIGNAL_LINE_CODEC.value();}
     @Override protected boolean canConnectTo(BlockGetter l,BlockPos p,Direction d,BlockState n){return d.getAxis()!=Direction.Axis.Y&&TransmissionTopology.lapisPort(n,d);}
-    public static void setSignal(Level l,BlockPos p,int value,boolean valid){int[]r=RuntimeIntStore.get(l,KEY,p,2);r[0]=valid?Math.max(0,Math.min(100,value)):0;r[1]=valid?1:0;}
-    public static int value(Level l,BlockPos p){return RuntimeIntStore.get(l,KEY,p,2)[0];}
-    public static boolean valid(Level l,BlockPos p){return RuntimeIntStore.get(l,KEY,p,2)[1]==1;}
-    private static EngineeringPort port(Direction side){return new EngineeringPort("LAPIS PRECISION TRACE "+side.getName().toUpperCase(),side, EngineeringDomain.LAPIS, PortKind.BUS, PortDirection.BIDIRECTIONAL,false,"precision");}
-    @Override public List<EngineeringPort> engineeringPorts(BlockState s){
-        List<EngineeringPort> ports=new ArrayList<>();
-        for(Direction side:Direction.Plane.HORIZONTAL) if(SurfaceTraceBlock.connected(s,side)) ports.add(port(side));
-        return List.copyOf(ports);
+
+    public static void setSignal(Level l,BlockPos p,int value,boolean valid){
+        NetworkKernel.ScanStats stats=NetworkKernel.stats(l,"lapis");
+        int sources=valid?1:(stats.driverConflict()?stats.activeDrivers():0);
+        setSignal(l,p,value,valid,sources);
     }
-    @Override public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level l,BlockPos p,BlockState s,Direction side){Optional<EngineeringPort>d=engineeringPort(s,side);return d.map(port->new EngineeringPortSnapshot(port,value(l,p),0.0,100.0,valid(l,p)?PortQuality.VALID:PortQuality.NO_SIGNAL));}
+    public static void setSignal(Level l,BlockPos p,int value,boolean valid,int sourceCount){
+        int[] r=RuntimeIntStore.get(l,KEY,p,3);
+        r[0]=valid?Math.max(0,Math.min(100,value)):0;
+        r[1]=valid?1:0;
+        r[2]=Math.max(0,sourceCount);
+    }
+    private static int[] snapshot(Level l,BlockPos p){int[]r=RuntimeIntStore.peek(l,KEY,p);return r!=null&&r.length==3?r:null;}
+    public static int value(Level l,BlockPos p){int[]r=snapshot(l,p);return r==null?0:r[0];}
+    public static boolean valid(Level l,BlockPos p){int[]r=snapshot(l,p);return r!=null&&r[1]==1;}
+    public static int sourceCount(Level l,BlockPos p){int[]r=snapshot(l,p);return r==null?0:r[2];}
+    public static PortQuality quality(Level l,BlockPos p){int n=sourceCount(l,p);if(n==0)return PortQuality.NO_SIGNAL;if(n>1)return PortQuality.TOPOLOGY_ERROR;return valid(l,p)?PortQuality.VALID:PortQuality.NO_SIGNAL;}
+
+    private static EngineeringPort port(Direction side){return new EngineeringPort("LAPIS PRECISION TRACE "+side.getName().toUpperCase(),side, EngineeringDomain.LAPIS, PortKind.BUS, PortDirection.BIDIRECTIONAL,false,"precision");}
+    @Override public List<EngineeringPort> engineeringPorts(BlockState s){List<EngineeringPort>ports=new ArrayList<>();for(Direction side:Direction.Plane.HORIZONTAL)if(SurfaceTraceBlock.connected(s,side))ports.add(port(side));return List.copyOf(ports);}
+    @Override public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level l,BlockPos p,BlockState s,Direction side){Optional<EngineeringPort>d=engineeringPort(s,side);return d.map(port->new EngineeringPortSnapshot(port,value(l,p),0.0,100.0,quality(l,p)));}
     @Override protected void onPlace(BlockState s,Level l,BlockPos p,BlockState old,boolean moved){super.onPlace(s,l,p,old,moved);if(l instanceof ServerLevel sl)DomainNetwork.recomputeLapis(sl,p);}
     @Override protected void neighborChanged(BlockState s,Level l,BlockPos p,net.minecraft.world.level.block.Block nb,BlockPos np,boolean moved){super.neighborChanged(s,l,p,nb,np,moved);if(l instanceof ServerLevel sl)DomainNetwork.recomputeLapis(sl,p);}
     @Override protected void onRemove(BlockState s,Level l,BlockPos p,BlockState ns,boolean moved){if(!s.is(ns.getBlock())){RuntimeIntStore.remove(l,KEY,p);if(l instanceof ServerLevel sl)DomainNetwork.recomputeLapisAround(sl,p);}super.onRemove(s,l,p,ns,moved);}
     @Override protected InteractionResult useWithoutItem(BlockState s,Level l,BlockPos p,Player pl,BlockHitResult hit){
-        if(!l.isClientSide && pl instanceof ServerPlayer serverPlayer){
+        if(!l.isClientSide&&pl instanceof ServerPlayer serverPlayer){
             if(!pl.isShiftKeyDown()){FieldDeviceUi.open(serverPlayer,p);return InteractionResult.CONSUME;}
-            String signal=valid(l,p)?"value="+String.format("%.2f",value(l,p)/100.0):"INVALID / source conflict";
+            int drivers=sourceCount(l,p);String signal=drivers==0?"NO SOURCE":drivers>1?"SOURCE CONFLICT x"+drivers:"value="+String.format("%.2f",value(l,p)/100.0);
             pl.displayClientMessage(Component.literal("Lapis Precision Trace | "+signal+" | "+PortDiagnostics.surfaceTrace(l,p,s,PortDiagnostics.Domain.LAPIS)),true);
         }
         return InteractionResult.sidedSuccess(l.isClientSide);

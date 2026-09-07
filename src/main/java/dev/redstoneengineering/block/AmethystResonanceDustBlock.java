@@ -28,30 +28,24 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/** Redstone-like resonance dust: automatic N/E/S/W topology, runtime frequency/amplitude payload. */
+/** Redstone-like planar resonance trace with runtime frequency/amplitude payload and explicit frequency-conflict evidence. */
 public class AmethystResonanceDustBlock extends SurfaceTraceBlock implements EngineeringPortProvider {
     private static final String KEY = "amethyst_trace";
 
-    public AmethystResonanceDustBlock(Properties properties) {
-        super(properties);
+    public enum ResonanceStatus {
+        IDLE,
+        ACTIVE,
+        FREQUENCY_CONFLICT
     }
 
-    @Override
-    public MapCodec<AmethystResonanceDustBlock> codec() {
-        return RedstoneEngineering.AMETHYST_RESONANCE_DUST_CODEC.value();
-    }
-
-    @Override
-    protected boolean canConnectTo(BlockGetter level, BlockPos pos, Direction direction, BlockState neighbor) {
-        return direction.getAxis() != Direction.Axis.Y && TransmissionTopology.amethystPort(neighbor, direction);
-    }
+    public AmethystResonanceDustBlock(Properties properties) { super(properties); }
+    @Override public MapCodec<AmethystResonanceDustBlock> codec() { return RedstoneEngineering.AMETHYST_RESONANCE_DUST_CODEC.value(); }
+    @Override protected boolean canConnectTo(BlockGetter level, BlockPos pos, Direction direction, BlockState neighbor) { return direction.getAxis() != Direction.Axis.Y && TransmissionTopology.amethystPort(neighbor, direction); }
 
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         List<EngineeringPort> ports = new ArrayList<>();
-        for (Direction side : Direction.Plane.HORIZONTAL) {
-            if (SurfaceTraceBlock.connected(state, side)) ports.add(resonancePort(side));
-        }
+        for (Direction side : Direction.Plane.HORIZONTAL) if (SurfaceTraceBlock.connected(state, side)) ports.add(resonancePort(side));
         return List.copyOf(ports);
     }
 
@@ -61,40 +55,47 @@ public class AmethystResonanceDustBlock extends SurfaceTraceBlock implements Eng
     }
 
     @Override
-    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
-            Level level, BlockPos pos, BlockState state, Direction side
-    ) {
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        int amplitude = amplitude(level, pos);
-        return Optional.of(new EngineeringPortSnapshot(
-                port.get(), amplitude, 0.0, 15.0,
-                active(level, pos) ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+        PortQuality quality = switch (status(level, pos)) {
+            case ACTIVE -> PortQuality.VALID;
+            case FREQUENCY_CONFLICT -> PortQuality.TOPOLOGY_ERROR;
+            case IDLE -> PortQuality.NO_SIGNAL;
+        };
+        return Optional.of(new EngineeringPortSnapshot(port.get(), amplitude(level, pos), 0.0, 15.0, quality));
     }
 
     public static void setResonance(Level level, BlockPos pos, int frequency, int amplitude) {
-        int[] runtime = RuntimeIntStore.get(level, KEY, pos, 2);
-        runtime[0] = amplitude > 0 ? Math.max(1, Math.min(15, frequency)) : 0;
-        runtime[1] = Math.max(0, Math.min(15, amplitude));
+        ResonanceStatus state = amplitude > 0 ? ResonanceStatus.ACTIVE : ResonanceStatus.IDLE;
+        setResonance(level, pos, frequency, amplitude, state);
     }
 
-    public static boolean active(Level level, BlockPos pos) {
-        return RuntimeIntStore.get(level, KEY, pos, 2)[1] > 0;
+    public static void setResonance(Level level, BlockPos pos, int frequency, int amplitude, ResonanceStatus status) {
+        int[] runtime = RuntimeIntStore.get(level, KEY, pos, 3);
+        int boundedAmplitude = Math.max(0, Math.min(15, amplitude));
+        runtime[0] = status == ResonanceStatus.ACTIVE && boundedAmplitude > 0 ? Math.max(1, Math.min(15, frequency)) : 0;
+        runtime[1] = status == ResonanceStatus.ACTIVE ? boundedAmplitude : 0;
+        runtime[2] = status.ordinal();
     }
 
-    public static int frequency(Level level, BlockPos pos) {
-        return RuntimeIntStore.get(level, KEY, pos, 2)[0];
+    private static int[] snapshot(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime != null && runtime.length == 3 ? runtime : null;
     }
 
-    public static int amplitude(Level level, BlockPos pos) {
-        return RuntimeIntStore.get(level, KEY, pos, 2)[1];
+    public static ResonanceStatus status(Level level, BlockPos pos) {
+        int[] runtime = snapshot(level, pos);
+        if (runtime == null) return ResonanceStatus.IDLE;
+        int index = Math.max(0, Math.min(ResonanceStatus.values().length - 1, runtime[2]));
+        return ResonanceStatus.values()[index];
     }
+    public static boolean active(Level level, BlockPos pos) { return status(level, pos) == ResonanceStatus.ACTIVE; }
+    public static int frequency(Level level, BlockPos pos) { int[] r=snapshot(level,pos);return r==null?0:r[0]; }
+    public static int amplitude(Level level, BlockPos pos) { int[] r=snapshot(level,pos);return r==null?0:r[1]; }
 
     @Override
-    protected void neighborChanged(
-            BlockState state, Level level, BlockPos pos, net.minecraft.world.level.block.Block block,
-            BlockPos neighborPos, boolean movedByPiston
-    ) {
+    protected void neighborChanged(BlockState state, Level level, BlockPos pos, net.minecraft.world.level.block.Block block, BlockPos neighborPos, boolean movedByPiston) {
         super.neighborChanged(state, level, pos, block, neighborPos, movedByPiston);
         if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeAmethyst(serverLevel, pos);
     }
@@ -113,29 +114,22 @@ public class AmethystResonanceDustBlock extends SurfaceTraceBlock implements Eng
         if (removed && level instanceof ServerLevel serverLevel) recomputeAround(serverLevel, pos);
     }
 
-    /** Re-evaluate every horizontal component created when a trace is cut. */
     private static void recomputeAround(ServerLevel level, BlockPos changedPos) {
         for (Direction direction : Direction.Plane.HORIZONTAL) {
             BlockPos neighbor = changedPos.relative(direction);
             var block = level.getBlockState(neighbor).getBlock();
-            if (block instanceof AmethystResonanceDustBlock || block instanceof AmethystResonatorBlock) {
-                DomainNetwork.recomputeAmethyst(level, neighbor);
-            }
+            if (block instanceof AmethystResonanceDustBlock || block instanceof AmethystResonatorBlock) DomainNetwork.recomputeAmethyst(level, neighbor);
         }
     }
 
     @Override
-    protected InteractionResult useWithoutItem(
-            BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit
-    ) {
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
                 player.displayClientMessage(Component.literal(
-                        "Amethyst resonance dust | " + (active(level, pos) ? "EVENT" : "idle")
-                                + " | f=" + frequency(level, pos) + " | A=" + amplitude(level, pos) + "/15"), true);
-            } else {
-                FieldDeviceUi.open(serverPlayer, pos);
-            }
+                        "Amethyst Resonance Trace | state=" + status(level,pos)
+                                + " | f=" + frequency(level,pos) + " | A=" + amplitude(level,pos) + "/15"), true);
+            } else FieldDeviceUi.open(serverPlayer, pos);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }

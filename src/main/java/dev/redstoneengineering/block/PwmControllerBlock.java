@@ -32,6 +32,10 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
     public static final BooleanProperty INVERT = BooleanProperty.create("invert");
     private static final String KEY = "redstone_pwm";
 
+    public record PwmAssessment(int command, int periodTicks, int onTicks, int phase,
+                                int requestedDutyPermille, int effectiveDutyPermille,
+                                int quantizationErrorPermille, boolean inhibited, boolean inverted) {}
+
     public PwmControllerBlock(Properties properties) {
         super(properties);
         registerDefaultState(defaultBlockState().setValue(PERIOD_MODE, 2).setValue(INVERT, false));
@@ -59,9 +63,7 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
     }
 
     @Override
-    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
-            Level level, BlockPos pos, BlockState state, Direction side
-    ) {
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         Direction facing = state.getValue(FACING);
@@ -81,12 +83,12 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
         int period = periodFor(state.getValue(PERIOD_MODE));
         int[] rt = RuntimeIntStore.get(level, KEY, pos, 1);
         int phase = Math.floorMod(rt[0], period);
-        int onTicks = (int) Math.round((input / 15.0) * period);
+        int onTicks = quantizedOnTicks(input, period);
         int output = phase < onTicks ? 15 : 0;
         if (input <= 0) output = 0;
         if (input >= 15) output = 15;
         if (state.getValue(INVERT)) output = output > 0 ? 0 : 15;
-        if (inhibited) output = 0; // safety/control input always wins over inversion
+        if (inhibited) output = 0;
 
         updateOutput(level, pos, state, output);
         if (!inhibited && input > 0 && input < 15) {
@@ -102,6 +104,38 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
         super.onRemove(state, level, pos, newState, moved);
     }
 
+    public static int quantizedOnTicks(int command, int periodTicks) {
+        int boundedCommand = Math.max(0, Math.min(15, command));
+        int boundedPeriod = Math.max(1, periodTicks);
+        return Math.max(0, Math.min(boundedPeriod,
+                (int) Math.round((boundedCommand / 15.0) * boundedPeriod)));
+    }
+
+    public static int requestedDutyPermille(int command) {
+        return (int) Math.round(Math.max(0, Math.min(15, command)) * (1000.0 / 15.0));
+    }
+
+    public static int effectiveDutyPermille(int command, int periodTicks) {
+        int period = Math.max(1, periodTicks);
+        return (int) Math.round(quantizedOnTicks(command, period) * (1000.0 / period));
+    }
+
+    /** Read-only phase projection; diagnostics never create a PWM runtime entry. */
+    public static int phase(Level level, BlockPos pos) {
+        int[] rt = RuntimeIntStore.peek(level, KEY, pos);
+        return rt == null || rt.length != 1 ? 0 : rt[0];
+    }
+
+    public PwmAssessment assessment(Level level, BlockPos pos, BlockState state) {
+        int command = readBackInput(level, pos, state);
+        int period = periodFor(state.getValue(PERIOD_MODE));
+        int requested = requestedDutyPermille(command);
+        int effective = effectiveDutyPermille(command, period);
+        boolean inhibited = readInputFrom(level, pos, leftOf(state.getValue(FACING))) > 0;
+        return new PwmAssessment(command, period, quantizedOnTicks(command, period), phase(level, pos),
+                requested, effective, effective - requested, inhibited, state.getValue(INVERT));
+    }
+
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (!level.isClientSide) {
             BlockState next;
@@ -110,17 +144,18 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
             RuntimeIntStore.get(level, KEY, pos, 1)[0] = 0;
             level.scheduleTick(pos, this, 1);
-            int input = readBackInput(level, pos, next);
-            int duty = (int) Math.round((input / 15.0) * 100.0);
+            PwmAssessment a = assessment(level, pos, next);
             Direction inhibit = leftOf(next.getValue(FACING));
             player.displayClientMessage(Component.literal(
-                    "PWM | command=" + input + "/15 | duty≈" + duty + "% | period=" + periodFor(next.getValue(PERIOD_MODE))
-                            + "t | invert=" + next.getValue(INVERT) + " | INHIBIT=" + inhibit.getName() + " (>0 forces OFF)"), true);
+                    "PWM | command=" + a.command() + "/15 | requested=" + a.requestedDutyPermille()/10.0 + "%"
+                            + " | realized=" + a.onTicks() + "/" + a.periodTicks() + "t=" + a.effectiveDutyPermille()/10.0 + "%"
+                            + " | quantization=" + (a.quantizationErrorPermille() >= 0 ? "+" : "") + a.quantizationErrorPermille()/10.0 + "%"
+                            + " | invert=" + a.inverted() + " | INHIBIT=" + inhibit.getName() + " (>0 forces OFF)"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
 
-    private static int periodFor(int mode) {
+    public static int periodFor(int mode) {
         return switch (mode) { case 0 -> 4; case 1 -> 8; case 2 -> 16; case 3 -> 32; default -> 16; };
     }
 }
