@@ -32,7 +32,7 @@ public class RedundantVoterBlock extends PassiveDirectionalSignalBlock {
     public static final IntegerProperty TOLERANCE = IntegerProperty.create("tolerance",0,3);
     private static final int[] TOL = {0,1,2,4};
     private static final String KEY="redundant_voter";
-    // [spread, degraded, maxSpread, disagreementEvents, previousDisagreement]
+    // [spread, degraded, maxSpread, disagreementEvents, previousDegraded/disagreement]
     private static final int RUNTIME_SIZE = 5;
 
     public RedundantVoterBlock(Properties p){ super(p); registerDefaultState(defaultBlockState().setValue(TOLERANCE,1)); }
