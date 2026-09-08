@@ -26,31 +26,26 @@ import java.util.Optional;
  * System-Level Closure Phase 2 probe.
  *
  * <p>This is intentionally a single diagnostic closed loop before the full Phase 2
- * acceptance matrix is committed. The first continuous-feedback fixture exposed a
- * system-level non-terminating GameTest/update interaction. This probe now follows the
- * intended RSE engineering hierarchy and inserts an explicit sampled-data boundary:
+ * acceptance matrix is committed. It follows the intended RSE engineering hierarchy:
  * measurement -> transport -> conditioning -> sample/hold -> control -> actuation.</p>
  *
- * <p>Production behavior is not changed to make this probe pass.</p>
+ * <p>Production behavior is not changed to make this probe pass. This probe intentionally
+ * uses the normal default GameTest batch so batch infrastructure cannot be confused with
+ * closed-loop plant behavior.</p>
  */
 public final class RseSystemLevelClosurePhase2ProbeGameTests {
     private static final String TEMPLATE = "empty5x4x5";
-    private static final String BATCH = "systemClosurePhase2";
 
     private RseSystemLevelClosurePhase2ProbeGameTests() {}
 
     @PrefixGameTestTemplate(false)
-    @GameTest(batch = BATCH, templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 180)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 180)
     public static void pidServoSensorSampledConditionedFeedbackLoopConverges(GameTestHelper helper) {
-        // Plant line, south -> north: setpoint -> PID -> servo -> position sensor.
         BlockPos setpoint = new BlockPos(3, 1, 4);
         BlockPos pid = new BlockPos(3, 1, 3);
         BlockPos servo = new BlockPos(3, 1, 2);
         BlockPos sensor = new BlockPos(3, 1, 1);
 
-        // Feedback returns around the west edge. Seven dust nodes attenuate by six levels.
-        // OFFSET +5 intentionally leaves at most a one-level residual near SP=8, which is
-        // inside the PID deadband but remains visible as real transport/calibration error.
         BlockPos[] feedback = {
                 new BlockPos(3, 1, 0),
                 new BlockPos(2, 1, 0),
@@ -80,15 +75,13 @@ public final class RseSystemLevelClosurePhase2ProbeGameTests {
         helper.setBlock(conditioner, RedstoneEngineering.SIGNAL_CONDITIONER.get().defaultBlockState()
                 .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
                 .setValue(SignalConditionerBlock.MODE, 1)
-                .setValue(SignalConditionerBlock.PARAM, 10)); // OFFSET +5
+                .setValue(SignalConditionerBlock.PARAM, 10));
         helper.setBlock(sampler, RedstoneEngineering.SAMPLE_HOLD.get().defaultBlockState()
                 .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
-                .setValue(SampleHoldBlock.TRIGGER_MODE, 0)); // rising-edge capture
+                .setValue(SampleHoldBlock.TRIGGER_MODE, 0));
         helper.setBlock(setpoint, reference(Direction.NORTH, 8));
         helper.setBlock(trigger, Blocks.AIR.defaultBlockState());
 
-        // Explicit external sample clock for this probe. Each pulse gives the plant time to
-        // respond before the next PV capture, preventing a combinational feedback path.
         for (int tick : new int[] {8, 20, 32, 44, 56, 68, 80, 92, 104, 116, 128}) {
             pulseSample(helper, trigger, tick);
         }
@@ -99,9 +92,6 @@ public final class RseSystemLevelClosurePhase2ProbeGameTests {
                 helper.fail("Sampled loop did not accumulate expected real capture evidence", sampler);
                 return;
             }
-
-            // Require the loop to remain bounded across another sampled controller/plant window,
-            // not merely cross the target for one lucky tick.
             helper.runAfterDelay(24, () -> {
                 if (!closedLoopNearTarget(helper, pid, servo, sensor, conditioner, sampler, feedback, 8, 1)) return;
                 helper.succeed();
