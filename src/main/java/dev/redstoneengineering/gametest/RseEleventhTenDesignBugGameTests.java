@@ -2,11 +2,12 @@ package dev.redstoneengineering.gametest;
 
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.block.DirectionalDomainBlock;
+import dev.redstoneengineering.block.DirectionalRedstoneEndpointBlock;
 import dev.redstoneengineering.block.DirectionalSignalBlock;
 import dev.redstoneengineering.block.FreeSpaceOpticalReceiverBlock;
-import dev.redstoneengineering.block.HydroacousticExciterBlock;
 import dev.redstoneengineering.block.RadioReceiverBlock;
 import dev.redstoneengineering.block.RadioTransmitterBlock;
+import dev.redstoneengineering.block.RedstoneReferenceSourceBlock;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.FreeSpaceOpticsKernel;
 import dev.redstoneengineering.physics.InformationRuntime;
@@ -201,7 +202,9 @@ public final class RseEleventhTenDesignBugGameTests {
             return;
         }
 
-        helper.setBlock(source, Blocks.REDSTONE_WIRE.defaultBlockState());
+        helper.setBlock(source, RedstoneEngineering.REDSTONE_REFERENCE_SOURCE.get().defaultBlockState()
+                .setValue(DirectionalRedstoneEndpointBlock.FACING, Direction.EAST)
+                .setValue(RedstoneReferenceSourceBlock.POWER, 0));
         var drivenZero = RedstoneEngineering.FREE_SPACE_OPTICAL_TRANSMITTER.get().engineeringSnapshot(
                 helper.getLevel(), world, helper.getBlockState(transmitter), Direction.WEST).orElseThrow();
         var opticalOut = RedstoneEngineering.FREE_SPACE_OPTICAL_TRANSMITTER.get().engineeringSnapshot(
