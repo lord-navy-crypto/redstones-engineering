@@ -34,9 +34,11 @@ Phase 1 adds no gameplay blocks. It exercises five representative multi-block ch
    - device replacement must not inherit transient runtime and re-latch a ghost fault.
 
 5. **Instrument Cable remove / replace lifecycle**
-   - a live link must be physically symmetric and expose symmetric VALID snapshots;
-   - endpoint removal must remove both ghost connectivity and ghost evidence;
-   - replacement must rebuild the link and read-only evidence symmetrically.
+   - a cable-to-cable link must be physically symmetric;
+   - physical connectivity and logical measurement evidence remain separate dimensions;
+   - an empty connected bus correctly reports `NO_SIGNAL` because no probe channel exists;
+   - endpoint removal must remove ghost physical connectivity while the open planar face remains an observable connectable capability with `NO_SIGNAL`;
+   - replacement must rebuild symmetric topology without fabricating `VALID` measurement evidence.
 
 Phase 1 raises the required Minecraft GameTest floor from **317 to 322**.
 
@@ -73,6 +75,7 @@ System-Level Closure preserves the existing product rules:
 - Vanilla-first 0..15 redstone boundary;
 - missing evidence is not a zero measurement;
 - STALE is not VALID;
+- physical topology and active signal evidence are distinct;
 - observer and UI reads must not create runtime state;
 - fault recovery must not inherit ghost runtime;
 - diagnostics must not mutate the plant they observe;
