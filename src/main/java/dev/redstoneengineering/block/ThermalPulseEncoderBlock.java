@@ -10,12 +10,14 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.InformationRuntime;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.ThermalPulseKernel;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.BlockGetter;
@@ -30,6 +32,7 @@ import java.util.Optional;
 
 /** Low-bandwidth redstone-to-phonon pulse encoder. DOWN is drive input. */
 public class ThermalPulseEncoderBlock extends Block implements EngineeringPortProvider {
+    private static final String ENCODER_KEY = "thermal_encoder";
     private static final Direction[] OUTPUTS = {
             Direction.UP, Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST
     };
@@ -58,19 +61,24 @@ public class ThermalPulseEncoderBlock extends Block implements EngineeringPortPr
                 PortKind.CONVERTER, PortDirection.OUTPUT, false, "pulse");
     }
 
+    private static PortQuality packetQuality(InformationRuntime.Snapshot packet) {
+        return packet.valid() && packet.qualityPercent() > 0 && packet.value() > 0
+                ? PortQuality.VALID : PortQuality.NO_SIGNAL;
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(
             Level level, BlockPos pos, BlockState state, Direction side
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        int value = inputValue(level, pos);
         if (side == Direction.DOWN) {
-            return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value, PortQuality.VALID));
+            RedstoneObservationSupport.Observation drive = inputObservation(level, pos);
+            return Optional.of(EngineeringPortSnapshot.redstone(port.get(), drive.value(), drive.quality()));
         }
+        InformationRuntime.Snapshot packet = InformationRuntime.snapshot(level, ENCODER_KEY, pos);
         return Optional.of(new EngineeringPortSnapshot(
-                port.get(), value, 0.0, 15.0,
-                value > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+                port.get(), Math.max(0, Math.min(15, packet.value())), 0.0, 15.0, packetQuality(packet)));
     }
 
     @Override
@@ -80,19 +88,22 @@ public class ThermalPulseEncoderBlock extends Block implements EngineeringPortPr
         return direction != null && direction.getOpposite() == Direction.DOWN;
     }
 
-    private static int inputValue(Level level, BlockPos pos) {
-        return Math.max(0, Math.min(15, level.getSignal(pos.below(), Direction.DOWN)));
+    /** Observer-only input evidence; a configured LOW source is distinct from no source. */
+    public static RedstoneObservationSupport.Observation inputObservation(Level level, BlockPos pos) {
+        return RedstoneObservationSupport.observe(level, pos, Direction.DOWN);
     }
 
     private void updatePulse(Level level, BlockPos pos) {
         if (!(level instanceof ServerLevel serverLevel)) return;
-        int value = inputValue(level, pos);
-        if (value <= 0) {
-            InformationRuntime.clear(level, "thermal_encoder", pos);
+        RedstoneObservationSupport.Observation drive = inputObservation(level, pos);
+        if (!drive.valid() || drive.value() <= 0) {
+            InformationRuntime.clear(level, ENCODER_KEY, pos);
             return;
         }
-        InformationRuntime.write(level, "thermal_encoder", pos, value, 0, true, 100);
-        ThermalPulseKernel.send(serverLevel, pos, value, OUTPUTS);
+        InformationRuntime.write(level, ENCODER_KEY, pos, drive.value(), 0, true, 100);
+        ThermalPulseKernel.send(serverLevel, pos, drive.value(), OUTPUTS);
+        // The converter emits an event packet, not a continuously driven phonon level.
+        serverLevel.scheduleTick(pos, this, 1);
     }
 
     @Override
@@ -110,8 +121,13 @@ public class ThermalPulseEncoderBlock extends Block implements EngineeringPortPr
     }
 
     @Override
+    protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+        InformationRuntime.clear(level, ENCODER_KEY, pos);
+    }
+
+    @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
-        if (!state.is(newState.getBlock())) InformationRuntime.clear(level, "thermal_encoder", pos);
+        if (!state.is(newState.getBlock())) InformationRuntime.clear(level, ENCODER_KEY, pos);
         super.onRemove(state, level, pos, newState, movedByPiston);
     }
 
