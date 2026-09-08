@@ -79,6 +79,31 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
         updateOutput(level, pos, state, output);
     }
 
+    /**
+     * A conditioner has exactly one live signal dependency: its BACK input.
+     *
+     * <p>The generic directional processor base reacts to every neighboring update. That is useful
+     * for multi-port processors, but it is too broad for a single-input combinational conditioner:
+     * in a dynamic closed loop the conditioner can observe its own output-side propagation and keep
+     * re-enqueueing recomputation ticks. Restrict scheduling to the actual input neighbor and coalesce
+     * duplicate pending ticks so one physical input transition produces at most one pending recompute.</p>
+     */
+    @Override
+    protected void neighborChanged(
+            BlockState state,
+            Level level,
+            BlockPos pos,
+            Block neighborBlock,
+            BlockPos neighborPos,
+            boolean movedByPiston
+    ) {
+        if (level.isClientSide) return;
+        if (!neighborPos.equals(pos.relative(inputSide(state)))) return;
+        if (!level.getBlockTicks().hasScheduledTick(pos, this)) {
+            level.scheduleTick(pos, this, 1);
+        }
+    }
+
     private static int calculate(
             int input,
             int previousOutput,
