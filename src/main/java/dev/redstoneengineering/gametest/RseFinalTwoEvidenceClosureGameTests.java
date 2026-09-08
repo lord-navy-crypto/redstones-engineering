@@ -143,9 +143,18 @@ public final class RseFinalTwoEvidenceClosureGameTests {
 
             helper.setBlock(cyclePos, Blocks.REDSTONE_BLOCK.defaultBlockState());
             helper.runAfterDelay(3, () -> {
-                if (OperationsMonitorBlock.cyclesCurrentWindow(helper.getLevel(), world) != 1
-                        || OperationsMonitorBlock.lastCycleTicks(helper.getLevel(), world) != 0) {
-                    helper.fail("First trustworthy cycle pulse should count but must not invent a cycle interval", monitorPos);
+                int cycles = OperationsMonitorBlock.cyclesCurrentWindow(helper.getLevel(), world);
+                int lastCycle = OperationsMonitorBlock.lastCycleTicks(helper.getLevel(), world);
+                var cycleSnapshot = RedstoneEngineering.OPERATIONS_MONITOR.get().engineeringSnapshot(
+                        helper.getLevel(), world, helper.getBlockState(monitorPos), Direction.UP).orElseThrow();
+                var evidence = OperationsMonitorBlock.inputEvidence(helper.getLevel(), world);
+                if (cycles != 1 || lastCycle != 0) {
+                    helper.fail("First trustworthy cycle pulse mismatch"
+                            + " | cycles=" + cycles
+                            + " lastCycle=" + lastCycle
+                            + " cycle=" + cycleSnapshot.value() + "/" + cycleSnapshot.quality()
+                            + " evidenceCycle=" + evidence.cycle().value() + "/" + evidence.cycle().quality()
+                            + " ready=" + evidence.operationalReady(), monitorPos);
                     return;
                 }
 
