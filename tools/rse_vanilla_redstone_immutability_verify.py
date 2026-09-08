@@ -24,7 +24,7 @@ def need(src: str, needle: str, label: str) -> None:
 preservation = read("src/main/java/dev/redstoneengineering/gametest/RseVanillaRedstonePreservationGameTests.java")
 registration = read("src/main/java/dev/redstoneengineering/VanillaRedstoneRuntimeRegistration.java")
 workflow = read(".github/workflows/build.yml")
-doc = read("docs/VANILLA_REDSTONE_ENGINEERING.md")
+status_doc = read("docs/VANILLA_REDSTONE_IMMUTABILITY.md")
 
 required_tests = (
     "vanillaDustAttenuationRemainsFifteenToTwelve",
@@ -44,13 +44,13 @@ if minimum_match is None or int(minimum_match.group(1)) < 317:
     errors.append("build.yml: GameTest floor must be at least 317 after vanilla immutability closure")
 
 for phrase in (
-    "Phase 5 — Optional Optimized Runtime",
-    "explicitly optional",
-    "fail closed to vanilla semantics",
     "Vanilla Immutability Regression Gate",
     "Phase 5 optimized runtime is not active",
+    "explicitly optional",
+    "fail closed to vanilla semantics",
+    "replacement redstone solver",
 ):
-    need(doc, phrase, "VANILLA_REDSTONE_ENGINEERING.md")
+    need(status_doc, phrase, "VANILLA_REDSTONE_IMMUTABILITY.md")
 
 # Hot-path/query production surfaces must stay observation-only. Tests are intentionally excluded:
 # GameTest fixtures are allowed to manipulate vanilla blocks to prove their normal behavior.
