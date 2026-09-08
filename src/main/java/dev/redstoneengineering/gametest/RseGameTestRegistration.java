@@ -36,6 +36,7 @@ public final class RseGameTestRegistration {
         event.register(RseEighthTenDesignBugGameTests.class);
         event.register(RseNinthTenDesignBugGameTests.class);
         event.register(RseTenthTenDesignBugGameTests.class);
+        event.register(RseEleventhTenDesignBugGameTests.class);
         event.register(RseFirstEightAcceptanceGameTests.class);
         event.register(RseSecondEightAcceptanceGameTests.class);
         event.register(RseThirdEightAcceptanceGameTests.class);
