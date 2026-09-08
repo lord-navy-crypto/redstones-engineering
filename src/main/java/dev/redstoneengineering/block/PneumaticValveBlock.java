@@ -8,9 +8,9 @@ import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
-import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.PneumaticNetwork;
+import dev.redstoneengineering.physics.PneumaticObservationSupport;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -68,11 +68,11 @@ public class PneumaticValveBlock extends DirectionalDomainBlock implements Engin
     ) {
         Optional<EngineeringPort> descriptor = engineeringPort(state, side);
         if (descriptor.isEmpty()) return Optional.empty();
-        int pressure = PneumaticNetwork.pressure(level, pos.relative(side));
-        PortQuality portQuality = state.getValue(OPEN)
-                ? (pressure > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL)
-                : PortQuality.VALID;
-        return Optional.of(new EngineeringPortSnapshot(descriptor.get(), pressure, 0.0, 100.0, portQuality));
+        PneumaticObservationSupport.Observation observation =
+                PneumaticObservationSupport.observe(level, pos.relative(side));
+        return Optional.of(new EngineeringPortSnapshot(
+                descriptor.get(), observation.pressure(), 0.0, 100.0, observation.quality()
+        ));
     }
 
     @Override
