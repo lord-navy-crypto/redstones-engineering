@@ -1,10 +1,14 @@
 package dev.redstoneengineering.gametest;
 
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.diagnostics.redstone.VanillaRedstoneRuntimeTelemetry;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.gametest.framework.AfterBatch;
+import net.minecraft.gametest.framework.BeforeBatch;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ComparatorBlock;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
@@ -21,15 +25,26 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  */
 public final class RseVanillaRedstonePreservationGameTests {
     private static final String TEMPLATE = "empty5x4x5";
+    private static final String BATCH = "vanillaImmutability";
 
     private RseVanillaRedstonePreservationGameTests() {}
+
+    @BeforeBatch(batch = BATCH)
+    public static void beforeVanillaImmutabilityBatch(ServerLevel level) {
+        VanillaRedstoneRuntimeTelemetry.clear(level);
+    }
+
+    @AfterBatch(batch = BATCH)
+    public static void afterVanillaImmutabilityBatch(ServerLevel level) {
+        VanillaRedstoneRuntimeTelemetry.clear(level);
+    }
 
     private static void support(GameTestHelper helper, BlockPos pos) {
         helper.setBlock(pos.below(), Blocks.STONE.defaultBlockState());
     }
 
     @PrefixGameTestTemplate(false)
-    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 50)
+    @GameTest(batch = BATCH, templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 50)
     public static void vanillaDustAttenuationRemainsFifteenToTwelve(GameTestHelper helper) {
         BlockPos source = new BlockPos(0, 1, 2);
         BlockPos d1 = new BlockPos(1, 1, 2);
@@ -61,7 +76,7 @@ public final class RseVanillaRedstonePreservationGameTests {
     }
 
     @PrefixGameTestTemplate(false)
-    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 60)
+    @GameTest(batch = BATCH, templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 60)
     public static void vanillaRepeaterDelayFourDoesNotFireEarly(GameTestHelper helper) {
         BlockPos source = new BlockPos(1, 1, 2);
         BlockPos repeater = new BlockPos(2, 1, 2);
@@ -101,7 +116,7 @@ public final class RseVanillaRedstonePreservationGameTests {
     }
 
     @PrefixGameTestTemplate(false)
-    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 60)
+    @GameTest(batch = BATCH, templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 60)
     public static void vanillaComparatorCompareAndSubtractRemainDistinct(GameTestHelper helper) {
         BlockPos compare = new BlockPos(2, 1, 1);
         BlockPos compareRear = new BlockPos(1, 1, 1);
@@ -148,7 +163,7 @@ public final class RseVanillaRedstonePreservationGameTests {
     }
 
     @PrefixGameTestTemplate(false)
-    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 60)
+    @GameTest(batch = BATCH, templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 60)
     public static void vanillaObserverPulseStillReturnsLow(GameTestHelper helper) {
         BlockPos observed = new BlockPos(1, 1, 2);
         BlockPos observer = new BlockPos(2, 1, 2);
@@ -177,7 +192,7 @@ public final class RseVanillaRedstonePreservationGameTests {
     }
 
     @PrefixGameTestTemplate(false)
-    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 60)
+    @GameTest(batch = BATCH, templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 60)
     public static void vanillaPistonDirectPowerStillExtendsAndRetracts(GameTestHelper helper) {
         BlockPos source = new BlockPos(1, 1, 2);
         BlockPos piston = new BlockPos(2, 1, 2);
