@@ -62,7 +62,7 @@ public class FreeSpaceOpticalTransmitterBlock extends DirectionalDomainBlock imp
         );
     }
 
-    public static RedstoneObservationSupport.Observation inputObservation(
+    public RedstoneObservationSupport.Observation inputObservation(
             Level level, BlockPos pos, BlockState state
     ) {
         return RedstoneObservationSupport.observe(level, pos, inputSide(state));
