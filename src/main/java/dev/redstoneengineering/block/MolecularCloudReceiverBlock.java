@@ -30,11 +30,13 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
 
-/** Molecular/tracer cloud sensor with a bounded filtered runtime and explicit free-space sensing aperture. */
+/** Molecular/tracer cloud sensor with bounded filtering and explicit free-space coverage evidence. */
 public class MolecularCloudReceiverBlock extends PassiveDirectionalSignalBlock {
     public static final IntegerProperty SENSITIVITY = IntegerProperty.create("sensitivity", 0, 3);
     private static final int[] GAIN = {6, 9, 12, 16};
     private static final String KEY = "molecular_sensor";
+    private static final int RUNTIME_SIZE = 4; // filtered, raw target, peak, initialized
+    private static final double APERTURE_RADIUS = 8.0;
 
     public MolecularCloudReceiverBlock(Properties properties) {
         super(properties);
@@ -76,18 +78,72 @@ public class MolecularCloudReceiverBlock extends PassiveDirectionalSignalBlock {
         );
     }
 
+    public record CloudSample(int value, boolean complete) {}
+
+    private static boolean apertureLoaded(Level level, BlockPos pos) {
+        int minX = (int) Math.floor(pos.getX() - APERTURE_RADIUS);
+        int maxX = (int) Math.floor(pos.getX() + APERTURE_RADIUS);
+        int minZ = (int) Math.floor(pos.getZ() - APERTURE_RADIUS);
+        int maxZ = (int) Math.floor(pos.getZ() + APERTURE_RADIUS);
+        int y = pos.getY();
+        return level.hasChunkAt(new BlockPos(minX, y, minZ))
+                && level.hasChunkAt(new BlockPos(minX, y, maxZ))
+                && level.hasChunkAt(new BlockPos(maxX, y, minZ))
+                && level.hasChunkAt(new BlockPos(maxX, y, maxZ));
+    }
+
+    /** Live free-space sample. Complete empty coverage is a legitimate measured zero. */
+    public static CloudSample sample(Level level, BlockPos pos, BlockState state) {
+        if (!apertureLoaded(level, pos)) return new CloudSample(0, false);
+        var clouds = level.getEntitiesOfClass(AreaEffectCloud.class, new AABB(pos).inflate(APERTURE_RADIUS));
+        double concentration = 0.0;
+        for (AreaEffectCloud cloud : clouds) {
+            concentration += Math.max(0.0, cloud.getRadius())
+                    / (1.0 + cloud.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5));
+        }
+        int value = Math.min(15, (int) Math.round(concentration * GAIN[state.getValue(SENSITIVITY)]));
+        return new CloudSample(value, true);
+    }
+
+    public static int raw(Level level, BlockPos pos, BlockState state) {
+        return sample(level, pos, state).value();
+    }
+
+    /** Observer-only retained reading; inspection never allocates sensor runtime. */
+    public static int filtered(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length < 1 ? 0 : runtime[0];
+    }
+
+    public static int peak(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length < 3 ? 0 : runtime[2];
+    }
+
+    public static boolean sampled(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime != null && runtime.length >= RUNTIME_SIZE && runtime[3] != 0;
+    }
+
+    private static PortQuality outputQuality(Level level, BlockPos pos, BlockState state) {
+        if (!sampled(level, pos)) return PortQuality.STALE;
+        return sample(level, pos, state).complete() ? PortQuality.VALID : PortQuality.STALE;
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(
             Level level, BlockPos pos, BlockState state, Direction side
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
+        CloudSample live = sample(level, pos, state);
         if (side == Direction.UP) {
             return Optional.of(new EngineeringPortSnapshot(
-                    port.get(), raw(level, pos, state), 0.0, 15.0, PortQuality.VALID));
+                    port.get(), live.value(), 0.0, 15.0,
+                    live.complete() ? PortQuality.VALID : PortQuality.STALE));
         }
         return Optional.of(EngineeringPortSnapshot.redstone(
-                port.get(), state.getValue(OUTPUT), PortQuality.VALID));
+                port.get(), state.getValue(OUTPUT), outputQuality(level, pos, state)));
     }
 
     @Override
@@ -95,20 +151,6 @@ public class MolecularCloudReceiverBlock extends PassiveDirectionalSignalBlock {
             BlockState state, BlockGetter level, BlockPos pos, @Nullable Direction direction
     ) {
         return direction != null && direction.getOpposite() == outputSide(state);
-    }
-
-    public static int raw(Level level, BlockPos pos, BlockState state) {
-        var clouds = level.getEntitiesOfClass(AreaEffectCloud.class, new AABB(pos).inflate(8.0));
-        double concentration = 0.0;
-        for (AreaEffectCloud cloud : clouds) {
-            concentration += Math.max(0.0, cloud.getRadius())
-                    / (1.0 + cloud.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5));
-        }
-        return Math.min(15, (int) Math.round(concentration * GAIN[state.getValue(SENSITIVITY)]));
-    }
-
-    public static int filtered(Level level, BlockPos pos) {
-        return RuntimeIntStore.get(level, KEY, pos, 3)[0];
     }
 
     @Override
@@ -130,13 +172,18 @@ public class MolecularCloudReceiverBlock extends PassiveDirectionalSignalBlock {
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        int[] runtime = RuntimeIntStore.get(level, KEY, pos, 3); // filtered, raw target, peak
-        int target = raw(level, pos, state);
-        if (runtime[0] < target) runtime[0]++;
-        else if (runtime[0] > target) runtime[0]--;
-        runtime[1] = target;
-        runtime[2] = Math.max(runtime[2], runtime[0]);
-        updateOutput(level, pos, state, runtime[0]);
+        CloudSample live = sample(level, pos, state);
+        if (live.complete()) {
+            int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
+            int target = live.value();
+            if (runtime[0] < target) runtime[0]++;
+            else if (runtime[0] > target) runtime[0]--;
+            runtime[1] = target;
+            runtime[2] = Math.max(runtime[2], runtime[0]);
+            runtime[3] = 1;
+            updateOutput(level, pos, state, runtime[0]);
+        }
+        // Incomplete coverage retains the last trustworthy filtered value and marks it STALE.
         level.scheduleTick(pos, this, 5);
     }
 
@@ -155,12 +202,13 @@ public class MolecularCloudReceiverBlock extends PassiveDirectionalSignalBlock {
                 BlockState next = state.setValue(SENSITIVITY, sensitivity);
                 level.setBlock(pos, next, Block.UPDATE_CLIENTS);
                 level.scheduleTick(pos, this, 1);
-                int[] runtime = RuntimeIntStore.get(level, KEY, pos, 3);
+                CloudSample live = sample(level, pos, next);
                 player.displayClientMessage(Component.literal(
                         "Molecular receiver | UP free-space aperture | sensitivity=" + sensitivity
-                                + " | filtered=" + runtime[0]
-                                + " | raw=" + raw(level, pos, next)
-                                + " | peak=" + runtime[2]
+                                + " | filtered=" + filtered(level, pos)
+                                + " | raw=" + live.value()
+                                + " | coverage=" + (live.complete() ? "COMPLETE" : "STALE")
+                                + " | peak=" + peak(level, pos)
                                 + " | FRONT REDSTONE OUT=" + outputSide(next).getName()), true);
             }
         }
