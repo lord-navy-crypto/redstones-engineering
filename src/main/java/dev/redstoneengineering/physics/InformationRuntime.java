@@ -30,6 +30,10 @@ public final class InformationRuntime {
             int ageTicks
     ) {}
 
+    /**
+     * Mutable/allocating payload access reserved for authoritative writers.
+     * Observer code should use snapshot() or the scalar read helpers below.
+     */
     public static int[] payload(Level level, String medium, BlockPos pos) {
         // [0]=payload, [1]=medium selector, [2]=valid, [3]=quality, [4]=last-update tick + 1.
         return RuntimeIntStore.get(level, "info:" + medium, pos, RUNTIME_SIZE);
@@ -52,8 +56,9 @@ public final class InformationRuntime {
         runtime[LAST_UPDATE_STAMP] = encodeTick(level.getGameTime());
     }
 
+    /** Observer-neutral scalar read; absent runtime is a numeric zero, not an implicit write. */
     public static int value(Level level, String medium, BlockPos pos) {
-        return payload(level, medium, pos)[VALUE];
+        return snapshot(level, medium, pos).value();
     }
 
     /** Compatibility alias retained for existing channel/frequency/period callers. */
@@ -61,16 +66,19 @@ public final class InformationRuntime {
         return selector(level, medium, pos);
     }
 
+    /** Observer-neutral scalar read; absent runtime is selector zero. */
     public static int selector(Level level, String medium, BlockPos pos) {
-        return payload(level, medium, pos)[SELECTOR];
+        return snapshot(level, medium, pos).selector();
     }
 
+    /** Observer-neutral validity read; an endpoint that has never been written is invalid. */
     public static boolean valid(Level level, String medium, BlockPos pos) {
-        return payload(level, medium, pos)[VALID] != 0;
+        return snapshot(level, medium, pos).valid();
     }
 
+    /** Observer-neutral quality read; an endpoint that has never been written has zero quality. */
     public static int quality(Level level, String medium, BlockPos pos) {
-        return payload(level, medium, pos)[QUALITY];
+        return snapshot(level, medium, pos).qualityPercent();
     }
 
     /**
