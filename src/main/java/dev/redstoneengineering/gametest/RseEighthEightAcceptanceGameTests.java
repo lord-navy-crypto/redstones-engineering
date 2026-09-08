@@ -275,7 +275,9 @@ public final class RseEighthEightAcceptanceGameTests {
     public static void operationsMonitorIsObserverOnlyAndClassifiesBlockedWork(GameTestHelper helper) {
         BlockPos monitorPos = new BlockPos(2, 1, 2);
         BlockPos queuePos = monitorPos.north();
+        BlockPos runPos = monitorPos.below();
         helper.setBlock(queuePos, Blocks.REDSTONE_BLOCK.defaultBlockState());
+        helper.setBlock(runPos, Blocks.REDSTONE_WIRE.defaultBlockState());
         helper.setBlock(monitorPos, RedstoneEngineering.OPERATIONS_MONITOR.get().defaultBlockState());
 
         helper.runAfterDelay(5, () -> {
@@ -287,11 +289,12 @@ public final class RseEighthEightAcceptanceGameTests {
                 return;
             }
             BlockPos world = helper.absolutePos(monitorPos);
-            if (OperationsMonitorBlock.queueNow(helper.getLevel(), world) != 15
+            if (!OperationsMonitorBlock.monitoringReady(helper.getLevel(), world)
+                    || OperationsMonitorBlock.queueNow(helper.getLevel(), world) != 15
                     || OperationsMonitorBlock.running(helper.getLevel(), world)
                     || OperationsMonitorBlock.stateOrdinal(helper.getLevel(), world)
                     != OperationsMonitorBlock.SystemState.SAFETY_LIMITED.ordinal()) {
-                helper.fail("Stopped machine with queued work was not classified SAFETY_LIMITED", monitorPos);
+                helper.fail("Explicitly stopped machine with queued work was not classified SAFETY_LIMITED", monitorPos);
                 return;
             }
             helper.succeed();

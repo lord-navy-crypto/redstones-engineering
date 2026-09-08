@@ -8,6 +8,7 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
@@ -53,21 +54,33 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock {
         );
     }
 
+    private static RedstoneObservationSupport.Observation observeInput(
+            Level level, BlockPos pos, Direction side
+    ) {
+        return RedstoneObservationSupport.observe(level, pos, side);
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         Direction front = outputSide(state);
-        int value = side == front ? state.getValue(OUTPUT) : readInputFrom(level, pos, side);
-        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value,
-                side == front && latched(level, pos) ? PortQuality.FAULT : PortQuality.VALID));
+        if (side == front) {
+            return Optional.of(EngineeringPortSnapshot.redstone(
+                    port.get(), state.getValue(OUTPUT),
+                    latched(level, pos) ? PortQuality.FAULT : PortQuality.VALID));
+        }
+        RedstoneObservationSupport.Observation observation = observeInput(level, pos, side);
+        return Optional.of(EngineeringPortSnapshot.redstone(
+                port.get(), observation.value(), observation.quality()));
     }
 
     @Override
     protected int computeOutput(Level level, BlockPos pos, BlockState state) {
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
-        int reset = readInputFrom(level, pos, rightOf(outputSide(state)));
-        boolean resetHigh = reset > 0;
+        RedstoneObservationSupport.Observation resetObservation =
+                observeInput(level, pos, rightOf(outputSide(state)));
+        boolean resetHigh = resetObservation.valid() && resetObservation.value() > 0;
 
         // RESET is edge-counted, level-enforced, and has priority over FAULT.
         // A held reset cannot inflate counters or allow same-tick re-latching.
@@ -79,8 +92,11 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock {
         }
         runtime[3] = 0;
 
-        int fault = readBackInput(level, pos, state);
-        if (fault >= thresholdValue(state.getValue(THRESHOLD)) && runtime[0] == 0) {
+        RedstoneObservationSupport.Observation faultObservation =
+                observeInput(level, pos, inputSide(state));
+        if (faultObservation.valid()
+                && faultObservation.value() >= thresholdValue(state.getValue(THRESHOLD))
+                && runtime[0] == 0) {
             runtime[0] = 1;
             runtime[1]++;
         }

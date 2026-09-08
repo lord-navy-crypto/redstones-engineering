@@ -8,7 +8,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
-/** Dedicated observer-only IOE console with bounded plant event, incident, and reliability evidence. */
+/** Dedicated observer-only IOE console with bounded plant event, incident, reliability and input-evidence status. */
 public final class OperationsMonitorScreen extends EngineeringScreen<OperationsMonitorMenu> {
     private static final int EVENT_CELL_WIDTH = 33;
     private static final int EVENT_CELL_GAP = 2;
@@ -29,19 +29,38 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
     }
 
     private void renderOverview(GuiGraphics graphics) {
-        statusBadge(graphics, "OPERATIONS • " + menu.state().name(), stateColor(menu.state()), 16, 80);
-        labelValue(graphics, "Queue / WIP", menu.queue() + " / 15", 105);
-        labelValue(graphics, "Queue pressure", menu.queuePressurePercent() + "%", 121);
-        labelValue(graphics, "Throughput last60s", menu.throughput() + " cycles/min", 137);
-        labelValue(graphics, "Downtime", formatTicks(menu.downtimeTicks()), 153);
-        statusLine(graphics, "Dominant constraint", menu.dominantConstraint().name(), constraintColor(menu.dominantConstraint()), 169);
+        if (menu.telemetryReady()) {
+            statusBadge(graphics, "OPERATIONS • " + menu.state().name(), stateColor(menu.state()), 16, 78);
+        } else {
+            statusBadge(graphics, "TELEMETRY • INCOMPLETE", WARN, 16, 78);
+        }
+        statusLine(graphics, "Evidence", evidenceText(), menu.telemetryReady() ? GOOD : WARN, 99);
+        labelValue(graphics, "Queue / WIP", menu.queue() + " / 15", 116);
+        labelValue(graphics, "Queue pressure", menu.queuePressurePercent() + "%", 132);
+        labelValue(graphics, "Throughput last60s", menu.throughput() + " cycles/min", 148);
+        labelValue(graphics, "Downtime", formatTicks(menu.downtimeTicks()), 164);
+        statusLine(graphics, "Dominant constraint", menu.dominantConstraint().name(), constraintColor(menu.dominantConstraint()), 180);
     }
 
     private void renderPorts(GuiGraphics graphics) {
-        statusLine(graphics, "DOWN", "MACHINE RUNNING • MEASUREMENT INPUT", GOOD, 88);
-        statusLine(graphics, "UP", "COMPLETED-CYCLE • TRIGGER INPUT", GOOD, 108);
-        statusLine(graphics, "N / S / E / W", "QUEUE / WIP • MEASUREMENT INPUTS", INFO, 128);
-        graphics.drawString(font, "Observer-only: this block measures operations state and never drives the plant.", 16, 154, MUTED, false);
+        statusLine(graphics, "DOWN • MACHINE RUNNING",
+                menu.runEvidenceValid() ? "VALID SOURCE" : "NO TRUSTWORTHY SOURCE",
+                menu.runEvidenceValid() ? GOOD : WARN, 84);
+        statusLine(graphics, "UP • CYCLE PULSE",
+                menu.cycleEvidenceValid() ? "VALID SOURCE" : "OPTIONAL / UNAVAILABLE",
+                menu.cycleEvidenceValid() ? GOOD : INFO, 104);
+        statusLine(graphics, "N / S / E / W • QUEUE",
+                menu.queueEvidenceSources() + " VALID SOURCE(S)",
+                menu.queueEvidenceSources() > 0 ? GOOD : WARN, 124);
+        graphics.drawString(font,
+                "KPIs advance only while RUN + at least one QUEUE source are trustworthy.",
+                16, 150, TEXT, false);
+        graphics.drawString(font,
+                "Cycle timing requires observed LOW→HIGH edges; missing coverage breaks timing continuity.",
+                16, 168, MUTED, false);
+        graphics.drawString(font,
+                "Observer-only: this block measures operations state and never drives the plant.",
+                16, 186, MUTED, false);
     }
 
     private void renderConfigure(GuiGraphics graphics) {
@@ -52,16 +71,18 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
-        statusLine(graphics, "System state", menu.state().name(), stateColor(menu.state()), 78);
-        statusLine(graphics, "Latest incident", menu.incidentPresent() ? "EVIDENCE AVAILABLE" : "NONE", menu.incidentPresent() ? WARN : GOOD, 94);
-        labelValue(graphics, "First-out source", menu.incidentPresent() ? firstOutLocation() : "—", 110);
-        labelValue(graphics, "Incident span", menu.incidentPresent() ? formatTicks(menu.incidentDurationTicks()) : "—", 126);
-        labelValue(graphics, "Follow-up evidence", menu.incidentPresent() ? evidenceText() : "0", 142);
-        labelValue(graphics, "Electrical trips / recovered", menu.electricalTripCount() + " / " + menu.electricalRecoveryCount(), 158);
-        labelValue(graphics, "Electrical downtime", formatTicks(menu.electricalDowntimeTicks()), 174);
-        labelValue(graphics, "Protection status", protectionText(), 190);
+        statusLine(graphics, "Telemetry", menu.telemetryReady() ? "READY" : "INCOMPLETE",
+                menu.telemetryReady() ? GOOD : WARN, 78);
+        statusLine(graphics, "System state", menu.state().name(), stateColor(menu.state()), 94);
+        statusLine(graphics, "Latest incident", menu.incidentPresent() ? "EVIDENCE AVAILABLE" : "NONE", menu.incidentPresent() ? WARN : GOOD, 110);
+        labelValue(graphics, "First-out source", menu.incidentPresent() ? firstOutLocation() : "—", 126);
+        labelValue(graphics, "Incident span", menu.incidentPresent() ? formatTicks(menu.incidentDurationTicks()) : "—", 142);
+        labelValue(graphics, "Follow-up evidence", menu.incidentPresent() ? incidentEvidenceText() : "0", 158);
+        labelValue(graphics, "Electrical trips / recovered", menu.electricalTripCount() + " / " + menu.electricalRecoveryCount(), 174);
+        labelValue(graphics, "Electrical downtime", formatTicks(menu.electricalDowntimeTicks()), 190);
+        labelValue(graphics, "Protection status", protectionText(), 206);
         graphics.drawString(font, "Evidence metrics only • MTBF/MTTR withheld until durable exposure + maintenance semantics exist.",
-                16, 207, MUTED, false);
+                16, 223, MUTED, false);
     }
 
     private void renderHistory(GuiGraphics graphics) {
@@ -95,6 +116,12 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
     }
 
     private String evidenceText() {
+        return (menu.runEvidenceValid() ? "RUN ✓" : "RUN missing")
+                + " • QUEUE sources " + menu.queueEvidenceSources()
+                + " • " + (menu.cycleEvidenceValid() ? "CYCLE ✓" : "CYCLE optional");
+    }
+
+    private String incidentEvidenceText() {
         return menu.downstreamObservations() + " downstream • "
                 + menu.abnormalDownstreamObservations() + " abnormal • trace "
                 + menu.evidenceTraceEntries() + "/12";

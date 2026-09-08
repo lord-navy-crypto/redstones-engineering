@@ -29,6 +29,10 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
     private final DataSlot state = trackedInt();
     private final DataSlot queuePressure = trackedInt();
     private final DataSlot dominantConstraint = trackedInt();
+    private final DataSlot telemetryReady = trackedInt();
+    private final DataSlot runEvidenceValid = trackedInt();
+    private final DataSlot queueEvidenceSources = trackedInt();
+    private final DataSlot cycleEvidenceValid = trackedInt();
 
     private final DataSlot retainedEvents = trackedInt();
     private final DataSlot recentEvents = trackedInt();
@@ -81,6 +85,7 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
         OperationsIncidentSummary incident = OperationsIncidentSummary.inspect(level, blockPos, dashboard);
         ElectricalReliabilityAssessment.Snapshot electrical =
                 ElectricalReliabilityAssessment.inspect(level, dashboard.eventScope());
+        OperationsMonitorBlock.InputEvidence evidence = OperationsMonitorBlock.inputEvidence(level, blockPos);
 
         queue.set(operations.queueNow());
         throughput.set(operations.throughputCyclesPerMinute());
@@ -88,6 +93,10 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
         state.set(operations.state().ordinal());
         queuePressure.set(operations.queuePressurePercent());
         dominantConstraint.set(operations.dominantConstraint().ordinal());
+        telemetryReady.set(evidence.operationalReady() ? 1 : 0);
+        runEvidenceValid.set(evidence.run().valid() ? 1 : 0);
+        queueEvidenceSources.set(evidence.queueSources());
+        cycleEvidenceValid.set(evidence.cycle().valid() ? 1 : 0);
 
         retainedEvents.set(dashboard.retainedEvents());
         recentEvents.set(dashboard.recentEvents());
@@ -149,6 +158,10 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
     public int throughput() { return throughput.get(); }
     public int downtimeTicks() { return downtime.get(); }
     public int queuePressurePercent() { return queuePressure.get(); }
+    public boolean telemetryReady() { return telemetryReady.get() != 0; }
+    public boolean runEvidenceValid() { return runEvidenceValid.get() != 0; }
+    public int queueEvidenceSources() { return queueEvidenceSources.get(); }
+    public boolean cycleEvidenceValid() { return cycleEvidenceValid.get() != 0; }
     public int retainedEvents() { return retainedEvents.get(); }
     public int recentEvents() { return recentEvents.get(); }
     public int recentAbnormalEvents() { return recentAbnormalEvents.get(); }
