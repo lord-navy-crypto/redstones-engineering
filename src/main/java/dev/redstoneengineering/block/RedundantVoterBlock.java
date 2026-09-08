@@ -8,6 +8,7 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
@@ -26,12 +27,12 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-/** 2-out-of-3 analog voter: median output plus disagreement diagnostics. */
+/** 2-out-of-3 analog voter: source-aware median/consensus output plus disagreement diagnostics. */
 public class RedundantVoterBlock extends PassiveDirectionalSignalBlock {
     public static final IntegerProperty TOLERANCE = IntegerProperty.create("tolerance",0,3);
     private static final int[] TOL = {0,1,2,4};
     private static final String KEY="redundant_voter";
-    // [spread, degraded, maxSpread, disagreementEvents, previousDegraded]
+    // [spread, degraded, maxSpread, disagreementEvents, previousDegraded/disagreement]
     private static final int RUNTIME_SIZE = 5;
 
     public RedundantVoterBlock(Properties p){ super(p); registerDefaultState(defaultBlockState().setValue(TOLERANCE,1)); }
@@ -56,33 +57,67 @@ public class RedundantVoterBlock extends PassiveDirectionalSignalBlock {
                 PortKind.MEASUREMENT, PortDirection.INPUT, true, "signal");
     }
 
+    public record Vote(int value, PortQuality quality, int validInputs, int spread) {}
+
+    private RedstoneObservationSupport.Observation observation(Level level, BlockPos pos, Direction side) {
+        return RedstoneObservationSupport.observe(level, pos, side);
+    }
+
+    /** Observer-only 2oo3 decision; source presence and numerical zero remain separate facts. */
+    public Vote vote(Level level, BlockPos pos, BlockState state) {
+        Direction front = outputSide(state);
+        RedstoneObservationSupport.Observation[] observations = {
+                observation(level, pos, inputSide(state)),
+                observation(level, pos, leftOf(front)),
+                observation(level, pos, rightOf(front))
+        };
+
+        int[] values = new int[3];
+        int valid = 0;
+        boolean anyStale = false;
+        for (RedstoneObservationSupport.Observation observation : observations) {
+            if (observation.quality() == PortQuality.STALE) anyStale = true;
+            if (observation.valid()) values[valid++] = observation.value();
+        }
+        if (valid < 2) {
+            return new Vote(0, anyStale ? PortQuality.STALE : PortQuality.NO_SIGNAL, valid, 0);
+        }
+
+        Arrays.sort(values, 0, valid);
+        int spread = values[valid - 1] - values[0];
+        int voted = valid == 3 ? values[1] : (values[0] + values[1] + 1) / 2;
+        boolean healthy = valid == 3 && spread <= toleranceValue(state.getValue(TOLERANCE));
+        return new Vote(voted, healthy ? PortQuality.VALID : PortQuality.FAULT, valid, spread);
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         Direction front = outputSide(state);
-        int value = side == front ? state.getValue(OUTPUT) : readInputFrom(level, pos, side);
+        if (side == front) {
+            Vote vote = vote(level, pos, state);
+            return Optional.of(EngineeringPortSnapshot.redstone(
+                    port.get(), state.getValue(OUTPUT), vote.quality()));
+        }
+        RedstoneObservationSupport.Observation observation = observation(level, pos, side);
         return Optional.of(EngineeringPortSnapshot.redstone(
-                port.get(), value, degraded(level, pos) ? PortQuality.FAULT : PortQuality.VALID));
+                port.get(), observation.value(), observation.quality()));
     }
-
-    private int[] inputs(Level l,BlockPos p,BlockState s){Direction f=outputSide(s),a=inputSide(s),b=leftOf(f),c=rightOf(f);return new int[]{readInputFrom(l,p,a),readInputFrom(l,p,b),readInputFrom(l,p,c)};}
 
     @Override
     protected int computeOutput(Level level, BlockPos pos, BlockState state) {
-        int[] raw = inputs(level, pos, state);
-        int[] sorted = raw.clone();
-        Arrays.sort(sorted);
-        int spread = sorted[2] - sorted[0];
+        Vote vote = vote(level, pos, state);
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
-        boolean degradedNow = spread > toleranceValue(state.getValue(TOLERANCE));
+        boolean degradedNow = vote.quality() != PortQuality.VALID;
+        boolean disagreementNow = vote.quality() == PortQuality.FAULT;
 
-        runtime[0] = spread;
+        runtime[0] = vote.spread();
         runtime[1] = degradedNow ? 1 : 0;
-        runtime[2] = Math.max(runtime[2], spread);
-        if (degradedNow && runtime[4] == 0) runtime[3]++;
-        runtime[4] = degradedNow ? 1 : 0;
-        return sorted[1];
+        runtime[2] = Math.max(runtime[2], vote.spread());
+        if (disagreementNow && runtime[4] == 0) runtime[3]++;
+        runtime[4] = disagreementNow ? 1 : 0;
+        return vote.value();
     }
 
     public static int toleranceValue(int index) { return TOL[Math.max(0, Math.min(TOL.length - 1, index))]; }

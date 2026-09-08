@@ -98,6 +98,8 @@ contracts = {
         "implements EngineeringPortProvider",
         "EngineeringDomain.PHONON_THERMAL",
         "PACKET_TTL_TICKS",
+        'InformationRuntime.snapshot(level, "thermal_pulse", pos)',
+        "packetQuality",
         'InformationRuntime.clear(level, "thermal_pulse"',
         "FieldDeviceUi.open",
     ),
@@ -105,6 +107,8 @@ contracts = {
         "implements EngineeringPortProvider",
         "EngineeringDomain.PHONON_THERMAL",
         '"REDSTONE DRIVE", Direction.DOWN',
+        "RedstoneObservationSupport.observe",
+        'InformationRuntime.snapshot(level, ENCODER_KEY, pos)',
         "neighborPos.equals(pos.below())",
         "ThermalPulseKernel.send",
         "FieldDeviceUi.open",
@@ -113,7 +117,10 @@ contracts = {
         "EngineeringDomain.PHONON_THERMAL",
         '"THERMAL PULSE IN"',
         '"REDSTONE OUT"',
-        'InformationRuntime.valid(level, "thermal_pulse"',
+        'InformationRuntime.snapshot(level, "thermal_pulse", pos)',
+        "packetQuality",
+        "if (next == 0)",
+        'InformationRuntime.clear(level, "thermal_pulse"',
         "FieldDeviceUi.open",
     ),
 }
@@ -198,7 +205,7 @@ print("RSE seventh-eight acoustic/thermal-wave verification: PASS")
 print("  explicit hydroacoustic + phonon-thermal domains: PASS")
 print("  directional source/receiver arrival contracts: PASS")
 print("  honey damping + bounded transient wave lifetime: PASS")
-print("  hydro coherent packet evidence + expiry lifecycle: PASS")
+print("  hydro + thermal coherent packet evidence and expiry lifecycle: PASS")
 print("  sculk event telemetry lifecycle: PASS")
 print("  Field Device Inspector kinds 32-39: PASS")
 print("  eight executable seventh-batch GameTests registered: PASS")

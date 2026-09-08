@@ -10,6 +10,7 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import dev.redstoneengineering.visualization.MechatronicsVisualState;
@@ -89,6 +90,11 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
         );
     }
 
+    /** Observer-only electrical evidence for the selected physical control face. */
+    public static RedstoneObservationSupport.Observation controlObservation(Level level, BlockPos pos, Direction side) {
+        return RedstoneObservationSupport.observe(level, pos, side);
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
@@ -97,7 +103,9 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
         if (side == front) {
             return Optional.of(new EngineeringPortSnapshot(port.get(), position(level, pos), 0.0, 15.0, PortQuality.VALID));
         }
-        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), read(level, pos, side), PortQuality.VALID));
+        RedstoneObservationSupport.Observation observation = controlObservation(level, pos, side);
+        return Optional.of(EngineeringPortSnapshot.redstone(
+                port.get(), observation.value(), observation.quality()));
     }
 
     @Override
@@ -108,7 +116,6 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
         return physical == front.getOpposite() || physical == rightOf(front) || physical == Direction.UP;
     }
 
-    private static int read(Level l, BlockPos p, Direction d) { return clamp(l.getSignal(p.relative(d), d), 0, 15); }
     private static int approach(int value, int target, int step) { if (value < target) return Math.min(target, value + step); if (value > target) return Math.max(target, value - step); return value; }
     private static int clamp(int value, int lo, int hi) { return Math.max(lo, Math.min(hi, value)); }
 
@@ -150,12 +157,20 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
         Direction front = s.getValue(FACING);
         Direction back = front.getOpposite();
         Direction right = rightOf(front);
-        int command = read(l, p, back);
-        int mode = read(l, p, Direction.UP) > 0 ? VELOCITY_MODE : POSITION_MODE;
-        boolean brake = read(l, p, right) > 0;
+
+        RedstoneObservationSupport.Observation commandInput = controlObservation(l, p, back);
+        RedstoneObservationSupport.Observation modeInput = controlObservation(l, p, Direction.UP);
+        RedstoneObservationSupport.Observation brakeInput = controlObservation(l, p, right);
+
+        boolean commandAvailable = commandInput.valid();
+        int command = commandInput.value();
+        int effectiveCommand = commandAvailable ? command : r[0];
+        int mode = commandAvailable && modeInput.valid() && modeInput.value() > 0
+                ? VELOCITY_MODE : POSITION_MODE;
+        boolean brake = !commandAvailable || (brakeInput.valid() && brakeInput.value() > 0);
         int now = (int) Math.min(Integer.MAX_VALUE, l.getGameTime());
 
-        if (command != r[1] || mode != r[13]) { r[6]++; r[7] = now; r[8] = r[0]; r[9] = command; r[10] = 0; r[11] = 0; }
+        if (command != r[1] || mode != r[13]) { r[6]++; r[7] = now; r[8] = r[0]; r[9] = effectiveCommand; r[10] = 0; r[11] = 0; }
         r[1] = command; r[4] = brake ? 1 : 0; r[13] = mode;
 
         int oldPosition = r[0];
@@ -164,10 +179,10 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
         int velocityCommand = 0;
         if (brake) appliedVelocity = 0;
         else if (mode == VELOCITY_MODE) {
-            velocityCommand = command - 7;
+            velocityCommand = effectiveCommand - 7;
             appliedVelocity = approach(appliedVelocity, clamp(velocityCommand, -maxSpeed, maxSpeed), 1);
         } else {
-            int positionError = command - r[0];
+            int positionError = effectiveCommand - r[0];
             int desiredVelocity = clamp(positionError, -maxSpeed, maxSpeed);
             appliedVelocity = approach(appliedVelocity, desiredVelocity, 1);
             if (Math.abs(appliedVelocity) > Math.abs(positionError)) appliedVelocity = positionError;
@@ -179,7 +194,8 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
         r[0] = limitedPosition;
         r[2] = appliedVelocity;
         r[14] = velocityCommand;
-        r[3] = mode == POSITION_MODE ? command - r[0] : velocityCommand - appliedVelocity;
+        r[3] = !commandAvailable ? 0
+                : mode == POSITION_MODE ? effectiveCommand - r[0] : velocityCommand - appliedVelocity;
         r[12] += Math.abs(r[0] - oldPosition);
         r[10] = Math.max(r[10], Math.abs(appliedVelocity));
         if (mode == POSITION_MODE && r[3] == 0 && oldPosition != r[0]) r[11] = Math.max(1, now - r[7]);
