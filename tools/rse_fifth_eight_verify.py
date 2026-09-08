@@ -35,13 +35,16 @@ require(
     "interferencePenalty",
     "obstacleSamples",
     "latencyTicks",
+    "Payload zero is a real frame value",
+    "Observer-neutral radio reception calculation",
 )
 require(
     "src/main/java/dev/redstoneengineering/physics/FreeSpaceOpticsKernel.java",
-    "range<=48" if False else "i<=48",
+    "i <= 48",
     "aligned",
     "channelOk",
-    'InformationRuntime.write(l,"free_optical"',
+    "InformationRuntime.write",
+    '"free_optical"',
 )
 
 contracts = {
@@ -63,14 +66,17 @@ contracts = {
         "implements EngineeringPortProvider",
         "EngineeringDomain.RADIO_DATA",
         '"RADIO ANTENNA", Direction.UP',
-        "if (side == Direction.UP) continue",
+        "PAYLOAD_SIDES",
+        "RedstoneObservationSupport.observe",
         "RadioKernel.updateTransmitter",
+        "RadioKernel.removeTransmitter",
         "FieldDeviceUi.open",
     ),
     "src/main/java/dev/redstoneengineering/block/RadioReceiverBlock.java": (
         "EngineeringDomain.RADIO_DATA",
         '"RADIO ANTENNA", Direction.UP',
         "RadioKernel.receivePacket",
+        "RadioKernel.recordReception",
         "PortQuality.TOPOLOGY_ERROR",
         "canConnectRedstone",
         "FieldDeviceUi.open",
@@ -79,6 +85,7 @@ contracts = {
         "implements EngineeringPortProvider",
         "EngineeringDomain.REDSTONE",
         "EngineeringDomain.OPTICAL",
+        "RedstoneObservationSupport.observe",
         "neighborPos.equals(inputPos(pos, state))",
         "FreeSpaceOpticsKernel.emit",
         "FieldDeviceUi.open",
@@ -87,6 +94,7 @@ contracts = {
         "EngineeringDomain.OPTICAL",
         "EngineeringDomain.REDSTONE",
         "PortQuality.DOMAIN_MISMATCH",
+        "packet.selector()",
         "canConnectRedstone",
         'InformationRuntime.clear(level, "free_optical"',
         "FieldDeviceUi.open",
@@ -176,7 +184,7 @@ if errors:
 print("RSE fifth-eight communication endpoint verification: PASS")
 print("  first-class RADIO_DATA endpoint domain: PASS")
 print("  differential driver/receiver directional isolation: PASS")
-print("  radio antenna/payload separation + collision diagnostics: PASS")
+print("  radio antenna/payload separation + zero-frame/collision diagnostics: PASS")
 print("  free-space optical LOS/channel endpoint contracts: PASS")
 print("  quartz divider + observer-only stability metrology: PASS")
 print("  Field Device Inspector endpoint projection: PASS")
