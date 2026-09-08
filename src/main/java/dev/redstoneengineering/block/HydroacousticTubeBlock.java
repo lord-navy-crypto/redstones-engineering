@@ -65,8 +65,9 @@ public class HydroacousticTubeBlock extends Block implements EngineeringPortProv
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        int amplitude = InformationRuntime.value(level, "hydro", pos);
-        boolean valid = InformationRuntime.valid(level, "hydro", pos) && amplitude > 0;
+        InformationRuntime.Snapshot packet = InformationRuntime.snapshot(level, "hydro", pos);
+        int amplitude = Math.max(0, Math.min(15, packet.value()));
+        boolean valid = packet.valid() && packet.qualityPercent() > 0 && amplitude > 0;
         return Optional.of(new EngineeringPortSnapshot(
                 port.get(), amplitude, 0.0, 15.0,
                 valid ? PortQuality.VALID : PortQuality.NO_SIGNAL));
@@ -74,18 +75,18 @@ public class HydroacousticTubeBlock extends Block implements EngineeringPortProv
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        int amplitude = InformationRuntime.value(level, "hydro", pos);
-        if (amplitude <= 0 || !InformationRuntime.valid(level, "hydro", pos)) {
-            InformationRuntime.clear(level, "hydro", pos);
+        InformationRuntime.Snapshot packet = InformationRuntime.snapshot(level, "hydro", pos);
+        if (!packet.valid() || packet.qualityPercent() <= 0 || packet.value() <= 0) {
+            if (packet.ageTicks() >= 0) InformationRuntime.clear(level, "hydro", pos);
             return;
         }
-        int next = Math.max(0, amplitude - 2);
+        int next = Math.max(0, packet.value() - 2);
         if (next == 0) {
             InformationRuntime.clear(level, "hydro", pos);
         } else {
             InformationRuntime.write(level, "hydro", pos, next,
-                    InformationRuntime.aux(level, "hydro", pos), true,
-                    Math.max(0, InformationRuntime.quality(level, "hydro", pos) - 10));
+                    packet.selector(), true,
+                    Math.max(0, packet.qualityPercent() - 10));
             level.scheduleTick(pos, this, PACKET_TTL_TICKS);
         }
     }
