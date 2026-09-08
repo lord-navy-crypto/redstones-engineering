@@ -119,8 +119,9 @@ workflow = read(".github/workflows/build.yml")
 if workflow:
     if "rse_final_two_evidence_closure_verify.py" not in workflow:
         errors.append("workflow does not gate the final two-block evidence verifier")
-    if "test_count < 312" not in workflow or "at least 312 GameTests" not in workflow:
-        errors.append("workflow does not enforce the final 312-GameTest floor")
+    floor_match = re.search(r"test_count < ([0-9]+)", workflow)
+    if floor_match is None or int(floor_match.group(1)) < 312:
+        errors.append("workflow GameTest floor regressed below the final 312-GameTest closure minimum")
 
 if errors:
     print("RSE final two-block evidence closure verification: FAIL")
@@ -135,4 +136,4 @@ print("  first-cycle baseline / second-cycle interval chronology: PASS")
 print("  dedicated Operations UI telemetry-readiness projection: PASS")
 print("  historical stopped+queued CPS acceptance migrated to explicit zero source: PASS")
 print("  three executable final-closure GameTests registered: PASS")
-print("  final CI floor: 312 GameTests")
+print("  final CI floor: >=312 GameTests")
