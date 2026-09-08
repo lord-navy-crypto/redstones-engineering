@@ -164,17 +164,18 @@ public class OperationsMonitorBlock extends Block implements EngineeringPortProv
 
         // A current queue reading is useful on its own, but it must not create operations KPIs
         // until MACHINE RUNNING and at least one QUEUE/WIP source are both trustworthy.
-        if (evidence.queueValid()) r[13] = evidence.queueValue();
         if (!evidence.operationalReady()) {
+            if (evidence.queueValid()) r[13] = evidence.queueValue();
             l.scheduleTick(p, this, 1);
             return;
         }
 
         int run = evidence.run().value() > 0 ? 1 : 0;
         int queue = evidence.queueValue();
+        int previousQueue = r[13];
 
         if (r[3] > 0 && run != r[0]) r[24]++;
-        if (r[3] > 0) r[23] += Math.abs(queue - r[13]);
+        if (r[3] > 0) r[23] += Math.abs(queue - previousQueue);
         if (run == 0) { r[11]++; if (r[0] == 1) r[12]++; r[18]++; r[19] = Math.max(r[19], r[18]); }
         else r[18] = 0;
         if (run == 1 && queue == 0) r[20]++;
