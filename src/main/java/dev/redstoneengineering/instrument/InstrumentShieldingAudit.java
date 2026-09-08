@@ -21,8 +21,9 @@ public final class InstrumentShieldingAudit {
     private InstrumentShieldingAudit() {}
 
     public static ShieldingSnapshot inspect(Level level, BlockPos start) {
-        if (!(level.getBlockState(start).getBlock() instanceof InstrumentCableBlock)) {
-            return new ShieldingSnapshot(0, 0, 0, true);
+        if (!level.hasChunkAt(start)
+                || !(level.getBlockState(start).getBlock() instanceof InstrumentCableBlock)) {
+            return new ShieldingSnapshot(0, 0, 0, level.hasChunkAt(start));
         }
 
         ArrayDeque<BlockPos> queue = new ArrayDeque<>();
@@ -38,9 +39,14 @@ public final class InstrumentShieldingAudit {
                 break;
             }
             BlockPos pos = queue.removeFirst();
-            if (!visited.add(pos) || !level.hasChunkAt(pos)) continue;
+            if (visited.contains(pos)) continue;
+            if (!level.hasChunkAt(pos)) {
+                bounded = false;
+                continue;
+            }
             BlockState state = level.getBlockState(pos);
             if (!(state.getBlock() instanceof InstrumentCableBlock)) continue;
+            visited.add(pos);
 
             if (state.getBlock() instanceof ShieldedInstrumentCableBlock) shielded++;
             else unshielded++;
@@ -48,7 +54,11 @@ public final class InstrumentShieldingAudit {
             for (Direction side : Direction.values()) {
                 if (!ConnectedCableBlock.connected(state, side)) continue;
                 BlockPos neighborPos = pos.relative(side);
-                if (!level.hasChunkAt(neighborPos)) continue;
+                if (!level.hasChunkAt(neighborPos)) {
+                    // A declared cable continuation into unloaded coverage cannot be certified as shielded.
+                    bounded = false;
+                    continue;
+                }
                 BlockState neighbor = level.getBlockState(neighborPos);
                 if (!(neighbor.getBlock() instanceof InstrumentCableBlock)) continue;
                 if (!ConnectedCableBlock.connected(neighbor, side.getOpposite())) continue;
@@ -56,7 +66,7 @@ public final class InstrumentShieldingAudit {
             }
         }
 
-        return new ShieldingSnapshot(visited.size(), shielded, unshielded, bounded);
+        return new ShieldingSnapshot(shielded + unshielded, shielded, unshielded, bounded);
     }
 
     public record ShieldingSnapshot(int cableNodes, int shieldedNodes, int unshieldedNodes, boolean bounded) {
