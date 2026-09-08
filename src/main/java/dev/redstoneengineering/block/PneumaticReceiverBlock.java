@@ -7,9 +7,9 @@ import dev.redstoneengineering.core.port.EngineeringPort;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
-import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.PneumaticNetwork;
+import dev.redstoneengineering.physics.PneumaticObservationSupport;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -49,21 +49,27 @@ public class PneumaticReceiverBlock extends PassiveDirectionalSignalBlock {
         );
     }
 
+    private static PneumaticObservationSupport.Observation inputObservation(
+            Level level, BlockPos pos, BlockState state
+    ) {
+        Direction input = state.getValue(DirectionalSignalBlock.FACING).getOpposite();
+        return PneumaticObservationSupport.observe(level, pos.relative(input));
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(
             Level level, BlockPos pos, BlockState state, Direction side
     ) {
         Optional<EngineeringPort> descriptor = engineeringPort(state, side);
         if (descriptor.isEmpty()) return Optional.empty();
+        PneumaticObservationSupport.Observation pressure = inputObservation(level, pos, state);
         if (side == inputSide(state)) {
-            int pressure = PneumaticNetwork.pressure(level, inputPos(pos, state));
             return Optional.of(new EngineeringPortSnapshot(
-                    descriptor.get(), pressure, 0.0, 100.0,
-                    pressure > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL
+                    descriptor.get(), pressure.pressure(), 0.0, 100.0, pressure.quality()
             ));
         }
         return Optional.of(EngineeringPortSnapshot.redstone(
-                descriptor.get(), state.getValue(OUTPUT), PortQuality.VALID
+                descriptor.get(), state.getValue(OUTPUT), pressure.quality()
         ));
     }
 
@@ -98,9 +104,11 @@ public class PneumaticReceiverBlock extends PassiveDirectionalSignalBlock {
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
+                PneumaticObservationSupport.Observation pressure = inputObservation(level, pos, state);
                 player.displayClientMessage(Component.literal(
-                        "Pneumatic receiver pressure=" + PneumaticNetwork.pressure(level, inputPos(pos, state))
-                                + "/100 output=" + outputValue(level, pos, state) + "/15 | BACK=PNEUMATIC FRONT=REDSTONE"
+                        "Pneumatic receiver pressure=" + pressure.pressure()
+                                + "/100 quality=" + pressure.quality()
+                                + " output=" + outputValue(level, pos, state) + "/15 | BACK=PNEUMATIC FRONT=REDSTONE"
                 ), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);

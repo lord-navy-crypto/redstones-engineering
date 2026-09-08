@@ -8,12 +8,12 @@ import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
-import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.metrology.MeasurementSnapshot;
 import dev.redstoneengineering.metrology.MetrologyStore;
 import dev.redstoneengineering.metrology.MetrologySupport;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.PneumaticNetwork;
+import dev.redstoneengineering.physics.PneumaticObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
@@ -37,6 +37,7 @@ public class PneumaticFlowMeterBlock extends DirectionalDomainBlock implements E
     private static final String RUNTIME = "pneumatic_flow";
     private static final int SENSOR_PROFILE = 2; // PRECISION
     private static final int SAMPLE_PERIOD = 10;
+    private static final int RUNTIME_SIZE = 4;
 
     public PneumaticFlowMeterBlock(Properties properties) { super(properties); }
 
@@ -64,28 +65,33 @@ public class PneumaticFlowMeterBlock extends DirectionalDomainBlock implements E
     ) {
         Optional<EngineeringPort> descriptor = engineeringPort(state, side);
         if (descriptor.isEmpty()) return Optional.empty();
-        int[] runtime = RuntimeIntStore.get(level, RUNTIME, pos, 4);
-        int pressure = side == inputSide(state) ? runtime[2] : runtime[3];
+        PneumaticObservationSupport.Observation observation =
+                PneumaticObservationSupport.observe(level, pos.relative(side));
         return Optional.of(new EngineeringPortSnapshot(
-                descriptor.get(), pressure, 0.0, 100.0,
-                pressure > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL
+                descriptor.get(), observation.pressure(), 0.0, 100.0, observation.quality()
         ));
     }
 
+    /** Observer-only flow runtime snapshot. Missing state reads as zero without allocating it. */
+    private static int[] runtimeSnapshot(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, RUNTIME, pos);
+        return runtime == null || runtime.length < RUNTIME_SIZE ? new int[RUNTIME_SIZE] : runtime;
+    }
+
     public static int flowProxy(Level level, BlockPos pos) {
-        return RuntimeIntStore.get(level, RUNTIME, pos, 4)[0];
+        return runtimeSnapshot(level, pos)[0];
     }
 
     public static int pressureDrop(Level level, BlockPos pos) {
-        return RuntimeIntStore.get(level, RUNTIME, pos, 4)[1];
+        return runtimeSnapshot(level, pos)[1];
     }
 
     public static int inletPressure(Level level, BlockPos pos) {
-        return RuntimeIntStore.get(level, RUNTIME, pos, 4)[2];
+        return runtimeSnapshot(level, pos)[2];
     }
 
     public static int outletPressure(Level level, BlockPos pos) {
-        return RuntimeIntStore.get(level, RUNTIME, pos, 4)[3];
+        return runtimeSnapshot(level, pos)[3];
     }
 
     public static MeasurementSnapshot measurement(Level level, BlockPos pos) {
@@ -103,13 +109,19 @@ public class PneumaticFlowMeterBlock extends DirectionalDomainBlock implements E
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        int[] runtime = RuntimeIntStore.get(level, RUNTIME, pos, 4);
-        int referenceFlow = runtime[0];
-        boolean saturated = runtime[1] * 12 > 100;
-        double reading = MetrologySupport.conditionBounded(
-                level, pos, referenceFlow, 0.0, 100.0, SENSOR_PROFILE
-        );
-        MetrologySupport.sample(level, CHANNEL, pos, reading, referenceFlow, saturated, 1.0, 30L);
+        PneumaticObservationSupport.Observation inlet =
+                PneumaticObservationSupport.observe(level, pos.relative(inputSide(state)));
+        PneumaticObservationSupport.Observation outlet =
+                PneumaticObservationSupport.observe(level, pos.relative(outputSide(state)));
+        if (inlet.valid() && outlet.valid()) {
+            int[] runtime = RuntimeIntStore.get(level, RUNTIME, pos, RUNTIME_SIZE);
+            int referenceFlow = runtime[0];
+            boolean saturated = runtime[1] * 12 > 100;
+            double reading = MetrologySupport.conditionBounded(
+                    level, pos, referenceFlow, 0.0, 100.0, SENSOR_PROFILE
+            );
+            MetrologySupport.sample(level, CHANNEL, pos, reading, referenceFlow, saturated, 1.0, 30L);
+        }
         level.scheduleTick(pos, this, SAMPLE_PERIOD);
     }
 
@@ -128,7 +140,7 @@ public class PneumaticFlowMeterBlock extends DirectionalDomainBlock implements E
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
-                int[] runtime = RuntimeIntStore.get(level, RUNTIME, pos, 4);
+                int[] runtime = runtimeSnapshot(level, pos);
                 player.displayClientMessage(Component.literal(
                         "Pneumatic flow meter | ΔP=" + runtime[1]
                                 + " | flow≈" + runtime[0]

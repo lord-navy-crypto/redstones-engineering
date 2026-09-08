@@ -10,6 +10,7 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.InformationRuntime;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.VibrationNetwork;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
@@ -74,19 +75,26 @@ public class MechanicalExciterBlock extends Block implements EngineeringPortProv
                 PortKind.ACTUATOR, PortDirection.OUTPUT, false, "amplitude");
     }
 
+    public static RedstoneObservationSupport.Observation driveObservation(Level level, BlockPos pos) {
+        return RedstoneObservationSupport.observe(level, pos, Direction.DOWN);
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(
             Level level, BlockPos pos, BlockState state, Direction side
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        int amplitude = inputAmplitude(level, pos);
+        RedstoneObservationSupport.Observation drive = driveObservation(level, pos);
+        int amplitude = drive.valid() ? drive.value() : 0;
         if (side == Direction.DOWN) {
-            return Optional.of(EngineeringPortSnapshot.redstone(port.get(), amplitude, PortQuality.VALID));
+            return Optional.of(EngineeringPortSnapshot.redstone(port.get(), drive.value(), drive.quality()));
         }
+        PortQuality outputQuality = drive.valid()
+                ? (amplitude > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL)
+                : drive.quality();
         return Optional.of(new EngineeringPortSnapshot(
-                port.get(), amplitude, 0.0, 15.0,
-                amplitude > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+                port.get(), amplitude, 0.0, 15.0, outputQuality));
     }
 
     @Override
@@ -97,7 +105,8 @@ public class MechanicalExciterBlock extends Block implements EngineeringPortProv
     }
 
     private static int inputAmplitude(Level level, BlockPos pos) {
-        return Math.max(0, Math.min(15, level.getSignal(pos.below(), Direction.DOWN)));
+        RedstoneObservationSupport.Observation drive = driveObservation(level, pos);
+        return drive.valid() ? drive.value() : 0;
     }
 
     private void updateExcitation(BlockState state, Level level, BlockPos pos) {

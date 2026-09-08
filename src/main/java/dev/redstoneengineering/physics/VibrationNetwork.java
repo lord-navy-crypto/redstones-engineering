@@ -89,11 +89,9 @@ public final class VibrationNetwork {
         NetworkKernel.recordScan(level, "mechanical", visited, visited >= NetworkKernel.MAX_NODES);
     }
 
+    /** Observer-neutral coherent sample of one wave envelope. */
     public static Wave sample(Level level, BlockPos pos) {
-        return new Wave(
-                InformationRuntime.value(level, "mech_wave", pos),
-                InformationRuntime.aux(level, "mech_wave", pos),
-                InformationRuntime.valid(level, "mech_wave", pos)
-        );
+        InformationRuntime.Snapshot snapshot = InformationRuntime.snapshot(level, "mech_wave", pos);
+        return new Wave(snapshot.value(), snapshot.selector(), snapshot.valid());
     }
 }

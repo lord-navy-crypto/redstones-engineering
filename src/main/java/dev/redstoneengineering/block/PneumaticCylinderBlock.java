@@ -11,6 +11,7 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.PneumaticNetwork;
+import dev.redstoneengineering.physics.PneumaticObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import dev.redstoneengineering.visualization.MechatronicsVisualState;
@@ -80,9 +81,10 @@ public class PneumaticCylinderBlock extends DirectionalDomainBlock implements En
         Optional<EngineeringPort> descriptor = engineeringPort(state, side);
         if (descriptor.isEmpty()) return Optional.empty();
         if (side == inputSide(state)) {
-            int pressure = PneumaticNetwork.pressure(level, inputPos(pos, state));
-            return Optional.of(new EngineeringPortSnapshot(descriptor.get(), pressure, 0.0, 100.0,
-                    pressure > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+            PneumaticObservationSupport.Observation pressure =
+                    PneumaticObservationSupport.observe(level, inputPos(pos, state));
+            return Optional.of(new EngineeringPortSnapshot(
+                    descriptor.get(), pressure.pressure(), 0.0, 100.0, pressure.quality()));
         }
         return Optional.of(EngineeringPortSnapshot.redstone(
                 descriptor.get(), position(level, pos), PortQuality.VALID));
@@ -95,6 +97,12 @@ public class PneumaticCylinderBlock extends DirectionalDomainBlock implements En
             return MechatronicsVisualState.cylinder(0, 0, 0);
         }
         return MechatronicsVisualState.cylinder(runtime[0], runtime[3], runtime[2]);
+    }
+
+    /** Observer-only actuator diagnostics; missing runtime reads as a retracted zero-state view. */
+    private static int[] diagnosticsSnapshot(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length < RUNTIME_SIZE ? new int[RUNTIME_SIZE] : runtime;
     }
 
     @Override
@@ -158,23 +166,19 @@ public class PneumaticCylinderBlock extends DirectionalDomainBlock implements En
     }
 
     public static int position(Level level, BlockPos pos) {
-        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
-        return runtime == null || runtime.length < RUNTIME_SIZE ? 0 : runtime[0];
+        return diagnosticsSnapshot(level, pos)[0];
     }
 
     public static int target(Level level, BlockPos pos) {
-        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
-        return runtime == null || runtime.length < RUNTIME_SIZE ? 0 : runtime[1];
+        return diagnosticsSnapshot(level, pos)[1];
     }
 
     public static int pressure(Level level, BlockPos pos) {
-        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
-        return runtime == null || runtime.length < RUNTIME_SIZE ? 0 : runtime[2];
+        return diagnosticsSnapshot(level, pos)[2];
     }
 
     public static int travel(Level level, BlockPos pos) {
-        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
-        return runtime == null || runtime.length < RUNTIME_SIZE ? 0 : runtime[5];
+        return diagnosticsSnapshot(level, pos)[5];
     }
 
     @Override
@@ -224,7 +228,7 @@ public class PneumaticCylinderBlock extends DirectionalDomainBlock implements En
                 FieldDeviceUi.open(serverPlayer, pos);
                 return InteractionResult.CONSUME;
             }
-            int[] r = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
+            int[] r = diagnosticsSnapshot(level, pos);
             player.displayClientMessage(Component.literal(
                     "Pneumatic cylinder"
                             + " | pressure=" + r[2] + "/100"

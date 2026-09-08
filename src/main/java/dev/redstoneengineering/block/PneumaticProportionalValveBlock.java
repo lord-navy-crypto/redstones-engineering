@@ -9,9 +9,10 @@ import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
-import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.PneumaticNetwork;
+import dev.redstoneengineering.physics.PneumaticObservationSupport;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import dev.redstoneengineering.visualization.MechatronicsVisualState;
 import net.minecraft.core.BlockPos;
@@ -60,6 +61,10 @@ public class PneumaticProportionalValveBlock extends DirectionalDomainBlock impl
         );
     }
 
+    public static RedstoneObservationSupport.Observation commandObservation(Level level, BlockPos pos) {
+        return RedstoneObservationSupport.observe(level, pos, Direction.UP);
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(
             Level level, BlockPos pos, BlockState state, Direction side
@@ -67,14 +72,15 @@ public class PneumaticProportionalValveBlock extends DirectionalDomainBlock impl
         Optional<EngineeringPort> descriptor = engineeringPort(state, side);
         if (descriptor.isEmpty()) return Optional.empty();
         if (side == Direction.UP) {
+            RedstoneObservationSupport.Observation command = commandObservation(level, pos);
             return Optional.of(EngineeringPortSnapshot.redstone(
-                    descriptor.get(), opening(level, pos), PortQuality.VALID
+                    descriptor.get(), command.value(), command.quality()
             ));
         }
-        int pressure = PneumaticNetwork.pressure(level, pos.relative(side));
+        PneumaticObservationSupport.Observation pressure =
+                PneumaticObservationSupport.observe(level, pos.relative(side));
         return Optional.of(new EngineeringPortSnapshot(
-                descriptor.get(), pressure, 0.0, 100.0,
-                pressure > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL
+                descriptor.get(), pressure.pressure(), 0.0, 100.0, pressure.quality()
         ));
     }
 
@@ -94,7 +100,8 @@ public class PneumaticProportionalValveBlock extends DirectionalDomainBlock impl
     }
 
     public static int opening(Level level, BlockPos pos) {
-        return Math.max(0, Math.min(15, level.getSignal(pos.above(), Direction.UP)));
+        RedstoneObservationSupport.Observation command = commandObservation(level, pos);
+        return command.valid() ? command.value() : 0;
     }
 
     /** Renderer-facing immutable projection; reads command/pressure but never writes simulation state. */
