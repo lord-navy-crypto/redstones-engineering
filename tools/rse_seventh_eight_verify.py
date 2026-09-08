@@ -72,6 +72,7 @@ contracts = {
         "EngineeringDomain.HYDROACOUSTIC",
         "PACKET_TTL_TICKS",
         "MEDIUM",
+        'InformationRuntime.snapshot(level, "hydro", pos)',
         'InformationRuntime.clear(level, "hydro"',
         "FieldDeviceUi.open",
     ),
@@ -79,6 +80,7 @@ contracts = {
         "implements EngineeringPortProvider",
         "EngineeringDomain.HYDROACOUSTIC",
         '"DRIVE IN", Direction.DOWN',
+        "RedstoneObservationSupport.observe",
         "neighborPos.equals(pos.below())",
         "HydroacousticNetwork.propagate",
         "FieldDeviceUi.open",
@@ -87,7 +89,9 @@ contracts = {
         "EngineeringDomain.HYDROACOUSTIC",
         '"PRESSURE WAVE IN"',
         '"REDSTONE OUT"',
-        'InformationRuntime.valid(level, "hydro"',
+        'InformationRuntime.snapshot(level, "hydro", pos)',
+        "packetQuality",
+        'InformationRuntime.clear(level, "hydro"',
         "FieldDeviceUi.open",
     ),
     "src/main/java/dev/redstoneengineering/block/PhononConduitBlock.java": (
@@ -194,7 +198,7 @@ print("RSE seventh-eight acoustic/thermal-wave verification: PASS")
 print("  explicit hydroacoustic + phonon-thermal domains: PASS")
 print("  directional source/receiver arrival contracts: PASS")
 print("  honey damping + bounded transient wave lifetime: PASS")
-print("  hydro medium + pressure-wave runtime: PASS")
+print("  hydro coherent packet evidence + expiry lifecycle: PASS")
 print("  sculk event telemetry lifecycle: PASS")
 print("  Field Device Inspector kinds 32-39: PASS")
 print("  eight executable seventh-batch GameTests registered: PASS")
