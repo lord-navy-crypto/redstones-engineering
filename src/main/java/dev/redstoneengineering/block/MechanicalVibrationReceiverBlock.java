@@ -47,20 +47,24 @@ public class MechanicalVibrationReceiverBlock extends PassiveDirectionalSignalBl
         );
     }
 
+    private static PortQuality waveQuality(VibrationNetwork.Wave wave) {
+        return wave.valid() && wave.amplitude() > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL;
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(
             Level level, BlockPos pos, BlockState state, Direction side
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
+        VibrationNetwork.Wave wave = VibrationNetwork.sample(level, pos);
+        PortQuality quality = waveQuality(wave);
         if (side == outputSide(state)) {
             return Optional.of(EngineeringPortSnapshot.redstone(
-                    port.get(), state.getValue(OUTPUT), PortQuality.VALID));
+                    port.get(), state.getValue(OUTPUT), quality));
         }
-        VibrationNetwork.Wave wave = VibrationNetwork.sample(level, pos);
         return Optional.of(new EngineeringPortSnapshot(
-                port.get(), Math.max(0, Math.min(15, wave.amplitude())), 0.0, 15.0,
-                wave.valid() && wave.amplitude() > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+                port.get(), Math.max(0, Math.min(15, wave.amplitude())), 0.0, 15.0, quality));
     }
 
     @Override
@@ -77,15 +81,14 @@ public class MechanicalVibrationReceiverBlock extends PassiveDirectionalSignalBl
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        int value = InformationRuntime.value(level, "mech_wave", pos);
-        if (value > 0) {
-            int next = Math.max(0, value - 2);
+        InformationRuntime.Snapshot wave = InformationRuntime.snapshot(level, "mech_wave", pos);
+        if (wave.valid() && wave.value() > 0) {
+            int next = Math.max(0, wave.value() - 2);
             if (next == 0) {
                 InformationRuntime.clear(level, "mech_wave", pos);
             } else {
                 InformationRuntime.write(level, "mech_wave", pos, next,
-                        InformationRuntime.aux(level, "mech_wave", pos), true,
-                        Math.max(0, InformationRuntime.quality(level, "mech_wave", pos) - 5));
+                        wave.selector(), true, Math.max(0, wave.qualityPercent() - 5));
             }
         }
         updateOutput(level, pos, state, outputValue(level, pos, state));
