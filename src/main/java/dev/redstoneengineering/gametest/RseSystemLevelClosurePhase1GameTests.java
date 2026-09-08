@@ -235,9 +235,9 @@ public final class RseSystemLevelClosurePhase1GameTests {
             var bSnapshot = bCable.engineeringSnapshot(
                     helper.getLevel(), helper.absolutePos(b), bState, Direction.WEST);
             if (aSnapshot.isEmpty() || bSnapshot.isEmpty()
-                    || aSnapshot.get().quality() != PortQuality.VALID
-                    || bSnapshot.get().quality() != PortQuality.VALID) {
-                helper.fail("Live instrument link did not expose symmetric VALID snapshots", a); return;
+                    || aSnapshot.get().quality() != PortQuality.NO_SIGNAL
+                    || bSnapshot.get().quality() != PortQuality.NO_SIGNAL) {
+                helper.fail("Connected empty instrument bus must retain topology while reporting symmetric NO_SIGNAL evidence", a); return;
             }
 
             helper.setBlock(b, Blocks.AIR.defaultBlockState());
@@ -247,9 +247,10 @@ public final class RseSystemLevelClosurePhase1GameTests {
                     helper.fail("Cable retained ghost physical connection after endpoint removal", a); return;
                 }
                 InstrumentCableBlock detachedCable = (InstrumentCableBlock) detached.getBlock();
-                if (detachedCable.engineeringSnapshot(
-                        helper.getLevel(), helper.absolutePos(a), detached, Direction.EAST).isPresent()) {
-                    helper.fail("Detached cable retained ghost read-only port snapshot", a); return;
+                var detachedSnapshot = detachedCable.engineeringSnapshot(
+                        helper.getLevel(), helper.absolutePos(a), detached, Direction.EAST);
+                if (detachedSnapshot.isEmpty() || detachedSnapshot.get().quality() != PortQuality.NO_SIGNAL) {
+                    helper.fail("Open planar cable capability must remain observable as NO_SIGNAL rather than ghost VALID evidence", a); return;
                 }
 
                 helper.setBlock(b, RedstoneEngineering.INSTRUMENT_CABLE.get().defaultBlockState());
@@ -260,11 +261,16 @@ public final class RseSystemLevelClosurePhase1GameTests {
                             || !ConnectedCableBlock.connected(rebuiltB, Direction.WEST)) {
                         helper.fail("Instrument link did not rebuild symmetrically", a); return;
                     }
-                    InstrumentCableBlock rebuiltCable = (InstrumentCableBlock) rebuiltA.getBlock();
-                    var rebuiltSnapshot = rebuiltCable.engineeringSnapshot(
+                    InstrumentCableBlock rebuiltACable = (InstrumentCableBlock) rebuiltA.getBlock();
+                    InstrumentCableBlock rebuiltBCable = (InstrumentCableBlock) rebuiltB.getBlock();
+                    var rebuiltASnapshot = rebuiltACable.engineeringSnapshot(
                             helper.getLevel(), helper.absolutePos(a), rebuiltA, Direction.EAST);
-                    if (rebuiltSnapshot.isEmpty() || rebuiltSnapshot.get().quality() != PortQuality.VALID) {
-                        helper.fail("Rebuilt instrument link did not recover VALID evidence", a); return;
+                    var rebuiltBSnapshot = rebuiltBCable.engineeringSnapshot(
+                            helper.getLevel(), helper.absolutePos(b), rebuiltB, Direction.WEST);
+                    if (rebuiltASnapshot.isEmpty() || rebuiltBSnapshot.isEmpty()
+                            || rebuiltASnapshot.get().quality() != PortQuality.NO_SIGNAL
+                            || rebuiltBSnapshot.get().quality() != PortQuality.NO_SIGNAL) {
+                        helper.fail("Rebuilt empty bus must restore symmetric topology without fabricating measurement evidence", a); return;
                     }
                     helper.succeed();
                 });
