@@ -2,14 +2,11 @@ package dev.redstoneengineering.gametest;
 
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.block.DirectionalDomainBlock;
-import dev.redstoneengineering.block.DirectionalRedstoneEndpointBlock;
 import dev.redstoneengineering.block.DirectionalSignalBlock;
 import dev.redstoneengineering.block.PneumaticFlowMeterBlock;
 import dev.redstoneengineering.block.PneumaticProportionalValveBlock;
 import dev.redstoneengineering.block.PneumaticReliefValveBlock;
 import dev.redstoneengineering.block.PneumaticCylinderBlock;
-import dev.redstoneengineering.block.RedstoneReferenceSourceBlock;
-import dev.redstoneengineering.block.MechanicalExciterBlock;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.PneumaticNetwork;
@@ -19,7 +16,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.Blocks;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /** Tenth 10-block design/bug campaign: pneumatic evidence, observer neutrality and mechanical vibration. */
@@ -150,7 +147,7 @@ public final class RseTenthTenDesignBugGameTests {
             return;
         }
 
-        helper.setBlock(source, reference(Direction.DOWN, 0));
+        helper.setBlock(source, Blocks.REDSTONE_WIRE.defaultBlockState());
         var drivenZero = RedstoneEngineering.PNEUMATIC_PROPORTIONAL_VALVE.get().engineeringSnapshot(
                 helper.getLevel(), helper.absolutePos(valve), helper.getBlockState(valve), Direction.UP).orElseThrow();
         if (drivenZero.value() != 0.0 || drivenZero.quality() != PortQuality.VALID
@@ -270,7 +267,7 @@ public final class RseTenthTenDesignBugGameTests {
             return;
         }
 
-        helper.setBlock(source, reference(Direction.UP, 0));
+        helper.setBlock(source, Blocks.REDSTONE_WIRE.defaultBlockState());
         var drivenZero = RedstoneEngineering.MECHANICAL_EXCITER.get().engineeringSnapshot(
                 helper.getLevel(), world, helper.getBlockState(exciter), Direction.DOWN).orElseThrow();
         var mechanicalOut = RedstoneEngineering.MECHANICAL_EXCITER.get().engineeringSnapshot(
@@ -282,11 +279,5 @@ public final class RseTenthTenDesignBugGameTests {
             return;
         }
         helper.succeed();
-    }
-
-    private static BlockState reference(Direction facing, int power) {
-        return RedstoneEngineering.REDSTONE_REFERENCE_SOURCE.get().defaultBlockState()
-                .setValue(DirectionalRedstoneEndpointBlock.FACING, facing)
-                .setValue(RedstoneReferenceSourceBlock.POWER, power);
     }
 }
