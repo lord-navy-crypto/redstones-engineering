@@ -14,6 +14,7 @@ import dev.redstoneengineering.diagnostics.OperationsDashboardSnapshot;
 import dev.redstoneengineering.diagnostics.events.FirstOutAnalysis;
 import dev.redstoneengineering.diagnostics.events.SystemEventKind;
 import dev.redstoneengineering.diagnostics.events.SystemEventTimeline;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.OperationsMonitorUi;
 import net.minecraft.core.BlockPos;
@@ -37,13 +38,30 @@ import java.util.Optional;
 /**
  * Observer-only IOE monitor with explicit ports:
  * DOWN=machine running, UP=completed-cycle pulse, horizontal sides=QUEUE/WIP proxy (0..15).
+ * Missing instrumentation never becomes a fabricated stopped machine or zero-queue observation.
  */
 public class OperationsMonitorBlock extends Block implements EngineeringPortProvider {
     private static final String KEY = "ops_monitor";
-    private static final int RUNTIME_SIZE = 26;
+    // Original 0..25 slots are retained. 26=cycle armed after known LOW, 27=cycle timing baseline valid.
+    private static final int RUNTIME_SIZE = 28;
     private static final int WINDOW_TICKS = 1200;
 
     public enum SystemState { NOMINAL, CONGESTED, NOISY, UNSTABLE, OVERLOADED, SAFETY_LIMITED, FAILED }
+
+    public record InputEvidence(
+            RedstoneObservationSupport.Observation run,
+            RedstoneObservationSupport.Observation cycle,
+            int queueValue,
+            int queueSources,
+            boolean queueStale
+    ) {
+        public boolean queueValid() { return queueSources > 0; }
+        public boolean operationalReady() { return run.valid() && queueValid(); }
+        public PortQuality queueQuality() {
+            if (queueValid()) return PortQuality.VALID;
+            return queueStale ? PortQuality.STALE : PortQuality.NO_SIGNAL;
+        }
+    }
 
     public OperationsMonitorBlock(Properties p) { super(p); }
     @Override public MapCodec<OperationsMonitorBlock> codec() { return RedstoneEngineering.OPERATIONS_MONITOR_CODEC.value(); }
@@ -62,11 +80,35 @@ public class OperationsMonitorBlock extends Block implements EngineeringPortProv
         return List.copyOf(ports);
     }
 
+    private static RedstoneObservationSupport.Observation observe(Level level, BlockPos pos, Direction side) {
+        return RedstoneObservationSupport.observe(level, pos, side);
+    }
+
+    public static InputEvidence inputEvidence(Level level, BlockPos pos) {
+        RedstoneObservationSupport.Observation run = observe(level, pos, Direction.DOWN);
+        RedstoneObservationSupport.Observation cycle = observe(level, pos, Direction.UP);
+        int queue = 0;
+        int queueSources = 0;
+        boolean queueStale = false;
+        for (Direction side : Direction.Plane.HORIZONTAL) {
+            RedstoneObservationSupport.Observation observation = observe(level, pos, side);
+            if (observation.valid()) {
+                queueSources++;
+                queue = Math.max(queue, observation.value());
+            } else if (observation.quality() == PortQuality.STALE) {
+                queueStale = true;
+            }
+        }
+        return new InputEvidence(run, cycle, queue, queueSources, queueStale);
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), signal(level, pos, side), PortQuality.VALID));
+        RedstoneObservationSupport.Observation observation = observe(level, pos, side);
+        return Optional.of(EngineeringPortSnapshot.redstone(
+                port.get(), observation.value(), observation.quality()));
     }
 
     @Override
@@ -74,37 +116,63 @@ public class OperationsMonitorBlock extends Block implements EngineeringPortProv
         return direction != null;
     }
 
-    private static int signal(Level l, BlockPos p, Direction d) { return Math.max(0, Math.min(15, l.getSignal(p.relative(d), d))); }
-
     @Override
     protected void onPlace(BlockState s, Level l, BlockPos p, BlockState o, boolean m) {
         super.onPlace(s, l, p, o, m);
-        if (l instanceof ServerLevel sl) {
-            int[] r = RuntimeIntStore.get(l, KEY, p, RUNTIME_SIZE);
-            r[7] = (int) Math.min(Integer.MAX_VALUE, sl.getGameTime());
-            sl.scheduleTick(p, this, 1);
+        if (l instanceof ServerLevel sl) sl.scheduleTick(p, this, 1);
+    }
+
+    private static void updateCycleEvidence(int[] r, InputEvidence evidence, int gameTime) {
+        if (!evidence.operationalReady() || !evidence.cycle().valid()) {
+            // Unknown coverage breaks edge chronology. Require a newly observed LOW before re-arming.
+            r[1] = 0;
+            r[26] = 0;
+            r[27] = 0;
+            return;
         }
+
+        int cycle = evidence.cycle().value() > 0 ? 1 : 0;
+        if (cycle == 0) {
+            r[26] = 1;
+            r[1] = 0;
+            return;
+        }
+
+        if (r[1] == 0 && r[26] != 0) {
+            r[2]++;
+            if (r[27] != 0) {
+                int ct = Math.max(1, gameTime - r[7]);
+                r[8] = ct;
+                r[9] = r[9] == 0 ? ct : (r[9] * 7 + ct) / 8;
+                r[10] = Math.max(r[10], ct);
+            }
+            // The first trustworthy pulse establishes a baseline; only later pulses yield a cycle interval.
+            r[7] = gameTime;
+            r[27] = 1;
+            r[26] = 0;
+        }
+        r[1] = 1;
     }
 
     @Override
     protected void tick(BlockState s, ServerLevel l, BlockPos p, RandomSource rnd) {
         int[] r = RuntimeIntStore.get(l, KEY, p, RUNTIME_SIZE);
-        int run = signal(l, p, Direction.DOWN) > 0 ? 1 : 0;
-        int cycle = signal(l, p, Direction.UP) > 0 ? 1 : 0;
-        int queue = 0;
-        for (Direction d : Direction.Plane.HORIZONTAL) queue = Math.max(queue, signal(l, p, d));
+        InputEvidence evidence = inputEvidence(l, p);
         int gt = (int) Math.min(Integer.MAX_VALUE, l.getGameTime());
 
-        if (cycle == 1 && r[1] == 0) {
-            r[2]++;
-            if (r[7] > 0) {
-                int ct = Math.max(1, gt - r[7]);
-                r[8] = ct;
-                r[9] = r[9] == 0 ? ct : (r[9] * 7 + ct) / 8;
-                r[10] = Math.max(r[10], ct);
-            }
-            r[7] = gt;
+        updateCycleEvidence(r, evidence, gt);
+
+        // A current queue reading is useful on its own, but it must not create operations KPIs
+        // until MACHINE RUNNING and at least one QUEUE/WIP source are both trustworthy.
+        if (evidence.queueValid()) r[13] = evidence.queueValue();
+        if (!evidence.operationalReady()) {
+            l.scheduleTick(p, this, 1);
+            return;
         }
+
+        int run = evidence.run().value() > 0 ? 1 : 0;
+        int queue = evidence.queueValue();
+
         if (r[3] > 0 && run != r[0]) r[24]++;
         if (r[3] > 0) r[23] += Math.abs(queue - r[13]);
         if (run == 0) { r[11]++; if (r[0] == 1) r[12]++; r[18]++; r[19] = Math.max(r[19], r[18]); }
@@ -114,7 +182,7 @@ public class OperationsMonitorBlock extends Block implements EngineeringPortProv
         if (run == 1 && queue >= 10) r[22]++;
 
         int previousStateOrdinal = r[25];
-        r[0] = run; r[1] = cycle; r[3]++; if (run == 1) r[4]++;
+        r[0] = run; r[3]++; if (run == 1) r[4]++;
         r[13] = queue; r[14] += queue; r[15] = Math.max(r[15], queue);
         SystemState nextState = classifySystemState(run, queue, r);
         r[25] = nextState.ordinal();
@@ -164,13 +232,21 @@ public class OperationsMonitorBlock extends Block implements EngineeringPortProv
     public static int starvedTicks(Level level, BlockPos pos) { return runtime(level,pos,20); }
     public static int blockedFaultTicks(Level level, BlockPos pos) { return runtime(level,pos,21); }
     public static int highQueueRunTicks(Level level, BlockPos pos) { return runtime(level,pos,22); }
+    public static int lastCycleTicks(Level level, BlockPos pos) { return runtime(level,pos,8); }
+    public static boolean monitoringReady(Level level, BlockPos pos) { return inputEvidence(level,pos).operationalReady(); }
+    public static int queueEvidenceSources(Level level, BlockPos pos) { return inputEvidence(level,pos).queueSources(); }
     public static OperationsDashboardSnapshot dashboard(Level level, BlockPos pos) { return OperationsDashboardSnapshot.inspect(level, pos); }
 
     /** Shared expert/UI summary retained as an observer-only projection of server runtime. */
     public static String compactDiagnostics(Level level, BlockPos pos) {
         int[] r = RuntimeIntStore.peek(level, KEY, pos);
+        InputEvidence evidence = inputEvidence(level, pos);
+        String evidenceText = evidence.operationalReady()
+                ? "READY"
+                : "INCOMPLETE(run=" + evidence.run().quality() + ",queueSources=" + evidence.queueSources() + ")";
         if (r == null || r.length < RUNTIME_SIZE) {
-            return "Operations state=NOMINAL | throughput last60s=0 cycles/min | downtime=0.0s | QUEUE now=0"
+            return "Operations state=NOMINAL | evidence=" + evidenceText
+                    + " | throughput last60s=0 cycles/min | downtime=0.0s | QUEUE now=0"
                     + " | IOE constraint=NONE queuePressure=0%"
                     + " | starved=0 blocked/fault=0 highQueueRun=0";
         }
@@ -178,6 +254,7 @@ public class OperationsMonitorBlock extends Block implements EngineeringPortProv
         IndustrialOperationsAssessment.Snapshot ioe = IndustrialOperationsAssessment.inspect(level, pos);
         OperationsDashboardSnapshot dashboard = OperationsDashboardSnapshot.inspect(level, pos);
         return "Operations state=" + state
+                + " | evidence=" + evidenceText
                 + " | throughput last60s=" + r[5] + " cycles/min"
                 + " | downtime=" + String.format(java.util.Locale.ROOT, "%.1f", r[11] / 20.0) + "s"
                 + " | QUEUE now=" + r[13]
