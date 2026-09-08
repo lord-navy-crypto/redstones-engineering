@@ -20,9 +20,9 @@ import java.util.Optional;
 /**
  * System-Level Closure Phase 2 diagnostic bisection.
  *
- * <p>This probe deliberately removes the physical feedback return. It tests only the control half:
- * fixed SP + fixed PV -> PID -> Servo. If this remains bounded while the feedback-acquisition half
- * is also bounded, the Phase 2 hang is isolated to closing the loop rather than either half-chain.</p>
+ * <p>This control probe is intentionally identical to the previously passing open-loop half-chain
+ * except for a 180-tick timeout. It exists only to rule in/out GameTest timeout/batch grouping as
+ * the cause of the earlier closed-loop hangs before production behavior is touched.</p>
  */
 public final class RseSystemLevelClosurePhase2ProbeGameTests {
     private static final String TEMPLATE = "empty5x4x5";
@@ -30,8 +30,8 @@ public final class RseSystemLevelClosurePhase2ProbeGameTests {
     private RseSystemLevelClosurePhase2ProbeGameTests() {}
 
     @PrefixGameTestTemplate(false)
-    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 80)
-    public static void pidToServoOpenLoopHalfChainIsBounded(GameTestHelper helper) {
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 180)
+    public static void pidToServoOpenLoopLongTimeoutControlIsBounded(GameTestHelper helper) {
         BlockPos setpoint = new BlockPos(0, 1, 2);
         BlockPos pid = new BlockPos(1, 1, 2);
         BlockPos servo = new BlockPos(2, 1, 2);
@@ -69,7 +69,7 @@ public final class RseSystemLevelClosurePhase2ProbeGameTests {
                     || servoCommand != 8
                     || servoPosition != 8
                     || ServoActuatorBlock.braking(helper.getLevel(), servoWorld)) {
-                helper.fail("PID->Servo open-loop half-chain mismatch"
+                helper.fail("PID->Servo long-timeout control mismatch"
                         + " | SP=" + sp.value() + "/" + sp.quality()
                         + " PV=" + pv.value() + "/" + pv.quality()
                         + " OUT=" + pidOutput + "/" + out.quality()
