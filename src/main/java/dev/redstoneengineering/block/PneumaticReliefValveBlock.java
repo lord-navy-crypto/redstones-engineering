@@ -8,9 +8,9 @@ import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
-import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.PneumaticNetwork;
+import dev.redstoneengineering.physics.PneumaticObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
@@ -71,34 +71,43 @@ public class PneumaticReliefValveBlock extends DirectionalDomainBlock implements
     ) {
         Optional<EngineeringPort> descriptor = engineeringPort(state, side);
         if (descriptor.isEmpty()) return Optional.empty();
-        int pressure = PneumaticNetwork.pressure(level, pos.relative(side));
+        PneumaticObservationSupport.Observation observation =
+                PneumaticObservationSupport.observe(level, pos.relative(side));
         return Optional.of(new EngineeringPortSnapshot(
-                descriptor.get(), pressure, 0.0, 100.0,
-                pressure > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL
+                descriptor.get(), observation.pressure(), 0.0, 100.0, observation.quality()
         ));
     }
 
-    private static int[] diagnostics(Level level, BlockPos pos) {
+    /** Mutable diagnostics are reserved for the pneumatic solver. */
+    private static int[] mutableDiagnostics(Level level, BlockPos pos) {
         return RuntimeIntStore.get(level, RUNTIME, pos, DIAG_SIZE);
     }
 
-    public static int ventEvents(Level level, BlockPos pos) { return diagnostics(level, pos)[0]; }
-    public static int lastExcess(Level level, BlockPos pos) { return diagnostics(level, pos)[1]; }
-    public static int totalVentedProxy(Level level, BlockPos pos) { return diagnostics(level, pos)[2]; }
-    public static boolean venting(Level level, BlockPos pos) { return diagnostics(level, pos)[3] != 0; }
+    /** Observer-only diagnostics; absent history reads as zero without creating it. */
+    private static int[] diagnosticsSnapshot(Level level, BlockPos pos) {
+        int[] diagnostics = RuntimeIntStore.peek(level, RUNTIME, pos);
+        return diagnostics == null || diagnostics.length < DIAG_SIZE ? new int[DIAG_SIZE] : diagnostics;
+    }
+
+    public static int ventEvents(Level level, BlockPos pos) { return diagnosticsSnapshot(level, pos)[0]; }
+    public static int lastExcess(Level level, BlockPos pos) { return diagnosticsSnapshot(level, pos)[1]; }
+    public static int totalVentedProxy(Level level, BlockPos pos) { return diagnosticsSnapshot(level, pos)[2]; }
+    public static boolean venting(Level level, BlockPos pos) { return diagnosticsSnapshot(level, pos)[3] != 0; }
 
     /** Called by the pneumatic solver. Repeated solver passes during one overpressure episode count one event. */
     public static void recordVent(Level level, BlockPos pos, int excess) {
-        int[] diag = diagnostics(level, pos);
+        int[] diag = mutableDiagnostics(level, pos);
         if (diag[3] == 0) diag[0]++;
         diag[1] = Math.max(0, excess);
         diag[2] += Math.max(0, excess);
         diag[3] = 1;
     }
 
-    /** Re-arms the event edge once pressure is no longer above the configured setpoint. */
+    /** Re-arms the event edge once pressure is no longer above the configured setpoint without fabricating history. */
     public static void clearVenting(Level level, BlockPos pos) {
-        diagnostics(level, pos)[3] = 0;
+        int[] existing = RuntimeIntStore.peek(level, RUNTIME, pos);
+        if (existing == null || existing.length < DIAG_SIZE || existing[3] == 0) return;
+        mutableDiagnostics(level, pos)[3] = 0;
     }
 
     @Override
