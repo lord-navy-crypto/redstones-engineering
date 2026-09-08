@@ -37,6 +37,18 @@ for name in required_tests:
     need(preservation, name, "RseVanillaRedstonePreservationGameTests.java")
 if len(re.findall(r"@GameTest\s*\(", preservation)) != len(required_tests):
     errors.append("RseVanillaRedstonePreservationGameTests.java: expected exactly 5 preservation tests")
+if preservation.count("@GameTest(batch = BATCH") != len(required_tests):
+    errors.append("RseVanillaRedstonePreservationGameTests.java: all 5 preservation tests must use the dedicated batch")
+for token in (
+    'private static final String BATCH = "vanillaImmutability";',
+    "@BeforeBatch(batch = BATCH)",
+    "@AfterBatch(batch = BATCH)",
+    "beforeVanillaImmutabilityBatch",
+    "afterVanillaImmutabilityBatch",
+):
+    need(preservation, token, "RseVanillaRedstonePreservationGameTests.java")
+if preservation.count("VanillaRedstoneRuntimeTelemetry.clear(level);") != 2:
+    errors.append("RseVanillaRedstonePreservationGameTests.java: batch must clear only VRE observer telemetry before and after preservation fixtures")
 need(registration, "event.register(RseVanillaRedstonePreservationGameTests.class);", "VanillaRedstoneRuntimeRegistration.java")
 need(workflow, "tools/rse_vanilla_redstone_immutability_verify.py", "build.yml")
 minimum_match = re.search(r"test_count < ([0-9]+)", workflow)
@@ -122,6 +134,7 @@ else:
             errors.append(f"VanillaRedstoneRuntimeTelemetry.java: hot listener must not run query/scan work; found {forbidden}")
 need(telemetry, "MAX_EVENTS_PER_LEVEL = 4096", "VanillaRedstoneRuntimeTelemetry.java")
 need(telemetry, "MAX_STATE_POSITIONS = 1024", "VanillaRedstoneRuntimeTelemetry.java")
+need(telemetry, "Clears only RSE observer telemetry; it never changes any world or redstone state.", "VanillaRedstoneRuntimeTelemetry.java")
 
 if errors:
     print("RSE VANILLA REDSTONE IMMUTABILITY VERIFY: FAIL")
@@ -135,4 +148,5 @@ print("  VRE production mutation APIs: NONE")
 print("  redstone mixin/coremod/access-transformer hooks: NONE")
 print("  NeighborNotify hot path: bounded observer bookkeeping only")
 print("  preservation fixtures: dust / repeater / comparator / observer / piston")
+print("  preservation batch: isolated + VRE telemetry cleared before/after")
 print("  required GameTest floor: >=317")
