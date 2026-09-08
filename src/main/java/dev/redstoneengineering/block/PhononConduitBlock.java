@@ -49,32 +49,35 @@ public class PhononConduitBlock extends Block implements EngineeringPortProvider
                 .toList();
     }
 
+    private static PortQuality packetQuality(InformationRuntime.Snapshot packet) {
+        return packet.valid() && packet.qualityPercent() > 0 && packet.value() > 0
+                ? PortQuality.VALID : PortQuality.NO_SIGNAL;
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(
             Level level, BlockPos pos, BlockState state, Direction side
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        int pulse = InformationRuntime.value(level, "thermal_pulse", pos);
-        boolean valid = InformationRuntime.valid(level, "thermal_pulse", pos) && pulse > 0;
+        InformationRuntime.Snapshot packet = InformationRuntime.snapshot(level, "thermal_pulse", pos);
         return Optional.of(new EngineeringPortSnapshot(
-                port.get(), pulse, 0.0, 15.0,
-                valid ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+                port.get(), Math.max(0, Math.min(15, packet.value())), 0.0, 15.0, packetQuality(packet)));
     }
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        int pulse = InformationRuntime.value(level, "thermal_pulse", pos);
-        if (pulse <= 0 || !InformationRuntime.valid(level, "thermal_pulse", pos)) {
-            InformationRuntime.clear(level, "thermal_pulse", pos);
+        InformationRuntime.Snapshot packet = InformationRuntime.snapshot(level, "thermal_pulse", pos);
+        if (packetQuality(packet) != PortQuality.VALID) {
+            if (packet.ageTicks() >= 0) InformationRuntime.clear(level, "thermal_pulse", pos);
             return;
         }
-        int next = Math.max(0, pulse - 2);
+        int next = Math.max(0, packet.value() - 2);
         if (next == 0) {
             InformationRuntime.clear(level, "thermal_pulse", pos);
         } else {
-            InformationRuntime.write(level, "thermal_pulse", pos, next, 0, true,
-                    Math.max(0, InformationRuntime.quality(level, "thermal_pulse", pos) - 10));
+            InformationRuntime.write(level, "thermal_pulse", pos, next, packet.selector(), true,
+                    Math.max(0, packet.qualityPercent() - 10));
             level.scheduleTick(pos, this, PACKET_TTL_TICKS);
         }
     }
