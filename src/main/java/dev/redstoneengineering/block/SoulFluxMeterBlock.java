@@ -8,6 +8,7 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.SoulFluxNetwork;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -60,18 +61,37 @@ public class SoulFluxMeterBlock extends PassiveDirectionalSignalBlock {
         );
     }
 
+    public record ChargeObservation(int value, PortQuality quality) {}
+
+    /** Observer-only measurement that keeps node presence separate from the numerical charge. */
+    public static ChargeObservation inputObservation(Level level, BlockPos pos, BlockState state) {
+        Direction input = state.getValue(FACING).getOpposite();
+        BlockPos source = pos.relative(input);
+        if (!level.hasChunkAt(source)) return new ChargeObservation(0, PortQuality.STALE);
+        if (!SoulFluxNetwork.isNode(level, source)) return new ChargeObservation(0, PortQuality.NO_SIGNAL);
+
+        InformationRuntime.Snapshot snapshot = SoulFluxNetwork.chargeSnapshot(level, source);
+        int value = Math.max(0, Math.min(100, snapshot.value()));
+        if (snapshot.ageTicks() < 0) return new ChargeObservation(0, PortQuality.NO_SIGNAL);
+        if (!snapshot.valid() || snapshot.qualityPercent() <= 0) {
+            return new ChargeObservation(value, PortQuality.STALE);
+        }
+        return new ChargeObservation(value, PortQuality.VALID);
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(
             Level level, BlockPos pos, BlockState state, Direction side
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
+        ChargeObservation observation = inputObservation(level, pos, state);
         if (side == inputSide(state)) {
             return Optional.of(new EngineeringPortSnapshot(
-                    port.get(), inputCharge(level, pos, state), 0.0, 100.0, PortQuality.VALID));
+                    port.get(), observation.value(), 0.0, 100.0, observation.quality()));
         }
         return Optional.of(EngineeringPortSnapshot.redstone(
-                port.get(), state.getValue(OUTPUT), PortQuality.VALID));
+                port.get(), state.getValue(OUTPUT), observation.quality()));
     }
 
     @Override
@@ -82,13 +102,14 @@ public class SoulFluxMeterBlock extends PassiveDirectionalSignalBlock {
     }
 
     public static int inputCharge(Level level, BlockPos pos, BlockState state) {
-        Direction input = state.getValue(FACING).getOpposite();
-        return SoulFluxNetwork.charge(level, pos.relative(input));
+        return inputObservation(level, pos, state).value();
     }
 
     @Override
     protected int computeOutput(Level level, BlockPos pos, BlockState state) {
-        return Math.min(15, (inputCharge(level, pos, state) * 15) / 100);
+        ChargeObservation observation = inputObservation(level, pos, state);
+        return observation.quality() == PortQuality.VALID
+                ? Math.min(15, (observation.value() * 15) / 100) : 0;
     }
 
     @Override
@@ -108,9 +129,11 @@ public class SoulFluxMeterBlock extends PassiveDirectionalSignalBlock {
             BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit
     ) {
         if (!level.isClientSide) {
+            ChargeObservation observation = inputObservation(level, pos, state);
             player.displayClientMessage(Component.literal(
-                    "Soul Flux meter | BACK SOUL_FLUX=" + inputCharge(level, pos, state)
-                            + "/100 → FRONT REDSTONE=" + state.getValue(OUTPUT) + "/15"), true);
+                    "Soul Flux meter | BACK SOUL_FLUX=" + observation.value()
+                            + "/100 [" + observation.quality().name() + "]"
+                            + " → FRONT REDSTONE=" + state.getValue(OUTPUT) + "/15"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
