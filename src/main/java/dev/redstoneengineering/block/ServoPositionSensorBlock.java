@@ -45,20 +45,33 @@ public class ServoPositionSensorBlock extends PassiveDirectionalSignalBlock {
         );
     }
 
+    /** Mechanical source quality includes chunk coverage, device identity and FRONT-to-BACK alignment. */
+    public static PortQuality sourceQuality(Level level, BlockPos pos, BlockState sensorState) {
+        Direction sensorInput = sensorState.getValue(FACING).getOpposite();
+        BlockPos servoPos = pos.relative(sensorInput);
+        if (!level.hasChunkAt(servoPos)) return PortQuality.STALE;
+        BlockState servoState = level.getBlockState(servoPos);
+        if (!(servoState.getBlock() instanceof ServoActuatorBlock)) return PortQuality.NO_SIGNAL;
+        Direction servoFront = servoState.getValue(ServoActuatorBlock.FACING);
+        return servoFront == sensorInput.getOpposite() ? PortQuality.VALID : PortQuality.TOPOLOGY_ERROR;
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         BlockPos servoPos = inputPos(pos, state);
-        boolean present = level.getBlockState(servoPos).getBlock() instanceof ServoActuatorBlock;
+        PortQuality sourceQuality = sourceQuality(level, pos, state);
         if (side == inputSide(state)) {
-            int position = present ? ServoActuatorBlock.position(level, servoPos) : 0;
-            return Optional.of(new EngineeringPortSnapshot(port.get(), position, 0.0, 15.0,
-                    present ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+            int position = sourceQuality == PortQuality.VALID ? ServoActuatorBlock.position(level, servoPos) : 0;
+            return Optional.of(new EngineeringPortSnapshot(
+                    port.get(), position, 0.0, 15.0, sourceQuality));
         }
         MeasurementSnapshot measurement = measurement(level, pos);
-        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), state.getValue(OUTPUT),
-                present ? MetrologySupport.portQuality(measurement) : PortQuality.NO_SIGNAL));
+        PortQuality outputQuality = sourceQuality == PortQuality.VALID
+                ? MetrologySupport.portQuality(measurement) : sourceQuality;
+        return Optional.of(EngineeringPortSnapshot.redstone(
+                port.get(), state.getValue(OUTPUT), outputQuality));
     }
 
     /** BACK is a mechanical-position interface, so vanilla redstone may connect only to FRONT output. */
@@ -69,8 +82,8 @@ public class ServoPositionSensorBlock extends PassiveDirectionalSignalBlock {
 
     @Override
     protected int computeOutput(Level level, BlockPos pos, BlockState state) {
+        if (sourceQuality(level, pos, state) != PortQuality.VALID) return 0;
         BlockPos servoPos = inputPos(pos, state);
-        if (!(level.getBlockState(servoPos).getBlock() instanceof ServoActuatorBlock)) return 0;
         int truePosition = ServoActuatorBlock.position(level, servoPos);
         if (!(level instanceof ServerLevel server)) return truePosition;
         double reading = MetrologySupport.conditionRedstone(server, pos, truePosition, SENSOR_PROFILE);
