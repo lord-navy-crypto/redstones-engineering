@@ -68,8 +68,9 @@ public final class RseVanillaRedstonePreservationGameTests {
         BlockPos lamp = new BlockPos(3, 1, 2);
         support(helper, repeater);
         support(helper, lamp);
+        // Diode FACING points toward the input; WEST input therefore emits EAST toward the lamp.
         helper.setBlock(repeater, Blocks.REPEATER.defaultBlockState()
-                .setValue(HorizontalDirectionalBlock.FACING, Direction.EAST)
+                .setValue(HorizontalDirectionalBlock.FACING, Direction.WEST)
                 .setValue(RepeaterBlock.DELAY, 4));
         helper.setBlock(lamp, Blocks.REDSTONE_LAMP.defaultBlockState());
 
@@ -116,14 +117,14 @@ public final class RseVanillaRedstonePreservationGameTests {
         support(helper, subtractLamp);
 
         helper.setBlock(compare, Blocks.COMPARATOR.defaultBlockState()
-                .setValue(HorizontalDirectionalBlock.FACING, Direction.EAST)
+                .setValue(HorizontalDirectionalBlock.FACING, Direction.WEST)
                 .setValue(ComparatorBlock.MODE, ComparatorMode.COMPARE));
         helper.setBlock(compareRear, Blocks.REDSTONE_BLOCK.defaultBlockState());
         helper.setBlock(compareSide, Blocks.REDSTONE_BLOCK.defaultBlockState());
         helper.setBlock(compareLamp, Blocks.REDSTONE_LAMP.defaultBlockState());
 
         helper.setBlock(subtract, Blocks.COMPARATOR.defaultBlockState()
-                .setValue(HorizontalDirectionalBlock.FACING, Direction.EAST)
+                .setValue(HorizontalDirectionalBlock.FACING, Direction.WEST)
                 .setValue(ComparatorBlock.MODE, ComparatorMode.SUBTRACT));
         helper.setBlock(subtractRear, Blocks.REDSTONE_BLOCK.defaultBlockState());
         helper.setBlock(subtractSide, Blocks.REDSTONE_BLOCK.defaultBlockState());
