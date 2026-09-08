@@ -60,10 +60,17 @@ public class FreeSpaceOpticalReceiverBlock extends PassiveDirectionalSignalBlock
         );
     }
 
-    private boolean validOptical(Level level, BlockPos pos, BlockState state) {
-        return InformationRuntime.valid(level, "free_optical", pos)
-                && InformationRuntime.quality(level, "free_optical", pos) > 0
-                && InformationRuntime.aux(level, "free_optical", pos) == state.getValue(CHANNEL);
+    private static PortQuality opticalQuality(
+            InformationRuntime.Snapshot packet, BlockState state
+    ) {
+        if (packet.ageTicks() < 0 || packet.qualityPercent() <= 0) return PortQuality.NO_SIGNAL;
+        if (packet.selector() != state.getValue(CHANNEL)) return PortQuality.DOMAIN_MISMATCH;
+        return packet.valid() ? PortQuality.VALID : PortQuality.NO_SIGNAL;
+    }
+
+    private static int opticalValue(InformationRuntime.Snapshot packet, BlockState state) {
+        return opticalQuality(packet, state) == PortQuality.VALID
+                ? Math.max(0, Math.min(15, packet.value())) : 0;
     }
 
     @Override
@@ -72,18 +79,15 @@ public class FreeSpaceOpticalReceiverBlock extends PassiveDirectionalSignalBlock
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        boolean valid = validOptical(level, pos, state);
-        int quality = InformationRuntime.quality(level, "free_optical", pos);
-        PortQuality portQuality = valid
-                ? PortQuality.VALID
-                : quality > 0 ? PortQuality.DOMAIN_MISMATCH : PortQuality.NO_SIGNAL;
+        InformationRuntime.Snapshot packet = InformationRuntime.snapshot(level, "free_optical", pos);
+        PortQuality quality = opticalQuality(packet, state);
         if (side == inputSide(state)) {
             return Optional.of(new EngineeringPortSnapshot(
-                    port.get(), Math.min(15, InformationRuntime.value(level, "free_optical", pos)),
-                    0.0, 15.0, portQuality));
+                    port.get(), Math.max(0, Math.min(15, packet.value())),
+                    0.0, 15.0, quality));
         }
         return Optional.of(EngineeringPortSnapshot.redstone(
-                port.get(), state.getValue(OUTPUT), portQuality));
+                port.get(), state.getValue(OUTPUT), quality));
     }
 
     @Override
@@ -95,8 +99,7 @@ public class FreeSpaceOpticalReceiverBlock extends PassiveDirectionalSignalBlock
 
     @Override
     protected int computeOutput(Level level, BlockPos pos, BlockState state) {
-        return validOptical(level, pos, state)
-                ? Math.min(15, InformationRuntime.value(level, "free_optical", pos)) : 0;
+        return opticalValue(InformationRuntime.snapshot(level, "free_optical", pos), state);
     }
 
     @Override
@@ -107,17 +110,21 @@ public class FreeSpaceOpticalReceiverBlock extends PassiveDirectionalSignalBlock
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        int quality = InformationRuntime.quality(level, "free_optical", pos);
-        if (quality > 0) {
-            InformationRuntime.write(
-                    level,
-                    "free_optical",
-                    pos,
-                    InformationRuntime.value(level, "free_optical", pos),
-                    InformationRuntime.aux(level, "free_optical", pos),
-                    quality > 20,
-                    Math.max(0, quality - 20)
-            );
+        InformationRuntime.Snapshot packet = InformationRuntime.snapshot(level, "free_optical", pos);
+        if (packet.ageTicks() >= 0) {
+            if (packet.qualityPercent() <= 20) {
+                InformationRuntime.clear(level, "free_optical", pos);
+            } else {
+                InformationRuntime.write(
+                        level,
+                        "free_optical",
+                        pos,
+                        packet.value(),
+                        packet.selector(),
+                        packet.valid(),
+                        packet.qualityPercent() - 20
+                );
+            }
         }
         updateOutput(level, pos, state, computeOutput(level, pos, state));
         level.scheduleTick(pos, this, 5);
@@ -139,10 +146,11 @@ public class FreeSpaceOpticalReceiverBlock extends PassiveDirectionalSignalBlock
                 BlockState next = state.setValue(CHANNEL, channel);
                 level.setBlock(pos, next, Block.UPDATE_CLIENTS);
                 updateOutput(level, pos, next, computeOutput(level, pos, next));
+                InformationRuntime.Snapshot packet = InformationRuntime.snapshot(level, "free_optical", pos);
                 player.displayClientMessage(Component.literal(
                         "Free-space optical RX channel=" + channel
-                                + " power=" + InformationRuntime.value(level, "free_optical", pos)
-                                + " quality=" + InformationRuntime.quality(level, "free_optical", pos)
+                                + " power=" + packet.value()
+                                + " quality=" + packet.qualityPercent()
                                 + "% | alignment required"), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
