@@ -10,6 +10,7 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.FreeSpaceOpticsKernel;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -61,18 +62,29 @@ public class FreeSpaceOpticalTransmitterBlock extends DirectionalDomainBlock imp
         );
     }
 
+    public RedstoneObservationSupport.Observation inputObservation(
+            Level level, BlockPos pos, BlockState state
+    ) {
+        return RedstoneObservationSupport.observe(level, pos, inputSide(state));
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(
             Level level, BlockPos pos, BlockState state, Direction side
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        int power = inputPower(level, pos, state);
-        PortQuality quality = power > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL;
+        RedstoneObservationSupport.Observation input = inputObservation(level, pos, state);
+        int power = input.valid() ? input.value() : 0;
         if (side == inputSide(state)) {
-            return Optional.of(EngineeringPortSnapshot.redstone(port.get(), power, PortQuality.VALID));
+            return Optional.of(EngineeringPortSnapshot.redstone(
+                    port.get(), input.value(), input.quality()));
         }
-        return Optional.of(new EngineeringPortSnapshot(port.get(), power, 0.0, 15.0, quality));
+        PortQuality quality = input.valid()
+                ? (power > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL)
+                : input.quality();
+        return Optional.of(new EngineeringPortSnapshot(
+                port.get(), power, 0.0, 15.0, quality));
     }
 
     @Override
@@ -82,13 +94,9 @@ public class FreeSpaceOpticalTransmitterBlock extends DirectionalDomainBlock imp
         return direction != null && direction.getOpposite() == inputSide(state);
     }
 
-    private static int boundedSignal(int signal) {
-        return Math.max(0, Math.min(15, signal));
-    }
-
     private int inputPower(Level level, BlockPos pos, BlockState state) {
-        Direction input = inputSide(state);
-        return boundedSignal(level.getSignal(pos.relative(input), input));
+        RedstoneObservationSupport.Observation input = inputObservation(level, pos, state);
+        return input.valid() ? input.value() : 0;
     }
 
     private void emit(ServerLevel level, BlockPos pos, BlockState state) {

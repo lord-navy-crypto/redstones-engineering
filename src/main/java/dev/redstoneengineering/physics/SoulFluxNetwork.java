@@ -39,7 +39,8 @@ public final class SoulFluxNetwork {
 
             var block = level.getBlockState(pos).getBlock();
             if (block instanceof SoulSandReservoirBlock) {
-                int old = InformationRuntime.value(level, STORE_KEY, pos);
+                InformationRuntime.Snapshot stored = InformationRuntime.snapshot(level, STORE_KEY, pos);
+                int old = Math.max(0, Math.min(100, stored.value()));
                 int added = Math.min(100 - old, remaining);
                 InformationRuntime.write(level, STORE_KEY, pos, old + added, 0, true, 100);
                 level.updateNeighborsAt(pos, block);
@@ -48,8 +49,11 @@ public final class SoulFluxNetwork {
 
             if (!(block instanceof SoulSoilConduitBlock || block instanceof SoulSandReservoirBlock)) continue;
 
-            InformationRuntime.write(level, FLUX_KEY, pos, Math.max(0, remaining), 0, true, 100);
-            level.updateNeighborsAt(pos, block);
+            if (block instanceof SoulSoilConduitBlock) {
+                InformationRuntime.write(level, FLUX_KEY, pos, remaining, 0, true, 100);
+                level.updateNeighborsAt(pos, block);
+            }
+
             for (Direction direction : Direction.values()) queue.addLast(pos.relative(direction));
 
             if (block instanceof SoulSoilConduitBlock) remaining = Math.max(0, remaining - 1);
@@ -59,18 +63,47 @@ public final class SoulFluxNetwork {
         NetworkKernel.recordScan(level, "soul", seen.size(), seen.size() >= NetworkKernel.MAX_NODES);
     }
 
-    public static int charge(Level level, BlockPos pos) {
-        var block = level.getBlockState(pos).getBlock();
-        if (block instanceof SoulSandReservoirBlock) return InformationRuntime.value(level, STORE_KEY, pos);
-        return InformationRuntime.value(level, FLUX_KEY, pos);
+    /** Initialize a newly placed storage node as a known, valid empty reservoir. */
+    public static void initializeReservoir(Level level, BlockPos pos) {
+        InformationRuntime.Snapshot stored = InformationRuntime.snapshot(level, STORE_KEY, pos);
+        if (stored.ageTicks() < 0) {
+            InformationRuntime.write(level, STORE_KEY, pos, 0, 0, true, 100);
+        }
     }
 
-    /** Decay the authoritative value owned by the node at this position by one unit. */
+    /** Observer-neutral authoritative charge snapshot for the node type at this position. */
+    public static InformationRuntime.Snapshot chargeSnapshot(Level level, BlockPos pos) {
+        var block = level.getBlockState(pos).getBlock();
+        String key = block instanceof SoulSandReservoirBlock ? STORE_KEY : FLUX_KEY;
+        return InformationRuntime.snapshot(level, key, pos);
+    }
+
+    public static int charge(Level level, BlockPos pos) {
+        return Math.max(0, Math.min(100, chargeSnapshot(level, pos).value()));
+    }
+
+    /** Decay transient conduit packets to absence while retaining reservoir zero as known empty storage. */
     public static void decay(Level level, BlockPos pos) {
-        int charge = charge(level, pos);
-        if (charge <= 0) return;
-        String key = level.getBlockState(pos).getBlock() instanceof SoulSandReservoirBlock ? STORE_KEY : FLUX_KEY;
-        InformationRuntime.write(level, key, pos, charge - 1, 0, true, 100);
+        var block = level.getBlockState(pos).getBlock();
+        InformationRuntime.Snapshot snapshot = chargeSnapshot(level, pos);
+        int charge = Math.max(0, Math.min(100, snapshot.value()));
+
+        if (block instanceof SoulSandReservoirBlock) {
+            if (snapshot.ageTicks() < 0) {
+                initializeReservoir(level, pos);
+                return;
+            }
+            if (charge <= 0) return;
+            InformationRuntime.write(level, STORE_KEY, pos, charge - 1, 0, true, 100);
+            return;
+        }
+
+        if (snapshot.ageTicks() < 0) return;
+        if (charge <= 1) {
+            InformationRuntime.clear(level, FLUX_KEY, pos);
+        } else {
+            InformationRuntime.write(level, FLUX_KEY, pos, charge - 1, 0, true, 100);
+        }
     }
 
     /** Remove all transient/persistent Soul-Flux runtime attached to a removed node position. */

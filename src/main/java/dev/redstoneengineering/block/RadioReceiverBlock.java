@@ -67,6 +67,12 @@ public class RadioReceiverBlock extends PassiveDirectionalSignalBlock {
         );
     }
 
+    private static PortQuality receptionQuality(RadioKernel.Reception reception) {
+        return reception.collision()
+                ? PortQuality.TOPOLOGY_ERROR
+                : reception.valid() ? PortQuality.VALID : PortQuality.NO_SIGNAL;
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(
             Level level, BlockPos pos, BlockState state, Direction side
@@ -74,9 +80,7 @@ public class RadioReceiverBlock extends PassiveDirectionalSignalBlock {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         RadioKernel.Reception reception = RadioKernel.receivePacket(level, pos, state.getValue(CHANNEL));
-        PortQuality quality = reception.collision()
-                ? PortQuality.TOPOLOGY_ERROR
-                : reception.valid() ? PortQuality.VALID : PortQuality.NO_SIGNAL;
+        PortQuality quality = receptionQuality(reception);
         if (side == Direction.UP) {
             return Optional.of(new EngineeringPortSnapshot(
                     port.get(), reception.value(), 0.0, 15.0, quality));
@@ -105,7 +109,9 @@ public class RadioReceiverBlock extends PassiveDirectionalSignalBlock {
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        var rx = RadioKernel.receivePacket(level, pos, state.getValue(CHANNEL));
+        int channel = state.getValue(CHANNEL);
+        RadioKernel.Reception rx = RadioKernel.receivePacket(level, pos, channel);
+        RadioKernel.recordReception(level, channel, rx);
         int[] diagnostics = RuntimeIntStore.get(level, DIAG_KEY, pos, DIAG_SIZE);
 
         int linkQuality = rx.quality();
@@ -120,7 +126,7 @@ public class RadioReceiverBlock extends PassiveDirectionalSignalBlock {
         diagnostics[6] = rx.valid() ? 1 : 0;
         diagnostics[7] = linkQuality;
         diagnostics[8] = noiseStrength;
-        diagnostics[9] = state.getValue(CHANNEL);
+        diagnostics[9] = channel;
 
         updateOutput(level, pos, state, rx.value());
         level.scheduleTick(pos, this, 5);
@@ -145,7 +151,7 @@ public class RadioReceiverBlock extends PassiveDirectionalSignalBlock {
                 int[] diagnostics = RuntimeIntStore.get(level, DIAG_KEY, pos, DIAG_SIZE);
                 if (channel != oldChannel) diagnostics[5]++;
                 diagnostics[9] = channel;
-                var rx = RadioKernel.receivePacket(level, pos, channel);
+                RadioKernel.Reception rx = RadioKernel.receivePacket(level, pos, channel);
                 updateOutput(level, pos, next, rx.value());
                 player.displayClientMessage(Component.literal(
                         "Radio RX channel=" + channel

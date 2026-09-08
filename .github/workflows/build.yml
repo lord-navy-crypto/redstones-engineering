@@ -94,6 +94,7 @@ jobs:
             tools/rse_eighth_ten_conversion_communications_verify.py \
             tools/rse_ninth_ten_control_pneumatic_verify.py \
             tools/rse_tenth_ten_pneumatic_vibration_verify.py \
+            tools/rse_eleventh_ten_media_evidence_verify.py \
             tools/rse_fourth_eight_verify.py \
             tools/rse_fifth_eight_verify.py \
             tools/rse_sixth_eight_verify.py \
@@ -148,8 +149,8 @@ jobs:
             exit 1
           fi
           test_count="$(printf '%s\n' "$summary_line" | sed -E 's/.*All ([0-9]+) required tests passed.*/\1/')"
-          if [[ ! "$test_count" =~ ^[0-9]+$ ]] || (( test_count < 289 )); then
-            echo "::error::Expected at least 289 GameTests after tenth-ten pneumatic/vibration coverage; observed: $test_count"
+          if [[ ! "$test_count" =~ ^[0-9]+$ ]] || (( test_count < 299 )); then
+            echo "::error::Expected at least 299 GameTests after eleventh-ten media-evidence coverage; observed: $test_count"
             exit 1
           fi
           echo "Verified GameTest completion: $test_count required tests passed"

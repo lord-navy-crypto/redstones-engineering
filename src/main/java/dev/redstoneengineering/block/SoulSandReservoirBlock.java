@@ -9,6 +9,7 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.SoulFluxNetwork;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -58,19 +59,27 @@ public class SoulSandReservoirBlock extends Block implements EngineeringPortProv
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(
             Level level, BlockPos pos, BlockState state, Direction side
     ) {
-        return engineeringPort(state, side).map(port -> new EngineeringPortSnapshot(
-                port,
-                SoulFluxNetwork.charge(level, pos),
-                0.0,
-                100.0,
-                PortQuality.VALID
-        ));
+        return engineeringPort(state, side).map(port -> {
+            InformationRuntime.Snapshot stored = SoulFluxNetwork.chargeSnapshot(level, pos);
+            int charge = Math.max(0, Math.min(100, stored.value()));
+            PortQuality quality = stored.ageTicks() < 0
+                    ? PortQuality.STALE
+                    : stored.valid() ? PortQuality.VALID : PortQuality.FAULT;
+            return new EngineeringPortSnapshot(
+                    port,
+                    charge,
+                    0.0,
+                    100.0,
+                    quality
+            );
+        });
     }
 
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
         if (!level.isClientSide && !state.is(oldState.getBlock())) {
+            SoulFluxNetwork.initializeReservoir(level, pos);
             level.scheduleTick(pos, this, DECAY_PERIOD_TICKS);
         }
     }
@@ -92,10 +101,12 @@ public class SoulSandReservoirBlock extends Block implements EngineeringPortProv
             BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit
     ) {
         if (!level.isClientSide) {
+            InformationRuntime.Snapshot stored = SoulFluxNetwork.chargeSnapshot(level, pos);
             player.displayClientMessage(Component.literal(
                     "Soul reservoir | six-face SOUL_FLUX storage | Qs="
-                            + SoulFluxNetwork.charge(level, pos)
-                            + "/100 | slow decay=" + DECAY_PERIOD_TICKS + "t | Minecraft-fictional physics"), true);
+                            + Math.max(0, Math.min(100, stored.value()))
+                            + "/100 | quality=" + (stored.valid() ? "VALID" : "STALE")
+                            + " | slow decay=" + DECAY_PERIOD_TICKS + "t | Minecraft-fictional physics"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }

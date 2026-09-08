@@ -9,6 +9,7 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.SoulFluxNetwork;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -59,10 +60,12 @@ public class SoulSoilConduitBlock extends Block implements EngineeringPortProvid
             Level level, BlockPos pos, BlockState state, Direction side
     ) {
         return engineeringPort(state, side).map(port -> {
-            int charge = SoulFluxNetwork.charge(level, pos);
+            InformationRuntime.Snapshot flux = SoulFluxNetwork.chargeSnapshot(level, pos);
+            int charge = Math.max(0, Math.min(100, flux.value()));
+            boolean valid = flux.valid() && flux.qualityPercent() > 0 && charge > 0;
             return new EngineeringPortSnapshot(
                     port, charge, 0.0, 100.0,
-                    charge > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL);
+                    valid ? PortQuality.VALID : PortQuality.NO_SIGNAL);
         });
     }
 
