@@ -31,11 +31,12 @@ import java.util.Optional;
  */
 public final class RseSystemLevelClosurePhase2ProbeGameTests {
     private static final String TEMPLATE = "empty5x4x5";
+    private static final String BATCH = "systemClosurePhase2";
 
     private RseSystemLevelClosurePhase2ProbeGameTests() {}
 
     @PrefixGameTestTemplate(false)
-    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 180)
+    @GameTest(batch = BATCH, templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 180)
     public static void pidServoSensorConditionedFeedbackLoopConverges(GameTestHelper helper) {
         // Plant line, south -> north: setpoint -> PID -> servo -> position sensor.
         BlockPos setpoint = new BlockPos(2, 1, 4);
