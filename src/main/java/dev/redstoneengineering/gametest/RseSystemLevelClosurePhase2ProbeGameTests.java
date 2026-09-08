@@ -3,27 +3,26 @@ package dev.redstoneengineering.gametest;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.block.DirectionalRedstoneEndpointBlock;
 import dev.redstoneengineering.block.DirectionalSignalBlock;
+import dev.redstoneengineering.block.PidControllerBlock;
 import dev.redstoneengineering.block.RedstoneReferenceSourceBlock;
-import dev.redstoneengineering.block.SampleHoldBlock;
 import dev.redstoneengineering.block.ServoActuatorBlock;
-import dev.redstoneengineering.block.ServoPositionSensorBlock;
-import dev.redstoneengineering.block.SignalConditionerBlock;
+import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortQuality;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.RedStoneWireBlock;
+import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+
+import java.util.Optional;
 
 /**
  * System-Level Closure Phase 2 diagnostic bisection.
  *
- * <p>This probe deliberately removes PID and the feedback return. It tests only the acquisition half:
- * fixed command -> Servo -> Position Sensor -> lossy transport -> Conditioner -> Sample & Hold.
- * If this remains bounded, the Phase 2 hang is isolated to PID/feedback closure rather than the
- * plant, sensor, transport, conditioning, or sampled-data boundary.</p>
+ * <p>This probe deliberately removes the physical feedback return. It tests only the control half:
+ * fixed SP + fixed PV -> PID -> Servo. If this remains bounded while the feedback-acquisition half
+ * is also bounded, the Phase 2 hang is isolated to closing the loop rather than either half-chain.</p>
  */
 public final class RseSystemLevelClosurePhase2ProbeGameTests {
     private static final String TEMPLATE = "empty5x4x5";
@@ -31,86 +30,75 @@ public final class RseSystemLevelClosurePhase2ProbeGameTests {
     private RseSystemLevelClosurePhase2ProbeGameTests() {}
 
     @PrefixGameTestTemplate(false)
-    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 100)
-    public static void feedbackAcquisitionHalfChainIsBounded(GameTestHelper helper) {
-        BlockPos source = new BlockPos(0, 1, 2);
-        BlockPos servo = new BlockPos(1, 1, 2);
-        BlockPos sensor = new BlockPos(2, 1, 2);
-        BlockPos dustA = new BlockPos(3, 1, 2);
-        BlockPos dustB = new BlockPos(3, 1, 3);
-        BlockPos conditioner = new BlockPos(2, 1, 3);
-        BlockPos sampler = new BlockPos(1, 1, 3);
-        BlockPos trigger = new BlockPos(1, 1, 4);
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 80)
+    public static void pidToServoOpenLoopHalfChainIsBounded(GameTestHelper helper) {
+        BlockPos setpoint = new BlockPos(0, 1, 2);
+        BlockPos pid = new BlockPos(1, 1, 2);
+        BlockPos servo = new BlockPos(2, 1, 2);
+        BlockPos processValue = new BlockPos(1, 1, 1);
 
-        helper.setBlock(dustA.below(), Blocks.STONE.defaultBlockState());
-        helper.setBlock(dustB.below(), Blocks.STONE.defaultBlockState());
-        helper.setBlock(dustA, Blocks.REDSTONE_WIRE.defaultBlockState());
-        helper.setBlock(dustB, Blocks.REDSTONE_WIRE.defaultBlockState());
-
-        helper.setBlock(source, reference(Direction.EAST, 8));
+        helper.setBlock(setpoint, reference(Direction.EAST, 4));
+        helper.setBlock(processValue, reference(Direction.SOUTH, 4));
+        helper.setBlock(pid, RedstoneEngineering.PID_CONTROLLER.get().defaultBlockState()
+                .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
+                .setValue(PidControllerBlock.TUNING, 0));
         helper.setBlock(servo, RedstoneEngineering.SERVO_ACTUATOR.get().defaultBlockState()
                 .setValue(ServoActuatorBlock.FACING, Direction.EAST)
                 .setValue(ServoActuatorBlock.SLEW, 1));
-        helper.setBlock(sensor, RedstoneEngineering.SERVO_POSITION_SENSOR.get().defaultBlockState()
-                .setValue(DirectionalSignalBlock.FACING, Direction.EAST));
-        helper.setBlock(conditioner, RedstoneEngineering.SIGNAL_CONDITIONER.get().defaultBlockState()
-                .setValue(DirectionalSignalBlock.FACING, Direction.WEST)
-                .setValue(SignalConditionerBlock.MODE, 1)
-                .setValue(SignalConditionerBlock.PARAM, 6)); // OFFSET +1 compensates one dust step.
-        helper.setBlock(sampler, RedstoneEngineering.SAMPLE_HOLD.get().defaultBlockState()
-                .setValue(DirectionalSignalBlock.FACING, Direction.WEST)
-                .setValue(SampleHoldBlock.TRIGGER_MODE, 0));
-        helper.setBlock(trigger, Blocks.AIR.defaultBlockState());
 
-        pulseSample(helper, trigger, 28);
-        pulseSample(helper, trigger, 44);
-        pulseSample(helper, trigger, 60);
+        helper.runAfterDelay(36, () -> {
+            BlockPos pidWorld = helper.absolutePos(pid);
+            BlockPos servoWorld = helper.absolutePos(servo);
+            BlockState pidState = helper.getBlockState(pid);
+            PidControllerBlock controller = RedstoneEngineering.PID_CONTROLLER.get();
 
-        helper.runAfterDelay(72, () -> {
-            int position = ServoActuatorBlock.position(helper.getLevel(), helper.absolutePos(servo));
-            int sensorOutput = helper.getBlockState(sensor).getValue(DirectionalSignalBlock.OUTPUT);
-            int dust1 = helper.getBlockState(dustA).getValue(RedStoneWireBlock.POWER);
-            int dust2 = helper.getBlockState(dustB).getValue(RedStoneWireBlock.POWER);
-            int conditionerInput = SignalConditionerBlock.inspectInput(
-                    helper.getLevel(), helper.absolutePos(conditioner), helper.getBlockState(conditioner));
-            int conditionerOutput = helper.getBlockState(conditioner).getValue(DirectionalSignalBlock.OUTPUT);
-            int held = helper.getBlockState(sampler).getValue(DirectionalSignalBlock.OUTPUT);
-            int captures = SampleHoldBlock.captureCount(helper.getLevel(), helper.absolutePos(sampler));
-            PortQuality mechanical = ServoPositionSensorBlock.sourceQuality(
-                    helper.getLevel(), helper.absolutePos(sensor), helper.getBlockState(sensor));
+            EngineeringPortSnapshot sp = snapshot(controller, helper, pidWorld, pidState, Direction.WEST);
+            EngineeringPortSnapshot pv = snapshot(controller, helper, pidWorld, pidState, Direction.NORTH);
+            EngineeringPortSnapshot out = snapshot(controller, helper, pidWorld, pidState, Direction.EAST);
+            int pidOutput = pidState.getValue(DirectionalSignalBlock.OUTPUT);
+            int servoCommand = ServoActuatorBlock.command(helper.getLevel(), servoWorld);
+            int servoPosition = ServoActuatorBlock.position(helper.getLevel(), servoWorld);
 
-            if (position != 8
-                    || mechanical != PortQuality.VALID
-                    || Math.abs(sensorOutput - position) > 1
-                    || dust1 != sensorOutput
-                    || dust2 != Math.max(0, dust1 - 1)
-                    || conditionerInput != dust2
-                    || conditionerOutput != Math.min(15, conditionerInput + 1)
-                    || held != conditionerOutput
-                    || captures < 2) {
-                helper.fail("Feedback acquisition half-chain mismatch"
-                        + " | servo=" + position
-                        + " sensor=" + sensorOutput + "/" + mechanical
-                        + " dust=" + dust1 + "->" + dust2
-                        + " condIn=" + conditionerInput
-                        + " condOut=" + conditionerOutput
-                        + " held=" + held
-                        + " captures=" + captures,
-                        conditioner);
+            if (sp.quality() != PortQuality.VALID
+                    || pv.quality() != PortQuality.VALID
+                    || out.quality() != PortQuality.VALID
+                    || sp.value() != 4
+                    || pv.value() != 4
+                    || pidOutput != 8
+                    || out.value() != 8
+                    || servoCommand != 8
+                    || servoPosition != 8
+                    || ServoActuatorBlock.braking(helper.getLevel(), servoWorld)) {
+                helper.fail("PID->Servo open-loop half-chain mismatch"
+                        + " | SP=" + sp.value() + "/" + sp.quality()
+                        + " PV=" + pv.value() + "/" + pv.quality()
+                        + " OUT=" + pidOutput + "/" + out.quality()
+                        + " servoCommand=" + servoCommand
+                        + " servoPosition=" + servoPosition
+                        + " braking=" + ServoActuatorBlock.braking(helper.getLevel(), servoWorld),
+                        pid);
                 return;
             }
             helper.succeed();
         });
     }
 
-    private static void pulseSample(GameTestHelper helper, BlockPos trigger, int delay) {
-        helper.runAfterDelay(delay, () -> {
-            helper.setBlock(trigger, Blocks.REDSTONE_BLOCK.defaultBlockState());
-            helper.runAfterDelay(2, () -> helper.setBlock(trigger, Blocks.AIR.defaultBlockState()));
-        });
+    private static EngineeringPortSnapshot snapshot(
+            PidControllerBlock controller,
+            GameTestHelper helper,
+            BlockPos pidWorld,
+            BlockState pidState,
+            Direction side
+    ) {
+        Optional<EngineeringPortSnapshot> snapshot = controller.engineeringSnapshot(
+                helper.getLevel(), pidWorld, pidState, side);
+        if (snapshot.isEmpty()) {
+            throw new IllegalStateException("PID engineering snapshot missing on " + side);
+        }
+        return snapshot.get();
     }
 
-    private static net.minecraft.world.level.block.state.BlockState reference(Direction facing, int power) {
+    private static BlockState reference(Direction facing, int power) {
         return RedstoneEngineering.REDSTONE_REFERENCE_SOURCE.get().defaultBlockState()
                 .setValue(DirectionalRedstoneEndpointBlock.FACING, facing)
                 .setValue(RedstoneReferenceSourceBlock.POWER, power);
