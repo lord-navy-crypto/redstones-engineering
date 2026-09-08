@@ -12,7 +12,10 @@ import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.LeverBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.AttachFace;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /** Final registered-block closure: #121 Fault Latch and #122 Operations Monitor. */
@@ -128,20 +131,25 @@ public final class RseFinalTwoEvidenceClosureGameTests {
         BlockPos cyclePos = monitorPos.above();
         BlockPos queuePos = monitorPos.north();
         helper.setBlock(runPos, Blocks.REDSTONE_WIRE.defaultBlockState());
-        helper.setBlock(cyclePos, Blocks.REDSTONE_WIRE.defaultBlockState());
         helper.setBlock(queuePos, reference(Direction.SOUTH, 0));
         helper.setBlock(monitorPos, RedstoneEngineering.OPERATIONS_MONITOR.get().defaultBlockState());
+        // FLOOR lever is physically attached to the monitor below, so unpowered is a trustworthy vertical LOW.
+        helper.setBlock(cyclePos, floorLever(false));
         BlockPos world = helper.absolutePos(monitorPos);
 
         helper.runAfterDelay(5, () -> {
+            var lowSnapshot = RedstoneEngineering.OPERATIONS_MONITOR.get().engineeringSnapshot(
+                    helper.getLevel(), world, helper.getBlockState(monitorPos), Direction.UP).orElseThrow();
             if (!OperationsMonitorBlock.monitoringReady(helper.getLevel(), world)
+                    || lowSnapshot.value() != 0.0 || lowSnapshot.quality() != PortQuality.VALID
                     || OperationsMonitorBlock.cyclesCurrentWindow(helper.getLevel(), world) != 0
                     || OperationsMonitorBlock.lastCycleTicks(helper.getLevel(), world) != 0) {
-                helper.fail("Operations monitor did not establish a clean LOW/ready baseline", monitorPos);
+                helper.fail("Operations monitor did not establish a trustworthy LOW/ready cycle baseline"
+                        + " | cycle=" + lowSnapshot.value() + "/" + lowSnapshot.quality(), monitorPos);
                 return;
             }
 
-            helper.setBlock(cyclePos, Blocks.REDSTONE_BLOCK.defaultBlockState());
+            helper.setBlock(cyclePos, floorLever(true));
             helper.runAfterDelay(3, () -> {
                 int cycles = OperationsMonitorBlock.cyclesCurrentWindow(helper.getLevel(), world);
                 int lastCycle = OperationsMonitorBlock.lastCycleTicks(helper.getLevel(), world);
@@ -158,9 +166,9 @@ public final class RseFinalTwoEvidenceClosureGameTests {
                     return;
                 }
 
-                helper.setBlock(cyclePos, Blocks.REDSTONE_WIRE.defaultBlockState());
+                helper.setBlock(cyclePos, floorLever(false));
                 helper.runAfterDelay(5, () -> {
-                    helper.setBlock(cyclePos, Blocks.REDSTONE_BLOCK.defaultBlockState());
+                    helper.setBlock(cyclePos, floorLever(true));
                     helper.runAfterDelay(3, () -> {
                         if (OperationsMonitorBlock.cyclesCurrentWindow(helper.getLevel(), world) != 2
                                 || OperationsMonitorBlock.lastCycleTicks(helper.getLevel(), world) <= 0) {
@@ -178,5 +186,11 @@ public final class RseFinalTwoEvidenceClosureGameTests {
         return RedstoneEngineering.REDSTONE_REFERENCE_SOURCE.get().defaultBlockState()
                 .setValue(DirectionalRedstoneEndpointBlock.FACING, facing)
                 .setValue(RedstoneReferenceSourceBlock.POWER, power);
+    }
+
+    private static BlockState floorLever(boolean powered) {
+        return Blocks.LEVER.defaultBlockState()
+                .setValue(BlockStateProperties.ATTACH_FACE, AttachFace.FLOOR)
+                .setValue(LeverBlock.POWERED, powered);
     }
 }
