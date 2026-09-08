@@ -9,7 +9,6 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ComparatorBlock;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.ObserverBlock;
-import net.minecraft.world.level.block.PistonBaseBlock;
 import net.minecraft.world.level.block.RedStoneWireBlock;
 import net.minecraft.world.level.block.RepeaterBlock;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
@@ -188,13 +187,13 @@ public final class RseVanillaRedstonePreservationGameTests {
         helper.runAfterDelay(3, () -> {
             helper.setBlock(source, Blocks.REDSTONE_BLOCK.defaultBlockState());
             helper.runAfterDelay(4, () -> {
-                if (!helper.getBlockState(piston).getValue(PistonBaseBlock.EXTENDED)) {
+                if (!helper.getBlockState(piston).getValue(BlockStateProperties.EXTENDED)) {
                     helper.fail("Vanilla piston failed to extend under direct power with RSE installed", piston);
                     return;
                 }
                 helper.setBlock(source, Blocks.AIR.defaultBlockState());
                 helper.runAfterDelay(5, () -> {
-                    if (helper.getBlockState(piston).getValue(PistonBaseBlock.EXTENDED)) {
+                    if (helper.getBlockState(piston).getValue(BlockStateProperties.EXTENDED)) {
                         helper.fail("Vanilla piston failed to retract after direct power was removed", piston);
                         return;
                     }
