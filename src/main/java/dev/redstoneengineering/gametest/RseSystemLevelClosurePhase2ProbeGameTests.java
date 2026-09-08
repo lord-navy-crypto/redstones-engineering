@@ -7,19 +7,21 @@ import dev.redstoneengineering.block.PidControllerBlock;
 import dev.redstoneengineering.block.RedstoneReferenceSourceBlock;
 import dev.redstoneengineering.block.ServoActuatorBlock;
 import dev.redstoneengineering.block.ServoPositionSensorBlock;
-import dev.redstoneengineering.core.port.PortQuality;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.RedStoneWireBlock;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
- * System-Level Closure Phase 2 diagnostic bisection.
+ * System-Level Closure Phase 2 minimal physical closed-loop diagnostic.
  *
- * <p>This contains PID, Servo, and Position Sensor simultaneously, but keeps PID PV on an independent
- * fixed reference. If this remains bounded, the three-device adjacency is healthy and the defect
- * requires the sensor feedback to be physically returned to PID.</p>
+ * <p>The only loop is PID -> Servo -> Position Sensor -> five vanilla dust nodes -> PID PV.
+ * Conditioner and Sample & Hold are intentionally removed. If this stalls while the triad without
+ * return and the pure PID dust feedback both pass, the defect is localized to the dynamic physical
+ * feedback closure between controller and periodically updated plant.</p>
  */
 public final class RseSystemLevelClosurePhase2ProbeGameTests {
     private static final String TEMPLATE = "empty5x4x5";
@@ -28,15 +30,25 @@ public final class RseSystemLevelClosurePhase2ProbeGameTests {
 
     @PrefixGameTestTemplate(false)
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 80)
-    public static void pidServoSensorTriadWithoutReturnIsBounded(GameTestHelper helper) {
+    public static void minimalPidServoSensorPhysicalFeedbackAdvancesTime(GameTestHelper helper) {
         BlockPos setpoint = new BlockPos(0, 1, 2);
         BlockPos pid = new BlockPos(1, 1, 2);
         BlockPos servo = new BlockPos(2, 1, 2);
         BlockPos sensor = new BlockPos(3, 1, 2);
-        BlockPos processValue = new BlockPos(1, 1, 1);
+        BlockPos[] feedback = {
+                new BlockPos(4, 1, 2),
+                new BlockPos(4, 1, 1),
+                new BlockPos(3, 1, 1),
+                new BlockPos(2, 1, 1),
+                new BlockPos(1, 1, 1)
+        };
 
-        helper.setBlock(setpoint, reference(Direction.EAST, 4));
-        helper.setBlock(processValue, reference(Direction.SOUTH, 4));
+        for (BlockPos wire : feedback) {
+            helper.setBlock(wire.below(), Blocks.STONE.defaultBlockState());
+            helper.setBlock(wire, Blocks.REDSTONE_WIRE.defaultBlockState());
+        }
+
+        helper.setBlock(setpoint, reference(Direction.EAST, 8));
         helper.setBlock(pid, RedstoneEngineering.PID_CONTROLLER.get().defaultBlockState()
                 .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
                 .setValue(PidControllerBlock.TUNING, 0));
@@ -46,22 +58,22 @@ public final class RseSystemLevelClosurePhase2ProbeGameTests {
         helper.setBlock(sensor, RedstoneEngineering.SERVO_POSITION_SENSOR.get().defaultBlockState()
                 .setValue(DirectionalSignalBlock.FACING, Direction.EAST));
 
-        helper.runAfterDelay(40, () -> {
-            int pidOutput = helper.getBlockState(pid).getValue(DirectionalSignalBlock.OUTPUT);
-            int servoPosition = ServoActuatorBlock.position(helper.getLevel(), helper.absolutePos(servo));
-            int sensorOutput = helper.getBlockState(sensor).getValue(DirectionalSignalBlock.OUTPUT);
-            PortQuality quality = ServoPositionSensorBlock.sourceQuality(
-                    helper.getLevel(), helper.absolutePos(sensor), helper.getBlockState(sensor));
+        helper.runAfterDelay(50, () -> {
+            int out = helper.getBlockState(pid).getValue(DirectionalSignalBlock.OUTPUT);
+            int position = ServoActuatorBlock.position(helper.getLevel(), helper.absolutePos(servo));
+            int sensorOut = helper.getBlockState(sensor).getValue(DirectionalSignalBlock.OUTPUT);
+            int finalPv = helper.getBlockState(feedback[feedback.length - 1]).getValue(RedStoneWireBlock.POWER);
 
-            if (pidOutput != 8
-                    || servoPosition != 8
-                    || quality != PortQuality.VALID
-                    || Math.abs(sensorOutput - servoPosition) > 1) {
-                helper.fail("PID->Servo->Sensor triad without return mismatch"
-                        + " | OUT=" + pidOutput
-                        + " servo=" + servoPosition
-                        + " sensor=" + sensorOutput + "/" + quality,
-                        servo);
+            if (out < 0 || out > 15
+                    || position < 0 || position > 15
+                    || sensorOut < 0 || sensorOut > 15
+                    || finalPv < 0 || finalPv > 15) {
+                helper.fail("Minimal physical feedback escaped engineering bounds"
+                        + " | OUT=" + out
+                        + " servo=" + position
+                        + " sensor=" + sensorOut
+                        + " pvDust=" + finalPv,
+                        pid);
                 return;
             }
             helper.succeed();
