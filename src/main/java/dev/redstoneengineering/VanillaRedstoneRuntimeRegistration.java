@@ -2,6 +2,7 @@ package dev.redstoneengineering;
 
 import dev.redstoneengineering.diagnostics.redstone.VanillaRedstoneRuntimeTelemetry;
 import dev.redstoneengineering.gametest.RseVanillaRedstoneBehaviorGameTests;
+import dev.redstoneengineering.gametest.RseVanillaRedstonePreservationGameTests;
 import dev.redstoneengineering.gametest.RseVanillaRedstoneRuntimeGameTests;
 import dev.redstoneengineering.gametest.RseVanillaRedstoneTimingGameTests;
 import net.neoforged.bus.api.IEventBus;
@@ -21,5 +22,6 @@ public final class VanillaRedstoneRuntimeRegistration {
         event.register(RseVanillaRedstoneRuntimeGameTests.class);
         event.register(RseVanillaRedstoneTimingGameTests.class);
         event.register(RseVanillaRedstoneBehaviorGameTests.class);
+        event.register(RseVanillaRedstonePreservationGameTests.class);
     }
 }
