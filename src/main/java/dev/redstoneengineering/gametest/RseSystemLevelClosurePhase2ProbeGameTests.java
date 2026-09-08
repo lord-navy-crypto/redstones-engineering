@@ -5,6 +5,7 @@ import dev.redstoneengineering.block.DirectionalRedstoneEndpointBlock;
 import dev.redstoneengineering.block.DirectionalSignalBlock;
 import dev.redstoneengineering.block.PidControllerBlock;
 import dev.redstoneengineering.block.RedstoneReferenceSourceBlock;
+import dev.redstoneengineering.block.SampleHoldBlock;
 import dev.redstoneengineering.block.ServoActuatorBlock;
 import dev.redstoneengineering.block.ServoPositionSensorBlock;
 import dev.redstoneengineering.block.SignalConditionerBlock;
@@ -25,9 +26,12 @@ import java.util.Optional;
  * System-Level Closure Phase 2 probe.
  *
  * <p>This is intentionally a single diagnostic closed loop before the full Phase 2
- * acceptance matrix is committed. It composes a real controller, actuator, mechanical
- * plant state, sensor, lossy vanilla-redstone feedback path, and explicit signal
- * conditioning. Production behavior is not changed to make this probe pass.</p>
+ * acceptance matrix is committed. The first continuous-feedback fixture exposed a
+ * system-level non-terminating GameTest/update interaction. This probe now follows the
+ * intended RSE engineering hierarchy and inserts an explicit sampled-data boundary:
+ * measurement -> transport -> conditioning -> sample/hold -> control -> actuation.</p>
+ *
+ * <p>Production behavior is not changed to make this probe pass.</p>
  */
 public final class RseSystemLevelClosurePhase2ProbeGameTests {
     private static final String TEMPLATE = "empty5x4x5";
@@ -37,16 +41,18 @@ public final class RseSystemLevelClosurePhase2ProbeGameTests {
 
     @PrefixGameTestTemplate(false)
     @GameTest(batch = BATCH, templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 180)
-    public static void pidServoSensorConditionedFeedbackLoopConverges(GameTestHelper helper) {
+    public static void pidServoSensorSampledConditionedFeedbackLoopConverges(GameTestHelper helper) {
         // Plant line, south -> north: setpoint -> PID -> servo -> position sensor.
-        BlockPos setpoint = new BlockPos(2, 1, 4);
-        BlockPos pid = new BlockPos(2, 1, 3);
-        BlockPos servo = new BlockPos(2, 1, 2);
-        BlockPos sensor = new BlockPos(2, 1, 1);
+        BlockPos setpoint = new BlockPos(3, 1, 4);
+        BlockPos pid = new BlockPos(3, 1, 3);
+        BlockPos servo = new BlockPos(3, 1, 2);
+        BlockPos sensor = new BlockPos(3, 1, 1);
 
-        // Feedback returns around the west edge. Six dust nodes give a known five-level
-        // attenuation above the clamp floor; OFFSET +5 restores the measured value near SP=8.
+        // Feedback returns around the west edge. Seven dust nodes attenuate by six levels.
+        // OFFSET +5 intentionally leaves at most a one-level residual near SP=8, which is
+        // inside the PID deadband but remains visible as real transport/calibration error.
         BlockPos[] feedback = {
+                new BlockPos(3, 1, 0),
                 new BlockPos(2, 1, 0),
                 new BlockPos(1, 1, 0),
                 new BlockPos(0, 1, 0),
@@ -55,6 +61,8 @@ public final class RseSystemLevelClosurePhase2ProbeGameTests {
                 new BlockPos(0, 1, 3)
         };
         BlockPos conditioner = new BlockPos(1, 1, 3);
+        BlockPos sampler = new BlockPos(2, 1, 3);
+        BlockPos trigger = new BlockPos(2, 1, 2);
 
         for (BlockPos wire : feedback) {
             helper.setBlock(wire.below(), Blocks.STONE.defaultBlockState());
@@ -73,17 +81,38 @@ public final class RseSystemLevelClosurePhase2ProbeGameTests {
                 .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
                 .setValue(SignalConditionerBlock.MODE, 1)
                 .setValue(SignalConditionerBlock.PARAM, 10)); // OFFSET +5
+        helper.setBlock(sampler, RedstoneEngineering.SAMPLE_HOLD.get().defaultBlockState()
+                .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
+                .setValue(SampleHoldBlock.TRIGGER_MODE, 0)); // rising-edge capture
         helper.setBlock(setpoint, reference(Direction.NORTH, 8));
+        helper.setBlock(trigger, Blocks.AIR.defaultBlockState());
 
-        helper.runAfterDelay(110, () -> {
-            if (!closedLoopNearTarget(helper, pid, servo, sensor, conditioner, feedback, 8, 1)) return;
+        // Explicit external sample clock for this probe. Each pulse gives the plant time to
+        // respond before the next PV capture, preventing a combinational feedback path.
+        for (int tick : new int[] {8, 20, 32, 44, 56, 68, 80, 92, 104, 116, 128}) {
+            pulseSample(helper, trigger, tick);
+        }
 
-            // Require the loop to remain bounded after another controller/plant settling window,
+        helper.runAfterDelay(120, () -> {
+            if (!closedLoopNearTarget(helper, pid, servo, sensor, conditioner, sampler, feedback, 8, 1)) return;
+            if (SampleHoldBlock.captureCount(helper.getLevel(), helper.absolutePos(sampler)) < 8) {
+                helper.fail("Sampled loop did not accumulate expected real capture evidence", sampler);
+                return;
+            }
+
+            // Require the loop to remain bounded across another sampled controller/plant window,
             // not merely cross the target for one lucky tick.
             helper.runAfterDelay(24, () -> {
-                if (!closedLoopNearTarget(helper, pid, servo, sensor, conditioner, feedback, 8, 1)) return;
+                if (!closedLoopNearTarget(helper, pid, servo, sensor, conditioner, sampler, feedback, 8, 1)) return;
                 helper.succeed();
             });
+        });
+    }
+
+    private static void pulseSample(GameTestHelper helper, BlockPos trigger, int delay) {
+        helper.runAfterDelay(delay, () -> {
+            helper.setBlock(trigger, Blocks.REDSTONE_BLOCK.defaultBlockState());
+            helper.runAfterDelay(2, () -> helper.setBlock(trigger, Blocks.AIR.defaultBlockState()));
         });
     }
 
@@ -93,6 +122,7 @@ public final class RseSystemLevelClosurePhase2ProbeGameTests {
             BlockPos servo,
             BlockPos sensor,
             BlockPos conditioner,
+            BlockPos sampler,
             BlockPos[] feedback,
             int target,
             int tolerance
@@ -104,6 +134,7 @@ public final class RseSystemLevelClosurePhase2ProbeGameTests {
         int conditionerInput = SignalConditionerBlock.inspectInput(
                 helper.getLevel(), helper.absolutePos(conditioner), helper.getBlockState(conditioner));
         int conditionerOutput = helper.getBlockState(conditioner).getValue(DirectionalSignalBlock.OUTPUT);
+        int heldPv = helper.getBlockState(sampler).getValue(DirectionalSignalBlock.OUTPUT);
         int finalDust = helper.getBlockState(feedback[feedback.length - 1]).getValue(RedStoneWireBlock.POWER);
         int pidOutput = helper.getBlockState(pid).getValue(DirectionalSignalBlock.OUTPUT);
 
@@ -117,7 +148,7 @@ public final class RseSystemLevelClosurePhase2ProbeGameTests {
 
         boolean converged = Math.abs(position - target) <= tolerance
                 && Math.abs(sensorOutput - position) <= 1
-                && Math.abs(conditionerOutput - target) <= tolerance
+                && Math.abs(heldPv - target) <= tolerance
                 && Math.abs(pv.value() - target) <= tolerance
                 && Math.abs(pidOutput - target) <= tolerance
                 && sp.quality() == PortQuality.VALID
@@ -126,7 +157,7 @@ public final class RseSystemLevelClosurePhase2ProbeGameTests {
                 && mechanical == PortQuality.VALID;
 
         if (!converged) {
-            helper.fail("Closed-loop probe did not converge/bound at SP=" + target
+            helper.fail("Sampled closed-loop probe did not converge/bound at SP=" + target
                     + " | SP=" + sp.value() + "/" + sp.quality()
                     + " PV=" + pv.value() + "/" + pv.quality()
                     + " OUT=" + pidOutput + "/" + out.quality()
@@ -134,7 +165,9 @@ public final class RseSystemLevelClosurePhase2ProbeGameTests {
                     + " sensor=" + sensorOutput + "/" + mechanical
                     + " dustFinal=" + finalDust
                     + " condIn=" + conditionerInput
-                    + " condOut=" + conditionerOutput,
+                    + " condOut=" + conditionerOutput
+                    + " held=" + heldPv
+                    + " captures=" + SampleHoldBlock.captureCount(helper.getLevel(), helper.absolutePos(sampler)),
                     pid);
             return false;
         }
