@@ -76,7 +76,26 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
                 state.getValue(PARAM)
         );
 
-        updateOutput(level, pos, state, output);
+        updateConditionedOutput(level, pos, state, output);
+    }
+
+    /**
+     * Conditioner output is a directional FRONT port, not a six-sided source transition.
+     *
+     * <p>The generic processor helper broadcasts a changed output around the processor position.
+     * That is deliberately broader than this block's topology and can feed a FRONT transition back
+     * into its own BACK network in a dynamic closed loop. Here we update the authoritative block
+     * state and notify only the actual FRONT neighbor. Downstream redstone/processors then perform
+     * their normal propagation from that real edge.</p>
+     */
+    private void updateConditionedOutput(Level level, BlockPos pos, BlockState state, int requestedOutput) {
+        int output = Math.max(0, Math.min(15, requestedOutput));
+        if (state.getValue(OUTPUT) == output) return;
+
+        BlockState next = state.setValue(OUTPUT, output);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        BlockPos outputPos = pos.relative(outputSide(next));
+        level.neighborChanged(outputPos, this, pos);
     }
 
     /**
@@ -203,7 +222,9 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
         }
 
         level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-        level.scheduleTick(pos, conditioner, 1);
+        if (!level.getBlockTicks().hasScheduledTick(pos, conditioner)) {
+            level.scheduleTick(pos, conditioner, 1);
+        }
         return true;
     }
 
