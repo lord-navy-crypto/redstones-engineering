@@ -47,22 +47,25 @@ public class HydroacousticReceiverBlock extends PassiveDirectionalSignalBlock {
         );
     }
 
+    private static PortQuality packetQuality(InformationRuntime.Snapshot packet) {
+        return packet.valid() && packet.qualityPercent() > 0 && packet.value() > 0
+                ? PortQuality.VALID : PortQuality.NO_SIGNAL;
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(
             Level level, BlockPos pos, BlockState state, Direction side
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        boolean valid = InformationRuntime.valid(level, "hydro", pos);
-        int amplitude = InformationRuntime.value(level, "hydro", pos);
+        InformationRuntime.Snapshot packet = InformationRuntime.snapshot(level, "hydro", pos);
+        PortQuality quality = packetQuality(packet);
         if (side == inputSide(state)) {
             return Optional.of(new EngineeringPortSnapshot(
-                    port.get(), amplitude, 0.0, 15.0,
-                    valid && amplitude > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+                    port.get(), Math.max(0, Math.min(15, packet.value())), 0.0, 15.0, quality));
         }
         return Optional.of(EngineeringPortSnapshot.redstone(
-                port.get(), state.getValue(OUTPUT),
-                valid && amplitude > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+                port.get(), state.getValue(OUTPUT), quality));
     }
 
     @Override
@@ -74,8 +77,9 @@ public class HydroacousticReceiverBlock extends PassiveDirectionalSignalBlock {
 
     @Override
     protected int computeOutput(Level level, BlockPos pos, BlockState state) {
-        return InformationRuntime.valid(level, "hydro", pos)
-                ? Math.min(15, InformationRuntime.value(level, "hydro", pos)) : 0;
+        InformationRuntime.Snapshot packet = InformationRuntime.snapshot(level, "hydro", pos);
+        return packetQuality(packet) == PortQuality.VALID
+                ? Math.min(15, packet.value()) : 0;
     }
 
     @Override
@@ -86,11 +90,18 @@ public class HydroacousticReceiverBlock extends PassiveDirectionalSignalBlock {
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        int value = InformationRuntime.value(level, "hydro", pos);
-        if (value > 0) {
-            InformationRuntime.write(level, "hydro", pos, Math.max(0, value - 1),
-                    InformationRuntime.aux(level, "hydro", pos), value > 1,
-                    Math.max(0, InformationRuntime.quality(level, "hydro", pos) - 5));
+        InformationRuntime.Snapshot packet = InformationRuntime.snapshot(level, "hydro", pos);
+        if (packet.valid() && packet.qualityPercent() > 0 && packet.value() > 0) {
+            int next = Math.max(0, packet.value() - 1);
+            if (next == 0) {
+                InformationRuntime.clear(level, "hydro", pos);
+            } else {
+                InformationRuntime.write(level, "hydro", pos, next,
+                        packet.selector(), true,
+                        Math.max(0, packet.qualityPercent() - 5));
+            }
+        } else if (packet.ageTicks() >= 0) {
+            InformationRuntime.clear(level, "hydro", pos);
         }
         updateOutput(level, pos, state, outputValue(level, pos, state));
         level.scheduleTick(pos, this, 4);
@@ -108,9 +119,10 @@ public class HydroacousticReceiverBlock extends PassiveDirectionalSignalBlock {
     ) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
+                InformationRuntime.Snapshot packet = InformationRuntime.snapshot(level, "hydro", pos);
                 player.displayClientMessage(net.minecraft.network.chat.Component.literal(
-                        "Hydroacoustic A=" + InformationRuntime.value(level, "hydro", pos)
-                                + " f=" + InformationRuntime.aux(level, "hydro", pos)), true);
+                        "Hydroacoustic A=" + packet.value()
+                                + " f=" + packet.selector()), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
             }
