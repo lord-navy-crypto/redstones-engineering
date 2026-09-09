@@ -11,6 +11,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -83,42 +84,56 @@ public final class RseRadioMediumSystemGameTests {
     }
 
     @PrefixGameTestTemplate(false)
-    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 100)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 120)
     public static void unloadedRegisteredTransmitterIsStaleThenLoadedTransmitterRecovers(GameTestHelper helper) {
         final int channel = 3;
-        BlockPos receiver = new BlockPos(3, 1, 2);
-        BlockPos localTx = new BlockPos(0, 1, 2);
-        BlockPos localPower = new BlockPos(0, 0, 2);
-        helper.setBlock(receiver, RedstoneEngineering.RADIO_RECEIVER.get().defaultBlockState()
-                .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
-                .setValue(RadioReceiverBlock.CHANNEL, channel));
-
         ServerLevel level = helper.getLevel();
-        BlockPos rxWorld = helper.absolutePos(receiver);
-        BlockPos staleTx = findUnloadedCandidate(level, rxWorld);
-        if (staleTx == null) {
-            helper.fail("Precondition failed: no unloaded radio position existed within the 32-block receiver range");
+        BlockPos remoteRx = findRemoteUnloadedReceiver(level, helper.absolutePos(new BlockPos(2, 1, 2)));
+        if (remoteRx == null) {
+            helper.fail("Precondition failed: could not find an unloaded remote chunk for radio coverage fixture");
             return;
         }
 
-        // This is the real lifecycle hazard: RadioKernel registry state is level-global and chunk unload
-        // does not call a block-removal hook. Model a transmitter that was registered while loaded but whose
-        // chunk is now unavailable; such evidence must not be trusted as a clear, decodable radio path.
+        // Load exactly the receiver chunk in a remote area rather than relying on the broad GameTest
+        // ticket radius around the template. The adjacent transmitter evidence must remain unavailable.
+        level.getChunkAt(remoteRx);
+        BlockPos staleTx = findUnloadedCandidate(level, remoteRx);
+        if (staleTx == null) {
+            helper.fail("Precondition failed: loading the remote receiver chunk also loaded every Tx candidate within range");
+            return;
+        }
+
+        BlockPos loadedTx = remoteRx.west(3);
+        BlockPos loadedPower = loadedTx.below();
+        level.setBlock(remoteRx, RedstoneEngineering.RADIO_RECEIVER.get().defaultBlockState()
+                .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
+                .setValue(RadioReceiverBlock.CHANNEL, channel), Block.UPDATE_CLIENTS);
+
+        // This is the lifecycle hazard: RadioKernel registry state is level-global and chunk unload does
+        // not call a block-removal hook. Model a Tx that was registered while loaded but whose chunk is now
+        // unavailable. Unknown transmitter/path coverage must not become a decodable frame.
         RadioKernel.updateTransmitter(level, staleTx, channel, 15);
         helper.runAfterDelay(8, () -> {
-            PortQuality staleQuality = RedstoneEngineering.RADIO_RECEIVER.get()
-                    .engineeringSnapshot(level, rxWorld, helper.getBlockState(receiver), Direction.UP)
-                    .orElseThrow().quality();
-            int staleOutput = helper.getBlockState(receiver).getValue(DirectionalSignalBlock.OUTPUT);
-            RadioKernel.Reception staleReception = RadioKernel.receivePacket(level, rxWorld, channel);
-
+            if (!level.hasChunkAt(remoteRx)) {
+                RadioKernel.removeTransmitter(level, staleTx);
+                helper.fail("Precondition failed: remote receiver chunk was not retained for coverage assertion");
+                return;
+            }
             if (level.hasChunkAt(staleTx)) {
                 RadioKernel.removeTransmitter(level, staleTx);
                 helper.fail("Precondition failed: stale transmitter chunk became loaded before coverage assertion");
                 return;
             }
+
+            PortQuality staleQuality = RedstoneEngineering.RADIO_RECEIVER.get()
+                    .engineeringSnapshot(level, remoteRx, level.getBlockState(remoteRx), Direction.UP)
+                    .orElseThrow().quality();
+            int staleOutput = level.getBlockState(remoteRx).getValue(DirectionalSignalBlock.OUTPUT);
+            RadioKernel.Reception staleReception = RadioKernel.receivePacket(level, remoteRx, channel);
+
             if (staleQuality != PortQuality.STALE || staleOutput != 0 || staleReception.valid()) {
                 RadioKernel.removeTransmitter(level, staleTx);
+                cleanupRemote(level, remoteRx, loadedTx, loadedPower);
                 helper.fail("Unloaded registered transmitter was trusted as a definitive radio frame instead of STALE"
                         + " | quality=" + staleQuality
                         + " output=" + staleOutput
@@ -129,17 +144,16 @@ public final class RseRadioMediumSystemGameTests {
             }
 
             RadioKernel.removeTransmitter(level, staleTx);
-            helper.setBlock(localPower, Blocks.REDSTONE_BLOCK.defaultBlockState());
-            helper.setBlock(localTx, RedstoneEngineering.RADIO_TRANSMITTER.get().defaultBlockState()
-                    .setValue(RadioTransmitterBlock.CHANNEL, channel));
+            level.setBlock(loadedPower, Blocks.REDSTONE_BLOCK.defaultBlockState(), Block.UPDATE_CLIENTS);
+            level.setBlock(loadedTx, RedstoneEngineering.RADIO_TRANSMITTER.get().defaultBlockState()
+                    .setValue(RadioTransmitterBlock.CHANNEL, channel), Block.UPDATE_CLIENTS);
             helper.runAfterDelay(8, () -> {
                 PortQuality recoveredQuality = RedstoneEngineering.RADIO_RECEIVER.get()
-                        .engineeringSnapshot(level, rxWorld, helper.getBlockState(receiver), Direction.UP)
+                        .engineeringSnapshot(level, remoteRx, level.getBlockState(remoteRx), Direction.UP)
                         .orElseThrow().quality();
-                RadioKernel.Reception recovered = RadioKernel.receivePacket(level, rxWorld, channel);
-                int recoveredOutput = helper.getBlockState(receiver).getValue(DirectionalSignalBlock.OUTPUT);
-                helper.setBlock(localTx, Blocks.AIR.defaultBlockState());
-                helper.setBlock(localPower, Blocks.AIR.defaultBlockState());
+                RadioKernel.Reception recovered = RadioKernel.receivePacket(level, remoteRx, channel);
+                int recoveredOutput = level.getBlockState(remoteRx).getValue(DirectionalSignalBlock.OUTPUT);
+                cleanupRemote(level, remoteRx, loadedTx, loadedPower);
 
                 if (recoveredQuality != PortQuality.VALID || !recovered.valid()
                         || recovered.value() != 15 || recoveredOutput != 15) {
@@ -154,6 +168,22 @@ public final class RseRadioMediumSystemGameTests {
         });
     }
 
+    private static BlockPos findRemoteUnloadedReceiver(ServerLevel level, BlockPos origin) {
+        for (int chunks = 16; chunks <= 96; chunks += 8) {
+            BlockPos[] candidates = {
+                    origin.offset(chunks * 16, 0, 0),
+                    origin.offset(-chunks * 16, 0, 0),
+                    origin.offset(0, 0, chunks * 16),
+                    origin.offset(0, 0, -chunks * 16)
+            };
+            for (BlockPos candidate : candidates) {
+                BlockPos centered = new BlockPos((candidate.getX() & ~15) + 8, origin.getY(), (candidate.getZ() & ~15) + 8);
+                if (!level.hasChunkAt(centered)) return centered;
+            }
+        }
+        return null;
+    }
+
     private static BlockPos findUnloadedCandidate(ServerLevel level, BlockPos receiver) {
         Direction[] directions = {Direction.EAST, Direction.WEST, Direction.NORTH, Direction.SOUTH};
         for (int distance = RadioKernel.RANGE; distance >= 16; distance--) {
@@ -163,5 +193,11 @@ public final class RseRadioMediumSystemGameTests {
             }
         }
         return null;
+    }
+
+    private static void cleanupRemote(ServerLevel level, BlockPos receiver, BlockPos transmitter, BlockPos power) {
+        level.setBlock(transmitter, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+        level.setBlock(power, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+        level.setBlock(receiver, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
     }
 }
