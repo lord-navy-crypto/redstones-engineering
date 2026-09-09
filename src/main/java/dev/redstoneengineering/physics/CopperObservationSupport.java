@@ -81,8 +81,9 @@ public final class CopperObservationSupport {
                         CopperFuseBlock.outputQuality(level, pos, state));
             }
             if (state.getBlock() instanceof InductionCoilBlock) {
-                int voltage = InductionCoilBlock.outputVoltage(level, pos);
-                return new Observation(voltage, voltage > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL);
+                return new Observation(
+                        InductionCoilBlock.outputVoltage(level, pos),
+                        InductionCoilBlock.outputQuality(level, pos));
             }
         }
 
