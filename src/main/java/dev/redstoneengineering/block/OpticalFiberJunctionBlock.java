@@ -42,7 +42,8 @@ public class OpticalFiberJunctionBlock extends ConnectedCableBlock implements En
     private static final int CHANNEL = 1;
     private static final int VALID = 2;
     private static final int DRIVER_COUNT = 3;
-    private static final int RUNTIME_SIZE = 4;
+    private static final int QUALITY = 4;
+    private static final int RUNTIME_SIZE = 5;
 
     public OpticalFiberJunctionBlock(Properties properties) {
         super(properties);
@@ -65,12 +66,16 @@ public class OpticalFiberJunctionBlock extends ConnectedCableBlock implements En
     }
 
     public static void setOptical(Level level, BlockPos pos, int intensity, int channel, boolean valid) {
+        NetworkKernel.ScanStats stats = NetworkKernel.stats(level, "optical");
+        boolean stale = stats.lastTruncated();
+        boolean accepted = !stale && valid && intensity > 0;
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
-        runtime[INTENSITY] = valid ? Math.max(0, Math.min(15, intensity)) : 0;
-        runtime[CHANNEL] = valid ? Math.max(0, Math.min(15, channel)) : 0;
-        runtime[VALID] = valid && runtime[INTENSITY] > 0 ? 1 : 0;
-        int drivers = Math.max(0, NetworkKernel.stats(level, "optical").activeDrivers());
-        runtime[DRIVER_COUNT] = valid && drivers == 0 ? 1 : drivers;
+        runtime[INTENSITY] = accepted ? Math.max(0, Math.min(15, intensity)) : 0;
+        runtime[CHANNEL] = accepted ? Math.max(0, Math.min(15, channel)) : 0;
+        runtime[VALID] = accepted ? 1 : 0;
+        int drivers = Math.max(0, stats.activeDrivers());
+        runtime[DRIVER_COUNT] = !stale && valid && drivers == 0 ? 1 : drivers;
+        runtime[QUALITY] = (stale ? PortQuality.STALE : accepted ? PortQuality.VALID : PortQuality.NO_SIGNAL).ordinal();
     }
 
     public static int intensity(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r==null?0:r[INTENSITY]; }
@@ -78,9 +83,19 @@ public class OpticalFiberJunctionBlock extends ConnectedCableBlock implements En
     public static boolean valid(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r!=null&&r.length>VALID&&r[VALID]==1; }
     public static int driverCount(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r==null||r.length<=DRIVER_COUNT?0:r[DRIVER_COUNT]; }
 
+    private static PortQuality storedQuality(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        if (runtime == null || runtime.length <= QUALITY) return PortQuality.NO_SIGNAL;
+        int ordinal = runtime[QUALITY];
+        PortQuality[] values = PortQuality.values();
+        return ordinal >= 0 && ordinal < values.length ? values[ordinal] : PortQuality.NO_SIGNAL;
+    }
+
     private static PortQuality quality(Level level, BlockPos pos, BlockState state) {
         if (state.getValue(SERVICE_OPEN)) return PortQuality.NO_SIGNAL;
         if (!((OpticalFiberJunctionBlock) state.getBlock()).topologyValid(state) || driverCount(level,pos)>1) return PortQuality.TOPOLOGY_ERROR;
+        PortQuality stored = storedQuality(level, pos);
+        if (stored == PortQuality.STALE) return PortQuality.STALE;
         return valid(level,pos) ? PortQuality.VALID : PortQuality.NO_SIGNAL;
     }
 
