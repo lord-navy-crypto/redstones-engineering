@@ -132,7 +132,8 @@ public final class DataBusNetwork {
         boolean truncated = NetworkKernel.stats(level, "bus8").lastTruncated();
         int driverCount = drivers.size();
         int distinctValues = values.size();
-        boolean valid = !truncated && driverCount > 0 && distinctValues == 1;
+        boolean valid = driverCount > 0 && distinctValues == 1;
+        if (truncated) valid = false;
         boolean contention = driverCount > 1;
         boolean conflict = distinctValues > 1;
         boolean sameValueMultiDriver = driverCount > 1 && distinctValues == 1;
