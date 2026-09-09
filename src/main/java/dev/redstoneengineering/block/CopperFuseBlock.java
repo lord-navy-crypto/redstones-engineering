@@ -9,6 +9,7 @@ import dev.redstoneengineering.physics.CircuitPhysics;
 import dev.redstoneengineering.physics.CopperNetworkSupport;
 import dev.redstoneengineering.physics.CopperObservationSupport;
 import dev.redstoneengineering.physics.DomainNetwork;
+import dev.redstoneengineering.physics.NetworkKernel;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -70,9 +71,23 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
         }
 
         CopperObservationSupport.Observation input = CopperObservationSupport.observe(level, inputPos(pos, state), pos);
-        RuntimeIntStore.get(level, QUALITY_KEY, pos, QUALITY_RUNTIME_SIZE)[INPUT_QUALITY] = input.quality().ordinal();
+        int[] qualityRuntime = RuntimeIntStore.get(level, QUALITY_KEY, pos, QUALITY_RUNTIME_SIZE);
+        qualityRuntime[INPUT_QUALITY] = input.quality().ordinal();
         int inputVoltage = input.quality() == PortQuality.VALID ? input.voltage() : 0;
         double loadResistance = CircuitPhysics.equivalentLoadResistance(level, outputPos(pos, state), 128);
+        boolean loadTruncated = NetworkKernel.stats(level, "copper_load").lastTruncated();
+
+        // A bounded load scan is not authoritative protection evidence. Do not turn a partial
+        // equivalent resistance into a trip/ready decision or event. Fail the protected output
+        // closed, preserve an already-latched trip, and wait for a complete scan to re-evaluate.
+        if (loadTruncated) {
+            qualityRuntime[INPUT_QUALITY] = PortQuality.STALE.ordinal();
+            runtime[OUTPUT_VOLTAGE] = 0;
+            DomainNetwork.driveCopper(level, outputPos(pos, state), pos, 0);
+            level.scheduleTick(pos, this, 2);
+            return;
+        }
+
         double current = CircuitPhysics.current(inputVoltage, loadResistance);
         boolean tripped = state.getValue(TRIPPED) || current > state.getValue(RATING);
         int tripState = tripped ? 1 : 0;
@@ -173,13 +188,14 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
             CopperObservationSupport.Observation input = CopperObservationSupport.observe(level, inputPos(pos, next), pos);
             int inputVoltage = input.quality() == PortQuality.VALID ? input.voltage() : 0;
             double loadResistance = CircuitPhysics.equivalentLoadResistance(level, outputPos(pos, next), 128);
-            double current = CircuitPhysics.current(inputVoltage, loadResistance);
+            boolean loadTruncated = NetworkKernel.stats(level, "copper_load").lastTruncated();
+            double current = loadTruncated ? 0.0 : CircuitPhysics.current(inputVoltage, loadResistance);
             player.displayClientMessage(Component.literal(String.format(Locale.ROOT,
-                    "Copper fuse | BACK input -> FRONT protected output | rating=%d | V=%d | Req=%.3f | I≈%.3f | %s | inputQuality=%s | outputQuality=%s%s",
+                    "Copper fuse | BACK input -> FRONT protected output | rating=%d | V=%d | Req=%s | I≈%s | %s | inputQuality=%s | outputQuality=%s%s",
                     next.getValue(RATING),
                     inputVoltage,
-                    loadResistance,
-                    current,
+                    loadTruncated ? "STALE" : String.format(Locale.ROOT, "%.3f", loadResistance),
+                    loadTruncated ? "STALE" : String.format(Locale.ROOT, "%.3f", current),
                     next.getValue(TRIPPED) ? "TRIPPED" : "armed",
                     input.quality(),
                     outputQuality(level, pos, next),
