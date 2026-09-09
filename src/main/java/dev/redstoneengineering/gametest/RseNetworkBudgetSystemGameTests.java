@@ -147,13 +147,22 @@ public final class RseNetworkBudgetSystemGameTests {
         level.setBlock(sourceA, RedstoneEngineering.LAPIS_PRECISION_SOURCE.get().defaultBlockState()
                 .setValue(LapisPrecisionSourceBlock.VALUE, 23), Block.UPDATE_ALL);
         for (int i = 1; i <= LAPIS_LINES; i++) {
-            BlockState line = RedstoneEngineering.LAPIS_SIGNAL_LINE.get().defaultBlockState()
-                    .setValue(SurfaceTraceBlock.WEST, true)
-                    .setValue(SurfaceTraceBlock.EAST, true);
-            level.setBlock(sourceA.east(i), line, Block.UPDATE_CLIENTS);
+            level.setBlock(sourceA.east(i), RedstoneEngineering.LAPIS_SIGNAL_LINE.get().defaultBlockState(), Block.UPDATE_CLIENTS);
         }
         level.setBlock(sourceB, RedstoneEngineering.LAPIS_PRECISION_SOURCE.get().defaultBlockState()
                 .setValue(LapisPrecisionSourceBlock.VALUE, 81), Block.UPDATE_ALL);
+
+        // SurfaceTraceBlock refreshes connection bits during onPlace. Build the physical blocks first,
+        // then write the final straight-line graph after all neighbors exist so placement order cannot
+        // erase the forward edge on each trace segment.
+        for (int i = 1; i <= LAPIS_LINES; i++) {
+            BlockState line = level.getBlockState(sourceA.east(i))
+                    .setValue(SurfaceTraceBlock.WEST, true)
+                    .setValue(SurfaceTraceBlock.EAST, true)
+                    .setValue(SurfaceTraceBlock.NORTH, false)
+                    .setValue(SurfaceTraceBlock.SOUTH, false);
+            level.setBlock(sourceA.east(i), line, Block.UPDATE_CLIENTS);
+        }
 
         BlockState firstState = level.getBlockState(firstLine);
         BlockState secondState = level.getBlockState(secondLine);
@@ -162,7 +171,6 @@ public final class RseNetworkBudgetSystemGameTests {
         boolean secondWest = SurfaceTraceBlock.connected(secondState, Direction.WEST);
         boolean secondEast = SurfaceTraceBlock.connected(secondState, Direction.EAST);
 
-        // Seed the solver on the medium itself so source-start fallback cannot hide a traversal defect.
         DomainNetwork.recomputeLapis(level, firstLine);
         NetworkKernel.ScanStats stats = NetworkKernel.stats(level, "lapis");
         PortQuality quality = LapisSignalLineBlock.quality(level, firstLine);
