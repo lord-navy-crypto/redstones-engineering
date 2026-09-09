@@ -70,5 +70,6 @@ public final class RseGameTestRegistration {
         event.register(RseRadioMediumSystemGameTests.class);
         event.register(RseInductionMediumSystemGameTests.class);
         event.register(RseMagneticMeasurementSystemGameTests.class);
+        event.register(RseThermalMeasurementSystemGameTests.class);
     }
 }
