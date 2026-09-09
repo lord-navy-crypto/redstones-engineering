@@ -4,12 +4,10 @@ import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.EngineeringPort;
-import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
-import dev.redstoneengineering.physics.DataBusDriver;
 import dev.redstoneengineering.physics.DataBusNetwork;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.SerialNetwork;
@@ -30,12 +28,13 @@ import net.minecraft.world.phys.BlockHitResult;
 import java.util.List;
 import java.util.Optional;
 
-/** Recovers the most recent framed serial byte and drives a local 8-bit bus segment. */
-public class DeserializerBlock extends DirectionalDomainBlock implements EngineeringPortProvider, DataBusDriver {
-    /** Slow authority watchdog: normal frame changes are neighbor-driven, coverage loss is bounded. */
+/** Serial-to-parallel converter with bounded watchdog cleanup for stale/missing frames. */
+public class DeserializerBlock extends DirectionalDomainBlock implements DataBusDriver {
     private static final int WATCHDOG_TICKS = 16;
 
-    public DeserializerBlock(Properties properties) { super(properties); }
+    public DeserializerBlock(Properties properties) {
+        super(properties);
+    }
 
     @Override public MapCodec<DeserializerBlock> codec() { return RedstoneEngineering.DESERIALIZER_CODEC.value(); }
 
@@ -49,12 +48,19 @@ public class DeserializerBlock extends DirectionalDomainBlock implements Enginee
         );
     }
 
+    private PortQuality inputQuality(Level level, BlockPos pos, BlockState state) {
+        BlockPos input = inputPos(pos, state);
+        if (!level.hasChunkAt(input)) return PortQuality.STALE;
+        if (!SerialNetwork.isNode(level, input)) return PortQuality.NO_SIGNAL;
+        return SerialNetwork.quality(level, input);
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         BlockPos input = inputPos(pos, state);
-        PortQuality inputQuality = SerialNetwork.quality(level, input);
+        PortQuality inputQuality = inputQuality(level, pos, state);
         if (side == inputSide(state)) {
             InformationRuntime.Snapshot serial = InformationRuntime.snapshot(level, "serial", input);
             return Optional.of(new EngineeringPortSnapshot(port.get(),
@@ -68,15 +74,10 @@ public class DeserializerBlock extends DirectionalDomainBlock implements Enginee
                 0.0, 255.0, quality));
     }
 
-    @Override
-    public boolean drivesDataBusAt(BlockPos driverPos, BlockState driverState, BlockPos busPos) {
-        return outputPos(driverPos, driverState).equals(busPos);
-    }
-
     private void update(ServerLevel level, BlockPos pos, BlockState state) {
         BlockPos input = inputPos(pos, state);
         BlockPos output = outputPos(pos, state);
-        PortQuality inputQuality = SerialNetwork.quality(level, input);
+        PortQuality inputQuality = inputQuality(level, pos, state);
         InformationRuntime.Snapshot serial = InformationRuntime.snapshot(level, "serial", input);
         InformationRuntime.Snapshot previous = InformationRuntime.snapshot(level, "bus8_out", pos);
         boolean valid = inputQuality == PortQuality.VALID;
@@ -89,11 +90,8 @@ public class DeserializerBlock extends DirectionalDomainBlock implements Enginee
     }
 
     @Override
-    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock,
-                                   BlockPos neighborPos, boolean movedByPiston) {
-        if (level instanceof ServerLevel serverLevel && neighborPos.equals(inputPos(pos, state))) {
-            update(serverLevel, pos, state);
-        }
+    public boolean drivesDataBusAt(BlockPos selfPos, BlockState selfState, BlockPos busPos) {
+        return selfPos.relative(outputSide(selfState)).equals(busPos);
     }
 
     @Override
@@ -112,23 +110,39 @@ public class DeserializerBlock extends DirectionalDomainBlock implements Enginee
     }
 
     @Override
+    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighborBlock,
+                                   BlockPos neighborPos, boolean movedByPiston) {
+        if (level instanceof ServerLevel serverLevel && neighborPos.equals(inputPos(pos, state))) {
+            update(serverLevel, pos, state);
+        }
+    }
+
+    @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock()) && level instanceof ServerLevel serverLevel) {
-            DataBusNetwork.releaseDriver(serverLevel, pos, outputPos(pos, state));
+            InformationRuntime.clear(level, "bus8_out", pos);
+            BlockPos output = outputPos(pos, state);
+            if (level.getBlockState(output).getBlock() instanceof EightBitDataBusBlock) {
+                DataBusNetwork.resolve(level, DataBusNetwork.collect(level, output));
+            }
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
     }
 
     @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos,
+                                               Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
+                BlockPos input = inputPos(pos, state);
+                InformationRuntime.Snapshot serial = InformationRuntime.snapshot(level, "serial", input);
+                PortQuality inputQuality = inputQuality(level, pos, state);
                 InformationRuntime.Snapshot output = InformationRuntime.snapshot(level, "bus8_out", pos);
-                PortQuality inputQuality = SerialNetwork.quality(level, inputPos(pos, state));
                 player.displayClientMessage(Component.literal(
-                        "Deserializer byte=" + (output.value() & 0xFF)
-                                + " | serialQuality=" + inputQuality
-                                + " | busSourceValid=" + output.valid()), true);
+                        "Deserializer input=" + (serial.value() & 0xFF)
+                                + " quality=" + inputQuality
+                                + " | byteOut=" + (output.value() & 0xFF)
+                                + " valid=" + output.valid()), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
             }
