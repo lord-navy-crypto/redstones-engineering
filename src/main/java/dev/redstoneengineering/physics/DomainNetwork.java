@@ -108,7 +108,7 @@ public final class DomainNetwork {
             if (state.getBlock() instanceof QuartzOscillatorBlock && rawSeen.add(p)) {
                 claims.add(new DomainDriverRegistry.Claim(p,p,state.getValue(QuartzOscillatorBlock.ACTIVE)?1:0,QuartzTimingLineBlock.periodTicks(state.getValue(QuartzOscillatorBlock.PERIOD_INDEX)),0,state.getBlock().getClass().getName()));
             } else if (state.getBlock() instanceof QuartzLabOscillatorBlock && rawSeen.add(p)) {
-                claims.add(new DomainDriverRegistry.Claim(p,p,state.getValue(QuartzLabOscillatorBlock.ACTIVE)?1:0,QuartzTimingLineBlock.periodTicks(state.getValue(QuartzOscillatorBlock.PERIOD_INDEX)),0,state.getBlock().getClass().getName()));
+                claims.add(new DomainDriverRegistry.Claim(p,p,state.getValue(QuartzLabOscillatorBlock.ACTIVE)?1:0,QuartzTimingLineBlock.periodTicks(state.getValue(QuartzLabOscillatorBlock.PERIOD_INDEX)),0,state.getBlock().getClass().getName()));
             }
         }
         NetworkKernel.recordDriverState(level, "quartz", claims.size());
