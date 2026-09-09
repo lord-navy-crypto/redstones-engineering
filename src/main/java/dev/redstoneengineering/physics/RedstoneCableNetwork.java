@@ -60,11 +60,12 @@ public final class RedstoneCableNetwork {
 
     public static void recompute(ServerLevel level, BlockPos start) {
         ComponentScan scan = collect(level, start);
-        if (scan.nodes().isEmpty()) return;
+        Set<BlockPos> component = scan.nodes();
+        if (component.isEmpty()) return;
         if (scan.truncated()) {
-            invalidateComponent(level, scan.nodes());
+            invalidateComponent(level, component);
         } else {
-            recomputeComponent(level, scan.nodes());
+            recomputeComponent(level, component);
         }
     }
 
@@ -74,12 +75,13 @@ public final class RedstoneCableNetwork {
             BlockPos neighbor = changedPos.relative(direction);
             if (!level.hasChunkAt(neighbor) || !allowed(level, neighbor) || processed.contains(neighbor)) continue;
             ComponentScan scan = collect(level, neighbor);
-            if (scan.nodes().isEmpty()) continue;
-            processed.addAll(scan.nodes());
+            Set<BlockPos> component = scan.nodes();
+            if (component.isEmpty()) continue;
+            processed.addAll(component);
             if (scan.truncated()) {
-                invalidateComponent(level, scan.nodes());
+                invalidateComponent(level, component);
             } else {
-                recomputeComponent(level, scan.nodes());
+                recomputeComponent(level, component);
             }
         }
     }
