@@ -35,16 +35,9 @@ public final class PneumaticNetwork {
         return state.getValue(DirectionalDomainBlock.FACING);
     }
 
-    /**
-     * Whether an adjacent pneumatic node touches a real physical pneumatic port on this block.
-     * Pipes/reservoirs/regulators remain manifold-style nodes. Inline devices are axial, terminal
-     * devices participate only through their pneumatic BACK face, and compressors emit only UP.
-     */
     private static boolean exposesPneumaticEdge(BlockState state, BlockPos self, BlockPos other) {
         var block = state.getBlock();
-        if (block instanceof AirCompressorBlock) {
-            return other.equals(self.above());
-        }
+        if (block instanceof AirCompressorBlock) return other.equals(self.above());
         if (block instanceof PneumaticReceiverBlock) {
             Direction facing = directionalFacing(state);
             return other.equals(self.relative(facing.getOpposite()));
@@ -62,12 +55,9 @@ public final class PneumaticNetwork {
         return true;
     }
 
-    /** Physical discovery is undirected, but only real pneumatic ports may join one component. */
     private static boolean discoveryConnects(Level level, BlockPos aPos, BlockPos bPos) {
         BlockState a = level.getBlockState(aPos);
         BlockState b = level.getBlockState(bPos);
-
-        // Keep the terminal-cylinder contract explicit for regression readability and executable auditability.
         if (a.getBlock() instanceof PneumaticCylinderBlock) {
             Direction input = a.getValue(DirectionalDomainBlock.FACING).getOpposite();
             return bPos.equals(aPos.relative(input)) && exposesPneumaticEdge(b, bPos, aPos);
@@ -114,25 +104,18 @@ public final class PneumaticNetwork {
     private static boolean permits(Level level, BlockPos from, BlockPos to) {
         BlockState a = level.getBlockState(from), b = level.getBlockState(to);
         if (!discoveryConnects(level, from, to)) return false;
-
         if (a.getBlock() instanceof PneumaticValveBlock && !a.getValue(PneumaticValveBlock.OPEN)) return false;
         if (b.getBlock() instanceof PneumaticValveBlock && !b.getValue(PneumaticValveBlock.OPEN)) return false;
-
-        // Terminal receivers consume pressure but never bridge it onward.
         if (a.getBlock() instanceof PneumaticReceiverBlock) return false;
         if (b.getBlock() instanceof PneumaticReceiverBlock) return directionalBackwardEntry(b, from, to);
-
         if (a.getBlock() instanceof PneumaticCheckValveBlock && !directionalForward(a, from, to)) return false;
         if (b.getBlock() instanceof PneumaticCheckValveBlock && !directionalBackwardEntry(b, from, to)) return false;
-
-        // These devices have an explicit BACK inlet and FRONT outlet.
         if ((a.getBlock() instanceof PneumaticFlowMeterBlock ||
                 a.getBlock() instanceof PneumaticProportionalValveBlock ||
                 a.getBlock() instanceof PneumaticReliefValveBlock) && !directionalForward(a, from, to)) return false;
         if ((b.getBlock() instanceof PneumaticFlowMeterBlock ||
                 b.getBlock() instanceof PneumaticProportionalValveBlock ||
                 b.getBlock() instanceof PneumaticReliefValveBlock) && !directionalBackwardEntry(b, from, to)) return false;
-
         if (a.getBlock() instanceof PneumaticCylinderBlock) return false;
         if (b.getBlock() instanceof PneumaticCylinderBlock) {
             Direction input = b.getValue(DirectionalDomainBlock.FACING).getOpposite();
@@ -153,20 +136,12 @@ public final class PneumaticNetwork {
             int setpoint = state.getValue(PneumaticReliefValveBlock.SETPOINT) * 25;
             if (pressure > setpoint) {
                 int excess = pressure - setpoint;
+                // "pneumatic_relief" runtime diagnostics remain owned by PneumaticReliefValveBlock.
                 PneumaticReliefValveBlock.recordVent(level, pos, excess);
                 if (level instanceof ServerLevel server) {
                     int count = excess >= 25 ? 3 : 1;
-                    server.sendParticles(
-                            ParticleTypes.CLOUD,
-                            pos.getX() + 0.5,
-                            pos.getY() + 0.9,
-                            pos.getZ() + 0.5,
-                            count,
-                            0.18,
-                            0.08,
-                            0.18,
-                            0.02
-                    );
+                    server.sendParticles(ParticleTypes.CLOUD, pos.getX() + 0.5, pos.getY() + 0.9,
+                            pos.getZ() + 0.5, count, 0.18, 0.08, 0.18, 0.02);
                 }
                 pressure = setpoint;
             } else {
@@ -219,8 +194,7 @@ public final class PneumaticNetwork {
             if (nextPressure <= 0) continue;
             for (Direction direction : Direction.values()) {
                 BlockPos next = node.pos.relative(direction);
-                if (nodes.contains(next)
-                        && permits(level, node.pos, next)
+                if (nodes.contains(next) && permits(level, node.pos, next)
                         && nextPressure > best.getOrDefault(next, -1)) {
                     queue.addLast(new Node(next, nextPressure));
                 }
@@ -234,16 +208,13 @@ public final class PneumaticNetwork {
             if (block instanceof PneumaticReliefValveBlock && pressure <= 0) {
                 PneumaticReliefValveBlock.clearVenting(level, pos);
             }
-
             int oldPressure = InformationRuntime.value(level, "pneumatic", pos);
             int oldQuality = InformationRuntime.quality(level, "pneumatic", pos);
             boolean oldValid = InformationRuntime.valid(level, "pneumatic", pos);
             boolean effectiveChanged = oldPressure != pressure || oldQuality != quality || !oldValid;
             InformationRuntime.write(level, "pneumatic", pos, pressure, 0, true, quality);
             RuntimeIntStore.get(level, DIAG_KEY, pos, DIAG_SIZE)[0] = 0;
-            if (effectiveChanged) {
-                level.updateNeighborsAt(pos, block);
-            }
+            if (effectiveChanged) level.updateNeighborsAt(pos, block);
         }
 
         for (BlockPos pos : nodes) {
@@ -269,16 +240,12 @@ public final class PneumaticNetwork {
             boolean oldValid = InformationRuntime.valid(level, "pneumatic", pos);
             InformationRuntime.write(level, "pneumatic", pos, 0, 0, false, 0);
             RuntimeIntStore.get(level, DIAG_KEY, pos, DIAG_SIZE)[0] = 1;
-            if (block instanceof PneumaticReliefValveBlock) {
-                PneumaticReliefValveBlock.clearVenting(level, pos);
-            }
+            if (block instanceof PneumaticReliefValveBlock) PneumaticReliefValveBlock.clearVenting(level, pos);
             if (block instanceof PneumaticFlowMeterBlock) {
                 int[] runtime = RuntimeIntStore.get(level, "pneumatic_flow", pos, 4);
                 Arrays.fill(runtime, 0);
             }
-            if (oldPressure != 0 || oldQuality != 0 || oldValid) {
-                level.updateNeighborsAt(pos, block);
-            }
+            if (oldPressure != 0 || oldQuality != 0 || oldValid) level.updateNeighborsAt(pos, block);
         }
     }
 
@@ -287,11 +254,8 @@ public final class PneumaticNetwork {
         return diagnostics != null && diagnostics.length == DIAG_SIZE && diagnostics[0] != 0;
     }
 
-    /**
-     * Recompute every physically adjacent component after placement/removal/orientation changes.
-     * This prevents stale pressure surviving when one component is split into several islands.
-     */
     public static void recomputeAround(ServerLevel level, BlockPos changedPos) {
+        if (!isNode(level, changedPos)) RuntimeIntStore.remove(level, DIAG_KEY, changedPos);
         Set<BlockPos> covered = new HashSet<>();
         if (isNode(level, changedPos)) {
             Set<BlockPos> component = collect(level, changedPos);
