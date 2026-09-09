@@ -219,7 +219,17 @@ public final class RseFiveBlockQuartzMediumToolsGameTests {
         if (monitorSnapshot == null || monitorSnapshot.quality() != PortQuality.VALID
                 || Math.round(monitorSnapshot.value()) != OUTPUT_PERIOD
                 || !measurement.currentMeasurement() || measurement.period() != OUTPUT_PERIOD) {
-            helper.fail("Quartz stability readback mismatch during " + phase, MONITOR);
+            helper.fail("Quartz stability readback mismatch during " + phase
+                    + " | snapshot=" + (monitorSnapshot == null ? "null" : (Math.round(monitorSnapshot.value()) + "/" + monitorSnapshot.quality()))
+                    + " | measurement={period=" + measurement.period()
+                    + ", error=" + measurement.nominalError()
+                    + ", initialized=" + measurement.initialized()
+                    + ", reference=" + measurement.referenceEdgeSeen()
+                    + ", current=" + measurement.currentMeasurement() + "}"
+                    + " | lineB={active=" + QuartzTimingLineBlock.active(helper.getLevel(), lineBWorld)
+                    + ", period=" + QuartzTimingLineBlock.period(helper.getLevel(), lineBWorld)
+                    + ", sources=" + QuartzTimingLineBlock.sourceCount(helper.getLevel(), lineBWorld)
+                    + ", quality=" + QuartzTimingLineBlock.quality(helper.getLevel(), lineBWorld) + "}", MONITOR);
             return false;
         }
         return true;
