@@ -140,10 +140,10 @@ public final class RseFiveBlockQuartzMediumToolsGameTests {
                                     helper.fail("Divider plus second real Quartz oscillator did not surface a two-source conflict", LINE_B);
                                     return;
                                 }
-                                BlockPos lineAWorld = helper.absolutePos(LINE_A);
-                                if (QuartzTimingLineBlock.quality(helper.getLevel(), lineAWorld) != PortQuality.VALID
-                                        || QuartzTimingLineBlock.sourceCount(helper.getLevel(), lineAWorld) != 1
-                                        || QuartzTimingLineBlock.period(helper.getLevel(), lineAWorld) != INPUT_PERIOD) {
+                                BlockPos upstreamLineWorld = helper.absolutePos(LINE_A);
+                                if (QuartzTimingLineBlock.quality(helper.getLevel(), upstreamLineWorld) != PortQuality.VALID
+                                        || QuartzTimingLineBlock.sourceCount(helper.getLevel(), upstreamLineWorld) != 1
+                                        || QuartzTimingLineBlock.period(helper.getLevel(), upstreamLineWorld) != INPUT_PERIOD) {
                                     helper.fail("Downstream Quartz contention back-propagated into the upstream oscillator segment", LINE_A);
                                     return;
                                 }
