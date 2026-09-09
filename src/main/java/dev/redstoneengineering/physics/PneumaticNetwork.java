@@ -138,6 +138,8 @@ public final class PneumaticNetwork {
                 int excess = pressure - setpoint;
                 // "pneumatic_relief" runtime diagnostics remain owned by PneumaticReliefValveBlock.
                 PneumaticReliefValveBlock.recordVent(level, pos, excess);
+                // Visual feedback is event-driven: particles appear only when the
+                // relief valve actually clamps/vents excess pressure.
                 if (level instanceof ServerLevel server) {
                     int count = excess >= 25 ? 3 : 1;
                     server.sendParticles(ParticleTypes.CLOUD, pos.getX() + 0.5, pos.getY() + 0.9,
