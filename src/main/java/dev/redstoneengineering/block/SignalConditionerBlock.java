@@ -76,51 +76,7 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
                 state.getValue(PARAM)
         );
 
-        updateConditionedOutput(level, pos, state, output);
-    }
-
-    /**
-     * Conditioner output is a directional FRONT port, not a six-sided source transition.
-     *
-     * <p>The generic processor helper broadcasts a changed output around the processor position.
-     * That is deliberately broader than this block's topology and can feed a FRONT transition back
-     * into its own BACK network in a dynamic closed loop. Here we update the authoritative block
-     * state and notify only the actual FRONT neighbor. Downstream redstone/processors then perform
-     * their normal propagation from that real edge.</p>
-     */
-    private void updateConditionedOutput(Level level, BlockPos pos, BlockState state, int requestedOutput) {
-        int output = Math.max(0, Math.min(15, requestedOutput));
-        if (state.getValue(OUTPUT) == output) return;
-
-        BlockState next = state.setValue(OUTPUT, output);
-        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-        BlockPos outputPos = pos.relative(outputSide(next));
-        level.neighborChanged(outputPos, this, pos);
-    }
-
-    /**
-     * A conditioner has exactly one live signal dependency: its BACK input.
-     *
-     * <p>The generic directional processor base reacts to every neighboring update. That is useful
-     * for multi-port processors, but it is too broad for a single-input combinational conditioner:
-     * in a dynamic closed loop the conditioner can observe its own output-side propagation and keep
-     * re-enqueueing recomputation ticks. Restrict scheduling to the actual input neighbor and coalesce
-     * duplicate pending ticks so one physical input transition produces at most one pending recompute.</p>
-     */
-    @Override
-    protected void neighborChanged(
-            BlockState state,
-            Level level,
-            BlockPos pos,
-            Block neighborBlock,
-            BlockPos neighborPos,
-            boolean movedByPiston
-    ) {
-        if (level.isClientSide) return;
-        if (!neighborPos.equals(pos.relative(inputSide(state)))) return;
-        if (!level.getBlockTicks().hasScheduledTick(pos, this)) {
-            level.scheduleTick(pos, this, 1);
-        }
+        updateOutput(level, pos, state, output);
     }
 
     private static int calculate(
@@ -222,9 +178,7 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
         }
 
         level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-        if (!level.getBlockTicks().hasScheduledTick(pos, conditioner)) {
-            level.scheduleTick(pos, conditioner, 1);
-        }
+        level.scheduleTick(pos, conditioner, 1);
         return true;
     }
 
