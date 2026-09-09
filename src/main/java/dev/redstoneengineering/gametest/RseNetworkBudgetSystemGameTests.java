@@ -7,6 +7,7 @@ import dev.redstoneengineering.block.OpticalEmitterBlock;
 import dev.redstoneengineering.block.OpticalFiberBlock;
 import dev.redstoneengineering.block.OpticalFiberJunctionBlock;
 import dev.redstoneengineering.block.OpticalReceiverBlock;
+import dev.redstoneengineering.block.SurfaceTraceBlock;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
@@ -36,20 +37,16 @@ public final class RseNetworkBudgetSystemGameTests {
     public static void truncatedOpticalScanMustNotPublishPartialNetworkAsValid(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos anchor = helper.absolutePos(new BlockPos(2, 1, 2));
-        int startY = Math.max(
-                level.getMinBuildHeight() + 2,
+        int startY = Math.max(level.getMinBuildHeight() + 2,
                 Math.min(anchor.getY() + 16, level.getMaxBuildHeight() - (FIBERS + 3)));
         BlockPos bottomSource = new BlockPos(anchor.getX(), startY, anchor.getZ());
         BlockPos firstFiber = bottomSource.above();
         BlockPos topSource = bottomSource.above(FIBERS + 1);
 
         BlockState sourceA = RedstoneEngineering.OPTICAL_EMITTER.get().defaultBlockState()
-                .setValue(OpticalEmitterBlock.INTENSITY, 9)
-                .setValue(OpticalEmitterBlock.CHANNEL, 2);
+                .setValue(OpticalEmitterBlock.INTENSITY, 9).setValue(OpticalEmitterBlock.CHANNEL, 2);
         BlockState sourceB = RedstoneEngineering.OPTICAL_EMITTER.get().defaultBlockState()
-                .setValue(OpticalEmitterBlock.INTENSITY, 12)
-                .setValue(OpticalEmitterBlock.CHANNEL, 7);
-
+                .setValue(OpticalEmitterBlock.INTENSITY, 12).setValue(OpticalEmitterBlock.CHANNEL, 7);
         level.setBlock(bottomSource, sourceA, Block.UPDATE_ALL);
         for (int i = 1; i <= FIBERS; i++) {
             level.setBlock(bottomSource.above(i), RedstoneEngineering.OPTICAL_FIBER.get().defaultBlockState(), Block.UPDATE_ALL);
@@ -62,7 +59,6 @@ public final class RseNetworkBudgetSystemGameTests {
         PortQuality quality = OpticalFiberBlock.quality(level, firstFiber, fiberState);
         int drivers = OpticalFiberBlock.driverCount(level, firstFiber);
         int intensity = OpticalFiberBlock.intensity(level, firstFiber);
-
         cleanupVertical(level, bottomSource, FIBERS + 2);
 
         if (!stats.lastTruncated() || stats.lastNodes() != NetworkKernel.MAX_NODES) {
@@ -83,22 +79,19 @@ public final class RseNetworkBudgetSystemGameTests {
     public static void truncatedOpticalScanPropagatesStaleAcrossVisitedEndpoints(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos anchor = helper.absolutePos(new BlockPos(2, 1, 2));
-        int startY = Math.max(
-                level.getMinBuildHeight() + 2,
+        int startY = Math.max(level.getMinBuildHeight() + 2,
                 Math.min(anchor.getY() + 16, level.getMaxBuildHeight() - (FIBERS + 4)));
         BlockPos receiverPos = new BlockPos(anchor.getX(), startY, anchor.getZ());
         BlockPos junctionPos = receiverPos.above();
         BlockPos firstFiber = receiverPos.above(2);
         BlockPos topSource = receiverPos.above(FIBERS + 2);
-
         level.setBlock(receiverPos, RedstoneEngineering.OPTICAL_RECEIVER.get().defaultBlockState(), Block.UPDATE_ALL);
         level.setBlock(junctionPos, RedstoneEngineering.OPTICAL_FIBER_JUNCTION.get().defaultBlockState(), Block.UPDATE_ALL);
         for (int i = 2; i <= FIBERS + 1; i++) {
             level.setBlock(receiverPos.above(i), RedstoneEngineering.OPTICAL_FIBER.get().defaultBlockState(), Block.UPDATE_ALL);
         }
         level.setBlock(topSource, RedstoneEngineering.OPTICAL_EMITTER.get().defaultBlockState()
-                .setValue(OpticalEmitterBlock.INTENSITY, 11)
-                .setValue(OpticalEmitterBlock.CHANNEL, 4), Block.UPDATE_ALL);
+                .setValue(OpticalEmitterBlock.INTENSITY, 11).setValue(OpticalEmitterBlock.CHANNEL, 4), Block.UPDATE_ALL);
 
         DomainNetwork.recomputeOptical(level, junctionPos);
         NetworkKernel.ScanStats stats = NetworkKernel.stats(level, "optical");
@@ -106,11 +99,9 @@ public final class RseNetworkBudgetSystemGameTests {
         PortQuality receiverQuality = OpticalReceiverBlock.quality(level, receiverPos);
         BlockState junctionState = level.getBlockState(junctionPos);
         EngineeringPortSnapshot junctionSnapshot = OpticalFiberJunctionBlock.class.cast(junctionState.getBlock())
-                .engineeringSnapshot(level, junctionPos, junctionState, Direction.UP)
-                .orElse(null);
+                .engineeringSnapshot(level, junctionPos, junctionState, Direction.UP).orElse(null);
         int fiberIntensity = OpticalFiberBlock.intensity(level, firstFiber);
         int receiverIntensity = OpticalReceiverBlock.intensity(level, receiverPos);
-
         cleanupVertical(level, receiverPos, FIBERS + 3);
 
         if (!stats.lastTruncated() || stats.lastNodes() != NetworkKernel.MAX_NODES) {
@@ -122,12 +113,9 @@ public final class RseNetworkBudgetSystemGameTests {
             helper.fail("Precondition failed: optical service splice did not expose its connected UP engineering port");
             return;
         }
-        if (fiberQuality != PortQuality.STALE
-                || receiverQuality != PortQuality.STALE
-                || junctionSnapshot.quality() != PortQuality.STALE
-                || fiberIntensity != 0
-                || receiverIntensity != 0
-                || junctionSnapshot.value() != 0.0) {
+        if (fiberQuality != PortQuality.STALE || receiverQuality != PortQuality.STALE
+                || junctionSnapshot.quality() != PortQuality.STALE || fiberIntensity != 0
+                || receiverIntensity != 0 || junctionSnapshot.value() != 0.0) {
             helper.fail("Budget-truncated optical solve did not fail closed across visited endpoints"
                     + " | fiber=" + fiberQuality + "/" + fiberIntensity
                     + " receiver=" + receiverQuality + "/" + receiverIntensity
@@ -146,15 +134,14 @@ public final class RseNetworkBudgetSystemGameTests {
             helper.fail("Precondition failed: GameTest anchor chunk is not loaded");
             return;
         }
-
         int chunkMinX = anchor.getX() & ~15;
         int chunkMinZ = anchor.getZ() & ~15;
-        int y = Math.min(level.getMaxBuildHeight() - 2, Math.max(level.getMinBuildHeight() + 2, anchor.getY() + 16));
+        int y = Math.min(level.getMaxBuildHeight() - 2,
+                Math.max(level.getMinBuildHeight() + 2, anchor.getY() + 16));
         List<BlockPos> path = planarSnake(chunkMinX, y, chunkMinZ);
         BlockPos sourceA = path.get(0);
         BlockPos firstLine = path.get(1);
         BlockPos sourceB = path.get(path.size() - 1);
-
         for (BlockPos pos : path) {
             if (!level.hasChunkAt(pos)) {
                 helper.fail("Precondition failed: single-chunk Lapis path unexpectedly crosses unloaded terrain at " + pos);
@@ -169,13 +156,13 @@ public final class RseNetworkBudgetSystemGameTests {
         }
         level.setBlock(sourceB, RedstoneEngineering.LAPIS_PRECISION_SOURCE.get().defaultBlockState()
                 .setValue(LapisPrecisionSourceBlock.VALUE, 81), Block.UPDATE_ALL);
+        wireSurfaceTracePath(level, path);
 
         DomainNetwork.recomputeLapis(level, sourceA);
         NetworkKernel.ScanStats stats = NetworkKernel.stats(level, "lapis");
         PortQuality quality = LapisSignalLineBlock.quality(level, firstLine);
         int drivers = LapisSignalLineBlock.sourceCount(level, firstLine);
         int value = LapisSignalLineBlock.value(level, firstLine);
-
         cleanupPath(level, path);
 
         if (!stats.lastTruncated() || stats.lastNodes() != NetworkKernel.MAX_NODES) {
@@ -205,6 +192,39 @@ public final class RseNetworkBudgetSystemGameTests {
             }
         }
         return path;
+    }
+
+    /** Explicitly fixes the trace arm state after bulk placement so the test graph itself is deterministic. */
+    private static void wireSurfaceTracePath(ServerLevel level, List<BlockPos> path) {
+        for (int i = 1; i < path.size() - 1; i++) {
+            BlockPos pos = path.get(i);
+            BlockState state = RedstoneEngineering.LAPIS_SIGNAL_LINE.get().defaultBlockState();
+            Direction prev = horizontalDirection(pos, path.get(i - 1));
+            Direction next = horizontalDirection(pos, path.get(i + 1));
+            state = setTraceArm(state, prev, true);
+            state = setTraceArm(state, next, true);
+            level.setBlock(pos, state, Block.UPDATE_CLIENTS);
+        }
+    }
+
+    private static Direction horizontalDirection(BlockPos from, BlockPos to) {
+        int dx = to.getX() - from.getX();
+        int dz = to.getZ() - from.getZ();
+        if (dx == 1 && dz == 0) return Direction.EAST;
+        if (dx == -1 && dz == 0) return Direction.WEST;
+        if (dx == 0 && dz == 1) return Direction.SOUTH;
+        if (dx == 0 && dz == -1) return Direction.NORTH;
+        throw new IllegalArgumentException("Non-adjacent planar path nodes: " + from + " -> " + to);
+    }
+
+    private static BlockState setTraceArm(BlockState state, Direction direction, boolean value) {
+        return switch (direction) {
+            case NORTH -> state.setValue(SurfaceTraceBlock.NORTH, value);
+            case EAST -> state.setValue(SurfaceTraceBlock.EAST, value);
+            case SOUTH -> state.setValue(SurfaceTraceBlock.SOUTH, value);
+            case WEST -> state.setValue(SurfaceTraceBlock.WEST, value);
+            default -> throw new IllegalArgumentException("Vertical direction is invalid for a surface trace: " + direction);
+        };
     }
 
     private static void cleanupVertical(ServerLevel level, BlockPos bottomSource, int blocks) {
