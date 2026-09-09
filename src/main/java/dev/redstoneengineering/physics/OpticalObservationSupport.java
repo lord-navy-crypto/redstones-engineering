@@ -20,7 +20,7 @@ public final class OpticalObservationSupport {
     }
 
     public static Observation observe(Level level, BlockPos pos) {
-        if (!level.hasChunkAt(pos)) return new Observation(0, 0, PortQuality.NO_SIGNAL);
+        if (!level.hasChunkAt(pos)) return new Observation(0, 0, PortQuality.STALE);
         BlockState state = level.getBlockState(pos);
         DomainNetwork.OpticalSample sample = DomainNetwork.sampleOptical(level, pos);
         PortQuality quality;
