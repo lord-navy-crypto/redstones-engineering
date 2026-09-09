@@ -70,22 +70,30 @@ public final class RseDifferentialNetworkBudgetSystemGameTests {
             DifferentialNetwork.recompute(level, firstPair);
 
             helper.runAfterDelay(5, () -> {
+                // NetworkKernel scan telemetry is domain-global and may be overwritten by scheduled
+                // ticks from another node. Re-scan from the audited endpoint so the scan evidence
+                // below is guaranteed to describe this exact component.
+                int auditedNodes = DifferentialNetwork.collect(level, firstPair).size();
                 NetworkKernel.ScanStats stats = NetworkKernel.stats(level, "diff");
                 InformationRuntime.Snapshot fault = InformationRuntime.snapshot(level, "diff", firstPair);
                 PortQuality faultQuality = DifferentialNetwork.quality(level, firstPair);
+                boolean nodeTruncated = DifferentialNetwork.truncated(level, firstPair);
+                int driverCount = DifferentialNetwork.driverCount(level, firstPair);
 
-                if (!stats.lastTruncated() || stats.lastNodes() != NetworkKernel.MAX_NODES
-                        || !DifferentialNetwork.truncated(level, firstPair)
-                        || DifferentialNetwork.driverCount(level, firstPair) != 1
+                if (auditedNodes != NetworkKernel.MAX_NODES
+                        || !stats.lastTruncated() || stats.lastNodes() != NetworkKernel.MAX_NODES
+                        || !nodeTruncated
+                        || driverCount != 1
                         || faultQuality != PortQuality.STALE
                         || fault.valid() || (fault.value() & 1) != 0) {
                     cleanup(level, driver, path);
                     helper.fail("Budget-truncated DIFFERENTIAL_DATA component published partial evidence instead of fail-closed STALE"
-                            + " | nodes=" + stats.lastNodes() + " truncated=" + stats.lastTruncated()
+                            + " | auditedNodes=" + auditedNodes
+                            + " statsNodes=" + stats.lastNodes() + " statsTruncated=" + stats.lastTruncated()
                             + " quality=" + faultQuality + " value=" + (fault.value() & 1)
                             + " runtimeValid=" + fault.valid()
-                            + " drivers=" + DifferentialNetwork.driverCount(level, firstPair)
-                            + " nodeTruncated=" + DifferentialNetwork.truncated(level, firstPair));
+                            + " drivers=" + driverCount
+                            + " nodeTruncated=" + nodeTruncated);
                     return;
                 }
 
@@ -98,17 +106,19 @@ public final class RseDifferentialNetworkBudgetSystemGameTests {
                 helper.runAfterDelay(5, () -> {
                     InformationRuntime.Snapshot recovered = InformationRuntime.snapshot(level, "diff", firstPair);
                     PortQuality recoveredQuality = DifferentialNetwork.quality(level, firstPair);
+                    boolean recoveredTruncated = DifferentialNetwork.truncated(level, firstPair);
+                    int recoveredDrivers = DifferentialNetwork.driverCount(level, firstPair);
                     if (recoveredQuality != PortQuality.VALID
                             || !recovered.valid() || (recovered.value() & 1) != 1
-                            || DifferentialNetwork.driverCount(level, firstPair) != 1
-                            || DifferentialNetwork.truncated(level, firstPair)) {
+                            || recoveredDrivers != 1
+                            || recoveredTruncated) {
                         cleanup(level, driver, path);
                         helper.fail("DIFFERENTIAL_DATA component did not recover exact trusted HIGH after returning below budget"
                                 + " | quality=" + recoveredQuality
                                 + " value=" + (recovered.value() & 1)
                                 + " valid=" + recovered.valid()
-                                + " drivers=" + DifferentialNetwork.driverCount(level, firstPair)
-                                + " truncated=" + DifferentialNetwork.truncated(level, firstPair));
+                                + " drivers=" + recoveredDrivers
+                                + " truncated=" + recoveredTruncated);
                         return;
                     }
                     cleanup(level, driver, path);
