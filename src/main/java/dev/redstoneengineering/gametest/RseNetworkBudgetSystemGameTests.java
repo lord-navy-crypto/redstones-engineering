@@ -1,6 +1,8 @@
 package dev.redstoneengineering.gametest;
 
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.block.LapisPrecisionSourceBlock;
+import dev.redstoneengineering.block.LapisSignalLineBlock;
 import dev.redstoneengineering.block.OpticalEmitterBlock;
 import dev.redstoneengineering.block.OpticalFiberBlock;
 import dev.redstoneengineering.block.OpticalFiberJunctionBlock;
@@ -18,6 +20,9 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /** Runtime regressions for bounded network-scan correctness. */
 public final class RseNetworkBudgetSystemGameTests {
@@ -59,7 +64,7 @@ public final class RseNetworkBudgetSystemGameTests {
         int drivers = OpticalFiberBlock.driverCount(level, firstFiber);
         int intensity = OpticalFiberBlock.intensity(level, firstFiber);
 
-        cleanup(level, bottomSource, FIBERS + 2);
+        cleanupVertical(level, bottomSource, FIBERS + 2);
 
         if (!stats.lastTruncated() || stats.lastNodes() != NetworkKernel.MAX_NODES) {
             helper.fail("Precondition failed: long optical component did not hit the 128-node scan budget; nodes="
@@ -108,7 +113,7 @@ public final class RseNetworkBudgetSystemGameTests {
         int fiberIntensity = OpticalFiberBlock.intensity(level, firstFiber);
         int receiverIntensity = OpticalReceiverBlock.intensity(level, receiverPos);
 
-        cleanup(level, receiverPos, FIBERS + 3);
+        cleanupVertical(level, receiverPos, FIBERS + 3);
 
         if (!stats.lastTruncated() || stats.lastNodes() != NetworkKernel.MAX_NODES) {
             helper.fail("Precondition failed: endpoint optical component did not hit the 128-node scan budget; nodes="
@@ -134,9 +139,87 @@ public final class RseNetworkBudgetSystemGameTests {
         helper.succeed();
     }
 
-    private static void cleanup(ServerLevel level, BlockPos bottomSource, int blocks) {
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 100)
+    public static void truncatedLapisScanMustNotPublishPartialNetworkAsValid(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos anchor = helper.absolutePos(new BlockPos(2, 1, 2));
+        if (!level.hasChunkAt(anchor)) {
+            helper.fail("Precondition failed: GameTest anchor chunk is not loaded");
+            return;
+        }
+
+        int chunkMinX = anchor.getX() & ~15;
+        int chunkMinZ = anchor.getZ() & ~15;
+        int y = Math.min(level.getMaxBuildHeight() - 2, Math.max(level.getMinBuildHeight() + 2, anchor.getY() + 16));
+        List<BlockPos> path = planarSnake(chunkMinX, y, chunkMinZ);
+        BlockPos sourceA = path.get(0);
+        BlockPos firstLine = path.get(1);
+        BlockPos sourceB = path.get(path.size() - 1);
+
+        for (BlockPos pos : path) {
+            if (!level.hasChunkAt(pos)) {
+                helper.fail("Precondition failed: single-chunk Lapis path unexpectedly crosses unloaded terrain at " + pos);
+                return;
+            }
+        }
+
+        level.setBlock(sourceA, RedstoneEngineering.LAPIS_PRECISION_SOURCE.get().defaultBlockState()
+                .setValue(LapisPrecisionSourceBlock.VALUE, 23), Block.UPDATE_ALL);
+        for (int i = 1; i < path.size() - 1; i++) {
+            level.setBlock(path.get(i), RedstoneEngineering.LAPIS_SIGNAL_LINE.get().defaultBlockState(), Block.UPDATE_ALL);
+        }
+        level.setBlock(sourceB, RedstoneEngineering.LAPIS_PRECISION_SOURCE.get().defaultBlockState()
+                .setValue(LapisPrecisionSourceBlock.VALUE, 81), Block.UPDATE_ALL);
+
+        DomainNetwork.recomputeLapis(level, sourceA);
+        NetworkKernel.ScanStats stats = NetworkKernel.stats(level, "lapis");
+        BlockState lineState = level.getBlockState(firstLine);
+        PortQuality quality = LapisSignalLineBlock.quality(level, firstLine, lineState);
+        int drivers = LapisSignalLineBlock.driverCount(level, firstLine);
+        int value = LapisSignalLineBlock.value(level, firstLine);
+
+        cleanupPath(level, path);
+
+        if (!stats.lastTruncated() || stats.lastNodes() != NetworkKernel.MAX_NODES) {
+            helper.fail("Precondition failed: 135-node single-chunk Lapis component did not hit the 128-node budget"
+                    + " | nodes=" + stats.lastNodes() + " truncated=" + stats.lastTruncated());
+            return;
+        }
+        if (quality != PortQuality.STALE) {
+            helper.fail("Budget-truncated Lapis solve published partial evidence instead of STALE"
+                    + " | quality=" + quality + " drivers=" + drivers + " value=" + value
+                    + " pathNodes=" + path.size());
+            return;
+        }
+        helper.succeed();
+    }
+
+    /** 135-node induced planar path inside one 16x16 chunk: eight 16-wide rows plus seven end connectors. */
+    private static List<BlockPos> planarSnake(int minX, int y, int minZ) {
+        List<BlockPos> path = new ArrayList<>(135);
+        for (int row = 0; row < 8; row++) {
+            int z = minZ + row * 2;
+            if ((row & 1) == 0) {
+                for (int x = minX; x <= minX + 15; x++) path.add(new BlockPos(x, y, z));
+                if (row < 7) path.add(new BlockPos(minX + 15, y, z + 1));
+            } else {
+                for (int x = minX + 15; x >= minX; x--) path.add(new BlockPos(x, y, z));
+                if (row < 7) path.add(new BlockPos(minX, y, z + 1));
+            }
+        }
+        return path;
+    }
+
+    private static void cleanupVertical(ServerLevel level, BlockPos bottomSource, int blocks) {
         for (int i = blocks - 1; i >= 0; i--) {
             level.setBlock(bottomSource.above(i), Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+        }
+    }
+
+    private static void cleanupPath(ServerLevel level, List<BlockPos> path) {
+        for (int i = path.size() - 1; i >= 0; i--) {
+            level.setBlock(path.get(i), Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
         }
     }
 }
