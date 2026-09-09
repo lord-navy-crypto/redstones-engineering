@@ -33,7 +33,8 @@ public final class DifferentialNetwork {
     private static final String DIAG_KEY = "diff_diag";
     private static final int DIAG_SIZE = 1; // active driver count for this resolved component
 
-    private static boolean isNode(Level level, BlockPos pos) {
+    /** Physical membership check for concrete device connector boundaries. */
+    public static boolean isNode(Level level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
         return state.getBlock() instanceof DifferentialDataPairBlock
                 || state.getBlock() instanceof RedstoneCableJunctionBlock
