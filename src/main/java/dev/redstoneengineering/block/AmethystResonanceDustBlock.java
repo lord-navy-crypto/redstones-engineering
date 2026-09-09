@@ -35,7 +35,8 @@ public class AmethystResonanceDustBlock extends SurfaceTraceBlock implements Eng
     public enum ResonanceStatus {
         IDLE,
         ACTIVE,
-        FREQUENCY_CONFLICT
+        FREQUENCY_CONFLICT,
+        STALE
     }
 
     public AmethystResonanceDustBlock(Properties properties) { super(properties); }
@@ -61,6 +62,7 @@ public class AmethystResonanceDustBlock extends SurfaceTraceBlock implements Eng
         PortQuality quality = switch (status(level, pos)) {
             case ACTIVE -> PortQuality.VALID;
             case FREQUENCY_CONFLICT -> PortQuality.TOPOLOGY_ERROR;
+            case STALE -> PortQuality.STALE;
             case IDLE -> PortQuality.NO_SIGNAL;
         };
         return Optional.of(new EngineeringPortSnapshot(port.get(), amplitude(level, pos), 0.0, 15.0, quality));
