@@ -80,6 +80,7 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
             return switch (AmethystResonanceDustBlock.status(level, samplePos)) {
                 case ACTIVE -> PortQuality.VALID;
                 case FREQUENCY_CONFLICT -> PortQuality.TOPOLOGY_ERROR;
+                case STALE -> PortQuality.STALE;
                 case IDLE -> PortQuality.NO_SIGNAL;
             };
         }
@@ -94,8 +95,10 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
         PortQuality quality = qualityAt(level, samplePos, signal);
         if (side == outputSide(state)) {
             ResponseEvidence response = response(level, pos, state);
-            if (quality == PortQuality.NO_SIGNAL && response.inputQuality() == PortQuality.TOPOLOGY_ERROR) {
-                quality = PortQuality.TOPOLOGY_ERROR;
+            if (quality == PortQuality.NO_SIGNAL
+                    && (response.inputQuality() == PortQuality.TOPOLOGY_ERROR
+                    || response.inputQuality() == PortQuality.STALE)) {
+                quality = response.inputQuality();
             } else if (quality == PortQuality.VALID && response.saturated()) {
                 quality = PortQuality.SATURATED;
             }
