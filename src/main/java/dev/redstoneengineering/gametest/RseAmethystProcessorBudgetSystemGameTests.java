@@ -4,6 +4,7 @@ import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.block.AmethystFrequencyFilterBlock;
 import dev.redstoneengineering.block.AmethystResonanceDustBlock;
 import dev.redstoneengineering.block.AmethystResonatorBlock;
+import dev.redstoneengineering.block.AmethystTunedResonatorBlock;
 import dev.redstoneengineering.block.DirectionalDomainBlock;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
@@ -104,11 +105,7 @@ public final class RseAmethystProcessorBudgetSystemGameTests {
                     return;
                 }
 
-                for (int i = path.size() - 1; i >= SHORT_COMPONENT_NODES; i--) {
-                    level.setBlock(path.get(i), Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
-                }
-                wireDustPath(level, path.subList(0, SHORT_COMPONENT_NODES));
-                attachEastSpur(level, input);
+                shrinkToShort(level, path, input);
                 DomainNetwork.recomputeAmethyst(level, input);
 
                 helper.runAfterDelay(6, () -> {
@@ -136,6 +133,116 @@ public final class RseAmethystProcessorBudgetSystemGameTests {
                         return;
                     }
                     cleanup(level, path, filter, output);
+                    helper.succeed();
+                });
+            });
+        });
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 160)
+    public static void tunedResonatorPreservesStaleEvidenceAndRecoversAfterBudgetTruncation(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos anchor = helper.absolutePos(new BlockPos(2, 1, 2));
+        List<BlockPos> path = compactSnake(anchor);
+        if (!allLoaded(level, path, helper)) return;
+
+        BlockPos source = path.get(0);
+        BlockPos input = path.get(OBSERVED_INDEX);
+        BlockPos tuned = input.east();
+        BlockPos output = tuned.east();
+        if (!level.hasChunkAt(tuned) || !level.hasChunkAt(output)) {
+            helper.fail("Precondition failed: tuned Amethyst processor spur is not fully loaded");
+            return;
+        }
+
+        placeSource(level, source);
+        placeDustRange(level, path, 1, SHORT_COMPONENT_NODES);
+        wireDustPath(level, path.subList(0, SHORT_COMPONENT_NODES));
+        attachEastSpur(level, input);
+        level.setBlock(tuned, RedstoneEngineering.AMETHYST_TUNED_RESONATOR.get().defaultBlockState()
+                .setValue(DirectionalDomainBlock.FACING, Direction.EAST)
+                .setValue(AmethystTunedResonatorBlock.NATURAL, 6)
+                .setValue(AmethystTunedResonatorBlock.Q_INDEX, 2), Block.UPDATE_CLIENTS);
+        level.setBlock(output, RedstoneEngineering.AMETHYST_RESONANCE_DUST.get().defaultBlockState()
+                .setValue(AmethystResonanceDustBlock.WEST, true), Block.UPDATE_CLIENTS);
+        DomainNetwork.recomputeAmethyst(level, input);
+
+        helper.runAfterDelay(6, () -> {
+            AmethystTunedResonatorBlock.ResponseEvidence initial = AmethystTunedResonatorBlock.response(
+                    level, tuned, level.getBlockState(tuned));
+            PortQuality initialOutputQuality = RedstoneEngineering.AMETHYST_TUNED_RESONATOR.get()
+                    .engineeringSnapshot(level, tuned, level.getBlockState(tuned), Direction.EAST)
+                    .orElseThrow().quality();
+            DomainNetwork.AmethystSample initialOutput = DomainNetwork.sampleAmethyst(level, output);
+            if (AmethystResonanceDustBlock.status(level, input) != AmethystResonanceDustBlock.ResonanceStatus.ACTIVE
+                    || initial.inputQuality() != PortQuality.VALID || !initial.responding()
+                    || initial.outputAmplitude() <= 0
+                    || !initialOutput.active() || initialOutput.frequency() != 6 || initialOutput.amplitude() <= 0
+                    || initialOutputQuality != PortQuality.VALID) {
+                cleanup(level, path, tuned, output);
+                helper.fail("Precondition failed: short tuned-Amethyst pipeline did not establish a trusted carrier");
+                return;
+            }
+
+            placeDustRange(level, path, SHORT_COMPONENT_NODES, path.size());
+            wireDustPath(level, path);
+            attachEastSpur(level, input);
+            DomainNetwork.recomputeAmethyst(level, input);
+            NetworkKernel.ScanStats truncatedStats = NetworkKernel.stats(level, "amethyst");
+
+            helper.runAfterDelay(6, () -> {
+                AmethystTunedResonatorBlock.ResponseEvidence fault = AmethystTunedResonatorBlock.response(
+                        level, tuned, level.getBlockState(tuned));
+                PortQuality faultOutputQuality = RedstoneEngineering.AMETHYST_TUNED_RESONATOR.get()
+                        .engineeringSnapshot(level, tuned, level.getBlockState(tuned), Direction.EAST)
+                        .orElseThrow().quality();
+                DomainNetwork.AmethystSample faultOutput = DomainNetwork.sampleAmethyst(level, output);
+
+                if (!truncatedStats.lastTruncated() || truncatedStats.lastNodes() != NetworkKernel.MAX_NODES
+                        || AmethystResonanceDustBlock.status(level, input) != AmethystResonanceDustBlock.ResonanceStatus.STALE
+                        || fault.inputQuality() != PortQuality.STALE || fault.responding() || fault.outputAmplitude() != 0
+                        || faultOutput.active() || faultOutput.amplitude() != 0
+                        || faultOutputQuality != PortQuality.STALE) {
+                    cleanup(level, path, tuned, output);
+                    helper.fail("Tuned Amethyst resonator leaked or collapsed STALE evidence after upstream budget truncation"
+                            + " | nodes=" + truncatedStats.lastNodes() + " truncated=" + truncatedStats.lastTruncated()
+                            + " inputStatus=" + AmethystResonanceDustBlock.status(level, input)
+                            + " inputQuality=" + fault.inputQuality()
+                            + " responding=" + fault.responding() + " expectedA=" + fault.outputAmplitude()
+                            + " outputActive=" + faultOutput.active() + " outputA=" + faultOutput.amplitude()
+                            + " outputQuality=" + faultOutputQuality);
+                    return;
+                }
+
+                shrinkToShort(level, path, input);
+                DomainNetwork.recomputeAmethyst(level, input);
+
+                helper.runAfterDelay(6, () -> {
+                    AmethystTunedResonatorBlock.ResponseEvidence recovered = AmethystTunedResonatorBlock.response(
+                            level, tuned, level.getBlockState(tuned));
+                    PortQuality recoveredOutputQuality = RedstoneEngineering.AMETHYST_TUNED_RESONATOR.get()
+                            .engineeringSnapshot(level, tuned, level.getBlockState(tuned), Direction.EAST)
+                            .orElseThrow().quality();
+                    DomainNetwork.AmethystSample recoveredOutput = DomainNetwork.sampleAmethyst(level, output);
+                    AmethystResonanceDustBlock.ResonanceStatus recoveredInputStatus = AmethystResonanceDustBlock.status(level, input);
+
+                    if (recoveredInputStatus != AmethystResonanceDustBlock.ResonanceStatus.ACTIVE
+                            || recovered.inputQuality() != PortQuality.VALID || !recovered.responding()
+                            || recovered.outputAmplitude() != initial.outputAmplitude()
+                            || !recoveredOutput.active() || recoveredOutput.frequency() != 6
+                            || recoveredOutput.amplitude() != initialOutput.amplitude()
+                            || recoveredOutputQuality != initialOutputQuality) {
+                        cleanup(level, path, tuned, output);
+                        helper.fail("Tuned Amethyst resonator did not recover its original carrier after the upstream graph returned below budget"
+                                + " | inputStatus=" + recoveredInputStatus
+                                + " inputQuality=" + recovered.inputQuality()
+                                + " expectedA=" + recovered.outputAmplitude()
+                                + " output=" + recoveredOutput.frequency() + "/" + recoveredOutput.amplitude()
+                                + " outputQuality=" + recoveredOutputQuality);
+                        return;
+                    }
+                    cleanup(level, path, tuned, output);
                     helper.succeed();
                 });
             });
@@ -188,6 +295,14 @@ public final class RseAmethystProcessorBudgetSystemGameTests {
         }
     }
 
+    private static void shrinkToShort(ServerLevel level, List<BlockPos> path, BlockPos input) {
+        for (int i = path.size() - 1; i >= SHORT_COMPONENT_NODES; i--) {
+            level.setBlock(path.get(i), Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+        }
+        wireDustPath(level, path.subList(0, SHORT_COMPONENT_NODES));
+        attachEastSpur(level, input);
+    }
+
     private static Direction direction(BlockPos from, BlockPos to) {
         int dx = to.getX() - from.getX();
         int dz = to.getZ() - from.getZ();
@@ -218,9 +333,9 @@ public final class RseAmethystProcessorBudgetSystemGameTests {
         return true;
     }
 
-    private static void cleanup(ServerLevel level, List<BlockPos> path, BlockPos filter, BlockPos output) {
+    private static void cleanup(ServerLevel level, List<BlockPos> path, BlockPos processor, BlockPos output) {
         level.setBlock(output, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
-        level.setBlock(filter, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+        level.setBlock(processor, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
         for (int i = path.size() - 1; i >= 0; i--) level.setBlock(path.get(i), Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
     }
 }
