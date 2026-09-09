@@ -15,6 +15,9 @@ public final class PneumaticNetwork {
     private PneumaticNetwork() {}
     private record Node(BlockPos pos, int pressure) {}
 
+    private static final String DIAG_KEY = "pneumatic_diag";
+    private static final int DIAG_SIZE = 1; // budget truncation flag
+
     private static boolean isNode(Level level, BlockPos pos) {
         var block = level.getBlockState(pos).getBlock();
         return block instanceof PneumaticPipeBlock || block instanceof AirReservoirBlock ||
@@ -94,6 +97,7 @@ public final class PneumaticNetwork {
                 }
             }
         }
+        NetworkKernel.recordScan(level, "pneumatic", seen.size(), !queue.isEmpty());
         return seen;
     }
 
@@ -149,11 +153,7 @@ public final class PneumaticNetwork {
             int setpoint = state.getValue(PneumaticReliefValveBlock.SETPOINT) * 25;
             if (pressure > setpoint) {
                 int excess = pressure - setpoint;
-                // "pneumatic_relief" runtime diagnostics are owned by PneumaticReliefValveBlock.
                 PneumaticReliefValveBlock.recordVent(level, pos, excess);
-
-                // Visual feedback is event-driven: particles appear only when the
-                // relief valve actually clamps/vents excess pressure.
                 if (level instanceof ServerLevel server) {
                     int count = excess >= 25 ? 3 : 1;
                     server.sendParticles(
@@ -179,18 +179,34 @@ public final class PneumaticNetwork {
     public static void recompute(ServerLevel level, BlockPos start) {
         Set<BlockPos> nodes = collect(level, start);
         if (nodes.isEmpty()) return;
+        boolean truncated = NetworkKernel.stats(level, "pneumatic").lastTruncated();
+
+        int sources = 0;
+        for (BlockPos pos : nodes) {
+            var block = level.getBlockState(pos).getBlock();
+            if (block instanceof AirCompressorBlock) {
+                if (AirCompressorBlock.commandedPressure(level, pos) > 0) sources++;
+            } else if (block instanceof AirReservoirBlock) {
+                if (InformationRuntime.value(level, "air_reservoir", pos) > 0) sources++;
+            }
+        }
+        NetworkKernel.recordDriverState(level, "pneumatic", sources);
+
+        if (truncated) {
+            failClosedTruncated(level, nodes);
+            return;
+        }
+
         Map<BlockPos, Integer> best = new HashMap<>();
         ArrayDeque<Node> queue = new ArrayDeque<>();
-        int sources = 0;
-
         for (BlockPos pos : nodes) {
             var block = level.getBlockState(pos).getBlock();
             if (block instanceof AirCompressorBlock) {
                 int command = AirCompressorBlock.commandedPressure(level, pos);
-                if (command > 0) { queue.add(new Node(pos, command)); sources++; }
+                if (command > 0) queue.add(new Node(pos, command));
             } else if (block instanceof AirReservoirBlock) {
                 int stored = InformationRuntime.value(level, "air_reservoir", pos);
-                if (stored > 0) { queue.add(new Node(pos, stored)); sources++; }
+                if (stored > 0) queue.add(new Node(pos, stored));
             }
         }
 
@@ -211,8 +227,6 @@ public final class PneumaticNetwork {
             }
         }
 
-        NetworkKernel.recordDriverState(level, "pneumatic", sources);
-        NetworkKernel.recordScan(level, "pneumatic", nodes.size(), nodes.size() >= NetworkKernel.MAX_NODES);
         int quality = Math.max(10, 100 - nodes.size() / 2);
         for (BlockPos pos : nodes) {
             int pressure = best.getOrDefault(pos, 0);
@@ -221,15 +235,12 @@ public final class PneumaticNetwork {
                 PneumaticReliefValveBlock.clearVenting(level, pos);
             }
 
-            // Many pneumatic blocks recompute their component from neighborChanged().
-            // Re-notifying every node on every no-op solver pass creates a synchronous
-            // recompute -> neighbor update -> recompute feedback loop. Publish runtime first,
-            // then wake vanilla endpoints only when the observable network state changed.
             int oldPressure = InformationRuntime.value(level, "pneumatic", pos);
             int oldQuality = InformationRuntime.quality(level, "pneumatic", pos);
             boolean oldValid = InformationRuntime.valid(level, "pneumatic", pos);
             boolean effectiveChanged = oldPressure != pressure || oldQuality != quality || !oldValid;
             InformationRuntime.write(level, "pneumatic", pos, pressure, 0, true, quality);
+            RuntimeIntStore.get(level, DIAG_KEY, pos, DIAG_SIZE)[0] = 0;
             if (effectiveChanged) {
                 level.updateNeighborsAt(pos, block);
             }
@@ -248,6 +259,32 @@ public final class PneumaticNetwork {
             runtime[2] = pin;
             runtime[3] = pout;
         }
+    }
+
+    private static void failClosedTruncated(ServerLevel level, Set<BlockPos> nodes) {
+        for (BlockPos pos : nodes) {
+            var block = level.getBlockState(pos).getBlock();
+            int oldPressure = InformationRuntime.value(level, "pneumatic", pos);
+            int oldQuality = InformationRuntime.quality(level, "pneumatic", pos);
+            boolean oldValid = InformationRuntime.valid(level, "pneumatic", pos);
+            InformationRuntime.write(level, "pneumatic", pos, 0, 0, false, 0);
+            RuntimeIntStore.get(level, DIAG_KEY, pos, DIAG_SIZE)[0] = 1;
+            if (block instanceof PneumaticReliefValveBlock) {
+                PneumaticReliefValveBlock.clearVenting(level, pos);
+            }
+            if (block instanceof PneumaticFlowMeterBlock) {
+                int[] runtime = RuntimeIntStore.get(level, "pneumatic_flow", pos, 4);
+                Arrays.fill(runtime, 0);
+            }
+            if (oldPressure != 0 || oldQuality != 0 || oldValid) {
+                level.updateNeighborsAt(pos, block);
+            }
+        }
+    }
+
+    public static boolean truncated(Level level, BlockPos pos) {
+        int[] diagnostics = RuntimeIntStore.peek(level, DIAG_KEY, pos);
+        return diagnostics != null && diagnostics.length == DIAG_SIZE && diagnostics[0] != 0;
     }
 
     /**
