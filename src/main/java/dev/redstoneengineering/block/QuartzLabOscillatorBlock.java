@@ -78,7 +78,7 @@ public class QuartzLabOscillatorBlock extends DomainBlock implements Engineering
 
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
         super.onPlace(state, level, pos, oldState, moved);
-        if (!level.isClientSide) level.scheduleTick(pos, this, 1);
+        if (!level.isClientSide && !oldState.is(state.getBlock())) level.scheduleTick(pos, this, 1);
     }
 
     @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
