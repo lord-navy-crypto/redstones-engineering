@@ -24,6 +24,7 @@ import java.util.List;
 /** Strict proof that a budget-truncated 8-bit bus never publishes a partial component as trusted. */
 public final class RseDataBusNetworkBudgetSystemGameTests {
     private static final String TEMPLATE = "empty5x4x5";
+    private static final int FIXTURE_Y_OFFSET = 32;
 
     private RseDataBusNetworkBudgetSystemGameTests() {}
 
@@ -94,7 +95,7 @@ public final class RseDataBusNetworkBudgetSystemGameTests {
     private static List<BlockPos> planarSnake(BlockPos anchor) {
         int minX = anchor.getX() & ~15;
         int minZ = anchor.getZ() & ~15;
-        int y = Math.min(anchor.getY() + 16, anchor.getY() + 16);
+        int y = anchor.getY() + FIXTURE_Y_OFFSET;
         List<BlockPos> path = new ArrayList<>(135);
         for (int row = 0; row < 11 && path.size() < 135; row++) {
             int z = minZ + row;
