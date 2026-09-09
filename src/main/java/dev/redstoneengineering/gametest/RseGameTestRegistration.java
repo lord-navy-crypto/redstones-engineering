@@ -58,5 +58,6 @@ public final class RseGameTestRegistration {
         event.register(RseInterconnectRefactorGameTests.class);
         event.register(RseSystemLevelClosurePhase1GameTests.class);
         event.register(RsePairwiseValidation01GameTests.class);
+        event.register(RseFiveBlockMeasurementFeedbackGameTests.class);
     }
 }
