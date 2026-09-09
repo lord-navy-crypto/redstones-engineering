@@ -56,7 +56,6 @@ public final class RseNetworkBudgetSystemGameTests {
         }
         level.setBlock(topSource, sourceB, Block.UPDATE_ALL);
 
-        // Seed the bounded solver from one end. The second real driver is beyond the 128-node budget.
         DomainNetwork.recomputeOptical(level, bottomSource);
         NetworkKernel.ScanStats stats = NetworkKernel.stats(level, "optical");
         BlockState fiberState = level.getBlockState(firstFiber);
@@ -101,7 +100,6 @@ public final class RseNetworkBudgetSystemGameTests {
                 .setValue(OpticalEmitterBlock.INTENSITY, 11)
                 .setValue(OpticalEmitterBlock.CHANNEL, 4), Block.UPDATE_ALL);
 
-        // The receiver and service splice are inside the visited prefix; the real source is beyond budget.
         DomainNetwork.recomputeOptical(level, junctionPos);
         NetworkKernel.ScanStats stats = NetworkKernel.stats(level, "optical");
         PortQuality fiberQuality = OpticalFiberBlock.quality(level, firstFiber, level.getBlockState(firstFiber));
@@ -174,9 +172,8 @@ public final class RseNetworkBudgetSystemGameTests {
 
         DomainNetwork.recomputeLapis(level, sourceA);
         NetworkKernel.ScanStats stats = NetworkKernel.stats(level, "lapis");
-        BlockState lineState = level.getBlockState(firstLine);
-        PortQuality quality = LapisSignalLineBlock.quality(level, firstLine, lineState);
-        int drivers = LapisSignalLineBlock.driverCount(level, firstLine);
+        PortQuality quality = LapisSignalLineBlock.quality(level, firstLine);
+        int drivers = LapisSignalLineBlock.sourceCount(level, firstLine);
         int value = LapisSignalLineBlock.value(level, firstLine);
 
         cleanupPath(level, path);
@@ -195,7 +192,6 @@ public final class RseNetworkBudgetSystemGameTests {
         helper.succeed();
     }
 
-    /** 135-node induced planar path inside one 16x16 chunk: eight 16-wide rows plus seven end connectors. */
     private static List<BlockPos> planarSnake(int minX, int y, int minZ) {
         List<BlockPos> path = new ArrayList<>(135);
         for (int row = 0; row < 8; row++) {
