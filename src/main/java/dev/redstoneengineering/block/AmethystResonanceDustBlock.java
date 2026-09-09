@@ -10,6 +10,7 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
+import dev.redstoneengineering.physics.NetworkKernel;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
@@ -74,6 +75,11 @@ public class AmethystResonanceDustBlock extends SurfaceTraceBlock implements Eng
     }
 
     public static void setResonance(Level level, BlockPos pos, int frequency, int amplitude, ResonanceStatus status) {
+        if (NetworkKernel.stats(level, "amethyst").lastTruncated()) {
+            status = ResonanceStatus.STALE;
+            frequency = 0;
+            amplitude = 0;
+        }
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, 3);
         int boundedAmplitude = Math.max(0, Math.min(15, amplitude));
         runtime[0] = status == ResonanceStatus.ACTIVE && boundedAmplitude > 0 ? Math.max(1, Math.min(15, frequency)) : 0;
