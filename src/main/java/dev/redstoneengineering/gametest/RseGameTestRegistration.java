@@ -62,5 +62,6 @@ public final class RseGameTestRegistration {
         event.register(RseFiveBlockMediumToolsGameTests.class);
         event.register(RseFiveBlockCopperMediumToolsGameTests.class);
         event.register(RseFiveBlockDataBusMediumToolsGameTests.class);
+        event.register(RseFiveBlockSerialMediumToolsGameTests.class);
     }
 }
