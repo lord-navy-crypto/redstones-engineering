@@ -39,10 +39,11 @@ require(
     JAVA / "physics/RedstoneCableNetwork.java",
     "public static void recomputeAround",
     "private record ComponentScan(Set<BlockPos> nodes, boolean truncated)",
-    "processed.addAll(scan.nodes())",
+    "Set<BlockPos> component = scan.nodes()",
+    "processed.addAll(component)",
     "if (scan.truncated())",
-    "invalidateComponent(level, scan.nodes())",
-    "recomputeComponent(level, scan.nodes())",
+    "invalidateComponent(level, component)",
+    "recomputeComponent(level, component)",
     "removeEvidence(level, pos)",
 )
 
