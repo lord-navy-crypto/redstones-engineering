@@ -43,15 +43,9 @@ public final class RseFiveBlockQuartzMediumToolsGameTests {
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 90)
     public static void dividerTransformsPeriodAndMonitorMeasuresRealEdgesWithoutBackDrive(GameTestHelper helper) {
         buildPath(helper);
-        StringBuilder trace = new StringBuilder("Quartz per-tick trace:");
-        for (int tick = 1; tick < 36; tick++) {
-            final int sampleTick = tick;
-            helper.runAfterDelay(sampleTick, () -> appendTrace(helper, trace, sampleTick));
-        }
 
         helper.runAfterDelay(36, () -> {
-            appendTrace(helper, trace, 36);
-            if (!assertLivePath(helper, "settled divided clock", trace)) return;
+            if (!assertLivePath(helper, "settled divided clock")) return;
 
             BlockPos lineBWorld = helper.absolutePos(LINE_B);
             int sourcesBefore = QuartzTimingLineBlock.sourceCount(helper.getLevel(), lineBWorld);
@@ -67,7 +61,7 @@ public final class RseFiveBlockQuartzMediumToolsGameTests {
                     || !measurement.initialized() || !measurement.referenceEdgeSeen()
                     || !measurement.currentMeasurement() || measurement.period() != OUTPUT_PERIOD
                     || measurement.nominalError() != 0) {
-                helper.fail("Stability Monitor did not measure the real divided 8-tick period\n" + trace, MONITOR);
+                helper.fail("Stability Monitor did not measure the real divided 8-tick period", MONITOR);
                 return;
             }
             if (sourcesBefore != 1 || sourcesAfter != 1) {
@@ -84,7 +78,7 @@ public final class RseFiveBlockQuartzMediumToolsGameTests {
         buildPath(helper);
 
         helper.runAfterDelay(36, () -> {
-            if (!assertLivePath(helper, "single-source baseline", null)) return;
+            if (!assertLivePath(helper, "single-source baseline")) return;
 
             helper.setBlock(LINE_A, Blocks.AIR.defaultBlockState());
             helper.runAfterDelay(8, () -> {
@@ -114,7 +108,7 @@ public final class RseFiveBlockQuartzMediumToolsGameTests {
 
                 helper.setBlock(LINE_A, RedstoneEngineering.QUARTZ_TIMING_LINE.get().defaultBlockState());
                 helper.runAfterDelay(32, () -> {
-                    if (!assertLivePath(helper, "Line A reconnect", null)) return;
+                    if (!assertLivePath(helper, "Line A reconnect")) return;
 
                     helper.setBlock(LINE_B, Blocks.AIR.defaultBlockState());
                     helper.runAfterDelay(6, () -> {
@@ -135,7 +129,7 @@ public final class RseFiveBlockQuartzMediumToolsGameTests {
 
                         helper.setBlock(LINE_B, RedstoneEngineering.QUARTZ_TIMING_LINE.get().defaultBlockState());
                         helper.runAfterDelay(32, () -> {
-                            if (!assertLivePath(helper, "Line B reconnect", null)) return;
+                            if (!assertLivePath(helper, "Line B reconnect")) return;
 
                             helper.setBlock(CONFLICT_OSCILLATOR, oscillator(1));
                             helper.runAfterDelay(8, () -> {
@@ -162,7 +156,7 @@ public final class RseFiveBlockQuartzMediumToolsGameTests {
 
                                 helper.setBlock(CONFLICT_OSCILLATOR, Blocks.AIR.defaultBlockState());
                                 helper.runAfterDelay(32, () -> {
-                                    if (!assertLivePath(helper, "contention recovery", null)) return;
+                                    if (!assertLivePath(helper, "contention recovery")) return;
                                     helper.succeed();
                                 });
                             });
@@ -191,32 +185,7 @@ public final class RseFiveBlockQuartzMediumToolsGameTests {
                 .setValue(QuartzLabOscillatorBlock.ACTIVE, false);
     }
 
-    private static void appendTrace(GameTestHelper helper, StringBuilder trace, int sampleTick) {
-        BlockPos oscillatorWorld = helper.absolutePos(OSCILLATOR);
-        BlockPos lineAWorld = helper.absolutePos(LINE_A);
-        BlockPos dividerWorld = helper.absolutePos(DIVIDER);
-        BlockPos lineBWorld = helper.absolutePos(LINE_B);
-        BlockPos monitorWorld = helper.absolutePos(MONITOR);
-        BlockState oscillatorState = helper.getLevel().getBlockState(oscillatorWorld);
-        boolean sourceActive = oscillatorState.getBlock() instanceof QuartzLabOscillatorBlock
-                && oscillatorState.getValue(QuartzLabOscillatorBlock.ACTIVE);
-        QuartzStabilityMonitorBlock.TimingMeasurement measurement = QuartzStabilityMonitorBlock.measurement(
-                helper.getLevel(), monitorWorld);
-        trace.append("\n t=").append(sampleTick)
-                .append(" gameTime=").append(helper.getLevel().getGameTime())
-                .append(" src=").append(sourceActive ? 1 : 0)
-                .append(" A=").append(QuartzTimingLineBlock.active(helper.getLevel(), lineAWorld) ? 1 : 0)
-                .append(" edge=").append(QuartzClockDividerBlock.countedEdges(helper.getLevel(), dividerWorld))
-                .append(" B=").append(QuartzTimingLineBlock.active(helper.getLevel(), lineBWorld) ? 1 : 0)
-                .append(" Bp=").append(QuartzTimingLineBlock.period(helper.getLevel(), lineBWorld))
-                .append(" Bs=").append(QuartzTimingLineBlock.sourceCount(helper.getLevel(), lineBWorld))
-                .append(" mon=").append(measurement.period())
-                .append(" err=").append(measurement.nominalError())
-                .append(" ref=").append(measurement.referenceEdgeSeen() ? 1 : 0)
-                .append(" cur=").append(measurement.currentMeasurement() ? 1 : 0);
-    }
-
-    private static boolean assertLivePath(GameTestHelper helper, String phase, StringBuilder trace) {
+    private static boolean assertLivePath(GameTestHelper helper, String phase) {
         BlockPos lineAWorld = helper.absolutePos(LINE_A);
         BlockPos lineBWorld = helper.absolutePos(LINE_B);
 
@@ -260,8 +229,7 @@ public final class RseFiveBlockQuartzMediumToolsGameTests {
                     + " | lineB={active=" + QuartzTimingLineBlock.active(helper.getLevel(), lineBWorld)
                     + ", period=" + QuartzTimingLineBlock.period(helper.getLevel(), lineBWorld)
                     + ", sources=" + QuartzTimingLineBlock.sourceCount(helper.getLevel(), lineBWorld)
-                    + ", quality=" + QuartzTimingLineBlock.quality(helper.getLevel(), lineBWorld) + "}"
-                    + (trace == null ? "" : "\n" + trace), MONITOR);
+                    + ", quality=" + QuartzTimingLineBlock.quality(helper.getLevel(), lineBWorld) + "}", MONITOR);
             return false;
         }
         return true;
