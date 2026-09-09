@@ -60,6 +60,12 @@ public class ByteToRedstoneDecoderBlock extends PassiveDirectionalSignalBlock {
         );
     }
 
+    private static PortQuality inputQuality(Level level, BlockPos input) {
+        if (!level.hasChunkAt(input)) return PortQuality.STALE;
+        if (!DataBusNetwork.isNode(level, input)) return PortQuality.NO_SIGNAL;
+        return DataBusNetwork.quality(level, input);
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(
             Level level,
@@ -70,7 +76,7 @@ public class ByteToRedstoneDecoderBlock extends PassiveDirectionalSignalBlock {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         BlockPos input = inputPos(pos, state);
-        PortQuality inputQuality = DataBusNetwork.quality(level, input);
+        PortQuality inputQuality = inputQuality(level, input);
         int byteValue = DataBusNetwork.sample(level, input);
         if (side == inputSide(state)) {
             return Optional.of(new EngineeringPortSnapshot(
@@ -103,7 +109,7 @@ public class ByteToRedstoneDecoderBlock extends PassiveDirectionalSignalBlock {
     @Override
     protected int computeOutput(Level level, BlockPos pos, BlockState state) {
         BlockPos input = inputPos(pos, state);
-        if (DataBusNetwork.quality(level, input) != PortQuality.VALID) return 0;
+        if (inputQuality(level, input) != PortQuality.VALID) return 0;
         return Math.min(15, DataBusNetwork.sample(level, input));
     }
 
@@ -120,7 +126,7 @@ public class ByteToRedstoneDecoderBlock extends PassiveDirectionalSignalBlock {
                 BlockPos input = inputPos(pos, state);
                 player.displayClientMessage(Component.literal(
                         "Byte decoder input=" + DataBusNetwork.sample(level, input)
-                                + " quality=" + DataBusNetwork.quality(level, input)
+                                + " quality=" + inputQuality(level, input)
                                 + " | output=" + outputValue(level, pos, state) + "/15"
                 ), true);
             } else {
