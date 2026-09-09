@@ -77,5 +77,6 @@ public final class RseGameTestRegistration {
         event.register(RseQuartzNetworkBudgetSystemGameTests.class);
         event.register(RseRedstoneCableNetworkBudgetSystemGameTests.class);
         event.register(RseAmethystNetworkBudgetSystemGameTests.class);
+        event.register(RseAmethystProcessorBudgetSystemGameTests.class);
     }
 }
