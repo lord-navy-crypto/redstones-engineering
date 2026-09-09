@@ -43,10 +43,12 @@ transducer = text("block/AbstractLapisTransducerBlock.java")
 temperature = text("block/LapisTemperatureTransducerBlock.java")
 magnetic = text("block/LapisMagneticTransducerBlock.java")
 optical = text("block/LapisOpticalTransducerBlock.java")
+optical_observation = text("physics/OpticalObservationSupport.java")
 voltage = text("block/LapisVoltageTransducerBlock.java")
 range_sensor = text("block/LapisPrecisionRangeSensorBlock.java")
 registration = text("gametest/RseGameTestRegistration.java")
 tests = text("gametest/RseSeventhTenDesignBugGameTests.java")
+optical_system_tests = text("gametest/RseOpticalMeasurementSystemGameTests.java")
 workflow = (ROOT / ".github/workflows/build.yml").read_text(encoding="utf-8")
 
 # 61 — occupancy count is trustworthy only with complete chunk coverage.
@@ -101,9 +103,15 @@ require("MagneticPhysics.fieldSample" in magnetic and "sample.complete() ? PortQ
 require("MagneticPhysics.fieldAt" not in magnetic,
         "Magnetic transducer still uses coverage-blind fieldAt")
 
-# 68 — topology/conflict evidence must survive optical -> Lapis conversion.
+# 68 — topology/conflict and unknown-coverage evidence must survive optical -> Lapis conversion.
 require("OpticalObservationSupport.observe" in optical and "observation.quality()" in optical,
         "Optical transducer collapses carrier quality to a boolean")
+require("if (!level.hasChunkAt(pos)) return new Observation(0, 0, PortQuality.STALE)" in optical_observation,
+        "Shared optical observation must classify unloaded coverage as STALE")
+require("RseOpticalMeasurementSystemGameTests.class" in registration,
+        "Optical measurement lifecycle GameTests are not registered")
+require("opticalTransducerDistinguishesUnknownApertureFromLoadedNoSignal" in optical_system_tests,
+        "Optical transducer STALE-vs-NO_SIGNAL lifecycle regression is missing")
 
 # 69 — numerical Copper voltage and Copper source/topology evidence have different owners.
 require("DomainNetwork.sampleCopperVoltage" in voltage and "CopperObservationSupport.measure" in voltage and "observation.quality()" in voltage,
@@ -147,6 +155,7 @@ print("  optical service-isolation runtime lifecycle: PASS")
 print("  copper junction zero/source/conflict semantics: PASS")
 print("  Lapis transducer observer-neutral quality runtime: PASS")
 print("  thermal/magnetic coverage propagation: PASS")
-print("  optical/copper upstream quality propagation: PASS")
+print("  optical upstream topology + unknown-coverage quality propagation: PASS")
+print("  copper upstream quality propagation: PASS")
 print("  precision-range no-target versus unknown coverage: PASS")
-print("  ten executable seventh-ten GameTests registered: PASS")
+print("  ten executable seventh-ten GameTests + optical lifecycle regression registered: PASS")
