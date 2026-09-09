@@ -32,6 +32,12 @@ import java.util.Optional;
 /** Auto-connecting planar precision trace. Live value and source-ownership evidence are transient runtime data. */
 public class LapisSignalLineBlock extends SurfaceTraceBlock implements EngineeringPortProvider {
     private static final String KEY = "lapis_trace";
+    private static final int VALUE = 0;
+    private static final int VALID = 1;
+    private static final int SOURCE_COUNT = 2;
+    private static final int QUALITY = 3;
+    private static final int RUNTIME_SIZE = 4;
+
     public LapisSignalLineBlock(Properties p){super(p);}
     @Override public MapCodec<LapisSignalLineBlock> codec(){return RedstoneEngineering.LAPIS_SIGNAL_LINE_CODEC.value();}
     @Override protected boolean canConnectTo(BlockGetter l,BlockPos p,Direction d,BlockState n){return d.getAxis()!=Direction.Axis.Y&&TransmissionTopology.lapisPort(n,d);}
@@ -41,17 +47,34 @@ public class LapisSignalLineBlock extends SurfaceTraceBlock implements Engineeri
         int sources=valid?1:(stats.driverConflict()?stats.activeDrivers():0);
         setSignal(l,p,value,valid,sources);
     }
+    /** Authoritative solver write. Budget-truncated scans are incomplete evidence and fail closed as STALE. */
     public static void setSignal(Level l,BlockPos p,int value,boolean valid,int sourceCount){
-        int[] r=RuntimeIntStore.get(l,KEY,p,3);
-        r[0]=valid?Math.max(0,Math.min(100,value)):0;
-        r[1]=valid?1:0;
-        r[2]=Math.max(0,sourceCount);
+        NetworkKernel.ScanStats stats=NetworkKernel.stats(l,"lapis");
+        boolean stale=stats.lastTruncated();
+        boolean accepted=!stale&&valid;
+        int[] r=RuntimeIntStore.get(l,KEY,p,RUNTIME_SIZE);
+        r[VALUE]=accepted?Math.max(0,Math.min(100,value)):0;
+        r[VALID]=accepted?1:0;
+        r[SOURCE_COUNT]=Math.max(0,sourceCount);
+        r[QUALITY]=(stale?PortQuality.STALE:accepted?PortQuality.VALID:PortQuality.NO_SIGNAL).ordinal();
     }
-    private static int[] snapshot(Level l,BlockPos p){int[]r=RuntimeIntStore.peek(l,KEY,p);return r!=null&&r.length==3?r:null;}
-    public static int value(Level l,BlockPos p){int[]r=snapshot(l,p);return r==null?0:r[0];}
-    public static boolean valid(Level l,BlockPos p){int[]r=snapshot(l,p);return r!=null&&r[1]==1;}
-    public static int sourceCount(Level l,BlockPos p){int[]r=snapshot(l,p);return r==null?0:r[2];}
-    public static PortQuality quality(Level l,BlockPos p){int n=sourceCount(l,p);if(n==0)return PortQuality.NO_SIGNAL;if(n>1)return PortQuality.TOPOLOGY_ERROR;return valid(l,p)?PortQuality.VALID:PortQuality.NO_SIGNAL;}
+    private static int[] snapshot(Level l,BlockPos p){int[]r=RuntimeIntStore.peek(l,KEY,p);return r!=null&&r.length==RUNTIME_SIZE?r:null;}
+    public static int value(Level l,BlockPos p){int[]r=snapshot(l,p);return r==null?0:r[VALUE];}
+    public static boolean valid(Level l,BlockPos p){int[]r=snapshot(l,p);return r!=null&&r[VALID]==1;}
+    public static int sourceCount(Level l,BlockPos p){int[]r=snapshot(l,p);return r==null?0:r[SOURCE_COUNT];}
+    private static PortQuality storedQuality(Level l,BlockPos p){
+        int[]r=snapshot(l,p);if(r==null)return PortQuality.NO_SIGNAL;
+        int ordinal=r[QUALITY];PortQuality[]values=PortQuality.values();
+        return ordinal>=0&&ordinal<values.length?values[ordinal]:PortQuality.NO_SIGNAL;
+    }
+    public static PortQuality quality(Level l,BlockPos p){
+        int n=sourceCount(l,p);
+        if(n>1)return PortQuality.TOPOLOGY_ERROR;
+        PortQuality stored=storedQuality(l,p);
+        if(stored==PortQuality.STALE)return PortQuality.STALE;
+        if(n==0)return PortQuality.NO_SIGNAL;
+        return valid(l,p)?PortQuality.VALID:PortQuality.NO_SIGNAL;
+    }
 
     private static EngineeringPort port(Direction side){return new EngineeringPort("LAPIS PRECISION TRACE "+side.getName().toUpperCase(),side, EngineeringDomain.LAPIS, PortKind.BUS, PortDirection.BIDIRECTIONAL,false,"precision");}
     @Override public List<EngineeringPort> engineeringPorts(BlockState s){List<EngineeringPort>ports=new ArrayList<>();for(Direction side:Direction.Plane.HORIZONTAL)if(SurfaceTraceBlock.connected(s,side))ports.add(port(side));return List.copyOf(ports);}
@@ -62,7 +85,9 @@ public class LapisSignalLineBlock extends SurfaceTraceBlock implements Engineeri
     @Override protected InteractionResult useWithoutItem(BlockState s,Level l,BlockPos p,Player pl,BlockHitResult hit){
         if(!l.isClientSide&&pl instanceof ServerPlayer serverPlayer){
             if(!pl.isShiftKeyDown()){FieldDeviceUi.open(serverPlayer,p);return InteractionResult.CONSUME;}
-            int drivers=sourceCount(l,p);String signal=drivers==0?"NO SOURCE":drivers>1?"SOURCE CONFLICT x"+drivers:"value="+String.format("%.2f",value(l,p)/100.0);
+            PortQuality quality=quality(l,p);
+            int drivers=sourceCount(l,p);
+            String signal=quality==PortQuality.STALE?"STALE — network scan incomplete":drivers==0?"NO SOURCE":drivers>1?"SOURCE CONFLICT x"+drivers:"value="+String.format("%.2f",value(l,p)/100.0);
             pl.displayClientMessage(Component.literal("Lapis Precision Trace | "+signal+" | "+PortDiagnostics.surfaceTrace(l,p,s,PortDiagnostics.Domain.LAPIS)),true);
         }
         return InteractionResult.sidedSuccess(l.isClientSide);
