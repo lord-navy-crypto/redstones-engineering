@@ -29,6 +29,7 @@ thermal = text("physics/ThermalPhysics.java")
 domain = text("physics/DomainNetwork.java")
 registration = text("gametest/RseGameTestRegistration.java")
 tests = text("gametest/RseThirdTenDesignBugGameTests.java")
+magnetic_system_tests = text("gametest/RseMagneticMeasurementSystemGameTests.java")
 
 # 21-23: optical medium/source/sink identities and terminal opacity.
 for token in ("DRIVER_COUNT", "PortQuality.TOPOLOGY_ERROR", "RuntimeIntStore.peek"):
@@ -62,7 +63,7 @@ require("recomputeCopper(serverLevel, pos)" not in load,
 require("descriptor.direction() == PortDirection.INPUT" in copper_support,
         "Copper terminal input resolver must reject INPUT-only neighbors as sources")
 
-# 27-29: external-field/remanence separation and valid-zero sensing.
+# 27-29: external-field/remanence separation and magnetic measurement certainty.
 require("appliedFieldAt" in core and "MAGNETIZE_THRESHOLD" in core,
         "Iron Core must magnetize from bounded external applied field")
 require("terminalInput" in magnet and "adjacentCopperLevel" not in magnet,
@@ -71,10 +72,14 @@ for token in ("FieldSample", "scannedCells", "expectedCells", "complete"):
     require(token in magnetic, f"Magnetic free-space scan coverage missing {token}")
 require("includeRemanence" in magnetic and "appliedFieldAt" in magnetic,
         "Magnetic physics must separate external applied field from iron-core remanence")
-require("observation.complete() ? PortQuality.VALID : PortQuality.NO_SIGNAL" in sensor,
-        "Magnetic sensor must treat complete zero field as VALID measurement")
+require("observation.complete() ? PortQuality.VALID : PortQuality.STALE" in sensor,
+        "Magnetic sensor must report complete measurements as VALID and incomplete/awaiting evidence as STALE")
 require("RuntimeIntStore.peek" in sensor,
         "Magnetic field snapshot must read cached server coverage evidence")
+require("RseMagneticMeasurementSystemGameTests.class" in registration,
+        "Magnetic measurement lifecycle GameTests are not registered")
+require("magneticSensorAwaitsFirstSampleAsStaleThenEstablishesValidZero" in magnetic_system_tests,
+        "Magnetic first-sample STALE to VALID-zero lifecycle regression is missing")
 
 # 30: thermal inertia remains simple, while boundary resolution is rotation/order independent.
 require("hasHot && hasCold" in thermal and "(hottest + coldest) / 2" in thermal,
@@ -102,7 +107,7 @@ print("RSE third-ten system design + bug audit verification: PASS")
 print("  optical no-source/conflict + opaque receiver terminal: PASS")
 print("  copper observer-neutral ownership + non-backdriving sink: PASS")
 print("  source-vs-input port direction enforcement: PASS")
-print("  magnetic valid-zero + coverage + external-field remanence: PASS")
+print("  magnetic valid-zero + STALE coverage + external-field remanence: PASS")
 print("  thermal direction-order independence + inertia evidence: PASS")
-print("  eight executable third-ten bug regressions registered: PASS")
+print("  eight executable third-ten bug regressions + dedicated magnetic lifecycle regression: PASS")
 print("  fixed-content architecture: 127 blocks; no new block/domain required")
