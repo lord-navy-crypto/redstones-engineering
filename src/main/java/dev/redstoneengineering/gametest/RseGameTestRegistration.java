@@ -73,5 +73,6 @@ public final class RseGameTestRegistration {
         event.register(RseThermalMeasurementSystemGameTests.class);
         event.register(RseLapisMeasurementSystemGameTests.class);
         event.register(RseOpticalMeasurementSystemGameTests.class);
+        event.register(RseNetworkBudgetSystemGameTests.class);
     }
 }
