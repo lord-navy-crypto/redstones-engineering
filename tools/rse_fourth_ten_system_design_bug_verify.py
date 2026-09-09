@@ -27,6 +27,7 @@ amethyst_filter = text("block/AmethystFrequencyFilterBlock.java")
 tuned = text("block/AmethystTunedResonatorBlock.java")
 registration = text("gametest/RseGameTestRegistration.java")
 tests = text("gametest/RseFourthTenDesignBugGameTests.java")
+thermal_system_tests = text("gametest/RseThermalMeasurementSystemGameTests.java")
 workflow = (ROOT / ".github/workflows/build.yml").read_text(encoding="utf-8")
 
 # 31: temperature sensing must expose coverage rather than silently averaging unloaded space.
@@ -34,6 +35,14 @@ for token in ("ThermalObservation", "loadedFaces", "complete()", "cached reading
     require(token in temperature, f"Temperature Sensor coverage evidence missing {token}")
 require("level.hasChunkAt(neighborPos)" in temperature,
         "Temperature Sensor must not treat unloaded neighbors as complete thermal evidence")
+require("observation.complete() ? PortQuality.VALID : PortQuality.STALE" in temperature,
+        "Temperature Sensor must preserve incomplete aggregate coverage as STALE")
+require("state.getValue(TEMPERATURE), 0.0, 100.0, PortQuality.STALE" in temperature,
+        "Temperature Sensor must expose an unloaded direct aperture as STALE")
+require("RseThermalMeasurementSystemGameTests.class" in registration,
+        "Thermal measurement lifecycle GameTests are not registered")
+require("temperatureSensorDistinguishesUnknownCoverageFromValidAmbient" in thermal_system_tests,
+        "Temperature unknown-coverage STALE to VALID ambient regression is missing")
 
 # 32: zero is data, never the initialization sentinel; readback is observer-neutral.
 for token in ("INITIALIZED_SLOT", "setSample", "sampleInitialized", "RuntimeIntStore.peek"):
@@ -100,12 +109,12 @@ require("tools/rse_fourth_ten_system_design_bug_verify.py" in workflow,
         "Fourth-ten verifier is not wired into CI")
 
 print("RSE fourth-ten system design + bug verification: PASS")
-print("  Temperature coverage completeness: PASS")
+print("  Temperature coverage completeness + STALE unknown evidence: PASS")
 print("  Lapis zero-safe noise + observer-neutral filtering: PASS")
 print("  Lapis precision conflict preservation: PASS")
 print("  Quartz realized jitter evidence: PASS")
 print("  Divider/phase-delay first-sample edge safety: PASS")
 print("  Stability monitor full-period + stale-evidence semantics: PASS")
 print("  Amethyst exact-filter vs tuned-response identity: PASS")
-print("  eight executable fourth-ten GameTests registered: PASS")
+print("  eight executable fourth-ten GameTests + thermal lifecycle regression registered: PASS")
 print("  fixed-content architecture: no new engineering block/domain required")
