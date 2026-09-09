@@ -118,21 +118,24 @@ public final class RseAmethystProcessorBudgetSystemGameTests {
                             .engineeringSnapshot(level, filter, level.getBlockState(filter), Direction.EAST)
                             .orElseThrow().quality();
                     DomainNetwork.AmethystSample recoveredOutput = DomainNetwork.sampleAmethyst(level, output);
-                    cleanup(level, path, filter, output);
+                    AmethystResonanceDustBlock.ResonanceStatus recoveredInputStatus = AmethystResonanceDustBlock.status(level, input);
 
-                    if (AmethystResonanceDustBlock.status(level, input) != AmethystResonanceDustBlock.ResonanceStatus.ACTIVE
+                    if (recoveredInputStatus != AmethystResonanceDustBlock.ResonanceStatus.ACTIVE
                             || recovered.inputQuality() != PortQuality.VALID || !recovered.matched()
                             || recovered.expectedOutputAmplitude() != initial.expectedOutputAmplitude()
                             || !recoveredOutput.active() || recoveredOutput.frequency() != 6
                             || recoveredOutput.amplitude() != initialOutput.amplitude()
                             || recoveredOutputQuality != PortQuality.VALID) {
+                        cleanup(level, path, filter, output);
                         helper.fail("Amethyst filter did not recover its original carrier after the upstream graph returned below budget"
-                                + " | inputQuality=" + recovered.inputQuality()
+                                + " | inputStatus=" + recoveredInputStatus
+                                + " inputQuality=" + recovered.inputQuality()
                                 + " expectedA=" + recovered.expectedOutputAmplitude()
                                 + " output=" + recoveredOutput.frequency() + "/" + recoveredOutput.amplitude()
                                 + " outputQuality=" + recoveredOutputQuality);
                         return;
                     }
+                    cleanup(level, path, filter, output);
                     helper.succeed();
                 });
             });
