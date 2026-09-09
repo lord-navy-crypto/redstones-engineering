@@ -59,5 +59,6 @@ public final class RseGameTestRegistration {
         event.register(RseSystemLevelClosurePhase1GameTests.class);
         event.register(RsePairwiseValidation01GameTests.class);
         event.register(RseFiveBlockMeasurementFeedbackGameTests.class);
+        event.register(RseFiveBlockMediumToolsGameTests.class);
     }
 }
