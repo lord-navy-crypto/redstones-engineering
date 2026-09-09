@@ -68,12 +68,8 @@ public class InductionCoilBlock extends DirectionalDomainBlock implements Engine
                     descriptor.get(), sample.field(), 0.0, 15.0,
                     sample.complete() ? PortQuality.VALID : PortQuality.STALE));
         }
-        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
-        PortQuality quality = runtime != null && runtime.length >= RUNTIME_SIZE && runtime[BASELINE_VALID] != 0
-                ? PortQuality.VALID
-                : PortQuality.STALE;
         return Optional.of(new EngineeringPortSnapshot(
-                descriptor.get(), outputVoltage(level, pos), 0.0, 15.0, quality));
+                descriptor.get(), outputVoltage(level, pos), 0.0, 15.0, outputQuality(level, pos)));
     }
 
     @Override
@@ -92,7 +88,9 @@ public class InductionCoilBlock extends DirectionalDomainBlock implements Engine
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState nextState, boolean moved) {
         if (!state.is(nextState.getBlock())) {
-            if (level instanceof ServerLevel server) DomainNetwork.driveCopper(server, outputPos(pos, state), pos, 0);
+            if (level instanceof ServerLevel server) {
+                DomainNetwork.driveCopper(server, outputPos(pos, state), pos, 0, false);
+            }
             RuntimeIntStore.remove(level, KEY, pos);
         }
         super.onRemove(state, level, pos, nextState, moved);
@@ -118,13 +116,23 @@ public class InductionCoilBlock extends DirectionalDomainBlock implements Engine
         }
 
         runtime[EMF] = emf;
-        DomainNetwork.driveCopper(level, outputPos(pos, state), pos, emf);
+        // A complete magnetic observation establishes a real converter output even
+        // when ΔΦ=0 and the induced voltage is exactly 0 V. Incomplete coverage is
+        // unknown evidence, so release the Copper driver instead of publishing 0 V.
+        DomainNetwork.driveCopper(level, outputPos(pos, state), pos, emf, runtime[BASELINE_VALID] != 0);
         level.scheduleTick(pos, this, 2);
     }
 
     public static int outputVoltage(Level level, BlockPos pos) {
         int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
         return runtime == null || runtime.length <= EMF ? 0 : runtime[EMF];
+    }
+
+    public static PortQuality outputQuality(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime != null && runtime.length >= RUNTIME_SIZE && runtime[BASELINE_VALID] != 0
+                ? PortQuality.VALID
+                : PortQuality.STALE;
     }
 
     @Override
@@ -138,9 +146,8 @@ public class InductionCoilBlock extends DirectionalDomainBlock implements Engine
             turns = turns >= 4 ? 1 : turns + 1;
             BlockState next = state.setValue(TURNS, turns);
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
-            int emf = runtime == null || runtime.length <= EMF ? 0 : runtime[EMF];
-            boolean valid = runtime != null && runtime.length >= RUNTIME_SIZE && runtime[BASELINE_VALID] != 0;
+            int emf = outputVoltage(level, pos);
+            boolean valid = outputQuality(level, pos) == PortQuality.VALID;
             player.displayClientMessage(Component.literal(
                     "Induction coil | turns-index=" + turns
                             + " | |emf| ∝ N·|ΔΦ/Δt|"
