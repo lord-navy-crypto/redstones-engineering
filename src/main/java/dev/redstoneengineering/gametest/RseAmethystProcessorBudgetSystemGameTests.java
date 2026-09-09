@@ -48,7 +48,7 @@ public final class RseAmethystProcessorBudgetSystemGameTests {
             return;
         }
 
-        placeSource(level, source);
+        placeSource(level, source, 15);
         placeDustRange(level, path, 1, SHORT_COMPONENT_NODES);
         wireDustPath(level, path.subList(0, SHORT_COMPONENT_NODES));
         attachEastSpur(level, input);
@@ -156,7 +156,7 @@ public final class RseAmethystProcessorBudgetSystemGameTests {
             return;
         }
 
-        placeSource(level, source);
+        placeSource(level, source, 10);
         placeDustRange(level, path, 1, SHORT_COMPONENT_NODES);
         wireDustPath(level, path.subList(0, SHORT_COMPONENT_NODES));
         attachEastSpur(level, input);
@@ -265,10 +265,10 @@ public final class RseAmethystProcessorBudgetSystemGameTests {
         return path;
     }
 
-    private static void placeSource(ServerLevel level, BlockPos source) {
+    private static void placeSource(ServerLevel level, BlockPos source, int amplitude) {
         level.setBlock(source, RedstoneEngineering.AMETHYST_RESONATOR.get().defaultBlockState()
                 .setValue(AmethystResonatorBlock.FREQUENCY, 6)
-                .setValue(AmethystResonatorBlock.AMPLITUDE, 15), Block.UPDATE_CLIENTS);
+                .setValue(AmethystResonatorBlock.AMPLITUDE, amplitude), Block.UPDATE_CLIENTS);
         RuntimeIntStore.get(level, "amethyst_resonator", source, 1)[0] = 1;
     }
 
