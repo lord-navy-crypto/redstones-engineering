@@ -17,6 +17,7 @@ public final class PneumaticObservationSupport {
 
     public static Observation observe(Level level, BlockPos pos) {
         if (!level.hasChunkAt(pos)) return new Observation(0, PortQuality.STALE);
+        if (PneumaticNetwork.truncated(level, pos)) return new Observation(0, PortQuality.STALE);
 
         InformationRuntime.Snapshot line = InformationRuntime.snapshot(level, "pneumatic", pos);
         InformationRuntime.Snapshot stored = level.getBlockState(pos).getBlock() instanceof AirReservoirBlock
