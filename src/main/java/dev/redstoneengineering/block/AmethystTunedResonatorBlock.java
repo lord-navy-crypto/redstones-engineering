@@ -35,7 +35,8 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
 
     public record ResponseEvidence(int inputFrequency, int inputAmplitude, int naturalFrequency,
                                    int qIndex, int bandwidth, int frequencyError,
-                                   int outputAmplitude, boolean saturated, boolean responding) {}
+                                   PortQuality inputQuality, int outputAmplitude,
+                                   boolean saturated, boolean responding) {}
 
     public AmethystTunedResonatorBlock(Properties properties) {
         super(properties);
@@ -55,20 +56,23 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
 
     public static ResponseEvidence response(Level level, BlockPos pos, BlockState state) {
         Direction facing = state.getValue(DirectionalDomainBlock.FACING);
-        DomainNetwork.AmethystSample input = DomainNetwork.sampleAmethyst(level, pos.relative(facing.getOpposite()));
+        BlockPos samplePos = pos.relative(facing.getOpposite());
+        DomainNetwork.AmethystSample input = DomainNetwork.sampleAmethyst(level, samplePos);
+        PortQuality inputQuality = qualityAt(level, samplePos, input);
         int natural = state.getValue(NATURAL);
         int q = state.getValue(Q_INDEX);
         int bandwidth = 5 - q;
-        int diff = input.active() ? Math.abs(input.frequency() - natural) : 99;
+        boolean usableInput = inputQuality == PortQuality.VALID && input.active();
+        int diff = usableInput ? Math.abs(input.frequency() - natural) : 99;
         int raw = 0;
-        if (input.active()) {
+        if (usableInput) {
             if (diff == 0) raw = input.amplitude() + q * 2;
             else if (diff <= bandwidth) raw = input.amplitude() - Math.max(1, diff * q);
         }
         int output = EngineeringMath.clamp(raw, 0, 15);
         return new ResponseEvidence(
                 input.frequency(), input.amplitude(), natural, q, bandwidth, diff,
-                output, raw > 15, input.active() && output > 0);
+                inputQuality, output, raw > 15, usableInput && output > 0);
     }
 
     private static PortQuality qualityAt(Level level, BlockPos samplePos, DomainNetwork.AmethystSample sample) {
@@ -88,8 +92,13 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
         BlockPos samplePos = side == inputSide(state) ? inputPos(pos, state) : outputPos(pos, state);
         DomainNetwork.AmethystSample signal = DomainNetwork.sampleAmethyst(level, samplePos);
         PortQuality quality = qualityAt(level, samplePos, signal);
-        if (side == outputSide(state) && quality == PortQuality.VALID && response(level, pos, state).saturated()) {
-            quality = PortQuality.SATURATED;
+        if (side == outputSide(state)) {
+            ResponseEvidence response = response(level, pos, state);
+            if (quality == PortQuality.NO_SIGNAL && response.inputQuality() == PortQuality.TOPOLOGY_ERROR) {
+                quality = PortQuality.TOPOLOGY_ERROR;
+            } else if (quality == PortQuality.VALID && response.saturated()) {
+                quality = PortQuality.SATURATED;
+            }
         }
         return Optional.of(new EngineeringPortSnapshot(
                 port.get(), Math.max(0, Math.min(15, signal.amplitude())), 0.0, 15.0, quality));
@@ -130,9 +139,11 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
             player.displayClientMessage(Component.literal(
                     "Tuned amethyst resonator | f0=" + response.naturalFrequency()
                             + " | Q-index=" + response.qIndex() + " | bandwidth=±" + response.bandwidth()
-                            + (response.inputFrequency() > 0 ? " | input f=" + response.inputFrequency()
+                            + " | input quality=" + response.inputQuality()
+                            + (response.inputQuality() == PortQuality.VALID && response.inputFrequency() > 0
+                            ? " | input f=" + response.inputFrequency()
                             + " Δf=" + response.frequencyError() + " | expected Aout=" + response.outputAmplitude()
-                            + (response.saturated() ? " SATURATED" : "") : " | no active input")), true);
+                            + (response.saturated() ? " SATURATED" : "") : " | no usable input")), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
