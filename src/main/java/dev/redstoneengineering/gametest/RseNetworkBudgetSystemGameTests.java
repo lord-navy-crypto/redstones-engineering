@@ -3,10 +3,14 @@ package dev.redstoneengineering.gametest;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.block.OpticalEmitterBlock;
 import dev.redstoneengineering.block.OpticalFiberBlock;
+import dev.redstoneengineering.block.OpticalFiberJunctionBlock;
+import dev.redstoneengineering.block.OpticalReceiverBlock;
+import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.NetworkKernel;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
@@ -65,6 +69,66 @@ public final class RseNetworkBudgetSystemGameTests {
         if (quality != PortQuality.STALE) {
             helper.fail("Budget-truncated optical solve published partial evidence instead of STALE"
                     + " | quality=" + quality + " drivers=" + drivers + " intensity=" + intensity);
+            return;
+        }
+        helper.succeed();
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 100)
+    public static void truncatedOpticalScanPropagatesStaleAcrossVisitedEndpoints(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos anchor = helper.absolutePos(new BlockPos(2, 1, 2));
+        int startY = Math.max(
+                level.getMinBuildHeight() + 2,
+                Math.min(anchor.getY() + 16, level.getMaxBuildHeight() - (FIBERS + 4)));
+        BlockPos receiverPos = new BlockPos(anchor.getX(), startY, anchor.getZ());
+        BlockPos junctionPos = receiverPos.above();
+        BlockPos firstFiber = receiverPos.above(2);
+        BlockPos topSource = receiverPos.above(FIBERS + 2);
+
+        level.setBlock(receiverPos, RedstoneEngineering.OPTICAL_RECEIVER.get().defaultBlockState(), Block.UPDATE_ALL);
+        level.setBlock(junctionPos, RedstoneEngineering.OPTICAL_FIBER_JUNCTION.get().defaultBlockState(), Block.UPDATE_ALL);
+        for (int i = 2; i <= FIBERS + 1; i++) {
+            level.setBlock(receiverPos.above(i), RedstoneEngineering.OPTICAL_FIBER.get().defaultBlockState(), Block.UPDATE_ALL);
+        }
+        level.setBlock(topSource, RedstoneEngineering.OPTICAL_EMITTER.get().defaultBlockState()
+                .setValue(OpticalEmitterBlock.INTENSITY, 11)
+                .setValue(OpticalEmitterBlock.CHANNEL, 4), Block.UPDATE_ALL);
+
+        // The receiver and service splice are inside the visited prefix; the real source is beyond budget.
+        DomainNetwork.recomputeOptical(level, junctionPos);
+        NetworkKernel.ScanStats stats = NetworkKernel.stats(level, "optical");
+        PortQuality fiberQuality = OpticalFiberBlock.quality(level, firstFiber, level.getBlockState(firstFiber));
+        PortQuality receiverQuality = OpticalReceiverBlock.quality(level, receiverPos);
+        BlockState junctionState = level.getBlockState(junctionPos);
+        EngineeringPortSnapshot junctionSnapshot = OpticalFiberJunctionBlock.class.cast(junctionState.getBlock())
+                .engineeringSnapshot(level, junctionPos, junctionState, Direction.UP)
+                .orElse(null);
+        int fiberIntensity = OpticalFiberBlock.intensity(level, firstFiber);
+        int receiverIntensity = OpticalReceiverBlock.intensity(level, receiverPos);
+
+        cleanup(level, receiverPos, FIBERS + 3);
+
+        if (!stats.lastTruncated() || stats.lastNodes() != NetworkKernel.MAX_NODES) {
+            helper.fail("Precondition failed: endpoint optical component did not hit the 128-node scan budget; nodes="
+                    + stats.lastNodes() + " truncated=" + stats.lastTruncated());
+            return;
+        }
+        if (junctionSnapshot == null) {
+            helper.fail("Precondition failed: optical service splice did not expose its connected UP engineering port");
+            return;
+        }
+        if (fiberQuality != PortQuality.STALE
+                || receiverQuality != PortQuality.STALE
+                || junctionSnapshot.quality() != PortQuality.STALE
+                || fiberIntensity != 0
+                || receiverIntensity != 0
+                || junctionSnapshot.value() != 0.0) {
+            helper.fail("Budget-truncated optical solve did not fail closed across visited endpoints"
+                    + " | fiber=" + fiberQuality + "/" + fiberIntensity
+                    + " receiver=" + receiverQuality + "/" + receiverIntensity
+                    + " junction=" + junctionSnapshot.quality() + "/" + junctionSnapshot.value());
             return;
         }
         helper.succeed();
