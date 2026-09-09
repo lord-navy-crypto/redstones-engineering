@@ -4,6 +4,7 @@ import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.block.AmethystFrequencyFilterBlock;
 import dev.redstoneengineering.block.AmethystResonanceDustBlock;
 import dev.redstoneengineering.block.AmethystResonatorBlock;
+import dev.redstoneengineering.block.AmethystTunedResonatorBlock;
 import dev.redstoneengineering.block.DirectionalDomainBlock;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
@@ -95,6 +96,89 @@ public final class RseAmethystMediumSystemGameTests {
                         || recoveredOutput.amplitude() <= 0
                         || recoveredQuality != PortQuality.VALID) {
                     helper.fail("Amethyst filter did not recover cleanly after conflicting source removal", filter);
+                    return;
+                }
+                helper.succeed();
+            });
+        });
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 90)
+    public static void upstreamFrequencyConflictRemainsVisibleAcrossTunedResonatorAndRecovers(GameTestHelper helper) {
+        BlockPos sourceNorth = new BlockPos(2, 1, 1);
+        BlockPos sourceSouth = new BlockPos(2, 1, 3);
+        BlockPos input = new BlockPos(2, 1, 2);
+        BlockPos tuned = new BlockPos(3, 1, 2);
+        BlockPos output = new BlockPos(4, 1, 2);
+
+        helper.setBlock(sourceNorth, RedstoneEngineering.AMETHYST_RESONATOR.get().defaultBlockState()
+                .setValue(AmethystResonatorBlock.FREQUENCY, 6)
+                .setValue(AmethystResonatorBlock.AMPLITUDE, 10));
+        helper.setBlock(sourceSouth, RedstoneEngineering.AMETHYST_RESONATOR.get().defaultBlockState()
+                .setValue(AmethystResonatorBlock.FREQUENCY, 8)
+                .setValue(AmethystResonatorBlock.AMPLITUDE, 10));
+        helper.setBlock(input, RedstoneEngineering.AMETHYST_RESONANCE_DUST.get().defaultBlockState()
+                .setValue(AmethystResonanceDustBlock.NORTH, true)
+                .setValue(AmethystResonanceDustBlock.SOUTH, true)
+                .setValue(AmethystResonanceDustBlock.EAST, true));
+        helper.setBlock(tuned, RedstoneEngineering.AMETHYST_TUNED_RESONATOR.get().defaultBlockState()
+                .setValue(DirectionalDomainBlock.FACING, Direction.EAST)
+                .setValue(AmethystTunedResonatorBlock.NATURAL, 6)
+                .setValue(AmethystTunedResonatorBlock.Q_INDEX, 2));
+        helper.setBlock(output, RedstoneEngineering.AMETHYST_RESONANCE_DUST.get().defaultBlockState()
+                .setValue(AmethystResonanceDustBlock.WEST, true));
+
+        BlockPos northWorld = helper.absolutePos(sourceNorth);
+        BlockPos southWorld = helper.absolutePos(sourceSouth);
+        BlockPos inputWorld = helper.absolutePos(input);
+        BlockPos tunedWorld = helper.absolutePos(tuned);
+        BlockPos outputWorld = helper.absolutePos(output);
+        RuntimeIntStore.get(helper.getLevel(), "amethyst_resonator", northWorld, 1)[0] = 1;
+        RuntimeIntStore.get(helper.getLevel(), "amethyst_resonator", southWorld, 1)[0] = 1;
+        DomainNetwork.recomputeAmethyst(helper.getLevel(), inputWorld);
+
+        helper.runAfterDelay(6, () -> {
+            AmethystTunedResonatorBlock.ResponseEvidence faultEvidence = AmethystTunedResonatorBlock.response(
+                    helper.getLevel(), tunedWorld, helper.getBlockState(tuned));
+            PortQuality outputQuality = RedstoneEngineering.AMETHYST_TUNED_RESONATOR.get()
+                    .engineeringSnapshot(helper.getLevel(), tunedWorld, helper.getBlockState(tuned), Direction.EAST)
+                    .orElseThrow().quality();
+
+            if (AmethystResonanceDustBlock.status(helper.getLevel(), inputWorld)
+                    != AmethystResonanceDustBlock.ResonanceStatus.FREQUENCY_CONFLICT
+                    || faultEvidence.inputQuality() != PortQuality.TOPOLOGY_ERROR
+                    || faultEvidence.responding()
+                    || faultEvidence.outputAmplitude() != 0
+                    || outputQuality != PortQuality.TOPOLOGY_ERROR
+                    || AmethystResonanceDustBlock.status(helper.getLevel(), outputWorld)
+                    != AmethystResonanceDustBlock.ResonanceStatus.IDLE
+                    || AmethystResonanceDustBlock.amplitude(helper.getLevel(), outputWorld) != 0) {
+                helper.fail("Tuned Amethyst resonator collapsed upstream FREQUENCY_CONFLICT or leaked a ghost carrier", tuned);
+                return;
+            }
+
+            helper.setBlock(sourceSouth, Blocks.AIR.defaultBlockState());
+            DomainNetwork.recomputeAmethyst(helper.getLevel(), inputWorld);
+            helper.runAfterDelay(6, () -> {
+                AmethystTunedResonatorBlock.ResponseEvidence recovered = AmethystTunedResonatorBlock.response(
+                        helper.getLevel(), tunedWorld, helper.getBlockState(tuned));
+                PortQuality recoveredQuality = RedstoneEngineering.AMETHYST_TUNED_RESONATOR.get()
+                        .engineeringSnapshot(helper.getLevel(), tunedWorld, helper.getBlockState(tuned), Direction.EAST)
+                        .orElseThrow().quality();
+                DomainNetwork.AmethystSample recoveredOutput = DomainNetwork.sampleAmethyst(helper.getLevel(), outputWorld);
+
+                if (AmethystResonanceDustBlock.status(helper.getLevel(), inputWorld)
+                        != AmethystResonanceDustBlock.ResonanceStatus.ACTIVE
+                        || AmethystResonanceDustBlock.frequency(helper.getLevel(), inputWorld) != 6
+                        || recovered.inputQuality() != PortQuality.VALID
+                        || !recovered.responding()
+                        || recovered.outputAmplitude() <= 0
+                        || !recoveredOutput.active()
+                        || recoveredOutput.frequency() != 6
+                        || recoveredOutput.amplitude() <= 0
+                        || recoveredQuality != PortQuality.VALID) {
+                    helper.fail("Tuned Amethyst resonator did not recover cleanly after conflicting source removal", tuned);
                     return;
                 }
                 helper.succeed();
