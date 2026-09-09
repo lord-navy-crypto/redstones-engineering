@@ -132,10 +132,9 @@ public final class RseNetworkBudgetSystemGameTests {
                 Math.max(level.getMinBuildHeight() + 2, anchor.getY() + 16));
         BlockPos sourceA = new BlockPos(anchor.getX(), y, anchor.getZ());
         BlockPos firstLine = sourceA.east();
+        BlockPos secondLine = sourceA.east(2);
         BlockPos sourceB = sourceA.east(LAPIS_LINES + 1);
 
-        // Force every chunk touched by the long straight trace to be loaded. This removes
-        // unloaded-frontier ambiguity so the only incomplete-evidence cause is MAX_NODES.
         for (int i = 0; i <= LAPIS_LINES + 1; i++) {
             BlockPos pos = sourceA.east(i);
             level.getChunkAt(pos);
@@ -156,7 +155,15 @@ public final class RseNetworkBudgetSystemGameTests {
         level.setBlock(sourceB, RedstoneEngineering.LAPIS_PRECISION_SOURCE.get().defaultBlockState()
                 .setValue(LapisPrecisionSourceBlock.VALUE, 81), Block.UPDATE_ALL);
 
-        DomainNetwork.recomputeLapis(level, sourceA);
+        BlockState firstState = level.getBlockState(firstLine);
+        BlockState secondState = level.getBlockState(secondLine);
+        boolean firstWest = SurfaceTraceBlock.connected(firstState, Direction.WEST);
+        boolean firstEast = SurfaceTraceBlock.connected(firstState, Direction.EAST);
+        boolean secondWest = SurfaceTraceBlock.connected(secondState, Direction.WEST);
+        boolean secondEast = SurfaceTraceBlock.connected(secondState, Direction.EAST);
+
+        // Seed the solver on the medium itself so source-start fallback cannot hide a traversal defect.
+        DomainNetwork.recomputeLapis(level, firstLine);
         NetworkKernel.ScanStats stats = NetworkKernel.stats(level, "lapis");
         PortQuality quality = LapisSignalLineBlock.quality(level, firstLine);
         int drivers = LapisSignalLineBlock.sourceCount(level, firstLine);
@@ -165,7 +172,11 @@ public final class RseNetworkBudgetSystemGameTests {
 
         if (!stats.lastTruncated() || stats.lastNodes() != NetworkKernel.MAX_NODES) {
             helper.fail("Precondition failed: loaded straight Lapis component did not hit the 128-node budget"
-                    + " | nodes=" + stats.lastNodes() + " truncated=" + stats.lastTruncated());
+                    + " | nodes=" + stats.lastNodes() + " truncated=" + stats.lastTruncated()
+                    + " first=" + firstState.getBlock().getClass().getSimpleName()
+                    + "[W=" + firstWest + ",E=" + firstEast + "]"
+                    + " second=" + secondState.getBlock().getClass().getSimpleName()
+                    + "[W=" + secondWest + ",E=" + secondEast + "]");
             return;
         }
         if (quality != PortQuality.STALE) {
