@@ -10,6 +10,7 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
+import dev.redstoneengineering.physics.PrecisionObservationSupport;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -50,13 +51,9 @@ public class LapisPrecisionMeterBlock extends DomainBlock implements Engineering
     }
 
     public static MeterReading reading(Level level, BlockPos pos, BlockState state) {
-        BlockPos samplePos = pos.relative(state.getValue(FACING));
-        if (!level.hasChunkAt(samplePos)) return new MeterReading(0, PortQuality.NO_SIGNAL);
-        DomainNetwork.LapisSample sample = DomainNetwork.sampleLapis(level, samplePos);
-        PortQuality quality = level.getBlockState(samplePos).getBlock() instanceof LapisSignalLineBlock
-                ? LapisSignalLineBlock.quality(level, samplePos)
-                : (sample.valid() ? PortQuality.VALID : PortQuality.NO_SIGNAL);
-        return new MeterReading(sample.value(), quality);
+        PrecisionObservationSupport.LapisObservation observation = PrecisionObservationSupport.lapis(
+                level, pos.relative(state.getValue(FACING)));
+        return new MeterReading(observation.value(), observation.quality());
     }
 
     @Override
@@ -79,6 +76,7 @@ public class LapisPrecisionMeterBlock extends DomainBlock implements Engineering
             player.displayClientMessage(Component.literal(switch (reading.quality()) {
                 case VALID -> "Lapis precision meter | observer only | value=" + String.format("%.3f", reading.value() / 100.0) + " | resolution=0.01";
                 case TOPOLOGY_ERROR -> "Lapis precision meter | observer only | SOURCE CONFLICT — no arbitrary source selected";
+                case STALE -> "Lapis precision meter | observer only | STALE / sample aperture not currently observable";
                 default -> "Lapis precision meter | observer only | INVALID / no unique source";
             }), true);
         }

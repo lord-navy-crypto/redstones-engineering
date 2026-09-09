@@ -49,12 +49,19 @@ public class DeserializerBlock extends DirectionalDomainBlock implements Enginee
         );
     }
 
+    private PortQuality inputQuality(Level level, BlockPos pos, BlockState state) {
+        BlockPos input = inputPos(pos, state);
+        if (!level.hasChunkAt(input)) return PortQuality.STALE;
+        if (!SerialNetwork.isNode(level, input)) return PortQuality.NO_SIGNAL;
+        return SerialNetwork.quality(level, input);
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         BlockPos input = inputPos(pos, state);
-        PortQuality inputQuality = SerialNetwork.quality(level, input);
+        PortQuality inputQuality = inputQuality(level, pos, state);
         if (side == inputSide(state)) {
             InformationRuntime.Snapshot serial = InformationRuntime.snapshot(level, "serial", input);
             return Optional.of(new EngineeringPortSnapshot(port.get(),
@@ -76,7 +83,7 @@ public class DeserializerBlock extends DirectionalDomainBlock implements Enginee
     private void update(ServerLevel level, BlockPos pos, BlockState state) {
         BlockPos input = inputPos(pos, state);
         BlockPos output = outputPos(pos, state);
-        PortQuality inputQuality = SerialNetwork.quality(level, input);
+        PortQuality inputQuality = inputQuality(level, pos, state);
         InformationRuntime.Snapshot serial = InformationRuntime.snapshot(level, "serial", input);
         InformationRuntime.Snapshot previous = InformationRuntime.snapshot(level, "bus8_out", pos);
         boolean valid = inputQuality == PortQuality.VALID;
@@ -124,7 +131,7 @@ public class DeserializerBlock extends DirectionalDomainBlock implements Enginee
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
                 InformationRuntime.Snapshot output = InformationRuntime.snapshot(level, "bus8_out", pos);
-                PortQuality inputQuality = SerialNetwork.quality(level, inputPos(pos, state));
+                PortQuality inputQuality = inputQuality(level, pos, state);
                 player.displayClientMessage(Component.literal(
                         "Deserializer byte=" + (output.value() & 0xFF)
                                 + " | serialQuality=" + inputQuality

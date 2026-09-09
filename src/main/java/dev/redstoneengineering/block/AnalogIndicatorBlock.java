@@ -9,6 +9,7 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.signal.EngineeringSignal;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -65,6 +66,8 @@ public class AnalogIndicatorBlock extends DirectionalRedstoneEndpointBlock imple
      * Read a redstone value and its independent source evidence. A connected source
      * configured to zero is a real measurement; an empty back face is NO_SIGNAL.
      * Missing chunk coverage is STALE and must not overwrite the last displayed value.
+     * Engineering-aware upstream devices also propagate their quality state instead of
+     * being reduced to the weaker "a block exists here" heuristic.
      */
     public InputObservation inputObservation(Level level, BlockPos pos, BlockState state) {
         Direction back = backSide(state);
@@ -74,23 +77,33 @@ public class AnalogIndicatorBlock extends DirectionalRedstoneEndpointBlock imple
         }
 
         int value = readBackInput(level, pos, state);
-        if (value > 0) return new InputObservation(value, PortQuality.VALID);
-
         BlockState sourceState = level.getBlockState(sourcePos);
         if (sourceState.isAir()) return new InputObservation(0, PortQuality.NO_SIGNAL);
 
         if (sourceState.getBlock() instanceof EngineeringPortProvider provider) {
-            Optional<EngineeringPort> sourcePort = provider.engineeringPort(sourceState, back.getOpposite());
+            Direction sourceFace = back.getOpposite();
+            Optional<EngineeringPort> sourcePort = provider.engineeringPort(sourceState, sourceFace);
             if (sourcePort.isPresent()) {
                 EngineeringPort port = sourcePort.get();
                 if (port.domain() == EngineeringDomain.REDSTONE
                         && port.redstoneConnectable()
                         && port.direction() != PortDirection.INPUT) {
-                    return new InputObservation(0, PortQuality.VALID);
+                    Optional<EngineeringPortSnapshot> sourceSnapshot = provider.engineeringSnapshot(
+                            level, sourcePos, sourceState, sourceFace);
+                    if (sourceSnapshot.isPresent()) {
+                        EngineeringPortSnapshot snapshot = sourceSnapshot.get();
+                        return new InputObservation(
+                                EngineeringSignal.clamp((int) Math.round(snapshot.value())),
+                                snapshot.quality());
+                    }
+                    // A declared redstone output without richer runtime evidence still counts
+                    // as a connected source, preserving the legacy valid-zero behavior.
+                    return new InputObservation(value, PortQuality.VALID);
                 }
             }
         }
 
+        if (value > 0) return new InputObservation(value, PortQuality.VALID);
         if (sourceState.getBlock().canConnectRedstone(sourceState, level, sourcePos, back)) {
             return new InputObservation(0, PortQuality.VALID);
         }

@@ -77,7 +77,7 @@ public class MagneticFieldSensorBlock extends DomainBlock implements Engineering
         if (port.isEmpty()) return Optional.empty();
         Observation observation = observation(level, pos, state);
         return Optional.of(EngineeringPortSnapshot.redstone(
-                port.get(), observation.field(), observation.complete() ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+                port.get(), observation.field(), observation.complete() ? PortQuality.VALID : PortQuality.STALE));
     }
 
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {

@@ -57,5 +57,23 @@ public final class RseGameTestRegistration {
         event.register(RseTotalAuditClosureGameTests.class);
         event.register(RseInterconnectRefactorGameTests.class);
         event.register(RseSystemLevelClosurePhase1GameTests.class);
+        event.register(RsePairwiseValidation01GameTests.class);
+        event.register(RseFiveBlockMeasurementFeedbackGameTests.class);
+        event.register(RseFiveBlockMediumToolsGameTests.class);
+        event.register(RseFiveBlockCopperMediumToolsGameTests.class);
+        event.register(RseFiveBlockDataBusMediumToolsGameTests.class);
+        event.register(RseFiveBlockSerialMediumToolsGameTests.class);
+        event.register(RseFiveBlockDifferentialMediumToolsGameTests.class);
+        event.register(RseFiveBlockLapisMediumToolsGameTests.class);
+        event.register(RseFiveBlockQuartzMediumToolsGameTests.class);
+        event.register(RseAmethystMediumSystemGameTests.class);
+        event.register(RseRadioMediumSystemGameTests.class);
+        event.register(RseInductionMediumSystemGameTests.class);
+        event.register(RseMagneticMeasurementSystemGameTests.class);
+        event.register(RseThermalMeasurementSystemGameTests.class);
+        event.register(RseLapisMeasurementSystemGameTests.class);
+        event.register(RseOpticalMeasurementSystemGameTests.class);
+        event.register(RseNetworkBudgetSystemGameTests.class);
+        event.register(RseQuartzNetworkBudgetSystemGameTests.class);
     }
 }

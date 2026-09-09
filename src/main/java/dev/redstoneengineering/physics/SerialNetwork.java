@@ -38,7 +38,7 @@ public final class SerialNetwork {
 
     private record Driver(BlockPos pos, int value, int period, int quality) {}
 
-    private static boolean isNode(Level level, BlockPos pos) {
+    public static boolean isNode(Level level, BlockPos pos) {
         if (!level.hasChunkAt(pos)) return false;
         BlockState state = level.getBlockState(pos);
         return state.getBlock() instanceof SerialDataLineBlock

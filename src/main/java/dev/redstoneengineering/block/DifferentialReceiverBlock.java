@@ -46,6 +46,14 @@ public class DifferentialReceiverBlock extends PassiveDirectionalSignalBlock {
         );
     }
 
+    private PortQuality inputQuality(Level level, BlockPos pos, BlockState state) {
+        BlockPos input = inputPos(pos, state);
+        if (!level.hasChunkAt(input)) return PortQuality.STALE;
+        return DifferentialNetwork.isNode(level, input)
+                ? DifferentialNetwork.quality(level, input)
+                : PortQuality.NO_SIGNAL;
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(
             Level level, BlockPos pos, BlockState state, Direction side
@@ -54,7 +62,7 @@ public class DifferentialReceiverBlock extends PassiveDirectionalSignalBlock {
         if (port.isEmpty()) return Optional.empty();
         BlockPos input = inputPos(pos, state);
         InformationRuntime.Snapshot snapshot = InformationRuntime.snapshot(level, "diff", input);
-        PortQuality quality = DifferentialNetwork.quality(level, input);
+        PortQuality quality = inputQuality(level, pos, state);
         if (side == inputSide(state)) {
             return Optional.of(new EngineeringPortSnapshot(
                     port.get(), snapshot.value() & 1,
@@ -74,7 +82,7 @@ public class DifferentialReceiverBlock extends PassiveDirectionalSignalBlock {
     @Override
     protected int computeOutput(Level level, BlockPos pos, BlockState state) {
         BlockPos input = inputPos(pos, state);
-        PortQuality quality = DifferentialNetwork.quality(level, input);
+        PortQuality quality = inputQuality(level, pos, state);
         InformationRuntime.Snapshot snapshot = InformationRuntime.snapshot(level, "diff", input);
         return quality == PortQuality.VALID && snapshot.valid() && (snapshot.value() & 1) != 0 ? 15 : 0;
     }

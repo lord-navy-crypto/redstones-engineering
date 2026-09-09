@@ -98,10 +98,18 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        int value = side == inlineOutputSide(state) && state.getValue(MODE) == INLINE
-                ? state.getValue(OUTPUT)
-                : sampleTarget(level, pos, state);
-        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value, PortQuality.VALID));
+        boolean inlineOutput = side == inlineOutputSide(state) && state.getValue(MODE) == INLINE;
+        int value = inlineOutput ? state.getValue(OUTPUT) : sampleTarget(level, pos, state);
+        PortQuality quality = inlineOutput || measurementPresent(level, pos, state, value)
+                ? PortQuality.VALID
+                : PortQuality.NO_SIGNAL;
+        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value, quality));
+    }
+
+    /** A real target at zero is VALID; an empty measurement aperture at zero is NO_SIGNAL. */
+    private static boolean measurementPresent(Level level, BlockPos pos, BlockState state, int measured) {
+        BlockState target = level.getBlockState(pos.relative(testSide(state)));
+        return measured > 0 || !target.isAir();
     }
 
     @Override

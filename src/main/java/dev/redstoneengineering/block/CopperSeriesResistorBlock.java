@@ -74,7 +74,13 @@ public class CopperSeriesResistorBlock extends DirectionalCopperProcessorBlock {
         runtime[OUTPUT_VOLTAGE_SLOT] = outputVoltage;
         runtime[INITIALIZED_SLOT] = 1;
         runtime[INPUT_QUALITY_SLOT] = input.quality().ordinal();
-        DomainNetwork.driveCopper(level, outputPos(pos, state), pos, outputVoltage);
+        DomainNetwork.driveCopper(
+                level,
+                outputPos(pos, state),
+                pos,
+                outputVoltage,
+                input.quality() == PortQuality.VALID
+        );
         level.scheduleTick(pos, this, 2);
     }
 

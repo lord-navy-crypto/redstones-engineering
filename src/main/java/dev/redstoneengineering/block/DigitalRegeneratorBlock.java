@@ -64,7 +64,10 @@ public class DigitalRegeneratorBlock extends DirectionalDomainBlock implements E
     }
 
     private PortQuality inputQuality(Level level, BlockPos pos, BlockState state) {
-        return SerialNetwork.quality(level, inputPos(pos, state));
+        BlockPos input = inputPos(pos, state);
+        if (!level.hasChunkAt(input)) return PortQuality.STALE;
+        if (!SerialNetwork.isNode(level, input)) return PortQuality.NO_SIGNAL;
+        return SerialNetwork.quality(level, input);
     }
 
     private PortQuality outputQuality(Level level, BlockPos pos, BlockState state) {
@@ -94,7 +97,7 @@ public class DigitalRegeneratorBlock extends DirectionalDomainBlock implements E
         BlockPos inputPos = inputPos(pos, state);
         BlockPos output = outputPos(pos, state);
         InformationRuntime.Snapshot input = InformationRuntime.snapshot(level, "serial", inputPos);
-        PortQuality upstream = SerialNetwork.quality(level, inputPos);
+        PortQuality upstream = inputQuality(level, pos, state);
         boolean accepted = (upstream == PortQuality.VALID || upstream == PortQuality.SATURATED)
                 && input.valid()
                 && input.qualityPercent() >= minimumQuality(state.getValue(THRESHOLD));

@@ -32,7 +32,8 @@ public class AmethystFrequencyFilterBlock extends DirectionalDomainBlock impleme
     public static final IntegerProperty TARGET = IntegerProperty.create("target", 1, 15);
 
     public record FilterEvidence(int inputFrequency, int inputAmplitude, int targetFrequency,
-                                 boolean inputActive, boolean matched, int expectedOutputAmplitude) {}
+                                 PortQuality inputQuality, boolean inputActive, boolean matched,
+                                 int expectedOutputAmplitude) {}
 
     public AmethystFrequencyFilterBlock(Properties properties) {
         super(properties);
@@ -53,10 +54,14 @@ public class AmethystFrequencyFilterBlock extends DirectionalDomainBlock impleme
 
     public static FilterEvidence evidence(Level level, BlockPos pos, BlockState state) {
         Direction facing = state.getValue(DirectionalDomainBlock.FACING);
-        DomainNetwork.AmethystSample input = DomainNetwork.sampleAmethyst(level, pos.relative(facing.getOpposite()));
-        boolean matched = input.active() && input.frequency() == state.getValue(TARGET);
+        BlockPos samplePos = pos.relative(facing.getOpposite());
+        DomainNetwork.AmethystSample input = DomainNetwork.sampleAmethyst(level, samplePos);
+        PortQuality inputQuality = qualityAt(level, samplePos, input);
+        boolean matched = inputQuality == PortQuality.VALID
+                && input.active() && input.frequency() == state.getValue(TARGET);
         int out = matched ? Math.max(0, input.amplitude() - 1) : 0;
-        return new FilterEvidence(input.frequency(), input.amplitude(), state.getValue(TARGET), input.active(), matched, out);
+        return new FilterEvidence(input.frequency(), input.amplitude(), state.getValue(TARGET),
+                inputQuality, input.active(), matched, out);
     }
 
     private static PortQuality qualityAt(Level level, BlockPos samplePos, DomainNetwork.AmethystSample sample) {
@@ -76,9 +81,15 @@ public class AmethystFrequencyFilterBlock extends DirectionalDomainBlock impleme
         if (port.isEmpty()) return Optional.empty();
         BlockPos samplePos = side == inputSide(state) ? inputPos(pos, state) : outputPos(pos, state);
         DomainNetwork.AmethystSample signal = DomainNetwork.sampleAmethyst(level, samplePos);
+        PortQuality quality = qualityAt(level, samplePos, signal);
+        if (side == outputSide(state) && quality == PortQuality.NO_SIGNAL) {
+            FilterEvidence evidence = evidence(level, pos, state);
+            if (evidence.inputQuality() == PortQuality.TOPOLOGY_ERROR) {
+                quality = PortQuality.TOPOLOGY_ERROR;
+            }
+        }
         return Optional.of(new EngineeringPortSnapshot(
-                port.get(), Math.max(0, Math.min(15, signal.amplitude())), 0.0, 15.0,
-                qualityAt(level, samplePos, signal)));
+                port.get(), Math.max(0, Math.min(15, signal.amplitude())), 0.0, 15.0, quality));
     }
 
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
@@ -112,6 +123,7 @@ public class AmethystFrequencyFilterBlock extends DirectionalDomainBlock impleme
             FilterEvidence evidence = evidence(level, pos, next);
             player.displayClientMessage(Component.literal(
                     "Amethyst frequency filter | exact pass f=" + frequency + " | insertion loss=1"
+                            + " | input quality=" + evidence.inputQuality()
                             + (evidence.inputActive() ? " | input f=" + evidence.inputFrequency() + " A=" + evidence.inputAmplitude()
                             + " | " + (evidence.matched() ? "PASS" : "REJECT") : " | no active input")), true);
         }

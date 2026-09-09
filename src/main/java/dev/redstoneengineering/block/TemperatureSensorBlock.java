@@ -75,7 +75,7 @@ public class TemperatureSensorBlock extends DomainBlock implements EngineeringPo
         if (port.isEmpty()) return Optional.empty();
         BlockPos targetPos = pos.relative(side);
         if (!level.hasChunkAt(targetPos)) {
-            return Optional.of(new EngineeringPortSnapshot(port.get(), state.getValue(TEMPERATURE), 0.0, 100.0, PortQuality.NO_SIGNAL));
+            return Optional.of(new EngineeringPortSnapshot(port.get(), state.getValue(TEMPERATURE), 0.0, 100.0, PortQuality.STALE));
         }
         BlockState target = level.getBlockState(targetPos);
         if (target.getBlock() instanceof ThermalMassBlock) {
@@ -85,7 +85,7 @@ public class TemperatureSensorBlock extends DomainBlock implements EngineeringPo
         ThermalObservation observation = observe(level, pos);
         return Optional.of(new EngineeringPortSnapshot(
                 port.get(), state.getValue(TEMPERATURE), 0.0, 100.0,
-                observation.complete() ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+                observation.complete() ? PortQuality.VALID : PortQuality.STALE));
     }
 
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {

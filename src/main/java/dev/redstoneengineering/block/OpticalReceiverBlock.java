@@ -32,22 +32,26 @@ public class OpticalReceiverBlock extends DomainBlock implements EngineeringPort
     private static final int VALID = 2;
     private static final int DRIVER_COUNT = 3;
     private static final int PHYSICAL_INPUTS = 4;
-    private static final int RUNTIME_SIZE = 5;
+    private static final int QUALITY = 5;
+    private static final int RUNTIME_SIZE = 6;
 
     public OpticalReceiverBlock(Properties p) { super(p); }
     @Override public MapCodec<OpticalReceiverBlock> codec() { return RedstoneEngineering.OPTICAL_RECEIVER_CODEC.value(); }
 
     public static void setOptical(Level level, BlockPos pos, int intensity, int channel, boolean valid) {
+        NetworkKernel.ScanStats stats = NetworkKernel.stats(level, "optical");
+        boolean stale = stats.lastTruncated();
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
         int inputs = physicalFiberInputs(level, pos);
-        int drivers = Math.max(0, NetworkKernel.stats(level, "optical").activeDrivers());
-        if (valid && drivers == 0) drivers = 1;
-        boolean accepted = valid && intensity > 0 && inputs <= 1;
+        int drivers = Math.max(0, stats.activeDrivers());
+        if (!stale && valid && drivers == 0) drivers = 1;
+        boolean accepted = !stale && valid && intensity > 0 && inputs <= 1;
         runtime[INTENSITY] = accepted ? Math.max(0, Math.min(15, intensity)) : 0;
         runtime[CHANNEL] = accepted ? Math.max(0, Math.min(15, channel)) : 0;
         runtime[VALID] = accepted ? 1 : 0;
         runtime[DRIVER_COUNT] = drivers;
         runtime[PHYSICAL_INPUTS] = inputs;
+        runtime[QUALITY] = (stale ? PortQuality.STALE : accepted ? PortQuality.VALID : PortQuality.NO_SIGNAL).ordinal();
     }
 
     public static int intensity(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos);return r==null?0:r[INTENSITY]; }
@@ -55,6 +59,14 @@ public class OpticalReceiverBlock extends DomainBlock implements EngineeringPort
     public static boolean valid(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos);return r!=null&&r.length>VALID&&r[VALID]==1; }
     public static int driverCount(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos);return r==null||r.length<=DRIVER_COUNT?0:r[DRIVER_COUNT]; }
     public static int inputCount(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos);return r==null||r.length<=PHYSICAL_INPUTS?physicalFiberInputs(level,pos):r[PHYSICAL_INPUTS]; }
+
+    private static PortQuality storedQuality(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        if (runtime == null || runtime.length <= QUALITY) return PortQuality.NO_SIGNAL;
+        int ordinal = runtime[QUALITY];
+        PortQuality[] values = PortQuality.values();
+        return ordinal >= 0 && ordinal < values.length ? values[ordinal] : PortQuality.NO_SIGNAL;
+    }
 
     private static int physicalFiberInputs(Level level, BlockPos pos) {
         int count = 0;
@@ -70,6 +82,8 @@ public class OpticalReceiverBlock extends DomainBlock implements EngineeringPort
 
     public static PortQuality quality(Level level, BlockPos pos) {
         if (inputCount(level,pos) > 1 || driverCount(level,pos) > 1) return PortQuality.TOPOLOGY_ERROR;
+        PortQuality stored = storedQuality(level, pos);
+        if (stored == PortQuality.STALE) return PortQuality.STALE;
         return valid(level,pos) ? PortQuality.VALID : PortQuality.NO_SIGNAL;
     }
 

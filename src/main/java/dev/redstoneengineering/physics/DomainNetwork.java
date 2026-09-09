@@ -330,7 +330,7 @@ public final class DomainNetwork {
         Set<BlockPos> seen = new HashSet<>();
         for (BlockPos p : nodes) {
             BlockState state = level.getBlockState(p);
-            if (state.getBlock() instanceof CopperVoltageSourceBlock && seen.add(p) && state.getValue(CopperVoltageSourceBlock.VOLTAGE) > 0) {
+            if (state.getBlock() instanceof CopperVoltageSourceBlock && seen.add(p)) {
                 claims.add(new DomainDriverRegistry.Claim(p,p,state.getValue(CopperVoltageSourceBlock.VOLTAGE),0,0,state.getBlock().getClass().getName()));
             }
         }
@@ -383,8 +383,17 @@ public final class DomainNetwork {
         return 0;
     }
 
+    /** Legacy behavior: zero means the driver is absent. */
     public static void driveCopper(ServerLevel level, BlockPos start, BlockPos driverPos, int voltage) {
-        if (voltage > 0) DomainDriverRegistry.claim(level, "copper", driverPos, start, EngineeringMath.clamp(voltage,0,15), 0, 0);
+        driveCopper(level, start, driverPos, voltage, voltage > 0);
+    }
+
+    /**
+     * Drive a Copper segment while keeping source presence separate from voltage.
+     * A valid 0 V source remains a real driver; an absent/invalid source releases its claim.
+     */
+    public static void driveCopper(ServerLevel level, BlockPos start, BlockPos driverPos, int voltage, boolean sourcePresent) {
+        if (sourcePresent) DomainDriverRegistry.claim(level, "copper", driverPos, start, EngineeringMath.clamp(voltage,0,15), 0, 0);
         else DomainDriverRegistry.release(level, "copper", driverPos, start);
         Set<BlockPos> nodes = collectCopper(level, start, p -> {
             var b = level.getBlockState(p).getBlock();
