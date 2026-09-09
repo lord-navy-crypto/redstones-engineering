@@ -81,5 +81,6 @@ public final class RseGameTestRegistration {
         event.register(RseCopperNetworkBudgetSystemGameTests.class);
         event.register(RseDataBusNetworkBudgetSystemGameTests.class);
         event.register(RseSerialNetworkBudgetSystemGameTests.class);
+        event.register(RseDifferentialNetworkBudgetSystemGameTests.class);
     }
 }
