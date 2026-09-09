@@ -3,7 +3,6 @@ package dev.redstoneengineering.gametest;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.block.AmethystResonanceDustBlock;
 import dev.redstoneengineering.block.AmethystResonatorBlock;
-import dev.redstoneengineering.block.ConnectedCableBlock;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.NetworkKernel;
@@ -125,10 +124,10 @@ public final class RseAmethystNetworkBudgetSystemGameTests {
 
     private static BlockState setDustArm(BlockState state, Direction direction, boolean value) {
         return switch (direction) {
-            case NORTH -> state.setValue(ConnectedCableBlock.NORTH, value);
-            case EAST -> state.setValue(ConnectedCableBlock.EAST, value);
-            case SOUTH -> state.setValue(ConnectedCableBlock.SOUTH, value);
-            case WEST -> state.setValue(ConnectedCableBlock.WEST, value);
+            case NORTH -> state.setValue(AmethystResonanceDustBlock.NORTH, value);
+            case EAST -> state.setValue(AmethystResonanceDustBlock.EAST, value);
+            case SOUTH -> state.setValue(AmethystResonanceDustBlock.SOUTH, value);
+            case WEST -> state.setValue(AmethystResonanceDustBlock.WEST, value);
             default -> throw new IllegalArgumentException("Vertical direction is invalid for this planar Amethyst regression: " + direction);
         };
     }
