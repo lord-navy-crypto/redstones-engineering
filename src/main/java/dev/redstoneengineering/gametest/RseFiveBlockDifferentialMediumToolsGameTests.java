@@ -1,6 +1,7 @@
 package dev.redstoneengineering.gametest;
 
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.block.AnalogIndicatorBlock;
 import dev.redstoneengineering.block.DirectionalDomainBlock;
 import dev.redstoneengineering.block.DirectionalRedstoneEndpointBlock;
 import dev.redstoneengineering.block.DirectionalSignalBlock;
@@ -126,6 +127,82 @@ public final class RseFiveBlockDifferentialMediumToolsGameTests {
                             });
                         });
                     });
+                });
+            });
+        });
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 80)
+    public static void differentialReceiverQualityPropagatesIntoAnalogIndicator(GameTestHelper helper) {
+        BlockPos source = new BlockPos(0, 1, 2);
+        BlockPos driver = new BlockPos(1, 1, 2);
+        BlockPos pair = new BlockPos(2, 1, 2);
+        BlockPos receiver = new BlockPos(3, 1, 2);
+        BlockPos indicator = new BlockPos(4, 1, 2);
+        BlockPos faultSource = new BlockPos(2, 1, 0);
+        BlockPos faultDriver = new BlockPos(2, 1, 1);
+
+        helper.setBlock(source, reference(Direction.EAST, 15));
+        helper.setBlock(driver, RedstoneEngineering.DIFFERENTIAL_DRIVER.get().defaultBlockState()
+                .setValue(DirectionalDomainBlock.FACING, Direction.EAST));
+        helper.setBlock(pair, RedstoneEngineering.DIFFERENTIAL_DATA_PAIR.get().defaultBlockState());
+        helper.setBlock(receiver, RedstoneEngineering.DIFFERENTIAL_RECEIVER.get().defaultBlockState()
+                .setValue(DirectionalSignalBlock.FACING, Direction.EAST));
+        helper.setBlock(indicator, RedstoneEngineering.ANALOG_INDICATOR.get().defaultBlockState()
+                .setValue(DirectionalRedstoneEndpointBlock.FACING, Direction.EAST));
+
+        helper.runAfterDelay(5, () -> {
+            BlockPos pairWorld = helper.absolutePos(pair);
+            BlockPos receiverWorld = helper.absolutePos(receiver);
+            BlockPos indicatorWorld = helper.absolutePos(indicator);
+            var baseline = RedstoneEngineering.ANALOG_INDICATOR.get().engineeringSnapshot(
+                    helper.getLevel(), indicatorWorld, helper.getBlockState(indicator), Direction.WEST).orElse(null);
+            if (DifferentialNetwork.quality(helper.getLevel(), pairWorld) != PortQuality.VALID
+                    || baseline == null || baseline.quality() != PortQuality.VALID
+                    || Math.round(baseline.value()) != 15
+                    || helper.getBlockState(indicator).getValue(AnalogIndicatorBlock.LEVEL) != 15) {
+                helper.fail("Analog indicator integration baseline did not settle to a valid differential HIGH", indicator);
+                return;
+            }
+
+            helper.setBlock(faultSource, reference(Direction.SOUTH, 0));
+            helper.setBlock(faultDriver, RedstoneEngineering.DIFFERENTIAL_DRIVER.get().defaultBlockState()
+                    .setValue(DirectionalDomainBlock.FACING, Direction.SOUTH));
+            helper.runAfterDelay(5, () -> {
+                if (DifferentialNetwork.driverCount(helper.getLevel(), pairWorld) != 2
+                        || DifferentialNetwork.quality(helper.getLevel(), pairWorld) != PortQuality.TOPOLOGY_ERROR) {
+                    helper.fail("Differential fault fixture did not create real two-driver contention", pair);
+                    return;
+                }
+
+                var receiverOut = RedstoneEngineering.DIFFERENTIAL_RECEIVER.get().engineeringSnapshot(
+                        helper.getLevel(), receiverWorld, helper.getBlockState(receiver), Direction.EAST).orElse(null);
+                var indicatorIn = RedstoneEngineering.ANALOG_INDICATOR.get().engineeringSnapshot(
+                        helper.getLevel(), indicatorWorld, helper.getBlockState(indicator), Direction.WEST).orElse(null);
+                if (receiverOut == null || receiverOut.quality() != PortQuality.TOPOLOGY_ERROR
+                        || Math.round(receiverOut.value()) != 0
+                        || indicatorIn == null || indicatorIn.quality() != PortQuality.TOPOLOGY_ERROR
+                        || Math.round(indicatorIn.value()) != 0
+                        || helper.getBlockState(indicator).getValue(AnalogIndicatorBlock.LEVEL) != 0) {
+                    helper.fail("Analog indicator promoted an engineering-output topology error to an ordinary valid zero", indicator);
+                    return;
+                }
+
+                helper.setBlock(faultDriver, Blocks.AIR.defaultBlockState());
+                helper.setBlock(faultSource, Blocks.AIR.defaultBlockState());
+                helper.runAfterDelay(5, () -> {
+                    var recovered = RedstoneEngineering.ANALOG_INDICATOR.get().engineeringSnapshot(
+                            helper.getLevel(), indicatorWorld, helper.getBlockState(indicator), Direction.WEST).orElse(null);
+                    if (DifferentialNetwork.driverCount(helper.getLevel(), pairWorld) != 1
+                            || DifferentialNetwork.quality(helper.getLevel(), pairWorld) != PortQuality.VALID
+                            || recovered == null || recovered.quality() != PortQuality.VALID
+                            || Math.round(recovered.value()) != 15
+                            || helper.getBlockState(indicator).getValue(AnalogIndicatorBlock.LEVEL) != 15) {
+                        helper.fail("Analog indicator did not recover after upstream engineering contention cleared", indicator);
+                        return;
+                    }
+                    helper.succeed();
                 });
             });
         });
