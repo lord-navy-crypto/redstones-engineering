@@ -46,7 +46,7 @@ public final class DataBusNetwork {
             boolean valid
     ) {}
 
-    private static boolean isNode(Level level, BlockPos pos) {
+    public static boolean isNode(Level level, BlockPos pos) {
         if (!level.hasChunkAt(pos)) return false;
         BlockState state = level.getBlockState(pos);
         return state.getBlock() instanceof EightBitDataBusBlock
@@ -201,7 +201,6 @@ public final class DataBusNetwork {
     public static PortQuality quality(Level level, BlockPos pos) {
         if (!level.hasChunkAt(pos)) return PortQuality.STALE;
         boolean node = isNode(level, pos);
-        if (!node && level.getBlockState(pos).isAir()) return PortQuality.NO_SIGNAL;
         InformationRuntime.Snapshot snapshot = InformationRuntime.snapshot(level, node ? "bus8" : "bus8_out", pos);
         if (snapshot.ageTicks() < 0) return PortQuality.STALE;
         if (!node) return snapshot.valid() ? PortQuality.VALID : PortQuality.NO_SIGNAL;
