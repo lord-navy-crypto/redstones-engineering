@@ -1,6 +1,7 @@
 package dev.redstoneengineering.gametest;
 
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.block.CopperCableJunctionBlock;
 import dev.redstoneengineering.block.CopperCircuitMeterBlock;
 import dev.redstoneengineering.block.CopperResistiveLoadBlock;
 import dev.redstoneengineering.block.CopperSeriesResistorBlock;
@@ -10,6 +11,7 @@ import dev.redstoneengineering.block.DirectionalDomainBlock;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.CopperNetworkSupport;
 import dev.redstoneengineering.physics.CopperObservationSupport;
+import dev.redstoneengineering.physics.DomainNetwork;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
@@ -35,6 +37,7 @@ public final class RseFiveBlockCopperMediumToolsGameTests {
     private static final BlockPos RESISTOR = new BlockPos(2, 1, 2);
     private static final BlockPos OUTPUT = new BlockPos(3, 1, 2);
     private static final BlockPos METER = new BlockPos(3, 1, 3);
+    private static final BlockPos CONFLICT_SOURCE = new BlockPos(1, 1, 1);
 
     private RseFiveBlockCopperMediumToolsGameTests() {}
 
@@ -149,6 +152,81 @@ public final class RseFiveBlockCopperMediumToolsGameTests {
                             helper.succeed();
                         });
                     });
+                });
+            });
+        });
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 100)
+    public static void legalCopperJunctionContentionStopsProcessedOutputAndRecovers(GameTestHelper helper) {
+        helper.setBlock(SOURCE, source(12));
+        helper.setBlock(INPUT_WIRE, RedstoneEngineering.COPPER_CABLE_JUNCTION.get().defaultBlockState());
+        helper.setBlock(RESISTOR, resistor(4));
+        helper.setBlock(OUTPUT, RedstoneEngineering.COPPER_WIRE.get().defaultBlockState());
+        helper.setBlock(METER, RedstoneEngineering.COPPER_CIRCUIT_METER.get().defaultBlockState()
+                .setValue(CopperCircuitMeterBlock.FACING, Direction.NORTH));
+
+        helper.runAfterDelay(18, () -> {
+            BlockPos junctionWorld = helper.absolutePos(INPUT_WIRE);
+            if (CopperCableJunctionBlock.driverCount(helper.getLevel(), junctionWorld) != 1
+                    || CopperSeriesResistorBlock.outputVoltage(helper.getLevel(), helper.absolutePos(RESISTOR)) != 9
+                    || CopperSeriesResistorBlock.outputQuality(helper.getLevel(), helper.absolutePos(RESISTOR)) != PortQuality.VALID) {
+                helper.fail("Legal single-source Copper junction baseline did not settle", INPUT_WIRE);
+                return;
+            }
+
+            helper.setBlock(CONFLICT_SOURCE, source(5));
+            DomainNetwork.recomputeCopper(helper.getLevel(), junctionWorld);
+            helper.runAfterDelay(18, () -> {
+                BlockState junctionState = helper.getBlockState(INPUT_WIRE);
+                var junctionSnapshot = RedstoneEngineering.COPPER_CABLE_JUNCTION.get().engineeringSnapshot(
+                        helper.getLevel(), junctionWorld, junctionState, Direction.EAST).orElse(null);
+                if (CopperCableJunctionBlock.driverCount(helper.getLevel(), junctionWorld) != 2
+                        || junctionSnapshot == null || junctionSnapshot.quality() != PortQuality.TOPOLOGY_ERROR) {
+                    helper.fail("Two real Copper voltage sources on a legal junction did not surface TOPOLOGY_ERROR", INPUT_WIRE);
+                    return;
+                }
+
+                int resistorOutput = CopperSeriesResistorBlock.outputVoltage(helper.getLevel(), helper.absolutePos(RESISTOR));
+                PortQuality resistorQuality = CopperSeriesResistorBlock.outputQuality(helper.getLevel(), helper.absolutePos(RESISTOR));
+                if (resistorOutput != 0 || resistorQuality != PortQuality.TOPOLOGY_ERROR) {
+                    helper.fail("Copper Series Resistor collapsed upstream contention instead of preserving TOPOLOGY_ERROR", RESISTOR);
+                    return;
+                }
+
+                int outputVoltage = CopperWireBlock.voltage(helper.getLevel(), helper.absolutePos(OUTPUT));
+                PortQuality outputQuality = CopperWireBlock.quality(
+                        helper.getLevel(), helper.absolutePos(OUTPUT), helper.getBlockState(OUTPUT));
+                if (outputVoltage != 0 || outputQuality != PortQuality.NO_SIGNAL
+                        || CopperWireBlock.driverCount(helper.getLevel(), helper.absolutePos(OUTPUT)) != 0) {
+                    helper.fail("Copper processor continued to drive its downstream segment during source contention", OUTPUT);
+                    return;
+                }
+
+                CopperObservationSupport.Observation liveTarget = CopperCircuitMeterBlock.targetObservation(
+                        helper.getLevel(), helper.absolutePos(METER), helper.getBlockState(METER));
+                PortQuality meterQuality = CopperCircuitMeterBlock.measurementQuality(
+                        helper.getLevel(), helper.absolutePos(METER), helper.getBlockState(METER));
+                if (liveTarget.quality() != PortQuality.NO_SIGNAL || meterQuality != PortQuality.STALE) {
+                    helper.fail("Circuit Meter failed to separate lost live feed from retained pre-contention evidence", METER);
+                    return;
+                }
+
+                helper.setBlock(CONFLICT_SOURCE, Blocks.AIR.defaultBlockState());
+                helper.runAfterDelay(18, () -> {
+                    var recoveredJunction = RedstoneEngineering.COPPER_CABLE_JUNCTION.get().engineeringSnapshot(
+                            helper.getLevel(), junctionWorld, helper.getBlockState(INPUT_WIRE), Direction.EAST).orElse(null);
+                    if (CopperCableJunctionBlock.driverCount(helper.getLevel(), junctionWorld) != 1
+                            || recoveredJunction == null || recoveredJunction.quality() != PortQuality.VALID
+                            || CopperSeriesResistorBlock.outputVoltage(helper.getLevel(), helper.absolutePos(RESISTOR)) != 9
+                            || CopperSeriesResistorBlock.outputQuality(helper.getLevel(), helper.absolutePos(RESISTOR)) != PortQuality.VALID
+                            || CopperWireBlock.voltage(helper.getLevel(), helper.absolutePos(OUTPUT)) != 9
+                            || CopperWireBlock.quality(helper.getLevel(), helper.absolutePos(OUTPUT), helper.getBlockState(OUTPUT)) != PortQuality.VALID) {
+                        helper.fail("Copper junction did not recover cleanly after the conflicting source was removed", INPUT_WIRE);
+                        return;
+                    }
+                    helper.succeed();
                 });
             });
         });
