@@ -214,7 +214,9 @@ public final class PneumaticNetwork {
             boolean effectiveChanged = oldPressure != pressure || oldQuality != quality || !oldValid;
             InformationRuntime.write(level, "pneumatic", pos, pressure, 0, true, quality);
             RuntimeIntStore.get(level, DIAG_KEY, pos, DIAG_SIZE)[0] = 0;
-            if (effectiveChanged) level.updateNeighborsAt(pos, block);
+            if (effectiveChanged) {
+                level.updateNeighborsAt(pos, block);
+            }
         }
 
         for (BlockPos pos : nodes) {
@@ -245,7 +247,10 @@ public final class PneumaticNetwork {
                 int[] runtime = RuntimeIntStore.get(level, "pneumatic_flow", pos, 4);
                 Arrays.fill(runtime, 0);
             }
-            if (oldPressure != 0 || oldQuality != 0 || oldValid) level.updateNeighborsAt(pos, block);
+            boolean effectiveChanged = oldPressure != 0 || oldQuality != 0 || oldValid;
+            if (effectiveChanged) {
+                level.updateNeighborsAt(pos, block);
+            }
         }
     }
 
