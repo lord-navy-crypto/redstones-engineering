@@ -22,8 +22,9 @@ def require(path: Path, *needles: str) -> None:
         raise SystemExit(f"{path.relative_to(ROOT)} missing required contract tokens: {missing}")
 
 
-# Insulated-redstone cable and junction must advertise the same real 0..15 medium
-# and must independently solve every component created by a cut.
+# Insulated-redstone cable and junction must advertise the same real 0..15 medium.
+# recomputeAround must independently process each component created by a cut, while
+# a budget-truncated component must fail closed instead of solving partial evidence.
 require(
     JAVA / "block/RedstoneSignalCableBlock.java",
     "PortKind.REDSTONE_ANALOG",
@@ -37,8 +38,12 @@ require(
 require(
     JAVA / "physics/RedstoneCableNetwork.java",
     "public static void recomputeAround",
-    "recomputeComponent(level, component)",
-    "processed.addAll(component)",
+    "private record ComponentScan(Set<BlockPos> nodes, boolean truncated)",
+    "processed.addAll(scan.nodes())",
+    "if (scan.truncated())",
+    "invalidateComponent(level, scan.nodes())",
+    "recomputeComponent(level, scan.nodes())",
+    "removeEvidence(level, pos)",
 )
 
 # Surface-trace diagnostics must describe actual topology, not four imaginary ports.
