@@ -32,6 +32,7 @@ public final class RseFiveBlockSerialMediumToolsGameTests {
     private static final BlockPos REGENERATOR = new BlockPos(2, 1, 2);
     private static final BlockPos LINE_B = new BlockPos(3, 1, 2);
     private static final BlockPos DESERIALIZER = new BlockPos(4, 1, 2);
+    private static final BlockPos FAULT_SERIALIZER = new BlockPos(1, 1, 1);
 
     private RseFiveBlockSerialMediumToolsGameTests() {}
 
@@ -120,6 +121,65 @@ public final class RseFiveBlockSerialMediumToolsGameTests {
                             helper.succeed();
                         });
                     });
+                });
+            });
+        });
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 80)
+    public static void serialContentionPropagatesTopologyErrorAndRecovers(GameTestHelper helper) {
+        buildPath(helper);
+        driveSerializerFixture(helper, 6);
+
+        helper.runAfterDelay(3, () -> {
+            if (!assertLivePath(helper, 6, "single-driver baseline")) return;
+
+            helper.setBlock(FAULT_SERIALIZER, RedstoneEngineering.SERIALIZER.get().defaultBlockState()
+                    .setValue(DirectionalDomainBlock.FACING, Direction.SOUTH));
+            InformationRuntime.write(
+                    helper.getLevel(),
+                    "serial",
+                    helper.absolutePos(FAULT_SERIALIZER),
+                    13,
+                    8,
+                    true,
+                    100
+            );
+            SerialNetwork.recompute(helper.getLevel(), helper.absolutePos(LINE_A));
+
+            helper.runAfterDelay(3, () -> {
+                BlockPos lineAWorld = helper.absolutePos(LINE_A);
+                if (SerialNetwork.quality(helper.getLevel(), lineAWorld) != PortQuality.TOPOLOGY_ERROR
+                        || SerialNetwork.getDiagnostics(helper.getLevel(), lineAWorld).driverCount() != 2) {
+                    helper.fail("Two real serializer endpoints did not produce explicit SERIAL_DATA contention", LINE_A);
+                    return;
+                }
+
+                DigitalRegeneratorBlock regenerator = RedstoneEngineering.DIGITAL_REGENERATOR.get();
+                BlockState regeneratorState = helper.getBlockState(REGENERATOR);
+                var regeneratorInput = regenerator.engineeringSnapshot(
+                        helper.getLevel(), helper.absolutePos(REGENERATOR), regeneratorState, Direction.WEST).orElse(null);
+                var regeneratorOutput = regenerator.engineeringSnapshot(
+                        helper.getLevel(), helper.absolutePos(REGENERATOR), regeneratorState, Direction.EAST).orElse(null);
+                if (regeneratorInput == null || regeneratorInput.quality() != PortQuality.TOPOLOGY_ERROR
+                        || regeneratorOutput == null || regeneratorOutput.quality() != PortQuality.TOPOLOGY_ERROR) {
+                    helper.fail("Digital Regenerator collapsed upstream serial contention instead of preserving TOPOLOGY_ERROR", REGENERATOR);
+                    return;
+                }
+
+                BlockPos lineBWorld = helper.absolutePos(LINE_B);
+                if (SerialNetwork.quality(helper.getLevel(), lineBWorld) != PortQuality.NO_SIGNAL
+                        || SerialNetwork.getDiagnostics(helper.getLevel(), lineBWorld).driverCount() != 0) {
+                    helper.fail("Regenerator continued to drive downstream SERIAL_DATA during upstream contention", LINE_B);
+                    return;
+                }
+                if (!assertDeserializerCleared(helper, "upstream serial contention")) return;
+
+                helper.setBlock(FAULT_SERIALIZER, Blocks.AIR.defaultBlockState());
+                helper.runAfterDelay(4, () -> {
+                    if (!assertLivePath(helper, 6, "contention recovery")) return;
+                    helper.succeed();
                 });
             });
         });
