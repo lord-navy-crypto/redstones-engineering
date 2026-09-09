@@ -149,6 +149,65 @@ public final class RseFiveBlockLapisMediumToolsGameTests {
         });
     }
 
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 100)
+    public static void upstreamLapisContentionPreservesFilterFaultEvidenceAndRecovers(GameTestHelper helper) {
+        buildPath(helper, 12);
+        BlockPos conflictSource = new BlockPos(2, 1, 1);
+
+        helper.runAfterDelay(12, () -> {
+            if (!assertPath(helper, 80, 12, "upstream-contention baseline")) return;
+
+            helper.setBlock(conflictSource, RedstoneEngineering.LAPIS_PRECISION_SOURCE.get().defaultBlockState()
+                    .setValue(LapisPrecisionSourceBlock.VALUE, 20));
+            helper.runAfterDelay(10, () -> {
+                BlockPos lineAWorld = helper.absolutePos(LINE_A);
+                BlockPos filterWorld = helper.absolutePos(FILTER);
+                BlockPos lineBWorld = helper.absolutePos(LINE_B);
+                BlockPos quantizerWorld = helper.absolutePos(QUANTIZER);
+
+                if (LapisSignalLineBlock.sourceCount(helper.getLevel(), lineAWorld) != 2
+                        || LapisSignalLineBlock.quality(helper.getLevel(), lineAWorld) != PortQuality.TOPOLOGY_ERROR
+                        || LapisSignalLineBlock.value(helper.getLevel(), lineAWorld) != 0) {
+                    helper.fail("Real upstream Lapis dual-source contention was not surfaced on Line A", LINE_A);
+                    return;
+                }
+
+                var filterInput = RedstoneEngineering.LAPIS_LOW_PASS_FILTER.get().engineeringSnapshot(
+                        helper.getLevel(), filterWorld, helper.getBlockState(FILTER), Direction.WEST).orElse(null);
+                var filterOutput = RedstoneEngineering.LAPIS_LOW_PASS_FILTER.get().engineeringSnapshot(
+                        helper.getLevel(), filterWorld, helper.getBlockState(FILTER), Direction.EAST).orElse(null);
+                LapisLowPassFilterBlock.FilterState filterState = LapisLowPassFilterBlock.filterState(helper.getLevel(), filterWorld);
+                if (filterInput == null || filterInput.quality() != PortQuality.TOPOLOGY_ERROR
+                        || filterOutput == null || filterOutput.quality() != PortQuality.TOPOLOGY_ERROR
+                        || Math.round(filterOutput.value()) != 0
+                        || filterState.valid() || filterState.quality() != PortQuality.TOPOLOGY_ERROR
+                        || filterState.output() != 0) {
+                    helper.fail("Lapis low-pass filter collapsed upstream TOPOLOGY_ERROR into ordinary NO_SIGNAL", FILTER);
+                    return;
+                }
+
+                if (LapisSignalLineBlock.sourceCount(helper.getLevel(), lineBWorld) != 0
+                        || LapisSignalLineBlock.quality(helper.getLevel(), lineBWorld) != PortQuality.NO_SIGNAL
+                        || LapisSignalLineBlock.value(helper.getLevel(), lineBWorld) != 0) {
+                    helper.fail("Faulted Lapis filter retained a ghost downstream driver", LINE_B);
+                    return;
+                }
+                if (LapisToRedstoneQuantizerBlock.outputQuality(helper.getLevel(), quantizerWorld) != PortQuality.NO_SIGNAL
+                        || helper.getBlockState(QUANTIZER).getValue(LapisToRedstoneQuantizerBlock.POWER) != 0) {
+                    helper.fail("Lapis quantizer fabricated output after the faulted filter released its downstream drive", QUANTIZER);
+                    return;
+                }
+
+                helper.setBlock(conflictSource, Blocks.AIR.defaultBlockState());
+                helper.runAfterDelay(14, () -> {
+                    if (!assertPath(helper, 80, 12, "upstream-contention recovery")) return;
+                    helper.succeed();
+                });
+            });
+        });
+    }
+
     private static void buildPath(GameTestHelper helper, int power) {
         helper.setBlock(SOURCE, reference(power));
         helper.setBlock(SCALER, RedstoneEngineering.REDSTONE_TO_LAPIS_SCALER.get().defaultBlockState()
@@ -193,9 +252,10 @@ public final class RseFiveBlockLapisMediumToolsGameTests {
             return false;
         }
         LapisLowPassFilterBlock.FilterState filterState = LapisLowPassFilterBlock.filterState(helper.getLevel(), filterWorld);
-        if (!filterState.valid() || filterState.output() != expectedLapis) {
+        if (!filterState.valid() || filterState.output() != expectedLapis || filterState.quality() != PortQuality.VALID) {
             helper.fail("Low-pass filtered output mismatch during " + phase + ": expected="
-                    + expectedLapis + " actual=" + filterState.output() + " valid=" + filterState.valid(), FILTER);
+                    + expectedLapis + " actual=" + filterState.output() + " valid=" + filterState.valid()
+                    + " quality=" + filterState.quality(), FILTER);
             return false;
         }
         if (LapisSignalLineBlock.value(helper.getLevel(), lineBWorld) != expectedLapis
