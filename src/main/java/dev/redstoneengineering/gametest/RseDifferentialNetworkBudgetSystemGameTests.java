@@ -24,6 +24,7 @@ import java.util.List;
 public final class RseDifferentialNetworkBudgetSystemGameTests {
     private static final String TEMPLATE = "empty5x4x5";
     private static final int SHORT_COMPONENT_NODES = 16;
+    private static final int FIXTURE_Y_OFFSET = 48;
 
     private RseDifferentialNetworkBudgetSystemGameTests() {}
 
@@ -70,9 +71,6 @@ public final class RseDifferentialNetworkBudgetSystemGameTests {
             DifferentialNetwork.recompute(level, firstPair);
 
             helper.runAfterDelay(5, () -> {
-                // NetworkKernel scan telemetry is domain-global and may be overwritten by scheduled
-                // ticks from another node. Re-scan from the audited endpoint so the scan evidence
-                // below is guaranteed to describe this exact component.
                 int auditedNodes = DifferentialNetwork.collect(level, firstPair).size();
                 NetworkKernel.ScanStats stats = NetworkKernel.stats(level, "diff");
                 InformationRuntime.Snapshot fault = InformationRuntime.snapshot(level, "diff", firstPair);
@@ -131,7 +129,7 @@ public final class RseDifferentialNetworkBudgetSystemGameTests {
     private static List<BlockPos> planarSnake(BlockPos anchor) {
         int minX = anchor.getX() & ~15;
         int minZ = anchor.getZ() & ~15;
-        int y = anchor.getY() + 16;
+        int y = anchor.getY() + FIXTURE_Y_OFFSET;
         List<BlockPos> path = new ArrayList<>(135);
         for (int row = 0; row < 11 && path.size() < 135; row++) {
             int z = minZ + row;
