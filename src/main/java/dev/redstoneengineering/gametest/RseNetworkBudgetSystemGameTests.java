@@ -22,13 +22,11 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-import java.util.ArrayList;
-import java.util.List;
-
 /** Runtime regressions for bounded network-scan correctness. */
 public final class RseNetworkBudgetSystemGameTests {
     private static final String TEMPLATE = "empty5x4x5";
     private static final int FIBERS = 129;
+    private static final int LAPIS_LINES = 129;
 
     private RseNetworkBudgetSystemGameTests() {}
 
@@ -130,101 +128,53 @@ public final class RseNetworkBudgetSystemGameTests {
     public static void truncatedLapisScanMustNotPublishPartialNetworkAsValid(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos anchor = helper.absolutePos(new BlockPos(2, 1, 2));
-        if (!level.hasChunkAt(anchor)) {
-            helper.fail("Precondition failed: GameTest anchor chunk is not loaded");
-            return;
-        }
-        int chunkMinX = anchor.getX() & ~15;
-        int chunkMinZ = anchor.getZ() & ~15;
         int y = Math.min(level.getMaxBuildHeight() - 2,
                 Math.max(level.getMinBuildHeight() + 2, anchor.getY() + 16));
-        List<BlockPos> path = planarSnake(chunkMinX, y, chunkMinZ);
-        BlockPos sourceA = path.get(0);
-        BlockPos firstLine = path.get(1);
-        BlockPos sourceB = path.get(path.size() - 1);
-        for (BlockPos pos : path) {
+        BlockPos sourceA = new BlockPos(anchor.getX(), y, anchor.getZ());
+        BlockPos firstLine = sourceA.east();
+        BlockPos sourceB = sourceA.east(LAPIS_LINES + 1);
+
+        // Force every chunk touched by the long straight trace to be loaded. This removes
+        // unloaded-frontier ambiguity so the only incomplete-evidence cause is MAX_NODES.
+        for (int i = 0; i <= LAPIS_LINES + 1; i++) {
+            BlockPos pos = sourceA.east(i);
+            level.getChunkAt(pos);
             if (!level.hasChunkAt(pos)) {
-                helper.fail("Precondition failed: single-chunk Lapis path unexpectedly crosses unloaded terrain at " + pos);
+                helper.fail("Precondition failed: forced Lapis test chunk did not load at " + pos);
                 return;
             }
         }
 
         level.setBlock(sourceA, RedstoneEngineering.LAPIS_PRECISION_SOURCE.get().defaultBlockState()
                 .setValue(LapisPrecisionSourceBlock.VALUE, 23), Block.UPDATE_ALL);
-        for (int i = 1; i < path.size() - 1; i++) {
-            level.setBlock(path.get(i), RedstoneEngineering.LAPIS_SIGNAL_LINE.get().defaultBlockState(), Block.UPDATE_ALL);
+        for (int i = 1; i <= LAPIS_LINES; i++) {
+            BlockState line = RedstoneEngineering.LAPIS_SIGNAL_LINE.get().defaultBlockState()
+                    .setValue(SurfaceTraceBlock.WEST, true)
+                    .setValue(SurfaceTraceBlock.EAST, true);
+            level.setBlock(sourceA.east(i), line, Block.UPDATE_CLIENTS);
         }
         level.setBlock(sourceB, RedstoneEngineering.LAPIS_PRECISION_SOURCE.get().defaultBlockState()
                 .setValue(LapisPrecisionSourceBlock.VALUE, 81), Block.UPDATE_ALL);
-        wireSurfaceTracePath(level, path);
 
         DomainNetwork.recomputeLapis(level, sourceA);
         NetworkKernel.ScanStats stats = NetworkKernel.stats(level, "lapis");
         PortQuality quality = LapisSignalLineBlock.quality(level, firstLine);
         int drivers = LapisSignalLineBlock.sourceCount(level, firstLine);
         int value = LapisSignalLineBlock.value(level, firstLine);
-        cleanupPath(level, path);
+        cleanupHorizontal(level, sourceA, LAPIS_LINES + 2);
 
         if (!stats.lastTruncated() || stats.lastNodes() != NetworkKernel.MAX_NODES) {
-            helper.fail("Precondition failed: 135-node single-chunk Lapis component did not hit the 128-node budget"
+            helper.fail("Precondition failed: loaded straight Lapis component did not hit the 128-node budget"
                     + " | nodes=" + stats.lastNodes() + " truncated=" + stats.lastTruncated());
             return;
         }
         if (quality != PortQuality.STALE) {
             helper.fail("Budget-truncated Lapis solve published partial evidence instead of STALE"
                     + " | quality=" + quality + " drivers=" + drivers + " value=" + value
-                    + " pathNodes=" + path.size());
+                    + " componentNodes=" + (LAPIS_LINES + 2));
             return;
         }
         helper.succeed();
-    }
-
-    private static List<BlockPos> planarSnake(int minX, int y, int minZ) {
-        List<BlockPos> path = new ArrayList<>(135);
-        for (int row = 0; row < 8; row++) {
-            int z = minZ + row * 2;
-            if ((row & 1) == 0) {
-                for (int x = minX; x <= minX + 15; x++) path.add(new BlockPos(x, y, z));
-                if (row < 7) path.add(new BlockPos(minX + 15, y, z + 1));
-            } else {
-                for (int x = minX + 15; x >= minX; x--) path.add(new BlockPos(x, y, z));
-                if (row < 7) path.add(new BlockPos(minX, y, z + 1));
-            }
-        }
-        return path;
-    }
-
-    /** Explicitly fixes the trace arm state after bulk placement so the test graph itself is deterministic. */
-    private static void wireSurfaceTracePath(ServerLevel level, List<BlockPos> path) {
-        for (int i = 1; i < path.size() - 1; i++) {
-            BlockPos pos = path.get(i);
-            BlockState state = RedstoneEngineering.LAPIS_SIGNAL_LINE.get().defaultBlockState();
-            Direction prev = horizontalDirection(pos, path.get(i - 1));
-            Direction next = horizontalDirection(pos, path.get(i + 1));
-            state = setTraceArm(state, prev, true);
-            state = setTraceArm(state, next, true);
-            level.setBlock(pos, state, Block.UPDATE_CLIENTS);
-        }
-    }
-
-    private static Direction horizontalDirection(BlockPos from, BlockPos to) {
-        int dx = to.getX() - from.getX();
-        int dz = to.getZ() - from.getZ();
-        if (dx == 1 && dz == 0) return Direction.EAST;
-        if (dx == -1 && dz == 0) return Direction.WEST;
-        if (dx == 0 && dz == 1) return Direction.SOUTH;
-        if (dx == 0 && dz == -1) return Direction.NORTH;
-        throw new IllegalArgumentException("Non-adjacent planar path nodes: " + from + " -> " + to);
-    }
-
-    private static BlockState setTraceArm(BlockState state, Direction direction, boolean value) {
-        return switch (direction) {
-            case NORTH -> state.setValue(SurfaceTraceBlock.NORTH, value);
-            case EAST -> state.setValue(SurfaceTraceBlock.EAST, value);
-            case SOUTH -> state.setValue(SurfaceTraceBlock.SOUTH, value);
-            case WEST -> state.setValue(SurfaceTraceBlock.WEST, value);
-            default -> throw new IllegalArgumentException("Vertical direction is invalid for a surface trace: " + direction);
-        };
     }
 
     private static void cleanupVertical(ServerLevel level, BlockPos bottomSource, int blocks) {
@@ -233,9 +183,9 @@ public final class RseNetworkBudgetSystemGameTests {
         }
     }
 
-    private static void cleanupPath(ServerLevel level, List<BlockPos> path) {
-        for (int i = path.size() - 1; i >= 0; i--) {
-            level.setBlock(path.get(i), Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+    private static void cleanupHorizontal(ServerLevel level, BlockPos start, int blocks) {
+        for (int i = blocks - 1; i >= 0; i--) {
+            level.setBlock(start.east(i), Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
         }
     }
 }
