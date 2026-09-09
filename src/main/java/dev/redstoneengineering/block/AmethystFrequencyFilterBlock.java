@@ -69,6 +69,7 @@ public class AmethystFrequencyFilterBlock extends DirectionalDomainBlock impleme
             return switch (AmethystResonanceDustBlock.status(level, samplePos)) {
                 case ACTIVE -> PortQuality.VALID;
                 case FREQUENCY_CONFLICT -> PortQuality.TOPOLOGY_ERROR;
+                case STALE -> PortQuality.STALE;
                 case IDLE -> PortQuality.NO_SIGNAL;
             };
         }
@@ -84,8 +85,9 @@ public class AmethystFrequencyFilterBlock extends DirectionalDomainBlock impleme
         PortQuality quality = qualityAt(level, samplePos, signal);
         if (side == outputSide(state) && quality == PortQuality.NO_SIGNAL) {
             FilterEvidence evidence = evidence(level, pos, state);
-            if (evidence.inputQuality() == PortQuality.TOPOLOGY_ERROR) {
-                quality = PortQuality.TOPOLOGY_ERROR;
+            if (evidence.inputQuality() == PortQuality.TOPOLOGY_ERROR
+                    || evidence.inputQuality() == PortQuality.STALE) {
+                quality = evidence.inputQuality();
             }
         }
         return Optional.of(new EngineeringPortSnapshot(
