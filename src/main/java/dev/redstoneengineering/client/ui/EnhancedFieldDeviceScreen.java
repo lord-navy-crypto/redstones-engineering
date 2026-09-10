@@ -132,7 +132,7 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
     }
 
     private void ports(GuiGraphics g) {
-        statusBadge(g, "PHYSICAL I/O MAP", menu.topologyValid() ? GOOD : BAD, 16, 80);
+        statusBadge(g, "PHYSICAL / LOGICAL INTERFACES", menu.topologyValid() ? GOOD : BAD, 16, 80);
         labelValue(g, "Declared ports", Integer.toString(menu.portCount()), 103);
         labelValue(g, "Physical links", Integer.toString(menu.connectionCount()), 119);
         labelValue(g, "Connected faces", faces(), 135);
@@ -143,12 +143,36 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             faceLine(g, Direction.DOWN, y + 18);
             g.drawString(font, "VERTICAL RISER ONLY • SAME MEDIUM • NO CONVERSION", 16, 194, INFO, false);
         } else if (menu.kind() == FieldDeviceMenu.KIND_PROBE) {
-            statusLine(g, facingName(), "TEST • REDSTONE MEASUREMENT INPUT", GOOD, y);
-            statusLine(g, oppositeFacingName(), "INSTRUMENT BUS OUTPUT • OBSERVER", INFO, y + 20);
-            g.drawString(font, "Measurement path is one-way observational; sampled networks are never driven.", 16, 198, MUTED, false);
+            statusLine(g, facingName(), "SENSE • REDSTONE MEASUREMENT INPUT", GOOD, y);
+            statusLine(g, oppositeFacingName(), "REPORT • INSTRUMENT BUS OUTPUT", INFO, y + 20);
+            g.drawString(font, "Observer interface: sensing never back-drives the measured redstone network.", 16, 198, MUTED, false);
+        } else if (menu.kind() == FieldDeviceMenu.KIND_SIGNAL_TAP) {
+            statusLine(g, oppositeFacingName(), "SENSE • REDSTONE SAMPLE INPUT", GOOD, y);
+            statusLine(g, facingName(), "MIRROR • REDSTONE OUTPUT", INFO, y + 20);
+            g.drawString(font, "Tap reports/mirrors sampled evidence without becoming a hidden input-side driver.", 16, 198, MUTED, false);
+        } else if (menu.kind() == FieldDeviceMenu.KIND_RANGE_SENSOR) {
+            statusLine(g, facingName(), "SENSE • FREE-SPACE RANGE SCAN", GOOD, y);
+            statusLine(g, oppositeFacingName(), "OUTPUT • REDSTONE 0..15", INFO, y + 20);
+            g.drawString(font, "Sensing face is physical observation; opposite face carries the electrical result.", 16, 198, MUTED, false);
+        } else if (menu.kind() == FieldDeviceMenu.KIND_RADIO_TRANSMITTER) {
+            statusLine(g, "UP", "INPUT • WIRED PAYLOAD", GOOD, y);
+            statusLine(g, "FREE SPACE", "OUTPUT • RADIO CH " + menu.secondary() + " • RANGE " + menu.tertiary(), INFO, y + 20);
+            g.drawString(font, "Radio boundary is explicit: wired payload becomes a free-space transmission.", 16, 198, MUTED, false);
+        } else if (menu.kind() == FieldDeviceMenu.KIND_RADIO_RECEIVER) {
+            statusLine(g, "FREE SPACE", "INPUT • RADIO CH " + menu.secondary(), GOOD, y);
+            statusLine(g, facingName(), "OUTPUT • REDSTONE 0..15", INFO, y + 20);
+            g.drawString(font, "Reception evidence is wireless; only the declared output face drives redstone.", 16, 198, MUTED, false);
+        } else if (menu.kind() == FieldDeviceMenu.KIND_FREE_OPTICAL_TRANSMITTER) {
+            statusLine(g, oppositeFacingName(), "INPUT • WIRED SIGNAL", GOOD, y);
+            statusLine(g, facingName(), "OUTPUT • FREE-SPACE OPTICAL • CH " + menu.secondary(), INFO, y + 20);
+            g.drawString(font, "Optical launch direction is explicit; input and free-space interfaces are distinct.", 16, 198, MUTED, false);
+        } else if (menu.kind() == FieldDeviceMenu.KIND_FREE_OPTICAL_RECEIVER) {
+            statusLine(g, oppositeFacingName(), "INPUT • FREE-SPACE OPTICAL • CH " + menu.tertiary(), GOOD, y);
+            statusLine(g, facingName(), "OUTPUT • REDSTONE 0..15", INFO, y + 20);
+            g.drawString(font, "Optical reception is observational until converted onto the declared wired output.", 16, 198, MUTED, false);
         } else if (isDirectionalConverter()) {
-            statusLine(g, oppositeFacingName(), converterInput(), GOOD, y);
-            statusLine(g, facingName(), converterOutput(), INFO, y + 20);
+            statusLine(g, oppositeFacingName(), "INPUT • " + converterInput(), GOOD, y);
+            statusLine(g, facingName(), "OUTPUT • " + converterOutput(), INFO, y + 20);
             g.drawString(font, "Converter boundary is explicit: input and output media remain distinct.", 16, 198, MUTED, false);
         } else if (isPassiveMedium()) {
             faceLine(g, Direction.UP, y);
@@ -217,7 +241,7 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             labelValue(g, "Role", "OBSERVER • NON-DRIVING", 104);
             labelValue(g, "Quality", menu.qualityPercent() + "%", 120);
             labelValue(g, "Evidence", evidenceState(), 136);
-            labelValue(g, "Observed face", facingName(), 152);
+            labelValue(g, "Observed interface", observedInterface(), 152);
             labelValue(g, "Ports / links", menu.portCount() + " / " + menu.connectionCount(), 168);
         } else {
             labelValue(g, "Quality", menu.qualityPercent() + "%", 104);
@@ -688,29 +712,42 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
 
     private String converterInput() {
         return switch (menu.kind()) {
-            case FieldDeviceMenu.KIND_ENCODER -> "REDSTONE INPUT • 0..15";
-            case FieldDeviceMenu.KIND_DECODER -> "DATA_BUS_8 INPUT • BYTE";
-            case FieldDeviceMenu.KIND_SERIALIZER -> "DATA_BUS_8 INPUT • BYTE";
-            case FieldDeviceMenu.KIND_DESERIALIZER -> "SERIAL_DATA INPUT • FRAME";
-            case FieldDeviceMenu.KIND_DIFFERENTIAL_DRIVER -> "LOGIC INPUT";
-            case FieldDeviceMenu.KIND_DIFFERENTIAL_RECEIVER -> "DIFFERENTIAL INPUT";
-            case FieldDeviceMenu.KIND_PNEUMATIC_RECEIVER -> "PNEUMATIC INPUT";
-            case FieldDeviceMenu.KIND_INDUCTION_COIL -> "MAGNETIC FIELD INPUT";
-            default -> "DECLARED INPUT";
+            case FieldDeviceMenu.KIND_ENCODER -> "REDSTONE • 0..15";
+            case FieldDeviceMenu.KIND_DECODER -> "DATA_BUS_8 • BYTE";
+            case FieldDeviceMenu.KIND_SERIALIZER -> "DATA_BUS_8 • BYTE";
+            case FieldDeviceMenu.KIND_DESERIALIZER -> "SERIAL_DATA • FRAME";
+            case FieldDeviceMenu.KIND_DIFFERENTIAL_DRIVER -> "LOGIC";
+            case FieldDeviceMenu.KIND_DIFFERENTIAL_RECEIVER -> "DIFFERENTIAL";
+            case FieldDeviceMenu.KIND_PNEUMATIC_RECEIVER -> "PNEUMATIC";
+            case FieldDeviceMenu.KIND_INDUCTION_COIL -> "MAGNETIC FIELD";
+            default -> "DECLARED DOMAIN";
         };
     }
 
     private String converterOutput() {
         return switch (menu.kind()) {
-            case FieldDeviceMenu.KIND_ENCODER -> "DATA_BUS_8 OUTPUT • BYTE";
-            case FieldDeviceMenu.KIND_DECODER -> "REDSTONE OUTPUT • 0..15";
-            case FieldDeviceMenu.KIND_SERIALIZER -> "SERIAL_DATA OUTPUT • FRAME";
-            case FieldDeviceMenu.KIND_DESERIALIZER -> "DATA_BUS_8 OUTPUT • BYTE";
-            case FieldDeviceMenu.KIND_DIFFERENTIAL_DRIVER -> "DIFFERENTIAL OUTPUT";
-            case FieldDeviceMenu.KIND_DIFFERENTIAL_RECEIVER -> "REDSTONE OUTPUT • 0..15";
-            case FieldDeviceMenu.KIND_PNEUMATIC_RECEIVER -> "REDSTONE OUTPUT • 0..15";
-            case FieldDeviceMenu.KIND_INDUCTION_COIL -> "INDUCED ELECTRICAL OUTPUT";
-            default -> "DECLARED OUTPUT";
+            case FieldDeviceMenu.KIND_ENCODER -> "DATA_BUS_8 • BYTE";
+            case FieldDeviceMenu.KIND_DECODER -> "REDSTONE • 0..15";
+            case FieldDeviceMenu.KIND_SERIALIZER -> "SERIAL_DATA • FRAME";
+            case FieldDeviceMenu.KIND_DESERIALIZER -> "DATA_BUS_8 • BYTE";
+            case FieldDeviceMenu.KIND_DIFFERENTIAL_DRIVER -> "DIFFERENTIAL";
+            case FieldDeviceMenu.KIND_DIFFERENTIAL_RECEIVER -> "REDSTONE • 0..15";
+            case FieldDeviceMenu.KIND_PNEUMATIC_RECEIVER -> "REDSTONE • 0..15";
+            case FieldDeviceMenu.KIND_INDUCTION_COIL -> "INDUCED ELECTRICAL";
+            default -> "DECLARED DOMAIN";
+        };
+    }
+
+    private String observedInterface() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_SIGNAL_TAP -> oppositeFacingName() + " • REDSTONE SAMPLE";
+            case FieldDeviceMenu.KIND_RANGE_SENSOR -> facingName() + " • FREE-SPACE SCAN";
+            case FieldDeviceMenu.KIND_PROBE -> facingName() + " • REDSTONE TEST";
+            case FieldDeviceMenu.KIND_PNEUMATIC_FLOW_METER -> oppositeFacingName() + " → " + facingName() + " • FLOW PATH";
+            case FieldDeviceMenu.KIND_MAGNETIC_FIELD_SENSOR, FieldDeviceMenu.KIND_MAGNETIC_GRADIENT_METER -> "FREE SPACE • MAGNETIC FIELD";
+            case FieldDeviceMenu.KIND_OPTICAL_POWER_METER -> facingName() + " • OPTICAL PROBE";
+            case FieldDeviceMenu.KIND_AMETHYST_SPECTRUM -> "LOCAL NETWORK • RESONANCE SPECTRUM";
+            default -> facingName();
         };
     }
 
