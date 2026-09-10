@@ -89,5 +89,6 @@ public final class RseGameTestRegistration {
         event.register(RseDomainNetworkCoverageSystemGameTests.class);
         event.register(RseDomainDriverLifecycleSystemGameTests.class);
         event.register(RseQuartzLabConfigurationLifecycleSystemGameTests.class);
+        event.register(RseCopperConfigurationLifecycleSystemGameTests.class);
     }
 }
