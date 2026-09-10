@@ -142,6 +142,9 @@ public class QuartzPhaseDelayBlock extends DirectionalDomainBlock implements Eng
             delay = delay >= 8 ? 1 : delay + 1;
             BlockState next = state.setValue(DELAY, delay);
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+            if (level instanceof ServerLevel serverLevel) {
+                DomainNetwork.driveQuartz(serverLevel, outputPos(pos, state), pos, false, 1, false);
+            }
             RuntimeIntStore.remove(level, KEY, pos);
             level.scheduleTick(pos, this, 1);
             player.displayClientMessage(Component.literal(
