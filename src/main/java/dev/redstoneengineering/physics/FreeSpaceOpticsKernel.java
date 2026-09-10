@@ -18,7 +18,7 @@ public final class FreeSpaceOpticsKernel {
 
     public static void emit(ServerLevel level, BlockPos source, Direction direction, int power, int channel) {
         int remaining = Math.max(0, Math.min(15, power));
-        for (int i = 1; i <= RANGE && remaining > 0; i++) {
+        for (int i = 1; i <= 48 && remaining > 0; i++) {
             BlockPos target = source.relative(direction, i);
             if (!level.hasChunkAt(target)) {
                 invalidateRetainedBeyondUnknownCoverage(level, source, direction, i, channel);
