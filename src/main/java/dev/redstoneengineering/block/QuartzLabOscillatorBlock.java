@@ -38,7 +38,9 @@ public class QuartzLabOscillatorBlock extends DomainBlock implements Engineering
     private static final int LAST_HALF_INTERVAL_SLOT = 0;
     private static final int LAST_JITTER_OFFSET_SLOT = 1;
     private static final int EVIDENCE_VALID_SLOT = 2;
-    private static final int RUNTIME_SIZE = 3;
+    private static final int EVIDENCE_PERIOD_INDEX_SLOT = 3;
+    private static final int EVIDENCE_JITTER_SLOT = 4;
+    private static final int RUNTIME_SIZE = 5;
 
     public record TimingEvidence(int nominalPeriod, int lastHalfInterval, int lastJitterOffset, boolean available) {}
 
@@ -62,9 +64,15 @@ public class QuartzLabOscillatorBlock extends DomainBlock implements Engineering
     }
 
     public static TimingEvidence timingEvidence(Level level, BlockPos pos, BlockState state) {
-        int nominal = QuartzTimingLineBlock.periodTicks(state.getValue(PERIOD_INDEX));
+        int periodIndex = state.getValue(PERIOD_INDEX);
+        int jitter = state.getValue(JITTER);
+        int nominal = QuartzTimingLineBlock.periodTicks(periodIndex);
         int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
-        if (runtime == null || runtime.length != RUNTIME_SIZE || runtime[EVIDENCE_VALID_SLOT] != 1) {
+        if (runtime == null
+                || runtime.length != RUNTIME_SIZE
+                || runtime[EVIDENCE_VALID_SLOT] != 1
+                || runtime[EVIDENCE_PERIOD_INDEX_SLOT] != periodIndex
+                || runtime[EVIDENCE_JITTER_SLOT] != jitter) {
             return new TimingEvidence(nominal, 0, 0, false);
         }
         return new TimingEvidence(nominal, runtime[LAST_HALF_INTERVAL_SLOT], runtime[LAST_JITTER_OFFSET_SLOT], true);
@@ -93,13 +101,16 @@ public class QuartzLabOscillatorBlock extends DomainBlock implements Engineering
         BlockState next = state.setValue(ACTIVE, !state.getValue(ACTIVE));
         level.setBlock(pos, next, Block.UPDATE_CLIENTS);
         DomainNetwork.recomputeQuartz(level, pos);
-        int half = Math.max(1, QuartzTimingLineBlock.periodTicks(next.getValue(PERIOD_INDEX)) / 2);
+        int periodIndex = next.getValue(PERIOD_INDEX);
         int jitter = next.getValue(JITTER);
+        int half = Math.max(1, QuartzTimingLineBlock.periodTicks(periodIndex) / 2);
         int offset = jitter == 0 ? 0 : random.nextInt(jitter * 2 + 1) - jitter;
         int realized = Math.max(1, half + offset);
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
         runtime[LAST_HALF_INTERVAL_SLOT] = realized;
         runtime[LAST_JITTER_OFFSET_SLOT] = realized - half;
+        runtime[EVIDENCE_PERIOD_INDEX_SLOT] = periodIndex;
+        runtime[EVIDENCE_JITTER_SLOT] = jitter;
         runtime[EVIDENCE_VALID_SLOT] = 1;
         level.scheduleTick(pos, this, realized);
     }
