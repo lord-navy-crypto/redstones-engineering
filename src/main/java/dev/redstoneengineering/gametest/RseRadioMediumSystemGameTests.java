@@ -11,6 +11,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -94,12 +95,15 @@ public final class RseRadioMediumSystemGameTests {
             return;
         }
 
-        // Load exactly the receiver chunk in a remote area rather than relying on the broad GameTest
-        // ticket radius around the template. The adjacent transmitter evidence must remain unavailable.
+        // A one-shot getChunkAt() does not retain a remote chunk across delayed GameTest assertions.
+        // Force only the receiver chunk for the fixture lifetime; nearby Tx evidence must remain unloaded.
+        ChunkPos receiverChunk = new ChunkPos(remoteRx);
+        level.setChunkForced(receiverChunk.x, receiverChunk.z, true);
         level.getChunkAt(remoteRx);
         BlockPos staleTx = findUnloadedCandidate(level, remoteRx);
         if (staleTx == null) {
-            helper.fail("Precondition failed: loading the remote receiver chunk also loaded every Tx candidate within range");
+            level.setChunkForced(receiverChunk.x, receiverChunk.z, false);
+            helper.fail("Precondition failed: forcing the remote receiver chunk also loaded every Tx candidate within range");
             return;
         }
 
@@ -116,11 +120,13 @@ public final class RseRadioMediumSystemGameTests {
         helper.runAfterDelay(8, () -> {
             if (!level.hasChunkAt(remoteRx)) {
                 RadioKernel.removeTransmitter(level, staleTx);
-                helper.fail("Precondition failed: remote receiver chunk was not retained for coverage assertion");
+                level.setChunkForced(receiverChunk.x, receiverChunk.z, false);
+                helper.fail("Precondition failed: forced receiver chunk was not retained for coverage assertion");
                 return;
             }
             if (level.hasChunkAt(staleTx)) {
                 RadioKernel.removeTransmitter(level, staleTx);
+                cleanupRemote(level, remoteRx, loadedTx, loadedPower, receiverChunk);
                 helper.fail("Precondition failed: stale transmitter chunk became loaded before coverage assertion");
                 return;
             }
@@ -133,7 +139,7 @@ public final class RseRadioMediumSystemGameTests {
 
             if (staleQuality != PortQuality.STALE || staleOutput != 0 || staleReception.valid()) {
                 RadioKernel.removeTransmitter(level, staleTx);
-                cleanupRemote(level, remoteRx, loadedTx, loadedPower);
+                cleanupRemote(level, remoteRx, loadedTx, loadedPower, receiverChunk);
                 helper.fail("Unloaded registered transmitter was trusted as a definitive radio frame instead of STALE"
                         + " | quality=" + staleQuality
                         + " output=" + staleOutput
@@ -153,7 +159,7 @@ public final class RseRadioMediumSystemGameTests {
                         .orElseThrow().quality();
                 RadioKernel.Reception recovered = RadioKernel.receivePacket(level, remoteRx, channel);
                 int recoveredOutput = level.getBlockState(remoteRx).getValue(DirectionalSignalBlock.OUTPUT);
-                cleanupRemote(level, remoteRx, loadedTx, loadedPower);
+                cleanupRemote(level, remoteRx, loadedTx, loadedPower, receiverChunk);
 
                 if (recoveredQuality != PortQuality.VALID || !recovered.valid()
                         || recovered.value() != 15 || recoveredOutput != 15) {
@@ -195,9 +201,16 @@ public final class RseRadioMediumSystemGameTests {
         return null;
     }
 
-    private static void cleanupRemote(ServerLevel level, BlockPos receiver, BlockPos transmitter, BlockPos power) {
+    private static void cleanupRemote(
+            ServerLevel level,
+            BlockPos receiver,
+            BlockPos transmitter,
+            BlockPos power,
+            ChunkPos receiverChunk
+    ) {
         level.setBlock(transmitter, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
         level.setBlock(power, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
         level.setBlock(receiver, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+        level.setChunkForced(receiverChunk.x, receiverChunk.z, false);
     }
 }
