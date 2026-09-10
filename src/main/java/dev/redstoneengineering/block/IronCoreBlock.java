@@ -59,19 +59,25 @@ public class IronCoreBlock extends DomainBlock implements EngineeringPortProvide
                 port, state.getValue(MAGNETIZED) ? 1.0 : 0.0, 0.0, 1.0, PortQuality.VALID));
     }
 
+    public static MagneticPhysics.FieldSample appliedFieldSample(Level level, BlockPos pos) {
+        return MagneticPhysics.appliedFieldSample(level, pos, APPLIED_FIELD_RADIUS);
+    }
+
     public static int appliedField(Level level, BlockPos pos) {
-        return MagneticPhysics.appliedFieldAt(level, pos, APPLIED_FIELD_RADIUS);
+        return appliedFieldSample(level, pos).field();
     }
 
     /**
      * Apply the soft-core hysteresis rule at a concrete lifecycle boundary. Strong external
-     * field magnetizes immediately; remanence then persists until the explicit demagnetize
-     * action. This prevents placement/neighbor ordering from deciding whether a core ever
-     * observes an already-present magnetic source.
+     * field magnetizes immediately only when the complete radius-2 applied-field scan is
+     * authoritative; remanence then persists until the explicit demagnetize action. This
+     * prevents placement/neighbor ordering or partial chunk coverage from deciding whether
+     * a core ever enters a persistent magnetized state.
      */
     private void refreshMagnetization(ServerLevel level, BlockPos pos, BlockState state) {
         if (state.getValue(MAGNETIZED)) return;
-        if (appliedField(level, pos) >= MAGNETIZE_THRESHOLD) {
+        MagneticPhysics.FieldSample applied = appliedFieldSample(level, pos);
+        if (applied.complete() && applied.field() >= MAGNETIZE_THRESHOLD) {
             level.setBlock(pos, state.setValue(MAGNETIZED, true), Block.UPDATE_CLIENTS);
         }
     }
