@@ -25,26 +25,20 @@ import net.minecraft.world.phys.BlockHitResult;
 import java.util.Optional;
 
 /**
- * Real-time redstone signal conditioner.
+ * Real-time series redstone signal conditioner.
  *
- * <p>This block deliberately owns bounded transfer shaping (gain, offset, clamp,
- * threshold and deadband). It does not own reference-based calibration or time-domain
- * smoothing; those remain distinct jobs for Calibration Module and Precision Filter.</p>
+ * <p>The conditioner has one authoritative series axis: BACK is input and FRONT is output.
+ * The axis can be rotated from the Engineering UI without changing the selected transfer
+ * function. Gain, offset, clamp, threshold and deadband remain bounded to vanilla redstone
+ * 0..15 at the world boundary.</p>
  */
 public class SignalConditionerBlock extends DirectionalSignalBlock {
-    public static final IntegerProperty MODE =
-            IntegerProperty.create("mode", 0, 4);
-
-    public static final IntegerProperty PARAM =
-            IntegerProperty.create("param", 0, 15);
+    public static final IntegerProperty MODE = IntegerProperty.create("mode", 0, 4);
+    public static final IntegerProperty PARAM = IntegerProperty.create("param", 0, 15);
 
     public SignalConditionerBlock(Properties properties) {
         super(properties);
-        registerDefaultState(
-                defaultBlockState()
-                        .setValue(MODE, 0)
-                        .setValue(PARAM, 2)
-        );
+        registerDefaultState(defaultBlockState().setValue(MODE, 0).setValue(PARAM, 2));
     }
 
     @Override
@@ -53,67 +47,30 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
     }
 
     @Override
-    protected void createBlockStateDefinition(
-            StateDefinition.Builder<Block, BlockState> builder
-    ) {
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
         builder.add(MODE, PARAM);
     }
 
     @Override
-    protected void tick(
-            BlockState state,
-            ServerLevel level,
-            BlockPos pos,
-            RandomSource random
-    ) {
+    protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         int input = readBackInput(level, pos, state);
-
-        int output = calculate(
-                input,
-                state.getValue(OUTPUT),
-                state.getValue(MODE),
-                state.getValue(PARAM)
-        );
-
+        int output = calculate(input, state.getValue(OUTPUT), state.getValue(MODE), state.getValue(PARAM));
         updateOutput(level, pos, state, output);
     }
 
-    private static int calculate(
-            int input,
-            int previousOutput,
-            int mode,
-            int param
-    ) {
+    private static int calculate(int input, int previousOutput, int mode, int param) {
         return switch (mode) {
-            case 0 -> SignalMath.gain(
-                    input,
-                    Math.max(1, Math.min(4, param))
-            );
-            case 1 -> SignalMath.offset(
-                    input,
-                    Math.min(10, param) - 5
-            );
-            case 2 -> Math.min(
-                    input,
-                    Math.max(1, param)
-            );
-            case 3 -> SignalMath.threshold(
-                    input,
-                    Math.max(1, param)
-            );
-            case 4 -> Math.abs(input - previousOutput)
-                    >= Math.max(1, Math.min(4, param))
-                    ? input
-                    : previousOutput;
+            case 0 -> SignalMath.gain(input, Math.max(1, Math.min(4, param)));
+            case 1 -> SignalMath.offset(input, Math.min(10, param) - 5);
+            case 2 -> Math.min(input, Math.max(1, param));
+            case 3 -> SignalMath.threshold(input, Math.max(1, param));
+            case 4 -> Math.abs(input - previousOutput) >= Math.max(1, Math.min(4, param)) ? input : previousOutput;
             default -> input;
         };
     }
 
-    /**
-     * Returns true only when a static transfer mode is currently hitting the 0..15 boundary.
-     * Threshold HIGH and deadband hold are intentional transfer semantics, not saturation.
-     */
+    /** True only when a static transfer mode is hitting the physical 0..15 boundary. */
     public static boolean limitingActive(Level level, BlockPos pos, BlockState state) {
         if (!(state.getBlock() instanceof SignalConditionerBlock conditioner)) return false;
         int input = conditioner.readBackInput(level, pos, state);
@@ -131,9 +88,7 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
     }
 
     @Override
-    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
-            Level level, BlockPos pos, BlockState state, Direction side
-    ) {
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPortSnapshot> base = super.engineeringSnapshot(level, pos, state, side);
         if (base.isEmpty() || side != outputSide(state) || !limitingActive(level, pos, state)) return base;
         EngineeringPortSnapshot snapshot = base.get();
@@ -146,10 +101,15 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
         return conditioner.readBackInput(level, pos, state);
     }
 
-    /**
-     * Applies a bounded configuration action on the logical server.
-     * IDs intentionally match SignalConditionerMenu's four buttons.
-     */
+    public static Direction inputDirection(BlockState state) {
+        return state.getValue(FACING).getOpposite();
+    }
+
+    public static Direction outputDirection(BlockState state) {
+        return state.getValue(FACING);
+    }
+
+    /** Applies a bounded, server-authoritative configuration action. */
     public static boolean applyConfigurationAction(Level level, BlockPos pos, int action) {
         if (level.isClientSide) return false;
         BlockState state = level.getBlockState(pos);
@@ -172,57 +132,50 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
                     next = state.setValue(PARAM, cycleParam(mode, param, -1));
             case SignalConditionerMenu.BUTTON_PARAM_INCREASE ->
                     next = state.setValue(PARAM, cycleParam(mode, param, 1));
+            case SignalConditionerMenu.BUTTON_ROTATE_LEFT ->
+                    next = state.setValue(FACING, state.getValue(FACING).getCounterClockWise());
+            case SignalConditionerMenu.BUTTON_ROTATE_RIGHT ->
+                    next = state.setValue(FACING, state.getValue(FACING).getClockWise());
             default -> {
                 return false;
             }
         }
 
+        Direction oldInput = inputDirection(state);
+        Direction oldOutput = outputDirection(state);
         level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        level.updateNeighborsAt(pos, conditioner);
+        level.updateNeighborsAt(pos.relative(oldInput), conditioner);
+        level.updateNeighborsAt(pos.relative(oldOutput), conditioner);
+        level.updateNeighborsAt(pos.relative(inputDirection(next)), conditioner);
+        level.updateNeighborsAt(pos.relative(outputDirection(next)), conditioner);
         level.scheduleTick(pos, conditioner, 1);
         return true;
     }
 
     @Override
-    protected InteractionResult useWithoutItem(
-            BlockState state,
-            Level level,
-            BlockPos pos,
-            Player player,
-            BlockHitResult hitResult
-    ) {
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
                 applyConfigurationAction(level, pos, SignalConditionerMenu.BUTTON_PARAM_INCREASE);
                 BlockState next = level.getBlockState(pos);
                 int input = inspectInput(level, pos, next);
-                int output = calculate(
-                        input,
-                        next.getValue(OUTPUT),
-                        next.getValue(MODE),
-                        next.getValue(PARAM)
-                );
-                player.displayClientMessage(
-                        Component.literal(
-                                "Conditioner quick-adjust | " + modeName(next.getValue(MODE))
-                                        + " " + parameterText(next.getValue(MODE), next.getValue(PARAM))
-                                        + " | IN=" + input + " OUT≈" + output
-                                        + " | limiting=" + (limitingActive(level, pos, next) ? "YES" : "NO")
-                                        + " | normal right-click opens Engineering UI"
-                        ),
-                        true
-                );
+                int output = calculate(input, next.getValue(OUTPUT), next.getValue(MODE), next.getValue(PARAM));
+                player.displayClientMessage(Component.literal(
+                        "Conditioner quick-adjust | " + modeName(next.getValue(MODE))
+                                + " " + parameterText(next.getValue(MODE), next.getValue(PARAM))
+                                + " | " + inputDirection(next).getName().toUpperCase() + " IN=" + input
+                                + " → OUT≈" + output + " " + outputDirection(next).getName().toUpperCase()
+                                + " | limiting=" + (limitingActive(level, pos, next) ? "YES" : "NO")
+                                + " | normal right-click opens Engineering UI"), true);
             } else {
                 serverPlayer.openMenu(
                         new SimpleMenuProvider(
-                                (containerId, inventory, ignored) ->
-                                        new SignalConditionerMenu(containerId, inventory, pos),
-                                Component.translatable("block.redstoneengineering.signal_conditioner")
-                        ),
-                        data -> data.writeBlockPos(pos)
-                );
+                                (containerId, inventory, ignored) -> new SignalConditionerMenu(containerId, inventory, pos),
+                                Component.translatable("block.redstoneengineering.signal_conditioner")),
+                        data -> data.writeBlockPos(pos));
             }
         }
-
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
 
@@ -238,10 +191,7 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
     }
 
     private static int cycleParam(int mode, int param, int delta) {
-        int min = switch (mode) {
-            case 1 -> 0;
-            default -> 1;
-        };
+        int min = mode == 1 ? 0 : 1;
         int max = switch (mode) {
             case 0, 4 -> 4;
             case 1 -> 10;
