@@ -1,6 +1,6 @@
 {
   "textures": {
-    "line": "redstoneengineering:block/quartz_timing_line"
+    "line": "minecraft:block/white_concrete"
   },
   "elements": [
     {
