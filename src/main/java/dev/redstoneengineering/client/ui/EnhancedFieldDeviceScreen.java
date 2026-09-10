@@ -116,6 +116,10 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             labelValue(g, "Family", family(), 149);
             labelValue(g, "Evidence", evidenceState(), 165);
             labelValue(g, "Network authority", "OBSERVE ONLY • NO BACKDRIVE", 181);
+        } else if (isDirectionalProcessor()) {
+            labelValue(g, "Family", family(), 149);
+            labelValue(g, "Process", processorFunction(), 165);
+            labelValue(g, "Evidence", evidenceState(), 181);
         } else {
             labelValue(g, "Quality", menu.qualityPercent() + "%", 149);
             labelValue(g, "Evidence", evidenceState(), 165);
@@ -174,6 +178,11 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             statusLine(g, oppositeFacingName(), "INPUT • " + converterInput(), GOOD, y);
             statusLine(g, facingName(), "OUTPUT • " + converterOutput(), INFO, y + 20);
             g.drawString(font, "Converter boundary is explicit: input and output media remain distinct.", 16, 198, MUTED, false);
+        } else if (isDirectionalProcessor()) {
+            statusLine(g, oppositeFacingName(), "INPUT • " + processorInput(), GOOD, y);
+            statusLine(g, "PROCESS", processorFunction() + " • " + processorParameter(), INFO, y + 20);
+            statusLine(g, facingName(), "OUTPUT • " + processorOutput(), GOOD, y + 40);
+            g.drawString(font, "Processor transforms evidence inside one declared domain path; it does not imply conversion.", 16, 216, MUTED, false);
         } else if (isPassiveMedium()) {
             faceLine(g, Direction.UP, y);
             faceLine(g, Direction.DOWN, y + 14);
@@ -210,6 +219,9 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
         } else if (isObserver()) {
             g.drawString(font, "Observer controls select what to measure; they never create network drive evidence.", 16, 178, INFO, false);
             g.drawString(font, "Any sampled zero remains distinct from missing or invalid evidence.", 16, 194, MUTED, false);
+        } else if (isDirectionalProcessor()) {
+            g.drawString(font, "Processing parameter: " + processorParameter(), 16, 178, INFO, false);
+            g.drawString(font, "Input and output stay on an explicit directional processing path.", 16, 194, MUTED, false);
         } else if (isPassiveMedium()) {
             g.drawString(font, "Passive medium: continuity only; this screen never changes routing semantics.", 16, 178, INFO, false);
             g.drawString(font, routingContract(), 16, 194, MUTED, false);
@@ -243,6 +255,12 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             labelValue(g, "Evidence", evidenceState(), 136);
             labelValue(g, "Observed interface", observedInterface(), 152);
             labelValue(g, "Ports / links", menu.portCount() + " / " + menu.connectionCount(), 168);
+        } else if (isDirectionalProcessor()) {
+            labelValue(g, "Role", "PROCESSOR • DIRECTIONAL", 104);
+            labelValue(g, "Path", oppositeFacingName() + " → " + facingName(), 120);
+            labelValue(g, "Function", processorFunction(), 136);
+            labelValue(g, "Parameter", processorParameter(), 152);
+            labelValue(g, "Evidence", evidenceState(), 168);
         } else {
             labelValue(g, "Quality", menu.qualityPercent() + "%", 104);
             labelValue(g, "Data evidence", menu.dataValid() ? "VALID" : "INVALID / NO SIGNAL", 120);
@@ -329,6 +347,7 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
         if (isPassiveMedium()) return "PASSIVE MEDIUM";
         if (isObserver()) return "OBSERVER";
         if (isDirectionalConverter()) return "CONVERTER";
+        if (isDirectionalProcessor()) return "PROCESSOR";
         return switch (menu.kind()) {
             case FieldDeviceMenu.KIND_REFERENCE,
                  FieldDeviceMenu.KIND_LAPIS_SOURCE,
@@ -352,131 +371,52 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
 
     private String metricLabel(int slot) {
         int k = menu.kind();
-        if (k == FieldDeviceMenu.KIND_REDSTONE_JUNCTION) {
-            return switch (slot) { case 0 -> "SIGNAL"; case 1 -> "SOURCES"; default -> "MEDIUM"; };
-        }
-        if (k == FieldDeviceMenu.KIND_REDSTONE_CABLE) {
-            return switch (slot) { case 0 -> "SIGNAL"; case 1 -> "LINKS"; default -> "QUALITY"; };
-        }
-        if (k == FieldDeviceMenu.KIND_INSTRUMENT_CABLE) {
-            return switch (slot) { case 0 -> "LINKS"; case 1 -> "QUALITY"; default -> "STATE"; };
-        }
-        if (k == FieldDeviceMenu.KIND_SHIELDED_INSTRUMENT_CABLE) {
-            return switch (slot) { case 0 -> "SHIELD"; case 1 -> "COVERED"; default -> "EXPOSED"; };
-        }
-        if (k == FieldDeviceMenu.KIND_LAPIS_LINE) {
-            return switch (slot) { case 0 -> "VALUE"; case 1 -> "LINKS"; default -> "QUALITY"; };
-        }
-        if (k == FieldDeviceMenu.KIND_QUARTZ_LINE) {
-            return switch (slot) { case 0 -> "ACTIVE"; case 1 -> "PERIOD"; default -> "QUALITY"; };
-        }
-        if (k == FieldDeviceMenu.KIND_AMETHYST_DUST) {
-            return switch (slot) { case 0 -> "AMPLITUDE"; case 1 -> "FREQUENCY"; default -> "QUALITY"; };
-        }
-        if (k == FieldDeviceMenu.KIND_ENCODER) {
-            return switch (slot) { case 0 -> "REDSTONE IN"; case 1 -> "BYTE OUT"; default -> "QUALITY"; };
-        }
-        if (k == FieldDeviceMenu.KIND_DECODER) {
-            return switch (slot) { case 0 -> "BYTE IN"; case 1 -> "REDSTONE OUT"; default -> "QUALITY"; };
-        }
-        if (k == FieldDeviceMenu.KIND_SERIALIZER) {
-            return switch (slot) { case 0 -> "BYTE IN"; case 1 -> "SERIAL OUT"; default -> "TIMING"; };
-        }
-        if (k == FieldDeviceMenu.KIND_DESERIALIZER) {
-            return switch (slot) { case 0 -> "SERIAL IN"; case 1 -> "BYTE OUT"; default -> "TIMING"; };
-        }
-        if (k == FieldDeviceMenu.KIND_DIFFERENTIAL_DRIVER) {
-            return switch (slot) { case 0 -> "LOGIC IN"; case 1 -> "DIFF OUT"; default -> "QUALITY"; };
-        }
-        if (k == FieldDeviceMenu.KIND_DIFFERENTIAL_RECEIVER) {
-            return switch (slot) { case 0 -> "DIFF IN"; case 1 -> "REDSTONE OUT"; default -> "QUALITY"; };
-        }
-        if (k == FieldDeviceMenu.KIND_SIGNAL_TAP) {
-            return switch (slot) { case 0 -> "SAMPLED IN"; case 1 -> "MIRROR OUT"; default -> "OBSERVED"; };
-        }
-        if (k == FieldDeviceMenu.KIND_EDGE_DETECTOR) {
-            return switch (slot) { case 0 -> "INPUT"; case 1 -> "PULSE OUT"; default -> "MODE"; };
-        }
-        if (k == FieldDeviceMenu.KIND_PULSE_SHAPER) {
-            return switch (slot) { case 0 -> "INPUT"; case 1 -> "PULSE OUT"; default -> "WIDTH"; };
-        }
-        if (k == FieldDeviceMenu.KIND_PRESSURE_REGULATOR) {
-            return switch (slot) { case 0 -> "PRESSURE"; case 1 -> "SETPOINT"; default -> "SETTING"; };
-        }
-        if (k == FieldDeviceMenu.KIND_PNEUMATIC_FLOW_METER) {
-            return switch (slot) { case 0 -> "FLOW"; case 1 -> "Δ PRESSURE"; default -> "INLET"; };
-        }
-        if (k == FieldDeviceMenu.KIND_PNEUMATIC_CYLINDER) {
-            return switch (slot) { case 0 -> "PRESSURE"; case 1 -> "POSITION"; default -> "TARGET"; };
-        }
-        if (k == FieldDeviceMenu.KIND_AIR_COMPRESSOR) {
-            return switch (slot) { case 0 -> "COMMAND"; case 1 -> "SET PRESS."; default -> "ACTUAL"; };
-        }
-        if (k >= FieldDeviceMenu.KIND_AIR_COMPRESSOR && k <= FieldDeviceMenu.KIND_PNEUMATIC_FLOW_METER
-                || k >= FieldDeviceMenu.KIND_PNEUMATIC_PROPORTIONAL_VALVE && k <= FieldDeviceMenu.KIND_PNEUMATIC_CYLINDER) {
-            return switch (slot) { case 0 -> "INLET"; case 1 -> "OUTLET"; default -> "STATE"; };
-        }
-        if (k == FieldDeviceMenu.KIND_INDUCTION_COIL) {
-            return switch (slot) { case 0 -> "FIELD"; case 1 -> "EMF"; default -> "TURNS"; };
-        }
-        if (k == FieldDeviceMenu.KIND_MAGNETIC_GRADIENT_METER) {
-            return switch (slot) { case 0 -> "FIELD"; case 1 -> "GRAD X"; default -> "GRAD Y"; };
-        }
-        if (k >= FieldDeviceMenu.KIND_ELECTROMAGNET && k <= FieldDeviceMenu.KIND_MAGNETIC_GRADIENT_METER) {
-            return switch (slot) { case 0 -> "FIELD"; case 1 -> "DRIVE"; default -> "CONFIG"; };
-        }
-        if (k == FieldDeviceMenu.KIND_OPTICAL_EMITTER) {
-            return switch (slot) { case 0 -> "INTENSITY"; case 1 -> "CHANNEL"; default -> "CONFIG"; };
-        }
-        if (k == FieldDeviceMenu.KIND_OPTICAL_RECEIVER || k == FieldDeviceMenu.KIND_OPTICAL_POWER_METER) {
-            return switch (slot) { case 0 -> "INTENSITY"; case 1 -> "CHANNEL"; default -> "AUX"; };
-        }
-        if (k == FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER) {
-            return switch (slot) { case 0 -> "INPUT"; case 1 -> "CHANNEL"; default -> "OUTPUT"; };
-        }
-        if (k == FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR) {
-            return switch (slot) { case 0 -> "INPUT"; case 1 -> "OUTPUT"; default -> "LOSS"; };
-        }
-        if (k >= FieldDeviceMenu.KIND_OPTICAL_FIBER && k <= FieldDeviceMenu.KIND_OPTICAL_FIBER_JUNCTION) {
-            return switch (slot) { case 0 -> "OPTICAL"; case 1 -> "CHANNEL"; default -> "STATE"; };
-        }
-        if (k == FieldDeviceMenu.KIND_DATA_BUS_8) {
-            return switch (slot) { case 0 -> "PAYLOAD"; case 1 -> "DRIVERS"; default -> "LOAD"; };
-        }
-        if (k == FieldDeviceMenu.KIND_SERIAL_LINE) {
-            return switch (slot) { case 0 -> "PAYLOAD"; case 1 -> "TIMING"; default -> "LINK"; };
-        }
-        if (k == FieldDeviceMenu.KIND_DIFFERENTIAL_PAIR) {
-            return switch (slot) { case 0 -> "LOGIC"; case 1 -> "QUALITY"; default -> "LINKS"; };
-        }
-        if (k == FieldDeviceMenu.KIND_RADIO_TRANSMITTER || k == FieldDeviceMenu.KIND_RADIO_RECEIVER) {
-            return switch (slot) { case 0 -> "PAYLOAD"; case 1 -> "CHANNEL"; default -> "LINK"; };
-        }
-        if (isCommunicationDevice()) {
-            return switch (slot) { case 0 -> "PAYLOAD"; case 1 -> "SELECTOR"; default -> "STATE"; };
-        }
-        if (k == FieldDeviceMenu.KIND_QUARTZ_DIVIDER || k == FieldDeviceMenu.KIND_QUARTZ_STABILITY
-                || k == FieldDeviceMenu.KIND_QUARTZ_OSCILLATOR) {
-            return switch (slot) { case 0 -> "PERIOD"; case 1 -> "PHASE"; default -> "STATE"; };
-        }
-        if (k == FieldDeviceMenu.KIND_RANGE_SENSOR) {
-            return switch (slot) { case 0 -> "RANGE"; case 1 -> "OUTPUT"; default -> "LIMIT"; };
-        }
-        if (k == FieldDeviceMenu.KIND_REFERENCE) {
-            return switch (slot) { case 0 -> "OUTPUT"; case 1 -> "QUALITY"; default -> "STATE"; };
-        }
-        if (k == FieldDeviceMenu.KIND_FILTER) {
-            return switch (slot) { case 0 -> "INPUT"; case 1 -> "OUTPUT"; default -> "SLEW"; };
-        }
-        if (k == FieldDeviceMenu.KIND_PROBE) {
-            return switch (slot) { case 0 -> "SIGNAL"; case 1 -> "CHANNEL"; default -> "FACING"; };
-        }
-        if (k >= FieldDeviceMenu.KIND_WATCHDOG && k <= FieldDeviceMenu.KIND_OPERATIONS_MONITOR) {
-            return switch (slot) { case 0 -> "PROCESS"; case 1 -> "STATUS"; default -> "SAFETY"; };
-        }
-        if (k >= FieldDeviceMenu.KIND_AMETHYST_RESONATOR && k <= FieldDeviceMenu.KIND_THERMAL_RECEIVER) {
-            return switch (slot) { case 0 -> "AMPLITUDE"; case 1 -> "FREQUENCY"; default -> "STATE"; };
-        }
+        if (k == FieldDeviceMenu.KIND_REDSTONE_JUNCTION) return switch (slot) { case 0 -> "SIGNAL"; case 1 -> "SOURCES"; default -> "MEDIUM"; };
+        if (k == FieldDeviceMenu.KIND_REDSTONE_CABLE) return switch (slot) { case 0 -> "SIGNAL"; case 1 -> "LINKS"; default -> "QUALITY"; };
+        if (k == FieldDeviceMenu.KIND_INSTRUMENT_CABLE) return switch (slot) { case 0 -> "LINKS"; case 1 -> "QUALITY"; default -> "STATE"; };
+        if (k == FieldDeviceMenu.KIND_SHIELDED_INSTRUMENT_CABLE) return switch (slot) { case 0 -> "SHIELD"; case 1 -> "COVERED"; default -> "EXPOSED"; };
+        if (k == FieldDeviceMenu.KIND_LAPIS_LINE) return switch (slot) { case 0 -> "VALUE"; case 1 -> "LINKS"; default -> "QUALITY"; };
+        if (k == FieldDeviceMenu.KIND_QUARTZ_LINE) return switch (slot) { case 0 -> "ACTIVE"; case 1 -> "PERIOD"; default -> "QUALITY"; };
+        if (k == FieldDeviceMenu.KIND_AMETHYST_DUST) return switch (slot) { case 0 -> "AMPLITUDE"; case 1 -> "FREQUENCY"; default -> "QUALITY"; };
+        if (k == FieldDeviceMenu.KIND_ENCODER) return switch (slot) { case 0 -> "REDSTONE IN"; case 1 -> "BYTE OUT"; default -> "QUALITY"; };
+        if (k == FieldDeviceMenu.KIND_DECODER) return switch (slot) { case 0 -> "BYTE IN"; case 1 -> "REDSTONE OUT"; default -> "QUALITY"; };
+        if (k == FieldDeviceMenu.KIND_SERIALIZER) return switch (slot) { case 0 -> "BYTE IN"; case 1 -> "SERIAL OUT"; default -> "TIMING"; };
+        if (k == FieldDeviceMenu.KIND_DESERIALIZER) return switch (slot) { case 0 -> "SERIAL IN"; case 1 -> "BYTE OUT"; default -> "TIMING"; };
+        if (k == FieldDeviceMenu.KIND_DIFFERENTIAL_DRIVER) return switch (slot) { case 0 -> "LOGIC IN"; case 1 -> "DIFF OUT"; default -> "QUALITY"; };
+        if (k == FieldDeviceMenu.KIND_DIFFERENTIAL_RECEIVER) return switch (slot) { case 0 -> "DIFF IN"; case 1 -> "REDSTONE OUT"; default -> "QUALITY"; };
+        if (k == FieldDeviceMenu.KIND_SIGNAL_TAP) return switch (slot) { case 0 -> "SAMPLED IN"; case 1 -> "MIRROR OUT"; default -> "OBSERVED"; };
+        if (k == FieldDeviceMenu.KIND_EDGE_DETECTOR) return switch (slot) { case 0 -> "INPUT"; case 1 -> "PULSE OUT"; default -> "EDGE MODE"; };
+        if (k == FieldDeviceMenu.KIND_PULSE_SHAPER) return switch (slot) { case 0 -> "INPUT"; case 1 -> "PULSE OUT"; default -> "WIDTH"; };
+        if (k == FieldDeviceMenu.KIND_DIGITAL_REGENERATOR) return switch (slot) { case 0 -> "INPUT QUAL."; case 1 -> "SERIAL OUT"; default -> "THRESHOLD"; };
+        if (k == FieldDeviceMenu.KIND_QUARTZ_DIVIDER) return switch (slot) { case 0 -> "PERIOD IN"; case 1 -> "PERIOD OUT"; default -> "DIVISION"; };
+        if (k == FieldDeviceMenu.KIND_QUARTZ_STABILITY) return switch (slot) { case 0 -> "MEASURED"; case 1 -> "ERROR"; default -> "NOMINAL"; };
+        if (k == FieldDeviceMenu.KIND_AMETHYST_FILTER) return switch (slot) { case 0 -> "FREQ IN"; case 1 -> "AMP OUT"; default -> "TARGET"; };
+        if (k == FieldDeviceMenu.KIND_AMETHYST_TUNED) return switch (slot) { case 0 -> "NATURAL"; case 1 -> "AMP OUT"; default -> "Q INDEX"; };
+        if (k == FieldDeviceMenu.KIND_PRESSURE_REGULATOR) return switch (slot) { case 0 -> "PRESSURE"; case 1 -> "SETPOINT"; default -> "SETTING"; };
+        if (k == FieldDeviceMenu.KIND_PNEUMATIC_FLOW_METER) return switch (slot) { case 0 -> "FLOW"; case 1 -> "Δ PRESSURE"; default -> "INLET"; };
+        if (k == FieldDeviceMenu.KIND_PNEUMATIC_CYLINDER) return switch (slot) { case 0 -> "PRESSURE"; case 1 -> "POSITION"; default -> "TARGET"; };
+        if (k == FieldDeviceMenu.KIND_AIR_COMPRESSOR) return switch (slot) { case 0 -> "COMMAND"; case 1 -> "SET PRESS."; default -> "ACTUAL"; };
+        if (k >= FieldDeviceMenu.KIND_AIR_COMPRESSOR && k <= FieldDeviceMenu.KIND_PNEUMATIC_FLOW_METER || k >= FieldDeviceMenu.KIND_PNEUMATIC_PROPORTIONAL_VALVE && k <= FieldDeviceMenu.KIND_PNEUMATIC_CYLINDER) return switch (slot) { case 0 -> "INLET"; case 1 -> "OUTLET"; default -> "STATE"; };
+        if (k == FieldDeviceMenu.KIND_INDUCTION_COIL) return switch (slot) { case 0 -> "FIELD"; case 1 -> "EMF"; default -> "TURNS"; };
+        if (k == FieldDeviceMenu.KIND_MAGNETIC_GRADIENT_METER) return switch (slot) { case 0 -> "FIELD"; case 1 -> "GRAD X"; default -> "GRAD Y"; };
+        if (k >= FieldDeviceMenu.KIND_ELECTROMAGNET && k <= FieldDeviceMenu.KIND_MAGNETIC_GRADIENT_METER) return switch (slot) { case 0 -> "FIELD"; case 1 -> "DRIVE"; default -> "CONFIG"; };
+        if (k == FieldDeviceMenu.KIND_OPTICAL_EMITTER) return switch (slot) { case 0 -> "INTENSITY"; case 1 -> "CHANNEL"; default -> "CONFIG"; };
+        if (k == FieldDeviceMenu.KIND_OPTICAL_RECEIVER || k == FieldDeviceMenu.KIND_OPTICAL_POWER_METER) return switch (slot) { case 0 -> "INTENSITY"; case 1 -> "CHANNEL"; default -> "AUX"; };
+        if (k == FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER) return switch (slot) { case 0 -> "INPUT"; case 1 -> "CHANNEL"; default -> "OUTPUT"; };
+        if (k == FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR) return switch (slot) { case 0 -> "INPUT"; case 1 -> "OUTPUT"; default -> "LOSS"; };
+        if (k >= FieldDeviceMenu.KIND_OPTICAL_FIBER && k <= FieldDeviceMenu.KIND_OPTICAL_FIBER_JUNCTION) return switch (slot) { case 0 -> "OPTICAL"; case 1 -> "CHANNEL"; default -> "STATE"; };
+        if (k == FieldDeviceMenu.KIND_DATA_BUS_8) return switch (slot) { case 0 -> "PAYLOAD"; case 1 -> "DRIVERS"; default -> "LOAD"; };
+        if (k == FieldDeviceMenu.KIND_SERIAL_LINE) return switch (slot) { case 0 -> "PAYLOAD"; case 1 -> "TIMING"; default -> "LINK"; };
+        if (k == FieldDeviceMenu.KIND_DIFFERENTIAL_PAIR) return switch (slot) { case 0 -> "LOGIC"; case 1 -> "QUALITY"; default -> "LINKS"; };
+        if (k == FieldDeviceMenu.KIND_RADIO_TRANSMITTER || k == FieldDeviceMenu.KIND_RADIO_RECEIVER) return switch (slot) { case 0 -> "PAYLOAD"; case 1 -> "CHANNEL"; default -> "LINK"; };
+        if (isCommunicationDevice()) return switch (slot) { case 0 -> "PAYLOAD"; case 1 -> "SELECTOR"; default -> "STATE"; };
+        if (k == FieldDeviceMenu.KIND_QUARTZ_OSCILLATOR) return switch (slot) { case 0 -> "ACTIVE"; case 1 -> "PERIOD"; default -> "PERIOD IDX"; };
+        if (k == FieldDeviceMenu.KIND_RANGE_SENSOR) return switch (slot) { case 0 -> "RANGE"; case 1 -> "OUTPUT"; default -> "LIMIT"; };
+        if (k == FieldDeviceMenu.KIND_REFERENCE) return switch (slot) { case 0 -> "OUTPUT"; case 1 -> "QUALITY"; default -> "STATE"; };
+        if (k == FieldDeviceMenu.KIND_FILTER) return switch (slot) { case 0 -> "INPUT"; case 1 -> "OUTPUT"; default -> "SLEW"; };
+        if (k == FieldDeviceMenu.KIND_PROBE) return switch (slot) { case 0 -> "SIGNAL"; case 1 -> "CHANNEL"; default -> "FACING"; };
+        if (k >= FieldDeviceMenu.KIND_WATCHDOG && k <= FieldDeviceMenu.KIND_OPERATIONS_MONITOR) return switch (slot) { case 0 -> "PROCESS"; case 1 -> "STATUS"; default -> "SAFETY"; };
+        if (k >= FieldDeviceMenu.KIND_AMETHYST_RESONATOR && k <= FieldDeviceMenu.KIND_THERMAL_RECEIVER) return switch (slot) { case 0 -> "AMPLITUDE"; case 1 -> "FREQUENCY"; default -> "STATE"; };
         return switch (slot) { case 0 -> "PROCESS"; case 1 -> "READBACK"; default -> "CONFIG"; };
     }
 
@@ -522,14 +462,8 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             if (slot == 1) return menu.secondary() + " / 15";
             return menu.qualityPercent() + "%";
         }
-        if (k == FieldDeviceMenu.KIND_SERIALIZER) {
-            if (slot == 0) return String.format("0x%02X", menu.primary() & 0xFF);
-            if (slot == 1) return String.format("0x%02X", menu.secondary() & 0xFF);
-            return menu.tertiary() + " t";
-        }
-        if (k == FieldDeviceMenu.KIND_DESERIALIZER) {
-            if (slot == 0) return String.format("0x%02X", menu.primary() & 0xFF);
-            if (slot == 1) return String.format("0x%02X", menu.secondary() & 0xFF);
+        if (k == FieldDeviceMenu.KIND_SERIALIZER || k == FieldDeviceMenu.KIND_DESERIALIZER) {
+            if (slot == 0 || slot == 1) return String.format("0x%02X", value & 0xFF);
             return menu.tertiary() + " t";
         }
         if (k == FieldDeviceMenu.KIND_DIFFERENTIAL_DRIVER) {
@@ -551,6 +485,28 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             if (slot == 1) return Integer.toString(menu.secondary());
             return facingName();
         }
+        if (k == FieldDeviceMenu.KIND_DIGITAL_REGENERATOR) {
+            if (slot == 0) return menu.primary() + "%";
+            if (slot == 1) return String.format("0x%02X", menu.secondary() & 0xFF);
+            return Integer.toString(menu.tertiary());
+        }
+        if (k == FieldDeviceMenu.KIND_QUARTZ_DIVIDER) {
+            if (slot < 2) return value + " t";
+            return "÷" + value;
+        }
+        if (k == FieldDeviceMenu.KIND_QUARTZ_STABILITY) {
+            if (slot == 0 || slot == 2) return value + " t";
+            return Integer.toString(value);
+        }
+        if (k == FieldDeviceMenu.KIND_AMETHYST_FILTER) {
+            if (slot == 0 || slot == 2) return value + " Hz#";
+            return value + " amp";
+        }
+        if (k == FieldDeviceMenu.KIND_AMETHYST_TUNED) {
+            if (slot == 0) return value + " Hz#";
+            if (slot == 1) return value + " amp";
+            return "Q" + value;
+        }
         if (k == FieldDeviceMenu.KIND_SERIAL_LINE && slot == 2) return linkState();
         if (k == FieldDeviceMenu.KIND_DIFFERENTIAL_PAIR) {
             if (slot == 0) return Integer.toString(menu.primary());
@@ -558,18 +514,12 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             return Integer.toString(menu.connectionCount());
         }
         if (k == FieldDeviceMenu.KIND_INDUCTION_COIL && slot == 2) return value + " turns";
-        if (k == FieldDeviceMenu.KIND_OPTICAL_EMITTER || k == FieldDeviceMenu.KIND_OPTICAL_RECEIVER
-                || k == FieldDeviceMenu.KIND_OPTICAL_FIBER || k == FieldDeviceMenu.KIND_OPTICAL_POWER_METER) {
+        if (k == FieldDeviceMenu.KIND_OPTICAL_EMITTER || k == FieldDeviceMenu.KIND_OPTICAL_RECEIVER || k == FieldDeviceMenu.KIND_OPTICAL_FIBER || k == FieldDeviceMenu.KIND_OPTICAL_POWER_METER) {
             if (slot == 0) return value + " / 15";
             if (slot == 1) return "CH " + value;
         }
-        if (k >= FieldDeviceMenu.KIND_AIR_COMPRESSOR && k <= FieldDeviceMenu.KIND_PNEUMATIC_FLOW_METER
-                || k >= FieldDeviceMenu.KIND_PNEUMATIC_PROPORTIONAL_VALVE && k <= FieldDeviceMenu.KIND_PNEUMATIC_CYLINDER) {
-            return Integer.toString(value);
-        }
-        if (k >= FieldDeviceMenu.KIND_ELECTROMAGNET && k <= FieldDeviceMenu.KIND_MAGNETIC_GRADIENT_METER) {
-            return slot == 0 ? value + " field" : Integer.toString(value);
-        }
+        if (k >= FieldDeviceMenu.KIND_AIR_COMPRESSOR && k <= FieldDeviceMenu.KIND_PNEUMATIC_FLOW_METER || k >= FieldDeviceMenu.KIND_PNEUMATIC_PROPORTIONAL_VALVE && k <= FieldDeviceMenu.KIND_PNEUMATIC_CYLINDER) return Integer.toString(value);
+        if (k >= FieldDeviceMenu.KIND_ELECTROMAGNET && k <= FieldDeviceMenu.KIND_MAGNETIC_GRADIENT_METER) return slot == 0 ? value + " field" : Integer.toString(value);
         return Integer.toString(value);
     }
 
@@ -586,6 +536,7 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
         if (isObserver()) return "Observer semantics: sample evidence without becoming a hidden source or feedback path.";
         if (isPassiveMedium()) return "Follow medium identity, physical links and quality together; passive interconnect never translates.";
         if (isDirectionalConverter()) return "Converter semantics: inspect both boundary media and authoritative output evidence.";
+        if (isDirectionalProcessor()) return "Processor semantics: follow input → operation → output and keep configuration distinct from evidence.";
         if (family().equals("PNEUMATIC")) return "Compare commanded, inlet and realized pressure before changing control settings.";
         if (family().equals("MAGNETIC")) return "Field evidence is observational; configuration changes must not fabricate a transient.";
         if (family().equals("OPTICAL")) return "Check channel identity and intensity together; valid zero is distinct from missing evidence.";
@@ -601,6 +552,7 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
                 : "ACTION: trace source evidence; zero and NO SIGNAL are not equivalent.";
         if (menu.qualityPercent() < 100) return "ACTION: inspect degraded quality before adjusting the device.";
         if (isObserver()) return "Observer healthy: evidence is readable and no network-driving authority is implied.";
+        if (isDirectionalProcessor()) return "Processor healthy: compare input evidence, processing parameter and realized output together.";
         if (isPassiveMedium() && menu.connectionCount() == 0) return "ACTION: medium is healthy but physically open; inspect adjacent endpoints.";
         return "No current boundary fault detected; readback remains server-authoritative.";
     }
@@ -646,6 +598,22 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
                  FieldDeviceMenu.KIND_DIFFERENTIAL_RECEIVER,
                  FieldDeviceMenu.KIND_PNEUMATIC_RECEIVER,
                  FieldDeviceMenu.KIND_INDUCTION_COIL -> true;
+            default -> false;
+        };
+    }
+
+    private boolean isDirectionalProcessor() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_FILTER,
+                 FieldDeviceMenu.KIND_DIGITAL_REGENERATOR,
+                 FieldDeviceMenu.KIND_QUARTZ_DIVIDER,
+                 FieldDeviceMenu.KIND_QUARTZ_STABILITY,
+                 FieldDeviceMenu.KIND_AMETHYST_FILTER,
+                 FieldDeviceMenu.KIND_AMETHYST_TUNED,
+                 FieldDeviceMenu.KIND_EDGE_DETECTOR,
+                 FieldDeviceMenu.KIND_PULSE_SHAPER,
+                 FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER,
+                 FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR -> true;
             default -> false;
         };
     }
@@ -735,6 +703,62 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             case FieldDeviceMenu.KIND_PNEUMATIC_RECEIVER -> "REDSTONE • 0..15";
             case FieldDeviceMenu.KIND_INDUCTION_COIL -> "INDUCED ELECTRICAL";
             default -> "DECLARED DOMAIN";
+        };
+    }
+
+    private String processorInput() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_DIGITAL_REGENERATOR -> "SERIAL_DATA • DEGRADED/VALID";
+            case FieldDeviceMenu.KIND_QUARTZ_DIVIDER, FieldDeviceMenu.KIND_QUARTZ_STABILITY -> "QUARTZ TIMING";
+            case FieldDeviceMenu.KIND_AMETHYST_FILTER, FieldDeviceMenu.KIND_AMETHYST_TUNED -> "AMETHYST RESONANCE";
+            case FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER, FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR -> "OPTICAL";
+            default -> "REDSTONE • 0..15";
+        };
+    }
+
+    private String processorOutput() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_DIGITAL_REGENERATOR -> "SERIAL_DATA • REGENERATED";
+            case FieldDeviceMenu.KIND_QUARTZ_DIVIDER -> "QUARTZ TIMING • DIVIDED";
+            case FieldDeviceMenu.KIND_QUARTZ_STABILITY -> "TIMING DIAGNOSTIC";
+            case FieldDeviceMenu.KIND_AMETHYST_FILTER -> "AMETHYST • FILTERED";
+            case FieldDeviceMenu.KIND_AMETHYST_TUNED -> "AMETHYST • RESONANT";
+            case FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER -> "OPTICAL • SELECTED CHANNEL";
+            case FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR -> "OPTICAL • ATTENUATED";
+            case FieldDeviceMenu.KIND_EDGE_DETECTOR, FieldDeviceMenu.KIND_PULSE_SHAPER -> "REDSTONE • PULSE";
+            default -> "REDSTONE • PROCESSED";
+        };
+    }
+
+    private String processorFunction() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_FILTER -> "SLEW LIMIT";
+            case FieldDeviceMenu.KIND_DIGITAL_REGENERATOR -> "QUALITY GATE + REGENERATION";
+            case FieldDeviceMenu.KIND_QUARTZ_DIVIDER -> "CLOCK DIVISION";
+            case FieldDeviceMenu.KIND_QUARTZ_STABILITY -> "PERIOD STABILITY CHECK";
+            case FieldDeviceMenu.KIND_AMETHYST_FILTER -> "FREQUENCY SELECTION";
+            case FieldDeviceMenu.KIND_AMETHYST_TUNED -> "RESONANT RESPONSE";
+            case FieldDeviceMenu.KIND_EDGE_DETECTOR -> "EDGE DETECTION";
+            case FieldDeviceMenu.KIND_PULSE_SHAPER -> "PULSE SHAPING";
+            case FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER -> "CHANNEL SELECTION";
+            case FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR -> "INTENSITY ATTENUATION";
+            default -> "DECLARED TRANSFORM";
+        };
+    }
+
+    private String processorParameter() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_FILTER -> "SLEW " + menu.tertiary();
+            case FieldDeviceMenu.KIND_DIGITAL_REGENERATOR -> "THRESHOLD " + menu.tertiary();
+            case FieldDeviceMenu.KIND_QUARTZ_DIVIDER -> "DIVIDE BY " + menu.tertiary();
+            case FieldDeviceMenu.KIND_QUARTZ_STABILITY -> "ERROR " + menu.secondary();
+            case FieldDeviceMenu.KIND_AMETHYST_FILTER -> "TARGET " + menu.tertiary();
+            case FieldDeviceMenu.KIND_AMETHYST_TUNED -> "Q INDEX " + menu.tertiary();
+            case FieldDeviceMenu.KIND_EDGE_DETECTOR -> "MODE " + menu.tertiary();
+            case FieldDeviceMenu.KIND_PULSE_SHAPER -> "WIDTH " + menu.tertiary();
+            case FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER -> "CHANNEL " + menu.secondary();
+            case FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR -> "LOSS " + menu.tertiary();
+            default -> "SERVER CONFIG";
         };
     }
 
