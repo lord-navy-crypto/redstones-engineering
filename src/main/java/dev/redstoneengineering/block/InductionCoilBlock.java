@@ -135,13 +135,16 @@ public class InductionCoilBlock extends DirectionalDomainBlock implements Engine
                 : PortQuality.STALE;
     }
 
-    /** Server-authoritative turns transition used by the real configuration interaction. */
+    /** Server-authoritative turns transition. Configuration invalidates the old induced output immediately. */
     public static int cycleTurns(ServerLevel level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
-        if (!(state.getBlock() instanceof InductionCoilBlock)) return 0;
+        if (!(state.getBlock() instanceof InductionCoilBlock coil)) return 0;
         int turns = state.getValue(TURNS);
         turns = turns >= 4 ? 1 : turns + 1;
         level.setBlock(pos, state.setValue(TURNS, turns), Block.UPDATE_CLIENTS);
+        DomainNetwork.driveCopper(level, coil.outputPos(pos, state), pos, 0, false);
+        RuntimeIntStore.remove(level, KEY, pos);
+        level.scheduleTick(pos, coil, 1);
         return turns;
     }
 
