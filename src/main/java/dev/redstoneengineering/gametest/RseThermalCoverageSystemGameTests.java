@@ -23,7 +23,7 @@ public final class RseThermalCoverageSystemGameTests {
         ServerLevel level = helper.getLevel();
         ThermalFixture fixture = findFixture(level, helper.absolutePos(new BlockPos(2, 1, 2)));
         if (fixture == null) {
-            helper.fail("Precondition failed: could not find a forced thermal endpoint chunk beside unavailable adjacent coverage");
+            helper.fail("Precondition failed: could not find a loaded thermal endpoint chunk beside unavailable adjacent coverage");
             return;
         }
 
@@ -101,10 +101,8 @@ public final class RseThermalCoverageSystemGameTests {
             BlockPos unknown = mass.east();
 
             if (level.hasChunkAt(mass) || level.hasChunkAt(unknown)) continue;
-            level.setChunkForced(chunkX, chunkZ, true);
             level.getChunkAt(mass);
-            if (!level.hasChunkAt(unknown)) return new ThermalFixture(hot, mass, unknown, chunkX, chunkZ);
-            level.setChunkForced(chunkX, chunkZ, false);
+            if (!level.hasChunkAt(unknown)) return new ThermalFixture(hot, mass, unknown);
         }
         return null;
     }
@@ -112,8 +110,7 @@ public final class RseThermalCoverageSystemGameTests {
     private static void cleanup(ServerLevel level, ThermalFixture fixture) {
         if (level.hasChunkAt(fixture.hot())) level.setBlock(fixture.hot(), Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
         if (level.hasChunkAt(fixture.mass())) level.setBlock(fixture.mass(), Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
-        level.setChunkForced(fixture.chunkX(), fixture.chunkZ(), false);
     }
 
-    private record ThermalFixture(BlockPos hot, BlockPos mass, BlockPos unknown, int chunkX, int chunkZ) {}
+    private record ThermalFixture(BlockPos hot, BlockPos mass, BlockPos unknown) {}
 }
