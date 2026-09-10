@@ -5,6 +5,7 @@ import dev.redstoneengineering.block.DirectionalSignalBlock;
 import dev.redstoneengineering.block.SignalConditionerBlock;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -17,24 +18,23 @@ public final class SignalConditionerMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_MODE_NEXT = 1;
     public static final int BUTTON_PARAM_DECREASE = 2;
     public static final int BUTTON_PARAM_INCREASE = 3;
+    public static final int BUTTON_ROTATE_LEFT = 4;
+    public static final int BUTTON_ROTATE_RIGHT = 5;
 
     private final DataSlot mode = trackedInt();
     private final DataSlot parameter = trackedInt();
     private final DataSlot input = trackedInt();
     private final DataSlot output = trackedInt();
+    private final DataSlot facing = trackedInt();
+    private final DataSlot limiting = trackedInt();
 
     public SignalConditionerMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
     }
 
     public SignalConditionerMenu(int containerId, Inventory inventory, BlockPos pos) {
-        super(
-                EngineeringUiRegistration.SIGNAL_CONDITIONER.get(),
-                containerId,
-                inventory,
-                pos,
-                RedstoneEngineering.SIGNAL_CONDITIONER.get()
-        );
+        super(EngineeringUiRegistration.SIGNAL_CONDITIONER.get(), containerId, inventory, pos,
+                RedstoneEngineering.SIGNAL_CONDITIONER.get());
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
     }
 
@@ -46,6 +46,8 @@ public final class SignalConditionerMenu extends EngineeringDeviceMenu {
         parameter.set(state.getValue(SignalConditionerBlock.PARAM));
         input.set(SignalConditionerBlock.inspectInput(level, blockPos, state));
         output.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+        facing.set(state.getValue(DirectionalSignalBlock.FACING).ordinal());
+        limiting.set(SignalConditionerBlock.limitingActive(level, blockPos, state) ? 1 : 0);
     }
 
     @Override
@@ -60,19 +62,18 @@ public final class SignalConditionerMenu extends EngineeringDeviceMenu {
         return changed;
     }
 
-    public int mode() {
-        return mode.get();
+    public int mode() { return mode.get(); }
+    public int parameter() { return parameter.get(); }
+    public int input() { return input.get(); }
+    public int output() { return output.get(); }
+    public boolean limiting() { return limiting.get() != 0; }
+
+    public Direction outputDirection() {
+        int ordinal = facing.get();
+        return ordinal >= 0 && ordinal < Direction.values().length ? Direction.values()[ordinal] : Direction.NORTH;
     }
 
-    public int parameter() {
-        return parameter.get();
-    }
-
-    public int input() {
-        return input.get();
-    }
-
-    public int output() {
-        return output.get();
+    public Direction inputDirection() {
+        return outputDirection().getOpposite();
     }
 }
