@@ -16,9 +16,9 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Base class for RSE domains that must not accidentally behave as vanilla redstone.
  *
- * <p>Domain blocks also receive a safe default Engineering UI entry point. Subclasses with
- * dedicated interaction semantics may override this method, but passive/specialized domain
- * blocks no longer need boilerplate merely to expose server-authoritative inspection.</p>
+ * <p>Domain blocks also receive a safe universal Engineering UI fallback. Subclasses with
+ * richer interaction semantics may override this method and open their device-aware UI, while
+ * otherwise-unhandled domain blocks still expose server-authoritative six-face port inspection.</p>
  */
 public abstract class DomainBlock extends Block {
     protected DomainBlock(Properties properties) { super(properties); }
@@ -37,7 +37,7 @@ public abstract class DomainBlock extends Block {
             BlockHitResult hitResult
     ) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
-            FieldDeviceUi.open(serverPlayer, pos);
+            FieldDeviceUi.openUniversal(serverPlayer, pos);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
