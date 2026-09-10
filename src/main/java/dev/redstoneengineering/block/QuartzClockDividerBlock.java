@@ -62,6 +62,21 @@ public class QuartzClockDividerBlock extends DirectionalDomainBlock implements E
         return runtime == null || runtime.length != RUNTIME_SIZE ? 0 : runtime[COUNT_SLOT];
     }
 
+    /**
+     * Server-authoritative configuration transition shared by the real player interaction and lifecycle tests.
+     * This deliberately contains only the existing configuration behavior: advance divisor, reset runtime,
+     * and schedule the next real sample. Driver-claim lifecycle remains the responsibility under audit.
+     */
+    public static int cycleDivision(ServerLevel level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof QuartzClockDividerBlock)) return 0;
+        int index = (state.getValue(DIV_INDEX) + 1) % 4;
+        level.setBlock(pos, state.setValue(DIV_INDEX, index), Block.UPDATE_CLIENTS);
+        RuntimeIntStore.remove(level, KEY, pos);
+        level.scheduleTick(pos, state.getBlock(), 1);
+        return division(index);
+    }
+
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         return List.of(
@@ -130,12 +145,8 @@ public class QuartzClockDividerBlock extends DirectionalDomainBlock implements E
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
-                int index = (state.getValue(DIV_INDEX) + 1) % 4;
-                BlockState next = state.setValue(DIV_INDEX, index);
-                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-                RuntimeIntStore.remove(level, KEY, pos);
-                level.scheduleTick(pos, this, 1);
-                player.displayClientMessage(Component.literal("Quartz divider | ÷" + division(index) + " | phase re-arms on next valid clock sample"), true);
+                int configuredDivision = cycleDivision((ServerLevel) level, pos);
+                player.displayClientMessage(Component.literal("Quartz divider | ÷" + configuredDivision + " | phase re-arms on next valid clock sample"), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
             }
