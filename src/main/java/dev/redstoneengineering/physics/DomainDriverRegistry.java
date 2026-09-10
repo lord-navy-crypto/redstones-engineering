@@ -103,7 +103,7 @@ public final class DomainDriverRegistry {
             out.add(claim);
         }
         if (!coverageComplete) {
-            NetworkKernel.recordScan(level, domain, segmentNodes.size(), true);
+            NetworkKernel.markCoverageIncomplete(level, domain);
         }
         if (byDriver.isEmpty()) byDomain.remove(domain);
         if (byDomain.isEmpty()) CLAIMS.remove(level);
