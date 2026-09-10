@@ -75,12 +75,15 @@ public abstract class DirectionalDomainBlock extends DomainBlock {
         BlockState next = state.setValue(FACING, newOutput);
         level.setBlock(pos, next, Block.UPDATE_CLIENTS);
 
-        level.updateNeighborsAt(pos, block);
-        level.updateNeighborsAt(pos.relative(oldInput), block);
-        level.updateNeighborsAt(pos.relative(oldOutput), block);
-        level.updateNeighborsAt(pos.relative(newOutput.getOpposite()), block);
-        level.updateNeighborsAt(pos.relative(newOutput), block);
+        notifyNeighbors(level, pos, block, oldInput, oldOutput, newOutput.getOpposite(), newOutput);
         return true;
+    }
+
+    private static void notifyNeighbors(Level level, BlockPos pos, Block block, Direction... sides) {
+        level.updateNeighborsAt(pos, block);
+        for (Direction side : sides) {
+            level.updateNeighborsAt(pos.relative(side), block);
+        }
     }
 
     @Override
