@@ -12,6 +12,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -52,7 +53,7 @@ public final class RseDomainDriverLifecycleSystemGameTests {
         }
 
         int beforeDelay = level.getBlockState(phase).getValue(QuartzPhaseDelayBlock.DELAY);
-        var player = helper.makeMockPlayer();
+        var player = helper.makeMockPlayer(GameType.SURVIVAL);
         BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(phase), Direction.UP, phase, false);
         level.getBlockState(phase).useWithoutItem(level, player, hit);
         int afterDelay = level.getBlockState(phase).getValue(QuartzPhaseDelayBlock.DELAY);
