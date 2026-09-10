@@ -7,6 +7,7 @@ import dev.redstoneengineering.block.SurfaceTraceBlock;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainDriverRegistry;
 import dev.redstoneengineering.physics.DomainNetwork;
+import dev.redstoneengineering.physics.NetworkKernel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
@@ -36,11 +37,7 @@ public final class RseDomainNetworkCoverageSystemGameTests {
             return;
         }
 
-        BlockState isolatedLine = RedstoneEngineering.LAPIS_SIGNAL_LINE.get().defaultBlockState()
-                .setValue(SurfaceTraceBlock.WEST, true)
-                .setValue(SurfaceTraceBlock.EAST, false)
-                .setValue(SurfaceTraceBlock.NORTH, false)
-                .setValue(SurfaceTraceBlock.SOUTH, false);
+        BlockState isolatedLine = isolatedLine();
         level.setBlock(line, isolatedLine, Block.UPDATE_CLIENTS);
 
         if (level.hasChunkAt(staleDriver)) {
@@ -97,6 +94,63 @@ public final class RseDomainNetworkCoverageSystemGameTests {
             return;
         }
         helper.succeed();
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 100)
+    public static void coverageIncompleteDriverDoesNotDoubleCountOrMasqueradeAsBudgetTruncation(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos line = helper.absolutePos(new BlockPos(2, 1, 2));
+        BlockPos staleDriver = findRemoteUnloaded(level, line);
+        if (staleDriver == null) {
+            helper.fail("Precondition failed: could not find an unloaded remote driver for NetworkKernel accounting");
+            return;
+        }
+
+        level.setBlock(line, isolatedLine(), Block.UPDATE_CLIENTS);
+        if (level.hasChunkAt(staleDriver)) {
+            cleanup(level, line, null, staleDriver);
+            helper.fail("Precondition failed: accounting driver chunk became available before solve");
+            return;
+        }
+
+        DomainDriverRegistry.claim(level, "lapis", staleDriver, line, STALE_VALUE, 0, 0);
+        NetworkKernel.ScanStats before = NetworkKernel.stats(level, "lapis");
+        DomainNetwork.recomputeLapis(level, line);
+        NetworkKernel.ScanStats after = NetworkKernel.stats(level, "lapis");
+        String summary = NetworkKernel.summary(level, "lapis");
+
+        PortQuality quality = LapisSignalLineBlock.quality(level, line);
+        long scanDelta = after.scans() - before.scans();
+        cleanup(level, line, null, staleDriver);
+
+        if (quality != PortQuality.STALE) {
+            helper.fail("Coverage-incomplete solve did not remain fail-closed while auditing NetworkKernel"
+                    + " | quality=" + quality + " summary=" + summary);
+            return;
+        }
+        if (scanDelta != 1L) {
+            helper.fail("One domain solve was counted as multiple graph scans"
+                    + " | before=" + before.scans()
+                    + " after=" + after.scans()
+                    + " delta=" + scanDelta
+                    + " summary=" + summary);
+            return;
+        }
+        if (!summary.contains("COVERAGE-INCOMPLETE") || summary.contains("BUDGET-LIMITED")) {
+            helper.fail("Coverage-incomplete driver evidence was mislabeled as a node-budget truncation"
+                    + " | summary=" + summary);
+            return;
+        }
+        helper.succeed();
+    }
+
+    private static BlockState isolatedLine() {
+        return RedstoneEngineering.LAPIS_SIGNAL_LINE.get().defaultBlockState()
+                .setValue(SurfaceTraceBlock.WEST, true)
+                .setValue(SurfaceTraceBlock.EAST, false)
+                .setValue(SurfaceTraceBlock.NORTH, false)
+                .setValue(SurfaceTraceBlock.SOUTH, false);
     }
 
     private static BlockPos findRemoteUnloaded(ServerLevel level, BlockPos origin) {
