@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Guard the shared RSE signal-routing grammar.
 
-Cable-like information media are planar by default. Vertical continuity requires the
-single Signal Junction Point, which may bind to one medium only. Dedicated converter
-blocks remain the only cross-domain path.
+Cable-like media are planar by default. Vertical continuity requires the single
+Junction Point, which may bind to one medium only. The Junction Point is routing-only;
+dedicated converter/transducer blocks remain the only cross-domain path.
 """
 from __future__ import annotations
 
@@ -38,14 +38,22 @@ tests = text("src/main/java/dev/redstoneengineering/gametest/RseSignalJunctionTo
 registration = text("src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java")
 serializer = text("src/main/java/dev/redstoneengineering/block/SerializerBlock.java")
 
-for medium in ("REDSTONE", "INSTRUMENT", "DATA_BUS_8", "SERIAL", "DIFFERENTIAL", "MISMATCH"):
-    require(topology, medium, "signal-medium vocabulary")
-require(topology, "cableToNeighbor.getAxis() == Direction.Axis.Y", "direct vertical line rejection")
-require(topology, "junctionAccepts", "same-medium junction admission")
+# The one Junction Point now recognizes all seven physical line media. This is vocabulary,
+# not permission to convert: inferJunctionMedium must still hard-fail mixed media.
+for medium in (
+    "REDSTONE", "INSTRUMENT", "DATA_BUS_8", "SERIAL", "DIFFERENTIAL",
+    "OPTICAL", "COPPER", "MISMATCH"
+):
+    require(topology, medium, "junction medium vocabulary")
+require(topology, "new Direction[]{Direction.UP, Direction.DOWN}", "vertical-only medium inference")
+require(topology, "junctionToNeighbor.getAxis() != Direction.Axis.Y", "junction rejects horizontal ports")
 require(topology, "return SignalMedium.MISMATCH", "mixed-media hard mismatch")
-require(junction, "Signal Junction Point", "junction operator identity")
+require(junction, "The single player-facing RSE Junction Point", "junction operator identity")
+require(junction, "maxConnections() { return 2; }", "junction two-port physical limit")
+require(junction, "List.of(Direction.UP, Direction.DOWN)", "junction exposes only vertical engineering ports")
+require(junction, "MISMATCH — different media blocked", "mixed-media operator warning")
+require(junction, "ROUTING ONLY — NO CONVERSION", "no implicit conversion")
 require(junction, "EnumProperty.create(\"medium\"", "inspectable junction medium")
-require(junction, "mixed media blocked; use a dedicated converter", "no implicit conversion")
 
 for name, body, method in (
     ("instrument", instrument, "instrumentCablePort"),
@@ -93,22 +101,22 @@ for test_name in (
     require(tests, test_name, "runtime topology coverage")
 require(registration, "RseSignalJunctionTopologyGameTests.class", "GameTest registration")
 
-# Preserve the explicit converter boundary: a serializer owns one DATA_BUS_8 input and one SERIAL_DATA output.
+# Preserve the converter boundary: a serializer owns one DATA_BUS_8 input and one SERIAL_DATA output.
 require(serializer, "EngineeringDomain.DATA_BUS_8", "serializer input-domain boundary")
 require(serializer, "EngineeringDomain.SERIAL_DATA", "serializer output-domain boundary")
 require(serializer, "PortKind.CONVERTER", "dedicated converter identity")
 
 if errors:
-    print("RSE unified signal junction topology verification: FAIL")
+    print("RSE unified Junction Point topology verification: FAIL")
     for error in errors:
         print(" -", error)
     raise SystemExit(1)
 
-print("RSE unified signal junction topology verification: PASS")
-print("  planar direct routing for five cable-like signal media: PASS")
-print("  same-medium-only vertical Signal Junction Point: PASS")
+print("RSE unified Junction Point topology verification: PASS")
+print("  one two-port UP/DOWN Junction Point: PASS")
+print("  seven physical line media recognized: PASS")
+print("  same-medium-only vertical routing: PASS")
 print("  mixed-media hard isolation / no implicit conversion: PASS")
 print("  visible arm == graph edge contract: PASS")
-print("  dynamic 8-bit/serial/differential cable resources: PASS")
 print("  dedicated converter boundary retained: PASS")
-print("  four executable routing GameTests registered: PASS")
+print("  four executable routing GameTests retained: PASS")
