@@ -31,8 +31,10 @@ public final class RseThermalCoverageSystemGameTests {
         BlockPos mass = fixture.mass();
         BlockPos unknown = fixture.unknown();
 
-        level.setBlock(hot, Blocks.MAGMA_BLOCK.defaultBlockState(), Block.UPDATE_ALL);
-        level.setBlock(mass, RedstoneEngineering.THERMAL_MASS.get().defaultBlockState(), Block.UPDATE_ALL);
+        // Keep fixture construction observer-local: neighbor propagation here can itself acquire
+        // adjacent chunk coverage and would contaminate the condition this regression is testing.
+        level.setBlock(mass, RedstoneEngineering.THERMAL_MASS.get().defaultBlockState(), Block.UPDATE_CLIENTS);
+        level.setBlock(hot, Blocks.MAGMA_BLOCK.defaultBlockState(), Block.UPDATE_CLIENTS);
 
         if (level.hasChunkAt(unknown)) {
             cleanup(level, fixture);
@@ -53,6 +55,8 @@ public final class RseThermalCoverageSystemGameTests {
             return;
         }
 
+        // Explicitly enter the real production ThermalMass tick path without using neighbor updates
+        // to manufacture the schedule.
         level.scheduleTick(mass, RedstoneEngineering.THERMAL_MASS.get(), 1);
         helper.runAfterDelay(3, () -> {
             if (level.hasChunkAt(unknown)) {
