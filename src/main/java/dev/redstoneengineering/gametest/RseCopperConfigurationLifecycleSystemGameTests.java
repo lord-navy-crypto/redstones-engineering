@@ -4,7 +4,10 @@ import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.block.CopperFuseBlock;
 import dev.redstoneengineering.block.CopperResistiveLoadBlock;
 import dev.redstoneengineering.block.CopperSeriesResistorBlock;
+import dev.redstoneengineering.block.CopperWireBlock;
 import dev.redstoneengineering.block.DirectionalDomainBlock;
+import dev.redstoneengineering.block.InductionCoilBlock;
+import dev.redstoneengineering.block.PermanentMagnetBlock;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
 import net.minecraft.core.BlockPos;
@@ -211,6 +214,105 @@ public final class RseCopperConfigurationLifecycleSystemGameTests {
                     return;
                 }
                 helper.succeed();
+            });
+        });
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 100)
+    public static void inductionTurnsChangeInvalidatesOldTransientUntilFreshMagneticSample(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos magnet = new BlockPos(1, 1, 2);
+        BlockPos coil = new BlockPos(2, 1, 2);
+        BlockPos outputWire = new BlockPos(3, 1, 2);
+
+        helper.setBlock(magnet, RedstoneEngineering.PERMANENT_MAGNET.get().defaultBlockState()
+                .setValue(PermanentMagnetBlock.STRENGTH, 1));
+        helper.setBlock(coil, RedstoneEngineering.INDUCTION_COIL.get().defaultBlockState()
+                .setValue(DirectionalDomainBlock.FACING, Direction.EAST)
+                .setValue(InductionCoilBlock.TURNS, 2));
+        helper.setBlock(outputWire, RedstoneEngineering.COPPER_WIRE.get().defaultBlockState());
+
+        BlockPos coilWorld = helper.absolutePos(coil);
+        BlockPos outputWorld = helper.absolutePos(outputWire);
+
+        helper.runAfterDelay(5, () -> {
+            if (InductionCoilBlock.outputQuality(level, coilWorld) != PortQuality.VALID
+                    || InductionCoilBlock.outputVoltage(level, coilWorld) != 0
+                    || CopperWireBlock.driverCount(level, outputWorld) != 1
+                    || CopperWireBlock.quality(level, outputWorld, helper.getBlockState(outputWire)) != PortQuality.VALID) {
+                helper.fail("Precondition failed: induction coil did not establish a complete valid-zero baseline", coil);
+                return;
+            }
+
+            helper.setBlock(magnet, helper.getBlockState(magnet).setValue(PermanentMagnetBlock.STRENGTH, 15));
+            level.scheduleTick(coilWorld, RedstoneEngineering.INDUCTION_COIL.get(), 1);
+            helper.runAfterDelay(1, () -> {
+                int beforeTurns = level.getBlockState(coilWorld).getValue(InductionCoilBlock.TURNS);
+                int oldTransient = InductionCoilBlock.outputVoltage(level, coilWorld);
+                PortQuality oldQuality = InductionCoilBlock.outputQuality(level, coilWorld);
+                int oldWireVoltage = DomainNetwork.sampleCopperVoltage(level, outputWorld);
+
+                if (beforeTurns != 2
+                        || oldTransient <= 0
+                        || oldQuality != PortQuality.VALID
+                        || CopperWireBlock.driverCount(level, outputWorld) != 1
+                        || oldWireVoltage != oldTransient) {
+                    helper.fail("Precondition failed: real magnetic delta did not establish one authoritative non-zero induction transient"
+                            + " | turns=" + beforeTurns
+                            + " emf=" + oldTransient
+                            + " quality=" + oldQuality
+                            + " drivers=" + CopperWireBlock.driverCount(level, outputWorld)
+                            + " wireV=" + oldWireVoltage, coil);
+                    return;
+                }
+
+                int afterTurns = InductionCoilBlock.cycleTurns(level, coilWorld);
+                if (afterTurns != 3 || level.getBlockState(coilWorld).getValue(InductionCoilBlock.TURNS) != 3) {
+                    helper.fail("Precondition failed: authoritative induction configuration path did not change turns 2->3"
+                            + " | returned=" + afterTurns
+                            + " state=" + level.getBlockState(coilWorld).getValue(InductionCoilBlock.TURNS), coil);
+                    return;
+                }
+
+                DomainNetwork.recomputeCopper(level, outputWorld);
+                PortQuality immediateQuality = InductionCoilBlock.outputQuality(level, coilWorld);
+                int immediateEmf = InductionCoilBlock.outputVoltage(level, coilWorld);
+                int immediateWireVoltage = DomainNetwork.sampleCopperVoltage(level, outputWorld);
+
+                if (immediateQuality == PortQuality.VALID
+                        || immediateEmf != 0
+                        || immediateWireVoltage != 0
+                        || CopperWireBlock.driverCount(level, outputWorld) != 0) {
+                    helper.fail("Induction TURNS reconfiguration left the old transient authoritative"
+                            + " | turns=" + beforeTurns + "->" + afterTurns
+                            + " oldEmf=" + oldTransient
+                            + " quality=" + immediateQuality
+                            + " emf=" + immediateEmf
+                            + " drivers=" + CopperWireBlock.driverCount(level, outputWorld)
+                            + " wireV=" + immediateWireVoltage, coil);
+                    return;
+                }
+
+                helper.runAfterDelay(4, () -> {
+                    PortQuality recoveredQuality = InductionCoilBlock.outputQuality(level, coilWorld);
+                    int recoveredEmf = InductionCoilBlock.outputVoltage(level, coilWorld);
+                    int recoveredWireVoltage = DomainNetwork.sampleCopperVoltage(level, outputWorld);
+                    int recoveredDrivers = CopperWireBlock.driverCount(level, outputWorld);
+
+                    if (recoveredQuality != PortQuality.VALID
+                            || recoveredEmf != 0
+                            || recoveredWireVoltage != 0
+                            || recoveredDrivers != 1) {
+                        helper.fail("Induction coil did not re-arm to one fresh valid-zero Copper source after turns reconfiguration"
+                                + " | quality=" + recoveredQuality
+                                + " emf=" + recoveredEmf
+                                + " drivers=" + recoveredDrivers
+                                + " wireV=" + recoveredWireVoltage, coil);
+                        return;
+                    }
+                    helper.succeed();
+                });
             });
         });
     }
