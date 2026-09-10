@@ -97,13 +97,14 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
         statusBadge(g, deviceName(), health, 16, 80);
         statusBadge(g, family(), INFO, 200, 80);
 
-        metricCard(g, 16, 103, "PRIMARY", valueText(menu.primary()));
-        metricCard(g, 111, 103, "SECONDARY", valueText(menu.secondary()));
-        metricCard(g, 206, 103, "AUX", valueText(menu.tertiary()));
+        metricCard(g, 16, 103, metricLabel(0), metricValue(0, menu.primary()));
+        metricCard(g, 111, 103, metricLabel(1), metricValue(1, menu.secondary()));
+        metricCard(g, 206, 103, metricLabel(2), metricValue(2, menu.tertiary()));
 
         labelValue(g, "Quality", menu.qualityPercent() + "%", 149);
-        labelValue(g, "Runtime", menu.dataValid() ? "VALID / ACTIVE EVIDENCE" : "NO SIGNAL / INVALID", 165);
+        labelValue(g, "Evidence", menu.dataValid() ? "VALID / SERVER READBACK" : "NO SIGNAL / INVALID", 165);
         labelValue(g, "Topology", menu.topologyValid() ? "PASS" : "FAIL-CLOSED", 181);
+        g.drawString(font, engineeringHint(), 16, 199, menu.topologyValid() ? MUTED : BAD, false);
 
         if (menu.kind() == FieldDeviceMenu.KIND_REDSTONE_JUNCTION) {
             junctionSummary(g, 149);
@@ -144,7 +145,7 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
     private void configure(GuiGraphics g) {
         statusBadge(g, adjustable() ? "SERVER-SIDE BOUNDED CONTROL" : "READ-ONLY DEVICE", adjustable() ? INFO : MUTED, 16, 80);
         labelValue(g, "Control axis", adjustmentLabel(), 102);
-        labelValue(g, "Current value", Integer.toString(controlValue()), 158);
+        labelValue(g, "Current value", controlValueText(), 158);
         if (menu.kind() == FieldDeviceMenu.KIND_REDSTONE_JUNCTION) {
             g.drawString(font, "Junction Point has no conversion mode and no routing-mode toggle.", 16, 178, WARN, false);
             g.drawString(font, "Its medium is inferred from UP/DOWN physical cables.", 16, 194, MUTED, false);
@@ -161,6 +162,7 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
         labelValue(g, "Ports / links", menu.portCount() + " / " + menu.connectionCount(), 152);
         labelValue(g, "Connection mask", "0x" + Integer.toHexString(menu.connectionMask()).toUpperCase(), 168);
         statusLine(g, "Authority", "SERVER SYNCHRONIZED", GOOD, 188);
+        g.drawString(font, diagnosticHint(), 16, 207, menu.topologyValid() ? MUTED : BAD, false);
         if (menu.kind() == FieldDeviceMenu.KIND_REDSTONE_JUNCTION) {
             junctionSummary(g, 120);
         }
@@ -222,11 +224,16 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
     private String family() {
         int k = menu.kind();
         if (k == FieldDeviceMenu.KIND_REDSTONE_JUNCTION) return "ROUTING";
-        if (k >= FieldDeviceMenu.KIND_AIR_COMPRESSOR && k <= FieldDeviceMenu.KIND_PNEUMATIC_FLOW_METER) return "PNEUMATIC";
+        if (k >= FieldDeviceMenu.KIND_AIR_COMPRESSOR && k <= FieldDeviceMenu.KIND_PNEUMATIC_FLOW_METER
+                || k >= FieldDeviceMenu.KIND_PNEUMATIC_PROPORTIONAL_VALVE && k <= FieldDeviceMenu.KIND_PNEUMATIC_CYLINDER) {
+            return "PNEUMATIC";
+        }
         if (k >= FieldDeviceMenu.KIND_ELECTROMAGNET && k <= FieldDeviceMenu.KIND_MAGNETIC_GRADIENT_METER) return "MAGNETIC";
         if (k >= FieldDeviceMenu.KIND_OPTICAL_FIBER && k <= FieldDeviceMenu.KIND_OPTICAL_FIBER_JUNCTION) return "OPTICAL";
         if (k >= FieldDeviceMenu.KIND_DATA_BUS_8 && k <= FieldDeviceMenu.KIND_FREE_OPTICAL_RECEIVER) return "COMMUNICATIONS";
+        if (k >= FieldDeviceMenu.KIND_AMETHYST_RESONATOR && k <= FieldDeviceMenu.KIND_THERMAL_RECEIVER) return "WAVE / METROLOGY";
         if (k >= FieldDeviceMenu.KIND_WATCHDOG && k <= FieldDeviceMenu.KIND_OPERATIONS_MONITOR) return "CPS / RELIABILITY";
+        if (k >= FieldDeviceMenu.KIND_EDGE_DETECTOR && k <= FieldDeviceMenu.KIND_QUARTZ_OSCILLATOR) return "SIGNAL / TIMING";
         return "ENGINEERING DEVICE";
     }
 
@@ -235,8 +242,137 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
         return title.getString().toUpperCase();
     }
 
-    private String valueText(int value) {
+    private String metricLabel(int slot) {
+        int k = menu.kind();
+        if (k == FieldDeviceMenu.KIND_REDSTONE_JUNCTION) {
+            return switch (slot) { case 0 -> "SIGNAL"; case 1 -> "SOURCES"; default -> "MEDIUM"; };
+        }
+        if (k == FieldDeviceMenu.KIND_PRESSURE_REGULATOR) {
+            return switch (slot) { case 0 -> "PRESSURE"; case 1 -> "SETPOINT"; default -> "SETTING"; };
+        }
+        if (k == FieldDeviceMenu.KIND_PNEUMATIC_FLOW_METER) {
+            return switch (slot) { case 0 -> "FLOW"; case 1 -> "Δ PRESSURE"; default -> "INLET"; };
+        }
+        if (k == FieldDeviceMenu.KIND_PNEUMATIC_CYLINDER) {
+            return switch (slot) { case 0 -> "PRESSURE"; case 1 -> "POSITION"; default -> "TARGET"; };
+        }
+        if (k == FieldDeviceMenu.KIND_AIR_COMPRESSOR) {
+            return switch (slot) { case 0 -> "COMMAND"; case 1 -> "SET PRESS."; default -> "ACTUAL"; };
+        }
+        if (k >= FieldDeviceMenu.KIND_AIR_COMPRESSOR && k <= FieldDeviceMenu.KIND_PNEUMATIC_FLOW_METER
+                || k >= FieldDeviceMenu.KIND_PNEUMATIC_PROPORTIONAL_VALVE && k <= FieldDeviceMenu.KIND_PNEUMATIC_CYLINDER) {
+            return switch (slot) { case 0 -> "INLET"; case 1 -> "OUTLET"; default -> "STATE"; };
+        }
+        if (k == FieldDeviceMenu.KIND_INDUCTION_COIL) {
+            return switch (slot) { case 0 -> "FIELD"; case 1 -> "EMF"; default -> "TURNS"; };
+        }
+        if (k == FieldDeviceMenu.KIND_MAGNETIC_GRADIENT_METER) {
+            return switch (slot) { case 0 -> "FIELD"; case 1 -> "GRAD X"; default -> "GRAD Y"; };
+        }
+        if (k >= FieldDeviceMenu.KIND_ELECTROMAGNET && k <= FieldDeviceMenu.KIND_MAGNETIC_GRADIENT_METER) {
+            return switch (slot) { case 0 -> "FIELD"; case 1 -> "DRIVE"; default -> "CONFIG"; };
+        }
+        if (k == FieldDeviceMenu.KIND_OPTICAL_EMITTER) {
+            return switch (slot) { case 0 -> "INTENSITY"; case 1 -> "CHANNEL"; default -> "CONFIG"; };
+        }
+        if (k == FieldDeviceMenu.KIND_OPTICAL_RECEIVER || k == FieldDeviceMenu.KIND_OPTICAL_FIBER
+                || k == FieldDeviceMenu.KIND_OPTICAL_POWER_METER) {
+            return switch (slot) { case 0 -> "INTENSITY"; case 1 -> "CHANNEL"; default -> "AUX"; };
+        }
+        if (k == FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER) {
+            return switch (slot) { case 0 -> "INPUT"; case 1 -> "CHANNEL"; default -> "OUTPUT"; };
+        }
+        if (k == FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR) {
+            return switch (slot) { case 0 -> "INPUT"; case 1 -> "OUTPUT"; default -> "LOSS"; };
+        }
+        if (k >= FieldDeviceMenu.KIND_OPTICAL_FIBER && k <= FieldDeviceMenu.KIND_OPTICAL_FIBER_JUNCTION) {
+            return switch (slot) { case 0 -> "OPTICAL"; case 1 -> "CHANNEL"; default -> "STATE"; };
+        }
+        if (k == FieldDeviceMenu.KIND_DATA_BUS_8) {
+            return switch (slot) { case 0 -> "PAYLOAD"; case 1 -> "DRIVERS"; default -> "LOAD"; };
+        }
+        if (k == FieldDeviceMenu.KIND_SERIAL_LINE || k == FieldDeviceMenu.KIND_SERIALIZER || k == FieldDeviceMenu.KIND_DESERIALIZER) {
+            return switch (slot) { case 0 -> "PAYLOAD"; case 1 -> "TIMING"; default -> "STATE"; };
+        }
+        if (k == FieldDeviceMenu.KIND_DIFFERENTIAL_PAIR || k == FieldDeviceMenu.KIND_DIFFERENTIAL_DRIVER
+                || k == FieldDeviceMenu.KIND_DIFFERENTIAL_RECEIVER) {
+            return switch (slot) { case 0 -> "LOGIC"; case 1 -> "DRIVERS"; default -> "STATE"; };
+        }
+        if (k == FieldDeviceMenu.KIND_RADIO_TRANSMITTER || k == FieldDeviceMenu.KIND_RADIO_RECEIVER) {
+            return switch (slot) { case 0 -> "PAYLOAD"; case 1 -> "CHANNEL"; default -> "LINK"; };
+        }
+        if (k >= FieldDeviceMenu.KIND_DATA_BUS_8 && k <= FieldDeviceMenu.KIND_FREE_OPTICAL_RECEIVER) {
+            return switch (slot) { case 0 -> "PAYLOAD"; case 1 -> "SELECTOR"; default -> "STATE"; };
+        }
+        if (k == FieldDeviceMenu.KIND_QUARTZ_DIVIDER || k == FieldDeviceMenu.KIND_QUARTZ_STABILITY
+                || k == FieldDeviceMenu.KIND_QUARTZ_LINE || k == FieldDeviceMenu.KIND_QUARTZ_OSCILLATOR) {
+            return switch (slot) { case 0 -> "PERIOD"; case 1 -> "PHASE"; default -> "STATE"; };
+        }
+        if (k == FieldDeviceMenu.KIND_RANGE_SENSOR) {
+            return switch (slot) { case 0 -> "RANGE"; case 1 -> "OUTPUT"; default -> "LIMIT"; };
+        }
+        if (k == FieldDeviceMenu.KIND_REFERENCE) {
+            return switch (slot) { case 0 -> "OUTPUT"; case 1 -> "QUALITY"; default -> "STATE"; };
+        }
+        if (k == FieldDeviceMenu.KIND_FILTER) {
+            return switch (slot) { case 0 -> "INPUT"; case 1 -> "OUTPUT"; default -> "SLEW"; };
+        }
+        if (k == FieldDeviceMenu.KIND_PROBE) {
+            return switch (slot) { case 0 -> "SIGNAL"; case 1 -> "CHANNEL"; default -> "MODE"; };
+        }
+        if (k >= FieldDeviceMenu.KIND_WATCHDOG && k <= FieldDeviceMenu.KIND_OPERATIONS_MONITOR) {
+            return switch (slot) { case 0 -> "PROCESS"; case 1 -> "STATUS"; default -> "SAFETY"; };
+        }
+        if (k >= FieldDeviceMenu.KIND_AMETHYST_RESONATOR && k <= FieldDeviceMenu.KIND_THERMAL_RECEIVER) {
+            return switch (slot) { case 0 -> "AMPLITUDE"; case 1 -> "FREQUENCY"; default -> "STATE"; };
+        }
+        return switch (slot) { case 0 -> "PROCESS"; case 1 -> "READBACK"; default -> "CONFIG"; };
+    }
+
+    private String metricValue(int slot, int value) {
+        int k = menu.kind();
+        if (k == FieldDeviceMenu.KIND_DATA_BUS_8 || k == FieldDeviceMenu.KIND_ENCODER || k == FieldDeviceMenu.KIND_DECODER) {
+            return slot == 0 ? String.format("0x%02X", value & 0xFF) : Integer.toString(value);
+        }
+        if (k == FieldDeviceMenu.KIND_INDUCTION_COIL && slot == 2) return value + " turns";
+        if (k == FieldDeviceMenu.KIND_OPTICAL_EMITTER || k == FieldDeviceMenu.KIND_OPTICAL_RECEIVER
+                || k == FieldDeviceMenu.KIND_OPTICAL_FIBER || k == FieldDeviceMenu.KIND_OPTICAL_POWER_METER) {
+            if (slot == 0) return value + " / 15";
+            if (slot == 1) return "CH " + value;
+        }
+        if (k >= FieldDeviceMenu.KIND_AIR_COMPRESSOR && k <= FieldDeviceMenu.KIND_PNEUMATIC_FLOW_METER
+                || k >= FieldDeviceMenu.KIND_PNEUMATIC_PROPORTIONAL_VALVE && k <= FieldDeviceMenu.KIND_PNEUMATIC_CYLINDER) {
+            return Integer.toString(value);
+        }
+        if (k >= FieldDeviceMenu.KIND_ELECTROMAGNET && k <= FieldDeviceMenu.KIND_MAGNETIC_GRADIENT_METER) {
+            return slot == 0 ? value + " field" : Integer.toString(value);
+        }
         return Integer.toString(value);
+    }
+
+    private String controlValueText() {
+        if (menu.kind() == FieldDeviceMenu.KIND_INDUCTION_COIL) return controlValue() + " turns";
+        if (menu.kind() == FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER) return "CH " + controlValue();
+        if (menu.kind() == FieldDeviceMenu.KIND_OPTICAL_EMITTER) return controlValue() + " / 15";
+        return Integer.toString(controlValue());
+    }
+
+    private String engineeringHint() {
+        if (!menu.topologyValid()) return "Topology incomplete or incompatible: output must remain fail-closed.";
+        if (menu.kind() == FieldDeviceMenu.KIND_REDSTONE_JUNCTION) return "Vertical riser • same-medium continuity • no translation.";
+        if (family().equals("PNEUMATIC")) return "Compare commanded, inlet and realized pressure before changing control settings.";
+        if (family().equals("MAGNETIC")) return "Field evidence is observational; configuration changes must not fabricate a transient.";
+        if (family().equals("OPTICAL")) return "Check channel identity and intensity together; valid zero is distinct from missing evidence.";
+        if (family().equals("COMMUNICATIONS")) return "Interpret payload with driver count, quality and topology; never trust value alone.";
+        if (family().equals("CPS / RELIABILITY")) return "Safety state is server-authoritative; degraded evidence must not appear healthy.";
+        return "Use quality + topology + readback together before treating a value as authoritative.";
+    }
+
+    private String diagnosticHint() {
+        if (!menu.topologyValid()) return "ACTION: inspect physical ports / incompatible neighbor / unloaded boundary.";
+        if (!menu.dataValid()) return "ACTION: trace source evidence; zero and NO SIGNAL are not equivalent.";
+        if (menu.qualityPercent() < 100) return "ACTION: inspect degraded quality before adjusting the device.";
+        return "No current boundary fault detected; readback remains server-authoritative.";
     }
 
     private String faces() {
