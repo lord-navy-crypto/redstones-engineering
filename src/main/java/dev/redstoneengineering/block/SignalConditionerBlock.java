@@ -31,6 +31,8 @@ import java.util.Optional;
  * The axis can be rotated from the Engineering UI without changing the selected transfer
  * function. Gain, offset, clamp, threshold and deadband remain bounded to vanilla redstone
  * 0..15 at the world boundary.</p>
+ *
+ * <p>Threshold HIGH and deadband hold are intentional transfer semantics, not saturation.</p>
  */
 public class SignalConditionerBlock extends DirectionalSignalBlock {
     public static final IntegerProperty MODE = IntegerProperty.create("mode", 0, 4);
