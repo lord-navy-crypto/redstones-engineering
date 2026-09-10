@@ -85,5 +85,6 @@ public final class RseGameTestRegistration {
         event.register(RsePneumaticNetworkBudgetSystemGameTests.class);
         event.register(RseCopperFuseBudgetSystemGameTests.class);
         event.register(RseFreeSpaceOpticsCoverageSystemGameTests.class);
+        event.register(RseMagneticCoverageSystemGameTests.class);
     }
 }
