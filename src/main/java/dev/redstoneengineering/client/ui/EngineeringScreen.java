@@ -14,8 +14,12 @@ import java.util.List;
 /**
  * Shared RSE engineering visual language.
  *
- * The screen renders server-synchronized menu data and emits bounded menu-button intent only.
- * It never computes physics, samples sensors, solves topology, or mutates controller state locally.
+ * <p>The screen renders server-synchronized menu data and emits bounded menu-button intent only.
+ * It never computes physics, samples sensors, solves topology, or mutates controller state locally.</p>
+ *
+ * <p>The shell deliberately looks like an engineering HMI rather than a vanilla inventory:
+ * live/server ownership is always visible, navigation is separated from telemetry, and every
+ * device gets a consistent coordinate/readback footer even when its device-specific panel is small.</p>
  */
 public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends AbstractContainerScreen<M> {
     protected enum Section {
@@ -34,9 +38,10 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         }
     }
 
-    protected static final int PANEL = 0xFF151A1F;
-    protected static final int PANEL_2 = 0xFF202830;
-    protected static final int BORDER = 0xFF66717B;
+    protected static final int PANEL = 0xFF11171D;
+    protected static final int PANEL_2 = 0xFF1B242C;
+    protected static final int PANEL_3 = 0xFF0B1015;
+    protected static final int BORDER = 0xFF5E6D78;
     protected static final int TEXT = 0xFFE8EDF2;
     protected static final int MUTED = 0xFF9BA8B3;
     protected static final int GOOD = 0xFF68D391;
@@ -44,6 +49,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     protected static final int BAD = 0xFFF06A6A;
     protected static final int INFO = 0xFF9EC8FF;
     protected static final int ACCENT = 0xFFE05555;
+    protected static final int WHITE_SIGN = 0xFFF3F5F7;
 
     private Section section = Section.OVERVIEW;
     private final List<AbstractWidget> configureWidgets = new ArrayList<>();
@@ -129,24 +135,30 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
         graphics.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, BORDER);
         graphics.fill(leftPos + 2, topPos + 2, leftPos + imageWidth - 2, topPos + imageHeight - 2, PANEL);
-        graphics.fill(leftPos + 8, topPos + 58, leftPos + imageWidth - 8, topPos + imageHeight - 9, PANEL_2);
+
+        // Header and navigation are visually isolated from telemetry so every device reads like an HMI.
         graphics.fill(leftPos + 8, topPos + 27, leftPos + imageWidth - 8, topPos + 29, ACCENT);
+        graphics.fill(leftPos + 8, topPos + 58, leftPos + imageWidth - 8, topPos + imageHeight - 28, PANEL_2);
+        graphics.fill(leftPos + 8, topPos + imageHeight - 25, leftPos + imageWidth - 8, topPos + imageHeight - 9, PANEL_3);
+
+        // Thin white equipment-identification rail: neutral across electrical/optical/data media.
+        graphics.fill(leftPos + 8, topPos + 58, leftPos + 11, topPos + imageHeight - 28, WHITE_SIGN);
     }
 
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
         graphics.drawString(font, title, 12, 9, TEXT, false);
+
+        String live = "● LIVE / SERVER";
+        graphics.drawString(font, live, imageWidth - 12 - font.width(live), 9, GOOD, false);
+
         graphics.drawString(font, section.label.toUpperCase(), 13, 62, TEXT, false);
         graphics.drawString(font, section.subtitle, 92, 62, MUTED, false);
         renderSection(graphics, section);
-        graphics.drawString(
-                font,
-                "SERVER AUTHORITATIVE  •  SYNCHRONIZED READBACK",
-                13,
-                imageHeight - 19,
-                MUTED,
-                false
-        );
+
+        String position = "@ " + menu.blockPos().getX() + ", " + menu.blockPos().getY() + ", " + menu.blockPos().getZ();
+        graphics.drawString(font, "AUTHORITATIVE READBACK", 13, imageHeight - 20, INFO, false);
+        graphics.drawString(font, position, imageWidth - 13 - font.width(position), imageHeight - 20, MUTED, false);
     }
 
     protected final void labelValue(GuiGraphics graphics, String label, String value, int y) {
@@ -161,9 +173,23 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
     protected final void statusBadge(GuiGraphics graphics, String value, int color, int x, int y) {
         int width = font.width(value) + 12;
-        graphics.fill(x, y, x + width, y + 14, 0xFF0C1014);
+        graphics.fill(x, y, x + width, y + 14, PANEL_3);
         graphics.fill(x, y, x + 3, y + 14, color);
         graphics.drawString(font, value, x + 7, y + 3, color, false);
+    }
+
+    /** Compact engineering metric card for richer device screens without adding client-side state. */
+    protected final void metricCard(GuiGraphics graphics, String label, String value, int x, int y, int width, int color) {
+        graphics.fill(x, y, x + width, y + 31, PANEL_3);
+        graphics.fill(x, y, x + 2, y + 31, color);
+        graphics.drawString(font, label.toUpperCase(), x + 7, y + 5, MUTED, false);
+        graphics.drawString(font, value, x + 7, y + 17, TEXT, false);
+    }
+
+    /** A shared state badge used by devices that expose validity/quality without inventing physics. */
+    protected final void healthBadge(GuiGraphics graphics, String state, boolean healthy, int x, int y) {
+        statusBadge(graphics, healthy ? "HEALTH • " + state : "ATTENTION • " + state,
+                healthy ? GOOD : WARN, x, y);
     }
 
     protected final void sectionRule(GuiGraphics graphics, int y) {
@@ -176,7 +202,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         int x1 = 286;
         int interior = x1 - x0 - 2;
         int fillWidth = (bounded * interior) / 15;
-        graphics.fill(x0, y, x1, y + 8, 0xFF0C1014);
+        graphics.fill(x0, y, x1, y + 8, PANEL_3);
         if (fillWidth > 0) graphics.fill(x0 + 1, y + 1, x0 + 1 + fillWidth, y + 7, ACCENT);
 
         for (int tick = 0; tick <= 15; tick += 5) {
