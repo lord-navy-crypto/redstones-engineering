@@ -95,18 +95,17 @@ public final class RseRadioMediumSystemGameTests {
             return;
         }
 
-        // A one-shot getChunkAt() does not retain a remote chunk across delayed GameTest assertions.
-        // Force only the receiver chunk for the fixture lifetime; nearby Tx evidence must remain unloaded.
-        ChunkPos receiverChunk = new ChunkPos(remoteRx);
-        level.setChunkForced(receiverChunk.x, receiverChunk.z, true);
+        // Load the receiver chunk synchronously, but do not retain it yet. The stale-coverage assertion
+        // is deliberately taken in this same tick so an asynchronous chunk ticket cannot make the
+        // registered-but-unavailable transmitter become available before production semantics are read.
         level.getChunkAt(remoteRx);
         BlockPos staleTx = findUnloadedCandidate(level, remoteRx);
         if (staleTx == null) {
-            level.setChunkForced(receiverChunk.x, receiverChunk.z, false);
-            helper.fail("Precondition failed: forcing the remote receiver chunk also loaded every Tx candidate within range");
+            helper.fail("Precondition failed: loading the remote receiver chunk also loaded every Tx candidate within range");
             return;
         }
 
+        ChunkPos receiverChunk = new ChunkPos(remoteRx);
         BlockPos loadedTx = remoteRx.west(3);
         BlockPos loadedPower = loadedTx.below();
         level.setBlock(remoteRx, RedstoneEngineering.RADIO_RECEIVER.get().defaultBlockState()
@@ -117,60 +116,60 @@ public final class RseRadioMediumSystemGameTests {
         // not call a block-removal hook. Model a Tx that was registered while loaded but whose chunk is now
         // unavailable. Unknown transmitter/path coverage must not become a decodable frame.
         RadioKernel.updateTransmitter(level, staleTx, channel, 15);
-        helper.runAfterDelay(8, () -> {
-            if (!level.hasChunkAt(remoteRx)) {
-                RadioKernel.removeTransmitter(level, staleTx);
-                level.setChunkForced(receiverChunk.x, receiverChunk.z, false);
-                helper.fail("Precondition failed: forced receiver chunk was not retained for coverage assertion");
-                return;
-            }
-            if (level.hasChunkAt(staleTx)) {
-                RadioKernel.removeTransmitter(level, staleTx);
-                cleanupRemote(level, remoteRx, loadedTx, loadedPower, receiverChunk);
-                helper.fail("Precondition failed: stale transmitter chunk became loaded before coverage assertion");
-                return;
-            }
+        if (!level.hasChunkAt(remoteRx)) {
+            RadioKernel.removeTransmitter(level, staleTx);
+            helper.fail("Precondition failed: remote receiver chunk was unavailable during same-tick coverage assertion");
+            return;
+        }
+        if (level.hasChunkAt(staleTx)) {
+            RadioKernel.removeTransmitter(level, staleTx);
+            level.setBlock(remoteRx, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+            helper.fail("Precondition failed: stale transmitter chunk was already loaded during same-tick coverage assertion");
+            return;
+        }
 
-            PortQuality staleQuality = RedstoneEngineering.RADIO_RECEIVER.get()
+        PortQuality staleQuality = RedstoneEngineering.RADIO_RECEIVER.get()
+                .engineeringSnapshot(level, remoteRx, level.getBlockState(remoteRx), Direction.UP)
+                .orElseThrow().quality();
+        int staleOutput = level.getBlockState(remoteRx).getValue(DirectionalSignalBlock.OUTPUT);
+        RadioKernel.Reception staleReception = RadioKernel.receivePacket(level, remoteRx, channel);
+
+        if (staleQuality != PortQuality.STALE || staleOutput != 0 || staleReception.valid()) {
+            RadioKernel.removeTransmitter(level, staleTx);
+            level.setBlock(remoteRx, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+            helper.fail("Unloaded registered transmitter was trusted as a definitive radio frame instead of STALE"
+                    + " | quality=" + staleQuality
+                    + " output=" + staleOutput
+                    + " valid=" + staleReception.valid()
+                    + " drivers=" + staleReception.drivers()
+                    + " linkQuality=" + staleReception.quality());
+            return;
+        }
+
+        // The unknown evidence has been removed. Only now retain the receiver chunk for delayed recovery;
+        // any neighboring chunk tickets created by retention can no longer contaminate the stale assertion.
+        RadioKernel.removeTransmitter(level, staleTx);
+        level.setChunkForced(receiverChunk.x, receiverChunk.z, true);
+        level.setBlock(loadedPower, Blocks.REDSTONE_BLOCK.defaultBlockState(), Block.UPDATE_CLIENTS);
+        level.setBlock(loadedTx, RedstoneEngineering.RADIO_TRANSMITTER.get().defaultBlockState()
+                .setValue(RadioTransmitterBlock.CHANNEL, channel), Block.UPDATE_CLIENTS);
+        helper.runAfterDelay(8, () -> {
+            PortQuality recoveredQuality = RedstoneEngineering.RADIO_RECEIVER.get()
                     .engineeringSnapshot(level, remoteRx, level.getBlockState(remoteRx), Direction.UP)
                     .orElseThrow().quality();
-            int staleOutput = level.getBlockState(remoteRx).getValue(DirectionalSignalBlock.OUTPUT);
-            RadioKernel.Reception staleReception = RadioKernel.receivePacket(level, remoteRx, channel);
+            RadioKernel.Reception recovered = RadioKernel.receivePacket(level, remoteRx, channel);
+            int recoveredOutput = level.getBlockState(remoteRx).getValue(DirectionalSignalBlock.OUTPUT);
+            cleanupRemote(level, remoteRx, loadedTx, loadedPower, receiverChunk);
 
-            if (staleQuality != PortQuality.STALE || staleOutput != 0 || staleReception.valid()) {
-                RadioKernel.removeTransmitter(level, staleTx);
-                cleanupRemote(level, remoteRx, loadedTx, loadedPower, receiverChunk);
-                helper.fail("Unloaded registered transmitter was trusted as a definitive radio frame instead of STALE"
-                        + " | quality=" + staleQuality
-                        + " output=" + staleOutput
-                        + " valid=" + staleReception.valid()
-                        + " drivers=" + staleReception.drivers()
-                        + " linkQuality=" + staleReception.quality());
+            if (recoveredQuality != PortQuality.VALID || !recovered.valid()
+                    || recovered.value() != 15 || recoveredOutput != 15) {
+                helper.fail("Radio receiver did not recover after replacing stale registry evidence with a loaded transmitter"
+                        + " | quality=" + recoveredQuality
+                        + " value=" + recovered.value()
+                        + " output=" + recoveredOutput);
                 return;
             }
-
-            RadioKernel.removeTransmitter(level, staleTx);
-            level.setBlock(loadedPower, Blocks.REDSTONE_BLOCK.defaultBlockState(), Block.UPDATE_CLIENTS);
-            level.setBlock(loadedTx, RedstoneEngineering.RADIO_TRANSMITTER.get().defaultBlockState()
-                    .setValue(RadioTransmitterBlock.CHANNEL, channel), Block.UPDATE_CLIENTS);
-            helper.runAfterDelay(8, () -> {
-                PortQuality recoveredQuality = RedstoneEngineering.RADIO_RECEIVER.get()
-                        .engineeringSnapshot(level, remoteRx, level.getBlockState(remoteRx), Direction.UP)
-                        .orElseThrow().quality();
-                RadioKernel.Reception recovered = RadioKernel.receivePacket(level, remoteRx, channel);
-                int recoveredOutput = level.getBlockState(remoteRx).getValue(DirectionalSignalBlock.OUTPUT);
-                cleanupRemote(level, remoteRx, loadedTx, loadedPower, receiverChunk);
-
-                if (recoveredQuality != PortQuality.VALID || !recovered.valid()
-                        || recovered.value() != 15 || recoveredOutput != 15) {
-                    helper.fail("Radio receiver did not recover after replacing stale registry evidence with a loaded transmitter"
-                            + " | quality=" + recoveredQuality
-                            + " value=" + recovered.value()
-                            + " output=" + recoveredOutput);
-                    return;
-                }
-                helper.succeed();
-            });
+            helper.succeed();
         });
     }
 
