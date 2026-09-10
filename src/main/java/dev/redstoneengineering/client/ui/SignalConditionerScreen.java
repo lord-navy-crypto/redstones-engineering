@@ -6,10 +6,12 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
-/** Compact Level-1 engineering panel for signal conditioning. */
+/** Full engineering panel for the series signal conditioner. */
 public final class SignalConditionerScreen extends EngineeringScreen<SignalConditionerMenu> {
     private Button parameterDecrease;
     private Button parameterIncrease;
+    private Button rotateLeft;
+    private Button rotateRight;
 
     public SignalConditionerScreen(SignalConditionerMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -18,22 +20,24 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
     @Override
     protected void addDeviceWidgets() {
         int y = topPos + 108;
-        addConfigureWidget(Button.builder(
-                Component.literal("◀ Mode"),
-                button -> sendMenuButton(SignalConditionerMenu.BUTTON_MODE_PREVIOUS)
-        ).bounds(leftPos + 18, y, 86, 20).build());
-        addConfigureWidget(Button.builder(
-                Component.literal("Mode ▶"),
-                button -> sendMenuButton(SignalConditionerMenu.BUTTON_MODE_NEXT)
-        ).bounds(leftPos + 108, y, 86, 20).build());
-        parameterDecrease = addConfigureWidget(Button.builder(
-                Component.literal("− Parameter"),
-                button -> sendMenuButton(SignalConditionerMenu.BUTTON_PARAM_DECREASE)
-        ).bounds(leftPos + 18, y + 25, 86, 20).build());
-        parameterIncrease = addConfigureWidget(Button.builder(
-                Component.literal("Parameter +"),
-                button -> sendMenuButton(SignalConditionerMenu.BUTTON_PARAM_INCREASE)
-        ).bounds(leftPos + 108, y + 25, 86, 20).build());
+        addConfigureWidget(Button.builder(Component.literal("◀ Mode"),
+                button -> sendMenuButton(SignalConditionerMenu.BUTTON_MODE_PREVIOUS))
+                .bounds(leftPos + 18, y, 86, 20).build());
+        addConfigureWidget(Button.builder(Component.literal("Mode ▶"),
+                button -> sendMenuButton(SignalConditionerMenu.BUTTON_MODE_NEXT))
+                .bounds(leftPos + 108, y, 86, 20).build());
+        parameterDecrease = addConfigureWidget(Button.builder(Component.literal("− Parameter"),
+                button -> sendMenuButton(SignalConditionerMenu.BUTTON_PARAM_DECREASE))
+                .bounds(leftPos + 18, y + 25, 86, 20).build());
+        parameterIncrease = addConfigureWidget(Button.builder(Component.literal("Parameter +"),
+                button -> sendMenuButton(SignalConditionerMenu.BUTTON_PARAM_INCREASE))
+                .bounds(leftPos + 108, y + 25, 86, 20).build());
+        rotateLeft = addConfigureWidget(Button.builder(Component.literal("↺ Axis"),
+                button -> sendMenuButton(SignalConditionerMenu.BUTTON_ROTATE_LEFT))
+                .bounds(leftPos + 198, y, 104, 20).build());
+        rotateRight = addConfigureWidget(Button.builder(Component.literal("Axis ↻"),
+                button -> sendMenuButton(SignalConditionerMenu.BUTTON_ROTATE_RIGHT))
+                .bounds(leftPos + 198, y + 25, 104, 20).build());
     }
 
     @Override
@@ -42,6 +46,8 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
         String shortName = parameterShortName(menu.mode());
         parameterDecrease.setMessage(Component.literal("− " + shortName));
         parameterIncrease.setMessage(Component.literal(shortName + " +"));
+        if (rotateLeft != null) rotateLeft.setMessage(Component.literal("↺ " + direction(menu.outputDirection().getName())));
+        if (rotateRight != null) rotateRight.setMessage(Component.literal(direction(menu.outputDirection().getName()) + " ↻"));
     }
 
     @Override
@@ -56,57 +62,68 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
     }
 
     private void renderOverview(GuiGraphics graphics) {
-        labelValue(graphics, "Input", menu.input() + " / 15", 82);
-        labelValue(graphics, "Output", menu.output() + " / 15", 97);
-        labelValue(graphics, "Mode", modeName(menu.mode()), 112);
-        labelValue(graphics, parameterName(menu.mode()), parameterText(menu.mode(), menu.parameter()), 127);
-        statusBadge(graphics, boundaryState(), boundaryColor(), 16, 143);
-        graphics.drawString(font, "OUTPUT SIGNAL", 16, 162, MUTED, false);
-        signalBar(graphics, menu.output(), 174);
+        statusBadge(graphics, "SERIES SIGNAL CONDITIONER", INFO, 16, 80);
+        labelValue(graphics, "Input", menu.input() + " / 15", 105);
+        labelValue(graphics, "Transfer", modeName(menu.mode()) + " • " + parameterText(menu.mode(), menu.parameter()), 121);
+        labelValue(graphics, "Output", menu.output() + " / 15", 137);
+        labelValue(graphics, "Series path", direction(menu.inputDirection().getName()) + " → " + direction(menu.outputDirection().getName()), 153);
+        statusLine(graphics, "Boundary", boundaryState(), boundaryColor(), 173);
+        graphics.drawString(font, "OUTPUT", 16, 194, MUTED, false);
+        signalBar(graphics, menu.output(), 205);
     }
 
     private void renderPorts(GuiGraphics graphics) {
-        statusLine(graphics, "BACK", "INPUT • REDSTONE 0..15", GOOD, 84);
-        statusLine(graphics, "FRONT", "OUTPUT • REDSTONE 0..15", GOOD, 102);
-        sectionRule(graphics, 119);
-        statusLine(graphics, "LEFT / RIGHT", "NO ENGINEERING PORT", MUTED, 128);
-        statusLine(graphics, "UP / DOWN", "NO ENGINEERING PORT", MUTED, 146);
-        graphics.drawString(font, "Orientation matters: BACK reads, FRONT drives.", 16, 167, INFO, false);
+        statusBadge(graphics, "SERIES I/O AXIS", GOOD, 16, 80);
+        statusLine(graphics, direction(menu.inputDirection().getName()), "INPUT • REDSTONE 0..15", GOOD, 108);
+        statusLine(graphics, "PROCESS", modeName(menu.mode()) + " • " + parameterText(menu.mode(), menu.parameter()), INFO, 130);
+        statusLine(graphics, direction(menu.outputDirection().getName()), "OUTPUT • REDSTONE 0..15", GOOD, 152);
+        sectionRule(graphics, 174);
+        graphics.drawString(font, "Input and output remain opposite ends of one rotatable series path.", 16, 186, MUTED, false);
+        graphics.drawString(font, "Rotate the axis in Configure; side faces remain non-driving.", 16, 202, MUTED, false);
     }
 
     private void renderConfigure(GuiGraphics graphics) {
-        labelValue(graphics, "Current mode", modeName(menu.mode()), 80);
-        labelValue(graphics, parameterName(menu.mode()), parameterText(menu.mode(), menu.parameter()), 95);
-        graphics.drawString(font, "Allowed: " + parameterRange(menu.mode()), 208, 95, MUTED, false);
-        graphics.drawString(font, behaviorLine(menu.mode()), 16, 161, TEXT, false);
-        graphics.drawString(font, "Buttons send intent; the logical server validates and applies it.", 16, 176, MUTED, false);
+        statusBadge(graphics, "SERVER-AUTHORITATIVE CONTROL", INFO, 16, 80);
+        labelValue(graphics, "Mode", modeName(menu.mode()), 102);
+        labelValue(graphics, parameterName(menu.mode()), parameterText(menu.mode(), menu.parameter()), 118);
+        labelValue(graphics, "Allowed", parameterRange(menu.mode()), 134);
+        labelValue(graphics, "Input → Output", direction(menu.inputDirection().getName()) + " → " + direction(menu.outputDirection().getName()), 150);
+        graphics.drawString(font, behaviorLine(menu.mode()), 16, 177, TEXT, false);
+        graphics.drawString(font, "Buttons change configuration only on the logical server.", 16, 194, MUTED, false);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
-        labelValue(graphics, "Live input", menu.input() + " / 15", 82);
-        labelValue(graphics, "Live output", menu.output() + " / 15", 97);
-        statusLine(graphics, "World boundary", "0..15 • CLAMPED", GOOD, 115);
-        statusLine(graphics, "Input direction", "BACK ONLY", GOOD, 133);
-        statusLine(graphics, "Output direction", "FRONT ONLY", GOOD, 151);
-        statusLine(graphics, "Output state", boundaryState(), boundaryColor(), 169);
+        statusBadge(graphics, menu.limiting() ? "SATURATED" : "TRANSFER VALID", menu.limiting() ? WARN : GOOD, 16, 80);
+        labelValue(graphics, "Live input", menu.input() + " / 15", 105);
+        labelValue(graphics, "Live output", menu.output() + " / 15", 121);
+        labelValue(graphics, "Mode / parameter", modeName(menu.mode()) + " • " + parameterText(menu.mode(), menu.parameter()), 137);
+        labelValue(graphics, "Input face", direction(menu.inputDirection().getName()), 153);
+        labelValue(graphics, "Output face", direction(menu.outputDirection().getName()), 169);
+        statusLine(graphics, "0..15 boundary", menu.limiting() ? "SATURATION ACTIVE" : "VALID • INCLUDING ZERO", menu.limiting() ? WARN : GOOD, 190);
     }
 
     private void renderHistory(GuiGraphics graphics) {
-        graphics.drawString(font, "No internal history buffer is stored in this compact processor.", 16, 84, TEXT, false);
-        graphics.drawString(font, "Place an analyzer or oscilloscope downstream for time history.", 16, 103, INFO, false);
-        sectionRule(graphics, 124);
-        graphics.drawString(font, "Reason: conditioning stays small, deterministic, and world-facing.", 16, 136, MUTED, false);
-        graphics.drawString(font, "The authoritative live readback remains available in Overview.", 16, 154, MUTED, false);
+        statusBadge(graphics, "LIVE STATE / EXTERNAL HISTORY", INFO, 16, 80);
+        graphics.drawString(font, "The conditioner exposes the complete current transfer state above.", 16, 108, TEXT, false);
+        graphics.drawString(font, "For time history, place Probe / Analyzer / Oscilloscope on the series path.", 16, 127, INFO, false);
+        sectionRule(graphics, 149);
+        graphics.drawString(font, "Current state = input + mode + parameter + output + I/O direction + saturation.", 16, 162, MUTED, false);
+        graphics.drawString(font, "A valid zero is data; it is never treated as a fault by this screen.", 16, 180, GOOD, false);
     }
 
     private String boundaryState() {
-        if (menu.output() <= 0) return "LOW LIMIT";
-        if (menu.output() >= 15) return "HIGH LIMIT";
+        if (menu.limiting()) return "SATURATED • WORLD BOUNDARY ACTIVE";
+        if (menu.output() == 0) return "VALID ZERO";
+        if (menu.output() == 15) return "VALID FULL-SCALE";
         return "IN RANGE";
     }
 
     private int boundaryColor() {
-        return menu.output() <= 0 || menu.output() >= 15 ? WARN : GOOD;
+        return menu.limiting() ? WARN : GOOD;
+    }
+
+    private static String direction(String name) {
+        return name.toUpperCase();
     }
 
     private static String modeName(int mode) {
@@ -154,11 +171,11 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
 
     private static String behaviorLine(int mode) {
         return switch (mode) {
-            case 0 -> "GAIN: scale input; the world-facing output remains bounded to 0..15.";
-            case 1 -> "OFFSET: add a signed correction, then clamp to the 0..15 boundary.";
-            case 2 -> "CLAMP: pass the input up to the selected maximum ceiling.";
-            case 3 -> "THRESHOLD: pass input at/above the trip level; otherwise output 0.";
-            case 4 -> "DEADBAND: accept only changes large enough to cross the selected band.";
+            case 0 -> "GAIN: multiply input; only the external redstone boundary clamps to 0..15.";
+            case 1 -> "OFFSET: add signed correction, then enforce the vanilla 0..15 boundary.";
+            case 2 -> "CLAMP: pass input until the configured ceiling is reached.";
+            case 3 -> "THRESHOLD: pass values at/above trip; otherwise emit a valid zero.";
+            case 4 -> "DEADBAND: hold output until the input change exceeds the selected band.";
             default -> "Unknown conditioning mode.";
         };
     }
