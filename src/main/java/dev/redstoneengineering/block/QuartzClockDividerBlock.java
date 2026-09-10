@@ -62,16 +62,13 @@ public class QuartzClockDividerBlock extends DirectionalDomainBlock implements E
         return runtime == null || runtime.length != RUNTIME_SIZE ? 0 : runtime[COUNT_SLOT];
     }
 
-    /**
-     * Server-authoritative configuration transition shared by the real player interaction and lifecycle tests.
-     * This deliberately contains only the existing configuration behavior: advance divisor, reset runtime,
-     * and schedule the next real sample. Driver-claim lifecycle remains the responsibility under audit.
-     */
+    /** Server-authoritative divisor transition. Configuration invalidates the old output claim immediately. */
     public static int cycleDivision(ServerLevel level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof QuartzClockDividerBlock)) return 0;
         int index = (state.getValue(DIV_INDEX) + 1) % 4;
         level.setBlock(pos, state.setValue(DIV_INDEX, index), Block.UPDATE_CLIENTS);
+        DomainNetwork.driveQuartz(level, outputPos(pos, state), pos, false, 1, false);
         RuntimeIntStore.remove(level, KEY, pos);
         level.scheduleTick(pos, state.getBlock(), 1);
         return division(index);
