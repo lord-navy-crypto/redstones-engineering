@@ -42,7 +42,6 @@ public final class RseDomainDriverLifecycleSystemGameTests {
         level.setBlock(phase, phaseState, Block.UPDATE_CLIENTS);
         level.setBlock(output, outputLine, Block.UPDATE_CLIENTS);
 
-        // Establish a reachable currently-authoritative output owned by the real loaded PhaseDelay block.
         DomainDriverRegistry.claim(level, "quartz", phase, output, 1, 8, 0);
         DomainNetwork.recomputeQuartz(level, output);
         if (QuartzTimingLineBlock.quality(level, output) != PortQuality.VALID
@@ -64,8 +63,6 @@ public final class RseDomainDriverLifecycleSystemGameTests {
             return;
         }
 
-        // The real interaction clears PhaseDelay runtime immediately. Before its next scheduled tick,
-        // downstream recomputation must not be able to resurrect the old HIGH claim as fresh authority.
         DomainNetwork.recomputeQuartz(level, output);
         PortQuality resetQuality = QuartzTimingLineBlock.quality(level, output);
         boolean resetActive = QuartzTimingLineBlock.active(level, output);
@@ -83,7 +80,6 @@ public final class RseDomainDriverLifecycleSystemGameTests {
             return;
         }
 
-        // Exact recovery: a fresh post-reset drive from the same still-loaded device may reclaim authority.
         DomainNetwork.driveQuartz(level, output, phase, true, 16, true);
         PortQuality recoveredQuality = QuartzTimingLineBlock.quality(level, output);
         boolean recoveredActive = QuartzTimingLineBlock.active(level, output);
@@ -117,7 +113,6 @@ public final class RseDomainDriverLifecycleSystemGameTests {
         level.setBlock(divider, dividerState, Block.UPDATE_CLIENTS);
         level.setBlock(output, outputLine, Block.UPDATE_CLIENTS);
 
-        // Model a real currently-authoritative divided-clock output owned by the loaded divider.
         DomainDriverRegistry.claim(level, "quartz", divider, output, 1, 8, 0);
         DomainNetwork.recomputeQuartz(level, output);
         if (QuartzTimingLineBlock.quality(level, output) != PortQuality.VALID
@@ -130,21 +125,13 @@ public final class RseDomainDriverLifecycleSystemGameTests {
 
         int beforeDivision = QuartzClockDividerBlock.division(
                 level.getBlockState(divider).getValue(QuartzClockDividerBlock.DIV_INDEX));
-        var player = helper.makeMockPlayer(GameType.SURVIVAL);
-        player.setShiftKeyDown(true);
-        BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(divider), Direction.UP, divider, false);
-        level.getBlockState(divider).useWithoutItem(level, player, hit);
-        player.setShiftKeyDown(false);
-        int afterDivision = QuartzClockDividerBlock.division(
-                level.getBlockState(divider).getValue(QuartzClockDividerBlock.DIV_INDEX));
+        int afterDivision = QuartzClockDividerBlock.cycleDivision(level, divider);
         if (afterDivision == beforeDivision) {
             cleanup(level, divider, output);
-            helper.fail("Precondition failed: real ClockDivider configuration interaction did not change divisor");
+            helper.fail("Precondition failed: authoritative ClockDivider configuration path did not change divisor");
             return;
         }
 
-        // Runtime has been reset and phase must be re-armed. The pre-reset output claim must therefore
-        // lose authority immediately rather than survive until the next scheduled device tick.
         DomainNetwork.recomputeQuartz(level, output);
         PortQuality resetQuality = QuartzTimingLineBlock.quality(level, output);
         boolean resetActive = QuartzTimingLineBlock.active(level, output);
@@ -162,7 +149,6 @@ public final class RseDomainDriverLifecycleSystemGameTests {
             return;
         }
 
-        // Exact recovery: a fresh post-reset drive may establish the newly configured output period.
         int recoveredPeriodExpected = 16;
         DomainNetwork.driveQuartz(level, output, divider, true, recoveredPeriodExpected, true);
         PortQuality recoveredQuality = QuartzTimingLineBlock.quality(level, output);
