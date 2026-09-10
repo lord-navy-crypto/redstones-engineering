@@ -63,8 +63,9 @@ public class IronCoreBlock extends DomainBlock implements EngineeringPortProvide
         return MagneticPhysics.appliedFieldSample(level, pos, APPLIED_FIELD_RADIUS);
     }
 
+    /** Numeric readback stays on the historical bounded applied-field API. */
     public static int appliedField(Level level, BlockPos pos) {
-        return appliedFieldSample(level, pos).field();
+        return MagneticPhysics.appliedFieldAt(level, pos, APPLIED_FIELD_RADIUS);
     }
 
     /**
