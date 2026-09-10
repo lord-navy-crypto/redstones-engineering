@@ -11,7 +11,6 @@ import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -95,9 +94,8 @@ public final class RseRadioMediumSystemGameTests {
             return;
         }
 
-        // Load the receiver chunk synchronously, but do not retain it yet. The stale-coverage assertion
-        // is deliberately taken in this same tick so an asynchronous chunk ticket cannot make the
-        // registered-but-unavailable transmitter become available before production semantics are read.
+        // Stage 1: synchronously load only the receiver position and take the coverage assertion in this
+        // same tick. This isolates the production question from delayed chunk-ticket/ticking behavior.
         level.getChunkAt(remoteRx);
         BlockPos staleTx = findUnloadedCandidate(level, remoteRx);
         if (staleTx == null) {
@@ -105,16 +103,12 @@ public final class RseRadioMediumSystemGameTests {
             return;
         }
 
-        ChunkPos receiverChunk = new ChunkPos(remoteRx);
-        BlockPos loadedTx = remoteRx.west(3);
-        BlockPos loadedPower = loadedTx.below();
         level.setBlock(remoteRx, RedstoneEngineering.RADIO_RECEIVER.get().defaultBlockState()
                 .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
                 .setValue(RadioReceiverBlock.CHANNEL, channel), Block.UPDATE_CLIENTS);
 
-        // This is the lifecycle hazard: RadioKernel registry state is level-global and chunk unload does
-        // not call a block-removal hook. Model a Tx that was registered while loaded but whose chunk is now
-        // unavailable. Unknown transmitter/path coverage must not become a decodable frame.
+        // Model the reachable lifecycle hazard: registry evidence survives while the transmitter chunk is
+        // unavailable. Unknown transmitter/LOS coverage must never become an authoritative decoded frame.
         RadioKernel.updateTransmitter(level, staleTx, channel, 15);
         if (!level.hasChunkAt(remoteRx)) {
             RadioKernel.removeTransmitter(level, staleTx);
@@ -134,44 +128,59 @@ public final class RseRadioMediumSystemGameTests {
         int staleOutput = level.getBlockState(remoteRx).getValue(DirectionalSignalBlock.OUTPUT);
         RadioKernel.Reception staleReception = RadioKernel.receivePacket(level, remoteRx, channel);
 
-        if (staleQuality != PortQuality.STALE || staleOutput != 0 || staleReception.valid()) {
+        if (staleQuality != PortQuality.STALE
+                || staleOutput != 0
+                || staleReception.coverageComplete()
+                || staleReception.valid()
+                || staleReception.value() != 0) {
             RadioKernel.removeTransmitter(level, staleTx);
             level.setBlock(remoteRx, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
-            helper.fail("Unloaded registered transmitter was trusted as a definitive radio frame instead of STALE"
+            helper.fail("Unloaded registered transmitter was trusted as definitive radio evidence instead of STALE"
                     + " | quality=" + staleQuality
                     + " output=" + staleOutput
+                    + " coverageComplete=" + staleReception.coverageComplete()
                     + " valid=" + staleReception.valid()
+                    + " value=" + staleReception.value()
                     + " drivers=" + staleReception.drivers()
                     + " linkQuality=" + staleReception.quality());
             return;
         }
 
-        // The unknown evidence has been removed. Only now retain the receiver chunk for delayed recovery;
-        // any neighboring chunk tickets created by retention can no longer contaminate the stale assertion.
+        // Remove all remote evidence before recovery. The recovery stage deliberately uses the normal
+        // in-template loaded/ticking environment so OUTPUT must be produced by RadioReceiverBlock.tick(),
+        // not by a test write and not by special forced-chunk scheduling behavior.
         RadioKernel.removeTransmitter(level, staleTx);
-        level.setChunkForced(receiverChunk.x, receiverChunk.z, true);
-        level.setBlock(loadedPower, Blocks.REDSTONE_BLOCK.defaultBlockState(), Block.UPDATE_CLIENTS);
-        level.setBlock(loadedTx, RedstoneEngineering.RADIO_TRANSMITTER.get().defaultBlockState()
-                .setValue(RadioTransmitterBlock.CHANNEL, channel), Block.UPDATE_CLIENTS);
+        level.setBlock(remoteRx, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
 
-        // The receiver was originally placed while this remote chunk was only synchronously loaded for
-        // the same-tick stale assertion. Re-arm its real production tick now that the chunk is retained;
-        // do not write OUTPUT from the fixture. Recovery must still happen through RadioReceiverBlock.tick().
-        level.scheduleTick(remoteRx, RedstoneEngineering.RADIO_RECEIVER.get(), 1);
+        BlockPos loadedTx = new BlockPos(0, 1, 2);
+        BlockPos loadedPower = new BlockPos(0, 0, 2);
+        BlockPos loadedRx = new BlockPos(3, 1, 2);
+        helper.setBlock(loadedPower, Blocks.REDSTONE_BLOCK.defaultBlockState());
+        helper.setBlock(loadedTx, RedstoneEngineering.RADIO_TRANSMITTER.get().defaultBlockState()
+                .setValue(RadioTransmitterBlock.CHANNEL, channel));
+        helper.setBlock(loadedRx, RedstoneEngineering.RADIO_RECEIVER.get().defaultBlockState()
+                .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
+                .setValue(RadioReceiverBlock.CHANNEL, channel));
+
+        BlockPos loadedRxWorld = helper.absolutePos(loadedRx);
         helper.runAfterDelay(8, () -> {
             PortQuality recoveredQuality = RedstoneEngineering.RADIO_RECEIVER.get()
-                    .engineeringSnapshot(level, remoteRx, level.getBlockState(remoteRx), Direction.UP)
+                    .engineeringSnapshot(level, loadedRxWorld, helper.getBlockState(loadedRx), Direction.UP)
                     .orElseThrow().quality();
-            RadioKernel.Reception recovered = RadioKernel.receivePacket(level, remoteRx, channel);
-            int recoveredOutput = level.getBlockState(remoteRx).getValue(DirectionalSignalBlock.OUTPUT);
-            cleanupRemote(level, remoteRx, loadedTx, loadedPower, receiverChunk);
+            RadioKernel.Reception recovered = RadioKernel.receivePacket(level, loadedRxWorld, channel);
+            int recoveredOutput = helper.getBlockState(loadedRx).getValue(DirectionalSignalBlock.OUTPUT);
 
-            if (recoveredQuality != PortQuality.VALID || !recovered.valid()
-                    || recovered.value() != 15 || recoveredOutput != 15) {
-                helper.fail("Radio receiver did not recover after replacing stale registry evidence with a loaded transmitter"
+            if (recoveredQuality != PortQuality.VALID
+                    || !recovered.coverageComplete()
+                    || !recovered.valid()
+                    || recovered.value() != 15
+                    || recoveredOutput != 15) {
+                helper.fail("Radio did not recover through a fully loaded transmitter/receiver path after STALE coverage"
                         + " | quality=" + recoveredQuality
+                        + " coverageComplete=" + recovered.coverageComplete()
+                        + " valid=" + recovered.valid()
                         + " value=" + recovered.value()
-                        + " output=" + recoveredOutput);
+                        + " output=" + recoveredOutput, loadedRx);
                 return;
             }
             helper.succeed();
@@ -203,18 +212,5 @@ public final class RseRadioMediumSystemGameTests {
             }
         }
         return null;
-    }
-
-    private static void cleanupRemote(
-            ServerLevel level,
-            BlockPos receiver,
-            BlockPos transmitter,
-            BlockPos power,
-            ChunkPos receiverChunk
-    ) {
-        level.setBlock(transmitter, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
-        level.setBlock(power, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
-        level.setBlock(receiver, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
-        level.setChunkForced(receiverChunk.x, receiverChunk.z, false);
     }
 }
