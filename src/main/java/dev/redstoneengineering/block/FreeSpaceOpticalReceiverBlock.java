@@ -65,12 +65,21 @@ public class FreeSpaceOpticalReceiverBlock extends PassiveDirectionalSignalBlock
     ) {
         if (packet.ageTicks() < 0 || packet.qualityPercent() <= 0) return PortQuality.NO_SIGNAL;
         if (packet.selector() != state.getValue(CHANNEL)) return PortQuality.DOMAIN_MISMATCH;
-        return packet.valid() ? PortQuality.VALID : PortQuality.NO_SIGNAL;
+        return packet.valid() ? PortQuality.VALID : PortQuality.STALE;
     }
 
     private static int opticalValue(InformationRuntime.Snapshot packet, BlockState state) {
         return opticalQuality(packet, state) == PortQuality.VALID
                 ? Math.max(0, Math.min(15, packet.value())) : 0;
+    }
+
+    /**
+     * Production fail-closed path used when the optical propagator has positive evidence that
+     * line-of-sight coverage became incomplete before this retained endpoint could be revalidated.
+     */
+    public void invalidateCoverage(ServerLevel level, BlockPos pos, BlockState state, int channel) {
+        InformationRuntime.write(level, "free_optical", pos, 0, channel, false, 1);
+        updateOutput(level, pos, state, 0);
     }
 
     @Override
