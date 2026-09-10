@@ -157,7 +157,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         renderSection(graphics, section);
 
         String position = "@ " + menu.blockPos().getX() + ", " + menu.blockPos().getY() + ", " + menu.blockPos().getZ();
-        graphics.drawString(font, "AUTHORITATIVE READBACK", 13, imageHeight - 20, INFO, false);
+        graphics.drawString(font, "SERVER AUTHORITATIVE READBACK", 13, imageHeight - 20, INFO, false);
         graphics.drawString(font, position, imageWidth - 13 - font.width(position), imageHeight - 20, MUTED, false);
     }
 
