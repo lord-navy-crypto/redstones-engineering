@@ -159,6 +159,13 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
     @Override protected int observedOutputVoltage(Level level, BlockPos pos, BlockState state) { return outputVoltage(level, pos); }
     @Override protected PortQuality observedOutputQuality(Level level, BlockPos pos, BlockState state) { return outputQuality(level, pos, state); }
 
+    private void invalidateProtectionOutput(ServerLevel level, BlockPos pos, BlockState state) {
+        RuntimeIntStore.remove(level, KEY, pos);
+        RuntimeIntStore.remove(level, QUALITY_KEY, pos);
+        DomainNetwork.driveCopper(level, outputPos(pos, state), pos, 0);
+        level.scheduleTick(pos, this, 1);
+    }
+
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock())) {
@@ -176,6 +183,7 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
             BlockState next = state;
+            boolean ratingChanged = !player.isShiftKeyDown();
             if (player.isShiftKeyDown()) {
                 next = state.setValue(TRIPPED, false);
             } else {
@@ -183,7 +191,14 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
                 next = state.setValue(RATING, rating >= 15 ? 1 : rating + 1);
             }
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            level.scheduleTick(pos, this, 1);
+            if (ratingChanged && level instanceof ServerLevel serverLevel) {
+                // A rating change starts a new protection-evidence epoch. The old safe output was
+                // proven against a different threshold, so it must not remain authoritative until
+                // the server performs a complete load scan under the new rating.
+                invalidateProtectionOutput(serverLevel, pos, next);
+            } else {
+                level.scheduleTick(pos, this, 1);
+            }
 
             CopperObservationSupport.Observation input = CopperObservationSupport.observe(level, inputPos(pos, next), pos);
             int inputVoltage = input.quality() == PortQuality.VALID ? input.voltage() : 0;
