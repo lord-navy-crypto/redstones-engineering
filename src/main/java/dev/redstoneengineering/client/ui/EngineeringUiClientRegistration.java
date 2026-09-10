@@ -11,7 +11,7 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.CreativeModeTab;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
@@ -19,9 +19,6 @@ import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /** Physical-client-only registration for engineering screens and the RSE diagnostics console. */
 @Mod(value = RedstoneEngineering.MOD_ID, dist = Dist.CLIENT)
@@ -50,16 +47,11 @@ public final class EngineeringUiClientRegistration {
      */
     private static void hideLegacyJunctionVariants(BuildCreativeModeTabContentsEvent event) {
         if (event.getTab() != RedstoneEngineering.RSE_TAB.get()) return;
-
-        List<ItemStack> legacy = new ArrayList<>();
-        for (var entry : event.getEntries()) {
-            ItemStack stack = entry.getKey();
-            if (stack.is(RedstoneEngineering.OPTICAL_FIBER_JUNCTION_ITEM.get())
-                    || stack.is(RedstoneEngineering.COPPER_CABLE_JUNCTION_ITEM.get())) {
-                legacy.add(stack);
-            }
-        }
-        legacy.forEach(event.getEntries()::remove);
+        event.removeIf(
+                stack -> stack.is(RedstoneEngineering.OPTICAL_FIBER_JUNCTION_ITEM.get())
+                        || stack.is(RedstoneEngineering.COPPER_CABLE_JUNCTION_ITEM.get()),
+                CreativeModeTab.TabVisibility.PARENT_AND_SEARCH_TABS
+        );
     }
 
     private static void addInventoryDiagnosticsButton(ScreenEvent.Init.Post event) {
