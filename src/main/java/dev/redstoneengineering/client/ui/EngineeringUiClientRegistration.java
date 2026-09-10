@@ -47,9 +47,12 @@ public final class EngineeringUiClientRegistration {
      */
     private static void hideLegacyJunctionVariants(BuildCreativeModeTabContentsEvent event) {
         if (event.getTab() != RedstoneEngineering.RSE_TAB.get()) return;
-        event.removeIf(
-                stack -> stack.is(RedstoneEngineering.OPTICAL_FIBER_JUNCTION_ITEM.get())
-                        || stack.is(RedstoneEngineering.COPPER_CABLE_JUNCTION_ITEM.get()),
+        event.remove(
+                RedstoneEngineering.OPTICAL_FIBER_JUNCTION_ITEM.get().getDefaultInstance(),
+                CreativeModeTab.TabVisibility.PARENT_AND_SEARCH_TABS
+        );
+        event.remove(
+                RedstoneEngineering.COPPER_CABLE_JUNCTION_ITEM.get().getDefaultInstance(),
                 CreativeModeTab.TabVisibility.PARENT_AND_SEARCH_TABS
         );
     }
