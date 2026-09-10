@@ -87,5 +87,6 @@ public final class RseGameTestRegistration {
         event.register(RseFreeSpaceOpticsCoverageSystemGameTests.class);
         event.register(RseMagneticCoverageSystemGameTests.class);
         event.register(RseDomainNetworkCoverageSystemGameTests.class);
+        event.register(RseDomainDriverLifecycleSystemGameTests.class);
     }
 }
