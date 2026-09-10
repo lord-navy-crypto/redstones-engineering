@@ -65,12 +65,12 @@ public class QuartzClockDividerBlock extends DirectionalDomainBlock implements E
     /** Server-authoritative divisor transition. Configuration invalidates the old output claim immediately. */
     public static int cycleDivision(ServerLevel level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
-        if (!(state.getBlock() instanceof QuartzClockDividerBlock)) return 0;
+        if (!(state.getBlock() instanceof QuartzClockDividerBlock divider)) return 0;
         int index = (state.getValue(DIV_INDEX) + 1) % 4;
         level.setBlock(pos, state.setValue(DIV_INDEX, index), Block.UPDATE_CLIENTS);
-        DomainNetwork.driveQuartz(level, outputPos(pos, state), pos, false, 1, false);
+        DomainNetwork.driveQuartz(level, divider.outputPos(pos, state), pos, false, 1, false);
         RuntimeIntStore.remove(level, KEY, pos);
-        level.scheduleTick(pos, state.getBlock(), 1);
+        level.scheduleTick(pos, divider, 1);
         return division(index);
     }
 
