@@ -8,10 +8,15 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.signal.EngineeringSignal;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
@@ -21,6 +26,7 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
+import net.minecraft.world.phys.BlockHitResult;
 
 import javax.annotation.Nullable;
 import java.util.List;
@@ -31,6 +37,12 @@ import java.util.Optional;
  *
  * <p>Alpha 1.0.10 makes BACK/FRONT a real EngineeringPort contract so every
  * subclass automatically exposes the same topology to diagnostics and UI.</p>
+ *
+ * <p>The shared interaction contract is now also explicitly series-oriented:
+ * BACK is the only input side and FRONT is the only output side. The whole axis
+ * may be rotated in 90-degree steps without swapping the processing function or
+ * allowing ambiguous side inputs. Subclasses with richer configuration may
+ * override the interaction method while still using {@link #rotateSeriesAxis}.</p>
  */
 public abstract class DirectionalSignalBlock extends Block implements EngineeringPortProvider {
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
@@ -61,6 +73,14 @@ public abstract class DirectionalSignalBlock extends Block implements Engineerin
 
     protected Direction inputSide(BlockState state) {
         return outputSide(state).getOpposite();
+    }
+
+    public static Direction seriesOutputSide(BlockState state) {
+        return state.getValue(FACING);
+    }
+
+    public static Direction seriesInputSide(BlockState state) {
+        return seriesOutputSide(state).getOpposite();
     }
 
     protected static Direction leftOf(Direction facing) {
@@ -154,6 +174,54 @@ public abstract class DirectionalSignalBlock extends Block implements Engineerin
         level.setBlock(pos, next, Block.UPDATE_CLIENTS);
         level.updateNeighborsAt(pos, this);
         level.updateNeighborsAt(pos.relative(outputSide(next)), this);
+    }
+
+    /**
+     * Rotates the complete INPUT -> PROCESS -> OUTPUT axis and refreshes both old and new
+     * endpoints. The logical server remains authoritative and the current 0..15 output value
+     * is preserved until the scheduled processor tick evaluates the new input side.
+     */
+    public static boolean rotateSeriesAxis(Level level, BlockPos pos, boolean clockwise) {
+        if (level.isClientSide) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof DirectionalSignalBlock block)) return false;
+
+        Direction oldOutput = state.getValue(FACING);
+        Direction oldInput = oldOutput.getOpposite();
+        Direction newOutput = clockwise ? oldOutput.getClockWise() : oldOutput.getCounterClockWise();
+        BlockState next = state.setValue(FACING, newOutput);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+
+        level.updateNeighborsAt(pos, block);
+        level.updateNeighborsAt(pos.relative(oldInput), block);
+        level.updateNeighborsAt(pos.relative(oldOutput), block);
+        level.updateNeighborsAt(pos.relative(newOutput.getOpposite()), block);
+        level.updateNeighborsAt(pos.relative(newOutput), block);
+        if (level instanceof ServerLevel serverLevel) serverLevel.scheduleTick(pos, block, 1);
+        return true;
+    }
+
+    @Override
+    protected InteractionResult useWithoutItem(
+            BlockState state,
+            Level level,
+            BlockPos pos,
+            Player player,
+            BlockHitResult hitResult
+    ) {
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown()) {
+                rotateSeriesAxis(level, pos, true);
+                BlockState next = level.getBlockState(pos);
+                player.displayClientMessage(Component.literal(
+                        "Series I/O | IN=" + seriesInputSide(next).getName().toUpperCase()
+                                + " → OUT=" + seriesOutputSide(next).getName().toUpperCase()
+                                + " | normal right-click opens Engineering UI"), true);
+            } else {
+                FieldDeviceUi.open(serverPlayer, pos);
+            }
+        }
+        return InteractionResult.sidedSuccess(level.isClientSide);
     }
 
     @Override
