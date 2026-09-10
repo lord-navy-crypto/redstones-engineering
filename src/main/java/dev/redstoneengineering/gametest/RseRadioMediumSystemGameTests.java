@@ -153,6 +153,11 @@ public final class RseRadioMediumSystemGameTests {
         level.setBlock(loadedPower, Blocks.REDSTONE_BLOCK.defaultBlockState(), Block.UPDATE_CLIENTS);
         level.setBlock(loadedTx, RedstoneEngineering.RADIO_TRANSMITTER.get().defaultBlockState()
                 .setValue(RadioTransmitterBlock.CHANNEL, channel), Block.UPDATE_CLIENTS);
+
+        // The receiver was originally placed while this remote chunk was only synchronously loaded for
+        // the same-tick stale assertion. Re-arm its real production tick now that the chunk is retained;
+        // do not write OUTPUT from the fixture. Recovery must still happen through RadioReceiverBlock.tick().
+        level.scheduleTick(remoteRx, RedstoneEngineering.RADIO_RECEIVER.get(), 1);
         helper.runAfterDelay(8, () -> {
             PortQuality recoveredQuality = RedstoneEngineering.RADIO_RECEIVER.get()
                     .engineeringSnapshot(level, remoteRx, level.getBlockState(remoteRx), Direction.UP)
