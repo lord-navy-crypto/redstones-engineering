@@ -38,11 +38,11 @@ import java.util.Optional;
  * <p>Alpha 1.0.10 makes BACK/FRONT a real EngineeringPort contract so every
  * subclass automatically exposes the same topology to diagnostics and UI.</p>
  *
- * <p>The shared interaction contract is now also explicitly series-oriented:
- * BACK is the only input side and FRONT is the only output side. The whole axis
- * may be rotated in 90-degree steps without swapping the processing function or
- * allowing ambiguous side inputs. Subclasses with richer configuration may
- * override the interaction method while still using {@link #rotateSeriesAxis}.</p>
+ * <p>The shared interaction contract is explicitly series-oriented: BACK is the
+ * only input side and FRONT is the only output side. The whole axis may be rotated
+ * in 90-degree steps without swapping the processing function or allowing ambiguous
+ * side inputs. Subclasses with richer configuration may override the interaction
+ * method while still using {@link #rotateSeriesAxis}.</p>
  */
 public abstract class DirectionalSignalBlock extends Block implements EngineeringPortProvider {
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
@@ -172,8 +172,7 @@ public abstract class DirectionalSignalBlock extends Block implements Engineerin
 
         BlockState next = state.setValue(OUTPUT, output);
         level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-        level.updateNeighborsAt(pos, this);
-        level.updateNeighborsAt(pos.relative(outputSide(next)), this);
+        notifyNeighbors(level, pos, this, outputSide(next));
     }
 
     /**
@@ -192,13 +191,16 @@ public abstract class DirectionalSignalBlock extends Block implements Engineerin
         BlockState next = state.setValue(FACING, newOutput);
         level.setBlock(pos, next, Block.UPDATE_CLIENTS);
 
-        level.updateNeighborsAt(pos, block);
-        level.updateNeighborsAt(pos.relative(oldInput), block);
-        level.updateNeighborsAt(pos.relative(oldOutput), block);
-        level.updateNeighborsAt(pos.relative(newOutput.getOpposite()), block);
-        level.updateNeighborsAt(pos.relative(newOutput), block);
+        notifyNeighbors(level, pos, block, oldInput, oldOutput, newOutput.getOpposite(), newOutput);
         if (level instanceof ServerLevel serverLevel) serverLevel.scheduleTick(pos, block, 1);
         return true;
+    }
+
+    private static void notifyNeighbors(Level level, BlockPos pos, Block block, Direction... sides) {
+        level.updateNeighborsAt(pos, block);
+        for (Direction side : sides) {
+            level.updateNeighborsAt(pos.relative(side), block);
+        }
     }
 
     @Override
@@ -266,8 +268,7 @@ public abstract class DirectionalSignalBlock extends Block implements Engineerin
             boolean movedByPiston
     ) {
         if (!state.is(newState.getBlock())) {
-            level.updateNeighborsAt(pos, this);
-            level.updateNeighborsAt(pos.relative(outputSide(state)), this);
+            notifyNeighbors(level, pos, this, outputSide(state));
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
     }
