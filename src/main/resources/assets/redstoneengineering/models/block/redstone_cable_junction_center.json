@@ -1,6 +1,6 @@
 {
   "textures": {
-    "line": "redstoneengineering:block/quartz_timing_line"
+    "line": "redstoneengineering:block/junction_point_white"
   },
   "elements": [
     {
