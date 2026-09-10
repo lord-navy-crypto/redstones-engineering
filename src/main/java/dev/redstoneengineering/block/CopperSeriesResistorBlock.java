@@ -115,6 +115,16 @@ public class CopperSeriesResistorBlock extends DirectionalCopperProcessorBlock {
             int resistance = state.getValue(RESISTANCE);
             resistance = resistance >= 15 ? 1 : resistance + 1;
             BlockState next = state.setValue(RESISTANCE, resistance);
+
+            // Rs is a memoryless transfer parameter. Once it changes, the old
+            // derived Vout and its exact Copper registry claim no longer belong
+            // to the current configuration epoch. Fail closed until the next
+            // real server tick observes the input/load under the new Rs.
+            RuntimeIntStore.remove(level, KEY, pos);
+            if (level instanceof ServerLevel serverLevel) {
+                DomainNetwork.driveCopper(serverLevel, outputPos(pos, state), pos, 0, false);
+            }
+
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
             level.scheduleTick(pos, this, 1);
 
