@@ -8,6 +8,7 @@ import dev.redstoneengineering.ui.menu.OscilloscopeMenu;
 import dev.redstoneengineering.ui.menu.PidControllerMenu;
 import dev.redstoneengineering.ui.menu.SignalAnalyzerMenu;
 import dev.redstoneengineering.ui.menu.SignalConditionerMenu;
+import dev.redstoneengineering.ui.menu.UniversalFieldDeviceMenu;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.inventory.MenuType;
 import net.neoforged.bus.api.IEventBus;
@@ -44,6 +45,9 @@ public final class EngineeringUiRegistration {
 
     public static final DeferredHolder<MenuType<?>, MenuType<FieldDeviceMenu>> FIELD_DEVICE =
             MENUS.register("field_device", () -> IMenuTypeExtension.create(FieldDeviceMenu::new));
+
+    public static final DeferredHolder<MenuType<?>, MenuType<UniversalFieldDeviceMenu>> UNIVERSAL_FIELD_DEVICE =
+            MENUS.register("universal_field_device", () -> IMenuTypeExtension.create(UniversalFieldDeviceMenu::new));
 
     public static final DeferredHolder<MenuType<?>, MenuType<OperationsMonitorMenu>> OPERATIONS_MONITOR =
             MENUS.register("operations_monitor", () -> IMenuTypeExtension.create(OperationsMonitorMenu::new));
