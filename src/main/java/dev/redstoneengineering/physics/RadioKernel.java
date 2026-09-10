@@ -25,10 +25,12 @@ public final class RadioKernel {
             boolean collision,
             int interference,
             int obstacles,
-            int latencyTicks
+            int latencyTicks,
+            boolean coverageComplete
     ) {}
 
     private record Tx(int channel, int payload) {}
+    private record ObstacleSample(int hits, boolean complete) {}
     private static final Map<Level, Map<Long, Tx>> TX = new WeakHashMap<>();
 
     /** Register an active transmitter. Payload zero is a real frame value, not transmitter absence. */
@@ -42,7 +44,11 @@ public final class RadioKernel {
         if (transmitters != null) transmitters.remove(pos.asLong());
     }
 
-    private static int obstacleSamples(Level level, BlockPos a, BlockPos b) {
+    /**
+     * Sample the line of sight without converting unavailable chunks into clear air.
+     * A partial obstacle scan is unknown evidence and therefore cannot support a decoded frame.
+     */
+    private static ObstacleSample obstacleSamples(Level level, BlockPos a, BlockPos b) {
         double dx = b.getX() - a.getX();
         double dy = b.getY() - a.getY();
         double dz = b.getZ() - a.getZ();
@@ -55,9 +61,10 @@ public final class RadioKernel {
                     a.getY() + 0.5 + dy * t,
                     a.getZ() + 0.5 + dz * t
             );
-            if (level.hasChunkAt(p) && !level.getBlockState(p).isAir()) hits++;
+            if (!level.hasChunkAt(p)) return new ObstacleSample(hits, false);
+            if (!level.getBlockState(p).isAir()) hits++;
         }
-        return hits;
+        return new ObstacleSample(hits, true);
     }
 
     private static int deterministicFade(Level level, BlockPos tx, BlockPos rx) {
@@ -69,7 +76,7 @@ public final class RadioKernel {
     public static synchronized Reception receivePacket(Level level, BlockPos rx, int channel) {
         Map<Long, Tx> transmitters = TX.get(level);
         if (transmitters == null) {
-            return new Reception(0, 0, 0, false, false, 0, 0, 0);
+            return new Reception(0, 0, 0, false, false, 0, 0, 0, true);
         }
 
         int drivers = 0;
@@ -78,6 +85,7 @@ public final class RadioKernel {
         int bestObstacles = 0;
         int adjacent = 0;
         int bestLatency = 0;
+        boolean coverageComplete = true;
 
         for (var entry : transmitters.entrySet()) {
             Tx tx = entry.getValue();
@@ -88,15 +96,32 @@ public final class RadioKernel {
             double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
             if (distance > RANGE) continue;
 
-            if (Math.abs(tx.channel - channel) == 1) {
+            boolean adjacentChannel = Math.abs(tx.channel - channel) == 1;
+            boolean sameChannel = tx.channel == channel;
+            if (!adjacentChannel && !sameChannel) continue;
+
+            // Registry presence is not proof that the transmitter's current world state is available.
+            // Treat a relevant registered Tx in an unavailable chunk as incomplete coverage rather than
+            // trusting stale payload/channel evidence left behind by chunk unload.
+            if (!level.hasChunkAt(transmitterPos)) {
+                coverageComplete = false;
+                continue;
+            }
+
+            if (adjacentChannel) {
                 adjacent++;
                 continue;
             }
-            if (tx.channel != channel) continue;
+
+            ObstacleSample sample = obstacleSamples(level, transmitterPos, rx);
+            if (!sample.complete()) {
+                coverageComplete = false;
+                continue;
+            }
 
             drivers++;
             value = tx.payload;
-            int obstacles = obstacleSamples(level, transmitterPos, rx);
+            int obstacles = sample.hits();
             int distanceLoss = (int) Math.round(55.0 * distance / RANGE);
             int obstacleLoss = Math.min(25, obstacles * 2);
             int fade = deterministicFade(level, transmitterPos, rx);
@@ -111,16 +136,17 @@ public final class RadioKernel {
         int interferencePenalty = Math.min(30, adjacent * 8);
         int quality = Math.max(0, bestQuality - interferencePenalty);
         boolean collision = drivers > 1;
-        boolean valid = drivers == 1 && quality >= MIN_DECODE_QUALITY;
+        boolean valid = coverageComplete && drivers == 1 && quality >= MIN_DECODE_QUALITY;
         return new Reception(
                 valid ? value : 0,
-                collision ? 0 : quality,
+                coverageComplete && !collision ? quality : 0,
                 drivers,
                 valid,
                 collision,
                 adjacent,
                 bestObstacles,
-                bestLatency
+                bestLatency,
+                coverageComplete
         );
     }
 
