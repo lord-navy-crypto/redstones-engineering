@@ -81,13 +81,13 @@ public final class RseSeventhTenDesignBugGameTests {
         BlockPos world = helper.absolutePos(junction);
         BlockState state = RedstoneEngineering.REDSTONE_CABLE_JUNCTION.get().defaultBlockState()
                 .setValue(RedstoneCableJunctionBlock.MEDIUM, TransmissionTopology.SignalMedium.DATA_BUS_8)
-                .setValue(ConnectedCableBlock.EAST, true);
+                .setValue(ConnectedCableBlock.UP, true);
         int before = RuntimeIntStore.entryCount(helper.getLevel());
         var snapshot = RedstoneEngineering.REDSTONE_CABLE_JUNCTION.get().engineeringSnapshot(
-                helper.getLevel(), world, state, Direction.EAST).orElseThrow();
+                helper.getLevel(), world, state, Direction.UP).orElseThrow();
         if (snapshot.quality() != PortQuality.STALE
                 || RuntimeIntStore.entryCount(helper.getLevel()) != before) {
-            helper.fail("Unified signal junction advertised a bus port without neutral diagnostics", junction);
+            helper.fail("Unified signal Junction Point advertised a vertical bus port without neutral diagnostics", junction);
             return;
         }
         helper.succeed();
