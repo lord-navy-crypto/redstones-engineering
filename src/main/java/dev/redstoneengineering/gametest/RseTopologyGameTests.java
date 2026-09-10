@@ -30,21 +30,21 @@ public final class RseTopologyGameTests {
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE)
     public static void redstoneCableConnectsToRedstoneJunction(GameTestHelper helper) {
         BlockPos cableFirst = new BlockPos(1, 1, 1);
-        BlockPos junctionSecond = new BlockPos(2, 1, 1);
-        BlockPos junctionFirst = new BlockPos(1, 1, 3);
-        BlockPos cableSecond = new BlockPos(2, 1, 3);
+        BlockPos junctionSecond = new BlockPos(1, 2, 1);
+        BlockPos junctionFirst = new BlockPos(3, 1, 3);
+        BlockPos cableSecond = new BlockPos(3, 2, 3);
 
-        // Order A: cable exists first, then junction arrives.
+        // Order A: cable exists first, then the vertical Junction Point arrives above it.
         helper.setBlock(cableFirst, RedstoneEngineering.REDSTONE_SIGNAL_CABLE.get().defaultBlockState());
         helper.setBlock(junctionSecond, RedstoneEngineering.REDSTONE_CABLE_JUNCTION.get().defaultBlockState());
 
-        // Order B: junction exists first, then cable arrives.
+        // Order B: Junction Point exists first, then the vertical cable arrives above it.
         helper.setBlock(junctionFirst, RedstoneEngineering.REDSTONE_CABLE_JUNCTION.get().defaultBlockState());
         helper.setBlock(cableSecond, RedstoneEngineering.REDSTONE_SIGNAL_CABLE.get().defaultBlockState());
 
         helper.runAfterDelay(2, () -> {
-            assertConnectedPair(helper, cableFirst, Direction.EAST, junctionSecond, Direction.WEST, "cable-first");
-            assertConnectedPair(helper, cableSecond, Direction.WEST, junctionFirst, Direction.EAST, "junction-first");
+            assertConnectedPair(helper, cableFirst, Direction.UP, junctionSecond, Direction.DOWN, "cable-first");
+            assertConnectedPair(helper, cableSecond, Direction.DOWN, junctionFirst, Direction.UP, "junction-first");
             helper.succeed();
         });
     }
@@ -60,10 +60,10 @@ public final class RseTopologyGameTests {
         BlockState cable = helper.getBlockState(cablePos);
         BlockState junction = helper.getBlockState(junctionPos);
         if (!ConnectedCableBlock.connected(cable, cableSide)) {
-            helper.fail("Insulated redstone cable did not connect to its junction (" + order + ")", cablePos);
+            helper.fail("Insulated redstone cable did not connect to its vertical Junction Point (" + order + ")", cablePos);
         }
         if (!ConnectedCableBlock.connected(junction, junctionSide)) {
-            helper.fail("Redstone junction did not connect to insulated cable (" + order + ")", junctionPos);
+            helper.fail("Junction Point did not connect to insulated redstone cable (" + order + ")", junctionPos);
         }
     }
 
