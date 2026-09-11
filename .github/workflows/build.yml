@@ -110,7 +110,8 @@ jobs:
             tools/rse_thirteenth_ten_verify.py \
             tools/rse_fourteenth_ten_verify.py \
             tools/rse_fifteenth_seven_verify.py \
-            tools/rse_system_level_closure_phase1_verify.py
+            tools/rse_system_level_closure_phase1_verify.py \
+            tools/rse_system_level_closure_phase2_verify.py
           do
             if [[ -f "$verifier" ]]; then
               echo "==> $verifier"
@@ -135,7 +136,20 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p .rse-audit
-          ./gradlew runGameTestServer --no-daemon --stacktrace 2>&1 | tee .rse-audit/gametest-server.log
+          set +e
+          timeout --signal=TERM 12m ./gradlew runGameTestServer --no-daemon --stacktrace 2>&1 | tee .rse-audit/gametest-server.log
+          gametest_status=${PIPESTATUS[0]}
+          set -e
+          if (( gametest_status == 124 )); then
+            echo "::error::GameTest server exceeded the 12-minute bounded runtime"
+            tail -n 200 .rse-audit/gametest-server.log || true
+            exit 1
+          fi
+          if (( gametest_status != 0 )); then
+            echo "::error::GameTest server exited non-zero: $gametest_status"
+            tail -n 200 .rse-audit/gametest-server.log || true
+            exit "$gametest_status"
+          fi
           if grep -Fq "Too many chained neighbor updates" .rse-audit/gametest-server.log; then
             echo "::error::GameTest server triggered the chained-neighbor-update safety cutoff"
             grep -F "Too many chained neighbor updates" .rse-audit/gametest-server.log | head -n 40 || true
