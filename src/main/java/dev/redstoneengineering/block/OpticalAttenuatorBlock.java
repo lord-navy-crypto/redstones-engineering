@@ -47,8 +47,8 @@ public class OpticalAttenuatorBlock extends DirectionalDomainBlock implements En
     @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { super.createBlockStateDefinition(builder); builder.add(LOSS); }
 
     public static AttenuationEvidence evidence(Level level, BlockPos pos, BlockState state) {
-        Direction output = state.getValue(FACING);
-        OpticalObservationSupport.Observation input = OpticalObservationSupport.observe(level, pos.relative(output.getOpposite()));
+        Direction inputSide = seriesInputSide(state);
+        OpticalObservationSupport.Observation input = OpticalObservationSupport.observe(level, pos.relative(inputSide));
         int loss = state.getValue(LOSS);
         int out = input.quality() == PortQuality.VALID ? EngineeringMath.opticalAfterLoss(input.intensity(), loss) : 0;
         return new AttenuationEvidence(input.intensity(), input.channel(), input.quality(), loss, out,
@@ -72,12 +72,16 @@ public class OpticalAttenuatorBlock extends DirectionalDomainBlock implements En
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
         super.onPlace(state, level, pos, oldState, moved);
         if (!(level instanceof ServerLevel serverLevel)) return;
-        if (state.is(oldState.getBlock()) && oldState.hasProperty(LOSS)
-                && state.getValue(LOSS).intValue() != oldState.getValue(LOSS).intValue()) {
-            configurationChanged(serverLevel, pos, state);
-        } else {
-            serverLevel.scheduleTick(pos, this, 2);
+        boolean routeChanged = state.is(oldState.getBlock())
+                && oldState.hasProperty(FACING)
+                && oldState.hasProperty(INPUT_FACING)
+                && (state.getValue(FACING) != oldState.getValue(FACING)
+                || state.getValue(INPUT_FACING) != oldState.getValue(INPUT_FACING));
+        if (routeChanged || (state.is(oldState.getBlock()) && oldState.hasProperty(LOSS)
+                && state.getValue(LOSS).intValue() != oldState.getValue(LOSS).intValue())) {
+            configurationChanged(serverLevel, pos, oldState.hasProperty(FACING) ? oldState : state);
         }
+        serverLevel.scheduleTick(pos, this, 1);
     }
 
     @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
@@ -89,14 +93,14 @@ public class OpticalAttenuatorBlock extends DirectionalDomainBlock implements En
     }
 
     public static void invalidateOutput(ServerLevel level, BlockPos pos, BlockState state) {
-        Direction output = state.getValue(FACING);
+        Direction output = seriesOutputSide(state);
         DomainNetwork.driveOptical(level, pos.relative(output), pos, 0, 0, false);
     }
 
     /** Shared state-transition hook so every configuration path clears the previous carrier first. */
     public static void configurationChanged(ServerLevel level, BlockPos pos, BlockState state) {
         invalidateOutput(level, pos, state);
-        if (state.getBlock() instanceof OpticalAttenuatorBlock attenuator) level.scheduleTick(pos, attenuator, 1);
+        if (level.getBlockState(pos).getBlock() instanceof OpticalAttenuatorBlock attenuator) level.scheduleTick(pos, attenuator, 1);
     }
 
     @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState next, boolean moved) {
