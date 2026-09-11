@@ -93,6 +93,7 @@ require(
     "topologyRoleProjectionUsesFormalPortContract",
     "directionalDomainRotationMovesTheWholeSeriesContract",
     "RedstoneEngineering.PRESSURE_REGULATOR",
+    "RedstoneEngineering.PNEUMATIC_VALVE",
 )
 require(
     "src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java",
@@ -241,8 +242,10 @@ require(
     "TOPOLOGY_MULTIPORT",
     "TOPOLOGY_CONTROLLED_SOURCE",
     "TOPOLOGY_CONTROLLED_SERIES",
+    "TOPOLOGY_PASSIVE_SERIES",
     "CONTROLLED SOURCE",
     "CONTROLLED SERIES",
+    "PASSIVE SERIES",
     "topologyRoleLabel",
     "classifyTopologyRole",
     "refreshTopologyRole",
@@ -251,6 +254,7 @@ require(
     "port.canTransmit()",
     "block instanceof DirectionalDomainBlock",
     "controlReceivers == 1",
+    "ports.size() == 2 ? TOPOLOGY_PASSIVE_SERIES : TOPOLOGY_PASSIVE",
 )
 require(
     "src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java",
@@ -328,6 +332,7 @@ print(" Jade topology summary + face diagnostics: PASS")
 print(" strict series-I/O capability + controls: PASS")
 print(" serial-first / explicit-branch topology policy: PASS")
 print(" controlled-series / controlled-source role projection: PASS")
+print(" passive-series / passive-bus role projection: PASS")
 print(" pressure-regulator strict series solver contract: PASS")
 print(" shared physical topology-role HMI: PASS")
 print(" lightweight topology-role regression: PASS")
