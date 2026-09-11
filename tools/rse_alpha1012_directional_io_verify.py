@@ -31,7 +31,8 @@ endpoint = "src/main/java/dev/redstoneengineering/block/DirectionalRedstoneEndpo
 sensor_base = "src/main/java/dev/redstoneengineering/block/DirectionalRedstoneSensorBlock.java"
 require(endpoint,
         "extends Block", "HORIZONTAL_FACING", "frontSide", "backSide",
-        "isQueriedFrom", "connectionMatches", "readBackInput", "notifyFrontOutput")
+        "isQueriedFrom", "connectionMatches", "readBackInput", "notifyFrontOutput",
+        "rotateOutput", "notifyNeighbors", "oldOutput", "newOutput")
 require(sensor_base,
         "extends DirectionalRedstoneEndpointBlock", "EngineeringPortProvider",
         "SENSOR OUT", "PortKind.SENSOR", "PortDirection.OUTPUT",
@@ -45,7 +46,13 @@ require(source,
         "REFERENCE OUT", "PortDirection.OUTPUT",
         "connectionMatches(direction, frontSide(state))",
         "isQueriedFrom(state, direction, frontSide(state))",
-        "notifyFrontOutput")
+        "rotateOutput(level, pos, true)")
+
+# The reference source used to own a private notifyFrontOutput call. Output rotation is now
+# centralized in DirectionalRedstoneEndpointBlock so old + new output neighbors are both notified.
+endpoint_body = text(endpoint)
+if "notifyNeighbors(level, pos, block, oldOutput, newOutput)" not in endpoint_body:
+    failed.append(f"{endpoint}: rotating a source must notify both old and new output neighbors")
 
 for rel in [
     "src/main/java/dev/redstoneengineering/block/EngineeringLightSensorBlock.java",
@@ -115,6 +122,7 @@ if failed:
 print("RSE Alpha 1.0.12 directional I/O verification: PASS")
 print(" shared FRONT/BACK endpoint topology: PASS")
 print(" FRONT-only reference and sensor outputs: PASS")
+print(" reference output rotation old/new neighbor notification: PASS")
 print(" BACK-only analog indicator input: PASS")
 print(" low-cardinality multipart resource guard: PASS")
 print(" executable Minecraft directional GameTests: PASS")
