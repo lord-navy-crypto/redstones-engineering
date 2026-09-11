@@ -66,8 +66,10 @@ contracts = {
         "implements EngineeringPortProvider",
         "EngineeringDomain.RADIO_DATA",
         '"RADIO ANTENNA", Direction.UP',
-        "PAYLOAD_SIDES",
-        "RedstoneObservationSupport.observe",
+        "PAYLOAD_SIDE = Direction.DOWN",
+        '"PAYLOAD IN", PAYLOAD_SIDE',
+        "RedstoneObservationSupport.observe(level, pos, PAYLOAD_SIDE)",
+        "direction.getOpposite() == PAYLOAD_SIDE",
         "RadioKernel.updateTransmitter",
         "RadioKernel.removeTransmitter",
         "FieldDeviceUi.open",
@@ -118,6 +120,11 @@ contracts = {
 }
 for rel, tokens in contracts.items():
     require(rel, *tokens)
+
+radio_tx = read("src/main/java/dev/redstoneengineering/block/RadioTransmitterBlock.java")
+for forbidden in ("PAYLOAD_SIDES", "strongest valid input", "Math.max(best"):
+    if forbidden in radio_tx:
+        errors.append(f"RadioTransmitterBlock restored implicit multi-input aggregation: {forbidden!r}")
 
 require(
     "src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java",
@@ -184,7 +191,7 @@ if errors:
 print("RSE fifth-eight communication endpoint verification: PASS")
 print("  first-class RADIO_DATA endpoint domain: PASS")
 print("  differential driver/receiver directional isolation: PASS")
-print("  radio antenna/payload separation + zero-frame/collision diagnostics: PASS")
+print("  radio DOWN payload -> UP antenna serial conversion: PASS")
 print("  free-space optical LOS/channel endpoint contracts: PASS")
 print("  quartz divider + observer-only stability metrology: PASS")
 print("  Field Device Inspector endpoint projection: PASS")
