@@ -1,6 +1,7 @@
 package dev.redstoneengineering.ui;
 
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.ui.menu.AmethystSystemMenu;
 import dev.redstoneengineering.ui.menu.DigitalCommunicationMenu;
 import dev.redstoneengineering.ui.menu.FieldDeviceMenu;
 import dev.redstoneengineering.ui.menu.LogicAnalyzerMenu;
@@ -24,10 +25,6 @@ import net.neoforged.neoforge.common.extensions.IMenuTypeExtension;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
-/**
- * Common-side menu registry for the RSE Engineering Interface System.
- * Menus transport bounded configuration intent and read-only snapshots; simulation remains server-owned.
- */
 @Mod(RedstoneEngineering.MOD_ID)
 public final class EngineeringUiRegistration {
     public static final DeferredRegister<MenuType<?>> MENUS = DeferredRegister.create(Registries.MENU, RedstoneEngineering.MOD_ID);
@@ -45,7 +42,7 @@ public final class EngineeringUiRegistration {
     public static final DeferredHolder<MenuType<?>, MenuType<DigitalCommunicationMenu>> DIGITAL_COMMUNICATION = MENUS.register("digital_communication", () -> IMenuTypeExtension.create(DigitalCommunicationMenu::new));
     public static final DeferredHolder<MenuType<?>, MenuType<PneumaticSystemMenu>> PNEUMATIC_SYSTEM = MENUS.register("pneumatic_system", () -> IMenuTypeExtension.create(PneumaticSystemMenu::new));
     public static final DeferredHolder<MenuType<?>, MenuType<OpticalSystemMenu>> OPTICAL_SYSTEM = MENUS.register("optical_system", () -> IMenuTypeExtension.create(OpticalSystemMenu::new));
+    public static final DeferredHolder<MenuType<?>, MenuType<AmethystSystemMenu>> AMETHYST_SYSTEM = MENUS.register("amethyst_system", () -> IMenuTypeExtension.create(AmethystSystemMenu::new));
     public static final DeferredHolder<MenuType<?>, MenuType<OperationsMonitorMenu>> OPERATIONS_MONITOR = MENUS.register("operations_monitor", () -> IMenuTypeExtension.create(OperationsMonitorMenu::new));
-
     public EngineeringUiRegistration(IEventBus modBus) { MENUS.register(modBus); }
 }
