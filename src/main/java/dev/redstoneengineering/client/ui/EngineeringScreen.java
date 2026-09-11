@@ -1,6 +1,7 @@
 package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.ui.menu.EngineeringDeviceMenu;
+import dev.redstoneengineering.ui.menu.FieldDeviceMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
@@ -59,13 +60,15 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private Section section = Section.OVERVIEW;
     private final List<AbstractWidget> configureWidgets = new ArrayList<>();
     private final List<Button> sectionButtons = new ArrayList<>();
+    private Button sharedRotateCcw;
+    private Button sharedRotateCw;
 
     protected EngineeringScreen(M menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
         this.imageWidth = 320;
-        // Extra vertical room is intentional: device-specific content keeps its existing coordinates,
-        // while the shared route strip gets its own space instead of crowding Overview/Configure.
-        this.imageHeight = 238;
+        // Device content owns the upper 218 px. The route schematic and footer have dedicated space
+        // below it, so dense Ports/Observatory pages cannot collide with the shared visualization.
+        this.imageHeight = 270;
         this.titleLabelX = 12;
         this.titleLabelY = 10;
         this.inventoryLabelY = 1000;
@@ -76,6 +79,8 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         super.init();
         configureWidgets.clear();
         sectionButtons.clear();
+        sharedRotateCcw = null;
+        sharedRotateCw = null;
 
         int tabY = topPos + 31;
         int x = leftPos + 8;
@@ -89,8 +94,10 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             x += 61;
         }
         addDeviceWidgets();
+        addSharedRouteControls();
         updateWidgetVisibility();
         syncDeviceWidgetLabels();
+        syncSharedRouteControls();
     }
 
     protected void addDeviceWidgets() {
@@ -111,10 +118,37 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         }
     }
 
+    private void addSharedRouteControls() {
+        if (!(menu instanceof FieldDeviceMenu)) return;
+        int y = topPos + 166;
+        sharedRotateCcw = addConfigureWidget(Button.builder(
+                Component.literal("↺ Rotate route"),
+                button -> sendMenuButton(FieldDeviceMenu.BUTTON_ROTATE_CCW)
+        ).bounds(leftPos + 16, y, 136, 20).build());
+        sharedRotateCw = addConfigureWidget(Button.builder(
+                Component.literal("Rotate route ↻"),
+                button -> sendMenuButton(FieldDeviceMenu.BUTTON_ROTATE_CW)
+        ).bounds(leftPos + 168, y, 136, 20).build());
+    }
+
+    private void syncSharedRouteControls() {
+        if (!(menu instanceof FieldDeviceMenu fieldMenu) || sharedRotateCcw == null || sharedRotateCw == null) return;
+        boolean enabled = fieldMenu.seriesConfigurable();
+        sharedRotateCcw.active = enabled;
+        sharedRotateCw.active = enabled;
+        sharedRotateCcw.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
+                enabled ? "Rotate the declared RX/TX route counter-clockwise on the server."
+                        : "This device has no rotatable formal route.")));
+        sharedRotateCw.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
+                enabled ? "Rotate the declared RX/TX route clockwise on the server."
+                        : "This device has no rotatable formal route.")));
+    }
+
     private void setSection(Section section) {
         this.section = section;
         updateWidgetVisibility();
         syncDeviceWidgetLabels();
+        syncSharedRouteControls();
     }
 
     private void updateWidgetVisibility() {
@@ -129,6 +163,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     protected void containerTick() {
         super.containerTick();
         syncDeviceWidgetLabels();
+        syncSharedRouteControls();
     }
 
     @Override
@@ -176,19 +211,91 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         graphics.drawString(font, position, imageWidth - 13 - font.width(position), imageHeight - 20, MUTED, false);
     }
 
-    /** Shared compact route visualization sourced only from the formal EngineeringPort contract. */
+    /**
+     * Shared route schematic sourced only from formal synchronized menu contracts.
+     * RX and TX are physically separated, the center node states the device role, and the lower
+     * rail exposes whether the route currently carries valid evidence or is open/degraded.
+     */
     private void renderPortRoute(GuiGraphics graphics) {
-        int y = imageHeight - 43;
-        graphics.drawString(font, "SIGNAL ROUTE", 16, y, MUTED, false);
-        String rx = "RX " + menu.receivePortFacesLabel();
-        String tx = "TX " + menu.transmitPortFacesLabel();
-        int rxX = 98;
-        int txX = 214;
-        graphics.fill(rxX - 5, y - 3, rxX + font.width(rx) + 5, y + 11, PANEL);
-        graphics.drawString(font, rx, rxX, y, INFO, false);
-        graphics.drawString(font, "→", 190, y, MUTED, false);
-        graphics.fill(txX - 5, y - 3, txX + font.width(tx) + 5, y + 11, PANEL);
-        graphics.drawString(font, tx, txX, y, GOOD, false);
+        int top = imageHeight - 47;
+        int nodeY = top + 10;
+        int rxX = 16;
+        int roleX = 113;
+        int txX = 222;
+        int nodeH = 19;
+
+        String rxFaces = menu.receivePortFacesLabel();
+        String txFaces = menu.transmitPortFacesLabel();
+        String role = compactRole(menu.topologyRoleLabel());
+        boolean rxPresent = portPresent(rxFaces);
+        boolean txPresent = portPresent(txFaces);
+        int routeColor = evidenceStateColor();
+
+        graphics.drawString(font, "SIGNAL ROUTE", 16, top - 1, MUTED, false);
+        String state = menu.evidenceStateLabel();
+        graphics.drawString(font, state, imageWidth - 16 - font.width(state), top - 1, routeColor, false);
+
+        routeNode(graphics, rxX, nodeY, 82, nodeH, "RX", rxFaces, rxPresent ? INFO : MUTED);
+        routeNode(graphics, roleX, nodeY, 94, nodeH, "ROLE", role, operationalHealthColor());
+        routeNode(graphics, txX, nodeY, 82, nodeH, "TX", txFaces, txPresent ? GOOD : MUTED);
+
+        drawRouteLink(graphics, rxX + 82, roleX, nodeY + 9, rxPresent, routeColor);
+        drawRouteLink(graphics, roleX + 94, txX, nodeY + 9, txPresent, routeColor);
+
+        if (!rxPresent && txPresent) {
+            graphics.drawString(font, "SOURCE", 86, nodeY + 5, INFO, false);
+        } else if (rxPresent && !txPresent) {
+            graphics.drawString(font, "SINK", 208, nodeY + 5, INFO, false);
+        }
+    }
+
+    private void routeNode(GuiGraphics graphics, int x, int y, int width, int height,
+                           String heading, String value, int color) {
+        graphics.fill(x, y, x + width, y + height, PANEL);
+        graphics.fill(x, y, x + 3, y + height, color);
+        graphics.drawString(font, heading, x + 7, y + 3, MUTED, false);
+        String compact = fitRouteText(value, width - 35);
+        graphics.drawString(font, compact, x + width - 6 - font.width(compact), y + 3, color, false);
+        graphics.fill(x + 7, y + height - 4, x + width - 7, y + height - 3, BORDER);
+    }
+
+    private void drawRouteLink(GuiGraphics graphics, int x0, int x1, int y, boolean present, int routeColor) {
+        int color = present ? routeColor : BORDER;
+        graphics.fill(x0 + 3, y, x1 - 4, y + 2, color);
+        graphics.fill(x1 - 7, y - 2, x1 - 4, y + 4, color);
+    }
+
+    private boolean portPresent(String label) {
+        if (label == null) return false;
+        String normalized = label.trim().toUpperCase();
+        return !normalized.isEmpty()
+                && !normalized.equals("NONE")
+                && !normalized.equals("—")
+                && !normalized.equals("-")
+                && !normalized.equals("N/A");
+    }
+
+    private String compactRole(String role) {
+        if (role == null || role.isBlank()) return "DEVICE";
+        String upper = role.toUpperCase();
+        if (upper.length() <= 13) return upper;
+        if (upper.contains("PROCESS")) return "PROCESSOR";
+        if (upper.contains("CONVERT")) return "CONVERTER";
+        if (upper.contains("SOURCE")) return "SOURCE";
+        if (upper.contains("SINK")) return "SINK";
+        if (upper.contains("OBSERV")) return "OBSERVER";
+        if (upper.contains("PASSIVE")) return "PASSIVE";
+        return upper.substring(0, 12) + "…";
+    }
+
+    private String fitRouteText(String text, int maxWidth) {
+        if (text == null || text.isBlank()) return "—";
+        if (font.width(text) <= maxWidth) return text;
+        String compact = text;
+        while (compact.length() > 1 && font.width(compact + "…") > maxWidth) {
+            compact = compact.substring(0, compact.length() - 1);
+        }
+        return compact + "…";
     }
 
     protected final int operationalHealthColor() {
