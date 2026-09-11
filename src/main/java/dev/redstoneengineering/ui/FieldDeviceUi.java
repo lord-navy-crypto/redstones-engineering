@@ -1,8 +1,12 @@
 package dev.redstoneengineering.ui;
 
+import dev.redstoneengineering.block.EdgeDetectorBlock;
+import dev.redstoneengineering.block.PrecisionFilterBlock;
+import dev.redstoneengineering.block.PulseShaperBlock;
 import dev.redstoneengineering.block.RangeSensorBlock;
 import dev.redstoneengineering.ui.menu.FieldDeviceMenu;
 import dev.redstoneengineering.ui.menu.RangeSensorMenu;
+import dev.redstoneengineering.ui.menu.SignalProcessorMenu;
 import dev.redstoneengineering.ui.menu.UniversalFieldDeviceMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
@@ -20,6 +24,18 @@ public final class FieldDeviceUi {
             player.openMenu(
                     new SimpleMenuProvider(
                             (containerId, inventory, ignored) -> new RangeSensorMenu(containerId, inventory, pos),
+                            title
+                    ),
+                    data -> data.writeBlockPos(pos)
+            );
+            return;
+        }
+        if (state.getBlock() instanceof PrecisionFilterBlock
+                || state.getBlock() instanceof EdgeDetectorBlock
+                || state.getBlock() instanceof PulseShaperBlock) {
+            player.openMenu(
+                    new SimpleMenuProvider(
+                            (containerId, inventory, ignored) -> new SignalProcessorMenu(containerId, inventory, pos),
                             title
                     ),
                     data -> data.writeBlockPos(pos)
