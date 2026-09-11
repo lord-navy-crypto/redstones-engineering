@@ -1,8 +1,10 @@
 package dev.redstoneengineering.gametest;
 
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.block.DirectionalDomainBlock;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.EngineeringPort;
+import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.diagnostics.topology.EngineeringTopologyView;
@@ -13,6 +15,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 import java.util.ArrayList;
@@ -61,6 +65,45 @@ public final class RseEngineeringUxGameTests {
             helper.fail("Topology visualization snapshot must be immutable, compact, and preserve issue counts", MARKER);
             return;
         }
+        helper.succeed();
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE)
+    public static void directionalDomainRotationMovesTheWholeSeriesContract(GameTestHelper helper) {
+        BlockPos relative = MARKER;
+        BlockPos absolute = helper.absolutePos(relative);
+        BlockState north = RedstoneEngineering.PNEUMATIC_CHECK_VALVE.get().defaultBlockState()
+                .setValue(DirectionalDomainBlock.FACING, Direction.NORTH);
+        helper.getLevel().setBlock(absolute, north, Block.UPDATE_ALL);
+
+        if (!DirectionalDomainBlock.rotateSeriesAxis(helper.getLevel(), absolute, true)) {
+            helper.fail("Directional domain series-axis rotation was rejected", relative);
+            return;
+        }
+
+        BlockState rotated = helper.getLevel().getBlockState(absolute);
+        if (rotated.getValue(DirectionalDomainBlock.FACING) != Direction.EAST) {
+            helper.fail("Series-axis rotation did not move FRONT from NORTH to EAST", relative);
+            return;
+        }
+
+        if (!(rotated.getBlock() instanceof EngineeringPortProvider provider)) {
+            helper.fail("Directional domain device lost EngineeringPortProvider contract", relative);
+            return;
+        }
+
+        EngineeringPort input = provider.engineeringPort(rotated, Direction.WEST).orElse(null);
+        EngineeringPort output = provider.engineeringPort(rotated, Direction.EAST).orElse(null);
+        if (input == null || output == null
+                || input.direction() != PortDirection.INPUT
+                || output.direction() != PortDirection.OUTPUT
+                || provider.engineeringPort(rotated, Direction.NORTH).isPresent()
+                || provider.engineeringPort(rotated, Direction.SOUTH).isPresent()) {
+            helper.fail("Rotation must preserve exactly one BACK input and one FRONT output on the new axis", relative);
+            return;
+        }
+
         helper.succeed();
     }
 
