@@ -550,7 +550,9 @@ public final class DomainNetwork {
                     claims.add(new DomainDriverRegistry.Claim(n,p,s.getValue(LapisPrecisionSourceBlock.VALUE),0,0,s.getBlock().getClass().getName()));
                 }
             }else if(s.getBlock() instanceof LapisNoiseSourceBlock){
-                claims.add(new DomainDriverRegistry.Claim(n,p,LapisNoiseSourceBlock.currentValue(level,n,s),0,0,s.getBlock().getClass().getName()));
+                if(DirectionalDomainSourceBlock.outputsToward(s,d.getOpposite())){
+                    claims.add(new DomainDriverRegistry.Claim(n,p,LapisNoiseSourceBlock.currentValue(level,n,s),0,0,s.getBlock().getClass().getName()));
+                }
             }
         }
     }
@@ -566,7 +568,9 @@ public final class DomainNetwork {
                     claims.add(new DomainDriverRegistry.Claim(n,p,s.getValue(QuartzOscillatorBlock.ACTIVE)?1:0,QuartzTimingLineBlock.periodTicks(s.getValue(QuartzOscillatorBlock.PERIOD_INDEX)),0,s.getBlock().getClass().getName()));
                 }
             }else if(s.getBlock() instanceof QuartzLabOscillatorBlock){
-                claims.add(new DomainDriverRegistry.Claim(n,p,s.getValue(QuartzLabOscillatorBlock.ACTIVE)?1:0,QuartzTimingLineBlock.periodTicks(s.getValue(QuartzLabOscillatorBlock.PERIOD_INDEX)),0,s.getBlock().getClass().getName()));
+                if(DirectionalDomainSourceBlock.outputsToward(s,d.getOpposite())){
+                    claims.add(new DomainDriverRegistry.Claim(n,p,s.getValue(QuartzLabOscillatorBlock.ACTIVE)?1:0,QuartzTimingLineBlock.periodTicks(s.getValue(QuartzLabOscillatorBlock.PERIOD_INDEX)),0,s.getBlock().getClass().getName()));
+                }
             }
         }
     }
