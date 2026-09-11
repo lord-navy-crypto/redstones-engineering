@@ -28,30 +28,36 @@ public final class PneumaticNetwork {
                 block instanceof PneumaticCylinderBlock;
     }
 
-    private static Direction directionalFacing(BlockState state) {
+    private static Direction directionalOutput(BlockState state) {
         if (state.getBlock() instanceof PneumaticReceiverBlock) {
-            return state.getValue(DirectionalSignalBlock.FACING);
+            return DirectionalSignalBlock.seriesOutputSide(state);
         }
-        return state.getValue(DirectionalDomainBlock.FACING);
+        return DirectionalDomainBlock.seriesOutputSide(state);
+    }
+
+    private static Direction directionalInput(BlockState state) {
+        if (state.getBlock() instanceof PneumaticReceiverBlock) {
+            return DirectionalSignalBlock.seriesInputSide(state);
+        }
+        return DirectionalDomainBlock.seriesInputSide(state);
     }
 
     private static boolean exposesPneumaticEdge(BlockState state, BlockPos self, BlockPos other) {
         var block = state.getBlock();
         if (block instanceof AirCompressorBlock) return other.equals(self.above());
         if (block instanceof PneumaticReceiverBlock) {
-            Direction facing = directionalFacing(state);
-            return other.equals(self.relative(facing.getOpposite()));
+            return other.equals(self.relative(directionalInput(state)));
         }
         if (block instanceof PneumaticCylinderBlock) {
-            Direction input = state.getValue(DirectionalDomainBlock.FACING).getOpposite();
-            return other.equals(self.relative(input));
+            return other.equals(self.relative(directionalInput(state)));
         }
         if (block instanceof PressureRegulatorBlock ||
                 block instanceof PneumaticValveBlock || block instanceof PneumaticCheckValveBlock ||
                 block instanceof PneumaticFlowMeterBlock || block instanceof PneumaticProportionalValveBlock ||
                 block instanceof PneumaticReliefValveBlock) {
-            Direction facing = directionalFacing(state);
-            return other.equals(self.relative(facing)) || other.equals(self.relative(facing.getOpposite()));
+            Direction input = directionalInput(state);
+            Direction output = directionalOutput(state);
+            return other.equals(self.relative(input)) || other.equals(self.relative(output));
         }
         return true;
     }
@@ -60,11 +66,11 @@ public final class PneumaticNetwork {
         BlockState a = level.getBlockState(aPos);
         BlockState b = level.getBlockState(bPos);
         if (a.getBlock() instanceof PneumaticCylinderBlock) {
-            Direction input = a.getValue(DirectionalDomainBlock.FACING).getOpposite();
+            Direction input = directionalInput(a);
             return bPos.equals(aPos.relative(input)) && exposesPneumaticEdge(b, bPos, aPos);
         }
         if (b.getBlock() instanceof PneumaticCylinderBlock) {
-            Direction input = b.getValue(DirectionalDomainBlock.FACING).getOpposite();
+            Direction input = directionalInput(b);
             return aPos.equals(bPos.relative(input)) && exposesPneumaticEdge(a, aPos, bPos);
         }
         return exposesPneumaticEdge(a, aPos, bPos) && exposesPneumaticEdge(b, bPos, aPos);
@@ -93,13 +99,11 @@ public final class PneumaticNetwork {
     }
 
     private static boolean directionalForward(BlockState state, BlockPos from, BlockPos to) {
-        Direction facing = directionalFacing(state);
-        return to.equals(from.relative(facing));
+        return to.equals(from.relative(directionalOutput(state)));
     }
 
     private static boolean directionalBackwardEntry(BlockState state, BlockPos from, BlockPos to) {
-        Direction facing = directionalFacing(state);
-        return from.equals(to.relative(facing.getOpposite()));
+        return from.equals(to.relative(directionalInput(state)));
     }
 
     private static boolean permits(Level level, BlockPos from, BlockPos to) {
@@ -121,8 +125,7 @@ public final class PneumaticNetwork {
                 b.getBlock() instanceof PneumaticReliefValveBlock) && !directionalBackwardEntry(b, from, to)) return false;
         if (a.getBlock() instanceof PneumaticCylinderBlock) return false;
         if (b.getBlock() instanceof PneumaticCylinderBlock) {
-            Direction input = b.getValue(DirectionalDomainBlock.FACING).getOpposite();
-            return from.equals(to.relative(input));
+            return from.equals(to.relative(directionalInput(b)));
         }
         return true;
     }
@@ -139,10 +142,7 @@ public final class PneumaticNetwork {
             int setpoint = state.getValue(PneumaticReliefValveBlock.SETPOINT) * 25;
             if (pressure > setpoint) {
                 int excess = pressure - setpoint;
-                // "pneumatic_relief" runtime diagnostics remain owned by PneumaticReliefValveBlock.
                 PneumaticReliefValveBlock.recordVent(level, pos, excess);
-                // Visual feedback is event-driven: particles appear only when the
-                // relief valve actually clamps/vents excess pressure.
                 if (level instanceof ServerLevel server) {
                     int count = excess >= 25 ? 3 : 1;
                     server.sendParticles(ParticleTypes.CLOUD, pos.getX() + 0.5, pos.getY() + 0.9,
@@ -227,9 +227,10 @@ public final class PneumaticNetwork {
         for (BlockPos pos : nodes) {
             BlockState state = level.getBlockState(pos);
             if (!(state.getBlock() instanceof PneumaticFlowMeterBlock)) continue;
-            Direction facing = state.getValue(DirectionalDomainBlock.FACING);
-            int pin = best.getOrDefault(pos.relative(facing.getOpposite()), 0);
-            int pout = best.getOrDefault(pos.relative(facing), 0);
+            Direction input = directionalInput(state);
+            Direction output = directionalOutput(state);
+            int pin = best.getOrDefault(pos.relative(input), 0);
+            int pout = best.getOrDefault(pos.relative(output), 0);
             int dp = Math.max(0, pin - pout);
             int[] runtime = RuntimeIntStore.get(level, "pneumatic_flow", pos, 4);
             runtime[0] = Math.min(100, dp * 12);
