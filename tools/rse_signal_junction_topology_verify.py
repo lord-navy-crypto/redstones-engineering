@@ -25,6 +25,7 @@ def require(body: str, needle: str, label: str) -> None:
 
 topology = text("src/main/java/dev/redstoneengineering/block/TransmissionTopology.java")
 junction = text("src/main/java/dev/redstoneengineering/block/RedstoneCableJunctionBlock.java")
+connected = text("src/main/java/dev/redstoneengineering/block/ConnectedCableBlock.java")
 instrument = text("src/main/java/dev/redstoneengineering/block/InstrumentCableBlock.java")
 redstone = text("src/main/java/dev/redstoneengineering/block/RedstoneSignalCableBlock.java")
 bus = text("src/main/java/dev/redstoneengineering/block/EightBitDataBusBlock.java")
@@ -54,6 +55,10 @@ require(junction, "List.of(Direction.UP, Direction.DOWN)", "junction exposes onl
 require(junction, "MISMATCH — different media blocked", "mixed-media operator warning")
 require(junction, "ROUTING ONLY — NO CONVERSION", "no implicit conversion")
 require(junction, "EnumProperty.create(\"medium\"", "inspectable junction medium")
+require(junction, "routingChanged(before, after)", "bounded Junction network refresh")
+require(connected, "state.getBlock() instanceof RedstoneCableJunctionBlock", "legacy Junction arm migration guard")
+require(connected, "direction.getAxis() != Direction.Axis.Y", "legacy horizontal arms ignored immediately")
+require(connected, "connected(state, Direction.NORTH)", "rendering follows effective connection view")
 
 for name, body, method in (
     ("instrument", instrument, "instrumentCablePort"),
@@ -97,6 +102,7 @@ for test_name in (
     "sameMediumJunctionCreatesVerticalBusRoute",
     "mixedMediaJunctionIsHardTopologyMismatch",
     "horizontalBusBranchingNeedsNoJunction",
+    "legacyHorizontalJunctionArmsAreIgnoredImmediately",
 ):
     require(tests, test_name, "runtime topology coverage")
 require(registration, "RseSignalJunctionTopologyGameTests.class", "GameTest registration")
@@ -117,6 +123,8 @@ print("  one two-port UP/DOWN Junction Point: PASS")
 print("  seven physical line media recognized: PASS")
 print("  same-medium-only vertical routing: PASS")
 print("  mixed-media hard isolation / no implicit conversion: PASS")
+print("  legacy horizontal arm states fail closed immediately: PASS")
+print("  network refresh only follows effective routing changes: PASS")
 print("  visible arm == graph edge contract: PASS")
 print("  dedicated converter boundary retained: PASS")
-print("  four executable routing GameTests retained: PASS")
+print("  five executable routing GameTests retained: PASS")
