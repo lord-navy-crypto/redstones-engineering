@@ -81,6 +81,18 @@ require(
     "DomainNetwork.sampleCopperVoltage",
 )
 
+# Serial-first terminal policy: a normal sink must not silently aggregate parallel feeds.
+require(
+    "src/main/java/dev/redstoneengineering/physics/CopperNetworkSupport.java",
+    "a normal terminal accepts exactly one legitimate feed",
+    "if (feeds > 1) return new TerminalInput(feeds, 0, PortQuality.TOPOLOGY_ERROR);",
+    "terminalInputOnSide",
+)
+copper_support = text("src/main/java/dev/redstoneengineering/physics/CopperNetworkSupport.java")
+for forbidden in ["bestVoltage", "Multiple real feeds are allowed", "Math.max(bestVoltage"]:
+    if forbidden in copper_support:
+        failed.append(f"CopperNetworkSupport must not restore implicit terminal aggregation: {forbidden!r}")
+
 # Runtime tests, not source-only promises.
 tests = "src/main/java/dev/redstoneengineering/gametest/RseCopperGameTests.java"
 require(
@@ -129,5 +141,6 @@ if failed:
 print("RSE Alpha 1.0.13 copper topology verification: PASS")
 print(" axial copper BACK/FRONT contract: PASS")
 print(" source/load/meter semantic ports: PASS")
+print(" single-feed terminal / explicit-aggregation policy: PASS")
 print(" runtime propagation and fuse GameTests present: PASS")
 print(" dependency ownership boundary: PASS")
