@@ -93,6 +93,13 @@ public class RedstoneCableJunctionBlock extends ConnectedCableBlock implements E
         return level.getBlockState(pos);
     }
 
+    private static boolean routingChanged(BlockState before, BlockState after) {
+        if (before.getBlock() != after.getBlock()) return true;
+        if (before.getValue(MEDIUM) != after.getValue(MEDIUM)) return true;
+        return ConnectedCableBlock.connected(before, Direction.UP) != ConnectedCableBlock.connected(after, Direction.UP)
+                || ConnectedCableBlock.connected(before, Direction.DOWN) != ConnectedCableBlock.connected(after, Direction.DOWN);
+    }
+
     private static EngineeringDomain domain(SignalMedium medium) {
         return switch (medium) {
             case REDSTONE -> EngineeringDomain.REDSTONE;
@@ -246,8 +253,9 @@ public class RedstoneCableJunctionBlock extends ConnectedCableBlock implements E
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
         super.onPlace(state, level, pos, oldState, moved);
-        refreshMedium(level, pos);
-        refreshAdjacentNetworks(level, pos);
+        BlockState before = level.getBlockState(pos);
+        BlockState after = refreshMedium(level, pos);
+        if (routingChanged(before, after)) refreshAdjacentNetworks(level, pos);
     }
 
     @Override
@@ -259,9 +267,9 @@ public class RedstoneCableJunctionBlock extends ConnectedCableBlock implements E
             BlockPos neighborPos,
             boolean moved
     ) {
-        super.neighborChanged(state, level, pos, neighbor, neighborPos, moved);
-        refreshMedium(level, pos);
-        refreshAdjacentNetworks(level, pos);
+        BlockState before = level.getBlockState(pos);
+        BlockState after = refreshMedium(level, pos);
+        if (routingChanged(before, after)) refreshAdjacentNetworks(level, pos);
     }
 
     @Override
