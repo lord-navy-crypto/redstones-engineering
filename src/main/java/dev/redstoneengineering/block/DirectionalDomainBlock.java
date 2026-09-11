@@ -72,8 +72,16 @@ public abstract class DirectionalDomainBlock extends DomainBlock {
         return leftOf(facing).getOpposite();
     }
 
-    /** Server-authoritative 90-degree rotation of the complete configured route. */
+    /**
+     * Compatibility entry point used by existing HMI rotate buttons. Operator rotation now targets
+     * OUTPUT only so the configured INPUT stays attached while the processor turns a corner.
+     */
     public static boolean rotateSeriesAxis(Level level, BlockPos pos, boolean clockwise) {
+        return rotateSeriesOutput(level, pos, clockwise);
+    }
+
+    /** Server-authoritative 90-degree rotation of the complete configured route. */
+    public static boolean rotateWholeRoute(Level level, BlockPos pos, boolean clockwise) {
         if (level.isClientSide) return false;
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof DirectionalDomainBlock block)) return false;
