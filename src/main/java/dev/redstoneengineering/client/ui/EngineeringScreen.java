@@ -171,7 +171,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         graphics.drawString(font, position, imageWidth - 13 - font.width(position), imageHeight - 20, MUTED, false);
     }
 
-    private int operationalHealthColor() {
+    protected final int operationalHealthColor() {
         return switch (menu.operationalHealth()) {
             case EngineeringDeviceMenu.HEALTH_FAULT -> BAD;
             case EngineeringDeviceMenu.HEALTH_DEGRADED, EngineeringDeviceMenu.HEALTH_PROTECTIVE -> WARN;
@@ -180,7 +180,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         };
     }
 
-    private int evidenceStateColor() {
+    protected final int evidenceStateColor() {
         return switch (menu.evidenceState()) {
             case EngineeringDeviceMenu.EVIDENCE_VALID -> GOOD;
             case EngineeringDeviceMenu.EVIDENCE_NO_SIGNAL, EngineeringDeviceMenu.EVIDENCE_UNOBSERVED -> MUTED;
