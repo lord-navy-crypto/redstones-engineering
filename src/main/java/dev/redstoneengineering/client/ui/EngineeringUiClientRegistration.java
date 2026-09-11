@@ -45,6 +45,7 @@ public final class EngineeringUiClientRegistration {
         event.register(EngineeringUiRegistration.PNEUMATIC_SYSTEM.get(), PneumaticSystemScreen::new);
         event.register(EngineeringUiRegistration.OPTICAL_SYSTEM.get(), OpticalSystemScreen::new);
         event.register(EngineeringUiRegistration.AMETHYST_SYSTEM.get(), AmethystSystemScreen::new);
+        event.register(EngineeringUiRegistration.MAGNETIC_SYSTEM.get(), MagneticSystemScreen::new);
         event.register(EngineeringUiRegistration.OPERATIONS_MONITOR.get(), OperationsMonitorScreen::new);
     }
 
