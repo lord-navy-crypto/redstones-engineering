@@ -7,6 +7,9 @@ import dev.redstoneengineering.block.PneumaticReliefValveBlock;
 import dev.redstoneengineering.block.RedundantVoterBlock;
 import dev.redstoneengineering.block.ServoActuatorBlock;
 import dev.redstoneengineering.block.WatchdogBlock;
+import dev.redstoneengineering.core.port.EngineeringPort;
+import dev.redstoneengineering.core.port.EngineeringPortProvider;
+import dev.redstoneengineering.core.port.PortKind;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -18,6 +21,8 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 
+import java.util.List;
+
 /** Shared no-inventory menu base for RSE engineering instruments and controllers. */
 public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
     public static final int HEALTH_NOMINAL = 0;
@@ -26,11 +31,21 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
     public static final int HEALTH_DEGRADED = 3;
     public static final int HEALTH_FAULT = 4;
 
+    public static final int TOPOLOGY_UNKNOWN = 0;
+    public static final int TOPOLOGY_SERIES = 1;
+    public static final int TOPOLOGY_SOURCE = 2;
+    public static final int TOPOLOGY_SINK = 3;
+    public static final int TOPOLOGY_OBSERVER = 4;
+    public static final int TOPOLOGY_PASSIVE = 5;
+    public static final int TOPOLOGY_EXPLICIT_JUNCTION = 6;
+    public static final int TOPOLOGY_MULTIPORT = 7;
+
     protected final Inventory playerInventory;
     protected final Level level;
     protected final BlockPos blockPos;
     private final Block expectedBlock;
     private final DataSlot operationalHealth;
+    private final DataSlot topologyRole;
 
     protected EngineeringDeviceMenu(
             MenuType<?> type,
@@ -45,6 +60,7 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
         this.blockPos = blockPos;
         this.expectedBlock = expectedBlock;
         this.operationalHealth = trackedInt();
+        this.topologyRole = trackedInt();
     }
 
     protected DataSlot trackedInt() {
@@ -84,6 +100,24 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
         };
     }
 
+    /** Server-derived physical role from the formal Engineering Port contract. */
+    public int topologyRole() {
+        return topologyRole.get();
+    }
+
+    public String topologyRoleLabel() {
+        return switch (topologyRole()) {
+            case TOPOLOGY_SERIES -> "SERIES";
+            case TOPOLOGY_SOURCE -> "SOURCE";
+            case TOPOLOGY_SINK -> "SINK";
+            case TOPOLOGY_OBSERVER -> "OBSERVER";
+            case TOPOLOGY_PASSIVE -> "PASSIVE";
+            case TOPOLOGY_EXPLICIT_JUNCTION -> "EXPLICIT JUNCTION";
+            case TOPOLOGY_MULTIPORT -> "MULTIPORT";
+            default -> "UNCLASSIFIED";
+        };
+    }
+
     @Override
     public boolean stillValid(Player player) {
         if (!player.level().getBlockState(blockPos).is(expectedBlock)) return false;
@@ -103,6 +137,7 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
         if (!level.isClientSide) {
             refreshAuthoritativeSnapshot();
             refreshOperationalHealth();
+            refreshTopologyRole();
         }
         super.broadcastChanges();
     }
@@ -143,6 +178,53 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
         }
 
         operationalHealth.set(health);
+    }
+
+    private void refreshTopologyRole() {
+        BlockState state = level.getBlockState(blockPos);
+        Block block = state.getBlock();
+        if (!(block instanceof EngineeringPortProvider provider)) {
+            topologyRole.set(TOPOLOGY_UNKNOWN);
+            return;
+        }
+
+        List<EngineeringPort> ports = provider.engineeringPorts(state);
+        if (ports.isEmpty()) {
+            topologyRole.set(TOPOLOGY_PASSIVE);
+            return;
+        }
+
+        if (block.getClass().getSimpleName().contains("Junction")) {
+            topologyRole.set(TOPOLOGY_EXPLICIT_JUNCTION);
+            return;
+        }
+
+        int receivers = 0;
+        int transmitters = 0;
+        boolean observational = true;
+        boolean bidirectional = false;
+        for (EngineeringPort port : ports) {
+            if (port.canReceive()) receivers++;
+            if (port.canTransmit()) transmitters++;
+            bidirectional |= port.canReceive() && port.canTransmit();
+            observational &= port.kind() == PortKind.TAP || port.kind() == PortKind.MEASUREMENT;
+        }
+
+        if (observational && transmitters == 0) {
+            topologyRole.set(TOPOLOGY_OBSERVER);
+        } else if (receivers == 0 && transmitters > 0) {
+            topologyRole.set(TOPOLOGY_SOURCE);
+        } else if (receivers > 0 && transmitters == 0) {
+            topologyRole.set(TOPOLOGY_SINK);
+        } else if (bidirectional && receivers == ports.size() && transmitters == ports.size()) {
+            topologyRole.set(TOPOLOGY_PASSIVE);
+        } else if (ports.size() == 2 && receivers > 0 && transmitters > 0) {
+            topologyRole.set(TOPOLOGY_SERIES);
+        } else if (receivers > 0 || transmitters > 0) {
+            topologyRole.set(TOPOLOGY_MULTIPORT);
+        } else {
+            topologyRole.set(TOPOLOGY_PASSIVE);
+        }
     }
 
     protected abstract void refreshAuthoritativeSnapshot();
