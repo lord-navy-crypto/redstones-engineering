@@ -4,6 +4,7 @@ import dev.redstoneengineering.block.*;
 import dev.redstoneengineering.ui.menu.AmethystSystemMenu;
 import dev.redstoneengineering.ui.menu.DigitalCommunicationMenu;
 import dev.redstoneengineering.ui.menu.FieldDeviceMenu;
+import dev.redstoneengineering.ui.menu.MagneticSystemMenu;
 import dev.redstoneengineering.ui.menu.OpticalSystemMenu;
 import dev.redstoneengineering.ui.menu.PneumaticSystemMenu;
 import dev.redstoneengineering.ui.menu.QuartzTimingMenu;
@@ -53,6 +54,10 @@ public final class FieldDeviceUi {
         if (block instanceof AmethystResonatorBlock || block instanceof AmethystFrequencyFilterBlock
                 || block instanceof AmethystTunedResonatorBlock || block instanceof AmethystSpectrumAnalyzerBlock) {
             player.openMenu(new SimpleMenuProvider((id, inv, ignored) -> new AmethystSystemMenu(id, inv, pos), title), data -> data.writeBlockPos(pos)); return;
+        }
+        if (block instanceof ElectromagnetBlock || block instanceof PermanentMagnetBlock || block instanceof InductionCoilBlock
+                || block instanceof MagneticFieldSensorBlock || block instanceof MagneticGradientMeterBlock) {
+            player.openMenu(new SimpleMenuProvider((id, inv, ignored) -> new MagneticSystemMenu(id, inv, pos), title), data -> data.writeBlockPos(pos)); return;
         }
         player.openMenu(new SimpleMenuProvider((id, inv, ignored) -> new FieldDeviceMenu(id, inv, pos), title), data -> data.writeBlockPos(pos));
     }
