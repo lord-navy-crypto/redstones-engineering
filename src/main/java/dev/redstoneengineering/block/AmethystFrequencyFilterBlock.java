@@ -10,10 +10,12 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -85,13 +87,9 @@ public class AmethystFrequencyFilterBlock extends DirectionalDomainBlock impleme
         PortQuality quality = qualityAt(level, samplePos, signal);
         if (side == outputSide(state) && quality == PortQuality.NO_SIGNAL) {
             FilterEvidence evidence = evidence(level, pos, state);
-            if (evidence.inputQuality() == PortQuality.TOPOLOGY_ERROR
-                    || evidence.inputQuality() == PortQuality.STALE) {
-                quality = evidence.inputQuality();
-            }
+            if (evidence.inputQuality() == PortQuality.TOPOLOGY_ERROR || evidence.inputQuality() == PortQuality.STALE) quality = evidence.inputQuality();
         }
-        return Optional.of(new EngineeringPortSnapshot(
-                port.get(), Math.max(0, Math.min(15, signal.amplitude())), 0.0, 15.0, quality));
+        return Optional.of(new EngineeringPortSnapshot(port.get(), Math.max(0, Math.min(15, signal.amplitude())), 0.0, 15.0, quality));
     }
 
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
@@ -101,8 +99,7 @@ public class AmethystFrequencyFilterBlock extends DirectionalDomainBlock impleme
 
     @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         FilterEvidence evidence = evidence(level, pos, state);
-        DomainNetwork.driveAmethyst(level, outputPos(pos, state),
-                evidence.matched() && evidence.expectedOutputAmplitude() > 0,
+        DomainNetwork.driveAmethyst(level, outputPos(pos, state), evidence.matched() && evidence.expectedOutputAmplitude() > 0,
                 evidence.inputFrequency(), evidence.expectedOutputAmplitude());
         level.scheduleTick(pos, this, 2);
     }
@@ -116,7 +113,11 @@ public class AmethystFrequencyFilterBlock extends DirectionalDomainBlock impleme
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (!level.isClientSide) {
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (!player.isShiftKeyDown()) {
+                FieldDeviceUi.open(serverPlayer, pos);
+                return InteractionResult.CONSUME;
+            }
             int frequency = state.getValue(TARGET);
             frequency = frequency >= 15 ? 1 : frequency + 1;
             BlockState next = state.setValue(TARGET, frequency);
@@ -124,10 +125,11 @@ public class AmethystFrequencyFilterBlock extends DirectionalDomainBlock impleme
             level.scheduleTick(pos, this, 1);
             FilterEvidence evidence = evidence(level, pos, next);
             player.displayClientMessage(Component.literal(
-                    "Amethyst frequency filter | exact pass f=" + frequency + " | insertion loss=1"
+                    "Amethyst filter quick-adjust | target index=" + frequency + " | loss=1"
                             + " | input quality=" + evidence.inputQuality()
-                            + (evidence.inputActive() ? " | input f=" + evidence.inputFrequency() + " A=" + evidence.inputAmplitude()
-                            + " | " + (evidence.matched() ? "PASS" : "REJECT") : " | no active input")), true);
+                            + (evidence.inputActive() ? " | input index=" + evidence.inputFrequency() + " A=" + evidence.inputAmplitude()
+                            + " | " + (evidence.matched() ? "PASS" : "REJECT") : " | no active input")
+                            + " | normal right-click opens Engineering UI"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
