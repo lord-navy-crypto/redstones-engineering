@@ -10,6 +10,7 @@ import dev.redstoneengineering.block.WatchdogBlock;
 import dev.redstoneengineering.core.port.EngineeringPort;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.PortKind;
+import dev.redstoneengineering.core.port.PortQuality;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -40,12 +41,22 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
     public static final int TOPOLOGY_EXPLICIT_JUNCTION = 6;
     public static final int TOPOLOGY_MULTIPORT = 7;
 
+    public static final int EVIDENCE_UNOBSERVED = 0;
+    public static final int EVIDENCE_VALID = 1;
+    public static final int EVIDENCE_NO_SIGNAL = 2;
+    public static final int EVIDENCE_SATURATED = 3;
+    public static final int EVIDENCE_STALE = 4;
+    public static final int EVIDENCE_FAULT = 5;
+    public static final int EVIDENCE_DOMAIN_MISMATCH = 6;
+    public static final int EVIDENCE_TOPOLOGY_ERROR = 7;
+
     protected final Inventory playerInventory;
     protected final Level level;
     protected final BlockPos blockPos;
     private final Block expectedBlock;
     private final DataSlot operationalHealth;
     private final DataSlot topologyRole;
+    private final DataSlot evidenceState;
 
     protected EngineeringDeviceMenu(
             MenuType<?> type,
@@ -61,6 +72,7 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
         this.expectedBlock = expectedBlock;
         this.operationalHealth = trackedInt();
         this.topologyRole = trackedInt();
+        this.evidenceState = trackedInt();
     }
 
     protected DataSlot trackedInt() {
@@ -118,6 +130,24 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
         };
     }
 
+    /** Aggregated runtime evidence quality from formal Engineering Port snapshots only. */
+    public int evidenceState() {
+        return evidenceState.get();
+    }
+
+    public String evidenceStateLabel() {
+        return switch (evidenceState()) {
+            case EVIDENCE_VALID -> "VALID";
+            case EVIDENCE_NO_SIGNAL -> "NO SIGNAL";
+            case EVIDENCE_SATURATED -> "SATURATED";
+            case EVIDENCE_STALE -> "STALE";
+            case EVIDENCE_FAULT -> "FAULT";
+            case EVIDENCE_DOMAIN_MISMATCH -> "DOMAIN MISMATCH";
+            case EVIDENCE_TOPOLOGY_ERROR -> "TOPOLOGY ERROR";
+            default -> "UNOBSERVED";
+        };
+    }
+
     @Override
     public boolean stillValid(Player player) {
         if (!player.level().getBlockState(blockPos).is(expectedBlock)) return false;
@@ -138,6 +168,7 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
             refreshAuthoritativeSnapshot();
             refreshOperationalHealth();
             refreshTopologyRole();
+            refreshEvidenceState();
         }
         super.broadcastChanges();
     }
@@ -182,6 +213,35 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
 
     private void refreshTopologyRole() {
         topologyRole.set(classifyTopologyRole(level.getBlockState(blockPos)));
+    }
+
+    private void refreshEvidenceState() {
+        BlockState state = level.getBlockState(blockPos);
+        Block block = state.getBlock();
+        if (!(block instanceof EngineeringPortProvider provider)) {
+            evidenceState.set(EVIDENCE_UNOBSERVED);
+            return;
+        }
+
+        int aggregate = EVIDENCE_UNOBSERVED;
+        for (EngineeringPort port : provider.engineeringPorts(state)) {
+            var snapshot = provider.engineeringSnapshot(level, blockPos, state, port.side());
+            if (snapshot.isEmpty()) continue;
+            aggregate = Math.max(aggregate, evidenceCode(snapshot.get().quality()));
+        }
+        evidenceState.set(aggregate);
+    }
+
+    private static int evidenceCode(PortQuality quality) {
+        return switch (quality) {
+            case VALID -> EVIDENCE_VALID;
+            case NO_SIGNAL -> EVIDENCE_NO_SIGNAL;
+            case SATURATED -> EVIDENCE_SATURATED;
+            case STALE -> EVIDENCE_STALE;
+            case FAULT -> EVIDENCE_FAULT;
+            case DOMAIN_MISMATCH -> EVIDENCE_DOMAIN_MISMATCH;
+            case TOPOLOGY_ERROR -> EVIDENCE_TOPOLOGY_ERROR;
+        };
     }
 
     /**
