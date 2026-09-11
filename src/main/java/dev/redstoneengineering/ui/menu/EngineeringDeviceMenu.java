@@ -1,7 +1,10 @@
 package dev.redstoneengineering.ui.menu;
 
 import dev.redstoneengineering.block.DirectionalSignalBlock;
+import dev.redstoneengineering.block.FaultLatchBlock;
+import dev.redstoneengineering.block.OperationsMonitorBlock;
 import dev.redstoneengineering.block.PneumaticReliefValveBlock;
+import dev.redstoneengineering.block.RedundantVoterBlock;
 import dev.redstoneengineering.block.ServoActuatorBlock;
 import dev.redstoneengineering.block.WatchdogBlock;
 import net.minecraft.core.BlockPos;
@@ -64,8 +67,8 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
 
     /**
      * Operational/safety state is intentionally independent from evidence validity.
-     * A watchdog timeout, relief event, or commanded brake can be authoritative data
-     * while the device is simultaneously in a protective operating state.
+     * A watchdog timeout, relief event, latched fault, degraded vote, or commanded brake
+     * can all be authoritative data while the device is in a non-nominal operating state.
      */
     public int operationalHealth() {
         return operationalHealth.get();
@@ -118,6 +121,25 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
         } else if (block instanceof ServoActuatorBlock) {
             health = ServoActuatorBlock.braking(level, blockPos)
                     ? HEALTH_PROTECTIVE : HEALTH_ACTIVE;
+        } else if (block instanceof RedundantVoterBlock) {
+            health = RedundantVoterBlock.degraded(level, blockPos)
+                    ? HEALTH_DEGRADED : HEALTH_NOMINAL;
+        } else if (block instanceof FaultLatchBlock) {
+            health = FaultLatchBlock.latched(level, blockPos)
+                    ? HEALTH_FAULT : HEALTH_NOMINAL;
+        } else if (block instanceof OperationsMonitorBlock) {
+            OperationsMonitorBlock.SystemState systemState = OperationsMonitorBlock.SystemState.values()[
+                    Math.max(0, Math.min(
+                            OperationsMonitorBlock.SystemState.values().length - 1,
+                            OperationsMonitorBlock.stateOrdinal(level, blockPos)
+                    ))
+            ];
+            health = switch (systemState) {
+                case NOMINAL -> HEALTH_NOMINAL;
+                case CONGESTED, NOISY, UNSTABLE -> HEALTH_DEGRADED;
+                case OVERLOADED, SAFETY_LIMITED -> HEALTH_PROTECTIVE;
+                case FAILED -> HEALTH_FAULT;
+            };
         }
 
         operationalHealth.set(health);
