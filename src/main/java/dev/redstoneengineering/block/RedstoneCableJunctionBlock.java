@@ -86,6 +86,10 @@ public class RedstoneCableJunctionBlock extends ConnectedCableBlock implements E
             level.setBlock(pos, state, Block.UPDATE_CLIENTS);
         }
         refreshConnections(level, pos, state);
+        // MEDIUM is an internal topology epoch. Re-resolve both adjacent cable arms after
+        // NONE -> medium, medium -> MISMATCH, or medium swaps even when the state update itself
+        // intentionally uses UPDATE_CLIENTS and therefore emits no vanilla neighbor notification.
+        refreshAdjacentCableConnections(level, pos);
         return level.getBlockState(pos);
     }
 
