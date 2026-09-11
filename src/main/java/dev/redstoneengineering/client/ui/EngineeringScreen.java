@@ -156,6 +156,8 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
         String live = "● LIVE / SERVER";
         graphics.drawString(font, live, imageWidth - 12 - font.width(live), 9, GOOD, false);
+        String health = "HEALTH • " + menu.operationalHealthLabel();
+        graphics.drawString(font, health, imageWidth - 12 - font.width(health), 19, operationalHealthColor(), false);
 
         graphics.drawString(font, section.label.toUpperCase(), 13, 62, TEXT, false);
         graphics.drawString(font, section.subtitle, 92, 62, MUTED, false);
@@ -164,6 +166,15 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         String position = "@ " + menu.blockPos().getX() + ", " + menu.blockPos().getY() + ", " + menu.blockPos().getZ();
         graphics.drawString(font, "SERVER AUTHORITATIVE • OBSERVER-NEUTRAL", 13, imageHeight - 20, INFO, false);
         graphics.drawString(font, position, imageWidth - 13 - font.width(position), imageHeight - 20, MUTED, false);
+    }
+
+    private int operationalHealthColor() {
+        return switch (menu.operationalHealth()) {
+            case EngineeringDeviceMenu.HEALTH_FAULT -> BAD;
+            case EngineeringDeviceMenu.HEALTH_DEGRADED, EngineeringDeviceMenu.HEALTH_PROTECTIVE -> WARN;
+            case EngineeringDeviceMenu.HEALTH_ACTIVE -> INFO;
+            default -> GOOD;
+        };
     }
 
     protected final void labelValue(GuiGraphics graphics, String label, String value, int y) {
