@@ -32,6 +32,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     private final DataSlot inputMask = trackedInt();
     private final DataSlot outputMask = trackedInt();
     private final DataSlot bidirectionalMask = trackedInt();
+    private final DataSlot seriesRotatable = trackedInt();
     private final DataSlot[] domains = trackedInts(FACE_COUNT);
     private final DataSlot[] kinds = trackedInts(FACE_COUNT);
     private final DataSlot[] values = trackedInts(FACE_COUNT);
@@ -54,6 +55,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         BlockState state = level.getBlockState(blockPos);
         Block block = state.getBlock();
         facing.set(directionOrdinal(state));
+        seriesRotatable.set(block instanceof DirectionalSignalBlock || block instanceof DirectionalDomainBlock ? 1 : 0);
         declaredPortMask.set(0);
         inputMask.set(0);
         outputMask.set(0);
@@ -166,6 +168,6 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     }
 
     public boolean rotatableSeriesAxis() {
-        return facing.get() >= 0;
+        return seriesRotatable.get() != 0;
     }
 }
