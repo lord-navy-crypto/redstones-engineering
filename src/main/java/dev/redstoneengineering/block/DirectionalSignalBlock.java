@@ -159,8 +159,8 @@ public abstract class DirectionalSignalBlock extends Block implements Engineerin
     }
 
     protected int readBackInput(Level level, BlockPos pos, BlockState state) {
-        Direction back = inputSide(state);
-        return EngineeringSignal.clamp(level.getSignal(pos.relative(back), back));
+        Direction input = inputSide(state);
+        return EngineeringSignal.clamp(level.getSignal(pos.relative(input), input));
     }
 
     protected int readInputFrom(Level level, BlockPos pos, Direction direction) {
@@ -177,8 +177,16 @@ public abstract class DirectionalSignalBlock extends Block implements Engineerin
         notifyNeighbors(level, pos, this, outputSide(next));
     }
 
-    /** Rotates INPUT and OUTPUT together, preserving their relative route. */
+    /**
+     * Compatibility entry point used by existing HMI rotate buttons. In Alpha 1.0.20 the operator
+     * controls OUTPUT independently; INPUT remains fixed so processors can deliberately turn corners.
+     */
     public static boolean rotateSeriesAxis(Level level, BlockPos pos, boolean clockwise) {
+        return rotateSeriesOutput(level, pos, clockwise);
+    }
+
+    /** Rotates INPUT and OUTPUT together as a lower-level placement/maintenance convenience. */
+    public static boolean rotateWholeRoute(Level level, BlockPos pos, boolean clockwise) {
         if (level.isClientSide) return false;
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof DirectionalSignalBlock block)) return false;
