@@ -140,26 +140,36 @@ public final class RseNinthEightAcceptanceGameTests {
 
     @PrefixGameTestTemplate(false)
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 60)
-    public static void pressureRegulatorIsSixWayAndClampsSetpoint(GameTestHelper helper) {
+    public static void pressureRegulatorIsAxialAndClampsSetpoint(GameTestHelper helper) {
         BlockPos source = new BlockPos(1, 1, 2);
         BlockPos regulator = new BlockPos(2, 2, 2);
         BlockPos downstream = new BlockPos(3, 2, 2);
+        BlockPos sidePipe = new BlockPos(2, 2, 1);
         placePoweredCompressor(helper, source);
         helper.setBlock(regulator, RedstoneEngineering.PRESSURE_REGULATOR.get().defaultBlockState()
+                .setValue(DirectionalDomainBlock.FACING, Direction.EAST)
                 .setValue(PressureRegulatorBlock.SETPOINT, 2));
         helper.setBlock(downstream, RedstoneEngineering.PNEUMATIC_PIPE.get().defaultBlockState());
+        helper.setBlock(sidePipe, RedstoneEngineering.PNEUMATIC_PIPE.get().defaultBlockState());
         recompute(helper, source);
 
         helper.runAfterDelay(3, () -> {
             EngineeringPortProvider provider = RedstoneEngineering.PRESSURE_REGULATOR.get();
+            BlockState state = helper.getBlockState(regulator);
+            var back = provider.engineeringPort(state, Direction.WEST).orElse(null);
+            var front = provider.engineeringPort(state, Direction.EAST).orElse(null);
             int regulated = PneumaticNetwork.pressure(helper.getLevel(), helper.absolutePos(regulator));
             int after = PneumaticNetwork.pressure(helper.getLevel(), helper.absolutePos(downstream));
-            if (provider.engineeringPorts(helper.getBlockState(regulator)).size() != 6
-                    || provider.engineeringPorts(helper.getBlockState(regulator)).stream()
-                    .anyMatch(port -> port.domain() != EngineeringDomain.PNEUMATIC
-                            || port.direction() != PortDirection.BIDIRECTIONAL)
-                    || regulated != 50 || after != 49) {
-                helper.fail("Pressure regulator did not expose six pneumatic ports or clamp 50/100 setpoint", regulator);
+            int side = PneumaticNetwork.pressure(helper.getLevel(), helper.absolutePos(sidePipe));
+            if (provider.engineeringPorts(state).size() != 2
+                    || back == null || back.domain() != EngineeringDomain.PNEUMATIC
+                    || back.direction() != PortDirection.INPUT
+                    || front == null || front.domain() != EngineeringDomain.PNEUMATIC
+                    || front.direction() != PortDirection.OUTPUT
+                    || provider.engineeringPort(state, Direction.NORTH).isPresent()
+                    || provider.engineeringPort(state, Direction.SOUTH).isPresent()
+                    || regulated != 50 || after != 49 || side != 0) {
+                helper.fail("Pressure regulator must enforce BACK -> regulated FRONT at 50/100 with side isolation", regulator);
                 return;
             }
             helper.succeed();
