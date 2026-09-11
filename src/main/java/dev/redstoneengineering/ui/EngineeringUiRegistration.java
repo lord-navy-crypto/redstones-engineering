@@ -6,6 +6,7 @@ import dev.redstoneengineering.ui.menu.LogicAnalyzerMenu;
 import dev.redstoneengineering.ui.menu.OperationsMonitorMenu;
 import dev.redstoneengineering.ui.menu.OscilloscopeMenu;
 import dev.redstoneengineering.ui.menu.PidControllerMenu;
+import dev.redstoneengineering.ui.menu.QuartzTimingMenu;
 import dev.redstoneengineering.ui.menu.RangeSensorMenu;
 import dev.redstoneengineering.ui.menu.SignalAnalyzerMenu;
 import dev.redstoneengineering.ui.menu.SignalConditionerMenu;
@@ -56,6 +57,9 @@ public final class EngineeringUiRegistration {
 
     public static final DeferredHolder<MenuType<?>, MenuType<SignalProcessorMenu>> SIGNAL_PROCESSOR =
             MENUS.register("signal_processor", () -> IMenuTypeExtension.create(SignalProcessorMenu::new));
+
+    public static final DeferredHolder<MenuType<?>, MenuType<QuartzTimingMenu>> QUARTZ_TIMING =
+            MENUS.register("quartz_timing", () -> IMenuTypeExtension.create(QuartzTimingMenu::new));
 
     public static final DeferredHolder<MenuType<?>, MenuType<OperationsMonitorMenu>> OPERATIONS_MONITOR =
             MENUS.register("operations_monitor", () -> IMenuTypeExtension.create(OperationsMonitorMenu::new));
