@@ -1,5 +1,10 @@
 package dev.redstoneengineering.ui;
 
+import dev.redstoneengineering.block.ByteToRedstoneDecoderBlock;
+import dev.redstoneengineering.block.DeserializerBlock;
+import dev.redstoneengineering.block.DifferentialDriverBlock;
+import dev.redstoneengineering.block.DifferentialReceiverBlock;
+import dev.redstoneengineering.block.DigitalRegeneratorBlock;
 import dev.redstoneengineering.block.EdgeDetectorBlock;
 import dev.redstoneengineering.block.PrecisionFilterBlock;
 import dev.redstoneengineering.block.PulseShaperBlock;
@@ -9,6 +14,9 @@ import dev.redstoneengineering.block.QuartzStabilityMonitorBlock;
 import dev.redstoneengineering.block.RadioReceiverBlock;
 import dev.redstoneengineering.block.RadioTransmitterBlock;
 import dev.redstoneengineering.block.RangeSensorBlock;
+import dev.redstoneengineering.block.RedstoneByteEncoderBlock;
+import dev.redstoneengineering.block.SerializerBlock;
+import dev.redstoneengineering.ui.menu.DigitalCommunicationMenu;
 import dev.redstoneengineering.ui.menu.FieldDeviceMenu;
 import dev.redstoneengineering.ui.menu.QuartzTimingMenu;
 import dev.redstoneengineering.ui.menu.RadioLinkMenu;
@@ -65,6 +73,22 @@ public final class FieldDeviceUi {
             player.openMenu(
                     new SimpleMenuProvider(
                             (containerId, inventory, ignored) -> new RadioLinkMenu(containerId, inventory, pos),
+                            title
+                    ),
+                    data -> data.writeBlockPos(pos)
+            );
+            return;
+        }
+        if (state.getBlock() instanceof RedstoneByteEncoderBlock
+                || state.getBlock() instanceof ByteToRedstoneDecoderBlock
+                || state.getBlock() instanceof SerializerBlock
+                || state.getBlock() instanceof DeserializerBlock
+                || state.getBlock() instanceof DigitalRegeneratorBlock
+                || state.getBlock() instanceof DifferentialDriverBlock
+                || state.getBlock() instanceof DifferentialReceiverBlock) {
+            player.openMenu(
+                    new SimpleMenuProvider(
+                            (containerId, inventory, ignored) -> new DigitalCommunicationMenu(containerId, inventory, pos),
                             title
                     ),
                     data -> data.writeBlockPos(pos)
