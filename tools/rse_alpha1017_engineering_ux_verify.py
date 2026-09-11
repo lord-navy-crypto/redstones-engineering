@@ -68,7 +68,7 @@ require(
     "src/main/java/dev/redstoneengineering/gametest/RseEngineeringUxGameTests.java",
     "compatibilityProjectionDistinguishesTopologyFaults",
     "visualizationSnapshotIsImmutableAndCountsIssues",
-    "directionalDomainRotationPreservesStrictSeriesPorts",
+    "directionalDomainRotationMovesTheWholeSeriesContract",
 )
 require(
     "src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java",
