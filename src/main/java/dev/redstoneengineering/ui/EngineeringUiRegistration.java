@@ -6,6 +6,7 @@ import dev.redstoneengineering.ui.menu.LogicAnalyzerMenu;
 import dev.redstoneengineering.ui.menu.OperationsMonitorMenu;
 import dev.redstoneengineering.ui.menu.OscilloscopeMenu;
 import dev.redstoneengineering.ui.menu.PidControllerMenu;
+import dev.redstoneengineering.ui.menu.RangeSensorMenu;
 import dev.redstoneengineering.ui.menu.SignalAnalyzerMenu;
 import dev.redstoneengineering.ui.menu.SignalConditionerMenu;
 import dev.redstoneengineering.ui.menu.UniversalFieldDeviceMenu;
@@ -48,6 +49,9 @@ public final class EngineeringUiRegistration {
 
     public static final DeferredHolder<MenuType<?>, MenuType<UniversalFieldDeviceMenu>> UNIVERSAL_FIELD_DEVICE =
             MENUS.register("universal_field_device", () -> IMenuTypeExtension.create(UniversalFieldDeviceMenu::new));
+
+    public static final DeferredHolder<MenuType<?>, MenuType<RangeSensorMenu>> RANGE_SENSOR =
+            MENUS.register("range_sensor", () -> IMenuTypeExtension.create(RangeSensorMenu::new));
 
     public static final DeferredHolder<MenuType<?>, MenuType<OperationsMonitorMenu>> OPERATIONS_MONITOR =
             MENUS.register("operations_monitor", () -> IMenuTypeExtension.create(OperationsMonitorMenu::new));
