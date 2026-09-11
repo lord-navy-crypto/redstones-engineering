@@ -43,6 +43,7 @@ public final class EngineeringUiClientRegistration {
         event.register(EngineeringUiRegistration.QUARTZ_TIMING.get(), QuartzTimingScreen::new);
         event.register(EngineeringUiRegistration.RADIO_LINK.get(), RadioLinkScreen::new);
         event.register(EngineeringUiRegistration.DIGITAL_COMMUNICATION.get(), DigitalCommunicationScreen::new);
+        event.register(EngineeringUiRegistration.PNEUMATIC_SYSTEM.get(), PneumaticSystemScreen::new);
         event.register(EngineeringUiRegistration.OPERATIONS_MONITOR.get(), OperationsMonitorScreen::new);
     }
 
