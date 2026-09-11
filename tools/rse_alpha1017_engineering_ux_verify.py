@@ -68,6 +68,7 @@ require(
     "src/main/java/dev/redstoneengineering/gametest/RseEngineeringUxGameTests.java",
     "compatibilityProjectionDistinguishesTopologyFaults",
     "visualizationSnapshotIsImmutableAndCountsIssues",
+    "topologyRoleProjectionUsesFormalPortContract",
     "directionalDomainRotationMovesTheWholeSeriesContract",
 )
 require(
@@ -112,6 +113,7 @@ require(
     "TOPOLOGY_EXPLICIT_JUNCTION",
     "TOPOLOGY_MULTIPORT",
     "topologyRoleLabel",
+    "classifyTopologyRole",
     "refreshTopologyRole",
     "EngineeringPortProvider",
     "port.canReceive()",
@@ -182,6 +184,7 @@ print(" all-face Engineering Port projection: PASS")
 print(" Jade topology summary + face diagnostics: PASS")
 print(" strict series-I/O capability + controls: PASS")
 print(" shared physical topology-role HMI: PASS")
+print(" lightweight topology-role regression: PASS")
 print(" authoritative valid-zero evidence boundary: PASS")
 print(" evidence-validity / operational-health separation: PASS")
 print(" read-only/no-second-solver boundary: PASS")
