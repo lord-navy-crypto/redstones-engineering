@@ -1,6 +1,8 @@
 package dev.redstoneengineering.ui;
 
+import dev.redstoneengineering.block.RangeSensorBlock;
 import dev.redstoneengineering.ui.menu.FieldDeviceMenu;
+import dev.redstoneengineering.ui.menu.RangeSensorMenu;
 import dev.redstoneengineering.ui.menu.UniversalFieldDeviceMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
@@ -10,9 +12,20 @@ import net.minecraft.world.SimpleMenuProvider;
 public final class FieldDeviceUi {
     private FieldDeviceUi() {}
 
-    /** Opens the established device-aware dashboard with device-specific telemetry/configuration. */
+    /** Opens the richest registered device-aware dashboard for the selected block. */
     public static void open(ServerPlayer player, BlockPos pos) {
-        var title = player.level().getBlockState(pos).getBlock().getName();
+        var state = player.level().getBlockState(pos);
+        var title = state.getBlock().getName();
+        if (state.getBlock() instanceof RangeSensorBlock) {
+            player.openMenu(
+                    new SimpleMenuProvider(
+                            (containerId, inventory, ignored) -> new RangeSensorMenu(containerId, inventory, pos),
+                            title
+                    ),
+                    data -> data.writeBlockPos(pos)
+            );
+            return;
+        }
         player.openMenu(
                 new SimpleMenuProvider(
                         (containerId, inventory, ignored) -> new FieldDeviceMenu(containerId, inventory, pos),
