@@ -100,6 +100,7 @@ public final class RseEngineeringUxGameTests {
         BlockState analyzerTap = RedstoneEngineering.SIGNAL_ANALYZER.get().defaultBlockState()
                 .setValue(SignalAnalyzerBlock.MODE, SignalAnalyzerBlock.TAP);
         BlockState analyzerInline = analyzerTap.setValue(SignalAnalyzerBlock.MODE, SignalAnalyzerBlock.INLINE);
+        BlockState pressureRegulator = RedstoneEngineering.PRESSURE_REGULATOR.get().defaultBlockState();
         BlockState controlledSeries = RedstoneEngineering.PNEUMATIC_PROPORTIONAL_VALVE.get().defaultBlockState();
         BlockState controlledSource = RedstoneEngineering.SOUL_FLUX_INJECTOR.get().defaultBlockState();
 
@@ -111,6 +112,7 @@ public final class RseEngineeringUxGameTests {
                 || EngineeringDeviceMenu.classifyTopologyRole(junction.defaultBlockState()) != EngineeringDeviceMenu.TOPOLOGY_EXPLICIT_JUNCTION
                 || EngineeringDeviceMenu.classifyTopologyRole(analyzerTap) != EngineeringDeviceMenu.TOPOLOGY_OBSERVER
                 || EngineeringDeviceMenu.classifyTopologyRole(analyzerInline) != EngineeringDeviceMenu.TOPOLOGY_SERIES
+                || EngineeringDeviceMenu.classifyTopologyRole(pressureRegulator) != EngineeringDeviceMenu.TOPOLOGY_SERIES
                 || EngineeringDeviceMenu.classifyTopologyRole(controlledSeries) != EngineeringDeviceMenu.TOPOLOGY_CONTROLLED_SERIES
                 || EngineeringDeviceMenu.classifyTopologyRole(controlledSource) != EngineeringDeviceMenu.TOPOLOGY_CONTROLLED_SOURCE) {
             helper.fail("Engineering topology role projection drifted from the formal port contract", MARKER);
