@@ -43,6 +43,7 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
     public static final int TOPOLOGY_MULTIPORT = 7;
     public static final int TOPOLOGY_CONTROLLED_SOURCE = 8;
     public static final int TOPOLOGY_CONTROLLED_SERIES = 9;
+    public static final int TOPOLOGY_PASSIVE_SERIES = 10;
 
     public static final int EVIDENCE_UNOBSERVED = 0;
     public static final int EVIDENCE_VALID = 1;
@@ -131,6 +132,7 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
             case TOPOLOGY_MULTIPORT -> "MULTIPORT";
             case TOPOLOGY_CONTROLLED_SOURCE -> "CONTROLLED SOURCE";
             case TOPOLOGY_CONTROLLED_SERIES -> "CONTROLLED SERIES";
+            case TOPOLOGY_PASSIVE_SERIES -> "PASSIVE SERIES";
             default -> "UNCLASSIFIED";
         };
     }
@@ -279,7 +281,9 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
         if (observational && transmitters == 0) return TOPOLOGY_OBSERVER;
         if (receivers == 0 && transmitters > 0) return TOPOLOGY_SOURCE;
         if (receivers > 0 && transmitters == 0) return TOPOLOGY_SINK;
-        if (bidirectional && receivers == ports.size() && transmitters == ports.size()) return TOPOLOGY_PASSIVE;
+        if (bidirectional && receivers == ports.size() && transmitters == ports.size()) {
+            return ports.size() == 2 ? TOPOLOGY_PASSIVE_SERIES : TOPOLOGY_PASSIVE;
+        }
         if (ports.size() == 2 && receivers > 0 && transmitters > 0) return TOPOLOGY_SERIES;
 
         // Directional-domain devices keep a strict BACK→FRONT process path; extra ports are controls,
