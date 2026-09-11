@@ -3,6 +3,7 @@ package dev.redstoneengineering.block;
 import dev.redstoneengineering.signal.EngineeringSignal;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -14,10 +15,8 @@ import net.minecraft.world.level.block.state.properties.DirectionProperty;
 /**
  * Shared horizontal FRONT/BACK topology for single-ended vanilla-redstone devices.
  *
- * <p>The physical side stored in {@link #FACING} is the FRONT face. Redstone's
- * query direction is reversed relative to the physical side, so subclasses
- * should use {@link #isQueriedFrom(BlockState, Direction, Direction)} when
- * implementing directional signal output.</p>
+ * <p>The physical side stored in {@link #FACING} is the FRONT/output face. Source-style endpoints
+ * may rotate this face independently through {@link #rotateOutput(Level, BlockPos, boolean)}.</p>
  */
 public abstract class DirectionalRedstoneEndpointBlock extends Block {
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
@@ -69,5 +68,21 @@ public abstract class DirectionalRedstoneEndpointBlock extends Block {
     protected void notifyFrontOutput(Level level, BlockPos pos, BlockState state) {
         level.updateNeighborsAt(pos, this);
         level.updateNeighborsAt(frontPos(pos, state), this);
+    }
+
+    /** Rotate a single-ended output face without inventing additional source ports. */
+    public static boolean rotateOutput(Level level, BlockPos pos, boolean clockwise) {
+        if (level.isClientSide) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof DirectionalRedstoneEndpointBlock block)) return false;
+        Direction oldOutput = state.getValue(FACING);
+        Direction newOutput = clockwise ? oldOutput.getClockWise() : oldOutput.getCounterClockWise();
+        BlockState next = state.setValue(FACING, newOutput);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        level.updateNeighborsAt(pos, block);
+        level.updateNeighborsAt(pos.relative(oldOutput), block);
+        level.updateNeighborsAt(pos.relative(newOutput), block);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, block, 1);
+        return true;
     }
 }
