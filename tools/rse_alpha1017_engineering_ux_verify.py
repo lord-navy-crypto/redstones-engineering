@@ -102,6 +102,50 @@ forbid(
     "return facing.get() >= 0;",
 )
 
+# Serial-first, role-aware policy:
+# - processing/transducing paths should be explicit endpoint-to-endpoint contracts;
+# - all-face SOURCE or all-face SINK terminals are allowed;
+# - branching must be an explicitly named Junction/Splitter, never an accidental property of a processor.
+# The dangerous shape is a normal block that declares both INPUT and OUTPUT while iterating every face.
+block_dir = root / "src/main/java/dev/redstoneengineering/block"
+all_face_loop = re.compile(r"for\s*\(\s*Direction\s+\w+\s*:\s*Direction\.values\(\)\s*\)")
+if block_dir.is_dir():
+    for source in sorted(block_dir.glob("*.java")):
+        text = source.read_text(errors="ignore")
+        if not all_face_loop.search(text):
+            continue
+        has_input = "PortDirection.INPUT" in text
+        has_output = "PortDirection.OUTPUT" in text
+        explicit_branch = "Junction" in source.stem or "Splitter" in source.stem
+        if has_input and has_output and not explicit_branch:
+            failed.append(
+                f"{source.name}: implicit all-face mixed I/O violates serial-first policy; "
+                "use strict directional endpoints or an explicit Junction/Splitter role"
+            )
+
+# Representative role exceptions are intentional and must stay explicit.
+require(
+    "src/main/java/dev/redstoneengineering/block/OpticalEmitterBlock.java",
+    "Six-face optical source",
+    "PortDirection.OUTPUT",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/OpticalReceiverBlock.java",
+    "Six-face optical receiver terminal",
+    "PortDirection.INPUT",
+    "inputs <= 1",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/PneumaticFlowMeterBlock.java",
+    "BACK=input, FRONT=output",
+    "extends DirectionalDomainBlock",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/PneumaticProportionalValveBlock.java",
+    "BACK is pneumatic inlet, FRONT outlet, UP is opening command",
+    "extends DirectionalDomainBlock",
+)
+
 # Shared role projection: every engineering HMI must expose the actual physical topology role.
 require(
     "src/main/java/dev/redstoneengineering/ui/menu/EngineeringDeviceMenu.java",
@@ -193,6 +237,7 @@ print("RSE Alpha 1.0.17 engineering UX verification: PASS")
 print(" all-face Engineering Port projection: PASS")
 print(" Jade topology summary + face diagnostics: PASS")
 print(" strict series-I/O capability + controls: PASS")
+print(" serial-first / explicit-branch topology policy: PASS")
 print(" shared physical topology-role HMI: PASS")
 print(" lightweight topology-role regression: PASS")
 print(" shared EngineeringPort evidence-quality HMI: PASS")
