@@ -18,6 +18,17 @@ def require(rel: str, *tokens: str) -> None:
             failed.append(f"{rel} missing token: {token}")
 
 
+def forbid(rel: str, *tokens: str) -> None:
+    path = root / rel
+    if not path.exists():
+        failed.append(f"missing: {rel}")
+        return
+    text = path.read_text(errors="ignore")
+    for token in tokens:
+        if token in text:
+            failed.append(f"{rel} contains forbidden token: {token}")
+
+
 def require_min_alpha_version(minimum: tuple[int, int, int]) -> None:
     path = root / "gradle.properties"
     if not path.exists():
@@ -57,11 +68,68 @@ require(
     "src/main/java/dev/redstoneengineering/gametest/RseEngineeringUxGameTests.java",
     "compatibilityProjectionDistinguishesTopologyFaults",
     "visualizationSnapshotIsImmutableAndCountsIssues",
+    "directionalDomainRotationPreservesStrictSeriesPorts",
 )
 require(
     "src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java",
     "event.register(RseEngineeringUxGameTests.class)",
 )
+
+# Shared series-I/O contract: the UI must expose the same capability the server actually implements.
+require(
+    "src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java",
+    "BUTTON_ROTATE_CCW",
+    "BUTTON_ROTATE_CW",
+    "seriesConfigurable.set(block instanceof DirectionalSignalBlock || block instanceof DirectionalDomainBlock ? 1 : 0)",
+    "PneumaticObservationSupport.observe",
+    "applyPneumaticEvidence",
+)
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/FieldDeviceScreen.java",
+    "↺ Rotate I/O",
+    "Rotate I/O ↻",
+    "SERIES LOCK • IN → PROCESS → OUT",
+    "menu.seriesConfigurable()",
+)
+require(
+    "src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
+    "seriesRotatable.set(block instanceof DirectionalSignalBlock || block instanceof DirectionalDomainBlock ? 1 : 0)",
+    "return seriesRotatable.get() != 0",
+)
+forbid(
+    "src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
+    "return facing.get() >= 0;",
+)
+
+# Evidence validity and operational health are independent engineering dimensions.
+require(
+    "src/main/java/dev/redstoneengineering/ui/menu/EngineeringDeviceMenu.java",
+    "HEALTH_NOMINAL",
+    "HEALTH_ACTIVE",
+    "HEALTH_PROTECTIVE",
+    "HEALTH_DEGRADED",
+    "HEALTH_FAULT",
+    "operationalHealthLabel",
+    "RedundantVoterBlock.degraded",
+    "FaultLatchBlock.latched",
+    "OperationsMonitorBlock.SystemState",
+)
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java",
+    "HEALTH • ",
+    "operationalHealthColor",
+    "SERVER AUTHORITATIVE • OBSERVER-NEUTRAL",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/FaultLatchBlock.java",
+    "The alarm is authoritative evidence even while the device health is FAULT.",
+    "state.getValue(OUTPUT), PortQuality.VALID",
+)
+forbid(
+    "src/main/java/dev/redstoneengineering/ui/menu/ReliabilitySystemMenu.java",
+    "FaultLatchBlock.latched(level, blockPos) ? PortQuality.FAULT : PortQuality.VALID",
+)
+
 require_min_alpha_version((1, 0, 17))
 require("README.md", "Alpha 1.0.17", "Engineering UX & Topology Visualization")
 require("ALPHA1_0_17_MANIFEST.txt", "1.0.17-alpha", "License: MIT", "Java: 21")
@@ -90,5 +158,8 @@ if failed:
 print("RSE Alpha 1.0.17 engineering UX verification: PASS")
 print(" all-face Engineering Port projection: PASS")
 print(" Jade topology summary + face diagnostics: PASS")
+print(" strict series-I/O capability + controls: PASS")
+print(" authoritative valid-zero evidence boundary: PASS")
+print(" evidence-validity / operational-health separation: PASS")
 print(" read-only/no-second-solver boundary: PASS")
 print(" executable topology UX GameTests: PASS")
