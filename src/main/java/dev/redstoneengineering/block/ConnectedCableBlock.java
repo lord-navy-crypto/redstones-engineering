@@ -90,11 +90,11 @@ public abstract class ConnectedCableBlock extends DomainBlock {
     }
 
     /**
-     * Refresh both endpoints after placement. This is intentionally explicit:
-     * structure placement, GameTest placement, commands, and player placement
-     * do not all arrive through exactly the same notification path.
+     * Refresh both endpoints after placement or an internal topology/configuration epoch change.
+     * This is intentionally explicit: structure placement, GameTest placement, commands, and player
+     * placement do not all arrive through exactly the same notification path.
      */
-    private void refreshAdjacentCableConnections(Level level, BlockPos pos) {
+    protected final void refreshAdjacentCableConnections(Level level, BlockPos pos) {
         for (Direction direction : Direction.values()) {
             BlockPos neighborPos = pos.relative(direction);
             BlockState neighborState = level.getBlockState(neighborPos);
