@@ -11,11 +11,13 @@ import dev.redstoneengineering.diagnostics.topology.EngineeringTopologyView;
 import dev.redstoneengineering.diagnostics.topology.TopologyFaceSnapshot;
 import dev.redstoneengineering.diagnostics.topology.TopologyLinkStatus;
 import dev.redstoneengineering.diagnostics.topology.TopologyVisualizationSnapshot;
+import dev.redstoneengineering.ui.menu.EngineeringDeviceMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -70,6 +72,44 @@ public final class RseEngineeringUxGameTests {
 
     @PrefixGameTestTemplate(false)
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE)
+    public static void topologyRoleProjectionUsesFormalPortContract(GameTestHelper helper) {
+        Block source = new TestPortBlock(List.of(
+                port("OUT", Direction.EAST, EngineeringDomain.REDSTONE, PortDirection.OUTPUT)
+        ));
+        Block sink = new TestPortBlock(List.of(
+                port("IN", Direction.WEST, EngineeringDomain.REDSTONE, PortDirection.INPUT)
+        ));
+        Block series = new TestPortBlock(List.of(
+                port("IN", Direction.WEST, EngineeringDomain.REDSTONE, PortDirection.INPUT),
+                port("OUT", Direction.EAST, EngineeringDomain.REDSTONE, PortDirection.OUTPUT)
+        ));
+        Block observer = new TestPortBlock(List.of(
+                measurementPort("TAP", Direction.NORTH)
+        ));
+        Block passive = new TestPortBlock(List.of(
+                port("A", Direction.WEST, EngineeringDomain.REDSTONE, PortDirection.BIDIRECTIONAL),
+                port("B", Direction.EAST, EngineeringDomain.REDSTONE, PortDirection.BIDIRECTIONAL)
+        ));
+        Block junction = new TestJunctionBlock(List.of(
+                port("A", Direction.WEST, EngineeringDomain.REDSTONE, PortDirection.BIDIRECTIONAL),
+                port("B", Direction.EAST, EngineeringDomain.REDSTONE, PortDirection.BIDIRECTIONAL),
+                port("C", Direction.NORTH, EngineeringDomain.REDSTONE, PortDirection.BIDIRECTIONAL)
+        ));
+
+        if (EngineeringDeviceMenu.classifyTopologyRole(source.defaultBlockState()) != EngineeringDeviceMenu.TOPOLOGY_SOURCE
+                || EngineeringDeviceMenu.classifyTopologyRole(sink.defaultBlockState()) != EngineeringDeviceMenu.TOPOLOGY_SINK
+                || EngineeringDeviceMenu.classifyTopologyRole(series.defaultBlockState()) != EngineeringDeviceMenu.TOPOLOGY_SERIES
+                || EngineeringDeviceMenu.classifyTopologyRole(observer.defaultBlockState()) != EngineeringDeviceMenu.TOPOLOGY_OBSERVER
+                || EngineeringDeviceMenu.classifyTopologyRole(passive.defaultBlockState()) != EngineeringDeviceMenu.TOPOLOGY_PASSIVE
+                || EngineeringDeviceMenu.classifyTopologyRole(junction.defaultBlockState()) != EngineeringDeviceMenu.TOPOLOGY_EXPLICIT_JUNCTION) {
+            helper.fail("Engineering topology role projection drifted from the formal port contract", MARKER);
+            return;
+        }
+        helper.succeed();
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE)
     public static void directionalDomainRotationMovesTheWholeSeriesContract(GameTestHelper helper) {
         BlockPos relative = MARKER;
         BlockPos absolute = helper.absolutePos(relative);
@@ -114,5 +154,31 @@ public final class RseEngineeringUxGameTests {
             PortDirection direction
     ) {
         return new EngineeringPort(label, side, domain, PortKind.CONTROL, direction, true, "signal");
+    }
+
+    private static EngineeringPort measurementPort(String label, Direction side) {
+        return new EngineeringPort(
+                label, side, EngineeringDomain.REDSTONE, PortKind.MEASUREMENT, PortDirection.INPUT, false, "signal"
+        );
+    }
+
+    private static class TestPortBlock extends Block implements EngineeringPortProvider {
+        private final List<EngineeringPort> ports;
+
+        TestPortBlock(List<EngineeringPort> ports) {
+            super(BlockBehaviour.Properties.of());
+            this.ports = List.copyOf(ports);
+        }
+
+        @Override
+        public List<EngineeringPort> engineeringPorts(BlockState state) {
+            return ports;
+        }
+    }
+
+    private static final class TestJunctionBlock extends TestPortBlock {
+        TestJunctionBlock(List<EngineeringPort> ports) {
+            super(ports);
+        }
     }
 }
