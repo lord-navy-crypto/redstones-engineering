@@ -87,9 +87,14 @@ public final class RseEngineeringUxGameTests {
         Block observer = new TestPortBlock(List.of(
                 measurementPort("TAP", Direction.NORTH)
         ));
-        Block passive = new TestPortBlock(List.of(
+        Block passiveSeries = new TestPortBlock(List.of(
                 port("A", Direction.WEST, EngineeringDomain.REDSTONE, PortDirection.BIDIRECTIONAL),
                 port("B", Direction.EAST, EngineeringDomain.REDSTONE, PortDirection.BIDIRECTIONAL)
+        ));
+        Block passiveBus = new TestPortBlock(List.of(
+                port("A", Direction.WEST, EngineeringDomain.REDSTONE, PortDirection.BIDIRECTIONAL),
+                port("B", Direction.EAST, EngineeringDomain.REDSTONE, PortDirection.BIDIRECTIONAL),
+                port("C", Direction.NORTH, EngineeringDomain.REDSTONE, PortDirection.BIDIRECTIONAL)
         ));
         Block junction = new TestJunctionBlock(List.of(
                 port("A", Direction.WEST, EngineeringDomain.REDSTONE, PortDirection.BIDIRECTIONAL),
@@ -102,6 +107,7 @@ public final class RseEngineeringUxGameTests {
         BlockState analyzerInline = analyzerTap.setValue(SignalAnalyzerBlock.MODE, SignalAnalyzerBlock.INLINE);
         BlockState pressureRegulator = RedstoneEngineering.PRESSURE_REGULATOR.get().defaultBlockState();
         BlockState radioTransmitter = RedstoneEngineering.RADIO_TRANSMITTER.get().defaultBlockState();
+        BlockState manualValve = RedstoneEngineering.PNEUMATIC_VALVE.get().defaultBlockState();
         BlockState controlledSeries = RedstoneEngineering.PNEUMATIC_PROPORTIONAL_VALVE.get().defaultBlockState();
         BlockState controlledSource = RedstoneEngineering.SOUL_FLUX_INJECTOR.get().defaultBlockState();
 
@@ -109,12 +115,14 @@ public final class RseEngineeringUxGameTests {
                 || EngineeringDeviceMenu.classifyTopologyRole(sink.defaultBlockState()) != EngineeringDeviceMenu.TOPOLOGY_SINK
                 || EngineeringDeviceMenu.classifyTopologyRole(series.defaultBlockState()) != EngineeringDeviceMenu.TOPOLOGY_SERIES
                 || EngineeringDeviceMenu.classifyTopologyRole(observer.defaultBlockState()) != EngineeringDeviceMenu.TOPOLOGY_OBSERVER
-                || EngineeringDeviceMenu.classifyTopologyRole(passive.defaultBlockState()) != EngineeringDeviceMenu.TOPOLOGY_PASSIVE
+                || EngineeringDeviceMenu.classifyTopologyRole(passiveSeries.defaultBlockState()) != EngineeringDeviceMenu.TOPOLOGY_PASSIVE_SERIES
+                || EngineeringDeviceMenu.classifyTopologyRole(passiveBus.defaultBlockState()) != EngineeringDeviceMenu.TOPOLOGY_PASSIVE
                 || EngineeringDeviceMenu.classifyTopologyRole(junction.defaultBlockState()) != EngineeringDeviceMenu.TOPOLOGY_EXPLICIT_JUNCTION
                 || EngineeringDeviceMenu.classifyTopologyRole(analyzerTap) != EngineeringDeviceMenu.TOPOLOGY_OBSERVER
                 || EngineeringDeviceMenu.classifyTopologyRole(analyzerInline) != EngineeringDeviceMenu.TOPOLOGY_SERIES
                 || EngineeringDeviceMenu.classifyTopologyRole(pressureRegulator) != EngineeringDeviceMenu.TOPOLOGY_SERIES
                 || EngineeringDeviceMenu.classifyTopologyRole(radioTransmitter) != EngineeringDeviceMenu.TOPOLOGY_SERIES
+                || EngineeringDeviceMenu.classifyTopologyRole(manualValve) != EngineeringDeviceMenu.TOPOLOGY_PASSIVE_SERIES
                 || EngineeringDeviceMenu.classifyTopologyRole(controlledSeries) != EngineeringDeviceMenu.TOPOLOGY_CONTROLLED_SERIES
                 || EngineeringDeviceMenu.classifyTopologyRole(controlledSource) != EngineeringDeviceMenu.TOPOLOGY_CONTROLLED_SOURCE) {
             helper.fail("Engineering topology role projection drifted from the formal port contract", MARKER);
