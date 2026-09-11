@@ -51,8 +51,10 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
         rotateLeft.active = menu.directional();
         rotateRight.active = menu.directional();
         if (setpoint) {
-            parameterPrevious.setMessage(Component.literal("◀ " + menu.secondarySetpointText()));
-            parameterNext.setMessage(Component.literal(menu.secondarySetpointText() + " ▶"));
+            String text = menu.kind() == PneumaticSystemMenu.KIND_REGULATOR
+                    ? menu.secondary() + "/100" : menu.tertiary() + "/100";
+            parameterPrevious.setMessage(Component.literal("◀ " + text));
+            parameterNext.setMessage(Component.literal(text + " ▶"));
         } else {
             parameterPrevious.setMessage(Component.literal("No setpoint"));
             parameterNext.setMessage(Component.literal("No setpoint"));
