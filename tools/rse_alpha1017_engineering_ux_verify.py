@@ -43,6 +43,28 @@ def require_min_alpha_version(minimum: tuple[int, int, int]) -> None:
         failed.append(f"mod_version {current} is older than required Alpha {minimum}")
 
 
+def braced_region(text: str, start: int) -> str:
+    brace = text.find("{", start)
+    if brace < 0:
+        return ""
+    depth = 0
+    for index in range(brace, len(text)):
+        char = text[index]
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return text[brace:index + 1]
+    return ""
+
+
+def engineering_ports_method(text: str) -> str:
+    marker = "List<EngineeringPort> engineeringPorts"
+    start = text.find(marker)
+    return "" if start < 0 else braced_region(text, start)
+
+
 require(
     "src/main/java/dev/redstoneengineering/diagnostics/topology/TopologyLinkStatus.java",
     "CONNECTED", "OPEN", "ISOLATED", "DOMAIN_MISMATCH", "DIRECTION_MISMATCH", "UNLOADED",
@@ -103,25 +125,54 @@ forbid(
 )
 
 # Serial-first, role-aware policy:
-# - processing/transducing paths should be explicit endpoint-to-endpoint contracts;
+# - inspect the actual engineeringPorts() declaration, not unrelated six-side diagnostics;
 # - all-face SOURCE or all-face SINK terminals are allowed;
-# - branching must be an explicitly named Junction/Splitter, never an accidental property of a processor.
-# The dangerous shape is a normal block that declares both INPUT and OUTPUT while iterating every face.
+# - one explicit CONTROL input feeding all-face outputs is a controlled source;
+# - a loop that itself declares mixed INPUT/OUTPUT, or all-face INPUT plus a separate OUTPUT,
+#   is implicit parallel processing and must become strict endpoints or an explicit Junction/Splitter.
 block_dir = root / "src/main/java/dev/redstoneengineering/block"
 all_face_loop = re.compile(r"for\s*\(\s*Direction\s+\w+\s*:\s*Direction\.values\(\)\s*\)")
 if block_dir.is_dir():
     for source in sorted(block_dir.glob("*.java")):
         text = source.read_text(errors="ignore")
-        if not all_face_loop.search(text):
+        ports_method = engineering_ports_method(text)
+        if not ports_method:
             continue
-        has_input = "PortDirection.INPUT" in text
-        has_output = "PortDirection.OUTPUT" in text
         explicit_branch = "Junction" in source.stem or "Splitter" in source.stem
-        if has_input and has_output and not explicit_branch:
-            failed.append(
-                f"{source.name}: implicit all-face mixed I/O violates serial-first policy; "
-                "use strict directional endpoints or an explicit Junction/Splitter role"
-            )
+        if explicit_branch:
+            continue
+
+        for loop in all_face_loop.finditer(ports_method):
+            loop_body = braced_region(ports_method, loop.end())
+            if not loop_body:
+                continue
+            loop_input = "PortDirection.INPUT" in loop_body
+            loop_output = "PortDirection.OUTPUT" in loop_body
+            method_input = "PortDirection.INPUT" in ports_method
+            method_output = "PortDirection.OUTPUT" in ports_method
+
+            if loop_input and loop_output:
+                failed.append(
+                    f"{source.name}: all-face loop declares mixed INPUT/OUTPUT; "
+                    "serial-first policy requires strict endpoints or explicit Junction/Splitter topology"
+                )
+                continue
+
+            if loop_input and method_output:
+                failed.append(
+                    f"{source.name}: all-face INPUT plus separate OUTPUT creates implicit multi-input processing; "
+                    "use one explicit process input or an explicit aggregation device"
+                )
+                continue
+
+            if loop_output and method_input:
+                fixed_prefix = ports_method[:loop.start()]
+                controlled_source = "PortKind.CONTROL" in fixed_prefix and "PortDirection.INPUT" in fixed_prefix
+                if not controlled_source:
+                    failed.append(
+                        f"{source.name}: all-face OUTPUT plus non-control INPUT is implicit fan-out processing; "
+                        "use a controlled-source contract or explicit Junction/Splitter topology"
+                    )
 
 # Representative role exceptions are intentional and must stay explicit.
 require(
@@ -145,6 +196,18 @@ require(
     "BACK is pneumatic inlet, FRONT outlet, UP is opening command",
     "extends DirectionalDomainBlock",
 )
+require(
+    "src/main/java/dev/redstoneengineering/block/SignalAnalyzerBlock.java",
+    "TAP mode is a non-invasive measurement aperture",
+    "TEST IN",
+    "INLINE OUT",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/SoulFluxInjectorBlock.java",
+    "UP is the dedicated command input; the other five faces are Soul-Flux outputs",
+    "PortKind.CONTROL",
+    "SOUL FLUX OUT",
+)
 
 # Shared role projection: every engineering HMI must expose the actual physical topology role.
 require(
@@ -156,12 +219,18 @@ require(
     "TOPOLOGY_PASSIVE",
     "TOPOLOGY_EXPLICIT_JUNCTION",
     "TOPOLOGY_MULTIPORT",
+    "TOPOLOGY_CONTROLLED_SOURCE",
+    "TOPOLOGY_CONTROLLED_SERIES",
+    "CONTROLLED SOURCE",
+    "CONTROLLED SERIES",
     "topologyRoleLabel",
     "classifyTopologyRole",
     "refreshTopologyRole",
     "EngineeringPortProvider",
     "port.canReceive()",
     "port.canTransmit()",
+    "block instanceof DirectionalDomainBlock",
+    "controlReceivers == 1",
 )
 require(
     "src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java",
@@ -238,6 +307,7 @@ print(" all-face Engineering Port projection: PASS")
 print(" Jade topology summary + face diagnostics: PASS")
 print(" strict series-I/O capability + controls: PASS")
 print(" serial-first / explicit-branch topology policy: PASS")
+print(" controlled-series / controlled-source role projection: PASS")
 print(" shared physical topology-role HMI: PASS")
 print(" lightweight topology-role regression: PASS")
 print(" shared EngineeringPort evidence-quality HMI: PASS")
