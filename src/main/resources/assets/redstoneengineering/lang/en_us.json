@@ -124,6 +124,9 @@
   "block.redstoneengineering.pneumatic_proportional_valve": "Pneumatic Proportional Control Valve",
   "block.redstoneengineering.pneumatic_relief_valve": "Pneumatic Safety Relief Valve",
   "block.redstoneengineering.pneumatic_cylinder": "Pneumatic Linear Actuator",
+  "block.redstoneengineering.sequence_controller": "Sequence Controller",
+  "block.redstoneengineering.safety_interlock": "Safety Interlock",
+  "block.redstoneengineering.fault_injector": "Commissioning Fault Injector",
   "block.redstoneengineering.alarm_processor": "Alarm Annunciator / Processor",
   "block.redstoneengineering.topology_debugger": "Engineering Topology Debugger"
 }
