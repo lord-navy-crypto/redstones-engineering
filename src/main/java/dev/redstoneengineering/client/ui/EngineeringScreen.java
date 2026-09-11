@@ -192,17 +192,65 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         };
     }
 
+    private boolean isOperationalHealthLine(String label) {
+        return "Safety state".equals(label)
+                || "Actuator".equals(label)
+                || "Voting health".equals(label)
+                || "Safety memory".equals(label)
+                || "System state".equals(label);
+    }
+
+    private String authoritativeHealthValue(String label, String fallback) {
+        return switch (label) {
+            case "Safety state" -> menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_PROTECTIVE
+                    ? "TIMED OUT" : "HEALTHY";
+            case "Actuator" -> menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_PROTECTIVE
+                    ? "BRAKED" : "ENABLED";
+            case "Voting health" -> menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_DEGRADED
+                    ? "DEGRADED" : "OK";
+            case "Safety memory" -> menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_FAULT
+                    ? "FAULT LATCHED" : "CLEAR";
+            default -> fallback;
+        };
+    }
+
+    private boolean isOperationalHealthBadge(String value) {
+        return "HEARTBEAT WATCHDOG".equals(value)
+                || "SERVO ACTUATOR".equals(value)
+                || "2oo3 REDUNDANT VOTER".equals(value)
+                || "FAULT LATCH".equals(value)
+                || "OPERATIONS MONITOR • OBSERVER".equals(value)
+                || "RELIEF ARMED".equals(value)
+                || "VENTING".equals(value);
+    }
+
+    private String authoritativeHealthBadge(String value) {
+        if ("RELIEF ARMED".equals(value) || "VENTING".equals(value)) {
+            return menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_PROTECTIVE
+                    ? "VENTING" : "RELIEF ARMED";
+        }
+        return value;
+    }
+
     protected final void labelValue(GuiGraphics graphics, String label, String value, int y) {
         graphics.drawString(font, label, 16, y, MUTED, false);
         graphics.drawString(font, value, 154, y, TEXT, false);
     }
 
     protected final void statusLine(GuiGraphics graphics, String label, String value, int color, int y) {
+        if (isOperationalHealthLine(label)) {
+            value = authoritativeHealthValue(label, value);
+            color = operationalHealthColor();
+        }
         graphics.drawString(font, label, 16, y, MUTED, false);
         graphics.drawString(font, value, 154, y, color, false);
     }
 
     protected final void statusBadge(GuiGraphics graphics, String value, int color, int x, int y) {
+        if (isOperationalHealthBadge(value)) {
+            value = authoritativeHealthBadge(value);
+            color = operationalHealthColor();
+        }
         int width = font.width(value) + 12;
         graphics.fill(x, y, x + width, y + 14, PANEL_3);
         graphics.fill(x, y, x + 3, y + 14, color);
