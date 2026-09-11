@@ -1,6 +1,5 @@
 package dev.redstoneengineering.client.ui;
 
-import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.menu.QuartzTimingMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -45,22 +44,33 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
         boolean oscillator = menu.kind() == QuartzTimingMenu.KIND_OSCILLATOR;
         boolean divider = menu.kind() == QuartzTimingMenu.KIND_DIVIDER;
         boolean stability = menu.kind() == QuartzTimingMenu.KIND_STABILITY;
+
+        // Visibility itself is owned by EngineeringScreen's active tab. Do not re-show Configure
+        // controls while Overview/Ports/Diagnostics/History is active.
         parameterPrevious.active = oscillator || divider;
         parameterNext.active = oscillator || divider;
-        parameterPrevious.visible = oscillator || divider;
-        parameterNext.visible = oscillator || divider;
         rotateLeft.active = divider || stability;
         rotateRight.active = divider || stability;
-        rotateLeft.visible = divider || stability;
-        rotateRight.visible = divider || stability;
         reset.active = stability;
-        reset.visible = stability;
+
         if (oscillator) {
             parameterPrevious.setMessage(Component.literal("◀ " + menu.secondary() + "t"));
             parameterNext.setMessage(Component.literal(menu.secondary() + "t ▶"));
+            rotateLeft.setMessage(Component.literal("No series axis"));
+            rotateRight.setMessage(Component.literal("No series axis"));
+            reset.setMessage(Component.literal("No measurement state"));
         } else if (divider) {
             parameterPrevious.setMessage(Component.literal("◀ ÷" + menu.tertiary()));
             parameterNext.setMessage(Component.literal("÷" + menu.tertiary() + " ▶"));
+            rotateLeft.setMessage(Component.literal("↺ I/O"));
+            rotateRight.setMessage(Component.literal("I/O ↻"));
+            reset.setMessage(Component.literal("No retained measurement"));
+        } else {
+            parameterPrevious.setMessage(Component.literal("Read-only timing"));
+            parameterNext.setMessage(Component.literal("Read-only timing"));
+            rotateLeft.setMessage(Component.literal("↺ Input"));
+            rotateRight.setMessage(Component.literal("Input ↻"));
+            reset.setMessage(Component.literal("Reset measurement"));
         }
     }
 
