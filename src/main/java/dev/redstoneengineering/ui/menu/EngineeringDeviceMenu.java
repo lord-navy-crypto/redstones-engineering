@@ -181,23 +181,20 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
     }
 
     private void refreshTopologyRole() {
-        BlockState state = level.getBlockState(blockPos);
+        topologyRole.set(classifyTopologyRole(level.getBlockState(blockPos)));
+    }
+
+    /**
+     * Conservative physical-role projection derived only from the formal Engineering Port contract.
+     * It does not solve networks or infer hidden virtual ports.
+     */
+    public static int classifyTopologyRole(BlockState state) {
         Block block = state.getBlock();
-        if (!(block instanceof EngineeringPortProvider provider)) {
-            topologyRole.set(TOPOLOGY_UNKNOWN);
-            return;
-        }
+        if (!(block instanceof EngineeringPortProvider provider)) return TOPOLOGY_UNKNOWN;
 
         List<EngineeringPort> ports = provider.engineeringPorts(state);
-        if (ports.isEmpty()) {
-            topologyRole.set(TOPOLOGY_PASSIVE);
-            return;
-        }
-
-        if (block.getClass().getSimpleName().contains("Junction")) {
-            topologyRole.set(TOPOLOGY_EXPLICIT_JUNCTION);
-            return;
-        }
+        if (ports.isEmpty()) return TOPOLOGY_PASSIVE;
+        if (block.getClass().getSimpleName().contains("Junction")) return TOPOLOGY_EXPLICIT_JUNCTION;
 
         int receivers = 0;
         int transmitters = 0;
@@ -210,21 +207,13 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
             observational &= port.kind() == PortKind.TAP || port.kind() == PortKind.MEASUREMENT;
         }
 
-        if (observational && transmitters == 0) {
-            topologyRole.set(TOPOLOGY_OBSERVER);
-        } else if (receivers == 0 && transmitters > 0) {
-            topologyRole.set(TOPOLOGY_SOURCE);
-        } else if (receivers > 0 && transmitters == 0) {
-            topologyRole.set(TOPOLOGY_SINK);
-        } else if (bidirectional && receivers == ports.size() && transmitters == ports.size()) {
-            topologyRole.set(TOPOLOGY_PASSIVE);
-        } else if (ports.size() == 2 && receivers > 0 && transmitters > 0) {
-            topologyRole.set(TOPOLOGY_SERIES);
-        } else if (receivers > 0 || transmitters > 0) {
-            topologyRole.set(TOPOLOGY_MULTIPORT);
-        } else {
-            topologyRole.set(TOPOLOGY_PASSIVE);
-        }
+        if (observational && transmitters == 0) return TOPOLOGY_OBSERVER;
+        if (receivers == 0 && transmitters > 0) return TOPOLOGY_SOURCE;
+        if (receivers > 0 && transmitters == 0) return TOPOLOGY_SINK;
+        if (bidirectional && receivers == ports.size() && transmitters == ports.size()) return TOPOLOGY_PASSIVE;
+        if (ports.size() == 2 && receivers > 0 && transmitters > 0) return TOPOLOGY_SERIES;
+        if (receivers > 0 || transmitters > 0) return TOPOLOGY_MULTIPORT;
+        return TOPOLOGY_PASSIVE;
     }
 
     protected abstract void refreshAuthoritativeSnapshot();
