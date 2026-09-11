@@ -46,7 +46,8 @@ public final class PneumaticNetwork {
             Direction input = state.getValue(DirectionalDomainBlock.FACING).getOpposite();
             return other.equals(self.relative(input));
         }
-        if (block instanceof PneumaticValveBlock || block instanceof PneumaticCheckValveBlock ||
+        if (block instanceof PressureRegulatorBlock ||
+                block instanceof PneumaticValveBlock || block instanceof PneumaticCheckValveBlock ||
                 block instanceof PneumaticFlowMeterBlock || block instanceof PneumaticProportionalValveBlock ||
                 block instanceof PneumaticReliefValveBlock) {
             Direction facing = directionalFacing(state);
@@ -110,10 +111,12 @@ public final class PneumaticNetwork {
         if (b.getBlock() instanceof PneumaticReceiverBlock) return directionalBackwardEntry(b, from, to);
         if (a.getBlock() instanceof PneumaticCheckValveBlock && !directionalForward(a, from, to)) return false;
         if (b.getBlock() instanceof PneumaticCheckValveBlock && !directionalBackwardEntry(b, from, to)) return false;
-        if ((a.getBlock() instanceof PneumaticFlowMeterBlock ||
+        if ((a.getBlock() instanceof PressureRegulatorBlock ||
+                a.getBlock() instanceof PneumaticFlowMeterBlock ||
                 a.getBlock() instanceof PneumaticProportionalValveBlock ||
                 a.getBlock() instanceof PneumaticReliefValveBlock) && !directionalForward(a, from, to)) return false;
-        if ((b.getBlock() instanceof PneumaticFlowMeterBlock ||
+        if ((b.getBlock() instanceof PressureRegulatorBlock ||
+                b.getBlock() instanceof PneumaticFlowMeterBlock ||
                 b.getBlock() instanceof PneumaticProportionalValveBlock ||
                 b.getBlock() instanceof PneumaticReliefValveBlock) && !directionalBackwardEntry(b, from, to)) return false;
         if (a.getBlock() instanceof PneumaticCylinderBlock) return false;
