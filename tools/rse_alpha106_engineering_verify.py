@@ -94,7 +94,18 @@ for rel in [
 ]:
     require_png_16(rel)
 
-require("src/main/java/dev/redstoneengineering/physics/PneumaticNetwork.java", "ParticleTypes.CLOUD", "sendParticles", "relief valve actually clamps/vents excess pressure")
+# Verify executable relief behavior instead of depending on a historical prose comment.
+require(
+    "src/main/java/dev/redstoneengineering/physics/PneumaticNetwork.java",
+    "if (state.getBlock() instanceof PneumaticReliefValveBlock)",
+    "int setpoint = state.getValue(PneumaticReliefValveBlock.SETPOINT) * 25;",
+    "if (pressure > setpoint)",
+    "PneumaticReliefValveBlock.recordVent(level, pos, excess);",
+    "ParticleTypes.CLOUD",
+    "sendParticles",
+    "pressure = setpoint;",
+    "PneumaticReliefValveBlock.clearVenting(level, pos);",
+)
 workflow = read(".github/workflows/build.yml")
 if "rse_alpha106_engineering_verify.py" not in workflow: failed.append("workflow does not run Alpha 1.0.6 verifier")
 
