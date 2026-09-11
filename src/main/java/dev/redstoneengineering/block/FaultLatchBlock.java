@@ -66,9 +66,10 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock {
         if (port.isEmpty()) return Optional.empty();
         Direction front = outputSide(state);
         if (side == front) {
+            // The alarm is authoritative evidence even while the device health is FAULT.
+            // Operational health is projected separately by EngineeringDeviceMenu.
             return Optional.of(EngineeringPortSnapshot.redstone(
-                    port.get(), state.getValue(OUTPUT),
-                    latched(level, pos) ? PortQuality.FAULT : PortQuality.VALID));
+                    port.get(), state.getValue(OUTPUT), PortQuality.VALID));
         }
         RedstoneObservationSupport.Observation observation = observeInput(level, pos, side);
         return Optional.of(EngineeringPortSnapshot.redstone(
