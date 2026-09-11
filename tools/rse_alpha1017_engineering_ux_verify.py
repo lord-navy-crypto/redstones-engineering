@@ -101,6 +101,28 @@ forbid(
     "return facing.get() >= 0;",
 )
 
+# Shared role projection: every engineering HMI must expose the actual physical topology role.
+require(
+    "src/main/java/dev/redstoneengineering/ui/menu/EngineeringDeviceMenu.java",
+    "TOPOLOGY_SERIES",
+    "TOPOLOGY_SOURCE",
+    "TOPOLOGY_SINK",
+    "TOPOLOGY_OBSERVER",
+    "TOPOLOGY_PASSIVE",
+    "TOPOLOGY_EXPLICIT_JUNCTION",
+    "TOPOLOGY_MULTIPORT",
+    "topologyRoleLabel",
+    "refreshTopologyRole",
+    "EngineeringPortProvider",
+    "port.canReceive()",
+    "port.canTransmit()",
+)
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java",
+    "ROLE • ",
+    "menu.topologyRoleLabel()",
+)
+
 # Evidence validity and operational health are independent engineering dimensions.
 require(
     "src/main/java/dev/redstoneengineering/ui/menu/EngineeringDeviceMenu.java",
@@ -159,6 +181,7 @@ print("RSE Alpha 1.0.17 engineering UX verification: PASS")
 print(" all-face Engineering Port projection: PASS")
 print(" Jade topology summary + face diagnostics: PASS")
 print(" strict series-I/O capability + controls: PASS")
+print(" shared physical topology-role HMI: PASS")
 print(" authoritative valid-zero evidence boundary: PASS")
 print(" evidence-validity / operational-health separation: PASS")
 print(" read-only/no-second-solver boundary: PASS")
