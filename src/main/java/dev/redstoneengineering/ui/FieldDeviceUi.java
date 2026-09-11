@@ -6,9 +6,12 @@ import dev.redstoneengineering.block.PulseShaperBlock;
 import dev.redstoneengineering.block.QuartzClockDividerBlock;
 import dev.redstoneengineering.block.QuartzOscillatorBlock;
 import dev.redstoneengineering.block.QuartzStabilityMonitorBlock;
+import dev.redstoneengineering.block.RadioReceiverBlock;
+import dev.redstoneengineering.block.RadioTransmitterBlock;
 import dev.redstoneengineering.block.RangeSensorBlock;
 import dev.redstoneengineering.ui.menu.FieldDeviceMenu;
 import dev.redstoneengineering.ui.menu.QuartzTimingMenu;
+import dev.redstoneengineering.ui.menu.RadioLinkMenu;
 import dev.redstoneengineering.ui.menu.RangeSensorMenu;
 import dev.redstoneengineering.ui.menu.SignalProcessorMenu;
 import dev.redstoneengineering.ui.menu.UniversalFieldDeviceMenu;
@@ -52,6 +55,16 @@ public final class FieldDeviceUi {
             player.openMenu(
                     new SimpleMenuProvider(
                             (containerId, inventory, ignored) -> new QuartzTimingMenu(containerId, inventory, pos),
+                            title
+                    ),
+                    data -> data.writeBlockPos(pos)
+            );
+            return;
+        }
+        if (state.getBlock() instanceof RadioTransmitterBlock || state.getBlock() instanceof RadioReceiverBlock) {
+            player.openMenu(
+                    new SimpleMenuProvider(
+                            (containerId, inventory, ignored) -> new RadioLinkMenu(containerId, inventory, pos),
                             title
                     ),
                     data -> data.writeBlockPos(pos)
