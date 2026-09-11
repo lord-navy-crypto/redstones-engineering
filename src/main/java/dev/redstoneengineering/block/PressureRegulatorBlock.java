@@ -13,7 +13,7 @@ import dev.redstoneengineering.physics.PneumaticNetwork;
 import dev.redstoneengineering.physics.PneumaticObservationSupport;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
@@ -25,17 +25,16 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-/** Six-way pneumatic pressure-limiting node. Shift-right-click cycles the 25/50/75/100 setpoint. */
-public class PressureRegulatorBlock extends DomainBlock implements EngineeringPortProvider {
+/** Strict inline pneumatic regulator. BACK=input, FRONT=regulated output. */
+public class PressureRegulatorBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
     public static final IntegerProperty SETPOINT = IntegerProperty.create("setpoint", 1, 4);
 
     public PressureRegulatorBlock(Properties properties) {
         super(properties);
-        registerDefaultState(stateDefinition.any().setValue(SETPOINT, 2));
+        registerDefaultState(defaultBlockState().setValue(SETPOINT, 2));
     }
 
     @Override
@@ -45,6 +44,7 @@ public class PressureRegulatorBlock extends DomainBlock implements EngineeringPo
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        super.createBlockStateDefinition(builder);
         builder.add(SETPOINT);
     }
 
@@ -54,21 +54,26 @@ public class PressureRegulatorBlock extends DomainBlock implements EngineeringPo
 
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
-        return Arrays.stream(Direction.values())
-                .map(side -> new EngineeringPort(
-                        "REGULATED AIR", side, EngineeringDomain.PNEUMATIC,
-                        PortKind.BUS, PortDirection.BIDIRECTIONAL, false, "pressure"
-                ))
-                .toList();
+        return List.of(
+                new EngineeringPort(
+                        "PNEUMATIC IN", inputSide(state), EngineeringDomain.PNEUMATIC,
+                        PortKind.CONTROL, PortDirection.INPUT, false, "pressure"
+                ),
+                new EngineeringPort(
+                        "REGULATED OUT", outputSide(state), EngineeringDomain.PNEUMATIC,
+                        PortKind.CONTROL, PortDirection.OUTPUT, false, "pressure"
+                )
+        );
     }
 
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(
-            Level level, BlockPos pos, BlockState state, Direction side
+            Level level, BlockPos pos, BlockState state, net.minecraft.core.Direction side
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        PneumaticObservationSupport.Observation observation = PneumaticObservationSupport.observe(level, pos);
+        PneumaticObservationSupport.Observation observation =
+                PneumaticObservationSupport.observe(level, pos.relative(side));
         return Optional.of(new EngineeringPortSnapshot(
                 port.get(), observation.pressure(), 0.0, 100.0, observation.quality()));
     }
@@ -77,7 +82,7 @@ public class PressureRegulatorBlock extends DomainBlock implements EngineeringPo
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
         super.onPlace(state, level, pos, oldState, moved);
         if (level instanceof ServerLevel server && !state.is(oldState.getBlock())) {
-            PneumaticNetwork.recompute(server, pos);
+            PneumaticNetwork.recomputeAround(server, pos);
         }
     }
 
@@ -109,8 +114,10 @@ public class PressureRegulatorBlock extends DomainBlock implements EngineeringPo
                 level.setBlock(pos, updated, Block.UPDATE_CLIENTS);
                 if (level instanceof ServerLevel server) PneumaticNetwork.recompute(server, pos);
                 player.displayClientMessage(
-                        net.minecraft.network.chat.Component.literal(
+                        Component.literal(
                                 "Pressure regulator setpoint=" + (next * 25) + "/100"
+                                        + " | IN=" + inputSide(updated).getName().toUpperCase()
+                                        + " → OUT=" + outputSide(updated).getName().toUpperCase()
                         ), true
                 );
             } else {
