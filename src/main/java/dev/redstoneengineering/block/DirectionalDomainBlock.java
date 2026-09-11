@@ -4,6 +4,7 @@ import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -76,6 +77,9 @@ public abstract class DirectionalDomainBlock extends DomainBlock {
         level.setBlock(pos, next, Block.UPDATE_CLIENTS);
 
         notifyNeighbors(level, pos, block, oldInput, oldOutput, newOutput.getOpposite(), newOutput);
+        // Rotation changes which physical neighbor is authoritative INPUT/OUTPUT. Re-evaluate the
+        // device itself as well as its neighbors so a previous-axis sample cannot remain latched.
+        if (level instanceof ServerLevel serverLevel) serverLevel.scheduleTick(pos, block, 1);
         return true;
     }
 
