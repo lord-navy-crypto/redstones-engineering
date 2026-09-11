@@ -156,6 +156,8 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
         String live = "● LIVE / SERVER";
         graphics.drawString(font, live, imageWidth - 12 - font.width(live), 9, GOOD, false);
+        String role = "ROLE • " + menu.topologyRoleLabel();
+        graphics.drawString(font, role, 12, 19, INFO, false);
         String health = "HEALTH • " + menu.operationalHealthLabel();
         graphics.drawString(font, health, imageWidth - 12 - font.width(health), 19, operationalHealthColor(), false);
 
