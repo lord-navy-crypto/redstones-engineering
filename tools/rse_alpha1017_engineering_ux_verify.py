@@ -134,6 +134,14 @@ require(
     "HEALTH_DEGRADED",
     "HEALTH_FAULT",
     "operationalHealthLabel",
+    "EVIDENCE_UNOBSERVED",
+    "EVIDENCE_VALID",
+    "EVIDENCE_STALE",
+    "EVIDENCE_DOMAIN_MISMATCH",
+    "EVIDENCE_TOPOLOGY_ERROR",
+    "evidenceStateLabel",
+    "refreshEvidenceState",
+    "engineeringSnapshot(level, blockPos, state, port.side())",
     "RedundantVoterBlock.degraded",
     "FaultLatchBlock.latched",
     "OperationsMonitorBlock.SystemState",
@@ -142,7 +150,9 @@ require(
     "src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java",
     "HEALTH • ",
     "operationalHealthColor",
-    "SERVER AUTHORITATIVE • OBSERVER-NEUTRAL",
+    "EVIDENCE • ",
+    "menu.evidenceStateLabel()",
+    "evidenceStateColor",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/FaultLatchBlock.java",
@@ -185,6 +195,7 @@ print(" Jade topology summary + face diagnostics: PASS")
 print(" strict series-I/O capability + controls: PASS")
 print(" shared physical topology-role HMI: PASS")
 print(" lightweight topology-role regression: PASS")
+print(" shared EngineeringPort evidence-quality HMI: PASS")
 print(" authoritative valid-zero evidence boundary: PASS")
 print(" evidence-validity / operational-health separation: PASS")
 print(" read-only/no-second-solver boundary: PASS")
