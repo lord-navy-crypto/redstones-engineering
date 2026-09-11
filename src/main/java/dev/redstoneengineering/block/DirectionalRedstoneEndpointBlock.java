@@ -3,7 +3,6 @@ package dev.redstoneengineering.block;
 import dev.redstoneengineering.signal.EngineeringSignal;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -66,8 +65,7 @@ public abstract class DirectionalRedstoneEndpointBlock extends Block {
     }
 
     protected void notifyFrontOutput(Level level, BlockPos pos, BlockState state) {
-        level.updateNeighborsAt(pos, this);
-        level.updateNeighborsAt(frontPos(pos, state), this);
+        notifyNeighbors(level, pos, this, frontSide(state));
     }
 
     /** Rotate a single-ended output face without inventing additional source ports. */
@@ -79,10 +77,14 @@ public abstract class DirectionalRedstoneEndpointBlock extends Block {
         Direction newOutput = clockwise ? oldOutput.getClockWise() : oldOutput.getCounterClockWise();
         BlockState next = state.setValue(FACING, newOutput);
         level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-        level.updateNeighborsAt(pos, block);
-        level.updateNeighborsAt(pos.relative(oldOutput), block);
-        level.updateNeighborsAt(pos.relative(newOutput), block);
-        if (level instanceof ServerLevel server) server.scheduleTick(pos, block, 1);
+        notifyNeighbors(level, pos, block, oldOutput, newOutput);
         return true;
+    }
+
+    private static void notifyNeighbors(Level level, BlockPos pos, Block block, Direction... sides) {
+        level.updateNeighborsAt(pos, block);
+        for (Direction side : sides) {
+            level.updateNeighborsAt(pos.relative(side), block);
+        }
     }
 }
