@@ -20,14 +20,19 @@ import java.util.List;
  * <p>The shell deliberately looks like an engineering HMI rather than a vanilla inventory:
  * live/server ownership is always visible, navigation is separated from telemetry, and every
  * device gets a consistent coordinate/readback footer even when its device-specific panel is small.</p>
+ *
+ * <p>Observatory and Log are shared semantic surfaces across every engineering screen. Observatory
+ * is observer-neutral live telemetry/topology health; Log is bounded retained evidence/events. The
+ * enum names remain DIAGNOSTICS/HISTORY so existing device screens keep source compatibility while
+ * players see one consistent engineering vocabulary.</p>
  */
 public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends AbstractContainerScreen<M> {
     protected enum Section {
         OVERVIEW("Overview", "Live engineering state"),
         PORTS("Ports", "Physical I/O contract"),
         CONFIGURE("Configure", "Bounded server-side controls"),
-        DIAGNOSTICS("Diagnostics", "Health and boundary checks"),
-        HISTORY("History", "Evidence and retained runs");
+        DIAGNOSTICS("Observatory", "Observer-neutral signals, topology and health"),
+        HISTORY("Log", "Bounded evidence and retained events");
 
         private final String label;
         private final String subtitle;
@@ -157,7 +162,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         renderSection(graphics, section);
 
         String position = "@ " + menu.blockPos().getX() + ", " + menu.blockPos().getY() + ", " + menu.blockPos().getZ();
-        graphics.drawString(font, "SERVER AUTHORITATIVE READBACK", 13, imageHeight - 20, INFO, false);
+        graphics.drawString(font, "SERVER AUTHORITATIVE • OBSERVER-NEUTRAL", 13, imageHeight - 20, INFO, false);
         graphics.drawString(font, position, imageWidth - 13 - font.width(position), imageHeight - 20, MUTED, false);
     }
 
