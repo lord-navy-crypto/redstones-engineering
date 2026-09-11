@@ -92,6 +92,7 @@ require(
     "visualizationSnapshotIsImmutableAndCountsIssues",
     "topologyRoleProjectionUsesFormalPortContract",
     "directionalDomainRotationMovesTheWholeSeriesContract",
+    "RedstoneEngineering.PRESSURE_REGULATOR",
 )
 require(
     "src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java",
@@ -195,6 +196,25 @@ require(
     "src/main/java/dev/redstoneengineering/block/PneumaticProportionalValveBlock.java",
     "BACK is pneumatic inlet, FRONT outlet, UP is opening command",
     "extends DirectionalDomainBlock",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/PressureRegulatorBlock.java",
+    "Strict inline pneumatic regulator. BACK=input, FRONT=regulated output.",
+    "extends DirectionalDomainBlock",
+    '"PNEUMATIC IN", inputSide(state)',
+    '"REGULATED OUT", outputSide(state)',
+)
+forbid(
+    "src/main/java/dev/redstoneengineering/block/PressureRegulatorBlock.java",
+    "Six-way pneumatic pressure-limiting node",
+    "PortDirection.BIDIRECTIONAL",
+)
+require(
+    "src/main/java/dev/redstoneengineering/physics/PneumaticNetwork.java",
+    "block instanceof PressureRegulatorBlock ||",
+    "a.getBlock() instanceof PressureRegulatorBlock ||",
+    "b.getBlock() instanceof PressureRegulatorBlock ||",
+    "state.getValue(PressureRegulatorBlock.SETPOINT) * 25",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/SignalAnalyzerBlock.java",
@@ -308,6 +328,7 @@ print(" Jade topology summary + face diagnostics: PASS")
 print(" strict series-I/O capability + controls: PASS")
 print(" serial-first / explicit-branch topology policy: PASS")
 print(" controlled-series / controlled-source role projection: PASS")
+print(" pressure-regulator strict series solver contract: PASS")
 print(" shared physical topology-role HMI: PASS")
 print(" lightweight topology-role regression: PASS")
 print(" shared EngineeringPort evidence-quality HMI: PASS")
