@@ -35,17 +35,15 @@ import java.util.Optional;
 /**
  * Shared directional 0..15 processor base.
  *
- * <p>Alpha 1.0.10 makes BACK/FRONT a real EngineeringPort contract so every
- * subclass automatically exposes the same topology to diagnostics and UI.</p>
- *
- * <p>The shared interaction contract is explicitly series-oriented: BACK is the
- * only input side and FRONT is the only output side. The whole axis may be rotated
- * in 90-degree steps without swapping the processing function or allowing ambiguous
- * side inputs. Subclasses with richer configuration may override the interaction
- * method while still using {@link #rotateSeriesAxis}.</p>
+ * <p>The processor always has one explicit INPUT and one explicit OUTPUT. Placement defaults to a
+ * straight path, but Alpha 1.0.20 lets the output be routed independently so an inline processor can
+ * make a deliberate 90-degree turn without becoming a splitter or accepting hidden side inputs.</p>
  */
 public abstract class DirectionalSignalBlock extends Block implements EngineeringPortProvider {
+    /** OUTPUT face; retained as FACING for model/backward compatibility. */
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
+    /** Dedicated INPUT face. It is never allowed to equal {@link #FACING}. */
+    public static final DirectionProperty INPUT_FACING = DirectionProperty.create("input_facing", Direction.Plane.HORIZONTAL);
     public static final IntegerProperty OUTPUT = IntegerProperty.create("output", 0, 15);
 
     protected DirectionalSignalBlock(Properties properties) {
@@ -53,18 +51,22 @@ public abstract class DirectionalSignalBlock extends Block implements Engineerin
         registerDefaultState(
                 stateDefinition.any()
                         .setValue(FACING, Direction.NORTH)
+                        .setValue(INPUT_FACING, Direction.SOUTH)
                         .setValue(OUTPUT, 0)
         );
     }
 
     @Override
     public BlockState getStateForPlacement(BlockPlaceContext context) {
-        return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
+        Direction output = context.getHorizontalDirection().getOpposite();
+        return defaultBlockState()
+                .setValue(FACING, output)
+                .setValue(INPUT_FACING, output.getOpposite());
     }
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING, OUTPUT);
+        builder.add(FACING, INPUT_FACING, OUTPUT);
     }
 
     protected Direction outputSide(BlockState state) {
@@ -72,7 +74,7 @@ public abstract class DirectionalSignalBlock extends Block implements Engineerin
     }
 
     protected Direction inputSide(BlockState state) {
-        return outputSide(state).getOpposite();
+        return state.getValue(INPUT_FACING);
     }
 
     public static Direction seriesOutputSide(BlockState state) {
@@ -80,7 +82,7 @@ public abstract class DirectionalSignalBlock extends Block implements Engineerin
     }
 
     public static Direction seriesInputSide(BlockState state) {
-        return seriesOutputSide(state).getOpposite();
+        return state.getValue(INPUT_FACING);
     }
 
     protected static Direction leftOf(Direction facing) {
@@ -175,25 +177,52 @@ public abstract class DirectionalSignalBlock extends Block implements Engineerin
         notifyNeighbors(level, pos, this, outputSide(next));
     }
 
-    /**
-     * Rotates the complete INPUT -> PROCESS -> OUTPUT axis and refreshes both old and new
-     * endpoints. The logical server remains authoritative and the current 0..15 output value
-     * is preserved until the scheduled processor tick evaluates the new input side.
-     */
+    /** Rotates INPUT and OUTPUT together, preserving their relative route. */
     public static boolean rotateSeriesAxis(Level level, BlockPos pos, boolean clockwise) {
         if (level.isClientSide) return false;
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof DirectionalSignalBlock block)) return false;
 
-        Direction oldOutput = state.getValue(FACING);
-        Direction oldInput = oldOutput.getOpposite();
-        Direction newOutput = clockwise ? oldOutput.getClockWise() : oldOutput.getCounterClockWise();
-        BlockState next = state.setValue(FACING, newOutput);
+        Direction oldOutput = seriesOutputSide(state);
+        Direction oldInput = seriesInputSide(state);
+        Direction newOutput = rotateHorizontal(oldOutput, clockwise);
+        Direction newInput = rotateHorizontal(oldInput, clockwise);
+        BlockState next = state
+                .setValue(FACING, newOutput)
+                .setValue(INPUT_FACING, newInput);
         level.setBlock(pos, next, Block.UPDATE_CLIENTS);
 
-        notifyNeighbors(level, pos, block, oldInput, oldOutput, newOutput.getOpposite(), newOutput);
+        notifyNeighbors(level, pos, block, oldInput, oldOutput, newInput, newOutput);
         if (level instanceof ServerLevel serverLevel) serverLevel.scheduleTick(pos, block, 1);
         return true;
+    }
+
+    /**
+     * Routes only the OUTPUT face. The INPUT face remains fixed, ordinary processors stay 1-in/1-out,
+     * and an invalid INPUT=OUTPUT state is skipped automatically.
+     */
+    public static boolean rotateSeriesOutput(Level level, BlockPos pos, boolean clockwise) {
+        if (level.isClientSide) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof DirectionalSignalBlock block)) return false;
+
+        Direction input = seriesInputSide(state);
+        Direction oldOutput = seriesOutputSide(state);
+        Direction newOutput = rotateHorizontal(oldOutput, clockwise);
+        for (int i = 0; i < 3 && newOutput == input; i++) {
+            newOutput = rotateHorizontal(newOutput, clockwise);
+        }
+        if (newOutput == input || newOutput == oldOutput) return false;
+
+        BlockState next = state.setValue(FACING, newOutput);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        notifyNeighbors(level, pos, block, oldOutput, newOutput, input);
+        if (level instanceof ServerLevel serverLevel) serverLevel.scheduleTick(pos, block, 1);
+        return true;
+    }
+
+    private static Direction rotateHorizontal(Direction direction, boolean clockwise) {
+        return clockwise ? direction.getClockWise() : direction.getCounterClockWise();
     }
 
     private static void notifyNeighbors(Level level, BlockPos pos, Block block, Direction... sides) {
@@ -213,10 +242,10 @@ public abstract class DirectionalSignalBlock extends Block implements Engineerin
     ) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
-                rotateSeriesAxis(level, pos, true);
+                rotateSeriesOutput(level, pos, true);
                 BlockState next = level.getBlockState(pos);
                 player.displayClientMessage(Component.literal(
-                        "Series I/O | IN=" + seriesInputSide(next).getName().toUpperCase()
+                        "Series route | IN=" + seriesInputSide(next).getName().toUpperCase()
                                 + " → OUT=" + seriesOutputSide(next).getName().toUpperCase()
                                 + " | normal right-click opens Engineering UI"), true);
             } else {
@@ -268,7 +297,7 @@ public abstract class DirectionalSignalBlock extends Block implements Engineerin
             boolean movedByPiston
     ) {
         if (!state.is(newState.getBlock())) {
-            notifyNeighbors(level, pos, this, outputSide(state));
+            notifyNeighbors(level, pos, this, inputSide(state), outputSide(state));
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
     }
