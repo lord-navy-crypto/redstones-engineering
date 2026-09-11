@@ -82,10 +82,18 @@ public final class VibrationNetwork {
                 continue;
             }
 
-            int loss = conduit ? 1 : 4;
-            int quality = conduit ? 100 : 80;
-            int ttl = conduit ? SlimeVibrationConduitBlock.PACKET_TTL_TICKS
-                    : HoneyVibrationDamperBlock.PACKET_TTL_TICKS;
+            int loss;
+            int quality;
+            int ttl;
+            if (conduit) {
+                loss = 1;
+                quality = 100;
+                ttl = SlimeVibrationConduitBlock.PACKET_TTL_TICKS;
+            } else {
+                loss = 4;
+                quality = 80;
+                ttl = HoneyVibrationDamperBlock.PACKET_TTL_TICKS;
+            }
             pending.put(node.pos.immutable(), new Pending(node.amplitude, quality, ttl));
 
             int next = node.amplitude - loss;
