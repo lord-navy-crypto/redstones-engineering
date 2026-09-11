@@ -9,6 +9,7 @@ import dev.redstoneengineering.ui.menu.PidControllerMenu;
 import dev.redstoneengineering.ui.menu.RangeSensorMenu;
 import dev.redstoneengineering.ui.menu.SignalAnalyzerMenu;
 import dev.redstoneengineering.ui.menu.SignalConditionerMenu;
+import dev.redstoneengineering.ui.menu.SignalProcessorMenu;
 import dev.redstoneengineering.ui.menu.UniversalFieldDeviceMenu;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.inventory.MenuType;
@@ -52,6 +53,9 @@ public final class EngineeringUiRegistration {
 
     public static final DeferredHolder<MenuType<?>, MenuType<RangeSensorMenu>> RANGE_SENSOR =
             MENUS.register("range_sensor", () -> IMenuTypeExtension.create(RangeSensorMenu::new));
+
+    public static final DeferredHolder<MenuType<?>, MenuType<SignalProcessorMenu>> SIGNAL_PROCESSOR =
+            MENUS.register("signal_processor", () -> IMenuTypeExtension.create(SignalProcessorMenu::new));
 
     public static final DeferredHolder<MenuType<?>, MenuType<OperationsMonitorMenu>> OPERATIONS_MONITOR =
             MENUS.register("operations_monitor", () -> IMenuTypeExtension.create(OperationsMonitorMenu::new));
