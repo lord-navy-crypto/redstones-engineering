@@ -232,6 +232,26 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         return value;
     }
 
+    private record PresentationLine(String label, String value) {
+    }
+
+    /**
+     * Keeps legacy device-specific screen strings aligned with the authoritative port contract.
+     * This is presentation-only normalization; it never invents ports or mutates solver state.
+     */
+    private PresentationLine normalizeLegacyPresentation(String label, String value) {
+        if ("PNEUMATIC • SIX-WAY REGULATED MANIFOLD".equals(value)) {
+            return new PresentationLine(label, "PNEUMATIC • BACK INPUT → FRONT REGULATED OUTPUT");
+        }
+        if ("OTHER FIVE FACES".equals(label) && "REDSTONE PAYLOAD INPUT".equals(value)) {
+            return new PresentationLine("DOWN", "REDSTONE PAYLOAD INPUT");
+        }
+        if ("Topology role".equals(label) && "FIXED / SOURCE / SINK / OBSERVER / PASSIVE".equals(value)) {
+            return new PresentationLine(label, menu.topologyRoleLabel());
+        }
+        return new PresentationLine(label, value);
+    }
+
     protected final void labelValue(GuiGraphics graphics, String label, String value, int y) {
         graphics.drawString(font, label, 16, y, MUTED, false);
         graphics.drawString(font, value, 154, y, TEXT, false);
@@ -242,8 +262,9 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             value = authoritativeHealthValue(label, value);
             color = operationalHealthColor();
         }
-        graphics.drawString(font, label, 16, y, MUTED, false);
-        graphics.drawString(font, value, 154, y, color, false);
+        PresentationLine normalized = normalizeLegacyPresentation(label, value);
+        graphics.drawString(font, normalized.label(), 16, y, MUTED, false);
+        graphics.drawString(font, normalized.value(), 154, y, color, false);
     }
 
     protected final void statusBadge(GuiGraphics graphics, String value, int color, int x, int y) {
