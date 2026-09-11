@@ -30,7 +30,10 @@ import net.minecraft.world.phys.BlockHitResult;
 import java.util.List;
 import java.util.Optional;
 
-/** Pulse activity is transient runtime data; frequency/amplitude remain persistent source configuration. */
+/**
+ * Pulse activity is transient runtime data; frequency/amplitude remain persistent source configuration.
+ * Engineering responsibility contract: role=BASE SOURCE. Filtering and tuned resonance remain separate blocks.
+ */
 public class AmethystResonatorBlock extends DomainBlock implements EngineeringPortProvider {
     public static final IntegerProperty FREQUENCY = IntegerProperty.create("frequency", 1, 15);
     public static final IntegerProperty AMPLITUDE = IntegerProperty.create("amplitude", 1, 15);
