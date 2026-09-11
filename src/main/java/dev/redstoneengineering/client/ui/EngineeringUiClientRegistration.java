@@ -20,7 +20,6 @@ import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 
-/** Physical-client-only registration for engineering screens and the RSE diagnostics console. */
 @Mod(value = RedstoneEngineering.MOD_ID, dist = Dist.CLIENT)
 public final class EngineeringUiClientRegistration {
     public EngineeringUiClientRegistration(IEventBus modBus) {
@@ -45,6 +44,7 @@ public final class EngineeringUiClientRegistration {
         event.register(EngineeringUiRegistration.DIGITAL_COMMUNICATION.get(), DigitalCommunicationScreen::new);
         event.register(EngineeringUiRegistration.PNEUMATIC_SYSTEM.get(), PneumaticSystemScreen::new);
         event.register(EngineeringUiRegistration.OPTICAL_SYSTEM.get(), OpticalSystemScreen::new);
+        event.register(EngineeringUiRegistration.AMETHYST_SYSTEM.get(), AmethystSystemScreen::new);
         event.register(EngineeringUiRegistration.OPERATIONS_MONITOR.get(), OperationsMonitorScreen::new);
     }
 
