@@ -29,8 +29,8 @@ import net.minecraft.world.phys.BlockHitResult;
 import java.util.List;
 import java.util.Optional;
 
-/** Laboratory quartz source with bounded timing jitter and observer-neutral realized-timing evidence. */
-public class QuartzLabOscillatorBlock extends DomainBlock implements EngineeringPortProvider {
+/** Laboratory quartz source with bounded timing jitter and one configurable output face. */
+public class QuartzLabOscillatorBlock extends DirectionalDomainSourceBlock implements EngineeringPortProvider {
     public static final BooleanProperty ACTIVE = BooleanProperty.create("active");
     public static final IntegerProperty PERIOD_INDEX = IntegerProperty.create("period", 0, 4);
     public static final IntegerProperty JITTER = IntegerProperty.create("jitter", 0, 3);
@@ -50,7 +50,10 @@ public class QuartzLabOscillatorBlock extends DomainBlock implements Engineering
     }
 
     @Override public MapCodec<QuartzLabOscillatorBlock> codec() { return RedstoneEngineering.QUARTZ_LAB_OSCILLATOR_CODEC.value(); }
-    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { builder.add(ACTIVE, PERIOD_INDEX, JITTER); }
+    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        super.createBlockStateDefinition(builder);
+        builder.add(ACTIVE, PERIOD_INDEX, JITTER);
+    }
 
     private static EngineeringPort port(Direction side) {
         return new EngineeringPort(
@@ -60,7 +63,7 @@ public class QuartzLabOscillatorBlock extends DomainBlock implements Engineering
 
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
-        return List.of(port(Direction.NORTH), port(Direction.SOUTH), port(Direction.WEST), port(Direction.EAST));
+        return List.of(port(outputSide(state)));
     }
 
     public static TimingEvidence timingEvidence(Level level, BlockPos pos, BlockState state) {
@@ -117,22 +120,30 @@ public class QuartzLabOscillatorBlock extends DomainBlock implements Engineering
 
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
-            BlockState next;
-            if (player.isShiftKeyDown()) {
+            BlockState next = state;
+            if (player.isShiftKeyDown() && hit.getDirection().getAxis().isHorizontal()) {
+                if (rotateOutput(level, pos, true)) {
+                    next = level.getBlockState(pos);
+                    if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeQuartzAround(serverLevel, pos);
+                }
+            } else if (player.isShiftKeyDown()) {
                 int jitter = state.getValue(JITTER);
                 next = state.setValue(JITTER, jitter >= 3 ? 0 : jitter + 1);
+                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
             } else {
                 int periodIndex = state.getValue(PERIOD_INDEX);
                 next = state.setValue(PERIOD_INDEX, (periodIndex + 1) % 5);
+                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
             }
-            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
             if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeQuartz(serverLevel, pos);
             level.scheduleTick(pos, this, 1);
             TimingEvidence evidence = timingEvidence(level, pos, next);
             player.displayClientMessage(Component.literal(
-                    "Quartz lab oscillator | four-way QUARTZ clock | nominal=" + evidence.nominalPeriod()
+                    "Quartz lab oscillator | OUT=" + outputSide(next).getName().toUpperCase()
+                            + " | nominal=" + evidence.nominalPeriod()
                             + "t | jitter=±" + next.getValue(JITTER) + "t"
-                            + (evidence.available() ? " | last-half=" + evidence.lastHalfInterval() + "t | realized offset=" + evidence.lastJitterOffset() + "t" : " | no realized interval yet")), true);
+                            + (evidence.available() ? " | last-half=" + evidence.lastHalfInterval() + "t | realized offset=" + evidence.lastJitterOffset() + "t" : " | no realized interval yet")
+                            + " | shift-side=route, shift-vertical=jitter"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
