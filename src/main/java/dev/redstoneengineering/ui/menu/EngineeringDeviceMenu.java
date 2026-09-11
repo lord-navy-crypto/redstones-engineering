@@ -13,6 +13,7 @@ import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -61,6 +62,8 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
     private final DataSlot operationalHealth;
     private final DataSlot topologyRole;
     private final DataSlot evidenceState;
+    private final DataSlot receivePortMask;
+    private final DataSlot transmitPortMask;
 
     protected EngineeringDeviceMenu(
             MenuType<?> type,
@@ -77,6 +80,8 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
         this.operationalHealth = trackedInt();
         this.topologyRole = trackedInt();
         this.evidenceState = trackedInt();
+        this.receivePortMask = trackedInt();
+        this.transmitPortMask = trackedInt();
     }
 
     protected DataSlot trackedInt() {
@@ -155,6 +160,35 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
         };
     }
 
+    /** Formal receive/transmit faces, synchronized as compact six-bit masks for every HMI. */
+    public int receivePortMask() { return receivePortMask.get(); }
+    public int transmitPortMask() { return transmitPortMask.get(); }
+
+    public String receivePortFacesLabel() { return portMaskLabel(receivePortMask()); }
+    public String transmitPortFacesLabel() { return portMaskLabel(transmitPortMask()); }
+
+    public String portRouteLabel() {
+        return "RX " + receivePortFacesLabel() + "  →  TX " + transmitPortFacesLabel();
+    }
+
+    private static String portMaskLabel(int mask) {
+        if (mask == 0) return "—";
+        StringBuilder builder = new StringBuilder();
+        for (Direction direction : Direction.values()) {
+            if ((mask & (1 << direction.ordinal())) == 0) continue;
+            if (!builder.isEmpty()) builder.append("/");
+            builder.append(switch (direction) {
+                case NORTH -> "N";
+                case SOUTH -> "S";
+                case EAST -> "E";
+                case WEST -> "W";
+                case UP -> "U";
+                case DOWN -> "D";
+            });
+        }
+        return builder.toString();
+    }
+
     @Override
     public boolean stillValid(Player player) {
         if (!player.level().getBlockState(blockPos).is(expectedBlock)) return false;
@@ -175,6 +209,7 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
             refreshAuthoritativeSnapshot();
             refreshOperationalHealth();
             refreshTopologyRole();
+            refreshPortRoute();
             refreshEvidenceState();
         }
         super.broadcastChanges();
@@ -220,6 +255,24 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
 
     private void refreshTopologyRole() {
         topologyRole.set(classifyTopologyRole(level.getBlockState(blockPos)));
+    }
+
+    private void refreshPortRoute() {
+        BlockState state = level.getBlockState(blockPos);
+        if (!(state.getBlock() instanceof EngineeringPortProvider provider)) {
+            receivePortMask.set(0);
+            transmitPortMask.set(0);
+            return;
+        }
+        int receiveMask = 0;
+        int transmitMask = 0;
+        for (EngineeringPort port : provider.engineeringPorts(state)) {
+            int bit = 1 << port.side().ordinal();
+            if (port.canReceive()) receiveMask |= bit;
+            if (port.canTransmit()) transmitMask |= bit;
+        }
+        receivePortMask.set(receiveMask);
+        transmitPortMask.set(transmitMask);
     }
 
     private void refreshEvidenceState() {
@@ -286,8 +339,8 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
         }
         if (ports.size() == 2 && receivers > 0 && transmitters > 0) return TOPOLOGY_SERIES;
 
-        // Directional-domain devices keep a strict BACK→FRONT process path; extra ports are controls,
-        // not permission for implicit parallel routing through the process medium.
+        // Directional-domain devices preserve one explicit process input and output. Extra formal
+        // receive ports are controls, not permission for implicit parallel processing.
         if (block instanceof DirectionalDomainBlock && receivers > 0 && transmitters > 0 && ports.size() > 2) {
             return TOPOLOGY_CONTROLLED_SERIES;
         }
