@@ -2,6 +2,7 @@ package dev.redstoneengineering.gametest;
 
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.block.DirectionalDomainBlock;
+import dev.redstoneengineering.block.SignalAnalyzerBlock;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.EngineeringPort;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
@@ -96,12 +97,22 @@ public final class RseEngineeringUxGameTests {
                 port("C", Direction.NORTH, EngineeringDomain.REDSTONE, PortDirection.BIDIRECTIONAL)
         ));
 
+        BlockState analyzerTap = RedstoneEngineering.SIGNAL_ANALYZER.get().defaultBlockState()
+                .setValue(SignalAnalyzerBlock.MODE, SignalAnalyzerBlock.TAP);
+        BlockState analyzerInline = analyzerTap.setValue(SignalAnalyzerBlock.MODE, SignalAnalyzerBlock.INLINE);
+        BlockState controlledSeries = RedstoneEngineering.PNEUMATIC_PROPORTIONAL_VALVE.get().defaultBlockState();
+        BlockState controlledSource = RedstoneEngineering.SOUL_FLUX_INJECTOR.get().defaultBlockState();
+
         if (EngineeringDeviceMenu.classifyTopologyRole(source.defaultBlockState()) != EngineeringDeviceMenu.TOPOLOGY_SOURCE
                 || EngineeringDeviceMenu.classifyTopologyRole(sink.defaultBlockState()) != EngineeringDeviceMenu.TOPOLOGY_SINK
                 || EngineeringDeviceMenu.classifyTopologyRole(series.defaultBlockState()) != EngineeringDeviceMenu.TOPOLOGY_SERIES
                 || EngineeringDeviceMenu.classifyTopologyRole(observer.defaultBlockState()) != EngineeringDeviceMenu.TOPOLOGY_OBSERVER
                 || EngineeringDeviceMenu.classifyTopologyRole(passive.defaultBlockState()) != EngineeringDeviceMenu.TOPOLOGY_PASSIVE
-                || EngineeringDeviceMenu.classifyTopologyRole(junction.defaultBlockState()) != EngineeringDeviceMenu.TOPOLOGY_EXPLICIT_JUNCTION) {
+                || EngineeringDeviceMenu.classifyTopologyRole(junction.defaultBlockState()) != EngineeringDeviceMenu.TOPOLOGY_EXPLICIT_JUNCTION
+                || EngineeringDeviceMenu.classifyTopologyRole(analyzerTap) != EngineeringDeviceMenu.TOPOLOGY_OBSERVER
+                || EngineeringDeviceMenu.classifyTopologyRole(analyzerInline) != EngineeringDeviceMenu.TOPOLOGY_SERIES
+                || EngineeringDeviceMenu.classifyTopologyRole(controlledSeries) != EngineeringDeviceMenu.TOPOLOGY_CONTROLLED_SERIES
+                || EngineeringDeviceMenu.classifyTopologyRole(controlledSource) != EngineeringDeviceMenu.TOPOLOGY_CONTROLLED_SOURCE) {
             helper.fail("Engineering topology role projection drifted from the formal port contract", MARKER);
             return;
         }
