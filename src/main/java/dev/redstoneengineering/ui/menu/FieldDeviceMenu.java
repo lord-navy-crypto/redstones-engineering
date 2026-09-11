@@ -338,12 +338,13 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             facing.set(output.ordinal());
             fillCompatibleTopology(state, tap);
         } else if (block instanceof RangeSensorBlock sensor) {
-            primary.set(RangeSensorBlock.detectedDistance(level, blockPos, state));
+            RangeSensorBlock.ScanResult scan = RangeSensorBlock.lastScan(level, blockPos, state);
+            primary.set(scan.distance());
             secondary.set(state.getValue(RangeSensorBlock.OUTPUT));
-            tertiary.set(RangeSensorBlock.configuredRange(state));
+            tertiary.set(scan.configuredRange());
             driverCount.set(state.getValue(RangeSensorBlock.RESPONSE));
-            dataValid.set(primary.get() > 0 ? 1 : 0);
-            quality.set(dataValid.get() != 0 ? 100 : 0);
+            dataValid.set(scan.complete() ? 1 : 0);
+            quality.set(scan.complete() ? 100 : 0);
             facing.set(RangeSensorBlock.sensingSide(state).ordinal());
         } else if (block instanceof LapisSignalLineBlock line) {
             primary.set(LapisSignalLineBlock.value(level, blockPos));
