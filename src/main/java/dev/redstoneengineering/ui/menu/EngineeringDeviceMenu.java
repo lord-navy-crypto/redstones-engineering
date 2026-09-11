@@ -1,5 +1,6 @@
 package dev.redstoneengineering.ui.menu;
 
+import dev.redstoneengineering.block.DirectionalDomainBlock;
 import dev.redstoneengineering.block.DirectionalSignalBlock;
 import dev.redstoneengineering.block.FaultLatchBlock;
 import dev.redstoneengineering.block.OperationsMonitorBlock;
@@ -40,6 +41,8 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
     public static final int TOPOLOGY_PASSIVE = 5;
     public static final int TOPOLOGY_EXPLICIT_JUNCTION = 6;
     public static final int TOPOLOGY_MULTIPORT = 7;
+    public static final int TOPOLOGY_CONTROLLED_SOURCE = 8;
+    public static final int TOPOLOGY_CONTROLLED_SERIES = 9;
 
     public static final int EVIDENCE_UNOBSERVED = 0;
     public static final int EVIDENCE_VALID = 1;
@@ -126,6 +129,8 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
             case TOPOLOGY_PASSIVE -> "PASSIVE";
             case TOPOLOGY_EXPLICIT_JUNCTION -> "EXPLICIT JUNCTION";
             case TOPOLOGY_MULTIPORT -> "MULTIPORT";
+            case TOPOLOGY_CONTROLLED_SOURCE -> "CONTROLLED SOURCE";
+            case TOPOLOGY_CONTROLLED_SERIES -> "CONTROLLED SERIES";
             default -> "UNCLASSIFIED";
         };
     }
@@ -258,10 +263,14 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
 
         int receivers = 0;
         int transmitters = 0;
+        int controlReceivers = 0;
         boolean observational = true;
         boolean bidirectional = false;
         for (EngineeringPort port : ports) {
-            if (port.canReceive()) receivers++;
+            if (port.canReceive()) {
+                receivers++;
+                if (port.kind() == PortKind.CONTROL) controlReceivers++;
+            }
             if (port.canTransmit()) transmitters++;
             bidirectional |= port.canReceive() && port.canTransmit();
             observational &= port.kind() == PortKind.TAP || port.kind() == PortKind.MEASUREMENT;
@@ -272,6 +281,19 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
         if (receivers > 0 && transmitters == 0) return TOPOLOGY_SINK;
         if (bidirectional && receivers == ports.size() && transmitters == ports.size()) return TOPOLOGY_PASSIVE;
         if (ports.size() == 2 && receivers > 0 && transmitters > 0) return TOPOLOGY_SERIES;
+
+        // Directional-domain devices keep a strict BACK→FRONT process path; extra ports are controls,
+        // not permission for implicit parallel routing through the process medium.
+        if (block instanceof DirectionalDomainBlock && receivers > 0 && transmitters > 0 && ports.size() > 2) {
+            return TOPOLOGY_CONTROLLED_SERIES;
+        }
+
+        // A single explicit control input feeding one or more outputs is a controlled source, not
+        // a generic multipoint processor. Fan-out is still explicit in the formal port list.
+        if (receivers == 1 && controlReceivers == 1 && transmitters > 0) {
+            return TOPOLOGY_CONTROLLED_SOURCE;
+        }
+
         if (receivers > 0 || transmitters > 0) return TOPOLOGY_MULTIPORT;
         return TOPOLOGY_PASSIVE;
     }
