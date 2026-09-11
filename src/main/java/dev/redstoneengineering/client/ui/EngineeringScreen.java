@@ -63,7 +63,9 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     protected EngineeringScreen(M menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
         this.imageWidth = 320;
-        this.imageHeight = 214;
+        // Extra vertical room is intentional: device-specific content keeps its existing coordinates,
+        // while the shared route strip gets its own space instead of crowding Overview/Configure.
+        this.imageHeight = 238;
         this.titleLabelX = 12;
         this.titleLabelY = 10;
         this.inventoryLabelY = 1000;
@@ -143,11 +145,12 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
         // Header and navigation are visually isolated from telemetry so every device reads like an HMI.
         graphics.fill(leftPos + 8, topPos + 27, leftPos + imageWidth - 8, topPos + 29, ACCENT);
-        graphics.fill(leftPos + 8, topPos + 58, leftPos + imageWidth - 8, topPos + imageHeight - 28, PANEL_2);
+        graphics.fill(leftPos + 8, topPos + 58, leftPos + imageWidth - 8, topPos + imageHeight - 52, PANEL_2);
+        graphics.fill(leftPos + 8, topPos + imageHeight - 48, leftPos + imageWidth - 8, topPos + imageHeight - 29, PANEL_3);
         graphics.fill(leftPos + 8, topPos + imageHeight - 25, leftPos + imageWidth - 8, topPos + imageHeight - 9, PANEL_3);
 
         // Thin white equipment-identification rail: neutral across electrical/optical/data media.
-        graphics.fill(leftPos + 8, topPos + 58, leftPos + 11, topPos + imageHeight - 28, WHITE_SIGN);
+        graphics.fill(leftPos + 8, topPos + 58, leftPos + 11, topPos + imageHeight - 52, WHITE_SIGN);
     }
 
     @Override
@@ -165,10 +168,27 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         graphics.drawString(font, section.subtitle, 92, 62, MUTED, false);
         renderSection(graphics, section);
 
+        renderPortRoute(graphics);
+
         String evidence = "EVIDENCE • " + menu.evidenceStateLabel();
         graphics.drawString(font, evidence, 13, imageHeight - 20, evidenceStateColor(), false);
         String position = "@ " + menu.blockPos().getX() + ", " + menu.blockPos().getY() + ", " + menu.blockPos().getZ();
         graphics.drawString(font, position, imageWidth - 13 - font.width(position), imageHeight - 20, MUTED, false);
+    }
+
+    /** Shared compact route visualization sourced only from the formal EngineeringPort contract. */
+    private void renderPortRoute(GuiGraphics graphics) {
+        int y = imageHeight - 43;
+        graphics.drawString(font, "SIGNAL ROUTE", 16, y, MUTED, false);
+        String rx = "RX " + menu.receivePortFacesLabel();
+        String tx = "TX " + menu.transmitPortFacesLabel();
+        int rxX = 98;
+        int txX = 214;
+        graphics.fill(rxX - 5, y - 3, rxX + font.width(rx) + 5, y + 11, PANEL);
+        graphics.drawString(font, rx, rxX, y, INFO, false);
+        graphics.drawString(font, "→", 190, y, MUTED, false);
+        graphics.fill(txX - 5, y - 3, txX + font.width(tx) + 5, y + 11, PANEL);
+        graphics.drawString(font, tx, txX, y, GOOD, false);
     }
 
     protected final int operationalHealthColor() {
@@ -241,7 +261,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
      */
     private PresentationLine normalizeLegacyPresentation(String label, String value) {
         if ("PNEUMATIC • SIX-WAY REGULATED MANIFOLD".equals(value)) {
-            return new PresentationLine(label, "PNEUMATIC • BACK INPUT → FRONT REGULATED OUTPUT");
+            return new PresentationLine(label, "PNEUMATIC • " + menu.portRouteLabel());
         }
         if ("OTHER FIVE FACES".equals(label) && "REDSTONE PAYLOAD INPUT".equals(value)) {
             return new PresentationLine("DOWN", "REDSTONE PAYLOAD INPUT");
@@ -253,8 +273,9 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     }
 
     protected final void labelValue(GuiGraphics graphics, String label, String value, int y) {
-        graphics.drawString(font, label, 16, y, MUTED, false);
-        graphics.drawString(font, value, 154, y, TEXT, false);
+        PresentationLine normalized = normalizeLegacyPresentation(label, value);
+        graphics.drawString(font, normalized.label(), 16, y, MUTED, false);
+        graphics.drawString(font, normalized.value(), 154, y, TEXT, false);
     }
 
     protected final void statusLine(GuiGraphics graphics, String label, String value, int color, int y) {
