@@ -44,37 +44,24 @@ public final class EngineeringUiClientRegistration {
         event.register(EngineeringUiRegistration.RADIO_LINK.get(), RadioLinkScreen::new);
         event.register(EngineeringUiRegistration.DIGITAL_COMMUNICATION.get(), DigitalCommunicationScreen::new);
         event.register(EngineeringUiRegistration.PNEUMATIC_SYSTEM.get(), PneumaticSystemScreen::new);
+        event.register(EngineeringUiRegistration.OPTICAL_SYSTEM.get(), OpticalSystemScreen::new);
         event.register(EngineeringUiRegistration.OPERATIONS_MONITOR.get(), OperationsMonitorScreen::new);
     }
 
-    /**
-     * Alpha-3 presents one player-facing Junction Point. The historical optical/copper registry
-     * entries remain loaded for old-world compatibility, but they are intentionally not offered
-     * as new creative content.
-     */
     private static void hideLegacyJunctionVariants(BuildCreativeModeTabContentsEvent event) {
         if (event.getTab() != RedstoneEngineering.RSE_TAB.get()) return;
-        event.remove(
-                RedstoneEngineering.OPTICAL_FIBER_JUNCTION_ITEM.get().getDefaultInstance(),
-                CreativeModeTab.TabVisibility.PARENT_AND_SEARCH_TABS
-        );
-        event.remove(
-                RedstoneEngineering.COPPER_CABLE_JUNCTION_ITEM.get().getDefaultInstance(),
-                CreativeModeTab.TabVisibility.PARENT_AND_SEARCH_TABS
-        );
+        event.remove(RedstoneEngineering.OPTICAL_FIBER_JUNCTION_ITEM.get().getDefaultInstance(), CreativeModeTab.TabVisibility.PARENT_AND_SEARCH_TABS);
+        event.remove(RedstoneEngineering.COPPER_CABLE_JUNCTION_ITEM.get().getDefaultInstance(), CreativeModeTab.TabVisibility.PARENT_AND_SEARCH_TABS);
     }
 
     private static void addInventoryDiagnosticsButton(ScreenEvent.Init.Post event) {
         Screen screen = event.getScreen();
         if (!(screen instanceof InventoryScreen) && !(screen instanceof CreativeModeInventoryScreen)) return;
         if (!(screen instanceof AbstractContainerScreen<?> containerScreen)) return;
-
         int x = Math.min(containerScreen.getGuiLeft() + containerScreen.getXSize() + 4, screen.width - 26);
         int y = Math.max(6, containerScreen.getGuiTop() + 4);
-        Button diagnosticsButton = Button.builder(
-                Component.literal("✚").withStyle(ChatFormatting.RED),
-                button -> Minecraft.getInstance().setScreen(new RseDiagnosticsScreen(screen))
-        ).bounds(x, y, 22, 20).build();
+        Button diagnosticsButton = Button.builder(Component.literal("✚").withStyle(ChatFormatting.RED),
+                button -> Minecraft.getInstance().setScreen(new RseDiagnosticsScreen(screen))).bounds(x, y, 22, 20).build();
         event.addListener(diagnosticsButton);
     }
 }
