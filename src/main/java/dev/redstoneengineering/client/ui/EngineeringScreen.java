@@ -165,8 +165,9 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         graphics.drawString(font, section.subtitle, 92, 62, MUTED, false);
         renderSection(graphics, section);
 
+        String evidence = "EVIDENCE • " + menu.evidenceStateLabel();
+        graphics.drawString(font, evidence, 13, imageHeight - 20, evidenceStateColor(), false);
         String position = "@ " + menu.blockPos().getX() + ", " + menu.blockPos().getY() + ", " + menu.blockPos().getZ();
-        graphics.drawString(font, "SERVER AUTHORITATIVE • OBSERVER-NEUTRAL", 13, imageHeight - 20, INFO, false);
         graphics.drawString(font, position, imageWidth - 13 - font.width(position), imageHeight - 20, MUTED, false);
     }
 
@@ -176,6 +177,18 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             case EngineeringDeviceMenu.HEALTH_DEGRADED, EngineeringDeviceMenu.HEALTH_PROTECTIVE -> WARN;
             case EngineeringDeviceMenu.HEALTH_ACTIVE -> INFO;
             default -> GOOD;
+        };
+    }
+
+    private int evidenceStateColor() {
+        return switch (menu.evidenceState()) {
+            case EngineeringDeviceMenu.EVIDENCE_VALID -> GOOD;
+            case EngineeringDeviceMenu.EVIDENCE_NO_SIGNAL, EngineeringDeviceMenu.EVIDENCE_UNOBSERVED -> MUTED;
+            case EngineeringDeviceMenu.EVIDENCE_SATURATED, EngineeringDeviceMenu.EVIDENCE_STALE -> WARN;
+            case EngineeringDeviceMenu.EVIDENCE_FAULT,
+                    EngineeringDeviceMenu.EVIDENCE_DOMAIN_MISMATCH,
+                    EngineeringDeviceMenu.EVIDENCE_TOPOLOGY_ERROR -> BAD;
+            default -> MUTED;
         };
     }
 
