@@ -116,7 +116,19 @@ public abstract class ConnectedCableBlock extends DomainBlock {
         return count;
     }
 
+    /**
+     * Effective connection view used by graph code, engineering ports, and rendering.
+     *
+     * <p>Older worlds may deserialize the historical six-way Junction Point with horizontal arm
+     * bits still set. Those raw bits are retained only for save compatibility; the current Junction
+     * contract is vertical-only, so stale horizontal arms must be ignored immediately even before a
+     * neighbor update gets a chance to rewrite the stored BlockState.</p>
+     */
     public static boolean connected(BlockState state, Direction direction) {
+        if (state.getBlock() instanceof RedstoneCableJunctionBlock
+                && direction.getAxis() != Direction.Axis.Y) {
+            return false;
+        }
         BooleanProperty property = property(direction);
         return state.hasProperty(property) && state.getValue(property);
     }
@@ -154,12 +166,12 @@ public abstract class ConnectedCableBlock extends DomainBlock {
     @Override
     public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
         VoxelShape shape = CENTER;
-        if (state.getValue(NORTH)) shape = Shapes.joinUnoptimized(shape, NORTH_ARM, BooleanOp.OR);
-        if (state.getValue(EAST)) shape = Shapes.joinUnoptimized(shape, EAST_ARM, BooleanOp.OR);
-        if (state.getValue(SOUTH)) shape = Shapes.joinUnoptimized(shape, SOUTH_ARM, BooleanOp.OR);
-        if (state.getValue(WEST)) shape = Shapes.joinUnoptimized(shape, WEST_ARM, BooleanOp.OR);
-        if (state.getValue(UP)) shape = Shapes.joinUnoptimized(shape, UP_ARM, BooleanOp.OR);
-        if (state.getValue(DOWN)) shape = Shapes.joinUnoptimized(shape, DOWN_ARM, BooleanOp.OR);
+        if (connected(state, Direction.NORTH)) shape = Shapes.joinUnoptimized(shape, NORTH_ARM, BooleanOp.OR);
+        if (connected(state, Direction.EAST)) shape = Shapes.joinUnoptimized(shape, EAST_ARM, BooleanOp.OR);
+        if (connected(state, Direction.SOUTH)) shape = Shapes.joinUnoptimized(shape, SOUTH_ARM, BooleanOp.OR);
+        if (connected(state, Direction.WEST)) shape = Shapes.joinUnoptimized(shape, WEST_ARM, BooleanOp.OR);
+        if (connected(state, Direction.UP)) shape = Shapes.joinUnoptimized(shape, UP_ARM, BooleanOp.OR);
+        if (connected(state, Direction.DOWN)) shape = Shapes.joinUnoptimized(shape, DOWN_ARM, BooleanOp.OR);
         return shape;
     }
 }
