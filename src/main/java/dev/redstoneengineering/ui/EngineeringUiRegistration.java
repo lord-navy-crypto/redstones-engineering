@@ -14,6 +14,7 @@ import dev.redstoneengineering.ui.menu.PneumaticSystemMenu;
 import dev.redstoneengineering.ui.menu.QuartzTimingMenu;
 import dev.redstoneengineering.ui.menu.RadioLinkMenu;
 import dev.redstoneengineering.ui.menu.RangeSensorMenu;
+import dev.redstoneengineering.ui.menu.ReliabilitySystemMenu;
 import dev.redstoneengineering.ui.menu.SignalAnalyzerMenu;
 import dev.redstoneengineering.ui.menu.SignalConditionerMenu;
 import dev.redstoneengineering.ui.menu.SignalProcessorMenu;
@@ -45,6 +46,7 @@ public final class EngineeringUiRegistration {
     public static final DeferredHolder<MenuType<?>, MenuType<OpticalSystemMenu>> OPTICAL_SYSTEM = MENUS.register("optical_system", () -> IMenuTypeExtension.create(OpticalSystemMenu::new));
     public static final DeferredHolder<MenuType<?>, MenuType<AmethystSystemMenu>> AMETHYST_SYSTEM = MENUS.register("amethyst_system", () -> IMenuTypeExtension.create(AmethystSystemMenu::new));
     public static final DeferredHolder<MenuType<?>, MenuType<MagneticSystemMenu>> MAGNETIC_SYSTEM = MENUS.register("magnetic_system", () -> IMenuTypeExtension.create(MagneticSystemMenu::new));
+    public static final DeferredHolder<MenuType<?>, MenuType<ReliabilitySystemMenu>> RELIABILITY_SYSTEM = MENUS.register("reliability_system", () -> IMenuTypeExtension.create(ReliabilitySystemMenu::new));
     public static final DeferredHolder<MenuType<?>, MenuType<OperationsMonitorMenu>> OPERATIONS_MONITOR = MENUS.register("operations_monitor", () -> IMenuTypeExtension.create(OperationsMonitorMenu::new));
     public EngineeringUiRegistration(IEventBus modBus) { MENUS.register(modBus); }
 }
