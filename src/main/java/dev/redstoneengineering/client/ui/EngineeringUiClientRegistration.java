@@ -39,6 +39,7 @@ public final class EngineeringUiClientRegistration {
         event.register(EngineeringUiRegistration.FIELD_DEVICE.get(), EnhancedFieldDeviceScreen::new);
         event.register(EngineeringUiRegistration.UNIVERSAL_FIELD_DEVICE.get(), UniversalFieldDeviceScreen::new);
         event.register(EngineeringUiRegistration.RANGE_SENSOR.get(), RangeSensorScreen::new);
+        event.register(EngineeringUiRegistration.SIGNAL_PROCESSOR.get(), SignalProcessorScreen::new);
         event.register(EngineeringUiRegistration.OPERATIONS_MONITOR.get(), OperationsMonitorScreen::new);
     }
 
