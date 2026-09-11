@@ -23,6 +23,12 @@ required = {
     "src/main/java/dev/redstoneengineering/ui/menu/EngineeringDeviceMenu.java": [
         "extends AbstractContainerMenu",
         "refreshAuthoritativeSnapshot",
+        "refreshOperationalHealth",
+        "refreshTopologyRole",
+        "refreshEvidenceState",
+        "topologyRoleLabel",
+        "operationalHealthLabel",
+        "evidenceStateLabel",
         "stillValid",
     ],
     "src/main/java/dev/redstoneengineering/ui/menu/SignalConditionerMenu.java": [
@@ -42,7 +48,12 @@ required = {
         "DIAGNOSTICS",
         "HISTORY",
         "handleInventoryButtonClick",
-        "SERVER AUTHORITATIVE",
+        "ROLE • ",
+        "HEALTH • ",
+        "EVIDENCE • ",
+        "menu.topologyRoleLabel()",
+        "menu.operationalHealthLabel()",
+        "menu.evidenceStateLabel()",
     ],
     "src/main/java/dev/redstoneengineering/client/ui/SignalConditionerScreen.java": [
         "SignalConditionerMenu",
@@ -123,6 +134,7 @@ if errors:
 
 print("RSE Engineering UI verification: PASS")
 print(" shared menu/screen framework: PASS")
+print(" server-authoritative ROLE / HEALTH / EVIDENCE HMI: PASS")
 print(" server-authoritative configuration path: PASS")
 print(" client UI authority boundary: PASS")
 print(" Conditioner + PID runtime action tests registered: PASS")
