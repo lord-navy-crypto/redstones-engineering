@@ -9,6 +9,8 @@ import dev.redstoneengineering.block.SampleHoldBlock;
 import dev.redstoneengineering.block.ServoActuatorBlock;
 import dev.redstoneengineering.block.ServoPositionSensorBlock;
 import dev.redstoneengineering.block.SignalConditionerBlock;
+import dev.redstoneengineering.diagnostics.ClosedLoopCommissioning;
+import dev.redstoneengineering.diagnostics.CommissioningSnapshot;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
@@ -51,28 +53,7 @@ public final class RseSystemLevelClosurePhase2ProbeGameTests {
         BlockPos sampleHold = new BlockPos(2, 1, 3);
         BlockPos trigger = new BlockPos(2, 1, 2);
 
-        for (BlockPos wire : feedback) {
-            helper.setBlock(wire.below(), Blocks.STONE.defaultBlockState());
-            helper.setBlock(wire, Blocks.REDSTONE_WIRE.defaultBlockState());
-        }
-
-        helper.setBlock(setpoint, reference(Direction.NORTH, 8));
-        helper.setBlock(pid, RedstoneEngineering.PID_CONTROLLER.get().defaultBlockState()
-                .setValue(DirectionalSignalBlock.FACING, Direction.NORTH)
-                .setValue(PidControllerBlock.TUNING, 0));
-        helper.setBlock(servo, RedstoneEngineering.SERVO_ACTUATOR.get().defaultBlockState()
-                .setValue(ServoActuatorBlock.FACING, Direction.NORTH)
-                .setValue(ServoActuatorBlock.SLEW, 1));
-        helper.setBlock(sensor, RedstoneEngineering.SERVO_POSITION_SENSOR.get().defaultBlockState()
-                .setValue(DirectionalSignalBlock.FACING, Direction.NORTH));
-        helper.setBlock(conditioner, RedstoneEngineering.SIGNAL_CONDITIONER.get().defaultBlockState()
-                .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
-                .setValue(SignalConditionerBlock.MODE, 0)
-                .setValue(SignalConditionerBlock.PARAM, 1));
-        helper.setBlock(sampleHold, RedstoneEngineering.SAMPLE_HOLD.get().defaultBlockState()
-                .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
-                .setValue(SampleHoldBlock.TRIGGER_MODE, 0));
-        helper.setBlock(trigger, reference(Direction.SOUTH, 0));
+        installLoop(helper, setpoint, pid, servo, sensor, feedback, conditioner, sampleHold, trigger, 0);
 
         helper.runAfterDelay(24, () -> {
             BlockPos holdWorld = helper.absolutePos(sampleHold);
@@ -164,6 +145,100 @@ public final class RseSystemLevelClosurePhase2ProbeGameTests {
                 });
             });
         });
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 80)
+    public static void sampledPidLoopSettlesAndFailsSafeOnFeedbackLoss(GameTestHelper helper) {
+        BlockPos setpoint = new BlockPos(3, 1, 4);
+        BlockPos pid = new BlockPos(3, 1, 3);
+        BlockPos servo = new BlockPos(3, 1, 2);
+        BlockPos sensor = new BlockPos(3, 1, 1);
+        BlockPos[] feedback = {
+                new BlockPos(3, 1, 0),
+                new BlockPos(2, 1, 0),
+                new BlockPos(1, 1, 0),
+                new BlockPos(0, 1, 0),
+                new BlockPos(0, 1, 1),
+                new BlockPos(0, 1, 2),
+                new BlockPos(0, 1, 3)
+        };
+        BlockPos conditioner = new BlockPos(1, 1, 3);
+        BlockPos sampleHold = new BlockPos(2, 1, 3);
+        BlockPos trigger = new BlockPos(2, 1, 2);
+
+        // BOTH-edge sampling creates a deterministic 2-tick sample cadence for the acceptance probe.
+        installLoop(helper, setpoint, pid, servo, sensor, feedback, conditioner, sampleHold, trigger, 2);
+        helper.runAfterDelay(8, () -> helper.setBlock(trigger, reference(Direction.SOUTH, 15)));
+        helper.runAfterDelay(10, () -> helper.setBlock(trigger, reference(Direction.SOUTH, 0)));
+        helper.runAfterDelay(12, () -> helper.setBlock(trigger, reference(Direction.SOUTH, 15)));
+        helper.runAfterDelay(14, () -> helper.setBlock(trigger, reference(Direction.SOUTH, 0)));
+        helper.runAfterDelay(16, () -> helper.setBlock(trigger, reference(Direction.SOUTH, 15)));
+        helper.runAfterDelay(18, () -> helper.setBlock(trigger, reference(Direction.SOUTH, 0)));
+
+        helper.runAfterDelay(34, () -> {
+            int held = helper.getBlockState(sampleHold).getValue(DirectionalSignalBlock.OUTPUT);
+            int position = ServoActuatorBlock.position(helper.getLevel(), helper.absolutePos(servo));
+            CommissioningSnapshot snapshot = ClosedLoopCommissioning.inspectPid(helper.getLevel(), helper.absolutePos(pid));
+            if (!snapshot.available()
+                    || Math.abs(snapshot.error()) > 1
+                    || snapshot.settlingTicks() <= 0
+                    || Math.abs(position - 8) > 1
+                    || Math.abs(held - 8) > 1) {
+                helper.fail("Sampled closed loop did not produce settling evidence"
+                        + " | held=" + held + " position=" + position
+                        + " error=" + snapshot.error() + " settling=" + snapshot.settlingTicks()
+                        + " overshoot=" + snapshot.overshoot(), pid);
+                return;
+            }
+
+            helper.setBlock(sampleHold, Blocks.AIR.defaultBlockState());
+            helper.runAfterDelay(6, () -> {
+                int failSafeOut = helper.getBlockState(pid).getValue(DirectionalSignalBlock.OUTPUT);
+                if (failSafeOut != 0) {
+                    helper.fail("PID did not fail safe after process-value evidence was removed"
+                            + " | PID_OUT=" + failSafeOut, pid);
+                    return;
+                }
+                helper.succeed();
+            });
+        });
+    }
+
+    private static void installLoop(
+            GameTestHelper helper,
+            BlockPos setpoint,
+            BlockPos pid,
+            BlockPos servo,
+            BlockPos sensor,
+            BlockPos[] feedback,
+            BlockPos conditioner,
+            BlockPos sampleHold,
+            BlockPos trigger,
+            int triggerMode
+    ) {
+        for (BlockPos wire : feedback) {
+            helper.setBlock(wire.below(), Blocks.STONE.defaultBlockState());
+            helper.setBlock(wire, Blocks.REDSTONE_WIRE.defaultBlockState());
+        }
+
+        helper.setBlock(setpoint, reference(Direction.NORTH, 8));
+        helper.setBlock(pid, RedstoneEngineering.PID_CONTROLLER.get().defaultBlockState()
+                .setValue(DirectionalSignalBlock.FACING, Direction.NORTH)
+                .setValue(PidControllerBlock.TUNING, 0));
+        helper.setBlock(servo, RedstoneEngineering.SERVO_ACTUATOR.get().defaultBlockState()
+                .setValue(ServoActuatorBlock.FACING, Direction.NORTH)
+                .setValue(ServoActuatorBlock.SLEW, 1));
+        helper.setBlock(sensor, RedstoneEngineering.SERVO_POSITION_SENSOR.get().defaultBlockState()
+                .setValue(DirectionalSignalBlock.FACING, Direction.NORTH));
+        helper.setBlock(conditioner, RedstoneEngineering.SIGNAL_CONDITIONER.get().defaultBlockState()
+                .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
+                .setValue(SignalConditionerBlock.MODE, 0)
+                .setValue(SignalConditionerBlock.PARAM, 1));
+        helper.setBlock(sampleHold, RedstoneEngineering.SAMPLE_HOLD.get().defaultBlockState()
+                .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
+                .setValue(SampleHoldBlock.TRIGGER_MODE, triggerMode));
+        helper.setBlock(trigger, reference(Direction.SOUTH, 0));
     }
 
     private static BlockState reference(Direction facing, int power) {
