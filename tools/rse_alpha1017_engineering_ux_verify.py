@@ -91,7 +91,6 @@ require(
     "compatibilityProjectionDistinguishesTopologyFaults",
     "visualizationSnapshotIsImmutableAndCountsIssues",
     "topologyRoleProjectionUsesFormalPortContract",
-    "directionalDomainRotationMovesTheWholeSeriesContract",
     "RedstoneEngineering.PRESSURE_REGULATOR",
     "RedstoneEngineering.PNEUMATIC_VALVE",
 )
@@ -100,11 +99,30 @@ require(
     "event.register(RseEngineeringUxGameTests.class)",
 )
 
-# Shared series-I/O contract: the UI must expose the same capability the server actually implements.
+# Shared configurable one-input/one-output route contract.
+for rel in (
+    "src/main/java/dev/redstoneengineering/block/DirectionalSignalBlock.java",
+    "src/main/java/dev/redstoneengineering/block/DirectionalDomainBlock.java",
+):
+    require(
+        rel,
+        'DirectionProperty.create("input_facing", Direction.Plane.HORIZONTAL)',
+        "INPUT_FACING",
+        "seriesInputSide",
+        "seriesOutputSide",
+        "rotateSeriesOutput",
+        "rotateWholeRoute",
+        "return rotateSeriesOutput(level, pos, clockwise)",
+        "newOutput == input",
+    )
+
+# Existing field HMI buttons now call rotateSeriesAxis(), whose compatibility entry point routes OUTPUT only.
 require(
     "src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java",
     "BUTTON_ROTATE_CCW",
     "BUTTON_ROTATE_CW",
+    "DirectionalSignalBlock.rotateSeriesAxis(level, blockPos, clockwise)",
+    "DirectionalDomainBlock.rotateSeriesAxis(level, blockPos, clockwise)",
     "seriesConfigurable.set(block instanceof DirectionalSignalBlock || block instanceof DirectionalDomainBlock ? 1 : 0)",
     "PneumaticObservationSupport.observe",
     "applyPneumaticEvidence",
@@ -113,7 +131,6 @@ require(
     "src/main/java/dev/redstoneengineering/client/ui/FieldDeviceScreen.java",
     "↺ Rotate I/O",
     "Rotate I/O ↻",
-    "SERIES LOCK • IN → PROCESS → OUT",
     "menu.seriesConfigurable()",
 )
 require(
@@ -127,11 +144,8 @@ forbid(
 )
 
 # Serial-first, role-aware policy:
-# - inspect the actual engineeringPorts() declaration, not unrelated six-side diagnostics;
-# - all-face SOURCE or all-face SINK terminals are allowed;
-# - one explicit CONTROL input feeding all-face outputs is a controlled source;
-# - a loop that itself declares mixed INPUT/OUTPUT, or all-face INPUT plus a separate OUTPUT,
-#   is implicit parallel processing and must become strict endpoints or an explicit Junction/Splitter.
+# all-face SOURCE/SINK terminals remain explicit exceptions, while ordinary processors may not
+# silently aggregate multiple process inputs or create hidden fan-out.
 block_dir = root / "src/main/java/dev/redstoneengineering/block"
 all_face_loop = re.compile(r"for\s*\(\s*Direction\s+\w+\s*:\s*Direction\.values\(\)\s*\)")
 if block_dir.is_dir():
@@ -190,17 +204,18 @@ require(
 )
 require(
     "src/main/java/dev/redstoneengineering/block/PneumaticFlowMeterBlock.java",
-    "BACK=input, FRONT=output",
     "extends DirectionalDomainBlock",
+    "inputSide(state)",
+    "outputSide(state)",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/PneumaticProportionalValveBlock.java",
-    "BACK is pneumatic inlet, FRONT outlet, UP is opening command",
     "extends DirectionalDomainBlock",
+    '"PNEUMATIC IN", inputSide(state)',
+    '"PNEUMATIC OUT", outputSide(state)',
 )
 require(
     "src/main/java/dev/redstoneengineering/block/PressureRegulatorBlock.java",
-    "Strict inline pneumatic regulator. BACK=input, FRONT=regulated output.",
     "extends DirectionalDomainBlock",
     '"PNEUMATIC IN", inputSide(state)',
     '"REGULATED OUT", outputSide(state)',
@@ -212,10 +227,35 @@ forbid(
 )
 require(
     "src/main/java/dev/redstoneengineering/physics/PneumaticNetwork.java",
-    "block instanceof PressureRegulatorBlock ||",
-    "a.getBlock() instanceof PressureRegulatorBlock ||",
-    "b.getBlock() instanceof PressureRegulatorBlock ||",
-    "state.getValue(PressureRegulatorBlock.SETPOINT) * 25",
+    "directionalInput(BlockState state)",
+    "directionalOutput(BlockState state)",
+    "DirectionalDomainBlock.seriesInputSide(state)",
+    "DirectionalDomainBlock.seriesOutputSide(state)",
+    "Direction input = directionalInput(state)",
+    "Direction output = directionalOutput(state)",
+)
+forbid(
+    "src/main/java/dev/redstoneengineering/physics/PneumaticNetwork.java",
+    "state.getValue(DirectionalDomainBlock.FACING).getOpposite()",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/OpticalChannelFilterBlock.java",
+    "Direction inputSide = seriesInputSide(state)",
+    "outputPos(pos, state)",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/OpticalAttenuatorBlock.java",
+    "Direction inputSide = seriesInputSide(state)",
+    "outputPos(pos, state)",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/RedstoneReferenceSourceBlock.java",
+    "rotateOutput(level, pos, true)",
+    "Reference output →",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/DirectionalRedstoneEndpointBlock.java",
+    "rotateOutput(Level level, BlockPos pos, boolean clockwise)",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/SignalAnalyzerBlock.java",
@@ -230,7 +270,7 @@ require(
     "SOUL FLUX OUT",
 )
 
-# Shared role projection: every engineering HMI must expose the actual physical topology role.
+# Shared role + route projection: every engineering HMI exposes actual formal port faces.
 require(
     "src/main/java/dev/redstoneengineering/ui/menu/EngineeringDeviceMenu.java",
     "TOPOLOGY_SERIES",
@@ -249,7 +289,10 @@ require(
     "topologyRoleLabel",
     "classifyTopologyRole",
     "refreshTopologyRole",
-    "EngineeringPortProvider",
+    "refreshPortRoute",
+    "receivePortMask",
+    "transmitPortMask",
+    "portRouteLabel",
     "port.canReceive()",
     "port.canTransmit()",
     "block instanceof DirectionalDomainBlock",
@@ -260,8 +303,12 @@ require(
     "src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java",
     "ROLE • ",
     "menu.topologyRoleLabel()",
+    "SIGNAL ROUTE",
+    "menu.receivePortFacesLabel()",
+    "menu.transmitPortFacesLabel()",
+    "this.imageHeight = 238",
     "normalizeLegacyPresentation",
-    "PNEUMATIC • BACK INPUT → FRONT REGULATED OUTPUT",
+    '"PNEUMATIC • " + menu.portRouteLabel()',
     'new PresentationLine("DOWN", "REDSTONE PAYLOAD INPUT")',
     'new PresentationLine(label, menu.topologyRoleLabel())',
 )
@@ -333,16 +380,18 @@ if failed:
 print("RSE Alpha 1.0.17 engineering UX verification: PASS")
 print(" all-face Engineering Port projection: PASS")
 print(" Jade topology summary + face diagnostics: PASS")
-print(" strict series-I/O capability + controls: PASS")
+print(" configurable one-input/one-output route contract: PASS")
+print(" output-only HMI routing with whole-route maintenance rotation: PASS")
 print(" serial-first / explicit-branch topology policy: PASS")
 print(" controlled-series / controlled-source role projection: PASS")
 print(" passive-series / passive-bus role projection: PASS")
-print(" pressure-regulator strict series solver contract: PASS")
+print(" pneumatic explicit-route solver contract: PASS")
+print(" optical configurable-route sampling contract: PASS")
 print(" shared physical topology-role HMI: PASS")
-print(" legacy HMI topology-label normalization: PASS")
-print(" lightweight topology-role regression: PASS")
+print(" shared RX/TX route visualization: PASS")
+print(" expanded anti-crowding HMI shell: PASS")
+print(" reference-source adjustable output: PASS")
 print(" shared EngineeringPort evidence-quality HMI: PASS")
 print(" authoritative valid-zero evidence boundary: PASS")
 print(" evidence-validity / operational-health separation: PASS")
 print(" read-only/no-second-solver boundary: PASS")
-print(" executable topology UX GameTests: PASS")
