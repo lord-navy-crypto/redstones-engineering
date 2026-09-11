@@ -260,6 +260,10 @@ require(
     "src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java",
     "ROLE • ",
     "menu.topologyRoleLabel()",
+    "normalizeLegacyPresentation",
+    "PNEUMATIC • BACK INPUT → FRONT REGULATED OUTPUT",
+    'new PresentationLine("DOWN", "REDSTONE PAYLOAD INPUT")',
+    'new PresentationLine(label, menu.topologyRoleLabel())',
 )
 
 # Evidence validity and operational health are independent engineering dimensions.
@@ -335,6 +339,7 @@ print(" controlled-series / controlled-source role projection: PASS")
 print(" passive-series / passive-bus role projection: PASS")
 print(" pressure-regulator strict series solver contract: PASS")
 print(" shared physical topology-role HMI: PASS")
+print(" legacy HMI topology-label normalization: PASS")
 print(" lightweight topology-role regression: PASS")
 print(" shared EngineeringPort evidence-quality HMI: PASS")
 print(" authoritative valid-zero evidence boundary: PASS")
