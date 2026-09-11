@@ -8,7 +8,9 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 
 import java.util.ArrayDeque;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 /** Minecraft-fictional persistent-state model. Soul soil transports; soul sand stores. */
@@ -26,41 +28,69 @@ public final class SoulFluxNetwork {
     /**
      * Inject a bounded packet into the connected fictional Soul-Flux graph.
      * Conduits cost one unit per hop while reservoirs absorb charge and cost three units.
+     * Persistent reservoir charge is committed only after the bounded traversal proves complete.
      */
     public static void inject(ServerLevel level, BlockPos start, int amount) {
         Set<BlockPos> seen = new HashSet<>();
         ArrayDeque<BlockPos> queue = new ArrayDeque<>();
+        Map<BlockPos, Integer> pendingFlux = new HashMap<>();
+        Map<BlockPos, Integer> pendingStore = new HashMap<>();
         queue.add(start);
         int remaining = Math.max(0, amount);
+        boolean truncated = false;
 
-        while (!queue.isEmpty() && seen.size() < NetworkKernel.MAX_NODES && remaining > 0) {
+        while (!queue.isEmpty() && remaining > 0) {
             BlockPos pos = queue.removeFirst();
-            if (!seen.add(pos) || !level.hasChunkAt(pos)) continue;
+            if (!level.hasChunkAt(pos) || !isNode(level, pos) || seen.contains(pos)) continue;
+            if (seen.size() >= NetworkKernel.MAX_NODES) {
+                truncated = true;
+                break;
+            }
+            seen.add(pos.immutable());
 
             var block = level.getBlockState(pos).getBlock();
             if (block instanceof SoulSandReservoirBlock) {
                 InformationRuntime.Snapshot stored = InformationRuntime.snapshot(level, STORE_KEY, pos);
                 int old = Math.max(0, Math.min(100, stored.value()));
                 int added = Math.min(100 - old, remaining);
-                InformationRuntime.write(level, STORE_KEY, pos, old + added, 0, true, 100);
-                level.updateNeighborsAt(pos, block);
+                pendingStore.put(pos.immutable(), old + added);
                 remaining -= added;
             }
 
-            if (!(block instanceof SoulSoilConduitBlock || block instanceof SoulSandReservoirBlock)) continue;
-
             if (block instanceof SoulSoilConduitBlock) {
-                InformationRuntime.write(level, FLUX_KEY, pos, remaining, 0, true, 100);
-                level.updateNeighborsAt(pos, block);
+                pendingFlux.put(pos.immutable(), remaining);
             }
 
-            for (Direction direction : Direction.values()) queue.addLast(pos.relative(direction));
+            for (Direction direction : Direction.values()) {
+                BlockPos next = pos.relative(direction);
+                if (!seen.contains(next)) queue.addLast(next);
+            }
 
             if (block instanceof SoulSoilConduitBlock) remaining = Math.max(0, remaining - 1);
             else remaining = Math.max(0, remaining - 3);
         }
 
-        NetworkKernel.recordScan(level, "soul", seen.size(), seen.size() >= NetworkKernel.MAX_NODES);
+        NetworkKernel.recordScan(level, "soul", seen.size(), truncated);
+        if (truncated) {
+            // The incomplete traversal cannot authorize new transient flux or reservoir mutation.
+            // Preserve previously committed reservoir charge and invalidate only touched transient paths.
+            for (BlockPos pos : pendingFlux.keySet()) {
+                InformationRuntime.write(level, FLUX_KEY, pos, 0, 0, false, 0);
+                level.updateNeighborsAt(pos, level.getBlockState(pos).getBlock());
+            }
+            return;
+        }
+
+        for (Map.Entry<BlockPos, Integer> entry : pendingStore.entrySet()) {
+            BlockPos pos = entry.getKey();
+            InformationRuntime.write(level, STORE_KEY, pos, entry.getValue(), 0, true, 100);
+            level.updateNeighborsAt(pos, level.getBlockState(pos).getBlock());
+        }
+        for (Map.Entry<BlockPos, Integer> entry : pendingFlux.entrySet()) {
+            BlockPos pos = entry.getKey();
+            InformationRuntime.write(level, FLUX_KEY, pos, entry.getValue(), 0, true, 100);
+            level.updateNeighborsAt(pos, level.getBlockState(pos).getBlock());
+        }
     }
 
     /** Initialize a newly placed storage node as a known, valid empty reservoir. */
