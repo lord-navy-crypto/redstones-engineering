@@ -18,6 +18,8 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
     private Button preset5;
     private Button preset10;
     private Button preset15;
+    private Button rotateCcw;
+    private Button rotateCw;
 
     public FieldDeviceScreen(FieldDeviceMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -36,6 +38,8 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
         preset5 = addConfigureWidget(Button.builder(Component.literal("Preset 5"), b -> sendMenuButton(FieldDeviceMenu.BUTTON_PRESET_5)).bounds(x + 70, y + 26, 64, 20).build());
         preset10 = addConfigureWidget(Button.builder(Component.literal("Preset 10"), b -> sendMenuButton(FieldDeviceMenu.BUTTON_PRESET_10)).bounds(x + 140, y + 26, 64, 20).build());
         preset15 = addConfigureWidget(Button.builder(Component.literal("Preset 15"), b -> sendMenuButton(FieldDeviceMenu.BUTTON_PRESET_15)).bounds(x + 210, y + 26, 64, 20).build());
+        rotateCcw = addConfigureWidget(Button.builder(Component.literal("↺ Rotate I/O"), b -> sendMenuButton(FieldDeviceMenu.BUTTON_ROTATE_CCW)).bounds(x, y + 52, 134, 20).build());
+        rotateCw = addConfigureWidget(Button.builder(Component.literal("Rotate I/O ↻"), b -> sendMenuButton(FieldDeviceMenu.BUTTON_ROTATE_CW)).bounds(x + 140, y + 52, 134, 20).build());
     }
 
     @Override
@@ -61,6 +65,8 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
         preset5.active = presets;
         preset10.active = presets;
         preset15.active = presets;
+        rotateCcw.active = menu.seriesConfigurable();
+        rotateCw.active = menu.seriesConfigurable();
         switch (menu.kind()) {
             case FieldDeviceMenu.KIND_PROBE -> { decrease.setMessage(Component.literal("◀ Channel")); increase.setMessage(Component.literal("Channel ▶")); }
             case FieldDeviceMenu.KIND_FILTER -> { decrease.setMessage(Component.literal("− Slew")); increase.setMessage(Component.literal("Slew +")); }
@@ -183,14 +189,14 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             case FieldDeviceMenu.KIND_OPTICAL_EMITTER -> {
                 statusBadge(graphics, "OPTICAL EMITTER", menu.dataValid() ? GOOD : INFO, 16, 80);
                 labelValue(graphics, "Intensity / channel", menu.primary() + " / " + menu.secondary(), 105);
-                labelValue(graphics, "Output", "SIX-FACE GUIDED OPTICAL", 121);
+                labelValue(graphics, "Output", "SOURCE ROLE • SIX-FACE GUIDED OPTICAL", 121);
                 labelValue(graphics, "Compatible faces", Integer.toString(menu.connectionCount()), 137);
                 signalBar(graphics, menu.primary(), 157);
             }
             case FieldDeviceMenu.KIND_OPTICAL_RECEIVER -> {
                 statusBadge(graphics, "OPTICAL RECEIVER", menu.dataValid() ? GOOD : WARN, 16, 80);
                 labelValue(graphics, "Intensity / channel", menu.primary() + " / " + menu.secondary(), 105);
-                labelValue(graphics, "Input", "SIX-FACE GUIDED OPTICAL", 121);
+                labelValue(graphics, "Input", "SINK ROLE • SIX-FACE GUIDED OPTICAL", 121);
                 labelValue(graphics, "Signal", menu.dataValid() ? "VALID" : "DARK / INVALID", 137);
                 signalBar(graphics, menu.primary(), 157);
             }
@@ -529,7 +535,7 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
         labelValue(graphics, label, secondary > 0 ? primary + " / " + secondary : primary + " / 100", 105);
         labelValue(graphics, "Compatible links", Integer.toString(menu.connectionCount()), 121);
         labelValue(graphics, "Declared ports", Integer.toString(menu.portCount()), 137);
-        statusLine(graphics, "Domain", "PNEUMATIC", INFO, 157);
+        statusLine(graphics, "Evidence", validityText() + " • PNEUMATIC", validityColor(), 157);
     }
 
     private void renderCableOverview(GuiGraphics graphics) {
@@ -580,8 +586,8 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             }
             case FieldDeviceMenu.KIND_INDUCTION_COIL -> renderDirectionalPorts(graphics, "BACK • MAGNETIC SENSE APERTURE", "FRONT • COPPER INDUCED OUTPUT");
             case FieldDeviceMenu.KIND_OPTICAL_FIBER -> renderMediumPorts(graphics, "OPTICAL • CONNECTED FACES ONLY • PASSIVE TWO-ENDED PATH");
-            case FieldDeviceMenu.KIND_OPTICAL_EMITTER -> renderMediumPorts(graphics, "OPTICAL • SIX-FACE OUTPUT SOURCE");
-            case FieldDeviceMenu.KIND_OPTICAL_RECEIVER -> renderMediumPorts(graphics, "OPTICAL • SIX-FACE INPUT OBSERVER");
+            case FieldDeviceMenu.KIND_OPTICAL_EMITTER -> renderMediumPorts(graphics, "OPTICAL • SOURCE ROLE • SIX-FACE OUTPUT");
+            case FieldDeviceMenu.KIND_OPTICAL_RECEIVER -> renderMediumPorts(graphics, "OPTICAL • SINK ROLE • SIX-FACE INPUT");
             case FieldDeviceMenu.KIND_OPTICAL_POWER_METER -> {
                 statusLine(graphics, directionName(menu.facingOrdinal()), "OPTICAL MEASUREMENT INPUT", GOOD, 105);
                 graphics.drawString(font, "The opposite faces expose no invented ports.", 16, 131, MUTED, false);
@@ -677,30 +683,37 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
     private void renderDirectionalPorts(GuiGraphics graphics, String back, String front) {
         statusLine(graphics, oppositeDirectionName(menu.facingOrdinal()), back, GOOD, 105);
         statusLine(graphics, directionName(menu.facingOrdinal()), front, INFO, 125);
-        graphics.drawString(font, "Other faces expose no directional endpoint port.", 16, 151, MUTED, false);
+        graphics.drawString(font, "SERIES LOCK • IN → PROCESS → OUT • other faces expose no endpoint.", 16, 151, MUTED, false);
     }
 
     private void renderConfigure(GuiGraphics graphics) {
         switch (menu.kind()) {
-            case FieldDeviceMenu.KIND_PROBE -> { labelValue(graphics, "Selected channel", SignalProbeBlock.channelName(menu.secondary()), 80); graphics.drawString(font, "Changing channel never changes the measured node.", 16, 163, MUTED, false); }
-            case FieldDeviceMenu.KIND_FILTER -> { labelValue(graphics, "Slew rate", menu.tertiary() + " step/tick", 80); graphics.drawString(font, "Rate is bounded 1..4; server owns convergence.", 16, 163, MUTED, false); }
-            case FieldDeviceMenu.KIND_REFERENCE -> { labelValue(graphics, "Reference output", menu.primary() + " / 15", 80); graphics.drawString(font, "Use ±1 adjustment or lab presets.", 16, 163, MUTED, false); }
-            case FieldDeviceMenu.KIND_TERMINAL -> { labelValue(graphics, "Boundary direction", menu.tertiary() == 1 ? "CABLE → VANILLA" : "VANILLA → CABLE", 80); graphics.drawString(font, "Toggle recomputes the cable network on the server.", 16, 163, MUTED, false); }
-            case FieldDeviceMenu.KIND_DIGITAL_REGENERATOR -> { labelValue(graphics, "Minimum input quality", DigitalRegeneratorBlock.minimumQuality(menu.tertiary()) + "%", 80); graphics.drawString(font, "Server accepts frames only above threshold.", 16, 163, MUTED, false); }
-            case FieldDeviceMenu.KIND_PRESSURE_REGULATOR -> { labelValue(graphics, "Pressure setpoint", menu.secondary() + " / 100", 80); graphics.drawString(font, "Use ± to select 25 / 50 / 75 / 100 on the server.", 16, 163, MUTED, false); }
-            case FieldDeviceMenu.KIND_PNEUMATIC_VALVE -> { labelValue(graphics, "Valve state", menu.tertiary() == 1 ? "OPEN" : "CLOSED", 80); graphics.drawString(font, "Toggle recomputes both adjacent pneumatic components.", 16, 163, MUTED, false); }
-            case FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE -> { labelValue(graphics, "Relief setpoint", menu.tertiary() + " / 100", 80); graphics.drawString(font, "Setpoint changes are bounded and recomputed on the server.", 16, 163, MUTED, false); }
-            case FieldDeviceMenu.KIND_PERMANENT_MAGNET -> { labelValue(graphics, "Source strength", menu.primary() + " / 15", 80); graphics.drawString(font, "Strength changes on the server; orientation is a visual N marker.", 16, 163, MUTED, false); }
-            case FieldDeviceMenu.KIND_INDUCTION_COIL -> { labelValue(graphics, "Turns index", Integer.toString(menu.tertiary()), 80); graphics.drawString(font, "Turns scale |ΔΦ|; induced voltage remains server-authoritative.", 16, 163, MUTED, false); }
-            case FieldDeviceMenu.KIND_OPTICAL_EMITTER -> { labelValue(graphics, "Intensity / channel", menu.primary() + " / " + menu.secondary(), 80); graphics.drawString(font, "Intensity is bounded 0..15; channel is carried as runtime payload.", 16, 163, MUTED, false); }
-            case FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER -> { labelValue(graphics, "Pass channel", Integer.toString(menu.tertiary()), 80); graphics.drawString(font, "Only the selected channel passes; output loses one intensity step.", 16, 163, MUTED, false); }
-            case FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR -> { labelValue(graphics, "Loss index", Integer.toString(menu.tertiary()), 80); graphics.drawString(font, "Loss is bounded 0..8 and applied on the server.", 16, 163, MUTED, false); }
-            case FieldDeviceMenu.KIND_AMETHYST_RESONATOR -> { labelValue(graphics, "Frequency / amplitude", menu.primary() + " / " + menu.secondary(), 80); graphics.drawString(font, "Configuration remains server-side; Inspector is synchronized readback in this wave.", 16, 163, MUTED, false); }
-            case FieldDeviceMenu.KIND_AMETHYST_FILTER -> { labelValue(graphics, "Target frequency", Integer.toString(menu.tertiary()), 80); graphics.drawString(font, "Target selection remains server-side; output readback is authoritative.", 16, 163, MUTED, false); }
-            case FieldDeviceMenu.KIND_AMETHYST_TUNED -> { labelValue(graphics, "Natural f / Q", menu.primary() + " / " + menu.tertiary(), 80); graphics.drawString(font, "Tuning remains server-side; this screen never calculates resonance.", 16, 163, MUTED, false); }
-            case FieldDeviceMenu.KIND_MECHANICAL_EXCITER -> { labelValue(graphics, "Excitation frequency", Integer.toString(menu.secondary()), 80); graphics.drawString(font, "DOWN drive and emitted packet are authoritative server state.", 16, 163, MUTED, false); }
-            case FieldDeviceMenu.KIND_HYDRO_TUBE -> { labelValue(graphics, "Hydroacoustic medium", hydroMedium(menu.tertiary()), 80); graphics.drawString(font, "Medium cycling remains a bounded server-side quick action.", 16, 163, MUTED, false); }
-            default -> { statusLine(graphics, "Configuration", isWaveDevice() ? "READ-ONLY WAVE DEVICE" : isCommunicationDevice() ? "READ-ONLY COMMUNICATION DEVICE" : isCpsDevice() ? "READ-ONLY CPS / RELIABILITY DEVICE" : "READ-ONLY TOPOLOGY DEVICE", MUTED, 82); graphics.drawString(font, "Runtime payloads remain outside high-cardinality BlockState.", 16, 163, MUTED, false); }
+            case FieldDeviceMenu.KIND_PROBE -> { labelValue(graphics, "Selected channel", SignalProbeBlock.channelName(menu.secondary()), 80); graphics.drawString(font, "Changing channel never changes the measured node.", 16, 96, MUTED, false); }
+            case FieldDeviceMenu.KIND_FILTER -> { labelValue(graphics, "Slew rate", menu.tertiary() + " step/tick", 80); graphics.drawString(font, "Rate is bounded 1..4; server owns convergence.", 16, 96, MUTED, false); }
+            case FieldDeviceMenu.KIND_REFERENCE -> { labelValue(graphics, "Reference output", menu.primary() + " / 15", 80); graphics.drawString(font, "Use ±1 adjustment or lab presets.", 16, 96, MUTED, false); }
+            case FieldDeviceMenu.KIND_TERMINAL -> { labelValue(graphics, "Boundary direction", menu.tertiary() == 1 ? "CABLE → VANILLA" : "VANILLA → CABLE", 80); graphics.drawString(font, "Toggle recomputes the cable network on the server.", 16, 96, MUTED, false); }
+            case FieldDeviceMenu.KIND_DIGITAL_REGENERATOR -> { labelValue(graphics, "Minimum input quality", DigitalRegeneratorBlock.minimumQuality(menu.tertiary()) + "%", 80); graphics.drawString(font, "Server accepts frames only above threshold.", 16, 96, MUTED, false); }
+            case FieldDeviceMenu.KIND_PRESSURE_REGULATOR -> { labelValue(graphics, "Pressure setpoint", menu.secondary() + " / 100", 80); graphics.drawString(font, "Use ± to select 25 / 50 / 75 / 100 on the server.", 16, 96, MUTED, false); }
+            case FieldDeviceMenu.KIND_PNEUMATIC_VALVE -> { labelValue(graphics, "Valve state", menu.tertiary() == 1 ? "OPEN" : "CLOSED", 80); graphics.drawString(font, "Toggle recomputes both adjacent pneumatic components.", 16, 96, MUTED, false); }
+            case FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE -> { labelValue(graphics, "Relief setpoint", menu.tertiary() + " / 100", 80); graphics.drawString(font, "Setpoint changes are bounded and recomputed on the server.", 16, 96, MUTED, false); }
+            case FieldDeviceMenu.KIND_PERMANENT_MAGNET -> { labelValue(graphics, "Source strength", menu.primary() + " / 15", 80); graphics.drawString(font, "Strength changes on the server; orientation is a visual N marker.", 16, 96, MUTED, false); }
+            case FieldDeviceMenu.KIND_INDUCTION_COIL -> { labelValue(graphics, "Turns index", Integer.toString(menu.tertiary()), 80); graphics.drawString(font, "Turns scale |ΔΦ|; induced voltage remains server-authoritative.", 16, 96, MUTED, false); }
+            case FieldDeviceMenu.KIND_OPTICAL_EMITTER -> { labelValue(graphics, "Intensity / channel", menu.primary() + " / " + menu.secondary(), 80); graphics.drawString(font, "Intensity is bounded 0..15; zero remains a valid source setting.", 16, 96, MUTED, false); }
+            case FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER -> { labelValue(graphics, "Pass channel", Integer.toString(menu.tertiary()), 80); graphics.drawString(font, "Only the selected channel passes; output loses one intensity step.", 16, 96, MUTED, false); }
+            case FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR -> { labelValue(graphics, "Loss index", Integer.toString(menu.tertiary()), 80); graphics.drawString(font, "Loss is bounded 0..8 and applied on the server.", 16, 96, MUTED, false); }
+            case FieldDeviceMenu.KIND_AMETHYST_RESONATOR -> { labelValue(graphics, "Frequency / amplitude", menu.primary() + " / " + menu.secondary(), 80); graphics.drawString(font, "Configuration remains server-side; Inspector is synchronized readback.", 16, 96, MUTED, false); }
+            case FieldDeviceMenu.KIND_AMETHYST_FILTER -> { labelValue(graphics, "Target frequency", Integer.toString(menu.tertiary()), 80); graphics.drawString(font, "Target selection remains server-side; output readback is authoritative.", 16, 96, MUTED, false); }
+            case FieldDeviceMenu.KIND_AMETHYST_TUNED -> { labelValue(graphics, "Natural f / Q", menu.primary() + " / " + menu.tertiary(), 80); graphics.drawString(font, "Tuning remains server-side; this screen never calculates resonance.", 16, 96, MUTED, false); }
+            case FieldDeviceMenu.KIND_MECHANICAL_EXCITER -> { labelValue(graphics, "Excitation frequency", Integer.toString(menu.secondary()), 80); graphics.drawString(font, "DOWN drive and emitted packet are authoritative server state.", 16, 96, MUTED, false); }
+            case FieldDeviceMenu.KIND_HYDRO_TUBE -> { labelValue(graphics, "Hydroacoustic medium", hydroMedium(menu.tertiary()), 80); graphics.drawString(font, "Medium cycling remains a bounded server-side quick action.", 16, 96, MUTED, false); }
+            default -> { statusLine(graphics, "Configuration", isWaveDevice() ? "READ-ONLY WAVE DEVICE" : isCommunicationDevice() ? "READ-ONLY COMMUNICATION DEVICE" : isCpsDevice() ? "READ-ONLY CPS / RELIABILITY DEVICE" : "READ-ONLY TOPOLOGY DEVICE", MUTED, 82); graphics.drawString(font, "Runtime payloads remain outside high-cardinality BlockState.", 16, 96, MUTED, false); }
+        }
+        if (menu.seriesConfigurable()) {
+            statusLine(graphics, "Series route",
+                    oppositeDirectionName(menu.facingOrdinal()) + " → DEVICE → " + directionName(menu.facingOrdinal()),
+                    INFO, 144);
+        } else {
+            statusLine(graphics, "Topology role", "FIXED / SOURCE / SINK / OBSERVER / PASSIVE", MUTED, 144);
         }
     }
 
@@ -717,9 +730,9 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             labelValue(graphics, "Quality", menu.qualityPercent() + "%", 142);
             labelValue(graphics, "Links / drivers", menu.connectionCount() + " / " + menu.driverCount(), 162);
         } else if (isPneumaticDevice()) {
-            statusLine(graphics, "Pneumatic snapshot", validityText(), validityColor(), 122);
+            statusLine(graphics, "Pneumatic evidence", validityText(), validityColor(), 122);
             labelValue(graphics, "Primary / secondary", menu.primary() + " / " + menu.secondary(), 142);
-            labelValue(graphics, "Aux / outlet", menu.tertiary() + " / " + menu.driverCount(), 162);
+            labelValue(graphics, "Quality / aux", menu.qualityPercent() + "% / " + menu.tertiary(), 162);
         } else if (isMagneticDevice()) {
             statusLine(graphics, "Magnetic snapshot", validityText(), validityColor(), 122);
             labelValue(graphics, "Field / derived X", menu.primary() + " / " + menu.secondary(), 142);
@@ -748,13 +761,13 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
     }
 
     private void renderHistory(GuiGraphics graphics) {
-        graphics.drawString(font, "This field device does not retain a local time-series history.", 16, 84, TEXT, false);
+        graphics.drawString(font, "Bounded device log surface: counters and retained evidence only.", 16, 84, TEXT, false);
         graphics.drawString(font, isWaveDevice() ? "Use Spectrum Analyzer or Oscilloscope for historical/frequency evidence."
                 : isCommunicationDevice() ? "Network diagnostics retain bounded counters; payload remains runtime state."
-                : isCpsDevice() ? "CPS counters are bounded runtime evidence; use dedicated commissioning views for history."
-                : "Use Signal Analyzer, Oscilloscope, or Logic Analyzer for historical evidence.", 16, 103, INFO, false);
+                : isCpsDevice() ? "CPS counters are bounded runtime evidence; commissioning owns deeper history."
+                : "Use Signal Analyzer, Oscilloscope, or Logic Analyzer for historical signal evidence.", 16, 103, INFO, false);
         sectionRule(graphics, 126);
-        graphics.drawString(font, "Inspector stays lightweight: observe authoritative state, ports and topology.", 16, 140, MUTED, false);
+        graphics.drawString(font, "No fabricated history: this inspector only shows evidence actually retained by the server.", 16, 140, MUTED, false);
     }
 
     private boolean isCable() {
