@@ -75,14 +75,14 @@ public final class CopperNetworkSupport {
             TerminalInput face = terminalInputOnSide(level, consumerPos, side);
             if (face.connectedFeeds() == 0) continue;
             feeds += face.connectedFeeds();
-            if (feeds > 1) {
-                return new TerminalInput(feeds, 0, PortQuality.TOPOLOGY_ERROR);
+            if (feeds == 1) {
+                voltage = face.voltage();
+                quality = face.quality();
             }
-            voltage = face.voltage();
-            quality = face.quality();
         }
 
         if (feeds == 0) return new TerminalInput(0, 0, PortQuality.NO_SIGNAL);
+        if (feeds > 1) return new TerminalInput(feeds, 0, PortQuality.TOPOLOGY_ERROR);
         if (quality == PortQuality.FAULT || quality == PortQuality.TOPOLOGY_ERROR
                 || quality == PortQuality.DOMAIN_MISMATCH || quality == PortQuality.STALE) {
             return new TerminalInput(feeds, 0, quality);
