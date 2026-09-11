@@ -13,13 +13,15 @@ import net.minecraft.world.level.block.state.BlockState;
 /**
  * Lifecycle and terminal-input helpers for the simplified Copper domain.
  *
- * <p>Two rules are deliberately centralized here:</p>
+ * <p>Three rules are deliberately centralized here:</p>
  * <ul>
  *   <li>topology changes are recomputed from every loaded neighbor because a removed
  *       node may split one component into several independent islands;</li>
  *   <li>a terminal consumes only COPPER OUTPUT/BIDIRECTIONAL neighbors. INPUT-only
  *       loads are never allowed to back-drive another sink simply because they retain
- *       a measured voltage on their own body.</li>
+ *       a measured voltage on their own body;</li>
+ *   <li>a normal terminal accepts exactly one legitimate feed. Multiple feeds are an
+ *       explicit topology error and must be combined by a Junction/aggregation device upstream.</li>
  * </ul>
  */
 public final class CopperNetworkSupport {
@@ -60,41 +62,31 @@ public final class CopperNetworkSupport {
     }
 
     /**
-     * Read the strongest legitimate adjacent Copper feed without ever treating an
-     * INPUT-only device as a source. Multiple real feeds are allowed in the reduced
-     * macroscopic model; their local level resolves to the strongest observed V-eq.
+     * Read exactly one legitimate adjacent Copper feed without ever treating an INPUT-only
+     * device as a source. More than one physical feed is ambiguous parallel aggregation,
+     * so the terminal fails closed with TOPOLOGY_ERROR instead of silently choosing max(V).
      */
     public static TerminalInput terminalInput(Level level, BlockPos consumerPos) {
         int feeds = 0;
-        int bestVoltage = 0;
-        boolean valid = false;
-        PortQuality worst = PortQuality.NO_SIGNAL;
+        int voltage = 0;
+        PortQuality quality = PortQuality.NO_SIGNAL;
 
         for (Direction side : Direction.values()) {
             TerminalInput face = terminalInputOnSide(level, consumerPos, side);
             if (face.connectedFeeds() == 0) continue;
             feeds += face.connectedFeeds();
-            bestVoltage = Math.max(bestVoltage, face.voltage());
-            if (face.quality() == PortQuality.VALID) valid = true;
-            worst = combineQuality(worst, face.quality());
+            if (feeds > 1) {
+                return new TerminalInput(feeds, 0, PortQuality.TOPOLOGY_ERROR);
+            }
+            voltage = face.voltage();
+            quality = face.quality();
         }
 
         if (feeds == 0) return new TerminalInput(0, 0, PortQuality.NO_SIGNAL);
-        if (worst == PortQuality.FAULT || worst == PortQuality.TOPOLOGY_ERROR
-                || worst == PortQuality.DOMAIN_MISMATCH) {
-            return new TerminalInput(feeds, 0, worst);
+        if (quality == PortQuality.FAULT || quality == PortQuality.TOPOLOGY_ERROR
+                || quality == PortQuality.DOMAIN_MISMATCH || quality == PortQuality.STALE) {
+            return new TerminalInput(feeds, 0, quality);
         }
-        return new TerminalInput(feeds, Math.max(0, Math.min(15, bestVoltage)),
-                valid ? PortQuality.VALID : PortQuality.NO_SIGNAL);
-    }
-
-    private static PortQuality combineQuality(PortQuality current, PortQuality next) {
-        if (next == PortQuality.FAULT || current == PortQuality.FAULT) return PortQuality.FAULT;
-        if (next == PortQuality.DOMAIN_MISMATCH || current == PortQuality.DOMAIN_MISMATCH) return PortQuality.DOMAIN_MISMATCH;
-        if (next == PortQuality.TOPOLOGY_ERROR || current == PortQuality.TOPOLOGY_ERROR) return PortQuality.TOPOLOGY_ERROR;
-        if (next == PortQuality.SATURATED || current == PortQuality.SATURATED) return PortQuality.SATURATED;
-        if (next == PortQuality.STALE || current == PortQuality.STALE) return PortQuality.STALE;
-        if (next == PortQuality.VALID || current == PortQuality.VALID) return PortQuality.VALID;
-        return PortQuality.NO_SIGNAL;
+        return new TerminalInput(feeds, Math.max(0, Math.min(15, voltage)), quality);
     }
 }
