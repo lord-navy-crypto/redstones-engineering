@@ -142,6 +142,7 @@ public final class PneumaticNetwork {
             int setpoint = state.getValue(PneumaticReliefValveBlock.SETPOINT) * 25;
             if (pressure > setpoint) {
                 int excess = pressure - setpoint;
+                // pneumatic_relief diagnostics remain solver-owned and are recorded only on real overpressure.
                 PneumaticReliefValveBlock.recordVent(level, pos, excess);
                 if (level instanceof ServerLevel server) {
                     int count = excess >= 25 ? 3 : 1;
