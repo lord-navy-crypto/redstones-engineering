@@ -306,7 +306,10 @@ require(
     "SIGNAL ROUTE",
     "menu.receivePortFacesLabel()",
     "menu.transmitPortFacesLabel()",
-    "this.imageHeight = 238",
+    "this.imageHeight = 270",
+    "routeNode",
+    "drawRouteLink",
+    "compactRole",
     "normalizeLegacyPresentation",
     '"PNEUMATIC • " + menu.portRouteLabel()',
     'new PresentationLine("DOWN", "REDSTONE PAYLOAD INPUT")',
@@ -388,7 +391,7 @@ print(" passive-series / passive-bus role projection: PASS")
 print(" pneumatic explicit-route solver contract: PASS")
 print(" optical configurable-route sampling contract: PASS")
 print(" shared physical topology-role HMI: PASS")
-print(" shared RX/TX route visualization: PASS")
+print(" shared RX/ROLE/TX route schematic: PASS")
 print(" expanded anti-crowding HMI shell: PASS")
 print(" reference-source adjustable output: PASS")
 print(" shared EngineeringPort evidence-quality HMI: PASS")
