@@ -128,4 +128,32 @@ public final class RseSignalJunctionTopologyGameTests {
             helper.succeed();
         });
     }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 10)
+    public static void legacyHorizontalJunctionArmsAreIgnoredImmediately(GameTestHelper helper) {
+        BlockState legacy = RedstoneEngineering.REDSTONE_CABLE_JUNCTION.get().defaultBlockState()
+                .setValue(RedstoneCableJunctionBlock.MEDIUM, TransmissionTopology.SignalMedium.DATA_BUS_8)
+                .setValue(ConnectedCableBlock.NORTH, true)
+                .setValue(ConnectedCableBlock.EAST, true)
+                .setValue(ConnectedCableBlock.SOUTH, true)
+                .setValue(ConnectedCableBlock.WEST, true)
+                .setValue(ConnectedCableBlock.UP, true)
+                .setValue(ConnectedCableBlock.DOWN, true);
+
+        if (ConnectedCableBlock.connected(legacy, Direction.NORTH)
+                || ConnectedCableBlock.connected(legacy, Direction.EAST)
+                || ConnectedCableBlock.connected(legacy, Direction.SOUTH)
+                || ConnectedCableBlock.connected(legacy, Direction.WEST)) {
+            helper.fail("Legacy horizontal Junction arm bits remained effective after the vertical-only migration", new BlockPos(2, 1, 2));
+            return;
+        }
+        if (!ConnectedCableBlock.connected(legacy, Direction.UP)
+                || !ConnectedCableBlock.connected(legacy, Direction.DOWN)
+                || ConnectedCableBlock.connectionCount(legacy) != 2) {
+            helper.fail("Legacy Junction effective topology did not collapse to the UP/DOWN contract", new BlockPos(2, 1, 2));
+            return;
+        }
+        helper.succeed();
+    }
 }
