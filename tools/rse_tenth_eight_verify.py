@@ -55,6 +55,8 @@ require(
     "PortDirection.OUTPUT",
     "outputSide(state)",
     "detectedDistance",
+    "lastScan",
+    "scan.complete()",
     "FieldDeviceUi.open",
 )
 require(
@@ -109,7 +111,8 @@ require(
     "KIND_QUARTZ_LINE = 61",
     "KIND_QUARTZ_OSCILLATOR = 62",
     "EdgeDetectorBlock.pulseRemaining",
-    "RangeSensorBlock.detectedDistance",
+    "RangeSensorBlock.lastScan",
+    "scan.complete()",
     "LapisSignalLineBlock.valid",
     "QuartzTimingLineBlock.period",
 )
@@ -168,7 +171,7 @@ if errors:
 print("RSE tenth-eight signal foundation verification: PASS")
 print("  edge detector / pulse shaper scheduled lifecycle: PASS")
 print("  three-port non-invasive Signal Tap contract: PASS")
-print("  Range Sensor aperture/output domain separation: PASS")
+print("  Range Sensor aperture/output domain separation + complete-scan evidence: PASS")
 print("  four-way Lapis source/trace port contracts: PASS")
 print("  four-way Quartz oscillator/trace port contracts: PASS")
 print("  split-island precision and timing cleanup: PASS")
