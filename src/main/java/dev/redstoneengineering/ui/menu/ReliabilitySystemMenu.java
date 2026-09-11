@@ -110,7 +110,7 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
             auxiliary.set(FaultLatchBlock.resetCount(level, blockPos));
             extraA.set(FaultLatchBlock.latched(level, blockPos) ? 1 : 0);
             extraB.set(FaultLatchBlock.resetActive(level, blockPos) ? 1 : 0);
-            quality.set(FaultLatchBlock.latched(level, blockPos) ? PortQuality.FAULT.ordinal() : PortQuality.VALID.ordinal());
+            quality.set(snapshotQuality(latch, state, out).ordinal());
         } else kind.set(-1);
     }
 
