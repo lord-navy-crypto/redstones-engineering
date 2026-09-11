@@ -1,6 +1,7 @@
 package dev.redstoneengineering.ui;
 
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.ui.menu.DigitalCommunicationMenu;
 import dev.redstoneengineering.ui.menu.FieldDeviceMenu;
 import dev.redstoneengineering.ui.menu.LogicAnalyzerMenu;
 import dev.redstoneengineering.ui.menu.OperationsMonitorMenu;
@@ -64,6 +65,9 @@ public final class EngineeringUiRegistration {
 
     public static final DeferredHolder<MenuType<?>, MenuType<RadioLinkMenu>> RADIO_LINK =
             MENUS.register("radio_link", () -> IMenuTypeExtension.create(RadioLinkMenu::new));
+
+    public static final DeferredHolder<MenuType<?>, MenuType<DigitalCommunicationMenu>> DIGITAL_COMMUNICATION =
+            MENUS.register("digital_communication", () -> IMenuTypeExtension.create(DigitalCommunicationMenu::new));
 
     public static final DeferredHolder<MenuType<?>, MenuType<OperationsMonitorMenu>> OPERATIONS_MONITOR =
             MENUS.register("operations_monitor", () -> IMenuTypeExtension.create(OperationsMonitorMenu::new));
