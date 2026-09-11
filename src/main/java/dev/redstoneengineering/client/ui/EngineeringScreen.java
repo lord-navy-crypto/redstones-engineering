@@ -120,7 +120,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
     private void addSharedRouteControls() {
         if (!(menu instanceof FieldDeviceMenu)) return;
-        int y = topPos + 166;
+        int y = topPos + 198;
         sharedRotateCcw = addConfigureWidget(Button.builder(
                 Component.literal("↺ Rotate route"),
                 button -> sendMenuButton(FieldDeviceMenu.BUTTON_ROTATE_CCW)
