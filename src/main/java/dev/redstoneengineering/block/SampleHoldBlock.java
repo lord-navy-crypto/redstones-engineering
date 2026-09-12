@@ -88,6 +88,7 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
         int[] rt = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
         if (rt[INITIALIZED_SLOT] == 0) {
             rt[HELD_SLOT] = state.getValue(OUTPUT);
+            // Seed the observed trigger level to avoid a false edge after reload or first runtime allocation.
             rt[TRIGGER_STATE_SLOT] = triggerNow ? 1 : 0;
             rt[INITIALIZED_SLOT] = 1;
         }
