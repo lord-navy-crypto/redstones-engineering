@@ -11,8 +11,7 @@ import net.minecraft.world.entity.player.Inventory;
 public final class DigitalCommunicationScreen extends EngineeringScreen<DigitalCommunicationMenu> {
     private Button parameterPrevious;
     private Button parameterNext;
-    private Button rotateLeft;
-    private Button rotateRight;
+    private Button directionCycle;
 
     public DigitalCommunicationScreen(DigitalCommunicationMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -27,20 +26,20 @@ public final class DigitalCommunicationScreen extends EngineeringScreen<DigitalC
         parameterNext = addConfigureWidget(Button.builder(Component.literal("Threshold ▶"),
                 b -> sendMenuButton(DigitalCommunicationMenu.BUTTON_PARAMETER_NEXT))
                 .bounds(leftPos + 199, y, 105, 20).build());
-        rotateLeft = addConfigureWidget(Button.builder(Component.literal("↺ I/O"),
-                b -> sendMenuButton(DigitalCommunicationMenu.BUTTON_ROTATE_LEFT))
-                .bounds(leftPos + 70, y + 30, 80, 20).build());
-        rotateRight = addConfigureWidget(Button.builder(Component.literal("I/O ↻"),
+        directionCycle = addConfigureWidget(Button.builder(Component.literal("Direction • —"),
                 b -> sendMenuButton(DigitalCommunicationMenu.BUTTON_ROTATE_RIGHT))
-                .bounds(leftPos + 170, y + 30, 80, 20).build());
+                .bounds(leftPos + 70, y + 30, 180, 20).build());
     }
 
     @Override
     protected void syncDeviceWidgetLabels() {
         if (parameterPrevious == null) return;
         boolean regenerator = menu.kind() == DigitalCommunicationMenu.KIND_REGENERATOR;
+        boolean configure = isConfigureSection();
         parameterPrevious.active = regenerator;
         parameterNext.active = regenerator;
+        parameterPrevious.visible = configure && regenerator;
+        parameterNext.visible = configure && regenerator;
         if (regenerator) {
             int threshold = switch (menu.parameter()) {
                 case 0 -> 20;
@@ -49,9 +48,12 @@ public final class DigitalCommunicationScreen extends EngineeringScreen<DigitalC
             };
             parameterPrevious.setMessage(Component.literal("◀ " + threshold + "%"));
             parameterNext.setMessage(Component.literal(threshold + "% ▶"));
-        } else {
-            parameterPrevious.setMessage(Component.literal("No parameter"));
-            parameterNext.setMessage(Component.literal("No parameter"));
+        }
+        if (directionCycle != null) {
+            directionCycle.visible = configure;
+            directionCycle.setMessage(Component.literal("Direction • " + face(menu.outputDirection())));
+            directionCycle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
+                    "Cycle the complete declared input/output path clockwise on the server.")));
         }
     }
 
@@ -82,7 +84,7 @@ public final class DigitalCommunicationScreen extends EngineeringScreen<DigitalC
         } else {
             labelValue(g, "Authority", "SERVER SYNCHRONIZED", 181);
         }
-        g.drawString(font, "Converters cross declared domains; regenerator stays SERIAL_DATA → SERIAL_DATA.", 16, 199, MUTED, false);
+        safeText(g, "Converters cross declared domains; regenerator stays SERIAL_DATA → SERIAL_DATA.", 16, 199, MUTED);
     }
 
     private void ports(GuiGraphics g) {
@@ -90,7 +92,7 @@ public final class DigitalCommunicationScreen extends EngineeringScreen<DigitalC
         statusLine(g, face(menu.inputDirection()), "INPUT • " + menu.inputDomain().label(), qualityColor(menu.inputQuality()), 112);
         statusLine(g, "PROCESS", processName(), INFO, 140);
         statusLine(g, face(menu.outputDirection()), "OUTPUT • " + menu.outputDomain().label(), qualityColor(menu.outputQuality()), 168);
-        g.drawString(font, "Input and output are an explicit two-face path; no hidden side port is implied.", 16, 198, MUTED, false);
+        safeText(g, "Input and output are an explicit two-face path; no hidden side port is implied.", 16, 198, MUTED);
     }
 
     private void configure(GuiGraphics g) {
@@ -116,8 +118,8 @@ public final class DigitalCommunicationScreen extends EngineeringScreen<DigitalC
 
     private void history(GuiGraphics g) {
         statusBadge(g, "CURRENT LINK EVIDENCE", INFO, 16, 80);
-        g.drawString(font, "This directional communication HMI exposes authoritative current evidence.", 16, 108, TEXT, false);
-        g.drawString(font, "It does not synthesize packet history that the server does not retain.", 16, 128, MUTED, false);
+        safeText(g, "This directional communication HMI exposes authoritative current evidence.", 16, 108, TEXT);
+        safeText(g, "It does not synthesize packet history that the server does not retain.", 16, 128, MUTED);
         if (menu.kind() == DigitalCommunicationMenu.KIND_REGENERATOR) {
             labelValue(g, "Input quality", menu.auxiliary() + "%", 154);
             labelValue(g, "Decision threshold", thresholdPercent() + "%", 172);
