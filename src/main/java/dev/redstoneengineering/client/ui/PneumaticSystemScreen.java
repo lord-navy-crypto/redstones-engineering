@@ -12,8 +12,7 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
     private Button parameterPrevious;
     private Button parameterNext;
     private Button toggle;
-    private Button rotateLeft;
-    private Button rotateRight;
+    private Button directionCycle;
 
     public PneumaticSystemScreen(PneumaticSystemMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -30,13 +29,10 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
                 .bounds(leftPos + 209, y, 95, 20).build());
         toggle = addConfigureWidget(Button.builder(Component.literal("Toggle valve"),
                 b -> sendMenuButton(PneumaticSystemMenu.BUTTON_TOGGLE))
-                .bounds(leftPos + 115, y, 90, 20).build());
-        rotateLeft = addConfigureWidget(Button.builder(Component.literal("↺ I/O"),
-                b -> sendMenuButton(PneumaticSystemMenu.BUTTON_ROTATE_LEFT))
-                .bounds(leftPos + 70, y + 30, 80, 20).build());
-        rotateRight = addConfigureWidget(Button.builder(Component.literal("I/O ↻"),
+                .bounds(leftPos + 100, y, 120, 20).build());
+        directionCycle = addConfigureWidget(Button.builder(Component.literal("Direction • —"),
                 b -> sendMenuButton(PneumaticSystemMenu.BUTTON_ROTATE_RIGHT))
-                .bounds(leftPos + 170, y + 30, 80, 20).build());
+                .bounds(leftPos + 70, y + 30, 180, 20).build());
     }
 
     @Override
@@ -45,22 +41,31 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
         boolean setpoint = menu.kind() == PneumaticSystemMenu.KIND_REGULATOR
                 || menu.kind() == PneumaticSystemMenu.KIND_RELIEF;
         boolean manualValve = menu.kind() == PneumaticSystemMenu.KIND_VALVE;
+        boolean configure = isConfigureSection();
+
         parameterPrevious.active = setpoint;
         parameterNext.active = setpoint;
+        parameterPrevious.visible = configure && setpoint;
+        parameterNext.visible = configure && setpoint;
         toggle.active = manualValve;
-        rotateLeft.active = menu.directional();
-        rotateRight.active = menu.directional();
+        toggle.visible = configure && manualValve;
+        directionCycle.active = menu.directional();
+        directionCycle.visible = configure && menu.directional();
+
         if (setpoint) {
             String text = menu.kind() == PneumaticSystemMenu.KIND_REGULATOR
                     ? menu.secondary() + "/100" : menu.tertiary() + "/100";
             parameterPrevious.setMessage(Component.literal("◀ " + text));
             parameterNext.setMessage(Component.literal(text + " ▶"));
-        } else {
-            parameterPrevious.setMessage(Component.literal("No setpoint"));
-            parameterNext.setMessage(Component.literal("No setpoint"));
         }
-        toggle.setMessage(Component.literal(manualValve
-                ? (menu.stateFlag() == 1 ? "Close valve" : "Open valve") : "No manual toggle"));
+        if (manualValve) {
+            toggle.setMessage(Component.literal(menu.stateFlag() == 1 ? "Close valve" : "Open valve"));
+        }
+        if (menu.directional()) {
+            directionCycle.setMessage(Component.literal("Direction • " + face(menu.outputDirection())));
+            directionCycle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
+                    "Cycle the declared pneumatic input/output path clockwise on the server.")));
+        }
     }
 
     @Override
@@ -83,14 +88,14 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
         labelValue(g, "Topology", topologyText(), 149);
         labelValue(g, "Input evidence", menu.inputQuality().name(), 165);
         labelValue(g, "Output evidence", menu.outputQuality().name(), 181);
-        g.drawString(font, hint(), 16, 199, MUTED, false);
+        safeText(g, hint(), 16, 199, MUTED);
     }
 
     private void ports(GuiGraphics g) {
         statusBadge(g, "PNEUMATIC INTERFACES", GOOD, 16, 80);
         if (!menu.directional()) {
             statusLine(g, "NETWORK", nondirectionalPortText(), INFO, 112);
-            g.drawString(font, topologyText(), 16, 146, MUTED, false);
+            safeText(g, topologyText(), 16, 146, MUTED);
             return;
         }
         statusLine(g, face(menu.inputDirection()), inputPortText(), qualityColor(menu.inputQuality()), 112);
@@ -98,7 +103,7 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
         if (menu.kind() == PneumaticSystemMenu.KIND_PROPORTIONAL) {
             statusLine(g, "UP", "INPUT • REDSTONE OPENING COMMAND", INFO, 170);
         } else {
-            g.drawString(font, topologyText(), 16, 176, MUTED, false);
+            safeText(g, topologyText(), 16, 176, MUTED);
         }
     }
 
@@ -134,14 +139,14 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
             labelValue(g, "Vent events", Integer.toString(menu.auxiliary()), 110);
             labelValue(g, "Current state", menu.stateFlag() == 1 ? "VENTING" : "ARMED", 130);
             sectionRule(g, 154);
-            g.drawString(font, "VENTING is an operating event, not missing measurement evidence.", 16, 170, GOOD, false);
+            safeText(g, "VENTING is an operating event, not missing measurement evidence.", 16, 170, GOOD);
         } else if (menu.kind() == PneumaticSystemMenu.KIND_FLOW_METER) {
             labelValue(g, "Measurement samples", Integer.toString(menu.stateFlag()), 110);
             labelValue(g, "Current flow proxy", Integer.toString(menu.primary()), 130);
             sectionRule(g, 154);
-            g.drawString(font, "Flow metrology history is server-retained; the HMI does not fabricate samples.", 16, 170, MUTED, false);
+            safeText(g, "Flow metrology history is server-retained; the HMI does not fabricate samples.", 16, 170, MUTED);
         } else {
-            g.drawString(font, "This device exposes live server state; no artificial client-side history is created.", 16, 112, MUTED, false);
+            safeText(g, "This device exposes live server state; no artificial client-side history is created.", 16, 112, MUTED);
         }
     }
 
