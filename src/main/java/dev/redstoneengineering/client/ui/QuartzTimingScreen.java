@@ -10,8 +10,7 @@ import net.minecraft.world.entity.player.Inventory;
 public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu> {
     private Button parameterPrevious;
     private Button parameterNext;
-    private Button rotateLeft;
-    private Button rotateRight;
+    private Button directionCycle;
     private Button reset;
 
     public QuartzTimingScreen(QuartzTimingMenu menu, Inventory inventory, Component title) {
@@ -27,15 +26,12 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
         parameterNext = addConfigureWidget(Button.builder(Component.literal("Parameter ▶"),
                 b -> sendMenuButton(QuartzTimingMenu.BUTTON_PARAMETER_NEXT))
                 .bounds(leftPos + 194, y, 110, 20).build());
-        rotateLeft = addConfigureWidget(Button.builder(Component.literal("↺ Face"),
-                b -> sendMenuButton(QuartzTimingMenu.BUTTON_ROTATE_LEFT))
-                .bounds(leftPos + 70, y + 30, 80, 20).build());
-        rotateRight = addConfigureWidget(Button.builder(Component.literal("Face ↻"),
-                b -> sendMenuButton(QuartzTimingMenu.BUTTON_ROTATE_RIGHT))
-                .bounds(leftPos + 170, y + 30, 80, 20).build());
         reset = addConfigureWidget(Button.builder(Component.literal("Reset measurement"),
                 b -> sendMenuButton(QuartzTimingMenu.BUTTON_RESET_MEASUREMENT))
-                .bounds(leftPos + 100, y, 120, 20).build());
+                .bounds(leftPos + 70, y, 180, 20).build());
+        directionCycle = addConfigureWidget(Button.builder(Component.literal("Direction • —"),
+                b -> sendMenuButton(QuartzTimingMenu.BUTTON_ROTATE_RIGHT))
+                .bounds(leftPos + 70, y + 30, 180, 20).build());
     }
 
     @Override
@@ -44,34 +40,31 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
         boolean oscillator = menu.kind() == QuartzTimingMenu.KIND_OSCILLATOR;
         boolean divider = menu.kind() == QuartzTimingMenu.KIND_DIVIDER;
         boolean stability = menu.kind() == QuartzTimingMenu.KIND_STABILITY;
+        boolean configure = isConfigureSection();
 
-        // Visibility itself is owned by EngineeringScreen's active tab. Do not re-show Configure
-        // controls while Overview/Ports/Diagnostics/History is active.
         parameterPrevious.active = oscillator || divider;
         parameterNext.active = oscillator || divider;
-        rotateLeft.active = divider || stability;
-        rotateRight.active = divider || stability;
+        parameterPrevious.visible = configure && (oscillator || divider);
+        parameterNext.visible = configure && (oscillator || divider);
         reset.active = stability;
+        reset.visible = configure && stability;
+        directionCycle.active = divider || stability;
+        directionCycle.visible = configure && (divider || stability);
 
         if (oscillator) {
             parameterPrevious.setMessage(Component.literal("◀ " + menu.secondary() + "t"));
             parameterNext.setMessage(Component.literal(menu.secondary() + "t ▶"));
-            rotateLeft.setMessage(Component.literal("No series axis"));
-            rotateRight.setMessage(Component.literal("No series axis"));
-            reset.setMessage(Component.literal("No measurement state"));
         } else if (divider) {
             parameterPrevious.setMessage(Component.literal("◀ ÷" + menu.tertiary()));
             parameterNext.setMessage(Component.literal("÷" + menu.tertiary() + " ▶"));
-            rotateLeft.setMessage(Component.literal("↺ I/O"));
-            rotateRight.setMessage(Component.literal("I/O ↻"));
-            reset.setMessage(Component.literal("No retained measurement"));
+            directionCycle.setMessage(Component.literal("Direction • " + outputFace()));
         } else {
-            parameterPrevious.setMessage(Component.literal("Read-only timing"));
-            parameterNext.setMessage(Component.literal("Read-only timing"));
-            rotateLeft.setMessage(Component.literal("↺ Input"));
-            rotateRight.setMessage(Component.literal("Input ↻"));
             reset.setMessage(Component.literal("Reset measurement"));
+            directionCycle.setMessage(Component.literal("Direction • INPUT " + inputFace()));
         }
+        directionCycle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
+                divider ? "Cycle the divider I/O axis clockwise on the server."
+                        : "Cycle the Stability Monitor measurement face clockwise on the server.")));
     }
 
     @Override
@@ -107,7 +100,7 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
             labelValue(g, "Measurement face", inputFace(), 153);
             labelValue(g, "Current evidence", menu.runtimeC() == 1 ? "CURRENT" : menu.primary() > 0 ? "STALE/RETAINED" : "NONE", 171);
         }
-        g.drawString(font, topologyHint(), 16, 199, MUTED, false);
+        safeText(g, topologyHint(), 16, 199, MUTED);
     }
 
     private void ports(GuiGraphics g) {
@@ -115,7 +108,7 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
         if (menu.kind() == QuartzTimingMenu.KIND_OSCILLATOR) {
             statusLine(g, "NORTH / EAST", "OUTPUT • QUARTZ TIMING", GOOD, 112);
             statusLine(g, "SOUTH / WEST", "OUTPUT • QUARTZ TIMING", GOOD, 136);
-            g.drawString(font, "Oscillator is a source; it is intentionally not forced into a fake series topology.", 16, 174, INFO, false);
+            safeText(g, "Oscillator is a source; it is intentionally not forced into a fake series topology.", 16, 174, INFO);
         } else if (menu.kind() == QuartzTimingMenu.KIND_DIVIDER) {
             statusLine(g, inputFace(), "INPUT • QUARTZ CLOCK", GOOD, 112);
             statusLine(g, "PROCESS", "CLOCK DIVISION • ÷" + menu.tertiary(), INFO, 140);
@@ -123,7 +116,7 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
         } else {
             statusLine(g, inputFace(), "INPUT • QUARTZ TIMING MEASUREMENT", GOOD, 118);
             statusLine(g, "NETWORK AUTHORITY", "OBSERVE ONLY • NO OUTPUT DRIVER", INFO, 146);
-            g.drawString(font, "Stability Monitor has one measurement input; the opposite face is not an output.", 16, 176, MUTED, false);
+            safeText(g, "Stability Monitor has one measurement input; the opposite face is not an output.", 16, 176, MUTED);
         }
     }
 
@@ -170,10 +163,10 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
             labelValue(g, "Nominal error", menu.secondary() + " ticks", 130);
             labelValue(g, "Evidence age class", menu.runtimeC() == 1 ? "CURRENT" : menu.primary() > 0 ? "STALE" : "NONE", 150);
             sectionRule(g, 170);
-            g.drawString(font, "Two genuine rising edges are required; UI inspection never fabricates timing evidence.", 16, 184, MUTED, false);
+            safeText(g, "Two genuine rising edges are required; UI inspection never fabricates timing evidence.", 16, 184, MUTED);
         } else {
-            g.drawString(font, "This device exposes current timing state; it does not fabricate client-side waveform history.", 16, 112, MUTED, false);
-            g.drawString(font, "Use Oscilloscope / Signal Analyzer when time-series capture is required.", 16, 134, INFO, false);
+            safeText(g, "This device exposes current timing state; it does not fabricate client-side waveform history.", 16, 112, MUTED);
+            safeText(g, "Use Oscilloscope / Signal Analyzer when time-series capture is required.", 16, 134, INFO);
         }
     }
 
@@ -199,8 +192,8 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
 
     private String topologyHint() {
         return switch (menu.kind()) {
-            case QuartzTimingMenu.KIND_DIVIDER -> "Divider is strict series timing processing; rotating changes the whole I/O axis.";
-            case QuartzTimingMenu.KIND_STABILITY -> "Monitor is observer-only; rotation selects the measurement face, not an output.";
+            case QuartzTimingMenu.KIND_DIVIDER -> "Divider is strict series timing processing; Direction changes the whole I/O axis.";
+            case QuartzTimingMenu.KIND_STABILITY -> "Monitor is observer-only; Direction selects the measurement face, not an output.";
             default -> "Oscillator keeps its real four-way source topology instead of being forced into series.";
         };
     }
