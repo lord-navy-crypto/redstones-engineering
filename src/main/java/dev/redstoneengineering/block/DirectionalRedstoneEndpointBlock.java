@@ -14,8 +14,9 @@ import net.minecraft.world.level.block.state.properties.DirectionProperty;
 /**
  * Shared horizontal FRONT/BACK topology for single-ended vanilla-redstone devices.
  *
- * <p>The physical side stored in {@link #FACING} is the FRONT/output face. Source-style endpoints
- * may rotate this face independently through {@link #rotateOutput(Level, BlockPos, boolean)}.</p>
+ * <p>The physical side stored in {@link #FACING} is the FRONT face. Source-style endpoints usually
+ * treat it as an output face; input-only endpoints may use BACK as their live electrical input.
+ * Route rotation therefore exposes a post-change hook so either topology can refresh deterministically.</p>
  */
 public abstract class DirectionalRedstoneEndpointBlock extends Block {
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
@@ -68,7 +69,14 @@ public abstract class DirectionalRedstoneEndpointBlock extends Block {
         notifyNeighbors(level, pos, this, frontSide(state));
     }
 
-    /** Rotate a single-ended output face without inventing additional source ports. */
+    /**
+     * Called after an authoritative route rotation and neighbor invalidation. Input-only subclasses
+     * can immediately resample the newly selected BACK face instead of waiting for a later event.
+     */
+    protected void onEndpointRouteChanged(Level level, BlockPos pos, BlockState oldState, BlockState newState) {
+    }
+
+    /** Rotate the single-ended FRONT/BACK axis without inventing additional physical ports. */
     public static boolean rotateOutput(Level level, BlockPos pos, boolean clockwise) {
         if (level.isClientSide) return false;
         BlockState state = level.getBlockState(pos);
@@ -78,6 +86,7 @@ public abstract class DirectionalRedstoneEndpointBlock extends Block {
         BlockState next = state.setValue(FACING, newOutput);
         level.setBlock(pos, next, Block.UPDATE_CLIENTS);
         notifyNeighbors(level, pos, block, oldOutput, newOutput);
+        block.onEndpointRouteChanged(level, pos, state, next);
         return true;
     }
 
