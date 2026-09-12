@@ -19,14 +19,9 @@ import java.util.List;
  * <p>The screen renders server-synchronized menu data and emits bounded menu-button intent only.
  * It never computes physics, samples sensors, solves topology, or mutates controller state locally.</p>
  *
- * <p>The shell deliberately looks like an engineering HMI rather than a vanilla inventory:
- * live/server ownership is always visible, navigation is separated from telemetry, and every
- * device gets a consistent coordinate/readback footer even when its device-specific panel is small.</p>
- *
- * <p>Observatory and Log are shared semantic surfaces across every engineering screen. Observatory
- * is observer-neutral live telemetry/topology health; Log is bounded retained evidence/events. The
- * enum names remain DIAGNOSTICS/HISTORY so existing device screens keep source compatibility while
- * players see one consistent engineering vocabulary.</p>
+ * <p>The five top tabs are real information pages rather than decorative navigation. Dense physical
+ * I/O visualization belongs to Ports; configuration controls belong to Configure; the remaining pages
+ * keep their full vertical workspace instead of carrying the route schematic everywhere.</p>
  */
 public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends AbstractContainerScreen<M> {
     protected enum Section {
@@ -61,14 +56,11 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private Section section = Section.OVERVIEW;
     private final List<AbstractWidget> configureWidgets = new ArrayList<>();
     private final List<Button> sectionButtons = new ArrayList<>();
-    private Button sharedRotateCcw;
-    private Button sharedRotateCw;
+    private Button sharedRouteCycle;
 
     protected EngineeringScreen(M menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
         this.imageWidth = 320;
-        // Device content owns the upper region. The route schematic and footer have dedicated space
-        // below it, so dense Ports/Observatory pages cannot collide with the shared visualization.
         this.imageHeight = 270;
         this.titleLabelX = 12;
         this.titleLabelY = 10;
@@ -80,8 +72,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         super.init();
         configureWidgets.clear();
         sectionButtons.clear();
-        sharedRotateCcw = null;
-        sharedRotateCw = null;
+        sharedRouteCycle = null;
 
         int tabY = topPos + 31;
         int x = leftPos + 8;
@@ -95,10 +86,10 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             x += 61;
         }
         addDeviceWidgets();
-        addSharedRouteControls();
+        addSharedRouteControl();
         updateWidgetVisibility();
         syncDeviceWidgetLabels();
-        syncSharedRouteControls();
+        syncSharedRouteControl();
     }
 
     protected void addDeviceWidgets() {
@@ -119,29 +110,30 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         }
     }
 
-    private void addSharedRouteControls() {
+    /**
+     * One compact direction control replaces the old left/right pair. Repeated clicks cycle the
+     * authoritative server route clockwise; the synchronized route label is always shown on the key.
+     */
+    private void addSharedRouteControl() {
         if (!(menu instanceof FieldDeviceMenu)) return;
         int y = topPos + 198;
-        sharedRotateCcw = addConfigureWidget(Button.builder(
-                Component.literal("↺ Rotate route"),
-                button -> sendMenuButton(FieldDeviceMenu.BUTTON_ROTATE_CCW)
-        ).bounds(leftPos + 16, y, 136, 20).build());
-        sharedRotateCw = addConfigureWidget(Button.builder(
-                Component.literal("Rotate route ↻"),
+        sharedRouteCycle = addConfigureWidget(Button.builder(
+                Component.literal("Direction • —"),
                 button -> sendMenuButton(FieldDeviceMenu.BUTTON_ROTATE_CW)
-        ).bounds(leftPos + 168, y, 136, 20).build());
+        ).bounds(leftPos + 16, y, 288, 20).build());
     }
 
-    private void syncSharedRouteControls() {
-        if (!(menu instanceof FieldDeviceMenu fieldMenu) || sharedRotateCcw == null || sharedRotateCw == null) return;
+    private void syncSharedRouteControl() {
+        if (!(menu instanceof FieldDeviceMenu fieldMenu) || sharedRouteCycle == null) return;
         boolean enabled = fieldMenu.seriesConfigurable();
-        sharedRotateCcw.active = enabled;
-        sharedRotateCw.active = enabled;
-        sharedRotateCcw.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
-                enabled ? "Rotate the declared RX/TX route counter-clockwise on the server."
-                        : "This device has no rotatable formal route.")));
-        sharedRotateCw.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
-                enabled ? "Rotate the declared RX/TX route clockwise on the server."
+        sharedRouteCycle.active = enabled;
+        String route = fieldMenu.portRouteLabel();
+        if (route == null || route.isBlank()) route = "NO ROTATABLE ROUTE";
+        if (route.length() > 37) route = route.substring(0, 36) + "…";
+        sharedRouteCycle.setMessage(Component.literal("Direction • " + route));
+        sharedRouteCycle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
+                enabled
+                        ? "Cycle the declared RX/TX route clockwise on the server."
                         : "This device has no rotatable formal route.")));
     }
 
@@ -149,7 +141,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         this.section = section;
         updateWidgetVisibility();
         syncDeviceWidgetLabels();
-        syncSharedRouteControls();
+        syncSharedRouteControl();
     }
 
     private void updateWidgetVisibility() {
@@ -160,11 +152,16 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         }
     }
 
+    /** Used by the read-only I/O companion so it only exists on the dedicated Ports page. */
+    public final boolean showsPortVisualization() {
+        return section == Section.PORTS;
+    }
+
     @Override
     protected void containerTick() {
         super.containerTick();
         syncDeviceWidgetLabels();
-        syncSharedRouteControls();
+        syncSharedRouteControl();
     }
 
     @Override
@@ -179,14 +176,17 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         graphics.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, BORDER);
         graphics.fill(leftPos + 2, topPos + 2, leftPos + imageWidth - 2, topPos + imageHeight - 2, PANEL);
 
-        // Header and navigation are visually isolated from telemetry so every device reads like an HMI.
         graphics.fill(leftPos + 8, topPos + 27, leftPos + imageWidth - 8, topPos + 29, ACCENT);
-        graphics.fill(leftPos + 8, topPos + 58, leftPos + imageWidth - 8, topPos + imageHeight - 72, PANEL_2);
-        graphics.fill(leftPos + 8, topPos + imageHeight - 68, leftPos + imageWidth - 8, topPos + imageHeight - 29, PANEL_3);
+
+        // Ports reserves a dedicated lower schematic. Every other page gets the full content height.
+        int contentBottom = section == Section.PORTS ? imageHeight - 72 : imageHeight - 29;
+        graphics.fill(leftPos + 8, topPos + 58, leftPos + imageWidth - 8, topPos + contentBottom, PANEL_2);
+        if (section == Section.PORTS) {
+            graphics.fill(leftPos + 8, topPos + imageHeight - 68, leftPos + imageWidth - 8, topPos + imageHeight - 29, PANEL_3);
+        }
         graphics.fill(leftPos + 8, topPos + imageHeight - 25, leftPos + imageWidth - 8, topPos + imageHeight - 9, PANEL_3);
 
-        // Thin white equipment-identification rail: neutral across electrical/optical/data media.
-        graphics.fill(leftPos + 8, topPos + 58, leftPos + 11, topPos + imageHeight - 76, WHITE_SIGN);
+        graphics.fill(leftPos + 8, topPos + 58, leftPos + 11, topPos + contentBottom - 4, WHITE_SIGN);
     }
 
     @Override
@@ -204,7 +204,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         graphics.drawString(font, section.subtitle, 92, 62, MUTED, false);
         renderSection(graphics, section);
 
-        renderPortRoute(graphics);
+        if (section == Section.PORTS) renderPortRoute(graphics);
 
         String evidence = "EVIDENCE • " + menu.evidenceStateLabel();
         graphics.drawString(font, evidence, 13, imageHeight - 20, evidenceStateColor(), false);
@@ -214,8 +214,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
     /**
      * Shared route schematic sourced only from formal synchronized menu contracts.
-     * RX and TX are physically separated, the center node states the device role, and six-face
-     * matrices make single-ended, turned, and fan-out topologies visible without reading prose.
+     * It is intentionally confined to Ports so telemetry/configuration pages remain readable.
      */
     private void renderPortRoute(GuiGraphics graphics) {
         int top = imageHeight - 67;
