@@ -74,11 +74,12 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
             return;
         }
 
-        if (block instanceof QuartzClockDividerBlock divider) {
+        if (block instanceof QuartzClockDividerBlock) {
             kind.set(KIND_DIVIDER);
-            Direction out = state.getValue(DirectionalDomainBlock.FACING);
+            Direction out = DirectionalDomainBlock.seriesOutputSide(state);
+            Direction inSide = DirectionalDomainBlock.seriesInputSide(state);
             facing.set(out.ordinal());
-            DomainNetwork.QuartzSample in = DomainNetwork.sampleQuartz(level, blockPos.relative(out.getOpposite()));
+            DomainNetwork.QuartzSample in = DomainNetwork.sampleQuartz(level, blockPos.relative(inSide));
             DomainNetwork.QuartzSample result = DomainNetwork.sampleQuartz(level, blockPos.relative(out));
             primary.set(in.periodTicks());
             secondary.set(result.periodTicks());
@@ -91,9 +92,8 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
 
         if (block instanceof QuartzStabilityMonitorBlock monitor) {
             kind.set(KIND_STABILITY);
-            Direction logicalOut = state.getValue(DirectionalDomainBlock.FACING);
-            Direction inputSide = logicalOut.getOpposite();
-            facing.set(logicalOut.ordinal());
+            Direction inputSide = DirectionalDomainBlock.seriesInputSide(state);
+            facing.set(inputSide.ordinal());
             QuartzStabilityMonitorBlock.TimingMeasurement measurement = QuartzStabilityMonitorBlock.measurement(level, blockPos);
             DomainNetwork.QuartzSample upstream = DomainNetwork.sampleQuartz(level, blockPos.relative(inputSide));
             primary.set(measurement.period());
@@ -114,6 +114,7 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
 
     @Override
     public boolean clickMenuButton(Player player, int id) {
+        if (SeriesRouteActions.isEndpointAction(id)) return SeriesRouteActions.handle(this, player, id);
         if (level.isClientSide) return true;
         if (!stillValid(player)) return false;
         BlockState state = level.getBlockState(blockPos);
@@ -138,7 +139,7 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
                 for (int i = 0; i < 3; i++) QuartzClockDividerBlock.cycleDivision(server, blockPos);
                 changed = true;
             } else if (id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT) {
-                changed = DirectionalDomainBlock.rotateSeriesAxis(level, blockPos, id == BUTTON_ROTATE_RIGHT);
+                changed = DirectionalDomainBlock.rotateWholeRoute(level, blockPos, id == BUTTON_ROTATE_RIGHT);
             } else return false;
         } else if (block instanceof QuartzStabilityMonitorBlock monitor) {
             if (id == BUTTON_RESET_MEASUREMENT) {
@@ -146,14 +147,12 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
                 level.scheduleTick(blockPos, monitor, 1);
                 changed = true;
             } else if (id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT) {
-                changed = DirectionalDomainBlock.rotateSeriesAxis(level, blockPos, id == BUTTON_ROTATE_RIGHT);
+                // Observer has one real port: rotate the measurement/RX face only.
+                changed = DirectionalDomainBlock.rotateSeriesInput(level, blockPos, id == BUTTON_ROTATE_RIGHT);
             } else return false;
         } else return false;
 
-        if (changed) {
-            refreshAuthoritativeSnapshot();
-            broadcastChanges();
-        }
+        if (changed) broadcastChanges();
         return changed;
     }
 
@@ -172,6 +171,7 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
         return ordinal < 0 || ordinal >= all.length ? PortQuality.NO_SIGNAL : all[ordinal];
     }
 
+    /** Output direction for the divider; measurement face for the one-port stability observer. */
     public Direction logicalFacing() {
         int ordinal = facing.get();
         Direction[] all = Direction.values();
