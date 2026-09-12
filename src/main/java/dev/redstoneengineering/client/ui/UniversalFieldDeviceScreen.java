@@ -1,6 +1,7 @@
 package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.SensorModel;
 import dev.redstoneengineering.ui.menu.UniversalFieldDeviceMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -10,7 +11,11 @@ import net.minecraft.world.entity.player.Inventory;
 
 /** Universal six-face engineering HMI backed only by synchronized server snapshots. */
 public final class UniversalFieldDeviceScreen extends EngineeringScreen<UniversalFieldDeviceMenu> {
-    private Button directionCycle;
+    private Button primaryPrevious;
+    private Button primaryNext;
+    private Button secondaryPrevious;
+    private Button secondaryNext;
+    private Button resetHistory;
 
     public UniversalFieldDeviceScreen(UniversalFieldDeviceMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -18,21 +23,43 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
 
     @Override
     protected void addDeviceWidgets() {
-        int y = topPos + 111;
-        directionCycle = addConfigureWidget(Button.builder(
-                Component.literal("Route • —"),
-                button -> sendMenuButton(UniversalFieldDeviceMenu.BUTTON_ROTATE_RIGHT)
-        ).bounds(leftPos + 38, y, 244, 20).build());
+        primaryPrevious = addConfigureWidget(Button.builder(
+                Component.literal("◀ Previous"),
+                button -> sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_PRIMARY_PREVIOUS)
+        ).bounds(leftPos + 38, topPos + 118, 116, 20).build());
+        primaryNext = addConfigureWidget(Button.builder(
+                Component.literal("Next ▶"),
+                button -> sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_PRIMARY_NEXT)
+        ).bounds(leftPos + 166, topPos + 118, 116, 20).build());
+        secondaryPrevious = addConfigureWidget(Button.builder(
+                Component.literal("◀ Range"),
+                button -> sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_SECONDARY_PREVIOUS)
+        ).bounds(leftPos + 38, topPos + 158, 116, 20).build());
+        secondaryNext = addConfigureWidget(Button.builder(
+                Component.literal("Range ▶"),
+                button -> sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_SECONDARY_NEXT)
+        ).bounds(leftPos + 166, topPos + 158, 116, 20).build());
+        resetHistory = addConfigureWidget(Button.builder(
+                Component.literal("Reset measurement history"),
+                button -> sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_RESET)
+        ).bounds(leftPos + 38, topPos + 158, 244, 20).build());
     }
 
     @Override
     protected void syncDeviceWidgetLabels() {
-        if (directionCycle == null) return;
-        boolean active = menu.rotatableSeriesAxis();
-        directionCycle.active = active;
-        directionCycle.visible = isConfigureSection() && active;
-        directionCycle.setMessage(Component.literal(fitForWidth("Route • " + routeText(), 224)));
-        directionCycle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(routeTooltip())));
+        int kind = menu.configKind();
+        boolean configure = isConfigureSection();
+        boolean primary = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER
+                || kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE
+                || kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER;
+        boolean range = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE;
+        boolean molecular = kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER;
+
+        if (primaryPrevious != null) primaryPrevious.visible = configure && primary;
+        if (primaryNext != null) primaryNext.visible = configure && primary;
+        if (secondaryPrevious != null) secondaryPrevious.visible = configure && range;
+        if (secondaryNext != null) secondaryNext.visible = configure && range;
+        if (resetHistory != null) resetHistory.visible = configure && molecular;
     }
 
     @Override
@@ -56,7 +83,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         labelValue(g, "Attention ports", Integer.toString(attention), 142);
         sectionRule(g, 161);
         safeText(g, "Every displayed value and quality is synchronized from the logical server.", 16, 174, TEXT);
-        safeText(g, "Use Ports for all six physical faces; Configure only changes a real routable interface.", 16, 191, MUTED);
+        safeText(g, "Use Ports for physical faces, Configure for parameters, and Route for real orientation.", 16, 191, MUTED);
     }
 
     private void ports(GuiGraphics g) {
@@ -86,14 +113,36 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     }
 
     private void configure(GuiGraphics g) {
+        int kind = menu.configKind();
+        if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER
+                || kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE) {
+            statusBadge(g, "MEASUREMENT CONDITIONING", INFO, 16, 80);
+            labelValue(g, "Profile", SensorModel.profileName(menu.configPrimary()) + " (" + menu.configPrimary() + ")", 101);
+            if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE) {
+                labelValue(g, "Maximum range", menu.configSecondary() + " blocks", 141);
+                safeText(g, "Changing profile or range invalidates the old sample before resampling.", 16, 188, MUTED);
+            } else {
+                safeText(g, "Profile changes sampling period, resolution, noise and latency on the server.", 16, 148, TEXT);
+                safeText(g, "Direction belongs on Route; no routing control is duplicated here.", 16, 168, MUTED);
+            }
+            return;
+        }
+        if (kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER) {
+            statusBadge(g, "MOLECULAR RECEIVER", INFO, 16, 80);
+            labelValue(g, "Sensitivity", Integer.toString(menu.configPrimary()), 101);
+            labelValue(g, "Retained peak", Integer.toString(menu.configSecondary()), 141);
+            safeText(g, "Reset clears filtered/peak history; the fixed UP aperture remains unchanged.", 16, 188, MUTED);
+            return;
+        }
+
         boolean rotatable = menu.rotatableSeriesAxis();
-        statusBadge(g, rotatable ? routeKindLabel() : "READ-ONLY CONFIGURATION", rotatable ? INFO : MUTED, 16, 80);
-        labelValue(g, "Current route", routeText(), 101);
-        labelValue(g, "Routing rule", routeRule(), 158);
-        safeText(g, rotatable ? routeDescription()
-                        : "This device has no shared routable interface; dedicated controls remain device-specific.",
-                16, 178, TEXT);
-        safeText(g, "No client-side physics or hidden port mutation is performed.", 16, 196, MUTED);
+        statusBadge(g, "NO UNIVERSAL PARAMETERS", MUTED, 16, 80);
+        labelValue(g, "Current route", routeText(), 106);
+        safeText(g, rotatable
+                        ? "This device has a real routable interface; change it on Route, not Configure."
+                        : "This device has no shared configurable parameter in the universal HMI.",
+                16, 132, TEXT);
+        safeText(g, "No client-side physics or hidden port mutation is performed.", 16, 152, MUTED);
     }
 
     private void diagnostics(GuiGraphics g) {
@@ -141,6 +190,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.ROUTE_TERMINAL_INTERFACE ->
                     "INTERFACE AXIS " + facing.getName().toUpperCase() + " ↔ " + facing.getOpposite().getName().toUpperCase();
             case UniversalFieldDeviceMenu.ROUTE_MEASUREMENT_FACE -> "MEASURE = " + facing.getName().toUpperCase();
+            case UniversalFieldDeviceMenu.ROUTE_FIXED_APERTURE_OUTPUT_FRONT ->
+                    "UP APERTURE • FRONT OUT = " + facing.getName().toUpperCase();
             default -> "FIXED / NO ROUTE";
         };
     }
@@ -152,6 +203,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.ROUTE_PROBE_AXIS -> "PROBE AXIS ROUTING";
             case UniversalFieldDeviceMenu.ROUTE_TERMINAL_INTERFACE -> "TERMINAL INTERFACE ROUTING";
             case UniversalFieldDeviceMenu.ROUTE_MEASUREMENT_FACE -> "MEASUREMENT FACE ROUTING";
+            case UniversalFieldDeviceMenu.ROUTE_FIXED_APERTURE_OUTPUT_FRONT -> "OUTPUT FRONT ROUTING";
             default -> "READ-ONLY CONFIGURATION";
         };
     }
@@ -163,6 +215,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.ROUTE_PROBE_AXIS -> "TEST and BUS remain opposite";
             case UniversalFieldDeviceMenu.ROUTE_TERMINAL_INTERFACE -> "Vanilla and cable interfaces remain opposite";
             case UniversalFieldDeviceMenu.ROUTE_MEASUREMENT_FACE -> "Only the selected face is sampled";
+            case UniversalFieldDeviceMenu.ROUTE_FIXED_APERTURE_OUTPUT_FRONT -> "UP input stays fixed; FRONT output rotates";
             default -> "DEVICE-SPECIFIC / FIXED";
         };
     }
@@ -174,6 +227,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.ROUTE_PROBE_AXIS -> "Route moves the real TEST aperture and the opposite BUS interface together.";
             case UniversalFieldDeviceMenu.ROUTE_TERMINAL_INTERFACE -> "Route rotates the real terminal interface pair and forces topology recalculation.";
             case UniversalFieldDeviceMenu.ROUTE_MEASUREMENT_FACE -> "Route changes the actual sampled face; no synthetic output axis is implied.";
+            case UniversalFieldDeviceMenu.ROUTE_FIXED_APERTURE_OUTPUT_FRONT -> "Route changes only the real FRONT redstone output. The UP sensing aperture is fixed.";
             default -> "This device has no universal routing action.";
         };
     }
@@ -185,6 +239,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.ROUTE_PROBE_AXIS -> "Cycle the server-authoritative probe measurement axis.";
             case UniversalFieldDeviceMenu.ROUTE_TERMINAL_INTERFACE -> "Cycle the server-authoritative terminal interface axis.";
             case UniversalFieldDeviceMenu.ROUTE_MEASUREMENT_FACE -> "Cycle the server-authoritative measurement face.";
+            case UniversalFieldDeviceMenu.ROUTE_FIXED_APERTURE_OUTPUT_FRONT -> "Cycle only the server-authoritative FRONT output direction.";
             default -> "No universal route action is available.";
         };
     }
