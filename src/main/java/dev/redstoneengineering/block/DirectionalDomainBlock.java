@@ -166,12 +166,27 @@ public abstract class DirectionalDomainBlock extends DomainBlock {
     ) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
-                rotateWholeRoute(level, pos, true);
+                Direction clicked = hitResult.getDirection();
+                Direction input = seriesInputSide(state);
+                Direction output = seriesOutputSide(state);
+                String action;
+                boolean changed;
+                if (clicked == input) {
+                    changed = rotateSeriesInput(level, pos, true);
+                    action = "RX";
+                } else if (clicked == output) {
+                    changed = rotateSeriesOutput(level, pos, true);
+                    action = "TX";
+                } else {
+                    changed = rotateWholeRoute(level, pos, true);
+                    action = "ROUTE";
+                }
                 BlockState next = level.getBlockState(pos);
                 player.displayClientMessage(Component.literal(
-                        "Series route | IN=" + seriesInputSide(next).getName().toUpperCase()
-                                + " -> OUT=" + seriesOutputSide(next).getName().toUpperCase()
-                                + " | normal right-click opens Engineering UI"), true);
+                        (changed ? action + " rotated" : action + " unchanged")
+                                + " | RX=" + seriesInputSide(next).getName().toUpperCase()
+                                + " -> TX=" + seriesOutputSide(next).getName().toUpperCase()
+                                + " | Shift-click RX/TX face to rotate that endpoint; other face rotates whole route"), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
             }
