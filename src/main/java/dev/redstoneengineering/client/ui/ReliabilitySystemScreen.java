@@ -10,7 +10,7 @@ import net.minecraft.world.entity.player.Inventory;
 
 /** Dedicated reliability HMI for watchdog, servo, feedback sensor, voter and fault latch. */
 public final class ReliabilitySystemScreen extends EngineeringScreen<ReliabilitySystemMenu> {
-    private Button parameterPrevious, parameterNext, orientationCycle;
+    private Button parameterPrevious, parameterNext;
 
     public ReliabilitySystemScreen(ReliabilitySystemMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -20,7 +20,6 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
         int y = topPos + 116;
         parameterPrevious = addConfigureWidget(Button.builder(Component.literal("◀ Parameter"), b -> sendMenuButton(ReliabilitySystemMenu.BUTTON_PARAMETER_PREVIOUS)).bounds(leftPos+16,y,105,20).build());
         parameterNext = addConfigureWidget(Button.builder(Component.literal("Parameter ▶"), b -> sendMenuButton(ReliabilitySystemMenu.BUTTON_PARAMETER_NEXT)).bounds(leftPos+199,y,105,20).build());
-        orientationCycle = addConfigureWidget(Button.builder(Component.literal("Orientation • —"), b -> sendMenuButton(ReliabilitySystemMenu.BUTTON_ROTATE_RIGHT)).bounds(leftPos+70,y+30,180,20).build());
     }
 
     @Override protected void syncDeviceWidgetLabels() {
@@ -39,10 +38,6 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
             parameterPrevious.setMessage(Component.literal(fitForWidth("◀ " + parameter, 89)));
             parameterNext.setMessage(Component.literal(fitForWidth(parameter + " ▶", 89)));
         }
-        orientationCycle.visible = configure;
-        orientationCycle.setMessage(Component.literal(fitForWidth("Orientation • " + face(menu.facing()), 164)));
-        orientationCycle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
-                "Cycle the device orientation clockwise on the server.")));
     }
 
     @Override protected void renderSection(GuiGraphics g, Section section) {
@@ -114,6 +109,7 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
         labelValue(g,"Parameter",parameterText(),101);
         labelValue(g,"Front / primary output",face(menu.facing()),171);
         labelValue(g,"Orientation contract",orientationText(),187);
+        safeText(g,"Physical orientation is controlled only on Route.",16,207,MUTED);
     }
 
     private void diagnostics(GuiGraphics g) {
