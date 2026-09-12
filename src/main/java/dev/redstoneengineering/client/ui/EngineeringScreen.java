@@ -1,7 +1,19 @@
 package dev.redstoneengineering.client.ui;
 
+import dev.redstoneengineering.ui.menu.AmethystSystemMenu;
+import dev.redstoneengineering.ui.menu.DigitalCommunicationMenu;
 import dev.redstoneengineering.ui.menu.EngineeringDeviceMenu;
 import dev.redstoneengineering.ui.menu.FieldDeviceMenu;
+import dev.redstoneengineering.ui.menu.MagneticSystemMenu;
+import dev.redstoneengineering.ui.menu.OpticalSystemMenu;
+import dev.redstoneengineering.ui.menu.PneumaticSystemMenu;
+import dev.redstoneengineering.ui.menu.QuartzTimingMenu;
+import dev.redstoneengineering.ui.menu.RadioLinkMenu;
+import dev.redstoneengineering.ui.menu.RangeSensorMenu;
+import dev.redstoneengineering.ui.menu.ReliabilitySystemMenu;
+import dev.redstoneengineering.ui.menu.SignalConditionerMenu;
+import dev.redstoneengineering.ui.menu.SignalProcessorMenu;
+import dev.redstoneengineering.ui.menu.UniversalFieldDeviceMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
@@ -15,18 +27,18 @@ import java.util.List;
 /**
  * Shared RSE engineering visual language.
  *
- * <p>The shell is deliberately conservative: pages own their full content area, long text is
- * pixel-clamped, and configuration controls live in reserved lanes. The six-face physical route
- * visualization is delegated to the read-only I/O Compass on Ports so the main panel never has two
- * independent diagrams competing for the same pixels.</p>
+ * <p>Pages are deliberately separated by responsibility. Overview observes, Ports documents the
+ * physical contract, Configure owns parameters/modes/actions, Route owns orientation, Observe owns
+ * diagnostics, and Log owns retained evidence. Nothing is removed merely to make the panel look
+ * cleaner: when controls do not fit together, they move to their own page.</p>
  */
 public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends AbstractContainerScreen<M> {
     protected enum Section {
         OVERVIEW("Overview", "Live engineering state"),
         PORTS("Ports", "Physical I/O contract"),
-        CONFIGURE("Configure", "Bounded server-side controls"),
-        DIAGNOSTICS("Observe", "Observer-neutral signals, topology and health"),
-        HISTORY("Log", "Bounded evidence and retained events");
+        CONFIGURE("Configure", "Parameters, modes and actions"),
+        DIAGNOSTICS("Observe", "Signals, topology and health"),
+        HISTORY("Log", "Evidence and retained events");
 
         private final String label;
         private final String subtitle;
@@ -54,12 +66,14 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private static final int CONTENT_RIGHT = 304;
     private static final int VALUE_X = 154;
     private static final int FOOTER_TOP = 245;
-    private static final int ROUTE_CONTROL_Y = 218;
+    private static final int ROUTE_CONTROL_Y = 196;
 
     private Section section = Section.OVERVIEW;
+    private boolean routePage;
     private final List<AbstractWidget> configureWidgets = new ArrayList<>();
     private final List<Button> sectionButtons = new ArrayList<>();
-    private Button sharedRouteCycle;
+    private Button routeTab;
+    private Button routeCycle;
 
     protected EngineeringScreen(M menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -75,23 +89,33 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         super.init();
         configureWidgets.clear();
         sectionButtons.clear();
-        sharedRouteCycle = null;
+        routeTab = null;
+        routeCycle = null;
 
         int tabY = topPos + 31;
         int x = leftPos + 8;
-        for (Section candidate : Section.values()) {
-            Section target = candidate;
-            Button tab = Button.builder(Component.literal(candidate.label), button -> setSection(target))
-                    .bounds(x, tabY, 59, 20).build();
-            sectionButtons.add(addRenderableWidget(tab));
-            x += 61;
-        }
+        int tabWidth = 49;
+        int gap = 1;
+
+        addSectionTab(Section.OVERVIEW, x, tabY, tabWidth); x += tabWidth + gap;
+        addSectionTab(Section.PORTS, x, tabY, tabWidth); x += tabWidth + gap;
+        addSectionTab(Section.CONFIGURE, x, tabY, tabWidth); x += tabWidth + gap;
+        routeTab = addRenderableWidget(Button.builder(Component.literal("Route"), button -> setRoutePage())
+                .bounds(x, tabY, tabWidth, 20).build()); x += tabWidth + gap;
+        addSectionTab(Section.DIAGNOSTICS, x, tabY, tabWidth); x += tabWidth + gap;
+        addSectionTab(Section.HISTORY, x, tabY, tabWidth);
 
         addDeviceWidgets();
-        addSharedRouteControl();
+        addRouteControl();
         updateWidgetVisibility();
         syncDeviceWidgetLabels();
-        syncSharedRouteControl();
+        syncRouteControl();
+    }
+
+    private void addSectionTab(Section target, int x, int y, int width) {
+        Button tab = Button.builder(Component.literal(target.label), button -> setSection(target))
+                .bounds(x, y, width, 20).build();
+        sectionButtons.add(addRenderableWidget(tab));
     }
 
     protected void addDeviceWidgets() {
@@ -106,38 +130,85 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     }
 
     protected final void sendMenuButton(int buttonId) {
+        if (buttonId < 0) return;
         if (minecraft != null && minecraft.gameMode != null) {
             minecraft.gameMode.handleInventoryButtonClick(menu.containerId, buttonId);
         }
     }
 
-    private void addSharedRouteControl() {
-        if (!(menu instanceof FieldDeviceMenu)) return;
-        int y = topPos + ROUTE_CONTROL_Y;
-        sharedRouteCycle = addConfigureWidget(Button.builder(
-                Component.literal("Direction • —"),
-                button -> sendMenuButton(FieldDeviceMenu.BUTTON_ROTATE_CW)
-        ).bounds(leftPos + CONTENT_LEFT, y, CONTENT_RIGHT - CONTENT_LEFT, 20).build());
+    private void addRouteControl() {
+        routeCycle = addRenderableWidget(Button.builder(
+                Component.literal("Direction / orientation • —"),
+                button -> sendMenuButton(routeActionId())
+        ).bounds(leftPos + CONTENT_LEFT, topPos + ROUTE_CONTROL_Y,
+                CONTENT_RIGHT - CONTENT_LEFT, 20).build());
     }
 
-    private void syncSharedRouteControl() {
-        if (!(menu instanceof FieldDeviceMenu fieldMenu) || sharedRouteCycle == null) return;
-        boolean enabled = fieldMenu.seriesConfigurable();
-        String route = fieldMenu.portRouteLabel();
-        if (route == null || route.isBlank()) route = "NO ROTATABLE ROUTE";
-        String label = fitForWidth("Direction • " + route, CONTENT_RIGHT - CONTENT_LEFT - 16);
-        sharedRouteCycle.setMessage(Component.literal(label));
-        sharedRouteCycle.active = enabled;
-        sharedRouteCycle.visible = isConfigureSection() && enabled;
-        sharedRouteCycle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
-                "Cycle the declared RX/TX route clockwise on the server.")));
+    private int routeActionId() {
+        if (menu instanceof FieldDeviceMenu) return FieldDeviceMenu.BUTTON_ROTATE_CW;
+        if (menu instanceof UniversalFieldDeviceMenu) return UniversalFieldDeviceMenu.BUTTON_ROTATE_RIGHT;
+        if (menu instanceof RangeSensorMenu) return RangeSensorMenu.BUTTON_ROTATE_RIGHT;
+        if (menu instanceof SignalProcessorMenu) return SignalProcessorMenu.BUTTON_ROTATE_RIGHT;
+        if (menu instanceof SignalConditionerMenu) return SignalConditionerMenu.BUTTON_ROTATE_RIGHT;
+        if (menu instanceof QuartzTimingMenu) return QuartzTimingMenu.BUTTON_ROTATE_RIGHT;
+        if (menu instanceof RadioLinkMenu) return RadioLinkMenu.BUTTON_OUTPUT_RIGHT;
+        if (menu instanceof DigitalCommunicationMenu) return DigitalCommunicationMenu.BUTTON_ROTATE_RIGHT;
+        if (menu instanceof PneumaticSystemMenu) return PneumaticSystemMenu.BUTTON_ROTATE_RIGHT;
+        if (menu instanceof OpticalSystemMenu) return OpticalSystemMenu.BUTTON_ROTATE_RIGHT;
+        if (menu instanceof AmethystSystemMenu) return AmethystSystemMenu.BUTTON_ROTATE_RIGHT;
+        if (menu instanceof MagneticSystemMenu) return MagneticSystemMenu.BUTTON_ROTATE_RIGHT;
+        if (menu instanceof ReliabilitySystemMenu) return ReliabilitySystemMenu.BUTTON_ROTATE_RIGHT;
+        return -1;
     }
 
-    private void setSection(Section section) {
-        this.section = section;
+    private boolean routeSupported() {
+        if (menu instanceof FieldDeviceMenu field) return field.seriesConfigurable();
+        if (menu instanceof UniversalFieldDeviceMenu universal) return universal.rotatableSeriesAxis();
+        if (menu instanceof RangeSensorMenu) return true;
+        if (menu instanceof SignalProcessorMenu) return true;
+        if (menu instanceof SignalConditionerMenu) return true;
+        if (menu instanceof QuartzTimingMenu quartz) {
+            return quartz.kind() == QuartzTimingMenu.KIND_DIVIDER || quartz.kind() == QuartzTimingMenu.KIND_STABILITY;
+        }
+        if (menu instanceof RadioLinkMenu radio) return radio.kind() == RadioLinkMenu.KIND_RECEIVER;
+        if (menu instanceof DigitalCommunicationMenu) return true;
+        if (menu instanceof PneumaticSystemMenu pneumatic) return pneumatic.directional();
+        if (menu instanceof OpticalSystemMenu optical) {
+            return optical.directional() || optical.kind() == OpticalSystemMenu.KIND_METER;
+        }
+        if (menu instanceof AmethystSystemMenu amethyst) return amethyst.directional();
+        if (menu instanceof MagneticSystemMenu magnetic) {
+            return magnetic.kind() == MagneticSystemMenu.KIND_PERMANENT || magnetic.kind() == MagneticSystemMenu.KIND_COIL;
+        }
+        return menu instanceof ReliabilitySystemMenu;
+    }
+
+    private void syncRouteControl() {
+        if (routeCycle == null) return;
+        boolean enabled = routeSupported();
+        String route = menu.portRouteLabel();
+        if (route == null || route.isBlank()) route = enabled ? "ROTATABLE INTERFACE" : "FIXED INTERFACE";
+        routeCycle.setMessage(Component.literal(fitForWidth(
+                "Direction / orientation • " + route, CONTENT_RIGHT - CONTENT_LEFT - 16)));
+        routeCycle.active = enabled;
+        routeCycle.visible = routePage && enabled;
+        routeCycle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
+                "Cycle the declared route, output face, measurement face, or orientation clockwise on the server.")));
+    }
+
+    private void setSection(Section target) {
+        this.section = target;
+        this.routePage = false;
         updateWidgetVisibility();
         syncDeviceWidgetLabels();
-        syncSharedRouteControl();
+        syncRouteControl();
+    }
+
+    private void setRoutePage() {
+        routePage = true;
+        updateWidgetVisibility();
+        syncDeviceWidgetLabels();
+        syncRouteControl();
     }
 
     private boolean isLegacyRouteWidget(AbstractWidget widget) {
@@ -147,30 +218,34 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     }
 
     private void updateWidgetVisibility() {
-        boolean visible = isConfigureSection();
+        boolean controlsVisible = isConfigureSection();
         for (AbstractWidget widget : configureWidgets) {
-            widget.visible = visible && !isLegacyRouteWidget(widget);
+            widget.visible = controlsVisible && !isLegacyRouteWidget(widget);
         }
+        Section[] tabSections = {
+                Section.OVERVIEW, Section.PORTS, Section.CONFIGURE, Section.DIAGNOSTICS, Section.HISTORY
+        };
         for (int i = 0; i < sectionButtons.size(); i++) {
-            sectionButtons.get(i).active = Section.values()[i] != section;
+            sectionButtons.get(i).active = routePage || tabSections[i] != section;
         }
+        if (routeTab != null) routeTab.active = !routePage;
     }
 
     /** Lets device screens hide type-specific Configure controls without leaking them onto other tabs. */
     protected final boolean isConfigureSection() {
-        return section == Section.CONFIGURE;
+        return !routePage && section == Section.CONFIGURE;
     }
 
-    /** The sidecar I/O compass is the only dense route diagram and only appears on Ports. */
+    /** Dense physical-port visualization belongs to Ports and Route, never to content-heavy pages. */
     public final boolean showsPortVisualization() {
-        return section == Section.PORTS;
+        return routePage || section == Section.PORTS;
     }
 
     @Override
     protected void containerTick() {
         super.containerTick();
         syncDeviceWidgetLabels();
-        syncSharedRouteControl();
+        syncRouteControl();
     }
 
     @Override
@@ -201,14 +276,37 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         graphics.drawString(font, role, 12, 19, INFO, false);
         graphics.drawString(font, health, imageWidth - 12 - font.width(health), 19, operationalHealthColor(), false);
 
-        graphics.drawString(font, section.label.toUpperCase(), 13, 62, TEXT, false);
-        graphics.drawString(font, fitForWidth(section.subtitle, 210), 92, 62, MUTED, false);
-        renderSection(graphics, section);
+        if (routePage) {
+            graphics.drawString(font, "ROUTE", 13, 62, TEXT, false);
+            graphics.drawString(font, "Direction, orientation and physical interface", 92, 62, MUTED, false);
+            renderRoutePage(graphics);
+        } else {
+            graphics.drawString(font, section.label.toUpperCase(), 13, 62, TEXT, false);
+            graphics.drawString(font, fitForWidth(section.subtitle, 210), 92, 62, MUTED, false);
+            renderSection(graphics, section);
+        }
 
         String evidence = fitForWidth("EVIDENCE • " + menu.evidenceStateLabel(), 150);
         graphics.drawString(font, evidence, 13, imageHeight - 20, evidenceStateColor(), false);
         String position = fitForWidth("@ " + menu.blockPos().getX() + ", " + menu.blockPos().getY() + ", " + menu.blockPos().getZ(), 142);
         graphics.drawString(font, position, imageWidth - 13 - font.width(position), imageHeight - 20, MUTED, false);
+    }
+
+    private void renderRoutePage(GuiGraphics graphics) {
+        boolean enabled = routeSupported();
+        statusBadge(graphics, enabled ? "ROTATABLE INTERFACE" : "FIXED INTERFACE", enabled ? INFO : MUTED, 16, 84);
+        labelValue(graphics, "Topology role", menu.topologyRoleLabel(), 112);
+        labelValue(graphics, "Current route", menu.portRouteLabel(), 132);
+        labelValue(graphics, "Control authority", enabled ? "SERVER-SIDE" : "READ ONLY", 152);
+        if (enabled) {
+            safeText(graphics,
+                    "Use the button below to cycle the device's declared route/orientation. Parameters remain on Configure.",
+                    16, 174, TEXT);
+        } else {
+            safeText(graphics,
+                    "This device has no rotatable route/orientation. Its remaining controls, if any, are on Configure.",
+                    16, 174, MUTED);
+        }
     }
 
     protected final String fitForWidth(String text, int maxWidth) {
