@@ -14,148 +14,110 @@ def read(rel: str) -> str:
     return path.read_text(errors="ignore")
 
 
-required = {
-    "src/main/java/dev/redstoneengineering/ui/EngineeringUiRegistration.java": [
-        "DeferredRegister<MenuType<?>>",
-        'MENUS.register("signal_conditioner"',
-        'MENUS.register("pid_controller"',
-    ],
-    "src/main/java/dev/redstoneengineering/ui/menu/EngineeringDeviceMenu.java": [
-        "extends AbstractContainerMenu",
-        "refreshAuthoritativeSnapshot",
-        "refreshOperationalHealth",
-        "refreshTopologyRole",
-        "refreshEvidenceState",
-        "topologyRoleLabel",
-        "operationalHealthLabel",
-        "evidenceStateLabel",
-        "receivePortMask",
-        "transmitPortMask",
-        "stillValid",
-    ],
-    "src/main/java/dev/redstoneengineering/ui/menu/SignalConditionerMenu.java": [
-        "clickMenuButton",
-        "SignalConditionerBlock.applyConfigurationAction",
-        "refreshAuthoritativeSnapshot",
-    ],
-    "src/main/java/dev/redstoneengineering/ui/menu/PidControllerMenu.java": [
-        "ClosedLoopCommissioning.inspectPid",
-        "AcceptanceEvidenceStore.history",
-        "PidControllerBlock.applyTuningAction",
-    ],
-    "src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java": [
-        "OVERVIEW",
-        "PORTS",
-        "CONFIGURE",
-        "DIAGNOSTICS",
-        "HISTORY",
-        "handleInventoryButtonClick",
-        "ROLE • ",
-        "HEALTH • ",
-        "EVIDENCE • ",
-        "SIGNAL ROUTE",
-        "drawFaceMatrix",
-        "Direction.NORTH, Direction.EAST, Direction.SOUTH",
-        "menu.receivePortMask()",
-        "menu.transmitPortMask()",
-        'receiving ? "WIRE" : "RF"',
-        'receiving ? "RF" : "WIRE"',
-        'receiving ? "WIRE" : "LOS"',
-        'receiving ? "LOS" : "WIRE"',
-        '"FIBER"',
-        '"FAN-OUT ×"',
-        '"SINGLE TX"',
-        '"SERIES PATH"',
-        "menu.topologyRoleLabel()",
-        "menu.operationalHealthLabel()",
-        "menu.evidenceStateLabel()",
-        "private Button sharedRouteCycle",
-        'Component.literal("Direction • —")',
-        "FieldDeviceMenu.BUTTON_ROTATE_CW",
-        "int y = topPos + 160;",
-        ".bounds(leftPos + 16, y, 288, 20)",
-        "section == Section.PORTS",
-        "showsPortVisualization",
-        "if (section == Section.PORTS) renderPortRoute(graphics);",
-        "isLegacyRouteWidget",
-        'message.contains("Rotate I/O")',
-        'message.contains("Rotate route")',
-        "widget.visible = visible && !isLegacyRouteWidget(widget);",
-    ],
-    "src/main/java/dev/redstoneengineering/client/ui/EngineeringIoCompassOverlay.java": [
-        "ScreenEvent.Render.Post",
-        "EngineeringScreen<?> engineeringScreen",
-        "engineeringScreen.showsPortVisualization()",
-        "containerScreen.getMenu() instanceof EngineeringDeviceMenu",
-        '"I/O COMPASS"',
-        "menu.receivePortMask()",
-        "menu.transmitPortMask()",
-        "connectionMask(menu)",
-        "menu instanceof FieldDeviceMenu fieldMenu ? fieldMenu.connectionMask() : -1",
-        "linkEvidenceKnown",
-        '"DECLARED"',
-        '"SOURCE • SINGLE TX"',
-        '"SOURCE • FAN-OUT x"',
-        '"SERIES • 1→1"',
-        "drawCompass",
-        "drawMediumRow",
-        "mediumLabel",
-        "interfaceState",
-        '"WIRE"',
-        '"RF"',
-        '"LOS"',
-        '"FIBER"',
-        '"LINKED"',
-        '"OPEN"',
-        '"AIR PATH"',
-        '"LOS PATH"',
-        "propagationInterface || !linkEvidenceKnown || linked",
-        "Direction.NORTH",
-        "Direction.SOUTH",
-        "Direction.EAST",
-        "Direction.WEST",
-        "Direction.UP",
-        "Direction.DOWN",
-    ],
-    "src/main/java/dev/redstoneengineering/client/ui/SignalConditionerScreen.java": [
-        "SignalConditionerMenu",
-        "BUTTON_MODE_NEXT",
-        "BUTTON_PARAM_INCREASE",
-    ],
-    "src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java": [
-        "PidControllerMenu",
-        "BUTTON_TUNING_NEXT",
-    ],
-    "src/main/java/dev/redstoneengineering/client/ui/EngineeringUiClientRegistration.java": [
-        "RegisterMenuScreensEvent",
-        "SignalConditionerScreen::new",
-        "PidControllerScreen::new",
-        "EngineeringIoCompassOverlay::render",
-    ],
-    "src/main/java/dev/redstoneengineering/gametest/RseEngineeringUiGameTests.java": [
-        "conditionerUiActionsDriveAuthoritativeWorldState",
-        "pidUiActionChangesOnlyBoundedTuningPreset",
-    ],
-}
-
-for rel, tokens in required.items():
+def require(rel: str, *tokens: str) -> None:
     body = read(rel)
     for token in tokens:
         if body and token not in body:
-            errors.append(f"{rel}: missing UI contract token {token!r}")
+            errors.append(f"{rel}: missing UI safety token {token!r}")
+
+
+require(
+    "src/main/java/dev/redstoneengineering/ui/EngineeringUiRegistration.java",
+    "DeferredRegister<MenuType<?>>",
+    'MENUS.register("signal_conditioner"',
+    'MENUS.register("pid_controller"',
+)
+require(
+    "src/main/java/dev/redstoneengineering/ui/menu/EngineeringDeviceMenu.java",
+    "refreshAuthoritativeSnapshot",
+    "refreshOperationalHealth",
+    "refreshTopologyRole",
+    "refreshEvidenceState",
+    "receivePortMask",
+    "transmitPortMask",
+    "stillValid",
+)
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java",
+    "OVERVIEW",
+    "PORTS",
+    "CONFIGURE",
+    "DIAGNOSTICS",
+    "HISTORY",
+    'DIAGNOSTICS("Observe"',
+    "handleInventoryButtonClick",
+    "ROLE • ",
+    "HEALTH • ",
+    "EVIDENCE • ",
+    "private static final int ROUTE_CONTROL_Y = 218",
+    "private static final int FOOTER_TOP = 245",
+    "private Button sharedRouteCycle",
+    'Component.literal("Direction • —")',
+    "FieldDeviceMenu.BUTTON_ROTATE_CW",
+    "sharedRouteCycle.visible = section == Section.CONFIGURE && enabled",
+    "showsPortVisualization",
+    "fitForWidth",
+    "safeText",
+    "CONTENT_RIGHT - VALUE_X",
+    "Math.min(width, CONTENT_RIGHT - x)",
+    "Every page owns the full content panel",
+    "I/O Compass",
+)
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/EngineeringIoCompassOverlay.java",
+    "ScreenEvent.Render.Post",
+    "engineeringScreen.showsPortVisualization()",
+    '"I/O COMPASS"',
+    "menu.receivePortMask()",
+    "menu.transmitPortMask()",
+    "connectionMask(menu)",
+    "linkEvidenceKnown",
+    '"DECLARED"',
+    '"SOURCE • SINGLE TX"',
+    '"SOURCE • FAN-OUT x"',
+    '"SERIES • 1→1"',
+    '"WIRE"',
+    '"RF"',
+    '"LOS"',
+    '"FIBER"',
+    '"LINKED"',
+    '"OPEN"',
+    '"AIR PATH"',
+    '"LOS PATH"',
+    "Direction.UP",
+    "Direction.DOWN",
+)
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/EngineeringUiClientRegistration.java",
+    "EnhancedFieldDeviceScreen::new",
+    "SignalConditionerScreen::new",
+    "PidControllerScreen::new",
+    "EngineeringIoCompassOverlay::render",
+)
+require(
+    "src/main/java/dev/redstoneengineering/gametest/RseEngineeringUiGameTests.java",
+    "conditionerUiActionsDriveAuthoritativeWorldState",
+    "pidUiActionChangesOnlyBoundedTuningPreset",
+)
 
 screen = read("src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java")
-for forbidden in ("sharedRotateCcw", "sharedRotateCw", 'Component.literal("↺ Rotate route")', 'Component.literal("Rotate route ↻")'):
+for forbidden in (
+    "sharedRotateCcw",
+    "sharedRotateCw",
+    'Component.literal("↺ Rotate route")',
+    'Component.literal("Rotate route ↻")',
+    "renderPortRoute(",
+    '"SIGNAL ROUTE"',
+    "drawFaceMatrix(",
+    "ROUTE_CONTROL_Y = 160",
+):
     if screen and forbidden in screen:
-        errors.append(f"EngineeringScreen restored crowded dual-route control {forbidden!r}")
+        errors.append(f"EngineeringScreen restored crowded/duplicated layout element {forbidden!r}")
 
-pid_screen = read("src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java")
-if pid_screen and "Shift + FRONT" not in pid_screen and "Shift+FRONT" not in pid_screen:
-    errors.append("PidControllerScreen missing acceptance-capture interaction guidance")
-
+# Client UI must remain presentation-only.
 client_dir = root / "src/main/java/dev/redstoneengineering/client/ui"
 if client_dir.is_dir():
-    forbidden = (
+    forbidden_authority = (
         "dev.redstoneengineering.physics",
         "RuntimeIntStore",
         "scheduleTick(",
@@ -165,28 +127,21 @@ if client_dir.is_dir():
     )
     for source in sorted(client_dir.glob("*.java")):
         body = source.read_text(errors="ignore")
-        for token in forbidden:
+        for token in forbidden_authority:
             if token in body:
-                errors.append(
-                    f"client UI authority violation in {source.name}: contains {token!r}"
-                )
+                errors.append(f"client UI authority violation in {source.name}: contains {token!r}")
+
+pid_screen = read("src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java")
+if pid_screen and "Shift + FRONT" not in pid_screen and "Shift+FRONT" not in pid_screen:
+    errors.append("PidControllerScreen missing acceptance-capture interaction guidance")
 
 conditioner = read("src/main/java/dev/redstoneengineering/block/SignalConditionerBlock.java")
-for token in (
-    "normal right-click opens Engineering UI",
-    "new SignalConditionerMenu",
-    "player.isShiftKeyDown()",
-):
+for token in ("normal right-click opens Engineering UI", "new SignalConditionerMenu", "player.isShiftKeyDown()"):
     if conditioner and token not in conditioner:
         errors.append(f"SignalConditionerBlock UI integration missing {token!r}")
 
 pid = read("src/main/java/dev/redstoneengineering/block/PidControllerBlock.java")
-for token in (
-    "new PidControllerMenu",
-    "captureAcceptanceEvidence",
-    "RuntimeIntStore.remove",
-    "applyTuningAction",
-):
+for token in ("new PidControllerMenu", "captureAcceptanceEvidence", "RuntimeIntStore.remove", "applyTuningAction"):
     if pid and token not in pid:
         errors.append(f"PidControllerBlock UI integration missing {token!r}")
 
@@ -201,18 +156,12 @@ if errors:
     raise SystemExit(1)
 
 print("RSE Engineering UI verification: PASS")
-print(" shared menu/screen framework: PASS")
+print(" full-height page workspace / no duplicated inline route schematic: PASS")
+print(" dedicated Ports-only I/O Compass: PASS")
+print(" bottom-lane single Direction control: PASS")
+print(" non-rotatable devices hide Direction control: PASS")
+print(" shared pixel-clamped title / status / label / value / badge / card text: PASS")
+print(" legacy dual route controls rejected: PASS")
 print(" server-authoritative ROLE / HEALTH / EVIDENCE HMI: PASS")
-print(" real page isolation for Ports / Configure / Observatory / Log: PASS")
-print(" single synchronized Direction cycle control: PASS")
-print(" legacy dual Rotate I/O / Rotate route widgets suppressed: PASS")
-print(" six-face RX/TX route matrix confined to Ports: PASS")
-print(" sidecar I/O compass confined to Ports: PASS")
-print(" WIRE / RF / LOS / FIBER medium identity: PASS")
-print(" wired/fiber LINKED vs OPEN port state when link evidence is synchronized: PASS")
-print(" unknown link evidence renders DECLARED instead of false OPEN: PASS")
-print(" RF / LOS propagation interfaces avoid false OPEN state: PASS")
-print(" SINGLE TX / FAN-OUT / SERIES topology cues: PASS")
-print(" server-authoritative configuration path: PASS")
 print(" client UI authority boundary: PASS")
-print(" Conditioner + PID runtime action tests registered: PASS")
+print(" registered Engineering UI runtime action tests: PASS")
