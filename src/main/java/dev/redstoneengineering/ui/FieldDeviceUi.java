@@ -64,6 +64,12 @@ public final class FieldDeviceUi {
                 || block instanceof RedundantVoterBlock || block instanceof FaultLatchBlock) {
             player.openMenu(new SimpleMenuProvider((id, inv, ignored) -> new ReliabilitySystemMenu(id, inv, pos), title), data -> data.writeBlockPos(pos)); return;
         }
+        // These migrated endpoints expose their complete engineering state through formal ports,
+        // so the universal HMI is more accurate than forcing them through a device-kind table.
+        if (block instanceof EngineeringLightSensorBlock || block instanceof TankLevelSensorBlock
+                || block instanceof EntityDensitySensorBlock || block instanceof AnalogIndicatorBlock) {
+            openUniversal(player, pos); return;
+        }
         player.openMenu(new SimpleMenuProvider((id, inv, ignored) -> new FieldDeviceMenu(id, inv, pos), title), data -> data.writeBlockPos(pos));
     }
 
