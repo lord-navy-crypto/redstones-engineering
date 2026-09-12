@@ -4,10 +4,13 @@ import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.EngineeringMath;
+import dev.redstoneengineering.physics.RuntimeIntStore;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
@@ -74,20 +77,31 @@ public class LapisPrecisionRangeSensorBlock extends AbstractLapisTransducerBlock
                 "distance=" + sample.distance() + "/" + sample.maxRange() + " blocks");
     }
 
+    /** Server-authoritative Configure action. The old sample cannot survive a range change. */
+    public boolean adjustRange(Level level, BlockPos pos, int delta) {
+        if (!(level instanceof ServerLevel server)) return false;
+        BlockState state = level.getBlockState(pos);
+        if (state.getBlock() != this) return false;
+        int next = Math.floorMod(state.getValue(RANGE_INDEX) + delta, RANGES.length);
+        BlockState updated = state.setValue(RANGE_INDEX, next);
+        level.setBlock(pos, updated, Block.UPDATE_CLIENTS);
+        RuntimeIntStore.remove(server, runtimeKey(), pos);
+        DomainNetwork.driveLapis(server, outputPos(pos, updated), pos, 0, false);
+        server.scheduleTick(pos, this, 1);
+        return true;
+    }
+
+    public static int rangeBlocks(BlockState state) {
+        return RANGES[state.getValue(RANGE_INDEX)];
+    }
+
     @Override
     protected net.minecraft.world.InteractionResult useWithoutItem(BlockState state, net.minecraft.world.level.Level level, BlockPos pos, net.minecraft.world.entity.player.Player player, net.minecraft.world.phys.BlockHitResult hit) {
         if (!level.isClientSide && player.isShiftKeyDown()) {
-            int next = (state.getValue(RANGE_INDEX) + 1) & 3;
-            state = state.setValue(RANGE_INDEX, next);
-            level.setBlock(pos, state, Block.UPDATE_CLIENTS);
-            if (level instanceof ServerLevel server) {
-                // Range configuration changes the physical aperture. Drop the old
-                // sample immediately rather than relabeling it under the new range.
-                dev.redstoneengineering.physics.RuntimeIntStore.remove(server, runtimeKey(), pos);
-                dev.redstoneengineering.physics.DomainNetwork.driveLapis(server, outputPos(pos, state), pos, 0, false);
-                server.scheduleTick(pos, this, 1);
-            }
-            player.displayClientMessage(net.minecraft.network.chat.Component.literal("Precision Range Sensor range = " + RANGES[next] + " blocks"), true);
+            adjustRange(level, pos, 1);
+            BlockState updated = level.getBlockState(pos);
+            player.displayClientMessage(net.minecraft.network.chat.Component.literal(
+                    "Precision Range Sensor range = " + rangeBlocks(updated) + " blocks"), true);
             return net.minecraft.world.InteractionResult.SUCCESS;
         }
         return super.useWithoutItem(state, level, pos, player, hit);
