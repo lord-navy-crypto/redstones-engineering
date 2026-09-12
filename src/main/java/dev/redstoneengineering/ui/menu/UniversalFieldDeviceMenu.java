@@ -1,10 +1,13 @@
 package dev.redstoneengineering.ui.menu;
 
+import dev.redstoneengineering.block.AbstractLapisTransducerBlock;
 import dev.redstoneengineering.block.CopperCircuitMeterBlock;
 import dev.redstoneengineering.block.DirectionalDomainBlock;
 import dev.redstoneengineering.block.DirectionalRedstoneEndpointBlock;
 import dev.redstoneengineering.block.DirectionalSignalBlock;
 import dev.redstoneengineering.block.LapisPrecisionMeterBlock;
+import dev.redstoneengineering.block.LapisPrecisionRangeSensorBlock;
+import dev.redstoneengineering.block.MolecularCloudReceiverBlock;
 import dev.redstoneengineering.block.RedstoneCableTerminalBlock;
 import dev.redstoneengineering.block.SignalProbeBlock;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
@@ -31,6 +34,11 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int FACE_COUNT = Direction.values().length;
     public static final int BUTTON_ROTATE_LEFT = 100;
     public static final int BUTTON_ROTATE_RIGHT = 101;
+    public static final int BUTTON_CONFIG_PRIMARY_PREVIOUS = 110;
+    public static final int BUTTON_CONFIG_PRIMARY_NEXT = 111;
+    public static final int BUTTON_CONFIG_SECONDARY_PREVIOUS = 112;
+    public static final int BUTTON_CONFIG_SECONDARY_NEXT = 113;
+    public static final int BUTTON_CONFIG_RESET = 114;
 
     public static final int ROUTE_NONE = 0;
     public static final int ROUTE_SERIES_AXIS = 1;
@@ -38,9 +46,18 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int ROUTE_PROBE_AXIS = 3;
     public static final int ROUTE_TERMINAL_INTERFACE = 4;
     public static final int ROUTE_MEASUREMENT_FACE = 5;
+    public static final int ROUTE_FIXED_APERTURE_OUTPUT_FRONT = 6;
+
+    public static final int CONFIG_NONE = 0;
+    public static final int CONFIG_LAPIS_TRANSDUCER = 1;
+    public static final int CONFIG_LAPIS_RANGE = 2;
+    public static final int CONFIG_MOLECULAR_RECEIVER = 3;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
+    private final DataSlot configKind = trackedInt();
+    private final DataSlot configPrimary = trackedInt();
+    private final DataSlot configSecondary = trackedInt();
     private final DataSlot declaredPortMask = trackedInt();
     private final DataSlot inputMask = trackedInt();
     private final DataSlot outputMask = trackedInt();
@@ -71,6 +88,22 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         int route = routeKind(block);
         routeKind.set(route);
         seriesRotatable.set(route != ROUTE_NONE ? 1 : 0);
+        configKind.set(CONFIG_NONE);
+        configPrimary.set(0);
+        configSecondary.set(0);
+        if (block instanceof LapisPrecisionRangeSensorBlock) {
+            configKind.set(CONFIG_LAPIS_RANGE);
+            configPrimary.set(state.getValue(AbstractLapisTransducerBlock.PROFILE));
+            configSecondary.set(LapisPrecisionRangeSensorBlock.rangeBlocks(state));
+        } else if (block instanceof AbstractLapisTransducerBlock) {
+            configKind.set(CONFIG_LAPIS_TRANSDUCER);
+            configPrimary.set(state.getValue(AbstractLapisTransducerBlock.PROFILE));
+        } else if (block instanceof MolecularCloudReceiverBlock) {
+            configKind.set(CONFIG_MOLECULAR_RECEIVER);
+            configPrimary.set(state.getValue(MolecularCloudReceiverBlock.SENSITIVITY));
+            configSecondary.set(MolecularCloudReceiverBlock.peak(level, blockPos));
+        }
+
         declaredPortMask.set(0);
         inputMask.set(0);
         outputMask.set(0);
@@ -120,6 +153,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         if (block instanceof LapisPrecisionMeterBlock || block instanceof CopperCircuitMeterBlock) {
             return ROUTE_MEASUREMENT_FACE;
         }
+        if (block instanceof MolecularCloudReceiverBlock) return ROUTE_FIXED_APERTURE_OUTPUT_FRONT;
         if (block instanceof SignalProbeBlock) return ROUTE_PROBE_AXIS;
         if (block instanceof RedstoneCableTerminalBlock) return ROUTE_TERMINAL_INTERFACE;
         if (block instanceof DirectionalRedstoneEndpointBlock) return ROUTE_ENDPOINT_FRONT;
@@ -150,6 +184,11 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         boolean changed = switch (id) {
             case BUTTON_ROTATE_LEFT -> rotate(false);
             case BUTTON_ROTATE_RIGHT -> rotate(true);
+            case BUTTON_CONFIG_PRIMARY_PREVIOUS -> adjustPrimary(-1);
+            case BUTTON_CONFIG_PRIMARY_NEXT -> adjustPrimary(1);
+            case BUTTON_CONFIG_SECONDARY_PREVIOUS -> adjustSecondary(-1);
+            case BUTTON_CONFIG_SECONDARY_NEXT -> adjustSecondary(1);
+            case BUTTON_CONFIG_RESET -> resetConfigurableHistory();
             default -> false;
         };
         if (changed) {
@@ -157,6 +196,30 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             broadcastChanges();
         }
         return changed;
+    }
+
+    private boolean adjustPrimary(int delta) {
+        Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof AbstractLapisTransducerBlock transducer) {
+            return transducer.adjustProfile(level, blockPos, delta);
+        }
+        if (block instanceof MolecularCloudReceiverBlock receiver) {
+            return receiver.adjustSensitivity(level, blockPos, delta);
+        }
+        return false;
+    }
+
+    private boolean adjustSecondary(int delta) {
+        Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof LapisPrecisionRangeSensorBlock range) {
+            return range.adjustRange(level, blockPos, delta);
+        }
+        return false;
+    }
+
+    private boolean resetConfigurableHistory() {
+        Block block = level.getBlockState(blockPos).getBlock();
+        return block instanceof MolecularCloudReceiverBlock receiver && receiver.resetHistory(level, blockPos);
     }
 
     private boolean rotate(boolean clockwise) {
@@ -188,6 +251,9 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     public int facingOrdinal() { return facing.get(); }
     public int routeKind() { return routeKind.get(); }
+    public int configKind() { return configKind.get(); }
+    public int configPrimary() { return configPrimary.get(); }
+    public int configSecondary() { return configSecondary.get(); }
     public int declaredPortMask() { return declaredPortMask.get(); }
     public boolean hasPort(Direction side) { return (declaredPortMask.get() & (1 << side.ordinal())) != 0; }
     public boolean isInput(Direction side) { return (inputMask.get() & (1 << side.ordinal())) != 0; }
