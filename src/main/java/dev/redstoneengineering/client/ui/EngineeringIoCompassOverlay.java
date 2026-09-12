@@ -1,6 +1,7 @@
 package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.ui.menu.EngineeringDeviceMenu;
+import dev.redstoneengineering.ui.menu.FieldDeviceMenu;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -13,8 +14,8 @@ import net.neoforged.neoforge.client.event.ScreenEvent;
  * Read-only companion visualization for EngineeringScreen instances.
  *
  * <p>The overlay consumes only synchronized EngineeringDeviceMenu state. It never samples the world,
- * solves topology, mutates block state, or invents ports. Its purpose is to make physical I/O shape
- * legible at a glance without consuming the main device panel.</p>
+ * solves topology, mutates block state, or invents ports. Its purpose is to make physical I/O shape,
+ * transport medium, and declared-vs-linked state legible at a glance without consuming the main panel.</p>
  */
 public final class EngineeringIoCompassOverlay {
     private static final int PANEL = 0xEE0B1015;
@@ -25,6 +26,7 @@ public final class EngineeringIoCompassOverlay {
     private static final int RX = 0xFF9EC8FF;
     private static final int TX = 0xFF68D391;
     private static final int WARN = 0xFFF6C453;
+    private static final int BAD = 0xFFF06A6A;
 
     private EngineeringIoCompassOverlay() {
     }
@@ -35,8 +37,8 @@ public final class EngineeringIoCompassOverlay {
         if (!(engineeringScreen instanceof AbstractContainerScreen<?> containerScreen)) return;
         if (!(containerScreen.getMenu() instanceof EngineeringDeviceMenu menu)) return;
 
-        int panelWidth = 104;
-        int panelHeight = 142;
+        int panelWidth = 112;
+        int panelHeight = 176;
         int gap = 6;
         int rightX = containerScreen.getGuiLeft() + containerScreen.getXSize() + gap;
         int x = rightX + panelWidth <= screen.width - 4
@@ -53,32 +55,38 @@ public final class EngineeringIoCompassOverlay {
         g.drawString(font, "I/O COMPASS", x + 9, y + 10, TEXT, false);
 
         String topology = topologyHint(menu);
-        g.drawString(font, topology, x + 7, y + 29, topologyColor(menu), false);
-        g.drawString(font, compactRole(menu.topologyRoleLabel()), x + 7, y + 40, MUTED, false);
+        g.drawString(font, fit(font, topology, panelWidth - 14), x + 7, y + 29, topologyColor(menu), false);
+        g.drawString(font, fit(font, compactRole(menu.topologyRoleLabel()), panelWidth - 14), x + 7, y + 40, MUTED, false);
 
-        drawCompass(g, font, x + 8, y + 54, "RX", menu.receivePortMask(), RX);
-        drawCompass(g, font, x + 56, y + 54, "TX", menu.transmitPortMask(), TX);
+        String rxMedium = mediumLabel(menu, true);
+        String txMedium = mediumLabel(menu, false);
+        drawCompass(g, font, x + 8, y + 56, "RX", menu.receivePortMask(), menu.connectionMask(), RX, isFreeSpace(rxMedium));
+        drawCompass(g, font, x + 60, y + 56, "TX", menu.transmitPortMask(), menu.connectionMask(), TX, isFreeSpace(txMedium));
 
-        g.fill(x + 7, y + 113, x + panelWidth - 7, y + 114, BORDER);
-        g.drawString(font, "EVIDENCE", x + 7, y + 119, MUTED, false);
-        String evidence = fit(font, menu.evidenceStateLabel(), 48);
-        g.drawString(font, evidence, x + panelWidth - 7 - font.width(evidence), y + 119,
+        drawMediumRow(g, font, x + 7, y + 119, "RX", rxMedium, menu.receivePortMask(), menu.connectionMask());
+        drawMediumRow(g, font, x + 7, y + 131, "TX", txMedium, menu.transmitPortMask(), menu.connectionMask());
+
+        g.fill(x + 7, y + 145, x + panelWidth - 7, y + 146, BORDER);
+        g.drawString(font, "EVIDENCE", x + 7, y + 151, MUTED, false);
+        String evidence = fit(font, menu.evidenceStateLabel(), 50);
+        g.drawString(font, evidence, x + panelWidth - 7 - font.width(evidence), y + 151,
                 evidenceColor(menu), false);
-        g.drawString(font, "HEALTH", x + 7, y + 130, MUTED, false);
-        String health = fit(font, menu.operationalHealthLabel(), 52);
-        g.drawString(font, health, x + panelWidth - 7 - font.width(health), y + 130,
+        g.drawString(font, "HEALTH", x + 7, y + 162, MUTED, false);
+        String health = fit(font, menu.operationalHealthLabel(), 54);
+        g.drawString(font, health, x + panelWidth - 7 - font.width(health), y + 162,
                 healthColor(menu), false);
     }
 
     private static void drawCompass(GuiGraphics g, Font font, int x, int y,
-                                    String heading, int mask, int activeColor) {
+                                    String heading, int declaredMask, int linkedMask,
+                                    int activeColor, boolean propagationInterface) {
         g.drawString(font, heading, x + 12, y, activeColor, false);
-        faceCell(g, font, x + 14, y + 12, Direction.NORTH, "N", mask, activeColor);
-        faceCell(g, font, x + 14, y + 36, Direction.SOUTH, "S", mask, activeColor);
-        faceCell(g, font, x + 2, y + 24, Direction.WEST, "W", mask, activeColor);
-        faceCell(g, font, x + 26, y + 24, Direction.EAST, "E", mask, activeColor);
-        faceCell(g, font, x + 2, y + 48, Direction.UP, "U", mask, activeColor);
-        faceCell(g, font, x + 26, y + 48, Direction.DOWN, "D", mask, activeColor);
+        faceCell(g, font, x + 14, y + 12, Direction.NORTH, "N", declaredMask, linkedMask, activeColor, propagationInterface);
+        faceCell(g, font, x + 14, y + 36, Direction.SOUTH, "S", declaredMask, linkedMask, activeColor, propagationInterface);
+        faceCell(g, font, x + 2, y + 24, Direction.WEST, "W", declaredMask, linkedMask, activeColor, propagationInterface);
+        faceCell(g, font, x + 26, y + 24, Direction.EAST, "E", declaredMask, linkedMask, activeColor, propagationInterface);
+        faceCell(g, font, x + 2, y + 48, Direction.UP, "U", declaredMask, linkedMask, activeColor, propagationInterface);
+        faceCell(g, font, x + 26, y + 48, Direction.DOWN, "D", declaredMask, linkedMask, activeColor, propagationInterface);
 
         int cx = x + 18;
         int cy = y + 28;
@@ -86,13 +94,72 @@ public final class EngineeringIoCompassOverlay {
         g.fill(cx + 3, cy + 3, cx + 5, cy + 5, activeColor);
     }
 
+    /**
+     * Declared wired/fiber faces use two intensity levels: bright = linked, dim = declared/open.
+     * RF/LOS interfaces are propagation boundaries rather than adjacent-block links, so a declared
+     * face remains bright instead of being falsely classified OPEN by the physical connection mask.
+     */
     private static void faceCell(GuiGraphics g, Font font, int x, int y,
-                                 Direction direction, String label, int mask, int activeColor) {
-        boolean active = (mask & (1 << direction.ordinal())) != 0;
-        int color = active ? activeColor : BORDER;
+                                 Direction direction, String label, int declaredMask, int linkedMask,
+                                 int activeColor, boolean propagationInterface) {
+        int bit = 1 << direction.ordinal();
+        boolean declared = (declaredMask & bit) != 0;
+        boolean linked = (linkedMask & bit) != 0;
+        int color = !declared ? BORDER
+                : propagationInterface || linked ? activeColor : MUTED;
         g.fill(x, y, x + 10, y + 10, PANEL_2);
-        g.fill(x, y + 9, x + 10, y + 10, color);
+        g.fill(x, y + 8, x + 10, y + 10, color);
+        if (declared && linked && !propagationInterface) {
+            g.fill(x + 1, y + 1, x + 3, y + 3, TX);
+        }
         g.drawString(font, label, x + 2, y + 1, color, false);
+    }
+
+    private static void drawMediumRow(GuiGraphics g, Font font, int x, int y,
+                                      String endpoint, String medium, int declaredMask, int linkedMask) {
+        g.drawString(font, endpoint, x, y, MUTED, false);
+        String mediumText = medium.isEmpty() ? "DOMAIN" : medium;
+        int mediumColor = isFreeSpace(mediumText) ? RX : TEXT;
+        g.drawString(font, mediumText, x + 18, y, mediumColor, false);
+
+        String state = interfaceState(mediumText, declaredMask, linkedMask);
+        int stateColor = switch (state) {
+            case "LINKED", "AIR PATH", "LOS PATH" -> TX;
+            case "OPEN" -> WARN;
+            case "NONE" -> MUTED;
+            default -> TEXT;
+        };
+        g.drawString(font, state, x + 58, y, stateColor, false);
+    }
+
+    private static String interfaceState(String medium, int declaredMask, int linkedMask) {
+        if (declaredMask == 0) return "NONE";
+        if ("RF".equals(medium)) return "AIR PATH";
+        if ("LOS".equals(medium)) return "LOS PATH";
+        return (declaredMask & linkedMask) != 0 ? "LINKED" : "OPEN";
+    }
+
+    private static String mediumLabel(EngineeringDeviceMenu menu, boolean receiving) {
+        if (!(menu instanceof FieldDeviceMenu fieldMenu)) return "";
+        return switch (fieldMenu.kind()) {
+            case FieldDeviceMenu.KIND_RADIO_TRANSMITTER -> receiving ? "WIRE" : "RF";
+            case FieldDeviceMenu.KIND_RADIO_RECEIVER -> receiving ? "RF" : "WIRE";
+            case FieldDeviceMenu.KIND_FREE_OPTICAL_TRANSMITTER -> receiving ? "WIRE" : "LOS";
+            case FieldDeviceMenu.KIND_FREE_OPTICAL_RECEIVER -> receiving ? "LOS" : "WIRE";
+            case FieldDeviceMenu.KIND_OPTICAL_FIBER,
+                 FieldDeviceMenu.KIND_OPTICAL_EMITTER,
+                 FieldDeviceMenu.KIND_OPTICAL_RECEIVER,
+                 FieldDeviceMenu.KIND_OPTICAL_POWER_METER,
+                 FieldDeviceMenu.KIND_OPTICAL_SPLITTER,
+                 FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER,
+                 FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR,
+                 FieldDeviceMenu.KIND_OPTICAL_FIBER_JUNCTION -> "FIBER";
+            default -> "WIRE";
+        };
+    }
+
+    private static boolean isFreeSpace(String medium) {
+        return "RF".equals(medium) || "LOS".equals(medium);
     }
 
     private static String topologyHint(EngineeringDeviceMenu menu) {
@@ -123,14 +190,14 @@ public final class EngineeringIoCompassOverlay {
                     EngineeringDeviceMenu.EVIDENCE_STALE -> WARN;
             case EngineeringDeviceMenu.EVIDENCE_FAULT,
                     EngineeringDeviceMenu.EVIDENCE_DOMAIN_MISMATCH,
-                    EngineeringDeviceMenu.EVIDENCE_TOPOLOGY_ERROR -> 0xFFF06A6A;
+                    EngineeringDeviceMenu.EVIDENCE_TOPOLOGY_ERROR -> BAD;
             default -> MUTED;
         };
     }
 
     private static int healthColor(EngineeringDeviceMenu menu) {
         return switch (menu.operationalHealth()) {
-            case EngineeringDeviceMenu.HEALTH_FAULT -> 0xFFF06A6A;
+            case EngineeringDeviceMenu.HEALTH_FAULT -> BAD;
             case EngineeringDeviceMenu.HEALTH_DEGRADED,
                     EngineeringDeviceMenu.HEALTH_PROTECTIVE -> WARN;
             case EngineeringDeviceMenu.HEALTH_ACTIVE -> RX;
