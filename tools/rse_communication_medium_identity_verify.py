@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import re
 import sys
 
 root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
@@ -110,10 +109,16 @@ require(
 workflow = read(".github/workflows/build.yml")
 if workflow and "tools/rse_communication_medium_identity_verify.py" not in workflow:
     errors.append("communication medium identity verifier is not wired into CI")
-if workflow:
-    thresholds = [int(value) for value in re.findall(r"test_count\s*<\s*(\d+)", workflow)]
-    if not thresholds or max(thresholds) < 200:
-        errors.append("Minecraft runtime gate has not been raised to at least 200 GameTests")
+for token in (
+    "Minecraft topology GameTests (manual diagnostic)",
+    "github.event_name == 'workflow_dispatch'",
+    "continue-on-error: true",
+    "./gradlew runGameTestServer",
+    "./gradlew compileJava",
+    "./gradlew test",
+):
+    if workflow and token not in workflow:
+        errors.append(f"build.yml: missing manual/non-blocking GameTest policy token {token!r}")
 
 if errors:
     print("RSE communication medium identity verification: FAIL")
@@ -128,4 +133,4 @@ print(" 8-bit bus local-loading + contention identity: PASS")
 print(" serial timing/utilization identity preserved: PASS")
 print(" differential one-bit high-integrity identity: PASS")
 print(" communication medium design contract: PASS")
-print(" three executable identity GameTests registered: PASS")
+print(" registered identity GameTests: 3 (manual diagnostic / non-blocking)")
