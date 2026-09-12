@@ -90,6 +90,24 @@ require("src/main/java/dev/redstoneengineering/block/RangeSensorBlock.java",
 require("src/main/java/dev/redstoneengineering/ui/menu/RangeSensorMenu.java",
         "RangeSensorBlock.rotateSensingAxis(level, blockPos, id == BUTTON_ROTATE_RIGHT)")
 
+# Free-space optical channel selection belongs in Configure while physical orientation belongs on Route.
+# Shift-right-click remains a legacy shortcut, but the Engineering UI must expose the same capability.
+require("src/main/java/dev/redstoneengineering/ui/FieldDeviceUi.java",
+        "FreeSpaceOpticalTransmitterBlock", "FreeSpaceOpticalReceiverBlock", "new OpticalSystemMenu")
+require("src/main/java/dev/redstoneengineering/ui/menu/OpticalSystemMenu.java",
+        "KIND_FREE_SPACE_TX", "KIND_FREE_SPACE_RX",
+        "FreeSpaceOpticalTransmitterBlock.CHANNEL", "FreeSpaceOpticalReceiverBlock.CHANNEL",
+        "BUTTON_SECONDARY_PREVIOUS", "BUTTON_SECONDARY_NEXT",
+        "DirectionalSignalBlock.rotateSeriesAxis(level, blockPos, id == BUTTON_ROTATE_RIGHT)",
+        "kind.get() == KIND_FREE_SPACE_TX", "kind.get() == KIND_FREE_SPACE_RX")
+require("src/main/java/dev/redstoneengineering/client/ui/OpticalSystemScreen.java",
+        "KIND_FREE_SPACE_TX", "KIND_FREE_SPACE_RX",
+        '"CHANNEL " + menu.secondary()',
+        '"Direction and physical interface orientation are controlled only on Route."')
+optical_screen = read("src/main/java/dev/redstoneengineering/client/ui/OpticalSystemScreen.java")
+if "directionCycle" in optical_screen:
+    errors.append("OpticalSystemScreen duplicates Route orientation controls on Configure")
+
 for name in (
     "EnhancedFieldDeviceScreen.java", "SignalConditionerScreen.java", "PidControllerScreen.java",
     "OscilloscopeScreen.java", "LogicAnalyzerScreen.java", "SignalAnalyzerScreen.java",
@@ -172,6 +190,7 @@ print(" pneumatic regulator route authority: PASS")
 print(" range sensor old/new output invalidation on rotation: PASS")
 print(" signal probe six-face measurement-axis rotation: PASS")
 print(" cable terminal physical-interface rotation: PASS")
+print(" free-space optical Configure/Route responsibility split: PASS")
 print(" fixed Operations Monitor port contract preserved: PASS")
 print(" full-height page workspace / no duplicate route schematic: PASS")
 print(" narrow-screen I/O Compass fail-safe: PASS")
