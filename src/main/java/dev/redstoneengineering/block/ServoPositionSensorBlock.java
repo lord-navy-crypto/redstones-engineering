@@ -45,9 +45,9 @@ public class ServoPositionSensorBlock extends PassiveDirectionalSignalBlock {
         );
     }
 
-    /** Mechanical source quality includes chunk coverage, device identity and FRONT-to-BACK alignment. */
+    /** Mechanical source quality follows the configured RX face, not an assumed TX-opposite face. */
     public static PortQuality sourceQuality(Level level, BlockPos pos, BlockState sensorState) {
-        Direction sensorInput = sensorState.getValue(FACING).getOpposite();
+        Direction sensorInput = seriesInputSide(sensorState);
         BlockPos servoPos = pos.relative(sensorInput);
         if (!level.hasChunkAt(servoPos)) return PortQuality.STALE;
         BlockState servoState = level.getBlockState(servoPos);
@@ -74,7 +74,7 @@ public class ServoPositionSensorBlock extends PassiveDirectionalSignalBlock {
                 port.get(), state.getValue(OUTPUT), outputQuality));
     }
 
-    /** BACK is a mechanical-position interface, so vanilla redstone may connect only to FRONT output. */
+    /** Mechanical RX is not vanilla redstone; only the configured TX exposes vanilla redstone. */
     @Override
     public boolean canConnectRedstone(BlockState state, BlockGetter level, BlockPos pos, @Nullable Direction direction) {
         return direction != null && direction.getOpposite() == outputSide(state);

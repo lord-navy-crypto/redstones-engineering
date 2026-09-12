@@ -117,14 +117,20 @@ for rel in (
         "newOutput == input",
     )
 
-# Alpha 1.0.17 originally covered only the two series bases. The modern route contract keeps those
-# guarantees and also exposes every real standalone directional endpoint used by the field HMI.
+# Modern FieldDevice fallback keeps generic physical-axis rotation while exposing endpoint-specific
+# RX/TX actions for declared directional devices. Transmission media remain topology-driven.
 require(
     "src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java",
-    "BUTTON_ROTATE_CCW",
-    "BUTTON_ROTATE_CW",
-    "DirectionalSignalBlock.rotateSeriesAxis(level, blockPos, clockwise)",
-    "DirectionalDomainBlock.rotateSeriesAxis(level, blockPos, clockwise)",
+    "BUTTON_ROTATE_CCW", "BUTTON_ROTATE_CW",
+    "BUTTON_INPUT_PREVIOUS", "BUTTON_INPUT_NEXT",
+    "BUTTON_OUTPUT_PREVIOUS", "BUTTON_OUTPUT_NEXT",
+    "rotateEndpoint(block, input, clockwise)",
+    "DirectionalSignalBlock.rotateWholeRoute(level, blockPos, clockwise)",
+    "DirectionalDomainBlock.rotateWholeRoute(level, blockPos, clockwise)",
+    "DirectionalSignalBlock.rotateSeriesInput(level, blockPos, clockwise)",
+    "DirectionalSignalBlock.rotateSeriesOutput(level, blockPos, clockwise)",
+    "DirectionalDomainBlock.rotateSeriesInput(level, blockPos, clockwise)",
+    "DirectionalDomainBlock.rotateSeriesOutput(level, blockPos, clockwise)",
     "block instanceof DirectionalRedstoneEndpointBlock",
     "block instanceof SignalProbeBlock",
     "block instanceof RedstoneCableTerminalBlock",
@@ -148,8 +154,6 @@ require(
 )
 require(
     "src/main/java/dev/redstoneengineering/client/ui/FieldDeviceScreen.java",
-    "↺ Rotate I/O",
-    "Rotate I/O ↻",
     "menu.seriesConfigurable()",
 )
 require(
@@ -162,6 +166,8 @@ require(
     "SignalProbeBlock.rotateMeasurementAxis(level, blockPos, clockwise)",
     "RedstoneCableTerminalBlock.rotateInterface(level, blockPos, clockwise)",
     "return seriesRotatable.get() != 0",
+    "hasInputEndpoint()", "hasOutputEndpoint()",
+    "routeKind(block) == ROUTE_MULTI_PORT_LAYOUT",
 )
 forbid(
     "src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
@@ -277,8 +283,8 @@ require(
     "ports.size() == 2 ? TOPOLOGY_PASSIVE_SERIES : TOPOLOGY_PASSIVE",
 )
 
-# Modern safe HMI contract: topology remains visible, dense six-face visualization belongs to
-# Ports/Route, and direction control gets a dedicated Route page instead of crowding Configure.
+# Modern safe HMI contract: compact direct endpoint controls live on Route; generic physical
+# interfaces retain a simple Direction control instead of pretending to be RX/TX pairs.
 require(
     "src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java",
     "ROLE • ",
@@ -290,11 +296,20 @@ require(
     "ROUTE_CONTROL_Y = 196",
     "routePage",
     'Component.literal("Route")',
-    'Component.literal("↺ Previous")',
-    'Component.literal("Next ↻")',
+    'Component.literal("Direction ▲")',
+    'Component.literal("Direction ▼")',
+    'Component.literal("RX ▲")',
+    'Component.literal("RX ▼")',
+    'Component.literal("TX ▲")',
+    'Component.literal("TX ▼")',
     "routeActionId(boolean clockwise)",
+    "routeInputActionId(boolean clockwise)",
+    "routeOutputActionId(boolean clockwise)",
+    "hasRouteInputEndpoint()", "hasRouteOutputEndpoint()",
     "FieldDeviceMenu.BUTTON_ROTATE_CCW",
     "FieldDeviceMenu.BUTTON_ROTATE_CW",
+    "FieldDeviceMenu.BUTTON_INPUT_PREVIOUS", "FieldDeviceMenu.BUTTON_INPUT_NEXT",
+    "FieldDeviceMenu.BUTTON_OUTPUT_PREVIOUS", "FieldDeviceMenu.BUTTON_OUTPUT_NEXT",
     "normalizeLegacyPresentation",
     '"PNEUMATIC • " + menu.portRouteLabel()',
     'new PresentationLine("DOWN", "REDSTONE PAYLOAD INPUT")',
@@ -360,9 +375,9 @@ if failed:
 print("RSE Alpha 1.0.17 engineering UX verification: PASS")
 print(" all-face Engineering Port projection: PASS")
 print(" Jade topology summary + face diagnostics: PASS")
-print(" configurable one-input/one-output route contract: PASS")
-print(" bidirectional Route HMI with real endpoint/measurement rotation: PASS")
-print(" universal fallback route authority parity: PASS")
+print(" configurable RX/TX route contract: PASS")
+print(" compact endpoint-driven Route HMI: PASS")
+print(" universal and legacy fallback route authority parity: PASS")
 print(" serial-first / explicit-branch topology policy: PASS")
 print(" controlled-series / controlled-source role projection: PASS")
 print(" passive-series / passive-bus role projection: PASS")

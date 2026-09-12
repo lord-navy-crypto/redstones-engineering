@@ -10,7 +10,6 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.DataSlot;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -26,6 +25,10 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_PARAMETER_NEXT = 1;
     public static final int BUTTON_ROTATE_LEFT = 2;
     public static final int BUTTON_ROTATE_RIGHT = 3;
+    public static final int BUTTON_INPUT_LEFT = 4;
+    public static final int BUTTON_INPUT_RIGHT = 5;
+    public static final int BUTTON_OUTPUT_LEFT = 6;
+    public static final int BUTTON_OUTPUT_RIGHT = 7;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot primary = trackedInt();
@@ -36,6 +39,8 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
     private final DataSlot extraB = trackedInt();
     private final DataSlot extraC = trackedInt();
     private final DataSlot facing = trackedInt();
+    private final DataSlot inputFacing = trackedInt();
+    private final DataSlot outputFacing = trackedInt();
     private final DataSlot quality = trackedInt();
 
     public ReliabilitySystemMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
@@ -54,18 +59,20 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
         Block block = state.getBlock();
         primary.set(0); secondary.set(0); tertiary.set(0); auxiliary.set(0);
         extraA.set(0); extraB.set(0); extraC.set(0); facing.set(-1);
+        inputFacing.set(-1); outputFacing.set(-1);
         quality.set(PortQuality.NO_SIGNAL.ordinal());
 
         if (block instanceof WatchdogBlock watchdog) {
             kind.set(KIND_WATCHDOG);
-            Direction out = state.getValue(DirectionalSignalBlock.FACING);
-            facing.set(out.ordinal());
+            Direction in = DirectionalSignalBlock.seriesInputSide(state);
+            Direction out = DirectionalSignalBlock.seriesOutputSide(state);
+            captureSignalEndpoints(in, out);
             primary.set(WatchdogBlock.ageTicks(level, blockPos));
             secondary.set(WatchdogBlock.timeoutTicks(state.getValue(WatchdogBlock.TIMEOUT)));
             tertiary.set(WatchdogBlock.timeoutCount(level, blockPos));
             auxiliary.set(WatchdogBlock.transitionCount(level, blockPos));
             extraA.set(state.getValue(DirectionalSignalBlock.OUTPUT));
-            quality.set(snapshotQuality(watchdog, state, out.getOpposite()).ordinal());
+            quality.set(snapshotQuality(watchdog, state, in).ordinal());
         } else if (block instanceof ServoActuatorBlock servo) {
             kind.set(KIND_SERVO);
             Direction front = state.getValue(ServoActuatorBlock.FACING);
@@ -80,17 +87,19 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
             quality.set(snapshotQuality(servo, state, front.getOpposite()).ordinal());
         } else if (block instanceof ServoPositionSensorBlock sensor) {
             kind.set(KIND_POSITION_SENSOR);
-            Direction out = state.getValue(DirectionalSignalBlock.FACING);
-            facing.set(out.ordinal());
-            primary.set(snapshotValue(sensor, state, out.getOpposite()));
+            Direction in = DirectionalSignalBlock.seriesInputSide(state);
+            Direction out = DirectionalSignalBlock.seriesOutputSide(state);
+            captureSignalEndpoints(in, out);
+            primary.set(snapshotValue(sensor, state, in));
             secondary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             tertiary.set((int) Math.min(Integer.MAX_VALUE, ServoPositionSensorBlock.measurement(level, blockPos).sampleCount()));
             PortQuality source = ServoPositionSensorBlock.sourceQuality(level, blockPos, state);
             quality.set(source.ordinal());
         } else if (block instanceof RedundantVoterBlock voter) {
             kind.set(KIND_VOTER);
-            Direction out = state.getValue(DirectionalSignalBlock.FACING);
-            facing.set(out.ordinal());
+            Direction in = DirectionalSignalBlock.seriesInputSide(state);
+            Direction out = DirectionalSignalBlock.seriesOutputSide(state);
+            captureSignalEndpoints(in, out);
             RedundantVoterBlock.Vote vote = voter.vote(level, blockPos, state);
             primary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             secondary.set(vote.validInputs());
@@ -102,8 +111,9 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
             quality.set(vote.quality().ordinal());
         } else if (block instanceof FaultLatchBlock latch) {
             kind.set(KIND_FAULT_LATCH);
-            Direction out = state.getValue(DirectionalSignalBlock.FACING);
-            facing.set(out.ordinal());
+            Direction in = DirectionalSignalBlock.seriesInputSide(state);
+            Direction out = DirectionalSignalBlock.seriesOutputSide(state);
+            captureSignalEndpoints(in, out);
             primary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             secondary.set(FaultLatchBlock.thresholdValue(state.getValue(FaultLatchBlock.THRESHOLD)));
             tertiary.set(FaultLatchBlock.tripCount(level, blockPos));
@@ -112,6 +122,12 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
             extraB.set(FaultLatchBlock.resetActive(level, blockPos) ? 1 : 0);
             quality.set(snapshotQuality(latch, state, out).ordinal());
         } else kind.set(-1);
+    }
+
+    private void captureSignalEndpoints(Direction in, Direction out) {
+        inputFacing.set(in.ordinal());
+        outputFacing.set(out.ordinal());
+        facing.set(out.ordinal());
     }
 
     private int snapshotValue(EngineeringPortProvider provider, BlockState state, Direction side) {
@@ -132,10 +148,12 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
         Block block = state.getBlock();
         boolean changed = false;
 
-        if (id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT) {
+        if (id == BUTTON_INPUT_LEFT || id == BUTTON_INPUT_RIGHT || id == BUTTON_OUTPUT_LEFT || id == BUTTON_OUTPUT_RIGHT) {
+            changed = routeEndpoint(block, id);
+        } else if (id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT) {
             boolean clockwise = id == BUTTON_ROTATE_RIGHT;
             if (block instanceof DirectionalSignalBlock) {
-                changed = DirectionalSignalBlock.rotateSeriesAxis(level, blockPos, clockwise);
+                changed = DirectionalSignalBlock.rotateWholeRoute(level, blockPos, clockwise);
             } else if (block instanceof ServoActuatorBlock servo) {
                 Direction current = state.getValue(ServoActuatorBlock.FACING);
                 Direction next = clockwise ? current.getClockWise() : current.getCounterClockWise();
@@ -181,6 +199,62 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
         return changed;
     }
 
+    private boolean routeEndpoint(Block block, int id) {
+        boolean clockwise = id == BUTTON_INPUT_RIGHT || id == BUTTON_OUTPUT_RIGHT;
+        boolean input = id == BUTTON_INPUT_LEFT || id == BUTTON_INPUT_RIGHT;
+        if (block instanceof RedundantVoterBlock) {
+            // All four horizontal faces are occupied (3 RX + 1 TX), so keep the legal layout rigid.
+            return DirectionalSignalBlock.rotateWholeRoute(level, blockPos, clockwise);
+        }
+        if (block instanceof FaultLatchBlock) {
+            return routeFaultLatch(input, clockwise);
+        }
+        if (block instanceof WatchdogBlock || block instanceof ServoPositionSensorBlock) {
+            return input
+                    ? DirectionalSignalBlock.rotateSeriesInput(level, blockPos, clockwise)
+                    : DirectionalSignalBlock.rotateSeriesOutput(level, blockPos, clockwise);
+        }
+        return false;
+    }
+
+    /** Keeps FAULT IN, RESET(right of TX), and TX on distinct horizontal faces. */
+    private boolean routeFaultLatch(boolean inputEndpoint, boolean clockwise) {
+        BlockState state = level.getBlockState(blockPos);
+        if (!(state.getBlock() instanceof FaultLatchBlock latch)) return false;
+        Direction input = DirectionalSignalBlock.seriesInputSide(state);
+        Direction output = DirectionalSignalBlock.seriesOutputSide(state);
+        if (inputEndpoint) {
+            Direction reset = rightOf(output);
+            Direction next = rotateHorizontal(input, clockwise);
+            for (int i = 0; i < 4 && (next == output || next == reset); i++) next = rotateHorizontal(next, clockwise);
+            if (next == input || next == output || next == reset) return false;
+            level.setBlock(blockPos, state.setValue(DirectionalSignalBlock.INPUT_FACING, next), Block.UPDATE_CLIENTS);
+        } else {
+            Direction next = rotateHorizontal(output, clockwise);
+            for (int i = 0; i < 4 && (next == input || rightOf(next) == input); i++) next = rotateHorizontal(next, clockwise);
+            if (next == output || next == input || rightOf(next) == input) return false;
+            level.setBlock(blockPos, state.setValue(DirectionalSignalBlock.FACING, next), Block.UPDATE_CLIENTS);
+        }
+        level.updateNeighborsAt(blockPos, latch);
+        for (Direction side : Direction.Plane.HORIZONTAL) level.updateNeighborsAt(blockPos.relative(side), latch);
+        level.scheduleTick(blockPos, latch, 1);
+        return true;
+    }
+
+    private static Direction rotateHorizontal(Direction direction, boolean clockwise) {
+        return clockwise ? direction.getClockWise() : direction.getCounterClockWise();
+    }
+
+    private static Direction rightOf(Direction facing) {
+        return switch (facing) {
+            case NORTH -> Direction.EAST;
+            case EAST -> Direction.SOUTH;
+            case SOUTH -> Direction.WEST;
+            case WEST -> Direction.NORTH;
+            default -> Direction.EAST;
+        };
+    }
+
     public int kind() { return kind.get(); }
     public int primary() { return primary.get(); }
     public int secondary() { return secondary.get(); }
@@ -196,5 +270,13 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
     public Direction facing() {
         int ordinal = facing.get(); Direction[] all = Direction.values();
         return ordinal < 0 || ordinal >= all.length ? Direction.NORTH : all[ordinal];
+    }
+    public boolean hasInputEndpoint() {
+        return (kind.get() == KIND_WATCHDOG || kind.get() == KIND_POSITION_SENSOR
+                || kind.get() == KIND_VOTER || kind.get() == KIND_FAULT_LATCH) && inputFacing.get() >= 0;
+    }
+    public boolean hasOutputEndpoint() {
+        return (kind.get() == KIND_WATCHDOG || kind.get() == KIND_POSITION_SENSOR
+                || kind.get() == KIND_VOTER || kind.get() == KIND_FAULT_LATCH) && outputFacing.get() >= 0;
     }
 }

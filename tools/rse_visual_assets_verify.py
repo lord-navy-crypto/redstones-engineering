@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """RSE visual resource integrity audit.
 
-Checks semantic RSE texture references, inherited/explicit particle sprites, and
-GeckoLib mechatronics texture dispatch without changing simulation behavior.
+Checks semantic RSE texture references, inherited/explicit particle sprites,
+GeckoLib mechatronics texture dispatch, and visible orientation for directional
+field devices without changing simulation behavior.
 """
 from __future__ import annotations
 
@@ -13,6 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "src/main/resources/assets/redstoneengineering"
+BLOCKSTATES = ASSETS / "blockstates"
 BLOCK_MODELS = ASSETS / "models/block"
 BLOCK_TEXTURES = ASSETS / "textures/block"
 GEO_MODELS = ASSETS / "geo/block"
@@ -26,6 +28,17 @@ MACHINES = (
     "servo_actuator",
     "pneumatic_cylinder",
     "pneumatic_proportional_valve",
+)
+# These devices expose a real horizontal FACING contract in world logic. Their
+# blockstate must rotate the visible model with that same physical FRONT so a
+# Route change is observable in-world rather than existing only in the HMI.
+ROUTABLE_VISUALS = (
+    "alarm_processor",
+    "sample_hold",
+    "calibration_module",
+    "pwm_controller",
+    "fault_injector",
+    "quartz_triggered_lapis_sampler",
 )
 RESOURCE_NAME = re.compile(r"^[a-z0-9_./-]+$")
 
@@ -57,10 +70,48 @@ def walk_strings(value):
         yield value
 
 
+def verify_horizontal_facing_blockstate(name: str, errors: list[str]) -> None:
+    path = BLOCKSTATES / f"{name}.json"
+    if not path.is_file():
+        errors.append(f"{path.relative_to(ROOT)}: routable device blockstate is missing")
+        return
+    data = load_json(path, errors)
+    if data is None:
+        return
+    multipart = data.get("multipart")
+    if not isinstance(multipart, list):
+        errors.append(f"{path.relative_to(ROOT)}: routable device must declare facing-aware multipart entries")
+        return
+
+    expected_y = {"north": 0, "east": 90, "south": 180, "west": 270}
+    seen: dict[str, int] = {}
+    for part in multipart:
+        if not isinstance(part, dict):
+            continue
+        when = part.get("when")
+        apply = part.get("apply")
+        if not isinstance(when, dict) or not isinstance(apply, dict):
+            continue
+        facing = when.get("facing")
+        if facing not in expected_y:
+            continue
+        rotation = apply.get("y", 0)
+        if isinstance(rotation, int):
+            seen[facing] = rotation % 360
+
+    for facing, rotation in expected_y.items():
+        if facing not in seen:
+            errors.append(f"{path.relative_to(ROOT)}: missing visible facing={facing} variant")
+        elif seen[facing] != rotation:
+            errors.append(
+                f"{path.relative_to(ROOT)}: facing={facing} must rotate model y={rotation}, got y={seen[facing]}"
+            )
+
+
 def main() -> int:
     errors: list[str] = []
 
-    if not BLOCK_MODELS.is_dir() or not BLOCK_TEXTURES.is_dir():
+    if not BLOCK_MODELS.is_dir() or not BLOCK_TEXTURES.is_dir() or not BLOCKSTATES.is_dir():
         print("RSE visual audit: required asset directories are missing", file=sys.stderr)
         return 2
 
@@ -97,6 +148,9 @@ def main() -> int:
                     f"({textures['all']!r}), got {particle!r}"
                 )
 
+    for name in ROUTABLE_VISUALS:
+        verify_horizontal_facing_blockstate(name, errors)
+
     # GeckoLib geometry files are geometry-only; texture selection lives in the
     # Java GeoModel. Validate both sides instead of requiring a texture field in
     # .geo.json files.
@@ -131,7 +185,7 @@ def main() -> int:
             print(f" - {error}", file=sys.stderr)
         return 1
 
-    print("RSE visual asset audit passed: semantic textures, inherited/explicit particles, and GeckoLib resources are consistent.")
+    print("RSE visual asset audit passed: semantic textures, routable blockstate orientation, inherited/explicit particles, and GeckoLib resources are consistent.")
     return 0
 
 
