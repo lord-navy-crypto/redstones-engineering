@@ -10,7 +10,6 @@ import net.minecraft.world.entity.player.Inventory;
 public final class SignalProcessorScreen extends EngineeringScreen<SignalProcessorMenu> {
     private Button parameterPrevious;
     private Button parameterNext;
-    private Button directionCycle;
 
     public SignalProcessorScreen(SignalProcessorMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -25,9 +24,6 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         parameterNext = addConfigureWidget(Button.builder(Component.literal("Parameter ▶"),
                 b -> sendMenuButton(SignalProcessorMenu.BUTTON_PARAMETER_NEXT))
                 .bounds(leftPos + 194, y, 110, 20).build());
-        directionCycle = addConfigureWidget(Button.builder(Component.literal("Direction • —"),
-                b -> sendMenuButton(SignalProcessorMenu.BUTTON_ROTATE_RIGHT))
-                .bounds(leftPos + 70, y + 30, 180, 20).build());
     }
 
     @Override
@@ -36,12 +32,6 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         String parameter = parameterName() + " " + parameterValue();
         parameterPrevious.setMessage(Component.literal(fitForWidth("◀ " + parameter, 94)));
         parameterNext.setMessage(Component.literal(fitForWidth(parameter + " ▶", 94)));
-        if (directionCycle != null) {
-            directionCycle.setMessage(Component.literal(fitForWidth(
-                    "Direction • " + menu.outputDirection().getName().toUpperCase(), 164)));
-            directionCycle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
-                    "Cycle the complete input/process/output axis clockwise on the server.")));
-        }
     }
 
     @Override
@@ -80,6 +70,7 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         labelValue(g, parameterName(), parameterValue(), 101);
         labelValue(g, "Input face", menu.inputDirection().getName().toUpperCase(), 171);
         labelValue(g, "Output face", menu.outputDirection().getName().toUpperCase(), 187);
+        safeText(g, "Physical direction is controlled only on Route.", 16, 207, MUTED);
     }
 
     private void diagnostics(GuiGraphics g) {
