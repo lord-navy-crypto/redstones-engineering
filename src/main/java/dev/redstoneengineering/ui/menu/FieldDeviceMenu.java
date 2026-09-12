@@ -3,6 +3,7 @@ package dev.redstoneengineering.ui.menu;
 import dev.redstoneengineering.block.*;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.PortCompatibility;
+import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.instrument.InstrumentShieldingAudit;
 import dev.redstoneengineering.physics.DataBusNetwork;
@@ -117,6 +118,10 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_PRESET_15 = 6;
     public static final int BUTTON_ROTATE_CCW = 7;
     public static final int BUTTON_ROTATE_CW = 8;
+    public static final int BUTTON_INPUT_PREVIOUS = 9;
+    public static final int BUTTON_INPUT_NEXT = 10;
+    public static final int BUTTON_OUTPUT_PREVIOUS = 11;
+    public static final int BUTTON_OUTPUT_NEXT = 12;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot primary = trackedInt();
@@ -131,6 +136,8 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
     private final DataSlot quality = trackedInt();
     private final DataSlot driverCount = trackedInt();
     private final DataSlot seriesConfigurable = trackedInt();
+    private final DataSlot inputEndpoint = trackedInt();
+    private final DataSlot outputEndpoint = trackedInt();
 
     public FieldDeviceMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -162,6 +169,14 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
                 || block instanceof DirectionalRedstoneEndpointBlock
                 || block instanceof SignalProbeBlock
                 || block instanceof RedstoneCableTerminalBlock ? 1 : 0);
+        inputEndpoint.set(0);
+        outputEndpoint.set(0);
+        if (endpointRoutable(block) && block instanceof EngineeringPortProvider provider) {
+            for (var port : provider.engineeringPorts(state)) {
+                if (port.direction() == PortDirection.INPUT || port.direction() == PortDirection.BIDIRECTIONAL) inputEndpoint.set(1);
+                if (port.direction() == PortDirection.OUTPUT || port.direction() == PortDirection.BIDIRECTIONAL) outputEndpoint.set(1);
+            }
+        }
         portCount.set(block instanceof EngineeringPortProvider provider ? provider.engineeringPorts(state).size() : 0);
 
         if (block instanceof AirCompressorBlock compressor) {
@@ -184,7 +199,7 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             tertiary.set(state.getValue(PressureRegulatorBlock.SETPOINT));
             fillCompatibleTopology(state, regulator);
         } else if (block instanceof PneumaticReceiverBlock receiver) {
-            Direction output = state.getValue(DirectionalSignalBlock.FACING);
+            Direction output = DirectionalSignalBlock.seriesOutputSide(state);
             PneumaticObservationSupport.Observation observation = PneumaticObservationSupport.observe(level, blockPos);
             primary.set(observation.pressure());
             secondary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
@@ -192,15 +207,15 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             facing.set(output.ordinal());
             fillCompatibleTopology(state, receiver);
         } else if (block instanceof PneumaticValveBlock valve) {
-            Direction output = state.getValue(DirectionalDomainBlock.FACING);
-            primary.set(providerValue(valve, state, output.getOpposite()));
+            Direction output = DirectionalDomainBlock.seriesOutputSide(state);
+            primary.set(providerValue(valve, state, DirectionalDomainBlock.seriesInputSide(state)));
             secondary.set(providerValue(valve, state, output));
             tertiary.set(state.getValue(PneumaticValveBlock.OPEN) ? 1 : 0);
             facing.set(output.ordinal());
             fillCompatibleTopology(state, valve);
         } else if (block instanceof PneumaticCheckValveBlock valve) {
-            Direction output = state.getValue(DirectionalDomainBlock.FACING);
-            primary.set(providerValue(valve, state, output.getOpposite()));
+            Direction output = DirectionalDomainBlock.seriesOutputSide(state);
+            primary.set(providerValue(valve, state, DirectionalDomainBlock.seriesInputSide(state)));
             secondary.set(providerValue(valve, state, output));
             facing.set(output.ordinal());
             fillCompatibleTopology(state, valve);
@@ -212,10 +227,10 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             var measurement = PneumaticFlowMeterBlock.measurement(level, blockPos);
             dataValid.set(measurement.sampleCount() > 0 ? 1 : 0);
             quality.set(dataValid.get() != 0 ? 100 : 0);
-            facing.set(state.getValue(DirectionalDomainBlock.FACING).ordinal());
+            facing.set(DirectionalDomainBlock.seriesOutputSide(state).ordinal());
             fillCompatibleTopology(state, meter);
         } else if (block instanceof PneumaticProportionalValveBlock valve) {
-            Direction output = state.getValue(DirectionalDomainBlock.FACING);
+            Direction output = DirectionalDomainBlock.seriesOutputSide(state);
             PneumaticObservationSupport.Observation observation = PneumaticObservationSupport.observe(level, blockPos);
             primary.set(observation.pressure());
             secondary.set(providerValue(valve, state, output));
@@ -225,8 +240,8 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             facing.set(output.ordinal());
             fillCompatibleTopology(state, valve);
         } else if (block instanceof PneumaticReliefValveBlock valve) {
-            Direction output = state.getValue(DirectionalDomainBlock.FACING);
-            primary.set(providerValue(valve, state, output.getOpposite()));
+            Direction output = DirectionalDomainBlock.seriesOutputSide(state);
+            primary.set(providerValue(valve, state, DirectionalDomainBlock.seriesInputSide(state)));
             secondary.set(providerValue(valve, state, output));
             tertiary.set(state.getValue(PneumaticReliefValveBlock.SETPOINT) * 25);
             driverCount.set(PneumaticReliefValveBlock.ventEvents(level, blockPos));
@@ -241,7 +256,7 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             tertiary.set(PneumaticCylinderBlock.target(level, blockPos));
             driverCount.set(PneumaticCylinderBlock.travel(level, blockPos));
             applyPneumaticEvidence(observation);
-            facing.set(state.getValue(DirectionalDomainBlock.FACING).ordinal());
+            facing.set(DirectionalDomainBlock.seriesOutputSide(state).ordinal());
             fillCompatibleTopology(state, cylinder);
         } else if (block instanceof ElectromagnetBlock magnet) {
             primary.set(state.getValue(ElectromagnetBlock.FIELD));
@@ -258,7 +273,7 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             tertiary.set(state.getValue(InductionCoilBlock.TURNS));
             dataValid.set(1);
             quality.set(100);
-            facing.set(state.getValue(DirectionalDomainBlock.FACING).ordinal());
+            facing.set(DirectionalDomainBlock.seriesOutputSide(state).ordinal());
             fillCompatibleTopology(state, coil);
         } else if (block instanceof MagneticFieldSensorBlock) {
             primary.set(state.getValue(MagneticFieldSensorBlock.FIELD));
@@ -298,22 +313,22 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             facing.set(state.getValue(OpticalPowerMeterBlock.FACING).ordinal());
             fillCompatibleTopology(state, meter);
         } else if (block instanceof OpticalSplitterBlock splitter) {
-            Direction output = state.getValue(DirectionalDomainBlock.FACING);
-            primary.set(providerValue(splitter, state, output.getOpposite()));
+            Direction output = DirectionalDomainBlock.seriesOutputSide(state);
+            primary.set(providerValue(splitter, state, DirectionalDomainBlock.seriesInputSide(state)));
             secondary.set(providerValue(splitter, state, output));
             tertiary.set(providerValue(splitter, state, DirectionalDomainBlock.leftOf(output)));
             facing.set(output.ordinal());
             fillCompatibleTopology(state, splitter);
         } else if (block instanceof OpticalChannelFilterBlock filter) {
-            Direction output = state.getValue(DirectionalDomainBlock.FACING);
-            primary.set(providerValue(filter, state, output.getOpposite()));
+            Direction output = DirectionalDomainBlock.seriesOutputSide(state);
+            primary.set(providerValue(filter, state, DirectionalDomainBlock.seriesInputSide(state)));
             secondary.set(providerValue(filter, state, output));
             tertiary.set(state.getValue(OpticalChannelFilterBlock.TARGET));
             facing.set(output.ordinal());
             fillCompatibleTopology(state, filter);
         } else if (block instanceof OpticalAttenuatorBlock attenuator) {
-            Direction output = state.getValue(DirectionalDomainBlock.FACING);
-            primary.set(providerValue(attenuator, state, output.getOpposite()));
+            Direction output = DirectionalDomainBlock.seriesOutputSide(state);
+            primary.set(providerValue(attenuator, state, DirectionalDomainBlock.seriesInputSide(state)));
             secondary.set(providerValue(attenuator, state, output));
             tertiary.set(state.getValue(OpticalAttenuatorBlock.LOSS));
             facing.set(output.ordinal());
@@ -325,24 +340,24 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             quality.set(dataValid.get() != 0 ? 100 : 0);
             fillCableTopology(state, junction);
         } else if (block instanceof EdgeDetectorBlock detector) {
-            Direction output = state.getValue(DirectionalSignalBlock.FACING);
-            primary.set(providerValue(detector, state, output.getOpposite()));
+            Direction output = DirectionalSignalBlock.seriesOutputSide(state);
+            primary.set(providerValue(detector, state, DirectionalSignalBlock.seriesInputSide(state)));
             secondary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             tertiary.set(state.getValue(EdgeDetectorBlock.MODE));
             driverCount.set(EdgeDetectorBlock.pulseRemaining(level, blockPos));
             dataValid.set(EdgeDetectorBlock.initialized(level, blockPos) ? 1 : 0);
             facing.set(output.ordinal());
         } else if (block instanceof PulseShaperBlock shaper) {
-            Direction output = state.getValue(DirectionalSignalBlock.FACING);
-            primary.set(providerValue(shaper, state, output.getOpposite()));
+            Direction output = DirectionalSignalBlock.seriesOutputSide(state);
+            primary.set(providerValue(shaper, state, DirectionalSignalBlock.seriesInputSide(state)));
             secondary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             tertiary.set(state.getValue(PulseShaperBlock.WIDTH));
             driverCount.set(PulseShaperBlock.pulseRemaining(level, blockPos));
             dataValid.set(PulseShaperBlock.initialized(level, blockPos) ? 1 : 0);
             facing.set(output.ordinal());
         } else if (block instanceof SignalTapBlock tap) {
-            Direction output = state.getValue(DirectionalSignalBlock.FACING);
-            primary.set(providerValue(tap, state, output.getOpposite()));
+            Direction output = DirectionalSignalBlock.seriesOutputSide(state);
+            primary.set(providerValue(tap, state, DirectionalSignalBlock.seriesInputSide(state)));
             secondary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             tertiary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             facing.set(output.ordinal());
@@ -380,8 +395,8 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             secondary.set(state.getValue(SignalProbeBlock.CHANNEL));
             facing.set(state.getValue(SignalProbeBlock.FACING).ordinal());
         } else if (block instanceof PrecisionFilterBlock filter) {
-            Direction output = state.getValue(DirectionalSignalBlock.FACING);
-            primary.set(providerValue(filter, state, output.getOpposite()));
+            Direction output = DirectionalSignalBlock.seriesOutputSide(state);
+            primary.set(providerValue(filter, state, DirectionalSignalBlock.seriesInputSide(state)));
             secondary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             tertiary.set(state.getValue(PrecisionFilterBlock.RATE));
             facing.set(output.ordinal());
@@ -418,16 +433,17 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             driverCount.set(diagnostics.driverCount());
             fillCompatibleTopology(state, bus);
         } else if (block instanceof RedstoneByteEncoderBlock encoder) {
-            Direction output = state.getValue(DirectionalDomainBlock.FACING);
-            primary.set(providerValue(encoder, state, output.getOpposite()));
+            Direction output = DirectionalDomainBlock.seriesOutputSide(state);
+            primary.set(providerValue(encoder, state, DirectionalDomainBlock.seriesInputSide(state)));
             secondary.set(InformationRuntime.value(level, "bus8_out", blockPos) & 0xFF);
             dataValid.set(InformationRuntime.valid(level, "bus8_out", blockPos) ? 1 : 0);
             facing.set(output.ordinal());
         } else if (block instanceof ByteToRedstoneDecoderBlock decoder) {
-            Direction output = state.getValue(DirectionalSignalBlock.FACING);
-            primary.set(providerValue(decoder, state, output.getOpposite()));
+            Direction output = DirectionalSignalBlock.seriesOutputSide(state);
+            Direction input = DirectionalSignalBlock.seriesInputSide(state);
+            primary.set(providerValue(decoder, state, input));
             secondary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
-            dataValid.set(DataBusNetwork.valid(level, blockPos.relative(output.getOpposite())) ? 1 : 0);
+            dataValid.set(DataBusNetwork.valid(level, blockPos.relative(input)) ? 1 : 0);
             facing.set(output.ordinal());
         } else if (block instanceof SerialDataLineBlock line) {
             primary.set(InformationRuntime.value(level, "serial", blockPos) & 0xFF);
@@ -436,16 +452,16 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             quality.set(boundedQuality("serial", blockPos));
             fillCompatibleTopology(state, line);
         } else if (block instanceof SerializerBlock serializer) {
-            Direction output = state.getValue(DirectionalDomainBlock.FACING);
-            primary.set(providerValue(serializer, state, output.getOpposite()));
+            Direction output = DirectionalDomainBlock.seriesOutputSide(state);
+            primary.set(providerValue(serializer, state, DirectionalDomainBlock.seriesInputSide(state)));
             secondary.set(InformationRuntime.value(level, "serial", blockPos) & 0xFF);
             tertiary.set(Math.max(1, InformationRuntime.aux(level, "serial", blockPos)));
             dataValid.set(InformationRuntime.valid(level, "serial", blockPos) ? 1 : 0);
             quality.set(boundedQuality("serial", blockPos));
             facing.set(output.ordinal());
         } else if (block instanceof DeserializerBlock) {
-            Direction output = state.getValue(DirectionalDomainBlock.FACING);
-            BlockPos inputPos = blockPos.relative(output.getOpposite());
+            Direction output = DirectionalDomainBlock.seriesOutputSide(state);
+            BlockPos inputPos = blockPos.relative(DirectionalDomainBlock.seriesInputSide(state));
             primary.set(InformationRuntime.value(level, "serial", inputPos) & 0xFF);
             secondary.set(InformationRuntime.value(level, "bus8_out", blockPos) & 0xFF);
             tertiary.set(Math.max(1, InformationRuntime.aux(level, "serial", inputPos)));
@@ -458,8 +474,8 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             quality.set(boundedQuality("diff", blockPos));
             fillCompatibleTopology(state, pair);
         } else if (block instanceof DigitalRegeneratorBlock) {
-            Direction output = state.getValue(DirectionalDomainBlock.FACING);
-            BlockPos inputPos = blockPos.relative(output.getOpposite());
+            Direction output = DirectionalDomainBlock.seriesOutputSide(state);
+            BlockPos inputPos = blockPos.relative(DirectionalDomainBlock.seriesInputSide(state));
             primary.set(boundedQuality("serial", inputPos));
             secondary.set(InformationRuntime.value(level, "serial", blockPos) & 0xFF);
             tertiary.set(state.getValue(DigitalRegeneratorBlock.THRESHOLD));
@@ -467,15 +483,15 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             quality.set(boundedQuality("serial", blockPos));
             facing.set(output.ordinal());
         } else if (block instanceof DifferentialDriverBlock driver) {
-            Direction output = state.getValue(DirectionalDomainBlock.FACING);
-            primary.set(providerValue(driver, state, output.getOpposite()));
+            Direction output = DirectionalDomainBlock.seriesOutputSide(state);
+            primary.set(providerValue(driver, state, DirectionalDomainBlock.seriesInputSide(state)));
             secondary.set(InformationRuntime.value(level, "diff_out", blockPos) & 1);
             dataValid.set(InformationRuntime.valid(level, "diff_out", blockPos) ? 1 : 0);
             quality.set(boundedQuality("diff_out", blockPos));
             facing.set(output.ordinal());
         } else if (block instanceof DifferentialReceiverBlock) {
-            Direction output = state.getValue(DirectionalSignalBlock.FACING);
-            BlockPos inputPos = blockPos.relative(output.getOpposite());
+            Direction output = DirectionalSignalBlock.seriesOutputSide(state);
+            BlockPos inputPos = blockPos.relative(DirectionalSignalBlock.seriesInputSide(state));
             primary.set(InformationRuntime.value(level, "diff", inputPos) & 1);
             secondary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             dataValid.set(InformationRuntime.valid(level, "diff", inputPos) ? 1 : 0);
@@ -497,9 +513,9 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             dataValid.set(reception.valid() ? 1 : 0);
             quality.set(Math.max(0, Math.min(100, reception.quality())));
             driverCount.set(reception.drivers());
-            facing.set(state.getValue(DirectionalSignalBlock.FACING).ordinal());
+            facing.set(DirectionalSignalBlock.seriesOutputSide(state).ordinal());
         } else if (block instanceof FreeSpaceOpticalTransmitterBlock transmitter) {
-            Direction output = state.getValue(DirectionalDomainBlock.FACING);
+            Direction output = DirectionalDomainBlock.seriesOutputSide(state);
             var input = transmitter.inputObservation(level, blockPos, state);
             primary.set(input.value());
             secondary.set(state.getValue(FreeSpaceOpticalTransmitterBlock.CHANNEL));
@@ -508,8 +524,8 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             quality.set(portQualityPercent(input.quality()));
             facing.set(output.ordinal());
         } else if (block instanceof FreeSpaceOpticalReceiverBlock receiver) {
-            Direction output = state.getValue(DirectionalSignalBlock.FACING);
-            primary.set(providerValue(receiver, state, output.getOpposite()));
+            Direction output = DirectionalSignalBlock.seriesOutputSide(state);
+            primary.set(providerValue(receiver, state, DirectionalSignalBlock.seriesInputSide(state)));
             secondary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             tertiary.set(state.getValue(FreeSpaceOpticalReceiverBlock.CHANNEL));
             boolean valid = InformationRuntime.valid(level, "free_optical", blockPos)
@@ -518,8 +534,8 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             quality.set(boundedQuality("free_optical", blockPos));
             facing.set(output.ordinal());
         } else if (block instanceof QuartzClockDividerBlock) {
-            Direction output = state.getValue(DirectionalDomainBlock.FACING);
-            var input = DomainNetwork.sampleQuartz(level, blockPos.relative(output.getOpposite()));
+            Direction output = DirectionalDomainBlock.seriesOutputSide(state);
+            var input = DomainNetwork.sampleQuartz(level, blockPos.relative(DirectionalDomainBlock.seriesInputSide(state)));
             var divided = DomainNetwork.sampleQuartz(level, blockPos.relative(output));
             primary.set(input.periodTicks());
             secondary.set(divided.periodTicks());
@@ -528,8 +544,8 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             quality.set(divided.valid() ? 100 : 0);
             facing.set(output.ordinal());
         } else if (block instanceof QuartzStabilityMonitorBlock monitor) {
-            Direction output = state.getValue(DirectionalDomainBlock.FACING);
-            var input = DomainNetwork.sampleQuartz(level, blockPos.relative(output.getOpposite()));
+            Direction output = DirectionalDomainBlock.seriesOutputSide(state);
+            var input = DomainNetwork.sampleQuartz(level, blockPos.relative(DirectionalDomainBlock.seriesInputSide(state)));
             primary.set(monitor.measuredPeriod(level, blockPos));
             secondary.set(monitor.nominalError(level, blockPos));
             tertiary.set(input.periodTicks());
@@ -548,8 +564,8 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             quality.set(dataValid.get() != 0 ? 100 : 0);
             fillCompatibleTopology(state, dust);
         } else if (block instanceof AmethystFrequencyFilterBlock) {
-            Direction output = state.getValue(DirectionalDomainBlock.FACING);
-            var input = DomainNetwork.sampleAmethyst(level, blockPos.relative(output.getOpposite()));
+            Direction output = DirectionalDomainBlock.seriesOutputSide(state);
+            var input = DomainNetwork.sampleAmethyst(level, blockPos.relative(DirectionalDomainBlock.seriesInputSide(state)));
             var filtered = DomainNetwork.sampleAmethyst(level, blockPos.relative(output));
             primary.set(input.frequency());
             secondary.set(filtered.amplitude());
@@ -558,7 +574,7 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             quality.set(filtered.active() ? 100 : 0);
             facing.set(output.ordinal());
         } else if (block instanceof AmethystTunedResonatorBlock) {
-            Direction output = state.getValue(DirectionalDomainBlock.FACING);
+            Direction output = DirectionalDomainBlock.seriesOutputSide(state);
             var resonant = DomainNetwork.sampleAmethyst(level, blockPos.relative(output));
             primary.set(state.getValue(AmethystTunedResonatorBlock.NATURAL));
             secondary.set(resonant.amplitude());
@@ -588,7 +604,7 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             tertiary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             dataValid.set(wave.valid() ? 1 : 0);
             quality.set(boundedQuality("mech_wave", blockPos));
-            facing.set(state.getValue(DirectionalSignalBlock.FACING).ordinal());
+            facing.set(DirectionalSignalBlock.seriesOutputSide(state).ordinal());
         } else if (block instanceof HoneyVibrationDamperBlock damper) {
             readMechanicalWave(damper, state);
             tertiary.set(4);
@@ -599,7 +615,7 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             driverCount.set(sculk.transitionCount(level, blockPos));
             dataValid.set(primary.get() > 0 ? 1 : 0);
             quality.set(primary.get() > 0 ? 100 : 0);
-            facing.set(state.getValue(DirectionalSignalBlock.FACING).ordinal());
+            facing.set(DirectionalSignalBlock.seriesOutputSide(state).ordinal());
         } else if (block instanceof HydroacousticTubeBlock tube) {
             primary.set(InformationRuntime.value(level, "hydro", blockPos));
             secondary.set(InformationRuntime.aux(level, "hydro", blockPos));
@@ -618,7 +634,7 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             tertiary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             dataValid.set(InformationRuntime.valid(level, "hydro", blockPos) ? 1 : 0);
             quality.set(boundedQuality("hydro", blockPos));
-            facing.set(state.getValue(DirectionalSignalBlock.FACING).ordinal());
+            facing.set(DirectionalSignalBlock.seriesOutputSide(state).ordinal());
         } else if (block instanceof PhononConduitBlock conduit) {
             primary.set(InformationRuntime.value(level, "thermal_pulse", blockPos));
             secondary.set(InformationRuntime.aux(level, "thermal_pulse", blockPos));
@@ -634,7 +650,7 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             secondary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             dataValid.set(InformationRuntime.valid(level, "thermal_pulse", blockPos) ? 1 : 0);
             quality.set(boundedQuality("thermal_pulse", blockPos));
-            facing.set(state.getValue(DirectionalSignalBlock.FACING).ordinal());
+            facing.set(DirectionalSignalBlock.seriesOutputSide(state).ordinal());
         } else if (block instanceof WatchdogBlock) {
             primary.set(WatchdogBlock.ageTicks(level, blockPos));
             secondary.set(WatchdogBlock.timeoutTicks(state.getValue(WatchdogBlock.TIMEOUT)));
@@ -642,7 +658,7 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             driverCount.set(WatchdogBlock.transitionCount(level, blockPos));
             dataValid.set(state.getValue(DirectionalSignalBlock.OUTPUT) == 0 ? 1 : 0);
             quality.set(dataValid.get() != 0 ? 100 : 0);
-            facing.set(state.getValue(DirectionalSignalBlock.FACING).ordinal());
+            facing.set(DirectionalSignalBlock.seriesOutputSide(state).ordinal());
         } else if (block instanceof ServoActuatorBlock) {
             primary.set(ServoActuatorBlock.position(level, blockPos));
             secondary.set(ServoActuatorBlock.command(level, blockPos));
@@ -652,8 +668,8 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             quality.set(ServoActuatorBlock.braking(level, blockPos) ? 50 : 100);
             facing.set(state.getValue(ServoActuatorBlock.FACING).ordinal());
         } else if (block instanceof ServoPositionSensorBlock sensor) {
-            Direction output = state.getValue(DirectionalSignalBlock.FACING);
-            primary.set(providerValue(sensor, state, output.getOpposite()));
+            Direction output = DirectionalSignalBlock.seriesOutputSide(state);
+            primary.set(providerValue(sensor, state, DirectionalSignalBlock.seriesInputSide(state)));
             secondary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             var measurement = ServoPositionSensorBlock.measurement(level, blockPos);
             tertiary.set((int) Math.min(Integer.MAX_VALUE, measurement.sampleCount()));
@@ -667,7 +683,7 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             driverCount.set(RedundantVoterBlock.disagreementCount(level, blockPos));
             dataValid.set(RedundantVoterBlock.degraded(level, blockPos) ? 0 : 1);
             quality.set(dataValid.get() != 0 ? 100 : 0);
-            facing.set(state.getValue(DirectionalSignalBlock.FACING).ordinal());
+            facing.set(DirectionalSignalBlock.seriesOutputSide(state).ordinal());
         } else if (block instanceof FaultLatchBlock) {
             primary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             secondary.set(FaultLatchBlock.tripCount(level, blockPos));
@@ -675,7 +691,7 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             driverCount.set(FaultLatchBlock.resetActive(level, blockPos) ? 1 : 0);
             dataValid.set(FaultLatchBlock.latched(level, blockPos) ? 0 : 1);
             quality.set(dataValid.get() != 0 ? 100 : 0);
-            facing.set(state.getValue(DirectionalSignalBlock.FACING).ordinal());
+            facing.set(DirectionalSignalBlock.seriesOutputSide(state).ordinal());
         } else if (block instanceof OperationsMonitorBlock) {
             primary.set(OperationsMonitorBlock.queueNow(level, blockPos));
             secondary.set(OperationsMonitorBlock.throughputLastWindow(level, blockPos));
@@ -684,6 +700,12 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             dataValid.set(driverCount.get() == OperationsMonitorBlock.SystemState.FAILED.ordinal() ? 0 : 1);
             quality.set(dataValid.get() != 0 ? 100 : 0);
         }
+    }
+
+    private static boolean endpointRoutable(Block block) {
+        return block instanceof DirectionalSignalBlock
+                || block instanceof DirectionalDomainBlock
+                || block instanceof DirectionalRedstoneEndpointBlock;
     }
 
     private void readMechanicalWave(EngineeringPortProvider provider, BlockState state) {
@@ -754,21 +776,24 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
         Block block = state.getBlock();
         boolean changed = false;
 
-        if (id == BUTTON_ROTATE_CCW || id == BUTTON_ROTATE_CW) {
+        if (id == BUTTON_INPUT_PREVIOUS || id == BUTTON_INPUT_NEXT
+                || id == BUTTON_OUTPUT_PREVIOUS || id == BUTTON_OUTPUT_NEXT) {
+            boolean clockwise = id == BUTTON_INPUT_NEXT || id == BUTTON_OUTPUT_NEXT;
+            boolean input = id == BUTTON_INPUT_PREVIOUS || id == BUTTON_INPUT_NEXT;
+            changed = rotateEndpoint(block, input, clockwise);
+        } else if (id == BUTTON_ROTATE_CCW || id == BUTTON_ROTATE_CW) {
             boolean clockwise = id == BUTTON_ROTATE_CW;
             if (block instanceof DirectionalSignalBlock) {
-                changed = DirectionalSignalBlock.rotateSeriesAxis(level, blockPos, clockwise);
+                changed = DirectionalSignalBlock.rotateWholeRoute(level, blockPos, clockwise);
             } else if (block instanceof DirectionalDomainBlock) {
-                changed = DirectionalDomainBlock.rotateSeriesAxis(level, blockPos, clockwise);
+                changed = DirectionalDomainBlock.rotateWholeRoute(level, blockPos, clockwise);
             } else if (block instanceof DirectionalRedstoneEndpointBlock) {
                 changed = DirectionalRedstoneEndpointBlock.rotateOutput(level, blockPos, clockwise);
             } else if (block instanceof SignalProbeBlock) {
                 changed = SignalProbeBlock.rotateMeasurementAxis(level, blockPos, clockwise);
             } else if (block instanceof RedstoneCableTerminalBlock) {
                 changed = RedstoneCableTerminalBlock.rotateInterface(level, blockPos, clockwise);
-            } else {
-                return false;
-            }
+            } else return false;
         } else if (block instanceof SignalProbeBlock) {
             int channel = state.getValue(SignalProbeBlock.CHANNEL);
             if (id == BUTTON_PRIMARY_DECREASE) channel = Math.floorMod(channel - 1, 4);
@@ -822,17 +847,13 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             else if (id == BUTTON_PRIMARY_INCREASE) setpoint = setpoint >= 4 ? 1 : setpoint + 1;
             else return false;
             level.setBlock(blockPos, state.setValue(PressureRegulatorBlock.SETPOINT, setpoint), Block.UPDATE_CLIENTS);
-            if (level instanceof net.minecraft.server.level.ServerLevel server) {
-                PneumaticNetwork.recompute(server, blockPos);
-            }
+            if (level instanceof net.minecraft.server.level.ServerLevel server) PneumaticNetwork.recompute(server, blockPos);
             changed = true;
         } else if (block instanceof PneumaticValveBlock valve) {
             if (id != BUTTON_TOGGLE) return false;
             level.setBlock(blockPos, state.setValue(PneumaticValveBlock.OPEN,
                     !state.getValue(PneumaticValveBlock.OPEN)), Block.UPDATE_CLIENTS);
-            if (level instanceof net.minecraft.server.level.ServerLevel server) {
-                PneumaticNetwork.recomputeAround(server, blockPos);
-            }
+            if (level instanceof net.minecraft.server.level.ServerLevel server) PneumaticNetwork.recomputeAround(server, blockPos);
             changed = true;
         } else if (block instanceof PneumaticReliefValveBlock) {
             int setpoint = state.getValue(PneumaticReliefValveBlock.SETPOINT);
@@ -892,6 +913,28 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             broadcastChanges();
         }
         return changed;
+    }
+
+    private boolean rotateEndpoint(Block block, boolean input, boolean clockwise) {
+        if (input && inputEndpoint.get() == 0) return false;
+        if (!input && outputEndpoint.get() == 0) return false;
+        if (block instanceof RedundantVoterBlock || block instanceof FaultLatchBlock || block instanceof OpticalSplitterBlock) {
+            // Conservative legacy fallback: preserve their multi-port layout as a rigid legal unit.
+            if (block instanceof DirectionalSignalBlock) return DirectionalSignalBlock.rotateWholeRoute(level, blockPos, clockwise);
+            return DirectionalDomainBlock.rotateWholeRoute(level, blockPos, clockwise);
+        }
+        if (block instanceof DirectionalSignalBlock) {
+            return input ? DirectionalSignalBlock.rotateSeriesInput(level, blockPos, clockwise)
+                    : DirectionalSignalBlock.rotateSeriesOutput(level, blockPos, clockwise);
+        }
+        if (block instanceof DirectionalDomainBlock) {
+            return input ? DirectionalDomainBlock.rotateSeriesInput(level, blockPos, clockwise)
+                    : DirectionalDomainBlock.rotateSeriesOutput(level, blockPos, clockwise);
+        }
+        if (block instanceof DirectionalRedstoneEndpointBlock) {
+            return DirectionalRedstoneEndpointBlock.rotateOutput(level, blockPos, clockwise);
+        }
+        return false;
     }
 
     private static int kindOf(Block block) {
@@ -989,4 +1032,6 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
     public int qualityPercent() { return quality.get(); }
     public int driverCount() { return driverCount.get(); }
     public boolean seriesConfigurable() { return seriesConfigurable.get() != 0; }
+    public boolean hasInputEndpoint() { return inputEndpoint.get() != 0; }
+    public boolean hasOutputEndpoint() { return outputEndpoint.get() != 0; }
 }
