@@ -49,7 +49,7 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
         graphics.drawString(font, "ROLLING WINDOW", 16, 164, MUTED, false);
         EngineeringPlot.analogFrame(graphics, 98, 160, 200, 22);
         plotTrace(graphics, 100, 162, 196, 18, INFO);
-        graphics.drawString(font, "avg=" + decimal100(menu.average100()) + "  p2p=" + menu.peakToPeak(), 16, 187, TEXT, false);
+        safeText(graphics, "avg=" + decimal100(menu.average100()) + "  p2p=" + menu.peakToPeak(), 16, 187, TEXT);
     }
 
     private void renderPorts(GuiGraphics graphics) {
@@ -68,12 +68,12 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
     private void renderConfigure(GuiGraphics graphics) {
         labelValue(graphics, "Mode", modeName(), 80);
         labelValue(graphics, "Calibration offset", signed(menu.calibrationOffset()), 95);
-        graphics.drawString(font,
+        safeText(graphics,
                 menu.mode() == SignalAnalyzerBlock.TAP
                         ? "TAP observes the TEST side without creating a redstone electrical path."
                         : "INLINE reads TEST and reproduces the RAW sample on the opposite face.",
-                16, 162, TEXT, false);
-        graphics.drawString(font, "Calibration changes only the displayed engineering reading.", 16, 177, MUTED, false);
+                16, 162, TEXT);
+        safeText(graphics, "Calibration changes only the displayed engineering reading.", 16, 177, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
@@ -102,14 +102,14 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
                     x + 4, y + 4, width - 8, height - 8, GOOD);
             graphics.drawString(font, "μ", 287, 86, GOOD, false);
         }
-        graphics.drawString(font,
+        safeText(graphics,
                 "window=" + menu.windowCount() + "/16  avg=" + decimal100(menu.average100())
                         + "  p2p=" + menu.peakToPeak() + "  meanStep=" + decimal100(menu.meanStep100()),
-                16, 175, TEXT, false);
-        graphics.drawString(font,
+                16, 175, TEXT);
+        safeText(graphics,
                 "samples=" + menu.totalSamples() + "  mode switches=" + menu.modeSwitches()
                         + "  calibration switches=" + menu.calibrationSwitches() + "  μ=rounded mean",
-                16, 188, MUTED, false);
+                16, 188, MUTED);
     }
 
     private void plotTrace(GuiGraphics graphics, int x, int y, int width, int height, int color) {
