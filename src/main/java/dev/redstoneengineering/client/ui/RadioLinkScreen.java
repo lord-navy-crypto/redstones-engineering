@@ -11,7 +11,6 @@ import net.minecraft.world.entity.player.Inventory;
 public final class RadioLinkScreen extends EngineeringScreen<RadioLinkMenu> {
     private Button channelPrevious;
     private Button channelNext;
-    private Button directionCycle;
 
     public RadioLinkScreen(RadioLinkMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -26,9 +25,6 @@ public final class RadioLinkScreen extends EngineeringScreen<RadioLinkMenu> {
         channelNext = addConfigureWidget(Button.builder(Component.literal("Channel ▶"),
                 b -> sendMenuButton(RadioLinkMenu.BUTTON_CHANNEL_NEXT))
                 .bounds(leftPos + 199, y, 105, 20).build());
-        directionCycle = addConfigureWidget(Button.builder(Component.literal("Direction • —"),
-                b -> sendMenuButton(RadioLinkMenu.BUTTON_OUTPUT_RIGHT))
-                .bounds(leftPos + 70, y + 30, 180, 20).build());
     }
 
     @Override
@@ -36,14 +32,6 @@ public final class RadioLinkScreen extends EngineeringScreen<RadioLinkMenu> {
         if (channelPrevious == null) return;
         channelPrevious.setMessage(Component.literal("◀ CH " + menu.channel()));
         channelNext.setMessage(Component.literal("CH " + menu.channel() + " ▶"));
-        boolean receiver = menu.kind() == RadioLinkMenu.KIND_RECEIVER;
-        if (directionCycle != null) {
-            directionCycle.active = receiver;
-            directionCycle.visible = isConfigureSection() && receiver;
-            directionCycle.setMessage(Component.literal("Direction • " + menu.outputDirection().getName().toUpperCase()));
-            directionCycle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
-                    "Cycle the receiver wired output face clockwise; the antenna remains UP.")));
-        }
     }
 
     @Override
@@ -96,6 +84,7 @@ public final class RadioLinkScreen extends EngineeringScreen<RadioLinkMenu> {
         labelValue(g, "Channel", Integer.toString(menu.channel()), 101);
         if (menu.kind() == RadioLinkMenu.KIND_RECEIVER) {
             labelValue(g, "Output face", menu.outputDirection().getName().toUpperCase(), 171);
+            safeText(g, "Wired output direction is controlled only on Route; antenna remains UP.", 16, 199, MUTED);
         } else {
             labelValue(g, "Antenna", "UP • FIXED", 171);
         }
