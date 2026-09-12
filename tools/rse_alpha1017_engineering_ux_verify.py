@@ -152,7 +152,13 @@ require(
 )
 require(
     "src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
-    "seriesRotatable.set(block instanceof DirectionalSignalBlock || block instanceof DirectionalDomainBlock ? 1 : 0)",
+    "isRotatable(block)",
+    "block instanceof DirectionalRedstoneEndpointBlock",
+    "block instanceof SignalProbeBlock",
+    "block instanceof RedstoneCableTerminalBlock",
+    "DirectionalRedstoneEndpointBlock.rotateOutput(level, blockPos, clockwise)",
+    "SignalProbeBlock.rotateMeasurementAxis(level, blockPos, clockwise)",
+    "RedstoneCableTerminalBlock.rotateInterface(level, blockPos, clockwise)",
     "return seriesRotatable.get() != 0",
 )
 forbid(
@@ -354,6 +360,7 @@ print(" all-face Engineering Port projection: PASS")
 print(" Jade topology summary + face diagnostics: PASS")
 print(" configurable one-input/one-output route contract: PASS")
 print(" bidirectional Route HMI with real endpoint/measurement rotation: PASS")
+print(" universal fallback route authority parity: PASS")
 print(" serial-first / explicit-branch topology policy: PASS")
 print(" controlled-series / controlled-source role projection: PASS")
 print(" passive-series / passive-bus role projection: PASS")
