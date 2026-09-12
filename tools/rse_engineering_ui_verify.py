@@ -58,6 +58,38 @@ require("src/main/java/dev/redstoneengineering/block/RedstoneReferenceSourceBloc
 require("src/main/java/dev/redstoneengineering/block/DirectionalRedstoneSensorBlock.java",
         "extends DirectionalRedstoneEndpointBlock")
 
+# Generic fallback must preserve the same route authority as the normal field-device path.
+require("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
+        "DirectionalRedstoneEndpointBlock", "SignalProbeBlock", "RedstoneCableTerminalBlock",
+        "isRotatable(block)",
+        "DirectionalRedstoneEndpointBlock.rotateOutput(level, blockPos, clockwise)",
+        "SignalProbeBlock.rotateMeasurementAxis(level, blockPos, clockwise)",
+        "RedstoneCableTerminalBlock.rotateInterface(level, blockPos, clockwise)")
+
+# Migrated endpoint devices must have a reachable Engineering UI. Shift preserves compact diagnostics.
+for rel in (
+    "src/main/java/dev/redstoneengineering/block/EngineeringLightSensorBlock.java",
+    "src/main/java/dev/redstoneengineering/block/TankLevelSensorBlock.java",
+    "src/main/java/dev/redstoneengineering/block/EntityDensitySensorBlock.java",
+    "src/main/java/dev/redstoneengineering/block/AnalogIndicatorBlock.java",
+):
+    require(rel, "player.isShiftKeyDown()", "FieldDeviceUi.open(serverPlayer, pos)")
+
+# Dedicated subsystem menus must not swallow a route capability that exists on the block.
+require("src/main/java/dev/redstoneengineering/ui/menu/PneumaticSystemMenu.java",
+        "block instanceof PressureRegulatorBlock",
+        "facing.set(state.getValue(DirectionalDomainBlock.FACING).ordinal())",
+        "changed = rotateDirectional(block, id)")
+
+# Range sensor rotation owns stale-output invalidation at the block layer, not ad-hoc menu mutation.
+require("src/main/java/dev/redstoneengineering/block/RangeSensorBlock.java",
+        "rotateSensingAxis(Level level, BlockPos pos, boolean clockwise)",
+        "Direction oldOutput = outputSide(state)", "Direction newOutput = outputSide(next)",
+        "level.updateNeighborsAt(pos.relative(oldOutput), sensor)",
+        "level.updateNeighborsAt(pos.relative(newOutput), sensor)")
+require("src/main/java/dev/redstoneengineering/ui/menu/RangeSensorMenu.java",
+        "RangeSensorBlock.rotateSensingAxis(level, blockPos, id == BUTTON_ROTATE_RIGHT)")
+
 for name in (
     "EnhancedFieldDeviceScreen.java", "SignalConditionerScreen.java", "PidControllerScreen.java",
     "OscilloscopeScreen.java", "LogicAnalyzerScreen.java", "SignalAnalyzerScreen.java",
@@ -134,6 +166,10 @@ print(" six-page responsibility split including dedicated Route page: PASS")
 print(" Configure parameters/modes/actions preserved: PASS")
 print(" bidirectional Previous/Next Route controls restored: PASS")
 print(" redstone reference/source/sensor FieldDevice route authority: PASS")
+print(" endpoint Engineering UI reachability + Shift diagnostics: PASS")
+print(" universal fallback route authority parity: PASS")
+print(" pneumatic regulator route authority: PASS")
+print(" range sensor old/new output invalidation on rotation: PASS")
 print(" signal probe six-face measurement-axis rotation: PASS")
 print(" cable terminal physical-interface rotation: PASS")
 print(" fixed Operations Monitor port contract preserved: PASS")
