@@ -115,15 +115,34 @@ for rel in (
         "newOutput == input",
     )
 
+# Alpha 1.0.17 originally covered only the two series bases. The modern route contract keeps those
+# guarantees and also exposes every real standalone directional endpoint used by the field HMI.
 require(
     "src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java",
     "BUTTON_ROTATE_CCW",
     "BUTTON_ROTATE_CW",
     "DirectionalSignalBlock.rotateSeriesAxis(level, blockPos, clockwise)",
     "DirectionalDomainBlock.rotateSeriesAxis(level, blockPos, clockwise)",
-    "seriesConfigurable.set(block instanceof DirectionalSignalBlock || block instanceof DirectionalDomainBlock ? 1 : 0)",
+    "block instanceof DirectionalRedstoneEndpointBlock",
+    "block instanceof SignalProbeBlock",
+    "block instanceof RedstoneCableTerminalBlock",
+    "DirectionalRedstoneEndpointBlock.rotateOutput(level, blockPos, clockwise)",
+    "SignalProbeBlock.rotateMeasurementAxis(level, blockPos, clockwise)",
+    "RedstoneCableTerminalBlock.rotateInterface(level, blockPos, clockwise)",
     "PneumaticObservationSupport.observe",
     "applyPneumaticEvidence",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/SignalProbeBlock.java",
+    "rotateMeasurementAxis(Level level, BlockPos pos, boolean clockwise)",
+    "ROUTE_CYCLE",
+    "state.setValue(FACING, next)",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/RedstoneCableTerminalBlock.java",
+    "rotateInterface(Level level, BlockPos pos, boolean clockwise)",
+    "state.setValue(FACING, nextFacing)",
+    "RedstoneCableNetwork.recompute(server, pos)",
 )
 require(
     "src/main/java/dev/redstoneengineering/client/ui/FieldDeviceScreen.java",
@@ -263,6 +282,11 @@ require(
     "ROUTE_CONTROL_Y = 196",
     "routePage",
     'Component.literal("Route")',
+    'Component.literal("↺ Previous")',
+    'Component.literal("Next ↻")',
+    "routeActionId(boolean clockwise)",
+    "FieldDeviceMenu.BUTTON_ROTATE_CCW",
+    "FieldDeviceMenu.BUTTON_ROTATE_CW",
     "normalizeLegacyPresentation",
     '"PNEUMATIC • " + menu.portRouteLabel()',
     'new PresentationLine("DOWN", "REDSTONE PAYLOAD INPUT")',
@@ -329,7 +353,7 @@ print("RSE Alpha 1.0.17 engineering UX verification: PASS")
 print(" all-face Engineering Port projection: PASS")
 print(" Jade topology summary + face diagnostics: PASS")
 print(" configurable one-input/one-output route contract: PASS")
-print(" output-only HMI routing with whole-route maintenance rotation: PASS")
+print(" bidirectional Route HMI with real endpoint/measurement rotation: PASS")
 print(" serial-first / explicit-branch topology policy: PASS")
 print(" controlled-series / controlled-source role projection: PASS")
 print(" passive-series / passive-bus role projection: PASS")
@@ -338,7 +362,8 @@ print(" optical configurable-route sampling contract: PASS")
 print(" shared physical topology-role HMI: PASS")
 print(" Ports/Route six-face I/O Compass projection: PASS")
 print(" dedicated Route page + full-height anti-crowding shell: PASS")
-print(" reference-source adjustable output: PASS")
+print(" reference-source adjustable output + route authority: PASS")
+print(" signal-probe and cable-terminal route authority: PASS")
 print(" shared EngineeringPort evidence-quality HMI: PASS")
 print(" authoritative valid-zero evidence boundary: PASS")
 print(" evidence-validity / operational-health separation: PASS")
