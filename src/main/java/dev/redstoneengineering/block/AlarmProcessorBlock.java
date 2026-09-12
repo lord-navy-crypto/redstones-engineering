@@ -11,10 +11,12 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.diagnostics.events.SystemEventKind;
 import dev.redstoneengineering.diagnostics.events.SystemEventTimeline;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -113,7 +115,6 @@ public class AlarmProcessorBlock extends PassiveDirectionalSignalBlock {
             SystemEventTimeline.record(level, pos, SystemEventKind.ALARM_ACKNOWLEDGED, 1,
                     "ALARM_ACK", "Latched alarm acknowledged by control input");
         }
-        // A reset is fail-safe: it can only clear a latched alarm after the process condition is healthy.
         if (resetRising && condition <= 0 && runtime[0] != 0) {
             int clearedSeverity = runtime[8];
             runtime[0] = 0;
@@ -156,11 +157,29 @@ public class AlarmProcessorBlock extends PassiveDirectionalSignalBlock {
                 + " | activeTicks=" + runtime[9];
     }
 
-    public void cycleSeverity(Level level, BlockPos pos) {
+    public boolean adjustSeverity(Level level, BlockPos pos, int delta) {
         BlockState state = level.getBlockState(pos);
-        if (!state.is(this)) return;
-        int next = state.getValue(SEVERITY) % 3 + 1;
+        if (!state.is(this)) return false;
+        int current = state.getValue(SEVERITY) - 1;
+        int next = Math.floorMod(current + delta, 3) + 1;
         level.setBlock(pos, state.setValue(SEVERITY, next), Block.UPDATE_CLIENTS);
+        return true;
+    }
+
+    public boolean acknowledge(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (!state.is(this)) return false;
+        int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
+        if (runtime[0] == 0 || runtime[1] == 0) return true;
+        runtime[1] = 0;
+        runtime[3]++;
+        SystemEventTimeline.record(level, pos, SystemEventKind.ALARM_ACKNOWLEDGED, 1,
+                "ALARM_ACK", "Latched alarm acknowledged by operator");
+        return true;
+    }
+
+    public void cycleSeverity(Level level, BlockPos pos) {
+        adjustSeverity(level, pos, 1);
     }
 
     @Override
@@ -183,19 +202,12 @@ public class AlarmProcessorBlock extends PassiveDirectionalSignalBlock {
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (!level.isClientSide) {
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
-                int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
-                if (runtime[0] != 0 && runtime[1] != 0) {
-                    runtime[1] = 0;
-                    runtime[3]++;
-                    SystemEventTimeline.record(level, pos, SystemEventKind.ALARM_ACKNOWLEDGED, 1,
-                            "ALARM_ACK", "Latched alarm acknowledged by operator");
-                }
+                acknowledge(level, pos);
                 player.displayClientMessage(Component.literal(compactDiagnostics(level, pos)), true);
             } else {
-                cycleSeverity(level, pos);
-                player.displayClientMessage(Component.literal("Alarm severity set to " + level.getBlockState(pos).getValue(SEVERITY)), true);
+                FieldDeviceUi.openUniversal(serverPlayer, pos);
             }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
