@@ -1,5 +1,8 @@
 package dev.redstoneengineering.client.ui;
 
+import dev.redstoneengineering.block.CalibrationModuleBlock;
+import dev.redstoneengineering.block.PwmControllerBlock;
+import dev.redstoneengineering.block.SampleHoldBlock;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.SensorModel;
 import dev.redstoneengineering.ui.menu.UniversalFieldDeviceMenu;
@@ -15,7 +18,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private Button primaryNext;
     private Button secondaryPrevious;
     private Button secondaryNext;
-    private Button resetHistory;
+    private Button action;
+    private Button toggle;
 
     public UniversalFieldDeviceScreen(UniversalFieldDeviceMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -39,9 +43,13 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 Component.literal("Range ▶"),
                 button -> sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_SECONDARY_NEXT)
         ).bounds(leftPos + 166, topPos + 158, 116, 20).build());
-        resetHistory = addConfigureWidget(Button.builder(
-                Component.literal("Reset measurement history"),
-                button -> sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_RESET)
+        action = addConfigureWidget(Button.builder(
+                Component.literal("Action"),
+                button -> sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_ACTION)
+        ).bounds(leftPos + 38, topPos + 158, 244, 20).build());
+        toggle = addConfigureWidget(Button.builder(
+                Component.literal("Toggle"),
+                button -> sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_TOGGLE)
         ).bounds(leftPos + 38, topPos + 158, 244, 20).build());
     }
 
@@ -51,15 +59,31 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         boolean configure = isConfigureSection();
         boolean primary = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER
                 || kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE
-                || kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER;
+                || kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER
+                || kind == UniversalFieldDeviceMenu.CONFIG_ALARM
+                || kind == UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD
+                || kind == UniversalFieldDeviceMenu.CONFIG_CALIBRATION
+                || kind == UniversalFieldDeviceMenu.CONFIG_PWM;
         boolean range = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE;
-        boolean molecular = kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER;
+        boolean hasAction = kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER
+                || kind == UniversalFieldDeviceMenu.CONFIG_ALARM
+                || kind == UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD;
+        boolean hasToggle = kind == UniversalFieldDeviceMenu.CONFIG_PWM;
 
         if (primaryPrevious != null) primaryPrevious.visible = configure && primary;
         if (primaryNext != null) primaryNext.visible = configure && primary;
         if (secondaryPrevious != null) secondaryPrevious.visible = configure && range;
         if (secondaryNext != null) secondaryNext.visible = configure && range;
-        if (resetHistory != null) resetHistory.visible = configure && molecular;
+        if (action != null) {
+            action.visible = configure && hasAction;
+            if (kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER) action.setMessage(Component.literal("Reset measurement history"));
+            else if (kind == UniversalFieldDeviceMenu.CONFIG_ALARM) action.setMessage(Component.literal("Acknowledge active alarm"));
+            else if (kind == UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD) action.setMessage(Component.literal("Clear held value"));
+        }
+        if (toggle != null) {
+            toggle.visible = configure && hasToggle;
+            toggle.setMessage(Component.literal("Invert output • " + (menu.configSecondary() != 0 ? "ON" : "OFF")));
+        }
     }
 
     @Override
@@ -114,35 +138,59 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
 
     private void configure(GuiGraphics g) {
         int kind = menu.configKind();
-        if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER
-                || kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE) {
-            statusBadge(g, "MEASUREMENT CONDITIONING", INFO, 16, 80);
-            labelValue(g, "Profile", SensorModel.profileName(menu.configPrimary()) + " (" + menu.configPrimary() + ")", 101);
-            if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE) {
-                labelValue(g, "Maximum range", menu.configSecondary() + " blocks", 141);
-                safeText(g, "Changing profile or range invalidates the old sample before resampling.", 16, 188, MUTED);
-            } else {
+        switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER -> {
+                statusBadge(g, "MEASUREMENT CONDITIONING", INFO, 16, 80);
+                labelValue(g, "Profile", SensorModel.profileName(menu.configPrimary()) + " (" + menu.configPrimary() + ")", 101);
                 safeText(g, "Profile changes sampling period, resolution, noise and latency on the server.", 16, 148, TEXT);
                 safeText(g, "Direction belongs on Route; no routing control is duplicated here.", 16, 168, MUTED);
             }
-            return;
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE -> {
+                statusBadge(g, "RANGE MEASUREMENT CONDITIONING", INFO, 16, 80);
+                labelValue(g, "Profile", SensorModel.profileName(menu.configPrimary()) + " (" + menu.configPrimary() + ")", 101);
+                labelValue(g, "Maximum range", menu.configSecondary() + " blocks", 141);
+                safeText(g, "Changing profile or range invalidates the old sample before resampling.", 16, 188, MUTED);
+            }
+            case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER -> {
+                statusBadge(g, "MOLECULAR RECEIVER", INFO, 16, 80);
+                labelValue(g, "Sensitivity", Integer.toString(menu.configPrimary()), 101);
+                labelValue(g, "Retained peak", Integer.toString(menu.configSecondary()), 141);
+                safeText(g, "Reset clears filtered/peak history; the fixed UP aperture remains unchanged.", 16, 188, MUTED);
+            }
+            case UniversalFieldDeviceMenu.CONFIG_ALARM -> {
+                statusBadge(g, "ALARM PROCESSOR", INFO, 16, 80);
+                labelValue(g, "Severity", Integer.toString(menu.configPrimary()), 101);
+                labelValue(g, "Activations", Integer.toString(menu.configSecondary()), 141);
+                safeText(g, "Acknowledge clears the operator-attention latch; process RESET remains a physical input.", 16, 188, MUTED);
+            }
+            case UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD -> {
+                statusBadge(g, "SAMPLE & HOLD", INFO, 16, 80);
+                labelValue(g, "Trigger mode", SampleHoldBlock.modeName(menu.configPrimary()), 101);
+                labelValue(g, "Captures", Integer.toString(menu.configSecondary()), 141);
+                safeText(g, "Clear held value is an operator action; TRIGGER and RESET remain physical ports.", 16, 188, MUTED);
+            }
+            case UniversalFieldDeviceMenu.CONFIG_CALIBRATION -> {
+                statusBadge(g, "CALIBRATION PROFILE", INFO, 16, 80);
+                labelValue(g, "Transfer", CalibrationModuleBlock.profileName(menu.configPrimary()), 101);
+                safeText(g, "OBSERVED, REFERENCE and CALIBRATED faces rotate together on Route.", 16, 148, TEXT);
+            }
+            case UniversalFieldDeviceMenu.CONFIG_PWM -> {
+                statusBadge(g, "PWM CONTROL", INFO, 16, 80);
+                labelValue(g, "Period", PwmControllerBlock.periodFor(menu.configPrimary()) + " ticks", 101);
+                labelValue(g, "Invert", menu.configSecondary() != 0 ? "ON" : "OFF", 141);
+                safeText(g, "COMMAND, PWM OUT and INHIBIT rotate as one physical interface layout on Route.", 16, 188, MUTED);
+            }
+            default -> {
+                boolean rotatable = menu.rotatableSeriesAxis();
+                statusBadge(g, "NO UNIVERSAL PARAMETERS", MUTED, 16, 80);
+                labelValue(g, "Current route", routeText(), 106);
+                safeText(g, rotatable
+                                ? "This device has a real routable interface; change it on Route, not Configure."
+                                : "This device has no shared configurable parameter in the universal HMI.",
+                        16, 132, TEXT);
+                safeText(g, "No client-side physics or hidden port mutation is performed.", 16, 152, MUTED);
+            }
         }
-        if (kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER) {
-            statusBadge(g, "MOLECULAR RECEIVER", INFO, 16, 80);
-            labelValue(g, "Sensitivity", Integer.toString(menu.configPrimary()), 101);
-            labelValue(g, "Retained peak", Integer.toString(menu.configSecondary()), 141);
-            safeText(g, "Reset clears filtered/peak history; the fixed UP aperture remains unchanged.", 16, 188, MUTED);
-            return;
-        }
-
-        boolean rotatable = menu.rotatableSeriesAxis();
-        statusBadge(g, "NO UNIVERSAL PARAMETERS", MUTED, 16, 80);
-        labelValue(g, "Current route", routeText(), 106);
-        safeText(g, rotatable
-                        ? "This device has a real routable interface; change it on Route, not Configure."
-                        : "This device has no shared configurable parameter in the universal HMI.",
-                16, 132, TEXT);
-        safeText(g, "No client-side physics or hidden port mutation is performed.", 16, 152, MUTED);
     }
 
     private void diagnostics(GuiGraphics g) {
@@ -155,9 +203,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             statusLine(g, side.getName().toUpperCase(), quality.name() + " • " + menu.domain(side).label(), qualityColor(quality), y);
             y += 18;
         }
-        if (y == 104) {
-            safeText(g, "No EngineeringPortProvider interfaces are declared by this block.", 16, 108, WARN);
-        }
+        if (y == 104) safeText(g, "No EngineeringPortProvider interfaces are declared by this block.", 16, 108, WARN);
     }
 
     private void history(GuiGraphics g) {
@@ -222,7 +268,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
 
     private String routeDescription() {
         return switch (menu.routeKind()) {
-            case UniversalFieldDeviceMenu.ROUTE_SERIES_AXIS -> "Route cycles the complete INPUT → PROCESS → OUTPUT axis on the server.";
+            case UniversalFieldDeviceMenu.ROUTE_SERIES_AXIS -> "Route cycles the complete directional interface layout on the server.";
             case UniversalFieldDeviceMenu.ROUTE_ENDPOINT_FRONT -> "Route changes the real FRONT endpoint orientation and its physical connection side.";
             case UniversalFieldDeviceMenu.ROUTE_PROBE_AXIS -> "Route moves the real TEST aperture and the opposite BUS interface together.";
             case UniversalFieldDeviceMenu.ROUTE_TERMINAL_INTERFACE -> "Route rotates the real terminal interface pair and forces topology recalculation.";
@@ -234,7 +280,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
 
     private String routeTooltip() {
         return switch (menu.routeKind()) {
-            case UniversalFieldDeviceMenu.ROUTE_SERIES_AXIS -> "Cycle the server-authoritative series I/O axis.";
+            case UniversalFieldDeviceMenu.ROUTE_SERIES_AXIS -> "Cycle the server-authoritative directional interface layout.";
             case UniversalFieldDeviceMenu.ROUTE_ENDPOINT_FRONT -> "Cycle the server-authoritative FRONT endpoint direction.";
             case UniversalFieldDeviceMenu.ROUTE_PROBE_AXIS -> "Cycle the server-authoritative probe measurement axis.";
             case UniversalFieldDeviceMenu.ROUTE_TERMINAL_INTERFACE -> "Cycle the server-authoritative terminal interface axis.";
