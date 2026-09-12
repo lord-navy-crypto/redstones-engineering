@@ -25,6 +25,14 @@ require("src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java"
         "OVERVIEW", "PORTS", "CONFIGURE", "DIAGNOSTICS", "HISTORY",
         'Component.literal("Route")', "routePage", "setRoutePage", "routeActionId(boolean clockwise)", "routeSupported",
         "routePrevious", "routeNext", 'Component.literal("↺ Previous")', 'Component.literal("Next ↻")',
+        "routeInputPrevious", "routeInputNext", "routeOutputPrevious", "routeOutputNext",
+        'Component.literal("↺ RX")', 'Component.literal("RX ↻")',
+        'Component.literal("↺ TX")', 'Component.literal("TX ↻")',
+        "routeInputActionId(boolean clockwise)", "routeOutputActionId(boolean clockwise)", "independentRouteEndpoints",
+        "DigitalCommunicationMenu.BUTTON_INPUT_LEFT", "DigitalCommunicationMenu.BUTTON_INPUT_RIGHT",
+        "DigitalCommunicationMenu.BUTTON_OUTPUT_LEFT", "DigitalCommunicationMenu.BUTTON_OUTPUT_RIGHT",
+        "PneumaticSystemMenu.BUTTON_INPUT_LEFT", "PneumaticSystemMenu.BUTTON_INPUT_RIGHT",
+        "PneumaticSystemMenu.BUTTON_OUTPUT_LEFT", "PneumaticSystemMenu.BUTTON_OUTPUT_RIGHT",
         'DIAGNOSTICS("Observe"', "ROLE • ", "HEALTH • ", "EVIDENCE • ",
         "ROUTE_CONTROL_Y = 196", "FOOTER_TOP = 245", "fitForWidth", "safeText",
         "isConfigureSection()", "showsPortVisualization", "CONTENT_RIGHT - VALUE_X",
@@ -77,11 +85,23 @@ for rel in (
 ):
     require(rel, "player.isShiftKeyDown()", "FieldDeviceUi.open(serverPlayer, pos)")
 
-# Dedicated subsystem menus must not swallow a route capability that exists on the block.
+# Dedicated pneumatic HMI must track both declared endpoint faces, not infer RX as TX.opposite().
 require("src/main/java/dev/redstoneengineering/ui/menu/PneumaticSystemMenu.java",
         "block instanceof PressureRegulatorBlock",
-        "facing.set(state.getValue(DirectionalDomainBlock.FACING).ordinal())",
+        "facing.set(DirectionalDomainBlock.seriesOutputSide(state).ordinal())",
+        "inputFacing.set(DirectionalDomainBlock.seriesInputSide(state).ordinal())",
+        "DirectionalDomainBlock.seriesInputSide(state)",
+        "DirectionalSignalBlock.seriesInputSide(state)",
+        "DirectionalDomainBlock.rotateSeriesInput(level, blockPos, clockwise)",
+        "DirectionalDomainBlock.rotateSeriesOutput(level, blockPos, clockwise)",
         "changed = rotateDirectional(block, id)")
+
+# Digital communication HMI likewise tracks independent RX/TX authority.
+require("src/main/java/dev/redstoneengineering/ui/menu/DigitalCommunicationMenu.java",
+        "inputFacing", "BUTTON_INPUT_LEFT", "BUTTON_INPUT_RIGHT", "BUTTON_OUTPUT_LEFT", "BUTTON_OUTPUT_RIGHT",
+        "DirectionalDomainBlock.seriesInputSide(state)", "DirectionalSignalBlock.seriesInputSide(state)",
+        "DirectionalDomainBlock.rotateSeriesInput(level, blockPos, clockwise)",
+        "DirectionalSignalBlock.rotateSeriesOutput(level, blockPos, clockwise)")
 
 # Range sensor rotation owns stale-output invalidation at the block layer, not ad-hoc menu mutation.
 require("src/main/java/dev/redstoneengineering/block/RangeSensorBlock.java",
@@ -119,8 +139,8 @@ require("src/main/java/dev/redstoneengineering/client/ui/OpticalSystemScreen.jav
         '"CHANNEL " + menu.secondary()',
         '"Direction and physical interface orientation are controlled only on Route."')
 
-# Once the six-page architecture exists, no specialized Configure page may recreate a second
-# direction/orientation control. The shared Route page is the only HMI authority for physical route.
+# Once the six-page architecture exists, specialized Configure pages may not recreate a second
+# direction/orientation control. Independent RX/TX controls live in the shared Route page only.
 route_capable_screens = (
     "SignalConditionerScreen.java",
     "RangeSensorScreen.java",
@@ -217,11 +237,12 @@ print("RSE Engineering UI verification: PASS")
 print(" six-page responsibility split including dedicated Route page: PASS")
 print(" Configure parameters/modes/actions preserved: PASS")
 print(" specialized Configure pages do not duplicate Route authority: PASS")
-print(" bidirectional Previous/Next Route controls restored: PASS")
+print(" independent RX/TX + whole-route controls on shared Route page: PASS")
+print(" bidirectional Previous/Next compatibility for single-axis devices: PASS")
 print(" redstone reference/source/sensor FieldDevice route authority: PASS")
 print(" endpoint Engineering UI reachability + Shift diagnostics: PASS")
 print(" universal fallback route authority parity: PASS")
-print(" pneumatic regulator route authority: PASS")
+print(" pneumatic regulator dual-endpoint route authority: PASS")
 print(" range sensor old/new output invalidation on rotation: PASS")
 print(" signal analyzer six-face route + history invalidation: PASS")
 print(" signal probe six-face measurement-axis rotation: PASS")
