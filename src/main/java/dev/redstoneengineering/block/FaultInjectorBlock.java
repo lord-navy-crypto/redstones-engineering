@@ -131,7 +131,11 @@ public class FaultInjectorBlock extends PassiveDirectionalSignalBlock {
     }
 
     public static String modeLabel(BlockState state) {
-        return MODE_LABELS[state.getValue(MODE)];
+        return modeLabelFor(state.getValue(MODE));
+    }
+
+    public static String modeLabelFor(int mode) {
+        return MODE_LABELS[Math.floorMod(mode, MODE_LABELS.length)];
     }
 
     public boolean adjustMode(Level level, BlockPos pos, int delta) {
