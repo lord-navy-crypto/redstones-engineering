@@ -23,8 +23,13 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
 
     public static final int BUTTON_PARAMETER_PREVIOUS = 0;
     public static final int BUTTON_PARAMETER_NEXT = 1;
+    /** Legacy whole-route actions retained for compatibility. */
     public static final int BUTTON_ROTATE_LEFT = 2;
     public static final int BUTTON_ROTATE_RIGHT = 3;
+    public static final int BUTTON_INPUT_LEFT = 4;
+    public static final int BUTTON_INPUT_RIGHT = 5;
+    public static final int BUTTON_OUTPUT_LEFT = 6;
+    public static final int BUTTON_OUTPUT_RIGHT = 7;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot input = trackedInt();
@@ -34,7 +39,8 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
     private final DataSlot runtimeB = trackedInt();
     private final DataSlot runtimeC = trackedInt();
     private final DataSlot initialized = trackedInt();
-    private final DataSlot facing = trackedInt();
+    private final DataSlot inputFacing = trackedInt();
+    private final DataSlot outputFacing = trackedInt();
 
     public SignalProcessorMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -57,17 +63,20 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
         runtimeB.set(0);
         runtimeC.set(0);
         initialized.set(1);
-        facing.set(-1);
+        inputFacing.set(-1);
+        outputFacing.set(-1);
 
         if (!(block instanceof DirectionalSignalBlock directional)) {
             kind.set(-1);
             initialized.set(0);
             return;
         }
-        Direction out = state.getValue(DirectionalSignalBlock.FACING);
-        facing.set(out.ordinal());
+        Direction in = DirectionalSignalBlock.seriesInputSide(state);
+        Direction out = DirectionalSignalBlock.seriesOutputSide(state);
+        inputFacing.set(in.ordinal());
+        outputFacing.set(out.ordinal());
         if (directional instanceof EngineeringPortProvider provider) {
-            input.set(provider.engineeringSnapshot(level, blockPos, state, out.getOpposite())
+            input.set(provider.engineeringSnapshot(level, blockPos, state, in)
                     .map(snapshot -> (int) Math.round(snapshot.value())).orElse(0));
         }
         output.set(state.getValue(DirectionalSignalBlock.OUTPUT));
@@ -102,14 +111,21 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
         BlockState state = level.getBlockState(blockPos);
         Block block = state.getBlock();
 
-        if (id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT) {
-            boolean changed = DirectionalSignalBlock.rotateSeriesAxis(level, blockPos, id == BUTTON_ROTATE_RIGHT);
-            if (changed) {
-                refreshAuthoritativeSnapshot();
-                broadcastChanges();
-            }
-            return changed;
+        boolean routed = switch (id) {
+            case BUTTON_ROTATE_LEFT -> DirectionalSignalBlock.rotateWholeRoute(level, blockPos, false);
+            case BUTTON_ROTATE_RIGHT -> DirectionalSignalBlock.rotateWholeRoute(level, blockPos, true);
+            case BUTTON_INPUT_LEFT -> DirectionalSignalBlock.rotateSeriesInput(level, blockPos, false);
+            case BUTTON_INPUT_RIGHT -> DirectionalSignalBlock.rotateSeriesInput(level, blockPos, true);
+            case BUTTON_OUTPUT_LEFT -> DirectionalSignalBlock.rotateSeriesOutput(level, blockPos, false);
+            case BUTTON_OUTPUT_RIGHT -> DirectionalSignalBlock.rotateSeriesOutput(level, blockPos, true);
+            default -> false;
+        };
+        if (routed) {
+            refreshAuthoritativeSnapshot();
+            broadcastChanges();
+            return true;
         }
+        if (id >= BUTTON_ROTATE_LEFT && id <= BUTTON_OUTPUT_RIGHT) return false;
 
         BlockState next = state;
         if (block instanceof PrecisionFilterBlock filter) {
@@ -136,9 +152,7 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
             next = state.setValue(PulseShaperBlock.WIDTH, value);
             level.setBlock(blockPos, next, Block.UPDATE_CLIENTS);
             level.scheduleTick(blockPos, shaper, 1);
-        } else {
-            return false;
-        }
+        } else return false;
 
         refreshAuthoritativeSnapshot();
         broadcastChanges();
@@ -153,13 +167,19 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
     public int runtimeB() { return runtimeB.get(); }
     public int runtimeC() { return runtimeC.get(); }
     public boolean initialized() { return initialized.get() != 0; }
-    public int facingOrdinal() { return facing.get(); }
+    public int facingOrdinal() { return outputFacing.get(); }
+    public boolean hasInputEndpoint() { return inputFacing.get() >= 0; }
+    public boolean hasOutputEndpoint() { return outputFacing.get() >= 0; }
 
     public Direction outputDirection() {
-        int ordinal = facing.get();
+        int ordinal = outputFacing.get();
         Direction[] directions = Direction.values();
         return ordinal < 0 || ordinal >= directions.length ? Direction.NORTH : directions[ordinal];
     }
 
-    public Direction inputDirection() { return outputDirection().getOpposite(); }
+    public Direction inputDirection() {
+        int ordinal = inputFacing.get();
+        Direction[] directions = Direction.values();
+        return ordinal < 0 || ordinal >= directions.length ? Direction.SOUTH : directions[ordinal];
+    }
 }
