@@ -69,10 +69,18 @@ required = {
         "menu.topologyRoleLabel()",
         "menu.operationalHealthLabel()",
         "menu.evidenceStateLabel()",
+        "private Button sharedRouteCycle",
+        'Component.literal("Direction • —")',
+        "FieldDeviceMenu.BUTTON_ROTATE_CW",
+        ".bounds(leftPos + 16, y, 288, 20)",
+        "section == Section.PORTS",
+        "showsPortVisualization",
+        "if (section == Section.PORTS) renderPortRoute(graphics);",
     ],
     "src/main/java/dev/redstoneengineering/client/ui/EngineeringIoCompassOverlay.java": [
         "ScreenEvent.Render.Post",
         "EngineeringScreen<?> engineeringScreen",
+        "engineeringScreen.showsPortVisualization()",
         "containerScreen.getMenu() instanceof EngineeringDeviceMenu",
         '"I/O COMPASS"',
         "menu.receivePortMask()",
@@ -131,6 +139,11 @@ for rel, tokens in required.items():
         if body and token not in body:
             errors.append(f"{rel}: missing UI contract token {token!r}")
 
+screen = read("src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java")
+for forbidden in ("sharedRotateCcw", "sharedRotateCw", 'Component.literal("↺ Rotate route")', 'Component.literal("Rotate route ↻")'):
+    if screen and forbidden in screen:
+        errors.append(f"EngineeringScreen restored crowded dual-route control {forbidden!r}")
+
 pid_screen = read("src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java")
 if pid_screen and "Shift + FRONT" not in pid_screen and "Shift+FRONT" not in pid_screen:
     errors.append("PidControllerScreen missing acceptance-capture interaction guidance")
@@ -185,8 +198,10 @@ if errors:
 print("RSE Engineering UI verification: PASS")
 print(" shared menu/screen framework: PASS")
 print(" server-authoritative ROLE / HEALTH / EVIDENCE HMI: PASS")
-print(" six-face RX/TX route matrix: PASS")
-print(" sidecar I/O compass: PASS")
+print(" real page isolation for Ports / Configure / Observatory / Log: PASS")
+print(" single synchronized Direction cycle control: PASS")
+print(" six-face RX/TX route matrix confined to Ports: PASS")
+print(" sidecar I/O compass confined to Ports: PASS")
 print(" WIRE / RF / LOS / FIBER medium identity: PASS")
 print(" wired/fiber LINKED vs OPEN port state when link evidence is synchronized: PASS")
 print(" unknown link evidence renders DECLARED instead of false OPEN: PASS")
