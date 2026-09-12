@@ -10,8 +10,7 @@ import net.minecraft.world.entity.player.Inventory;
 public final class SignalProcessorScreen extends EngineeringScreen<SignalProcessorMenu> {
     private Button parameterPrevious;
     private Button parameterNext;
-    private Button rotateLeft;
-    private Button rotateRight;
+    private Button directionCycle;
 
     public SignalProcessorScreen(SignalProcessorMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -26,20 +25,23 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         parameterNext = addConfigureWidget(Button.builder(Component.literal("Parameter ▶"),
                 b -> sendMenuButton(SignalProcessorMenu.BUTTON_PARAMETER_NEXT))
                 .bounds(leftPos + 194, y, 110, 20).build());
-        rotateLeft = addConfigureWidget(Button.builder(Component.literal("↺ I/O"),
-                b -> sendMenuButton(SignalProcessorMenu.BUTTON_ROTATE_LEFT))
-                .bounds(leftPos + 70, y + 30, 80, 20).build());
-        rotateRight = addConfigureWidget(Button.builder(Component.literal("I/O ↻"),
+        directionCycle = addConfigureWidget(Button.builder(Component.literal("Direction • —"),
                 b -> sendMenuButton(SignalProcessorMenu.BUTTON_ROTATE_RIGHT))
-                .bounds(leftPos + 170, y + 30, 80, 20).build());
+                .bounds(leftPos + 70, y + 30, 180, 20).build());
     }
 
     @Override
     protected void syncDeviceWidgetLabels() {
         if (parameterPrevious == null) return;
         String parameter = parameterName() + " " + parameterValue();
-        parameterPrevious.setMessage(Component.literal("◀ " + parameter));
-        parameterNext.setMessage(Component.literal(parameter + " ▶"));
+        parameterPrevious.setMessage(Component.literal(fitForWidth("◀ " + parameter, 94)));
+        parameterNext.setMessage(Component.literal(fitForWidth(parameter + " ▶", 94)));
+        if (directionCycle != null) {
+            directionCycle.setMessage(Component.literal(fitForWidth(
+                    "Direction • " + menu.outputDirection().getName().toUpperCase(), 164)));
+            directionCycle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
+                    "Cycle the complete input/process/output axis clockwise on the server.")));
+        }
     }
 
     @Override
@@ -62,8 +64,7 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         labelValue(g, "Series path", menu.inputDirection().getName().toUpperCase() + " → "
                 + menu.outputDirection().getName().toUpperCase(), 148);
         runtimeSummary(g, 166);
-        g.drawString(font, "All values are synchronized server evidence; processing stays inside the block tick.",
-                16, 199, MUTED, false);
+        safeText(g, "All values are synchronized server evidence; processing stays inside the block tick.", 16, 199, MUTED);
     }
 
     private void ports(GuiGraphics g) {
@@ -71,7 +72,7 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         statusLine(g, menu.inputDirection().getName().toUpperCase(), "INPUT • REDSTONE 0..15", GOOD, 112);
         statusLine(g, "PROCESS", processDescription(), INFO, 140);
         statusLine(g, menu.outputDirection().getName().toUpperCase(), "OUTPUT • REDSTONE 0..15", GOOD, 168);
-        g.drawString(font, "Rotating I/O rotates the complete INPUT → PROCESS → OUTPUT axis.", 16, 198, MUTED, false);
+        safeText(g, "Direction rotates the complete INPUT → PROCESS → OUTPUT axis.", 16, 198, MUTED);
     }
 
     private void configure(GuiGraphics g) {
@@ -97,18 +98,18 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
             labelValue(g, "Last edge age", menu.runtimeC() < 0 ? "NONE" : menu.runtimeC() + " ticks", 130);
             labelValue(g, "Pulse remaining", menu.runtimeA() + " ticks", 150);
             sectionRule(g, 170);
-            g.drawString(font, "Edge chronology is retained by server runtime; opening this UI never creates an edge.", 16, 184, MUTED, false);
+            safeText(g, "Edge chronology is retained by server runtime; opening this UI never creates an edge.", 16, 184, MUTED);
         } else if (menu.kind() == SignalProcessorMenu.KIND_PULSE) {
             labelValue(g, "Last input", Integer.toString(menu.runtimeB()), 110);
             labelValue(g, "Pulse remaining", menu.runtimeA() + " ticks", 130);
             labelValue(g, "Initialized", menu.initialized() ? "YES" : "NO", 150);
             sectionRule(g, 170);
-            g.drawString(font, "Readback is observer-neutral and never initializes the one-shot runtime.", 16, 184, MUTED, false);
+            safeText(g, "Readback is observer-neutral and never initializes the one-shot runtime.", 16, 184, MUTED);
         } else {
             labelValue(g, "Current lag", menu.runtimeA() + " levels", 110);
             labelValue(g, "Response", menu.runtimeB() == 1 ? "SETTLED" : "SETTLING", 130);
             sectionRule(g, 154);
-            g.drawString(font, "Slew lag is live state; no artificial time-series is created by the client.", 16, 170, MUTED, false);
+            safeText(g, "Slew lag is live state; no artificial time-series is created by the client.", 16, 170, MUTED);
         }
     }
 
