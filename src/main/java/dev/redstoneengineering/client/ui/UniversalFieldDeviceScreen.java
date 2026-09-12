@@ -5,7 +5,6 @@ import dev.redstoneengineering.block.FaultInjectorBlock;
 import dev.redstoneengineering.block.PwmControllerBlock;
 import dev.redstoneengineering.block.SampleHoldBlock;
 import dev.redstoneengineering.core.port.PortQuality;
-import dev.redstoneengineering.physics.SensorModel;
 import dev.redstoneengineering.ui.menu.UniversalFieldDeviceMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -143,13 +142,13 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         switch (kind) {
             case UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER -> {
                 statusBadge(g, "MEASUREMENT CONDITIONING", INFO, 16, 80);
-                labelValue(g, "Profile", SensorModel.profileName(menu.configPrimary()) + " (" + menu.configPrimary() + ")", 101);
+                labelValue(g, "Profile", lapisProfileName(menu.configPrimary()) + " (" + menu.configPrimary() + ")", 101);
                 safeText(g, "Profile changes sampling period, resolution, noise and latency on the server.", 16, 148, TEXT);
                 safeText(g, "Direction belongs on Route; no routing control is duplicated here.", 16, 168, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE -> {
                 statusBadge(g, "RANGE MEASUREMENT CONDITIONING", INFO, 16, 80);
-                labelValue(g, "Profile", SensorModel.profileName(menu.configPrimary()) + " (" + menu.configPrimary() + ")", 101);
+                labelValue(g, "Profile", lapisProfileName(menu.configPrimary()) + " (" + menu.configPrimary() + ")", 101);
                 labelValue(g, "Maximum range", menu.configSecondary() + " blocks", 141);
                 safeText(g, "Changing profile or range invalidates the old sample before resampling.", 16, 188, MUTED);
             }
@@ -295,6 +294,15 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.ROUTE_MEASUREMENT_FACE -> "Cycle the server-authoritative measurement face.";
             case UniversalFieldDeviceMenu.ROUTE_FIXED_APERTURE_OUTPUT_FRONT -> "Cycle only the server-authoritative FRONT output direction.";
             default -> "No universal route action is available.";
+        };
+    }
+
+    private static String lapisProfileName(int profile) {
+        return switch (Math.max(0, Math.min(3, profile))) {
+            case 0 -> "FAST";
+            case 1 -> "BALANCED";
+            case 2 -> "PRECISION";
+            default -> "RUGGED";
         };
     }
 
