@@ -27,10 +27,10 @@ import java.util.Optional;
 /**
  * Real-time series redstone signal conditioner.
  *
- * <p>The conditioner has one authoritative series axis: BACK is input and FRONT is output.
- * The axis can be rotated from the Engineering UI without changing the selected transfer
- * function. Gain, offset, clamp, threshold and deadband remain bounded to vanilla redstone
- * 0..15 at the world boundary.</p>
+ * <p>The conditioner uses the shared explicit one-input/one-output route contract inherited from
+ * {@link DirectionalSignalBlock}. RX and TX may be routed independently while remaining distinct;
+ * whole-route rotation preserves their relative geometry. Gain, offset, clamp, threshold and
+ * deadband remain bounded to vanilla redstone 0..15 at the world boundary.</p>
  *
  * <p>Threshold HIGH and deadband hold are intentional transfer semantics, not saturation.</p>
  */
@@ -104,11 +104,11 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
     }
 
     public static Direction inputDirection(BlockState state) {
-        return state.getValue(FACING).getOpposite();
+        return DirectionalSignalBlock.seriesInputSide(state);
     }
 
     public static Direction outputDirection(BlockState state) {
-        return state.getValue(FACING);
+        return DirectionalSignalBlock.seriesOutputSide(state);
     }
 
     /** Applies a bounded, server-authoritative configuration action. */
@@ -116,6 +116,12 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
         if (level.isClientSide) return false;
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof SignalConditionerBlock conditioner)) return false;
+
+        if (action == SignalConditionerMenu.BUTTON_ROTATE_LEFT
+                || action == SignalConditionerMenu.BUTTON_ROTATE_RIGHT) {
+            return DirectionalSignalBlock.rotateWholeRoute(
+                    level, pos, action == SignalConditionerMenu.BUTTON_ROTATE_RIGHT);
+        }
 
         int mode = state.getValue(MODE);
         int param = state.getValue(PARAM);
@@ -134,10 +140,6 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
                     next = state.setValue(PARAM, cycleParam(mode, param, -1));
             case SignalConditionerMenu.BUTTON_PARAM_INCREASE ->
                     next = state.setValue(PARAM, cycleParam(mode, param, 1));
-            case SignalConditionerMenu.BUTTON_ROTATE_LEFT ->
-                    next = state.setValue(FACING, state.getValue(FACING).getCounterClockWise());
-            case SignalConditionerMenu.BUTTON_ROTATE_RIGHT ->
-                    next = state.setValue(FACING, state.getValue(FACING).getClockWise());
             default -> {
                 return false;
             }
