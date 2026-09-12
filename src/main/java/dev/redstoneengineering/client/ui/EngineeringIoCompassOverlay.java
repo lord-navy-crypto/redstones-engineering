@@ -11,11 +11,11 @@ import net.minecraft.core.Direction;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 
 /**
- * Read-only companion visualization for EngineeringScreen instances.
+ * Read-only companion visualization for the dedicated EngineeringScreen Ports page.
  *
  * <p>The overlay consumes only synchronized EngineeringDeviceMenu state. It never samples the world,
- * solves topology, mutates block state, or invents ports. Its purpose is to make physical I/O shape,
- * transport medium, and declared-vs-linked state legible at a glance without consuming the main panel.</p>
+ * solves topology, mutates block state, or invents ports. Keeping it on Ports prevents physical-I/O
+ * detail from crowding Overview, Configure, Observatory, and Log.</p>
  */
 public final class EngineeringIoCompassOverlay {
     private static final int PANEL = 0xEE0B1015;
@@ -34,6 +34,7 @@ public final class EngineeringIoCompassOverlay {
     public static void render(ScreenEvent.Render.Post event) {
         Screen screen = event.getScreen();
         if (!(screen instanceof EngineeringScreen<?> engineeringScreen)) return;
+        if (!engineeringScreen.showsPortVisualization()) return;
         if (!(engineeringScreen instanceof AbstractContainerScreen<?> containerScreen)) return;
         if (!(containerScreen.getMenu() instanceof EngineeringDeviceMenu menu)) return;
 
