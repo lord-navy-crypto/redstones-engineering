@@ -275,14 +275,16 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         Block block = level.getBlockState(blockPos).getBlock();
         if (block instanceof DirectionalSignalBlock) return DirectionalSignalBlock.rotateSeriesInput(level, blockPos, clockwise);
         if (block instanceof DirectionalDomainBlock) return DirectionalDomainBlock.rotateSeriesInput(level, blockPos, clockwise);
-        return false;
+        if (!hasInputEndpoint()) return false;
+        return rotate(clockwise);
     }
 
     private boolean rotateOutput(boolean clockwise) {
         Block block = level.getBlockState(blockPos).getBlock();
         if (block instanceof DirectionalSignalBlock) return DirectionalSignalBlock.rotateSeriesOutput(level, blockPos, clockwise);
         if (block instanceof DirectionalDomainBlock) return DirectionalDomainBlock.rotateSeriesOutput(level, blockPos, clockwise);
-        return false;
+        if (!hasOutputEndpoint()) return false;
+        return rotate(clockwise);
     }
 
     public int facingOrdinal() { return facing.get(); }
@@ -295,6 +297,8 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public boolean isInput(Direction side) { return (inputMask.get() & (1 << side.ordinal())) != 0; }
     public boolean isOutput(Direction side) { return (outputMask.get() & (1 << side.ordinal())) != 0; }
     public boolean isBidirectional(Direction side) { return (bidirectionalMask.get() & (1 << side.ordinal())) != 0; }
+    public boolean hasInputEndpoint() { return (inputMask.get() | bidirectionalMask.get()) != 0; }
+    public boolean hasOutputEndpoint() { return (outputMask.get() | bidirectionalMask.get()) != 0; }
     public int value(Direction side) { return values[side.ordinal()].get(); }
     public int minimum(Direction side) { return minimums[side.ordinal()].get(); }
     public int maximum(Direction side) { return maximums[side.ordinal()].get(); }
@@ -318,5 +322,5 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     }
 
     public boolean rotatableSeriesAxis() { return seriesRotatable.get() != 0; }
-    public boolean independentRouteEndpoints() { return routeKind.get() == ROUTE_SERIES_AXIS; }
+    public boolean independentRouteEndpoints() { return hasInputEndpoint() || hasOutputEndpoint(); }
 }
