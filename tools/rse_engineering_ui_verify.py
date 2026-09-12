@@ -77,7 +77,10 @@ required = {
         '"I/O COMPASS"',
         "menu.receivePortMask()",
         "menu.transmitPortMask()",
-        "menu.connectionMask()",
+        "connectionMask(menu)",
+        "menu instanceof FieldDeviceMenu fieldMenu ? fieldMenu.connectionMask() : -1",
+        "linkEvidenceKnown",
+        '"DECLARED"',
         '"SOURCE • SINGLE TX"',
         '"SOURCE • FAN-OUT x"',
         '"SERIES • 1→1"',
@@ -93,7 +96,7 @@ required = {
         '"OPEN"',
         '"AIR PATH"',
         '"LOS PATH"',
-        "propagationInterface || linked",
+        "propagationInterface || !linkEvidenceKnown || linked",
         "Direction.NORTH",
         "Direction.SOUTH",
         "Direction.EAST",
@@ -185,7 +188,8 @@ print(" server-authoritative ROLE / HEALTH / EVIDENCE HMI: PASS")
 print(" six-face RX/TX route matrix: PASS")
 print(" sidecar I/O compass: PASS")
 print(" WIRE / RF / LOS / FIBER medium identity: PASS")
-print(" wired/fiber LINKED vs OPEN port state: PASS")
+print(" wired/fiber LINKED vs OPEN port state when link evidence is synchronized: PASS")
+print(" unknown link evidence renders DECLARED instead of false OPEN: PASS")
 print(" RF / LOS propagation interfaces avoid false OPEN state: PASS")
 print(" SINGLE TX / FAN-OUT / SERIES topology cues: PASS")
 print(" server-authoritative configuration path: PASS")
