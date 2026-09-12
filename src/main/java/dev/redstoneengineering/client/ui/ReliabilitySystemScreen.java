@@ -10,7 +10,7 @@ import net.minecraft.world.entity.player.Inventory;
 
 /** Dedicated reliability HMI for watchdog, servo, feedback sensor, voter and fault latch. */
 public final class ReliabilitySystemScreen extends EngineeringScreen<ReliabilitySystemMenu> {
-    private Button parameterPrevious, parameterNext, rotateLeft, rotateRight;
+    private Button parameterPrevious, parameterNext, orientationCycle;
 
     public ReliabilitySystemScreen(ReliabilitySystemMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -20,8 +20,7 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
         int y = topPos + 116;
         parameterPrevious = addConfigureWidget(Button.builder(Component.literal("◀ Parameter"), b -> sendMenuButton(ReliabilitySystemMenu.BUTTON_PARAMETER_PREVIOUS)).bounds(leftPos+16,y,105,20).build());
         parameterNext = addConfigureWidget(Button.builder(Component.literal("Parameter ▶"), b -> sendMenuButton(ReliabilitySystemMenu.BUTTON_PARAMETER_NEXT)).bounds(leftPos+199,y,105,20).build());
-        rotateLeft = addConfigureWidget(Button.builder(Component.literal("↺ Orientation"), b -> sendMenuButton(ReliabilitySystemMenu.BUTTON_ROTATE_LEFT)).bounds(leftPos+70,y+30,80,20).build());
-        rotateRight = addConfigureWidget(Button.builder(Component.literal("Orientation ↻"), b -> sendMenuButton(ReliabilitySystemMenu.BUTTON_ROTATE_RIGHT)).bounds(leftPos+170,y+30,80,20).build());
+        orientationCycle = addConfigureWidget(Button.builder(Component.literal("Orientation • —"), b -> sendMenuButton(ReliabilitySystemMenu.BUTTON_ROTATE_RIGHT)).bounds(leftPos+70,y+30,180,20).build());
     }
 
     @Override protected void syncDeviceWidgetLabels() {
@@ -30,13 +29,20 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
                 || menu.kind() == ReliabilitySystemMenu.KIND_SERVO
                 || menu.kind() == ReliabilitySystemMenu.KIND_VOTER
                 || menu.kind() == ReliabilitySystemMenu.KIND_FAULT_LATCH;
+        boolean configure = isConfigureSection();
         parameterPrevious.active = adjustable;
         parameterNext.active = adjustable;
-        rotateLeft.active = true;
-        rotateRight.active = true;
+        parameterPrevious.visible = configure && adjustable;
+        parameterNext.visible = configure && adjustable;
         String parameter = parameterText();
-        parameterPrevious.setMessage(Component.literal("◀ " + parameter));
-        parameterNext.setMessage(Component.literal(parameter + " ▶"));
+        if (adjustable) {
+            parameterPrevious.setMessage(Component.literal(fitForWidth("◀ " + parameter, 89)));
+            parameterNext.setMessage(Component.literal(fitForWidth(parameter + " ▶", 89)));
+        }
+        orientationCycle.visible = configure;
+        orientationCycle.setMessage(Component.literal(fitForWidth("Orientation • " + face(menu.facing()), 164)));
+        orientationCycle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
+                "Cycle the device orientation clockwise on the server.")));
     }
 
     @Override protected void renderSection(GuiGraphics g, Section section) {
@@ -88,38 +94,18 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
                 labelValue(g,"Reset input",menu.extraB()==1?"ACTIVE":"LOW",181);
             }
         }
-        g.drawString(font, hint(),16,199,MUTED,false);
+        safeText(g, hint(),16,199,MUTED);
     }
 
     private void ports(GuiGraphics g) {
         statusBadge(g,"FUNCTIONAL INTERFACES",GOOD,16,80);
         Direction front = menu.facing();
         switch(menu.kind()) {
-            case ReliabilitySystemMenu.KIND_WATCHDOG -> {
-                statusLine(g,face(front.getOpposite()),"INPUT • HEARTBEAT",qualityColor(),108);
-                statusLine(g,face(front),"OUTPUT • TIMEOUT ALARM",GOOD,140);
-            }
-            case ReliabilitySystemMenu.KIND_SERVO -> {
-                statusLine(g,face(front.getOpposite()),"INPUT • COMMAND",qualityColor(),102);
-                statusLine(g,"UP","INPUT • POSITION/VELOCITY MODE",INFO,126);
-                statusLine(g,face(rightOf(front)),"INPUT • BRAKE",WARN,150);
-                statusLine(g,face(front),"OUTPUT • MECHATRONIC POSITION",GOOD,174);
-            }
-            case ReliabilitySystemMenu.KIND_POSITION_SENSOR -> {
-                statusLine(g,face(front.getOpposite()),"INPUT • SERVO POSITION",qualityColor(),112);
-                statusLine(g,face(front),"OUTPUT • REDSTONE FEEDBACK",GOOD,144);
-            }
-            case ReliabilitySystemMenu.KIND_VOTER -> {
-                statusLine(g,face(front.getOpposite()),"INPUT A • REDSTONE",INFO,102);
-                statusLine(g,face(leftOf(front)),"INPUT B • REDSTONE",INFO,126);
-                statusLine(g,face(rightOf(front)),"INPUT C • REDSTONE",INFO,150);
-                statusLine(g,face(front),"OUTPUT • 2oo3 VOTED",qualityColor(),174);
-            }
-            default -> {
-                statusLine(g,face(front.getOpposite()),"INPUT • FAULT",INFO,108);
-                statusLine(g,face(rightOf(front)),"INPUT • RESET",INFO,136);
-                statusLine(g,face(front),"OUTPUT • LATCHED ALARM",qualityColor(),164);
-            }
+            case ReliabilitySystemMenu.KIND_WATCHDOG -> {statusLine(g,face(front.getOpposite()),"INPUT • HEARTBEAT",qualityColor(),108);statusLine(g,face(front),"OUTPUT • TIMEOUT ALARM",GOOD,140);}
+            case ReliabilitySystemMenu.KIND_SERVO -> {statusLine(g,face(front.getOpposite()),"INPUT • COMMAND",qualityColor(),102);statusLine(g,"UP","INPUT • POSITION/VELOCITY MODE",INFO,126);statusLine(g,face(rightOf(front)),"INPUT • BRAKE",WARN,150);statusLine(g,face(front),"OUTPUT • MECHATRONIC POSITION",GOOD,174);}
+            case ReliabilitySystemMenu.KIND_POSITION_SENSOR -> {statusLine(g,face(front.getOpposite()),"INPUT • SERVO POSITION",qualityColor(),112);statusLine(g,face(front),"OUTPUT • REDSTONE FEEDBACK",GOOD,144);}
+            case ReliabilitySystemMenu.KIND_VOTER -> {statusLine(g,face(front.getOpposite()),"INPUT A • REDSTONE",INFO,102);statusLine(g,face(leftOf(front)),"INPUT B • REDSTONE",INFO,126);statusLine(g,face(rightOf(front)),"INPUT C • REDSTONE",INFO,150);statusLine(g,face(front),"OUTPUT • 2oo3 VOTED",qualityColor(),174);}
+            default -> {statusLine(g,face(front.getOpposite()),"INPUT • FAULT",INFO,108);statusLine(g,face(rightOf(front)),"INPUT • RESET",INFO,136);statusLine(g,face(front),"OUTPUT • LATCHED ALARM",qualityColor(),164);}
         }
     }
 
@@ -151,7 +137,7 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
         else if(menu.kind()==ReliabilitySystemMenu.KIND_FAULT_LATCH){labelValue(g,"Trip events",Integer.toString(menu.tertiary()),110);labelValue(g,"Reset events",Integer.toString(menu.auxiliary()),130);}
         else if(menu.kind()==ReliabilitySystemMenu.KIND_SERVO){labelValue(g,"Soft-limit hits",Integer.toString(menu.extraB()),110);labelValue(g,"Current error",Integer.toString(menu.auxiliary()),130);}
         else {labelValue(g,"Measurement samples",Integer.toString(menu.tertiary()),110);}
-        sectionRule(g,154);g.drawString(font,"Counters are retained server evidence; opening the HMI never manufactures events.",16,170,MUTED,false);
+        sectionRule(g,154);safeText(g,"Counters are retained server evidence; opening the HMI never manufactures events.",16,170,MUTED);
     }
 
     private String parameterText(){return switch(menu.kind()){case ReliabilitySystemMenu.KIND_WATCHDOG->"TIMEOUT "+menu.secondary()+"t";case ReliabilitySystemMenu.KIND_SERVO->"SLEW STEP "+menu.extraC();case ReliabilitySystemMenu.KIND_VOTER->"TOLERANCE "+menu.auxiliary();case ReliabilitySystemMenu.KIND_FAULT_LATCH->"THRESHOLD "+menu.secondary();default->"READ ONLY";};}
