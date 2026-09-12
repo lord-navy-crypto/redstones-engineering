@@ -78,6 +78,7 @@ public class CalibrationModuleBlock extends DirectionalSignalBlock {
         int observed = readBackInput(level, pos, state);
         int reference = readInputFrom(level, pos, referenceSide(state));
         int corrected = calibrate(observed, state.getValue(PROFILE));
+        // The observed/reference residual is retained as traceability evidence; it is not a second control path.
         MetrologySupport.sample(level, CHANNEL, pos, corrected, reference, false, 1.0, 30L);
         updateOutput(level, pos, state, corrected);
     }
