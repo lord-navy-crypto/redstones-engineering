@@ -98,8 +98,6 @@ public class AnalogIndicatorBlock extends DirectionalRedstoneEndpointBlock imple
                                 EngineeringSignal.clamp((int) Math.round(snapshot.value())),
                                 snapshot.quality());
                     }
-                    // A declared redstone output without richer runtime evidence still counts
-                    // as a connected source, preserving the legacy valid-zero behavior.
                     return new InputObservation(value, PortQuality.VALID);
                 }
             }
@@ -152,6 +150,11 @@ public class AnalogIndicatorBlock extends DirectionalRedstoneEndpointBlock imple
             boolean moved
     ) {
         if (!level.isClientSide) update(level, pos, state);
+    }
+
+    @Override
+    protected void onEndpointRouteChanged(Level level, BlockPos pos, BlockState oldState, BlockState newState) {
+        update(level, pos, newState);
     }
 
     private void update(Level level, BlockPos pos, BlockState state) {
