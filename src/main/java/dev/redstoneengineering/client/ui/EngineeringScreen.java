@@ -11,6 +11,7 @@ import dev.redstoneengineering.ui.menu.QuartzTimingMenu;
 import dev.redstoneengineering.ui.menu.RadioLinkMenu;
 import dev.redstoneengineering.ui.menu.RangeSensorMenu;
 import dev.redstoneengineering.ui.menu.ReliabilitySystemMenu;
+import dev.redstoneengineering.ui.menu.SeriesRouteActions;
 import dev.redstoneengineering.ui.menu.SignalAnalyzerMenu;
 import dev.redstoneengineering.ui.menu.SignalConditionerMenu;
 import dev.redstoneengineering.ui.menu.SignalProcessorMenu;
@@ -236,6 +237,9 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         if (menu instanceof PneumaticSystemMenu) {
             return clockwise ? PneumaticSystemMenu.BUTTON_INPUT_RIGHT : PneumaticSystemMenu.BUTTON_INPUT_LEFT;
         }
+        if (SeriesRouteActions.supports(menu)) {
+            return clockwise ? SeriesRouteActions.BUTTON_INPUT_RIGHT : SeriesRouteActions.BUTTON_INPUT_LEFT;
+        }
         return -1;
     }
 
@@ -249,13 +253,17 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         if (menu instanceof PneumaticSystemMenu) {
             return clockwise ? PneumaticSystemMenu.BUTTON_OUTPUT_RIGHT : PneumaticSystemMenu.BUTTON_OUTPUT_LEFT;
         }
+        if (SeriesRouteActions.supports(menu)) {
+            return clockwise ? SeriesRouteActions.BUTTON_OUTPUT_RIGHT : SeriesRouteActions.BUTTON_OUTPUT_LEFT;
+        }
         return -1;
     }
 
     private boolean independentRouteEndpoints() {
         if (menu instanceof UniversalFieldDeviceMenu universal) return universal.independentRouteEndpoints();
         if (menu instanceof DigitalCommunicationMenu) return true;
-        return menu instanceof PneumaticSystemMenu pneumatic && pneumatic.directional();
+        if (menu instanceof PneumaticSystemMenu pneumatic && pneumatic.directional()) return true;
+        return SeriesRouteActions.supports(menu);
     }
 
     private boolean routeSupported() {
