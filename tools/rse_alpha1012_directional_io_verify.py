@@ -54,12 +54,15 @@ endpoint_body = text(endpoint)
 if "notifyNeighbors(level, pos, block, oldOutput, newOutput)" not in endpoint_body:
     failed.append(f"{endpoint}: rotating a source must notify both old and new output neighbors")
 
-for rel in [
+sensor_files = [
     "src/main/java/dev/redstoneengineering/block/EngineeringLightSensorBlock.java",
     "src/main/java/dev/redstoneengineering/block/TankLevelSensorBlock.java",
     "src/main/java/dev/redstoneengineering/block/EntityDensitySensorBlock.java",
-]:
-    require(rel, "extends DirectionalRedstoneSensorBlock", "updateSensorOutput")
+]
+for rel in sensor_files:
+    require(rel,
+            "extends DirectionalRedstoneSensorBlock", "updateSensorOutput",
+            "player.isShiftKeyDown()", "FieldDeviceUi.open(serverPlayer, pos)")
     body = text(rel)
     if "Arrays.stream(Direction.values())" in body:
         failed.append(f"{rel}: legacy six-face sensor port enumeration returned")
@@ -70,7 +73,8 @@ indicator = "src/main/java/dev/redstoneengineering/block/AnalogIndicatorBlock.ja
 require(indicator,
         "extends DirectionalRedstoneEndpointBlock", "EngineeringPortProvider",
         "SIGNAL IN", "backSide(state)", "PortDirection.INPUT",
-        "connectionMatches(direction, backSide(state))", "readBackInput")
+        "connectionMatches(direction, backSide(state))", "readBackInput",
+        "player.isShiftKeyDown()", "FieldDeviceUi.open(serverPlayer, pos)")
 indicator_body = text(indicator)
 for forbidden in ["LEGACY_OMNIDIRECTIONAL", "getBestNeighborSignal", "Arrays.stream(Direction.values())"]:
     if forbidden in indicator_body:
@@ -123,6 +127,7 @@ print("RSE Alpha 1.0.12 directional I/O verification: PASS")
 print(" shared FRONT/BACK endpoint topology: PASS")
 print(" FRONT-only reference and sensor outputs: PASS")
 print(" reference output rotation old/new neighbor notification: PASS")
+print(" endpoint Engineering UI reachability + Shift diagnostics: PASS")
 print(" BACK-only analog indicator input: PASS")
 print(" low-cardinality multipart resource guard: PASS")
 print(" executable Minecraft directional GameTests: PASS")
