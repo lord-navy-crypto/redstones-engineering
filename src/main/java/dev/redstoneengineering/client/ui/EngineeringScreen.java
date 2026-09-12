@@ -6,6 +6,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
@@ -66,7 +67,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     protected EngineeringScreen(M menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
         this.imageWidth = 320;
-        // Device content owns the upper 218 px. The route schematic and footer have dedicated space
+        // Device content owns the upper region. The route schematic and footer have dedicated space
         // below it, so dense Ports/Observatory pages cannot collide with the shared visualization.
         this.imageHeight = 270;
         this.titleLabelX = 12;
@@ -180,12 +181,12 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
         // Header and navigation are visually isolated from telemetry so every device reads like an HMI.
         graphics.fill(leftPos + 8, topPos + 27, leftPos + imageWidth - 8, topPos + 29, ACCENT);
-        graphics.fill(leftPos + 8, topPos + 58, leftPos + imageWidth - 8, topPos + imageHeight - 52, PANEL_2);
-        graphics.fill(leftPos + 8, topPos + imageHeight - 62, leftPos + imageWidth - 8, topPos + imageHeight - 29, PANEL_3);
+        graphics.fill(leftPos + 8, topPos + 58, leftPos + imageWidth - 8, topPos + imageHeight - 72, PANEL_2);
+        graphics.fill(leftPos + 8, topPos + imageHeight - 68, leftPos + imageWidth - 8, topPos + imageHeight - 29, PANEL_3);
         graphics.fill(leftPos + 8, topPos + imageHeight - 25, leftPos + imageWidth - 8, topPos + imageHeight - 9, PANEL_3);
 
         // Thin white equipment-identification rail: neutral across electrical/optical/data media.
-        graphics.fill(leftPos + 8, topPos + 58, leftPos + 11, topPos + imageHeight - 66, WHITE_SIGN);
+        graphics.fill(leftPos + 8, topPos + 58, leftPos + 11, topPos + imageHeight - 76, WHITE_SIGN);
     }
 
     @Override
@@ -213,16 +214,16 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
     /**
      * Shared route schematic sourced only from formal synchronized menu contracts.
-     * RX and TX are physically separated, the center node states the device role, and the lower
-     * rail exposes whether the route currently carries valid evidence or is open/degraded.
+     * RX and TX are physically separated, the center node states the device role, and six-face
+     * matrices make single-ended, turned, and fan-out topologies visible without reading prose.
      */
     private void renderPortRoute(GuiGraphics graphics) {
-        int top = imageHeight - 61;
-        int nodeY = top + 10;
+        int top = imageHeight - 67;
+        int nodeY = top + 11;
         int rxX = 16;
         int roleX = 113;
         int txX = 222;
-        int nodeH = 19;
+        int nodeH = 29;
 
         String rxFaces = routeEndpointLabel(menu.receivePortFacesLabel(), true);
         String txFaces = routeEndpointLabel(menu.transmitPortFacesLabel(), false);
@@ -237,17 +238,20 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         String state = menu.evidenceStateLabel();
         graphics.drawString(font, state, imageWidth - 16 - font.width(state), top - 1, routeColor, false);
 
-        routeNode(graphics, rxX, nodeY, 82, nodeH, "RX", rxFaces, rxPresent ? INFO : MUTED);
-        routeNode(graphics, roleX, nodeY, 94, nodeH, "ROLE", role, operationalHealthColor());
-        routeNode(graphics, txX, nodeY, 82, nodeH, "TX", txFaces, txPresent ? GOOD : MUTED);
+        routeNode(graphics, rxX, nodeY, 82, nodeH, "RX", rxFaces,
+                rxPresent ? INFO : MUTED, menu.receivePortMask(), true);
+        routeNode(graphics, roleX, nodeY, 94, nodeH, "ROLE", role,
+                operationalHealthColor(), 0, false);
+        routeNode(graphics, txX, nodeY, 82, nodeH, "TX", txFaces,
+                txPresent ? GOOD : MUTED, menu.transmitPortMask(), true);
 
-        drawRouteLink(graphics, rxX + 82, roleX, nodeY + 9, rxPresent, routeColor);
-        drawRouteLink(graphics, roleX + 94, txX, nodeY + 9, txPresent, routeColor);
+        drawRouteLink(graphics, rxX + 82, roleX, nodeY + 13, rxPresent, routeColor);
+        drawRouteLink(graphics, roleX + 94, txX, nodeY + 13, txPresent, routeColor);
 
         if (!rxPresent && txPresent) {
-            graphics.drawString(font, "SOURCE", 86, nodeY + 5, INFO, false);
+            graphics.drawString(font, "SOURCE", 84, nodeY + 10, INFO, false);
         } else if (rxPresent && !txPresent) {
-            graphics.drawString(font, "SINK", 208, nodeY + 5, INFO, false);
+            graphics.drawString(font, "SINK", 208, nodeY + 10, INFO, false);
         }
     }
 
@@ -287,13 +291,34 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     }
 
     private void routeNode(GuiGraphics graphics, int x, int y, int width, int height,
-                           String heading, String value, int color) {
+                           String heading, String value, int color, int faceMask, boolean showFaces) {
         graphics.fill(x, y, x + width, y + height, PANEL);
         graphics.fill(x, y, x + 3, y + height, color);
         graphics.drawString(font, heading, x + 7, y + 3, MUTED, false);
         String compact = fitRouteText(value, width - 35);
         graphics.drawString(font, compact, x + width - 6 - font.width(compact), y + 3, color, false);
-        graphics.fill(x + 7, y + height - 4, x + width - 7, y + height - 3, BORDER);
+        if (showFaces) {
+            drawFaceMatrix(graphics, x + 7, y + 15, faceMask, color);
+        } else {
+            graphics.fill(x + 7, y + height - 5, x + width - 7, y + height - 3, color);
+        }
+    }
+
+    /** Six compact physical-face indicators: N E S W U D. */
+    private void drawFaceMatrix(GuiGraphics graphics, int x, int y, int mask, int activeColor) {
+        Direction[] order = {
+                Direction.NORTH, Direction.EAST, Direction.SOUTH,
+                Direction.WEST, Direction.UP, Direction.DOWN
+        };
+        String[] labels = {"N", "E", "S", "W", "U", "D"};
+        for (int i = 0; i < order.length; i++) {
+            int cellX = x + i * 11;
+            boolean active = (mask & (1 << order[i].ordinal())) != 0;
+            int color = active ? activeColor : BORDER;
+            graphics.fill(cellX, y, cellX + 9, y + 9, PANEL_3);
+            graphics.fill(cellX, y + 8, cellX + 9, y + 9, color);
+            graphics.drawString(font, labels[i], cellX + 2, y, color, false);
+        }
     }
 
     private void drawRouteLink(GuiGraphics graphics, int x0, int x1, int y, boolean present, int routeColor) {
