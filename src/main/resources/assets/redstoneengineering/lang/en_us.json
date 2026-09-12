@@ -128,5 +128,6 @@
   "block.redstoneengineering.safety_interlock": "Safety Interlock",
   "block.redstoneengineering.fault_injector": "Commissioning Fault Injector",
   "block.redstoneengineering.alarm_processor": "Alarm Annunciator / Processor",
-  "block.redstoneengineering.topology_debugger": "Engineering Topology Debugger"
+  "block.redstoneengineering.topology_debugger": "Engineering Topology Debugger",
+  "block.redstoneengineering.engineering_compass": "Engineering Compass"
 }

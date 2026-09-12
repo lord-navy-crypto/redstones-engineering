@@ -1,0 +1,78 @@
+{
+  "ambientocclusion": true,
+  "textures": {
+    "base": "redstoneengineering:block/signal_analyzer_side",
+    "north": "redstoneengineering:block/redstone_reference_source",
+    "east": "redstoneengineering:block/optical_fiber",
+    "south": "redstoneengineering:block/slime_vibration_conduit",
+    "west": "redstoneengineering:block/honey_vibration_damper",
+    "center": "redstoneengineering:block/signal_analyzer_top",
+    "particle": "redstoneengineering:block/signal_analyzer_side"
+  },
+  "elements": [
+    {
+      "from": [0, 0, 0],
+      "to": [16, 4, 16],
+      "faces": {
+        "down": {"texture": "#base", "cullface": "down"},
+        "up": {"texture": "#base"},
+        "north": {"texture": "#base", "cullface": "north"},
+        "south": {"texture": "#base", "cullface": "south"},
+        "west": {"texture": "#base", "cullface": "west"},
+        "east": {"texture": "#base", "cullface": "east"}
+      }
+    },
+    {
+      "from": [6, 4, 0],
+      "to": [10, 6, 8],
+      "faces": {
+        "up": {"texture": "#north"},
+        "north": {"texture": "#north"},
+        "south": {"texture": "#north"},
+        "west": {"texture": "#north"},
+        "east": {"texture": "#north"}
+      }
+    },
+    {
+      "from": [8, 4, 6],
+      "to": [16, 5, 10],
+      "faces": {
+        "up": {"texture": "#east"},
+        "north": {"texture": "#east"},
+        "south": {"texture": "#east"},
+        "east": {"texture": "#east"}
+      }
+    },
+    {
+      "from": [6, 4, 8],
+      "to": [10, 5, 16],
+      "faces": {
+        "up": {"texture": "#south"},
+        "south": {"texture": "#south"},
+        "west": {"texture": "#south"},
+        "east": {"texture": "#south"}
+      }
+    },
+    {
+      "from": [0, 4, 6],
+      "to": [8, 5, 10],
+      "faces": {
+        "up": {"texture": "#west"},
+        "north": {"texture": "#west"},
+        "south": {"texture": "#west"},
+        "west": {"texture": "#west"}
+      }
+    },
+    {
+      "from": [6, 6, 6],
+      "to": [10, 7, 10],
+      "faces": {
+        "up": {"texture": "#center"},
+        "north": {"texture": "#center"},
+        "south": {"texture": "#center"},
+        "west": {"texture": "#center"},
+        "east": {"texture": "#center"}
+      }
+    }
+  ]
+}
