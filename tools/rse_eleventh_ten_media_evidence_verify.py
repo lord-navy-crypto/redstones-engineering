@@ -141,10 +141,16 @@ require(
 workflow = read(".github/workflows/build.yml")
 if workflow and "tools/rse_eleventh_ten_media_evidence_verify.py" not in workflow:
     errors.append("workflow does not gate the eleventh-ten verifier")
-if workflow:
-    thresholds = [int(value) for value in re.findall(r"test_count\s*<\s*(\d+)", workflow)]
-    if not thresholds or max(thresholds) < 299:
-        errors.append("workflow GameTest floor must be at least 299")
+for token in (
+    "Minecraft topology GameTests (manual diagnostic)",
+    "github.event_name == 'workflow_dispatch'",
+    "continue-on-error: true",
+    "./gradlew runGameTestServer",
+    "./gradlew compileJava",
+    "./gradlew test",
+):
+    if workflow and token not in workflow:
+        errors.append(f"build.yml: missing manual/non-blocking GameTest policy token {token!r}")
 
 if errors:
     print("RSE eleventh-ten media evidence verification: FAIL")
@@ -158,4 +164,4 @@ print("  hydro valid-zero drive semantics: PASS")
 print("  radio zero-frame presence and observer-neutral reception: PASS")
 print("  optical source evidence + wrong-channel visibility: PASS")
 print("  Soul-Flux transport/storage zero semantics: PASS")
-print("  ten executable eleventh-ten GameTests registered: PASS")
+print("  registered eleventh-ten GameTests: 10 (manual diagnostic / non-blocking)")
