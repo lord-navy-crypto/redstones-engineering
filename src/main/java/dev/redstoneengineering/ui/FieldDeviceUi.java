@@ -71,6 +71,11 @@ public final class FieldDeviceUi {
                 || block instanceof EntityDensitySensorBlock || block instanceof AnalogIndicatorBlock) {
             openUniversal(player, pos); return;
         }
+        // Any remaining explicit one-input/one-output processor must use the universal port-driven HMI.
+        // This keeps RX/TX truth sourced from INPUT_FACING/FACING instead of legacy TX.opposite() snapshots.
+        if (block instanceof DirectionalSignalBlock || block instanceof DirectionalDomainBlock) {
+            openUniversal(player, pos); return;
+        }
         player.openMenu(new SimpleMenuProvider((id, inv, ignored) -> new FieldDeviceMenu(id, inv, pos), title), data -> data.writeBlockPos(pos));
     }
 
