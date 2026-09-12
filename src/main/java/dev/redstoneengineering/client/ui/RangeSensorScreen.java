@@ -14,8 +14,7 @@ public final class RangeSensorScreen extends EngineeringScreen<RangeSensorMenu> 
     private Button rangeNext;
     private Button responsePrevious;
     private Button responseNext;
-    private Button rotateLeft;
-    private Button rotateRight;
+    private Button directionCycle;
 
     public RangeSensorScreen(RangeSensorMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -39,10 +38,8 @@ public final class RangeSensorScreen extends EngineeringScreen<RangeSensorMenu> 
         responseNext = addConfigureWidget(Button.builder(Component.literal("Response ▶"),
                 b -> sendMenuButton(RangeSensorMenu.BUTTON_RESPONSE_NEXT)).bounds(leftPos + 222, y + 50, 82, 20).build());
 
-        rotateLeft = addConfigureWidget(Button.builder(Component.literal("↺ I/O"),
-                b -> sendMenuButton(RangeSensorMenu.BUTTON_ROTATE_LEFT)).bounds(leftPos + 104, y + 50, 52, 20).build());
-        rotateRight = addConfigureWidget(Button.builder(Component.literal("I/O ↻"),
-                b -> sendMenuButton(RangeSensorMenu.BUTTON_ROTATE_RIGHT)).bounds(leftPos + 164, y + 50, 52, 20).build());
+        directionCycle = addConfigureWidget(Button.builder(Component.literal("Direction • —"),
+                b -> sendMenuButton(RangeSensorMenu.BUTTON_ROTATE_RIGHT)).bounds(leftPos + 104, y + 50, 112, 20).build());
     }
 
     @Override
@@ -54,6 +51,12 @@ public final class RangeSensorScreen extends EngineeringScreen<RangeSensorMenu> 
         rangeNext.setMessage(Component.literal(menu.configuredRange() + " ▶"));
         responsePrevious.setMessage(Component.literal("◀ " + responseName()));
         responseNext.setMessage(Component.literal(responseName() + " ▶"));
+        if (directionCycle != null) {
+            directionCycle.setMessage(Component.literal(fitForWidth(
+                    "Direction • " + menu.outputDirection().getName().toUpperCase(), 96)));
+            directionCycle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
+                    "Cycle the sensing/output axis clockwise on the server.")));
+        }
     }
 
     @Override
@@ -79,11 +82,11 @@ public final class RangeSensorScreen extends EngineeringScreen<RangeSensorMenu> 
         labelValue(g, "Detect mode", detectModeName(), 145);
         labelValue(g, "Response", responseName(), 161);
         labelValue(g, "Scan progress", menu.scannedCells() + " / " + menu.configuredRange(), 177);
-        g.drawString(font,
+        safeText(g,
                 menu.distance() == 0 && menu.evidenceValid()
                         ? "0 is VALID evidence: the completed scan found no target."
                         : "Distance and output are server-authoritative retained scan evidence.",
-                16, 198, menu.distance() == 0 && menu.evidenceValid() ? GOOD : MUTED, false);
+                16, 198, menu.distance() == 0 && menu.evidenceValid() ? GOOD : MUTED);
     }
 
     private void ports(GuiGraphics g) {
@@ -92,8 +95,7 @@ public final class RangeSensorScreen extends EngineeringScreen<RangeSensorMenu> 
         labelValue(g, "Interface", "FREE-SPACE RANGE APERTURE", 124);
         labelValue(g, "Output face", menu.outputDirection().getName().toUpperCase(), 150);
         labelValue(g, "Interface", "REDSTONE • 0..15 OUTPUT", 168);
-        g.drawString(font, "The sensing aperture observes only; the opposite face is the electrical output.",
-                16, 196, INFO, false);
+        safeText(g, "The sensing aperture observes only; the opposite face is the electrical output.", 16, 196, INFO);
     }
 
     private void configure(GuiGraphics g) {
@@ -114,7 +116,7 @@ public final class RangeSensorScreen extends EngineeringScreen<RangeSensorMenu> 
         labelValue(g, "Redstone output", menu.output() + " / 15", 162);
         labelValue(g, "Direction", menu.sensingDirection().getName().toUpperCase() + " → "
                 + menu.outputDirection().getName().toUpperCase(), 180);
-        g.drawString(font, "Validity comes from ScanResult.complete(), never from distance > 0.", 16, 201, GOOD, false);
+        safeText(g, "Validity comes from ScanResult.complete(), never from distance > 0.", 16, 201, GOOD);
     }
 
     private void history(GuiGraphics g) {
@@ -123,7 +125,7 @@ public final class RangeSensorScreen extends EngineeringScreen<RangeSensorMenu> 
         labelValue(g, "Latest distance", Integer.toString(menu.distance()), 126);
         labelValue(g, "Latest progress", menu.scannedCells() + " / " + menu.configuredRange(), 144);
         sectionRule(g, 166);
-        g.drawString(font, "The sensor retains its latest authoritative scan, not a fabricated client history.", 16, 180, MUTED, false);
+        safeText(g, "The sensor retains its latest authoritative scan, not a fabricated client history.", 16, 180, MUTED);
     }
 
     private String scanStatusName() {
