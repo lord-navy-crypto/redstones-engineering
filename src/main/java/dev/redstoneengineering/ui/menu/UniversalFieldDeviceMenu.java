@@ -1,15 +1,6 @@
 package dev.redstoneengineering.ui.menu;
 
-import dev.redstoneengineering.block.AbstractLapisTransducerBlock;
-import dev.redstoneengineering.block.CopperCircuitMeterBlock;
-import dev.redstoneengineering.block.DirectionalDomainBlock;
-import dev.redstoneengineering.block.DirectionalRedstoneEndpointBlock;
-import dev.redstoneengineering.block.DirectionalSignalBlock;
-import dev.redstoneengineering.block.LapisPrecisionMeterBlock;
-import dev.redstoneengineering.block.LapisPrecisionRangeSensorBlock;
-import dev.redstoneengineering.block.MolecularCloudReceiverBlock;
-import dev.redstoneengineering.block.RedstoneCableTerminalBlock;
-import dev.redstoneengineering.block.SignalProbeBlock;
+import dev.redstoneengineering.block.*;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.PortDirection;
@@ -25,11 +16,7 @@ import net.minecraft.world.inventory.DataSlot;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 
-/**
- * Generic server-authoritative HMI snapshot for any RSE block exposing EngineeringPortProvider.
- * Dedicated instruments may keep their richer menus; this menu provides a complete fallback
- * instead of a blank or three-number-only screen.
- */
+/** Generic server-authoritative HMI for EngineeringPortProvider field devices. */
 public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int FACE_COUNT = Direction.values().length;
     public static final int BUTTON_ROTATE_LEFT = 100;
@@ -38,7 +25,8 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_CONFIG_PRIMARY_NEXT = 111;
     public static final int BUTTON_CONFIG_SECONDARY_PREVIOUS = 112;
     public static final int BUTTON_CONFIG_SECONDARY_NEXT = 113;
-    public static final int BUTTON_CONFIG_RESET = 114;
+    public static final int BUTTON_CONFIG_ACTION = 114;
+    public static final int BUTTON_CONFIG_TOGGLE = 115;
 
     public static final int ROUTE_NONE = 0;
     public static final int ROUTE_SERIES_AXIS = 1;
@@ -52,6 +40,10 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_LAPIS_TRANSDUCER = 1;
     public static final int CONFIG_LAPIS_RANGE = 2;
     public static final int CONFIG_MOLECULAR_RECEIVER = 3;
+    public static final int CONFIG_ALARM = 4;
+    public static final int CONFIG_SAMPLE_HOLD = 5;
+    public static final int CONFIG_CALIBRATION = 6;
+    public static final int CONFIG_PWM = 7;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
@@ -91,6 +83,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         configKind.set(CONFIG_NONE);
         configPrimary.set(0);
         configSecondary.set(0);
+
         if (block instanceof LapisPrecisionRangeSensorBlock) {
             configKind.set(CONFIG_LAPIS_RANGE);
             configPrimary.set(state.getValue(AbstractLapisTransducerBlock.PROFILE));
@@ -102,6 +95,21 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configKind.set(CONFIG_MOLECULAR_RECEIVER);
             configPrimary.set(state.getValue(MolecularCloudReceiverBlock.SENSITIVITY));
             configSecondary.set(MolecularCloudReceiverBlock.peak(level, blockPos));
+        } else if (block instanceof AlarmProcessorBlock) {
+            configKind.set(CONFIG_ALARM);
+            configPrimary.set(state.getValue(AlarmProcessorBlock.SEVERITY));
+            configSecondary.set(AlarmProcessorBlock.activationCount(level, blockPos));
+        } else if (block instanceof SampleHoldBlock) {
+            configKind.set(CONFIG_SAMPLE_HOLD);
+            configPrimary.set(state.getValue(SampleHoldBlock.TRIGGER_MODE));
+            configSecondary.set(SampleHoldBlock.captureCount(level, blockPos));
+        } else if (block instanceof CalibrationModuleBlock) {
+            configKind.set(CONFIG_CALIBRATION);
+            configPrimary.set(state.getValue(CalibrationModuleBlock.PROFILE));
+        } else if (block instanceof PwmControllerBlock) {
+            configKind.set(CONFIG_PWM);
+            configPrimary.set(state.getValue(PwmControllerBlock.PERIOD_MODE));
+            configSecondary.set(state.getValue(PwmControllerBlock.INVERT) ? 1 : 0);
         }
 
         declaredPortMask.set(0);
@@ -150,9 +158,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     }
 
     private static int routeKind(Block block) {
-        if (block instanceof LapisPrecisionMeterBlock || block instanceof CopperCircuitMeterBlock) {
-            return ROUTE_MEASUREMENT_FACE;
-        }
+        if (block instanceof LapisPrecisionMeterBlock || block instanceof CopperCircuitMeterBlock) return ROUTE_MEASUREMENT_FACE;
         if (block instanceof MolecularCloudReceiverBlock) return ROUTE_FIXED_APERTURE_OUTPUT_FRONT;
         if (block instanceof SignalProbeBlock) return ROUTE_PROBE_AXIS;
         if (block instanceof RedstoneCableTerminalBlock) return ROUTE_TERMINAL_INTERFACE;
@@ -188,7 +194,8 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             case BUTTON_CONFIG_PRIMARY_NEXT -> adjustPrimary(1);
             case BUTTON_CONFIG_SECONDARY_PREVIOUS -> adjustSecondary(-1);
             case BUTTON_CONFIG_SECONDARY_NEXT -> adjustSecondary(1);
-            case BUTTON_CONFIG_RESET -> resetConfigurableHistory();
+            case BUTTON_CONFIG_ACTION -> runAction();
+            case BUTTON_CONFIG_TOGGLE -> toggleConfig();
             default -> false;
         };
         if (changed) {
@@ -200,52 +207,42 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean adjustPrimary(int delta) {
         Block block = level.getBlockState(blockPos).getBlock();
-        if (block instanceof AbstractLapisTransducerBlock transducer) {
-            return transducer.adjustProfile(level, blockPos, delta);
-        }
-        if (block instanceof MolecularCloudReceiverBlock receiver) {
-            return receiver.adjustSensitivity(level, blockPos, delta);
-        }
+        if (block instanceof AbstractLapisTransducerBlock transducer) return transducer.adjustProfile(level, blockPos, delta);
+        if (block instanceof MolecularCloudReceiverBlock receiver) return receiver.adjustSensitivity(level, blockPos, delta);
+        if (block instanceof AlarmProcessorBlock alarm) return alarm.adjustSeverity(level, blockPos, delta);
+        if (block instanceof SampleHoldBlock sampleHold) return sampleHold.adjustTriggerMode(level, blockPos, delta);
+        if (block instanceof CalibrationModuleBlock calibration) return calibration.adjustProfile(level, blockPos, delta);
+        if (block instanceof PwmControllerBlock pwm) return pwm.adjustPeriodMode(level, blockPos, delta);
         return false;
     }
 
     private boolean adjustSecondary(int delta) {
         Block block = level.getBlockState(blockPos).getBlock();
-        if (block instanceof LapisPrecisionRangeSensorBlock range) {
-            return range.adjustRange(level, blockPos, delta);
-        }
+        return block instanceof LapisPrecisionRangeSensorBlock range && range.adjustRange(level, blockPos, delta);
+    }
+
+    private boolean runAction() {
+        Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof MolecularCloudReceiverBlock receiver) return receiver.resetHistory(level, blockPos);
+        if (block instanceof AlarmProcessorBlock alarm) return alarm.acknowledge(level, blockPos);
+        if (block instanceof SampleHoldBlock sampleHold) return sampleHold.clearHeldValue(level, blockPos);
         return false;
     }
 
-    private boolean resetConfigurableHistory() {
+    private boolean toggleConfig() {
         Block block = level.getBlockState(blockPos).getBlock();
-        return block instanceof MolecularCloudReceiverBlock receiver && receiver.resetHistory(level, blockPos);
+        return block instanceof PwmControllerBlock pwm && pwm.toggleInvert(level, blockPos);
     }
 
     private boolean rotate(boolean clockwise) {
-        BlockState state = level.getBlockState(blockPos);
-        Block block = state.getBlock();
-        if (block instanceof DirectionalSignalBlock) {
-            return DirectionalSignalBlock.rotateSeriesAxis(level, blockPos, clockwise);
-        }
-        if (block instanceof DirectionalDomainBlock) {
-            return DirectionalDomainBlock.rotateSeriesAxis(level, blockPos, clockwise);
-        }
-        if (block instanceof DirectionalRedstoneEndpointBlock) {
-            return DirectionalRedstoneEndpointBlock.rotateOutput(level, blockPos, clockwise);
-        }
-        if (block instanceof SignalProbeBlock) {
-            return SignalProbeBlock.rotateMeasurementAxis(level, blockPos, clockwise);
-        }
-        if (block instanceof RedstoneCableTerminalBlock) {
-            return RedstoneCableTerminalBlock.rotateInterface(level, blockPos, clockwise);
-        }
-        if (block instanceof LapisPrecisionMeterBlock) {
-            return LapisPrecisionMeterBlock.rotateMeasurementFace(level, blockPos, clockwise);
-        }
-        if (block instanceof CopperCircuitMeterBlock) {
-            return CopperCircuitMeterBlock.rotateMeasurementFace(level, blockPos, clockwise);
-        }
+        Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof DirectionalSignalBlock) return DirectionalSignalBlock.rotateSeriesAxis(level, blockPos, clockwise);
+        if (block instanceof DirectionalDomainBlock) return DirectionalDomainBlock.rotateSeriesAxis(level, blockPos, clockwise);
+        if (block instanceof DirectionalRedstoneEndpointBlock) return DirectionalRedstoneEndpointBlock.rotateOutput(level, blockPos, clockwise);
+        if (block instanceof SignalProbeBlock) return SignalProbeBlock.rotateMeasurementAxis(level, blockPos, clockwise);
+        if (block instanceof RedstoneCableTerminalBlock) return RedstoneCableTerminalBlock.rotateInterface(level, blockPos, clockwise);
+        if (block instanceof LapisPrecisionMeterBlock) return LapisPrecisionMeterBlock.rotateMeasurementFace(level, blockPos, clockwise);
+        if (block instanceof CopperCircuitMeterBlock) return CopperCircuitMeterBlock.rotateMeasurementFace(level, blockPos, clockwise);
         return false;
     }
 
@@ -281,7 +278,5 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         return ordinal < 0 || ordinal >= all.length ? PortQuality.NO_SIGNAL : all[ordinal];
     }
 
-    public boolean rotatableSeriesAxis() {
-        return seriesRotatable.get() != 0;
-    }
+    public boolean rotatableSeriesAxis() { return seriesRotatable.get() != 0; }
 }
