@@ -27,6 +27,10 @@ public final class MagneticSystemMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_PRIMARY_NEXT = 1;
     public static final int BUTTON_ROTATE_LEFT = 2;
     public static final int BUTTON_ROTATE_RIGHT = 3;
+    public static final int BUTTON_INPUT_LEFT = 4;
+    public static final int BUTTON_INPUT_RIGHT = 5;
+    public static final int BUTTON_OUTPUT_LEFT = 6;
+    public static final int BUTTON_OUTPUT_RIGHT = 7;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot primary = trackedInt();
@@ -36,6 +40,8 @@ public final class MagneticSystemMenu extends EngineeringDeviceMenu {
     private final DataSlot extra = trackedInt();
     private final DataSlot quality = trackedInt();
     private final DataSlot facing = trackedInt();
+    private final DataSlot inputFacing = trackedInt();
+    private final DataSlot outputFacing = trackedInt();
     private final DataSlot complete = trackedInt();
 
     public MagneticSystemMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
@@ -53,7 +59,7 @@ public final class MagneticSystemMenu extends EngineeringDeviceMenu {
         BlockState state = level.getBlockState(blockPos);
         Block block = state.getBlock();
         primary.set(0); secondary.set(0); tertiary.set(0); auxiliary.set(0); extra.set(0);
-        quality.set(PortQuality.NO_SIGNAL.ordinal()); facing.set(-1); complete.set(0);
+        quality.set(PortQuality.NO_SIGNAL.ordinal()); facing.set(-1); inputFacing.set(-1); outputFacing.set(-1); complete.set(0);
 
         if (block instanceof ElectromagnetBlock) {
             kind.set(KIND_ELECTROMAGNET);
@@ -72,9 +78,12 @@ public final class MagneticSystemMenu extends EngineeringDeviceMenu {
             complete.set(1);
         } else if (block instanceof InductionCoilBlock coil) {
             kind.set(KIND_COIL);
-            Direction out = state.getValue(DirectionalDomainBlock.FACING);
+            Direction in = DirectionalDomainBlock.seriesInputSide(state);
+            Direction out = DirectionalDomainBlock.seriesOutputSide(state);
+            inputFacing.set(in.ordinal());
+            outputFacing.set(out.ordinal());
             facing.set(out.ordinal());
-            var input = coil.engineeringSnapshot(level, blockPos, state, out.getOpposite());
+            var input = coil.engineeringSnapshot(level, blockPos, state, in);
             primary.set(input.map(s -> (int) Math.round(s.value())).orElse(0));
             secondary.set(InductionCoilBlock.outputVoltage(level, blockPos));
             tertiary.set(state.getValue(InductionCoilBlock.TURNS));
@@ -132,10 +141,14 @@ public final class MagneticSystemMenu extends EngineeringDeviceMenu {
                 if (!(level instanceof ServerLevel server)) return false;
                 for (int i = 0; i < 3; i++) InductionCoilBlock.cycleTurns(server, blockPos);
                 changed = true;
+            } else if (id == BUTTON_INPUT_LEFT || id == BUTTON_INPUT_RIGHT) {
+                changed = DirectionalDomainBlock.rotateSeriesInput(level, blockPos, id == BUTTON_INPUT_RIGHT);
+            } else if (id == BUTTON_OUTPUT_LEFT || id == BUTTON_OUTPUT_RIGHT) {
+                changed = DirectionalDomainBlock.rotateSeriesOutput(level, blockPos, id == BUTTON_OUTPUT_RIGHT);
             } else if (id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT) {
-                changed = DirectionalDomainBlock.rotateSeriesAxis(level, blockPos, id == BUTTON_ROTATE_RIGHT);
-                if (changed) level.scheduleTick(blockPos, block, 1);
+                changed = DirectionalDomainBlock.rotateWholeRoute(level, blockPos, id == BUTTON_ROTATE_RIGHT);
             } else return false;
+            if (changed) level.scheduleTick(blockPos, block, 1);
         } else return false;
 
         if (changed) { refreshAuthoritativeSnapshot(); broadcastChanges(); }
@@ -157,4 +170,6 @@ public final class MagneticSystemMenu extends EngineeringDeviceMenu {
         int o = facing.get(); Direction[] all = Direction.values();
         return o < 0 || o >= all.length ? Direction.NORTH : all[o];
     }
+    public boolean hasInputEndpoint() { return kind.get() == KIND_COIL && inputFacing.get() >= 0; }
+    public boolean hasOutputEndpoint() { return kind.get() == KIND_COIL && outputFacing.get() >= 0; }
 }
