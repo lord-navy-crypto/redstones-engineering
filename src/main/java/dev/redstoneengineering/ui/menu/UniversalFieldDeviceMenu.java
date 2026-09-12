@@ -157,9 +157,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
                 minimums[index].set(syncNumber(snapshot.get().minimum()));
                 maximums[index].set(syncNumber(snapshot.get().maximum()));
                 qualities[index].set(snapshot.get().quality().ordinal());
-            } else {
-                qualities[index].set(PortQuality.NO_SIGNAL.ordinal());
-            }
+            } else qualities[index].set(PortQuality.NO_SIGNAL.ordinal());
         }
         declaredPortMask.set(declared);
         inputMask.set(inputs);
@@ -183,9 +181,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         return ROUTE_NONE;
     }
 
-    private static boolean isRotatable(Block block) {
-        return routeKind(block) != ROUTE_NONE;
-    }
+    private static boolean isRotatable(Block block) { return routeKind(block) != ROUTE_NONE; }
 
     private static int syncNumber(double value) {
         long rounded = Math.round(value);
@@ -273,17 +269,19 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean rotateInput(boolean clockwise) {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (!hasInputEndpoint()) return false;
+        if (routeKind(block) == ROUTE_MULTI_PORT_LAYOUT) return rotate(clockwise);
         if (block instanceof DirectionalSignalBlock) return DirectionalSignalBlock.rotateSeriesInput(level, blockPos, clockwise);
         if (block instanceof DirectionalDomainBlock) return DirectionalDomainBlock.rotateSeriesInput(level, blockPos, clockwise);
-        if (!hasInputEndpoint()) return false;
         return rotate(clockwise);
     }
 
     private boolean rotateOutput(boolean clockwise) {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (!hasOutputEndpoint()) return false;
+        if (routeKind(block) == ROUTE_MULTI_PORT_LAYOUT) return rotate(clockwise);
         if (block instanceof DirectionalSignalBlock) return DirectionalSignalBlock.rotateSeriesOutput(level, blockPos, clockwise);
         if (block instanceof DirectionalDomainBlock) return DirectionalDomainBlock.rotateSeriesOutput(level, blockPos, clockwise);
-        if (!hasOutputEndpoint()) return false;
         return rotate(clockwise);
     }
 
