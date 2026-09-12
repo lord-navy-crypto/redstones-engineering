@@ -32,7 +32,9 @@ sensor_base = "src/main/java/dev/redstoneengineering/block/DirectionalRedstoneSe
 require(endpoint,
         "extends Block", "HORIZONTAL_FACING", "frontSide", "backSide",
         "isQueriedFrom", "connectionMatches", "readBackInput", "notifyFrontOutput",
-        "rotateOutput", "notifyNeighbors", "oldOutput", "newOutput")
+        "rotateOutput", "notifyNeighbors", "oldOutput", "newOutput",
+        "onEndpointRouteChanged(Level level, BlockPos pos, BlockState oldState, BlockState newState)",
+        "block.onEndpointRouteChanged(level, pos, state, next)")
 require(sensor_base,
         "extends DirectionalRedstoneEndpointBlock", "EngineeringPortProvider",
         "SENSOR OUT", "PortKind.SENSOR", "PortDirection.OUTPUT",
@@ -48,8 +50,6 @@ require(source,
         "isQueriedFrom(state, direction, frontSide(state))",
         "rotateOutput(level, pos, true)")
 
-# The reference source used to own a private notifyFrontOutput call. Output rotation is now
-# centralized in DirectionalRedstoneEndpointBlock so old + new output neighbors are both notified.
 endpoint_body = text(endpoint)
 if "notifyNeighbors(level, pos, block, oldOutput, newOutput)" not in endpoint_body:
     failed.append(f"{endpoint}: rotating a source must notify both old and new output neighbors")
@@ -74,6 +74,8 @@ require(indicator,
         "extends DirectionalRedstoneEndpointBlock", "EngineeringPortProvider",
         "SIGNAL IN", "backSide(state)", "PortDirection.INPUT",
         "connectionMatches(direction, backSide(state))", "readBackInput",
+        "onEndpointRouteChanged(Level level, BlockPos pos, BlockState oldState, BlockState newState)",
+        "update(level, pos, newState)",
         "player.isShiftKeyDown()", "FieldDeviceUi.open(serverPlayer, pos)")
 indicator_body = text(indicator)
 for forbidden in ["LEGACY_OMNIDIRECTIONAL", "getBestNeighborSignal", "Arrays.stream(Direction.values())"]:
@@ -84,8 +86,6 @@ source_body = text(source)
 if "Arrays.stream(Direction.values())" in source_body:
     failed.append(f"{source}: reference source must not expose six-face outputs")
 
-# All migrated endpoint blockstates intentionally use multipart models that do not
-# enumerate FACING x POWER/LEVEL combinations.
 for name in [
     "redstone_reference_source",
     "engineering_light_sensor",
@@ -98,7 +98,6 @@ for name in [
     if '"multipart"' not in body:
         failed.append(f"{rel}: expected low-cardinality-friendly multipart model")
 
-# Executable behavior proof must remain in the Minecraft GameTest suite.
 tests = "src/main/java/dev/redstoneengineering/gametest/RseTopologyGameTests.java"
 require(tests,
         "directionalRedstoneEndpointsExposeOnlyPhysicalPorts",
@@ -127,7 +126,8 @@ print("RSE Alpha 1.0.12 directional I/O verification: PASS")
 print(" shared FRONT/BACK endpoint topology: PASS")
 print(" FRONT-only reference and sensor outputs: PASS")
 print(" reference output rotation old/new neighbor notification: PASS")
+print(" endpoint route-change refresh hook: PASS")
 print(" endpoint Engineering UI reachability + Shift diagnostics: PASS")
-print(" BACK-only analog indicator input: PASS")
+print(" BACK-only analog indicator input + immediate route refresh: PASS")
 print(" low-cardinality multipart resource guard: PASS")
 print(" executable Minecraft directional GameTests: PASS")
