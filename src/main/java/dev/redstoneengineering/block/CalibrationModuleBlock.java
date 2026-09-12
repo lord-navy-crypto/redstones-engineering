@@ -12,10 +12,12 @@ import dev.redstoneengineering.core.signal.SignalMath;
 import dev.redstoneengineering.metrology.MeasurementQuality;
 import dev.redstoneengineering.metrology.MeasurementSnapshot;
 import dev.redstoneengineering.metrology.MetrologySupport;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -29,16 +31,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Calibration processor.
- * BACK = observed instrument signal, LEFT = known reference, FRONT = calibrated output.
- * The five historical transfer profiles remain available while Alpha 1.0.15 adds
- * live residual/uncertainty validation against the independent reference input.
- *
- * <p>Unlike the Signal Conditioner, this block earns its place from traceability evidence:
- * its output quality is derived from the OBSERVED-vs-REFERENCE metrology record rather than
- * from the transfer profile alone.</p>
- */
+/** Calibration processor with traceable OBSERVED, REFERENCE and CALIBRATED ports. */
 public class CalibrationModuleBlock extends DirectionalSignalBlock {
     public static final IntegerProperty PROFILE = IntegerProperty.create("profile", 0, 4);
     private static final String CHANNEL = "calibration_module";
@@ -111,6 +104,16 @@ public class CalibrationModuleBlock extends DirectionalSignalBlock {
                 snapshot.port(), snapshot.value(), snapshot.minimum(), snapshot.maximum(), portQuality));
     }
 
+    public boolean adjustProfile(Level level, BlockPos pos, int delta) {
+        BlockState state = level.getBlockState(pos);
+        if (!state.is(this)) return false;
+        int profile = Math.floorMod(state.getValue(PROFILE) + delta, 5);
+        BlockState next = state.setValue(PROFILE, profile);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        level.scheduleTick(pos, this, 1);
+        return true;
+    }
+
     @Override
     protected InteractionResult useWithoutItem(
             BlockState state,
@@ -119,26 +122,23 @@ public class CalibrationModuleBlock extends DirectionalSignalBlock {
             Player player,
             BlockHitResult hitResult
     ) {
-        if (!level.isClientSide) {
-            int profile = (state.getValue(PROFILE) + 1) % 5;
-            BlockState next = state.setValue(PROFILE, profile);
-            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            level.scheduleTick(pos, this, 1);
-
-            int observed = readBackInput(level, pos, next);
-            int reference = readInputFrom(level, pos, referenceSide(next));
-            int corrected = calibrate(observed, profile);
-            MeasurementSnapshot m = MetrologySupport.sample(
-                    level, CHANNEL, pos, corrected, reference, false, 1.0, 30L
-            );
-
-            player.displayClientMessage(Component.literal(
-                    "Calibration | " + profileName(profile)
-                            + " | OBSERVED=" + observed
-                            + " REF=" + reference
-                            + " → OUT=" + corrected
-                            + " | " + MetrologySupport.compactDiagnostics(m)
-            ), true);
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown()) {
+                int observed = readBackInput(level, pos, state);
+                int reference = readInputFrom(level, pos, referenceSide(state));
+                int profile = state.getValue(PROFILE);
+                int corrected = calibrate(observed, profile);
+                MeasurementSnapshot m = measurement(level, pos);
+                player.displayClientMessage(Component.literal(
+                        "Calibration | " + profileName(profile)
+                                + " | OBSERVED=" + observed
+                                + " REF=" + reference
+                                + " → OUT=" + corrected
+                                + " | " + MetrologySupport.compactDiagnostics(m)
+                ), true);
+            } else {
+                FieldDeviceUi.openUniversal(serverPlayer, pos);
+            }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
@@ -154,7 +154,7 @@ public class CalibrationModuleBlock extends DirectionalSignalBlock {
         };
     }
 
-    private static String profileName(int profile) {
+    public static String profileName(int profile) {
         return switch (profile) {
             case 0 -> "FULL 0..15";
             case 1 -> "LOW 0..7→0..15";
