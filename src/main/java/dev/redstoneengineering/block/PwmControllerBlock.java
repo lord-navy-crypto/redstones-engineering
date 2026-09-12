@@ -9,10 +9,12 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -120,7 +122,6 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
         return (int) Math.round(quantizedOnTicks(command, period) * (1000.0 / period));
     }
 
-    /** Read-only phase projection; diagnostics never create a PWM runtime entry. */
     public static int phase(Level level, BlockPos pos) {
         int[] rt = RuntimeIntStore.peek(level, KEY, pos);
         return rt == null || rt.length != 1 ? 0 : rt[0];
@@ -136,21 +137,39 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
                 requested, effective, effective - requested, inhibited, state.getValue(INVERT));
     }
 
+    public boolean adjustPeriodMode(Level level, BlockPos pos, int delta) {
+        BlockState state = level.getBlockState(pos);
+        if (!state.is(this)) return false;
+        int mode = Math.floorMod(state.getValue(PERIOD_MODE) + delta, 4);
+        BlockState next = state.setValue(PERIOD_MODE, mode);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        RuntimeIntStore.get(level, KEY, pos, 1)[0] = 0;
+        level.scheduleTick(pos, this, 1);
+        return true;
+    }
+
+    public boolean toggleInvert(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (!state.is(this)) return false;
+        BlockState next = state.setValue(INVERT, !state.getValue(INVERT));
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        RuntimeIntStore.get(level, KEY, pos, 1)[0] = 0;
+        level.scheduleTick(pos, this, 1);
+        return true;
+    }
+
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
-        if (!level.isClientSide) {
-            BlockState next;
-            if (player.isShiftKeyDown()) next = state.setValue(INVERT, !state.getValue(INVERT));
-            else next = state.setValue(PERIOD_MODE, (state.getValue(PERIOD_MODE) + 1) % 4);
-            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            RuntimeIntStore.get(level, KEY, pos, 1)[0] = 0;
-            level.scheduleTick(pos, this, 1);
-            PwmAssessment a = assessment(level, pos, next);
-            Direction inhibit = leftOf(next.getValue(FACING));
-            player.displayClientMessage(Component.literal(
-                    "PWM | command=" + a.command() + "/15 | requested=" + a.requestedDutyPermille()/10.0 + "%"
-                            + " | realized=" + a.onTicks() + "/" + a.periodTicks() + "t=" + a.effectiveDutyPermille()/10.0 + "%"
-                            + " | quantization=" + (a.quantizationErrorPermille() >= 0 ? "+" : "") + a.quantizationErrorPermille()/10.0 + "%"
-                            + " | invert=" + a.inverted() + " | INHIBIT=" + inhibit.getName() + " (>0 forces OFF)"), true);
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown()) {
+                toggleInvert(level, pos);
+                PwmAssessment a = assessment(level, pos, level.getBlockState(pos));
+                player.displayClientMessage(Component.literal(
+                        "PWM | invert=" + a.inverted() + " | period=" + a.periodTicks() + "t"
+                                + " | requested=" + a.requestedDutyPermille()/10.0 + "%"
+                                + " | realized=" + a.effectiveDutyPermille()/10.0 + "%"), true);
+            } else {
+                FieldDeviceUi.openUniversal(serverPlayer, pos);
+            }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
