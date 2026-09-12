@@ -28,7 +28,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/** 3-D copper electrical cable. Bends automatically; explicit Copper Junctions provide branches. */
+/**
+ * Planar copper electrical cable. Direct cable continuity is horizontal; vertical
+ * transitions require the unified Junction Point. Explicit Copper Junctions remain
+ * the branch device inside a horizontal circuit plane.
+ */
 public class CopperWireBlock extends ConnectedCableBlock implements EngineeringPortProvider {
     private static final String KEY = "copper_cable";
     private static final int VOLTAGE_INDEX = 0;
@@ -42,7 +46,7 @@ public class CopperWireBlock extends ConnectedCableBlock implements EngineeringP
 
     @Override
     protected boolean canConnectTo(BlockGetter level, BlockPos pos, Direction direction, BlockState neighbor) {
-        return TransmissionTopology.copperPort(neighbor, direction);
+        return TransmissionTopology.copperCablePort(level, pos, direction, neighbor);
     }
 
     /** Authoritative solver write. Driver and quality evidence are captured with the resolved node value. */
@@ -162,6 +166,7 @@ public class CopperWireBlock extends ConnectedCableBlock implements EngineeringP
                             + " | drivers=" + driverCount(level, pos)
                             + " | quality=" + quality(level, pos, state)
                             + " | ports=" + engineeringPorts(state).size()
+                            + " | routing=PLANAR; vertical via Junction Point"
                             + " | " + NetworkKernel.summary(level, "copper")
             ), true);
         }
