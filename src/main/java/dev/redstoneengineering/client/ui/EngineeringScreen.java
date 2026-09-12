@@ -111,7 +111,6 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         }
     }
 
-    /** Single route control in a reserved bottom lane; no other shared control may occupy this band. */
     private void addSharedRouteControl() {
         if (!(menu instanceof FieldDeviceMenu)) return;
         int y = topPos + ROUTE_CONTROL_Y;
@@ -129,7 +128,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         String label = fitForWidth("Direction • " + route, CONTENT_RIGHT - CONTENT_LEFT - 16);
         sharedRouteCycle.setMessage(Component.literal(label));
         sharedRouteCycle.active = enabled;
-        sharedRouteCycle.visible = section == Section.CONFIGURE && enabled;
+        sharedRouteCycle.visible = isConfigureSection() && enabled;
         sharedRouteCycle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
                 "Cycle the declared RX/TX route clockwise on the server.")));
     }
@@ -148,13 +147,18 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     }
 
     private void updateWidgetVisibility() {
-        boolean visible = section == Section.CONFIGURE;
+        boolean visible = isConfigureSection();
         for (AbstractWidget widget : configureWidgets) {
             widget.visible = visible && !isLegacyRouteWidget(widget);
         }
         for (int i = 0; i < sectionButtons.size(); i++) {
             sectionButtons.get(i).active = Section.values()[i] != section;
         }
+    }
+
+    /** Lets device screens hide type-specific Configure controls without leaking them onto other tabs. */
+    protected final boolean isConfigureSection() {
+        return section == Section.CONFIGURE;
     }
 
     /** The sidecar I/O compass is the only dense route diagram and only appears on Ports. */
@@ -181,8 +185,6 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         graphics.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, BORDER);
         graphics.fill(leftPos + 2, topPos + 2, leftPos + imageWidth - 2, topPos + imageHeight - 2, PANEL);
         graphics.fill(leftPos + 8, topPos + 27, leftPos + imageWidth - 8, topPos + 29, ACCENT);
-
-        // Every page owns the full content panel. No duplicated route schematic consumes the lower third.
         graphics.fill(leftPos + 8, topPos + 58, leftPos + imageWidth - 8, topPos + FOOTER_TOP - 4, PANEL_2);
         graphics.fill(leftPos + 8, topPos + FOOTER_TOP, leftPos + imageWidth - 8, topPos + imageHeight - 9, PANEL_3);
         graphics.fill(leftPos + 8, topPos + 58, leftPos + 11, topPos + FOOTER_TOP - 8, WHITE_SIGN);
@@ -209,7 +211,6 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         graphics.drawString(font, position, imageWidth - 13 - font.width(position), imageHeight - 20, MUTED, false);
     }
 
-    /** Pixel-based truncation used by all shared widgets and available to every device screen. */
     protected final String fitForWidth(String text, int maxWidth) {
         if (text == null || text.isBlank()) return "—";
         if (maxWidth <= 0) return "";
@@ -221,7 +222,6 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         return compact + "…";
     }
 
-    /** Safe one-line text helper for long explanatory strings in concrete screens. */
     protected final void safeText(GuiGraphics graphics, String text, int x, int y, int color) {
         int width = Math.max(0, CONTENT_RIGHT - x);
         graphics.drawString(font, fitForWidth(text, width), x, y, color, false);
