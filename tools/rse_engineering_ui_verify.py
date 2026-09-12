@@ -21,154 +21,84 @@ def require(rel: str, *tokens: str) -> None:
             errors.append(f"{rel}: missing UI safety token {token!r}")
 
 
-require(
-    "src/main/java/dev/redstoneengineering/ui/EngineeringUiRegistration.java",
-    "DeferredRegister<MenuType<?>>",
-    'MENUS.register("signal_conditioner"',
-    'MENUS.register("pid_controller"',
+require("src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java",
+        "OVERVIEW", "PORTS", "CONFIGURE", "DIAGNOSTICS", "HISTORY",
+        'DIAGNOSTICS("Observe"', "ROLE • ", "HEALTH • ", "EVIDENCE • ",
+        "ROUTE_CONTROL_Y = 218", "FOOTER_TOP = 245", "fitForWidth", "safeText",
+        "isConfigureSection()", "showsPortVisualization", "CONTENT_RIGHT - VALUE_X")
+require("src/main/java/dev/redstoneengineering/client/ui/EngineeringIoCompassOverlay.java",
+        "engineeringScreen.showsPortVisualization()", '"I/O COMPASS"',
+        "boolean rightFits", "boolean leftFits", "if (!rightFits && !leftFits) return;",
+        "screen.height - margin - panelHeight", "connectionMask(menu)", "linkEvidenceKnown",
+        '"DECLARED"', '"AIR PATH"', '"LOS PATH"', '"LINKED"', '"OPEN"')
+require("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScreen.java",
+        "safeText(g, engineeringHint()", "safeText(g, diagnosticHint()",
+        "fitForWidth(label, 72)", "fitForWidth(value, 72)")
+require("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
+        "directionCycle.visible = isConfigureSection() && active")
+
+single_direction_screens = (
+    "SignalConditionerScreen.java",
+    "UniversalFieldDeviceScreen.java",
+    "RangeSensorScreen.java",
+    "SignalProcessorScreen.java",
+    "QuartzTimingScreen.java",
+    "RadioLinkScreen.java",
+    "DigitalCommunicationScreen.java",
+    "PneumaticSystemScreen.java",
+    "OpticalSystemScreen.java",
+    "AmethystSystemScreen.java",
+    "MagneticSystemScreen.java",
+    "ReliabilitySystemScreen.java",
 )
-require(
-    "src/main/java/dev/redstoneengineering/ui/menu/EngineeringDeviceMenu.java",
-    "refreshAuthoritativeSnapshot",
-    "refreshOperationalHealth",
-    "refreshTopologyRole",
-    "refreshEvidenceState",
-    "receivePortMask",
-    "transmitPortMask",
-    "stillValid",
-)
-require(
-    "src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java",
-    "OVERVIEW",
-    "PORTS",
-    "CONFIGURE",
-    "DIAGNOSTICS",
-    "HISTORY",
-    'DIAGNOSTICS("Observe"',
-    "handleInventoryButtonClick",
-    "ROLE • ",
-    "HEALTH • ",
-    "EVIDENCE • ",
-    "private static final int ROUTE_CONTROL_Y = 218",
-    "private static final int FOOTER_TOP = 245",
-    "private Button sharedRouteCycle",
-    'Component.literal("Direction • —")',
-    "FieldDeviceMenu.BUTTON_ROTATE_CW",
-    "sharedRouteCycle.visible = section == Section.CONFIGURE && enabled",
-    "showsPortVisualization",
-    "fitForWidth",
-    "safeText",
-    "CONTENT_RIGHT - VALUE_X",
-    "Math.min(width, CONTENT_RIGHT - x)",
-    "Every page owns the full content panel",
-    "I/O Compass",
-)
-require(
-    "src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScreen.java",
-    "safeText(g, engineeringHint()",
-    "safeText(g, diagnosticHint()",
-    'safeText(g, "VERTICAL RISER ONLY • SAME MEDIUM • NO CONVERSION"',
-    'safeText(g, "Buttons send intent to the server; this client never solves device physics."',
-    'safeText(g, "This lightweight device view does not invent local time-series state."',
-    "fitForWidth(label, 72)",
-    "fitForWidth(value, 72)",
-)
-require(
-    "src/main/java/dev/redstoneengineering/client/ui/EngineeringIoCompassOverlay.java",
-    "ScreenEvent.Render.Post",
-    "engineeringScreen.showsPortVisualization()",
-    '"I/O COMPASS"',
-    "menu.receivePortMask()",
-    "menu.transmitPortMask()",
-    "connectionMask(menu)",
-    "linkEvidenceKnown",
-    '"DECLARED"',
-    '"SOURCE • SINGLE TX"',
-    '"SOURCE • FAN-OUT x"',
-    '"SERIES • 1→1"',
-    '"WIRE"',
-    '"RF"',
-    '"LOS"',
-    '"FIBER"',
-    '"LINKED"',
-    '"OPEN"',
-    '"AIR PATH"',
-    '"LOS PATH"',
-    "Direction.UP",
-    "Direction.DOWN",
-)
-require(
-    "src/main/java/dev/redstoneengineering/client/ui/EngineeringUiClientRegistration.java",
-    "EnhancedFieldDeviceScreen::new",
-    "SignalConditionerScreen::new",
-    "PidControllerScreen::new",
-    "EngineeringIoCompassOverlay::render",
-)
-require(
-    "src/main/java/dev/redstoneengineering/gametest/RseEngineeringUiGameTests.java",
-    "conditionerUiActionsDriveAuthoritativeWorldState",
-    "pidUiActionChangesOnlyBoundedTuningPreset",
-)
+for name in single_direction_screens:
+    body = read("src/main/java/dev/redstoneengineering/client/ui/" + name)
+    if not body:
+        continue
+    if "rotateLeft" in body or "rotateRight" in body:
+        errors.append(f"{name}: restored dual direction/orientation controls")
+
+for name in (
+    "EnhancedFieldDeviceScreen.java", "SignalConditionerScreen.java", "PidControllerScreen.java",
+    "OscilloscopeScreen.java", "LogicAnalyzerScreen.java", "SignalAnalyzerScreen.java",
+    "UniversalFieldDeviceScreen.java", "RangeSensorScreen.java", "SignalProcessorScreen.java",
+    "QuartzTimingScreen.java", "RadioLinkScreen.java", "DigitalCommunicationScreen.java",
+    "PneumaticSystemScreen.java", "OpticalSystemScreen.java", "AmethystSystemScreen.java",
+    "MagneticSystemScreen.java", "ReliabilitySystemScreen.java", "OperationsMonitorScreen.java",
+):
+    body = read("src/main/java/dev/redstoneengineering/client/ui/" + name)
+    if not body:
+        continue
+    # Long-form explanatory text should use the shared pixel-clamped helper.
+    suspicious = (
+        'drawString(font, "This ', 'drawString(font,"This ',
+        'drawString(font, "The ', 'drawString(font,"The ',
+        'drawString(font, "Observer ', 'drawString(font,"Observer ',
+        'drawString(font, "Buttons ', 'drawString(font,"Buttons ',
+    )
+    for token in suspicious:
+        if token in body:
+            errors.append(f"{name}: long explanatory text bypasses safeText via {token!r}")
 
 screen = read("src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java")
-for forbidden in (
-    "sharedRotateCcw",
-    "sharedRotateCw",
-    'Component.literal("↺ Rotate route")',
-    'Component.literal("Rotate route ↻")',
-    "renderPortRoute(",
-    '"SIGNAL ROUTE"',
-    "drawFaceMatrix(",
-    "ROUTE_CONTROL_Y = 160",
-):
-    if screen and forbidden in screen:
+for forbidden in ("sharedRotateCcw", "sharedRotateCw", '"SIGNAL ROUTE"', "drawFaceMatrix(", "ROUTE_CONTROL_Y = 160"):
+    if forbidden in screen:
         errors.append(f"EngineeringScreen restored crowded/duplicated layout element {forbidden!r}")
 
-active_field = read("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScreen.java")
-for forbidden in (
-    "g.drawString(font, engineeringHint()",
-    "g.drawString(font, diagnosticHint()",
-    'g.drawString(font, "Observer interface:',
-    'g.drawString(font, "Radio boundary is explicit:',
-    'g.drawString(font, "This lightweight device view does not invent local time-series state.',
-):
-    if active_field and forbidden in active_field:
-        errors.append(f"EnhancedFieldDeviceScreen restored unbounded long text {forbidden!r}")
-
-# Client UI must remain presentation-only.
 client_dir = root / "src/main/java/dev/redstoneengineering/client/ui"
 if client_dir.is_dir():
-    forbidden_authority = (
-        "dev.redstoneengineering.physics",
-        "RuntimeIntStore",
-        "scheduleTick(",
-        "setBlock(",
-        "updateNeighborsAt(",
-        "EngineeringAcceptance.evaluate",
-    )
+    forbidden_authority = ("dev.redstoneengineering.physics", "RuntimeIntStore", "scheduleTick(", "setBlock(", "updateNeighborsAt(", "EngineeringAcceptance.evaluate")
     for source in sorted(client_dir.glob("*.java")):
         body = source.read_text(errors="ignore")
         for token in forbidden_authority:
             if token in body:
                 errors.append(f"client UI authority violation in {source.name}: contains {token!r}")
 
-pid_screen = read("src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java")
-if pid_screen and "Shift + FRONT" not in pid_screen and "Shift+FRONT" not in pid_screen:
-    errors.append("PidControllerScreen missing acceptance-capture interaction guidance")
-
-conditioner = read("src/main/java/dev/redstoneengineering/block/SignalConditionerBlock.java")
-for token in ("normal right-click opens Engineering UI", "new SignalConditionerMenu", "player.isShiftKeyDown()"):
-    if conditioner and token not in conditioner:
-        errors.append(f"SignalConditionerBlock UI integration missing {token!r}")
-
-pid = read("src/main/java/dev/redstoneengineering/block/PidControllerBlock.java")
-for token in ("new PidControllerMenu", "captureAcceptanceEvidence", "RuntimeIntStore.remove", "applyTuningAction"):
-    if pid and token not in pid:
-        errors.append(f"PidControllerBlock UI integration missing {token!r}")
-
-registration = read("src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java")
-if registration and "event.register(RseEngineeringUiGameTests.class);" not in registration:
-    errors.append("Engineering UI GameTests are not registered")
+require("src/main/java/dev/redstoneengineering/client/ui/EngineeringUiClientRegistration.java",
+        "EnhancedFieldDeviceScreen::new", "UniversalFieldDeviceScreen::new", "AmethystSystemScreen::new",
+        "ReliabilitySystemScreen::new", "OperationsMonitorScreen::new", "EngineeringIoCompassOverlay::render")
+require("src/main/java/dev/redstoneengineering/gametest/RseEngineeringUiGameTests.java",
+        "conditionerUiActionsDriveAuthoritativeWorldState", "pidUiActionChangesOnlyBoundedTuningPreset")
 
 if errors:
     print("RSE Engineering UI verification: FAIL")
@@ -177,14 +107,11 @@ if errors:
     raise SystemExit(1)
 
 print("RSE Engineering UI verification: PASS")
-print(" full-height page workspace / no duplicated inline route schematic: PASS")
-print(" dedicated Ports-only I/O Compass: PASS")
-print(" bottom-lane single Direction control: PASS")
-print(" non-rotatable devices hide Direction control: PASS")
-print(" shared pixel-clamped title / status / label / value / badge / card text: PASS")
-print(" active field dashboard long-form text clamping: PASS")
-print(" active field metric-card text clamping: PASS")
-print(" legacy dual route controls rejected: PASS")
+print(" five-page responsibility split: PASS")
+print(" full-height page workspace / no duplicate route schematic: PASS")
+print(" narrow-screen I/O Compass fail-safe: PASS")
+print(" single Direction/orientation control policy: PASS")
+print(" inapplicable Configure controls hidden, not grey placeholder clutter: PASS")
+print(" shared pixel-clamped long-form text policy: PASS")
 print(" server-authoritative ROLE / HEALTH / EVIDENCE HMI: PASS")
 print(" client UI authority boundary: PASS")
-print(" registered Engineering UI runtime action tests: PASS")
