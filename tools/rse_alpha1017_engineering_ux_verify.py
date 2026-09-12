@@ -109,9 +109,11 @@ for rel in (
         "INPUT_FACING",
         "seriesInputSide",
         "seriesOutputSide",
+        "rotateSeriesInput",
         "rotateSeriesOutput",
         "rotateWholeRoute",
-        "return rotateSeriesOutput(level, pos, clockwise)",
+        "return rotateWholeRoute(level, pos, clockwise)",
+        "newInput == output",
         "newOutput == input",
     )
 
