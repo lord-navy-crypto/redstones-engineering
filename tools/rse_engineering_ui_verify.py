@@ -77,10 +77,23 @@ required = {
         '"I/O COMPASS"',
         "menu.receivePortMask()",
         "menu.transmitPortMask()",
+        "menu.connectionMask()",
         '"SOURCE • SINGLE TX"',
         '"SOURCE • FAN-OUT x"',
         '"SERIES • 1→1"',
         "drawCompass",
+        "drawMediumRow",
+        "mediumLabel",
+        "interfaceState",
+        '"WIRE"',
+        '"RF"',
+        '"LOS"',
+        '"FIBER"',
+        '"LINKED"',
+        '"OPEN"',
+        '"AIR PATH"',
+        '"LOS PATH"',
+        "propagationInterface || linked",
         "Direction.NORTH",
         "Direction.SOUTH",
         "Direction.EAST",
@@ -172,6 +185,8 @@ print(" server-authoritative ROLE / HEALTH / EVIDENCE HMI: PASS")
 print(" six-face RX/TX route matrix: PASS")
 print(" sidecar I/O compass: PASS")
 print(" WIRE / RF / LOS / FIBER medium identity: PASS")
+print(" wired/fiber LINKED vs OPEN port state: PASS")
+print(" RF / LOS propagation interfaces avoid false OPEN state: PASS")
 print(" SINGLE TX / FAN-OUT / SERIES topology cues: PASS")
 print(" server-authoritative configuration path: PASS")
 print(" client UI authority boundary: PASS")
