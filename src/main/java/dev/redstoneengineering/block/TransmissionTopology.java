@@ -129,6 +129,10 @@ public final class TransmissionTopology {
         return direct.routable() && direct == medium;
     }
 
+    /**
+     * Shared cable routing law: direct medium continuity and ordinary device ports are horizontal.
+     * The unified Junction Point is the only block allowed to create a live UP/DOWN cable arm.
+     */
     private static boolean planarCablePort(
             BlockGetter level,
             BlockPos cablePos,
@@ -241,6 +245,21 @@ public final class TransmissionTopology {
         return planarCablePort(level, cablePos, cableToNeighbor, neighbor, SignalMedium.DIFFERENTIAL);
     }
 
+    /** Runtime copper cable routing. Direct vertical continuity is forbidden. */
+    public static boolean copperCablePort(
+            BlockGetter level, BlockPos cablePos, Direction cableToNeighbor, BlockState neighbor
+    ) {
+        return planarCablePort(level, cablePos, cableToNeighbor, neighbor, SignalMedium.COPPER);
+    }
+
+    /** Runtime optical-fiber routing. Direct vertical continuity is forbidden. */
+    public static boolean opticalFiberPort(
+            BlockGetter level, BlockPos cablePos, Direction cableToNeighbor, BlockState neighbor
+    ) {
+        return planarCablePort(level, cablePos, cableToNeighbor, neighbor, SignalMedium.OPTICAL);
+    }
+
+    /** Legacy state-only query for copper devices and diagnostics. */
     public static boolean copperPort(BlockState s, Direction mediumToDevice) {
         var b=s.getBlock();
         if (b instanceof RedstoneCableJunctionBlock)
@@ -256,6 +275,7 @@ public final class TransmissionTopology {
         return false;
     }
 
+    /** Legacy state-only query for optical devices and diagnostics. */
     public static boolean opticalPort(BlockState s, Direction mediumToDevice) {
         var b=s.getBlock();
         if (b instanceof RedstoneCableJunctionBlock)
