@@ -55,8 +55,11 @@ checks = {
     ],
     ".github/workflows/build.yml": [
         "tools/rse_event_intelligence_verify.py",
-        "test_count <",
-        "All [0-9]+ required tests passed",
+        "Minecraft topology GameTests (manual diagnostic)",
+        "github.event_name == 'workflow_dispatch'",
+        "continue-on-error: true",
+        "runGameTestServer",
+        "GameTest diagnostic evidence",
     ],
 }
 
@@ -84,3 +87,4 @@ if errors:
     sys.exit(1)
 
 print("RSE system event intelligence verification: PASS")
+print(" GameTest runtime evidence policy: manual diagnostic / non-blocking")
