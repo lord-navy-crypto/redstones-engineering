@@ -23,9 +23,11 @@ def require(rel: str, *tokens: str) -> None:
 
 require("src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java",
         "OVERVIEW", "PORTS", "CONFIGURE", "DIAGNOSTICS", "HISTORY",
+        'Component.literal("Route")', "routePage", "setRoutePage", "routeActionId", "routeSupported",
         'DIAGNOSTICS("Observe"', "ROLE • ", "HEALTH • ", "EVIDENCE • ",
-        "ROUTE_CONTROL_Y = 218", "FOOTER_TOP = 245", "fitForWidth", "safeText",
-        "isConfigureSection()", "showsPortVisualization", "CONTENT_RIGHT - VALUE_X")
+        "ROUTE_CONTROL_Y = 196", "FOOTER_TOP = 245", "fitForWidth", "safeText",
+        "isConfigureSection()", "showsPortVisualization", "CONTENT_RIGHT - VALUE_X",
+        '"Parameters, modes and actions"', '"Direction, orientation and physical interface"')
 require("src/main/java/dev/redstoneengineering/client/ui/EngineeringIoCompassOverlay.java",
         "engineeringScreen.showsPortVisualization()", '"I/O COMPASS"',
         "boolean rightFits", "boolean leftFits", "if (!rightFits && !leftFits) return;",
@@ -69,7 +71,6 @@ for name in (
     body = read("src/main/java/dev/redstoneengineering/client/ui/" + name)
     if not body:
         continue
-    # Long-form explanatory text should use the shared pixel-clamped helper.
     suspicious = (
         'drawString(font, "This ', 'drawString(font,"This ',
         'drawString(font, "The ', 'drawString(font,"The ',
@@ -84,6 +85,24 @@ screen = read("src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen
 for forbidden in ("sharedRotateCcw", "sharedRotateCw", '"SIGNAL ROUTE"', "drawFaceMatrix(", "ROUTE_CONTROL_Y = 160"):
     if forbidden in screen:
         errors.append(f"EngineeringScreen restored crowded/duplicated layout element {forbidden!r}")
+
+for token in (
+    "FieldDeviceMenu.BUTTON_ROTATE_CW",
+    "UniversalFieldDeviceMenu.BUTTON_ROTATE_RIGHT",
+    "RangeSensorMenu.BUTTON_ROTATE_RIGHT",
+    "SignalProcessorMenu.BUTTON_ROTATE_RIGHT",
+    "SignalConditionerMenu.BUTTON_ROTATE_RIGHT",
+    "QuartzTimingMenu.BUTTON_ROTATE_RIGHT",
+    "RadioLinkMenu.BUTTON_OUTPUT_RIGHT",
+    "DigitalCommunicationMenu.BUTTON_ROTATE_RIGHT",
+    "PneumaticSystemMenu.BUTTON_ROTATE_RIGHT",
+    "OpticalSystemMenu.BUTTON_ROTATE_RIGHT",
+    "AmethystSystemMenu.BUTTON_ROTATE_RIGHT",
+    "MagneticSystemMenu.BUTTON_ROTATE_RIGHT",
+    "ReliabilitySystemMenu.BUTTON_ROTATE_RIGHT",
+):
+    if token not in screen:
+        errors.append(f"EngineeringScreen route page missing preserved server action {token!r}")
 
 client_dir = root / "src/main/java/dev/redstoneengineering/client/ui"
 if client_dir.is_dir():
@@ -107,11 +126,13 @@ if errors:
     raise SystemExit(1)
 
 print("RSE Engineering UI verification: PASS")
-print(" five-page responsibility split: PASS")
+print(" six-page responsibility split including dedicated Route page: PASS")
+print(" Configure parameters/modes/actions preserved: PASS")
+print(" route/orientation server actions preserved across engineering menus: PASS")
 print(" full-height page workspace / no duplicate route schematic: PASS")
 print(" narrow-screen I/O Compass fail-safe: PASS")
 print(" single Direction/orientation control policy: PASS")
-print(" inapplicable Configure controls hidden, not grey placeholder clutter: PASS")
+print(" inapplicable controls hidden, not grey placeholder clutter: PASS")
 print(" shared pixel-clamped long-form text policy: PASS")
 print(" server-authoritative ROLE / HEALTH / EVIDENCE HMI: PASS")
 print(" client UI authority boundary: PASS")
