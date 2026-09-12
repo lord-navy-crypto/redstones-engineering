@@ -49,7 +49,8 @@ public final class FieldDeviceUi {
             player.openMenu(new SimpleMenuProvider((id, inv, ignored) -> new PneumaticSystemMenu(id, inv, pos), title), data -> data.writeBlockPos(pos)); return;
         }
         if (block instanceof OpticalEmitterBlock || block instanceof OpticalReceiverBlock || block instanceof OpticalPowerMeterBlock
-                || block instanceof OpticalSplitterBlock || block instanceof OpticalChannelFilterBlock || block instanceof OpticalAttenuatorBlock) {
+                || block instanceof OpticalSplitterBlock || block instanceof OpticalChannelFilterBlock || block instanceof OpticalAttenuatorBlock
+                || block instanceof FreeSpaceOpticalTransmitterBlock || block instanceof FreeSpaceOpticalReceiverBlock) {
             player.openMenu(new SimpleMenuProvider((id, inv, ignored) -> new OpticalSystemMenu(id, inv, pos), title), data -> data.writeBlockPos(pos)); return;
         }
         if (block instanceof AmethystResonatorBlock || block instanceof AmethystFrequencyFilterBlock
