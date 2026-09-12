@@ -181,11 +181,11 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         // Header and navigation are visually isolated from telemetry so every device reads like an HMI.
         graphics.fill(leftPos + 8, topPos + 27, leftPos + imageWidth - 8, topPos + 29, ACCENT);
         graphics.fill(leftPos + 8, topPos + 58, leftPos + imageWidth - 8, topPos + imageHeight - 52, PANEL_2);
-        graphics.fill(leftPos + 8, topPos + imageHeight - 48, leftPos + imageWidth - 8, topPos + imageHeight - 29, PANEL_3);
+        graphics.fill(leftPos + 8, topPos + imageHeight - 62, leftPos + imageWidth - 8, topPos + imageHeight - 29, PANEL_3);
         graphics.fill(leftPos + 8, topPos + imageHeight - 25, leftPos + imageWidth - 8, topPos + imageHeight - 9, PANEL_3);
 
         // Thin white equipment-identification rail: neutral across electrical/optical/data media.
-        graphics.fill(leftPos + 8, topPos + 58, leftPos + 11, topPos + imageHeight - 52, WHITE_SIGN);
+        graphics.fill(leftPos + 8, topPos + 58, leftPos + 11, topPos + imageHeight - 66, WHITE_SIGN);
     }
 
     @Override
@@ -217,21 +217,23 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
      * rail exposes whether the route currently carries valid evidence or is open/degraded.
      */
     private void renderPortRoute(GuiGraphics graphics) {
-        int top = imageHeight - 47;
+        int top = imageHeight - 61;
         int nodeY = top + 10;
         int rxX = 16;
         int roleX = 113;
         int txX = 222;
         int nodeH = 19;
 
-        String rxFaces = menu.receivePortFacesLabel();
-        String txFaces = menu.transmitPortFacesLabel();
+        String rxFaces = routeEndpointLabel(menu.receivePortFacesLabel(), true);
+        String txFaces = routeEndpointLabel(menu.transmitPortFacesLabel(), false);
         String role = compactRole(menu.topologyRoleLabel());
-        boolean rxPresent = portPresent(rxFaces);
-        boolean txPresent = portPresent(txFaces);
+        boolean rxPresent = menu.receivePortMask() != 0;
+        boolean txPresent = menu.transmitPortMask() != 0;
         int routeColor = evidenceStateColor();
 
         graphics.drawString(font, "SIGNAL ROUTE", 16, top - 1, MUTED, false);
+        String topology = routeTopologyHint(rxPresent, txPresent);
+        graphics.drawString(font, topology, 91, top - 1, INFO, false);
         String state = menu.evidenceStateLabel();
         graphics.drawString(font, state, imageWidth - 16 - font.width(state), top - 1, routeColor, false);
 
@@ -247,6 +249,41 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         } else if (rxPresent && !txPresent) {
             graphics.drawString(font, "SINK", 208, nodeY + 5, INFO, false);
         }
+    }
+
+    private String routeEndpointLabel(String faces, boolean receiving) {
+        String medium = routeMedium(receiving);
+        if (medium.isEmpty() || !portPresent(faces)) return faces;
+        return faces + " • " + medium;
+    }
+
+    /** Presentation-only medium tags for communication devices; no solver semantics are inferred here. */
+    private String routeMedium(boolean receiving) {
+        if (!(menu instanceof FieldDeviceMenu fieldMenu)) return "";
+        return switch (fieldMenu.kind()) {
+            case FieldDeviceMenu.KIND_RADIO_TRANSMITTER -> receiving ? "WIRE" : "RF";
+            case FieldDeviceMenu.KIND_RADIO_RECEIVER -> receiving ? "RF" : "WIRE";
+            case FieldDeviceMenu.KIND_FREE_OPTICAL_TRANSMITTER -> receiving ? "WIRE" : "LOS";
+            case FieldDeviceMenu.KIND_FREE_OPTICAL_RECEIVER -> receiving ? "LOS" : "WIRE";
+            case FieldDeviceMenu.KIND_OPTICAL_FIBER,
+                 FieldDeviceMenu.KIND_OPTICAL_EMITTER,
+                 FieldDeviceMenu.KIND_OPTICAL_RECEIVER,
+                 FieldDeviceMenu.KIND_OPTICAL_POWER_METER,
+                 FieldDeviceMenu.KIND_OPTICAL_SPLITTER,
+                 FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER,
+                 FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR,
+                 FieldDeviceMenu.KIND_OPTICAL_FIBER_JUNCTION -> "FIBER";
+            default -> "";
+        };
+    }
+
+    private String routeTopologyHint(boolean rxPresent, boolean txPresent) {
+        int txCount = Integer.bitCount(menu.transmitPortMask());
+        if (!rxPresent && txPresent) return txCount > 1 ? "FAN-OUT ×" + txCount : "SINGLE TX";
+        if (rxPresent && !txPresent) return "TERMINAL RX";
+        if (rxPresent && txCount > 1) return "BRANCH ×" + txCount;
+        if (rxPresent && txPresent) return "SERIES PATH";
+        return "NO FORMAL PORT";
     }
 
     private void routeNode(GuiGraphics graphics, int x, int y, int width, int height,
