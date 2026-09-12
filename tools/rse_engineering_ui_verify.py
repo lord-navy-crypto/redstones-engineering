@@ -64,6 +64,16 @@ require(
     "I/O Compass",
 )
 require(
+    "src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScreen.java",
+    "safeText(g, engineeringHint()",
+    "safeText(g, diagnosticHint()",
+    'safeText(g, "VERTICAL RISER ONLY • SAME MEDIUM • NO CONVERSION"',
+    'safeText(g, "Buttons send intent to the server; this client never solves device physics."',
+    'safeText(g, "This lightweight device view does not invent local time-series state."',
+    "fitForWidth(label, 72)",
+    "fitForWidth(value, 72)",
+)
+require(
     "src/main/java/dev/redstoneengineering/client/ui/EngineeringIoCompassOverlay.java",
     "ScreenEvent.Render.Post",
     "engineeringScreen.showsPortVisualization()",
@@ -114,6 +124,17 @@ for forbidden in (
     if screen and forbidden in screen:
         errors.append(f"EngineeringScreen restored crowded/duplicated layout element {forbidden!r}")
 
+active_field = read("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScreen.java")
+for forbidden in (
+    "g.drawString(font, engineeringHint()",
+    "g.drawString(font, diagnosticHint()",
+    'g.drawString(font, "Observer interface:',
+    'g.drawString(font, "Radio boundary is explicit:',
+    'g.drawString(font, "This lightweight device view does not invent local time-series state.',
+):
+    if active_field and forbidden in active_field:
+        errors.append(f"EnhancedFieldDeviceScreen restored unbounded long text {forbidden!r}")
+
 # Client UI must remain presentation-only.
 client_dir = root / "src/main/java/dev/redstoneengineering/client/ui"
 if client_dir.is_dir():
@@ -161,6 +182,8 @@ print(" dedicated Ports-only I/O Compass: PASS")
 print(" bottom-lane single Direction control: PASS")
 print(" non-rotatable devices hide Direction control: PASS")
 print(" shared pixel-clamped title / status / label / value / badge / card text: PASS")
+print(" active field dashboard long-form text clamping: PASS")
+print(" active field metric-card text clamping: PASS")
 print(" legacy dual route controls rejected: PASS")
 print(" server-authoritative ROLE / HEALTH / EVIDENCE HMI: PASS")
 print(" client UI authority boundary: PASS")
