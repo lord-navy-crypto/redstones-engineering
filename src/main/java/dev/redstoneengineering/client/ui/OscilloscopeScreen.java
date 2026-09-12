@@ -74,7 +74,7 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
         labelValue(graphics, "Cursors", "A=" + menu.cursorA() + " B=" + menu.cursorB(), 125);
         labelValue(graphics, "Cursor Δ", Math.abs(menu.cursorB() - menu.cursorA()) + " samples / "
                 + Math.abs(menu.cursorB() - menu.cursorA()) * OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS + "t", 140);
-        graphics.drawString(font, "All controls are validated on the logical server.", 16, 178, MUTED, false);
+        safeText(graphics, "All controls are validated on the logical server.", 16, 178, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
@@ -86,14 +86,14 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
 
     private void channelDiagnostics(GuiGraphics graphics, int channel, String name, int y) {
         graphics.drawString(font, "CH " + name, 16, y, channel == 0 ? INFO : GOOD, false);
-        graphics.drawString(font,
+        safeText(graphics,
                 "coverage=" + menu.coverage(channel) + "%  min/max/p2p="
                         + value(menu.minimum(channel)) + "/" + value(menu.maximum(channel)) + "/" + value(menu.peakToPeak(channel)),
-                52, y, TEXT, false);
-        graphics.drawString(font,
+                52, y, TEXT);
+        safeText(graphics,
                 "avg=" + decimal100(menu.average100(channel)) + "  meanStep=" + decimal100(menu.meanStep100(channel))
                         + "  period≈" + tickValue(menu.periodTicks(channel)),
-                52, y + 16, MUTED, false);
+                52, y + 16, MUTED);
     }
 
     private void renderHistory(GuiGraphics graphics) {
@@ -117,11 +117,11 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
         graphics.drawString(font, "A", 269, 86, INFO, false);
         graphics.drawString(font, "B", 280, 86, GOOD, false);
         graphics.drawString(font, "T", 291, 86, WARN, false);
-        graphics.drawString(font, "A/B traces • T=trigger level • synchronized 0..15 samples", 16, 173, MUTED, false);
-        graphics.drawString(font,
+        safeText(graphics, "A/B traces • T=trigger level • synchronized 0..15 samples", 16, 173, MUTED);
+        safeText(graphics,
                 "Cursor Δ=" + Math.abs(menu.cursorB() - menu.cursorA()) + " samples / "
                         + Math.abs(menu.cursorB() - menu.cursorA()) * OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS + "t",
-                16, 187, TEXT, false);
+                16, 187, TEXT);
     }
 
     private void miniTrace(GuiGraphics graphics, int channel, int x, int y, int width, int height, int color) {
