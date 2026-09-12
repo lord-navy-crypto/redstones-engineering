@@ -24,7 +24,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/** 3-D glowglass fiber. Passive fiber has two ends; optical branching requires Splitter. */
+/**
+ * Planar glowglass fiber. Direct fiber continuity is horizontal; UP/DOWN transitions
+ * require the unified Junction Point. Passive fiber has two ends; optical branching
+ * still requires the Optical Splitter.
+ */
 public class OpticalFiberBlock extends ConnectedCableBlock implements EngineeringPortProvider {
     private static final String KEY = "optical_fiber";
     private static final int INTENSITY = 0;
@@ -36,7 +40,9 @@ public class OpticalFiberBlock extends ConnectedCableBlock implements Engineerin
 
     public OpticalFiberBlock(Properties p) { super(p); }
     @Override public MapCodec<OpticalFiberBlock> codec() { return RedstoneEngineering.OPTICAL_FIBER_CODEC.value(); }
-    @Override protected boolean canConnectTo(BlockGetter l, BlockPos p, Direction d, BlockState n) { return TransmissionTopology.opticalPort(n, d); }
+    @Override protected boolean canConnectTo(BlockGetter l, BlockPos p, Direction d, BlockState n) {
+        return TransmissionTopology.opticalFiberPort(l, p, d, n);
+    }
 
     /** Authoritative optical solver write, including source-ownership and scan-completeness evidence. */
     public static void setOptical(Level level, BlockPos pos, int intensity, int channel, boolean valid) {
@@ -134,7 +140,9 @@ public class OpticalFiberBlock extends ConnectedCableBlock implements Engineerin
                         : "OPTICAL TOPOLOGY ERROR — passive fiber cannot branch; use Optical Splitter";
                 default -> "Glowglass fiber | DARK / NO SOURCE";
             };
-            player.displayClientMessage(Component.literal(text + " | " + NetworkKernel.summary(level, "optical")), true);
+            player.displayClientMessage(Component.literal(text
+                    + " | routing=PLANAR; vertical via Junction Point"
+                    + " | " + NetworkKernel.summary(level, "optical")), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
