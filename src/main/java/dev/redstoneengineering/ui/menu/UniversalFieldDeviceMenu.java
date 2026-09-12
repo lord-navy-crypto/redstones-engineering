@@ -32,7 +32,15 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_ROTATE_LEFT = 100;
     public static final int BUTTON_ROTATE_RIGHT = 101;
 
+    public static final int ROUTE_NONE = 0;
+    public static final int ROUTE_SERIES_AXIS = 1;
+    public static final int ROUTE_ENDPOINT_FRONT = 2;
+    public static final int ROUTE_PROBE_AXIS = 3;
+    public static final int ROUTE_TERMINAL_INTERFACE = 4;
+    public static final int ROUTE_MEASUREMENT_FACE = 5;
+
     private final DataSlot facing = trackedInt();
+    private final DataSlot routeKind = trackedInt();
     private final DataSlot declaredPortMask = trackedInt();
     private final DataSlot inputMask = trackedInt();
     private final DataSlot outputMask = trackedInt();
@@ -60,7 +68,9 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         BlockState state = level.getBlockState(blockPos);
         Block block = state.getBlock();
         facing.set(directionOrdinal(state));
-        seriesRotatable.set(isRotatable(block) ? 1 : 0);
+        int route = routeKind(block);
+        routeKind.set(route);
+        seriesRotatable.set(route != ROUTE_NONE ? 1 : 0);
         declaredPortMask.set(0);
         inputMask.set(0);
         outputMask.set(0);
@@ -106,14 +116,15 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         bidirectionalMask.set(bidirectional);
     }
 
-    private static boolean isRotatable(Block block) {
-        return block instanceof DirectionalSignalBlock
-                || block instanceof DirectionalDomainBlock
-                || block instanceof DirectionalRedstoneEndpointBlock
-                || block instanceof SignalProbeBlock
-                || block instanceof RedstoneCableTerminalBlock
-                || block instanceof LapisPrecisionMeterBlock
-                || block instanceof CopperCircuitMeterBlock;
+    private static int routeKind(Block block) {
+        if (block instanceof LapisPrecisionMeterBlock || block instanceof CopperCircuitMeterBlock) {
+            return ROUTE_MEASUREMENT_FACE;
+        }
+        if (block instanceof SignalProbeBlock) return ROUTE_PROBE_AXIS;
+        if (block instanceof RedstoneCableTerminalBlock) return ROUTE_TERMINAL_INTERFACE;
+        if (block instanceof DirectionalRedstoneEndpointBlock) return ROUTE_ENDPOINT_FRONT;
+        if (block instanceof DirectionalSignalBlock || block instanceof DirectionalDomainBlock) return ROUTE_SERIES_AXIS;
+        return ROUTE_NONE;
     }
 
     private static int syncNumber(double value) {
@@ -176,6 +187,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     }
 
     public int facingOrdinal() { return facing.get(); }
+    public int routeKind() { return routeKind.get(); }
     public int declaredPortMask() { return declaredPortMask.get(); }
     public boolean hasPort(Direction side) { return (declaredPortMask.get() & (1 << side.ordinal())) != 0; }
     public boolean isInput(Direction side) { return (inputMask.get() & (1 << side.ordinal())) != 0; }
