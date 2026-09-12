@@ -157,7 +157,11 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
         dataValid.set(1);
         quality.set(100);
         driverCount.set(0);
-        seriesConfigurable.set(block instanceof DirectionalSignalBlock || block instanceof DirectionalDomainBlock ? 1 : 0);
+        seriesConfigurable.set(block instanceof DirectionalSignalBlock
+                || block instanceof DirectionalDomainBlock
+                || block instanceof DirectionalRedstoneEndpointBlock
+                || block instanceof SignalProbeBlock
+                || block instanceof RedstoneCableTerminalBlock ? 1 : 0);
         portCount.set(block instanceof EngineeringPortProvider provider ? provider.engineeringPorts(state).size() : 0);
 
         if (block instanceof AirCompressorBlock compressor) {
@@ -756,6 +760,12 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
                 changed = DirectionalSignalBlock.rotateSeriesAxis(level, blockPos, clockwise);
             } else if (block instanceof DirectionalDomainBlock) {
                 changed = DirectionalDomainBlock.rotateSeriesAxis(level, blockPos, clockwise);
+            } else if (block instanceof DirectionalRedstoneEndpointBlock) {
+                changed = DirectionalRedstoneEndpointBlock.rotateOutput(level, blockPos, clockwise);
+            } else if (block instanceof SignalProbeBlock) {
+                changed = SignalProbeBlock.rotateMeasurementAxis(level, blockPos, clockwise);
+            } else if (block instanceof RedstoneCableTerminalBlock) {
+                changed = RedstoneCableTerminalBlock.rotateInterface(level, blockPos, clockwise);
             } else {
                 return false;
             }
