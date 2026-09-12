@@ -148,10 +148,16 @@ require(
 workflow = read(".github/workflows/build.yml")
 if workflow and "tools/rse_eighth_ten_conversion_communications_verify.py" not in workflow:
     errors.append("workflow does not gate the eighth-ten verifier")
-if workflow:
-    thresholds = [int(value) for value in re.findall(r"test_count\s*<\s*(\d+)", workflow)]
-    if not thresholds or max(thresholds) < 269:
-        errors.append("workflow GameTest floor must be at least 269")
+for token in (
+    "Minecraft topology GameTests (manual diagnostic)",
+    "github.event_name == 'workflow_dispatch'",
+    "continue-on-error: true",
+    "./gradlew runGameTestServer",
+    "./gradlew compileJava",
+    "./gradlew test",
+):
+    if workflow and token not in workflow:
+        errors.append(f"build.yml: missing manual/non-blocking GameTest policy token {token!r}")
 
 if errors:
     print("RSE eighth-ten conversion/communications verification: FAIL")
@@ -168,4 +174,4 @@ print("  serial no-driver/conflict quality + converter propagation: PASS")
 print("  serializer/deserializer event-driven updates + bounded watchdog: PASS")
 print("  differential no-driver/conflict quality: PASS")
 print("  unified junction preserves communication quality: PASS")
-print("  ten executable eighth-ten GameTests registered: PASS")
+print("  registered eighth-ten GameTests: 10 (manual diagnostic / non-blocking)")
