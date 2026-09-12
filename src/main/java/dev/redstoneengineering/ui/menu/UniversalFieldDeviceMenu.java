@@ -44,6 +44,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_SAMPLE_HOLD = 5;
     public static final int CONFIG_CALIBRATION = 6;
     public static final int CONFIG_PWM = 7;
+    public static final int CONFIG_FAULT_INJECTOR = 8;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
@@ -110,6 +111,10 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configKind.set(CONFIG_PWM);
             configPrimary.set(state.getValue(PwmControllerBlock.PERIOD_MODE));
             configSecondary.set(state.getValue(PwmControllerBlock.INVERT) ? 1 : 0);
+        } else if (block instanceof FaultInjectorBlock) {
+            configKind.set(CONFIG_FAULT_INJECTOR);
+            configPrimary.set(state.getValue(FaultInjectorBlock.MODE));
+            configSecondary.set(FaultInjectorBlock.activationCount(level, blockPos));
         }
 
         declaredPortMask.set(0);
@@ -213,6 +218,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         if (block instanceof SampleHoldBlock sampleHold) return sampleHold.adjustTriggerMode(level, blockPos, delta);
         if (block instanceof CalibrationModuleBlock calibration) return calibration.adjustProfile(level, blockPos, delta);
         if (block instanceof PwmControllerBlock pwm) return pwm.adjustPeriodMode(level, blockPos, delta);
+        if (block instanceof FaultInjectorBlock faultInjector) return faultInjector.adjustMode(level, blockPos, delta);
         return false;
     }
 
