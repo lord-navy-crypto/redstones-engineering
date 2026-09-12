@@ -1,7 +1,10 @@
 package dev.redstoneengineering.ui.menu;
 
 import dev.redstoneengineering.block.DirectionalDomainBlock;
+import dev.redstoneengineering.block.DirectionalRedstoneEndpointBlock;
 import dev.redstoneengineering.block.DirectionalSignalBlock;
+import dev.redstoneengineering.block.RedstoneCableTerminalBlock;
+import dev.redstoneengineering.block.SignalProbeBlock;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.PortDirection;
@@ -55,7 +58,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         BlockState state = level.getBlockState(blockPos);
         Block block = state.getBlock();
         facing.set(directionOrdinal(state));
-        seriesRotatable.set(block instanceof DirectionalSignalBlock || block instanceof DirectionalDomainBlock ? 1 : 0);
+        seriesRotatable.set(isRotatable(block) ? 1 : 0);
         declaredPortMask.set(0);
         inputMask.set(0);
         outputMask.set(0);
@@ -101,6 +104,14 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         bidirectionalMask.set(bidirectional);
     }
 
+    private static boolean isRotatable(Block block) {
+        return block instanceof DirectionalSignalBlock
+                || block instanceof DirectionalDomainBlock
+                || block instanceof DirectionalRedstoneEndpointBlock
+                || block instanceof SignalProbeBlock
+                || block instanceof RedstoneCableTerminalBlock;
+    }
+
     private static int syncNumber(double value) {
         long rounded = Math.round(value);
         return (int) Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, rounded));
@@ -109,6 +120,9 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     private static int directionOrdinal(BlockState state) {
         if (state.hasProperty(DirectionalSignalBlock.FACING)) return state.getValue(DirectionalSignalBlock.FACING).ordinal();
         if (state.hasProperty(DirectionalDomainBlock.FACING)) return state.getValue(DirectionalDomainBlock.FACING).ordinal();
+        if (state.hasProperty(DirectionalRedstoneEndpointBlock.FACING)) return state.getValue(DirectionalRedstoneEndpointBlock.FACING).ordinal();
+        if (state.hasProperty(SignalProbeBlock.FACING)) return state.getValue(SignalProbeBlock.FACING).ordinal();
+        if (state.hasProperty(RedstoneCableTerminalBlock.FACING)) return state.getValue(RedstoneCableTerminalBlock.FACING).ordinal();
         return -1;
     }
 
@@ -130,11 +144,21 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean rotate(boolean clockwise) {
         BlockState state = level.getBlockState(blockPos);
-        if (state.getBlock() instanceof DirectionalSignalBlock) {
+        Block block = state.getBlock();
+        if (block instanceof DirectionalSignalBlock) {
             return DirectionalSignalBlock.rotateSeriesAxis(level, blockPos, clockwise);
         }
-        if (state.getBlock() instanceof DirectionalDomainBlock) {
+        if (block instanceof DirectionalDomainBlock) {
             return DirectionalDomainBlock.rotateSeriesAxis(level, blockPos, clockwise);
+        }
+        if (block instanceof DirectionalRedstoneEndpointBlock) {
+            return DirectionalRedstoneEndpointBlock.rotateOutput(level, blockPos, clockwise);
+        }
+        if (block instanceof SignalProbeBlock) {
+            return SignalProbeBlock.rotateMeasurementAxis(level, blockPos, clockwise);
+        }
+        if (block instanceof RedstoneCableTerminalBlock) {
+            return RedstoneCableTerminalBlock.rotateInterface(level, blockPos, clockwise);
         }
         return false;
     }
