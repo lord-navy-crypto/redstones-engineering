@@ -41,6 +41,11 @@ public final class DigitalCommunicationMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_RX_RIGHT = 5;
     public static final int BUTTON_TX_LEFT = 6;
     public static final int BUTTON_TX_RIGHT = 7;
+    /** Shared Route-HMI aliases; RX/TX remain the player-facing terminology. */
+    public static final int BUTTON_INPUT_LEFT = BUTTON_RX_LEFT;
+    public static final int BUTTON_INPUT_RIGHT = BUTTON_RX_RIGHT;
+    public static final int BUTTON_OUTPUT_LEFT = BUTTON_TX_LEFT;
+    public static final int BUTTON_OUTPUT_RIGHT = BUTTON_TX_RIGHT;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot inputValue = trackedInt();
@@ -123,14 +128,14 @@ public final class DigitalCommunicationMenu extends EngineeringDeviceMenu {
     }
 
     private static Direction directionalOutput(BlockState state) {
-        if (state.hasProperty(DirectionalDomainBlock.FACING)) return state.getValue(DirectionalDomainBlock.FACING);
-        if (state.hasProperty(DirectionalSignalBlock.FACING)) return state.getValue(DirectionalSignalBlock.FACING);
+        if (state.hasProperty(DirectionalDomainBlock.FACING)) return DirectionalDomainBlock.seriesOutputSide(state);
+        if (state.hasProperty(DirectionalSignalBlock.FACING)) return DirectionalSignalBlock.seriesOutputSide(state);
         return null;
     }
 
     private static Direction directionalInput(BlockState state) {
-        if (state.hasProperty(DirectionalDomainBlock.INPUT_FACING)) return state.getValue(DirectionalDomainBlock.INPUT_FACING);
-        if (state.hasProperty(DirectionalSignalBlock.INPUT_FACING)) return state.getValue(DirectionalSignalBlock.INPUT_FACING);
+        if (state.hasProperty(DirectionalDomainBlock.INPUT_FACING)) return DirectionalDomainBlock.seriesInputSide(state);
+        if (state.hasProperty(DirectionalSignalBlock.INPUT_FACING)) return DirectionalSignalBlock.seriesInputSide(state);
         Direction output = directionalOutput(state);
         return output == null ? null : output.getOpposite();
     }
