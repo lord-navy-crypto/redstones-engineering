@@ -72,10 +72,15 @@ required = {
         "private Button sharedRouteCycle",
         'Component.literal("Direction • —")',
         "FieldDeviceMenu.BUTTON_ROTATE_CW",
+        "int y = topPos + 160;",
         ".bounds(leftPos + 16, y, 288, 20)",
         "section == Section.PORTS",
         "showsPortVisualization",
         "if (section == Section.PORTS) renderPortRoute(graphics);",
+        "isLegacyRouteWidget",
+        'message.contains("Rotate I/O")',
+        'message.contains("Rotate route")',
+        "widget.visible = visible && !isLegacyRouteWidget(widget);",
     ],
     "src/main/java/dev/redstoneengineering/client/ui/EngineeringIoCompassOverlay.java": [
         "ScreenEvent.Render.Post",
@@ -200,6 +205,7 @@ print(" shared menu/screen framework: PASS")
 print(" server-authoritative ROLE / HEALTH / EVIDENCE HMI: PASS")
 print(" real page isolation for Ports / Configure / Observatory / Log: PASS")
 print(" single synchronized Direction cycle control: PASS")
+print(" legacy dual Rotate I/O / Rotate route widgets suppressed: PASS")
 print(" six-face RX/TX route matrix confined to Ports: PASS")
 print(" sidecar I/O compass confined to Ports: PASS")
 print(" WIRE / RF / LOS / FIBER medium identity: PASS")
