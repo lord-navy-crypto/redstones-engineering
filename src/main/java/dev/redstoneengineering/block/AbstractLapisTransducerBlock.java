@@ -10,10 +10,12 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.physics.SensorModel;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -208,6 +210,18 @@ public abstract class AbstractLapisTransducerBlock extends DirectionalDomainBloc
         level.scheduleTick(pos, this, 1);
     }
 
+    /** Server-authoritative HMI action. Changing profile invalidates the old sampled output. */
+    public boolean adjustProfile(Level level, BlockPos pos, int delta) {
+        if (!(level instanceof ServerLevel server)) return false;
+        BlockState state = level.getBlockState(pos);
+        if (state.getBlock() != this || !state.hasProperty(PROFILE)) return false;
+        int next = Math.floorMod(state.getValue(PROFILE) + delta, 4);
+        BlockState updated = state.setValue(PROFILE, next);
+        level.setBlock(pos, updated, Block.UPDATE_CLIENTS);
+        invalidateOutput(server, pos, updated);
+        return true;
+    }
+
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock())) {
@@ -219,27 +233,25 @@ public abstract class AbstractLapisTransducerBlock extends DirectionalDomainBloc
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (!level.isClientSide) {
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (!player.isShiftKeyDown()) {
-                int next = (state.getValue(PROFILE) + 1) & 3;
-                state = state.setValue(PROFILE, next);
-                level.setBlock(pos, state, Block.UPDATE_CLIENTS);
-                if (level instanceof ServerLevel server) invalidateOutput(server, pos, state);
+                FieldDeviceUi.openUniversal(serverPlayer, pos);
+            } else {
+                int profile = state.getValue(PROFILE);
+                PortQuality quality = outputQuality(level, pos);
+                String value = signalUsable(quality) ? String.format("%.2f", output(level, pos) / 100.0) : quality.name();
+                String detail = level instanceof ServerLevel server ? sense(server, pos, state).detail() : "";
+                player.displayClientMessage(Component.literal(
+                        instrumentName() + " | Lapis=" + value
+                                + " | quality=" + quality
+                                + " | profile=" + SensorModel.profileName(profile)
+                                + " | sample=" + SensorModel.samplePeriod(profile) + "t"
+                                + " | resolution=" + SensorModel.resolutionStep(profile) + "/100"
+                                + " | noise=±" + SensorModel.noiseAmplitude(profile) + "/100"
+                                + " | latency=" + SensorModel.latencySamples(profile) + " sample"
+                                + " | range=" + rangeText(state)
+                                + (detail.isEmpty() ? "" : " | " + detail)), true);
             }
-            int profile = state.getValue(PROFILE);
-            PortQuality quality = outputQuality(level, pos);
-            String value = signalUsable(quality) ? String.format("%.2f", output(level, pos) / 100.0) : quality.name();
-            String detail = level instanceof ServerLevel server ? sense(server, pos, state).detail() : "";
-            player.displayClientMessage(Component.literal(
-                    instrumentName() + " | Lapis=" + value
-                            + " | quality=" + quality
-                            + " | profile=" + SensorModel.profileName(profile)
-                            + " | sample=" + SensorModel.samplePeriod(profile) + "t"
-                            + " | resolution=" + SensorModel.resolutionStep(profile) + "/100"
-                            + " | noise=±" + SensorModel.noiseAmplitude(profile) + "/100"
-                            + " | latency=" + SensorModel.latencySamples(profile) + " sample"
-                            + " | range=" + rangeText(state)
-                            + (detail.isEmpty() ? "" : " | " + detail)), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
