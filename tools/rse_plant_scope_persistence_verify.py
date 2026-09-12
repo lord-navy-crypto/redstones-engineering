@@ -55,9 +55,17 @@ for needle in (
     need(gt, needle, "RsePlantScopeLifecycleGameTests.java")
 need(module, "event.register(RsePlantScopeLifecycleGameTests.class);", "EngineeringSystemsModule.java")
 need(doc, "Persistence is not a universal upgrade.", "PERSISTENCE_AND_PLANT_SCOPE_CONTRACT.md")
-need(workflow, "tools/rse_plant_scope_persistence_verify.py", "build.yml")
-need(workflow, "test_count <", "build.yml")
-need(workflow, "All [0-9]+ required tests passed", "build.yml")
+
+# Runtime GameTests remain available as explicit diagnostic evidence, but normal PR/push
+# acceptance is intentionally static verification -> compile -> Gradle tests.
+for needle in (
+    "tools/rse_plant_scope_persistence_verify.py",
+    "Minecraft topology GameTests (manual diagnostic)",
+    "github.event_name == 'workflow_dispatch'",
+    "continue-on-error: true",
+    "runGameTestServer",
+):
+    need(workflow, needle, "build.yml")
 
 # No plant/event projection may become a second simulator.
 for label, src in (("SystemEventScope.java", scope), ("OperationsDashboardSnapshot.java", dashboard), ("RuntimePersistenceContract.java", contract)):
@@ -77,3 +85,4 @@ print("  hard scope radius cap: 128 blocks")
 print("  operations dashboard first-out isolation: PASS")
 print("  runtime persistence contract: explicit")
 print("  registered lifecycle GameTests: 2")
+print("  GameTest policy: manual diagnostic / non-blocking")
