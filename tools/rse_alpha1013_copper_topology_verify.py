@@ -81,6 +81,29 @@ require(
     "DomainNetwork.sampleCopperVoltage",
 )
 
+# Player-facing cable topology: direct copper wire is planar. Only the unified Junction Point may
+# create a live UP/DOWN cable arm; branch semantics remain a separate Copper Junction concern.
+require(
+    "src/main/java/dev/redstoneengineering/block/TransmissionTopology.java",
+    "private static boolean planarCablePort(",
+    "if (cableToNeighbor.getAxis() == Direction.Axis.Y) return false;",
+    "public static boolean copperCablePort(",
+    "SignalMedium.COPPER",
+    "neighbor.getBlock() instanceof RedstoneCableJunctionBlock",
+    "junctionAccepts(level, neighborPos, medium)",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/CopperWireBlock.java",
+    "Planar copper electrical cable",
+    "TransmissionTopology.copperCablePort(level, pos, direction, neighbor)",
+    "vertical via Junction Point",
+)
+copper_wire = text("src/main/java/dev/redstoneengineering/block/CopperWireBlock.java")
+if "TransmissionTopology.copperPort(neighbor, direction)" in copper_wire:
+    failed.append("CopperWireBlock restored legacy state-only routing and can self-connect vertically")
+if "3-D copper electrical cable" in copper_wire:
+    failed.append("CopperWireBlock documentation still advertises obsolete direct 3-D routing")
+
 # Serial-first terminal policy: a normal sink must not silently aggregate parallel feeds.
 require(
     "src/main/java/dev/redstoneengineering/physics/CopperNetworkSupport.java",
@@ -130,7 +153,7 @@ workflow = text(".github/workflows/build.yml")
 if "rse_alpha1013_copper_topology_verify.py" not in workflow:
     failed.append("workflow missing Alpha 1.0.13 verifier")
 if "runGameTestServer" not in workflow:
-    failed.append("workflow missing Minecraft GameTest gate")
+    failed.append("workflow missing Minecraft GameTest diagnostic")
 
 if failed:
     print("RSE Alpha 1.0.13 copper topology verification: FAIL")
@@ -140,6 +163,7 @@ if failed:
 
 print("RSE Alpha 1.0.13 copper topology verification: PASS")
 print(" axial copper BACK/FRONT contract: PASS")
+print(" planar copper direct-run / Junction Point vertical contract: PASS")
 print(" source/load/meter semantic ports: PASS")
 print(" single-feed terminal / explicit-aggregation policy: PASS")
 print(" runtime propagation and fuse GameTests present: PASS")
