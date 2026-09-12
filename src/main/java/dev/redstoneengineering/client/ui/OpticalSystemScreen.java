@@ -8,13 +8,12 @@ import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
-/** Dedicated optical HMI preserving source, terminal, observer, splitter and series-processor topology. */
+/** Dedicated optical HMI preserving guided/free-space source, terminal, observer and processor topology. */
 public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMenu> {
     private Button primaryPrevious;
     private Button primaryNext;
     private Button secondaryPrevious;
     private Button secondaryNext;
-    private Button directionCycle;
 
     public OpticalSystemScreen(OpticalSystemMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -31,8 +30,6 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
                 b -> sendMenuButton(OpticalSystemMenu.BUTTON_SECONDARY_PREVIOUS)).bounds(leftPos + 16, y + 26, 105, 20).build());
         secondaryNext = addConfigureWidget(Button.builder(Component.literal("Secondary ▶"),
                 b -> sendMenuButton(OpticalSystemMenu.BUTTON_SECONDARY_NEXT)).bounds(leftPos + 199, y + 26, 105, 20).build());
-        directionCycle = addConfigureWidget(Button.builder(Component.literal("Direction • —"),
-                b -> sendMenuButton(OpticalSystemMenu.BUTTON_ROTATE_RIGHT)).bounds(leftPos + 70, y + 52, 180, 20).build());
     }
 
     @Override
@@ -41,10 +38,10 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
         boolean emitter = menu.kind() == OpticalSystemMenu.KIND_EMITTER;
         boolean filter = menu.kind() == OpticalSystemMenu.KIND_FILTER;
         boolean attenuator = menu.kind() == OpticalSystemMenu.KIND_ATTENUATOR;
-        boolean meter = menu.kind() == OpticalSystemMenu.KIND_METER;
+        boolean freeTx = menu.kind() == OpticalSystemMenu.KIND_FREE_SPACE_TX;
+        boolean freeRx = menu.kind() == OpticalSystemMenu.KIND_FREE_SPACE_RX;
         boolean primary = emitter || filter || attenuator;
-        boolean secondary = emitter;
-        boolean rotatable = menu.directional() || meter;
+        boolean secondary = emitter || freeTx || freeRx;
         boolean configure = isConfigureSection();
 
         primaryPrevious.active = primary;
@@ -55,8 +52,6 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
         secondaryNext.active = secondary;
         secondaryPrevious.visible = configure && secondary;
         secondaryNext.visible = configure && secondary;
-        directionCycle.active = rotatable;
-        directionCycle.visible = configure && rotatable;
 
         if (emitter) {
             primaryPrevious.setMessage(Component.literal("◀ I " + menu.primary()));
@@ -69,12 +64,14 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
         } else if (attenuator) {
             primaryPrevious.setMessage(Component.literal("◀ LOSS " + menu.secondary()));
             primaryNext.setMessage(Component.literal("LOSS " + menu.secondary() + " ▶"));
-        }
-        if (rotatable) {
-            directionCycle.setMessage(Component.literal((meter ? "Direction • MEASURE " : "Direction • ") + face(menu.facing())));
-            directionCycle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
-                    meter ? "Cycle the optical measurement face clockwise on the server."
-                            : "Cycle the complete optical series axis clockwise on the server.")));
+        } else if (freeTx || freeRx) {
+            secondaryPrevious.setMessage(Component.literal("◀ CH " + menu.secondary()));
+            secondaryNext.setMessage(Component.literal("CH " + menu.secondary() + " ▶"));
+            String role = freeTx ? "free-space transmitter" : "free-space receiver";
+            secondaryPrevious.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
+                    "Select the " + role + " channel on the server.")));
+            secondaryNext.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
+                    "Select the " + role + " channel on the server.")));
         }
     }
 
@@ -121,6 +118,16 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
                 statusLine(g, face(menu.facing()), "OUTPUT A • OPTICAL", GOOD, 136);
                 statusLine(g, face(leftOf(menu.facing())), "OUTPUT B • OPTICAL", GOOD, 164);
             }
+            case OpticalSystemMenu.KIND_FREE_SPACE_TX -> {
+                statusLine(g, face(inputFace()), "INPUT • REDSTONE PAYLOAD", qualityColor(), 112);
+                statusLine(g, face(menu.facing()), "OUTPUT • FREE-SPACE OPTICAL • CH " + menu.secondary(), INFO, 142);
+                safeText(g, "Line-of-sight optical launch uses the real FRONT route; channel belongs on Configure.", 16, 176, MUTED);
+            }
+            case OpticalSystemMenu.KIND_FREE_SPACE_RX -> {
+                statusLine(g, face(inputFace()), "INPUT • FREE-SPACE OPTICAL • CH " + menu.secondary(), qualityColor(), 112);
+                statusLine(g, face(menu.facing()), "OUTPUT • REDSTONE 0..15", INFO, 142);
+                safeText(g, "Reception stays observational until converted onto the real FRONT redstone output.", 16, 176, MUTED);
+            }
             default -> {
                 statusLine(g, face(inputFace()), "INPUT • OPTICAL", qualityColor(), 112);
                 statusLine(g, face(menu.facing()), "OUTPUT • OPTICAL", GOOD, 142);
@@ -130,11 +137,19 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
     }
 
     private void configure(GuiGraphics g) {
-        statusBadge(g, "SERVER-SIDE BOUNDED CONTROL", INFO, 16, 80);
+        boolean configurable = menu.kind() == OpticalSystemMenu.KIND_EMITTER
+                || menu.kind() == OpticalSystemMenu.KIND_FILTER
+                || menu.kind() == OpticalSystemMenu.KIND_ATTENUATOR
+                || menu.kind() == OpticalSystemMenu.KIND_FREE_SPACE_TX
+                || menu.kind() == OpticalSystemMenu.KIND_FREE_SPACE_RX;
+        statusBadge(g, configurable ? "SERVER-SIDE BOUNDED CONTROL" : "READ-ONLY DEVICE", configurable ? INFO : MUTED, 16, 80);
         labelValue(g, "Primary control", primaryControlText(), 98);
         labelValue(g, "Secondary control", secondaryControlText(), 181);
-        if (menu.directional()) labelValue(g, "Series axis", face(inputFace()) + " → " + face(menu.facing()), 197);
-        else if (menu.kind() == OpticalSystemMenu.KIND_METER) labelValue(g, "Measurement face", face(menu.facing()), 197);
+        if (menu.directional()) {
+            safeText(g, "Direction and physical interface orientation are controlled only on Route.", 16, 207, MUTED);
+        } else if (menu.kind() == OpticalSystemMenu.KIND_METER) {
+            safeText(g, "Measurement face is controlled only on Route.", 16, 207, MUTED);
+        }
     }
 
     private void diagnostics(GuiGraphics g) {
@@ -151,6 +166,12 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
             labelValue(g, "Input channel", Integer.toString(menu.auxiliary()), 160);
         } else if (menu.kind() == OpticalSystemMenu.KIND_ATTENUATOR) {
             labelValue(g, "Carrier channel", Integer.toString(menu.auxiliary()), 160);
+        } else if (menu.kind() == OpticalSystemMenu.KIND_FREE_SPACE_TX) {
+            labelValue(g, "Input evidence", menu.tertiary() != 0 ? "VALID" : "UNAVAILABLE", 160);
+            labelValue(g, "Launch direction", face(menu.facing()), 178);
+        } else if (menu.kind() == OpticalSystemMenu.KIND_FREE_SPACE_RX) {
+            labelValue(g, "Redstone output", menu.tertiary() + " / 15", 160);
+            labelValue(g, "Receive direction", face(inputFace()), 178);
         }
         statusLine(g, "Authority", "SERVER SYNCHRONIZED", GOOD, 200);
     }
@@ -162,6 +183,9 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
         if (menu.kind() == OpticalSystemMenu.KIND_RECEIVER) {
             labelValue(g, "Inputs / drivers", menu.tertiary() + " / " + menu.auxiliary(), 156);
             labelValue(g, "Topology state", qualityName(), 174);
+        } else if (menu.kind() == OpticalSystemMenu.KIND_FREE_SPACE_TX || menu.kind() == OpticalSystemMenu.KIND_FREE_SPACE_RX) {
+            labelValue(g, "Selected channel", Integer.toString(menu.secondary()), 156);
+            labelValue(g, "Current evidence", qualityName(), 174);
         }
     }
 
@@ -173,6 +197,8 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
             case OpticalSystemMenu.KIND_SPLITTER -> "OPTICAL 1×2 SPLITTER";
             case OpticalSystemMenu.KIND_FILTER -> "OPTICAL CHANNEL FILTER";
             case OpticalSystemMenu.KIND_ATTENUATOR -> "OPTICAL ATTENUATOR";
+            case OpticalSystemMenu.KIND_FREE_SPACE_TX -> "FREE-SPACE OPTICAL TX";
+            case OpticalSystemMenu.KIND_FREE_SPACE_RX -> "FREE-SPACE OPTICAL RX";
             default -> "OPTICAL DEVICE";
         };
     }
@@ -183,6 +209,7 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
             case OpticalSystemMenu.KIND_RECEIVER -> "TERMINAL SINK";
             case OpticalSystemMenu.KIND_METER -> "OBSERVER";
             case OpticalSystemMenu.KIND_SPLITTER -> "1→2 ROUTER";
+            case OpticalSystemMenu.KIND_FREE_SPACE_TX, OpticalSystemMenu.KIND_FREE_SPACE_RX -> "CONVERTER";
             default -> "SERIES PROCESSOR";
         };
     }
@@ -193,6 +220,8 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
             case OpticalSystemMenu.KIND_RECEIVER -> "6× INPUT TERMINAL";
             case OpticalSystemMenu.KIND_METER -> "1× MEASUREMENT INPUT • " + face(menu.facing());
             case OpticalSystemMenu.KIND_SPLITTER -> face(inputFace()) + " → " + face(menu.facing()) + " + " + face(leftOf(menu.facing()));
+            case OpticalSystemMenu.KIND_FREE_SPACE_TX -> face(inputFace()) + " REDSTONE → " + face(menu.facing()) + " FREE-SPACE";
+            case OpticalSystemMenu.KIND_FREE_SPACE_RX -> face(inputFace()) + " FREE-SPACE → " + face(menu.facing()) + " REDSTONE";
             default -> face(inputFace()) + " → " + face(menu.facing());
         };
     }
@@ -201,13 +230,16 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
         return switch (menu.kind()) {
             case OpticalSystemMenu.KIND_EMITTER -> "Intensity";
             case OpticalSystemMenu.KIND_SPLITTER -> "Input";
+            case OpticalSystemMenu.KIND_FREE_SPACE_TX -> "Payload in";
+            case OpticalSystemMenu.KIND_FREE_SPACE_RX -> "Optical in";
             default -> "Intensity in";
         };
     }
 
     private String secondaryLabel() {
         return switch (menu.kind()) {
-            case OpticalSystemMenu.KIND_EMITTER, OpticalSystemMenu.KIND_RECEIVER, OpticalSystemMenu.KIND_METER -> "Channel";
+            case OpticalSystemMenu.KIND_EMITTER, OpticalSystemMenu.KIND_RECEIVER, OpticalSystemMenu.KIND_METER,
+                 OpticalSystemMenu.KIND_FREE_SPACE_TX, OpticalSystemMenu.KIND_FREE_SPACE_RX -> "Channel";
             case OpticalSystemMenu.KIND_SPLITTER -> "Branch A";
             case OpticalSystemMenu.KIND_FILTER -> "Target CH";
             case OpticalSystemMenu.KIND_ATTENUATOR -> "Loss";
@@ -220,6 +252,8 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
             case OpticalSystemMenu.KIND_RECEIVER -> "Inputs";
             case OpticalSystemMenu.KIND_SPLITTER -> "Branch B";
             case OpticalSystemMenu.KIND_FILTER, OpticalSystemMenu.KIND_ATTENUATOR -> "Expected out";
+            case OpticalSystemMenu.KIND_FREE_SPACE_TX -> "Input valid";
+            case OpticalSystemMenu.KIND_FREE_SPACE_RX -> "Redstone out";
             default -> "State";
         };
     }
@@ -228,7 +262,10 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
     private String secondaryText() { return Integer.toString(menu.secondary()); }
     private String tertiaryText() {
         if (menu.kind() == OpticalSystemMenu.KIND_FILTER || menu.kind() == OpticalSystemMenu.KIND_ATTENUATOR
-                || menu.kind() == OpticalSystemMenu.KIND_SPLITTER) return menu.tertiary() + " / 15";
+                || menu.kind() == OpticalSystemMenu.KIND_SPLITTER || menu.kind() == OpticalSystemMenu.KIND_FREE_SPACE_RX) {
+            return menu.tertiary() + " / 15";
+        }
+        if (menu.kind() == OpticalSystemMenu.KIND_FREE_SPACE_TX) return menu.tertiary() != 0 ? "YES" : "NO";
         return Integer.toString(menu.tertiary());
     }
 
@@ -242,13 +279,19 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
     }
 
     private String secondaryControlText() {
-        return menu.kind() == OpticalSystemMenu.KIND_EMITTER ? "CHANNEL " + menu.secondary() : "NONE";
+        return switch (menu.kind()) {
+            case OpticalSystemMenu.KIND_EMITTER, OpticalSystemMenu.KIND_FREE_SPACE_TX, OpticalSystemMenu.KIND_FREE_SPACE_RX ->
+                    "CHANNEL " + menu.secondary();
+            default -> "NONE";
+        };
     }
 
     private String hint() {
         if (menu.kind() == OpticalSystemMenu.KIND_ATTENUATOR && menu.primary() > 0 && menu.tertiary() == 0 && menu.quality() == PortQuality.VALID)
             return "Full attenuation is a valid transfer result, not a fault.";
         if (menu.kind() == OpticalSystemMenu.KIND_METER) return "Observer-only meter measures one selected face without driving the network.";
+        if (menu.kind() == OpticalSystemMenu.KIND_FREE_SPACE_TX) return "Redstone payload becomes a channel-selected line-of-sight optical transmission.";
+        if (menu.kind() == OpticalSystemMenu.KIND_FREE_SPACE_RX) return "Channel-selected free-space evidence becomes redstone only on the declared output face.";
         return "Optical role and topology are explicit; passive fiber remains a separate no-translation medium.";
     }
 
