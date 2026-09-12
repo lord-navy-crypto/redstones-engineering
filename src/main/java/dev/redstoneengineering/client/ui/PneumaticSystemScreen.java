@@ -12,7 +12,6 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
     private Button parameterPrevious;
     private Button parameterNext;
     private Button toggle;
-    private Button directionCycle;
 
     public PneumaticSystemScreen(PneumaticSystemMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -30,9 +29,6 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
         toggle = addConfigureWidget(Button.builder(Component.literal("Toggle valve"),
                 b -> sendMenuButton(PneumaticSystemMenu.BUTTON_TOGGLE))
                 .bounds(leftPos + 100, y, 120, 20).build());
-        directionCycle = addConfigureWidget(Button.builder(Component.literal("Direction • —"),
-                b -> sendMenuButton(PneumaticSystemMenu.BUTTON_ROTATE_RIGHT))
-                .bounds(leftPos + 70, y + 30, 180, 20).build());
     }
 
     @Override
@@ -49,8 +45,6 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
         parameterNext.visible = configure && setpoint;
         toggle.active = manualValve;
         toggle.visible = configure && manualValve;
-        directionCycle.active = menu.directional();
-        directionCycle.visible = configure && menu.directional();
 
         if (setpoint) {
             String text = menu.kind() == PneumaticSystemMenu.KIND_REGULATOR
@@ -60,11 +54,6 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
         }
         if (manualValve) {
             toggle.setMessage(Component.literal(menu.stateFlag() == 1 ? "Close valve" : "Open valve"));
-        }
-        if (menu.directional()) {
-            directionCycle.setMessage(Component.literal("Direction • " + face(menu.outputDirection())));
-            directionCycle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
-                    "Cycle the declared pneumatic input/output path clockwise on the server.")));
         }
     }
 
@@ -111,7 +100,10 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
         statusBadge(g, "SERVER-SIDE BOUNDED CONTROL", INFO, 16, 80);
         labelValue(g, "Control", controlText(), 101);
         labelValue(g, "Topology", topologyText(), 171);
-        if (menu.directional()) labelValue(g, "Axis", face(menu.inputDirection()) + " → " + face(menu.outputDirection()), 187);
+        if (menu.directional()) {
+            labelValue(g, "Axis", face(menu.inputDirection()) + " → " + face(menu.outputDirection()), 187);
+            safeText(g, "Physical direction is controlled only on Route.", 16, 207, MUTED);
+        }
     }
 
     private void diagnostics(GuiGraphics g) {
