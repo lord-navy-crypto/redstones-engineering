@@ -10,8 +10,7 @@ import net.minecraft.world.entity.player.Inventory;
 
 /** Universal six-face engineering HMI backed only by synchronized server snapshots. */
 public final class UniversalFieldDeviceScreen extends EngineeringScreen<UniversalFieldDeviceMenu> {
-    private Button rotateLeft;
-    private Button rotateRight;
+    private Button directionCycle;
 
     public UniversalFieldDeviceScreen(UniversalFieldDeviceMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -20,22 +19,21 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     @Override
     protected void addDeviceWidgets() {
         int y = topPos + 111;
-        rotateLeft = addConfigureWidget(Button.builder(
-                Component.literal("↺ Rotate I/O"),
-                button -> sendMenuButton(UniversalFieldDeviceMenu.BUTTON_ROTATE_LEFT)
-        ).bounds(leftPos + 38, y, 112, 20).build());
-        rotateRight = addConfigureWidget(Button.builder(
-                Component.literal("Rotate I/O ↻"),
+        directionCycle = addConfigureWidget(Button.builder(
+                Component.literal("Direction • —"),
                 button -> sendMenuButton(UniversalFieldDeviceMenu.BUTTON_ROTATE_RIGHT)
-        ).bounds(leftPos + 170, y, 112, 20).build());
+        ).bounds(leftPos + 38, y, 244, 20).build());
     }
 
     @Override
     protected void syncDeviceWidgetLabels() {
-        if (rotateLeft == null || rotateRight == null) return;
+        if (directionCycle == null) return;
         boolean active = menu.rotatableSeriesAxis();
-        rotateLeft.active = active;
-        rotateRight.active = active;
+        directionCycle.active = active;
+        directionCycle.visible = active;
+        directionCycle.setMessage(Component.literal(fitForWidth("Direction • " + axisText(), 224)));
+        directionCycle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
+                "Cycle the complete server-authoritative series I/O axis.")));
     }
 
     @Override
@@ -58,8 +56,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         labelValue(g, "Input / output path", axisText(), 124);
         labelValue(g, "Attention ports", Integer.toString(attention), 142);
         sectionRule(g, 161);
-        g.drawString(font, "Every displayed value and quality is synchronized from the logical server.", 16, 174, TEXT, false);
-        g.drawString(font, "Use Ports for all six physical faces; Configure rotates supported series devices.", 16, 191, MUTED, false);
+        safeText(g, "Every displayed value and quality is synchronized from the logical server.", 16, 174, TEXT);
+        safeText(g, "Use Ports for all six physical faces; Configure rotates supported series devices.", 16, 191, MUTED);
     }
 
     private void ports(GuiGraphics g) {
@@ -93,11 +91,11 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         statusBadge(g, rotatable ? "SERIES AXIS CONTROL" : "READ-ONLY CONFIGURATION", rotatable ? INFO : MUTED, 16, 80);
         labelValue(g, "Current axis", axisText(), 101);
         labelValue(g, "I/O rule", rotatable ? "INPUT = opposite(OUTPUT)" : "DEVICE-SPECIFIC", 158);
-        g.drawString(font, rotatable
-                        ? "Rotation changes the complete INPUT → PROCESS → OUTPUT axis on the server."
+        safeText(g, rotatable
+                        ? "Direction cycles the complete INPUT → PROCESS → OUTPUT axis on the server."
                         : "This device has no shared rotatable series axis; dedicated controls remain device-specific.",
-                16, 178, TEXT, false);
-        g.drawString(font, "No client-side physics or hidden port mutation is performed.", 16, 196, MUTED, false);
+                16, 178, TEXT);
+        safeText(g, "No client-side physics or hidden port mutation is performed.", 16, 196, MUTED);
     }
 
     private void diagnostics(GuiGraphics g) {
@@ -111,15 +109,15 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             y += 18;
         }
         if (y == 104) {
-            g.drawString(font, "No EngineeringPortProvider interfaces are declared by this block.", 16, 108, WARN, false);
+            safeText(g, "No EngineeringPortProvider interfaces are declared by this block.", 16, 108, WARN);
         }
     }
 
     private void history(GuiGraphics g) {
         statusBadge(g, "LIVE SNAPSHOT POLICY", INFO, 16, 80);
-        g.drawString(font, "Universal HMI intentionally stores no client-local history.", 16, 108, TEXT, false);
-        g.drawString(font, "Use dedicated analyzers/monitors when retained chronology is required.", 16, 128, INFO, false);
-        g.drawString(font, "This prevents opening a UI from creating measurement evidence or changing simulation state.", 16, 150, MUTED, false);
+        safeText(g, "Universal HMI intentionally stores no client-local history.", 16, 108, TEXT);
+        safeText(g, "Use dedicated analyzers/monitors when retained chronology is required.", 16, 128, INFO);
+        safeText(g, "This prevents opening a UI from creating measurement evidence or changing simulation state.", 16, 150, MUTED);
     }
 
     private int attentionCount() {
