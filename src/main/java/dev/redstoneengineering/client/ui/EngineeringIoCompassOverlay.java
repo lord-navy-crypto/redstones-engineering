@@ -60,11 +60,18 @@ public final class EngineeringIoCompassOverlay {
 
         String rxMedium = mediumLabel(menu, true);
         String txMedium = mediumLabel(menu, false);
-        drawCompass(g, font, x + 8, y + 56, "RX", menu.receivePortMask(), menu.connectionMask(), RX, isFreeSpace(rxMedium));
-        drawCompass(g, font, x + 60, y + 56, "TX", menu.transmitPortMask(), menu.connectionMask(), TX, isFreeSpace(txMedium));
+        int linkedMask = connectionMask(menu);
+        boolean linkEvidenceKnown = linkedMask >= 0;
+        int effectiveLinkedMask = Math.max(0, linkedMask);
+        drawCompass(g, font, x + 8, y + 56, "RX", menu.receivePortMask(), effectiveLinkedMask,
+                RX, isFreeSpace(rxMedium), linkEvidenceKnown);
+        drawCompass(g, font, x + 60, y + 56, "TX", menu.transmitPortMask(), effectiveLinkedMask,
+                TX, isFreeSpace(txMedium), linkEvidenceKnown);
 
-        drawMediumRow(g, font, x + 7, y + 119, "RX", rxMedium, menu.receivePortMask(), menu.connectionMask());
-        drawMediumRow(g, font, x + 7, y + 131, "TX", txMedium, menu.transmitPortMask(), menu.connectionMask());
+        drawMediumRow(g, font, x + 7, y + 119, "RX", rxMedium, menu.receivePortMask(),
+                effectiveLinkedMask, linkEvidenceKnown);
+        drawMediumRow(g, font, x + 7, y + 131, "TX", txMedium, menu.transmitPortMask(),
+                effectiveLinkedMask, linkEvidenceKnown);
 
         g.fill(x + 7, y + 145, x + panelWidth - 7, y + 146, BORDER);
         g.drawString(font, "EVIDENCE", x + 7, y + 151, MUTED, false);
@@ -79,14 +86,21 @@ public final class EngineeringIoCompassOverlay {
 
     private static void drawCompass(GuiGraphics g, Font font, int x, int y,
                                     String heading, int declaredMask, int linkedMask,
-                                    int activeColor, boolean propagationInterface) {
+                                    int activeColor, boolean propagationInterface,
+                                    boolean linkEvidenceKnown) {
         g.drawString(font, heading, x + 12, y, activeColor, false);
-        faceCell(g, font, x + 14, y + 12, Direction.NORTH, "N", declaredMask, linkedMask, activeColor, propagationInterface);
-        faceCell(g, font, x + 14, y + 36, Direction.SOUTH, "S", declaredMask, linkedMask, activeColor, propagationInterface);
-        faceCell(g, font, x + 2, y + 24, Direction.WEST, "W", declaredMask, linkedMask, activeColor, propagationInterface);
-        faceCell(g, font, x + 26, y + 24, Direction.EAST, "E", declaredMask, linkedMask, activeColor, propagationInterface);
-        faceCell(g, font, x + 2, y + 48, Direction.UP, "U", declaredMask, linkedMask, activeColor, propagationInterface);
-        faceCell(g, font, x + 26, y + 48, Direction.DOWN, "D", declaredMask, linkedMask, activeColor, propagationInterface);
+        faceCell(g, font, x + 14, y + 12, Direction.NORTH, "N", declaredMask, linkedMask,
+                activeColor, propagationInterface, linkEvidenceKnown);
+        faceCell(g, font, x + 14, y + 36, Direction.SOUTH, "S", declaredMask, linkedMask,
+                activeColor, propagationInterface, linkEvidenceKnown);
+        faceCell(g, font, x + 2, y + 24, Direction.WEST, "W", declaredMask, linkedMask,
+                activeColor, propagationInterface, linkEvidenceKnown);
+        faceCell(g, font, x + 26, y + 24, Direction.EAST, "E", declaredMask, linkedMask,
+                activeColor, propagationInterface, linkEvidenceKnown);
+        faceCell(g, font, x + 2, y + 48, Direction.UP, "U", declaredMask, linkedMask,
+                activeColor, propagationInterface, linkEvidenceKnown);
+        faceCell(g, font, x + 26, y + 48, Direction.DOWN, "D", declaredMask, linkedMask,
+                activeColor, propagationInterface, linkEvidenceKnown);
 
         int cx = x + 18;
         int cy = y + 28;
@@ -95,48 +109,61 @@ public final class EngineeringIoCompassOverlay {
     }
 
     /**
-     * Declared wired/fiber faces use two intensity levels: bright = linked, dim = declared/open.
-     * RF/LOS interfaces are propagation boundaries rather than adjacent-block links, so a declared
-     * face remains bright instead of being falsely classified OPEN by the physical connection mask.
+     * Declared wired/fiber faces use two intensity levels only when the synchronized menu actually
+     * carries link evidence: bright = linked, dim = declared/open. Menus without that evidence show
+     * declared faces neutrally instead of inventing an OPEN state. RF/LOS are propagation boundaries
+     * rather than adjacent-block links, so their declared face remains bright.
      */
     private static void faceCell(GuiGraphics g, Font font, int x, int y,
                                  Direction direction, String label, int declaredMask, int linkedMask,
-                                 int activeColor, boolean propagationInterface) {
+                                 int activeColor, boolean propagationInterface,
+                                 boolean linkEvidenceKnown) {
         int bit = 1 << direction.ordinal();
         boolean declared = (declaredMask & bit) != 0;
         boolean linked = (linkedMask & bit) != 0;
         int color = !declared ? BORDER
-                : propagationInterface || linked ? activeColor : MUTED;
+                : propagationInterface || !linkEvidenceKnown || linked ? activeColor : MUTED;
         g.fill(x, y, x + 10, y + 10, PANEL_2);
         g.fill(x, y + 8, x + 10, y + 10, color);
-        if (declared && linked && !propagationInterface) {
+        if (declared && linked && !propagationInterface && linkEvidenceKnown) {
             g.fill(x + 1, y + 1, x + 3, y + 3, TX);
         }
         g.drawString(font, label, x + 2, y + 1, color, false);
     }
 
     private static void drawMediumRow(GuiGraphics g, Font font, int x, int y,
-                                      String endpoint, String medium, int declaredMask, int linkedMask) {
+                                      String endpoint, String medium, int declaredMask, int linkedMask,
+                                      boolean linkEvidenceKnown) {
         g.drawString(font, endpoint, x, y, MUTED, false);
         String mediumText = medium.isEmpty() ? "DOMAIN" : medium;
         int mediumColor = isFreeSpace(mediumText) ? RX : TEXT;
         g.drawString(font, mediumText, x + 18, y, mediumColor, false);
 
-        String state = interfaceState(mediumText, declaredMask, linkedMask);
+        String state = interfaceState(mediumText, declaredMask, linkedMask, linkEvidenceKnown);
         int stateColor = switch (state) {
             case "LINKED", "AIR PATH", "LOS PATH" -> TX;
             case "OPEN" -> WARN;
-            case "NONE" -> MUTED;
+            case "NONE", "DECLARED" -> MUTED;
             default -> TEXT;
         };
         g.drawString(font, state, x + 58, y, stateColor, false);
     }
 
-    private static String interfaceState(String medium, int declaredMask, int linkedMask) {
+    private static String interfaceState(String medium, int declaredMask, int linkedMask,
+                                         boolean linkEvidenceKnown) {
         if (declaredMask == 0) return "NONE";
         if ("RF".equals(medium)) return "AIR PATH";
         if ("LOS".equals(medium)) return "LOS PATH";
+        if (!linkEvidenceKnown) return "DECLARED";
         return (declaredMask & linkedMask) != 0 ? "LINKED" : "OPEN";
+    }
+
+    /**
+     * FieldDeviceMenu synchronizes physical link topology. Heavier engineering menus do not expose
+     * that contract, so -1 explicitly means "connection evidence unavailable" rather than "open".
+     */
+    private static int connectionMask(EngineeringDeviceMenu menu) {
+        return menu instanceof FieldDeviceMenu fieldMenu ? fieldMenu.connectionMask() : -1;
     }
 
     private static String mediumLabel(EngineeringDeviceMenu menu, boolean receiving) {
