@@ -21,7 +21,7 @@ import java.util.Set;
 /** Bounded serial line propagation with frame/period/quality/utilization diagnostics. */
 public final class SerialNetwork {
     private static final String DIAG_KEY = "serial_diag";
-    private static final int DIAG_SIZE = 9;
+    private static final int DIAG_SIZE = 10;
 
     private SerialNetwork() {}
 
@@ -33,7 +33,8 @@ public final class SerialNetwork {
             int interarrivalTicks,
             int utilizationPercent,
             boolean valid,
-            int driverCount
+            int driverCount,
+            boolean truncated
     ) {}
 
     private record Driver(BlockPos pos, int value, int period, int quality) {}
@@ -76,6 +77,7 @@ public final class SerialNetwork {
                 }
             }
         }
+        NetworkKernel.recordScan(level, "serial", seen.size(), !queue.isEmpty());
         return seen;
     }
 
@@ -89,9 +91,11 @@ public final class SerialNetwork {
     ) {
         Set<BlockPos> nodes = collect(level, start);
         if (nodes.isEmpty()) return;
-        int resolvedValue = value & 0xFF;
+        boolean truncated = NetworkKernel.stats(level, "serial").lastTruncated();
+        boolean resolvedValid = valid && !truncated;
+        int resolvedValue = resolvedValid ? value & 0xFF : 0;
         int resolvedPeriod = Math.max(1, period);
-        int resolvedQuality = valid ? Math.max(0, Math.min(100, quality - nodes.size() / 4)) : 0;
+        int resolvedQuality = resolvedValid ? Math.max(0, Math.min(100, quality - nodes.size() / 4)) : 0;
         int now = (int) Math.min(Integer.MAX_VALUE, level.getGameTime());
         for (BlockPos pos : nodes) {
             InformationRuntime.Snapshot old = InformationRuntime.snapshot(level, "serial", pos);
@@ -102,7 +106,7 @@ public final class SerialNetwork {
             boolean effectiveChanged = oldValue != resolvedValue
                     || oldPeriod != resolvedPeriod
                     || oldQuality != resolvedQuality
-                    || oldValid != valid;
+                    || oldValid != resolvedValid;
 
             InformationRuntime.write(
                     level,
@@ -110,7 +114,7 @@ public final class SerialNetwork {
                     pos,
                     resolvedValue,
                     resolvedPeriod,
-                    valid,
+                    resolvedValid,
                     resolvedQuality
             );
             int[] diagnostics = RuntimeIntStore.get(level, DIAG_KEY, pos, DIAG_SIZE);
@@ -120,16 +124,16 @@ public final class SerialNetwork {
             diagnostics[3] = nodes.size();
             if (diagnostics[4] > 0) diagnostics[5] = Math.max(1, now - diagnostics[4]);
             diagnostics[4] = now;
-            diagnostics[6] = valid ? 1 : 0;
+            diagnostics[6] = resolvedValid ? 1 : 0;
             diagnostics[7] = diagnostics[5] == 0
                     ? 0
                     : Math.min(100, (resolvedPeriod * 100) / Math.max(1, diagnostics[5]));
             diagnostics[8] = valid ? 1 : 0;
+            diagnostics[9] = truncated ? 1 : 0;
             if (effectiveChanged) {
                 level.updateNeighborsAt(pos, level.getBlockState(pos).getBlock());
             }
         }
-        NetworkKernel.recordScan(level, "serial", nodes.size(), nodes.size() >= NetworkKernel.MAX_NODES);
     }
 
     public static void recompute(ServerLevel level, BlockPos start) {
@@ -183,6 +187,7 @@ public final class SerialNetwork {
     }
 
     private static void invalidate(ServerLevel level, Set<BlockPos> nodes, int driverCount) {
+        boolean truncated = NetworkKernel.stats(level, "serial").lastTruncated();
         for (BlockPos pos : nodes) {
             InformationRuntime.Snapshot old = InformationRuntime.snapshot(level, "serial", pos);
             int oldValue = old.value() & 0xFF;
@@ -197,6 +202,7 @@ public final class SerialNetwork {
             diagnostics[3] = nodes.size();
             diagnostics[6] = 0;
             diagnostics[8] = Math.max(0, driverCount);
+            diagnostics[9] = truncated ? 1 : 0;
             if (effectiveChanged) {
                 level.updateNeighborsAt(pos, level.getBlockState(pos).getBlock());
             }
@@ -211,7 +217,7 @@ public final class SerialNetwork {
     public static Diagnostics getDiagnostics(Level level, BlockPos pos) {
         int[] diagnostics = RuntimeIntStore.peek(level, DIAG_KEY, pos);
         if (diagnostics == null || diagnostics.length != DIAG_SIZE) {
-            return new Diagnostics(0, 0, 0, 0, 0, 0, false, 0);
+            return new Diagnostics(0, 0, 0, 0, 0, 0, false, 0, false);
         }
         return new Diagnostics(
                 diagnostics[0],
@@ -221,7 +227,8 @@ public final class SerialNetwork {
                 diagnostics[5],
                 diagnostics[7],
                 diagnostics[6] != 0,
-                diagnostics[8]
+                diagnostics[8],
+                diagnostics[9] != 0
         );
     }
 
@@ -231,6 +238,7 @@ public final class SerialNetwork {
         InformationRuntime.Snapshot snapshot = InformationRuntime.snapshot(level, "serial", pos);
         if (snapshot.ageTicks() < 0) return PortQuality.STALE;
         Diagnostics diagnostics = getDiagnostics(level, pos);
+        if (diagnostics.truncated()) return PortQuality.STALE;
         if (diagnostics.driverCount() == 0) return PortQuality.NO_SIGNAL;
         if (diagnostics.driverCount() > 1) return PortQuality.TOPOLOGY_ERROR;
         return snapshot.valid() ? PortQuality.VALID : PortQuality.FAULT;
@@ -245,6 +253,7 @@ public final class SerialNetwork {
                 + " driverCount=" + diagnostics.driverCount()
                 + " interarrival=" + diagnostics.interarrivalTicks() + "t"
                 + " utilization≈" + diagnostics.utilizationPercent() + "%"
+                + (diagnostics.truncated() ? " | STALE/BUDGET-LIMITED" : "")
                 + " valid=" + diagnostics.valid();
     }
 }

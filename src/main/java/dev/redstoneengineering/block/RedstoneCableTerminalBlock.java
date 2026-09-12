@@ -55,6 +55,24 @@ public class RedstoneCableTerminalBlock extends Block implements EngineeringPort
     public Direction vanillaSide(BlockState state) { return state.getValue(FACING); }
     public Direction cableSide(BlockState state) { return vanillaSide(state).getOpposite(); }
 
+    /** Rotate the Vanilla/Cable interface as one physical axis and invalidate cached signal safely. */
+    public static boolean rotateInterface(Level level, BlockPos pos, boolean clockwise) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof RedstoneCableTerminalBlock terminal) || !state.hasProperty(FACING)) return false;
+        Direction oldVanilla = terminal.vanillaSide(state);
+        Direction oldCable = terminal.cableSide(state);
+        Direction nextFacing = clockwise ? oldVanilla.getClockWise() : oldVanilla.getCounterClockWise();
+        BlockState next = state.setValue(FACING, nextFacing).setValue(POWER, 0);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel server) RedstoneCableNetwork.recompute(server, pos);
+        level.updateNeighborsAt(pos, terminal);
+        level.updateNeighborsAt(pos.relative(oldVanilla), terminal);
+        level.updateNeighborsAt(pos.relative(oldCable), terminal);
+        level.updateNeighborsAt(pos.relative(terminal.vanillaSide(next)), terminal);
+        level.updateNeighborsAt(pos.relative(terminal.cableSide(next)), terminal);
+        return true;
+    }
+
     public int externalInput(Level level, BlockPos pos, BlockState state) {
         Direction direction = vanillaSide(state);
         return Math.max(0, Math.min(15, level.getSignal(pos.relative(direction), direction)));

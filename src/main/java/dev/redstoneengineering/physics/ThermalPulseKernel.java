@@ -9,13 +9,16 @@ import net.minecraft.server.level.ServerLevel;
 
 import java.util.ArrayDeque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /** End-game high-conductance thermal/phonon signalling with deliberately finite bandwidth. */
 public final class ThermalPulseKernel {
     private ThermalPulseKernel() {}
 
     private record Node(BlockPos pos, int amplitude, Direction arrivalSide) {}
+    private record Pending(int amplitude, int ttlTicks) {}
 
     /** Compatibility entry point for older omnidirectional emitters. */
     public static void send(ServerLevel level, BlockPos source, int heat) {
@@ -27,40 +30,63 @@ public final class ThermalPulseKernel {
         int boundedHeat = Math.max(0, Math.min(15, heat));
         ArrayDeque<Node> queue = new ArrayDeque<>();
         Map<BlockPos, Integer> best = new HashMap<>();
+        Map<BlockPos, Pending> pending = new HashMap<>();
+        Set<BlockPos> visitedNodes = new HashSet<>();
         for (Direction side : outputSides) {
             queue.add(new Node(source.relative(side), boundedHeat, side.getOpposite()));
         }
 
-        int visited = 0;
-        while (!queue.isEmpty() && visited < NetworkKernel.MAX_NODES) {
+        boolean truncated = false;
+        while (!queue.isEmpty()) {
             Node node = queue.removeFirst();
             if (node.amplitude <= 0 || !level.hasChunkAt(node.pos)) continue;
-            if (best.getOrDefault(node.pos, -1) >= node.amplitude) continue;
-            best.put(node.pos, node.amplitude);
-            visited++;
 
             var state = level.getBlockState(node.pos);
             var block = state.getBlock();
-            if (block instanceof ThermalPulseReceiverBlock) {
+            boolean receiver = block instanceof ThermalPulseReceiverBlock;
+            boolean conduit = block instanceof PhononConduitBlock;
+            if (!receiver && !conduit) continue;
+            if (receiver) {
                 Direction expectedInput = state.getValue(DirectionalSignalBlock.FACING).getOpposite();
                 if (node.arrivalSide != expectedInput) continue;
-                InformationRuntime.write(level, "thermal_pulse", node.pos,
-                        node.amplitude, 0, true, 100);
-                level.scheduleTick(node.pos, block, 1);
+            }
+
+            int previous = best.getOrDefault(node.pos, -1);
+            if (previous >= node.amplitude) continue;
+            boolean newNode = !visitedNodes.contains(node.pos);
+            if (newNode && visitedNodes.size() >= NetworkKernel.MAX_NODES) {
+                truncated = true;
+                break;
+            }
+            visitedNodes.add(node.pos.immutable());
+            best.put(node.pos.immutable(), node.amplitude);
+
+            if (receiver) {
+                pending.put(node.pos.immutable(), new Pending(node.amplitude, 1));
                 continue;
             }
-            if (!(block instanceof PhononConduitBlock)) continue;
 
-            InformationRuntime.write(level, "thermal_pulse", node.pos,
-                    node.amplitude, 0, true, 100);
-            level.scheduleTick(node.pos, block, PhononConduitBlock.PACKET_TTL_TICKS);
-
+            pending.put(node.pos.immutable(), new Pending(node.amplitude, PhononConduitBlock.PACKET_TTL_TICKS));
             int next = node.amplitude - 1;
             if (next <= 0) continue;
             for (Direction side : Direction.values()) {
                 queue.addLast(new Node(node.pos.relative(side), next, side.getOpposite()));
             }
         }
-        NetworkKernel.recordScan(level, "phonon", visited, visited >= NetworkKernel.MAX_NODES);
+
+        NetworkKernel.recordScan(level, "phonon", visitedNodes.size(), truncated);
+        for (Map.Entry<BlockPos, Pending> entry : pending.entrySet()) {
+            BlockPos pos = entry.getKey();
+            Pending packet = entry.getValue();
+            var block = level.getBlockState(pos).getBlock();
+            if (truncated) {
+                InformationRuntime.write(level, "thermal_pulse", pos, 0, 0, false, 0);
+            } else {
+                InformationRuntime.write(level, "thermal_pulse", pos,
+                        packet.amplitude(), 0, true, 100);
+            }
+            level.updateNeighborsAt(pos, block);
+            level.scheduleTick(pos, block, packet.ttlTicks());
+        }
     }
 }

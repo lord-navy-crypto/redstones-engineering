@@ -22,7 +22,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 /**
  * Five-block differential-data subsystem validation.
  *
- * <p>Main path: Differential Driver -> Differential Pair -> Signal Junction Point ->
+ * <p>Main path: Differential Driver -> Differential Pair -> vertical Junction Point ->
  * Differential Pair -> Differential Receiver. A reference source is a fixture for the
  * driver's redstone command; a temporary second driver is used only to inject contention.</p>
  */
@@ -32,9 +32,9 @@ public final class RseFiveBlockDifferentialMediumToolsGameTests {
     private static final BlockPos SOURCE = new BlockPos(0, 1, 2);
     private static final BlockPos DRIVER = new BlockPos(1, 1, 2);
     private static final BlockPos PAIR_A = new BlockPos(2, 1, 2);
-    private static final BlockPos JUNCTION = new BlockPos(3, 1, 2);
-    private static final BlockPos PAIR_B = new BlockPos(3, 1, 3);
-    private static final BlockPos RECEIVER = new BlockPos(3, 1, 4);
+    private static final BlockPos JUNCTION = new BlockPos(2, 2, 2);
+    private static final BlockPos PAIR_B = new BlockPos(2, 3, 2);
+    private static final BlockPos RECEIVER = new BlockPos(3, 3, 2);
 
     private static final BlockPos FAULT_SOURCE = new BlockPos(2, 1, 0);
     private static final BlockPos FAULT_DRIVER = new BlockPos(2, 1, 1);
@@ -108,9 +108,9 @@ public final class RseFiveBlockDifferentialMediumToolsGameTests {
                                     return;
                                 }
                                 var receiverInput = RedstoneEngineering.DIFFERENTIAL_RECEIVER.get().engineeringSnapshot(
-                                        helper.getLevel(), helper.absolutePos(RECEIVER), helper.getBlockState(RECEIVER), Direction.NORTH).orElse(null);
+                                        helper.getLevel(), helper.absolutePos(RECEIVER), helper.getBlockState(RECEIVER), Direction.WEST).orElse(null);
                                 var receiverOutput = RedstoneEngineering.DIFFERENTIAL_RECEIVER.get().engineeringSnapshot(
-                                        helper.getLevel(), helper.absolutePos(RECEIVER), helper.getBlockState(RECEIVER), Direction.SOUTH).orElse(null);
+                                        helper.getLevel(), helper.absolutePos(RECEIVER), helper.getBlockState(RECEIVER), Direction.EAST).orElse(null);
                                 if (receiverInput == null || receiverInput.quality() != PortQuality.TOPOLOGY_ERROR
                                         || receiverOutput == null || receiverOutput.quality() != PortQuality.TOPOLOGY_ERROR
                                         || helper.getBlockState(RECEIVER).getValue(DirectionalSignalBlock.OUTPUT) != 0) {
@@ -215,7 +215,7 @@ public final class RseFiveBlockDifferentialMediumToolsGameTests {
         helper.setBlock(PAIR_A, RedstoneEngineering.DIFFERENTIAL_DATA_PAIR.get().defaultBlockState());
         helper.setBlock(PAIR_B, RedstoneEngineering.DIFFERENTIAL_DATA_PAIR.get().defaultBlockState());
         helper.setBlock(RECEIVER, RedstoneEngineering.DIFFERENTIAL_RECEIVER.get().defaultBlockState()
-                .setValue(DirectionalSignalBlock.FACING, Direction.SOUTH));
+                .setValue(DirectionalSignalBlock.FACING, Direction.EAST));
         helper.setBlock(JUNCTION, RedstoneEngineering.REDSTONE_CABLE_JUNCTION.get().defaultBlockState());
     }
 
@@ -223,14 +223,14 @@ public final class RseFiveBlockDifferentialMediumToolsGameTests {
         BlockState junctionState = helper.getBlockState(JUNCTION);
         if (junctionState.getValue(RedstoneCableJunctionBlock.MEDIUM)
                 != TransmissionTopology.SignalMedium.DIFFERENTIAL) {
-            helper.fail("Signal Junction did not resolve DIFFERENTIAL during " + phase, JUNCTION);
+            helper.fail("Signal Junction Point did not resolve DIFFERENTIAL during " + phase, JUNCTION);
             return false;
         }
 
         BlockPos pairAWorld = helper.absolutePos(PAIR_A);
         BlockPos pairBWorld = helper.absolutePos(PAIR_B);
         if (DifferentialNetwork.collect(helper.getLevel(), pairAWorld).size() != 3) {
-            helper.fail("Differential visible route and graph disagreed during " + phase, JUNCTION);
+            helper.fail("Differential vertical Junction Point route and graph disagreed during " + phase, JUNCTION);
             return false;
         }
         for (BlockPos world : new BlockPos[]{pairAWorld, pairBWorld}) {
@@ -244,9 +244,9 @@ public final class RseFiveBlockDifferentialMediumToolsGameTests {
         }
 
         var receiverInput = RedstoneEngineering.DIFFERENTIAL_RECEIVER.get().engineeringSnapshot(
-                helper.getLevel(), helper.absolutePos(RECEIVER), helper.getBlockState(RECEIVER), Direction.NORTH).orElse(null);
+                helper.getLevel(), helper.absolutePos(RECEIVER), helper.getBlockState(RECEIVER), Direction.WEST).orElse(null);
         var receiverOutput = RedstoneEngineering.DIFFERENTIAL_RECEIVER.get().engineeringSnapshot(
-                helper.getLevel(), helper.absolutePos(RECEIVER), helper.getBlockState(RECEIVER), Direction.SOUTH).orElse(null);
+                helper.getLevel(), helper.absolutePos(RECEIVER), helper.getBlockState(RECEIVER), Direction.EAST).orElse(null);
         int expectedRedstone = expectedBit == 0 ? 0 : 15;
         if (receiverInput == null || receiverInput.quality() != PortQuality.VALID
                 || Math.round(receiverInput.value()) != expectedBit
@@ -262,9 +262,9 @@ public final class RseFiveBlockDifferentialMediumToolsGameTests {
     private static boolean assertReceiverCleared(GameTestHelper helper, String phase) {
         BlockState receiverState = helper.getBlockState(RECEIVER);
         var input = RedstoneEngineering.DIFFERENTIAL_RECEIVER.get().engineeringSnapshot(
-                helper.getLevel(), helper.absolutePos(RECEIVER), receiverState, Direction.NORTH).orElse(null);
+                helper.getLevel(), helper.absolutePos(RECEIVER), receiverState, Direction.WEST).orElse(null);
         var output = RedstoneEngineering.DIFFERENTIAL_RECEIVER.get().engineeringSnapshot(
-                helper.getLevel(), helper.absolutePos(RECEIVER), receiverState, Direction.SOUTH).orElse(null);
+                helper.getLevel(), helper.absolutePos(RECEIVER), receiverState, Direction.EAST).orElse(null);
         if (input == null || input.quality() != PortQuality.NO_SIGNAL
                 || output == null || output.quality() != PortQuality.NO_SIGNAL
                 || receiverState.getValue(DirectionalSignalBlock.OUTPUT) != 0) {

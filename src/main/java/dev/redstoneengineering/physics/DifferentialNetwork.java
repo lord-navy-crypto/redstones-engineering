@@ -31,7 +31,7 @@ public final class DifferentialNetwork {
     private DifferentialNetwork() {}
 
     private static final String DIAG_KEY = "diff_diag";
-    private static final int DIAG_SIZE = 1; // active driver count for this resolved component
+    private static final int DIAG_SIZE = 2; // active driver count, budget truncation flag
 
     /** Physical membership check for concrete device connector boundaries. */
     public static boolean isNode(Level level, BlockPos pos) {
@@ -71,26 +71,30 @@ public final class DifferentialNetwork {
                 }
             }
         }
+        NetworkKernel.recordScan(level, "diff", seen.size(), !queue.isEmpty());
         return seen;
     }
 
     public static void drive(ServerLevel level, BlockPos start, int bit) {
         Set<BlockPos> nodes = collect(level, start);
         if (nodes.isEmpty()) return;
-        int resolvedBit = bit & 1;
-        int quality = Math.max(70, 100 - Math.max(0, nodes.size() - 1) / 8);
+        boolean truncated = NetworkKernel.stats(level, "diff").lastTruncated();
+        boolean resolvedValid = !truncated;
+        int resolvedBit = resolvedValid ? bit & 1 : 0;
+        int quality = resolvedValid ? Math.max(70, 100 - Math.max(0, nodes.size() - 1) / 8) : 0;
         for (BlockPos pos : nodes) {
             int oldBit = InformationRuntime.value(level, "diff", pos) & 1;
             int oldQuality = InformationRuntime.quality(level, "diff", pos);
             boolean oldValid = InformationRuntime.valid(level, "diff", pos);
-            boolean effectiveChanged = oldBit != resolvedBit || oldQuality != quality || !oldValid;
-            InformationRuntime.write(level, "diff", pos, resolvedBit, 0, true, quality);
-            RuntimeIntStore.get(level, DIAG_KEY, pos, DIAG_SIZE)[0] = 1;
+            boolean effectiveChanged = oldBit != resolvedBit || oldQuality != quality || oldValid != resolvedValid;
+            InformationRuntime.write(level, "diff", pos, resolvedBit, 0, resolvedValid, quality);
+            int[] diagnostics = RuntimeIntStore.get(level, DIAG_KEY, pos, DIAG_SIZE);
+            diagnostics[0] = 1;
+            diagnostics[1] = truncated ? 1 : 0;
             if (effectiveChanged) {
                 level.updateNeighborsAt(pos, level.getBlockState(pos).getBlock());
             }
         }
-        NetworkKernel.recordScan(level, "diff", nodes.size(), nodes.size() >= NetworkKernel.MAX_NODES);
     }
 
     public static void recompute(ServerLevel level, BlockPos start) {
@@ -134,13 +138,16 @@ public final class DifferentialNetwork {
     }
 
     private static void invalidate(ServerLevel level, Set<BlockPos> nodes, int driverCount) {
+        boolean truncated = NetworkKernel.stats(level, "diff").lastTruncated();
         for (BlockPos pos : nodes) {
             int oldBit = InformationRuntime.value(level, "diff", pos) & 1;
             int oldQuality = InformationRuntime.quality(level, "diff", pos);
             boolean oldValid = InformationRuntime.valid(level, "diff", pos);
             boolean effectiveChanged = oldBit != 0 || oldQuality != 0 || oldValid;
             InformationRuntime.write(level, "diff", pos, 0, 0, false, 0);
-            RuntimeIntStore.get(level, DIAG_KEY, pos, DIAG_SIZE)[0] = Math.max(0, driverCount);
+            int[] diagnostics = RuntimeIntStore.get(level, DIAG_KEY, pos, DIAG_SIZE);
+            diagnostics[0] = Math.max(0, driverCount);
+            diagnostics[1] = truncated ? 1 : 0;
             if (effectiveChanged) {
                 level.updateNeighborsAt(pos, level.getBlockState(pos).getBlock());
             }
@@ -152,11 +159,17 @@ public final class DifferentialNetwork {
         return diagnostics == null || diagnostics.length != DIAG_SIZE ? 0 : Math.max(0, diagnostics[0]);
     }
 
+    public static boolean truncated(Level level, BlockPos pos) {
+        int[] diagnostics = RuntimeIntStore.peek(level, DIAG_KEY, pos);
+        return diagnostics != null && diagnostics.length == DIAG_SIZE && diagnostics[1] != 0;
+    }
+
     /** Observer-neutral differential quality with explicit no-driver versus conflict evidence. */
     public static PortQuality quality(Level level, BlockPos pos) {
         if (!level.hasChunkAt(pos)) return PortQuality.STALE;
         InformationRuntime.Snapshot snapshot = InformationRuntime.snapshot(level, "diff", pos);
         if (snapshot.ageTicks() < 0) return PortQuality.STALE;
+        if (truncated(level, pos)) return PortQuality.STALE;
         int drivers = driverCount(level, pos);
         if (drivers == 0) return PortQuality.NO_SIGNAL;
         if (drivers > 1) return PortQuality.TOPOLOGY_ERROR;

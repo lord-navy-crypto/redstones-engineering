@@ -35,6 +35,9 @@ import java.util.Optional;
 public class SignalProbeBlock extends Block implements EngineeringPortProvider {
     public static final DirectionProperty FACING = BlockStateProperties.FACING;
     public static final IntegerProperty CHANNEL = IntegerProperty.create("channel", 0, 3);
+    private static final Direction[] ROUTE_CYCLE = {
+            Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST, Direction.UP, Direction.DOWN
+    };
 
     public SignalProbeBlock(Properties properties) {
         super(properties);
@@ -68,6 +71,27 @@ public class SignalProbeBlock extends Block implements EngineeringPortProvider {
 
     private static Direction busSide(BlockState state) {
         return testSide(state).getOpposite();
+    }
+
+    /** Server-authoritative rotation of the TEST/BUS axis, including vertical probe faces. */
+    public static boolean rotateMeasurementAxis(Level level, BlockPos pos, boolean clockwise) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof SignalProbeBlock probe) || !state.hasProperty(FACING)) return false;
+        Direction current = state.getValue(FACING);
+        int index = 0;
+        for (int i = 0; i < ROUTE_CYCLE.length; i++) {
+            if (ROUTE_CYCLE[i] == current) { index = i; break; }
+        }
+        int nextIndex = Math.floorMod(index + (clockwise ? 1 : -1), ROUTE_CYCLE.length);
+        Direction next = ROUTE_CYCLE[nextIndex];
+        if (next == current) return false;
+        level.setBlock(pos, state.setValue(FACING, next), Block.UPDATE_CLIENTS);
+        level.updateNeighborsAt(pos, probe);
+        level.updateNeighborsAt(pos.relative(current), probe);
+        level.updateNeighborsAt(pos.relative(current.getOpposite()), probe);
+        level.updateNeighborsAt(pos.relative(next), probe);
+        level.updateNeighborsAt(pos.relative(next.getOpposite()), probe);
+        return true;
     }
 
     @Override

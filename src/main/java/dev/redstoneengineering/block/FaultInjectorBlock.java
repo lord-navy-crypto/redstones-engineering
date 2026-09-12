@@ -9,10 +9,12 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -35,7 +37,6 @@ public class FaultInjectorBlock extends PassiveDirectionalSignalBlock {
     public static final IntegerProperty MODE = IntegerProperty.create("mode", 0, 3);
     private static final String KEY = "fault_injector";
     private static final String[] MODE_LABELS = {"STUCK LOW", "STUCK HIGH", "BIAS +4", "BIAS -4"};
-    // [active, activations, alteredSamples, lastInput, lastOutput]
     private static final int RUNTIME_SIZE = 5;
 
     public FaultInjectorBlock(Properties properties) {
@@ -130,16 +131,25 @@ public class FaultInjectorBlock extends PassiveDirectionalSignalBlock {
     }
 
     public static String modeLabel(BlockState state) {
-        return MODE_LABELS[state.getValue(MODE)];
+        return modeLabelFor(state.getValue(MODE));
     }
 
-    public void cycleMode(Level level, BlockPos pos) {
+    public static String modeLabelFor(int mode) {
+        return MODE_LABELS[Math.floorMod(mode, MODE_LABELS.length)];
+    }
+
+    public boolean adjustMode(Level level, BlockPos pos, int delta) {
         BlockState state = level.getBlockState(pos);
-        if (!state.is(this)) return;
-        int next = (state.getValue(MODE) + 1) & 3;
+        if (!state.is(this)) return false;
+        int next = Math.floorMod(state.getValue(MODE) + delta, 4);
         BlockState updated = state.setValue(MODE, next);
         level.setBlock(pos, updated, Block.UPDATE_CLIENTS);
         if (level instanceof ServerLevel server) server.scheduleTick(pos, this, 1);
+        return true;
+    }
+
+    public void cycleMode(Level level, BlockPos pos) {
+        adjustMode(level, pos, 1);
     }
 
     @Override
@@ -162,14 +172,12 @@ public class FaultInjectorBlock extends PassiveDirectionalSignalBlock {
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (!level.isClientSide) {
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
                 RuntimeIntStore.remove(level, KEY, pos);
                 player.displayClientMessage(Component.literal("Fault injector diagnostics reset"), true);
             } else {
-                cycleMode(level, pos);
-                BlockState updated = level.getBlockState(pos);
-                player.displayClientMessage(Component.literal("Fault mode: " + modeLabel(updated)), true);
+                FieldDeviceUi.openUniversal(serverPlayer, pos);
             }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);

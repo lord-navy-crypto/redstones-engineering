@@ -34,6 +34,7 @@ require(
     "AirCompressorBlock",
     "other.equals(self.above())",
     "PneumaticReceiverBlock",
+    "PressureRegulatorBlock",
     "PneumaticValveBlock",
     "PneumaticCheckValveBlock",
     "PneumaticFlowMeterBlock",
@@ -84,16 +85,23 @@ require(
 )
 require(
     "src/main/java/dev/redstoneengineering/block/PressureRegulatorBlock.java",
-    "extends DomainBlock implements EngineeringPortProvider",
-    '"REGULATED AIR"',
+    "extends DirectionalDomainBlock implements EngineeringPortProvider",
+    '"PNEUMATIC IN"',
+    '"REGULATED OUT"',
     "EngineeringDomain.PNEUMATIC",
-    "PortKind.BUS",
-    "PortDirection.BIDIRECTIONAL",
+    "PortDirection.INPUT",
+    "PortDirection.OUTPUT",
+    "inputSide(state)",
+    "outputSide(state)",
     "setpointPressure",
     'InformationRuntime.clear(level, "pneumatic", pos)',
     "PneumaticNetwork.recomputeAround",
     "FieldDeviceUi.open",
 )
+regulator = read("src/main/java/dev/redstoneengineering/block/PressureRegulatorBlock.java")
+for forbidden in ('"REGULATED AIR"', "PortDirection.BIDIRECTIONAL", "extends DomainBlock implements EngineeringPortProvider"):
+    if forbidden in regulator:
+        errors.append(f"PressureRegulatorBlock restored obsolete manifold contract: {forbidden!r}")
 require(
     "src/main/java/dev/redstoneengineering/block/PneumaticReceiverBlock.java",
     '"PNEUMATIC IN"',
@@ -183,7 +191,7 @@ for method in (
     "compressorSeparatesDownCommandFromUpPneumaticOutlet",
     "pneumaticPipeBreakRecomputesSeparatedIsland",
     "airReservoirStoresAndClearsTransientPressure",
-    "pressureRegulatorIsSixWayAndClampsSetpoint",
+    "pressureRegulatorIsAxialAndClampsSetpoint",
     "pneumaticReceiverIsTerminalConverterNotBridge",
     "manualValveUsesAxialPortsAndClosedStateSplitsFlow",
     "checkValveAllowsBackToFrontAndRejectsReverse",
@@ -211,9 +219,9 @@ if errors:
 print("RSE ninth-eight pneumatic foundation verification: PASS")
 print("  compressor DOWN-redstone / UP-pneumatic isolation: PASS")
 print("  physical pneumatic discovery + terminal isolation: PASS")
-print("  pipe/reservoir/regulator manifold contracts: PASS")
+print("  pipe/reservoir manifold + regulator axial-series contracts: PASS")
 print("  receiver PNEUMATIC-to-REDSTONE conversion: PASS")
-print("  axial manual/check/flow-meter contracts: PASS")
+print("  axial regulator/manual/check/flow-meter contracts: PASS")
 print("  split-network + runtime/metrology cleanup: PASS")
 print("  Field Device Inspector pneumatic projection kinds 47-54: PASS")
 print("  eight executable ninth-batch GameTests registered: PASS")

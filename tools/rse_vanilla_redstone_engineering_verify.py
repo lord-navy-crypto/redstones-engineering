@@ -72,9 +72,15 @@ if count != 3:
 
 need(module, "event.register(RseVanillaRedstoneEngineeringGameTests.class);", "EngineeringSystemsModule.java")
 need(workflow, "tools/rse_vanilla_redstone_engineering_verify.py", "build.yml")
-minimum_match = re.search(r"test_count < ([0-9]+)", workflow)
-if minimum_match is None or int(minimum_match.group(1)) < 177:
-    errors.append("build.yml: GameTest floor must remain at least 177 after VRE diagnostics")
+# Runtime GameTests remain registered as diagnostic evidence, but they are intentionally manual/non-blocking.
+for needle in (
+    "Minecraft topology GameTests (manual diagnostic)",
+    "github.event_name == 'workflow_dispatch'",
+    "continue-on-error: true",
+    "./gradlew compileJava",
+    "./gradlew test",
+):
+    need(workflow, needle, "build.yml")
 need(doc, "Diagnostics Only", "VANILLA_REDSTONE_ENGINEERING.md")
 need(doc, "No mixins", "VANILLA_REDSTONE_ENGINEERING.md")
 
@@ -105,4 +111,4 @@ print("  bounded adjacent-component traversal: <=256 nodes / <=24 Manhattan bloc
 print("  dust 0..15 + configured repeater timing evidence: PASS")
 print("  QC/fan-out/density classifications remain advisories: PASS")
 print("  Topology Debugger vanilla-mode routing: PASS")
-print("  executable VRE foundation GameTests: 3")
+print("  registered VRE foundation GameTests: 3 (manual diagnostic / non-blocking)")

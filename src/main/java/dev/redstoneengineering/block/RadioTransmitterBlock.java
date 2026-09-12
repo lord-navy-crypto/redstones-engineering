@@ -30,14 +30,12 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Four-channel low-bandwidth transmitter. UP is the radio antenna face; the other
- * five faces accept a bounded redstone payload and the strongest valid input is transmitted.
+ * Four-channel low-bandwidth serial converter. DOWN is the one redstone payload input;
+ * UP is the radio antenna output. Any aggregation must happen before this device.
  */
 public class RadioTransmitterBlock extends Block implements EngineeringPortProvider {
     public static final IntegerProperty CHANNEL = IntegerProperty.create("channel", 0, 3);
-    private static final Direction[] PAYLOAD_SIDES = {
-            Direction.DOWN, Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST
-    };
+    private static final Direction PAYLOAD_SIDE = Direction.DOWN;
 
     public record PayloadObservation(int value, PortQuality quality) {
         public boolean valid() {
@@ -63,40 +61,17 @@ public class RadioTransmitterBlock extends Block implements EngineeringPortProvi
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         return List.of(
-                redstoneInput(Direction.DOWN),
-                redstoneInput(Direction.NORTH),
-                redstoneInput(Direction.SOUTH),
-                redstoneInput(Direction.WEST),
-                redstoneInput(Direction.EAST),
+                new EngineeringPort("PAYLOAD IN", PAYLOAD_SIDE, EngineeringDomain.REDSTONE,
+                        PortKind.CONVERTER, PortDirection.INPUT, true, "signal"),
                 new EngineeringPort("RADIO ANTENNA", Direction.UP, EngineeringDomain.RADIO_DATA,
                         PortKind.BUS, PortDirection.OUTPUT, false, "signal")
         );
     }
 
-    private static EngineeringPort redstoneInput(Direction side) {
-        return new EngineeringPort("PAYLOAD IN", side, EngineeringDomain.REDSTONE,
-                PortKind.CONVERTER, PortDirection.INPUT, true, "signal");
-    }
-
     public static PayloadObservation payloadObservation(Level level, BlockPos pos) {
-        int best = 0;
-        boolean hasValidSource = false;
-        boolean hasStaleSource = false;
-        for (Direction side : PAYLOAD_SIDES) {
-            RedstoneObservationSupport.Observation observation =
-                    RedstoneObservationSupport.observe(level, pos, side);
-            if (observation.valid()) {
-                hasValidSource = true;
-                best = Math.max(best, observation.value());
-            } else if (observation.quality() == PortQuality.STALE) {
-                hasStaleSource = true;
-            }
-        }
-        return new PayloadObservation(
-                best,
-                hasValidSource ? PortQuality.VALID
-                        : hasStaleSource ? PortQuality.STALE : PortQuality.NO_SIGNAL
-        );
+        RedstoneObservationSupport.Observation observation =
+                RedstoneObservationSupport.observe(level, pos, PAYLOAD_SIDE);
+        return new PayloadObservation(observation.value(), observation.quality());
     }
 
     @Override
@@ -105,28 +80,24 @@ public class RadioTransmitterBlock extends Block implements EngineeringPortProvi
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
+        PayloadObservation payload = payloadObservation(level, pos);
         if (side == Direction.UP) {
-            PayloadObservation payload = payloadObservation(level, pos);
             return Optional.of(new EngineeringPortSnapshot(
                     port.get(), payload.value(), 0.0, 15.0, payload.quality()));
         }
-        RedstoneObservationSupport.Observation input = RedstoneObservationSupport.observe(level, pos, side);
         return Optional.of(EngineeringPortSnapshot.redstone(
-                port.get(), input.value(), input.quality()));
+                port.get(), payload.value(), payload.quality()));
     }
 
     @Override
     public boolean canConnectRedstone(
             BlockState state, BlockGetter level, BlockPos pos, @Nullable Direction direction
     ) {
-        return direction != null && direction.getOpposite() != Direction.UP;
+        return direction != null && direction.getOpposite() == PAYLOAD_SIDE;
     }
 
     private static boolean isPayloadNeighbor(BlockPos pos, BlockPos neighborPos) {
-        for (Direction side : PAYLOAD_SIDES) {
-            if (pos.relative(side).equals(neighborPos)) return true;
-        }
-        return false;
+        return pos.relative(PAYLOAD_SIDE).equals(neighborPos);
     }
 
     private static void refreshTransmitter(Level level, BlockPos pos, BlockState state) {
@@ -174,7 +145,8 @@ public class RadioTransmitterBlock extends Block implements EngineeringPortProvi
                 player.displayClientMessage(net.minecraft.network.chat.Component.literal(
                         "Radio TX channel=" + channel + " payload=" + payload.value()
                                 + "/15 quality=" + payload.quality()
-                                + " range=" + RadioKernel.RANGE), true);
+                                + " | DOWN payload → UP antenna"
+                                + " | range=" + RadioKernel.RANGE), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
             }

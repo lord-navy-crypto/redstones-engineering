@@ -86,20 +86,20 @@ public final class LogicAnalyzerScreen extends EngineeringScreen<LogicAnalyzerMe
         labelValue(graphics, "Cursors", "A=" + menu.cursorA() + " B=" + menu.cursorB(), 125);
         labelValue(graphics, "Cursor Δ", Math.abs(menu.cursorB() - menu.cursorA()) + " samples / "
                 + Math.abs(menu.cursorB() - menu.cursorA()) * LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS + "t", 140);
-        graphics.drawString(font, "Threshold and trigger controls never bypass the server capture engine.", 16, 178, MUTED, false);
+        safeText(graphics, "Threshold and trigger controls never bypass the server capture engine.", 16, 178, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
         for (int channel = 0; channel < 4; channel++) {
             int y = 80 + channel * 25;
             graphics.drawString(font, "CH " + channelName(channel), 16, y, channelColor(channel), false);
-            graphics.drawString(font,
+            safeText(graphics,
                     "coverage=" + menu.coverage(channel) + "% duty=" + menu.duty(channel)
                             + "% transition=" + menu.transitionRate(channel) + "%",
-                    54, y, TEXT, false);
-            graphics.drawString(font,
+                    54, y, TEXT);
+            safeText(graphics,
                     "edges ↑" + menu.rising(channel) + " ↓" + menu.falling(channel),
-                    54, y + 12, MUTED, false);
+                    54, y + 12, MUTED);
         }
         statusLine(graphics, "Network", networkIntegrity(), networkColor(), 183);
     }
@@ -131,11 +131,11 @@ public final class LogicAnalyzerScreen extends EngineeringScreen<LogicAnalyzerMe
         EngineeringPlot.verticalMarker(graphics, menu.cursorB(), samples, 42, y, 250, height, 0xFFE879F9);
         graphics.drawString(font, "A", 271, 82, WARN, false);
         graphics.drawString(font, "B", 282, 82, 0xFFE879F9, false);
-        graphics.drawString(font, "HIGH/LOW timing • gaps mark invalid or missing probe samples", 16, 175, MUTED, false);
-        graphics.drawString(font,
+        safeText(graphics, "HIGH/LOW timing • gaps mark invalid or missing probe samples", 16, 175, MUTED);
+        safeText(graphics,
                 "Cursor Δ=" + Math.abs(menu.cursorB() - menu.cursorA()) + " samples / "
                         + Math.abs(menu.cursorB() - menu.cursorA()) * LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS + "t",
-                16, 188, TEXT, false);
+                16, 188, TEXT);
     }
 
     private String captureState() {

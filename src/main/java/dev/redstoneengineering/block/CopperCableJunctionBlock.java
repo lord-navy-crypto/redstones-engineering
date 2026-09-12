@@ -29,7 +29,8 @@ public class CopperCableJunctionBlock extends ConnectedCableBlock implements Eng
     private static final String KEY = "copper_junction";
     private static final int VOLTAGE_INDEX = 0;
     private static final int DRIVER_COUNT_INDEX = 1;
-    private static final int RUNTIME_SIZE = 2;
+    private static final int QUALITY_INDEX = 2;
+    private static final int RUNTIME_SIZE = 3;
 
     public CopperCableJunctionBlock(Properties properties) {
         super(properties);
@@ -51,9 +52,18 @@ public class CopperCableJunctionBlock extends ConnectedCableBlock implements Eng
     }
 
     public static void setVoltage(Level level, BlockPos pos, int voltage) {
+        NetworkKernel.ScanStats stats = NetworkKernel.stats(level, "copper");
+        int drivers = Math.max(0, stats.activeDrivers());
+        PortQuality quality = stats.lastTruncated()
+                ? PortQuality.STALE
+                : drivers > 1 ? PortQuality.TOPOLOGY_ERROR
+                : drivers == 1 ? PortQuality.VALID
+                : PortQuality.NO_SIGNAL;
+
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
-        runtime[VOLTAGE_INDEX] = Math.max(0, Math.min(15, voltage));
-        runtime[DRIVER_COUNT_INDEX] = Math.max(0, NetworkKernel.stats(level, "copper").activeDrivers());
+        runtime[VOLTAGE_INDEX] = quality == PortQuality.STALE ? 0 : Math.max(0, Math.min(15, voltage));
+        runtime[DRIVER_COUNT_INDEX] = drivers;
+        runtime[QUALITY_INDEX] = quality.ordinal();
     }
 
     public static int voltage(Level level, BlockPos pos) {
@@ -66,9 +76,19 @@ public class CopperCableJunctionBlock extends ConnectedCableBlock implements Eng
         return runtime == null || runtime.length <= DRIVER_COUNT_INDEX ? 0 : runtime[DRIVER_COUNT_INDEX];
     }
 
-    private static PortQuality quality(Level level, BlockPos pos) {
+    private static PortQuality storedQuality(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        if (runtime == null || runtime.length <= QUALITY_INDEX) return PortQuality.NO_SIGNAL;
+        int ordinal = Math.max(0, Math.min(PortQuality.values().length - 1, runtime[QUALITY_INDEX]));
+        return PortQuality.values()[ordinal];
+    }
+
+    public static PortQuality quality(Level level, BlockPos pos, BlockState state) {
+        if (!((CopperCableJunctionBlock) state.getBlock()).topologyValid(state)) return PortQuality.TOPOLOGY_ERROR;
+        PortQuality stored = storedQuality(level, pos);
+        if (stored == PortQuality.STALE) return PortQuality.STALE;
         int drivers = driverCount(level, pos);
-        if (drivers > 1) return PortQuality.TOPOLOGY_ERROR;
+        if (drivers > 1 || stored == PortQuality.TOPOLOGY_ERROR) return PortQuality.TOPOLOGY_ERROR;
         return drivers == 1 ? PortQuality.VALID : PortQuality.NO_SIGNAL;
     }
 
@@ -99,9 +119,8 @@ public class CopperCableJunctionBlock extends ConnectedCableBlock implements Eng
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        PortQuality quality = topologyValid(state) ? quality(level, pos) : PortQuality.TOPOLOGY_ERROR;
         return Optional.of(new EngineeringPortSnapshot(
-                port.get(), voltage(level, pos), 0.0, 15.0, quality
+                port.get(), voltage(level, pos), 0.0, 15.0, quality(level, pos, state)
         ));
     }
 

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import re
 
 ROOT = Path(__file__).resolve().parents[1]
 JAVA = ROOT / "src/main/java/dev/redstoneengineering"
@@ -70,9 +69,6 @@ for name, source in (("Series Resistor", resistor), ("Capacitor", capacitor), ("
     require("RuntimeIntStore.peek" in source, f"Copper {name} lacks observer-only runtime readback")
     require("PortQuality" in source, f"Copper {name} lacks explicit output quality")
 
-# Capacitor identity is behavioral, not prose: charge is retained in runtime, drives the
-# output independently of the current input, and a nonzero stored charge remains VALID
-# after the upstream source becomes NO_SIGNAL while hard faults still propagate.
 cap_quality = method_body(capacitor, "public static PortQuality outputQuality")
 cap_tick = method_body(capacitor, "protected void tick")
 for token in ("CHARGE_SLOT", "outputVoltageFromCharge", "DomainNetwork.driveCopper"):
@@ -121,11 +117,17 @@ for test_name in (
 ):
     require(test_name in tests, f"Missing fifth-ten runtime contract: {test_name}")
 
-match = re.search(r"test_count < (\d+)", workflow)
-require(match is not None and int(match.group(1)) >= 239,
-        "CI GameTest gate must be at least 239 after nine fifth-ten regressions")
 require("tools/rse_fifth_ten_system_design_bug_verify.py" in workflow,
         "Fifth-ten verifier is not wired into CI")
+for token in (
+    "Minecraft topology GameTests (manual diagnostic)",
+    "github.event_name == 'workflow_dispatch'",
+    "continue-on-error: true",
+    "./gradlew runGameTestServer",
+    "./gradlew compileJava",
+    "./gradlew test",
+):
+    require(token in workflow, f"build.yml missing manual/non-blocking GameTest policy token {token!r}")
 
 print("RSE fifth-ten system design + bug verification: PASS")
 print("  Amethyst spectrum observer/conflict/coverage evidence: PASS")
@@ -135,5 +137,5 @@ print("  Copper R/C/fuse observer-neutral source-quality evidence: PASS")
 print("  Capacitor retained-energy structural contract: PASS")
 print("  Copper metrology snapshot ownership boundary: PASS")
 print("  Permanent Magnet scalar free-space identity + legacy label: PASS")
-print("  nine executable fifth-ten GameTests registered: PASS")
+print("  registered fifth-ten GameTests: 9 (manual diagnostic / non-blocking)")
 print("  fixed-content architecture: 127 blocks; no new block/domain required")

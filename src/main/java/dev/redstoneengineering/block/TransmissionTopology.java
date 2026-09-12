@@ -12,10 +12,8 @@ import net.minecraft.world.level.block.state.BlockState;
  * Central port/topology rules for RSE transmission media.
  * Visual connections and graph connections must agree with these rules.
  *
- * <p>Cable-like information media share one routing grammar: direct cable-to-cable
- * continuity is planar (N/E/S/W). A vertical edge is legal only when the neighbor
- * is the unified Signal Junction Point and that junction has resolved to exactly
- * one matching medium. A junction never converts domains.</p>
+ * <p>Cable-like media remain planar by default. The single Junction Point is the only explicit
+ * UP/DOWN riser and it never translates domains: both sides must resolve to one matching medium.</p>
  */
 public final class TransmissionTopology {
     private TransmissionTopology() {}
@@ -27,6 +25,8 @@ public final class TransmissionTopology {
         DATA_BUS_8("bus8"),
         SERIAL("serial"),
         DIFFERENTIAL("differential"),
+        OPTICAL("optical"),
+        COPPER("copper"),
         MISMATCH("mismatch");
 
         private final String serializedName;
@@ -73,6 +73,8 @@ public final class TransmissionTopology {
             case DATA_BUS_8 -> EngineeringDomain.DATA_BUS_8;
             case SERIAL -> EngineeringDomain.SERIAL_DATA;
             case DIFFERENTIAL -> EngineeringDomain.DIFFERENTIAL_DATA;
+            case OPTICAL -> EngineeringDomain.OPTICAL;
+            case COPPER -> EngineeringDomain.COPPER;
             case NONE, MISMATCH -> null;
         };
     }
@@ -93,16 +95,15 @@ public final class TransmissionTopology {
         if (block instanceof EightBitDataBusBlock) return SignalMedium.DATA_BUS_8;
         if (block instanceof SerialDataLineBlock) return SignalMedium.SERIAL;
         if (block instanceof DifferentialDataPairBlock) return SignalMedium.DIFFERENTIAL;
+        if (block instanceof OpticalFiberBlock) return SignalMedium.OPTICAL;
+        if (block instanceof CopperWireBlock) return SignalMedium.COPPER;
         return SignalMedium.NONE;
     }
 
-    /**
-     * Resolve a unified junction from adjacent cable identities. One medium is accepted;
-     * mixed-media adjacency is a hard topology mismatch rather than an implicit converter.
-     */
+    /** Resolve the vertical junction from the cable immediately above and below it. */
     public static SignalMedium inferJunctionMedium(BlockGetter level, BlockPos junctionPos) {
         SignalMedium found = SignalMedium.NONE;
-        for (Direction direction : Direction.values()) {
+        for (Direction direction : new Direction[]{Direction.UP, Direction.DOWN}) {
             SignalMedium candidate = lineMedium(level.getBlockState(junctionPos.relative(direction)));
             if (!candidate.routable()) continue;
             if (found == SignalMedium.NONE) found = candidate;
@@ -115,7 +116,7 @@ public final class TransmissionTopology {
         return medium.routable() && inferJunctionMedium(level, junctionPos) == medium;
     }
 
-    /** Used by the junction itself after it has resolved a single medium. */
+    /** Junction Point connects only UP/DOWN and only to an identical physical line medium. */
     public static boolean junctionNeighborMatches(
             BlockGetter level,
             BlockPos junctionPos,
@@ -123,13 +124,15 @@ public final class TransmissionTopology {
             BlockState neighbor,
             SignalMedium medium
     ) {
-        if (!medium.routable()) return false;
+        if (junctionToNeighbor.getAxis() != Direction.Axis.Y || !medium.routable()) return false;
         SignalMedium direct = lineMedium(neighbor);
-        if (direct.routable()) return direct == medium;
-        if (neighbor.getBlock() instanceof RedstoneCableJunctionBlock) return false;
-        return declaredDomainPort(neighbor, junctionToNeighbor, medium);
+        return direct.routable() && direct == medium;
     }
 
+    /**
+     * Shared cable routing law: direct medium continuity and ordinary device ports are horizontal.
+     * The unified Junction Point is the only block allowed to create a live UP/DOWN cable arm.
+     */
     private static boolean planarCablePort(
             BlockGetter level,
             BlockPos cablePos,
@@ -139,7 +142,8 @@ public final class TransmissionTopology {
     ) {
         BlockPos neighborPos = cablePos.relative(cableToNeighbor);
         if (neighbor.getBlock() instanceof RedstoneCableJunctionBlock) {
-            return junctionAccepts(level, neighborPos, medium);
+            return cableToNeighbor.getAxis() == Direction.Axis.Y
+                    && junctionAccepts(level, neighborPos, medium);
         }
         if (cableToNeighbor.getAxis() == Direction.Axis.Y) return false;
         SignalMedium direct = lineMedium(neighbor);
@@ -184,7 +188,8 @@ public final class TransmissionTopology {
     public static boolean redstoneCablePort(BlockState s, Direction mediumToDevice) {
         var b=s.getBlock();
         if (b instanceof RedstoneSignalCableBlock) return true;
-        if (b instanceof RedstoneCableJunctionBlock && s.getValue(RedstoneCableJunctionBlock.MEDIUM) == SignalMedium.REDSTONE) return true;
+        if (b instanceof RedstoneCableJunctionBlock && s.getValue(RedstoneCableJunctionBlock.MEDIUM) == SignalMedium.REDSTONE)
+            return mediumToDevice.getAxis() == Direction.Axis.Y;
         if (b instanceof RedstoneCableTerminalBlock t) return t.cableSide(s) == mediumToDevice.getOpposite();
         return false;
     }
@@ -203,7 +208,8 @@ public final class TransmissionTopology {
     public static boolean instrumentPort(BlockState s, Direction mediumToDevice) {
         var b = s.getBlock();
         if (b instanceof InstrumentCableBlock || b instanceof OscilloscopeBlock || b instanceof LogicAnalyzerBlock) return true;
-        if (b instanceof RedstoneCableJunctionBlock && s.getValue(RedstoneCableJunctionBlock.MEDIUM) == SignalMedium.INSTRUMENT) return true;
+        if (b instanceof RedstoneCableJunctionBlock && s.getValue(RedstoneCableJunctionBlock.MEDIUM) == SignalMedium.INSTRUMENT)
+            return mediumToDevice.getAxis() == Direction.Axis.Y;
         if (b instanceof SignalProbeBlock) {
             Direction probeToCable = deviceToMedium(mediumToDevice);
             return probeToCable == s.getValue(SignalProbeBlock.FACING).getOpposite();
@@ -239,20 +245,42 @@ public final class TransmissionTopology {
         return planarCablePort(level, cablePos, cableToNeighbor, neighbor, SignalMedium.DIFFERENTIAL);
     }
 
+    /** Runtime copper cable routing. Direct vertical continuity is forbidden. */
+    public static boolean copperCablePort(
+            BlockGetter level, BlockPos cablePos, Direction cableToNeighbor, BlockState neighbor
+    ) {
+        return planarCablePort(level, cablePos, cableToNeighbor, neighbor, SignalMedium.COPPER);
+    }
+
+    /** Runtime optical-fiber routing. Direct vertical continuity is forbidden. */
+    public static boolean opticalFiberPort(
+            BlockGetter level, BlockPos cablePos, Direction cableToNeighbor, BlockState neighbor
+    ) {
+        return planarCablePort(level, cablePos, cableToNeighbor, neighbor, SignalMedium.OPTICAL);
+    }
+
+    /** Legacy state-only query for copper devices and diagnostics. */
     public static boolean copperPort(BlockState s, Direction mediumToDevice) {
         var b=s.getBlock();
+        if (b instanceof RedstoneCableJunctionBlock)
+            return s.getValue(RedstoneCableJunctionBlock.MEDIUM) == SignalMedium.COPPER
+                    && mediumToDevice.getAxis() == Direction.Axis.Y;
         if (b instanceof CopperWireBlock || b instanceof CopperCableJunctionBlock || b instanceof CopperVoltageSourceBlock
                 || b instanceof CopperResistiveLoadBlock || b instanceof ElectromagnetBlock || b instanceof ThermalHeaterBlock) return true;
         if (b instanceof CopperSeriesResistorBlock || b instanceof CopperCapacitorBlock || b instanceof CopperFuseBlock)
             return onFrontBack(s, mediumToDevice);
         if (b instanceof LapisVoltageTransducerBlock) return onBack(s, mediumToDevice);
-        if (b instanceof InductionCoilBlock) return onFront(s, mediumToDevice); // Copper output only
+        if (b instanceof InductionCoilBlock) return onFront(s, mediumToDevice);
         if (b instanceof CopperCircuitMeterBlock) return s.getValue(CopperCircuitMeterBlock.FACING) == mediumToDevice.getOpposite();
         return false;
     }
 
+    /** Legacy state-only query for optical devices and diagnostics. */
     public static boolean opticalPort(BlockState s, Direction mediumToDevice) {
         var b=s.getBlock();
+        if (b instanceof RedstoneCableJunctionBlock)
+            return s.getValue(RedstoneCableJunctionBlock.MEDIUM) == SignalMedium.OPTICAL
+                    && mediumToDevice.getAxis() == Direction.Axis.Y;
         if (b instanceof OpticalFiberJunctionBlock) return !s.getValue(OpticalFiberJunctionBlock.SERVICE_OPEN);
         if (b instanceof OpticalFiberBlock || b instanceof OpticalEmitterBlock || b instanceof OpticalReceiverBlock) return true;
         if (b instanceof OpticalChannelFilterBlock || b instanceof OpticalAttenuatorBlock) return onFrontBack(s, mediumToDevice);

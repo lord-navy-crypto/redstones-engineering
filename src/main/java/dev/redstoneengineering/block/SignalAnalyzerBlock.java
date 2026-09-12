@@ -55,6 +55,9 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
     public static final int INLINE = 1;
     public static final int DISPLAY_SAMPLES = 16;
 
+    private static final Direction[] ROUTE_CYCLE = {
+            Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST, Direction.UP, Direction.DOWN
+    };
     private static final String KEY = "signal_analyzer";
     private static final int SAMPLE_PERIOD_TICKS = 2;
     private static final int WINDOW = DISPLAY_SAMPLES;
@@ -252,6 +255,36 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
                 r[8] == 0 ? -1 : Math.max(0, now - r[14]),
                 r[0], r[11], r[15], samples
         );
+    }
+
+    /** Rotate the real TEST/INLINE axis and discard history that belonged to the old measurement face. */
+    public static boolean rotateMeasurementAxis(Level level, BlockPos pos, boolean clockwise) {
+        if (level.isClientSide) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof SignalAnalyzerBlock analyzer)) return false;
+
+        Direction current = state.getValue(FACING);
+        int index = 0;
+        for (int i = 0; i < ROUTE_CYCLE.length; i++) {
+            if (ROUTE_CYCLE[i] == current) {
+                index = i;
+                break;
+            }
+        }
+        Direction nextFacing = ROUTE_CYCLE[Math.floorMod(index + (clockwise ? 1 : -1), ROUTE_CYCLE.length)];
+        Direction oldOutput = inlineOutputSide(state);
+        BlockState next = state.setValue(FACING, nextFacing).setValue(OUTPUT, 0);
+        Direction newOutput = inlineOutputSide(next);
+
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        RuntimeIntStore.remove(level, KEY, pos);
+        level.updateNeighborsAt(pos, analyzer);
+        if (state.getValue(MODE) == INLINE) {
+            level.updateNeighborsAt(pos.relative(oldOutput), analyzer);
+            level.updateNeighborsAt(pos.relative(newOutput), analyzer);
+        }
+        level.scheduleTick(pos, analyzer, 1);
+        return true;
     }
 
     /** Applies bounded UI intent only; sampling and pass-through remain tick-authoritative. */

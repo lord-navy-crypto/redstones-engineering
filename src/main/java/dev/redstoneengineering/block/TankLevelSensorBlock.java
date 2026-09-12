@@ -10,10 +10,12 @@ import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.metrology.MeasurementSnapshot;
 import dev.redstoneengineering.metrology.MetrologySupport;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -157,16 +159,20 @@ public class TankLevelSensorBlock extends DirectionalRedstoneSensorBlock {
             Player player,
             BlockHitResult hit
     ) {
-        if (!level.isClientSide) {
-            ColumnSample column = columnSample(level, pos);
-            player.displayClientMessage(Component.literal(
-                    "Tank Level Sensor | UP column=" + column.fluidBlocks() + " blocks"
-                            + " | coverage=" + column.scannedCells() + "/" + column.expectedCells()
-                            + " " + (column.complete() ? "COMPLETE" : "INCOMPLETE")
-                            + " | Reading=" + state.getValue(POWER) + "/15"
-                            + " | " + MetrologySupport.compactDiagnostics(measurement(level, pos))
-                            + " | FRONT OUT=" + frontSide(state).getName()
-            ), true);
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown()) {
+                ColumnSample column = columnSample(level, pos);
+                player.displayClientMessage(Component.literal(
+                        "Tank Level Sensor | UP column=" + column.fluidBlocks() + " blocks"
+                                + " | coverage=" + column.scannedCells() + "/" + column.expectedCells()
+                                + " " + (column.complete() ? "COMPLETE" : "INCOMPLETE")
+                                + " | Reading=" + state.getValue(POWER) + "/15"
+                                + " | " + MetrologySupport.compactDiagnostics(measurement(level, pos))
+                                + " | FRONT OUT=" + frontSide(state).getName()
+                ), true);
+            } else {
+                FieldDeviceUi.open(serverPlayer, pos);
+            }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }

@@ -3,6 +3,8 @@ package dev.redstoneengineering.physics;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
 
+import java.util.Set;
+
 /**
  * Shared transient information envelope for RSE communication media.
  *
@@ -79,6 +81,11 @@ public final class InformationRuntime {
     /** Observer-neutral quality read; an endpoint that has never been written has zero quality. */
     public static int quality(Level level, String medium, BlockPos pos) {
         return snapshot(level, medium, pos).qualityPercent();
+    }
+
+    /** Observer-neutral snapshot of endpoints that already hold state for one information medium. */
+    public static Set<BlockPos> positions(Level level, String medium) {
+        return RuntimeIntStore.positions(level, "info:" + medium);
     }
 
     /**

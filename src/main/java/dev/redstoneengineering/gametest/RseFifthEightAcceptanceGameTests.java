@@ -105,6 +105,7 @@ public final class RseFifthEightAcceptanceGameTests {
         BlockPos txPos = new BlockPos(2, 1, 2);
         BlockPos antennaPower = new BlockPos(2, 2, 2);
         BlockPos sidePower = new BlockPos(1, 1, 2);
+        BlockPos payloadPower = new BlockPos(2, 0, 2);
 
         helper.setBlock(antennaPower, Blocks.REDSTONE_BLOCK.defaultBlockState());
         helper.setBlock(txPos, RedstoneEngineering.RADIO_TRANSMITTER.get().defaultBlockState());
@@ -113,9 +114,13 @@ public final class RseFifthEightAcceptanceGameTests {
             BlockState state = helper.getBlockState(txPos);
             EngineeringPortProvider tx = RedstoneEngineering.RADIO_TRANSMITTER.get();
             var antenna = tx.engineeringPort(state, Direction.UP).orElse(null);
+            var payload = tx.engineeringPort(state, Direction.DOWN).orElse(null);
             if (antenna == null || antenna.domain() != EngineeringDomain.RADIO_DATA
-                    || antenna.direction() != PortDirection.OUTPUT) {
-                helper.fail("Radio TX did not expose its UP RADIO_DATA antenna", txPos);
+                    || antenna.direction() != PortDirection.OUTPUT
+                    || payload == null || payload.domain() != EngineeringDomain.REDSTONE
+                    || payload.direction() != PortDirection.INPUT
+                    || tx.engineeringPort(state, Direction.WEST).isPresent()) {
+                helper.fail("Radio TX must expose exactly DOWN payload -> UP RADIO_DATA antenna", txPos);
                 return;
             }
             var idleSnapshot = tx.engineeringSnapshot(
@@ -125,17 +130,30 @@ public final class RseFifthEightAcceptanceGameTests {
                 helper.fail("Redstone above the antenna face incorrectly became a local radio payload input", txPos);
                 return;
             }
+
             helper.setBlock(sidePower, Blocks.REDSTONE_BLOCK.defaultBlockState());
             helper.runAfterDelay(3, () -> {
-                BlockState poweredState = helper.getBlockState(txPos);
-                var drivenSnapshot = tx.engineeringSnapshot(
-                        helper.getLevel(), helper.absolutePos(txPos), poweredState, Direction.UP).orElse(null);
-                if (drivenSnapshot == null || Math.round(drivenSnapshot.value()) != 15
-                        || drivenSnapshot.quality() != PortQuality.VALID) {
-                    helper.fail("Radio TX did not publish its strongest non-antenna redstone payload to the antenna", txPos);
+                BlockState sidePoweredState = helper.getBlockState(txPos);
+                var sideSnapshot = tx.engineeringSnapshot(
+                        helper.getLevel(), helper.absolutePos(txPos), sidePoweredState, Direction.UP).orElse(null);
+                if (sideSnapshot == null || Math.round(sideSnapshot.value()) != 0
+                        || sideSnapshot.quality() != PortQuality.NO_SIGNAL) {
+                    helper.fail("Radio TX accepted a WEST side feed despite its single-input serial contract", txPos);
                     return;
                 }
-                helper.succeed();
+
+                helper.setBlock(payloadPower, Blocks.REDSTONE_BLOCK.defaultBlockState());
+                helper.runAfterDelay(3, () -> {
+                    BlockState poweredState = helper.getBlockState(txPos);
+                    var drivenSnapshot = tx.engineeringSnapshot(
+                            helper.getLevel(), helper.absolutePos(txPos), poweredState, Direction.UP).orElse(null);
+                    if (drivenSnapshot == null || Math.round(drivenSnapshot.value()) != 15
+                            || drivenSnapshot.quality() != PortQuality.VALID) {
+                        helper.fail("Radio TX did not publish its DOWN payload input to the UP antenna", txPos);
+                        return;
+                    }
+                    helper.succeed();
+                });
             });
         });
     }

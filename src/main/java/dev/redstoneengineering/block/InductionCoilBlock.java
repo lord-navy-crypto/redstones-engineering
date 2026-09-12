@@ -135,6 +135,19 @@ public class InductionCoilBlock extends DirectionalDomainBlock implements Engine
                 : PortQuality.STALE;
     }
 
+    /** Server-authoritative turns transition. Configuration invalidates the old induced output immediately. */
+    public static int cycleTurns(ServerLevel level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof InductionCoilBlock coil)) return 0;
+        int turns = state.getValue(TURNS);
+        turns = turns >= 4 ? 1 : turns + 1;
+        level.setBlock(pos, state.setValue(TURNS, turns), Block.UPDATE_CLIENTS);
+        DomainNetwork.driveCopper(level, coil.outputPos(pos, state), pos, 0, false);
+        RuntimeIntStore.remove(level, KEY, pos);
+        level.scheduleTick(pos, coil, 1);
+        return turns;
+    }
+
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
@@ -142,10 +155,7 @@ public class InductionCoilBlock extends DirectionalDomainBlock implements Engine
                 FieldDeviceUi.open(serverPlayer, pos);
                 return InteractionResult.CONSUME;
             }
-            int turns = state.getValue(TURNS);
-            turns = turns >= 4 ? 1 : turns + 1;
-            BlockState next = state.setValue(TURNS, turns);
-            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+            int turns = cycleTurns((ServerLevel) level, pos);
             int emf = outputVoltage(level, pos);
             boolean valid = outputQuality(level, pos) == PortQuality.VALID;
             player.displayClientMessage(Component.literal(

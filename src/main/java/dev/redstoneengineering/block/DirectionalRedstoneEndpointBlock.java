@@ -14,10 +14,9 @@ import net.minecraft.world.level.block.state.properties.DirectionProperty;
 /**
  * Shared horizontal FRONT/BACK topology for single-ended vanilla-redstone devices.
  *
- * <p>The physical side stored in {@link #FACING} is the FRONT face. Redstone's
- * query direction is reversed relative to the physical side, so subclasses
- * should use {@link #isQueriedFrom(BlockState, Direction, Direction)} when
- * implementing directional signal output.</p>
+ * <p>The physical side stored in {@link #FACING} is the FRONT face. Source-style endpoints usually
+ * treat it as an output face; input-only endpoints may use BACK as their live electrical input.
+ * Route rotation therefore exposes a post-change hook so either topology can refresh deterministically.</p>
  */
 public abstract class DirectionalRedstoneEndpointBlock extends Block {
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
@@ -67,7 +66,34 @@ public abstract class DirectionalRedstoneEndpointBlock extends Block {
     }
 
     protected void notifyFrontOutput(Level level, BlockPos pos, BlockState state) {
-        level.updateNeighborsAt(pos, this);
-        level.updateNeighborsAt(frontPos(pos, state), this);
+        notifyNeighbors(level, pos, this, frontSide(state));
+    }
+
+    /**
+     * Called after an authoritative route rotation and neighbor invalidation. Input-only subclasses
+     * can immediately resample the newly selected BACK face instead of waiting for a later event.
+     */
+    protected void onEndpointRouteChanged(Level level, BlockPos pos, BlockState oldState, BlockState newState) {
+    }
+
+    /** Rotate the single-ended FRONT/BACK axis without inventing additional physical ports. */
+    public static boolean rotateOutput(Level level, BlockPos pos, boolean clockwise) {
+        if (level.isClientSide) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof DirectionalRedstoneEndpointBlock block)) return false;
+        Direction oldOutput = state.getValue(FACING);
+        Direction newOutput = clockwise ? oldOutput.getClockWise() : oldOutput.getCounterClockWise();
+        BlockState next = state.setValue(FACING, newOutput);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        notifyNeighbors(level, pos, block, oldOutput, newOutput);
+        block.onEndpointRouteChanged(level, pos, state, next);
+        return true;
+    }
+
+    private static void notifyNeighbors(Level level, BlockPos pos, Block block, Direction... sides) {
+        level.updateNeighborsAt(pos, block);
+        for (Direction side : sides) {
+            level.updateNeighborsAt(pos.relative(side), block);
+        }
     }
 }

@@ -30,7 +30,7 @@ public final class DataBusNetwork {
 
     public static final int MAX_NODES = NetworkKernel.MAX_NODES;
     private static final String DIAG_KEY = "bus8_diag";
-    private static final int DIAG_SIZE = 13;
+    private static final int DIAG_SIZE = 14;
 
     public record Diagnostics(
             int updates,
@@ -43,7 +43,8 @@ public final class DataBusNetwork {
             int interarrivalTicks,
             int activityPercent,
             int qualityPercent,
-            boolean valid
+            boolean valid,
+            boolean truncated
     ) {}
 
     public static boolean isNode(Level level, BlockPos pos) {
@@ -82,6 +83,7 @@ public final class DataBusNetwork {
                 }
             }
         }
+        NetworkKernel.recordScan(level, "bus8", seen.size(), !queue.isEmpty());
         return seen;
     }
 
@@ -127,9 +129,11 @@ public final class DataBusNetwork {
             }
         }
 
+        boolean truncated = NetworkKernel.stats(level, "bus8").lastTruncated();
         int driverCount = drivers.size();
         int distinctValues = values.size();
         boolean valid = driverCount > 0 && distinctValues == 1;
+        if (truncated) valid = false;
         boolean contention = driverCount > 1;
         boolean conflict = distinctValues > 1;
         boolean sameValueMultiDriver = driverCount > 1 && distinctValues == 1;
@@ -168,6 +172,7 @@ public final class DataBusNetwork {
             if (sameValueMultiDriver) diagnostics[10]++;
             diagnostics[11] = valid ? 1 : 0;
             diagnostics[12] = resolvedQuality;
+            diagnostics[13] = truncated ? 1 : 0;
 
             if (effectiveChanged) {
                 level.updateNeighborsAt(pos, level.getBlockState(pos).getBlock());
@@ -188,12 +193,12 @@ public final class DataBusNetwork {
     public static Diagnostics getDiagnostics(Level level, BlockPos pos) {
         int[] diagnostics = RuntimeIntStore.peek(level, DIAG_KEY, pos);
         if (diagnostics == null || diagnostics.length != DIAG_SIZE) {
-            return new Diagnostics(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false);
+            return new Diagnostics(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, false);
         }
         return new Diagnostics(
                 diagnostics[0], diagnostics[1], diagnostics[2], diagnostics[3],
                 diagnostics[8], diagnostics[9], diagnostics[10], diagnostics[5],
-                diagnostics[7], diagnostics[12], diagnostics[11] != 0
+                diagnostics[7], diagnostics[12], diagnostics[11] != 0, diagnostics[13] != 0
         );
     }
 
@@ -206,6 +211,7 @@ public final class DataBusNetwork {
         if (!node) return snapshot.valid() ? PortQuality.VALID : PortQuality.NO_SIGNAL;
 
         Diagnostics diagnostics = getDiagnostics(level, pos);
+        if (diagnostics.truncated()) return PortQuality.STALE;
         if (diagnostics.driverCount() == 0) return PortQuality.NO_SIGNAL;
         if (diagnostics.distinctValues() > 1 || !diagnostics.valid()) return PortQuality.TOPOLOGY_ERROR;
         return PortQuality.VALID;
@@ -223,6 +229,7 @@ public final class DataBusNetwork {
                 + " interarrival=" + diagnostics.interarrivalTicks() + "t"
                 + " activity≈" + diagnostics.activityPercent() + "%"
                 + " quality=" + diagnostics.qualityPercent() + "%"
+                + (diagnostics.truncated() ? " | STALE/BUDGET-LIMITED" : "")
                 + " age=" + InformationRuntime.ageTicks(level, "bus8", pos) + "t"
                 + " valid=" + diagnostics.valid();
     }

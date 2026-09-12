@@ -191,33 +191,40 @@ public final class RseSecondEightAcceptanceGameTests {
     public static void junctionRoutesSameMediumThreeWayNode(GameTestHelper helper) {
         BlockPos sourcePos = new BlockPos(0, 1, 2);
         BlockPos inputTerminal = new BlockPos(1, 1, 2);
-        BlockPos cable = new BlockPos(2, 1, 2);
-        BlockPos junction = new BlockPos(3, 1, 2);
-        BlockPos northOutput = new BlockPos(3, 1, 1);
-        BlockPos southOutput = new BlockPos(3, 1, 3);
+        BlockPos lowerCable = new BlockPos(2, 1, 2);
+        BlockPos junction = new BlockPos(2, 2, 2);
+        BlockPos upperCable = new BlockPos(2, 3, 2);
+        BlockPos outputTerminal = new BlockPos(3, 3, 2);
 
         helper.setBlock(sourcePos, reference(Direction.EAST, 13));
         helper.setBlock(inputTerminal, terminal(Direction.WEST, false));
-        helper.setBlock(cable, RedstoneEngineering.REDSTONE_SIGNAL_CABLE.get().defaultBlockState());
+        helper.setBlock(lowerCable, RedstoneEngineering.REDSTONE_SIGNAL_CABLE.get().defaultBlockState());
         helper.setBlock(junction, RedstoneEngineering.REDSTONE_CABLE_JUNCTION.get().defaultBlockState());
-        helper.setBlock(northOutput, terminal(Direction.NORTH, true));
-        helper.setBlock(southOutput, terminal(Direction.SOUTH, true));
+        helper.setBlock(upperCable, RedstoneEngineering.REDSTONE_SIGNAL_CABLE.get().defaultBlockState());
+        helper.setBlock(outputTerminal, terminal(Direction.EAST, true));
 
         helper.runAfterDelay(4, () -> {
             BlockState junctionState = helper.getBlockState(junction);
-            if (ConnectedCableBlock.connectionCount(junctionState) != 3
+            if (ConnectedCableBlock.connectionCount(junctionState) != 2
                     || !RedstoneEngineering.REDSTONE_CABLE_JUNCTION.get().topologyValid(junctionState)
-                    || !ConnectedCableBlock.connected(junctionState, Direction.WEST)
-                    || !ConnectedCableBlock.connected(junctionState, Direction.NORTH)
-                    || !ConnectedCableBlock.connected(junctionState, Direction.SOUTH)) {
-                helper.fail("Signal Junction Point must accept a valid same-medium three-way routing node", junction);
+                    || !ConnectedCableBlock.connected(junctionState, Direction.DOWN)
+                    || !ConnectedCableBlock.connected(junctionState, Direction.UP)) {
+                helper.fail("Signal Junction Point must expose exactly one valid same-medium UP/DOWN route", junction);
                 return;
             }
+            if (ConnectedCableBlock.connected(junctionState, Direction.NORTH)
+                    || ConnectedCableBlock.connected(junctionState, Direction.EAST)
+                    || ConnectedCableBlock.connected(junctionState, Direction.SOUTH)
+                    || ConnectedCableBlock.connected(junctionState, Direction.WEST)) {
+                helper.fail("Signal Junction Point exposed a forbidden horizontal branch", junction);
+                return;
+            }
+            int lower = RedstoneSignalCableBlock.power(helper.getLevel(), helper.absolutePos(lowerCable));
             int junctionPower = RedstoneCableJunctionBlock.power(helper.getLevel(), helper.absolutePos(junction));
-            int north = helper.getBlockState(northOutput).getValue(RedstoneCableTerminalBlock.POWER);
-            int south = helper.getBlockState(southOutput).getValue(RedstoneCableTerminalBlock.POWER);
-            if (junctionPower != 13 || north != 13 || south != 13) {
-                helper.fail("Same-medium junction routing did not distribute one authoritative cable signal to both outputs", junction);
+            int upper = RedstoneSignalCableBlock.power(helper.getLevel(), helper.absolutePos(upperCable));
+            int output = helper.getBlockState(outputTerminal).getValue(RedstoneCableTerminalBlock.POWER);
+            if (lower != 13 || junctionPower != 13 || upper != 12 || output != 12) {
+                helper.fail("Vertical Junction Point route did not preserve the defined insulated-redstone attenuation model", junction);
                 return;
             }
             helper.succeed();

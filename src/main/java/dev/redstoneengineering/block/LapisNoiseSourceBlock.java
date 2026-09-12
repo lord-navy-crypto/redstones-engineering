@@ -38,7 +38,7 @@ import java.util.Optional;
  * own runtime flag instead of abusing zero as an "unset" sentinel. Observer APIs use peek() and
  * can never create or rewrite the source's physical sample.</p>
  */
-public class LapisNoiseSourceBlock extends DomainBlock implements EngineeringPortProvider {
+public class LapisNoiseSourceBlock extends DirectionalDomainSourceBlock implements EngineeringPortProvider {
     public static final IntegerProperty BASELINE = IntegerProperty.create("baseline", 0, 20);
     public static final IntegerProperty NOISE = IntegerProperty.create("noise", 0, 10);
     private static final String KEY = "lapis_noise";
@@ -52,7 +52,10 @@ public class LapisNoiseSourceBlock extends DomainBlock implements EngineeringPor
     }
 
     @Override public MapCodec<LapisNoiseSourceBlock> codec() { return RedstoneEngineering.LAPIS_NOISE_SOURCE_CODEC.value(); }
-    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { builder.add(BASELINE, NOISE); }
+    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        super.createBlockStateDefinition(builder);
+        builder.add(BASELINE, NOISE);
+    }
 
     private static EngineeringPort port(Direction side) {
         return new EngineeringPort(
@@ -62,7 +65,7 @@ public class LapisNoiseSourceBlock extends DomainBlock implements EngineeringPor
 
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
-        return List.of(port(Direction.NORTH), port(Direction.SOUTH), port(Direction.WEST), port(Direction.EAST));
+        return List.of(port(outputSide(state)));
     }
 
     @Override
@@ -120,24 +123,31 @@ public class LapisNoiseSourceBlock extends DomainBlock implements EngineeringPor
 
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
-            BlockState next;
-            if (player.isShiftKeyDown()) {
+            BlockState next = state;
+            if (player.isShiftKeyDown() && hit.getDirection().getAxis().isHorizontal()) {
+                if (rotateOutput(level, pos, true)) {
+                    next = level.getBlockState(pos);
+                    if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeLapisAround(serverLevel, pos);
+                }
+            } else if (player.isShiftKeyDown()) {
                 int noise = state.getValue(NOISE);
                 next = state.setValue(NOISE, noise >= 10 ? 0 : noise + 1);
+                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
             } else {
                 int baseline = state.getValue(BASELINE);
                 next = state.setValue(BASELINE, baseline >= 20 ? 0 : baseline + 1);
+                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
             }
-            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
             setSample(level, pos, next.getValue(BASELINE) * 5);
             if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeLapis(serverLevel, pos);
             level.scheduleTick(pos, this, 1);
             int current = currentValue(level, pos, next);
             player.displayClientMessage(Component.literal(
-                    "Fault injection [NOISE] | four-way LAPIS source | baseline=" + String.format("%.2f", next.getValue(BASELINE) * 0.05)
+                    "Fault injection [NOISE] | LAPIS OUT=" + outputSide(next).getName().toUpperCase()
+                            + " | baseline=" + String.format("%.2f", next.getValue(BASELINE) * 0.05)
                             + " | noise=±" + String.format("%.2f", next.getValue(NOISE) * 0.02)
                             + " | now=" + String.format("%.2f", current / 100.0)
-                            + " | zero is a valid sample | shift-click=noise, click=baseline"), true);
+                            + " | zero is valid | shift-side=route, shift-vertical=noise"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }

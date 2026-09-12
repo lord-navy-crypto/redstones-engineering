@@ -5,7 +5,9 @@ import net.minecraft.world.level.Level;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.WeakHashMap;
+import java.util.stream.Collectors;
 
 /**
  * Lightweight transient runtime storage for alpha devices.
@@ -52,6 +54,17 @@ public final class RuntimeIntStore {
         if (byPos == null) return null;
         int[] existing = byPos.get(pos.asLong());
         return existing == null ? null : existing.clone();
+    }
+
+    /** Observer-neutral snapshot of positions already allocated for one runtime key. */
+    public static synchronized Set<BlockPos> positions(Level level, String key) {
+        Map<String, Map<Long, int[]>> byKey = DATA.get(level);
+        if (byKey == null) return Set.of();
+        Map<Long, int[]> byPos = byKey.get(key);
+        if (byPos == null || byPos.isEmpty()) return Set.of();
+        return byPos.keySet().stream()
+                .map(BlockPos::of)
+                .collect(Collectors.toUnmodifiableSet());
     }
 
     public static synchronized void remove(Level level, String key, BlockPos pos) {

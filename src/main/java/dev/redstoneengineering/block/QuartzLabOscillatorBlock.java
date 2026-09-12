@@ -29,8 +29,8 @@ import net.minecraft.world.phys.BlockHitResult;
 import java.util.List;
 import java.util.Optional;
 
-/** Laboratory quartz source with bounded timing jitter and observer-neutral realized-timing evidence. */
-public class QuartzLabOscillatorBlock extends DomainBlock implements EngineeringPortProvider {
+/** Laboratory quartz source with bounded timing jitter and one configurable output face. */
+public class QuartzLabOscillatorBlock extends DirectionalDomainSourceBlock implements EngineeringPortProvider {
     public static final BooleanProperty ACTIVE = BooleanProperty.create("active");
     public static final IntegerProperty PERIOD_INDEX = IntegerProperty.create("period", 0, 4);
     public static final IntegerProperty JITTER = IntegerProperty.create("jitter", 0, 3);
@@ -38,7 +38,9 @@ public class QuartzLabOscillatorBlock extends DomainBlock implements Engineering
     private static final int LAST_HALF_INTERVAL_SLOT = 0;
     private static final int LAST_JITTER_OFFSET_SLOT = 1;
     private static final int EVIDENCE_VALID_SLOT = 2;
-    private static final int RUNTIME_SIZE = 3;
+    private static final int EVIDENCE_PERIOD_INDEX_SLOT = 3;
+    private static final int EVIDENCE_JITTER_SLOT = 4;
+    private static final int RUNTIME_SIZE = 5;
 
     public record TimingEvidence(int nominalPeriod, int lastHalfInterval, int lastJitterOffset, boolean available) {}
 
@@ -48,7 +50,10 @@ public class QuartzLabOscillatorBlock extends DomainBlock implements Engineering
     }
 
     @Override public MapCodec<QuartzLabOscillatorBlock> codec() { return RedstoneEngineering.QUARTZ_LAB_OSCILLATOR_CODEC.value(); }
-    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { builder.add(ACTIVE, PERIOD_INDEX, JITTER); }
+    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        super.createBlockStateDefinition(builder);
+        builder.add(ACTIVE, PERIOD_INDEX, JITTER);
+    }
 
     private static EngineeringPort port(Direction side) {
         return new EngineeringPort(
@@ -58,13 +63,19 @@ public class QuartzLabOscillatorBlock extends DomainBlock implements Engineering
 
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
-        return List.of(port(Direction.NORTH), port(Direction.SOUTH), port(Direction.WEST), port(Direction.EAST));
+        return List.of(port(outputSide(state)));
     }
 
     public static TimingEvidence timingEvidence(Level level, BlockPos pos, BlockState state) {
-        int nominal = QuartzTimingLineBlock.periodTicks(state.getValue(PERIOD_INDEX));
+        int periodIndex = state.getValue(PERIOD_INDEX);
+        int jitter = state.getValue(JITTER);
+        int nominal = QuartzTimingLineBlock.periodTicks(periodIndex);
         int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
-        if (runtime == null || runtime.length != RUNTIME_SIZE || runtime[EVIDENCE_VALID_SLOT] != 1) {
+        if (runtime == null
+                || runtime.length != RUNTIME_SIZE
+                || runtime[EVIDENCE_VALID_SLOT] != 1
+                || runtime[EVIDENCE_PERIOD_INDEX_SLOT] != periodIndex
+                || runtime[EVIDENCE_JITTER_SLOT] != jitter) {
             return new TimingEvidence(nominal, 0, 0, false);
         }
         return new TimingEvidence(nominal, runtime[LAST_HALF_INTERVAL_SLOT], runtime[LAST_JITTER_OFFSET_SLOT], true);
@@ -93,35 +104,46 @@ public class QuartzLabOscillatorBlock extends DomainBlock implements Engineering
         BlockState next = state.setValue(ACTIVE, !state.getValue(ACTIVE));
         level.setBlock(pos, next, Block.UPDATE_CLIENTS);
         DomainNetwork.recomputeQuartz(level, pos);
-        int half = Math.max(1, QuartzTimingLineBlock.periodTicks(next.getValue(PERIOD_INDEX)) / 2);
+        int periodIndex = next.getValue(PERIOD_INDEX);
         int jitter = next.getValue(JITTER);
+        int half = Math.max(1, QuartzTimingLineBlock.periodTicks(periodIndex) / 2);
         int offset = jitter == 0 ? 0 : random.nextInt(jitter * 2 + 1) - jitter;
         int realized = Math.max(1, half + offset);
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
         runtime[LAST_HALF_INTERVAL_SLOT] = realized;
         runtime[LAST_JITTER_OFFSET_SLOT] = realized - half;
+        runtime[EVIDENCE_PERIOD_INDEX_SLOT] = periodIndex;
+        runtime[EVIDENCE_JITTER_SLOT] = jitter;
         runtime[EVIDENCE_VALID_SLOT] = 1;
         level.scheduleTick(pos, this, realized);
     }
 
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
-            BlockState next;
-            if (player.isShiftKeyDown()) {
+            BlockState next = state;
+            if (player.isShiftKeyDown() && hit.getDirection().getAxis().isHorizontal()) {
+                if (rotateOutput(level, pos, true)) {
+                    next = level.getBlockState(pos);
+                    if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeQuartzAround(serverLevel, pos);
+                }
+            } else if (player.isShiftKeyDown()) {
                 int jitter = state.getValue(JITTER);
                 next = state.setValue(JITTER, jitter >= 3 ? 0 : jitter + 1);
+                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
             } else {
                 int periodIndex = state.getValue(PERIOD_INDEX);
                 next = state.setValue(PERIOD_INDEX, (periodIndex + 1) % 5);
+                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
             }
-            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
             if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeQuartz(serverLevel, pos);
             level.scheduleTick(pos, this, 1);
             TimingEvidence evidence = timingEvidence(level, pos, next);
             player.displayClientMessage(Component.literal(
-                    "Quartz lab oscillator | four-way QUARTZ clock | nominal=" + evidence.nominalPeriod()
+                    "Quartz lab oscillator | OUT=" + outputSide(next).getName().toUpperCase()
+                            + " | nominal=" + evidence.nominalPeriod()
                             + "t | jitter=±" + next.getValue(JITTER) + "t"
-                            + (evidence.available() ? " | last-half=" + evidence.lastHalfInterval() + "t | realized offset=" + evidence.lastJitterOffset() + "t" : " | no realized interval yet")), true);
+                            + (evidence.available() ? " | last-half=" + evidence.lastHalfInterval() + "t | realized offset=" + evidence.lastJitterOffset() + "t" : " | no realized interval yet")
+                            + " | shift-side=route, shift-vertical=jitter"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }

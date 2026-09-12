@@ -68,6 +68,7 @@ public class RadioReceiverBlock extends PassiveDirectionalSignalBlock {
     }
 
     private static PortQuality receptionQuality(RadioKernel.Reception reception) {
+        if (!reception.coverageComplete()) return PortQuality.STALE;
         return reception.collision()
                 ? PortQuality.TOPOLOGY_ERROR
                 : reception.valid() ? PortQuality.VALID : PortQuality.NO_SIGNAL;
@@ -165,7 +166,9 @@ public class RadioReceiverBlock extends PassiveDirectionalSignalBlock {
                                 + " collisions=" + diagnostics[3]
                                 + " dropouts=" + diagnostics[4]
                                 + " handoffs=" + diagnostics[5]
-                                + (rx.collision() ? " | COLLISION" : rx.valid() ? " | VALID" : " | UNDECODABLE")), true);
+                                + (!rx.coverageComplete() ? " | STALE"
+                                : rx.collision() ? " | COLLISION"
+                                : rx.valid() ? " | VALID" : " | UNDECODABLE")), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
             }

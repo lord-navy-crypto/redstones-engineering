@@ -31,7 +31,10 @@ endpoint = "src/main/java/dev/redstoneengineering/block/DirectionalRedstoneEndpo
 sensor_base = "src/main/java/dev/redstoneengineering/block/DirectionalRedstoneSensorBlock.java"
 require(endpoint,
         "extends Block", "HORIZONTAL_FACING", "frontSide", "backSide",
-        "isQueriedFrom", "connectionMatches", "readBackInput", "notifyFrontOutput")
+        "isQueriedFrom", "connectionMatches", "readBackInput", "notifyFrontOutput",
+        "rotateOutput", "notifyNeighbors", "oldOutput", "newOutput",
+        "onEndpointRouteChanged(Level level, BlockPos pos, BlockState oldState, BlockState newState)",
+        "block.onEndpointRouteChanged(level, pos, state, next)")
 require(sensor_base,
         "extends DirectionalRedstoneEndpointBlock", "EngineeringPortProvider",
         "SENSOR OUT", "PortKind.SENSOR", "PortDirection.OUTPUT",
@@ -45,14 +48,21 @@ require(source,
         "REFERENCE OUT", "PortDirection.OUTPUT",
         "connectionMatches(direction, frontSide(state))",
         "isQueriedFrom(state, direction, frontSide(state))",
-        "notifyFrontOutput")
+        "rotateOutput(level, pos, true)")
 
-for rel in [
+endpoint_body = text(endpoint)
+if "notifyNeighbors(level, pos, block, oldOutput, newOutput)" not in endpoint_body:
+    failed.append(f"{endpoint}: rotating a source must notify both old and new output neighbors")
+
+sensor_files = [
     "src/main/java/dev/redstoneengineering/block/EngineeringLightSensorBlock.java",
     "src/main/java/dev/redstoneengineering/block/TankLevelSensorBlock.java",
     "src/main/java/dev/redstoneengineering/block/EntityDensitySensorBlock.java",
-]:
-    require(rel, "extends DirectionalRedstoneSensorBlock", "updateSensorOutput")
+]
+for rel in sensor_files:
+    require(rel,
+            "extends DirectionalRedstoneSensorBlock", "updateSensorOutput",
+            "player.isShiftKeyDown()", "FieldDeviceUi.open(serverPlayer, pos)")
     body = text(rel)
     if "Arrays.stream(Direction.values())" in body:
         failed.append(f"{rel}: legacy six-face sensor port enumeration returned")
@@ -63,7 +73,10 @@ indicator = "src/main/java/dev/redstoneengineering/block/AnalogIndicatorBlock.ja
 require(indicator,
         "extends DirectionalRedstoneEndpointBlock", "EngineeringPortProvider",
         "SIGNAL IN", "backSide(state)", "PortDirection.INPUT",
-        "connectionMatches(direction, backSide(state))", "readBackInput")
+        "connectionMatches(direction, backSide(state))", "readBackInput",
+        "onEndpointRouteChanged(Level level, BlockPos pos, BlockState oldState, BlockState newState)",
+        "update(level, pos, newState)",
+        "player.isShiftKeyDown()", "FieldDeviceUi.open(serverPlayer, pos)")
 indicator_body = text(indicator)
 for forbidden in ["LEGACY_OMNIDIRECTIONAL", "getBestNeighborSignal", "Arrays.stream(Direction.values())"]:
     if forbidden in indicator_body:
@@ -73,8 +86,6 @@ source_body = text(source)
 if "Arrays.stream(Direction.values())" in source_body:
     failed.append(f"{source}: reference source must not expose six-face outputs")
 
-# All migrated endpoint blockstates intentionally use multipart models that do not
-# enumerate FACING x POWER/LEVEL combinations.
 for name in [
     "redstone_reference_source",
     "engineering_light_sensor",
@@ -87,7 +98,6 @@ for name in [
     if '"multipart"' not in body:
         failed.append(f"{rel}: expected low-cardinality-friendly multipart model")
 
-# Executable behavior proof must remain in the Minecraft GameTest suite.
 tests = "src/main/java/dev/redstoneengineering/gametest/RseTopologyGameTests.java"
 require(tests,
         "directionalRedstoneEndpointsExposeOnlyPhysicalPorts",
@@ -115,6 +125,9 @@ if failed:
 print("RSE Alpha 1.0.12 directional I/O verification: PASS")
 print(" shared FRONT/BACK endpoint topology: PASS")
 print(" FRONT-only reference and sensor outputs: PASS")
-print(" BACK-only analog indicator input: PASS")
+print(" reference output rotation old/new neighbor notification: PASS")
+print(" endpoint route-change refresh hook: PASS")
+print(" endpoint Engineering UI reachability + Shift diagnostics: PASS")
+print(" BACK-only analog indicator input + immediate route refresh: PASS")
 print(" low-cardinality multipart resource guard: PASS")
 print(" executable Minecraft directional GameTests: PASS")

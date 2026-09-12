@@ -142,18 +142,21 @@ require(
     "Cursor Δ",
 )
 
-# Alpha 1.0.4 topology remains mandatory. Verify executable structure instead
-# of a particular comment sentence so later refactors can preserve the contract.
+# Alpha 1.0.4 topology remains mandatory. Verify the current explicit-input
+# implementation rather than the historical BACK == FACING.opposite assumption.
 require(
     "src/main/java/dev/redstoneengineering/physics/PneumaticNetwork.java",
     "PneumaticCylinderBlock",
+    "private static Direction directionalInput(BlockState state)",
+    "DirectionalDomainBlock.seriesInputSide(state)",
+    "DirectionalDomainBlock.seriesOutputSide(state)",
     "discoveryConnects",
-    "Direction input = a.getValue(DirectionalDomainBlock.FACING).getOpposite();",
-    "Direction input = b.getValue(DirectionalDomainBlock.FACING).getOpposite();",
+    "Direction input = directionalInput(a);",
+    "Direction input = directionalInput(b);",
     "bPos.equals(aPos.relative(input))",
     "aPos.equals(bPos.relative(input))",
     "if (a.getBlock() instanceof PneumaticCylinderBlock) return false;",
-    "from.equals(to.relative(input))",
+    "from.equals(to.relative(directionalInput(b)))",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/PneumaticCylinderBlock.java",

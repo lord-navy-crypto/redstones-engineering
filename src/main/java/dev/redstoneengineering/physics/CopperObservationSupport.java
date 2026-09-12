@@ -41,16 +41,10 @@ public final class CopperObservationSupport {
                     CopperWireBlock.voltage(level, pos),
                     CopperWireBlock.quality(level, pos, state));
         }
-        if (state.getBlock() instanceof CopperCableJunctionBlock junction) {
-            PortQuality quality;
-            if (!junction.topologyValid(state) || CopperCableJunctionBlock.driverCount(level, pos) > 1) {
-                quality = PortQuality.TOPOLOGY_ERROR;
-            } else if (CopperCableJunctionBlock.driverCount(level, pos) == 1) {
-                quality = PortQuality.VALID;
-            } else {
-                quality = PortQuality.NO_SIGNAL;
-            }
-            return new Observation(CopperCableJunctionBlock.voltage(level, pos), quality);
+        if (state.getBlock() instanceof CopperCableJunctionBlock) {
+            return new Observation(
+                    CopperCableJunctionBlock.voltage(level, pos),
+                    CopperCableJunctionBlock.quality(level, pos, state));
         }
         if (state.getBlock() instanceof CopperVoltageSourceBlock) {
             // Zero volts is still a valid configured source state at the source terminal itself.

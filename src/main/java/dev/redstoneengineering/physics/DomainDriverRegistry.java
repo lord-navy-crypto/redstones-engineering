@@ -68,7 +68,15 @@ public final class DomainDriverRegistry {
         if (byDomain.isEmpty()) CLAIMS.remove(level);
     }
 
-    /** Return non-stale claims whose output medium belongs to the supplied segment. */
+    /**
+     * Return verifiable active claims whose output medium belongs to the supplied segment.
+     *
+     * <p>An unavailable driver is not the same thing as an absent driver. Claims whose
+     * output belongs to this segment are retained while their owning chunk is unavailable,
+     * excluded from numerical resolution, and mark the current domain solve incomplete.
+     * This keeps observer reads neutral: no unknown chunk is loaded and no unverifiable
+     * lifecycle state is destroyed merely because a segment was inspected.</p>
+     */
     public static synchronized List<Claim> activeClaims(Level level, String domain, Set<BlockPos> segmentNodes) {
         Map<String, Map<DriverKey, Claim>> byDomain = CLAIMS.get(level);
         if (byDomain == null) return List.of();
@@ -76,17 +84,26 @@ public final class DomainDriverRegistry {
         if (byDriver == null) return List.of();
 
         List<Claim> out = new ArrayList<>();
+        boolean coverageComplete = true;
         for (Iterator<Map.Entry<DriverKey, Claim>> it = byDriver.entrySet().iterator(); it.hasNext();) {
             Claim claim = it.next().getValue();
+            if (!segmentNodes.contains(claim.outputStart())) continue;
+
             BlockPos driver = claim.driverPos();
-            if (level.hasChunkAt(driver)) {
-                String now = level.getBlockState(driver).getBlock().getClass().getName();
-                if (!now.equals(claim.blockClass())) {
-                    it.remove();
-                    continue;
-                }
+            if (!level.hasChunkAt(driver)) {
+                coverageComplete = false;
+                continue;
             }
-            if (segmentNodes.contains(claim.outputStart())) out.add(claim);
+
+            String now = level.getBlockState(driver).getBlock().getClass().getName();
+            if (!now.equals(claim.blockClass())) {
+                it.remove();
+                continue;
+            }
+            out.add(claim);
+        }
+        if (!coverageComplete) {
+            NetworkKernel.markCoverageIncomplete(level, domain);
         }
         if (byDriver.isEmpty()) byDomain.remove(domain);
         if (byDomain.isEmpty()) CLAIMS.remove(level);

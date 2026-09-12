@@ -1,38 +1,18 @@
 {
   "textures": {
-    "line": "redstoneengineering:block/redstone_signal_cable"
+    "line": "redstoneengineering:block/junction_point_white"
   },
   "elements": [
     {
-      "from": [
-        6,
-        0,
-        6
-      ],
-      "to": [
-        10,
-        6,
-        10
-      ],
+      "from": [6, 0, 6],
+      "to": [10, 6, 10],
       "faces": {
-        "down": {
-          "texture": "#line"
-        },
-        "up": {
-          "texture": "#line"
-        },
-        "north": {
-          "texture": "#line"
-        },
-        "south": {
-          "texture": "#line"
-        },
-        "west": {
-          "texture": "#line"
-        },
-        "east": {
-          "texture": "#line"
-        }
+        "down": {"texture": "#line"},
+        "up": {"texture": "#line"},
+        "north": {"texture": "#line"},
+        "south": {"texture": "#line"},
+        "west": {"texture": "#line"},
+        "east": {"texture": "#line"}
       }
     }
   ]

@@ -59,14 +59,14 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
         statusLine(graphics, "FRONT", "CONTROL OUTPUT • 0..15", GOOD, 128);
         statusLine(graphics, "UP", "MODE SELECT • 0=AUTO, >0=MANUAL", INFO, 144);
         statusLine(graphics, "DOWN", "MANUAL OUTPUT • 0..15", INFO, 160);
-        graphics.drawString(font, "All six faces have explicit engineering meaning.", 16, 178, MUTED, false);
+        safeText(graphics, "All six faces have explicit engineering meaning.", 16, 178, MUTED);
     }
 
     private void renderConfigure(GuiGraphics graphics) {
         labelValue(graphics, "Tuning preset", tuningName(menu.tuning()), 82);
-        graphics.drawString(font, tuningDescription(menu.tuning()), 16, 98, TEXT, false);
-        graphics.drawString(font, tuningProfile(menu.tuning()), 16, 150, INFO, false);
-        graphics.drawString(font, "Preset selection is bounded; controller physics stays server-owned.", 16, 169, MUTED, false);
+        safeText(graphics, tuningDescription(menu.tuning()), 16, 98, TEXT);
+        safeText(graphics, tuningProfile(menu.tuning()), 16, 150, INFO);
+        safeText(graphics, "Preset selection is bounded; controller physics stays server-owned.", 16, 169, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
@@ -102,12 +102,10 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
         graphics.drawString(font, "PV", 74, 150, PV_COLOR, false);
         graphics.drawString(font, "OUT", 103, 150, OUT_COLOR, false);
         graphics.drawString(font, "newest →", 240, 150, MUTED, false);
-        graphics.drawString(font,
-                menu.trendCount() + "/32 authoritative samples • 2t/sample • transient",
-                16, 163, MUTED, false);
+        safeText(graphics, menu.trendCount() + "/32 authoritative samples • 2t/sample • transient", 16, 163, MUTED);
 
         statusBadge(graphics, "EVIDENCE " + menu.historyCount() + " / 8", menu.historyCount() >= 8 ? WARN : INFO, 16, 177);
-        graphics.drawString(font, "Shift+FRONT capture • Shift+other face resets runtime + trend", 112, 180, TEXT, false);
+        safeText(graphics, "Shift+FRONT capture • Shift+other face resets runtime + trend", 112, 180, TEXT);
     }
 
     private String operatingState() {

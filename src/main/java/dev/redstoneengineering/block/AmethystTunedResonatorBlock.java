@@ -11,10 +11,12 @@ import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.EngineeringMath;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -70,8 +72,7 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
             else if (diff <= bandwidth) raw = input.amplitude() - Math.max(1, diff * q);
         }
         int output = EngineeringMath.clamp(raw, 0, 15);
-        return new ResponseEvidence(
-                input.frequency(), input.amplitude(), natural, q, bandwidth, diff,
+        return new ResponseEvidence(input.frequency(), input.amplitude(), natural, q, bandwidth, diff,
                 inputQuality, output, raw > 15, usableInput && output > 0);
     }
 
@@ -80,6 +81,7 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
             return switch (AmethystResonanceDustBlock.status(level, samplePos)) {
                 case ACTIVE -> PortQuality.VALID;
                 case FREQUENCY_CONFLICT -> PortQuality.TOPOLOGY_ERROR;
+                case STALE -> PortQuality.STALE;
                 case IDLE -> PortQuality.NO_SIGNAL;
             };
         }
@@ -94,14 +96,13 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
         PortQuality quality = qualityAt(level, samplePos, signal);
         if (side == outputSide(state)) {
             ResponseEvidence response = response(level, pos, state);
-            if (quality == PortQuality.NO_SIGNAL && response.inputQuality() == PortQuality.TOPOLOGY_ERROR) {
-                quality = PortQuality.TOPOLOGY_ERROR;
+            if (quality == PortQuality.NO_SIGNAL && (response.inputQuality() == PortQuality.TOPOLOGY_ERROR || response.inputQuality() == PortQuality.STALE)) {
+                quality = response.inputQuality();
             } else if (quality == PortQuality.VALID && response.saturated()) {
                 quality = PortQuality.SATURATED;
             }
         }
-        return Optional.of(new EngineeringPortSnapshot(
-                port.get(), Math.max(0, Math.min(15, signal.amplitude())), 0.0, 15.0, quality));
+        return Optional.of(new EngineeringPortSnapshot(port.get(), Math.max(0, Math.min(15, signal.amplitude())), 0.0, 15.0, quality));
     }
 
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
@@ -111,8 +112,7 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
 
     @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         ResponseEvidence response = response(level, pos, state);
-        DomainNetwork.driveAmethyst(
-                level, outputPos(pos, state), response.responding(), response.inputFrequency(), response.outputAmplitude());
+        DomainNetwork.driveAmethyst(level, outputPos(pos, state), response.responding(), response.inputFrequency(), response.outputAmplitude());
         level.scheduleTick(pos, this, 2);
     }
 
@@ -124,26 +124,20 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
     }
 
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (!level.isClientSide) {
-            BlockState next;
-            if (player.isShiftKeyDown()) {
-                int q = state.getValue(Q_INDEX);
-                next = state.setValue(Q_INDEX, q >= 4 ? 1 : q + 1);
-            } else {
-                int frequency = state.getValue(NATURAL);
-                next = state.setValue(NATURAL, frequency >= 15 ? 1 : frequency + 1);
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (!player.isShiftKeyDown()) {
+                FieldDeviceUi.open(serverPlayer, pos);
+                return InteractionResult.CONSUME;
             }
+            int frequency = state.getValue(NATURAL);
+            BlockState next = state.setValue(NATURAL, frequency >= 15 ? 1 : frequency + 1);
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
             level.scheduleTick(pos, this, 1);
             ResponseEvidence response = response(level, pos, next);
             player.displayClientMessage(Component.literal(
-                    "Tuned amethyst resonator | f0=" + response.naturalFrequency()
-                            + " | Q-index=" + response.qIndex() + " | bandwidth=±" + response.bandwidth()
-                            + " | input quality=" + response.inputQuality()
-                            + (response.inputQuality() == PortQuality.VALID && response.inputFrequency() > 0
-                            ? " | input f=" + response.inputFrequency()
-                            + " Δf=" + response.frequencyError() + " | expected Aout=" + response.outputAmplitude()
-                            + (response.saturated() ? " SATURATED" : "") : " | no usable input")), true);
+                    "Tuned resonator quick-adjust | natural index=" + response.naturalFrequency()
+                            + " | Q-index=" + response.qIndex() + " | bandwidth index=±" + response.bandwidth()
+                            + " | normal right-click opens Engineering UI"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }

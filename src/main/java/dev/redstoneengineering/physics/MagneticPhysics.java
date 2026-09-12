@@ -37,12 +37,20 @@ public final class MagneticPhysics {
     }
 
     /**
-     * External applied field for magnetizing a soft core. Existing remanent iron
-     * cores are excluded so remanence cannot recursively magnetize neighboring
-     * cores without an actual permanent/electromagnetic source.
+     * External applied-field sample for soft-core actuation. Existing remanent
+     * iron cores are excluded, while scan completeness is preserved so callers
+     * cannot act on a partial free-space field as definitive evidence.
+     */
+    public static FieldSample appliedFieldSample(Level level, BlockPos origin, int radius) {
+        return fieldSample(level, origin, radius, false);
+    }
+
+    /**
+     * External applied field magnitude for diagnostics/readback. Actuation code
+     * that needs authoritative evidence must use {@link #appliedFieldSample}.
      */
     public static int appliedFieldAt(Level level, BlockPos origin, int radius) {
-        return fieldSample(level, origin, radius, false).field();
+        return appliedFieldSample(level, origin, radius).field();
     }
 
     private static FieldSample fieldSample(Level level, BlockPos origin, int radius, boolean includeRemanence) {

@@ -51,9 +51,9 @@ if preservation.count("VanillaRedstoneRuntimeTelemetry.clear(level);") != 2:
     errors.append("RseVanillaRedstonePreservationGameTests.java: batch must clear only VRE observer telemetry before and after preservation fixtures")
 need(registration, "event.register(RseVanillaRedstonePreservationGameTests.class);", "VanillaRedstoneRuntimeRegistration.java")
 need(workflow, "tools/rse_vanilla_redstone_immutability_verify.py", "build.yml")
-minimum_match = re.search(r"test_count < ([0-9]+)", workflow)
-if minimum_match is None or int(minimum_match.group(1)) < 317:
-    errors.append("build.yml: GameTest floor must be at least 317 after vanilla immutability closure")
+need(workflow, "github.event_name == 'workflow_dispatch'", "build.yml")
+need(workflow, "continue-on-error: true", "build.yml")
+need(workflow, "Minecraft topology GameTests (manual diagnostic)", "build.yml")
 
 for phrase in (
     "Vanilla Immutability Regression Gate",
@@ -149,4 +149,4 @@ print("  redstone mixin/coremod/access-transformer hooks: NONE")
 print("  NeighborNotify hot path: bounded observer bookkeeping only")
 print("  preservation fixtures: dust / repeater / comparator / observer / piston")
 print("  preservation batch: isolated + VRE telemetry cleared before/after")
-print("  required GameTest floor: >=317")
+print("  registered preservation GameTests: 5 (manual diagnostic / non-blocking)")

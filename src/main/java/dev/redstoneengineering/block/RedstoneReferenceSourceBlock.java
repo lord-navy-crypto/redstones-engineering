@@ -28,7 +28,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
 
-/** Adjustable 0..15 laboratory reference source with a single FRONT output port. */
+/** Adjustable 0..15 laboratory reference source with one configurable output port. */
 public class RedstoneReferenceSourceBlock extends DirectionalRedstoneEndpointBlock implements EngineeringPortProvider {
     public static final IntegerProperty POWER = IntegerProperty.create("power", 0, 15);
 
@@ -75,13 +75,11 @@ public class RedstoneReferenceSourceBlock extends DirectionalRedstoneEndpointBlo
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
-                int value = state.getValue(POWER) - 1;
-                if (value < 0) value = 15;
-                BlockState next = state.setValue(POWER, value);
-                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-                notifyFrontOutput(level, pos, next);
+                rotateOutput(level, pos, true);
+                BlockState next = level.getBlockState(pos);
                 player.displayClientMessage(Component.literal(
-                        "Redstone Reference Source = " + value + "/15 | FRONT OUT=" + frontSide(next).getName()), true);
+                        "Reference output → " + frontSide(next).getName().toUpperCase()
+                                + " | power=" + next.getValue(POWER) + "/15 | UI adjusts power"), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
             }

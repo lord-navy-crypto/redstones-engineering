@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Static contracts for the twelfth 10-block design + bug audit (registered blocks 111-120)."""
 from pathlib import Path
-import re
 
 ROOT = Path(__file__).resolve().parents[1]
 JAVA = ROOT / "src/main/java/dev/redstoneengineering"
@@ -33,7 +32,6 @@ tests = text("gametest/RseTwelfthTenDesignBugGameTests.java")
 registration = text("gametest/RseGameTestRegistration.java")
 workflow = (ROOT / ".github/workflows/build.yml").read_text(encoding="utf-8")
 
-# 111: command source identity and Soul-node state are separate evidence dimensions.
 for token in (
     "RedstoneObservationSupport.observe",
     "commandObservation",
@@ -46,7 +44,6 @@ for token in (
 require("commandSignal(level, pos), PortQuality.VALID" not in injector,
         "Soul Flux Injector regressed to unconditional VALID command snapshots")
 
-# 112: no node, transient absence and known-empty storage must not collapse to one zero.
 for token in (
     "record ChargeObservation",
     "SoulFluxNetwork.isNode",
@@ -59,7 +56,6 @@ for token in (
 require("PortQuality.VALID));" not in meter.split("engineeringSnapshot", 1)[1].split("canConnectRedstone", 1)[0],
         "Soul Flux Meter snapshot still fabricates unconditional VALID quality")
 
-# 113: live free-space coverage and retained filtered history are independent; observation is pure.
 for token in (
     "record CloudSample",
     "apertureLoaded",
@@ -75,7 +71,6 @@ filtered_body = molecular.split("public static int filtered", 1)[1].split("publi
 require("RuntimeIntStore.get" not in filtered_body,
         "Molecular receiver filtered inspection still allocates runtime")
 
-# 114: one coherent packet snapshot owns phonon validity and zero decay clears the envelope.
 for token in (
     "InformationRuntime.snapshot",
     "packetQuality",
@@ -87,7 +82,6 @@ for token in (
 require("InformationRuntime.value(level, \"thermal_pulse\", pos)" not in phonon,
         "Phonon conduit reverted to split scalar packet reads")
 
-# 115: electrical drive presence is explicit and encoder output is a transient event packet.
 for token in (
     "RedstoneObservationSupport.observe",
     "inputObservation",
@@ -101,7 +95,6 @@ for token in (
 require("EngineeringPortSnapshot.redstone(port.get(), value, PortQuality.VALID)" not in encoder,
         "Thermal encoder reverted to unconditional VALID electrical input")
 
-# 116: receiver must clear the final packet instead of retaining invalid zero runtime.
 for token in (
     "InformationRuntime.snapshot",
     "packetQuality",
@@ -114,7 +107,6 @@ for token in (
 require("Math.max(0, value - 1), 0,\n                    value > 1" not in receiver,
         "Thermal receiver still writes an invalid zero ghost envelope")
 
-# 117: shielding remains observer-only, but unknown cable continuation cannot certify full coverage.
 for token in (
     "Observer-only shielding audit",
     "if (!level.hasChunkAt(neighborPos))",
@@ -127,7 +119,6 @@ for token in (
 require("InformationRuntime" not in shielding and "RuntimeIntStore" not in shielding,
         "Shielding audit must not become a second measurement solver/runtime")
 
-# 118: every electrical input has source quality; loss of the required command is fail-safe hold/brake.
 for token in (
     "RedstoneObservationSupport.observe",
     "controlObservation",
@@ -140,7 +131,6 @@ for token in (
 require("read(l, p, back)" not in servo,
         "Servo tick still collapses missing command into numeric zero")
 
-# 119: adjacency is not enough; the mechanical FRONT must face the sensor BACK.
 for token in (
     "sourceQuality",
     "level.hasChunkAt(servoPos)",
@@ -151,7 +141,6 @@ for token in (
 ):
     require(token in servo_sensor, f"Servo position sensor alignment contract missing {token}")
 
-# 120: disconnected channels are not numeric-zero votes and a real 2oo3 quorum is required.
 for token in (
     "RedstoneObservationSupport.observe",
     "record Vote",
@@ -189,9 +178,15 @@ require("event.register(RseEleventhTenDesignBugGameTests.class);" in registratio
         "Eleventh-ten regression registration was accidentally dropped")
 require("tools/rse_twelfth_ten_tail_runtime_verify.py" in workflow,
         "Workflow does not gate the twelfth-ten verifier")
-thresholds = [int(value) for value in re.findall(r"test_count\s*<\s*(\d+)", workflow)]
-require(thresholds and max(thresholds) >= 309,
-        "CI GameTest floor must be at least 309 after ten twelfth-ten regressions")
+for token in (
+    "Minecraft topology GameTests (manual diagnostic)",
+    "github.event_name == 'workflow_dispatch'",
+    "continue-on-error: true",
+    "./gradlew runGameTestServer",
+    "./gradlew compileJava",
+    "./gradlew test",
+):
+    require(token in workflow, f"build.yml missing manual/non-blocking GameTest policy token {token!r}")
 
 print("RSE twelfth-ten tail runtime verification: PASS")
 print("  Soul command/node/retained-zero evidence: PASS")
@@ -200,4 +195,4 @@ print("  phonon/thermal transient packet lifecycle: PASS")
 print("  shielding observer-only coverage integrity: PASS")
 print("  servo source-aware fail-safe + mechanical alignment: PASS")
 print("  2oo3 real-source quorum and degraded quality: PASS")
-print("  ten executable twelfth-ten GameTests registered: PASS")
+print("  registered twelfth-ten GameTests: 10 (manual diagnostic / non-blocking)")

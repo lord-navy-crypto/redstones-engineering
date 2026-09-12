@@ -83,6 +83,30 @@ public class RangeSensorBlock extends Block implements EngineeringPortProvider {
     public static Direction outputSide(BlockState state) { return sensingSide(state).getOpposite(); }
     public static int configuredRange(BlockState state) { return rangeForMode(state.getValue(RANGE_MODE)); }
 
+    /**
+     * Rotate the physical sensing/output axis on the server and invalidate both the old and new
+     * electrical neighborhoods. The sensing face and redstone output face are always opposite.
+     */
+    public static boolean rotateSensingAxis(Level level, BlockPos pos, boolean clockwise) {
+        if (level.isClientSide) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof RangeSensorBlock sensor)) return false;
+        Direction oldSense = sensingSide(state);
+        Direction oldOutput = outputSide(state);
+        Direction newSense = clockwise ? oldSense.getClockWise() : oldSense.getCounterClockWise();
+        if (newSense == oldSense) return false;
+        BlockState next = state.setValue(FACING, newSense);
+        Direction newOutput = outputSide(next);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        level.updateNeighborsAt(pos, sensor);
+        level.updateNeighborsAt(pos.relative(oldSense), sensor);
+        level.updateNeighborsAt(pos.relative(oldOutput), sensor);
+        level.updateNeighborsAt(pos.relative(newSense), sensor);
+        level.updateNeighborsAt(pos.relative(newOutput), sensor);
+        level.scheduleTick(pos, sensor, 1);
+        return true;
+    }
+
     /** Immediate physical scan for solver/tests; it does not mutate sensor runtime. */
     public static int detectedDistance(Level level, BlockPos pos, BlockState state) {
         return scan(level, pos, state).distance();

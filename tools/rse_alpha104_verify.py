@@ -135,20 +135,25 @@ check_file(
 )
 
 # Verify the terminal-actuator contract from executable topology logic rather
-# than from comments. Discovery may reach a cylinder only through BACK/input;
-# propagation may enter that input but can never leave the cylinder as a pipe.
+# than from comments. Modern directional-domain blocks expose an explicit
+# INPUT_FACING independent of FACING/output, so this verifier accepts the
+# current helper-based implementation instead of requiring the historical
+# FACING.getOpposite() straight-axis assumption.
 check_file(
     "src/main/java/dev/redstoneengineering/physics/PneumaticNetwork.java",
     [
+        "private static Direction directionalInput(BlockState state)",
+        "DirectionalDomainBlock.seriesInputSide(state)",
+        "DirectionalDomainBlock.seriesOutputSide(state)",
         "discoveryConnects",
         "if (a.getBlock() instanceof PneumaticCylinderBlock)",
         "if (b.getBlock() instanceof PneumaticCylinderBlock)",
-        "Direction input = a.getValue(DirectionalDomainBlock.FACING).getOpposite();",
-        "Direction input = b.getValue(DirectionalDomainBlock.FACING).getOpposite();",
+        "Direction input = directionalInput(a);",
+        "Direction input = directionalInput(b);",
         "bPos.equals(aPos.relative(input))",
         "aPos.equals(bPos.relative(input))",
         "if (a.getBlock() instanceof PneumaticCylinderBlock) return false;",
-        "from.equals(to.relative(input))",
+        "from.equals(to.relative(directionalInput(b)))",
     ],
 )
 

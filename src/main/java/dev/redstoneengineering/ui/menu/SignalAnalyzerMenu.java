@@ -15,6 +15,8 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_CALIBRATION_DECREASE = 1;
     public static final int BUTTON_CALIBRATION_INCREASE = 2;
     public static final int BUTTON_RESET_HISTORY = 3;
+    public static final int BUTTON_ROTATE_LEFT = 4;
+    public static final int BUTTON_ROTATE_RIGHT = 5;
 
     private final DataSlot mode = trackedInt();
     private final DataSlot calibrationOffset = trackedInt();
@@ -86,7 +88,9 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
     public boolean clickMenuButton(Player player, int id) {
         if (level.isClientSide) return true;
         if (!stillValid(player)) return false;
-        boolean changed = SignalAnalyzerBlock.applyUiAction(level, blockPos, id);
+        boolean changed = id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT
+                ? SignalAnalyzerBlock.rotateMeasurementAxis(level, blockPos, id == BUTTON_ROTATE_RIGHT)
+                : SignalAnalyzerBlock.applyUiAction(level, blockPos, id);
         if (changed) {
             refreshAuthoritativeSnapshot();
             broadcastChanges();

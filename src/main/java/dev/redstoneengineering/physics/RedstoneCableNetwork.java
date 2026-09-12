@@ -44,6 +44,8 @@ public final class RedstoneCableNetwork {
         }
     }
 
+    private record ComponentScan(Set<BlockPos> nodes, boolean truncated) {}
+
     /** Observer-only source evidence; never creates network state. */
     public static SourceEvidence sourceEvidence(Level level, BlockPos pos) {
         int[] runtime = RuntimeIntStore.peek(level, EVIDENCE_KEY, pos);
@@ -57,8 +59,14 @@ public final class RedstoneCableNetwork {
     }
 
     public static void recompute(ServerLevel level, BlockPos start) {
-        Set<BlockPos> nodes = collect(level, start);
-        if (!nodes.isEmpty()) recomputeComponent(level, nodes);
+        ComponentScan scan = collect(level, start);
+        Set<BlockPos> component = scan.nodes();
+        if (component.isEmpty()) return;
+        if (scan.truncated()) {
+            invalidateComponent(level, component);
+        } else {
+            recomputeComponent(level, component);
+        }
     }
 
     public static void recomputeAround(ServerLevel level, BlockPos changedPos) {
@@ -66,10 +74,40 @@ public final class RedstoneCableNetwork {
         for (Direction direction : Direction.values()) {
             BlockPos neighbor = changedPos.relative(direction);
             if (!level.hasChunkAt(neighbor) || !allowed(level, neighbor) || processed.contains(neighbor)) continue;
-            Set<BlockPos> component = collect(level, neighbor);
+            ComponentScan scan = collect(level, neighbor);
+            Set<BlockPos> component = scan.nodes();
             if (component.isEmpty()) continue;
             processed.addAll(component);
-            recomputeComponent(level, component);
+            if (scan.truncated()) {
+                invalidateComponent(level, component);
+            } else {
+                recomputeComponent(level, component);
+            }
+        }
+    }
+
+    /**
+     * A bounded traversal cannot prove either source absence or propagated power when
+     * it did not see the complete component. Clear all partial values and remove source
+     * evidence so observers report STALE until a later complete recompute succeeds.
+     */
+    private static void invalidateComponent(ServerLevel level, Set<BlockPos> nodes) {
+        for (BlockPos pos : nodes) {
+            removeEvidence(level, pos);
+            BlockState state = level.getBlockState(pos);
+            if (state.getBlock() instanceof RedstoneSignalCableBlock) {
+                RedstoneSignalCableBlock.setPower(level, pos, 0);
+            } else if (state.getBlock() instanceof RedstoneCableJunctionBlock) {
+                RedstoneCableJunctionBlock.setPower(level, pos, 0);
+            } else if (state.getBlock() instanceof RedstoneCableTerminalBlock terminal
+                    && state.getValue(RedstoneCableTerminalBlock.OUTPUT_MODE)) {
+                if (state.getValue(RedstoneCableTerminalBlock.POWER) != 0) {
+                    BlockState next = state.setValue(RedstoneCableTerminalBlock.POWER, 0);
+                    level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+                    level.updateNeighborsAt(pos, terminal);
+                    level.updateNeighborsAt(pos.relative(terminal.vanillaSide(next)), terminal);
+                }
+            }
         }
     }
 
@@ -133,7 +171,7 @@ public final class RedstoneCableNetwork {
         }
     }
 
-    private static Set<BlockPos> collect(ServerLevel level, BlockPos start) {
+    private static ComponentScan collect(ServerLevel level, BlockPos start) {
         Set<BlockPos> visited = new LinkedHashSet<>();
         ArrayDeque<BlockPos> queue = new ArrayDeque<>();
         if (level.hasChunkAt(start) && allowed(level, start)) {
@@ -158,8 +196,9 @@ public final class RedstoneCableNetwork {
                 }
             }
         }
-        NetworkKernel.recordScan(level, "redstone_cable", visited.size(), !queue.isEmpty());
-        return visited;
+        boolean truncated = !queue.isEmpty();
+        NetworkKernel.recordScan(level, "redstone_cable", visited.size(), truncated);
+        return new ComponentScan(Set.copyOf(visited), truncated);
     }
 
     private static boolean edgeAllowed(ServerLevel level, BlockPos a, BlockPos b, Direction direction) {

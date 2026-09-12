@@ -10,9 +10,11 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.signal.EngineeringSignal;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.BlockGetter;
@@ -96,8 +98,6 @@ public class AnalogIndicatorBlock extends DirectionalRedstoneEndpointBlock imple
                                 EngineeringSignal.clamp((int) Math.round(snapshot.value())),
                                 snapshot.quality());
                     }
-                    // A declared redstone output without richer runtime evidence still counts
-                    // as a connected source, preserving the legacy valid-zero behavior.
                     return new InputObservation(value, PortQuality.VALID);
                 }
             }
@@ -152,6 +152,11 @@ public class AnalogIndicatorBlock extends DirectionalRedstoneEndpointBlock imple
         if (!level.isClientSide) update(level, pos, state);
     }
 
+    @Override
+    protected void onEndpointRouteChanged(Level level, BlockPos pos, BlockState oldState, BlockState newState) {
+        update(level, pos, newState);
+    }
+
     private void update(Level level, BlockPos pos, BlockState state) {
         InputObservation observation = inputObservation(level, pos, state);
         if (observation.quality() == PortQuality.STALE) return;
@@ -169,15 +174,19 @@ public class AnalogIndicatorBlock extends DirectionalRedstoneEndpointBlock imple
             Player player,
             BlockHitResult hit
     ) {
-        if (!level.isClientSide) {
-            InputObservation observation = inputObservation(level, pos, state);
-            player.displayClientMessage(Component.literal(
-                    "Analog Process Indicator = " + state.getValue(LEVEL) + "/15"
-                            + " | inputQuality=" + observation.quality()
-                            + " | FRONT display=" + frontSide(state).getName()
-                            + " BACK IN=" + backSide(state).getName()
-                            + " | readout-only"
-            ), true);
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown()) {
+                InputObservation observation = inputObservation(level, pos, state);
+                player.displayClientMessage(Component.literal(
+                        "Analog Process Indicator = " + state.getValue(LEVEL) + "/15"
+                                + " | inputQuality=" + observation.quality()
+                                + " | FRONT display=" + frontSide(state).getName()
+                                + " BACK IN=" + backSide(state).getName()
+                                + " | readout-only"
+                ), true);
+            } else {
+                FieldDeviceUi.open(serverPlayer, pos);
+            }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }

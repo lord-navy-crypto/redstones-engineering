@@ -541,12 +541,38 @@ public final class DomainNetwork {
 
     private static void addRawLapisClaims(ServerLevel level, Set<BlockPos> nodes, List<DomainDriverRegistry.Claim> claims) {
         Set<BlockPos> seen=new HashSet<>();
-        for(BlockPos p:nodes) for(Direction d:Direction.Plane.HORIZONTAL){BlockPos n=p.relative(d);if(!level.hasChunkAt(n)||!seen.add(n))continue;BlockState s=level.getBlockState(n);if(s.getBlock() instanceof LapisPrecisionSourceBlock)claims.add(new DomainDriverRegistry.Claim(n,p,s.getValue(LapisPrecisionSourceBlock.VALUE),0,0,s.getBlock().getClass().getName()));else if(s.getBlock() instanceof LapisNoiseSourceBlock)claims.add(new DomainDriverRegistry.Claim(n,p,LapisNoiseSourceBlock.currentValue(level,n,s),0,0,s.getBlock().getClass().getName()));}
+        for(BlockPos p:nodes) for(Direction d:Direction.Plane.HORIZONTAL){
+            BlockPos n=p.relative(d);
+            if(!level.hasChunkAt(n)||!seen.add(n))continue;
+            BlockState s=level.getBlockState(n);
+            if(s.getBlock() instanceof LapisPrecisionSourceBlock){
+                if(DirectionalDomainSourceBlock.outputsToward(s,d.getOpposite())){
+                    claims.add(new DomainDriverRegistry.Claim(n,p,s.getValue(LapisPrecisionSourceBlock.VALUE),0,0,s.getBlock().getClass().getName()));
+                }
+            }else if(s.getBlock() instanceof LapisNoiseSourceBlock){
+                if(DirectionalDomainSourceBlock.outputsToward(s,d.getOpposite())){
+                    claims.add(new DomainDriverRegistry.Claim(n,p,LapisNoiseSourceBlock.currentValue(level,n,s),0,0,s.getBlock().getClass().getName()));
+                }
+            }
+        }
     }
 
     private static void addRawQuartzClaims(ServerLevel level, Set<BlockPos> nodes, List<DomainDriverRegistry.Claim> claims) {
         Set<BlockPos> seen=new HashSet<>();
-        for(BlockPos p:nodes) for(Direction d:Direction.Plane.HORIZONTAL){BlockPos n=p.relative(d);if(!level.hasChunkAt(n)||!seen.add(n))continue;BlockState s=level.getBlockState(n);if(s.getBlock() instanceof QuartzOscillatorBlock)claims.add(new DomainDriverRegistry.Claim(n,p,s.getValue(QuartzOscillatorBlock.ACTIVE)?1:0,QuartzTimingLineBlock.periodTicks(s.getValue(QuartzOscillatorBlock.PERIOD_INDEX)),0,s.getBlock().getClass().getName()));else if(s.getBlock() instanceof QuartzLabOscillatorBlock)claims.add(new DomainDriverRegistry.Claim(n,p,s.getValue(QuartzLabOscillatorBlock.ACTIVE)?1:0,QuartzTimingLineBlock.periodTicks(s.getValue(QuartzLabOscillatorBlock.PERIOD_INDEX)),0,s.getBlock().getClass().getName()));}
+        for(BlockPos p:nodes) for(Direction d:Direction.Plane.HORIZONTAL){
+            BlockPos n=p.relative(d);
+            if(!level.hasChunkAt(n)||!seen.add(n))continue;
+            BlockState s=level.getBlockState(n);
+            if(s.getBlock() instanceof QuartzOscillatorBlock){
+                if(DirectionalDomainSourceBlock.outputsToward(s,d.getOpposite())){
+                    claims.add(new DomainDriverRegistry.Claim(n,p,s.getValue(QuartzOscillatorBlock.ACTIVE)?1:0,QuartzTimingLineBlock.periodTicks(s.getValue(QuartzOscillatorBlock.PERIOD_INDEX)),0,s.getBlock().getClass().getName()));
+                }
+            }else if(s.getBlock() instanceof QuartzLabOscillatorBlock){
+                if(DirectionalDomainSourceBlock.outputsToward(s,d.getOpposite())){
+                    claims.add(new DomainDriverRegistry.Claim(n,p,s.getValue(QuartzLabOscillatorBlock.ACTIVE)?1:0,QuartzTimingLineBlock.periodTicks(s.getValue(QuartzLabOscillatorBlock.PERIOD_INDEX)),0,s.getBlock().getClass().getName()));
+                }
+            }
+        }
     }
 
     private static void addRawOpticalClaims(ServerLevel level, Set<BlockPos> nodes, List<DomainDriverRegistry.Claim> claims) {
@@ -584,6 +610,8 @@ public final class DomainNetwork {
         BlockState sa=level.getBlockState(a),sb=level.getBlockState(b);
         boolean am=mediumClass.isInstance(sa.getBlock()),bm=mediumClass.isInstance(sb.getBlock());
         if(!am&&!bm)return false;
+        if(sa.getBlock() instanceof DirectionalDomainSourceBlock && !DirectionalDomainSourceBlock.outputsToward(sa,d))return false;
+        if(sb.getBlock() instanceof DirectionalDomainSourceBlock && !DirectionalDomainSourceBlock.outputsToward(sb,d.getOpposite()))return false;
         if(am && !SurfaceTraceBlock.connected(sa,d))return false;
         if(bm && !SurfaceTraceBlock.connected(sb,d.getOpposite()))return false;
         return true;

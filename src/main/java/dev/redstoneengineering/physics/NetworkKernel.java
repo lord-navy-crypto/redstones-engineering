@@ -22,16 +22,35 @@ public final class NetworkKernel {
 
     private NetworkKernel() {}
 
+    /**
+     * lastTruncated remains the compatibility fail-closed bit consumed by existing domain endpoints.
+     * It is true when either the graph budget was exhausted or authoritative coverage was incomplete.
+     * Cause-specific diagnostics are exposed separately so accounting does not confuse the two cases.
+     */
     public record ScanStats(long scans, int lastNodes, int maxObservedNodes, boolean lastTruncated, long truncatedScans, int activeDrivers, boolean driverConflict) {}
 
+    /** Record one actual bounded graph traversal. */
     public static synchronized void recordScan(Level level, String domain, int nodes, boolean truncated) {
         Map<String, MutableStats> byDomain = STATS.computeIfAbsent(level, l -> new HashMap<>());
         MutableStats s = byDomain.computeIfAbsent(domain, d -> new MutableStats());
         s.scans++;
         s.lastNodes = nodes;
         s.maxObservedNodes = Math.max(s.maxObservedNodes, nodes);
+        s.lastBudgetTruncated = truncated;
+        s.lastCoverageIncomplete = false;
         s.lastTruncated = truncated;
         if (truncated) s.truncatedScans++;
+    }
+
+    /**
+     * Mark the current solve incomplete because required evidence could not be verified.
+     * This is not another graph traversal, so scan and budget-truncation counters are unchanged.
+     */
+    public static synchronized void markCoverageIncomplete(Level level, String domain) {
+        Map<String, MutableStats> byDomain = STATS.computeIfAbsent(level, l -> new HashMap<>());
+        MutableStats s = byDomain.computeIfAbsent(domain, d -> new MutableStats());
+        s.lastCoverageIncomplete = true;
+        s.lastTruncated = true;
     }
 
     public static synchronized ScanStats stats(Level level, String domain) {
@@ -41,15 +60,29 @@ public final class NetworkKernel {
         return new ScanStats(s.scans, s.lastNodes, s.maxObservedNodes, s.lastTruncated, s.truncatedScans, s.activeDrivers, s.driverConflict);
     }
 
+    public static synchronized boolean lastBudgetTruncated(Level level, String domain) {
+        Map<String, MutableStats> byDomain = STATS.get(level);
+        MutableStats s = byDomain == null ? null : byDomain.get(domain);
+        return s != null && s.lastBudgetTruncated;
+    }
+
+    public static synchronized boolean lastCoverageIncomplete(Level level, String domain) {
+        Map<String, MutableStats> byDomain = STATS.get(level);
+        MutableStats s = byDomain == null ? null : byDomain.get(domain);
+        return s != null && s.lastCoverageIncomplete;
+    }
+
     public static synchronized String summary(Level level, String domain) {
         ScanStats s = stats(level, domain);
+        boolean budgetTruncated = lastBudgetTruncated(level, domain);
+        boolean coverageIncomplete = lastCoverageIncomplete(level, domain);
         return "nodes=" + s.lastNodes()
                 + "/" + MAX_NODES
-                + (s.lastTruncated() ? " | BUDGET-LIMITED" : "")
+                + (budgetTruncated ? " | BUDGET-LIMITED" : "")
+                + (coverageIncomplete ? " | COVERAGE-INCOMPLETE" : "")
                 + (s.driverConflict() ? " | DRIVER-CONFLICT(" + s.activeDrivers() + ")" : "")
                 + " | scans=" + s.scans();
     }
-
 
     public static synchronized void recordDriverState(Level level, String domain, int activeDrivers) {
         Map<String, MutableStats> byDomain = STATS.computeIfAbsent(level, l -> new HashMap<>());
@@ -68,6 +101,8 @@ public final class NetworkKernel {
         int lastNodes;
         int maxObservedNodes;
         boolean lastTruncated;
+        boolean lastBudgetTruncated;
+        boolean lastCoverageIncomplete;
         long truncatedScans;
         int activeDrivers;
         boolean driverConflict;
