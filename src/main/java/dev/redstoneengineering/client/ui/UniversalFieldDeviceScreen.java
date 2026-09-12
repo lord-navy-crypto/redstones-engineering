@@ -30,7 +30,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         if (directionCycle == null) return;
         boolean active = menu.rotatableSeriesAxis();
         directionCycle.active = active;
-        directionCycle.visible = active;
+        directionCycle.visible = isConfigureSection() && active;
         directionCycle.setMessage(Component.literal(fitForWidth("Direction • " + axisText(), 224)));
         directionCycle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
                 "Cycle the complete server-authoritative series I/O axis.")));
