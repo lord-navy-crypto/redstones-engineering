@@ -15,10 +15,12 @@ import dev.redstoneengineering.metrology.MetrologySupport;
 import dev.redstoneengineering.physics.CircuitPhysics;
 import dev.redstoneengineering.physics.CopperObservationSupport;
 import dev.redstoneengineering.physics.DomainNetwork;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -37,6 +39,9 @@ import java.util.Optional;
 /** Non-invasive copper-domain meter with scheduled Alpha 1.0.15 metrology sampling. */
 public class CopperCircuitMeterBlock extends DomainBlock implements EngineeringPortProvider {
     public static final DirectionProperty FACING = BlockStateProperties.FACING;
+    private static final Direction[] ROUTE_ORDER = {
+            Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST, Direction.UP, Direction.DOWN
+    };
     private static final String CHANNEL = "copper_circuit_meter";
     private static final int SENSOR_PROFILE = 2; // PRECISION
     private static final int SAMPLE_PERIOD = 10;
@@ -58,8 +63,6 @@ public class CopperCircuitMeterBlock extends DomainBlock implements EngineeringP
     public static CopperObservationSupport.Observation targetObservation(Level level, BlockPos pos, BlockState state) {
         BlockPos target = pos.relative(state.getValue(FACING));
         CopperObservationSupport.Observation qualityEvidence = CopperObservationSupport.measure(level, target, pos);
-        // Preserve Alpha 1.0.13 simulation ownership: numerical voltage comes from DomainNetwork;
-        // the observation layer adds source/topology quality without mutating physics state.
         int voltage = DomainNetwork.sampleCopperVoltage(level, target, pos);
         return new CopperObservationSupport.Observation(voltage, qualityEvidence.quality());
     }
@@ -84,7 +87,6 @@ public class CopperCircuitMeterBlock extends DomainBlock implements EngineeringP
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         CopperObservationSupport.Observation target = targetObservation(level, pos, state);
-        // A topology/no-source condition is not fabricated into a valid instrument sample.
         if (target.quality() == PortQuality.VALID) {
             double reading = MetrologySupport.conditionRedstone(level, pos, target.voltage(), SENSOR_PROFILE);
             MetrologySupport.sample(level, CHANNEL, pos, reading, target.voltage(), false, 1.0, 30L);
@@ -113,10 +115,7 @@ public class CopperCircuitMeterBlock extends DomainBlock implements EngineeringP
         if (measurement.sampleCount() == 0) {
             return target.quality() == PortQuality.VALID ? PortQuality.STALE : target.quality();
         }
-        if (target.quality() != PortQuality.VALID) {
-            // Retained measurement exists, but it no longer describes a live connected target.
-            return PortQuality.STALE;
-        }
+        if (target.quality() != PortQuality.VALID) return PortQuality.STALE;
         return MetrologySupport.portQuality(measurement);
     }
 
@@ -141,27 +140,57 @@ public class CopperCircuitMeterBlock extends DomainBlock implements EngineeringP
         ));
     }
 
+    /** Server-authoritative six-face measurement aperture routing with stale-history invalidation. */
+    public static boolean rotateMeasurementFace(Level level, BlockPos pos, boolean forward) {
+        if (level.isClientSide) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof CopperCircuitMeterBlock block)) return false;
+        Direction oldFace = state.getValue(FACING);
+        Direction newFace = cycleFace(oldFace, forward);
+        if (newFace == oldFace) return false;
+        BlockState next = state.setValue(FACING, newFace);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        MetrologyStore.remove(level, CHANNEL, pos);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, block, 1);
+        level.updateNeighborsAt(pos, block);
+        return true;
+    }
+
+    private static Direction cycleFace(Direction current, boolean forward) {
+        int index = 0;
+        for (int i = 0; i < ROUTE_ORDER.length; i++) {
+            if (ROUTE_ORDER[i] == current) { index = i; break; }
+        }
+        int next = Math.floorMod(index + (forward ? 1 : -1), ROUTE_ORDER.length);
+        return ROUTE_ORDER[next];
+    }
+
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (!level.isClientSide) {
-            BlockPos targetPos = pos.relative(state.getValue(FACING));
-            BlockState targetState = level.getBlockState(targetPos);
-            CopperObservationSupport.Observation target = targetObservation(level, pos, state);
-            double resistance = targetState.getBlock() instanceof CopperResistiveLoadBlock
-                    ? targetState.getValue(CopperResistiveLoadBlock.RESISTANCE)
-                    : CircuitPhysics.equivalentLoadResistance(level, targetPos, 128);
-            double current = CircuitPhysics.current(target.voltage(), resistance);
-            double power = target.voltage() * current;
-            player.displayClientMessage(Component.literal(String.format(
-                    "Copper circuit meter | observer-only | live=%s V=%.2f | Req=%.2f | I≈%.3f | P≈%.3f | meter=%s | %s",
-                    target.quality(),
-                    (double) target.voltage(),
-                    resistance,
-                    current,
-                    power,
-                    measurementQuality(level, pos, state),
-                    MetrologySupport.compactDiagnostics(measurement(level, pos))
-            )), true);
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown()) {
+                BlockPos targetPos = pos.relative(state.getValue(FACING));
+                BlockState targetState = level.getBlockState(targetPos);
+                CopperObservationSupport.Observation target = targetObservation(level, pos, state);
+                double resistance = targetState.getBlock() instanceof CopperResistiveLoadBlock
+                        ? targetState.getValue(CopperResistiveLoadBlock.RESISTANCE)
+                        : CircuitPhysics.equivalentLoadResistance(level, targetPos, 128);
+                double current = CircuitPhysics.current(target.voltage(), resistance);
+                double power = target.voltage() * current;
+                player.displayClientMessage(Component.literal(String.format(
+                        "Copper circuit meter | face=%s | observer-only | live=%s V=%.2f | Req=%.2f | I≈%.3f | P≈%.3f | meter=%s | %s",
+                        state.getValue(FACING).getName().toUpperCase(),
+                        target.quality(),
+                        (double) target.voltage(),
+                        resistance,
+                        current,
+                        power,
+                        measurementQuality(level, pos, state),
+                        MetrologySupport.compactDiagnostics(measurement(level, pos))
+                )), true);
+            } else {
+                FieldDeviceUi.openUniversal(serverPlayer, pos);
+            }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
