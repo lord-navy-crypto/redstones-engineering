@@ -15,7 +15,7 @@ import net.neoforged.neoforge.client.event.ScreenEvent;
  *
  * <p>The overlay consumes only synchronized EngineeringDeviceMenu state. It never samples the world,
  * solves topology, mutates block state, or invents ports. Keeping it on Ports prevents physical-I/O
- * detail from crowding Overview, Configure, Observatory, and Log.</p>
+ * detail from crowding Overview, Configure, Observe, and Log.</p>
  */
 public final class EngineeringIoCompassOverlay {
     private static final int PANEL = 0xEE0B1015;
@@ -41,11 +41,19 @@ public final class EngineeringIoCompassOverlay {
         int panelWidth = 112;
         int panelHeight = 176;
         int gap = 6;
+        int margin = 4;
         int rightX = containerScreen.getGuiLeft() + containerScreen.getXSize() + gap;
-        int x = rightX + panelWidth <= screen.width - 4
-                ? rightX
-                : Math.max(4, containerScreen.getGuiLeft() - panelWidth - gap);
-        int y = Math.max(4, containerScreen.getGuiTop() + 58);
+        int leftX = containerScreen.getGuiLeft() - panelWidth - gap;
+        boolean rightFits = rightX + panelWidth <= screen.width - margin;
+        boolean leftFits = leftX >= margin;
+
+        // Fail safe on narrow GUI scales: never cover the authoritative main Engineering panel.
+        if (!rightFits && !leftFits) return;
+        int x = rightFits ? rightX : leftX;
+        int y = Math.max(margin, containerScreen.getGuiTop() + 58);
+        if (y + panelHeight > screen.height - margin) {
+            y = Math.max(margin, screen.height - margin - panelHeight);
+        }
 
         GuiGraphics g = event.getGuiGraphics();
         Font font = Minecraft.getInstance().font;
@@ -109,12 +117,6 @@ public final class EngineeringIoCompassOverlay {
         g.fill(cx + 3, cy + 3, cx + 5, cy + 5, activeColor);
     }
 
-    /**
-     * Declared wired/fiber faces use two intensity levels only when the synchronized menu actually
-     * carries link evidence: bright = linked, dim = declared/open. Menus without that evidence show
-     * declared faces neutrally instead of inventing an OPEN state. RF/LOS are propagation boundaries
-     * rather than adjacent-block links, so their declared face remains bright.
-     */
     private static void faceCell(GuiGraphics g, Font font, int x, int y,
                                  Direction direction, String label, int declaredMask, int linkedMask,
                                  int activeColor, boolean propagationInterface,
@@ -147,7 +149,7 @@ public final class EngineeringIoCompassOverlay {
             case "NONE", "DECLARED" -> MUTED;
             default -> TEXT;
         };
-        g.drawString(font, state, x + 58, y, stateColor, false);
+        g.drawString(font, fit(font, state, 46), x + 58, y, stateColor, false);
     }
 
     private static String interfaceState(String medium, int declaredMask, int linkedMask,
@@ -159,10 +161,6 @@ public final class EngineeringIoCompassOverlay {
         return (declaredMask & linkedMask) != 0 ? "LINKED" : "OPEN";
     }
 
-    /**
-     * FieldDeviceMenu synchronizes physical link topology. Heavier engineering menus do not expose
-     * that contract, so -1 explicitly means "connection evidence unavailable" rather than "open".
-     */
     private static int connectionMask(EngineeringDeviceMenu menu) {
         return menu instanceof FieldDeviceMenu fieldMenu ? fieldMenu.connectionMask() : -1;
     }
