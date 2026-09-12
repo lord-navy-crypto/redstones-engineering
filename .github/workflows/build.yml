@@ -31,6 +31,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p .rse-audit
+          : > .rse-audit/static-verification.log
           for verifier in \
             tools/rse_repo_verify.py \
             tools/rse_source_quality_audit.py \
@@ -115,8 +117,8 @@ jobs:
             tools/rse_system_level_closure_phase2_verify.py
           do
             if [[ -f "$verifier" ]]; then
-              echo "==> $verifier"
-              python3 "$verifier"
+              echo "==> $verifier" | tee -a .rse-audit/static-verification.log
+              python3 "$verifier" 2>&1 | tee -a .rse-audit/static-verification.log
             fi
           done
       - name: Upload 122-block audit report
