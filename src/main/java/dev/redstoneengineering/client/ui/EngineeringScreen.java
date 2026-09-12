@@ -68,6 +68,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private static final int VALUE_X = 154;
     private static final int FOOTER_TOP = 245;
     private static final int ROUTE_CONTROL_Y = 196;
+    private static final int ROUTE_ENDPOINT_Y = 174;
 
     private Section section = Section.OVERVIEW;
     private boolean routePage;
@@ -76,6 +77,10 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private Button routeTab;
     private Button routePrevious;
     private Button routeNext;
+    private Button routeInputPrevious;
+    private Button routeInputNext;
+    private Button routeOutputPrevious;
+    private Button routeOutputNext;
 
     protected EngineeringScreen(M menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -94,6 +99,10 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         routeTab = null;
         routePrevious = null;
         routeNext = null;
+        routeInputPrevious = null;
+        routeInputNext = null;
+        routeOutputPrevious = null;
+        routeOutputNext = null;
 
         int tabY = topPos + 31;
         int x = leftPos + 8;
@@ -149,6 +158,26 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
                 Component.literal("Next ↻"),
                 button -> sendMenuButton(routeActionId(true))
         ).bounds(leftPos + CONTENT_RIGHT - width, topPos + ROUTE_CONTROL_Y, width, 20).build());
+
+        int endpointWidth = 66;
+        int endpointGap = 6;
+        int x0 = leftPos + CONTENT_LEFT;
+        routeInputPrevious = addRenderableWidget(Button.builder(
+                Component.literal("↺ RX"),
+                button -> sendMenuButton(routeInputActionId(false))
+        ).bounds(x0, topPos + ROUTE_ENDPOINT_Y, endpointWidth, 20).build());
+        routeInputNext = addRenderableWidget(Button.builder(
+                Component.literal("RX ↻"),
+                button -> sendMenuButton(routeInputActionId(true))
+        ).bounds(x0 + endpointWidth + endpointGap, topPos + ROUTE_ENDPOINT_Y, endpointWidth, 20).build());
+        routeOutputPrevious = addRenderableWidget(Button.builder(
+                Component.literal("↺ TX"),
+                button -> sendMenuButton(routeOutputActionId(false))
+        ).bounds(x0 + (endpointWidth + endpointGap) * 2, topPos + ROUTE_ENDPOINT_Y, endpointWidth, 20).build());
+        routeOutputNext = addRenderableWidget(Button.builder(
+                Component.literal("TX ↻"),
+                button -> sendMenuButton(routeOutputActionId(true))
+        ).bounds(x0 + (endpointWidth + endpointGap) * 3, topPos + ROUTE_ENDPOINT_Y, endpointWidth, 20).build());
     }
 
     private int routeActionId(boolean clockwise) {
@@ -197,6 +226,38 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         return -1;
     }
 
+    private int routeInputActionId(boolean clockwise) {
+        if (menu instanceof UniversalFieldDeviceMenu) {
+            return clockwise ? UniversalFieldDeviceMenu.BUTTON_INPUT_RIGHT : UniversalFieldDeviceMenu.BUTTON_INPUT_LEFT;
+        }
+        if (menu instanceof DigitalCommunicationMenu) {
+            return clockwise ? DigitalCommunicationMenu.BUTTON_INPUT_RIGHT : DigitalCommunicationMenu.BUTTON_INPUT_LEFT;
+        }
+        if (menu instanceof PneumaticSystemMenu) {
+            return clockwise ? PneumaticSystemMenu.BUTTON_INPUT_RIGHT : PneumaticSystemMenu.BUTTON_INPUT_LEFT;
+        }
+        return -1;
+    }
+
+    private int routeOutputActionId(boolean clockwise) {
+        if (menu instanceof UniversalFieldDeviceMenu) {
+            return clockwise ? UniversalFieldDeviceMenu.BUTTON_OUTPUT_RIGHT : UniversalFieldDeviceMenu.BUTTON_OUTPUT_LEFT;
+        }
+        if (menu instanceof DigitalCommunicationMenu) {
+            return clockwise ? DigitalCommunicationMenu.BUTTON_OUTPUT_RIGHT : DigitalCommunicationMenu.BUTTON_OUTPUT_LEFT;
+        }
+        if (menu instanceof PneumaticSystemMenu) {
+            return clockwise ? PneumaticSystemMenu.BUTTON_OUTPUT_RIGHT : PneumaticSystemMenu.BUTTON_OUTPUT_LEFT;
+        }
+        return -1;
+    }
+
+    private boolean independentRouteEndpoints() {
+        if (menu instanceof UniversalFieldDeviceMenu universal) return universal.independentRouteEndpoints();
+        if (menu instanceof DigitalCommunicationMenu) return true;
+        return menu instanceof PneumaticSystemMenu pneumatic && pneumatic.directional();
+    }
+
     private boolean routeSupported() {
         if (menu instanceof FieldDeviceMenu field) return field.seriesConfigurable();
         if (menu instanceof UniversalFieldDeviceMenu universal) return universal.rotatableSeriesAxis();
@@ -223,14 +284,39 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private void syncRouteControls() {
         if (routePrevious == null || routeNext == null) return;
         boolean enabled = routeSupported();
+        boolean endpoints = enabled && independentRouteEndpoints();
         routePrevious.active = enabled;
         routeNext.active = enabled;
         routePrevious.visible = routePage && enabled;
         routeNext.visible = routePage && enabled;
+        routePrevious.setMessage(Component.literal(endpoints ? "↺ ALL" : "↺ Previous"));
+        routeNext.setMessage(Component.literal(endpoints ? "ALL ↻" : "Next ↻"));
         routePrevious.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
-                "Rotate the declared route, output face, measurement face, or orientation counter-clockwise on the server.")));
+                endpoints ? "Rotate RX and TX together counter-clockwise on the server."
+                        : "Rotate the declared route, output face, measurement face, or orientation counter-clockwise on the server.")));
         routeNext.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
-                "Rotate the declared route, output face, measurement face, or orientation clockwise on the server.")));
+                endpoints ? "Rotate RX and TX together clockwise on the server."
+                        : "Rotate the declared route, output face, measurement face, or orientation clockwise on the server.")));
+
+        if (routeInputPrevious != null && routeInputNext != null
+                && routeOutputPrevious != null && routeOutputNext != null) {
+            routeInputPrevious.active = endpoints;
+            routeInputNext.active = endpoints;
+            routeOutputPrevious.active = endpoints;
+            routeOutputNext.active = endpoints;
+            routeInputPrevious.visible = routePage && endpoints;
+            routeInputNext.visible = routePage && endpoints;
+            routeOutputPrevious.visible = routePage && endpoints;
+            routeOutputNext.visible = routePage && endpoints;
+            routeInputPrevious.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
+                    "Rotate only the declared RX / INPUT face counter-clockwise.")));
+            routeInputNext.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
+                    "Rotate only the declared RX / INPUT face clockwise.")));
+            routeOutputPrevious.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
+                    "Rotate only the declared TX / OUTPUT face counter-clockwise.")));
+            routeOutputNext.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
+                    "Rotate only the declared TX / OUTPUT face clockwise.")));
+        }
     }
 
     private void setSection(Section target) {
@@ -331,15 +417,16 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
     private void renderRoutePage(GuiGraphics graphics) {
         boolean enabled = routeSupported();
+        boolean endpoints = enabled && independentRouteEndpoints();
         statusBadge(graphics, enabled ? "ROTATABLE INTERFACE" : "FIXED INTERFACE", enabled ? INFO : MUTED, 16, 84);
         labelValue(graphics, "Topology role", menu.topologyRoleLabel(), 112);
         labelValue(graphics, "Current route", menu.portRouteLabel(), 132);
         labelValue(graphics, "Control authority", enabled ? "SERVER-SIDE" : "READ ONLY", 152);
-        if (enabled) {
+        if (enabled && !endpoints) {
             safeText(graphics,
                     "Use Previous / Next below to rotate the real route or measurement face. Parameters remain on Configure.",
                     16, 174, TEXT);
-        } else {
+        } else if (!enabled) {
             safeText(graphics,
                     "This device has a fixed physical port contract. Its remaining controls, if any, are on Configure.",
                     16, 174, MUTED);

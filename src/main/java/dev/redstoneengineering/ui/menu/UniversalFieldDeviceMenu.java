@@ -21,6 +21,10 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int FACE_COUNT = Direction.values().length;
     public static final int BUTTON_ROTATE_LEFT = 100;
     public static final int BUTTON_ROTATE_RIGHT = 101;
+    public static final int BUTTON_INPUT_LEFT = 102;
+    public static final int BUTTON_INPUT_RIGHT = 103;
+    public static final int BUTTON_OUTPUT_LEFT = 104;
+    public static final int BUTTON_OUTPUT_RIGHT = 105;
     public static final int BUTTON_CONFIG_PRIMARY_PREVIOUS = 110;
     public static final int BUTTON_CONFIG_PRIMARY_NEXT = 111;
     public static final int BUTTON_CONFIG_SECONDARY_PREVIOUS = 112;
@@ -206,6 +210,10 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         boolean changed = switch (id) {
             case BUTTON_ROTATE_LEFT -> rotate(false);
             case BUTTON_ROTATE_RIGHT -> rotate(true);
+            case BUTTON_INPUT_LEFT -> rotateInput(false);
+            case BUTTON_INPUT_RIGHT -> rotateInput(true);
+            case BUTTON_OUTPUT_LEFT -> rotateOutput(false);
+            case BUTTON_OUTPUT_RIGHT -> rotateOutput(true);
             case BUTTON_CONFIG_PRIMARY_PREVIOUS -> adjustPrimary(-1);
             case BUTTON_CONFIG_PRIMARY_NEXT -> adjustPrimary(1);
             case BUTTON_CONFIG_SECONDARY_PREVIOUS -> adjustSecondary(-1);
@@ -253,13 +261,27 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean rotate(boolean clockwise) {
         Block block = level.getBlockState(blockPos).getBlock();
-        if (block instanceof DirectionalSignalBlock) return DirectionalSignalBlock.rotateSeriesAxis(level, blockPos, clockwise);
-        if (block instanceof DirectionalDomainBlock) return DirectionalDomainBlock.rotateSeriesAxis(level, blockPos, clockwise);
+        if (block instanceof DirectionalSignalBlock) return DirectionalSignalBlock.rotateWholeRoute(level, blockPos, clockwise);
+        if (block instanceof DirectionalDomainBlock) return DirectionalDomainBlock.rotateWholeRoute(level, blockPos, clockwise);
         if (block instanceof DirectionalRedstoneEndpointBlock) return DirectionalRedstoneEndpointBlock.rotateOutput(level, blockPos, clockwise);
         if (block instanceof SignalProbeBlock) return SignalProbeBlock.rotateMeasurementAxis(level, blockPos, clockwise);
         if (block instanceof RedstoneCableTerminalBlock) return RedstoneCableTerminalBlock.rotateInterface(level, blockPos, clockwise);
         if (block instanceof LapisPrecisionMeterBlock) return LapisPrecisionMeterBlock.rotateMeasurementFace(level, blockPos, clockwise);
         if (block instanceof CopperCircuitMeterBlock) return CopperCircuitMeterBlock.rotateMeasurementFace(level, blockPos, clockwise);
+        return false;
+    }
+
+    private boolean rotateInput(boolean clockwise) {
+        Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof DirectionalSignalBlock) return DirectionalSignalBlock.rotateSeriesInput(level, blockPos, clockwise);
+        if (block instanceof DirectionalDomainBlock) return DirectionalDomainBlock.rotateSeriesInput(level, blockPos, clockwise);
+        return false;
+    }
+
+    private boolean rotateOutput(boolean clockwise) {
+        Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof DirectionalSignalBlock) return DirectionalSignalBlock.rotateSeriesOutput(level, blockPos, clockwise);
+        if (block instanceof DirectionalDomainBlock) return DirectionalDomainBlock.rotateSeriesOutput(level, blockPos, clockwise);
         return false;
     }
 
@@ -296,4 +318,5 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     }
 
     public boolean rotatableSeriesAxis() { return seriesRotatable.get() != 0; }
+    public boolean independentRouteEndpoints() { return routeKind.get() == ROUTE_SERIES_AXIS; }
 }

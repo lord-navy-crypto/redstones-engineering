@@ -37,6 +37,15 @@ public final class DigitalCommunicationMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_PARAMETER_NEXT = 1;
     public static final int BUTTON_ROTATE_LEFT = 2;
     public static final int BUTTON_ROTATE_RIGHT = 3;
+    public static final int BUTTON_RX_LEFT = 4;
+    public static final int BUTTON_RX_RIGHT = 5;
+    public static final int BUTTON_TX_LEFT = 6;
+    public static final int BUTTON_TX_RIGHT = 7;
+    /** Shared Route-HMI aliases; RX/TX remain the player-facing terminology. */
+    public static final int BUTTON_INPUT_LEFT = BUTTON_RX_LEFT;
+    public static final int BUTTON_INPUT_RIGHT = BUTTON_RX_RIGHT;
+    public static final int BUTTON_OUTPUT_LEFT = BUTTON_TX_LEFT;
+    public static final int BUTTON_OUTPUT_RIGHT = BUTTON_TX_RIGHT;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot inputValue = trackedInt();
@@ -47,7 +56,8 @@ public final class DigitalCommunicationMenu extends EngineeringDeviceMenu {
     private final DataSlot outputDomain = trackedInt();
     private final DataSlot parameter = trackedInt();
     private final DataSlot auxiliary = trackedInt();
-    private final DataSlot facing = trackedInt();
+    private final DataSlot inputFacing = trackedInt();
+    private final DataSlot outputFacing = trackedInt();
 
     public DigitalCommunicationMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -71,16 +81,18 @@ public final class DigitalCommunicationMenu extends EngineeringDeviceMenu {
         outputDomain.set(EngineeringDomain.GENERIC.ordinal());
         parameter.set(0);
         auxiliary.set(0);
-        facing.set(-1);
+        inputFacing.set(-1);
+        outputFacing.set(-1);
 
         int deviceKind = kindOf(block);
         kind.set(deviceKind);
         if (deviceKind < 0 || !(block instanceof EngineeringPortProvider provider)) return;
 
-        Direction outputSide = directionalFacing(state);
-        if (outputSide == null) return;
-        Direction inputSide = outputSide.getOpposite();
-        facing.set(outputSide.ordinal());
+        Direction outputSide = directionalOutput(state);
+        Direction inputSide = directionalInput(state);
+        if (outputSide == null || inputSide == null) return;
+        outputFacing.set(outputSide.ordinal());
+        inputFacing.set(inputSide.ordinal());
 
         provider.engineeringPort(state, inputSide).ifPresent(port -> inputDomain.set(port.domain().ordinal()));
         provider.engineeringPort(state, outputSide).ifPresent(port -> outputDomain.set(port.domain().ordinal()));
@@ -115,10 +127,17 @@ public final class DigitalCommunicationMenu extends EngineeringDeviceMenu {
         return -1;
     }
 
-    private static Direction directionalFacing(BlockState state) {
-        if (state.hasProperty(DirectionalDomainBlock.FACING)) return state.getValue(DirectionalDomainBlock.FACING);
-        if (state.hasProperty(DirectionalSignalBlock.FACING)) return state.getValue(DirectionalSignalBlock.FACING);
+    private static Direction directionalOutput(BlockState state) {
+        if (state.hasProperty(DirectionalDomainBlock.FACING)) return DirectionalDomainBlock.seriesOutputSide(state);
+        if (state.hasProperty(DirectionalSignalBlock.FACING)) return DirectionalSignalBlock.seriesOutputSide(state);
         return null;
+    }
+
+    private static Direction directionalInput(BlockState state) {
+        if (state.hasProperty(DirectionalDomainBlock.INPUT_FACING)) return DirectionalDomainBlock.seriesInputSide(state);
+        if (state.hasProperty(DirectionalSignalBlock.INPUT_FACING)) return DirectionalSignalBlock.seriesInputSide(state);
+        Direction output = directionalOutput(state);
+        return output == null ? null : output.getOpposite();
     }
 
     @Override
@@ -131,8 +150,20 @@ public final class DigitalCommunicationMenu extends EngineeringDeviceMenu {
 
         if (id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT) {
             boolean clockwise = id == BUTTON_ROTATE_RIGHT;
-            if (block instanceof DirectionalDomainBlock) changed = DirectionalDomainBlock.rotateSeriesAxis(level, blockPos, clockwise);
-            else if (block instanceof DirectionalSignalBlock) changed = DirectionalSignalBlock.rotateSeriesAxis(level, blockPos, clockwise);
+            if (block instanceof DirectionalDomainBlock) changed = DirectionalDomainBlock.rotateWholeRoute(level, blockPos, clockwise);
+            else if (block instanceof DirectionalSignalBlock) changed = DirectionalSignalBlock.rotateWholeRoute(level, blockPos, clockwise);
+            else return false;
+            if (changed) level.scheduleTick(blockPos, block, 1);
+        } else if (id == BUTTON_RX_LEFT || id == BUTTON_RX_RIGHT) {
+            boolean clockwise = id == BUTTON_RX_RIGHT;
+            if (block instanceof DirectionalDomainBlock) changed = DirectionalDomainBlock.rotateSeriesInput(level, blockPos, clockwise);
+            else if (block instanceof DirectionalSignalBlock) changed = DirectionalSignalBlock.rotateSeriesInput(level, blockPos, clockwise);
+            else return false;
+            if (changed) level.scheduleTick(blockPos, block, 1);
+        } else if (id == BUTTON_TX_LEFT || id == BUTTON_TX_RIGHT) {
+            boolean clockwise = id == BUTTON_TX_RIGHT;
+            if (block instanceof DirectionalDomainBlock) changed = DirectionalDomainBlock.rotateSeriesOutput(level, blockPos, clockwise);
+            else if (block instanceof DirectionalSignalBlock) changed = DirectionalSignalBlock.rotateSeriesOutput(level, blockPos, clockwise);
             else return false;
             if (changed) level.scheduleTick(blockPos, block, 1);
         } else if (block instanceof DigitalRegeneratorBlock regenerator
@@ -173,10 +204,14 @@ public final class DigitalCommunicationMenu extends EngineeringDeviceMenu {
     }
 
     public Direction outputDirection() {
-        int ordinal = facing.get();
+        int ordinal = outputFacing.get();
         Direction[] all = Direction.values();
         return ordinal < 0 || ordinal >= all.length ? Direction.NORTH : all[ordinal];
     }
 
-    public Direction inputDirection() { return outputDirection().getOpposite(); }
+    public Direction inputDirection() {
+        int ordinal = inputFacing.get();
+        Direction[] all = Direction.values();
+        return ordinal < 0 || ordinal >= all.length ? Direction.SOUTH : all[ordinal];
+    }
 }

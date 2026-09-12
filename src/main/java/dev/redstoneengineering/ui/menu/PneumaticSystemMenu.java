@@ -35,6 +35,10 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_TOGGLE = 2;
     public static final int BUTTON_ROTATE_LEFT = 3;
     public static final int BUTTON_ROTATE_RIGHT = 4;
+    public static final int BUTTON_INPUT_LEFT = 5;
+    public static final int BUTTON_INPUT_RIGHT = 6;
+    public static final int BUTTON_OUTPUT_LEFT = 7;
+    public static final int BUTTON_OUTPUT_RIGHT = 8;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot primary = trackedInt();
@@ -43,6 +47,7 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
     private final DataSlot auxiliary = trackedInt();
     private final DataSlot stateFlag = trackedInt();
     private final DataSlot facing = trackedInt();
+    private final DataSlot inputFacing = trackedInt();
     private final DataSlot inputQuality = trackedInt();
     private final DataSlot outputQuality = trackedInt();
 
@@ -60,7 +65,7 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
     protected void refreshAuthoritativeSnapshot() {
         BlockState state = level.getBlockState(blockPos);
         Block block = state.getBlock();
-        primary.set(0); secondary.set(0); tertiary.set(0); auxiliary.set(0); stateFlag.set(0); facing.set(-1);
+        primary.set(0); secondary.set(0); tertiary.set(0); auxiliary.set(0); stateFlag.set(0); facing.set(-1); inputFacing.set(-1);
         inputQuality.set(PortQuality.NO_SIGNAL.ordinal());
         outputQuality.set(PortQuality.NO_SIGNAL.ordinal());
 
@@ -84,7 +89,8 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
             primary.set(PneumaticNetwork.pressure(level, blockPos));
             secondary.set(PressureRegulatorBlock.setpointPressure(state));
             tertiary.set(state.getValue(PressureRegulatorBlock.SETPOINT));
-            facing.set(state.getValue(DirectionalDomainBlock.FACING).ordinal());
+            facing.set(DirectionalDomainBlock.seriesOutputSide(state).ordinal());
+            inputFacing.set(DirectionalDomainBlock.seriesInputSide(state).ordinal());
             setNodeQuality();
         } else if (block instanceof PneumaticReceiverBlock receiver) {
             kind.set(KIND_RECEIVER);
@@ -135,11 +141,17 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
     }
 
     private void directionalSnapshots(BlockState state, EngineeringPortProvider provider) {
-        Direction out = state.hasProperty(DirectionalDomainBlock.FACING)
-                ? state.getValue(DirectionalDomainBlock.FACING)
-                : state.getValue(DirectionalSignalBlock.FACING);
-        Direction in = out.getOpposite();
+        Direction out;
+        Direction in;
+        if (state.hasProperty(DirectionalDomainBlock.FACING)) {
+            out = DirectionalDomainBlock.seriesOutputSide(state);
+            in = DirectionalDomainBlock.seriesInputSide(state);
+        } else {
+            out = DirectionalSignalBlock.seriesOutputSide(state);
+            in = DirectionalSignalBlock.seriesInputSide(state);
+        }
         facing.set(out.ordinal());
+        inputFacing.set(in.ordinal());
         provider.engineeringSnapshot(level, blockPos, state, in).ifPresent(snapshot -> {
             primary.set((int) Math.round(snapshot.value()));
             inputQuality.set(snapshot.quality().ordinal());
@@ -198,12 +210,24 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
     }
 
     private boolean rotateDirectional(Block block, int id) {
-        if (id != BUTTON_ROTATE_LEFT && id != BUTTON_ROTATE_RIGHT) return false;
-        boolean clockwise = id == BUTTON_ROTATE_RIGHT;
+        boolean clockwise;
         boolean changed;
-        if (block instanceof DirectionalDomainBlock) changed = DirectionalDomainBlock.rotateSeriesAxis(level, blockPos, clockwise);
-        else if (block instanceof DirectionalSignalBlock) changed = DirectionalSignalBlock.rotateSeriesAxis(level, blockPos, clockwise);
-        else return false;
+        if (id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT) {
+            clockwise = id == BUTTON_ROTATE_RIGHT;
+            if (block instanceof DirectionalDomainBlock) changed = DirectionalDomainBlock.rotateSeriesAxis(level, blockPos, clockwise);
+            else if (block instanceof DirectionalSignalBlock) changed = DirectionalSignalBlock.rotateSeriesAxis(level, blockPos, clockwise);
+            else return false;
+        } else if (id == BUTTON_INPUT_LEFT || id == BUTTON_INPUT_RIGHT) {
+            clockwise = id == BUTTON_INPUT_RIGHT;
+            if (block instanceof DirectionalDomainBlock) changed = DirectionalDomainBlock.rotateSeriesInput(level, blockPos, clockwise);
+            else if (block instanceof DirectionalSignalBlock) changed = DirectionalSignalBlock.rotateSeriesInput(level, blockPos, clockwise);
+            else return false;
+        } else if (id == BUTTON_OUTPUT_LEFT || id == BUTTON_OUTPUT_RIGHT) {
+            clockwise = id == BUTTON_OUTPUT_RIGHT;
+            if (block instanceof DirectionalDomainBlock) changed = DirectionalDomainBlock.rotateSeriesOutput(level, blockPos, clockwise);
+            else if (block instanceof DirectionalSignalBlock) changed = DirectionalSignalBlock.rotateSeriesOutput(level, blockPos, clockwise);
+            else return false;
+        } else return false;
         if (changed && level instanceof ServerLevel server) PneumaticNetwork.recomputeAround(server, blockPos);
         return changed;
     }
@@ -227,6 +251,12 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
         Direction[] all = Direction.values();
         return ordinal < 0 || ordinal >= all.length ? Direction.NORTH : all[ordinal];
     }
-    public Direction inputDirection() { return outputDirection().getOpposite(); }
+
+    public Direction inputDirection() {
+        int ordinal = inputFacing.get();
+        Direction[] all = Direction.values();
+        return ordinal < 0 || ordinal >= all.length ? outputDirection().getOpposite() : all[ordinal];
+    }
+
     public boolean directional() { return facing.get() >= 0; }
 }
