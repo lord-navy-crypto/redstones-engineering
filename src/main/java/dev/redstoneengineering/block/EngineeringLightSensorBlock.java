@@ -9,10 +9,12 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.metrology.MetrologySupport;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -89,13 +91,17 @@ public class EngineeringLightSensorBlock extends DirectionalRedstoneSensorBlock 
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (!level.isClientSide) {
-            player.displayClientMessage(Component.literal(
-                    "Local Light Sensor = " + state.getValue(POWER) + "/15"
-                            + " | OPTICAL aperture=UP"
-                            + " | " + MetrologySupport.compactDiagnostics(sensorMeasurement(level, pos))
-                            + " | FRONT REDSTONE OUT=" + frontSide(state).getName()
-            ), true);
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown()) {
+                player.displayClientMessage(Component.literal(
+                        "Local Light Sensor = " + state.getValue(POWER) + "/15"
+                                + " | OPTICAL aperture=UP"
+                                + " | " + MetrologySupport.compactDiagnostics(sensorMeasurement(level, pos))
+                                + " | FRONT REDSTONE OUT=" + frontSide(state).getName()
+                ), true);
+            } else {
+                FieldDeviceUi.open(serverPlayer, pos);
+            }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
