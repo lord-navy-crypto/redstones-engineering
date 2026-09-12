@@ -27,7 +27,7 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 /** Systems-level extension registry layered on the historical 122-block core. */
 @Mod(RedstoneEngineering.MOD_ID)
 public final class EngineeringSystemsModule {
-    public static final int SYSTEM_BLOCK_COUNT = 5;
+    public static final int SYSTEM_BLOCK_COUNT = 6;
 
     public static final DeferredRegister<MapCodec<? extends Block>> BLOCK_TYPES =
             DeferredRegister.create(BuiltInRegistries.BLOCK_TYPE, RedstoneEngineering.MOD_ID);
@@ -55,12 +55,17 @@ public final class EngineeringSystemsModule {
             BLOCKS.registerBlock("alarm_processor", AlarmProcessorBlock::new, machineProps(MapColor.COLOR_RED));
     public static final DeferredBlock<TopologyDebuggerBlock> TOPOLOGY_DEBUGGER =
             BLOCKS.registerBlock("topology_debugger", TopologyDebuggerBlock::new, machineProps(MapColor.COLOR_BLUE));
+    /** Passive world-axis datum: no BlockEntity, no tick, no signal/network participation. */
+    public static final DeferredBlock<Block> ENGINEERING_COMPASS =
+            BLOCKS.registerBlock("engineering_compass", Block::new,
+                    BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_GRAY).strength(1.5F));
 
     public static final DeferredItem<BlockItem> SEQUENCE_CONTROLLER_ITEM = ITEMS.registerSimpleBlockItem("sequence_controller", SEQUENCE_CONTROLLER);
     public static final DeferredItem<BlockItem> SAFETY_INTERLOCK_ITEM = ITEMS.registerSimpleBlockItem("safety_interlock", SAFETY_INTERLOCK);
     public static final DeferredItem<BlockItem> FAULT_INJECTOR_ITEM = ITEMS.registerSimpleBlockItem("fault_injector", FAULT_INJECTOR);
     public static final DeferredItem<BlockItem> ALARM_PROCESSOR_ITEM = ITEMS.registerSimpleBlockItem("alarm_processor", ALARM_PROCESSOR);
     public static final DeferredItem<BlockItem> TOPOLOGY_DEBUGGER_ITEM = ITEMS.registerSimpleBlockItem("topology_debugger", TOPOLOGY_DEBUGGER);
+    public static final DeferredItem<BlockItem> ENGINEERING_COMPASS_ITEM = ITEMS.registerSimpleBlockItem("engineering_compass", ENGINEERING_COMPASS);
 
     public EngineeringSystemsModule(IEventBus modBus) {
         BLOCK_TYPES.register(modBus);
@@ -90,6 +95,7 @@ public final class EngineeringSystemsModule {
         event.accept(FAULT_INJECTOR_ITEM);
         event.accept(ALARM_PROCESSOR_ITEM);
         event.accept(TOPOLOGY_DEBUGGER_ITEM);
+        event.accept(ENGINEERING_COMPASS_ITEM);
     }
 
     private static void registerGameTests(RegisterGameTestsEvent event) {
@@ -99,6 +105,6 @@ public final class EngineeringSystemsModule {
     }
 
     public static String summary() {
-        return "Engineering Systems: Sequence / Interlock / Fault / Alarm / Topology Diagnostics / Vanilla Redstone Engineering";
+        return "Engineering Systems: Sequence / Interlock / Fault / Alarm / Topology Diagnostics / World-Axis Compass / Vanilla Redstone Engineering";
     }
 }
