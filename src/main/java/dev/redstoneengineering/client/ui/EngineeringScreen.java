@@ -111,12 +111,12 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     }
 
     /**
-     * One compact direction control replaces the old left/right pair. Repeated clicks cycle the
-     * authoritative server route clockwise; the synchronized route label is always shown on the key.
+     * One compact direction control replaces the historical left/right pair. Repeated clicks cycle
+     * the authoritative server route clockwise; the synchronized route label is always shown.
      */
     private void addSharedRouteControl() {
         if (!(menu instanceof FieldDeviceMenu)) return;
-        int y = topPos + 198;
+        int y = topPos + 160;
         sharedRouteCycle = addConfigureWidget(Button.builder(
                 Component.literal("Direction • —"),
                 button -> sendMenuButton(FieldDeviceMenu.BUTTON_ROTATE_CW)
@@ -144,9 +144,21 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         syncSharedRouteControl();
     }
 
+    /**
+     * Older device screens may still instantiate their former CCW/CW pair for source compatibility.
+     * The shared shell suppresses those widgets by label so players see exactly one direction control.
+     */
+    private boolean isLegacyRouteWidget(AbstractWidget widget) {
+        if (!(widget instanceof Button button)) return false;
+        String message = button.getMessage().getString();
+        return message.contains("Rotate I/O") || message.contains("Rotate route");
+    }
+
     private void updateWidgetVisibility() {
         boolean visible = section == Section.CONFIGURE;
-        for (AbstractWidget widget : configureWidgets) widget.visible = visible;
+        for (AbstractWidget widget : configureWidgets) {
+            widget.visible = visible && !isLegacyRouteWidget(widget);
+        }
         for (int i = 0; i < sectionButtons.size(); i++) {
             sectionButtons.get(i).active = Section.values()[i] != section;
         }
