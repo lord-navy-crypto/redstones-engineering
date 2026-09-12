@@ -84,7 +84,7 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
             tertiary.set(evidence.branchBIntensity());
             auxiliary.set(evidence.quantizationLoss());
             quality.set(evidence.inputQuality().ordinal());
-            facing.set(state.getValue(DirectionalDomainBlock.FACING).ordinal());
+            facing.set(DirectionalDomainBlock.seriesOutputSide(state).ordinal());
         } else if (block instanceof OpticalChannelFilterBlock) {
             kind.set(KIND_FILTER);
             OpticalChannelFilterBlock.FilterEvidence evidence = OpticalChannelFilterBlock.evidence(level, blockPos, state);
@@ -93,7 +93,7 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
             tertiary.set(evidence.expectedOutputIntensity());
             auxiliary.set(evidence.inputChannel());
             quality.set(evidence.inputQuality().ordinal());
-            facing.set(state.getValue(DirectionalDomainBlock.FACING).ordinal());
+            facing.set(DirectionalDomainBlock.seriesOutputSide(state).ordinal());
         } else if (block instanceof OpticalAttenuatorBlock) {
             kind.set(KIND_ATTENUATOR);
             OpticalAttenuatorBlock.AttenuationEvidence evidence = OpticalAttenuatorBlock.evidence(level, blockPos, state);
@@ -102,10 +102,10 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
             tertiary.set(evidence.expectedOutputIntensity());
             auxiliary.set(evidence.channel());
             quality.set(evidence.inputQuality().ordinal());
-            facing.set(state.getValue(DirectionalDomainBlock.FACING).ordinal());
+            facing.set(DirectionalDomainBlock.seriesOutputSide(state).ordinal());
         } else if (block instanceof FreeSpaceOpticalTransmitterBlock transmitter) {
             kind.set(KIND_FREE_SPACE_TX);
-            Direction out = state.getValue(DirectionalDomainBlock.FACING);
+            Direction out = DirectionalDomainBlock.seriesOutputSide(state);
             var observation = transmitter.inputObservation(level, blockPos, state);
             primary.set(observation.value());
             secondary.set(state.getValue(FreeSpaceOpticalTransmitterBlock.CHANNEL));
@@ -114,8 +114,9 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
             facing.set(out.ordinal());
         } else if (block instanceof FreeSpaceOpticalReceiverBlock receiver) {
             kind.set(KIND_FREE_SPACE_RX);
-            Direction out = state.getValue(DirectionalSignalBlock.FACING);
-            var snapshot = receiver.engineeringSnapshot(level, blockPos, state, out.getOpposite());
+            Direction out = DirectionalSignalBlock.seriesOutputSide(state);
+            Direction in = DirectionalSignalBlock.seriesInputSide(state);
+            var snapshot = receiver.engineeringSnapshot(level, blockPos, state, in);
             primary.set(snapshot.map(s -> (int) Math.round(s.value())).orElse(0));
             secondary.set(state.getValue(FreeSpaceOpticalReceiverBlock.CHANNEL));
             tertiary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
@@ -126,6 +127,7 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
 
     @Override
     public boolean clickMenuButton(Player player, int id) {
+        if (SeriesRouteActions.isEndpointAction(id)) return SeriesRouteActions.handle(this, player, id);
         if (level.isClientSide) return true;
         if (!stillValid(player)) return false;
         BlockState state = level.getBlockState(blockPos);
@@ -153,8 +155,8 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
                 level.setBlock(blockPos, next, Block.UPDATE_CLIENTS);
                 if (level instanceof ServerLevel server) OpticalChannelFilterBlock.configurationChanged(server, blockPos, next);
                 changed = true;
-            } else changed = rotate(id);
-        } else if (block instanceof OpticalAttenuatorBlock attenuator) {
+            } else changed = rotateDomainRoute(id);
+        } else if (block instanceof OpticalAttenuatorBlock) {
             if (id == BUTTON_PRIMARY_PREVIOUS || id == BUTTON_PRIMARY_NEXT) {
                 int loss = state.getValue(OpticalAttenuatorBlock.LOSS);
                 loss = id == BUTTON_PRIMARY_NEXT ? (loss >= 8 ? 0 : loss + 1) : (loss <= 0 ? 8 : loss - 1);
@@ -162,9 +164,9 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
                 level.setBlock(blockPos, next, Block.UPDATE_CLIENTS);
                 if (level instanceof ServerLevel server) OpticalAttenuatorBlock.configurationChanged(server, blockPos, next);
                 changed = true;
-            } else changed = rotate(id);
+            } else changed = rotateDomainRoute(id);
         } else if (block instanceof OpticalSplitterBlock) {
-            changed = rotate(id);
+            changed = rotateDomainRoute(id);
         } else if (block instanceof OpticalPowerMeterBlock) {
             if (id != BUTTON_ROTATE_LEFT && id != BUTTON_ROTATE_RIGHT) return false;
             Direction current = state.getValue(OpticalPowerMeterBlock.FACING);
@@ -180,7 +182,7 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
                 level.setBlock(blockPos, state.setValue(FreeSpaceOpticalTransmitterBlock.CHANNEL, channel), Block.UPDATE_CLIENTS);
                 level.scheduleTick(blockPos, transmitter, 1);
                 changed = true;
-            } else changed = rotate(id);
+            } else changed = rotateDomainRoute(id);
         } else if (block instanceof FreeSpaceOpticalReceiverBlock receiver) {
             if (id == BUTTON_SECONDARY_PREVIOUS || id == BUTTON_SECONDARY_NEXT) {
                 int channel = state.getValue(FreeSpaceOpticalReceiverBlock.CHANNEL);
@@ -189,20 +191,17 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
                 level.scheduleTick(blockPos, receiver, 1);
                 changed = true;
             } else if (id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT) {
-                changed = DirectionalSignalBlock.rotateSeriesAxis(level, blockPos, id == BUTTON_ROTATE_RIGHT);
+                changed = DirectionalSignalBlock.rotateWholeRoute(level, blockPos, id == BUTTON_ROTATE_RIGHT);
             } else return false;
         } else return false;
 
-        if (changed) {
-            refreshAuthoritativeSnapshot();
-            broadcastChanges();
-        }
+        if (changed) broadcastChanges();
         return changed;
     }
 
-    private boolean rotate(int id) {
+    private boolean rotateDomainRoute(int id) {
         if (id != BUTTON_ROTATE_LEFT && id != BUTTON_ROTATE_RIGHT) return false;
-        return DirectionalDomainBlock.rotateSeriesAxis(level, blockPos, id == BUTTON_ROTATE_RIGHT);
+        return DirectionalDomainBlock.rotateWholeRoute(level, blockPos, id == BUTTON_ROTATE_RIGHT);
     }
 
     public int kind() { return kind.get(); }

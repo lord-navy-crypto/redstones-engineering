@@ -126,13 +126,16 @@ require("src/main/java/dev/redstoneengineering/ui/menu/SignalAnalyzerMenu.java",
 
 # Free-space optical channel selection belongs in Configure while physical orientation belongs on Route.
 # Shift-right-click remains a legacy shortcut, but the Engineering UI must expose the same capability.
+# True series devices now use explicit RX/TX endpoints; ALL rotation must move both endpoints.
 require("src/main/java/dev/redstoneengineering/ui/FieldDeviceUi.java",
         "FreeSpaceOpticalTransmitterBlock", "FreeSpaceOpticalReceiverBlock", "new OpticalSystemMenu")
 require("src/main/java/dev/redstoneengineering/ui/menu/OpticalSystemMenu.java",
         "KIND_FREE_SPACE_TX", "KIND_FREE_SPACE_RX",
         "FreeSpaceOpticalTransmitterBlock.CHANNEL", "FreeSpaceOpticalReceiverBlock.CHANNEL",
         "BUTTON_SECONDARY_PREVIOUS", "BUTTON_SECONDARY_NEXT",
-        "DirectionalSignalBlock.rotateSeriesAxis(level, blockPos, id == BUTTON_ROTATE_RIGHT)",
+        "SeriesRouteActions.handle(this, player, id)",
+        "DirectionalSignalBlock.seriesInputSide(state)",
+        "DirectionalSignalBlock.rotateWholeRoute(level, blockPos, id == BUTTON_ROTATE_RIGHT)",
         "kind.get() == KIND_FREE_SPACE_TX", "kind.get() == KIND_FREE_SPACE_RX")
 require("src/main/java/dev/redstoneengineering/client/ui/OpticalSystemScreen.java",
         "KIND_FREE_SPACE_TX", "KIND_FREE_SPACE_RX",

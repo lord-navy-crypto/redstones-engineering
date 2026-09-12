@@ -35,6 +35,7 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
     private final DataSlot runtimeC = trackedInt();
     private final DataSlot initialized = trackedInt();
     private final DataSlot facing = trackedInt();
+    private final DataSlot inputFacing = trackedInt();
 
     public SignalProcessorMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -58,16 +59,19 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
         runtimeC.set(0);
         initialized.set(1);
         facing.set(-1);
+        inputFacing.set(-1);
 
         if (!(block instanceof DirectionalSignalBlock directional)) {
             kind.set(-1);
             initialized.set(0);
             return;
         }
-        Direction out = state.getValue(DirectionalSignalBlock.FACING);
+        Direction out = DirectionalSignalBlock.seriesOutputSide(state);
+        Direction in = DirectionalSignalBlock.seriesInputSide(state);
         facing.set(out.ordinal());
+        inputFacing.set(in.ordinal());
         if (directional instanceof EngineeringPortProvider provider) {
-            input.set(provider.engineeringSnapshot(level, blockPos, state, out.getOpposite())
+            input.set(provider.engineeringSnapshot(level, blockPos, state, in)
                     .map(snapshot -> (int) Math.round(snapshot.value())).orElse(0));
         }
         output.set(state.getValue(DirectionalSignalBlock.OUTPUT));
@@ -97,17 +101,15 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
 
     @Override
     public boolean clickMenuButton(Player player, int id) {
+        if (SeriesRouteActions.isEndpointAction(id)) return SeriesRouteActions.handle(this, player, id);
         if (level.isClientSide) return true;
         if (!stillValid(player)) return false;
         BlockState state = level.getBlockState(blockPos);
         Block block = state.getBlock();
 
         if (id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT) {
-            boolean changed = DirectionalSignalBlock.rotateSeriesAxis(level, blockPos, id == BUTTON_ROTATE_RIGHT);
-            if (changed) {
-                refreshAuthoritativeSnapshot();
-                broadcastChanges();
-            }
+            boolean changed = DirectionalSignalBlock.rotateWholeRoute(level, blockPos, id == BUTTON_ROTATE_RIGHT);
+            if (changed) broadcastChanges();
             return changed;
         }
 
@@ -140,7 +142,6 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
             return false;
         }
 
-        refreshAuthoritativeSnapshot();
         broadcastChanges();
         return next != state;
     }
@@ -161,5 +162,9 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
         return ordinal < 0 || ordinal >= directions.length ? Direction.NORTH : directions[ordinal];
     }
 
-    public Direction inputDirection() { return outputDirection().getOpposite(); }
+    public Direction inputDirection() {
+        int ordinal = inputFacing.get();
+        Direction[] directions = Direction.values();
+        return ordinal < 0 || ordinal >= directions.length ? Direction.SOUTH : directions[ordinal];
+    }
 }

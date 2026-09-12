@@ -69,14 +69,14 @@ public final class AmethystSystemMenu extends EngineeringDeviceMenu {
             AmethystFrequencyFilterBlock.FilterEvidence e = AmethystFrequencyFilterBlock.evidence(level, blockPos, state);
             primary.set(e.inputFrequency()); secondary.set(e.inputAmplitude()); tertiary.set(e.targetFrequency());
             auxiliary.set(e.expectedOutputAmplitude()); stateFlag.set(e.matched() ? 1 : 0);
-            quality.set(e.inputQuality().ordinal()); facing.set(state.getValue(DirectionalDomainBlock.FACING).ordinal());
+            quality.set(e.inputQuality().ordinal()); facing.set(DirectionalDomainBlock.seriesOutputSide(state).ordinal());
         } else if (block instanceof AmethystTunedResonatorBlock) {
             kind.set(KIND_TUNED);
             AmethystTunedResonatorBlock.ResponseEvidence e = AmethystTunedResonatorBlock.response(level, blockPos, state);
             primary.set(e.inputFrequency()); secondary.set(e.inputAmplitude()); tertiary.set(e.naturalFrequency());
             auxiliary.set(e.qIndex()); extraA.set(e.bandwidth()); extraB.set(e.outputAmplitude());
             stateFlag.set(e.saturated() ? 2 : e.responding() ? 1 : 0);
-            quality.set(e.inputQuality().ordinal()); facing.set(state.getValue(DirectionalDomainBlock.FACING).ordinal());
+            quality.set(e.inputQuality().ordinal()); facing.set(DirectionalDomainBlock.seriesOutputSide(state).ordinal());
         } else if (block instanceof AmethystSpectrumAnalyzerBlock) {
             kind.set(KIND_SPECTRUM);
             AmethystSpectrumAnalyzerBlock.Spectrum s = AmethystSpectrumAnalyzerBlock.spectrum(level, blockPos);
@@ -88,6 +88,7 @@ public final class AmethystSystemMenu extends EngineeringDeviceMenu {
 
     @Override
     public boolean clickMenuButton(Player player, int id) {
+        if (SeriesRouteActions.isEndpointAction(id)) return SeriesRouteActions.handle(this, player, id);
         if (level.isClientSide) return true;
         if (!stillValid(player)) return false;
         BlockState state = level.getBlockState(blockPos);
@@ -108,7 +109,8 @@ public final class AmethystSystemMenu extends EngineeringDeviceMenu {
                 level.scheduleTick(blockPos, resonator, 4);
                 if (level instanceof ServerLevel server) DomainNetwork.recomputeAmethyst(server, blockPos);
                 changed = true;
-                refreshAuthoritativeSnapshot(); broadcastChanges(); return true;
+                broadcastChanges();
+                return true;
             } else return false;
             level.setBlock(blockPos, state, Block.UPDATE_CLIENTS);
             if (level instanceof ServerLevel server) DomainNetwork.recomputeAmethyst(server, blockPos);
@@ -119,7 +121,7 @@ public final class AmethystSystemMenu extends EngineeringDeviceMenu {
                 f = id == BUTTON_PRIMARY_NEXT ? (f >= 15 ? 1 : f + 1) : (f <= 1 ? 15 : f - 1);
                 level.setBlock(blockPos, state.setValue(AmethystFrequencyFilterBlock.TARGET, f), Block.UPDATE_CLIENTS);
                 level.scheduleTick(blockPos, filter, 1); changed = true;
-            } else changed = rotate(id);
+            } else changed = rotateRoute(id);
         } else if (block instanceof AmethystTunedResonatorBlock tuned) {
             if (id == BUTTON_PRIMARY_PREVIOUS || id == BUTTON_PRIMARY_NEXT) {
                 int f = state.getValue(AmethystTunedResonatorBlock.NATURAL);
@@ -131,16 +133,16 @@ public final class AmethystSystemMenu extends EngineeringDeviceMenu {
                 q = id == BUTTON_SECONDARY_NEXT ? (q >= 4 ? 1 : q + 1) : (q <= 1 ? 4 : q - 1);
                 level.setBlock(blockPos, state.setValue(AmethystTunedResonatorBlock.Q_INDEX, q), Block.UPDATE_CLIENTS);
                 level.scheduleTick(blockPos, tuned, 1); changed = true;
-            } else changed = rotate(id);
+            } else changed = rotateRoute(id);
         } else return false;
 
-        if (changed) { refreshAuthoritativeSnapshot(); broadcastChanges(); }
+        if (changed) broadcastChanges();
         return changed;
     }
 
-    private boolean rotate(int id) {
+    private boolean rotateRoute(int id) {
         if (id != BUTTON_ROTATE_LEFT && id != BUTTON_ROTATE_RIGHT) return false;
-        return DirectionalDomainBlock.rotateSeriesAxis(level, blockPos, id == BUTTON_ROTATE_RIGHT);
+        return DirectionalDomainBlock.rotateWholeRoute(level, blockPos, id == BUTTON_ROTATE_RIGHT);
     }
 
     public int kind() { return kind.get(); } public int primary() { return primary.get(); }

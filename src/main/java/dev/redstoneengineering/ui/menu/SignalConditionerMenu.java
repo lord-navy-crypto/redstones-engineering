@@ -26,6 +26,7 @@ public final class SignalConditionerMenu extends EngineeringDeviceMenu {
     private final DataSlot input = trackedInt();
     private final DataSlot output = trackedInt();
     private final DataSlot facing = trackedInt();
+    private final DataSlot inputFacing = trackedInt();
     private final DataSlot limiting = trackedInt();
 
     public SignalConditionerMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
@@ -46,12 +47,14 @@ public final class SignalConditionerMenu extends EngineeringDeviceMenu {
         parameter.set(state.getValue(SignalConditionerBlock.PARAM));
         input.set(SignalConditionerBlock.inspectInput(level, blockPos, state));
         output.set(state.getValue(DirectionalSignalBlock.OUTPUT));
-        facing.set(state.getValue(DirectionalSignalBlock.FACING).ordinal());
+        facing.set(DirectionalSignalBlock.seriesOutputSide(state).ordinal());
+        inputFacing.set(DirectionalSignalBlock.seriesInputSide(state).ordinal());
         limiting.set(SignalConditionerBlock.limitingActive(level, blockPos, state) ? 1 : 0);
     }
 
     @Override
     public boolean clickMenuButton(Player player, int id) {
+        if (SeriesRouteActions.isEndpointAction(id)) return SeriesRouteActions.handle(this, player, id);
         if (level.isClientSide) return true;
         if (!stillValid(player)) return false;
         boolean changed = SignalConditionerBlock.applyConfigurationAction(level, blockPos, id);
@@ -74,6 +77,7 @@ public final class SignalConditionerMenu extends EngineeringDeviceMenu {
     }
 
     public Direction inputDirection() {
-        return outputDirection().getOpposite();
+        int ordinal = inputFacing.get();
+        return ordinal >= 0 && ordinal < Direction.values().length ? Direction.values()[ordinal] : Direction.SOUTH;
     }
 }
