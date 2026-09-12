@@ -11,6 +11,7 @@ import dev.redstoneengineering.ui.menu.QuartzTimingMenu;
 import dev.redstoneengineering.ui.menu.RadioLinkMenu;
 import dev.redstoneengineering.ui.menu.RangeSensorMenu;
 import dev.redstoneengineering.ui.menu.ReliabilitySystemMenu;
+import dev.redstoneengineering.ui.menu.SignalAnalyzerMenu;
 import dev.redstoneengineering.ui.menu.SignalConditionerMenu;
 import dev.redstoneengineering.ui.menu.SignalProcessorMenu;
 import dev.redstoneengineering.ui.menu.UniversalFieldDeviceMenu;
@@ -160,6 +161,9 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         if (menu instanceof RangeSensorMenu) {
             return clockwise ? RangeSensorMenu.BUTTON_ROTATE_RIGHT : RangeSensorMenu.BUTTON_ROTATE_LEFT;
         }
+        if (menu instanceof SignalAnalyzerMenu) {
+            return clockwise ? SignalAnalyzerMenu.BUTTON_ROTATE_RIGHT : SignalAnalyzerMenu.BUTTON_ROTATE_LEFT;
+        }
         if (menu instanceof SignalProcessorMenu) {
             return clockwise ? SignalProcessorMenu.BUTTON_ROTATE_RIGHT : SignalProcessorMenu.BUTTON_ROTATE_LEFT;
         }
@@ -197,6 +201,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         if (menu instanceof FieldDeviceMenu field) return field.seriesConfigurable();
         if (menu instanceof UniversalFieldDeviceMenu universal) return universal.rotatableSeriesAxis();
         if (menu instanceof RangeSensorMenu) return true;
+        if (menu instanceof SignalAnalyzerMenu) return true;
         if (menu instanceof SignalProcessorMenu) return true;
         if (menu instanceof SignalConditionerMenu) return true;
         if (menu instanceof QuartzTimingMenu quartz) {
