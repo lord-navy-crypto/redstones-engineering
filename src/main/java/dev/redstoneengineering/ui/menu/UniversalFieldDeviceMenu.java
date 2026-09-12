@@ -35,6 +35,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int ROUTE_TERMINAL_INTERFACE = 4;
     public static final int ROUTE_MEASUREMENT_FACE = 5;
     public static final int ROUTE_FIXED_APERTURE_OUTPUT_FRONT = 6;
+    public static final int ROUTE_MULTI_PORT_LAYOUT = 7;
 
     public static final int CONFIG_NONE = 0;
     public static final int CONFIG_LAPIS_TRANSDUCER = 1;
@@ -168,6 +169,12 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         if (block instanceof SignalProbeBlock) return ROUTE_PROBE_AXIS;
         if (block instanceof RedstoneCableTerminalBlock) return ROUTE_TERMINAL_INTERFACE;
         if (block instanceof DirectionalRedstoneEndpointBlock) return ROUTE_ENDPOINT_FRONT;
+        if (block instanceof AlarmProcessorBlock
+                || block instanceof SampleHoldBlock
+                || block instanceof CalibrationModuleBlock
+                || block instanceof PwmControllerBlock
+                || block instanceof FaultInjectorBlock
+                || block instanceof QuartzTriggeredLapisSamplerBlock) return ROUTE_MULTI_PORT_LAYOUT;
         if (block instanceof DirectionalSignalBlock || block instanceof DirectionalDomainBlock) return ROUTE_SERIES_AXIS;
         return ROUTE_NONE;
     }
