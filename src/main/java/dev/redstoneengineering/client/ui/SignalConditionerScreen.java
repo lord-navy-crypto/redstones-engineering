@@ -10,7 +10,6 @@ import net.minecraft.world.entity.player.Inventory;
 public final class SignalConditionerScreen extends EngineeringScreen<SignalConditionerMenu> {
     private Button parameterDecrease;
     private Button parameterIncrease;
-    private Button directionCycle;
 
     public SignalConditionerScreen(SignalConditionerMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -31,9 +30,6 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
         parameterIncrease = addConfigureWidget(Button.builder(Component.literal("Parameter +"),
                 button -> sendMenuButton(SignalConditionerMenu.BUTTON_PARAM_INCREASE))
                 .bounds(leftPos + 108, y + 25, 86, 20).build());
-        directionCycle = addConfigureWidget(Button.builder(Component.literal("Direction • —"),
-                button -> sendMenuButton(SignalConditionerMenu.BUTTON_ROTATE_RIGHT))
-                .bounds(leftPos + 198, y, 104, 45).build());
     }
 
     @Override
@@ -42,11 +38,6 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
         String shortName = parameterShortName(menu.mode());
         parameterDecrease.setMessage(Component.literal("− " + shortName));
         parameterIncrease.setMessage(Component.literal(shortName + " +"));
-        if (directionCycle != null) {
-            directionCycle.setMessage(Component.literal("Direction • " + direction(menu.outputDirection().getName())));
-            directionCycle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
-                    "Cycle the conditioner input/output axis clockwise on the server.")));
-        }
     }
 
     @Override
@@ -78,7 +69,7 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
         statusLine(graphics, direction(menu.outputDirection().getName()), "OUTPUT • REDSTONE 0..15", GOOD, 152);
         sectionRule(graphics, 174);
         safeText(graphics, "Input and output remain opposite ends of one rotatable series path.", 16, 186, MUTED);
-        safeText(graphics, "Cycle Direction in Configure; side faces remain non-driving.", 16, 202, MUTED);
+        safeText(graphics, "Physical direction is controlled only on Route; side faces remain non-driving.", 16, 202, MUTED);
     }
 
     private void renderConfigure(GuiGraphics graphics) {
@@ -88,7 +79,7 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
         labelValue(graphics, "Allowed", parameterRange(menu.mode()), 134);
         labelValue(graphics, "Input → Output", direction(menu.inputDirection().getName()) + " → " + direction(menu.outputDirection().getName()), 150);
         safeText(graphics, behaviorLine(menu.mode()), 16, 177, TEXT);
-        safeText(graphics, "Buttons change configuration only on the logical server.", 16, 194, MUTED);
+        safeText(graphics, "Buttons change configuration only; physical direction is controlled on Route.", 16, 194, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
