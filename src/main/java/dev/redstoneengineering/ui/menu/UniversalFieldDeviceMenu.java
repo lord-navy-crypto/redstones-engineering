@@ -1,8 +1,10 @@
 package dev.redstoneengineering.ui.menu;
 
+import dev.redstoneengineering.block.CopperCircuitMeterBlock;
 import dev.redstoneengineering.block.DirectionalDomainBlock;
 import dev.redstoneengineering.block.DirectionalRedstoneEndpointBlock;
 import dev.redstoneengineering.block.DirectionalSignalBlock;
+import dev.redstoneengineering.block.LapisPrecisionMeterBlock;
 import dev.redstoneengineering.block.RedstoneCableTerminalBlock;
 import dev.redstoneengineering.block.SignalProbeBlock;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
@@ -109,7 +111,9 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
                 || block instanceof DirectionalDomainBlock
                 || block instanceof DirectionalRedstoneEndpointBlock
                 || block instanceof SignalProbeBlock
-                || block instanceof RedstoneCableTerminalBlock;
+                || block instanceof RedstoneCableTerminalBlock
+                || block instanceof LapisPrecisionMeterBlock
+                || block instanceof CopperCircuitMeterBlock;
     }
 
     private static int syncNumber(double value) {
@@ -123,6 +127,8 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         if (state.hasProperty(DirectionalRedstoneEndpointBlock.FACING)) return state.getValue(DirectionalRedstoneEndpointBlock.FACING).ordinal();
         if (state.hasProperty(SignalProbeBlock.FACING)) return state.getValue(SignalProbeBlock.FACING).ordinal();
         if (state.hasProperty(RedstoneCableTerminalBlock.FACING)) return state.getValue(RedstoneCableTerminalBlock.FACING).ordinal();
+        if (state.hasProperty(LapisPrecisionMeterBlock.FACING)) return state.getValue(LapisPrecisionMeterBlock.FACING).ordinal();
+        if (state.hasProperty(CopperCircuitMeterBlock.FACING)) return state.getValue(CopperCircuitMeterBlock.FACING).ordinal();
         return -1;
     }
 
@@ -159,6 +165,12 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         }
         if (block instanceof RedstoneCableTerminalBlock) {
             return RedstoneCableTerminalBlock.rotateInterface(level, blockPos, clockwise);
+        }
+        if (block instanceof LapisPrecisionMeterBlock) {
+            return LapisPrecisionMeterBlock.rotateMeasurementFace(level, blockPos, clockwise);
+        }
+        if (block instanceof CopperCircuitMeterBlock) {
+            return CopperCircuitMeterBlock.rotateMeasurementFace(level, blockPos, clockwise);
         }
         return false;
     }
