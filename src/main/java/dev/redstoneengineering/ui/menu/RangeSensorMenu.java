@@ -87,6 +87,15 @@ public final class RangeSensorMenu extends EngineeringDeviceMenu {
         BlockState state = level.getBlockState(blockPos);
         if (!(state.getBlock() instanceof RangeSensorBlock sensor)) return false;
 
+        if (id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT) {
+            boolean changed = RangeSensorBlock.rotateSensingAxis(level, blockPos, id == BUTTON_ROTATE_RIGHT);
+            if (changed) {
+                refreshAuthoritativeSnapshot();
+                broadcastChanges();
+            }
+            return changed;
+        }
+
         BlockState next = state;
         switch (id) {
             case BUTTON_MODE_PREVIOUS -> next = state.setValue(RangeSensorBlock.MODE,
@@ -101,10 +110,6 @@ public final class RangeSensorMenu extends EngineeringDeviceMenu {
                     Math.floorMod(state.getValue(RangeSensorBlock.RESPONSE) - 1, 4));
             case BUTTON_RESPONSE_NEXT -> next = state.setValue(RangeSensorBlock.RESPONSE,
                     (state.getValue(RangeSensorBlock.RESPONSE) + 1) % 4);
-            case BUTTON_ROTATE_LEFT -> next = state.setValue(RangeSensorBlock.FACING,
-                    state.getValue(RangeSensorBlock.FACING).getCounterClockWise());
-            case BUTTON_ROTATE_RIGHT -> next = state.setValue(RangeSensorBlock.FACING,
-                    state.getValue(RangeSensorBlock.FACING).getClockWise());
             default -> {
                 return false;
             }
@@ -112,7 +117,6 @@ public final class RangeSensorMenu extends EngineeringDeviceMenu {
 
         if (next == state) return false;
         level.setBlock(blockPos, next, Block.UPDATE_CLIENTS);
-        // One bounded notification fans out to all adjacent redstone consumers without per-face storms.
         level.updateNeighborsAt(blockPos, sensor);
         level.scheduleTick(blockPos, sensor, 1);
         refreshAuthoritativeSnapshot();
