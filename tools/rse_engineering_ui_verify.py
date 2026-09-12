@@ -29,6 +29,8 @@ required = {
         "topologyRoleLabel",
         "operationalHealthLabel",
         "evidenceStateLabel",
+        "receivePortMask",
+        "transmitPortMask",
         "stillValid",
     ],
     "src/main/java/dev/redstoneengineering/ui/menu/SignalConditionerMenu.java": [
@@ -51,6 +53,19 @@ required = {
         "ROLE • ",
         "HEALTH • ",
         "EVIDENCE • ",
+        "SIGNAL ROUTE",
+        "drawFaceMatrix",
+        "Direction.NORTH, Direction.EAST, Direction.SOUTH",
+        "menu.receivePortMask()",
+        "menu.transmitPortMask()",
+        'receiving ? "WIRE" : "RF"',
+        'receiving ? "RF" : "WIRE"',
+        'receiving ? "WIRE" : "LOS"',
+        'receiving ? "LOS" : "WIRE"',
+        '"FIBER"',
+        '"FAN-OUT ×"',
+        '"SINGLE TX"',
+        '"SERIES PATH"',
         "menu.topologyRoleLabel()",
         "menu.operationalHealthLabel()",
         "menu.evidenceStateLabel()",
@@ -135,6 +150,9 @@ if errors:
 print("RSE Engineering UI verification: PASS")
 print(" shared menu/screen framework: PASS")
 print(" server-authoritative ROLE / HEALTH / EVIDENCE HMI: PASS")
+print(" six-face RX/TX route matrix: PASS")
+print(" WIRE / RF / LOS / FIBER medium identity: PASS")
+print(" SINGLE TX / FAN-OUT / SERIES topology cues: PASS")
 print(" server-authoritative configuration path: PASS")
 print(" client UI authority boundary: PASS")
 print(" Conditioner + PID runtime action tests registered: PASS")
