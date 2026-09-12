@@ -10,7 +10,7 @@ import net.minecraft.world.entity.player.Inventory;
 
 /** Dedicated magnetic HMI separating source, actuator, converter and observer responsibilities. */
 public final class MagneticSystemScreen extends EngineeringScreen<MagneticSystemMenu> {
-    private Button primaryPrevious, primaryNext, directionCycle;
+    private Button primaryPrevious, primaryNext;
 
     public MagneticSystemScreen(MagneticSystemMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -20,7 +20,6 @@ public final class MagneticSystemScreen extends EngineeringScreen<MagneticSystem
         int y = topPos + 116;
         primaryPrevious = addConfigureWidget(Button.builder(Component.literal("◀ Parameter"), b -> sendMenuButton(MagneticSystemMenu.BUTTON_PRIMARY_PREVIOUS)).bounds(leftPos+16,y,105,20).build());
         primaryNext = addConfigureWidget(Button.builder(Component.literal("Parameter ▶"), b -> sendMenuButton(MagneticSystemMenu.BUTTON_PRIMARY_NEXT)).bounds(leftPos+199,y,105,20).build());
-        directionCycle = addConfigureWidget(Button.builder(Component.literal("Direction • —"), b -> sendMenuButton(MagneticSystemMenu.BUTTON_ROTATE_RIGHT)).bounds(leftPos+70,y+30,180,20).build());
     }
 
     @Override protected void syncDeviceWidgetLabels() {
@@ -33,21 +32,12 @@ public final class MagneticSystemScreen extends EngineeringScreen<MagneticSystem
         primaryNext.active = configurable;
         primaryPrevious.visible = configure && configurable;
         primaryNext.visible = configure && configurable;
-        directionCycle.active = configurable;
-        directionCycle.visible = configure && configurable;
         if (permanent) {
             primaryPrevious.setMessage(Component.literal("◀ B " + menu.primary()));
             primaryNext.setMessage(Component.literal("B " + menu.primary() + " ▶"));
-            directionCycle.setMessage(Component.literal("N marker • " + face(menu.facing())));
         } else if (coil) {
             primaryPrevious.setMessage(Component.literal("◀ N×" + menu.tertiary()));
             primaryNext.setMessage(Component.literal("N×" + menu.tertiary() + " ▶"));
-            directionCycle.setMessage(Component.literal("Direction • " + face(menu.facing())));
-        }
-        if (configurable) {
-            directionCycle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
-                    permanent ? "Cycle the permanent-magnet north marker clockwise on the server."
-                            : "Cycle the induction-coil input/output axis clockwise on the server.")));
         }
     }
 
@@ -116,8 +106,16 @@ public final class MagneticSystemScreen extends EngineeringScreen<MagneticSystem
 
     private void configure(GuiGraphics g) {
         statusBadge(g,"SERVER-SIDE BOUNDED CONTROL",INFO,16,80);
-        if(menu.kind()==MagneticSystemMenu.KIND_PERMANENT){labelValue(g,"Strength",menu.primary()+" / 15",101);labelValue(g,"N marker",face(menu.facing()),171);}
-        else if(menu.kind()==MagneticSystemMenu.KIND_COIL){labelValue(g,"Turns index",Integer.toString(menu.tertiary()),101);labelValue(g,"I/O axis",face(menu.facing().getOpposite())+" → "+face(menu.facing()),171);}
+        if(menu.kind()==MagneticSystemMenu.KIND_PERMANENT){
+            labelValue(g,"Strength",menu.primary()+" / 15",101);
+            labelValue(g,"N marker",face(menu.facing()),171);
+            safeText(g,"North-marker orientation is controlled only on Route.",16,199,MUTED);
+        }
+        else if(menu.kind()==MagneticSystemMenu.KIND_COIL){
+            labelValue(g,"Turns index",Integer.toString(menu.tertiary()),101);
+            labelValue(g,"I/O axis",face(menu.facing().getOpposite())+" → "+face(menu.facing()),171);
+            safeText(g,"Physical coil direction is controlled only on Route.",16,199,MUTED);
+        }
         else {labelValue(g,"Configuration","READ ONLY / PHYSICS-DRIVEN",101);labelValue(g,"Network authority",observerOrActuator(),171);}
     }
 
