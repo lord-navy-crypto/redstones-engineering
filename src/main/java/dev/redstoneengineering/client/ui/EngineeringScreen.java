@@ -73,7 +73,8 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private final List<AbstractWidget> configureWidgets = new ArrayList<>();
     private final List<Button> sectionButtons = new ArrayList<>();
     private Button routeTab;
-    private Button routeCycle;
+    private Button routePrevious;
+    private Button routeNext;
 
     protected EngineeringScreen(M menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -90,7 +91,8 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         configureWidgets.clear();
         sectionButtons.clear();
         routeTab = null;
-        routeCycle = null;
+        routePrevious = null;
+        routeNext = null;
 
         int tabY = topPos + 31;
         int x = leftPos + 8;
@@ -106,10 +108,10 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         addSectionTab(Section.HISTORY, x, tabY, tabWidth);
 
         addDeviceWidgets();
-        addRouteControl();
+        addRouteControls();
         updateWidgetVisibility();
         syncDeviceWidgetLabels();
-        syncRouteControl();
+        syncRouteControls();
     }
 
     private void addSectionTab(Section target, int x, int y, int width) {
@@ -136,28 +138,58 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         }
     }
 
-    private void addRouteControl() {
-        routeCycle = addRenderableWidget(Button.builder(
-                Component.literal("Direction / orientation • —"),
-                button -> sendMenuButton(routeActionId())
-        ).bounds(leftPos + CONTENT_LEFT, topPos + ROUTE_CONTROL_Y,
-                CONTENT_RIGHT - CONTENT_LEFT, 20).build());
+    private void addRouteControls() {
+        int width = 136;
+        routePrevious = addRenderableWidget(Button.builder(
+                Component.literal("↺ Previous"),
+                button -> sendMenuButton(routeActionId(false))
+        ).bounds(leftPos + CONTENT_LEFT, topPos + ROUTE_CONTROL_Y, width, 20).build());
+        routeNext = addRenderableWidget(Button.builder(
+                Component.literal("Next ↻"),
+                button -> sendMenuButton(routeActionId(true))
+        ).bounds(leftPos + CONTENT_RIGHT - width, topPos + ROUTE_CONTROL_Y, width, 20).build());
     }
 
-    private int routeActionId() {
-        if (menu instanceof FieldDeviceMenu) return FieldDeviceMenu.BUTTON_ROTATE_CW;
-        if (menu instanceof UniversalFieldDeviceMenu) return UniversalFieldDeviceMenu.BUTTON_ROTATE_RIGHT;
-        if (menu instanceof RangeSensorMenu) return RangeSensorMenu.BUTTON_ROTATE_RIGHT;
-        if (menu instanceof SignalProcessorMenu) return SignalProcessorMenu.BUTTON_ROTATE_RIGHT;
-        if (menu instanceof SignalConditionerMenu) return SignalConditionerMenu.BUTTON_ROTATE_RIGHT;
-        if (menu instanceof QuartzTimingMenu) return QuartzTimingMenu.BUTTON_ROTATE_RIGHT;
-        if (menu instanceof RadioLinkMenu) return RadioLinkMenu.BUTTON_OUTPUT_RIGHT;
-        if (menu instanceof DigitalCommunicationMenu) return DigitalCommunicationMenu.BUTTON_ROTATE_RIGHT;
-        if (menu instanceof PneumaticSystemMenu) return PneumaticSystemMenu.BUTTON_ROTATE_RIGHT;
-        if (menu instanceof OpticalSystemMenu) return OpticalSystemMenu.BUTTON_ROTATE_RIGHT;
-        if (menu instanceof AmethystSystemMenu) return AmethystSystemMenu.BUTTON_ROTATE_RIGHT;
-        if (menu instanceof MagneticSystemMenu) return MagneticSystemMenu.BUTTON_ROTATE_RIGHT;
-        if (menu instanceof ReliabilitySystemMenu) return ReliabilitySystemMenu.BUTTON_ROTATE_RIGHT;
+    private int routeActionId(boolean clockwise) {
+        if (menu instanceof FieldDeviceMenu) {
+            return clockwise ? FieldDeviceMenu.BUTTON_ROTATE_CW : FieldDeviceMenu.BUTTON_ROTATE_CCW;
+        }
+        if (menu instanceof UniversalFieldDeviceMenu) {
+            return clockwise ? UniversalFieldDeviceMenu.BUTTON_ROTATE_RIGHT : UniversalFieldDeviceMenu.BUTTON_ROTATE_LEFT;
+        }
+        if (menu instanceof RangeSensorMenu) {
+            return clockwise ? RangeSensorMenu.BUTTON_ROTATE_RIGHT : RangeSensorMenu.BUTTON_ROTATE_LEFT;
+        }
+        if (menu instanceof SignalProcessorMenu) {
+            return clockwise ? SignalProcessorMenu.BUTTON_ROTATE_RIGHT : SignalProcessorMenu.BUTTON_ROTATE_LEFT;
+        }
+        if (menu instanceof SignalConditionerMenu) {
+            return clockwise ? SignalConditionerMenu.BUTTON_ROTATE_RIGHT : SignalConditionerMenu.BUTTON_ROTATE_LEFT;
+        }
+        if (menu instanceof QuartzTimingMenu) {
+            return clockwise ? QuartzTimingMenu.BUTTON_ROTATE_RIGHT : QuartzTimingMenu.BUTTON_ROTATE_LEFT;
+        }
+        if (menu instanceof RadioLinkMenu) {
+            return clockwise ? RadioLinkMenu.BUTTON_OUTPUT_RIGHT : RadioLinkMenu.BUTTON_OUTPUT_LEFT;
+        }
+        if (menu instanceof DigitalCommunicationMenu) {
+            return clockwise ? DigitalCommunicationMenu.BUTTON_ROTATE_RIGHT : DigitalCommunicationMenu.BUTTON_ROTATE_LEFT;
+        }
+        if (menu instanceof PneumaticSystemMenu) {
+            return clockwise ? PneumaticSystemMenu.BUTTON_ROTATE_RIGHT : PneumaticSystemMenu.BUTTON_ROTATE_LEFT;
+        }
+        if (menu instanceof OpticalSystemMenu) {
+            return clockwise ? OpticalSystemMenu.BUTTON_ROTATE_RIGHT : OpticalSystemMenu.BUTTON_ROTATE_LEFT;
+        }
+        if (menu instanceof AmethystSystemMenu) {
+            return clockwise ? AmethystSystemMenu.BUTTON_ROTATE_RIGHT : AmethystSystemMenu.BUTTON_ROTATE_LEFT;
+        }
+        if (menu instanceof MagneticSystemMenu) {
+            return clockwise ? MagneticSystemMenu.BUTTON_ROTATE_RIGHT : MagneticSystemMenu.BUTTON_ROTATE_LEFT;
+        }
+        if (menu instanceof ReliabilitySystemMenu) {
+            return clockwise ? ReliabilitySystemMenu.BUTTON_ROTATE_RIGHT : ReliabilitySystemMenu.BUTTON_ROTATE_LEFT;
+        }
         return -1;
     }
 
@@ -183,17 +215,17 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         return menu instanceof ReliabilitySystemMenu;
     }
 
-    private void syncRouteControl() {
-        if (routeCycle == null) return;
+    private void syncRouteControls() {
+        if (routePrevious == null || routeNext == null) return;
         boolean enabled = routeSupported();
-        String route = menu.portRouteLabel();
-        if (route == null || route.isBlank()) route = enabled ? "ROTATABLE INTERFACE" : "FIXED INTERFACE";
-        routeCycle.setMessage(Component.literal(fitForWidth(
-                "Direction / orientation • " + route, CONTENT_RIGHT - CONTENT_LEFT - 16)));
-        routeCycle.active = enabled;
-        routeCycle.visible = routePage && enabled;
-        routeCycle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
-                "Cycle the declared route, output face, measurement face, or orientation clockwise on the server.")));
+        routePrevious.active = enabled;
+        routeNext.active = enabled;
+        routePrevious.visible = routePage && enabled;
+        routeNext.visible = routePage && enabled;
+        routePrevious.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
+                "Rotate the declared route, output face, measurement face, or orientation counter-clockwise on the server.")));
+        routeNext.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
+                "Rotate the declared route, output face, measurement face, or orientation clockwise on the server.")));
     }
 
     private void setSection(Section target) {
@@ -201,14 +233,14 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         this.routePage = false;
         updateWidgetVisibility();
         syncDeviceWidgetLabels();
-        syncRouteControl();
+        syncRouteControls();
     }
 
     private void setRoutePage() {
         routePage = true;
         updateWidgetVisibility();
         syncDeviceWidgetLabels();
-        syncRouteControl();
+        syncRouteControls();
     }
 
     private boolean isLegacyRouteWidget(AbstractWidget widget) {
@@ -245,7 +277,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     protected void containerTick() {
         super.containerTick();
         syncDeviceWidgetLabels();
-        syncRouteControl();
+        syncRouteControls();
     }
 
     @Override
@@ -300,11 +332,11 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         labelValue(graphics, "Control authority", enabled ? "SERVER-SIDE" : "READ ONLY", 152);
         if (enabled) {
             safeText(graphics,
-                    "Use the button below to cycle the device's declared route/orientation. Parameters remain on Configure.",
+                    "Use Previous / Next below to rotate the real route or measurement face. Parameters remain on Configure.",
                     16, 174, TEXT);
         } else {
             safeText(graphics,
-                    "This device has no rotatable route/orientation. Its remaining controls, if any, are on Configure.",
+                    "This device has a fixed physical port contract. Its remaining controls, if any, are on Configure.",
                     16, 174, MUTED);
         }
     }
