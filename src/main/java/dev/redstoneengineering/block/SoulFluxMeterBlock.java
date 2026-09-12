@@ -10,10 +10,12 @@ import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.SoulFluxNetwork;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -128,12 +130,16 @@ public class SoulFluxMeterBlock extends PassiveDirectionalSignalBlock {
     protected InteractionResult useWithoutItem(
             BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit
     ) {
-        if (!level.isClientSide) {
-            ChargeObservation observation = inputObservation(level, pos, state);
-            player.displayClientMessage(Component.literal(
-                    "Soul Flux meter | BACK SOUL_FLUX=" + observation.value()
-                            + "/100 [" + observation.quality().name() + "]"
-                            + " → FRONT REDSTONE=" + state.getValue(OUTPUT) + "/15"), true);
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown()) {
+                ChargeObservation observation = inputObservation(level, pos, state);
+                player.displayClientMessage(Component.literal(
+                        "Soul Flux meter | BACK SOUL_FLUX=" + observation.value()
+                                + "/100 [" + observation.quality().name() + "]"
+                                + " → FRONT REDSTONE=" + state.getValue(OUTPUT) + "/15"), true);
+            } else {
+                FieldDeviceUi.openUniversal(serverPlayer, pos);
+            }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
