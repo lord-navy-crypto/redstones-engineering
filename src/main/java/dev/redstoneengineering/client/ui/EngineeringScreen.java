@@ -25,14 +25,7 @@ import net.minecraft.world.entity.player.Inventory;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Shared RSE engineering visual language.
- *
- * <p>Pages are deliberately separated by responsibility. Overview observes, Ports documents the
- * physical contract, Configure owns parameters/modes/actions, Route owns orientation, Observe owns
- * diagnostics, and Log owns retained evidence. Nothing is removed merely to make the panel look
- * cleaner: when controls do not fit together, they move to their own page.</p>
- */
+/** Shared RSE engineering visual language. */
 public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends AbstractContainerScreen<M> {
     protected enum Section {
         OVERVIEW("Overview", "Live engineering state"),
@@ -130,11 +123,8 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         sectionButtons.add(addRenderableWidget(tab));
     }
 
-    protected void addDeviceWidgets() {
-    }
-
-    protected void syncDeviceWidgetLabels() {
-    }
+    protected void addDeviceWidgets() {}
+    protected void syncDeviceWidgetLabels() {}
 
     protected final <T extends AbstractWidget> T addConfigureWidget(T widget) {
         configureWidgets.add(widget);
@@ -151,141 +141,105 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private void addRouteControls() {
         int width = 136;
         routePrevious = addRenderableWidget(Button.builder(
-                Component.literal("Direction ▲"),
-                button -> sendMenuButton(routeActionId(false))
-        ).bounds(leftPos + CONTENT_LEFT, topPos + ROUTE_CONTROL_Y, width, 20).build());
+                Component.literal("Direction ▲"), button -> sendMenuButton(routeActionId(false)))
+                .bounds(leftPos + CONTENT_LEFT, topPos + ROUTE_CONTROL_Y, width, 20).build());
         routeNext = addRenderableWidget(Button.builder(
-                Component.literal("Direction ▼"),
-                button -> sendMenuButton(routeActionId(true))
-        ).bounds(leftPos + CONTENT_RIGHT - width, topPos + ROUTE_CONTROL_Y, width, 20).build());
+                Component.literal("Direction ▼"), button -> sendMenuButton(routeActionId(true)))
+                .bounds(leftPos + CONTENT_RIGHT - width, topPos + ROUTE_CONTROL_Y, width, 20).build());
 
         int endpointWidth = 66;
         int endpointGap = 6;
         int x0 = leftPos + CONTENT_LEFT;
         routeInputPrevious = addRenderableWidget(Button.builder(
-                Component.literal("RX ▲"),
-                button -> sendMenuButton(routeInputActionId(false))
-        ).bounds(x0, topPos + ROUTE_ENDPOINT_Y, endpointWidth, 20).build());
+                Component.literal("RX ▲"), button -> sendMenuButton(routeInputActionId(false)))
+                .bounds(x0, topPos + ROUTE_ENDPOINT_Y, endpointWidth, 20).build());
         routeInputNext = addRenderableWidget(Button.builder(
-                Component.literal("RX ▼"),
-                button -> sendMenuButton(routeInputActionId(true))
-        ).bounds(x0 + endpointWidth + endpointGap, topPos + ROUTE_ENDPOINT_Y, endpointWidth, 20).build());
+                Component.literal("RX ▼"), button -> sendMenuButton(routeInputActionId(true)))
+                .bounds(x0 + endpointWidth + endpointGap, topPos + ROUTE_ENDPOINT_Y, endpointWidth, 20).build());
         routeOutputPrevious = addRenderableWidget(Button.builder(
-                Component.literal("TX ▲"),
-                button -> sendMenuButton(routeOutputActionId(false))
-        ).bounds(x0 + (endpointWidth + endpointGap) * 2, topPos + ROUTE_ENDPOINT_Y, endpointWidth, 20).build());
+                Component.literal("TX ▲"), button -> sendMenuButton(routeOutputActionId(false)))
+                .bounds(x0 + (endpointWidth + endpointGap) * 2, topPos + ROUTE_ENDPOINT_Y, endpointWidth, 20).build());
         routeOutputNext = addRenderableWidget(Button.builder(
-                Component.literal("TX ▼"),
-                button -> sendMenuButton(routeOutputActionId(true))
-        ).bounds(x0 + (endpointWidth + endpointGap) * 3, topPos + ROUTE_ENDPOINT_Y, endpointWidth, 20).build());
+                Component.literal("TX ▼"), button -> sendMenuButton(routeOutputActionId(true)))
+                .bounds(x0 + (endpointWidth + endpointGap) * 3, topPos + ROUTE_ENDPOINT_Y, endpointWidth, 20).build());
     }
 
     private int routeActionId(boolean clockwise) {
-        if (menu instanceof FieldDeviceMenu) {
-            return clockwise ? FieldDeviceMenu.BUTTON_ROTATE_CW : FieldDeviceMenu.BUTTON_ROTATE_CCW;
-        }
-        if (menu instanceof UniversalFieldDeviceMenu) {
-            return clockwise ? UniversalFieldDeviceMenu.BUTTON_ROTATE_RIGHT : UniversalFieldDeviceMenu.BUTTON_ROTATE_LEFT;
-        }
-        if (menu instanceof RangeSensorMenu) {
-            return clockwise ? RangeSensorMenu.BUTTON_ROTATE_RIGHT : RangeSensorMenu.BUTTON_ROTATE_LEFT;
-        }
-        if (menu instanceof SignalAnalyzerMenu) {
-            return clockwise ? SignalAnalyzerMenu.BUTTON_ROTATE_RIGHT : SignalAnalyzerMenu.BUTTON_ROTATE_LEFT;
-        }
-        if (menu instanceof SignalProcessorMenu) {
-            return clockwise ? SignalProcessorMenu.BUTTON_ROTATE_RIGHT : SignalProcessorMenu.BUTTON_ROTATE_LEFT;
-        }
-        if (menu instanceof SignalConditionerMenu) {
-            return clockwise ? SignalConditionerMenu.BUTTON_ROTATE_RIGHT : SignalConditionerMenu.BUTTON_ROTATE_LEFT;
-        }
-        if (menu instanceof QuartzTimingMenu) {
-            return clockwise ? QuartzTimingMenu.BUTTON_ROTATE_RIGHT : QuartzTimingMenu.BUTTON_ROTATE_LEFT;
-        }
-        if (menu instanceof RadioLinkMenu) {
-            return clockwise ? RadioLinkMenu.BUTTON_OUTPUT_RIGHT : RadioLinkMenu.BUTTON_OUTPUT_LEFT;
-        }
-        if (menu instanceof DigitalCommunicationMenu) {
-            return clockwise ? DigitalCommunicationMenu.BUTTON_ROTATE_RIGHT : DigitalCommunicationMenu.BUTTON_ROTATE_LEFT;
-        }
-        if (menu instanceof PneumaticSystemMenu) {
-            return clockwise ? PneumaticSystemMenu.BUTTON_ROTATE_RIGHT : PneumaticSystemMenu.BUTTON_ROTATE_LEFT;
-        }
-        if (menu instanceof OpticalSystemMenu) {
-            return clockwise ? OpticalSystemMenu.BUTTON_ROTATE_RIGHT : OpticalSystemMenu.BUTTON_ROTATE_LEFT;
-        }
-        if (menu instanceof AmethystSystemMenu) {
-            return clockwise ? AmethystSystemMenu.BUTTON_ROTATE_RIGHT : AmethystSystemMenu.BUTTON_ROTATE_LEFT;
-        }
-        if (menu instanceof MagneticSystemMenu) {
-            return clockwise ? MagneticSystemMenu.BUTTON_ROTATE_RIGHT : MagneticSystemMenu.BUTTON_ROTATE_LEFT;
-        }
-        if (menu instanceof ReliabilitySystemMenu) {
-            return clockwise ? ReliabilitySystemMenu.BUTTON_ROTATE_RIGHT : ReliabilitySystemMenu.BUTTON_ROTATE_LEFT;
-        }
+        if (menu instanceof FieldDeviceMenu) return clockwise ? FieldDeviceMenu.BUTTON_ROTATE_CW : FieldDeviceMenu.BUTTON_ROTATE_CCW;
+        if (menu instanceof UniversalFieldDeviceMenu) return clockwise ? UniversalFieldDeviceMenu.BUTTON_ROTATE_RIGHT : UniversalFieldDeviceMenu.BUTTON_ROTATE_LEFT;
+        if (menu instanceof RangeSensorMenu) return clockwise ? RangeSensorMenu.BUTTON_ROTATE_RIGHT : RangeSensorMenu.BUTTON_ROTATE_LEFT;
+        if (menu instanceof SignalAnalyzerMenu) return clockwise ? SignalAnalyzerMenu.BUTTON_ROTATE_RIGHT : SignalAnalyzerMenu.BUTTON_ROTATE_LEFT;
+        if (menu instanceof SignalProcessorMenu) return clockwise ? SignalProcessorMenu.BUTTON_ROTATE_RIGHT : SignalProcessorMenu.BUTTON_ROTATE_LEFT;
+        if (menu instanceof SignalConditionerMenu) return clockwise ? SignalConditionerMenu.BUTTON_ROTATE_RIGHT : SignalConditionerMenu.BUTTON_ROTATE_LEFT;
+        if (menu instanceof QuartzTimingMenu) return clockwise ? QuartzTimingMenu.BUTTON_ROTATE_RIGHT : QuartzTimingMenu.BUTTON_ROTATE_LEFT;
+        if (menu instanceof RadioLinkMenu) return clockwise ? RadioLinkMenu.BUTTON_OUTPUT_RIGHT : RadioLinkMenu.BUTTON_OUTPUT_LEFT;
+        if (menu instanceof DigitalCommunicationMenu) return clockwise ? DigitalCommunicationMenu.BUTTON_ROTATE_RIGHT : DigitalCommunicationMenu.BUTTON_ROTATE_LEFT;
+        if (menu instanceof PneumaticSystemMenu) return clockwise ? PneumaticSystemMenu.BUTTON_ROTATE_RIGHT : PneumaticSystemMenu.BUTTON_ROTATE_LEFT;
+        if (menu instanceof OpticalSystemMenu) return clockwise ? OpticalSystemMenu.BUTTON_ROTATE_RIGHT : OpticalSystemMenu.BUTTON_ROTATE_LEFT;
+        if (menu instanceof AmethystSystemMenu) return clockwise ? AmethystSystemMenu.BUTTON_ROTATE_RIGHT : AmethystSystemMenu.BUTTON_ROTATE_LEFT;
+        if (menu instanceof MagneticSystemMenu) return clockwise ? MagneticSystemMenu.BUTTON_ROTATE_RIGHT : MagneticSystemMenu.BUTTON_ROTATE_LEFT;
+        if (menu instanceof ReliabilitySystemMenu) return clockwise ? ReliabilitySystemMenu.BUTTON_ROTATE_RIGHT : ReliabilitySystemMenu.BUTTON_ROTATE_LEFT;
         return -1;
     }
 
     private int routeInputActionId(boolean clockwise) {
-        if (menu instanceof UniversalFieldDeviceMenu) {
-            return clockwise ? UniversalFieldDeviceMenu.BUTTON_INPUT_RIGHT : UniversalFieldDeviceMenu.BUTTON_INPUT_LEFT;
-        }
-        if (menu instanceof DigitalCommunicationMenu) {
-            return clockwise ? DigitalCommunicationMenu.BUTTON_INPUT_RIGHT : DigitalCommunicationMenu.BUTTON_INPUT_LEFT;
-        }
-        if (menu instanceof PneumaticSystemMenu) {
-            return clockwise ? PneumaticSystemMenu.BUTTON_INPUT_RIGHT : PneumaticSystemMenu.BUTTON_INPUT_LEFT;
-        }
-        if (menu instanceof SignalProcessorMenu) {
-            return clockwise ? SignalProcessorMenu.BUTTON_INPUT_RIGHT : SignalProcessorMenu.BUTTON_INPUT_LEFT;
-        }
-        if (menu instanceof SignalConditionerMenu) {
-            return clockwise ? SignalConditionerMenu.BUTTON_INPUT_RIGHT : SignalConditionerMenu.BUTTON_INPUT_LEFT;
-        }
+        if (menu instanceof FieldDeviceMenu) return clockwise ? FieldDeviceMenu.BUTTON_INPUT_NEXT : FieldDeviceMenu.BUTTON_INPUT_PREVIOUS;
+        if (menu instanceof UniversalFieldDeviceMenu) return clockwise ? UniversalFieldDeviceMenu.BUTTON_INPUT_RIGHT : UniversalFieldDeviceMenu.BUTTON_INPUT_LEFT;
+        if (menu instanceof DigitalCommunicationMenu) return clockwise ? DigitalCommunicationMenu.BUTTON_INPUT_RIGHT : DigitalCommunicationMenu.BUTTON_INPUT_LEFT;
+        if (menu instanceof PneumaticSystemMenu) return clockwise ? PneumaticSystemMenu.BUTTON_INPUT_RIGHT : PneumaticSystemMenu.BUTTON_INPUT_LEFT;
+        if (menu instanceof SignalProcessorMenu) return clockwise ? SignalProcessorMenu.BUTTON_INPUT_RIGHT : SignalProcessorMenu.BUTTON_INPUT_LEFT;
+        if (menu instanceof SignalConditionerMenu) return clockwise ? SignalConditionerMenu.BUTTON_INPUT_RIGHT : SignalConditionerMenu.BUTTON_INPUT_LEFT;
+        if (menu instanceof QuartzTimingMenu) return clockwise ? QuartzTimingMenu.BUTTON_INPUT_RIGHT : QuartzTimingMenu.BUTTON_INPUT_LEFT;
+        if (menu instanceof AmethystSystemMenu) return clockwise ? AmethystSystemMenu.BUTTON_INPUT_RIGHT : AmethystSystemMenu.BUTTON_INPUT_LEFT;
+        if (menu instanceof OpticalSystemMenu) return clockwise ? OpticalSystemMenu.BUTTON_INPUT_RIGHT : OpticalSystemMenu.BUTTON_INPUT_LEFT;
+        if (menu instanceof MagneticSystemMenu) return clockwise ? MagneticSystemMenu.BUTTON_INPUT_RIGHT : MagneticSystemMenu.BUTTON_INPUT_LEFT;
+        if (menu instanceof ReliabilitySystemMenu) return clockwise ? ReliabilitySystemMenu.BUTTON_INPUT_RIGHT : ReliabilitySystemMenu.BUTTON_INPUT_LEFT;
         return -1;
     }
 
     private int routeOutputActionId(boolean clockwise) {
-        if (menu instanceof UniversalFieldDeviceMenu) {
-            return clockwise ? UniversalFieldDeviceMenu.BUTTON_OUTPUT_RIGHT : UniversalFieldDeviceMenu.BUTTON_OUTPUT_LEFT;
-        }
-        if (menu instanceof DigitalCommunicationMenu) {
-            return clockwise ? DigitalCommunicationMenu.BUTTON_OUTPUT_RIGHT : DigitalCommunicationMenu.BUTTON_OUTPUT_LEFT;
-        }
-        if (menu instanceof PneumaticSystemMenu) {
-            return clockwise ? PneumaticSystemMenu.BUTTON_OUTPUT_RIGHT : PneumaticSystemMenu.BUTTON_OUTPUT_LEFT;
-        }
-        if (menu instanceof SignalProcessorMenu) {
-            return clockwise ? SignalProcessorMenu.BUTTON_OUTPUT_RIGHT : SignalProcessorMenu.BUTTON_OUTPUT_LEFT;
-        }
-        if (menu instanceof SignalConditionerMenu) {
-            return clockwise ? SignalConditionerMenu.BUTTON_OUTPUT_RIGHT : SignalConditionerMenu.BUTTON_OUTPUT_LEFT;
-        }
-        if (menu instanceof RadioLinkMenu) {
-            return clockwise ? RadioLinkMenu.BUTTON_OUTPUT_RIGHT : RadioLinkMenu.BUTTON_OUTPUT_LEFT;
-        }
+        if (menu instanceof FieldDeviceMenu) return clockwise ? FieldDeviceMenu.BUTTON_OUTPUT_NEXT : FieldDeviceMenu.BUTTON_OUTPUT_PREVIOUS;
+        if (menu instanceof UniversalFieldDeviceMenu) return clockwise ? UniversalFieldDeviceMenu.BUTTON_OUTPUT_RIGHT : UniversalFieldDeviceMenu.BUTTON_OUTPUT_LEFT;
+        if (menu instanceof DigitalCommunicationMenu) return clockwise ? DigitalCommunicationMenu.BUTTON_OUTPUT_RIGHT : DigitalCommunicationMenu.BUTTON_OUTPUT_LEFT;
+        if (menu instanceof PneumaticSystemMenu) return clockwise ? PneumaticSystemMenu.BUTTON_OUTPUT_RIGHT : PneumaticSystemMenu.BUTTON_OUTPUT_LEFT;
+        if (menu instanceof SignalProcessorMenu) return clockwise ? SignalProcessorMenu.BUTTON_OUTPUT_RIGHT : SignalProcessorMenu.BUTTON_OUTPUT_LEFT;
+        if (menu instanceof SignalConditionerMenu) return clockwise ? SignalConditionerMenu.BUTTON_OUTPUT_RIGHT : SignalConditionerMenu.BUTTON_OUTPUT_LEFT;
+        if (menu instanceof QuartzTimingMenu) return clockwise ? QuartzTimingMenu.BUTTON_OUTPUT_RIGHT : QuartzTimingMenu.BUTTON_OUTPUT_LEFT;
+        if (menu instanceof AmethystSystemMenu) return clockwise ? AmethystSystemMenu.BUTTON_OUTPUT_RIGHT : AmethystSystemMenu.BUTTON_OUTPUT_LEFT;
+        if (menu instanceof OpticalSystemMenu) return clockwise ? OpticalSystemMenu.BUTTON_OUTPUT_RIGHT : OpticalSystemMenu.BUTTON_OUTPUT_LEFT;
+        if (menu instanceof MagneticSystemMenu) return clockwise ? MagneticSystemMenu.BUTTON_OUTPUT_RIGHT : MagneticSystemMenu.BUTTON_OUTPUT_LEFT;
+        if (menu instanceof ReliabilitySystemMenu) return clockwise ? ReliabilitySystemMenu.BUTTON_OUTPUT_RIGHT : ReliabilitySystemMenu.BUTTON_OUTPUT_LEFT;
+        if (menu instanceof RadioLinkMenu) return clockwise ? RadioLinkMenu.BUTTON_OUTPUT_RIGHT : RadioLinkMenu.BUTTON_OUTPUT_LEFT;
         return -1;
     }
 
     private boolean hasRouteInputEndpoint() {
+        if (menu instanceof FieldDeviceMenu field) return field.hasInputEndpoint();
         if (menu instanceof UniversalFieldDeviceMenu universal) return universal.hasInputEndpoint();
         if (menu instanceof DigitalCommunicationMenu) return true;
         if (menu instanceof SignalProcessorMenu processor) return processor.hasInputEndpoint();
         if (menu instanceof SignalConditionerMenu conditioner) return conditioner.hasInputEndpoint();
+        if (menu instanceof QuartzTimingMenu quartz) return quartz.hasInputEndpoint();
+        if (menu instanceof AmethystSystemMenu amethyst) return amethyst.hasInputEndpoint();
+        if (menu instanceof OpticalSystemMenu optical) return optical.hasInputEndpoint();
+        if (menu instanceof MagneticSystemMenu magnetic) return magnetic.hasInputEndpoint();
+        if (menu instanceof ReliabilitySystemMenu reliability) return reliability.hasInputEndpoint();
         return menu instanceof PneumaticSystemMenu pneumatic && pneumatic.directional();
     }
 
     private boolean hasRouteOutputEndpoint() {
+        if (menu instanceof FieldDeviceMenu field) return field.hasOutputEndpoint();
         if (menu instanceof UniversalFieldDeviceMenu universal) return universal.hasOutputEndpoint();
         if (menu instanceof DigitalCommunicationMenu) return true;
         if (menu instanceof SignalProcessorMenu processor) return processor.hasOutputEndpoint();
         if (menu instanceof SignalConditionerMenu conditioner) return conditioner.hasOutputEndpoint();
+        if (menu instanceof QuartzTimingMenu quartz) return quartz.hasOutputEndpoint();
+        if (menu instanceof AmethystSystemMenu amethyst) return amethyst.hasOutputEndpoint();
+        if (menu instanceof OpticalSystemMenu optical) return optical.hasOutputEndpoint();
+        if (menu instanceof MagneticSystemMenu magnetic) return magnetic.hasOutputEndpoint();
+        if (menu instanceof ReliabilitySystemMenu reliability) return reliability.hasOutputEndpoint();
         if (menu instanceof RadioLinkMenu radio) return radio.kind() == RadioLinkMenu.KIND_RECEIVER;
         return menu instanceof PneumaticSystemMenu pneumatic && pneumatic.directional();
-    }
-
-    private boolean independentRouteEndpoints() {
-        return hasRouteInputEndpoint() || hasRouteOutputEndpoint();
     }
 
     private boolean routeSupported() {
@@ -295,19 +249,13 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         if (menu instanceof SignalAnalyzerMenu) return true;
         if (menu instanceof SignalProcessorMenu) return true;
         if (menu instanceof SignalConditionerMenu) return true;
-        if (menu instanceof QuartzTimingMenu quartz) {
-            return quartz.kind() == QuartzTimingMenu.KIND_DIVIDER || quartz.kind() == QuartzTimingMenu.KIND_STABILITY;
-        }
+        if (menu instanceof QuartzTimingMenu quartz) return quartz.kind() == QuartzTimingMenu.KIND_DIVIDER || quartz.kind() == QuartzTimingMenu.KIND_STABILITY;
         if (menu instanceof RadioLinkMenu radio) return radio.kind() == RadioLinkMenu.KIND_RECEIVER;
         if (menu instanceof DigitalCommunicationMenu) return true;
         if (menu instanceof PneumaticSystemMenu pneumatic) return pneumatic.directional();
-        if (menu instanceof OpticalSystemMenu optical) {
-            return optical.directional() || optical.kind() == OpticalSystemMenu.KIND_METER;
-        }
+        if (menu instanceof OpticalSystemMenu optical) return optical.directional() || optical.kind() == OpticalSystemMenu.KIND_METER;
         if (menu instanceof AmethystSystemMenu amethyst) return amethyst.directional();
-        if (menu instanceof MagneticSystemMenu magnetic) {
-            return magnetic.kind() == MagneticSystemMenu.KIND_PERMANENT || magnetic.kind() == MagneticSystemMenu.KIND_COIL;
-        }
+        if (menu instanceof MagneticSystemMenu magnetic) return magnetic.kind() == MagneticSystemMenu.KIND_PERMANENT || magnetic.kind() == MagneticSystemMenu.KIND_COIL;
         return menu instanceof ReliabilitySystemMenu;
     }
 
@@ -327,8 +275,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         routeNext.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
                 "Cycle the device orientation to the next valid direction.")));
 
-        if (routeInputPrevious != null && routeInputNext != null
-                && routeOutputPrevious != null && routeOutputNext != null) {
+        if (routeInputPrevious != null && routeInputNext != null && routeOutputPrevious != null && routeOutputNext != null) {
             routeInputPrevious.active = rx;
             routeInputNext.active = rx;
             routeOutputPrevious.active = tx;
@@ -337,14 +284,10 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             routeInputNext.visible = routePage && rx;
             routeOutputPrevious.visible = routePage && tx;
             routeOutputNext.visible = routePage && tx;
-            routeInputPrevious.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
-                    "Cycle the RX / INPUT face to the previous valid direction.")));
-            routeInputNext.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
-                    "Cycle the RX / INPUT face to the next valid direction.")));
-            routeOutputPrevious.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
-                    "Cycle the TX / OUTPUT face to the previous valid direction.")));
-            routeOutputNext.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
-                    "Cycle the TX / OUTPUT face to the next valid direction.")));
+            routeInputPrevious.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal("Cycle RX / INPUT to the previous valid direction.")));
+            routeInputNext.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal("Cycle RX / INPUT to the next valid direction.")));
+            routeOutputPrevious.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal("Cycle TX / OUTPUT to the previous valid direction.")));
+            routeOutputNext.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal("Cycle TX / OUTPUT to the next valid direction.")));
         }
     }
 
@@ -371,27 +314,14 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
     private void updateWidgetVisibility() {
         boolean controlsVisible = isConfigureSection();
-        for (AbstractWidget widget : configureWidgets) {
-            widget.visible = controlsVisible && !isLegacyRouteWidget(widget);
-        }
-        Section[] tabSections = {
-                Section.OVERVIEW, Section.PORTS, Section.CONFIGURE, Section.DIAGNOSTICS, Section.HISTORY
-        };
-        for (int i = 0; i < sectionButtons.size(); i++) {
-            sectionButtons.get(i).active = routePage || tabSections[i] != section;
-        }
+        for (AbstractWidget widget : configureWidgets) widget.visible = controlsVisible && !isLegacyRouteWidget(widget);
+        Section[] tabSections = {Section.OVERVIEW, Section.PORTS, Section.CONFIGURE, Section.DIAGNOSTICS, Section.HISTORY};
+        for (int i = 0; i < sectionButtons.size(); i++) sectionButtons.get(i).active = routePage || tabSections[i] != section;
         if (routeTab != null) routeTab.active = !routePage;
     }
 
-    /** Lets device screens hide type-specific Configure controls without leaking them onto other tabs. */
-    protected final boolean isConfigureSection() {
-        return !routePage && section == Section.CONFIGURE;
-    }
-
-    /** Dense physical-port visualization belongs to Ports and Route, never to content-heavy pages. */
-    public final boolean showsPortVisualization() {
-        return routePage || section == Section.PORTS;
-    }
+    protected final boolean isConfigureSection() { return !routePage && section == Section.CONFIGURE; }
+    public final boolean showsPortVisualization() { return routePage || section == Section.PORTS; }
 
     @Override
     protected void containerTick() {
@@ -422,7 +352,6 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         String live = "● LIVE / SERVER";
         graphics.drawString(font, fitForWidth(title.getString(), 170), 12, 9, TEXT, false);
         graphics.drawString(font, live, imageWidth - 12 - font.width(live), 9, GOOD, false);
-
         String role = fitForWidth("ROLE • " + menu.topologyRoleLabel(), 145);
         String health = fitForWidth("HEALTH • " + menu.operationalHealthLabel(), 145);
         graphics.drawString(font, role, 12, 19, INFO, false);
@@ -454,18 +383,14 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         labelValue(graphics, "Current route", menu.portRouteLabel(), 132);
         labelValue(graphics, "Control authority", enabled ? "SERVER-SIDE" : "READ ONLY", 152);
         if (enabled && endpoints) {
-            String controls = rx && tx ? "Use RX and TX ▲ / ▼ below to change each endpoint direction."
+            String controls = rx && tx ? "Use RX and TX ▲ / ▼ below to change endpoint direction."
                     : rx ? "Use RX ▲ / ▼ below to change the input direction."
                     : "Use TX ▲ / ▼ below to change the output direction.";
             safeText(graphics, controls, 16, 196, TEXT);
         } else if (enabled) {
-            safeText(graphics,
-                    "Use Direction ▲ / ▼ below to change the physical interface direction.",
-                    16, 174, TEXT);
+            safeText(graphics, "Use Direction ▲ / ▼ below to change the physical interface direction.", 16, 174, TEXT);
         } else {
-            safeText(graphics,
-                    "This device has a fixed physical port contract. Its remaining controls, if any, are on Configure.",
-                    16, 174, MUTED);
+            safeText(graphics, "This device has a fixed physical port contract. Its remaining controls, if any, are on Configure.", 16, 174, MUTED);
         }
     }
 
@@ -474,9 +399,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         if (maxWidth <= 0) return "";
         if (font.width(text) <= maxWidth) return text;
         String compact = text;
-        while (compact.length() > 1 && font.width(compact + "…") > maxWidth) {
-            compact = compact.substring(0, compact.length() - 1);
-        }
+        while (compact.length() > 1 && font.width(compact + "…") > maxWidth) compact = compact.substring(0, compact.length() - 1);
         return compact + "…";
     }
 
@@ -499,19 +422,14 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             case EngineeringDeviceMenu.EVIDENCE_VALID -> GOOD;
             case EngineeringDeviceMenu.EVIDENCE_NO_SIGNAL, EngineeringDeviceMenu.EVIDENCE_UNOBSERVED -> MUTED;
             case EngineeringDeviceMenu.EVIDENCE_SATURATED, EngineeringDeviceMenu.EVIDENCE_STALE -> WARN;
-            case EngineeringDeviceMenu.EVIDENCE_FAULT,
-                    EngineeringDeviceMenu.EVIDENCE_DOMAIN_MISMATCH,
-                    EngineeringDeviceMenu.EVIDENCE_TOPOLOGY_ERROR -> BAD;
+            case EngineeringDeviceMenu.EVIDENCE_FAULT, EngineeringDeviceMenu.EVIDENCE_DOMAIN_MISMATCH, EngineeringDeviceMenu.EVIDENCE_TOPOLOGY_ERROR -> BAD;
             default -> MUTED;
         };
     }
 
     private boolean isOperationalHealthLine(String label) {
-        return "Safety state".equals(label)
-                || "Actuator".equals(label)
-                || "Voting health".equals(label)
-                || "Safety memory".equals(label)
-                || "System state".equals(label);
+        return "Safety state".equals(label) || "Actuator".equals(label) || "Voting health".equals(label)
+                || "Safety memory".equals(label) || "System state".equals(label);
     }
 
     private String authoritativeHealthValue(String label, String fallback) {
@@ -525,13 +443,9 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     }
 
     private boolean isOperationalHealthBadge(String value) {
-        return "HEARTBEAT WATCHDOG".equals(value)
-                || "SERVO ACTUATOR".equals(value)
-                || "2oo3 REDUNDANT VOTER".equals(value)
-                || "FAULT LATCH".equals(value)
-                || "OPERATIONS MONITOR • OBSERVER".equals(value)
-                || "RELIEF ARMED".equals(value)
-                || "VENTING".equals(value);
+        return "HEARTBEAT WATCHDOG".equals(value) || "SERVO ACTUATOR".equals(value)
+                || "2oo3 REDUNDANT VOTER".equals(value) || "FAULT LATCH".equals(value)
+                || "OPERATIONS MONITOR • OBSERVER".equals(value) || "RELIEF ARMED".equals(value) || "VENTING".equals(value);
     }
 
     private String authoritativeHealthBadge(String value) {
@@ -541,19 +455,12 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         return value;
     }
 
-    private record PresentationLine(String label, String value) {
-    }
+    private record PresentationLine(String label, String value) {}
 
     private PresentationLine normalizeLegacyPresentation(String label, String value) {
-        if ("PNEUMATIC • SIX-WAY REGULATED MANIFOLD".equals(value)) {
-            return new PresentationLine(label, "PNEUMATIC • " + menu.portRouteLabel());
-        }
-        if ("OTHER FIVE FACES".equals(label) && "REDSTONE PAYLOAD INPUT".equals(value)) {
-            return new PresentationLine("DOWN", "REDSTONE PAYLOAD INPUT");
-        }
-        if ("Topology role".equals(label) && "FIXED / SOURCE / SINK / OBSERVER / PASSIVE".equals(value)) {
-            return new PresentationLine(label, menu.topologyRoleLabel());
-        }
+        if ("PNEUMATIC • SIX-WAY REGULATED MANIFOLD".equals(value)) return new PresentationLine(label, "PNEUMATIC • " + menu.portRouteLabel());
+        if ("OTHER FIVE FACES".equals(label) && "REDSTONE PAYLOAD INPUT".equals(value)) return new PresentationLine("DOWN", "REDSTONE PAYLOAD INPUT");
+        if ("Topology role".equals(label) && "FIXED / SOURCE / SINK / OBSERVER / PASSIVE".equals(value)) return new PresentationLine(label, menu.topologyRoleLabel());
         return new PresentationLine(label, value);
     }
 
@@ -595,8 +502,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     }
 
     protected final void healthBadge(GuiGraphics graphics, String state, boolean healthy, int x, int y) {
-        statusBadge(graphics, healthy ? "HEALTH • " + state : "ATTENTION • " + state,
-                healthy ? GOOD : WARN, x, y);
+        statusBadge(graphics, healthy ? "HEALTH • " + state : "ATTENTION • " + state, healthy ? GOOD : WARN, x, y);
     }
 
     protected final void sectionRule(GuiGraphics graphics, int y) {
