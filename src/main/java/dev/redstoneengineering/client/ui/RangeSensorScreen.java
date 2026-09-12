@@ -14,7 +14,6 @@ public final class RangeSensorScreen extends EngineeringScreen<RangeSensorMenu> 
     private Button rangeNext;
     private Button responsePrevious;
     private Button responseNext;
-    private Button directionCycle;
 
     public RangeSensorScreen(RangeSensorMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -37,9 +36,6 @@ public final class RangeSensorScreen extends EngineeringScreen<RangeSensorMenu> 
                 b -> sendMenuButton(RangeSensorMenu.BUTTON_RESPONSE_PREVIOUS)).bounds(leftPos + 16, y + 50, 82, 20).build());
         responseNext = addConfigureWidget(Button.builder(Component.literal("Response ▶"),
                 b -> sendMenuButton(RangeSensorMenu.BUTTON_RESPONSE_NEXT)).bounds(leftPos + 222, y + 50, 82, 20).build());
-
-        directionCycle = addConfigureWidget(Button.builder(Component.literal("Direction • —"),
-                b -> sendMenuButton(RangeSensorMenu.BUTTON_ROTATE_RIGHT)).bounds(leftPos + 104, y + 50, 112, 20).build());
     }
 
     @Override
@@ -51,12 +47,6 @@ public final class RangeSensorScreen extends EngineeringScreen<RangeSensorMenu> 
         rangeNext.setMessage(Component.literal(menu.configuredRange() + " ▶"));
         responsePrevious.setMessage(Component.literal("◀ " + responseName()));
         responseNext.setMessage(Component.literal(responseName() + " ▶"));
-        if (directionCycle != null) {
-            directionCycle.setMessage(Component.literal(fitForWidth(
-                    "Direction • " + menu.outputDirection().getName().toUpperCase(), 96)));
-            directionCycle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
-                    "Cycle the sensing/output axis clockwise on the server.")));
-        }
     }
 
     @Override
@@ -105,6 +95,7 @@ public final class RangeSensorScreen extends EngineeringScreen<RangeSensorMenu> 
         labelValue(g, "Response", responseName(), 146);
         labelValue(g, "I/O axis", menu.sensingDirection().getName().toUpperCase() + " SENSE → "
                 + menu.outputDirection().getName().toUpperCase() + " OUT", 171);
+        safeText(g, "Physical sensing/output direction is controlled only on Route.", 16, 199, MUTED);
     }
 
     private void diagnostics(GuiGraphics g) {
