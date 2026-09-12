@@ -9,10 +9,12 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.AreaEffectCloud;
@@ -187,29 +189,39 @@ public class MolecularCloudReceiverBlock extends PassiveDirectionalSignalBlock {
         level.scheduleTick(pos, this, 5);
     }
 
+    /** Server-authoritative Configure action. */
+    public boolean adjustSensitivity(Level level, BlockPos pos, int delta) {
+        if (!(level instanceof ServerLevel)) return false;
+        BlockState state = level.getBlockState(pos);
+        if (state.getBlock() != this) return false;
+        int nextValue = Math.floorMod(state.getValue(SENSITIVITY) + delta, 4);
+        BlockState next = state.setValue(SENSITIVITY, nextValue);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        level.scheduleTick(pos, this, 1);
+        return true;
+    }
+
+    /** Server-authoritative history reset used by both Configure and the legacy Shift shortcut. */
+    public boolean resetHistory(Level level, BlockPos pos) {
+        if (!(level instanceof ServerLevel)) return false;
+        BlockState state = level.getBlockState(pos);
+        if (state.getBlock() != this) return false;
+        RuntimeIntStore.remove(level, KEY, pos);
+        updateOutput(level, pos, state, 0);
+        level.scheduleTick(pos, this, 1);
+        return true;
+    }
+
     @Override
     protected InteractionResult useWithoutItem(
             BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit
     ) {
-        if (!level.isClientSide) {
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
-                RuntimeIntStore.remove(level, KEY, pos);
-                updateOutput(level, pos, state, 0);
-                level.scheduleTick(pos, this, 1);
+                resetHistory(level, pos);
                 player.displayClientMessage(Component.literal("Molecular sensor history reset | runtime cleared"), true);
             } else {
-                int sensitivity = (state.getValue(SENSITIVITY) + 1) % 4;
-                BlockState next = state.setValue(SENSITIVITY, sensitivity);
-                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-                level.scheduleTick(pos, this, 1);
-                CloudSample live = sample(level, pos, next);
-                player.displayClientMessage(Component.literal(
-                        "Molecular receiver | UP free-space aperture | sensitivity=" + sensitivity
-                                + " | filtered=" + filtered(level, pos)
-                                + " | raw=" + live.value()
-                                + " | coverage=" + (live.complete() ? "COMPLETE" : "STALE")
-                                + " | peak=" + peak(level, pos)
-                                + " | FRONT REDSTONE OUT=" + outputSide(next).getName()), true);
+                FieldDeviceUi.openUniversal(serverPlayer, pos);
             }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
