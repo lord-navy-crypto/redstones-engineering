@@ -11,8 +11,7 @@ import net.minecraft.world.entity.player.Inventory;
 public final class RadioLinkScreen extends EngineeringScreen<RadioLinkMenu> {
     private Button channelPrevious;
     private Button channelNext;
-    private Button outputLeft;
-    private Button outputRight;
+    private Button directionCycle;
 
     public RadioLinkScreen(RadioLinkMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -27,12 +26,9 @@ public final class RadioLinkScreen extends EngineeringScreen<RadioLinkMenu> {
         channelNext = addConfigureWidget(Button.builder(Component.literal("Channel ▶"),
                 b -> sendMenuButton(RadioLinkMenu.BUTTON_CHANNEL_NEXT))
                 .bounds(leftPos + 199, y, 105, 20).build());
-        outputLeft = addConfigureWidget(Button.builder(Component.literal("↺ Output"),
-                b -> sendMenuButton(RadioLinkMenu.BUTTON_OUTPUT_LEFT))
-                .bounds(leftPos + 70, y + 30, 80, 20).build());
-        outputRight = addConfigureWidget(Button.builder(Component.literal("Output ↻"),
+        directionCycle = addConfigureWidget(Button.builder(Component.literal("Direction • —"),
                 b -> sendMenuButton(RadioLinkMenu.BUTTON_OUTPUT_RIGHT))
-                .bounds(leftPos + 170, y + 30, 80, 20).build());
+                .bounds(leftPos + 70, y + 30, 180, 20).build());
     }
 
     @Override
@@ -41,8 +37,13 @@ public final class RadioLinkScreen extends EngineeringScreen<RadioLinkMenu> {
         channelPrevious.setMessage(Component.literal("◀ CH " + menu.channel()));
         channelNext.setMessage(Component.literal("CH " + menu.channel() + " ▶"));
         boolean receiver = menu.kind() == RadioLinkMenu.KIND_RECEIVER;
-        outputLeft.active = receiver;
-        outputRight.active = receiver;
+        if (directionCycle != null) {
+            directionCycle.active = receiver;
+            directionCycle.visible = isConfigureSection() && receiver;
+            directionCycle.setMessage(Component.literal("Direction • " + menu.outputDirection().getName().toUpperCase()));
+            directionCycle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
+                    "Cycle the receiver wired output face clockwise; the antenna remains UP.")));
+        }
     }
 
     @Override
@@ -72,9 +73,9 @@ public final class RadioLinkScreen extends EngineeringScreen<RadioLinkMenu> {
             labelValue(g, "Wireless interface", "UP • RADIO ANTENNA", 165);
             labelValue(g, "Frame evidence", menu.quality() == PortQuality.VALID ? "VALID" : qualityName(), 181);
         }
-        g.drawString(font, menu.payload() == 0 && menu.quality() == PortQuality.VALID
+        safeText(g, menu.payload() == 0 && menu.quality() == PortQuality.VALID
                 ? "Payload 0 is a valid frame when source evidence is VALID."
-                : "Radio validity comes from evidence quality, never payload > 0.", 16, 199, GOOD, false);
+                : "Radio validity comes from evidence quality, never payload > 0.", 16, 199, GOOD);
     }
 
     private void ports(GuiGraphics g) {
@@ -82,11 +83,11 @@ public final class RadioLinkScreen extends EngineeringScreen<RadioLinkMenu> {
         if (menu.kind() == RadioLinkMenu.KIND_TRANSMITTER) {
             statusLine(g, "DOWN / N / S / E / W", "INPUT • REDSTONE PAYLOAD", GOOD, 112);
             statusLine(g, "UP", "OUTPUT • FREE-SPACE RADIO ANTENNA", INFO, 142);
-            g.drawString(font, "Transmitter is intentionally multi-input; it is not forced into a fake series axis.", 16, 176, MUTED, false);
+            safeText(g, "Transmitter is intentionally multi-input; it is not forced into a fake series axis.", 16, 176, MUTED);
         } else {
             statusLine(g, "UP", "INPUT • FREE-SPACE RADIO ANTENNA", INFO, 112);
             statusLine(g, menu.outputDirection().getName().toUpperCase(), "OUTPUT • REDSTONE 0..15", GOOD, 142);
-            g.drawString(font, "Only the wired output face rotates; the antenna remains the physical UP interface.", 16, 176, MUTED, false);
+            safeText(g, "Only the wired output face rotates; the antenna remains the physical UP interface.", 16, 176, MUTED);
         }
     }
 
@@ -124,8 +125,8 @@ public final class RadioLinkScreen extends EngineeringScreen<RadioLinkMenu> {
             labelValue(g, "Dropouts", Integer.toString(menu.dropouts()), 160);
             labelValue(g, "Channel handoffs", Integer.toString(menu.handoffs()), 178);
         } else {
-            g.drawString(font, "Transmitter currently exposes live frame evidence; it does not invent client-side history.", 16, 112, MUTED, false);
-            g.drawString(font, "Receiver counters provide the authoritative link chronology for a radio path.", 16, 134, INFO, false);
+            safeText(g, "Transmitter currently exposes live frame evidence; it does not invent client-side history.", 16, 112, MUTED);
+            safeText(g, "Receiver counters provide the authoritative link chronology for a radio path.", 16, 134, INFO);
         }
     }
 
