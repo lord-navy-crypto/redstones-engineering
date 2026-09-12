@@ -9,10 +9,12 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -85,8 +87,8 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
     private int[] runtime(Level level, BlockPos pos, BlockState state, boolean triggerNow) {
         int[] rt = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
         if (rt[INITIALIZED_SLOT] == 0) {
-            rt[HELD_SLOT] = state.getValue(OUTPUT); // preserve held output across reload
-            rt[TRIGGER_STATE_SLOT] = triggerNow ? 1 : 0; // avoid a false edge after reload
+            rt[HELD_SLOT] = state.getValue(OUTPUT);
+            rt[TRIGGER_STATE_SLOT] = triggerNow ? 1 : 0;
             rt[INITIALIZED_SLOT] = 1;
         }
         return rt;
@@ -120,13 +122,11 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
         super.onRemove(state, level, pos, newState, moved);
     }
 
-    /** Observer-neutral number of real trigger captures retained in this transient runtime. */
     public static int captureCount(Level level, BlockPos pos) {
         int[] rt = RuntimeIntStore.peek(level, KEY, pos);
         return rt == null || rt.length < RUNTIME_SIZE ? 0 : Math.max(0, rt[CAPTURE_COUNT]);
     }
 
-    /** Age of the most recent real capture, or -1 when no capture evidence exists. */
     public static int sampleAgeTicks(Level level, BlockPos pos) {
         int[] rt = RuntimeIntStore.peek(level, KEY, pos);
         if (rt == null || rt.length < RUNTIME_SIZE || rt[CAPTURE_COUNT] <= 0) return -1;
@@ -138,34 +138,42 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
         return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, tick));
     }
 
+    public boolean adjustTriggerMode(Level level, BlockPos pos, int delta) {
+        BlockState state = level.getBlockState(pos);
+        if (!state.is(this)) return false;
+        int mode = Math.floorMod(state.getValue(TRIGGER_MODE) + delta, 3);
+        level.setBlock(pos, state.setValue(TRIGGER_MODE, mode), Block.UPDATE_CLIENTS);
+        return true;
+    }
+
+    public boolean clearHeldValue(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (!state.is(this)) return false;
+        Direction facing = state.getValue(FACING);
+        boolean triggerNow = readInputFrom(level, pos, leftOf(facing)) > 0;
+        int[] rt = runtime(level, pos, state, triggerNow);
+        rt[HELD_SLOT] = 0;
+        rt[TRIGGER_STATE_SLOT] = triggerNow ? 1 : 0;
+        rt[INITIALIZED_SLOT] = 1;
+        updateOutput(level, pos, state, 0);
+        return true;
+    }
+
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
-        if (!level.isClientSide) {
-            Direction facing = state.getValue(FACING);
-            boolean triggerNow = readInputFrom(level, pos, leftOf(facing)) > 0;
-            int[] rt = runtime(level, pos, state, triggerNow);
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
-                rt[HELD_SLOT] = 0;
-                rt[TRIGGER_STATE_SLOT] = triggerNow ? 1 : 0;
-                rt[INITIALIZED_SLOT] = 1;
-                updateOutput(level, pos, state, 0);
+                clearHeldValue(level, pos);
                 player.displayClientMessage(Component.literal(
-                        "Sample & Hold | held value cleared | captures=" + rt[CAPTURE_COUNT]
+                        "Sample & Hold | held value cleared | captures=" + captureCount(level, pos)
                                 + " | lastCaptureAge=" + sampleAgeTicks(level, pos) + "t"), true);
             } else {
-                int mode = (state.getValue(TRIGGER_MODE) + 1) % 3;
-                BlockState next = state.setValue(TRIGGER_MODE, mode); level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-                player.displayClientMessage(Component.literal(
-                        "Sample & Hold | mode=" + modeName(mode) + " | held=" + rt[HELD_SLOT]
-                                + " | captures=" + rt[CAPTURE_COUNT]
-                                + " | sampleAge=" + sampleAgeTicks(level, pos) + "t"
-                                + " | VALUE=" + inputSide(next).getName() + " | OUT=" + outputSide(next).getName()
-                                + " | TRIGGER=" + leftOf(facing).getName() + " | RESET=" + rightOf(facing).getName()), true);
+                FieldDeviceUi.openUniversal(serverPlayer, pos);
             }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
 
-    private static String modeName(int mode) {
+    public static String modeName(int mode) {
         return switch (mode) { case 0 -> "RISING"; case 1 -> "FALLING"; case 2 -> "BOTH"; default -> "RISING"; };
     }
 }
