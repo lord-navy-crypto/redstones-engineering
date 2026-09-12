@@ -84,6 +84,7 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
             primary.set(PneumaticNetwork.pressure(level, blockPos));
             secondary.set(PressureRegulatorBlock.setpointPressure(state));
             tertiary.set(state.getValue(PressureRegulatorBlock.SETPOINT));
+            facing.set(state.getValue(DirectionalDomainBlock.FACING).ordinal());
             setNodeQuality();
         } else if (block instanceof PneumaticReceiverBlock receiver) {
             kind.set(KIND_RECEIVER);
@@ -158,12 +159,15 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
         boolean changed = false;
 
         if (block instanceof PressureRegulatorBlock) {
-            if (id != BUTTON_PARAMETER_PREVIOUS && id != BUTTON_PARAMETER_NEXT) return false;
-            int value = state.getValue(PressureRegulatorBlock.SETPOINT);
-            value = id == BUTTON_PARAMETER_NEXT ? value % 4 + 1 : value <= 1 ? 4 : value - 1;
-            level.setBlock(blockPos, state.setValue(PressureRegulatorBlock.SETPOINT, value), Block.UPDATE_CLIENTS);
-            if (level instanceof ServerLevel server) PneumaticNetwork.recompute(server, blockPos);
-            changed = true;
+            if (id == BUTTON_PARAMETER_PREVIOUS || id == BUTTON_PARAMETER_NEXT) {
+                int value = state.getValue(PressureRegulatorBlock.SETPOINT);
+                value = id == BUTTON_PARAMETER_NEXT ? value % 4 + 1 : value <= 1 ? 4 : value - 1;
+                level.setBlock(blockPos, state.setValue(PressureRegulatorBlock.SETPOINT, value), Block.UPDATE_CLIENTS);
+                if (level instanceof ServerLevel server) PneumaticNetwork.recompute(server, blockPos);
+                changed = true;
+            } else {
+                changed = rotateDirectional(block, id);
+            }
         } else if (block instanceof PneumaticValveBlock) {
             if (id == BUTTON_TOGGLE) {
                 level.setBlock(blockPos, state.setValue(PneumaticValveBlock.OPEN, !state.getValue(PneumaticValveBlock.OPEN)), Block.UPDATE_CLIENTS);
