@@ -227,6 +227,9 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     }
 
     private int routeInputActionId(boolean clockwise) {
+        if (menu instanceof UniversalFieldDeviceMenu) {
+            return clockwise ? UniversalFieldDeviceMenu.BUTTON_INPUT_RIGHT : UniversalFieldDeviceMenu.BUTTON_INPUT_LEFT;
+        }
         if (menu instanceof DigitalCommunicationMenu) {
             return clockwise ? DigitalCommunicationMenu.BUTTON_INPUT_RIGHT : DigitalCommunicationMenu.BUTTON_INPUT_LEFT;
         }
@@ -237,6 +240,9 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     }
 
     private int routeOutputActionId(boolean clockwise) {
+        if (menu instanceof UniversalFieldDeviceMenu) {
+            return clockwise ? UniversalFieldDeviceMenu.BUTTON_OUTPUT_RIGHT : UniversalFieldDeviceMenu.BUTTON_OUTPUT_LEFT;
+        }
         if (menu instanceof DigitalCommunicationMenu) {
             return clockwise ? DigitalCommunicationMenu.BUTTON_OUTPUT_RIGHT : DigitalCommunicationMenu.BUTTON_OUTPUT_LEFT;
         }
@@ -247,6 +253,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     }
 
     private boolean independentRouteEndpoints() {
+        if (menu instanceof UniversalFieldDeviceMenu universal) return universal.independentRouteEndpoints();
         if (menu instanceof DigitalCommunicationMenu) return true;
         return menu instanceof PneumaticSystemMenu pneumatic && pneumatic.directional();
     }
