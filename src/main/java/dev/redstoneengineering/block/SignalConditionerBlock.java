@@ -63,7 +63,10 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
         };
     }
 
-    /** True only when a static transfer mode is hitting the physical 0..15 boundary. */
+    /**
+     * True only when a static transfer mode is hitting the physical 0..15 boundary.
+     * Threshold HIGH and deadband hold are intentional transfer semantics, not saturation faults.
+     */
     public static boolean limitingActive(Level level, BlockPos pos, BlockState state) {
         if (!(state.getBlock() instanceof SignalConditionerBlock conditioner)) return false;
         int input = conditioner.readBackInput(level, pos, state);
