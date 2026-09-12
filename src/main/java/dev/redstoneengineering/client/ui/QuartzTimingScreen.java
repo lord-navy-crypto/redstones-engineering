@@ -10,7 +10,6 @@ import net.minecraft.world.entity.player.Inventory;
 public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu> {
     private Button parameterPrevious;
     private Button parameterNext;
-    private Button directionCycle;
     private Button reset;
 
     public QuartzTimingScreen(QuartzTimingMenu menu, Inventory inventory, Component title) {
@@ -29,9 +28,6 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
         reset = addConfigureWidget(Button.builder(Component.literal("Reset measurement"),
                 b -> sendMenuButton(QuartzTimingMenu.BUTTON_RESET_MEASUREMENT))
                 .bounds(leftPos + 70, y, 180, 20).build());
-        directionCycle = addConfigureWidget(Button.builder(Component.literal("Direction • —"),
-                b -> sendMenuButton(QuartzTimingMenu.BUTTON_ROTATE_RIGHT))
-                .bounds(leftPos + 70, y + 30, 180, 20).build());
     }
 
     @Override
@@ -48,8 +44,6 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
         parameterNext.visible = configure && (oscillator || divider);
         reset.active = stability;
         reset.visible = configure && stability;
-        directionCycle.active = divider || stability;
-        directionCycle.visible = configure && (divider || stability);
 
         if (oscillator) {
             parameterPrevious.setMessage(Component.literal("◀ " + menu.secondary() + "t"));
@@ -57,14 +51,9 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
         } else if (divider) {
             parameterPrevious.setMessage(Component.literal("◀ ÷" + menu.tertiary()));
             parameterNext.setMessage(Component.literal("÷" + menu.tertiary() + " ▶"));
-            directionCycle.setMessage(Component.literal("Direction • " + outputFace()));
         } else {
             reset.setMessage(Component.literal("Reset measurement"));
-            directionCycle.setMessage(Component.literal("Direction • INPUT " + inputFace()));
         }
-        directionCycle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
-                divider ? "Cycle the divider I/O axis clockwise on the server."
-                        : "Cycle the Stability Monitor measurement face clockwise on the server.")));
     }
 
     @Override
@@ -128,9 +117,11 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
         } else if (menu.kind() == QuartzTimingMenu.KIND_DIVIDER) {
             labelValue(g, "Division", "÷" + menu.tertiary(), 101);
             labelValue(g, "I/O axis", inputFace() + " → " + outputFace(), 172);
+            safeText(g, "Physical I/O direction is controlled only on Route.", 16, 199, MUTED);
         } else {
             labelValue(g, "Measurement", menu.primary() + " ticks", 101);
             labelValue(g, "Input face", inputFace(), 172);
+            safeText(g, "Measurement face is controlled only on Route.", 16, 199, MUTED);
         }
     }
 
