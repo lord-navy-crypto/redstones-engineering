@@ -23,7 +23,8 @@ def require(rel: str, *tokens: str) -> None:
 
 require("src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java",
         "OVERVIEW", "PORTS", "CONFIGURE", "DIAGNOSTICS", "HISTORY",
-        'Component.literal("Route")', "routePage", "setRoutePage", "routeActionId", "routeSupported",
+        'Component.literal("Route")', "routePage", "setRoutePage", "routeActionId(boolean clockwise)", "routeSupported",
+        "routePrevious", "routeNext", 'Component.literal("↺ Previous")', 'Component.literal("Next ↻")',
         'DIAGNOSTICS("Observe"', "ROLE • ", "HEALTH • ", "EVIDENCE • ",
         "ROUTE_CONTROL_Y = 196", "FOOTER_TOP = 245", "fitForWidth", "safeText",
         "isConfigureSection()", "showsPortVisualization", "CONTENT_RIGHT - VALUE_X",
@@ -36,29 +37,26 @@ require("src/main/java/dev/redstoneengineering/client/ui/EngineeringIoCompassOve
 require("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScreen.java",
         "safeText(g, engineeringHint()", "safeText(g, diagnosticHint()",
         "fitForWidth(label, 72)", "fitForWidth(value, 72)")
-require("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
-        "directionCycle.visible = isConfigureSection() && active")
 
-single_direction_screens = (
-    "SignalConditionerScreen.java",
-    "UniversalFieldDeviceScreen.java",
-    "RangeSensorScreen.java",
-    "SignalProcessorScreen.java",
-    "QuartzTimingScreen.java",
-    "RadioLinkScreen.java",
-    "DigitalCommunicationScreen.java",
-    "PneumaticSystemScreen.java",
-    "OpticalSystemScreen.java",
-    "AmethystSystemScreen.java",
-    "MagneticSystemScreen.java",
-    "ReliabilitySystemScreen.java",
-)
-for name in single_direction_screens:
-    body = read("src/main/java/dev/redstoneengineering/client/ui/" + name)
-    if not body:
-        continue
-    if "rotateLeft" in body or "rotateRight" in body:
-        errors.append(f"{name}: restored dual direction/orientation controls")
+# Field-device route authority must include redstone endpoints and standalone physical interfaces,
+# not only the two series-processing base classes. This protects reference sources and sensors.
+require("src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java",
+        "DirectionalRedstoneEndpointBlock",
+        "SignalProbeBlock",
+        "RedstoneCableTerminalBlock",
+        "DirectionalRedstoneEndpointBlock.rotateOutput(level, blockPos, clockwise)",
+        "SignalProbeBlock.rotateMeasurementAxis(level, blockPos, clockwise)",
+        "RedstoneCableTerminalBlock.rotateInterface(level, blockPos, clockwise)")
+require("src/main/java/dev/redstoneengineering/block/SignalProbeBlock.java",
+        "rotateMeasurementAxis(Level level, BlockPos pos, boolean clockwise)",
+        "ROUTE_CYCLE", "state.setValue(FACING, next)")
+require("src/main/java/dev/redstoneengineering/block/RedstoneCableTerminalBlock.java",
+        "rotateInterface(Level level, BlockPos pos, boolean clockwise)",
+        "state.setValue(FACING, nextFacing)", "RedstoneCableNetwork.recompute(server, pos)")
+require("src/main/java/dev/redstoneengineering/block/RedstoneReferenceSourceBlock.java",
+        "extends DirectionalRedstoneEndpointBlock")
+require("src/main/java/dev/redstoneengineering/block/DirectionalRedstoneSensorBlock.java",
+        "extends DirectionalRedstoneEndpointBlock")
 
 for name in (
     "EnhancedFieldDeviceScreen.java", "SignalConditionerScreen.java", "PidControllerScreen.java",
@@ -86,23 +84,29 @@ for forbidden in ("sharedRotateCcw", "sharedRotateCw", '"SIGNAL ROUTE"', "drawFa
     if forbidden in screen:
         errors.append(f"EngineeringScreen restored crowded/duplicated layout element {forbidden!r}")
 
+# Both directions are first-class actions again. Keeping only clockwise is not feature-complete.
 for token in (
-    "FieldDeviceMenu.BUTTON_ROTATE_CW",
-    "UniversalFieldDeviceMenu.BUTTON_ROTATE_RIGHT",
-    "RangeSensorMenu.BUTTON_ROTATE_RIGHT",
-    "SignalProcessorMenu.BUTTON_ROTATE_RIGHT",
-    "SignalConditionerMenu.BUTTON_ROTATE_RIGHT",
-    "QuartzTimingMenu.BUTTON_ROTATE_RIGHT",
-    "RadioLinkMenu.BUTTON_OUTPUT_RIGHT",
-    "DigitalCommunicationMenu.BUTTON_ROTATE_RIGHT",
-    "PneumaticSystemMenu.BUTTON_ROTATE_RIGHT",
-    "OpticalSystemMenu.BUTTON_ROTATE_RIGHT",
-    "AmethystSystemMenu.BUTTON_ROTATE_RIGHT",
-    "MagneticSystemMenu.BUTTON_ROTATE_RIGHT",
-    "ReliabilitySystemMenu.BUTTON_ROTATE_RIGHT",
+    "FieldDeviceMenu.BUTTON_ROTATE_CCW", "FieldDeviceMenu.BUTTON_ROTATE_CW",
+    "UniversalFieldDeviceMenu.BUTTON_ROTATE_LEFT", "UniversalFieldDeviceMenu.BUTTON_ROTATE_RIGHT",
+    "RangeSensorMenu.BUTTON_ROTATE_LEFT", "RangeSensorMenu.BUTTON_ROTATE_RIGHT",
+    "SignalProcessorMenu.BUTTON_ROTATE_LEFT", "SignalProcessorMenu.BUTTON_ROTATE_RIGHT",
+    "SignalConditionerMenu.BUTTON_ROTATE_LEFT", "SignalConditionerMenu.BUTTON_ROTATE_RIGHT",
+    "QuartzTimingMenu.BUTTON_ROTATE_LEFT", "QuartzTimingMenu.BUTTON_ROTATE_RIGHT",
+    "RadioLinkMenu.BUTTON_OUTPUT_LEFT", "RadioLinkMenu.BUTTON_OUTPUT_RIGHT",
+    "DigitalCommunicationMenu.BUTTON_ROTATE_LEFT", "DigitalCommunicationMenu.BUTTON_ROTATE_RIGHT",
+    "PneumaticSystemMenu.BUTTON_ROTATE_LEFT", "PneumaticSystemMenu.BUTTON_ROTATE_RIGHT",
+    "OpticalSystemMenu.BUTTON_ROTATE_LEFT", "OpticalSystemMenu.BUTTON_ROTATE_RIGHT",
+    "AmethystSystemMenu.BUTTON_ROTATE_LEFT", "AmethystSystemMenu.BUTTON_ROTATE_RIGHT",
+    "MagneticSystemMenu.BUTTON_ROTATE_LEFT", "MagneticSystemMenu.BUTTON_ROTATE_RIGHT",
+    "ReliabilitySystemMenu.BUTTON_ROTATE_LEFT", "ReliabilitySystemMenu.BUTTON_ROTATE_RIGHT",
 ):
     if token not in screen:
-        errors.append(f"EngineeringScreen route page missing preserved server action {token!r}")
+        errors.append(f"EngineeringScreen Route page missing preserved direction action {token!r}")
+
+# Operations Monitor is intentionally a fixed multi-face observer contract, not a fake rotatable output.
+require("src/main/java/dev/redstoneengineering/block/OperationsMonitorBlock.java",
+        '"MACHINE RUNNING", Direction.DOWN', '"CYCLE PULSE", Direction.UP',
+        '"QUEUE / WIP", side')
 
 client_dir = root / "src/main/java/dev/redstoneengineering/client/ui"
 if client_dir.is_dir():
@@ -128,11 +132,13 @@ if errors:
 print("RSE Engineering UI verification: PASS")
 print(" six-page responsibility split including dedicated Route page: PASS")
 print(" Configure parameters/modes/actions preserved: PASS")
-print(" route/orientation server actions preserved across engineering menus: PASS")
+print(" bidirectional Previous/Next Route controls restored: PASS")
+print(" redstone reference/source/sensor FieldDevice route authority: PASS")
+print(" signal probe six-face measurement-axis rotation: PASS")
+print(" cable terminal physical-interface rotation: PASS")
+print(" fixed Operations Monitor port contract preserved: PASS")
 print(" full-height page workspace / no duplicate route schematic: PASS")
 print(" narrow-screen I/O Compass fail-safe: PASS")
-print(" single Direction/orientation control policy: PASS")
-print(" inapplicable controls hidden, not grey placeholder clutter: PASS")
 print(" shared pixel-clamped long-form text policy: PASS")
 print(" server-authoritative ROLE / HEALTH / EVIDENCE HMI: PASS")
 print(" client UI authority boundary: PASS")
