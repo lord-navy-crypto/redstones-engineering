@@ -11,9 +11,11 @@ import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.PrecisionObservationSupport;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
@@ -31,6 +33,9 @@ import java.util.Optional;
 /** Facing-only, observer-neutral Lapis precision meter. */
 public class LapisPrecisionMeterBlock extends DomainBlock implements EngineeringPortProvider {
     public static final DirectionProperty FACING = BlockStateProperties.FACING;
+    private static final Direction[] ROUTE_ORDER = {
+            Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST, Direction.UP, Direction.DOWN
+    };
 
     public record MeterReading(int value, PortQuality quality) {}
 
@@ -70,15 +75,45 @@ public class LapisPrecisionMeterBlock extends DomainBlock implements Engineering
         return new DomainNetwork.LapisSample(reading.value(), reading.quality() == PortQuality.VALID);
     }
 
+    /** Server-authoritative six-face measurement aperture routing. */
+    public static boolean rotateMeasurementFace(Level level, BlockPos pos, boolean forward) {
+        if (level.isClientSide) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof LapisPrecisionMeterBlock block)) return false;
+        Direction oldFace = state.getValue(FACING);
+        Direction newFace = cycleFace(oldFace, forward);
+        if (newFace == oldFace) return false;
+        level.setBlock(pos, state.setValue(FACING, newFace), Block.UPDATE_CLIENTS);
+        level.updateNeighborsAt(pos, block);
+        return true;
+    }
+
+    private static Direction cycleFace(Direction current, boolean forward) {
+        int index = 0;
+        for (int i = 0; i < ROUTE_ORDER.length; i++) {
+            if (ROUTE_ORDER[i] == current) { index = i; break; }
+        }
+        int next = Math.floorMod(index + (forward ? 1 : -1), ROUTE_ORDER.length);
+        return ROUTE_ORDER[next];
+    }
+
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (!level.isClientSide) {
-            MeterReading reading = reading(level, pos, state);
-            player.displayClientMessage(Component.literal(switch (reading.quality()) {
-                case VALID -> "Lapis precision meter | observer only | value=" + String.format("%.3f", reading.value() / 100.0) + " | resolution=0.01";
-                case TOPOLOGY_ERROR -> "Lapis precision meter | observer only | SOURCE CONFLICT — no arbitrary source selected";
-                case STALE -> "Lapis precision meter | observer only | STALE / sample aperture not currently observable";
-                default -> "Lapis precision meter | observer only | INVALID / no unique source";
-            }), true);
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown()) {
+                MeterReading reading = reading(level, pos, state);
+                player.displayClientMessage(Component.literal(switch (reading.quality()) {
+                    case VALID -> "Lapis precision meter | observer only | face=" + state.getValue(FACING).getName().toUpperCase()
+                            + " | value=" + String.format("%.3f", reading.value() / 100.0) + " | resolution=0.01";
+                    case TOPOLOGY_ERROR -> "Lapis precision meter | observer only | face=" + state.getValue(FACING).getName().toUpperCase()
+                            + " | SOURCE CONFLICT — no arbitrary source selected";
+                    case STALE -> "Lapis precision meter | observer only | face=" + state.getValue(FACING).getName().toUpperCase()
+                            + " | STALE / sample aperture not currently observable";
+                    default -> "Lapis precision meter | observer only | face=" + state.getValue(FACING).getName().toUpperCase()
+                            + " | INVALID / no unique source";
+                }), true);
+            } else {
+                FieldDeviceUi.openUniversal(serverPlayer, pos);
+            }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
