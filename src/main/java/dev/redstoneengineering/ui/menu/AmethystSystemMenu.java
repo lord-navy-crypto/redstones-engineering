@@ -29,6 +29,10 @@ public final class AmethystSystemMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_ROTATE_LEFT = 4;
     public static final int BUTTON_ROTATE_RIGHT = 5;
     public static final int BUTTON_PULSE = 6;
+    public static final int BUTTON_INPUT_LEFT = 7;
+    public static final int BUTTON_INPUT_RIGHT = 8;
+    public static final int BUTTON_OUTPUT_LEFT = 9;
+    public static final int BUTTON_OUTPUT_RIGHT = 10;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot primary = trackedInt();
@@ -38,7 +42,8 @@ public final class AmethystSystemMenu extends EngineeringDeviceMenu {
     private final DataSlot extraA = trackedInt();
     private final DataSlot extraB = trackedInt();
     private final DataSlot quality = trackedInt();
-    private final DataSlot facing = trackedInt();
+    private final DataSlot inputFacing = trackedInt();
+    private final DataSlot outputFacing = trackedInt();
     private final DataSlot stateFlag = trackedInt();
 
     public AmethystSystemMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
@@ -56,7 +61,7 @@ public final class AmethystSystemMenu extends EngineeringDeviceMenu {
         BlockState state = level.getBlockState(blockPos);
         Block block = state.getBlock();
         primary.set(0); secondary.set(0); tertiary.set(0); auxiliary.set(0); extraA.set(0); extraB.set(0);
-        quality.set(PortQuality.NO_SIGNAL.ordinal()); facing.set(-1); stateFlag.set(0);
+        quality.set(PortQuality.NO_SIGNAL.ordinal()); inputFacing.set(-1); outputFacing.set(-1); stateFlag.set(0);
 
         if (block instanceof AmethystResonatorBlock) {
             kind.set(KIND_SOURCE);
@@ -69,14 +74,18 @@ public final class AmethystSystemMenu extends EngineeringDeviceMenu {
             AmethystFrequencyFilterBlock.FilterEvidence e = AmethystFrequencyFilterBlock.evidence(level, blockPos, state);
             primary.set(e.inputFrequency()); secondary.set(e.inputAmplitude()); tertiary.set(e.targetFrequency());
             auxiliary.set(e.expectedOutputAmplitude()); stateFlag.set(e.matched() ? 1 : 0);
-            quality.set(e.inputQuality().ordinal()); facing.set(state.getValue(DirectionalDomainBlock.FACING).ordinal());
+            quality.set(e.inputQuality().ordinal());
+            inputFacing.set(DirectionalDomainBlock.seriesInputSide(state).ordinal());
+            outputFacing.set(DirectionalDomainBlock.seriesOutputSide(state).ordinal());
         } else if (block instanceof AmethystTunedResonatorBlock) {
             kind.set(KIND_TUNED);
             AmethystTunedResonatorBlock.ResponseEvidence e = AmethystTunedResonatorBlock.response(level, blockPos, state);
             primary.set(e.inputFrequency()); secondary.set(e.inputAmplitude()); tertiary.set(e.naturalFrequency());
             auxiliary.set(e.qIndex()); extraA.set(e.bandwidth()); extraB.set(e.outputAmplitude());
             stateFlag.set(e.saturated() ? 2 : e.responding() ? 1 : 0);
-            quality.set(e.inputQuality().ordinal()); facing.set(state.getValue(DirectionalDomainBlock.FACING).ordinal());
+            quality.set(e.inputQuality().ordinal());
+            inputFacing.set(DirectionalDomainBlock.seriesInputSide(state).ordinal());
+            outputFacing.set(DirectionalDomainBlock.seriesOutputSide(state).ordinal());
         } else if (block instanceof AmethystSpectrumAnalyzerBlock) {
             kind.set(KIND_SPECTRUM);
             AmethystSpectrumAnalyzerBlock.Spectrum s = AmethystSpectrumAnalyzerBlock.spectrum(level, blockPos);
@@ -119,7 +128,7 @@ public final class AmethystSystemMenu extends EngineeringDeviceMenu {
                 f = id == BUTTON_PRIMARY_NEXT ? (f >= 15 ? 1 : f + 1) : (f <= 1 ? 15 : f - 1);
                 level.setBlock(blockPos, state.setValue(AmethystFrequencyFilterBlock.TARGET, f), Block.UPDATE_CLIENTS);
                 level.scheduleTick(blockPos, filter, 1); changed = true;
-            } else changed = rotate(id);
+            } else changed = route(id);
         } else if (block instanceof AmethystTunedResonatorBlock tuned) {
             if (id == BUTTON_PRIMARY_PREVIOUS || id == BUTTON_PRIMARY_NEXT) {
                 int f = state.getValue(AmethystTunedResonatorBlock.NATURAL);
@@ -131,16 +140,23 @@ public final class AmethystSystemMenu extends EngineeringDeviceMenu {
                 q = id == BUTTON_SECONDARY_NEXT ? (q >= 4 ? 1 : q + 1) : (q <= 1 ? 4 : q - 1);
                 level.setBlock(blockPos, state.setValue(AmethystTunedResonatorBlock.Q_INDEX, q), Block.UPDATE_CLIENTS);
                 level.scheduleTick(blockPos, tuned, 1); changed = true;
-            } else changed = rotate(id);
+            } else changed = route(id);
         } else return false;
 
         if (changed) { refreshAuthoritativeSnapshot(); broadcastChanges(); }
         return changed;
     }
 
-    private boolean rotate(int id) {
-        if (id != BUTTON_ROTATE_LEFT && id != BUTTON_ROTATE_RIGHT) return false;
-        return DirectionalDomainBlock.rotateSeriesAxis(level, blockPos, id == BUTTON_ROTATE_RIGHT);
+    private boolean route(int id) {
+        return switch (id) {
+            case BUTTON_ROTATE_LEFT -> DirectionalDomainBlock.rotateWholeRoute(level, blockPos, false);
+            case BUTTON_ROTATE_RIGHT -> DirectionalDomainBlock.rotateWholeRoute(level, blockPos, true);
+            case BUTTON_INPUT_LEFT -> DirectionalDomainBlock.rotateSeriesInput(level, blockPos, false);
+            case BUTTON_INPUT_RIGHT -> DirectionalDomainBlock.rotateSeriesInput(level, blockPos, true);
+            case BUTTON_OUTPUT_LEFT -> DirectionalDomainBlock.rotateSeriesOutput(level, blockPos, false);
+            case BUTTON_OUTPUT_RIGHT -> DirectionalDomainBlock.rotateSeriesOutput(level, blockPos, true);
+            default -> false;
+        };
     }
 
     public int kind() { return kind.get(); } public int primary() { return primary.get(); }
@@ -148,6 +164,8 @@ public final class AmethystSystemMenu extends EngineeringDeviceMenu {
     public int auxiliary() { return auxiliary.get(); } public int extraA() { return extraA.get(); }
     public int extraB() { return extraB.get(); } public int stateFlag() { return stateFlag.get(); }
     public PortQuality quality() { int o=quality.get(); PortQuality[] a=PortQuality.values(); return o<0||o>=a.length?PortQuality.NO_SIGNAL:a[o]; }
-    public Direction facing() { int o=facing.get(); Direction[] a=Direction.values(); return o<0||o>=a.length?Direction.NORTH:a[o]; }
+    public Direction facing() { int o=outputFacing.get(); Direction[] a=Direction.values(); return o<0||o>=a.length?Direction.NORTH:a[o]; }
     public boolean directional() { return kind.get()==KIND_FILTER || kind.get()==KIND_TUNED; }
+    public boolean hasInputEndpoint() { return directional() && inputFacing.get() >= 0; }
+    public boolean hasOutputEndpoint() { return directional() && outputFacing.get() >= 0; }
 }
