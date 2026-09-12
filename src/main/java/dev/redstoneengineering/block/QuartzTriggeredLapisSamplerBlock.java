@@ -12,10 +12,12 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.PrecisionObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -150,8 +152,6 @@ public class QuartzTriggeredLapisSamplerBlock extends DirectionalDomainBlock imp
         var clock = PrecisionObservationSupport.quartz(level, pos.relative(triggerSide(state)));
 
         if (!clock.valid()) {
-            // An unknown/invalid clock interval breaks edge chronology. The next valid
-            // sample establishes a new baseline instead of manufacturing an edge.
             runtime[CLOCK_SEEN] = 0;
             runtime[PREVIOUS_CLOCK] = 0;
             level.scheduleTick(pos, this, 1);
@@ -196,14 +196,18 @@ public class QuartzTriggeredLapisSamplerBlock extends DirectionalDomainBlock imp
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (!level.isClientSide) {
-            player.displayClientMessage(Component.literal(
-                    "Quartz Triggered Lapis Sampler | held="
-                            + (heldQuality(level, pos) == PortQuality.VALID
-                            ? String.format("%.2f", heldValue(level, pos) / 100.0)
-                            : heldQuality(level, pos).name())
-                            + " | quartz input=LEFT | lapis input=BACK | output=FRONT"
-            ), true);
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown()) {
+                player.displayClientMessage(Component.literal(
+                        "Quartz Triggered Lapis Sampler | held="
+                                + (heldQuality(level, pos) == PortQuality.VALID
+                                ? String.format("%.2f", heldValue(level, pos) / 100.0)
+                                : heldQuality(level, pos).name())
+                                + " | quartz input=LEFT | lapis input=BACK | output=FRONT"
+                ), true);
+            } else {
+                FieldDeviceUi.openUniversal(serverPlayer, pos);
+            }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
