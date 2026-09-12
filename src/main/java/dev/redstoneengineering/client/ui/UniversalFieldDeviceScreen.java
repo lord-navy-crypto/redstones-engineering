@@ -1,6 +1,7 @@
 package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.block.CalibrationModuleBlock;
+import dev.redstoneengineering.block.FaultInjectorBlock;
 import dev.redstoneengineering.block.PwmControllerBlock;
 import dev.redstoneengineering.block.SampleHoldBlock;
 import dev.redstoneengineering.core.port.PortQuality;
@@ -63,7 +64,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_ALARM
                 || kind == UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD
                 || kind == UniversalFieldDeviceMenu.CONFIG_CALIBRATION
-                || kind == UniversalFieldDeviceMenu.CONFIG_PWM;
+                || kind == UniversalFieldDeviceMenu.CONFIG_PWM
+                || kind == UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR;
         boolean range = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE;
         boolean hasAction = kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER
                 || kind == UniversalFieldDeviceMenu.CONFIG_ALARM
@@ -179,6 +181,12 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Period", PwmControllerBlock.periodFor(menu.configPrimary()) + " ticks", 101);
                 labelValue(g, "Invert", menu.configSecondary() != 0 ? "ON" : "OFF", 141);
                 safeText(g, "COMMAND, PWM OUT and INHIBIT rotate as one physical interface layout on Route.", 16, 188, MUTED);
+            }
+            case UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR -> {
+                statusBadge(g, "FAULT INJECTOR", WARN, 16, 80);
+                labelValue(g, "Fault mode", FaultInjectorBlock.modeLabelFor(menu.configPrimary()), 101);
+                labelValue(g, "Activations", Integer.toString(menu.configSecondary()), 141);
+                safeText(g, "SIGNAL IN, FAULT ARM and FAULTED OUT rotate together on Route.", 16, 188, MUTED);
             }
             default -> {
                 boolean rotatable = menu.rotatableSeriesAxis();
