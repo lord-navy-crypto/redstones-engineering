@@ -95,6 +95,30 @@ require(
     "packet.selector()",
     "packet.qualityPercent() <= 20",
 )
+
+# Guided optical fiber now follows the same player-facing routing law as the other cable media:
+# direct runs are planar and a live vertical arm can only be created by the unified Junction Point.
+require(
+    "src/main/java/dev/redstoneengineering/block/TransmissionTopology.java",
+    "private static boolean planarCablePort(",
+    "if (cableToNeighbor.getAxis() == Direction.Axis.Y) return false;",
+    "public static boolean opticalFiberPort(",
+    "SignalMedium.OPTICAL",
+    "neighbor.getBlock() instanceof RedstoneCableJunctionBlock",
+    "junctionAccepts(level, neighborPos, medium)",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/OpticalFiberBlock.java",
+    "Planar glowglass fiber",
+    "TransmissionTopology.opticalFiberPort(l, p, d, n)",
+    "vertical via Junction Point",
+)
+optical_fiber = read("src/main/java/dev/redstoneengineering/block/OpticalFiberBlock.java")
+if "TransmissionTopology.opticalPort(n, d)" in optical_fiber:
+    errors.append("OpticalFiberBlock restored legacy state-only routing and can self-connect vertically")
+if "3-D glowglass fiber" in optical_fiber:
+    errors.append("OpticalFiberBlock documentation still advertises obsolete direct 3-D routing")
+
 require(
     "src/main/java/dev/redstoneengineering/physics/SoulFluxNetwork.java",
     "initializeReservoir",
@@ -163,5 +187,6 @@ print("  mechanical/hydro evidence quality and packet expiry: PASS")
 print("  hydro valid-zero drive semantics: PASS")
 print("  radio zero-frame presence and observer-neutral reception: PASS")
 print("  optical source evidence + wrong-channel visibility: PASS")
+print("  guided optical planar direct-run / Junction Point vertical contract: PASS")
 print("  Soul-Flux transport/storage zero semantics: PASS")
 print("  registered eleventh-ten GameTests: 10 (manual diagnostic / non-blocking)")
