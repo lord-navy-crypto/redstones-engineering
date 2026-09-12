@@ -99,7 +99,6 @@ require(
     "event.register(RseEngineeringUxGameTests.class)",
 )
 
-# Shared configurable one-input/one-output route contract.
 for rel in (
     "src/main/java/dev/redstoneengineering/block/DirectionalSignalBlock.java",
     "src/main/java/dev/redstoneengineering/block/DirectionalDomainBlock.java",
@@ -116,7 +115,6 @@ for rel in (
         "newOutput == input",
     )
 
-# Existing field HMI buttons now call rotateSeriesAxis(), whose compatibility entry point routes OUTPUT only.
 require(
     "src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java",
     "BUTTON_ROTATE_CCW",
@@ -143,9 +141,6 @@ forbid(
     "return facing.get() >= 0;",
 )
 
-# Serial-first, role-aware policy:
-# all-face SOURCE/SINK terminals remain explicit exceptions, while ordinary processors may not
-# silently aggregate multiple process inputs or create hidden fan-out.
 block_dir = root / "src/main/java/dev/redstoneengineering/block"
 all_face_loop = re.compile(r"for\s*\(\s*Direction\s+\w+\s*:\s*Direction\.values\(\)\s*\)")
 if block_dir.is_dir():
@@ -157,7 +152,6 @@ if block_dir.is_dir():
         explicit_branch = "Junction" in source.stem or "Splitter" in source.stem
         if explicit_branch:
             continue
-
         for loop in all_face_loop.finditer(ports_method):
             loop_body = braced_region(ports_method, loop.end())
             if not loop_body:
@@ -166,73 +160,53 @@ if block_dir.is_dir():
             loop_output = "PortDirection.OUTPUT" in loop_body
             method_input = "PortDirection.INPUT" in ports_method
             method_output = "PortDirection.OUTPUT" in ports_method
-
             if loop_input and loop_output:
                 failed.append(
-                    f"{source.name}: all-face loop declares mixed INPUT/OUTPUT; "
-                    "serial-first policy requires strict endpoints or explicit Junction/Splitter topology"
+                    f"{source.name}: all-face loop declares mixed INPUT/OUTPUT; serial-first policy requires strict endpoints or explicit Junction/Splitter topology"
                 )
                 continue
-
             if loop_input and method_output:
                 failed.append(
-                    f"{source.name}: all-face INPUT plus separate OUTPUT creates implicit multi-input processing; "
-                    "use one explicit process input or an explicit aggregation device"
+                    f"{source.name}: all-face INPUT plus separate OUTPUT creates implicit multi-input processing; use one explicit process input or an explicit aggregation device"
                 )
                 continue
-
             if loop_output and method_input:
                 fixed_prefix = ports_method[:loop.start()]
                 controlled_source = "PortKind.CONTROL" in fixed_prefix and "PortDirection.INPUT" in fixed_prefix
                 if not controlled_source:
                     failed.append(
-                        f"{source.name}: all-face OUTPUT plus non-control INPUT is implicit fan-out processing; "
-                        "use a controlled-source contract or explicit Junction/Splitter topology"
+                        f"{source.name}: all-face OUTPUT plus non-control INPUT is implicit fan-out processing; use a controlled-source contract or explicit Junction/Splitter topology"
                     )
 
-# Representative role exceptions are intentional and must stay explicit.
 require(
     "src/main/java/dev/redstoneengineering/block/OpticalEmitterBlock.java",
-    "Six-face optical source",
-    "PortDirection.OUTPUT",
+    "Six-face optical source", "PortDirection.OUTPUT",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/OpticalReceiverBlock.java",
-    "Six-face optical receiver terminal",
-    "PortDirection.INPUT",
-    "inputs <= 1",
+    "Six-face optical receiver terminal", "PortDirection.INPUT", "inputs <= 1",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/PneumaticFlowMeterBlock.java",
-    "extends DirectionalDomainBlock",
-    "inputSide(state)",
-    "outputSide(state)",
+    "extends DirectionalDomainBlock", "inputSide(state)", "outputSide(state)",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/PneumaticProportionalValveBlock.java",
-    "extends DirectionalDomainBlock",
-    '"PNEUMATIC IN", inputSide(state)',
-    '"PNEUMATIC OUT", outputSide(state)',
+    "extends DirectionalDomainBlock", '"PNEUMATIC IN", inputSide(state)', '"PNEUMATIC OUT", outputSide(state)',
 )
 require(
     "src/main/java/dev/redstoneengineering/block/PressureRegulatorBlock.java",
-    "extends DirectionalDomainBlock",
-    '"PNEUMATIC IN", inputSide(state)',
-    '"REGULATED OUT", outputSide(state)',
+    "extends DirectionalDomainBlock", '"PNEUMATIC IN", inputSide(state)', '"REGULATED OUT", outputSide(state)',
 )
 forbid(
     "src/main/java/dev/redstoneengineering/block/PressureRegulatorBlock.java",
-    "Six-way pneumatic pressure-limiting node",
-    "PortDirection.BIDIRECTIONAL",
+    "Six-way pneumatic pressure-limiting node", "PortDirection.BIDIRECTIONAL",
 )
 require(
     "src/main/java/dev/redstoneengineering/physics/PneumaticNetwork.java",
-    "directionalInput(BlockState state)",
-    "directionalOutput(BlockState state)",
-    "DirectionalDomainBlock.seriesInputSide(state)",
-    "DirectionalDomainBlock.seriesOutputSide(state)",
-    "Direction input = directionalInput(state)",
-    "Direction output = directionalOutput(state)",
+    "directionalInput(BlockState state)", "directionalOutput(BlockState state)",
+    "DirectionalDomainBlock.seriesInputSide(state)", "DirectionalDomainBlock.seriesOutputSide(state)",
+    "Direction input = directionalInput(state)", "Direction output = directionalOutput(state)",
 )
 forbid(
     "src/main/java/dev/redstoneengineering/physics/PneumaticNetwork.java",
@@ -240,18 +214,15 @@ forbid(
 )
 require(
     "src/main/java/dev/redstoneengineering/block/OpticalChannelFilterBlock.java",
-    "Direction inputSide = seriesInputSide(state)",
-    "outputPos(pos, state)",
+    "Direction inputSide = seriesInputSide(state)", "outputPos(pos, state)",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/OpticalAttenuatorBlock.java",
-    "Direction inputSide = seriesInputSide(state)",
-    "outputPos(pos, state)",
+    "Direction inputSide = seriesInputSide(state)", "outputPos(pos, state)",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/RedstoneReferenceSourceBlock.java",
-    "rotateOutput(level, pos, true)",
-    "Reference output →",
+    "rotateOutput(level, pos, true)", "Reference output →",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/DirectionalRedstoneEndpointBlock.java",
@@ -259,91 +230,67 @@ require(
 )
 require(
     "src/main/java/dev/redstoneengineering/block/SignalAnalyzerBlock.java",
-    "TAP mode is a non-invasive measurement aperture",
-    "TEST IN",
-    "INLINE OUT",
+    "TAP mode is a non-invasive measurement aperture", "TEST IN", "INLINE OUT",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/SoulFluxInjectorBlock.java",
     "UP is the dedicated command input; the other five faces are Soul-Flux outputs",
-    "PortKind.CONTROL",
-    "SOUL FLUX OUT",
+    "PortKind.CONTROL", "SOUL FLUX OUT",
 )
 
-# Shared role + route projection: every engineering HMI exposes actual formal port faces.
 require(
     "src/main/java/dev/redstoneengineering/ui/menu/EngineeringDeviceMenu.java",
-    "TOPOLOGY_SERIES",
-    "TOPOLOGY_SOURCE",
-    "TOPOLOGY_SINK",
-    "TOPOLOGY_OBSERVER",
-    "TOPOLOGY_PASSIVE",
-    "TOPOLOGY_EXPLICIT_JUNCTION",
-    "TOPOLOGY_MULTIPORT",
-    "TOPOLOGY_CONTROLLED_SOURCE",
-    "TOPOLOGY_CONTROLLED_SERIES",
-    "TOPOLOGY_PASSIVE_SERIES",
-    "CONTROLLED SOURCE",
-    "CONTROLLED SERIES",
-    "PASSIVE SERIES",
-    "topologyRoleLabel",
-    "classifyTopologyRole",
-    "refreshTopologyRole",
-    "refreshPortRoute",
-    "receivePortMask",
-    "transmitPortMask",
-    "portRouteLabel",
-    "port.canReceive()",
-    "port.canTransmit()",
-    "block instanceof DirectionalDomainBlock",
-    "controlReceivers == 1",
+    "TOPOLOGY_SERIES", "TOPOLOGY_SOURCE", "TOPOLOGY_SINK", "TOPOLOGY_OBSERVER",
+    "TOPOLOGY_PASSIVE", "TOPOLOGY_EXPLICIT_JUNCTION", "TOPOLOGY_MULTIPORT",
+    "TOPOLOGY_CONTROLLED_SOURCE", "TOPOLOGY_CONTROLLED_SERIES", "TOPOLOGY_PASSIVE_SERIES",
+    "CONTROLLED SOURCE", "CONTROLLED SERIES", "PASSIVE SERIES",
+    "topologyRoleLabel", "classifyTopologyRole", "refreshTopologyRole", "refreshPortRoute",
+    "receivePortMask", "transmitPortMask", "portRouteLabel", "port.canReceive()", "port.canTransmit()",
+    "block instanceof DirectionalDomainBlock", "controlReceivers == 1",
     "ports.size() == 2 ? TOPOLOGY_PASSIVE_SERIES : TOPOLOGY_PASSIVE",
 )
+
+# Modern safe HMI contract: topology remains visible, but the dense six-face diagram belongs to
+# the Ports-only sidecar. The main 320px panel must not duplicate a second route schematic.
 require(
     "src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java",
     "ROLE • ",
     "menu.topologyRoleLabel()",
-    "SIGNAL ROUTE",
-    "menu.receivePortFacesLabel()",
-    "menu.transmitPortFacesLabel()",
     "this.imageHeight = 270",
-    "routeNode",
-    "drawRouteLink",
-    "compactRole",
+    "showsPortVisualization",
+    "fitForWidth",
+    "safeText",
+    "ROUTE_CONTROL_Y = 218",
     "normalizeLegacyPresentation",
     '"PNEUMATIC • " + menu.portRouteLabel()',
     'new PresentationLine("DOWN", "REDSTONE PAYLOAD INPUT")',
     'new PresentationLine(label, menu.topologyRoleLabel())',
 )
+forbid(
+    "src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java",
+    '"SIGNAL ROUTE"', "routeNode", "drawRouteLink", "drawFaceMatrix",
+)
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/EngineeringIoCompassOverlay.java",
+    "engineeringScreen.showsPortVisualization()",
+    '"I/O COMPASS"',
+    "menu.receivePortMask()",
+    "menu.transmitPortMask()",
+    "drawCompass",
+    "Direction.NORTH", "Direction.EAST", "Direction.SOUTH", "Direction.WEST", "Direction.UP", "Direction.DOWN",
+)
 
-# Evidence validity and operational health are independent engineering dimensions.
 require(
     "src/main/java/dev/redstoneengineering/ui/menu/EngineeringDeviceMenu.java",
-    "HEALTH_NOMINAL",
-    "HEALTH_ACTIVE",
-    "HEALTH_PROTECTIVE",
-    "HEALTH_DEGRADED",
-    "HEALTH_FAULT",
-    "operationalHealthLabel",
-    "EVIDENCE_UNOBSERVED",
-    "EVIDENCE_VALID",
-    "EVIDENCE_STALE",
-    "EVIDENCE_DOMAIN_MISMATCH",
-    "EVIDENCE_TOPOLOGY_ERROR",
-    "evidenceStateLabel",
-    "refreshEvidenceState",
-    "engineeringSnapshot(level, blockPos, state, port.side())",
-    "RedundantVoterBlock.degraded",
-    "FaultLatchBlock.latched",
-    "OperationsMonitorBlock.SystemState",
+    "HEALTH_NOMINAL", "HEALTH_ACTIVE", "HEALTH_PROTECTIVE", "HEALTH_DEGRADED", "HEALTH_FAULT",
+    "operationalHealthLabel", "EVIDENCE_UNOBSERVED", "EVIDENCE_VALID", "EVIDENCE_STALE",
+    "EVIDENCE_DOMAIN_MISMATCH", "EVIDENCE_TOPOLOGY_ERROR", "evidenceStateLabel", "refreshEvidenceState",
+    "engineeringSnapshot(level, blockPos, state, port.side())", "RedundantVoterBlock.degraded",
+    "FaultLatchBlock.latched", "OperationsMonitorBlock.SystemState",
 )
 require(
     "src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java",
-    "HEALTH • ",
-    "operationalHealthColor",
-    "EVIDENCE • ",
-    "menu.evidenceStateLabel()",
-    "evidenceStateColor",
+    "HEALTH • ", "operationalHealthColor", "EVIDENCE • ", "menu.evidenceStateLabel()", "evidenceStateColor",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/FaultLatchBlock.java",
@@ -363,12 +310,8 @@ projection = root / "src/main/java/dev/redstoneengineering/diagnostics/topology/
 if projection.exists():
     text = projection.read_text(errors="ignore")
     forbidden = [
-        "RuntimeIntStore.get(",
-        "RuntimeIntStore.remove(",
-        ".setBlock(",
-        ".scheduleTick(",
-        "DomainNetwork.drive",
-        "DomainNetwork.recompute",
+        "RuntimeIntStore.get(", "RuntimeIntStore.remove(", ".setBlock(", ".scheduleTick(",
+        "DomainNetwork.drive", "DomainNetwork.recompute",
     ]
     for token in forbidden:
         if token in text:
@@ -391,8 +334,8 @@ print(" passive-series / passive-bus role projection: PASS")
 print(" pneumatic explicit-route solver contract: PASS")
 print(" optical configurable-route sampling contract: PASS")
 print(" shared physical topology-role HMI: PASS")
-print(" shared RX/ROLE/TX route schematic: PASS")
-print(" expanded anti-crowding HMI shell: PASS")
+print(" Ports-only six-face I/O Compass projection: PASS")
+print(" full-height anti-crowding HMI shell: PASS")
 print(" reference-source adjustable output: PASS")
 print(" shared EngineeringPort evidence-quality HMI: PASS")
 print(" authoritative valid-zero evidence boundary: PASS")
