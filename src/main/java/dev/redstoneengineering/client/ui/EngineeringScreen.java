@@ -6,7 +6,6 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
@@ -16,19 +15,17 @@ import java.util.List;
 /**
  * Shared RSE engineering visual language.
  *
- * <p>The screen renders server-synchronized menu data and emits bounded menu-button intent only.
- * It never computes physics, samples sensors, solves topology, or mutates controller state locally.</p>
- *
- * <p>The five top tabs are real information pages rather than decorative navigation. Dense physical
- * I/O visualization belongs to Ports; configuration controls belong to Configure; the remaining pages
- * keep their full vertical workspace instead of carrying the route schematic everywhere.</p>
+ * <p>The shell is deliberately conservative: pages own their full content area, long text is
+ * pixel-clamped, and configuration controls live in reserved lanes. The six-face physical route
+ * visualization is delegated to the read-only I/O Compass on Ports so the main panel never has two
+ * independent diagrams competing for the same pixels.</p>
  */
 public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends AbstractContainerScreen<M> {
     protected enum Section {
         OVERVIEW("Overview", "Live engineering state"),
         PORTS("Ports", "Physical I/O contract"),
         CONFIGURE("Configure", "Bounded server-side controls"),
-        DIAGNOSTICS("Observatory", "Observer-neutral signals, topology and health"),
+        DIAGNOSTICS("Observe", "Observer-neutral signals, topology and health"),
         HISTORY("Log", "Bounded evidence and retained events");
 
         private final String label;
@@ -52,6 +49,12 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     protected static final int INFO = 0xFF9EC8FF;
     protected static final int ACCENT = 0xFFE05555;
     protected static final int WHITE_SIGN = 0xFFF3F5F7;
+
+    private static final int CONTENT_LEFT = 16;
+    private static final int CONTENT_RIGHT = 304;
+    private static final int VALUE_X = 154;
+    private static final int FOOTER_TOP = 245;
+    private static final int ROUTE_CONTROL_Y = 218;
 
     private Section section = Section.OVERVIEW;
     private final List<AbstractWidget> configureWidgets = new ArrayList<>();
@@ -78,13 +81,12 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         int x = leftPos + 8;
         for (Section candidate : Section.values()) {
             Section target = candidate;
-            Button tab = Button.builder(
-                    Component.literal(candidate.label),
-                    button -> setSection(target)
-            ).bounds(x, tabY, 59, 20).build();
+            Button tab = Button.builder(Component.literal(candidate.label), button -> setSection(target))
+                    .bounds(x, tabY, 59, 20).build();
             sectionButtons.add(addRenderableWidget(tab));
             x += 61;
         }
+
         addDeviceWidgets();
         addSharedRouteControl();
         updateWidgetVisibility();
@@ -95,7 +97,6 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     protected void addDeviceWidgets() {
     }
 
-    /** Refreshes client-only button labels from already synchronized menu data. */
     protected void syncDeviceWidgetLabels() {
     }
 
@@ -110,31 +111,27 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         }
     }
 
-    /**
-     * One compact direction control replaces the historical left/right pair. Repeated clicks cycle
-     * the authoritative server route clockwise; the synchronized route label is always shown.
-     */
+    /** Single route control in a reserved bottom lane; no other shared control may occupy this band. */
     private void addSharedRouteControl() {
         if (!(menu instanceof FieldDeviceMenu)) return;
-        int y = topPos + 160;
+        int y = topPos + ROUTE_CONTROL_Y;
         sharedRouteCycle = addConfigureWidget(Button.builder(
                 Component.literal("Direction • —"),
                 button -> sendMenuButton(FieldDeviceMenu.BUTTON_ROTATE_CW)
-        ).bounds(leftPos + 16, y, 288, 20).build());
+        ).bounds(leftPos + CONTENT_LEFT, y, CONTENT_RIGHT - CONTENT_LEFT, 20).build());
     }
 
     private void syncSharedRouteControl() {
         if (!(menu instanceof FieldDeviceMenu fieldMenu) || sharedRouteCycle == null) return;
         boolean enabled = fieldMenu.seriesConfigurable();
-        sharedRouteCycle.active = enabled;
         String route = fieldMenu.portRouteLabel();
         if (route == null || route.isBlank()) route = "NO ROTATABLE ROUTE";
-        if (route.length() > 37) route = route.substring(0, 36) + "…";
-        sharedRouteCycle.setMessage(Component.literal("Direction • " + route));
+        String label = fitForWidth("Direction • " + route, CONTENT_RIGHT - CONTENT_LEFT - 16);
+        sharedRouteCycle.setMessage(Component.literal(label));
+        sharedRouteCycle.active = enabled;
+        sharedRouteCycle.visible = section == Section.CONFIGURE && enabled;
         sharedRouteCycle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
-                enabled
-                        ? "Cycle the declared RX/TX route clockwise on the server."
-                        : "This device has no rotatable formal route.")));
+                "Cycle the declared RX/TX route clockwise on the server.")));
     }
 
     private void setSection(Section section) {
@@ -144,10 +141,6 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         syncSharedRouteControl();
     }
 
-    /**
-     * Older device screens may still instantiate their former CCW/CW pair for source compatibility.
-     * The shared shell suppresses those widgets by label so players see exactly one direction control.
-     */
     private boolean isLegacyRouteWidget(AbstractWidget widget) {
         if (!(widget instanceof Button button)) return false;
         String message = button.getMessage().getString();
@@ -164,7 +157,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         }
     }
 
-    /** Used by the read-only I/O companion so it only exists on the dedicated Ports page. */
+    /** The sidecar I/O compass is the only dense route diagram and only appears on Ports. */
     public final boolean showsPortVisualization() {
         return section == Section.PORTS;
     }
@@ -187,188 +180,51 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
         graphics.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, BORDER);
         graphics.fill(leftPos + 2, topPos + 2, leftPos + imageWidth - 2, topPos + imageHeight - 2, PANEL);
-
         graphics.fill(leftPos + 8, topPos + 27, leftPos + imageWidth - 8, topPos + 29, ACCENT);
 
-        // Ports reserves a dedicated lower schematic. Every other page gets the full content height.
-        int contentBottom = section == Section.PORTS ? imageHeight - 72 : imageHeight - 29;
-        graphics.fill(leftPos + 8, topPos + 58, leftPos + imageWidth - 8, topPos + contentBottom, PANEL_2);
-        if (section == Section.PORTS) {
-            graphics.fill(leftPos + 8, topPos + imageHeight - 68, leftPos + imageWidth - 8, topPos + imageHeight - 29, PANEL_3);
-        }
-        graphics.fill(leftPos + 8, topPos + imageHeight - 25, leftPos + imageWidth - 8, topPos + imageHeight - 9, PANEL_3);
-
-        graphics.fill(leftPos + 8, topPos + 58, leftPos + 11, topPos + contentBottom - 4, WHITE_SIGN);
+        // Every page owns the full content panel. No duplicated route schematic consumes the lower third.
+        graphics.fill(leftPos + 8, topPos + 58, leftPos + imageWidth - 8, topPos + FOOTER_TOP - 4, PANEL_2);
+        graphics.fill(leftPos + 8, topPos + FOOTER_TOP, leftPos + imageWidth - 8, topPos + imageHeight - 9, PANEL_3);
+        graphics.fill(leftPos + 8, topPos + 58, leftPos + 11, topPos + FOOTER_TOP - 8, WHITE_SIGN);
     }
 
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
-        graphics.drawString(font, title, 12, 9, TEXT, false);
-
         String live = "● LIVE / SERVER";
+        graphics.drawString(font, fitForWidth(title.getString(), 170), 12, 9, TEXT, false);
         graphics.drawString(font, live, imageWidth - 12 - font.width(live), 9, GOOD, false);
-        String role = "ROLE • " + menu.topologyRoleLabel();
+
+        String role = fitForWidth("ROLE • " + menu.topologyRoleLabel(), 145);
+        String health = fitForWidth("HEALTH • " + menu.operationalHealthLabel(), 145);
         graphics.drawString(font, role, 12, 19, INFO, false);
-        String health = "HEALTH • " + menu.operationalHealthLabel();
         graphics.drawString(font, health, imageWidth - 12 - font.width(health), 19, operationalHealthColor(), false);
 
         graphics.drawString(font, section.label.toUpperCase(), 13, 62, TEXT, false);
-        graphics.drawString(font, section.subtitle, 92, 62, MUTED, false);
+        graphics.drawString(font, fitForWidth(section.subtitle, 210), 92, 62, MUTED, false);
         renderSection(graphics, section);
 
-        if (section == Section.PORTS) renderPortRoute(graphics);
-
-        String evidence = "EVIDENCE • " + menu.evidenceStateLabel();
+        String evidence = fitForWidth("EVIDENCE • " + menu.evidenceStateLabel(), 150);
         graphics.drawString(font, evidence, 13, imageHeight - 20, evidenceStateColor(), false);
-        String position = "@ " + menu.blockPos().getX() + ", " + menu.blockPos().getY() + ", " + menu.blockPos().getZ();
+        String position = fitForWidth("@ " + menu.blockPos().getX() + ", " + menu.blockPos().getY() + ", " + menu.blockPos().getZ(), 142);
         graphics.drawString(font, position, imageWidth - 13 - font.width(position), imageHeight - 20, MUTED, false);
     }
 
-    /**
-     * Shared route schematic sourced only from formal synchronized menu contracts.
-     * It is intentionally confined to Ports so telemetry/configuration pages remain readable.
-     */
-    private void renderPortRoute(GuiGraphics graphics) {
-        int top = imageHeight - 67;
-        int nodeY = top + 11;
-        int rxX = 16;
-        int roleX = 113;
-        int txX = 222;
-        int nodeH = 29;
-
-        String rxFaces = routeEndpointLabel(menu.receivePortFacesLabel(), true);
-        String txFaces = routeEndpointLabel(menu.transmitPortFacesLabel(), false);
-        String role = compactRole(menu.topologyRoleLabel());
-        boolean rxPresent = menu.receivePortMask() != 0;
-        boolean txPresent = menu.transmitPortMask() != 0;
-        int routeColor = evidenceStateColor();
-
-        graphics.drawString(font, "SIGNAL ROUTE", 16, top - 1, MUTED, false);
-        String topology = routeTopologyHint(rxPresent, txPresent);
-        graphics.drawString(font, topology, 91, top - 1, INFO, false);
-        String state = menu.evidenceStateLabel();
-        graphics.drawString(font, state, imageWidth - 16 - font.width(state), top - 1, routeColor, false);
-
-        routeNode(graphics, rxX, nodeY, 82, nodeH, "RX", rxFaces,
-                rxPresent ? INFO : MUTED, menu.receivePortMask(), true);
-        routeNode(graphics, roleX, nodeY, 94, nodeH, "ROLE", role,
-                operationalHealthColor(), 0, false);
-        routeNode(graphics, txX, nodeY, 82, nodeH, "TX", txFaces,
-                txPresent ? GOOD : MUTED, menu.transmitPortMask(), true);
-
-        drawRouteLink(graphics, rxX + 82, roleX, nodeY + 13, rxPresent, routeColor);
-        drawRouteLink(graphics, roleX + 94, txX, nodeY + 13, txPresent, routeColor);
-
-        if (!rxPresent && txPresent) {
-            graphics.drawString(font, "SOURCE", 84, nodeY + 10, INFO, false);
-        } else if (rxPresent && !txPresent) {
-            graphics.drawString(font, "SINK", 208, nodeY + 10, INFO, false);
-        }
-    }
-
-    private String routeEndpointLabel(String faces, boolean receiving) {
-        String medium = routeMedium(receiving);
-        if (medium.isEmpty() || !portPresent(faces)) return faces;
-        return faces + " • " + medium;
-    }
-
-    /** Presentation-only medium tags for communication devices; no solver semantics are inferred here. */
-    private String routeMedium(boolean receiving) {
-        if (!(menu instanceof FieldDeviceMenu fieldMenu)) return "";
-        return switch (fieldMenu.kind()) {
-            case FieldDeviceMenu.KIND_RADIO_TRANSMITTER -> receiving ? "WIRE" : "RF";
-            case FieldDeviceMenu.KIND_RADIO_RECEIVER -> receiving ? "RF" : "WIRE";
-            case FieldDeviceMenu.KIND_FREE_OPTICAL_TRANSMITTER -> receiving ? "WIRE" : "LOS";
-            case FieldDeviceMenu.KIND_FREE_OPTICAL_RECEIVER -> receiving ? "LOS" : "WIRE";
-            case FieldDeviceMenu.KIND_OPTICAL_FIBER,
-                 FieldDeviceMenu.KIND_OPTICAL_EMITTER,
-                 FieldDeviceMenu.KIND_OPTICAL_RECEIVER,
-                 FieldDeviceMenu.KIND_OPTICAL_POWER_METER,
-                 FieldDeviceMenu.KIND_OPTICAL_SPLITTER,
-                 FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER,
-                 FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR,
-                 FieldDeviceMenu.KIND_OPTICAL_FIBER_JUNCTION -> "FIBER";
-            default -> "";
-        };
-    }
-
-    private String routeTopologyHint(boolean rxPresent, boolean txPresent) {
-        int txCount = Integer.bitCount(menu.transmitPortMask());
-        if (!rxPresent && txPresent) return txCount > 1 ? "FAN-OUT ×" + txCount : "SINGLE TX";
-        if (rxPresent && !txPresent) return "TERMINAL RX";
-        if (rxPresent && txCount > 1) return "BRANCH ×" + txCount;
-        if (rxPresent && txPresent) return "SERIES PATH";
-        return "NO FORMAL PORT";
-    }
-
-    private void routeNode(GuiGraphics graphics, int x, int y, int width, int height,
-                           String heading, String value, int color, int faceMask, boolean showFaces) {
-        graphics.fill(x, y, x + width, y + height, PANEL);
-        graphics.fill(x, y, x + 3, y + height, color);
-        graphics.drawString(font, heading, x + 7, y + 3, MUTED, false);
-        String compact = fitRouteText(value, width - 35);
-        graphics.drawString(font, compact, x + width - 6 - font.width(compact), y + 3, color, false);
-        if (showFaces) {
-            drawFaceMatrix(graphics, x + 7, y + 15, faceMask, color);
-        } else {
-            graphics.fill(x + 7, y + height - 5, x + width - 7, y + height - 3, color);
-        }
-    }
-
-    /** Six compact physical-face indicators: N E S W U D. */
-    private void drawFaceMatrix(GuiGraphics graphics, int x, int y, int mask, int activeColor) {
-        Direction[] order = {
-                Direction.NORTH, Direction.EAST, Direction.SOUTH,
-                Direction.WEST, Direction.UP, Direction.DOWN
-        };
-        String[] labels = {"N", "E", "S", "W", "U", "D"};
-        for (int i = 0; i < order.length; i++) {
-            int cellX = x + i * 11;
-            boolean active = (mask & (1 << order[i].ordinal())) != 0;
-            int color = active ? activeColor : BORDER;
-            graphics.fill(cellX, y, cellX + 9, y + 9, PANEL_3);
-            graphics.fill(cellX, y + 8, cellX + 9, y + 9, color);
-            graphics.drawString(font, labels[i], cellX + 2, y, color, false);
-        }
-    }
-
-    private void drawRouteLink(GuiGraphics graphics, int x0, int x1, int y, boolean present, int routeColor) {
-        int color = present ? routeColor : BORDER;
-        graphics.fill(x0 + 3, y, x1 - 4, y + 2, color);
-        graphics.fill(x1 - 7, y - 2, x1 - 4, y + 4, color);
-    }
-
-    private boolean portPresent(String label) {
-        if (label == null) return false;
-        String normalized = label.trim().toUpperCase();
-        return !normalized.isEmpty()
-                && !normalized.equals("NONE")
-                && !normalized.equals("—")
-                && !normalized.equals("-")
-                && !normalized.equals("N/A");
-    }
-
-    private String compactRole(String role) {
-        if (role == null || role.isBlank()) return "DEVICE";
-        String upper = role.toUpperCase();
-        if (upper.length() <= 13) return upper;
-        if (upper.contains("PROCESS")) return "PROCESSOR";
-        if (upper.contains("CONVERT")) return "CONVERTER";
-        if (upper.contains("SOURCE")) return "SOURCE";
-        if (upper.contains("SINK")) return "SINK";
-        if (upper.contains("OBSERV")) return "OBSERVER";
-        if (upper.contains("PASSIVE")) return "PASSIVE";
-        return upper.substring(0, 12) + "…";
-    }
-
-    private String fitRouteText(String text, int maxWidth) {
+    /** Pixel-based truncation used by all shared widgets and available to every device screen. */
+    protected final String fitForWidth(String text, int maxWidth) {
         if (text == null || text.isBlank()) return "—";
+        if (maxWidth <= 0) return "";
         if (font.width(text) <= maxWidth) return text;
         String compact = text;
         while (compact.length() > 1 && font.width(compact + "…") > maxWidth) {
             compact = compact.substring(0, compact.length() - 1);
         }
         return compact + "…";
+    }
+
+    /** Safe one-line text helper for long explanatory strings in concrete screens. */
+    protected final void safeText(GuiGraphics graphics, String text, int x, int y, int color) {
+        int width = Math.max(0, CONTENT_RIGHT - x);
+        graphics.drawString(font, fitForWidth(text, width), x, y, color, false);
     }
 
     protected final int operationalHealthColor() {
@@ -402,14 +258,10 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
     private String authoritativeHealthValue(String label, String fallback) {
         return switch (label) {
-            case "Safety state" -> menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_PROTECTIVE
-                    ? "TIMED OUT" : "HEALTHY";
-            case "Actuator" -> menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_PROTECTIVE
-                    ? "BRAKED" : "ENABLED";
-            case "Voting health" -> menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_DEGRADED
-                    ? "DEGRADED" : "OK";
-            case "Safety memory" -> menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_FAULT
-                    ? "FAULT LATCHED" : "CLEAR";
+            case "Safety state" -> menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_PROTECTIVE ? "TIMED OUT" : "HEALTHY";
+            case "Actuator" -> menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_PROTECTIVE ? "BRAKED" : "ENABLED";
+            case "Voting health" -> menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_DEGRADED ? "DEGRADED" : "OK";
+            case "Safety memory" -> menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_FAULT ? "FAULT LATCHED" : "CLEAR";
             default -> fallback;
         };
     }
@@ -426,8 +278,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
     private String authoritativeHealthBadge(String value) {
         if ("RELIEF ARMED".equals(value) || "VENTING".equals(value)) {
-            return menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_PROTECTIVE
-                    ? "VENTING" : "RELIEF ARMED";
+            return menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_PROTECTIVE ? "VENTING" : "RELIEF ARMED";
         }
         return value;
     }
@@ -435,10 +286,6 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private record PresentationLine(String label, String value) {
     }
 
-    /**
-     * Keeps legacy device-specific screen strings aligned with the authoritative port contract.
-     * This is presentation-only normalization; it never invents ports or mutates solver state.
-     */
     private PresentationLine normalizeLegacyPresentation(String label, String value) {
         if ("PNEUMATIC • SIX-WAY REGULATED MANIFOLD".equals(value)) {
             return new PresentationLine(label, "PNEUMATIC • " + menu.portRouteLabel());
@@ -454,8 +301,8 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
     protected final void labelValue(GuiGraphics graphics, String label, String value, int y) {
         PresentationLine normalized = normalizeLegacyPresentation(label, value);
-        graphics.drawString(font, normalized.label(), 16, y, MUTED, false);
-        graphics.drawString(font, normalized.value(), 154, y, TEXT, false);
+        graphics.drawString(font, fitForWidth(normalized.label(), 130), CONTENT_LEFT, y, MUTED, false);
+        graphics.drawString(font, fitForWidth(normalized.value(), CONTENT_RIGHT - VALUE_X), VALUE_X, y, TEXT, false);
     }
 
     protected final void statusLine(GuiGraphics graphics, String label, String value, int color, int y) {
@@ -464,8 +311,8 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             color = operationalHealthColor();
         }
         PresentationLine normalized = normalizeLegacyPresentation(label, value);
-        graphics.drawString(font, normalized.label(), 16, y, MUTED, false);
-        graphics.drawString(font, normalized.value(), 154, y, color, false);
+        graphics.drawString(font, fitForWidth(normalized.label(), 130), CONTENT_LEFT, y, MUTED, false);
+        graphics.drawString(font, fitForWidth(normalized.value(), CONTENT_RIGHT - VALUE_X), VALUE_X, y, color, false);
     }
 
     protected final void statusBadge(GuiGraphics graphics, String value, int color, int x, int y) {
@@ -473,39 +320,39 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             value = authoritativeHealthBadge(value);
             color = operationalHealthColor();
         }
-        int width = font.width(value) + 12;
+        int available = Math.max(24, CONTENT_RIGHT - x);
+        String compact = fitForWidth(value, Math.max(8, available - 12));
+        int width = Math.min(available, font.width(compact) + 12);
         graphics.fill(x, y, x + width, y + 14, PANEL_3);
         graphics.fill(x, y, x + 3, y + 14, color);
-        graphics.drawString(font, value, x + 7, y + 3, color, false);
+        graphics.drawString(font, compact, x + 7, y + 3, color, false);
     }
 
-    /** Compact engineering metric card for richer device screens without adding client-side state. */
     protected final void metricCard(GuiGraphics graphics, String label, String value, int x, int y, int width, int color) {
-        graphics.fill(x, y, x + width, y + 31, PANEL_3);
+        int safeWidth = Math.max(24, Math.min(width, CONTENT_RIGHT - x));
+        graphics.fill(x, y, x + safeWidth, y + 31, PANEL_3);
         graphics.fill(x, y, x + 2, y + 31, color);
-        graphics.drawString(font, label.toUpperCase(), x + 7, y + 5, MUTED, false);
-        graphics.drawString(font, value, x + 7, y + 17, TEXT, false);
+        graphics.drawString(font, fitForWidth(label.toUpperCase(), safeWidth - 14), x + 7, y + 5, MUTED, false);
+        graphics.drawString(font, fitForWidth(value, safeWidth - 14), x + 7, y + 17, TEXT, false);
     }
 
-    /** A shared state badge used by devices that expose validity/quality without inventing physics. */
     protected final void healthBadge(GuiGraphics graphics, String state, boolean healthy, int x, int y) {
         statusBadge(graphics, healthy ? "HEALTH • " + state : "ATTENTION • " + state,
                 healthy ? GOOD : WARN, x, y);
     }
 
     protected final void sectionRule(GuiGraphics graphics, int y) {
-        graphics.fill(16, y, imageWidth - 16, y + 1, 0xFF3A4650);
+        graphics.fill(CONTENT_LEFT, y, CONTENT_RIGHT, y + 1, 0xFF3A4650);
     }
 
     protected final void signalBar(GuiGraphics graphics, int value, int y) {
         int bounded = Math.max(0, Math.min(15, value));
-        int x0 = 16;
+        int x0 = CONTENT_LEFT;
         int x1 = 286;
         int interior = x1 - x0 - 2;
         int fillWidth = (bounded * interior) / 15;
         graphics.fill(x0, y, x1, y + 8, PANEL_3);
         if (fillWidth > 0) graphics.fill(x0 + 1, y + 1, x0 + 1 + fillWidth, y + 7, ACCENT);
-
         for (int tick = 0; tick <= 15; tick += 5) {
             int tickX = x0 + 1 + (tick * interior) / 15;
             graphics.fill(tickX, y + 6, tickX + 1, y + 9, BORDER);
