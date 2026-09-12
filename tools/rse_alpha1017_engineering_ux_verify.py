@@ -250,8 +250,8 @@ require(
     "ports.size() == 2 ? TOPOLOGY_PASSIVE_SERIES : TOPOLOGY_PASSIVE",
 )
 
-# Modern safe HMI contract: topology remains visible, but the dense six-face diagram belongs to
-# the Ports-only sidecar. The main 320px panel must not duplicate a second route schematic.
+# Modern safe HMI contract: topology remains visible, dense six-face visualization belongs to
+# Ports/Route, and direction control gets a dedicated Route page instead of crowding Configure.
 require(
     "src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java",
     "ROLE • ",
@@ -260,7 +260,9 @@ require(
     "showsPortVisualization",
     "fitForWidth",
     "safeText",
-    "ROUTE_CONTROL_Y = 218",
+    "ROUTE_CONTROL_Y = 196",
+    "routePage",
+    'Component.literal("Route")',
     "normalizeLegacyPresentation",
     '"PNEUMATIC • " + menu.portRouteLabel()',
     'new PresentationLine("DOWN", "REDSTONE PAYLOAD INPUT")',
@@ -334,8 +336,8 @@ print(" passive-series / passive-bus role projection: PASS")
 print(" pneumatic explicit-route solver contract: PASS")
 print(" optical configurable-route sampling contract: PASS")
 print(" shared physical topology-role HMI: PASS")
-print(" Ports-only six-face I/O Compass projection: PASS")
-print(" full-height anti-crowding HMI shell: PASS")
+print(" Ports/Route six-face I/O Compass projection: PASS")
+print(" dedicated Route page + full-height anti-crowding shell: PASS")
 print(" reference-source adjustable output: PASS")
 print(" shared EngineeringPort evidence-quality HMI: PASS")
 print(" authoritative valid-zero evidence boundary: PASS")
