@@ -24,19 +24,28 @@ def require(rel: str, *tokens: str) -> None:
 require("src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java",
         "OVERVIEW", "PORTS", "CONFIGURE", "DIAGNOSTICS", "HISTORY",
         'Component.literal("Route")', "routePage", "setRoutePage", "routeActionId(boolean clockwise)", "routeSupported",
-        "routePrevious", "routeNext", 'Component.literal("↺ Previous")', 'Component.literal("Next ↻")',
+        "routePrevious", "routeNext", 'Component.literal("Direction ▲")', 'Component.literal("Direction ▼")',
         "routeInputPrevious", "routeInputNext", "routeOutputPrevious", "routeOutputNext",
-        'Component.literal("↺ RX")', 'Component.literal("RX ↻")',
-        'Component.literal("↺ TX")', 'Component.literal("TX ↻")',
-        "routeInputActionId(boolean clockwise)", "routeOutputActionId(boolean clockwise)", "independentRouteEndpoints",
+        'Component.literal("RX ▲")', 'Component.literal("RX ▼")',
+        'Component.literal("TX ▲")', 'Component.literal("TX ▼")',
+        "routeInputActionId(boolean clockwise)", "routeOutputActionId(boolean clockwise)",
+        "hasRouteInputEndpoint()", "hasRouteOutputEndpoint()",
         "DigitalCommunicationMenu.BUTTON_INPUT_LEFT", "DigitalCommunicationMenu.BUTTON_INPUT_RIGHT",
         "DigitalCommunicationMenu.BUTTON_OUTPUT_LEFT", "DigitalCommunicationMenu.BUTTON_OUTPUT_RIGHT",
         "PneumaticSystemMenu.BUTTON_INPUT_LEFT", "PneumaticSystemMenu.BUTTON_INPUT_RIGHT",
         "PneumaticSystemMenu.BUTTON_OUTPUT_LEFT", "PneumaticSystemMenu.BUTTON_OUTPUT_RIGHT",
+        "SignalProcessorMenu.BUTTON_INPUT_LEFT", "SignalProcessorMenu.BUTTON_OUTPUT_RIGHT",
+        "SignalConditionerMenu.BUTTON_INPUT_LEFT", "SignalConditionerMenu.BUTTON_OUTPUT_RIGHT",
+        "QuartzTimingMenu.BUTTON_INPUT_LEFT", "QuartzTimingMenu.BUTTON_OUTPUT_RIGHT",
+        "AmethystSystemMenu.BUTTON_INPUT_LEFT", "AmethystSystemMenu.BUTTON_OUTPUT_RIGHT",
+        "OpticalSystemMenu.BUTTON_INPUT_LEFT", "OpticalSystemMenu.BUTTON_OUTPUT_RIGHT",
+        "MagneticSystemMenu.BUTTON_INPUT_LEFT", "MagneticSystemMenu.BUTTON_OUTPUT_RIGHT",
+        "ReliabilitySystemMenu.BUTTON_INPUT_LEFT", "ReliabilitySystemMenu.BUTTON_OUTPUT_RIGHT",
+        "FieldDeviceMenu.BUTTON_INPUT_PREVIOUS", "FieldDeviceMenu.BUTTON_OUTPUT_NEXT",
         'DIAGNOSTICS("Observe"', "ROLE • ", "HEALTH • ", "EVIDENCE • ",
         "ROUTE_CONTROL_Y = 196", "FOOTER_TOP = 245", "fitForWidth", "safeText",
         "isConfigureSection()", "showsPortVisualization", "CONTENT_RIGHT - VALUE_X",
-        '"Parameters, modes and actions"', '"Direction, orientation and physical interface"',
+        '"Parameters, modes and actions"', '"Direct RX / TX direction control"',
         "SignalAnalyzerMenu.BUTTON_ROTATE_LEFT", "SignalAnalyzerMenu.BUTTON_ROTATE_RIGHT",
         "if (menu instanceof SignalAnalyzerMenu) return true;")
 require("src/main/java/dev/redstoneengineering/client/ui/EngineeringIoCompassOverlay.java",
@@ -48,12 +57,16 @@ require("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScre
         "safeText(g, engineeringHint()", "safeText(g, diagnosticHint()",
         "fitForWidth(label, 72)", "fitForWidth(value, 72)")
 
-# Field-device route authority must include redstone endpoints and standalone physical interfaces,
-# not only the two series-processing base classes. This protects reference sources and sensors.
+# Legacy FieldDevice authority must include endpoint-aware RX/TX controls while preserving
+# standalone physical measurement/interface rotation.
 require("src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java",
-        "DirectionalRedstoneEndpointBlock",
-        "SignalProbeBlock",
-        "RedstoneCableTerminalBlock",
+        "DirectionalRedstoneEndpointBlock", "SignalProbeBlock", "RedstoneCableTerminalBlock",
+        "BUTTON_INPUT_PREVIOUS", "BUTTON_INPUT_NEXT", "BUTTON_OUTPUT_PREVIOUS", "BUTTON_OUTPUT_NEXT",
+        "rotateEndpoint(block, input, clockwise)",
+        "DirectionalSignalBlock.rotateSeriesInput(level, blockPos, clockwise)",
+        "DirectionalSignalBlock.rotateSeriesOutput(level, blockPos, clockwise)",
+        "DirectionalDomainBlock.rotateSeriesInput(level, blockPos, clockwise)",
+        "DirectionalDomainBlock.rotateSeriesOutput(level, blockPos, clockwise)",
         "DirectionalRedstoneEndpointBlock.rotateOutput(level, blockPos, clockwise)",
         "SignalProbeBlock.rotateMeasurementAxis(level, blockPos, clockwise)",
         "RedstoneCableTerminalBlock.rotateInterface(level, blockPos, clockwise)")
@@ -68,10 +81,11 @@ require("src/main/java/dev/redstoneengineering/block/RedstoneReferenceSourceBloc
 require("src/main/java/dev/redstoneengineering/block/DirectionalRedstoneSensorBlock.java",
         "extends DirectionalRedstoneEndpointBlock")
 
-# Generic fallback must preserve the same route authority as the normal field-device path.
+# Universal fallback must derive endpoint visibility from declared ports and keep multi-port layouts legal.
 require("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
         "DirectionalRedstoneEndpointBlock", "SignalProbeBlock", "RedstoneCableTerminalBlock",
-        "isRotatable(block)",
+        "isRotatable(block)", "hasInputEndpoint()", "hasOutputEndpoint()",
+        "routeKind(block) == ROUTE_MULTI_PORT_LAYOUT",
         "DirectionalRedstoneEndpointBlock.rotateOutput(level, blockPos, clockwise)",
         "SignalProbeBlock.rotateMeasurementAxis(level, blockPos, clockwise)",
         "RedstoneCableTerminalBlock.rotateInterface(level, blockPos, clockwise)")
@@ -103,6 +117,20 @@ require("src/main/java/dev/redstoneengineering/ui/menu/DigitalCommunicationMenu.
         "DirectionalDomainBlock.rotateSeriesInput(level, blockPos, clockwise)",
         "DirectionalSignalBlock.rotateSeriesOutput(level, blockPos, clockwise)")
 
+# Newly audited specialized device HMIs must expose true endpoint authority where physically valid.
+require("src/main/java/dev/redstoneengineering/ui/menu/SignalProcessorMenu.java",
+        "BUTTON_INPUT_LEFT", "BUTTON_OUTPUT_RIGHT", "DirectionalSignalBlock.rotateSeriesInput", "DirectionalSignalBlock.rotateSeriesOutput")
+require("src/main/java/dev/redstoneengineering/ui/menu/SignalConditionerMenu.java",
+        "BUTTON_INPUT_LEFT", "BUTTON_OUTPUT_RIGHT", "DirectionalSignalBlock.rotateSeriesInput", "DirectionalSignalBlock.rotateSeriesOutput")
+require("src/main/java/dev/redstoneengineering/ui/menu/QuartzTimingMenu.java",
+        "BUTTON_INPUT_LEFT", "BUTTON_OUTPUT_RIGHT", "DirectionalDomainBlock.rotateSeriesInput", "DirectionalDomainBlock.rotateSeriesOutput")
+require("src/main/java/dev/redstoneengineering/ui/menu/AmethystSystemMenu.java",
+        "BUTTON_INPUT_LEFT", "BUTTON_OUTPUT_RIGHT", "DirectionalDomainBlock.rotateSeriesInput", "DirectionalDomainBlock.rotateSeriesOutput")
+require("src/main/java/dev/redstoneengineering/ui/menu/MagneticSystemMenu.java",
+        "BUTTON_INPUT_LEFT", "BUTTON_OUTPUT_RIGHT", "DirectionalDomainBlock.rotateSeriesInput", "DirectionalDomainBlock.rotateSeriesOutput")
+require("src/main/java/dev/redstoneengineering/ui/menu/ReliabilitySystemMenu.java",
+        "BUTTON_INPUT_LEFT", "BUTTON_OUTPUT_RIGHT", "routeEndpoint", "routeFaultLatch")
+
 # Range sensor rotation owns stale-output invalidation at the block layer, not ad-hoc menu mutation.
 require("src/main/java/dev/redstoneengineering/block/RangeSensorBlock.java",
         "rotateSensingAxis(Level level, BlockPos pos, boolean clockwise)",
@@ -124,36 +152,30 @@ require("src/main/java/dev/redstoneengineering/ui/menu/SignalAnalyzerMenu.java",
         "BUTTON_ROTATE_LEFT", "BUTTON_ROTATE_RIGHT",
         "SignalAnalyzerBlock.rotateMeasurementAxis(level, blockPos, id == BUTTON_ROTATE_RIGHT)")
 
-# Free-space optical channel selection belongs in Configure while physical orientation belongs on Route.
-# Shift-right-click remains a legacy shortcut, but the Engineering UI must expose the same capability.
+# Free-space optical channel selection belongs in Configure; independent RX/TX authority belongs on Route.
 require("src/main/java/dev/redstoneengineering/ui/FieldDeviceUi.java",
         "FreeSpaceOpticalTransmitterBlock", "FreeSpaceOpticalReceiverBlock", "new OpticalSystemMenu")
 require("src/main/java/dev/redstoneengineering/ui/menu/OpticalSystemMenu.java",
         "KIND_FREE_SPACE_TX", "KIND_FREE_SPACE_RX",
         "FreeSpaceOpticalTransmitterBlock.CHANNEL", "FreeSpaceOpticalReceiverBlock.CHANNEL",
         "BUTTON_SECONDARY_PREVIOUS", "BUTTON_SECONDARY_NEXT",
-        "DirectionalSignalBlock.rotateSeriesAxis(level, blockPos, id == BUTTON_ROTATE_RIGHT)",
-        "kind.get() == KIND_FREE_SPACE_TX", "kind.get() == KIND_FREE_SPACE_RX")
+        "BUTTON_INPUT_LEFT", "BUTTON_INPUT_RIGHT", "BUTTON_OUTPUT_LEFT", "BUTTON_OUTPUT_RIGHT",
+        "DirectionalSignalBlock.rotateSeriesInput(level, blockPos, false)",
+        "DirectionalSignalBlock.rotateSeriesOutput(level, blockPos, false)",
+        "DirectionalDomainBlock.rotateSeriesInput(level, blockPos, false)",
+        "DirectionalDomainBlock.rotateSeriesOutput(level, blockPos, false)",
+        "routeSplitter(id)")
 require("src/main/java/dev/redstoneengineering/client/ui/OpticalSystemScreen.java",
         "KIND_FREE_SPACE_TX", "KIND_FREE_SPACE_RX",
         '"CHANNEL " + menu.secondary()',
         '"Direction and physical interface orientation are controlled only on Route."')
 
-# Once the six-page architecture exists, specialized Configure pages may not recreate a second
-# direction/orientation control. Independent RX/TX controls live in the shared Route page only.
+# Specialized Configure pages may not recreate a second direction/orientation authority.
 route_capable_screens = (
-    "SignalConditionerScreen.java",
-    "RangeSensorScreen.java",
-    "SignalAnalyzerScreen.java",
-    "SignalProcessorScreen.java",
-    "QuartzTimingScreen.java",
-    "RadioLinkScreen.java",
-    "DigitalCommunicationScreen.java",
-    "PneumaticSystemScreen.java",
-    "OpticalSystemScreen.java",
-    "AmethystSystemScreen.java",
-    "MagneticSystemScreen.java",
-    "ReliabilitySystemScreen.java",
+    "SignalConditionerScreen.java", "RangeSensorScreen.java", "SignalAnalyzerScreen.java",
+    "SignalProcessorScreen.java", "QuartzTimingScreen.java", "RadioLinkScreen.java",
+    "DigitalCommunicationScreen.java", "PneumaticSystemScreen.java", "OpticalSystemScreen.java",
+    "AmethystSystemScreen.java", "MagneticSystemScreen.java", "ReliabilitySystemScreen.java",
 )
 for name in route_capable_screens:
     body = read("src/main/java/dev/redstoneengineering/client/ui/" + name)
@@ -187,7 +209,7 @@ for forbidden in ("sharedRotateCcw", "sharedRotateCw", '"SIGNAL ROUTE"', "drawFa
     if forbidden in screen:
         errors.append(f"EngineeringScreen restored crowded/duplicated layout element {forbidden!r}")
 
-# Both directions are first-class actions again. Keeping only clockwise is not feature-complete.
+# Both direction-cycle actions and endpoint-cycle actions must be present where applicable.
 for token in (
     "FieldDeviceMenu.BUTTON_ROTATE_CCW", "FieldDeviceMenu.BUTTON_ROTATE_CW",
     "UniversalFieldDeviceMenu.BUTTON_ROTATE_LEFT", "UniversalFieldDeviceMenu.BUTTON_ROTATE_RIGHT",
@@ -237,11 +259,11 @@ print("RSE Engineering UI verification: PASS")
 print(" six-page responsibility split including dedicated Route page: PASS")
 print(" Configure parameters/modes/actions preserved: PASS")
 print(" specialized Configure pages do not duplicate Route authority: PASS")
-print(" independent RX/TX + whole-route controls on shared Route page: PASS")
-print(" bidirectional Previous/Next compatibility for single-axis devices: PASS")
+print(" endpoint-driven RX/TX controls on shared Route page: PASS")
+print(" simple Direction controls preserved for measurement/interface axes: PASS")
 print(" redstone reference/source/sensor FieldDevice route authority: PASS")
 print(" endpoint Engineering UI reachability + Shift diagnostics: PASS")
-print(" universal fallback route authority parity: PASS")
+print(" universal + legacy fallback route authority parity: PASS")
 print(" pneumatic regulator dual-endpoint route authority: PASS")
 print(" range sensor old/new output invalidation on rotation: PASS")
 print(" signal analyzer six-face route + history invalidation: PASS")
