@@ -10,7 +10,7 @@ import net.minecraft.world.entity.player.Inventory;
 
 /** Dedicated HMI for amethyst source, exact filtering, tuned response, and spectrum observation. */
 public final class AmethystSystemScreen extends EngineeringScreen<AmethystSystemMenu> {
-    private Button primaryPrevious, primaryNext, secondaryPrevious, secondaryNext, directionCycle, pulse;
+    private Button primaryPrevious, primaryNext, secondaryPrevious, secondaryNext, pulse;
 
     public AmethystSystemScreen(AmethystSystemMenu menu, Inventory inventory, Component title) { super(menu, inventory, title); }
 
@@ -21,7 +21,6 @@ public final class AmethystSystemScreen extends EngineeringScreen<AmethystSystem
         secondaryPrevious = addConfigureWidget(Button.builder(Component.literal("◀ Secondary"), b -> sendMenuButton(AmethystSystemMenu.BUTTON_SECONDARY_PREVIOUS)).bounds(leftPos+16,y+26,105,20).build());
         secondaryNext = addConfigureWidget(Button.builder(Component.literal("Secondary ▶"), b -> sendMenuButton(AmethystSystemMenu.BUTTON_SECONDARY_NEXT)).bounds(leftPos+199,y+26,105,20).build());
         pulse = addConfigureWidget(Button.builder(Component.literal("Pulse"), b -> sendMenuButton(AmethystSystemMenu.BUTTON_PULSE)).bounds(leftPos+70,y+52,180,20).build());
-        directionCycle = addConfigureWidget(Button.builder(Component.literal("Direction • —"), b -> sendMenuButton(AmethystSystemMenu.BUTTON_ROTATE_RIGHT)).bounds(leftPos+70,y+52,180,20).build());
     }
 
     @Override protected void syncDeviceWidgetLabels() {
@@ -29,7 +28,6 @@ public final class AmethystSystemScreen extends EngineeringScreen<AmethystSystem
         boolean source = menu.kind()==AmethystSystemMenu.KIND_SOURCE;
         boolean filter = menu.kind()==AmethystSystemMenu.KIND_FILTER;
         boolean tuned = menu.kind()==AmethystSystemMenu.KIND_TUNED;
-        boolean spectrum = menu.kind()==AmethystSystemMenu.KIND_SPECTRUM;
         boolean configure = isConfigureSection();
 
         boolean primary = source || filter || tuned;
@@ -44,8 +42,6 @@ public final class AmethystSystemScreen extends EngineeringScreen<AmethystSystem
         secondaryNext.visible = configure && secondary;
         pulse.active = source;
         pulse.visible = configure && source;
-        directionCycle.active = menu.directional();
-        directionCycle.visible = configure && menu.directional();
 
         if (source) {
             primaryPrevious.setMessage(Component.literal("◀ FREQ " + menu.primary())); primaryNext.setMessage(Component.literal("FREQ " + menu.primary() + " ▶"));
@@ -56,11 +52,6 @@ public final class AmethystSystemScreen extends EngineeringScreen<AmethystSystem
         } else if (tuned) {
             primaryPrevious.setMessage(Component.literal("◀ F0 " + menu.tertiary())); primaryNext.setMessage(Component.literal("F0 " + menu.tertiary() + " ▶"));
             secondaryPrevious.setMessage(Component.literal("◀ Q " + menu.auxiliary())); secondaryNext.setMessage(Component.literal("Q " + menu.auxiliary() + " ▶"));
-        }
-        if (!spectrum && menu.directional()) {
-            directionCycle.setMessage(Component.literal("Direction • " + face(menu.facing())));
-            directionCycle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
-                    "Cycle the complete amethyst input/output axis clockwise on the server.")));
         }
     }
 
@@ -93,7 +84,15 @@ public final class AmethystSystemScreen extends EngineeringScreen<AmethystSystem
         else {statusLine(g,face(menu.facing().getOpposite()),"INPUT • AMETHYST RESONANCE",qualityColor(),112);statusLine(g,"PROCESS",menu.kind()==AmethystSystemMenu.KIND_FILTER?"EXACT FREQUENCY SELECTION":"TUNED RESONANT RESPONSE",INFO,140);statusLine(g,face(menu.facing()),"OUTPUT • AMETHYST RESONANCE",GOOD,168);}
     }
 
-    private void configure(GuiGraphics g){statusBadge(g,"SERVER-SIDE BOUNDED CONTROL",INFO,16,80);labelValue(g,"Primary",primaryControl(),98);labelValue(g,"Secondary",secondaryControl(),181);if(menu.directional())labelValue(g,"I/O axis",path(),197);}
+    private void configure(GuiGraphics g){
+        statusBadge(g,"SERVER-SIDE BOUNDED CONTROL",INFO,16,80);
+        labelValue(g,"Primary",primaryControl(),98);
+        labelValue(g,"Secondary",secondaryControl(),181);
+        if(menu.directional()) {
+            labelValue(g,"I/O axis",path(),197);
+            safeText(g,"Physical resonance direction is controlled only on Route.",16,216,MUTED);
+        }
+    }
     private void diagnostics(GuiGraphics g){statusBadge(g,qualityName(),qualityColor(),16,80);labelValue(g,"Device",deviceName(),108);labelValue(g,"Primary",primaryDiagnostic(),126);labelValue(g,"Secondary",secondaryDiagnostic(),144);if(menu.kind()==AmethystSystemMenu.KIND_SPECTRUM){labelValue(g,"Conflicts",Integer.toString(menu.extraA()),162);labelValue(g,"Coverage",menu.extraB()+" / "+menu.stateFlag(),180);}else if(menu.directional()){labelValue(g,"Path",path(),162);labelValue(g,"Output evidence",menu.kind()==AmethystSystemMenu.KIND_TUNED?(menu.stateFlag()==2?"SATURATED":"BOUNDED"):(menu.stateFlag()==1?"PASS":"REJECT"),180);}statusLine(g,"Authority","SERVER SYNCHRONIZED",GOOD,200);}
     private void history(GuiGraphics g){statusBadge(g,"RESONANCE EVIDENCE",INFO,16,80);if(menu.kind()==AmethystSystemMenu.KIND_SPECTRUM){labelValue(g,"Samples",Integer.toString(menu.auxiliary()),110);labelValue(g,"Conflicts",Integer.toString(menu.extraA()),130);labelValue(g,"Coverage",menu.extraB()+" / "+menu.stateFlag(),150);}else{safeText(g,"Current server resonance evidence is shown; no client-side spectrum/history is invented.",16,112,MUTED);}}
 
