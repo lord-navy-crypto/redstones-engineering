@@ -80,7 +80,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         facing.set(directionOrdinal(state));
         int route = routeKind(block);
         routeKind.set(route);
-        seriesRotatable.set(route != ROUTE_NONE ? 1 : 0);
+        seriesRotatable.set(isRotatable(block) ? 1 : 0);
         configKind.set(CONFIG_NONE);
         configPrimary.set(0);
         configSecondary.set(0);
@@ -170,6 +170,10 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         if (block instanceof DirectionalRedstoneEndpointBlock) return ROUTE_ENDPOINT_FRONT;
         if (block instanceof DirectionalSignalBlock || block instanceof DirectionalDomainBlock) return ROUTE_SERIES_AXIS;
         return ROUTE_NONE;
+    }
+
+    private static boolean isRotatable(Block block) {
+        return routeKind(block) != ROUTE_NONE;
     }
 
     private static int syncNumber(double value) {
