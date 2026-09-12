@@ -26,6 +26,7 @@ public final class EngineeringUiClientRegistration {
         modBus.addListener(EngineeringUiClientRegistration::registerScreens);
         modBus.addListener(EngineeringUiClientRegistration::hideLegacyJunctionVariants);
         NeoForge.EVENT_BUS.addListener(EngineeringUiClientRegistration::addInventoryDiagnosticsButton);
+        NeoForge.EVENT_BUS.addListener(EngineeringIoCompassOverlay::render);
         RseLogCapture.install();
     }
 
