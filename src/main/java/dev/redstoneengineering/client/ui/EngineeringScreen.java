@@ -236,6 +236,12 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         if (menu instanceof PneumaticSystemMenu) {
             return clockwise ? PneumaticSystemMenu.BUTTON_INPUT_RIGHT : PneumaticSystemMenu.BUTTON_INPUT_LEFT;
         }
+        if (menu instanceof SignalProcessorMenu) {
+            return clockwise ? SignalProcessorMenu.BUTTON_INPUT_RIGHT : SignalProcessorMenu.BUTTON_INPUT_LEFT;
+        }
+        if (menu instanceof SignalConditionerMenu) {
+            return clockwise ? SignalConditionerMenu.BUTTON_INPUT_RIGHT : SignalConditionerMenu.BUTTON_INPUT_LEFT;
+        }
         return -1;
     }
 
@@ -249,18 +255,32 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         if (menu instanceof PneumaticSystemMenu) {
             return clockwise ? PneumaticSystemMenu.BUTTON_OUTPUT_RIGHT : PneumaticSystemMenu.BUTTON_OUTPUT_LEFT;
         }
+        if (menu instanceof SignalProcessorMenu) {
+            return clockwise ? SignalProcessorMenu.BUTTON_OUTPUT_RIGHT : SignalProcessorMenu.BUTTON_OUTPUT_LEFT;
+        }
+        if (menu instanceof SignalConditionerMenu) {
+            return clockwise ? SignalConditionerMenu.BUTTON_OUTPUT_RIGHT : SignalConditionerMenu.BUTTON_OUTPUT_LEFT;
+        }
+        if (menu instanceof RadioLinkMenu) {
+            return clockwise ? RadioLinkMenu.BUTTON_OUTPUT_RIGHT : RadioLinkMenu.BUTTON_OUTPUT_LEFT;
+        }
         return -1;
     }
 
     private boolean hasRouteInputEndpoint() {
         if (menu instanceof UniversalFieldDeviceMenu universal) return universal.hasInputEndpoint();
         if (menu instanceof DigitalCommunicationMenu) return true;
+        if (menu instanceof SignalProcessorMenu processor) return processor.hasInputEndpoint();
+        if (menu instanceof SignalConditionerMenu conditioner) return conditioner.hasInputEndpoint();
         return menu instanceof PneumaticSystemMenu pneumatic && pneumatic.directional();
     }
 
     private boolean hasRouteOutputEndpoint() {
         if (menu instanceof UniversalFieldDeviceMenu universal) return universal.hasOutputEndpoint();
         if (menu instanceof DigitalCommunicationMenu) return true;
+        if (menu instanceof SignalProcessorMenu processor) return processor.hasOutputEndpoint();
+        if (menu instanceof SignalConditionerMenu conditioner) return conditioner.hasOutputEndpoint();
+        if (menu instanceof RadioLinkMenu radio) return radio.kind() == RadioLinkMenu.KIND_RECEIVER;
         return menu instanceof PneumaticSystemMenu pneumatic && pneumatic.directional();
     }
 
