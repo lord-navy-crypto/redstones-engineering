@@ -70,6 +70,24 @@ required = {
         "menu.operationalHealthLabel()",
         "menu.evidenceStateLabel()",
     ],
+    "src/main/java/dev/redstoneengineering/client/ui/EngineeringIoCompassOverlay.java": [
+        "ScreenEvent.Render.Post",
+        "EngineeringScreen<?> engineeringScreen",
+        "containerScreen.getMenu() instanceof EngineeringDeviceMenu",
+        '"I/O COMPASS"',
+        "menu.receivePortMask()",
+        "menu.transmitPortMask()",
+        '"SOURCE • SINGLE TX"',
+        '"SOURCE • FAN-OUT x"',
+        '"SERIES • 1→1"',
+        "drawCompass",
+        "Direction.NORTH",
+        "Direction.SOUTH",
+        "Direction.EAST",
+        "Direction.WEST",
+        "Direction.UP",
+        "Direction.DOWN",
+    ],
     "src/main/java/dev/redstoneengineering/client/ui/SignalConditionerScreen.java": [
         "SignalConditionerMenu",
         "BUTTON_MODE_NEXT",
@@ -83,6 +101,7 @@ required = {
         "RegisterMenuScreensEvent",
         "SignalConditionerScreen::new",
         "PidControllerScreen::new",
+        "EngineeringIoCompassOverlay::render",
     ],
     "src/main/java/dev/redstoneengineering/gametest/RseEngineeringUiGameTests.java": [
         "conditionerUiActionsDriveAuthoritativeWorldState",
@@ -151,6 +170,7 @@ print("RSE Engineering UI verification: PASS")
 print(" shared menu/screen framework: PASS")
 print(" server-authoritative ROLE / HEALTH / EVIDENCE HMI: PASS")
 print(" six-face RX/TX route matrix: PASS")
+print(" sidecar I/O compass: PASS")
 print(" WIRE / RF / LOS / FIBER medium identity: PASS")
 print(" SINGLE TX / FAN-OUT / SERIES topology cues: PASS")
 print(" server-authoritative configuration path: PASS")
