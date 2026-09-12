@@ -28,7 +28,9 @@ require("src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java"
         'DIAGNOSTICS("Observe"', "ROLE • ", "HEALTH • ", "EVIDENCE • ",
         "ROUTE_CONTROL_Y = 196", "FOOTER_TOP = 245", "fitForWidth", "safeText",
         "isConfigureSection()", "showsPortVisualization", "CONTENT_RIGHT - VALUE_X",
-        '"Parameters, modes and actions"', '"Direction, orientation and physical interface"')
+        '"Parameters, modes and actions"', '"Direction, orientation and physical interface"',
+        "SignalAnalyzerMenu.BUTTON_ROTATE_LEFT", "SignalAnalyzerMenu.BUTTON_ROTATE_RIGHT",
+        "if (menu instanceof SignalAnalyzerMenu) return true;")
 require("src/main/java/dev/redstoneengineering/client/ui/EngineeringIoCompassOverlay.java",
         "engineeringScreen.showsPortVisualization()", '"I/O COMPASS"',
         "boolean rightFits", "boolean leftFits", "if (!rightFits && !leftFits) return;",
@@ -90,6 +92,18 @@ require("src/main/java/dev/redstoneengineering/block/RangeSensorBlock.java",
 require("src/main/java/dev/redstoneengineering/ui/menu/RangeSensorMenu.java",
         "RangeSensorBlock.rotateSensingAxis(level, blockPos, id == BUTTON_ROTATE_RIGHT)")
 
+# Signal Analyzer owns a real six-face TEST/INLINE axis. Rotation must clear history from the old
+# measurement face, withdraw the stale INLINE output, and remain server-authoritative through Route.
+require("src/main/java/dev/redstoneengineering/block/SignalAnalyzerBlock.java",
+        "rotateMeasurementAxis(Level level, BlockPos pos, boolean clockwise)",
+        "ROUTE_CYCLE", "state.setValue(FACING, nextFacing).setValue(OUTPUT, 0)",
+        "RuntimeIntStore.remove(level, KEY, pos)",
+        "level.updateNeighborsAt(pos.relative(oldOutput), analyzer)",
+        "level.updateNeighborsAt(pos.relative(newOutput), analyzer)")
+require("src/main/java/dev/redstoneengineering/ui/menu/SignalAnalyzerMenu.java",
+        "BUTTON_ROTATE_LEFT", "BUTTON_ROTATE_RIGHT",
+        "SignalAnalyzerBlock.rotateMeasurementAxis(level, blockPos, id == BUTTON_ROTATE_RIGHT)")
+
 # Free-space optical channel selection belongs in Configure while physical orientation belongs on Route.
 # Shift-right-click remains a legacy shortcut, but the Engineering UI must expose the same capability.
 require("src/main/java/dev/redstoneengineering/ui/FieldDeviceUi.java",
@@ -104,9 +118,28 @@ require("src/main/java/dev/redstoneengineering/client/ui/OpticalSystemScreen.jav
         "KIND_FREE_SPACE_TX", "KIND_FREE_SPACE_RX",
         '"CHANNEL " + menu.secondary()',
         '"Direction and physical interface orientation are controlled only on Route."')
-optical_screen = read("src/main/java/dev/redstoneengineering/client/ui/OpticalSystemScreen.java")
-if "directionCycle" in optical_screen:
-    errors.append("OpticalSystemScreen duplicates Route orientation controls on Configure")
+
+# Once the six-page architecture exists, no specialized Configure page may recreate a second
+# direction/orientation control. The shared Route page is the only HMI authority for physical route.
+route_capable_screens = (
+    "SignalConditionerScreen.java",
+    "RangeSensorScreen.java",
+    "SignalAnalyzerScreen.java",
+    "SignalProcessorScreen.java",
+    "QuartzTimingScreen.java",
+    "RadioLinkScreen.java",
+    "DigitalCommunicationScreen.java",
+    "PneumaticSystemScreen.java",
+    "OpticalSystemScreen.java",
+    "AmethystSystemScreen.java",
+    "MagneticSystemScreen.java",
+    "ReliabilitySystemScreen.java",
+)
+for name in route_capable_screens:
+    body = read("src/main/java/dev/redstoneengineering/client/ui/" + name)
+    for forbidden in ("directionCycle", "orientationCycle", "BUTTON_ROTATE_LEFT", "BUTTON_ROTATE_RIGHT", "BUTTON_OUTPUT_LEFT", "BUTTON_OUTPUT_RIGHT"):
+        if forbidden in body:
+            errors.append(f"{name}: duplicates physical Route authority on Configure via {forbidden!r}")
 
 for name in (
     "EnhancedFieldDeviceScreen.java", "SignalConditionerScreen.java", "PidControllerScreen.java",
@@ -139,6 +172,7 @@ for token in (
     "FieldDeviceMenu.BUTTON_ROTATE_CCW", "FieldDeviceMenu.BUTTON_ROTATE_CW",
     "UniversalFieldDeviceMenu.BUTTON_ROTATE_LEFT", "UniversalFieldDeviceMenu.BUTTON_ROTATE_RIGHT",
     "RangeSensorMenu.BUTTON_ROTATE_LEFT", "RangeSensorMenu.BUTTON_ROTATE_RIGHT",
+    "SignalAnalyzerMenu.BUTTON_ROTATE_LEFT", "SignalAnalyzerMenu.BUTTON_ROTATE_RIGHT",
     "SignalProcessorMenu.BUTTON_ROTATE_LEFT", "SignalProcessorMenu.BUTTON_ROTATE_RIGHT",
     "SignalConditionerMenu.BUTTON_ROTATE_LEFT", "SignalConditionerMenu.BUTTON_ROTATE_RIGHT",
     "QuartzTimingMenu.BUTTON_ROTATE_LEFT", "QuartzTimingMenu.BUTTON_ROTATE_RIGHT",
@@ -182,12 +216,14 @@ if errors:
 print("RSE Engineering UI verification: PASS")
 print(" six-page responsibility split including dedicated Route page: PASS")
 print(" Configure parameters/modes/actions preserved: PASS")
+print(" specialized Configure pages do not duplicate Route authority: PASS")
 print(" bidirectional Previous/Next Route controls restored: PASS")
 print(" redstone reference/source/sensor FieldDevice route authority: PASS")
 print(" endpoint Engineering UI reachability + Shift diagnostics: PASS")
 print(" universal fallback route authority parity: PASS")
 print(" pneumatic regulator route authority: PASS")
 print(" range sensor old/new output invalidation on rotation: PASS")
+print(" signal analyzer six-face route + history invalidation: PASS")
 print(" signal probe six-face measurement-axis rotation: PASS")
 print(" cable terminal physical-interface rotation: PASS")
 print(" free-space optical Configure/Route responsibility split: PASS")
