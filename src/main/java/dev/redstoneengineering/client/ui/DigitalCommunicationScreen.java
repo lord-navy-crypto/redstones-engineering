@@ -11,7 +11,6 @@ import net.minecraft.world.entity.player.Inventory;
 public final class DigitalCommunicationScreen extends EngineeringScreen<DigitalCommunicationMenu> {
     private Button parameterPrevious;
     private Button parameterNext;
-    private Button directionCycle;
 
     public DigitalCommunicationScreen(DigitalCommunicationMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -26,9 +25,6 @@ public final class DigitalCommunicationScreen extends EngineeringScreen<DigitalC
         parameterNext = addConfigureWidget(Button.builder(Component.literal("Threshold ▶"),
                 b -> sendMenuButton(DigitalCommunicationMenu.BUTTON_PARAMETER_NEXT))
                 .bounds(leftPos + 199, y, 105, 20).build());
-        directionCycle = addConfigureWidget(Button.builder(Component.literal("Direction • —"),
-                b -> sendMenuButton(DigitalCommunicationMenu.BUTTON_ROTATE_RIGHT))
-                .bounds(leftPos + 70, y + 30, 180, 20).build());
     }
 
     @Override
@@ -48,12 +44,6 @@ public final class DigitalCommunicationScreen extends EngineeringScreen<DigitalC
             };
             parameterPrevious.setMessage(Component.literal("◀ " + threshold + "%"));
             parameterNext.setMessage(Component.literal(threshold + "% ▶"));
-        }
-        if (directionCycle != null) {
-            directionCycle.visible = configure;
-            directionCycle.setMessage(Component.literal("Direction • " + face(menu.outputDirection())));
-            directionCycle.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
-                    "Cycle the complete declared input/output path clockwise on the server.")));
         }
     }
 
@@ -104,6 +94,7 @@ public final class DigitalCommunicationScreen extends EngineeringScreen<DigitalC
         }
         labelValue(g, "Input face", face(menu.inputDirection()), 171);
         labelValue(g, "Output face", face(menu.outputDirection()), 187);
+        safeText(g, "Physical input/output direction is controlled only on Route.", 16, 207, MUTED);
     }
 
     private void diagnostics(GuiGraphics g) {
