@@ -20,6 +20,8 @@ import net.minecraft.world.level.block.state.BlockState;
 public final class RadioLinkMenu extends EngineeringDeviceMenu {
     public static final int KIND_TRANSMITTER = 0;
     public static final int KIND_RECEIVER = 1;
+    public static final int RANGE_BLOCKS = RadioKernel.RANGE;
+    public static final int MIN_DECODE_QUALITY = RadioKernel.MIN_DECODE_QUALITY;
 
     public static final int BUTTON_CHANNEL_PREVIOUS = 0;
     public static final int BUTTON_CHANNEL_NEXT = 1;
