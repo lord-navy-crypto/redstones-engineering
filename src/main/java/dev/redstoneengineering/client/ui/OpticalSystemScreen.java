@@ -26,10 +26,10 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
         boolean e=menu.kind()==OpticalSystemMenu.KIND_EMITTER,f=menu.kind()==OpticalSystemMenu.KIND_FILTER,a=menu.kind()==OpticalSystemMenu.KIND_ATTENUATOR;
         boolean tx=menu.kind()==OpticalSystemMenu.KIND_FREE_SPACE_TX,rx=menu.kind()==OpticalSystemMenu.KIND_FREE_SPACE_RX,c=isConfigureSection();
         p0.visible=p1.visible=c&&(e||f||a); s0.visible=s1.visible=c&&(e||tx||rx);
-        if(e){p0.setMessage(Component.literal("◀ I "+menu.primary()));p1.setMessage(Component.literal("I "+menu.primary()+" ▶"));s0.setMessage(Component.literal("◀ CH "+menu.secondary()));s1.setMessage(Component.literal("CH "+menu.secondary()+" ▶"));}
-        else if(f){p0.setMessage(Component.literal("◀ CH "+menu.secondary()));p1.setMessage(Component.literal("CH "+menu.secondary()+" ▶"));}
+        if(e){p0.setMessage(Component.literal("◀ I "+menu.primary()));p1.setMessage(Component.literal("I "+menu.primary()+" ▶"));s0.setMessage(Component.literal("◀ CH "+menu.secondary()));s1.setMessage(Component.literal("CHANNEL " + menu.secondary()));}
+        else if(f){p0.setMessage(Component.literal("◀ CH "+menu.secondary()));p1.setMessage(Component.literal("CHANNEL " + menu.secondary()));}
         else if(a){p0.setMessage(Component.literal("◀ LOSS "+menu.secondary()));p1.setMessage(Component.literal("LOSS "+menu.secondary()+" ▶"));}
-        else if(tx||rx){s0.setMessage(Component.literal("◀ CH "+menu.secondary()));s1.setMessage(Component.literal("CH "+menu.secondary()+" ▶"));}
+        else if(tx||rx){s0.setMessage(Component.literal("◀ CH "+menu.secondary()));s1.setMessage(Component.literal("CHANNEL " + menu.secondary()));}
     }
 
     @Override protected void renderSection(GuiGraphics g,Section s){switch(s){case OVERVIEW->overview(g);case PORTS->ports(g);case CONFIGURE->configure(g);case DIAGNOSTICS->diagnostics(g);case HISTORY->history(g);}}
@@ -91,7 +91,7 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
     private String role(){return menu.kind()==OpticalSystemMenu.KIND_METER?"OBSERVER / COMMISSIONING":menu.kind()==OpticalSystemMenu.KIND_EMITTER?"SOURCE":menu.kind()==OpticalSystemMenu.KIND_RECEIVER?"TERMINAL SINK":"PROCESSOR / CONVERTER";}
     private String topology(){return menu.kind()==OpticalSystemMenu.KIND_METER?"MEASURE "+face(menu.facing()):menu.directional()?face(inputFace())+" → "+face(menu.facing()):"NETWORK / SOURCE";}
     private String primaryControl(){return switch(menu.kind()){case OpticalSystemMenu.KIND_EMITTER->"INTENSITY "+menu.primary()+"/15";case OpticalSystemMenu.KIND_FILTER->"TARGET CHANNEL "+menu.secondary();case OpticalSystemMenu.KIND_ATTENUATOR->"LOSS "+menu.secondary();default->"READ ONLY";};}
-    private String secondaryControl(){return switch(menu.kind()){case OpticalSystemMenu.KIND_EMITTER,OpticalSystemMenu.KIND_FREE_SPACE_TX,OpticalSystemMenu.KIND_FREE_SPACE_RX->"CHANNEL "+menu.secondary();default->"NONE";};}
+    private String secondaryControl(){return switch(menu.kind()){case OpticalSystemMenu.KIND_EMITTER,OpticalSystemMenu.KIND_FREE_SPACE_TX,OpticalSystemMenu.KIND_FREE_SPACE_RX->"CHANNEL " + menu.secondary();default->"NONE";};}
     private String qName(){return menu.quality().name().replace('_',' ');}private int qColor(){return menu.quality()==PortQuality.VALID?GOOD:menu.quality()==PortQuality.NO_SIGNAL||menu.quality()==PortQuality.STALE?WARN:BAD;}
     private Direction inputFace(){return menu.facing().getOpposite();}private String face(Direction d){return d.getName().toUpperCase();}
     private Direction leftOf(Direction f){return switch(f){case NORTH->Direction.WEST;case WEST->Direction.SOUTH;case SOUTH->Direction.EAST;case EAST->Direction.NORTH;default->Direction.WEST;};}
