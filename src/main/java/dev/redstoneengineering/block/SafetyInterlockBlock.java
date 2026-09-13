@@ -104,9 +104,10 @@ public class SafetyInterlockBlock extends PassiveDirectionalSignalBlock {
         return permit != 0 ? 15 : 0;
     }
 
+    /** Returns -1 while diagnostics have not yet been evaluated after placement/reset. */
     public static int failedMask(Level level, BlockPos pos) {
         int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
-        return runtime == null || runtime.length == 0 ? 7 : runtime[0];
+        return runtime == null || runtime.length < RUNTIME_SIZE ? -1 : runtime[0];
     }
 
     public static String compactDiagnostics(Level level, BlockPos pos) {
