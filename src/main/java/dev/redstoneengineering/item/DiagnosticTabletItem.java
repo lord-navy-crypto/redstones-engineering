@@ -113,7 +113,7 @@ public final class DiagnosticTabletItem extends Item {
                 String previous = tag.getString(SNAPSHOT_PREFIX + (i - 1));
                 if (!previous.isBlank()) tag.putString(SNAPSHOT_PREFIX + i, previous);
             }
-            tag.putString(SNAPSHOT_PREFIX, snapshot);
+            tag.putString(SNAPSHOT_PREFIX + 0, snapshot);
             tag.putInt(COUNT, newCount);
         });
     }
