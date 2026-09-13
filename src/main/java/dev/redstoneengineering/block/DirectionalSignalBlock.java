@@ -198,6 +198,7 @@ public abstract class DirectionalSignalBlock extends Block implements Engineerin
         BlockState next = state
                 .setValue(FACING, newOutput)
                 .setValue(INPUT_FACING, newInput);
+        if (!physicalPortsDoNotOverlap(block, next)) return false;
         level.setBlock(pos, next, Block.UPDATE_CLIENTS);
 
         notifyNeighbors(level, pos, block, oldInput, oldOutput, newInput, newOutput);
@@ -205,7 +206,11 @@ public abstract class DirectionalSignalBlock extends Block implements Engineerin
         return true;
     }
 
-    /** Routes only INPUT while keeping OUTPUT fixed; invalid INPUT=OUTPUT states are skipped. */
+    /**
+     * Routes only INPUT while keeping OUTPUT fixed. Candidate states are checked against every
+     * declared engineering port, so a primary RX can never be moved onto an auxiliary input/output.
+     * Dense multi-port layouts fall back to rotating the whole legal physical layout.
+     */
     public static boolean rotateSeriesInput(Level level, BlockPos pos, boolean clockwise) {
         if (level.isClientSide) return false;
         BlockState state = level.getBlockState(pos);
@@ -213,22 +218,24 @@ public abstract class DirectionalSignalBlock extends Block implements Engineerin
 
         Direction output = seriesOutputSide(state);
         Direction oldInput = seriesInputSide(state);
-        Direction newInput = rotateHorizontal(oldInput, clockwise);
-        for (int i = 0; i < 3 && newInput == output; i++) {
-            newInput = rotateHorizontal(newInput, clockwise);
+        Direction candidate = oldInput;
+        for (int i = 0; i < 3; i++) {
+            candidate = rotateHorizontal(candidate, clockwise);
+            if (candidate == output) continue;
+            BlockState next = state.setValue(INPUT_FACING, candidate);
+            if (!physicalPortsDoNotOverlap(block, next)) continue;
+            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+            notifyNeighbors(level, pos, block, oldInput, candidate, output);
+            if (level instanceof ServerLevel serverLevel) serverLevel.scheduleTick(pos, block, 1);
+            return true;
         }
-        if (newInput == output || newInput == oldInput) return false;
-
-        BlockState next = state.setValue(INPUT_FACING, newInput);
-        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-        notifyNeighbors(level, pos, block, oldInput, newInput, output);
-        if (level instanceof ServerLevel serverLevel) serverLevel.scheduleTick(pos, block, 1);
-        return true;
+        return hasAuxiliaryPorts(block, state) && rotateWholeRoute(level, pos, clockwise);
     }
 
     /**
-     * Routes only the OUTPUT face. The INPUT face remains fixed, ordinary processors stay 1-in/1-out,
-     * and an invalid INPUT=OUTPUT state is skipped automatically.
+     * Routes only OUTPUT while keeping INPUT fixed. Candidate states are validated against all
+     * declared physical ports. Dense multi-port layouts rotate as a rigid legal unit instead of
+     * permitting an overlapping TX/auxiliary-port state.
      */
     public static boolean rotateSeriesOutput(Level level, BlockPos pos, boolean clockwise) {
         if (level.isClientSide) return false;
@@ -237,17 +244,33 @@ public abstract class DirectionalSignalBlock extends Block implements Engineerin
 
         Direction input = seriesInputSide(state);
         Direction oldOutput = seriesOutputSide(state);
-        Direction newOutput = rotateHorizontal(oldOutput, clockwise);
-        for (int i = 0; i < 3 && newOutput == input; i++) {
-            newOutput = rotateHorizontal(newOutput, clockwise);
+        Direction candidate = oldOutput;
+        for (int i = 0; i < 3; i++) {
+            candidate = rotateHorizontal(candidate, clockwise);
+            if (candidate == input) continue;
+            BlockState next = state.setValue(FACING, candidate);
+            if (!physicalPortsDoNotOverlap(block, next)) continue;
+            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+            notifyNeighbors(level, pos, block, oldOutput, candidate, input);
+            if (level instanceof ServerLevel serverLevel) serverLevel.scheduleTick(pos, block, 1);
+            return true;
         }
-        if (newOutput == input || newOutput == oldOutput) return false;
+        return hasAuxiliaryPorts(block, state) && rotateWholeRoute(level, pos, clockwise);
+    }
 
-        BlockState next = state.setValue(FACING, newOutput);
-        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-        notifyNeighbors(level, pos, block, oldOutput, newOutput, input);
-        if (level instanceof ServerLevel serverLevel) serverLevel.scheduleTick(pos, block, 1);
+    /** Every declared engineering port is a physical connector and therefore needs a unique face. */
+    private static boolean physicalPortsDoNotOverlap(DirectionalSignalBlock block, BlockState state) {
+        List<EngineeringPort> ports = block.engineeringPorts(state);
+        for (int i = 0; i < ports.size(); i++) {
+            for (int j = i + 1; j < ports.size(); j++) {
+                if (ports.get(i).side() == ports.get(j).side()) return false;
+            }
+        }
         return true;
+    }
+
+    private static boolean hasAuxiliaryPorts(DirectionalSignalBlock block, BlockState state) {
+        return block.engineeringPorts(state).size() > 2;
     }
 
     private static Direction rotateHorizontal(Direction direction, boolean clockwise) {
