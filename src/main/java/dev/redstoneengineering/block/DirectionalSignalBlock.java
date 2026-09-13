@@ -218,14 +218,14 @@ public abstract class DirectionalSignalBlock extends Block implements Engineerin
 
         Direction output = seriesOutputSide(state);
         Direction oldInput = seriesInputSide(state);
-        Direction candidate = oldInput;
+        Direction newInput = oldInput;
         for (int i = 0; i < 3; i++) {
-            candidate = rotateHorizontal(candidate, clockwise);
-            if (candidate == output) continue;
-            BlockState next = state.setValue(INPUT_FACING, candidate);
+            newInput = rotateHorizontal(newInput, clockwise);
+            if (newInput == output) continue;
+            BlockState next = state.setValue(INPUT_FACING, newInput);
             if (!physicalPortsDoNotOverlap(block, next)) continue;
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            notifyNeighbors(level, pos, block, oldInput, candidate, output);
+            notifyNeighbors(level, pos, block, oldInput, newInput, output);
             if (level instanceof ServerLevel serverLevel) serverLevel.scheduleTick(pos, block, 1);
             return true;
         }
@@ -244,14 +244,14 @@ public abstract class DirectionalSignalBlock extends Block implements Engineerin
 
         Direction input = seriesInputSide(state);
         Direction oldOutput = seriesOutputSide(state);
-        Direction candidate = oldOutput;
+        Direction newOutput = oldOutput;
         for (int i = 0; i < 3; i++) {
-            candidate = rotateHorizontal(candidate, clockwise);
-            if (candidate == input) continue;
-            BlockState next = state.setValue(FACING, candidate);
+            newOutput = rotateHorizontal(newOutput, clockwise);
+            if (newOutput == input) continue;
+            BlockState next = state.setValue(FACING, newOutput);
             if (!physicalPortsDoNotOverlap(block, next)) continue;
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            notifyNeighbors(level, pos, block, oldOutput, candidate, input);
+            notifyNeighbors(level, pos, block, oldOutput, newOutput, input);
             if (level instanceof ServerLevel serverLevel) serverLevel.scheduleTick(pos, block, 1);
             return true;
         }
