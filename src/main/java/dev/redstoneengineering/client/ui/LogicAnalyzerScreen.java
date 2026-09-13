@@ -99,7 +99,7 @@ public final class LogicAnalyzerScreen extends EngineeringScreen<LogicAnalyzerMe
             graphics.drawString(font, "CH " + channelName(channel), 16, y, channelColor(channel), false);
             safeText(graphics,
                     InstrumentDiagnostics.digitalDiagnosis(summary)
-                            + " • cov " + summary.coveragePercent() + "% • trans " + summary.transitions(),
+                            + " • coverage=" + summary.coveragePercent() + "% • transition=" + summary.transitions(),
                     54, y, diagnosticColor(summary));
             safeText(graphics,
                     "duty=" + menu.duty(channel) + "%  edges ↑" + menu.rising(channel) + " ↓" + menu.falling(channel)
