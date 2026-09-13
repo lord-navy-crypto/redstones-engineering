@@ -4,10 +4,12 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
 
 /**
- * Observer-only retained evidence written by the authoritative optical solver.
+ * Observer-only retained evidence derived from the authoritative optical solve.
  *
- * <p>This is not another propagation model. DomainNetwork writes the exact launch/component/path
- * values it already used to resolve a carrier; HMIs only read this compact snapshot.</p>
+ * <p>This is not another propagation model. Receiver writes reconstruct the already-applied
+ * segment budget from the solver's retained arrival and bounded scan length. Passive optical
+ * segments cannot branch without an explicit splitter boundary, so the segment node count is
+ * a deterministic path-length witness rather than a second graph search.</p>
  */
 public final class OpticalLinkBudgetRuntime {
     private static final String KEY = "optical_link_budget";
@@ -45,6 +47,26 @@ public final class OpticalLinkBudgetRuntime {
         public int totalLoss() {
             return Math.max(0, componentLoss + fiberLoss);
         }
+    }
+
+    /**
+     * Retain the solved receiver segment budget without traversing the graph again.
+     * DomainNetwork currently applies one intensity level of attenuation per 16 path edges.
+     */
+    public static void recordReceiverSegment(
+            Level level,
+            BlockPos receiverPos,
+            int receivedIntensity,
+            int channel,
+            boolean valid
+    ) {
+        NetworkKernel.ScanStats stats = NetworkKernel.stats(level, "optical");
+        boolean trustworthy = valid && !stats.lastTruncated() && stats.activeDrivers() <= 1;
+        int hops = Math.max(0, stats.lastNodes() - 1);
+        int fiberLoss = hops / 16;
+        int received = clamp15(receivedIntensity);
+        int launch = trustworthy ? clamp15(received + fiberLoss) : 0;
+        record(level, receiverPos, launch, 0, hops, received, channel, trustworthy);
     }
 
     public static void record(
