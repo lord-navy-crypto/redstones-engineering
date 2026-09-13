@@ -13,10 +13,12 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -38,7 +40,7 @@ import java.util.Optional;
 public class RedstoneToLapisScalerBlock extends Block implements EngineeringPortProvider {
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     private static final String KEY = "redstone_to_lapis_scaler";
-    private static final int RUNTIME_SIZE = 2; // last trustworthy value, encoded quality
+    private static final int RUNTIME_SIZE = 2;
 
     public RedstoneToLapisScalerBlock(Properties properties) {
         super(properties);
@@ -96,7 +98,6 @@ public class RedstoneToLapisScalerBlock extends Block implements EngineeringPort
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
         PortQuality quality = observation.quality();
         runtime[1] = encodeQuality(quality);
-
         if (quality == PortQuality.STALE) {
             DomainNetwork.driveLapis(level, pos.relative(outputSide(state)), pos, runtime[0], false);
         } else if (observation.valid()) {
@@ -119,24 +120,26 @@ public class RedstoneToLapisScalerBlock extends Block implements EngineeringPort
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (!level.isClientSide) {
-            var input = RedstoneObservationSupport.observe(level, pos, inputSide(state));
-            if (input.valid()) {
-                int output = outputValue(level, pos);
-                int sourceSpacing = CoreMediaDiagnostics.sourceCodeSpacing(input.value());
-                player.displayClientMessage(Component.literal(
-                        "Redstone → Lapis Scaler | input=" + input.value() + "/15"
-                                + " | output=" + String.format("%.2f", output / 100.0)
-                                + " | sourceCodeSpacing≈" + String.format("%.2f", sourceSpacing / 100.0)
-                                + " | UPSCALED REPRESENTATION — NO NEW SOURCE PRECISION"
-                                + " | quality=" + outputQuality(level, pos)
-                ), true);
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (!player.isShiftKeyDown()) {
+                FieldDeviceUi.open(serverPlayer, pos);
             } else {
-                player.displayClientMessage(Component.literal(
-                        "Redstone → Lapis Scaler | input=" + input.quality().name()
-                                + " | outputQuality=" + outputQuality(level, pos)
-                                + " | precision unavailable until Redstone evidence is VALID"
-                ), true);
+                var input = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+                if (input.valid()) {
+                    int output = outputValue(level, pos);
+                    int sourceSpacing = CoreMediaDiagnostics.sourceCodeSpacing(input.value());
+                    player.displayClientMessage(Component.literal(
+                            "Redstone to Lapis Scaler | input=" + input.value() + "/15"
+                                    + " | output=" + String.format("%.2f", output / 100.0)
+                                    + " | sourceCodeSpacing=" + String.format("%.2f", sourceSpacing / 100.0)
+                                    + " | UPSCALED REPRESENTATION - NO NEW SOURCE PRECISION"
+                                    + " | quality=" + outputQuality(level, pos)), true);
+                } else {
+                    player.displayClientMessage(Component.literal(
+                            "Redstone to Lapis Scaler | input=" + input.quality().name()
+                                    + " | outputQuality=" + outputQuality(level, pos)
+                                    + " | precision unavailable until Redstone evidence is VALID"), true);
+                }
             }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
