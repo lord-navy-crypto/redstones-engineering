@@ -38,21 +38,30 @@ import java.util.Optional;
 
 /** Explicit Lapis continuous-like -> vanilla Redstone 0..15 quantizer. */
 public class LapisToRedstoneQuantizerBlock extends Block implements EngineeringPortProvider {
+    /** Redstone TX face. */
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
+    /** Lapis RX face. Never intentionally overlaps {@link #FACING}. */
+    public static final DirectionProperty INPUT_FACING = DirectionProperty.create("input_facing", Direction.Plane.HORIZONTAL);
     public static final IntegerProperty POWER = IntegerProperty.create("power", 0, 15);
     private static final String KEY = "lapis_to_redstone_quantizer";
 
     public LapisToRedstoneQuantizerBlock(Properties properties) {
         super(properties);
-        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH).setValue(POWER, 0));
+        registerDefaultState(stateDefinition.any()
+                .setValue(FACING, Direction.NORTH)
+                .setValue(INPUT_FACING, Direction.SOUTH)
+                .setValue(POWER, 0));
     }
 
     @Override public MapCodec<LapisToRedstoneQuantizerBlock> codec() { return RedstoneEngineering.LAPIS_TO_REDSTONE_QUANTIZER_CODEC.value(); }
-    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { builder.add(FACING, POWER); }
-    @Override public BlockState getStateForPlacement(BlockPlaceContext context) { return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite()); }
+    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { builder.add(FACING, INPUT_FACING, POWER); }
+    @Override public BlockState getStateForPlacement(BlockPlaceContext context) {
+        Direction output = context.getHorizontalDirection().getOpposite();
+        return defaultBlockState().setValue(FACING, output).setValue(INPUT_FACING, output.getOpposite());
+    }
 
     private Direction outputSide(BlockState state) { return state.getValue(FACING); }
-    private Direction inputSide(BlockState state) { return outputSide(state).getOpposite(); }
+    private Direction inputSide(BlockState state) { return state.getValue(INPUT_FACING); }
     private static int encodeQuality(PortQuality quality) { return quality.ordinal() + 1; }
 
     public static PortQuality outputQuality(Level level, BlockPos pos) {
@@ -103,6 +112,46 @@ public class LapisToRedstoneQuantizerBlock extends Block implements EngineeringP
         level.scheduleTick(pos, this, 2);
     }
 
+    public static boolean rotateInput(Level level, BlockPos pos, boolean clockwise) {
+        if (level.isClientSide) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof LapisToRedstoneQuantizerBlock block)) return false;
+        Direction output = state.getValue(FACING);
+        Direction oldInput = state.getValue(INPUT_FACING);
+        Direction nextInput = nextFreeHorizontal(oldInput, output, clockwise);
+        if (nextInput == oldInput) return false;
+        level.setBlock(pos, state.setValue(INPUT_FACING, nextInput), Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, block, 1);
+        level.updateNeighborsAt(pos, block);
+        return true;
+    }
+
+    public static boolean rotateOutput(Level level, BlockPos pos, boolean clockwise) {
+        if (level.isClientSide) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof LapisToRedstoneQuantizerBlock block)) return false;
+        Direction input = state.getValue(INPUT_FACING);
+        Direction oldOutput = state.getValue(FACING);
+        Direction nextOutput = nextFreeHorizontal(oldOutput, input, clockwise);
+        if (nextOutput == oldOutput) return false;
+        BlockState next = state.setValue(FACING, nextOutput);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        level.updateNeighborsAt(pos, block);
+        level.updateNeighborsAt(pos.relative(oldOutput), block);
+        level.updateNeighborsAt(pos.relative(nextOutput), block);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, block, 1);
+        return true;
+    }
+
+    private static Direction nextFreeHorizontal(Direction current, Direction forbidden, boolean clockwise) {
+        Direction candidate = current;
+        for (int i = 0; i < 3; i++) {
+            candidate = clockwise ? candidate.getClockWise() : candidate.getCounterClockWise();
+            if (candidate != forbidden) return candidate;
+        }
+        return current;
+    }
+
     @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
         if (!state.is(newState.getBlock())) RuntimeIntStore.remove(level, KEY, pos);
         super.onRemove(state, level, pos, newState, moved);
@@ -120,7 +169,9 @@ public class LapisToRedstoneQuantizerBlock extends Block implements EngineeringP
                     int reconstructed = CoreMediaDiagnostics.lapisReconstructedFromRedstone(output);
                     int error = CoreMediaDiagnostics.quantizationError(sample.value());
                     player.displayClientMessage(Component.literal(
-                            "Lapis → Redstone Quantizer | input=" + String.format("%.2f", sample.value() / 100.0)
+                            "Lapis → Redstone Quantizer | RX=" + inputSide(state).getName().toUpperCase()
+                                    + " | TX=" + outputSide(state).getName().toUpperCase()
+                                    + " | input=" + String.format("%.2f", sample.value() / 100.0)
                                     + " | output=" + output + "/15"
                                     + " | reconstructed≈" + String.format("%.2f", reconstructed / 100.0)
                                     + " | quantizationLoss=" + String.format("%.2f", error / 100.0)
@@ -129,7 +180,9 @@ public class LapisToRedstoneQuantizerBlock extends Block implements EngineeringP
                     ), true);
                 } else {
                     player.displayClientMessage(Component.literal(
-                            "Lapis → Redstone Quantizer | input=" + sample.quality().name()
+                            "Lapis → Redstone Quantizer | RX=" + inputSide(state).getName().toUpperCase()
+                                    + " | TX=" + outputSide(state).getName().toUpperCase()
+                                    + " | input=" + sample.quality().name()
                                     + " | output=" + state.getValue(POWER) + "/15"
                                     + " | quantization unavailable until input evidence is VALID"
                                     + " | outputQuality=" + outputQuality(level, pos)
