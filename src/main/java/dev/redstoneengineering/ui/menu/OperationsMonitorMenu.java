@@ -2,6 +2,7 @@ package dev.redstoneengineering.ui.menu;
 
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.block.OperationsMonitorBlock;
+import dev.redstoneengineering.diagnostics.CopperEvidenceAssessment;
 import dev.redstoneengineering.diagnostics.ElectricalReliabilityAssessment;
 import dev.redstoneengineering.diagnostics.IndustrialOperationsAssessment;
 import dev.redstoneengineering.diagnostics.OperationsDashboardSnapshot;
@@ -60,6 +61,14 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
     private final DataSlot electricalLastTripAge = trackedInt();
     private final DataSlot electricalLastRecoveryDuration = trackedInt();
 
+    private final DataSlot copperEvidenceDegraded = trackedInt();
+    private final DataSlot copperEvidenceFailed = trackedInt();
+    private final DataSlot copperEvidenceRestored = trackedInt();
+    private final DataSlot copperEvidenceActiveDegraded = trackedInt();
+    private final DataSlot copperEvidenceActiveFailed = trackedInt();
+    private final DataSlot copperEvidenceLastFailureAge = trackedInt();
+    private final DataSlot copperEvidenceLastRestoreAge = trackedInt();
+
     private final DataSlot[] eventKinds = trackedInts(EVENT_SLOTS);
     private final DataSlot[] eventSeverities = trackedInts(EVENT_SLOTS);
     private final DataSlot[] eventAges = trackedInts(EVENT_SLOTS);
@@ -85,6 +94,8 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
         OperationsIncidentSummary incident = OperationsIncidentSummary.inspect(level, blockPos, dashboard);
         ElectricalReliabilityAssessment.Snapshot electrical =
                 ElectricalReliabilityAssessment.inspect(level, dashboard.eventScope());
+        CopperEvidenceAssessment.Snapshot copperEvidence =
+                CopperEvidenceAssessment.inspect(level, dashboard.eventScope());
         OperationsMonitorBlock.InputEvidence evidence = OperationsMonitorBlock.inputEvidence(level, blockPos);
 
         queue.set(operations.queueNow());
@@ -118,6 +129,14 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
         electricalDowntime.set(syncTicks(electrical.electricalDowntimeTicks()));
         electricalLastTripAge.set(syncOptionalTicks(electrical.lastTripAgeTicks()));
         electricalLastRecoveryDuration.set(syncOptionalTicks(electrical.lastRecoveryDurationTicks()));
+
+        copperEvidenceDegraded.set(copperEvidence.degradedTransitions());
+        copperEvidenceFailed.set(copperEvidence.failedTransitions());
+        copperEvidenceRestored.set(copperEvidence.restoredTransitions());
+        copperEvidenceActiveDegraded.set(copperEvidence.activeDegradedSources());
+        copperEvidenceActiveFailed.set(copperEvidence.activeFailedSources());
+        copperEvidenceLastFailureAge.set(syncOptionalTicks(copperEvidence.lastFailureAgeTicks()));
+        copperEvidenceLastRestoreAge.set(syncOptionalTicks(copperEvidence.lastRestoreAgeTicks()));
 
         List<SystemEventRecord> events = window.events();
         int count = Math.min(EVENT_SLOTS, events.size());
@@ -187,6 +206,14 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
     public int electricalDowntimeTicks() { return electricalDowntime.get(); }
     public int electricalLastTripAgeTicks() { return electricalLastTripAge.get(); }
     public int electricalLastRecoveryDurationTicks() { return electricalLastRecoveryDuration.get(); }
+
+    public int copperEvidenceDegradedCount() { return copperEvidenceDegraded.get(); }
+    public int copperEvidenceFailedCount() { return copperEvidenceFailed.get(); }
+    public int copperEvidenceRestoredCount() { return copperEvidenceRestored.get(); }
+    public int copperEvidenceActiveDegradedCount() { return copperEvidenceActiveDegraded.get(); }
+    public int copperEvidenceActiveFailedCount() { return copperEvidenceActiveFailed.get(); }
+    public int copperEvidenceLastFailureAgeTicks() { return copperEvidenceLastFailureAge.get(); }
+    public int copperEvidenceLastRestoreAgeTicks() { return copperEvidenceLastRestoreAge.get(); }
 
     public OperationsMonitorBlock.SystemState state() {
         OperationsMonitorBlock.SystemState[] values = OperationsMonitorBlock.SystemState.values();

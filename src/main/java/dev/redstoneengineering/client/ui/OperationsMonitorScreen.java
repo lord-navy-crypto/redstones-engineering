@@ -99,7 +99,7 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
         safeText(graphics, "confidence=" + evidenceConfidencePercent() + "% • diagnosis=" + systemDiagnosis(), 16, 197, TEXT);
         safeText(graphics, "Electrical downtime " + formatTicks(menu.electricalDowntimeTicks())
                 + " • Protection status " + protectionText(), 16, 213, TEXT);
-        safeText(graphics, "MTBF/MTTR withheld • durable operating exposure + maintenance semantics required.", 16, 229, MUTED);
+        safeText(graphics, "MTBF/MTTR withheld • Copper evidence " + copperEvidenceText(), 16, 229, MUTED);
     }
 
     private int evidenceConfidencePercent() {
@@ -121,6 +121,8 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
     private String systemDiagnosis() {
         if (!menu.runEvidenceValid() || menu.queueEvidenceSources() == 0) return "INSUFFICIENT EVIDENCE";
         if (menu.electricalActiveTripCount() > 0) return "ACTIVE PROTECTION LIMIT";
+        if (menu.copperEvidenceActiveFailedCount() > 0) return "COPPER EVIDENCE FAILURE";
+        if (menu.copperEvidenceActiveDegradedCount() > 0) return "COPPER EVIDENCE DEGRADED";
         if (menu.incidentPresent()) return "INCIDENT TRACE AVAILABLE";
         return switch (menu.state()) {
             case NOMINAL -> "PROCESS NOMINAL";
@@ -135,8 +137,10 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
 
     private int systemDiagnosisColor() {
         if (!menu.runEvidenceValid() || menu.queueEvidenceSources() == 0) return WARN;
-        if (menu.electricalActiveTripCount() > 0 || menu.state() == OperationsMonitorBlock.SystemState.FAILED) return BAD;
-        if (menu.incidentPresent() || menu.state() != OperationsMonitorBlock.SystemState.NOMINAL) return WARN;
+        if (menu.electricalActiveTripCount() > 0 || menu.copperEvidenceActiveFailedCount() > 0
+                || menu.state() == OperationsMonitorBlock.SystemState.FAILED) return BAD;
+        if (menu.copperEvidenceActiveDegradedCount() > 0 || menu.incidentPresent()
+                || menu.state() != OperationsMonitorBlock.SystemState.NOMINAL) return WARN;
         return GOOD;
     }
 
@@ -144,10 +148,29 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
         if (!menu.runEvidenceValid()) return "NEXT • restore a trustworthy RUN source before interpreting KPIs.";
         if (menu.queueEvidenceSources() == 0) return "NEXT • connect at least one trustworthy QUEUE/WIP source.";
         if (menu.electricalActiveTripCount() > 0) return "NEXT • inspect protection first-out and downstream evidence before reset.";
+        if (menu.copperEvidenceActiveFailedCount() > 0) return "NEXT • inspect the E-FAIL source and repair Copper topology/domain evidence before using electrical measurements.";
+        if (menu.copperEvidenceActiveDegradedCount() > 0) return "NEXT • inspect E-DEG sources; reacquire fresh Copper evidence without treating degradation as protection downtime.";
         if (menu.incidentPresent()) return "NEXT • follow FIRST OUT through the retained event tail before changing the process.";
         if (menu.state() == OperationsMonitorBlock.SystemState.CONGESTED || menu.state() == OperationsMonitorBlock.SystemState.OVERLOADED) return "NEXT • compare queue pressure with throughput before increasing input rate.";
         if (menu.state() == OperationsMonitorBlock.SystemState.NOISY || menu.state() == OperationsMonitorBlock.SystemState.UNSTABLE) return "NEXT • verify measurement quality and timing continuity before tuning control.";
         return "NEXT • evidence is coherent; continue observation or compare against a deliberate test change.";
+    }
+
+    private String copperEvidenceText() {
+        if (menu.copperEvidenceActiveFailedCount() > 0) {
+            return "FAIL active " + menu.copperEvidenceActiveFailedCount()
+                    + " • transitions " + menu.copperEvidenceFailedCount()
+                    + " • last " + optionalAge(menu.copperEvidenceLastFailureAgeTicks());
+        }
+        if (menu.copperEvidenceActiveDegradedCount() > 0) {
+            return "DEGRADED active " + menu.copperEvidenceActiveDegradedCount()
+                    + " • transitions " + menu.copperEvidenceDegradedCount();
+        }
+        if (menu.copperEvidenceRestoredCount() > 0) {
+            return "READY • restored " + menu.copperEvidenceRestoredCount()
+                    + " • last " + optionalAge(menu.copperEvidenceLastRestoreAgeTicks());
+        }
+        return "NO RETAINED TRANSITIONS";
     }
 
     private String evidenceText() { return (menu.runEvidenceValid() ? "RUN ✓" : "RUN missing") + " • QUEUE sources " + menu.queueEvidenceSources() + " • " + (menu.cycleEvidenceValid() ? "CYCLE ✓" : "CYCLE optional"); }
