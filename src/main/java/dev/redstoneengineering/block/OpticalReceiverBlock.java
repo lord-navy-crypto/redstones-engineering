@@ -6,6 +6,7 @@ import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.*;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.NetworkKernel;
+import dev.redstoneengineering.physics.OpticalLinkBudgetRuntime;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
@@ -52,6 +53,8 @@ public class OpticalReceiverBlock extends DomainBlock implements EngineeringPort
         runtime[DRIVER_COUNT] = drivers;
         runtime[PHYSICAL_INPUTS] = inputs;
         runtime[QUALITY] = (stale ? PortQuality.STALE : accepted ? PortQuality.VALID : PortQuality.NO_SIGNAL).ordinal();
+        OpticalLinkBudgetRuntime.recordReceiverSegment(
+                level, pos, runtime[INTENSITY], runtime[CHANNEL], accepted && drivers <= 1 && inputs <= 1);
     }
 
     public static int intensity(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos);return r==null?0:r[INTENSITY]; }
@@ -59,6 +62,7 @@ public class OpticalReceiverBlock extends DomainBlock implements EngineeringPort
     public static boolean valid(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos);return r!=null&&r.length>VALID&&r[VALID]==1; }
     public static int driverCount(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos);return r==null||r.length<=DRIVER_COUNT?0:r[DRIVER_COUNT]; }
     public static int inputCount(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos);return r==null||r.length<=PHYSICAL_INPUTS?physicalFiberInputs(level,pos):r[PHYSICAL_INPUTS]; }
+    public static OpticalLinkBudgetRuntime.Snapshot linkBudget(Level level, BlockPos pos) { return OpticalLinkBudgetRuntime.snapshot(level, pos); }
 
     private static PortQuality storedQuality(Level level, BlockPos pos) {
         int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
@@ -119,6 +123,7 @@ public class OpticalReceiverBlock extends DomainBlock implements EngineeringPort
     protected void onRemove(BlockState state,Level level,BlockPos pos,BlockState next,boolean moved) {
         if(!state.is(next.getBlock())) {
             RuntimeIntStore.remove(level,KEY,pos);
+            OpticalLinkBudgetRuntime.clear(level, pos);
             if(level instanceof ServerLevel serverLevel) DomainNetwork.recomputeOpticalAround(serverLevel,pos);
         }
         super.onRemove(state,level,pos,next,moved);
@@ -129,12 +134,18 @@ public class OpticalReceiverBlock extends DomainBlock implements EngineeringPort
         if(!level.isClientSide&&player instanceof ServerPlayer serverPlayer&&!player.isShiftKeyDown()) {
             FieldDeviceUi.open(serverPlayer,pos);
         } else if(!level.isClientSide) {
+            OpticalLinkBudgetRuntime.Snapshot budget = linkBudget(level, pos);
             player.displayClientMessage(Component.literal(
                     "Optical receiver | " + quality(level,pos)
                             + " | I="+intensity(level,pos)+"/15"
                             + " | channel="+channel(level,pos)
                             + " | inputs="+inputCount(level,pos)
-                            + " | drivers="+driverCount(level,pos)),true);
+                            + " | drivers="+driverCount(level,pos)
+                            + " | segment launch=" + budget.launchIntensity() + "/15"
+                            + " | path=" + budget.pathHops() + " hops"
+                            + " | fiber loss=" + budget.fiberLoss()
+                            + " | RX margin=" + budget.receiverMargin()
+                            + " | link=" + budget.marginClass()),true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
