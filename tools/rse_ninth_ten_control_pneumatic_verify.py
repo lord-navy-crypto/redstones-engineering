@@ -28,12 +28,11 @@ require("src/main/java/dev/redstoneengineering/block/WatchdogBlock.java","SOURCE
 require("src/main/java/dev/redstoneengineering/physics/PneumaticObservationSupport.java","InformationRuntime.snapshot","PortQuality.STALE","PortQuality.VALID","AirReservoirBlock")
 require("src/main/java/dev/redstoneengineering/block/AirCompressorBlock.java","RedstoneObservationSupport.observe","PneumaticObservationSupport.observe","commandObservation")
 require("src/main/java/dev/redstoneengineering/block/PneumaticPipeBlock.java","PneumaticObservationSupport.observe","observation.quality()")
-require("src/main/java/dev/redstoneengineering/block/AirReservoirBlock.java",'InformationRuntime.snapshot(level, "air_reservoir", pos)',"PneumaticObservationSupport.observe","Observer-only stored pressure readback")
+require("src/main/java/dev/redstoneengineering/block/AirReservoirBlock.java",'InformationRuntime.snapshot(level, "air_reservoir", pos)',"PneumaticObservationSupport.observe","Observer-only stored pressure readback","stored + 5","stored - 1")
 require("src/main/java/dev/redstoneengineering/block/PressureRegulatorBlock.java","PneumaticObservationSupport.observe","setpointPressure","observation.quality()")
 
-# Actuator deepening: the authoritative pneumatic solve retains the winning supply path and
-# decomposes pressure loss into unavoidable one-unit-per-edge line loss versus additional
-# regulation/restriction loss. The HMI consumes retained evidence; it does not rerun the solver.
+# Actuator deepening: authoritative solve retains the winning supply path and decomposes
+# pressure loss into one-unit-per-edge line loss versus additional regulation/restriction loss.
 require("src/main/java/dev/redstoneengineering/physics/PneumaticNetwork.java",
         "record ActuatorPathEvidence(", "ACTUATOR_DIAG_KEY", "bestSupply", "predecessor",
         "pathEdges(predecessor", "observedLoss", "lineLoss", "restrictionLoss",
@@ -50,12 +49,17 @@ require("src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.j
         "Supply / cylinder P", "Path loss", "Response / remaining",
         "RESTRICTION / REGULATION LOSS DOMINANT", "DISTRIBUTION PATH LOSS DOMINANT",
         "LOW SUPPLY PRESSURE", "DOWNSTREAM PRESSURE STARVATION",
-        "no continuous CFD or random leak history is fabricated")
+        "no continuous CFD or random leak history is fabricated",
+        "CHARGING TOWARD LINE PRESSURE", "DISCHARGING / SUPPORTING LOWER-PRESSURE LINE",
+        "charge ≤5 / 10t • leak 1 / 10t", "STRONG COMMANDED RESTRICTION",
+        "PARTIAL COMMANDED RESTRICTION", "Local ΔP")
 
 menu = read("src/main/java/dev/redstoneengineering/ui/menu/PneumaticSystemMenu.java")
+screen = read("src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.java")
+for forbidden in ("PneumaticNetwork.collect(", "PneumaticNetwork.localLimit(", "PneumaticNetwork.permits("):
+    if forbidden in menu or forbidden in screen:
+        errors.append(f"pneumatic HMI must not run a second pressure-path solve; found {forbidden!r}")
 for forbidden in ("PneumaticNetwork.recompute(level", "PneumaticNetwork.recomputeAround(level"):
-    # UI button handlers legitimately mutate through ServerLevel aliases; this guard only rejects
-    # a readback-side direct level solve pattern inside refreshAuthoritativeSnapshot.
     refresh = menu.split("@Override protected void refreshAuthoritativeSnapshot()",1)[1].split("private static CommissioningStatus",1)[0] if "@Override protected void refreshAuthoritativeSnapshot()" in menu else ""
     if forbidden in refresh:
         errors.append(f"PneumaticSystemMenu readback must not rerun solver; found {forbidden!r}")
@@ -89,5 +93,7 @@ print("  pneumatic zero/unknown observer semantics: PASS")
 print("  reservoir observer-neutral retained pressure: PASS")
 print("  actuator pressure-dependent response timing: PASS")
 print("  solver-retained supply/path/restriction diagnostics: PASS")
-print("  pneumatic actuator HMI observer boundary: PASS")
+print("  reservoir finite-rate recovery diagnosis: PASS")
+print("  proportional-valve local restriction diagnosis: PASS")
+print("  pneumatic HMI observer/no-second-solver boundary: PASS")
 print("  registered ninth-ten GameTests: 10 (manual diagnostic / non-blocking)")
