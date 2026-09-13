@@ -1,6 +1,7 @@
 package dev.redstoneengineering.ui.menu;
 
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.block.DirectionalSignalBlock;
 import dev.redstoneengineering.block.PidControllerBlock;
 import dev.redstoneengineering.diagnostics.ClosedLoopCommissioning;
 import dev.redstoneengineering.diagnostics.CommissioningSnapshot;
@@ -9,6 +10,7 @@ import dev.redstoneengineering.diagnostics.PidTelemetryStore;
 import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceStore;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -17,13 +19,19 @@ import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.List;
 
-/** Read-only commissioning telemetry plus bounded server-side tuning actions for the PID controller. */
+/** Read-only commissioning telemetry plus bounded server-side tuning and physical route actions. */
 public final class PidControllerMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_TUNING_PREVIOUS = 0;
     public static final int BUTTON_TUNING_NEXT = 1;
+    public static final int BUTTON_INPUT_PREVIOUS = 2;
+    public static final int BUTTON_INPUT_NEXT = 3;
+    public static final int BUTTON_OUTPUT_PREVIOUS = 4;
+    public static final int BUTTON_OUTPUT_NEXT = 5;
     public static final int TREND_SAMPLES = PidTelemetryStore.MAX_SAMPLES_PER_CONTROLLER;
 
     private final DataSlot tuning = trackedInt();
+    private final DataSlot inputFacing = trackedInt();
+    private final DataSlot outputFacing = trackedInt();
     private final DataSlot available = trackedInt();
     private final DataSlot setpoint = trackedInt();
     private final DataSlot processValue = trackedInt();
@@ -62,6 +70,8 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
         BlockState state = level.getBlockState(blockPos);
         if (!(state.getBlock() instanceof PidControllerBlock)) return;
         tuning.set(state.getValue(PidControllerBlock.TUNING));
+        inputFacing.set(DirectionalSignalBlock.seriesInputSide(state).ordinal());
+        outputFacing.set(DirectionalSignalBlock.seriesOutputSide(state).ordinal());
 
         CommissioningSnapshot snapshot = ClosedLoopCommissioning.inspectPid(level, blockPos);
         available.set(snapshot.available() ? 1 : 0);
@@ -93,7 +103,15 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     public boolean clickMenuButton(Player player, int id) {
         if (level.isClientSide) return true;
         if (!stillValid(player)) return false;
-        boolean changed = PidControllerBlock.applyTuningAction(level, blockPos, id);
+
+        boolean changed;
+        if (id == BUTTON_INPUT_PREVIOUS || id == BUTTON_INPUT_NEXT) {
+            changed = DirectionalSignalBlock.rotateSeriesInput(level, blockPos, id == BUTTON_INPUT_NEXT);
+        } else if (id == BUTTON_OUTPUT_PREVIOUS || id == BUTTON_OUTPUT_NEXT) {
+            changed = DirectionalSignalBlock.rotateSeriesOutput(level, blockPos, id == BUTTON_OUTPUT_NEXT);
+        } else {
+            changed = PidControllerBlock.applyTuningAction(level, blockPos, id);
+        }
         if (changed) {
             refreshAuthoritativeSnapshot();
             broadcastChanges();
@@ -102,6 +120,8 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     }
 
     public int tuning() { return tuning.get(); }
+    public Direction inputFacing() { return direction(inputFacing.get()); }
+    public Direction outputFacing() { return direction(outputFacing.get()); }
     public boolean available() { return available.get() != 0; }
     public int setpoint() { return setpoint.get(); }
     public int processValue() { return processValue.get(); }
@@ -138,5 +158,10 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
         CommissioningStatus[] values = CommissioningStatus.values();
         int index = Math.max(0, Math.min(values.length - 1, status.get()));
         return values[index];
+    }
+
+    private static Direction direction(int ordinal) {
+        Direction[] values = Direction.values();
+        return ordinal >= 0 && ordinal < values.length ? values[ordinal] : Direction.NORTH;
     }
 }
