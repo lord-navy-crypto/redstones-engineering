@@ -2,6 +2,7 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.core.diagnostic.CoreMediaDiagnostics;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.EngineeringPort;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
@@ -44,32 +45,13 @@ public class RedstoneToLapisScalerBlock extends Block implements EngineeringPort
         registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH));
     }
 
-    @Override
-    public MapCodec<RedstoneToLapisScalerBlock> codec() {
-        return RedstoneEngineering.REDSTONE_TO_LAPIS_SCALER_CODEC.value();
-    }
+    @Override public MapCodec<RedstoneToLapisScalerBlock> codec() { return RedstoneEngineering.REDSTONE_TO_LAPIS_SCALER_CODEC.value(); }
+    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { builder.add(FACING); }
+    @Override public BlockState getStateForPlacement(BlockPlaceContext context) { return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite()); }
 
-    @Override
-    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING);
-    }
-
-    @Override
-    public BlockState getStateForPlacement(BlockPlaceContext context) {
-        return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
-    }
-
-    private Direction outputSide(BlockState state) {
-        return state.getValue(FACING);
-    }
-
-    private Direction inputSide(BlockState state) {
-        return outputSide(state).getOpposite();
-    }
-
-    private static int encodeQuality(PortQuality quality) {
-        return quality.ordinal() + 1;
-    }
+    private Direction outputSide(BlockState state) { return state.getValue(FACING); }
+    private Direction inputSide(BlockState state) { return outputSide(state).getOpposite(); }
+    private static int encodeQuality(PortQuality quality) { return quality.ordinal() + 1; }
 
     public static int outputValue(Level level, BlockPos pos) {
         int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
@@ -87,64 +69,26 @@ public class RedstoneToLapisScalerBlock extends Block implements EngineeringPort
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         return List.of(
-                new EngineeringPort(
-                        "REDSTONE INPUT",
-                        inputSide(state),
-                        EngineeringDomain.REDSTONE,
-                        PortKind.CONVERTER,
-                        PortDirection.INPUT,
-                        true,
-                        "signal"
-                ),
-                new EngineeringPort(
-                        "LAPIS OUTPUT",
-                        outputSide(state),
-                        EngineeringDomain.LAPIS,
-                        PortKind.CONVERTER,
-                        PortDirection.OUTPUT,
-                        false,
-                        "normalized"
-                )
+                new EngineeringPort("REDSTONE INPUT", inputSide(state), EngineeringDomain.REDSTONE, PortKind.CONVERTER, PortDirection.INPUT, true, "signal"),
+                new EngineeringPort("LAPIS OUTPUT", outputSide(state), EngineeringDomain.LAPIS, PortKind.CONVERTER, PortDirection.OUTPUT, false, "normalized")
         );
     }
 
     @Override
-    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
-            Level level,
-            BlockPos pos,
-            BlockState state,
-            Direction side
-    ) {
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         if (side == inputSide(state)) {
             var observation = RedstoneObservationSupport.observe(level, pos, inputSide(state));
             return Optional.of(EngineeringPortSnapshot.redstone(port.get(), observation.value(), observation.quality()));
         }
-        return Optional.of(new EngineeringPortSnapshot(
-                port.get(),
-                outputValue(level, pos) / 100.0,
-                0.0,
-                1.0,
-                outputQuality(level, pos)
-        ));
+        return Optional.of(new EngineeringPortSnapshot(port.get(), outputValue(level, pos) / 100.0, 0.0, 1.0, outputQuality(level, pos)));
     }
 
-    @Override
-    public boolean canConnectRedstone(BlockState state, BlockGetter level, BlockPos pos, @Nullable Direction direction) {
-        return direction != null && direction == inputSide(state).getOpposite();
-    }
+    @Override public boolean canConnectRedstone(BlockState state, BlockGetter level, BlockPos pos, @Nullable Direction direction) { return direction != null && direction == inputSide(state).getOpposite(); }
 
-    @Override
-    protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
-        super.onPlace(state, level, pos, oldState, moved);
-        if (!level.isClientSide) level.scheduleTick(pos, this, 1);
-    }
-
-    @Override
-    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighbor, BlockPos neighborPos, boolean moved) {
-        if (!level.isClientSide) level.scheduleTick(pos, this, 1);
-    }
+    @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) { super.onPlace(state, level, pos, oldState, moved); if (!level.isClientSide) level.scheduleTick(pos, this, 1); }
+    @Override protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighbor, BlockPos neighborPos, boolean moved) { if (!level.isClientSide) level.scheduleTick(pos, this, 1); }
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
@@ -154,10 +98,9 @@ public class RedstoneToLapisScalerBlock extends Block implements EngineeringPort
         runtime[1] = encodeQuality(quality);
 
         if (quality == PortQuality.STALE) {
-            // Unknown coverage must not keep a previously valid source claim alive.
             DomainNetwork.driveLapis(level, pos.relative(outputSide(state)), pos, runtime[0], false);
         } else if (observation.valid()) {
-            runtime[0] = Math.round(observation.value() * 100.0f / 15.0f);
+            runtime[0] = CoreMediaDiagnostics.lapisFromRedstone(observation.value());
             DomainNetwork.driveLapis(level, pos.relative(outputSide(state)), pos, runtime[0], true);
         } else {
             runtime[0] = 0;
@@ -166,12 +109,9 @@ public class RedstoneToLapisScalerBlock extends Block implements EngineeringPort
         level.scheduleTick(pos, this, 2);
     }
 
-    @Override
-    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
+    @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
         if (!state.is(newState.getBlock())) {
-            if (level instanceof ServerLevel server) {
-                DomainNetwork.driveLapis(server, pos.relative(outputSide(state)), pos, 0, false);
-            }
+            if (level instanceof ServerLevel server) DomainNetwork.driveLapis(server, pos.relative(outputSide(state)), pos, 0, false);
             RuntimeIntStore.remove(level, KEY, pos);
         }
         super.onRemove(state, level, pos, newState, moved);
@@ -181,12 +121,23 @@ public class RedstoneToLapisScalerBlock extends Block implements EngineeringPort
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
             var input = RedstoneObservationSupport.observe(level, pos, inputSide(state));
-            player.displayClientMessage(Component.literal(
-                    "Redstone → Lapis Scaler | input=" + input.value() + "/15"
-                            + " quality=" + input.quality()
-                            + " | output=" + String.format("%.2f", outputValue(level, pos) / 100.0)
-                            + " quality=" + outputQuality(level, pos)
-            ), true);
+            if (input.valid()) {
+                int output = outputValue(level, pos);
+                int sourceSpacing = CoreMediaDiagnostics.sourceCodeSpacing(input.value());
+                player.displayClientMessage(Component.literal(
+                        "Redstone → Lapis Scaler | input=" + input.value() + "/15"
+                                + " | output=" + String.format("%.2f", output / 100.0)
+                                + " | sourceCodeSpacing≈" + String.format("%.2f", sourceSpacing / 100.0)
+                                + " | UPSCALED REPRESENTATION — NO NEW SOURCE PRECISION"
+                                + " | quality=" + outputQuality(level, pos)
+                ), true);
+            } else {
+                player.displayClientMessage(Component.literal(
+                        "Redstone → Lapis Scaler | input=" + input.quality().name()
+                                + " | outputQuality=" + outputQuality(level, pos)
+                                + " | precision unavailable until Redstone evidence is VALID"
+                ), true);
+            }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
