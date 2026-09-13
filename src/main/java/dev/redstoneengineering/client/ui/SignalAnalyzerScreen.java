@@ -128,7 +128,7 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
                 16, 175, TEXT);
         safeText(graphics,
                 "samples=" + menu.totalSamples() + "  coverage=" + summary.coveragePercent() + "%  mode switches=" + menu.modeSwitches()
-                        + "  calibration switches=" + menu.calibrationSwitches(),
+                        + "  calibration switches=" + menu.calibrationSwitches() + "  μ=rounded mean",
                 16, 188, MUTED);
     }
 
