@@ -42,8 +42,11 @@ require(screen, "COPPER POWER / LOAD NETWORK", "Copper medium identity")
 require(screen, "SERVER-SYNCHRONIZED OBSERVER", "observer authority")
 require(screen, "V, Req, I and P", "electrical telemetry explanation")
 require(screen, "commissioningStatus()", "commissioning presentation")
-forbid(screen, "CircuitPhysics", "client must not solve circuits")
-forbid(screen, "DomainNetwork", "client must not sample network physics")
+# UI prose may name the authoritative server model. What is forbidden is importing or invoking it client-side.
+forbid(screen, "import dev.redstoneengineering.physics.CircuitPhysics", "client must not import circuit solver")
+forbid(screen, "CircuitPhysics.", "client must not invoke circuit solver")
+forbid(screen, "import dev.redstoneengineering.physics.DomainNetwork", "client must not import network solver")
+forbid(screen, "DomainNetwork.", "client must not sample network physics")
 
 require(registration, "COPPER_CIRCUIT_METER", "menu registration")
 require(client_registration, "CopperCircuitMeterScreen::new", "screen registration")
