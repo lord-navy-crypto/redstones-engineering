@@ -50,6 +50,9 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_CALIBRATION = 6;
     public static final int CONFIG_PWM = 7;
     public static final int CONFIG_FAULT_INJECTOR = 8;
+    public static final int CONFIG_SEQUENCE_CONTROLLER = 9;
+    public static final int CONFIG_SAFETY_INTERLOCK = 10;
+    public static final int CONFIG_TOPOLOGY_DEBUGGER = 11;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
@@ -120,6 +123,18 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configKind.set(CONFIG_FAULT_INJECTOR);
             configPrimary.set(state.getValue(FaultInjectorBlock.MODE));
             configSecondary.set(FaultInjectorBlock.activationCount(level, blockPos));
+        } else if (block instanceof SequenceControllerBlock) {
+            configKind.set(CONFIG_SEQUENCE_CONTROLLER);
+            configPrimary.set(SequenceControllerBlock.step(level, blockPos));
+            configSecondary.set(SequenceControllerBlock.completedCycles(level, blockPos));
+        } else if (block instanceof SafetyInterlockBlock) {
+            configKind.set(CONFIG_SAFETY_INTERLOCK);
+            configPrimary.set(SafetyInterlockBlock.failedMask(level, blockPos));
+            configSecondary.set(state.getValue(DirectionalSignalBlock.OUTPUT) > 0 ? 1 : 0);
+        } else if (block instanceof TopologyDebuggerBlock) {
+            configKind.set(CONFIG_TOPOLOGY_DEBUGGER);
+            configPrimary.set(TopologyDebuggerBlock.scanCount(level, blockPos));
+            configSecondary.set(TopologyDebuggerBlock.targetsVanillaRedstone(level, blockPos, state) ? 1 : 0);
         }
 
         declaredPortMask.set(0);
@@ -172,6 +187,9 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         if (block instanceof RedstoneCableTerminalBlock) return ROUTE_TERMINAL_INTERFACE;
         if (block instanceof DirectionalRedstoneEndpointBlock) return ROUTE_ENDPOINT_FRONT;
         if (block instanceof AlarmProcessorBlock
+                || block instanceof SequenceControllerBlock
+                || block instanceof SafetyInterlockBlock
+                || block instanceof TopologyDebuggerBlock
                 || block instanceof SampleHoldBlock
                 || block instanceof CalibrationModuleBlock
                 || block instanceof PwmControllerBlock
@@ -247,6 +265,9 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         if (block instanceof MolecularCloudReceiverBlock receiver) return receiver.resetHistory(level, blockPos);
         if (block instanceof AlarmProcessorBlock alarm) return alarm.acknowledge(level, blockPos);
         if (block instanceof SampleHoldBlock sampleHold) return sampleHold.clearHeldValue(level, blockPos);
+        if (block instanceof SequenceControllerBlock sequence) return sequence.operatorReset(level, blockPos);
+        if (block instanceof SafetyInterlockBlock interlock) return interlock.resetDiagnostics(level, blockPos);
+        if (block instanceof TopologyDebuggerBlock debugger) return debugger.resetDiagnostics(level, blockPos);
         return false;
     }
 

@@ -13,6 +13,7 @@ GT = ROOT / "src/main/java/dev/redstoneengineering/gametest/RseEngineeringSystem
 ASSETS = ROOT / "src/main/resources/assets/redstoneengineering"
 DATA = ROOT / "src/main/resources/data/redstoneengineering"
 DYNAMIC_VISUAL_VERIFY = ROOT / "tools/rse_dynamic_io_visuals_verify.py"
+SYSTEM_HMI_VERIFY = ROOT / "tools/rse_system_hmi_verify.py"
 errors: list[str] = []
 
 def read(path: Path) -> str:
@@ -107,14 +108,18 @@ for block_id in ("sequence_controller", "safety_interlock", "fault_injector", "a
     for path in (ASSETS / "blockstates" / f"{block_id}.json", ASSETS / "models/block" / f"{block_id}.json", ASSETS / "models/item" / f"{block_id}.json", DATA / "loot_table/blocks" / f"{block_id}.json", DATA / "recipe" / f"{block_id}.json"):
         if not path.exists(): errors.append(f"{block_id}: missing {path.relative_to(ROOT)}")
 
-if not DYNAMIC_VISUAL_VERIFY.is_file():
-    errors.append("missing tools/rse_dynamic_io_visuals_verify.py")
-else:
-    visual = subprocess.run([sys.executable, str(DYNAMIC_VISUAL_VERIFY)], cwd=ROOT, text=True, capture_output=True, check=False)
-    if visual.stdout: print(visual.stdout, end="")
-    if visual.stderr: print(visual.stderr, end="", file=sys.stderr)
-    if visual.returncode != 0:
-        errors.append(f"dynamic I/O visuals verifier failed with exit code {visual.returncode}")
+for verifier, label in (
+    (DYNAMIC_VISUAL_VERIFY, "dynamic I/O visuals"),
+    (SYSTEM_HMI_VERIFY, "system HMI"),
+):
+    if not verifier.is_file():
+        errors.append(f"missing {verifier.relative_to(ROOT)}")
+        continue
+    child = subprocess.run([sys.executable, str(verifier)], cwd=ROOT, text=True, capture_output=True, check=False)
+    if child.stdout: print(child.stdout, end="")
+    if child.stderr: print(child.stderr, end="", file=sys.stderr)
+    if child.returncode != 0:
+        errors.append(f"{label} verifier failed with exit code {child.returncode}")
 
 if errors:
     print("RSE ENGINEERING SYSTEMS VERIFY: FAIL")
@@ -125,7 +130,8 @@ print("  legacy audited core: 122 blocks")
 print("  systems extension: 6 blocks")
 print("  aggregate closure target: 128 blocks")
 print("  Engineering Compass: passive world-axis datum / raised N-E-S-W geometry / low-profile shape")
-print("  Sequence + Interlock: synchronized world-visible RX/TX and live state overlays")
+print("  systems visualization: synchronized world-visible routing and live state overlays")
+print("  systems HMI: explicit Sequence / Interlock / Topology operator controls")
 print("  registry lifecycle: DeferredRegister only; no eager Block construction")
 print("  event registration: explicit IEventBus listeners")
 print(f"  executable systems GameTests: {count}")

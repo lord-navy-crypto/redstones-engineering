@@ -70,7 +70,10 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         boolean range = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE;
         boolean hasAction = kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER
                 || kind == UniversalFieldDeviceMenu.CONFIG_ALARM
-                || kind == UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD;
+                || kind == UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD
+                || kind == UniversalFieldDeviceMenu.CONFIG_SEQUENCE_CONTROLLER
+                || kind == UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK
+                || kind == UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER;
         boolean hasToggle = kind == UniversalFieldDeviceMenu.CONFIG_PWM;
 
         if (primaryPrevious != null) primaryPrevious.visible = configure && primary;
@@ -82,6 +85,9 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             if (kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER) action.setMessage(Component.literal("Reset measurement history"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_ALARM) action.setMessage(Component.literal("Acknowledge active alarm"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD) action.setMessage(Component.literal("Clear held value"));
+            else if (kind == UniversalFieldDeviceMenu.CONFIG_SEQUENCE_CONTROLLER) action.setMessage(Component.literal("Reset sequence to IDLE"));
+            else if (kind == UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK) action.setMessage(Component.literal("Reset diagnostic counters"));
+            else if (kind == UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER) action.setMessage(Component.literal("Reset scan counters"));
         }
         if (toggle != null) {
             toggle.visible = configure && hasToggle;
@@ -167,7 +173,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 statusBadge(g, "ALARM PROCESSOR", INFO, 16, 80);
                 labelValue(g, "Severity", Integer.toString(menu.configPrimary()), 101);
                 labelValue(g, "Activations", Integer.toString(menu.configSecondary()), 141);
-                safeText(g, "Acknowledge clears the operator-attention latch; process RESET remains a physical input.", 16, 188, MUTED);
+                safeText(g, "Acknowledge clears operator attention; process RESET remains a physical input.", 16, 188, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD -> {
                 statusBadge(g, "SAMPLE & HOLD", INFO, 16, 80);
@@ -191,6 +197,25 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Fault mode", FaultInjectorBlock.modeLabelFor(menu.configPrimary()), 101);
                 labelValue(g, "Activations", Integer.toString(menu.configSecondary()), 141);
                 safeText(g, "SIGNAL IN, FAULT ARM and FAULTED OUT rotate together on Route.", 16, 188, MUTED);
+            }
+            case UniversalFieldDeviceMenu.CONFIG_SEQUENCE_CONTROLLER -> {
+                statusBadge(g, "SEQUENCE CONTROLLER", menu.configPrimary() == 0 ? MUTED : GOOD, 16, 80);
+                labelValue(g, "Current state", sequenceStepName(menu.configPrimary()), 101);
+                labelValue(g, "Completed cycles", Integer.toString(menu.configSecondary()), 141);
+                safeText(g, "Operator reset returns runtime state to IDLE; wired RESET remains independent.", 16, 188, MUTED);
+            }
+            case UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK -> {
+                boolean permit = menu.configSecondary() != 0;
+                statusBadge(g, permit ? "INTERLOCK • PERMIT" : "INTERLOCK • BLOCKED", permit ? GOOD : WARN, 16, 80);
+                labelValue(g, "Missing permissives", failedPermissives(menu.configPrimary()), 101);
+                labelValue(g, "Permit output", permit ? "15 / ENABLED" : "0 / BLOCKED", 141);
+                safeText(g, "Reset counters does not bypass permissives A/B/C or force the permit output.", 16, 188, MUTED);
+            }
+            case UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER -> {
+                statusBadge(g, attentionCount() == 0 ? "TOPOLOGY • NOMINAL" : "TOPOLOGY • ISSUE", attentionCount() == 0 ? GOOD : WARN, 16, 80);
+                labelValue(g, "Scan count", Integer.toString(menu.configPrimary()), 101);
+                labelValue(g, "Target mode", menu.configSecondary() != 0 ? "VANILLA REDSTONE" : "ENGINEERING PORTS", 141);
+                safeText(g, "SCAN is opposite alarm TX; reset clears retained scan counters only.", 16, 188, MUTED);
             }
             default -> {
                 boolean rotatable = menu.rotatableSeriesAxis();
@@ -364,6 +389,19 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.ROUTE_MULTI_PORT_LAYOUT -> "Rotate every declared directional port together on the server.";
             default -> "No universal route action is available.";
         };
+    }
+
+    private static String sequenceStepName(int step) {
+        return step <= 0 ? "IDLE" : "STEP " + Math.min(4, step);
+    }
+
+    private static String failedPermissives(int mask) {
+        if (mask == 0) return "NONE";
+        StringBuilder missing = new StringBuilder();
+        if ((mask & 1) != 0) missing.append("A");
+        if ((mask & 2) != 0) missing.append(missing.isEmpty() ? "B" : ", B");
+        if ((mask & 4) != 0) missing.append(missing.isEmpty() ? "C" : ", C");
+        return missing.toString();
     }
 
     private static String lapisProfileName(int profile) {

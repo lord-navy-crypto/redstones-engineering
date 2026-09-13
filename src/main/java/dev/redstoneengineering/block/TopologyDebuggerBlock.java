@@ -19,10 +19,12 @@ import dev.redstoneengineering.diagnostics.redstone.VanillaRedstoneTimingReport;
 import dev.redstoneengineering.diagnostics.topology.EngineeringTopologyView;
 import dev.redstoneengineering.diagnostics.topology.TopologyDiagnosticsReport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -171,6 +173,12 @@ public class TopologyDebuggerBlock extends PassiveDirectionalSignalBlock {
         return runtime == null || runtime.length < RUNTIME_SIZE ? 0 : runtime[6];
     }
 
+    public boolean resetDiagnostics(Level level, BlockPos pos) {
+        if (!level.getBlockState(pos).is(this)) return false;
+        RuntimeIntStore.remove(level, KEY, pos);
+        return true;
+    }
+
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
@@ -192,15 +200,21 @@ public class TopologyDebuggerBlock extends PassiveDirectionalSignalBlock {
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
-            String summary;
-            if (targetsVanillaRedstone(level, pos, state) && level instanceof ServerLevel server) {
-                summary = vanillaDiagnosticSummary(server, pos, state);
-            } else if (targetsVanillaRedstone(level, pos, state)) {
-                summary = inspectVanillaTarget(level, pos, state).summary();
+            if (player.isShiftKeyDown()) {
+                resetDiagnostics(level, pos);
+                player.displayClientMessage(Component.literal("Topology scan counters reset"), true);
             } else {
-                summary = inspectTarget(level, pos, state).summary();
+                String summary;
+                if (targetsVanillaRedstone(level, pos, state) && level instanceof ServerLevel server) {
+                    summary = vanillaDiagnosticSummary(server, pos, state);
+                } else if (targetsVanillaRedstone(level, pos, state)) {
+                    summary = inspectVanillaTarget(level, pos, state).summary();
+                } else {
+                    summary = inspectTarget(level, pos, state).summary();
+                }
+                player.displayClientMessage(Component.literal(summary), true);
+                if (player instanceof ServerPlayer serverPlayer) FieldDeviceUi.open(serverPlayer, pos);
             }
-            player.displayClientMessage(Component.literal(summary), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
