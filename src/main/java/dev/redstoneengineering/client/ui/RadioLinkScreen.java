@@ -157,6 +157,10 @@ public final class RadioLinkScreen extends EngineeringScreen<RadioLinkMenu> {
         return WARN;
     }
 
+    private static String signed(int value) {
+        return value >= 0 ? "+" + value : Integer.toString(value);
+    }
+
     private String qualityName() { return menu.quality().name().replace('_', ' '); }
     private int qualityColor() {
         return switch (menu.quality()) {
