@@ -2,6 +2,8 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.core.diagnostic.CommissioningStatus;
+import dev.redstoneengineering.core.diagnostic.CopperCommissioningAssessment;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.EngineeringPort;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
@@ -9,12 +11,15 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.diagnostics.events.SystemEventKind;
+import dev.redstoneengineering.diagnostics.events.SystemEventTimeline;
 import dev.redstoneengineering.metrology.MeasurementSnapshot;
 import dev.redstoneengineering.metrology.MetrologyStore;
 import dev.redstoneengineering.metrology.MetrologySupport;
 import dev.redstoneengineering.physics.CircuitPhysics;
 import dev.redstoneengineering.physics.CopperObservationSupport;
 import dev.redstoneengineering.physics.DomainNetwork;
+import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -34,6 +39,7 @@ import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 /** Non-invasive copper-domain meter with scheduled Alpha 1.0.15 metrology sampling. */
@@ -43,6 +49,10 @@ public class CopperCircuitMeterBlock extends DomainBlock implements EngineeringP
             Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST, Direction.UP, Direction.DOWN
     };
     private static final String CHANNEL = "copper_circuit_meter";
+    private static final String COMMISSIONING_EVENT_KEY = "copper_circuit_meter_commissioning_event";
+    private static final int LAST_COMMISSIONING_STATUS = 0;
+    private static final int COMMISSIONING_EVENT_INITIALIZED = 1;
+    private static final int COMMISSIONING_EVENT_RUNTIME_SIZE = 2;
     private static final int SENSOR_PROFILE = 2; // PRECISION
     private static final int SAMPLE_PERIOD = 10;
 
@@ -117,12 +127,59 @@ public class CopperCircuitMeterBlock extends DomainBlock implements EngineeringP
             double reading = MetrologySupport.conditionRedstone(level, pos, target.voltage(), SENSOR_PROFILE);
             MetrologySupport.sample(level, CHANNEL, pos, reading, target.voltage(), false, 1.0, 30L);
         }
+
+        PortQuality quality = measurementQuality(level, pos, state);
+        CommissioningStatus status = CopperCommissioningAssessment.assess(quality, target.voltage());
+        publishCommissioningTransition(level, pos, state, quality, target.voltage(), status);
         level.scheduleTick(pos, this, SAMPLE_PERIOD);
+    }
+
+    private static void publishCommissioningTransition(
+            ServerLevel level,
+            BlockPos pos,
+            BlockState state,
+            PortQuality quality,
+            int voltage,
+            CommissioningStatus status
+    ) {
+        int[] runtime = RuntimeIntStore.get(level, COMMISSIONING_EVENT_KEY, pos, COMMISSIONING_EVENT_RUNTIME_SIZE);
+        if (runtime[COMMISSIONING_EVENT_INITIALIZED] == 0) {
+            runtime[LAST_COMMISSIONING_STATUS] = status.code();
+            runtime[COMMISSIONING_EVENT_INITIALIZED] = 1;
+            return;
+        }
+        CommissioningStatus previous = CommissioningStatus.fromCode(runtime[LAST_COMMISSIONING_STATUS]);
+        if (previous == status) return;
+
+        SystemEventKind kind = switch (status) {
+            case FAIL -> SystemEventKind.ELECTRICAL_EVIDENCE_FAILED;
+            case PASS -> SystemEventKind.ELECTRICAL_EVIDENCE_RESTORED;
+            case MARGINAL, NOT_READY -> SystemEventKind.ELECTRICAL_EVIDENCE_DEGRADED;
+        };
+        SystemEventTimeline.record(
+                level,
+                pos,
+                kind,
+                CopperCommissioningAssessment.eventSeverity(status),
+                switch (status) {
+                    case FAIL -> "COPPER_METER_EVIDENCE_FAIL";
+                    case PASS -> "COPPER_METER_EVIDENCE_READY";
+                    case MARGINAL -> "COPPER_METER_EVIDENCE_MARGINAL";
+                    case NOT_READY -> "COPPER_METER_EVIDENCE_NOT_READY";
+                },
+                String.format(Locale.ROOT,
+                        "Copper meter commissioning %s -> %s; quality=%s; V=%d; face=%s; observer-only evidence transition",
+                        previous, status, quality, voltage, state.getValue(FACING).getName().toUpperCase(Locale.ROOT))
+        );
+        runtime[LAST_COMMISSIONING_STATUS] = status.code();
     }
 
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
-        if (!state.is(newState.getBlock())) MetrologyStore.remove(level, CHANNEL, pos);
+        if (!state.is(newState.getBlock())) {
+            MetrologyStore.remove(level, CHANNEL, pos);
+            RuntimeIntStore.remove(level, COMMISSIONING_EVENT_KEY, pos);
+        }
         super.onRemove(state, level, pos, newState, moved);
     }
 
@@ -177,6 +234,7 @@ public class CopperCircuitMeterBlock extends DomainBlock implements EngineeringP
         BlockState next = state.setValue(FACING, newFace);
         level.setBlock(pos, next, Block.UPDATE_CLIENTS);
         MetrologyStore.remove(level, CHANNEL, pos);
+        RuntimeIntStore.remove(level, COMMISSIONING_EVENT_KEY, pos);
         if (level instanceof ServerLevel server) server.scheduleTick(pos, block, 1);
         level.updateNeighborsAt(pos, block);
         return true;
@@ -196,9 +254,9 @@ public class CopperCircuitMeterBlock extends DomainBlock implements EngineeringP
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
                 ElectricalDiagnostics diagnostics = electricalDiagnostics(level, pos, state);
-                player.displayClientMessage(Component.literal(String.format(
+                player.displayClientMessage(Component.literal(String.format(Locale.ROOT,
                         "Copper circuit meter | face=%s | observer-only | live=%s V=%.2f | Req=%.2f | I≈%.3f | P≈%.3f | meter=%s | %s",
-                        state.getValue(FACING).getName().toUpperCase(),
+                        state.getValue(FACING).getName().toUpperCase(Locale.ROOT),
                         diagnostics.quality(),
                         (double) diagnostics.voltage(),
                         diagnostics.equivalentResistance(),
