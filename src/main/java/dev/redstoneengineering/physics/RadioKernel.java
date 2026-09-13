@@ -26,8 +26,14 @@ public final class RadioKernel {
             int interference,
             int obstacles,
             int latencyTicks,
+            int distanceBlocks,
             boolean coverageComplete
-    ) {}
+    ) {
+        /** Positive values are decode headroom; negative values are below the authoritative threshold. */
+        public int decodeMargin() {
+            return quality - MIN_DECODE_QUALITY;
+        }
+    }
 
     private record Tx(int channel, int payload) {}
     private record ObstacleSample(int hits, boolean complete) {}
@@ -76,7 +82,7 @@ public final class RadioKernel {
     public static synchronized Reception receivePacket(Level level, BlockPos rx, int channel) {
         Map<Long, Tx> transmitters = TX.get(level);
         if (transmitters == null) {
-            return new Reception(0, 0, 0, false, false, 0, 0, 0, true);
+            return new Reception(0, 0, 0, false, false, 0, 0, 0, 0, true);
         }
 
         int drivers = 0;
@@ -85,6 +91,7 @@ public final class RadioKernel {
         int bestObstacles = 0;
         int adjacent = 0;
         int bestLatency = 0;
+        int bestDistance = 0;
         boolean coverageComplete = true;
 
         for (var entry : transmitters.entrySet()) {
@@ -130,6 +137,7 @@ public final class RadioKernel {
                 bestQuality = quality;
                 bestObstacles = obstacles;
                 bestLatency = 2 + (int) Math.ceil(distance / 12.0);
+                bestDistance = (int) Math.ceil(distance);
             }
         }
 
@@ -146,6 +154,7 @@ public final class RadioKernel {
                 adjacent,
                 bestObstacles,
                 bestLatency,
+                bestDistance,
                 coverageComplete
         );
     }
