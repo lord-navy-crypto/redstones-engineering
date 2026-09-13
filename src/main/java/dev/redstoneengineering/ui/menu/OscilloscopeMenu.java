@@ -45,6 +45,9 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     private final DataSlot activeChannels = trackedInt();
     private final DataSlot duplicateChannels = trackedInt();
     private final DataSlot bounded = trackedInt();
+    private final DataSlot shieldedCableNodes = trackedInt();
+    private final DataSlot unshieldedCableNodes = trackedInt();
+    private final DataSlot shieldingCoverage = trackedInt();
     private final DataSlot[] channelProbeCounts = new DataSlot[2];
 
     public OscilloscopeMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
@@ -109,6 +112,9 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
         activeChannels.set(network.activeChannels());
         duplicateChannels.set(network.duplicateChannels());
         bounded.set(network.bounded() ? 1 : 0);
+        shieldedCableNodes.set(network.shieldedCableNodes());
+        unshieldedCableNodes.set(network.unshieldedCableNodes());
+        shieldingCoverage.set(network.shieldingCoveragePercent());
         for (int channel = 0; channel < 2; channel++) channelProbeCounts[channel].set(network.counts()[channel]);
     }
 
@@ -146,5 +152,8 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     public int activeChannels() { return activeChannels.get(); }
     public int duplicateChannels() { return duplicateChannels.get(); }
     public boolean bounded() { return bounded.get() != 0; }
+    public int shieldedCableNodes() { return shieldedCableNodes.get(); }
+    public int unshieldedCableNodes() { return unshieldedCableNodes.get(); }
+    public int shieldingCoverage() { return shieldingCoverage.get(); }
     public int probeCount(int channel) { return channelProbeCounts[channel].get(); }
 }
