@@ -208,7 +208,7 @@ public class CopperCircuitMeterBlock extends DomainBlock implements EngineeringP
                         MetrologySupport.compactDiagnostics(measurement(level, pos))
                 )), true);
             } else {
-                FieldDeviceUi.openUniversal(serverPlayer, pos);
+                FieldDeviceUi.open(serverPlayer, pos);
             }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
