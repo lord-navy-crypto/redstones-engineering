@@ -25,7 +25,7 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     private final DataSlot triggerMode = trackedInt();
     private final DataSlot triggerChannel = trackedInt();
     private final DataSlot triggerLevel = trackedInt();
-    private final DataSlot captureState = trackedInt(); // 0 HOLD, 1 ARMED, 2 TRIGGERED
+    private final DataSlot captureState = trackedInt();
     private final DataSlot cursorA = trackedInt();
     private final DataSlot cursorB = trackedInt();
 
@@ -48,6 +48,11 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     private final DataSlot shieldedCableNodes = trackedInt();
     private final DataSlot unshieldedCableNodes = trackedInt();
     private final DataSlot shieldingCoverage = trackedInt();
+    private final DataSlot exposedCableNodes = trackedInt();
+    private final DataSlot shieldedExposedNodes = trackedInt();
+    private final DataSlot unshieldedExposedNodes = trackedInt();
+    private final DataSlot interferenceExposure = trackedInt();
+    private final DataSlot interferenceConfidence = trackedInt();
     private final DataSlot[] channelProbeCounts = new DataSlot[2];
 
     public OscilloscopeMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
@@ -55,26 +60,13 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     }
 
     public OscilloscopeMenu(int containerId, Inventory inventory, BlockPos pos) {
-        super(
-                EngineeringUiRegistration.OSCILLOSCOPE.get(),
-                containerId,
-                inventory,
-                pos,
-                RedstoneEngineering.OSCILLOSCOPE.get()
-        );
+        super(EngineeringUiRegistration.OSCILLOSCOPE.get(), containerId, inventory, pos,
+                RedstoneEngineering.OSCILLOSCOPE.get());
         for (int channel = 0; channel < 2; channel++) {
-            current[channel] = trackedInt();
-            coverage[channel] = trackedInt();
-            minimum[channel] = trackedInt();
-            maximum[channel] = trackedInt();
-            peakToPeak[channel] = trackedInt();
-            average100[channel] = trackedInt();
-            meanStep100[channel] = trackedInt();
-            periodTicks[channel] = trackedInt();
-            channelProbeCounts[channel] = trackedInt();
-            for (int slot = 0; slot < OscilloscopeBlockEntity.DISPLAY_SAMPLES; slot++) {
-                display[channel][slot] = trackedInt();
-            }
+            current[channel] = trackedInt(); coverage[channel] = trackedInt(); minimum[channel] = trackedInt();
+            maximum[channel] = trackedInt(); peakToPeak[channel] = trackedInt(); average100[channel] = trackedInt();
+            meanStep100[channel] = trackedInt(); periodTicks[channel] = trackedInt(); channelProbeCounts[channel] = trackedInt();
+            for (int slot = 0; slot < OscilloscopeBlockEntity.DISPLAY_SAMPLES; slot++) display[channel][slot] = trackedInt();
         }
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
     }
@@ -82,39 +74,24 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     @Override
     protected void refreshAuthoritativeSnapshot() {
         if (!(level.getBlockEntity(blockPos) instanceof OscilloscopeBlockEntity scope)) return;
-
-        sampleCount.set(scope.sampleCount());
-        triggerMode.set(scope.triggerMode());
-        triggerChannel.set(scope.triggerChannel());
-        triggerLevel.set(scope.triggerLevel());
-        captureState.set(scope.armed() ? 1 : scope.triggered() ? 2 : 0);
-        cursorA.set(scope.cursorA());
-        cursorB.set(scope.cursorB());
-
+        sampleCount.set(scope.sampleCount()); triggerMode.set(scope.triggerMode()); triggerChannel.set(scope.triggerChannel());
+        triggerLevel.set(scope.triggerLevel()); captureState.set(scope.armed() ? 1 : scope.triggered() ? 2 : 0);
+        cursorA.set(scope.cursorA()); cursorB.set(scope.cursorB());
         for (int channel = 0; channel < 2; channel++) {
-            current[channel].set(scope.current(channel));
-            coverage[channel].set(scope.coveragePercent(channel));
-            minimum[channel].set(scope.minimum(channel));
-            maximum[channel].set(scope.maximum(channel));
-            peakToPeak[channel].set(scope.peakToPeak(channel));
-            average100[channel].set(scope.average100(channel));
-            meanStep100[channel].set(scope.meanStep100(channel));
-            periodTicks[channel].set(scope.estimatedPeriodTicks(channel));
-            for (int slot = 0; slot < OscilloscopeBlockEntity.DISPLAY_SAMPLES; slot++) {
-                display[channel][slot].set(scope.displaySample(channel, slot));
-            }
+            current[channel].set(scope.current(channel)); coverage[channel].set(scope.coveragePercent(channel));
+            minimum[channel].set(scope.minimum(channel)); maximum[channel].set(scope.maximum(channel));
+            peakToPeak[channel].set(scope.peakToPeak(channel)); average100[channel].set(scope.average100(channel));
+            meanStep100[channel].set(scope.meanStep100(channel)); periodTicks[channel].set(scope.estimatedPeriodTicks(channel));
+            for (int slot = 0; slot < OscilloscopeBlockEntity.DISPLAY_SAMPLES; slot++) display[channel][slot].set(scope.displaySample(channel, slot));
         }
 
         InstrumentNetwork.ProbeSnapshot network = InstrumentNetwork.scan(level, blockPos);
-        cableNodes.set(network.cableNodes());
-        probeNodes.set(network.probeNodes());
-        validChannels.set(network.validChannels());
-        activeChannels.set(network.activeChannels());
-        duplicateChannels.set(network.duplicateChannels());
-        bounded.set(network.bounded() ? 1 : 0);
-        shieldedCableNodes.set(network.shieldedCableNodes());
-        unshieldedCableNodes.set(network.unshieldedCableNodes());
-        shieldingCoverage.set(network.shieldingCoveragePercent());
+        cableNodes.set(network.cableNodes()); probeNodes.set(network.probeNodes()); validChannels.set(network.validChannels());
+        activeChannels.set(network.activeChannels()); duplicateChannels.set(network.duplicateChannels()); bounded.set(network.bounded() ? 1 : 0);
+        shieldedCableNodes.set(network.shieldedCableNodes()); unshieldedCableNodes.set(network.unshieldedCableNodes());
+        shieldingCoverage.set(network.shieldingCoveragePercent()); exposedCableNodes.set(network.exposedCableNodes());
+        shieldedExposedNodes.set(network.shieldedExposedNodes()); unshieldedExposedNodes.set(network.unshieldedExposedNodes());
+        interferenceExposure.set(network.interferenceExposurePercent()); interferenceConfidence.set(network.interferenceConfidencePercent());
         for (int channel = 0; channel < 2; channel++) channelProbeCounts[channel].set(network.counts()[channel]);
     }
 
@@ -123,10 +100,7 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
         if (level.isClientSide) return true;
         if (!stillValid(player)) return false;
         boolean changed = OscilloscopeBlock.applyUiAction(level, blockPos, id);
-        if (changed) {
-            refreshAuthoritativeSnapshot();
-            broadcastChanges();
-        }
+        if (changed) { refreshAuthoritativeSnapshot(); broadcastChanges(); }
         return changed;
     }
 
@@ -155,5 +129,10 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     public int shieldedCableNodes() { return shieldedCableNodes.get(); }
     public int unshieldedCableNodes() { return unshieldedCableNodes.get(); }
     public int shieldingCoverage() { return shieldingCoverage.get(); }
+    public int exposedCableNodes() { return exposedCableNodes.get(); }
+    public int shieldedExposedNodes() { return shieldedExposedNodes.get(); }
+    public int unshieldedExposedNodes() { return unshieldedExposedNodes.get(); }
+    public int interferenceExposure() { return interferenceExposure.get(); }
+    public int interferenceConfidence() { return interferenceConfidence.get(); }
     public int probeCount(int channel) { return channelProbeCounts[channel].get(); }
 }

@@ -1,6 +1,7 @@
 package dev.redstoneengineering.instrument;
 
 import dev.redstoneengineering.block.ConnectedCableBlock;
+import dev.redstoneengineering.block.CopperVoltageSourceBlock;
 import dev.redstoneengineering.block.InstrumentCableBlock;
 import dev.redstoneengineering.block.RedstoneCableJunctionBlock;
 import dev.redstoneengineering.block.ShieldedInstrumentCableBlock;
@@ -39,6 +40,19 @@ public final class InstrumentNetwork {
                 && ConnectedCableBlock.connected(to, direction.getOpposite());
     }
 
+    /** Local deterministic interference evidence; no second graph scan and no fabricated sample noise. */
+    private static boolean locallyExposed(Level level, BlockPos cablePos) {
+        if (level.getBestNeighborSignal(cablePos) > 0) return true;
+        for (Direction direction : Direction.values()) {
+            BlockPos neighbor = cablePos.relative(direction);
+            if (!level.hasChunkAt(neighbor)) continue;
+            BlockState state = level.getBlockState(neighbor);
+            if (state.getBlock() instanceof CopperVoltageSourceBlock
+                    && state.getValue(CopperVoltageSourceBlock.VOLTAGE) > 0) return true;
+        }
+        return false;
+    }
+
     public static ProbeSnapshot scan(Level level, BlockPos instrumentPos) {
         int[] values = {-1, -1, -1, -1};
         int[] counts = {0, 0, 0, 0};
@@ -50,6 +64,9 @@ public final class InstrumentNetwork {
         int maxProbeDepth = 0;
         int shieldedCableNodes = 0;
         int unshieldedCableNodes = 0;
+        int exposedCableNodes = 0;
+        int shieldedExposedNodes = 0;
+        int unshieldedExposedNodes = 0;
 
         for (Direction direction : Direction.values()) {
             BlockPos neighbor = instrumentPos.relative(direction);
@@ -74,15 +91,20 @@ public final class InstrumentNetwork {
             if (!visited.add(cablePos)) continue;
             maxCableDepth = Math.max(maxCableDepth, visit.depth());
             BlockState cableState = level.getBlockState(cablePos);
-            if (cableState.getBlock() instanceof ShieldedInstrumentCableBlock) shieldedCableNodes++;
+            boolean shielded = cableState.getBlock() instanceof ShieldedInstrumentCableBlock;
+            if (shielded) shieldedCableNodes++;
             else if (cableState.getBlock() instanceof InstrumentCableBlock) unshieldedCableNodes++;
+            if (locallyExposed(level, cablePos)) {
+                exposedCableNodes++;
+                if (shielded) shieldedExposedNodes++;
+                else unshieldedExposedNodes++;
+            }
 
             for (Direction direction : Direction.values()) {
                 if (!ConnectedCableBlock.connected(cableState, direction)) continue;
                 BlockPos neighbor = cablePos.relative(direction);
                 if (neighbor.equals(instrumentPos) || !level.hasChunkAt(neighbor)) continue;
                 BlockState state = level.getBlockState(neighbor);
-
                 if (isInstrumentNode(state)) {
                     if (edgeAllowed(cableState, state, direction) && !visited.contains(neighbor)) {
                         queue.addLast(new CableVisit(neighbor, visit.depth() + 1));
@@ -98,9 +120,9 @@ public final class InstrumentNetwork {
         }
 
         NetworkKernel.recordScan(level, "instrument", visited.size(), truncated);
-        return new ProbeSnapshot(
-                values, counts, !truncated, visited.size(), seenProbes.size(),
-                maxCableDepth, maxProbeDepth, shieldedCableNodes, unshieldedCableNodes);
+        return new ProbeSnapshot(values, counts, !truncated, visited.size(), seenProbes.size(),
+                maxCableDepth, maxProbeDepth, shieldedCableNodes, unshieldedCableNodes,
+                exposedCableNodes, shieldedExposedNodes, unshieldedExposedNodes);
     }
 
     private static void recordProbe(Level level, BlockPos pos, BlockState state, SignalProbeBlock probe, int[] values, int[] counts) {
@@ -112,15 +134,9 @@ public final class InstrumentNetwork {
     }
 
     public record ProbeSnapshot(
-            int[] values,
-            int[] counts,
-            boolean bounded,
-            int cableNodes,
-            int probeNodes,
-            int maxCableDepth,
-            int maxProbeDepth,
-            int shieldedCableNodes,
-            int unshieldedCableNodes
+            int[] values, int[] counts, boolean bounded, int cableNodes, int probeNodes,
+            int maxCableDepth, int maxProbeDepth, int shieldedCableNodes, int unshieldedCableNodes,
+            int exposedCableNodes, int shieldedExposedNodes, int unshieldedExposedNodes
     ) {
         public boolean valid(int channel) { return channel >= 0 && channel < 4 && counts[channel] == 1 && values[channel] >= 0; }
         public int valueOr(int channel, int fallback) { return valid(channel) ? values[channel] : fallback; }
@@ -130,16 +146,12 @@ public final class InstrumentNetwork {
         public int validChannels() { return validChannelsInMask(0xF); }
         public int validChannelsInMask(int channelMask) {
             int valid = 0;
-            for (int channel = 0; channel < 4; channel++) {
-                if ((channelMask & (1 << channel)) != 0 && valid(channel)) valid++;
-            }
+            for (int channel = 0; channel < 4; channel++) if ((channelMask & (1 << channel)) != 0 && valid(channel)) valid++;
             return valid;
         }
         public int duplicateChannelsInMask(int channelMask) {
             int duplicates = 0;
-            for (int channel = 0; channel < 4; channel++) {
-                if ((channelMask & (1 << channel)) != 0 && counts[channel] > 1) duplicates++;
-            }
+            for (int channel = 0; channel < 4; channel++) if ((channelMask & (1 << channel)) != 0 && counts[channel] > 1) duplicates++;
             return duplicates;
         }
         public PortQuality qualityForMask(int channelMask) {
@@ -151,6 +163,21 @@ public final class InstrumentNetwork {
         public int shieldingCoveragePercent() {
             int total = shieldedCableNodes + unshieldedCableNodes;
             return total == 0 ? 0 : (100 * shieldedCableNodes) / total;
+        }
+        public int interferenceExposurePercent() { return cableNodes == 0 ? 0 : (100 * exposedCableNodes) / cableNodes; }
+        public int interferenceConfidencePercent() {
+            if (!bounded) return 0;
+            if (cableNodes == 0 || exposedCableNodes == 0) return 100;
+            int penalty = (60 * unshieldedExposedNodes + 10 * shieldedExposedNodes) / cableNodes;
+            return Math.max(0, Math.min(100, 100 - penalty));
+        }
+        public String interferenceIntegrity() {
+            if (!bounded) return "UNKNOWN_TRUNCATED";
+            if (cableNodes == 0) return "DIRECT_NO_CABLE";
+            if (exposedCableNodes == 0) return "CLEAR";
+            if (unshieldedExposedNodes == 0) return "EXPOSED_SHIELDED";
+            if (shieldedExposedNodes == 0) return "EXPOSED_UNSHIELDED";
+            return "EXPOSED_MIXED";
         }
         public String shieldingIntegrity() {
             if (!bounded) return "TRUNCATED";
@@ -172,18 +199,17 @@ public final class InstrumentNetwork {
             return "OK";
         }
         public String networkStatus() {
-            return "instrumentNet cables=" + cableNodes
-                    + " probes=" + probeNodes
+            return "instrumentNet cables=" + cableNodes + " probes=" + probeNodes
                     + " channels=" + validChannels() + "/" + activeChannels() + "/4 valid/active"
-                    + " duplicateChannels=" + duplicateChannels()
-                    + " duplicateProbes=" + duplicateProbes()
-                    + " depth=" + maxProbeDepth
-                    + " cableDepth=" + maxCableDepth
+                    + " duplicateChannels=" + duplicateChannels() + " duplicateProbes=" + duplicateProbes()
+                    + " depth=" + maxProbeDepth + " cableDepth=" + maxCableDepth
                     + " shielded=" + shieldedCableNodes + "/" + cableNodes
                     + " shieldingCoverage=" + shieldingCoveragePercent() + "%"
                     + " shielding=" + shieldingIntegrity()
-                    + " scan=" + (bounded ? "BOUNDED" : "TRUNCATED")
-                    + " integrity=" + integrity();
+                    + " interferenceExposure=" + interferenceExposurePercent() + "%"
+                    + " interferenceConfidence=" + interferenceConfidencePercent() + "%"
+                    + " interference=" + interferenceIntegrity()
+                    + " scan=" + (bounded ? "BOUNDED" : "TRUNCATED") + " integrity=" + integrity();
         }
     }
 }

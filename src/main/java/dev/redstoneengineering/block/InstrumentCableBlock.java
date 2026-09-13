@@ -25,11 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Measurement-bus cable carrying probe channels rather than redstone power.
- * Direct cable runs and branches are planar; UP/DOWN transitions require the
- * unified Signal Junction Point.
- */
+/** Measurement-bus cable carrying probe channels rather than redstone power. */
 public class InstrumentCableBlock extends ConnectedCableBlock implements EngineeringPortProvider {
     public InstrumentCableBlock(Properties properties) { super(properties); }
 
@@ -43,8 +39,6 @@ public class InstrumentCableBlock extends ConnectedCableBlock implements Enginee
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         List<EngineeringPort> ports = new ArrayList<>();
         for (Direction side : Direction.values()) {
-            // Planar faces advertise connectable measurement-bus capability even when open.
-            // A vertical port exists only when the visible arm was created by a junction.
             if (side.getAxis() == Direction.Axis.Y && !connected(state, side)) continue;
             ports.add(new EngineeringPort(
                     "INSTRUMENT BUS", side, EngineeringDomain.INSTRUMENT_BUS,
@@ -53,12 +47,7 @@ public class InstrumentCableBlock extends ConnectedCableBlock implements Enginee
         return List.copyOf(ports);
     }
 
-    /**
-     * A cable port reports logical channel health, not electrical power. The value is the
-     * number of uniquely owned probe channels visible on the bounded bus; duplicate channel
-     * ownership or a truncated scan is surfaced as TOPOLOGY_ERROR instead of silently choosing
-     * a probe. Shielding remains a separate integrity dimension.
-     */
+    /** Topology/data validity stays separate from deterministic shielding/interference evidence. */
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
@@ -81,6 +70,10 @@ public class InstrumentCableBlock extends ConnectedCableBlock implements Enginee
                                 + " | routing=PLANAR; vertical via Signal Junction Point"
                                 + " | channels=" + bus.validChannels() + "/" + bus.activeChannels()
                                 + " valid/active | integrity=" + bus.integrity()
+                                + " | shielding=" + bus.shieldingIntegrity() + " " + bus.shieldingCoveragePercent() + "%"
+                                + " | interference=" + bus.interferenceIntegrity()
+                                + " exposure=" + bus.interferenceExposurePercent() + "%"
+                                + " confidence=" + bus.interferenceConfidencePercent() + "%"
                 ), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
