@@ -2,6 +2,7 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.core.diagnostic.CoreMediaDiagnostics;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.EngineeringPort;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
@@ -44,32 +45,13 @@ public class LapisToRedstoneQuantizerBlock extends Block implements EngineeringP
         registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH).setValue(POWER, 0));
     }
 
-    @Override
-    public MapCodec<LapisToRedstoneQuantizerBlock> codec() {
-        return RedstoneEngineering.LAPIS_TO_REDSTONE_QUANTIZER_CODEC.value();
-    }
+    @Override public MapCodec<LapisToRedstoneQuantizerBlock> codec() { return RedstoneEngineering.LAPIS_TO_REDSTONE_QUANTIZER_CODEC.value(); }
+    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { builder.add(FACING, POWER); }
+    @Override public BlockState getStateForPlacement(BlockPlaceContext context) { return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite()); }
 
-    @Override
-    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING, POWER);
-    }
-
-    @Override
-    public BlockState getStateForPlacement(BlockPlaceContext context) {
-        return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
-    }
-
-    private Direction outputSide(BlockState state) {
-        return state.getValue(FACING);
-    }
-
-    private Direction inputSide(BlockState state) {
-        return outputSide(state).getOpposite();
-    }
-
-    private static int encodeQuality(PortQuality quality) {
-        return quality.ordinal() + 1;
-    }
+    private Direction outputSide(BlockState state) { return state.getValue(FACING); }
+    private Direction inputSide(BlockState state) { return outputSide(state).getOpposite(); }
+    private static int encodeQuality(PortQuality quality) { return quality.ordinal() + 1; }
 
     public static PortQuality outputQuality(Level level, BlockPos pos) {
         int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
@@ -82,85 +64,34 @@ public class LapisToRedstoneQuantizerBlock extends Block implements EngineeringP
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         return List.of(
-                new EngineeringPort(
-                        "LAPIS INPUT",
-                        inputSide(state),
-                        EngineeringDomain.LAPIS,
-                        PortKind.CONVERTER,
-                        PortDirection.INPUT,
-                        false,
-                        "normalized"
-                ),
-                new EngineeringPort(
-                        "REDSTONE OUTPUT",
-                        outputSide(state),
-                        EngineeringDomain.REDSTONE,
-                        PortKind.CONVERTER,
-                        PortDirection.OUTPUT,
-                        true,
-                        "signal"
-                )
+                new EngineeringPort("LAPIS INPUT", inputSide(state), EngineeringDomain.LAPIS, PortKind.CONVERTER, PortDirection.INPUT, false, "normalized"),
+                new EngineeringPort("REDSTONE OUTPUT", outputSide(state), EngineeringDomain.REDSTONE, PortKind.CONVERTER, PortDirection.OUTPUT, true, "signal")
         );
     }
 
     @Override
-    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
-            Level level,
-            BlockPos pos,
-            BlockState state,
-            Direction side
-    ) {
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-
         if (side == inputSide(state)) {
             var sample = PrecisionObservationSupport.lapis(level, pos.relative(inputSide(state)));
-            return Optional.of(new EngineeringPortSnapshot(
-                    port.get(),
-                    sample.valid() ? sample.value() / 100.0 : 0.0,
-                    0.0,
-                    1.0,
-                    sample.quality()
-            ));
+            return Optional.of(new EngineeringPortSnapshot(port.get(), sample.valid() ? sample.value() / 100.0 : 0.0, 0.0, 1.0, sample.quality()));
         }
-        return Optional.of(EngineeringPortSnapshot.redstone(
-                port.get(),
-                state.getValue(POWER),
-                outputQuality(level, pos)
-        ));
+        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), state.getValue(POWER), outputQuality(level, pos)));
     }
 
-    @Override
-    public boolean canConnectRedstone(BlockState state, BlockGetter level, BlockPos pos, @Nullable Direction direction) {
-        return direction != null && direction == outputSide(state).getOpposite();
-    }
+    @Override public boolean canConnectRedstone(BlockState state, BlockGetter level, BlockPos pos, @Nullable Direction direction) { return direction != null && direction == outputSide(state).getOpposite(); }
+    @Override protected boolean isSignalSource(BlockState state) { return true; }
+    @Override protected int getSignal(BlockState state, BlockGetter level, BlockPos pos, Direction direction) { return direction == outputSide(state).getOpposite() ? state.getValue(POWER) : 0; }
 
-    @Override
-    protected boolean isSignalSource(BlockState state) {
-        return true;
-    }
-
-    @Override
-    protected int getSignal(BlockState state, BlockGetter level, BlockPos pos, Direction direction) {
-        return direction == outputSide(state).getOpposite() ? state.getValue(POWER) : 0;
-    }
-
-    @Override
-    protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
-        super.onPlace(state, level, pos, oldState, moved);
-        if (!level.isClientSide) level.scheduleTick(pos, this, 1);
-    }
-
-    @Override
-    protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighbor, BlockPos neighborPos, boolean moved) {
-        if (!level.isClientSide) level.scheduleTick(pos, this, 1);
-    }
+    @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) { super.onPlace(state, level, pos, oldState, moved); if (!level.isClientSide) level.scheduleTick(pos, this, 1); }
+    @Override protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighbor, BlockPos neighborPos, boolean moved) { if (!level.isClientSide) level.scheduleTick(pos, this, 1); }
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         var sample = PrecisionObservationSupport.lapis(level, pos.relative(inputSide(state)));
         RuntimeIntStore.get(level, KEY, pos, 1)[0] = encodeQuality(sample.quality());
-        int power = sample.valid() ? Math.round(sample.value() * 15.0f / 100.0f) : 0;
+        int power = sample.valid() ? CoreMediaDiagnostics.redstoneFromLapis(sample.value()) : 0;
         if (power != state.getValue(POWER)) {
             BlockState next = state.setValue(POWER, power);
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
@@ -170,8 +101,7 @@ public class LapisToRedstoneQuantizerBlock extends Block implements EngineeringP
         level.scheduleTick(pos, this, 2);
     }
 
-    @Override
-    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
+    @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
         if (!state.is(newState.getBlock())) RuntimeIntStore.remove(level, KEY, pos);
         super.onRemove(state, level, pos, newState, moved);
     }
@@ -180,12 +110,26 @@ public class LapisToRedstoneQuantizerBlock extends Block implements EngineeringP
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
             var sample = PrecisionObservationSupport.lapis(level, pos.relative(inputSide(state)));
-            player.displayClientMessage(Component.literal(
-                    "Lapis → Redstone Quantizer | input="
-                            + (sample.valid() ? String.format("%.2f", sample.value() / 100.0) : sample.quality().name())
-                            + " | output=" + state.getValue(POWER) + "/15"
-                            + " | outputQuality=" + outputQuality(level, pos)
-            ), true);
+            if (sample.valid()) {
+                int output = state.getValue(POWER);
+                int reconstructed = CoreMediaDiagnostics.lapisReconstructedFromRedstone(output);
+                int error = CoreMediaDiagnostics.quantizationError(sample.value());
+                player.displayClientMessage(Component.literal(
+                        "Lapis → Redstone Quantizer | input=" + String.format("%.2f", sample.value() / 100.0)
+                                + " | output=" + output + "/15"
+                                + " | reconstructed≈" + String.format("%.2f", reconstructed / 100.0)
+                                + " | quantizationLoss=" + String.format("%.2f", error / 100.0)
+                                + " | " + CoreMediaDiagnostics.lapisInformationClass(sample.value())
+                                + " | outputQuality=" + outputQuality(level, pos)
+                ), true);
+            } else {
+                player.displayClientMessage(Component.literal(
+                        "Lapis → Redstone Quantizer | input=" + sample.quality().name()
+                                + " | output=" + state.getValue(POWER) + "/15"
+                                + " | quantization unavailable until input evidence is VALID"
+                                + " | outputQuality=" + outputQuality(level, pos)
+                ), true);
+            }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }

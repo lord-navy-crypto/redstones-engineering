@@ -2,6 +2,7 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.core.diagnostic.CoreMediaDiagnostics;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.EngineeringPort;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
@@ -102,8 +103,16 @@ public class LapisPrecisionMeterBlock extends DomainBlock implements Engineering
             if (player.isShiftKeyDown()) {
                 MeterReading reading = reading(level, pos, state);
                 player.displayClientMessage(Component.literal(switch (reading.quality()) {
-                    case VALID -> "Lapis precision meter | observer only | face=" + state.getValue(FACING).getName().toUpperCase()
-                            + " | value=" + String.format("%.3f", reading.value() / 100.0) + " | resolution=0.01";
+                    case VALID -> {
+                        int redstone = CoreMediaDiagnostics.redstoneFromLapis(reading.value());
+                        int reconstructed = CoreMediaDiagnostics.lapisReconstructedFromRedstone(redstone);
+                        int error = CoreMediaDiagnostics.quantizationError(reading.value());
+                        yield "Lapis precision meter | observer only | face=" + state.getValue(FACING).getName().toUpperCase()
+                                + " | value=" + String.format("%.2f", reading.value() / 100.0) + " | resolution=0.01"
+                                + " | if quantized: RS=" + redstone + "/15 → Lapis≈" + String.format("%.2f", reconstructed / 100.0)
+                                + " | loss=" + String.format("%.2f", error / 100.0)
+                                + " | " + CoreMediaDiagnostics.lapisInformationClass(reading.value());
+                    }
                     case TOPOLOGY_ERROR -> "Lapis precision meter | observer only | face=" + state.getValue(FACING).getName().toUpperCase()
                             + " | SOURCE CONFLICT — no arbitrary source selected";
                     case STALE -> "Lapis precision meter | observer only | face=" + state.getValue(FACING).getName().toUpperCase()
