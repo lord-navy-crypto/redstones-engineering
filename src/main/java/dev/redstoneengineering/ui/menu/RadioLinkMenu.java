@@ -46,6 +46,11 @@ public final class RadioLinkMenu extends EngineeringDeviceMenu {
     private final DataSlot dropouts = trackedInt();
     private final DataSlot handoffs = trackedInt();
     private final DataSlot noise = trackedInt();
+    private final DataSlot linkQuality = trackedInt();
+    private final DataSlot adjacentAggressors = trackedInt();
+    private final DataSlot obstacleHits = trackedInt();
+    private final DataSlot distanceBlocks = trackedInt();
+    private final DataSlot decodeMargin = trackedInt();
 
     public RadioLinkMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -77,6 +82,11 @@ public final class RadioLinkMenu extends EngineeringDeviceMenu {
         dropouts.set(0);
         handoffs.set(0);
         noise.set(0);
+        linkQuality.set(0);
+        adjacentAggressors.set(0);
+        obstacleHits.set(0);
+        distanceBlocks.set(0);
+        decodeMargin.set(-RadioKernel.MIN_DECODE_QUALITY);
 
         if (block instanceof RadioTransmitterBlock) {
             kind.set(KIND_TRANSMITTER);
@@ -101,6 +111,11 @@ public final class RadioLinkMenu extends EngineeringDeviceMenu {
             output.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             facing.set(state.getValue(DirectionalSignalBlock.FACING).ordinal());
             quality.set(receptionQuality(reception).ordinal());
+            linkQuality.set(reception.quality());
+            adjacentAggressors.set(reception.interference());
+            obstacleHits.set(reception.obstacles());
+            distanceBlocks.set(reception.distanceBlocks());
+            decodeMargin.set(reception.decodeMargin());
 
             int[] diagnostic = RuntimeIntStore.peek(level, RX_DIAG_KEY, blockPos);
             if (diagnostic != null && diagnostic.length >= RX_DIAG_SIZE) {
@@ -134,7 +149,7 @@ public final class RadioLinkMenu extends EngineeringDeviceMenu {
         Block block = state.getBlock();
         boolean changed = false;
 
-        if (block instanceof RadioTransmitterBlock transmitter) {
+        if (block instanceof RadioTransmitterBlock) {
             if (id != BUTTON_CHANNEL_PREVIOUS && id != BUTTON_CHANNEL_NEXT) return false;
             int selected = state.getValue(RadioTransmitterBlock.CHANNEL);
             selected = id == BUTTON_CHANNEL_NEXT ? (selected + 1) % 4 : Math.floorMod(selected - 1, 4);
@@ -185,6 +200,16 @@ public final class RadioLinkMenu extends EngineeringDeviceMenu {
     public int dropouts() { return dropouts.get(); }
     public int handoffs() { return handoffs.get(); }
     public int noise() { return noise.get(); }
+    public int linkQuality() { return linkQuality.get(); }
+    public int adjacentAggressors() { return adjacentAggressors.get(); }
+    public int obstacleHits() { return obstacleHits.get(); }
+    public int distanceBlocks() { return distanceBlocks.get(); }
+    public int decodeMargin() { return decodeMargin.get(); }
+
+    public int availabilityPercent() {
+        int total = samples();
+        return total <= 0 ? 0 : Math.max(0, Math.min(100, (validSamples() * 100) / total));
+    }
 
     public PortQuality quality() {
         int ordinal = quality.get();
