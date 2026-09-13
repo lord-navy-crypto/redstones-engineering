@@ -1,5 +1,6 @@
 package dev.redstoneengineering.client.ui;
 
+import dev.redstoneengineering.core.diagnostic.CommissioningStatus;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.menu.OpticalSystemMenu;
 import net.minecraft.client.gui.GuiGraphics;
@@ -8,7 +9,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
-/** Compact optical HMI with topology-aware commissioning evidence. */
+/** Compact optical HMI with topology-aware commissioning evidence and acceptance. */
 public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMenu> {
     private Button p0,p1,s0,s1;
     public OpticalSystemScreen(OpticalSystemMenu m, Inventory i, Component t){super(m,i,t);}
@@ -35,9 +36,10 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
     @Override protected void renderSection(GuiGraphics g,Section s){switch(s){case OVERVIEW->overview(g);case PORTS->ports(g);case CONFIGURE->configure(g);case DIAGNOSTICS->diagnostics(g);case HISTORY->history(g);}}
 
     private void overview(GuiGraphics g){
-        statusBadge(g,name(),GOOD,16,80);statusBadge(g,qName(),qColor(),205,80);
+        statusBadge(g,name(),GOOD,16,80);
+        statusBadge(g,menu.kind()==OpticalSystemMenu.KIND_METER?menu.commissioningStatus().name().replace('_',' '):qName(),menu.kind()==OpticalSystemMenu.KIND_METER?acceptanceColor():qColor(),205,80);
         metricCard(g,"Input",menu.primary()+" / 15",16,103,88,INFO);metricCard(g,"Channel",Integer.toString(menu.secondary()),111,103,88,GOOD);metricCard(g,"Aux",Integer.toString(menu.tertiary()),206,103,88,INFO);
-        labelValue(g,"Topology",topology(),149);labelValue(g,"Role",role(),169);safeText(g,diagnosis(),16,195,dColor());
+        labelValue(g,"Topology",topology(),149);labelValue(g,"Role",role(),169);safeText(g,menu.kind()==OpticalSystemMenu.KIND_METER?acceptanceSummary():diagnosis(),16,195,menu.kind()==OpticalSystemMenu.KIND_METER?acceptanceColor():dColor());
     }
 
     private void ports(GuiGraphics g){
@@ -57,21 +59,27 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
     }
 
     private void diagnostics(GuiGraphics g){
-        statusBadge(g,qName(),qColor(),16,80);
+        statusBadge(g,menu.kind()==OpticalSystemMenu.KIND_METER?"COMMISSIONING "+menu.commissioningStatus().name().replace('_',' '):qName(),menu.kind()==OpticalSystemMenu.KIND_METER?acceptanceColor():qColor(),16,80);
         if(menu.kind()==OpticalSystemMenu.KIND_METER){
             labelValue(g,"Point",menu.primary()+"/15 • CH "+menu.secondary(),106);
             labelValue(g,"Connected / same CH",menu.meterConnectedNeighbors()+" / "+menu.meterSameChannelNeighbors(),128);
             labelValue(g,"Channel mismatches",Integer.toString(menu.meterChannelMismatches()),150);
             labelValue(g,"Neighbor strong / weak",menu.meterStrongestNeighbor()+" / "+menu.meterWeakestNeighbor(),172);
-        }else{labelValue(g,"Transfer",budget(),108);labelValue(g,"Quality",qName(),132);}
-        statusLine(g,"Commissioning",diagnosis(),dColor(),194);safeText(g,next(),16,214,dColor());
+            statusLine(g,"Local diagnosis",diagnosis(),dColor(),194);safeText(g,acceptanceSummary(),16,214,acceptanceColor());
+        }else{
+            labelValue(g,"Transfer",budget(),108);labelValue(g,"Quality",qName(),132);
+            statusLine(g,"Commissioning",diagnosis(),dColor(),194);safeText(g,next(),16,214,dColor());
+        }
     }
 
     private void history(GuiGraphics g){
         statusBadge(g,"OPTICAL EVIDENCE",INFO,16,80);
-        if(menu.kind()==OpticalSystemMenu.KIND_METER){labelValue(g,"One-hop connected",Integer.toString(menu.meterConnectedNeighbors()),110);labelValue(g,"Same / mismatch",menu.meterSameChannelNeighbors()+" / "+menu.meterChannelMismatches(),132);labelValue(g,"Strong / weak / spread",menu.meterStrongestNeighbor()+" / "+menu.meterWeakestNeighbor()+" / "+spread(),154);safeText(g,"Topology-aware one-hop comparison only; no hidden path or continuous dB history is invented.",16,184,MUTED);}
+        if(menu.kind()==OpticalSystemMenu.KIND_METER){labelValue(g,"Acceptance",menu.commissioningStatus().name(),110);labelValue(g,"One-hop connected",Integer.toString(menu.meterConnectedNeighbors()),132);labelValue(g,"Same / mismatch",menu.meterSameChannelNeighbors()+" / "+menu.meterChannelMismatches(),154);labelValue(g,"Strong / weak / spread",menu.meterStrongestNeighbor()+" / "+menu.meterWeakestNeighbor()+" / "+spread(),176);safeText(g,"Server-evaluated one-hop acceptance only; no hidden path or continuous dB history is invented.",16,202,MUTED);}
         else{labelValue(g,"Budget evidence",budget(),112);safeText(g,"Current server optical evidence only; no client-side carrier history is fabricated.",16,154,MUTED);}
     }
+
+    private String acceptanceSummary(){return switch(menu.commissioningStatus()){case NOT_READY->"NOT READY • establish carrier and a connected comparison point.";case PASS->"PASS • same-channel one-hop budget is locally coherent.";case MARGINAL->"MARGINAL • resolve mismatch, incomplete comparison, or elevated local variation.";case FAIL->"FAIL • hard optical fault or severe local attenuation step.";};}
+    private int acceptanceColor(){return switch(menu.commissioningStatus()){case PASS->GOOD;case NOT_READY->INFO;case MARGINAL->WARN;case FAIL->BAD;};}
 
     private String diagnosis(){
         if(menu.quality()==PortQuality.TOPOLOGY_ERROR||menu.quality()==PortQuality.FAULT)return"TOPOLOGY / SOURCE CONFLICT";
