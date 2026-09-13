@@ -51,6 +51,13 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
     private final DataSlot inputQuality = trackedInt();
     private final DataSlot outputQuality = trackedInt();
 
+    // Flow-meter commissioning evidence: one additional axial observation on each side.
+    // These values localize pressure loss without inventing a second pneumatic solver.
+    private final DataSlot upstreamPressure = trackedInt();
+    private final DataSlot downstreamPressure = trackedInt();
+    private final DataSlot upstreamQuality = trackedInt();
+    private final DataSlot downstreamQuality = trackedInt();
+
     public PneumaticSystemMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
     }
@@ -68,6 +75,10 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
         primary.set(0); secondary.set(0); tertiary.set(0); auxiliary.set(0); stateFlag.set(0); facing.set(-1); inputFacing.set(-1);
         inputQuality.set(PortQuality.NO_SIGNAL.ordinal());
         outputQuality.set(PortQuality.NO_SIGNAL.ordinal());
+        upstreamPressure.set(0);
+        downstreamPressure.set(0);
+        upstreamQuality.set(PortQuality.NO_SIGNAL.ordinal());
+        downstreamQuality.set(PortQuality.NO_SIGNAL.ordinal());
 
         if (block instanceof AirCompressorBlock) {
             kind.set(KIND_COMPRESSOR);
@@ -111,6 +122,17 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
             tertiary.set(PneumaticFlowMeterBlock.inletPressure(level, blockPos));
             auxiliary.set(PneumaticFlowMeterBlock.outletPressure(level, blockPos));
             stateFlag.set((int) Math.min(Integer.MAX_VALUE, PneumaticFlowMeterBlock.measurement(level, blockPos).sampleCount()));
+
+            Direction in = DirectionalDomainBlock.seriesInputSide(state);
+            Direction out = DirectionalDomainBlock.seriesOutputSide(state);
+            PneumaticObservationSupport.Observation upstream =
+                    PneumaticObservationSupport.observe(level, blockPos.relative(in, 2));
+            PneumaticObservationSupport.Observation downstream =
+                    PneumaticObservationSupport.observe(level, blockPos.relative(out, 2));
+            upstreamPressure.set(upstream.pressure());
+            downstreamPressure.set(downstream.pressure());
+            upstreamQuality.set(upstream.quality().ordinal());
+            downstreamQuality.set(downstream.quality().ordinal());
         } else if (block instanceof PneumaticProportionalValveBlock valve) {
             kind.set(KIND_PROPORTIONAL);
             directionalSnapshots(state, valve);
@@ -240,6 +262,10 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
     public int stateFlag() { return stateFlag.get(); }
     public PortQuality inputQuality() { return quality(inputQuality.get()); }
     public PortQuality outputQuality() { return quality(outputQuality.get()); }
+    public int upstreamPressure() { return upstreamPressure.get(); }
+    public int downstreamPressure() { return downstreamPressure.get(); }
+    public PortQuality upstreamQuality() { return quality(upstreamQuality.get()); }
+    public PortQuality downstreamQuality() { return quality(downstreamQuality.get()); }
 
     private static PortQuality quality(int ordinal) {
         PortQuality[] all = PortQuality.values();
