@@ -80,22 +80,36 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
         }
 
         String[] lines = history.get(page).split("\\n");
-        int y = 50;
+        String status = findLine(lines, "STATUS:");
+        drawStatusBadge(graphics, status);
+
+        int y = 68;
         for (int i = 0; i < lines.length && y < imageHeight - 52; i++) {
+            if (lines[i].startsWith("STATUS:") || lines[i].startsWith("MODE:")) continue;
             y = drawWrapped(graphics, lines[i], 18, y, imageWidth - 36, lineColor(lines[i], i), 10);
         }
         String footer = "Snapshot " + (page + 1) + " / " + history.size() + " • newest = 1";
         graphics.drawString(font, footer, 108, imageHeight - 40, MUTED, false);
     }
 
+    private void drawStatusBadge(GuiGraphics graphics, String status) {
+        boolean issue = status.contains("CHECK TOPOLOGY");
+        int color = issue ? BAD : GOOD;
+        String label = status.isBlank() ? "STATUS • UNKNOWN" : status.replace("STATUS:", "STATUS •").trim();
+        int width = Math.min(imageWidth - 36, font.width(label) + 12);
+        graphics.fill(16, 47, 16 + width, 61, 0xAA000000 | (color & 0x00FFFFFF));
+        graphics.drawString(font, label, 22, 50, PANEL, false);
+    }
+
+    private static String findLine(String[] lines, String prefix) {
+        for (String line : lines) if (line.startsWith(prefix)) return line;
+        return "";
+    }
+
     private int lineColor(String line, int index) {
         if (index == 0) return INFO;
-        if (line.startsWith("STATUS:")) {
-            return line.contains("CHECK TOPOLOGY") ? BAD : GOOD;
-        }
         if (line.startsWith("TOPOLOGY:") || line.startsWith("REDSTONE IN:")) return INFO;
-        if (line.startsWith("MODE:")) return MUTED;
-        if (line.startsWith("ID:") || line.startsWith("POS:") || line.startsWith("SOURCE:") || line.startsWith("STATE:")) return MUTED;
+        if (line.startsWith("CONTEXT:") || line.startsWith("ID:") || line.startsWith("POS:") || line.startsWith("SOURCE:") || line.startsWith("STATE:")) return MUTED;
         if (line.contains(" q=DEGRADED") || line.contains(" q=MISSING") || line.contains("issue")) return WARN;
         return TEXT;
     }

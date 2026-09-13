@@ -56,7 +56,8 @@ require(
     "face.compact()", "observer-only; no network recompute or device-state mutation",
     "Shift-right-click air to open tablet", "level.getBestNeighborSignal(pos)",
     "level.hasNeighborSignal(pos)", "appendState(out, state)", "REDSTONE IN:", "STATE:",
-    "NOMINAL TOPOLOGY", "observation.quality()",
+    "NOMINAL TOPOLOGY", "observation.quality()", "CONTEXT: dimension=",
+    "level.dimension().location()", "level.getGameTime()",
 )
 forbid(
     "src/main/java/dev/redstoneengineering/item/DiagnosticTabletItem.java",
@@ -71,7 +72,9 @@ require(
     "page = Math.min(Math.max(0, menu.history().size() - 1), page + 1)",
     "newerButton.active = !menu.history().isEmpty() && page > 0",
     "olderButton.active = !menu.history().isEmpty() && page < lastPage",
-    "lineColor(lines[i], i)", 'line.startsWith("STATUS:")', 'line.contains("CHECK TOPOLOGY")',
+    "lineColor(lines[i], i)", "findLine(lines, \"STATUS:\")", "drawStatusBadge",
+    'status.contains("CHECK TOPOLOGY")', 'lines[i].startsWith("STATUS:")',
+    'lines[i].startsWith("MODE:")', 'line.startsWith("CONTEXT:")',
     'line.startsWith("TOPOLOGY:")', 'line.startsWith("REDSTONE IN:")',
     'line.contains(" q=DEGRADED")', 'line.contains(" q=MISSING")',
 )
@@ -116,6 +119,8 @@ print(" guide + ports/config split: PASS")
 print(" curated high-risk block guidance: PASS")
 print(" book + redstone recipe: PASS")
 print(" bounded observer-only diagnostic tablet history: PASS")
+print(" tablet dimension + world-tick traceability: PASS")
+print(" tablet promoted topology status badge: PASS")
 print(" BlockState + vanilla redstone observation: PASS")
 print(" tablet Newer/Older navigation + boundary states: PASS")
 print(" semantic topology/evidence colors: PASS")
