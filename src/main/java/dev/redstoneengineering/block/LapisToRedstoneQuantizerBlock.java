@@ -12,10 +12,12 @@ import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.PrecisionObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -108,27 +110,31 @@ public class LapisToRedstoneQuantizerBlock extends Block implements EngineeringP
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (!level.isClientSide) {
-            var sample = PrecisionObservationSupport.lapis(level, pos.relative(inputSide(state)));
-            if (sample.valid()) {
-                int output = state.getValue(POWER);
-                int reconstructed = CoreMediaDiagnostics.lapisReconstructedFromRedstone(output);
-                int error = CoreMediaDiagnostics.quantizationError(sample.value());
-                player.displayClientMessage(Component.literal(
-                        "Lapis → Redstone Quantizer | input=" + String.format("%.2f", sample.value() / 100.0)
-                                + " | output=" + output + "/15"
-                                + " | reconstructed≈" + String.format("%.2f", reconstructed / 100.0)
-                                + " | quantizationLoss=" + String.format("%.2f", error / 100.0)
-                                + " | " + CoreMediaDiagnostics.lapisInformationClass(sample.value())
-                                + " | outputQuality=" + outputQuality(level, pos)
-                ), true);
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (!player.isShiftKeyDown()) {
+                FieldDeviceUi.open(serverPlayer, pos);
             } else {
-                player.displayClientMessage(Component.literal(
-                        "Lapis → Redstone Quantizer | input=" + sample.quality().name()
-                                + " | output=" + state.getValue(POWER) + "/15"
-                                + " | quantization unavailable until input evidence is VALID"
-                                + " | outputQuality=" + outputQuality(level, pos)
-                ), true);
+                var sample = PrecisionObservationSupport.lapis(level, pos.relative(inputSide(state)));
+                if (sample.valid()) {
+                    int output = state.getValue(POWER);
+                    int reconstructed = CoreMediaDiagnostics.lapisReconstructedFromRedstone(output);
+                    int error = CoreMediaDiagnostics.quantizationError(sample.value());
+                    player.displayClientMessage(Component.literal(
+                            "Lapis → Redstone Quantizer | input=" + String.format("%.2f", sample.value() / 100.0)
+                                    + " | output=" + output + "/15"
+                                    + " | reconstructed≈" + String.format("%.2f", reconstructed / 100.0)
+                                    + " | quantizationLoss=" + String.format("%.2f", error / 100.0)
+                                    + " | " + CoreMediaDiagnostics.lapisInformationClass(sample.value())
+                                    + " | outputQuality=" + outputQuality(level, pos)
+                    ), true);
+                } else {
+                    player.displayClientMessage(Component.literal(
+                            "Lapis → Redstone Quantizer | input=" + sample.quality().name()
+                                    + " | output=" + state.getValue(POWER) + "/15"
+                                    + " | quantization unavailable until input evidence is VALID"
+                                    + " | outputQuality=" + outputQuality(level, pos)
+                    ), true);
+                }
             }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
