@@ -69,6 +69,31 @@ if bus:
     if "sameValueMultiDriver ?" not in bus:
         errors.append("8-bit bus does not charge margin for same-value multi-driving")
 
+# Measurement-bus shielding is a separate engineering identity dimension. It must remain
+# observer-only until an explicit interference model exists, but it cannot regress to a skin-only block.
+require(
+    "src/main/java/dev/redstoneengineering/instrument/InstrumentNetwork.java",
+    "shieldedCableNodes",
+    "unshieldedCableNodes",
+    "shieldingCoveragePercent",
+    "shieldingIntegrity",
+)
+require(
+    "src/main/java/dev/redstoneengineering/instrument/InstrumentShieldingAudit.java",
+    "riskClass()",
+    "recommendation()",
+    'return "PROTECTED"',
+    'return "EXPOSED"',
+    'return "PARTIAL"',
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/ShieldedInstrumentCableBlock.java",
+    "shieldingIntegrity()",
+    "shieldingCoveragePercent()",
+    "shieldedCableNodes()",
+    "fabricated random noise",
+)
+
 require(
     "docs/COMMUNICATION_MEDIUM_IDENTITY.md",
     "Shared information envelope",
@@ -132,5 +157,6 @@ print(" engineering choice hierarchy + non-dominance rule: PASS")
 print(" 8-bit bus local-loading + contention identity: PASS")
 print(" serial timing/utilization identity preserved: PASS")
 print(" differential one-bit high-integrity identity: PASS")
+print(" instrument bus shielding evidence + risk classification: PASS")
 print(" communication medium design contract: PASS")
 print(" registered identity GameTests: 3 (manual diagnostic / non-blocking)")
