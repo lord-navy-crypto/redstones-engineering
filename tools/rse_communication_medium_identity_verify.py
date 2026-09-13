@@ -34,9 +34,6 @@ if bus:
     if "boolean valid = driverCount > 0 && distinctValues == 1" not in bus: errors.append("8-bit bus lost its hard different-value conflict contract")
     if "sameValueMultiDriver ?" not in bus: errors.append("8-bit bus does not charge margin for same-value multi-driving")
 
-# Instrument shielding is now a deterministic engineering choice: the already-bounded bus traversal
-# observes only local energized Redstone / explicit Copper source exposure. It never injects random
-# values and never starts a second network solver. Topology PortQuality remains a separate dimension.
 require("src/main/java/dev/redstoneengineering/instrument/InstrumentNetwork.java",
         "shieldedCableNodes", "unshieldedCableNodes", "locallyExposed", "getBestNeighborSignal",
         "CopperVoltageSourceBlock", "exposedCableNodes", "shieldedExposedNodes", "unshieldedExposedNodes",
@@ -62,9 +59,6 @@ require("src/main/java/dev/redstoneengineering/client/ui/OscilloscopeScreen.java
 require("src/main/java/dev/redstoneengineering/client/ui/LogicAnalyzerScreen.java",
         "Bus interference", "interferenceConfidence()", "shield exposed instrument segments")
 
-# Digital communication HMI must expose the real server-side tradeoffs instead of replacing them
-# with static marketing text. The menu may only read existing runtime diagnostics; graph resolution
-# remains owned by DataBusNetwork / SerialNetwork / DifferentialNetwork.
 require("src/main/java/dev/redstoneengineering/ui/menu/DigitalCommunicationMenu.java",
         "refreshMediumTelemetry", "DataBusNetwork.getDiagnostics", "SerialNetwork.getDiagnostics",
         "DifferentialNetwork.driverCount", "InformationRuntime.snapshot", "mediumQualityPercent",
@@ -73,12 +67,28 @@ digital_menu = read("src/main/java/dev/redstoneengineering/ui/menu/DigitalCommun
 for forbidden in ("DataBusNetwork.resolve(", "DataBusNetwork.drive(", "SerialNetwork.recompute(", "SerialNetwork.drive(", "DifferentialNetwork.recompute(", "DifferentialNetwork.drive("):
     if forbidden in digital_menu:
         errors.append(f"DigitalCommunicationMenu must remain observer-only; found solver mutation call {forbidden!r}")
-
 require("src/main/java/dev/redstoneengineering/client/ui/DigitalCommunicationScreen.java",
         "8-bit parallel", "Contention / conflicts", "period=", "util=", "1-bit high-integrity",
         "8-BIT BUS CONTENTION CONSUMING MARGIN", "SERIAL LINK NEAR UTILIZATION LIMIT",
-        "DIFFERENTIAL HIGH-INTEGRITY LINK VALID", "highest local payload width",
-        "fewer conductors", "one-bit payload density")
+        "DIFFERENTIAL HIGH-INTEGRITY LINK VALID", "highest local payload width", "fewer conductors", "one-bit payload density")
+
+# Guided optical link-budget evidence is an observer-only audit over passive fiber/junction arms.
+# Processor loss remains owned by splitter/filter/attenuator transfer functions and must not be
+# charged twice by the downstream segment audit. Values stay in RSE 0..15 intensity units.
+require("src/main/java/dev/redstoneengineering/physics/OpticalCommissioningSupport.java",
+        "record SegmentBudget(", "segmentBudget(Level level, BlockPos receiverPos)", "isOpticalOutputToward",
+        "NetworkKernel.MAX_NODES", "observedSegmentLoss", "receiverHeadroom", "channelCoherent()",
+        'return "HEALTHY"', 'return "MARGINAL"', "snapshot.value() > 0.0")
+optical_support = read("src/main/java/dev/redstoneengineering/physics/OpticalCommissioningSupport.java")
+for forbidden in ("DomainNetwork.recomputeOptical(", "DomainNetwork.driveOptical(", "setBlock(", "setOptical("):
+    if forbidden in optical_support:
+        errors.append(f"OpticalCommissioningSupport must remain observer-only; found mutation call {forbidden!r}")
+require("src/main/java/dev/redstoneengineering/ui/menu/OpticalSystemMenu.java",
+        "OpticalCommissioningSupport.segmentBudget", "budgetSourceIntensity", "budgetObservedLoss",
+        "budgetReceiverHeadroom", "receiverCommissioning", "budgetPassiveNodes", "budgetSourceCount")
+require("src/main/java/dev/redstoneengineering/client/ui/OpticalSystemScreen.java",
+        "Segment TX / RX", "Observed segment loss", "Receiver headroom", "Passive nodes / hops",
+        "Intensity-unit segment budget only", "upstream splitter/attenuator loss")
 
 require("docs/COMMUNICATION_MEDIUM_IDENTITY.md", "Shared information envelope", "Medium identity rule",
         "Communication choice hierarchy", "How much information must move?", "No medium should be the universal upgrade of another",
@@ -110,6 +120,7 @@ print(" differential one-bit high-integrity identity: PASS")
 print(" digital HMI exposes authoritative bus/serial/differential tradeoff evidence: PASS")
 print(" digital HMI observer boundary / no second solver: PASS")
 print(" instrument shielding deterministic local-exposure differentiation: PASS")
-print(" instrument topology quality remains separate from interference confidence: PASS")
+print(" guided optical receiver segment budget + headroom: PASS")
+print(" guided optical budget observer boundary / no double-counted processor loss: PASS")
 print(" communication medium design contract: PASS")
 print(" registered identity GameTests: 3 (manual diagnostic / non-blocking)")
