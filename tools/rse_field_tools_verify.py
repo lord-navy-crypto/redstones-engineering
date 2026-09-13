@@ -73,8 +73,22 @@ require(
     'line.contains(" q=DEGRADED")', 'line.contains(" q=MISSING")',
 )
 require(
+    "src/main/java/dev/redstoneengineering/block/EngineeringCompassBlock.java",
+    "Block.box(0, 0, 0, 16, 8, 16)", "getCollisionShape", "useWithoutItem",
+    "World datum", "N=-Z", "E=+X", "S=+Z", "W=-X",
+)
+forbid(
+    "src/main/java/dev/redstoneengineering/block/EngineeringCompassBlock.java",
+    ".setBlock(", ".scheduleTick(", "RuntimeIntStore", "engineeringPorts(",
+)
+require(
+    "src/main/resources/assets/redstoneengineering/models/block/engineering_compass.json",
+    '"marker_n"', '"marker_e"', '"marker_s"', '"marker_w"', "minecraft:block/quartz_block",
+)
+require(
     "src/main/java/dev/redstoneengineering/EngineeringSystemsModule.java",
     "REDSTONE_ENCYCLOPEDIA_ITEM", "DIAGNOSTIC_TABLET_ITEM", "ENGINEERING_COMPASS_ITEM",
+    "ENGINEERING_COMPASS_CODEC", "EngineeringCompassBlock::new", ".noOcclusion()",
 )
 require(
     "src/main/java/dev/redstoneengineering/ui/EngineeringUiRegistration.java",
@@ -102,4 +116,5 @@ print(" BlockState + vanilla redstone observation: PASS")
 print(" tablet Newer/Older navigation + boundary states: PASS")
 print(" semantic topology/evidence colors: PASS")
 print(" existing diagnostics/topology reuse: PASS")
-print(" engineering compass retained: PASS")
+print(" engineering compass N/E/S/W model labels: PASS")
+print(" engineering compass low-profile passive datum: PASS")
