@@ -97,6 +97,9 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
         graphics.drawString(font, "oldest", 18, 180, MUTED, false);
         graphics.drawString(font, "newest →", 244, 180, MUTED, false);
         safeText(graphics, "confidence=" + evidenceConfidencePercent() + "% • diagnosis=" + systemDiagnosis(), 16, 197, TEXT);
+        safeText(graphics, "Electrical downtime " + formatTicks(menu.electricalDowntimeTicks())
+                + " • Protection status " + protectionText(), 16, 213, TEXT);
+        safeText(graphics, "MTBF/MTTR withheld • durable operating exposure + maintenance semantics required.", 16, 229, MUTED);
     }
 
     private int evidenceConfidencePercent() {
