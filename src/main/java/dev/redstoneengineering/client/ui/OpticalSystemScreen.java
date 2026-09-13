@@ -35,11 +35,14 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
 
     @Override protected void renderSection(GuiGraphics g,Section s){switch(s){case OVERVIEW->overview(g);case PORTS->ports(g);case CONFIGURE->configure(g);case DIAGNOSTICS->diagnostics(g);case HISTORY->history(g);}}
 
+    private boolean hasAcceptance(){return menu.kind()==OpticalSystemMenu.KIND_METER||menu.kind()==OpticalSystemMenu.KIND_RECEIVER;}
+
     private void overview(GuiGraphics g){
         statusBadge(g,name(),GOOD,16,80);
-        statusBadge(g,menu.kind()==OpticalSystemMenu.KIND_METER?menu.commissioningStatus().name().replace('_',' '):qName(),menu.kind()==OpticalSystemMenu.KIND_METER?acceptanceColor():qColor(),205,80);
+        statusBadge(g,hasAcceptance()?menu.commissioningStatus().name().replace('_',' '):qName(),hasAcceptance()?acceptanceColor():qColor(),205,80);
         metricCard(g,"Input",menu.primary()+" / 15",16,103,88,INFO);metricCard(g,"Channel",Integer.toString(menu.secondary()),111,103,88,GOOD);metricCard(g,"Aux",Integer.toString(menu.tertiary()),206,103,88,INFO);
-        labelValue(g,"Topology",topology(),149);labelValue(g,"Role",role(),169);safeText(g,menu.kind()==OpticalSystemMenu.KIND_METER?acceptanceSummary():diagnosis(),16,195,menu.kind()==OpticalSystemMenu.KIND_METER?acceptanceColor():dColor());
+        labelValue(g,"Topology",topology(),149);labelValue(g,"Role",role(),169);
+        safeText(g,menu.kind()==OpticalSystemMenu.KIND_RECEIVER?receiverBudgetSummary():menu.kind()==OpticalSystemMenu.KIND_METER?acceptanceSummary():diagnosis(),16,195,hasAcceptance()?acceptanceColor():dColor());
     }
 
     private void ports(GuiGraphics g){
@@ -52,15 +55,23 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
     }
 
     private void configure(GuiGraphics g){
-        statusBadge(g,menu.kind()==OpticalSystemMenu.KIND_METER?"READ-ONLY DEVICE":"SERVER-SIDE BOUNDED CONTROL",INFO,16,80);
+        statusBadge(g,menu.kind()==OpticalSystemMenu.KIND_METER||menu.kind()==OpticalSystemMenu.KIND_RECEIVER?"READ-ONLY DEVICE":"SERVER-SIDE BOUNDED CONTROL",INFO,16,80);
         labelValue(g,"Primary",primaryControl(),104);labelValue(g,"Secondary",secondaryControl(),180);
         if(menu.directional())safeText(g,"Direction and physical interface orientation are controlled only on Route.",16,207,MUTED);
         else if(menu.kind()==OpticalSystemMenu.KIND_METER)safeText(g,"Measurement face is controlled only on Route.",16,207,MUTED);
+        else if(menu.kind()==OpticalSystemMenu.KIND_RECEIVER)safeText(g,"Receiver budget is observer-only; no path or carrier value is changed by this page.",16,207,MUTED);
     }
 
     private void diagnostics(GuiGraphics g){
-        statusBadge(g,menu.kind()==OpticalSystemMenu.KIND_METER?"COMMISSIONING "+menu.commissioningStatus().name().replace('_',' '):qName(),menu.kind()==OpticalSystemMenu.KIND_METER?acceptanceColor():qColor(),16,80);
-        if(menu.kind()==OpticalSystemMenu.KIND_METER){
+        statusBadge(g,hasAcceptance()?"COMMISSIONING "+menu.commissioningStatus().name().replace('_',' '):qName(),hasAcceptance()?acceptanceColor():qColor(),16,80);
+        if(menu.kind()==OpticalSystemMenu.KIND_RECEIVER){
+            labelValue(g,"Segment TX / RX",menu.budgetSourceIntensity()+"/15 → "+menu.primary()+"/15",104);
+            labelValue(g,"Observed segment loss",Integer.toString(menu.budgetObservedLoss()),126);
+            labelValue(g,"Receiver headroom",menu.budgetReceiverHeadroom()+" above I=1 threshold",148);
+            labelValue(g,"Passive nodes / hops",menu.budgetPassiveNodes()+" / "+menu.budgetPassiveHops(),170);
+            labelValue(g,"Source / channel",menu.budgetSourceCount()+" source • CH "+menu.budgetSourceChannel()+" → CH "+menu.secondary(),192);
+            safeText(g,receiverNext(),16,216,acceptanceColor());
+        }else if(menu.kind()==OpticalSystemMenu.KIND_METER){
             labelValue(g,"Point",menu.primary()+"/15 • CH "+menu.secondary(),106);
             labelValue(g,"Connected / same CH",menu.meterConnectedNeighbors()+" / "+menu.meterSameChannelNeighbors(),128);
             labelValue(g,"Channel mismatches",Integer.toString(menu.meterChannelMismatches()),150);
@@ -74,10 +85,19 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
 
     private void history(GuiGraphics g){
         statusBadge(g,"OPTICAL EVIDENCE",INFO,16,80);
-        if(menu.kind()==OpticalSystemMenu.KIND_METER){labelValue(g,"Acceptance",menu.commissioningStatus().name(),110);labelValue(g,"One-hop connected",Integer.toString(menu.meterConnectedNeighbors()),132);labelValue(g,"Same / mismatch",menu.meterSameChannelNeighbors()+" / "+menu.meterChannelMismatches(),154);labelValue(g,"Strong / weak / spread",menu.meterStrongestNeighbor()+" / "+menu.meterWeakestNeighbor()+" / "+spread(),176);safeText(g,"Server-evaluated one-hop acceptance only; no hidden path or continuous dB history is invented.",16,202,MUTED);}
+        if(menu.kind()==OpticalSystemMenu.KIND_RECEIVER){
+            labelValue(g,"Segment acceptance",menu.commissioningStatus().name(),108);
+            labelValue(g,"TX / observed RX",menu.budgetSourceIntensity()+" / "+menu.primary(),130);
+            labelValue(g,"Loss / headroom",menu.budgetObservedLoss()+" / "+menu.budgetReceiverHeadroom(),152);
+            labelValue(g,"Source count / channel",menu.budgetSourceCount()+" / "+menu.budgetSourceChannel(),174);
+            labelValue(g,"Audit bounded",menu.budgetBounded()?"YES":"NO",196);
+            safeText(g,"Intensity-unit segment budget only; no continuous dB or unretained optical history is invented.",16,218,MUTED);
+        }else if(menu.kind()==OpticalSystemMenu.KIND_METER){labelValue(g,"Acceptance",menu.commissioningStatus().name(),110);labelValue(g,"One-hop connected",Integer.toString(menu.meterConnectedNeighbors()),132);labelValue(g,"Same / mismatch",menu.meterSameChannelNeighbors()+" / "+menu.meterChannelMismatches(),154);labelValue(g,"Strong / weak / spread",menu.meterStrongestNeighbor()+" / "+menu.meterWeakestNeighbor()+" / "+spread(),176);safeText(g,"Server-evaluated one-hop acceptance only; no hidden path or continuous dB history is invented.",16,202,MUTED);}
         else{labelValue(g,"Budget evidence",budget(),112);safeText(g,"Current server optical evidence only; no client-side carrier history is fabricated.",16,154,MUTED);}
     }
 
+    private String receiverBudgetSummary(){return switch(menu.commissioningStatus()){case NOT_READY->"NOT READY • guided segment needs bounded, live source-to-receiver evidence.";case PASS->"PASS • guided segment has coherent channel and useful receiver headroom.";case MARGINAL->"MARGINAL • carrier arrives with only 0–1 intensity unit of headroom above dark.";case FAIL->"FAIL • multiple sources, topology fault, or channel incoherence invalidates the segment.";};}
+    private String receiverNext(){return switch(menu.commissioningStatus()){case NOT_READY->"NEXT • restore one bounded guided source and continuous passive fiber path.";case FAIL->"NEXT • isolate source/topology/channel conflict before interpreting optical loss.";case MARGINAL->"NEXT • reduce downstream path loss or upstream splitter/attenuator loss, or raise TX intensity with commissioning evidence.";case PASS->"NEXT • segment budget is coherent; inspect upstream processor budgets only if more margin is required.";};}
     private String acceptanceSummary(){return switch(menu.commissioningStatus()){case NOT_READY->"NOT READY • establish carrier and a connected comparison point.";case PASS->"PASS • same-channel one-hop budget is locally coherent.";case MARGINAL->"MARGINAL • resolve mismatch, incomplete comparison, or elevated local variation.";case FAIL->"FAIL • hard optical fault or severe local attenuation step.";};}
     private int acceptanceColor(){return switch(menu.commissioningStatus()){case PASS->GOOD;case NOT_READY->INFO;case MARGINAL->WARN;case FAIL->BAD;};}
 
@@ -96,7 +116,7 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
     private int spread(){return Math.max(0,menu.meterStrongestNeighbor()-menu.meterWeakestNeighbor());}
     private String budget(){return switch(menu.kind()){case OpticalSystemMenu.KIND_FILTER->"IN "+menu.primary()+" → OUT "+menu.tertiary()+" • CH "+menu.auxiliary()+"→"+menu.secondary();case OpticalSystemMenu.KIND_ATTENUATOR->"IN "+menu.primary()+" - LOSS "+menu.secondary()+" → OUT "+menu.tertiary();case OpticalSystemMenu.KIND_SPLITTER->"IN "+menu.primary()+" → A/B "+menu.secondary()+"/"+menu.tertiary();default->"CURRENT SERVER EVIDENCE";};}
     private String name(){return switch(menu.kind()){case OpticalSystemMenu.KIND_EMITTER->"OPTICAL EMITTER";case OpticalSystemMenu.KIND_RECEIVER->"OPTICAL RECEIVER";case OpticalSystemMenu.KIND_METER->"OPTICAL POWER METER";case OpticalSystemMenu.KIND_SPLITTER->"OPTICAL 1×2 SPLITTER";case OpticalSystemMenu.KIND_FILTER->"OPTICAL CHANNEL FILTER";case OpticalSystemMenu.KIND_ATTENUATOR->"OPTICAL ATTENUATOR";case OpticalSystemMenu.KIND_FREE_SPACE_TX->"FREE-SPACE OPTICAL TX";case OpticalSystemMenu.KIND_FREE_SPACE_RX->"FREE-SPACE OPTICAL RX";default->"OPTICAL DEVICE";};}
-    private String role(){return menu.kind()==OpticalSystemMenu.KIND_METER?"OBSERVER / COMMISSIONING":menu.kind()==OpticalSystemMenu.KIND_EMITTER?"SOURCE":menu.kind()==OpticalSystemMenu.KIND_RECEIVER?"TERMINAL SINK":"PROCESSOR / CONVERTER";}
+    private String role(){return menu.kind()==OpticalSystemMenu.KIND_METER?"OBSERVER / COMMISSIONING":menu.kind()==OpticalSystemMenu.KIND_EMITTER?"SOURCE":menu.kind()==OpticalSystemMenu.KIND_RECEIVER?"TERMINAL SINK / LINK BUDGET":"PROCESSOR / CONVERTER";}
     private String topology(){return menu.kind()==OpticalSystemMenu.KIND_METER?"MEASURE "+face(menu.facing()):menu.directional()?face(inputFace())+" → "+face(menu.facing()):"NETWORK / SOURCE";}
     private String primaryControl(){return switch(menu.kind()){case OpticalSystemMenu.KIND_EMITTER->"INTENSITY "+menu.primary()+"/15";case OpticalSystemMenu.KIND_FILTER->"TARGET CHANNEL "+menu.secondary();case OpticalSystemMenu.KIND_ATTENUATOR->"LOSS "+menu.secondary();default->"READ ONLY";};}
     private String secondaryControl(){return switch(menu.kind()){case OpticalSystemMenu.KIND_EMITTER,OpticalSystemMenu.KIND_FREE_SPACE_TX,OpticalSystemMenu.KIND_FREE_SPACE_RX->"CHANNEL " + menu.secondary();default->"NONE";};}
