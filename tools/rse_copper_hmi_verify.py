@@ -23,6 +23,9 @@ def forbid(body: str, needle: str, label: str) -> None:
 block = text("src/main/java/dev/redstoneengineering/block/CopperCircuitMeterBlock.java")
 menu = text("src/main/java/dev/redstoneengineering/ui/menu/CopperCircuitMeterMenu.java")
 screen = text("src/main/java/dev/redstoneengineering/client/ui/CopperCircuitMeterScreen.java")
+assessment = text("src/main/java/dev/redstoneengineering/core/diagnostic/CopperCommissioningAssessment.java")
+kinds = text("src/main/java/dev/redstoneengineering/diagnostics/events/SystemEventKind.java")
+operations = text("src/main/java/dev/redstoneengineering/client/ui/OperationsMonitorScreen.java")
 registration = text("src/main/java/dev/redstoneengineering/ui/EngineeringUiRegistration.java")
 client_registration = text("src/main/java/dev/redstoneengineering/client/ui/EngineeringUiClientRegistration.java")
 openers = text("src/main/java/dev/redstoneengineering/ui/FieldDeviceUi.java")
@@ -33,8 +36,9 @@ require(block, "CircuitPhysics.current", "server current model")
 require(block, "CircuitPhysics.power", "server power model")
 require(block, "FieldDeviceUi.open(serverPlayer, pos)", "dedicated HMI opener")
 
-require(menu, "CopperCircuitMeterBlock.electricalDiagnostics", "menu server evidence")
-require(menu, "CommissioningStatus", "commissioning contract")
+require(assessment, "CopperCommissioningAssessment", "shared commissioning classifier")
+require(assessment, "case VALID -> voltage > 0 ? CommissioningStatus.PASS : CommissioningStatus.MARGINAL", "energized commissioning rule")
+require(menu, "CopperCommissioningAssessment.assess", "menu shared commissioning evidence")
 require(menu, "commissioningStatus.set", "server commissioning synchronization")
 require(menu, "rotateMeasurementFace", "real measurement-face routing")
 
@@ -47,6 +51,32 @@ forbid(screen, "import dev.redstoneengineering.physics.CircuitPhysics", "client 
 forbid(screen, "CircuitPhysics.", "client must not invoke circuit solver")
 forbid(screen, "import dev.redstoneengineering.physics.DomainNetwork", "client must not import network solver")
 forbid(screen, "DomainNetwork.", "client must not sample network physics")
+
+for token in (
+    "COMMISSIONING_EVENT_INITIALIZED",
+    "LAST_COMMISSIONING_STATUS",
+    "publishCommissioningTransition",
+    "SystemEventTimeline.record",
+    "SystemEventKind.ELECTRICAL_EVIDENCE_DEGRADED",
+    "SystemEventKind.ELECTRICAL_EVIDENCE_FAILED",
+    "SystemEventKind.ELECTRICAL_EVIDENCE_RESTORED",
+    "RuntimeIntStore.remove(level, COMMISSIONING_EVENT_KEY, pos)",
+):
+    require(block, token, "Copper operations transition contract")
+for token in (
+    "ELECTRICAL_EVIDENCE_DEGRADED(false)",
+    "ELECTRICAL_EVIDENCE_FAILED(true)",
+    "ELECTRICAL_EVIDENCE_RESTORED(false)",
+):
+    require(kinds, token, "system event vocabulary")
+for token in (
+    'case ELECTRICAL_EVIDENCE_DEGRADED -> "E-DEG"',
+    'case ELECTRICAL_EVIDENCE_FAILED -> "E-FAIL"',
+    'case ELECTRICAL_EVIDENCE_RESTORED -> "E-OK"',
+):
+    require(operations, token, "Operations Copper event rendering")
+for forbidden in ("CircuitPhysics", "DomainNetwork", "SystemEventTimeline.record"):
+    forbid(operations, forbidden, "Operations client remains render-only")
 
 require(registration, "COPPER_CIRCUIT_METER", "menu registration")
 require(client_registration, "CopperCircuitMeterScreen::new", "screen registration")
@@ -62,4 +92,5 @@ print("RSE Copper HMI verification: PASS")
 print("  server-authoritative V/Req/I/P evidence: PASS")
 print("  dedicated power/load identity: PASS")
 print("  commissioning synchronization: PASS")
+print("  transition-only plant timeline integration: PASS")
 print("  client physics isolation: PASS")
