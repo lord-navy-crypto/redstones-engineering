@@ -167,7 +167,25 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
     private static String shortKind(int ordinal) {
         SystemEventKind[] kinds = SystemEventKind.values();
         if (ordinal < 0 || ordinal >= kinds.length) return "?";
-        return switch (kinds[ordinal]) { case ALARM_RAISED -> "ALM+"; case ALARM_ACKNOWLEDGED -> "ACK"; case ALARM_CLEARED -> "ALM-"; case INTERLOCK_TRIPPED -> "TRIP"; case INTERLOCK_READY -> "RDY"; case ELECTRICAL_TRIP -> "E-TRP"; case ELECTRICAL_READY -> "E-RDY"; case SEQUENCE_STARTED -> "SEQ+"; case SEQUENCE_STEP -> "STEP"; case SEQUENCE_COMPLETED -> "DONE"; case SEQUENCE_RESET -> "RST"; case TOPOLOGY_ISSUE -> "TOPO"; case TOPOLOGY_CLEAR -> "CLR"; case OPERATIONS_STATE_CHANGED -> "OPS"; };
+        return switch (kinds[ordinal]) {
+            case ALARM_RAISED -> "ALM+";
+            case ALARM_ACKNOWLEDGED -> "ACK";
+            case ALARM_CLEARED -> "ALM-";
+            case INTERLOCK_TRIPPED -> "TRIP";
+            case INTERLOCK_READY -> "RDY";
+            case ELECTRICAL_TRIP -> "E-TRP";
+            case ELECTRICAL_READY -> "E-RDY";
+            case ELECTRICAL_EVIDENCE_DEGRADED -> "E-DEG";
+            case ELECTRICAL_EVIDENCE_FAILED -> "E-FAIL";
+            case ELECTRICAL_EVIDENCE_RESTORED -> "E-OK";
+            case SEQUENCE_STARTED -> "SEQ+";
+            case SEQUENCE_STEP -> "STEP";
+            case SEQUENCE_COMPLETED -> "DONE";
+            case SEQUENCE_RESET -> "RST";
+            case TOPOLOGY_ISSUE -> "TOPO";
+            case TOPOLOGY_CLEAR -> "CLR";
+            case OPERATIONS_STATE_CHANGED -> "OPS";
+        };
     }
     private static String ageText(int ticks) { if (ticks < 0) return "—"; if (ticks < 20) return ticks + "t"; int seconds = ticks / 20; return seconds < 100 ? seconds + "s" : ">99s"; }
     private static String optionalAge(int ticks) { return ticks < 0 ? "—" : ageText(ticks) + " ago"; }
