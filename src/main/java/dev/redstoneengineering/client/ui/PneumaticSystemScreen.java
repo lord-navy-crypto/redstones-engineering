@@ -8,7 +8,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
-/** Pneumatic HMI with server-synchronized section diagnostics and acceptance. */
+/** Pneumatic HMI with server-synchronized section, actuator-path and storage diagnostics. */
 public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSystemMenu> {
     private Button prev, next, toggle;
 
@@ -34,10 +34,10 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
 
     private void overview(GuiGraphics g){
         statusBadge(g,name(),GOOD,16,80);
-        statusBadge(g,isFlow()?menu.commissioningStatus().name().replace('_',' '):isCylinder()?cylinderState():state(),isFlow()?acceptanceColor():isCylinder()?cylinderColor():stateColor(),205,80);
+        statusBadge(g,isFlow()?menu.commissioningStatus().name().replace('_',' '):isCylinder()?cylinderState():isReservoir()?reservoirState():isProportional()?proportionalState():state(),isFlow()?acceptanceColor():isCylinder()?cylinderColor():isReservoir()?reservoirColor():isProportional()?proportionalColor():stateColor(),205,80);
         metricCard(g,primaryLabel(),primaryText(),16,103,88,INFO);metricCard(g,secondaryLabel(),secondaryText(),111,103,88,GOOD);metricCard(g,thirdLabel(),thirdText(),206,103,88,INFO);
         labelValue(g,"Topology",route(),149);labelValue(g,"Input / output evidence",menu.inputQuality().name()+" / "+menu.outputQuality().name(),169);
-        safeText(g,isFlow()?acceptanceSummary():isCylinder()?cylinderDiagnosis():"Pressure zero may be valid when observation quality is VALID.",16,196,isFlow()?acceptanceColor():isCylinder()?cylinderColor():MUTED);
+        safeText(g,isFlow()?acceptanceSummary():isCylinder()?cylinderDiagnosis():isReservoir()?reservoirDiagnosis():isProportional()?proportionalDiagnosis():"Pressure zero may be valid when observation quality is VALID.",16,196,isFlow()?acceptanceColor():isCylinder()?cylinderColor():isReservoir()?reservoirColor():isProportional()?proportionalColor():MUTED);
     }
 
     private void ports(GuiGraphics g){
@@ -47,6 +47,7 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
         statusLine(g,face(menu.outputDirection()),menu.kind()==PneumaticSystemMenu.KIND_RECEIVER||isCylinder()?"OUTPUT • REDSTONE 0..15":"OUTPUT • PNEUMATIC",qualityColor(menu.outputQuality()),142);
         if(isFlow())safeText(g,"Commissioning adds one axial witness beyond each meter port.",16,176,MUTED);
         if(isCylinder())safeText(g,"Cylinder path evidence is retained by the authoritative pneumatic solve; the HMI does not rerun flow physics.",16,176,MUTED);
+        if(isProportional())safeText(g,"Valve loss is the synchronized inlet-to-outlet pressure difference at the configured opening.",16,176,MUTED);
     }
 
     private void configure(GuiGraphics g){
@@ -71,6 +72,24 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
             labelValue(g,"Response / remaining",menu.cylinderResponsePeriod()+"t per step / ≈"+menu.cylinderRemainingTicks()+"t",192);
             safeText(g,cylinderNext(),16,216,cylinderColor());return;
         }
+        if(isReservoir()){
+            statusBadge(g,reservoirState(),reservoirColor(),16,80);
+            labelValue(g,"Stored pressure",menu.primary()+" / 100",106);
+            labelValue(g,"Line pressure",menu.secondary()+" / 100",128);
+            labelValue(g,"Charge headroom",Math.max(0,menu.secondary()-menu.primary())+" pressure units",150);
+            labelValue(g,"Storage law","charge ≤5 / 10t • leak 1 / 10t",172);
+            statusLine(g,"Diagnosis",reservoirDiagnosis(),reservoirColor(),194);
+            safeText(g,reservoirNext(),16,216,reservoirColor());return;
+        }
+        if(isProportional()){
+            statusBadge(g,proportionalState(),proportionalColor(),16,80);
+            labelValue(g,"Inlet / outlet",menu.primary()+" / "+menu.secondary(),106);
+            labelValue(g,"Opening command",menu.tertiary()+" / 15",128);
+            labelValue(g,"Local ΔP",Math.max(0,menu.primary()-menu.secondary())+" / 100",150);
+            labelValue(g,"Body pressure",menu.auxiliary()+" / 100",172);
+            statusLine(g,"Diagnosis",proportionalDiagnosis(),proportionalColor(),194);
+            safeText(g,proportionalNext(),16,216,proportionalColor());return;
+        }
         statusBadge(g,state(),stateColor(),16,80);labelValue(g,primaryLabel(),primaryText(),108);labelValue(g,secondaryLabel(),secondaryText(),128);labelValue(g,thirdLabel(),thirdText(),148);statusLine(g,"Authority","SERVER SYNCHRONIZED",GOOD,192);
     }
 
@@ -84,6 +103,13 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
             labelValue(g,"Samples / travel",menu.cylinderSamples()+" / "+menu.auxiliary(),108);labelValue(g,"Velocity / error",menu.cylinderVelocity()+" / "+menu.cylinderError(),130);
             labelValue(g,"Stall ticks / reversals",menu.cylinderStallTicks()+" / "+menu.cylinderReversals(),152);labelValue(g,"Supply / path loss",menu.cylinderSupply()+" / "+menu.cylinderObservedLoss(),174);
             safeText(g,"Response timing is deterministic and pressure-dependent; no continuous CFD or random leak history is fabricated.",16,202,MUTED);
+        }else if(isReservoir()){
+            labelValue(g,"Stored / line",menu.primary()+" / "+menu.secondary(),110);
+            safeText(g,"Current recovery state is derived from the existing finite-rate reservoir law; no unretained trend history is invented.",16,148,MUTED);
+        }else if(isProportional()){
+            labelValue(g,"In / out / opening",menu.primary()+" / "+menu.secondary()+" / "+menu.tertiary(),110);
+            labelValue(g,"Current local drop",Integer.toString(Math.max(0,menu.primary()-menu.secondary())),132);
+            safeText(g,"Local restriction evidence is the current authoritative pressure transform, not an inferred flow coefficient.",16,164,MUTED);
         }else if(menu.kind()==PneumaticSystemMenu.KIND_RELIEF){labelValue(g,"Vent events",Integer.toString(menu.auxiliary()),110);safeText(g,"VENTING is an operating event, not missing measurement evidence.",16,150,GOOD);}
         else safeText(g,"Live server state only; no client-side pneumatic history is fabricated.",16,112,MUTED);
     }
@@ -101,19 +127,44 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
     private String cylinderNext(){String d=cylinderDiagnosis();if(d.contains("NO PRESSURIZED"))return"NEXT • restore a permitted compressor/reservoir path and check closed or reversed pneumatic elements.";if(d.contains("LOW SUPPLY"))return"NEXT • raise available source pressure before tuning downstream restrictions.";if(d.contains("RESTRICTION"))return"NEXT • inspect regulator setpoint and proportional/closed valve restrictions on the winning pressure path.";if(d.contains("PATH LOSS"))return"NEXT • shorten/segment the pipe run or move storage closer to the actuator.";if(d.contains("STARVATION"))return"NEXT • compare supply pressure with retained path loss before changing the cylinder.";if(d.contains("FAULT"))return"NEXT • repair topology/evidence quality before interpreting actuator response.";return"NEXT • response matches the current lumped pressure model; remaining time follows the synchronized estimate.";}
     private String cylinderState(){String d=cylinderDiagnosis();if(d.startsWith("AT TARGET"))return"AT TARGET";if(d.contains("FAULT")||d.contains("NO PRESSURIZED"))return"NOT READY";if(d.contains("DOMINANT")||d.contains("STARVATION")||d.contains("LOW SUPPLY"))return"MARGINAL";return"RESPONDING";}
     private int cylinderColor(){String s=cylinderState();return s.equals("AT TARGET")?GOOD:s.equals("RESPONDING")?INFO:s.equals("MARGINAL")?WARN:BAD;}
-    private boolean hard(PortQuality q){return q==PortQuality.FAULT||q==PortQuality.DOMAIN_MISMATCH||q==PortQuality.TOPOLOGY_ERROR;}
 
+    private String reservoirDiagnosis(){
+        if(hard(menu.inputQuality()))return"RESERVOIR EVIDENCE FAULT";
+        if(menu.primary()<=0&&menu.secondary()<=0)return"EMPTY / DEPRESSURIZED";
+        if(menu.secondary()>menu.primary())return"CHARGING TOWARD LINE PRESSURE";
+        if(menu.primary()>menu.secondary())return"DISCHARGING / SUPPORTING LOWER-PRESSURE LINE";
+        return"BUFFERED • STORED AND LINE PRESSURE ALIGNED";
+    }
+    private String reservoirState(){String d=reservoirDiagnosis();if(d.contains("FAULT"))return"NOT READY";if(d.startsWith("CHARGING"))return"CHARGING";if(d.startsWith("DISCHARGING"))return"DISCHARGING";if(d.startsWith("EMPTY"))return"EMPTY";return"BUFFERING";}
+    private int reservoirColor(){String s=reservoirState();return s.equals("NOT READY")?BAD:s.equals("EMPTY")?WARN:s.equals("CHARGING")?INFO:GOOD;}
+    private String reservoirNext(){String d=reservoirDiagnosis();if(d.contains("FAULT"))return"NEXT • restore valid pneumatic evidence before interpreting storage state.";if(d.startsWith("CHARGING"))return"NEXT • allow finite-rate recovery; storage rises by at most 5 pressure units every 10 ticks.";if(d.startsWith("DISCHARGING"))return"NEXT • inspect downstream demand/path loss if stored pressure keeps supporting a lower-pressure line.";if(d.startsWith("EMPTY"))return"NEXT • connect a pressurized source path to establish stored reserve.";return"NEXT • reserve is aligned with the current line; no storage intervention is indicated.";}
+
+    private String proportionalDiagnosis(){
+        if(hard(menu.inputQuality())||hard(menu.outputQuality()))return"VALVE EVIDENCE FAULT";
+        if(menu.primary()<=0)return"NO UPSTREAM PRESSURE";
+        if(menu.tertiary()<=0)return"COMMANDED CLOSED • FULL ISOLATION";
+        int drop=Math.max(0,menu.primary()-menu.secondary());
+        if(menu.tertiary()<5&&drop>=5)return"STRONG COMMANDED RESTRICTION";
+        if(menu.tertiary()<12&&drop>=3)return"PARTIAL COMMANDED RESTRICTION";
+        if(drop<=2)return"LOW LOCAL RESTRICTION";
+        return"VALVE PRESSURE TRANSFORM ACTIVE";
+    }
+    private String proportionalState(){String d=proportionalDiagnosis();if(d.contains("FAULT")||d.contains("NO UPSTREAM"))return"NOT READY";if(d.contains("CLOSED"))return"CLOSED";if(d.contains("RESTRICTION")||d.contains("TRANSFORM"))return"THROTTLING";return"OPEN";}
+    private int proportionalColor(){String s=proportionalState();return s.equals("NOT READY")?BAD:s.equals("CLOSED")?INFO:s.equals("THROTTLING")?WARN:GOOD;}
+    private String proportionalNext(){String d=proportionalDiagnosis();if(d.contains("FAULT"))return"NEXT • repair endpoint/topology evidence before interpreting valve loss.";if(d.contains("NO UPSTREAM"))return"NEXT • restore supply pressure; opening changes cannot create upstream pressure.";if(d.contains("CLOSED"))return"NEXT • open the valve only if downstream pressure is required by the process.";if(d.contains("STRONG")||d.contains("PARTIAL"))return"NEXT • increase opening if this local restriction is starving the downstream actuator.";return"NEXT • local valve loss is modest; inspect pipe-path loss or source pressure if downstream pressure remains low.";}
+
+    private boolean hard(PortQuality q){return q==PortQuality.FAULT||q==PortQuality.DOMAIN_MISMATCH||q==PortQuality.TOPOLOGY_ERROR;}
     private String acceptanceSummary(){return switch(menu.commissioningStatus()){case NOT_READY->"NOT READY • collect valid inlet/outlet evidence and at least four samples.";case PASS->"PASS • local pressure-loss evidence is complete and within the commissioning band.";case MARGINAL->"MARGINAL • inspect missing witnesses, degraded quality, or elevated local ΔP.";case FAIL->"FAIL • hard evidence fault or excessive local meter-section pressure drop.";};}
     private int acceptanceColor(){return switch(menu.commissioningStatus()){case PASS->GOOD;case NOT_READY->INFO;case MARGINAL->WARN;case FAIL->BAD;};}
     private PneumaticSectionDiagnostics.Result section(){return PneumaticSectionDiagnostics.analyze(menu.upstreamPressure(),menu.upstreamQuality(),menu.tertiary(),menu.inputQuality(),menu.auxiliary(),menu.outputQuality(),menu.downstreamPressure(),menu.downstreamQuality(),menu.secondary());}
-    private boolean isFlow(){return menu.kind()==PneumaticSystemMenu.KIND_FLOW_METER;}private boolean isCylinder(){return menu.kind()==PneumaticSystemMenu.KIND_CYLINDER;}
+    private boolean isFlow(){return menu.kind()==PneumaticSystemMenu.KIND_FLOW_METER;}private boolean isCylinder(){return menu.kind()==PneumaticSystemMenu.KIND_CYLINDER;}private boolean isReservoir(){return menu.kind()==PneumaticSystemMenu.KIND_RESERVOIR;}private boolean isProportional(){return menu.kind()==PneumaticSystemMenu.KIND_PROPORTIONAL;}
     private int localColor(){String s=section().localization();return s.contains("DOMINANT")||s.contains("INCOMPLETE")?WARN:s.contains("PARTIAL")?INFO:GOOD;}
     private String p(PortQuality q,int v){return q==PortQuality.VALID?Integer.toString(v):"N/A";}private String d(int v){return v<0?"N/A":Integer.toString(v);}private String face(net.minecraft.core.Direction d){return d.getName().toUpperCase();}
     private int qualityColor(PortQuality q){return q==PortQuality.VALID?GOOD:q==PortQuality.NO_SIGNAL||q==PortQuality.STALE?WARN:BAD;}private String route(){return menu.directional()?face(menu.inputDirection())+" → "+face(menu.outputDirection()):"NETWORK NODE";}
     private String name(){return switch(menu.kind()){case 0->"AIR COMPRESSOR";case 1->"PNEUMATIC PIPE";case 2->"AIR RESERVOIR";case 3->"PRESSURE REGULATOR";case 4->"PNEUMATIC RECEIVER";case 5->"PNEUMATIC VALVE";case 6->"CHECK VALVE";case 7->"FLOW METER";case 8->"PROPORTIONAL VALVE";case 9->"RELIEF VALVE";case 10->"PNEUMATIC CYLINDER";default->"PNEUMATIC DEVICE";};}
     private String state(){if(menu.kind()==9)return menu.stateFlag()==1?"VENTING":"ARMED";if(menu.kind()==5)return menu.stateFlag()==1?"OPEN":"CLOSED";if(isFlow())return menu.stateFlag()>0?"MEASURING":"NO SAMPLES";return menu.inputQuality()==PortQuality.VALID||menu.outputQuality()==PortQuality.VALID?"NOMINAL":"IDLE / NO SIGNAL";}
     private int stateColor(){return menu.inputQuality()==PortQuality.FAULT||menu.outputQuality()==PortQuality.FAULT||(menu.kind()==9&&menu.stateFlag()==1)?WARN:GOOD;}
-    private String primaryLabel(){return isFlow()?"Flow":isCylinder()?"Pressure":menu.directional()?"Inlet":"Pressure";}private String secondaryLabel(){return isFlow()?"Δ pressure":isCylinder()?"Position":menu.directional()?"Outlet":"Aux";}private String thirdLabel(){return isFlow()?"Inlet P":isCylinder()?"Target":"State";}
-    private String primaryText(){return menu.primary()+(menu.kind()==0?" / 15":" / 100");}private String secondaryText(){return menu.secondary()+(isCylinder()?" / 15":" / 100");}private String thirdText(){return menu.tertiary()+(isCylinder()?" / 15":" / 100");}
+    private String primaryLabel(){return isFlow()?"Flow":isCylinder()?"Pressure":isReservoir()?"Stored":menu.directional()?"Inlet":"Pressure";}private String secondaryLabel(){return isFlow()?"Δ pressure":isCylinder()?"Position":isReservoir()?"Line":menu.directional()?"Outlet":"Aux";}private String thirdLabel(){return isFlow()?"Inlet P":isCylinder()?"Target":isProportional()?"Opening":"State";}
+    private String primaryText(){return menu.primary()+(menu.kind()==0?" / 15":" / 100");}private String secondaryText(){return menu.secondary()+(isCylinder()?" / 15":" / 100");}private String thirdText(){return menu.tertiary()+(isCylinder()||isProportional()?" / 15":" / 100");}
     private String controlText(){return switch(menu.kind()){case 3->"SETPOINT "+menu.secondary()+"/100";case 9->"RELIEF "+menu.tertiary()+"/100";case 5->menu.stateFlag()==1?"OPEN":"CLOSED";case 8->"EXTERNAL UP COMMAND";default->"NO MANUAL PROCESS PARAMETER";};}
 }
