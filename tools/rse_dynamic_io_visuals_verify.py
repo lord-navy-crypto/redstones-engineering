@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify world-visible RX/TX routing and live status overlays for engineering system blocks."""
+"""Verify world-visible routing and live status overlays for engineering system blocks."""
 from pathlib import Path
 import json
 import sys
@@ -55,8 +55,11 @@ def verify_route(name: str, items: list[dict]) -> None:
 
 sequence = parts("sequence_controller")
 interlock = parts("safety_interlock")
+alarm = parts("alarm_processor")
+topology = parts("topology_debugger")
 verify_route("sequence_controller", sequence)
 verify_route("safety_interlock", interlock)
+verify_route("alarm_processor", alarm)
 
 sequence_steps = (
     ("1|2|3|4", "sequence_step_1"),
@@ -72,15 +75,44 @@ for output, model in (("0", "interlock_blocked_indicator"), ("15", "interlock_pe
     if not has_part(interlock, "output", output, f"redstoneengineering:block/{model}"):
         errors.append(f"safety_interlock: missing output={output} overlay {model}")
 
+for output, model in (
+    ("0", "alarm_clear_indicator"),
+    ("5|10|15", "alarm_severity_1"),
+    ("10|15", "alarm_severity_2"),
+    ("15", "alarm_severity_3"),
+):
+    if not has_part(alarm, "output", output, f"redstoneengineering:block/{model}"):
+        errors.append(f"alarm_processor: missing output={output} overlay {model}")
+
+# Topology debugger scans the face opposite its alarm-output facing.
+tx_rotations = {"north": 0, "east": 90, "south": 180, "west": 270}
+scan_rotations = {"north": 180, "east": 270, "south": 0, "west": 90}
+for direction, rotation in tx_rotations.items():
+    if not has_part(topology, "facing", direction, "redstoneengineering:block/engineering_tx_marker", rotation):
+        errors.append(f"topology_debugger: missing alarm TX marker for facing={direction} y={rotation}")
+for direction, rotation in scan_rotations.items():
+    if not has_part(topology, "facing", direction, "redstoneengineering:block/engineering_scan_marker", rotation):
+        errors.append(f"topology_debugger: scan marker must oppose facing={direction}; expected y={rotation}")
+for output, model in (("0", "topology_nominal_indicator"), ("15", "topology_issue_indicator")):
+    if not has_part(topology, "output", output, f"redstoneengineering:block/{model}"):
+        errors.append(f"topology_debugger: missing output={output} overlay {model}")
+
 required_models = (
     "engineering_rx_marker",
     "engineering_tx_marker",
+    "engineering_scan_marker",
     "sequence_step_1",
     "sequence_step_2",
     "sequence_step_3",
     "sequence_step_4",
     "interlock_blocked_indicator",
     "interlock_permit_indicator",
+    "alarm_clear_indicator",
+    "alarm_severity_1",
+    "alarm_severity_2",
+    "alarm_severity_3",
+    "topology_nominal_indicator",
+    "topology_issue_indicator",
 )
 for model in required_models:
     data = load(MODELS / f"{model}.json")
@@ -96,4 +128,6 @@ if errors:
 print("RSE DYNAMIC I/O VISUALS VERIFY: PASS")
 print(" sequence controller: world-visible RX/TX + cumulative STEP 1..4 indicators")
 print(" safety interlock: world-visible RX/TX + BLOCKED/PERMIT indicators")
+print(" alarm processor: world-visible RX/TX + CLEAR/severity 1..3 indicators")
+print(" topology debugger: world-visible alarm TX + opposite SCAN target + NOMINAL/ISSUE indicators")
 print(" visuals consume synchronized BlockState only; no second runtime state")
