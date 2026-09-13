@@ -15,11 +15,6 @@
     {"when":{"input_facing":"south"},"apply":{"model":"redstoneengineering:block/engineering_rx_marker","y":180}},
     {"when":{"input_facing":"west"},"apply":{"model":"redstoneengineering:block/engineering_rx_marker","y":270}},
 
-    {"when":{"facing":"north"},"apply":{"model":"redstoneengineering:block/engineering_arm_marker","y":90}},
-    {"when":{"facing":"east"},"apply":{"model":"redstoneengineering:block/engineering_arm_marker","y":180}},
-    {"when":{"facing":"south"},"apply":{"model":"redstoneengineering:block/engineering_arm_marker","y":270}},
-    {"when":{"facing":"west"},"apply":{"model":"redstoneengineering:block/engineering_arm_marker"}},
-
     {"when":{"mode":"0"},"apply":{"model":"redstoneengineering:block/fault_mode_0"}},
     {"when":{"mode":"1"},"apply":{"model":"redstoneengineering:block/fault_mode_1"}},
     {"when":{"mode":"2"},"apply":{"model":"redstoneengineering:block/fault_mode_2"}},
