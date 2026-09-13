@@ -23,7 +23,7 @@ def require_min_alpha_version(minimum: tuple[int, int, int]) -> None:
     if not path.exists():
         failed.append("missing: gradle.properties")
         return
-    match = re.search(r"^mod_version=(\d+)\.(\d+)\.(\d+)-alpha$", path.read_text(errors="ignore"), re.MULTILINE)
+    match = re.search(r"^mod_version=(\d+)\.(\d+)\.(\d+)-alpha(?:-rc\d+)?$", path.read_text(errors="ignore"), re.MULTILINE)
     if not match:
         failed.append("gradle.properties missing parseable alpha mod_version")
         return
