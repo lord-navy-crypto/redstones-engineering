@@ -38,100 +38,68 @@ import java.util.Optional;
 /**
  * Lumped pneumatic linear actuator.
  * BACK = pneumatic input; FRONT/FACING = 0..15 position-feedback redstone output.
- * Pressure drives a finite-rate 0..15 position state while feedback remains a
- * deliberately directional engineering port rather than an all-side signal source.
+ * Pressure sets both equilibrium target and a deterministic finite response period:
+ * higher available pressure advances the actuator more frequently, while low pressure responds more slowly.
  */
 public class PneumaticCylinderBlock extends DirectionalDomainBlock implements EntityBlock, EngineeringPortProvider {
     private static final String KEY = "pneumatic_cylinder";
     private static final int RUNTIME_SIZE = 11;
 
-    public PneumaticCylinderBlock(Properties properties) {
-        super(properties);
-    }
-
-    @Override
-    public MapCodec<PneumaticCylinderBlock> codec() {
-        return RedstoneEngineering.PNEUMATIC_CYLINDER_CODEC.value();
-    }
-
-    @Override
-    public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
-        return new MechatronicsVisualBlockEntity(pos, state);
-    }
-
-    @Override
-    public RenderShape getRenderShape(BlockState state) {
-        return RenderShape.ENTITYBLOCK_ANIMATED;
-    }
+    public PneumaticCylinderBlock(Properties properties) { super(properties); }
+    @Override public MapCodec<PneumaticCylinderBlock> codec() { return RedstoneEngineering.PNEUMATIC_CYLINDER_CODEC.value(); }
+    @Override public BlockEntity newBlockEntity(BlockPos pos, BlockState state) { return new MechatronicsVisualBlockEntity(pos, state); }
+    @Override public RenderShape getRenderShape(BlockState state) { return RenderShape.ENTITYBLOCK_ANIMATED; }
 
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         return List.of(
-                new EngineeringPort("PNEUMATIC IN", inputSide(state), EngineeringDomain.PNEUMATIC,
-                        PortKind.ACTUATOR, PortDirection.INPUT, false, "pressure"),
-                new EngineeringPort("POSITION FEEDBACK", outputSide(state), EngineeringDomain.REDSTONE,
-                        PortKind.FEEDBACK, PortDirection.OUTPUT, true, "signal")
+                new EngineeringPort("PNEUMATIC IN", inputSide(state), EngineeringDomain.PNEUMATIC, PortKind.ACTUATOR, PortDirection.INPUT, false, "pressure"),
+                new EngineeringPort("POSITION FEEDBACK", outputSide(state), EngineeringDomain.REDSTONE, PortKind.FEEDBACK, PortDirection.OUTPUT, true, "signal")
         );
     }
 
     @Override
-    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
-            Level level, BlockPos pos, BlockState state, Direction side
-    ) {
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> descriptor = engineeringPort(state, side);
         if (descriptor.isEmpty()) return Optional.empty();
         if (side == inputSide(state)) {
-            PneumaticObservationSupport.Observation pressure =
-                    PneumaticObservationSupport.observe(level, inputPos(pos, state));
-            return Optional.of(new EngineeringPortSnapshot(
-                    descriptor.get(), pressure.pressure(), 0.0, 100.0, pressure.quality()));
+            PneumaticObservationSupport.Observation pressure = PneumaticObservationSupport.observe(level, inputPos(pos, state));
+            return Optional.of(new EngineeringPortSnapshot(descriptor.get(), pressure.pressure(), 0.0, 100.0, pressure.quality()));
         }
-        return Optional.of(EngineeringPortSnapshot.redstone(
-                descriptor.get(), position(level, pos), PortQuality.VALID));
+        return Optional.of(EngineeringPortSnapshot.redstone(descriptor.get(), position(level, pos), PortQuality.VALID));
     }
 
-    /** Renderer-facing immutable projection; never creates or mutates simulation state. */
     public static MechatronicsVisualState visualState(Level level, BlockPos pos) {
         int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
-        if (runtime == null || runtime.length < RUNTIME_SIZE) {
-            return MechatronicsVisualState.cylinder(0, 0, 0);
-        }
+        if (runtime == null || runtime.length < RUNTIME_SIZE) return MechatronicsVisualState.cylinder(0, 0, 0);
         return MechatronicsVisualState.cylinder(runtime[0], runtime[3], runtime[2]);
     }
 
-    /** Observer-only actuator diagnostics; missing runtime reads as a retracted zero-state view. */
     private static int[] diagnosticsSnapshot(Level level, BlockPos pos) {
         int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
         return runtime == null || runtime.length < RUNTIME_SIZE ? new int[RUNTIME_SIZE] : runtime;
     }
 
-    @Override
-    protected void onPlace(
-            BlockState state,
-            Level level,
-            BlockPos pos,
-            BlockState oldState,
-            boolean moved
-    ) {
+    /** Deterministic lumped response timing; this is not a CFD flow calculation. */
+    public static int responsePeriodTicks(int pressure) {
+        if (pressure <= 0) return 2; // spring/return behavior at zero supply
+        if (pressure >= 75) return 1;
+        if (pressure >= 50) return 2;
+        if (pressure >= 25) return 3;
+        return 4;
+    }
+
+    @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
         super.onPlace(state, level, pos, oldState, moved);
         if (level instanceof ServerLevel server) server.scheduleTick(pos, this, 2);
     }
 
-    @Override
-    protected void neighborChanged(
-            BlockState state, Level level, BlockPos pos, net.minecraft.world.level.block.Block neighbor,
-            BlockPos neighborPos, boolean moved
-    ) {
+    @Override protected void neighborChanged(BlockState state, Level level, BlockPos pos, net.minecraft.world.level.block.Block neighbor, BlockPos neighborPos, boolean moved) {
         if (level instanceof ServerLevel server) server.scheduleTick(pos, this, 1);
     }
 
     @Override
-    protected void tick(
-            BlockState state,
-            ServerLevel level,
-            BlockPos pos,
-            RandomSource random
-    ) {
+    protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
         int pressure = PneumaticNetwork.pressure(level, inputPos(pos, state));
         int target = Math.max(0, Math.min(15, (pressure * 15 + 50) / 100));
@@ -146,103 +114,69 @@ public class PneumaticCylinderBlock extends DirectionalDomainBlock implements En
         runtime[3] = runtime[0] - oldPosition;
         runtime[4] = runtime[1] - runtime[0];
         runtime[5] += Math.abs(runtime[3]);
-
-        if (runtime[3] == 0 && runtime[4] != 0) runtime[6]++;
-        else if (runtime[4] == 0) runtime[6] = 0;
-
+        if (runtime[3] == 0 && runtime[4] != 0) runtime[6]++; else if (runtime[4] == 0) runtime[6] = 0;
         runtime[7] = Math.max(runtime[7], Math.abs(runtime[3]));
-        runtime[8] = Math.max(runtime[8], pressure); // peak pressure
-        if (oldVelocity != 0 && runtime[3] != 0 && Integer.signum(oldVelocity) != Integer.signum(runtime[3])) {
-            runtime[9]++; // motion reversals
-        }
-        runtime[10]++; // actuator samples
+        runtime[8] = Math.max(runtime[8], pressure);
+        if (oldVelocity != 0 && runtime[3] != 0 && Integer.signum(oldVelocity) != Integer.signum(runtime[3])) runtime[9]++;
+        runtime[10]++;
 
         MechatronicsVisualBlockEntity.push(level, pos, visualState(level, pos));
         if (runtime[0] != oldPosition) {
             level.updateNeighborsAt(pos, this);
             level.updateNeighborsAt(outputPos(pos, state), this);
         }
-        if (runtime[0] != target) level.scheduleTick(pos, this, 2);
+        if (runtime[0] != target) level.scheduleTick(pos, this, responsePeriodTicks(pressure));
     }
 
-    public static int position(Level level, BlockPos pos) {
-        return diagnosticsSnapshot(level, pos)[0];
+    public static int position(Level level, BlockPos pos) { return diagnosticsSnapshot(level, pos)[0]; }
+    public static int target(Level level, BlockPos pos) { return diagnosticsSnapshot(level, pos)[1]; }
+    public static int pressure(Level level, BlockPos pos) { return diagnosticsSnapshot(level, pos)[2]; }
+    public static int velocity(Level level, BlockPos pos) { return diagnosticsSnapshot(level, pos)[3]; }
+    public static int error(Level level, BlockPos pos) { return diagnosticsSnapshot(level, pos)[4]; }
+    public static int travel(Level level, BlockPos pos) { return diagnosticsSnapshot(level, pos)[5]; }
+    public static int stallTicks(Level level, BlockPos pos) { return diagnosticsSnapshot(level, pos)[6]; }
+    public static int reversals(Level level, BlockPos pos) { return diagnosticsSnapshot(level, pos)[9]; }
+    public static int samples(Level level, BlockPos pos) { return diagnosticsSnapshot(level, pos)[10]; }
+    public static int estimatedRemainingTicks(Level level, BlockPos pos) {
+        int[] r = diagnosticsSnapshot(level, pos);
+        return Math.abs(r[1] - r[0]) * responsePeriodTicks(r[2]);
     }
 
-    public static int target(Level level, BlockPos pos) {
-        return diagnosticsSnapshot(level, pos)[1];
-    }
-
-    public static int pressure(Level level, BlockPos pos) {
-        return diagnosticsSnapshot(level, pos)[2];
-    }
-
-    public static int travel(Level level, BlockPos pos) {
-        return diagnosticsSnapshot(level, pos)[5];
-    }
-
-    @Override
-    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
+    @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
         if (!state.is(newState.getBlock())) RuntimeIntStore.remove(level, KEY, pos);
         super.onRemove(state, level, pos, newState, moved);
     }
 
-    @Override
-    public boolean canConnectRedstone(
-            BlockState state,
-            BlockGetter level,
-            BlockPos pos,
-            @Nullable Direction direction
-    ) {
-        return direction != null
-                && direction.getOpposite() == outputSide(state);
+    @Override public boolean canConnectRedstone(BlockState state, BlockGetter level, BlockPos pos, @Nullable Direction direction) {
+        return direction != null && direction.getOpposite() == outputSide(state);
     }
 
-    @Override
-    public int getSignal(
-            BlockState state,
-            BlockGetter level,
-            BlockPos pos,
-            Direction side
-    ) {
+    @Override public int getSignal(BlockState state, BlockGetter level, BlockPos pos, Direction side) {
         if (!(level instanceof Level realLevel)) return 0;
         if (side != outputSide(state).getOpposite()) return 0;
         return position(realLevel, pos);
     }
 
-    @Override
-    public boolean isSignalSource(BlockState state) {
-        return true;
-    }
+    @Override public boolean isSignalSource(BlockState state) { return true; }
 
     @Override
-    protected InteractionResult useWithoutItem(
-            BlockState state,
-            Level level,
-            BlockPos pos,
-            Player player,
-            BlockHitResult hit
-    ) {
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
-            if (!player.isShiftKeyDown()) {
-                FieldDeviceUi.open(serverPlayer, pos);
-                return InteractionResult.CONSUME;
-            }
+            if (!player.isShiftKeyDown()) { FieldDeviceUi.open(serverPlayer, pos); return InteractionResult.CONSUME; }
             int[] r = diagnosticsSnapshot(level, pos);
+            PneumaticNetwork.ActuatorPathEvidence path = PneumaticNetwork.actuatorPathEvidence(level, pos);
             player.displayClientMessage(Component.literal(
                     "Pneumatic cylinder"
-                            + " | pressure=" + r[2] + "/100"
-                            + " peak=" + r[8]
-                            + " | pos=" + r[0] + "/15"
-                            + " target=" + r[1]
-                            + " velocity=" + r[3]
-                            + " error=" + r[4]
-                            + " travel=" + r[5]
-                            + " stallTicks=" + r[6]
-                            + " reversals=" + r[9]
-                            + " samples=" + r[10]
-                            + " | pneumatic IN=" + inputSide(state).getName()
-                            + " feedback OUT=" + outputSide(state).getName() + ":" + r[0]
+                            + " | pressure=" + r[2] + "/100 | peak pressure=" + r[8]
+                            + " | responsePeriod=" + responsePeriodTicks(r[2]) + "t"
+                            + " | pos=" + r[0] + "/15 target=" + r[1]
+                            + " velocity=" + r[3] + " error=" + r[4]
+                            + " remaining≈" + estimatedRemainingTicks(level, pos) + "t"
+                            + " | supply=" + path.supplyPressure() + " pathLoss=" + path.observedLoss()
+                            + " line=" + path.lineLoss() + " restriction=" + path.restrictionLoss()
+                            + " | travel=" + r[5] + " stallTicks=" + r[6]
+                            + " | motion reversals=" + r[9] + " samples=" + r[10]
+                            + " | pneumatic IN=" + inputSide(state).getName() + " feedback OUT=" + outputSide(state).getName() + ":" + r[0]
             ), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
