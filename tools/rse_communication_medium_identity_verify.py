@@ -90,6 +90,42 @@ require("src/main/java/dev/redstoneengineering/client/ui/OpticalSystemScreen.jav
         "Segment TX / RX", "Observed segment loss", "Receiver headroom", "Passive nodes / hops",
         "Intensity-unit segment budget only", "upstream splitter/attenuator loss")
 
+# Radio differentiation must expose the existing authoritative distance / obstruction /
+# adjacent-channel / collision model rather than inventing a client-side RF solver.
+radio_kernel_rel = "src/main/java/dev/redstoneengineering/physics/RadioKernel.java"
+radio_menu_rel = "src/main/java/dev/redstoneengineering/ui/menu/RadioLinkMenu.java"
+radio_screen_rel = "src/main/java/dev/redstoneengineering/client/ui/RadioLinkScreen.java"
+require(radio_kernel_rel,
+        "public static final int RANGE = 32;", "public static final int MIN_DECODE_QUALITY = 20;",
+        "int distanceBlocks,", "public int decodeMargin()", "return quality - MIN_DECODE_QUALITY;",
+        "int distanceLoss = (int) Math.round(55.0 * distance / RANGE);",
+        "int obstacleLoss = Math.min(25, obstacles * 2);", "int fade = deterministicFade(level, transmitterPos, rx);",
+        "int interferencePenalty = Math.min(30, adjacent * 8);", "boolean collision = drivers > 1;",
+        "boolean valid = coverageComplete && drivers == 1 && quality >= MIN_DECODE_QUALITY;",
+        "bestDistance = (int) Math.ceil(distance);")
+radio_kernel = read(radio_kernel_rel)
+for forbidden in ("RandomSource", "Math.random(", "new Random(", "ThreadLocalRandom"):
+    if forbidden in radio_kernel: errors.append(f"RadioKernel must remain deterministic; found {forbidden!r}")
+require(radio_menu_rel,
+        "public static final int RANGE_BLOCKS = RadioKernel.RANGE;", "public static final int MIN_DECODE_QUALITY = RadioKernel.MIN_DECODE_QUALITY;",
+        "private final DataSlot linkQuality = trackedInt();", "private final DataSlot adjacentAggressors = trackedInt();",
+        "private final DataSlot obstacleHits = trackedInt();", "private final DataSlot distanceBlocks = trackedInt();",
+        "private final DataSlot decodeMargin = trackedInt();", "linkQuality.set(reception.quality());",
+        "adjacentAggressors.set(reception.interference());", "obstacleHits.set(reception.obstacles());",
+        "distanceBlocks.set(reception.distanceBlocks());", "decodeMargin.set(reception.decodeMargin());",
+        "public int availabilityPercent()")
+require(radio_screen_rel,
+        '"SAME-CHANNEL COLLISION"', '"BELOW DECODE MARGIN"', '"MARGINAL LINK"',
+        '"VALID • ADJACENT INTERFERENCE"', '"VALID • OBSTRUCTED PATH"', '"HEALTHY LINK"',
+        '"NEXT • move one same-channel transmitter', '"NEXT • separate adjacent channels first',
+        '"NEXT • improve line-of-sight or shorten the path',
+        '"Counters are receiver-tick evidence; the client does not fabricate packet history."',
+        '"Payload 0 is a valid frame when source evidence is VALID."')
+radio_screen = read(radio_screen_rel)
+for forbidden in ("dev.redstoneengineering.physics", "RadioKernel.receivePacket", "RuntimeIntStore", "level.getBlockState(",
+                  "level.hasChunkAt(", "Math.sqrt(", "distanceLoss", "obstacleLoss", "interferencePenalty", "deterministicFade"):
+    if forbidden in radio_screen: errors.append(f"RadioLinkScreen must remain observer-only; found {forbidden!r}")
+
 require("docs/COMMUNICATION_MEDIUM_IDENTITY.md", "Shared information envelope", "Medium identity rule",
         "Communication choice hierarchy", "How much information must move?", "No medium should be the universal upgrade of another",
         "8-bit Data Bus", "Serial Data", "Differential Data", "Radio", "Guided Optical Fiber", "Free-space Optical",
@@ -122,5 +158,7 @@ print(" digital HMI observer boundary / no second solver: PASS")
 print(" instrument shielding deterministic local-exposure differentiation: PASS")
 print(" guided optical receiver segment budget + headroom: PASS")
 print(" guided optical budget observer boundary / no double-counted processor loss: PASS")
+print(" radio distance/obstruction/adjacent/collision margin evidence: PASS")
+print(" radio HMI observer boundary / no second RF solver: PASS")
 print(" communication medium design contract: PASS")
 print(" registered identity GameTests: 3 (manual diagnostic / non-blocking)")
