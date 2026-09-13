@@ -1,5 +1,6 @@
 package dev.redstoneengineering.client.ui;
 
+import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.menu.DigitalCommunicationMenu;
 import net.minecraft.client.gui.GuiGraphics;
@@ -44,12 +45,10 @@ public final class DigitalCommunicationScreen extends EngineeringScreen<DigitalC
         statusBadge(g, outputQualityName(), qualityColor(menu.outputQuality()), 205, 80);
         metricCard(g, "Input", valueText(menu.inputValue(), menu.inputDomain()), 16, 103, 88, INFO);
         metricCard(g, "Output", valueText(menu.outputValue(), menu.outputDomain()), 111, 103, 88, GOOD);
-        metricCard(g, "Quality", qualityMetric(), 206, 103, 88, INFO);
+        metricCard(g, "Link Q", mediumQualityText(), 206, 103, 88, mediumColor());
         labelValue(g, "Contract", contract(), 149);
         labelValue(g, "Series path", face(menu.inputDirection()) + " → " + face(menu.outputDirection()), 165);
-        if (menu.kind() == DigitalCommunicationMenu.KIND_REGENERATOR) labelValue(g, "Threshold / input Q", thresholdPercent() + "% / " + menu.auxiliary() + "%", 181);
-        else if (menu.kind() == DigitalCommunicationMenu.KIND_SERIALIZER || menu.kind() == DigitalCommunicationMenu.KIND_DESERIALIZER) labelValue(g, "Serial timing", Math.max(1, menu.auxiliary()) + " ticks", 181);
-        else labelValue(g, "Authority", "SERVER SYNCHRONIZED", 181);
+        labelValue(g, "Media evidence", mediumHeadline(), 181);
         safeText(g, mediaIdentity(), 16, 199, MUTED);
     }
 
@@ -72,27 +71,24 @@ public final class DigitalCommunicationScreen extends EngineeringScreen<DigitalC
 
     private void diagnostics(GuiGraphics g) {
         statusBadge(g, outputQualityName(), qualityColor(menu.outputQuality()), 16, 80);
-        labelValue(g, "Input quality", menu.inputQuality().name(), 104);
-        labelValue(g, "Output quality", menu.outputQuality().name(), 122);
-        labelValue(g, "Input", valueText(menu.inputValue(), menu.inputDomain()), 140);
-        labelValue(g, "Output", valueText(menu.outputValue(), menu.outputDomain()), 158);
-        labelValue(g, "Path", face(menu.inputDirection()) + " → " + face(menu.outputDirection()), 176);
-        statusLine(g, "Diagnosis", diagnosis(), diagnosisColor(), 194);
-        safeText(g, nextAction(), 16, 214, diagnosisColor());
+        statusLine(g, mediumName(), mediumHeadline(), mediumColor(), 104);
+        labelValue(g, "Input / output quality", menu.inputQuality().name() + " → " + menu.outputQuality().name(), 126);
+        labelValue(g, "Link quality / age", mediumQualityText() + " / " + mediumAgeText(), 144);
+        labelValue(g, "Link drivers", Integer.toString(menu.mediumDriverCount()), 162);
+        labelValue(g, mediumMetricLabel(), mediumMetricValue(), 180);
+        statusLine(g, "Diagnosis", diagnosis(), diagnosisColor(), 198);
+        safeText(g, nextAction(), 16, 218, diagnosisColor());
     }
 
     private void history(GuiGraphics g) {
         statusBadge(g, "CURRENT LINK EVIDENCE", INFO, 16, 80);
-        safeText(g, "This directional communication HMI exposes authoritative current evidence.", 16, 108, TEXT);
-        safeText(g, "It does not synthesize packet history that the server does not retain.", 16, 128, MUTED);
-        if (menu.kind() == DigitalCommunicationMenu.KIND_REGENERATOR) {
-            labelValue(g, "Input quality", menu.auxiliary() + "%", 154);
-            labelValue(g, "Decision threshold", thresholdPercent() + "%", 172);
-            safeText(g, diagnosis(), 16, 194, diagnosisColor());
-        } else if (menu.kind() == DigitalCommunicationMenu.KIND_SERIALIZER || menu.kind() == DigitalCommunicationMenu.KIND_DESERIALIZER) {
-            labelValue(g, "Serial timing", Math.max(1, menu.auxiliary()) + " ticks", 154);
-            safeText(g, diagnosis(), 16, 178, diagnosisColor());
-        } else safeText(g, diagnosis(), 16, 154, diagnosisColor());
+        safeText(g, "This directional communication HMI exposes authoritative current evidence.", 16, 106, TEXT);
+        safeText(g, "It does not synthesize packet history that the server does not retain.", 16, 124, MUTED);
+        labelValue(g, "Medium", mediumName(), 148);
+        labelValue(g, "Evidence", mediumHeadline(), 166);
+        labelValue(g, "Quality / age", mediumQualityText() + " / " + mediumAgeText(), 184);
+        labelValue(g, mediumMetricLabel(), mediumMetricValue(), 202);
+        safeText(g, mediumTradeoff(), 16, 222, MUTED);
     }
 
     private String diagnosis() {
@@ -101,15 +97,25 @@ public final class DigitalCommunicationScreen extends EngineeringScreen<DigitalC
         if (menu.inputQuality() == PortQuality.STALE) return "STALE INPUT LINK EVIDENCE";
         if (menu.outputQuality() == PortQuality.NO_SIGNAL) return "NO VALID OUTPUT AFTER TRANSFORM";
         if (menu.outputQuality() == PortQuality.STALE) return "STALE OUTPUT LINK EVIDENCE";
-        if (menu.kind() == DigitalCommunicationMenu.KIND_REGENERATOR) {
-            if (menu.auxiliary() < thresholdPercent()) return "SERIAL QUALITY BELOW REGENERATION THRESHOLD";
-            return "SERIAL QUALITY ACCEPTED / REGENERATED";
+
+        if (menu.mediumDomain() == EngineeringDomain.DATA_BUS_8) {
+            if (menu.mediumMetricC() > 0) return "8-BIT BUS DRIVER CONFLICT OBSERVED";
+            if (menu.mediumMetricB() > 0) return "8-BIT BUS CONTENTION CONSUMING MARGIN";
+            if (menu.mediumQualityPercent() < 70) return "8-BIT BUS LOADING MARGIN LOW";
+            return "8-BIT PARALLEL BUS HEALTHY";
         }
-        if (menu.kind() == DigitalCommunicationMenu.KIND_SERIALIZER || menu.kind() == DigitalCommunicationMenu.KIND_DESERIALIZER) {
-            if (menu.auxiliary() <= 0) return "SERIAL TIMING UNAVAILABLE";
+        if (menu.mediumDomain() == EngineeringDomain.SERIAL_DATA) {
+            if (menu.mediumDriverCount() > 1) return "SERIAL MULTI-DRIVER CONFLICT";
+            if (menu.mediumMetricB() >= 90) return "SERIAL LINK NEAR UTILIZATION LIMIT";
+            if (menu.mediumQualityPercent() < 70) return "SERIAL LINK QUALITY MARGINAL";
+            if (menu.kind() == DigitalCommunicationMenu.KIND_REGENERATOR && menu.auxiliary() < thresholdPercent()) return "SERIAL QUALITY BELOW REGENERATION THRESHOLD";
             return "SERIAL FRAME TIMING PRESENT";
         }
-        if (menu.kind() == DigitalCommunicationMenu.KIND_DIFF_DRIVER || menu.kind() == DigitalCommunicationMenu.KIND_DIFF_RECEIVER) return "DIFFERENTIAL LINK TRANSFORM VALID";
+        if (menu.mediumDomain() == EngineeringDomain.DIFFERENTIAL_DATA) {
+            if (menu.mediumDriverCount() > 1) return "DIFFERENTIAL MULTI-DRIVER CONFLICT";
+            if (menu.mediumQualityPercent() < 70) return "DIFFERENTIAL LINK MARGIN EXHAUSTED";
+            return "DIFFERENTIAL HIGH-INTEGRITY LINK VALID";
+        }
         return "DOMAIN CONVERSION VALID";
     }
 
@@ -117,27 +123,81 @@ public final class DigitalCommunicationScreen extends EngineeringScreen<DigitalC
         String d = diagnosis();
         if (d.contains("CONFLICT")) return "NEXT • isolate multiple drivers or invalid link topology before decoding data.";
         if (d.contains("NO INPUT") || d.contains("STALE INPUT")) return "NEXT • restore current upstream link evidence before troubleshooting conversion.";
+        if (d.contains("CONTENTION")) return "NEXT • reduce redundant bus driving; same-value multi-drive still consumes parallel-bus margin.";
+        if (d.contains("LOADING")) return "NEXT • shorten or segment the 8-bit bus instead of treating parallel wiring as a free long-distance link.";
+        if (d.contains("UTILIZATION")) return "NEXT • reduce frame demand or move the payload to a wider/local bus where parallel wiring is acceptable.";
+        if (d.contains("SERIAL LINK QUALITY")) return "NEXT • shorten/regenerate the serial path before increasing traffic.";
         if (d.contains("BELOW")) return "NEXT • improve serial link quality or lower the accepted threshold only with commissioning evidence.";
-        if (d.contains("TIMING UNAVAILABLE")) return "NEXT • restore serial timing evidence before trusting byte reconstruction.";
+        if (d.contains("DIFFERENTIAL LINK MARGIN")) return "NEXT • shorten the link or remove topology faults; differential margin is finite even with slower quality decay.";
         if (d.contains("NO VALID OUTPUT") || d.contains("STALE OUTPUT")) return "NEXT • verify the transform contract and downstream medium after confirming valid input.";
-        return "NEXT • link evidence is coherent; compare media choice against throughput, timing and integrity requirements.";
+        return "NEXT • link evidence is coherent; choose the medium by payload width, wiring cost, timing and integrity needs.";
     }
 
-    private int diagnosisColor() { String d = diagnosis(); return d.contains("VALID") || d.contains("PRESENT") || d.contains("ACCEPTED") ? GOOD : WARN; }
+    private int diagnosisColor() {
+        String d = diagnosis();
+        return d.contains("HEALTHY") || d.contains("PRESENT") || d.contains("VALID") ? GOOD : WARN;
+    }
+
+    private String mediumHeadline() {
+        if (menu.mediumDomain() == EngineeringDomain.DATA_BUS_8) {
+            return "8-bit parallel • nodes=" + menu.mediumMetricA() + " • drivers=" + menu.mediumDriverCount();
+        }
+        if (menu.mediumDomain() == EngineeringDomain.SERIAL_DATA) {
+            return "serial • period=" + Math.max(1, menu.mediumMetricA()) + "t • util=" + menu.mediumMetricB() + "%";
+        }
+        if (menu.mediumDomain() == EngineeringDomain.DIFFERENTIAL_DATA) {
+            return "1-bit high-integrity • drivers=" + menu.mediumDriverCount();
+        }
+        return "NO COMMUNICATION MEDIUM";
+    }
+
+    private String mediumMetricLabel() {
+        if (menu.mediumDomain() == EngineeringDomain.DATA_BUS_8) return "Contention / conflicts";
+        if (menu.mediumDomain() == EngineeringDomain.SERIAL_DATA) return "Period / utilization / nodes";
+        if (menu.mediumDomain() == EngineeringDomain.DIFFERENTIAL_DATA) return "Payload width";
+        return "Medium metric";
+    }
+
+    private String mediumMetricValue() {
+        if (menu.mediumDomain() == EngineeringDomain.DATA_BUS_8) return menu.mediumMetricB() + " / " + menu.mediumMetricC() + " frames";
+        if (menu.mediumDomain() == EngineeringDomain.SERIAL_DATA) return Math.max(1, menu.mediumMetricA()) + "t / " + menu.mediumMetricB() + "% / " + menu.mediumMetricC();
+        if (menu.mediumDomain() == EngineeringDomain.DIFFERENTIAL_DATA) return menu.mediumMetricA() + " bit";
+        return "N/A";
+    }
+
+    private String mediumTradeoff() {
+        if (menu.mediumDomain() == EngineeringDomain.DATA_BUS_8) return "TRADE-OFF • highest local payload width; loading and driver coordination cost margin.";
+        if (menu.mediumDomain() == EngineeringDomain.SERIAL_DATA) return "TRADE-OFF • fewer conductors; frame timing and utilization become the engineering limit.";
+        if (menu.mediumDomain() == EngineeringDomain.DIFFERENTIAL_DATA) return "TRADE-OFF • one-bit payload density; stronger link margin suits discrete control and protection state.";
+        return "TRADE-OFF • no universal communication medium is implied.";
+    }
+
     private String mediaIdentity() {
         return switch (menu.kind()) {
-            case DigitalCommunicationMenu.KIND_SERIALIZER, DigitalCommunicationMenu.KIND_DESERIALIZER, DigitalCommunicationMenu.KIND_REGENERATOR -> "Serial media emphasizes ordered timing and link-quality evidence.";
-            case DigitalCommunicationMenu.KIND_DIFF_DRIVER, DigitalCommunicationMenu.KIND_DIFF_RECEIVER -> "Differential media emphasizes robust binary link integrity rather than byte width.";
-            case DigitalCommunicationMenu.KIND_ENCODER, DigitalCommunicationMenu.KIND_DECODER -> "8-bit bus media preserves parallel byte identity across explicit conversion.";
+            case DigitalCommunicationMenu.KIND_SERIALIZER, DigitalCommunicationMenu.KIND_DESERIALIZER, DigitalCommunicationMenu.KIND_REGENERATOR -> "Serial media emphasizes ordered timing, utilization and link-quality evidence.";
+            case DigitalCommunicationMenu.KIND_DIFF_DRIVER, DigitalCommunicationMenu.KIND_DIFF_RECEIVER -> "Differential media trades payload density for stronger binary link integrity.";
+            case DigitalCommunicationMenu.KIND_ENCODER, DigitalCommunicationMenu.KIND_DECODER -> "8-bit bus media preserves parallel byte identity but pays local loading/contention cost.";
             default -> "Converters cross declared domains; no hidden universal medium is assumed.";
         };
     }
+
+    private String mediumName() {
+        return switch (menu.mediumDomain()) {
+            case DATA_BUS_8 -> "8-BIT DATA BUS";
+            case SERIAL_DATA -> "SERIAL DATA";
+            case DIFFERENTIAL_DATA -> "DIFFERENTIAL DATA";
+            default -> "DIGITAL LINK";
+        };
+    }
+
+    private String mediumQualityText() { return menu.mediumAgeTicks() < 0 ? "N/A" : menu.mediumQualityPercent() + "%"; }
+    private String mediumAgeText() { return menu.mediumAgeTicks() < 0 ? "NO SAMPLE" : menu.mediumAgeTicks() + "t"; }
+    private int mediumColor() { if (menu.mediumAgeTicks() < 0) return MUTED; if (menu.mediumQualityPercent() >= 85) return GOOD; if (menu.mediumQualityPercent() >= 60) return INFO; return WARN; }
     private String deviceName() { return switch (menu.kind()) { case DigitalCommunicationMenu.KIND_ENCODER -> "REDSTONE BYTE ENCODER"; case DigitalCommunicationMenu.KIND_DECODER -> "BYTE TO REDSTONE DECODER"; case DigitalCommunicationMenu.KIND_SERIALIZER -> "SERIALIZER"; case DigitalCommunicationMenu.KIND_DESERIALIZER -> "DESERIALIZER"; case DigitalCommunicationMenu.KIND_REGENERATOR -> "DIGITAL REGENERATOR"; case DigitalCommunicationMenu.KIND_DIFF_DRIVER -> "DIFFERENTIAL DRIVER"; case DigitalCommunicationMenu.KIND_DIFF_RECEIVER -> "DIFFERENTIAL RECEIVER"; default -> "DIGITAL COMMUNICATION"; }; }
     private String roleName() { return menu.kind() == DigitalCommunicationMenu.KIND_REGENERATOR ? "SERIAL PROCESSOR" : "DOMAIN CONVERTER"; }
     private String contract() { return menu.inputDomain().label() + " → " + menu.outputDomain().label(); }
     private String processName() { return switch (menu.kind()) { case DigitalCommunicationMenu.KIND_ENCODER -> "ENCODE 0..15 → BYTE"; case DigitalCommunicationMenu.KIND_DECODER -> "DECODE BYTE → 0..15"; case DigitalCommunicationMenu.KIND_SERIALIZER -> "BYTE → SERIAL FRAME"; case DigitalCommunicationMenu.KIND_DESERIALIZER -> "SERIAL FRAME → BYTE"; case DigitalCommunicationMenu.KIND_REGENERATOR -> "QUALITY GATE + REGENERATION"; case DigitalCommunicationMenu.KIND_DIFF_DRIVER -> "LOGIC → DIFFERENTIAL"; case DigitalCommunicationMenu.KIND_DIFF_RECEIVER -> "DIFFERENTIAL → REDSTONE"; default -> "DECLARED TRANSFORM"; }; }
-    private String valueText(int value, dev.redstoneengineering.core.domain.EngineeringDomain domain) { return switch (domain) { case DATA_BUS_8, SERIAL_DATA -> String.format("0x%02X", value & 0xFF); case DIFFERENTIAL_DATA -> Integer.toString(value & 1); default -> Integer.toString(value); }; }
-    private String qualityMetric() { return menu.inputQuality().name() + " → " + menu.outputQuality().name(); }
+    private String valueText(int value, EngineeringDomain domain) { return switch (domain) { case DATA_BUS_8, SERIAL_DATA -> String.format("0x%02X", value & 0xFF); case DIFFERENTIAL_DATA -> Integer.toString(value & 1); default -> Integer.toString(value); }; }
     private String outputQualityName() { return menu.outputQuality().name().replace('_', ' '); }
     private int thresholdPercent() { return switch (menu.parameter()) { case 0 -> 20; case 1 -> 40; default -> 60; }; }
     private String face(net.minecraft.core.Direction direction) { return direction.getName().toUpperCase(); }
