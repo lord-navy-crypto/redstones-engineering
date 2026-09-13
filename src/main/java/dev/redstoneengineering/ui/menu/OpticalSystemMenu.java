@@ -1,6 +1,7 @@
 package dev.redstoneengineering.ui.menu;
 
 import dev.redstoneengineering.block.*;
+import dev.redstoneengineering.core.diagnostic.CommissioningStatus;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.OpticalCommissioningSupport;
@@ -28,7 +29,7 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
     private final DataSlot kind = trackedInt(), primary = trackedInt(), secondary = trackedInt(), tertiary = trackedInt(), auxiliary = trackedInt();
     private final DataSlot quality = trackedInt(), facing = trackedInt(), inputFacing = trackedInt(), outputFacing = trackedInt();
     private final DataSlot meterConnected = trackedInt(), meterSameChannel = trackedInt(), meterMismatched = trackedInt();
-    private final DataSlot meterStrongest = trackedInt(), meterWeakest = trackedInt();
+    private final DataSlot meterStrongest = trackedInt(), meterWeakest = trackedInt(), commissioning = trackedInt();
 
     public OpticalSystemMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) { this(containerId, inventory, data.readBlockPos()); }
     public OpticalSystemMenu(int containerId, Inventory inventory, BlockPos pos) {
@@ -40,6 +41,7 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
         BlockState state = level.getBlockState(blockPos); Block block = state.getBlock();
         primary.set(0); secondary.set(0); tertiary.set(0); auxiliary.set(0); facing.set(-1); inputFacing.set(-1); outputFacing.set(-1);
         quality.set(PortQuality.NO_SIGNAL.ordinal()); meterConnected.set(0); meterSameChannel.set(0); meterMismatched.set(0); meterStrongest.set(0); meterWeakest.set(0);
+        commissioning.set(CommissioningStatus.NOT_READY.code());
 
         if (block instanceof OpticalEmitterBlock) {
             kind.set(KIND_EMITTER); primary.set(state.getValue(OpticalEmitterBlock.INTENSITY)); secondary.set(state.getValue(OpticalEmitterBlock.CHANNEL)); quality.set(PortQuality.VALID.ordinal());
@@ -54,6 +56,7 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
             OpticalCommissioningSupport.Evidence e = OpticalCommissioningSupport.compareOneHop(level, target, m.channel());
             meterConnected.set(e.connectedNeighbors()); meterSameChannel.set(e.sameChannelNeighbors()); meterMismatched.set(e.channelMismatchNeighbors());
             meterStrongest.set(e.strongestSameChannel()); meterWeakest.set(e.weakestSameChannel());
+            commissioning.set(opticalCommissioning(m.quality(), m.intensity(), e).code());
         } else if (block instanceof OpticalSplitterBlock splitter) {
             kind.set(KIND_SPLITTER); OpticalSplitterBlock.SplitEvidence e = splitter.evidence(level, blockPos, state);
             primary.set(e.inputIntensity()); secondary.set(e.branchAIntensity()); tertiary.set(e.branchBIntensity()); auxiliary.set(e.quantizationLoss()); quality.set(e.inputQuality().ordinal()); captureDomainEndpoints(state);
@@ -72,6 +75,17 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
             primary.set(snapshot.map(s -> (int) Math.round(s.value())).orElse(0)); secondary.set(state.getValue(FreeSpaceOpticalReceiverBlock.CHANNEL)); tertiary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             quality.set(snapshot.map(s -> s.quality()).orElse(PortQuality.NO_SIGNAL).ordinal()); inputFacing.set(in.ordinal()); outputFacing.set(out.ordinal()); facing.set(out.ordinal());
         } else kind.set(-1);
+    }
+
+    private static CommissioningStatus opticalCommissioning(PortQuality q, int intensity, OpticalCommissioningSupport.Evidence e) {
+        if (q == PortQuality.NO_SIGNAL || intensity <= 0 || e.connectedNeighbors() == 0) return CommissioningStatus.NOT_READY;
+        if (q == PortQuality.FAULT || q == PortQuality.DOMAIN_MISMATCH || q == PortQuality.TOPOLOGY_ERROR) return CommissioningStatus.FAIL;
+        if (q != PortQuality.VALID || e.channelMismatchNeighbors() > 0 || e.sameChannelNeighbors() == 0) return CommissioningStatus.MARGINAL;
+        int spread = Math.max(0, e.strongestSameChannel() - e.weakestSameChannel());
+        int localStep = Math.max(0, e.strongestSameChannel() - intensity);
+        if (localStep >= 4) return CommissioningStatus.FAIL;
+        if (localStep >= 2 || spread >= 2) return CommissioningStatus.MARGINAL;
+        return CommissioningStatus.PASS;
     }
 
     private void captureDomainEndpoints(BlockState state) {
@@ -163,6 +177,7 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
     public int tertiary() { return tertiary.get(); } public int auxiliary() { return auxiliary.get(); }
     public int meterConnectedNeighbors() { return meterConnected.get(); } public int meterSameChannelNeighbors() { return meterSameChannel.get(); }
     public int meterChannelMismatches() { return meterMismatched.get(); } public int meterStrongestNeighbor() { return meterStrongest.get(); } public int meterWeakestNeighbor() { return meterWeakest.get(); }
+    public CommissioningStatus commissioningStatus() { return CommissioningStatus.fromCode(commissioning.get()); }
     public PortQuality quality() { int ordinal = quality.get(); PortQuality[] all = PortQuality.values(); return ordinal < 0 || ordinal >= all.length ? PortQuality.NO_SIGNAL : all[ordinal]; }
     public Direction facing() { int ordinal = facing.get(); Direction[] all = Direction.values(); return ordinal < 0 || ordinal >= all.length ? Direction.NORTH : all[ordinal]; }
     public boolean directional() { return kind.get() == KIND_SPLITTER || kind.get() == KIND_FILTER || kind.get() == KIND_ATTENUATOR || kind.get() == KIND_FREE_SPACE_TX || kind.get() == KIND_FREE_SPACE_RX; }
