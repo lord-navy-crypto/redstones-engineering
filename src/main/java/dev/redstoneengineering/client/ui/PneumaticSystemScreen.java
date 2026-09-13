@@ -7,281 +7,115 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
-/** Dedicated pneumatic HMI spanning sources, valves, metrology, safety, and actuation. */
+/** Pneumatic HMI with server-synchronized section diagnostics. */
 public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSystemMenu> {
-    private Button parameterPrevious;
-    private Button parameterNext;
-    private Button toggle;
+    private Button prev, next, toggle;
 
-    public PneumaticSystemScreen(PneumaticSystemMenu menu, Inventory inventory, Component title) {
-        super(menu, inventory, title);
-    }
+    public PneumaticSystemScreen(PneumaticSystemMenu menu, Inventory inventory, Component title) { super(menu, inventory, title); }
 
-    @Override
-    protected void addDeviceWidgets() {
+    @Override protected void addDeviceWidgets() {
         int y = topPos + 116;
-        parameterPrevious = addConfigureWidget(Button.builder(Component.literal("◀ Setpoint"),
-                b -> sendMenuButton(PneumaticSystemMenu.BUTTON_PARAMETER_PREVIOUS))
-                .bounds(leftPos + 16, y, 95, 20).build());
-        parameterNext = addConfigureWidget(Button.builder(Component.literal("Setpoint ▶"),
-                b -> sendMenuButton(PneumaticSystemMenu.BUTTON_PARAMETER_NEXT))
-                .bounds(leftPos + 209, y, 95, 20).build());
-        toggle = addConfigureWidget(Button.builder(Component.literal("Toggle valve"),
-                b -> sendMenuButton(PneumaticSystemMenu.BUTTON_TOGGLE))
-                .bounds(leftPos + 100, y, 120, 20).build());
+        prev = addConfigureWidget(Button.builder(Component.literal("◀ Setpoint"), b -> sendMenuButton(PneumaticSystemMenu.BUTTON_PARAMETER_PREVIOUS)).bounds(leftPos + 16, y, 95, 20).build());
+        next = addConfigureWidget(Button.builder(Component.literal("Setpoint ▶"), b -> sendMenuButton(PneumaticSystemMenu.BUTTON_PARAMETER_NEXT)).bounds(leftPos + 209, y, 95, 20).build());
+        toggle = addConfigureWidget(Button.builder(Component.literal("Toggle valve"), b -> sendMenuButton(PneumaticSystemMenu.BUTTON_TOGGLE)).bounds(leftPos + 100, y, 120, 20).build());
     }
 
-    @Override
-    protected void syncDeviceWidgetLabels() {
-        if (parameterPrevious == null) return;
-        boolean setpoint = menu.kind() == PneumaticSystemMenu.KIND_REGULATOR
-                || menu.kind() == PneumaticSystemMenu.KIND_RELIEF;
-        boolean manualValve = menu.kind() == PneumaticSystemMenu.KIND_VALVE;
-        boolean configure = isConfigureSection();
-
-        parameterPrevious.active = setpoint;
-        parameterNext.active = setpoint;
-        parameterPrevious.visible = configure && setpoint;
-        parameterNext.visible = configure && setpoint;
-        toggle.active = manualValve;
-        toggle.visible = configure && manualValve;
-
+    @Override protected void syncDeviceWidgetLabels() {
+        if (prev == null) return;
+        boolean setpoint = menu.kind() == PneumaticSystemMenu.KIND_REGULATOR || menu.kind() == PneumaticSystemMenu.KIND_RELIEF;
+        boolean valve = menu.kind() == PneumaticSystemMenu.KIND_VALVE;
+        prev.visible = next.visible = isConfigureSection() && setpoint;
+        toggle.visible = isConfigureSection() && valve;
         if (setpoint) {
-            String text = menu.kind() == PneumaticSystemMenu.KIND_REGULATOR
-                    ? menu.secondary() + "/100" : menu.tertiary() + "/100";
-            parameterPrevious.setMessage(Component.literal("◀ " + text));
-            parameterNext.setMessage(Component.literal(text + " ▶"));
+            String v = menu.kind() == PneumaticSystemMenu.KIND_REGULATOR ? menu.secondary() + "/100" : menu.tertiary() + "/100";
+            prev.setMessage(Component.literal("◀ " + v)); next.setMessage(Component.literal(v + " ▶"));
         }
-        if (manualValve) {
-            toggle.setMessage(Component.literal(menu.stateFlag() == 1 ? "Close valve" : "Open valve"));
-        }
+        if (valve) toggle.setMessage(Component.literal(menu.stateFlag() == 1 ? "Close valve" : "Open valve"));
     }
 
-    @Override
-    protected void renderSection(GuiGraphics graphics, Section section) {
+    @Override protected void renderSection(GuiGraphics g, Section section) {
         switch (section) {
-            case OVERVIEW -> overview(graphics);
-            case PORTS -> ports(graphics);
-            case CONFIGURE -> configure(graphics);
-            case DIAGNOSTICS -> diagnostics(graphics);
-            case HISTORY -> history(graphics);
+            case OVERVIEW -> overview(g);
+            case PORTS -> ports(g);
+            case CONFIGURE -> configure(g);
+            case DIAGNOSTICS -> diagnostics(g);
+            case HISTORY -> history(g);
         }
     }
 
     private void overview(GuiGraphics g) {
-        statusBadge(g, deviceName(), GOOD, 16, 80);
-        statusBadge(g, stateName(), stateColor(), 205, 80);
-        metricCard(g, primaryLabel(), primaryValue(), 16, 103, 88, INFO);
-        metricCard(g, secondaryLabel(), secondaryValue(), 111, 103, 88, GOOD);
-        metricCard(g, tertiaryLabel(), tertiaryValue(), 206, 103, 88, INFO);
-        labelValue(g, "Topology", topologyText(), 149);
-        labelValue(g, "Input evidence", menu.inputQuality().name(), 165);
-        labelValue(g, "Output evidence", menu.outputQuality().name(), 181);
-        safeText(g, menu.kind() == PneumaticSystemMenu.KIND_FLOW_METER ? flowDiagnosis() : hint(), 16, 199,
-                menu.kind() == PneumaticSystemMenu.KIND_FLOW_METER ? flowDiagnosisColor() : MUTED);
+        statusBadge(g, name(), GOOD, 16, 80); statusBadge(g, state(), stateColor(), 205, 80);
+        metricCard(g, primaryLabel(), primaryText(), 16, 103, 88, INFO);
+        metricCard(g, secondaryLabel(), secondaryText(), 111, 103, 88, GOOD);
+        metricCard(g, thirdLabel(), thirdText(), 206, 103, 88, INFO);
+        labelValue(g, "Topology", route(), 149);
+        labelValue(g, "Input / output evidence", menu.inputQuality().name() + " / " + menu.outputQuality().name(), 169);
+        safeText(g, isFlow() ? section().localization() : "Pressure zero may be valid when observation quality is VALID.", 16, 196, isFlow() ? localColor() : MUTED);
     }
 
     private void ports(GuiGraphics g) {
         statusBadge(g, "PNEUMATIC INTERFACES", GOOD, 16, 80);
-        if (!menu.directional()) {
-            statusLine(g, "NETWORK", nondirectionalPortText(), INFO, 112);
-            safeText(g, topologyText(), 16, 146, MUTED);
-            return;
-        }
-        statusLine(g, face(menu.inputDirection()), inputPortText(), qualityColor(menu.inputQuality()), 112);
-        statusLine(g, face(menu.outputDirection()), outputPortText(), qualityColor(menu.outputQuality()), 142);
-        if (menu.kind() == PneumaticSystemMenu.KIND_PROPORTIONAL) {
-            statusLine(g, "UP", "INPUT • REDSTONE OPENING COMMAND", INFO, 170);
-        } else {
-            safeText(g, topologyText(), 16, 176, MUTED);
-        }
+        if (!menu.directional()) { statusLine(g, "NETWORK", "PNEUMATIC NETWORK NODE", INFO, 112); return; }
+        statusLine(g, face(menu.inputDirection()), "INPUT • PNEUMATIC", qualityColor(menu.inputQuality()), 112);
+        statusLine(g, face(menu.outputDirection()), menu.kind() == PneumaticSystemMenu.KIND_RECEIVER ? "OUTPUT • REDSTONE 0..15" : "OUTPUT • PNEUMATIC", qualityColor(menu.outputQuality()), 142);
+        if (isFlow()) safeText(g, "Commissioning adds one axial witness beyond each meter port.", 16, 176, MUTED);
     }
 
     private void configure(GuiGraphics g) {
         statusBadge(g, "SERVER-SIDE BOUNDED CONTROL", INFO, 16, 80);
-        labelValue(g, "Control", controlText(), 101);
-        labelValue(g, "Topology", topologyText(), 171);
-        if (menu.directional()) {
-            labelValue(g, "Axis", face(menu.inputDirection()) + " → " + face(menu.outputDirection()), 187);
-            safeText(g, "Physical direction is controlled only on Route.", 16, 207, MUTED);
-        }
+        labelValue(g, "Control", controlText(), 104);
+        labelValue(g, "Physical route", route(), 174);
+        safeText(g, "Physical direction is controlled only on Route.", 16, 202, MUTED);
     }
 
     private void diagnostics(GuiGraphics g) {
-        statusBadge(g, stateName(), stateColor(), 16, 80);
-        labelValue(g, primaryLabel(), primaryValue(), 106);
-        labelValue(g, secondaryLabel(), secondaryValue(), 124);
-        labelValue(g, tertiaryLabel(), tertiaryValue(), 142);
-        if (menu.kind() == PneumaticSystemMenu.KIND_FLOW_METER) {
-            labelValue(g, "Outlet pressure", menu.auxiliary() + " / 100", 160);
-            labelValue(g, "ΔP / inlet", restrictionIndexText(), 178);
-            statusLine(g, "Flow diagnosis", flowDiagnosis(), flowDiagnosisColor(), 196);
-            safeText(g, flowNextAction(), 16, 216, flowDiagnosisColor());
-        } else if (menu.kind() == PneumaticSystemMenu.KIND_RELIEF) {
-            labelValue(g, "Vent events", Integer.toString(menu.auxiliary()), 160);
-            labelValue(g, "Operating state", menu.stateFlag() == 1 ? "VENTING • VALID STATE" : "ARMED", 178);
-            statusLine(g, "Authority", "SERVER SYNCHRONIZED", GOOD, 200);
-        } else if (menu.kind() == PneumaticSystemMenu.KIND_CYLINDER) {
-            labelValue(g, "Travel", Integer.toString(menu.auxiliary()), 160);
-            statusLine(g, "Authority", "SERVER SYNCHRONIZED", GOOD, 200);
-        } else if (menu.kind() == PneumaticSystemMenu.KIND_PROPORTIONAL) {
-            labelValue(g, "Network pressure", menu.auxiliary() + " / 100", 160);
-            statusLine(g, "Authority", "SERVER SYNCHRONIZED", GOOD, 200);
-        } else {
-            statusLine(g, "Authority", "SERVER SYNCHRONIZED", GOOD, 200);
+        statusBadge(g, state(), stateColor(), 16, 80);
+        if (isFlow()) {
+            PneumaticSectionDiagnostics.Result r = section();
+            labelValue(g, "Flow / meter ΔP", menu.primary() + " / " + menu.secondary(), 106);
+            labelValue(g, "Pin / Pout", menu.tertiary() + " / " + menu.auxiliary(), 126);
+            labelValue(g, "U / D witness", p(menu.upstreamQuality(), menu.upstreamPressure()) + " / " + p(menu.downstreamQuality(), menu.downstreamPressure()), 146);
+            labelValue(g, "Drops U / M / D", d(r.upstreamDrop()) + " / " + r.meterDrop() + " / " + d(r.downstreamDrop()), 166);
+            statusLine(g, "Localization", r.localization(), localColor(), 188);
+            safeText(g, r.nextAction(), 16, 210, localColor());
+            return;
         }
+        labelValue(g, primaryLabel(), primaryText(), 108); labelValue(g, secondaryLabel(), secondaryText(), 128); labelValue(g, thirdLabel(), thirdText(), 148);
+        statusLine(g, "Authority", "SERVER SYNCHRONIZED", GOOD, 192);
     }
 
     private void history(GuiGraphics g) {
         statusBadge(g, "PNEUMATIC EVIDENCE", INFO, 16, 80);
-        if (menu.kind() == PneumaticSystemMenu.KIND_RELIEF) {
+        if (isFlow()) {
+            PneumaticSectionDiagnostics.Result r = section();
+            labelValue(g, "Samples", Integer.toString(menu.stateFlag()), 108);
+            labelValue(g, "U / Pin / Pout / D", p(menu.upstreamQuality(), menu.upstreamPressure()) + " / " + menu.tertiary() + " / " + menu.auxiliary() + " / " + p(menu.downstreamQuality(), menu.downstreamPressure()), 130);
+            labelValue(g, "Drops U / M / D", d(r.upstreamDrop()) + " / " + r.meterDrop() + " / " + d(r.downstreamDrop()), 152);
+            statusLine(g, "Dominant local loss", r.localization(), localColor(), 177);
+            safeText(g, "Axial evidence only; bends beyond the witnesses are not inferred.", 16, 201, MUTED);
+        } else if (menu.kind() == PneumaticSystemMenu.KIND_RELIEF) {
             labelValue(g, "Vent events", Integer.toString(menu.auxiliary()), 110);
-            labelValue(g, "Current state", menu.stateFlag() == 1 ? "VENTING" : "ARMED", 130);
-            sectionRule(g, 154);
-            safeText(g, "VENTING is an operating event, not missing measurement evidence.", 16, 170, GOOD);
-        } else if (menu.kind() == PneumaticSystemMenu.KIND_FLOW_METER) {
-            labelValue(g, "Measurement samples", Integer.toString(menu.stateFlag()), 108);
-            labelValue(g, "Current flow proxy", Integer.toString(menu.primary()), 126);
-            labelValue(g, "Pin / Pout / ΔP", menu.tertiary() + " / " + menu.auxiliary() + " / " + menu.secondary(), 144);
-            labelValue(g, "Restriction index", restrictionIndexText(), 162);
-            statusLine(g, "Interpretation", flowDiagnosis(), flowDiagnosisColor(), 181);
-            safeText(g, "Server-retained metrology only • no client-side pressure/flow history is fabricated.", 16, 202, MUTED);
-        } else {
-            safeText(g, "This device exposes live server state; no artificial client-side history is created.", 16, 112, MUTED);
-        }
+            safeText(g, "VENTING is an operating event, not missing measurement evidence.", 16, 150, GOOD);
+        } else safeText(g, "Live server state only; no client-side pneumatic history is fabricated.", 16, 112, MUTED);
     }
 
-    private String deviceName() {
-        return switch (menu.kind()) {
-            case PneumaticSystemMenu.KIND_COMPRESSOR -> "AIR COMPRESSOR";
-            case PneumaticSystemMenu.KIND_PIPE -> "PNEUMATIC PIPE";
-            case PneumaticSystemMenu.KIND_RESERVOIR -> "AIR RESERVOIR";
-            case PneumaticSystemMenu.KIND_REGULATOR -> "PRESSURE REGULATOR";
-            case PneumaticSystemMenu.KIND_RECEIVER -> "PNEUMATIC RECEIVER";
-            case PneumaticSystemMenu.KIND_VALVE -> "PNEUMATIC VALVE";
-            case PneumaticSystemMenu.KIND_CHECK_VALVE -> "CHECK VALVE";
-            case PneumaticSystemMenu.KIND_FLOW_METER -> "FLOW METER";
-            case PneumaticSystemMenu.KIND_PROPORTIONAL -> "PROPORTIONAL VALVE";
-            case PneumaticSystemMenu.KIND_RELIEF -> "RELIEF VALVE";
-            case PneumaticSystemMenu.KIND_CYLINDER -> "PNEUMATIC CYLINDER";
-            default -> "PNEUMATIC DEVICE";
-        };
-    }
-
-    private String primaryLabel() {
-        return switch (menu.kind()) {
-            case PneumaticSystemMenu.KIND_COMPRESSOR -> "Command";
-            case PneumaticSystemMenu.KIND_RESERVOIR -> "Stored";
-            case PneumaticSystemMenu.KIND_FLOW_METER -> "Flow";
-            case PneumaticSystemMenu.KIND_CYLINDER -> "Pressure";
-            default -> menu.directional() ? "Inlet" : "Pressure";
-        };
-    }
-    private String secondaryLabel() {
-        return switch (menu.kind()) {
-            case PneumaticSystemMenu.KIND_COMPRESSOR -> "Set pressure";
-            case PneumaticSystemMenu.KIND_RESERVOIR -> "Network";
-            case PneumaticSystemMenu.KIND_REGULATOR -> "Setpoint";
-            case PneumaticSystemMenu.KIND_FLOW_METER -> "Δ pressure";
-            case PneumaticSystemMenu.KIND_CYLINDER -> "Position";
-            case PneumaticSystemMenu.KIND_RECEIVER -> "Redstone out";
-            default -> menu.directional() ? "Outlet" : "Aux";
-        };
-    }
-    private String tertiaryLabel() {
-        return switch (menu.kind()) {
-            case PneumaticSystemMenu.KIND_COMPRESSOR -> "Actual";
-            case PneumaticSystemMenu.KIND_FLOW_METER -> "Inlet P";
-            case PneumaticSystemMenu.KIND_PROPORTIONAL -> "Opening";
-            case PneumaticSystemMenu.KIND_RELIEF -> "Relief";
-            case PneumaticSystemMenu.KIND_CYLINDER -> "Target";
-            default -> "State";
-        };
-    }
-    private String primaryValue() { return value(menu.primary(), primaryLabel()); }
-    private String secondaryValue() { return value(menu.secondary(), secondaryLabel()); }
-    private String tertiaryValue() { return value(menu.tertiary(), tertiaryLabel()); }
-    private String value(int v, String label) {
-        return label.contains("Command") || label.contains("Redstone") || label.contains("Opening") ? v + " / 15" : v + " / 100";
-    }
-    private String topologyText() {
-        if (!menu.directional()) {
-            return menu.kind() == PneumaticSystemMenu.KIND_REGULATOR ? "SIX-WAY BIDIRECTIONAL REGULATED NODE" : "NETWORK NODE";
-        }
-        return face(menu.inputDirection()) + " → " + face(menu.outputDirection());
-    }
-    private String nondirectionalPortText() {
-        return menu.kind() == PneumaticSystemMenu.KIND_REGULATOR ? "6× BIDIRECTIONAL PNEUMATIC" : "PNEUMATIC NETWORK";
-    }
-    private String inputPortText() { return "INPUT • PNEUMATIC"; }
-    private String outputPortText() {
-        return menu.kind() == PneumaticSystemMenu.KIND_RECEIVER ? "OUTPUT • REDSTONE 0..15" : "OUTPUT • PNEUMATIC";
-    }
-    private String controlText() {
-        return switch (menu.kind()) {
-            case PneumaticSystemMenu.KIND_REGULATOR -> "SETPOINT " + menu.secondary() + "/100";
-            case PneumaticSystemMenu.KIND_RELIEF -> "RELIEF " + menu.tertiary() + "/100";
-            case PneumaticSystemMenu.KIND_VALVE -> menu.stateFlag() == 1 ? "OPEN" : "CLOSED";
-            case PneumaticSystemMenu.KIND_PROPORTIONAL -> "EXTERNAL UP COMMAND";
-            default -> "NO MANUAL PROCESS PARAMETER";
-        };
-    }
-    private String stateName() {
-        if (menu.kind() == PneumaticSystemMenu.KIND_RELIEF) return menu.stateFlag() == 1 ? "VENTING" : "ARMED";
-        if (menu.kind() == PneumaticSystemMenu.KIND_VALVE) return menu.stateFlag() == 1 ? "OPEN" : "CLOSED";
-        if (menu.kind() == PneumaticSystemMenu.KIND_FLOW_METER) return menu.stateFlag() > 0 ? "MEASURING" : "NO SAMPLES";
-        return menu.inputQuality() == PortQuality.VALID || menu.outputQuality() == PortQuality.VALID ? "NOMINAL" : "IDLE / NO SIGNAL";
-    }
-    private int stateColor() {
-        if (menu.kind() == PneumaticSystemMenu.KIND_RELIEF && menu.stateFlag() == 1) return WARN;
-        return menu.inputQuality() == PortQuality.FAULT || menu.outputQuality() == PortQuality.FAULT ? BAD : GOOD;
-    }
-    private String hint() {
-        return menu.kind() == PneumaticSystemMenu.KIND_RELIEF
-                ? "Safety state is separate from evidence validity: venting does not mean missing data."
-                : "Pressure zero can be a legitimate state when the observation itself is valid.";
-    }
-
-    private int restrictionIndex() {
-        if (menu.kind() != PneumaticSystemMenu.KIND_FLOW_METER || menu.tertiary() <= 0) return -1;
-        return Math.max(0, Math.min(100, (100 * Math.max(0, menu.secondary())) / Math.max(1, menu.tertiary())));
-    }
-
-    private String restrictionIndexText() {
-        int index = restrictionIndex();
-        return index < 0 ? "N/A" : index + "%";
-    }
-
-    private String flowDiagnosis() {
-        if (menu.inputQuality() != PortQuality.VALID || menu.outputQuality() != PortQuality.VALID) return "INSUFFICIENT PRESSURE EVIDENCE";
-        if (menu.stateFlag() <= 0) return "METROLOGY WARMUP / NO RETAINED SAMPLE";
-        if (menu.tertiary() <= 0) return "NO INLET PRESSURE";
-        int restriction = restrictionIndex();
-        if (restriction >= 60 && menu.primary() <= 25) return "SEVERE RESTRICTION / STARVATION EVIDENCE";
-        if (restriction >= 35) return "HIGH PRESSURE-DROP EVIDENCE";
-        if (restriction >= 15) return "MODERATE LINE / VALVE LOSS";
-        if (menu.primary() <= 5 && menu.tertiary() >= 20) return "LOW FLOW WITH AVAILABLE PRESSURE";
-        return "LOW RESTRICTION • FLOW PATH COHERENT";
-    }
-
-    private int flowDiagnosisColor() {
-        String diagnosis = flowDiagnosis();
-        if (diagnosis.contains("SEVERE") || diagnosis.contains("INSUFFICIENT") || diagnosis.contains("NO INLET")) return WARN;
-        if (diagnosis.contains("HIGH") || diagnosis.contains("LOW FLOW")) return WARN;
-        if (diagnosis.contains("MODERATE") || diagnosis.contains("WARMUP")) return INFO;
-        return GOOD;
-    }
-
-    private String flowNextAction() {
-        String diagnosis = flowDiagnosis();
-        if (diagnosis.contains("INSUFFICIENT")) return "NEXT • restore valid inlet/outlet observations before diagnosing the pneumatic path.";
-        if (diagnosis.contains("WARMUP")) return "NEXT • allow server metrology to acquire retained samples before comparing flow.";
-        if (diagnosis.contains("SEVERE") || diagnosis.contains("HIGH")) return "NEXT • inspect valve opening, pipe restriction and downstream demand before raising supply pressure.";
-        if (diagnosis.contains("LOW FLOW")) return "NEXT • check closed/check valves and downstream blockage before changing the compressor.";
-        if (diagnosis.contains("MODERATE")) return "NEXT • compare ΔP across adjacent sections to localize the dominant restriction.";
-        return "NEXT • path evidence is coherent; compare this section against another operating condition.";
-    }
-
+    private PneumaticSectionDiagnostics.Result section() { return PneumaticSectionDiagnostics.analyze(menu.upstreamPressure(), menu.upstreamQuality(), menu.tertiary(), menu.inputQuality(), menu.auxiliary(), menu.outputQuality(), menu.downstreamPressure(), menu.downstreamQuality(), menu.secondary()); }
+    private boolean isFlow() { return menu.kind() == PneumaticSystemMenu.KIND_FLOW_METER; }
+    private int localColor() { String s = section().localization(); return s.contains("DOMINANT") || s.contains("INCOMPLETE") ? WARN : s.contains("PARTIAL") ? INFO : GOOD; }
+    private String p(PortQuality q, int v) { return q == PortQuality.VALID ? Integer.toString(v) : "N/A"; }
+    private String d(int v) { return v < 0 ? "N/A" : Integer.toString(v); }
     private String face(net.minecraft.core.Direction d) { return d.getName().toUpperCase(); }
     private int qualityColor(PortQuality q) { return q == PortQuality.VALID ? GOOD : q == PortQuality.NO_SIGNAL || q == PortQuality.STALE ? WARN : BAD; }
+    private String route() { return menu.directional() ? face(menu.inputDirection()) + " → " + face(menu.outputDirection()) : "NETWORK NODE"; }
+
+    private String name() { return switch (menu.kind()) { case 0 -> "AIR COMPRESSOR"; case 1 -> "PNEUMATIC PIPE"; case 2 -> "AIR RESERVOIR"; case 3 -> "PRESSURE REGULATOR"; case 4 -> "PNEUMATIC RECEIVER"; case 5 -> "PNEUMATIC VALVE"; case 6 -> "CHECK VALVE"; case 7 -> "FLOW METER"; case 8 -> "PROPORTIONAL VALVE"; case 9 -> "RELIEF VALVE"; case 10 -> "PNEUMATIC CYLINDER"; default -> "PNEUMATIC DEVICE"; }; }
+    private String state() { if (menu.kind() == 9) return menu.stateFlag() == 1 ? "VENTING" : "ARMED"; if (menu.kind() == 5) return menu.stateFlag() == 1 ? "OPEN" : "CLOSED"; if (isFlow()) return menu.stateFlag() > 0 ? "MEASURING" : "NO SAMPLES"; return menu.inputQuality() == PortQuality.VALID || menu.outputQuality() == PortQuality.VALID ? "NOMINAL" : "IDLE / NO SIGNAL"; }
+    private int stateColor() { return menu.inputQuality() == PortQuality.FAULT || menu.outputQuality() == PortQuality.FAULT || (menu.kind() == 9 && menu.stateFlag() == 1) ? WARN : GOOD; }
+    private String primaryLabel() { return isFlow() ? "Flow" : menu.directional() ? "Inlet" : "Pressure"; }
+    private String secondaryLabel() { return isFlow() ? "Δ pressure" : menu.directional() ? "Outlet" : "Aux"; }
+    private String thirdLabel() { return isFlow() ? "Inlet P" : "State"; }
+    private String primaryText() { return menu.primary() + (menu.kind() == 0 ? " / 15" : " / 100"); }
+    private String secondaryText() { return menu.secondary() + " / 100"; }
+    private String thirdText() { return menu.tertiary() + " / 100"; }
+    private String controlText() { return switch (menu.kind()) { case 3 -> "SETPOINT " + menu.secondary() + "/100"; case 9 -> "RELIEF " + menu.tertiary() + "/100"; case 5 -> menu.stateFlag() == 1 ? "OPEN" : "CLOSED"; case 8 -> "EXTERNAL UP COMMAND"; default -> "NO MANUAL PROCESS PARAMETER"; }; }
 }
