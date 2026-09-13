@@ -33,7 +33,8 @@ require(sequence, "SequenceControllerBlock.java",
 require(interlock, "SafetyInterlockBlock.java",
         "boolean resetDiagnostics(Level level, BlockPos pos)",
         "RuntimeIntStore.remove(level, KEY, pos);",
-        "resetDiagnostics(level, pos);")
+        "resetDiagnostics(level, pos);",
+        "return runtime == null || runtime.length < RUNTIME_SIZE ? -1 : runtime[0];")
 require(topology, "TopologyDebuggerBlock.java",
         "boolean resetDiagnostics(Level level, BlockPos pos)",
         "FieldDeviceUi.open(serverPlayer, pos)",
@@ -48,6 +49,8 @@ require(menu, "UniversalFieldDeviceMenu.java",
         "SafetyInterlockBlock.failedMask(level, blockPos)",
         "TopologyDebuggerBlock.scanCount(level, blockPos)",
         "TopologyDebuggerBlock.targetsVanillaRedstone(level, blockPos, state)",
+        "AlarmProcessorBlock.latched(level, blockPos)",
+        "AlarmProcessorBlock.unacknowledged(level, blockPos)",
         "sequence.operatorReset(level, blockPos)",
         "interlock.resetDiagnostics(level, blockPos)",
         "debugger.resetDiagnostics(level, blockPos)",
@@ -63,6 +66,11 @@ require(screen, "UniversalFieldDeviceScreen.java",
         "CONFIG_SEQUENCE_CONTROLLER",
         "CONFIG_SAFETY_INTERLOCK",
         "CONFIG_TOPOLOGY_DEBUGGER",
+        '"ALARM • ACTIVE / UNACK"',
+        '"ALARM • ACTIVE / ACK"',
+        "action.active = kind != UniversalFieldDeviceMenu.CONFIG_ALARM || menu.configSecondary() == 2",
+        '"INTERLOCK • REACQUIRING"',
+        '"NOT EVALUATED"',
         '"Missing permissives"',
         '"Target mode"',
         '"Completed cycles"')
@@ -74,7 +82,8 @@ if errors:
     raise SystemExit(1)
 
 print("RSE SYSTEM HMI VERIFY: PASS")
+print(" alarm: CLEAR / ACTIVE-UNACK / ACTIVE-ACK operator state")
 print(" sequence: shared operator reset + synchronized step/cycle evidence")
-print(" interlock: failed permissive mask + non-bypass diagnostic reset")
+print(" interlock: explicit unevaluated state + failed permissive mask + non-bypass reset")
 print(" topology: HMI opener + scan target/count + counter reset")
 print(" system blocks use multi-port route semantics in universal HMI")
