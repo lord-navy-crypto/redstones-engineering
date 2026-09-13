@@ -20,6 +20,8 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
     private static final int MUTED = 0xFF99A7B4;
     private static final int INFO = 0xFF8EC5FF;
     private static final int GOOD = 0xFF70D49B;
+    private static final int WARN = 0xFFFFB45C;
+    private static final int BAD = 0xFFFF7373;
     private static final int ACCENT = 0xFFE25757;
     private int page;
     private Button newerButton;
@@ -80,11 +82,22 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
         String[] lines = history.get(page).split("\\n");
         int y = 50;
         for (int i = 0; i < lines.length && y < imageHeight - 52; i++) {
-            int color = i == 0 ? INFO : (lines[i].startsWith("MODE:") ? GOOD : TEXT);
-            y = drawWrapped(graphics, lines[i], 18, y, imageWidth - 36, color, 10);
+            y = drawWrapped(graphics, lines[i], 18, y, imageWidth - 36, lineColor(lines[i], i), 10);
         }
         String footer = "Snapshot " + (page + 1) + " / " + history.size() + " • newest = 1";
         graphics.drawString(font, footer, 108, imageHeight - 40, MUTED, false);
+    }
+
+    private int lineColor(String line, int index) {
+        if (index == 0) return INFO;
+        if (line.startsWith("STATUS:")) {
+            return line.contains("CHECK TOPOLOGY") ? BAD : GOOD;
+        }
+        if (line.startsWith("TOPOLOGY:") || line.startsWith("REDSTONE IN:")) return INFO;
+        if (line.startsWith("MODE:")) return MUTED;
+        if (line.startsWith("ID:") || line.startsWith("POS:") || line.startsWith("SOURCE:") || line.startsWith("STATE:")) return MUTED;
+        if (line.contains(" q=DEGRADED") || line.contains(" q=MISSING") || line.contains("issue")) return WARN;
+        return TEXT;
     }
 
     private int drawWrapped(GuiGraphics graphics, String text, int x, int y, int width, int color, int step) {

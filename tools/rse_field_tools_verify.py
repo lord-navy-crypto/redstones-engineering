@@ -63,6 +63,9 @@ require(
     "page = Math.min(Math.max(0, menu.history().size() - 1), page + 1)",
     "newerButton.active = !menu.history().isEmpty() && page > 0",
     "olderButton.active = !menu.history().isEmpty() && page < lastPage",
+    "lineColor(lines[i], i)", 'line.startsWith("STATUS:")', 'line.contains("CHECK TOPOLOGY")',
+    'line.startsWith("TOPOLOGY:")', 'line.startsWith("REDSTONE IN:")',
+    'line.contains(" q=DEGRADED")', 'line.contains(" q=MISSING")',
 )
 require(
     "src/main/java/dev/redstoneengineering/EngineeringSystemsModule.java",
@@ -91,5 +94,6 @@ print(" book + redstone recipe: PASS")
 print(" bounded observer-only diagnostic tablet history: PASS")
 print(" BlockState + vanilla redstone observation: PASS")
 print(" tablet Newer/Older navigation + boundary states: PASS")
+print(" semantic topology/evidence colors: PASS")
 print(" existing diagnostics/topology reuse: PASS")
 print(" engineering compass retained: PASS")
