@@ -62,6 +62,24 @@ require("src/main/java/dev/redstoneengineering/client/ui/OscilloscopeScreen.java
 require("src/main/java/dev/redstoneengineering/client/ui/LogicAnalyzerScreen.java",
         "Bus interference", "interferenceConfidence()", "shield exposed instrument segments")
 
+# Digital communication HMI must expose the real server-side tradeoffs instead of replacing them
+# with static marketing text. The menu may only read existing runtime diagnostics; graph resolution
+# remains owned by DataBusNetwork / SerialNetwork / DifferentialNetwork.
+require("src/main/java/dev/redstoneengineering/ui/menu/DigitalCommunicationMenu.java",
+        "refreshMediumTelemetry", "DataBusNetwork.getDiagnostics", "SerialNetwork.getDiagnostics",
+        "DifferentialNetwork.driverCount", "InformationRuntime.snapshot", "mediumQualityPercent",
+        "mediumAgeTicks", "mediumDriverCount", "mediumMetricA", "mediumMetricB", "mediumMetricC")
+digital_menu = read("src/main/java/dev/redstoneengineering/ui/menu/DigitalCommunicationMenu.java")
+for forbidden in ("DataBusNetwork.resolve", "DataBusNetwork.drive", "SerialNetwork.recompute", "SerialNetwork.drive", "DifferentialNetwork.recompute", "DifferentialNetwork.drive"):
+    if forbidden in digital_menu:
+        errors.append(f"DigitalCommunicationMenu must remain observer-only; found solver mutation call {forbidden!r}")
+
+require("src/main/java/dev/redstoneengineering/client/ui/DigitalCommunicationScreen.java",
+        "8-bit parallel", "Contention / conflicts", "period=", "util=", "1-bit high-integrity",
+        "8-BIT BUS CONTENTION CONSUMING MARGIN", "SERIAL LINK NEAR UTILIZATION LIMIT",
+        "DIFFERENTIAL HIGH-INTEGRITY LINK VALID", "highest local payload width",
+        "fewer conductors", "one-bit payload density")
+
 require("docs/COMMUNICATION_MEDIUM_IDENTITY.md", "Shared information envelope", "Medium identity rule",
         "Communication choice hierarchy", "How much information must move?", "No medium should be the universal upgrade of another",
         "8-bit Data Bus", "Serial Data", "Differential Data", "Radio", "Guided Optical Fiber", "Free-space Optical",
@@ -89,6 +107,8 @@ print(" engineering choice hierarchy + non-dominance rule: PASS")
 print(" 8-bit bus local-loading + contention identity: PASS")
 print(" serial timing/utilization identity preserved: PASS")
 print(" differential one-bit high-integrity identity: PASS")
+print(" digital HMI exposes authoritative bus/serial/differential tradeoff evidence: PASS")
+print(" digital HMI observer boundary / no second solver: PASS")
 print(" instrument shielding deterministic local-exposure differentiation: PASS")
 print(" instrument topology quality remains separate from interference confidence: PASS")
 print(" communication medium design contract: PASS")
