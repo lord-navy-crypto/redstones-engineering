@@ -46,6 +46,9 @@ require(
     "Redstone = coarse 0..15 control", "RadioKernel owns", "redstone_to_lapis_scaler",
     "lapis_to_redstone_quantizer", "copper_circuit_meter", "pneumatic_cylinder",
     "radio_receiver", "pid_controller", "operations_monitor",
+    'Component.literal("Prev")', 'Component.literal("Next")', "refreshNavigationButtons",
+    "previousButton.active = page > 0", "nextButton.active = page < blocks.size()",
+    'configurationView ? "Guide" : "Ports / Config"',
 )
 require(
     "src/main/java/dev/redstoneengineering/item/DiagnosticTabletItem.java",
@@ -108,6 +111,7 @@ if failed:
 print("RSE field tools verification: PASS")
 print(" registry-backed encyclopedia coverage: PASS")
 print(" encyclopedia entry tooltip: PASS")
+print(" encyclopedia destination labels + page boundaries: PASS")
 print(" guide + ports/config split: PASS")
 print(" curated high-risk block guidance: PASS")
 print(" book + redstone recipe: PASS")
