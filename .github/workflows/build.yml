@@ -138,9 +138,34 @@ jobs:
       - name: Gradle tests
         run: ./gradlew test --no-daemon --stacktrace
 
-      # GameTests are retained as explicit runtime evidence, but are no longer a normal PR/push gate.
-      # They have historically been expensive and can fail independently of the static/compile/unit chain.
-      # Run them deliberately from workflow_dispatch when runtime-topology evidence is wanted.
+      # Release-candidate branches deliberately pay the runtime cost here. This closes the gap
+      # between the documented RC gate and ordinary PR CI, which keeps GameTests as a manual diagnostic.
+      - name: Minecraft topology GameTests (release candidate gate)
+        if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'test-candidate-')
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .rse-audit
+          timeout --signal=TERM 12m ./gradlew runGameTestServer --no-daemon --stacktrace 2>&1 | tee .rse-audit/gametest-server.log
+          gametest_status=${PIPESTATUS[0]}
+          if (( gametest_status == 124 )); then
+            echo "::error::Release-candidate GameTest server exceeded the 12-minute gate"
+            exit 124
+          elif (( gametest_status != 0 )); then
+            echo "::error::Release-candidate GameTest server exited non-zero: $gametest_status"
+            exit "$gametest_status"
+          elif grep -Fq "Too many chained neighbor updates" .rse-audit/gametest-server.log; then
+            echo "::error::Release-candidate GameTests triggered the chained-neighbor-update safety cutoff"
+            exit 1
+          fi
+          summary_line="$(grep -E 'All [0-9]+ required tests passed :\)' .rse-audit/gametest-server.log | tail -n 1 || true)"
+          if [[ -z "$summary_line" ]]; then
+            echo "::error::Release-candidate GameTests completed without an all-tests-passed summary"
+            exit 1
+          fi
+          echo "Release-candidate GameTest evidence: $summary_line"
+
+      # Ordinary development keeps GameTests as an explicit runtime diagnostic.
       - name: Minecraft topology GameTests (manual diagnostic)
         if: github.event_name == 'workflow_dispatch'
         continue-on-error: true
