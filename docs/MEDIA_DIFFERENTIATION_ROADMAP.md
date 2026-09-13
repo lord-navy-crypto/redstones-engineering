@@ -24,6 +24,16 @@ A medium is justified when it creates a distinct engineering decision that instr
 
 Media differentiation is introduced in two layers. First, expose real topology, coverage, quality, utilization, loading and shielding evidence in synchronized instrument UI. Second, only where a deterministic server-side model exists, allow the medium to affect propagation behavior. Shielding therefore starts as commissioning evidence and does not inject random client-side noise.
 
+## Player-choice test
+
+Every retained medium should eventually answer all three questions:
+
+1. What engineering quantity does it transport or couple?
+2. What characteristic failure or limitation can occur on this medium?
+3. Which instrument or diagnostic surface lets the player observe that limitation?
+
+If two media answer all three questions the same way, they are not differentiated enough and should be redesigned before another medium is added.
+
 ## Long-line development order
 
 1. Instrument/UI depth: Measure -> Capture -> Diagnose -> Next Action.
