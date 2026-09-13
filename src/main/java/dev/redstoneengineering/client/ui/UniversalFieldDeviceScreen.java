@@ -82,8 +82,9 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         if (secondaryNext != null) secondaryNext.visible = configure && range;
         if (action != null) {
             action.visible = configure && hasAction;
+            action.active = kind != UniversalFieldDeviceMenu.CONFIG_ALARM || menu.configSecondary() == 2;
             if (kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER) action.setMessage(Component.literal("Reset measurement history"));
-            else if (kind == UniversalFieldDeviceMenu.CONFIG_ALARM) action.setMessage(Component.literal("Acknowledge active alarm"));
+            else if (kind == UniversalFieldDeviceMenu.CONFIG_ALARM) action.setMessage(Component.literal(menu.configSecondary() == 2 ? "Acknowledge active alarm" : "Alarm already clear / acknowledged"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD) action.setMessage(Component.literal("Clear held value"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_SEQUENCE_CONTROLLER) action.setMessage(Component.literal("Reset sequence to IDLE"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK) action.setMessage(Component.literal("Reset diagnostic counters"));
@@ -170,10 +171,13 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 safeText(g, "Reset clears filtered/peak history; the fixed UP aperture remains unchanged.", 16, 188, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_ALARM -> {
-                statusBadge(g, "ALARM PROCESSOR", INFO, 16, 80);
+                int alarmState = menu.configSecondary();
+                String label = alarmState == 0 ? "ALARM • CLEAR" : alarmState == 2 ? "ALARM • ACTIVE / UNACK" : "ALARM • ACTIVE / ACK";
+                int color = alarmState == 0 ? GOOD : alarmState == 2 ? BAD : WARN;
+                statusBadge(g, label, color, 16, 80);
                 labelValue(g, "Severity", Integer.toString(menu.configPrimary()), 101);
-                labelValue(g, "Activations", Integer.toString(menu.configSecondary()), 141);
-                safeText(g, "Acknowledge clears operator attention; process RESET remains a physical input.", 16, 188, MUTED);
+                labelValue(g, "Operator state", alarmStateName(alarmState), 141);
+                safeText(g, "ACK changes operator-attention state; process RESET / CLEAR remains a physical input.", 16, 188, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD -> {
                 statusBadge(g, "SAMPLE & HOLD", INFO, 16, 80);
@@ -205,11 +209,16 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 safeText(g, "Operator reset returns runtime state to IDLE; wired RESET remains independent.", 16, 188, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK -> {
+                boolean evaluated = menu.configPrimary() >= 0;
                 boolean permit = menu.configSecondary() != 0;
-                statusBadge(g, permit ? "INTERLOCK • PERMIT" : "INTERLOCK • BLOCKED", permit ? GOOD : WARN, 16, 80);
+                statusBadge(g, !evaluated ? "INTERLOCK • REACQUIRING" : permit ? "INTERLOCK • PERMIT" : "INTERLOCK • BLOCKED",
+                        !evaluated ? INFO : permit ? GOOD : WARN, 16, 80);
                 labelValue(g, "Missing permissives", failedPermissives(menu.configPrimary()), 101);
                 labelValue(g, "Permit output", permit ? "15 / ENABLED" : "0 / BLOCKED", 141);
-                safeText(g, "Reset counters does not bypass permissives A/B/C or force the permit output.", 16, 188, MUTED);
+                safeText(g, !evaluated
+                                ? "Diagnostic counters were reset; permissive evidence will repopulate on the next evaluation."
+                                : "Reset counters does not bypass permissives A/B/C or force the permit output.",
+                        16, 188, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER -> {
                 statusBadge(g, attentionCount() == 0 ? "TOPOLOGY • NOMINAL" : "TOPOLOGY • ISSUE", attentionCount() == 0 ? GOOD : WARN, 16, 80);
@@ -395,7 +404,12 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         return step <= 0 ? "IDLE" : "STEP " + Math.min(4, step);
     }
 
+    private static String alarmStateName(int state) {
+        return state == 0 ? "CLEAR" : state == 2 ? "ACTIVE • UNACKNOWLEDGED" : "ACTIVE • ACKNOWLEDGED";
+    }
+
     private static String failedPermissives(int mask) {
+        if (mask < 0) return "NOT EVALUATED";
         if (mask == 0) return "NONE";
         StringBuilder missing = new StringBuilder();
         if ((mask & 1) != 0) missing.append("A");
