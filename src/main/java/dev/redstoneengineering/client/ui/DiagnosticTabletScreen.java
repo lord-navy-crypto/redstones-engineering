@@ -22,6 +22,8 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
     private static final int GOOD = 0xFF70D49B;
     private static final int ACCENT = 0xFFE25757;
     private int page;
+    private Button newerButton;
+    private Button olderButton;
 
     public DiagnosticTabletScreen(DiagnosticTabletMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -35,10 +37,24 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
         addRenderableWidget(Button.builder(Component.literal("Diagnostics"), button ->
                         Minecraft.getInstance().setScreen(new RseDiagnosticsScreen(this)))
                 .bounds(leftPos + 12, topPos + imageHeight - 28, 88, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("<"), button -> page = Math.min(Math.max(0, menu.history().size() - 1), page + 1))
-                .bounds(leftPos + imageWidth - 82, topPos + imageHeight - 28, 30, 20).build());
-        addRenderableWidget(Button.builder(Component.literal(">"), button -> page = Math.max(0, page - 1))
-                .bounds(leftPos + imageWidth - 46, topPos + imageHeight - 28, 30, 20).build());
+        newerButton = addRenderableWidget(Button.builder(Component.literal("Newer"), button -> {
+                    page = Math.max(0, page - 1);
+                    refreshHistoryButtons();
+                })
+                .bounds(leftPos + imageWidth - 122, topPos + imageHeight - 28, 52, 20).build());
+        olderButton = addRenderableWidget(Button.builder(Component.literal("Older"), button -> {
+                    page = Math.min(Math.max(0, menu.history().size() - 1), page + 1);
+                    refreshHistoryButtons();
+                })
+                .bounds(leftPos + imageWidth - 64, topPos + imageHeight - 28, 52, 20).build());
+        refreshHistoryButtons();
+    }
+
+    private void refreshHistoryButtons() {
+        int lastPage = Math.max(0, menu.history().size() - 1);
+        page = Math.max(0, Math.min(page, lastPage));
+        if (newerButton != null) newerButton.active = !menu.history().isEmpty() && page > 0;
+        if (olderButton != null) olderButton.active = !menu.history().isEmpty() && page < lastPage;
     }
 
     @Override
@@ -54,21 +70,21 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
         graphics.drawString(font, "ENGINEERING DIAGNOSTIC TABLET", 14, 13, TEXT, false);
         graphics.drawString(font, "OBSERVER ONLY • retained snapshots", 14, 25, GOOD, false);
         List<String> history = menu.history();
+        refreshHistoryButtons();
         if (history.isEmpty()) {
             graphics.drawString(font, "No retained snapshots.", 18, 53, MUTED, false);
             drawWrapped(graphics, "Right-click an RSE or vanilla block with the tablet to capture its current identity and EngineeringPort topology evidence. Shift-right-click air to return here.", 18, 70, imageWidth - 36, INFO, 11);
             return;
         }
 
-        page = Math.min(page, history.size() - 1);
         String[] lines = history.get(page).split("\\n");
         int y = 50;
-        for (int i = 0; i < lines.length && y < imageHeight - 48; i++) {
+        for (int i = 0; i < lines.length && y < imageHeight - 52; i++) {
             int color = i == 0 ? INFO : (lines[i].startsWith("MODE:") ? GOOD : TEXT);
             y = drawWrapped(graphics, lines[i], 18, y, imageWidth - 36, color, 10);
         }
         String footer = "Snapshot " + (page + 1) + " / " + history.size() + " • newest = 1";
-        graphics.drawString(font, footer, 108, imageHeight - 23, MUTED, false);
+        graphics.drawString(font, footer, 108, imageHeight - 40, MUTED, false);
     }
 
     private int drawWrapped(GuiGraphics graphics, String text, int x, int y, int width, int color, int step) {

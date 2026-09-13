@@ -58,7 +58,11 @@ forbid(
 require(
     "src/main/java/dev/redstoneengineering/client/ui/DiagnosticTabletScreen.java",
     "ENGINEERING DIAGNOSTIC TABLET", "OBSERVER ONLY", "RseDiagnosticsScreen",
-    "Snapshot ", "newest = 1",
+    "Snapshot ", "newest = 1", "Newer", "Older", "refreshHistoryButtons",
+    "page = Math.max(0, page - 1)",
+    "page = Math.min(Math.max(0, menu.history().size() - 1), page + 1)",
+    "newerButton.active = !menu.history().isEmpty() && page > 0",
+    "olderButton.active = !menu.history().isEmpty() && page < lastPage",
 )
 require(
     "src/main/java/dev/redstoneengineering/EngineeringSystemsModule.java",
@@ -86,5 +90,6 @@ print(" curated high-risk block guidance: PASS")
 print(" book + redstone recipe: PASS")
 print(" bounded observer-only diagnostic tablet history: PASS")
 print(" BlockState + vanilla redstone observation: PASS")
+print(" tablet Newer/Older navigation + boundary states: PASS")
 print(" existing diagnostics/topology reuse: PASS")
 print(" engineering compass retained: PASS")
