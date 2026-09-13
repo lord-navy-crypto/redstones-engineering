@@ -2,6 +2,7 @@ package dev.redstoneengineering.ui.menu;
 
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.block.CopperCircuitMeterBlock;
+import dev.redstoneengineering.core.diagnostic.CommissioningStatus;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import net.minecraft.core.BlockPos;
@@ -23,6 +24,7 @@ public final class CopperCircuitMeterMenu extends EngineeringDeviceMenu {
     private final DataSlot currentMilli = trackedInt();
     private final DataSlot powerCenti = trackedInt();
     private final DataSlot quality = trackedInt();
+    private final DataSlot commissioningStatus = trackedInt();
 
     public CopperCircuitMeterMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -46,6 +48,16 @@ public final class CopperCircuitMeterMenu extends EngineeringDeviceMenu {
         currentMilli.set(scaled(diagnostics.current(), 1000.0));
         powerCenti.set(scaled(diagnostics.power(), 100.0));
         quality.set(diagnostics.quality().ordinal());
+        commissioningStatus.set(commissioningFor(diagnostics).code());
+    }
+
+    private static CommissioningStatus commissioningFor(CopperCircuitMeterBlock.ElectricalDiagnostics diagnostics) {
+        return switch (diagnostics.quality()) {
+            case VALID -> diagnostics.voltage() > 0 ? CommissioningStatus.PASS : CommissioningStatus.MARGINAL;
+            case SATURATED -> CommissioningStatus.MARGINAL;
+            case NO_SIGNAL, STALE -> CommissioningStatus.NOT_READY;
+            case FAULT, DOMAIN_MISMATCH, TOPOLOGY_ERROR -> CommissioningStatus.FAIL;
+        };
     }
 
     @Override
@@ -84,5 +96,6 @@ public final class CopperCircuitMeterMenu extends EngineeringDeviceMenu {
         PortQuality[] values = PortQuality.values();
         return ordinal < 0 || ordinal >= values.length ? PortQuality.NO_SIGNAL : values[ordinal];
     }
+    public CommissioningStatus commissioningStatus() { return CommissioningStatus.fromCode(commissioningStatus.get()); }
     public boolean energized() { return quality() == PortQuality.VALID && voltage() > 0; }
 }
