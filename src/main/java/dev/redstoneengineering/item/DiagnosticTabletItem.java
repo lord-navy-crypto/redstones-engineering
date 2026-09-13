@@ -126,6 +126,8 @@ public final class DiagnosticTabletItem extends Item {
         out.append(state.getBlock().getName().getString()).append('\n');
         out.append("ID: ").append(id).append('\n');
         out.append("POS: ").append(pos.getX()).append(", ").append(pos.getY()).append(", ").append(pos.getZ()).append('\n');
+        out.append("CONTEXT: dimension=").append(level.dimension().location())
+                .append(" • tick=").append(level.getGameTime()).append('\n');
         out.append("SOURCE: ").append(RedstoneEngineering.MOD_ID.equals(BuiltInRegistries.BLOCK.getKey(state.getBlock()).getNamespace()) ? "RSE" : "VANILLA / OTHER").append('\n');
         out.append("REDSTONE IN: best-neighbor=").append(level.getBestNeighborSignal(pos)).append("/15 • powered=").append(level.hasNeighborSignal(pos)).append('\n');
         appendState(out, state);
