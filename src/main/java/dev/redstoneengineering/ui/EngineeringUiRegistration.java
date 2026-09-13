@@ -3,6 +3,7 @@ package dev.redstoneengineering.ui;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.ui.menu.AmethystSystemMenu;
 import dev.redstoneengineering.ui.menu.CopperCircuitMeterMenu;
+import dev.redstoneengineering.ui.menu.DiagnosticTabletMenu;
 import dev.redstoneengineering.ui.menu.DigitalCommunicationMenu;
 import dev.redstoneengineering.ui.menu.FieldDeviceMenu;
 import dev.redstoneengineering.ui.menu.LogicAnalyzerMenu;
@@ -16,6 +17,7 @@ import dev.redstoneengineering.ui.menu.PneumaticSystemMenu;
 import dev.redstoneengineering.ui.menu.QuartzTimingMenu;
 import dev.redstoneengineering.ui.menu.RadioLinkMenu;
 import dev.redstoneengineering.ui.menu.RangeSensorMenu;
+import dev.redstoneengineering.ui.menu.RedstoneEncyclopediaMenu;
 import dev.redstoneengineering.ui.menu.ReliabilitySystemMenu;
 import dev.redstoneengineering.ui.menu.SignalAnalyzerMenu;
 import dev.redstoneengineering.ui.menu.SignalConditionerMenu;
@@ -52,5 +54,7 @@ public final class EngineeringUiRegistration {
     public static final DeferredHolder<MenuType<?>, MenuType<MagneticSystemMenu>> MAGNETIC_SYSTEM = MENUS.register("magnetic_system", () -> IMenuTypeExtension.create(MagneticSystemMenu::new));
     public static final DeferredHolder<MenuType<?>, MenuType<ReliabilitySystemMenu>> RELIABILITY_SYSTEM = MENUS.register("reliability_system", () -> IMenuTypeExtension.create(ReliabilitySystemMenu::new));
     public static final DeferredHolder<MenuType<?>, MenuType<OperationsMonitorMenu>> OPERATIONS_MONITOR = MENUS.register("operations_monitor", () -> IMenuTypeExtension.create(OperationsMonitorMenu::new));
+    public static final DeferredHolder<MenuType<?>, MenuType<RedstoneEncyclopediaMenu>> REDSTONE_ENCYCLOPEDIA = MENUS.register("redstone_encyclopedia", () -> IMenuTypeExtension.create(RedstoneEncyclopediaMenu::new));
+    public static final DeferredHolder<MenuType<?>, MenuType<DiagnosticTabletMenu>> DIAGNOSTIC_TABLET = MENUS.register("diagnostic_tablet", () -> IMenuTypeExtension.create(DiagnosticTabletMenu::new));
     public EngineeringUiRegistration(IEventBus modBus) { MENUS.register(modBus); }
 }

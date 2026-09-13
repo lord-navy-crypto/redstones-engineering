@@ -51,6 +51,8 @@ public final class EngineeringUiClientRegistration {
         event.register(EngineeringUiRegistration.MAGNETIC_SYSTEM.get(), MagneticSystemScreen::new);
         event.register(EngineeringUiRegistration.RELIABILITY_SYSTEM.get(), ReliabilitySystemScreen::new);
         event.register(EngineeringUiRegistration.OPERATIONS_MONITOR.get(), OperationsMonitorScreen::new);
+        event.register(EngineeringUiRegistration.REDSTONE_ENCYCLOPEDIA.get(), RedstoneEncyclopediaScreen::new);
+        event.register(EngineeringUiRegistration.DIAGNOSTIC_TABLET.get(), DiagnosticTabletScreen::new);
     }
 
     private static void hideLegacyJunctionVariants(BuildCreativeModeTabContentsEvent event) {

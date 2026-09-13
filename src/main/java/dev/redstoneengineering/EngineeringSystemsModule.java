@@ -9,9 +9,12 @@ import dev.redstoneengineering.block.TopologyDebuggerBlock;
 import dev.redstoneengineering.gametest.RseEngineeringSystemsGameTests;
 import dev.redstoneengineering.gametest.RsePlantScopeLifecycleGameTests;
 import dev.redstoneengineering.gametest.RseVanillaRedstoneEngineeringGameTests;
+import dev.redstoneengineering.item.DiagnosticTabletItem;
+import dev.redstoneengineering.item.RedstoneEncyclopediaItem;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
@@ -67,6 +70,11 @@ public final class EngineeringSystemsModule {
     public static final DeferredItem<BlockItem> TOPOLOGY_DEBUGGER_ITEM = ITEMS.registerSimpleBlockItem("topology_debugger", TOPOLOGY_DEBUGGER);
     public static final DeferredItem<BlockItem> ENGINEERING_COMPASS_ITEM = ITEMS.registerSimpleBlockItem("engineering_compass", ENGINEERING_COMPASS);
 
+    public static final DeferredItem<RedstoneEncyclopediaItem> REDSTONE_ENCYCLOPEDIA_ITEM =
+            ITEMS.register("redstone_encyclopedia", () -> new RedstoneEncyclopediaItem(new Item.Properties()));
+    public static final DeferredItem<DiagnosticTabletItem> DIAGNOSTIC_TABLET_ITEM =
+            ITEMS.register("diagnostic_tablet", () -> new DiagnosticTabletItem(new Item.Properties()));
+
     public EngineeringSystemsModule(IEventBus modBus) {
         BLOCK_TYPES.register(modBus);
         BLOCKS.register(modBus);
@@ -90,6 +98,8 @@ public final class EngineeringSystemsModule {
 
     private static void addCreativeTabItems(BuildCreativeModeTabContentsEvent event) {
         if (!event.getTabKey().location().equals(id("rse"))) return;
+        event.accept(REDSTONE_ENCYCLOPEDIA_ITEM);
+        event.accept(DIAGNOSTIC_TABLET_ITEM);
         event.accept(SEQUENCE_CONTROLLER_ITEM);
         event.accept(SAFETY_INTERLOCK_ITEM);
         event.accept(FAULT_INJECTOR_ITEM);
@@ -105,6 +115,6 @@ public final class EngineeringSystemsModule {
     }
 
     public static String summary() {
-        return "Engineering Systems: Sequence / Interlock / Fault / Alarm / Topology Diagnostics / World-Axis Compass / Vanilla Redstone Engineering";
+        return "Engineering Systems: Encyclopedia / Diagnostic Tablet / Sequence / Interlock / Fault / Alarm / Topology Diagnostics / World-Axis Compass / Vanilla Redstone Engineering";
     }
 }

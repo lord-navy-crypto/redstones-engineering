@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    { "item": "minecraft:book" },
+    { "item": "minecraft:redstone" }
+  ],
+  "result": {
+    "id": "redstoneengineering:redstone_encyclopedia",
+    "count": 1
+  }
+}
