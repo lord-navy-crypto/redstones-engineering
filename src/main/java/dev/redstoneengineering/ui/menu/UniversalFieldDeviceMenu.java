@@ -123,7 +123,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         } else if (block instanceof FaultInjectorBlock) {
             configKind.set(CONFIG_FAULT_INJECTOR);
             configPrimary.set(state.getValue(FaultInjectorBlock.MODE));
-            configSecondary.set(FaultInjectorBlock.activationCount(level, blockPos));
+            configSecondary.set(FaultInjectorBlock.active(level, blockPos) ? 1 : 0);
         } else if (block instanceof SequenceControllerBlock) {
             configKind.set(CONFIG_SEQUENCE_CONTROLLER);
             configPrimary.set(SequenceControllerBlock.step(level, blockPos));
@@ -266,6 +266,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         if (block instanceof MolecularCloudReceiverBlock receiver) return receiver.resetHistory(level, blockPos);
         if (block instanceof AlarmProcessorBlock alarm) return alarm.acknowledge(level, blockPos);
         if (block instanceof SampleHoldBlock sampleHold) return sampleHold.clearHeldValue(level, blockPos);
+        if (block instanceof FaultInjectorBlock faultInjector) return faultInjector.resetDiagnostics(level, blockPos);
         if (block instanceof SequenceControllerBlock sequence) return sequence.operatorReset(level, blockPos);
         if (block instanceof SafetyInterlockBlock interlock) return interlock.resetDiagnostics(level, blockPos);
         if (block instanceof TopologyDebuggerBlock debugger) return debugger.resetDiagnostics(level, blockPos);
