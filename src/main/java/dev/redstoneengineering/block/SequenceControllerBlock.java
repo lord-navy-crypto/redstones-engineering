@@ -165,6 +165,24 @@ public class SequenceControllerBlock extends PassiveDirectionalSignalBlock {
         return runtime == null || runtime.length < 4 ? 0 : runtime[3];
     }
 
+    /** Shared operator action for HMI and shift-use. Server state remains authoritative. */
+    public boolean operatorReset(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (!state.is(this)) return false;
+        int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
+        int oldStep = runtime[0];
+        runtime[0] = 0;
+        runtime[1] = 0;
+        runtime[2] = 0;
+        runtime[5]++;
+        updateOutput(level, pos, state, 0);
+        if (oldStep != 0) {
+            SystemEventTimeline.record(level, pos, SystemEventKind.SEQUENCE_RESET, 1,
+                    "SEQUENCE_OPERATOR_RESET", "Operator reset sequence from step=" + oldStep);
+        }
+        return true;
+    }
+
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
@@ -187,17 +205,7 @@ public class SequenceControllerBlock extends PassiveDirectionalSignalBlock {
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
-                int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
-                int oldStep = runtime[0];
-                runtime[0] = 0;
-                runtime[1] = 0;
-                runtime[2] = 0;
-                runtime[5]++;
-                updateOutput(level, pos, state, 0);
-                if (oldStep != 0) {
-                    SystemEventTimeline.record(level, pos, SystemEventKind.SEQUENCE_RESET, 1,
-                            "SEQUENCE_OPERATOR_RESET", "Operator reset sequence from step=" + oldStep);
-                }
+                operatorReset(level, pos);
                 player.displayClientMessage(Component.literal("Sequence reset | waiting for RUN rising edge"), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
