@@ -38,21 +38,29 @@ import java.util.Optional;
 
 /** Explicit vanilla Redstone 0..15 -> normalized Lapis 0..100 scaler. */
 public class RedstoneToLapisScalerBlock extends Block implements EngineeringPortProvider {
+    /** Lapis TX face. */
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
+    /** Redstone RX face. Never intentionally overlaps {@link #FACING}. */
+    public static final DirectionProperty INPUT_FACING = DirectionProperty.create("input_facing", Direction.Plane.HORIZONTAL);
     private static final String KEY = "redstone_to_lapis_scaler";
     private static final int RUNTIME_SIZE = 2;
 
     public RedstoneToLapisScalerBlock(Properties properties) {
         super(properties);
-        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH));
+        registerDefaultState(stateDefinition.any()
+                .setValue(FACING, Direction.NORTH)
+                .setValue(INPUT_FACING, Direction.SOUTH));
     }
 
     @Override public MapCodec<RedstoneToLapisScalerBlock> codec() { return RedstoneEngineering.REDSTONE_TO_LAPIS_SCALER_CODEC.value(); }
-    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { builder.add(FACING); }
-    @Override public BlockState getStateForPlacement(BlockPlaceContext context) { return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite()); }
+    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { builder.add(FACING, INPUT_FACING); }
+    @Override public BlockState getStateForPlacement(BlockPlaceContext context) {
+        Direction output = context.getHorizontalDirection().getOpposite();
+        return defaultBlockState().setValue(FACING, output).setValue(INPUT_FACING, output.getOpposite());
+    }
 
     private Direction outputSide(BlockState state) { return state.getValue(FACING); }
-    private Direction inputSide(BlockState state) { return outputSide(state).getOpposite(); }
+    private Direction inputSide(BlockState state) { return state.getValue(INPUT_FACING); }
     private static int encodeQuality(PortQuality quality) { return quality.ordinal() + 1; }
 
     public static int outputValue(Level level, BlockPos pos) {
@@ -110,6 +118,46 @@ public class RedstoneToLapisScalerBlock extends Block implements EngineeringPort
         level.scheduleTick(pos, this, 2);
     }
 
+    public static boolean rotateInput(Level level, BlockPos pos, boolean clockwise) {
+        if (level.isClientSide) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof RedstoneToLapisScalerBlock block)) return false;
+        Direction output = state.getValue(FACING);
+        Direction oldInput = state.getValue(INPUT_FACING);
+        Direction nextInput = nextFreeHorizontal(oldInput, output, clockwise);
+        if (nextInput == oldInput) return false;
+        level.setBlock(pos, state.setValue(INPUT_FACING, nextInput), Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, block, 1);
+        level.updateNeighborsAt(pos, block);
+        return true;
+    }
+
+    public static boolean rotateOutput(Level level, BlockPos pos, boolean clockwise) {
+        if (level.isClientSide) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof RedstoneToLapisScalerBlock block)) return false;
+        Direction input = state.getValue(INPUT_FACING);
+        Direction oldOutput = state.getValue(FACING);
+        Direction nextOutput = nextFreeHorizontal(oldOutput, input, clockwise);
+        if (nextOutput == oldOutput) return false;
+        if (level instanceof ServerLevel server) {
+            DomainNetwork.driveLapis(server, pos.relative(oldOutput), pos, 0, false);
+        }
+        level.setBlock(pos, state.setValue(FACING, nextOutput), Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, block, 1);
+        level.updateNeighborsAt(pos, block);
+        return true;
+    }
+
+    private static Direction nextFreeHorizontal(Direction current, Direction forbidden, boolean clockwise) {
+        Direction candidate = current;
+        for (int i = 0; i < 3; i++) {
+            candidate = clockwise ? candidate.getClockWise() : candidate.getCounterClockWise();
+            if (candidate != forbidden) return candidate;
+        }
+        return current;
+    }
+
     @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
         if (!state.is(newState.getBlock())) {
             if (level instanceof ServerLevel server) DomainNetwork.driveLapis(server, pos.relative(outputSide(state)), pos, 0, false);
@@ -129,14 +177,18 @@ public class RedstoneToLapisScalerBlock extends Block implements EngineeringPort
                     int output = outputValue(level, pos);
                     int sourceSpacing = CoreMediaDiagnostics.sourceCodeSpacing(input.value());
                     player.displayClientMessage(Component.literal(
-                            "Redstone to Lapis Scaler | input=" + input.value() + "/15"
+                            "Redstone to Lapis Scaler | RX=" + inputSide(state).getName().toUpperCase()
+                                    + " | TX=" + outputSide(state).getName().toUpperCase()
+                                    + " | input=" + input.value() + "/15"
                                     + " | output=" + String.format("%.2f", output / 100.0)
                                     + " | sourceCodeSpacing=" + String.format("%.2f", sourceSpacing / 100.0)
                                     + " | UPSCALED REPRESENTATION - NO NEW SOURCE PRECISION"
                                     + " | quality=" + outputQuality(level, pos)), true);
                 } else {
                     player.displayClientMessage(Component.literal(
-                            "Redstone to Lapis Scaler | input=" + input.quality().name()
+                            "Redstone to Lapis Scaler | RX=" + inputSide(state).getName().toUpperCase()
+                                    + " | TX=" + outputSide(state).getName().toUpperCase()
+                                    + " | input=" + input.quality().name()
                                     + " | outputQuality=" + outputQuality(level, pos)
                                     + " | precision unavailable until Redstone evidence is VALID"), true);
                 }
