@@ -45,29 +45,26 @@ public final class LogicAnalyzerMenu extends EngineeringDeviceMenu {
     private final DataSlot activeChannels = trackedInt();
     private final DataSlot duplicateChannels = trackedInt();
     private final DataSlot bounded = trackedInt();
+    private final DataSlot shieldedCableNodes = trackedInt();
+    private final DataSlot unshieldedCableNodes = trackedInt();
+    private final DataSlot shieldingCoverage = trackedInt();
+    private final DataSlot exposedCableNodes = trackedInt();
+    private final DataSlot shieldedExposedNodes = trackedInt();
+    private final DataSlot unshieldedExposedNodes = trackedInt();
+    private final DataSlot interferenceExposure = trackedInt();
+    private final DataSlot interferenceConfidence = trackedInt();
 
     public LogicAnalyzerMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
     }
 
     public LogicAnalyzerMenu(int containerId, Inventory inventory, BlockPos pos) {
-        super(
-                EngineeringUiRegistration.LOGIC_ANALYZER.get(),
-                containerId,
-                inventory,
-                pos,
-                RedstoneEngineering.LOGIC_ANALYZER.get()
-        );
+        super(EngineeringUiRegistration.LOGIC_ANALYZER.get(), containerId, inventory, pos,
+                RedstoneEngineering.LOGIC_ANALYZER.get());
         for (int channel = 0; channel < 4; channel++) {
-            coverage[channel] = trackedInt();
-            duty[channel] = trackedInt();
-            transitionRate[channel] = trackedInt();
-            rising[channel] = trackedInt();
-            falling[channel] = trackedInt();
-            channelProbeCounts[channel] = trackedInt();
-            for (int slot = 0; slot < LogicAnalyzerBlockEntity.DISPLAY_SAMPLES; slot++) {
-                display[channel][slot] = trackedInt();
-            }
+            coverage[channel] = trackedInt(); duty[channel] = trackedInt(); transitionRate[channel] = trackedInt();
+            rising[channel] = trackedInt(); falling[channel] = trackedInt(); channelProbeCounts[channel] = trackedInt();
+            for (int slot = 0; slot < LogicAnalyzerBlockEntity.DISPLAY_SAMPLES; slot++) display[channel][slot] = trackedInt();
         }
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
     }
@@ -78,35 +75,25 @@ public final class LogicAnalyzerMenu extends EngineeringDeviceMenu {
         if (!(state.getBlock() instanceof LogicAnalyzerBlock)) return;
         if (!(level.getBlockEntity(blockPos) instanceof LogicAnalyzerBlockEntity analyzer)) return;
 
-        threshold.set(state.getValue(LogicAnalyzerBlock.THRESHOLD));
-        sampleCount.set(analyzer.sampleCount());
-        triggerChannel.set(analyzer.triggerChannel());
-        triggerEdge.set(analyzer.triggerEdge());
+        threshold.set(state.getValue(LogicAnalyzerBlock.THRESHOLD)); sampleCount.set(analyzer.sampleCount());
+        triggerChannel.set(analyzer.triggerChannel()); triggerEdge.set(analyzer.triggerEdge());
         captureState.set(analyzer.armed() ? 1 : analyzer.triggered() ? 2 : 0);
-        cursorA.set(analyzer.cursorA());
-        cursorB.set(analyzer.cursorB());
-
+        cursorA.set(analyzer.cursorA()); cursorB.set(analyzer.cursorB());
         for (int channel = 0; channel < 4; channel++) {
-            coverage[channel].set(analyzer.coveragePercent(channel));
-            duty[channel].set(analyzer.dutyPercent(channel));
-            transitionRate[channel].set(analyzer.transitionRatePercent(channel));
-            rising[channel].set(analyzer.rising(channel));
+            coverage[channel].set(analyzer.coveragePercent(channel)); duty[channel].set(analyzer.dutyPercent(channel));
+            transitionRate[channel].set(analyzer.transitionRatePercent(channel)); rising[channel].set(analyzer.rising(channel));
             falling[channel].set(analyzer.falling(channel));
-            for (int slot = 0; slot < LogicAnalyzerBlockEntity.DISPLAY_SAMPLES; slot++) {
-                display[channel][slot].set(analyzer.displayState(channel, slot));
-            }
+            for (int slot = 0; slot < LogicAnalyzerBlockEntity.DISPLAY_SAMPLES; slot++) display[channel][slot].set(analyzer.displayState(channel, slot));
         }
 
         InstrumentNetwork.ProbeSnapshot network = InstrumentNetwork.scan(level, blockPos);
-        cableNodes.set(network.cableNodes());
-        probeNodes.set(network.probeNodes());
-        validChannels.set(network.validChannels());
-        activeChannels.set(network.activeChannels());
-        duplicateChannels.set(network.duplicateChannels());
-        bounded.set(network.bounded() ? 1 : 0);
-        for (int channel = 0; channel < 4; channel++) {
-            channelProbeCounts[channel].set(network.counts()[channel]);
-        }
+        cableNodes.set(network.cableNodes()); probeNodes.set(network.probeNodes()); validChannels.set(network.validChannels());
+        activeChannels.set(network.activeChannels()); duplicateChannels.set(network.duplicateChannels()); bounded.set(network.bounded() ? 1 : 0);
+        shieldedCableNodes.set(network.shieldedCableNodes()); unshieldedCableNodes.set(network.unshieldedCableNodes());
+        shieldingCoverage.set(network.shieldingCoveragePercent()); exposedCableNodes.set(network.exposedCableNodes());
+        shieldedExposedNodes.set(network.shieldedExposedNodes()); unshieldedExposedNodes.set(network.unshieldedExposedNodes());
+        interferenceExposure.set(network.interferenceExposurePercent()); interferenceConfidence.set(network.interferenceConfidencePercent());
+        for (int channel = 0; channel < 4; channel++) channelProbeCounts[channel].set(network.counts()[channel]);
     }
 
     @Override
@@ -114,10 +101,7 @@ public final class LogicAnalyzerMenu extends EngineeringDeviceMenu {
         if (level.isClientSide) return true;
         if (!stillValid(player)) return false;
         boolean changed = LogicAnalyzerBlock.applyUiAction(level, blockPos, id);
-        if (changed) {
-            refreshAuthoritativeSnapshot();
-            broadcastChanges();
-        }
+        if (changed) { refreshAuthoritativeSnapshot(); broadcastChanges(); }
         return changed;
     }
 
@@ -141,4 +125,12 @@ public final class LogicAnalyzerMenu extends EngineeringDeviceMenu {
     public int activeChannels() { return activeChannels.get(); }
     public int duplicateChannels() { return duplicateChannels.get(); }
     public boolean bounded() { return bounded.get() != 0; }
+    public int shieldedCableNodes() { return shieldedCableNodes.get(); }
+    public int unshieldedCableNodes() { return unshieldedCableNodes.get(); }
+    public int shieldingCoverage() { return shieldingCoverage.get(); }
+    public int exposedCableNodes() { return exposedCableNodes.get(); }
+    public int shieldedExposedNodes() { return shieldedExposedNodes.get(); }
+    public int unshieldedExposedNodes() { return unshieldedExposedNodes.get(); }
+    public int interferenceExposure() { return interferenceExposure.get(); }
+    public int interferenceConfidence() { return interferenceConfidence.get(); }
 }
