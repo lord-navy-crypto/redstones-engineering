@@ -1,5 +1,5 @@
 {
   "ambientocclusion": false,
-  "textures": {"light": "redstoneengineering:block/optical_fiber", "particle": "redstoneengineering:block/alarm_processor"},
+  "textures": {"light": "redstoneengineering:block/optical_fiber", "particle": "redstoneengineering:block/signal_analyzer_side"},
   "elements": [{"from": [6, 16.01, 6], "to": [10, 16.3, 10], "faces": {"up": {"texture": "#light"}}}]
 }
