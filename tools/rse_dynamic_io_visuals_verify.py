@@ -57,9 +57,11 @@ sequence = parts("sequence_controller")
 interlock = parts("safety_interlock")
 alarm = parts("alarm_processor")
 topology = parts("topology_debugger")
+fault = parts("fault_injector")
 verify_route("sequence_controller", sequence)
 verify_route("safety_interlock", interlock)
 verify_route("alarm_processor", alarm)
+verify_route("fault_injector", fault)
 
 sequence_steps = (
     ("1|2|3|4", "sequence_step_1"),
@@ -84,6 +86,16 @@ for output, model in (
     if not has_part(alarm, "output", output, f"redstoneengineering:block/{model}"):
         errors.append(f"alarm_processor: missing output={output} overlay {model}")
 
+# Fault ARM is always right-of-front; its face marker rotates one quarter-turn clockwise from TX.
+arm_rotations = {"north": 90, "east": 180, "south": 270, "west": 0}
+for direction, rotation in arm_rotations.items():
+    if not has_part(fault, "facing", direction, "redstoneengineering:block/engineering_arm_marker", rotation):
+        errors.append(f"fault_injector: ARM marker must be right of facing={direction}; expected y={rotation}")
+for mode in range(4):
+    model = f"fault_mode_{mode}"
+    if not has_part(fault, "mode", str(mode), f"redstoneengineering:block/{model}"):
+        errors.append(f"fault_injector: missing mode={mode} overlay {model}")
+
 # Topology debugger scans the face opposite its alarm-output facing.
 tx_rotations = {"north": 0, "east": 90, "south": 180, "west": 270}
 scan_rotations = {"north": 180, "east": 270, "south": 0, "west": 90}
@@ -101,6 +113,7 @@ required_models = (
     "engineering_rx_marker",
     "engineering_tx_marker",
     "engineering_scan_marker",
+    "engineering_arm_marker",
     "sequence_step_1",
     "sequence_step_2",
     "sequence_step_3",
@@ -111,6 +124,10 @@ required_models = (
     "alarm_severity_1",
     "alarm_severity_2",
     "alarm_severity_3",
+    "fault_mode_0",
+    "fault_mode_1",
+    "fault_mode_2",
+    "fault_mode_3",
     "topology_nominal_indicator",
     "topology_issue_indicator",
 )
@@ -129,5 +146,6 @@ print("RSE DYNAMIC I/O VISUALS VERIFY: PASS")
 print(" sequence controller: world-visible RX/TX + cumulative STEP 1..4 indicators")
 print(" safety interlock: world-visible RX/TX + BLOCKED/PERMIT indicators")
 print(" alarm processor: world-visible RX/TX + CLEAR/severity 1..3 indicators")
+print(" fault injector: world-visible RX/TX/ARM + configured mode 0..3 indicators")
 print(" topology debugger: world-visible alarm TX + opposite SCAN target + NOMINAL/ISSUE indicators")
 print(" visuals consume synchronized BlockState only; no second runtime state")
