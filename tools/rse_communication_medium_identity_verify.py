@@ -34,9 +34,6 @@ if bus:
     if "boolean valid = driverCount > 0 && distinctValues == 1" not in bus: errors.append("8-bit bus lost its hard different-value conflict contract")
     if "sameValueMultiDriver ?" not in bus: errors.append("8-bit bus does not charge margin for same-value multi-driving")
 
-# Instrument shielding is now a deterministic engineering choice: the already-bounded bus traversal
-# observes only local energized Redstone / explicit Copper source exposure. It never injects random
-# values and never starts a second network solver. Topology PortQuality remains a separate dimension.
 require("src/main/java/dev/redstoneengineering/instrument/InstrumentNetwork.java",
         "shieldedCableNodes", "unshieldedCableNodes", "locallyExposed", "getBestNeighborSignal",
         "CopperVoltageSourceBlock", "exposedCableNodes", "shieldedExposedNodes", "unshieldedExposedNodes",
@@ -45,40 +42,39 @@ require("src/main/java/dev/redstoneengineering/instrument/InstrumentNetwork.java
 network = read("src/main/java/dev/redstoneengineering/instrument/InstrumentNetwork.java")
 for forbidden in ("Random", "Math.random", "ThreadLocalRandom", "DomainNetwork.sample", "DomainNetwork.scan"):
     if forbidden in network: errors.append(f"InstrumentNetwork interference evidence must stay deterministic/local; found {forbidden!r}")
+require("src/main/java/dev/redstoneengineering/instrument/InstrumentShieldingAudit.java", "riskClass()", "recommendation()", 'return "PROTECTED"', 'return "EXPOSED"', 'return "PARTIAL"')
+require("src/main/java/dev/redstoneengineering/block/InstrumentCableBlock.java", "interferenceIntegrity()", "interferenceExposurePercent()", "interferenceConfidencePercent()")
+require("src/main/java/dev/redstoneengineering/block/ShieldedInstrumentCableBlock.java", "shieldingIntegrity()", "shieldingCoveragePercent()", "shieldedExposedNodes()", "unshieldedExposedNodes()", "interferenceConfidencePercent()", "does not inject fabricated random noise")
+require("src/main/java/dev/redstoneengineering/ui/menu/OscilloscopeMenu.java", "interferenceExposure", "interferenceConfidence", "unshieldedExposedNodes")
+require("src/main/java/dev/redstoneengineering/ui/menu/LogicAnalyzerMenu.java", "interferenceExposure", "interferenceConfidence", "unshieldedExposedNodes")
+require("src/main/java/dev/redstoneengineering/client/ui/OscilloscopeScreen.java", "Interference", "interferenceConfidence()", "shield exposed instrument segments")
+require("src/main/java/dev/redstoneengineering/client/ui/LogicAnalyzerScreen.java", "Bus interference", "interferenceConfidence()", "shield exposed instrument segments")
 
-require("src/main/java/dev/redstoneengineering/instrument/InstrumentShieldingAudit.java",
-        "riskClass()", "recommendation()", 'return "PROTECTED"', 'return "EXPOSED"', 'return "PARTIAL"')
-require("src/main/java/dev/redstoneengineering/block/InstrumentCableBlock.java",
-        "interferenceIntegrity()", "interferenceExposurePercent()", "interferenceConfidencePercent()")
-require("src/main/java/dev/redstoneengineering/block/ShieldedInstrumentCableBlock.java",
-        "shieldingIntegrity()", "shieldingCoveragePercent()", "shieldedExposedNodes()", "unshieldedExposedNodes()",
-        "interferenceConfidencePercent()", "does not inject fabricated random noise")
-require("src/main/java/dev/redstoneengineering/ui/menu/OscilloscopeMenu.java",
-        "interferenceExposure", "interferenceConfidence", "unshieldedExposedNodes")
-require("src/main/java/dev/redstoneengineering/ui/menu/LogicAnalyzerMenu.java",
-        "interferenceExposure", "interferenceConfidence", "unshieldedExposedNodes")
-require("src/main/java/dev/redstoneengineering/client/ui/OscilloscopeScreen.java",
-        "Interference", "interferenceConfidence()", "shield exposed instrument segments")
-require("src/main/java/dev/redstoneengineering/client/ui/LogicAnalyzerScreen.java",
-        "Bus interference", "interferenceConfidence()", "shield exposed instrument segments")
-
-# Digital communication HMI must expose the real server-side tradeoffs instead of replacing them
-# with static marketing text. The menu may only read existing runtime diagnostics; graph resolution
-# remains owned by DataBusNetwork / SerialNetwork / DifferentialNetwork.
 require("src/main/java/dev/redstoneengineering/ui/menu/DigitalCommunicationMenu.java",
         "refreshMediumTelemetry", "DataBusNetwork.getDiagnostics", "SerialNetwork.getDiagnostics",
         "DifferentialNetwork.driverCount", "InformationRuntime.snapshot", "mediumQualityPercent",
         "mediumAgeTicks", "mediumDriverCount", "mediumMetricA", "mediumMetricB", "mediumMetricC")
 digital_menu = read("src/main/java/dev/redstoneengineering/ui/menu/DigitalCommunicationMenu.java")
 for forbidden in ("DataBusNetwork.resolve(", "DataBusNetwork.drive(", "SerialNetwork.recompute(", "SerialNetwork.drive(", "DifferentialNetwork.recompute(", "DifferentialNetwork.drive("):
-    if forbidden in digital_menu:
-        errors.append(f"DigitalCommunicationMenu must remain observer-only; found solver mutation call {forbidden!r}")
-
+    if forbidden in digital_menu: errors.append(f"DigitalCommunicationMenu must remain observer-only; found solver mutation call {forbidden!r}")
 require("src/main/java/dev/redstoneengineering/client/ui/DigitalCommunicationScreen.java",
         "8-bit parallel", "Contention / conflicts", "period=", "util=", "1-bit high-integrity",
         "8-BIT BUS CONTENTION CONSUMING MARGIN", "SERIAL LINK NEAR UTILIZATION LIMIT",
-        "DIFFERENTIAL HIGH-INTEGRITY LINK VALID", "highest local payload width",
-        "fewer conductors", "one-bit payload density")
+        "DIFFERENTIAL HIGH-INTEGRITY LINK VALID", "highest local payload width", "fewer conductors", "one-bit payload density")
+
+# Guided optical budget is retained from the already-completed authoritative solve.
+require("src/main/java/dev/redstoneengineering/physics/OpticalLinkBudgetRuntime.java",
+        "recordReceiverSegment", 'NetworkKernel.stats(level, "optical")', "stats.lastNodes() - 1",
+        "hops / 16", "receiverMargin()", 'return "MARGINAL"', 'return "HEALTHY"')
+optical_budget = read("src/main/java/dev/redstoneengineering/physics/OpticalLinkBudgetRuntime.java")
+for forbidden in ("ArrayDeque", "HashSet", "DomainNetwork.recomputeOptical", "DomainNetwork.driveOptical"):
+    if forbidden in optical_budget: errors.append(f"OpticalLinkBudgetRuntime must retain solved evidence, not traverse/solve; found {forbidden!r}")
+require("src/main/java/dev/redstoneengineering/block/OpticalReceiverBlock.java",
+        "OpticalLinkBudgetRuntime.recordReceiverSegment", "OpticalLinkBudgetRuntime.Snapshot",
+        "segment launch=", "fiber loss=", "RX margin=", "link=")
+require("src/main/java/dev/redstoneengineering/block/OpticalSplitterBlock.java", "input.intensity() / 2", "quantizationLoss", "idealized ≈3 dB split")
+require("src/main/java/dev/redstoneengineering/block/OpticalChannelFilterBlock.java", "input.channel() == target", "input.intensity() - 1", "insertion loss=1")
+require("src/main/java/dev/redstoneengineering/block/OpticalAttenuatorBlock.java", "opticalAfterLoss", "fullyAttenuated", "expected output=")
 
 require("docs/COMMUNICATION_MEDIUM_IDENTITY.md", "Shared information envelope", "Medium identity rule",
         "Communication choice hierarchy", "How much information must move?", "No medium should be the universal upgrade of another",
@@ -111,5 +107,7 @@ print(" digital HMI exposes authoritative bus/serial/differential tradeoff evide
 print(" digital HMI observer boundary / no second solver: PASS")
 print(" instrument shielding deterministic local-exposure differentiation: PASS")
 print(" instrument topology quality remains separate from interference confidence: PASS")
+print(" guided optical receiver budget derives from solved path evidence: PASS")
+print(" splitter/filter/attenuator optical losses remain explicit: PASS")
 print(" communication medium design contract: PASS")
 print(" registered identity GameTests: 3 (manual diagnostic / non-blocking)")
