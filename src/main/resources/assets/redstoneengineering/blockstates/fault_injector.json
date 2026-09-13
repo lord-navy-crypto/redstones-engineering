@@ -1,39 +1,23 @@
 {
   "multipart": [
-    {
-      "when": {
-        "facing": "north"
-      },
-      "apply": {
-        "model": "redstoneengineering:block/fault_injector"
-      }
-    },
-    {
-      "when": {
-        "facing": "east"
-      },
-      "apply": {
-        "model": "redstoneengineering:block/fault_injector",
-        "y": 90
-      }
-    },
-    {
-      "when": {
-        "facing": "south"
-      },
-      "apply": {
-        "model": "redstoneengineering:block/fault_injector",
-        "y": 180
-      }
-    },
-    {
-      "when": {
-        "facing": "west"
-      },
-      "apply": {
-        "model": "redstoneengineering:block/fault_injector",
-        "y": 270
-      }
-    }
+    {"when":{"facing":"north"},"apply":{"model":"redstoneengineering:block/fault_injector"}},
+    {"when":{"facing":"east"},"apply":{"model":"redstoneengineering:block/fault_injector","y":90}},
+    {"when":{"facing":"south"},"apply":{"model":"redstoneengineering:block/fault_injector","y":180}},
+    {"when":{"facing":"west"},"apply":{"model":"redstoneengineering:block/fault_injector","y":270}},
+
+    {"when":{"facing":"north"},"apply":{"model":"redstoneengineering:block/engineering_tx_marker"}},
+    {"when":{"facing":"east"},"apply":{"model":"redstoneengineering:block/engineering_tx_marker","y":90}},
+    {"when":{"facing":"south"},"apply":{"model":"redstoneengineering:block/engineering_tx_marker","y":180}},
+    {"when":{"facing":"west"},"apply":{"model":"redstoneengineering:block/engineering_tx_marker","y":270}},
+
+    {"when":{"input_facing":"north"},"apply":{"model":"redstoneengineering:block/engineering_rx_marker"}},
+    {"when":{"input_facing":"east"},"apply":{"model":"redstoneengineering:block/engineering_rx_marker","y":90}},
+    {"when":{"input_facing":"south"},"apply":{"model":"redstoneengineering:block/engineering_rx_marker","y":180}},
+    {"when":{"input_facing":"west"},"apply":{"model":"redstoneengineering:block/engineering_rx_marker","y":270}},
+
+    {"when":{"mode":"0"},"apply":{"model":"redstoneengineering:block/fault_mode_0"}},
+    {"when":{"mode":"1"},"apply":{"model":"redstoneengineering:block/fault_mode_1"}},
+    {"when":{"mode":"2"},"apply":{"model":"redstoneengineering:block/fault_mode_2"}},
+    {"when":{"mode":"3"},"apply":{"model":"redstoneengineering:block/fault_mode_3"}}
   ]
 }
