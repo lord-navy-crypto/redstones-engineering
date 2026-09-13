@@ -83,7 +83,7 @@ forbid(
 )
 require(
     "src/main/resources/assets/redstoneengineering/models/block/engineering_compass.json",
-    '"marker_n"', '"marker_e"', '"marker_s"', '"marker_w"', "minecraft:block/quartz_block",
+    '"marker_n"', '"marker_e"', '"marker_s"', '"marker_w"', "redstoneengineering:block/signal_analyzer_top",
 )
 require(
     "src/main/java/dev/redstoneengineering/EngineeringSystemsModule.java",
