@@ -1,5 +1,6 @@
 package dev.redstoneengineering.client.ui;
 
+import dev.redstoneengineering.core.diagnostic.CommissioningStatus;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.menu.PneumaticSystemMenu;
 import net.minecraft.client.gui.GuiGraphics;
@@ -7,7 +8,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
-/** Pneumatic HMI with server-synchronized section diagnostics. */
+/** Pneumatic HMI with server-synchronized section diagnostics and acceptance. */
 public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSystemMenu> {
     private Button prev, next, toggle;
 
@@ -44,13 +45,14 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
     }
 
     private void overview(GuiGraphics g) {
-        statusBadge(g, name(), GOOD, 16, 80); statusBadge(g, state(), stateColor(), 205, 80);
+        statusBadge(g, name(), GOOD, 16, 80);
+        statusBadge(g, isFlow() ? menu.commissioningStatus().name().replace('_', ' ') : state(), isFlow() ? acceptanceColor() : stateColor(), 205, 80);
         metricCard(g, primaryLabel(), primaryText(), 16, 103, 88, INFO);
         metricCard(g, secondaryLabel(), secondaryText(), 111, 103, 88, GOOD);
         metricCard(g, thirdLabel(), thirdText(), 206, 103, 88, INFO);
         labelValue(g, "Topology", route(), 149);
         labelValue(g, "Input / output evidence", menu.inputQuality().name() + " / " + menu.outputQuality().name(), 169);
-        safeText(g, isFlow() ? section().localization() : "Pressure zero may be valid when observation quality is VALID.", 16, 196, isFlow() ? localColor() : MUTED);
+        safeText(g, isFlow() ? acceptanceSummary() : "Pressure zero may be valid when observation quality is VALID.", 16, 196, isFlow() ? acceptanceColor() : MUTED);
     }
 
     private void ports(GuiGraphics g) {
@@ -69,17 +71,18 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
     }
 
     private void diagnostics(GuiGraphics g) {
-        statusBadge(g, state(), stateColor(), 16, 80);
         if (isFlow()) {
+            statusBadge(g, "COMMISSIONING " + menu.commissioningStatus().name().replace('_', ' '), acceptanceColor(), 16, 80);
             PneumaticSectionDiagnostics.Result r = section();
             labelValue(g, "Flow / meter ΔP", menu.primary() + " / " + menu.secondary(), 106);
             labelValue(g, "Pin / Pout", menu.tertiary() + " / " + menu.auxiliary(), 126);
             labelValue(g, "U / D witness", p(menu.upstreamQuality(), menu.upstreamPressure()) + " / " + p(menu.downstreamQuality(), menu.downstreamPressure()), 146);
             labelValue(g, "Drops U / M / D", d(r.upstreamDrop()) + " / " + r.meterDrop() + " / " + d(r.downstreamDrop()), 166);
             statusLine(g, "Localization", r.localization(), localColor(), 188);
-            safeText(g, r.nextAction(), 16, 210, localColor());
+            safeText(g, acceptanceSummary(), 16, 210, acceptanceColor());
             return;
         }
+        statusBadge(g, state(), stateColor(), 16, 80);
         labelValue(g, primaryLabel(), primaryText(), 108); labelValue(g, secondaryLabel(), secondaryText(), 128); labelValue(g, thirdLabel(), thirdText(), 148);
         statusLine(g, "Authority", "SERVER SYNCHRONIZED", GOOD, 192);
     }
@@ -88,17 +91,27 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
         statusBadge(g, "PNEUMATIC EVIDENCE", INFO, 16, 80);
         if (isFlow()) {
             PneumaticSectionDiagnostics.Result r = section();
-            labelValue(g, "Samples", Integer.toString(menu.stateFlag()), 108);
+            labelValue(g, "Samples / acceptance", menu.stateFlag() + " / " + menu.commissioningStatus().name(), 108);
             labelValue(g, "U / Pin / Pout / D", p(menu.upstreamQuality(), menu.upstreamPressure()) + " / " + menu.tertiary() + " / " + menu.auxiliary() + " / " + p(menu.downstreamQuality(), menu.downstreamPressure()), 130);
             labelValue(g, "Drops U / M / D", d(r.upstreamDrop()) + " / " + r.meterDrop() + " / " + d(r.downstreamDrop()), 152);
             statusLine(g, "Dominant local loss", r.localization(), localColor(), 177);
-            safeText(g, "Axial evidence only; bends beyond the witnesses are not inferred.", 16, 201, MUTED);
+            safeText(g, "Acceptance is server-evaluated; bends beyond witnesses are not inferred.", 16, 201, MUTED);
         } else if (menu.kind() == PneumaticSystemMenu.KIND_RELIEF) {
             labelValue(g, "Vent events", Integer.toString(menu.auxiliary()), 110);
             safeText(g, "VENTING is an operating event, not missing measurement evidence.", 16, 150, GOOD);
         } else safeText(g, "Live server state only; no client-side pneumatic history is fabricated.", 16, 112, MUTED);
     }
 
+    private String acceptanceSummary() {
+        return switch (menu.commissioningStatus()) {
+            case NOT_READY -> "NOT READY • collect valid inlet/outlet evidence and at least four samples.";
+            case PASS -> "PASS • local pressure-loss evidence is complete and within the commissioning band.";
+            case MARGINAL -> "MARGINAL • inspect missing witnesses, degraded quality, or elevated local ΔP.";
+            case FAIL -> "FAIL • hard evidence fault or excessive local meter-section pressure drop.";
+        };
+    }
+
+    private int acceptanceColor() { return switch (menu.commissioningStatus()) { case PASS -> GOOD; case NOT_READY -> INFO; case MARGINAL -> WARN; case FAIL -> BAD; }; }
     private PneumaticSectionDiagnostics.Result section() { return PneumaticSectionDiagnostics.analyze(menu.upstreamPressure(), menu.upstreamQuality(), menu.tertiary(), menu.inputQuality(), menu.auxiliary(), menu.outputQuality(), menu.downstreamPressure(), menu.downstreamQuality(), menu.secondary()); }
     private boolean isFlow() { return menu.kind() == PneumaticSystemMenu.KIND_FLOW_METER; }
     private int localColor() { String s = section().localization(); return s.contains("DOMINANT") || s.contains("INCOMPLETE") ? WARN : s.contains("PARTIAL") ? INFO : GOOD; }
