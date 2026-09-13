@@ -8,7 +8,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
-/** Four-channel digital timing UI with real capture, edge counts and probe integrity. */
+/** Four-channel digital timing UI with real capture, synchronized evidence and channel diagnostics. */
 public final class LogicAnalyzerScreen extends EngineeringScreen<LogicAnalyzerMenu> {
     public LogicAnalyzerScreen(LogicAnalyzerMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -69,6 +69,7 @@ public final class LogicAnalyzerScreen extends EngineeringScreen<LogicAnalyzerMe
                     channelColor(lane)
             );
         }
+        safeText(graphics, "capture evidence " + captureCoverage() + "% • network " + networkIntegrity(), 16, 197, MUTED);
     }
 
     private void renderPorts(GuiGraphics graphics) {
@@ -87,21 +88,26 @@ public final class LogicAnalyzerScreen extends EngineeringScreen<LogicAnalyzerMe
         labelValue(graphics, "Cursor Δ", Math.abs(menu.cursorB() - menu.cursorA()) + " samples / "
                 + Math.abs(menu.cursorB() - menu.cursorA()) * LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS + "t", 140);
         safeText(graphics, "Threshold and trigger controls never bypass the server capture engine.", 16, 178, MUTED);
+        safeText(graphics, "Observe/Log pages analyze only the synchronized 32-sample capture buffer.", 16, 193, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
+        statusLine(graphics, "Capture synchronization", captureSyncText(), captureSyncColor(), 76);
         for (int channel = 0; channel < 4; channel++) {
-            int y = 80 + channel * 25;
+            InstrumentDiagnostics.Summary summary = channelSummary(channel);
+            int y = 96 + channel * 29;
             graphics.drawString(font, "CH " + channelName(channel), 16, y, channelColor(channel), false);
             safeText(graphics,
-                    "coverage=" + menu.coverage(channel) + "% duty=" + menu.duty(channel)
-                            + "% transition=" + menu.transitionRate(channel) + "%",
-                    54, y, TEXT);
+                    InstrumentDiagnostics.digitalDiagnosis(summary)
+                            + " • coverage=" + summary.coveragePercent() + "% • transition=" + summary.transitions(),
+                    54, y, diagnosticColor(summary));
             safeText(graphics,
-                    "edges ↑" + menu.rising(channel) + " ↓" + menu.falling(channel),
+                    "duty=" + menu.duty(channel) + "%  edges ↑" + menu.rising(channel) + " ↓" + menu.falling(channel)
+                            + "  longest=" + summary.longestRun(),
                     54, y + 12, MUTED);
         }
-        statusLine(graphics, "Network", networkIntegrity(), networkColor(), 183);
+        statusLine(graphics, "Network", networkIntegrity(), networkColor(), 216);
+        safeText(graphics, "Ambiguous probes and truncated topology are treated as evidence faults, not signal states.", 16, 232, MUTED);
     }
 
     private void renderHistory(GuiGraphics graphics) {
@@ -134,8 +140,47 @@ public final class LogicAnalyzerScreen extends EngineeringScreen<LogicAnalyzerMe
         safeText(graphics, "HIGH/LOW timing • gaps mark invalid or missing probe samples", 16, 175, MUTED);
         safeText(graphics,
                 "Cursor Δ=" + Math.abs(menu.cursorB() - menu.cursorA()) + " samples / "
-                        + Math.abs(menu.cursorB() - menu.cursorA()) * LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS + "t",
+                        + Math.abs(menu.cursorB() - menu.cursorA()) * LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS + "t"
+                        + " • capture=" + captureCoverage() + "%",
                 16, 188, TEXT);
+    }
+
+    private InstrumentDiagnostics.Summary channelSummary(int channel) {
+        return InstrumentDiagnostics.summarize(
+                LogicAnalyzerBlockEntity.DISPLAY_SAMPLES,
+                slot -> menu.displayState(channel, slot),
+                0,
+                1
+        );
+    }
+
+    private int captureCoverage() {
+        int valid = 0;
+        int total = 0;
+        for (int channel = 0; channel < 4; channel++) {
+            InstrumentDiagnostics.Summary summary = channelSummary(channel);
+            valid += summary.validSamples();
+            total += summary.validSamples() + summary.invalidSamples();
+        }
+        return total == 0 ? 0 : Math.round(valid * 100.0f / total);
+    }
+
+    private String captureSyncText() {
+        if (!menu.bounded()) return "TRUNCATED TOPOLOGY";
+        if (menu.duplicateChannels() > 0) return "AMBIGUOUS CHANNEL MAP";
+        if (menu.sampleCount() == 0) return "NO CAPTURE";
+        if (captureCoverage() < 75) return "PARTIAL • " + captureCoverage() + "%";
+        return captureState() + " • " + captureCoverage() + "% evidence";
+    }
+
+    private int captureSyncColor() {
+        if (!menu.bounded() || menu.duplicateChannels() > 0 || captureCoverage() < 75) return WARN;
+        return menu.sampleCount() == 0 ? MUTED : GOOD;
+    }
+
+    private int diagnosticColor(InstrumentDiagnostics.Summary summary) {
+        if (summary.validSamples() == 0 || summary.coveragePercent() < 75) return WARN;
+        return summary.longestRun() <= 2 && summary.transitions() > 8 ? INFO : GOOD;
     }
 
     private String captureState() {

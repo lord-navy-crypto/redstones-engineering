@@ -82,5 +82,23 @@ public final class InstrumentShieldingAudit {
             if (shieldedNodes == 0) return "UNSHIELDED";
             return "MIXED_SHIELDING";
         }
+
+        public String riskClass() {
+            if (!bounded) return "UNKNOWN";
+            if (cableNodes == 0) return "DIRECT";
+            if (unshieldedNodes == 0) return "PROTECTED";
+            if (shieldedNodes == 0) return "EXPOSED";
+            return "PARTIAL";
+        }
+
+        public String recommendation() {
+            return switch (riskClass()) {
+                case "UNKNOWN" -> "Complete the bounded route audit before trusting shielding evidence.";
+                case "EXPOSED" -> "Use shielded instrument cable on noise-sensitive measurement runs.";
+                case "PARTIAL" -> "Replace remaining unshielded segments if the route crosses noisy equipment.";
+                case "PROTECTED" -> "Shielding coverage is complete for the audited cable component.";
+                default -> "Direct probe connection; no cable shielding decision is required.";
+            };
+        }
     }
 }

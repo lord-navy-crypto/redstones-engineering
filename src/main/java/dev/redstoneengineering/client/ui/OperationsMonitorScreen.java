@@ -8,7 +8,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
-/** Dedicated observer-only IOE console with bounded plant event, incident, reliability and input-evidence status. */
+/** Dedicated observer-only IOE console with bounded plant event, incident, reliability and synchronized evidence diagnostics. */
 public final class OperationsMonitorScreen extends EngineeringScreen<OperationsMonitorMenu> {
     private static final int EVENT_CELL_WIDTH = 33;
     private static final int EVENT_CELL_GAP = 2;
@@ -32,11 +32,12 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
         if (menu.telemetryReady()) statusBadge(graphics, "OPERATIONS • " + menu.state().name(), stateColor(menu.state()), 16, 78);
         else statusBadge(graphics, "TELEMETRY • INCOMPLETE", WARN, 16, 78);
         statusLine(graphics, "Evidence", evidenceText(), menu.telemetryReady() ? GOOD : WARN, 99);
-        labelValue(graphics, "Queue / WIP", menu.queue() + " / 15", 116);
-        labelValue(graphics, "Queue pressure", menu.queuePressurePercent() + "%", 132);
-        labelValue(graphics, "Throughput last60s", menu.throughput() + " cycles/min", 148);
-        labelValue(graphics, "Downtime", formatTicks(menu.downtimeTicks()), 164);
-        statusLine(graphics, "Dominant constraint", menu.dominantConstraint().name(), constraintColor(menu.dominantConstraint()), 180);
+        labelValue(graphics, "Evidence confidence", evidenceConfidencePercent() + "%", 116);
+        labelValue(graphics, "Queue / WIP", menu.queue() + " / 15", 132);
+        labelValue(graphics, "Queue pressure", menu.queuePressurePercent() + "%", 148);
+        labelValue(graphics, "Throughput last60s", menu.throughput() + " cycles/min", 164);
+        labelValue(graphics, "Downtime", formatTicks(menu.downtimeTicks()), 180);
+        statusLine(graphics, "Dominant constraint", menu.dominantConstraint().name(), constraintColor(menu.dominantConstraint()), 196);
     }
 
     private void renderPorts(GuiGraphics graphics) {
@@ -53,19 +54,20 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
         safeText(graphics, "No process-control command is exposed from this screen.", 16, 108, TEXT);
         safeText(graphics, "Shift + right-click resets monitor statistics only.", 16, 128, TEXT);
         safeText(graphics, "Plant event evidence remains independent of monitor lifecycle/reset.", 16, 148, MUTED);
+        safeText(graphics, "Diagnosis is read-only and derived from synchronized evidence already retained by the server.", 16, 168, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
-        statusLine(graphics, "Telemetry", menu.telemetryReady() ? "READY" : "INCOMPLETE", menu.telemetryReady() ? GOOD : WARN, 78);
-        statusLine(graphics, "System state", menu.state().name(), stateColor(menu.state()), 94);
-        statusLine(graphics, "Latest incident", menu.incidentPresent() ? "EVIDENCE AVAILABLE" : "NONE", menu.incidentPresent() ? WARN : GOOD, 110);
-        labelValue(graphics, "First-out source", menu.incidentPresent() ? firstOutLocation() : "—", 126);
-        labelValue(graphics, "Incident span", menu.incidentPresent() ? formatTicks(menu.incidentDurationTicks()) : "—", 142);
-        labelValue(graphics, "Follow-up evidence", menu.incidentPresent() ? incidentEvidenceText() : "0", 158);
-        labelValue(graphics, "Electrical trips / recovered", menu.electricalTripCount() + " / " + menu.electricalRecoveryCount(), 174);
-        labelValue(graphics, "Electrical downtime", formatTicks(menu.electricalDowntimeTicks()), 190);
-        labelValue(graphics, "Protection status", protectionText(), 206);
-        safeText(graphics, "Evidence metrics only • MTBF/MTTR withheld until durable exposure + maintenance semantics exist.", 16, 223, MUTED);
+        statusLine(graphics, "Telemetry synchronization", menu.telemetryReady() ? "READY • BOUNDED EVIDENCE" : "INCOMPLETE", menu.telemetryReady() ? GOOD : WARN, 76);
+        labelValue(graphics, "Evidence confidence", evidenceConfidencePercent() + "% • " + evidenceCoverageText(), 94);
+        statusLine(graphics, "System diagnosis", systemDiagnosis(), systemDiagnosisColor(), 112);
+        statusLine(graphics, "System state", menu.state().name(), stateColor(menu.state()), 130);
+        statusLine(graphics, "Latest incident", menu.incidentPresent() ? "EVIDENCE AVAILABLE" : "NONE", menu.incidentPresent() ? WARN : GOOD, 148);
+        labelValue(graphics, "First-out source", menu.incidentPresent() ? firstOutLocation() : "—", 166);
+        labelValue(graphics, "Incident span", menu.incidentPresent() ? formatTicks(menu.incidentDurationTicks()) : "—", 182);
+        labelValue(graphics, "Follow-up evidence", menu.incidentPresent() ? incidentEvidenceText() : "0", 198);
+        labelValue(graphics, "Electrical trips / recovered", menu.electricalTripCount() + " / " + menu.electricalRecoveryCount(), 214);
+        safeText(graphics, nextActionText(), 16, 232, systemDiagnosisColor());
     }
 
     private void renderHistory(GuiGraphics graphics) {
@@ -94,6 +96,58 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
         }
         graphics.drawString(font, "oldest", 18, 180, MUTED, false);
         graphics.drawString(font, "newest →", 244, 180, MUTED, false);
+        safeText(graphics, "confidence=" + evidenceConfidencePercent() + "% • diagnosis=" + systemDiagnosis(), 16, 197, TEXT);
+        safeText(graphics, "Electrical downtime " + formatTicks(menu.electricalDowntimeTicks())
+                + " • Protection status " + protectionText(), 16, 213, TEXT);
+        safeText(graphics, "MTBF/MTTR withheld • durable operating exposure + maintenance semantics required.", 16, 229, MUTED);
+    }
+
+    private int evidenceConfidencePercent() {
+        int score = 0;
+        if (menu.runEvidenceValid()) score += 40;
+        if (menu.queueEvidenceSources() > 0) score += 40;
+        if (menu.cycleEvidenceValid()) score += 20;
+        return score;
+    }
+
+    private String evidenceCoverageText() {
+        if (evidenceConfidencePercent() == 100) return "RUN + QUEUE + CYCLE";
+        if (!menu.runEvidenceValid() && menu.queueEvidenceSources() == 0) return "RUN + QUEUE MISSING";
+        if (!menu.runEvidenceValid()) return "RUN MISSING";
+        if (menu.queueEvidenceSources() == 0) return "QUEUE MISSING";
+        return "CYCLE OPTIONAL";
+    }
+
+    private String systemDiagnosis() {
+        if (!menu.runEvidenceValid() || menu.queueEvidenceSources() == 0) return "INSUFFICIENT EVIDENCE";
+        if (menu.electricalActiveTripCount() > 0) return "ACTIVE PROTECTION LIMIT";
+        if (menu.incidentPresent()) return "INCIDENT TRACE AVAILABLE";
+        return switch (menu.state()) {
+            case NOMINAL -> "PROCESS NOMINAL";
+            case CONGESTED -> "QUEUE / WIP CONSTRAINT";
+            case NOISY -> "UNSTABLE INPUT EVIDENCE";
+            case UNSTABLE -> "PROCESS VARIABILITY";
+            case OVERLOADED -> "CAPACITY PRESSURE";
+            case SAFETY_LIMITED -> "SAFETY CONSTRAINT";
+            case FAILED -> "PROCESS FAILURE";
+        };
+    }
+
+    private int systemDiagnosisColor() {
+        if (!menu.runEvidenceValid() || menu.queueEvidenceSources() == 0) return WARN;
+        if (menu.electricalActiveTripCount() > 0 || menu.state() == OperationsMonitorBlock.SystemState.FAILED) return BAD;
+        if (menu.incidentPresent() || menu.state() != OperationsMonitorBlock.SystemState.NOMINAL) return WARN;
+        return GOOD;
+    }
+
+    private String nextActionText() {
+        if (!menu.runEvidenceValid()) return "NEXT • restore a trustworthy RUN source before interpreting KPIs.";
+        if (menu.queueEvidenceSources() == 0) return "NEXT • connect at least one trustworthy QUEUE/WIP source.";
+        if (menu.electricalActiveTripCount() > 0) return "NEXT • inspect protection first-out and downstream evidence before reset.";
+        if (menu.incidentPresent()) return "NEXT • follow FIRST OUT through the retained event tail before changing the process.";
+        if (menu.state() == OperationsMonitorBlock.SystemState.CONGESTED || menu.state() == OperationsMonitorBlock.SystemState.OVERLOADED) return "NEXT • compare queue pressure with throughput before increasing input rate.";
+        if (menu.state() == OperationsMonitorBlock.SystemState.NOISY || menu.state() == OperationsMonitorBlock.SystemState.UNSTABLE) return "NEXT • verify measurement quality and timing continuity before tuning control.";
+        return "NEXT • evidence is coherent; continue observation or compare against a deliberate test change.";
     }
 
     private String evidenceText() { return (menu.runEvidenceValid() ? "RUN ✓" : "RUN missing") + " • QUEUE sources " + menu.queueEvidenceSources() + " • " + (menu.cycleEvidenceValid() ? "CYCLE ✓" : "CYCLE optional"); }

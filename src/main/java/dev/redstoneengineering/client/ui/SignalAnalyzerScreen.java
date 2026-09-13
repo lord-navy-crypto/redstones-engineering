@@ -7,7 +7,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
-/** Metrology-focused analyzer panel with rolling history and explicit TAP/INLINE semantics. */
+/** Metrology-focused analyzer panel with rolling history, synchronization health and explicit TAP/INLINE semantics. */
 public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzerMenu> {
     public SignalAnalyzerScreen(SignalAnalyzerMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -49,7 +49,12 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
         graphics.drawString(font, "ROLLING WINDOW", 16, 164, MUTED, false);
         EngineeringPlot.analogFrame(graphics, 98, 160, 200, 22);
         plotTrace(graphics, 100, 162, 196, 18, INFO);
-        safeText(graphics, "avg=" + decimal100(menu.average100()) + "  p2p=" + menu.peakToPeak(), 16, 187, TEXT);
+        InstrumentDiagnostics.Summary summary = summary();
+        safeText(graphics, "avg=" + decimal100(menu.average100()) + "  p2p=" + menu.peakToPeak()
+                + "  sync=" + InstrumentDiagnostics.freshnessLabel(menu.sampleAgeTicks()), 16, 187, TEXT);
+        if (summary.invalidSamples() > 0) {
+            safeText(graphics, "coverage=" + summary.coveragePercent() + "%", 244, 187, WARN);
+        }
     }
 
     private void renderPorts(GuiGraphics graphics) {
@@ -74,16 +79,24 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
                         : "INLINE reads TEST and reproduces the RAW sample on the opposite face.",
                 16, 162, TEXT);
         safeText(graphics, "Calibration changes only the displayed engineering reading.", 16, 177, MUTED);
+        safeText(graphics, "Capture statistics and freshness are synchronized readback; the client never samples the world.", 16, 192, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
-        labelValue(graphics, "Lifetime min / max", menu.lifeMin() + " / " + menu.lifeMax(), 82);
-        labelValue(graphics, "Changes", Integer.toString(menu.changes()), 97);
-        labelValue(graphics, "Edges", "↑" + menu.rising() + " ↓" + menu.falling(), 112);
-        labelValue(graphics, "Last / max Δ", menu.lastDelta() + " / " + menu.maxDelta(), 127);
-        labelValue(graphics, "Stable for", menu.stableAgeTicks() + "t", 142);
-        labelValue(graphics, "Sample age", menu.sampleAgeTicks() < 0 ? "N/A" : menu.sampleAgeTicks() + "t", 157);
-        statusLine(graphics, "Variation", stabilityClass(), stabilityColor(), 177);
+        InstrumentDiagnostics.Summary summary = summary();
+        statusLine(graphics, "Synchronization",
+                InstrumentDiagnostics.freshnessLabel(menu.sampleAgeTicks()) + " • age "
+                        + (menu.sampleAgeTicks() < 0 ? "—" : menu.sampleAgeTicks() + "t"),
+                freshnessColor(), 78);
+        statusLine(graphics, "Window diagnosis", InstrumentDiagnostics.analogDiagnosis(summary), diagnosisColor(summary), 98);
+        labelValue(graphics, "Window min / max", summary.validSamples() == 0 ? "—" : summary.minimum() + " / " + summary.maximum(), 118);
+        labelValue(graphics, "Window avg / span", summary.validSamples() == 0 ? "—" : decimal100(summary.average100()) + " / " + summary.span(), 134);
+        labelValue(graphics, "Evidence coverage", summary.coveragePercent() + "% • " + summary.validSamples() + " valid", 150);
+        labelValue(graphics, "Lifetime min / max", menu.lifeMin() + " / " + menu.lifeMax(), 166);
+        labelValue(graphics, "Changes / edges", menu.changes() + " • ↑" + menu.rising() + " ↓" + menu.falling(), 182);
+        labelValue(graphics, "Last / max Δ", menu.lastDelta() + " / " + menu.maxDelta(), 198);
+        safeText(graphics, "Stable " + menu.stableAgeTicks() + "t • variation=" + stabilityClass()
+                + " • diagnosis uses synchronized retained samples only.", 16, 219, MUTED);
     }
 
     private void renderHistory(GuiGraphics graphics) {
@@ -91,6 +104,7 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
         int y = 82;
         int width = 260;
         int height = 84;
+        InstrumentDiagnostics.Summary summary = summary();
 
         graphics.drawString(font, "15", 13, 84, MUTED, false);
         graphics.drawString(font, "0", 18, 162, MUTED, false);
@@ -102,12 +116,18 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
                     x + 4, y + 4, width - 8, height - 8, GOOD);
             graphics.drawString(font, "μ", 287, 86, GOOD, false);
         }
+        if (summary.validSamples() > 1 && summary.span() > 0) {
+            EngineeringPlot.horizontalMarker(graphics, summary.minimum(), 0, 15,
+                    x + 4, y + 4, width - 8, height - 8, MUTED);
+            EngineeringPlot.horizontalMarker(graphics, summary.maximum(), 0, 15,
+                    x + 4, y + 4, width - 8, height - 8, WARN);
+        }
         safeText(graphics,
                 "window=" + menu.windowCount() + "/16  avg=" + decimal100(menu.average100())
                         + "  p2p=" + menu.peakToPeak() + "  meanStep=" + decimal100(menu.meanStep100()),
                 16, 175, TEXT);
         safeText(graphics,
-                "samples=" + menu.totalSamples() + "  mode switches=" + menu.modeSwitches()
+                "samples=" + menu.totalSamples() + "  coverage=" + summary.coveragePercent() + "%  mode switches=" + menu.modeSwitches()
                         + "  calibration switches=" + menu.calibrationSwitches() + "  μ=rounded mean",
                 16, 188, MUTED);
     }
@@ -127,6 +147,28 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
         );
     }
 
+    private InstrumentDiagnostics.Summary summary() {
+        return InstrumentDiagnostics.summarize(
+                SignalAnalyzerBlock.DISPLAY_SAMPLES,
+                menu::sample,
+                0,
+                15
+        );
+    }
+
+    private int freshnessColor() {
+        return switch (InstrumentDiagnostics.freshnessSeverity(menu.sampleAgeTicks())) {
+            case 0 -> GOOD;
+            case 1 -> INFO;
+            default -> WARN;
+        };
+    }
+
+    private int diagnosisColor(InstrumentDiagnostics.Summary summary) {
+        if (summary.validSamples() == 0 || summary.coveragePercent() < 75) return WARN;
+        return summary.span() >= 8 ? WARN : summary.span() >= 3 ? INFO : GOOD;
+    }
+
     private String modeName() {
         return menu.mode() == SignalAnalyzerBlock.INLINE ? "INLINE" : "TAP";
     }
@@ -137,16 +179,6 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
         if (menu.peakToPeak() <= 1 && menu.meanStep100() <= 50) return "STABLE";
         if (menu.peakToPeak() <= 5 && menu.meanStep100() <= 200) return "DYNAMIC";
         return "HIGH VARIATION";
-    }
-
-    private int stabilityColor() {
-        String state = stabilityClass();
-        return switch (state) {
-            case "STEADY", "STABLE" -> GOOD;
-            case "DYNAMIC" -> INFO;
-            case "HIGH VARIATION" -> WARN;
-            default -> MUTED;
-        };
     }
 
     private static String signed(int value) {
