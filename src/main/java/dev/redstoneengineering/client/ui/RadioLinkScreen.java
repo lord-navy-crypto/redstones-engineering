@@ -1,7 +1,6 @@
 package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.core.port.PortQuality;
-import dev.redstoneengineering.physics.RadioKernel;
 import dev.redstoneengineering.ui.menu.RadioLinkMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -52,10 +51,10 @@ public final class RadioLinkScreen extends EngineeringScreen<RadioLinkMenu> {
         metricCard(g, "Payload", menu.payload() + " / 15", 16, 103, 88, INFO);
         metricCard(g, "Channel", Integer.toString(menu.channel()), 111, 103, 88, GOOD);
         metricCard(g, menu.kind() == RadioLinkMenu.KIND_RECEIVER ? "Link Q" : "Range",
-                menu.kind() == RadioLinkMenu.KIND_RECEIVER ? menu.linkQuality() + "%" : RadioKernel.RANGE + " blk", 206, 103, 88, INFO);
+                menu.kind() == RadioLinkMenu.KIND_RECEIVER ? menu.linkQuality() + "%" : RadioLinkMenu.RANGE_BLOCKS + " blk", 206, 103, 88, INFO);
         if (menu.kind() == RadioLinkMenu.KIND_RECEIVER) {
             labelValue(g, "Distance / latency", menu.distanceBlocks() + " blk / " + menu.latency() + "t", 149);
-            labelValue(g, "Decode margin", signed(menu.decodeMargin()) + "% above " + RadioKernel.MIN_DECODE_QUALITY + "% threshold", 165);
+            labelValue(g, "Decode margin", signed(menu.decodeMargin()) + "% above " + RadioLinkMenu.MIN_DECODE_QUALITY + "% threshold", 165);
             labelValue(g, "Output", menu.output() + " / 15 • " + menu.outputDirection().getName().toUpperCase(), 181);
         } else {
             labelValue(g, "Input topology", "5× REDSTONE INPUT", 149);
@@ -103,12 +102,12 @@ public final class RadioLinkScreen extends EngineeringScreen<RadioLinkMenu> {
 
         statusBadge(g, receiverDiagnosis(), diagnosisColor(), 16, 80);
         labelValue(g, "Quality / margin", menu.linkQuality() + "% / " + signed(menu.decodeMargin()) + "%", 106);
-        labelValue(g, "Distance / latency", menu.distanceBlocks() + "/" + RadioKernel.RANGE + " blk • " + menu.latency() + "t", 124);
+        labelValue(g, "Distance / latency", menu.distanceBlocks() + "/" + RadioLinkMenu.RANGE_BLOCKS + " blk • " + menu.latency() + "t", 124);
         labelValue(g, "Obstacles / adjacent", menu.obstacleHits() + " / " + menu.adjacentAggressors(), 142);
         labelValue(g, "Drivers / collision", menu.drivers() + " / " + (menu.collision() ? "YES" : "NO"), 160);
         labelValue(g, "Coverage", menu.coverageComplete() ? "COMPLETE" : "TRUNCATED / STALE", 178);
         safeText(g, nextAction(), 16, 201, diagnosisColor());
-        safeText(g, "Distance, obstacles, adjacent-channel penalty and fading come from the authoritative RadioKernel.", 16, 221, MUTED);
+        safeText(g, "Distance, obstacles, adjacent-channel penalty and fading come from server-synchronized radio evidence.", 16, 221, MUTED);
     }
 
     private void history(GuiGraphics g) {
@@ -130,7 +129,7 @@ public final class RadioLinkScreen extends EngineeringScreen<RadioLinkMenu> {
         if (!menu.coverageComplete()) return "STALE COVERAGE";
         if (menu.collision() || menu.drivers() > 1) return "SAME-CHANNEL COLLISION";
         if (menu.drivers() == 0) return menu.adjacentAggressors() > 0 ? "NO SOURCE • ADJACENT RF" : "NO IN-RANGE SOURCE";
-        if (menu.linkQuality() < RadioKernel.MIN_DECODE_QUALITY) return "BELOW DECODE MARGIN";
+        if (menu.linkQuality() < RadioLinkMenu.MIN_DECODE_QUALITY) return "BELOW DECODE MARGIN";
         if (menu.decodeMargin() < 15) return "MARGINAL LINK";
         if (menu.adjacentAggressors() > 0) return "VALID • ADJACENT INTERFERENCE";
         if (menu.obstacleHits() > 0) return "VALID • OBSTRUCTED PATH";
