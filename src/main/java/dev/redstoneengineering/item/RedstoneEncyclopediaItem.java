@@ -1,7 +1,7 @@
 package dev.redstoneengineering.item;
 
-import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import dev.redstoneengineering.ui.menu.RedstoneEncyclopediaMenu;
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -10,7 +10,10 @@ import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
+
+import java.util.List;
 
 /** Central in-game manual for all RSE blocks. */
 public final class RedstoneEncyclopediaItem extends Item {
@@ -21,6 +24,13 @@ public final class RedstoneEncyclopediaItem extends Item {
     @Override
     public Component getName(ItemStack stack) {
         return Component.literal("Redstone Encyclopedia");
+    }
+
+    @Override
+    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltipComponents, TooltipFlag tooltipFlag) {
+        tooltipComponents.add(Component.literal("Right-click to open the RSE field manual").withStyle(ChatFormatting.GRAY));
+        tooltipComponents.add(Component.literal("Guide + Ports / Config for registered RSE blocks").withStyle(ChatFormatting.AQUA));
+        tooltipComponents.add(Component.literal("Entries follow the live RSE block registry").withStyle(ChatFormatting.DARK_GRAY));
     }
 
     @Override
