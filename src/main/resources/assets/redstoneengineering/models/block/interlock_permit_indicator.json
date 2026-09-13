@@ -1,0 +1,8 @@
+{
+  "ambientocclusion": false,
+  "textures": {"light": "redstoneengineering:block/optical_fiber", "particle": "redstoneengineering:block/fault_latch"},
+  "elements": [
+    {"from": [3, 16.01, 5], "to": [13, 16.35, 11], "faces": {"up": {"texture": "#light"}}},
+    {"from": [6.5, 16.36, 6.5], "to": [9.5, 16.55, 9.5], "faces": {"up": {"texture": "#light"}}}
+  ]
+}

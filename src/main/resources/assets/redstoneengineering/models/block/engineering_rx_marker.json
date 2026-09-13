@@ -1,0 +1,29 @@
+{
+  "ambientocclusion": false,
+  "textures": {
+    "marker": "redstoneengineering:block/optical_fiber",
+    "particle": "redstoneengineering:block/optical_fiber"
+  },
+  "elements": [
+    {
+      "from": [5, 4, -0.25],
+      "to": [11, 12, 0.25],
+      "faces": {
+        "north": { "texture": "#marker" },
+        "south": { "texture": "#marker" },
+        "up": { "texture": "#marker" },
+        "down": { "texture": "#marker" },
+        "east": { "texture": "#marker" },
+        "west": { "texture": "#marker" }
+      }
+    },
+    {
+      "from": [3.5, 7.25, -0.35],
+      "to": [12.5, 8.75, 0.35],
+      "faces": {
+        "north": { "texture": "#marker" },
+        "south": { "texture": "#marker" }
+      }
+    }
+  ]
+}

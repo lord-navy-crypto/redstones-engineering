@@ -1,0 +1,29 @@
+{
+  "ambientocclusion": false,
+  "textures": {
+    "marker": "redstoneengineering:block/redstone_reference_source",
+    "particle": "redstoneengineering:block/redstone_reference_source"
+  },
+  "elements": [
+    {
+      "from": [5, 4, -0.25],
+      "to": [11, 12, 0.25],
+      "faces": {
+        "north": { "texture": "#marker" },
+        "south": { "texture": "#marker" },
+        "up": { "texture": "#marker" },
+        "down": { "texture": "#marker" },
+        "east": { "texture": "#marker" },
+        "west": { "texture": "#marker" }
+      }
+    },
+    {
+      "from": [7.25, 2.5, -0.35],
+      "to": [8.75, 13.5, 0.35],
+      "faces": {
+        "north": { "texture": "#marker" },
+        "south": { "texture": "#marker" }
+      }
+    }
+  ]
+}

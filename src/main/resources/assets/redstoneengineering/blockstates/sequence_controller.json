@@ -1,5 +1,20 @@
 {
   "multipart": [
-    { "apply": { "model": "redstoneengineering:block/sequence_controller" } }
+    {"apply": {"model": "redstoneengineering:block/sequence_controller"}},
+
+    {"when": {"facing": "north"}, "apply": {"model": "redstoneengineering:block/engineering_tx_marker", "y": 0}},
+    {"when": {"facing": "east"}, "apply": {"model": "redstoneengineering:block/engineering_tx_marker", "y": 90}},
+    {"when": {"facing": "south"}, "apply": {"model": "redstoneengineering:block/engineering_tx_marker", "y": 180}},
+    {"when": {"facing": "west"}, "apply": {"model": "redstoneengineering:block/engineering_tx_marker", "y": 270}},
+
+    {"when": {"input_facing": "north"}, "apply": {"model": "redstoneengineering:block/engineering_rx_marker", "y": 0}},
+    {"when": {"input_facing": "east"}, "apply": {"model": "redstoneengineering:block/engineering_rx_marker", "y": 90}},
+    {"when": {"input_facing": "south"}, "apply": {"model": "redstoneengineering:block/engineering_rx_marker", "y": 180}},
+    {"when": {"input_facing": "west"}, "apply": {"model": "redstoneengineering:block/engineering_rx_marker", "y": 270}},
+
+    {"when": {"output": "1|2|3|4"}, "apply": {"model": "redstoneengineering:block/sequence_step_1"}},
+    {"when": {"output": "2|3|4"}, "apply": {"model": "redstoneengineering:block/sequence_step_2"}},
+    {"when": {"output": "3|4"}, "apply": {"model": "redstoneengineering:block/sequence_step_3"}},
+    {"when": {"output": "4"}, "apply": {"model": "redstoneengineering:block/sequence_step_4"}}
   ]
 }
