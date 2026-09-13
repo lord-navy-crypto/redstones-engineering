@@ -120,6 +120,12 @@ public class SafetyInterlockBlock extends PassiveDirectionalSignalBlock {
         return "INTERLOCK BLOCKED | missing=" + missing + " | blockedTicks=" + runtime[1];
     }
 
+    public boolean resetDiagnostics(Level level, BlockPos pos) {
+        if (!level.getBlockState(pos).is(this)) return false;
+        RuntimeIntStore.remove(level, KEY, pos);
+        return true;
+    }
+
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
@@ -142,7 +148,7 @@ public class SafetyInterlockBlock extends PassiveDirectionalSignalBlock {
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
-                RuntimeIntStore.remove(level, KEY, pos);
+                resetDiagnostics(level, pos);
                 player.displayClientMessage(Component.literal("Interlock diagnostics reset"), true);
             } else {
                 player.displayClientMessage(Component.literal(compactDiagnostics(level, pos)), true);
