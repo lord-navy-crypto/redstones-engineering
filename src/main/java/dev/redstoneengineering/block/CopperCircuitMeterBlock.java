@@ -46,6 +46,15 @@ public class CopperCircuitMeterBlock extends DomainBlock implements EngineeringP
     private static final int SENSOR_PROFILE = 2; // PRECISION
     private static final int SAMPLE_PERIOD = 10;
 
+    /** Server-derived electrical evidence for the selected copper measurement aperture. */
+    public record ElectricalDiagnostics(
+            int voltage,
+            double equivalentResistance,
+            double current,
+            double power,
+            PortQuality quality
+    ) {}
+
     public CopperCircuitMeterBlock(Properties properties) {
         super(properties);
         registerDefaultState(defaultBlockState().setValue(FACING, Direction.NORTH));
@@ -70,6 +79,23 @@ public class CopperCircuitMeterBlock extends DomainBlock implements EngineeringP
     public static int sampledVoltage(Level level, BlockPos pos, BlockState state) {
         BlockPos target = pos.relative(state.getValue(FACING));
         return DomainNetwork.sampleCopperVoltage(level, target, pos);
+    }
+
+    /**
+     * Calculate the electrical quantities once on the logical server so every HMI uses the same
+     * load model as the meter's shift diagnostic. Opening a UI never drives or mutates the circuit.
+     */
+    public static ElectricalDiagnostics electricalDiagnostics(Level level, BlockPos pos, BlockState state) {
+        BlockPos targetPos = pos.relative(state.getValue(FACING));
+        BlockState targetState = level.getBlockState(targetPos);
+        CopperObservationSupport.Observation target = targetObservation(level, pos, state);
+        double resistance = targetState.getBlock() instanceof CopperResistiveLoadBlock
+                ? targetState.getValue(CopperResistiveLoadBlock.RESISTANCE)
+                : CircuitPhysics.equivalentLoadResistance(level, targetPos, 128);
+        double current = CircuitPhysics.current(target.voltage(), resistance);
+        double power = CircuitPhysics.power(target.voltage(), resistance);
+        return new ElectricalDiagnostics(
+                target.voltage(), resistance, current, power, measurementQuality(level, pos, state));
     }
 
     @Override
@@ -169,22 +195,15 @@ public class CopperCircuitMeterBlock extends DomainBlock implements EngineeringP
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
-                BlockPos targetPos = pos.relative(state.getValue(FACING));
-                BlockState targetState = level.getBlockState(targetPos);
-                CopperObservationSupport.Observation target = targetObservation(level, pos, state);
-                double resistance = targetState.getBlock() instanceof CopperResistiveLoadBlock
-                        ? targetState.getValue(CopperResistiveLoadBlock.RESISTANCE)
-                        : CircuitPhysics.equivalentLoadResistance(level, targetPos, 128);
-                double current = CircuitPhysics.current(target.voltage(), resistance);
-                double power = target.voltage() * current;
+                ElectricalDiagnostics diagnostics = electricalDiagnostics(level, pos, state);
                 player.displayClientMessage(Component.literal(String.format(
                         "Copper circuit meter | face=%s | observer-only | live=%s V=%.2f | Req=%.2f | I≈%.3f | P≈%.3f | meter=%s | %s",
                         state.getValue(FACING).getName().toUpperCase(),
-                        target.quality(),
-                        (double) target.voltage(),
-                        resistance,
-                        current,
-                        power,
+                        diagnostics.quality(),
+                        (double) diagnostics.voltage(),
+                        diagnostics.equivalentResistance(),
+                        diagnostics.current(),
+                        diagnostics.power(),
                         measurementQuality(level, pos, state),
                         MetrologySupport.compactDiagnostics(measurement(level, pos))
                 )), true);
