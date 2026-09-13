@@ -6,6 +6,7 @@ import dev.redstoneengineering.ui.menu.CopperCircuitMeterMenu;
 import dev.redstoneengineering.ui.menu.DigitalCommunicationMenu;
 import dev.redstoneengineering.ui.menu.FieldDeviceMenu;
 import dev.redstoneengineering.ui.menu.MagneticSystemMenu;
+import dev.redstoneengineering.ui.menu.MediaConversionMenu;
 import dev.redstoneengineering.ui.menu.OpticalSystemMenu;
 import dev.redstoneengineering.ui.menu.PneumaticSystemMenu;
 import dev.redstoneengineering.ui.menu.QuartzTimingMenu;
@@ -28,6 +29,9 @@ public final class FieldDeviceUi {
         var title = block.getName();
         if (block instanceof CopperCircuitMeterBlock) {
             player.openMenu(new SimpleMenuProvider((id, inv, ignored) -> new CopperCircuitMeterMenu(id, inv, pos), title), data -> data.writeBlockPos(pos)); return;
+        }
+        if (block instanceof RedstoneToLapisScalerBlock || block instanceof LapisToRedstoneQuantizerBlock) {
+            player.openMenu(new SimpleMenuProvider((id, inv, ignored) -> new MediaConversionMenu(id, inv, pos), title), data -> data.writeBlockPos(pos)); return;
         }
         if (block instanceof RangeSensorBlock) {
             player.openMenu(new SimpleMenuProvider((id, inv, ignored) -> new RangeSensorMenu(id, inv, pos), title), data -> data.writeBlockPos(pos)); return;
