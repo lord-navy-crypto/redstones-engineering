@@ -91,7 +91,7 @@ require(
     "shieldingIntegrity()",
     "shieldingCoveragePercent()",
     "shieldedCableNodes()",
-    "never changes probe values",
+    "fabricated random noise",
 )
 
 require(
