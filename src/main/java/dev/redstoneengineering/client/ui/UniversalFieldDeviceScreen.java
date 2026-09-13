@@ -4,6 +4,8 @@ import dev.redstoneengineering.block.CalibrationModuleBlock;
 import dev.redstoneengineering.block.FaultInjectorBlock;
 import dev.redstoneengineering.block.PwmControllerBlock;
 import dev.redstoneengineering.block.SampleHoldBlock;
+import dev.redstoneengineering.core.domain.EngineeringDomain;
+import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.menu.UniversalFieldDeviceMenu;
 import net.minecraft.client.gui.GuiGraphics;
@@ -102,13 +104,16 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         int declared = Integer.bitCount(menu.declaredPortMask());
         int attention = attentionCount();
         statusBadge(g, title.getString().toUpperCase(), attention == 0 ? GOOD : WARN, 16, 80);
-        statusBadge(g, "UNIVERSAL HMI", INFO, 207, 80);
+        statusBadge(g, lapisPrecisionMeasurementPresent() ? "LAPIS PRECISION" : "UNIVERSAL HMI", INFO, 207, 80);
         labelValue(g, "Declared interfaces", Integer.toString(declared), 106);
         labelValue(g, "Physical route", routeText(), 124);
         labelValue(g, "Attention ports", Integer.toString(attention), 142);
         sectionRule(g, 161);
         safeText(g, "Every displayed value and quality is synchronized from the logical server.", 16, 174, TEXT);
-        safeText(g, "Use Ports for physical faces, Configure for parameters, and Route for real orientation.", 16, 191, MUTED);
+        safeText(g, lapisPrecisionMeasurementPresent()
+                        ? "Lapis measurement uses the 0..100 precision-information domain; valid zero remains real evidence."
+                        : "Use Ports for physical faces, Configure for parameters, and Route for real orientation.",
+                16, 191, lapisPrecisionMeasurementPresent() ? INFO : MUTED);
     }
 
     private void ports(GuiGraphics g) {
@@ -189,13 +194,19 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             }
             default -> {
                 boolean rotatable = menu.rotatableSeriesAxis();
-                statusBadge(g, "NO UNIVERSAL PARAMETERS", MUTED, 16, 80);
+                statusBadge(g, lapisPrecisionMeasurementPresent() ? "PRECISION OBSERVER • NO PROCESS PARAMETER" : "NO UNIVERSAL PARAMETERS",
+                        lapisPrecisionMeasurementPresent() ? INFO : MUTED, 16, 80);
                 labelValue(g, "Current route", routeText(), 106);
-                safeText(g, rotatable
+                safeText(g, lapisPrecisionMeasurementPresent()
+                                ? "The selected measurement face samples precision information; it does not drive or quantize the source."
+                                : rotatable
                                 ? "This device has a real routable interface; change it on Route, not Configure."
                                 : "This device has no shared configurable parameter in the universal HMI.",
                         16, 132, TEXT);
-                safeText(g, "No client-side physics or hidden port mutation is performed.", 16, 152, MUTED);
+                safeText(g, lapisPrecisionMeasurementPresent()
+                                ? "Precision identity is observational: 0..100 engineering scale with 0.01 display resolution."
+                                : "No client-side physics or hidden port mutation is performed.",
+                        16, 152, lapisPrecisionMeasurementPresent() ? INFO : MUTED);
             }
         }
     }
@@ -211,6 +222,11 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             y += 18;
         }
         if (y == 104) safeText(g, "No EngineeringPortProvider interfaces are declared by this block.", 16, 108, WARN);
+        if (lapisPrecisionMeasurementPresent() && y <= 190) {
+            sectionRule(g, y + 2);
+            statusLine(g, "Precision identity", lapisPrecisionText(), lapisPrecisionColor(), y + 14);
+            safeText(g, lapisPrecisionNextAction(), 16, y + 34, lapisPrecisionColor());
+        }
     }
 
     private void history(GuiGraphics g) {
@@ -218,6 +234,11 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         safeText(g, "Universal HMI intentionally stores no client-local history.", 16, 108, TEXT);
         safeText(g, "Use dedicated analyzers/monitors when retained chronology is required.", 16, 128, INFO);
         safeText(g, "This prevents opening a UI from creating measurement evidence or changing simulation state.", 16, 150, MUTED);
+        if (lapisPrecisionMeasurementPresent()) {
+            labelValue(g, "Medium identity", "LAPIS PRECISION INFORMATION • 0..100", 174);
+            labelValue(g, "Display resolution", "0.01 engineering unit", 192);
+            safeText(g, "Precision is meaningful only when the synchronized port quality is VALID.", 16, 210, INFO);
+        }
     }
 
     private int attentionCount() {
@@ -228,6 +249,48 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             if (q != PortQuality.VALID) count++;
         }
         return count;
+    }
+
+    private boolean lapisPrecisionMeasurementPresent() {
+        for (Direction side : Direction.values()) {
+            if (!menu.hasPort(side)) continue;
+            if (menu.domain(side) == EngineeringDomain.LAPIS && menu.portKind(side) == PortKind.MEASUREMENT) return true;
+        }
+        return false;
+    }
+
+    private Direction lapisMeasurementSide() {
+        for (Direction side : Direction.values()) {
+            if (!menu.hasPort(side)) continue;
+            if (menu.domain(side) == EngineeringDomain.LAPIS && menu.portKind(side) == PortKind.MEASUREMENT) return side;
+        }
+        return null;
+    }
+
+    private String lapisPrecisionText() {
+        Direction side = lapisMeasurementSide();
+        if (side == null) return "N/A";
+        PortQuality quality = menu.quality(side);
+        if (quality != PortQuality.VALID) return quality.name() + " • precision unavailable";
+        return String.format(java.util.Locale.ROOT, "%.2f • 0.01 resolution • VALID", menu.value(side) / 100.0);
+    }
+
+    private int lapisPrecisionColor() {
+        Direction side = lapisMeasurementSide();
+        return side == null ? MUTED : qualityColor(menu.quality(side));
+    }
+
+    private String lapisPrecisionNextAction() {
+        Direction side = lapisMeasurementSide();
+        if (side == null) return "";
+        return switch (menu.quality(side)) {
+            case VALID -> "NEXT • use this value as precision reference evidence; compare changes before quantizing to redstone.";
+            case TOPOLOGY_ERROR -> "NEXT • resolve competing Lapis sources before selecting a precision value.";
+            case STALE -> "NEXT • restore the sampled aperture/topology and reacquire precision evidence.";
+            case NO_SIGNAL -> "NEXT • connect a unique Lapis precision source to the selected measurement face.";
+            case SATURATED -> "NEXT • inspect measurement range/profile before treating the value as precise.";
+            default -> "NEXT • repair the measurement evidence before using it as a reference.";
+        };
     }
 
     private String routeText() {
