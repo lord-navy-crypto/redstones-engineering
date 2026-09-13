@@ -2,6 +2,7 @@ package dev.redstoneengineering.ui;
 
 import dev.redstoneengineering.block.*;
 import dev.redstoneengineering.ui.menu.AmethystSystemMenu;
+import dev.redstoneengineering.ui.menu.CopperCircuitMeterMenu;
 import dev.redstoneengineering.ui.menu.DigitalCommunicationMenu;
 import dev.redstoneengineering.ui.menu.FieldDeviceMenu;
 import dev.redstoneengineering.ui.menu.MagneticSystemMenu;
@@ -25,6 +26,9 @@ public final class FieldDeviceUi {
         var state = player.level().getBlockState(pos);
         var block = state.getBlock();
         var title = block.getName();
+        if (block instanceof CopperCircuitMeterBlock) {
+            player.openMenu(new SimpleMenuProvider((id, inv, ignored) -> new CopperCircuitMeterMenu(id, inv, pos), title), data -> data.writeBlockPos(pos)); return;
+        }
         if (block instanceof RangeSensorBlock) {
             player.openMenu(new SimpleMenuProvider((id, inv, ignored) -> new RangeSensorMenu(id, inv, pos), title), data -> data.writeBlockPos(pos)); return;
         }
@@ -65,14 +69,10 @@ public final class FieldDeviceUi {
                 || block instanceof RedundantVoterBlock || block instanceof FaultLatchBlock) {
             player.openMenu(new SimpleMenuProvider((id, inv, ignored) -> new ReliabilitySystemMenu(id, inv, pos), title), data -> data.writeBlockPos(pos)); return;
         }
-        // These migrated endpoints expose their complete engineering state through formal ports,
-        // so the universal HMI is more accurate than forcing them through a device-kind table.
         if (block instanceof EngineeringLightSensorBlock || block instanceof TankLevelSensorBlock
                 || block instanceof EntityDensitySensorBlock || block instanceof AnalogIndicatorBlock) {
             openUniversal(player, pos); return;
         }
-        // Any remaining explicit one-input/one-output processor must use the universal port-driven HMI.
-        // This keeps RX/TX truth sourced from INPUT_FACING/FACING instead of legacy TX.opposite() snapshots.
         if (block instanceof DirectionalSignalBlock || block instanceof DirectionalDomainBlock) {
             openUniversal(player, pos); return;
         }
