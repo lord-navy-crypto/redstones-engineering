@@ -95,7 +95,7 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
         labelValue(g, "Topology", topologyText(), 149);
         labelValue(g, "Role", roleText(), 165);
         labelValue(g, "Evidence", qualityName(), 181);
-        safeText(g, hint(), 16, 199, MUTED);
+        safeText(g, opticalDiagnosis(), 16, 199, opticalDiagnosisColor());
     }
 
     private void ports(GuiGraphics g) {
@@ -154,38 +154,49 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
 
     private void diagnostics(GuiGraphics g) {
         statusBadge(g, qualityName(), qualityColor(), 16, 80);
-        labelValue(g, primaryLabel(), primaryText(), 106);
-        labelValue(g, secondaryLabel(), secondaryText(), 124);
-        labelValue(g, tertiaryLabel(), tertiaryText(), 142);
+        labelValue(g, primaryLabel(), primaryText(), 104);
+        labelValue(g, secondaryLabel(), secondaryText(), 122);
+        labelValue(g, tertiaryLabel(), tertiaryText(), 140);
         if (menu.kind() == OpticalSystemMenu.KIND_RECEIVER) {
-            labelValue(g, "Physical inputs", Integer.toString(menu.tertiary()), 160);
-            labelValue(g, "Active drivers", Integer.toString(menu.auxiliary()), 178);
+            labelValue(g, "Physical inputs", Integer.toString(menu.tertiary()), 158);
+            labelValue(g, "Active drivers", Integer.toString(menu.auxiliary()), 176);
         } else if (menu.kind() == OpticalSystemMenu.KIND_SPLITTER) {
-            labelValue(g, "Quantization loss", Integer.toString(menu.auxiliary()), 160);
+            labelValue(g, "Quantization loss", Integer.toString(menu.auxiliary()), 158);
+            labelValue(g, "Budget proxy", opticalBudgetText(), 176);
         } else if (menu.kind() == OpticalSystemMenu.KIND_FILTER) {
-            labelValue(g, "Input channel", Integer.toString(menu.auxiliary()), 160);
+            labelValue(g, "Input channel", Integer.toString(menu.auxiliary()), 158);
+            labelValue(g, "Budget proxy", opticalBudgetText(), 176);
         } else if (menu.kind() == OpticalSystemMenu.KIND_ATTENUATOR) {
-            labelValue(g, "Carrier channel", Integer.toString(menu.auxiliary()), 160);
+            labelValue(g, "Carrier channel", Integer.toString(menu.auxiliary()), 158);
+            labelValue(g, "Budget proxy", opticalBudgetText(), 176);
+        } else if (menu.kind() == OpticalSystemMenu.KIND_METER) {
+            labelValue(g, "Receive margin proxy", receiveMarginText(), 158);
+            labelValue(g, "Carrier channel", Integer.toString(menu.secondary()), 176);
         } else if (menu.kind() == OpticalSystemMenu.KIND_FREE_SPACE_TX) {
-            labelValue(g, "Input evidence", menu.tertiary() != 0 ? "VALID" : "UNAVAILABLE", 160);
-            labelValue(g, "Launch direction", face(menu.facing()), 178);
+            labelValue(g, "Input evidence", menu.tertiary() != 0 ? "VALID" : "UNAVAILABLE", 158);
+            labelValue(g, "Launch direction", face(menu.facing()), 176);
         } else if (menu.kind() == OpticalSystemMenu.KIND_FREE_SPACE_RX) {
-            labelValue(g, "Redstone output", menu.tertiary() + " / 15", 160);
-            labelValue(g, "Receive direction", face(inputFace()), 178);
+            labelValue(g, "Redstone output", menu.tertiary() + " / 15", 158);
+            labelValue(g, "Receive direction", face(inputFace()), 176);
         }
-        statusLine(g, "Authority", "SERVER SYNCHRONIZED", GOOD, 200);
+        statusLine(g, "Link diagnosis", opticalDiagnosis(), opticalDiagnosisColor(), 197);
+        safeText(g, opticalNextAction(), 16, 217, opticalDiagnosisColor());
     }
 
     private void history(GuiGraphics g) {
         statusBadge(g, "OPTICAL EVIDENCE", INFO, 16, 80);
         safeText(g, "This HMI exposes retained/current server optical evidence only.", 16, 108, TEXT);
-        safeText(g, "It does not invent client-side carrier history or optical power traces.", 16, 128, MUTED);
+        safeText(g, "It does not invent client-side carrier history or continuous dB traces.", 16, 128, MUTED);
         if (menu.kind() == OpticalSystemMenu.KIND_RECEIVER) {
             labelValue(g, "Inputs / drivers", menu.tertiary() + " / " + menu.auxiliary(), 156);
             labelValue(g, "Topology state", qualityName(), 174);
         } else if (menu.kind() == OpticalSystemMenu.KIND_FREE_SPACE_TX || menu.kind() == OpticalSystemMenu.KIND_FREE_SPACE_RX) {
             labelValue(g, "Selected channel", Integer.toString(menu.secondary()), 156);
             labelValue(g, "Current evidence", qualityName(), 174);
+        } else if (menu.kind() == OpticalSystemMenu.KIND_METER || menu.kind() == OpticalSystemMenu.KIND_FILTER
+                || menu.kind() == OpticalSystemMenu.KIND_ATTENUATOR || menu.kind() == OpticalSystemMenu.KIND_SPLITTER) {
+            labelValue(g, "Budget evidence", opticalBudgetText(), 156);
+            labelValue(g, "Interpretation", opticalDiagnosis(), 174);
         }
     }
 
@@ -293,6 +304,81 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
         if (menu.kind() == OpticalSystemMenu.KIND_FREE_SPACE_TX) return "Redstone payload becomes a channel-selected line-of-sight optical transmission.";
         if (menu.kind() == OpticalSystemMenu.KIND_FREE_SPACE_RX) return "Channel-selected free-space evidence becomes redstone only on the declared output face.";
         return "Optical role and topology are explicit; passive fiber remains a separate no-translation medium.";
+    }
+
+    private String opticalBudgetText() {
+        return switch (menu.kind()) {
+            case OpticalSystemMenu.KIND_METER -> "RX " + menu.primary() + "/15 • CH " + menu.secondary();
+            case OpticalSystemMenu.KIND_FILTER -> "IN " + menu.primary() + " → OUT " + menu.tertiary() + " • CH " + menu.auxiliary() + "→" + menu.secondary();
+            case OpticalSystemMenu.KIND_ATTENUATOR -> "IN " + menu.primary() + " - LOSS " + menu.secondary() + " → OUT " + menu.tertiary();
+            case OpticalSystemMenu.KIND_SPLITTER -> "IN " + menu.primary() + " → A/B " + menu.secondary() + "/" + menu.tertiary() + " • qloss " + menu.auxiliary();
+            case OpticalSystemMenu.KIND_FREE_SPACE_TX -> "PAYLOAD " + menu.primary() + " • CH " + menu.secondary();
+            case OpticalSystemMenu.KIND_FREE_SPACE_RX -> "RX " + menu.primary() + " → RS " + menu.tertiary() + " • CH " + menu.secondary();
+            default -> "CURRENT SERVER EVIDENCE";
+        };
+    }
+
+    private String receiveMarginText() {
+        if (menu.quality() != PortQuality.VALID) return "N/A";
+        int intensity = menu.primary();
+        if (intensity == 0) return "DARK / ZERO";
+        if (intensity <= 3) return "LOW (" + intensity + "/15)";
+        if (intensity <= 7) return "MARGINAL (" + intensity + "/15)";
+        if (intensity <= 11) return "USABLE (" + intensity + "/15)";
+        return "STRONG (" + intensity + "/15)";
+    }
+
+    private String opticalDiagnosis() {
+        if (menu.quality() == PortQuality.TOPOLOGY_ERROR || menu.quality() == PortQuality.FAULT) return "TOPOLOGY / SOURCE CONFLICT";
+        if (menu.quality() == PortQuality.STALE) return "STALE OPTICAL EVIDENCE";
+        if (menu.quality() == PortQuality.NO_SIGNAL) return "NO CARRIER / DARK PATH";
+        if (menu.kind() == OpticalSystemMenu.KIND_RECEIVER && menu.auxiliary() > 1) return "MULTIPLE ACTIVE DRIVERS";
+        if (menu.kind() == OpticalSystemMenu.KIND_METER) {
+            if (menu.primary() <= 3) return "LOW RECEIVE MARGIN PROXY";
+            if (menu.primary() <= 7) return "MARGINAL RECEIVE MARGIN PROXY";
+            return "RECEIVE MARGIN COHERENT";
+        }
+        if (menu.kind() == OpticalSystemMenu.KIND_FILTER) {
+            if (menu.auxiliary() != menu.secondary() && menu.primary() > 0) return "CHANNEL REJECTION • EXPECTED";
+            if (menu.primary() > 0 && menu.tertiary() == 0) return "MATCHED CHANNEL BUT ZERO OUTPUT";
+            return "FILTER CHANNEL COHERENT";
+        }
+        if (menu.kind() == OpticalSystemMenu.KIND_ATTENUATOR) {
+            int expected = Math.max(0, menu.primary() - menu.secondary());
+            if (menu.tertiary() != expected) return "ATTENUATION TRANSFER MISMATCH";
+            if (menu.primary() > 0 && menu.tertiary() == 0) return "FULL ATTENUATION • VALID";
+            return "ATTENUATION BUDGET COHERENT";
+        }
+        if (menu.kind() == OpticalSystemMenu.KIND_SPLITTER) {
+            int outputSum = Math.max(0, menu.secondary()) + Math.max(0, menu.tertiary());
+            if (outputSum + Math.max(0, menu.auxiliary()) != Math.max(0, menu.primary())) return "SPLIT BUDGET MISMATCH";
+            return "SPLIT BUDGET COHERENT";
+        }
+        if (menu.kind() == OpticalSystemMenu.KIND_FREE_SPACE_TX && menu.tertiary() == 0) return "NO VALID LAUNCH PAYLOAD";
+        if (menu.kind() == OpticalSystemMenu.KIND_FREE_SPACE_RX && menu.primary() <= 0) return "NO MATCHING FREE-SPACE CARRIER";
+        return "OPTICAL EVIDENCE COHERENT";
+    }
+
+    private int opticalDiagnosisColor() {
+        String diagnosis = opticalDiagnosis();
+        if (diagnosis.contains("CONFLICT") || diagnosis.contains("STALE") || diagnosis.contains("NO CARRIER")
+                || diagnosis.contains("MISMATCH") || diagnosis.contains("ZERO OUTPUT") || diagnosis.contains("NO VALID")
+                || diagnosis.contains("NO MATCHING")) return WARN;
+        if (diagnosis.contains("LOW") || diagnosis.contains("MARGINAL")) return WARN;
+        if (diagnosis.contains("REJECTION") || diagnosis.contains("FULL ATTENUATION")) return INFO;
+        return GOOD;
+    }
+
+    private String opticalNextAction() {
+        String diagnosis = opticalDiagnosis();
+        if (diagnosis.contains("CONFLICT")) return "NEXT • resolve competing sources/topology before interpreting optical power.";
+        if (diagnosis.contains("STALE")) return "NEXT • restore observable topology and reacquire server evidence.";
+        if (diagnosis.contains("NO CARRIER") || diagnosis.contains("NO MATCHING")) return "NEXT • check source intensity, channel selection and physical path continuity.";
+        if (diagnosis.contains("LOW RECEIVE") || diagnosis.contains("MARGINAL RECEIVE")) return "NEXT • inspect upstream attenuation/splitting before changing receiver-side logic.";
+        if (diagnosis.contains("CHANNEL REJECTION")) return "NEXT • rejection is expected; change target channel only if this path should pass the carrier.";
+        if (diagnosis.contains("ZERO OUTPUT") || diagnosis.contains("MISMATCH")) return "NEXT • compare configured filter/attenuator/splitter state with upstream carrier evidence.";
+        if (diagnosis.contains("NO VALID LAUNCH")) return "NEXT • restore the redstone payload evidence before evaluating free-space range.";
+        return "NEXT • budget proxy is coherent; compare this point with another optical measurement point.";
     }
 
     private String qualityName() { return menu.quality().name().replace('_', ' '); }

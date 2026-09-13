@@ -48,6 +48,7 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
 
     private void renderOverview(GuiGraphics graphics) {
         statusBadge(graphics, captureState(), captureColor(), 16, 80);
+        statusBadge(graphics, "EVIDENCE " + evidenceConfidence() + "%", evidenceColor(), 205, 80);
         labelValue(graphics, "Capture", menu.sampleCount() + "/32 samples", 99);
         labelValue(graphics, "Trigger", triggerText(), 114);
         labelValue(graphics, "CH A / CH B", value(menu.current(0)) + " / " + value(menu.current(1)), 129);
@@ -55,6 +56,7 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
         miniTrace(graphics, 0, 50, 145, 240, 18, INFO);
         graphics.drawString(font, "CH B", 16, 170, GOOD, false);
         miniTrace(graphics, 1, 50, 167, 240, 18, GOOD);
+        safeText(graphics, relationshipDiagnosis(), 16, 193, relationshipColor());
     }
 
     private void renderPorts(GuiGraphics graphics) {
@@ -65,6 +67,7 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
         labelValue(graphics, "Cable nodes", Integer.toString(menu.cableNodes()), 153);
         labelValue(graphics, "Probe nodes", Integer.toString(menu.probeNodes()), 168);
         labelValue(graphics, "Valid / active", menu.validChannels() + " / " + menu.activeChannels(), 183);
+        labelValue(graphics, "Capture evidence", evidenceConfidence() + "%", 198);
     }
 
     private void renderConfigure(GuiGraphics graphics) {
@@ -75,13 +78,17 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
         labelValue(graphics, "Cursor Δ", Math.abs(menu.cursorB() - menu.cursorA()) + " samples / "
                 + Math.abs(menu.cursorB() - menu.cursorA()) * OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS + "t", 140);
         safeText(graphics, "All controls are validated on the logical server.", 16, 178, MUTED);
+        safeText(graphics, "Trigger/cursor interpretation uses synchronized retained samples only.", 16, 194, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
-        channelDiagnostics(graphics, 0, "A", 82);
-        sectionRule(graphics, 126);
-        channelDiagnostics(graphics, 1, "B", 136);
-        statusLine(graphics, "Network", networkIntegrity(), networkColor(), 183);
+        channelDiagnostics(graphics, 0, "A", 78);
+        sectionRule(graphics, 120);
+        channelDiagnostics(graphics, 1, "B", 130);
+        statusLine(graphics, "Network", networkIntegrity(), networkColor(), 174);
+        statusLine(graphics, "Evidence confidence", evidenceConfidence() + "% • " + evidenceClass(), evidenceColor(), 192);
+        safeText(graphics, relationshipDiagnosis(), 16, 211, relationshipColor());
+        safeText(graphics, nextAction(), 16, 228, evidenceColor());
     }
 
     private void channelDiagnostics(GuiGraphics graphics, int channel, String name, int y) {
@@ -92,7 +99,7 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
                 52, y, TEXT);
         safeText(graphics,
                 "avg=" + decimal100(menu.average100(channel)) + "  meanStep=" + decimal100(menu.meanStep100(channel))
-                        + "  period≈" + tickValue(menu.periodTicks(channel)),
+                        + "  period≈" + tickValue(menu.periodTicks(channel)) + "  " + channelDiagnosis(channel),
                 52, y + 16, MUTED);
     }
 
@@ -119,9 +126,10 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
         graphics.drawString(font, "T", 291, 86, WARN, false);
         safeText(graphics, "A/B traces • T=trigger level • synchronized 0..15 samples", 16, 173, MUTED);
         safeText(graphics,
-                "Cursor Δ=" + Math.abs(menu.cursorB() - menu.cursorA()) + " samples / "
-                        + Math.abs(menu.cursorB() - menu.cursorA()) * OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS + "t",
+                "Cursor Δ=" + cursorDeltaSamples() + " samples / " + cursorDeltaTicks() + "t"
+                        + " • ΔV A/B=" + cursorDeltaValue(0) + "/" + cursorDeltaValue(1),
                 16, 187, TEXT);
+        safeText(graphics, "Capture confidence=" + evidenceConfidence() + "% • " + relationshipDiagnosis(), 16, 202, MUTED);
     }
 
     private void miniTrace(GuiGraphics graphics, int channel, int x, int y, int width, int height, int color) {
@@ -142,6 +150,78 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
                 height,
                 color
         );
+    }
+
+    private int evidenceConfidence() {
+        int capture = Math.min(menu.coverage(0), menu.coverage(1));
+        if (!menu.bounded()) capture = Math.min(capture, 25);
+        if (menu.duplicateChannels() > 0) capture = Math.min(capture, 35);
+        if (menu.probeCount(0) != 1 || menu.probeCount(1) != 1) capture = Math.min(capture, 50);
+        return Math.max(0, Math.min(100, capture));
+    }
+
+    private String evidenceClass() {
+        int confidence = evidenceConfidence();
+        if (confidence >= 90) return "STRONG";
+        if (confidence >= 70) return "USABLE";
+        if (confidence >= 40) return "MARGINAL";
+        return "INSUFFICIENT";
+    }
+
+    private int evidenceColor() {
+        int confidence = evidenceConfidence();
+        if (confidence >= 90) return GOOD;
+        if (confidence >= 70) return INFO;
+        return WARN;
+    }
+
+    private String channelDiagnosis(int channel) {
+        if (menu.probeCount(channel) == 0) return "NO PROBE";
+        if (menu.probeCount(channel) > 1) return "AMBIGUOUS";
+        if (menu.coverage(channel) < 70) return "LOW COVERAGE";
+        if (menu.peakToPeak(channel) == 0) return "STEADY";
+        if (menu.periodTicks(channel) > 0) return "PERIODIC";
+        if (menu.meanStep100(channel) >= 300) return "FAST TRANSIENT";
+        return "DYNAMIC";
+    }
+
+    private String relationshipDiagnosis() {
+        if (evidenceConfidence() < 70) return "CHANNEL RELATIONSHIP • insufficient synchronized evidence";
+        int avgDelta = Math.abs(menu.average100(0) - menu.average100(1));
+        int p2pDelta = Math.abs(menu.peakToPeak(0) - menu.peakToPeak(1));
+        int periodA = menu.periodTicks(0);
+        int periodB = menu.periodTicks(1);
+        if (periodA > 0 && periodB > 0 && Math.abs(periodA - periodB) <= OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS
+                && avgDelta <= 100 && p2pDelta <= 1) return "CHANNEL RELATIONSHIP • closely tracking";
+        if (periodA > 0 && periodB > 0 && Math.abs(periodA - periodB) > OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS * 2)
+            return "CHANNEL RELATIONSHIP • timing mismatch";
+        if (avgDelta >= 400) return "CHANNEL RELATIONSHIP • large level offset";
+        if (p2pDelta >= 5) return "CHANNEL RELATIONSHIP • amplitude mismatch";
+        return "CHANNEL RELATIONSHIP • distinct but comparable";
+    }
+
+    private int relationshipColor() {
+        String diagnosis = relationshipDiagnosis();
+        if (diagnosis.contains("insufficient") || diagnosis.contains("mismatch") || diagnosis.contains("large")) return WARN;
+        return diagnosis.contains("closely") ? GOOD : INFO;
+    }
+
+    private String nextAction() {
+        if (!menu.bounded()) return "NEXT • reduce/segment the instrument network before trusting capture timing.";
+        if (menu.duplicateChannels() > 0) return "NEXT • resolve duplicate probe channel ownership before waveform comparison.";
+        if (menu.probeCount(0) != 1 || menu.probeCount(1) != 1) return "NEXT • connect exactly one probe to each compared channel.";
+        if (evidenceConfidence() < 70) return "NEXT • acquire a longer valid capture before interpreting waveform differences.";
+        if (relationshipDiagnosis().contains("timing mismatch")) return "NEXT • compare source timing/trigger alignment before changing amplitude.";
+        if (relationshipDiagnosis().contains("amplitude") || relationshipDiagnosis().contains("level offset")) return "NEXT • inspect conditioning, loading or measurement reference before retuning control.";
+        return "NEXT • evidence is coherent; use cursors to quantify the observed channel difference.";
+    }
+
+    private int cursorDeltaSamples() { return Math.abs(menu.cursorB() - menu.cursorA()); }
+    private int cursorDeltaTicks() { return cursorDeltaSamples() * OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS; }
+    private String cursorDeltaValue(int channel) {
+        int a = menu.displaySample(channel, menu.cursorA());
+        int b = menu.displaySample(channel, menu.cursorB());
+        return a < 0 || b < 0 ? "N/A" : signed(b - a);
     }
 
     private String triggerText() {
@@ -209,5 +289,9 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
     private static String decimal100(int value) {
         if (value < 0) return "N/A";
         return (value / 100) + "." + String.format("%02d", value % 100);
+    }
+
+    private static String signed(int value) {
+        return value > 0 ? "+" + value : Integer.toString(value);
     }
 }
