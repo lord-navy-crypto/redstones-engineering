@@ -1,3 +1,35 @@
 {
-  "parent": "redstoneengineering:block/signal_conditioner"
+  "parent": "minecraft:block/block",
+  "textures": {
+    "front": "redstoneengineering:block/signal_conditioner_front",
+    "back": "redstoneengineering:block/signal_conditioner_back",
+    "side": "redstoneengineering:block/signal_conditioner_side",
+    "top": "redstoneengineering:block/signal_conditioner_top",
+    "arm": "redstoneengineering:block/redstone_reference_source",
+    "particle": "redstoneengineering:block/signal_conditioner_side"
+  },
+  "elements": [
+    {
+      "from": [0, 0, 0],
+      "to": [16, 16, 16],
+      "faces": {
+        "north": {"texture": "#front", "cullface": "north"},
+        "south": {"texture": "#back", "cullface": "south"},
+        "east": {"texture": "#side", "cullface": "east"},
+        "west": {"texture": "#side", "cullface": "west"},
+        "up": {"texture": "#top", "cullface": "up"},
+        "down": {"texture": "#side", "cullface": "down"}
+      }
+    },
+    {
+      "from": [15.7, 4, 6.5],
+      "to": [16.3, 12, 9.5],
+      "faces": {"east": {"texture": "#arm"}, "west": {"texture": "#arm"}}
+    },
+    {
+      "from": [15.65, 6.5, 4],
+      "to": [16.35, 9.5, 12],
+      "faces": {"east": {"texture": "#arm"}, "west": {"texture": "#arm"}}
+    }
+  ]
 }
