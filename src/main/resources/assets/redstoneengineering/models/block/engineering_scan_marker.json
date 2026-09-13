@@ -1,0 +1,9 @@
+{
+  "ambientocclusion": false,
+  "textures": {"marker": "redstoneengineering:block/signal_analyzer_top", "particle": "redstoneengineering:block/signal_analyzer_side"},
+  "elements": [
+    {"from": [4, 4, -0.3], "to": [12, 12, 0.3], "faces": {"north": {"texture": "#marker"}, "south": {"texture": "#marker"}}},
+    {"from": [7, 2.5, -0.4], "to": [9, 13.5, 0.4], "faces": {"north": {"texture": "#marker"}, "south": {"texture": "#marker"}}},
+    {"from": [2.5, 7, -0.4], "to": [13.5, 9, 0.4], "faces": {"north": {"texture": "#marker"}, "south": {"texture": "#marker"}}}
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "ambientocclusion": false,
+  "textures": {"light": "redstoneengineering:block/fault_latch", "particle": "redstoneengineering:block/signal_analyzer_side"},
+  "elements": [
+    {"from": [4, 16.01, 4], "to": [12, 16.35, 12], "faces": {"up": {"texture": "#light"}}},
+    {"from": [7, 16.36, 5], "to": [9, 16.55, 11], "faces": {"up": {"texture": "#light"}}},
+    {"from": [7, 16.56, 12], "to": [9, 16.75, 14], "faces": {"up": {"texture": "#light"}}}
+  ]
+}

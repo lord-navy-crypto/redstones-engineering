@@ -1,5 +1,21 @@
 {
   "multipart": [
-    { "apply": { "model": "redstoneengineering:block/topology_debugger" } }
+    {"when": {"facing": "north"}, "apply": {"model": "redstoneengineering:block/topology_debugger", "y": 0}},
+    {"when": {"facing": "east"}, "apply": {"model": "redstoneengineering:block/topology_debugger", "y": 90}},
+    {"when": {"facing": "south"}, "apply": {"model": "redstoneengineering:block/topology_debugger", "y": 180}},
+    {"when": {"facing": "west"}, "apply": {"model": "redstoneengineering:block/topology_debugger", "y": 270}},
+
+    {"when": {"facing": "north"}, "apply": {"model": "redstoneengineering:block/engineering_tx_marker", "y": 0}},
+    {"when": {"facing": "east"}, "apply": {"model": "redstoneengineering:block/engineering_tx_marker", "y": 90}},
+    {"when": {"facing": "south"}, "apply": {"model": "redstoneengineering:block/engineering_tx_marker", "y": 180}},
+    {"when": {"facing": "west"}, "apply": {"model": "redstoneengineering:block/engineering_tx_marker", "y": 270}},
+
+    {"when": {"facing": "north"}, "apply": {"model": "redstoneengineering:block/engineering_scan_marker", "y": 180}},
+    {"when": {"facing": "east"}, "apply": {"model": "redstoneengineering:block/engineering_scan_marker", "y": 270}},
+    {"when": {"facing": "south"}, "apply": {"model": "redstoneengineering:block/engineering_scan_marker", "y": 0}},
+    {"when": {"facing": "west"}, "apply": {"model": "redstoneengineering:block/engineering_scan_marker", "y": 90}},
+
+    {"when": {"output": "0"}, "apply": {"model": "redstoneengineering:block/topology_nominal_indicator"}},
+    {"when": {"output": "15"}, "apply": {"model": "redstoneengineering:block/topology_issue_indicator"}}
   ]
 }
