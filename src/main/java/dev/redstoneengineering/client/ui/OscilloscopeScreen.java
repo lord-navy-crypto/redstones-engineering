@@ -12,10 +12,7 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
     public OscilloscopeScreen(OscilloscopeMenu menu, Inventory inventory, Component title) { super(menu, inventory, title); }
 
     @Override protected void addDeviceWidgets() {
-        int x = leftPos + 16;
-        int y = topPos + 105;
-        int w = 88;
-        int gap = 6;
+        int x = leftPos + 16, y = topPos + 105, w = 88, gap = 6;
         addConfigureWidget(Button.builder(Component.literal("Arm"), b -> sendMenuButton(OscilloscopeMenu.BUTTON_ARM)).bounds(x, y, w, 20).build());
         addConfigureWidget(Button.builder(Component.literal("Trigger mode"), b -> sendMenuButton(OscilloscopeMenu.BUTTON_TRIGGER_MODE)).bounds(x + w + gap, y, w, 20).build());
         addConfigureWidget(Button.builder(Component.literal("Trigger source"), b -> sendMenuButton(OscilloscopeMenu.BUTTON_TRIGGER_CHANNEL)).bounds(x + (w + gap) * 2, y, w, 20).build());
@@ -35,22 +32,19 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
         labelValue(graphics, "Capture", menu.sampleCount() + "/32 samples", 99);
         labelValue(graphics, "Trigger", triggerText(), 114);
         labelValue(graphics, "CH A / CH B", value(menu.current(0)) + " / " + value(menu.current(1)), 129);
-        graphics.drawString(font, "CH A", 16, 148, INFO, false);
-        miniTrace(graphics, 0, 50, 145, 240, 18, INFO);
-        graphics.drawString(font, "CH B", 16, 170, GOOD, false);
-        miniTrace(graphics, 1, 50, 167, 240, 18, GOOD);
+        graphics.drawString(font, "CH A", 16, 148, INFO, false); miniTrace(graphics, 0, 50, 145, 240, 18, INFO);
+        graphics.drawString(font, "CH B", 16, 170, GOOD, false); miniTrace(graphics, 1, 50, 167, 240, 18, GOOD);
         safeText(graphics, relationshipDiagnosis(), 16, 193, relationshipColor());
     }
 
     private void renderPorts(GuiGraphics graphics) {
         statusLine(graphics, "Instrument bus", networkIntegrity(), networkColor(), 82);
-        statusLine(graphics, "Shielding", shieldingSummary(), shieldingColor(), 103);
-        statusLine(graphics, "CH A / CH B", probeState(0) + " / " + probeState(1), probePairColor(), 124);
-        sectionRule(graphics, 145);
-        labelValue(graphics, "Cable nodes", menu.cableNodes() + " • shielded=" + menu.shieldedCableNodes() + " • exposed=" + menu.unshieldedCableNodes(), 157);
-        labelValue(graphics, "Probe nodes", Integer.toString(menu.probeNodes()), 174);
-        labelValue(graphics, "Valid / active", menu.validChannels() + " / " + menu.activeChannels(), 191);
-        safeText(graphics, "Shielding is commissioning evidence; it does not fabricate random sample noise.", 16, 209, MUTED);
+        statusLine(graphics, "Interference", interferenceSummary(), interferenceColor(), 103);
+        statusLine(graphics, "Shielding", shieldingSummary(), shieldingColor(), 124);
+        statusLine(graphics, "CH A / CH B", probeState(0) + " / " + probeState(1), probePairColor(), 145);
+        labelValue(graphics, "Cable exposure", menu.exposedCableNodes() + "/" + menu.cableNodes() + " nodes • " + menu.interferenceExposure() + "%", 168);
+        labelValue(graphics, "Exposed S/U", menu.shieldedExposedNodes() + " / " + menu.unshieldedExposedNodes(), 185);
+        safeText(graphics, "Shielding changes deterministic interference confidence; samples are never randomly perturbed.", 16, 207, MUTED);
     }
 
     private void renderConfigure(GuiGraphics graphics) {
@@ -68,8 +62,8 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
         sectionRule(graphics, 120);
         channelDiagnostics(graphics, 1, "B", 130);
         statusLine(graphics, "Network", networkIntegrity(), networkColor(), 174);
-        statusLine(graphics, "Shielding", shieldingSummary(), shieldingColor(), 192);
-        safeText(graphics, "Confidence " + evidenceConfidence() + "% • " + evidenceClass() + " • " + relationshipDiagnosis(), 16, 211, evidenceColor());
+        statusLine(graphics, "Interference", interferenceSummary(), interferenceColor(), 192);
+        safeText(graphics, "Confidence " + evidenceConfidence() + "% • " + evidenceClass() + " • shield=" + shieldingSummary(), 16, 211, evidenceColor());
         safeText(graphics, nextAction(), 16, 228, evidenceColor());
     }
 
@@ -80,26 +74,18 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
     }
 
     private void renderHistory(GuiGraphics graphics) {
-        int x = 38;
-        int y = 82;
-        int width = 260;
-        int height = 84;
-        int inset = 3;
-        int samples = OscilloscopeBlockEntity.DISPLAY_SAMPLES;
-        graphics.drawString(font, "0", 17, 165, MUTED, false);
-        graphics.drawString(font, "15", 12, 85, MUTED, false);
+        int x = 38, y = 82, width = 260, height = 84, inset = 3, samples = OscilloscopeBlockEntity.DISPLAY_SAMPLES;
+        graphics.drawString(font, "0", 17, 165, MUTED, false); graphics.drawString(font, "15", 12, 85, MUTED, false);
         EngineeringPlot.analogFrame(graphics, x, y, width, height);
         EngineeringPlot.horizontalMarker(graphics, menu.triggerLevel(), 0, 15, x + inset, y + inset, width - inset * 2, height - inset * 2, WARN);
         plotChannel(graphics, 0, x + inset, y + inset, width - inset * 2, height - inset * 2, INFO);
         plotChannel(graphics, 1, x + inset, y + inset, width - inset * 2, height - inset * 2, GOOD);
         EngineeringPlot.verticalMarker(graphics, menu.cursorA(), samples, x, y, width, height, WARN);
         EngineeringPlot.verticalMarker(graphics, menu.cursorB(), samples, x, y, width, height, 0xFFE879F9);
-        graphics.drawString(font, "A", 269, 86, INFO, false);
-        graphics.drawString(font, "B", 280, 86, GOOD, false);
-        graphics.drawString(font, "T", 291, 86, WARN, false);
+        graphics.drawString(font, "A", 269, 86, INFO, false); graphics.drawString(font, "B", 280, 86, GOOD, false); graphics.drawString(font, "T", 291, 86, WARN, false);
         safeText(graphics, "A/B traces • T=trigger level • synchronized 0..15 samples", 16, 173, MUTED);
         safeText(graphics, "Cursor Δ=" + cursorDeltaSamples() + " samples / " + cursorDeltaTicks() + "t • ΔV A/B=" + cursorDeltaValue(0) + "/" + cursorDeltaValue(1), 16, 187, TEXT);
-        safeText(graphics, "Capture confidence=" + evidenceConfidence() + "% • shielding=" + shieldingSummary(), 16, 202, MUTED);
+        safeText(graphics, "Capture confidence=" + evidenceConfidence() + "% • interference=" + menu.interferenceConfidence() + "% • shielding=" + menu.shieldingCoverage() + "%", 16, 202, MUTED);
     }
 
     private void miniTrace(GuiGraphics graphics, int channel, int x, int y, int width, int height, int color) { EngineeringPlot.analogFrame(graphics, x, y, width, height); plotChannel(graphics, channel, x + 2, y + 2, width - 4, height - 4, color); }
@@ -110,11 +96,7 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
         if (!menu.bounded()) capture = Math.min(capture, 25);
         if (menu.duplicateChannels() > 0) capture = Math.min(capture, 35);
         if (menu.probeCount(0) != 1 || menu.probeCount(1) != 1) capture = Math.min(capture, 50);
-        if (menu.cableNodes() > 0) {
-            if (menu.shieldingCoverage() == 0) capture = Math.min(capture, 80);
-            else if (menu.shieldingCoverage() < 70) capture = Math.min(capture, 88);
-            else if (menu.shieldingCoverage() < 100) capture = Math.min(capture, 95);
-        }
+        capture = Math.min(capture, menu.interferenceConfidence());
         return Math.max(0, Math.min(100, capture));
     }
 
@@ -135,8 +117,7 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
         if (evidenceConfidence() < 70) return "CHANNEL RELATIONSHIP • insufficient synchronized evidence";
         int avgDelta = Math.abs(menu.average100(0) - menu.average100(1));
         int p2pDelta = Math.abs(menu.peakToPeak(0) - menu.peakToPeak(1));
-        int periodA = menu.periodTicks(0);
-        int periodB = menu.periodTicks(1);
+        int periodA = menu.periodTicks(0), periodB = menu.periodTicks(1);
         if (periodA > 0 && periodB > 0 && Math.abs(periodA - periodB) <= OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS && avgDelta <= 100 && p2pDelta <= 1) return "CHANNEL RELATIONSHIP • closely tracking";
         if (periodA > 0 && periodB > 0 && Math.abs(periodA - periodB) > OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS * 2) return "CHANNEL RELATIONSHIP • timing mismatch";
         if (avgDelta >= 400) return "CHANNEL RELATIONSHIP • large level offset";
@@ -154,14 +135,25 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
         return "MIXED • " + menu.shieldingCoverage() + "%";
     }
 
+    private String interferenceSummary() {
+        if (!menu.bounded()) return "UNKNOWN • scan truncated";
+        if (menu.cableNodes() == 0) return "DIRECT • no cable exposure";
+        if (menu.exposedCableNodes() == 0) return "CLEAR • confidence 100%";
+        if (menu.unshieldedExposedNodes() == 0) return "EXPOSED / SHIELDED • confidence " + menu.interferenceConfidence() + "%";
+        if (menu.shieldedExposedNodes() == 0) return "EXPOSED / UNSHIELDED • confidence " + menu.interferenceConfidence() + "%";
+        return "EXPOSED / MIXED • confidence " + menu.interferenceConfidence() + "%";
+    }
+
     private int shieldingColor() { if (!menu.bounded()) return WARN; if (menu.cableNodes() == 0 || menu.shieldingCoverage() >= 90) return GOOD; if (menu.shieldingCoverage() >= 60) return INFO; return WARN; }
+    private int interferenceColor() { if (!menu.bounded()) return WARN; if (menu.interferenceConfidence() >= 90) return GOOD; if (menu.interferenceConfidence() >= 70) return INFO; return WARN; }
     private int probePairColor() { if (menu.probeCount(0) == 1 && menu.probeCount(1) == 1) return GOOD; return menu.probeCount(0) > 1 || menu.probeCount(1) > 1 ? WARN : MUTED; }
 
     private String nextAction() {
         if (!menu.bounded()) return "NEXT • reduce/segment the instrument network before trusting capture timing.";
         if (menu.duplicateChannels() > 0) return "NEXT • resolve duplicate probe channel ownership before waveform comparison.";
         if (menu.probeCount(0) != 1 || menu.probeCount(1) != 1) return "NEXT • connect exactly one probe to each compared channel.";
-        if (menu.cableNodes() > 0 && menu.shieldingCoverage() < 60) return "NEXT • improve measurement-bus shielding or separation before treating small waveform differences as process effects.";
+        if (menu.unshieldedExposedNodes() > 0) return "NEXT • shield exposed instrument segments or separate them from energized Redstone/Copper routing.";
+        if (menu.exposedCableNodes() > 0) return "NEXT • shielding is containing observed exposure; keep route separation if small differences matter.";
         if (evidenceConfidence() < 70) return "NEXT • acquire a longer valid capture before interpreting waveform differences.";
         if (relationshipDiagnosis().contains("timing mismatch")) return "NEXT • compare source timing/trigger alignment before changing amplitude.";
         if (relationshipDiagnosis().contains("amplitude") || relationshipDiagnosis().contains("level offset")) return "NEXT • inspect conditioning, loading or measurement reference before retuning control.";
