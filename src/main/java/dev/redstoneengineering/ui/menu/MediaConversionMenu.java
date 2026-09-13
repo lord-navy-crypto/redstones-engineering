@@ -12,15 +12,21 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.DataSlot;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 
-/** Server-authoritative read-only HMI for the explicit Redstone ↔ Lapis representation boundary. */
+/** Server-authoritative HMI for the explicit Redstone ↔ Lapis representation boundary. */
 public final class MediaConversionMenu extends EngineeringDeviceMenu {
     public static final int MODE_UNKNOWN = 0;
     public static final int MODE_REDSTONE_TO_LAPIS = 1;
     public static final int MODE_LAPIS_TO_REDSTONE = 2;
+
+    public static final int BUTTON_RX_PREVIOUS = 0;
+    public static final int BUTTON_RX_NEXT = 1;
+    public static final int BUTTON_TX_PREVIOUS = 2;
+    public static final int BUTTON_TX_NEXT = 3;
 
     private final DataSlot mode = trackedInt();
     private final DataSlot inputFace = trackedInt();
@@ -102,6 +108,36 @@ public final class MediaConversionMenu extends EngineeringDeviceMenu {
             quantizationLoss.set(CoreMediaDiagnostics.quantizationError(inValue));
         }
         commissioningStatus.set(commissioning(inQuality, outQuality).code());
+    }
+
+    @Override
+    public boolean clickMenuButton(Player player, int id) {
+        if (level.isClientSide) return true;
+        if (!stillValid(player)) return false;
+        Block block = level.getBlockState(blockPos).getBlock();
+        boolean changed = false;
+        if (block instanceof RedstoneToLapisScalerBlock) {
+            changed = switch (id) {
+                case BUTTON_RX_PREVIOUS -> RedstoneToLapisScalerBlock.rotateInput(level, blockPos, false);
+                case BUTTON_RX_NEXT -> RedstoneToLapisScalerBlock.rotateInput(level, blockPos, true);
+                case BUTTON_TX_PREVIOUS -> RedstoneToLapisScalerBlock.rotateOutput(level, blockPos, false);
+                case BUTTON_TX_NEXT -> RedstoneToLapisScalerBlock.rotateOutput(level, blockPos, true);
+                default -> false;
+            };
+        } else if (block instanceof LapisToRedstoneQuantizerBlock) {
+            changed = switch (id) {
+                case BUTTON_RX_PREVIOUS -> LapisToRedstoneQuantizerBlock.rotateInput(level, blockPos, false);
+                case BUTTON_RX_NEXT -> LapisToRedstoneQuantizerBlock.rotateInput(level, blockPos, true);
+                case BUTTON_TX_PREVIOUS -> LapisToRedstoneQuantizerBlock.rotateOutput(level, blockPos, false);
+                case BUTTON_TX_NEXT -> LapisToRedstoneQuantizerBlock.rotateOutput(level, blockPos, true);
+                default -> false;
+            };
+        }
+        if (changed) {
+            refreshAuthoritativeSnapshot();
+            broadcastChanges();
+        }
+        return changed;
     }
 
     private static CommissioningStatus commissioning(PortQuality input, PortQuality output) {
