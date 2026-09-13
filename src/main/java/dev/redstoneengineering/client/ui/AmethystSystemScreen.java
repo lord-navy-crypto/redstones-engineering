@@ -29,7 +29,6 @@ public final class AmethystSystemScreen extends EngineeringScreen<AmethystSystem
         boolean filter = menu.kind()==AmethystSystemMenu.KIND_FILTER;
         boolean tuned = menu.kind()==AmethystSystemMenu.KIND_TUNED;
         boolean configure = isConfigureSection();
-
         boolean primary = source || filter || tuned;
         boolean secondary = source || tuned;
         primaryPrevious.active = primary;
@@ -42,7 +41,6 @@ public final class AmethystSystemScreen extends EngineeringScreen<AmethystSystem
         secondaryNext.visible = configure && secondary;
         pulse.active = source;
         pulse.visible = configure && source;
-
         if (source) {
             primaryPrevious.setMessage(Component.literal("◀ FREQ " + menu.primary())); primaryNext.setMessage(Component.literal("FREQ " + menu.primary() + " ▶"));
             secondaryPrevious.setMessage(Component.literal("◀ AMP " + menu.secondary())); secondaryNext.setMessage(Component.literal("AMP " + menu.secondary() + " ▶"));
@@ -93,9 +91,70 @@ public final class AmethystSystemScreen extends EngineeringScreen<AmethystSystem
             safeText(g,"Physical resonance direction is controlled only on Route.",16,216,MUTED);
         }
     }
-    private void diagnostics(GuiGraphics g){statusBadge(g,qualityName(),qualityColor(),16,80);labelValue(g,"Device",deviceName(),108);labelValue(g,"Primary",primaryDiagnostic(),126);labelValue(g,"Secondary",secondaryDiagnostic(),144);if(menu.kind()==AmethystSystemMenu.KIND_SPECTRUM){labelValue(g,"Conflicts",Integer.toString(menu.extraA()),162);labelValue(g,"Coverage",menu.extraB()+" / "+menu.stateFlag(),180);}else if(menu.directional()){labelValue(g,"Path",path(),162);labelValue(g,"Output evidence",menu.kind()==AmethystSystemMenu.KIND_TUNED?(menu.stateFlag()==2?"SATURATED":"BOUNDED"):(menu.stateFlag()==1?"PASS":"REJECT"),180);}statusLine(g,"Authority","SERVER SYNCHRONIZED",GOOD,200);}
-    private void history(GuiGraphics g){statusBadge(g,"RESONANCE EVIDENCE",INFO,16,80);if(menu.kind()==AmethystSystemMenu.KIND_SPECTRUM){labelValue(g,"Samples",Integer.toString(menu.auxiliary()),110);labelValue(g,"Conflicts",Integer.toString(menu.extraA()),130);labelValue(g,"Coverage",menu.extraB()+" / "+menu.stateFlag(),150);}else{safeText(g,"Current server resonance evidence is shown; no client-side spectrum/history is invented.",16,112,MUTED);}}
 
+    private void diagnostics(GuiGraphics g){
+        statusBadge(g,qualityName(),qualityColor(),16,80);
+        labelValue(g,"Device",deviceName(),104);
+        labelValue(g,"Primary",primaryDiagnostic(),122);
+        labelValue(g,"Secondary",secondaryDiagnostic(),140);
+        if(menu.kind()==AmethystSystemMenu.KIND_SPECTRUM){
+            labelValue(g,"Conflicts",Integer.toString(menu.extraA()),158);
+            labelValue(g,"Coverage",menu.extraB()+" / "+menu.stateFlag(),176);
+        } else if(menu.directional()){
+            labelValue(g,"Path",path(),158);
+            labelValue(g,"Output evidence",menu.kind()==AmethystSystemMenu.KIND_TUNED?(menu.stateFlag()==2?"SATURATED":"BOUNDED"):(menu.stateFlag()==1?"PASS":"REJECT"),176);
+        }
+        statusLine(g,"Diagnosis",diagnosis(),diagnosisColor(),194);
+        safeText(g,nextAction(),16,214,diagnosisColor());
+    }
+
+    private void history(GuiGraphics g){
+        statusBadge(g,"RESONANCE EVIDENCE",INFO,16,80);
+        if(menu.kind()==AmethystSystemMenu.KIND_SPECTRUM){
+            labelValue(g,"Samples",Integer.toString(menu.auxiliary()),110);
+            labelValue(g,"Conflicts",Integer.toString(menu.extraA()),130);
+            labelValue(g,"Coverage",menu.extraB()+" / "+menu.stateFlag(),150);
+            labelValue(g,"Dominant / active",menu.primary()+" / "+menu.tertiary(),170);
+            safeText(g,diagnosis(),16,190,diagnosisColor());
+        }else{
+            safeText(g,"Current server resonance evidence is shown; no client-side spectrum/history is invented.",16,112,MUTED);
+            safeText(g,diagnosis(),16,136,diagnosisColor());
+        }
+    }
+
+    private String diagnosis(){
+        if(menu.quality()==PortQuality.TOPOLOGY_ERROR) return "SOURCE CONFLICT / resonance topology ambiguous";
+        if(menu.quality()==PortQuality.NO_SIGNAL) return "NO RESONANCE EVIDENCE";
+        if(menu.quality()==PortQuality.STALE) return "STALE RESONANCE EVIDENCE";
+        if(menu.kind()==AmethystSystemMenu.KIND_FILTER) {
+            if(menu.primary()!=menu.tertiary()) return "FREQUENCY REJECT • input does not match selected band";
+            return menu.auxiliary()>0 ? "FREQUENCY PASS • selected band present" : "MATCHED BAND • zero amplitude";
+        }
+        if(menu.kind()==AmethystSystemMenu.KIND_TUNED) {
+            int detune=Math.abs(menu.primary()-menu.tertiary());
+            if(menu.stateFlag()==2) return "RESONANT RESPONSE SATURATED";
+            if(detune<=menu.extraA()) return "IN-BAND RESONANT RESPONSE";
+            return "OUT-OF-BAND / DETUNED";
+        }
+        if(menu.kind()==AmethystSystemMenu.KIND_SPECTRUM) {
+            if(menu.extraA()>0) return "SPECTRUM CONFLICT • overlapping source evidence";
+            if(menu.tertiary()==0) return "QUIET SPECTRUM";
+            if(menu.tertiary()==1) return "SINGLE-BAND RESONANCE";
+            return "MULTI-BAND RESONANCE";
+        }
+        return menu.secondary()==0 ? "SOURCE CONFIGURED • zero amplitude" : "SOURCE ACTIVE";
+    }
+
+    private String nextAction(){
+        if(menu.quality()==PortQuality.TOPOLOGY_ERROR) return "NEXT • isolate competing resonance sources before interpreting frequency.";
+        if(menu.quality()==PortQuality.NO_SIGNAL||menu.quality()==PortQuality.STALE) return "NEXT • restore current resonance evidence before tuning the device.";
+        if(menu.kind()==AmethystSystemMenu.KIND_FILTER && menu.primary()!=menu.tertiary()) return "NEXT • align target index with the carrier or intentionally keep this rejection band.";
+        if(menu.kind()==AmethystSystemMenu.KIND_TUNED && Math.abs(menu.primary()-menu.tertiary())>menu.extraA()) return "NEXT • retune natural index or widen the modeled response band via Q.";
+        if(menu.kind()==AmethystSystemMenu.KIND_SPECTRUM && menu.extraA()>0) return "NEXT • separate conflicting sources, then rescan the spectrum.";
+        return "NEXT • resonance evidence is coherent; compare amplitude/response before changing topology.";
+    }
+
+    private int diagnosisColor(){String d=diagnosis();return d.contains("CONFLICT")||d.contains("STALE")||d.contains("NO ")||d.contains("REJECT")||d.contains("OUT-OF-BAND")||d.contains("SATURATED")?WARN:GOOD;}
     private String deviceName(){return switch(menu.kind()){case AmethystSystemMenu.KIND_SOURCE->"AMETHYST RESONATOR";case AmethystSystemMenu.KIND_FILTER->"AMETHYST FREQUENCY FILTER";case AmethystSystemMenu.KIND_TUNED->"TUNED AMETHYST RESONATOR";case AmethystSystemMenu.KIND_SPECTRUM->"AMETHYST SPECTRUM ANALYZER";default->"AMETHYST DEVICE";};}
     private String primaryControl(){return switch(menu.kind()){case AmethystSystemMenu.KIND_SOURCE->"FREQUENCY INDEX "+menu.primary();case AmethystSystemMenu.KIND_FILTER->"TARGET INDEX "+menu.tertiary();case AmethystSystemMenu.KIND_TUNED->"NATURAL INDEX "+menu.tertiary();default->"READ ONLY";};}
     private String secondaryControl(){return switch(menu.kind()){case AmethystSystemMenu.KIND_SOURCE->"AMPLITUDE "+menu.secondary()+"/15";case AmethystSystemMenu.KIND_TUNED->"Q INDEX "+menu.auxiliary();default->"NONE";};}
