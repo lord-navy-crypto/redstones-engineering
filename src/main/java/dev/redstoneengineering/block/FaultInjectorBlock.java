@@ -148,9 +148,13 @@ public class FaultInjectorBlock extends PassiveDirectionalSignalBlock {
         return true;
     }
 
+    /** Clears retained fault statistics while preserving live ARM state and the latest I/O evidence. */
     public boolean resetDiagnostics(Level level, BlockPos pos) {
         if (!level.getBlockState(pos).is(this)) return false;
-        RuntimeIntStore.remove(level, KEY, pos);
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        if (runtime == null || runtime.length < RUNTIME_SIZE) return true;
+        runtime[1] = 0;
+        runtime[2] = 0;
         return true;
     }
 
@@ -181,7 +185,7 @@ public class FaultInjectorBlock extends PassiveDirectionalSignalBlock {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
                 resetDiagnostics(level, pos);
-                player.displayClientMessage(Component.literal("Fault injector diagnostics reset"), true);
+                player.displayClientMessage(Component.literal("Fault injector statistics reset"), true);
             } else {
                 FieldDeviceUi.openUniversal(serverPlayer, pos);
             }
