@@ -12,59 +12,38 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
     private Button parameterNext;
     private Button reset;
 
-    public QuartzTimingScreen(QuartzTimingMenu menu, Inventory inventory, Component title) {
-        super(menu, inventory, title);
-    }
+    public QuartzTimingScreen(QuartzTimingMenu menu, Inventory inventory, Component title) { super(menu, inventory, title); }
 
-    @Override
-    protected void addDeviceWidgets() {
+    @Override protected void addDeviceWidgets() {
         int y = topPos + 116;
-        parameterPrevious = addConfigureWidget(Button.builder(Component.literal("◀ Parameter"),
-                b -> sendMenuButton(QuartzTimingMenu.BUTTON_PARAMETER_PREVIOUS))
-                .bounds(leftPos + 16, y, 110, 20).build());
-        parameterNext = addConfigureWidget(Button.builder(Component.literal("Parameter ▶"),
-                b -> sendMenuButton(QuartzTimingMenu.BUTTON_PARAMETER_NEXT))
-                .bounds(leftPos + 194, y, 110, 20).build());
-        reset = addConfigureWidget(Button.builder(Component.literal("Reset measurement"),
-                b -> sendMenuButton(QuartzTimingMenu.BUTTON_RESET_MEASUREMENT))
-                .bounds(leftPos + 70, y, 180, 20).build());
+        parameterPrevious = addConfigureWidget(Button.builder(Component.literal("◀ Parameter"), b -> sendMenuButton(QuartzTimingMenu.BUTTON_PARAMETER_PREVIOUS)).bounds(leftPos + 16, y, 110, 20).build());
+        parameterNext = addConfigureWidget(Button.builder(Component.literal("Parameter ▶"), b -> sendMenuButton(QuartzTimingMenu.BUTTON_PARAMETER_NEXT)).bounds(leftPos + 194, y, 110, 20).build());
+        reset = addConfigureWidget(Button.builder(Component.literal("Reset measurement"), b -> sendMenuButton(QuartzTimingMenu.BUTTON_RESET_MEASUREMENT)).bounds(leftPos + 70, y, 180, 20).build());
     }
 
-    @Override
-    protected void syncDeviceWidgetLabels() {
+    @Override protected void syncDeviceWidgetLabels() {
         if (parameterPrevious == null) return;
         boolean oscillator = menu.kind() == QuartzTimingMenu.KIND_OSCILLATOR;
         boolean divider = menu.kind() == QuartzTimingMenu.KIND_DIVIDER;
         boolean stability = menu.kind() == QuartzTimingMenu.KIND_STABILITY;
         boolean configure = isConfigureSection();
-
         parameterPrevious.active = oscillator || divider;
         parameterNext.active = oscillator || divider;
         parameterPrevious.visible = configure && (oscillator || divider);
         parameterNext.visible = configure && (oscillator || divider);
         reset.active = stability;
         reset.visible = configure && stability;
-
         if (oscillator) {
             parameterPrevious.setMessage(Component.literal("◀ " + menu.secondary() + "t"));
             parameterNext.setMessage(Component.literal(menu.secondary() + "t ▶"));
         } else if (divider) {
             parameterPrevious.setMessage(Component.literal("◀ ÷" + menu.tertiary()));
             parameterNext.setMessage(Component.literal("÷" + menu.tertiary() + " ▶"));
-        } else {
-            reset.setMessage(Component.literal("Reset measurement"));
-        }
+        } else reset.setMessage(Component.literal("Reset measurement"));
     }
 
-    @Override
-    protected void renderSection(GuiGraphics graphics, Section section) {
-        switch (section) {
-            case OVERVIEW -> overview(graphics);
-            case PORTS -> ports(graphics);
-            case CONFIGURE -> configure(graphics);
-            case DIAGNOSTICS -> diagnostics(graphics);
-            case HISTORY -> history(graphics);
-        }
+    @Override protected void renderSection(GuiGraphics graphics, Section section) {
+        switch (section) { case OVERVIEW -> overview(graphics); case PORTS -> ports(graphics); case CONFIGURE -> configure(graphics); case DIAGNOSTICS -> diagnostics(graphics); case HISTORY -> history(graphics); }
     }
 
     private void overview(GuiGraphics g) {
@@ -128,23 +107,24 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
     private void diagnostics(GuiGraphics g) {
         statusBadge(g, qualityName(), qualityColor(), 16, 80);
         if (menu.kind() == QuartzTimingMenu.KIND_STABILITY) {
-            labelValue(g, "Initialized", yesNo(menu.runtimeA()), 108);
-            labelValue(g, "Reference edge", yesNo(menu.runtimeB()), 126);
-            labelValue(g, "Current measurement", yesNo(menu.runtimeC()), 144);
-            labelValue(g, "Measured / error", menu.primary() + " / " + menu.secondary() + " ticks", 162);
-            labelValue(g, "Input face", inputFace(), 180);
+            labelValue(g, "Initialized", yesNo(menu.runtimeA()), 104);
+            labelValue(g, "Reference edge", yesNo(menu.runtimeB()), 122);
+            labelValue(g, "Current measurement", yesNo(menu.runtimeC()), 140);
+            labelValue(g, "Measured / error", menu.primary() + " / " + menu.secondary() + " ticks", 158);
+            labelValue(g, "Input face", inputFace(), 176);
         } else if (menu.kind() == QuartzTimingMenu.KIND_DIVIDER) {
-            labelValue(g, "Input period", menu.primary() + " ticks", 108);
-            labelValue(g, "Output period", menu.secondary() + " ticks", 126);
-            labelValue(g, "Counted edges", Integer.toString(menu.runtimeA()), 144);
-            labelValue(g, "Initialized", yesNo(menu.runtimeB()), 162);
-            labelValue(g, "Path", inputFace() + " → " + outputFace(), 180);
+            labelValue(g, "Input period", menu.primary() + " ticks", 104);
+            labelValue(g, "Output period", menu.secondary() + " ticks", 122);
+            labelValue(g, "Counted edges", Integer.toString(menu.runtimeA()), 140);
+            labelValue(g, "Initialized", yesNo(menu.runtimeB()), 158);
+            labelValue(g, "Path", inputFace() + " → " + outputFace(), 176);
         } else {
-            labelValue(g, "Oscillator state", menu.primary() == 1 ? "HIGH" : "LOW", 108);
-            labelValue(g, "Period", menu.secondary() + " ticks", 126);
-            labelValue(g, "Evidence", "VALID SOURCE CONFIGURATION", 144);
+            labelValue(g, "Oscillator state", menu.primary() == 1 ? "HIGH" : "LOW", 104);
+            labelValue(g, "Period", menu.secondary() + " ticks", 122);
+            labelValue(g, "Evidence", "VALID SOURCE CONFIGURATION", 140);
         }
-        statusLine(g, "Authority", "SERVER SYNCHRONIZED", GOOD, 200);
+        statusLine(g, "Diagnosis", diagnosis(), diagnosisColor(), 194);
+        safeText(g, nextAction(), 16, 214, diagnosisColor());
     }
 
     private void history(GuiGraphics g) {
@@ -154,38 +134,49 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
             labelValue(g, "Nominal error", menu.secondary() + " ticks", 130);
             labelValue(g, "Evidence age class", menu.runtimeC() == 1 ? "CURRENT" : menu.primary() > 0 ? "STALE" : "NONE", 150);
             sectionRule(g, 170);
-            safeText(g, "Two genuine rising edges are required; UI inspection never fabricates timing evidence.", 16, 184, MUTED);
+            safeText(g, diagnosis(), 16, 184, diagnosisColor());
+            safeText(g, "Two genuine rising edges are required; UI inspection never fabricates timing evidence.", 16, 200, MUTED);
         } else {
             safeText(g, "This device exposes current timing state; it does not fabricate client-side waveform history.", 16, 112, MUTED);
-            safeText(g, "Use Oscilloscope / Signal Analyzer when time-series capture is required.", 16, 134, INFO);
+            safeText(g, diagnosis(), 16, 136, diagnosisColor());
         }
     }
 
-    private String deviceName() {
-        return switch (menu.kind()) {
-            case QuartzTimingMenu.KIND_DIVIDER -> "QUARTZ CLOCK DIVIDER";
-            case QuartzTimingMenu.KIND_STABILITY -> "QUARTZ STABILITY MONITOR";
-            default -> "QUARTZ OSCILLATOR";
-        };
+    private String diagnosis() {
+        if (menu.quality().name().equals("TOPOLOGY_ERROR")) return "CLOCK SOURCE / TOPOLOGY CONFLICT";
+        if (menu.quality().name().equals("NO_SIGNAL")) return "NO TIMING EVIDENCE";
+        if (menu.quality().name().equals("STALE")) return "STALE TIMING EVIDENCE";
+        if (menu.kind() == QuartzTimingMenu.KIND_DIVIDER) {
+            if (menu.runtimeB() == 0) return "DIVIDER NOT INITIALIZED";
+            int expected = Math.max(0, menu.primary()) * Math.max(1, menu.tertiary());
+            if (menu.primary() > 0 && menu.secondary() != expected) return "DIVISION PERIOD MISMATCH";
+            return "DIVIDED CLOCK COHERENT";
+        }
+        if (menu.kind() == QuartzTimingMenu.KIND_STABILITY) {
+            if (menu.runtimeA() == 0 || menu.runtimeB() == 0) return "WAITING FOR TWO EDGE REFERENCES";
+            if (menu.runtimeC() == 0) return menu.primary() > 0 ? "RETAINED PERIOD • NOT CURRENT" : "NO CURRENT PERIOD";
+            if (Math.abs(menu.secondary()) >= Math.max(2, Math.max(1, menu.tertiary()) / 4)) return "TIMING ERROR ELEVATED";
+            return "TIMING STABILITY NOMINAL";
+        }
+        return menu.secondary() > 0 ? "CLOCK SOURCE CONFIGURED" : "INVALID ZERO PERIOD";
     }
 
-    private String qualityName() { return menu.quality().name().replace('_', ' '); }
-    private int qualityColor() {
-        return switch (menu.quality()) {
-            case VALID -> GOOD;
-            case STALE, NO_SIGNAL -> WARN;
-            default -> BAD;
-        };
+    private String nextAction() {
+        String d = diagnosis();
+        if (d.contains("CONFLICT")) return "NEXT • isolate competing timing sources before measuring period.";
+        if (d.contains("STALE") || d.contains("NO TIMING") || d.contains("NOT CURRENT")) return "NEXT • restore current edge evidence before accepting timing quality.";
+        if (d.contains("NOT INITIALIZED") || d.contains("WAITING")) return "NEXT • allow genuine source edges to initialize the timing state.";
+        if (d.contains("MISMATCH")) return "NEXT • verify divider ratio and upstream period before changing downstream logic.";
+        if (d.contains("ELEVATED")) return "NEXT • compare measured period against upstream/reference timing and inspect clock integrity.";
+        return "NEXT • timing evidence is coherent; retain this state as the commissioning reference.";
     }
+
+    private int diagnosisColor() { String d = diagnosis(); return d.contains("COHERENT") || d.contains("NOMINAL") || d.contains("CONFIGURED") ? GOOD : WARN; }
+    private String deviceName() { return switch (menu.kind()) { case QuartzTimingMenu.KIND_DIVIDER -> "QUARTZ CLOCK DIVIDER"; case QuartzTimingMenu.KIND_STABILITY -> "QUARTZ STABILITY MONITOR"; default -> "QUARTZ OSCILLATOR"; }; }
+    private String qualityName() { return menu.quality().name().replace('_', ' '); }
+    private int qualityColor() { return switch (menu.quality()) { case VALID -> GOOD; case STALE, NO_SIGNAL -> WARN; default -> BAD; }; }
     private String inputFace() { return menu.logicalFacing().getOpposite().getName().toUpperCase(); }
     private String outputFace() { return menu.logicalFacing().getName().toUpperCase(); }
     private String yesNo(int value) { return value == 1 ? "YES" : "NO"; }
-
-    private String topologyHint() {
-        return switch (menu.kind()) {
-            case QuartzTimingMenu.KIND_DIVIDER -> "Divider is strict series timing processing; Direction changes the whole I/O axis.";
-            case QuartzTimingMenu.KIND_STABILITY -> "Monitor is observer-only; Direction selects the measurement face, not an output.";
-            default -> "Oscillator keeps its real four-way source topology instead of being forced into series.";
-        };
-    }
+    private String topologyHint() { return switch (menu.kind()) { case QuartzTimingMenu.KIND_DIVIDER -> "Divider is strict series timing processing; Direction changes the whole I/O axis."; case QuartzTimingMenu.KIND_STABILITY -> "Monitor is observer-only; Direction selects the measurement face, not an output."; default -> "Oscillator keeps its real four-way source topology instead of being forced into series."; }; }
 }
