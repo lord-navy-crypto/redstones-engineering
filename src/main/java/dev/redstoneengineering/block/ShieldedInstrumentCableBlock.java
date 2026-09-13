@@ -13,14 +13,11 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 
 /**
- * Lower-noise measurement routing. Shielding is treated as commissioning evidence rather than
- * fabricated random noise: the instrument network tracks how much of the physical route is
- * actually shielded and exposes that coverage to diagnostics.
+ * Lower-noise measurement routing. Shielding does not inject fabricated random noise;
+ * it deterministically reduces the confidence penalty from observed local interference exposure.
  */
 public class ShieldedInstrumentCableBlock extends InstrumentCableBlock {
-    public ShieldedInstrumentCableBlock(Properties p) {
-        super(p);
-    }
+    public ShieldedInstrumentCableBlock(Properties p) { super(p); }
 
     @Override
     public MapCodec<ShieldedInstrumentCableBlock> codec() {
@@ -35,16 +32,19 @@ public class ShieldedInstrumentCableBlock extends InstrumentCableBlock {
             Player player,
             BlockHitResult hit
     ) {
-        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer && player.isShiftKeyDown()) {
+        if (!level.isClientSide && player instanceof ServerPlayer && player.isShiftKeyDown()) {
             InstrumentNetwork.ProbeSnapshot bus = InstrumentNetwork.scan(level, pos);
             player.displayClientMessage(Component.literal(
                     "Shielded Instrument Bus"
                             + " | shielding=" + bus.shieldingIntegrity()
                             + " | coverage=" + bus.shieldingCoveragePercent() + "%"
                             + " | shielded=" + bus.shieldedCableNodes() + "/" + bus.cableNodes()
+                            + " | interference=" + bus.interferenceIntegrity()
+                            + " | exposure=" + bus.interferenceExposurePercent() + "%"
+                            + " | confidence=" + bus.interferenceConfidencePercent() + "%"
+                            + " | exposed shielded/unshielded=" + bus.shieldedExposedNodes() + "/" + bus.unshieldedExposedNodes()
                             + " | channels=" + bus.validChannels() + "/" + bus.activeChannels()
-                            + " valid/active"
-                            + " | integrity=" + bus.integrity()
+                            + " valid/active | integrity=" + bus.integrity()
             ), true);
             return InteractionResult.CONSUME;
         }
