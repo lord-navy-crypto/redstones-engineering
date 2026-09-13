@@ -46,6 +46,10 @@ The UI should show medium-specific evidence without becoming a second simulation
 
 A medium differentiation pass is complete only when its distinctive limitation is visible through at least one synchronized instrument or commissioning surface. A hidden backend parameter is not enough; the player must be able to measure the consequence and identify an engineering response.
 
+## Phase-one closure
+
+The first vertical-depth pass establishes synchronized Signal Analyzer, Logic Analyzer and Operations Monitor diagnosis plus measurement-bus shielding coverage/risk evidence. It intentionally does not inject synthetic noise or alter probe values. Later passes can add deterministic propagation effects only after their server-side model and instrument observability are defined together.
+
 ## Long-line development order
 
 1. Instrument/UI depth: Measure -> Capture -> Diagnose -> Next Action.
