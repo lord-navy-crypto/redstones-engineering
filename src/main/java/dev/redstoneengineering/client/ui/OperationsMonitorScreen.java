@@ -65,8 +65,8 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
         statusLine(graphics, "Latest incident", menu.incidentPresent() ? "EVIDENCE AVAILABLE" : "NONE", menu.incidentPresent() ? WARN : GOOD, 148);
         labelValue(graphics, "First-out source", menu.incidentPresent() ? firstOutLocation() : "—", 166);
         labelValue(graphics, "Incident span", menu.incidentPresent() ? formatTicks(menu.incidentDurationTicks()) : "—", 182);
-        labelValue(graphics, "Electrical trips / recovered", menu.electricalTripCount() + " / " + menu.electricalRecoveryCount(), 198);
-        labelValue(graphics, "Copper evidence", copperEvidenceText(), 214);
+        labelValue(graphics, "Follow-up evidence", menu.incidentPresent() ? incidentEvidenceText() : "0", 198);
+        labelValue(graphics, "Electrical trips / recovered", menu.electricalTripCount() + " / " + menu.electricalRecoveryCount(), 214);
         safeText(graphics, nextActionText(), 16, 232, systemDiagnosisColor());
     }
 
@@ -99,7 +99,7 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
         safeText(graphics, "confidence=" + evidenceConfidencePercent() + "% • diagnosis=" + systemDiagnosis(), 16, 197, TEXT);
         safeText(graphics, "Electrical downtime " + formatTicks(menu.electricalDowntimeTicks())
                 + " • Protection status " + protectionText(), 16, 213, TEXT);
-        safeText(graphics, "MTBF/MTTR withheld • Copper evidence readiness remains separate from protection reliability.", 16, 229, MUTED);
+        safeText(graphics, "MTBF/MTTR withheld • Copper evidence " + copperEvidenceText(), 16, 229, MUTED);
     }
 
     private int evidenceConfidencePercent() {
