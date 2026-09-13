@@ -34,6 +34,14 @@ Every retained medium should eventually answer all three questions:
 
 If two media answer all three questions the same way, they are not differentiated enough and should be redesigned before another medium is added.
 
+## Instrument contract
+
+A mature medium should connect to the common instrument workflow:
+
+`Measure -> Synchronize Evidence -> Quantify Quality -> Diagnose -> Recommend Next Action`
+
+The UI should show medium-specific evidence without becoming a second simulation engine. Diagnostic conclusions must be reproducible from synchronized server data.
+
 ## Long-line development order
 
 1. Instrument/UI depth: Measure -> Capture -> Diagnose -> Next Action.
