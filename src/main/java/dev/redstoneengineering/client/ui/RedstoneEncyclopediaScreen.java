@@ -32,6 +32,8 @@ public final class RedstoneEncyclopediaScreen extends AbstractContainerScreen<Re
     private final List<Block> blocks;
     private int page;
     private boolean configurationView;
+    private Button previousButton;
+    private Button nextButton;
     private Button viewButton;
 
     public RedstoneEncyclopediaScreen(RedstoneEncyclopediaMenu menu, Inventory inventory, Component title) {
@@ -47,29 +49,31 @@ public final class RedstoneEncyclopediaScreen extends AbstractContainerScreen<Re
     @Override
     protected void init() {
         super.init();
-        addRenderableWidget(Button.builder(Component.literal("<"), button -> changePage(-1))
-                .bounds(leftPos + 14, topPos + imageHeight - 27, 34, 20).build());
-        addRenderableWidget(Button.builder(Component.literal(">"), button -> changePage(1))
-                .bounds(leftPos + imageWidth - 48, topPos + imageHeight - 27, 34, 20).build());
-        viewButton = addRenderableWidget(Button.builder(Component.literal("Guide"), button -> {
+        previousButton = addRenderableWidget(Button.builder(Component.literal("Prev"), button -> changePage(-1))
+                .bounds(leftPos + 14, topPos + imageHeight - 27, 48, 20).build());
+        nextButton = addRenderableWidget(Button.builder(Component.literal("Next"), button -> changePage(1))
+                .bounds(leftPos + imageWidth - 62, topPos + imageHeight - 27, 48, 20).build());
+        viewButton = addRenderableWidget(Button.builder(Component.literal("Ports / Config"), button -> {
                     if (page == 0) return;
                     configurationView = !configurationView;
-                    refreshViewButton();
+                    refreshNavigationButtons();
                 })
-                .bounds(leftPos + imageWidth / 2 - 32, topPos + imageHeight - 27, 64, 20).build());
-        refreshViewButton();
+                .bounds(leftPos + imageWidth / 2 - 42, topPos + imageHeight - 27, 84, 20).build());
+        refreshNavigationButtons();
     }
 
     private void changePage(int delta) {
         page = Math.max(0, Math.min(blocks.size(), page + delta));
         configurationView = false;
-        refreshViewButton();
+        refreshNavigationButtons();
     }
 
-    private void refreshViewButton() {
+    private void refreshNavigationButtons() {
+        if (previousButton != null) previousButton.active = page > 0;
+        if (nextButton != null) nextButton.active = page < blocks.size();
         if (viewButton == null) return;
         viewButton.active = page != 0;
-        viewButton.setMessage(Component.literal(configurationView ? "Ports / Config" : "Guide"));
+        viewButton.setMessage(Component.literal(configurationView ? "Guide" : "Ports / Config"));
     }
 
     @Override
