@@ -30,6 +30,9 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
     private final DataSlot quality = trackedInt(), facing = trackedInt(), inputFacing = trackedInt(), outputFacing = trackedInt();
     private final DataSlot meterConnected = trackedInt(), meterSameChannel = trackedInt(), meterMismatched = trackedInt();
     private final DataSlot meterStrongest = trackedInt(), meterWeakest = trackedInt(), commissioning = trackedInt();
+    private final DataSlot budgetBounded = trackedInt(), budgetPassiveNodes = trackedInt(), budgetPassiveHops = trackedInt();
+    private final DataSlot budgetSourceCount = trackedInt(), budgetSourceIntensity = trackedInt(), budgetSourceChannel = trackedInt();
+    private final DataSlot budgetObservedLoss = trackedInt(), budgetReceiverHeadroom = trackedInt();
 
     public OpticalSystemMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) { this(containerId, inventory, data.readBlockPos()); }
     public OpticalSystemMenu(int containerId, Inventory inventory, BlockPos pos) {
@@ -41,6 +44,7 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
         BlockState state = level.getBlockState(blockPos); Block block = state.getBlock();
         primary.set(0); secondary.set(0); tertiary.set(0); auxiliary.set(0); facing.set(-1); inputFacing.set(-1); outputFacing.set(-1);
         quality.set(PortQuality.NO_SIGNAL.ordinal()); meterConnected.set(0); meterSameChannel.set(0); meterMismatched.set(0); meterStrongest.set(0); meterWeakest.set(0);
+        budgetBounded.set(0); budgetPassiveNodes.set(0); budgetPassiveHops.set(0); budgetSourceCount.set(0); budgetSourceIntensity.set(0); budgetSourceChannel.set(0); budgetObservedLoss.set(0); budgetReceiverHeadroom.set(0);
         commissioning.set(CommissioningStatus.NOT_READY.code());
 
         if (block instanceof OpticalEmitterBlock) {
@@ -48,6 +52,10 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
         } else if (block instanceof OpticalReceiverBlock) {
             kind.set(KIND_RECEIVER); primary.set(OpticalReceiverBlock.intensity(level, blockPos)); secondary.set(OpticalReceiverBlock.channel(level, blockPos));
             tertiary.set(OpticalReceiverBlock.inputCount(level, blockPos)); auxiliary.set(OpticalReceiverBlock.driverCount(level, blockPos)); quality.set(OpticalReceiverBlock.quality(level, blockPos).ordinal());
+            OpticalCommissioningSupport.SegmentBudget b = OpticalCommissioningSupport.segmentBudget(level, blockPos);
+            budgetBounded.set(b.bounded() ? 1 : 0); budgetPassiveNodes.set(b.passiveNodes()); budgetPassiveHops.set(b.passiveHops()); budgetSourceCount.set(b.sourceCount());
+            budgetSourceIntensity.set(b.sourceIntensity()); budgetSourceChannel.set(b.sourceChannel()); budgetObservedLoss.set(b.observedSegmentLoss()); budgetReceiverHeadroom.set(b.receiverHeadroom());
+            commissioning.set(receiverCommissioning(OpticalReceiverBlock.quality(level, blockPos), b).code());
         } else if (block instanceof OpticalPowerMeterBlock) {
             kind.set(KIND_METER);
             OpticalPowerMeterBlock.Measurement m = OpticalPowerMeterBlock.measurement(level, blockPos, state);
@@ -75,6 +83,14 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
             primary.set(snapshot.map(s -> (int) Math.round(s.value())).orElse(0)); secondary.set(state.getValue(FreeSpaceOpticalReceiverBlock.CHANNEL)); tertiary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             quality.set(snapshot.map(s -> s.quality()).orElse(PortQuality.NO_SIGNAL).ordinal()); inputFacing.set(in.ordinal()); outputFacing.set(out.ordinal()); facing.set(out.ordinal());
         } else kind.set(-1);
+    }
+
+    private static CommissioningStatus receiverCommissioning(PortQuality q, OpticalCommissioningSupport.SegmentBudget b) {
+        if (!b.bounded() || q == PortQuality.STALE) return CommissioningStatus.NOT_READY;
+        if (q == PortQuality.FAULT || q == PortQuality.DOMAIN_MISMATCH || q == PortQuality.TOPOLOGY_ERROR || b.sourceCount() > 1 || !b.channelCoherent()) return CommissioningStatus.FAIL;
+        if (q == PortQuality.NO_SIGNAL || b.sourceCount() == 0 || b.receiverIntensity() <= 0) return CommissioningStatus.NOT_READY;
+        if (b.receiverHeadroom() <= 1) return CommissioningStatus.MARGINAL;
+        return CommissioningStatus.PASS;
     }
 
     private static CommissioningStatus opticalCommissioning(PortQuality q, int intensity, OpticalCommissioningSupport.Evidence e) {
@@ -177,6 +193,9 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
     public int tertiary() { return tertiary.get(); } public int auxiliary() { return auxiliary.get(); }
     public int meterConnectedNeighbors() { return meterConnected.get(); } public int meterSameChannelNeighbors() { return meterSameChannel.get(); }
     public int meterChannelMismatches() { return meterMismatched.get(); } public int meterStrongestNeighbor() { return meterStrongest.get(); } public int meterWeakestNeighbor() { return meterWeakest.get(); }
+    public boolean budgetBounded() { return budgetBounded.get() != 0; } public int budgetPassiveNodes() { return budgetPassiveNodes.get(); } public int budgetPassiveHops() { return budgetPassiveHops.get(); }
+    public int budgetSourceCount() { return budgetSourceCount.get(); } public int budgetSourceIntensity() { return budgetSourceIntensity.get(); } public int budgetSourceChannel() { return budgetSourceChannel.get(); }
+    public int budgetObservedLoss() { return budgetObservedLoss.get(); } public int budgetReceiverHeadroom() { return budgetReceiverHeadroom.get(); }
     public CommissioningStatus commissioningStatus() { return CommissioningStatus.fromCode(commissioning.get()); }
     public PortQuality quality() { int ordinal = quality.get(); PortQuality[] all = PortQuality.values(); return ordinal < 0 || ordinal >= all.length ? PortQuality.NO_SIGNAL : all[ordinal]; }
     public Direction facing() { int ordinal = facing.get(); Direction[] all = Direction.values(); return ordinal < 0 || ordinal >= all.length ? Direction.NORTH : all[ordinal]; }
