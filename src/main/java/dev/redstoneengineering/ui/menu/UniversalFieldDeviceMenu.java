@@ -107,7 +107,8 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         } else if (block instanceof AlarmProcessorBlock) {
             configKind.set(CONFIG_ALARM);
             configPrimary.set(state.getValue(AlarmProcessorBlock.SEVERITY));
-            configSecondary.set(AlarmProcessorBlock.activationCount(level, blockPos));
+            configSecondary.set(!AlarmProcessorBlock.latched(level, blockPos) ? 0
+                    : AlarmProcessorBlock.unacknowledged(level, blockPos) ? 2 : 1);
         } else if (block instanceof SampleHoldBlock) {
             configKind.set(CONFIG_SAMPLE_HOLD);
             configPrimary.set(state.getValue(SampleHoldBlock.TRIGGER_MODE));
