@@ -1,5 +1,6 @@
 package dev.redstoneengineering.block;
 
+import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -17,12 +18,14 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
+import java.util.List;
+
 /**
  * Configurable one-input/one-output topology for non-redstone RSE domain processors.
  *
  * <p>Placement defaults to a straight series path. INPUT and OUTPUT remain explicit single ports.
  * Operators may rotate the complete route or route either endpoint independently, while invalid
- * INPUT=OUTPUT states are rejected so the device remains an explicit 1-in/1-out processor.</p>
+ * physical-port overlap states are rejected.</p>
  */
 public abstract class DirectionalDomainBlock extends DomainBlock {
     /** OUTPUT face; retained as FACING for model/backward compatibility. */
@@ -72,10 +75,7 @@ public abstract class DirectionalDomainBlock extends DomainBlock {
         return leftOf(facing).getOpposite();
     }
 
-    /**
-     * Compatibility entry point used by existing HMI rotate buttons. A route rotation now means
-     * what the UI says: rotate the complete configured RX->TX path, not only OUTPUT.
-     */
+    /** Compatibility entry point used by existing HMI rotate buttons. */
     public static boolean rotateSeriesAxis(Level level, BlockPos pos, boolean clockwise) {
         return rotateWholeRoute(level, pos, clockwise);
     }
@@ -93,6 +93,7 @@ public abstract class DirectionalDomainBlock extends DomainBlock {
         BlockState next = state
                 .setValue(FACING, newOutput)
                 .setValue(INPUT_FACING, newInput);
+        if (!physicalPortsDoNotOverlap(block, next)) return false;
         level.setBlock(pos, next, Block.UPDATE_CLIENTS);
 
         notifyNeighbors(level, pos, block, oldInput, oldOutput, newInput, newOutput);
@@ -100,7 +101,10 @@ public abstract class DirectionalDomainBlock extends DomainBlock {
         return true;
     }
 
-    /** Routes only INPUT while keeping OUTPUT fixed. INPUT=OUTPUT is rejected by skipping that face. */
+    /**
+     * Routes only INPUT while keeping OUTPUT fixed. Every candidate is checked against the block's
+     * full engineering-port map, so RX cannot collide with an auxiliary physical connector.
+     */
     public static boolean rotateSeriesInput(Level level, BlockPos pos, boolean clockwise) {
         if (level.isClientSide) return false;
         BlockState state = level.getBlockState(pos);
@@ -108,22 +112,23 @@ public abstract class DirectionalDomainBlock extends DomainBlock {
 
         Direction output = seriesOutputSide(state);
         Direction oldInput = seriesInputSide(state);
-        Direction newInput = rotateHorizontal(oldInput, clockwise);
-        for (int i = 0; i < 3 && newInput == output; i++) {
-            newInput = rotateHorizontal(newInput, clockwise);
+        Direction candidate = oldInput;
+        for (int i = 0; i < 3; i++) {
+            candidate = rotateHorizontal(candidate, clockwise);
+            if (candidate == output) continue;
+            BlockState next = state.setValue(INPUT_FACING, candidate);
+            if (!physicalPortsDoNotOverlap(block, next)) continue;
+            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+            notifyNeighbors(level, pos, block, oldInput, candidate, output);
+            if (level instanceof ServerLevel serverLevel) serverLevel.scheduleTick(pos, block, 1);
+            return true;
         }
-        if (newInput == output || newInput == oldInput) return false;
-
-        BlockState next = state.setValue(INPUT_FACING, newInput);
-        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-        notifyNeighbors(level, pos, block, oldInput, newInput, output);
-        if (level instanceof ServerLevel serverLevel) serverLevel.scheduleTick(pos, block, 1);
-        return true;
+        return hasAuxiliaryPorts(block, state) && rotateWholeRoute(level, pos, clockwise);
     }
 
     /**
-     * Routes only OUTPUT while keeping INPUT fixed. INPUT=OUTPUT is rejected by skipping that face,
-     * so ordinary domain processors remain explicit 1-in/1-out devices even when turning a corner.
+     * Routes only OUTPUT while keeping INPUT fixed. Every candidate is checked against the block's
+     * complete physical port map; dense multi-port devices fall back to rigid-layout rotation.
      */
     public static boolean rotateSeriesOutput(Level level, BlockPos pos, boolean clockwise) {
         if (level.isClientSide) return false;
@@ -132,17 +137,34 @@ public abstract class DirectionalDomainBlock extends DomainBlock {
 
         Direction input = seriesInputSide(state);
         Direction oldOutput = seriesOutputSide(state);
-        Direction newOutput = rotateHorizontal(oldOutput, clockwise);
-        for (int i = 0; i < 3 && newOutput == input; i++) {
-            newOutput = rotateHorizontal(newOutput, clockwise);
+        Direction candidate = oldOutput;
+        for (int i = 0; i < 3; i++) {
+            candidate = rotateHorizontal(candidate, clockwise);
+            if (candidate == input) continue;
+            BlockState next = state.setValue(FACING, candidate);
+            if (!physicalPortsDoNotOverlap(block, next)) continue;
+            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+            notifyNeighbors(level, pos, block, oldOutput, candidate, input);
+            if (level instanceof ServerLevel serverLevel) serverLevel.scheduleTick(pos, block, 1);
+            return true;
         }
-        if (newOutput == input || newOutput == oldOutput) return false;
+        return hasAuxiliaryPorts(block, state) && rotateWholeRoute(level, pos, clockwise);
+    }
 
-        BlockState next = state.setValue(FACING, newOutput);
-        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-        notifyNeighbors(level, pos, block, input, oldOutput, newOutput);
-        if (level instanceof ServerLevel serverLevel) serverLevel.scheduleTick(pos, block, 1);
+    /** Domain processors that expose engineering ports may not place two physical ports on one face. */
+    private static boolean physicalPortsDoNotOverlap(DirectionalDomainBlock block, BlockState state) {
+        if (!(block instanceof EngineeringPortProvider provider)) return seriesInputSide(state) != seriesOutputSide(state);
+        List<dev.redstoneengineering.core.port.EngineeringPort> ports = provider.engineeringPorts(state);
+        for (int i = 0; i < ports.size(); i++) {
+            for (int j = i + 1; j < ports.size(); j++) {
+                if (ports.get(i).side() == ports.get(j).side()) return false;
+            }
+        }
         return true;
+    }
+
+    private static boolean hasAuxiliaryPorts(DirectionalDomainBlock block, BlockState state) {
+        return block instanceof EngineeringPortProvider provider && provider.engineeringPorts(state).size() > 2;
     }
 
     private static Direction rotateHorizontal(Direction direction, boolean clockwise) {
