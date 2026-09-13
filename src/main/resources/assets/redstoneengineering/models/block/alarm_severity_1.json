@@ -1,0 +1,5 @@
+{
+  "ambientocclusion": false,
+  "textures": {"light": "redstoneengineering:block/redstone_reference_source", "particle": "redstoneengineering:block/alarm_processor"},
+  "elements": [{"from": [3, 16.01, 6], "to": [5.5, 16.35, 10], "faces": {"up": {"texture": "#light"}}}]
+}
