@@ -42,6 +42,10 @@ A mature medium should connect to the common instrument workflow:
 
 The UI should show medium-specific evidence without becoming a second simulation engine. Diagnostic conclusions must be reproducible from synchronized server data.
 
+## Acceptance rule
+
+A medium differentiation pass is complete only when its distinctive limitation is visible through at least one synchronized instrument or commissioning surface. A hidden backend parameter is not enough; the player must be able to measure the consequence and identify an engineering response.
+
 ## Long-line development order
 
 1. Instrument/UI depth: Measure -> Capture -> Diagnose -> Next Action.
