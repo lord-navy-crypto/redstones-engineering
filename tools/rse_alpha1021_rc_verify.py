@@ -24,12 +24,15 @@ def fail(message: str) -> None:
 
 props = read("gradle.properties")
 workflow = read(".github/workflows/build.yml")
-manifest = read("ALPHA1_0_21_RC1_MANIFEST.txt")
+manifest = read("ALPHA1_0_21_MANIFEST.txt")
 guide = read("docs/ALPHA1_0_21_RC1_TESTING_GUIDE.md")
+readme = read("README.md")
 
 require(props, "mod_version=1.0.21-alpha-rc1", "RC artifact version")
 require(manifest, "Artifact: 1.0.21-alpha-rc1", "manifest artifact identity")
 require(manifest, "Integrated Systems Stabilization Test Candidate", "manifest milestone")
+require(readme, "1.0.21-alpha-rc1", "README artifact identity")
+require(readme, "ALPHA1_0_21_MANIFEST.txt", "README manifest link")
 require(guide, "RSE Alpha 1.0.21 RC1", "testing-guide identity")
 require(guide, "blocking NeoForge GameTests", "testing-guide runtime gate")
 require(guide, "Do not substitute an older green commit", "latest-HEAD rule")
