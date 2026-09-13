@@ -34,6 +34,11 @@ require(
     '"redstoneengineering:redstone_encyclopedia"',
 )
 require(
+    "src/main/java/dev/redstoneengineering/item/RedstoneEncyclopediaItem.java",
+    "appendHoverText", "Right-click to open the RSE field manual",
+    "Guide + Ports / Config for registered RSE blocks", "Entries follow the live RSE block registry",
+)
+require(
     "src/main/java/dev/redstoneengineering/client/ui/RedstoneEncyclopediaScreen.java",
     "BuiltInRegistries.BLOCK.stream()", "RedstoneEngineering.MOD_ID", "EngineeringPortProvider",
     "engineeringPorts(block.defaultBlockState())", "REDSTONE ENCYCLOPEDIA", "PHYSICAL I/O",
@@ -88,6 +93,7 @@ if failed:
 
 print("RSE field tools verification: PASS")
 print(" registry-backed encyclopedia coverage: PASS")
+print(" encyclopedia entry tooltip: PASS")
 print(" guide + ports/config split: PASS")
 print(" curated high-risk block guidance: PASS")
 print(" book + redstone recipe: PASS")
