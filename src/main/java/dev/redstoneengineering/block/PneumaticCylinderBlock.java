@@ -167,14 +167,15 @@ public class PneumaticCylinderBlock extends DirectionalDomainBlock implements En
             PneumaticNetwork.ActuatorPathEvidence path = PneumaticNetwork.actuatorPathEvidence(level, pos);
             player.displayClientMessage(Component.literal(
                     "Pneumatic cylinder"
-                            + " | pressure=" + r[2] + "/100 peak=" + r[8]
+                            + " | pressure=" + r[2] + "/100 | peak pressure=" + r[8]
                             + " | responsePeriod=" + responsePeriodTicks(r[2]) + "t"
                             + " | pos=" + r[0] + "/15 target=" + r[1]
                             + " velocity=" + r[3] + " error=" + r[4]
                             + " remaining≈" + estimatedRemainingTicks(level, pos) + "t"
                             + " | supply=" + path.supplyPressure() + " pathLoss=" + path.observedLoss()
                             + " line=" + path.lineLoss() + " restriction=" + path.restrictionLoss()
-                            + " | travel=" + r[5] + " stallTicks=" + r[6] + " reversals=" + r[9] + " samples=" + r[10]
+                            + " | travel=" + r[5] + " stallTicks=" + r[6]
+                            + " | motion reversals=" + r[9] + " samples=" + r[10]
                             + " | pneumatic IN=" + inputSide(state).getName() + " feedback OUT=" + outputSide(state).getName() + ":" + r[0]
             ), true);
         }
