@@ -1,5 +1,6 @@
 package dev.redstoneengineering.client.ui;
 
+import dev.redstoneengineering.core.diagnostic.CommissioningStatus;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.menu.CopperCircuitMeterMenu;
 import net.minecraft.client.gui.GuiGraphics;
@@ -47,13 +48,13 @@ public final class CopperCircuitMeterScreen extends EngineeringScreen<CopperCirc
 
     private void overview(GuiGraphics g) {
         statusBadge(g, "COPPER POWER / LOAD NETWORK", qualityColor(), 16, 80);
-        statusBadge(g, stateLabel(), stateColor(), 211, 80);
+        statusBadge(g, commissioningLabel(), commissioningColor(), 211, 80);
         metricCard(g, "Voltage", String.format("%d V-eq", menu.voltage()), 16, 103, 88, qualityColor());
         metricCard(g, "Req", String.format("%.2f Ω-eq", menu.resistance()), 111, 103, 88, INFO);
         metricCard(g, "Current", String.format("%.3f I-eq", menu.current()), 206, 103, 88, INFO);
         labelValue(g, "Estimated power", String.format("%.2f P-eq", menu.power()), 149);
         labelValue(g, "Measurement face", menu.facing().getName().toUpperCase(), 167);
-        labelValue(g, "Evidence quality", qualityName(), 185);
+        labelValue(g, "Electrical state", stateLabel(), 185);
         safeText(g, "Copper is modeled as an electrical load network, not as a control-signal medium.", 16, 207, INFO);
     }
 
@@ -73,6 +74,7 @@ public final class CopperCircuitMeterScreen extends EngineeringScreen<CopperCirc
 
     private void diagnostics(GuiGraphics g) {
         statusBadge(g, qualityName(), qualityColor(), 16, 80);
+        statusBadge(g, commissioningLabel(), commissioningColor(), 211, 80);
         labelValue(g, "Electrical state", stateLabel(), 104);
         labelValue(g, "V / Req", String.format("%d / %.2f", menu.voltage(), menu.resistance()), 124);
         labelValue(g, "I / P", String.format("%.3f / %.2f", menu.current(), menu.power()), 144);
@@ -82,11 +84,12 @@ public final class CopperCircuitMeterScreen extends EngineeringScreen<CopperCirc
     }
 
     private void history(GuiGraphics g) {
-        statusBadge(g, "LIVE ELECTRICAL SNAPSHOT", INFO, 16, 80);
+        statusBadge(g, "COMMISSIONING EVIDENCE", commissioningColor(), 16, 80);
         safeText(g, "V, Req, I and P come from the same server-side CircuitPhysics evidence used by the meter.", 16, 108, TEXT);
         safeText(g, "The client does not recalculate the circuit and this HMI does not fabricate retained electrical history.", 16, 130, TEXT);
         labelValue(g, "Medium identity", "COPPER • POWER / LOAD", 164);
-        labelValue(g, "Current state", stateLabel(), 184);
+        labelValue(g, "Commissioning", commissioningLabel(), 184);
+        safeText(g, commissioningMeaning(), 16, 206, commissioningColor());
     }
 
     private String qualityName() { return menu.quality().name().replace('_', ' '); }
@@ -101,9 +104,21 @@ public final class CopperCircuitMeterScreen extends EngineeringScreen<CopperCirc
         if (menu.quality() != PortQuality.VALID) return "EVIDENCE INVALID";
         return menu.energized() ? "ENERGIZED" : "DE-ENERGIZED";
     }
-    private int stateColor() {
-        if (menu.quality() != PortQuality.VALID) return WARN;
-        return menu.energized() ? GOOD : INFO;
+    private String commissioningLabel() { return menu.commissioningStatus().name().replace('_', ' '); }
+    private int commissioningColor() {
+        return switch (menu.commissioningStatus()) {
+            case PASS -> GOOD;
+            case MARGINAL, NOT_READY -> WARN;
+            case FAIL -> BAD;
+        };
+    }
+    private String commissioningMeaning() {
+        return switch (menu.commissioningStatus()) {
+            case PASS -> "PASS • valid energized electrical evidence is available for load-network commissioning.";
+            case MARGINAL -> "MARGINAL • evidence exists, but the network is de-energized or the measurement is saturated.";
+            case FAIL -> "FAIL • topology/domain/fault evidence prevents trustworthy electrical commissioning.";
+            case NOT_READY -> "NOT READY • acquire a fresh connected copper measurement before commissioning.";
+        };
     }
     private String diagnosis() {
         return switch (menu.quality()) {
