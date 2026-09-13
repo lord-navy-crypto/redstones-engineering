@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Static gate for RSE systems-level automation, diagnostics, and operator-reference extension."""
 from pathlib import Path
+import json
 import re
 import sys
 
@@ -26,6 +27,7 @@ interlock = read(BLOCK_DIR / "SafetyInterlockBlock.java")
 fault = read(BLOCK_DIR / "FaultInjectorBlock.java")
 alarm = read(BLOCK_DIR / "AlarmProcessorBlock.java")
 debugger = read(BLOCK_DIR / "TopologyDebuggerBlock.java")
+compass = read(BLOCK_DIR / "EngineeringCompassBlock.java")
 compass_model = read(ASSETS / "models/block/engineering_compass.json")
 compass_state = read(ASSETS / "blockstates/engineering_compass.json")
 gt = read(GT)
@@ -36,8 +38,9 @@ require_all(module, (
     "BLOCK_TYPES.register(modBus);", "BLOCKS.register(modBus);", "ITEMS.register(modBus);",
     "DeferredBlock<SequenceControllerBlock> SEQUENCE_CONTROLLER", "DeferredBlock<SafetyInterlockBlock> SAFETY_INTERLOCK",
     "DeferredBlock<FaultInjectorBlock> FAULT_INJECTOR", "DeferredBlock<AlarmProcessorBlock> ALARM_PROCESSOR",
-    "DeferredBlock<TopologyDebuggerBlock> TOPOLOGY_DEBUGGER", "DeferredBlock<Block> ENGINEERING_COMPASS",
-    'BLOCKS.registerBlock("engineering_compass", Block::new', "ENGINEERING_COMPASS_ITEM",
+    "DeferredBlock<TopologyDebuggerBlock> TOPOLOGY_DEBUGGER", "DeferredBlock<EngineeringCompassBlock> ENGINEERING_COMPASS",
+    "ENGINEERING_COMPASS_CODEC", 'codec("engineering_compass", EngineeringCompassBlock::new)',
+    'BLOCKS.registerBlock("engineering_compass", EngineeringCompassBlock::new', ".noOcclusion()", "ENGINEERING_COMPASS_ITEM",
     "event.accept(ENGINEERING_COMPASS_ITEM);", "event.register(RseEngineeringSystemsGameTests.class);"
 ), "EngineeringSystemsModule.java")
 if "@EventBusSubscriber" in module or "@SubscribeEvent" in module: errors.append("EngineeringSystemsModule.java: deprecated annotation event registration reintroduced")
@@ -48,22 +51,42 @@ require_all(fault, ("FAULT_INJECTOR_CODEC.value()", "IntegerProperty.create(\"mo
 require_all(alarm, ("ALARM_PROCESSOR_CODEC.value()", "IntegerProperty.create(\"severity\", 1, 3)", '"ALARM CONDITION"', '"ACKNOWLEDGE"', '"RESET / CLEAR"', '"ALARM OUT"', "condition <= 0", "PortQuality.FAULT", "RuntimeIntStore.remove(level, KEY, pos)"), "AlarmProcessorBlock.java")
 require_all(debugger, ("TOPOLOGY_DEBUGGER_CODEC.value()", "EngineeringTopologyView.inspect", "TopologyDiagnosticsReport", '"TOPOLOGY ALARM OUT"', "report.hasIssue()", "RuntimeIntStore.remove(level, KEY, pos)"), "TopologyDebuggerBlock.java")
 
-# The Engineering Compass is intentionally a zero-runtime-cost operator datum. Its blockstate has no
-# orientation property, so the model's north/east/south/west markers stay fixed to world axes.
+# Engineering Compass remains a zero-tick world-axis datum, but now owns its low-profile shape and readout.
 require_all(compass_state, ('"variants"', '"redstoneengineering:block/engineering_compass"'), "engineering_compass blockstate")
-require_all(compass_model, (
-    '"base": "redstoneengineering:block/signal_analyzer_side"',
-    '"north": "redstoneengineering:block/redstone_reference_source"',
-    '"east": "redstoneengineering:block/optical_fiber"',
-    '"south": "redstoneengineering:block/slime_vibration_conduit"',
-    '"west": "redstoneengineering:block/honey_vibration_damper"',
-    '"center": "redstoneengineering:block/signal_analyzer_top"',
-), "engineering_compass model")
+require_all(compass, (
+    "class EngineeringCompassBlock extends Block", "ENGINEERING_COMPASS_CODEC.value()",
+    "Block.box(0, 0, 0, 16, 8, 16)", "getCollisionShape", "useWithoutItem",
+    "World datum", "N=-Z", "E=+X", "S=+Z", "W=-X",
+), "EngineeringCompassBlock.java")
+for forbidden in ("EntityBlock", "BlockEntity", "scheduleTick", "neighborChanged", "EngineeringPortProvider", "RuntimeIntStore", ".setBlock("):
+    if forbidden in compass:
+        errors.append(f"Engineering Compass must remain passive; found {forbidden!r} in EngineeringCompassBlock.java")
+
+try:
+    compass_json = json.loads(compass_model)
+except json.JSONDecodeError as exc:
+    errors.append(f"engineering_compass model: invalid JSON: {exc}")
+    compass_json = {}
+textures = compass_json.get("textures", {}) if isinstance(compass_json, dict) else {}
+expected_textures = {
+    "base": "redstoneengineering:block/signal_analyzer_side",
+    "north": "redstoneengineering:block/redstone_reference_source",
+    "east": "redstoneengineering:block/optical_fiber",
+    "south": "redstoneengineering:block/slime_vibration_conduit",
+    "west": "redstoneengineering:block/honey_vibration_damper",
+    "center": "redstoneengineering:block/signal_analyzer_top",
+}
+for key, value in expected_textures.items():
+    if textures.get(key) != value:
+        errors.append(f"engineering_compass model: texture {key!r} expected {value!r}, found {textures.get(key)!r}")
+for marker in ("marker_n", "marker_e", "marker_s", "marker_w"):
+    value = textures.get(marker)
+    if not isinstance(value, str) or not value.startswith("redstoneengineering:block/"):
+        errors.append(f"engineering_compass model: {marker} must use an RSE-owned block texture")
 if '"minecraft:block/' in compass_model:
     errors.append("engineering_compass model: vanilla placeholder texture reference is forbidden")
-for forbidden in ("BlockEntity", "scheduleTick", "neighborChanged", "EngineeringPortProvider"):
-    if forbidden in module.split("ENGINEERING_COMPASS", 1)[-1].split("public EngineeringSystemsModule", 1)[0]:
-        errors.append(f"Engineering Compass must remain passive; found {forbidden!r} near registration")
+if len(compass_json.get("elements", [])) < 20:
+    errors.append("engineering_compass model: expected explicit raised cardinal-letter geometry")
 
 count = len(re.findall(r"@GameTest\s*\(", gt))
 if count < 7: errors.append(f"RseEngineeringSystemsGameTests.java: expected at least 7 @GameTest methods, found {count}")
@@ -90,7 +113,7 @@ print("RSE ENGINEERING SYSTEMS VERIFY: PASS")
 print("  legacy audited core: 122 blocks")
 print("  systems extension: 6 blocks")
 print("  aggregate closure target: 128 blocks")
-print("  Engineering Compass: passive world-axis datum / RSE-owned visual assets")
+print("  Engineering Compass: passive world-axis datum / raised N-E-S-W geometry / low-profile shape")
 print("  registry lifecycle: DeferredRegister only; no eager Block construction")
 print("  event registration: explicit IEventBus listeners")
 print(f"  executable systems GameTests: {count}")

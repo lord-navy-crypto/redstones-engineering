@@ -2,6 +2,7 @@ package dev.redstoneengineering;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.block.AlarmProcessorBlock;
+import dev.redstoneengineering.block.EngineeringCompassBlock;
 import dev.redstoneengineering.block.FaultInjectorBlock;
 import dev.redstoneengineering.block.SafetyInterlockBlock;
 import dev.redstoneengineering.block.SequenceControllerBlock;
@@ -47,6 +48,8 @@ public final class EngineeringSystemsModule {
             codec("alarm_processor", AlarmProcessorBlock::new);
     public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<TopologyDebuggerBlock>> TOPOLOGY_DEBUGGER_CODEC =
             codec("topology_debugger", TopologyDebuggerBlock::new);
+    public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<EngineeringCompassBlock>> ENGINEERING_COMPASS_CODEC =
+            codec("engineering_compass", EngineeringCompassBlock::new);
 
     public static final DeferredBlock<SequenceControllerBlock> SEQUENCE_CONTROLLER =
             BLOCKS.registerBlock("sequence_controller", SequenceControllerBlock::new, machineProps(MapColor.COLOR_PURPLE));
@@ -59,9 +62,9 @@ public final class EngineeringSystemsModule {
     public static final DeferredBlock<TopologyDebuggerBlock> TOPOLOGY_DEBUGGER =
             BLOCKS.registerBlock("topology_debugger", TopologyDebuggerBlock::new, machineProps(MapColor.COLOR_BLUE));
     /** Passive world-axis datum: no BlockEntity, no tick, no signal/network participation. */
-    public static final DeferredBlock<Block> ENGINEERING_COMPASS =
-            BLOCKS.registerBlock("engineering_compass", Block::new,
-                    BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_GRAY).strength(1.5F));
+    public static final DeferredBlock<EngineeringCompassBlock> ENGINEERING_COMPASS =
+            BLOCKS.registerBlock("engineering_compass", EngineeringCompassBlock::new,
+                    BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_GRAY).strength(1.5F).noOcclusion());
 
     public static final DeferredItem<BlockItem> SEQUENCE_CONTROLLER_ITEM = ITEMS.registerSimpleBlockItem("sequence_controller", SEQUENCE_CONTROLLER);
     public static final DeferredItem<BlockItem> SAFETY_INTERLOCK_ITEM = ITEMS.registerSimpleBlockItem("safety_interlock", SAFETY_INTERLOCK);
