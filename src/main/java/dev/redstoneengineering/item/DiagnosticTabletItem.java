@@ -1,5 +1,6 @@
 package dev.redstoneengineering.item;
 
+import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.diagnostics.RseDiagnosticSeverity;
 import dev.redstoneengineering.diagnostics.RseDiagnostics;
@@ -24,8 +25,10 @@ import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.Property;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
@@ -34,7 +37,8 @@ import java.util.Locale;
  *
  * <p>Right-click a block to retain a bounded topology/evidence snapshot. Shift-right-click air to
  * review history. The tablet never drives a network, changes a block, schedules ticks, or runs a
- * second solver; it only consumes the existing EngineeringPort/Topology projection.</p>
+ * second solver; it only consumes existing BlockState, vanilla redstone observation and the formal
+ * EngineeringPort/Topology projection.</p>
  */
 public final class DiagnosticTabletItem extends Item {
     public static final int MAX_HISTORY = 8;
@@ -118,13 +122,17 @@ public final class DiagnosticTabletItem extends Item {
         BlockState state = level.getBlockState(pos);
         String id = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
         TopologyVisualizationSnapshot topology = EngineeringTopologyView.inspect(level, pos, state);
-        StringBuilder out = new StringBuilder(1024);
+        StringBuilder out = new StringBuilder(1536);
         out.append(state.getBlock().getName().getString()).append('\n');
         out.append("ID: ").append(id).append('\n');
         out.append("POS: ").append(pos.getX()).append(", ").append(pos.getY()).append(", ").append(pos.getZ()).append('\n');
+        out.append("SOURCE: ").append(RedstoneEngineering.MOD_ID.equals(BuiltInRegistries.BLOCK.getKey(state.getBlock()).getNamespace()) ? "RSE" : "VANILLA / OTHER").append('\n');
+        out.append("REDSTONE IN: best-neighbor=").append(level.getBestNeighborSignal(pos)).append("/15 • powered=").append(level.hasNeighborSignal(pos)).append('\n');
+        appendState(out, state);
         out.append("TOPOLOGY: ").append(topology.summary()).append('\n');
+        out.append("STATUS: ").append(topology.issueCount() == 0 ? "NOMINAL TOPOLOGY" : "CHECK TOPOLOGY • issues=" + topology.issueCount()).append('\n');
         if (topology.faces().isEmpty()) {
-            out.append("PORTS: no EngineeringPort contract\n");
+            out.append("PORTS: no EngineeringPort contract; BlockState/redstone evidence only\n");
         } else {
             for (TopologyFaceSnapshot face : topology.faces()) {
                 if (!face.hasPort()) continue;
@@ -134,7 +142,8 @@ public final class DiagnosticTabletItem extends Item {
                     out.append(" value=")
                             .append(String.format(Locale.ROOT, "%.2f", observation.value()))
                             .append("/")
-                            .append(String.format(Locale.ROOT, "%.2f", observation.maximum()));
+                            .append(String.format(Locale.ROOT, "%.2f", observation.maximum()))
+                            .append(" q=").append(observation.quality());
                 }
                 if (!face.detail().isBlank()) out.append(" • ").append(face.detail());
                 out.append('\n');
@@ -142,5 +151,23 @@ public final class DiagnosticTabletItem extends Item {
         }
         out.append("MODE: observer-only; no network recompute or device-state mutation");
         return out.substring(0, Math.min(4000, out.length()));
+    }
+
+    private static void appendState(StringBuilder out, BlockState state) {
+        if (state.getValues().isEmpty()) {
+            out.append("STATE: no BlockState properties\n");
+            return;
+        }
+        out.append("STATE: ");
+        boolean first = true;
+        List<Property<?>> properties = state.getProperties().stream()
+                .sorted(Comparator.comparing(Property::getName))
+                .toList();
+        for (Property<?> property : properties) {
+            if (!first) out.append(" • ");
+            first = false;
+            out.append(property.getName()).append('=').append(state.getValue(property));
+        }
+        out.append('\n');
     }
 }

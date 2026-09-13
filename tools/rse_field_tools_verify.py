@@ -37,13 +37,18 @@ require(
     "src/main/java/dev/redstoneengineering/client/ui/RedstoneEncyclopediaScreen.java",
     "BuiltInRegistries.BLOCK.stream()", "RedstoneEngineering.MOD_ID", "EngineeringPortProvider",
     "engineeringPorts(block.defaultBlockState())", "REDSTONE ENCYCLOPEDIA", "PHYSICAL I/O",
-    "Redstone remains a coarse 0..15 control medium", "RadioKernel owns",
+    "PORTS / CONFIG", "CONFIGURATION", "propertyMeaning", "HOW TO USE", "FIELD CHECK",
+    "Redstone = coarse 0..15 control", "RadioKernel owns", "redstone_to_lapis_scaler",
+    "lapis_to_redstone_quantizer", "copper_circuit_meter", "pneumatic_cylinder",
+    "radio_receiver", "pid_controller", "operations_monitor",
 )
 require(
     "src/main/java/dev/redstoneengineering/item/DiagnosticTabletItem.java",
     "MAX_HISTORY = 8", "CustomData.update(DataComponents.CUSTOM_DATA", "EngineeringTopologyView.inspect",
     "face.compact()", "observer-only; no network recompute or device-state mutation",
-    "Shift-right-click air to open tablet",
+    "Shift-right-click air to open tablet", "level.getBestNeighborSignal(pos)",
+    "level.hasNeighborSignal(pos)", "appendState(out, state)", "REDSTONE IN:", "STATE:",
+    "NOMINAL TOPOLOGY", "observation.quality()",
 )
 forbid(
     "src/main/java/dev/redstoneengineering/item/DiagnosticTabletItem.java",
@@ -76,7 +81,10 @@ if failed:
 
 print("RSE field tools verification: PASS")
 print(" registry-backed encyclopedia coverage: PASS")
+print(" guide + ports/config split: PASS")
+print(" curated high-risk block guidance: PASS")
 print(" book + redstone recipe: PASS")
 print(" bounded observer-only diagnostic tablet history: PASS")
+print(" BlockState + vanilla redstone observation: PASS")
 print(" existing diagnostics/topology reuse: PASS")
 print(" engineering compass retained: PASS")
