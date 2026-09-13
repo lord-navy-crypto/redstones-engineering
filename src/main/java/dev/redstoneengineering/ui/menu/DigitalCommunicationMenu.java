@@ -12,7 +12,10 @@ import dev.redstoneengineering.block.SerializerBlock;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.DataBusNetwork;
+import dev.redstoneengineering.physics.DifferentialNetwork;
 import dev.redstoneengineering.physics.InformationRuntime;
+import dev.redstoneengineering.physics.SerialNetwork;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -41,7 +44,6 @@ public final class DigitalCommunicationMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_RX_RIGHT = 5;
     public static final int BUTTON_TX_LEFT = 6;
     public static final int BUTTON_TX_RIGHT = 7;
-    /** Shared Route-HMI aliases; RX/TX remain the player-facing terminology. */
     public static final int BUTTON_INPUT_LEFT = BUTTON_RX_LEFT;
     public static final int BUTTON_INPUT_RIGHT = BUTTON_RX_RIGHT;
     public static final int BUTTON_OUTPUT_LEFT = BUTTON_TX_LEFT;
@@ -58,6 +60,15 @@ public final class DigitalCommunicationMenu extends EngineeringDeviceMenu {
     private final DataSlot auxiliary = trackedInt();
     private final DataSlot inputFacing = trackedInt();
     private final DataSlot outputFacing = trackedInt();
+
+    /** Medium-level evidence for the actual communication side of this converter. */
+    private final DataSlot mediumDomain = trackedInt();
+    private final DataSlot mediumQualityPercent = trackedInt();
+    private final DataSlot mediumAgeTicks = trackedInt();
+    private final DataSlot mediumDriverCount = trackedInt();
+    private final DataSlot mediumMetricA = trackedInt();
+    private final DataSlot mediumMetricB = trackedInt();
+    private final DataSlot mediumMetricC = trackedInt();
 
     public DigitalCommunicationMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -83,6 +94,7 @@ public final class DigitalCommunicationMenu extends EngineeringDeviceMenu {
         auxiliary.set(0);
         inputFacing.set(-1);
         outputFacing.set(-1);
+        clearMediumTelemetry();
 
         int deviceKind = kindOf(block);
         kind.set(deviceKind);
@@ -113,6 +125,75 @@ public final class DigitalCommunicationMenu extends EngineeringDeviceMenu {
             auxiliary.set(InformationRuntime.snapshot(level, "serial", blockPos).selector());
         } else if (block instanceof DeserializerBlock) {
             auxiliary.set(InformationRuntime.snapshot(level, "serial", blockPos.relative(inputSide)).selector());
+        }
+
+        refreshMediumTelemetry(deviceKind, inputSide, outputSide);
+    }
+
+    private void clearMediumTelemetry() {
+        mediumDomain.set(EngineeringDomain.GENERIC.ordinal());
+        mediumQualityPercent.set(0);
+        mediumAgeTicks.set(-1);
+        mediumDriverCount.set(0);
+        mediumMetricA.set(0);
+        mediumMetricB.set(0);
+        mediumMetricC.set(0);
+    }
+
+    /**
+     * Synchronizes existing runtime diagnostics only. This method never resolves a graph, drives a
+     * medium, or creates synthetic packet history. Metric meanings are domain-specific:
+     * DATA_BUS_8: A=nodes, B=contention frames, C=conflict frames;
+     * SERIAL_DATA: A=period ticks, B=utilization %, C=nodes;
+     * DIFFERENTIAL_DATA: A=payload bits (1), B=reserved, C=reserved.
+     */
+    private void refreshMediumTelemetry(int deviceKind, Direction inputSide, Direction outputSide) {
+        EngineeringDomain domain;
+        BlockPos mediumPos;
+        if (deviceKind == KIND_ENCODER) {
+            domain = EngineeringDomain.DATA_BUS_8;
+            mediumPos = blockPos.relative(outputSide);
+        } else if (deviceKind == KIND_DECODER || deviceKind == KIND_SERIALIZER) {
+            domain = deviceKind == KIND_DECODER ? EngineeringDomain.DATA_BUS_8 : EngineeringDomain.SERIAL_DATA;
+            mediumPos = blockPos.relative(deviceKind == KIND_DECODER ? inputSide : outputSide);
+        } else if (deviceKind == KIND_DESERIALIZER || deviceKind == KIND_REGENERATOR) {
+            domain = EngineeringDomain.SERIAL_DATA;
+            mediumPos = blockPos.relative(inputSide);
+        } else if (deviceKind == KIND_DIFF_DRIVER) {
+            domain = EngineeringDomain.DIFFERENTIAL_DATA;
+            mediumPos = blockPos.relative(outputSide);
+        } else if (deviceKind == KIND_DIFF_RECEIVER) {
+            domain = EngineeringDomain.DIFFERENTIAL_DATA;
+            mediumPos = blockPos.relative(inputSide);
+        } else {
+            return;
+        }
+
+        mediumDomain.set(domain.ordinal());
+        if (domain == EngineeringDomain.DATA_BUS_8) {
+            DataBusNetwork.Diagnostics diagnostics = DataBusNetwork.getDiagnostics(level, mediumPos);
+            InformationRuntime.Snapshot snapshot = InformationRuntime.snapshot(level, "bus8", mediumPos);
+            mediumQualityPercent.set(snapshot.qualityPercent());
+            mediumAgeTicks.set(snapshot.ageTicks());
+            mediumDriverCount.set(diagnostics.driverCount());
+            mediumMetricA.set(diagnostics.nodes());
+            mediumMetricB.set(diagnostics.contentionFrames());
+            mediumMetricC.set(diagnostics.conflictFrames());
+        } else if (domain == EngineeringDomain.SERIAL_DATA) {
+            SerialNetwork.Diagnostics diagnostics = SerialNetwork.getDiagnostics(level, mediumPos);
+            InformationRuntime.Snapshot snapshot = InformationRuntime.snapshot(level, "serial", mediumPos);
+            mediumQualityPercent.set(snapshot.qualityPercent());
+            mediumAgeTicks.set(snapshot.ageTicks());
+            mediumDriverCount.set(diagnostics.driverCount());
+            mediumMetricA.set(diagnostics.periodTicks());
+            mediumMetricB.set(diagnostics.utilizationPercent());
+            mediumMetricC.set(diagnostics.nodes());
+        } else if (domain == EngineeringDomain.DIFFERENTIAL_DATA) {
+            InformationRuntime.Snapshot snapshot = InformationRuntime.snapshot(level, "diff", mediumPos);
+            mediumQualityPercent.set(snapshot.qualityPercent());
+            mediumAgeTicks.set(snapshot.ageTicks());
+            mediumDriverCount.set(DifferentialNetwork.driverCount(level, mediumPos));
+            mediumMetricA.set(1);
         }
     }
 
@@ -187,11 +268,18 @@ public final class DigitalCommunicationMenu extends EngineeringDeviceMenu {
     public int outputValue() { return outputValue.get(); }
     public int parameter() { return parameter.get(); }
     public int auxiliary() { return auxiliary.get(); }
+    public int mediumQualityPercent() { return mediumQualityPercent.get(); }
+    public int mediumAgeTicks() { return mediumAgeTicks.get(); }
+    public int mediumDriverCount() { return mediumDriverCount.get(); }
+    public int mediumMetricA() { return mediumMetricA.get(); }
+    public int mediumMetricB() { return mediumMetricB.get(); }
+    public int mediumMetricC() { return mediumMetricC.get(); }
 
     public PortQuality inputQuality() { return quality(inputQuality.get()); }
     public PortQuality outputQuality() { return quality(outputQuality.get()); }
     public EngineeringDomain inputDomain() { return domain(inputDomain.get()); }
     public EngineeringDomain outputDomain() { return domain(outputDomain.get()); }
+    public EngineeringDomain mediumDomain() { return domain(mediumDomain.get()); }
 
     private static PortQuality quality(int ordinal) {
         PortQuality[] all = PortQuality.values();
