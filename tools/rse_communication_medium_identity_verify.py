@@ -70,7 +70,7 @@ require("src/main/java/dev/redstoneengineering/ui/menu/DigitalCommunicationMenu.
         "DifferentialNetwork.driverCount", "InformationRuntime.snapshot", "mediumQualityPercent",
         "mediumAgeTicks", "mediumDriverCount", "mediumMetricA", "mediumMetricB", "mediumMetricC")
 digital_menu = read("src/main/java/dev/redstoneengineering/ui/menu/DigitalCommunicationMenu.java")
-for forbidden in ("DataBusNetwork.resolve", "DataBusNetwork.drive", "SerialNetwork.recompute", "SerialNetwork.drive", "DifferentialNetwork.recompute", "DifferentialNetwork.drive"):
+for forbidden in ("DataBusNetwork.resolve(", "DataBusNetwork.drive(", "SerialNetwork.recompute(", "SerialNetwork.drive(", "DifferentialNetwork.recompute(", "DifferentialNetwork.drive("):
     if forbidden in digital_menu:
         errors.append(f"DigitalCommunicationMenu must remain observer-only; found solver mutation call {forbidden!r}")
 
