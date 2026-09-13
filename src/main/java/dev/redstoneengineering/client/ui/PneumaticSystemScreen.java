@@ -77,7 +77,8 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
         labelValue(g, "Topology", topologyText(), 149);
         labelValue(g, "Input evidence", menu.inputQuality().name(), 165);
         labelValue(g, "Output evidence", menu.outputQuality().name(), 181);
-        safeText(g, hint(), 16, 199, MUTED);
+        safeText(g, menu.kind() == PneumaticSystemMenu.KIND_FLOW_METER ? flowDiagnosis() : hint(), 16, 199,
+                menu.kind() == PneumaticSystemMenu.KIND_FLOW_METER ? flowDiagnosisColor() : MUTED);
     }
 
     private void ports(GuiGraphics g) {
@@ -113,16 +114,22 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
         labelValue(g, tertiaryLabel(), tertiaryValue(), 142);
         if (menu.kind() == PneumaticSystemMenu.KIND_FLOW_METER) {
             labelValue(g, "Outlet pressure", menu.auxiliary() + " / 100", 160);
-            labelValue(g, "Samples", Integer.toString(menu.stateFlag()), 178);
+            labelValue(g, "ΔP / inlet", restrictionIndexText(), 178);
+            statusLine(g, "Flow diagnosis", flowDiagnosis(), flowDiagnosisColor(), 196);
+            safeText(g, flowNextAction(), 16, 216, flowDiagnosisColor());
         } else if (menu.kind() == PneumaticSystemMenu.KIND_RELIEF) {
             labelValue(g, "Vent events", Integer.toString(menu.auxiliary()), 160);
             labelValue(g, "Operating state", menu.stateFlag() == 1 ? "VENTING • VALID STATE" : "ARMED", 178);
+            statusLine(g, "Authority", "SERVER SYNCHRONIZED", GOOD, 200);
         } else if (menu.kind() == PneumaticSystemMenu.KIND_CYLINDER) {
             labelValue(g, "Travel", Integer.toString(menu.auxiliary()), 160);
+            statusLine(g, "Authority", "SERVER SYNCHRONIZED", GOOD, 200);
         } else if (menu.kind() == PneumaticSystemMenu.KIND_PROPORTIONAL) {
             labelValue(g, "Network pressure", menu.auxiliary() + " / 100", 160);
+            statusLine(g, "Authority", "SERVER SYNCHRONIZED", GOOD, 200);
+        } else {
+            statusLine(g, "Authority", "SERVER SYNCHRONIZED", GOOD, 200);
         }
-        statusLine(g, "Authority", "SERVER SYNCHRONIZED", GOOD, 200);
     }
 
     private void history(GuiGraphics g) {
@@ -133,10 +140,12 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
             sectionRule(g, 154);
             safeText(g, "VENTING is an operating event, not missing measurement evidence.", 16, 170, GOOD);
         } else if (menu.kind() == PneumaticSystemMenu.KIND_FLOW_METER) {
-            labelValue(g, "Measurement samples", Integer.toString(menu.stateFlag()), 110);
-            labelValue(g, "Current flow proxy", Integer.toString(menu.primary()), 130);
-            sectionRule(g, 154);
-            safeText(g, "Flow metrology history is server-retained; the HMI does not fabricate samples.", 16, 170, MUTED);
+            labelValue(g, "Measurement samples", Integer.toString(menu.stateFlag()), 108);
+            labelValue(g, "Current flow proxy", Integer.toString(menu.primary()), 126);
+            labelValue(g, "Pin / Pout / ΔP", menu.tertiary() + " / " + menu.auxiliary() + " / " + menu.secondary(), 144);
+            labelValue(g, "Restriction index", restrictionIndexText(), 162);
+            statusLine(g, "Interpretation", flowDiagnosis(), flowDiagnosisColor(), 181);
+            safeText(g, "Server-retained metrology only • no client-side pressure/flow history is fabricated.", 16, 202, MUTED);
         } else {
             safeText(g, "This device exposes live server state; no artificial client-side history is created.", 16, 112, MUTED);
         }
@@ -232,6 +241,47 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
                 ? "Safety state is separate from evidence validity: venting does not mean missing data."
                 : "Pressure zero can be a legitimate state when the observation itself is valid.";
     }
+
+    private int restrictionIndex() {
+        if (menu.kind() != PneumaticSystemMenu.KIND_FLOW_METER || menu.tertiary() <= 0) return -1;
+        return Math.max(0, Math.min(100, (100 * Math.max(0, menu.secondary())) / Math.max(1, menu.tertiary())));
+    }
+
+    private String restrictionIndexText() {
+        int index = restrictionIndex();
+        return index < 0 ? "N/A" : index + "%";
+    }
+
+    private String flowDiagnosis() {
+        if (menu.inputQuality() != PortQuality.VALID || menu.outputQuality() != PortQuality.VALID) return "INSUFFICIENT PRESSURE EVIDENCE";
+        if (menu.stateFlag() <= 0) return "METROLOGY WARMUP / NO RETAINED SAMPLE";
+        if (menu.tertiary() <= 0) return "NO INLET PRESSURE";
+        int restriction = restrictionIndex();
+        if (restriction >= 60 && menu.primary() <= 25) return "SEVERE RESTRICTION / STARVATION EVIDENCE";
+        if (restriction >= 35) return "HIGH PRESSURE-DROP EVIDENCE";
+        if (restriction >= 15) return "MODERATE LINE / VALVE LOSS";
+        if (menu.primary() <= 5 && menu.tertiary() >= 20) return "LOW FLOW WITH AVAILABLE PRESSURE";
+        return "LOW RESTRICTION • FLOW PATH COHERENT";
+    }
+
+    private int flowDiagnosisColor() {
+        String diagnosis = flowDiagnosis();
+        if (diagnosis.contains("SEVERE") || diagnosis.contains("INSUFFICIENT") || diagnosis.contains("NO INLET")) return WARN;
+        if (diagnosis.contains("HIGH") || diagnosis.contains("LOW FLOW")) return WARN;
+        if (diagnosis.contains("MODERATE") || diagnosis.contains("WARMUP")) return INFO;
+        return GOOD;
+    }
+
+    private String flowNextAction() {
+        String diagnosis = flowDiagnosis();
+        if (diagnosis.contains("INSUFFICIENT")) return "NEXT • restore valid inlet/outlet observations before diagnosing the pneumatic path.";
+        if (diagnosis.contains("WARMUP")) return "NEXT • allow server metrology to acquire retained samples before comparing flow.";
+        if (diagnosis.contains("SEVERE") || diagnosis.contains("HIGH")) return "NEXT • inspect valve opening, pipe restriction and downstream demand before raising supply pressure.";
+        if (diagnosis.contains("LOW FLOW")) return "NEXT • check closed/check valves and downstream blockage before changing the compressor.";
+        if (diagnosis.contains("MODERATE")) return "NEXT • compare ΔP across adjacent sections to localize the dominant restriction.";
+        return "NEXT • path evidence is coherent; compare this section against another operating condition.";
+    }
+
     private String face(net.minecraft.core.Direction d) { return d.getName().toUpperCase(); }
     private int qualityColor(PortQuality q) { return q == PortQuality.VALID ? GOOD : q == PortQuality.NO_SIGNAL || q == PortQuality.STALE ? WARN : BAD; }
 }
