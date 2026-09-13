@@ -20,6 +20,10 @@ A medium is justified when it creates a distinct engineering decision that instr
 - Copper: electrical source/load/network behavior rather than a generic signal wire.
 - Radio / free-space optical: wireless propagation with range/interference or line-of-sight constraints.
 
+## Evidence-first rollout
+
+Media differentiation is introduced in two layers. First, expose real topology, coverage, quality, utilization, loading and shielding evidence in synchronized instrument UI. Second, only where a deterministic server-side model exists, allow the medium to affect propagation behavior. Shielding therefore starts as commissioning evidence and does not inject random client-side noise.
+
 ## Long-line development order
 
 1. Instrument/UI depth: Measure -> Capture -> Diagnose -> Next Action.
