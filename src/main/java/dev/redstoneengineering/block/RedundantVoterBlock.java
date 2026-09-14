@@ -13,6 +13,7 @@ import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -32,7 +33,6 @@ public class RedundantVoterBlock extends PassiveDirectionalSignalBlock {
     public static final IntegerProperty TOLERANCE = IntegerProperty.create("tolerance",0,3);
     private static final int[] TOL = {0,1,2,4};
     private static final String KEY="redundant_voter";
-    // [spread, degraded, maxSpread, disagreementEvents, previousDegraded/disagreement]
     private static final int RUNTIME_SIZE = 5;
 
     public RedundantVoterBlock(Properties p){ super(p); registerDefaultState(defaultBlockState().setValue(TOLERANCE,1)); }
@@ -63,7 +63,6 @@ public class RedundantVoterBlock extends PassiveDirectionalSignalBlock {
         return RedstoneObservationSupport.observe(level, pos, side);
     }
 
-    /** Observer-only 2oo3 decision; source presence and numerical zero remain separate facts. */
     public Vote vote(Level level, BlockPos pos, BlockState state) {
         Direction front = outputSide(state);
         RedstoneObservationSupport.Observation[] observations = {
@@ -126,6 +125,14 @@ public class RedundantVoterBlock extends PassiveDirectionalSignalBlock {
     public static int maxSpread(Level level, BlockPos pos) { int[] rt=RuntimeIntStore.peek(level,KEY,pos); return rt==null||rt.length<3?0:rt[2]; }
     public static int disagreementCount(Level level, BlockPos pos) { int[] rt=RuntimeIntStore.peek(level,KEY,pos); return rt==null||rt.length<4?0:rt[3]; }
 
+    public boolean resetDiagnostics(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (!state.is(this)) return false;
+        RuntimeIntStore.remove(level, KEY, pos);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, this, 1);
+        return true;
+    }
+
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock())) RuntimeIntStore.remove(level, KEY, pos);
@@ -136,7 +143,7 @@ public class RedundantVoterBlock extends PassiveDirectionalSignalBlock {
     protected InteractionResult useWithoutItem(BlockState state,Level level,BlockPos pos,Player player,BlockHitResult hit){
         if(!level.isClientSide && player instanceof ServerPlayer serverPlayer){
             if(player.isShiftKeyDown()){
-                RuntimeIntStore.remove(level,KEY,pos);
+                resetDiagnostics(level,pos);
                 player.displayClientMessage(net.minecraft.network.chat.Component.literal("Voter diagnostics reset"),true);
             } else FieldDeviceUi.open(serverPlayer,pos);
         }
