@@ -64,6 +64,17 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock {
         return lag(level, pos, state) == 0;
     }
 
+    /** Shared authoritative operator action used by both HMI and Shift-right-click. */
+    public static boolean stepRate(Level level, BlockPos pos, boolean forward) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof PrecisionFilterBlock filter)) return false;
+        int rate = state.getValue(RATE);
+        int nextRate = forward ? (rate >= 4 ? 1 : rate + 1) : (rate <= 1 ? 4 : rate - 1);
+        level.setBlock(pos, state.setValue(RATE, nextRate), Block.UPDATE_CLIENTS);
+        level.scheduleTick(pos, filter, 1);
+        return true;
+    }
+
     @Override
     protected InteractionResult useWithoutItem(
             BlockState state,
@@ -74,24 +85,23 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock {
     ) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
-                int rate = state.getValue(RATE);
-                rate = rate >= 4 ? 1 : rate + 1;
-                BlockState next = state.setValue(RATE, rate);
-                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-                level.scheduleTick(pos, this, 1);
-                int in = input(level, pos, next);
-                int out = next.getValue(OUTPUT);
-                int lag = Math.abs(in - out);
-                player.displayClientMessage(
-                        Component.literal(
-                                "Precision Filter | slew=" + rate
-                                        + " signal-step/tick | IN=" + in
-                                        + " OUT=" + out
-                                        + " | lag=" + lag
-                                        + " | " + (lag == 0 ? "SETTLED" : "SETTLING")
-                        ),
-                        true
-                );
+                if (stepRate(level, pos, true)) {
+                    BlockState next = level.getBlockState(pos);
+                    int rate = next.getValue(RATE);
+                    int in = input(level, pos, next);
+                    int out = next.getValue(OUTPUT);
+                    int lag = Math.abs(in - out);
+                    player.displayClientMessage(
+                            Component.literal(
+                                    "Precision Filter | slew=" + rate
+                                            + " signal-step/tick | IN=" + in
+                                            + " OUT=" + out
+                                            + " | lag=" + lag
+                                            + " | " + (lag == 0 ? "SETTLED" : "SETTLING")
+                            ),
+                            true
+                    );
+                }
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
             }
