@@ -30,9 +30,11 @@ for name, model, forbidden in (
     ("diagnostic_tablet.json", tablet, "minecraft:item/map"),
     ("redstone_encyclopedia.json", book, "minecraft:item/book"),
 ):
+    encoded = json.dumps(model)
     require(model.get("parent") != "minecraft:item/generated", f"{name}: must not remain a flat generated item")
     require(len(model.get("elements", [])) >= 3, f"{name}: expected a dimensional multi-element model")
-    require(forbidden not in json.dumps(model), f"{name}: still reuses legacy vanilla placeholder texture {forbidden}")
+    require(forbidden not in encoded, f"{name}: still reuses legacy vanilla placeholder texture {forbidden}")
+    require(":block:" not in encoded, f"{name}: malformed resource location uses namespace:block:texture instead of namespace:block/texture")
     require("display" in model and "gui" in model.get("display", {}), f"{name}: missing explicit handheld/GUI display transforms")
 
 item = ITEM.read_text(encoding="utf-8") if ITEM.exists() else ""
@@ -54,6 +56,7 @@ if errors:
 
 print("RSE HANDHELD TOOLS VERIFY: PASS")
 print("  encyclopedia/tablet: dimensional RSE-owned engineering models")
+print("  handheld model resource locations: canonical namespace:path form")
 print("  tablet: scan -> retain -> immediate review; air -> retained history")
 print("  tablet: newest slot 0, bounded history, clicked-face context")
 print("  tablet: current PortQuality evidence semantics classified")
