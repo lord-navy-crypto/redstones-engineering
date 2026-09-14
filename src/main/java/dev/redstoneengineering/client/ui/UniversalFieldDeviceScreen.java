@@ -267,14 +267,12 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     }
 
     private void history(GuiGraphics g) {
-        statusBadge(g, "LIVE SNAPSHOT POLICY", INFO, 16, 80);
-        safeText(g, "Universal HMI intentionally stores no client-local history.", 16, 108, TEXT);
-        safeText(g, "Use dedicated analyzers/monitors when retained chronology is required.", 16, 128, INFO);
-        safeText(g, "This prevents opening a UI from creating measurement evidence or changing simulation state.", 16, 150, MUTED);
+        statusBadge(g, "LIVE ONLY • NO RETAINED HISTORY", INFO, 16, 80);
+        labelValue(g, "Current evidence", "SYNCHRONIZED SNAPSHOT", 108);
+        safeText(g, "Retained chronology belongs in analyzers, monitors, or the Diagnostic Tablet.", 16, 132, INFO);
         if (lapisPrecisionMeasurementPresent()) {
-            labelValue(g, "Medium identity", "LAPIS PRECISION INFORMATION • 0..100", 174);
-            labelValue(g, "Display resolution", "0.01 engineering unit", 192);
-            safeText(g, "Precision is meaningful only when the synchronized port quality is VALID.", 16, 210, INFO);
+            labelValue(g, "Precision medium", "LAPIS • 0..100 • 0.01 display", 158);
+            safeText(g, "History remains external even when the current precision sample is VALID.", 16, 180, MUTED);
         }
     }
 
