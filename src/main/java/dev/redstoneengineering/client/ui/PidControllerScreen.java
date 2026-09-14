@@ -73,7 +73,7 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
         labelValue(graphics, "Process value (PV)", menu.processValue() + " / 15", 116);
         labelValue(graphics, "Error (SP − PV)", signed(menu.error()), 131);
         labelValue(graphics, "Control output", menu.controlOutput() + " / 15", 146);
-        labelValue(graphics, "Acceptance score", menu.available() ? menu.score() + " / 100" : "N/A", 161);
+        labelValue(graphics, "System score", menu.available() ? menu.score() + " / 100" : "N/A", 161);
         signalBar(graphics, menu.controlOutput(), 177);
     }
 
@@ -101,13 +101,38 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
-        statusLine(graphics, "Telemetry", menu.available() ? "AVAILABLE" : "WAITING FOR RUN", menu.available() ? GOOD : MUTED, 80);
-        labelValue(graphics, "Rise to 90%", metricTicks(menu.rise90Ticks()), 96);
-        labelValue(graphics, "Settling time", metricTicks(menu.settlingTicks()), 112);
-        labelValue(graphics, "Overshoot", Integer.toString(menu.overshoot()), 128);
-        labelValue(graphics, "Saturation events", Integer.toString(menu.saturationEvents()), 144);
-        labelValue(graphics, "Mode transfers", Integer.toString(menu.modeTransfers()), 160);
-        statusLine(graphics, "Inhibit", menu.inhibited() ? "ACTIVE • OUTPUT FORCED LOW" : "CLEAR", menu.inhibited() ? BAD : GOOD, 176);
+        statusLine(graphics, "Controller",
+                menu.controllerStatus().name() + " • score " + menu.controllerScore(),
+                statusColor(menu.controllerStatus()), 80);
+        labelValue(graphics, "Rise / settle",
+                metricTicks(menu.rise90Ticks()) + " / " + metricTicks(menu.settlingTicks()), 96);
+        labelValue(graphics, "Overshoot / saturation",
+                menu.overshoot() + " / " + menu.saturationEvents(), 112);
+
+        if (!menu.plantDetected()) {
+            statusLine(graphics, "Plant witness", "NONE • explicit cylinder feedback not detected", MUTED, 132);
+            safeText(graphics,
+                    "Generic PID commissioning remains controller-only until PROCESS VALUE is directly wired to a formal cylinder FEEDBACK port.",
+                    16, 151, MUTED);
+            statusLine(graphics, "System verdict",
+                    menu.status().name() + " • score " + menu.score(), statusColor(menu.status()), 184);
+            statusLine(graphics, "Inhibit",
+                    menu.inhibited() ? "ACTIVE • OUTPUT FORCED LOW" : "CLEAR",
+                    menu.inhibited() ? BAD : GOOD, 200);
+            return;
+        }
+
+        String plantState = menu.plantReady() ? menu.plantStatus().name() : "WARMING";
+        statusLine(graphics, "Pneumatic plant",
+                plantState + " • penalty " + menu.plantPenalty(),
+                menu.plantReady() ? statusColor(menu.plantStatus()) : WARN, 132);
+        labelValue(graphics, "Position / target", menu.plantPosition() + " / " + menu.plantTarget(), 148);
+        labelValue(graphics, "Actuator / supply pressure", menu.plantPressure() + " / " + menu.plantSupply(), 164);
+        labelValue(graphics, "Loss obs / line / restrict",
+                menu.plantObservedLoss() + " / " + menu.plantLineLoss() + " / " + menu.plantRestrictionLoss(), 180);
+        labelValue(graphics, "Stall / samples", menu.plantStallTicks() + "t / " + menu.plantSamples(), 196);
+        statusLine(graphics, "System verdict",
+                menu.status().name() + " • score " + menu.score(), statusColor(menu.status()), 212);
     }
 
     private void renderHistory(GuiGraphics graphics) {
@@ -167,7 +192,7 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
 
     private String commissioningState() {
         if (!menu.available()) return "COMMISSIONING N/A";
-        return "COMMISSIONING " + menu.status().name();
+        return "SYSTEM " + menu.status().name();
     }
 
     private static String face(Direction direction) {
@@ -195,7 +220,7 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
     }
 
     private static String metricTicks(int ticks) {
-        return ticks > 0 ? ticks + " ticks" : "—";
+        return ticks > 0 ? ticks + "t" : "—";
     }
 
     private static String signed(int value) {
