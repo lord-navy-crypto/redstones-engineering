@@ -1,6 +1,8 @@
 package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.diagnostics.CommissioningStatus;
+import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceTrend;
+import dev.redstoneengineering.diagnostics.acceptance.EngineeringAcceptanceStatus;
 import dev.redstoneengineering.ui.menu.PidControllerMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -43,6 +45,14 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
         addConfigureWidget(Button.builder(Component.literal("TX ▼"),
                 button -> sendMenuButton(PidControllerMenu.BUTTON_OUTPUT_NEXT))
                 .bounds(leftPos + 216, routeY, 62, 20).build());
+
+        int commissioningY = topPos + 163;
+        addConfigureWidget(Button.builder(Component.literal("Capture acceptance"),
+                button -> sendMenuButton(PidControllerMenu.BUTTON_CAPTURE_ACCEPTANCE))
+                .bounds(leftPos + 18, commissioningY, 140, 20).build());
+        addConfigureWidget(Button.builder(Component.literal("Reset runtime + trend"),
+                button -> sendMenuButton(PidControllerMenu.BUTTON_RESET_RUNTIME_TREND))
+                .bounds(leftPos + 162, commissioningY, 140, 20).build());
     }
 
     @Override
@@ -85,10 +95,9 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
         labelValue(graphics, "Tuning preset", tuningName(menu.tuning()), 82);
         safeText(graphics, tuningDescription(menu.tuning()), 16, 98, TEXT);
         safeText(graphics,
-                "Route: RX=" + face(menu.inputFacing()) + " • TX=" + face(menu.outputFacing())
-                        + " • dense PID side ports rotate collision-free",
-                16, 164, INFO);
-        safeText(graphics, "Preset and route actions are server-authoritative.", 16, 180, MUTED);
+                "Acceptance captures current topology + commissioning evidence; reset keeps retained acceptance history.",
+                16, 191, INFO);
+        safeText(graphics, "All tuning, routing and commissioning actions are server-authoritative.", 16, 207, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
@@ -105,7 +114,7 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
         int x = 38;
         int y = 80;
         int width = 260;
-        int height = 64;
+        int height = 58;
 
         EngineeringPlot.analogFrame(graphics, x, y, width, height);
         EngineeringPlot.analogTrace(
@@ -120,14 +129,30 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
 
         graphics.drawString(font, "15", 18, y - 3, MUTED, false);
         graphics.drawString(font, "0", 24, y + height - 4, MUTED, false);
-        graphics.drawString(font, "SP", 45, 150, SP_COLOR, false);
-        graphics.drawString(font, "PV", 74, 150, PV_COLOR, false);
-        graphics.drawString(font, "OUT", 103, 150, OUT_COLOR, false);
-        graphics.drawString(font, "newest →", 240, 150, MUTED, false);
-        safeText(graphics, menu.trendCount() + "/32 authoritative samples • 2t/sample • transient", 16, 163, MUTED);
+        graphics.drawString(font, "SP", 45, 144, SP_COLOR, false);
+        graphics.drawString(font, "PV", 74, 144, PV_COLOR, false);
+        graphics.drawString(font, "OUT", 103, 144, OUT_COLOR, false);
+        graphics.drawString(font, "newest →", 240, 144, MUTED, false);
+        safeText(graphics, menu.trendCount() + "/32 authoritative samples • 2t/sample • transient", 16, 157, MUTED);
 
-        statusBadge(graphics, "EVIDENCE " + menu.historyCount() + " / 8", menu.historyCount() >= 8 ? WARN : INFO, 16, 177);
-        safeText(graphics, "Shift+TX capture • Shift+other face resets runtime + trend", 112, 180, TEXT);
+        statusBadge(graphics, "EVIDENCE " + menu.historyCount() + " / 8", menu.historyCount() >= 8 ? WARN : INFO, 16, 174);
+        if (menu.historyCount() == 0) {
+            safeText(graphics, "No retained acceptance capture yet. Use Configure → Capture acceptance.", 112, 177, MUTED);
+        } else {
+            String latest = "#" + menu.latestSequence() + " • " + menu.latestAcceptanceStatus().name()
+                    + " • score " + menu.latestAcceptanceScore();
+            safeText(graphics, latest, 112, 177, acceptanceColor(menu.latestAcceptanceStatus()));
+            AcceptanceEvidenceTrend trend = menu.comparisonTrend();
+            if (trend != null) {
+                safeText(graphics,
+                        "Compared with previous: " + trend.name()
+                                + " • Δscore " + signed(menu.scoreDelta())
+                                + " • Δissues " + signed(menu.topologyIssueDelta()),
+                        16, 197, comparisonColor(trend));
+            } else {
+                safeText(graphics, "Baseline capture established; capture again after a change to compare.", 16, 197, INFO);
+            }
+        }
     }
 
     private String operatingState() {
@@ -183,6 +208,24 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
             case MARGINAL, RUNNING -> WARN;
             case FAIL -> BAD;
             case IDLE, UNAVAILABLE -> MUTED;
+        };
+    }
+
+    private static int acceptanceColor(EngineeringAcceptanceStatus status) {
+        return switch (status) {
+            case PASS -> GOOD;
+            case MARGINAL -> WARN;
+            case FAIL -> BAD;
+            case NOT_READY -> MUTED;
+        };
+    }
+
+    private static int comparisonColor(AcceptanceEvidenceTrend trend) {
+        return switch (trend) {
+            case IMPROVED -> GOOD;
+            case SAME -> INFO;
+            case REGRESSED -> BAD;
+            case INCOMPARABLE -> WARN;
         };
     }
 }
