@@ -97,7 +97,7 @@ for needle in (
     req(fault, needle, "FaultInjectorBlock.java")
 for needle in (
     '"OPENING COMMAND"',
-    "PneumaticProportionalValveBlock.opening(level, pos)",
+    "public static int opening(Level level, BlockPos pos)",
 ):
     req(valve, needle, "PneumaticProportionalValveBlock.java")
 for needle in (
