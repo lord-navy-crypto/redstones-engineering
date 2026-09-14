@@ -113,17 +113,13 @@ public final class EngineeringMobileRobotEntity extends Entity {
 
         if (!safety.motionPermit()) {
             setDeltaMovement(Vec3.ZERO);
-            if (!obstacleClear && robotState() == RobotOperatingState.NAVIGATING) transition(RobotStateMachine.Event.OBSTACLE_DETECTED);
-            else if (safety.verdict() == RobotSafetyAssessment.Verdict.FAULT) transition(RobotStateMachine.Event.CRITICAL_FAULT);
-            else if (robotState() != RobotOperatingState.WAITING) transition(RobotStateMachine.Event.LOCALIZATION_LOST);
+            applySafetyHold(safety);
             return;
         }
 
         if (robotState() == RobotOperatingState.WAITING) transition(RobotStateMachine.Event.OBSTACLE_CLEARED);
-        if (robotState() == RobotOperatingState.SAFE_STOP) {
-            transition(RobotStateMachine.Event.SAFE_CONDITION_RESTORED);
-            transition(RobotStateMachine.Event.REPLAN_READY);
-        }
+        if (robotState() == RobotOperatingState.DEGRADED) transition(RobotStateMachine.Event.EVIDENCE_RECOVERED);
+        if (robotState() == RobotOperatingState.SAFE_STOP) transition(RobotStateMachine.Event.SAFE_CONDITION_RESTORED);
         if (robotState() == RobotOperatingState.REPLANNING) transition(RobotStateMachine.Event.REPLAN_READY);
         if (robotState() != RobotOperatingState.NAVIGATING) setRobotState(RobotOperatingState.NAVIGATING);
 
@@ -131,6 +127,34 @@ public final class EngineeringMobileRobotEntity extends Entity {
         Vec3 command = direction.scale(CRUISE_SPEED);
         setDeltaMovement(command);
         move(MoverType.SELF, command);
+    }
+
+    private void applySafetyHold(RobotSafetyAssessment.Snapshot safety) {
+        if (safety.verdict() == RobotSafetyAssessment.Verdict.FAULT) {
+            transition(RobotStateMachine.Event.CRITICAL_FAULT);
+            return;
+        }
+
+        if (safety.verdict() == RobotSafetyAssessment.Verdict.DEGRADED_HOLD) {
+            transition(RobotStateMachine.Event.SENSOR_DEGRADED);
+            return;
+        }
+
+        if ("LOCALIZATION_LOST".equals(safety.primaryReason())) {
+            transition(RobotStateMachine.Event.LOCALIZATION_LOST);
+            return;
+        }
+
+        if ("OBSTACLE_UNSAFE".equals(safety.primaryReason())) {
+            if (robotState() == RobotOperatingState.NAVIGATING) {
+                transition(RobotStateMachine.Event.OBSTACLE_DETECTED);
+            } else if (robotState() != RobotOperatingState.WAITING) {
+                transition(RobotStateMachine.Event.SAFETY_STOP_REQUESTED);
+            }
+            return;
+        }
+
+        transition(RobotStateMachine.Event.SAFETY_STOP_REQUESTED);
     }
 
     private void stopMotion(RobotSafetyAssessment.Verdict verdict, String reason) {
