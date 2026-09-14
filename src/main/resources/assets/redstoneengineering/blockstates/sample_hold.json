@@ -1,39 +1,19 @@
 {
   "multipart": [
-    {
-      "when": {
-        "facing": "north"
-      },
-      "apply": {
-        "model": "redstoneengineering:block/sample_hold"
-      }
-    },
-    {
-      "when": {
-        "facing": "east"
-      },
-      "apply": {
-        "model": "redstoneengineering:block/sample_hold",
-        "y": 90
-      }
-    },
-    {
-      "when": {
-        "facing": "south"
-      },
-      "apply": {
-        "model": "redstoneengineering:block/sample_hold",
-        "y": 180
-      }
-    },
-    {
-      "when": {
-        "facing": "west"
-      },
-      "apply": {
-        "model": "redstoneengineering:block/sample_hold",
-        "y": 270
-      }
-    }
+    {"when":{"facing":"north"},"apply":{"model":"redstoneengineering:block/sample_hold"}},
+    {"when":{"facing":"east"},"apply":{"model":"redstoneengineering:block/sample_hold","y":90}},
+    {"when":{"facing":"south"},"apply":{"model":"redstoneengineering:block/sample_hold","y":180}},
+    {"when":{"facing":"west"},"apply":{"model":"redstoneengineering:block/sample_hold","y":270}},
+    {"when":{"facing":"north"},"apply":{"model":"redstoneengineering:block/engineering_tx_marker"}},
+    {"when":{"facing":"east"},"apply":{"model":"redstoneengineering:block/engineering_tx_marker","y":90}},
+    {"when":{"facing":"south"},"apply":{"model":"redstoneengineering:block/engineering_tx_marker","y":180}},
+    {"when":{"facing":"west"},"apply":{"model":"redstoneengineering:block/engineering_tx_marker","y":270}},
+    {"when":{"input_facing":"north"},"apply":{"model":"redstoneengineering:block/engineering_rx_marker"}},
+    {"when":{"input_facing":"east"},"apply":{"model":"redstoneengineering:block/engineering_rx_marker","y":90}},
+    {"when":{"input_facing":"south"},"apply":{"model":"redstoneengineering:block/engineering_rx_marker","y":180}},
+    {"when":{"input_facing":"west"},"apply":{"model":"redstoneengineering:block/engineering_rx_marker","y":270}},
+    {"when":{"trigger_mode":"0|1|2"},"apply":{"model":"redstoneengineering:block/config_segment_1"}},
+    {"when":{"trigger_mode":"1|2"},"apply":{"model":"redstoneengineering:block/config_segment_2"}},
+    {"when":{"trigger_mode":"2"},"apply":{"model":"redstoneengineering:block/config_segment_3"}}
   ]
 }
