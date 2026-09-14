@@ -47,8 +47,14 @@ require(
     "lapis_to_redstone_quantizer", "copper_circuit_meter", "pneumatic_cylinder",
     "radio_receiver", "pid_controller", "operations_monitor",
     'Component.literal("Prev")', 'Component.literal("Next")', "refreshNavigationButtons",
-    "previousButton.active = page > 0", "nextButton.active = page < blocks.size()",
+    "previousButton.active = page > minimumPage()", "nextButton.active = page < filteredBlocks.size()",
     'configurationView ? "Guide" : "Ports / Config"',
+    "EditBox", "filteredBlocks", "setResponder(this::applyFilter)", "Search blocks...",
+    "private void applyFilter(String query)", "block.getName().getString().toLowerCase(Locale.ROOT)",
+    "id.toLowerCase(Locale.ROOT).contains(needle)", "role(id).toLowerCase(Locale.ROOT).contains(needle)",
+    "filteredBlocks.get(page - 1)", "Math.min(filteredBlocks.size(), page + delta)",
+    'Component.literal("Search engineering blocks")', '"NO MATCHES"',
+    '"0 matches / " + blocks.size() + " entries"',
 )
 require(
     "src/main/java/dev/redstoneengineering/item/DiagnosticTabletItem.java",
@@ -113,6 +119,8 @@ if failed:
 
 print("RSE field tools verification: PASS")
 print(" registry-backed encyclopedia coverage: PASS")
+print(" registry-backed encyclopedia search by name/id/role: PASS")
+print(" filtered encyclopedia navigation + zero-result state: PASS")
 print(" encyclopedia entry tooltip: PASS")
 print(" encyclopedia destination labels + page boundaries: PASS")
 print(" guide + ports/config split: PASS")
