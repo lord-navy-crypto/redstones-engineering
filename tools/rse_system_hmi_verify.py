@@ -52,7 +52,6 @@ require(fault, "FaultInjectorBlock.java",
         "runtime[2] = 0;",
         "resetDiagnostics(level, pos);",
         '"Fault injector statistics reset"')
-# Diagnostic reset must preserve runtime[0] active state plus runtime[3]/[4] last input/output evidence.
 fault_reset = fault[fault.find("public boolean resetDiagnostics"):fault.find("@Override", fault.find("public boolean resetDiagnostics"))]
 forbid(fault_reset, "FaultInjectorBlock.resetDiagnostics",
        "RuntimeIntStore.remove", "runtime[0] =", "runtime[3] =", "runtime[4] =")
@@ -96,9 +95,16 @@ require(screen, "UniversalFieldDeviceScreen.java",
         '"FAULT INJECTOR • SAFE"',
         '"ARMED / INJECTION ACTIVE"',
         '"SAFE / PASS-THROUGH"',
+        '"LIVE ONLY • NO RETAINED HISTORY"',
+        '"Current evidence"',
+        '"SYNCHRONIZED SNAPSHOT"',
+        '"Retained chronology belongs in analyzers, monitors, or the Diagnostic Tablet."',
         '"Missing permissives"',
         '"Target mode"',
         '"Completed cycles"')
+forbid(screen, "UniversalFieldDeviceScreen.history",
+       '"Universal HMI intentionally stores no client-local history."',
+       '"This prevents opening a UI from creating measurement evidence or changing simulation state."')
 
 if errors:
     print("RSE SYSTEM HMI VERIFY: FAIL")
@@ -112,4 +118,5 @@ print(" fault injector: SAFE/ARMED live state + statistics-only reset preserving
 print(" sequence: shared operator reset + synchronized step/cycle evidence")
 print(" interlock: explicit unevaluated state + failed permissive mask + non-bypass reset")
 print(" topology: HMI opener + scan target/count + counter reset")
+print(" universal history: compact live-only state; retained chronology delegated to evidence tools")
 print(" system blocks use multi-port route semantics in universal HMI")
