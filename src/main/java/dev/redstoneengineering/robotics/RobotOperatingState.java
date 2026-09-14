@@ -3,6 +3,10 @@ package dev.redstoneengineering.robotics;
 /**
  * Explicit AMR operating lifecycle. Robotics state is intentionally separate
  * from generic entity AI so missions, safety and diagnostics stay inspectable.
+ *
+ * Keep the original persisted states in their historical declaration order:
+ * EngineeringMobileRobotEntity stores RobotState by ordinal in NBT. New states
+ * therefore append after FAULT so existing worlds retain their meaning.
  */
 public enum RobotOperatingState {
     IDLE,
@@ -14,14 +18,14 @@ public enum RobotOperatingState {
     DOCKING,
     LOADING,
     TRANSPORTING,
-    TRANSPORT_WAITING,
-    TRANSPORT_REPLANNING,
     UNLOADING,
     RETURNING,
     COMPLETE,
     DEGRADED,
     SAFE_STOP,
-    FAULT;
+    FAULT,
+    TRANSPORT_WAITING,
+    TRANSPORT_REPLANNING;
 
     public boolean motionCapable() {
         return switch (this) {
