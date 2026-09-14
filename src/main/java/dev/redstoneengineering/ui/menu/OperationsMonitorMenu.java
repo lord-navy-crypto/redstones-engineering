@@ -26,8 +26,10 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
 
     private final DataSlot queue = trackedInt();
     private final DataSlot throughput = trackedInt();
+    private final DataSlot lastCycleTicks = trackedInt();
     private final DataSlot downtime = trackedInt();
     private final DataSlot state = trackedInt();
+    private final DataSlot machineState = trackedInt();
     private final DataSlot queuePressure = trackedInt();
     private final DataSlot dominantConstraint = trackedInt();
     private final DataSlot telemetryReady = trackedInt();
@@ -100,8 +102,10 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
 
         queue.set(operations.queueNow());
         throughput.set(operations.throughputCyclesPerMinute());
+        lastCycleTicks.set(operations.lastCycleTicks());
         downtime.set(operations.downtimeTicks());
         state.set(operations.state().ordinal());
+        machineState.set(operations.machineState().ordinal());
         queuePressure.set(operations.queuePressurePercent());
         dominantConstraint.set(operations.dominantConstraint().ordinal());
         telemetryReady.set(evidence.operationalReady() ? 1 : 0);
@@ -175,6 +179,7 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
 
     public int queue() { return queue.get(); }
     public int throughput() { return throughput.get(); }
+    public int lastCycleTicks() { return lastCycleTicks.get(); }
     public int downtimeTicks() { return downtime.get(); }
     public int queuePressurePercent() { return queuePressure.get(); }
     public boolean telemetryReady() { return telemetryReady.get() != 0; }
@@ -218,6 +223,11 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
     public OperationsMonitorBlock.SystemState state() {
         OperationsMonitorBlock.SystemState[] values = OperationsMonitorBlock.SystemState.values();
         return values[clampIndex(state.get(), values.length)];
+    }
+
+    public IndustrialOperationsAssessment.MachineState machineState() {
+        IndustrialOperationsAssessment.MachineState[] values = IndustrialOperationsAssessment.MachineState.values();
+        return values[clampIndex(machineState.get(), values.length)];
     }
 
     public IndustrialOperationsAssessment.Constraint dominantConstraint() {
