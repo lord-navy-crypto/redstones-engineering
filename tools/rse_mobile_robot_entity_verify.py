@@ -21,8 +21,14 @@ for n in ('assignNavigationRoute(RobotNavigationGraph graph, String sourceId, St
     req(ent,n,'EngineeringMobileRobotEntity.java route execution')
 for n in ('RobotDockAssessment.inspect(dock, robotIdentity(), phase)','beginDocking(RobotDockSnapshot dock)','confirmDocked(RobotDockSnapshot dock)','DOCK_POSITION_MISMATCH','ROBOT_NOT_CONFIRMED_DOCKED','dock.occupiedBy(robotIdentity())','RobotStateMachine.Event.ARRIVE_DOCK','RobotStateMachine.Event.DOCKED','DOCK_APPROACH_COMPLETE','RobotOperatingState.DOCKING || robotState() == RobotOperatingState.LOADING','DOCK_HANDSHAKE'):
     req(ent,n,'EngineeringMobileRobotEntity.java dock runtime')
+for n in ('completeLoading(RobotDockSnapshot dock, RobotMaterialTransferSnapshot transfer)','RobotMaterialFlowRuntime.evaluate(','decision.dockReason()','decision.materialReason()','setRobotState(decision.nextState())','decision.advancesToTransport()','TRANSPORT_ROUTE_REQUIRED','MATERIAL_REASON','MaterialReason','materialReason()','RobotOperatingState.TRANSPORTING','RobotOperatingState.TRANSPORT_REPLANNING'):
+    req(ent,n,'EngineeringMobileRobotEntity.java material-flow runtime')
 if 'RobotStateMachine.Event.LOAD_COMPLETE' in ent:
-    errors.append('EngineeringMobileRobotEntity.java dock runtime must not claim LOAD_COMPLETE before Material Flow owns transfer completion evidence')
+    errors.append('EngineeringMobileRobotEntity.java must consume RobotMaterialFlowRuntime rather than emit LOAD_COMPLETE directly')
+if 'RobotMaterialTransferAssessment.inspect(' in ent:
+    errors.append('EngineeringMobileRobotEntity.java must not reimplement material transfer assessment beside RobotMaterialFlowRuntime')
+if ent.count('RobotMaterialFlowRuntime.evaluate(') != 1:
+    errors.append('EngineeringMobileRobotEntity.java must have exactly one authoritative material-flow decision entry point')
 if ent.count('RobotStateMachine.Event.ARRIVE_DOCK') != 1:
     errors.append('EngineeringMobileRobotEntity.java must have exactly one guarded ARRIVE_DOCK transition')
 if ent.count('RobotStateMachine.Event.DOCKED') != 1:
@@ -48,6 +54,7 @@ print('  explicit planned routes are source-anchored, waypoint-followed, and per
 print('  route execution does not scan the world or force-load topology')
 print('  dock runtime consumes shared dock assessment and requires physical position consistency')
 print('  DOCKING begins only on approach permit; LOADING requires exact AMR occupancy confirmation')
-print('  transfer completion remains intentionally deferred to Material Flow evidence')
+print('  LOADING consumes the authoritative Material Flow runtime decision instead of duplicating assessment logic')
+print('  material evidence reason is synchronized/persisted; TRANSPORTING waits fail-safe for an explicit route')
 print('  entity registry uses the NeoForge 1.21.1 generic DeferredRegister contract')
 print('  client renderer exposes heading plus synchronized nominal/waiting/fault state without a second solver')
