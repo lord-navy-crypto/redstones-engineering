@@ -2,9 +2,9 @@
   "ambientocclusion": false,
   "gui_light": "front",
   "textures": {
-    "cover": "minecraft:block:redstone_block",
-    "pages": "minecraft:block:smooth_quartz",
-    "spine": "minecraft:block:deepslate_tiles",
+    "cover": "minecraft:block/redstone_block",
+    "pages": "minecraft:block/smooth_quartz",
+    "spine": "minecraft:block/deepslate_tiles",
     "badge": "redstoneengineering:block/signal_analyzer_top"
   },
   "elements": [
