@@ -3,7 +3,7 @@
 from pathlib import Path
 import re, subprocess, sys
 ROOT=Path(__file__).resolve().parents[1]
-BLOCK=ROOT/"src/main/java/dev/redstoneengineering/block"; GT=ROOT/"src/main/java/dev/redstoneengineering/gametest/RseTotalAuditClosureGameTests.java"; REG=ROOT/"src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java"; WORKFLOW=ROOT/".github/workflows/build.yml"; TOTAL_AUDIT=ROOT/"tools/rse_122_block_total_audit.py"; SYSTEMS_VERIFY=ROOT/"tools/rse_engineering_systems_verify.py"; LIVE_OUTPUT_VERIFY=ROOT/"tools/rse_live_output_bars_verify.py"; HANDHELD_VERIFY=ROOT/"tools/rse_handheld_tools_verify.py"; SIGNAL_PROCESSOR_VERIFY=ROOT/"tools/rse_signal_processor_hmi_verify.py"; PID_COMMISSIONING_VERIFY=ROOT/"tools/rse_pid_commissioning_hmi_verify.py"; PNEUMATIC_GOLDEN_VERIFY=ROOT/"tools/rse_pneumatic_golden_system_verify.py"; INDUSTRIAL_OPERATIONS_VERIFY=ROOT/"tools/rse_industrial_operations_foundation_verify.py"
+BLOCK=ROOT/"src/main/java/dev/redstoneengineering/block"; GT=ROOT/"src/main/java/dev/redstoneengineering/gametest/RseTotalAuditClosureGameTests.java"; REG=ROOT/"src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java"; WORKFLOW=ROOT/".github/workflows/build.yml"; TOTAL_AUDIT=ROOT/"tools/rse_122_block_total_audit.py"; SYSTEMS_VERIFY=ROOT/"tools/rse_engineering_systems_verify.py"; LIVE_OUTPUT_VERIFY=ROOT/"tools/rse_live_output_bars_verify.py"; HANDHELD_VERIFY=ROOT/"tools/rse_handheld_tools_verify.py"; SIGNAL_PROCESSOR_VERIFY=ROOT/"tools/rse_signal_processor_hmi_verify.py"; PID_COMMISSIONING_VERIFY=ROOT/"tools/rse_pid_commissioning_hmi_verify.py"; PNEUMATIC_GOLDEN_VERIFY=ROOT/"tools/rse_pneumatic_golden_system_verify.py"; INDUSTRIAL_OPERATIONS_VERIFY=ROOT/"tools/rse_industrial_operations_foundation_verify.py"; ROBOTICS_FOUNDATION_VERIFY=ROOT/"tools/rse_robotics_foundation_verify.py"
 errors=[]
 def read(p):
     if not p.exists(): errors.append(f"missing {p.relative_to(ROOT)}"); return ""
@@ -21,7 +21,7 @@ allreq(pwm,("class PwmControllerBlock extends DirectionalSignalBlock",'"COMMAND 
 count=len(re.findall(r"@GameTest\s*\(",gt))
 if count!=4: errors.append(f"RseTotalAuditClosureGameTests.java: expected exactly 4 @GameTest methods, found {count}")
 req(reg,"event.register(RseTotalAuditClosureGameTests.class);","RseGameTestRegistration.java"); req(workflow,"tools/rse_122_block_total_audit.py","build.yml"); req(workflow,"tools/rse_122_block_closure_verify.py","build.yml"); req(workflow,"tools/rse_alarm_topology_verify.py","build.yml"); req(workflow,"Too many chained neighbor updates","build.yml"); req(total,"EXPECTED_REGISTERED = 122","rse_122_block_total_audit.py"); req(total,'"pid_controller"',"rse_122_block_total_audit.py")
-for verifier,label in ((SYSTEMS_VERIFY,"engineering systems"),(LIVE_OUTPUT_VERIFY,"live output bars"),(HANDHELD_VERIFY,"handheld tools"),(SIGNAL_PROCESSOR_VERIFY,"signal processor HMI"),(PID_COMMISSIONING_VERIFY,"PID commissioning HMI"),(PNEUMATIC_GOLDEN_VERIFY,"pneumatic Golden System"),(INDUSTRIAL_OPERATIONS_VERIFY,"Industrial Operations foundation")):
+for verifier,label in ((SYSTEMS_VERIFY,"engineering systems"),(LIVE_OUTPUT_VERIFY,"live output bars"),(HANDHELD_VERIFY,"handheld tools"),(SIGNAL_PROCESSOR_VERIFY,"signal processor HMI"),(PID_COMMISSIONING_VERIFY,"PID commissioning HMI"),(PNEUMATIC_GOLDEN_VERIFY,"pneumatic Golden System"),(INDUSTRIAL_OPERATIONS_VERIFY,"Industrial Operations foundation"),(ROBOTICS_FOUNDATION_VERIFY,"Robotics foundation")):
     if not verifier.exists():
         errors.append(f"missing {verifier.relative_to(ROOT)}")
         continue
@@ -43,5 +43,6 @@ print("  signal processor HMI: shared server-authoritative parameter actions for
 print("  PID commissioning HMI: explicit acceptance capture/reset + retained comparison evidence")
 print("  Golden System #1: explicit PID feedback -> pneumatic cylinder plant witness folds into acceptance")
 print("  Industrial Operations foundation: evidence-backed machine state + throughput/cycle/WIP/downtime projection")
+print("  Robotics foundation: AMR mission/state/localization/safety/diagnostic contracts")
 print("  neighbor-update storm runtime gate: present")
 print("  legacy closure GameTests: 4")
