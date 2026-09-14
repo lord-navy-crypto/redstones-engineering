@@ -29,8 +29,9 @@ src = {name: read(path) for name, path in FILES.items()}
 
 for needle in (
     "IDLE", "MISSION_ASSIGNED", "PLANNING", "NAVIGATING", "WAITING", "REPLANNING",
-    "DOCKING", "LOADING", "TRANSPORTING", "UNLOADING", "RETURNING", "COMPLETE",
-    "DEGRADED", "SAFE_STOP", "FAULT",
+    "DOCKING", "LOADING", "TRANSPORTING", "TRANSPORT_WAITING", "TRANSPORT_REPLANNING",
+    "UNLOADING", "RETURNING", "COMPLETE", "DEGRADED", "SAFE_STOP", "FAULT",
+    "case NAVIGATING, REPLANNING, DOCKING, TRANSPORTING, TRANSPORT_REPLANNING, RETURNING, DEGRADED -> true;",
 ):
     req(src["state"], needle, "RobotOperatingState.java")
 
@@ -71,8 +72,22 @@ for needle in (
     "if (event == Event.SENSOR_DEGRADED) return RobotOperatingState.DEGRADED;",
     "case IDLE -> event == Event.ASSIGN_MISSION ? RobotOperatingState.MISSION_ASSIGNED : current;",
     "case SAFE_STOP -> event == Event.SAFE_CONDITION_RESTORED ? RobotOperatingState.REPLANNING : current;",
+    "case TRANSPORTING -> switch (event)",
+    "case OBSTACLE_DETECTED -> RobotOperatingState.TRANSPORT_WAITING;",
+    "case ROUTE_UNAVAILABLE -> RobotOperatingState.TRANSPORT_REPLANNING;",
+    "case TRANSPORT_WAITING -> switch (event)",
+    "case OBSTACLE_CLEARED -> RobotOperatingState.TRANSPORTING;",
+    "case TRANSPORT_REPLANNING -> event == Event.REPLAN_READY ? RobotOperatingState.TRANSPORTING : current;",
 ):
     req(src["machine"], needle, "RobotStateMachine.java")
+
+# Transport hold states must not collapse back to generic navigation recovery.
+for forbidden in (
+    "case TRANSPORTING -> switch (event) {\n                case OBSTACLE_DETECTED -> RobotOperatingState.WAITING;",
+    "case TRANSPORTING -> switch (event) {\n                case ROUTE_UNAVAILABLE -> RobotOperatingState.REPLANNING;",
+):
+    if forbidden in src["machine"]:
+        errors.append("RobotStateMachine.java: transport hold path must preserve transport lifecycle")
 
 # Foundation is semantic only: it must not own world mutation or fabricate navigation/motion yet.
 for label, text in src.items():
@@ -88,6 +103,7 @@ if errors:
 
 print("RSE ROBOTICS FOUNDATION VERIFY: PASS")
 print("  AMR lifecycle: mission -> planning -> navigation -> docking/transfer -> completion")
+print("  transport obstacle/reroute holds preserve TRANSPORTING parent lifecycle")
 print("  abnormal lifecycle: obstacle/wait, replanning, degraded, generic safe-stop, fault")
 print("  localization loss remains explicit while generic safety holds preserve their own evidence reason")
 print("  localization quality preserves VALID / DEGRADED / LOST / STALE semantics")
