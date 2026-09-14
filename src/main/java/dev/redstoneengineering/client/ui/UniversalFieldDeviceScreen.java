@@ -71,6 +71,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         boolean hasAction = kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER
                 || kind == UniversalFieldDeviceMenu.CONFIG_ALARM
                 || kind == UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD
+                || kind == UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR
                 || kind == UniversalFieldDeviceMenu.CONFIG_SEQUENCE_CONTROLLER
                 || kind == UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK
                 || kind == UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER;
@@ -86,6 +87,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             if (kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER) action.setMessage(Component.literal("Reset measurement history"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_ALARM) action.setMessage(Component.literal(menu.configSecondary() == 2 ? "Acknowledge active alarm" : "Alarm already clear / acknowledged"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD) action.setMessage(Component.literal("Clear held value"));
+            else if (kind == UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR) action.setMessage(Component.literal("Reset fault statistics"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_SEQUENCE_CONTROLLER) action.setMessage(Component.literal("Reset sequence to IDLE"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK) action.setMessage(Component.literal("Reset diagnostic counters"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER) action.setMessage(Component.literal("Reset scan counters"));
@@ -197,10 +199,11 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 safeText(g, "COMMAND, PWM OUT and INHIBIT rotate as one physical interface layout on Route.", 16, 188, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR -> {
-                statusBadge(g, "FAULT INJECTOR", WARN, 16, 80);
+                boolean armed = menu.configSecondary() != 0;
+                statusBadge(g, armed ? "FAULT INJECTOR • ARMED" : "FAULT INJECTOR • SAFE", armed ? WARN : GOOD, 16, 80);
                 labelValue(g, "Fault mode", FaultInjectorBlock.modeLabelFor(menu.configPrimary()), 101);
-                labelValue(g, "Activations", Integer.toString(menu.configSecondary()), 141);
-                safeText(g, "SIGNAL IN, FAULT ARM and FAULTED OUT rotate together on Route.", 16, 188, MUTED);
+                labelValue(g, "ARM state", armed ? "ARMED / INJECTION ACTIVE" : "SAFE / PASS-THROUGH", 141);
+                safeText(g, "Reset statistics preserves ARM state and last I/O evidence; FAULT ARM remains a physical input.", 16, 188, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_SEQUENCE_CONTROLLER -> {
                 statusBadge(g, "SEQUENCE CONTROLLER", menu.configPrimary() == 0 ? MUTED : GOOD, 16, 80);
