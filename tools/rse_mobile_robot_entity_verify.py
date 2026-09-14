@@ -39,14 +39,25 @@ for n in (
     'UNLOAD_HANDSHAKE',
 ):
     req(ent,n,'EngineeringMobileRobotEntity.java transport execution')
+for n in (
+    'completeUnloading(',
+    'RobotMaterialUnloadRuntime.evaluate(',
+    'decision.unloadComplete()',
+    'DELIVERY_COMPLETE',
+):
+    req(ent,n,'EngineeringMobileRobotEntity.java unload runtime')
 if 'RobotStateMachine.Event.LOAD_COMPLETE' in ent:
     errors.append('EngineeringMobileRobotEntity.java must consume RobotMaterialFlowRuntime rather than emit LOAD_COMPLETE directly')
+if 'RobotStateMachine.Event.UNLOAD_COMPLETE' in ent:
+    errors.append('EngineeringMobileRobotEntity.java must consume RobotMaterialUnloadRuntime rather than emit UNLOAD_COMPLETE directly')
 if 'RobotMaterialTransferAssessment.inspect(' in ent:
-    errors.append('EngineeringMobileRobotEntity.java must not reimplement material transfer assessment beside RobotMaterialFlowRuntime')
+    errors.append('EngineeringMobileRobotEntity.java must not reimplement material transfer assessment beside material runtimes')
 if 'RobotTransportHandoffAssessment.inspect(' in ent:
     errors.append('EngineeringMobileRobotEntity.java must consume RobotTransportRouteRuntime rather than reimplement transport handoff assessment')
 if ent.count('RobotMaterialFlowRuntime.evaluate(') != 1:
-    errors.append('EngineeringMobileRobotEntity.java must have exactly one authoritative material-flow decision entry point')
+    errors.append('EngineeringMobileRobotEntity.java must have exactly one authoritative loading material-flow decision entry point')
+if ent.count('RobotMaterialUnloadRuntime.evaluate(') != 1:
+    errors.append('EngineeringMobileRobotEntity.java must have exactly one authoritative unload decision entry point')
 if ent.count('RobotTransportRouteRuntime.evaluate(') != 1:
     errors.append('EngineeringMobileRobotEntity.java must have exactly one authoritative transport-route decision entry point')
 if ent.count('RobotStateMachine.Event.ARRIVE_DOCK') != 1:
@@ -81,5 +92,7 @@ print('  material evidence reason is synchronized/persisted; TRANSPORTING waits 
 print('  post-load transport consumes the authoritative route runtime and preserves transport-specific hold states')
 print('  transport hold states cannot declare arrival merely by crossing the distance threshold')
 print('  final transport arrival enters UNLOADING and remains in an explicit unload handshake without a motion target')
+print('  UNLOADING consumes the authoritative unload runtime and never emits UNLOAD_COMPLETE directly')
+print('  unload completion updates lifecycle/diagnostics without mutating inventory in the entity')
 print('  entity registry uses the NeoForge 1.21.1 generic DeferredRegister contract')
 print('  client renderer exposes heading plus synchronized nominal/waiting/fault state without a second solver')
