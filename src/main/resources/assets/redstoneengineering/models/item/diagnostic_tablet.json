@@ -2,10 +2,10 @@
   "ambientocclusion": false,
   "gui_light": "front",
   "textures": {
-    "casing": "minecraft:block:deepslate_tiles",
-    "metal": "minecraft:block:iron_block",
+    "casing": "minecraft:block/deepslate_tiles",
+    "metal": "minecraft:block/iron_block",
     "screen": "redstoneengineering:block/signal_analyzer_top",
-    "accent": "minecraft:block:redstone_block"
+    "accent": "minecraft:block/redstone_block"
   },
   "elements": [
     {
