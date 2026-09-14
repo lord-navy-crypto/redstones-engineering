@@ -22,6 +22,7 @@ public final class RobotStateMachine {
         SENSOR_DEGRADED,
         EVIDENCE_RECOVERED,
         LOCALIZATION_LOST,
+        SAFETY_STOP_REQUESTED,
         SAFE_CONDITION_RESTORED,
         CRITICAL_FAULT,
         RESET_FAULT
@@ -30,7 +31,10 @@ public final class RobotStateMachine {
     public static RobotOperatingState next(RobotOperatingState current, Event event) {
         if (current == null || event == null) return RobotOperatingState.FAULT;
         if (event == Event.CRITICAL_FAULT) return RobotOperatingState.FAULT;
-        if (event == Event.LOCALIZATION_LOST) return RobotOperatingState.SAFE_STOP;
+        if (event == Event.LOCALIZATION_LOST || event == Event.SAFETY_STOP_REQUESTED) {
+            return RobotOperatingState.SAFE_STOP;
+        }
+        if (event == Event.SENSOR_DEGRADED) return RobotOperatingState.DEGRADED;
 
         return switch (current) {
             case IDLE -> event == Event.ASSIGN_MISSION ? RobotOperatingState.MISSION_ASSIGNED : current;
@@ -44,7 +48,6 @@ public final class RobotStateMachine {
                 case OBSTACLE_DETECTED -> RobotOperatingState.WAITING;
                 case ROUTE_UNAVAILABLE -> RobotOperatingState.REPLANNING;
                 case ARRIVE_DOCK -> RobotOperatingState.DOCKING;
-                case SENSOR_DEGRADED -> RobotOperatingState.DEGRADED;
                 default -> current;
             };
             case WAITING -> switch (event) {
@@ -59,7 +62,6 @@ public final class RobotStateMachine {
                 case OBSTACLE_DETECTED -> RobotOperatingState.WAITING;
                 case ROUTE_UNAVAILABLE -> RobotOperatingState.REPLANNING;
                 case ARRIVE_TARGET -> RobotOperatingState.UNLOADING;
-                case SENSOR_DEGRADED -> RobotOperatingState.DEGRADED;
                 default -> current;
             };
             case UNLOADING -> event == Event.UNLOAD_COMPLETE ? RobotOperatingState.COMPLETE : current;
@@ -67,7 +69,6 @@ public final class RobotStateMachine {
             case RETURNING -> switch (event) {
                 case ARRIVE_HOME -> RobotOperatingState.IDLE;
                 case OBSTACLE_DETECTED -> RobotOperatingState.WAITING;
-                case SENSOR_DEGRADED -> RobotOperatingState.DEGRADED;
                 default -> current;
             };
             case DEGRADED -> event == Event.EVIDENCE_RECOVERED ? RobotOperatingState.REPLANNING : current;
