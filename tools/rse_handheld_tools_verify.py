@@ -44,9 +44,15 @@ require("openTablet(serverPlayer, stack);" in item, "tablet: right-click air mus
 require("tag.putString(SNAPSHOT_PREFIX + 0, snapshot);" in item, "tablet: newest snapshot must be written to history slot 0")
 require("MAX_HISTORY = 8" in item, "tablet: bounded eight-snapshot history contract missing")
 require("TARGET FACE:" in item and "context.getClickedFace()" in item, "tablet: clicked-face context must be retained")
+require("CONTEXT: dimension=" in item and 'append(" • tick=")' in item, "tablet: retained snapshot must carry dimension/tick chronology evidence")
 for quality in ("VALID", "NO_SIGNAL", "SATURATED", "STALE", "FAULT", "DOMAIN_MISMATCH", "TOPOLOGY_ERROR"):
     require(f"q={quality}" in screen, f"tablet screen: current PortQuality {quality} is not classified")
 require("q=DEGRADED" not in screen and "q=MISSING" not in screen, "tablet screen: stale/dead PortQuality names remain")
+require("history.get(0)" in screen, "tablet screen: chronology must compare against newest retained slot 0")
+require('return "NEWEST";' in screen, "tablet screen: newest snapshot chronology cue missing")
+require('return "CROSS-DIMENSION";' in screen, "tablet screen: cross-dimension chronology cue missing")
+require('"Δt=" + delta + " ticks"' in screen, "tablet screen: same-dimension tick delta cue missing")
+require("SnapshotContext" in screen and "Long.parseLong(tickText)" in screen, "tablet screen: retained context parsing contract missing")
 
 if errors:
     print("RSE HANDHELD TOOLS VERIFY: FAIL")
@@ -59,4 +65,5 @@ print("  encyclopedia/tablet: dimensional RSE-owned engineering models")
 print("  handheld model resource locations: canonical namespace:path form")
 print("  tablet: scan -> retain -> immediate review; air -> retained history")
 print("  tablet: newest slot 0, bounded history, clicked-face context")
+print("  tablet: retained chronology distinguishes newest, same-dimension age, and cross-dimension evidence")
 print("  tablet: current PortQuality evidence semantics classified")

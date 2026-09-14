@@ -74,8 +74,9 @@ forbid(
 require(
     "src/main/java/dev/redstoneengineering/client/ui/DiagnosticTabletScreen.java",
     "ENGINEERING DIAGNOSTIC TABLET", "OBSERVER ONLY", "RseDiagnosticsScreen",
-    "Snapshot ", "newest = 1", "Newer", "Older", "refreshHistoryButtons",
-    "page = Math.max(0, page - 1)",
+    "Snapshot ", "chronologyCue(history)", 'return "NEWEST";', 'return "CROSS-DIMENSION";',
+    '"Δt=" + delta + " ticks"', "history.get(0)", "SnapshotContext", "Long.parseLong(tickText)",
+    "Newer", "Older", "refreshHistoryButtons", "page = Math.max(0, page - 1)",
     "page = Math.min(Math.max(0, menu.history().size() - 1), page + 1)",
     "newerButton.active = !menu.history().isEmpty() && page > 0",
     "olderButton.active = !menu.history().isEmpty() && page < lastPage",
@@ -138,6 +139,7 @@ print(" bounded observer-only diagnostic tablet history: PASS")
 print(" tablet scan -> immediate review + air -> retained history: PASS")
 print(" tablet newest-slot + clicked-face traceability: PASS")
 print(" tablet dimension + world-tick traceability: PASS")
+print(" tablet retained chronology NEWEST / Δt / CROSS-DIMENSION: PASS")
 print(" tablet promoted topology status badge: PASS")
 print(" BlockState + vanilla redstone observation: PASS")
 print(" tablet Newer/Older navigation + boundary states: PASS")
