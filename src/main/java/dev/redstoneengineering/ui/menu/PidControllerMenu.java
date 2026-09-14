@@ -7,7 +7,7 @@ import dev.redstoneengineering.diagnostics.ClosedLoopCommissioning;
 import dev.redstoneengineering.diagnostics.CommissioningSnapshot;
 import dev.redstoneengineering.diagnostics.CommissioningStatus;
 import dev.redstoneengineering.diagnostics.PidTelemetryStore;
-import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceComparison;
+import dev.redstoneengineering.diagnostics.PneumaticClosedLoopWitness;
 import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceRecord;
 import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceStore;
 import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceTrend;
@@ -49,9 +49,26 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     private final DataSlot saturationEvents = trackedInt();
     private final DataSlot score = trackedInt();
     private final DataSlot status = trackedInt();
+    private final DataSlot controllerScore = trackedInt();
+    private final DataSlot controllerStatus = trackedInt();
     private final DataSlot manualMode = trackedInt();
     private final DataSlot inhibited = trackedInt();
     private final DataSlot modeTransfers = trackedInt();
+
+    private final DataSlot plantDetected = trackedInt();
+    private final DataSlot plantReady = trackedInt();
+    private final DataSlot plantPosition = trackedInt();
+    private final DataSlot plantTarget = trackedInt();
+    private final DataSlot plantPressure = trackedInt();
+    private final DataSlot plantSupply = trackedInt();
+    private final DataSlot plantObservedLoss = trackedInt();
+    private final DataSlot plantLineLoss = trackedInt();
+    private final DataSlot plantRestrictionLoss = trackedInt();
+    private final DataSlot plantStallTicks = trackedInt();
+    private final DataSlot plantSamples = trackedInt();
+    private final DataSlot plantPenalty = trackedInt();
+    private final DataSlot plantStatus = trackedInt();
+
     private final DataSlot historyCount = trackedInt();
     private final DataSlot latestSequence = trackedInt();
     private final DataSlot latestAcceptanceStatus = trackedInt();
@@ -85,6 +102,7 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
         inputFacing.set(DirectionalSignalBlock.seriesInputSide(state).ordinal());
         outputFacing.set(DirectionalSignalBlock.seriesOutputSide(state).ordinal());
 
+        CommissioningSnapshot controller = ClosedLoopCommissioning.inspectController(level, blockPos);
         CommissioningSnapshot snapshot = ClosedLoopCommissioning.inspectPid(level, blockPos);
         available.set(snapshot.available() ? 1 : 0);
         setpoint.set(snapshot.setpoint());
@@ -97,9 +115,26 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
         saturationEvents.set(snapshot.saturationEvents());
         score.set(snapshot.score());
         status.set(snapshot.status().ordinal());
+        controllerScore.set(controller.score());
+        controllerStatus.set(controller.status().ordinal());
         manualMode.set(snapshot.manualMode() ? 1 : 0);
         inhibited.set(snapshot.inhibited() ? 1 : 0);
         modeTransfers.set(snapshot.modeTransfers());
+
+        PneumaticClosedLoopWitness.Snapshot plant = ClosedLoopCommissioning.inspectPneumaticPlant(level, blockPos);
+        plantDetected.set(plant.detected() ? 1 : 0);
+        plantReady.set(plant.ready() ? 1 : 0);
+        plantPosition.set(plant.position());
+        plantTarget.set(plant.target());
+        plantPressure.set(plant.actuatorPressure());
+        plantSupply.set(plant.supplyPressure());
+        plantObservedLoss.set(plant.observedLoss());
+        plantLineLoss.set(plant.lineLoss());
+        plantRestrictionLoss.set(plant.restrictionLoss());
+        plantStallTicks.set(plant.stallTicks());
+        plantSamples.set(plant.samples());
+        plantPenalty.set(plant.penalty());
+        plantStatus.set(plant.plantStatus().ordinal());
 
         List<AcceptanceEvidenceRecord> evidence = AcceptanceEvidenceStore.history(level, blockPos);
         historyCount.set(evidence.size());
@@ -166,9 +201,26 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     public int overshoot() { return overshoot.get(); }
     public int saturationEvents() { return saturationEvents.get(); }
     public int score() { return score.get(); }
+    public int controllerScore() { return controllerScore.get(); }
+    public CommissioningStatus controllerStatus() { return status(controllerStatus.get()); }
     public boolean manualMode() { return manualMode.get() != 0; }
     public boolean inhibited() { return inhibited.get() != 0; }
     public int modeTransfers() { return modeTransfers.get(); }
+
+    public boolean plantDetected() { return plantDetected.get() != 0; }
+    public boolean plantReady() { return plantReady.get() != 0; }
+    public int plantPosition() { return plantPosition.get(); }
+    public int plantTarget() { return plantTarget.get(); }
+    public int plantPressure() { return plantPressure.get(); }
+    public int plantSupply() { return plantSupply.get(); }
+    public int plantObservedLoss() { return plantObservedLoss.get(); }
+    public int plantLineLoss() { return plantLineLoss.get(); }
+    public int plantRestrictionLoss() { return plantRestrictionLoss.get(); }
+    public int plantStallTicks() { return plantStallTicks.get(); }
+    public int plantSamples() { return plantSamples.get(); }
+    public int plantPenalty() { return plantPenalty.get(); }
+    public CommissioningStatus plantStatus() { return status(plantStatus.get()); }
+
     public int historyCount() { return historyCount.get(); }
     public int latestSequence() { return latestSequence.get(); }
     public int latestAcceptanceScore() { return latestAcceptanceScore.get(); }
@@ -204,9 +256,11 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
         return slot >= 0 && slot < TREND_SAMPLES ? trend[slot].get() : -1;
     }
 
-    public CommissioningStatus status() {
+    public CommissioningStatus status() { return status(status.get()); }
+
+    private static CommissioningStatus status(int ordinal) {
         CommissioningStatus[] values = CommissioningStatus.values();
-        int index = Math.max(0, Math.min(values.length - 1, status.get()));
+        int index = Math.max(0, Math.min(values.length - 1, ordinal));
         return values[index];
     }
 
