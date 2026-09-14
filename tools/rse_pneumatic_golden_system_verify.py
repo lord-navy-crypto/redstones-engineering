@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static regression gate for Golden System #1 pneumatic plant commissioning and HMI evidence."""
+"""Static regression gate for Golden System #1 pneumatic plant commissioning, fault path and HMI evidence."""
 from pathlib import Path
 import sys
 
@@ -8,6 +8,9 @@ WITNESS = ROOT / "src/main/java/dev/redstoneengineering/diagnostics/PneumaticClo
 COMMISSIONING = ROOT / "src/main/java/dev/redstoneengineering/diagnostics/ClosedLoopCommissioning.java"
 PID = ROOT / "src/main/java/dev/redstoneengineering/block/PidControllerBlock.java"
 CYLINDER = ROOT / "src/main/java/dev/redstoneengineering/block/PneumaticCylinderBlock.java"
+FAULT = ROOT / "src/main/java/dev/redstoneengineering/block/FaultInjectorBlock.java"
+VALVE = ROOT / "src/main/java/dev/redstoneengineering/block/PneumaticProportionalValveBlock.java"
+NETWORK = ROOT / "src/main/java/dev/redstoneengineering/physics/PneumaticNetwork.java"
 MENU = ROOT / "src/main/java/dev/redstoneengineering/ui/menu/PidControllerMenu.java"
 SCREEN = ROOT / "src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java"
 
@@ -27,6 +30,9 @@ witness = read(WITNESS)
 commissioning = read(COMMISSIONING)
 pid = read(PID)
 cylinder = read(CYLINDER)
+fault = read(FAULT)
+valve = read(VALVE)
+network = read(NETWORK)
 menu = read(MENU)
 screen = read(SCREEN)
 
@@ -43,6 +49,13 @@ for needle in (
     "path.restrictionLoss()",
     "path.observedLoss()",
     "trackingError",
+    "enum Diagnosis",
+    "NO_SUPPLY",
+    "RESTRICTION",
+    "LOW_ACTUATOR_PRESSURE",
+    "STALLED",
+    "static Diagnosis diagnose(",
+    "if (restrictionLoss >= 25 || observedLoss >= 30) return Diagnosis.RESTRICTION;",
 ):
     req(witness, needle, "PneumaticClosedLoopWitness.java")
 
@@ -74,7 +87,28 @@ for needle in (
 ):
     req(cylinder, needle, "PneumaticCylinderBlock.java")
 
-# HMI must preserve the causal split: controller-only, plant witness, then combined system verdict.
+# Controlled restriction scenario reuses the real signal fault injector and real pneumatic solver.
+for needle in (
+    'Modes: 0 STUCK_LOW, 1 STUCK_HIGH, 2 BIAS_PLUS_4, 3 BIAS_MINUS_4.',
+    '"STUCK LOW"',
+    '"BIAS -4"',
+    'default -> Math.max(0, input - 4);',
+):
+    req(fault, needle, "FaultInjectorBlock.java")
+for needle in (
+    '"OPENING COMMAND"',
+    "PneumaticProportionalValveBlock.opening(level, pos)",
+):
+    req(valve, needle, "PneumaticProportionalValveBlock.java")
+for needle in (
+    "if (state.getBlock() instanceof PneumaticProportionalValveBlock)",
+    "int opening = PneumaticProportionalValveBlock.opening(level, pos);",
+    "pressure = (pressure * opening + 7) / 15;",
+    "int restrictionLoss = Math.max(0, observedLoss - lineLoss);",
+):
+    req(network, needle, "PneumaticNetwork.java")
+
+# HMI must preserve the causal split: controller-only, plant witness, diagnostic inference, then system verdict.
 for needle in (
     "ClosedLoopCommissioning.inspectController(level, blockPos)",
     "ClosedLoopCommissioning.inspectPneumaticPlant(level, blockPos)",
@@ -84,18 +118,22 @@ for needle in (
     "plantRestrictionLoss.set(plant.restrictionLoss())",
     "plantStallTicks.set(plant.stallTicks())",
     "plantPenalty.set(plant.penalty())",
+    "plantDiagnosis.set(plant.diagnosis().ordinal())",
     "public CommissioningStatus controllerStatus()",
     "public CommissioningStatus plantStatus()",
+    "public PneumaticClosedLoopWitness.Diagnosis plantDiagnosis()",
 ):
     req(menu, needle, "PidControllerMenu.java")
 
 for needle in (
     'statusLine(graphics, "Controller"',
     'statusLine(graphics, "Pneumatic plant"',
+    'statusLine(graphics, "Likely cause"',
     'statusLine(graphics, "System verdict"',
     '"Actuator / supply pressure"',
     '"Loss obs / line / restrict"',
-    '"Stall / samples"',
+    '"Position / target / stall"',
+    '"RESTRICTION • check valve / path command"',
     '"NONE • explicit cylinder feedback not detected"',
 ):
     req(screen, needle, "PidControllerScreen.java")
@@ -121,6 +159,8 @@ if errors:
 print("RSE PNEUMATIC GOLDEN SYSTEM VERIFY: PASS")
 print("  explicit PID PV -> cylinder feedback witness; no radius guessing")
 print("  plant evidence: pressure / supply / losses / restriction / stall / samples / tracking")
+print("  diagnostic inference: no supply / restriction / low actuator pressure / stall")
+print("  real restriction path: Fault Injector -> valve opening command -> pneumatic pressure loss")
 print("  generic PID commissioning unchanged when no pneumatic witness exists")
-print("  HMI separates controller evidence, plant witness evidence, and combined system verdict")
+print("  HMI separates controller evidence, plant witness, likely-cause inference, and system verdict")
 print("  system witness and commissioning facade remain read-only")
