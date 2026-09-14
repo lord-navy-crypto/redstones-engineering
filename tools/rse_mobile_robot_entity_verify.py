@@ -11,7 +11,7 @@ def read(p):
 def req(s,n,l):
     if n not in s: errors.append(f'{l}: missing {n!r}')
 mod=read(MOD); ent=read(ENT)
-for n in ('@Mod(RedstoneEngineering.MOD_ID)','DeferredRegister.Entities','registerEntityType(','EngineeringMobileRobotEntity::new','ENTITY_TYPES.register(modEventBus)'):
+for n in ('@Mod(RedstoneEngineering.MOD_ID)','DeferredRegister<EntityType<?>>','DeferredRegister.create(Registries.ENTITY_TYPE','DeferredHolder<EntityType<?>, EntityType<EngineeringMobileRobotEntity>>','EntityType.Builder.of(EngineeringMobileRobotEntity::new, MobCategory.MISC)','ENTITY_TYPES.register(modEventBus)'):
     req(mod,n,'RoboticsEntityModule.java')
 for n in ('extends Entity','RobotStateMachine.next(','RobotSafetyAssessment.inspect(','safety.motionPermit()','level().noCollision(','RobotOperatingState.WAITING','move(MoverType.SELF, command)','assignTarget(BlockPos target)','EntityDataSerializers.STRING'):
     req(ent,n,'EngineeringMobileRobotEntity.java')
@@ -24,4 +24,5 @@ if errors:
 print('RSE MOBILE ROBOT ENTITY VERIFY: PASS')
 print('  registered AMR entity consumes shared robotics state/safety contracts')
 print('  target movement is safety-gated and collision-aware')
+print('  entity registry uses the NeoForge 1.21.1 generic DeferredRegister contract')
 print('  v1 remains lumped deterministic motion; graph navigation intentionally deferred')
