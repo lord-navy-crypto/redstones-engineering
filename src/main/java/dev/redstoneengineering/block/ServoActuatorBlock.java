@@ -149,6 +149,15 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
         return MechatronicsVisualState.servo(runtime[0], runtime[2], runtime[4] != 0, STEP[state.getValue(SLEW)]);
     }
 
+    public boolean homeAndReset(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (!state.is(this)) return false;
+        RuntimeIntStore.remove(level, KEY, pos);
+        MechatronicsVisualBlockEntity.push(level, pos, visualState(level, pos, state));
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, this, 2);
+        return true;
+    }
+
     @Override protected void onPlace(BlockState s, Level l, BlockPos p, BlockState o, boolean m) { super.onPlace(s, l, p, o, m); if (l instanceof ServerLevel sl) sl.scheduleTick(p, this, 2); }
 
     @Override
@@ -216,8 +225,7 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
     protected InteractionResult useWithoutItem(BlockState s, Level l, BlockPos p, Player pl, BlockHitResult h) {
         if (!l.isClientSide && pl instanceof ServerPlayer serverPlayer) {
             if (pl.isShiftKeyDown()) {
-                RuntimeIntStore.remove(l, KEY, p);
-                MechatronicsVisualBlockEntity.push(l, p, visualState(l, p, s));
+                homeAndReset(l, p);
                 pl.displayClientMessage(net.minecraft.network.chat.Component.literal("Servo homed; trajectory diagnostics reset"), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, p);

@@ -110,6 +110,18 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock {
     public static int resetCount(Level level, BlockPos pos) { int[]rt=RuntimeIntStore.peek(level,KEY,pos); return rt==null||rt.length<3?0:rt[2]; }
     public static boolean resetActive(Level level, BlockPos pos) { int[]rt=RuntimeIntStore.peek(level,KEY,pos); return rt!=null&&rt.length>3&&rt[3]!=0; }
 
+    public boolean manualReset(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (!state.is(this)) return false;
+        int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
+        runtime[0] = 0;
+        runtime[2]++;
+        runtime[3] = 0;
+        updateOutput(level, pos, state, 0);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, this, 2);
+        return true;
+    }
+
     @Override protected void onPlace(BlockState s,Level l,BlockPos p,BlockState o,boolean m){super.onPlace(s,l,p,o,m);if(l instanceof ServerLevel sl)sl.scheduleTick(p,this,2);}
     @Override protected void tick(BlockState s,ServerLevel l,BlockPos p,RandomSource rnd){updateOutput(l,p,s,outputValue(l,p,s));l.scheduleTick(p,this,2);}
 
@@ -123,11 +135,7 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock {
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if(!level.isClientSide && player instanceof ServerPlayer serverPlayer){
             if(player.isShiftKeyDown()){
-                int[] runtime=RuntimeIntStore.get(level,KEY,pos,RUNTIME_SIZE);
-                runtime[0]=0;
-                runtime[2]++;
-                runtime[3]=0;
-                updateOutput(level,pos,state,0);
+                manualReset(level, pos);
                 player.displayClientMessage(net.minecraft.network.chat.Component.literal("Fault latch manual reset"),true);
             } else FieldDeviceUi.open(serverPlayer,pos);
         }

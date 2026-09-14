@@ -14,6 +14,7 @@ ASSETS = ROOT / "src/main/resources/assets/redstoneengineering"
 DATA = ROOT / "src/main/resources/data/redstoneengineering"
 DYNAMIC_VISUAL_VERIFY = ROOT / "tools/rse_dynamic_io_visuals_verify.py"
 SYSTEM_HMI_VERIFY = ROOT / "tools/rse_system_hmi_verify.py"
+RELIABILITY_HMI_VERIFY = ROOT / "tools/rse_reliability_hmi_verify.py"
 errors: list[str] = []
 
 def read(path: Path) -> str:
@@ -54,7 +55,6 @@ require_all(fault, ("FAULT_INJECTOR_CODEC.value()", "IntegerProperty.create(\"mo
 require_all(alarm, ("ALARM_PROCESSOR_CODEC.value()", "IntegerProperty.create(\"severity\", 1, 3)", '"ALARM CONDITION"', '"ACKNOWLEDGE"', '"RESET / CLEAR"', '"ALARM OUT"', "condition <= 0", "PortQuality.FAULT", "RuntimeIntStore.remove(level, KEY, pos)"), "AlarmProcessorBlock.java")
 require_all(debugger, ("TOPOLOGY_DEBUGGER_CODEC.value()", "EngineeringTopologyView.inspect", "TopologyDiagnosticsReport", '"TOPOLOGY ALARM OUT"', "report.hasIssue()", "RuntimeIntStore.remove(level, KEY, pos)"), "TopologyDebuggerBlock.java")
 
-# Engineering Compass remains a zero-tick world-axis datum, but now owns its low-profile shape and readout.
 require_all(compass_state, ('"variants"', '"redstoneengineering:block/engineering_compass"'), "engineering_compass blockstate")
 require_all(compass, (
     "class EngineeringCompassBlock extends Block", "ENGINEERING_COMPASS_CODEC.value()",
@@ -111,6 +111,7 @@ for block_id in ("sequence_controller", "safety_interlock", "fault_injector", "a
 for verifier, label in (
     (DYNAMIC_VISUAL_VERIFY, "dynamic I/O visuals"),
     (SYSTEM_HMI_VERIFY, "system HMI"),
+    (RELIABILITY_HMI_VERIFY, "reliability HMI"),
 ):
     if not verifier.is_file():
         errors.append(f"missing {verifier.relative_to(ROOT)}")
@@ -132,6 +133,7 @@ print("  aggregate closure target: 128 blocks")
 print("  Engineering Compass: passive world-axis datum / raised N-E-S-W geometry / low-profile shape")
 print("  systems visualization: synchronized world-visible routing and live state overlays")
 print("  systems HMI: explicit Sequence / Interlock / Topology operator controls")
+print("  reliability HMI: explicit shared maintenance actions for watchdog / servo / sensor / voter / latch")
 print("  registry lifecycle: DeferredRegister only; no eager Block construction")
 print("  event registration: explicit IEventBus listeners")
 print(f"  executable systems GameTests: {count}")

@@ -95,6 +95,13 @@ public class ServoPositionSensorBlock extends PassiveDirectionalSignalBlock {
         return MetrologySupport.snapshot(level, CHANNEL, pos, 1.0, 30L);
     }
 
+    public boolean resetMetrology(Level level, BlockPos pos) {
+        if (!level.getBlockState(pos).is(this)) return false;
+        MetrologyStore.remove(level, CHANNEL, pos);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, this, 1);
+        return true;
+    }
+
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock())) MetrologyStore.remove(level, CHANNEL, pos);
@@ -105,7 +112,7 @@ public class ServoPositionSensorBlock extends PassiveDirectionalSignalBlock {
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
-                MetrologyStore.remove(level, CHANNEL, pos);
+                resetMetrology(level, pos);
                 player.displayClientMessage(net.minecraft.network.chat.Component.literal("Servo position metrology reset"), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
