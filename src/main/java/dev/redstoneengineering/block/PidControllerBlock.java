@@ -352,13 +352,13 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
     }
 
     /** Shared server-authoritative commissioning reset used by HMI and Shift shortcut. */
-    public static boolean resetRuntimeAndTrend(Level level, BlockPos pos) {
-        if (level.isClientSide) return false;
-        BlockState state = level.getBlockState(pos);
+    public static boolean resetRuntimeAndTrend(Level l, BlockPos p) {
+        if (l.isClientSide) return false;
+        BlockState state = l.getBlockState(p);
         if (!(state.getBlock() instanceof PidControllerBlock controller)) return false;
-        RuntimeIntStore.remove(level, KEY, pos);
-        PidTelemetryStore.clear(level, pos);
-        controller.updateOutput(level, pos, state, 0);
+        RuntimeIntStore.remove(l, KEY, p);
+        PidTelemetryStore.clear(l, p);
+        controller.updateOutput(l, p, state, 0);
         return true;
     }
 
