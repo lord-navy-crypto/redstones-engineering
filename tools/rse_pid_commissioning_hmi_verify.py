@@ -25,7 +25,8 @@ menu = read(MENU)
 screen = read(SCREEN)
 
 for needle in (
-    "public static boolean resetRuntimeAndTrend(Level level, BlockPos pos)",
+    "public static boolean resetRuntimeAndTrend(Level l, BlockPos p)",
+    "PidTelemetryStore.clear(l, p);",
     "public static AcceptanceEvidenceRecord captureAcceptanceEvidence(Level level, BlockPos pos)",
     "AcceptanceEvidenceRecord record = captureAcceptanceEvidence(l, p);",
     "if (resetRuntimeAndTrend(l, p))",
