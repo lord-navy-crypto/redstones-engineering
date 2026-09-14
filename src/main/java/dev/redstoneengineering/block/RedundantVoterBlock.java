@@ -33,6 +33,7 @@ public class RedundantVoterBlock extends PassiveDirectionalSignalBlock {
     public static final IntegerProperty TOLERANCE = IntegerProperty.create("tolerance",0,3);
     private static final int[] TOL = {0,1,2,4};
     private static final String KEY="redundant_voter";
+    // [spread, degraded, maxSpread, disagreementEvents, previousDegraded/disagreement]
     private static final int RUNTIME_SIZE = 5;
 
     public RedundantVoterBlock(Properties p){ super(p); registerDefaultState(defaultBlockState().setValue(TOLERANCE,1)); }
@@ -63,6 +64,7 @@ public class RedundantVoterBlock extends PassiveDirectionalSignalBlock {
         return RedstoneObservationSupport.observe(level, pos, side);
     }
 
+    /** Observer-only 2oo3 decision; source presence and numerical zero remain separate facts. */
     public Vote vote(Level level, BlockPos pos, BlockState state) {
         Direction front = outputSide(state);
         RedstoneObservationSupport.Observation[] observations = {
