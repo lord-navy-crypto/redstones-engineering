@@ -17,12 +17,16 @@ for n in ('@Mod(RedstoneEngineering.MOD_ID)','DeferredRegister<EntityType<?>>','
     req(mod,n,'RoboticsEntityModule.java')
 for n in ('extends Entity','RobotStateMachine.next(','RobotSafetyAssessment.inspect(','safety.motionPermit()','level().noCollision(','RobotOperatingState.WAITING','move(MoverType.SELF, command)','assignTarget(BlockPos target)','EntityDataSerializers.STRING'):
     req(ent,n,'EngineeringMobileRobotEntity.java')
+for n in ('assignNavigationRoute(RobotNavigationGraph graph, String sourceId, String targetId)','RobotRoutePlanner.plan(graph, sourceId, targetId)','SOURCE_NOT_LOCALIZED_TO_ROBOT','ROUTE_NODE_EVIDENCE_MISSING','FOLLOWING_EXPLICIT_ROUTE','advanceRouteWaypoint()','ROUTE_COMPLETE','RouteCount','RouteIndex','restoreRoute(tag)','PERSISTED_ROUTE_INVALID'):
+    req(ent,n,'EngineeringMobileRobotEntity.java route execution')
 for n in ('dist = Dist.CLIENT','EntityRenderersEvent.RegisterRenderers','RoboticsEntityModule.ENGINEERING_MOBILE_ROBOT.get()','EngineeringMobileRobotRenderer::new'):
     req(client,n,'RoboticsClientModule.java')
 for n in ('extends EntityRenderer<EngineeringMobileRobotEntity>','BlockRenderDispatcher','chassisState(robot.robotState())','case FAULT, SAFE_STOP','case WAITING, REPLANNING, DEGRADED','Blocks.COPPER_BLOCK.defaultBlockState()','TextureAtlas.LOCATION_BLOCKS'):
     req(render,n,'EngineeringMobileRobotRenderer.java')
 for forbidden in ('PathNavigation','GoalSelector','AStar','teleportTo(','setPos(missionTarget'):
     if forbidden in ent: errors.append(f'EngineeringMobileRobotEntity.java: unexpected shortcut {forbidden!r}')
+for forbidden in ('getBlockState(','BlockPos.betweenClosed','setChunkForced(','forceLoad'):
+    if forbidden in ent: errors.append(f'EngineeringMobileRobotEntity.java: route execution must not discover topology implicitly; unexpected {forbidden!r}')
 for forbidden in ('RobotSafetyAssessment.inspect(','level().noCollision(','setDeltaMovement(','move(MoverType'):
     if forbidden in render: errors.append(f'EngineeringMobileRobotRenderer.java must remain render-only; unexpected {forbidden!r}')
 if errors:
@@ -32,6 +36,7 @@ if errors:
 print('RSE MOBILE ROBOT ENTITY VERIFY: PASS')
 print('  registered AMR entity consumes shared robotics state/safety contracts')
 print('  target movement is safety-gated and collision-aware')
+print('  explicit planned routes are source-anchored, waypoint-followed, and persisted')
+print('  route execution does not scan the world or force-load topology')
 print('  entity registry uses the NeoForge 1.21.1 generic DeferredRegister contract')
 print('  client renderer exposes heading plus synchronized nominal/waiting/fault state without a second solver')
-print('  v1 remains lumped deterministic motion; graph navigation intentionally deferred')
