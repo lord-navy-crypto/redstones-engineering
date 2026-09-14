@@ -63,9 +63,12 @@ for needle in (
 
 for needle in (
     "ASSIGN_MISSION", "BEGIN_PLANNING", "ROUTE_READY", "OBSTACLE_DETECTED", "ROUTE_UNAVAILABLE",
-    "LOCALIZATION_LOST", "SAFE_CONDITION_RESTORED", "CRITICAL_FAULT", "RESET_FAULT",
+    "LOCALIZATION_LOST", "SAFETY_STOP_REQUESTED", "SENSOR_DEGRADED", "SAFE_CONDITION_RESTORED",
+    "CRITICAL_FAULT", "RESET_FAULT",
     "if (event == Event.CRITICAL_FAULT) return RobotOperatingState.FAULT;",
-    "if (event == Event.LOCALIZATION_LOST) return RobotOperatingState.SAFE_STOP;",
+    "event == Event.LOCALIZATION_LOST || event == Event.SAFETY_STOP_REQUESTED",
+    "return RobotOperatingState.SAFE_STOP;",
+    "if (event == Event.SENSOR_DEGRADED) return RobotOperatingState.DEGRADED;",
     "case IDLE -> event == Event.ASSIGN_MISSION ? RobotOperatingState.MISSION_ASSIGNED : current;",
     "case SAFE_STOP -> event == Event.SAFE_CONDITION_RESTORED ? RobotOperatingState.REPLANNING : current;",
 ):
@@ -85,7 +88,8 @@ if errors:
 
 print("RSE ROBOTICS FOUNDATION VERIFY: PASS")
 print("  AMR lifecycle: mission -> planning -> navigation -> docking/transfer -> completion")
-print("  abnormal lifecycle: obstacle/wait, replanning, degraded, safe-stop, fault")
+print("  abnormal lifecycle: obstacle/wait, replanning, degraded, generic safe-stop, fault")
+print("  localization loss remains explicit while generic safety holds preserve their own evidence reason")
 print("  localization quality preserves VALID / DEGRADED / LOST / STALE semantics")
 print("  safety permit requires localization + obstacle evidence + drive ready + E-stop clear")
 print("  foundation is semantic-only; world motion/entity registration intentionally deferred")
