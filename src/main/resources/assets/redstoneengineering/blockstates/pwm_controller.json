@@ -1,39 +1,21 @@
 {
   "multipart": [
-    {
-      "when": {
-        "facing": "north"
-      },
-      "apply": {
-        "model": "redstoneengineering:block/pwm_controller"
-      }
-    },
-    {
-      "when": {
-        "facing": "east"
-      },
-      "apply": {
-        "model": "redstoneengineering:block/pwm_controller",
-        "y": 90
-      }
-    },
-    {
-      "when": {
-        "facing": "south"
-      },
-      "apply": {
-        "model": "redstoneengineering:block/pwm_controller",
-        "y": 180
-      }
-    },
-    {
-      "when": {
-        "facing": "west"
-      },
-      "apply": {
-        "model": "redstoneengineering:block/pwm_controller",
-        "y": 270
-      }
-    }
+    {"when":{"facing":"north"},"apply":{"model":"redstoneengineering:block/pwm_controller"}},
+    {"when":{"facing":"east"},"apply":{"model":"redstoneengineering:block/pwm_controller","y":90}},
+    {"when":{"facing":"south"},"apply":{"model":"redstoneengineering:block/pwm_controller","y":180}},
+    {"when":{"facing":"west"},"apply":{"model":"redstoneengineering:block/pwm_controller","y":270}},
+    {"when":{"facing":"north"},"apply":{"model":"redstoneengineering:block/engineering_tx_marker"}},
+    {"when":{"facing":"east"},"apply":{"model":"redstoneengineering:block/engineering_tx_marker","y":90}},
+    {"when":{"facing":"south"},"apply":{"model":"redstoneengineering:block/engineering_tx_marker","y":180}},
+    {"when":{"facing":"west"},"apply":{"model":"redstoneengineering:block/engineering_tx_marker","y":270}},
+    {"when":{"input_facing":"north"},"apply":{"model":"redstoneengineering:block/engineering_rx_marker"}},
+    {"when":{"input_facing":"east"},"apply":{"model":"redstoneengineering:block/engineering_rx_marker","y":90}},
+    {"when":{"input_facing":"south"},"apply":{"model":"redstoneengineering:block/engineering_rx_marker","y":180}},
+    {"when":{"input_facing":"west"},"apply":{"model":"redstoneengineering:block/engineering_rx_marker","y":270}},
+    {"when":{"period_mode":"0|1|2|3"},"apply":{"model":"redstoneengineering:block/config_segment_1"}},
+    {"when":{"period_mode":"1|2|3"},"apply":{"model":"redstoneengineering:block/config_segment_2"}},
+    {"when":{"period_mode":"2|3"},"apply":{"model":"redstoneengineering:block/config_segment_3"}},
+    {"when":{"period_mode":"3"},"apply":{"model":"redstoneengineering:block/config_segment_4"}},
+    {"when":{"invert":"true"},"apply":{"model":"redstoneengineering:block/config_invert_indicator"}}
   ]
 }
