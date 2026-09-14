@@ -35,6 +35,24 @@ for needle in (
 ):
     req(src["state"], needle, "RobotOperatingState.java")
 
+# RobotState is persisted by ordinal in EngineeringMobileRobotEntity. Lock the
+# historical prefix so future states can only append without reinterpreting old worlds.
+legacy_state_order = [
+    "IDLE", "MISSION_ASSIGNED", "PLANNING", "NAVIGATING", "WAITING", "REPLANNING",
+    "DOCKING", "LOADING", "TRANSPORTING", "UNLOADING", "RETURNING", "COMPLETE",
+    "DEGRADED", "SAFE_STOP", "FAULT",
+]
+try:
+    enum_body = src["state"].split("public enum RobotOperatingState {", 1)[1].split(";", 1)[0]
+    declared_states = [entry.strip() for entry in enum_body.split(",") if entry.strip()]
+    if declared_states[:len(legacy_state_order)] != legacy_state_order:
+        errors.append(
+            "RobotOperatingState.java: historical persisted ordinal prefix changed; "
+            f"expected {legacy_state_order}, found {declared_states[:len(legacy_state_order)]}"
+        )
+except (IndexError, ValueError):
+    errors.append("RobotOperatingState.java: could not parse persisted enum declaration order")
+
 for needle in (
     "DELIVERY", "TRANSFER", "INSPECTION", "RETURN_HOME",
     "BlockPos source", "BlockPos target", "int priority", "int payloadUnits",
@@ -103,6 +121,7 @@ if errors:
 
 print("RSE ROBOTICS FOUNDATION VERIFY: PASS")
 print("  AMR lifecycle: mission -> planning -> navigation -> docking/transfer -> completion")
+print("  historical persisted RobotOperatingState ordinal prefix remains stable")
 print("  transport obstacle/reroute holds preserve TRANSPORTING parent lifecycle")
 print("  abnormal lifecycle: obstacle/wait, replanning, degraded, generic safe-stop, fault")
 print("  localization loss remains explicit while generic safety holds preserve their own evidence reason")
