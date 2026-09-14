@@ -84,12 +84,13 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
         drawStatusBadge(graphics, status);
 
         int y = 68;
-        for (int i = 0; i < lines.length && y < imageHeight - 52; i++) {
+        for (int i = 0; i < lines.length && y < imageHeight - 58; i++) {
             if (lines[i].startsWith("STATUS:") || lines[i].startsWith("MODE:")) continue;
             y = drawWrapped(graphics, lines[i], 18, y, imageWidth - 36, lineColor(lines[i], i), 10);
         }
         String footer = "Snapshot " + (page + 1) + " / " + history.size() + " • " + chronologyCue(history);
-        graphics.drawString(font, footer, 108, imageHeight - 40, MUTED, false);
+        graphics.drawString(font, footer, 108, imageHeight - 48, MUTED, false);
+        graphics.drawString(font, comparisonCue(history), 108, imageHeight - 38, comparisonColor(history), false);
     }
 
     private String chronologyCue(List<String> history) {
@@ -100,6 +101,50 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
         if (!newest.dimension().equals(selected.dimension())) return "CROSS-DIMENSION";
         long delta = newest.tick() - selected.tick();
         return delta >= 0 ? "Δt=" + delta + " ticks" : "RETAINED";
+    }
+
+    private String comparisonCue(List<String> history) {
+        if (page == 0) return "BASELINE • newest retained evidence";
+        String newest = history.get(0);
+        String selected = history.get(page);
+        SnapshotContext newestContext = snapshotContext(newest);
+        SnapshotContext selectedContext = snapshotContext(selected);
+        String newestId = lineValue(newest, "ID:");
+        String selectedId = lineValue(selected, "ID:");
+        String newestPos = lineValue(newest, "POS:");
+        String selectedPos = lineValue(selected, "POS:");
+        boolean sameTarget = newestContext != null
+                && selectedContext != null
+                && newestContext.dimension().equals(selectedContext.dimension())
+                && !newestId.isBlank()
+                && newestId.equals(selectedId)
+                && !newestPos.isBlank()
+                && newestPos.equals(selectedPos);
+        if (!sameTarget) return "OTHER TARGET • independent evidence";
+
+        String newestStatus = lineValue(newest, "STATUS:");
+        String selectedStatus = lineValue(selected, "STATUS:");
+        if (newestStatus.isBlank() || selectedStatus.isBlank()) return "SAME TARGET • status unknown";
+        if (!newestStatus.equals(selectedStatus)) return "SAME TARGET • STATUS CHANGED";
+
+        String newestTopology = lineValue(newest, "TOPOLOGY:");
+        String selectedTopology = lineValue(selected, "TOPOLOGY:");
+        if (!newestTopology.isBlank() && !selectedTopology.isBlank() && !newestTopology.equals(selectedTopology)) {
+            return "SAME TARGET • TOPOLOGY CHANGED";
+        }
+        return "SAME TARGET • status unchanged";
+    }
+
+    private int comparisonColor(List<String> history) {
+        String cue = comparisonCue(history);
+        if (cue.contains("STATUS CHANGED") || cue.contains("TOPOLOGY CHANGED")) return WARN;
+        if (cue.startsWith("SAME TARGET") || cue.startsWith("BASELINE")) return GOOD;
+        return MUTED;
+    }
+
+    private static String lineValue(String snapshot, String prefix) {
+        String line = findLine(snapshot.split("\\n"), prefix);
+        return line.startsWith(prefix) ? line.substring(prefix.length()).trim() : "";
     }
 
     private static SnapshotContext snapshotContext(String snapshot) {
