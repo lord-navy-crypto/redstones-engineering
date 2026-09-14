@@ -30,7 +30,7 @@ import java.util.Optional;
 /** Position feedback sensor with metrology plus velocity/error/trajectory diagnostics. */
 public class ServoPositionSensorBlock extends PassiveDirectionalSignalBlock {
     private static final String CHANNEL = "servo_position_sensor";
-    private static final int SENSOR_PROFILE = 2; // PRECISION
+    private static final int SENSOR_PROFILE = 2;
 
     public ServoPositionSensorBlock(Properties properties) { super(properties); }
     @Override public MapCodec<ServoPositionSensorBlock> codec() { return RedstoneEngineering.SERVO_POSITION_SENSOR_CODEC.value(); }
@@ -45,7 +45,6 @@ public class ServoPositionSensorBlock extends PassiveDirectionalSignalBlock {
         );
     }
 
-    /** Mechanical source quality follows the configured RX face, not an assumed TX-opposite face. */
     public static PortQuality sourceQuality(Level level, BlockPos pos, BlockState sensorState) {
         Direction sensorInput = seriesInputSide(sensorState);
         BlockPos servoPos = pos.relative(sensorInput);
@@ -74,7 +73,6 @@ public class ServoPositionSensorBlock extends PassiveDirectionalSignalBlock {
                 port.get(), state.getValue(OUTPUT), outputQuality));
     }
 
-    /** Mechanical RX is not vanilla redstone; only the configured TX exposes vanilla redstone. */
     @Override
     public boolean canConnectRedstone(BlockState state, BlockGetter level, BlockPos pos, @Nullable Direction direction) {
         return direction != null && direction.getOpposite() == outputSide(state);
@@ -95,6 +93,13 @@ public class ServoPositionSensorBlock extends PassiveDirectionalSignalBlock {
         return MetrologySupport.snapshot(level, CHANNEL, pos, 1.0, 30L);
     }
 
+    public boolean resetMetrology(Level level, BlockPos pos) {
+        if (!level.getBlockState(pos).is(this)) return false;
+        MetrologyStore.remove(level, CHANNEL, pos);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, this, 1);
+        return true;
+    }
+
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock())) MetrologyStore.remove(level, CHANNEL, pos);
@@ -105,7 +110,7 @@ public class ServoPositionSensorBlock extends PassiveDirectionalSignalBlock {
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
-                MetrologyStore.remove(level, CHANNEL, pos);
+                resetMetrology(level, pos);
                 player.displayClientMessage(net.minecraft.network.chat.Component.literal("Servo position metrology reset"), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
