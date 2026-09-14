@@ -1,6 +1,54 @@
 {
-  "parent": "minecraft:item/generated",
+  "ambientocclusion": false,
+  "gui_light": "front",
   "textures": {
-    "layer0": "minecraft:item/map"
+    "casing": "minecraft:block/deepslate_tiles",
+    "metal": "minecraft:block/iron_block",
+    "screen": "redstoneengineering:block/signal_analyzer_top",
+    "accent": "minecraft:block/redstone_block"
+  },
+  "elements": [
+    {
+      "from": [2, 1, 7],
+      "to": [14, 15, 9],
+      "faces": {
+        "north": {"texture": "#casing"},
+        "east": {"texture": "#metal"},
+        "south": {"texture": "#casing"},
+        "west": {"texture": "#metal"},
+        "up": {"texture": "#metal"},
+        "down": {"texture": "#metal"}
+      }
+    },
+    {
+      "from": [3, 3, 6.75],
+      "to": [13, 13.5, 7],
+      "faces": {
+        "north": {"texture": "#screen"}
+      }
+    },
+    {
+      "from": [3, 1.75, 6.7],
+      "to": [10.5, 2.5, 7.05],
+      "faces": {
+        "north": {"texture": "#accent"}
+      }
+    },
+    {
+      "from": [11.5, 1.7, 6.65],
+      "to": [12.8, 2.7, 7.1],
+      "faces": {
+        "north": {"texture": "#accent"}
+      }
+    }
+  ],
+  "display": {
+    "thirdperson_righthand": {"rotation": [0, 90, 0], "translation": [0, 1.5, 1], "scale": [0.55, 0.55, 0.55]},
+    "thirdperson_lefthand": {"rotation": [0, -90, 0], "translation": [0, 1.5, 1], "scale": [0.55, 0.55, 0.55]},
+    "firstperson_righthand": {"rotation": [0, 90, 0], "translation": [1.5, 1.5, 1], "scale": [0.68, 0.68, 0.68]},
+    "firstperson_lefthand": {"rotation": [0, -90, 0], "translation": [1.5, 1.5, 1], "scale": [0.68, 0.68, 0.68]},
+    "gui": {"rotation": [20, 145, 0], "translation": [0, 0, 0], "scale": [0.8, 0.8, 0.8]},
+    "ground": {"rotation": [90, 0, 0], "translation": [0, 0, 2], "scale": [0.5, 0.5, 0.5]},
+    "fixed": {"rotation": [0, 180, 0], "translation": [0, 0, 0], "scale": [0.75, 0.75, 0.75]}
   }
 }

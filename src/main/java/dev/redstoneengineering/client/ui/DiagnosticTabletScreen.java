@@ -75,7 +75,7 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
         refreshHistoryButtons();
         if (history.isEmpty()) {
             graphics.drawString(font, "No retained snapshots.", 18, 53, MUTED, false);
-            drawWrapped(graphics, "Right-click an RSE or vanilla block with the tablet to capture its current identity and EngineeringPort topology evidence. Shift-right-click air to return here.", 18, 70, imageWidth - 36, INFO, 11);
+            drawWrapped(graphics, "Right-click an RSE or vanilla block with the tablet to capture and open its current identity and EngineeringPort topology evidence. Right-click air to reopen retained history.", 18, 70, imageWidth - 36, INFO, 11);
             return;
         }
 
@@ -108,9 +108,19 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
 
     private int lineColor(String line, int index) {
         if (index == 0) return INFO;
-        if (line.startsWith("TOPOLOGY:") || line.startsWith("REDSTONE IN:")) return INFO;
+        if (line.startsWith("TARGET FACE:") || line.startsWith("TOPOLOGY:") || line.startsWith("REDSTONE IN:")) return INFO;
         if (line.startsWith("CONTEXT:") || line.startsWith("ID:") || line.startsWith("POS:") || line.startsWith("SOURCE:") || line.startsWith("STATE:")) return MUTED;
-        if (line.contains(" q=DEGRADED") || line.contains(" q=MISSING") || line.contains("issue")) return WARN;
+        if (line.contains("q=FAULT")
+                || line.contains("q=DOMAIN_MISMATCH")
+                || line.contains("q=TOPOLOGY_ERROR")
+                || line.contains("→ DOMAIN_MISMATCH")
+                || line.contains("→ DIRECTION_MISMATCH")) return BAD;
+        if (line.contains("q=NO_SIGNAL")
+                || line.contains("q=SATURATED")
+                || line.contains("q=STALE")
+                || line.contains("→ OPEN")
+                || line.contains("→ UNLOADED")) return WARN;
+        if (line.contains("q=VALID") || line.contains("→ CONNECTED")) return GOOD;
         return TEXT;
     }
 

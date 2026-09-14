@@ -9,6 +9,7 @@ import dev.redstoneengineering.diagnostics.topology.TopologyFaceSnapshot;
 import dev.redstoneengineering.diagnostics.topology.TopologyVisualizationSnapshot;
 import dev.redstoneengineering.ui.menu.DiagnosticTabletMenu;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
@@ -35,10 +36,10 @@ import java.util.Locale;
 /**
  * Hand-held observer-only diagnostics tablet.
  *
- * <p>Right-click a block to retain a bounded topology/evidence snapshot. Shift-right-click air to
- * review history. The tablet never drives a network, changes a block, schedules ticks, or runs a
- * second solver; it only consumes existing BlockState, vanilla redstone observation and the formal
- * EngineeringPort/Topology projection.</p>
+ * <p>Right-click a block to retain a bounded topology/evidence snapshot and review it immediately.
+ * Right-click air to reopen retained history. The tablet never drives a network, changes a block,
+ * schedules ticks, or runs a second solver; it only consumes existing BlockState, vanilla redstone
+ * observation and the formal EngineeringPort/Topology projection.</p>
  */
 public final class DiagnosticTabletItem extends Item {
     public static final int MAX_HISTORY = 8;
@@ -60,11 +61,13 @@ public final class DiagnosticTabletItem extends Item {
         Player player = context.getPlayer();
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             BlockPos pos = context.getClickedPos();
-            String snapshot = capture(level, pos);
-            pushSnapshot(context.getItemInHand(), snapshot);
+            String snapshot = capture(level, pos, context.getClickedFace());
+            ItemStack tablet = context.getItemInHand();
+            pushSnapshot(tablet, snapshot);
             String blockName = level.getBlockState(pos).getBlock().getName().getString();
             serverPlayer.displayClientMessage(Component.literal("Tablet snapshot captured: " + blockName), true);
             RseDiagnostics.record(RseDiagnosticSeverity.INFO, "DiagnosticTablet", "Captured observer snapshot at " + pos.toShortString(), null);
+            openTablet(serverPlayer, tablet);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
@@ -73,23 +76,23 @@ public final class DiagnosticTabletItem extends Item {
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
-            if (player.isShiftKeyDown()) {
-                List<String> history = history(stack);
-                serverPlayer.openMenu(
-                        new SimpleMenuProvider(
-                                (containerId, inventory, ignored) -> new DiagnosticTabletMenu(containerId, inventory, history),
-                                Component.literal("Engineering Diagnostic Tablet")
-                        ),
-                        buffer -> {
-                            buffer.writeVarInt(history.size());
-                            for (String entry : history) buffer.writeUtf(entry, 4096);
-                        }
-                );
-            } else {
-                serverPlayer.displayClientMessage(Component.literal("Right-click a block to scan • Shift-right-click air to open tablet"), true);
-            }
+            openTablet(serverPlayer, stack);
         }
         return InteractionResultHolder.sidedSuccess(stack, level.isClientSide);
+    }
+
+    private static void openTablet(ServerPlayer serverPlayer, ItemStack stack) {
+        List<String> history = history(stack);
+        serverPlayer.openMenu(
+                new SimpleMenuProvider(
+                        (containerId, inventory, ignored) -> new DiagnosticTabletMenu(containerId, inventory, history),
+                        Component.literal("Engineering Diagnostic Tablet")
+                ),
+                buffer -> {
+                    buffer.writeVarInt(history.size());
+                    for (String entry : history) buffer.writeUtf(entry, 4096);
+                }
+        );
     }
 
     public static List<String> history(ItemStack stack) {
@@ -118,7 +121,7 @@ public final class DiagnosticTabletItem extends Item {
         });
     }
 
-    private static String capture(Level level, BlockPos pos) {
+    private static String capture(Level level, BlockPos pos, Direction clickedFace) {
         BlockState state = level.getBlockState(pos);
         String id = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
         TopologyVisualizationSnapshot topology = EngineeringTopologyView.inspect(level, pos, state);
@@ -126,6 +129,7 @@ public final class DiagnosticTabletItem extends Item {
         out.append(state.getBlock().getName().getString()).append('\n');
         out.append("ID: ").append(id).append('\n');
         out.append("POS: ").append(pos.getX()).append(", ").append(pos.getY()).append(", ").append(pos.getZ()).append('\n');
+        out.append("TARGET FACE: ").append(clickedFace.getName().toUpperCase(Locale.ROOT)).append('\n');
         out.append("CONTEXT: dimension=").append(level.dimension().location())
                 .append(" • tick=").append(level.getGameTime()).append('\n');
         out.append("SOURCE: ").append(RedstoneEngineering.MOD_ID.equals(BuiltInRegistries.BLOCK.getKey(state.getBlock()).getNamespace()) ? "RSE" : "VANILLA / OTHER").append('\n');

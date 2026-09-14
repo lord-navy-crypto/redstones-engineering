@@ -1,6 +1,64 @@
 {
-  "parent": "minecraft:item/generated",
+  "ambientocclusion": false,
+  "gui_light": "front",
   "textures": {
-    "layer0": "minecraft:item/book"
+    "cover": "minecraft:block/redstone_block",
+    "pages": "minecraft:block/smooth_quartz",
+    "spine": "minecraft:block/deepslate_tiles",
+    "badge": "redstoneengineering:block/signal_analyzer_top"
+  },
+  "elements": [
+    {
+      "from": [2, 1, 7],
+      "to": [14, 15, 8.25],
+      "faces": {
+        "north": {"texture": "#cover"},
+        "east": {"texture": "#cover"},
+        "south": {"texture": "#cover"},
+        "west": {"texture": "#spine"},
+        "up": {"texture": "#cover"},
+        "down": {"texture": "#cover"}
+      }
+    },
+    {
+      "from": [2.8, 1.8, 8.25],
+      "to": [13.7, 14.2, 9.2],
+      "faces": {
+        "north": {"texture": "#pages"},
+        "east": {"texture": "#pages"},
+        "south": {"texture": "#pages"},
+        "west": {"texture": "#pages"},
+        "up": {"texture": "#pages"},
+        "down": {"texture": "#pages"}
+      }
+    },
+    {
+      "from": [1.5, 0.7, 6.75],
+      "to": [3.1, 15.3, 9.35],
+      "faces": {
+        "north": {"texture": "#spine"},
+        "east": {"texture": "#spine"},
+        "south": {"texture": "#spine"},
+        "west": {"texture": "#spine"},
+        "up": {"texture": "#spine"},
+        "down": {"texture": "#spine"}
+      }
+    },
+    {
+      "from": [6, 6, 6.6],
+      "to": [11, 11, 7.05],
+      "faces": {
+        "north": {"texture": "#badge"}
+      }
+    }
+  ],
+  "display": {
+    "thirdperson_righthand": {"rotation": [0, 90, 0], "translation": [0, 1.5, 1], "scale": [0.55, 0.55, 0.55]},
+    "thirdperson_lefthand": {"rotation": [0, -90, 0], "translation": [0, 1.5, 1], "scale": [0.55, 0.55, 0.55]},
+    "firstperson_righthand": {"rotation": [0, 90, 0], "translation": [1.5, 1.5, 1], "scale": [0.68, 0.68, 0.68]},
+    "firstperson_lefthand": {"rotation": [0, -90, 0], "translation": [1.5, 1.5, 1], "scale": [0.68, 0.68, 0.68]},
+    "gui": {"rotation": [20, 145, 0], "translation": [0, 0, 0], "scale": [0.8, 0.8, 0.8]},
+    "ground": {"rotation": [90, 0, 0], "translation": [0, 0, 2], "scale": [0.5, 0.5, 0.5]},
+    "fixed": {"rotation": [0, 180, 0], "translation": [0, 0, 0], "scale": [0.75, 0.75, 0.75]}
   }
 }
