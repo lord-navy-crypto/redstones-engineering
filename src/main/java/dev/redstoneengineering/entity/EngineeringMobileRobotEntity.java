@@ -6,6 +6,7 @@ import dev.redstoneengineering.robotics.RobotDockSnapshot;
 import dev.redstoneengineering.robotics.RobotLocalizationQuality;
 import dev.redstoneengineering.robotics.RobotMaterialFlowRuntime;
 import dev.redstoneengineering.robotics.RobotMaterialTransferSnapshot;
+import dev.redstoneengineering.robotics.RobotMaterialUnloadRuntime;
 import dev.redstoneengineering.robotics.RobotMission;
 import dev.redstoneengineering.robotics.RobotNavigationGraph;
 import dev.redstoneengineering.robotics.RobotOperatingState;
@@ -243,6 +244,29 @@ public final class EngineeringMobileRobotEntity extends Entity {
         setRobotState(decision.nextState());
         if (decision.advancesToTransport()) {
             entityData.set(ROUTE_REASON, "TRANSPORT_ROUTE_REQUIRED");
+            return true;
+        }
+        return false;
+    }
+
+    public boolean completeUnloading(
+            RobotMission mission,
+            RobotPayloadSnapshot payload,
+            RobotDockSnapshot dock,
+            RobotMaterialTransferSnapshot transfer
+    ) {
+        if (level().isClientSide) return false;
+        entityData.set(DOCK_PHASE, RobotDockAssessment.Phase.TRANSFER.ordinal());
+        RobotMaterialUnloadRuntime.Decision decision = RobotMaterialUnloadRuntime.evaluate(
+                robotState(), mission, payload, dock, transfer, robotIdentity());
+        entityData.set(DOCK_REASON, decision.dockReason());
+        entityData.set(MATERIAL_REASON, decision.materialReason());
+        setDeltaMovement(Vec3.ZERO);
+        setRobotState(decision.nextState());
+        if (decision.unloadComplete()) {
+            entityData.set(ROUTE_REASON, "DELIVERY_COMPLETE");
+            entityData.set(SAFETY, RobotSafetyAssessment.Verdict.PERMIT.ordinal());
+            entityData.set(SAFETY_REASON, "MISSION_COMPLETE");
             return true;
         }
         return false;
