@@ -1,6 +1,8 @@
 package dev.redstoneengineering.entity;
 
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.robotics.RobotDockAssessment;
+import dev.redstoneengineering.robotics.RobotDockSnapshot;
 import dev.redstoneengineering.robotics.RobotLocalizationQuality;
 import dev.redstoneengineering.robotics.RobotNavigationGraph;
 import dev.redstoneengineering.robotics.RobotOperatingState;
@@ -41,6 +43,8 @@ public final class EngineeringMobileRobotEntity extends Entity {
     private static final EntityDataAccessor<Integer> SAFETY = SynchedEntityData.defineId(EngineeringMobileRobotEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<String> SAFETY_REASON = SynchedEntityData.defineId(EngineeringMobileRobotEntity.class, EntityDataSerializers.STRING);
     private static final EntityDataAccessor<String> ROUTE_REASON = SynchedEntityData.defineId(EngineeringMobileRobotEntity.class, EntityDataSerializers.STRING);
+    private static final EntityDataAccessor<Integer> DOCK_PHASE = SynchedEntityData.defineId(EngineeringMobileRobotEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<String> DOCK_REASON = SynchedEntityData.defineId(EngineeringMobileRobotEntity.class, EntityDataSerializers.STRING);
 
     private RobotLocalizationQuality localization = RobotLocalizationQuality.VALID;
     private boolean driveReady = true;
@@ -62,6 +66,8 @@ public final class EngineeringMobileRobotEntity extends Entity {
         builder.define(SAFETY, RobotSafetyAssessment.Verdict.SAFE_STOP.ordinal());
         builder.define(SAFETY_REASON, "NO_MISSION");
         builder.define(ROUTE_REASON, "NO_ROUTE");
+        builder.define(DOCK_PHASE, RobotDockAssessment.Phase.APPROACH.ordinal());
+        builder.define(DOCK_REASON, "NO_DOCK_EVIDENCE");
     }
 
     public RobotOperatingState robotState() {
@@ -84,6 +90,14 @@ public final class EngineeringMobileRobotEntity extends Entity {
     public boolean hasExplicitRoute() { return !routeWaypoints.isEmpty(); }
     public int routeWaypointIndex() { return routeIndex; }
     public int routeWaypointCount() { return routeWaypoints.size(); }
+
+    public RobotDockAssessment.Phase dockPhase() {
+        RobotDockAssessment.Phase[] values = RobotDockAssessment.Phase.values();
+        return values[Math.max(0, Math.min(values.length - 1, entityData.get(DOCK_PHASE)))];
+    }
+
+    public String dockReason() { return entityData.get(DOCK_REASON); }
+    public String robotIdentity() { return getUUID().toString(); }
 
     public void assignTarget(BlockPos target) {
         if (level().isClientSide || target == null) return;
@@ -129,6 +143,78 @@ public final class EngineeringMobileRobotEntity extends Entity {
         entityData.set(ROUTE_REASON, "FOLLOWING_EXPLICIT_ROUTE");
         beginMissionTarget(routeWaypoints.getFirst().position());
         return true;
+    }
+
+    /**
+     * Begins the docking lifecycle only from explicit, valid dock evidence.
+     * A permit means the robot may enter DOCKING; it never fabricates a
+     * physical docked/occupied fact.
+     */
+    public boolean beginDocking(RobotDockSnapshot dock) {
+        if (level().isClientSide || robotState() != RobotOperatingState.NAVIGATING) return false;
+        RobotDockAssessment.Snapshot assessment = assessDock(dock, RobotDockAssessment.Phase.APPROACH);
+        if (!assessment.permitted()) {
+            applyDockHold(assessment);
+            return false;
+        }
+        setDeltaMovement(Vec3.ZERO);
+        transition(RobotStateMachine.Event.ARRIVE_DOCK);
+        return robotState() == RobotOperatingState.DOCKING;
+    }
+
+    /**
+     * Confirms the physical docking fact before entering LOADING. Alignment
+     * permission alone is insufficient: occupancy must name this exact AMR.
+     */
+    public boolean confirmDocked(RobotDockSnapshot dock) {
+        if (level().isClientSide || robotState() != RobotOperatingState.DOCKING) return false;
+        RobotDockAssessment.Snapshot assessment = assessDock(dock, RobotDockAssessment.Phase.DOCK);
+        if (!assessment.permitted()) {
+            applyDockHold(assessment);
+            return false;
+        }
+        if (dock == null || !dock.occupiedBy(robotIdentity())) {
+            setDeltaMovement(Vec3.ZERO);
+            entityData.set(DOCK_REASON, "ROBOT_NOT_CONFIRMED_DOCKED");
+            return false;
+        }
+        transition(RobotStateMachine.Event.DOCKED);
+        return robotState() == RobotOperatingState.LOADING;
+    }
+
+    /**
+     * Marks loading complete only after the dock's authoritative transfer
+     * evidence confirms this AMR is still occupying the dock and transfer is ready.
+     */
+    public boolean completeDockTransfer(RobotDockSnapshot dock) {
+        if (level().isClientSide || robotState() != RobotOperatingState.LOADING) return false;
+        RobotDockAssessment.Snapshot assessment = assessDock(dock, RobotDockAssessment.Phase.TRANSFER);
+        if (!assessment.permitted()) {
+            applyDockHold(assessment);
+            return false;
+        }
+        transition(RobotStateMachine.Event.LOAD_COMPLETE);
+        return robotState() == RobotOperatingState.TRANSPORTING;
+    }
+
+    private RobotDockAssessment.Snapshot assessDock(RobotDockSnapshot dock, RobotDockAssessment.Phase phase) {
+        RobotDockAssessment.Snapshot assessment = RobotDockAssessment.inspect(dock, robotIdentity(), phase);
+        entityData.set(DOCK_PHASE, assessment.phase().ordinal());
+        entityData.set(DOCK_REASON, assessment.reason());
+        return assessment;
+    }
+
+    private void applyDockHold(RobotDockAssessment.Snapshot assessment) {
+        setDeltaMovement(Vec3.ZERO);
+        switch (assessment.verdict()) {
+            case FAULT -> transition(RobotStateMachine.Event.CRITICAL_FAULT);
+            case SAFE_STOP -> transition(RobotStateMachine.Event.SAFETY_STOP_REQUESTED);
+            case WAIT, PERMIT -> {
+                // WAIT deliberately preserves NAVIGATING / DOCKING / LOADING so
+                // the caller can retry against fresh dock evidence without
+                // inventing an obstacle or a completed phase.
+            }
+        }
     }
 
     private void beginMissionTarget(BlockPos target) {
