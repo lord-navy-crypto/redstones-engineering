@@ -14,6 +14,8 @@ public enum RobotOperatingState {
     DOCKING,
     LOADING,
     TRANSPORTING,
+    TRANSPORT_WAITING,
+    TRANSPORT_REPLANNING,
     UNLOADING,
     RETURNING,
     COMPLETE,
@@ -23,7 +25,7 @@ public enum RobotOperatingState {
 
     public boolean motionCapable() {
         return switch (this) {
-            case NAVIGATING, REPLANNING, DOCKING, TRANSPORTING, RETURNING, DEGRADED -> true;
+            case NAVIGATING, REPLANNING, DOCKING, TRANSPORTING, TRANSPORT_REPLANNING, RETURNING, DEGRADED -> true;
             default -> false;
         };
     }

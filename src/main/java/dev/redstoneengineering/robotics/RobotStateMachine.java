@@ -59,11 +59,17 @@ public final class RobotStateMachine {
             case DOCKING -> event == Event.DOCKED ? RobotOperatingState.LOADING : current;
             case LOADING -> event == Event.LOAD_COMPLETE ? RobotOperatingState.TRANSPORTING : current;
             case TRANSPORTING -> switch (event) {
-                case OBSTACLE_DETECTED -> RobotOperatingState.WAITING;
-                case ROUTE_UNAVAILABLE -> RobotOperatingState.REPLANNING;
+                case OBSTACLE_DETECTED -> RobotOperatingState.TRANSPORT_WAITING;
+                case ROUTE_UNAVAILABLE -> RobotOperatingState.TRANSPORT_REPLANNING;
                 case ARRIVE_TARGET -> RobotOperatingState.UNLOADING;
                 default -> current;
             };
+            case TRANSPORT_WAITING -> switch (event) {
+                case OBSTACLE_CLEARED -> RobotOperatingState.TRANSPORTING;
+                case ROUTE_UNAVAILABLE -> RobotOperatingState.TRANSPORT_REPLANNING;
+                default -> current;
+            };
+            case TRANSPORT_REPLANNING -> event == Event.REPLAN_READY ? RobotOperatingState.TRANSPORTING : current;
             case UNLOADING -> event == Event.UNLOAD_COMPLETE ? RobotOperatingState.COMPLETE : current;
             case COMPLETE -> event == Event.RETURN_REQUESTED ? RobotOperatingState.RETURNING : current;
             case RETURNING -> switch (event) {
