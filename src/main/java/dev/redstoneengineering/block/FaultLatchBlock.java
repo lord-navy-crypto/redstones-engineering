@@ -28,11 +28,12 @@ import net.minecraft.world.phys.BlockHitResult;
 import java.util.List;
 import java.util.Optional;
 
-/** persistent fault memory. BACK=fault signal, RIGHT=electrical reset, FRONT=fault output. */
+/** Persistent fault memory. BACK=fault signal, RIGHT=electrical reset, FRONT=fault output. */
 public class FaultLatchBlock extends PassiveDirectionalSignalBlock {
     public static final IntegerProperty THRESHOLD = IntegerProperty.create("threshold",0,3);
     private static final int[] LEVELS={1,4,8,12};
     private static final String KEY="fault_latch";
+    // [latched, tripEvents, resetEvents, previousResetLevel]
     private static final int RUNTIME_SIZE = 4;
 
     public FaultLatchBlock(Properties p){super(p);registerDefaultState(defaultBlockState().setValue(THRESHOLD,0));}
@@ -53,7 +54,9 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock {
         );
     }
 
-    private static RedstoneObservationSupport.Observation observeInput(Level level, BlockPos pos, Direction side) {
+    private static RedstoneObservationSupport.Observation observeInput(
+            Level level, BlockPos pos, Direction side
+    ) {
         return RedstoneObservationSupport.observe(level, pos, side);
     }
 
@@ -79,6 +82,9 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock {
         RedstoneObservationSupport.Observation resetObservation =
                 observeInput(level, pos, rightOf(outputSide(state)));
         boolean resetHigh = resetObservation.valid() && resetObservation.value() > 0;
+
+        // RESET is edge-counted, level-enforced, and has priority over FAULT.
+        // A held reset cannot inflate counters or allow same-tick re-latching.
         if (resetHigh) {
             if (runtime[3] == 0) runtime[2]++;
             runtime[3] = 1;
