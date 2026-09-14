@@ -31,6 +31,7 @@ for n in (
     'FOLLOWING_TRANSPORT_ROUTE',
     'RobotOperatingState.TRANSPORT_WAITING',
     'completeRouteArrival()',
+    'TRANSPORT_HOLD_AT_TARGET',
     'RobotStateMachine.Event.ARRIVE_TARGET',
     'TRANSPORT_TARGET_ARRIVED',
     'TRANSPORT_ROUTE_COMPLETE',
@@ -78,6 +79,7 @@ print('  DOCKING begins only on approach permit; LOADING requires exact AMR occu
 print('  LOADING consumes the authoritative Material Flow runtime decision instead of duplicating assessment logic')
 print('  material evidence reason is synchronized/persisted; TRANSPORTING waits fail-safe for an explicit route')
 print('  post-load transport consumes the authoritative route runtime and preserves transport-specific hold states')
+print('  transport hold states cannot declare arrival merely by crossing the distance threshold')
 print('  final transport arrival enters UNLOADING and remains in an explicit unload handshake without a motion target')
 print('  entity registry uses the NeoForge 1.21.1 generic DeferredRegister contract')
 print('  client renderer exposes heading plus synchronized nominal/waiting/fault state without a second solver')
