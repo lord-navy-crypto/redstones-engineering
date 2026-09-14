@@ -28,7 +28,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import java.util.List;
 import java.util.Optional;
 
-/** Persistent fault memory. BACK=fault signal, RIGHT=electrical reset, FRONT=fault output. */
+/** persistent fault memory. BACK=fault signal, RIGHT=electrical reset, FRONT=fault output. */
 public class FaultLatchBlock extends PassiveDirectionalSignalBlock {
     public static final IntegerProperty THRESHOLD = IntegerProperty.create("threshold",0,3);
     private static final int[] LEVELS={1,4,8,12};
@@ -63,6 +63,8 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock {
         if (port.isEmpty()) return Optional.empty();
         Direction front = outputSide(state);
         if (side == front) {
+            // The alarm is authoritative evidence even while the device health is FAULT.
+            // Operational health is projected separately by EngineeringDeviceMenu.
             return Optional.of(EngineeringPortSnapshot.redstone(
                     port.get(), state.getValue(OUTPUT), PortQuality.VALID));
         }
