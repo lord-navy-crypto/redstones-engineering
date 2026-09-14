@@ -25,6 +25,17 @@ import java.util.Optional;
 public final class PneumaticClosedLoopWitness {
     public static final int MIN_SAMPLES = 4;
 
+    /** Evidence-based diagnostic candidate; this is not a claim about the exact failed component. */
+    public enum Diagnosis {
+        NO_WITNESS,
+        COLLECTING_EVIDENCE,
+        NOMINAL,
+        NO_SUPPLY,
+        RESTRICTION,
+        LOW_ACTUATOR_PRESSURE,
+        STALLED
+    }
+
     private PneumaticClosedLoopWitness() {}
 
     public record Snapshot(
@@ -41,11 +52,12 @@ public final class PneumaticClosedLoopWitness {
             int stallTicks,
             int samples,
             int penalty,
-            CommissioningStatus plantStatus
+            CommissioningStatus plantStatus,
+            Diagnosis diagnosis
     ) {
         public static Snapshot absent() {
             return new Snapshot(false, false, BlockPos.ZERO, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    CommissioningStatus.UNAVAILABLE);
+                    CommissioningStatus.UNAVAILABLE, Diagnosis.NO_WITNESS);
         }
     }
 
@@ -78,9 +90,9 @@ public final class PneumaticClosedLoopWitness {
         boolean ready = samples >= MIN_SAMPLES;
         int penalty = 0;
         CommissioningStatus status = ready ? CommissioningStatus.PASS : CommissioningStatus.RUNNING;
+        int trackingError = Math.abs(target - position);
 
         if (ready) {
-            int trackingError = Math.abs(target - position);
             if (stallTicks >= 10) {
                 penalty += 45;
                 status = CommissioningStatus.FAIL;
@@ -111,6 +123,17 @@ public final class PneumaticClosedLoopWitness {
             }
         }
 
+        Diagnosis diagnosis = diagnose(
+                ready,
+                target,
+                pressure,
+                path.supplyPressure(),
+                path.observedLoss(),
+                path.restrictionLoss(),
+                trackingError,
+                stallTicks
+        );
+
         return new Snapshot(
                 true,
                 ready,
@@ -125,8 +148,31 @@ public final class PneumaticClosedLoopWitness {
                 stallTicks,
                 samples,
                 Math.min(100, penalty),
-                status
+                status,
+                diagnosis
         );
+    }
+
+    /**
+     * Produces a likely-cause candidate from observed plant evidence only.
+     * Upstream supply/restriction evidence outranks downstream symptoms such as stall.
+     */
+    static Diagnosis diagnose(
+            boolean ready,
+            int target,
+            int actuatorPressure,
+            int supplyPressure,
+            int observedLoss,
+            int restrictionLoss,
+            int trackingError,
+            int stallTicks
+    ) {
+        if (!ready) return Diagnosis.COLLECTING_EVIDENCE;
+        if (supplyPressure <= 0 && target > 0) return Diagnosis.NO_SUPPLY;
+        if (restrictionLoss >= 25 || observedLoss >= 30) return Diagnosis.RESTRICTION;
+        if (trackingError >= 2 && actuatorPressure < 35) return Diagnosis.LOW_ACTUATOR_PRESSURE;
+        if (stallTicks >= 4) return Diagnosis.STALLED;
+        return Diagnosis.NOMINAL;
     }
 
     private static CommissioningStatus worse(CommissioningStatus a, CommissioningStatus b) {
