@@ -1,6 +1,24 @@
 {
-  "parent": "minecraft:block/cube_all",
+  "parent": "minecraft:block/block",
   "textures": {
-    "all": "redstoneengineering:block/redundant_voter"
-  }
+    "all": "redstoneengineering:block/redundant_voter",
+    "control": "redstoneengineering:block/redstone_reference_source",
+    "particle": "redstoneengineering:block/redundant_voter"
+  },
+  "elements": [
+    {
+      "from": [0, 0, 0], "to": [16, 16, 16],
+      "faces": {
+        "north": {"texture": "#all", "cullface": "north"},
+        "south": {"texture": "#all", "cullface": "south"},
+        "east": {"texture": "#all", "cullface": "east"},
+        "west": {"texture": "#all", "cullface": "west"},
+        "up": {"texture": "#all", "cullface": "up"},
+        "down": {"texture": "#all", "cullface": "down"}
+      }
+    },
+    {"from": [-0.30, 4, 7], "to": [0.30, 12, 9], "faces": {"west": {"texture": "#control"}, "east": {"texture": "#control"}}},
+    {"from": [15.70, 4, 7], "to": [16.30, 12, 9], "faces": {"east": {"texture": "#control"}, "west": {"texture": "#control"}}},
+    {"from": [15.65, 7, 4], "to": [16.35, 9, 12], "faces": {"east": {"texture": "#control"}, "west": {"texture": "#control"}}}
+  ]
 }
