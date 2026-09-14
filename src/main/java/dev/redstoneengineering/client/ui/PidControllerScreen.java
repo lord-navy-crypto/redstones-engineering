@@ -1,6 +1,7 @@
 package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.diagnostics.CommissioningStatus;
+import dev.redstoneengineering.diagnostics.PneumaticClosedLoopWitness;
 import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceTrend;
 import dev.redstoneengineering.diagnostics.acceptance.EngineeringAcceptanceStatus;
 import dev.redstoneengineering.ui.menu.PidControllerMenu;
@@ -124,13 +125,15 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
 
         String plantState = menu.plantReady() ? menu.plantStatus().name() : "WARMING";
         statusLine(graphics, "Pneumatic plant",
-                plantState + " • penalty " + menu.plantPenalty(),
+                plantState + " • penalty " + menu.plantPenalty() + " • n=" + menu.plantSamples(),
                 menu.plantReady() ? statusColor(menu.plantStatus()) : WARN, 132);
-        labelValue(graphics, "Position / target", menu.plantPosition() + " / " + menu.plantTarget(), 148);
+        labelValue(graphics, "Position / target / stall",
+                menu.plantPosition() + " / " + menu.plantTarget() + " / " + menu.plantStallTicks() + "t", 148);
         labelValue(graphics, "Actuator / supply pressure", menu.plantPressure() + " / " + menu.plantSupply(), 164);
         labelValue(graphics, "Loss obs / line / restrict",
                 menu.plantObservedLoss() + " / " + menu.plantLineLoss() + " / " + menu.plantRestrictionLoss(), 180);
-        labelValue(graphics, "Stall / samples", menu.plantStallTicks() + "t / " + menu.plantSamples(), 196);
+        statusLine(graphics, "Likely cause",
+                diagnosisLabel(menu.plantDiagnosis()), diagnosisColor(menu.plantDiagnosis()), 196);
         statusLine(graphics, "System verdict",
                 menu.status().name() + " • score " + menu.score(), statusColor(menu.status()), 212);
     }
@@ -225,6 +228,27 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
 
     private static String signed(int value) {
         return value > 0 ? "+" + value : Integer.toString(value);
+    }
+
+    private static String diagnosisLabel(PneumaticClosedLoopWitness.Diagnosis diagnosis) {
+        return switch (diagnosis) {
+            case NO_WITNESS -> "NO WITNESS";
+            case COLLECTING_EVIDENCE -> "COLLECTING EVIDENCE";
+            case NOMINAL -> "NOMINAL";
+            case NO_SUPPLY -> "NO SUPPLY • check source / isolation";
+            case RESTRICTION -> "RESTRICTION • check valve / path command";
+            case LOW_ACTUATOR_PRESSURE -> "LOW ACTUATOR PRESSURE";
+            case STALLED -> "ACTUATOR STALL • pressure path not primary suspect";
+        };
+    }
+
+    private static int diagnosisColor(PneumaticClosedLoopWitness.Diagnosis diagnosis) {
+        return switch (diagnosis) {
+            case NOMINAL -> GOOD;
+            case COLLECTING_EVIDENCE, LOW_ACTUATOR_PRESSURE -> WARN;
+            case NO_SUPPLY, RESTRICTION, STALLED -> BAD;
+            case NO_WITNESS -> MUTED;
+        };
     }
 
     private static int statusColor(CommissioningStatus status) {

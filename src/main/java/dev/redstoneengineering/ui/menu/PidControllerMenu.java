@@ -68,6 +68,7 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     private final DataSlot plantSamples = trackedInt();
     private final DataSlot plantPenalty = trackedInt();
     private final DataSlot plantStatus = trackedInt();
+    private final DataSlot plantDiagnosis = trackedInt();
 
     private final DataSlot historyCount = trackedInt();
     private final DataSlot latestSequence = trackedInt();
@@ -135,6 +136,7 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
         plantSamples.set(plant.samples());
         plantPenalty.set(plant.penalty());
         plantStatus.set(plant.plantStatus().ordinal());
+        plantDiagnosis.set(plant.diagnosis().ordinal());
 
         List<AcceptanceEvidenceRecord> evidence = AcceptanceEvidenceStore.history(level, blockPos);
         historyCount.set(evidence.size());
@@ -220,6 +222,11 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     public int plantSamples() { return plantSamples.get(); }
     public int plantPenalty() { return plantPenalty.get(); }
     public CommissioningStatus plantStatus() { return status(plantStatus.get()); }
+    public PneumaticClosedLoopWitness.Diagnosis plantDiagnosis() {
+        PneumaticClosedLoopWitness.Diagnosis[] values = PneumaticClosedLoopWitness.Diagnosis.values();
+        int index = Math.max(0, Math.min(values.length - 1, plantDiagnosis.get()));
+        return values[index];
+    }
 
     public int historyCount() { return historyCount.get(); }
     public int latestSequence() { return latestSequence.get(); }
