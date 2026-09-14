@@ -33,7 +33,6 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock {
     public static final IntegerProperty THRESHOLD = IntegerProperty.create("threshold",0,3);
     private static final int[] LEVELS={1,4,8,12};
     private static final String KEY="fault_latch";
-    // [latched, tripEvents, resetEvents, previousResetLevel]
     private static final int RUNTIME_SIZE = 4;
 
     public FaultLatchBlock(Properties p){super(p);registerDefaultState(defaultBlockState().setValue(THRESHOLD,0));}
@@ -54,9 +53,7 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock {
         );
     }
 
-    private static RedstoneObservationSupport.Observation observeInput(
-            Level level, BlockPos pos, Direction side
-    ) {
+    private static RedstoneObservationSupport.Observation observeInput(Level level, BlockPos pos, Direction side) {
         return RedstoneObservationSupport.observe(level, pos, side);
     }
 
@@ -66,8 +63,6 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock {
         if (port.isEmpty()) return Optional.empty();
         Direction front = outputSide(state);
         if (side == front) {
-            // The alarm is authoritative evidence even while the device health is FAULT.
-            // Operational health is projected separately by EngineeringDeviceMenu.
             return Optional.of(EngineeringPortSnapshot.redstone(
                     port.get(), state.getValue(OUTPUT), PortQuality.VALID));
         }
@@ -82,9 +77,6 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock {
         RedstoneObservationSupport.Observation resetObservation =
                 observeInput(level, pos, rightOf(outputSide(state)));
         boolean resetHigh = resetObservation.valid() && resetObservation.value() > 0;
-
-        // RESET is edge-counted, level-enforced, and has priority over FAULT.
-        // A held reset cannot inflate counters or allow same-tick re-latching.
         if (resetHigh) {
             if (runtime[3] == 0) runtime[2]++;
             runtime[3] = 1;
@@ -110,6 +102,18 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock {
     public static int resetCount(Level level, BlockPos pos) { int[]rt=RuntimeIntStore.peek(level,KEY,pos); return rt==null||rt.length<3?0:rt[2]; }
     public static boolean resetActive(Level level, BlockPos pos) { int[]rt=RuntimeIntStore.peek(level,KEY,pos); return rt!=null&&rt.length>3&&rt[3]!=0; }
 
+    public boolean manualReset(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (!state.is(this)) return false;
+        int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
+        runtime[0] = 0;
+        runtime[2]++;
+        runtime[3] = 0;
+        updateOutput(level, pos, state, 0);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, this, 2);
+        return true;
+    }
+
     @Override protected void onPlace(BlockState s,Level l,BlockPos p,BlockState o,boolean m){super.onPlace(s,l,p,o,m);if(l instanceof ServerLevel sl)sl.scheduleTick(p,this,2);}
     @Override protected void tick(BlockState s,ServerLevel l,BlockPos p,RandomSource rnd){updateOutput(l,p,s,outputValue(l,p,s));l.scheduleTick(p,this,2);}
 
@@ -123,11 +127,7 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock {
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if(!level.isClientSide && player instanceof ServerPlayer serverPlayer){
             if(player.isShiftKeyDown()){
-                int[] runtime=RuntimeIntStore.get(level,KEY,pos,RUNTIME_SIZE);
-                runtime[0]=0;
-                runtime[2]++;
-                runtime[3]=0;
-                updateOutput(level,pos,state,0);
+                manualReset(level, pos);
                 player.displayClientMessage(net.minecraft.network.chat.Component.literal("Fault latch manual reset"),true);
             } else FieldDeviceUi.open(serverPlayer,pos);
         }
