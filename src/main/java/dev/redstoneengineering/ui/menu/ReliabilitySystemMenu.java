@@ -29,6 +29,7 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_INPUT_RIGHT = 5;
     public static final int BUTTON_OUTPUT_LEFT = 6;
     public static final int BUTTON_OUTPUT_RIGHT = 7;
+    public static final int BUTTON_ACTION = 8;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot primary = trackedInt();
@@ -148,7 +149,9 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
         Block block = state.getBlock();
         boolean changed = false;
 
-        if (id == BUTTON_INPUT_LEFT || id == BUTTON_INPUT_RIGHT || id == BUTTON_OUTPUT_LEFT || id == BUTTON_OUTPUT_RIGHT) {
+        if (id == BUTTON_ACTION) {
+            changed = runMaintenanceAction(block);
+        } else if (id == BUTTON_INPUT_LEFT || id == BUTTON_INPUT_RIGHT || id == BUTTON_OUTPUT_LEFT || id == BUTTON_OUTPUT_RIGHT) {
             changed = routeEndpoint(block, id);
         } else if (id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT) {
             boolean clockwise = id == BUTTON_ROTATE_RIGHT;
@@ -199,11 +202,19 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
         return changed;
     }
 
+    private boolean runMaintenanceAction(Block block) {
+        if (block instanceof WatchdogBlock watchdog) return watchdog.resetDiagnostics(level, blockPos);
+        if (block instanceof ServoActuatorBlock servo) return servo.homeAndReset(level, blockPos);
+        if (block instanceof ServoPositionSensorBlock sensor) return sensor.resetMetrology(level, blockPos);
+        if (block instanceof RedundantVoterBlock voter) return voter.resetDiagnostics(level, blockPos);
+        if (block instanceof FaultLatchBlock latch) return latch.manualReset(level, blockPos);
+        return false;
+    }
+
     private boolean routeEndpoint(Block block, int id) {
         boolean clockwise = id == BUTTON_INPUT_RIGHT || id == BUTTON_OUTPUT_RIGHT;
         boolean input = id == BUTTON_INPUT_LEFT || id == BUTTON_INPUT_RIGHT;
         if (block instanceof RedundantVoterBlock) {
-            // All four horizontal faces are occupied (3 RX + 1 TX), so keep the legal layout rigid.
             return DirectionalSignalBlock.rotateWholeRoute(level, blockPos, clockwise);
         }
         if (block instanceof FaultLatchBlock) {
@@ -217,7 +228,6 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
         return false;
     }
 
-    /** Keeps FAULT IN, RESET(right of TX), and TX on distinct horizontal faces. */
     private boolean routeFaultLatch(boolean inputEndpoint, boolean clockwise) {
         BlockState state = level.getBlockState(blockPos);
         if (!(state.getBlock() instanceof FaultLatchBlock latch)) return false;
