@@ -127,36 +127,25 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
         }
         if (id >= BUTTON_ROTATE_LEFT && id <= BUTTON_OUTPUT_RIGHT) return false;
 
-        BlockState next = state;
-        if (block instanceof PrecisionFilterBlock filter) {
-            int value = state.getValue(PrecisionFilterBlock.RATE);
-            if (id == BUTTON_PARAMETER_PREVIOUS) value = value <= 1 ? 4 : value - 1;
-            else if (id == BUTTON_PARAMETER_NEXT) value = value >= 4 ? 1 : value + 1;
-            else return false;
-            next = state.setValue(PrecisionFilterBlock.RATE, value);
-            level.setBlock(blockPos, next, Block.UPDATE_CLIENTS);
-            level.scheduleTick(blockPos, filter, 1);
-        } else if (block instanceof EdgeDetectorBlock detector) {
-            int value = state.getValue(EdgeDetectorBlock.MODE);
-            if (id == BUTTON_PARAMETER_PREVIOUS) value = Math.floorMod(value - 1, 3);
-            else if (id == BUTTON_PARAMETER_NEXT) value = (value + 1) % 3;
-            else return false;
-            next = state.setValue(EdgeDetectorBlock.MODE, value);
-            level.setBlock(blockPos, next, Block.UPDATE_CLIENTS);
-            level.scheduleTick(blockPos, detector, 1);
-        } else if (block instanceof PulseShaperBlock shaper) {
-            int value = state.getValue(PulseShaperBlock.WIDTH);
-            if (id == BUTTON_PARAMETER_PREVIOUS) value = value <= 1 ? 8 : value - 1;
-            else if (id == BUTTON_PARAMETER_NEXT) value = value >= 8 ? 1 : value + 1;
-            else return false;
-            next = state.setValue(PulseShaperBlock.WIDTH, value);
-            level.setBlock(blockPos, next, Block.UPDATE_CLIENTS);
-            level.scheduleTick(blockPos, shaper, 1);
+        boolean forward;
+        if (id == BUTTON_PARAMETER_PREVIOUS) forward = false;
+        else if (id == BUTTON_PARAMETER_NEXT) forward = true;
+        else return false;
+
+        boolean changed;
+        if (block instanceof PrecisionFilterBlock) {
+            changed = PrecisionFilterBlock.stepRate(level, blockPos, forward);
+        } else if (block instanceof EdgeDetectorBlock) {
+            changed = EdgeDetectorBlock.stepMode(level, blockPos, forward);
+        } else if (block instanceof PulseShaperBlock) {
+            changed = PulseShaperBlock.stepWidth(level, blockPos, forward);
         } else return false;
 
-        refreshAuthoritativeSnapshot();
-        broadcastChanges();
-        return next != state;
+        if (changed) {
+            refreshAuthoritativeSnapshot();
+            broadcastChanges();
+        }
+        return changed;
     }
 
     public int kind() { return kind.get(); }
