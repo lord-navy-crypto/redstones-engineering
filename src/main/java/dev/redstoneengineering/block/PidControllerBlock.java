@@ -351,17 +351,48 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
         return true;
     }
 
+    /** Shared server-authoritative commissioning reset used by HMI and Shift shortcut. */
+    public static boolean resetRuntimeAndTrend(Level l, BlockPos p) {
+        if (l.isClientSide) return false;
+        BlockState state = l.getBlockState(p);
+        if (!(state.getBlock() instanceof PidControllerBlock controller)) return false;
+        RuntimeIntStore.remove(l, KEY, p);
+        PidTelemetryStore.clear(l, p);
+        controller.updateOutput(l, p, state, 0);
+        return true;
+    }
+
+    /**
+     * Shared explicit acceptance capture. Retained acceptance history is observational evidence;
+     * capture never mutates plant, controller, topology, or tuning state.
+     */
+    public static AcceptanceEvidenceRecord captureAcceptanceEvidence(Level level, BlockPos pos) {
+        if (level.isClientSide) return null;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof PidControllerBlock)) return null;
+        TopologyVisualizationSnapshot topology = EngineeringTopologyView.inspect(level, pos, state);
+        CommissioningSnapshot commissioning = ClosedLoopCommissioning.inspectPid(level, pos);
+        EngineeringAcceptanceSnapshot acceptance = EngineeringAcceptance.evaluate(topology, commissioning);
+        return AcceptanceEvidenceStore.capture(
+                level, pos, level.getGameTime(), state.getValue(TUNING), acceptance);
+    }
+
     @Override
     protected InteractionResult useWithoutItem(BlockState s, Level l, BlockPos p, Player pl, BlockHitResult h) {
         if (!l.isClientSide) {
             if (pl.isShiftKeyDown() && h.getDirection() == outputSide(s)) {
-                captureAcceptanceEvidence(s, l, p, pl);
+                AcceptanceEvidenceRecord record = captureAcceptanceEvidence(l, p);
+                if (record != null) {
+                    AcceptanceEvidenceComparison comparison = AcceptanceEvidenceStore.compareLatestToPrevious(l, p).orElse(null);
+                    String message = "Captured acceptance " + record.compact();
+                    if (comparison != null) message += " | " + comparison.compact();
+                    pl.displayClientMessage(Component.literal(message), true);
+                }
             } else if (pl.isShiftKeyDown()) {
-                RuntimeIntStore.remove(l, KEY, p);
-                PidTelemetryStore.clear(l, p);
-                updateOutput(l, p, s, 0);
-                pl.displayClientMessage(Component.literal(
-                        "PID runtime + trend reset | Shift+FRONT captures acceptance evidence"), true);
+                if (resetRuntimeAndTrend(l, p)) {
+                    pl.displayClientMessage(Component.literal(
+                            "PID runtime + trend reset | Shift+FRONT captures acceptance evidence"), true);
+                }
             } else if (pl instanceof ServerPlayer serverPlayer) {
                 serverPlayer.openMenu(
                         new SimpleMenuProvider(
@@ -374,18 +405,5 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
             }
         }
         return InteractionResult.sidedSuccess(l.isClientSide);
-    }
-
-    private static void captureAcceptanceEvidence(BlockState state, Level level, BlockPos pos, Player player) {
-        TopologyVisualizationSnapshot topology = EngineeringTopologyView.inspect(level, pos, state);
-        CommissioningSnapshot commissioning = ClosedLoopCommissioning.inspectPid(level, pos);
-        EngineeringAcceptanceSnapshot acceptance = EngineeringAcceptance.evaluate(topology, commissioning);
-        AcceptanceEvidenceRecord record = AcceptanceEvidenceStore.capture(
-                level, pos, level.getGameTime(), state.getValue(TUNING), acceptance);
-        AcceptanceEvidenceComparison comparison = AcceptanceEvidenceStore.compareLatestToPrevious(level, pos).orElse(null);
-
-        String message = "Captured acceptance " + record.compact();
-        if (comparison != null) message += " | " + comparison.compact();
-        player.displayClientMessage(Component.literal(message), true);
     }
 }

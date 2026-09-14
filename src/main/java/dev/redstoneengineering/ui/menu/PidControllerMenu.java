@@ -7,7 +7,11 @@ import dev.redstoneengineering.diagnostics.ClosedLoopCommissioning;
 import dev.redstoneengineering.diagnostics.CommissioningSnapshot;
 import dev.redstoneengineering.diagnostics.CommissioningStatus;
 import dev.redstoneengineering.diagnostics.PidTelemetryStore;
+import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceComparison;
+import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceRecord;
 import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceStore;
+import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceTrend;
+import dev.redstoneengineering.diagnostics.acceptance.EngineeringAcceptanceStatus;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -19,7 +23,7 @@ import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.List;
 
-/** Read-only commissioning telemetry plus bounded server-side tuning and physical route actions. */
+/** Commissioning telemetry plus bounded server-side tuning, routing and acceptance actions. */
 public final class PidControllerMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_TUNING_PREVIOUS = 0;
     public static final int BUTTON_TUNING_NEXT = 1;
@@ -27,6 +31,8 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_INPUT_NEXT = 3;
     public static final int BUTTON_OUTPUT_PREVIOUS = 4;
     public static final int BUTTON_OUTPUT_NEXT = 5;
+    public static final int BUTTON_CAPTURE_ACCEPTANCE = 6;
+    public static final int BUTTON_RESET_RUNTIME_TREND = 7;
     public static final int TREND_SAMPLES = PidTelemetryStore.MAX_SAMPLES_PER_CONTROLLER;
 
     private final DataSlot tuning = trackedInt();
@@ -47,6 +53,12 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     private final DataSlot inhibited = trackedInt();
     private final DataSlot modeTransfers = trackedInt();
     private final DataSlot historyCount = trackedInt();
+    private final DataSlot latestSequence = trackedInt();
+    private final DataSlot latestAcceptanceStatus = trackedInt();
+    private final DataSlot latestAcceptanceScore = trackedInt();
+    private final DataSlot comparisonTrend = trackedInt();
+    private final DataSlot scoreDelta = trackedInt();
+    private final DataSlot topologyIssueDelta = trackedInt();
     private final DataSlot trendCount = trackedInt();
     private final DataSlot[] trend = trackedInts(TREND_SAMPLES);
 
@@ -88,7 +100,25 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
         manualMode.set(snapshot.manualMode() ? 1 : 0);
         inhibited.set(snapshot.inhibited() ? 1 : 0);
         modeTransfers.set(snapshot.modeTransfers());
-        historyCount.set(AcceptanceEvidenceStore.history(level, blockPos).size());
+
+        List<AcceptanceEvidenceRecord> evidence = AcceptanceEvidenceStore.history(level, blockPos);
+        historyCount.set(evidence.size());
+        latestSequence.set(0);
+        latestAcceptanceStatus.set(EngineeringAcceptanceStatus.NOT_READY.ordinal());
+        latestAcceptanceScore.set(0);
+        comparisonTrend.set(-1);
+        scoreDelta.set(0);
+        topologyIssueDelta.set(0);
+        AcceptanceEvidenceStore.latest(level, blockPos).ifPresent(record -> {
+            latestSequence.set((int) Math.min(Integer.MAX_VALUE, record.sequence()));
+            latestAcceptanceStatus.set(record.acceptance().status().ordinal());
+            latestAcceptanceScore.set(record.acceptance().commissioningScore());
+        });
+        AcceptanceEvidenceStore.compareLatestToPrevious(level, blockPos).ifPresent(comparison -> {
+            comparisonTrend.set(comparison.trend().ordinal());
+            scoreDelta.set(comparison.scoreDelta());
+            topologyIssueDelta.set(comparison.topologyIssueDelta());
+        });
 
         List<Integer> samples = PidTelemetryStore.snapshot(level, blockPos);
         int count = Math.min(TREND_SAMPLES, samples.size());
@@ -105,7 +135,11 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
         if (!stillValid(player)) return false;
 
         boolean changed;
-        if (id == BUTTON_INPUT_PREVIOUS || id == BUTTON_INPUT_NEXT) {
+        if (id == BUTTON_CAPTURE_ACCEPTANCE) {
+            changed = PidControllerBlock.captureAcceptanceEvidence(level, blockPos) != null;
+        } else if (id == BUTTON_RESET_RUNTIME_TREND) {
+            changed = PidControllerBlock.resetRuntimeAndTrend(level, blockPos);
+        } else if (id == BUTTON_INPUT_PREVIOUS || id == BUTTON_INPUT_NEXT) {
             changed = DirectionalSignalBlock.rotateSeriesInput(level, blockPos, id == BUTTON_INPUT_NEXT);
         } else if (id == BUTTON_OUTPUT_PREVIOUS || id == BUTTON_OUTPUT_NEXT) {
             changed = DirectionalSignalBlock.rotateSeriesOutput(level, blockPos, id == BUTTON_OUTPUT_NEXT);
@@ -136,7 +170,23 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     public boolean inhibited() { return inhibited.get() != 0; }
     public int modeTransfers() { return modeTransfers.get(); }
     public int historyCount() { return historyCount.get(); }
+    public int latestSequence() { return latestSequence.get(); }
+    public int latestAcceptanceScore() { return latestAcceptanceScore.get(); }
+    public int scoreDelta() { return scoreDelta.get(); }
+    public int topologyIssueDelta() { return topologyIssueDelta.get(); }
     public int trendCount() { return trendCount.get(); }
+
+    public EngineeringAcceptanceStatus latestAcceptanceStatus() {
+        EngineeringAcceptanceStatus[] values = EngineeringAcceptanceStatus.values();
+        int index = Math.max(0, Math.min(values.length - 1, latestAcceptanceStatus.get()));
+        return values[index];
+    }
+
+    public AcceptanceEvidenceTrend comparisonTrend() {
+        AcceptanceEvidenceTrend[] values = AcceptanceEvidenceTrend.values();
+        int index = comparisonTrend.get();
+        return index >= 0 && index < values.length ? values[index] : null;
+    }
 
     public int trendSetpoint(int slot) {
         return PidTelemetryStore.setpoint(trendPacked(slot));
