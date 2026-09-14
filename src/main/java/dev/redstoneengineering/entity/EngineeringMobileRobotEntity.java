@@ -2,7 +2,9 @@ package dev.redstoneengineering.entity;
 
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.robotics.RobotLocalizationQuality;
+import dev.redstoneengineering.robotics.RobotNavigationGraph;
 import dev.redstoneengineering.robotics.RobotOperatingState;
+import dev.redstoneengineering.robotics.RobotRoutePlanner;
 import dev.redstoneengineering.robotics.RobotSafetyAssessment;
 import dev.redstoneengineering.robotics.RobotStateMachine;
 import net.minecraft.core.BlockPos;
@@ -20,11 +22,16 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /** First world-running RSE autonomous mobile robot entity. */
 public final class EngineeringMobileRobotEntity extends Entity {
     private static final double CRUISE_SPEED = 0.12D;
     private static final double ARRIVAL_DISTANCE = 0.45D;
     private static final double OBSTACLE_LOOKAHEAD = 0.80D;
+    private static final double ROUTE_ENTRY_DISTANCE = 1.75D;
+    private static final int MAX_PERSISTED_ROUTE_WAYPOINTS = 256;
 
     private static final EntityDataAccessor<Integer> STATE = SynchedEntityData.defineId(EngineeringMobileRobotEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Boolean> HAS_TARGET = SynchedEntityData.defineId(EngineeringMobileRobotEntity.class, EntityDataSerializers.BOOLEAN);
@@ -33,10 +40,13 @@ public final class EngineeringMobileRobotEntity extends Entity {
     private static final EntityDataAccessor<Integer> TARGET_Z = SynchedEntityData.defineId(EngineeringMobileRobotEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> SAFETY = SynchedEntityData.defineId(EngineeringMobileRobotEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<String> SAFETY_REASON = SynchedEntityData.defineId(EngineeringMobileRobotEntity.class, EntityDataSerializers.STRING);
+    private static final EntityDataAccessor<String> ROUTE_REASON = SynchedEntityData.defineId(EngineeringMobileRobotEntity.class, EntityDataSerializers.STRING);
 
     private RobotLocalizationQuality localization = RobotLocalizationQuality.VALID;
     private boolean driveReady = true;
     private boolean emergencyStopClear = true;
+    private List<RobotNavigationGraph.Node> routeWaypoints = List.of();
+    private int routeIndex;
 
     public EngineeringMobileRobotEntity(EntityType<? extends EngineeringMobileRobotEntity> type, Level level) {
         super(type, level);
@@ -51,6 +61,7 @@ public final class EngineeringMobileRobotEntity extends Entity {
         builder.define(TARGET_Z, 0);
         builder.define(SAFETY, RobotSafetyAssessment.Verdict.SAFE_STOP.ordinal());
         builder.define(SAFETY_REASON, "NO_MISSION");
+        builder.define(ROUTE_REASON, "NO_ROUTE");
     }
 
     public RobotOperatingState robotState() {
@@ -69,17 +80,70 @@ public final class EngineeringMobileRobotEntity extends Entity {
     }
 
     public String safetyReason() { return entityData.get(SAFETY_REASON); }
+    public String routeReason() { return entityData.get(ROUTE_REASON); }
+    public boolean hasExplicitRoute() { return !routeWaypoints.isEmpty(); }
+    public int routeWaypointIndex() { return routeIndex; }
+    public int routeWaypointCount() { return routeWaypoints.size(); }
 
     public void assignTarget(BlockPos target) {
         if (level().isClientSide || target == null) return;
-        entityData.set(TARGET_X, target.getX());
-        entityData.set(TARGET_Y, target.getY());
-        entityData.set(TARGET_Z, target.getZ());
+        routeWaypoints = List.of();
+        routeIndex = 0;
+        entityData.set(ROUTE_REASON, "DIRECT_TARGET");
+        beginMissionTarget(target);
+    }
+
+    /**
+     * Accepts only a route produced from explicit navigation topology. The
+     * robot must already be localized near the declared source node; otherwise
+     * accepting the route would fabricate an unmodeled segment to the graph.
+     */
+    public boolean assignNavigationRoute(RobotNavigationGraph graph, String sourceId, String targetId) {
+        if (level().isClientSide) return false;
+        RobotRoutePlanner.Route route = RobotRoutePlanner.plan(graph, sourceId, targetId);
+        entityData.set(ROUTE_REASON, route.reason());
+        if (!route.available() || graph == null) return false;
+
+        RobotNavigationGraph.Node source = graph.node(sourceId).orElse(null);
+        if (source == null || position().distanceTo(Vec3.atCenterOf(source.position())) > ROUTE_ENTRY_DISTANCE) {
+            entityData.set(ROUTE_REASON, "SOURCE_NOT_LOCALIZED_TO_ROBOT");
+            return false;
+        }
+
+        ArrayList<RobotNavigationGraph.Node> resolved = new ArrayList<>(route.nodeIds().size());
+        for (String nodeId : route.nodeIds()) {
+            RobotNavigationGraph.Node node = graph.node(nodeId).orElse(null);
+            if (node == null) {
+                entityData.set(ROUTE_REASON, "ROUTE_NODE_EVIDENCE_MISSING");
+                return false;
+            }
+            resolved.add(node);
+        }
+        if (resolved.isEmpty() || resolved.size() > MAX_PERSISTED_ROUTE_WAYPOINTS) {
+            entityData.set(ROUTE_REASON, resolved.isEmpty() ? "EMPTY_ROUTE" : "ROUTE_TOO_LONG");
+            return false;
+        }
+
+        routeWaypoints = List.copyOf(resolved);
+        routeIndex = 0;
+        entityData.set(ROUTE_REASON, "FOLLOWING_EXPLICIT_ROUTE");
+        beginMissionTarget(routeWaypoints.getFirst().position());
+        return true;
+    }
+
+    private void beginMissionTarget(BlockPos target) {
+        setCurrentTarget(target);
         entityData.set(HAS_TARGET, true);
         setRobotState(RobotOperatingState.IDLE);
         transition(RobotStateMachine.Event.ASSIGN_MISSION);
         transition(RobotStateMachine.Event.BEGIN_PLANNING);
         transition(RobotStateMachine.Event.ROUTE_READY);
+    }
+
+    private void setCurrentTarget(BlockPos target) {
+        entityData.set(TARGET_X, target.getX());
+        entityData.set(TARGET_Y, target.getY());
+        entityData.set(TARGET_Z, target.getZ());
     }
 
     @Override
@@ -97,10 +161,12 @@ public final class EngineeringMobileRobotEntity extends Entity {
         Vec3 horizontal = new Vec3(target.x - getX(), 0.0D, target.z - getZ());
         if (horizontal.length() <= ARRIVAL_DISTANCE) {
             setDeltaMovement(Vec3.ZERO);
-            entityData.set(HAS_TARGET, false);
-            setRobotState(RobotOperatingState.COMPLETE);
-            entityData.set(SAFETY, RobotSafetyAssessment.Verdict.PERMIT.ordinal());
-            entityData.set(SAFETY_REASON, "MISSION_COMPLETE");
+            if (advanceRouteWaypoint()) {
+                entityData.set(SAFETY, RobotSafetyAssessment.Verdict.PERMIT.ordinal());
+                entityData.set(SAFETY_REASON, "MOTION_PERMIT");
+                return;
+            }
+            completeMission();
             return;
         }
 
@@ -127,6 +193,24 @@ public final class EngineeringMobileRobotEntity extends Entity {
         Vec3 command = direction.scale(CRUISE_SPEED);
         setDeltaMovement(command);
         move(MoverType.SELF, command);
+    }
+
+    private boolean advanceRouteWaypoint() {
+        if (routeWaypoints.isEmpty() || routeIndex + 1 >= routeWaypoints.size()) return false;
+        routeIndex++;
+        setCurrentTarget(routeWaypoints.get(routeIndex).position());
+        entityData.set(ROUTE_REASON, "FOLLOWING_EXPLICIT_ROUTE");
+        return true;
+    }
+
+    private void completeMission() {
+        entityData.set(HAS_TARGET, false);
+        setRobotState(RobotOperatingState.COMPLETE);
+        entityData.set(SAFETY, RobotSafetyAssessment.Verdict.PERMIT.ordinal());
+        entityData.set(SAFETY_REASON, "MISSION_COMPLETE");
+        if (!routeWaypoints.isEmpty()) entityData.set(ROUTE_REASON, "ROUTE_COMPLETE");
+        routeWaypoints = List.of();
+        routeIndex = 0;
     }
 
     private void applySafetyHold(RobotSafetyAssessment.Snapshot safety) {
@@ -184,6 +268,16 @@ public final class EngineeringMobileRobotEntity extends Entity {
         tag.putString("Localization", localization.name());
         tag.putBoolean("DriveReady", driveReady);
         tag.putBoolean("EmergencyStopClear", emergencyStopClear);
+        tag.putString("RouteReason", routeReason());
+        tag.putInt("RouteCount", routeWaypoints.size());
+        tag.putInt("RouteIndex", routeIndex);
+        for (int i = 0; i < routeWaypoints.size(); i++) {
+            RobotNavigationGraph.Node waypoint = routeWaypoints.get(i);
+            tag.putString("RouteNode" + i, waypoint.id());
+            tag.putInt("RouteX" + i, waypoint.position().getX());
+            tag.putInt("RouteY" + i, waypoint.position().getY());
+            tag.putInt("RouteZ" + i, waypoint.position().getZ());
+        }
     }
 
     @Override
@@ -196,6 +290,47 @@ public final class EngineeringMobileRobotEntity extends Entity {
         catch (IllegalArgumentException ignored) { localization = RobotLocalizationQuality.LOST; }
         driveReady = tag.getBoolean("DriveReady");
         emergencyStopClear = tag.getBoolean("EmergencyStopClear");
+        String persistedRouteReason = tag.getString("RouteReason");
+        entityData.set(ROUTE_REASON, persistedRouteReason.isBlank() ? "NO_ROUTE" : persistedRouteReason);
+        restoreRoute(tag);
+    }
+
+    private void restoreRoute(CompoundTag tag) {
+        int count = tag.getInt("RouteCount");
+        if (count <= 0) {
+            routeWaypoints = List.of();
+            routeIndex = 0;
+            return;
+        }
+        if (count > MAX_PERSISTED_ROUTE_WAYPOINTS) {
+            invalidatePersistedRoute("PERSISTED_ROUTE_TOO_LONG");
+            return;
+        }
+
+        ArrayList<RobotNavigationGraph.Node> restored = new ArrayList<>(count);
+        try {
+            for (int i = 0; i < count; i++) {
+                String nodeId = tag.getString("RouteNode" + i);
+                BlockPos position = new BlockPos(tag.getInt("RouteX" + i), tag.getInt("RouteY" + i), tag.getInt("RouteZ" + i));
+                restored.add(new RobotNavigationGraph.Node(nodeId, position));
+            }
+        } catch (IllegalArgumentException ignored) {
+            invalidatePersistedRoute("PERSISTED_ROUTE_INVALID");
+            return;
+        }
+
+        routeWaypoints = List.copyOf(restored);
+        routeIndex = Math.max(0, Math.min(routeWaypoints.size() - 1, tag.getInt("RouteIndex")));
+        setCurrentTarget(routeWaypoints.get(routeIndex).position());
+        entityData.set(HAS_TARGET, true);
+    }
+
+    private void invalidatePersistedRoute(String reason) {
+        routeWaypoints = List.of();
+        routeIndex = 0;
+        entityData.set(HAS_TARGET, false);
+        entityData.set(ROUTE_REASON, reason);
+        setRobotState(RobotOperatingState.SAFE_STOP);
     }
 
     @Override public boolean isPickable() { return true; }
