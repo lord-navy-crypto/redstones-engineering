@@ -6,6 +6,7 @@ import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.ui.menu.RedstoneEncyclopediaMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -30,11 +31,13 @@ public final class RedstoneEncyclopediaScreen extends AbstractContainerScreen<Re
     private static final int MUTED = 0xFF6A5842;
     private static final int ACCENT = 0xFF9A2C2C;
     private final List<Block> blocks;
+    private List<Block> filteredBlocks;
     private int page;
     private boolean configurationView;
     private Button previousButton;
     private Button nextButton;
     private Button viewButton;
+    private EditBox searchBox;
 
     public RedstoneEncyclopediaScreen(RedstoneEncyclopediaMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -44,11 +47,18 @@ public final class RedstoneEncyclopediaScreen extends AbstractContainerScreen<Re
                 .filter(block -> RedstoneEngineering.MOD_ID.equals(BuiltInRegistries.BLOCK.getKey(block).getNamespace()))
                 .sorted(Comparator.comparing(block -> BuiltInRegistries.BLOCK.getKey(block).toString()))
                 .toList();
+        filteredBlocks = blocks;
     }
 
     @Override
     protected void init() {
         super.init();
+        searchBox = addRenderableWidget(new EditBox(font, leftPos + 170, topPos + 11, 126, 16,
+                Component.literal("Search engineering blocks")));
+        searchBox.setHint(Component.literal("Search blocks..."));
+        searchBox.setMaxLength(64);
+        searchBox.setResponder(this::applyFilter);
+
         previousButton = addRenderableWidget(Button.builder(Component.literal("Prev"), button -> changePage(-1))
                 .bounds(leftPos + 14, topPos + imageHeight - 27, 48, 20).build());
         nextButton = addRenderableWidget(Button.builder(Component.literal("Next"), button -> changePage(1))
@@ -62,17 +72,46 @@ public final class RedstoneEncyclopediaScreen extends AbstractContainerScreen<Re
         refreshNavigationButtons();
     }
 
+    private void applyFilter(String query) {
+        String needle = query.trim().toLowerCase(Locale.ROOT);
+        if (needle.isEmpty()) {
+            filteredBlocks = blocks;
+            page = 0;
+        } else {
+            filteredBlocks = blocks.stream()
+                    .filter(block -> {
+                        String id = BuiltInRegistries.BLOCK.getKey(block).toString();
+                        String name = block.getName().getString().toLowerCase(Locale.ROOT);
+                        return id.toLowerCase(Locale.ROOT).contains(needle)
+                                || name.contains(needle)
+                                || role(id).toLowerCase(Locale.ROOT).contains(needle);
+                    })
+                    .toList();
+            page = filteredBlocks.isEmpty() ? 0 : 1;
+        }
+        configurationView = false;
+        refreshNavigationButtons();
+    }
+
+    private boolean searchActive() {
+        return searchBox != null && !searchBox.getValue().trim().isEmpty();
+    }
+
+    private int minimumPage() {
+        return searchActive() && !filteredBlocks.isEmpty() ? 1 : 0;
+    }
+
     private void changePage(int delta) {
-        page = Math.max(0, Math.min(blocks.size(), page + delta));
+        page = Math.max(minimumPage(), Math.min(filteredBlocks.size(), page + delta));
         configurationView = false;
         refreshNavigationButtons();
     }
 
     private void refreshNavigationButtons() {
-        if (previousButton != null) previousButton.active = page > 0;
-        if (nextButton != null) nextButton.active = page < blocks.size();
+        if (previousButton != null) previousButton.active = page > minimumPage();
+        if (nextButton != null) nextButton.active = page < filteredBlocks.size();
         if (viewButton == null) return;
-        viewButton.active = page != 0;
+        viewButton.active = page != 0 && !filteredBlocks.isEmpty();
         viewButton.setMessage(Component.literal(configurationView ? "Guide" : "Ports / Config"));
     }
 
@@ -85,11 +124,23 @@ public final class RedstoneEncyclopediaScreen extends AbstractContainerScreen<Re
 
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
-        if (page == 0) renderIntroduction(graphics);
-        else if (configurationView) renderConfigurationPage(graphics, blocks.get(page - 1));
-        else renderGuidePage(graphics, blocks.get(page - 1));
-        String footer = "Entry " + page + " / " + blocks.size();
+        if (page == 0 && searchActive()) renderNoMatches(graphics);
+        else if (page == 0) renderIntroduction(graphics);
+        else if (configurationView) renderConfigurationPage(graphics, filteredBlocks.get(page - 1));
+        else renderGuidePage(graphics, filteredBlocks.get(page - 1));
+
+        String footer = searchActive()
+                ? filteredBlocks.isEmpty() ? "0 matches / " + blocks.size() + " entries"
+                : "Match " + page + " / " + filteredBlocks.size() + " • " + blocks.size() + " total"
+                : "Entry " + page + " / " + blocks.size();
         graphics.drawString(font, footer, (imageWidth - font.width(footer)) / 2, imageHeight - 25, MUTED, false);
+    }
+
+    private void renderNoMatches(GuiGraphics graphics) {
+        graphics.drawString(font, Component.literal("NO MATCHES"), 18, 40, ACCENT, false);
+        drawWrapped(graphics,
+                "No registered RSE block matches the current name, registry id, or engineering role. Refine the search or clear it to return to the full live registry.",
+                18, 60, 278, INK, 10);
     }
 
     private void renderIntroduction(GuiGraphics graphics) {
