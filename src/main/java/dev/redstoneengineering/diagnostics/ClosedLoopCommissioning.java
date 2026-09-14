@@ -17,7 +17,43 @@ public final class ClosedLoopCommissioning {
     private ClosedLoopCommissioning() {}
 
     public static CommissioningSnapshot inspectPid(Level level, BlockPos pidPos) {
-        return fromPidRuntime(RuntimeIntStore.peek(level, PID_KEY, pidPos), level.getGameTime());
+        CommissioningSnapshot controller = fromPidRuntime(
+                RuntimeIntStore.peek(level, PID_KEY, pidPos), level.getGameTime());
+        if (!controller.available()) return controller;
+
+        PneumaticClosedLoopWitness.Snapshot plant = PneumaticClosedLoopWitness.inspect(level, pidPos);
+        if (!plant.detected()) return controller;
+        return combineWithPneumaticPlant(controller, plant);
+    }
+
+    /** Read-only plant evidence for HMI/diagnostic surfaces that need to explain the system verdict. */
+    public static PneumaticClosedLoopWitness.Snapshot inspectPneumaticPlant(Level level, BlockPos pidPos) {
+        return PneumaticClosedLoopWitness.inspect(level, pidPos);
+    }
+
+    /**
+     * Adds a conservative pneumatic-plant penalty only when an explicit cylinder feedback witness
+     * exists. Generic PID loops retain their original commissioning semantics unchanged.
+     */
+    public static CommissioningSnapshot combineWithPneumaticPlant(
+            CommissioningSnapshot controller,
+            PneumaticClosedLoopWitness.Snapshot plant
+    ) {
+        if (controller == null || plant == null || !controller.available() || !plant.detected()) {
+            return controller;
+        }
+
+        if (!plant.ready()) {
+            return copyWith(controller, controller.score(), CommissioningStatus.RUNNING);
+        }
+
+        int combinedScore = Math.max(0, controller.score() - plant.penalty());
+        CommissioningStatus combinedStatus = worse(controller.status(), plant.plantStatus());
+        if (combinedStatus == CommissioningStatus.PASS) {
+            if (combinedScore < 50) combinedStatus = CommissioningStatus.FAIL;
+            else if (combinedScore < 75) combinedStatus = CommissioningStatus.MARGINAL;
+        }
+        return copyWith(controller, combinedScore, combinedStatus);
     }
 
     /** Converts the established Alpha PID runtime layout into a stable diagnostic contract. */
@@ -95,6 +131,40 @@ public final class ClosedLoopCommissioning {
                 saturationIncrease,
                 robust
         );
+    }
+
+    private static CommissioningSnapshot copyWith(
+            CommissioningSnapshot source,
+            int score,
+            CommissioningStatus status
+    ) {
+        return new CommissioningSnapshot(
+                source.available(),
+                source.setpoint(),
+                source.processValue(),
+                source.controlOutput(),
+                source.error(),
+                source.rise90Ticks(),
+                source.settlingTicks(),
+                source.overshoot(),
+                source.saturationEvents(),
+                source.stepAgeTicks(),
+                source.stepActive(),
+                source.manualMode(),
+                source.inhibited(),
+                source.modeTransfers(),
+                score,
+                status
+        );
+    }
+
+    private static CommissioningStatus worse(CommissioningStatus controller, CommissioningStatus plant) {
+        if (controller == CommissioningStatus.FAIL || plant == CommissioningStatus.FAIL) return CommissioningStatus.FAIL;
+        if (controller == CommissioningStatus.MARGINAL || plant == CommissioningStatus.MARGINAL) return CommissioningStatus.MARGINAL;
+        if (controller == CommissioningStatus.UNAVAILABLE || plant == CommissioningStatus.UNAVAILABLE) return CommissioningStatus.UNAVAILABLE;
+        if (controller == CommissioningStatus.RUNNING || plant == CommissioningStatus.RUNNING) return CommissioningStatus.RUNNING;
+        if (controller == CommissioningStatus.IDLE || plant == CommissioningStatus.IDLE) return CommissioningStatus.IDLE;
+        return CommissioningStatus.PASS;
     }
 
     private static int score(int error, int settling, int overshoot, int saturationEvents, int stepAge, boolean active) {
