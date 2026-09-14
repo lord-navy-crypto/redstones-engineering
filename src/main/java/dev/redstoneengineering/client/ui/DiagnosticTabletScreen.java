@@ -88,9 +88,38 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
             if (lines[i].startsWith("STATUS:") || lines[i].startsWith("MODE:")) continue;
             y = drawWrapped(graphics, lines[i], 18, y, imageWidth - 36, lineColor(lines[i], i), 10);
         }
-        String footer = "Snapshot " + (page + 1) + " / " + history.size() + " • newest = 1";
+        String footer = "Snapshot " + (page + 1) + " / " + history.size() + " • " + chronologyCue(history);
         graphics.drawString(font, footer, 108, imageHeight - 40, MUTED, false);
     }
+
+    private String chronologyCue(List<String> history) {
+        if (page == 0) return "NEWEST";
+        SnapshotContext newest = snapshotContext(history.get(0));
+        SnapshotContext selected = snapshotContext(history.get(page));
+        if (newest == null || selected == null) return "RETAINED";
+        if (!newest.dimension().equals(selected.dimension())) return "CROSS-DIMENSION";
+        long delta = newest.tick() - selected.tick();
+        return delta >= 0 ? "Δt=" + delta + " ticks" : "RETAINED";
+    }
+
+    private static SnapshotContext snapshotContext(String snapshot) {
+        String context = findLine(snapshot.split("\\n"), "CONTEXT:");
+        String dimensionPrefix = "dimension=";
+        String tickSeparator = " • tick=";
+        int dimensionStart = context.indexOf(dimensionPrefix);
+        int tickStart = context.indexOf(tickSeparator);
+        if (dimensionStart < 0 || tickStart < dimensionStart) return null;
+        String dimension = context.substring(dimensionStart + dimensionPrefix.length(), tickStart).trim();
+        String tickText = context.substring(tickStart + tickSeparator.length()).trim();
+        if (dimension.isBlank() || tickText.isBlank()) return null;
+        try {
+            return new SnapshotContext(dimension, Long.parseLong(tickText));
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private record SnapshotContext(String dimension, long tick) {}
 
     private void drawStatusBadge(GuiGraphics graphics, String status) {
         boolean issue = status.contains("CHECK TOPOLOGY");
