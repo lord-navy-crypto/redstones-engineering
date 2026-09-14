@@ -81,7 +81,6 @@ public class WatchdogBlock extends PassiveDirectionalSignalBlock {
         if (heartbeat.valid()) {
             int now = heartbeat.value();
             if (rt[SOURCE_SEEN] == 0) {
-                // A source appearing is only a baseline. It is not a fabricated heartbeat edge.
                 rt[LAST_VALUE] = now;
                 rt[SOURCE_SEEN] = 1;
                 rt[AGE] = Math.min(12000, rt[AGE] + 2);
@@ -93,7 +92,6 @@ public class WatchdogBlock extends PassiveDirectionalSignalBlock {
                 rt[AGE] = Math.min(12000, rt[AGE] + 2);
             }
         } else {
-            // Unknown/missing coverage cannot masquerade as a LOW transition.
             rt[SOURCE_SEEN] = 0;
             rt[AGE] = Math.min(12000, rt[AGE] + 2);
         }
@@ -122,6 +120,15 @@ public class WatchdogBlock extends PassiveDirectionalSignalBlock {
         return rt == null || rt.length <= TIMEOUTS ? 0 : rt[TIMEOUTS];
     }
 
+    public boolean resetDiagnostics(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (!state.is(this)) return false;
+        RuntimeIntStore.remove(level, KEY, pos);
+        updateOutput(level, pos, state, 0);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, this, 2);
+        return true;
+    }
+
     @Override protected void onPlace(BlockState s, Level l, BlockPos p, BlockState o, boolean m) { super.onPlace(s,l,p,o,m); if(l instanceof ServerLevel sl) sl.scheduleTick(p,this,2); }
     @Override protected void tick(BlockState s, ServerLevel l, BlockPos p, RandomSource r) { sample(l,p,s); l.scheduleTick(p,this,2); }
 
@@ -134,8 +141,7 @@ public class WatchdogBlock extends PassiveDirectionalSignalBlock {
     @Override protected InteractionResult useWithoutItem(BlockState s, Level l, BlockPos p, Player pl, BlockHitResult h) {
         if (!l.isClientSide && pl instanceof ServerPlayer serverPlayer) {
             if (pl.isShiftKeyDown()) {
-                RuntimeIntStore.remove(l, KEY, p);
-                updateOutput(l,p,s,0);
+                resetDiagnostics(l, p);
                 pl.displayClientMessage(net.minecraft.network.chat.Component.literal("Watchdog diagnostics reset"), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, p);
