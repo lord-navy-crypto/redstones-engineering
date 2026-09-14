@@ -6,6 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ROBOTICS = ROOT / "src/main/java/dev/redstoneengineering/robotics"
 SNAPSHOT = ROBOTICS / "RobotMaterialTransferSnapshot.java"
 ASSESSMENT = ROBOTICS / "RobotMaterialTransferAssessment.java"
+RUNTIME = ROBOTICS / "RobotMaterialFlowRuntime.java"
 errors = []
 
 def read(path):
@@ -20,6 +21,7 @@ def req(text, needle, label):
 
 snapshot = read(SNAPSHOT)
 assessment = read(ASSESSMENT)
+runtime = read(RUNTIME)
 
 for needle in (
     "String transferId",
@@ -63,8 +65,25 @@ for needle in (
 ):
     req(assessment, needle, "RobotMaterialTransferAssessment.java")
 
-# This layer is evidence-only. It must not mutate inventories, entities, blocks,
-# or claim AMR lifecycle completion by itself.
+for needle in (
+    "RobotOperatingState current",
+    "RobotDockSnapshot dock",
+    "RobotMaterialTransferSnapshot transfer",
+    "String robotId",
+    "current != RobotOperatingState.LOADING",
+    "RobotDockAssessment.Phase.TRANSFER",
+    "RobotMaterialTransferAssessment.inspect(",
+    "RobotStateMachine.Event.CRITICAL_FAULT",
+    "RobotStateMachine.Event.SAFETY_STOP_REQUESTED",
+    "RobotStateMachine.Event.LOAD_COMPLETE",
+    "RobotOperatingState.TRANSPORTING",
+    "TRANSFER_NOT_EVALUATED",
+    "advancesToTransport()",
+):
+    req(runtime, needle, "RobotMaterialFlowRuntime.java")
+
+# Evidence classes remain observer-only. Runtime may compute lifecycle transitions
+# but still must not mutate world/inventory/entity state itself.
 for label, text in (("RobotMaterialTransferSnapshot.java", snapshot), ("RobotMaterialTransferAssessment.java", assessment)):
     for forbidden in (
         "setBlock(",
@@ -79,6 +98,19 @@ for label, text in (("RobotMaterialTransferSnapshot.java", snapshot), ("RobotMat
         if forbidden in text:
             errors.append(f"{label}: material evidence layer must remain observer-safe; unexpected {forbidden!r}")
 
+for forbidden in (
+    "setBlock(",
+    "setDeltaMovement(",
+    "move(MoverType",
+    "ItemStack",
+    "IItemHandler",
+    "insertItem(",
+    "extractItem(",
+    "setRobotState(",
+):
+    if forbidden in runtime:
+        errors.append(f"RobotMaterialFlowRuntime.java must remain a pure decision bridge; unexpected {forbidden!r}")
+
 if errors:
     print("RSE ROBOTICS MATERIAL FLOW VERIFY: FAIL")
     for error in errors:
@@ -90,4 +122,5 @@ print("  transfer evidence is identity-bound to transfer, dock, and robot")
 print("  requested/transferred quantities are bounded and fail closed")
 print("  completion requires valid evidence + source + destination + completion confirmation")
 print("  partial transfer remains WAIT; confirmed quantity mismatch becomes SAFE_STOP")
-print("  semantic layer does not mutate inventory/world state or emit LOAD_COMPLETE")
+print("  runtime bridge requires LOADING + dock TRANSFER permit + material COMPLETE before LOAD_COMPLETE")
+print("  runtime bridge computes next state without mutating inventory/world/entity state")
