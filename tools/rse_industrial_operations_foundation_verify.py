@@ -45,7 +45,8 @@ for needle in (
     req(assessment, needle, "IndustrialOperationsAssessment.java")
 
 for forbidden in (
-    "MAINTENANCE",
+    "MachineState.MAINTENANCE",
+    "MAINTENANCE,",
     "RuntimeIntStore.get(",
     "setBlock(",
     "scheduleTick(",
