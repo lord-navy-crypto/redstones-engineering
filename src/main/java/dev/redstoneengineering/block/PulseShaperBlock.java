@@ -78,16 +78,28 @@ public class PulseShaperBlock extends DirectionalSignalBlock {
         return rt != null && rt[2] == 1;
     }
 
+    /** Shared authoritative operator action used by both HMI and Shift-right-click. */
+    public static boolean stepWidth(Level level, BlockPos pos, boolean forward) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof PulseShaperBlock shaper)) return false;
+        int width = state.getValue(WIDTH);
+        int nextWidth = forward ? (width >= 8 ? 1 : width + 1) : (width <= 1 ? 8 : width - 1);
+        level.setBlock(pos, state.setValue(WIDTH, nextWidth), Block.UPDATE_CLIENTS);
+        level.scheduleTick(pos, shaper, 1);
+        return true;
+    }
+
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (!player.isShiftKeyDown()) {
                 FieldDeviceUi.open(serverPlayer, pos);
                 return InteractionResult.CONSUME;
             }
-            int width = state.getValue(WIDTH); width = width >= 8 ? 1 : width + 1;
-            BlockState next = state.setValue(WIDTH, width); level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            player.displayClientMessage(Component.literal(
-                    "Pulse Shaper | one-shot width=" + width + "t | remaining=" + pulseRemaining(level, pos) + "t"), true);
+            if (stepWidth(level, pos, true)) {
+                int width = level.getBlockState(pos).getValue(WIDTH);
+                player.displayClientMessage(Component.literal(
+                        "Pulse Shaper | one-shot width=" + width + "t | remaining=" + pulseRemaining(level, pos) + "t"), true);
+            }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
