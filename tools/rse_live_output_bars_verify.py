@@ -36,7 +36,15 @@ thresholds = {
     4: set(range(13, 16)),
 }
 
-for block_id in ("sample_hold", "pwm_controller", "calibration_module"):
+blocks = (
+    "sample_hold",
+    "pwm_controller",
+    "calibration_module",
+    "signal_conditioner",
+    "edge_detector",
+    "pulse_shaper",
+)
+for block_id in blocks:
     state = read_json(f"blockstates/{block_id}.json")
     parts = state.get("multipart", []) if isinstance(state, dict) else []
     for segment, expected in thresholds.items():
@@ -62,4 +70,5 @@ if errors:
 print("RSE live output bars verification: PASS")
 print(" sample hold: 4-step held-output bar from authoritative output BlockState")
 print(" calibration: 4-step calibrated-output bar from authoritative output BlockState")
-print(" PWM: LOW=dark / HIGH=all four segments via authoritative output BlockState")
+print(" signal conditioner: 4-step processed-output bar from authoritative output BlockState")
+print(" PWM / edge detector / pulse shaper: LOW=dark / HIGH=all four segments via authoritative output BlockState")
