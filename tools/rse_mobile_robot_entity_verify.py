@@ -19,6 +19,14 @@ for n in ('extends Entity','RobotStateMachine.next(','RobotSafetyAssessment.insp
     req(ent,n,'EngineeringMobileRobotEntity.java')
 for n in ('assignNavigationRoute(RobotNavigationGraph graph, String sourceId, String targetId)','RobotRoutePlanner.plan(graph, sourceId, targetId)','SOURCE_NOT_LOCALIZED_TO_ROBOT','ROUTE_NODE_EVIDENCE_MISSING','FOLLOWING_EXPLICIT_ROUTE','advanceRouteWaypoint()','ROUTE_COMPLETE','RouteCount','RouteIndex','restoreRoute(tag)','PERSISTED_ROUTE_INVALID'):
     req(ent,n,'EngineeringMobileRobotEntity.java route execution')
+for n in ('RobotDockAssessment.inspect(dock, robotIdentity(), phase)','beginDocking(RobotDockSnapshot dock)','confirmDocked(RobotDockSnapshot dock)','DOCK_POSITION_MISMATCH','ROBOT_NOT_CONFIRMED_DOCKED','dock.occupiedBy(robotIdentity())','RobotStateMachine.Event.ARRIVE_DOCK','RobotStateMachine.Event.DOCKED','DOCK_APPROACH_COMPLETE','RobotOperatingState.DOCKING || robotState() == RobotOperatingState.LOADING','DOCK_HANDSHAKE'):
+    req(ent,n,'EngineeringMobileRobotEntity.java dock runtime')
+if 'RobotStateMachine.Event.LOAD_COMPLETE' in ent:
+    errors.append('EngineeringMobileRobotEntity.java dock runtime must not claim LOAD_COMPLETE before Material Flow owns transfer completion evidence')
+if ent.count('RobotStateMachine.Event.ARRIVE_DOCK') != 1:
+    errors.append('EngineeringMobileRobotEntity.java must have exactly one guarded ARRIVE_DOCK transition')
+if ent.count('RobotStateMachine.Event.DOCKED') != 1:
+    errors.append('EngineeringMobileRobotEntity.java must have exactly one occupancy-confirmed DOCKED transition')
 for n in ('dist = Dist.CLIENT','EntityRenderersEvent.RegisterRenderers','RoboticsEntityModule.ENGINEERING_MOBILE_ROBOT.get()','EngineeringMobileRobotRenderer::new'):
     req(client,n,'RoboticsClientModule.java')
 for n in ('extends EntityRenderer<EngineeringMobileRobotEntity>','BlockRenderDispatcher','chassisState(robot.robotState())','case FAULT, SAFE_STOP','case WAITING, REPLANNING, DEGRADED','Blocks.COPPER_BLOCK.defaultBlockState()','TextureAtlas.LOCATION_BLOCKS'):
@@ -38,5 +46,8 @@ print('  registered AMR entity consumes shared robotics state/safety contracts')
 print('  target movement is safety-gated and collision-aware')
 print('  explicit planned routes are source-anchored, waypoint-followed, and persisted')
 print('  route execution does not scan the world or force-load topology')
+print('  dock runtime consumes shared dock assessment and requires physical position consistency')
+print('  DOCKING begins only on approach permit; LOADING requires exact AMR occupancy confirmation')
+print('  transfer completion remains intentionally deferred to Material Flow evidence')
 print('  entity registry uses the NeoForge 1.21.1 generic DeferredRegister contract')
 print('  client renderer exposes heading plus synchronized nominal/waiting/fault state without a second solver')
