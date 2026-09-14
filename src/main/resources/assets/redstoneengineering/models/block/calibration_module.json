@@ -5,46 +5,22 @@
     "back": "redstoneengineering:block/calibration_module_back",
     "side": "redstoneengineering:block/calibration_module_side",
     "top": "redstoneengineering:block/calibration_module_top",
+    "reference": "redstoneengineering:block/redstone_reference_source",
     "particle": "redstoneengineering:block/calibration_module_side"
   },
   "elements": [
     {
-      "from": [
-        0,
-        0,
-        0
-      ],
-      "to": [
-        16,
-        16,
-        16
-      ],
+      "from": [0, 0, 0], "to": [16, 16, 16],
       "faces": {
-        "north": {
-          "texture": "#front",
-          "cullface": "north"
-        },
-        "south": {
-          "texture": "#back",
-          "cullface": "south"
-        },
-        "east": {
-          "texture": "#side",
-          "cullface": "east"
-        },
-        "west": {
-          "texture": "#side",
-          "cullface": "west"
-        },
-        "up": {
-          "texture": "#top",
-          "cullface": "up"
-        },
-        "down": {
-          "texture": "#side",
-          "cullface": "down"
-        }
+        "north": {"texture": "#front", "cullface": "north"},
+        "south": {"texture": "#back", "cullface": "south"},
+        "east": {"texture": "#side", "cullface": "east"},
+        "west": {"texture": "#side", "cullface": "west"},
+        "up": {"texture": "#top", "cullface": "up"},
+        "down": {"texture": "#side", "cullface": "down"}
       }
-    }
+    },
+    {"from": [-0.35, 4, 5], "to": [0.35, 12, 7], "faces": {"west": {"texture": "#reference"}, "east": {"texture": "#reference"}}},
+    {"from": [-0.35, 4, 9], "to": [0.35, 12, 11], "faces": {"west": {"texture": "#reference"}, "east": {"texture": "#reference"}}}
   ]
 }

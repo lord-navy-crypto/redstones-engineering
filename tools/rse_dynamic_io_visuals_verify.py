@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""Verify world-visible routing and live status overlays for engineering system blocks."""
+"""Verify world-visible routing and synchronized status/config overlays for engineering system blocks."""
 from pathlib import Path
 import json
-import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "src/main/resources/assets/redstoneengineering"
@@ -53,41 +52,50 @@ def verify_route(name: str, items: list[dict]) -> None:
             errors.append(f"{name}: missing RX marker for input_facing={direction} y={rotation}")
 
 
+def verify_cumulative(items: list[dict], name: str, prop: str, conditions: tuple[tuple[str, str], ...]) -> None:
+    for condition, model in conditions:
+        if not has_part(items, prop, condition, f"redstoneengineering:block/{model}"):
+            errors.append(f"{name}: missing {prop}={condition} overlay {model}")
+
+
 sequence = parts("sequence_controller")
 interlock = parts("safety_interlock")
 alarm = parts("alarm_processor")
 topology = parts("topology_debugger")
 fault = parts("fault_injector")
-verify_route("sequence_controller", sequence)
-verify_route("safety_interlock", interlock)
-verify_route("alarm_processor", alarm)
-verify_route("fault_injector", fault)
+sample = parts("sample_hold")
+pwm = parts("pwm_controller")
+calibration = parts("calibration_module")
 
-sequence_steps = (
+for name, items in (
+    ("sequence_controller", sequence),
+    ("safety_interlock", interlock),
+    ("alarm_processor", alarm),
+    ("fault_injector", fault),
+    ("sample_hold", sample),
+    ("pwm_controller", pwm),
+    ("calibration_module", calibration),
+):
+    verify_route(name, items)
+
+verify_cumulative(sequence, "sequence_controller", "output", (
     ("1|2|3|4", "sequence_step_1"),
     ("2|3|4", "sequence_step_2"),
     ("3|4", "sequence_step_3"),
     ("4", "sequence_step_4"),
-)
-for condition, model in sequence_steps:
-    if not has_part(sequence, "output", condition, f"redstoneengineering:block/{model}"):
-        errors.append(f"sequence_controller: missing cumulative output={condition} overlay {model}")
+))
 
 for output, model in (("0", "interlock_blocked_indicator"), ("15", "interlock_permit_indicator")):
     if not has_part(interlock, "output", output, f"redstoneengineering:block/{model}"):
         errors.append(f"safety_interlock: missing output={output} overlay {model}")
 
-for output, model in (
+verify_cumulative(alarm, "alarm_processor", "output", (
     ("0", "alarm_clear_indicator"),
     ("5|10|15", "alarm_severity_1"),
     ("10|15", "alarm_severity_2"),
     ("15", "alarm_severity_3"),
-):
-    if not has_part(alarm, "output", output, f"redstoneengineering:block/{model}"):
-        errors.append(f"alarm_processor: missing output={output} overlay {model}")
+))
 
-# Fault mode is synchronized BlockState. ARM is integrated into the device's local +X/right face,
-# so the same audited facing rotation that turns the device also turns the ARM marker.
 for mode in range(4):
     model = f"fault_mode_{mode}"
     if not has_part(fault, "mode", str(mode), f"redstoneengineering:block/{model}"):
@@ -98,6 +106,44 @@ if fault_textures.get("arm") != "redstoneengineering:block/redstone_reference_so
     errors.append("fault_injector: integrated ARM marker must use the RSE redstone reference texture")
 if len(fault_model.get("elements", [])) < 3:
     errors.append("fault_injector: expected base geometry plus integrated ARM cross geometry")
+
+verify_cumulative(sample, "sample_hold", "trigger_mode", (
+    ("0|1|2", "config_segment_1"),
+    ("1|2", "config_segment_2"),
+    ("2", "config_segment_3"),
+))
+sample_model = load(MODELS / "sample_hold.json")
+if sample_model.get("textures", {}).get("control") != "redstoneengineering:block/redstone_reference_source":
+    errors.append("sample_hold: TRIGGER/RESET markers must use RSE control texture")
+if len(sample_model.get("elements", [])) < 4:
+    errors.append("sample_hold: expected base + left TRIGGER + right RESET cross geometry")
+
+verify_cumulative(pwm, "pwm_controller", "period_mode", (
+    ("0|1|2|3", "config_segment_1"),
+    ("1|2|3", "config_segment_2"),
+    ("2|3", "config_segment_3"),
+    ("3", "config_segment_4"),
+))
+if not has_part(pwm, "invert", "true", "redstoneengineering:block/config_invert_indicator"):
+    errors.append("pwm_controller: missing invert=true world indicator")
+pwm_model = load(MODELS / "pwm_controller.json")
+if pwm_model.get("textures", {}).get("control") != "redstoneengineering:block/redstone_reference_source":
+    errors.append("pwm_controller: INHIBIT marker must use RSE control texture")
+if len(pwm_model.get("elements", [])) < 2:
+    errors.append("pwm_controller: expected base + integrated INHIBIT geometry")
+
+verify_cumulative(calibration, "calibration_module", "profile", (
+    ("0|1|2|3|4", "config_segment_1"),
+    ("1|2|3|4", "config_segment_2"),
+    ("2|3|4", "config_segment_3"),
+    ("3|4", "config_segment_4"),
+    ("4", "config_segment_5"),
+))
+calibration_model = load(MODELS / "calibration_module.json")
+if calibration_model.get("textures", {}).get("reference") != "redstoneengineering:block/redstone_reference_source":
+    errors.append("calibration_module: REFERENCE marker must use RSE reference texture")
+if len(calibration_model.get("elements", [])) < 3:
+    errors.append("calibration_module: expected base + integrated REFERENCE geometry")
 
 # Topology debugger scans the face opposite its alarm-output facing.
 tx_rotations = {"north": 0, "east": 90, "south": 180, "west": 270}
@@ -116,22 +162,13 @@ required_models = (
     "engineering_rx_marker",
     "engineering_tx_marker",
     "engineering_scan_marker",
-    "sequence_step_1",
-    "sequence_step_2",
-    "sequence_step_3",
-    "sequence_step_4",
-    "interlock_blocked_indicator",
-    "interlock_permit_indicator",
-    "alarm_clear_indicator",
-    "alarm_severity_1",
-    "alarm_severity_2",
-    "alarm_severity_3",
-    "fault_mode_0",
-    "fault_mode_1",
-    "fault_mode_2",
-    "fault_mode_3",
-    "topology_nominal_indicator",
-    "topology_issue_indicator",
+    "sequence_step_1", "sequence_step_2", "sequence_step_3", "sequence_step_4",
+    "interlock_blocked_indicator", "interlock_permit_indicator",
+    "alarm_clear_indicator", "alarm_severity_1", "alarm_severity_2", "alarm_severity_3",
+    "fault_mode_0", "fault_mode_1", "fault_mode_2", "fault_mode_3",
+    "config_segment_1", "config_segment_2", "config_segment_3", "config_segment_4", "config_segment_5",
+    "config_invert_indicator",
+    "topology_nominal_indicator", "topology_issue_indicator",
 )
 for model in required_models:
     data = load(MODELS / f"{model}.json")
@@ -149,5 +186,8 @@ print(" sequence controller: world-visible RX/TX + cumulative STEP 1..4 indicato
 print(" safety interlock: world-visible RX/TX + BLOCKED/PERMIT indicators")
 print(" alarm processor: world-visible RX/TX + CLEAR/severity 1..3 indicators")
 print(" fault injector: world-visible RX/TX + integrated ARM + configured mode 0..3 indicators")
+print(" sample & hold: RX/TX + integrated TRIGGER/RESET + trigger-mode segments")
+print(" PWM controller: RX/TX + integrated INHIBIT + period segments + invert marker")
+print(" calibration module: RX/TX + integrated REFERENCE + profile segments")
 print(" topology debugger: world-visible alarm TX + opposite SCAN target + NOMINAL/ISSUE indicators")
 print(" visuals consume synchronized BlockState only; no second runtime state")
