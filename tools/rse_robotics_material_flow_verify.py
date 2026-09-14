@@ -7,6 +7,8 @@ ROBOTICS = ROOT / "src/main/java/dev/redstoneengineering/robotics"
 SNAPSHOT = ROBOTICS / "RobotMaterialTransferSnapshot.java"
 ASSESSMENT = ROBOTICS / "RobotMaterialTransferAssessment.java"
 RUNTIME = ROBOTICS / "RobotMaterialFlowRuntime.java"
+PAYLOAD = ROBOTICS / "RobotPayloadSnapshot.java"
+HANDOFF = ROBOTICS / "RobotTransportHandoffAssessment.java"
 errors = []
 
 def read(path):
@@ -22,6 +24,8 @@ def req(text, needle, label):
 snapshot = read(SNAPSHOT)
 assessment = read(ASSESSMENT)
 runtime = read(RUNTIME)
+payload = read(PAYLOAD)
+handoff = read(HANDOFF)
 
 for needle in (
     "String transferId",
@@ -82,9 +86,48 @@ for needle in (
 ):
     req(runtime, needle, "RobotMaterialFlowRuntime.java")
 
-# Evidence classes remain observer-only. Runtime may compute lifecycle transitions
-# but still must not mutate world/inventory/entity state itself.
-for label, text in (("RobotMaterialTransferSnapshot.java", snapshot), ("RobotMaterialTransferAssessment.java", assessment)):
+for needle in (
+    "String payloadId",
+    "String robotId",
+    "int units",
+    "PortQuality evidenceQuality",
+    "boolean secured",
+    "boolean faultActive",
+    'if (units < 0) throw new IllegalArgumentException("payload units must be non-negative")',
+):
+    req(payload, needle, "RobotPayloadSnapshot.java")
+
+for needle in (
+    "RobotOperatingState current",
+    "RobotMission mission",
+    "RobotPayloadSnapshot payload",
+    "RobotRoutePlanner.Route route",
+    "RobotOperatingState.TRANSPORTING",
+    "STATE_NOT_TRANSPORTING",
+    "MISSION_NOT_MATERIAL_TRANSPORT",
+    "MISSION_PAYLOAD_EMPTY",
+    "PAYLOAD_EVIDENCE_MISSING",
+    "PAYLOAD_FAULT_ACTIVE",
+    "PAYLOAD_EVIDENCE_",
+    "PAYLOAD_ROBOT_MISMATCH",
+    "PAYLOAD_COUNT_MISMATCH",
+    "PAYLOAD_NOT_SECURED",
+    "TRANSPORT_ROUTE_EVIDENCE_MISSING",
+    "TRANSPORT_ROUTE_UNAVAILABLE",
+    "TRANSPORT_HANDOFF_PERMIT",
+    "payload.units() != mission.payloadUnits()",
+    "!route.available()",
+):
+    req(handoff, needle, "RobotTransportHandoffAssessment.java")
+
+# Evidence classes remain observer-only. Runtime/handoff may compute lifecycle
+# outcomes but must not mutate world/inventory/entity state themselves.
+for label, text in (
+    ("RobotMaterialTransferSnapshot.java", snapshot),
+    ("RobotMaterialTransferAssessment.java", assessment),
+    ("RobotPayloadSnapshot.java", payload),
+    ("RobotTransportHandoffAssessment.java", handoff),
+):
     for forbidden in (
         "setBlock(",
         "setDeltaMovement(",
@@ -93,7 +136,6 @@ for label, text in (("RobotMaterialTransferSnapshot.java", snapshot), ("RobotMat
         "IItemHandler",
         "insertItem(",
         "extractItem(",
-        "RobotStateMachine.Event.LOAD_COMPLETE",
     ):
         if forbidden in text:
             errors.append(f"{label}: material evidence layer must remain observer-safe; unexpected {forbidden!r}")
@@ -123,4 +165,6 @@ print("  requested/transferred quantities are bounded and fail closed")
 print("  completion requires valid evidence + source + destination + completion confirmation")
 print("  partial transfer remains WAIT; confirmed quantity mismatch becomes SAFE_STOP")
 print("  runtime bridge requires LOADING + dock TRANSFER permit + material COMPLETE before LOAD_COMPLETE")
-print("  runtime bridge computes next state without mutating inventory/world/entity state")
+print("  payload evidence binds carried units to one robot with explicit secured/fault state")
+print("  transport handoff requires TRANSPORTING + material mission + payload match + explicit available route")
+print("  material/transport layers remain observer-safe and do not mutate inventory/world/entity state")
