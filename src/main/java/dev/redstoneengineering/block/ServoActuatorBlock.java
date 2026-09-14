@@ -90,7 +90,6 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
         );
     }
 
-    /** Observer-only electrical evidence for the selected physical control face. */
     public static RedstoneObservationSupport.Observation controlObservation(Level level, BlockPos pos, Direction side) {
         return RedstoneObservationSupport.observe(level, pos, side);
     }
@@ -127,7 +126,6 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
     public static boolean braking(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r!=null&&r.length>4&&r[4]!=0; }
     public static int softLimitHits(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r==null||r.length<16?0:r[15]; }
 
-    /** Shared server-state text for expert diagnostics and UI regression compatibility. */
     public static String compactDiagnostics(Level level, BlockPos pos) {
         int[] r = RuntimeIntStore.peek(level, KEY, pos);
         if (r == null || r.length < RUNTIME_SIZE) {
@@ -142,11 +140,19 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
                 + " softLimitHits=" + r[15];
     }
 
-    /** Renderer-facing immutable projection; never creates or mutates simulation state. */
     public static MechatronicsVisualState visualState(Level level, BlockPos pos, BlockState state) {
         int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
         if (runtime == null || runtime.length < RUNTIME_SIZE) return MechatronicsVisualState.servo(0, 0, false, STEP[state.getValue(SLEW)]);
         return MechatronicsVisualState.servo(runtime[0], runtime[2], runtime[4] != 0, STEP[state.getValue(SLEW)]);
+    }
+
+    public boolean homeAndReset(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (!state.is(this)) return false;
+        RuntimeIntStore.remove(level, KEY, pos);
+        MechatronicsVisualBlockEntity.push(level, pos, visualState(level, pos, state));
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, this, 2);
+        return true;
     }
 
     @Override protected void onPlace(BlockState s, Level l, BlockPos p, BlockState o, boolean m) { super.onPlace(s, l, p, o, m); if (l instanceof ServerLevel sl) sl.scheduleTick(p, this, 2); }
@@ -165,8 +171,7 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
         boolean commandAvailable = commandInput.valid();
         int command = commandInput.value();
         int effectiveCommand = commandAvailable ? command : r[0];
-        int mode = commandAvailable && modeInput.valid() && modeInput.value() > 0
-                ? VELOCITY_MODE : POSITION_MODE;
+        int mode = commandAvailable && modeInput.valid() && modeInput.value() > 0 ? VELOCITY_MODE : POSITION_MODE;
         boolean brake = !commandAvailable || (brakeInput.valid() && brakeInput.value() > 0);
         int now = (int) Math.min(Integer.MAX_VALUE, l.getGameTime());
 
@@ -194,8 +199,7 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
         r[0] = limitedPosition;
         r[2] = appliedVelocity;
         r[14] = velocityCommand;
-        r[3] = !commandAvailable ? 0
-                : mode == POSITION_MODE ? effectiveCommand - r[0] : velocityCommand - appliedVelocity;
+        r[3] = !commandAvailable ? 0 : mode == POSITION_MODE ? effectiveCommand - r[0] : velocityCommand - appliedVelocity;
         r[12] += Math.abs(r[0] - oldPosition);
         r[10] = Math.max(r[10], Math.abs(appliedVelocity));
         if (mode == POSITION_MODE && r[3] == 0 && oldPosition != r[0]) r[11] = Math.max(1, now - r[7]);
@@ -216,8 +220,7 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
     protected InteractionResult useWithoutItem(BlockState s, Level l, BlockPos p, Player pl, BlockHitResult h) {
         if (!l.isClientSide && pl instanceof ServerPlayer serverPlayer) {
             if (pl.isShiftKeyDown()) {
-                RuntimeIntStore.remove(l, KEY, p);
-                MechatronicsVisualBlockEntity.push(l, p, visualState(l, p, s));
+                homeAndReset(l, p);
                 pl.displayClientMessage(net.minecraft.network.chat.Component.literal("Servo homed; trajectory diagnostics reset"), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, p);
