@@ -1,0 +1,7 @@
+{
+  "ambientocclusion": false,
+  "textures": {"marker": "redstoneengineering:block/signal_analyzer_top", "particle": "redstoneengineering:block/signal_analyzer_top"},
+  "elements": [
+    {"from": [9.5, 16.01, 2], "to": [11.5, 16.25, 14], "faces": {"up": {"texture": "#marker"}}}
+  ]
+}
