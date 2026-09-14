@@ -4,6 +4,8 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.robotics.RobotDockAssessment;
 import dev.redstoneengineering.robotics.RobotDockSnapshot;
 import dev.redstoneengineering.robotics.RobotLocalizationQuality;
+import dev.redstoneengineering.robotics.RobotMaterialFlowRuntime;
+import dev.redstoneengineering.robotics.RobotMaterialTransferSnapshot;
 import dev.redstoneengineering.robotics.RobotNavigationGraph;
 import dev.redstoneengineering.robotics.RobotOperatingState;
 import dev.redstoneengineering.robotics.RobotRoutePlanner;
@@ -46,6 +48,7 @@ public final class EngineeringMobileRobotEntity extends Entity {
     private static final EntityDataAccessor<String> ROUTE_REASON = SynchedEntityData.defineId(EngineeringMobileRobotEntity.class, EntityDataSerializers.STRING);
     private static final EntityDataAccessor<Integer> DOCK_PHASE = SynchedEntityData.defineId(EngineeringMobileRobotEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<String> DOCK_REASON = SynchedEntityData.defineId(EngineeringMobileRobotEntity.class, EntityDataSerializers.STRING);
+    private static final EntityDataAccessor<String> MATERIAL_REASON = SynchedEntityData.defineId(EngineeringMobileRobotEntity.class, EntityDataSerializers.STRING);
 
     private RobotLocalizationQuality localization = RobotLocalizationQuality.VALID;
     private boolean driveReady = true;
@@ -69,6 +72,7 @@ public final class EngineeringMobileRobotEntity extends Entity {
         builder.define(ROUTE_REASON, "NO_ROUTE");
         builder.define(DOCK_PHASE, RobotDockAssessment.Phase.APPROACH.ordinal());
         builder.define(DOCK_REASON, "NO_DOCK_EVIDENCE");
+        builder.define(MATERIAL_REASON, "NO_TRANSFER_EVIDENCE");
     }
 
     public RobotOperatingState robotState() {
@@ -98,6 +102,7 @@ public final class EngineeringMobileRobotEntity extends Entity {
     }
 
     public String dockReason() { return entityData.get(DOCK_REASON); }
+    public String materialReason() { return entityData.get(MATERIAL_REASON); }
     public String robotIdentity() { return getUUID().toString(); }
 
     public void assignTarget(BlockPos target) {
@@ -200,6 +205,26 @@ public final class EngineeringMobileRobotEntity extends Entity {
         return robotState() == RobotOperatingState.LOADING;
     }
 
+    /**
+     * Completes loading only by consuming the authoritative material-flow
+     * runtime decision. Dock transfer admission alone never proves material moved.
+     */
+    public boolean completeLoading(RobotDockSnapshot dock, RobotMaterialTransferSnapshot transfer) {
+        if (level().isClientSide) return false;
+        entityData.set(DOCK_PHASE, RobotDockAssessment.Phase.TRANSFER.ordinal());
+        RobotMaterialFlowRuntime.Decision decision = RobotMaterialFlowRuntime.evaluate(
+                robotState(), dock, transfer, robotIdentity());
+        entityData.set(DOCK_REASON, decision.dockReason());
+        entityData.set(MATERIAL_REASON, decision.materialReason());
+        setDeltaMovement(Vec3.ZERO);
+        setRobotState(decision.nextState());
+        if (decision.advancesToTransport()) {
+            entityData.set(ROUTE_REASON, "TRANSPORT_ROUTE_REQUIRED");
+            return true;
+        }
+        return false;
+    }
+
     private boolean isAtDock(RobotDockSnapshot dock) {
         return dock != null && position().distanceTo(Vec3.atCenterOf(dock.position())) <= DOCK_ENTRY_DISTANCE;
     }
@@ -247,6 +272,11 @@ public final class EngineeringMobileRobotEntity extends Entity {
         if (!hasMissionTarget()) {
             if (robotState() == RobotOperatingState.DOCKING || robotState() == RobotOperatingState.LOADING) {
                 stopMotion(RobotSafetyAssessment.Verdict.PERMIT, "DOCK_HANDSHAKE");
+                return;
+            }
+            if (robotState() == RobotOperatingState.TRANSPORTING
+                    || robotState() == RobotOperatingState.TRANSPORT_REPLANNING) {
+                stopMotion(RobotSafetyAssessment.Verdict.SAFE_STOP, "TRANSPORT_ROUTE_REQUIRED");
                 return;
             }
             stopMotion(RobotSafetyAssessment.Verdict.SAFE_STOP, "NO_MISSION");
@@ -366,6 +396,7 @@ public final class EngineeringMobileRobotEntity extends Entity {
         tag.putBoolean("DriveReady", driveReady);
         tag.putBoolean("EmergencyStopClear", emergencyStopClear);
         tag.putString("RouteReason", routeReason());
+        tag.putString("MaterialReason", materialReason());
         tag.putInt("RouteCount", routeWaypoints.size());
         tag.putInt("RouteIndex", routeIndex);
         for (int i = 0; i < routeWaypoints.size(); i++) {
@@ -389,6 +420,8 @@ public final class EngineeringMobileRobotEntity extends Entity {
         emergencyStopClear = tag.getBoolean("EmergencyStopClear");
         String persistedRouteReason = tag.getString("RouteReason");
         entityData.set(ROUTE_REASON, persistedRouteReason.isBlank() ? "NO_ROUTE" : persistedRouteReason);
+        String persistedMaterialReason = tag.getString("MaterialReason");
+        entityData.set(MATERIAL_REASON, persistedMaterialReason.isBlank() ? "NO_TRANSFER_EVIDENCE" : persistedMaterialReason);
         restoreRoute(tag);
     }
 
