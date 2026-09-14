@@ -16,9 +16,13 @@ public final class ClosedLoopCommissioning {
 
     private ClosedLoopCommissioning() {}
 
+    /** Controller-only commissioning projection before any explicit plant witness is folded in. */
+    public static CommissioningSnapshot inspectController(Level level, BlockPos pidPos) {
+        return fromPidRuntime(RuntimeIntStore.peek(level, PID_KEY, pidPos), level.getGameTime());
+    }
+
     public static CommissioningSnapshot inspectPid(Level level, BlockPos pidPos) {
-        CommissioningSnapshot controller = fromPidRuntime(
-                RuntimeIntStore.peek(level, PID_KEY, pidPos), level.getGameTime());
+        CommissioningSnapshot controller = inspectController(level, pidPos);
         if (!controller.available()) return controller;
 
         PneumaticClosedLoopWitness.Snapshot plant = PneumaticClosedLoopWitness.inspect(level, pidPos);
