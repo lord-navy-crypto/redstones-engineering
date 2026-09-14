@@ -1,0 +1,6 @@
+{
+  "textures": {"bar": "redstoneengineering:block/signal_analyzer_top"},
+  "elements": [
+    {"from": [12.5, 15.5, 2], "to": [15, 16, 4], "faces": {"up": {"texture": "#bar"}, "north": {"texture": "#bar"}, "south": {"texture": "#bar"}, "east": {"texture": "#bar"}, "west": {"texture": "#bar"}}}
+  ]
+}
