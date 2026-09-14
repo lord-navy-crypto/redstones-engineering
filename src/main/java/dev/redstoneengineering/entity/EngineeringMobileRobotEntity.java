@@ -33,6 +33,7 @@ public final class EngineeringMobileRobotEntity extends Entity {
     private static final double ARRIVAL_DISTANCE = 0.45D;
     private static final double OBSTACLE_LOOKAHEAD = 0.80D;
     private static final double ROUTE_ENTRY_DISTANCE = 1.75D;
+    private static final double DOCK_ENTRY_DISTANCE = 1.75D;
     private static final int MAX_PERSISTED_ROUTE_WAYPOINTS = 256;
 
     private static final EntityDataAccessor<Integer> STATE = SynchedEntityData.defineId(EngineeringMobileRobotEntity.class, EntityDataSerializers.INT);
@@ -146,9 +147,9 @@ public final class EngineeringMobileRobotEntity extends Entity {
     }
 
     /**
-     * Begins the docking lifecycle only from explicit, valid dock evidence.
-     * A permit means the robot may enter DOCKING; it never fabricates a
-     * physical docked/occupied fact.
+     * Begins the docking lifecycle only from explicit, valid dock evidence and
+     * a physical position consistent with that dock. A permit means the robot
+     * may enter DOCKING; it never fabricates a docked/occupied fact.
      */
     public boolean beginDocking(RobotDockSnapshot dock) {
         if (level().isClientSide || robotState() != RobotOperatingState.NAVIGATING) return false;
@@ -157,7 +158,18 @@ public final class EngineeringMobileRobotEntity extends Entity {
             applyDockHold(assessment);
             return false;
         }
+        if (!isAtDock(dock)) {
+            setDeltaMovement(Vec3.ZERO);
+            entityData.set(DOCK_REASON, "DOCK_POSITION_MISMATCH");
+            transition(RobotStateMachine.Event.SAFETY_STOP_REQUESTED);
+            return false;
+        }
+
         setDeltaMovement(Vec3.ZERO);
+        entityData.set(HAS_TARGET, false);
+        routeWaypoints = List.of();
+        routeIndex = 0;
+        entityData.set(ROUTE_REASON, "DOCK_APPROACH_COMPLETE");
         transition(RobotStateMachine.Event.ARRIVE_DOCK);
         return robotState() == RobotOperatingState.DOCKING;
     }
@@ -173,7 +185,13 @@ public final class EngineeringMobileRobotEntity extends Entity {
             applyDockHold(assessment);
             return false;
         }
-        if (dock == null || !dock.occupiedBy(robotIdentity())) {
+        if (!isAtDock(dock)) {
+            setDeltaMovement(Vec3.ZERO);
+            entityData.set(DOCK_REASON, "DOCK_POSITION_MISMATCH");
+            transition(RobotStateMachine.Event.SAFETY_STOP_REQUESTED);
+            return false;
+        }
+        if (!dock.occupiedBy(robotIdentity())) {
             setDeltaMovement(Vec3.ZERO);
             entityData.set(DOCK_REASON, "ROBOT_NOT_CONFIRMED_DOCKED");
             return false;
@@ -182,19 +200,8 @@ public final class EngineeringMobileRobotEntity extends Entity {
         return robotState() == RobotOperatingState.LOADING;
     }
 
-    /**
-     * Marks loading complete only after the dock's authoritative transfer
-     * evidence confirms this AMR is still occupying the dock and transfer is ready.
-     */
-    public boolean completeDockTransfer(RobotDockSnapshot dock) {
-        if (level().isClientSide || robotState() != RobotOperatingState.LOADING) return false;
-        RobotDockAssessment.Snapshot assessment = assessDock(dock, RobotDockAssessment.Phase.TRANSFER);
-        if (!assessment.permitted()) {
-            applyDockHold(assessment);
-            return false;
-        }
-        transition(RobotStateMachine.Event.LOAD_COMPLETE);
-        return robotState() == RobotOperatingState.TRANSPORTING;
+    private boolean isAtDock(RobotDockSnapshot dock) {
+        return dock != null && position().distanceTo(Vec3.atCenterOf(dock.position())) <= DOCK_ENTRY_DISTANCE;
     }
 
     private RobotDockAssessment.Snapshot assessDock(RobotDockSnapshot dock, RobotDockAssessment.Phase phase) {
@@ -210,9 +217,9 @@ public final class EngineeringMobileRobotEntity extends Entity {
             case FAULT -> transition(RobotStateMachine.Event.CRITICAL_FAULT);
             case SAFE_STOP -> transition(RobotStateMachine.Event.SAFETY_STOP_REQUESTED);
             case WAIT, PERMIT -> {
-                // WAIT deliberately preserves NAVIGATING / DOCKING / LOADING so
-                // the caller can retry against fresh dock evidence without
-                // inventing an obstacle or a completed phase.
+                // WAIT deliberately preserves NAVIGATING / DOCKING so the
+                // caller can retry against fresh evidence without inventing
+                // an obstacle or a completed docking phase.
             }
         }
     }
@@ -238,6 +245,10 @@ public final class EngineeringMobileRobotEntity extends Entity {
         if (level().isClientSide) return;
 
         if (!hasMissionTarget()) {
+            if (robotState() == RobotOperatingState.DOCKING || robotState() == RobotOperatingState.LOADING) {
+                stopMotion(RobotSafetyAssessment.Verdict.PERMIT, "DOCK_HANDSHAKE");
+                return;
+            }
             stopMotion(RobotSafetyAssessment.Verdict.SAFE_STOP, "NO_MISSION");
             if (robotState() != RobotOperatingState.IDLE && robotState() != RobotOperatingState.COMPLETE) setRobotState(RobotOperatingState.IDLE);
             return;
