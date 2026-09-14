@@ -116,11 +116,6 @@ public final class EngineeringMobileRobotEntity extends Entity {
         beginMissionTarget(target);
     }
 
-    /**
-     * Accepts only a route produced from explicit navigation topology. The
-     * robot must already be localized near the declared source node; otherwise
-     * accepting the route would fabricate an unmodeled segment to the graph.
-     */
     public boolean assignNavigationRoute(RobotNavigationGraph graph, String sourceId, String targetId) {
         if (level().isClientSide) return false;
         RobotRoutePlanner.Route route = RobotRoutePlanner.plan(graph, sourceId, targetId);
@@ -154,12 +149,6 @@ public final class EngineeringMobileRobotEntity extends Entity {
         return true;
     }
 
-    /**
-     * Installs a post-load material transport route without resetting the
-     * lifecycle through IDLE/NAVIGATING. The pure transport runtime owns
-     * mission/payload/route admission; the entity only adds physical source
-     * localization before consuming immutable waypoints.
-     */
     public boolean assignTransportRoute(
             RobotMission mission,
             RobotPayloadSnapshot payload,
@@ -198,11 +187,6 @@ public final class EngineeringMobileRobotEntity extends Entity {
         return robotState() == RobotOperatingState.TRANSPORTING;
     }
 
-    /**
-     * Begins the docking lifecycle only from explicit, valid dock evidence and
-     * a physical position consistent with that dock. A permit means the robot
-     * may enter DOCKING; it never fabricates a docked/occupied fact.
-     */
     public boolean beginDocking(RobotDockSnapshot dock) {
         if (level().isClientSide || robotState() != RobotOperatingState.NAVIGATING) return false;
         RobotDockAssessment.Snapshot assessment = assessDock(dock, RobotDockAssessment.Phase.APPROACH);
@@ -226,10 +210,6 @@ public final class EngineeringMobileRobotEntity extends Entity {
         return robotState() == RobotOperatingState.DOCKING;
     }
 
-    /**
-     * Confirms the physical docking fact before entering LOADING. Alignment
-     * permission alone is insufficient: occupancy must name this exact AMR.
-     */
     public boolean confirmDocked(RobotDockSnapshot dock) {
         if (level().isClientSide || robotState() != RobotOperatingState.DOCKING) return false;
         RobotDockAssessment.Snapshot assessment = assessDock(dock, RobotDockAssessment.Phase.DOCK);
@@ -252,10 +232,6 @@ public final class EngineeringMobileRobotEntity extends Entity {
         return robotState() == RobotOperatingState.LOADING;
     }
 
-    /**
-     * Completes loading only by consuming the authoritative material-flow
-     * runtime decision. Dock transfer admission alone never proves material moved.
-     */
     public boolean completeLoading(RobotDockSnapshot dock, RobotMaterialTransferSnapshot transfer) {
         if (level().isClientSide) return false;
         entityData.set(DOCK_PHASE, RobotDockAssessment.Phase.TRANSFER.ordinal());
@@ -288,11 +264,7 @@ public final class EngineeringMobileRobotEntity extends Entity {
         switch (assessment.verdict()) {
             case FAULT -> transition(RobotStateMachine.Event.CRITICAL_FAULT);
             case SAFE_STOP -> transition(RobotStateMachine.Event.SAFETY_STOP_REQUESTED);
-            case WAIT, PERMIT -> {
-                // WAIT deliberately preserves NAVIGATING / DOCKING so the
-                // caller can retry against fresh evidence without inventing
-                // an obstacle or a completed docking phase.
-            }
+            case WAIT, PERMIT -> { }
         }
     }
 
@@ -301,9 +273,7 @@ public final class EngineeringMobileRobotEntity extends Entity {
         switch (decision.verdict()) {
             case FAULT -> transition(RobotStateMachine.Event.CRITICAL_FAULT);
             case SAFE_STOP -> transition(RobotStateMachine.Event.SAFETY_STOP_REQUESTED);
-            case WAIT, PERMIT -> {
-                // WAIT preserves TRANSPORTING while route/payload evidence is refreshed.
-            }
+            case WAIT, PERMIT -> { }
         }
     }
 
@@ -401,6 +371,11 @@ public final class EngineeringMobileRobotEntity extends Entity {
     }
 
     private void completeRouteArrival() {
+        if (robotState() == RobotOperatingState.TRANSPORT_WAITING
+                || robotState() == RobotOperatingState.TRANSPORT_REPLANNING) {
+            stopMotion(RobotSafetyAssessment.Verdict.SAFE_STOP, "TRANSPORT_HOLD_AT_TARGET");
+            return;
+        }
         if (robotState() == RobotOperatingState.TRANSPORTING) {
             entityData.set(HAS_TARGET, false);
             transition(RobotStateMachine.Event.ARRIVE_TARGET);
@@ -429,17 +404,14 @@ public final class EngineeringMobileRobotEntity extends Entity {
             transition(RobotStateMachine.Event.CRITICAL_FAULT);
             return;
         }
-
         if (safety.verdict() == RobotSafetyAssessment.Verdict.DEGRADED_HOLD) {
             transition(RobotStateMachine.Event.SENSOR_DEGRADED);
             return;
         }
-
         if ("LOCALIZATION_LOST".equals(safety.primaryReason())) {
             transition(RobotStateMachine.Event.LOCALIZATION_LOST);
             return;
         }
-
         if ("OBSTACLE_UNSAFE".equals(safety.primaryReason())) {
             if (robotState() == RobotOperatingState.NAVIGATING
                     || robotState() == RobotOperatingState.TRANSPORTING) {
@@ -450,7 +422,6 @@ public final class EngineeringMobileRobotEntity extends Entity {
             }
             return;
         }
-
         transition(RobotStateMachine.Event.SAFETY_STOP_REQUESTED);
     }
 
