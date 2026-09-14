@@ -66,6 +66,9 @@ fault = parts("fault_injector")
 sample = parts("sample_hold")
 pwm = parts("pwm_controller")
 calibration = parts("calibration_module")
+watchdog = parts("watchdog")
+fault_latch = parts("fault_latch")
+voter = parts("redundant_voter")
 
 for name, items in (
     ("sequence_controller", sequence),
@@ -75,6 +78,9 @@ for name, items in (
     ("sample_hold", sample),
     ("pwm_controller", pwm),
     ("calibration_module", calibration),
+    ("watchdog", watchdog),
+    ("fault_latch", fault_latch),
+    ("redundant_voter", voter),
 ):
     verify_route(name, items)
 
@@ -145,6 +151,39 @@ if calibration_model.get("textures", {}).get("reference") != "redstoneengineerin
 if len(calibration_model.get("elements", [])) < 3:
     errors.append("calibration_module: expected base + integrated REFERENCE geometry")
 
+reliability_segments = (
+    ("0|1|2|3", "config_segment_1"),
+    ("1|2|3", "config_segment_2"),
+    ("2|3", "config_segment_3"),
+    ("3", "config_segment_4"),
+)
+verify_cumulative(watchdog, "watchdog", "timeout", reliability_segments)
+for output, model in (("0", "watchdog_nominal_indicator"), ("15", "watchdog_timeout_indicator")):
+    if not has_part(watchdog, "output", output, f"redstoneengineering:block/{model}"):
+        errors.append(f"watchdog: missing output={output} overlay {model}")
+
+verify_cumulative(fault_latch, "fault_latch", "threshold", reliability_segments)
+for output, model in (("0", "fault_latch_clear_indicator"), ("15", "fault_latch_active_indicator")):
+    if not has_part(fault_latch, "output", output, f"redstoneengineering:block/{model}"):
+        errors.append(f"fault_latch: missing output={output} overlay {model}")
+fault_latch_model = load(MODELS / "fault_latch.json")
+if fault_latch_model.get("textures", {}).get("control") != "redstoneengineering:block/redstone_reference_source":
+    errors.append("fault_latch: RESET marker must use RSE control texture")
+if len(fault_latch_model.get("elements", [])) < 3:
+    errors.append("fault_latch: expected base + integrated RESET cross geometry")
+
+verify_cumulative(voter, "redundant_voter", "tolerance", reliability_segments)
+voter_model = load(MODELS / "redundant_voter.json")
+if voter_model.get("textures", {}).get("control") != "redstoneengineering:block/redstone_reference_source":
+    errors.append("redundant_voter: B/C markers must use RSE control texture")
+if len(voter_model.get("elements", [])) < 4:
+    errors.append("redundant_voter: expected base + integrated B/C side geometry")
+# Degraded/disagreement is runtime evidence, not BlockState; do not create a fake world-state property.
+for part in voter:
+    when = part.get("when")
+    if isinstance(when, dict) and ("degraded" in when or "disagreement" in when):
+        errors.append("redundant_voter: runtime degraded/disagreement must not be duplicated into blockstate visuals")
+
 # Topology debugger scans the face opposite its alarm-output facing.
 tx_rotations = {"north": 0, "east": 90, "south": 180, "west": 270}
 scan_rotations = {"north": 180, "east": 270, "south": 0, "west": 90}
@@ -168,6 +207,8 @@ required_models = (
     "fault_mode_0", "fault_mode_1", "fault_mode_2", "fault_mode_3",
     "config_segment_1", "config_segment_2", "config_segment_3", "config_segment_4", "config_segment_5",
     "config_invert_indicator",
+    "watchdog_nominal_indicator", "watchdog_timeout_indicator",
+    "fault_latch_clear_indicator", "fault_latch_active_indicator",
     "topology_nominal_indicator", "topology_issue_indicator",
 )
 for model in required_models:
@@ -189,5 +230,8 @@ print(" fault injector: world-visible RX/TX + integrated ARM + configured mode 0
 print(" sample & hold: RX/TX + integrated TRIGGER/RESET + trigger-mode segments")
 print(" PWM controller: RX/TX + integrated INHIBIT + period segments + invert marker")
 print(" calibration module: RX/TX + integrated REFERENCE + profile segments")
+print(" watchdog: RX/TX + timeout segments + NOMINAL/TIMEOUT state")
+print(" fault latch: RX/TX + integrated RESET + threshold segments + CLEAR/LATCHED state")
+print(" redundant voter: channel A RX/TX + integrated B/C + tolerance segments; runtime degraded remains diagnostics-only")
 print(" topology debugger: world-visible alarm TX + opposite SCAN target + NOMINAL/ISSUE indicators")
 print(" visuals consume synchronized BlockState only; no second runtime state")
