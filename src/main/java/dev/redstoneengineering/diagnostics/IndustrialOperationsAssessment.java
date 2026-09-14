@@ -12,12 +12,25 @@ import net.minecraft.world.level.Level;
  * <p>The vocabulary intentionally stays conservative. RSE does not report OEE
  * here because the current monitor does not own planned-production time,
  * good-count, reject-count, or an independently validated ideal cycle time.
- * Instead it exposes directly supported operations evidence: throughput,
- * queue/WIP pressure, downtime, starvation, blocking/fault evidence and the
- * dominant operational constraint.</p>
+ * Instead it exposes directly supported operations evidence: machine state,
+ * throughput, queue/WIP pressure, cycle timing, downtime, starvation,
+ * blocking/fault evidence and the dominant operational constraint.</p>
  */
 public final class IndustrialOperationsAssessment {
     private IndustrialOperationsAssessment() {}
+
+    /**
+     * Evidence-backed machine operating state. MAINTENANCE is deliberately absent until RSE has
+     * an explicit maintenance input/action; missing instrumentation is UNAVAILABLE, never IDLE.
+     */
+    public enum MachineState {
+        UNAVAILABLE,
+        IDLE,
+        STARVED,
+        RUNNING,
+        BLOCKED,
+        FAULTED
+    }
 
     public enum Constraint {
         NONE,
@@ -31,7 +44,9 @@ public final class IndustrialOperationsAssessment {
 
     public record Snapshot(
             OperationsMonitorBlock.SystemState state,
+            MachineState machineState,
             int throughputCyclesPerMinute,
+            int lastCycleTicks,
             int queueNow,
             int queuePressurePercent,
             int downtimeTicks,
@@ -42,6 +57,7 @@ public final class IndustrialOperationsAssessment {
     ) {
         public Snapshot {
             throughputCyclesPerMinute = Math.max(0, throughputCyclesPerMinute);
+            lastCycleTicks = Math.max(0, lastCycleTicks);
             queueNow = clamp(queueNow, 0, 15);
             queuePressurePercent = clamp(queuePressurePercent, 0, 100);
             downtimeTicks = Math.max(0, downtimeTicks);
@@ -51,8 +67,10 @@ public final class IndustrialOperationsAssessment {
         }
 
         public String compact() {
-            return "IOE state=" + state
+            return "IOE machine=" + machineState
+                    + " system=" + state
                     + " | throughput=" + throughputCyclesPerMinute + " cycles/min"
+                    + " | cycle=" + (lastCycleTicks > 0 ? lastCycleTicks + "t" : "—")
                     + " | queue=" + queueNow + "/15 (" + queuePressurePercent + "%)"
                     + " | constraint=" + dominantConstraint
                     + " | downtime=" + String.format(java.util.Locale.ROOT, "%.1f", downtimeTicks / 20.0) + "s"
@@ -67,15 +85,20 @@ public final class IndustrialOperationsAssessment {
         OperationsMonitorBlock.SystemState state = states[clamp(stateOrdinal, 0, states.length - 1)];
 
         int throughput = OperationsMonitorBlock.throughputLastWindow(level, pos);
+        int lastCycle = OperationsMonitorBlock.lastCycleTicks(level, pos);
         int queue = OperationsMonitorBlock.queueNow(level, pos);
         int downtime = OperationsMonitorBlock.downtimeTicks(level, pos);
         int starved = OperationsMonitorBlock.starvedTicks(level, pos);
         int blocked = OperationsMonitorBlock.blockedFaultTicks(level, pos);
         int highWip = OperationsMonitorBlock.highQueueRunTicks(level, pos);
+        boolean ready = OperationsMonitorBlock.monitoringReady(level, pos);
+        boolean running = OperationsMonitorBlock.running(level, pos);
 
         return new Snapshot(
                 state,
+                machineState(ready, running, queue, state),
                 throughput,
+                lastCycle,
                 queue,
                 Math.round(queue * 100.0F / 15.0F),
                 downtime,
@@ -84,6 +107,21 @@ public final class IndustrialOperationsAssessment {
                 highWip,
                 dominantConstraint(state, starved, blocked, highWip)
         );
+    }
+
+    static MachineState machineState(
+            boolean ready,
+            boolean running,
+            int queue,
+            OperationsMonitorBlock.SystemState systemState
+    ) {
+        if (!ready) return MachineState.UNAVAILABLE;
+        if (systemState == OperationsMonitorBlock.SystemState.FAILED) return MachineState.FAULTED;
+        int q = clamp(queue, 0, 15);
+        if (running && q == 0) return MachineState.STARVED;
+        if (running) return MachineState.RUNNING;
+        if (q > 0) return MachineState.BLOCKED;
+        return MachineState.IDLE;
     }
 
     static Constraint dominantConstraint(
