@@ -23,16 +23,38 @@ for n in ('RobotDockAssessment.inspect(dock, robotIdentity(), phase)','beginDock
     req(ent,n,'EngineeringMobileRobotEntity.java dock runtime')
 for n in ('completeLoading(RobotDockSnapshot dock, RobotMaterialTransferSnapshot transfer)','RobotMaterialFlowRuntime.evaluate(','decision.dockReason()','decision.materialReason()','setRobotState(decision.nextState())','decision.advancesToTransport()','TRANSPORT_ROUTE_REQUIRED','MATERIAL_REASON','MaterialReason','materialReason()','RobotOperatingState.TRANSPORTING','RobotOperatingState.TRANSPORT_REPLANNING'):
     req(ent,n,'EngineeringMobileRobotEntity.java material-flow runtime')
+for n in (
+    'assignTransportRoute(',
+    'RobotTransportRouteRuntime.evaluate(',
+    'TRANSPORT_SOURCE_NOT_LOCALIZED_TO_ROBOT',
+    'TRANSPORT_ROUTE_TOO_LONG',
+    'FOLLOWING_TRANSPORT_ROUTE',
+    'RobotOperatingState.TRANSPORT_WAITING',
+    'completeRouteArrival()',
+    'TRANSPORT_HOLD_AT_TARGET',
+    'RobotStateMachine.Event.ARRIVE_TARGET',
+    'TRANSPORT_TARGET_ARRIVED',
+    'TRANSPORT_ROUTE_COMPLETE',
+    'RobotOperatingState.UNLOADING',
+    'UNLOAD_HANDSHAKE',
+):
+    req(ent,n,'EngineeringMobileRobotEntity.java transport execution')
 if 'RobotStateMachine.Event.LOAD_COMPLETE' in ent:
     errors.append('EngineeringMobileRobotEntity.java must consume RobotMaterialFlowRuntime rather than emit LOAD_COMPLETE directly')
 if 'RobotMaterialTransferAssessment.inspect(' in ent:
     errors.append('EngineeringMobileRobotEntity.java must not reimplement material transfer assessment beside RobotMaterialFlowRuntime')
+if 'RobotTransportHandoffAssessment.inspect(' in ent:
+    errors.append('EngineeringMobileRobotEntity.java must consume RobotTransportRouteRuntime rather than reimplement transport handoff assessment')
 if ent.count('RobotMaterialFlowRuntime.evaluate(') != 1:
     errors.append('EngineeringMobileRobotEntity.java must have exactly one authoritative material-flow decision entry point')
+if ent.count('RobotTransportRouteRuntime.evaluate(') != 1:
+    errors.append('EngineeringMobileRobotEntity.java must have exactly one authoritative transport-route decision entry point')
 if ent.count('RobotStateMachine.Event.ARRIVE_DOCK') != 1:
     errors.append('EngineeringMobileRobotEntity.java must have exactly one guarded ARRIVE_DOCK transition')
 if ent.count('RobotStateMachine.Event.DOCKED') != 1:
     errors.append('EngineeringMobileRobotEntity.java must have exactly one occupancy-confirmed DOCKED transition')
+if ent.count('RobotStateMachine.Event.ARRIVE_TARGET') != 1:
+    errors.append('EngineeringMobileRobotEntity.java must have exactly one transport-final ARRIVE_TARGET transition')
 for n in ('dist = Dist.CLIENT','EntityRenderersEvent.RegisterRenderers','RoboticsEntityModule.ENGINEERING_MOBILE_ROBOT.get()','EngineeringMobileRobotRenderer::new'):
     req(client,n,'RoboticsClientModule.java')
 for n in ('extends EntityRenderer<EngineeringMobileRobotEntity>','BlockRenderDispatcher','chassisState(robot.robotState())','case FAULT, SAFE_STOP','case WAITING, REPLANNING, DEGRADED','Blocks.COPPER_BLOCK.defaultBlockState()','TextureAtlas.LOCATION_BLOCKS'):
@@ -56,5 +78,8 @@ print('  dock runtime consumes shared dock assessment and requires physical posi
 print('  DOCKING begins only on approach permit; LOADING requires exact AMR occupancy confirmation')
 print('  LOADING consumes the authoritative Material Flow runtime decision instead of duplicating assessment logic')
 print('  material evidence reason is synchronized/persisted; TRANSPORTING waits fail-safe for an explicit route')
+print('  post-load transport consumes the authoritative route runtime and preserves transport-specific hold states')
+print('  transport hold states cannot declare arrival merely by crossing the distance threshold')
+print('  final transport arrival enters UNLOADING and remains in an explicit unload handshake without a motion target')
 print('  entity registry uses the NeoForge 1.21.1 generic DeferredRegister contract')
 print('  client renderer exposes heading plus synchronized nominal/waiting/fault state without a second solver')

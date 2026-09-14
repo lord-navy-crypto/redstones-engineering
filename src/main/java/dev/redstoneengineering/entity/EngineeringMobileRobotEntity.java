@@ -6,11 +6,14 @@ import dev.redstoneengineering.robotics.RobotDockSnapshot;
 import dev.redstoneengineering.robotics.RobotLocalizationQuality;
 import dev.redstoneengineering.robotics.RobotMaterialFlowRuntime;
 import dev.redstoneengineering.robotics.RobotMaterialTransferSnapshot;
+import dev.redstoneengineering.robotics.RobotMission;
 import dev.redstoneengineering.robotics.RobotNavigationGraph;
 import dev.redstoneengineering.robotics.RobotOperatingState;
+import dev.redstoneengineering.robotics.RobotPayloadSnapshot;
 import dev.redstoneengineering.robotics.RobotRoutePlanner;
 import dev.redstoneengineering.robotics.RobotSafetyAssessment;
 import dev.redstoneengineering.robotics.RobotStateMachine;
+import dev.redstoneengineering.robotics.RobotTransportRouteRuntime;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -113,11 +116,6 @@ public final class EngineeringMobileRobotEntity extends Entity {
         beginMissionTarget(target);
     }
 
-    /**
-     * Accepts only a route produced from explicit navigation topology. The
-     * robot must already be localized near the declared source node; otherwise
-     * accepting the route would fabricate an unmodeled segment to the graph.
-     */
     public boolean assignNavigationRoute(RobotNavigationGraph graph, String sourceId, String targetId) {
         if (level().isClientSide) return false;
         RobotRoutePlanner.Route route = RobotRoutePlanner.plan(graph, sourceId, targetId);
@@ -151,11 +149,44 @@ public final class EngineeringMobileRobotEntity extends Entity {
         return true;
     }
 
-    /**
-     * Begins the docking lifecycle only from explicit, valid dock evidence and
-     * a physical position consistent with that dock. A permit means the robot
-     * may enter DOCKING; it never fabricates a docked/occupied fact.
-     */
+    public boolean assignTransportRoute(
+            RobotMission mission,
+            RobotPayloadSnapshot payload,
+            RobotNavigationGraph graph,
+            String sourceId,
+            String targetId
+    ) {
+        if (level().isClientSide) return false;
+        RobotTransportRouteRuntime.Decision decision = RobotTransportRouteRuntime.evaluate(
+                robotState(), mission, payload, graph, sourceId, targetId, robotIdentity());
+        entityData.set(ROUTE_REASON, decision.reason());
+        if (!decision.permitted() || graph == null) {
+            applyTransportRouteHold(decision);
+            return false;
+        }
+
+        RobotNavigationGraph.Node source = graph.node(sourceId).orElse(null);
+        if (source == null || position().distanceTo(Vec3.atCenterOf(source.position())) > ROUTE_ENTRY_DISTANCE) {
+            setDeltaMovement(Vec3.ZERO);
+            entityData.set(ROUTE_REASON, "TRANSPORT_SOURCE_NOT_LOCALIZED_TO_ROBOT");
+            transition(RobotStateMachine.Event.SAFETY_STOP_REQUESTED);
+            return false;
+        }
+        if (decision.waypoints().size() > MAX_PERSISTED_ROUTE_WAYPOINTS) {
+            setDeltaMovement(Vec3.ZERO);
+            entityData.set(ROUTE_REASON, "TRANSPORT_ROUTE_TOO_LONG");
+            transition(RobotStateMachine.Event.SAFETY_STOP_REQUESTED);
+            return false;
+        }
+
+        routeWaypoints = decision.waypoints();
+        routeIndex = 0;
+        setCurrentTarget(routeWaypoints.getFirst().position());
+        entityData.set(HAS_TARGET, true);
+        entityData.set(ROUTE_REASON, "FOLLOWING_TRANSPORT_ROUTE");
+        return robotState() == RobotOperatingState.TRANSPORTING;
+    }
+
     public boolean beginDocking(RobotDockSnapshot dock) {
         if (level().isClientSide || robotState() != RobotOperatingState.NAVIGATING) return false;
         RobotDockAssessment.Snapshot assessment = assessDock(dock, RobotDockAssessment.Phase.APPROACH);
@@ -179,10 +210,6 @@ public final class EngineeringMobileRobotEntity extends Entity {
         return robotState() == RobotOperatingState.DOCKING;
     }
 
-    /**
-     * Confirms the physical docking fact before entering LOADING. Alignment
-     * permission alone is insufficient: occupancy must name this exact AMR.
-     */
     public boolean confirmDocked(RobotDockSnapshot dock) {
         if (level().isClientSide || robotState() != RobotOperatingState.DOCKING) return false;
         RobotDockAssessment.Snapshot assessment = assessDock(dock, RobotDockAssessment.Phase.DOCK);
@@ -205,10 +232,6 @@ public final class EngineeringMobileRobotEntity extends Entity {
         return robotState() == RobotOperatingState.LOADING;
     }
 
-    /**
-     * Completes loading only by consuming the authoritative material-flow
-     * runtime decision. Dock transfer admission alone never proves material moved.
-     */
     public boolean completeLoading(RobotDockSnapshot dock, RobotMaterialTransferSnapshot transfer) {
         if (level().isClientSide) return false;
         entityData.set(DOCK_PHASE, RobotDockAssessment.Phase.TRANSFER.ordinal());
@@ -241,11 +264,16 @@ public final class EngineeringMobileRobotEntity extends Entity {
         switch (assessment.verdict()) {
             case FAULT -> transition(RobotStateMachine.Event.CRITICAL_FAULT);
             case SAFE_STOP -> transition(RobotStateMachine.Event.SAFETY_STOP_REQUESTED);
-            case WAIT, PERMIT -> {
-                // WAIT deliberately preserves NAVIGATING / DOCKING so the
-                // caller can retry against fresh evidence without inventing
-                // an obstacle or a completed docking phase.
-            }
+            case WAIT, PERMIT -> { }
+        }
+    }
+
+    private void applyTransportRouteHold(RobotTransportRouteRuntime.Decision decision) {
+        setDeltaMovement(Vec3.ZERO);
+        switch (decision.verdict()) {
+            case FAULT -> transition(RobotStateMachine.Event.CRITICAL_FAULT);
+            case SAFE_STOP -> transition(RobotStateMachine.Event.SAFETY_STOP_REQUESTED);
+            case WAIT, PERMIT -> { }
         }
     }
 
@@ -274,7 +302,12 @@ public final class EngineeringMobileRobotEntity extends Entity {
                 stopMotion(RobotSafetyAssessment.Verdict.PERMIT, "DOCK_HANDSHAKE");
                 return;
             }
+            if (robotState() == RobotOperatingState.UNLOADING) {
+                stopMotion(RobotSafetyAssessment.Verdict.PERMIT, "UNLOAD_HANDSHAKE");
+                return;
+            }
             if (robotState() == RobotOperatingState.TRANSPORTING
+                    || robotState() == RobotOperatingState.TRANSPORT_WAITING
                     || robotState() == RobotOperatingState.TRANSPORT_REPLANNING) {
                 stopMotion(RobotSafetyAssessment.Verdict.SAFE_STOP, "TRANSPORT_ROUTE_REQUIRED");
                 return;
@@ -293,7 +326,7 @@ public final class EngineeringMobileRobotEntity extends Entity {
                 entityData.set(SAFETY_REASON, "MOTION_PERMIT");
                 return;
             }
-            completeMission();
+            completeRouteArrival();
             return;
         }
 
@@ -311,10 +344,14 @@ public final class EngineeringMobileRobotEntity extends Entity {
         }
 
         if (robotState() == RobotOperatingState.WAITING) transition(RobotStateMachine.Event.OBSTACLE_CLEARED);
+        if (robotState() == RobotOperatingState.TRANSPORT_WAITING) transition(RobotStateMachine.Event.OBSTACLE_CLEARED);
         if (robotState() == RobotOperatingState.DEGRADED) transition(RobotStateMachine.Event.EVIDENCE_RECOVERED);
         if (robotState() == RobotOperatingState.SAFE_STOP) transition(RobotStateMachine.Event.SAFE_CONDITION_RESTORED);
         if (robotState() == RobotOperatingState.REPLANNING) transition(RobotStateMachine.Event.REPLAN_READY);
-        if (robotState() != RobotOperatingState.NAVIGATING) setRobotState(RobotOperatingState.NAVIGATING);
+        if (robotState() == RobotOperatingState.TRANSPORT_REPLANNING) transition(RobotStateMachine.Event.REPLAN_READY);
+        if (robotState() != RobotOperatingState.NAVIGATING && robotState() != RobotOperatingState.TRANSPORTING) {
+            setRobotState(RobotOperatingState.NAVIGATING);
+        }
 
         setYRot((float) Math.toDegrees(Math.atan2(-direction.x, direction.z)));
         Vec3 command = direction.scale(CRUISE_SPEED);
@@ -326,8 +363,30 @@ public final class EngineeringMobileRobotEntity extends Entity {
         if (routeWaypoints.isEmpty() || routeIndex + 1 >= routeWaypoints.size()) return false;
         routeIndex++;
         setCurrentTarget(routeWaypoints.get(routeIndex).position());
-        entityData.set(ROUTE_REASON, "FOLLOWING_EXPLICIT_ROUTE");
+        entityData.set(ROUTE_REASON,
+                robotState() == RobotOperatingState.TRANSPORTING
+                        ? "FOLLOWING_TRANSPORT_ROUTE"
+                        : "FOLLOWING_EXPLICIT_ROUTE");
         return true;
+    }
+
+    private void completeRouteArrival() {
+        if (robotState() == RobotOperatingState.TRANSPORT_WAITING
+                || robotState() == RobotOperatingState.TRANSPORT_REPLANNING) {
+            stopMotion(RobotSafetyAssessment.Verdict.SAFE_STOP, "TRANSPORT_HOLD_AT_TARGET");
+            return;
+        }
+        if (robotState() == RobotOperatingState.TRANSPORTING) {
+            entityData.set(HAS_TARGET, false);
+            transition(RobotStateMachine.Event.ARRIVE_TARGET);
+            entityData.set(SAFETY, RobotSafetyAssessment.Verdict.PERMIT.ordinal());
+            entityData.set(SAFETY_REASON, "TRANSPORT_TARGET_ARRIVED");
+            entityData.set(ROUTE_REASON, "TRANSPORT_ROUTE_COMPLETE");
+            routeWaypoints = List.of();
+            routeIndex = 0;
+            return;
+        }
+        completeMission();
     }
 
     private void completeMission() {
@@ -345,26 +404,24 @@ public final class EngineeringMobileRobotEntity extends Entity {
             transition(RobotStateMachine.Event.CRITICAL_FAULT);
             return;
         }
-
         if (safety.verdict() == RobotSafetyAssessment.Verdict.DEGRADED_HOLD) {
             transition(RobotStateMachine.Event.SENSOR_DEGRADED);
             return;
         }
-
         if ("LOCALIZATION_LOST".equals(safety.primaryReason())) {
             transition(RobotStateMachine.Event.LOCALIZATION_LOST);
             return;
         }
-
         if ("OBSTACLE_UNSAFE".equals(safety.primaryReason())) {
-            if (robotState() == RobotOperatingState.NAVIGATING) {
+            if (robotState() == RobotOperatingState.NAVIGATING
+                    || robotState() == RobotOperatingState.TRANSPORTING) {
                 transition(RobotStateMachine.Event.OBSTACLE_DETECTED);
-            } else if (robotState() != RobotOperatingState.WAITING) {
+            } else if (robotState() != RobotOperatingState.WAITING
+                    && robotState() != RobotOperatingState.TRANSPORT_WAITING) {
                 transition(RobotStateMachine.Event.SAFETY_STOP_REQUESTED);
             }
             return;
         }
-
         transition(RobotStateMachine.Event.SAFETY_STOP_REQUESTED);
     }
 
