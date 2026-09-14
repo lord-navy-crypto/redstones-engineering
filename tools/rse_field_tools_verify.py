@@ -60,9 +60,10 @@ require(
     "src/main/java/dev/redstoneengineering/item/DiagnosticTabletItem.java",
     "MAX_HISTORY = 8", "CustomData.update(DataComponents.CUSTOM_DATA", "EngineeringTopologyView.inspect",
     "face.compact()", "observer-only; no network recompute or device-state mutation",
-    "Shift-right-click air to open tablet", "level.getBestNeighborSignal(pos)",
-    "level.hasNeighborSignal(pos)", "appendState(out, state)", "REDSTONE IN:", "STATE:",
-    "NOMINAL TOPOLOGY", "observation.quality()", "CONTEXT: dimension=",
+    "openTablet(serverPlayer, tablet);", "openTablet(serverPlayer, stack);",
+    "tag.putString(SNAPSHOT_PREFIX + 0, snapshot);", "TARGET FACE:", "context.getClickedFace()",
+    "level.getBestNeighborSignal(pos)", "level.hasNeighborSignal(pos)", "appendState(out, state)",
+    "REDSTONE IN:", "STATE:", "NOMINAL TOPOLOGY", "observation.quality()", "CONTEXT: dimension=",
     "level.dimension().location()", "level.getGameTime()",
 )
 forbid(
@@ -81,8 +82,15 @@ require(
     "lineColor(lines[i], i)", "findLine(lines, \"STATUS:\")", "drawStatusBadge",
     'status.contains("CHECK TOPOLOGY")', 'lines[i].startsWith("STATUS:")',
     'lines[i].startsWith("MODE:")', 'line.startsWith("CONTEXT:")',
-    'line.startsWith("TOPOLOGY:")', 'line.startsWith("REDSTONE IN:")',
-    'line.contains(" q=DEGRADED")', 'line.contains(" q=MISSING")',
+    'line.startsWith("TARGET FACE:")', 'line.startsWith("TOPOLOGY:")', 'line.startsWith("REDSTONE IN:")',
+    'line.contains("q=VALID")', 'line.contains("q=NO_SIGNAL")', 'line.contains("q=SATURATED")',
+    'line.contains("q=STALE")', 'line.contains("q=FAULT")', 'line.contains("q=DOMAIN_MISMATCH")',
+    'line.contains("q=TOPOLOGY_ERROR")', 'line.contains("→ CONNECTED")',
+    'line.contains("→ DOMAIN_MISMATCH")', 'line.contains("→ DIRECTION_MISMATCH")',
+)
+forbid(
+    "src/main/java/dev/redstoneengineering/client/ui/DiagnosticTabletScreen.java",
+    'q=DEGRADED', 'q=MISSING',
 )
 require(
     "src/main/java/dev/redstoneengineering/block/EngineeringCompassBlock.java",
@@ -127,11 +135,13 @@ print(" guide + ports/config split: PASS")
 print(" curated high-risk block guidance: PASS")
 print(" book + redstone recipe: PASS")
 print(" bounded observer-only diagnostic tablet history: PASS")
+print(" tablet scan -> immediate review + air -> retained history: PASS")
+print(" tablet newest-slot + clicked-face traceability: PASS")
 print(" tablet dimension + world-tick traceability: PASS")
 print(" tablet promoted topology status badge: PASS")
 print(" BlockState + vanilla redstone observation: PASS")
 print(" tablet Newer/Older navigation + boundary states: PASS")
-print(" semantic topology/evidence colors: PASS")
+print(" current PortQuality + topology-link semantic colors: PASS")
 print(" existing diagnostics/topology reuse: PASS")
 print(" engineering compass N/E/S/W model labels: PASS")
 print(" engineering compass low-profile passive datum: PASS")
