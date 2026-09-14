@@ -99,6 +99,17 @@ public class EdgeDetectorBlock extends DirectionalSignalBlock {
         return (int) Math.min(Integer.MAX_VALUE, age);
     }
 
+    /** Shared authoritative operator action used by both HMI and Shift-right-click. */
+    public static boolean stepMode(Level level, BlockPos pos, boolean forward) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof EdgeDetectorBlock detector)) return false;
+        int mode = state.getValue(MODE);
+        int nextMode = forward ? (mode + 1) % 3 : Math.floorMod(mode - 1, 3);
+        level.setBlock(pos, state.setValue(MODE, nextMode), Block.UPDATE_CLIENTS);
+        level.scheduleTick(pos, detector, 1);
+        return true;
+    }
+
     private static int boundedTick(long tick) {
         return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, tick));
     }
@@ -109,12 +120,13 @@ public class EdgeDetectorBlock extends DirectionalSignalBlock {
                 FieldDeviceUi.open(serverPlayer, pos);
                 return InteractionResult.CONSUME;
             }
-            BlockState next = state.setValue(MODE, (state.getValue(MODE) + 1) % 3);
-            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            player.displayClientMessage(Component.literal(
-                    "Edge Detector | mode=" + modeName(next.getValue(MODE))
-                            + " | edges=" + edgeCount(level, pos)
-                            + " | lastEdgeAge=" + lastEdgeAgeTicks(level, pos) + "t"), true);
+            if (stepMode(level, pos, true)) {
+                int mode = level.getBlockState(pos).getValue(MODE);
+                player.displayClientMessage(Component.literal(
+                        "Edge Detector | mode=" + modeName(mode)
+                                + " | edges=" + edgeCount(level, pos)
+                                + " | lastEdgeAge=" + lastEdgeAgeTicks(level, pos) + "t"), true);
+            }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
