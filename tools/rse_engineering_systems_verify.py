@@ -33,12 +33,13 @@ alarm = read(BLOCK_DIR / "AlarmProcessorBlock.java")
 debugger = read(BLOCK_DIR / "TopologyDebuggerBlock.java")
 compass = read(BLOCK_DIR / "EngineeringCompassBlock.java")
 workcell = read(BLOCK_DIR / "WorkcellControllerBlock.java")
+industrial_buffer = read(BLOCK_DIR / "IndustrialBufferBlock.java")
 compass_model = read(ASSETS / "models/block/engineering_compass.json")
 compass_state = read(ASSETS / "blockstates/engineering_compass.json")
 gt = read(GT)
 
 require_all(module, (
-    "@Mod(RedstoneEngineering.MOD_ID)", "SYSTEM_BLOCK_COUNT = 7",
+    "@Mod(RedstoneEngineering.MOD_ID)", "SYSTEM_BLOCK_COUNT = 8",
     "DeferredRegister<MapCodec<? extends Block>> BLOCK_TYPES", "DeferredRegister.Blocks BLOCKS", "DeferredRegister.Items ITEMS",
     "BLOCK_TYPES.register(modBus);", "BLOCKS.register(modBus);", "ITEMS.register(modBus);",
     "DeferredBlock<SequenceControllerBlock> SEQUENCE_CONTROLLER", "DeferredBlock<SafetyInterlockBlock> SAFETY_INTERLOCK",
@@ -47,6 +48,9 @@ require_all(module, (
     "DeferredBlock<WorkcellControllerBlock> WORKCELL_CONTROLLER", "WORKCELL_CONTROLLER_CODEC",
     'codec("workcell_controller", WorkcellControllerBlock::new)', 'BLOCKS.registerBlock("workcell_controller", WorkcellControllerBlock::new',
     "WORKCELL_CONTROLLER_ITEM", "event.accept(WORKCELL_CONTROLLER_ITEM);",
+    "DeferredBlock<IndustrialBufferBlock> INDUSTRIAL_BUFFER", "INDUSTRIAL_BUFFER_CODEC",
+    'codec("industrial_buffer", IndustrialBufferBlock::new)', 'BLOCKS.registerBlock("industrial_buffer", IndustrialBufferBlock::new',
+    "INDUSTRIAL_BUFFER_ITEM", "event.accept(INDUSTRIAL_BUFFER_ITEM);",
     "ENGINEERING_COMPASS_CODEC", 'codec("engineering_compass", EngineeringCompassBlock::new)',
     'BLOCKS.registerBlock("engineering_compass", EngineeringCompassBlock::new', ".noOcclusion()", "ENGINEERING_COMPASS_ITEM",
     "event.accept(ENGINEERING_COMPASS_ITEM);", "event.register(RseEngineeringSystemsGameTests.class);"
@@ -66,6 +70,14 @@ require_all(workcell, (
 ), "WorkcellControllerBlock.java")
 for forbidden in ("OperationBottleneckAssessment", "Comparator.comparing", "getEntitiesOfClass", "inflate("):
     if forbidden in workcell: errors.append(f"WorkcellControllerBlock must delegate authority; found {forbidden!r}")
+require_all(industrial_buffer, (
+    "class IndustrialBufferBlock extends Block implements EngineeringPortProvider",
+    "INDUSTRIAL_BUFFER_CODEC.value()", '"WIP LEVEL"', '"SPACE PERMIT"', '"FULL"',
+    "OperationIndustrialBufferState.create", "OperationIndustrialBufferState.snapshot",
+    "snapshot.lots().isEmpty()", "isSignalSource", "queryDirection.getOpposite()",
+), "IndustrialBufferBlock.java")
+for forbidden in ("new OperationBufferLot(", "OperationBufferRuntime.receive", "OperationBufferRuntime.allocate", "StringProperty", "LongProperty"):
+    if forbidden in industrial_buffer: errors.append(f"IndustrialBufferBlock must project persistent Operations state without owning lot authority; found {forbidden!r}")
 
 require_all(compass_state, ('"variants"', '"redstoneengineering:block/engineering_compass"'), "engineering_compass blockstate")
 require_all(compass, (
@@ -116,7 +128,7 @@ for needle in (
 ):
     require(gt, needle, "RseEngineeringSystemsGameTests.java")
 
-for block_id in ("sequence_controller", "safety_interlock", "fault_injector", "alarm_processor", "topology_debugger", "engineering_compass", "workcell_controller"):
+for block_id in ("sequence_controller", "safety_interlock", "fault_injector", "alarm_processor", "topology_debugger", "engineering_compass", "workcell_controller", "industrial_buffer"):
     for path in (ASSETS / "blockstates" / f"{block_id}.json", ASSETS / "models/block" / f"{block_id}.json", ASSETS / "models/item" / f"{block_id}.json", DATA / "loot_table/blocks" / f"{block_id}.json", DATA / "recipe" / f"{block_id}.json"):
         if not path.exists(): errors.append(f"{block_id}: missing {path.relative_to(ROOT)}")
 
@@ -140,10 +152,11 @@ if errors:
     sys.exit(1)
 print("RSE ENGINEERING SYSTEMS VERIFY: PASS")
 print("  legacy audited core: 122 blocks")
-print("  systems extension: 7 blocks")
-print("  aggregate closure target: 129 blocks")
+print("  systems extension: 8 blocks")
+print("  aggregate closure target: 130 blocks")
 print("  Engineering Compass: passive world-axis datum / raised N-E-S-W geometry / low-profile shape")
 print("  Workcell Controller: explicit server binding + delegated Operations authority")
+print("  Industrial Buffer: persisted logical WIP + exact lot HMI + bounded redstone projection")
 print("  systems visualization: synchronized world-visible routing and live state overlays")
 print("  systems HMI: explicit Sequence / Interlock / Topology operator controls")
 print("  reliability HMI: explicit shared maintenance actions for watchdog / servo / sensor / voter / latch")
