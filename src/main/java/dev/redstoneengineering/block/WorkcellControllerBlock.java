@@ -71,6 +71,12 @@ public class WorkcellControllerBlock extends Block implements EngineeringPortPro
             boolean permit,
             boolean hold,
             int queuePressure,
+            int inputBufferUsedUnits,
+            int inputBufferCapacityUnits,
+            int outputBufferUsedUnits,
+            int outputBufferCapacityUnits,
+            int inputWipPressurePercent,
+            int outputWipPressurePercent,
             String admissionReason,
             PortQuality evidenceQuality
     ) {
@@ -81,6 +87,12 @@ public class WorkcellControllerBlock extends Block implements EngineeringPortPro
             runningResources = Math.max(0, Math.min(validResources, runningResources));
             faultResources = Math.max(0, Math.min(boundResources, faultResources));
             queuePressure = Math.max(0, Math.min(15, queuePressure));
+            inputBufferUsedUnits = Math.max(0, inputBufferUsedUnits);
+            inputBufferCapacityUnits = Math.max(0, inputBufferCapacityUnits);
+            outputBufferUsedUnits = Math.max(0, outputBufferUsedUnits);
+            outputBufferCapacityUnits = Math.max(0, outputBufferCapacityUnits);
+            inputWipPressurePercent = Math.max(0, Math.min(100, inputWipPressurePercent));
+            outputWipPressurePercent = Math.max(0, Math.min(100, outputWipPressurePercent));
             if (admissionReason == null || admissionReason.isBlank()) admissionReason = "UNSPECIFIED";
             if (evidenceQuality == null) evidenceQuality = PortQuality.NO_SIGNAL;
         }
@@ -122,7 +134,9 @@ public class WorkcellControllerBlock extends Block implements EngineeringPortPro
         boolean fault = faults > 0;
         if (resourceIds.isEmpty()) {
             return new Snapshot(workcellId, resources.size(), 0, 0, faults,
-                    false, false, true, 0, "RESOURCE_EVIDENCE_INVALID", quality);
+                    false, false, true, 0,
+                    0, 0, 0, 0, 0, 0,
+                    "RESOURCE_EVIDENCE_INVALID", quality);
         }
 
         OperationPlantSavedData plant = OperationPlantSavedData.get(server);
@@ -170,6 +184,12 @@ public class WorkcellControllerBlock extends Block implements EngineeringPortPro
                 admission.permitted(),
                 !admission.permitted(),
                 queuePressure,
+                inputBuffer.usedUnits(),
+                inputBuffer.capacityUnits(),
+                outputBuffer.usedUnits(),
+                outputBuffer.capacityUnits(),
+                inputWipPressurePercent,
+                outputWipPressurePercent,
                 admission.reason(),
                 quality
         );
@@ -319,7 +339,9 @@ public class WorkcellControllerBlock extends Block implements EngineeringPortPro
 
     private static Snapshot unavailable(String workcellId, String reason) {
         return new Snapshot(workcellId, 0, 0, 0, 0,
-                false, false, true, 0, reason, PortQuality.NO_SIGNAL);
+                false, false, true, 0,
+                0, 0, 0, 0, 0, 0,
+                reason, PortQuality.NO_SIGNAL);
     }
 
     private static Snapshot capacityUnavailable(
@@ -332,6 +354,8 @@ public class WorkcellControllerBlock extends Block implements EngineeringPortPro
             String reason
     ) {
         return new Snapshot(workcellId, boundResources, validResources, runningResources, faultResources,
-                false, false, true, 0, reason, quality);
+                false, false, true, 0,
+                0, 0, 0, 0, 0, 0,
+                reason, quality);
     }
 }
