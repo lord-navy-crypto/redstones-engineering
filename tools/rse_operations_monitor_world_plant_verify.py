@@ -62,9 +62,16 @@ for token in (
     "Buffers / WIP",
     "Bound resources",
     "Quality / reliability / delivery",
+    "CONFIGURATION",
+    "WIP PRESSURE",
+    "RESOURCE HEALTH",
+    "drawPlantMetricBar",
+    "configurationPercent",
+    "resourceHealthPercent",
+    "EVIDENCE COVERAGE",
 ):
     if screen and token not in screen:
-        errors.append(f"OperationsMonitorScreen missing world plant UI token {token!r}")
+        errors.append(f"OperationsMonitorScreen missing world plant UI v2 token {token!r}")
 
 combined = assessment + menu + screen
 for forbidden in (
@@ -84,11 +91,11 @@ for forbidden in (
     if combined and forbidden in combined:
         errors.append(f"world-backed Operations Monitor must remain observer-only; found {forbidden!r}")
 
-# Missing server-owned queue/job/quality/reliability/delivery evidence must remain visibly withheld.
 for required in (
     "PLANT KPIs • INCOMPLETE",
     "— / — / —",
     "— / —",
+    "WITHHELD • EVIDENCE MISSING",
 ):
     if screen and required not in screen:
         errors.append(f"OperationsMonitorScreen must withhold unsupported plant KPIs; missing {required!r}")
@@ -101,6 +108,7 @@ if errors:
 
 print("RSE OPERATIONS MONITOR WORLD PLANT VERIFY: PASS")
 print(" server-owned workcell/buffer/binding evidence visible in existing Operations Monitor: PASS")
+print(" configuration/WIP/resource-health visual bars use existing synchronized evidence: PASS")
 print(" aggregate WIP/capacity derived from persisted Industrial Buffers: PASS")
 print(" resource validity/fault evidence derived from explicit workcell bindings: PASS")
 print(" unsupported queue/quality/reliability/delivery evidence remains withheld: PASS")

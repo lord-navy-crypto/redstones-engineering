@@ -4,6 +4,8 @@ import dev.redstoneengineering.EngineeringSystemsModule;
 import dev.redstoneengineering.block.IndustrialBufferBlock;
 import dev.redstoneengineering.operations.OperationBufferLot;
 import dev.redstoneengineering.operations.OperationBufferSnapshot;
+import dev.redstoneengineering.operations.world.OperationPlantSavedData;
+import dev.redstoneengineering.operations.world.OperationWorkcellBufferBinding;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import dev.redstoneengineering.ui.IndustrialBufferUi;
 import net.minecraft.core.BlockPos;
@@ -30,6 +32,8 @@ public final class IndustrialBufferMenu extends EngineeringDeviceMenu {
     private final DataSlot capacityUnits = trackedInt();
     private final DataSlot usedUnits = trackedInt();
     private final DataSlot totalLotCount = trackedInt();
+    private final DataSlot inputConsumerWorkcells = trackedInt();
+    private final DataSlot outputProducerWorkcells = trackedInt();
     private final List<LotView> visibleLots;
 
     public IndustrialBufferMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
@@ -57,11 +61,27 @@ public final class IndustrialBufferMenu extends EngineeringDeviceMenu {
             capacityUnits.set(0);
             usedUnits.set(0);
             totalLotCount.set(0);
-            return;
+        } else {
+            capacityUnits.set(snapshot.capacityUnits());
+            usedUnits.set(snapshot.usedUnits());
+            totalLotCount.set(snapshot.lots().size());
         }
-        capacityUnits.set(snapshot.capacityUnits());
-        usedUnits.set(snapshot.usedUnits());
-        totalLotCount.set(snapshot.lots().size());
+        refreshWorkcellRoles();
+    }
+
+    private void refreshWorkcellRoles() {
+        inputConsumerWorkcells.set(0);
+        outputProducerWorkcells.set(0);
+        if (!(level instanceof ServerLevel server)) return;
+        String bufferId = IndustrialBufferBlock.bufferId(blockPos);
+        int inputCount = 0;
+        int outputCount = 0;
+        for (OperationWorkcellBufferBinding binding : OperationPlantSavedData.get(server).workcellBufferBindings()) {
+            if (bufferId.equals(binding.inputBufferId())) inputCount++;
+            if (bufferId.equals(binding.outputBufferId())) outputCount++;
+        }
+        inputConsumerWorkcells.set(inputCount);
+        outputProducerWorkcells.set(outputCount);
     }
 
     public int capacityUnits() { return capacityUnits.get(); }
@@ -69,6 +89,12 @@ public final class IndustrialBufferMenu extends EngineeringDeviceMenu {
     public int availableUnits() { return Math.max(0, capacityUnits() - usedUnits()); }
     public int totalLotCount() { return totalLotCount.get(); }
     public List<LotView> visibleLots() { return visibleLots; }
+    public int inputConsumerWorkcells() { return inputConsumerWorkcells.get(); }
+    public int outputProducerWorkcells() { return outputProducerWorkcells.get(); }
+    public int wipPressurePercent() {
+        if (capacityUnits() <= 0) return 0;
+        return Math.max(0, Math.min(100, (int) Math.round(usedUnits() * 100.0 / capacityUnits())));
+    }
     public int wipSignal() {
         if (capacityUnits() <= 0 || usedUnits() <= 0) return 0;
         int scaled = (int) Math.round(usedUnits() * 15.0 / capacityUnits());

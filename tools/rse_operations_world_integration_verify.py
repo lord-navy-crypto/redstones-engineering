@@ -54,8 +54,6 @@ for token in (
     if binding and token not in binding:
         errors.append(f"Workcell binding missing stable explicit membership contract {token!r}")
 
-# Task 9 RED contract: a workcell owns explicit input/output buffer identities. Capacity comes from
-# those authoritative persisted buffers; no proximity search and no guessed empty/full state.
 for token in (
     "record OperationWorkcellBufferBinding", "workcellId", "inputBufferId", "outputBufferId", "validBinding",
 ):
@@ -100,15 +98,19 @@ for body, label, required in (
         "OperationWorkcellStore.resolveBoundResources", "OperationWorkcellAdmissionAssessment.inspect",
         "OperationPlantSavedData.get", "workcellBufferBinding", "inputBuffer", "outputBuffer",
         "inputWipPressurePercent", "outputWipPressurePercent", "capacityEvidenceAvailable",
+        "inputBufferUsedUnits", "inputBufferCapacityUnits", "outputBufferUsedUnits", "outputBufferCapacityUnits",
         "PortQuality.VALID", "isSignalSource", "queryDirection.getOpposite()",
     )),
     (workcell_ui, "WorkcellControllerUi", ("class WorkcellControllerUi", "open", "WorkcellControllerMenu")),
     (workcell_menu, "WorkcellControllerMenu", (
         "class WorkcellControllerMenu", "OperationWorkcellStore", "boundResource", "admissionReason",
         "setup", "maintenance", "activeAssignments", "queuePressure",
+        "inputBufferUsedUnits", "inputBufferCapacityUnits", "outputBufferUsedUnits", "outputBufferCapacityUnits",
+        "inputWipPressurePercent", "outputWipPressurePercent",
     )),
     (workcell_screen, "WorkcellControllerScreen", (
         "class WorkcellControllerScreen", "BOUND RESOURCES", "ADMISSION", "SETUP", "MAINTENANCE",
+        "INPUT", "WORKCELL", "OUTPUT", "Input WIP", "Output WIP", "PERMIT", "HOLD",
     )),
 ):
     for token in required:
@@ -123,6 +125,14 @@ for token in ("OperationDispatchRuntime", "OperationChangeoverRuntime", "Operati
 for forbidden in ("OperationBottleneckAssessment", "severityScore", "Comparator.comparing", "getEntitiesOfClass", "inflate("):
     if workcell_controller and forbidden in workcell_controller:
         errors.append(f"Workcell Controller must not rank/discover resources independently; found {forbidden!r}")
+
+for body, label in ((workcell_menu, "WorkcellControllerMenu"), (workcell_screen, "WorkcellControllerScreen")):
+    for forbidden in (
+        "OperationDispatchRuntime.evaluate", "OperationBufferRuntime.receive", "OperationBufferRuntime.allocate",
+        "OperationMaintenanceRuntime.start", "OperationChangeoverRuntime.request", "setBlock(", "setDeltaMovement(",
+    ):
+        if body and forbidden in body:
+            errors.append(f"{label} UI must remain read-only; found authority {forbidden!r}")
 
 for token in (
     "class OperationIndustrialBufferState",
@@ -192,11 +202,13 @@ print(" existing servo actuator exposes real machine evidence without fabricated
 print(" server-owned explicit workcell binding persistence: PASS")
 print(" duplicate position/resource identity rejection: PASS")
 print(" Workcell Controller delegates dispatch/changeover/maintenance/capacity authority: PASS")
+print(" Workcell Controller HMI exposes real input/output finite-capacity evidence: PASS")
 print(" Workcell Controller physical redstone query direction: PASS")
 print(" persistent Industrial Buffer logical lot/WIP state: PASS")
 print(" buffer receipt/allocation delegates to OperationBufferRuntime: PASS")
 print(" downstream release delegates atomically to OperationMaterialReleaseRuntime: PASS")
 print(" explicit input/output buffer binding feeds real workcell capacity evidence: PASS")
 print(" Workcell Controller independent ranking/proximity discovery: NONE")
+print(" Workcell UI scheduling/material mutation authority: NONE")
 print(" dispatch/world-motion/client/inventory authority leakage: NONE")
 print(" proximity auto-discovery: NONE")

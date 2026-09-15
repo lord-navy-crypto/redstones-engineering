@@ -52,6 +52,10 @@ menu = require(
     "usedUnits",
     "availableUnits",
     "totalLotCount",
+    "wipPressurePercent",
+    "inputConsumerWorkcells",
+    "outputProducerWorkcells",
+    "workcellBufferBindings",
 )
 screen = require(
     "src/main/java/dev/redstoneengineering/client/ui/IndustrialBufferScreen.java",
@@ -61,6 +65,11 @@ screen = require(
     "UNITS",
     "LOT IDENTITY",
     "server snapshot",
+    "WIP PRESSURE",
+    "NEAR FULL",
+    "AVAILABLE",
+    "INPUT TO",
+    "OUTPUT FROM",
 )
 
 combined = block + ui + menu + screen
@@ -78,7 +87,6 @@ for forbidden in (
     if combined and forbidden in combined:
         errors.append(f"Industrial Buffer block/UI must not forge Operations authority; found {forbidden!r}")
 
-# Identity is high-cardinality and must never become block properties or analog signal payload.
 for forbidden in (
     "LongProperty",
     "StringProperty",
@@ -99,6 +107,8 @@ print("RSE INDUSTRIAL BUFFER WORLD VERIFY: PASS")
 print(" world block owns no duplicate lot/inventory authority: PASS")
 print(" finite persisted Operations buffer state bridge: PASS")
 print(" WIP/space/fullness low-cardinality redstone projection: PASS")
+print(" WIP pressure + FULL/NEAR FULL/AVAILABLE HMI: PASS")
+print(" persisted workcell input/output role counts visible read-only: PASS")
 print(" exact output/job/unit identity transported to UI via server buffer: PASS")
 print(" non-empty break retains logical WIP for fail-closed recovery: PASS")
 print(" manual quality/completion fabrication: NONE")
