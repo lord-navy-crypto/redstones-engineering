@@ -16,6 +16,8 @@ def read(rel: str) -> str:
 
 inspection = read("src/main/java/dev/redstoneengineering/operations/OperationQualityInspectionEvidence.java")
 assessment = read("src/main/java/dev/redstoneengineering/operations/OperationQualityDispositionAssessment.java")
+rework_demand = read("src/main/java/dev/redstoneengineering/operations/OperationReworkDemand.java")
+rework_release = read("src/main/java/dev/redstoneengineering/operations/OperationReworkReleaseAssessment.java")
 
 for token in (
     "record OperationQualityInspectionEvidence(",
@@ -53,20 +55,58 @@ for token in (
     if assessment and token not in assessment:
         errors.append(f"OperationQualityDispositionAssessment missing fail-closed disposition rule {token!r}")
 
-for forbidden in (
-    "OperationDispatchRuntime",
-    "OperationQueueRuntime",
-    "OperationMaterialReleaseRuntime",
-    "OperationChangeoverRuntime",
-    "RobotMission",
-    "setBlock(",
-    "setDeltaMovement(",
-    "RuntimeIntStore",
-    "OperationsDashboardSnapshot",
-    "IndustrialOperationsAssessment",
+for token in (
+    "record OperationReworkDemand(",
+    "long reworkJobId",
+    "long sourceOutputId",
+    "long sourceJobId",
+    "String processId",
+    "int units",
+    "int priority",
+    "long releaseTick",
+    "long dueTick",
+    "rework job must use a new job identity",
 ):
-    if assessment and forbidden in assessment:
-        errors.append(f"Quality disposition must not own dispatch/world/robotics/KPI authority; found {forbidden!r}")
+    if rework_demand and token not in rework_demand:
+        errors.append(f"OperationReworkDemand missing explicit planning contract {token!r}")
+
+for token in (
+    "class OperationReworkReleaseAssessment",
+    "JOB_READY",
+    "QUALITY_DISPOSITION_MISSING",
+    "REWORK_DEMAND_MISSING",
+    "QUALITY_DISPOSITION_INCOMPLETE",
+    "QUALITY_DISPOSITION_FAULTED",
+    "QUALITY_DISPOSITION_INVALID",
+    "NO_REWORK_UNITS",
+    "REWORK_OUTPUT_ID_MISMATCH",
+    "REWORK_SOURCE_JOB_MISMATCH",
+    "REWORK_QUANTITY_MISMATCH",
+    "new OperationJob(",
+    "demand.processId()",
+    "demand.priority()",
+    "demand.releaseTick()",
+    "demand.dueTick()",
+    "REWORK_JOB_READY",
+):
+    if rework_release and token not in rework_release:
+        errors.append(f"OperationReworkReleaseAssessment missing explicit rework bridge {token!r}")
+
+for body, label in ((assessment, "Quality disposition"), (rework_release, "Rework release")):
+    for forbidden in (
+        "OperationDispatchRuntime",
+        "OperationQueueRuntime",
+        "OperationMaterialReleaseRuntime",
+        "OperationChangeoverRuntime",
+        "RobotMission",
+        "setBlock(",
+        "setDeltaMovement(",
+        "RuntimeIntStore",
+        "OperationsDashboardSnapshot",
+        "IndustrialOperationsAssessment",
+    ):
+        if body and forbidden in body:
+            errors.append(f"{label} must not own dispatch/world/robotics/KPI authority; found {forbidden!r}")
 
 if errors:
     print("RSE OPERATIONS QUALITY VERIFY: FAIL")
@@ -78,5 +118,6 @@ print("RSE OPERATIONS QUALITY VERIFY: PASS")
 print(" explicit good/reject/rework inspection evidence: PASS")
 print(" identity + quantity + disposition accounting: PASS")
 print(" incomplete inspection remains WAIT: PASS")
+print(" rework process/job/priority/release/due remain explicit planning inputs: PASS")
 print(" automatic rework scheduling: NONE")
 print(" dispatch/world/robotics/KPI authority leakage: NONE")
