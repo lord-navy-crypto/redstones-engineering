@@ -20,6 +20,7 @@ public final class OperationPlantSavedData extends SavedData {
     private static final String DATA_NAME = "rse_operations_plant";
     private final Map<String, OperationWorkcellBinding> workcells = new LinkedHashMap<>();
     private final Map<String, OperationBufferSnapshot> buffers = new LinkedHashMap<>();
+    private final Map<String, OperationWorkcellBufferBinding> workcellBuffers = new LinkedHashMap<>();
 
     public static OperationPlantSavedData get(ServerLevel level) {
         if (level == null || level.getServer() == null) {
@@ -74,7 +75,6 @@ public final class OperationPlantSavedData extends SavedData {
                     break;
                 }
             }
-            // Never transform corrupt/unknown persisted WIP into an authoritative empty buffer.
             if (invalidLotEvidence) continue;
             try {
                 OperationBufferSnapshot buffer = new OperationBufferSnapshot(
@@ -87,6 +87,20 @@ public final class OperationPlantSavedData extends SavedData {
             } catch (IllegalArgumentException | ArithmeticException ignored) {
                 // Invalid/corrupt persisted WIP fails closed by remaining absent from authoritative state.
             }
+        }
+
+        ListTag workcellBufferTags = tag.getList("WorkcellBuffers", Tag.TAG_COMPOUND);
+        for (int index = 0; index < workcellBufferTags.size(); index++) {
+            CompoundTag bindingTag = workcellBufferTags.getCompound(index);
+            OperationWorkcellBufferBinding binding = new OperationWorkcellBufferBinding(
+                    bindingTag.getString("WorkcellId"),
+                    bindingTag.getString("InputBufferId"),
+                    bindingTag.getString("OutputBufferId")
+            );
+            if (!binding.validBinding()) continue;
+            if (!data.workcells.containsKey(binding.workcellId())) continue;
+            if (!data.buffers.containsKey(binding.inputBufferId()) || !data.buffers.containsKey(binding.outputBufferId())) continue;
+            data.workcellBuffers.putIfAbsent(binding.workcellId(), binding);
         }
         return data;
     }
@@ -127,6 +141,16 @@ public final class OperationPlantSavedData extends SavedData {
             bufferTags.add(bufferTag);
         }
         tag.put("Buffers", bufferTags);
+
+        ListTag workcellBufferTags = new ListTag();
+        for (OperationWorkcellBufferBinding binding : workcellBuffers.values()) {
+            CompoundTag bindingTag = new CompoundTag();
+            bindingTag.putString("WorkcellId", binding.workcellId());
+            bindingTag.putString("InputBufferId", binding.inputBufferId());
+            bindingTag.putString("OutputBufferId", binding.outputBufferId());
+            workcellBufferTags.add(bindingTag);
+        }
+        tag.put("WorkcellBuffers", workcellBufferTags);
         return tag;
     }
 
@@ -148,7 +172,9 @@ public final class OperationPlantSavedData extends SavedData {
 
     public boolean removeWorkcell(String workcellId) {
         if (workcellId == null || workcellId.isBlank()) return false;
-        if (workcells.remove(workcellId.trim()) == null) return false;
+        String normalized = workcellId.trim();
+        if (workcells.remove(normalized) == null) return false;
+        workcellBuffers.remove(normalized);
         setDirty();
         return true;
     }
@@ -162,7 +188,6 @@ public final class OperationPlantSavedData extends SavedData {
         return buffers.get(bufferId.trim());
     }
 
-    /** Replaces one immutable logical buffer snapshot and marks server SavedData dirty. */
     public boolean putBuffer(OperationBufferSnapshot buffer) {
         if (buffer == null) return false;
         for (OperationBufferSnapshot existing : buffers.values()) {
@@ -178,7 +203,36 @@ public final class OperationPlantSavedData extends SavedData {
 
     public boolean removeBuffer(String bufferId) {
         if (bufferId == null || bufferId.isBlank()) return false;
-        if (buffers.remove(bufferId.trim()) == null) return false;
+        String normalized = bufferId.trim();
+        if (buffers.remove(normalized) == null) return false;
+        workcellBuffers.entrySet().removeIf(entry ->
+                entry.getValue().inputBufferId().equals(normalized)
+                        || entry.getValue().outputBufferId().equals(normalized));
+        setDirty();
+        return true;
+    }
+
+    public Collection<OperationWorkcellBufferBinding> workcellBufferBindings() {
+        return List.copyOf(workcellBuffers.values());
+    }
+
+    public OperationWorkcellBufferBinding workcellBufferBinding(String workcellId) {
+        if (workcellId == null) return null;
+        return workcellBuffers.get(workcellId.trim());
+    }
+
+    public boolean putWorkcellBufferBinding(OperationWorkcellBufferBinding binding) {
+        if (binding == null || !binding.validBinding()) return false;
+        if (!workcells.containsKey(binding.workcellId())) return false;
+        if (!buffers.containsKey(binding.inputBufferId()) || !buffers.containsKey(binding.outputBufferId())) return false;
+        workcellBuffers.put(binding.workcellId(), binding);
+        setDirty();
+        return true;
+    }
+
+    public boolean removeWorkcellBufferBinding(String workcellId) {
+        if (workcellId == null || workcellId.isBlank()) return false;
+        if (workcellBuffers.remove(workcellId.trim()) == null) return false;
         setDirty();
         return true;
     }
