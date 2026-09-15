@@ -20,6 +20,7 @@ resolver = read("src/main/java/dev/redstoneengineering/operations/world/Operatio
 binding = read("src/main/java/dev/redstoneengineering/operations/world/OperationWorkcellBinding.java")
 store = read("src/main/java/dev/redstoneengineering/operations/world/OperationWorkcellStore.java")
 saved = read("src/main/java/dev/redstoneengineering/operations/world/OperationPlantSavedData.java")
+buffer_state = read("src/main/java/dev/redstoneengineering/operations/world/OperationIndustrialBufferState.java")
 sequence = read("src/main/java/dev/redstoneengineering/block/SequenceControllerBlock.java")
 alarm = read("src/main/java/dev/redstoneengineering/block/AlarmProcessorBlock.java")
 watchdog = read("src/main/java/dev/redstoneengineering/block/WatchdogBlock.java")
@@ -55,6 +56,7 @@ for token in (
 for token in (
     "class OperationPlantSavedData", "extends SavedData", "computeIfAbsent", "overworld()", "setDirty()",
     "save(CompoundTag", "load(CompoundTag", "putWorkcell", "removeWorkcell", "workcells",
+    "putBuffer", "removeBuffer", "buffers",
 ):
     if saved and token not in saved:
         errors.append(f"Plant SavedData missing server persistence contract {token!r}")
@@ -82,12 +84,11 @@ for body, label, required in (
 if servo and "false," not in servo:
     errors.append("ServoActuatorBlock must explicitly expose completion evidence as unavailable rather than inventing a completion event")
 
-# Task 6 RED contract: one justified world-facing controller delegates authority rather than
-# reimplementing scheduling/setup/maintenance/capacity logic.
 for body, label, required in (
     (workcell_controller, "WorkcellControllerBlock", (
         "class WorkcellControllerBlock", '"ACTIVE"', '"PERMIT"', '"HOLD"', '"FAULT"', '"QUEUE PRESSURE"',
         "OperationWorkcellStore.resolveBoundResources", "OperationWorkcellAdmissionAssessment.inspect",
+        "isSignalSource", "queryDirection.getOpposite()",
     )),
     (workcell_ui, "WorkcellControllerUi", ("class WorkcellControllerUi", "open", "WorkcellControllerMenu")),
     (workcell_menu, "WorkcellControllerMenu", (
@@ -111,6 +112,32 @@ for forbidden in ("OperationBottleneckAssessment", "severityScore", "Comparator.
     if workcell_controller and forbidden in workcell_controller:
         errors.append(f"Workcell Controller must not rank/discover resources independently; found {forbidden!r}")
 
+# Task 7 RED contract: persistent world buffer state must preserve logical lot identity and
+# apply receipts/allocations through the already-authoritative pure buffer runtime.
+for token in (
+    "class OperationIndustrialBufferState",
+    "bufferId",
+    "location",
+    "capacityUnits",
+    "OperationBufferLot",
+    "OperationBufferSnapshot",
+    "OperationBufferRuntime.receive",
+    "OperationBufferRuntime.allocate",
+    "OperationMaterialReleaseRuntime",
+    "BUFFER_CAPACITY_REACHED",
+    "DUPLICATE_OUTPUT_RECEIPT",
+    "setDirty",
+):
+    if buffer_state and token not in buffer_state:
+        errors.append(f"Industrial Buffer state missing authoritative persistence/runtime bridge {token!r}")
+
+for forbidden in (
+    "ItemStack", "Container", "SimpleContainer", "getEntitiesOfClass", "inflate(",
+    "setBlock(", "OperationDispatchRuntime", "RobotMission",
+):
+    if buffer_state and forbidden in buffer_state:
+        errors.append(f"Industrial Buffer state must retain logical lot authority without world/inventory shortcuts; found {forbidden!r}")
+
 for body, label in ((provider, "provider"), (snapshot, "snapshot"), (resolver, "resolver"), (binding, "binding"), (saved, "SavedData")):
     for forbidden in (
         "OperationDispatchRuntime", "OperationQueueRuntime", "OperationMaintenanceRuntime", "OperationChangeoverRuntime",
@@ -129,7 +156,7 @@ for body, label in ((resolver, "World resource resolver"), (store, "Workcell sto
         if body and forbidden in body:
             errors.append(f"{label} must not use proximity discovery; found {forbidden!r}")
 
-for body, label in ((binding, "Workcell binding"), (saved, "Plant SavedData")):
+for body, label in ((binding, "Workcell binding"), (saved, "Plant SavedData"), (buffer_state, "Industrial Buffer state")):
     for forbidden in (
         "import net.minecraft.world.level.block.state.BlockState",
         "import net.minecraft.world.level.block.state.properties.IntegerProperty",
@@ -152,6 +179,9 @@ print(" existing servo actuator exposes real machine evidence without fabricated
 print(" server-owned explicit workcell binding persistence: PASS")
 print(" duplicate position/resource identity rejection: PASS")
 print(" Workcell Controller delegates dispatch/changeover/maintenance/capacity authority: PASS")
+print(" Workcell Controller physical redstone query direction: PASS")
+print(" persistent Industrial Buffer logical lot/WIP state: PASS")
+print(" buffer receipt/allocation delegates to OperationBufferRuntime: PASS")
 print(" Workcell Controller independent ranking/proximity discovery: NONE")
 print(" dispatch/queue/world-motion/client authority leakage: NONE")
 print(" proximity auto-discovery: NONE")
