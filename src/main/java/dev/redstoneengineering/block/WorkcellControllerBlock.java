@@ -9,6 +9,7 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.operations.OperationBufferSnapshot;
 import dev.redstoneengineering.operations.OperationChangeoverRuntime;
 import dev.redstoneengineering.operations.OperationDispatchRuntime;
 import dev.redstoneengineering.operations.OperationJob;
@@ -18,6 +19,8 @@ import dev.redstoneengineering.operations.OperationResourceSetupSnapshot;
 import dev.redstoneengineering.operations.OperationResourceSnapshot;
 import dev.redstoneengineering.operations.OperationWorkcellAdmissionAssessment;
 import dev.redstoneengineering.operations.OperationWorkcellCapacitySnapshot;
+import dev.redstoneengineering.operations.world.OperationPlantSavedData;
+import dev.redstoneengineering.operations.world.OperationWorkcellBufferBinding;
 import dev.redstoneengineering.operations.world.OperationWorkcellStore;
 import dev.redstoneengineering.operations.world.OperationWorldResourceSnapshot;
 import dev.redstoneengineering.ui.WorkcellControllerUi;
@@ -45,7 +48,7 @@ import java.util.Set;
  * World-facing Industrial Operations workcell boundary.
  *
  * <p>The controller owns no scheduling, setup, maintenance, or capacity algorithm. It projects
- * explicit server-owned resource bindings into low-cardinality signals and delegates every
+ * explicit server-owned resource/buffer bindings into low-cardinality signals and delegates every
  * decision to the existing Operations runtimes.</p>
  */
 public class WorkcellControllerBlock extends Block implements EngineeringPortProvider {
@@ -122,21 +125,38 @@ public class WorkcellControllerBlock extends Block implements EngineeringPortPro
                     false, false, true, 0, "RESOURCE_EVIDENCE_INVALID", quality);
         }
 
-        // Input/output WIP is intentionally unavailable until the server-owned Industrial Buffer
-        // slice exists. Mark the capacity snapshot STALE so admission fails closed rather than
-        // inventing empty buffers or spare capacity.
+        OperationPlantSavedData plant = OperationPlantSavedData.get(server);
+        OperationWorkcellBufferBinding bufferBinding = plant.workcellBufferBinding(workcellId);
+        if (bufferBinding == null || !bufferBinding.validBinding()) {
+            return capacityUnavailable(workcellId, resources.size(), valid, running, faults,
+                    quality, "WORKCELL_BUFFER_BINDING_MISSING");
+        }
+        OperationBufferSnapshot inputBuffer = plant.buffer(bufferBinding.inputBufferId());
+        if (inputBuffer == null) {
+            return capacityUnavailable(workcellId, resources.size(), valid, running, faults,
+                    quality, "INPUT_BUFFER_MISSING");
+        }
+        OperationBufferSnapshot outputBuffer = plant.buffer(bufferBinding.outputBufferId());
+        if (outputBuffer == null) {
+            return capacityUnavailable(workcellId, resources.size(), valid, running, faults,
+                    quality, "OUTPUT_BUFFER_MISSING");
+        }
+
         OperationWorkcellCapacitySnapshot capacity = new OperationWorkcellCapacitySnapshot(
                 workcellId,
                 resourceIds,
                 Math.min(running, resourceIds.size()),
                 0,
-                0,
-                0,
-                0,
-                0,
-                PortQuality.STALE,
+                inputBuffer.capacityUnits(),
+                inputBuffer.usedUnits(),
+                outputBuffer.capacityUnits(),
+                outputBuffer.usedUnits(),
+                quality,
                 fault
         );
+        int inputWipPressurePercent = capacity.inputWipPressurePercent();
+        int outputWipPressurePercent = capacity.outputWipPressurePercent();
+        int queuePressure = pressureSignal(Math.max(inputWipPressurePercent, outputWipPressurePercent));
         String representative = resourceIds.stream().sorted().findFirst().orElse("UNKNOWN");
         OperationWorkcellAdmissionAssessment.Snapshot admission =
                 OperationWorkcellAdmissionAssessment.inspect(capacity, representative);
@@ -146,25 +166,42 @@ public class WorkcellControllerBlock extends Block implements EngineeringPortPro
                 valid,
                 running,
                 faults,
-                false,
+                true,
                 admission.permitted(),
                 !admission.permitted(),
-                0,
+                queuePressure,
                 admission.reason(),
                 quality
         );
     }
 
-    /** Explicit server-side binding action; no proximity discovery. */
+    /** Explicit server-side resource binding action; no proximity discovery. */
     public static OperationWorkcellStore.Decision bindResource(
             ServerLevel level, BlockPos controllerPos, BlockPos resourcePos) {
         return OperationWorkcellStore.bindResource(level, workcellId(controllerPos), resourcePos);
     }
 
-    /** Explicit server-side unbinding action; no proximity discovery. */
     public static OperationWorkcellStore.Decision unbindResource(
             ServerLevel level, BlockPos controllerPos, BlockPos resourcePos) {
         return OperationWorkcellStore.unbindResource(level, workcellId(controllerPos), resourcePos);
+    }
+
+    /** Explicit finite-capacity material-flow binding; both buffer identities must already exist. */
+    public static OperationWorkcellStore.BufferDecision bindBuffers(
+            ServerLevel level,
+            BlockPos controllerPos,
+            String inputBufferId,
+            String outputBufferId
+    ) {
+        return OperationWorkcellStore.bindBuffers(
+                level, workcellId(controllerPos), inputBufferId, outputBufferId);
+    }
+
+    public static OperationWorkcellStore.BufferDecision unbindBuffers(
+            ServerLevel level,
+            BlockPos controllerPos
+    ) {
+        return OperationWorkcellStore.unbindBuffers(level, workcellId(controllerPos));
     }
 
     /** Scheduling preview delegates ranking/resource selection to the existing dispatch authority. */
@@ -184,7 +221,6 @@ public class WorkcellControllerBlock extends Block implements EngineeringPortPro
         return OperationDispatchRuntime.evaluate(jobs, resources, gameTick, policy);
     }
 
-    /** Changeover lifecycle remains owned by OperationChangeoverRuntime. */
     public static OperationChangeoverRuntime.Decision requestChangeover(
             OperationResourceSnapshot resource,
             OperationResourceSetupSnapshot setup,
@@ -193,7 +229,6 @@ public class WorkcellControllerBlock extends Block implements EngineeringPortPro
         return OperationChangeoverRuntime.request(resource, setup, targetProcessId);
     }
 
-    /** Maintenance lifecycle remains owned by OperationMaintenanceRuntime. */
     public static OperationMaintenanceRuntime.Decision startMaintenance(
             OperationResourceMaintenanceSnapshot maintenance
     ) {
@@ -268,6 +303,11 @@ public class WorkcellControllerBlock extends Block implements EngineeringPortPro
         };
     }
 
+    private static int pressureSignal(int pressurePercent) {
+        if (pressurePercent <= 0) return 0;
+        return Math.max(1, Math.min(15, Math.round(pressurePercent * 15.0F / 100.0F)));
+    }
+
     @Override
     protected InteractionResult useWithoutItem(
             BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
@@ -280,5 +320,18 @@ public class WorkcellControllerBlock extends Block implements EngineeringPortPro
     private static Snapshot unavailable(String workcellId, String reason) {
         return new Snapshot(workcellId, 0, 0, 0, 0,
                 false, false, true, 0, reason, PortQuality.NO_SIGNAL);
+    }
+
+    private static Snapshot capacityUnavailable(
+            String workcellId,
+            int boundResources,
+            int validResources,
+            int runningResources,
+            int faultResources,
+            PortQuality quality,
+            String reason
+    ) {
+        return new Snapshot(workcellId, boundResources, validResources, runningResources, faultResources,
+                false, false, true, 0, reason, quality);
     }
 }
