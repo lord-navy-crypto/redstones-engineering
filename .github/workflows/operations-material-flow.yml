@@ -1,0 +1,33 @@
+name: RSE Operations Material Flow Verification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/main/java/dev/redstoneengineering/operations/**'
+      - 'src/main/java/dev/redstoneengineering/integration/**'
+      - 'tools/rse_operations_material_release_verify.py'
+      - '.github/workflows/operations-material-flow.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/main/java/dev/redstoneengineering/operations/**'
+      - 'src/main/java/dev/redstoneengineering/integration/**'
+      - 'tools/rse_operations_material_release_verify.py'
+      - '.github/workflows/operations-material-flow.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-material-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Validate verifier syntax
+        run: python3 -m compileall -q tools
+      - name: Verify downstream material release authority
+        run: python3 tools/rse_operations_material_release_verify.py
