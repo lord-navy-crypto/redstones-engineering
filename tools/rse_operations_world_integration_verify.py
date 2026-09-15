@@ -22,6 +22,7 @@ alarm = read("src/main/java/dev/redstoneengineering/block/AlarmProcessorBlock.ja
 watchdog = read("src/main/java/dev/redstoneengineering/block/WatchdogBlock.java")
 interlock = read("src/main/java/dev/redstoneengineering/block/SafetyInterlockBlock.java")
 fault_latch = read("src/main/java/dev/redstoneengineering/block/FaultLatchBlock.java")
+servo = read("src/main/java/dev/redstoneengineering/block/ServoActuatorBlock.java")
 
 for token in (
     "interface OperationWorldResourceProvider",
@@ -60,10 +61,14 @@ for body, label, required in (
     (watchdog, "WatchdogBlock", ("implements OperationWorldResourceProvider", "operationResourceSnapshot", "ageTicks", "timeoutCount", "heartbeat_age_ticks")),
     (interlock, "SafetyInterlockBlock", ("implements OperationWorldResourceProvider", "operationResourceSnapshot", "failedMask", "failed_mask")),
     (fault_latch, "FaultLatchBlock", ("implements OperationWorldResourceProvider", "operationResourceSnapshot", "latched", "tripCount", "trip_count")),
+    (servo, "ServoActuatorBlock", ("OperationWorldResourceProvider", "operationResourceSnapshot", "servo_positioning", "completionEvidenceAvailable", "position", "velocity", "error", "braking")),
 ):
     for token in required:
         if body and token not in body:
             errors.append(f"{label} missing Operations evidence integration {token!r}")
+
+if servo and "false," not in servo:
+    errors.append("ServoActuatorBlock must explicitly expose completion evidence as unavailable rather than inventing a completion event")
 
 for body, label in ((provider, "provider"), (snapshot, "snapshot"), (resolver, "resolver")):
     for forbidden in (
@@ -81,7 +86,7 @@ for body, label in ((provider, "provider"), (snapshot, "snapshot"), (resolver, "
         if body and forbidden in body:
             errors.append(f"Operations world {label} must remain evidence-only; found {forbidden!r}")
 
-for body, label in ((sequence, "SequenceControllerBlock"), (alarm, "AlarmProcessorBlock"), (watchdog, "WatchdogBlock"), (interlock, "SafetyInterlockBlock"), (fault_latch, "FaultLatchBlock")):
+for body, label in ((sequence, "SequenceControllerBlock"), (alarm, "AlarmProcessorBlock"), (watchdog, "WatchdogBlock"), (interlock, "SafetyInterlockBlock"), (fault_latch, "FaultLatchBlock"), (servo, "ServoActuatorBlock")):
     for forbidden in ("OperationDispatchRuntime", "OperationQueueRuntime", "OperationChangeoverRuntime", "OperationMaintenanceRuntime"):
         if body and forbidden in body:
             errors.append(f"{label} must expose evidence only; found Operations authority {forbidden!r}")
@@ -101,5 +106,6 @@ print("RSE OPERATIONS WORLD INTEGRATION VERIFY: PASS")
 print(" explicit-position resource resolution: PASS")
 print(" fail-closed evidence snapshot: PASS")
 print(" existing sequence/alarm/watchdog/interlock/fault devices expose Operations evidence: PASS")
+print(" existing servo actuator exposes real machine evidence without fabricated completion: PASS")
 print(" dispatch/queue/world-motion/client authority leakage: NONE")
 print(" proximity auto-discovery: NONE")
