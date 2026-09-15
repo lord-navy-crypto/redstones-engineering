@@ -19,6 +19,7 @@ on:
       - 'tools/rse_operations_maintenance_verify.py'
       - 'tools/rse_operations_reliability_verify.py'
       - 'tools/rse_operations_plant_view_verify.py'
+      - 'tools/rse_operations_world_integration_verify.py'
       - '.github/workflows/operations-material-flow.yml'
   push:
     branches: [main]
@@ -38,6 +39,7 @@ on:
       - 'tools/rse_operations_maintenance_verify.py'
       - 'tools/rse_operations_reliability_verify.py'
       - 'tools/rse_operations_plant_view_verify.py'
+      - 'tools/rse_operations_world_integration_verify.py'
       - '.github/workflows/operations-material-flow.yml'
   workflow_dispatch:
 
@@ -71,3 +73,5 @@ jobs:
         run: python3 tools/rse_operations_reliability_verify.py
       - name: Verify plant-level operations decision support
         run: python3 tools/rse_operations_plant_view_verify.py
+      - name: Verify world-facing Operations resource adapters
+        run: python3 tools/rse_operations_world_integration_verify.py
