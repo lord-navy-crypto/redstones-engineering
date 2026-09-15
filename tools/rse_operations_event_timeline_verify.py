@@ -228,6 +228,7 @@ for forbidden in (
 output = read("src/main/java/dev/redstoneengineering/operations/OperationOutputSnapshot.java")
 transport_demand = read("src/main/java/dev/redstoneengineering/operations/OperationTransportDemand.java")
 transport_bridge = read("src/main/java/dev/redstoneengineering/integration/OperationsRobotTransportBridge.java")
+transport_binding = read("src/main/java/dev/redstoneengineering/integration/OperationTransportBinding.java")
 for token in (
     "record OperationOutputSnapshot(",
     "long outputId",
@@ -254,6 +255,17 @@ for token in (
     if transport_demand and token not in transport_demand:
         errors.append(f"OperationTransportDemand missing explicit logistics contract {token!r}")
 for token in (
+    "record OperationTransportBinding(",
+    "long missionId",
+    "long outputId",
+    "long jobId",
+    "BlockPos source",
+    "BlockPos target",
+    "int units",
+):
+    if transport_binding and token not in transport_binding:
+        errors.append(f"OperationTransportBinding missing cross-domain correlation contract {token!r}")
+for token in (
     "MISSION_READY",
     "OUTPUT_FAULT_ACTIVE",
     "OUTPUT_EVIDENCE_INVALID",
@@ -264,6 +276,9 @@ for token in (
     "TRANSPORT_QUANTITY_MISMATCH",
     "TRANSPORT_NOT_REQUIRED",
     "RobotMission.MissionType.TRANSFER",
+    "new OperationTransportBinding(",
+    "output.outputId()",
+    "output.jobId()",
     "demand.source()",
     "demand.target()",
     "demand.priority()",
@@ -271,7 +286,7 @@ for token in (
     "TRANSPORT_MISSION_READY",
 ):
     if transport_bridge and token not in transport_bridge:
-        errors.append(f"OperationsRobotTransportBridge missing evidence-bound mission contract {token!r}")
+        errors.append(f"OperationsRobotTransportBridge missing evidence-bound mission/correlation contract {token!r}")
 for forbidden in (
     "RobotRoutePlanner",
     "RobotDockAssessment",
@@ -290,6 +305,94 @@ for forbidden in (
     if transport_bridge and forbidden in transport_bridge:
         errors.append(f"Operations-to-Robotics bridge must not own route/dock/motion/world/KPI authority; found {forbidden!r}")
 
+buffer_receipt = read("src/main/java/dev/redstoneengineering/operations/OperationBufferReceiptEvidence.java")
+buffer_lot = read("src/main/java/dev/redstoneengineering/operations/OperationBufferLot.java")
+buffer_snapshot = read("src/main/java/dev/redstoneengineering/operations/OperationBufferSnapshot.java")
+buffer_runtime = read("src/main/java/dev/redstoneengineering/operations/OperationBufferRuntime.java")
+buffer_bridge = read("src/main/java/dev/redstoneengineering/integration/OperationsBufferReceiptBridge.java")
+for token in (
+    "record OperationBufferReceiptEvidence(",
+    "long missionId",
+    "long outputId",
+    "long jobId",
+    "String bufferId",
+    "BlockPos bufferLocation",
+    "int units",
+    "PortQuality evidenceQuality",
+    "unloadConfirmed",
+    "faultActive",
+):
+    if buffer_receipt and token not in buffer_receipt:
+        errors.append(f"OperationBufferReceiptEvidence missing unload receipt contract {token!r}")
+for token in (
+    "record OperationBufferLot(",
+    "long outputId",
+    "long jobId",
+    "int units",
+):
+    if buffer_lot and token not in buffer_lot:
+        errors.append(f"OperationBufferLot missing logical WIP identity contract {token!r}")
+for token in (
+    "record OperationBufferSnapshot(",
+    "MAX_CAPACITY_UNITS = 4096",
+    "buffer output identities must be unique",
+    "buffer WIP exceeds capacity",
+    "int usedUnits()",
+    "int availableUnits()",
+    "boolean containsOutput",
+):
+    if buffer_snapshot and token not in buffer_snapshot:
+        errors.append(f"OperationBufferSnapshot missing bounded WIP buffer contract {token!r}")
+for token in (
+    "RECEIVED",
+    "BUFFER_RECEIPT_FAULT_ACTIVE",
+    "BUFFER_RECEIPT_EVIDENCE_INVALID",
+    "BUFFER_UNLOAD_UNCONFIRMED",
+    "BUFFER_ID_MISMATCH",
+    "BUFFER_LOCATION_MISMATCH",
+    "DUPLICATE_OUTPUT_RECEIPT",
+    "BUFFER_CAPACITY_REACHED",
+    "BUFFER_RECEIPT_ACCEPTED",
+    "new OperationBufferLot(",
+):
+    if buffer_runtime and token not in buffer_runtime:
+        errors.append(f"OperationBufferRuntime missing fail-closed receipt/capacity lifecycle {token!r}")
+for token in (
+    "RECEIPT_READY",
+    "TRANSPORT_BINDING_MISSING",
+    "ROBOT_UNLOAD_FAULT",
+    "ROBOT_UNLOAD_SAFE_STOP",
+    "ROBOT_UNLOAD_INCOMPLETE",
+    "MISSION_BINDING_MISMATCH",
+    "MISSION_SOURCE_MISMATCH",
+    "MISSION_TARGET_MISMATCH",
+    "MISSION_QUANTITY_MISMATCH",
+    "UNLOAD_TRANSFER_EVIDENCE_INVALID",
+    "UNLOAD_TRANSFER_UNCONFIRMED",
+    "UNLOAD_TRANSFER_QUANTITY_MISMATCH",
+    "new OperationBufferReceiptEvidence(",
+    "binding.outputId()",
+    "binding.jobId()",
+    "binding.target()",
+    "BUFFER_RECEIPT_READY",
+):
+    if buffer_bridge and token not in buffer_bridge:
+        errors.append(f"OperationsBufferReceiptBridge missing correlated unload-to-buffer contract {token!r}")
+for body, label in ((buffer_runtime, "OperationBufferRuntime"), (buffer_bridge, "OperationsBufferReceiptBridge")):
+    for forbidden in (
+        "setBlock(",
+        "setDeltaMovement(",
+        "scheduleTick(",
+        "getEntities",
+        "RuntimeIntStore",
+        "OperationsDashboardSnapshot",
+        "IndustrialOperationsAssessment",
+        "RobotRoutePlanner",
+        "EngineeringMobileRobotEntity",
+    ):
+        if body and forbidden in body:
+            errors.append(f"{label} must remain pure and not own world/route/KPI authority; found {forbidden!r}")
+
 if errors:
     print("RSE operations event timeline verification: FAIL")
     for error in errors:
@@ -306,5 +409,7 @@ print(" authoritative FIFO/priority dispatch foundation: PASS")
 print(" bounded queued -> active assignment lifecycle: PASS")
 print(" evidence-bound active -> completed lifecycle: PASS")
 print(" completed output -> explicit logistics demand -> TRANSFER mission bridge: PASS")
+print(" mission/output/job correlation survives the Robotics boundary: PASS")
+print(" completed unload -> evidence-bound bounded buffer receipt lifecycle: PASS")
 print(" dispatch/completion remain independent of downstream KPI observers and elapsed-time guesses: PASS")
-print(" Operations-to-Robotics bridge does not own route/dock/motion/world authority: PASS")
+print(" Operations/Robotics integration does not own route/dock/motion/world authority: PASS")
