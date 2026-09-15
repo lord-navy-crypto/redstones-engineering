@@ -134,13 +134,14 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
         }
         graphics.drawString(font, "oldest", 18, 180, MUTED, false);
         graphics.drawString(font, "newest →", 244, 180, MUTED, false);
-        safeText(graphics, "confidence=" + evidenceConfidencePercent() + "% • diagnosis=" + systemDiagnosis(), 16, 197, TEXT);
+        safeText(graphics, "confidence=" + evidenceConfidencePercent() + "% • diagnosis=" + systemDiagnosis(), 16, 195, TEXT);
         safeText(graphics, "Electrical downtime " + formatTicks(menu.electricalDowntimeTicks())
-                + " • Protection status " + protectionText(), 16, 213, TEXT);
+                + " • Protection status " + protectionText(), 16, 209, TEXT);
+        safeText(graphics, "MTBF/MTTR withheld • Copper evidence " + copperEvidenceText(), 16, 222, MUTED);
         safeText(graphics, "Plant ledger Q/QC/PM/D/L " + menu.persistentPlantQueueEvents() + "/"
                 + menu.persistentPlantQualityEvents() + "/" + menu.persistentPlantMaintenanceEvents() + "/"
                 + menu.persistentPlantDeliveryEvents() + "/" + menu.persistentPlantLogisticsEvents()
-                + " • retained " + menu.persistentPlantRetainedEvents(), 16, 229, MUTED);
+                + " • retained " + menu.persistentPlantRetainedEvents(), 16, 234, MUTED);
     }
 
     private int configurationPercent() {
