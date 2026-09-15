@@ -24,16 +24,16 @@ public final class IndustrialBufferScreen extends EngineeringScreen<IndustrialBu
 
     private void renderOverview(GuiGraphics graphics) {
         boolean ready = menu.capacityUnits() > 0;
-        statusBadge(graphics, ready ? "INDUSTRIAL BUFFER • READY" : "BUFFER EVIDENCE • UNAVAILABLE",
-                ready ? GOOD : WARN, 16, 78);
-        labelValue(graphics, "Capacity", ready ? menu.capacityUnits() + " units" : "—", 102);
-        labelValue(graphics, "Used WIP", ready ? menu.usedUnits() + " units" : "—", 120);
-        labelValue(graphics, "Free capacity", ready ? menu.availableUnits() + " units" : "—", 138);
-        labelValue(graphics, "Lots", ready ? Integer.toString(menu.totalLotCount()) : "—", 156);
-        labelValue(graphics, "WIP signal", ready ? menu.wipSignal() + " / 15" : "—", 174);
-        statusLine(graphics, "SPACE PERMIT", ready && menu.availableUnits() > 0 ? "HIGH" : "LOW",
-                ready && menu.availableUnits() > 0 ? GOOD : WARN, 194);
-        safeText(graphics, "Logical WIP is server-owned; this console never creates or edits a lot.", 16, 220, MUTED);
+        statusBadge(graphics, ready ? "INDUSTRIAL BUFFER • " + fullnessState() : "BUFFER EVIDENCE • UNAVAILABLE",
+                ready ? fullnessColor() : WARN, 16, 76);
+        labelValue(graphics, "Capacity", ready ? menu.capacityUnits() + " units" : "—", 98);
+        labelValue(graphics, "Used WIP", ready ? menu.usedUnits() + " units" : "—", 116);
+        labelValue(graphics, "Free capacity", ready ? menu.availableUnits() + " units" : "—", 134);
+        statusLine(graphics, "WIP PRESSURE", ready ? menu.wipPressurePercent() + "%" : "—", ready ? fullnessColor() : WARN, 152);
+        drawWipBar(graphics, 16, 170, 180, menu.wipPressurePercent());
+        labelValue(graphics, "Lots", ready ? Integer.toString(menu.totalLotCount()) : "—", 188);
+        labelValue(graphics, "INPUT TO workcells", Integer.toString(menu.inputConsumerWorkcells()), 206);
+        labelValue(graphics, "OUTPUT FROM workcells", Integer.toString(menu.outputProducerWorkcells()), 224);
     }
 
     private void renderPorts(GuiGraphics graphics) {
@@ -48,11 +48,12 @@ public final class IndustrialBufferScreen extends EngineeringScreen<IndustrialBu
     }
 
     private void renderConfigure(GuiGraphics graphics) {
-        statusBadge(graphics, "READ-ONLY LOT AUTHORITY", INFO, 16, 82);
-        safeText(graphics, "Receipts are admitted only through evidence-bound Operations buffer runtime.", 16, 110, TEXT);
-        safeText(graphics, "Allocations/releases are performed by Operations material-flow authority.", 16, 130, TEXT);
-        safeText(graphics, "No button can forge quality acceptance, completion, output ID, or JOB identity.", 16, 150, MUTED);
-        safeText(graphics, "Capacity is server-owned persistent state, not a client setting.", 16, 170, MUTED);
+        statusBadge(graphics, "WORKCELL ROLES • READ ONLY", INFO, 16, 78);
+        statusLine(graphics, "INPUT TO", menu.inputConsumerWorkcells() + " workcell(s)", menu.inputConsumerWorkcells() > 0 ? GOOD : INFO, 104);
+        statusLine(graphics, "OUTPUT FROM", menu.outputProducerWorkcells() + " workcell(s)", menu.outputProducerWorkcells() > 0 ? GOOD : INFO, 126);
+        safeText(graphics, "Role counts are derived from persisted OperationWorkcellBufferBinding records.", 16, 152, TEXT);
+        safeText(graphics, "Use the Operations Binding Tool to change relationships; this screen cannot mutate them.", 16, 172, MUTED);
+        safeText(graphics, "Capacity and lots remain server-owned Operations state.", 16, 192, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
@@ -82,6 +83,27 @@ public final class IndustrialBufferScreen extends EngineeringScreen<IndustrialBu
         safeText(graphics, "Replacing the buffer at the same position reattaches its deterministic identity.", 16, 130, TEXT);
         safeText(graphics, "Corrupt persisted lot evidence fails closed instead of loading as an empty buffer.", 16, 150, MUTED);
         safeText(graphics, "Downstream queue WAIT leaves the persisted lot untouched.", 16, 170, MUTED);
+    }
+
+    private String fullnessState() {
+        if (menu.capacityUnits() <= 0) return "UNAVAILABLE";
+        if (menu.availableUnits() == 0) return "FULL";
+        if (menu.wipPressurePercent() >= 80) return "NEAR FULL";
+        return "AVAILABLE";
+    }
+
+    private int fullnessColor() {
+        if (menu.capacityUnits() <= 0) return WARN;
+        if (menu.availableUnits() == 0) return BAD;
+        if (menu.wipPressurePercent() >= 80) return WARN;
+        return GOOD;
+    }
+
+    private void drawWipBar(GuiGraphics graphics, int x, int y, int width, int percent) {
+        int bounded = Math.max(0, Math.min(100, percent));
+        graphics.fill(x, y, x + width, y + 8, 0xFF171C21);
+        int filled = Math.round(width * bounded / 100.0F);
+        if (filled > 0) graphics.fill(x, y, x + filled, y + 8, fullnessColor());
     }
 
     private static String compactId(long value) {
