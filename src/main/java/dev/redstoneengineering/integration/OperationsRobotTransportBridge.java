@@ -21,22 +21,30 @@ public final class OperationsRobotTransportBridge {
         FAULT
     }
 
-    public record Decision(Verdict verdict, String reason, RobotMission mission) {
+    public record Decision(
+            Verdict verdict,
+            String reason,
+            RobotMission mission,
+            OperationTransportBinding binding
+    ) {
         public Decision {
             if (verdict == null) verdict = Verdict.SAFE_STOP;
             if (reason == null || reason.isBlank()) reason = "UNSPECIFIED";
-            if (verdict != Verdict.MISSION_READY) mission = null;
+            if (verdict != Verdict.MISSION_READY) {
+                mission = null;
+                binding = null;
+            }
         }
 
         public boolean ready() {
-            return verdict == Verdict.MISSION_READY && mission != null;
+            return verdict == Verdict.MISSION_READY && mission != null && binding != null;
         }
     }
 
     public static Decision evaluate(OperationOutputSnapshot output, OperationTransportDemand demand) {
         if (output == null) return safeStop("OUTPUT_EVIDENCE_MISSING");
         if (demand == null) return safeStop("TRANSPORT_DEMAND_MISSING");
-        if (output.faultActive()) return new Decision(Verdict.FAULT, "OUTPUT_FAULT_ACTIVE", null);
+        if (output.faultActive()) return new Decision(Verdict.FAULT, "OUTPUT_FAULT_ACTIVE", null, null);
         if (output.evidenceQuality() != PortQuality.VALID) {
             return safeStop("OUTPUT_EVIDENCE_INVALID");
         }
@@ -55,14 +63,22 @@ public final class OperationsRobotTransportBridge {
                 demand.priority(),
                 demand.units()
         );
-        return new Decision(Verdict.MISSION_READY, "TRANSPORT_MISSION_READY", mission);
+        OperationTransportBinding binding = new OperationTransportBinding(
+                demand.missionId(),
+                output.outputId(),
+                output.jobId(),
+                demand.source(),
+                demand.target(),
+                demand.units()
+        );
+        return new Decision(Verdict.MISSION_READY, "TRANSPORT_MISSION_READY", mission, binding);
     }
 
     private static Decision waitFor(String reason) {
-        return new Decision(Verdict.WAIT, reason, null);
+        return new Decision(Verdict.WAIT, reason, null, null);
     }
 
     private static Decision safeStop(String reason) {
-        return new Decision(Verdict.SAFE_STOP, reason, null);
+        return new Decision(Verdict.SAFE_STOP, reason, null, null);
     }
 }
