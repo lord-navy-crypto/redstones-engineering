@@ -7,6 +7,7 @@ on:
       - 'src/main/java/dev/redstoneengineering/operations/**'
       - 'src/main/java/dev/redstoneengineering/integration/**'
       - 'src/main/java/dev/redstoneengineering/diagnostics/OperationBottleneckAssessment.java'
+      - 'src/main/java/dev/redstoneengineering/diagnostics/OperationReliabilityPerformanceAssessment.java'
       - 'tools/rse_operations_material_release_verify.py'
       - 'tools/rse_operations_routing_verify.py'
       - 'tools/rse_operations_edd_verify.py'
@@ -14,6 +15,7 @@ on:
       - 'tools/rse_operations_capacity_verify.py'
       - 'tools/rse_operations_quality_verify.py'
       - 'tools/rse_operations_maintenance_verify.py'
+      - 'tools/rse_operations_reliability_verify.py'
       - '.github/workflows/operations-material-flow.yml'
   push:
     branches: [main]
@@ -21,6 +23,7 @@ on:
       - 'src/main/java/dev/redstoneengineering/operations/**'
       - 'src/main/java/dev/redstoneengineering/integration/**'
       - 'src/main/java/dev/redstoneengineering/diagnostics/OperationBottleneckAssessment.java'
+      - 'src/main/java/dev/redstoneengineering/diagnostics/OperationReliabilityPerformanceAssessment.java'
       - 'tools/rse_operations_material_release_verify.py'
       - 'tools/rse_operations_routing_verify.py'
       - 'tools/rse_operations_edd_verify.py'
@@ -28,6 +31,7 @@ on:
       - 'tools/rse_operations_capacity_verify.py'
       - 'tools/rse_operations_quality_verify.py'
       - 'tools/rse_operations_maintenance_verify.py'
+      - 'tools/rse_operations_reliability_verify.py'
       - '.github/workflows/operations-material-flow.yml'
   workflow_dispatch:
 
@@ -57,3 +61,5 @@ jobs:
         run: python3 tools/rse_operations_quality_verify.py
       - name: Verify maintenance lifecycle and dispatch hold
         run: python3 tools/rse_operations_maintenance_verify.py
+      - name: Verify observed reliability performance
+        run: python3 tools/rse_operations_reliability_verify.py
