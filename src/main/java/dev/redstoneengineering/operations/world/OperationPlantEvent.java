@@ -21,6 +21,7 @@ public record OperationPlantEvent(
         QUALITY_GOOD,
         QUALITY_REJECTED,
         REWORK_REQUESTED,
+        REWORK_RELEASED,
         TRANSPORT_REQUESTED,
         AMR_ASSIGNED,
         AMR_PICKED_UP,
