@@ -18,6 +18,7 @@ inspection = read("src/main/java/dev/redstoneengineering/operations/OperationQua
 assessment = read("src/main/java/dev/redstoneengineering/operations/OperationQualityDispositionAssessment.java")
 rework_demand = read("src/main/java/dev/redstoneengineering/operations/OperationReworkDemand.java")
 rework_release = read("src/main/java/dev/redstoneengineering/operations/OperationReworkReleaseAssessment.java")
+performance = read("src/main/java/dev/redstoneengineering/diagnostics/OperationQualityPerformanceAssessment.java")
 
 for token in (
     "record OperationQualityInspectionEvidence(",
@@ -92,7 +93,33 @@ for token in (
     if rework_release and token not in rework_release:
         errors.append(f"OperationReworkReleaseAssessment missing explicit rework bridge {token!r}")
 
-for body, label in ((assessment, "Quality disposition"), (rework_release, "Rework release")):
+for token in (
+    "class OperationQualityPerformanceAssessment",
+    "Observer-only quality performance projection",
+    "COMPLETE",
+    "PARTIAL",
+    "INVALID",
+    "int inspectedUnits",
+    "int goodUnits",
+    "int rejectUnits",
+    "int reworkUnits",
+    "int firstPassYieldPercent",
+    "int rejectRatePercent",
+    "int reworkRatePercent",
+    "case WAIT -> incomplete++",
+    "case SAFE_STOP, FAULT -> invalid++",
+    "percent(good, inspected)",
+    "percent(reject, inspected)",
+    "percent(rework, inspected)",
+):
+    if performance and token not in performance:
+        errors.append(f"OperationQualityPerformanceAssessment missing coverage-aware observer metric {token!r}")
+
+for body, label in (
+    (assessment, "Quality disposition"),
+    (rework_release, "Rework release"),
+    (performance, "Quality performance"),
+):
     for forbidden in (
         "OperationDispatchRuntime",
         "OperationQueueRuntime",
@@ -108,6 +135,9 @@ for body, label in ((assessment, "Quality disposition"), (rework_release, "Rewor
         if body and forbidden in body:
             errors.append(f"{label} must not own dispatch/world/robotics/KPI authority; found {forbidden!r}")
 
+if performance and "OEE" in performance and "does not" not in performance:
+    errors.append("Quality performance must not claim unsupported OEE")
+
 if errors:
     print("RSE OPERATIONS QUALITY VERIFY: FAIL")
     for error in errors:
@@ -119,5 +149,7 @@ print(" explicit good/reject/rework inspection evidence: PASS")
 print(" identity + quantity + disposition accounting: PASS")
 print(" incomplete inspection remains WAIT: PASS")
 print(" rework process/job/priority/release/due remain explicit planning inputs: PASS")
+print(" coverage-aware FPY/reject/rework observer metrics: PASS")
+print(" unsupported OEE claim: NONE")
 print(" automatic rework scheduling: NONE")
 print(" dispatch/world/robotics/KPI authority leakage: NONE")
