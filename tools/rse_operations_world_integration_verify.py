@@ -18,6 +18,7 @@ provider = read("src/main/java/dev/redstoneengineering/operations/world/Operatio
 snapshot = read("src/main/java/dev/redstoneengineering/operations/world/OperationWorldResourceSnapshot.java")
 resolver = read("src/main/java/dev/redstoneengineering/operations/world/OperationWorldResourceResolver.java")
 binding = read("src/main/java/dev/redstoneengineering/operations/world/OperationWorkcellBinding.java")
+buffer_binding = read("src/main/java/dev/redstoneengineering/operations/world/OperationWorkcellBufferBinding.java")
 store = read("src/main/java/dev/redstoneengineering/operations/world/OperationWorkcellStore.java")
 saved = read("src/main/java/dev/redstoneengineering/operations/world/OperationPlantSavedData.java")
 buffer_state = read("src/main/java/dev/redstoneengineering/operations/world/OperationIndustrialBufferState.java")
@@ -53,10 +54,18 @@ for token in (
     if binding and token not in binding:
         errors.append(f"Workcell binding missing stable explicit membership contract {token!r}")
 
+# Task 9 RED contract: a workcell owns explicit input/output buffer identities. Capacity comes from
+# those authoritative persisted buffers; no proximity search and no guessed empty/full state.
+for token in (
+    "record OperationWorkcellBufferBinding", "workcellId", "inputBufferId", "outputBufferId", "validBinding",
+):
+    if buffer_binding and token not in buffer_binding:
+        errors.append(f"Workcell buffer binding missing explicit finite-capacity membership {token!r}")
+
 for token in (
     "class OperationPlantSavedData", "extends SavedData", "computeIfAbsent", "overworld()", "setDirty()",
     "save(CompoundTag", "load(CompoundTag", "putWorkcell", "removeWorkcell", "workcells",
-    "putBuffer", "removeBuffer", "buffers",
+    "putBuffer", "removeBuffer", "buffers", "putWorkcellBufferBinding", "workcellBufferBinding", "WorkcellBuffers",
 ):
     if saved and token not in saved:
         errors.append(f"Plant SavedData missing server persistence contract {token!r}")
@@ -65,6 +74,7 @@ for token in (
     "class OperationWorkcellStore", "bindResource", "unbindResource", "OperationPlantSavedData",
     "OperationWorldResourceResolver.resolve", "RESOURCE_POSITION_ALREADY_BOUND", "RESOURCE_ID_ALREADY_BOUND",
     "RESOURCE_ID_MISMATCH", "WORKCELL_ID_MISSING", "RESOURCE_EVIDENCE_INVALID",
+    "bindBuffers", "INPUT_BUFFER_MISSING", "OUTPUT_BUFFER_MISSING", "BUFFER_ID_CONFLICT",
 ):
     if store and token not in store:
         errors.append(f"Workcell store missing fail-closed explicit binding rule {token!r}")
@@ -88,7 +98,9 @@ for body, label, required in (
     (workcell_controller, "WorkcellControllerBlock", (
         "class WorkcellControllerBlock", '"ACTIVE"', '"PERMIT"', '"HOLD"', '"FAULT"', '"QUEUE PRESSURE"',
         "OperationWorkcellStore.resolveBoundResources", "OperationWorkcellAdmissionAssessment.inspect",
-        "isSignalSource", "queryDirection.getOpposite()",
+        "OperationPlantSavedData.get", "workcellBufferBinding", "inputBuffer", "outputBuffer",
+        "inputWipPressurePercent", "outputWipPressurePercent", "capacityEvidenceAvailable",
+        "PortQuality.VALID", "isSignalSource", "queryDirection.getOpposite()",
     )),
     (workcell_ui, "WorkcellControllerUi", ("class WorkcellControllerUi", "open", "WorkcellControllerMenu")),
     (workcell_menu, "WorkcellControllerMenu", (
@@ -112,8 +124,6 @@ for forbidden in ("OperationBottleneckAssessment", "severityScore", "Comparator.
     if workcell_controller and forbidden in workcell_controller:
         errors.append(f"Workcell Controller must not rank/discover resources independently; found {forbidden!r}")
 
-# Persistent world buffer state must preserve logical lot identity and apply state changes only
-# through the already-authoritative pure buffer/material-release runtimes.
 for token in (
     "class OperationIndustrialBufferState",
     "bufferId",
@@ -141,7 +151,7 @@ for forbidden in (
     if buffer_state and forbidden in buffer_state:
         errors.append(f"Industrial Buffer state must retain logical lot authority without world/inventory shortcuts; found {forbidden!r}")
 
-for body, label in ((provider, "provider"), (snapshot, "snapshot"), (resolver, "resolver"), (binding, "binding"), (saved, "SavedData")):
+for body, label in ((provider, "provider"), (snapshot, "snapshot"), (resolver, "resolver"), (binding, "binding"), (buffer_binding, "buffer binding"), (saved, "SavedData")):
     for forbidden in (
         "OperationDispatchRuntime", "OperationQueueRuntime", "OperationMaintenanceRuntime", "OperationChangeoverRuntime",
         "RobotMission", "setBlock(", "setDeltaMovement(", "scheduleTick(", "Minecraft.getInstance", "client.ui",
@@ -159,7 +169,7 @@ for body, label in ((resolver, "World resource resolver"), (store, "Workcell sto
         if body and forbidden in body:
             errors.append(f"{label} must not use proximity discovery; found {forbidden!r}")
 
-for body, label in ((binding, "Workcell binding"), (saved, "Plant SavedData"), (buffer_state, "Industrial Buffer state")):
+for body, label in ((binding, "Workcell binding"), (buffer_binding, "Workcell buffer binding"), (saved, "Plant SavedData"), (buffer_state, "Industrial Buffer state")):
     for forbidden in (
         "import net.minecraft.world.level.block.state.BlockState",
         "import net.minecraft.world.level.block.state.properties.IntegerProperty",
@@ -186,6 +196,7 @@ print(" Workcell Controller physical redstone query direction: PASS")
 print(" persistent Industrial Buffer logical lot/WIP state: PASS")
 print(" buffer receipt/allocation delegates to OperationBufferRuntime: PASS")
 print(" downstream release delegates atomically to OperationMaterialReleaseRuntime: PASS")
+print(" explicit input/output buffer binding feeds real workcell capacity evidence: PASS")
 print(" Workcell Controller independent ranking/proximity discovery: NONE")
 print(" dispatch/world-motion/client/inventory authority leakage: NONE")
 print(" proximity auto-discovery: NONE")
