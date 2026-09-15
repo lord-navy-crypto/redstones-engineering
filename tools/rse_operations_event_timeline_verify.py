@@ -95,6 +95,57 @@ registry = read("src/main/java/dev/redstoneengineering/gametest/RseGameTestRegis
 if registry and "event.register(RseOperationsTimelineGameTests.class);" not in registry:
     errors.append("Operations timeline GameTests are not registered")
 
+# Industrial Operations authority foundation: scheduling must remain separate from observer KPIs.
+job = read("src/main/java/dev/redstoneengineering/operations/OperationJob.java")
+resource = read("src/main/java/dev/redstoneengineering/operations/OperationResourceSnapshot.java")
+dispatch = read("src/main/java/dev/redstoneengineering/operations/OperationDispatchRuntime.java")
+for token in (
+    "record OperationJob(",
+    "quantity must be positive",
+    "priority must be in 0..100",
+    "releasedAt(long gameTick)",
+):
+    if job and token not in job:
+        errors.append(f"OperationJob missing authoritative work-demand contract {token!r}")
+for token in (
+    "record OperationResourceSnapshot(",
+    "PortQuality evidenceQuality",
+    "AVAILABLE",
+    "BUSY",
+    "BLOCKED",
+    "FAULTED",
+    "dispatchable()",
+):
+    if resource and token not in resource:
+        errors.append(f"OperationResourceSnapshot missing resource evidence contract {token!r}")
+for token in (
+    "FIFO",
+    "PRIORITY_THEN_FIFO",
+    "ASSIGN",
+    "WAIT",
+    "SAFE_STOP",
+    "DUPLICATE_JOB_ID",
+    "DUPLICATE_RESOURCE_ID",
+    "RESOURCE_EVIDENCE_INVALID",
+    "DISPATCH_PERMIT",
+    "Comparator.comparingLong(OperationJob::releaseTick)",
+    "Comparator.comparingInt(OperationJob::priority).reversed()",
+):
+    if dispatch and token not in dispatch:
+        errors.append(f"OperationDispatchRuntime missing deterministic dispatch contract {token!r}")
+for forbidden in (
+    "OperationsDashboardSnapshot",
+    "IndustrialOperationsAssessment",
+    "throughput",
+    "downtime",
+    "queuePressure",
+    "setBlock(",
+    "setDeltaMovement(",
+    "RobotStateMachine",
+):
+    if dispatch and forbidden in dispatch:
+        errors.append(f"Dispatch authority must remain pure and KPI-independent; found {forbidden!r}")
+
 if errors:
     print("RSE operations event timeline verification: FAIL")
     for error in errors:
@@ -107,3 +158,5 @@ print(" server-synchronized kind/severity/age evidence: PASS")
 print(" first-out visible chronology mapping: PASS")
 print(" dedicated observer-only Operations Monitor UI: PASS")
 print(" executable ordering + first-out GameTests: PASS")
+print(" authoritative FIFO/priority dispatch foundation: PASS")
+print(" dispatch remains independent of downstream KPI/dashboard observers: PASS")
