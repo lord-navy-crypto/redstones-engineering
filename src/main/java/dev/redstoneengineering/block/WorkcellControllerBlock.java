@@ -232,14 +232,7 @@ public class WorkcellControllerBlock extends Block implements EngineeringPortPro
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         Snapshot snapshot = inspect(level, pos);
-        int value = switch (side) {
-            case NORTH -> snapshot.active() ? 15 : 0;
-            case SOUTH -> snapshot.permit() ? 15 : 0;
-            case EAST -> snapshot.hold() ? 15 : 0;
-            case WEST -> snapshot.faulted() ? 15 : 0;
-            case UP -> snapshot.queuePressure();
-            default -> 0;
-        };
+        int value = valueForPhysicalSide(snapshot, side);
         PortQuality quality = side == Direction.UP && !snapshot.capacityEvidenceAvailable()
                 ? PortQuality.STALE
                 : snapshot.evidenceQuality();
@@ -248,14 +241,24 @@ public class WorkcellControllerBlock extends Block implements EngineeringPortPro
 
     @Override
     public boolean canConnectRedstone(BlockState state, BlockGetter level, BlockPos pos, @Nullable Direction direction) {
-        return direction != null && direction != Direction.DOWN;
+        return direction != null && engineeringPort(state, direction.getOpposite()).isPresent();
     }
 
     @Override
-    protected int getSignal(BlockState state, BlockGetter level, BlockPos pos, Direction side) {
+    protected boolean isSignalSource(BlockState state) {
+        return true;
+    }
+
+    @Override
+    protected int getSignal(BlockState state, BlockGetter level, BlockPos pos, Direction queryDirection) {
         if (!(level instanceof Level world)) return 0;
-        Snapshot snapshot = inspect(world, pos);
-        return switch (side) {
+        Direction physicalSide = queryDirection.getOpposite();
+        if (engineeringPort(state, physicalSide).isEmpty()) return 0;
+        return valueForPhysicalSide(inspect(world, pos), physicalSide);
+    }
+
+    private static int valueForPhysicalSide(Snapshot snapshot, Direction physicalSide) {
+        return switch (physicalSide) {
             case NORTH -> snapshot.active() ? 15 : 0;
             case SOUTH -> snapshot.permit() ? 15 : 0;
             case EAST -> snapshot.hold() ? 15 : 0;
