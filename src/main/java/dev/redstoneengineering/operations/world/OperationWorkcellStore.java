@@ -1,6 +1,7 @@
 package dev.redstoneengineering.operations.world;
 
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.operations.OperationBufferSnapshot;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 
@@ -27,6 +28,17 @@ public final class OperationWorkcellStore {
 
     public record Decision(Verdict verdict, String reason, OperationWorkcellBinding binding) {
         public Decision {
+            if (verdict == null) verdict = Verdict.SAFE_STOP;
+            if (reason == null || reason.isBlank()) reason = "UNSPECIFIED";
+        }
+
+        public boolean changed() {
+            return verdict == Verdict.BOUND || verdict == Verdict.UNBOUND;
+        }
+    }
+
+    public record BufferDecision(Verdict verdict, String reason, OperationWorkcellBufferBinding binding) {
+        public BufferDecision {
             if (verdict == null) verdict = Verdict.SAFE_STOP;
             if (reason == null || reason.isBlank()) reason = "UNSPECIFIED";
         }
@@ -110,6 +122,49 @@ public final class OperationWorkcellStore {
         return new Decision(Verdict.UNBOUND, "RESOURCE_UNBOUND", updated);
     }
 
+    /** Explicitly attaches existing authoritative input/output buffers to one workcell. */
+    public static BufferDecision bindBuffers(
+            ServerLevel level,
+            String workcellId,
+            String inputBufferId,
+            String outputBufferId
+    ) {
+        String normalizedWorkcell = normalize(workcellId);
+        String inputId = normalize(inputBufferId);
+        String outputId = normalize(outputBufferId);
+        if (normalizedWorkcell.isBlank()) return bufferSafeStop("WORKCELL_ID_MISSING", null);
+        if (level == null) return bufferSafeStop("SERVER_LEVEL_MISSING", null);
+        if (inputId.isBlank()) return bufferSafeStop("INPUT_BUFFER_MISSING", null);
+        if (outputId.isBlank()) return bufferSafeStop("OUTPUT_BUFFER_MISSING", null);
+        if (inputId.equals(outputId)) return bufferSafeStop("BUFFER_ID_CONFLICT", null);
+
+        OperationPlantSavedData data = OperationPlantSavedData.get(level);
+        if (data.workcell(normalizedWorkcell) == null) return bufferSafeStop("WORKCELL_NOT_FOUND", null);
+        OperationBufferSnapshot input = data.buffer(inputId);
+        if (input == null) return bufferSafeStop("INPUT_BUFFER_MISSING", null);
+        OperationBufferSnapshot output = data.buffer(outputId);
+        if (output == null) return bufferSafeStop("OUTPUT_BUFFER_MISSING", null);
+
+        OperationWorkcellBufferBinding binding =
+                new OperationWorkcellBufferBinding(normalizedWorkcell, input.bufferId(), output.bufferId());
+        if (!binding.validBinding()) return bufferSafeStop("WORKCELL_BUFFER_BINDING_INVALID", null);
+        if (!data.putWorkcellBufferBinding(binding)) return bufferSafeStop("WORKCELL_BUFFER_PERSISTENCE_REJECTED", null);
+        return new BufferDecision(Verdict.BOUND, "WORKCELL_BUFFERS_BOUND", binding);
+    }
+
+    public static BufferDecision unbindBuffers(ServerLevel level, String workcellId) {
+        String normalizedWorkcell = normalize(workcellId);
+        if (normalizedWorkcell.isBlank()) return bufferSafeStop("WORKCELL_ID_MISSING", null);
+        if (level == null) return bufferSafeStop("SERVER_LEVEL_MISSING", null);
+        OperationPlantSavedData data = OperationPlantSavedData.get(level);
+        OperationWorkcellBufferBinding current = data.workcellBufferBinding(normalizedWorkcell);
+        if (current == null) return bufferWait("WORKCELL_BUFFERS_NOT_BOUND", null);
+        if (!data.removeWorkcellBufferBinding(normalizedWorkcell)) {
+            return bufferSafeStop("WORKCELL_BUFFER_PERSISTENCE_REJECTED", current);
+        }
+        return new BufferDecision(Verdict.UNBOUND, "WORKCELL_BUFFERS_UNBOUND", current);
+    }
+
     public static List<ResolvedResource> resolveBoundResources(ServerLevel level, String workcellId) {
         String normalizedWorkcell = normalize(workcellId);
         if (level == null || normalizedWorkcell.isBlank()) return List.of();
@@ -168,5 +223,13 @@ public final class OperationWorkcellStore {
 
     private static Decision safeStop(String reason, OperationWorkcellBinding binding) {
         return new Decision(Verdict.SAFE_STOP, reason, binding);
+    }
+
+    private static BufferDecision bufferWait(String reason, OperationWorkcellBufferBinding binding) {
+        return new BufferDecision(Verdict.WAIT, reason, binding);
+    }
+
+    private static BufferDecision bufferSafeStop(String reason, OperationWorkcellBufferBinding binding) {
+        return new BufferDecision(Verdict.SAFE_STOP, reason, binding);
     }
 }
