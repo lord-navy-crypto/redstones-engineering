@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": [
+    "CRC",
+    "OMO",
+    "CRC"
+  ],
+  "key": {
+    "C": { "item": "minecraft:copper_ingot" },
+    "R": { "item": "minecraft:redstone" },
+    "O": { "item": "minecraft:observer" },
+    "M": { "item": "redstoneengineering:operations_monitor" }
+  },
+  "result": {
+    "id": "redstoneengineering:workcell_controller",
+    "count": 1
+  }
+}
