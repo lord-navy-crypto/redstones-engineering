@@ -20,6 +20,10 @@ runtime = read("src/main/java/dev/redstoneengineering/operations/OperationMainte
 gate = read("src/main/java/dev/redstoneengineering/operations/OperationMaintenanceAwareDispatchRuntime.java")
 saved = read("src/main/java/dev/redstoneengineering/operations/world/OperationPlantSavedData.java")
 world_state = read("src/main/java/dev/redstoneengineering/operations/world/OperationMaintenanceWorldState.java")
+workcell_menu = read("src/main/java/dev/redstoneengineering/ui/menu/WorkcellControllerMenu.java")
+workcell_screen = read("src/main/java/dev/redstoneengineering/client/ui/WorkcellControllerScreen.java")
+maintenance_gametest = read("src/main/java/dev/redstoneengineering/gametest/RseMaintenancePersistenceGameTests.java")
+gametest_registration = read("src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java")
 
 for token in (
     "record OperationResourceMaintenanceSnapshot(",
@@ -157,6 +161,61 @@ for forbidden in (
     if world_state and forbidden in world_state:
         errors.append(f"Maintenance world state must use explicit resource identity without proximity/time/robotics shortcuts; found {forbidden!r}")
 
+for token in (
+    "OperationPlantSavedData.get(server)",
+    "maintenanceSnapshot(",
+    "PortQuality.VALID",
+    "maintenanceReadyResources",
+    "maintenanceDueResources",
+    "maintenanceInProgressResources",
+    "maintenanceFaultResources",
+    "maintenanceEvidenceAvailable()",
+):
+    if workcell_menu and token not in workcell_menu:
+        errors.append(f"Workcell maintenance readback missing synchronized persistent evidence {token!r}")
+
+for token in (
+    '"Maintenance evidence"',
+    '"READY / DUE / ACTIVE / FAULT"',
+    "maintenanceReadyResources()",
+    "maintenanceDueResources()",
+    "maintenanceInProgressResources()",
+    "maintenanceFaultResources()",
+    "SETUP remains withheld",
+):
+    if workcell_screen and token not in workcell_screen:
+        errors.append(f"Workcell screen missing truthful maintenance readback {token!r}")
+
+if workcell_screen and "SETUP and MAINTENANCE remain withheld until their world evidence is persisted." in workcell_screen:
+    errors.append("Workcell screen still claims maintenance persistence is unavailable")
+
+for forbidden in (
+    "OperationMaintenanceWorldState.start(",
+    "OperationMaintenanceWorldState.complete(",
+    "OperationMaintenanceRuntime.start(",
+    "OperationMaintenanceRuntime.complete(",
+):
+    if workcell_menu and forbidden in workcell_menu:
+        errors.append(f"Workcell menu must remain read-only; found maintenance mutation {forbidden!r}")
+    if workcell_screen and forbidden in workcell_screen:
+        errors.append(f"Workcell screen must remain read-only; found maintenance mutation {forbidden!r}")
+
+for token in (
+    "class RseMaintenancePersistenceGameTests",
+    "maintenanceDueStartCompleteAndRoundTripPersist",
+    "OperationMaintenanceWorldState.observe(",
+    "OperationMaintenanceWorldState.start(",
+    "OperationMaintenanceWorldState.complete(",
+    "OperationResourceMaintenanceSnapshot.State.IN_PROGRESS",
+    "OperationResourceMaintenanceSnapshot.State.AVAILABLE",
+    "OperationPlantSavedData.load(",
+):
+    if maintenance_gametest and token not in maintenance_gametest:
+        errors.append(f"Local maintenance persistence GameTest missing regression contract {token!r}")
+
+if gametest_registration and "event.register(RseMaintenancePersistenceGameTests.class);" not in gametest_registration:
+    errors.append("local maintenance persistence GameTest is not registered")
+
 if errors:
     print("RSE OPERATIONS MAINTENANCE VERIFY: FAIL")
     for error in errors:
@@ -171,4 +230,6 @@ print(" maintenance hold projects resource UNAVAILABLE: PASS")
 print(" final resource selection delegates to OperationDispatchRuntime: PASS")
 print(" persistent current maintenance snapshots in plant SavedData: PASS")
 print(" world start/complete commits snapshot + durable maintenance history atomically: PASS")
+print(" Workcell HMI reads persistent maintenance evidence without mutation authority: PASS")
+print(" local maintenance persistence round-trip GameTest: REGISTERED")
 print(" world/KPI/robotics authority leakage: NONE")
