@@ -59,34 +59,26 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
         statusLine(graphics, "EVIDENCE COVERAGE", menu.worldPlantCoverage().name(), worldColor, 90);
 
         int configured = configurationPercent();
-        labelValue(graphics, "CONFIGURATION", menu.worldPlantConfiguredWorkcells() + " / " + menu.worldPlantWorkcells()
-                + " workcells • " + configured + "%", 108);
-        drawPlantMetricBar(graphics, 16, 124, 176, configured, configured >= 100 ? GOOD : WARN);
+        labelValue(graphics, "Workcells configured • CONFIGURATION",
+                menu.worldPlantConfiguredWorkcells() + " / " + menu.worldPlantWorkcells() + " • " + configured + "%", 108);
+        drawPlantMetricBar(graphics, 16, 122, 176, configured, configured >= 100 ? GOOD : WARN);
 
-        labelValue(graphics, "WIP PRESSURE", menu.worldPlantBuffers() + " buffers • "
+        labelValue(graphics, "Buffers / WIP • WIP PRESSURE", menu.worldPlantBuffers() + " • "
                 + menu.worldPlantUsedBufferUnits() + "/" + menu.worldPlantBufferCapacityUnits()
-                + " units • " + menu.worldPlantWipPressurePercent() + "%", 142);
+                + " • " + menu.worldPlantWipPressurePercent() + "%", 138);
         int wipColor = menu.worldPlantWipPressurePercent() >= 90 ? BAD
                 : (menu.worldPlantWipPressurePercent() >= 70 ? WARN : GOOD);
-        drawPlantMetricBar(graphics, 16, 158, 176, menu.worldPlantWipPressurePercent(), wipColor);
+        drawPlantMetricBar(graphics, 16, 152, 176, menu.worldPlantWipPressurePercent(), wipColor);
 
         int health = resourceHealthPercent();
-        labelValue(graphics, "RESOURCE HEALTH", menu.worldPlantValidResources() + "/" + menu.worldPlantBoundResources()
-                + " valid • faults " + menu.worldPlantFaultResources() + " • " + health + "%", 176);
+        labelValue(graphics, "Bound resources • RESOURCE HEALTH", menu.worldPlantValidResources() + "/" + menu.worldPlantBoundResources()
+                + " valid • faults " + menu.worldPlantFaultResources() + " • " + health + "%", 168);
         int healthColor = menu.worldPlantFaultResources() > 0 ? BAD : (health >= 100 ? GOOD : WARN);
-        drawPlantMetricBar(graphics, 16, 192, 176, health, healthColor);
+        drawPlantMetricBar(graphics, 16, 182, 176, health, healthColor);
 
-        // Preserve the original plain-language rows as an exact textual readback alongside the bars.
-        labelValue(graphics, "Workcells configured", menu.worldPlantConfiguredWorkcells() + " / " + menu.worldPlantWorkcells(), 208);
-        labelValue(graphics, "Buffers / WIP", menu.worldPlantBuffers() + " • "
-                + menu.worldPlantUsedBufferUnits() + "/" + menu.worldPlantBufferCapacityUnits() + " units", 224);
-        labelValue(graphics, "Bound resources", menu.worldPlantValidResources() + "/" + menu.worldPlantBoundResources()
-                + " valid • faults " + menu.worldPlantFaultResources(), 240);
-
-        statusBadge(graphics, "PLANT KPIs • INCOMPLETE", WARN, 16, 258);
-        labelValue(graphics, "Quality / reliability / delivery", "WITHHELD • EVIDENCE MISSING", 276);
-        safeText(graphics, "FPY / reject / rework — / — / — • Availability / failures — / —", 16, 294, MUTED);
-        safeText(graphics, "Queue/job history is not persisted; no plant bottleneck or delivery rate is fabricated.", 16, 312, MUTED);
+        statusBadge(graphics, "PLANT KPIs • INCOMPLETE", WARN, 16, 200);
+        labelValue(graphics, "Quality / reliability / delivery", "WITHHELD • EVIDENCE MISSING", 218);
+        safeText(graphics, "FPY / reject / rework — / — / — • Availability / failures — / —", 16, 234, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
