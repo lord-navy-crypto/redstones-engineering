@@ -75,15 +75,16 @@ for token in (
     if menu and token not in menu:
         errors.append(f"Operations Monitor menu missing synchronized Plant View projection {token!r}")
 
+# World workcell/buffer state is now real and should be shown. Full cross-domain KPIs are still
+# withheld until queue/job/quality/reliability/delivery world evidence exists.
 for token in (
-    "PLANT VIEW",
-    "PLANT EVIDENCE • INCOMPLETE",
-    "plantCoverage",
-    "plantEvidenceAuthoritative",
+    "WORLD PLANT STATE",
+    "PLANT KPIs • INCOMPLETE",
     "FPY / reject / rework",
     "Availability / failures",
-    "Overdue / dated outstanding",
-    "No authoritative world workcell/job/quality/reliability store is bound yet.",
+    "Quality / reliability / delivery",
+    "WITHHELD • EVIDENCE MISSING",
+    "Queue/job history is not persisted yet",
 ):
     if screen and token not in screen:
         errors.append(f"Operations Monitor screen missing truthful Plant View presentation {token!r}")
@@ -120,8 +121,8 @@ if errors:
 
 print("RSE OPERATIONS PLANT VIEW VERIFY: PASS")
 print(" current overdue-work exposure without fake completion timing: PASS")
-print(" throughput/WIP/bottleneck/quality/reliability/due-date composition: PASS")
-print(" existing Operations Monitor Plant View projection: PASS")
-print(" absent world-owned plant collections surface as INCOMPLETE instead of healthy zeroes: PASS")
+print(" throughput/WIP/bottleneck/quality/reliability/due-date composition contract: PASS")
+print(" persisted world workcell/buffer state visible through existing Operations Monitor: PASS")
+print(" unsupported queue/quality/reliability/delivery world KPIs remain INCOMPLETE: PASS")
 print(" automatic ranking or optimization: NONE")
 print(" dispatch/queue/maintenance/world/robotics authority leakage: NONE")
