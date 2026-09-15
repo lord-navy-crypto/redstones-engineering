@@ -1,5 +1,7 @@
 package dev.redstoneengineering.operations.world;
 
+import dev.redstoneengineering.operations.OperationBufferLot;
+import dev.redstoneengineering.operations.OperationBufferSnapshot;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -13,10 +15,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Server-owned persistent Operations plant identity/configuration state. */
+/** Server-owned persistent Operations plant identity/configuration and logical WIP state. */
 public final class OperationPlantSavedData extends SavedData {
     private static final String DATA_NAME = "rse_operations_plant";
     private final Map<String, OperationWorkcellBinding> workcells = new LinkedHashMap<>();
+    private final Map<String, OperationBufferSnapshot> buffers = new LinkedHashMap<>();
 
     public static OperationPlantSavedData get(ServerLevel level) {
         if (level == null || level.getServer() == null) {
@@ -43,9 +46,47 @@ public final class OperationPlantSavedData extends SavedData {
                         resourceTag.getString("ExpectedResourceId")
                 ));
             }
-            OperationWorkcellBinding binding = new OperationWorkcellBinding(workcellId, resources);
-            if (binding.validBinding() && !data.workcells.containsKey(binding.workcellId())) {
-                data.workcells.put(binding.workcellId(), binding);
+            try {
+                OperationWorkcellBinding binding = new OperationWorkcellBinding(workcellId, resources);
+                if (binding.validBinding() && !data.workcells.containsKey(binding.workcellId())) {
+                    data.workcells.put(binding.workcellId(), binding);
+                }
+            } catch (IllegalArgumentException ignored) {
+                // Corrupt persisted identity evidence is skipped rather than fabricated into a valid binding.
+            }
+        }
+
+        ListTag bufferTags = tag.getList("Buffers", Tag.TAG_COMPOUND);
+        for (int index = 0; index < bufferTags.size(); index++) {
+            CompoundTag bufferTag = bufferTags.getCompound(index);
+            String bufferId = bufferTag.getString("BufferId");
+            BlockPos location = BlockPos.of(bufferTag.getLong("Location"));
+            int capacityUnits = bufferTag.getInt("CapacityUnits");
+            ListTag lotTags = bufferTag.getList("Lots", Tag.TAG_COMPOUND);
+            java.util.ArrayList<OperationBufferLot> lots = new java.util.ArrayList<>();
+            for (int lotIndex = 0; lotIndex < lotTags.size(); lotIndex++) {
+                CompoundTag lotTag = lotTags.getCompound(lotIndex);
+                try {
+                    lots.add(new OperationBufferLot(
+                            lotTag.getLong("OutputId"),
+                            lotTag.getLong("JobId"),
+                            lotTag.getInt("Units")
+                    ));
+                } catch (IllegalArgumentException ignored) {
+                    lots.clear();
+                    break;
+                }
+            }
+            try {
+                OperationBufferSnapshot buffer = new OperationBufferSnapshot(
+                        bufferId, location, capacityUnits, lots);
+                boolean locationAlreadyUsed = data.buffers.values().stream()
+                        .anyMatch(existing -> existing.location().equals(buffer.location()));
+                if (!locationAlreadyUsed && !data.buffers.containsKey(buffer.bufferId())) {
+                    data.buffers.put(buffer.bufferId(), buffer);
+                }
+            } catch (IllegalArgumentException | ArithmeticException ignored) {
+                // Invalid/corrupt persisted WIP fails closed by remaining absent from authoritative state.
             }
         }
         return data;
@@ -68,6 +109,25 @@ public final class OperationPlantSavedData extends SavedData {
             workcellTags.add(workcellTag);
         }
         tag.put("Workcells", workcellTags);
+
+        ListTag bufferTags = new ListTag();
+        for (OperationBufferSnapshot buffer : buffers.values()) {
+            CompoundTag bufferTag = new CompoundTag();
+            bufferTag.putString("BufferId", buffer.bufferId());
+            bufferTag.putLong("Location", buffer.location().asLong());
+            bufferTag.putInt("CapacityUnits", buffer.capacityUnits());
+            ListTag lotTags = new ListTag();
+            for (OperationBufferLot lot : buffer.lots()) {
+                CompoundTag lotTag = new CompoundTag();
+                lotTag.putLong("OutputId", lot.outputId());
+                lotTag.putLong("JobId", lot.jobId());
+                lotTag.putInt("Units", lot.units());
+                lotTags.add(lotTag);
+            }
+            bufferTag.put("Lots", lotTags);
+            bufferTags.add(bufferTag);
+        }
+        tag.put("Buffers", bufferTags);
         return tag;
     }
 
@@ -90,6 +150,36 @@ public final class OperationPlantSavedData extends SavedData {
     public boolean removeWorkcell(String workcellId) {
         if (workcellId == null || workcellId.isBlank()) return false;
         if (workcells.remove(workcellId.trim()) == null) return false;
+        setDirty();
+        return true;
+    }
+
+    public Collection<OperationBufferSnapshot> buffers() {
+        return List.copyOf(buffers.values());
+    }
+
+    public OperationBufferSnapshot buffer(String bufferId) {
+        if (bufferId == null) return null;
+        return buffers.get(bufferId.trim());
+    }
+
+    /** Replaces one immutable logical buffer snapshot and marks server SavedData dirty. */
+    public boolean putBuffer(OperationBufferSnapshot buffer) {
+        if (buffer == null) return false;
+        for (OperationBufferSnapshot existing : buffers.values()) {
+            if (!existing.bufferId().equals(buffer.bufferId())
+                    && existing.location().equals(buffer.location())) {
+                return false;
+            }
+        }
+        buffers.put(buffer.bufferId(), buffer);
+        setDirty();
+        return true;
+    }
+
+    public boolean removeBuffer(String bufferId) {
+        if (bufferId == null || bufferId.isBlank()) return false;
+        if (buffers.remove(bufferId.trim()) == null) return false;
         setDirty();
         return true;
     }
