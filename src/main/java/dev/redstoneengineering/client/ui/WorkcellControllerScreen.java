@@ -53,7 +53,7 @@ public final class WorkcellControllerScreen extends EngineeringScreen<WorkcellCo
 
     private void renderConfigure(GuiGraphics graphics) {
         statusBadge(graphics, "EXPLICIT BINDING", INFO, 16, 78);
-        labelValue(graphics, "Bound resources", Integer.toString(menu.boundResourceCount()), 100);
+        labelValue(graphics, "BOUND RESOURCES", Integer.toString(menu.boundResourceCount()), 100);
         statusLine(graphics, "INPUT buffer", menu.capacityEvidenceAvailable()
                 ? capacityText(menu.inputBufferUsedUnits(), menu.inputBufferCapacityUnits()) : "MISSING / INVALID", menu.capacityEvidenceAvailable() ? GOOD : WARN, 120);
         statusLine(graphics, "OUTPUT buffer", menu.capacityEvidenceAvailable()
