@@ -32,17 +32,21 @@ fault = read(BLOCK_DIR / "FaultInjectorBlock.java")
 alarm = read(BLOCK_DIR / "AlarmProcessorBlock.java")
 debugger = read(BLOCK_DIR / "TopologyDebuggerBlock.java")
 compass = read(BLOCK_DIR / "EngineeringCompassBlock.java")
+workcell = read(BLOCK_DIR / "WorkcellControllerBlock.java")
 compass_model = read(ASSETS / "models/block/engineering_compass.json")
 compass_state = read(ASSETS / "blockstates/engineering_compass.json")
 gt = read(GT)
 
 require_all(module, (
-    "@Mod(RedstoneEngineering.MOD_ID)", "SYSTEM_BLOCK_COUNT = 6",
+    "@Mod(RedstoneEngineering.MOD_ID)", "SYSTEM_BLOCK_COUNT = 7",
     "DeferredRegister<MapCodec<? extends Block>> BLOCK_TYPES", "DeferredRegister.Blocks BLOCKS", "DeferredRegister.Items ITEMS",
     "BLOCK_TYPES.register(modBus);", "BLOCKS.register(modBus);", "ITEMS.register(modBus);",
     "DeferredBlock<SequenceControllerBlock> SEQUENCE_CONTROLLER", "DeferredBlock<SafetyInterlockBlock> SAFETY_INTERLOCK",
     "DeferredBlock<FaultInjectorBlock> FAULT_INJECTOR", "DeferredBlock<AlarmProcessorBlock> ALARM_PROCESSOR",
     "DeferredBlock<TopologyDebuggerBlock> TOPOLOGY_DEBUGGER", "DeferredBlock<EngineeringCompassBlock> ENGINEERING_COMPASS",
+    "DeferredBlock<WorkcellControllerBlock> WORKCELL_CONTROLLER", "WORKCELL_CONTROLLER_CODEC",
+    'codec("workcell_controller", WorkcellControllerBlock::new)', 'BLOCKS.registerBlock("workcell_controller", WorkcellControllerBlock::new',
+    "WORKCELL_CONTROLLER_ITEM", "event.accept(WORKCELL_CONTROLLER_ITEM);",
     "ENGINEERING_COMPASS_CODEC", 'codec("engineering_compass", EngineeringCompassBlock::new)',
     'BLOCKS.registerBlock("engineering_compass", EngineeringCompassBlock::new', ".noOcclusion()", "ENGINEERING_COMPASS_ITEM",
     "event.accept(ENGINEERING_COMPASS_ITEM);", "event.register(RseEngineeringSystemsGameTests.class);"
@@ -54,6 +58,14 @@ require_all(interlock, ("extends PassiveDirectionalSignalBlock", "SAFETY_INTERLO
 require_all(fault, ("FAULT_INJECTOR_CODEC.value()", "IntegerProperty.create(\"mode\", 0, 3)", '"STUCK LOW"', '"STUCK HIGH"', '"BIAS +4"', '"BIAS -4"', "PortQuality.FAULT", "RuntimeIntStore.remove(level, KEY, pos)"), "FaultInjectorBlock.java")
 require_all(alarm, ("ALARM_PROCESSOR_CODEC.value()", "IntegerProperty.create(\"severity\", 1, 3)", '"ALARM CONDITION"', '"ACKNOWLEDGE"', '"RESET / CLEAR"', '"ALARM OUT"', "condition <= 0", "PortQuality.FAULT", "RuntimeIntStore.remove(level, KEY, pos)"), "AlarmProcessorBlock.java")
 require_all(debugger, ("TOPOLOGY_DEBUGGER_CODEC.value()", "EngineeringTopologyView.inspect", "TopologyDiagnosticsReport", '"TOPOLOGY ALARM OUT"', "report.hasIssue()", "RuntimeIntStore.remove(level, KEY, pos)"), "TopologyDebuggerBlock.java")
+require_all(workcell, (
+    "class WorkcellControllerBlock extends Block implements EngineeringPortProvider",
+    "WORKCELL_CONTROLLER_CODEC.value()", '"ACTIVE"', '"PERMIT"', '"HOLD"', '"FAULT"', '"QUEUE PRESSURE"',
+    "OperationWorkcellStore.resolveBoundResources", "OperationWorkcellAdmissionAssessment.inspect",
+    "OperationDispatchRuntime.evaluate", "OperationChangeoverRuntime.request", "OperationMaintenanceRuntime.start",
+), "WorkcellControllerBlock.java")
+for forbidden in ("OperationBottleneckAssessment", "Comparator.comparing", "getEntitiesOfClass", "inflate("):
+    if forbidden in workcell: errors.append(f"WorkcellControllerBlock must delegate authority; found {forbidden!r}")
 
 require_all(compass_state, ('"variants"', '"redstoneengineering:block/engineering_compass"'), "engineering_compass blockstate")
 require_all(compass, (
@@ -104,7 +116,7 @@ for needle in (
 ):
     require(gt, needle, "RseEngineeringSystemsGameTests.java")
 
-for block_id in ("sequence_controller", "safety_interlock", "fault_injector", "alarm_processor", "topology_debugger", "engineering_compass"):
+for block_id in ("sequence_controller", "safety_interlock", "fault_injector", "alarm_processor", "topology_debugger", "engineering_compass", "workcell_controller"):
     for path in (ASSETS / "blockstates" / f"{block_id}.json", ASSETS / "models/block" / f"{block_id}.json", ASSETS / "models/item" / f"{block_id}.json", DATA / "loot_table/blocks" / f"{block_id}.json", DATA / "recipe" / f"{block_id}.json"):
         if not path.exists(): errors.append(f"{block_id}: missing {path.relative_to(ROOT)}")
 
@@ -128,9 +140,10 @@ if errors:
     sys.exit(1)
 print("RSE ENGINEERING SYSTEMS VERIFY: PASS")
 print("  legacy audited core: 122 blocks")
-print("  systems extension: 6 blocks")
-print("  aggregate closure target: 128 blocks")
+print("  systems extension: 7 blocks")
+print("  aggregate closure target: 129 blocks")
 print("  Engineering Compass: passive world-axis datum / raised N-E-S-W geometry / low-profile shape")
+print("  Workcell Controller: explicit server binding + delegated Operations authority")
 print("  systems visualization: synchronized world-visible routing and live state overlays")
 print("  systems HMI: explicit Sequence / Interlock / Topology operator controls")
 print("  reliability HMI: explicit shared maintenance actions for watchdog / servo / sensor / voter / latch")
