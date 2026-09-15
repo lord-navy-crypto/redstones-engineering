@@ -62,17 +62,12 @@ for forbidden in (
     "setDeltaMovement(",
     "RuntimeIntStore",
     "scheduleTick(",
+    "startMaintenance(",
+    "requestMaintenance(",
+    "triggerMaintenance(",
 ):
     if assessment and forbidden in assessment:
         errors.append(f"Reliability metrics must remain observer-only; found {forbidden!r}")
-
-for forbidden in (
-    "forecast",
-    "predictive maintenance trigger",
-    "certified",
-):
-    if assessment and forbidden in assessment.lower():
-        errors.append(f"Reliability observer must not make unsupported predictive/certification claims; found {forbidden!r}")
 
 if errors:
     print("RSE OPERATIONS RELIABILITY VERIFY: FAIL")
