@@ -6,20 +6,24 @@ on:
     paths:
       - 'src/main/java/dev/redstoneengineering/operations/**'
       - 'src/main/java/dev/redstoneengineering/integration/**'
+      - 'src/main/java/dev/redstoneengineering/diagnostics/OperationBottleneckAssessment.java'
       - 'tools/rse_operations_material_release_verify.py'
       - 'tools/rse_operations_routing_verify.py'
       - 'tools/rse_operations_edd_verify.py'
       - 'tools/rse_operations_setup_verify.py'
+      - 'tools/rse_operations_capacity_verify.py'
       - '.github/workflows/operations-material-flow.yml'
   push:
     branches: [main]
     paths:
       - 'src/main/java/dev/redstoneengineering/operations/**'
       - 'src/main/java/dev/redstoneengineering/integration/**'
+      - 'src/main/java/dev/redstoneengineering/diagnostics/OperationBottleneckAssessment.java'
       - 'tools/rse_operations_material_release_verify.py'
       - 'tools/rse_operations_routing_verify.py'
       - 'tools/rse_operations_edd_verify.py'
       - 'tools/rse_operations_setup_verify.py'
+      - 'tools/rse_operations_capacity_verify.py'
       - '.github/workflows/operations-material-flow.yml'
   workflow_dispatch:
 
@@ -43,3 +47,5 @@ jobs:
         run: python3 tools/rse_operations_edd_verify.py
       - name: Verify setup and changeover authority
         run: python3 tools/rse_operations_setup_verify.py
+      - name: Verify finite workcell capacity and bottleneck diagnostics
+        run: python3 tools/rse_operations_capacity_verify.py
