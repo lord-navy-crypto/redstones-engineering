@@ -8,6 +8,7 @@ on:
       - 'src/main/java/dev/redstoneengineering/integration/**'
       - 'tools/rse_operations_material_release_verify.py'
       - 'tools/rse_operations_routing_verify.py'
+      - 'tools/rse_operations_edd_verify.py'
       - '.github/workflows/operations-material-flow.yml'
   push:
     branches: [main]
@@ -16,6 +17,7 @@ on:
       - 'src/main/java/dev/redstoneengineering/integration/**'
       - 'tools/rse_operations_material_release_verify.py'
       - 'tools/rse_operations_routing_verify.py'
+      - 'tools/rse_operations_edd_verify.py'
       - '.github/workflows/operations-material-flow.yml'
   workflow_dispatch:
 
@@ -35,3 +37,5 @@ jobs:
         run: python3 tools/rse_operations_material_release_verify.py
       - name: Verify routing and precedence authority
         run: python3 tools/rse_operations_routing_verify.py
+      - name: Verify earliest due date dispatch authority
+        run: python3 tools/rse_operations_edd_verify.py
