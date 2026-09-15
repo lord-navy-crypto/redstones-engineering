@@ -21,7 +21,8 @@ public final class OperationDispatchRuntime {
 
     public enum Policy {
         FIFO,
-        PRIORITY_THEN_FIFO
+        PRIORITY_THEN_FIFO,
+        EARLIEST_DUE_DATE
     }
 
     public enum Verdict {
@@ -97,7 +98,17 @@ public final class OperationDispatchRuntime {
         if (policy == Policy.PRIORITY_THEN_FIFO) {
             return Comparator.comparingInt(OperationJob::priority).reversed().thenComparing(fifo);
         }
+        if (policy == Policy.EARLIEST_DUE_DATE) {
+            return Comparator
+                    .comparingLong(OperationDispatchRuntime::dueDateSortKey)
+                    .thenComparing(fifo);
+        }
         return fifo;
+    }
+
+    /** Jobs without a due date (dueTick == 0) follow all explicitly dated jobs under EDD. */
+    private static long dueDateSortKey(OperationJob job) {
+        return job.hasDueDate() ? job.dueTick() : Long.MAX_VALUE;
     }
 
     private static boolean uniqueJobIds(Collection<OperationJob> jobs) {
