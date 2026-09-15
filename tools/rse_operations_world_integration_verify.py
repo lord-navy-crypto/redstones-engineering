@@ -22,6 +22,7 @@ buffer_binding = read("src/main/java/dev/redstoneengineering/operations/world/Op
 store = read("src/main/java/dev/redstoneengineering/operations/world/OperationWorkcellStore.java")
 saved = read("src/main/java/dev/redstoneengineering/operations/world/OperationPlantSavedData.java")
 buffer_state = read("src/main/java/dev/redstoneengineering/operations/world/OperationIndustrialBufferState.java")
+queue_state = read("src/main/java/dev/redstoneengineering/operations/world/OperationQueueWorldState.java")
 sequence = read("src/main/java/dev/redstoneengineering/block/SequenceControllerBlock.java")
 alarm = read("src/main/java/dev/redstoneengineering/block/AlarmProcessorBlock.java")
 watchdog = read("src/main/java/dev/redstoneengineering/block/WatchdogBlock.java")
@@ -158,6 +159,31 @@ for token in (
     if buffer_state and token not in buffer_state:
         errors.append(f"Industrial Buffer state missing authoritative persistence/runtime bridge {token!r}")
 
+for token in (
+    "class OperationQueueWorldState",
+    "create(", "enqueue(", "dispatch(", "complete(", "snapshot(",
+    "OperationPlantSavedData.get(level)",
+    "OperationQueueRuntime.enqueue(current, job)",
+    "OperationQueueRuntime.dispatch(current, resources, gameTick, policy)",
+    "OperationQueueRuntime.complete(current, evidence)",
+    "data.putQueue(queueId, decision.nextState())",
+    "OperationPlantRuntimeRecorder.recordQueueEnqueue(",
+    "OperationPlantRuntimeRecorder.recordQueueDispatch(",
+    "OperationPlantRuntimeRecorder.recordQueueCompletion(",
+    "data.putQueue(queueId, current)",
+):
+    if queue_state and token not in queue_state:
+        errors.append(f"Queue world state missing authoritative persisted lifecycle contract {token!r}")
+
+for forbidden in (
+    "OperationDispatchRuntime.evaluate(",
+    "Comparator.comparing",
+    "getEntitiesOfClass", "inflate(", "nearest", "closerThan",
+    "setBlock(", "setDeltaMovement(", "RobotMission", "Minecraft.getInstance",
+):
+    if queue_state and forbidden in queue_state:
+        errors.append(f"Queue world state must delegate queue/dispatch authority without ranking/world/robotics shortcuts; found {forbidden!r}")
+
 for forbidden in (
     "import net.minecraft.world.item.ItemStack",
     "import net.minecraft.world.Container",
@@ -214,6 +240,8 @@ print(" persistent Industrial Buffer logical lot/WIP state: PASS")
 print(" persistent bounded queue + active assignment state: PASS")
 print(" buffer receipt/allocation delegates to OperationBufferRuntime: PASS")
 print(" downstream release commits buffer + queue atomically before durable history: PASS")
+print(" world queue create/enqueue/dispatch/complete delegates to OperationQueueRuntime: PASS")
+print(" queue replacement + lifecycle/history commit rollback boundary: PASS")
 print(" explicit input/output buffer binding feeds real workcell capacity evidence: PASS")
 print(" Workcell Controller independent ranking/proximity discovery: NONE")
 print(" Workcell UI scheduling/material mutation authority: NONE")
