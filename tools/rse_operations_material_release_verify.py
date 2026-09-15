@@ -19,6 +19,7 @@ allocation = read("src/main/java/dev/redstoneengineering/operations/OperationInp
 buffer_runtime = read("src/main/java/dev/redstoneengineering/operations/OperationBufferRuntime.java")
 release_runtime = read("src/main/java/dev/redstoneengineering/operations/OperationMaterialReleaseRuntime.java")
 world_buffer = read("src/main/java/dev/redstoneengineering/operations/world/OperationIndustrialBufferState.java")
+plant_saved = read("src/main/java/dev/redstoneengineering/operations/world/OperationPlantSavedData.java")
 plant_recorder = read("src/main/java/dev/redstoneengineering/operations/world/OperationPlantRuntimeRecorder.java")
 release_gametest = read("src/main/java/dev/redstoneengineering/gametest/RseMaterialReleasePersistenceGameTests.java")
 gametest_registration = read("src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java")
@@ -95,25 +96,39 @@ for token in (
         errors.append(f"OperationPlantRuntimeRecorder missing durable material-release queue history {token!r}")
 
 for token in (
+    "Map<String, OperationQueueSnapshot>",
+    "putQueue(String queueId, OperationQueueSnapshot queue)",
+    "queueJobsUniqueAcrossPlant",
+):
+    if plant_saved and token not in plant_saved:
+        errors.append(f"OperationPlantSavedData missing authoritative queue persistence {token!r}")
+
+for token in (
     "OperationMaterialReleaseRuntime.release(",
-    "if (decision.released())",
+    "if (!decision.released()) return decision;",
     "data.putBuffer(decision.nextBuffer())",
+    "data.putQueue(queueId, decision.nextQueue())",
     "OperationPlantRuntimeRecorder.recordMaterialRelease(",
+    "data.putBuffer(current)",
+    "data.putQueue(queueId, queue)",
     "downstreamJob",
     "level.getGameTime()",
 ):
     if world_buffer and token not in world_buffer:
-        errors.append(f"OperationIndustrialBufferState missing live release-to-history wiring {token!r}")
+        errors.append(f"OperationIndustrialBufferState missing atomic live release-to-history wiring {token!r}")
 
 for token in (
     "class RseMaterialReleasePersistenceGameTests",
     "liveMaterialReleasePersistsQueueHistoryAndWaitIsNonDestructive",
+    "OperationQueueWorldState.create(",
     "OperationIndustrialBufferState.releaseMaterial(",
+    "OperationQueueWorldState.snapshot(",
     "OperationMaterialReleaseRuntime.Verdict.RELEASED",
     "OperationMaterialReleaseRuntime.Verdict.WAIT",
     "releasedBuffer.usedUnits() != 6",
     "plant.jobLifecycle(blockedJobId) != null",
     "queueEventsBeforeWait",
+    "afterWaitQueue.equals(queueBeforeWait)",
     "MATERIAL_JOB_RELEASED",
 ):
     if release_gametest and token not in release_gametest:
@@ -153,8 +168,10 @@ print(" upstream output/job trace preserved in allocation: PASS")
 print(" insufficient/missing material waits without fabrication: PASS")
 print(" partial lot allocation retains explicit remainder: PASS")
 print(" downstream job identity must match requirement: PASS")
-print(" queue admission failure rolls buffer state back: PASS")
-print(" successful release changes buffer and queue snapshots together: PASS")
+print(" queue admission failure leaves persisted buffer/queue unchanged: PASS")
+print(" successful release commits world buffer + persistent queue before history: PASS")
+print(" history failure rolls buffer + queue snapshots back together: PASS")
+print(" plant-wide queue job identity uniqueness: PASS")
 print(" successful world release writes durable queued job/history evidence: PASS")
 print(" local GameTest covers RELEASED persistence + WAIT non-destructive behavior: REGISTERED")
 print(" world/KPI/robotics authority leakage into pure runtimes: NONE")
