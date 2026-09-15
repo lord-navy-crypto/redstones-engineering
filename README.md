@@ -24,13 +24,21 @@ RSE does not shade or bundle their jars. Physics, topology, measurement, control
 
 | Item | Current RSE baseline |
 | --- | --- |
-| Development milestone | **Alpha 1.0.20 — Commissioning Run History & Baseline Comparison** |
-| Artifact version | `1.0.20-alpha` |
+| Development milestone | **Alpha 1.0.21 RC1 — Integrated Systems Stabilization Test Candidate** |
+| Artifact version | `1.0.21-alpha-rc1` |
 | Minecraft | `1.21.1` |
 | NeoForge | `21.1.249` |
 | Java | `21` |
 | Mod ID | `redstoneengineering` |
 | License | **MPL-2.0** |
+
+## Alpha 1.0.21 RC1 — Integrated Systems Stabilization Test Candidate
+
+Alpha 1.0.21 RC1 freezes feature expansion for one integrated Minecraft test pass after the major routing, media-differentiation, HMI, commissioning, operations, pneumatic, optical, digital-communication and radio depth work. The candidate does not introduce a second client physics model: backend/network systems remain authoritative and HMIs remain synchronized observers.
+
+The RC pipeline is intentionally stricter than ordinary development PRs. Any `test-candidate-*` pull request must pass the full static/reference suite, Java 21 compile, Gradle tests, **blocking NeoForge GameTests**, the chained-neighbor-update safety check, a clean build, SHA-256 generation and verified artifact upload on the exact latest HEAD before tester handoff.
+
+See [`ALPHA1_0_21_MANIFEST.txt`](ALPHA1_0_21_MANIFEST.txt) and [`docs/ALPHA1_0_21_RC1_TESTING_GUIDE.md`](docs/ALPHA1_0_21_RC1_TESTING_GUIDE.md).
 
 ## Alpha 1.0.20 — Commissioning Run History & Baseline Comparison
 
@@ -190,6 +198,7 @@ These historical contracts remain active regression targets and are intentionall
 - **Alpha 1.0.18 — Engineering Acceptance & Traceability** — combines authoritative topology and commissioning evidence into a deterministic read-only engineering verdict with stable trace codes.
 - **Alpha 1.0.19 — Acceptance UX & Evidence Presentation** — exposes PID acceptance evidence through concise server-backed Jade diagnostics while retaining a deterministic trace.
 - **Alpha 1.0.20 — Commissioning Run History & Baseline Comparison** — adds explicit bounded capture of acceptance runs and deterministic latest-versus-previous comparison.
+- **Alpha 1.0.21 RC1 — Integrated Systems Stabilization Test Candidate** — freezes expansion for one integrated runtime test and makes GameTests blocking for test-candidate PRs.
 
 ## Engineering Port architecture
 
@@ -275,7 +284,7 @@ Run comparison: Δissues = candidate topology issues - baseline topology issues
 
 ## Verification architecture
 
-CI runs verifier syntax, repository/source/resource audits, deterministic reference models, historical Alpha regressions, dependency checks, Engineering Port/Jade gates, legacy-renovation checks, directional-I/O guards, copper topology guards, **Alpha 1.0.14 metrology**, **Alpha 1.0.15 multi-domain rollout/calibration**, **Alpha 1.0.16 closed-loop commissioning/fault injection**, **Alpha 1.0.17 engineering UX/topology visualization**, **Alpha 1.0.18 engineering acceptance/traceability**, **Alpha 1.0.19 acceptance UX/evidence presentation**, **Alpha 1.0.20 commissioning run-history/baseline comparison**, Java 21 compilation, Gradle tests, **NeoForge Minecraft GameTests**, a clean build, SHA-256 generation and verified artifact upload.
+CI runs verifier syntax, repository/source/resource audits, deterministic reference models, historical Alpha regressions, dependency checks, Engineering Port/Jade gates, legacy-renovation checks, directional-I/O guards, copper topology guards, **Alpha 1.0.14 metrology**, **Alpha 1.0.15 multi-domain rollout/calibration**, **Alpha 1.0.16 closed-loop commissioning/fault injection**, **Alpha 1.0.17 engineering UX/topology visualization**, **Alpha 1.0.18 engineering acceptance/traceability**, **Alpha 1.0.19 acceptance UX/evidence presentation**, **Alpha 1.0.20 commissioning run-history/baseline comparison**, and the **Alpha 1.0.21 RC packaging/runtime gate**, Java 21 compilation, Gradle tests, a clean build, SHA-256 generation and verified artifact upload. On `test-candidate-*` PRs, NeoForge Minecraft GameTests are blocking rather than diagnostic-only.
 
 Interactive visual/UX behavior remains a separate `runClient` gate. Automated gates protect simulation-to-render ownership, metrology math, physical topology, directional I/O, copper runtime propagation, calibration semantics, commissioning read-only ownership, fault bounds, all-face topology projection, acceptance evidence ownership, explicit-capture history ownership, HUD read-only ownership and sampling ownership.
 
@@ -294,6 +303,8 @@ Build output is under `build/libs/`.
 ## Documentation
 
 - [`CHANGELOG.md`](CHANGELOG.md)
+- [`ALPHA1_0_21_MANIFEST.txt`](ALPHA1_0_21_MANIFEST.txt)
+- [`docs/ALPHA1_0_21_RC1_TESTING_GUIDE.md`](docs/ALPHA1_0_21_RC1_TESTING_GUIDE.md)
 - [`ALPHA1_0_20_MANIFEST.txt`](ALPHA1_0_20_MANIFEST.txt)
 - [`ALPHA1_0_19_MANIFEST.txt`](ALPHA1_0_19_MANIFEST.txt)
 - [`ALPHA1_0_18_MANIFEST.txt`](ALPHA1_0_18_MANIFEST.txt)
