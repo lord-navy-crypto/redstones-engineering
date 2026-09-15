@@ -110,6 +110,7 @@ public class WatchdogBlock extends PassiveDirectionalSignalBlock implements Oper
         if (heartbeat.valid()) {
             int now = heartbeat.value();
             if (rt[SOURCE_SEEN] == 0) {
+                // A source appearing is only a baseline. It is not a fabricated heartbeat edge.
                 rt[LAST_VALUE] = now;
                 rt[SOURCE_SEEN] = 1;
                 rt[AGE] = Math.min(12000, rt[AGE] + 2);
@@ -121,6 +122,7 @@ public class WatchdogBlock extends PassiveDirectionalSignalBlock implements Oper
                 rt[AGE] = Math.min(12000, rt[AGE] + 2);
             }
         } else {
+            // Unknown/missing coverage cannot masquerade as a LOW transition.
             rt[SOURCE_SEEN] = 0;
             rt[AGE] = Math.min(12000, rt[AGE] + 2);
         }
