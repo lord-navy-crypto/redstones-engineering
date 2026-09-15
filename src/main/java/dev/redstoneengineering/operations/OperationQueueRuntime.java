@@ -71,23 +71,34 @@ public final class OperationQueueRuntime {
             return safeStop(state, dispatch.reason());
         }
         if (!dispatch.assigned()) return waitFor(state, dispatch.reason());
+        return applyAssignment(state, dispatch.job(), dispatch.resource(), gameTick, dispatch.reason());
+    }
 
-        for (OperationAssignment active : state.active()) {
-            if (active.resourceId().equals(dispatch.resource().resourceId())) {
-                return safeStop(state, "RESOURCE_ALREADY_ASSIGNED");
-            }
+    /**
+     * Queue dispatch with explicit maintenance evidence. Maintenance gating owns only resource
+     * availability projection; final job/resource ranking still delegates to OperationDispatchRuntime.
+     */
+    public static Decision dispatchMaintenanceAware(
+            OperationQueueSnapshot state,
+            Collection<OperationResourceSnapshot> resources,
+            Collection<OperationResourceMaintenanceSnapshot> maintenanceStates,
+            long gameTick,
+            OperationDispatchRuntime.Policy policy
+    ) {
+        if (state == null) throw new IllegalArgumentException("state is required");
+        OperationMaintenanceAwareDispatchRuntime.Decision dispatch =
+                OperationMaintenanceAwareDispatchRuntime.evaluate(
+                        state.queued(), resources, maintenanceStates, gameTick, policy);
+        if (dispatch.verdict() == OperationMaintenanceAwareDispatchRuntime.Verdict.FAULT) {
+            return new Decision(Verdict.FAULT, dispatch.reason(), state, null);
         }
-
-        ArrayList<OperationJob> queued = new ArrayList<>();
-        for (OperationJob job : state.queued()) {
-            if (job.jobId() != dispatch.job().jobId()) queued.add(job);
+        if (dispatch.verdict() == OperationMaintenanceAwareDispatchRuntime.Verdict.SAFE_STOP) {
+            return safeStop(state, dispatch.reason());
         }
-        OperationAssignment assignment = new OperationAssignment(
-                dispatch.job(), dispatch.resource().resourceId(), gameTick);
-        ArrayList<OperationAssignment> active = new ArrayList<>(state.active());
-        active.add(assignment);
-        OperationQueueSnapshot next = new OperationQueueSnapshot(state.capacity(), queued, active);
-        return new Decision(Verdict.ASSIGNED, dispatch.reason(), next, assignment);
+        if (dispatch.verdict() != OperationMaintenanceAwareDispatchRuntime.Verdict.ASSIGN) {
+            return waitFor(state, dispatch.reason());
+        }
+        return applyAssignment(state, dispatch.job(), dispatch.resource(), gameTick, dispatch.reason());
     }
 
     public static Decision complete(
@@ -122,6 +133,38 @@ public final class OperationQueueRuntime {
                 yield new Decision(Verdict.COMPLETED, assessment.reason(), next, assignment);
             }
         };
+    }
+
+    private static Decision applyAssignment(
+            OperationQueueSnapshot state,
+            OperationJob job,
+            OperationResourceSnapshot resource,
+            long gameTick,
+            String reason
+    ) {
+        if (job == null || resource == null) return safeStop(state, "DISPATCH_ASSIGNMENT_EVIDENCE_MISSING");
+        for (OperationAssignment active : state.active()) {
+            if (active.resourceId().equals(resource.resourceId())) {
+                return safeStop(state, "RESOURCE_ALREADY_ASSIGNED");
+            }
+        }
+
+        ArrayList<OperationJob> queued = new ArrayList<>();
+        boolean removed = false;
+        for (OperationJob candidate : state.queued()) {
+            if (candidate.jobId() == job.jobId()) {
+                removed = true;
+            } else {
+                queued.add(candidate);
+            }
+        }
+        if (!removed) return safeStop(state, "DISPATCH_JOB_NOT_IN_QUEUE");
+
+        OperationAssignment assignment = new OperationAssignment(job, resource.resourceId(), gameTick);
+        ArrayList<OperationAssignment> active = new ArrayList<>(state.active());
+        active.add(assignment);
+        OperationQueueSnapshot next = new OperationQueueSnapshot(state.capacity(), queued, active);
+        return new Decision(Verdict.ASSIGNED, reason, next, assignment);
     }
 
     private static boolean containsJob(OperationQueueSnapshot state, long jobId) {
