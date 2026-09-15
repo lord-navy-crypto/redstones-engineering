@@ -60,25 +60,26 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
 
         int configured = configurationPercent();
         labelValue(graphics, "Workcells configured • CONFIGURATION",
-                menu.worldPlantConfiguredWorkcells() + " / " + menu.worldPlantWorkcells() + " • " + configured + "%", 108);
-        drawPlantMetricBar(graphics, 16, 122, 176, configured, configured >= 100 ? GOOD : WARN);
+                menu.worldPlantConfiguredWorkcells() + " / " + menu.worldPlantWorkcells() + " • " + configured + "%", 106);
+        drawPlantMetricBar(graphics, 16, 120, 176, configured, configured >= 100 ? GOOD : WARN);
 
         labelValue(graphics, "Buffers / WIP • WIP PRESSURE", menu.worldPlantBuffers() + " • "
                 + menu.worldPlantUsedBufferUnits() + "/" + menu.worldPlantBufferCapacityUnits()
-                + " • " + menu.worldPlantWipPressurePercent() + "%", 138);
+                + " • " + menu.worldPlantWipPressurePercent() + "%", 136);
         int wipColor = menu.worldPlantWipPressurePercent() >= 90 ? BAD
                 : (menu.worldPlantWipPressurePercent() >= 70 ? WARN : GOOD);
-        drawPlantMetricBar(graphics, 16, 152, 176, menu.worldPlantWipPressurePercent(), wipColor);
+        drawPlantMetricBar(graphics, 16, 150, 176, menu.worldPlantWipPressurePercent(), wipColor);
 
         int health = resourceHealthPercent();
         labelValue(graphics, "Bound resources • RESOURCE HEALTH", menu.worldPlantValidResources() + "/" + menu.worldPlantBoundResources()
-                + " valid • faults " + menu.worldPlantFaultResources() + " • " + health + "%", 168);
+                + " valid • faults " + menu.worldPlantFaultResources() + " • " + health + "%", 166);
         int healthColor = menu.worldPlantFaultResources() > 0 ? BAD : (health >= 100 ? GOOD : WARN);
-        drawPlantMetricBar(graphics, 16, 182, 176, health, healthColor);
+        drawPlantMetricBar(graphics, 16, 180, 176, health, healthColor);
 
-        statusBadge(graphics, "PLANT KPIs • INCOMPLETE", WARN, 16, 200);
-        labelValue(graphics, "Quality / reliability / delivery", "WITHHELD • EVIDENCE MISSING", 218);
-        safeText(graphics, "FPY / reject / rework — / — / — • Availability / failures — / —", 16, 234, MUTED);
+        statusBadge(graphics, "PLANT KPIs • INCOMPLETE", WARN, 16, 196);
+        labelValue(graphics, "Quality / reliability / delivery", "WITHHELD • EVIDENCE MISSING", 212);
+        safeText(graphics, "FPY / reject / rework — / — / —", 16, 226, MUTED);
+        safeText(graphics, "Availability / failures — / — • Queue/job history is not persisted yet", 16, 238, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
