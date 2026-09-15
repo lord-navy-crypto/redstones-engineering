@@ -10,6 +10,8 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.operations.world.OperationWorldResourceProvider;
+import dev.redstoneengineering.operations.world.OperationWorldResourceSnapshot;
 import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
@@ -37,14 +39,16 @@ import net.minecraft.world.phys.BlockHitResult;
 
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Mechatronic servo primitive with explicit control ports.
  * BACK=command, UP=mode (0=POSITION, >0=VELOCITY), RIGHT=BRAKE, FRONT=mechanical position.
  * In velocity mode command 7=stop, 0..6 reverse, 8..15 forward.
  */
-public class ServoActuatorBlock extends Block implements EntityBlock, EngineeringPortProvider {
+public class ServoActuatorBlock extends Block implements EntityBlock, EngineeringPortProvider, OperationWorldResourceProvider {
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final IntegerProperty SLEW = IntegerProperty.create("slew", 0, 2);
 
@@ -106,6 +110,32 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
         RedstoneObservationSupport.Observation observation = controlObservation(level, pos, side);
         return Optional.of(EngineeringPortSnapshot.redstone(
                 port.get(), observation.value(), observation.quality()));
+    }
+
+    @Override
+    public OperationWorldResourceSnapshot operationResourceSnapshot(Level level, BlockPos pos, BlockState state) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        boolean evaluated = runtime != null && runtime.length >= RUNTIME_SIZE;
+        boolean brake = braking(level, pos);
+        int velocity = velocity(level, pos);
+        boolean completionEvidenceAvailable = false;
+        return new OperationWorldResourceSnapshot(
+                "servo_actuator:" + pos.asLong(),
+                Set.of("servo_positioning"),
+                evaluated && !brake,
+                evaluated && velocity != 0,
+                completionEvidenceAvailable,
+                false,
+                evaluated ? PortQuality.VALID : PortQuality.STALE,
+                Map.of(
+                        "position", (long) position(level, pos),
+                        "command", (long) command(level, pos),
+                        "velocity", (long) velocity,
+                        "error", (long) error(level, pos),
+                        "braking", brake ? 1L : 0L,
+                        "soft_limit_hits", (long) softLimitHits(level, pos)
+                )
+        );
     }
 
     @Override
