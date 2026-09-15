@@ -91,6 +91,12 @@ public class AlarmProcessorBlock extends PassiveDirectionalSignalBlock implement
     public void cycleSeverity(Level level, BlockPos pos) { adjustSeverity(level,pos,1); }
     @Override protected void onPlace(BlockState state,Level level,BlockPos pos,BlockState oldState,boolean movedByPiston){super.onPlace(state,level,pos,oldState,movedByPiston);if(level instanceof ServerLevel server)server.scheduleTick(pos,this,1);}
     @Override protected void tick(BlockState state,ServerLevel level,BlockPos pos,RandomSource random){updateOutput(level,pos,state,outputValue(level,pos,state));level.scheduleTick(pos,this,1);}
-    @Override protected void onRemove(BlockState state,Level level,BlockPos pos,BlockState newState,boolean movedByPiston){if(!state.is(newState.getBlock()))RuntimeIntStore.remove(level,KEY,pos);super.onRemove(state,level,pos,newState,movedByPiston);}
+
+    @Override
+    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
+        if (!state.is(newState.getBlock())) RuntimeIntStore.remove(level, KEY, pos);
+        super.onRemove(state, level, pos, newState, movedByPiston);
+    }
+
     @Override protected InteractionResult useWithoutItem(BlockState state,Level level,BlockPos pos,Player player,BlockHitResult hit){if(!level.isClientSide&&player instanceof ServerPlayer serverPlayer){if(player.isShiftKeyDown()){acknowledge(level,pos);player.displayClientMessage(Component.literal(compactDiagnostics(level,pos)),true);}else{FieldDeviceUi.openUniversal(serverPlayer,pos);}}return InteractionResult.sidedSuccess(level.isClientSide);}
 }
