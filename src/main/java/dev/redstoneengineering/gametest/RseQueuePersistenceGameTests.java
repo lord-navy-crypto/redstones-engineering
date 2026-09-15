@@ -5,8 +5,10 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.operations.OperationCompletionEvidence;
 import dev.redstoneengineering.operations.OperationDispatchRuntime;
 import dev.redstoneengineering.operations.OperationJob;
+import dev.redstoneengineering.operations.OperationResourceMaintenanceSnapshot;
 import dev.redstoneengineering.operations.OperationResourceSnapshot;
 import dev.redstoneengineering.operations.world.OperationJobLifecycleRecord;
+import dev.redstoneengineering.operations.world.OperationMaintenanceWorldState;
 import dev.redstoneengineering.operations.world.OperationPlantEvent;
 import dev.redstoneengineering.operations.world.OperationPlantSavedData;
 import dev.redstoneengineering.operations.world.OperationQueueWorldState;
@@ -78,6 +80,60 @@ public final class RseQueuePersistenceGameTests {
                 OperationResourceSnapshot.State.AVAILABLE,
                 PortQuality.VALID
         );
+        OperationMaintenanceWorldState.Decision dueObserved = OperationMaintenanceWorldState.observe(
+                helper.getLevel(),
+                new OperationResourceMaintenanceSnapshot(
+                        resourceId,
+                        OperationResourceMaintenanceSnapshot.State.MAINTENANCE_DUE,
+                        "validation_pm:" + baseId,
+                        PortQuality.VALID,
+                        false
+                ),
+                now,
+                "QUEUE_DISPATCH_VALIDATION_DUE"
+        );
+        if (dueObserved.verdict() != OperationMaintenanceWorldState.Verdict.OBSERVED) {
+            helper.fail("Could not persist maintenance-due evidence before dispatch");
+            return;
+        }
+
+        OperationQueueWorldState.Decision heldDispatch = OperationQueueWorldState.dispatch(
+                helper.getLevel(),
+                queueId,
+                List.of(resource),
+                now,
+                OperationDispatchRuntime.Policy.FIFO
+        );
+        var heldQueue = OperationQueueWorldState.snapshot(helper.getLevel(), queueId);
+        var heldLifecycle = plant.jobLifecycle(jobId);
+        if (heldDispatch.verdict() != OperationQueueWorldState.Verdict.WAIT
+                || !"MAINTENANCE_HOLD".equals(heldDispatch.reason())
+                || heldQueue == null
+                || heldQueue.queued().size() != 1
+                || !heldQueue.active().isEmpty()
+                || heldLifecycle == null
+                || heldLifecycle.status() != OperationJobLifecycleRecord.Status.QUEUED) {
+            helper.fail("Maintenance-due resource was dispatched or queue/lifecycle was mutated");
+            return;
+        }
+
+        OperationMaintenanceWorldState.Decision availableObserved = OperationMaintenanceWorldState.observe(
+                helper.getLevel(),
+                new OperationResourceMaintenanceSnapshot(
+                        resourceId,
+                        OperationResourceMaintenanceSnapshot.State.AVAILABLE,
+                        null,
+                        PortQuality.VALID,
+                        false
+                ),
+                now,
+                "QUEUE_DISPATCH_VALIDATION_AVAILABLE"
+        );
+        if (availableObserved.verdict() != OperationMaintenanceWorldState.Verdict.OBSERVED) {
+            helper.fail("Could not persist maintenance-ready evidence before dispatch");
+            return;
+        }
+
         OperationQueueWorldState.Decision dispatched = OperationQueueWorldState.dispatch(
                 helper.getLevel(),
                 queueId,
@@ -93,7 +149,7 @@ public final class RseQueuePersistenceGameTests {
                 || !resourceId.equals(dispatched.snapshot().active().getFirst().resourceId())
                 || dispatchedLifecycle == null
                 || dispatchedLifecycle.status() != OperationJobLifecycleRecord.Status.DISPATCHED) {
-            helper.fail("Dispatch did not persist active assignment and DISPATCHED lifecycle");
+            helper.fail("Maintenance-ready dispatch did not persist active assignment and DISPATCHED lifecycle");
             return;
         }
 
