@@ -31,6 +31,7 @@ public final class RseQueuePersistenceGameTests {
         long baseId = Math.floorMod(helper.absolutePos(net.minecraft.core.BlockPos.ZERO).asLong()
                 ^ now ^ 0x51554555454cL, 800_000_000L) + 200_000L;
         String queueId = "queue_lifecycle:" + baseId;
+        String duplicateQueueId = "queue_duplicate_guard:" + baseId;
         String resourceId = "queue_resource:" + baseId;
         long jobId = baseId + 1L;
 
@@ -49,6 +50,28 @@ public final class RseQueuePersistenceGameTests {
             return;
         }
 
+        OperationPlantSavedData plant = OperationPlantSavedData.get(helper.getLevel());
+        OperationQueueWorldState.Decision duplicateQueueCreated = OperationQueueWorldState.create(
+                helper.getLevel(), duplicateQueueId, 4);
+        if (duplicateQueueCreated.verdict() != OperationQueueWorldState.Verdict.CREATED) {
+            helper.fail("Duplicate-guard queue create failed: " + duplicateQueueCreated.reason());
+            return;
+        }
+        int queueEventsBeforeDuplicate = plant.plantEvents(OperationPlantEvent.Type.QUEUE).size();
+        OperationQueueWorldState.Decision duplicateEnqueue = OperationQueueWorldState.enqueue(
+                helper.getLevel(), duplicateQueueId, job, now);
+        var originalAfterDuplicateAttempt = OperationQueueWorldState.snapshot(helper.getLevel(), queueId);
+        var duplicateAfterAttempt = OperationQueueWorldState.snapshot(helper.getLevel(), duplicateQueueId);
+        if (duplicateEnqueue.verdict() != OperationQueueWorldState.Verdict.SAFE_STOP
+                || originalAfterDuplicateAttempt == null
+                || originalAfterDuplicateAttempt.queued().size() != 1
+                || duplicateAfterAttempt == null
+                || duplicateAfterAttempt.wip() != 0
+                || plant.plantEvents(OperationPlantEvent.Type.QUEUE).size() != queueEventsBeforeDuplicate) {
+            helper.fail("One job was allowed to exist in multiple persistent plant queues");
+            return;
+        }
+
         OperationResourceSnapshot resource = new OperationResourceSnapshot(
                 resourceId,
                 Set.of("queue_validation"),
@@ -62,7 +85,6 @@ public final class RseQueuePersistenceGameTests {
                 now,
                 OperationDispatchRuntime.Policy.FIFO
         );
-        OperationPlantSavedData plant = OperationPlantSavedData.get(helper.getLevel());
         OperationJobLifecycleRecord dispatchedLifecycle = plant.jobLifecycle(jobId);
         if (dispatched.verdict() != OperationQueueWorldState.Verdict.ASSIGNED
                 || dispatched.snapshot() == null
