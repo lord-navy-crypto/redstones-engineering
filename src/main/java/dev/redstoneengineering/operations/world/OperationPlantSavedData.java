@@ -1,7 +1,12 @@
 package dev.redstoneengineering.operations.world;
 
+import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.operations.OperationAssignment;
 import dev.redstoneengineering.operations.OperationBufferLot;
 import dev.redstoneengineering.operations.OperationBufferSnapshot;
+import dev.redstoneengineering.operations.OperationJob;
+import dev.redstoneengineering.operations.OperationQueueSnapshot;
+import dev.redstoneengineering.operations.OperationResourceMaintenanceSnapshot;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -10,17 +15,29 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.saveddata.SavedData;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Server-owned persistent Operations plant identity/configuration and logical WIP state. */
+/** Server-owned persistent Operations plant identity, logical WIP and runtime evidence. */
 public final class OperationPlantSavedData extends SavedData {
     private static final String DATA_NAME = "rse_operations_plant";
+    private static final int RUNTIME_SCHEMA_VERSION = 3;
+    private static final int MAX_PLANT_EVENTS = 1024;
+    private static final int MAX_TERMINAL_JOB_RECORDS = 2048;
+
     private final Map<String, OperationWorkcellBinding> workcells = new LinkedHashMap<>();
     private final Map<String, OperationBufferSnapshot> buffers = new LinkedHashMap<>();
     private final Map<String, OperationWorkcellBufferBinding> workcellBuffers = new LinkedHashMap<>();
+    private final Map<String, OperationResourceMaintenanceSnapshot> maintenanceSnapshots = new LinkedHashMap<>();
+    private final Map<String, OperationQueueSnapshot> queues = new LinkedHashMap<>();
+    private final Map<Long, OperationJobLifecycleRecord> jobs = new LinkedHashMap<>();
+    private final List<OperationPlantEvent> plantEvents = new ArrayList<>();
+    private long nextEventSequence;
 
     public static OperationPlantSavedData get(ServerLevel level) {
         if (level == null || level.getServer() == null) {
@@ -39,7 +56,7 @@ public final class OperationPlantSavedData extends SavedData {
             CompoundTag workcellTag = workcellTags.getCompound(index);
             String workcellId = workcellTag.getString("WorkcellId");
             ListTag resourceTags = workcellTag.getList("Resources", Tag.TAG_COMPOUND);
-            java.util.ArrayList<OperationWorkcellBinding.ResourceBinding> resources = new java.util.ArrayList<>();
+            ArrayList<OperationWorkcellBinding.ResourceBinding> resources = new ArrayList<>();
             for (int resourceIndex = 0; resourceIndex < resourceTags.size(); resourceIndex++) {
                 CompoundTag resourceTag = resourceTags.getCompound(resourceIndex);
                 resources.add(new OperationWorkcellBinding.ResourceBinding(
@@ -60,7 +77,7 @@ public final class OperationPlantSavedData extends SavedData {
             BlockPos location = BlockPos.of(bufferTag.getLong("Location"));
             int capacityUnits = bufferTag.getInt("CapacityUnits");
             ListTag lotTags = bufferTag.getList("Lots", Tag.TAG_COMPOUND);
-            java.util.ArrayList<OperationBufferLot> lots = new java.util.ArrayList<>();
+            ArrayList<OperationBufferLot> lots = new ArrayList<>();
             boolean invalidLotEvidence = false;
             for (int lotIndex = 0; lotIndex < lotTags.size(); lotIndex++) {
                 CompoundTag lotTag = lotTags.getCompound(lotIndex);
@@ -102,11 +119,111 @@ public final class OperationPlantSavedData extends SavedData {
             if (!data.buffers.containsKey(binding.inputBufferId()) || !data.buffers.containsKey(binding.outputBufferId())) continue;
             data.workcellBuffers.putIfAbsent(binding.workcellId(), binding);
         }
+
+        ListTag maintenanceTags = tag.getList("ResourceMaintenance", Tag.TAG_COMPOUND);
+        for (int index = 0; index < maintenanceTags.size(); index++) {
+            CompoundTag maintenanceTag = maintenanceTags.getCompound(index);
+            try {
+                String maintenanceId = maintenanceTag.getString("MaintenanceId");
+                if (maintenanceId.isBlank()) maintenanceId = null;
+                OperationResourceMaintenanceSnapshot snapshot = new OperationResourceMaintenanceSnapshot(
+                        maintenanceTag.getString("ResourceId"),
+                        OperationResourceMaintenanceSnapshot.State.valueOf(maintenanceTag.getString("State")),
+                        maintenanceId,
+                        PortQuality.valueOf(maintenanceTag.getString("EvidenceQuality")),
+                        maintenanceTag.getBoolean("FaultActive")
+                );
+                data.maintenanceSnapshots.putIfAbsent(snapshot.resourceId(), snapshot);
+            } catch (IllegalArgumentException ignored) {
+                // Corrupt maintenance evidence is isolated rather than inventing a production-ready state.
+            }
+        }
+
+        ListTag queueTags = tag.getList("RuntimeQueues", Tag.TAG_COMPOUND);
+        for (int index = 0; index < queueTags.size(); index++) {
+            CompoundTag queueTag = queueTags.getCompound(index);
+            String queueId = queueTag.getString("QueueId").trim();
+            if (queueId.isBlank()) continue;
+            try {
+                ArrayList<OperationJob> queued = new ArrayList<>();
+                ListTag queuedTags = queueTag.getList("QueuedJobs", Tag.TAG_COMPOUND);
+                for (int queuedIndex = 0; queuedIndex < queuedTags.size(); queuedIndex++) {
+                    queued.add(readJobTag(queuedTags.getCompound(queuedIndex)));
+                }
+
+                ArrayList<OperationAssignment> active = new ArrayList<>();
+                ListTag activeTags = queueTag.getList("ActiveAssignments", Tag.TAG_COMPOUND);
+                for (int activeIndex = 0; activeIndex < activeTags.size(); activeIndex++) {
+                    CompoundTag assignmentTag = activeTags.getCompound(activeIndex);
+                    active.add(new OperationAssignment(
+                            readJobTag(assignmentTag.getCompound("Job")),
+                            assignmentTag.getString("ResourceId"),
+                            assignmentTag.getLong("AssignedTick")
+                    ));
+                }
+
+                OperationQueueSnapshot queue = new OperationQueueSnapshot(
+                        queueTag.getInt("Capacity"), queued, active);
+                if (data.queueJobsUniqueAcrossPlant(queueId, queue)) {
+                    data.queues.putIfAbsent(queueId, queue);
+                }
+            } catch (IllegalArgumentException ignored) {
+                // Corrupt queue evidence is isolated instead of inventing queued or active work.
+            }
+        }
+
+        ListTag jobTags = tag.getList("RuntimeJobs", Tag.TAG_COMPOUND);
+        for (int index = 0; index < jobTags.size(); index++) {
+            CompoundTag jobTag = jobTags.getCompound(index);
+            try {
+                OperationJobLifecycleRecord.Status status = OperationJobLifecycleRecord.Status.valueOf(jobTag.getString("Status"));
+                OperationJobLifecycleRecord record = new OperationJobLifecycleRecord(
+                        jobTag.getLong("JobId"),
+                        jobTag.getString("ProcessId"),
+                        jobTag.getInt("Quantity"),
+                        jobTag.getInt("Priority"),
+                        jobTag.getLong("ReleaseTick"),
+                        jobTag.getLong("DueTick"),
+                        jobTag.getLong("AdmittedTick"),
+                        jobTag.getLong("StateTick"),
+                        jobTag.getLong("CompletionTick"),
+                        status
+                );
+                data.jobs.put(record.jobId(), record);
+            } catch (IllegalArgumentException ignored) {
+                // Corrupt lifecycle evidence is isolated instead of preventing the world from loading.
+            }
+        }
+        data.trimTerminalJobs();
+
+        ListTag eventTags = tag.getList("PlantEvents", Tag.TAG_COMPOUND);
+        for (int index = 0; index < eventTags.size(); index++) {
+            CompoundTag eventTag = eventTags.getCompound(index);
+            try {
+                OperationPlantEvent event = new OperationPlantEvent(
+                        eventTag.getLong("Sequence"),
+                        eventTag.getLong("GameTick"),
+                        OperationPlantEvent.Type.valueOf(eventTag.getString("Type")),
+                        eventTag.getString("SubjectId"),
+                        eventTag.getLong("JobId"),
+                        eventTag.getString("Detail")
+                );
+                data.plantEvents.add(event);
+                data.nextEventSequence = Math.max(data.nextEventSequence, event.sequence() + 1);
+            } catch (IllegalArgumentException ignored) {
+                // One malformed history row must not invalidate the remaining plant evidence.
+            }
+        }
+        data.plantEvents.sort(Comparator.comparingLong(OperationPlantEvent::sequence));
+        data.trimPlantEvents();
+        data.nextEventSequence = Math.max(data.nextEventSequence, tag.getLong("NextEventSequence"));
         return data;
     }
 
     @Override
     public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
+        tag.putInt("RuntimeSchemaVersion", RUNTIME_SCHEMA_VERSION);
+
         ListTag workcellTags = new ListTag();
         for (OperationWorkcellBinding binding : workcells.values()) {
             CompoundTag workcellTag = new CompoundTag();
@@ -151,6 +268,75 @@ public final class OperationPlantSavedData extends SavedData {
             workcellBufferTags.add(bindingTag);
         }
         tag.put("WorkcellBuffers", workcellBufferTags);
+
+        ListTag maintenanceTags = new ListTag();
+        for (OperationResourceMaintenanceSnapshot snapshot : maintenanceSnapshots.values()) {
+            CompoundTag maintenanceTag = new CompoundTag();
+            maintenanceTag.putString("ResourceId", snapshot.resourceId());
+            maintenanceTag.putString("State", snapshot.state().name());
+            maintenanceTag.putString("MaintenanceId", snapshot.maintenanceId() == null ? "" : snapshot.maintenanceId());
+            maintenanceTag.putString("EvidenceQuality", snapshot.evidenceQuality().name());
+            maintenanceTag.putBoolean("FaultActive", snapshot.faultActive());
+            maintenanceTags.add(maintenanceTag);
+        }
+        tag.put("ResourceMaintenance", maintenanceTags);
+
+        ListTag queueTags = new ListTag();
+        for (Map.Entry<String, OperationQueueSnapshot> entry : queues.entrySet()) {
+            OperationQueueSnapshot queue = entry.getValue();
+            CompoundTag queueTag = new CompoundTag();
+            queueTag.putString("QueueId", entry.getKey());
+            queueTag.putInt("Capacity", queue.capacity());
+
+            ListTag queuedTags = new ListTag();
+            for (OperationJob job : queue.queued()) {
+                queuedTags.add(writeJobTag(job));
+            }
+            queueTag.put("QueuedJobs", queuedTags);
+
+            ListTag activeTags = new ListTag();
+            for (OperationAssignment assignment : queue.active()) {
+                CompoundTag assignmentTag = new CompoundTag();
+                assignmentTag.put("Job", writeJobTag(assignment.job()));
+                assignmentTag.putString("ResourceId", assignment.resourceId());
+                assignmentTag.putLong("AssignedTick", assignment.assignedTick());
+                activeTags.add(assignmentTag);
+            }
+            queueTag.put("ActiveAssignments", activeTags);
+            queueTags.add(queueTag);
+        }
+        tag.put("RuntimeQueues", queueTags);
+
+        ListTag jobTags = new ListTag();
+        for (OperationJobLifecycleRecord record : jobs.values()) {
+            CompoundTag jobTag = new CompoundTag();
+            jobTag.putLong("JobId", record.jobId());
+            jobTag.putString("ProcessId", record.processId());
+            jobTag.putInt("Quantity", record.quantity());
+            jobTag.putInt("Priority", record.priority());
+            jobTag.putLong("ReleaseTick", record.releaseTick());
+            jobTag.putLong("DueTick", record.dueTick());
+            jobTag.putLong("AdmittedTick", record.admittedTick());
+            jobTag.putLong("StateTick", record.stateTick());
+            jobTag.putLong("CompletionTick", record.completionTick());
+            jobTag.putString("Status", record.status().name());
+            jobTags.add(jobTag);
+        }
+        tag.put("RuntimeJobs", jobTags);
+
+        ListTag eventTags = new ListTag();
+        for (OperationPlantEvent event : plantEvents) {
+            CompoundTag eventTag = new CompoundTag();
+            eventTag.putLong("Sequence", event.sequence());
+            eventTag.putLong("GameTick", event.gameTick());
+            eventTag.putString("Type", event.type().name());
+            eventTag.putString("SubjectId", event.subjectId());
+            eventTag.putLong("JobId", event.jobId());
+            eventTag.putString("Detail", event.detail());
+            eventTags.add(eventTag);
+        }
+        tag.put("PlantEvents", eventTags);
+        tag.putLong("NextEventSequence", nextEventSequence);
         return tag;
     }
 
@@ -235,5 +421,213 @@ public final class OperationPlantSavedData extends SavedData {
         if (workcellBuffers.remove(workcellId.trim()) == null) return false;
         setDirty();
         return true;
+    }
+
+    public Collection<OperationResourceMaintenanceSnapshot> maintenanceSnapshots() {
+        return List.copyOf(maintenanceSnapshots.values());
+    }
+
+    public OperationResourceMaintenanceSnapshot maintenanceSnapshot(String resourceId) {
+        if (resourceId == null || resourceId.isBlank()) return null;
+        return maintenanceSnapshots.get(resourceId.trim());
+    }
+
+    public boolean putMaintenanceSnapshot(OperationResourceMaintenanceSnapshot snapshot) {
+        if (snapshot == null) return false;
+        maintenanceSnapshots.put(snapshot.resourceId(), snapshot);
+        setDirty();
+        return true;
+    }
+
+    public boolean removeMaintenanceSnapshot(String resourceId) {
+        if (resourceId == null || resourceId.isBlank()) return false;
+        if (maintenanceSnapshots.remove(resourceId.trim()) == null) return false;
+        setDirty();
+        return true;
+    }
+
+    public Map<String, OperationQueueSnapshot> queues() {
+        return Map.copyOf(queues);
+    }
+
+    public OperationQueueSnapshot queue(String queueId) {
+        if (queueId == null || queueId.isBlank()) return null;
+        return queues.get(queueId.trim());
+    }
+
+    public boolean putQueue(String queueId, OperationQueueSnapshot queue) {
+        if (queueId == null || queueId.isBlank() || queue == null) return false;
+        String normalized = queueId.trim();
+        if (!queueJobsUniqueAcrossPlant(normalized, queue)) return false;
+        queues.put(normalized, queue);
+        setDirty();
+        return true;
+    }
+
+    public boolean removeQueue(String queueId) {
+        if (queueId == null || queueId.isBlank()) return false;
+        if (queues.remove(queueId.trim()) == null) return false;
+        setDirty();
+        return true;
+    }
+
+    public Collection<OperationJobLifecycleRecord> jobLifecycles() {
+        return List.copyOf(jobs.values());
+    }
+
+    public OperationJobLifecycleRecord jobLifecycle(long jobId) {
+        return jobs.get(jobId);
+    }
+
+    public boolean recordJobAdmitted(OperationJob job, long gameTick) {
+        if (job == null || gameTick < 0 || jobs.containsKey(job.jobId())) return false;
+        try {
+            OperationJobLifecycleRecord record = OperationJobLifecycleRecord.admitted(job, gameTick);
+            jobs.put(record.jobId(), record);
+            appendEvent(OperationPlantEvent.Type.JOB, gameTick, record.processId(), record.jobId(), "ADMITTED");
+            trimTerminalJobs();
+            setDirty();
+            return true;
+        } catch (IllegalArgumentException ignored) {
+            return false;
+        }
+    }
+
+    public boolean transitionJob(long jobId, OperationJobLifecycleRecord.Status status, long gameTick, String detail) {
+        OperationJobLifecycleRecord current = jobs.get(jobId);
+        if (current == null || status == null || gameTick < current.stateTick()) return false;
+        if (current.status().terminal()) {
+            return current.status() == status && current.stateTick() == gameTick;
+        }
+        try {
+            OperationJobLifecycleRecord next = current.transition(status, gameTick);
+            jobs.put(jobId, next);
+            String normalizedDetail = detail == null || detail.isBlank() ? status.name() : detail.trim();
+            appendEvent(OperationPlantEvent.Type.JOB, gameTick, next.processId(), jobId, normalizedDetail);
+            if (status == OperationJobLifecycleRecord.Status.COMPLETED) {
+                String deliveryDetail;
+                if (!next.hasDueDate()) {
+                    deliveryDetail = "COMPLETED_NO_DUE_DATE";
+                } else if (next.onTime()) {
+                    deliveryDetail = "ON_TIME";
+                } else {
+                    deliveryDetail = "LATE_BY_" + next.latenessTicks() + "_TICKS";
+                }
+                appendEvent(OperationPlantEvent.Type.DELIVERY, gameTick, next.processId(), jobId, deliveryDetail);
+            }
+            trimTerminalJobs();
+            setDirty();
+            return true;
+        } catch (IllegalArgumentException ignored) {
+            return false;
+        }
+    }
+
+    public boolean recordPlantEvent(OperationPlantEvent.Type type, long gameTick, String subjectId, long jobId, String detail) {
+        if (type == null || gameTick < 0 || jobId < -1) return false;
+        appendEvent(type, gameTick, subjectId, jobId, detail);
+        setDirty();
+        return true;
+    }
+
+    public List<OperationPlantEvent> plantEvents() {
+        return List.copyOf(plantEvents);
+    }
+
+    public List<OperationPlantEvent> plantEvents(OperationPlantEvent.Type type) {
+        if (type == null) return List.of();
+        return plantEvents.stream().filter(event -> event.type() == type).toList();
+    }
+
+    public long onTimeDeliveryCount() {
+        return plantEvents.stream()
+                .filter(event -> event.type() == OperationPlantEvent.Type.DELIVERY)
+                .filter(event -> "ON_TIME".equals(event.detail()))
+                .count();
+    }
+
+    public long lateDeliveryCount() {
+        return plantEvents.stream()
+                .filter(event -> event.type() == OperationPlantEvent.Type.DELIVERY)
+                .filter(event -> event.detail().startsWith("LATE_BY_"))
+                .count();
+    }
+
+    private static CompoundTag writeJobTag(OperationJob job) {
+        CompoundTag tag = new CompoundTag();
+        tag.putLong("JobId", job.jobId());
+        tag.putString("ProcessId", job.processId());
+        tag.putInt("Quantity", job.quantity());
+        tag.putInt("Priority", job.priority());
+        tag.putLong("ReleaseTick", job.releaseTick());
+        tag.putLong("DueTick", job.dueTick());
+        return tag;
+    }
+
+    private static OperationJob readJobTag(CompoundTag tag) {
+        return new OperationJob(
+                tag.getLong("JobId"),
+                tag.getString("ProcessId"),
+                tag.getInt("Quantity"),
+                tag.getInt("Priority"),
+                tag.getLong("ReleaseTick"),
+                tag.getLong("DueTick")
+        );
+    }
+
+    private boolean queueJobsUniqueAcrossPlant(String queueId, OperationQueueSnapshot candidate) {
+        for (OperationJob job : candidate.queued()) {
+            if (jobExistsInOtherQueue(queueId, job.jobId())) return false;
+        }
+        for (OperationAssignment assignment : candidate.active()) {
+            if (jobExistsInOtherQueue(queueId, assignment.job().jobId())) return false;
+        }
+        return true;
+    }
+
+    private boolean jobExistsInOtherQueue(String queueId, long jobId) {
+        for (Map.Entry<String, OperationQueueSnapshot> entry : queues.entrySet()) {
+            if (entry.getKey().equals(queueId)) continue;
+            if (queueContainsJob(entry.getValue(), jobId)) return true;
+        }
+        return false;
+    }
+
+    private static boolean queueContainsJob(OperationQueueSnapshot queue, long jobId) {
+        for (OperationJob job : queue.queued()) {
+            if (job.jobId() == jobId) return true;
+        }
+        for (OperationAssignment assignment : queue.active()) {
+            if (assignment.job().jobId() == jobId) return true;
+        }
+        return false;
+    }
+
+    private void appendEvent(OperationPlantEvent.Type type, long gameTick, String subjectId, long jobId, String detail) {
+        plantEvents.add(new OperationPlantEvent(nextEventSequence++, gameTick, type, subjectId, jobId, detail));
+        trimPlantEvents();
+    }
+
+    private void trimPlantEvents() {
+        while (plantEvents.size() > MAX_PLANT_EVENTS) {
+            plantEvents.remove(0);
+        }
+    }
+
+    private void trimTerminalJobs() {
+        int terminalCount = 0;
+        for (OperationJobLifecycleRecord record : jobs.values()) {
+            if (record.status().terminal()) terminalCount++;
+        }
+        if (terminalCount <= MAX_TERMINAL_JOB_RECORDS) return;
+
+        Iterator<Map.Entry<Long, OperationJobLifecycleRecord>> iterator = jobs.entrySet().iterator();
+        while (iterator.hasNext() && terminalCount > MAX_TERMINAL_JOB_RECORDS) {
+            Map.Entry<Long, OperationJobLifecycleRecord> entry = iterator.next();
+            if (entry.getValue().status().terminal()) {
+                iterator.remove();
+                terminalCount--;
+            }
+        }
     }
 }

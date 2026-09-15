@@ -22,6 +22,7 @@ buffer_binding = read("src/main/java/dev/redstoneengineering/operations/world/Op
 store = read("src/main/java/dev/redstoneengineering/operations/world/OperationWorkcellStore.java")
 saved = read("src/main/java/dev/redstoneengineering/operations/world/OperationPlantSavedData.java")
 buffer_state = read("src/main/java/dev/redstoneengineering/operations/world/OperationIndustrialBufferState.java")
+queue_state = read("src/main/java/dev/redstoneengineering/operations/world/OperationQueueWorldState.java")
 sequence = read("src/main/java/dev/redstoneengineering/block/SequenceControllerBlock.java")
 alarm = read("src/main/java/dev/redstoneengineering/block/AlarmProcessorBlock.java")
 watchdog = read("src/main/java/dev/redstoneengineering/block/WatchdogBlock.java")
@@ -64,6 +65,10 @@ for token in (
     "class OperationPlantSavedData", "extends SavedData", "computeIfAbsent", "overworld()", "setDirty()",
     "save(CompoundTag", "load(CompoundTag", "putWorkcell", "removeWorkcell", "workcells",
     "putBuffer", "removeBuffer", "buffers", "putWorkcellBufferBinding", "workcellBufferBinding", "WorkcellBuffers",
+    "Map<String, OperationQueueSnapshot>", 'getList("RuntimeQueues", Tag.TAG_COMPOUND)',
+    'tag.put("RuntimeQueues", queueTags)', "queues()", "queue(String queueId)",
+    "putQueue(String queueId, OperationQueueSnapshot queue)", "removeQueue(String queueId)",
+    "queueJobsUniqueAcrossPlant", "jobExistsInOtherQueue", "queueContainsJob",
 ):
     if saved and token not in saved:
         errors.append(f"Plant SavedData missing server persistence contract {token!r}")
@@ -146,11 +151,41 @@ for token in (
     "OperationMaterialReleaseRuntime.release",
     "OperationPlantSavedData.get",
     "data.putBuffer",
+    "data.putQueue(queueId, decision.nextQueue())",
+    "data.putBuffer(current)",
+    "data.putQueue(queueId, queue)",
     "BUFFER_CAPACITY_REACHED",
     "DUPLICATE_OUTPUT_RECEIPT",
 ):
     if buffer_state and token not in buffer_state:
         errors.append(f"Industrial Buffer state missing authoritative persistence/runtime bridge {token!r}")
+
+for token in (
+    "class OperationQueueWorldState",
+    "create(", "enqueue(", "dispatch(", "complete(", "snapshot(",
+    "OperationPlantSavedData.get(level)",
+    "OperationQueueRuntime.enqueue(current, job)",
+    "maintenanceSnapshot(resource.resourceId())",
+    "OperationQueueRuntime.dispatchMaintenanceAware(",
+    "OperationQueueRuntime.complete(current, evidence)",
+    "data.putQueue(queueId, decision.nextState())",
+    "OperationPlantRuntimeRecorder.recordQueueEnqueue(",
+    "OperationPlantRuntimeRecorder.recordQueueDispatch(",
+    "OperationPlantRuntimeRecorder.recordQueueCompletion(",
+    "data.putQueue(queueId, current)",
+):
+    if queue_state and token not in queue_state:
+        errors.append(f"Queue world state missing authoritative persisted lifecycle contract {token!r}")
+
+for forbidden in (
+    "OperationDispatchRuntime.evaluate(",
+    "OperationMaintenanceAwareDispatchRuntime.evaluate(",
+    "Comparator.comparing",
+    "getEntitiesOfClass", "inflate(", "nearest", "closerThan",
+    "setBlock(", "setDeltaMovement(", "RobotMission", "Minecraft.getInstance",
+):
+    if queue_state and forbidden in queue_state:
+        errors.append(f"Queue world state must delegate queue/dispatch authority without ranking/world/robotics shortcuts; found {forbidden!r}")
 
 for forbidden in (
     "import net.minecraft.world.item.ItemStack",
@@ -172,7 +207,7 @@ for body, label in ((provider, "provider"), (snapshot, "snapshot"), (resolver, "
 for body, label in ((sequence, "SequenceControllerBlock"), (alarm, "AlarmProcessorBlock"), (watchdog, "WatchdogBlock"), (interlock, "SafetyInterlockBlock"), (fault_latch, "FaultLatchBlock"), (servo, "ServoActuatorBlock")):
     for forbidden in ("OperationDispatchRuntime", "OperationQueueRuntime", "OperationChangeoverRuntime", "OperationMaintenanceRuntime"):
         if body and forbidden in body:
-            errors.append(f"{label} must expose evidence only; found Operations authority {forbidden!r}")
+            errors.append(f"{label} must expose evidence only; found {forbidden!r}")
 
 for body, label in ((resolver, "World resource resolver"), (store, "Workcell store")):
     for forbidden in ("getEntitiesOfClass", "inflate(", "closerThan", "nearest"):
@@ -205,8 +240,12 @@ print(" Workcell Controller delegates dispatch/changeover/maintenance/capacity a
 print(" Workcell Controller HMI exposes real input/output finite-capacity evidence: PASS")
 print(" Workcell Controller physical redstone query direction: PASS")
 print(" persistent Industrial Buffer logical lot/WIP state: PASS")
+print(" persistent bounded queue + active assignment state: PASS")
+print(" plant-wide queued/active job identity uniqueness: PASS")
 print(" buffer receipt/allocation delegates to OperationBufferRuntime: PASS")
-print(" downstream release delegates atomically to OperationMaterialReleaseRuntime: PASS")
+print(" downstream release commits buffer + queue atomically before durable history: PASS")
+print(" world queue create/enqueue/maintenance-aware dispatch/complete delegates to OperationQueueRuntime: PASS")
+print(" queue replacement + lifecycle/history commit rollback boundary: PASS")
 print(" explicit input/output buffer binding feeds real workcell capacity evidence: PASS")
 print(" Workcell Controller independent ranking/proximity discovery: NONE")
 print(" Workcell UI scheduling/material mutation authority: NONE")

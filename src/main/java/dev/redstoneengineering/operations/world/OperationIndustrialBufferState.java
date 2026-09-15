@@ -103,6 +103,10 @@ public final class OperationIndustrialBufferState {
     /**
      * Admit one transported, quality-cleared output only after identity and evidence match.
      * The pure OperationBufferRuntime owns duplicate/capacity/unload decisions.
+     *
+     * <p>A successful receipt is also the authoritative world boundary for completed logistics:
+     * mission/output/job identity and destination buffer are all known here, so the plant ledger
+     * can record delivery without polling the AMR entity or duplicating transport authority.</p>
      */
     public static Decision receiveQualityCleared(
             ServerLevel level,
@@ -126,7 +130,31 @@ public final class OperationIndustrialBufferState {
         OperationBufferSnapshot current = data.buffer(receipt.bufferId());
         if (current == null) return safeStop("BUFFER_NOT_FOUND", null);
         OperationBufferRuntime.Decision decision = OperationBufferRuntime.receive(current, receipt);
-        return applyReceipt(data, decision);
+        Decision applied = applyReceipt(data, decision);
+        if (applied.verdict() == Verdict.RECEIVED) {
+            OperationPlantRuntimeRecorder.recordLogisticsEvent(
+                    level,
+                    receipt.missionId(),
+                    receipt.outputId(),
+                    level.getGameTime(),
+                    "DELIVERED",
+                    "job=" + receipt.jobId()
+                            + " buffer=" + receipt.bufferId()
+                            + " units=" + receipt.units()
+                            + " unloadConfirmed=" + receipt.unloadConfirmed()
+            );
+            data.recordPlantEvent(
+                    OperationPlantEvent.Type.QUALITY,
+                    level.getGameTime(),
+                    "output:" + acceptedOutput.outputId(),
+                    acceptedOutput.jobId(),
+                    "QUALITY_CLEARED_RECEIPT units=" + acceptedOutput.units()
+                            + " evidence=" + acceptedOutput.evidenceQuality().name()
+                            + " completionConfirmed=" + acceptedOutput.completionConfirmed()
+                            + " materialReady=" + acceptedOutput.materialReady()
+            );
+        }
+        return applied;
     }
 
     /** Direct allocation remains owned by OperationBufferRuntime. */
@@ -155,30 +183,59 @@ public final class OperationIndustrialBufferState {
     }
 
     /**
-     * Atomic downstream material release delegates to OperationMaterialReleaseRuntime. A full
-     * downstream queue returns WAIT with the original buffer snapshot, so persisted WIP is not consumed.
+     * Atomic downstream material release delegates to OperationMaterialReleaseRuntime using the
+     * world-owned queue snapshot. A full queue returns WAIT without consuming persisted WIP.
+     * On RELEASED, buffer state, queue state and durable lifecycle/history are one commit boundary.
      */
     public static OperationMaterialReleaseRuntime.Decision releaseMaterial(
             ServerLevel level,
             String bufferId,
-            OperationQueueSnapshot queue,
+            String queueId,
             OperationJob downstreamJob,
             OperationInputRequirement requirement
     ) {
-        if (level == null || bufferId == null || bufferId.isBlank()) {
-            throw new IllegalArgumentException("server level and bufferId are required");
+        if (level == null || bufferId == null || bufferId.isBlank()
+                || queueId == null || queueId.isBlank()) {
+            throw new IllegalArgumentException("server level, bufferId and queueId are required");
         }
         OperationPlantSavedData data = OperationPlantSavedData.get(level);
-        OperationBufferSnapshot current = data.buffer(bufferId.trim());
+        String normalizedBufferId = bufferId.trim();
+        queueId = queueId.trim();
+        OperationBufferSnapshot current = data.buffer(normalizedBufferId);
         if (current == null) {
             throw new IllegalArgumentException("buffer is not registered");
         }
+        OperationQueueSnapshot queue = data.queue(queueId);
+        if (queue == null) {
+            throw new IllegalArgumentException("queue is not registered");
+        }
+
         OperationMaterialReleaseRuntime.Decision decision = OperationMaterialReleaseRuntime.release(
                 current, queue, downstreamJob, requirement);
-        if (decision.released()) {
-            if (!data.putBuffer(decision.nextBuffer())) {
-                throw new IllegalStateException("BUFFER_PERSISTENCE_REJECTED");
+        if (!decision.released()) return decision;
+
+        if (!data.putBuffer(decision.nextBuffer())) {
+            throw new IllegalStateException("BUFFER_PERSISTENCE_REJECTED");
+        }
+        if (!data.putQueue(queueId, decision.nextQueue())) {
+            if (!data.putBuffer(current)) {
+                throw new IllegalStateException("QUEUE_PERSISTENCE_REJECTED_AND_BUFFER_ROLLBACK_FAILED");
             }
+            throw new IllegalStateException("QUEUE_PERSISTENCE_REJECTED");
+        }
+        if (!OperationPlantRuntimeRecorder.recordMaterialRelease(
+                level,
+                queueId,
+                downstreamJob,
+                decision,
+                level.getGameTime()
+        )) {
+            boolean bufferRolledBack = data.putBuffer(current);
+            boolean queueRolledBack = data.putQueue(queueId, queue);
+            if (!bufferRolledBack || !queueRolledBack) {
+                throw new IllegalStateException("PLANT_RUNTIME_HISTORY_REJECTED_AND_RELEASE_ROLLBACK_FAILED");
+            }
+            throw new IllegalStateException("PLANT_RUNTIME_HISTORY_REJECTED");
         }
         return decision;
     }
