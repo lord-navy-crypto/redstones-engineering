@@ -2,15 +2,13 @@ package dev.redstoneengineering.operations;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 
 /**
  * Pure immutable queue lifecycle for Industrial Operations.
  *
- * <p>Admission and dispatch return a replacement snapshot. This class never
- * mutates machines, resources, inventory, robots, world state, or diagnostic KPIs.
- * Completion is intentionally not modeled here until explicit process-completion
- * evidence exists.</p>
+ * <p>Admission, dispatch, and completion all return replacement snapshots. This
+ * class never mutates machines, resources, inventory, robots, world state, or
+ * diagnostic KPIs. Active work is released only by explicit completion evidence.</p>
  */
 public final class OperationQueueRuntime {
     private OperationQueueRuntime() {}
@@ -18,8 +16,10 @@ public final class OperationQueueRuntime {
     public enum Verdict {
         ENQUEUED,
         ASSIGNED,
+        COMPLETED,
         WAIT,
-        SAFE_STOP
+        SAFE_STOP,
+        FAULT
     }
 
     public record Decision(
@@ -32,11 +32,13 @@ public final class OperationQueueRuntime {
             if (verdict == null) verdict = Verdict.SAFE_STOP;
             if (reason == null || reason.isBlank()) reason = "UNSPECIFIED";
             if (nextState == null) throw new IllegalArgumentException("nextState is required");
-            if (verdict != Verdict.ASSIGNED) assignment = null;
+            if (verdict != Verdict.ASSIGNED && verdict != Verdict.COMPLETED) assignment = null;
         }
 
         public boolean changed() {
-            return verdict == Verdict.ENQUEUED || verdict == Verdict.ASSIGNED;
+            return verdict == Verdict.ENQUEUED
+                    || verdict == Verdict.ASSIGNED
+                    || verdict == Verdict.COMPLETED;
         }
     }
 
@@ -86,6 +88,40 @@ public final class OperationQueueRuntime {
         active.add(assignment);
         OperationQueueSnapshot next = new OperationQueueSnapshot(state.capacity(), queued, active);
         return new Decision(Verdict.ASSIGNED, dispatch.reason(), next, assignment);
+    }
+
+    public static Decision complete(
+            OperationQueueSnapshot state,
+            OperationCompletionEvidence evidence
+    ) {
+        if (state == null) throw new IllegalArgumentException("state is required");
+        if (evidence == null) return safeStop(state, "COMPLETION_EVIDENCE_MISSING");
+
+        OperationAssignment assignment = null;
+        for (OperationAssignment active : state.active()) {
+            if (active.job().jobId() == evidence.jobId()) {
+                assignment = active;
+                break;
+            }
+        }
+        if (assignment == null) return safeStop(state, "ACTIVE_ASSIGNMENT_NOT_FOUND");
+
+        OperationCompletionAssessment.Snapshot assessment =
+                OperationCompletionAssessment.inspect(assignment, evidence);
+        return switch (assessment.verdict()) {
+            case WAIT -> waitFor(state, assessment.reason());
+            case SAFE_STOP -> safeStop(state, assessment.reason());
+            case FAULT -> new Decision(Verdict.FAULT, assessment.reason(), state, null);
+            case COMPLETE -> {
+                ArrayList<OperationAssignment> active = new ArrayList<>();
+                for (OperationAssignment candidate : state.active()) {
+                    if (candidate.job().jobId() != assignment.job().jobId()) active.add(candidate);
+                }
+                OperationQueueSnapshot next = new OperationQueueSnapshot(
+                        state.capacity(), state.queued(), active);
+                yield new Decision(Verdict.COMPLETED, assessment.reason(), next, assignment);
+            }
+        };
     }
 
     private static boolean containsJob(OperationQueueSnapshot state, long jobId) {
