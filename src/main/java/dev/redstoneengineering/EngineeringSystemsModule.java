@@ -4,13 +4,16 @@ import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.block.AlarmProcessorBlock;
 import dev.redstoneengineering.block.EngineeringCompassBlock;
 import dev.redstoneengineering.block.FaultInjectorBlock;
+import dev.redstoneengineering.block.IndustrialBufferBlock;
 import dev.redstoneengineering.block.SafetyInterlockBlock;
 import dev.redstoneengineering.block.SequenceControllerBlock;
 import dev.redstoneengineering.block.TopologyDebuggerBlock;
+import dev.redstoneengineering.block.WorkcellControllerBlock;
 import dev.redstoneengineering.gametest.RseEngineeringSystemsGameTests;
 import dev.redstoneengineering.gametest.RsePlantScopeLifecycleGameTests;
 import dev.redstoneengineering.gametest.RseVanillaRedstoneEngineeringGameTests;
 import dev.redstoneengineering.item.DiagnosticTabletItem;
+import dev.redstoneengineering.item.OperationsBindingToolItem;
 import dev.redstoneengineering.item.RedstoneEncyclopediaItem;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -31,7 +34,7 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 /** Systems-level extension registry layered on the historical 122-block core. */
 @Mod(RedstoneEngineering.MOD_ID)
 public final class EngineeringSystemsModule {
-    public static final int SYSTEM_BLOCK_COUNT = 6;
+    public static final int SYSTEM_BLOCK_COUNT = 8;
 
     public static final DeferredRegister<MapCodec<? extends Block>> BLOCK_TYPES =
             DeferredRegister.create(BuiltInRegistries.BLOCK_TYPE, RedstoneEngineering.MOD_ID);
@@ -50,6 +53,10 @@ public final class EngineeringSystemsModule {
             codec("topology_debugger", TopologyDebuggerBlock::new);
     public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<EngineeringCompassBlock>> ENGINEERING_COMPASS_CODEC =
             codec("engineering_compass", EngineeringCompassBlock::new);
+    public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<WorkcellControllerBlock>> WORKCELL_CONTROLLER_CODEC =
+            codec("workcell_controller", WorkcellControllerBlock::new);
+    public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<IndustrialBufferBlock>> INDUSTRIAL_BUFFER_CODEC =
+            codec("industrial_buffer", IndustrialBufferBlock::new);
 
     public static final DeferredBlock<SequenceControllerBlock> SEQUENCE_CONTROLLER =
             BLOCKS.registerBlock("sequence_controller", SequenceControllerBlock::new, machineProps(MapColor.COLOR_PURPLE));
@@ -65,6 +72,10 @@ public final class EngineeringSystemsModule {
     public static final DeferredBlock<EngineeringCompassBlock> ENGINEERING_COMPASS =
             BLOCKS.registerBlock("engineering_compass", EngineeringCompassBlock::new,
                     BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_GRAY).strength(1.5F).noOcclusion());
+    public static final DeferredBlock<WorkcellControllerBlock> WORKCELL_CONTROLLER =
+            BLOCKS.registerBlock("workcell_controller", WorkcellControllerBlock::new, machineProps(MapColor.COLOR_BLUE));
+    public static final DeferredBlock<IndustrialBufferBlock> INDUSTRIAL_BUFFER =
+            BLOCKS.registerBlock("industrial_buffer", IndustrialBufferBlock::new, machineProps(MapColor.COLOR_LIGHT_BLUE));
 
     public static final DeferredItem<BlockItem> SEQUENCE_CONTROLLER_ITEM = ITEMS.registerSimpleBlockItem("sequence_controller", SEQUENCE_CONTROLLER);
     public static final DeferredItem<BlockItem> SAFETY_INTERLOCK_ITEM = ITEMS.registerSimpleBlockItem("safety_interlock", SAFETY_INTERLOCK);
@@ -72,11 +83,15 @@ public final class EngineeringSystemsModule {
     public static final DeferredItem<BlockItem> ALARM_PROCESSOR_ITEM = ITEMS.registerSimpleBlockItem("alarm_processor", ALARM_PROCESSOR);
     public static final DeferredItem<BlockItem> TOPOLOGY_DEBUGGER_ITEM = ITEMS.registerSimpleBlockItem("topology_debugger", TOPOLOGY_DEBUGGER);
     public static final DeferredItem<BlockItem> ENGINEERING_COMPASS_ITEM = ITEMS.registerSimpleBlockItem("engineering_compass", ENGINEERING_COMPASS);
+    public static final DeferredItem<BlockItem> WORKCELL_CONTROLLER_ITEM = ITEMS.registerSimpleBlockItem("workcell_controller", WORKCELL_CONTROLLER);
+    public static final DeferredItem<BlockItem> INDUSTRIAL_BUFFER_ITEM = ITEMS.registerSimpleBlockItem("industrial_buffer", INDUSTRIAL_BUFFER);
 
     public static final DeferredItem<RedstoneEncyclopediaItem> REDSTONE_ENCYCLOPEDIA_ITEM =
             ITEMS.register("redstone_encyclopedia", () -> new RedstoneEncyclopediaItem(new Item.Properties()));
     public static final DeferredItem<DiagnosticTabletItem> DIAGNOSTIC_TABLET_ITEM =
             ITEMS.register("diagnostic_tablet", () -> new DiagnosticTabletItem(new Item.Properties()));
+    public static final DeferredItem<OperationsBindingToolItem> OPERATIONS_BINDING_TOOL_ITEM =
+            ITEMS.register("operations_binding_tool", () -> new OperationsBindingToolItem(new Item.Properties()));
 
     public EngineeringSystemsModule(IEventBus modBus) {
         BLOCK_TYPES.register(modBus);
@@ -103,12 +118,15 @@ public final class EngineeringSystemsModule {
         if (!event.getTabKey().location().equals(id("rse"))) return;
         event.accept(REDSTONE_ENCYCLOPEDIA_ITEM);
         event.accept(DIAGNOSTIC_TABLET_ITEM);
+        event.accept(OPERATIONS_BINDING_TOOL_ITEM);
         event.accept(SEQUENCE_CONTROLLER_ITEM);
         event.accept(SAFETY_INTERLOCK_ITEM);
         event.accept(FAULT_INJECTOR_ITEM);
         event.accept(ALARM_PROCESSOR_ITEM);
         event.accept(TOPOLOGY_DEBUGGER_ITEM);
         event.accept(ENGINEERING_COMPASS_ITEM);
+        event.accept(WORKCELL_CONTROLLER_ITEM);
+        event.accept(INDUSTRIAL_BUFFER_ITEM);
     }
 
     private static void registerGameTests(RegisterGameTestsEvent event) {
@@ -118,6 +136,6 @@ public final class EngineeringSystemsModule {
     }
 
     public static String summary() {
-        return "Engineering Systems: Encyclopedia / Diagnostic Tablet / Sequence / Interlock / Fault / Alarm / Topology Diagnostics / World-Axis Compass / Vanilla Redstone Engineering";
+        return "Engineering Systems: Encyclopedia / Diagnostic Tablet / Operations Binding Tool / Sequence / Interlock / Fault / Alarm / Topology Diagnostics / World-Axis Compass / Workcell Controller / Industrial Buffer / Vanilla Redstone Engineering";
     }
 }

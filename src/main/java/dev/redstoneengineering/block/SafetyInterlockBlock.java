@@ -10,6 +10,8 @@ import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.diagnostics.events.SystemEventKind;
 import dev.redstoneengineering.diagnostics.events.SystemEventTimeline;
+import dev.redstoneengineering.operations.world.OperationWorldResourceProvider;
+import dev.redstoneengineering.operations.world.OperationWorldResourceSnapshot;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
@@ -25,15 +27,13 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
-/**
- * Three-channel permissive/interlock controller.
- * BACK=A, LEFT=B, RIGHT=C, FRONT=PERMIT. All three channels must be non-zero.
- */
-public class SafetyInterlockBlock extends PassiveDirectionalSignalBlock {
+/** Three-channel permissive/interlock controller. BACK=A, LEFT=B, RIGHT=C, FRONT=PERMIT. */
+public class SafetyInterlockBlock extends PassiveDirectionalSignalBlock implements OperationWorldResourceProvider {
     private static final String KEY = "safety_interlock";
-    // [failedMask, blockedTicks, permitTicks, transitions, previousPermit]
     private static final int RUNTIME_SIZE = 5;
 
     public SafetyInterlockBlock(Properties properties) {
@@ -74,6 +74,23 @@ public class SafetyInterlockBlock extends PassiveDirectionalSignalBlock {
         int value = side == front ? state.getValue(OUTPUT) : readInputFrom(level, pos, side);
         PortQuality quality = value > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL;
         return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value, quality));
+    }
+
+    @Override
+    public OperationWorldResourceSnapshot operationResourceSnapshot(Level level, BlockPos pos, BlockState state) {
+        int mask = failedMask(level, pos);
+        PortQuality quality = mask < 0 ? PortQuality.STALE : PortQuality.VALID;
+        boolean blocked = mask > 0;
+        return new OperationWorldResourceSnapshot(
+                "safety_interlock:" + pos.asLong(),
+                Set.of("safety_permissive"),
+                mask == 0,
+                false,
+                false,
+                blocked,
+                quality,
+                Map.of("failed_mask", (long) mask, "permit", mask == 0 ? 1L : 0L)
+        );
     }
 
     @Override

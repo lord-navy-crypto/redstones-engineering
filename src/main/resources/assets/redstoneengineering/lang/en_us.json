@@ -129,5 +129,7 @@
   "block.redstoneengineering.fault_injector": "Commissioning Fault Injector",
   "block.redstoneengineering.alarm_processor": "Alarm Annunciator / Processor",
   "block.redstoneengineering.topology_debugger": "Engineering Topology Debugger",
-  "block.redstoneengineering.engineering_compass": "Engineering Compass"
+  "block.redstoneengineering.engineering_compass": "Engineering Compass",
+  "block.redstoneengineering.workcell_controller": "Industrial Workcell Controller",
+  "block.redstoneengineering.industrial_buffer": "Industrial WIP Buffer"
 }

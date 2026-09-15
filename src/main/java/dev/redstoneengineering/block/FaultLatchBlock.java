@@ -8,6 +8,8 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.operations.world.OperationWorldResourceProvider;
+import dev.redstoneengineering.operations.world.OperationWorldResourceSnapshot;
 import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
@@ -26,14 +28,15 @@ import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /** Persistent fault memory. BACK=fault signal, RIGHT=electrical reset, FRONT=fault output. */
-public class FaultLatchBlock extends PassiveDirectionalSignalBlock {
+public class FaultLatchBlock extends PassiveDirectionalSignalBlock implements OperationWorldResourceProvider {
     public static final IntegerProperty THRESHOLD = IntegerProperty.create("threshold",0,3);
     private static final int[] LEVELS={1,4,8,12};
     private static final String KEY="fault_latch";
-    // [latched, tripEvents, resetEvents, previousResetLevel]
     private static final int RUNTIME_SIZE = 4;
 
     public FaultLatchBlock(Properties p){super(p);registerDefaultState(defaultBlockState().setValue(THRESHOLD,0));}
@@ -54,9 +57,7 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock {
         );
     }
 
-    private static RedstoneObservationSupport.Observation observeInput(
-            Level level, BlockPos pos, Direction side
-    ) {
+    private static RedstoneObservationSupport.Observation observeInput(Level level, BlockPos pos, Direction side) {
         return RedstoneObservationSupport.observe(level, pos, side);
     }
 
@@ -68,33 +69,48 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock {
         if (side == front) {
             // The alarm is authoritative evidence even while the device health is FAULT.
             // Operational health is projected separately by EngineeringDeviceMenu.
-            return Optional.of(EngineeringPortSnapshot.redstone(
-                    port.get(), state.getValue(OUTPUT), PortQuality.VALID));
+            return Optional.of(EngineeringPortSnapshot.redstone(port.get(), state.getValue(OUTPUT), PortQuality.VALID));
         }
         RedstoneObservationSupport.Observation observation = observeInput(level, pos, side);
-        return Optional.of(EngineeringPortSnapshot.redstone(
-                port.get(), observation.value(), observation.quality()));
+        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), observation.value(), observation.quality()));
+    }
+
+    @Override
+    public OperationWorldResourceSnapshot operationResourceSnapshot(Level level, BlockPos pos, BlockState state) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        boolean latched = latched(level, pos);
+        PortQuality quality = runtime == null || runtime.length < RUNTIME_SIZE ? PortQuality.STALE : PortQuality.VALID;
+        return new OperationWorldResourceSnapshot(
+                "fault_latch:" + pos.asLong(),
+                Set.of("fault_memory"),
+                !latched,
+                false,
+                false,
+                latched,
+                quality,
+                Map.of(
+                        "trip_count", (long) tripCount(level, pos),
+                        "reset_count", (long) resetCount(level, pos),
+                        "reset_active", resetActive(level, pos) ? 1L : 0L,
+                        "threshold", (long) thresholdValue(state.getValue(THRESHOLD))
+                )
+        );
     }
 
     @Override
     protected int computeOutput(Level level, BlockPos pos, BlockState state) {
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
-        RedstoneObservationSupport.Observation resetObservation =
-                observeInput(level, pos, rightOf(outputSide(state)));
+        RedstoneObservationSupport.Observation resetObservation = observeInput(level, pos, rightOf(outputSide(state)));
+        int previousResetLevel = runtime[3];
         boolean resetHigh = resetObservation.valid() && resetObservation.value() > 0;
-
-        // RESET is edge-counted, level-enforced, and has priority over FAULT.
-        // A held reset cannot inflate counters or allow same-tick re-latching.
         if (resetHigh) {
-            if (runtime[3] == 0) runtime[2]++;
+            if (previousResetLevel == 0) runtime[2]++;
             runtime[3] = 1;
             runtime[0] = 0;
             return 0;
         }
         runtime[3] = 0;
-
-        RedstoneObservationSupport.Observation faultObservation =
-                observeInput(level, pos, inputSide(state));
+        RedstoneObservationSupport.Observation faultObservation = observeInput(level, pos, inputSide(state));
         if (faultObservation.valid()
                 && faultObservation.value() >= thresholdValue(state.getValue(THRESHOLD))
                 && runtime[0] == 0) {
@@ -124,21 +140,6 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock {
 
     @Override protected void onPlace(BlockState s,Level l,BlockPos p,BlockState o,boolean m){super.onPlace(s,l,p,o,m);if(l instanceof ServerLevel sl)sl.scheduleTick(p,this,2);}
     @Override protected void tick(BlockState s,ServerLevel l,BlockPos p,RandomSource rnd){updateOutput(l,p,s,outputValue(l,p,s));l.scheduleTick(p,this,2);}
-
-    @Override
-    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
-        if (!state.is(newState.getBlock())) RuntimeIntStore.remove(level, KEY, pos);
-        super.onRemove(state, level, pos, newState, movedByPiston);
-    }
-
-    @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if(!level.isClientSide && player instanceof ServerPlayer serverPlayer){
-            if(player.isShiftKeyDown()){
-                manualReset(level, pos);
-                player.displayClientMessage(net.minecraft.network.chat.Component.literal("Fault latch manual reset"),true);
-            } else FieldDeviceUi.open(serverPlayer,pos);
-        }
-        return InteractionResult.sidedSuccess(level.isClientSide);
-    }
+    @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) { if (!state.is(newState.getBlock())) RuntimeIntStore.remove(level, KEY, pos); super.onRemove(state, level, pos, newState, movedByPiston); }
+    @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) { if(!level.isClientSide && player instanceof ServerPlayer serverPlayer){ if(player.isShiftKeyDown()){ manualReset(level, pos); player.displayClientMessage(net.minecraft.network.chat.Component.literal("Fault latch manual reset"),true); } else FieldDeviceUi.open(serverPlayer,pos); } return InteractionResult.sidedSuccess(level.isClientSide); }
 }

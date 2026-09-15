@@ -8,6 +8,8 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.operations.world.OperationWorldResourceProvider;
+import dev.redstoneengineering.operations.world.OperationWorldResourceSnapshot;
 import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
@@ -26,10 +28,12 @@ import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /** Heartbeat watchdog with configurable timeout. Only an observed input transition resets the timer. */
-public class WatchdogBlock extends PassiveDirectionalSignalBlock {
+public class WatchdogBlock extends PassiveDirectionalSignalBlock implements OperationWorldResourceProvider {
     public static final IntegerProperty TIMEOUT = IntegerProperty.create("timeout", 0, 3);
     private static final int[] TIMEOUT_TICKS = {20, 40, 80, 160};
     private static final String KEY = "watchdog";
@@ -69,6 +73,31 @@ public class WatchdogBlock extends PassiveDirectionalSignalBlock {
         return Optional.of(EngineeringPortSnapshot.redstone(port.get(), state.getValue(OUTPUT), PortQuality.VALID));
     }
 
+    @Override
+    public OperationWorldResourceSnapshot operationResourceSnapshot(Level level, BlockPos pos, BlockState state) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        int age = ageTicks(level, pos);
+        int timeout = timeoutTicks(state.getValue(TIMEOUT));
+        boolean timedOut = runtime != null && runtime.length >= RUNTIME_SIZE && age >= timeout;
+        PortQuality quality = runtime == null || runtime.length < RUNTIME_SIZE ? PortQuality.STALE : PortQuality.VALID;
+        return new OperationWorldResourceSnapshot(
+                "watchdog:" + pos.asLong(),
+                Set.of("heartbeat_monitoring"),
+                !timedOut,
+                false,
+                false,
+                timedOut,
+                quality,
+                Map.of(
+                        "heartbeat_age_ticks", (long) age,
+                        "timeout_ticks", (long) timeout,
+                        "transition_count", (long) transitionCount(level, pos),
+                        "timeout_count", (long) timeoutCount(level, pos),
+                        "source_seen", runtime != null && runtime.length > SOURCE_SEEN && runtime[SOURCE_SEEN] != 0 ? 1L : 0L
+                )
+        );
+    }
+
     @Override protected int computeOutput(Level l, BlockPos p, BlockState s) {
         int[] rt = RuntimeIntStore.peek(l, KEY, p);
         int age = rt == null || rt.length <= AGE ? 0 : rt[AGE];
@@ -103,24 +132,10 @@ public class WatchdogBlock extends PassiveDirectionalSignalBlock {
         updateOutput(l, p, s, out);
     }
 
-    public static int timeoutTicks(int index) {
-        return TIMEOUT_TICKS[Math.max(0, Math.min(TIMEOUT_TICKS.length - 1, index))];
-    }
-
-    public static int ageTicks(Level level, BlockPos pos) {
-        int[] rt = RuntimeIntStore.peek(level, KEY, pos);
-        return rt == null || rt.length <= AGE ? 0 : rt[AGE];
-    }
-
-    public static int transitionCount(Level level, BlockPos pos) {
-        int[] rt = RuntimeIntStore.peek(level, KEY, pos);
-        return rt == null || rt.length <= TRANSITIONS ? 0 : rt[TRANSITIONS];
-    }
-
-    public static int timeoutCount(Level level, BlockPos pos) {
-        int[] rt = RuntimeIntStore.peek(level, KEY, pos);
-        return rt == null || rt.length <= TIMEOUTS ? 0 : rt[TIMEOUTS];
-    }
+    public static int timeoutTicks(int index) { return TIMEOUT_TICKS[Math.max(0, Math.min(TIMEOUT_TICKS.length - 1, index))]; }
+    public static int ageTicks(Level level, BlockPos pos) { int[] rt = RuntimeIntStore.peek(level, KEY, pos); return rt == null || rt.length <= AGE ? 0 : rt[AGE]; }
+    public static int transitionCount(Level level, BlockPos pos) { int[] rt = RuntimeIntStore.peek(level, KEY, pos); return rt == null || rt.length <= TRANSITIONS ? 0 : rt[TRANSITIONS]; }
+    public static int timeoutCount(Level level, BlockPos pos) { int[] rt = RuntimeIntStore.peek(level, KEY, pos); return rt == null || rt.length <= TIMEOUTS ? 0 : rt[TIMEOUTS]; }
 
     public boolean resetDiagnostics(Level level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
