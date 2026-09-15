@@ -101,9 +101,10 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock implements Op
     protected int computeOutput(Level level, BlockPos pos, BlockState state) {
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
         RedstoneObservationSupport.Observation resetObservation = observeInput(level, pos, rightOf(outputSide(state)));
+        int previousResetLevel = runtime[3];
         boolean resetHigh = resetObservation.valid() && resetObservation.value() > 0;
         if (resetHigh) {
-            if (runtime[3] == 0) runtime[2]++;
+            if (previousResetLevel == 0) runtime[2]++;
             runtime[3] = 1;
             runtime[0] = 0;
             return 0;
