@@ -183,44 +183,59 @@ public final class OperationIndustrialBufferState {
     }
 
     /**
-     * Atomic downstream material release delegates to OperationMaterialReleaseRuntime. A full
-     * downstream queue returns WAIT with the original buffer snapshot, so persisted WIP is not consumed.
-     * A successful release is also the authoritative world boundary for durable job/queue history.
+     * Atomic downstream material release delegates to OperationMaterialReleaseRuntime using the
+     * world-owned queue snapshot. A full queue returns WAIT without consuming persisted WIP.
+     * On RELEASED, buffer state, queue state and durable lifecycle/history are one commit boundary.
      */
     public static OperationMaterialReleaseRuntime.Decision releaseMaterial(
             ServerLevel level,
             String bufferId,
-            OperationQueueSnapshot queue,
+            String queueId,
             OperationJob downstreamJob,
             OperationInputRequirement requirement
     ) {
-        if (level == null || bufferId == null || bufferId.isBlank()) {
-            throw new IllegalArgumentException("server level and bufferId are required");
+        if (level == null || bufferId == null || bufferId.isBlank()
+                || queueId == null || queueId.isBlank()) {
+            throw new IllegalArgumentException("server level, bufferId and queueId are required");
         }
         OperationPlantSavedData data = OperationPlantSavedData.get(level);
         String normalizedBufferId = bufferId.trim();
+        queueId = queueId.trim();
         OperationBufferSnapshot current = data.buffer(normalizedBufferId);
         if (current == null) {
             throw new IllegalArgumentException("buffer is not registered");
         }
+        OperationQueueSnapshot queue = data.queue(queueId);
+        if (queue == null) {
+            throw new IllegalArgumentException("queue is not registered");
+        }
+
         OperationMaterialReleaseRuntime.Decision decision = OperationMaterialReleaseRuntime.release(
                 current, queue, downstreamJob, requirement);
-        if (decision.released()) {
-            if (!data.putBuffer(decision.nextBuffer())) {
-                throw new IllegalStateException("BUFFER_PERSISTENCE_REJECTED");
+        if (!decision.released()) return decision;
+
+        if (!data.putBuffer(decision.nextBuffer())) {
+            throw new IllegalStateException("BUFFER_PERSISTENCE_REJECTED");
+        }
+        if (!data.putQueue(queueId, decision.nextQueue())) {
+            if (!data.putBuffer(current)) {
+                throw new IllegalStateException("QUEUE_PERSISTENCE_REJECTED_AND_BUFFER_ROLLBACK_FAILED");
             }
-            if (!OperationPlantRuntimeRecorder.recordMaterialRelease(
-                    level,
-                    "buffer_release:" + normalizedBufferId,
-                    downstreamJob,
-                    decision,
-                    level.getGameTime()
-            )) {
-                if (!data.putBuffer(current)) {
-                    throw new IllegalStateException("PLANT_RUNTIME_HISTORY_REJECTED_AND_BUFFER_ROLLBACK_FAILED");
-                }
-                throw new IllegalStateException("PLANT_RUNTIME_HISTORY_REJECTED");
+            throw new IllegalStateException("QUEUE_PERSISTENCE_REJECTED");
+        }
+        if (!OperationPlantRuntimeRecorder.recordMaterialRelease(
+                level,
+                queueId,
+                downstreamJob,
+                decision,
+                level.getGameTime()
+        )) {
+            boolean bufferRolledBack = data.putBuffer(current);
+            boolean queueRolledBack = data.putQueue(queueId, queue);
+            if (!bufferRolledBack || !queueRolledBack) {
+                throw new IllegalStateException("PLANT_RUNTIME_HISTORY_REJECTED_AND_RELEASE_ROLLBACK_FAILED");
             }
+            throw new IllegalStateException("PLANT_RUNTIME_HISTORY_REJECTED");
         }
         return decision;
     }
