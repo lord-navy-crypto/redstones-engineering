@@ -46,13 +46,9 @@ public final class OperationPlantSavedData extends SavedData {
                         resourceTag.getString("ExpectedResourceId")
                 ));
             }
-            try {
-                OperationWorkcellBinding binding = new OperationWorkcellBinding(workcellId, resources);
-                if (binding.validBinding() && !data.workcells.containsKey(binding.workcellId())) {
-                    data.workcells.put(binding.workcellId(), binding);
-                }
-            } catch (IllegalArgumentException ignored) {
-                // Corrupt persisted identity evidence is skipped rather than fabricated into a valid binding.
+            OperationWorkcellBinding binding = new OperationWorkcellBinding(workcellId, resources);
+            if (binding.validBinding() && !data.workcells.containsKey(binding.workcellId())) {
+                data.workcells.put(binding.workcellId(), binding);
             }
         }
 
@@ -64,6 +60,7 @@ public final class OperationPlantSavedData extends SavedData {
             int capacityUnits = bufferTag.getInt("CapacityUnits");
             ListTag lotTags = bufferTag.getList("Lots", Tag.TAG_COMPOUND);
             java.util.ArrayList<OperationBufferLot> lots = new java.util.ArrayList<>();
+            boolean invalidLotEvidence = false;
             for (int lotIndex = 0; lotIndex < lotTags.size(); lotIndex++) {
                 CompoundTag lotTag = lotTags.getCompound(lotIndex);
                 try {
@@ -73,10 +70,12 @@ public final class OperationPlantSavedData extends SavedData {
                             lotTag.getInt("Units")
                     ));
                 } catch (IllegalArgumentException ignored) {
-                    lots.clear();
+                    invalidLotEvidence = true;
                     break;
                 }
             }
+            // Never transform corrupt/unknown persisted WIP into an authoritative empty buffer.
+            if (invalidLotEvidence) continue;
             try {
                 OperationBufferSnapshot buffer = new OperationBufferSnapshot(
                         bufferId, location, capacityUnits, lots);
