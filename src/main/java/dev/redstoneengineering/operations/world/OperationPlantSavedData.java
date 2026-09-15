@@ -164,7 +164,9 @@ public final class OperationPlantSavedData extends SavedData {
 
                 OperationQueueSnapshot queue = new OperationQueueSnapshot(
                         queueTag.getInt("Capacity"), queued, active);
-                data.queues.putIfAbsent(queueId, queue);
+                if (data.queueJobsUniqueAcrossPlant(queueId, queue)) {
+                    data.queues.putIfAbsent(queueId, queue);
+                }
             } catch (IllegalArgumentException ignored) {
                 // Corrupt queue evidence is isolated instead of inventing queued or active work.
             }
@@ -455,7 +457,9 @@ public final class OperationPlantSavedData extends SavedData {
 
     public boolean putQueue(String queueId, OperationQueueSnapshot queue) {
         if (queueId == null || queueId.isBlank() || queue == null) return false;
-        queues.put(queueId.trim(), queue);
+        String normalized = queueId.trim();
+        if (!queueJobsUniqueAcrossPlant(normalized, queue)) return false;
+        queues.put(normalized, queue);
         setDirty();
         return true;
     }
@@ -569,6 +573,34 @@ public final class OperationPlantSavedData extends SavedData {
                 tag.getLong("ReleaseTick"),
                 tag.getLong("DueTick")
         );
+    }
+
+    private boolean queueJobsUniqueAcrossPlant(String queueId, OperationQueueSnapshot candidate) {
+        for (OperationJob job : candidate.queued()) {
+            if (jobExistsInOtherQueue(queueId, job.jobId())) return false;
+        }
+        for (OperationAssignment assignment : candidate.active()) {
+            if (jobExistsInOtherQueue(queueId, assignment.job().jobId())) return false;
+        }
+        return true;
+    }
+
+    private boolean jobExistsInOtherQueue(String queueId, long jobId) {
+        for (Map.Entry<String, OperationQueueSnapshot> entry : queues.entrySet()) {
+            if (entry.getKey().equals(queueId)) continue;
+            if (queueContainsJob(entry.getValue(), jobId)) return true;
+        }
+        return false;
+    }
+
+    private static boolean queueContainsJob(OperationQueueSnapshot queue, long jobId) {
+        for (OperationJob job : queue.queued()) {
+            if (job.jobId() == jobId) return true;
+        }
+        for (OperationAssignment assignment : queue.active()) {
+            if (assignment.job().jobId() == jobId) return true;
+        }
+        return false;
     }
 
     private void appendEvent(OperationPlantEvent.Type type, long gameTick, String subjectId, long jobId, String detail) {
