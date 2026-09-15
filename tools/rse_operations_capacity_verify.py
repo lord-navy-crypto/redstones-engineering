@@ -15,6 +15,7 @@ def read(rel: str) -> str:
 
 
 capacity = read("src/main/java/dev/redstoneengineering/operations/OperationWorkcellCapacitySnapshot.java")
+admission = read("src/main/java/dev/redstoneengineering/operations/OperationWorkcellAdmissionAssessment.java")
 bottleneck = read("src/main/java/dev/redstoneengineering/diagnostics/OperationBottleneckAssessment.java")
 
 for token in (
@@ -39,6 +40,38 @@ for token in (
 ):
     if capacity and token not in capacity:
         errors.append(f"OperationWorkcellCapacitySnapshot missing finite-capacity contract {token!r}")
+
+for token in (
+    "class OperationWorkcellAdmissionAssessment",
+    "PERMIT",
+    "WAIT",
+    "SAFE_STOP",
+    "FAULT",
+    "WORKCELL_CAPACITY_EVIDENCE_MISSING",
+    "WORKCELL_FAULT_ACTIVE",
+    "WORKCELL_CAPACITY_EVIDENCE_INVALID",
+    "RESOURCE_NOT_IN_WORKCELL",
+    "OUTPUT_BUFFER_CAPACITY_REACHED",
+    "WORKCELL_RESOURCE_CAPACITY_REACHED",
+    "WORKCELL_ADMISSION_PERMIT",
+    "workcell.outputBlocked()",
+    "workcell.resourcesSaturated()",
+):
+    if admission and token not in admission:
+        errors.append(f"OperationWorkcellAdmissionAssessment missing finite-capacity admission rule {token!r}")
+
+for forbidden in (
+    "OperationBottleneckAssessment",
+    "severityScore",
+    "OperationDispatchRuntime",
+    "OperationQueueRuntime",
+    "RobotMission",
+    "setBlock(",
+    "setDeltaMovement(",
+    "RuntimeIntStore",
+):
+    if admission and forbidden in admission:
+        errors.append(f"Workcell admission must use capacity evidence only, not ranking/KPI/world/robotics authority; found {forbidden!r}")
 
 for token in (
     "class OperationBottleneckAssessment",
@@ -94,6 +127,8 @@ if errors:
 
 print("RSE OPERATIONS CAPACITY VERIFY: PASS")
 print(" explicit finite resource/input/output capacities: PASS")
-print(" starvation/saturation/blocking classification: PASS")
+print(" finite-capacity workcell admission gate: PASS")
+print(" saturation/output blocking remain WAIT rather than silent over-admission: PASS")
+print(" starvation/saturation/blocking diagnostic classification: PASS")
 print(" bottleneck projection remains observer-only: PASS")
 print(" scheduling/world/robotics authority leakage: NONE")
