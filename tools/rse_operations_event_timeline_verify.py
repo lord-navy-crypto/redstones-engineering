@@ -225,6 +225,71 @@ for forbidden in (
     if queue_runtime and forbidden in queue_runtime:
         errors.append(f"Queue completion must not be inferred from elapsed time; found {forbidden!r}")
 
+output = read("src/main/java/dev/redstoneengineering/operations/OperationOutputSnapshot.java")
+transport_demand = read("src/main/java/dev/redstoneengineering/operations/OperationTransportDemand.java")
+transport_bridge = read("src/main/java/dev/redstoneengineering/integration/OperationsRobotTransportBridge.java")
+for token in (
+    "record OperationOutputSnapshot(",
+    "long outputId",
+    "long jobId",
+    "String resourceId",
+    "int units",
+    "BlockPos source",
+    "PortQuality evidenceQuality",
+    "completionConfirmed",
+    "materialReady",
+    "faultActive",
+):
+    if output and token not in output:
+        errors.append(f"OperationOutputSnapshot missing completed-output evidence contract {token!r}")
+for token in (
+    "record OperationTransportDemand(",
+    "long missionId",
+    "long outputId",
+    "BlockPos source",
+    "BlockPos target",
+    "int units",
+    "int priority",
+):
+    if transport_demand and token not in transport_demand:
+        errors.append(f"OperationTransportDemand missing explicit logistics contract {token!r}")
+for token in (
+    "MISSION_READY",
+    "OUTPUT_FAULT_ACTIVE",
+    "OUTPUT_EVIDENCE_INVALID",
+    "OUTPUT_COMPLETION_UNCONFIRMED",
+    "MATERIAL_NOT_READY",
+    "OUTPUT_ID_MISMATCH",
+    "SOURCE_IDENTITY_MISMATCH",
+    "TRANSPORT_QUANTITY_MISMATCH",
+    "TRANSPORT_NOT_REQUIRED",
+    "RobotMission.MissionType.TRANSFER",
+    "demand.source()",
+    "demand.target()",
+    "demand.priority()",
+    "demand.units()",
+    "TRANSPORT_MISSION_READY",
+):
+    if transport_bridge and token not in transport_bridge:
+        errors.append(f"OperationsRobotTransportBridge missing evidence-bound mission contract {token!r}")
+for forbidden in (
+    "RobotRoutePlanner",
+    "RobotDockAssessment",
+    "RobotMaterialFlowRuntime",
+    "RobotMaterialUnloadRuntime",
+    "RobotStateMachine",
+    "EngineeringMobileRobotEntity",
+    "setDeltaMovement(",
+    "setBlock(",
+    "scheduleTick(",
+    "getEntities",
+    "RuntimeIntStore",
+    "OperationsDashboardSnapshot",
+    "IndustrialOperationsAssessment",
+):
+    if transport_bridge and forbidden in transport_bridge:
+        errors.append(f"Operations-to-Robotics bridge must not own route/dock/motion/world/KPI authority; found {forbidden!r}")
+
 if errors:
     print("RSE operations event timeline verification: FAIL")
     for error in errors:
@@ -240,4 +305,6 @@ print(" executable ordering + first-out GameTests: PASS")
 print(" authoritative FIFO/priority dispatch foundation: PASS")
 print(" bounded queued -> active assignment lifecycle: PASS")
 print(" evidence-bound active -> completed lifecycle: PASS")
+print(" completed output -> explicit logistics demand -> TRANSFER mission bridge: PASS")
 print(" dispatch/completion remain independent of downstream KPI observers and elapsed-time guesses: PASS")
+print(" Operations-to-Robotics bridge does not own route/dock/motion/world authority: PASS")
