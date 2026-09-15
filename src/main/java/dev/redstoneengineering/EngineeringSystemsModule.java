@@ -13,6 +13,7 @@ import dev.redstoneengineering.gametest.RseEngineeringSystemsGameTests;
 import dev.redstoneengineering.gametest.RsePlantScopeLifecycleGameTests;
 import dev.redstoneengineering.gametest.RseVanillaRedstoneEngineeringGameTests;
 import dev.redstoneengineering.item.DiagnosticTabletItem;
+import dev.redstoneengineering.item.OperationsBindingToolItem;
 import dev.redstoneengineering.item.RedstoneEncyclopediaItem;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -89,6 +90,8 @@ public final class EngineeringSystemsModule {
             ITEMS.register("redstone_encyclopedia", () -> new RedstoneEncyclopediaItem(new Item.Properties()));
     public static final DeferredItem<DiagnosticTabletItem> DIAGNOSTIC_TABLET_ITEM =
             ITEMS.register("diagnostic_tablet", () -> new DiagnosticTabletItem(new Item.Properties()));
+    public static final DeferredItem<OperationsBindingToolItem> OPERATIONS_BINDING_TOOL_ITEM =
+            ITEMS.register("operations_binding_tool", () -> new OperationsBindingToolItem(new Item.Properties()));
 
     public EngineeringSystemsModule(IEventBus modBus) {
         BLOCK_TYPES.register(modBus);
@@ -115,6 +118,7 @@ public final class EngineeringSystemsModule {
         if (!event.getTabKey().location().equals(id("rse"))) return;
         event.accept(REDSTONE_ENCYCLOPEDIA_ITEM);
         event.accept(DIAGNOSTIC_TABLET_ITEM);
+        event.accept(OPERATIONS_BINDING_TOOL_ITEM);
         event.accept(SEQUENCE_CONTROLLER_ITEM);
         event.accept(SAFETY_INTERLOCK_ITEM);
         event.accept(FAULT_INJECTOR_ITEM);
@@ -132,6 +136,6 @@ public final class EngineeringSystemsModule {
     }
 
     public static String summary() {
-        return "Engineering Systems: Encyclopedia / Diagnostic Tablet / Sequence / Interlock / Fault / Alarm / Topology Diagnostics / World-Axis Compass / Workcell Controller / Industrial Buffer / Vanilla Redstone Engineering";
+        return "Engineering Systems: Encyclopedia / Diagnostic Tablet / Operations Binding Tool / Sequence / Interlock / Fault / Alarm / Topology Diagnostics / World-Axis Compass / Workcell Controller / Industrial Buffer / Vanilla Redstone Engineering";
     }
 }
