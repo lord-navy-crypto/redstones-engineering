@@ -10,10 +10,13 @@ on:
       - 'src/main/java/dev/redstoneengineering/diagnostics/OperationReliabilityPerformanceAssessment.java'
       - 'src/main/java/dev/redstoneengineering/diagnostics/OperationDueDateExposureAssessment.java'
       - 'src/main/java/dev/redstoneengineering/diagnostics/OperationPlantViewAssessment.java'
+      - 'src/main/java/dev/redstoneengineering/diagnostics/OperationWorldPlantStateAssessment.java'
       - 'src/main/java/dev/redstoneengineering/block/IndustrialBufferBlock.java'
       - 'src/main/java/dev/redstoneengineering/ui/IndustrialBufferUi.java'
       - 'src/main/java/dev/redstoneengineering/ui/menu/IndustrialBufferMenu.java'
       - 'src/main/java/dev/redstoneengineering/client/ui/IndustrialBufferScreen.java'
+      - 'src/main/java/dev/redstoneengineering/ui/menu/OperationsMonitorMenu.java'
+      - 'src/main/java/dev/redstoneengineering/client/ui/OperationsMonitorScreen.java'
       - 'src/main/java/dev/redstoneengineering/item/OperationsBindingToolItem.java'
       - 'tools/rse_operations_material_release_verify.py'
       - 'tools/rse_operations_routing_verify.py'
@@ -27,6 +30,7 @@ on:
       - 'tools/rse_operations_world_integration_verify.py'
       - 'tools/rse_industrial_buffer_world_verify.py'
       - 'tools/rse_operations_binding_tool_verify.py'
+      - 'tools/rse_operations_monitor_world_plant_verify.py'
       - '.github/workflows/operations-material-flow.yml'
   push:
     branches: [main]
@@ -37,10 +41,13 @@ on:
       - 'src/main/java/dev/redstoneengineering/diagnostics/OperationReliabilityPerformanceAssessment.java'
       - 'src/main/java/dev/redstoneengineering/diagnostics/OperationDueDateExposureAssessment.java'
       - 'src/main/java/dev/redstoneengineering/diagnostics/OperationPlantViewAssessment.java'
+      - 'src/main/java/dev/redstoneengineering/diagnostics/OperationWorldPlantStateAssessment.java'
       - 'src/main/java/dev/redstoneengineering/block/IndustrialBufferBlock.java'
       - 'src/main/java/dev/redstoneengineering/ui/IndustrialBufferUi.java'
       - 'src/main/java/dev/redstoneengineering/ui/menu/IndustrialBufferMenu.java'
       - 'src/main/java/dev/redstoneengineering/client/ui/IndustrialBufferScreen.java'
+      - 'src/main/java/dev/redstoneengineering/ui/menu/OperationsMonitorMenu.java'
+      - 'src/main/java/dev/redstoneengineering/client/ui/OperationsMonitorScreen.java'
       - 'src/main/java/dev/redstoneengineering/item/OperationsBindingToolItem.java'
       - 'tools/rse_operations_material_release_verify.py'
       - 'tools/rse_operations_routing_verify.py'
@@ -54,6 +61,7 @@ on:
       - 'tools/rse_operations_world_integration_verify.py'
       - 'tools/rse_industrial_buffer_world_verify.py'
       - 'tools/rse_operations_binding_tool_verify.py'
+      - 'tools/rse_operations_monitor_world_plant_verify.py'
       - '.github/workflows/operations-material-flow.yml'
   workflow_dispatch:
 
@@ -93,3 +101,5 @@ jobs:
         run: python3 tools/rse_industrial_buffer_world_verify.py
       - name: Verify Operations binding tool
         run: python3 tools/rse_operations_binding_tool_verify.py
+      - name: Verify world-backed Operations Monitor plant state
+        run: python3 tools/rse_operations_monitor_world_plant_verify.py

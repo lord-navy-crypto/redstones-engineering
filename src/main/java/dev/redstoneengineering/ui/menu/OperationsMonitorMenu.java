@@ -7,6 +7,7 @@ import dev.redstoneengineering.diagnostics.ElectricalReliabilityAssessment;
 import dev.redstoneengineering.diagnostics.IndustrialOperationsAssessment;
 import dev.redstoneengineering.diagnostics.OperationBottleneckAssessment;
 import dev.redstoneengineering.diagnostics.OperationPlantViewAssessment;
+import dev.redstoneengineering.diagnostics.OperationWorldPlantStateAssessment;
 import dev.redstoneengineering.diagnostics.OperationsDashboardSnapshot;
 import dev.redstoneengineering.diagnostics.OperationsEventWindow;
 import dev.redstoneengineering.diagnostics.OperationsIncidentSummary;
@@ -15,6 +16,7 @@ import dev.redstoneengineering.diagnostics.events.SystemEventRecord;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.DataSlot;
 import net.minecraft.world.level.block.state.BlockState;
@@ -39,9 +41,7 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
     private final DataSlot queueEvidenceSources = trackedInt();
     private final DataSlot cycleEvidenceValid = trackedInt();
 
-    // Plant View is synchronized through the existing observer-only monitor. Until world-owned
-    // workcell/job/quality/reliability collections exist, the server deliberately publishes INVALID
-    // coverage instead of converting absent collections into healthy zero-valued plant metrics.
+    // Full plant KPIs remain withheld until queue/job/quality/reliability/delivery world evidence exists.
     private final DataSlot plantCoverage = trackedInt();
     private final DataSlot plantEvidenceAuthoritative = trackedInt();
     private final DataSlot plantBottleneckPresent = trackedInt();
@@ -54,6 +54,18 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
     private final DataSlot plantFailureCount = trackedInt();
     private final DataSlot plantOverdueOutstandingJobs = trackedInt();
     private final DataSlot plantOutstandingWithDueDate = trackedInt();
+
+    // World Plant State uses only persisted workcell/buffer/binding evidence and is independently visible.
+    private final DataSlot worldPlantCoverage = trackedInt();
+    private final DataSlot worldPlantWorkcells = trackedInt();
+    private final DataSlot worldPlantConfiguredWorkcells = trackedInt();
+    private final DataSlot worldPlantBuffers = trackedInt();
+    private final DataSlot worldPlantUsedBufferUnits = trackedInt();
+    private final DataSlot worldPlantBufferCapacityUnits = trackedInt();
+    private final DataSlot worldPlantWipPressurePercent = trackedInt();
+    private final DataSlot worldPlantBoundResources = trackedInt();
+    private final DataSlot worldPlantValidResources = trackedInt();
+    private final DataSlot worldPlantFaultResources = trackedInt();
 
     private final DataSlot retainedEvents = trackedInt();
     private final DataSlot recentEvents = trackedInt();
@@ -118,11 +130,11 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
                 CopperEvidenceAssessment.inspect(level, dashboard.eventScope());
         OperationsMonitorBlock.InputEvidence evidence = OperationsMonitorBlock.inputEvidence(level, blockPos);
 
-        // World-owned plant collections are introduced by the workcell/buffer persistence tasks.
-        // Passing missing evidence to the existing assessment intentionally produces INVALID coverage.
         OperationPlantViewAssessment.Snapshot plant = OperationPlantViewAssessment.inspect(
                 dashboard, null, null, null, null);
         boolean authoritativePlantEvidence = false;
+        OperationWorldPlantStateAssessment.Snapshot worldPlant = OperationWorldPlantStateAssessment.inspect(
+                level instanceof ServerLevel server ? server : null);
 
         queue.set(operations.queueNow());
         throughput.set(operations.throughputCyclesPerMinute());
@@ -149,6 +161,17 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
         plantFailureCount.set(plant.failureCount());
         plantOverdueOutstandingJobs.set(plant.overdueOutstandingJobs());
         plantOutstandingWithDueDate.set(plant.outstandingWithDueDate());
+
+        worldPlantCoverage.set(worldPlant.coverage().ordinal());
+        worldPlantWorkcells.set(worldPlant.totalWorkcells());
+        worldPlantConfiguredWorkcells.set(worldPlant.configuredWorkcells());
+        worldPlantBuffers.set(worldPlant.totalBuffers());
+        worldPlantUsedBufferUnits.set(worldPlant.usedBufferUnits());
+        worldPlantBufferCapacityUnits.set(worldPlant.bufferCapacityUnits());
+        worldPlantWipPressurePercent.set(worldPlant.wipPressurePercent());
+        worldPlantBoundResources.set(worldPlant.boundResources());
+        worldPlantValidResources.set(worldPlant.validResources());
+        worldPlantFaultResources.set(worldPlant.faultResources());
 
         retainedEvents.set(dashboard.retainedEvents());
         recentEvents.set(dashboard.recentEvents());
@@ -242,6 +265,20 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
     public int plantFailureCount() { return plantFailureCount.get(); }
     public int plantOverdueOutstandingJobs() { return plantOverdueOutstandingJobs.get(); }
     public int plantOutstandingWithDueDate() { return plantOutstandingWithDueDate.get(); }
+
+    public OperationWorldPlantStateAssessment.Coverage worldPlantCoverage() {
+        OperationWorldPlantStateAssessment.Coverage[] values = OperationWorldPlantStateAssessment.Coverage.values();
+        return values[clampIndex(worldPlantCoverage.get(), values.length)];
+    }
+    public int worldPlantWorkcells() { return worldPlantWorkcells.get(); }
+    public int worldPlantConfiguredWorkcells() { return worldPlantConfiguredWorkcells.get(); }
+    public int worldPlantBuffers() { return worldPlantBuffers.get(); }
+    public int worldPlantUsedBufferUnits() { return worldPlantUsedBufferUnits.get(); }
+    public int worldPlantBufferCapacityUnits() { return worldPlantBufferCapacityUnits.get(); }
+    public int worldPlantWipPressurePercent() { return worldPlantWipPressurePercent.get(); }
+    public int worldPlantBoundResources() { return worldPlantBoundResources.get(); }
+    public int worldPlantValidResources() { return worldPlantValidResources.get(); }
+    public int worldPlantFaultResources() { return worldPlantFaultResources.get(); }
 
     public int retainedEvents() { return retainedEvents.get(); }
     public int recentEvents() { return recentEvents.get(); }

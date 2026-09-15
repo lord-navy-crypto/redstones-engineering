@@ -49,33 +49,28 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
         safeText(graphics, "Observer-only: this block measures operations state and never drives the plant.", 16, 186, MUTED);
     }
 
-    /**
-     * The monitor has no configuration authority, so its existing Configure page is used as the
-     * plant-level observer page rather than introducing a second dashboard block/menu.
-     */
+    /** Existing Configure page is the plant observer page; the monitor retains no configuration authority. */
     private void renderConfigure(GuiGraphics graphics) {
-        statusBadge(graphics, "PLANT VIEW", INFO, 16, 76);
-        if (menu.plantEvidenceAuthoritative()) {
-            statusLine(graphics, "Plant evidence", menu.plantCoverage().name(), GOOD, 96);
-            statusLine(graphics, "Bottleneck", menu.plantBottleneckPresent()
-                    ? menu.plantBottleneckConstraint().name() : "NONE", menu.plantBottleneckPresent() ? WARN : GOOD, 114);
-            labelValue(graphics, "Constrained workcells", Integer.toString(menu.plantConstrainedWorkcells()), 132);
-            labelValue(graphics, "FPY / reject / rework", menu.plantFirstPassYieldPercent() + "% / "
-                    + menu.plantRejectRatePercent() + "% / " + menu.plantReworkRatePercent() + "%", 150);
-            labelValue(graphics, "Availability / failures", menu.plantObservedAvailabilityPercent() + "% / "
-                    + menu.plantFailureCount(), 168);
-            labelValue(graphics, "Overdue / dated outstanding", menu.plantOverdueOutstandingJobs() + " / "
-                    + menu.plantOutstandingWithDueDate(), 186);
-        } else {
-            statusBadge(graphics, "PLANT EVIDENCE • INCOMPLETE", WARN, 16, 98);
-            labelValue(graphics, "Local throughput / WIP", menu.throughput() + " cycles/min • " + menu.queue() + " queued", 120);
-            labelValue(graphics, "Plant coverage", menu.plantCoverage().name(), 138);
-            labelValue(graphics, "FPY / reject / rework", "— / — / —", 156);
-            labelValue(graphics, "Availability / failures", "— / —", 174);
-            labelValue(graphics, "Overdue / dated outstanding", "— / —", 192);
-            safeText(graphics, "No authoritative world workcell/job/quality/reliability store is bound yet.", 16, 214, WARN);
-        }
-        safeText(graphics, "Observer-only • this page never dispatches jobs, changes maintenance, or moves material.", 16, 232, MUTED);
+        statusBadge(graphics, "WORLD PLANT STATE", INFO, 16, 74);
+        int worldColor = switch (menu.worldPlantCoverage()) {
+            case COMPLETE -> GOOD;
+            case PARTIAL -> WARN;
+            case INVALID -> WARN;
+        };
+        statusLine(graphics, "World evidence", menu.worldPlantCoverage().name(), worldColor, 94);
+        labelValue(graphics, "Workcells configured", menu.worldPlantConfiguredWorkcells() + " / " + menu.worldPlantWorkcells(), 112);
+        labelValue(graphics, "Buffers / WIP", menu.worldPlantBuffers() + " • "
+                + menu.worldPlantUsedBufferUnits() + "/" + menu.worldPlantBufferCapacityUnits()
+                + " units • " + menu.worldPlantWipPressurePercent() + "%", 130);
+        labelValue(graphics, "Bound resources", menu.worldPlantValidResources() + "/" + menu.worldPlantBoundResources()
+                + " valid • faults " + menu.worldPlantFaultResources(), 148);
+
+        statusBadge(graphics, "PLANT KPIs • INCOMPLETE", WARN, 16, 170);
+        labelValue(graphics, "Quality / reliability / delivery", "WITHHELD • EVIDENCE MISSING", 190);
+        labelValue(graphics, "FPY / reject / rework", "— / — / —", 206);
+        labelValue(graphics, "Availability / failures", "— / —", 222);
+        safeText(graphics, "Queue/job history is not persisted yet; no plant bottleneck or delivery rate is fabricated.", 16, 240, MUTED);
+        safeText(graphics, "Observer-only • this page never dispatches jobs, changes maintenance, or moves material.", 16, 256, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
