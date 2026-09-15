@@ -17,6 +17,11 @@ def read(rel: str) -> str:
 provider = read("src/main/java/dev/redstoneengineering/operations/world/OperationWorldResourceProvider.java")
 snapshot = read("src/main/java/dev/redstoneengineering/operations/world/OperationWorldResourceSnapshot.java")
 resolver = read("src/main/java/dev/redstoneengineering/operations/world/OperationWorldResourceResolver.java")
+sequence = read("src/main/java/dev/redstoneengineering/block/SequenceControllerBlock.java")
+alarm = read("src/main/java/dev/redstoneengineering/block/AlarmProcessorBlock.java")
+watchdog = read("src/main/java/dev/redstoneengineering/block/WatchdogBlock.java")
+interlock = read("src/main/java/dev/redstoneengineering/block/SafetyInterlockBlock.java")
+fault_latch = read("src/main/java/dev/redstoneengineering/block/FaultLatchBlock.java")
 
 for token in (
     "interface OperationWorldResourceProvider",
@@ -33,6 +38,7 @@ for token in (
     "running",
     "completionEvidenceAvailable",
     "faultActive",
+    "numericEvidence",
     "PortQuality",
     "validEvidence",
 ):
@@ -47,6 +53,17 @@ for token in (
 ):
     if resolver and token not in resolver:
         errors.append(f"World resource resolver missing explicit-position resolution {token!r}")
+
+for body, label, required in (
+    (sequence, "SequenceControllerBlock", ("implements OperationWorldResourceProvider", "operationResourceSnapshot", "step", "completedCycles", "sequence_step", "completed_cycles")),
+    (alarm, "AlarmProcessorBlock", ("implements OperationWorldResourceProvider", "operationResourceSnapshot", "latched", "unacknowledged", "alarm_severity")),
+    (watchdog, "WatchdogBlock", ("implements OperationWorldResourceProvider", "operationResourceSnapshot", "ageTicks", "timeoutCount", "heartbeat_age_ticks")),
+    (interlock, "SafetyInterlockBlock", ("implements OperationWorldResourceProvider", "operationResourceSnapshot", "failedMask", "failed_mask")),
+    (fault_latch, "FaultLatchBlock", ("implements OperationWorldResourceProvider", "operationResourceSnapshot", "latched", "tripCount", "trip_count")),
+):
+    for token in required:
+        if body and token not in body:
+            errors.append(f"{label} missing Operations evidence integration {token!r}")
 
 for body, label in ((provider, "provider"), (snapshot, "snapshot"), (resolver, "resolver")):
     for forbidden in (
@@ -64,6 +81,11 @@ for body, label in ((provider, "provider"), (snapshot, "snapshot"), (resolver, "
         if body and forbidden in body:
             errors.append(f"Operations world {label} must remain evidence-only; found {forbidden!r}")
 
+for body, label in ((sequence, "SequenceControllerBlock"), (alarm, "AlarmProcessorBlock"), (watchdog, "WatchdogBlock"), (interlock, "SafetyInterlockBlock"), (fault_latch, "FaultLatchBlock")):
+    for forbidden in ("OperationDispatchRuntime", "OperationQueueRuntime", "OperationChangeoverRuntime", "OperationMaintenanceRuntime"):
+        if body and forbidden in body:
+            errors.append(f"{label} must expose evidence only; found Operations authority {forbidden!r}")
+
 if resolver:
     for forbidden in ("getEntitiesOfClass", "inflate(", "closerThan", "nearest"):
         if forbidden in resolver:
@@ -78,5 +100,6 @@ if errors:
 print("RSE OPERATIONS WORLD INTEGRATION VERIFY: PASS")
 print(" explicit-position resource resolution: PASS")
 print(" fail-closed evidence snapshot: PASS")
+print(" existing sequence/alarm/watchdog/interlock/fault devices expose Operations evidence: PASS")
 print(" dispatch/queue/world-motion/client authority leakage: NONE")
 print(" proximity auto-discovery: NONE")
