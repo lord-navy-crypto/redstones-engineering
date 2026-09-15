@@ -18,6 +18,8 @@ snapshot = read("src/main/java/dev/redstoneengineering/operations/OperationResou
 evidence = read("src/main/java/dev/redstoneengineering/operations/OperationMaintenanceCompletionEvidence.java")
 runtime = read("src/main/java/dev/redstoneengineering/operations/OperationMaintenanceRuntime.java")
 gate = read("src/main/java/dev/redstoneengineering/operations/OperationMaintenanceAwareDispatchRuntime.java")
+saved = read("src/main/java/dev/redstoneengineering/operations/world/OperationPlantSavedData.java")
+world_state = read("src/main/java/dev/redstoneengineering/operations/world/OperationMaintenanceWorldState.java")
 
 for token in (
     "record OperationResourceMaintenanceSnapshot(",
@@ -71,9 +73,11 @@ for forbidden in (
     "gameTick",
     "elapsed",
     "scheduleTick(",
+    "OperationPlantSavedData",
+    "ServerLevel",
 ):
     if runtime and forbidden in runtime:
-        errors.append(f"Maintenance must not auto-complete from time; found {forbidden!r}")
+        errors.append(f"Maintenance runtime must remain pure and must not auto-complete from time/world state; found {forbidden!r}")
 
 for token in (
     "class OperationMaintenanceAwareDispatchRuntime",
@@ -109,6 +113,50 @@ for forbidden in (
     if gate and forbidden in gate:
         errors.append(f"Maintenance-aware dispatch must not duplicate ranking/world/KPI/robotics authority; found {forbidden!r}")
 
+for token in (
+    "Map<String, OperationResourceMaintenanceSnapshot>",
+    'getList("ResourceMaintenance", Tag.TAG_COMPOUND)',
+    'tag.put("ResourceMaintenance", maintenanceTags)',
+    "maintenanceSnapshots()",
+    "maintenanceSnapshot(String resourceId)",
+    "putMaintenanceSnapshot(OperationResourceMaintenanceSnapshot snapshot)",
+    "removeMaintenanceSnapshot(String resourceId)",
+    'OperationResourceMaintenanceSnapshot.State.valueOf',
+    'PortQuality.valueOf',
+):
+    if saved and token not in saved:
+        errors.append(f"Plant SavedData missing persistent maintenance state contract {token!r}")
+
+for token in (
+    "class OperationMaintenanceWorldState",
+    "OperationPlantSavedData.get(level)",
+    "observe(",
+    "start(",
+    "complete(",
+    "OperationMaintenanceRuntime.start(current)",
+    "OperationMaintenanceRuntime.complete(current, evidence)",
+    "putMaintenanceSnapshot(",
+    "OperationPlantRuntimeRecorder.recordMaintenanceSnapshot(",
+    "OperationPlantRuntimeRecorder.recordMaintenanceDecision(",
+    "MAINTENANCE_STATE_MISSING",
+    "rollback",
+):
+    if world_state and token not in world_state:
+        errors.append(f"Maintenance world state missing authoritative persistence/history bridge {token!r}")
+
+for forbidden in (
+    "getEntitiesOfClass",
+    "nearest",
+    "closerThan",
+    "System.currentTimeMillis",
+    "scheduleTick(",
+    "setBlock(",
+    "setDeltaMovement(",
+    "RobotMission",
+):
+    if world_state and forbidden in world_state:
+        errors.append(f"Maintenance world state must use explicit resource identity without proximity/time/robotics shortcuts; found {forbidden!r}")
+
 if errors:
     print("RSE OPERATIONS MAINTENANCE VERIFY: FAIL")
     for error in errors:
@@ -121,4 +169,6 @@ print(" evidence-bound start -> in-progress -> complete lifecycle: PASS")
 print(" elapsed-time auto-completion: NONE")
 print(" maintenance hold projects resource UNAVAILABLE: PASS")
 print(" final resource selection delegates to OperationDispatchRuntime: PASS")
+print(" persistent current maintenance snapshots in plant SavedData: PASS")
+print(" world start/complete commits snapshot + durable maintenance history atomically: PASS")
 print(" world/KPI/robotics authority leakage: NONE")
