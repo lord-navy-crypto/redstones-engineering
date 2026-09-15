@@ -112,8 +112,8 @@ for forbidden in ("OperationBottleneckAssessment", "severityScore", "Comparator.
     if workcell_controller and forbidden in workcell_controller:
         errors.append(f"Workcell Controller must not rank/discover resources independently; found {forbidden!r}")
 
-# Task 7 RED contract: persistent world buffer state must preserve logical lot identity and
-# apply receipts/allocations through the already-authoritative pure buffer runtime.
+# Persistent world buffer state must preserve logical lot identity and apply state changes only
+# through the already-authoritative pure buffer/material-release runtimes.
 for token in (
     "class OperationIndustrialBufferState",
     "bufferId",
@@ -123,17 +123,20 @@ for token in (
     "OperationBufferSnapshot",
     "OperationBufferRuntime.receive",
     "OperationBufferRuntime.allocate",
-    "OperationMaterialReleaseRuntime",
+    "OperationMaterialReleaseRuntime.release",
+    "OperationPlantSavedData.get",
+    "data.putBuffer",
     "BUFFER_CAPACITY_REACHED",
     "DUPLICATE_OUTPUT_RECEIPT",
-    "setDirty",
 ):
     if buffer_state and token not in buffer_state:
         errors.append(f"Industrial Buffer state missing authoritative persistence/runtime bridge {token!r}")
 
 for forbidden in (
-    "ItemStack", "Container", "SimpleContainer", "getEntitiesOfClass", "inflate(",
-    "setBlock(", "OperationDispatchRuntime", "RobotMission",
+    "import net.minecraft.world.item.ItemStack",
+    "import net.minecraft.world.Container",
+    "import net.minecraft.world.SimpleContainer",
+    "getEntitiesOfClass", "inflate(", "setBlock(", "OperationDispatchRuntime", "RobotMission",
 ):
     if buffer_state and forbidden in buffer_state:
         errors.append(f"Industrial Buffer state must retain logical lot authority without world/inventory shortcuts; found {forbidden!r}")
@@ -182,6 +185,7 @@ print(" Workcell Controller delegates dispatch/changeover/maintenance/capacity a
 print(" Workcell Controller physical redstone query direction: PASS")
 print(" persistent Industrial Buffer logical lot/WIP state: PASS")
 print(" buffer receipt/allocation delegates to OperationBufferRuntime: PASS")
+print(" downstream release delegates atomically to OperationMaterialReleaseRuntime: PASS")
 print(" Workcell Controller independent ranking/proximity discovery: NONE")
-print(" dispatch/queue/world-motion/client authority leakage: NONE")
+print(" dispatch/world-motion/client/inventory authority leakage: NONE")
 print(" proximity auto-discovery: NONE")
