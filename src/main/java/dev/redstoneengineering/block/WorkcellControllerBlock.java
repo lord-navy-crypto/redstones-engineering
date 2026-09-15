@@ -214,7 +214,7 @@ public class WorkcellControllerBlock extends Block implements EngineeringPortPro
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         return List.of(
                 new EngineeringPort("ACTIVE", Direction.NORTH, EngineeringDomain.REDSTONE,
-                        PortKind.STATUS, PortDirection.OUTPUT, true, "active"),
+                        PortKind.CONTROL, PortDirection.OUTPUT, true, "active"),
                 new EngineeringPort("PERMIT", Direction.SOUTH, EngineeringDomain.REDSTONE,
                         PortKind.SAFETY, PortDirection.OUTPUT, true, "permit"),
                 new EngineeringPort("HOLD", Direction.EAST, EngineeringDomain.REDSTONE,
