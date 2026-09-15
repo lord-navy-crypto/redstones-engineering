@@ -128,8 +128,8 @@ for token in (
     "DUPLICATE_RESOURCE_ID",
     "RESOURCE_EVIDENCE_INVALID",
     "DISPATCH_PERMIT",
-    "Comparator.comparingLong(OperationJob::releaseTick)",
-    "Comparator.comparingInt(OperationJob::priority).reversed()",
+    "comparingLong(OperationJob::releaseTick)",
+    "comparingInt(OperationJob::priority).reversed()",
 ):
     if dispatch and token not in dispatch:
         errors.append(f"OperationDispatchRuntime missing deterministic dispatch contract {token!r}")
