@@ -19,8 +19,6 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-import java.util.List;
-
 /** Local/manual regression coverage for the real world-backed WIP-to-queue commit boundary. */
 public final class RseMaterialReleasePersistenceGameTests {
     private static final String TEMPLATE = "empty5x4x5";
@@ -36,6 +34,7 @@ public final class RseMaterialReleasePersistenceGameTests {
         helper.runAfterDelay(2, () -> {
             BlockPos worldPos = helper.absolutePos(bufferPos);
             String bufferId = IndustrialBufferBlock.bufferId(worldPos);
+            String queueId = "release_validation_queue:" + worldPos.asLong();
             long now = helper.getLevel().getGameTime();
             long baseId = Math.floorMod(worldPos.asLong() ^ now ^ 0x52454c45415345L, 800_000_000L) + 100_000L;
             long upstreamJobId = baseId;
@@ -43,10 +42,15 @@ public final class RseMaterialReleasePersistenceGameTests {
             long missionId = baseId * 10L + 2L;
             long releasedJobId = baseId + 1L;
             long blockedJobId = baseId + 2L;
-            long blockerJobId = baseId + 3L;
 
             if (OperationIndustrialBufferState.snapshot(helper.getLevel(), bufferId) == null) {
                 helper.fail("Industrial Buffer did not attach to persistent plant state", bufferPos);
+                return;
+            }
+
+            OperationPlantSavedData plant = OperationPlantSavedData.get(helper.getLevel());
+            if (!plant.putQueue(queueId, OperationQueueSnapshot.empty(1))) {
+                helper.fail("Could not create persistent downstream validation queue", bufferPos);
                 return;
             }
 
@@ -86,18 +90,19 @@ public final class RseMaterialReleasePersistenceGameTests {
             OperationMaterialReleaseRuntime.Decision released = OperationIndustrialBufferState.releaseMaterial(
                     helper.getLevel(),
                     bufferId,
-                    OperationQueueSnapshot.empty(1),
+                    queueId,
                     releasedJob,
                     releasedRequirement
             );
+            OperationQueueSnapshot persistedQueue = plant.queue(queueId);
             if (released.verdict() != OperationMaterialReleaseRuntime.Verdict.RELEASED
-                    || released.nextQueue().queued().size() != 1
-                    || released.nextQueue().queued().getFirst().jobId() != releasedJobId) {
-                helper.fail("Live material release did not commit WIP and queue together", bufferPos);
+                    || persistedQueue == null
+                    || persistedQueue.queued().size() != 1
+                    || persistedQueue.queued().getFirst().jobId() != releasedJobId) {
+                helper.fail("Live material release did not commit persistent WIP and queue together", bufferPos);
                 return;
             }
 
-            OperationPlantSavedData plant = OperationPlantSavedData.get(helper.getLevel());
             var releasedBuffer = OperationIndustrialBufferState.snapshot(helper.getLevel(), bufferId);
             OperationJobLifecycleRecord releasedLifecycle = plant.jobLifecycle(releasedJobId);
             if (releasedBuffer == null || releasedBuffer.usedUnits() != 6
@@ -108,9 +113,6 @@ public final class RseMaterialReleasePersistenceGameTests {
                 return;
             }
 
-            OperationJob blocker = new OperationJob(
-                    blockerJobId, "queue_blocker", 1, 1, now, now + 200);
-            OperationQueueSnapshot fullQueue = new OperationQueueSnapshot(1, List.of(blocker), List.of());
             OperationJob blockedJob = new OperationJob(
                     blockedJobId, "release_validation", 2, 70, now, now + 200);
             OperationInputRequirement blockedRequirement = new OperationInputRequirement(
@@ -118,20 +120,24 @@ public final class RseMaterialReleasePersistenceGameTests {
 
             int unitsBeforeWait = releasedBuffer.usedUnits();
             int queueEventsBeforeWait = plant.plantEvents(OperationPlantEvent.Type.QUEUE).size();
+            OperationQueueSnapshot queueBeforeWait = plant.queue(queueId);
             OperationMaterialReleaseRuntime.Decision waitDecision = OperationIndustrialBufferState.releaseMaterial(
                     helper.getLevel(),
                     bufferId,
-                    fullQueue,
+                    queueId,
                     blockedJob,
                     blockedRequirement
             );
             var afterWaitBuffer = OperationIndustrialBufferState.snapshot(helper.getLevel(), bufferId);
+            OperationQueueSnapshot afterWaitQueue = plant.queue(queueId);
             if (waitDecision.verdict() != OperationMaterialReleaseRuntime.Verdict.WAIT
                     || afterWaitBuffer == null
                     || afterWaitBuffer.usedUnits() != unitsBeforeWait
+                    || afterWaitQueue == null
+                    || !afterWaitQueue.equals(queueBeforeWait)
                     || plant.jobLifecycle(blockedJobId) != null
                     || plant.plantEvents(OperationPlantEvent.Type.QUEUE).size() != queueEventsBeforeWait) {
-                helper.fail("Full downstream queue consumed WIP or fabricated persistent queue history", bufferPos);
+                helper.fail("Full persistent downstream queue consumed WIP or fabricated runtime history", bufferPos);
                 return;
             }
 
