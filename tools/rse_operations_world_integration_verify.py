@@ -26,6 +26,10 @@ watchdog = read("src/main/java/dev/redstoneengineering/block/WatchdogBlock.java"
 interlock = read("src/main/java/dev/redstoneengineering/block/SafetyInterlockBlock.java")
 fault_latch = read("src/main/java/dev/redstoneengineering/block/FaultLatchBlock.java")
 servo = read("src/main/java/dev/redstoneengineering/block/ServoActuatorBlock.java")
+workcell_controller = read("src/main/java/dev/redstoneengineering/block/WorkcellControllerBlock.java")
+workcell_ui = read("src/main/java/dev/redstoneengineering/ui/WorkcellControllerUi.java")
+workcell_menu = read("src/main/java/dev/redstoneengineering/ui/menu/WorkcellControllerMenu.java")
+workcell_screen = read("src/main/java/dev/redstoneengineering/client/ui/WorkcellControllerScreen.java")
 
 for token in ("interface OperationWorldResourceProvider", "operationResourceSnapshot"):
     if provider and token not in provider:
@@ -43,42 +47,22 @@ for token in ("class OperationWorldResourceResolver", "resolve", "BlockPos", "Op
         errors.append(f"World resource resolver missing explicit-position resolution {token!r}")
 
 for token in (
-    "record OperationWorkcellBinding",
-    "workcellId",
-    "resourceBindings",
-    "BlockPos",
-    "expectedResourceId",
-    "validBinding",
+    "record OperationWorkcellBinding", "workcellId", "resourceBindings", "BlockPos", "expectedResourceId", "validBinding",
 ):
     if binding and token not in binding:
         errors.append(f"Workcell binding missing stable explicit membership contract {token!r}")
 
 for token in (
-    "class OperationPlantSavedData",
-    "extends SavedData",
-    "computeIfAbsent",
-    "overworld()",
-    "setDirty()",
-    "save(CompoundTag",
-    "load(CompoundTag",
-    "putWorkcell",
-    "removeWorkcell",
-    "workcells",
+    "class OperationPlantSavedData", "extends SavedData", "computeIfAbsent", "overworld()", "setDirty()",
+    "save(CompoundTag", "load(CompoundTag", "putWorkcell", "removeWorkcell", "workcells",
 ):
     if saved and token not in saved:
         errors.append(f"Plant SavedData missing server persistence contract {token!r}")
 
 for token in (
-    "class OperationWorkcellStore",
-    "bindResource",
-    "unbindResource",
-    "OperationPlantSavedData",
-    "OperationWorldResourceResolver.resolve",
-    "RESOURCE_POSITION_ALREADY_BOUND",
-    "RESOURCE_ID_ALREADY_BOUND",
-    "RESOURCE_ID_MISMATCH",
-    "WORKCELL_ID_MISSING",
-    "RESOURCE_EVIDENCE_INVALID",
+    "class OperationWorkcellStore", "bindResource", "unbindResource", "OperationPlantSavedData",
+    "OperationWorldResourceResolver.resolve", "RESOURCE_POSITION_ALREADY_BOUND", "RESOURCE_ID_ALREADY_BOUND",
+    "RESOURCE_ID_MISMATCH", "WORKCELL_ID_MISSING", "RESOURCE_EVIDENCE_INVALID",
 ):
     if store and token not in store:
         errors.append(f"Workcell store missing fail-closed explicit binding rule {token!r}")
@@ -97,6 +81,35 @@ for body, label, required in (
 
 if servo and "false," not in servo:
     errors.append("ServoActuatorBlock must explicitly expose completion evidence as unavailable rather than inventing a completion event")
+
+# Task 6 RED contract: one justified world-facing controller delegates authority rather than
+# reimplementing scheduling/setup/maintenance/capacity logic.
+for body, label, required in (
+    (workcell_controller, "WorkcellControllerBlock", (
+        "class WorkcellControllerBlock", '"ACTIVE"', '"PERMIT"', '"HOLD"', '"FAULT"', '"QUEUE PRESSURE"',
+        "OperationWorkcellStore.resolveBoundResources", "OperationWorkcellAdmissionAssessment.inspect",
+    )),
+    (workcell_ui, "WorkcellControllerUi", ("class WorkcellControllerUi", "open", "WorkcellControllerMenu")),
+    (workcell_menu, "WorkcellControllerMenu", (
+        "class WorkcellControllerMenu", "OperationWorkcellStore", "boundResource", "admissionReason",
+        "setup", "maintenance", "activeAssignments", "queuePressure",
+    )),
+    (workcell_screen, "WorkcellControllerScreen", (
+        "class WorkcellControllerScreen", "BOUND RESOURCES", "ADMISSION", "SETUP", "MAINTENANCE",
+    )),
+):
+    for token in required:
+        if body and token not in body:
+            errors.append(f"{label} missing world-facing controller contract {token!r}")
+
+for token in ("OperationDispatchRuntime", "OperationChangeoverRuntime", "OperationMaintenanceRuntime"):
+    combined_controller = workcell_controller + workcell_menu + workcell_ui
+    if combined_controller and token not in combined_controller:
+        errors.append(f"Workcell Controller must delegate existing Operations authority through {token}")
+
+for forbidden in ("OperationBottleneckAssessment", "severityScore", "Comparator.comparing", "getEntitiesOfClass", "inflate("):
+    if workcell_controller and forbidden in workcell_controller:
+        errors.append(f"Workcell Controller must not rank/discover resources independently; found {forbidden!r}")
 
 for body, label in ((provider, "provider"), (snapshot, "snapshot"), (resolver, "resolver"), (binding, "binding"), (saved, "SavedData")):
     for forbidden in (
@@ -138,5 +151,7 @@ print(" existing sequence/alarm/watchdog/interlock/fault devices expose Operatio
 print(" existing servo actuator exposes real machine evidence without fabricated completion: PASS")
 print(" server-owned explicit workcell binding persistence: PASS")
 print(" duplicate position/resource identity rejection: PASS")
+print(" Workcell Controller delegates dispatch/changeover/maintenance/capacity authority: PASS")
+print(" Workcell Controller independent ranking/proximity discovery: NONE")
 print(" dispatch/queue/world-motion/client authority leakage: NONE")
 print(" proximity auto-discovery: NONE")
