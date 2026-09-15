@@ -121,7 +121,7 @@ public final class OperationWorkcellStore {
             Optional<OperationWorldResourceSnapshot> snapshot =
                     OperationWorldResourceResolver.resolve(level, member.position());
             if (snapshot.isEmpty()) {
-                resolved.add(new ResolvedResource(member, null, PortQuality.MISSING, "RESOURCE_PROVIDER_MISSING"));
+                resolved.add(new ResolvedResource(member, null, PortQuality.NO_SIGNAL, "RESOURCE_PROVIDER_MISSING"));
                 continue;
             }
             OperationWorldResourceSnapshot evidence = snapshot.get();
