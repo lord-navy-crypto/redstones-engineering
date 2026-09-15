@@ -1,0 +1,5 @@
+{
+  "variants": {
+    "": { "model": "redstoneengineering:block/workcell_controller" }
+  }
+}
