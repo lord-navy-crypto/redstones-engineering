@@ -18,11 +18,14 @@ snapshot = read("src/main/java/dev/redstoneengineering/operations/OperationResou
 evidence = read("src/main/java/dev/redstoneengineering/operations/OperationMaintenanceCompletionEvidence.java")
 runtime = read("src/main/java/dev/redstoneengineering/operations/OperationMaintenanceRuntime.java")
 gate = read("src/main/java/dev/redstoneengineering/operations/OperationMaintenanceAwareDispatchRuntime.java")
+queue_runtime = read("src/main/java/dev/redstoneengineering/operations/OperationQueueRuntime.java")
 saved = read("src/main/java/dev/redstoneengineering/operations/world/OperationPlantSavedData.java")
 world_state = read("src/main/java/dev/redstoneengineering/operations/world/OperationMaintenanceWorldState.java")
+queue_world_state = read("src/main/java/dev/redstoneengineering/operations/world/OperationQueueWorldState.java")
 workcell_menu = read("src/main/java/dev/redstoneengineering/ui/menu/WorkcellControllerMenu.java")
 workcell_screen = read("src/main/java/dev/redstoneengineering/client/ui/WorkcellControllerScreen.java")
 maintenance_gametest = read("src/main/java/dev/redstoneengineering/gametest/RseMaintenancePersistenceGameTests.java")
+queue_gametest = read("src/main/java/dev/redstoneengineering/gametest/RseQueuePersistenceGameTests.java")
 gametest_registration = read("src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java")
 
 for token in (
@@ -118,6 +121,25 @@ for forbidden in (
         errors.append(f"Maintenance-aware dispatch must not duplicate ranking/world/KPI/robotics authority; found {forbidden!r}")
 
 for token in (
+    "dispatchMaintenanceAware(",
+    "OperationMaintenanceAwareDispatchRuntime.evaluate(",
+    "applyAssignment(",
+    "OperationMaintenanceAwareDispatchRuntime.Verdict.FAULT",
+):
+    if queue_runtime and token not in queue_runtime:
+        errors.append(f"Queue runtime missing maintenance-aware queue commit composition {token!r}")
+
+for forbidden in (
+    "OperationPlantSavedData",
+    "ServerLevel",
+    "setBlock(",
+    "setDeltaMovement(",
+    "RobotMission",
+):
+    if queue_runtime and forbidden in queue_runtime:
+        errors.append(f"Queue runtime must remain pure while composing maintenance-aware dispatch; found {forbidden!r}")
+
+for token in (
     "Map<String, OperationResourceMaintenanceSnapshot>",
     'getList("ResourceMaintenance", Tag.TAG_COMPOUND)',
     'tag.put("ResourceMaintenance", maintenanceTags)',
@@ -160,6 +182,17 @@ for forbidden in (
 ):
     if world_state and forbidden in world_state:
         errors.append(f"Maintenance world state must use explicit resource identity without proximity/time/robotics shortcuts; found {forbidden!r}")
+
+for token in (
+    "maintenanceSnapshot(resource.resourceId())",
+    "OperationQueueRuntime.dispatchMaintenanceAware(",
+    "MAINTENANCE_EVIDENCE_MISSING_FOR_RESOURCE",
+):
+    if queue_world_state and token not in queue_world_state:
+        errors.append(f"Persistent queue dispatch is not consuming world-backed maintenance evidence {token!r}")
+
+if queue_world_state and "OperationMaintenanceAwareDispatchRuntime.evaluate(" in queue_world_state:
+    errors.append("Queue world state must delegate maintenance-aware queue decisions to OperationQueueRuntime")
 
 for token in (
     "OperationPlantSavedData.get(server)",
@@ -213,8 +246,19 @@ for token in (
     if maintenance_gametest and token not in maintenance_gametest:
         errors.append(f"Local maintenance persistence GameTest missing regression contract {token!r}")
 
+for token in (
+    "OperationResourceMaintenanceSnapshot.State.MAINTENANCE_DUE",
+    '"MAINTENANCE_HOLD"',
+    "OperationResourceMaintenanceSnapshot.State.AVAILABLE",
+    "OperationQueueWorldState.dispatch(",
+):
+    if queue_gametest and token not in queue_gametest:
+        errors.append(f"Local persistent queue GameTest missing maintenance-aware dispatch regression {token!r}")
+
 if gametest_registration and "event.register(RseMaintenancePersistenceGameTests.class);" not in gametest_registration:
     errors.append("local maintenance persistence GameTest is not registered")
+if gametest_registration and "event.register(RseQueuePersistenceGameTests.class);" not in gametest_registration:
+    errors.append("local persistent queue GameTest is not registered")
 
 if errors:
     print("RSE OPERATIONS MAINTENANCE VERIFY: FAIL")
@@ -228,8 +272,9 @@ print(" evidence-bound start -> in-progress -> complete lifecycle: PASS")
 print(" elapsed-time auto-completion: NONE")
 print(" maintenance hold projects resource UNAVAILABLE: PASS")
 print(" final resource selection delegates to OperationDispatchRuntime: PASS")
+print(" queue assignment consumes the maintenance-aware dispatch gate before persistent commit: PASS")
 print(" persistent current maintenance snapshots in plant SavedData: PASS")
 print(" world start/complete commits snapshot + durable maintenance history atomically: PASS")
 print(" Workcell HMI reads persistent maintenance evidence without mutation authority: PASS")
-print(" local maintenance persistence round-trip GameTest: REGISTERED")
+print(" local maintenance + queue persistence GameTests: REGISTERED")
 print(" world/KPI/robotics authority leakage: NONE")
