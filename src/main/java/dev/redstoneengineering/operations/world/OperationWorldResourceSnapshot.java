@@ -2,6 +2,7 @@ package dev.redstoneengineering.operations.world;
 
 import dev.redstoneengineering.core.port.PortQuality;
 
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -15,12 +16,14 @@ public record OperationWorldResourceSnapshot(
         boolean running,
         boolean completionEvidenceAvailable,
         boolean faultActive,
-        PortQuality evidenceQuality
+        PortQuality evidenceQuality,
+        Map<String, Long> numericEvidence
 ) {
     public OperationWorldResourceSnapshot {
         resourceId = resourceId == null ? "" : resourceId.trim();
         processCapabilities = processCapabilities == null ? Set.of() : Set.copyOf(processCapabilities);
         evidenceQuality = evidenceQuality == null ? PortQuality.FAULT : evidenceQuality;
+        numericEvidence = numericEvidence == null ? Map.of() : Map.copyOf(numericEvidence);
 
         // Contradictory runtime evidence must never be projected as healthy/usable.
         if (running && !available) {
