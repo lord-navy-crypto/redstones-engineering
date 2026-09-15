@@ -185,6 +185,7 @@ public final class OperationIndustrialBufferState {
     /**
      * Atomic downstream material release delegates to OperationMaterialReleaseRuntime. A full
      * downstream queue returns WAIT with the original buffer snapshot, so persisted WIP is not consumed.
+     * A successful release is also the authoritative world boundary for durable job/queue history.
      */
     public static OperationMaterialReleaseRuntime.Decision releaseMaterial(
             ServerLevel level,
@@ -197,7 +198,8 @@ public final class OperationIndustrialBufferState {
             throw new IllegalArgumentException("server level and bufferId are required");
         }
         OperationPlantSavedData data = OperationPlantSavedData.get(level);
-        OperationBufferSnapshot current = data.buffer(bufferId.trim());
+        String normalizedBufferId = bufferId.trim();
+        OperationBufferSnapshot current = data.buffer(normalizedBufferId);
         if (current == null) {
             throw new IllegalArgumentException("buffer is not registered");
         }
@@ -206,6 +208,18 @@ public final class OperationIndustrialBufferState {
         if (decision.released()) {
             if (!data.putBuffer(decision.nextBuffer())) {
                 throw new IllegalStateException("BUFFER_PERSISTENCE_REJECTED");
+            }
+            if (!OperationPlantRuntimeRecorder.recordMaterialRelease(
+                    level,
+                    "buffer_release:" + normalizedBufferId,
+                    downstreamJob,
+                    decision,
+                    level.getGameTime()
+            )) {
+                if (!data.putBuffer(current)) {
+                    throw new IllegalStateException("PLANT_RUNTIME_HISTORY_REJECTED_AND_BUFFER_ROLLBACK_FAILED");
+                }
+                throw new IllegalStateException("PLANT_RUNTIME_HISTORY_REJECTED");
             }
         }
         return decision;
