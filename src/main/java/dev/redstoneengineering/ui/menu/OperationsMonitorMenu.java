@@ -5,6 +5,8 @@ import dev.redstoneengineering.block.OperationsMonitorBlock;
 import dev.redstoneengineering.diagnostics.CopperEvidenceAssessment;
 import dev.redstoneengineering.diagnostics.ElectricalReliabilityAssessment;
 import dev.redstoneengineering.diagnostics.IndustrialOperationsAssessment;
+import dev.redstoneengineering.diagnostics.OperationBottleneckAssessment;
+import dev.redstoneengineering.diagnostics.OperationPlantViewAssessment;
 import dev.redstoneengineering.diagnostics.OperationsDashboardSnapshot;
 import dev.redstoneengineering.diagnostics.OperationsEventWindow;
 import dev.redstoneengineering.diagnostics.OperationsIncidentSummary;
@@ -36,6 +38,22 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
     private final DataSlot runEvidenceValid = trackedInt();
     private final DataSlot queueEvidenceSources = trackedInt();
     private final DataSlot cycleEvidenceValid = trackedInt();
+
+    // Plant View is synchronized through the existing observer-only monitor. Until world-owned
+    // workcell/job/quality/reliability collections exist, the server deliberately publishes INVALID
+    // coverage instead of converting absent collections into healthy zero-valued plant metrics.
+    private final DataSlot plantCoverage = trackedInt();
+    private final DataSlot plantEvidenceAuthoritative = trackedInt();
+    private final DataSlot plantBottleneckPresent = trackedInt();
+    private final DataSlot plantBottleneckConstraint = trackedInt();
+    private final DataSlot plantConstrainedWorkcells = trackedInt();
+    private final DataSlot plantFirstPassYieldPercent = trackedInt();
+    private final DataSlot plantRejectRatePercent = trackedInt();
+    private final DataSlot plantReworkRatePercent = trackedInt();
+    private final DataSlot plantObservedAvailabilityPercent = trackedInt();
+    private final DataSlot plantFailureCount = trackedInt();
+    private final DataSlot plantOverdueOutstandingJobs = trackedInt();
+    private final DataSlot plantOutstandingWithDueDate = trackedInt();
 
     private final DataSlot retainedEvents = trackedInt();
     private final DataSlot recentEvents = trackedInt();
@@ -100,6 +118,12 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
                 CopperEvidenceAssessment.inspect(level, dashboard.eventScope());
         OperationsMonitorBlock.InputEvidence evidence = OperationsMonitorBlock.inputEvidence(level, blockPos);
 
+        // World-owned plant collections are introduced by the workcell/buffer persistence tasks.
+        // Passing missing evidence to the existing assessment intentionally produces INVALID coverage.
+        OperationPlantViewAssessment.Snapshot plant = OperationPlantViewAssessment.inspect(
+                dashboard, null, null, null, null);
+        boolean authoritativePlantEvidence = false;
+
         queue.set(operations.queueNow());
         throughput.set(operations.throughputCyclesPerMinute());
         lastCycleTicks.set(operations.lastCycleTicks());
@@ -112,6 +136,19 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
         runEvidenceValid.set(evidence.run().valid() ? 1 : 0);
         queueEvidenceSources.set(evidence.queueSources());
         cycleEvidenceValid.set(evidence.cycle().valid() ? 1 : 0);
+
+        plantCoverage.set(plant.coverage().ordinal());
+        plantEvidenceAuthoritative.set(authoritativePlantEvidence ? 1 : 0);
+        plantBottleneckPresent.set(plant.bottleneckPresent() ? 1 : 0);
+        plantBottleneckConstraint.set(plant.bottleneckConstraint().ordinal());
+        plantConstrainedWorkcells.set(plant.constrainedWorkcells());
+        plantFirstPassYieldPercent.set(plant.firstPassYieldPercent());
+        plantRejectRatePercent.set(plant.rejectRatePercent());
+        plantReworkRatePercent.set(plant.reworkRatePercent());
+        plantObservedAvailabilityPercent.set(plant.observedAvailabilityPercent());
+        plantFailureCount.set(plant.failureCount());
+        plantOverdueOutstandingJobs.set(plant.overdueOutstandingJobs());
+        plantOutstandingWithDueDate.set(plant.outstandingWithDueDate());
 
         retainedEvents.set(dashboard.retainedEvents());
         recentEvents.set(dashboard.recentEvents());
@@ -186,6 +223,26 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
     public boolean runEvidenceValid() { return runEvidenceValid.get() != 0; }
     public int queueEvidenceSources() { return queueEvidenceSources.get(); }
     public boolean cycleEvidenceValid() { return cycleEvidenceValid.get() != 0; }
+
+    public OperationPlantViewAssessment.EvidenceCoverage plantCoverage() {
+        OperationPlantViewAssessment.EvidenceCoverage[] values = OperationPlantViewAssessment.EvidenceCoverage.values();
+        return values[clampIndex(plantCoverage.get(), values.length)];
+    }
+    public boolean plantEvidenceAuthoritative() { return plantEvidenceAuthoritative.get() != 0; }
+    public boolean plantBottleneckPresent() { return plantBottleneckPresent.get() != 0; }
+    public OperationBottleneckAssessment.Constraint plantBottleneckConstraint() {
+        OperationBottleneckAssessment.Constraint[] values = OperationBottleneckAssessment.Constraint.values();
+        return values[clampIndex(plantBottleneckConstraint.get(), values.length)];
+    }
+    public int plantConstrainedWorkcells() { return plantConstrainedWorkcells.get(); }
+    public int plantFirstPassYieldPercent() { return plantFirstPassYieldPercent.get(); }
+    public int plantRejectRatePercent() { return plantRejectRatePercent.get(); }
+    public int plantReworkRatePercent() { return plantReworkRatePercent.get(); }
+    public int plantObservedAvailabilityPercent() { return plantObservedAvailabilityPercent.get(); }
+    public int plantFailureCount() { return plantFailureCount.get(); }
+    public int plantOverdueOutstandingJobs() { return plantOverdueOutstandingJobs.get(); }
+    public int plantOutstandingWithDueDate() { return plantOutstandingWithDueDate.get(); }
+
     public int retainedEvents() { return retainedEvents.get(); }
     public int recentEvents() { return recentEvents.get(); }
     public int recentAbnormalEvents() { return recentAbnormalEvents.get(); }
