@@ -2,6 +2,7 @@ package dev.redstoneengineering.operations.world;
 
 import dev.redstoneengineering.operations.OperationJob;
 import dev.redstoneengineering.operations.OperationMaintenanceRuntime;
+import dev.redstoneengineering.operations.OperationMaterialReleaseRuntime;
 import dev.redstoneengineering.operations.OperationQualityInspectionEvidence;
 import dev.redstoneengineering.operations.OperationQueueRuntime;
 import dev.redstoneengineering.operations.OperationResourceMaintenanceSnapshot;
@@ -42,6 +43,45 @@ public final class OperationPlantRuntimeRecorder {
                 normalizeSubject(queueId, "plant_queue"),
                 job.jobId(),
                 queueDetail("ENQUEUED", decision)
+        );
+    }
+
+    /**
+     * Record the real WIP-to-queue commit after {@link OperationMaterialReleaseRuntime} has
+     * atomically accepted both the lot allocation and downstream queue admission.
+     */
+    public static boolean recordMaterialRelease(
+            ServerLevel level,
+            String queueId,
+            OperationJob job,
+            OperationMaterialReleaseRuntime.Decision decision,
+            long gameTick
+    ) {
+        if (level == null || job == null || decision == null || !decision.released() || gameTick < 0) {
+            return false;
+        }
+        OperationPlantSavedData data = OperationPlantSavedData.get(level);
+        if (data.jobLifecycle(job.jobId()) == null && !data.recordJobAdmitted(job, gameTick)) {
+            return false;
+        }
+        if (!data.transitionJob(
+                job.jobId(),
+                OperationJobLifecycleRecord.Status.QUEUED,
+                gameTick,
+                "MATERIAL_JOB_RELEASED"
+        )) {
+            return false;
+        }
+        return data.recordPlantEvent(
+                OperationPlantEvent.Type.QUEUE,
+                gameTick,
+                normalizeSubject(queueId, "material_release"),
+                job.jobId(),
+                "action=MATERIAL_JOB_RELEASED"
+                        + " queued=" + decision.nextQueue().queued().size()
+                        + " active=" + decision.nextQueue().active().size()
+                        + " capacity=" + decision.nextQueue().capacity()
+                        + " reason=" + decision.reason()
         );
     }
 
