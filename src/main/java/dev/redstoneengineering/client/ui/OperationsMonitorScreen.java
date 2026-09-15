@@ -51,26 +51,42 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
 
     /** Existing Configure page is the plant observer page; the monitor retains no configuration authority. */
     private void renderConfigure(GuiGraphics graphics) {
-        statusBadge(graphics, "WORLD PLANT STATE", INFO, 16, 74);
+        statusBadge(graphics, "WORLD PLANT STATE", INFO, 16, 72);
         int worldColor = switch (menu.worldPlantCoverage()) {
             case COMPLETE -> GOOD;
-            case PARTIAL -> WARN;
-            case INVALID -> WARN;
+            case PARTIAL, INVALID -> WARN;
         };
-        statusLine(graphics, "World evidence", menu.worldPlantCoverage().name(), worldColor, 94);
-        labelValue(graphics, "Workcells configured", menu.worldPlantConfiguredWorkcells() + " / " + menu.worldPlantWorkcells(), 112);
-        labelValue(graphics, "Buffers / WIP", menu.worldPlantBuffers() + " • "
-                + menu.worldPlantUsedBufferUnits() + "/" + menu.worldPlantBufferCapacityUnits()
-                + " units • " + menu.worldPlantWipPressurePercent() + "%", 130);
-        labelValue(graphics, "Bound resources", menu.worldPlantValidResources() + "/" + menu.worldPlantBoundResources()
-                + " valid • faults " + menu.worldPlantFaultResources(), 148);
+        statusLine(graphics, "EVIDENCE COVERAGE", menu.worldPlantCoverage().name(), worldColor, 90);
 
-        statusBadge(graphics, "PLANT KPIs • INCOMPLETE", WARN, 16, 170);
-        labelValue(graphics, "Quality / reliability / delivery", "WITHHELD • EVIDENCE MISSING", 190);
-        labelValue(graphics, "FPY / reject / rework", "— / — / —", 206);
-        labelValue(graphics, "Availability / failures", "— / —", 222);
-        safeText(graphics, "Queue/job history is not persisted yet; no plant bottleneck or delivery rate is fabricated.", 16, 240, MUTED);
-        safeText(graphics, "Observer-only • this page never dispatches jobs, changes maintenance, or moves material.", 16, 256, MUTED);
+        int configured = configurationPercent();
+        labelValue(graphics, "CONFIGURATION", menu.worldPlantConfiguredWorkcells() + " / " + menu.worldPlantWorkcells()
+                + " workcells • " + configured + "%", 108);
+        drawPlantMetricBar(graphics, 16, 124, 176, configured, configured >= 100 ? GOOD : WARN);
+
+        labelValue(graphics, "WIP PRESSURE", menu.worldPlantBuffers() + " buffers • "
+                + menu.worldPlantUsedBufferUnits() + "/" + menu.worldPlantBufferCapacityUnits()
+                + " units • " + menu.worldPlantWipPressurePercent() + "%", 142);
+        int wipColor = menu.worldPlantWipPressurePercent() >= 90 ? BAD
+                : (menu.worldPlantWipPressurePercent() >= 70 ? WARN : GOOD);
+        drawPlantMetricBar(graphics, 16, 158, 176, menu.worldPlantWipPressurePercent(), wipColor);
+
+        int health = resourceHealthPercent();
+        labelValue(graphics, "RESOURCE HEALTH", menu.worldPlantValidResources() + "/" + menu.worldPlantBoundResources()
+                + " valid • faults " + menu.worldPlantFaultResources() + " • " + health + "%", 176);
+        int healthColor = menu.worldPlantFaultResources() > 0 ? BAD : (health >= 100 ? GOOD : WARN);
+        drawPlantMetricBar(graphics, 16, 192, 176, health, healthColor);
+
+        // Preserve the original plain-language rows as an exact textual readback alongside the bars.
+        labelValue(graphics, "Workcells configured", menu.worldPlantConfiguredWorkcells() + " / " + menu.worldPlantWorkcells(), 208);
+        labelValue(graphics, "Buffers / WIP", menu.worldPlantBuffers() + " • "
+                + menu.worldPlantUsedBufferUnits() + "/" + menu.worldPlantBufferCapacityUnits() + " units", 224);
+        labelValue(graphics, "Bound resources", menu.worldPlantValidResources() + "/" + menu.worldPlantBoundResources()
+                + " valid • faults " + menu.worldPlantFaultResources(), 240);
+
+        statusBadge(graphics, "PLANT KPIs • INCOMPLETE", WARN, 16, 258);
+        labelValue(graphics, "Quality / reliability / delivery", "WITHHELD • EVIDENCE MISSING", 276);
+        safeText(graphics, "FPY / reject / rework — / — / — • Availability / failures — / —", 16, 294, MUTED);
+        safeText(graphics, "Queue/job history is not persisted; no plant bottleneck or delivery rate is fabricated.", 16, 312, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
@@ -117,6 +133,28 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
                 + " • Protection status " + protectionText(), 16, 213, TEXT);
         safeText(graphics, "MTBF/MTTR withheld • Copper evidence " + copperEvidenceText(), 16, 229, MUTED);
     }
+
+    private int configurationPercent() {
+        int total = menu.worldPlantWorkcells();
+        if (total <= 0) return 0;
+        return clampPercent((int) Math.round(menu.worldPlantConfiguredWorkcells() * 100.0 / total));
+    }
+
+    private int resourceHealthPercent() {
+        int total = menu.worldPlantBoundResources();
+        if (total <= 0) return 0;
+        return clampPercent((int) Math.round(menu.worldPlantValidResources() * 100.0 / total));
+    }
+
+    private void drawPlantMetricBar(GuiGraphics graphics, int x, int y, int width, int percent, int color) {
+        int bounded = clampPercent(percent);
+        graphics.fill(x, y, x + width, y + 7, 0xFF171C21);
+        int filled = Math.round(width * bounded / 100.0F);
+        if (filled > 0) graphics.fill(x, y, x + filled, y + 7, color);
+        graphics.drawString(font, bounded + "%", x + width + 8, y - 1, TEXT, false);
+    }
+
+    private static int clampPercent(int value) { return Math.max(0, Math.min(100, value)); }
 
     private int evidenceConfidencePercent() {
         int score = 0;
