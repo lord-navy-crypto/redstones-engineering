@@ -46,8 +46,10 @@ for token in (
     if module and token not in module:
         errors.append(f"EngineeringSystemsModule missing binding tool registration {token!r}")
 
-if lang and '"item.redstoneengineering.operations_binding_tool"' not in lang:
-    errors.append("en_us.json missing Operations Binding Tool translation")
+has_translation = lang and '"item.redstoneengineering.operations_binding_tool"' in lang
+has_explicit_name = item and 'Component.literal("Operations Binding Tool")' in item
+if not has_translation and not has_explicit_name:
+    errors.append("Operations Binding Tool must expose a clear player-visible name")
 
 for forbidden in (
     "getEntitiesOfClass",
@@ -76,4 +78,5 @@ print(" explicit resource target capture: PASS")
 print(" explicit input/output buffer capture: PASS")
 print(" controller submission delegates to existing workcell binding authority: PASS")
 print(" dimension + block-position identity retained in item custom data: PASS")
+print(" player-visible tool identity: PASS")
 print(" proximity discovery / scheduling / lot / quality authority leakage: NONE")
