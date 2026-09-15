@@ -49,12 +49,33 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
         safeText(graphics, "Observer-only: this block measures operations state and never drives the plant.", 16, 186, MUTED);
     }
 
+    /**
+     * The monitor has no configuration authority, so its existing Configure page is used as the
+     * plant-level observer page rather than introducing a second dashboard block/menu.
+     */
     private void renderConfigure(GuiGraphics graphics) {
-        statusBadge(graphics, "OBSERVER ONLY", INFO, 16, 82);
-        safeText(graphics, "No process-control command is exposed from this screen.", 16, 108, TEXT);
-        safeText(graphics, "Shift + right-click resets monitor statistics only.", 16, 128, TEXT);
-        safeText(graphics, "Plant event evidence remains independent of monitor lifecycle/reset.", 16, 148, MUTED);
-        safeText(graphics, "Diagnosis is read-only and derived from synchronized evidence already retained by the server.", 16, 168, MUTED);
+        statusBadge(graphics, "PLANT VIEW", INFO, 16, 76);
+        if (menu.plantEvidenceAuthoritative()) {
+            statusLine(graphics, "Plant evidence", menu.plantCoverage().name(), GOOD, 96);
+            statusLine(graphics, "Bottleneck", menu.plantBottleneckPresent()
+                    ? menu.plantBottleneckConstraint().name() : "NONE", menu.plantBottleneckPresent() ? WARN : GOOD, 114);
+            labelValue(graphics, "Constrained workcells", Integer.toString(menu.plantConstrainedWorkcells()), 132);
+            labelValue(graphics, "FPY / reject / rework", menu.plantFirstPassYieldPercent() + "% / "
+                    + menu.plantRejectRatePercent() + "% / " + menu.plantReworkRatePercent() + "%", 150);
+            labelValue(graphics, "Availability / failures", menu.plantObservedAvailabilityPercent() + "% / "
+                    + menu.plantFailureCount(), 168);
+            labelValue(graphics, "Overdue / dated outstanding", menu.plantOverdueOutstandingJobs() + " / "
+                    + menu.plantOutstandingWithDueDate(), 186);
+        } else {
+            statusBadge(graphics, "PLANT EVIDENCE • INCOMPLETE", WARN, 16, 98);
+            labelValue(graphics, "Local throughput / WIP", menu.throughput() + " cycles/min • " + menu.queue() + " queued", 120);
+            labelValue(graphics, "Plant coverage", menu.plantCoverage().name(), 138);
+            labelValue(graphics, "FPY / reject / rework", "— / — / —", 156);
+            labelValue(graphics, "Availability / failures", "— / —", 174);
+            labelValue(graphics, "Overdue / dated outstanding", "— / —", 192);
+            safeText(graphics, "No authoritative world workcell/job/quality/reliability store is bound yet.", 16, 214, WARN);
+        }
+        safeText(graphics, "Observer-only • this page never dispatches jobs, changes maintenance, or moves material.", 16, 232, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
