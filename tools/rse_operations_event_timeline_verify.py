@@ -95,7 +95,6 @@ registry = read("src/main/java/dev/redstoneengineering/gametest/RseGameTestRegis
 if registry and "event.register(RseOperationsTimelineGameTests.class);" not in registry:
     errors.append("Operations timeline GameTests are not registered")
 
-# Industrial Operations authority foundation: scheduling must remain separate from observer KPIs.
 job = read("src/main/java/dev/redstoneengineering/operations/OperationJob.java")
 resource = read("src/main/java/dev/redstoneengineering/operations/OperationResourceSnapshot.java")
 dispatch = read("src/main/java/dev/redstoneengineering/operations/OperationDispatchRuntime.java")
@@ -149,6 +148,8 @@ for forbidden in (
 assignment = read("src/main/java/dev/redstoneengineering/operations/OperationAssignment.java")
 queue_snapshot = read("src/main/java/dev/redstoneengineering/operations/OperationQueueSnapshot.java")
 queue_runtime = read("src/main/java/dev/redstoneengineering/operations/OperationQueueRuntime.java")
+completion_evidence = read("src/main/java/dev/redstoneengineering/operations/OperationCompletionEvidence.java")
+completion_assessment = read("src/main/java/dev/redstoneengineering/operations/OperationCompletionAssessment.java")
 for token in (
     "record OperationAssignment(",
     "OperationJob job",
@@ -170,14 +171,40 @@ for token in (
 for token in (
     "ENQUEUED",
     "ASSIGNED",
+    "COMPLETED",
     "QUEUE_CAPACITY_REACHED",
     "RESOURCE_ALREADY_ASSIGNED",
+    "ACTIVE_ASSIGNMENT_NOT_FOUND",
     "OperationDispatchRuntime.evaluate(",
+    "OperationCompletionAssessment.inspect(",
     "new OperationAssignment(",
-    "Completion is intentionally not modeled here",
+    "Active work is released only by explicit completion evidence",
 ):
     if queue_runtime and token not in queue_runtime:
-        errors.append(f"OperationQueueRuntime missing admission/assignment lifecycle {token!r}")
+        errors.append(f"OperationQueueRuntime missing admission/assignment/completion lifecycle {token!r}")
+for token in (
+    "record OperationCompletionEvidence(",
+    "completedQuantity",
+    "PortQuality evidenceQuality",
+    "processConfirmed",
+    "outputConfirmed",
+    "completionConfirmed",
+    "faultActive",
+):
+    if completion_evidence and token not in completion_evidence:
+        errors.append(f"OperationCompletionEvidence missing process evidence contract {token!r}")
+for token in (
+    "PROCESS_FAULT_ACTIVE",
+    "COMPLETION_JOB_MISMATCH",
+    "COMPLETION_RESOURCE_MISMATCH",
+    "PROCESS_NOT_CONFIRMED",
+    "OUTPUT_NOT_CONFIRMED",
+    "COMPLETION_NOT_CONFIRMED",
+    "COMPLETION_QUANTITY_MISMATCH",
+    "PROCESS_COMPLETE",
+):
+    if completion_assessment and token not in completion_assessment:
+        errors.append(f"OperationCompletionAssessment missing fail-closed completion rule {token!r}")
 for forbidden in (
     "UNLOAD_COMPLETE",
     "LOAD_COMPLETE",
@@ -188,7 +215,15 @@ for forbidden in (
     "RuntimeIntStore",
 ):
     if queue_runtime and forbidden in queue_runtime:
-        errors.append(f"Queue lifecycle must not fabricate process completion or consume observer KPIs; found {forbidden!r}")
+        errors.append(f"Queue lifecycle must not consume robotics completion or observer KPIs; found {forbidden!r}")
+for forbidden in (
+    "assignedTick() +",
+    "assignedTick() -",
+    "gameTick - assignment.assignedTick",
+    "System.currentTimeMillis",
+):
+    if queue_runtime and forbidden in queue_runtime:
+        errors.append(f"Queue completion must not be inferred from elapsed time; found {forbidden!r}")
 
 if errors:
     print("RSE operations event timeline verification: FAIL")
@@ -204,4 +239,5 @@ print(" dedicated observer-only Operations Monitor UI: PASS")
 print(" executable ordering + first-out GameTests: PASS")
 print(" authoritative FIFO/priority dispatch foundation: PASS")
 print(" bounded queued -> active assignment lifecycle: PASS")
-print(" dispatch remains independent of downstream KPI/dashboard observers: PASS")
+print(" evidence-bound active -> completed lifecycle: PASS")
+print(" dispatch/completion remain independent of downstream KPI observers and elapsed-time guesses: PASS")
