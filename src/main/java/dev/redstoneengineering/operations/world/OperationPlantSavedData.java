@@ -1,8 +1,10 @@
 package dev.redstoneengineering.operations.world;
 
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.operations.OperationBufferLot;
 import dev.redstoneengineering.operations.OperationBufferSnapshot;
 import dev.redstoneengineering.operations.OperationJob;
+import dev.redstoneengineering.operations.OperationResourceMaintenanceSnapshot;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -22,13 +24,14 @@ import java.util.Map;
 /** Server-owned persistent Operations plant identity, logical WIP and runtime evidence. */
 public final class OperationPlantSavedData extends SavedData {
     private static final String DATA_NAME = "rse_operations_plant";
-    private static final int RUNTIME_SCHEMA_VERSION = 1;
+    private static final int RUNTIME_SCHEMA_VERSION = 2;
     private static final int MAX_PLANT_EVENTS = 1024;
     private static final int MAX_TERMINAL_JOB_RECORDS = 2048;
 
     private final Map<String, OperationWorkcellBinding> workcells = new LinkedHashMap<>();
     private final Map<String, OperationBufferSnapshot> buffers = new LinkedHashMap<>();
     private final Map<String, OperationWorkcellBufferBinding> workcellBuffers = new LinkedHashMap<>();
+    private final Map<String, OperationResourceMaintenanceSnapshot> maintenanceSnapshots = new LinkedHashMap<>();
     private final Map<Long, OperationJobLifecycleRecord> jobs = new LinkedHashMap<>();
     private final List<OperationPlantEvent> plantEvents = new ArrayList<>();
     private long nextEventSequence;
@@ -112,6 +115,25 @@ public final class OperationPlantSavedData extends SavedData {
             if (!data.workcells.containsKey(binding.workcellId())) continue;
             if (!data.buffers.containsKey(binding.inputBufferId()) || !data.buffers.containsKey(binding.outputBufferId())) continue;
             data.workcellBuffers.putIfAbsent(binding.workcellId(), binding);
+        }
+
+        ListTag maintenanceTags = tag.getList("ResourceMaintenance", Tag.TAG_COMPOUND);
+        for (int index = 0; index < maintenanceTags.size(); index++) {
+            CompoundTag maintenanceTag = maintenanceTags.getCompound(index);
+            try {
+                String maintenanceId = maintenanceTag.getString("MaintenanceId");
+                if (maintenanceId.isBlank()) maintenanceId = null;
+                OperationResourceMaintenanceSnapshot snapshot = new OperationResourceMaintenanceSnapshot(
+                        maintenanceTag.getString("ResourceId"),
+                        OperationResourceMaintenanceSnapshot.State.valueOf(maintenanceTag.getString("State")),
+                        maintenanceId,
+                        PortQuality.valueOf(maintenanceTag.getString("EvidenceQuality")),
+                        maintenanceTag.getBoolean("FaultActive")
+                );
+                data.maintenanceSnapshots.putIfAbsent(snapshot.resourceId(), snapshot);
+            } catch (IllegalArgumentException ignored) {
+                // Corrupt maintenance evidence is isolated rather than inventing a production-ready state.
+            }
         }
 
         ListTag jobTags = tag.getList("RuntimeJobs", Tag.TAG_COMPOUND);
@@ -210,6 +232,18 @@ public final class OperationPlantSavedData extends SavedData {
             workcellBufferTags.add(bindingTag);
         }
         tag.put("WorkcellBuffers", workcellBufferTags);
+
+        ListTag maintenanceTags = new ListTag();
+        for (OperationResourceMaintenanceSnapshot snapshot : maintenanceSnapshots.values()) {
+            CompoundTag maintenanceTag = new CompoundTag();
+            maintenanceTag.putString("ResourceId", snapshot.resourceId());
+            maintenanceTag.putString("State", snapshot.state().name());
+            maintenanceTag.putString("MaintenanceId", snapshot.maintenanceId() == null ? "" : snapshot.maintenanceId());
+            maintenanceTag.putString("EvidenceQuality", snapshot.evidenceQuality().name());
+            maintenanceTag.putBoolean("FaultActive", snapshot.faultActive());
+            maintenanceTags.add(maintenanceTag);
+        }
+        tag.put("ResourceMaintenance", maintenanceTags);
 
         ListTag jobTags = new ListTag();
         for (OperationJobLifecycleRecord record : jobs.values()) {
@@ -323,6 +357,29 @@ public final class OperationPlantSavedData extends SavedData {
     public boolean removeWorkcellBufferBinding(String workcellId) {
         if (workcellId == null || workcellId.isBlank()) return false;
         if (workcellBuffers.remove(workcellId.trim()) == null) return false;
+        setDirty();
+        return true;
+    }
+
+    public Collection<OperationResourceMaintenanceSnapshot> maintenanceSnapshots() {
+        return List.copyOf(maintenanceSnapshots.values());
+    }
+
+    public OperationResourceMaintenanceSnapshot maintenanceSnapshot(String resourceId) {
+        if (resourceId == null || resourceId.isBlank()) return null;
+        return maintenanceSnapshots.get(resourceId.trim());
+    }
+
+    public boolean putMaintenanceSnapshot(OperationResourceMaintenanceSnapshot snapshot) {
+        if (snapshot == null) return false;
+        maintenanceSnapshots.put(snapshot.resourceId(), snapshot);
+        setDirty();
+        return true;
+    }
+
+    public boolean removeMaintenanceSnapshot(String resourceId) {
+        if (resourceId == null || resourceId.isBlank()) return false;
+        if (maintenanceSnapshots.remove(resourceId.trim()) == null) return false;
         setDirty();
         return true;
     }
