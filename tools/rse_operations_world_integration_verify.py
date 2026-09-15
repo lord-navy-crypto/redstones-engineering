@@ -68,6 +68,7 @@ for token in (
     "Map<String, OperationQueueSnapshot>", 'getList("RuntimeQueues", Tag.TAG_COMPOUND)',
     'tag.put("RuntimeQueues", queueTags)', "queues()", "queue(String queueId)",
     "putQueue(String queueId, OperationQueueSnapshot queue)", "removeQueue(String queueId)",
+    "queueJobsUniqueAcrossPlant", "jobExistsInOtherQueue", "queueContainsJob",
 ):
     if saved and token not in saved:
         errors.append(f"Plant SavedData missing server persistence contract {token!r}")
@@ -164,7 +165,8 @@ for token in (
     "create(", "enqueue(", "dispatch(", "complete(", "snapshot(",
     "OperationPlantSavedData.get(level)",
     "OperationQueueRuntime.enqueue(current, job)",
-    "OperationQueueRuntime.dispatch(current, resources, gameTick, policy)",
+    "maintenanceSnapshot(resource.resourceId())",
+    "OperationQueueRuntime.dispatchMaintenanceAware(",
     "OperationQueueRuntime.complete(current, evidence)",
     "data.putQueue(queueId, decision.nextState())",
     "OperationPlantRuntimeRecorder.recordQueueEnqueue(",
@@ -177,6 +179,7 @@ for token in (
 
 for forbidden in (
     "OperationDispatchRuntime.evaluate(",
+    "OperationMaintenanceAwareDispatchRuntime.evaluate(",
     "Comparator.comparing",
     "getEntitiesOfClass", "inflate(", "nearest", "closerThan",
     "setBlock(", "setDeltaMovement(", "RobotMission", "Minecraft.getInstance",
@@ -238,9 +241,10 @@ print(" Workcell Controller HMI exposes real input/output finite-capacity eviden
 print(" Workcell Controller physical redstone query direction: PASS")
 print(" persistent Industrial Buffer logical lot/WIP state: PASS")
 print(" persistent bounded queue + active assignment state: PASS")
+print(" plant-wide queued/active job identity uniqueness: PASS")
 print(" buffer receipt/allocation delegates to OperationBufferRuntime: PASS")
 print(" downstream release commits buffer + queue atomically before durable history: PASS")
-print(" world queue create/enqueue/dispatch/complete delegates to OperationQueueRuntime: PASS")
+print(" world queue create/enqueue/maintenance-aware dispatch/complete delegates to OperationQueueRuntime: PASS")
 print(" queue replacement + lifecycle/history commit rollback boundary: PASS")
 print(" explicit input/output buffer binding feeds real workcell capacity evidence: PASS")
 print(" Workcell Controller independent ranking/proximity discovery: NONE")
