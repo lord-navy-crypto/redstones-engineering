@@ -6,9 +6,11 @@ import dev.redstoneengineering.operations.OperationDispatchRuntime;
 import dev.redstoneengineering.operations.OperationJob;
 import dev.redstoneengineering.operations.OperationQueueRuntime;
 import dev.redstoneengineering.operations.OperationQueueSnapshot;
+import dev.redstoneengineering.operations.OperationResourceMaintenanceSnapshot;
 import dev.redstoneengineering.operations.OperationResourceSnapshot;
 import net.minecraft.server.level.ServerLevel;
 
+import java.util.ArrayList;
 import java.util.Collection;
 
 /**
@@ -132,7 +134,21 @@ public final class OperationQueueWorldState {
         OperationQueueSnapshot current = data.queue(queueId);
         if (current == null) return safeStop("QUEUE_NOT_FOUND", null);
 
-        OperationQueueRuntime.Decision decision = OperationQueueRuntime.dispatch(current, resources, gameTick, policy);
+        ArrayList<OperationResourceMaintenanceSnapshot> maintenanceStates = new ArrayList<>();
+        if (resources != null) {
+            for (OperationResourceSnapshot resource : resources) {
+                if (resource == null) continue;
+                OperationResourceMaintenanceSnapshot maintenance =
+                        data.maintenanceSnapshot(resource.resourceId());
+                if (maintenance == null) {
+                    return safeStop("MAINTENANCE_EVIDENCE_MISSING_FOR_RESOURCE", current);
+                }
+                maintenanceStates.add(maintenance);
+            }
+        }
+
+        OperationQueueRuntime.Decision decision = OperationQueueRuntime.dispatchMaintenanceAware(
+                current, resources, maintenanceStates, gameTick, policy);
         if (decision.verdict() != OperationQueueRuntime.Verdict.ASSIGNED) {
             return fromRuntime(decision);
         }
