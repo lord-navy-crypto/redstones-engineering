@@ -6,6 +6,8 @@ on:
     paths:
       - 'src/main/java/dev/redstoneengineering/operations/**'
       - 'src/main/java/dev/redstoneengineering/integration/**'
+      - 'src/main/java/dev/redstoneengineering/entity/EngineeringMobileRobotEntity.java'
+      - 'src/main/java/dev/redstoneengineering/gametest/RseAmrWorldLogisticsPersistenceGameTests.java'
       - 'src/main/java/dev/redstoneengineering/diagnostics/OperationBottleneckAssessment.java'
       - 'src/main/java/dev/redstoneengineering/diagnostics/OperationReliabilityPerformanceAssessment.java'
       - 'src/main/java/dev/redstoneengineering/diagnostics/OperationDueDateExposureAssessment.java'
@@ -28,6 +30,7 @@ on:
       - 'tools/rse_operations_reliability_verify.py'
       - 'tools/rse_operations_plant_view_verify.py'
       - 'tools/rse_operations_world_integration_verify.py'
+      - 'tools/rse_operations_amr_world_verify.py'
       - 'tools/rse_industrial_buffer_world_verify.py'
       - 'tools/rse_operations_binding_tool_verify.py'
       - 'tools/rse_operations_monitor_world_plant_verify.py'
@@ -37,6 +40,8 @@ on:
     paths:
       - 'src/main/java/dev/redstoneengineering/operations/**'
       - 'src/main/java/dev/redstoneengineering/integration/**'
+      - 'src/main/java/dev/redstoneengineering/entity/EngineeringMobileRobotEntity.java'
+      - 'src/main/java/dev/redstoneengineering/gametest/RseAmrWorldLogisticsPersistenceGameTests.java'
       - 'src/main/java/dev/redstoneengineering/diagnostics/OperationBottleneckAssessment.java'
       - 'src/main/java/dev/redstoneengineering/diagnostics/OperationReliabilityPerformanceAssessment.java'
       - 'src/main/java/dev/redstoneengineering/diagnostics/OperationDueDateExposureAssessment.java'
@@ -59,6 +64,7 @@ on:
       - 'tools/rse_operations_reliability_verify.py'
       - 'tools/rse_operations_plant_view_verify.py'
       - 'tools/rse_operations_world_integration_verify.py'
+      - 'tools/rse_operations_amr_world_verify.py'
       - 'tools/rse_industrial_buffer_world_verify.py'
       - 'tools/rse_operations_binding_tool_verify.py'
       - 'tools/rse_operations_monitor_world_plant_verify.py'
@@ -97,6 +103,8 @@ jobs:
         run: python3 tools/rse_operations_plant_view_verify.py
       - name: Verify world-facing Operations resource adapters
         run: python3 tools/rse_operations_world_integration_verify.py
+      - name: Verify AMR world logistics persistence
+        run: python3 tools/rse_operations_amr_world_verify.py
       - name: Verify Industrial Buffer world block
         run: python3 tools/rse_industrial_buffer_world_verify.py
       - name: Verify Operations binding tool
