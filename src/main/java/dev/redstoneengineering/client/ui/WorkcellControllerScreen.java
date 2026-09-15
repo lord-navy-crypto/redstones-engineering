@@ -65,21 +65,26 @@ public final class WorkcellControllerScreen extends EngineeringScreen<WorkcellCo
 
     private void renderDiagnostics(GuiGraphics graphics) {
         statusLine(graphics, "Resource evidence", menu.validResourceCount() + " / " + menu.boundResourceCount() + " VALID",
-                menu.validResourceCount() == menu.boundResourceCount() && menu.boundResourceCount() > 0 ? GOOD : WARN, 80);
-        statusLine(graphics, "Fault resources", Integer.toString(menu.faultResourceCount()), menu.faultResourceCount() > 0 ? BAD : GOOD, 100);
-        statusLine(graphics, "Capacity evidence", menu.capacityEvidenceAvailable() ? "VALID" : "INCOMPLETE", menu.capacityEvidenceAvailable() ? GOOD : WARN, 120);
-        labelValue(graphics, "Input pressure", menu.capacityEvidenceAvailable() ? menu.inputWipPressurePercent() + "%" : "—", 140);
-        labelValue(graphics, "Output pressure", menu.capacityEvidenceAvailable() ? menu.outputWipPressurePercent() + "%" : "—", 158);
-        statusLine(graphics, "PERMIT / HOLD", menu.admissionPermitted() ? "PERMIT" : "HOLD", admissionColor(), 178);
-        safeText(graphics, "Reason • " + menu.admissionReason(), 16, 202, admissionColor());
-        safeText(graphics, "SETUP and MAINTENANCE remain withheld until their world evidence is persisted.", 16, 222, MUTED);
+                menu.validResourceCount() == menu.boundResourceCount() && menu.boundResourceCount() > 0 ? GOOD : WARN, 76);
+        statusLine(graphics, "Fault resources", Integer.toString(menu.faultResourceCount()), menu.faultResourceCount() > 0 ? BAD : GOOD, 94);
+        statusLine(graphics, "Capacity evidence", menu.capacityEvidenceAvailable() ? "VALID" : "INCOMPLETE", menu.capacityEvidenceAvailable() ? GOOD : WARN, 112);
+        statusLine(graphics, "Maintenance evidence", menu.maintenanceEvidenceAvailable() ? "VALID" : "INCOMPLETE",
+                menu.maintenanceEvidenceAvailable() ? GOOD : WARN, 130);
+        labelValue(graphics, "READY / DUE / ACTIVE / FAULT",
+                menu.maintenanceReadyResources() + " / " + menu.maintenanceDueResources() + " / "
+                        + menu.maintenanceInProgressResources() + " / " + menu.maintenanceFaultResources(), 148);
+        labelValue(graphics, "Input / Output pressure", menu.capacityEvidenceAvailable()
+                ? menu.inputWipPressurePercent() + "% / " + menu.outputWipPressurePercent() + "%" : "—", 166);
+        statusLine(graphics, "PERMIT / HOLD", menu.admissionPermitted() ? "PERMIT" : "HOLD", admissionColor(), 184);
+        safeText(graphics, "Reason • " + menu.admissionReason(), 16, 204, admissionColor());
+        safeText(graphics, "SETUP remains withheld; MAINTENANCE uses persistent world snapshots.", 16, 222, MUTED);
     }
 
     private void renderHistory(GuiGraphics graphics) {
         statusBadge(graphics, "AUTHORITY BOUNDARY", INFO, 16, 82);
         safeText(graphics, "Controller stores no duplicate scheduler or bottleneck ranking.", 16, 108, TEXT);
         safeText(graphics, "Admission is delegated to OperationWorkcellAdmissionAssessment.", 16, 128, TEXT);
-        safeText(graphics, "Missing setup, maintenance, or buffer evidence remains unavailable.", 16, 148, TEXT);
+        safeText(graphics, "Maintenance readback is persistent; missing SETUP or buffer evidence stays unavailable.", 16, 148, TEXT);
         safeText(graphics, "Completed work still requires explicit completion evidence from the resource.", 16, 168, MUTED);
     }
 
