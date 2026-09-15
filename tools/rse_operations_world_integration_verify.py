@@ -64,6 +64,9 @@ for token in (
     "class OperationPlantSavedData", "extends SavedData", "computeIfAbsent", "overworld()", "setDirty()",
     "save(CompoundTag", "load(CompoundTag", "putWorkcell", "removeWorkcell", "workcells",
     "putBuffer", "removeBuffer", "buffers", "putWorkcellBufferBinding", "workcellBufferBinding", "WorkcellBuffers",
+    "Map<String, OperationQueueSnapshot>", 'getList("RuntimeQueues", Tag.TAG_COMPOUND)',
+    'tag.put("RuntimeQueues", queueTags)', "queues()", "queue(String queueId)",
+    "putQueue(String queueId, OperationQueueSnapshot queue)", "removeQueue(String queueId)",
 ):
     if saved and token not in saved:
         errors.append(f"Plant SavedData missing server persistence contract {token!r}")
@@ -146,6 +149,9 @@ for token in (
     "OperationMaterialReleaseRuntime.release",
     "OperationPlantSavedData.get",
     "data.putBuffer",
+    "data.putQueue(queueId, decision.nextQueue())",
+    "data.putBuffer(current)",
+    "data.putQueue(queueId, queue)",
     "BUFFER_CAPACITY_REACHED",
     "DUPLICATE_OUTPUT_RECEIPT",
 ):
@@ -172,7 +178,7 @@ for body, label in ((provider, "provider"), (snapshot, "snapshot"), (resolver, "
 for body, label in ((sequence, "SequenceControllerBlock"), (alarm, "AlarmProcessorBlock"), (watchdog, "WatchdogBlock"), (interlock, "SafetyInterlockBlock"), (fault_latch, "FaultLatchBlock"), (servo, "ServoActuatorBlock")):
     for forbidden in ("OperationDispatchRuntime", "OperationQueueRuntime", "OperationChangeoverRuntime", "OperationMaintenanceRuntime"):
         if body and forbidden in body:
-            errors.append(f"{label} must expose evidence only; found Operations authority {forbidden!r}")
+            errors.append(f"{label} must expose evidence only; found {forbidden!r}")
 
 for body, label in ((resolver, "World resource resolver"), (store, "Workcell store")):
     for forbidden in ("getEntitiesOfClass", "inflate(", "closerThan", "nearest"):
@@ -205,8 +211,9 @@ print(" Workcell Controller delegates dispatch/changeover/maintenance/capacity a
 print(" Workcell Controller HMI exposes real input/output finite-capacity evidence: PASS")
 print(" Workcell Controller physical redstone query direction: PASS")
 print(" persistent Industrial Buffer logical lot/WIP state: PASS")
+print(" persistent bounded queue + active assignment state: PASS")
 print(" buffer receipt/allocation delegates to OperationBufferRuntime: PASS")
-print(" downstream release delegates atomically to OperationMaterialReleaseRuntime: PASS")
+print(" downstream release commits buffer + queue atomically before durable history: PASS")
 print(" explicit input/output buffer binding feeds real workcell capacity evidence: PASS")
 print(" Workcell Controller independent ranking/proximity discovery: NONE")
 print(" Workcell UI scheduling/material mutation authority: NONE")
