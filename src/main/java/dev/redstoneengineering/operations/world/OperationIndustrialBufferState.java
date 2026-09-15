@@ -103,6 +103,10 @@ public final class OperationIndustrialBufferState {
     /**
      * Admit one transported, quality-cleared output only after identity and evidence match.
      * The pure OperationBufferRuntime owns duplicate/capacity/unload decisions.
+     *
+     * <p>A successful receipt is also the authoritative world boundary for completed logistics:
+     * mission/output/job identity and destination buffer are all known here, so the plant ledger
+     * can record delivery without polling the AMR entity or duplicating transport authority.</p>
      */
     public static Decision receiveQualityCleared(
             ServerLevel level,
@@ -126,7 +130,31 @@ public final class OperationIndustrialBufferState {
         OperationBufferSnapshot current = data.buffer(receipt.bufferId());
         if (current == null) return safeStop("BUFFER_NOT_FOUND", null);
         OperationBufferRuntime.Decision decision = OperationBufferRuntime.receive(current, receipt);
-        return applyReceipt(data, decision);
+        Decision applied = applyReceipt(data, decision);
+        if (applied.verdict() == Verdict.RECEIVED) {
+            OperationPlantRuntimeRecorder.recordLogisticsEvent(
+                    level,
+                    receipt.missionId(),
+                    receipt.outputId(),
+                    level.getGameTime(),
+                    "DELIVERED",
+                    "job=" + receipt.jobId()
+                            + " buffer=" + receipt.bufferId()
+                            + " units=" + receipt.units()
+                            + " unloadConfirmed=" + receipt.unloadConfirmed()
+            );
+            data.recordPlantEvent(
+                    OperationPlantEvent.Type.QUALITY,
+                    level.getGameTime(),
+                    "output:" + acceptedOutput.outputId(),
+                    acceptedOutput.jobId(),
+                    "QUALITY_CLEARED_RECEIPT units=" + acceptedOutput.units()
+                            + " evidence=" + acceptedOutput.evidenceQuality().name()
+                            + " completionConfirmed=" + acceptedOutput.completionConfirmed()
+                            + " materialReady=" + acceptedOutput.materialReady()
+            );
+        }
+        return applied;
     }
 
     /** Direct allocation remains owned by OperationBufferRuntime. */
