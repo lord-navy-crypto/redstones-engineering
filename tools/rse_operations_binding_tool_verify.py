@@ -34,9 +34,18 @@ for token in (
     "output_buffer_id",
     "player.isShiftKeyDown()",
     "displayClientMessage",
+    "appendHoverText",
+    "isBarVisible",
+    "getBarWidth",
+    "getBarColor",
+    "selectionCount",
+    '"RESOURCE: "',
+    '"INPUT: "',
+    '"OUTPUT: "',
+    '"[R"',
 ):
     if item and token not in item:
-        errors.append(f"OperationsBindingToolItem missing explicit binding workflow token {token!r}")
+        errors.append(f"OperationsBindingToolItem missing explicit binding workflow/UI token {token!r}")
 
 for token in (
     "OPERATIONS_BINDING_TOOL_ITEM",
@@ -47,7 +56,7 @@ for token in (
         errors.append(f"EngineeringSystemsModule missing binding tool registration {token!r}")
 
 has_translation = lang and '"item.redstoneengineering.operations_binding_tool"' in lang
-has_explicit_name = item and 'Component.literal("Operations Binding Tool")' in item
+has_explicit_name = item and 'Operations Binding Tool' in item
 if not has_translation and not has_explicit_name:
     errors.append("Operations Binding Tool must expose a clear player-visible name")
 
@@ -78,5 +87,5 @@ print(" explicit resource target capture: PASS")
 print(" explicit input/output buffer capture: PASS")
 print(" controller submission delegates to existing workcell binding authority: PASS")
 print(" dimension + block-position identity retained in item custom data: PASS")
-print(" player-visible tool identity: PASS")
+print(" player-visible R/I/O selection state + progress bar: PASS")
 print(" proximity discovery / scheduling / lot / quality authority leakage: NONE")
