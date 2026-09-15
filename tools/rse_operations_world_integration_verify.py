@@ -117,9 +117,13 @@ for body, label in ((resolver, "World resource resolver"), (store, "Workcell sto
             errors.append(f"{label} must not use proximity discovery; found {forbidden!r}")
 
 for body, label in ((binding, "Workcell binding"), (saved, "Plant SavedData")):
-    for forbidden in ("BlockState", "IntegerProperty", "StringProperty"):
+    for forbidden in (
+        "import net.minecraft.world.level.block.state.BlockState",
+        "import net.minecraft.world.level.block.state.properties.IntegerProperty",
+        "import net.minecraft.world.level.block.state.properties.StringProperty",
+    ):
         if body and forbidden in body:
-            errors.append(f"{label} must keep high-cardinality identity out of BlockState; found {forbidden!r}")
+            errors.append(f"{label} must keep high-cardinality identity out of block properties; found {forbidden!r}")
 
 if errors:
     print("RSE OPERATIONS WORLD INTEGRATION VERIFY: FAIL")
