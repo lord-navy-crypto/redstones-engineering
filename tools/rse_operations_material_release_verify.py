@@ -20,6 +20,8 @@ buffer_runtime = read("src/main/java/dev/redstoneengineering/operations/Operatio
 release_runtime = read("src/main/java/dev/redstoneengineering/operations/OperationMaterialReleaseRuntime.java")
 world_buffer = read("src/main/java/dev/redstoneengineering/operations/world/OperationIndustrialBufferState.java")
 plant_recorder = read("src/main/java/dev/redstoneengineering/operations/world/OperationPlantRuntimeRecorder.java")
+release_gametest = read("src/main/java/dev/redstoneengineering/gametest/RseMaterialReleasePersistenceGameTests.java")
+gametest_registration = read("src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java")
 
 for token in (
     "record OperationInputRequirement(",
@@ -103,6 +105,23 @@ for token in (
     if world_buffer and token not in world_buffer:
         errors.append(f"OperationIndustrialBufferState missing live release-to-history wiring {token!r}")
 
+for token in (
+    "class RseMaterialReleasePersistenceGameTests",
+    "liveMaterialReleasePersistsQueueHistoryAndWaitIsNonDestructive",
+    "OperationIndustrialBufferState.releaseMaterial(",
+    "OperationMaterialReleaseRuntime.Verdict.RELEASED",
+    "OperationMaterialReleaseRuntime.Verdict.WAIT",
+    "releasedBuffer.usedUnits() != 6",
+    "plant.jobLifecycle(blockedJobId) != null",
+    "queueEventsBeforeWait",
+    "MATERIAL_JOB_RELEASED",
+):
+    if release_gametest and token not in release_gametest:
+        errors.append(f"local material-release persistence GameTest missing regression contract {token!r}")
+
+if gametest_registration and "event.register(RseMaterialReleasePersistenceGameTests.class);" not in gametest_registration:
+    errors.append("local material-release persistence GameTest is not registered")
+
 for body, label in ((buffer_runtime, "OperationBufferRuntime"), (release_runtime, "OperationMaterialReleaseRuntime")):
     for forbidden in (
         "setBlock(",
@@ -137,4 +156,5 @@ print(" downstream job identity must match requirement: PASS")
 print(" queue admission failure rolls buffer state back: PASS")
 print(" successful release changes buffer and queue snapshots together: PASS")
 print(" successful world release writes durable queued job/history evidence: PASS")
+print(" local GameTest covers RELEASED persistence + WAIT non-destructive behavior: REGISTERED")
 print(" world/KPI/robotics authority leakage into pure runtimes: NONE")
