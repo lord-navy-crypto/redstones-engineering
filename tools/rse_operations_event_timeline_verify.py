@@ -146,6 +146,50 @@ for forbidden in (
     if dispatch and forbidden in dispatch:
         errors.append(f"Dispatch authority must remain pure and KPI-independent; found {forbidden!r}")
 
+assignment = read("src/main/java/dev/redstoneengineering/operations/OperationAssignment.java")
+queue_snapshot = read("src/main/java/dev/redstoneengineering/operations/OperationQueueSnapshot.java")
+queue_runtime = read("src/main/java/dev/redstoneengineering/operations/OperationQueueRuntime.java")
+for token in (
+    "record OperationAssignment(",
+    "OperationJob job",
+    "String resourceId",
+    "long assignedTick",
+):
+    if assignment and token not in assignment:
+        errors.append(f"OperationAssignment missing identity-bound assignment contract {token!r}")
+for token in (
+    "record OperationQueueSnapshot(",
+    "MAX_CAPACITY = 64",
+    "queued jobs exceed capacity",
+    "queued/active job identities must be unique",
+    "one resource cannot own multiple active assignments",
+    "int wip()",
+):
+    if queue_snapshot and token not in queue_snapshot:
+        errors.append(f"OperationQueueSnapshot missing bounded WIP contract {token!r}")
+for token in (
+    "ENQUEUED",
+    "ASSIGNED",
+    "QUEUE_CAPACITY_REACHED",
+    "RESOURCE_ALREADY_ASSIGNED",
+    "OperationDispatchRuntime.evaluate(",
+    "new OperationAssignment(",
+    "Completion is intentionally not modeled here",
+):
+    if queue_runtime and token not in queue_runtime:
+        errors.append(f"OperationQueueRuntime missing admission/assignment lifecycle {token!r}")
+for forbidden in (
+    "UNLOAD_COMPLETE",
+    "LOAD_COMPLETE",
+    "completeMission",
+    "OperationsDashboardSnapshot",
+    "IndustrialOperationsAssessment",
+    "setBlock(",
+    "RuntimeIntStore",
+):
+    if queue_runtime and forbidden in queue_runtime:
+        errors.append(f"Queue lifecycle must not fabricate process completion or consume observer KPIs; found {forbidden!r}")
+
 if errors:
     print("RSE operations event timeline verification: FAIL")
     for error in errors:
@@ -159,4 +203,5 @@ print(" first-out visible chronology mapping: PASS")
 print(" dedicated observer-only Operations Monitor UI: PASS")
 print(" executable ordering + first-out GameTests: PASS")
 print(" authoritative FIFO/priority dispatch foundation: PASS")
+print(" bounded queued -> active assignment lifecycle: PASS")
 print(" dispatch remains independent of downstream KPI/dashboard observers: PASS")
