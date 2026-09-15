@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "redstoneengineering:block/signal_analyzer_top"
+  }
+}
