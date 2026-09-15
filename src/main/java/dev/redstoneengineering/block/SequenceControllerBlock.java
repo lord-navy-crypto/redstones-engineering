@@ -10,6 +10,8 @@ import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.diagnostics.events.SystemEventKind;
 import dev.redstoneengineering.diagnostics.events.SystemEventTimeline;
+import dev.redstoneengineering.operations.world.OperationWorldResourceProvider;
+import dev.redstoneengineering.operations.world.OperationWorldResourceSnapshot;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
@@ -25,13 +27,15 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Four-step finite-state sequence controller.
  * BACK=RUN/ENABLE, LEFT=ADVANCE edge, RIGHT=RESET, UP=HOLD, FRONT=step code 0..4.
  */
-public class SequenceControllerBlock extends PassiveDirectionalSignalBlock {
+public class SequenceControllerBlock extends PassiveDirectionalSignalBlock implements OperationWorldResourceProvider {
     private static final String KEY = "sequence_controller";
     // [step, prevAdvance, prevRun, transitions, completedCycles, resets, holdTicks]
     private static final int RUNTIME_SIZE = 7;
@@ -79,6 +83,29 @@ public class SequenceControllerBlock extends PassiveDirectionalSignalBlock {
         int value = side == outputSide(state) ? state.getValue(OUTPUT) : readInputFrom(level, pos, side);
         PortQuality quality = side == outputSide(state) && value == 0 ? PortQuality.NO_SIGNAL : PortQuality.VALID;
         return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value, quality));
+    }
+
+    @Override
+    public OperationWorldResourceSnapshot operationResourceSnapshot(Level level, BlockPos pos, BlockState state) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        int step = step(level, pos);
+        int completedCycles = completedCycles(level, pos);
+        int transitions = transitions(level, pos);
+        PortQuality quality = runtime == null || runtime.length < RUNTIME_SIZE ? PortQuality.STALE : PortQuality.VALID;
+        return new OperationWorldResourceSnapshot(
+                "sequence_controller:" + pos.asLong(),
+                Set.of("sequence_control"),
+                true,
+                step > 0,
+                true,
+                false,
+                quality,
+                Map.of(
+                        "sequence_step", (long) step,
+                        "completed_cycles", (long) completedCycles,
+                        "transitions", (long) transitions
+                )
+        );
     }
 
     @Override
