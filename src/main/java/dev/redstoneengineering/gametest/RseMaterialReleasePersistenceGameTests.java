@@ -14,6 +14,7 @@ import dev.redstoneengineering.operations.world.OperationIndustrialBufferState;
 import dev.redstoneengineering.operations.world.OperationJobLifecycleRecord;
 import dev.redstoneengineering.operations.world.OperationPlantEvent;
 import dev.redstoneengineering.operations.world.OperationPlantSavedData;
+import dev.redstoneengineering.operations.world.OperationQueueWorldState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -49,8 +50,10 @@ public final class RseMaterialReleasePersistenceGameTests {
             }
 
             OperationPlantSavedData plant = OperationPlantSavedData.get(helper.getLevel());
-            if (!plant.putQueue(queueId, OperationQueueSnapshot.empty(1))) {
-                helper.fail("Could not create persistent downstream validation queue", bufferPos);
+            OperationQueueWorldState.Decision createdQueue = OperationQueueWorldState.create(
+                    helper.getLevel(), queueId, 1);
+            if (createdQueue.verdict() != OperationQueueWorldState.Verdict.CREATED) {
+                helper.fail("Could not create persistent downstream validation queue: " + createdQueue.reason(), bufferPos);
                 return;
             }
 
@@ -94,7 +97,7 @@ public final class RseMaterialReleasePersistenceGameTests {
                     releasedJob,
                     releasedRequirement
             );
-            OperationQueueSnapshot persistedQueue = plant.queue(queueId);
+            OperationQueueSnapshot persistedQueue = OperationQueueWorldState.snapshot(helper.getLevel(), queueId);
             if (released.verdict() != OperationMaterialReleaseRuntime.Verdict.RELEASED
                     || persistedQueue == null
                     || persistedQueue.queued().size() != 1
@@ -120,7 +123,7 @@ public final class RseMaterialReleasePersistenceGameTests {
 
             int unitsBeforeWait = releasedBuffer.usedUnits();
             int queueEventsBeforeWait = plant.plantEvents(OperationPlantEvent.Type.QUEUE).size();
-            OperationQueueSnapshot queueBeforeWait = plant.queue(queueId);
+            OperationQueueSnapshot queueBeforeWait = OperationQueueWorldState.snapshot(helper.getLevel(), queueId);
             OperationMaterialReleaseRuntime.Decision waitDecision = OperationIndustrialBufferState.releaseMaterial(
                     helper.getLevel(),
                     bufferId,
@@ -129,7 +132,7 @@ public final class RseMaterialReleasePersistenceGameTests {
                     blockedRequirement
             );
             var afterWaitBuffer = OperationIndustrialBufferState.snapshot(helper.getLevel(), bufferId);
-            OperationQueueSnapshot afterWaitQueue = plant.queue(queueId);
+            OperationQueueSnapshot afterWaitQueue = OperationQueueWorldState.snapshot(helper.getLevel(), queueId);
             if (waitDecision.verdict() != OperationMaterialReleaseRuntime.Verdict.WAIT
                     || afterWaitBuffer == null
                     || afterWaitBuffer.usedUnits() != unitsBeforeWait
