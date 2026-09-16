@@ -25,8 +25,9 @@ import java.util.Optional;
 /**
  * Phase-aware station evaluator for Mega Validation Factory v2.1.
  *
- * <p>Device health is intentionally separate from scenario verdict. A deliberately degraded
- * sensor can satisfy a fault-injection scenario while still being reported as DEGRADED.</p>
+ * <p>Device health is intentionally separate from scenario verdict. Deliberate scenario faults
+ * live in physical validation fixtures; a healthy DUT must not be reclassified as broken merely
+ * because the surrounding test channel is being fault-injected.</p>
  */
 public final class RseMegaStationEvaluator {
     public static final long PROPAGATION_TIMEOUT_TICKS = 600L;
@@ -85,8 +86,11 @@ public final class RseMegaStationEvaluator {
             case 1 -> evaluateReference(level, station, pos, state);
             case 5 -> evaluateAnalyzer(level, station, pos, phaseAge);
             case 6 -> evaluateQuartzOscillator(level, station, pos, state, phaseAge);
+            case 10 -> evaluateSelectedInputs(level, station, pos, state, phaseAge, "COMMAND IN");
+            case 36 -> evaluateSelectedInputs(level, station, pos, state, phaseAge,
+                    "SETPOINT IN", "PROCESS VALUE IN");
             case 37 -> evaluateServo(level, station, pos, phase);
-            case 38 -> evaluatePositionSensor(level, station, pos, state, phase, phaseAge);
+            case 38 -> evaluatePositionSensor(level, station, pos, state, phaseAge);
             case 39 -> evaluateInterlock(level, station, pos, state, phase, phaseAge);
             case 40 -> evaluateAlarm(level, station, pos, state, phase);
             default -> evaluateGenericPorts(level, station, pos, state, phase, phaseAge);
@@ -155,6 +159,55 @@ public final class RseMegaStationEvaluator {
                         + evidence.lastHalfInterval() + "t jitter=" + evidence.lastJitterOffset() + "t");
     }
 
+    /**
+     * Evaluate only the physically required process inputs. Optional operator/safety ports such as
+     * PWM inhibit and PID manual/mode inputs may legitimately be left at their inactive state.
+     */
+    private static StationEvaluation evaluateSelectedInputs(
+            ServerLevel level,
+            RseMegaValidationTopology.Station station,
+            BlockPos pos,
+            BlockState state,
+            long phaseAge,
+            String... requiredLabels
+    ) {
+        if (!(state.getBlock() instanceof EngineeringPortProvider provider)) {
+            return failed(station, pos, "PORT_PROVIDER_MISSING", PortQuality.TOPOLOGY_ERROR,
+                    "required-input evaluator has no engineering port provider");
+        }
+        ArrayList<String> evidence = new ArrayList<>();
+        for (String label : requiredLabels) {
+            EngineeringPort port = provider.engineeringPorts(state).stream()
+                    .filter(candidate -> candidate.label().equals(label))
+                    .findFirst().orElse(null);
+            if (port == null) {
+                return failed(station, pos, "REQUIRED_PORT_MISSING", PortQuality.TOPOLOGY_ERROR,
+                        "required port missing: " + label);
+            }
+            Optional<EngineeringPortSnapshot> optional = provider.engineeringSnapshot(level, pos, state, port.side());
+            if (optional.isEmpty()) {
+                return phaseAge < PROPAGATION_TIMEOUT_TICKS
+                        ? pending(station, pos, "REQUIRED_INPUT_PENDING", PortQuality.STALE,
+                        "required input has no snapshot: " + label)
+                        : failed(station, pos, "REQUIRED_INPUT_NO_SNAPSHOT", PortQuality.NO_SIGNAL,
+                        "required input has no snapshot: " + label);
+            }
+            EngineeringPortSnapshot snapshot = optional.get();
+            QualityDecision decision = decideQuality(snapshot.quality(), false, phaseAge);
+            evidence.add(label + "=" + Math.round(snapshot.value()) + "/" + snapshot.quality());
+            if (decision.verdict() == RseValidationSelfTestService.Verdict.FAIL) {
+                return failed(station, pos, decision.reason(), snapshot.quality(),
+                        "required input " + String.join(";", evidence));
+            }
+            if (decision.verdict() == RseValidationSelfTestService.Verdict.WAIT) {
+                return pending(station, pos, decision.reason(), snapshot.quality(),
+                        "required input " + String.join(";", evidence));
+            }
+        }
+        return healthy(station, pos, "REQUIRED_INPUTS_VALID", PortQuality.VALID,
+                "required inputs: " + String.join(";", evidence));
+    }
+
     private static StationEvaluation evaluateServo(
             ServerLevel level,
             RseMegaValidationTopology.Station station,
@@ -169,8 +222,7 @@ public final class RseMegaStationEvaluator {
                     "servo command=" + command + " position=" + position + " brake=" + braking);
         }
 
-        boolean brakeExpected = phase == RseMegaValidationService.Phase.SENSOR_FAULT
-                || phase == RseMegaValidationService.Phase.ACTUATOR_FAULT
+        boolean brakeExpected = phase == RseMegaValidationService.Phase.ACTUATOR_FAULT
                 || phase == RseMegaValidationService.Phase.INTERLOCK_TRIP
                 || phase == RseMegaValidationService.Phase.SAFE_STATE;
         if (braking && !brakeExpected) {
@@ -194,7 +246,6 @@ public final class RseMegaStationEvaluator {
             RseMegaValidationTopology.Station station,
             BlockPos pos,
             BlockState state,
-            RseMegaValidationService.Phase phase,
             long phaseAge
     ) {
         if (!(state.getBlock() instanceof ServoPositionSensorBlock)) {
@@ -202,10 +253,9 @@ public final class RseMegaStationEvaluator {
                     "position sensor class mismatch");
         }
         PortQuality quality = ServoPositionSensorBlock.sourceQuality(level, pos, state);
-        boolean expectedSensorFault = phase == RseMegaValidationService.Phase.SENSOR_FAULT;
-        QualityDecision decision = decideQuality(quality, expectedSensorFault, phaseAge);
+        QualityDecision decision = decideQuality(quality, false, phaseAge);
         String reason = decision.reason();
-        if (quality == PortQuality.NO_SIGNAL && !expectedSensorFault) reason = "POSITION_FEEDBACK_NO_SIGNAL";
+        if (quality == PortQuality.NO_SIGNAL) reason = "POSITION_FEEDBACK_NO_SIGNAL";
         return evaluation(station, pos, decision.health(), decision.verdict(), reason, quality,
                 "position-sensor sourceQuality=" + quality);
     }
@@ -226,8 +276,7 @@ public final class RseMegaStationEvaluator {
                     : failed(station, pos, "INTERLOCK_RUNTIME_UNAVAILABLE", PortQuality.FAULT,
                     "interlock runtime unavailable");
         }
-        boolean tripExpected = phase == RseMegaValidationService.Phase.SENSOR_FAULT
-                || phase == RseMegaValidationService.Phase.INTERLOCK_TRIP
+        boolean tripExpected = phase == RseMegaValidationService.Phase.INTERLOCK_TRIP
                 || phase == RseMegaValidationService.Phase.SAFE_STATE;
         int output = outputOrMinusOne(state);
         if (!tripExpected && mask != 0) {
