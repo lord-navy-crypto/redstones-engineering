@@ -47,7 +47,7 @@ public final class RseValidationSystemsSelfTestService {
 
         if (phase == 0) {
             if (mask != 0 || output != 15) return fail("baseline permit expected mask=0 output=15; got mask=" + mask + " output=" + output);
-            RseValidationSelfTestService.Evaluation indicator = indicator(level, indicatorPos, 15);
+            RseValidationSelfTestService.Evaluation indicator = indicator(level, indicatorPos, 15, PortQuality.VALID);
             if (indicator.verdict() != RseValidationSelfTestService.Verdict.PASS) return indicator;
             if (!setReferencePower(level, permissiveB, 0)) return fail("could not drop permissive B");
             RseValidationSelfTestSavedData.get(level).advanceStep(placement.testId());
@@ -56,7 +56,7 @@ public final class RseValidationSystemsSelfTestService {
 
         if (phase == 1) {
             if (mask != 2 || output != 0) return fail("trip expected failedMask=2 output=0; got mask=" + mask + " output=" + output);
-            RseValidationSelfTestService.Evaluation indicator = indicator(level, indicatorPos, 0);
+            RseValidationSelfTestService.Evaluation indicator = indicator(level, indicatorPos, 0, PortQuality.NO_SIGNAL);
             if (indicator.verdict() != RseValidationSelfTestService.Verdict.PASS) return indicator;
             if (!setReferencePower(level, permissiveB, 15)) return fail("could not restore permissive B");
             RseValidationSelfTestSavedData.get(level).advanceStep(placement.testId());
@@ -64,7 +64,7 @@ public final class RseValidationSystemsSelfTestService {
         }
 
         if (mask != 0 || output != 15) return fail("restored permit expected mask=0 output=15; got mask=" + mask + " output=" + output);
-        RseValidationSelfTestService.Evaluation indicator = indicator(level, indicatorPos, 15);
+        RseValidationSelfTestService.Evaluation indicator = indicator(level, indicatorPos, 15, PortQuality.VALID);
         return indicator.verdict() == RseValidationSelfTestService.Verdict.PASS
                 ? pass("baseline permit → B trip(mask=2) → permit restored")
                 : indicator;
@@ -86,7 +86,7 @@ public final class RseValidationSystemsSelfTestService {
             if (FaultInjectorBlock.active(level, dut)) return fail("fault injector unexpectedly active at baseline");
             int output = state.getValue(DirectionalSignalBlock.OUTPUT);
             if (output != 6) return fail("unarmed passthrough expected 6, got " + output);
-            RseValidationSelfTestService.Evaluation indicator = indicator(level, indicatorPos, 6);
+            RseValidationSelfTestService.Evaluation indicator = indicator(level, indicatorPos, 6, PortQuality.VALID);
             if (indicator.verdict() != RseValidationSelfTestService.Verdict.PASS) return indicator;
             if (!setReferencePower(level, arm, 15)) return fail("could not arm validation fault");
             RseValidationSelfTestSavedData.get(level).advanceStep(placement.testId());
@@ -103,7 +103,7 @@ public final class RseValidationSystemsSelfTestService {
         if (snapshot == null || snapshot.quality() != PortQuality.FAULT || Math.round(snapshot.value()) != 10) {
             return fail("faulted output evidence expected 10/FAULT");
         }
-        RseValidationSelfTestService.Evaluation indicator = indicator(level, indicatorPos, 10);
+        RseValidationSelfTestService.Evaluation indicator = indicator(level, indicatorPos, 10, PortQuality.FAULT);
         return indicator.verdict() == RseValidationSelfTestService.Verdict.PASS
                 ? pass("unarmed 6 passthrough → armed BIAS+4 = 10 with FAULT quality")
                 : indicator;
@@ -126,6 +126,8 @@ public final class RseValidationSystemsSelfTestService {
 
         if (phase == 0) {
             if (AlarmProcessorBlock.latched(level, dut) || output != 0) return fail("alarm baseline must be clear");
+            RseValidationSelfTestService.Evaluation clear = indicator(level, indicatorPos, 0, PortQuality.NO_SIGNAL);
+            if (clear.verdict() != RseValidationSelfTestService.Verdict.PASS) return clear;
             if (!setReferencePower(level, condition, 15)) return fail("could not raise alarm condition");
             RseValidationSelfTestSavedData.get(level).advanceStep(placement.testId());
             return waitFor("healthy baseline PASS; alarm condition raised");
@@ -135,6 +137,8 @@ public final class RseValidationSystemsSelfTestService {
             if (!AlarmProcessorBlock.latched(level, dut) || !AlarmProcessorBlock.unacknowledged(level, dut) || output != 10) {
                 return fail("raised severity-2 alarm must be latched/unacknowledged/output10");
             }
+            RseValidationSelfTestService.Evaluation active = indicator(level, indicatorPos, 10, PortQuality.FAULT);
+            if (active.verdict() != RseValidationSelfTestService.Verdict.PASS) return active;
             if (!setReferencePower(level, condition, 0)) return fail("could not clear alarm condition");
             RseValidationSelfTestSavedData.get(level).advanceStep(placement.testId());
             return waitFor("alarm latched PASS; condition cleared to test memory");
@@ -161,20 +165,27 @@ public final class RseValidationSystemsSelfTestService {
 
         if (AlarmProcessorBlock.latched(level, dut) || output != 0) return fail("healthy RESET did not clear alarm latch");
         if (AlarmProcessorBlock.activationCount(level, dut) <= 0) return fail("alarm activation evidence missing");
-        RseValidationSelfTestService.Evaluation indicator = indicator(level, indicatorPos, 0);
+        RseValidationSelfTestService.Evaluation indicator = indicator(level, indicatorPos, 0, PortQuality.NO_SIGNAL);
         return indicator.verdict() == RseValidationSelfTestService.Verdict.PASS
                 ? pass("raise → latch after healthy → ACK → RESET clear lifecycle complete")
                 : indicator;
     }
 
-    private static RseValidationSelfTestService.Evaluation indicator(ServerLevel level, BlockPos pos, int expected) {
+    private static RseValidationSelfTestService.Evaluation indicator(
+            ServerLevel level,
+            BlockPos pos,
+            int expected,
+            PortQuality expectedQuality
+    ) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof AnalogIndicatorBlock indicator)) return fail("analog indicator missing");
         AnalogIndicatorBlock.InputObservation observation = indicator.inputObservation(level, pos, state);
         if (observation.quality() == PortQuality.STALE) return waitFor("indicator evidence STALE");
-        if (observation.quality() != PortQuality.VALID) return fail("indicator quality=" + observation.quality());
+        if (observation.quality() != expectedQuality) {
+            return fail("indicator quality=" + observation.quality() + " expected=" + expectedQuality);
+        }
         if (observation.value() != expected) return fail("indicator=" + observation.value() + " expected=" + expected);
-        return pass("indicator=" + expected + "/VALID");
+        return pass("indicator=" + expected + "/" + expectedQuality);
     }
 
     private static boolean setReferencePower(ServerLevel level, BlockPos pos, int power) {
