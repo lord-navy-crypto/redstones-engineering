@@ -40,6 +40,10 @@ PACKAGE_PATH = ROOT / "build/validation/RSE-Validation-Factory.zip"
 DATA_VERSION = 3955  # Minecraft 1.21.1; matches the repository's existing empty5x4x5 template.
 ARCHIVE_ROOT = Path("RSE Validation Factory")
 
+BlockSpec = str | tuple[str, dict[str, str]]
+Placement = tuple[tuple[int, int, int], BlockSpec]
+PaletteKey = tuple[str, tuple[tuple[str, str], ...]]
+
 EXPECTED_STRUCTURES = (
     "material_release",
     "queue_dispatch",
@@ -91,6 +95,10 @@ def _compound_payload(entries: list[bytes]) -> bytes:
     return b"".join(entries) + bytes([TAG_END])
 
 
+def _named_compound(name: str, entries: list[bytes]) -> bytes:
+    return bytes([TAG_COMPOUND]) + _name(name) + _compound_payload(entries)
+
+
 def _list_of_compounds_payload(compounds: list[bytes]) -> bytes:
     return bytes([TAG_COMPOUND]) + _i32(len(compounds)) + b"".join(compounds)
 
@@ -99,8 +107,26 @@ def _named_compound_list(name: str, compounds: list[bytes]) -> bytes:
     return bytes([TAG_LIST]) + _name(name) + _list_of_compounds_payload(compounds)
 
 
-def _palette_entry(block_id: str) -> bytes:
-    return _compound_payload([_named_string("Name", block_id)])
+def _normalize_block_spec(block: BlockSpec) -> PaletteKey:
+    if isinstance(block, str):
+        return block, ()
+    block_id, properties = block
+    return block_id, tuple(sorted((str(key), str(value)) for key, value in properties.items()))
+
+
+def _block_name(block: BlockSpec) -> str:
+    return _normalize_block_spec(block)[0]
+
+
+def _palette_entry(block: PaletteKey) -> bytes:
+    block_id, properties = block
+    entries = [_named_string("Name", block_id)]
+    if properties:
+        entries.append(_named_compound(
+            "Properties",
+            [_named_string(key, value) for key, value in properties],
+        ))
+    return _compound_payload(entries)
 
 
 def _block_entry(x: int, y: int, z: int, state: int) -> bytes:
@@ -110,47 +136,45 @@ def _block_entry(x: int, y: int, z: int, state: int) -> bytes:
     ])
 
 
-def _structure_bytes(size: tuple[int, int, int], placements: list[tuple[tuple[int, int, int], str]]) -> bytes:
-    palette: list[str] = []
-    palette_index: dict[str, int] = {}
+def _structure_bytes(size: tuple[int, int, int], placements: list[Placement]) -> bytes:
+    palette: list[PaletteKey] = []
+    palette_index: dict[PaletteKey, int] = {}
     blocks: list[bytes] = []
     seen: set[tuple[int, int, int]] = set()
-    for (x, y, z), block_id in placements:
+    for (x, y, z), block in placements:
         position = (x, y, z)
         if position in seen:
             raise ValueError(f"duplicate structure block position: {position}")
         seen.add(position)
-        if block_id not in palette_index:
-            palette_index[block_id] = len(palette)
-            palette.append(block_id)
-        blocks.append(_block_entry(x, y, z, palette_index[block_id]))
+        key = _normalize_block_spec(block)
+        if key not in palette_index:
+            palette_index[key] = len(palette)
+            palette.append(key)
+        blocks.append(_block_entry(x, y, z, palette_index[key]))
 
     root_payload = _compound_payload([
         _named_int("DataVersion", DATA_VERSION),
         _named_int_list("size", list(size)),
-        _named_compound_list("palette", [_palette_entry(block_id) for block_id in palette]),
+        _named_compound_list("palette", [_palette_entry(block) for block in palette]),
         _named_compound_list("blocks", blocks),
         _named_compound_list("entities", []),
     ])
     return bytes([TAG_COMPOUND]) + _u16(0) + root_payload
 
 
-def _floor(width: int, depth: int, block_id: str = "minecraft:smooth_stone") -> list[tuple[tuple[int, int, int], str]]:
+def _floor(width: int, depth: int, block_id: BlockSpec = "minecraft:smooth_stone") -> list[Placement]:
     return [((x, 0, z), block_id) for x in range(width) for z in range(depth)]
 
 
-def _overlay(
-    placements: list[tuple[tuple[int, int, int], str]],
-    additions: list[tuple[tuple[int, int, int], str]],
-) -> list[tuple[tuple[int, int, int], str]]:
-    by_position: dict[tuple[int, int, int], str] = {position: block_id for position, block_id in placements}
+def _overlay(placements: list[Placement], additions: list[Placement]) -> list[Placement]:
+    by_position: dict[tuple[int, int, int], BlockSpec] = {position: block_id for position, block_id in placements}
     for position, block_id in additions:
         by_position[position] = block_id
     return [(position, by_position[position]) for position in sorted(by_position)]
 
 
-def _border(width: int, depth: int, block_id: str) -> list[tuple[tuple[int, int, int], str]]:
-    placements: list[tuple[tuple[int, int, int], str]] = []
+def _border(width: int, depth: int, block_id: BlockSpec) -> list[Placement]:
+    placements: list[Placement] = []
     for x in range(width):
         placements.append(((x, 0, 0), block_id))
         placements.append(((x, 0, depth - 1), block_id))
@@ -160,7 +184,7 @@ def _border(width: int, depth: int, block_id: str) -> list[tuple[tuple[int, int,
     return placements
 
 
-def _station_base(width: int, depth: int, marker: str) -> list[tuple[tuple[int, int, int], str]]:
+def _station_base(width: int, depth: int, marker: BlockSpec) -> list[Placement]:
     placements = _overlay(_floor(width, depth), _border(width, depth, marker))
     return _overlay(placements, [
         ((1, 1, 1), "minecraft:sea_lantern"),
@@ -247,7 +271,7 @@ def _operations_monitor():
 def _full_factory():
     width, depth = 48, 48
     p = _overlay(_floor(width, depth, "minecraft:light_gray_concrete"), _border(width, depth, "minecraft:black_concrete"))
-    aisle: list[tuple[tuple[int, int, int], str]] = []
+    aisle: list[Placement] = []
     for x in range(2, width - 2):
         aisle.append(((x, 1, 23), "minecraft:white_concrete"))
         aisle.append(((x, 1, 24), "minecraft:white_concrete"))
@@ -272,7 +296,7 @@ STRUCTURES = {
 }
 
 
-def _write_structure(path: Path, size: tuple[int, int, int], placements: list[tuple[tuple[int, int, int], str]]) -> None:
+def _write_structure(path: Path, size: tuple[int, int, int], placements: list[Placement]) -> None:
     payload = _structure_bytes(size, placements)
     compressed = gzip.compress(payload, compresslevel=9, mtime=0)
     path.parent.mkdir(parents=True, exist_ok=True)
