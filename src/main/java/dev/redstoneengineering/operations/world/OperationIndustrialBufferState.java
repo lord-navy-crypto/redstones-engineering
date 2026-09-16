@@ -132,17 +132,39 @@ public final class OperationIndustrialBufferState {
         OperationBufferRuntime.Decision decision = OperationBufferRuntime.receive(current, receipt);
         Decision applied = applyReceipt(data, decision);
         if (applied.verdict() == Verdict.RECEIVED) {
-            OperationPlantRuntimeRecorder.recordLogisticsEvent(
-                    level,
-                    receipt.missionId(),
-                    receipt.outputId(),
-                    level.getGameTime(),
-                    "DELIVERED",
-                    "job=" + receipt.jobId()
-                            + " buffer=" + receipt.bufferId()
-                            + " units=" + receipt.units()
-                            + " unloadConfirmed=" + receipt.unloadConfirmed()
-            );
+            OperationTransportRuntimeRecord tracked = data.transportRecord(receipt.missionId());
+            if (tracked != null) {
+                OperationRobotTransportWorldState.Decision delivered = OperationRobotTransportWorldState.markDelivered(
+                        level,
+                        receipt.missionId(),
+                        receipt.outputId(),
+                        receipt.jobId(),
+                        level.getGameTime()
+                );
+                if (delivered.verdict() != OperationRobotTransportWorldState.Verdict.DELIVERED) {
+                    if (!data.putBuffer(current)) {
+                        throw new IllegalStateException("TRANSPORT_DELIVERY_REJECTED_AND_BUFFER_ROLLBACK_FAILED");
+                    }
+                    return switch (delivered.verdict()) {
+                        case WAIT -> waitFor(delivered.reason(), current);
+                        case FAULT -> fault(delivered.reason(), current);
+                        default -> safeStop(delivered.reason(), current);
+                    };
+                }
+            } else {
+                // Compatibility path for receipts created before persistent transport tracking.
+                OperationPlantRuntimeRecorder.recordLogisticsEvent(
+                        level,
+                        receipt.missionId(),
+                        receipt.outputId(),
+                        receipt.jobId(),
+                        level.getGameTime(),
+                        "DELIVERED",
+                        "buffer=" + receipt.bufferId()
+                                + " units=" + receipt.units()
+                                + " unloadConfirmed=" + receipt.unloadConfirmed()
+                );
+            }
             data.recordPlantEvent(
                     OperationPlantEvent.Type.QUALITY,
                     level.getGameTime(),
