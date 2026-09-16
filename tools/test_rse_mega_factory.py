@@ -50,6 +50,9 @@ class MegaValidationFactoryTests(unittest.TestCase):
     def _block_id(self, block: factory.BlockSpec) -> str:
         return factory._normalize_block_spec(block)[0]
 
+    def _props(self, block: factory.BlockSpec) -> dict[str, str]:
+        return factory._normalize_block_spec(block)[1]
+
     def _sign_lines(self, block: factory.BlockSpec) -> tuple[str, ...]:
         nbt = factory._block_nbt(block)
         self.assertIsNotNone(nbt)
@@ -57,6 +60,14 @@ class MegaValidationFactoryTests(unittest.TestCase):
 
     def _signs(self, placements: list[factory.Placement]) -> list[tuple[str, ...]]:
         return [self._sign_lines(block) for _pos, block in placements if self._block_id(block).endswith("_sign")]
+
+    def _cell_by_pos(self, cell: str) -> dict[tuple[int, int, int], factory.BlockSpec]:
+        module_id = mega.CELL_DEFINITIONS[cell][0]
+        _size, placements = mega.MEGA_STRUCTURES[module_id]()
+        return dict(placements)
+
+    def _station(self, number: int):
+        return next(station for station in mega.MEGA_STATIONS if station.number == number)
 
     def test_exactly_forty_unique_stations_grouped_five_per_cell(self) -> None:
         self.assertEqual(len(mega.MEGA_STATIONS), 40)
@@ -166,6 +177,110 @@ class MegaValidationFactoryTests(unittest.TestCase):
         ))
         for dut in EXPECTED_DUTS:
             self.assertRegex(registry, rf'BLOCKS\.registerBlock\(\s*"{re.escape(dut)}"', dut)
+
+    def test_digital_cell_uses_real_bus_and_serial_media(self) -> None:
+        by_pos = self._cell_by_pos("D")
+        for station, facing, input_facing in ((16, "east", "west"), (18, "east", "west"), (20, "east", "west")):
+            props = self._props(by_pos[self._station(station).dut_pos])
+            self.assertEqual(props.get("facing"), facing)
+            self.assertEqual(props.get("input_facing"), input_facing)
+        for pos in ((4, 1, 12), (8, 1, 12), (10, 1, 12), (14, 1, 12), (28, 1, 12)):
+            self.assertEqual(self._block_id(by_pos[pos]), "redstoneengineering:eight_bit_data_bus", pos)
+        for pos in ((16, 1, 12), (20, 1, 12), (22, 1, 12), (26, 1, 12)):
+            self.assertEqual(self._block_id(by_pos[pos]), "redstoneengineering:serial_data_line", pos)
+
+    def test_robust_comms_cell_has_real_differential_serial_and_heartbeat_paths(self) -> None:
+        by_pos = self._cell_by_pos("E")
+        for station in (21, 23, 24, 25):
+            props = self._props(by_pos[self._station(station).dut_pos])
+            self.assertEqual(props.get("facing"), "east", station)
+            self.assertEqual(props.get("input_facing"), "west", station)
+        self.assertEqual(self._block_id(by_pos[(4, 1, 12)]), "redstoneengineering:differential_data_pair")
+        self.assertEqual(self._block_id(by_pos[(20, 1, 12)]), "redstoneengineering:differential_data_pair")
+        self.assertEqual(self._block_id(by_pos[(14, 1, 12)]), "redstoneengineering:serial_data_line")
+        self.assertEqual(self._block_id(by_pos[(16, 1, 12)]), "redstoneengineering:serial_data_line")
+        for x in range(22, 27):
+            self.assertEqual(self._block_id(by_pos[(x, 1, 12)]), "redstoneengineering:redstone_signal_cable", x)
+        self.assertTrue(any(self._block_id(block) == "redstoneengineering:serializer" for block in by_pos.values()))
+        self.assertTrue(any(self._block_id(block) == "redstoneengineering:deserializer" for block in by_pos.values()))
+
+    def test_optical_cell_is_one_real_carrier_path_with_splitter_branch(self) -> None:
+        by_pos = self._cell_by_pos("F")
+        for pos in ((4, 1, 12), (8, 1, 12), (10, 1, 12), (14, 1, 12),
+                    (16, 1, 12), (20, 1, 12), (22, 1, 12), (26, 1, 12), (15, 1, 11)):
+            self.assertEqual(self._block_id(by_pos[pos]), "redstoneengineering:optical_fiber", pos)
+        splitter = self._props(by_pos[self._station(28).dut_pos])
+        optical_filter = self._props(by_pos[self._station(29).dut_pos])
+        self.assertEqual((splitter.get("facing"), splitter.get("input_facing")), ("east", "west"))
+        self.assertEqual((optical_filter.get("facing"), optical_filter.get("input_facing")), ("east", "west"))
+        self.assertEqual(optical_filter.get("target"), "0")
+        self.assertEqual(self._block_id(by_pos[(15, 1, 10)]), "redstoneengineering:optical_receiver")
+
+    def test_pneumatic_cell_has_commanded_compressor_and_continuous_pressure_path(self) -> None:
+        by_pos = self._cell_by_pos("G")
+        self.assertEqual(self._block_id(by_pos[(3, 0, 12)]), "minecraft:redstone_block")
+        self.assertEqual(self._block_id(by_pos[(3, 2, 12)]), "redstoneengineering:pneumatic_pipe")
+        self.assertEqual(self._block_id(by_pos[(9, 2, 12)]), "redstoneengineering:pneumatic_pipe")
+        for x in tuple(range(10, 15)) + tuple(range(16, 21)) + tuple(range(22, 27)):
+            self.assertEqual(self._block_id(by_pos[(x, 1, 12)]), "redstoneengineering:pneumatic_pipe", x)
+        for station in (33, 34, 35):
+            props = self._props(by_pos[self._station(station).dut_pos])
+            self.assertEqual((props.get("facing"), props.get("input_facing")), ("east", "west"), station)
+        self.assertEqual(self._block_id(by_pos[(21, 2, 12)]), "minecraft:redstone_block")
+
+    def test_h_cell_closes_pid_servo_sensor_mechanical_loop(self) -> None:
+        by_pos = self._cell_by_pos("H")
+        servo = self._station(37)
+        sensor = self._station(38)
+        self.assertEqual(sum(abs(a - b) for a, b in zip(servo.dut_pos, sensor.dut_pos)), 1)
+        servo_props = self._props(by_pos[servo.dut_pos])
+        sensor_props = self._props(by_pos[sensor.dut_pos])
+        self.assertEqual(servo_props.get("facing"), "east")
+        self.assertEqual(sensor_props.get("input_facing"), "west")
+        self.assertEqual(sensor_props.get("facing"), "north")
+        pid_props = self._props(by_pos[self._station(36).dut_pos])
+        self.assertEqual((pid_props.get("facing"), pid_props.get("input_facing")), ("east", "west"))
+        self.assertEqual(self._block_id(by_pos[(2, 1, 12)]), "redstoneengineering:redstone_reference_source")
+        for x in range(4, 9):
+            self.assertEqual(self._block_id(by_pos[(x, 1, 12)]), "redstoneengineering:redstone_signal_cable", x)
+        for x in range(3, 11):
+            self.assertEqual(self._block_id(by_pos[(x, 1, 11)]), "redstoneengineering:redstone_signal_cable", x)
+
+    def test_h_cell_interlock_trip_physically_drives_brake_and_alarm(self) -> None:
+        by_pos = self._cell_by_pos("H")
+        interlock = self._station(39)
+        alarm = self._station(40)
+        interlock_props = self._props(by_pos[interlock.dut_pos])
+        alarm_props = self._props(by_pos[alarm.dut_pos])
+        self.assertEqual((interlock_props.get("facing"), interlock_props.get("input_facing")), ("west", "east"))
+        self.assertEqual((alarm_props.get("facing"), alarm_props.get("input_facing")), ("west", "east"))
+        expected_sources = {
+            (22, 1, 12): ("west", "15"),
+            (21, 1, 13): ("north", "15"),
+            (21, 1, 11): ("south", "15"),
+            (27, 1, 13): ("north", "0"),
+            (27, 1, 11): ("south", "0"),
+        }
+        for pos, (facing, power) in expected_sources.items():
+            self.assertEqual(self._block_id(by_pos[pos]), "redstoneengineering:redstone_reference_source", pos)
+            props = self._props(by_pos[pos])
+            self.assertEqual((props.get("facing"), props.get("power")), (facing, power), pos)
+        self.assertEqual(self._block_id(by_pos[(20, 1, 12)]), "minecraft:stone")
+        self.assertEqual(self._block_id(by_pos[(20, 1, 13)]), "minecraft:redstone_wall_torch")
+        self.assertEqual(self._block_id(by_pos[(19, 1, 13)]), "redstoneengineering:redstone_cable_terminal")
+        self.assertFalse(self._props(by_pos[(19, 1, 13)]).get("output_mode") == "true")
+        self.assertEqual(self._block_id(by_pos[(9, 1, 13)]), "redstoneengineering:redstone_cable_terminal")
+        self.assertEqual(self._props(by_pos[(9, 1, 13)]).get("output_mode"), "true")
+        self.assertEqual(self._block_id(by_pos[(28, 1, 12)]), "redstoneengineering:redstone_cable_terminal")
+        self.assertEqual(self._props(by_pos[(28, 1, 12)]).get("output_mode"), "true")
+        self.assertGreaterEqual(sum(self._block_id(block) == "redstoneengineering:redstone_signal_cable" for block in by_pos.values()), 20)
+
+    def test_old_unrelated_z15_station_fixture_strip_is_removed(self) -> None:
+        for cell in EXPECTED_CELLS:
+            by_pos = self._cell_by_pos(cell)
+            for station in mega.MEGA_CELL_STATIONS[cell]:
+                pos = (station.sign_pos[0], 1, 15)
+                self.assertNotEqual(self._block_id(by_pos[pos]), "redstoneengineering:redstone_reference_source", (cell, station.number, pos))
 
     def test_java_runtime_defines_twenty_phase_hierarchy_and_history(self) -> None:
         service = (ROOT / "src/main/java/dev/redstoneengineering/validation/RseMegaValidationService.java").read_text(encoding="utf-8")
