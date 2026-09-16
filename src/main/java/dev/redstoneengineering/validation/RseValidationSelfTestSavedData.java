@@ -50,24 +50,23 @@ public final class RseValidationSelfTestSavedData extends SavedData {
             );
         }
 
-        public Placement withRetestPressed(boolean pressed) {
+        public Placement advanceStep() {
             return new Placement(
-                    testId, origin, placedTick, checkCount,
-                    rawMin, rawMax, filteredMin, filteredMax, pressed
+                    testId, origin, placedTick, checkCount + 1,
+                    rawMin, rawMax, filteredMin, filteredMax, retestPressed
             );
+        }
+
+        public Placement withRetestPressed(boolean pressed) {
+            return new Placement(testId, origin, placedTick, checkCount, rawMin, rawMax, filteredMin, filteredMax, pressed);
         }
 
         public Placement resetForRetest(long gameTick, boolean pressed) {
             return new Placement(testId, origin, gameTick, 0, 101, -1, 101, -1, pressed);
         }
 
-        public int rawPeakToPeak() {
-            return rawMax < rawMin ? 0 : rawMax - rawMin;
-        }
-
-        public int filteredPeakToPeak() {
-            return filteredMax < filteredMin ? 0 : filteredMax - filteredMin;
-        }
+        public int rawPeakToPeak() { return rawMax < rawMin ? 0 : rawMax - rawMin; }
+        public int filteredPeakToPeak() { return filteredMax < filteredMin ? 0 : filteredMax - filteredMin; }
     }
 
     private final Map<String, Placement> placements = new LinkedHashMap<>();
@@ -87,9 +86,7 @@ public final class RseValidationSelfTestSavedData extends SavedData {
             CompoundTag row = rows.getCompound(i);
             try {
                 Placement placement = new Placement(
-                        row.getString("TestId"),
-                        BlockPos.of(row.getLong("Origin")),
-                        row.getLong("PlacedTick"),
+                        row.getString("TestId"), BlockPos.of(row.getLong("Origin")), row.getLong("PlacedTick"),
                         Math.max(0, row.getInt("CheckCount")),
                         row.contains("RawMin") ? row.getInt("RawMin") : 101,
                         row.contains("RawMax") ? row.getInt("RawMax") : -1,
@@ -130,9 +127,7 @@ public final class RseValidationSelfTestSavedData extends SavedData {
         return placements.get(testId.trim());
     }
 
-    public List<Placement> placements() {
-        return List.copyOf(placements.values());
-    }
+    public List<Placement> placements() { return List.copyOf(placements.values()); }
 
     public void put(String testId, BlockPos origin, long placedTick) {
         Placement placement = Placement.fresh(testId, origin, placedTick);
@@ -144,6 +139,16 @@ public final class RseValidationSelfTestSavedData extends SavedData {
         Placement current = placement(testId);
         if (current == null) return null;
         Placement next = current.observe(raw, filtered);
+        placements.put(next.testId(), next);
+        setDirty();
+        return next;
+    }
+
+    /** Validation-only phase progression for multi-stage self-tests; does not touch DUT runtime. */
+    public Placement advanceStep(String testId) {
+        Placement current = placement(testId);
+        if (current == null) return null;
+        Placement next = current.advanceStep();
         placements.put(next.testId(), next);
         setDirty();
         return next;
