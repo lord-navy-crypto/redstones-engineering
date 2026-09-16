@@ -7,7 +7,6 @@ import dev.redstoneengineering.block.LapisLowPassFilterBlock;
 import dev.redstoneengineering.block.LapisNoiseSourceBlock;
 import dev.redstoneengineering.block.LapisToRedstoneQuantizerBlock;
 import dev.redstoneengineering.block.PrecisionFilterBlock;
-import dev.redstoneengineering.block.PulseShaperBlock;
 import dev.redstoneengineering.block.PwmControllerBlock;
 import dev.redstoneengineering.block.RedstoneReferenceSourceBlock;
 import dev.redstoneengineering.block.RedstoneToLapisScalerBlock;
@@ -15,7 +14,6 @@ import dev.redstoneengineering.block.SampleHoldBlock;
 import dev.redstoneengineering.block.SignalAnalyzerBlock;
 import dev.redstoneengineering.block.SignalConditionerBlock;
 import dev.redstoneengineering.block.SignalProbeBlock;
-import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.instrument.InstrumentNetwork;
@@ -23,9 +21,11 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 
@@ -34,7 +34,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Places and evaluates deterministic manual validation benches without owning device physics. */
+/** Places and automatically evaluates deterministic validation benches without owning device physics. */
 public final class RseValidationSelfTestService {
     private RseValidationSelfTestService() {}
 
@@ -52,6 +52,11 @@ public final class RseValidationSelfTestService {
     private static final BlockPos WAIT_POWER = new BlockPos(8, 2, 2);
     private static final BlockPos PASS_POWER = new BlockPos(9, 2, 2);
     private static final BlockPos FAIL_POWER = new BlockPos(10, 2, 2);
+    private static final BlockPos RETEST_BUTTON = new BlockPos(1, 1, 7);
+    private static final int AUTO_INTERVAL_TICKS = 4;
+    private static final int SELFTEST_WIDTH = 13;
+    private static final int SELFTEST_HEIGHT = 4;
+    private static final int SELFTEST_DEPTH = 9;
 
     private static final Map<String, Definition> TESTS;
     static {
@@ -81,7 +86,7 @@ public final class RseValidationSelfTestService {
 
     public static RseValidationFactoryService.Result list(ServerLevel level) {
         ArrayList<Component> lines = new ArrayList<>();
-        lines.add(Component.literal("RSE self-tests (WAIT=yellow, PASS=green, FAIL=red):"));
+        lines.add(Component.literal("RSE self-tests (WAIT=yellow, PASS=green, FAIL=red; automatic after placement):"));
         for (String id : TESTS.keySet()) lines.add(Component.literal(" - " + id));
         return new RseValidationFactoryService.Result(true, lines);
     }
@@ -90,6 +95,7 @@ public final class RseValidationSelfTestService {
         String id = normalize(testId);
         Definition definition = TESTS.get(id);
         if (level == null || origin == null) return RseValidationFactoryService.Result.fail("Self-test place failed: level/origin missing");
+        if (level.getServer().overworld() != level) return RseValidationFactoryService.Result.fail("Automatic self-tests currently require the overworld validation world.");
         if (definition == null) return RseValidationFactoryService.Result.fail("Unknown self-test: " + id);
 
         ResourceLocation resource = ResourceLocation.fromNamespaceAndPath(
@@ -104,8 +110,8 @@ public final class RseValidationSelfTestService {
         updatePanel(level, origin, Verdict.WAIT);
         return RseValidationFactoryService.Result.ok(
                 "Placed self-test: " + id,
-                "Yellow WAIT is expected until runtime evidence settles.",
-                "Run /rsevalidation selftest check " + id + " to evaluate."
+                "Automatic self-test armed: yellow WAIT will change to green PASS or red FAIL.",
+                "Press the stone RETEST button on the bench to rebuild and run it again. /check remains a debug fallback."
         );
     }
 
@@ -117,17 +123,89 @@ public final class RseValidationSelfTestService {
         RseValidationSelfTestSavedData.Placement placement = RseValidationSelfTestSavedData.get(level).placement(id);
         if (placement == null) return RseValidationFactoryService.Result.fail("Self-test has not been placed: " + id);
 
-        long age = Math.max(0L, level.getGameTime() - placement.placedTick());
-        if (age < definition.settleTicks()) {
-            Evaluation waiting = new Evaluation(Verdict.WAIT,
-                    "settling " + age + "/" + definition.settleTicks() + " ticks");
-            updatePanel(level, placement.origin(), waiting.verdict());
-            return result(id, waiting);
-        }
-
-        Evaluation evaluation = evaluate(level, placement, definition);
+        Evaluation evaluation = evaluateWithSettle(level, placement, definition);
         updatePanel(level, placement.origin(), evaluation.verdict());
         return result(id, evaluation);
+    }
+
+    /** Called from the NeoForge server post-tick hook; commands are not required for normal validation. */
+    public static void tickAll(MinecraftServer server) {
+        if (server == null) return;
+        ServerLevel level = server.overworld();
+        if (level.getGameTime() % AUTO_INTERVAL_TICKS != 0) return;
+        tickAutomatic(level);
+    }
+
+    /** Advances every loaded validation-owned bench and drives its physical WAIT/PASS/FAIL panel. */
+    public static void tickAutomatic(ServerLevel level) {
+        if (level == null) return;
+        RseValidationSelfTestSavedData data = RseValidationSelfTestSavedData.get(level);
+        for (RseValidationSelfTestSavedData.Placement snapshot : data.placements()) {
+            Definition definition = TESTS.get(snapshot.testId());
+            if (definition == null) continue;
+            BlockPos origin = snapshot.origin();
+            if (!level.hasChunkAt(origin) || !level.hasChunkAt(origin.offset(SELFTEST_WIDTH - 1, 0, SELFTEST_DEPTH - 1))) {
+                continue;
+            }
+
+            RseValidationSelfTestSavedData.Placement placement = data.placement(snapshot.testId());
+            if (placement == null) continue;
+            boolean pressed = retestButtonPressed(level, origin);
+            if (pressed && !placement.retestPressed()) {
+                if (!rebuildForRetest(level, placement)) {
+                    updatePanel(level, origin, Verdict.FAIL);
+                }
+                continue;
+            }
+            if (!pressed && placement.retestPressed()) {
+                placement = data.setRetestPressed(placement.testId(), false);
+                if (placement == null) continue;
+            }
+
+            Evaluation evaluation = evaluateWithSettle(level, placement, definition);
+            updatePanel(level, origin, evaluation.verdict());
+        }
+    }
+
+    private static boolean retestButtonPressed(ServerLevel level, BlockPos origin) {
+        BlockState state = level.getBlockState(origin.offset(RETEST_BUTTON));
+        return state.hasProperty(BlockStateProperties.POWERED) && state.getValue(BlockStateProperties.POWERED);
+    }
+
+    private static boolean rebuildForRetest(ServerLevel level, RseValidationSelfTestSavedData.Placement placement) {
+        ResourceLocation resource = ResourceLocation.fromNamespaceAndPath(
+                RedstoneEngineering.MOD_ID, "validation/selftest/" + placement.testId());
+        StructureTemplate template = level.getStructureManager().get(resource).orElse(null);
+        if (template == null) return false;
+
+        BlockPos origin = placement.origin();
+        for (int x = 0; x < SELFTEST_WIDTH; x++) {
+            for (int y = 0; y < SELFTEST_HEIGHT; y++) {
+                for (int z = 0; z < SELFTEST_DEPTH; z++) {
+                    level.setBlock(origin.offset(x, y, z), Blocks.AIR.defaultBlockState(), 3);
+                }
+            }
+        }
+        boolean placed = template.placeInWorld(level, origin, origin, new StructurePlaceSettings(), level.getRandom(), 2);
+        if (!placed) return false;
+
+        RseValidationSelfTestSavedData.get(level).resetForRetest(placement.testId(), level.getGameTime(), true);
+        primeDynamicStimulus(level, origin, placement.testId());
+        updatePanel(level, origin, Verdict.WAIT);
+        return true;
+    }
+
+    private static Evaluation evaluateWithSettle(
+            ServerLevel level,
+            RseValidationSelfTestSavedData.Placement placement,
+            Definition definition
+    ) {
+        long age = Math.max(0L, level.getGameTime() - placement.placedTick());
+        if (age < definition.settleTicks()) {
+            return new Evaluation(Verdict.WAIT,
+                    "settling " + age + "/" + definition.settleTicks() + " ticks");
+        }
+        return evaluate(level, placement, definition);
     }
 
     private static RseValidationFactoryService.Result result(String id, Evaluation evaluation) {
@@ -267,7 +345,7 @@ public final class RseValidationSelfTestService {
             BlockPos trigger = dut.relative(Direction.NORTH);
             if (!level.getBlockState(trigger).is(Blocks.REDSTONE_BLOCK)) {
                 level.setBlock(trigger, Blocks.REDSTONE_BLOCK.defaultBlockState(), 3);
-                return waitFor("trigger edge injected; recheck after a few ticks");
+                return waitFor("trigger edge injected; automatic runner is waiting for capture");
             }
             return waitFor("waiting for sample capture");
         }
@@ -285,7 +363,7 @@ public final class RseValidationSelfTestService {
             return pass("edges=" + EdgeDetectorBlock.edgeCount(level, dut) + " lastAge=" + EdgeDetectorBlock.lastEdgeAgeTicks(level, dut) + "t");
         }
         if (setReferencePower(level, origin.offset(definition.stimulus()), 7)) {
-            return waitFor("rising edge injected; recheck after a few ticks");
+            return waitFor("rising edge injected; automatic runner is waiting for evidence");
         }
         return fail("no rising edge recorded after stimulus");
     }
@@ -299,7 +377,7 @@ public final class RseValidationSelfTestService {
             return pass("observer saw 0→15 pulse; changes=" + snapshot.changes());
         }
         if (setReferencePower(level, origin.offset(definition.stimulus()), 7)) {
-            return waitFor("pulse stimulus injected; recheck after analyzer samples it");
+            return waitFor("pulse stimulus injected; automatic runner is waiting for analyzer samples");
         }
         return snapshot.totalSamples() < 3
                 ? waitFor("pulse observer samples=" + snapshot.totalSamples())
@@ -338,7 +416,7 @@ public final class RseValidationSelfTestService {
         RseValidationSelfTestSavedData.Placement evidence = RseValidationSelfTestSavedData.get(level)
                 .observeNoise(placement.testId(), raw, filtered.output());
         if (evidence == null || evidence.checkCount() < 6) {
-            return waitFor("collecting noise window " + (evidence == null ? 0 : evidence.checkCount()) + "/6; run check again as signal changes");
+            return waitFor("collecting automatic noise window " + (evidence == null ? 0 : evidence.checkCount()) + "/6");
         }
         return evidence.filteredPeakToPeak() < evidence.rawPeakToPeak()
                 ? pass("raw P-P=" + evidence.rawPeakToPeak() + " filtered P-P=" + evidence.filteredPeakToPeak())
@@ -400,7 +478,9 @@ public final class RseValidationSelfTestService {
     }
 
     private static void setPower(ServerLevel level, BlockPos pos, boolean powered) {
-        level.setBlock(pos, powered ? Blocks.REDSTONE_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState(), 3);
+        BlockState desired = powered ? Blocks.REDSTONE_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState();
+        if (level.getBlockState(pos) == desired) return;
+        level.setBlock(pos, desired, 3);
         level.updateNeighborsAt(pos, powered ? Blocks.REDSTONE_BLOCK : Blocks.AIR);
     }
 
