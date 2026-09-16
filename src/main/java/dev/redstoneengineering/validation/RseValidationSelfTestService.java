@@ -267,13 +267,17 @@ public final class RseValidationSelfTestService {
     }
 
     private static Evaluation evaluateIndicator(ServerLevel level, BlockPos pos, int expected) {
+        return evaluateIndicator(level, pos, expected, PortQuality.VALID);
+    }
+
+    private static Evaluation evaluateIndicator(ServerLevel level, BlockPos pos, int expected, PortQuality expectedQuality) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof AnalogIndicatorBlock indicator)) return fail("analog indicator missing");
         AnalogIndicatorBlock.InputObservation observation = indicator.inputObservation(level, pos, state);
         if (observation.quality() == PortQuality.STALE) return waitFor("indicator evidence STALE");
-        if (observation.quality() != PortQuality.VALID) return fail("indicator quality=" + observation.quality());
+        if (observation.quality() != expectedQuality) return fail("indicator quality=" + observation.quality() + " expected=" + expectedQuality);
         if (observation.value() != expected) return fail("indicator=" + observation.value() + " expected=" + expected);
-        return pass("indicator=" + observation.value() + " quality=VALID");
+        return pass("indicator=" + observation.value() + " quality=" + expectedQuality);
     }
 
     private static Evaluation evaluateConditioner(ServerLevel level, BlockPos conditionerPos, BlockPos indicatorPos,
@@ -283,7 +287,7 @@ public final class RseValidationSelfTestService {
         EngineeringPortSnapshot output = conditioner.engineeringSnapshot(level, conditionerPos, state, Direction.EAST).orElse(null);
         Evaluation direct = exact(output, expected, expectedQuality, "conditioner output");
         if (direct.verdict() != Verdict.PASS) return direct;
-        Evaluation indicator = evaluateIndicator(level, indicatorPos, expected);
+        Evaluation indicator = evaluateIndicator(level, indicatorPos, expected, expectedQuality);
         return indicator.verdict() == Verdict.PASS
                 ? pass("conditioner=" + expected + " quality=" + expectedQuality + " downstream=" + expected)
                 : indicator;
