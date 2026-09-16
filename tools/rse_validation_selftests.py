@@ -34,6 +34,7 @@ class SelfTest:
     observe: tuple[int, int, int]
     expected_value: int | None = None
     settling_ticks: int = 0
+    retest_button: tuple[int, int, int] = (1, 1, 7)
 
 
 PANEL = StatusPanel(
@@ -82,6 +83,7 @@ def _base(marker: str, width: int = 13, depth: int = 9) -> list[Placement]:
         (PANEL.fail_lamp, "minecraft:redstone_lamp"),
         (PANEL.wait_power, "minecraft:redstone_block"),
         ((1, 1, 1), "minecraft:sea_lantern"),
+        ((1, 1, 7), ("minecraft:stone_button", {"face": "floor", "facing": "north", "powered": "false"})),
         ((11, 1, 7), "minecraft:sea_lantern"),
     ])
 
