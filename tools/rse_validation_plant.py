@@ -89,6 +89,8 @@ def _panel_blocks(panel: StatusPanel) -> list[Placement]:
         (panel.pass_lamp, "minecraft:redstone_lamp"),
         (panel.fail_lamp, "minecraft:redstone_lamp"),
         (panel.wait_power, "minecraft:redstone_block"),
+        (panel.pass_power, "minecraft:air"),
+        (panel.fail_power, "minecraft:air"),
     ]
 
 
