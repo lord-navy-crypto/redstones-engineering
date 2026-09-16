@@ -34,6 +34,55 @@ class ValidationFactoryToolTests(unittest.TestCase):
         block_ids = {block_id for _position, block_id in placements}
         self.assertIn("redstoneengineering:operations_monitor", block_ids)
 
+    def test_basic_and_signal_preset_catalog_is_large_and_ordered(self) -> None:
+        expected = {
+            "01_basic/redstone_input_output",
+            "01_basic/signal_probe",
+            "01_basic/signal_analyzer",
+            "01_basic/oscilloscope",
+            "01_basic/signal_conditioner",
+            "01_basic/calibration_module",
+            "01_basic/directional_io",
+            "01_basic/instrument_chain",
+            "02_signal/precision_filter",
+            "02_signal/sample_hold",
+            "02_signal/edge_detector",
+            "02_signal/pulse_shaper",
+            "02_signal/pwm_control",
+            "02_signal/noise_vs_filter",
+            "02_signal/quantizer_scaler",
+            "02_signal/multi_stage_signal_chain",
+        }
+        self.assertGreaterEqual(len(factory.PRESETS), 16)
+        self.assertTrue(expected.issubset(factory.PRESETS.keys()))
+
+    def test_all_presets_have_unique_positions_and_real_rse_content(self) -> None:
+        for name, preset in factory.PRESETS.items():
+            with self.subTest(name=name):
+                size, placements = preset.builder()
+                self.assertTrue(all(component > 0 for component in size))
+                positions = [position for position, _block_id in placements]
+                self.assertEqual(len(positions), len(set(positions)), f"duplicate block coordinate in {name}")
+                self.assertTrue(
+                    any(block_id.startswith("redstoneengineering:") for _position, block_id in placements),
+                    f"preset {name} contains no RSE block",
+                )
+
+    def test_package_presets_contains_only_generated_preset_assets_and_index(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            structure_dir = root / "structures"
+            index_path = root / "preset-index.txt"
+            output = root / "RSE-Preset-Pack.zip"
+            self.assertEqual(factory.generate_presets(structure_dir=structure_dir, index_path=index_path), 0)
+            self.assertEqual(factory.package_presets(structure_dir=structure_dir, index_path=index_path, output=output), 0)
+            with zipfile.ZipFile(output) as archive:
+                names = set(archive.namelist())
+            self.assertIn("preset-index.txt", names)
+            self.assertIn("01_basic/signal_probe.nbt", names)
+            self.assertIn("02_signal/multi_stage_signal_chain.nbt", names)
+            self.assertEqual(len([name for name in names if name.endswith(".nbt")]), len(factory.PRESETS))
+
     def test_legacy_cli_aliases_map_to_current_commands(self) -> None:
         self.assertEqual(factory._legacy_cli(["--generate-structures"]), ["generate"])
         self.assertEqual(
