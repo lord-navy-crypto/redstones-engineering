@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Generate RSE Validation Factory structures, reusable preset packs, self-tests, and real-world ZIPs.
+"""Generate RSE Validation Factory structures, presets, self-tests, plant modules, and real-world ZIPs.
 
 Preferred usage:
     python3 tools/rse_validation_factory.py generate
     python3 tools/rse_validation_factory.py generate-presets
     python3 tools/rse_validation_factory.py generate-selftests
+    python3 tools/rse_validation_factory.py generate-plant
     python3 tools/rse_validation_factory.py package-presets
     python3 tools/rse_validation_factory.py package
     python3 tools/rse_validation_factory.py package --world "run/saves/RSE Validation Factory"
@@ -29,16 +30,20 @@ import zipfile
 try:
     from tools.rse_validation_presets import PRESETS
     from tools.rse_validation_selftests import SELFTESTS
+    from tools.rse_validation_plant import PLANT_MODULE_OFFSETS, PLANT_STRUCTURE_ORDER, PLANT_STRUCTURES
 except ModuleNotFoundError:  # direct `python3 tools/...` execution
     from rse_validation_presets import PRESETS
     from rse_validation_selftests import SELFTESTS
+    from rse_validation_plant import PLANT_MODULE_OFFSETS, PLANT_STRUCTURE_ORDER, PLANT_STRUCTURES
 
 ROOT = Path(__file__).resolve().parents[1]
 STRUCTURE_DIR = ROOT / "src/generated/resources/data/redstoneengineering/structure/validation"
 PRESET_STRUCTURE_DIR = STRUCTURE_DIR / "presets"
 SELFTEST_STRUCTURE_DIR = STRUCTURE_DIR / "selftest"
+PLANT_STRUCTURE_DIR = STRUCTURE_DIR / "plant"
 PRESET_INDEX_PATH = ROOT / "build/validation/preset-index.txt"
 SELFTEST_INDEX_PATH = ROOT / "build/validation/selftest-index.txt"
+PLANT_INDEX_PATH = ROOT / "build/validation/plant-index.txt"
 PRESET_PACKAGE_PATH = ROOT / "build/validation/RSE-Preset-Pack.zip"
 DEFAULT_WORLD = ROOT / "run/saves/RSE Validation Factory"
 PACKAGE_PATH = ROOT / "build/validation/RSE-Validation-Factory.zip"
@@ -334,6 +339,18 @@ def _selftest_index_text() -> str:
     return "\n".join(lines) + "\n"
 
 
+def _plant_index_text() -> str:
+    lines = [
+        "RSE INTEGRATED VALIDATION PLANT V1",
+        "module\toffset_x\toffset_y\toffset_z\tsize_x\tsize_y\tsize_z",
+    ]
+    for name in PLANT_STRUCTURE_ORDER:
+        size, _placements = PLANT_STRUCTURES[name]()
+        offset = PLANT_MODULE_OFFSETS[name]
+        lines.append(f"{name}\t{offset[0]}\t{offset[1]}\t{offset[2]}\t{size[0]}\t{size[1]}\t{size[2]}")
+    return "\n".join(lines) + "\n"
+
+
 def generate_presets(structure_dir: Path = PRESET_STRUCTURE_DIR, index_path: Path = PRESET_INDEX_PATH) -> int:
     if structure_dir.exists():
         shutil.rmtree(structure_dir)
@@ -362,6 +379,19 @@ def generate_selftests(structure_dir: Path = SELFTEST_STRUCTURE_DIR, index_path:
     return 0
 
 
+def generate_plant(structure_dir: Path = PLANT_STRUCTURE_DIR, index_path: Path = PLANT_INDEX_PATH) -> int:
+    if structure_dir.exists():
+        shutil.rmtree(structure_dir)
+    structure_dir.mkdir(parents=True, exist_ok=True)
+    for name in PLANT_STRUCTURE_ORDER:
+        size, placements = PLANT_STRUCTURES[name]()
+        _write_structure(structure_dir / f"{name}.nbt", size, placements)
+    index_path.parent.mkdir(parents=True, exist_ok=True)
+    index_path.write_text(_plant_index_text(), encoding="utf-8")
+    print(f"generated {index_path.relative_to(ROOT) if index_path.is_relative_to(ROOT) else index_path}")
+    return 0
+
+
 def generate() -> int:
     STRUCTURE_DIR.mkdir(parents=True, exist_ok=True)
     stale = {p.stem for p in STRUCTURE_DIR.glob("*.nbt")} - set(EXPECTED_STRUCTURES)
@@ -371,7 +401,10 @@ def generate() -> int:
         size, placements = STRUCTURES[name]()
         _write_structure(STRUCTURE_DIR / f"{name}.nbt", size, placements)
     rc = generate_presets()
-    return rc if rc else generate_selftests()
+    if rc:
+        return rc
+    rc = generate_selftests()
+    return rc if rc else generate_plant()
 
 
 def _zip_info(archive_name: str) -> zipfile.ZipInfo:
@@ -449,11 +482,12 @@ def _legacy_cli(argv: list[str]) -> list[str]:
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="RSE Validation Factory and preset asset tool")
+    parser = argparse.ArgumentParser(description="RSE Validation Factory, self-test, and integrated plant asset tool")
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("generate", help="generate Validation Factory plus reusable preset and self-test NBT files")
+    sub.add_parser("generate", help="generate Validation Factory plus preset, self-test, and integrated plant NBT files")
     sub.add_parser("generate-presets", help="generate only reusable preset NBT files")
     sub.add_parser("generate-selftests", help="generate only self-checking validation NBT files")
+    sub.add_parser("generate-plant", help="generate only the seven modular Integrated Validation Plant v1 NBT files")
     sub.add_parser("package-presets", help="package generated presets into a pure NBT ZIP bundle")
     package = sub.add_parser("package", help="package an existing real Validation Factory world")
     package.add_argument("--world", type=Path, default=DEFAULT_WORLD)
@@ -470,6 +504,8 @@ def main(argv: list[str] | None = None) -> int:
         return generate_presets()
     if args.command == "generate-selftests":
         return generate_selftests()
+    if args.command == "generate-plant":
+        return generate_plant()
     if args.command == "package-presets":
         rc = generate_presets()
         return rc if rc else package_presets()
@@ -479,7 +515,7 @@ def main(argv: list[str] | None = None) -> int:
         if STRUCTURE_DIR.exists():
             shutil.rmtree(STRUCTURE_DIR)
             print(f"removed {STRUCTURE_DIR.relative_to(ROOT)}")
-        for path in (PRESET_INDEX_PATH, SELFTEST_INDEX_PATH, PRESET_PACKAGE_PATH):
+        for path in (PRESET_INDEX_PATH, SELFTEST_INDEX_PATH, PLANT_INDEX_PATH, PRESET_PACKAGE_PATH):
             if path.exists():
                 path.unlink()
         return 0
