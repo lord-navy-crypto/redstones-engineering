@@ -170,7 +170,11 @@ def _analog_indicator():
 
 def _signal_conditioner_gain():
     p = _base("minecraft:green_concrete")
-    p = _overlay(p, [((3,1,4), _ref(6)), ((4,1,4), _conditioner(0,2)), ((5,1,4), "minecraft:redstone_wire"), ((6,1,4), _indicator())])
+    p = _overlay(p, [
+        ((3,1,4), _ref(6)),
+        ((4,1,4), _conditioner(0,2)),
+        ((5,1,4), _indicator()),
+    ])
     return (13,4,9), p
 
 
@@ -279,7 +283,7 @@ SELFTESTS: dict[str, SelfTest] = {
     "01_basic/signal_analyzer_tap": SelfTest("Analyzer TAP", "L1", "Verify TAP measurement without inline conduction.", "signal_analyzer_tap", _signal_analyzer_tap, PANEL, (3,1,4), (4,1,4), (4,1,4), 7, 8),
     "01_basic/signal_analyzer_inline": SelfTest("Analyzer INLINE", "L2", "Verify INLINE measurement and pass-through.", "signal_analyzer_inline", _signal_analyzer_inline, PANEL, (3,1,4), (4,1,4), (6,1,4), 7, 8),
     "01_basic/analog_indicator": SelfTest("Analog Indicator", "L1", "Verify VALID input quality and displayed level.", "analog_indicator", _analog_indicator, PANEL, (3,1,4), (5,1,4), (5,1,4), 11, 2),
-    "01_basic/signal_conditioner_gain": SelfTest("Conditioner Gain x2", "L2", "Verify 6 maps to 12 without saturation.", "conditioner_gain", _signal_conditioner_gain, PANEL, (3,1,4), (4,1,4), (6,1,4), 12, 4),
+    "01_basic/signal_conditioner_gain": SelfTest("Conditioner Gain x2", "L2", "Verify 6 maps to 12 without saturation.", "conditioner_gain", _signal_conditioner_gain, PANEL, (3,1,4), (4,1,4), (5,1,4), 12, 4),
     "01_basic/directional_io": SelfTest("Directional I/O", "L2", "Verify correct-face transfer and wrong-face rejection.", "directional_io", _directional_io, PANEL, (2,1,3), (3,1,3), (4,1,3), 8, 4),
     "01_basic/instrument_bus": SelfTest("Instrument Bus", "L2", "Verify probe channel appears on the instrument network.", "instrument_bus", _instrument_bus, PANEL, (2,1,4), (3,1,4), (5,1,4), 5, 8),
     "02_signal/conditioner_saturation": SelfTest("Conditioner Saturation", "L2", "Verify expected clamp to 15 is reported as SATURATED.", "conditioner_saturation", _conditioner_saturation, PANEL, (3,1,4), (4,1,4), (5,1,4), 15, 4),
