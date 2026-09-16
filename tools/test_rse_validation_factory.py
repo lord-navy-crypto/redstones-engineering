@@ -75,8 +75,52 @@ class ValidationFactoryToolTests(unittest.TestCase):
                 positions = [position for position, _block_id in placements]
                 self.assertEqual(len(positions), len(set(positions)), f"duplicate block coordinate in {name}")
                 self.assertTrue(
-                    any(block_id.startswith("redstoneengineering:") for _position, block_id in placements),
+                    any(factory._block_name(block_id).startswith("redstoneengineering:") for _position, block_id in placements),
                     f"preset {name} contains no RSE block",
+                )
+
+    def test_selftest_catalog_covers_basic_and_signal_series(self) -> None:
+        expected = {
+            "01_basic/reference_source",
+            "01_basic/signal_probe",
+            "01_basic/signal_analyzer_tap",
+            "01_basic/signal_analyzer_inline",
+            "01_basic/analog_indicator",
+            "01_basic/signal_conditioner_gain",
+            "01_basic/directional_io",
+            "01_basic/instrument_bus",
+            "02_signal/conditioner_saturation",
+            "02_signal/precision_filter",
+            "02_signal/sample_hold",
+            "02_signal/edge_detector",
+            "02_signal/pulse_shaper",
+            "02_signal/pwm_control",
+            "02_signal/noise_vs_filter",
+            "02_signal/quantizer_scaler",
+        }
+        self.assertEqual(set(factory.SELFTESTS), expected)
+
+    def test_each_selftest_has_unique_positions_and_wait_pass_fail_panel(self) -> None:
+        for name, selftest in factory.SELFTESTS.items():
+            with self.subTest(name=name):
+                size, placements = selftest.builder()
+                self.assertTrue(all(component > 0 for component in size))
+                positions = [position for position, _block in placements]
+                self.assertEqual(len(positions), len(set(positions)), f"duplicate block coordinate in {name}")
+                by_position = {position: factory._block_name(block) for position, block in placements}
+                panel = selftest.panel
+                self.assertEqual(by_position.get(panel.wait_lamp), "minecraft:redstone_lamp")
+                self.assertEqual(by_position.get(panel.pass_lamp), "minecraft:redstone_lamp")
+                self.assertEqual(by_position.get(panel.fail_lamp), "minecraft:redstone_lamp")
+                self.assertEqual(by_position.get(panel.wait_label), "minecraft:yellow_concrete")
+                self.assertEqual(by_position.get(panel.pass_label), "minecraft:lime_concrete")
+                self.assertEqual(by_position.get(panel.fail_label), "minecraft:red_concrete")
+                self.assertEqual(by_position.get(panel.wait_power), "minecraft:redstone_block")
+                self.assertNotIn(panel.pass_power, by_position)
+                self.assertNotIn(panel.fail_power, by_position)
+                self.assertTrue(
+                    any(factory._block_name(block).startswith("redstoneengineering:") for _position, block in placements),
+                    f"selftest {name} contains no RSE DUT",
                 )
 
     def test_package_presets_contains_only_generated_preset_assets_and_index(self) -> None:
