@@ -22,6 +22,13 @@ class ValidationFactoryToolTests(unittest.TestCase):
         self.assertIn(b"minecraft:stone", first)
         self.assertIn(b"redstoneengineering:industrial_buffer", first)
 
+    def test_all_declared_structures_have_unique_block_positions(self) -> None:
+        for name, builder in factory.STRUCTURES.items():
+            with self.subTest(name=name):
+                _size, placements = builder()
+                positions = [position for position, _block_id in placements]
+                self.assertEqual(len(positions), len(set(positions)), f"duplicate block coordinate in {name}")
+
     def test_legacy_cli_aliases_map_to_current_commands(self) -> None:
         self.assertEqual(factory._legacy_cli(["--generate-structures"]), ["generate"])
         self.assertEqual(
