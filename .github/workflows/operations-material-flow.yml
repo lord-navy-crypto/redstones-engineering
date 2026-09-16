@@ -39,6 +39,7 @@ on:
       - 'tools/test_rse_validation_factory.py'
       - 'tools/test_rse_validation_autorun.py'
       - 'tools/test_rse_validation_conditioner_bench.py'
+      - 'tools/test_rse_validation_system_benches.py'
       - 'tools/rse_validation_factory_verify.py'
       - 'tools/rse_validation_selftest_verify.py'
       - 'tools/rse_industrial_buffer_world_verify.py'
@@ -84,6 +85,7 @@ on:
       - 'tools/test_rse_validation_factory.py'
       - 'tools/test_rse_validation_autorun.py'
       - 'tools/test_rse_validation_conditioner_bench.py'
+      - 'tools/test_rse_validation_system_benches.py'
       - 'tools/rse_validation_factory_verify.py'
       - 'tools/rse_validation_selftest_verify.py'
       - 'tools/rse_industrial_buffer_world_verify.py'
@@ -128,7 +130,7 @@ jobs:
       - name: Verify AMR world logistics persistence
         run: python3 tools/rse_operations_amr_world_verify.py
       - name: Test Validation Factory asset tool
-        run: python3 -m unittest tools.test_rse_validation_factory tools.test_rse_validation_autorun tools.test_rse_validation_conditioner_bench -v
+        run: python3 -m unittest tools.test_rse_validation_factory tools.test_rse_validation_autorun tools.test_rse_validation_conditioner_bench tools.test_rse_validation_system_benches -v
       - name: Generate Validation Factory structures
         run: python3 tools/rse_validation_factory.py generate
       - name: Verify Validation Factory contract
