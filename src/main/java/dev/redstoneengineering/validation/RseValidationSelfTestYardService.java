@@ -7,7 +7,7 @@ import net.minecraft.server.level.ServerLevel;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Places the complete automatic validation series as a walkable 4x4 yard. */
+/** Places the complete automatic validation series as a walkable yard. */
 public final class RseValidationSelfTestYardService {
     private RseValidationSelfTestYardService() {}
 
@@ -31,7 +31,10 @@ public final class RseValidationSelfTestYardService {
             "02_signal/pulse_shaper",
             "02_signal/pwm_control",
             "02_signal/noise_vs_filter",
-            "02_signal/quantizer_scaler"
+            "02_signal/quantizer_scaler",
+            "03_systems/interlock_trip_restore",
+            "03_systems/fault_injector_bias",
+            "03_systems/alarm_latch_ack_reset"
     );
 
     public static RseValidationFactoryService.Result placeAll(ServerLevel level, BlockPos origin) {
@@ -42,7 +45,6 @@ public final class RseValidationSelfTestYardService {
             return RseValidationFactoryService.Result.fail("Automatic self-test yard currently requires the overworld.");
         }
 
-        // Preflight every template before mutating the world so a missing asset cannot leave a half yard.
         for (String id : TEST_ORDER) {
             var resource = net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(
                     dev.redstoneengineering.RedstoneEngineering.MOD_ID,
@@ -59,11 +61,7 @@ public final class RseValidationSelfTestYardService {
             String id = TEST_ORDER.get(index);
             int column = index % GRID_COLUMNS;
             int row = index / GRID_COLUMNS;
-            BlockPos benchOrigin = origin.offset(
-                    column * GRID_SPACING_X,
-                    0,
-                    row * GRID_SPACING_Z
-            );
+            BlockPos benchOrigin = origin.offset(column * GRID_SPACING_X, 0, row * GRID_SPACING_Z);
             RseValidationFactoryService.Result result = RseValidationSelfTestService.place(level, benchOrigin, id);
             if (!result.success()) {
                 return RseValidationFactoryService.Result.fail(
@@ -75,8 +73,9 @@ public final class RseValidationSelfTestYardService {
             placed++;
         }
 
+        int rows = (TEST_ORDER.size() + GRID_COLUMNS - 1) / GRID_COLUMNS;
         detail.add(Component.literal("Placed automatic RSE self-test yard: " + placed + " benches."));
-        detail.add(Component.literal("Layout: 4 columns x 4 rows; every bench starts YELLOW WAIT and resolves automatically."));
+        detail.add(Component.literal("Layout: " + GRID_COLUMNS + " columns x " + rows + " rows; every bench starts YELLOW WAIT and resolves automatically."));
         detail.add(Component.literal("GREEN=PASS, RED=FAIL. Press a bench's stone RETEST button to rerun only that test."));
         detail.add(Component.literal("Yard origin: " + origin.toShortString()));
         return new RseValidationFactoryService.Result(true, detail);
