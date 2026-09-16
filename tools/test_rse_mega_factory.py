@@ -12,6 +12,7 @@ from tools import rse_mega_factory as mega
 
 ROOT = Path(__file__).resolve().parents[1]
 JAVA_EVALUATOR = ROOT / "src/main/java/dev/redstoneengineering/validation/RseMegaStationEvaluator.java"
+JAVA_TOPOLOGY = ROOT / "src/main/java/dev/redstoneengineering/validation/RseMegaValidationTopology.java"
 
 EXPECTED_CELLS = tuple("ABCDEFGH")
 EXPECTED_MODULES = (
@@ -179,13 +180,24 @@ class MegaValidationFactoryTests(unittest.TestCase):
 
     def test_java_runtime_contains_exactly_forty_station_specs_and_eight_cells(self) -> None:
         service = (ROOT / "src/main/java/dev/redstoneengineering/validation/RseMegaValidationService.java").read_text(encoding="utf-8")
+        topology = JAVA_TOPOLOGY.read_text(encoding="utf-8")
         self.assertIn("STATION_COUNT = 40", service)
         self.assertIn("CELL_COUNT = 8", service)
+        self.assertIn("STATION_COUNT = 40", topology)
+        self.assertIn("CELL_COUNT = 8", topology)
         for number, dut in enumerate(EXPECTED_DUTS, 1):
-            self.assertIn(f'new StationSpec({number},', service)
-            self.assertIn(f'"redstoneengineering:{dut}"', service)
+            self.assertIn(f'new Station({number},', topology)
+            self.assertIn(f'"redstoneengineering:{dut}"', topology)
         for cell in EXPECTED_CELLS:
-            self.assertIn(f'"{cell}"', service)
+            self.assertIn(f'"{cell}"', topology)
+
+    def test_java_topology_declares_station_dependencies(self) -> None:
+        topology = JAVA_TOPOLOGY.read_text(encoding="utf-8")
+        self.assertIn("upstreamStation", topology)
+        for start in (1, 6, 11, 16, 21, 26, 31, 36):
+            self.assertRegex(topology, rf'new Station\({start},.*null\)')
+        for station in (2, 3, 4, 5, 7, 8, 9, 10, 12, 13, 14, 15, 17, 18, 19, 20, 22, 23, 24, 25, 27, 28, 29, 30, 32, 33, 34, 35, 37, 38, 39, 40):
+            self.assertRegex(topology, rf'new Station\({station},.*\d+\)')
 
     def test_command_surface_and_server_tick_wire_mega_runtime(self) -> None:
         module = (ROOT / "src/main/java/dev/redstoneengineering/validation/RseValidationFactoryModule.java").read_text(encoding="utf-8")
