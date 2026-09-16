@@ -36,6 +36,9 @@ class ValidationPlantTests(unittest.TestCase):
     def _block_id(self, block: factory.BlockSpec) -> str:
         return factory._normalize_block_spec(block)[0]
 
+    def _block_properties(self, block: factory.BlockSpec) -> dict[str, str]:
+        return dict(factory._normalize_block_spec(block)[1])
+
     def _sign_lines(self, block: factory.BlockSpec) -> tuple[str, ...]:
         nbt = factory._block_nbt(block)
         self.assertIsNotNone(nbt, "sign block is missing block-entity NBT")
@@ -159,6 +162,45 @@ class ValidationPlantTests(unittest.TestCase):
             self.assertIn(panel.wait_power, by_position)
             self.assertIn(panel.pass_power, by_position)
             self.assertIn(panel.fail_power, by_position)
+
+    def test_cell_d_pwm_inhibit_face_is_physically_isolated(self) -> None:
+        _size, placements = plant.PLANT_STRUCTURES["cell_d_control"]()
+        by_position = dict(placements)
+        pwm = [(pos, block) for pos, block in placements if self._block_id(block) == "redstoneengineering:pwm_controller"]
+        self.assertEqual(len(pwm), 1)
+        (x, y, z), pwm_block = pwm[0]
+        facing = self._block_properties(pwm_block)["facing"]
+        inhibit_direction = {"north": "west", "west": "south", "south": "east", "east": "north"}[facing]
+        dx, dz = {"north": (0, -1), "south": (0, 1), "east": (1, 0), "west": (-1, 0)}[inhibit_direction]
+        inhibit_pos = (x + dx, y, z + dz)
+        self.assertEqual(
+            self._block_id(by_position[inhibit_pos]),
+            "minecraft:air",
+            f"PWM inhibit face {inhibit_direction} is accidentally driven at {inhibit_pos}",
+        )
+
+    def test_cell_f_has_explicit_zero_brake_test_source_on_servo_brake_port(self) -> None:
+        _size, placements = plant.PLANT_STRUCTURES["cell_f_process"]()
+        by_position = dict(placements)
+        servos = [(pos, block) for pos, block in placements if self._block_id(block) == "redstoneengineering:servo_actuator"]
+        self.assertEqual(len(servos), 1)
+        (x, y, z), servo = servos[0]
+        facing = self._block_properties(servo)["facing"]
+        brake_direction = {"north": "east", "east": "south", "south": "west", "west": "north"}[facing]
+        dx, dz = {"north": (0, -1), "south": (0, 1), "east": (1, 0), "west": (-1, 0)}[brake_direction]
+        brake_pos = (x + dx, y, z + dz)
+        brake_source = by_position[brake_pos]
+        self.assertEqual(self._block_id(brake_source), "redstoneengineering:redstone_reference_source")
+        properties = self._block_properties(brake_source)
+        self.assertEqual(properties.get("power"), "0")
+        self.assertEqual(properties.get("facing"), brake_direction.removeprefix("north") if False else "south")
+
+    def test_process_runtime_waits_for_command_propagation_and_checks_expected_braking(self) -> None:
+        service = (ROOT / "src/main/java/dev/redstoneengineering/validation/RseValidationPlantService.java").read_text(encoding="utf-8")
+        self.assertIn('waitFor("servo command propagating=', service)
+        self.assertIn("boolean expectedBrake = tripExpected;", service)
+        self.assertIn("ServoActuatorBlock.braking(level, servoPos) != expectedBrake", service)
+        self.assertIn("f.offset(14, 1, 5)", service)
 
     def test_factory_generator_emits_modular_plant_assets(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
