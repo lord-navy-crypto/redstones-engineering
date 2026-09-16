@@ -12,7 +12,7 @@ import dev.redstoneengineering.validation.RseValidationFactoryService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
-import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.entity.EntityTypeTest;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /** Local/manual smoke coverage for the playable Operations + AMR validation environment. */
@@ -68,13 +68,10 @@ public final class RseValidationFactoryGameTests {
             return;
         }
 
-        int validationRobots = 0;
-        for (Entity entity : level.getAllEntities()) {
-            if (entity instanceof EngineeringMobileRobotEntity
-                    && entity.getTags().contains(RseValidationFactoryService.ROBOT_TAG)) {
-                validationRobots++;
-            }
-        }
+        int validationRobots = level.getEntities(
+                EntityTypeTest.forClass(EngineeringMobileRobotEntity.class),
+                robot -> robot.getTags().contains(RseValidationFactoryService.ROBOT_TAG)
+        ).size();
         if (validationRobots != 1) {
             helper.fail("Expected exactly one tagged validation AMR, found " + validationRobots);
             return;
