@@ -22,6 +22,17 @@ class ValidationFactoryToolTests(unittest.TestCase):
         self.assertIn(b"minecraft:stone", first)
         self.assertIn(b"redstoneengineering:industrial_buffer", first)
 
+    def test_structure_palette_serializes_block_state_properties(self) -> None:
+        placements = [
+            ((0, 0, 0), ("redstoneengineering:redstone_reference_source", {"facing": "east", "power": "7"})),
+        ]
+        payload = factory._structure_bytes((1, 1, 1), placements)
+        self.assertIn(b"Properties", payload)
+        self.assertIn(b"facing", payload)
+        self.assertIn(b"east", payload)
+        self.assertIn(b"power", payload)
+        self.assertIn(b"7", payload)
+
     def test_all_declared_structures_have_unique_block_positions(self) -> None:
         for name, builder in factory.STRUCTURES.items():
             with self.subTest(name=name):
