@@ -1,5 +1,6 @@
 package dev.redstoneengineering.validation;
 
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import dev.redstoneengineering.RedstoneEngineering;
 import net.minecraft.commands.Commands;
@@ -11,7 +12,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
-/** Registers the local/manual RSE Validation Factory, self-test yard, and integrated plant. */
+/** Registers the local/manual RSE validation fixtures, integrated plant, and Mega factory. */
 @Mod(RedstoneEngineering.MOD_ID)
 public final class RseValidationFactoryModule {
     public RseValidationFactoryModule(IEventBus modBus) {
@@ -22,6 +23,7 @@ public final class RseValidationFactoryModule {
     private static void onServerTick(ServerTickEvent.Post event) {
         RseValidationSelfTestService.tickAll(event.getServer());
         RseValidationPlantService.tick(event.getServer());
+        RseMegaValidationService.tick(event.getServer());
     }
 
     private static void registerCommands(RegisterCommandsEvent event) {
@@ -96,6 +98,42 @@ public final class RseValidationFactoryModule {
                                         .executes(context -> {
                                             var source = context.getSource();
                                             return send(source, RseValidationPlantService.retest(source.getLevel()));
+                                        })))
+                        .then(Commands.literal("mega")
+                                .then(Commands.literal("place")
+                                        .executes(context -> {
+                                            var source = context.getSource();
+                                            BlockPos origin = BlockPos.containing(source.getPosition());
+                                            return send(source, RseMegaValidationService.place(source.getLevel(), origin));
+                                        }))
+                                .then(Commands.literal("status")
+                                        .executes(context -> {
+                                            var source = context.getSource();
+                                            return send(source, RseMegaValidationService.status(source.getLevel()));
+                                        }))
+                                .then(Commands.literal("station")
+                                        .then(Commands.argument("number", IntegerArgumentType.integer(1, 40))
+                                                .executes(context -> {
+                                                    var source = context.getSource();
+                                                    int number = IntegerArgumentType.getInteger(context, "number");
+                                                    return send(source, RseMegaValidationService.station(source.getLevel(), number));
+                                                })))
+                                .then(Commands.literal("cell")
+                                        .then(Commands.argument("cell", StringArgumentType.word())
+                                                .executes(context -> {
+                                                    var source = context.getSource();
+                                                    String cell = StringArgumentType.getString(context, "cell");
+                                                    return send(source, RseMegaValidationService.cell(source.getLevel(), cell));
+                                                })))
+                                .then(Commands.literal("report")
+                                        .executes(context -> {
+                                            var source = context.getSource();
+                                            return send(source, RseMegaValidationService.report(source.getLevel()));
+                                        }))
+                                .then(Commands.literal("retest")
+                                        .executes(context -> {
+                                            var source = context.getSource();
+                                            return send(source, RseMegaValidationService.retest(source.getLevel()));
                                         })))
         );
     }
