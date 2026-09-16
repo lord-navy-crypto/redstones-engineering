@@ -123,6 +123,37 @@ class ValidationFactoryToolTests(unittest.TestCase):
                     f"selftest {name} contains no RSE DUT",
                 )
 
+    def test_selftest_dynamic_benches_use_real_domains_and_observers(self) -> None:
+        def block_at(test_id: str, position: tuple[int, int, int]):
+            _size, placements = factory.SELFTESTS[test_id].builder()
+            return dict(placements)[position]
+
+        precision = block_at("02_signal/precision_filter", (4, 1, 4))
+        precision_id, precision_props = factory._normalize_block_spec(precision)
+        self.assertEqual(precision_id, "redstoneengineering:precision_filter")
+        self.assertEqual(dict(precision_props)["input_facing"], "west")
+        self.assertEqual(factory._block_name(block_at("02_signal/precision_filter", (3, 1, 4))),
+                         "redstoneengineering:redstone_reference_source")
+
+        hold = block_at("02_signal/sample_hold", (4, 1, 4))
+        hold_id, hold_props = factory._normalize_block_spec(hold)
+        self.assertEqual(hold_id, "redstoneengineering:sample_hold")
+        self.assertEqual(dict(hold_props)["trigger_mode"], "0")
+        self.assertEqual(factory._block_name(block_at("02_signal/sample_hold", (3, 1, 4))),
+                         "redstoneengineering:redstone_reference_source")
+
+        self.assertEqual(factory._block_name(block_at("02_signal/pulse_shaper", (5, 1, 4))),
+                         "redstoneengineering:signal_analyzer")
+        self.assertEqual(factory._block_name(block_at("02_signal/pwm_control", (5, 1, 4))),
+                         "redstoneengineering:signal_analyzer")
+
+        scaler_id, scaler_props = factory._normalize_block_spec(block_at("02_signal/quantizer_scaler", (3, 1, 4)))
+        quantizer_id, quantizer_props = factory._normalize_block_spec(block_at("02_signal/quantizer_scaler", (5, 1, 4)))
+        self.assertEqual(scaler_id, "redstoneengineering:redstone_to_lapis_scaler")
+        self.assertEqual(quantizer_id, "redstoneengineering:lapis_to_redstone_quantizer")
+        self.assertEqual(dict(scaler_props)["input_facing"], "west")
+        self.assertEqual(dict(quantizer_props)["facing"], "east")
+
     def test_package_presets_contains_only_generated_preset_assets_and_index(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
