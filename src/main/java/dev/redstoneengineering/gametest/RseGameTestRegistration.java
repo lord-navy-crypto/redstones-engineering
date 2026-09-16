@@ -28,6 +28,7 @@ public final class RseGameTestRegistration {
         event.register(RseMaterialReleasePersistenceGameTests.class);
         event.register(RseQueuePersistenceGameTests.class);
         event.register(RseMaintenancePersistenceGameTests.class);
+        event.register(RseAmrWorldLogisticsPersistenceGameTests.class);
         event.register(RseElectricalReliabilityGameTests.class);
         event.register(RseCommunicationIdentityGameTests.class);
         event.register(RseSignalJunctionTopologyGameTests.class);
