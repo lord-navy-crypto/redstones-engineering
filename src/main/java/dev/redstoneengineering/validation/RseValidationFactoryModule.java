@@ -11,7 +11,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
-/** Registers the local/manual RSE Validation Factory and self-test command surface. */
+/** Registers the local/manual RSE Validation Factory, self-test yard, and integrated plant. */
 @Mod(RedstoneEngineering.MOD_ID)
 public final class RseValidationFactoryModule {
     public RseValidationFactoryModule(IEventBus modBus) {
@@ -21,6 +21,7 @@ public final class RseValidationFactoryModule {
 
     private static void onServerTick(ServerTickEvent.Post event) {
         RseValidationSelfTestService.tickAll(event.getServer());
+        RseValidationPlantService.tick(event.getServer());
     }
 
     private static void registerCommands(RegisterCommandsEvent event) {
@@ -79,6 +80,23 @@ public final class RseValidationFactoryModule {
                                                     String id = StringArgumentType.getString(context, "id");
                                                     return send(source, RseValidationSelfTestService.check(source.getLevel(), id));
                                                 }))))
+                        .then(Commands.literal("plant")
+                                .then(Commands.literal("place")
+                                        .executes(context -> {
+                                            var source = context.getSource();
+                                            BlockPos origin = BlockPos.containing(source.getPosition());
+                                            return send(source, RseValidationPlantService.place(source.getLevel(), origin));
+                                        }))
+                                .then(Commands.literal("status")
+                                        .executes(context -> {
+                                            var source = context.getSource();
+                                            return send(source, RseValidationPlantService.status(source.getLevel()));
+                                        }))
+                                .then(Commands.literal("retest")
+                                        .executes(context -> {
+                                            var source = context.getSource();
+                                            return send(source, RseValidationPlantService.retest(source.getLevel()));
+                                        })))
         );
     }
 
