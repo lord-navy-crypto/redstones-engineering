@@ -15,7 +15,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.entity.EntityTypeTest;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 
@@ -47,18 +47,20 @@ public final class RseValidationFactoryService {
     public static final String ROBOT_TAG = "rse_validation_robot";
     public static final String ROBOT_ENTITY_ID = "redstoneengineering:engineering_mobile_robot";
 
+    private static final String FULL_FACTORY_TEMPLATE = "validation/full_factory";
     private static final int BUFFER_CAPACITY = 32;
     private static final int QUEUE_CAPACITY = 8;
 
     private static final Map<String, BlockPos> STATION_OFFSETS;
     static {
         LinkedHashMap<String, BlockPos> offsets = new LinkedHashMap<>();
-        offsets.put("material_release", new BlockPos(2, 1, 2));
-        offsets.put("queue_dispatch", new BlockPos(15, 1, 2));
-        offsets.put("maintenance_hold", new BlockPos(28, 1, 2));
-        offsets.put("quality_output", new BlockPos(2, 1, 14));
-        offsets.put("operations_monitor", new BlockPos(15, 1, 14));
-        offsets.put("amr_lane", new BlockPos(2, 1, 28));
+        // Station structure floors overlay the full-factory floor at the same Y level.
+        offsets.put("material_release", new BlockPos(2, 0, 2));
+        offsets.put("queue_dispatch", new BlockPos(15, 0, 2));
+        offsets.put("maintenance_hold", new BlockPos(28, 0, 2));
+        offsets.put("quality_output", new BlockPos(2, 0, 14));
+        offsets.put("operations_monitor", new BlockPos(15, 0, 14));
+        offsets.put("amr_lane", new BlockPos(2, 0, 28));
         STATION_OFFSETS = Map.copyOf(offsets);
     }
 
@@ -84,7 +86,7 @@ public final class RseValidationFactoryService {
         if (level == null) return Result.fail("Validation build failed: server level missing");
         if (origin == null) return Result.fail("Validation build failed: origin missing");
 
-        Result shell = place(level, origin, "full_factory");
+        Result shell = placeResource(level, origin, FULL_FACTORY_TEMPLATE);
         if (!shell.success()) return shell;
         for (Map.Entry<String, BlockPos> entry : STATION_OFFSETS.entrySet()) {
             Result station = place(level, origin.offset(entry.getValue()), entry.getKey());
@@ -274,10 +276,11 @@ public final class RseValidationFactoryService {
     }
 
     private static Result place(ServerLevel level, BlockPos position, String structureName) {
-        ResourceLocation id = ResourceLocation.fromNamespaceAndPath(
-                RedstoneEngineering.MOD_ID,
-                "validation/" + structureName
-        );
+        return placeResource(level, position, "validation/" + structureName);
+    }
+
+    private static Result placeResource(ServerLevel level, BlockPos position, String resourcePath) {
+        ResourceLocation id = ResourceLocation.fromNamespaceAndPath(RedstoneEngineering.MOD_ID, resourcePath);
         StructureTemplate template = level.getStructureManager().get(id).orElse(null);
         if (template == null) {
             return Result.fail("Missing validation structure: " + id);
@@ -315,13 +318,10 @@ public final class RseValidationFactoryService {
     }
 
     private static List<EngineeringMobileRobotEntity> validationRobots(ServerLevel level) {
-        ArrayList<EngineeringMobileRobotEntity> robots = new ArrayList<>();
-        for (Entity entity : level.getAllEntities()) {
-            if (entity instanceof EngineeringMobileRobotEntity robot && robot.getTags().contains(ROBOT_TAG)) {
-                robots.add(robot);
-            }
-        }
-        return List.copyOf(robots);
+        return List.copyOf(level.getEntities(
+                EntityTypeTest.forClass(EngineeringMobileRobotEntity.class),
+                robot -> robot.getTags().contains(ROBOT_TAG)
+        ));
     }
 
     private static void discardValidationRobots(ServerLevel level) {
