@@ -271,7 +271,7 @@ Each abnormal station line should include as much structured evidence as the blo
 
 ## 8. Persistence
 
-`RseMegaValidationSavedData` will continue to retain station/cell verdict history and phase completion. v2.1 adds a monotonically increasing **run number** or equivalent retest generation identifier so exported logs can be compared across retests.
+`RseMegaValidationSavedData` will continue to retain station/cell verdict history and phase completion. v2.1 adds an integer `runNumber` that increments on every explicit retest/rebuild. Initial placement starts at run 1. Exported reports include that exact number so repeated field runs can be compared without ambiguity.
 
 History semantics must preserve:
 
@@ -280,22 +280,22 @@ History semantics must preserve:
 - current verdict/detail
 - completed phases
 - endurance progress
-- current run identifier
+- current `runNumber`
 
 A recovery PASS must not erase earlier failure history.
 
 ## 9. Code organization
 
-The current `RseMegaValidationService` has accumulated orchestration, station semantics, topology, reporting, stimulus, placement, and panel logic. v2.1 should split responsibilities enough to make field debugging safe:
+v2.1 uses these fixed responsibility boundaries:
 
-- `RseMegaValidationService` — lifecycle/orchestration, phase progression, placement hooks
-- `RseMegaStationEvaluator` — station/device/quality policy and phase-aware evaluation
-- `RseMegaValidationTopology` — station/cell/bridge dependency definitions and world positions
-- `RseMegaDiagnosticReporter` — blocker/cascade analysis, report formatting, backend/file export
-- `RseMegaValidationSavedData` — persistence only
-- `tools/rse_mega_factory.py` — physical structure generation driven by the same documented topology contract
+- `RseMegaValidationService` — lifecycle/orchestration, phase progression, placement hooks, panel updates
+- `RseMegaStationEvaluator` — station/device semantics, quality policy, phase-aware evaluation, health/scenario verdicts
+- `RseMegaValidationTopology` — station/cell/bridge dependency definitions, domains, checkpoints, world-position helpers
+- `RseMegaDiagnosticReporter` — root/cascade analysis, stable text formatting, backend logger emission, latest/history file export
+- `RseMegaValidationSavedData` — persistence only, including `runNumber`
+- `tools/rse_mega_factory.py` — physical structure generation that follows the topology contract
 
-The exact class split may be adjusted during implementation if existing project conventions make a smaller split cleaner, but diagnostics and evaluation policy must not remain entangled with structure placement.
+Evaluation policy, diagnostic export, and physical topology must not be folded back into one monolithic service.
 
 ## 10. Testing strategy
 
