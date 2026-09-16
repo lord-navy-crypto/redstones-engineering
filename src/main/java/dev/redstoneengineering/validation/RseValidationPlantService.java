@@ -44,6 +44,7 @@ public final class RseValidationPlantService {
     private RseValidationPlantService() {}
 
     private static final int AUTO_INTERVAL_TICKS = 4;
+    private static final long PROCESS_PROPAGATION_TIMEOUT_TICKS = 96L;
     private static final BlockPos CONTROL_OFFSET = new BlockPos(15, 0, 0);
     private static final BlockPos MASTER_RETEST_BUTTON = new BlockPos(2, 1, 10);
 
@@ -132,7 +133,7 @@ public final class RseValidationPlantService {
         long age = Math.max(0L, level.getGameTime() - placement.phaseStartedTick());
         LinkedHashMap<String, RseValidationSelfTestService.Evaluation> cells = phase == Phase.PRECHECK
                 ? precheckCells(level, placement.origin())
-                : evaluateCells(level, placement.origin(), phase);
+                : evaluateCells(level, placement.origin(), phase, age);
 
         ArrayList<Component> lines = new ArrayList<>();
         lines.add(Component.literal("RSE Integrated Validation Plant v1.1 | phase=" + phase + " | phaseAge=" + age + "t"));
@@ -194,7 +195,7 @@ public final class RseValidationPlantService {
 
         LinkedHashMap<String, RseValidationSelfTestService.Evaluation> cells = phase == Phase.PRECHECK
                 ? precheckCells(level, placement.origin())
-                : evaluateCells(level, placement.origin(), phase);
+                : evaluateCells(level, placement.origin(), phase, phaseAge);
         updateCellPanels(level, placement.origin(), cells);
 
         boolean failed = cells.values().stream().anyMatch(e -> e.verdict() == RseValidationSelfTestService.Verdict.FAIL);
@@ -223,14 +224,21 @@ public final class RseValidationPlantService {
         result.put("A", blockCheck(level, cellOrigin(origin, "A").offset(2, 1, 6), RedstoneReferenceSourceBlock.class, "reference source"));
         result.put("B", blockCheck(level, cellOrigin(origin, "B").offset(3, 1, 6), SignalConditionerBlock.class, "gain conditioner"));
         result.put("C", blockCheck(level, cellOrigin(origin, "C").offset(3, 1, 6), SignalAnalyzerBlock.class, "inline analyzer"));
-        result.put("D", blockCheck(level, cellOrigin(origin, "D").offset(12, 1, 5), PwmControllerBlock.class, "PWM branch"));
+        result.put("D", blockCheck(level, cellOrigin(origin, "D").offset(12, 1, 4), PwmControllerBlock.class, "PWM branch"));
         result.put("E", blockCheck(level, cellOrigin(origin, "E").offset(9, 1, 9), SafetyInterlockBlock.class, "safety interlock"));
-        result.put("F", blockCheck(level, cellOrigin(origin, "F").offset(14, 1, 6), ServoActuatorBlock.class, "servo actuator"));
+        RseValidationSelfTestService.Evaluation servo = blockCheck(
+                level, cellOrigin(origin, "F").offset(14, 1, 6), ServoActuatorBlock.class, "servo actuator");
+        if (servo.verdict() != RseValidationSelfTestService.Verdict.PASS) {
+            result.put("F", servo);
+        } else {
+            result.put("F", blockCheck(
+                    level, cellOrigin(origin, "F").offset(14, 1, 5), RedstoneReferenceSourceBlock.class, "servo BRAKE test source"));
+        }
         return result;
     }
 
     private static LinkedHashMap<String, RseValidationSelfTestService.Evaluation> evaluateCells(
-            ServerLevel level, BlockPos origin, Phase phase
+            ServerLevel level, BlockPos origin, Phase phase, long phaseAge
     ) {
         int source = expectedSource(phase);
         int conditioned = Math.min(15, source * 2);
@@ -245,7 +253,7 @@ public final class RseValidationPlantService {
         result.put("C", evaluateInstrumentation(level, cellOrigin(origin, "C"), conditioned));
         result.put("D", evaluateControl(level, cellOrigin(origin, "D"), conditioned));
         result.put("E", evaluateSafety(level, cellOrigin(origin, "E"), conditioned, faulted, tripped, phase == Phase.ACCEPTANCE));
-        result.put("F", evaluateProcess(level, cellOrigin(origin, "F"), processCommand, tripped));
+        result.put("F", evaluateProcess(level, cellOrigin(origin, "F"), processCommand, tripped, phaseAge));
         return result;
     }
 
@@ -306,17 +314,17 @@ public final class RseValidationPlantService {
     private static RseValidationSelfTestService.Evaluation evaluateControl(
             ServerLevel level, BlockPos origin, int mainBusExpected
     ) {
-        BlockPos pwmPos = origin.offset(12, 1, 5);
+        BlockPos pwmPos = origin.offset(12, 1, 4);
         if (!(level.getBlockState(pwmPos).getBlock() instanceof PwmControllerBlock)) return fail("PWM controller missing");
-        BlockPos analyzerPos = origin.offset(11, 1, 5);
+        BlockPos analyzerPos = origin.offset(11, 1, 4);
         if (!(level.getBlockState(analyzerPos).getBlock() instanceof SignalAnalyzerBlock)) return fail("PWM analyzer missing");
         SignalAnalyzerBlock.UiSnapshot snapshot = SignalAnalyzerBlock.uiSnapshot(level, analyzerPos);
         if (snapshot.totalSamples() < 4) return waitFor("PWM analyzer samples=" + snapshot.totalSamples());
         if (mainBusExpected < 15 && snapshot.peakToPeak() <= 0) {
-            return fail("PWM diagnostic branch shows no switching activity");
+            return fail("PWM diagnostic branch shows no switching activity; COMMAND/INHIBIT routing check failed");
         }
         if (snapshot.raw() < 0 || snapshot.raw() > 15) return fail("PWM analyzer raw out of range=" + snapshot.raw());
-        return pass("analog command=" + mainBusExpected + "; PWM branch peakToPeak=" + snapshot.peakToPeak());
+        return pass("PWM CONTROL: analog command=" + mainBusExpected + "; switching peakToPeak=" + snapshot.peakToPeak());
     }
 
     private static RseValidationSelfTestService.Evaluation evaluateSafety(
@@ -377,46 +385,84 @@ public final class RseValidationPlantService {
     }
 
     private static RseValidationSelfTestService.Evaluation evaluateProcess(
-            ServerLevel level, BlockPos origin, int expectedCommand, boolean tripExpected
+            ServerLevel level, BlockPos origin, int expectedCommand, boolean tripExpected, long phaseAge
     ) {
         BlockPos servoPos = origin.offset(14, 1, 6);
         BlockState servoState = level.getBlockState(servoPos);
-        if (!(servoState.getBlock() instanceof ServoActuatorBlock)) return fail("servo actuator missing");
+        if (!(servoState.getBlock() instanceof ServoActuatorBlock)) return fail("SERVO: actuator missing");
+
+        BlockPos brakeSourcePos = origin.offset(14, 1, 5);
+        BlockState brakeSourceState = level.getBlockState(brakeSourcePos);
+        if (!(brakeSourceState.getBlock() instanceof RedstoneReferenceSourceBlock)) {
+            return fail("BRAKE: test source missing");
+        }
+        int expectedBrakePower = tripExpected ? 15 : 0;
+        int brakePower = brakeSourceState.getValue(RedstoneReferenceSourceBlock.POWER);
+        if (brakePower != expectedBrakePower) {
+            return waitFor("BRAKE source propagating=" + brakePower + " expected=" + expectedBrakePower);
+        }
+
         int command = ServoActuatorBlock.command(level, servoPos);
         int position = ServoActuatorBlock.position(level, servoPos);
-        if (command != expectedCommand) return fail("servo command=" + command + " expected=" + expectedCommand);
-        if (ServoActuatorBlock.braking(level, servoPos)) return fail("servo unexpectedly braking with valid command path");
-        if (Math.abs(position - expectedCommand) > 1) {
-            return waitFor("servo settling position=" + position + " target=" + expectedCommand);
+        if (command != expectedCommand) {
+            if (phaseAge < PROCESS_PROPAGATION_TIMEOUT_TICKS) {
+                return waitFor("servo command propagating=" + command + " expected=" + expectedCommand);
+            }
+            return fail("COMMAND STUCK: servo=" + command + " expected=" + expectedCommand + " age=" + phaseAge + "t");
+        }
+
+        boolean expectedBrake = tripExpected;
+        boolean braking = ServoActuatorBlock.braking(level, servoPos);
+        if (braking != expectedBrake) {
+            if (phaseAge < PROCESS_PROPAGATION_TIMEOUT_TICKS) {
+                return waitFor("BRAKE state=" + braking + " expected=" + expectedBrake);
+            }
+            return fail("BRAKE STUCK: state=" + braking + " expected=" + expectedBrake + " age=" + phaseAge + "t");
+        }
+        if (!tripExpected && Math.abs(position - expectedCommand) > 1) {
+            if (phaseAge < PROCESS_PROPAGATION_TIMEOUT_TICKS) {
+                return waitFor("POSITION settling=" + position + " target=" + expectedCommand);
+            }
+            return fail("POSITION STUCK: position=" + position + " target=" + expectedCommand + " age=" + phaseAge + "t");
         }
 
         BlockPos sensorPos = origin.offset(13, 1, 6);
         BlockState sensorState = level.getBlockState(sensorPos);
-        if (!(sensorState.getBlock() instanceof ServoPositionSensorBlock sensor)) return fail("servo position sensor missing");
-        if (ServoPositionSensorBlock.sourceQuality(level, sensorPos, sensorState) != PortQuality.VALID) {
-            return fail("servo position sensor topology/quality invalid");
+        if (!(sensorState.getBlock() instanceof ServoPositionSensorBlock sensor)) return fail("FEEDBACK: position sensor missing");
+        PortQuality sourceQuality = ServoPositionSensorBlock.sourceQuality(level, sensorPos, sensorState);
+        if (sourceQuality != PortQuality.VALID) {
+            return fail("FEEDBACK topology/quality=" + sourceQuality);
         }
         EngineeringPortSnapshot feedback = sensor.engineeringSnapshot(level, sensorPos, sensorState, Direction.WEST).orElse(null);
-        if (feedback == null || feedback.quality() == PortQuality.STALE) return waitFor("servo feedback not yet fresh");
+        if (feedback == null || feedback.quality() == PortQuality.STALE) return waitFor("FEEDBACK awaiting fresh sample");
         if (feedback.quality() != PortQuality.VALID && feedback.quality() != PortQuality.SATURATED) {
-            return fail("servo feedback quality=" + feedback.quality());
+            return fail("FEEDBACK quality=" + feedback.quality());
+        }
+        int feedbackValue = (int) Math.round(feedback.value());
+        if (Math.abs(feedbackValue - position) > 1) {
+            if (phaseAge < PROCESS_PROPAGATION_TIMEOUT_TICKS) {
+                return waitFor("FEEDBACK settling=" + feedbackValue + " position=" + position);
+            }
+            return fail("FEEDBACK STUCK: value=" + feedbackValue + " position=" + position + " age=" + phaseAge + "t");
         }
 
         BlockState processLamp = level.getBlockState(origin.offset(16, 1, 7));
         if (!processLamp.hasProperty(BlockStateProperties.LIT) || !processLamp.getValue(BlockStateProperties.LIT)) {
-            return fail("process command lamp is not lit");
+            return fail("COMMAND: process command lamp is not lit");
         }
 
         BlockPos safetyIndicatorPos = origin.offset(14, 1, 9);
         BlockState safetyState = level.getBlockState(safetyIndicatorPos);
-        if (!(safetyState.getBlock() instanceof AnalogIndicatorBlock safetyIndicator)) return fail("process safety indicator missing");
+        if (!(safetyState.getBlock() instanceof AnalogIndicatorBlock safetyIndicator)) return fail("PERMIT: indicator missing");
         AnalogIndicatorBlock.InputObservation safety = safetyIndicator.inputObservation(level, safetyIndicatorPos, safetyState);
-        if (safety.quality() == PortQuality.STALE) return waitFor("process safety permit stale");
+        if (safety.quality() == PortQuality.STALE) return waitFor("PERMIT stale");
         int expectedPermit = tripExpected ? 0 : 15;
-        if (safety.value() != expectedPermit) return fail("process safety permit=" + safety.value() + " expected=" + expectedPermit);
+        if (safety.value() != expectedPermit) return fail("PERMIT=" + safety.value() + " expected=" + expectedPermit);
 
-        return pass("servo command/position=" + command + "/" + position
-                + "; feedback=" + Math.round(feedback.value()) + "; permit=" + expectedPermit);
+        return pass("SERVO: command/position=" + command + "/" + position
+                + "; BRAKE=" + braking
+                + "; FEEDBACK=" + feedbackValue
+                + "; PERMIT=" + expectedPermit);
     }
 
     private static RseValidationSelfTestService.Evaluation indicator(
@@ -457,10 +503,12 @@ public final class RseValidationPlantService {
     private static void applyPhaseStimulus(ServerLevel level, BlockPos origin, Phase phase, long phaseAge) {
         BlockPos a = cellOrigin(origin, "A");
         BlockPos e = cellOrigin(origin, "E");
+        BlockPos f = cellOrigin(origin, "F");
         setReferencePower(level, a.offset(2, 1, 6), expectedSource(phase));
         setReferencePower(level, e.offset(14, 1, 5), phase == Phase.SENSOR_FAULT ? 15 : 0);
         setReferencePower(level, e.offset(9, 1, 10), phase == Phase.INTERLOCK_TRIP ? 0 : 15);
         setReferencePower(level, e.offset(10, 1, 3), phase == Phase.INTERLOCK_TRIP ? 15 : 0);
+        setReferencePower(level, f.offset(14, 1, 5), phase == Phase.INTERLOCK_TRIP ? 15 : 0);
 
         int ack = 0;
         int reset = 0;
@@ -475,6 +523,7 @@ public final class RseValidationPlantService {
     private static void applyBaseline(ServerLevel level, BlockPos origin) {
         BlockPos a = cellOrigin(origin, "A");
         BlockPos e = cellOrigin(origin, "E");
+        BlockPos f = cellOrigin(origin, "F");
         setReferencePower(level, a.offset(2, 1, 6), 6);
         setReferencePower(level, e.offset(14, 1, 5), 0);
         setReferencePower(level, e.offset(10, 1, 9), 15);
@@ -483,6 +532,7 @@ public final class RseValidationPlantService {
         setReferencePower(level, e.offset(10, 1, 3), 0);
         setReferencePower(level, e.offset(9, 1, 4), 0);
         setReferencePower(level, e.offset(9, 1, 2), 0);
+        setReferencePower(level, f.offset(14, 1, 5), 0);
     }
 
     private static int expectedSource(Phase phase) {
