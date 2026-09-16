@@ -336,7 +336,7 @@ public final class RseValidationFactoryService {
 
     private static String bufferStatus(OperationBufferSnapshot snapshot) {
         if (snapshot == null) return "MISSING";
-        return snapshot.bufferId() + " units=" + snapshot.totalUnits() + "/" + snapshot.capacityUnits();
+        return snapshot.bufferId() + " units=" + snapshot.usedUnits() + "/" + snapshot.capacityUnits();
     }
 
     private static String queueStatus(OperationQueueSnapshot snapshot) {
