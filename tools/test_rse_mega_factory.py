@@ -142,7 +142,6 @@ class MegaValidationFactoryTests(unittest.TestCase):
             for x, z in ((0, 0), (width - 1, 0), (0, depth - 1), (width - 1, depth - 1)):
                 for y in range(1, height):
                     self.assertNotEqual(self._block_id(by_pos[(x, y, z)]), "minecraft:air")
-            # One original corner lamp is deliberately consumed by the live plant-backbone tap.
             self.assertGreaterEqual(sum(self._block_id(block) == "minecraft:sea_lantern" for _pos, block in placements), 5)
             self.assertGreaterEqual(sum(self._block_id(block) == "minecraft:light_gray_concrete" for _pos, block in placements), 40)
 
@@ -159,9 +158,11 @@ class MegaValidationFactoryTests(unittest.TestCase):
                 self.assertIn(f"D{number:02d}", index)
 
     def test_all_selected_dut_ids_are_registered_blocks(self) -> None:
-        registry = (ROOT / "src/main/java/dev/redstoneengineering/RedstoneEngineering.java").read_text(encoding="utf-8")
+        registry = "\n".join((
+            (ROOT / "src/main/java/dev/redstoneengineering/RedstoneEngineering.java").read_text(encoding="utf-8"),
+            (ROOT / "src/main/java/dev/redstoneengineering/EngineeringSystemsModule.java").read_text(encoding="utf-8"),
+        ))
         for dut in EXPECTED_DUTS:
-            # Registrations use both compact one-line and formatted multi-line registerBlock calls.
             self.assertRegex(registry, rf'BLOCKS\.registerBlock\(\s*"{re.escape(dut)}"', dut)
 
     def test_java_runtime_defines_twenty_phase_hierarchy_and_history(self) -> None:
