@@ -1,12 +1,10 @@
 package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.RedstoneEngineering;
-import dev.redstoneengineering.diagnostics.RseDiagnosticEntry;
 import dev.redstoneengineering.diagnostics.RseDiagnosticSeverity;
 import dev.redstoneengineering.diagnostics.RseDiagnostics;
 import dev.redstoneengineering.diagnostics.RseLiveDiagnosticEvent;
 import dev.redstoneengineering.diagnostics.RseLiveDiagnostics;
-import dev.redstoneengineering.diagnostics.RseLiveDeviceHealth;
 import net.minecraft.SharedConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -17,7 +15,6 @@ import net.neoforged.fml.ModList;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -78,7 +75,8 @@ public final class RseDiagnosticsScreen extends Screen {
         rebuildWidgets();
     }
 
-    private void rebuildWidgets() {
+    @Override
+    protected void rebuildWidgets() {
         clearWidgets();
         int bottom = height - 27;
         addRenderableWidget(Button.builder(Component.literal("Back"), button -> onClose())
