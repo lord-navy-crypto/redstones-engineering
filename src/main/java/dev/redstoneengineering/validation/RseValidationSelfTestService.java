@@ -66,7 +66,7 @@ public final class RseValidationSelfTestService {
         tests.put("01_basic/signal_analyzer_tap", def(8, 3,1,4, 4,1,4, 4,1,4));
         tests.put("01_basic/signal_analyzer_inline", def(8, 3,1,4, 4,1,4, 6,1,4));
         tests.put("01_basic/analog_indicator", def(2, 3,1,4, 5,1,4, 5,1,4));
-        tests.put("01_basic/signal_conditioner_gain", def(4, 3,1,4, 4,1,4, 6,1,4));
+        tests.put("01_basic/signal_conditioner_gain", def(4, 3,1,4, 4,1,4, 5,1,4));
         tests.put("01_basic/directional_io", def(4, 2,1,3, 3,1,3, 4,1,3));
         tests.put("01_basic/instrument_bus", def(8, 2,1,4, 3,1,4, 5,1,4));
         tests.put("02_signal/conditioner_saturation", def(4, 3,1,4, 4,1,4, 5,1,4));
