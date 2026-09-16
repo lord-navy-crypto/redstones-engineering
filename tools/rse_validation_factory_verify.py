@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import gzip
-import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 errors: list[str] = []
@@ -82,7 +81,10 @@ for token in (
     "class RseValidationFactoryGameTests",
     "validationFactoryBuildsPhysicalStations",
     "RseValidationFactoryService.build(",
-    "validation:",
+    "RseValidationFactoryService.INPUT_BUFFER_ID",
+    "RseValidationFactoryService.OUTPUT_BUFFER_ID",
+    "RseValidationFactoryService.MAIN_QUEUE_ID",
+    "RseValidationFactoryService.ROBOT_TAG",
 ):
     if gametest and token not in gametest:
         errors.append(f"validation factory local GameTest missing contract {token!r}")
