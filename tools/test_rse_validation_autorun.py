@@ -39,6 +39,16 @@ class ValidationSelfTestAutorunTests(unittest.TestCase):
         self.assertIn("Automatic self-test armed", service)
         self.assertNotIn("Run /rsevalidation selftest check", service)
 
+    def test_one_command_can_place_complete_automatic_selftest_yard(self) -> None:
+        module = (ROOT / "src/main/java/dev/redstoneengineering/validation/RseValidationFactoryModule.java").read_text(encoding="utf-8")
+        service = (ROOT / "src/main/java/dev/redstoneengineering/validation/RseValidationSelfTestService.java").read_text(encoding="utf-8")
+        self.assertIn('Commands.literal("place-all")', module)
+        self.assertIn("RseValidationSelfTestService.placeAll(", module)
+        self.assertIn("placeAll(", service)
+        self.assertIn("GRID_COLUMNS", service)
+        self.assertIn("GRID_SPACING_X", service)
+        self.assertIn("GRID_SPACING_Z", service)
+
 
 if __name__ == "__main__":
     unittest.main()
