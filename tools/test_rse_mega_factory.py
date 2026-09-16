@@ -51,7 +51,7 @@ class MegaValidationFactoryTests(unittest.TestCase):
         return factory._normalize_block_spec(block)[0]
 
     def _props(self, block: factory.BlockSpec) -> dict[str, str]:
-        return factory._normalize_block_spec(block)[1]
+        return dict(factory._normalize_block_spec(block)[1])
 
     def _sign_lines(self, block: factory.BlockSpec) -> tuple[str, ...]:
         nbt = factory._block_nbt(block)
@@ -268,7 +268,7 @@ class MegaValidationFactoryTests(unittest.TestCase):
         self.assertEqual(self._block_id(by_pos[(20, 1, 12)]), "minecraft:stone")
         self.assertEqual(self._block_id(by_pos[(20, 1, 13)]), "minecraft:redstone_wall_torch")
         self.assertEqual(self._block_id(by_pos[(19, 1, 13)]), "redstoneengineering:redstone_cable_terminal")
-        self.assertFalse(self._props(by_pos[(19, 1, 13)]).get("output_mode") == "true")
+        self.assertNotEqual(self._props(by_pos[(19, 1, 13)]).get("output_mode"), "true")
         self.assertEqual(self._block_id(by_pos[(9, 1, 13)]), "redstoneengineering:redstone_cable_terminal")
         self.assertEqual(self._props(by_pos[(9, 1, 13)]).get("output_mode"), "true")
         self.assertEqual(self._block_id(by_pos[(28, 1, 12)]), "redstoneengineering:redstone_cable_terminal")
