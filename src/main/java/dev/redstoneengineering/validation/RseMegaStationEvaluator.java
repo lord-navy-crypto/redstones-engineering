@@ -2,6 +2,7 @@ package dev.redstoneengineering.validation;
 
 import dev.redstoneengineering.block.AlarmProcessorBlock;
 import dev.redstoneengineering.block.DirectionalSignalBlock;
+import dev.redstoneengineering.block.FaultInjectorBlock;
 import dev.redstoneengineering.block.QuartzLabOscillatorBlock;
 import dev.redstoneengineering.block.RedstoneReferenceSourceBlock;
 import dev.redstoneengineering.block.SafetyInterlockBlock;
@@ -31,6 +32,7 @@ import java.util.Optional;
  */
 public final class RseMegaStationEvaluator {
     public static final long PROPAGATION_TIMEOUT_TICKS = 600L;
+    private static final BlockPos H_SENSOR_FAULT_INJECTOR = new BlockPos(7, 1, 10);
 
     public enum Health {
         HEALTHY,
@@ -90,7 +92,7 @@ public final class RseMegaStationEvaluator {
             case 36 -> evaluateSelectedInputs(level, station, pos, state, phaseAge,
                     "SETPOINT IN", "PROCESS VALUE IN");
             case 37 -> evaluateServo(level, station, pos, phase);
-            case 38 -> evaluatePositionSensor(level, station, pos, state, phaseAge);
+            case 38 -> evaluatePositionSensor(level, plantOrigin, station, pos, state, phase, phaseAge);
             case 39 -> evaluateInterlock(level, station, pos, state, phase, phaseAge);
             case 40 -> evaluateAlarm(level, station, pos, state, phase);
             default -> evaluateGenericPorts(level, station, pos, state, phase, phaseAge);
@@ -243,9 +245,11 @@ public final class RseMegaStationEvaluator {
 
     private static StationEvaluation evaluatePositionSensor(
             ServerLevel level,
+            BlockPos plantOrigin,
             RseMegaValidationTopology.Station station,
             BlockPos pos,
             BlockState state,
+            RseMegaValidationService.Phase phase,
             long phaseAge
     ) {
         if (!(state.getBlock() instanceof ServoPositionSensorBlock)) {
@@ -253,11 +257,47 @@ public final class RseMegaStationEvaluator {
                     "position sensor class mismatch");
         }
         PortQuality quality = ServoPositionSensorBlock.sourceQuality(level, pos, state);
-        QualityDecision decision = decideQuality(quality, false, phaseAge);
-        String reason = decision.reason();
-        if (quality == PortQuality.NO_SIGNAL) reason = "POSITION_FEEDBACK_NO_SIGNAL";
-        return evaluation(station, pos, decision.health(), decision.verdict(), reason, quality,
-                "position-sensor sourceQuality=" + quality);
+        QualityDecision sensorDecision = decideQuality(quality, false, phaseAge);
+        if (sensorDecision.verdict() != RseValidationSelfTestService.Verdict.PASS) {
+            String reason = quality == PortQuality.NO_SIGNAL ? "POSITION_FEEDBACK_NO_SIGNAL" : sensorDecision.reason();
+            return evaluation(station, pos, sensorDecision.health(), sensorDecision.verdict(), reason, quality,
+                    "position-sensor sourceQuality=" + quality);
+        }
+
+        if (phase == RseMegaValidationService.Phase.SENSOR_FAULT) {
+            RseMegaValidationTopology.Module h = RseMegaValidationTopology.cellModules().get("H");
+            if (h == null) {
+                return failed(station, pos, "H_CELL_TOPOLOGY_MISSING", PortQuality.TOPOLOGY_ERROR,
+                        "H-cell module missing while checking feedback fault injector");
+            }
+            BlockPos injectorPos = plantOrigin.offset(h.offset()).offset(H_SENSOR_FAULT_INJECTOR);
+            BlockState injectorState = level.getBlockState(injectorPos);
+            if (!(injectorState.getBlock() instanceof FaultInjectorBlock)) {
+                return failed(station, pos, "FEEDBACK_FAULT_INJECTOR_MISSING", PortQuality.TOPOLOGY_ERROR,
+                        "expected fault injector at " + injectorPos.toShortString());
+            }
+            if (!FaultInjectorBlock.active(level, injectorPos)) {
+                return phaseAge < PROPAGATION_TIMEOUT_TICKS
+                        ? pending(station, pos, "FEEDBACK_FAULT_ARM_PENDING", PortQuality.STALE,
+                        "position sensor healthy but feedback fault injector is not armed yet")
+                        : failed(station, pos, "FEEDBACK_FAULT_NOT_ARMED", PortQuality.FAULT,
+                        "position sensor healthy but feedback fault injector never armed");
+            }
+            int output = FaultInjectorBlock.lastOutput(level, injectorPos);
+            if (output != 0) {
+                return phaseAge < PROPAGATION_TIMEOUT_TICKS
+                        ? pending(station, pos, "FEEDBACK_STUCK_LOW_PENDING", PortQuality.STALE,
+                        "fault injector armed but output=" + output)
+                        : failed(station, pos, "FEEDBACK_STUCK_LOW_FAILED", PortQuality.FAULT,
+                        "fault injector armed but output=" + output);
+            }
+            return degradedPass(station, pos, "EXPECTED_FEEDBACK_CHANNEL_FAULT", PortQuality.FAULT,
+                    "position-sensor sourceQuality=VALID | feedback injector active=true output=0 at "
+                            + injectorPos.toShortString());
+        }
+
+        return healthy(station, pos, "POSITION_FEEDBACK_VALID", PortQuality.VALID,
+                "position-sensor sourceQuality=VALID");
     }
 
     private static StationEvaluation evaluateInterlock(
