@@ -233,7 +233,16 @@ public final class OperationPlantRuntimeRecorder {
             OperationTransportDemand demand,
             long gameTick
     ) {
-        if (level == null || demand == null) return false;
+        return recordLogisticsDemand(level, demand, -1, gameTick);
+    }
+
+    public static boolean recordLogisticsDemand(
+            ServerLevel level,
+            OperationTransportDemand demand,
+            long jobId,
+            long gameTick
+    ) {
+        if (level == null || demand == null || jobId < -1 || gameTick < 0) return false;
         String detail = "status=DEMAND_CREATED"
                 + " output=" + demand.outputId()
                 + " source=" + demand.source().asLong()
@@ -244,7 +253,7 @@ public final class OperationPlantRuntimeRecorder {
                 OperationPlantEvent.Type.LOGISTICS,
                 gameTick,
                 "mission:" + demand.missionId(),
-                -1,
+                jobId,
                 detail
         );
     }
@@ -257,14 +266,26 @@ public final class OperationPlantRuntimeRecorder {
             String status,
             String detail
     ) {
-        if (level == null || missionId < 0 || outputId < 0 || gameTick < 0) return false;
+        return recordLogisticsEvent(level, missionId, outputId, -1, gameTick, status, detail);
+    }
+
+    public static boolean recordLogisticsEvent(
+            ServerLevel level,
+            long missionId,
+            long outputId,
+            long jobId,
+            long gameTick,
+            String status,
+            String detail
+    ) {
+        if (level == null || missionId < 0 || outputId < 0 || jobId < -1 || gameTick < 0) return false;
         String normalizedStatus = normalizeSubject(status, "UNKNOWN");
         String normalizedDetail = detail == null || detail.isBlank() ? "" : " " + detail.trim();
         return OperationPlantSavedData.get(level).recordPlantEvent(
                 OperationPlantEvent.Type.LOGISTICS,
                 gameTick,
                 "mission:" + missionId,
-                -1,
+                jobId,
                 "status=" + normalizedStatus + " output=" + outputId + normalizedDetail
         );
     }
