@@ -10,7 +10,7 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 
-/** Registers the local/manual RSE Validation Factory command surface. */
+/** Registers the local/manual RSE Validation Factory and self-test command surface. */
 @Mod(RedstoneEngineering.MOD_ID)
 public final class RseValidationFactoryModule {
     public RseValidationFactoryModule(IEventBus modBus) {
@@ -46,6 +46,27 @@ public final class RseValidationFactoryModule {
                                     var source = context.getSource();
                                     return send(source, RseValidationFactoryService.status(source.getLevel()));
                                 }))
+                        .then(Commands.literal("selftest")
+                                .then(Commands.literal("list")
+                                        .executes(context -> {
+                                            var source = context.getSource();
+                                            return send(source, RseValidationSelfTestService.list(source.getLevel()));
+                                        }))
+                                .then(Commands.literal("place")
+                                        .then(Commands.argument("id", StringArgumentType.greedyString())
+                                                .executes(context -> {
+                                                    var source = context.getSource();
+                                                    BlockPos origin = BlockPos.containing(source.getPosition());
+                                                    String id = StringArgumentType.getString(context, "id");
+                                                    return send(source, RseValidationSelfTestService.place(source.getLevel(), origin, id));
+                                                })))
+                                .then(Commands.literal("check")
+                                        .then(Commands.argument("id", StringArgumentType.greedyString())
+                                                .executes(context -> {
+                                                    var source = context.getSource();
+                                                    String id = StringArgumentType.getString(context, "id");
+                                                    return send(source, RseValidationSelfTestService.check(source.getLevel(), id));
+                                                }))))
         );
     }
 
