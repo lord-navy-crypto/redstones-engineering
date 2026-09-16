@@ -11,6 +11,7 @@ HEALTH = JAVA_ROOT / "diagnostics/RseLiveDeviceHealth.java"
 LOG_CAPTURE = JAVA_ROOT / "client/diagnostics/RseLogCapture.java"
 SCREEN = JAVA_ROOT / "client/ui/RseDiagnosticsScreen.java"
 MEGA_REPORTER = JAVA_ROOT / "validation/RseMegaDiagnosticReporter.java"
+VALIDATION_MODULE = JAVA_ROOT / "validation/RseValidationFactoryModule.java"
 
 
 class RseLiveDiagnosticsTests(unittest.TestCase):
@@ -80,6 +81,11 @@ class RseLiveDiagnosticsTests(unittest.TestCase):
             "ACCEPTANCE",
         ):
             self.assertIn(heading, reporter)
+
+    def test_mega_diagnose_command_routes_through_reporter(self) -> None:
+        module = VALIDATION_MODULE.read_text(encoding="utf-8")
+        self.assertIn('Commands.literal("diagnose")', module)
+        self.assertIn("RseMegaDiagnosticReporter.diagnose(source.getLevel())", module)
 
 
 if __name__ == "__main__":
