@@ -307,6 +307,34 @@ def _primary_dut(station: StationSpec) -> BlockSpec:
     n = station.number
     if n == 1:
         return _reference(9, "east")
+    if n == 2:
+        return station.block_id, {"facing": "south", "channel": "0"}
+    if n == 3:
+        return _series(station.block_id, "east", "west", mode="0", param="1")
+    if n == 4:
+        return _series(station.block_id, "east", "west", rate="2")
+    if n == 5:
+        return station.block_id, {"facing": "west", "mode": "1", "output": "0", "calibration": "2"}
+    if n == 6:
+        return station.block_id, {"facing": "east", "active": "false", "period": "2", "jitter": "1"}
+    if n == 7:
+        return _domain(station.block_id, "east", "west", division="0")
+    if n == 8:
+        return _series(station.block_id, "east", "west", mode="2")
+    if n == 9:
+        return _series(station.block_id, "east", "west", width="4")
+    if n == 10:
+        return _series(station.block_id, "east", "west", period_mode="2", invert="false")
+    if n == 11:
+        return station.block_id, {"facing": "east", "baseline": "10", "noise": "3"}
+    if n == 12:
+        return _domain(station.block_id, "east", "west", alpha="1")
+    if n == 13:
+        return station.block_id, {"facing": "south"}
+    if n == 14:
+        return _domain(station.block_id, "east", "west")
+    if n == 15:
+        return station.block_id, {"facing": "east", "input_facing": "west", "power": "0"}
     if n in (16, 18, 20, 21, 23):
         return _domain(station.block_id, "east", "west")
     if n in (24, 25):
@@ -327,6 +355,53 @@ def _primary_dut(station: StationSpec) -> BlockSpec:
     if n in (39, 40):
         return _series(station.block_id, "west", "east")
     return station.block_id
+
+
+def _analog_cell_wiring() -> list[Placement]:
+    blocks: list[Placement] = []
+    blocks.extend(((x, 1, 12), "redstoneengineering:redstone_signal_cable") for x in range(4, 9))
+    blocks.extend([
+        ((8, 1, 13), "redstoneengineering:redstone_signal_cable"),
+        ((9, 1, 13), "redstoneengineering:redstone_signal_cable"),
+    ])
+    blocks.extend(((x, 1, 13), "redstoneengineering:redstone_signal_cable") for x in range(10, 15))
+    blocks.append(((14, 1, 12), "redstoneengineering:redstone_signal_cable"))
+    blocks.extend(((x, 1, 12), "redstoneengineering:redstone_signal_cable") for x in range(16, 21))
+    blocks.extend(((x, 1, 12), "redstoneengineering:redstone_signal_cable") for x in range(22, 27))
+    blocks.append(((28, 1, 12), "redstoneengineering:redstone_signal_cable"))
+    return blocks
+
+
+def _timing_cell_wiring() -> list[Placement]:
+    blocks: list[Placement] = []
+    blocks.extend(((x, 1, 12), "redstoneengineering:quartz_timing_line") for x in range(4, 9))
+    blocks.extend(((x, 1, 12), "redstoneengineering:quartz_timing_line") for x in range(10, 14))
+    # No synthetic QUARTZ->REDSTONE converter exists. A dedicated physical redstone fixture drives
+    # the waveform lane while D06->D07 remains a real quartz lane inside the same cell.
+    blocks.extend([
+        ((14, 1, 13), _reference(0, "north")),
+        ((14, 1, 12), "redstoneengineering:redstone_signal_cable"),
+    ])
+    blocks.extend(((x, 1, 12), "redstoneengineering:redstone_signal_cable") for x in range(16, 21))
+    blocks.extend(((x, 1, 12), "redstoneengineering:redstone_signal_cable") for x in range(22, 27))
+    blocks.append(((28, 1, 12), "redstoneengineering:redstone_signal_cable"))
+    return blocks
+
+
+def _precision_cell_wiring() -> list[Placement]:
+    blocks: list[Placement] = []
+    blocks.extend(((x, 1, 12), "redstoneengineering:lapis_signal_line") for x in range(4, 9))
+    blocks.extend(((x, 1, 12), "redstoneengineering:lapis_signal_line") for x in range(10, 15))
+    blocks.append(((14, 1, 13), "redstoneengineering:lapis_signal_line"))
+    blocks.extend(((x, 1, 13), "redstoneengineering:lapis_signal_line") for x in range(15, 21))
+    blocks.append(((20, 1, 12), "redstoneengineering:lapis_signal_line"))
+    blocks.extend(((x, 1, 12), "redstoneengineering:lapis_signal_line") for x in range(22, 27))
+    blocks.extend([
+        ((21, 1, 10), ("redstoneengineering:quartz_lab_oscillator", {"facing": "south", "active": "false", "period": "1", "jitter": "0"})),
+        ((21, 1, 11), "redstoneengineering:quartz_timing_line"),
+        ((28, 1, 12), "minecraft:redstone_lamp"),
+    ])
+    return blocks
 
 
 def _digital_cell_wiring() -> list[Placement]:
@@ -394,9 +469,12 @@ def _control_safety_cell_wiring() -> list[Placement]:
     blocks: list[Placement] = [
         # PID setpoint and command path into the servo BACK face.
         ((2, 1, 12), _reference(9, "east")),
-        # D38 feedback exits NORTH, stays isolated from command bus at z=12, then returns to PID NORTH/process face.
+        # D38 feedback exits NORTH, then passes a real validation-owned fault injector before
+        # returning to PID NORTH/process-value input. The lane is isolated from command z=12.
         ((10, 1, 11), "redstoneengineering:redstone_signal_cable"),
         ((10, 1, 10), "redstoneengineering:redstone_signal_cable"),
+        ((7, 1, 10), _series("redstoneengineering:fault_injector", "west", "east", mode="0")),
+        ((7, 1, 9), _reference(0, "south")),
         ((3, 1, 11), "redstoneengineering:redstone_signal_cable"),
         # D39 three real permissive channels A/B/C.
         ((22, 1, 12), _reference(15, "west")),
@@ -406,6 +484,8 @@ def _control_safety_cell_wiring() -> list[Placement]:
         ((20, 1, 12), "minecraft:stone"),
         ((20, 1, 13), ("minecraft:redstone_wall_torch", {"facing": "south", "lit": "true"})),
         ((19, 1, 13), _terminal("east", False)),
+        # Independent actuator-fault fixture drives only the brake bus; normal power is zero.
+        ((12, 1, 14), _reference(0, "north")),
         # Brake branch ends in a cable->vanilla terminal directly on Servo BRAKE (south) face.
         ((10, 1, 14), "redstoneengineering:redstone_signal_cable"),
         ((9, 1, 14), "redstoneengineering:redstone_signal_cable"),
@@ -418,7 +498,8 @@ def _control_safety_cell_wiring() -> list[Placement]:
         ((27, 1, 11), _reference(0, "south")),
     ]
     blocks.extend(((x, 1, 12), "redstoneengineering:redstone_signal_cable") for x in range(4, 9))
-    blocks.extend(((x, 1, 10), "redstoneengineering:redstone_signal_cable") for x in range(3, 11))
+    blocks.extend(((x, 1, 10), "redstoneengineering:redstone_signal_cable") for x in range(3, 7))
+    blocks.extend(((x, 1, 10), "redstoneengineering:redstone_signal_cable") for x in range(8, 11))
     blocks.extend(((x, 1, 13), "redstoneengineering:redstone_signal_cable") for x in range(10, 19))
     blocks.extend(((x, 1, 15), "redstoneengineering:redstone_signal_cable") for x in range(20, 30))
     blocks.extend([
@@ -431,12 +512,15 @@ def _control_safety_cell_wiring() -> list[Placement]:
 
 def _cell_wiring(cell: str) -> list[Placement]:
     return {
+        "A": _analog_cell_wiring,
+        "B": _timing_cell_wiring,
+        "C": _precision_cell_wiring,
         "D": _digital_cell_wiring,
         "E": _comms_cell_wiring,
         "F": _optical_cell_wiring,
         "G": _pneumatic_cell_wiring,
         "H": _control_safety_cell_wiring,
-    }.get(cell, lambda: [])()
+    }[cell]()
 
 
 def _cell_builder(cell: str) -> tuple[tuple[int, int, int], list[Placement]]:
