@@ -27,6 +27,8 @@ jobs:
         run: chmod +x gradlew
       - name: Validate verifier syntax
         run: python3 -m compileall -q tools
+      - name: Validation yard and plant contract tests
+        run: python3 -m unittest tools.test_rse_validation_autorun tools.test_rse_validation_plant -v
       - name: Static and reference verification
         shell: bash
         run: |
