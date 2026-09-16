@@ -112,7 +112,7 @@ class ValidationPlantTests(unittest.TestCase):
                     for y in range(1, height):
                         self.assertNotEqual(self._block_id(by_position[(x, y, z)]), "minecraft:air")
                 roof_frame = [
-                    block for (x, y, z), block in placements
+                    block for (_x, y, _z), block in placements
                     if y == height - 1 and self._block_id(block) != "minecraft:air"
                 ]
                 self.assertGreaterEqual(len(roof_frame), 32)
@@ -193,14 +193,19 @@ class ValidationPlantTests(unittest.TestCase):
         self.assertEqual(self._block_id(brake_source), "redstoneengineering:redstone_reference_source")
         properties = self._block_properties(brake_source)
         self.assertEqual(properties.get("power"), "0")
-        self.assertEqual(properties.get("facing"), brake_direction.removeprefix("north") if False else "south")
+        self.assertEqual(properties.get("facing"), "south")
 
     def test_process_runtime_waits_for_command_propagation_and_checks_expected_braking(self) -> None:
         service = (ROOT / "src/main/java/dev/redstoneengineering/validation/RseValidationPlantService.java").read_text(encoding="utf-8")
         self.assertIn('waitFor("servo command propagating=', service)
+        self.assertIn("PROCESS_PROPAGATION_TIMEOUT_TICKS", service)
         self.assertIn("boolean expectedBrake = tripExpected;", service)
-        self.assertIn("ServoActuatorBlock.braking(level, servoPos) != expectedBrake", service)
+        self.assertIn("braking != expectedBrake", service)
         self.assertIn("f.offset(14, 1, 5)", service)
+        self.assertIn("COMMAND STUCK", service)
+        self.assertIn("BRAKE STUCK", service)
+        self.assertIn("POSITION STUCK", service)
+        self.assertIn("FEEDBACK STUCK", service)
 
     def test_factory_generator_emits_modular_plant_assets(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
