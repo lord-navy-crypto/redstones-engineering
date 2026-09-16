@@ -236,11 +236,11 @@ class MegaValidationFactoryTests(unittest.TestCase):
         self.assertTrue(JAVA_EVALUATOR.exists(), "phase-aware mega station evaluator must exist")
         source = JAVA_EVALUATOR.read_text(encoding="utf-8")
         for token in (
-            "PortQuality.NO_SIGNAL",
-            "PortQuality.FAULT",
-            "PortQuality.DOMAIN_MISMATCH",
-            "PortQuality.TOPOLOGY_ERROR",
-            "PortQuality.STALE",
+            "case NO_SIGNAL",
+            "case FAULT",
+            "case DOMAIN_MISMATCH",
+            "case TOPOLOGY_ERROR",
+            "case STALE",
         ):
             self.assertIn(token, source)
         self.assertNotIn("quality() != PortQuality.STALE", source)
