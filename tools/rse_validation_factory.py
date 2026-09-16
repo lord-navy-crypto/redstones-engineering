@@ -50,7 +50,8 @@ PACKAGE_PATH = ROOT / "build/validation/RSE-Validation-Factory.zip"
 DATA_VERSION = 3955  # Minecraft 1.21.1; matches the repository's existing empty5x4x5 template.
 ARCHIVE_ROOT = Path("RSE Validation Factory")
 
-BlockSpec = str | tuple[str, dict[str, str]]
+NbtValue = bool | int | str | list[str] | dict[str, object]
+BlockSpec = str | tuple[str, dict[str, str]] | tuple[str, dict[str, str], dict[str, NbtValue]]
 Placement = tuple[tuple[int, int, int], BlockSpec]
 PaletteKey = tuple[str, tuple[tuple[str, str], ...]]
 
@@ -65,6 +66,7 @@ EXPECTED_STRUCTURES = (
 )
 
 TAG_END = 0
+TAG_BYTE = 1
 TAG_INT = 3
 TAG_STRING = 8
 TAG_LIST = 9
@@ -73,6 +75,10 @@ TAG_COMPOUND = 10
 
 def _u16(value: int) -> bytes:
     return struct.pack(">H", value)
+
+
+def _i8(value: int) -> bytes:
+    return struct.pack(">b", value)
 
 
 def _i32(value: int) -> bytes:
@@ -84,13 +90,21 @@ def _name(name: str) -> bytes:
     return _u16(len(raw)) + raw
 
 
+def _named_byte(name: str, value: int | bool) -> bytes:
+    return bytes([TAG_BYTE]) + _name(name) + _i8(1 if value else 0)
+
+
 def _named_int(name: str, value: int) -> bytes:
     return bytes([TAG_INT]) + _name(name) + _i32(value)
 
 
-def _named_string(name: str, value: str) -> bytes:
+def _string_payload(value: str) -> bytes:
     raw = value.encode("utf-8")
-    return bytes([TAG_STRING]) + _name(name) + _u16(len(raw)) + raw
+    return _u16(len(raw)) + raw
+
+
+def _named_string(name: str, value: str) -> bytes:
+    return bytes([TAG_STRING]) + _name(name) + _string_payload(value)
 
 
 def _int_list_payload(values: tuple[int, ...] | list[int]) -> bytes:
@@ -99,6 +113,14 @@ def _int_list_payload(values: tuple[int, ...] | list[int]) -> bytes:
 
 def _named_int_list(name: str, values: tuple[int, ...] | list[int]) -> bytes:
     return bytes([TAG_LIST]) + _name(name) + _int_list_payload(values)
+
+
+def _string_list_payload(values: list[str]) -> bytes:
+    return bytes([TAG_STRING]) + _i32(len(values)) + b"".join(_string_payload(value) for value in values)
+
+
+def _named_string_list(name: str, values: list[str]) -> bytes:
+    return bytes([TAG_LIST]) + _name(name) + _string_list_payload(values)
 
 
 def _compound_payload(entries: list[bytes]) -> bytes:
@@ -117,11 +139,32 @@ def _named_compound_list(name: str, compounds: list[bytes]) -> bytes:
     return bytes([TAG_LIST]) + _name(name) + _list_of_compounds_payload(compounds)
 
 
+def _named_nbt(name: str, value: object) -> bytes:
+    if isinstance(value, bool):
+        return _named_byte(name, value)
+    if isinstance(value, int):
+        return _named_int(name, value)
+    if isinstance(value, str):
+        return _named_string(name, value)
+    if isinstance(value, dict):
+        return _named_compound(name, [_named_nbt(str(key), item) for key, item in value.items()])
+    if isinstance(value, list) and all(isinstance(item, str) for item in value):
+        return _named_string_list(name, value)
+    raise TypeError(f"unsupported validation NBT value for {name!r}: {type(value).__name__}")
+
+
 def _normalize_block_spec(block: BlockSpec) -> PaletteKey:
     if isinstance(block, str):
         return block, ()
-    block_id, properties = block
+    block_id = block[0]
+    properties = block[1]
     return block_id, tuple(sorted((str(key), str(value)) for key, value in properties.items()))
+
+
+def _block_nbt(block: BlockSpec) -> dict[str, NbtValue] | None:
+    if isinstance(block, str) or len(block) < 3:
+        return None
+    return block[2]
 
 
 def _block_name(block: BlockSpec) -> str:
@@ -139,11 +182,14 @@ def _palette_entry(block: PaletteKey) -> bytes:
     return _compound_payload(entries)
 
 
-def _block_entry(x: int, y: int, z: int, state: int) -> bytes:
-    return _compound_payload([
+def _block_entry(x: int, y: int, z: int, state: int, nbt: dict[str, NbtValue] | None = None) -> bytes:
+    entries = [
         _named_int_list("pos", [x, y, z]),
         _named_int("state", state),
-    ])
+    ]
+    if nbt:
+        entries.append(_named_compound("nbt", [_named_nbt(name, value) for name, value in nbt.items()]))
+    return _compound_payload(entries)
 
 
 def _structure_bytes(size: tuple[int, int, int], placements: list[Placement]) -> bytes:
@@ -160,7 +206,7 @@ def _structure_bytes(size: tuple[int, int, int], placements: list[Placement]) ->
         if key not in palette_index:
             palette_index[key] = len(palette)
             palette.append(key)
-        blocks.append(_block_entry(x, y, z, palette_index[key]))
+        blocks.append(_block_entry(x, y, z, palette_index[key], _block_nbt(block)))
 
     root_payload = _compound_payload([
         _named_int("DataVersion", DATA_VERSION),
@@ -341,7 +387,7 @@ def _selftest_index_text() -> str:
 
 def _plant_index_text() -> str:
     lines = [
-        "RSE INTEGRATED VALIDATION PLANT V1",
+        "RSE INTEGRATED VALIDATION PLANT V1.1",
         "module\toffset_x\toffset_y\toffset_z\tsize_x\tsize_y\tsize_z",
     ]
     for name in PLANT_STRUCTURE_ORDER:
@@ -487,7 +533,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     sub.add_parser("generate", help="generate Validation Factory plus preset, self-test, and integrated plant NBT files")
     sub.add_parser("generate-presets", help="generate only reusable preset NBT files")
     sub.add_parser("generate-selftests", help="generate only self-checking validation NBT files")
-    sub.add_parser("generate-plant", help="generate only the seven modular Integrated Validation Plant v1 NBT files")
+    sub.add_parser("generate-plant", help="generate only the eight modular Integrated Validation Plant v1.1 NBT files")
     sub.add_parser("package-presets", help="package generated presets into a pure NBT ZIP bundle")
     package = sub.add_parser("package", help="package an existing real Validation Factory world")
     package.add_argument("--world", type=Path, default=DEFAULT_WORLD)
