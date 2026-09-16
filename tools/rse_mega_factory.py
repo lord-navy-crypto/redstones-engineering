@@ -13,6 +13,10 @@ CELL_SIZE = (31, 7, 25)
 CONTROL_HALL_SIZE = (63, 7, 17)
 SPINE_SIZE = (133, 7, 3)
 STATION_X = (3, 9, 15, 21, 27)
+DUT_POS_OVERRIDES: dict[int, tuple[int, int, int]] = {
+    # D38 must be physically adjacent to the D37 servo's mechanical FRONT.
+    38: (10, 1, 12),
+}
 
 
 @dataclass(frozen=True)
@@ -149,7 +153,7 @@ for _cell, (_module, _title, _defs) in CELL_DEFINITIONS.items():
             short_name=_short,
             role=_role,
             module_id=_module,
-            dut_pos=(_x, 1, 12),
+            dut_pos=DUT_POS_OVERRIDES.get(_number, (_x, 1, 12)),
             sign_pos=(_x, 1, 7),
             panel=_station_panel(_x),
         ))
@@ -271,6 +275,12 @@ def _frame(size: tuple[int, int, int], marker: BlockSpec) -> list[Placement]:
     return blocks
 
 
+def _domain(block_id: str, facing: str, input_facing: str, **extra: str) -> BlockSpec:
+    props = {"facing": facing, "input_facing": input_facing}
+    props.update(extra)
+    return block_id, props
+
+
 def _series(block_id: str, facing: str, input_facing: str, **extra: str) -> BlockSpec:
     props = {"facing": facing, "input_facing": input_facing, "output": "0"}
     props.update(extra)
@@ -285,6 +295,150 @@ def _reference(power: int, facing: str) -> BlockSpec:
     return "redstoneengineering:redstone_reference_source", {"facing": facing, "power": str(power)}
 
 
+def _terminal(facing: str, output_mode: bool) -> BlockSpec:
+    return "redstoneengineering:redstone_cable_terminal", {
+        "facing": facing,
+        "output_mode": "true" if output_mode else "false",
+        "power": "0",
+    }
+
+
+def _primary_dut(station: StationSpec) -> BlockSpec:
+    n = station.number
+    if n == 1:
+        return _reference(9, "east")
+    if n in (16, 18, 20, 21, 23):
+        return _domain(station.block_id, "east", "west")
+    if n in (24, 25):
+        extra = {"timeout": "1"} if n == 25 else {}
+        return _series(station.block_id, "east", "west", **extra)
+    if n == 28:
+        return _domain(station.block_id, "east", "west")
+    if n == 29:
+        return _domain(station.block_id, "east", "west", target="0")
+    if n in (33, 34, 35):
+        return _domain(station.block_id, "east", "west")
+    if n == 36:
+        return _series(station.block_id, "east", "west", tuning="2")
+    if n == 37:
+        return station.block_id, {"facing": "east", "slew": "0"}
+    if n == 38:
+        return _series(station.block_id, "north", "west")
+    if n in (39, 40):
+        return _series(station.block_id, "west", "east")
+    return station.block_id
+
+
+def _digital_cell_wiring() -> list[Placement]:
+    blocks: list[Placement] = [((2, 1, 12), _reference(9, "east")), ((28, 1, 12), "redstoneengineering:eight_bit_data_bus")]
+    blocks.extend(((x, 1, 12), "redstoneengineering:eight_bit_data_bus") for x in range(4, 15))
+    blocks.extend(((x, 1, 12), "redstoneengineering:serial_data_line") for x in range(16, 27))
+    return blocks
+
+
+def _comms_cell_wiring() -> list[Placement]:
+    blocks: list[Placement] = [
+        ((2, 1, 12), _reference(15, "east")),
+        ((14, 1, 12), "redstoneengineering:serial_data_line"),
+        ((16, 1, 12), "redstoneengineering:serial_data_line"),
+        # Independent real SERIAL source path into D23.
+        ((14, 1, 6), _reference(11, "south")),
+        ((14, 1, 7), _domain("redstoneengineering:redstone_byte_encoder", "south", "north")),
+        ((14, 1, 8), "redstoneengineering:eight_bit_data_bus"),
+        ((14, 1, 9), _domain("redstoneengineering:serializer", "south", "north")),
+        ((14, 1, 10), "redstoneengineering:serial_data_line"),
+        ((14, 1, 11), "redstoneengineering:serial_data_line"),
+        # D23 regenerated output is decoded on a separate observer branch.
+        ((16, 1, 11), "redstoneengineering:serial_data_line"),
+        ((16, 1, 10), "redstoneengineering:serial_data_line"),
+        ((16, 1, 9), _domain("redstoneengineering:deserializer", "north", "south")),
+        ((16, 1, 8), "redstoneengineering:eight_bit_data_bus"),
+        ((16, 1, 7), _series("redstoneengineering:byte_to_redstone_decoder", "north", "south")),
+        ((16, 1, 6), "minecraft:redstone_lamp"),
+    ]
+    # Differential path routes around D23 because D23 is intentionally SERIAL, not DIFFERENTIAL.
+    blocks.extend(((x, 1, 12), "redstoneengineering:differential_data_pair") for x in range(4, 14))
+    blocks.extend(((x, 1, 13), "redstoneengineering:differential_data_pair") for x in range(13, 18))
+    blocks.extend(((x, 1, 12), "redstoneengineering:differential_data_pair") for x in range(17, 21))
+    # Differential receiver drives a real insulated heartbeat bus into D25.
+    blocks.extend(((x, 1, 12), "redstoneengineering:redstone_signal_cable") for x in range(22, 27))
+    return blocks
+
+
+def _optical_cell_wiring() -> list[Placement]:
+    blocks: list[Placement] = []
+    blocks.extend(((x, 1, 12), "redstoneengineering:optical_fiber") for x in range(4, 15))
+    blocks.extend(((x, 1, 12), "redstoneengineering:optical_fiber") for x in range(16, 21))
+    blocks.extend(((x, 1, 12), "redstoneengineering:optical_fiber") for x in range(22, 27))
+    blocks.extend([
+        ((15, 1, 11), "redstoneengineering:optical_fiber"),
+        ((15, 1, 10), "redstoneengineering:optical_receiver"),
+    ])
+    return blocks
+
+
+def _pneumatic_cell_wiring() -> list[Placement]:
+    blocks: list[Placement] = [
+        ((3, 0, 12), "minecraft:redstone_block"),
+        ((3, 2, 12), "redstoneengineering:pneumatic_pipe"),
+        ((21, 2, 12), "minecraft:redstone_block"),
+    ]
+    blocks.extend(((x, 2, 12), "redstoneengineering:pneumatic_pipe") for x in range(4, 10))
+    blocks.extend(((x, 1, 12), "redstoneengineering:pneumatic_pipe") for x in range(10, 15))
+    blocks.extend(((x, 1, 12), "redstoneengineering:pneumatic_pipe") for x in range(16, 21))
+    blocks.extend(((x, 1, 12), "redstoneengineering:pneumatic_pipe") for x in range(22, 27))
+    return blocks
+
+
+def _control_safety_cell_wiring() -> list[Placement]:
+    blocks: list[Placement] = [
+        # PID setpoint and command path into the servo BACK face.
+        ((2, 1, 12), _reference(9, "east")),
+        # D38 feedback exits NORTH, stays isolated from command bus at z=12, then returns to PID NORTH/process face.
+        ((10, 1, 11), "redstoneengineering:redstone_signal_cable"),
+        ((10, 1, 10), "redstoneengineering:redstone_signal_cable"),
+        ((3, 1, 11), "redstoneengineering:redstone_signal_cable"),
+        # D39 three real permissive channels A/B/C.
+        ((22, 1, 12), _reference(15, "west")),
+        ((21, 1, 13), _reference(15, "north")),
+        ((21, 1, 11), _reference(15, "south")),
+        # Permit-high healthy state drives a vanilla torch inverter. Trip -> torch ON.
+        ((20, 1, 12), "minecraft:stone"),
+        ((20, 1, 13), ("minecraft:redstone_wall_torch", {"facing": "south", "lit": "true"})),
+        ((19, 1, 13), _terminal("east", False)),
+        # Brake branch ends in a cable->vanilla terminal directly on Servo BRAKE (south) face.
+        ((10, 1, 14), "redstoneengineering:redstone_signal_cable"),
+        ((9, 1, 14), "redstoneengineering:redstone_signal_cable"),
+        ((9, 1, 13), _terminal("north", True)),
+        # Alarm condition branch comes from the same inverted trip signal.
+        ((20, 1, 14), _terminal("north", False)),
+        ((28, 1, 12), _terminal("west", True)),
+        # Alarm ACK and RESET are explicit zero-valued physical operator/test inputs.
+        ((27, 1, 13), _reference(0, "north")),
+        ((27, 1, 11), _reference(0, "south")),
+    ]
+    blocks.extend(((x, 1, 12), "redstoneengineering:redstone_signal_cable") for x in range(4, 9))
+    blocks.extend(((x, 1, 10), "redstoneengineering:redstone_signal_cable") for x in range(3, 11))
+    blocks.extend(((x, 1, 13), "redstoneengineering:redstone_signal_cable") for x in range(10, 19))
+    blocks.extend(((x, 1, 15), "redstoneengineering:redstone_signal_cable") for x in range(20, 30))
+    blocks.extend([
+        ((29, 1, 14), "redstoneengineering:redstone_signal_cable"),
+        ((29, 1, 13), "redstoneengineering:redstone_signal_cable"),
+        ((29, 1, 12), "redstoneengineering:redstone_signal_cable"),
+    ])
+    return blocks
+
+
+def _cell_wiring(cell: str) -> list[Placement]:
+    return {
+        "D": _digital_cell_wiring,
+        "E": _comms_cell_wiring,
+        "F": _optical_cell_wiring,
+        "G": _pneumatic_cell_wiring,
+        "H": _control_safety_cell_wiring,
+    }.get(cell, lambda: [])()
+
+
 def _cell_builder(cell: str) -> tuple[tuple[int, int, int], list[Placement]]:
     module_id, title, _defs = CELL_DEFINITIONS[cell]
     marker = {
@@ -297,7 +451,6 @@ def _cell_builder(cell: str) -> tuple[tuple[int, int, int], list[Placement]]:
     additions: list[Placement] = [
         *_floor(CELL_SIZE[0], CELL_SIZE[2]),
         *_frame(CELL_SIZE, marker),
-        # Three-wide maintenance lane through the equipment row.
         *[((x, 0, z), "minecraft:light_gray_concrete") for x in range(1, 30) for z in (10, 11, 12, 13)],
         ((1, 1, 1), "minecraft:sea_lantern"), ((29, 1, 1), "minecraft:sea_lantern"),
         ((1, 1, 23), "minecraft:sea_lantern"), ((29, 1, 23), "minecraft:sea_lantern"),
@@ -307,7 +460,6 @@ def _cell_builder(cell: str) -> tuple[tuple[int, int, int], list[Placement]]:
         *_panel_blocks(LOCAL_CELL_PANEL, labels=True),
     ]
 
-    # A live tap from the plant-wide backbone enters every cell at its north edge.
     additions.extend([
         ((29, 1, 0), _unity_buffer("south", "north")),
         ((29, 1, 1), _unity_buffer("south", "north")),
@@ -315,7 +467,6 @@ def _cell_builder(cell: str) -> tuple[tuple[int, int, int], list[Placement]]:
         ((28, 1, 2), ("redstoneengineering:analog_indicator", {"facing": "east", "level": "0"})),
     ])
 
-    # D provides the physical north-to-cross-spine turn for the serpentine plant backbone.
     if cell == "D":
         additions.extend([
             ((30, 1, 0), _unity_buffer("south", "north")),
@@ -323,19 +474,14 @@ def _cell_builder(cell: str) -> tuple[tuple[int, int, int], list[Placement]]:
         ])
 
     for station in MEGA_CELL_STATIONS[cell]:
-        # Primary DUT plus a dedicated station information sign and physical verdict panel.
-        dut: BlockSpec = station.block_id
-        if station.number == 1:
-            dut = _reference(9, "east")
         additions.extend([
-            (station.dut_pos, dut),
+            (station.dut_pos, _primary_dut(station)),
             (station.sign_pos, _sign((f"D{station.number:02d}", station.short_name, station.role[:18], f"CELL {cell}"))),
             *_panel_blocks(station.panel),
-            # Instrument/foundation markers make each bay visually independent and provide topology evidence.
             ((station.dut_pos[0], 0, station.dut_pos[2]), "minecraft:polished_andesite"),
-            ((station.dut_pos[0], 1, 15), _reference(6 + (station.number % 4), "north")),
-            ((station.dut_pos[0], 1, 17), ("redstoneengineering:analog_indicator", {"facing": "south", "level": "0"})),
         ])
+
+    additions.extend(_cell_wiring(cell))
     return CELL_SIZE, _overlay(p, additions)
 
 
