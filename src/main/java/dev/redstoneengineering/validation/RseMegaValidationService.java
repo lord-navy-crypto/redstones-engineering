@@ -181,7 +181,7 @@ public final class RseMegaValidationService {
                 "Placed RSE Mega Validation Factory v2: 40 DUT / 8 cells / 20-phase acceptance.",
                 "Process route: A -> B -> C -> D -> south turn -> E -> F -> G -> H.",
                 "Use physical MASTER RETEST for a fresh run; commands remain engineering/debug access.",
-                "Developer diagnostics: /rsevalidation mega status | station <1..40> | cell <A..H> | report"
+                "Developer diagnostics: /rsevalidation mega diagnose | status | station <1..40> | cell <A..H> | report"
         );
     }
 
@@ -268,6 +268,107 @@ public final class RseMegaValidationService {
             lines.add(Component.literal(String.format(Locale.ROOT, "D%02d %s first failure: %s | %s",
                     station, spec.name(), data.firstFailurePhase(station), data.firstFailureDetail(station))));
         }
+        return new RseValidationFactoryService.Result(true, lines);
+    }
+
+    public static RseValidationFactoryService.Result diagnose(ServerLevel level) {
+        if (level == null) return RseValidationFactoryService.Result.fail("Mega diagnose failed: level missing");
+        RseMegaValidationSavedData data = RseMegaValidationSavedData.get(level);
+        RseMegaValidationSavedData.Placement placement = data.placement();
+        if (placement == null) return RseValidationFactoryService.Result.fail("Mega Validation Factory v2 has not been placed.");
+
+        Phase phase = phaseOf(placement.phase());
+        long age = Math.max(0L, level.getGameTime() - placement.phaseStartedTick());
+        LinkedHashMap<Integer, RseValidationSelfTestService.Evaluation> stations = evaluateStations(
+                level, placement.origin(), phase, age);
+        LinkedHashMap<String, RseValidationSelfTestService.Evaluation> cells = evaluateCells(
+                level, placement.origin(), phase, age, stations);
+        RseValidationSelfTestService.Evaluation gate = phaseGate(
+                level, placement.origin(), phase, age, stations, cells, data);
+
+        boolean failed = gate.verdict() == RseValidationSelfTestService.Verdict.FAIL
+                || stations.values().stream().anyMatch(e -> e.verdict() == RseValidationSelfTestService.Verdict.FAIL)
+                || cells.values().stream().anyMatch(e -> e.verdict() == RseValidationSelfTestService.Verdict.FAIL);
+        boolean waiting = gate.verdict() == RseValidationSelfTestService.Verdict.WAIT
+                || stations.values().stream().anyMatch(e -> e.verdict() == RseValidationSelfTestService.Verdict.WAIT)
+                || cells.values().stream().anyMatch(e -> e.verdict() == RseValidationSelfTestService.Verdict.WAIT);
+        RseValidationSelfTestService.Verdict master = failed
+                ? RseValidationSelfTestService.Verdict.FAIL
+                : waiting ? RseValidationSelfTestService.Verdict.WAIT : RseValidationSelfTestService.Verdict.PASS;
+
+        ArrayList<Component> lines = new ArrayList<>();
+        lines.add(Component.literal("MEGA FACTORY FULL DIAGNOSIS"));
+        lines.add(Component.literal("PHASE: " + phase + " | AGE: " + age + "t | MASTER: " + master));
+        lines.add(Component.literal("===== CURRENT BLOCKERS ====="));
+        int blockers = 0;
+        for (RseValidationSelfTestService.Verdict wanted : List.of(
+                RseValidationSelfTestService.Verdict.FAIL,
+                RseValidationSelfTestService.Verdict.WAIT)) {
+            if (gate.verdict() == wanted) {
+                lines.add(Component.literal("PHASE GATE " + wanted + " | " + gate.detail()));
+                blockers++;
+            }
+            for (StationSpec spec : STATIONS) {
+                RseValidationSelfTestService.Evaluation evaluation = stations.get(spec.number());
+                if (evaluation == null || evaluation.verdict() != wanted) continue;
+                lines.add(Component.literal(String.format(Locale.ROOT, "D%02d %s %s | %s",
+                        spec.number(), spec.name(), wanted, evaluation.detail())));
+                blockers++;
+            }
+            for (char c = 'A'; c <= 'H'; c++) {
+                String cell = String.valueOf(c);
+                RseValidationSelfTestService.Evaluation evaluation = cells.get(cell);
+                if (evaluation == null || evaluation.verdict() != wanted) continue;
+                lines.add(Component.literal("CELL " + cell + " " + wanted + " | " + evaluation.detail()));
+                blockers++;
+            }
+        }
+        if (blockers == 0) lines.add(Component.literal("NONE"));
+
+        lines.add(Component.literal("===== CELL SUMMARY ====="));
+        for (char c = 'A'; c <= 'H'; c++) {
+            String cell = String.valueOf(c);
+            RseValidationSelfTestService.Evaluation evaluation = cells.get(cell);
+            if (evaluation == null) {
+                lines.add(Component.literal("CELL " + cell + " UNKNOWN | no live evaluation"));
+            } else {
+                lines.add(Component.literal("CELL " + cell + " " + evaluation.verdict() + " | " + evaluation.detail()));
+            }
+        }
+
+        lines.add(Component.literal("===== ALL 40 DUT ====="));
+        for (StationSpec spec : STATIONS) {
+            RseValidationSelfTestService.Evaluation evaluation = stations.get(spec.number());
+            if (evaluation == null) continue;
+            lines.add(Component.literal(String.format(Locale.ROOT, "D%02d %s %s | %s",
+                    spec.number(), spec.name(), evaluation.verdict(), evaluation.detail())));
+        }
+
+        lines.add(Component.literal("===== HISTORY ====="));
+        int historicalFailures = 0;
+        for (int station = 1; station <= STATION_COUNT; station++) {
+            if (!data.stationEverFailed(station)) continue;
+            StationSpec spec = STATION_BY_NUMBER.get(station);
+            lines.add(Component.literal(String.format(Locale.ROOT,
+                    "D%02d %s first failure: %s | %s",
+                    station, spec.name(), data.firstFailurePhase(station), data.firstFailureDetail(station))));
+            historicalFailures++;
+        }
+        if (historicalFailures == 0) lines.add(Component.literal("No recorded station failures."));
+
+        long liveFail = stations.values().stream()
+                .filter(e -> e.verdict() == RseValidationSelfTestService.Verdict.FAIL).count();
+        long liveWait = stations.values().stream()
+                .filter(e -> e.verdict() == RseValidationSelfTestService.Verdict.WAIT).count();
+        lines.add(Component.literal("===== ACCEPTANCE ====="));
+        lines.add(Component.literal("Completed phases: " + Long.bitCount(data.completedPhases()) + "/20"
+                + " | stationsEverPassed=" + data.stationsEverPassedCount() + "/40"
+                + " | storedCurrentFailures=" + data.stationsCurrentlyFailedCount()));
+        lines.add(Component.literal("CURRENT BLOCKERS=" + blockers
+                + " | liveStationFail=" + liveFail
+                + " | liveStationWait=" + liveWait
+                + " | endurance=" + data.enduranceHealthyTicks() + "/" + ENDURANCE_REQUIRED_TICKS + "t"));
+        lines.add(Component.literal("Origin: " + placement.origin().toShortString()));
         return new RseValidationFactoryService.Result(true, lines);
     }
 
@@ -679,8 +780,8 @@ public final class RseMegaValidationService {
         RseValidationSelfTestService.Evaluation cell = aggregateCells(cells, "final 8-cell state");
         if (cell.verdict() != RseValidationSelfTestService.Verdict.PASS) return cell;
         if (data.enduranceHealthyTicks() < ENDURANCE_REQUIRED_TICKS) return fail("endurance evidence=" + data.enduranceHealthyTicks() + "/" + ENDURANCE_REQUIRED_TICKS + "t");
-        for (int phase = 0; phase < Phase.FINAL_ACCEPTANCE.ordinal(); phase++) {
-            if (!data.phaseCompleted(phase)) return fail("required phase not completed: " + Phase.values()[phase]);
+        for (int phaseIndex = 0; phaseIndex < Phase.FINAL_ACCEPTANCE.ordinal(); phaseIndex++) {
+            if (!data.phaseCompleted(phaseIndex)) return fail("required phase not completed: " + Phase.values()[phaseIndex]);
         }
         RseValidationSelfTestService.Evaluation backbone = evaluateBackbone(level, origin, phaseAge, -1);
         if (backbone.verdict() != RseValidationSelfTestService.Verdict.PASS) return backbone;
