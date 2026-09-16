@@ -1,7 +1,10 @@
 package dev.redstoneengineering.gametest;
 
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.block.AnalogIndicatorBlock;
 import dev.redstoneengineering.block.RedstoneReferenceSourceBlock;
+import dev.redstoneengineering.block.SignalConditionerBlock;
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.entity.EngineeringMobileRobotEntity;
 import dev.redstoneengineering.operations.OperationResourceMaintenanceSnapshot;
 import dev.redstoneengineering.operations.world.OperationIndustrialBufferState;
@@ -12,6 +15,7 @@ import dev.redstoneengineering.operations.world.OperationQueueWorldState;
 import dev.redstoneengineering.validation.RseValidationFactoryService;
 import dev.redstoneengineering.validation.RseValidationSelfTestService;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.level.block.Blocks;
@@ -124,6 +128,70 @@ public final class RseValidationFactoryGameTests {
             boolean failOff = level.getBlockState(origin.offset(10, 2, 2)).isAir();
             if (!waitOff || !passOn || !failOff) {
                 helper.fail("PASS verdict must select exactly the green status channel");
+                return;
+            }
+            helper.succeed();
+        });
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 100)
+    public static void selfTestConditionerGainUsesDirectWorldEvidence(GameTestHelper helper) {
+        var level = helper.getLevel();
+        BlockPos origin = helper.absolutePos(new BlockPos(8, 1, 8));
+        var placed = RseValidationSelfTestService.place(level, origin, "01_basic/signal_conditioner_gain");
+        if (!placed.success()) {
+            helper.fail("Conditioner-gain self-test placement failed: " + placed.lines());
+            return;
+        }
+
+        BlockPos sourcePos = origin.offset(3, 1, 4);
+        BlockPos conditionerPos = origin.offset(4, 1, 4);
+        BlockPos indicatorPos = origin.offset(5, 1, 4);
+
+        if (!(level.getBlockState(sourcePos).getBlock() instanceof RedstoneReferenceSourceBlock)
+                || level.getBlockState(sourcePos).getValue(RedstoneReferenceSourceBlock.POWER) != 6) {
+            helper.fail("Conditioner test source must be the configured 6/15 reference");
+            return;
+        }
+
+        var conditionerState = level.getBlockState(conditionerPos);
+        if (!(conditionerState.getBlock() instanceof SignalConditionerBlock)
+                || SignalConditionerBlock.inputDirection(conditionerState) != Direction.WEST
+                || SignalConditionerBlock.outputDirection(conditionerState) != Direction.EAST) {
+            helper.fail("Conditioner test route must be WEST IN -> EAST OUT");
+            return;
+        }
+
+        var indicatorState = level.getBlockState(indicatorPos);
+        if (!(indicatorState.getBlock() instanceof AnalogIndicatorBlock)) {
+            helper.fail("Analog indicator must be directly adjacent to conditioner EAST output");
+            return;
+        }
+
+        helper.runAfterDelay(10, () -> {
+            var liveConditioner = level.getBlockState(conditionerPos);
+            if (liveConditioner.getValue(SignalConditionerBlock.OUTPUT) != 12) {
+                helper.fail("Conditioner output=" + liveConditioner.getValue(SignalConditionerBlock.OUTPUT) + " expected=12");
+                return;
+            }
+
+            var liveIndicator = level.getBlockState(indicatorPos);
+            AnalogIndicatorBlock indicator = (AnalogIndicatorBlock) liveIndicator.getBlock();
+            AnalogIndicatorBlock.InputObservation observation = indicator.inputObservation(level, indicatorPos, liveIndicator);
+            if (observation.quality() != PortQuality.VALID || observation.value() != 12) {
+                helper.fail("Indicator observed=" + observation.value() + " quality=" + observation.quality() + " expected=12/VALID");
+                return;
+            }
+
+            var checked = RseValidationSelfTestService.check(level, "01_basic/signal_conditioner_gain");
+            if (!checked.success()) {
+                helper.fail("Conditioner-gain self-test check failed: " + checked.lines());
+                return;
+            }
+            boolean passOn = level.getBlockState(origin.offset(9, 2, 2)).is(Blocks.REDSTONE_BLOCK);
+            if (!passOn) {
+                helper.fail("Conditioner-gain PASS verdict did not select the green status channel");
                 return;
             }
             helper.succeed();
