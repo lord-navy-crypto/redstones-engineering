@@ -114,7 +114,7 @@ public final class RseValidationFactoryModule {
                                 .then(Commands.literal("diagnose")
                                         .executes(context -> {
                                             var source = context.getSource();
-                                            return send(source, RseMegaValidationService.diagnose(source.getLevel()));
+                                            return send(source, RseMegaDiagnosticReporter.diagnose(source.getLevel()));
                                         }))
                                 .then(Commands.literal("station")
                                         .then(Commands.argument("number", IntegerArgumentType.integer(1, 40))
