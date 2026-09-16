@@ -26,15 +26,17 @@ import java.util.Map;
 /** Server-owned persistent Operations plant identity, logical WIP and runtime evidence. */
 public final class OperationPlantSavedData extends SavedData {
     private static final String DATA_NAME = "rse_operations_plant";
-    private static final int RUNTIME_SCHEMA_VERSION = 3;
+    private static final int RUNTIME_SCHEMA_VERSION = 4;
     private static final int MAX_PLANT_EVENTS = 1024;
     private static final int MAX_TERMINAL_JOB_RECORDS = 2048;
+    private static final int MAX_TERMINAL_TRANSPORT_RECORDS = 2048;
 
     private final Map<String, OperationWorkcellBinding> workcells = new LinkedHashMap<>();
     private final Map<String, OperationBufferSnapshot> buffers = new LinkedHashMap<>();
     private final Map<String, OperationWorkcellBufferBinding> workcellBuffers = new LinkedHashMap<>();
     private final Map<String, OperationResourceMaintenanceSnapshot> maintenanceSnapshots = new LinkedHashMap<>();
     private final Map<String, OperationQueueSnapshot> queues = new LinkedHashMap<>();
+    private final Map<Long, OperationTransportRuntimeRecord> transportRecords = new LinkedHashMap<>();
     private final Map<Long, OperationJobLifecycleRecord> jobs = new LinkedHashMap<>();
     private final List<OperationPlantEvent> plantEvents = new ArrayList<>();
     private long nextEventSequence;
@@ -172,6 +174,33 @@ public final class OperationPlantSavedData extends SavedData {
             }
         }
 
+        ListTag transportTags = tag.getList("TransportRuntime", Tag.TAG_COMPOUND);
+        for (int index = 0; index < transportTags.size(); index++) {
+            CompoundTag transportTag = transportTags.getCompound(index);
+            try {
+                String robotId = transportTag.getString("RobotId");
+                if (robotId.isBlank()) robotId = null;
+                OperationTransportRuntimeRecord record = new OperationTransportRuntimeRecord(
+                        transportTag.getLong("MissionId"),
+                        transportTag.getLong("OutputId"),
+                        transportTag.getLong("JobId"),
+                        BlockPos.of(transportTag.getLong("Source")),
+                        BlockPos.of(transportTag.getLong("Target")),
+                        transportTag.getInt("Units"),
+                        transportTag.getInt("Priority"),
+                        transportTag.getLong("PreparedTick"),
+                        transportTag.getLong("StateTick"),
+                        OperationTransportRuntimeRecord.Status.valueOf(transportTag.getString("Status")),
+                        robotId
+                );
+                if (!record.terminal() && data.transportOutputInUse(record.outputId(), record.missionId())) continue;
+                data.transportRecords.putIfAbsent(record.missionId(), record);
+            } catch (IllegalArgumentException ignored) {
+                // Corrupt transport correlation is isolated instead of inventing a logistics state.
+            }
+        }
+        data.trimTerminalTransportRecords();
+
         ListTag jobTags = tag.getList("RuntimeJobs", Tag.TAG_COMPOUND);
         for (int index = 0; index < jobTags.size(); index++) {
             CompoundTag jobTag = jobTags.getCompound(index);
@@ -306,6 +335,24 @@ public final class OperationPlantSavedData extends SavedData {
             queueTags.add(queueTag);
         }
         tag.put("RuntimeQueues", queueTags);
+
+        ListTag transportTags = new ListTag();
+        for (OperationTransportRuntimeRecord record : transportRecords.values()) {
+            CompoundTag transportTag = new CompoundTag();
+            transportTag.putLong("MissionId", record.missionId());
+            transportTag.putLong("OutputId", record.outputId());
+            transportTag.putLong("JobId", record.jobId());
+            transportTag.putLong("Source", record.source().asLong());
+            transportTag.putLong("Target", record.target().asLong());
+            transportTag.putInt("Units", record.units());
+            transportTag.putInt("Priority", record.priority());
+            transportTag.putLong("PreparedTick", record.preparedTick());
+            transportTag.putLong("StateTick", record.stateTick());
+            transportTag.putString("Status", record.status().name());
+            transportTag.putString("RobotId", record.robotId() == null ? "" : record.robotId());
+            transportTags.add(transportTag);
+        }
+        tag.put("TransportRuntime", transportTags);
 
         ListTag jobTags = new ListTag();
         for (OperationJobLifecycleRecord record : jobs.values()) {
@@ -471,6 +518,33 @@ public final class OperationPlantSavedData extends SavedData {
         return true;
     }
 
+    public Collection<OperationTransportRuntimeRecord> transportRecords() {
+        return List.copyOf(transportRecords.values());
+    }
+
+    public OperationTransportRuntimeRecord transportRecord(long missionId) {
+        return transportRecords.get(missionId);
+    }
+
+    public boolean putTransportRecord(OperationTransportRuntimeRecord record) {
+        if (record == null) return false;
+        OperationTransportRuntimeRecord previous = transportRecords.get(record.missionId());
+        if (!record.terminal() && transportOutputInUse(record.outputId(), record.missionId())) return false;
+        if (previous != null && (previous.outputId() != record.outputId() || previous.jobId() != record.jobId())) {
+            return false;
+        }
+        transportRecords.put(record.missionId(), record);
+        trimTerminalTransportRecords();
+        setDirty();
+        return true;
+    }
+
+    public boolean removeTransportRecord(long missionId) {
+        if (missionId < 0 || transportRecords.remove(missionId) == null) return false;
+        setDirty();
+        return true;
+    }
+
     public Collection<OperationJobLifecycleRecord> jobLifecycles() {
         return List.copyOf(jobs.values());
     }
@@ -603,6 +677,14 @@ public final class OperationPlantSavedData extends SavedData {
         return false;
     }
 
+    private boolean transportOutputInUse(long outputId, long exceptMissionId) {
+        for (OperationTransportRuntimeRecord existing : transportRecords.values()) {
+            if (existing.missionId() == exceptMissionId) continue;
+            if (!existing.terminal() && existing.outputId() == outputId) return true;
+        }
+        return false;
+    }
+
     private void appendEvent(OperationPlantEvent.Type type, long gameTick, String subjectId, long jobId, String detail) {
         plantEvents.add(new OperationPlantEvent(nextEventSequence++, gameTick, type, subjectId, jobId, detail));
         trimPlantEvents();
@@ -625,6 +707,23 @@ public final class OperationPlantSavedData extends SavedData {
         while (iterator.hasNext() && terminalCount > MAX_TERMINAL_JOB_RECORDS) {
             Map.Entry<Long, OperationJobLifecycleRecord> entry = iterator.next();
             if (entry.getValue().status().terminal()) {
+                iterator.remove();
+                terminalCount--;
+            }
+        }
+    }
+
+    private void trimTerminalTransportRecords() {
+        int terminalCount = 0;
+        for (OperationTransportRuntimeRecord record : transportRecords.values()) {
+            if (record.terminal()) terminalCount++;
+        }
+        if (terminalCount <= MAX_TERMINAL_TRANSPORT_RECORDS) return;
+
+        Iterator<Map.Entry<Long, OperationTransportRuntimeRecord>> iterator = transportRecords.entrySet().iterator();
+        while (iterator.hasNext() && terminalCount > MAX_TERMINAL_TRANSPORT_RECORDS) {
+            Map.Entry<Long, OperationTransportRuntimeRecord> entry = iterator.next();
+            if (entry.getValue().terminal()) {
                 iterator.remove();
                 terminalCount--;
             }
