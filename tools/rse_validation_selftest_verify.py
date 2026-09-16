@@ -70,10 +70,13 @@ for forbidden in (
 for token in (
     "selfTestReferenceSourceUsesRealWorldEvidence",
     "RseValidationSelfTestService",
-    "Verdict.PASS",
+    "Blocks.REDSTONE_BLOCK",
+    "passOn",
+    "waitOff",
+    "failOff",
 ):
     if gametest and token not in gametest:
-        errors.append(f"local Validation GameTest missing self-test contract {token!r}")
+        errors.append(f"local Validation GameTest missing physical verdict-panel contract {token!r}")
 
 if errors:
     print("RSE VALIDATION SELFTEST VERIFY: FAIL")
@@ -85,4 +88,5 @@ print("RSE VALIDATION SELFTEST VERIFY: PASS")
 print(" persisted placed-test origin identity: PASS")
 print(" WAIT/PASS/FAIL status-panel runtime: PASS")
 print(" authoritative RSE/world evidence evaluation: PASS")
+print(" local GameTest verifies physical PASS panel selection: REGISTERED")
 print(" unrelated production authority leakage: NONE")
