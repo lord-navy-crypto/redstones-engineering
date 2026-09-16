@@ -130,12 +130,10 @@ def _perimeter_frame(size: tuple[int, int, int], marker: BlockSpec) -> list[Plac
     width, height, depth = size
     additions: list[Placement] = []
 
-    # Structural corner posts.
     for x, z in ((0, 0), (width - 1, 0), (0, depth - 1), (width - 1, depth - 1)):
         for y in range(1, height):
             additions.append(((x, y, z), "minecraft:polished_deepslate"))
 
-    # Upper perimeter frame keeps the bay visually complete while preserving sight lines.
     top = height - 1
     for x in range(width):
         additions.append(((x, top, 0), "minecraft:polished_andesite"))
@@ -144,13 +142,11 @@ def _perimeter_frame(size: tuple[int, int, int], marker: BlockSpec) -> list[Plac
         additions.append(((0, top, z), "minecraft:polished_andesite"))
         additions.append(((width - 1, top, z), "minecraft:polished_andesite"))
 
-    # Cross-members make the roof frame read as a real industrial bay rather than four posts.
     for x in range(width):
         additions.append(((x, top, depth // 2), "minecraft:polished_andesite"))
     for z in range(depth):
         additions.append(((width // 2, top, z), "minecraft:polished_andesite"))
 
-    # Low perimeter safety rail. Centered north/south openings remain walkable.
     entrance = {width // 2 - 1, width // 2, width // 2 + 1}
     for x in range(1, width - 1):
         if x not in entrance:
@@ -161,7 +157,6 @@ def _perimeter_frame(size: tuple[int, int, int], marker: BlockSpec) -> list[Plac
             additions.append(((0, 1, z), "minecraft:iron_bars"))
             additions.append(((width - 1, 1, z), "minecraft:iron_bars"))
 
-    # Cell-color lower edge remains visible from outside the bay.
     additions.extend(_border(width, depth, marker))
     return additions
 
@@ -195,8 +190,6 @@ def _cell_base(marker: BlockSpec, cell: str) -> list[Placement]:
     base = _clear_volume(CELL_SIZE)
     floor = _overlay(_floor(width, depth, "minecraft:smooth_stone"), _border(width, depth, marker))
     frame = _perimeter_frame(CELL_SIZE, marker)
-
-    # Light-gray maintenance lane follows the main process direction through the center.
     lane = [((x, 0, z), "minecraft:light_gray_concrete") for x in range(1, width - 1) for z in (5, 6, 7)]
     additions: list[Placement] = [
         *floor,
@@ -256,7 +249,6 @@ def _control_room() -> tuple[tuple[int, int, int], list[Placement]]:
         *_border(width, depth, "minecraft:black_concrete"),
     ]
 
-    # Structural shell: solid north/side walls, framed roof, three-wide south access opening.
     for x, z in ((0, 0), (width - 1, 0), (0, depth - 1), (width - 1, depth - 1)):
         for y in range(1, height):
             additions.append(((x, y, z), "minecraft:polished_deepslate"))
@@ -278,7 +270,6 @@ def _control_room() -> tuple[tuple[int, int, int], list[Placement]]:
         if x not in entrance:
             additions.append(((x, 1, depth - 1), "minecraft:iron_bars"))
 
-    # Console deck, title, legend and diagnostic instructions.
     additions.extend([
         ((1, 1, 1), "redstoneengineering:engineering_compass"),
         ((12, 1, 1), _sign(("RSE VALIDATION", "PLANT v1.1", "CONTROL ROOM", "A-F + MASTER"), rotation=8)),
@@ -326,7 +317,6 @@ def _service_spine() -> tuple[tuple[int, int, int], list[Placement]]:
 
 
 def _cell_a_acquisition() -> tuple[tuple[int, int, int], list[Placement]]:
-    # A single wire tap provides a physical probe point; unity conditioners then regenerate the exact analog value.
     p = _cell_base("minecraft:light_blue_concrete", "A")
     p = _overlay(p, [
         ((2, 1, 6), _ref(6, "east")),
@@ -369,7 +359,7 @@ def _cell_c_instrumentation() -> tuple[tuple[int, int, int], list[Placement]]:
 
 
 def _cell_d_control() -> tuple[tuple[int, int, int], list[Placement]]:
-    # The main analog command is actively regenerated. One explicit wire tap feeds the PWM diagnostic branch.
+    # Branch one block north twice: WEST-facing PWM uses SOUTH as INHIBIT, so z=5 must remain air.
     p = _cell_base("minecraft:purple_concrete", "D")
     p = _overlay(p, [
         *_buffer_run_z(18, 0, 5, "south"),
@@ -378,8 +368,10 @@ def _cell_d_control() -> tuple[tuple[int, int, int], list[Placement]]:
         ((13, 1, 6), "minecraft:redstone_wire"),
         *_buffer_run_x(0, 12, 6, "west"),
         ((13, 1, 5), "minecraft:redstone_wire"),
-        ((12, 1, 5), _series("redstoneengineering:pwm_controller", "west", "east", period_mode="2", invert="false")),
-        ((11, 1, 5), _analyzer("east", 0)),
+        ((13, 1, 4), "minecraft:redstone_wire"),
+        ((12, 1, 4), _series("redstoneengineering:pwm_controller", "west", "east", period_mode="2", invert="false")),
+        ((11, 1, 4), _analyzer("east", 0)),
+        ((10, 1, 3), _sign(("PWM DIAGNOSTIC", "COMMAND=EAST", "OUTPUT=WEST", "SOUTH INHIBIT CLEAR"), rotation=8)),
     ])
     return CELL_SIZE, p
 
@@ -387,20 +379,15 @@ def _cell_d_control() -> tuple[tuple[int, int, int], list[Placement]]:
 def _cell_e_safety() -> tuple[tuple[int, int, int], list[Placement]]:
     p = _cell_base("minecraft:red_concrete", "E")
     p = _overlay(p, [
-        # Main analog command path: east -> fault injector -> west, with active unity regeneration.
         *_buffer_run_x(15, 18, 6, "west"),
         ((14, 1, 6), _series("redstoneengineering:fault_injector", "west", "east", mode="2")),
         *_buffer_run_x(0, 13, 6, "west"),
         ((14, 1, 5), _ref(0, "south")),
-
-        # Independent safety-permit path exits west toward Cell F and preserves exact 15/0 semantics.
         ((10, 1, 9), _ref(15, "west")),
         ((9, 1, 10), _ref(15, "north")),
         ((9, 1, 8), _ref(15, "south")),
         ((9, 1, 9), _series("redstoneengineering:safety_interlock", "west", "east")),
         *_buffer_run_x(0, 8, 9, "west"),
-
-        # Alarm lifecycle is driven by validation-owned condition/ACK/RESET sources.
         ((10, 1, 3), _ref(0, "west")),
         ((9, 1, 4), _ref(0, "north")),
         ((9, 1, 2), _ref(0, "south")),
@@ -413,19 +400,19 @@ def _cell_e_safety() -> tuple[tuple[int, int, int], list[Placement]]:
 def _cell_f_process() -> tuple[tuple[int, int, int], list[Placement]]:
     p = _cell_base("minecraft:orange_concrete", "F")
     p = _overlay(p, [
-        # Stable analog command arrives from Cell E. The one wire tap powers a visible process lamp.
         *_buffer_run_x(17, 18, 6, "west"),
         ((16, 1, 6), "minecraft:redstone_wire"),
         ((16, 1, 7), "minecraft:redstone_lamp"),
         ((15, 1, 6), _unity_buffer("west", "east")),
         ((14, 1, 6), ("redstoneengineering:servo_actuator", {"facing": "west", "slew": "2"})),
+        # WEST-facing servo uses NORTH as BRAKE. This validation-owned source is 0 normally and 15 on trip.
+        ((14, 1, 5), _ref(0, "south")),
+        ((16, 1, 5), _sign(("SERVO BRAKE", "TEST SOURCE", "0 = NORMAL", "15 = TRIP"), rotation=8)),
         ((13, 1, 6), _series("redstoneengineering:servo_position_sensor", "west", "east")),
         ((12, 1, 6), "minecraft:redstone_wire"),
         ((11, 1, 6), _unity_buffer("west", "east")),
         ((10, 1, 6), _unity_buffer("west", "east")),
         ((9, 1, 6), _indicator("west")),
-
-        # Safety permit arrives independently and is actively regenerated to retain exact permit semantics.
         *_buffer_run_x(15, 18, 9, "west"),
         ((14, 1, 9), _indicator("west")),
     ])
