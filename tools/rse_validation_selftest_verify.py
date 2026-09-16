@@ -17,6 +17,7 @@ module = read("src/main/java/dev/redstoneengineering/validation/RseValidationFac
 saved = read("src/main/java/dev/redstoneengineering/validation/RseValidationSelfTestSavedData.java")
 service = read("src/main/java/dev/redstoneengineering/validation/RseValidationSelfTestService.java")
 gametest = read("src/main/java/dev/redstoneengineering/gametest/RseValidationFactoryGameTests.java")
+selftest_assets = read("tools/rse_validation_selftests.py")
 
 for token in (
     'Commands.literal("selftest")',
@@ -31,6 +32,13 @@ for token in (
         errors.append(f"validation command module missing self-test contract {token!r}")
 
 for token in (
+    "ServerTickEvent.Post",
+    "RseValidationSelfTestService.tickAll(",
+):
+    if module and token not in module:
+        errors.append(f"validation module missing automatic runtime contract {token!r}")
+
+for token in (
     "class RseValidationSelfTestSavedData",
     "extends SavedData",
     "BlockPos",
@@ -38,9 +46,11 @@ for token in (
     "setDirty()",
     "save(",
     "load(",
+    "retestPressed",
+    "resetForRetest(",
 ):
     if saved and token not in saved:
-        errors.append(f"self-test SavedData missing persistence contract {token!r}")
+        errors.append(f"self-test SavedData missing persistence/autorun contract {token!r}")
 
 for token in (
     "class RseValidationSelfTestService",
@@ -54,9 +64,24 @@ for token in (
     "validation/selftest/",
     "Blocks.REDSTONE_BLOCK",
     "updatePanel",
+    "tickAll(",
+    "tickAutomatic(",
+    "BlockStateProperties.POWERED",
+    "Automatic self-test armed",
 ):
     if service and token not in service:
-        errors.append(f"self-test runtime service missing authoritative contract {token!r}")
+        errors.append(f"self-test runtime service missing authoritative/automatic contract {token!r}")
+
+if service and "Run /rsevalidation selftest check" in service:
+    errors.append("placing a self-test must not require a manual /check instruction")
+
+for token in (
+    "retest_button",
+    "minecraft:stone_button",
+    '"powered": "false"',
+):
+    if selftest_assets and token not in selftest_assets:
+        errors.append(f"self-test assets missing physical RETEST contract {token!r}")
 
 for forbidden in (
     "OperationPlantSavedData",
@@ -87,6 +112,8 @@ if errors:
 print("RSE VALIDATION SELFTEST VERIFY: PASS")
 print(" persisted placed-test origin identity: PASS")
 print(" WAIT/PASS/FAIL status-panel runtime: PASS")
+print(" server-tick automatic progression: PASS")
+print(" physical RETEST button and debounce: PASS")
 print(" authoritative RSE/world evidence evaluation: PASS")
 print(" local GameTest verifies physical PASS panel selection: REGISTERED")
 print(" unrelated production authority leakage: NONE")
