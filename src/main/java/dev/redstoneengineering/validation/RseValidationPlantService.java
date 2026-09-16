@@ -34,11 +34,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Modular in-world commissioning plant layered above the small self-test yard.
+ * Automatic factory-acceptance runtime for the modular Validation Plant v1.
  *
- * <p>The service may mutate only validation-owned stimulus sources, fixture structure blocks and
- * WAIT/PASS/FAIL panel power blocks. DUT outputs and runtime evidence are always observed from the
- * actual Minecraft world.</p>
+ * <p>The runtime owns fixture placement, status lamps and validation stimulus only. DUT outputs are
+ * never written by the validator: verdicts come from live BlockState, engineeringSnapshot(),
+ * analyzer samples, interlock/alarm runtime and servo feedback.</p>
  */
 public final class RseValidationPlantService {
     private RseValidationPlantService() {}
@@ -79,7 +79,9 @@ public final class RseValidationPlantService {
     private static final Map<String, ModuleSpec> CELLS;
     static {
         LinkedHashMap<String, ModuleSpec> cells = new LinkedHashMap<>();
-        for (ModuleSpec module : MODULES) if (!module.cell().isBlank()) cells.put(module.cell(), module);
+        for (ModuleSpec module : MODULES) {
+            if (!module.cell().isBlank()) cells.put(module.cell(), module);
+        }
         CELLS = Map.copyOf(cells);
     }
 
@@ -98,21 +100,25 @@ public final class RseValidationPlantService {
     }
 
     public static RseValidationFactoryService.Result place(ServerLevel level, BlockPos origin) {
-        if (level == null || origin == null) return RseValidationFactoryService.Result.fail("Validation plant place failed: level/origin missing");
-        if (level.getServer().overworld() != level) return RseValidationFactoryService.Result.fail("Validation Plant v1 currently requires the overworld.");
+        if (level == null || origin == null) {
+            return RseValidationFactoryService.Result.fail("Validation plant place failed: level/origin missing");
+        }
+        if (level.getServer().overworld() != level) {
+            return RseValidationFactoryService.Result.fail("Validation Plant v1 currently requires the overworld.");
+        }
         RseValidationFactoryService.Result preflight = preflight(level);
         if (!preflight.success()) return preflight;
-        RseValidationFactoryService.Result placed = placeModules(level, origin);
-        if (!placed.success()) return placed;
+        RseValidationFactoryService.Result placement = placeModules(level, origin);
+        if (!placement.success()) return placement;
 
         RseValidationPlantSavedData.get(level).place(origin, level.getGameTime());
         applyBaseline(level, origin);
         updateAllPanels(level, origin, RseValidationSelfTestService.Verdict.WAIT);
         return RseValidationFactoryService.Result.ok(
                 "Placed RSE Integrated Validation Plant v1.",
-                "Six connected cells: A acquisition -> B conditioning -> C instrumentation -> D control -> E safety/fault -> F servo process.",
-                "Central control room starts YELLOW WAIT; the plant acceptance sequence runs automatically.",
-                "Use /rsevalidation plant status for evidence or the physical MASTER RETEST button to rebuild and rerun."
+                "Flow: A acquisition -> B conditioning -> C instrumentation -> D control -> E safety/fault -> F servo process.",
+                "Unity-buffer backbone preserves the analog command across the large walkable structure.",
+                "Central control room starts YELLOW WAIT and runs PRECHECK through ACCEPTANCE automatically."
         );
     }
 
@@ -120,6 +126,7 @@ public final class RseValidationPlantService {
         if (level == null) return RseValidationFactoryService.Result.fail("Validation plant status failed: server level missing");
         RseValidationPlantSavedData.Placement placement = RseValidationPlantSavedData.get(level).placement();
         if (placement == null) return RseValidationFactoryService.Result.fail("Validation Plant v1 has not been placed.");
+
         Phase phase = phaseOf(placement.phase());
         long age = Math.max(0L, level.getGameTime() - placement.phaseStartedTick());
         LinkedHashMap<String, RseValidationSelfTestService.Evaluation> cells = phase == Phase.PRECHECK
@@ -131,7 +138,7 @@ public final class RseValidationPlantService {
         for (Map.Entry<String, RseValidationSelfTestService.Evaluation> entry : cells.entrySet()) {
             lines.add(Component.literal("Cell " + entry.getKey() + " -> " + entry.getValue().verdict() + " | " + entry.getValue().detail()));
         }
-        lines.add(Component.literal("Plant origin: " + placement.origin().toShortString()));
+        lines.add(Component.literal("Origin: " + placement.origin().toShortString()));
         return new RseValidationFactoryService.Result(true, lines);
     }
 
@@ -149,6 +156,7 @@ public final class RseValidationPlantService {
         if (server == null) return;
         ServerLevel level = server.overworld();
         if (level.getGameTime() % AUTO_INTERVAL_TICKS != 0) return;
+
         RseValidationPlantSavedData data = RseValidationPlantSavedData.get(level);
         RseValidationPlantSavedData.Placement placement = data.placement();
         if (placement == null) return;
@@ -157,7 +165,9 @@ public final class RseValidationPlantService {
 
         boolean pressed = masterRetestPressed(level, origin);
         if (pressed && !placement.retestPressed()) {
-            if (!rebuildForRetest(level, origin, true)) updateMasterPanel(level, origin, RseValidationSelfTestService.Verdict.FAIL);
+            if (!rebuildForRetest(level, origin, true)) {
+                updateMasterPanel(level, origin, RseValidationSelfTestService.Verdict.FAIL);
+            }
             return;
         }
         if (!pressed && placement.retestPressed()) {
@@ -176,8 +186,7 @@ public final class RseValidationPlantService {
         long phaseAge = Math.max(0L, level.getGameTime() - placement.phaseStartedTick());
         applyPhaseStimulus(level, placement.origin(), phase, phaseAge);
 
-        int settleTicks = settleTicks(phase);
-        if (phaseAge < settleTicks) {
+        if (phaseAge < settleTicks(phase)) {
             updateAllPanels(level, placement.origin(), RseValidationSelfTestService.Verdict.WAIT);
             return;
         }
@@ -206,18 +215,22 @@ public final class RseValidationPlantService {
         data.advancePhase(level.getGameTime());
     }
 
-    private static LinkedHashMap<String, RseValidationSelfTestService.Evaluation> precheckCells(ServerLevel level, BlockPos origin) {
+    private static LinkedHashMap<String, RseValidationSelfTestService.Evaluation> precheckCells(
+            ServerLevel level, BlockPos origin
+    ) {
         LinkedHashMap<String, RseValidationSelfTestService.Evaluation> result = new LinkedHashMap<>();
-        result.put("A", blockCheck(level, cellOrigin(origin, "A").offset(2, 1, 6), RedstoneReferenceSourceBlock.class, "source present"));
-        result.put("B", blockCheck(level, cellOrigin(origin, "B").offset(3, 1, 6), SignalConditionerBlock.class, "conditioner present"));
-        result.put("C", blockCheck(level, cellOrigin(origin, "C").offset(3, 1, 6), SignalAnalyzerBlock.class, "inline analyzer present"));
-        result.put("D", blockCheck(level, cellOrigin(origin, "D").offset(12, 1, 5), PwmControllerBlock.class, "PWM branch present"));
-        result.put("E", blockCheck(level, cellOrigin(origin, "E").offset(9, 1, 9), SafetyInterlockBlock.class, "safety interlock present"));
-        result.put("F", blockCheck(level, cellOrigin(origin, "F").offset(14, 1, 6), ServoActuatorBlock.class, "servo actuator present"));
+        result.put("A", blockCheck(level, cellOrigin(origin, "A").offset(2, 1, 6), RedstoneReferenceSourceBlock.class, "reference source"));
+        result.put("B", blockCheck(level, cellOrigin(origin, "B").offset(3, 1, 6), SignalConditionerBlock.class, "gain conditioner"));
+        result.put("C", blockCheck(level, cellOrigin(origin, "C").offset(3, 1, 6), SignalAnalyzerBlock.class, "inline analyzer"));
+        result.put("D", blockCheck(level, cellOrigin(origin, "D").offset(12, 1, 5), PwmControllerBlock.class, "PWM branch"));
+        result.put("E", blockCheck(level, cellOrigin(origin, "E").offset(9, 1, 9), SafetyInterlockBlock.class, "safety interlock"));
+        result.put("F", blockCheck(level, cellOrigin(origin, "F").offset(14, 1, 6), ServoActuatorBlock.class, "servo actuator"));
         return result;
     }
 
-    private static LinkedHashMap<String, RseValidationSelfTestService.Evaluation> evaluateCells(ServerLevel level, BlockPos origin, Phase phase) {
+    private static LinkedHashMap<String, RseValidationSelfTestService.Evaluation> evaluateCells(
+            ServerLevel level, BlockPos origin, Phase phase
+    ) {
         int source = expectedSource(phase);
         int conditioned = Math.min(15, source * 2);
         boolean saturated = source * 2 > 15;
@@ -230,12 +243,14 @@ public final class RseValidationPlantService {
         result.put("B", evaluateConditioning(level, cellOrigin(origin, "B"), conditioned, saturated));
         result.put("C", evaluateInstrumentation(level, cellOrigin(origin, "C"), conditioned));
         result.put("D", evaluateControl(level, cellOrigin(origin, "D"), conditioned));
-        result.put("E", evaluateSafety(level, cellOrigin(origin, "E"), conditioned, faulted, tripped));
+        result.put("E", evaluateSafety(level, cellOrigin(origin, "E"), conditioned, faulted, tripped, phase == Phase.ACCEPTANCE));
         result.put("F", evaluateProcess(level, cellOrigin(origin, "F"), processCommand, tripped));
         return result;
     }
 
-    private static RseValidationSelfTestService.Evaluation evaluateAcquisition(ServerLevel level, BlockPos origin, int expected) {
+    private static RseValidationSelfTestService.Evaluation evaluateAcquisition(
+            ServerLevel level, BlockPos origin, int expected
+    ) {
         BlockPos sourcePos = origin.offset(2, 1, 6);
         BlockState sourceState = level.getBlockState(sourcePos);
         if (!(sourceState.getBlock() instanceof RedstoneReferenceSourceBlock source)) return fail("reference source missing");
@@ -244,11 +259,12 @@ public final class RseValidationPlantService {
                 expected, PortQuality.VALID, "source EAST");
         if (sourceEvidence.verdict() != RseValidationSelfTestService.Verdict.PASS) return sourceEvidence;
 
-        BlockPos probePos = origin.offset(6, 1, 5);
+        BlockPos probePos = origin.offset(3, 1, 5);
         BlockState probeState = level.getBlockState(probePos);
         if (!(probeState.getBlock() instanceof SignalProbeBlock probe)) return fail("signal probe missing");
-        return exact(probe.engineeringSnapshot(level, probePos, probeState, Direction.SOUTH).orElse(null),
-                expected, PortQuality.VALID, "probe non-invasive measurement");
+        return exact(
+                probe.engineeringSnapshot(level, probePos, probeState, Direction.SOUTH).orElse(null),
+                expected, PortQuality.VALID, "probe tap");
     }
 
     private static RseValidationSelfTestService.Evaluation evaluateConditioning(
@@ -258,10 +274,10 @@ public final class RseValidationPlantService {
         BlockState conditionerState = level.getBlockState(conditionerPos);
         if (!(conditionerState.getBlock() instanceof SignalConditionerBlock conditioner)) return fail("signal conditioner missing");
         PortQuality expectedQuality = saturated ? PortQuality.SATURATED : PortQuality.VALID;
-        RseValidationSelfTestService.Evaluation conditioned = exact(
+        RseValidationSelfTestService.Evaluation conditionerEvidence = exact(
                 conditioner.engineeringSnapshot(level, conditionerPos, conditionerState, Direction.EAST).orElse(null),
                 expected, expectedQuality, "conditioner x2 output");
-        if (conditioned.verdict() != RseValidationSelfTestService.Verdict.PASS) return conditioned;
+        if (conditionerEvidence.verdict() != RseValidationSelfTestService.Verdict.PASS) return conditionerEvidence;
 
         BlockPos filterPos = origin.offset(4, 1, 6);
         BlockState filterState = level.getBlockState(filterPos);
@@ -269,10 +285,12 @@ public final class RseValidationPlantService {
         int filtered = filterState.getValue(DirectionalSignalBlock.OUTPUT);
         if (filtered != expected) return fail("precision filter=" + filtered + " expected=" + expected);
 
-        return indicator(level, origin.offset(8, 1, 5), expected, expectedQuality, "conditioned process indicator");
+        return indicator(level, origin.offset(8, 1, 5), expected, PortQuality.VALID, "conditioned tap");
     }
 
-    private static RseValidationSelfTestService.Evaluation evaluateInstrumentation(ServerLevel level, BlockPos origin, int expected) {
+    private static RseValidationSelfTestService.Evaluation evaluateInstrumentation(
+            ServerLevel level, BlockPos origin, int expected
+    ) {
         BlockPos analyzerPos = origin.offset(3, 1, 6);
         BlockState analyzerState = level.getBlockState(analyzerPos);
         if (!(analyzerState.getBlock() instanceof SignalAnalyzerBlock)) return fail("inline signal analyzer missing");
@@ -281,25 +299,32 @@ public final class RseValidationPlantService {
         if (snapshot.raw() != expected || snapshot.output() != expected) {
             return fail("inline analyzer raw/output=" + snapshot.raw() + "/" + snapshot.output() + " expected=" + expected);
         }
-        return indicator(level, origin.offset(8, 1, 5), expected, PortQuality.VALID, "independent process indication");
+        return indicator(level, origin.offset(8, 1, 5), expected, PortQuality.VALID, "instrumentation tap");
     }
 
-    private static RseValidationSelfTestService.Evaluation evaluateControl(ServerLevel level, BlockPos origin, int mainBusExpected) {
+    private static RseValidationSelfTestService.Evaluation evaluateControl(
+            ServerLevel level, BlockPos origin, int mainBusExpected
+    ) {
         BlockPos pwmPos = origin.offset(12, 1, 5);
-        BlockState pwmState = level.getBlockState(pwmPos);
-        if (!(pwmState.getBlock() instanceof PwmControllerBlock)) return fail("PWM controller missing");
+        if (!(level.getBlockState(pwmPos).getBlock() instanceof PwmControllerBlock)) return fail("PWM controller missing");
         BlockPos analyzerPos = origin.offset(11, 1, 5);
-        BlockState analyzerState = level.getBlockState(analyzerPos);
-        if (!(analyzerState.getBlock() instanceof SignalAnalyzerBlock)) return fail("PWM analyzer missing");
+        if (!(level.getBlockState(analyzerPos).getBlock() instanceof SignalAnalyzerBlock)) return fail("PWM analyzer missing");
         SignalAnalyzerBlock.UiSnapshot snapshot = SignalAnalyzerBlock.uiSnapshot(level, analyzerPos);
         if (snapshot.totalSamples() < 4) return waitFor("PWM analyzer samples=" + snapshot.totalSamples());
-        if (mainBusExpected < 15 && snapshot.peakToPeak() <= 0) return fail("PWM branch shows no switching activity");
+        if (mainBusExpected < 15 && snapshot.peakToPeak() <= 0) {
+            return fail("PWM diagnostic branch shows no switching activity");
+        }
         if (snapshot.raw() < 0 || snapshot.raw() > 15) return fail("PWM analyzer raw out of range=" + snapshot.raw());
-        return pass("main analog bus=" + mainBusExpected + "; PWM branch sampled with peakToPeak=" + snapshot.peakToPeak());
+        return pass("analog command=" + mainBusExpected + "; PWM branch peakToPeak=" + snapshot.peakToPeak());
     }
 
     private static RseValidationSelfTestService.Evaluation evaluateSafety(
-            ServerLevel level, BlockPos origin, int mainInput, boolean faultExpected, boolean tripExpected
+            ServerLevel level,
+            BlockPos origin,
+            int mainInput,
+            boolean faultExpected,
+            boolean tripExpected,
+            boolean finalAcceptance
     ) {
         BlockPos faultPos = origin.offset(14, 1, 6);
         BlockState faultState = level.getBlockState(faultPos);
@@ -311,7 +336,11 @@ public final class RseValidationPlantService {
                 expectedFaultOutput, expectedFaultQuality, "fault-path output");
         if (fault.verdict() != RseValidationSelfTestService.Verdict.PASS) return fault;
         if (FaultInjectorBlock.active(level, faultPos) != faultExpected) {
-            return fail("fault injector active=" + FaultInjectorBlock.active(level, faultPos) + " expected=" + faultExpected);
+            return fail("fault active=" + FaultInjectorBlock.active(level, faultPos) + " expected=" + faultExpected);
+        }
+        if (faultExpected && (FaultInjectorBlock.lastInput(level, faultPos) != mainInput
+                || FaultInjectorBlock.lastOutput(level, faultPos) != expectedFaultOutput)) {
+            return fail("fault evidence does not match live input/output");
         }
 
         BlockPos interlockPos = origin.offset(9, 1, 9);
@@ -332,13 +361,18 @@ public final class RseValidationPlantService {
         boolean latched = AlarmProcessorBlock.latched(level, alarmPos);
         if (latched != tripExpected) return fail("alarm latched=" + latched + " expected=" + tripExpected);
         if (tripExpected) {
-            if (!AlarmProcessorBlock.unacknowledged(level, alarmPos)) return fail("trip alarm should be unacknowledged before recovery");
+            if (!AlarmProcessorBlock.unacknowledged(level, alarmPos)) return fail("trip alarm must begin unacknowledged");
             if (alarmState.getValue(DirectionalSignalBlock.OUTPUT) != 10) return fail("severity-2 alarm output should be 10");
         } else if (alarmState.getValue(DirectionalSignalBlock.OUTPUT) != 0) {
             return fail("healthy alarm output should be 0");
         }
-        return pass((faultExpected ? "fault quality propagated; " : "fault path healthy; ")
-                + (tripExpected ? "interlock B trip + alarm latch" : "interlock permit + alarm clear"));
+
+        if (finalAcceptance) {
+            if (FaultInjectorBlock.activationCount(level, faultPos) <= 0) return fail("acceptance missing prior fault-injection evidence");
+            if (AlarmProcessorBlock.activationCount(level, alarmPos) <= 0) return fail("acceptance missing prior alarm lifecycle evidence");
+        }
+        return pass((faultExpected ? "FAULT quality propagated; " : "fault path healthy; ")
+                + (tripExpected ? "B-trip mask=2 + alarm latch" : "permit healthy + alarm clear"));
     }
 
     private static RseValidationSelfTestService.Evaluation evaluateProcess(
@@ -373,25 +407,28 @@ public final class RseValidationPlantService {
         }
 
         BlockPos safetyIndicatorPos = origin.offset(14, 1, 9);
-        BlockState safetyIndicatorState = level.getBlockState(safetyIndicatorPos);
-        if (!(safetyIndicatorState.getBlock() instanceof AnalogIndicatorBlock safetyIndicator)) return fail("process safety indicator missing");
-        AnalogIndicatorBlock.InputObservation safety = safetyIndicator.inputObservation(level, safetyIndicatorPos, safetyIndicatorState);
+        BlockState safetyState = level.getBlockState(safetyIndicatorPos);
+        if (!(safetyState.getBlock() instanceof AnalogIndicatorBlock safetyIndicator)) return fail("process safety indicator missing");
+        AnalogIndicatorBlock.InputObservation safety = safetyIndicator.inputObservation(level, safetyIndicatorPos, safetyState);
+        if (safety.quality() == PortQuality.STALE) return waitFor("process safety permit stale");
         int expectedPermit = tripExpected ? 0 : 15;
-        if (safety.quality() == PortQuality.STALE) return waitFor("process safety permit indication stale");
         if (safety.value() != expectedPermit) return fail("process safety permit=" + safety.value() + " expected=" + expectedPermit);
-        return pass("servo command/position=" + command + "/" + position + "; feedback=" + Math.round(feedback.value())
-                + "; safetyPermit=" + expectedPermit);
+
+        return pass("servo command/position=" + command + "/" + position
+                + "; feedback=" + Math.round(feedback.value()) + "; permit=" + expectedPermit);
     }
 
     private static RseValidationSelfTestService.Evaluation indicator(
             ServerLevel level, BlockPos pos, int expected, PortQuality expectedQuality, String label
     ) {
         BlockState state = level.getBlockState(pos);
-        if (!(state.getBlock() instanceof AnalogIndicatorBlock indicator)) return fail(label + " missing");
+        if (!(state.getBlock() instanceof AnalogIndicatorBlock indicator)) return fail(label + " indicator missing");
         AnalogIndicatorBlock.InputObservation observation = indicator.inputObservation(level, pos, state);
         if (observation.quality() == PortQuality.STALE) return waitFor(label + " STALE");
         if (observation.value() != expected) return fail(label + "=" + observation.value() + " expected=" + expected);
-        if (observation.quality() != expectedQuality) return fail(label + " quality=" + observation.quality() + " expected=" + expectedQuality);
+        if (observation.quality() != expectedQuality) {
+            return fail(label + " quality=" + observation.quality() + " expected=" + expectedQuality);
+        }
         return pass(label + "=" + expected + "/" + expectedQuality);
     }
 
@@ -402,21 +439,24 @@ public final class RseValidationPlantService {
         if (snapshot.quality() == PortQuality.STALE) return waitFor(label + " STALE");
         int value = (int) Math.round(snapshot.value());
         if (value != expected) return fail(label + "=" + value + " expected=" + expected);
-        if (snapshot.quality() != expectedQuality) return fail(label + " quality=" + snapshot.quality() + " expected=" + expectedQuality);
+        if (snapshot.quality() != expectedQuality) {
+            return fail(label + " quality=" + snapshot.quality() + " expected=" + expectedQuality);
+        }
         return pass(label + "=" + expected + "/" + expectedQuality);
     }
 
     private static RseValidationSelfTestService.Evaluation blockCheck(
-            ServerLevel level, BlockPos pos, Class<?> blockType, String detail
+            ServerLevel level, BlockPos pos, Class<?> blockType, String label
     ) {
-        return blockType.isInstance(level.getBlockState(pos).getBlock()) ? pass(detail) : fail(detail + " missing at " + pos.toShortString());
+        return blockType.isInstance(level.getBlockState(pos).getBlock())
+                ? pass(label + " present")
+                : fail(label + " missing at " + pos.toShortString());
     }
 
     private static void applyPhaseStimulus(ServerLevel level, BlockPos origin, Phase phase, long phaseAge) {
-        int source = expectedSource(phase);
         BlockPos a = cellOrigin(origin, "A");
         BlockPos e = cellOrigin(origin, "E");
-        setReferencePower(level, a.offset(2, 1, 6), source);
+        setReferencePower(level, a.offset(2, 1, 6), expectedSource(phase));
         setReferencePower(level, e.offset(14, 1, 5), phase == Phase.SENSOR_FAULT ? 15 : 0);
         setReferencePower(level, e.offset(9, 1, 10), phase == Phase.INTERLOCK_TRIP ? 0 : 15);
         setReferencePower(level, e.offset(10, 1, 3), phase == Phase.INTERLOCK_TRIP ? 15 : 0);
@@ -424,8 +464,8 @@ public final class RseValidationPlantService {
         int ack = 0;
         int reset = 0;
         if (phase == Phase.RECOVERY) {
-            if (phaseAge < 4) ack = 15;
-            else if (phaseAge >= 8 && phaseAge < 12) reset = 15;
+            if (phaseAge <= 8) ack = 15;
+            else if (phaseAge >= 12 && phaseAge <= 20) reset = 15;
         }
         setReferencePower(level, e.offset(9, 1, 4), ack);
         setReferencePower(level, e.offset(9, 1, 2), reset);
@@ -455,11 +495,11 @@ public final class RseValidationPlantService {
     private static int settleTicks(Phase phase) {
         return switch (phase) {
             case PRECHECK -> 4;
-            case BIST, STARTUP, NOMINAL -> 24;
-            case DISTURBANCE, SATURATION -> 28;
-            case SENSOR_FAULT, INTERLOCK_TRIP -> 24;
-            case RECOVERY -> 28;
-            case FINAL_RUN, ACCEPTANCE -> 28;
+            case BIST, STARTUP, NOMINAL -> 28;
+            case DISTURBANCE, SATURATION -> 36;
+            case SENSOR_FAULT, INTERLOCK_TRIP -> 32;
+            case RECOVERY -> 36;
+            case FINAL_RUN, ACCEPTANCE -> 36;
         };
     }
 
@@ -495,10 +535,10 @@ public final class RseValidationPlantService {
 
     private static RseValidationFactoryService.Result preflight(ServerLevel level) {
         for (ModuleSpec module : MODULES) {
-            ResourceLocation resource = ResourceLocation.fromNamespaceAndPath(
+            ResourceLocation id = ResourceLocation.fromNamespaceAndPath(
                     RedstoneEngineering.MOD_ID, "validation/plant/" + module.id());
-            if (level.getStructureManager().get(resource).isEmpty()) {
-                return RseValidationFactoryService.Result.fail("Validation Plant v1 preflight missing structure: " + resource);
+            if (level.getStructureManager().get(id).isEmpty()) {
+                return RseValidationFactoryService.Result.fail("Validation Plant v1 preflight missing structure: " + id);
             }
         }
         return RseValidationFactoryService.Result.ok("Validation Plant v1 structure preflight passed.");
@@ -506,14 +546,14 @@ public final class RseValidationPlantService {
 
     private static RseValidationFactoryService.Result placeModules(ServerLevel level, BlockPos origin) {
         for (ModuleSpec module : MODULES) {
-            ResourceLocation resource = ResourceLocation.fromNamespaceAndPath(
+            ResourceLocation id = ResourceLocation.fromNamespaceAndPath(
                     RedstoneEngineering.MOD_ID, "validation/plant/" + module.id());
-            StructureTemplate template = level.getStructureManager().get(resource).orElse(null);
-            if (template == null) return RseValidationFactoryService.Result.fail("Missing plant module: " + resource);
+            StructureTemplate template = level.getStructureManager().get(id).orElse(null);
+            if (template == null) return RseValidationFactoryService.Result.fail("Missing plant module: " + id);
             BlockPos moduleOrigin = origin.offset(module.offset());
             boolean placed = template.placeInWorld(
                     level, moduleOrigin, moduleOrigin, new StructurePlaceSettings(), level.getRandom(), 2);
-            if (!placed) return RseValidationFactoryService.Result.fail("Failed to place plant module: " + resource);
+            if (!placed) return RseValidationFactoryService.Result.fail("Failed to place plant module: " + id);
         }
         return RseValidationFactoryService.Result.ok("Placed seven modular Validation Plant v1 structures.");
     }
@@ -546,8 +586,7 @@ public final class RseValidationPlantService {
         for (Map.Entry<String, RseValidationSelfTestService.Evaluation> entry : evaluations.entrySet()) {
             String cell = entry.getKey();
             RseValidationSelfTestService.Verdict verdict = entry.getValue().verdict();
-            BlockPos local = cellOrigin(origin, cell);
-            updatePanel(level, local, LOCAL_WAIT_POWER, LOCAL_PASS_POWER, LOCAL_FAIL_POWER, verdict);
+            updatePanel(level, cellOrigin(origin, cell), LOCAL_WAIT_POWER, LOCAL_PASS_POWER, LOCAL_FAIL_POWER, verdict);
             updatePanel(level, control,
                     CONTROL_CELL_WAIT.get(cell), CONTROL_CELL_PASS.get(cell), CONTROL_CELL_FAIL.get(cell), verdict);
         }
@@ -555,7 +594,9 @@ public final class RseValidationPlantService {
 
     private static void updateAllPanels(ServerLevel level, BlockPos origin, RseValidationSelfTestService.Verdict verdict) {
         LinkedHashMap<String, RseValidationSelfTestService.Evaluation> all = new LinkedHashMap<>();
-        for (String cell : CELLS.keySet()) all.put(cell, new RseValidationSelfTestService.Evaluation(verdict, "phase transition"));
+        for (String cell : CELLS.keySet()) {
+            all.put(cell, new RseValidationSelfTestService.Evaluation(verdict, "phase transition"));
+        }
         updateCellPanels(level, origin, all);
         updateMasterPanel(level, origin, verdict);
     }
@@ -565,8 +606,11 @@ public final class RseValidationPlantService {
     }
 
     private static void updatePanel(
-            ServerLevel level, BlockPos origin,
-            BlockPos waitPower, BlockPos passPower, BlockPos failPower,
+            ServerLevel level,
+            BlockPos origin,
+            BlockPos waitPower,
+            BlockPos passPower,
+            BlockPos failPower,
             RseValidationSelfTestService.Verdict verdict
     ) {
         setPanelPower(level, origin.offset(waitPower), verdict == RseValidationSelfTestService.Verdict.WAIT);
