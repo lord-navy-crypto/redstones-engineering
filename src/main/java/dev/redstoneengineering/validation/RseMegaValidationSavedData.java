@@ -8,7 +8,7 @@ import net.minecraft.world.level.saveddata.SavedData;
 
 import java.util.Arrays;
 
-/** Persistent run/evidence state for the 40-DUT Mega Validation Factory v2. */
+/** Persistent run/evidence state for the 40-DUT Mega Validation Factory v2.1. */
 public final class RseMegaValidationSavedData extends SavedData {
     private static final String DATA_NAME = "rse_mega_validation_factory_v2";
     public static final int STATION_COUNT = 40;
@@ -45,6 +45,7 @@ public final class RseMegaValidationSavedData extends SavedData {
     }
 
     private Placement placement;
+    private int runNumber;
 
     // Station arrays are 1-based; index zero is intentionally unused.
     private final String[] stationVerdict = new String[STATION_COUNT + 1];
@@ -62,7 +63,7 @@ public final class RseMegaValidationSavedData extends SavedData {
     private long enduranceHealthyTicks;
 
     public RseMegaValidationSavedData() {
-        clearEvidence();
+        clearAllEvidence();
     }
 
     public static RseMegaValidationSavedData get(ServerLevel level) {
@@ -75,6 +76,7 @@ public final class RseMegaValidationSavedData extends SavedData {
 
     public static RseMegaValidationSavedData load(CompoundTag tag, HolderLookup.Provider registries) {
         RseMegaValidationSavedData data = new RseMegaValidationSavedData();
+        data.runNumber = Math.max(0, tag.getInt("RunNumber"));
         if (tag.getBoolean("Present")) {
             try {
                 BlockPos origin = BlockPos.of(tag.getLong("Origin"));
@@ -85,6 +87,7 @@ public final class RseMegaValidationSavedData extends SavedData {
                         : placedTick;
                 data.placement = new Placement(
                         origin, placedTick, phase, phaseStartedTick, tag.getBoolean("RetestPressed"));
+                if (data.runNumber <= 0) data.runNumber = 1;
             } catch (IllegalArgumentException ignored) {
                 data.placement = null;
             }
@@ -114,6 +117,7 @@ public final class RseMegaValidationSavedData extends SavedData {
     public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
         Placement current = placement;
         tag.putBoolean("Present", current != null);
+        tag.putInt("RunNumber", runNumber);
         if (current != null) {
             tag.putLong("Origin", current.origin().asLong());
             tag.putLong("PlacedTick", current.placedTick());
@@ -146,9 +150,14 @@ public final class RseMegaValidationSavedData extends SavedData {
         return placement;
     }
 
+    public int runNumber() {
+        return runNumber;
+    }
+
     public Placement place(BlockPos origin, long tick) {
         placement = Placement.fresh(origin, tick);
-        clearEvidence();
+        runNumber = 1;
+        clearAllEvidence();
         setDirty();
         return placement;
     }
@@ -163,7 +172,8 @@ public final class RseMegaValidationSavedData extends SavedData {
     public Placement resetForRetest(long tick, boolean pressed) {
         if (placement == null) return null;
         placement = placement.reset(tick, pressed);
-        clearEvidence();
+        runNumber = Math.max(1, runNumber + 1);
+        clearCurrentRunEvidence();
         setDirty();
         return placement;
     }
@@ -290,13 +300,17 @@ public final class RseMegaValidationSavedData extends SavedData {
         return count;
     }
 
-    private void clearEvidence() {
-        Arrays.fill(stationVerdict, "WAIT");
-        Arrays.fill(stationDetail, "not evaluated");
+    private void clearAllEvidence() {
         Arrays.fill(stationEverPassed, false);
         Arrays.fill(stationEverFailed, false);
         Arrays.fill(firstFailurePhase, "");
         Arrays.fill(firstFailureDetail, "");
+        clearCurrentRunEvidence();
+    }
+
+    private void clearCurrentRunEvidence() {
+        Arrays.fill(stationVerdict, "WAIT");
+        Arrays.fill(stationDetail, "not evaluated");
         Arrays.fill(cellVerdict, "WAIT");
         Arrays.fill(cellDetail, "not evaluated");
         completedPhases = 0L;
