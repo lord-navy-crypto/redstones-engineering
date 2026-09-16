@@ -9,12 +9,18 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
 /** Registers the local/manual RSE Validation Factory and self-test command surface. */
 @Mod(RedstoneEngineering.MOD_ID)
 public final class RseValidationFactoryModule {
     public RseValidationFactoryModule(IEventBus modBus) {
         NeoForge.EVENT_BUS.addListener(RseValidationFactoryModule::registerCommands);
+        NeoForge.EVENT_BUS.addListener(RseValidationFactoryModule::onServerTick);
+    }
+
+    private static void onServerTick(ServerTickEvent.Post event) {
+        RseValidationSelfTestService.tickAll(event.getServer());
     }
 
     private static void registerCommands(RegisterCommandsEvent event) {
