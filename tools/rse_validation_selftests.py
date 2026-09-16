@@ -38,15 +38,9 @@ class SelfTest:
 
 
 PANEL = StatusPanel(
-    wait_label=(8, 1, 1),
-    pass_label=(9, 1, 1),
-    fail_label=(10, 1, 1),
-    wait_lamp=(8, 2, 1),
-    pass_lamp=(9, 2, 1),
-    fail_lamp=(10, 2, 1),
-    wait_power=(8, 2, 2),
-    pass_power=(9, 2, 2),
-    fail_power=(10, 2, 2),
+    wait_label=(8, 1, 1), pass_label=(9, 1, 1), fail_label=(10, 1, 1),
+    wait_lamp=(8, 2, 1), pass_lamp=(9, 2, 1), fail_lamp=(10, 2, 1),
+    wait_power=(8, 2, 2), pass_power=(9, 2, 2), fail_power=(10, 2, 2),
 )
 
 
@@ -68,11 +62,9 @@ def _base(marker: str, width: int = 13, depth: int = 9) -> list[Placement]:
     p: list[Placement] = [((x, 0, z), "minecraft:smooth_stone") for x in range(width) for z in range(depth)]
     border: list[Placement] = []
     for x in range(width):
-        border.append(((x, 0, 0), marker))
-        border.append(((x, 0, depth - 1), marker))
+        border.append(((x, 0, 0), marker)); border.append(((x, 0, depth - 1), marker))
     for z in range(1, depth - 1):
-        border.append(((0, 0, z), marker))
-        border.append(((width - 1, 0, z), marker))
+        border.append(((0, 0, z), marker)); border.append(((width - 1, 0, z), marker))
     p = _overlay(p, border)
     return _overlay(p, [
         (PANEL.wait_label, "minecraft:yellow_concrete"),
@@ -97,9 +89,7 @@ def _probe(facing: str = "west", channel: int = 0) -> BlockSpec:
 
 
 def _analyzer(facing: str, mode: int) -> BlockSpec:
-    return ("redstoneengineering:signal_analyzer", {
-        "facing": facing, "mode": str(mode), "output": "0", "calibration": "2",
-    })
+    return ("redstoneengineering:signal_analyzer", {"facing": facing, "mode": str(mode), "output": "0", "calibration": "2"})
 
 
 def _indicator(facing: str = "east") -> BlockSpec:
@@ -113,168 +103,139 @@ def _conditioner(mode: int = 0, param: int = 2) -> BlockSpec:
 
 
 def _series(block_id: str, **extra: str) -> BlockSpec:
-    props = {"facing": "east", "input_facing": "west"}
-    props.update(extra)
-    return (block_id, props)
+    props = {"facing": "east", "input_facing": "west"}; props.update(extra)
+    return block_id, props
 
 
 def _lapis_source(baseline: int = 10, noise: int | None = None) -> BlockSpec:
     props = {"facing": "east"}
     if noise is None:
         props["value"] = str(baseline)
-        return ("redstoneengineering:lapis_precision_source", props)
-    props["baseline"] = str(baseline)
-    props["noise"] = str(noise)
-    return ("redstoneengineering:lapis_noise_source", props)
+        return "redstoneengineering:lapis_precision_source", props
+    props["baseline"] = str(baseline); props["noise"] = str(noise)
+    return "redstoneengineering:lapis_noise_source", props
 
 
 def _lapis_meter() -> BlockSpec:
-    return ("redstoneengineering:lapis_precision_meter", {"facing": "west"})
+    return "redstoneengineering:lapis_precision_meter", {"facing": "west"}
 
 
 def _reference_source():
-    p = _base("minecraft:red_concrete")
-    p = _overlay(p, [((3,1,4), _ref(7)), ((4,1,4), "minecraft:redstone_wire"), ((5,1,4), "minecraft:redstone_lamp")])
-    return (13,4,9), p
+    return (13,4,9), _overlay(_base("minecraft:red_concrete"), [
+        ((3,1,4), _ref(7)), ((4,1,4), "minecraft:redstone_wire"), ((5,1,4), "minecraft:redstone_lamp")])
 
 
 def _signal_probe():
-    p = _base("minecraft:light_blue_concrete")
-    p = _overlay(p, [
-        ((3,1,4), _ref(9)), ((4,1,4), _probe("west",0)),
-        ((5,1,4), "redstoneengineering:instrument_cable"), ((6,1,4), "redstoneengineering:oscilloscope"),
-    ])
-    return (13,4,9), p
+    return (13,4,9), _overlay(_base("minecraft:light_blue_concrete"), [
+        ((3,1,4), _ref(9)), ((4,1,4), _probe("west",0)), ((5,1,4), "redstoneengineering:instrument_cable"), ((6,1,4), "redstoneengineering:oscilloscope")])
 
 
 def _signal_analyzer_tap():
-    p = _base("minecraft:cyan_concrete")
-    p = _overlay(p, [((3,1,4), _ref(7)), ((4,1,4), _analyzer("west",0))])
-    return (13,4,9), p
+    return (13,4,9), _overlay(_base("minecraft:cyan_concrete"), [((3,1,4), _ref(7)), ((4,1,4), _analyzer("west",0))])
 
 
 def _signal_analyzer_inline():
-    p = _base("minecraft:blue_concrete")
-    p = _overlay(p, [
-        ((3,1,4), _ref(7)), ((4,1,4), _analyzer("west",1)),
-        ((5,1,4), "minecraft:redstone_wire"), ((6,1,4), _indicator("east")),
-    ])
-    return (13,4,9), p
+    return (13,4,9), _overlay(_base("minecraft:blue_concrete"), [
+        ((3,1,4), _ref(7)), ((4,1,4), _analyzer("west",1)), ((5,1,4), "minecraft:redstone_wire"), ((6,1,4), _indicator())])
 
 
 def _analog_indicator():
-    p = _base("minecraft:lime_concrete")
-    p = _overlay(p, [((3,1,4), _ref(11)), ((4,1,4), "minecraft:redstone_wire"), ((5,1,4), _indicator())])
-    return (13,4,9), p
+    return (13,4,9), _overlay(_base("minecraft:lime_concrete"), [
+        ((3,1,4), _ref(11)), ((4,1,4), "minecraft:redstone_wire"), ((5,1,4), _indicator())])
 
 
 def _signal_conditioner_gain():
-    p = _base("minecraft:green_concrete")
-    p = _overlay(p, [
-        ((3,1,4), _ref(6)),
-        ((4,1,4), _conditioner(0,2)),
-        ((5,1,4), _indicator()),
-    ])
-    return (13,4,9), p
+    return (13,4,9), _overlay(_base("minecraft:green_concrete"), [
+        ((3,1,4), _ref(6)), ((4,1,4), _conditioner(0,2)), ((5,1,4), _indicator())])
 
 
 def _directional_io():
-    p = _base("minecraft:orange_concrete")
-    p = _overlay(p, [
+    return (13,4,9), _overlay(_base("minecraft:orange_concrete"), [
         ((2,1,3), _ref(8)), ((3,1,3), _conditioner(0,1)), ((4,1,3), _indicator()),
-        ((3,1,5), _ref(8,"north")), ((4,1,5), _conditioner(0,1)),
-    ])
-    return (13,4,9), p
+        ((3,1,5), _ref(8,"north")), ((4,1,5), _conditioner(0,1))])
 
 
 def _instrument_bus():
-    p = _base("minecraft:light_blue_concrete")
-    p = _overlay(p, [
-        ((2,1,4), _ref(5)), ((3,1,4), _probe("west",0)),
-        ((4,1,4), "redstoneengineering:instrument_cable"), ((5,1,4), "redstoneengineering:instrument_cable"),
-        ((6,1,4), "redstoneengineering:oscilloscope"),
-    ])
-    return (13,4,9), p
+    return (13,4,9), _overlay(_base("minecraft:light_blue_concrete"), [
+        ((2,1,4), _ref(5)), ((3,1,4), _probe("west",0)), ((4,1,4), "redstoneengineering:instrument_cable"),
+        ((5,1,4), "redstoneengineering:instrument_cable"), ((6,1,4), "redstoneengineering:oscilloscope")])
 
 
 def _conditioner_saturation():
-    p = _base("minecraft:red_concrete")
-    p = _overlay(p, [((3,1,4), _ref(10)), ((4,1,4), _conditioner(0,2)), ((5,1,4), _indicator())])
-    return (13,4,9), p
+    return (13,4,9), _overlay(_base("minecraft:red_concrete"), [
+        ((3,1,4), _ref(10)), ((4,1,4), _conditioner(0,2)), ((5,1,4), _indicator())])
 
 
 def _precision_filter():
-    p = _base("minecraft:blue_concrete")
-    p = _overlay(p, [
-        ((3,1,4), _ref(7)),
-        ((4,1,4), _series("redstoneengineering:precision_filter", output="0", rate="1")),
-        ((5,1,4), _indicator()),
-    ])
-    return (13,4,9), p
+    return (13,4,9), _overlay(_base("minecraft:blue_concrete"), [
+        ((3,1,4), _ref(7)), ((4,1,4), _series("redstoneengineering:precision_filter", output="0", rate="1")), ((5,1,4), _indicator())])
 
 
 def _sample_hold():
-    p = _base("minecraft:purple_concrete")
-    p = _overlay(p, [
-        ((3,1,4), _ref(6)),
-        ((4,1,4), _series("redstoneengineering:sample_hold", output="0", trigger_mode="0")),
-        ((5,1,4), _indicator()),
-    ])
-    return (13,4,9), p
+    return (13,4,9), _overlay(_base("minecraft:purple_concrete"), [
+        ((3,1,4), _ref(6)), ((4,1,4), _series("redstoneengineering:sample_hold", output="0", trigger_mode="0")), ((5,1,4), _indicator())])
 
 
 def _edge_detector():
-    p = _base("minecraft:red_concrete")
-    p = _overlay(p, [
-        ((3,1,4), _ref(7)),
-        ((4,1,4), _series("redstoneengineering:edge_detector", output="0", mode="0")),
-        ((5,1,4), _indicator()),
-    ])
-    return (13,4,9), p
+    return (13,4,9), _overlay(_base("minecraft:red_concrete"), [
+        ((3,1,4), _ref(7)), ((4,1,4), _series("redstoneengineering:edge_detector", output="0", mode="0")), ((5,1,4), _indicator())])
 
 
 def _pulse_shaper():
-    p = _base("minecraft:pink_concrete")
-    p = _overlay(p, [
-        ((2,1,4), _ref(7)),
-        ((3,1,4), _series("redstoneengineering:edge_detector", output="0", mode="0")),
-        ((4,1,4), _series("redstoneengineering:pulse_shaper", output="0", width="4")),
-        ((5,1,4), _analyzer("west",0)),
-    ])
-    return (13,4,9), p
+    return (13,4,9), _overlay(_base("minecraft:pink_concrete"), [
+        ((2,1,4), _ref(7)), ((3,1,4), _series("redstoneengineering:edge_detector", output="0", mode="0")),
+        ((4,1,4), _series("redstoneengineering:pulse_shaper", output="0", width="4")), ((5,1,4), _analyzer("west",0))])
 
 
 def _pwm_control():
-    p = _base("minecraft:orange_concrete")
-    p = _overlay(p, [
-        ((3,1,4), _ref(8)),
-        ((4,1,4), _series("redstoneengineering:pwm_controller", output="0", period_mode="2", invert="false")),
-        ((5,1,4), _analyzer("west",0)),
-    ])
-    return (13,4,9), p
+    return (13,4,9), _overlay(_base("minecraft:orange_concrete"), [
+        ((3,1,4), _ref(8)), ((4,1,4), _series("redstoneengineering:pwm_controller", output="0", period_mode="2", invert="false")), ((5,1,4), _analyzer("west",0))])
 
 
 def _noise_vs_filter():
-    p = _base("minecraft:magenta_concrete")
-    p = _overlay(p, [
+    return (13,4,9), _overlay(_base("minecraft:magenta_concrete"), [
         ((2,1,3), _lapis_source(10,5)), ((3,1,3), "redstoneengineering:lapis_signal_line"), ((4,1,3), _lapis_meter()),
-        ((2,1,5), _lapis_source(10,5)),
-        ((3,1,5), _series("redstoneengineering:lapis_low_pass_filter", alpha="1")),
-        ((4,1,5), "redstoneengineering:lapis_signal_line"), ((5,1,5), _lapis_meter()),
-    ])
-    return (13,4,9), p
+        ((2,1,5), _lapis_source(10,5)), ((3,1,5), _series("redstoneengineering:lapis_low_pass_filter", alpha="1")),
+        ((4,1,5), "redstoneengineering:lapis_signal_line"), ((5,1,5), _lapis_meter())])
 
 
 def _quantizer_scaler():
-    p = _base("minecraft:cyan_concrete")
-    p = _overlay(p, [
-        ((2,1,4), _ref(9)),
-        ((3,1,4), _series("redstoneengineering:redstone_to_lapis_scaler")),
-        ((4,1,4), "redstoneengineering:lapis_signal_line"),
-        ((5,1,4), _series("redstoneengineering:lapis_to_redstone_quantizer", power="0")),
-        ((6,1,4), _indicator()),
+    return (13,4,9), _overlay(_base("minecraft:cyan_concrete"), [
+        ((2,1,4), _ref(9)), ((3,1,4), _series("redstoneengineering:redstone_to_lapis_scaler")),
+        ((4,1,4), "redstoneengineering:lapis_signal_line"), ((5,1,4), _series("redstoneengineering:lapis_to_redstone_quantizer", power="0")),
+        ((6,1,4), _indicator())])
+
+
+def _interlock_trip_restore():
+    # EAST-facing interlock: A=WEST, B=NORTH, C=SOUTH, PERMIT=EAST.
+    return (13,4,9), _overlay(_base("minecraft:yellow_concrete"), [
+        ((4,1,4), _ref(15, "east")),
+        ((5,1,3), _ref(15, "south")),
+        ((5,1,5), _ref(15, "north")),
+        ((5,1,4), _series("redstoneengineering:safety_interlock", output="0")),
+        ((6,1,4), _indicator("east")),
     ])
-    return (13,4,9), p
+
+
+def _fault_injector_bias():
+    # EAST-facing injector: signal WEST, ARM SOUTH, faulted output EAST. Mode 2 = BIAS +4.
+    return (13,4,9), _overlay(_base("minecraft:orange_concrete"), [
+        ((3,1,4), _ref(6, "east")),
+        ((4,1,5), _ref(15, "north")),
+        ((4,1,4), _series("redstoneengineering:fault_injector", output="0", mode="2")),
+        ((5,1,4), _indicator("east")),
+    ])
+
+
+def _alarm_latch_ack_reset():
+    # EAST-facing alarm: condition WEST, ACK NORTH, RESET SOUTH, alarm output EAST.
+    return (13,4,9), _overlay(_base("minecraft:red_concrete"), [
+        ((4,1,4), _ref(0, "east")),
+        ((5,1,3), _ref(0, "south")),
+        ((5,1,5), _ref(0, "north")),
+        ((5,1,4), _series("redstoneengineering:alarm_processor", output="0", severity="2")),
+        ((6,1,4), _indicator("east")),
+    ])
 
 
 SELFTESTS: dict[str, SelfTest] = {
@@ -294,4 +255,7 @@ SELFTESTS: dict[str, SelfTest] = {
     "02_signal/pwm_control": SelfTest("PWM Control", "L3", "Verify analyzer history sees both LOW and HIGH for an intermediate duty command.", "pwm_control", _pwm_control, PANEL, (3,1,4), (4,1,4), (5,1,4), None, 20),
     "02_signal/noise_vs_filter": SelfTest("Noise vs Filter", "L3", "Accumulate repeated checks and compare raw versus filtered peak-to-peak windows.", "noise_vs_filter", _noise_vs_filter, PANEL, (2,1,3), (3,1,5), (5,1,5), None, 12),
     "02_signal/quantizer_scaler": SelfTest("Scaler/Quantizer Round Trip", "L3", "Verify redstone→lapis→redstone stays within quantization tolerance.", "quantizer_scaler", _quantizer_scaler, PANEL, (2,1,4), (4,1,4), (6,1,4), 9, 10),
+    "03_systems/interlock_trip_restore": SelfTest("3-Channel Interlock Trip/Restore", "L4", "Prove all three permissives grant permit, one dropped channel trips, then restoration returns permit.", "interlock_trip_restore", _interlock_trip_restore, PANEL, (4,1,4), (5,1,4), (6,1,4), 15, 8),
+    "03_systems/fault_injector_bias": SelfTest("Fault Injector Bias +4", "L4", "Arm a controlled fault and prove 6 becomes 10 with FAULT quality and activation evidence.", "fault_injector_bias", _fault_injector_bias, PANEL, (3,1,4), (4,1,4), (5,1,4), 10, 8),
+    "03_systems/alarm_latch_ack_reset": SelfTest("Alarm Latch/Ack/Reset", "L4", "Raise a severity-2 alarm, prove latching after condition clears, acknowledge it, then healthy-reset it.", "alarm_latch_ack_reset", _alarm_latch_ack_reset, PANEL, (4,1,4), (5,1,4), (6,1,4), 10, 8),
 }
