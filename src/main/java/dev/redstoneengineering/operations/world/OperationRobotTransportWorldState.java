@@ -1,6 +1,7 @@
 package dev.redstoneengineering.operations.world;
 
 import dev.redstoneengineering.entity.EngineeringMobileRobotEntity;
+import dev.redstoneengineering.integration.OperationTransportBinding;
 import dev.redstoneengineering.integration.OperationsRobotTransportBridge;
 import dev.redstoneengineering.operations.OperationOutputSnapshot;
 import dev.redstoneengineering.operations.OperationTransportDemand;
@@ -125,13 +126,14 @@ public final class OperationRobotTransportWorldState {
             return waitFor("TRANSPORT_MISSION_NOT_READY", record);
         }
 
+        OperationTransportBinding binding = record.binding();
         RobotMission mission = new RobotMission(
-                record.missionId(),
+                binding.missionId(),
                 RobotMission.MissionType.TRANSFER,
-                record.source(),
-                record.target(),
+                binding.source(),
+                binding.target(),
                 record.priority(),
-                record.units()
+                binding.units()
         );
         if (!robot.assignTransportRoute(mission, payload, graph, sourceId, targetId)) {
             return waitFor(robot.routeReason(), record);
@@ -175,8 +177,9 @@ public final class OperationRobotTransportWorldState {
         OperationPlantSavedData data = OperationPlantSavedData.get(level);
         OperationTransportRuntimeRecord record = data.transportRecord(missionId);
         if (record == null) return safeStop("TRANSPORT_MISSION_NOT_FOUND", null);
-        if (record.outputId() != outputId) return safeStop("TRANSPORT_OUTPUT_ID_MISMATCH", record);
-        if (record.jobId() != jobId) return safeStop("TRANSPORT_JOB_ID_MISMATCH", record);
+        OperationTransportBinding binding = record.binding();
+        if (binding.outputId() != outputId) return safeStop("TRANSPORT_OUTPUT_ID_MISMATCH", record);
+        if (binding.jobId() != jobId) return safeStop("TRANSPORT_JOB_ID_MISMATCH", record);
         if (record.status() != OperationTransportRuntimeRecord.Status.STARTED) {
             return waitFor("TRANSPORT_MISSION_NOT_STARTED", record);
         }
