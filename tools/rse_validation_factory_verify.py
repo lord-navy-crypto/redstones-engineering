@@ -24,7 +24,13 @@ def read(rel: str) -> str:
     return path.read_text(encoding="utf-8", errors="ignore")
 
 
+# The generator is intentionally split into a compatibility front-end plus a byte-for-byte legacy
+# backend. Verify the combined source surface because the front-end delegates every historical
+# command/constant to the backend and adds Mega Factory generation on top.
 generator = read("tools/rse_validation_factory.py")
+legacy_generator_path = ROOT / "tools/rse_validation_factory_legacy.py"
+if legacy_generator_path.is_file():
+    generator += "\n" + legacy_generator_path.read_text(encoding="utf-8", errors="ignore")
 module = read("src/main/java/dev/redstoneengineering/validation/RseValidationFactoryModule.java")
 service = read("src/main/java/dev/redstoneengineering/validation/RseValidationFactoryService.java")
 gametest = read("src/main/java/dev/redstoneengineering/gametest/RseValidationFactoryGameTests.java")
