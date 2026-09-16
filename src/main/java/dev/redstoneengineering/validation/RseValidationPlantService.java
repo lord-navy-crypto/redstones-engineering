@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Automatic factory-acceptance runtime for the modular Validation Plant v1.
+ * Automatic factory-acceptance runtime for the modular Validation Plant v1.1.
  *
  * <p>The runtime owns fixture placement, status lamps and validation stimulus only. DUT outputs are
  * never written by the validator: verdicts come from live BlockState, engineeringSnapshot(),
@@ -68,6 +68,7 @@ public final class RseValidationPlantService {
 
     private static final List<ModuleSpec> MODULES = List.of(
             new ModuleSpec("control_room", "", CONTROL_OFFSET, new BlockPos(27, 5, 13)),
+            new ModuleSpec("service_spine", "", new BlockPos(0, 0, 13), new BlockPos(57, 5, 3)),
             new ModuleSpec("cell_a_acquisition", "A", new BlockPos(0, 0, 16), new BlockPos(19, 5, 13)),
             new ModuleSpec("cell_b_conditioning", "B", new BlockPos(19, 0, 16), new BlockPos(19, 5, 13)),
             new ModuleSpec("cell_c_instrumentation", "C", new BlockPos(38, 0, 16), new BlockPos(19, 5, 13)),
@@ -104,7 +105,7 @@ public final class RseValidationPlantService {
             return RseValidationFactoryService.Result.fail("Validation plant place failed: level/origin missing");
         }
         if (level.getServer().overworld() != level) {
-            return RseValidationFactoryService.Result.fail("Validation Plant v1 currently requires the overworld.");
+            return RseValidationFactoryService.Result.fail("Validation Plant v1.1 currently requires the overworld.");
         }
         RseValidationFactoryService.Result preflight = preflight(level);
         if (!preflight.success()) return preflight;
@@ -115,9 +116,9 @@ public final class RseValidationPlantService {
         applyBaseline(level, origin);
         updateAllPanels(level, origin, RseValidationSelfTestService.Verdict.WAIT);
         return RseValidationFactoryService.Result.ok(
-                "Placed RSE Integrated Validation Plant v1.",
+                "Placed RSE Integrated Validation Plant v1.1.",
                 "Flow: A acquisition -> B conditioning -> C instrumentation -> D control -> E safety/fault -> F servo process.",
-                "Unity-buffer backbone preserves the analog command across the large walkable structure.",
+                "Signed cells, color-coded WAIT/PASS/FAIL stations and the service spine make the acceptance result readable in-world.",
                 "Central control room starts YELLOW WAIT and runs PRECHECK through ACCEPTANCE automatically."
         );
     }
@@ -125,7 +126,7 @@ public final class RseValidationPlantService {
     public static RseValidationFactoryService.Result status(ServerLevel level) {
         if (level == null) return RseValidationFactoryService.Result.fail("Validation plant status failed: server level missing");
         RseValidationPlantSavedData.Placement placement = RseValidationPlantSavedData.get(level).placement();
-        if (placement == null) return RseValidationFactoryService.Result.fail("Validation Plant v1 has not been placed.");
+        if (placement == null) return RseValidationFactoryService.Result.fail("Validation Plant v1.1 has not been placed.");
 
         Phase phase = phaseOf(placement.phase());
         long age = Math.max(0L, level.getGameTime() - placement.phaseStartedTick());
@@ -134,7 +135,7 @@ public final class RseValidationPlantService {
                 : evaluateCells(level, placement.origin(), phase);
 
         ArrayList<Component> lines = new ArrayList<>();
-        lines.add(Component.literal("RSE Integrated Validation Plant v1 | phase=" + phase + " | phaseAge=" + age + "t"));
+        lines.add(Component.literal("RSE Integrated Validation Plant v1.1 | phase=" + phase + " | phaseAge=" + age + "t"));
         for (Map.Entry<String, RseValidationSelfTestService.Evaluation> entry : cells.entrySet()) {
             lines.add(Component.literal("Cell " + entry.getKey() + " -> " + entry.getValue().verdict() + " | " + entry.getValue().detail()));
         }
@@ -145,11 +146,11 @@ public final class RseValidationPlantService {
     public static RseValidationFactoryService.Result retest(ServerLevel level) {
         if (level == null) return RseValidationFactoryService.Result.fail("Validation plant retest failed: server level missing");
         RseValidationPlantSavedData.Placement placement = RseValidationPlantSavedData.get(level).placement();
-        if (placement == null) return RseValidationFactoryService.Result.fail("Validation Plant v1 has not been placed.");
+        if (placement == null) return RseValidationFactoryService.Result.fail("Validation Plant v1.1 has not been placed.");
         if (!rebuildForRetest(level, placement.origin(), false)) {
-            return RseValidationFactoryService.Result.fail("Validation Plant v1 retest rebuild failed.");
+            return RseValidationFactoryService.Result.fail("Validation Plant v1.1 retest rebuild failed.");
         }
-        return RseValidationFactoryService.Result.ok("Validation Plant v1 rebuilt; automatic acceptance restarted at PRECHECK.");
+        return RseValidationFactoryService.Result.ok("Validation Plant v1.1 rebuilt; automatic acceptance restarted at PRECHECK.");
     }
 
     public static void tick(MinecraftServer server) {
@@ -538,10 +539,10 @@ public final class RseValidationPlantService {
             ResourceLocation id = ResourceLocation.fromNamespaceAndPath(
                     RedstoneEngineering.MOD_ID, "validation/plant/" + module.id());
             if (level.getStructureManager().get(id).isEmpty()) {
-                return RseValidationFactoryService.Result.fail("Validation Plant v1 preflight missing structure: " + id);
+                return RseValidationFactoryService.Result.fail("Validation Plant v1.1 preflight missing structure: " + id);
             }
         }
-        return RseValidationFactoryService.Result.ok("Validation Plant v1 structure preflight passed.");
+        return RseValidationFactoryService.Result.ok("Validation Plant v1.1 structure preflight passed.");
     }
 
     private static RseValidationFactoryService.Result placeModules(ServerLevel level, BlockPos origin) {
@@ -555,7 +556,7 @@ public final class RseValidationPlantService {
                     level, moduleOrigin, moduleOrigin, new StructurePlaceSettings(), level.getRandom(), 2);
             if (!placed) return RseValidationFactoryService.Result.fail("Failed to place plant module: " + id);
         }
-        return RseValidationFactoryService.Result.ok("Placed seven modular Validation Plant v1 structures.");
+        return RseValidationFactoryService.Result.ok("Placed eight modular Validation Plant v1.1 structures.");
     }
 
     private static BlockPos cellOrigin(BlockPos plantOrigin, String cell) {
