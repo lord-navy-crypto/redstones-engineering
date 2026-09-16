@@ -11,6 +11,7 @@ from tools import rse_validation_factory as factory
 from tools import rse_mega_factory as mega
 
 ROOT = Path(__file__).resolve().parents[1]
+JAVA_EVALUATOR = ROOT / "src/main/java/dev/redstoneengineering/validation/RseMegaStationEvaluator.java"
 
 EXPECTED_CELLS = tuple("ABCDEFGH")
 EXPECTED_MODULES = (
@@ -218,6 +219,36 @@ class MegaValidationFactoryTests(unittest.TestCase):
         self.assertIn("enduranceHealthyTicks()", service)
         self.assertIn("firstFailurePhase(", service)
         self.assertIn("firstFailureDetail(", service)
+
+    def test_normal_quality_policy_rejects_false_green_states(self) -> None:
+        self.assertTrue(JAVA_EVALUATOR.exists(), "phase-aware mega station evaluator must exist")
+        source = JAVA_EVALUATOR.read_text(encoding="utf-8")
+        for token in (
+            "PortQuality.NO_SIGNAL",
+            "PortQuality.FAULT",
+            "PortQuality.DOMAIN_MISMATCH",
+            "PortQuality.TOPOLOGY_ERROR",
+            "PortQuality.STALE",
+        ):
+            self.assertIn(token, source)
+        self.assertNotIn("quality() != PortQuality.STALE", source)
+        service = (ROOT / "src/main/java/dev/redstoneengineering/validation/RseMegaValidationService.java").read_text(encoding="utf-8")
+        self.assertNotIn("quality() != PortQuality.STALE", service)
+
+    def test_h_cell_normal_state_cannot_false_pass(self) -> None:
+        self.assertTrue(JAVA_EVALUATOR.exists(), "H-cell health rules belong in mega station evaluator")
+        source = JAVA_EVALUATOR.read_text(encoding="utf-8")
+        for reason in (
+            "UNINTENDED_BRAKE",
+            "POSITION_FEEDBACK_NO_SIGNAL",
+            "INTERLOCK_FAILED_MASK",
+            "UNEXPECTED_ALARM_LATCH",
+        ):
+            self.assertIn(reason, source)
+        self.assertIn("ServoActuatorBlock.braking", source)
+        self.assertIn("ServoPositionSensorBlock.sourceQuality", source)
+        self.assertIn("SafetyInterlockBlock.failedMask", source)
+        self.assertIn("AlarmProcessorBlock.latched", source)
 
     def test_existing_v1_and_nineteen_selftests_remain_present(self) -> None:
         self.assertEqual(len(factory.SELFTESTS), 19)
