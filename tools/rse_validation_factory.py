@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """Generate RSE Validation Factory structure templates and package a real test world.
 
-Usage:
+Preferred usage:
     python3 tools/rse_validation_factory.py generate
     python3 tools/rse_validation_factory.py package
     python3 tools/rse_validation_factory.py package --world "run/saves/RSE Validation Factory"
+
+Backward-compatible aliases:
+    python3 tools/rse_validation_factory.py --generate-structures
+    python3 tools/rse_validation_factory.py --package-world "run/saves/RSE Validation Factory"
 
 The package command refuses to fabricate a Minecraft world. The source directory must already
 contain a real level.dat created by Minecraft/NeoForge.
@@ -24,6 +28,7 @@ STRUCTURE_DIR = ROOT / "src/generated/resources/data/redstoneengineering/structu
 DEFAULT_WORLD = ROOT / "run/saves/RSE Validation Factory"
 PACKAGE_PATH = ROOT / "build/validation/RSE-Validation-Factory.zip"
 DATA_VERSION = 3955  # Minecraft 1.21.1; matches the repository's existing empty5x4x5 template.
+ARCHIVE_ROOT = Path("RSE Validation Factory")
 
 EXPECTED_STRUCTURES = (
     "material_release",
@@ -100,7 +105,12 @@ def _structure_bytes(size: tuple[int, int, int], placements: list[tuple[tuple[in
     palette: list[str] = []
     palette_index: dict[str, int] = {}
     blocks: list[bytes] = []
+    seen: set[tuple[int, int, int]] = set()
     for (x, y, z), block_id in placements:
+        position = (x, y, z)
+        if position in seen:
+            raise ValueError(f"duplicate structure block position: {position}")
+        seen.add(position)
         if block_id not in palette_index:
             palette_index[block_id] = len(palette)
             palette.append(block_id)
@@ -121,6 +131,17 @@ def _floor(width: int, depth: int, block_id: str = "minecraft:smooth_stone") -> 
     return [((x, 0, z), block_id) for x in range(width) for z in range(depth)]
 
 
+def _overlay(
+    placements: list[tuple[tuple[int, int, int], str]],
+    additions: list[tuple[tuple[int, int, int], str]],
+) -> list[tuple[tuple[int, int, int], str]]:
+    """Return deterministic last-writer-wins placements with one entry per coordinate."""
+    by_position: dict[tuple[int, int, int], str] = {position: block_id for position, block_id in placements}
+    for position, block_id in additions:
+        by_position[position] = block_id
+    return [(position, by_position[position]) for position in sorted(by_position)]
+
+
 def _border(width: int, depth: int, block_id: str) -> list[tuple[tuple[int, int, int], str]]:
     placements: list[tuple[tuple[int, int, int], str]] = []
     for x in range(width):
@@ -133,108 +154,103 @@ def _border(width: int, depth: int, block_id: str) -> list[tuple[tuple[int, int,
 
 
 def _station_base(width: int, depth: int, marker: str) -> list[tuple[tuple[int, int, int], str]]:
-    placements = _floor(width, depth)
-    placements.extend(_border(width, depth, marker))
-    placements.extend([
+    placements = _overlay(_floor(width, depth), _border(width, depth, marker))
+    return _overlay(placements, [
         ((1, 1, 1), "minecraft:sea_lantern"),
         ((width - 2, 1, depth - 2), "minecraft:sea_lantern"),
     ])
-    return placements
 
 
 def _material_release() -> tuple[tuple[int, int, int], list[tuple[tuple[int, int, int], str]]]:
     p = _station_base(11, 9, "minecraft:light_blue_concrete")
-    p += [
+    p = _overlay(p, [
         ((2, 1, 4), "redstoneengineering:industrial_buffer"),
         ((5, 1, 4), "redstoneengineering:workcell_controller"),
         ((8, 1, 4), "redstoneengineering:industrial_buffer"),
         ((5, 1, 2), "minecraft:yellow_concrete"),
         ((5, 1, 6), "minecraft:lime_concrete"),
-    ]
+    ])
     return (11, 4, 9), p
 
 
 def _queue_dispatch() -> tuple[tuple[int, int, int], list[tuple[tuple[int, int, int], str]]]:
     p = _station_base(11, 9, "minecraft:blue_concrete")
-    p += [
+    p = _overlay(p, [
         ((2, 1, 4), "redstoneengineering:industrial_buffer"),
         ((5, 1, 4), "redstoneengineering:workcell_controller"),
         ((8, 1, 3), "redstoneengineering:workcell_controller"),
         ((8, 1, 5), "redstoneengineering:workcell_controller"),
         ((5, 1, 2), "minecraft:redstone_lamp"),
         ((5, 1, 6), "minecraft:redstone_lamp"),
-    ]
+    ])
     return (11, 4, 9), p
 
 
 def _maintenance_hold() -> tuple[tuple[int, int, int], list[tuple[tuple[int, int, int], str]]]:
     p = _station_base(11, 9, "minecraft:yellow_concrete")
-    p += [
+    p = _overlay(p, [
         ((3, 1, 4), "redstoneengineering:workcell_controller"),
         ((7, 1, 4), "redstoneengineering:workcell_controller"),
         ((3, 1, 2), "minecraft:lime_concrete"),
         ((7, 1, 2), "minecraft:yellow_concrete"),
         ((3, 1, 6), "minecraft:redstone_lamp"),
         ((7, 1, 6), "minecraft:redstone_lamp"),
-    ]
+    ])
     return (11, 4, 9), p
 
 
 def _quality_output() -> tuple[tuple[int, int, int], list[tuple[tuple[int, int, int], str]]]:
     p = _station_base(11, 9, "minecraft:purple_concrete")
-    p += [
+    p = _overlay(p, [
         ((2, 1, 4), "redstoneengineering:workcell_controller"),
         ((5, 1, 4), "redstoneengineering:industrial_buffer"),
         ((8, 1, 4), "redstoneengineering:industrial_buffer"),
         ((5, 1, 2), "minecraft:lime_concrete"),
         ((8, 1, 2), "minecraft:red_concrete"),
-    ]
+    ])
     return (11, 4, 9), p
 
 
 def _amr_lane() -> tuple[tuple[int, int, int], list[tuple[tuple[int, int, int], str]]]:
     width, depth = 21, 9
     p = _station_base(width, depth, "minecraft:orange_concrete")
-    # Explicit physical lane: white centerline, source and destination staging pads.
-    for x in range(2, width - 2):
-        p.append(((x, 1, 4), "minecraft:white_concrete"))
-    p += [
+    lane = [((x, 1, 4), "minecraft:white_concrete") for x in range(2, width - 2)]
+    p = _overlay(p, lane + [
         ((2, 1, 2), "redstoneengineering:industrial_buffer"),
         ((18, 1, 6), "redstoneengineering:industrial_buffer"),
         ((2, 1, 4), "minecraft:lime_concrete"),
         ((18, 1, 4), "minecraft:cyan_concrete"),
         ((10, 1, 2), "redstoneengineering:workcell_controller"),
-    ]
+    ])
     return (width, 4, depth), p
 
 
 def _operations_monitor() -> tuple[tuple[int, int, int], list[tuple[tuple[int, int, int], str]]]:
     p = _station_base(11, 9, "minecraft:cyan_concrete")
-    p += [
+    p = _overlay(p, [
         ((5, 1, 4), "redstoneengineering:workcell_controller"),
         ((3, 1, 4), "redstoneengineering:topology_debugger"),
         ((7, 1, 4), "redstoneengineering:industrial_buffer"),
         ((5, 1, 2), "minecraft:sea_lantern"),
         ((5, 1, 6), "minecraft:sea_lantern"),
-    ]
+    ])
     return (11, 4, 9), p
 
 
 def _full_factory() -> tuple[tuple[int, int, int], list[tuple[tuple[int, int, int], str]]]:
     width, depth = 48, 48
-    p = _floor(width, depth, "minecraft:light_gray_concrete")
-    p.extend(_border(width, depth, "minecraft:black_concrete"))
-    # Central aisle and station anchors. The Java builder overlays the individual station templates.
+    p = _overlay(_floor(width, depth, "minecraft:light_gray_concrete"), _border(width, depth, "minecraft:black_concrete"))
+    aisle: list[tuple[tuple[int, int, int], str]] = []
     for x in range(2, width - 2):
-        p.append(((x, 1, 23), "minecraft:white_concrete"))
-        p.append(((x, 1, 24), "minecraft:white_concrete"))
+        aisle.append(((x, 1, 23), "minecraft:white_concrete"))
+        aisle.append(((x, 1, 24), "minecraft:white_concrete"))
     for z in range(2, depth - 2):
-        p.append(((23, 1, z), "minecraft:white_concrete"))
-        p.append(((24, 1, z), "minecraft:white_concrete"))
-    p += [
+        aisle.append(((23, 1, z), "minecraft:white_concrete"))
+        aisle.append(((24, 1, z), "minecraft:white_concrete"))
+    p = _overlay(p, aisle + [
         ((23, 1, 23), "redstoneengineering:engineering_compass"),
         ((24, 1, 24), "minecraft:sea_lantern"),
-    ]
+    ])
     return (width, 4, depth), p
 
 
@@ -258,12 +274,26 @@ def generate() -> int:
     for name in EXPECTED_STRUCTURES:
         size, placements = STRUCTURES[name]()
         payload = _structure_bytes(size, placements)
-        # mtime=0 makes generation deterministic across machines/runs.
         compressed = gzip.compress(payload, compresslevel=9, mtime=0)
         out = STRUCTURE_DIR / f"{name}.nbt"
         out.write_bytes(compressed)
         print(f"generated {out.relative_to(ROOT)} ({len(compressed)} bytes)")
     return 0
+
+
+def _package_excluded(relative: Path) -> bool:
+    if relative.name in {"session.lock", ".DS_Store"}:
+        return True
+    if relative.parts and relative.parts[0] in {"logs", "crash-reports"}:
+        return True
+    return False
+
+
+def _zip_info(archive_name: str) -> zipfile.ZipInfo:
+    info = zipfile.ZipInfo(archive_name, date_time=(1980, 1, 1, 0, 0, 0))
+    info.compress_type = zipfile.ZIP_DEFLATED
+    info.external_attr = 0o644 << 16
+    return info
 
 
 def package_world(world: Path, output: Path) -> int:
@@ -285,26 +315,45 @@ def package_world(world: Path, output: Path) -> int:
         for path in sorted(world.rglob("*")):
             if not path.is_file():
                 continue
-            relative = path.relative_to(world.parent)
-            archive.write(path, relative.as_posix())
+            relative = path.relative_to(world)
+            if _package_excluded(relative):
+                continue
+            archive_name = (ARCHIVE_ROOT / relative).as_posix()
+            archive.writestr(
+                _zip_info(archive_name),
+                path.read_bytes(),
+                compress_type=zipfile.ZIP_DEFLATED,
+                compresslevel=9,
+            )
     print(f"packaged {world} -> {output}")
     return 0
 
 
-def parse_args() -> argparse.Namespace:
+def _legacy_cli(argv: list[str]) -> list[str]:
+    if not argv:
+        return argv
+    if argv[0] == "--generate-structures":
+        return ["generate", *argv[1:]]
+    if argv[0] == "--package-world":
+        if len(argv) < 2:
+            return ["package"]
+        return ["package", "--world", argv[1], *argv[2:]]
+    return argv
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="RSE Validation Factory asset tool")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("generate", help="generate reusable validation structure NBT files")
     package = sub.add_parser("package", help="package an existing real Validation Factory world")
     package.add_argument("--world", type=Path, default=DEFAULT_WORLD)
     package.add_argument("--output", type=Path, default=PACKAGE_PATH)
-    clean = sub.add_parser("clean", help="remove generated validation structures")
-    clean.set_defaults(command="clean")
-    return parser.parse_args()
+    sub.add_parser("clean", help="remove generated validation structures")
+    return parser.parse_args(_legacy_cli(list(sys.argv[1:] if argv is None else argv)))
 
 
-def main() -> int:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
     if args.command == "generate":
         return generate()
     if args.command == "package":
