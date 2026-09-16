@@ -87,7 +87,7 @@ public final class RseMegaValidationTopology {
 
             new Station(36, "H", "mega_cell_h_control", "redstoneengineering:pid_controller", new BlockPos(3, 1, 12), "PID CTRL", null),
             new Station(37, "H", "mega_cell_h_control", "redstoneengineering:servo_actuator", new BlockPos(9, 1, 12), "SERVO", 36),
-            new Station(38, "H", "mega_cell_h_control", "redstoneengineering:servo_position_sensor", new BlockPos(15, 1, 12), "POS SENSOR", 37),
+            new Station(38, "H", "mega_cell_h_control", "redstoneengineering:servo_position_sensor", new BlockPos(10, 1, 12), "POS SENSOR", 37),
             new Station(39, "H", "mega_cell_h_control", "redstoneengineering:safety_interlock", new BlockPos(21, 1, 12), "INTERLOCK", 38),
             new Station(40, "H", "mega_cell_h_control", "redstoneengineering:alarm_processor", new BlockPos(27, 1, 12), "ALARM", 39)
     );
@@ -123,6 +123,17 @@ public final class RseMegaValidationTopology {
         Module module = MODULE_BY_ID.get(station.moduleId());
         if (module == null) throw new IllegalArgumentException("unknown station module " + station.moduleId());
         return plantOrigin.offset(module.offset()).offset(station.dut());
+    }
+
+    /**
+     * Physical DUTs may move inside a station bay (D38 is mechanically adjacent to D37), while
+     * the station's sign and three-lamp panel remain anchored to the five nominal bay slots.
+     */
+    public static int localPanelX(int stationNumber) {
+        if (stationNumber < 1 || stationNumber > STATION_COUNT) {
+            throw new IllegalArgumentException("station must be 1..40");
+        }
+        return 3 + ((stationNumber - 1) % 5) * 6;
     }
 
     public static Integer upstreamStation(int stationNumber) {
