@@ -229,7 +229,7 @@ def _operations_monitor() -> tuple[tuple[int, int, int], list[tuple[tuple[int, i
     p = _station_base(11, 9, "minecraft:cyan_concrete")
     p = _overlay(p, [
         ((5, 1, 4), "redstoneengineering:workcell_controller"),
-        ((3, 1, 4), "redstoneengineering:topology_debugger"),
+        ((3, 1, 4), "redstoneengineering:operations_monitor"),
         ((7, 1, 4), "redstoneengineering:industrial_buffer"),
         ((5, 1, 2), "minecraft:sea_lantern"),
         ((5, 1, 6), "minecraft:sea_lantern"),
