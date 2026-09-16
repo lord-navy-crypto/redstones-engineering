@@ -111,6 +111,11 @@ public final class RseValidationFactoryModule {
                                             var source = context.getSource();
                                             return send(source, RseMegaValidationService.status(source.getLevel()));
                                         }))
+                                .then(Commands.literal("diagnose")
+                                        .executes(context -> {
+                                            var source = context.getSource();
+                                            return send(source, RseMegaValidationService.diagnose(source.getLevel()));
+                                        }))
                                 .then(Commands.literal("station")
                                         .then(Commands.argument("number", IntegerArgumentType.integer(1, 40))
                                                 .executes(context -> {
