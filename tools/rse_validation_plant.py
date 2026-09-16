@@ -112,6 +112,22 @@ def _series(block_id: str, facing: str, input_facing: str, **extra: str) -> Bloc
     return block_id, props
 
 
+def _unity_buffer(facing: str, input_facing: str) -> BlockSpec:
+    return _series("redstoneengineering:signal_conditioner", facing, input_facing, mode="0", param="1")
+
+
+def _buffer_run_x(x0: int, x1: int, z: int, facing: str) -> list[Placement]:
+    lo, hi = sorted((x0, x1))
+    input_facing = "west" if facing == "east" else "east"
+    return [((x, 1, z), _unity_buffer(facing, input_facing)) for x in range(lo, hi + 1)]
+
+
+def _buffer_run_z(x: int, z0: int, z1: int, facing: str) -> list[Placement]:
+    lo, hi = sorted((z0, z1))
+    input_facing = "north" if facing == "south" else "south"
+    return [((x, 1, z), _unity_buffer(facing, input_facing)) for z in range(lo, hi + 1)]
+
+
 def _indicator(facing: str) -> BlockSpec:
     return "redstoneengineering:analog_indicator", {"facing": facing, "level": "0"}
 
@@ -120,16 +136,6 @@ def _analyzer(facing: str, mode: int) -> BlockSpec:
     return "redstoneengineering:signal_analyzer", {
         "facing": facing, "mode": str(mode), "output": "0", "calibration": "2"
     }
-
-
-def _wire_line_x(x0: int, x1: int, z: int) -> list[Placement]:
-    lo, hi = sorted((x0, x1))
-    return [((x, 1, z), "minecraft:redstone_wire") for x in range(lo, hi + 1)]
-
-
-def _wire_line_z(x: int, z0: int, z1: int) -> list[Placement]:
-    lo, hi = sorted((z0, z1))
-    return [((x, 1, z), "minecraft:redstone_wire") for z in range(lo, hi + 1)]
 
 
 def _control_room() -> tuple[tuple[int, int, int], list[Placement]]:
@@ -146,13 +152,15 @@ def _control_room() -> tuple[tuple[int, int, int], list[Placement]]:
 
 
 def _cell_a_acquisition() -> tuple[tuple[int, int, int], list[Placement]]:
+    # A single wire tap provides a physical probe point; unity conditioners then regenerate the exact analog value.
     p = _cell_base("minecraft:light_blue_concrete")
     p = _overlay(p, [
         ((2, 1, 6), _ref(6, "east")),
-        *_wire_line_x(3, 18, 6),
-        ((6, 1, 5), ("redstoneengineering:signal_probe", {"facing": "south", "channel": "0"})),
-        ((6, 1, 4), "redstoneengineering:instrument_cable"),
-        ((6, 1, 3), "redstoneengineering:oscilloscope"),
+        ((3, 1, 6), "minecraft:redstone_wire"),
+        *_buffer_run_x(4, 18, 6, "east"),
+        ((3, 1, 5), ("redstoneengineering:signal_probe", {"facing": "south", "channel": "0"})),
+        ((3, 1, 4), "redstoneengineering:instrument_cable"),
+        ((3, 1, 3), "redstoneengineering:oscilloscope"),
     ])
     return CELL_SIZE, p
 
@@ -160,10 +168,12 @@ def _cell_a_acquisition() -> tuple[tuple[int, int, int], list[Placement]]:
 def _cell_b_conditioning() -> tuple[tuple[int, int, int], list[Placement]]:
     p = _cell_base("minecraft:green_concrete")
     p = _overlay(p, [
-        *_wire_line_x(0, 2, 6),
+        *_buffer_run_x(0, 2, 6, "east"),
         ((3, 1, 6), _series("redstoneengineering:signal_conditioner", "east", "west", mode="0", param="2")),
         ((4, 1, 6), _series("redstoneengineering:precision_filter", "east", "west", rate="1")),
-        *_wire_line_x(5, 18, 6),
+        *_buffer_run_x(5, 7, 6, "east"),
+        ((8, 1, 6), "minecraft:redstone_wire"),
+        *_buffer_run_x(9, 18, 6, "east"),
         ((8, 1, 5), _indicator("north")),
     ])
     return CELL_SIZE, p
@@ -172,22 +182,28 @@ def _cell_b_conditioning() -> tuple[tuple[int, int, int], list[Placement]]:
 def _cell_c_instrumentation() -> tuple[tuple[int, int, int], list[Placement]]:
     p = _cell_base("minecraft:cyan_concrete")
     p = _overlay(p, [
-        *_wire_line_x(0, 2, 6),
+        *_buffer_run_x(0, 2, 6, "east"),
         ((3, 1, 6), _analyzer("west", 1)),
-        *_wire_line_x(4, 18, 6),
+        *_buffer_run_x(4, 7, 6, "east"),
+        ((8, 1, 6), "minecraft:redstone_wire"),
+        *_buffer_run_x(9, 17, 6, "east"),
+        ((18, 1, 6), _unity_buffer("south", "west")),
+        *_buffer_run_z(18, 7, 12, "south"),
         ((8, 1, 5), _indicator("north")),
-        *_wire_line_z(18, 6, 12),
     ])
     return CELL_SIZE, p
 
 
 def _cell_d_control() -> tuple[tuple[int, int, int], list[Placement]]:
-    # Plant flow enters from the north edge and then travels west. PWM is a branch observer/control channel;
-    # the analog process command remains on the main bus so the downstream servo receives a stable command.
+    # The main analog command is actively regenerated. One explicit wire tap feeds the PWM diagnostic branch.
     p = _cell_base("minecraft:purple_concrete")
     p = _overlay(p, [
-        *_wire_line_z(18, 0, 6),
-        *_wire_line_x(0, 18, 6),
+        *_buffer_run_z(18, 0, 5, "south"),
+        ((18, 1, 6), _unity_buffer("west", "north")),
+        *_buffer_run_x(14, 17, 6, "west"),
+        ((13, 1, 6), "minecraft:redstone_wire"),
+        *_buffer_run_x(0, 12, 6, "west"),
+        ((13, 1, 5), "minecraft:redstone_wire"),
         ((12, 1, 5), _series("redstoneengineering:pwm_controller", "west", "east", period_mode="2", invert="false")),
         ((11, 1, 5), _analyzer("east", 0)),
     ])
@@ -197,18 +213,18 @@ def _cell_d_control() -> tuple[tuple[int, int, int], list[Placement]]:
 def _cell_e_safety() -> tuple[tuple[int, int, int], list[Placement]]:
     p = _cell_base("minecraft:red_concrete")
     p = _overlay(p, [
-        # Main analog command path: east -> fault injector -> west.
-        *_wire_line_x(15, 18, 6),
+        # Main analog command path: east -> fault injector -> west, with active unity regeneration.
+        *_buffer_run_x(15, 18, 6, "west"),
         ((14, 1, 6), _series("redstoneengineering:fault_injector", "west", "east", mode="2")),
-        *_wire_line_x(0, 13, 6),
+        *_buffer_run_x(0, 13, 6, "west"),
         ((14, 1, 5), _ref(0, "south")),
 
-        # Independent safety-permit path exits west toward Cell F.
+        # Independent safety-permit path exits west toward Cell F and preserves exact 15/0 semantics.
         ((10, 1, 9), _ref(15, "west")),
         ((9, 1, 10), _ref(15, "north")),
         ((9, 1, 8), _ref(15, "south")),
         ((9, 1, 9), _series("redstoneengineering:safety_interlock", "west", "east")),
-        *_wire_line_x(0, 8, 9),
+        *_buffer_run_x(0, 8, 9, "west"),
 
         # Alarm lifecycle is driven by validation-owned condition/ACK/RESET sources.
         ((10, 1, 3), _ref(0, "west")),
@@ -223,15 +239,20 @@ def _cell_e_safety() -> tuple[tuple[int, int, int], list[Placement]]:
 def _cell_f_process() -> tuple[tuple[int, int, int], list[Placement]]:
     p = _cell_base("minecraft:orange_concrete")
     p = _overlay(p, [
-        # Stable analog command arrives from Cell E on the east boundary.
-        *_wire_line_x(15, 18, 6),
+        # Stable analog command arrives from Cell E. The one wire tap powers a visible process lamp.
+        *_buffer_run_x(17, 18, 6, "west"),
+        ((16, 1, 6), "minecraft:redstone_wire"),
+        ((16, 1, 7), "minecraft:redstone_lamp"),
+        ((15, 1, 6), _unity_buffer("west", "east")),
         ((14, 1, 6), ("redstoneengineering:servo_actuator", {"facing": "west", "slew": "2"})),
         ((13, 1, 6), _series("redstoneengineering:servo_position_sensor", "west", "east")),
-        *_wire_line_x(10, 12, 6),
+        ((12, 1, 6), "minecraft:redstone_wire"),
+        ((11, 1, 6), _unity_buffer("west", "east")),
+        ((10, 1, 6), _unity_buffer("west", "east")),
         ((9, 1, 6), _indicator("west")),
 
-        # Safety permit arrives from Cell E and is independently observable in the process cell.
-        *_wire_line_x(15, 18, 9),
+        # Safety permit arrives independently and is actively regenerated to retain exact permit semantics.
+        *_buffer_run_x(15, 18, 9, "west"),
         ((14, 1, 9), _indicator("west")),
     ])
     return CELL_SIZE, p
