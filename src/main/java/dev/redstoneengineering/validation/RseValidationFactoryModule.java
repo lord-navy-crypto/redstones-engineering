@@ -58,6 +58,12 @@ public final class RseValidationFactoryModule {
                                             var source = context.getSource();
                                             return send(source, RseValidationSelfTestService.list(source.getLevel()));
                                         }))
+                                .then(Commands.literal("place-all")
+                                        .executes(context -> {
+                                            var source = context.getSource();
+                                            BlockPos origin = BlockPos.containing(source.getPosition());
+                                            return send(source, RseValidationSelfTestYardService.placeAll(source.getLevel(), origin));
+                                        }))
                                 .then(Commands.literal("place")
                                         .then(Commands.argument("id", StringArgumentType.greedyString())
                                                 .executes(context -> {
