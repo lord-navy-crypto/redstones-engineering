@@ -29,6 +29,11 @@ class ValidationFactoryToolTests(unittest.TestCase):
                 positions = [position for position, _block_id in placements]
                 self.assertEqual(len(positions), len(set(positions)), f"duplicate block coordinate in {name}")
 
+    def test_operations_monitor_station_contains_real_operations_monitor(self) -> None:
+        _size, placements = factory.STRUCTURES["operations_monitor"]()
+        block_ids = {block_id for _position, block_id in placements}
+        self.assertIn("redstoneengineering:operations_monitor", block_ids)
+
     def test_legacy_cli_aliases_map_to_current_commands(self) -> None:
         self.assertEqual(factory._legacy_cli(["--generate-structures"]), ["generate"])
         self.assertEqual(
