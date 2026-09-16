@@ -30,8 +30,8 @@ import java.util.Map;
 /**
  * Automatic 40-DUT / eight-cell factory acceptance orchestrator for Mega Validation Factory v2.1.
  *
- * <p>This class owns lifecycle, phase sequencing, fixture stimuli, structure placement and status
- * panels. Station health semantics live in {@link RseMegaStationEvaluator}; station identity,
+ * <p>This class owns lifecycle, phase sequencing, physical fixture stimuli, structure placement and
+ * status panels. Station health semantics live in {@link RseMegaStationEvaluator}; station identity,
  * coordinates and dependencies live in {@link RseMegaValidationTopology}. The validator never
  * writes a DUT output to manufacture a PASS.</p>
  */
@@ -55,6 +55,15 @@ public final class RseMegaValidationService {
     private static final BlockPos LOCAL_CELL_WAIT_POWER = new BlockPos(13, 2, 22);
     private static final BlockPos LOCAL_CELL_PASS_POWER = new BlockPos(14, 2, 22);
     private static final BlockPos LOCAL_CELL_FAIL_POWER = new BlockPos(15, 2, 22);
+
+    // Real validation-owned reference sources inside the rebuilt factory.
+    private static final BlockPos H_SENSOR_FAULT_ARM = new BlockPos(7, 1, 9);
+    private static final BlockPos H_ACTUATOR_BRAKE_FAULT = new BlockPos(12, 1, 14);
+    private static final BlockPos H_INTERLOCK_PERMISSIVE_A = new BlockPos(22, 1, 12);
+    private static final BlockPos H_INTERLOCK_PERMISSIVE_B = new BlockPos(21, 1, 13);
+    private static final BlockPos H_INTERLOCK_PERMISSIVE_C = new BlockPos(21, 1, 11);
+    private static final BlockPos H_ALARM_ACK = new BlockPos(27, 1, 13);
+    private static final BlockPos H_ALARM_RESET = new BlockPos(27, 1, 11);
 
     static {
         if (RseMegaValidationTopology.STATION_COUNT != STATION_COUNT
@@ -535,7 +544,7 @@ public final class RseMegaValidationService {
             case DATA_INTEGRITY_TEST -> cellGate(cells, "D", "digital data chain");
             case COMM_DEGRADATION -> cellGate(cells, "E", "communications degradation");
             case PROCESS_LOAD -> cellGate(cells, "G", "pneumatic process load");
-            case SENSOR_FAULT -> stationGate(stations, 38, "sensor fault observation");
+            case SENSOR_FAULT -> stationGate(stations, 38, "feedback-channel fault observation");
             case ACTUATOR_FAULT -> stationGate(stations, 37, "actuator safe-state observation");
             case REDUNDANCY_TEST -> aggregateCells(cells, "independent A-H verdict agreement");
             case INTERLOCK_TRIP -> stationGate(stations, 39, "interlock trip observation");
@@ -720,27 +729,52 @@ public final class RseMegaValidationService {
         setReferencePower(level, origin.offset(NORTH_SPINE_OFFSET).offset(0, 1, 2), token);
         setReferencePower(level,
                 RseMegaValidationTopology.stationWorldPos(origin, RseMegaValidationTopology.station(1)), token);
-        for (RseMegaValidationTopology.Station spec : RseMegaValidationTopology.stations()) {
-            BlockPos fixture = fixturePos(origin, spec);
-            int power = 6 + (spec.number() % 4);
-            if (phase == Phase.SENSOR_FAULT && spec.number() == 38) power = 0;
-            if (phase == Phase.ACTUATOR_FAULT && spec.number() == 37) power = 15;
-            setReferencePower(level, fixture, power);
+
+        // The H-cell scenarios operate only through real, visible validation fixtures.
+        setCellReferencePower(level, origin, "H", H_SENSOR_FAULT_ARM,
+                phase == Phase.SENSOR_FAULT ? 15 : 0);
+        setCellReferencePower(level, origin, "H", H_ACTUATOR_BRAKE_FAULT,
+                phase == Phase.ACTUATOR_FAULT ? 15 : 0);
+
+        boolean trip = phase == Phase.INTERLOCK_TRIP || phase == Phase.SAFE_STATE;
+        setCellReferencePower(level, origin, "H", H_INTERLOCK_PERMISSIVE_A, trip ? 0 : 15);
+        setCellReferencePower(level, origin, "H", H_INTERLOCK_PERMISSIVE_B, 15);
+        setCellReferencePower(level, origin, "H", H_INTERLOCK_PERMISSIVE_C, 15);
+
+        int ack = 0;
+        int reset = 0;
+        if (phase == Phase.ACK_RESET) {
+            long slot = Math.floorMod(level.getGameTime() / 8L, 2L);
+            ack = slot == 0L ? 15 : 0;
+            reset = slot == 1L ? 15 : 0;
         }
+        setCellReferencePower(level, origin, "H", H_ALARM_ACK, ack);
+        setCellReferencePower(level, origin, "H", H_ALARM_RESET, reset);
     }
 
     private static void applyBaseline(ServerLevel level, BlockPos origin) {
         setReferencePower(level, origin.offset(NORTH_SPINE_OFFSET).offset(0, 1, 2), 9);
         setReferencePower(level,
                 RseMegaValidationTopology.stationWorldPos(origin, RseMegaValidationTopology.station(1)), 9);
-        for (RseMegaValidationTopology.Station spec : RseMegaValidationTopology.stations()) {
-            setReferencePower(level, fixturePos(origin, spec), 6 + (spec.number() % 4));
-        }
+        setCellReferencePower(level, origin, "H", H_SENSOR_FAULT_ARM, 0);
+        setCellReferencePower(level, origin, "H", H_ACTUATOR_BRAKE_FAULT, 0);
+        setCellReferencePower(level, origin, "H", H_INTERLOCK_PERMISSIVE_A, 15);
+        setCellReferencePower(level, origin, "H", H_INTERLOCK_PERMISSIVE_B, 15);
+        setCellReferencePower(level, origin, "H", H_INTERLOCK_PERMISSIVE_C, 15);
+        setCellReferencePower(level, origin, "H", H_ALARM_ACK, 0);
+        setCellReferencePower(level, origin, "H", H_ALARM_RESET, 0);
     }
 
-    private static BlockPos fixturePos(BlockPos origin, RseMegaValidationTopology.Station spec) {
-        RseMegaValidationTopology.Module module = RseMegaValidationTopology.module(spec.moduleId());
-        return origin.offset(module.offset()).offset(spec.dut().getX(), 1, 15);
+    private static boolean setCellReferencePower(
+            ServerLevel level,
+            BlockPos origin,
+            String cell,
+            BlockPos local,
+            int power
+    ) {
+        RseMegaValidationTopology.Module module = RseMegaValidationTopology.cellModules().get(cell);
+        if (module == null) return false;
+        return setReferencePower(level, origin.offset(module.offset()).offset(local), power);
     }
 
     private static int settleTicks(Phase phase) {
@@ -838,7 +872,7 @@ public final class RseMegaValidationService {
             if (evaluation == null) continue;
             RseMegaValidationTopology.Module module = RseMegaValidationTopology.module(spec.moduleId());
             BlockPos local = origin.offset(module.offset());
-            int x = spec.dut().getX();
+            int x = RseMegaValidationTopology.localPanelX(spec.number());
             updatePanel(level, local,
                     new BlockPos(x - 1, 2, 5), new BlockPos(x, 2, 5), new BlockPos(x + 1, 2, 5),
                     evaluation.scenarioVerdict());
