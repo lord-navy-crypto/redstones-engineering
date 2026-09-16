@@ -190,7 +190,6 @@ class MegaValidationFactoryTests(unittest.TestCase):
         for pos in ((4, 1, 12), (8, 1, 12), (8, 1, 13), (9, 1, 13), (14, 1, 13), (14, 1, 12),
                     (16, 1, 12), (20, 1, 12), (22, 1, 12), (26, 1, 12), (28, 1, 12)):
             self.assertEqual(self._block_id(by_pos[pos]), "redstoneengineering:redstone_signal_cable", pos)
-        self.assertEqual(self._block_id(by_pos[(9, 1, 13)]), "redstoneengineering:redstone_signal_cable")
 
     def test_timing_cell_has_real_quartz_lane_and_redstone_waveform_lane(self) -> None:
         by_pos = self._cell_by_pos("B")
@@ -198,9 +197,10 @@ class MegaValidationFactoryTests(unittest.TestCase):
         divider = self._props(by_pos[self._station(7).dut_pos])
         self.assertEqual(osc.get("facing"), "east")
         self.assertEqual((divider.get("facing"), divider.get("input_facing")), ("east", "west"))
-        for x in tuple(range(4, 9)) + tuple(range(10, 15)):
+        for x in tuple(range(4, 9)) + tuple(range(10, 14)):
             self.assertEqual(self._block_id(by_pos[(x, 1, 12)]), "redstoneengineering:quartz_timing_line", x)
         self.assertEqual(self._block_id(by_pos[(14, 1, 13)]), "redstoneengineering:redstone_reference_source")
+        self.assertEqual(self._block_id(by_pos[(14, 1, 12)]), "redstoneengineering:redstone_signal_cable")
         for station in (8, 9, 10):
             props = self._props(by_pos[self._station(station).dut_pos])
             self.assertEqual((props.get("facing"), props.get("input_facing")), ("east", "west"), station)
@@ -294,7 +294,14 @@ class MegaValidationFactoryTests(unittest.TestCase):
             self.assertEqual(self._block_id(by_pos[(x, 1, 12)]), "redstoneengineering:redstone_signal_cable", x)
         self.assertEqual(self._block_id(by_pos[(10, 1, 11)]), "redstoneengineering:redstone_signal_cable")
         self.assertEqual(self._block_id(by_pos[(3, 1, 11)]), "redstoneengineering:redstone_signal_cable")
-        for x in range(3, 11):
+        for x in range(3, 7):
+            self.assertEqual(self._block_id(by_pos[(x, 1, 10)]), "redstoneengineering:redstone_signal_cable", x)
+        self.assertEqual(self._block_id(by_pos[(7, 1, 10)]), "redstoneengineering:fault_injector")
+        injector = self._props(by_pos[(7, 1, 10)])
+        self.assertEqual((injector.get("facing"), injector.get("input_facing"), injector.get("mode")), ("west", "east", "0"))
+        self.assertEqual(self._block_id(by_pos[(7, 1, 9)]), "redstoneengineering:redstone_reference_source")
+        self.assertEqual((self._props(by_pos[(7, 1, 9)]).get("facing"), self._props(by_pos[(7, 1, 9)]).get("power")), ("south", "0"))
+        for x in range(8, 11):
             self.assertEqual(self._block_id(by_pos[(x, 1, 10)]), "redstoneengineering:redstone_signal_cable", x)
         for x in range(4, 9):
             self.assertNotEqual(self._block_id(by_pos[(x, 1, 11)]), "redstoneengineering:redstone_signal_cable", "feedback must not short into command bus")
@@ -313,6 +320,7 @@ class MegaValidationFactoryTests(unittest.TestCase):
             (21, 1, 11): ("south", "15"),
             (27, 1, 13): ("north", "0"),
             (27, 1, 11): ("south", "0"),
+            (12, 1, 14): ("north", "0"),
         }
         for pos, (facing, power) in expected_sources.items():
             self.assertEqual(self._block_id(by_pos[pos]), "redstoneengineering:redstone_reference_source", pos)
@@ -366,6 +374,29 @@ class MegaValidationFactoryTests(unittest.TestCase):
             self.assertRegex(topology, rf'new Station\({start},.*null\)')
         for station in (2, 3, 4, 5, 7, 8, 9, 10, 12, 13, 14, 15, 17, 18, 19, 20, 22, 23, 24, 25, 27, 28, 29, 30, 32, 33, 34, 35, 37, 38, 39, 40):
             self.assertRegex(topology, rf'new Station\({station},.*\d+\)')
+
+    def test_java_runtime_uses_physical_h_fixtures_not_legacy_fixture_strip(self) -> None:
+        service = (ROOT / "src/main/java/dev/redstoneengineering/validation/RseMegaValidationService.java").read_text(encoding="utf-8")
+        topology = JAVA_TOPOLOGY.read_text(encoding="utf-8")
+        self.assertNotIn("fixturePos(", service)
+        for token in (
+            "H_SENSOR_FAULT_ARM",
+            "H_ACTUATOR_BRAKE_FAULT",
+            "H_INTERLOCK_PERMISSIVE_A",
+            "H_INTERLOCK_PERMISSIVE_B",
+            "H_INTERLOCK_PERMISSIVE_C",
+            "H_ALARM_ACK",
+            "H_ALARM_RESET",
+            "setCellReferencePower",
+            "localPanelX",
+        ):
+            self.assertIn(token, service)
+        self.assertIn('new Station(38, "H", "mega_cell_h_control", "redstoneengineering:servo_position_sensor", new BlockPos(10, 1, 12)', topology)
+        evaluator = JAVA_EVALUATOR.read_text(encoding="utf-8")
+        self.assertIn('case 10 -> evaluateSelectedInputs', evaluator)
+        self.assertIn('case 36 -> evaluateSelectedInputs', evaluator)
+        self.assertIn('"COMMAND IN"', evaluator)
+        self.assertIn('"SETPOINT IN", "PROCESS VALUE IN"', evaluator)
 
     def test_command_surface_and_server_tick_wire_mega_runtime(self) -> None:
         module = (ROOT / "src/main/java/dev/redstoneengineering/validation/RseValidationFactoryModule.java").read_text(encoding="utf-8")
