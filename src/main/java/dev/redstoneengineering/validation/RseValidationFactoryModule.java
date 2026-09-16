@@ -114,6 +114,8 @@ public final class RseValidationFactoryModule {
                                 .then(Commands.literal("diagnose")
                                         .executes(context -> {
                                             var source = context.getSource();
+                                            // Reporter owns attribution/export, then delegates live evaluation to
+                                            // RseMegaValidationService.diagnose(level) so the runtime remains authoritative.
                                             return send(source, RseMegaDiagnosticReporter.diagnose(source.getLevel()));
                                         }))
                                 .then(Commands.literal("station")
