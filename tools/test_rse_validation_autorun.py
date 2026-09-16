@@ -41,13 +41,15 @@ class ValidationSelfTestAutorunTests(unittest.TestCase):
 
     def test_one_command_can_place_complete_automatic_selftest_yard(self) -> None:
         module = (ROOT / "src/main/java/dev/redstoneengineering/validation/RseValidationFactoryModule.java").read_text(encoding="utf-8")
-        service = (ROOT / "src/main/java/dev/redstoneengineering/validation/RseValidationSelfTestService.java").read_text(encoding="utf-8")
+        yard = (ROOT / "src/main/java/dev/redstoneengineering/validation/RseValidationSelfTestYardService.java").read_text(encoding="utf-8")
         self.assertIn('Commands.literal("place-all")', module)
-        self.assertIn("RseValidationSelfTestService.placeAll(", module)
-        self.assertIn("placeAll(", service)
-        self.assertIn("GRID_COLUMNS", service)
-        self.assertIn("GRID_SPACING_X", service)
-        self.assertIn("GRID_SPACING_Z", service)
+        self.assertIn("RseValidationSelfTestYardService.placeAll(", module)
+        self.assertIn("placeAll(", yard)
+        self.assertIn("GRID_COLUMNS", yard)
+        self.assertIn("GRID_SPACING_X", yard)
+        self.assertIn("GRID_SPACING_Z", yard)
+        for test_id in factory.SELFTESTS:
+            self.assertIn(f'"{test_id}"', yard)
 
 
 if __name__ == "__main__":
