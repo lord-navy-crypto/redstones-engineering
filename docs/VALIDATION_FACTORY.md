@@ -1,14 +1,18 @@
 # RSE Validation Factory
 
-The **RSE Validation Factory** is a local/manual Minecraft validation environment for the current Operations + AMR production chain. It is designed to complement static verification and focused GameTests without requiring the full GameTest server in normal CI.
+The **RSE Validation Factory** is a local/manual Minecraft validation environment for the current Operations + AMR production chain. It complements static verification and focused GameTests without requiring the full GameTest server in normal CI.
+
+The repository also contains a **Self-Checking Validation Series** for signal/instrumentation work. These are small reusable `.nbt` benches with real configured RSE devices plus a physical WAIT/PASS/FAIL lamp panel.
 
 ## What it validates
 
-The v1 factory covers:
+The factory covers:
 
 `Material release -> persistent queue -> maintenance-aware dispatch -> workcell/output -> Industrial Buffer -> AMR transport -> delivery/readback`
 
-The factory uses real RSE blocks and the real `redstoneengineering:engineering_mobile_robot` entity. Building the factory creates only baseline test fixtures. It does **not** fabricate completed jobs or delivered AMR missions.
+The self-test series currently covers 16 focused benches in `01_basic` and `02_signal`, including reference sources, probes, analyzers, indicator readback, conditioning, directionality, instrument bus, saturation, slew filtering, sample/hold, edge detection, pulse shaping, PWM, noise filtering and redstone/lapis quantization.
+
+The factory uses real RSE blocks and the real `redstoneengineering:engineering_mobile_robot` entity. Building fixtures does **not** fabricate completed jobs or delivered AMR missions. Self-test PASS verdicts are derived from actual world/device/runtime evidence.
 
 ## 1. Update your local branch
 
@@ -20,8 +24,6 @@ cd /Users/jason/Desktop/redstones-engineering
 export JAVA_HOME=$(/usr/libexec/java_home -v 21)
 export PATH="$JAVA_HOME/bin:$PATH"
 
-java -version
-
 git fetch origin
 git switch codex/persistent-plant-runtime-validation-world
 git pull --ff-only origin codex/persistent-plant-runtime-validation-world
@@ -29,45 +31,48 @@ git pull --ff-only origin codex/persistent-plant-runtime-validation-world
 
 Java should report version 21.
 
-## 2. Generate the reusable structure templates
+## 2. Generate reusable structures
 
-Preferred command:
+Generate everything:
 
 ```bash
 python3 tools/rse_validation_factory.py generate
 ```
 
-Equivalent compatibility command:
+Generate only the 16 self-checking benches:
 
 ```bash
-python3 tools/rse_validation_factory.py --generate-structures
+python3 tools/rse_validation_factory.py generate-selftests
 ```
 
-This creates:
+Generate/package the older free-form preset pack:
+
+```bash
+python3 tools/rse_validation_factory.py generate-presets
+python3 tools/rse_validation_factory.py package-presets
+```
+
+Self-test structures are written under:
 
 ```text
-src/generated/resources/data/redstoneengineering/structure/validation/material_release.nbt
-src/generated/resources/data/redstoneengineering/structure/validation/queue_dispatch.nbt
-src/generated/resources/data/redstoneengineering/structure/validation/maintenance_hold.nbt
-src/generated/resources/data/redstoneengineering/structure/validation/quality_output.nbt
-src/generated/resources/data/redstoneengineering/structure/validation/amr_lane.nbt
-src/generated/resources/data/redstoneengineering/structure/validation/operations_monitor.nbt
-src/generated/resources/data/redstoneengineering/structure/validation/full_factory.nbt
+src/generated/resources/data/redstoneengineering/structure/validation/selftest/01_basic/
+src/generated/resources/data/redstoneengineering/structure/validation/selftest/02_signal/
 ```
 
-Gradle also exposes:
+Their machine-readable index is:
 
-```bash
-./gradlew generateValidationStructures
+```text
+build/validation/selftest-index.txt
 ```
 
-Normal resource processing depends on this task, so `runClient`/`build` regenerate the templates when needed.
+Gradle resource processing runs the validation generator automatically, so `runClient` and normal builds receive generated templates.
 
 ## 3. Run the lightweight checks
 
 ```bash
 python3 -m unittest tools.test_rse_validation_factory -v
 python3 tools/rse_validation_factory_verify.py
+python3 tools/rse_validation_selftest_verify.py
 python3 tools/rse_operations_amr_world_verify.py
 
 ./gradlew clean compileJava
@@ -75,7 +80,7 @@ python3 tools/rse_operations_amr_world_verify.py
 ./gradlew build
 ```
 
-Do **not** use the full `runGameTestServer` as the first test. The Validation Factory and focused in-game tests are intended to avoid the huge all-test run while you are iterating.
+Do **not** use the full `runGameTestServer` as the first test. The Validation Factory and focused in-game tests are intended to avoid the huge all-test run while iterating.
 
 ## 4. Open Minecraft
 
@@ -83,35 +88,110 @@ Do **not** use the full `runGameTestServer` as the first test. The Validation Fa
 ./gradlew runClient
 ```
 
-Create a Creative, cheats-enabled world named exactly:
-
-```text
-RSE Validation Factory
-```
-
-Stand where you want the northwest/reference corner of the factory and run:
+Create a Creative, cheats-enabled world. For the large Operations factory, stand where you want the reference corner and run:
 
 ```text
 /rsevalidation build
-```
-
-Then inspect the baseline without mutating it:
-
-```text
 /rsevalidation status
 ```
 
 The status command reports the validation input/output buffers, persistent queue, READY/MAINTENANCE_DUE resource evidence, and the tagged real AMR state.
 
-## 5. Reset tests
+## 5. Use the Self-Checking Test Series
 
-Reset the full validation-owned baseline:
+List available tests:
+
+```text
+/rsevalidation selftest list
+```
+
+Place one at your current position:
+
+```text
+/rsevalidation selftest place 01_basic/reference_source
+```
+
+Then evaluate it:
+
+```text
+/rsevalidation selftest check 01_basic/reference_source
+```
+
+Every bench has the same physical status convention:
+
+- **Yellow / WAIT** — the bench is settling, collecting samples, or has just injected a required stimulus.
+- **Green / PASS** — the measured authoritative behavior matches the test contract.
+- **Red / FAIL** — the expected device/evidence is missing, invalid, stale after settling, misrouted, or outside the test contract.
+
+Exactly one status channel is powered after an evaluation.
+
+Some dynamic benches intentionally need repeated checks. For example:
+
+```text
+/rsevalidation selftest place 02_signal/edge_detector
+/rsevalidation selftest check 02_signal/edge_detector
+```
+
+The first eligible check may inject the controlled rising-edge stimulus and remain yellow. After a few ticks, run the same `check` again; the detector must contain real recorded edge evidence before the panel can turn green.
+
+`noise_vs_filter` deliberately accumulates a small validation-only sample window. Run `check` several times while the deterministic noise source changes. PASS requires the observed filtered peak-to-peak window to be lower than the raw window; a single lucky sample cannot produce PASS.
+
+Representative tests:
+
+```text
+/rsevalidation selftest place 01_basic/signal_probe
+/rsevalidation selftest check 01_basic/signal_probe
+
+/rsevalidation selftest place 01_basic/signal_conditioner_gain
+/rsevalidation selftest check 01_basic/signal_conditioner_gain
+
+/rsevalidation selftest place 02_signal/conditioner_saturation
+/rsevalidation selftest check 02_signal/conditioner_saturation
+
+/rsevalidation selftest place 02_signal/pwm_control
+/rsevalidation selftest check 02_signal/pwm_control
+
+/rsevalidation selftest place 02_signal/quantizer_scaler
+/rsevalidation selftest check 02_signal/quantizer_scaler
+```
+
+A deliberate engineering fault can still produce **PASS** when the test contract expects it. For example, the conditioner saturation test expects input `10` with gain `x2` to clamp at `15` and report `SATURATED`; correctly detecting that condition is a green PASS.
+
+The evaluator may mutate only test-owned stimulus and status-panel blocks. It does not force the DUT into a passing state and does not write Operations production authority.
+
+## 6. Place raw structures manually
+
+The generated templates can also be placed without the self-test command:
+
+```text
+/place template redstoneengineering:validation/selftest/01_basic/reference_source
+/place template redstoneengineering:validation/selftest/01_basic/signal_probe
+/place template redstoneengineering:validation/selftest/02_signal/pwm_control
+```
+
+This places the configured physical bench, but `/place template` does not register the test origin in validation SavedData. Therefore use `/rsevalidation selftest place ...` when you want `/rsevalidation selftest check ...` and automatic status lamps.
+
+The larger Operations structures remain available as:
+
+```text
+/place template redstoneengineering:validation/material_release
+/place template redstoneengineering:validation/queue_dispatch
+/place template redstoneengineering:validation/maintenance_hold
+/place template redstoneengineering:validation/quality_output
+/place template redstoneengineering:validation/amr_lane
+/place template redstoneengineering:validation/operations_monitor
+/place template redstoneengineering:validation/full_factory
+```
+
+## 7. Reset Operations tests
+
+Reset the full validation-owned Operations baseline:
 
 ```text
 /rsevalidation reset all
 ```
 
-Reset one physical station:
+Or one station:
 
 ```text
 /rsevalidation reset material_release
@@ -124,35 +204,19 @@ Reset one physical station:
 
 Reset fails closed if a validation queue or buffer still contains WIP. It does not clear unrelated player factories or directly wipe `OperationPlantSavedData`.
 
-## 6. Place individual structures manually
+## 8. Persistence acceptance
 
-The generated templates can also be placed independently:
+After exercising a factory station or placing self-tests:
 
-```text
-/place template redstoneengineering:validation/material_release
-/place template redstoneengineering:validation/queue_dispatch
-/place template redstoneengineering:validation/maintenance_hold
-/place template redstoneengineering:validation/quality_output
-/place template redstoneengineering:validation/amr_lane
-/place template redstoneengineering:validation/operations_monitor
-/place template redstoneengineering:validation/full_factory
-```
+1. Note `/rsevalidation status` or the current self-test panel.
+2. Save and quit normally.
+3. Start again with `./gradlew runClient`.
+4. Re-enter the same world.
+5. Re-run the relevant status/check command.
 
-These are physical layouts. Operations state is still created through `/rsevalidation build` or the production world facades; an `.nbt` structure does not fake persistent plant history.
+Operations evidence uses the real persistent plant path. Self-test placement origins and their bounded validation-only observation windows also persist, while DUT physics remains owned by the real devices.
 
-## 7. Persistence acceptance
-
-After exercising a station:
-
-1. Run `/rsevalidation status` and note the queue/buffer/maintenance/AMR state.
-2. Save and quit the world normally.
-3. Start the client again with `./gradlew runClient`.
-4. Re-enter `RSE Validation Factory`.
-5. Run `/rsevalidation status` again.
-
-Persistent Operations evidence should survive the real save/reload boundary. Robot entity state is evaluated through the real entity save/runtime path rather than a validation-only cache.
-
-## 8. Package the real world as a ZIP
+## 9. Package the real world as a ZIP
 
 Quit the world first so Minecraft has flushed it to disk. Then run:
 
@@ -161,14 +225,7 @@ python3 tools/rse_validation_factory.py package \
   --world "run/saves/RSE Validation Factory"
 ```
 
-Or use the compatibility form:
-
-```bash
-python3 tools/rse_validation_factory.py \
-  --package-world "run/saves/RSE Validation Factory"
-```
-
-Or Gradle:
+Or:
 
 ```bash
 ./gradlew packageValidationWorld
@@ -182,21 +239,7 @@ build/validation/RSE-Validation-Factory.zip
 
 The packager requires a real Minecraft-created `level.dat`; it refuses to fabricate a fake save. It excludes transient files such as `session.lock`, `logs/`, `crash-reports/`, and `.DS_Store`.
 
-To inspect the archive:
-
-```bash
-unzip -l build/validation/RSE-Validation-Factory.zip | head -n 40
-```
-
-The archive root is always:
-
-```text
-RSE Validation Factory/
-```
-
 ## Recommended daily loop
-
-For normal development, this is enough:
 
 ```bash
 cd /Users/jason/Desktop/redstones-engineering
@@ -209,11 +252,19 @@ python3 tools/rse_validation_factory.py generate
 ./gradlew runClient
 ```
 
-Then in Minecraft:
+Then either use the large factory:
 
 ```text
 /rsevalidation build
 /rsevalidation status
 ```
 
-Use focused GameTests only when you want automated regression coverage for one subsystem; keep the large all-GameTest server out of the ordinary feedback loop.
+or focused self-tests:
+
+```text
+/rsevalidation selftest list
+/rsevalidation selftest place 01_basic/reference_source
+/rsevalidation selftest check 01_basic/reference_source
+```
+
+Keep the large all-GameTest server out of the ordinary feedback loop; use focused manual GameTests when you specifically need an automated world regression.
