@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Generate RSE Validation Factory structure templates and package a real test world.
+"""Generate RSE Validation Factory structures, reusable preset packs, and real-world ZIPs.
 
 Preferred usage:
     python3 tools/rse_validation_factory.py generate
+    python3 tools/rse_validation_factory.py generate-presets
+    python3 tools/rse_validation_factory.py package-presets
     python3 tools/rse_validation_factory.py package
     python3 tools/rse_validation_factory.py package --world "run/saves/RSE Validation Factory"
 
@@ -10,8 +12,8 @@ Backward-compatible aliases:
     python3 tools/rse_validation_factory.py --generate-structures
     python3 tools/rse_validation_factory.py --package-world "run/saves/RSE Validation Factory"
 
-The package command refuses to fabricate a Minecraft world. The source directory must already
-contain a real level.dat created by Minecraft/NeoForge.
+The world package command refuses to fabricate a Minecraft world. The source directory must
+already contain a real level.dat created by Minecraft/NeoForge.
 """
 from __future__ import annotations
 
@@ -23,8 +25,16 @@ import struct
 import sys
 import zipfile
 
+try:
+    from tools.rse_validation_presets import PRESETS
+except ModuleNotFoundError:  # direct `python3 tools/...` execution
+    from rse_validation_presets import PRESETS
+
 ROOT = Path(__file__).resolve().parents[1]
 STRUCTURE_DIR = ROOT / "src/generated/resources/data/redstoneengineering/structure/validation"
+PRESET_STRUCTURE_DIR = STRUCTURE_DIR / "presets"
+PRESET_INDEX_PATH = ROOT / "build/validation/preset-index.txt"
+PRESET_PACKAGE_PATH = ROOT / "build/validation/RSE-Preset-Pack.zip"
 DEFAULT_WORLD = ROOT / "run/saves/RSE Validation Factory"
 PACKAGE_PATH = ROOT / "build/validation/RSE-Validation-Factory.zip"
 DATA_VERSION = 3955  # Minecraft 1.21.1; matches the repository's existing empty5x4x5 template.
@@ -40,7 +50,6 @@ EXPECTED_STRUCTURES = (
     "full_factory",
 )
 
-# NBT tag ids used by Minecraft structure templates.
 TAG_END = 0
 TAG_INT = 3
 TAG_STRING = 8
@@ -123,7 +132,6 @@ def _structure_bytes(size: tuple[int, int, int], placements: list[tuple[tuple[in
         _named_compound_list("blocks", blocks),
         _named_compound_list("entities", []),
     ])
-    # TAG_Compound root with an empty name, matching vanilla structure NBT.
     return bytes([TAG_COMPOUND]) + _u16(0) + root_payload
 
 
@@ -135,7 +143,6 @@ def _overlay(
     placements: list[tuple[tuple[int, int, int], str]],
     additions: list[tuple[tuple[int, int, int], str]],
 ) -> list[tuple[tuple[int, int, int], str]]:
-    """Return deterministic last-writer-wins placements with one entry per coordinate."""
     by_position: dict[tuple[int, int, int], str] = {position: block_id for position, block_id in placements}
     for position, block_id in additions:
         by_position[position] = block_id
@@ -161,7 +168,7 @@ def _station_base(width: int, depth: int, marker: str) -> list[tuple[tuple[int, 
     ])
 
 
-def _material_release() -> tuple[tuple[int, int, int], list[tuple[tuple[int, int, int], str]]]:
+def _material_release():
     p = _station_base(11, 9, "minecraft:light_blue_concrete")
     p = _overlay(p, [
         ((2, 1, 4), "redstoneengineering:industrial_buffer"),
@@ -173,7 +180,7 @@ def _material_release() -> tuple[tuple[int, int, int], list[tuple[tuple[int, int
     return (11, 4, 9), p
 
 
-def _queue_dispatch() -> tuple[tuple[int, int, int], list[tuple[tuple[int, int, int], str]]]:
+def _queue_dispatch():
     p = _station_base(11, 9, "minecraft:blue_concrete")
     p = _overlay(p, [
         ((2, 1, 4), "redstoneengineering:industrial_buffer"),
@@ -186,7 +193,7 @@ def _queue_dispatch() -> tuple[tuple[int, int, int], list[tuple[tuple[int, int, 
     return (11, 4, 9), p
 
 
-def _maintenance_hold() -> tuple[tuple[int, int, int], list[tuple[tuple[int, int, int], str]]]:
+def _maintenance_hold():
     p = _station_base(11, 9, "minecraft:yellow_concrete")
     p = _overlay(p, [
         ((3, 1, 4), "redstoneengineering:workcell_controller"),
@@ -199,7 +206,7 @@ def _maintenance_hold() -> tuple[tuple[int, int, int], list[tuple[tuple[int, int
     return (11, 4, 9), p
 
 
-def _quality_output() -> tuple[tuple[int, int, int], list[tuple[tuple[int, int, int], str]]]:
+def _quality_output():
     p = _station_base(11, 9, "minecraft:purple_concrete")
     p = _overlay(p, [
         ((2, 1, 4), "redstoneengineering:workcell_controller"),
@@ -211,7 +218,7 @@ def _quality_output() -> tuple[tuple[int, int, int], list[tuple[tuple[int, int, 
     return (11, 4, 9), p
 
 
-def _amr_lane() -> tuple[tuple[int, int, int], list[tuple[tuple[int, int, int], str]]]:
+def _amr_lane():
     width, depth = 21, 9
     p = _station_base(width, depth, "minecraft:orange_concrete")
     lane = [((x, 1, 4), "minecraft:white_concrete") for x in range(2, width - 2)]
@@ -225,7 +232,7 @@ def _amr_lane() -> tuple[tuple[int, int, int], list[tuple[tuple[int, int, int], 
     return (width, 4, depth), p
 
 
-def _operations_monitor() -> tuple[tuple[int, int, int], list[tuple[tuple[int, int, int], str]]]:
+def _operations_monitor():
     p = _station_base(11, 9, "minecraft:cyan_concrete")
     p = _overlay(p, [
         ((5, 1, 4), "redstoneengineering:workcell_controller"),
@@ -237,7 +244,7 @@ def _operations_monitor() -> tuple[tuple[int, int, int], list[tuple[tuple[int, i
     return (11, 4, 9), p
 
 
-def _full_factory() -> tuple[tuple[int, int, int], list[tuple[tuple[int, int, int], str]]]:
+def _full_factory():
     width, depth = 48, 48
     p = _overlay(_floor(width, depth, "minecraft:light_gray_concrete"), _border(width, depth, "minecraft:black_concrete"))
     aisle: list[tuple[tuple[int, int, int], str]] = []
@@ -265,19 +272,75 @@ STRUCTURES = {
 }
 
 
+def _write_structure(path: Path, size: tuple[int, int, int], placements: list[tuple[tuple[int, int, int], str]]) -> None:
+    payload = _structure_bytes(size, placements)
+    compressed = gzip.compress(payload, compresslevel=9, mtime=0)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(compressed)
+    print(f"generated {path.relative_to(ROOT) if path.is_relative_to(ROOT) else path} ({len(compressed)} bytes)")
+
+
+def _preset_index_text() -> str:
+    lines = [
+        "RSE VALIDATION PRESET PACK",
+        "path\tlevel\ttitle\tpurpose",
+    ]
+    for name in sorted(PRESETS):
+        preset = PRESETS[name]
+        lines.append(f"{name}\t{preset.level}\t{preset.title}\t{preset.purpose}")
+    return "\n".join(lines) + "\n"
+
+
+def generate_presets(structure_dir: Path = PRESET_STRUCTURE_DIR, index_path: Path = PRESET_INDEX_PATH) -> int:
+    if structure_dir.exists():
+        shutil.rmtree(structure_dir)
+    structure_dir.mkdir(parents=True, exist_ok=True)
+    for name in sorted(PRESETS):
+        preset = PRESETS[name]
+        size, placements = preset.builder()
+        _write_structure(structure_dir / f"{name}.nbt", size, placements)
+    index_path.parent.mkdir(parents=True, exist_ok=True)
+    index_path.write_text(_preset_index_text(), encoding="utf-8")
+    print(f"generated {index_path.relative_to(ROOT) if index_path.is_relative_to(ROOT) else index_path}")
+    return 0
+
+
 def generate() -> int:
     STRUCTURE_DIR.mkdir(parents=True, exist_ok=True)
     stale = {p.stem for p in STRUCTURE_DIR.glob("*.nbt")} - set(EXPECTED_STRUCTURES)
     for name in stale:
         (STRUCTURE_DIR / f"{name}.nbt").unlink()
-
     for name in EXPECTED_STRUCTURES:
         size, placements = STRUCTURES[name]()
-        payload = _structure_bytes(size, placements)
-        compressed = gzip.compress(payload, compresslevel=9, mtime=0)
-        out = STRUCTURE_DIR / f"{name}.nbt"
-        out.write_bytes(compressed)
-        print(f"generated {out.relative_to(ROOT)} ({len(compressed)} bytes)")
+        _write_structure(STRUCTURE_DIR / f"{name}.nbt", size, placements)
+    return generate_presets()
+
+
+def _zip_info(archive_name: str) -> zipfile.ZipInfo:
+    info = zipfile.ZipInfo(archive_name, date_time=(1980, 1, 1, 0, 0, 0))
+    info.compress_type = zipfile.ZIP_DEFLATED
+    info.external_attr = 0o644 << 16
+    return info
+
+
+def package_presets(
+    structure_dir: Path = PRESET_STRUCTURE_DIR,
+    index_path: Path = PRESET_INDEX_PATH,
+    output: Path = PRESET_PACKAGE_PATH,
+) -> int:
+    files = sorted(structure_dir.rglob("*.nbt")) if structure_dir.is_dir() else []
+    if not files or not index_path.is_file():
+        print("ERROR: preset structures/index missing; run 'generate-presets' first.", file=sys.stderr)
+        return 2
+    output.parent.mkdir(parents=True, exist_ok=True)
+    if output.exists():
+        output.unlink()
+    with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+        archive.writestr(_zip_info("preset-index.txt"), index_path.read_bytes())
+        for path in files:
+            relative = path.relative_to(structure_dir).as_posix()
+            archive.writestr(_zip_info(relative), path.read_bytes())
+    print(f"packaged {len(files)} presets -> {output}")
     return 0
 
 
@@ -289,25 +352,16 @@ def _package_excluded(relative: Path) -> bool:
     return False
 
 
-def _zip_info(archive_name: str) -> zipfile.ZipInfo:
-    info = zipfile.ZipInfo(archive_name, date_time=(1980, 1, 1, 0, 0, 0))
-    info.compress_type = zipfile.ZIP_DEFLATED
-    info.external_attr = 0o644 << 16
-    return info
-
-
 def package_world(world: Path, output: Path) -> int:
     world = world.resolve()
     output = output.resolve()
     level_dat = world / "level.dat"
     if not world.is_dir() or not level_dat.is_file():
         print(
-            "ERROR: package requires a real Minecraft-created 'RSE Validation Factory' save "
-            "containing level.dat; refusing to fabricate a world.",
+            "ERROR: package requires a real Minecraft-created 'RSE Validation Factory' save containing level.dat; refusing to fabricate a world.",
             file=sys.stderr,
         )
         return 2
-
     output.parent.mkdir(parents=True, exist_ok=True)
     if output.exists():
         output.unlink()
@@ -319,12 +373,7 @@ def package_world(world: Path, output: Path) -> int:
             if _package_excluded(relative):
                 continue
             archive_name = (ARCHIVE_ROOT / relative).as_posix()
-            archive.writestr(
-                _zip_info(archive_name),
-                path.read_bytes(),
-                compress_type=zipfile.ZIP_DEFLATED,
-                compresslevel=9,
-            )
+            archive.writestr(_zip_info(archive_name), path.read_bytes())
     print(f"packaged {world} -> {output}")
     return 0
 
@@ -342,9 +391,11 @@ def _legacy_cli(argv: list[str]) -> list[str]:
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="RSE Validation Factory asset tool")
+    parser = argparse.ArgumentParser(description="RSE Validation Factory and preset asset tool")
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("generate", help="generate reusable validation structure NBT files")
+    sub.add_parser("generate", help="generate Validation Factory plus all reusable preset NBT files")
+    sub.add_parser("generate-presets", help="generate only reusable preset NBT files")
+    sub.add_parser("package-presets", help="package generated presets into a pure NBT ZIP bundle")
     package = sub.add_parser("package", help="package an existing real Validation Factory world")
     package.add_argument("--world", type=Path, default=DEFAULT_WORLD)
     package.add_argument("--output", type=Path, default=PACKAGE_PATH)
@@ -356,12 +407,20 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     if args.command == "generate":
         return generate()
+    if args.command == "generate-presets":
+        return generate_presets()
+    if args.command == "package-presets":
+        rc = generate_presets()
+        return rc if rc else package_presets()
     if args.command == "package":
         return package_world(args.world, args.output)
     if args.command == "clean":
         if STRUCTURE_DIR.exists():
             shutil.rmtree(STRUCTURE_DIR)
             print(f"removed {STRUCTURE_DIR.relative_to(ROOT)}")
+        for path in (PRESET_INDEX_PATH, PRESET_PACKAGE_PATH):
+            if path.exists():
+                path.unlink()
         return 0
     raise AssertionError(args.command)
 
