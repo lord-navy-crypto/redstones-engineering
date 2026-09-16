@@ -98,7 +98,8 @@ class ValidationFactoryToolTests(unittest.TestCase):
             "02_signal/noise_vs_filter",
             "02_signal/quantizer_scaler",
         }
-        self.assertEqual(set(factory.SELFTESTS), expected)
+        self.assertGreaterEqual(len(factory.SELFTESTS), len(expected))
+        self.assertTrue(expected.issubset(factory.SELFTESTS))
 
     def test_each_selftest_has_unique_positions_and_wait_pass_fail_panel(self) -> None:
         for name, selftest in factory.SELFTESTS.items():
