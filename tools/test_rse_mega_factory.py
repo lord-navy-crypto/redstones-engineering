@@ -178,6 +178,55 @@ class MegaValidationFactoryTests(unittest.TestCase):
         for dut in EXPECTED_DUTS:
             self.assertRegex(registry, rf'BLOCKS\.registerBlock\(\s*"{re.escape(dut)}"', dut)
 
+    def test_analog_cell_has_real_main_chain_and_noninvasive_probe_tap(self) -> None:
+        by_pos = self._cell_by_pos("A")
+        probe_props = self._props(by_pos[self._station(2).dut_pos])
+        self.assertEqual(probe_props.get("facing"), "south")
+        for station in (3, 4):
+            props = self._props(by_pos[self._station(station).dut_pos])
+            self.assertEqual((props.get("facing"), props.get("input_facing")), ("east", "west"), station)
+        analyzer = self._props(by_pos[self._station(5).dut_pos])
+        self.assertEqual((analyzer.get("facing"), analyzer.get("mode")), ("west", "1"))
+        for pos in ((4, 1, 12), (8, 1, 12), (8, 1, 13), (9, 1, 13), (14, 1, 13), (14, 1, 12),
+                    (16, 1, 12), (20, 1, 12), (22, 1, 12), (26, 1, 12), (28, 1, 12)):
+            self.assertEqual(self._block_id(by_pos[pos]), "redstoneengineering:redstone_signal_cable", pos)
+        self.assertEqual(self._block_id(by_pos[(9, 1, 13)]), "redstoneengineering:redstone_signal_cable")
+
+    def test_timing_cell_has_real_quartz_lane_and_redstone_waveform_lane(self) -> None:
+        by_pos = self._cell_by_pos("B")
+        osc = self._props(by_pos[self._station(6).dut_pos])
+        divider = self._props(by_pos[self._station(7).dut_pos])
+        self.assertEqual(osc.get("facing"), "east")
+        self.assertEqual((divider.get("facing"), divider.get("input_facing")), ("east", "west"))
+        for x in tuple(range(4, 9)) + tuple(range(10, 15)):
+            self.assertEqual(self._block_id(by_pos[(x, 1, 12)]), "redstoneengineering:quartz_timing_line", x)
+        self.assertEqual(self._block_id(by_pos[(14, 1, 13)]), "redstoneengineering:redstone_reference_source")
+        for station in (8, 9, 10):
+            props = self._props(by_pos[self._station(station).dut_pos])
+            self.assertEqual((props.get("facing"), props.get("input_facing")), ("east", "west"), station)
+        for x in tuple(range(16, 21)) + tuple(range(22, 27)):
+            self.assertEqual(self._block_id(by_pos[(x, 1, 12)]), "redstoneengineering:redstone_signal_cable", x)
+        self.assertEqual(self._block_id(by_pos[(27, 1, 11)]), "minecraft:air", "PWM inhibit face must remain isolated")
+
+    def test_precision_cell_has_lapis_chain_meter_tap_and_real_quartz_trigger(self) -> None:
+        by_pos = self._cell_by_pos("C")
+        source = self._props(by_pos[self._station(11).dut_pos])
+        lpf = self._props(by_pos[self._station(12).dut_pos])
+        meter = self._props(by_pos[self._station(13).dut_pos])
+        sampler = self._props(by_pos[self._station(14).dut_pos])
+        quantizer = self._props(by_pos[self._station(15).dut_pos])
+        self.assertEqual(source.get("facing"), "east")
+        self.assertEqual((lpf.get("facing"), lpf.get("input_facing")), ("east", "west"))
+        self.assertEqual(meter.get("facing"), "south")
+        self.assertEqual((sampler.get("facing"), sampler.get("input_facing")), ("east", "west"))
+        self.assertEqual((quantizer.get("facing"), quantizer.get("input_facing")), ("east", "west"))
+        for pos in ((4, 1, 12), (8, 1, 12), (10, 1, 12), (14, 1, 12), (14, 1, 13), (15, 1, 13),
+                    (20, 1, 13), (20, 1, 12), (22, 1, 12), (26, 1, 12)):
+            self.assertEqual(self._block_id(by_pos[pos]), "redstoneengineering:lapis_signal_line", pos)
+        self.assertEqual(self._block_id(by_pos[(21, 1, 10)]), "redstoneengineering:quartz_lab_oscillator")
+        self.assertEqual(self._props(by_pos[(21, 1, 10)]).get("facing"), "south")
+        self.assertEqual(self._block_id(by_pos[(21, 1, 11)]), "redstoneengineering:quartz_timing_line")
+
     def test_digital_cell_uses_real_bus_and_serial_media(self) -> None:
         by_pos = self._cell_by_pos("D")
         for station, facing, input_facing in ((16, "east", "west"), (18, "east", "west"), (20, "east", "west")):
@@ -243,8 +292,12 @@ class MegaValidationFactoryTests(unittest.TestCase):
         self.assertEqual(self._block_id(by_pos[(2, 1, 12)]), "redstoneengineering:redstone_reference_source")
         for x in range(4, 9):
             self.assertEqual(self._block_id(by_pos[(x, 1, 12)]), "redstoneengineering:redstone_signal_cable", x)
+        self.assertEqual(self._block_id(by_pos[(10, 1, 11)]), "redstoneengineering:redstone_signal_cable")
+        self.assertEqual(self._block_id(by_pos[(3, 1, 11)]), "redstoneengineering:redstone_signal_cable")
         for x in range(3, 11):
-            self.assertEqual(self._block_id(by_pos[(x, 1, 11)]), "redstoneengineering:redstone_signal_cable", x)
+            self.assertEqual(self._block_id(by_pos[(x, 1, 10)]), "redstoneengineering:redstone_signal_cable", x)
+        for x in range(4, 9):
+            self.assertNotEqual(self._block_id(by_pos[(x, 1, 11)]), "redstoneengineering:redstone_signal_cable", "feedback must not short into command bus")
 
     def test_h_cell_interlock_trip_physically_drives_brake_and_alarm(self) -> None:
         by_pos = self._cell_by_pos("H")
