@@ -24,7 +24,8 @@ public final class RseValidationSelfTestSavedData extends SavedData {
             int rawMin,
             int rawMax,
             int filteredMin,
-            int filteredMax
+            int filteredMax,
+            boolean retestPressed
     ) {
         public Placement {
             if (testId == null || testId.isBlank()) throw new IllegalArgumentException("testId required");
@@ -35,7 +36,7 @@ public final class RseValidationSelfTestSavedData extends SavedData {
         }
 
         public static Placement fresh(String testId, BlockPos origin, long placedTick) {
-            return new Placement(testId, origin, placedTick, 0, 101, -1, 101, -1);
+            return new Placement(testId, origin, placedTick, 0, 101, -1, 101, -1, false);
         }
 
         public Placement observe(int raw, int filtered) {
@@ -44,8 +45,20 @@ public final class RseValidationSelfTestSavedData extends SavedData {
             return new Placement(
                     testId, origin, placedTick, checkCount + 1,
                     Math.min(rawMin, boundedRaw), Math.max(rawMax, boundedRaw),
-                    Math.min(filteredMin, boundedFiltered), Math.max(filteredMax, boundedFiltered)
+                    Math.min(filteredMin, boundedFiltered), Math.max(filteredMax, boundedFiltered),
+                    retestPressed
             );
+        }
+
+        public Placement withRetestPressed(boolean pressed) {
+            return new Placement(
+                    testId, origin, placedTick, checkCount,
+                    rawMin, rawMax, filteredMin, filteredMax, pressed
+            );
+        }
+
+        public Placement resetForRetest(long gameTick, boolean pressed) {
+            return new Placement(testId, origin, gameTick, 0, 101, -1, 101, -1, pressed);
         }
 
         public int rawPeakToPeak() {
@@ -81,7 +94,8 @@ public final class RseValidationSelfTestSavedData extends SavedData {
                         row.contains("RawMin") ? row.getInt("RawMin") : 101,
                         row.contains("RawMax") ? row.getInt("RawMax") : -1,
                         row.contains("FilteredMin") ? row.getInt("FilteredMin") : 101,
-                        row.contains("FilteredMax") ? row.getInt("FilteredMax") : -1
+                        row.contains("FilteredMax") ? row.getInt("FilteredMax") : -1,
+                        row.getBoolean("RetestPressed")
                 );
                 data.placements.putIfAbsent(placement.testId(), placement);
             } catch (IllegalArgumentException ignored) {
@@ -104,6 +118,7 @@ public final class RseValidationSelfTestSavedData extends SavedData {
             row.putInt("RawMax", placement.rawMax());
             row.putInt("FilteredMin", placement.filteredMin());
             row.putInt("FilteredMax", placement.filteredMax());
+            row.putBoolean("RetestPressed", placement.retestPressed());
             rows.add(row);
         }
         tag.put("Placements", rows);
@@ -129,6 +144,24 @@ public final class RseValidationSelfTestSavedData extends SavedData {
         Placement current = placement(testId);
         if (current == null) return null;
         Placement next = current.observe(raw, filtered);
+        placements.put(next.testId(), next);
+        setDirty();
+        return next;
+    }
+
+    public Placement resetForRetest(String testId, long gameTick, boolean retestPressed) {
+        Placement current = placement(testId);
+        if (current == null) return null;
+        Placement next = current.resetForRetest(gameTick, retestPressed);
+        placements.put(next.testId(), next);
+        setDirty();
+        return next;
+    }
+
+    public Placement setRetestPressed(String testId, boolean pressed) {
+        Placement current = placement(testId);
+        if (current == null || current.retestPressed() == pressed) return current;
+        Placement next = current.withRetestPressed(pressed);
         placements.put(next.testId(), next);
         setDirty();
         return next;
