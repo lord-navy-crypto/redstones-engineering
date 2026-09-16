@@ -1,6 +1,7 @@
 package dev.redstoneengineering.gametest;
 
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.block.RedstoneReferenceSourceBlock;
 import dev.redstoneengineering.entity.EngineeringMobileRobotEntity;
 import dev.redstoneengineering.operations.OperationResourceMaintenanceSnapshot;
 import dev.redstoneengineering.operations.world.OperationIndustrialBufferState;
@@ -9,9 +10,11 @@ import dev.redstoneengineering.operations.world.OperationPlantEvent;
 import dev.redstoneengineering.operations.world.OperationPlantSavedData;
 import dev.redstoneengineering.operations.world.OperationQueueWorldState;
 import dev.redstoneengineering.validation.RseValidationFactoryService;
+import dev.redstoneengineering.validation.RseValidationSelfTestService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.entity.EntityTypeTest;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -90,5 +93,40 @@ public final class RseValidationFactoryGameTests {
         }
 
         helper.succeed();
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 80)
+    public static void selfTestReferenceSourceUsesRealWorldEvidence(GameTestHelper helper) {
+        var level = helper.getLevel();
+        BlockPos origin = helper.absolutePos(new BlockPos(8, 1, 8));
+        var placed = RseValidationSelfTestService.place(level, origin, "01_basic/reference_source");
+        if (!placed.success()) {
+            helper.fail("Reference-source self-test placement failed: " + placed.lines());
+            return;
+        }
+
+        BlockPos sourcePos = origin.offset(3, 1, 4);
+        if (!(level.getBlockState(sourcePos).getBlock() instanceof RedstoneReferenceSourceBlock)
+                || level.getBlockState(sourcePos).getValue(RedstoneReferenceSourceBlock.POWER) != 7) {
+            helper.fail("Self-test did not place the configured real RSE reference source");
+            return;
+        }
+
+        helper.runAfterDelay(6, () -> {
+            var checked = RseValidationSelfTestService.check(level, "01_basic/reference_source");
+            if (!checked.success()) {
+                helper.fail("Reference-source self-test check failed: " + checked.lines());
+                return;
+            }
+            boolean waitOff = level.getBlockState(origin.offset(8, 2, 2)).isAir();
+            boolean passOn = level.getBlockState(origin.offset(9, 2, 2)).is(Blocks.REDSTONE_BLOCK);
+            boolean failOff = level.getBlockState(origin.offset(10, 2, 2)).isAir();
+            if (!waitOff || !passOn || !failOff) {
+                helper.fail("PASS verdict must select exactly the green status channel");
+                return;
+            }
+            helper.succeed();
+        });
     }
 }
