@@ -77,6 +77,9 @@ public final class RseValidationSelfTestService {
         tests.put("02_signal/pwm_control", def(20, 3,1,4, 4,1,4, 5,1,4));
         tests.put("02_signal/noise_vs_filter", def(12, 2,1,3, 3,1,5, 5,1,5));
         tests.put("02_signal/quantizer_scaler", def(10, 2,1,4, 4,1,4, 6,1,4));
+        tests.put("03_systems/interlock_trip_restore", def(8, 4,1,4, 5,1,4, 6,1,4));
+        tests.put("03_systems/fault_injector_bias", def(8, 3,1,4, 4,1,4, 5,1,4));
+        tests.put("03_systems/alarm_latch_ack_reset", def(8, 4,1,4, 5,1,4, 6,1,4));
         TESTS = Map.copyOf(tests);
     }
 
@@ -128,7 +131,6 @@ public final class RseValidationSelfTestService {
         return result(id, evaluation);
     }
 
-    /** Called from the NeoForge server post-tick hook; commands are not required for normal validation. */
     public static void tickAll(MinecraftServer server) {
         if (server == null) return;
         ServerLevel level = server.overworld();
@@ -136,7 +138,6 @@ public final class RseValidationSelfTestService {
         tickAutomatic(level);
     }
 
-    /** Advances every loaded validation-owned bench and drives its physical WAIT/PASS/FAIL panel. */
     public static void tickAutomatic(ServerLevel level) {
         if (level == null) return;
         RseValidationSelfTestSavedData data = RseValidationSelfTestSavedData.get(level);
@@ -144,17 +145,13 @@ public final class RseValidationSelfTestService {
             Definition definition = TESTS.get(snapshot.testId());
             if (definition == null) continue;
             BlockPos origin = snapshot.origin();
-            if (!level.hasChunkAt(origin) || !level.hasChunkAt(origin.offset(SELFTEST_WIDTH - 1, 0, SELFTEST_DEPTH - 1))) {
-                continue;
-            }
+            if (!level.hasChunkAt(origin) || !level.hasChunkAt(origin.offset(SELFTEST_WIDTH - 1, 0, SELFTEST_DEPTH - 1))) continue;
 
             RseValidationSelfTestSavedData.Placement placement = data.placement(snapshot.testId());
             if (placement == null) continue;
             boolean pressed = retestButtonPressed(level, origin);
             if (pressed && !placement.retestPressed()) {
-                if (!rebuildForRetest(level, placement)) {
-                    updatePanel(level, origin, Verdict.FAIL);
-                }
+                if (!rebuildForRetest(level, placement)) updatePanel(level, origin, Verdict.FAIL);
                 continue;
             }
             if (!pressed && placement.retestPressed()) {
@@ -181,9 +178,7 @@ public final class RseValidationSelfTestService {
         BlockPos origin = placement.origin();
         for (int x = 0; x < SELFTEST_WIDTH; x++) {
             for (int y = 0; y < SELFTEST_HEIGHT; y++) {
-                for (int z = 0; z < SELFTEST_DEPTH; z++) {
-                    level.setBlock(origin.offset(x, y, z), Blocks.AIR.defaultBlockState(), 3);
-                }
+                for (int z = 0; z < SELFTEST_DEPTH; z++) level.setBlock(origin.offset(x, y, z), Blocks.AIR.defaultBlockState(), 3);
             }
         }
         boolean placed = template.placeInWorld(level, origin, origin, new StructurePlaceSettings(), level.getRandom(), 2);
@@ -195,16 +190,9 @@ public final class RseValidationSelfTestService {
         return true;
     }
 
-    private static Evaluation evaluateWithSettle(
-            ServerLevel level,
-            RseValidationSelfTestSavedData.Placement placement,
-            Definition definition
-    ) {
+    private static Evaluation evaluateWithSettle(ServerLevel level, RseValidationSelfTestSavedData.Placement placement, Definition definition) {
         long age = Math.max(0L, level.getGameTime() - placement.placedTick());
-        if (age < definition.settleTicks()) {
-            return new Evaluation(Verdict.WAIT,
-                    "settling " + age + "/" + definition.settleTicks() + " ticks");
-        }
+        if (age < definition.settleTicks()) return new Evaluation(Verdict.WAIT, "settling " + age + "/" + definition.settleTicks() + " ticks");
         return evaluate(level, placement, definition);
     }
 
@@ -240,6 +228,8 @@ public final class RseValidationSelfTestService {
             case "02_signal/pwm_control" -> evaluatePwm(level, origin, definition);
             case "02_signal/noise_vs_filter" -> evaluateNoiseFilter(level, placement);
             case "02_signal/quantizer_scaler" -> evaluateQuantizerRoundTrip(level, origin);
+            case "03_systems/interlock_trip_restore", "03_systems/fault_injector_bias", "03_systems/alarm_latch_ack_reset" ->
+                    RseValidationSystemsSelfTestService.evaluate(level, placement);
             default -> new Evaluation(Verdict.FAIL, "no evaluator registered");
         };
     }
@@ -273,9 +263,7 @@ public final class RseValidationSelfTestService {
         Evaluation analyzer = evaluateAnalyzer(level, analyzerPos, expected, true);
         if (analyzer.verdict() != Verdict.PASS) return analyzer;
         Evaluation indicator = evaluateIndicator(level, indicatorPos, expected);
-        return indicator.verdict() == Verdict.PASS
-                ? pass("INLINE raw/output/downstream=" + expected)
-                : indicator;
+        return indicator.verdict() == Verdict.PASS ? pass("INLINE raw/output/downstream=" + expected) : indicator;
     }
 
     private static Evaluation evaluateIndicator(ServerLevel level, BlockPos pos, int expected) {
@@ -305,13 +293,9 @@ public final class RseValidationSelfTestService {
         Evaluation correct = evaluateIndicator(level, origin.offset(4,1,3), 8);
         if (correct.verdict() != Verdict.PASS) return correct;
         BlockState wrong = level.getBlockState(origin.offset(4,1,5));
-        if (!(wrong.getBlock() instanceof SignalConditionerBlock) || !wrong.hasProperty(SignalConditionerBlock.OUTPUT)) {
-            return fail("wrong-face conditioner missing");
-        }
+        if (!(wrong.getBlock() instanceof SignalConditionerBlock) || !wrong.hasProperty(SignalConditionerBlock.OUTPUT)) return fail("wrong-face conditioner missing");
         int wrongOutput = wrong.getValue(SignalConditionerBlock.OUTPUT);
-        return wrongOutput == 0
-                ? pass("correct face=8; wrong face rejected with output=0")
-                : fail("wrong face leaked output=" + wrongOutput);
+        return wrongOutput == 0 ? pass("correct face=8; wrong face rejected with output=0") : fail("wrong face leaked output=" + wrongOutput);
     }
 
     private static Evaluation evaluateInstrumentBus(ServerLevel level, BlockPos cablePos, int expected) {
@@ -325,15 +309,9 @@ public final class RseValidationSelfTestService {
 
     private static Evaluation evaluatePrecisionFilter(ServerLevel level, BlockPos filterPos, BlockPos indicatorPos, int expected) {
         BlockState state = level.getBlockState(filterPos);
-        if (!(state.getBlock() instanceof PrecisionFilterBlock) || !state.hasProperty(PrecisionFilterBlock.OUTPUT)) {
-            return fail("precision filter missing");
-        }
-        if (!PrecisionFilterBlock.settled(level, filterPos, state)) {
-            return waitFor("precision filter lag=" + PrecisionFilterBlock.lag(level, filterPos, state));
-        }
-        if (state.getValue(PrecisionFilterBlock.OUTPUT) != expected) {
-            return fail("precision filter output=" + state.getValue(PrecisionFilterBlock.OUTPUT) + " expected=" + expected);
-        }
+        if (!(state.getBlock() instanceof PrecisionFilterBlock) || !state.hasProperty(PrecisionFilterBlock.OUTPUT)) return fail("precision filter missing");
+        if (!PrecisionFilterBlock.settled(level, filterPos, state)) return waitFor("precision filter lag=" + PrecisionFilterBlock.lag(level, filterPos, state));
+        if (state.getValue(PrecisionFilterBlock.OUTPUT) != expected) return fail("precision filter output=" + state.getValue(PrecisionFilterBlock.OUTPUT) + " expected=" + expected);
         return evaluateIndicator(level, indicatorPos, expected);
     }
 
@@ -350,8 +328,7 @@ public final class RseValidationSelfTestService {
             return waitFor("waiting for sample capture");
         }
         int output = state.getValue(SampleHoldBlock.OUTPUT);
-        return output == 6 ? pass("captures=" + SampleHoldBlock.captureCount(level, dut) + " held=6")
-                : fail("held=" + output + " expected=6");
+        return output == 6 ? pass("captures=" + SampleHoldBlock.captureCount(level, dut) + " held=6") : fail("held=" + output + " expected=6");
     }
 
     private static Evaluation evaluateEdge(ServerLevel level, BlockPos origin, Definition definition) {
@@ -359,12 +336,8 @@ public final class RseValidationSelfTestService {
         BlockState state = level.getBlockState(dut);
         if (!(state.getBlock() instanceof EdgeDetectorBlock)) return fail("edge detector missing");
         if (!EdgeDetectorBlock.initialized(level, dut)) return waitFor("edge detector not initialized");
-        if (EdgeDetectorBlock.edgeCount(level, dut) > 0) {
-            return pass("edges=" + EdgeDetectorBlock.edgeCount(level, dut) + " lastAge=" + EdgeDetectorBlock.lastEdgeAgeTicks(level, dut) + "t");
-        }
-        if (setReferencePower(level, origin.offset(definition.stimulus()), 7)) {
-            return waitFor("rising edge injected; automatic runner is waiting for evidence");
-        }
+        if (EdgeDetectorBlock.edgeCount(level, dut) > 0) return pass("edges=" + EdgeDetectorBlock.edgeCount(level, dut) + " lastAge=" + EdgeDetectorBlock.lastEdgeAgeTicks(level, dut) + "t");
+        if (setReferencePower(level, origin.offset(definition.stimulus()), 7)) return waitFor("rising edge injected; automatic runner is waiting for evidence");
         return fail("no rising edge recorded after stimulus");
     }
 
@@ -373,15 +346,9 @@ public final class RseValidationSelfTestService {
         BlockState analyzerState = level.getBlockState(analyzerPos);
         if (!(analyzerState.getBlock() instanceof SignalAnalyzerBlock)) return fail("pulse observer analyzer missing");
         SignalAnalyzerBlock.UiSnapshot snapshot = SignalAnalyzerBlock.uiSnapshot(level, analyzerPos);
-        if (snapshot.totalSamples() >= 3 && snapshot.lifeMax() == 15 && snapshot.changes() > 0) {
-            return pass("observer saw 0→15 pulse; changes=" + snapshot.changes());
-        }
-        if (setReferencePower(level, origin.offset(definition.stimulus()), 7)) {
-            return waitFor("pulse stimulus injected; automatic runner is waiting for analyzer samples");
-        }
-        return snapshot.totalSamples() < 3
-                ? waitFor("pulse observer samples=" + snapshot.totalSamples())
-                : fail("pulse observer never saw HIGH; max=" + snapshot.lifeMax());
+        if (snapshot.totalSamples() >= 3 && snapshot.lifeMax() == 15 && snapshot.changes() > 0) return pass("observer saw 0→15 pulse; changes=" + snapshot.changes());
+        if (setReferencePower(level, origin.offset(definition.stimulus()), 7)) return waitFor("pulse stimulus injected; automatic runner is waiting for analyzer samples");
+        return snapshot.totalSamples() < 3 ? waitFor("pulse observer samples=" + snapshot.totalSamples()) : fail("pulse observer never saw HIGH; max=" + snapshot.lifeMax());
     }
 
     private static Evaluation evaluatePwm(ServerLevel level, BlockPos origin, Definition definition) {
@@ -407,17 +374,12 @@ public final class RseValidationSelfTestService {
         BlockState rawSourceState = level.getBlockState(rawSourcePos);
         if (!(rawSourceState.getBlock() instanceof LapisNoiseSourceBlock)) return fail("raw noise source missing");
         if (!(level.getBlockState(filterPos).getBlock() instanceof LapisLowPassFilterBlock)) return fail("low-pass filter missing");
-        if (!LapisNoiseSourceBlock.sampleInitialized(level, rawSourcePos) || !LapisLowPassFilterBlock.runtimePresent(level, filterPos)) {
-            return waitFor("noise/filter runtime not initialized");
-        }
+        if (!LapisNoiseSourceBlock.sampleInitialized(level, rawSourcePos) || !LapisLowPassFilterBlock.runtimePresent(level, filterPos)) return waitFor("noise/filter runtime not initialized");
         int raw = LapisNoiseSourceBlock.currentValue(level, rawSourcePos, rawSourceState);
         LapisLowPassFilterBlock.FilterState filtered = LapisLowPassFilterBlock.filterState(level, filterPos);
         if (!filtered.valid() || filtered.quality() != PortQuality.VALID) return fail("filtered quality=" + filtered.quality());
-        RseValidationSelfTestSavedData.Placement evidence = RseValidationSelfTestSavedData.get(level)
-                .observeNoise(placement.testId(), raw, filtered.output());
-        if (evidence == null || evidence.checkCount() < 6) {
-            return waitFor("collecting automatic noise window " + (evidence == null ? 0 : evidence.checkCount()) + "/6");
-        }
+        RseValidationSelfTestSavedData.Placement evidence = RseValidationSelfTestSavedData.get(level).observeNoise(placement.testId(), raw, filtered.output());
+        if (evidence == null || evidence.checkCount() < 6) return waitFor("collecting automatic noise window " + (evidence == null ? 0 : evidence.checkCount()) + "/6");
         return evidence.filteredPeakToPeak() < evidence.rawPeakToPeak()
                 ? pass("raw P-P=" + evidence.rawPeakToPeak() + " filtered P-P=" + evidence.filteredPeakToPeak())
                 : fail("filter did not reduce sampled P-P: raw=" + evidence.rawPeakToPeak() + " filtered=" + evidence.filteredPeakToPeak());
@@ -429,14 +391,11 @@ public final class RseValidationSelfTestService {
         BlockPos indicatorPos = origin.offset(6,1,4);
         if (!(level.getBlockState(scalerPos).getBlock() instanceof RedstoneToLapisScalerBlock)) return fail("scaler missing");
         BlockState quantizerState = level.getBlockState(quantizerPos);
-        if (!(quantizerState.getBlock() instanceof LapisToRedstoneQuantizerBlock)
-                || !quantizerState.hasProperty(LapisToRedstoneQuantizerBlock.POWER)) return fail("quantizer missing");
+        if (!(quantizerState.getBlock() instanceof LapisToRedstoneQuantizerBlock) || !quantizerState.hasProperty(LapisToRedstoneQuantizerBlock.POWER)) return fail("quantizer missing");
         PortQuality scalerQuality = RedstoneToLapisScalerBlock.outputQuality(level, scalerPos);
         PortQuality quantizerQuality = LapisToRedstoneQuantizerBlock.outputQuality(level, quantizerPos);
         if (scalerQuality == PortQuality.STALE || quantizerQuality == PortQuality.STALE) return waitFor("converter runtime STALE");
-        if (scalerQuality != PortQuality.VALID || quantizerQuality != PortQuality.VALID) {
-            return fail("converter quality scaler=" + scalerQuality + " quantizer=" + quantizerQuality);
-        }
+        if (scalerQuality != PortQuality.VALID || quantizerQuality != PortQuality.VALID) return fail("converter quality scaler=" + scalerQuality + " quantizer=" + quantizerQuality);
         int output = quantizerState.getValue(LapisToRedstoneQuantizerBlock.POWER);
         if (Math.abs(output - 9) > 1) return fail("round-trip output=" + output + " expected≈9");
         Evaluation indicator = evaluateIndicator(level, indicatorPos, output);
@@ -448,8 +407,7 @@ public final class RseValidationSelfTestService {
         if (snapshot.quality() == PortQuality.STALE) return waitFor(label + " STALE");
         if (snapshot.quality() != expectedQuality) return fail(label + " quality=" + snapshot.quality() + " expected=" + expectedQuality);
         int value = (int) Math.round(snapshot.value());
-        return value == expected ? pass(label + "=" + value + " quality=" + snapshot.quality())
-                : fail(label + "=" + value + " expected=" + expected);
+        return value == expected ? pass(label + "=" + value + " quality=" + snapshot.quality()) : fail(label + "=" + value + " expected=" + expected);
     }
 
     private static void primeDynamicStimulus(ServerLevel level, BlockPos origin, String id) {
@@ -457,17 +415,20 @@ public final class RseValidationSelfTestService {
             Definition definition = TESTS.get(id);
             setReferencePower(level, origin.offset(definition.stimulus()), 0);
         }
+        if (id.equals("03_systems/fault_injector_bias")) {
+            setReferencePower(level, origin.offset(4, 1, 5), 0);
+        }
     }
 
     private static boolean setReferencePower(ServerLevel level, BlockPos pos, int power) {
         BlockState state = level.getBlockState(pos);
-        if (!(state.getBlock() instanceof RedstoneReferenceSourceBlock source)
-                || !state.hasProperty(RedstoneReferenceSourceBlock.POWER)) return false;
+        if (!(state.getBlock() instanceof RedstoneReferenceSourceBlock source) || !state.hasProperty(RedstoneReferenceSourceBlock.POWER)) return false;
         int bounded = Math.max(0, Math.min(15, power));
         if (state.getValue(RedstoneReferenceSourceBlock.POWER) == bounded) return false;
-        level.setBlock(pos, state.setValue(RedstoneReferenceSourceBlock.POWER, bounded), 3);
+        BlockState next = state.setValue(RedstoneReferenceSourceBlock.POWER, bounded);
+        level.setBlock(pos, next, 3);
         level.updateNeighborsAt(pos, source);
-        level.updateNeighborsAt(pos.relative(state.getValue(RedstoneReferenceSourceBlock.FACING)), source);
+        level.updateNeighborsAt(pos.relative(next.getValue(RedstoneReferenceSourceBlock.FACING)), source);
         return true;
     }
 
@@ -484,10 +445,7 @@ public final class RseValidationSelfTestService {
         level.updateNeighborsAt(pos, powered ? Blocks.REDSTONE_BLOCK : Blocks.AIR);
     }
 
-    private static String normalize(String value) {
-        return value == null ? "" : value.trim().toLowerCase(java.util.Locale.ROOT);
-    }
-
+    private static String normalize(String value) { return value == null ? "" : value.trim().toLowerCase(java.util.Locale.ROOT); }
     private static Evaluation waitFor(String detail) { return new Evaluation(Verdict.WAIT, detail); }
     private static Evaluation pass(String detail) { return new Evaluation(Verdict.PASS, detail); }
     private static Evaluation fail(String detail) { return new Evaluation(Verdict.FAIL, detail); }
