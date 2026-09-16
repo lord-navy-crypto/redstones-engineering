@@ -189,13 +189,35 @@ class MegaValidationFactoryTests(unittest.TestCase):
     def test_command_surface_and_server_tick_wire_mega_runtime(self) -> None:
         module = (ROOT / "src/main/java/dev/redstoneengineering/validation/RseValidationFactoryModule.java").read_text(encoding="utf-8")
         self.assertIn('Commands.literal("mega")', module)
-        for literal in ("place", "status", "station", "cell", "report", "retest"):
+        for literal in ("place", "status", "station", "cell", "report", "retest", "diagnose"):
             self.assertIn(f'Commands.literal("{literal}")', module)
         self.assertIn("RseMegaValidationService.tick(", module)
         self.assertIn("RseMegaValidationService.place(", module)
         self.assertIn("RseMegaValidationService.station(", module)
         self.assertIn("RseMegaValidationService.cell(", module)
         self.assertIn("RseMegaValidationService.report(", module)
+        self.assertIn("RseMegaValidationService.diagnose(", module)
+
+    def test_mega_diagnose_is_full_factory_live_dump_with_problem_first_sections(self) -> None:
+        service = (ROOT / "src/main/java/dev/redstoneengineering/validation/RseMegaValidationService.java").read_text(encoding="utf-8")
+        self.assertIn("public static RseValidationFactoryService.Result diagnose(ServerLevel level)", service)
+        self.assertIn("evaluateStations(", service)
+        self.assertIn("evaluateCells(", service)
+        for heading in (
+            "MEGA FACTORY FULL DIAGNOSIS",
+            "CURRENT BLOCKERS",
+            "CELL SUMMARY",
+            "ALL 40 DUT",
+            "HISTORY",
+            "ACCEPTANCE",
+        ):
+            self.assertIn(heading, service)
+        self.assertIn("stationsCurrentlyFailedCount()", service)
+        self.assertIn("stationsEverPassedCount()", service)
+        self.assertIn("completedPhases()", service)
+        self.assertIn("enduranceHealthyTicks()", service)
+        self.assertIn("firstFailurePhase(", service)
+        self.assertIn("firstFailureDetail(", service)
 
     def test_existing_v1_and_nineteen_selftests_remain_present(self) -> None:
         self.assertEqual(len(factory.SELFTESTS), 19)
