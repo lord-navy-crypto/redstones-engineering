@@ -34,8 +34,11 @@ on:
       - 'tools/rse_operations_world_integration_verify.py'
       - 'tools/rse_operations_amr_world_verify.py'
       - 'tools/rse_validation_factory.py'
+      - 'tools/rse_validation_presets.py'
+      - 'tools/rse_validation_selftests.py'
       - 'tools/test_rse_validation_factory.py'
       - 'tools/rse_validation_factory_verify.py'
+      - 'tools/rse_validation_selftest_verify.py'
       - 'tools/rse_industrial_buffer_world_verify.py'
       - 'tools/rse_operations_binding_tool_verify.py'
       - 'tools/rse_operations_monitor_world_plant_verify.py'
@@ -74,8 +77,11 @@ on:
       - 'tools/rse_operations_world_integration_verify.py'
       - 'tools/rse_operations_amr_world_verify.py'
       - 'tools/rse_validation_factory.py'
+      - 'tools/rse_validation_presets.py'
+      - 'tools/rse_validation_selftests.py'
       - 'tools/test_rse_validation_factory.py'
       - 'tools/rse_validation_factory_verify.py'
+      - 'tools/rse_validation_selftest_verify.py'
       - 'tools/rse_industrial_buffer_world_verify.py'
       - 'tools/rse_operations_binding_tool_verify.py'
       - 'tools/rse_operations_monitor_world_plant_verify.py'
@@ -123,6 +129,8 @@ jobs:
         run: python3 tools/rse_validation_factory.py generate
       - name: Verify Validation Factory contract
         run: python3 tools/rse_validation_factory_verify.py
+      - name: Verify self-checking validation runtime
+        run: python3 tools/rse_validation_selftest_verify.py
       - name: Verify Industrial Buffer world block
         run: python3 tools/rse_industrial_buffer_world_verify.py
       - name: Verify Operations binding tool
