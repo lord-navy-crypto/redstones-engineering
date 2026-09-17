@@ -31,6 +31,7 @@ public record TopologyFaceSnapshot(
     public boolean topologyIssue() {
         return linkStatus == TopologyLinkStatus.DOMAIN_MISMATCH
                 || linkStatus == TopologyLinkStatus.QUANTITY_MISMATCH
+                || linkStatus == TopologyLinkStatus.UNIT_MISMATCH
                 || linkStatus == TopologyLinkStatus.DIRECTION_MISMATCH;
     }
 
