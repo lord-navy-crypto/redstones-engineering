@@ -9,6 +9,7 @@ import dev.redstoneengineering.block.SafetyInterlockBlock;
 import dev.redstoneengineering.block.ServoActuatorBlock;
 import dev.redstoneengineering.block.ServoPositionSensorBlock;
 import dev.redstoneengineering.block.SignalAnalyzerBlock;
+import dev.redstoneengineering.block.WatchdogBlock;
 import dev.redstoneengineering.core.port.EngineeringPort;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
@@ -89,6 +90,7 @@ public final class RseMegaStationEvaluator {
             case 5 -> evaluateAnalyzer(level, station, pos, phaseAge);
             case 6 -> evaluateQuartzOscillator(level, station, pos, state, phaseAge);
             case 10 -> evaluateSelectedInputs(level, station, pos, state, phaseAge, "COMMAND IN");
+            case 25 -> evaluateWatchdog(level, station, pos, state, phaseAge);
             case 36 -> evaluateSelectedInputs(level, station, pos, state, phaseAge,
                     "SETPOINT IN", "PROCESS VALUE IN");
             case 37 -> evaluateServo(level, station, pos, phase);
@@ -208,6 +210,40 @@ public final class RseMegaStationEvaluator {
         }
         return healthy(station, pos, "REQUIRED_INPUTS_VALID", PortQuality.VALID,
                 "required inputs: " + String.join(";", evidence));
+    }
+
+    private static StationEvaluation evaluateWatchdog(
+            ServerLevel level,
+            RseMegaValidationTopology.Station station,
+            BlockPos pos,
+            BlockState state,
+            long phaseAge
+    ) {
+        if (!(state.getBlock() instanceof WatchdogBlock)) {
+            return failed(station, pos, "WATCHDOG_CLASS_MISMATCH", PortQuality.TOPOLOGY_ERROR,
+                    "watchdog class mismatch");
+        }
+        int transitions = WatchdogBlock.transitionCount(level, pos);
+        int age = WatchdogBlock.ageTicks(level, pos);
+        int timeout = WatchdogBlock.timeoutTicks(state.getValue(WatchdogBlock.TIMEOUT));
+        int timeoutCount = WatchdogBlock.timeoutCount(level, pos);
+        int output = outputOrMinusOne(state);
+
+        if (transitions <= 0) {
+            return phaseAge < PROPAGATION_TIMEOUT_TICKS
+                    ? pending(station, pos, "WATCHDOG_HEARTBEAT_PENDING", PortQuality.STALE,
+                    "watchdog transitions=0 age=" + age + "t timeout=" + timeout + "t output=" + output)
+                    : failed(station, pos, "WATCHDOG_NO_TRANSITIONS", PortQuality.NO_SIGNAL,
+                    "watchdog never observed a heartbeat transition; age=" + age + "t timeout=" + timeout + "t");
+        }
+        if (age >= timeout || output > 0) {
+            return failed(station, pos, "WATCHDOG_TIMEOUT", PortQuality.FAULT,
+                    "watchdog transitions=" + transitions + " age=" + age + "t timeout=" + timeout
+                            + "t output=" + output + " timeoutCount=" + timeoutCount);
+        }
+        return healthy(station, pos, "WATCHDOG_HEARTBEAT_FRESH", PortQuality.VALID,
+                "watchdog transitions=" + transitions + " age=" + age + "t timeout=" + timeout
+                        + "t output=0 timeoutCount=" + timeoutCount);
     }
 
     private static StationEvaluation evaluateServo(
