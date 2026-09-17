@@ -6,6 +6,7 @@ public final class PortCompatibility {
         COMPATIBLE,
         DOMAIN_MISMATCH,
         QUANTITY_MISMATCH,
+        UNIT_MISMATCH,
         DIRECTION_MISMATCH,
         ISOLATED
     }
@@ -34,6 +35,12 @@ public final class PortCompatibility {
                     left.quantity().label() + " != " + right.quantity().label()
             );
         }
+        if (!EngineeringUnits.compatible(left.unit(), right.unit())) {
+            return new Result(
+                    Status.UNIT_MISMATCH,
+                    left.unit() + " != " + right.unit()
+            );
+        }
 
         boolean flow = (left.canTransmit() && right.canReceive())
                 || (right.canTransmit() && left.canReceive());
@@ -43,6 +50,7 @@ public final class PortCompatibility {
         return new Result(
                 Status.COMPATIBLE,
                 left.domain().label() + "/" + left.quantity().label()
+                        + " units=" + left.unit() + "~" + right.unit()
         );
     }
 }
