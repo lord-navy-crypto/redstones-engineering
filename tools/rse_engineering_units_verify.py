@@ -44,6 +44,14 @@ require(
     "src/main/java/dev/redstoneengineering/diagnostics/topology/EngineeringTopologyView.java",
     "case UNIT_MISMATCH -> TopologyLinkStatus.UNIT_MISMATCH;",
 )
+require(
+    "src/main/java/dev/redstoneengineering/diagnostics/topology/TopologyFaceSnapshot.java",
+    "linkStatus == TopologyLinkStatus.UNIT_MISMATCH",
+)
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/DiagnosticTabletScreen.java",
+    'line.contains("→ UNIT_MISMATCH")',
+)
 
 if failed:
     print("RSE engineering unit compatibility verification: FAIL")
@@ -56,4 +64,5 @@ print(" SI-prefix convertible voltage units: PASS")
 print(" SI-prefix convertible pressure units: PASS")
 print(" incompatible recognized unit families -> UNIT_MISMATCH: PASS")
 print(" legacy/custom unit labels remain backward-compatible: PASS")
-print(" topology UNIT_MISMATCH projection: PASS")
+print(" topology UNIT_MISMATCH projection + issue count: PASS")
+print(" diagnostic tablet UNIT_MISMATCH visibility: PASS")
