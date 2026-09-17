@@ -126,16 +126,23 @@ require(
     "open circuit",
 )
 
-# Runtime tests, not source-only promises.
+# Runtime tests, not source-only promises. The original Alpha 1.0.13 topology cases remain in
+# RseCopperGameTests; later open-circuit regressions live in their dedicated registered class.
 tests = "src/main/java/dev/redstoneengineering/gametest/RseCopperGameTests.java"
 require(
     tests,
     "axialCopperProcessorsExposeBackAndFrontPorts",
     "seriesResistorPropagatesAttenuatedVoltage",
-    "seriesResistorOpenCircuitHasNoVoltageDrop",
-    "unloadedFuseDoesNotTrip",
     "fuseTripsAndCutsProtectedOutput",
     "seriesResistorRejectsSideFeed",
+    "DomainNetwork.sampleCopperVoltage",
+    "CopperFuseBlock.TRIPPED",
+)
+open_tests = "src/main/java/dev/redstoneengineering/gametest/RseCopperOpenCircuitGameTests.java"
+require(
+    open_tests,
+    "seriesResistorOpenCircuitHasNoVoltageDrop",
+    "unloadedFuseDoesNotTrip",
     "DomainNetwork.sampleCopperVoltage",
     "CopperFuseBlock.TRIPPED",
 )
@@ -143,6 +150,7 @@ require(
     "src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java",
     "event.register(RseTopologyGameTests.class)",
     "event.register(RseCopperGameTests.class)",
+    "event.register(RseCopperOpenCircuitGameTests.class)",
 )
 
 # Preserve simulation ownership: UI/rendering libraries must not define copper physics.
