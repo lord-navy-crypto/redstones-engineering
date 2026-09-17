@@ -10,6 +10,9 @@ import net.minecraft.world.entity.player.Inventory;
 public final class SignalProcessorScreen extends EngineeringScreen<SignalProcessorMenu> {
     private Button parameterPrevious;
     private Button parameterNext;
+    private Button thresholdPrevious;
+    private Button thresholdNext;
+    private Button retriggerToggle;
 
     public SignalProcessorScreen(SignalProcessorMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -24,6 +27,16 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         parameterNext = addConfigureWidget(Button.builder(Component.literal("Parameter ▶"),
                 b -> sendMenuButton(SignalProcessorMenu.BUTTON_PARAMETER_NEXT))
                 .bounds(leftPos + 194, y, 110, 20).build());
+
+        thresholdPrevious = addConfigureWidget(Button.builder(Component.literal("◀ Trigger threshold"),
+                b -> sendMenuButton(SignalProcessorMenu.BUTTON_THRESHOLD_PREVIOUS))
+                .bounds(leftPos + 16, topPos + 140, 110, 20).build());
+        thresholdNext = addConfigureWidget(Button.builder(Component.literal("Trigger threshold ▶"),
+                b -> sendMenuButton(SignalProcessorMenu.BUTTON_THRESHOLD_NEXT))
+                .bounds(leftPos + 194, topPos + 140, 110, 20).build());
+        retriggerToggle = addConfigureWidget(Button.builder(Component.literal("Retrigger"),
+                b -> sendMenuButton(SignalProcessorMenu.BUTTON_TOGGLE_RETRIGGER))
+                .bounds(leftPos + 102, topPos + 164, 116, 20).build());
     }
 
     @Override
@@ -32,6 +45,20 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         String parameter = parameterName() + " " + parameterValue();
         parameterPrevious.setMessage(Component.literal(fitForWidth("◀ " + parameter, 94)));
         parameterNext.setMessage(Component.literal(fitForWidth(parameter + " ▶", 94)));
+
+        boolean pulse = menu.kind() == SignalProcessorMenu.KIND_PULSE;
+        thresholdPrevious.visible = pulse;
+        thresholdNext.visible = pulse;
+        retriggerToggle.visible = pulse;
+        thresholdPrevious.active = pulse;
+        thresholdNext.active = pulse;
+        retriggerToggle.active = pulse;
+        if (pulse) {
+            String threshold = "Trigger threshold " + menu.secondaryParameter() + "/15";
+            thresholdPrevious.setMessage(Component.literal(fitForWidth("◀ " + threshold, 94)));
+            thresholdNext.setMessage(Component.literal(fitForWidth(threshold + " ▶", 94)));
+            retriggerToggle.setMessage(Component.literal("Retrigger: " + (menu.modeFlag() ? "YES" : "NO")));
+        }
     }
 
     @Override
@@ -54,7 +81,12 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         labelValue(g, "Series path", menu.inputDirection().getName().toUpperCase() + " → "
                 + menu.outputDirection().getName().toUpperCase(), 148);
         runtimeSummary(g, 166);
-        safeText(g, "All values are synchronized server evidence; processing stays inside the block tick.", 16, 199, MUTED);
+        if (menu.kind() == SignalProcessorMenu.KIND_PULSE) {
+            safeText(g, "Threshold " + menu.secondaryParameter() + "/15 • retrigger "
+                    + (menu.modeFlag() ? "enabled" : "blocked while busy"), 16, 188, MUTED);
+        } else {
+            safeText(g, "All values are synchronized server evidence; processing stays inside the block tick.", 16, 199, MUTED);
+        }
     }
 
     private void ports(GuiGraphics g) {
@@ -68,9 +100,13 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
     private void configure(GuiGraphics g) {
         statusBadge(g, "SERVER-SIDE BOUNDED CONTROL", INFO, 16, 80);
         labelValue(g, parameterName(), parameterValue(), 101);
-        labelValue(g, "Input face", menu.inputDirection().getName().toUpperCase(), 171);
-        labelValue(g, "Output face", menu.outputDirection().getName().toUpperCase(), 187);
-        safeText(g, "Physical direction is controlled only on Route.", 16, 207, MUTED);
+        if (menu.kind() == SignalProcessorMenu.KIND_PULSE) {
+            safeText(g, "Threshold controls the trigger crossing; retrigger mode decides whether a busy one-shot reloads.", 16, 194, MUTED);
+        } else {
+            labelValue(g, "Input face", menu.inputDirection().getName().toUpperCase(), 171);
+            labelValue(g, "Output face", menu.outputDirection().getName().toUpperCase(), 187);
+            safeText(g, "Physical direction is controlled only on Route.", 16, 207, MUTED);
+        }
     }
 
     private void diagnostics(GuiGraphics g) {
@@ -79,7 +115,12 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         labelValue(g, "Output", menu.output() + " / 15", 126);
         labelValue(g, parameterName(), parameterValue(), 144);
         runtimeSummary(g, 162);
-        statusLine(g, "Authority", "SERVER SYNCHRONIZED", GOOD, 198);
+        if (menu.kind() == SignalProcessorMenu.KIND_PULSE) {
+            labelValue(g, "Trigger threshold", menu.secondaryParameter() + " / 15", 180);
+            labelValue(g, "Retrigger", menu.modeFlag() ? "ENABLED" : "BLOCK WHILE BUSY", 198);
+        } else {
+            statusLine(g, "Authority", "SERVER SYNCHRONIZED", GOOD, 198);
+        }
     }
 
     private void history(GuiGraphics g) {
@@ -91,11 +132,12 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
             sectionRule(g, 170);
             safeText(g, "Edge chronology is retained by server runtime; opening this UI never creates an edge.", 16, 184, MUTED);
         } else if (menu.kind() == SignalProcessorMenu.KIND_PULSE) {
-            labelValue(g, "Last input", Integer.toString(menu.runtimeB()), 110);
-            labelValue(g, "Pulse remaining", menu.runtimeA() + " ticks", 130);
-            labelValue(g, "Initialized", menu.initialized() ? "YES" : "NO", 150);
-            sectionRule(g, 170);
-            safeText(g, "Readback is observer-neutral and never initializes the one-shot runtime.", 16, 184, MUTED);
+            labelValue(g, "Accepted triggers", Integer.toString(menu.runtimeB()), 106);
+            labelValue(g, "Suppressed triggers", Integer.toString(menu.runtimeC()), 126);
+            labelValue(g, "Last trigger age", menu.runtimeD() < 0 ? "NONE" : menu.runtimeD() + " ticks", 146);
+            labelValue(g, "Pulse remaining", menu.runtimeA() + " ticks", 166);
+            sectionRule(g, 184);
+            safeText(g, "Suppressed triggers are threshold crossings rejected only because non-retriggerable mode was busy.", 16, 196, MUTED);
         } else {
             labelValue(g, "Current lag", menu.runtimeA() + " levels", 110);
             labelValue(g, "Response", menu.runtimeB() == 1 ? "SETTLED" : "SETTLING", 130);
@@ -110,7 +152,7 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         } else if (menu.kind() == SignalProcessorMenu.KIND_EDGE) {
             labelValue(g, "Pulse / edges", menu.runtimeA() + "t • " + menu.runtimeB(), y);
         } else {
-            labelValue(g, "Pulse remaining", menu.runtimeA() + " ticks", y);
+            labelValue(g, "Pulse / accepted", menu.runtimeA() + "t • " + menu.runtimeB(), y);
         }
     }
 
@@ -146,7 +188,9 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
     private String processDescription() {
         return switch (menu.kind()) {
             case SignalProcessorMenu.KIND_EDGE -> "EDGE DETECTION • " + parameterValue();
-            case SignalProcessorMenu.KIND_PULSE -> "ONE-SHOT PULSE • " + parameterValue();
+            case SignalProcessorMenu.KIND_PULSE -> "MONOSTABLE • width=" + parameterValue()
+                    + " • threshold=" + menu.secondaryParameter() + "/15"
+                    + " • retrigger=" + (menu.modeFlag() ? "YES" : "NO");
             default -> "SLEW LIMIT • " + parameterValue();
         };
     }
@@ -154,11 +198,11 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
     private String stateName() {
         if (!menu.initialized()) return "UNINITIALIZED";
         if (menu.kind() == SignalProcessorMenu.KIND_FILTER) return menu.runtimeB() == 1 ? "SETTLED" : "SETTLING";
-        if (menu.runtimeA() > 0) return "PULSE ACTIVE";
+        if (menu.runtimeA() > 0 || menu.output() > 0) return "PULSE ACTIVE";
         return "READY";
     }
 
     private int stateColor() {
-        return !menu.initialized() ? WARN : menu.runtimeA() > 0 ? INFO : GOOD;
+        return !menu.initialized() ? WARN : (menu.runtimeA() > 0 || menu.output() > 0) ? INFO : GOOD;
     }
 }
