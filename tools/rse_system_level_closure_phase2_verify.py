@@ -2,8 +2,8 @@
 """Fail-closed static guard for System-Level Closure Phase 2 acceptance coverage."""
 from pathlib import Path
 
-from tools import rse_mega_factory as mega
-from tools import rse_validation_factory as factory
+import rse_mega_factory as mega
+import rse_validation_factory as factory
 
 ROOT = Path(__file__).resolve().parents[1]
 errors: list[str] = []
