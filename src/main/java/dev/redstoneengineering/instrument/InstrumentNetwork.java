@@ -128,8 +128,9 @@ public final class InstrumentNetwork {
     private static void recordProbe(Level level, BlockPos pos, BlockState state, SignalProbeBlock probe, int[] values, int[] counts) {
         int channel = state.getValue(SignalProbeBlock.CHANNEL);
         int value = probe.sample(level, pos, state);
+        boolean present = SignalProbeBlock.measurementPresent(level, pos, state, value);
         counts[channel]++;
-        if (counts[channel] == 1) values[channel] = value;
+        if (counts[channel] == 1) values[channel] = present ? value : -1;
         else values[channel] = -1;
     }
 
