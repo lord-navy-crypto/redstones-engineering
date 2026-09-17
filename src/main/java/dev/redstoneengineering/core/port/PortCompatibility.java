@@ -5,6 +5,7 @@ public final class PortCompatibility {
     public enum Status {
         COMPATIBLE,
         DOMAIN_MISMATCH,
+        QUANTITY_MISMATCH,
         DIRECTION_MISMATCH,
         ISOLATED
     }
@@ -27,12 +28,21 @@ public final class PortCompatibility {
                     left.domain().label() + " != " + right.domain().label()
             );
         }
+        if (!left.quantity().compatibleWith(right.quantity())) {
+            return new Result(
+                    Status.QUANTITY_MISMATCH,
+                    left.quantity().label() + " != " + right.quantity().label()
+            );
+        }
 
         boolean flow = (left.canTransmit() && right.canReceive())
                 || (right.canTransmit() && left.canReceive());
         if (!flow) {
             return new Result(Status.DIRECTION_MISMATCH, left.direction() + " vs " + right.direction());
         }
-        return new Result(Status.COMPATIBLE, left.domain().label());
+        return new Result(
+                Status.COMPATIBLE,
+                left.domain().label() + "/" + left.quantity().label()
+        );
     }
 }
