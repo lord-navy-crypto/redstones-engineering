@@ -119,6 +119,7 @@ jobs:
             tools/rse_copper_hmi_verify.py \
             tools/rse_media_conversion_hmi_verify.py \
             tools/rse_field_tools_verify.py \
+            tools/rse_instrument_measurement_validity_verify.py \
             tools/rse_system_level_closure_phase1_verify.py \
             tools/rse_system_level_closure_phase2_verify.py
           do
