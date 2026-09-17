@@ -28,7 +28,11 @@ if not match or tuple(map(int, match.groups())) < (1, 0, 10):
     failed.append("Alpha 1.0.10 requires mod_version >= 1.0.10-alpha")
 
 require("src/main/java/dev/redstoneengineering/core/port/EngineeringPort.java",
-        "EngineeringDomain", "String unit", "canReceive", "canTransmit", "EngineeringPortSnapshot")
+        "EngineeringDomain", "EngineeringQuantity quantity", "String unit", "canReceive", "canTransmit",
+        "EngineeringQuantity.defaultFor(domain, kind)", "EngineeringPortSnapshot")
+require("src/main/java/dev/redstoneengineering/core/port/EngineeringQuantity.java",
+        "UNSPECIFIED", "SIGNAL_LEVEL", "VOLTAGE", "PRESSURE", "DIGITAL_DATA",
+        "defaultFor", "compatibleWith")
 require("src/main/java/dev/redstoneengineering/core/port/PortQuality.java",
         "VALID", "SATURATED", "STALE", "FAULT", "DOMAIN_MISMATCH", "TOPOLOGY_ERROR")
 require("src/main/java/dev/redstoneengineering/core/port/EngineeringPortSnapshot.java",
@@ -36,7 +40,8 @@ require("src/main/java/dev/redstoneengineering/core/port/EngineeringPortSnapshot
 require("src/main/java/dev/redstoneengineering/core/port/EngineeringPortProvider.java",
         "engineeringPorts", "engineeringPort", "engineeringSnapshot")
 require("src/main/java/dev/redstoneengineering/core/port/PortCompatibility.java",
-        "COMPATIBLE", "DOMAIN_MISMATCH", "DIRECTION_MISMATCH", "evaluate")
+        "COMPATIBLE", "DOMAIN_MISMATCH", "QUANTITY_MISMATCH", "DIRECTION_MISMATCH",
+        "quantity().compatibleWith", "evaluate")
 require("src/main/java/dev/redstoneengineering/core/domain/EngineeringDomain.java",
         "INSULATED_REDSTONE", "INSTRUMENT_BUS", "PNEUMATIC")
 
@@ -118,7 +123,8 @@ if failed:
 
 print("RSE Alpha 1.0.10 engineering-port architecture verification: PASS")
 print(" static port descriptor + runtime snapshot separation: PASS")
-print(" domain/direction compatibility model: PASS")
+print(" domain + carried-quantity + direction compatibility model: PASS")
+print(" source-compatible legacy constructor defaults: PASS")
 print(" representative legacy migration/inheritance: PASS")
 print(" required-dependency core boundary: PASS")
 print(" forward-compatible historical documentation gate: PASS")
