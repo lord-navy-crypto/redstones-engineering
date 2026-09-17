@@ -40,6 +40,20 @@ require(
     "return value < 0 ? -1 : Math.max(0, Math.min(15, value));",
     "if (values[i] < 0) builder.append(\"·\")",
 )
+require(
+    "src/main/java/dev/redstoneengineering/block/SignalAnalyzerBlock.java",
+    "boolean present = measurementPresent(level, pos, state, measured)",
+    "recordSample(level, pos, measured, present)",
+    "r[WINDOW_BASE + write] = present ? measured : -1",
+    "if (value < 0) continue",
+    "if (before < 0 || now < 0)",
+)
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/SignalAnalyzerScreen.java",
+    "summary.invalidSamples() > 0",
+    "summary.coveragePercent()",
+    "summary.validSamples() == 0",
+)
 
 if failed:
     print("RSE instrument measurement validity verification: FAIL")
@@ -51,3 +65,4 @@ print("RSE instrument measurement validity verification: PASS")
 print(" probe zero-vs-no-signal distinction: PASS")
 print(" instrument-network validity propagation: PASS")
 print(" oscilloscope invalid-sample sentinel chain: PASS")
+print(" signal-analyzer retained validity + coverage chain: PASS")
