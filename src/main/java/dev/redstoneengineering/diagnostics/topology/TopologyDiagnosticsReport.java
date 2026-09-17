@@ -24,7 +24,7 @@ public record TopologyDiagnosticsReport(
             if (!face.hasPort()) continue;
             switch (face.linkStatus()) {
                 case OPEN -> open++;
-                case DOMAIN_MISMATCH, DIRECTION_MISMATCH -> mismatch++;
+                case DOMAIN_MISMATCH, QUANTITY_MISMATCH, DIRECTION_MISMATCH -> mismatch++;
                 case UNLOADED -> unloaded++;
                 default -> { }
             }
@@ -44,7 +44,7 @@ public record TopologyDiagnosticsReport(
 
     public String summary() {
         if (portCount == 0) return "NO ENGINEERING PORTS | target is not an RSE port device";
-        if (mismatchCount > 0) return "TOPOLOGY FAIL | incompatible domain/direction links=" + mismatchCount;
+        if (mismatchCount > 0) return "TOPOLOGY FAIL | incompatible domain/quantity/direction links=" + mismatchCount;
         if (faultSampleCount > 0) return "TOPOLOGY FAIL | runtime FAULT samples=" + faultSampleCount;
         if (unloadedCount > 0) return "TOPOLOGY UNKNOWN | unloaded neighbors=" + unloadedCount;
         if (disconnectedIsland) return "TOPOLOGY OPEN | device has no compatible connected ports";

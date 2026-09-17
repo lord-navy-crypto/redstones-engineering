@@ -6,6 +6,7 @@ public enum TopologyLinkStatus {
     OPEN,
     ISOLATED,
     DOMAIN_MISMATCH,
+    QUANTITY_MISMATCH,
     DIRECTION_MISMATCH,
     UNLOADED
 }

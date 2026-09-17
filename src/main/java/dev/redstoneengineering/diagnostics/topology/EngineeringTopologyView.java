@@ -60,11 +60,7 @@ public final class EngineeringTopologyView {
         return switch (result.status()) {
             case COMPATIBLE -> TopologyLinkStatus.CONNECTED;
             case DOMAIN_MISMATCH -> TopologyLinkStatus.DOMAIN_MISMATCH;
-            // Keep the historical visualization enum stable while the compatibility
-            // layer gains finer semantics. inspectPort() still carries result.detail(),
-            // so diagnostics can say e.g. "voltage != pressure" without widening the
-            // legacy TopologyLinkStatus surface in the same migration.
-            case QUANTITY_MISMATCH -> TopologyLinkStatus.DOMAIN_MISMATCH;
+            case QUANTITY_MISMATCH -> TopologyLinkStatus.QUANTITY_MISMATCH;
             case DIRECTION_MISMATCH -> TopologyLinkStatus.DIRECTION_MISMATCH;
             case ISOLATED -> TopologyLinkStatus.ISOLATED;
         };

@@ -42,8 +42,15 @@ require("src/main/java/dev/redstoneengineering/core/port/EngineeringPortProvider
 require("src/main/java/dev/redstoneengineering/core/port/PortCompatibility.java",
         "COMPATIBLE", "DOMAIN_MISMATCH", "QUANTITY_MISMATCH", "DIRECTION_MISMATCH",
         "quantity().compatibleWith", "evaluate")
+require("src/main/java/dev/redstoneengineering/diagnostics/topology/TopologyLinkStatus.java",
+        "DOMAIN_MISMATCH", "QUANTITY_MISMATCH", "DIRECTION_MISMATCH")
 require("src/main/java/dev/redstoneengineering/diagnostics/topology/EngineeringTopologyView.java",
-        "case QUANTITY_MISMATCH")
+        "case QUANTITY_MISMATCH -> TopologyLinkStatus.QUANTITY_MISMATCH")
+require("src/main/java/dev/redstoneengineering/diagnostics/topology/TopologyFaceSnapshot.java",
+        "TopologyLinkStatus.QUANTITY_MISMATCH")
+require("src/main/java/dev/redstoneengineering/diagnostics/topology/TopologyDiagnosticsReport.java",
+        "DOMAIN_MISMATCH, QUANTITY_MISMATCH, DIRECTION_MISMATCH",
+        "incompatible domain/quantity/direction")
 require("src/main/java/dev/redstoneengineering/core/domain/EngineeringDomain.java",
         "INSULATED_REDSTONE", "INSTRUMENT_BUS", "PNEUMATIC")
 
@@ -127,7 +134,7 @@ print("RSE Alpha 1.0.10 engineering-port architecture verification: PASS")
 print(" static port descriptor + runtime snapshot separation: PASS")
 print(" domain + carried-quantity + direction compatibility model: PASS")
 print(" source-compatible legacy constructor defaults: PASS")
-print(" quantity mismatch diagnostic projection: PASS")
+print(" first-class quantity mismatch topology projection: PASS")
 print(" representative legacy migration/inheritance: PASS")
 print(" required-dependency core boundary: PASS")
 print(" forward-compatible historical documentation gate: PASS")
