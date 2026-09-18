@@ -41,9 +41,13 @@ require(lapis,
         "DomainNetwork.driveLapis(level, outputPos(pos, state), pos, 0, false)")
 
 require(quartz,
-        "int divisor = division(state.getValue(DIV_INDEX));",
+        "PHASE_STARTED_SLOT",
+        "First observation establishes input phase only",
+        "runtime[PHASE_STARTED_SLOT] = 0",
+        "runtime[PHASE_STARTED_SLOT] = 1",
         "int outputPeriod = Math.min(4096, Math.max(1, input.periodTicks()) * divisor);",
-        "DomainNetwork.driveQuartz(level, outputPos(pos, state), pos, runtime[OUTPUT_SLOT] == 1, outputPeriod, true)")
+        "DomainNetwork.driveQuartz(level, outputPos(pos, state), pos, false, outputPeriod, false)",
+        "runtime[OUTPUT_SLOT] == 1, outputPeriod, true)")
 
 require(amethyst,
         "CURRENT_AMPLITUDE",
@@ -122,5 +126,5 @@ if failed:
 print("RSE foundation-domain depth verification: PASS")
 print(" redstone selector evidence hold: PASS")
 print(" Lapis low-pass retained-state semantics: PASS")
-print(" Quartz divider period multiplication: PASS")
+print(" Quartz divider real-edge phase lock + period multiplication: PASS")
 print(" Amethyst free ring-down source: PASS")
