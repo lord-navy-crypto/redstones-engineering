@@ -144,6 +144,9 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
                 menu.plantObservedLoss() + " / " + menu.plantLineLoss() + " / " + menu.plantRestrictionLoss(), 196);
         statusLine(graphics, "Likely cause",
                 diagnosisLabel(menu.plantDiagnosis()), diagnosisColor(menu.plantDiagnosis()), 212);
+        safeText(graphics,
+                "System " + menu.status().name() + " • score " + menu.score(),
+                218, 228, statusColor(menu.status()));
     }
 
     private void renderHistory(GuiGraphics graphics) {
