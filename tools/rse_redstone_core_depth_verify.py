@@ -213,6 +213,13 @@ req("src/main/java/dev/redstoneengineering/block/SingleRelayBlock.java",
     "PAYLOAD_HOLD_ACTIVE","PAYLOAD_BAD_EPISODES",
     "controlHoldActive","payloadHoldActive","combineQuality")
 
+req("src/main/java/dev/redstoneengineering/gametest/RseRelayEvidenceGameTests.java",
+    "relayHoldsLastPayloadAcrossFaultQuality",
+    "PortQuality.FAULT","payloadHoldActive","payloadBadEpisodes")
+
+req("src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java",
+    "event.register(RseRelayEvidenceGameTests.class);")
+
 req("src/main/java/dev/redstoneengineering/block/AnalogComparatorBlock.java",
     "combineQuality","!processObservation.valid()","!referenceObservation.valid()")
 
