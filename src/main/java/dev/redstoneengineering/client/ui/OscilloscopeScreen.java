@@ -19,7 +19,8 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
         addConfigureWidget(Button.builder(Component.literal("Level +"), b -> sendMenuButton(OscilloscopeMenu.BUTTON_TRIGGER_LEVEL)).bounds(x, y + 25, w, 20).build());
         addConfigureWidget(Button.builder(Component.literal("Cursor A +"), b -> sendMenuButton(OscilloscopeMenu.BUTTON_CURSOR_A)).bounds(x + w + gap, y + 25, w, 20).build());
         addConfigureWidget(Button.builder(Component.literal("Cursor B +"), b -> sendMenuButton(OscilloscopeMenu.BUTTON_CURSOR_B)).bounds(x + (w + gap) * 2, y + 25, w, 20).build());
-        addConfigureWidget(Button.builder(Component.literal("Clear capture"), b -> sendMenuButton(OscilloscopeMenu.BUTTON_CLEAR)).bounds(x, y + 50, w * 3 + gap * 2, 20).build());
+        addConfigureWidget(Button.builder(Component.literal("Timebase"), b -> sendMenuButton(OscilloscopeMenu.BUTTON_TIMEBASE)).bounds(x, y + 50, w, 20).build());
+        addConfigureWidget(Button.builder(Component.literal("Clear capture"), b -> sendMenuButton(OscilloscopeMenu.BUTTON_CLEAR)).bounds(x + w + gap, y + 50, w * 2 + gap, 20).build());
     }
 
     @Override protected void renderSection(GuiGraphics graphics, Section section) {
@@ -51,10 +52,11 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
         labelValue(graphics, "Trigger mode", modeName(menu.triggerMode()), 80);
         labelValue(graphics, "Trigger source", "CH " + (menu.triggerChannel() == 0 ? "A" : "B"), 95);
         labelValue(graphics, "Trigger level", menu.triggerLevel() + " / 15", 110);
-        labelValue(graphics, "Cursors", "A=" + menu.cursorA() + " B=" + menu.cursorB(), 125);
-        labelValue(graphics, "Cursor Δ", Math.abs(menu.cursorB() - menu.cursorA()) + " samples / " + Math.abs(menu.cursorB() - menu.cursorA()) * OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS + "t", 140);
-        safeText(graphics, "All controls are validated on the logical server.", 16, 178, MUTED);
-        safeText(graphics, "Trigger/cursor interpretation uses synchronized retained samples only.", 16, 194, MUTED);
+        labelValue(graphics, "Timebase", menu.samplePeriodTicks() + " ticks/sample", 125);
+        labelValue(graphics, "Cursors", "A=" + menu.cursorA() + " B=" + menu.cursorB(), 140);
+        labelValue(graphics, "Cursor Δ", Math.abs(menu.cursorB() - menu.cursorA()) + " samples / " + Math.abs(menu.cursorB() - menu.cursorA()) * menu.samplePeriodTicks() + "t", 155);
+        safeText(graphics, "Changing timebase clears the capture so one buffer never mixes different sample intervals.", 16, 184, MUTED);
+        safeText(graphics, "All controls are validated on the logical server.", 16, 202, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
@@ -118,8 +120,8 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
         int avgDelta = Math.abs(menu.average100(0) - menu.average100(1));
         int p2pDelta = Math.abs(menu.peakToPeak(0) - menu.peakToPeak(1));
         int periodA = menu.periodTicks(0), periodB = menu.periodTicks(1);
-        if (periodA > 0 && periodB > 0 && Math.abs(periodA - periodB) <= OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS && avgDelta <= 100 && p2pDelta <= 1) return "CHANNEL RELATIONSHIP • closely tracking";
-        if (periodA > 0 && periodB > 0 && Math.abs(periodA - periodB) > OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS * 2) return "CHANNEL RELATIONSHIP • timing mismatch";
+        if (periodA > 0 && periodB > 0 && Math.abs(periodA - periodB) <= menu.samplePeriodTicks() && avgDelta <= 100 && p2pDelta <= 1) return "CHANNEL RELATIONSHIP • closely tracking";
+        if (periodA > 0 && periodB > 0 && Math.abs(periodA - periodB) > menu.samplePeriodTicks() * 2) return "CHANNEL RELATIONSHIP • timing mismatch";
         if (avgDelta >= 400) return "CHANNEL RELATIONSHIP • large level offset";
         if (p2pDelta >= 5) return "CHANNEL RELATIONSHIP • amplitude mismatch";
         return "CHANNEL RELATIONSHIP • distinct but comparable";
@@ -161,7 +163,7 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
     }
 
     private int cursorDeltaSamples() { return Math.abs(menu.cursorB() - menu.cursorA()); }
-    private int cursorDeltaTicks() { return cursorDeltaSamples() * OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS; }
+    private int cursorDeltaTicks() { return cursorDeltaSamples() * menu.samplePeriodTicks(); }
     private String cursorDeltaValue(int channel) { int a = menu.displaySample(channel, menu.cursorA()); int b = menu.displaySample(channel, menu.cursorB()); return a < 0 || b < 0 ? "N/A" : signed(b - a); }
     private String triggerText() { return modeName(menu.triggerMode()) + " CH " + (menu.triggerChannel() == 0 ? "A" : "B") + " @" + menu.triggerLevel(); }
     private String captureState() { return switch (menu.captureState()) { case 1 -> "ARMED"; case 2 -> "TRIGGERED"; default -> "HOLD"; }; }
