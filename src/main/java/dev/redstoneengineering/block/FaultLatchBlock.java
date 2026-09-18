@@ -37,7 +37,12 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock implements Op
     public static final IntegerProperty THRESHOLD = IntegerProperty.create("threshold",0,3);
     private static final int[] LEVELS={1,4,8,12};
     private static final String KEY="fault_latch";
-    private static final int RUNTIME_SIZE = 4;
+    private static final int LATCHED = 0;
+    private static final int TRIP_COUNT = 1;
+    private static final int RESET_COUNT = 2;
+    private static final int PREVIOUS_RESET = 3;
+    private static final int RESET_REACQUIRE = 4;
+    private static final int RUNTIME_SIZE = 5;
 
     public FaultLatchBlock(Properties p){super(p);registerDefaultState(defaultBlockState().setValue(THRESHOLD,0));}
     @Override public MapCodec<FaultLatchBlock> codec(){return RedstoneEngineering.FAULT_LATCH_CODEC.value();}
@@ -61,6 +66,39 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock implements Op
         return RedstoneObservationSupport.observe(level, pos, side);
     }
 
+    private static boolean evidenceUnusable(PortQuality quality) {
+        return quality == PortQuality.STALE
+                || quality == PortQuality.FAULT
+                || quality == PortQuality.DOMAIN_MISMATCH
+                || quality == PortQuality.TOPOLOGY_ERROR;
+    }
+
+    private static boolean faultClearForReset(
+            RedstoneObservationSupport.Observation faultObservation, int threshold
+    ) {
+        if (evidenceUnusable(faultObservation.quality())) return false;
+        if (faultObservation.quality() == PortQuality.NO_SIGNAL) return true;
+        return faultObservation.valid() && faultObservation.value() < threshold;
+    }
+
+    public static boolean resetPermitted(Level level, BlockPos pos, BlockState state) {
+        if (!(state.getBlock() instanceof FaultLatchBlock latch)) return false;
+        var fault = observeInput(level, pos, latch.inputSide(state));
+        return faultClearForReset(fault, thresholdValue(state.getValue(THRESHOLD)));
+    }
+
+    private static PortQuality operationQuality(
+            RedstoneObservationSupport.Observation fault,
+            RedstoneObservationSupport.Observation reset
+    ) {
+        PortQuality quality = fault.quality();
+        if (quality == PortQuality.NO_SIGNAL) quality = PortQuality.VALID;
+        if (evidenceUnusable(reset.quality())) {
+            quality = RedstoneObservationSupport.combineQuality(quality, reset.quality());
+        }
+        return quality;
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
@@ -79,7 +117,11 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock implements Op
     public OperationWorldResourceSnapshot operationResourceSnapshot(Level level, BlockPos pos, BlockState state) {
         int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
         boolean latched = latched(level, pos);
-        PortQuality quality = runtime == null || runtime.length < RUNTIME_SIZE ? PortQuality.STALE : PortQuality.VALID;
+        var fault = observeInput(level, pos, inputSide(state));
+        var reset = observeInput(level, pos, rightOf(outputSide(state)));
+        PortQuality quality = runtime == null || runtime.length < RUNTIME_SIZE
+                ? PortQuality.STALE
+                : operationQuality(fault, reset);
         return new OperationWorldResourceSnapshot(
                 "fault_latch:" + pos.asLong(),
                 Set.of("fault_memory"),
@@ -100,24 +142,40 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock implements Op
     @Override
     protected int computeOutput(Level level, BlockPos pos, BlockState state) {
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
-        RedstoneObservationSupport.Observation resetObservation = observeInput(level, pos, rightOf(outputSide(state)));
-        int previousResetLevel = runtime[3];
+        int threshold = thresholdValue(state.getValue(THRESHOLD));
+        var resetObservation = observeInput(level, pos, rightOf(outputSide(state)));
+        var faultObservation = observeInput(level, pos, inputSide(state));
+
+        boolean resetEvidenceBad = evidenceUnusable(resetObservation.quality());
         boolean resetHigh = resetObservation.valid() && resetObservation.value() > 0;
-        if (resetHigh) {
-            if (previousResetLevel == 0) runtime[2]++;
-            runtime[3] = 1;
-            runtime[0] = 0;
-            return 0;
+        boolean resetRising = false;
+
+        if (resetEvidenceBad) {
+            runtime[RESET_REACQUIRE] = 1;
+        } else if (runtime[RESET_REACQUIRE] != 0) {
+            // Re-establish the electrical reset level after evidence recovery without inventing an edge.
+            runtime[PREVIOUS_RESET] = resetHigh ? 1 : 0;
+            runtime[RESET_REACQUIRE] = 0;
+        } else {
+            resetRising = resetHigh && runtime[PREVIOUS_RESET] == 0;
+            runtime[PREVIOUS_RESET] = resetHigh ? 1 : 0;
         }
-        runtime[3] = 0;
-        RedstoneObservationSupport.Observation faultObservation = observeInput(level, pos, inputSide(state));
-        if (faultObservation.valid()
-                && faultObservation.value() >= thresholdValue(state.getValue(THRESHOLD))
-                && runtime[0] == 0) {
-            runtime[0] = 1;
-            runtime[1]++;
+
+        if (resetRising && faultClearForReset(faultObservation, threshold)) {
+            if (runtime[LATCHED] != 0) {
+                runtime[LATCHED] = 0;
+                if (runtime[RESET_COUNT] < Integer.MAX_VALUE) runtime[RESET_COUNT]++;
+            }
         }
-        return runtime[0] != 0 ? 15 : 0;
+
+        boolean faultActive = evidenceUnusable(faultObservation.quality())
+                || (faultObservation.valid() && faultObservation.value() >= threshold);
+        if (faultActive && runtime[LATCHED] == 0) {
+            runtime[LATCHED] = 1;
+            if (runtime[TRIP_COUNT] < Integer.MAX_VALUE) runtime[TRIP_COUNT]++;
+        }
+
+        return runtime[LATCHED] != 0 ? 15 : 0;
     }
 
     public static int thresholdValue(int index) { return LEVELS[Math.max(0, Math.min(LEVELS.length - 1, index))]; }
@@ -131,18 +189,20 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock implements Op
         if (level instanceof ServerLevel server) server.scheduleTick(pos, latch, 1);
         return true;
     }
-    public static boolean latched(Level level, BlockPos pos) { int[]rt=RuntimeIntStore.peek(level,KEY,pos); return rt!=null&&rt.length>0&&rt[0]!=0; }
-    public static int tripCount(Level level, BlockPos pos) { int[]rt=RuntimeIntStore.peek(level,KEY,pos); return rt==null||rt.length<2?0:rt[1]; }
-    public static int resetCount(Level level, BlockPos pos) { int[]rt=RuntimeIntStore.peek(level,KEY,pos); return rt==null||rt.length<3?0:rt[2]; }
-    public static boolean resetActive(Level level, BlockPos pos) { int[]rt=RuntimeIntStore.peek(level,KEY,pos); return rt!=null&&rt.length>3&&rt[3]!=0; }
+    public static boolean latched(Level level, BlockPos pos) { int[]rt=RuntimeIntStore.peek(level,KEY,pos); return rt!=null&&rt.length>0&&rt[LATCHED]!=0; }
+    public static int tripCount(Level level, BlockPos pos) { int[]rt=RuntimeIntStore.peek(level,KEY,pos); return rt==null||rt.length<2?0:rt[TRIP_COUNT]; }
+    public static int resetCount(Level level, BlockPos pos) { int[]rt=RuntimeIntStore.peek(level,KEY,pos); return rt==null||rt.length<3?0:rt[RESET_COUNT]; }
+    public static boolean resetActive(Level level, BlockPos pos) { int[]rt=RuntimeIntStore.peek(level,KEY,pos); return rt!=null&&rt.length>3&&rt[PREVIOUS_RESET]!=0; }
 
     public boolean manualReset(Level level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
-        if (!state.is(this)) return false;
+        if (!state.is(this) || !resetPermitted(level, pos, state)) return false;
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
-        runtime[0] = 0;
-        runtime[2]++;
-        runtime[3] = 0;
+        if (runtime[LATCHED] != 0) {
+            runtime[LATCHED] = 0;
+            if (runtime[RESET_COUNT] < Integer.MAX_VALUE) runtime[RESET_COUNT]++;
+        }
+        runtime[RESET_REACQUIRE] = 1;
         updateOutput(level, pos, state, 0);
         if (level instanceof ServerLevel server) server.scheduleTick(pos, this, 2);
         return true;
@@ -151,5 +211,14 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock implements Op
     @Override protected void onPlace(BlockState s,Level l,BlockPos p,BlockState o,boolean m){super.onPlace(s,l,p,o,m);if(l instanceof ServerLevel sl)sl.scheduleTick(p,this,2);}
     @Override protected void tick(BlockState s,ServerLevel l,BlockPos p,RandomSource rnd){updateOutput(l,p,s,outputValue(l,p,s));l.scheduleTick(p,this,2);}
     @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) { if (!state.is(newState.getBlock())) RuntimeIntStore.remove(level, KEY, pos); super.onRemove(state, level, pos, newState, movedByPiston); }
-    @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) { if(!level.isClientSide && player instanceof ServerPlayer serverPlayer){ if(player.isShiftKeyDown()){ manualReset(level, pos); player.displayClientMessage(net.minecraft.network.chat.Component.literal("Fault latch manual reset"),true); } else FieldDeviceUi.open(serverPlayer,pos); } return InteractionResult.sidedSuccess(level.isClientSide); }
+    @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+        if(!level.isClientSide && player instanceof ServerPlayer serverPlayer){
+            if(player.isShiftKeyDown()){
+                boolean reset = manualReset(level, pos);
+                player.displayClientMessage(net.minecraft.network.chat.Component.literal(
+                        reset ? "Fault latch manual reset" : "Fault latch reset blocked: fault not proven clear"), true);
+            } else FieldDeviceUi.open(serverPlayer,pos);
+        }
+        return InteractionResult.sidedSuccess(level.isClientSide);
+    }
 }
