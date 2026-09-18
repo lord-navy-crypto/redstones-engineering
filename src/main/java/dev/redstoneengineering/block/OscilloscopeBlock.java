@@ -98,7 +98,7 @@ public class OscilloscopeBlock extends Block implements EntityBlock, Engineering
 
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
-        if (!level.isClientSide && !state.is(oldState.getBlock())) level.scheduleTick(pos, this, OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS);
+        if (!level.isClientSide && !state.is(oldState.getBlock())) level.scheduleTick(pos, this, samplePeriodTicks(state));
     }
 
     @Override
@@ -112,6 +112,8 @@ public class OscilloscopeBlock extends Block implements EntityBlock, Engineering
 
     public static boolean applyUiAction(Level level, BlockPos pos, int action) {
         if (level.isClientSide || !(level.getBlockEntity(pos) instanceof OscilloscopeBlockEntity scope)) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof OscilloscopeBlock block)) return false;
         switch (action) {
             case OscilloscopeMenu.BUTTON_ARM -> scope.arm();
             case OscilloscopeMenu.BUTTON_TRIGGER_MODE -> scope.cycleTriggerMode();
