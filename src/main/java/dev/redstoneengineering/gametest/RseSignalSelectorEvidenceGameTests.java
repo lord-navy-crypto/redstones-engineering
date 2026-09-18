@@ -76,5 +76,74 @@ public final class RseSignalSelectorEvidenceGameTests {
                 });
             });
         });
+    }    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 110)
+    public static void selectorHoldsLastSelectionAndPayloadAcrossMissingEvidence(GameTestHelper helper) {
+        BlockPos inputA = new BlockPos(1, 1, 2);
+        BlockPos selector = new BlockPos(2, 1, 2);
+        BlockPos inputB = new BlockPos(2, 1, 1);
+        BlockPos select = new BlockPos(2, 1, 3);
+
+        helper.setBlock(inputA, Blocks.REDSTONE_WIRE.defaultBlockState());
+        helper.setBlock(inputB, Blocks.REDSTONE_BLOCK.defaultBlockState());
+        helper.setBlock(select, Blocks.REDSTONE_BLOCK.defaultBlockState());
+        helper.setBlock(selector, RedstoneEngineering.SIGNAL_SELECTOR.get().defaultBlockState()
+                .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
+                .setValue(DirectionalSignalBlock.INPUT_FACING, Direction.WEST)
+                .setValue(SignalSelectorBlock.INVERT_SELECT, false));
+
+        helper.runAfterDelay(5, () -> {
+            BlockPos world = helper.absolutePos(selector);
+            BlockState selectedB = helper.getBlockState(selector);
+            if (!SignalSelectorBlock.selectedB(helper.getLevel(), world, selectedB)
+                    || selectedB.getValue(DirectionalSignalBlock.OUTPUT) != 15
+                    || SignalSelectorBlock.controlHoldActive(helper.getLevel(), world)
+                    || SignalSelectorBlock.payloadHoldActive(helper.getLevel(), world)) {
+                helper.fail("Selector did not establish a valid B-selection baseline", selector);
+                return;
+            }
+
+            helper.setBlock(select, Blocks.AIR.defaultBlockState());
+            helper.runAfterDelay(4, () -> {
+                BlockState missingSelect = helper.getBlockState(selector);
+                var heldOut = RedstoneEngineering.SIGNAL_SELECTOR.get().engineeringSnapshot(
+                        helper.getLevel(), world, missingSelect, Direction.EAST).orElseThrow();
+                if (!SignalSelectorBlock.selectedB(helper.getLevel(), world, missingSelect)
+                        || missingSelect.getValue(DirectionalSignalBlock.OUTPUT) != 15
+                        || !SignalSelectorBlock.controlHoldActive(helper.getLevel(), world)
+                        || SignalSelectorBlock.selectQuality(helper.getLevel(), world, missingSelect) != PortQuality.NO_SIGNAL
+                        || heldOut.quality() != PortQuality.NO_SIGNAL) {
+                    helper.fail("Missing SELECT did not hold the last trustworthy selection", selector);
+                    return;
+                }
+
+                helper.setBlock(inputB, Blocks.AIR.defaultBlockState());
+                helper.runAfterDelay(4, () -> {
+                    BlockState missingPayload = helper.getBlockState(selector);
+                    if (missingPayload.getValue(DirectionalSignalBlock.OUTPUT) != 15
+                            || !SignalSelectorBlock.payloadHoldActive(helper.getLevel(), world)
+                            || SignalSelectorBlock.payloadBadEpisodes(helper.getLevel(), world) != 1) {
+                        helper.fail("Missing selected payload was converted to zero instead of holding OUT", selector);
+                        return;
+                    }
+
+                    helper.setBlock(select, Blocks.REDSTONE_WIRE.defaultBlockState());
+                    helper.runAfterDelay(4, () -> {
+                        BlockState recovered = helper.getBlockState(selector);
+                        if (SignalSelectorBlock.selectedB(helper.getLevel(), world, recovered)
+                                || recovered.getValue(DirectionalSignalBlock.OUTPUT) != 0
+                                || SignalSelectorBlock.controlHoldActive(helper.getLevel(), world)
+                                || SignalSelectorBlock.payloadHoldActive(helper.getLevel(), world)
+                                || SignalSelectorBlock.selectQuality(helper.getLevel(), world, recovered) != PortQuality.VALID) {
+                            helper.fail("Selector did not recover to explicit trustworthy LOW selection", selector);
+                            return;
+                        }
+                        helper.succeed();
+                    });
+                });
+            });
+        });
     }
+
+
 }
