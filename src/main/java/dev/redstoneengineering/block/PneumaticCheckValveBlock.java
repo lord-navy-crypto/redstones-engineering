@@ -98,11 +98,14 @@ public class PneumaticCheckValveBlock extends DirectionalDomainBlock implements 
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
+                int upstreamPressure = PneumaticObservationSupport
+                        .observe(level, pos.relative(inputSide(state))).pressure();
                 player.displayClientMessage(Component.literal(
                         "Check valve | allowed " + inputSide(state) + " → " + outputSide(state)
                                 + " | cracking=" + CRACKING_PRESSURE + "/100"
-                                + " | valvePressure=" + PneumaticNetwork.pressure(level, pos) + "/100"
-                                + " | state=" + (crackedOpen(PneumaticNetwork.pressure(level, pos))
+                                + " | upstream=" + upstreamPressure + "/100"
+                                + " valve=" + PneumaticNetwork.pressure(level, pos) + "/100"
+                                + " | state=" + (crackedOpen(upstreamPressure)
                                 ? "CRACKED OPEN" : "SEATED")
                 ), true);
             } else {
