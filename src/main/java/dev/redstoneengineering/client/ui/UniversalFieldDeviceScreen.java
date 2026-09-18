@@ -13,6 +13,7 @@ import dev.redstoneengineering.block.TransmissionTopology;
 import dev.redstoneengineering.block.RedstoneByteEncoderBlock;
 import dev.redstoneengineering.block.ByteToRedstoneDecoderBlock;
 import dev.redstoneengineering.block.DigitalRegeneratorBlock;
+import dev.redstoneengineering.block.DifferentialDriverBlock;
 import dev.redstoneengineering.block.TankLevelSensorBlock;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.PortKind;
@@ -90,7 +91,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_BYTE_ENCODER
                 || kind == UniversalFieldDeviceMenu.CONFIG_BYTE_DECODER
                 || kind == UniversalFieldDeviceMenu.CONFIG_SERIALIZER
-                || kind == UniversalFieldDeviceMenu.CONFIG_REGENERATOR;
+                || kind == UniversalFieldDeviceMenu.CONFIG_REGENERATOR
+                || kind == UniversalFieldDeviceMenu.CONFIG_DIFF_DRIVER;
         boolean range = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE
                 || kind == UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY
                 || kind == UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD;
@@ -203,6 +205,30 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private void configure(GuiGraphics g) {
         int kind = menu.configKind();
         switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_DIFF_DRIVER -> {
+                int threshold = DifferentialDriverBlock.thresholdValue(menu.configPrimary());
+                statusBadge(g, "DIFFERENTIAL DRIVER", INFO, 16, 80);
+                labelValue(g, "Decision threshold", threshold + " / 15", 101);
+                labelValue(g, "Redstone input", menu.configSecondary() + " / 15", 123);
+                labelValue(g, "Driven bit", Integer.toString(menu.configTertiary()), 145);
+                safeText(g, "The driver turns an analog redstone level into an explicit digital bit before entering the high-integrity differential link.", 16, 178, TEXT);
+            }
+            case UniversalFieldDeviceMenu.CONFIG_DIFF_PAIR -> {
+                int drivers = menu.configTertiary();
+                statusBadge(g, drivers > 1 ? "DIFFERENTIAL LINK • DRIVER CONFLICT" : "DIFFERENTIAL LINK",
+                        drivers > 1 ? WARN : INFO, 16, 80);
+                labelValue(g, "Bit", Integer.toString(menu.configPrimary()), 101);
+                labelValue(g, "Link quality", menu.configSecondary() + "%", 123);
+                labelValue(g, "Driver count", Integer.toString(drivers), 145);
+                safeText(g, "Differential data trades payload density for stronger one-bit link integrity; multiple drivers fail closed.", 16, 178, TEXT);
+            }
+            case UniversalFieldDeviceMenu.CONFIG_DIFF_RECEIVER -> {
+                statusBadge(g, "DIFFERENTIAL RECEIVER", INFO, 16, 80);
+                labelValue(g, "Received bit", Integer.toString(menu.configPrimary()), 101);
+                labelValue(g, "Input quality", menu.configSecondary() + "%", 123);
+                labelValue(g, "Redstone output", menu.configTertiary() + " / 15", 145);
+                safeText(g, "Only a valid differential bit drives the isolated redstone output; invalid or conflicted links fail to zero.", 16, 178, MUTED);
+            }
             case UniversalFieldDeviceMenu.CONFIG_SERIALIZER -> {
                 statusBadge(g, "SERIALIZER", INFO, 16, 80);
                 labelValue(g, "Word period", menu.configTertiary() + " ticks", 101);
