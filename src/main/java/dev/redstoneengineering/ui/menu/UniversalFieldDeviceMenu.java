@@ -95,6 +95,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     private final DataSlot configPrimary = trackedInt();
     private final DataSlot configSecondary = trackedInt();
     private final DataSlot configTertiary = trackedInt();
+    private final DataSlot configQuaternary = trackedInt();
     private final DataSlot declaredPortMask = trackedInt();
     private final DataSlot inputMask = trackedInt();
     private final DataSlot outputMask = trackedInt();
@@ -129,12 +130,14 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         configPrimary.set(0);
         configSecondary.set(0);
         configTertiary.set(0);
+        configQuaternary.set(0);
 
         if (block instanceof AnalogComparatorBlock) {
             configKind.set(CONFIG_ANALOG_COMPARATOR);
             configPrimary.set(state.getValue(AnalogComparatorBlock.MODE));
             configSecondary.set(state.getValue(AnalogComparatorBlock.HYSTERESIS));
             configTertiary.set(AnalogComparatorBlock.margin(level, blockPos, state));
+            configQuaternary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
         } else if (block instanceof SignalSelectorBlock) {
             configKind.set(CONFIG_SIGNAL_SELECTOR);
             configPrimary.set(state.getValue(SignalSelectorBlock.INVERT_SELECT) ? 1 : 0);
@@ -566,6 +569,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public int configPrimary() { return configPrimary.get(); }
     public int configSecondary() { return configSecondary.get(); }
     public int configTertiary() { return configTertiary.get(); }
+    public int configQuaternary() { return configQuaternary.get(); }
     public int declaredPortMask() { return declaredPortMask.get(); }
     public boolean hasPort(Direction side) { return (declaredPortMask.get() & (1 << side.ordinal())) != 0; }
     public boolean isInput(Direction side) { return (inputMask.get() & (1 << side.ordinal())) != 0; }
