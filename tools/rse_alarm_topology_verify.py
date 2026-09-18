@@ -13,7 +13,13 @@ def read(p):
 def need(src, text, label):
     if text not in src: errors.append(f"{label}: missing {text!r}")
 alarm=read(BLOCK/"AlarmProcessorBlock.java"); debug=read(BLOCK/"TopologyDebuggerBlock.java"); report=read(TOPO/"TopologyDiagnosticsReport.java"); gt=read(GT)
-for s in ("SEVERITY", '"ALARM CONDITION"', '"ACKNOWLEDGE"', '"RESET / CLEAR"', "condition <= 0", "PortQuality.FAULT", "RuntimeIntStore.remove(level, KEY, pos)"): need(alarm,s,"AlarmProcessorBlock.java")
+for s in (
+    "SEVERITY", '"ALARM CONDITION"', '"ACKNOWLEDGE"', '"RESET / CLEAR"',
+    "RedstoneObservationSupport.observe", "conditionClearForReset",
+    "CONDITION_REACQUIRE", "ACK_REACQUIRE", "RESET_REACQUIRE",
+    "CONDITION_BAD_ACTIVE", "PortQuality.FAULT",
+    "RuntimeIntStore.remove(level, KEY, pos)"
+): need(alarm,s,"AlarmProcessorBlock.java")
 for s in ("EngineeringTopologyView.inspect", "TopologyDiagnosticsReport", '"TOPOLOGY ALARM OUT"', "report.hasIssue()", "RuntimeIntStore.remove(level, KEY, pos)"): need(debug,s,"TopologyDebuggerBlock.java")
 for s in ("DOMAIN_MISMATCH", "DIRECTION_MISMATCH", "PortQuality.FAULT", "disconnectedIsland", "hasIssue()", "summary()"): need(report,s,"TopologyDiagnosticsReport.java")
 for name in (
