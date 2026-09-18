@@ -33,6 +33,8 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_THRESHOLD_PREVIOUS = 8;
     public static final int BUTTON_THRESHOLD_NEXT = 9;
     public static final int BUTTON_TOGGLE_RETRIGGER = 10;
+    public static final int BUTTON_FILTER_FALL_PREVIOUS = 11;
+    public static final int BUTTON_FILTER_FALL_NEXT = 12;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot input = trackedInt();
@@ -93,8 +95,11 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
         if (block instanceof PrecisionFilterBlock) {
             kind.set(KIND_FILTER);
             parameter.set(state.getValue(PrecisionFilterBlock.RATE));
+            secondaryParameter.set(PrecisionFilterBlock.fallRate(level, blockPos, state));
             runtimeA.set(PrecisionFilterBlock.lag(level, blockPos, state));
             runtimeB.set(PrecisionFilterBlock.settled(level, blockPos, state) ? 1 : 0);
+            runtimeC.set(PrecisionFilterBlock.settleTicks(level, blockPos, state));
+            runtimeD.set(PrecisionFilterBlock.responseDirection(level, blockPos, state));
         } else if (block instanceof EdgeDetectorBlock) {
             kind.set(KIND_EDGE);
             parameter.set(state.getValue(EdgeDetectorBlock.MODE));
@@ -153,6 +158,20 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
                 return true;
             }
             if (id == BUTTON_THRESHOLD_PREVIOUS || id == BUTTON_THRESHOLD_NEXT || id == BUTTON_TOGGLE_RETRIGGER) return false;
+        }
+
+        if (block instanceof PrecisionFilterBlock) {
+            boolean changed = switch (id) {
+                case BUTTON_FILTER_FALL_PREVIOUS -> PrecisionFilterBlock.stepFallRate(level, blockPos, false);
+                case BUTTON_FILTER_FALL_NEXT -> PrecisionFilterBlock.stepFallRate(level, blockPos, true);
+                default -> false;
+            };
+            if (changed) {
+                refreshAuthoritativeSnapshot();
+                broadcastChanges();
+                return true;
+            }
+            if (id == BUTTON_FILTER_FALL_PREVIOUS || id == BUTTON_FILTER_FALL_NEXT) return false;
         }
 
         boolean forward;
