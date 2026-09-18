@@ -686,10 +686,29 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             }
             case UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR -> {
                 boolean armed = menu.configSecondary() != 0;
-                statusBadge(g, armed ? "FAULT INJECTOR • ARMED" : "FAULT INJECTOR • SAFE", armed ? WARN : GOOD, 16, 80);
+                int packed = menu.configQuaternary();
+                PortQuality[] qualities = PortQuality.values();
+                PortQuality signalQuality = qualities[Math.min(qualities.length - 1, packed & 7)];
+                PortQuality armQuality = qualities[Math.min(qualities.length - 1, (packed >> 3) & 7)];
+                boolean signalIssue = signalQuality != PortQuality.VALID && signalQuality != PortQuality.SATURATED;
+                boolean armIssue = armQuality != PortQuality.VALID && armQuality != PortQuality.SATURATED;
+                boolean severe = signalQuality == PortQuality.FAULT
+                        || signalQuality == PortQuality.DOMAIN_MISMATCH
+                        || signalQuality == PortQuality.TOPOLOGY_ERROR
+                        || armQuality == PortQuality.FAULT
+                        || armQuality == PortQuality.DOMAIN_MISMATCH
+                        || armQuality == PortQuality.TOPOLOGY_ERROR;
+                String badge = armQuality == PortQuality.NO_SIGNAL ? "FAULT INJECTOR • ARM NO SOURCE"
+                        : armIssue ? "FAULT INJECTOR • ARM EVIDENCE BAD"
+                        : signalIssue ? "FAULT INJECTOR • SIGNAL " + signalQuality.name()
+                        : armed ? "FAULT INJECTOR • ARMED" : "FAULT INJECTOR • SAFE";
+                statusBadge(g, badge, severe ? BAD : armIssue || signalIssue || armed ? WARN : GOOD, 16, 80);
                 labelValue(g, "Fault mode", FaultInjectorBlock.modeLabelFor(menu.configPrimary()), 101);
-                labelValue(g, "ARM state", armed ? "ARMED / INJECTION ACTIVE" : "SAFE / PASS-THROUGH", 141);
-                safeText(g, "Reset statistics preserves ARM state and last I/O evidence; FAULT ARM remains a physical input.", 16, 188, MUTED);
+                labelValue(g, "ARM state", armed ? "ARMED / INJECTION ACTIVE" : "SAFE / PASS-THROUGH", 123);
+                labelValue(g, "SIGNAL evidence", signalQuality.name(), 145);
+                labelValue(g, "ARM evidence", armQuality.name(), 167);
+                labelValue(g, "Activations", Integer.toString(menu.configTertiary()), 189);
+                safeText(g, "Only trustworthy HIGH ARM evidence authorizes injection. Missing or bad ARM evidence forces safe pass-through while remaining visible in OUT quality.", 16, 214, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_SEQUENCE_CONTROLLER -> {
                 PortQuality[] qualities = PortQuality.values();
