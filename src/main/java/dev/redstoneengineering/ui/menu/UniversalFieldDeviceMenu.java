@@ -78,6 +78,8 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_DIFF_PAIR = 33;
     public static final int CONFIG_DIFF_RECEIVER = 34;
     public static final int CONFIG_DATA_BUS = 35;
+    public static final int CONFIG_INSTRUMENT_BUS = 36;
+    public static final int CONFIG_WATCHDOG = 37;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
@@ -120,7 +122,18 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         configSecondary.set(0);
         configTertiary.set(0);
 
-        if (block instanceof EightBitDataBusBlock) {
+        if (block instanceof InstrumentCableBlock) {
+            configKind.set(CONFIG_INSTRUMENT_BUS);
+            var bus = dev.redstoneengineering.instrument.InstrumentNetwork.scan(level, blockPos);
+            configPrimary.set(bus.validChannels());
+            configSecondary.set(bus.interferenceConfidencePercent());
+            configTertiary.set(bus.shieldingCoveragePercent());
+        } else if (block instanceof WatchdogBlock) {
+            configKind.set(CONFIG_WATCHDOG);
+            configPrimary.set(state.getValue(WatchdogBlock.TIMEOUT));
+            configSecondary.set(WatchdogBlock.ageTicks(level, blockPos));
+            configTertiary.set(WatchdogBlock.timeoutCount(level, blockPos));
+        } else if (block instanceof EightBitDataBusBlock) {
             configKind.set(CONFIG_DATA_BUS);
             var diag = dev.redstoneengineering.physics.DataBusNetwork.getDiagnostics(level, blockPos);
             configPrimary.set(dev.redstoneengineering.physics.DataBusNetwork.sample(level, blockPos));
@@ -400,6 +413,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean adjustPrimary(int delta) {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof WatchdogBlock) return WatchdogBlock.stepTimeout(level, blockPos, delta > 0);
         if (block instanceof DifferentialDriverBlock) return DifferentialDriverBlock.stepThreshold(level, blockPos, delta > 0);
         if (block instanceof SerializerBlock) return SerializerBlock.stepPeriod(level, blockPos, delta > 0);
         if (block instanceof DigitalRegeneratorBlock) return DigitalRegeneratorBlock.stepThreshold(level, blockPos, delta > 0);
@@ -433,6 +447,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean runAction() {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof WatchdogBlock watchdog) return watchdog.resetDiagnostics(level, blockPos);
         if (block instanceof AnalogIndicatorBlock) return AnalogIndicatorBlock.resetExtrema(level, blockPos);
         if (block instanceof FaultLatchBlock latch) return latch.manualReset(level, blockPos);
         if (block instanceof IronCoreBlock) return IronCoreBlock.degauss(level, blockPos);
