@@ -6,6 +6,7 @@ import dev.redstoneengineering.block.MagneticFieldSensorBlock;
 import dev.redstoneengineering.block.FaultInjectorBlock;
 import dev.redstoneengineering.block.PwmControllerBlock;
 import dev.redstoneengineering.block.SampleHoldBlock;
+import dev.redstoneengineering.block.SignalProbeBlock;
 import dev.redstoneengineering.block.TankLevelSensorBlock;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.PortKind;
@@ -75,7 +76,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_LIGHT_SENSOR
                 || kind == UniversalFieldDeviceMenu.CONFIG_TANK_LEVEL
                 || kind == UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY
-                || kind == UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD;
+                || kind == UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD
+                || kind == UniversalFieldDeviceMenu.CONFIG_SIGNAL_PROBE;
         boolean range = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE
                 || kind == UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY
                 || kind == UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD;
@@ -177,6 +179,13 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private void configure(GuiGraphics g) {
         int kind = menu.configKind();
         switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_SIGNAL_PROBE -> {
+                statusBadge(g, "INSTRUMENT PROBE", INFO, 16, 80);
+                labelValue(g, "Bus channel", SignalProbeBlock.channelName(menu.configPrimary()), 101);
+                labelValue(g, "Measured redstone", menu.configSecondary() + " / 15", 123);
+                safeText(g, "Select A/B/C/D to place the measured TEST value onto that Instrument Bus channel.", 16, 160, TEXT);
+                safeText(g, "Route changes the physical TEST/BUS axis; channel selection does not alter the measured redstone source.", 16, 188, MUTED);
+            }
             case UniversalFieldDeviceMenu.CONFIG_IRON_CORE -> {
                 boolean complete = menu.configTertiary() != 0;
                 statusBadge(g, "SOFT IRON CORE", complete ? INFO : WARN, 16, 80);
