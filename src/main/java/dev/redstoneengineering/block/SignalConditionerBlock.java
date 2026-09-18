@@ -2,9 +2,11 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.core.port.EngineeringPort;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.core.signal.SignalMath;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.menu.SignalConditionerMenu;
 import net.minecraft.core.BlockPos;
@@ -55,12 +57,18 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        int input = readBackInput(level, pos, state);
+        var inputObservation = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+        int[] runtime = RuntimeIntStore.get(level, RUNTIME_KEY, pos, RUNTIME_SIZE);
+        if (!inputObservation.valid()) {
+            runtime[LIMITING_ACTIVE] = 0;
+            return;
+        }
+
+        int input = inputObservation.value();
         int output = calculate(input, state.getValue(OUTPUT), state.getValue(MODE), state.getValue(PARAM));
         boolean limiting = limitingActive(level, pos, state);
-        int[] runtime = RuntimeIntStore.get(level, RUNTIME_KEY, pos, RUNTIME_SIZE);
         if (limiting && runtime[LIMITING_ACTIVE] == 0) {
-            runtime[LIMITING_EPISODES]++;
+            if (runtime[LIMITING_EPISODES] < Integer.MAX_VALUE) runtime[LIMITING_EPISODES]++;
             runtime[LAST_LIMIT_TICK] = (int) Math.min(Integer.MAX_VALUE, level.getGameTime());
         }
         runtime[LIMITING_ACTIVE] = limiting ? 1 : 0;
@@ -84,7 +92,9 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
      */
     public static boolean limitingActive(Level level, BlockPos pos, BlockState state) {
         if (!(state.getBlock() instanceof SignalConditionerBlock conditioner)) return false;
-        int input = conditioner.readBackInput(level, pos, state);
+        var inputObservation = RedstoneObservationSupport.observe(level, pos, conditioner.inputSide(state));
+        if (!inputObservation.valid()) return false;
+        int input = inputObservation.value();
         int mode = state.getValue(MODE);
         int param = state.getValue(PARAM);
         return switch (mode) {
@@ -100,11 +110,21 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
 
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
-        Optional<EngineeringPortSnapshot> base = super.engineeringSnapshot(level, pos, state, side);
-        if (base.isEmpty() || side != outputSide(state) || !limitingActive(level, pos, state)) return base;
-        EngineeringPortSnapshot snapshot = base.get();
-        return Optional.of(new EngineeringPortSnapshot(
-                snapshot.port(), snapshot.value(), snapshot.minimum(), snapshot.maximum(), PortQuality.SATURATED));
+        Optional<EngineeringPort> port = engineeringPort(state, side);
+        if (port.isEmpty()) return Optional.empty();
+
+        var input = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+        if (side == inputSide(state)) {
+            return Optional.of(EngineeringPortSnapshot.redstone(port.get(), input.value(), input.quality()));
+        }
+        if (side == outputSide(state)) {
+            PortQuality quality = RedstoneObservationSupport.combineQuality(
+                    input.quality(),
+                    limitingActive(level, pos, state) ? PortQuality.SATURATED : PortQuality.VALID);
+            return Optional.of(EngineeringPortSnapshot.redstone(
+                    port.get(), state.getValue(OUTPUT), quality));
+        }
+        return Optional.empty();
     }
 
     public static int limitingEpisodes(Level level, BlockPos pos) {
@@ -121,7 +141,12 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
 
     public static int inspectInput(Level level, BlockPos pos, BlockState state) {
         if (!(state.getBlock() instanceof SignalConditionerBlock conditioner)) return 0;
-        return conditioner.readBackInput(level, pos, state);
+        return RedstoneObservationSupport.observe(level, pos, conditioner.inputSide(state)).value();
+    }
+
+    public static PortQuality inspectInputQuality(Level level, BlockPos pos, BlockState state) {
+        if (!(state.getBlock() instanceof SignalConditionerBlock conditioner)) return PortQuality.NO_SIGNAL;
+        return RedstoneObservationSupport.observe(level, pos, conditioner.inputSide(state)).quality();
     }
 
     public static Direction inputDirection(BlockState state) {
@@ -193,6 +218,7 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
                                 + " " + parameterText(next.getValue(MODE), next.getValue(PARAM))
                                 + " | " + inputDirection(next).getName().toUpperCase() + " IN=" + input
                                 + " → OUT≈" + output + " " + outputDirection(next).getName().toUpperCase()
+                                + " | inputQuality=" + inspectInputQuality(level, pos, next)
                                 + " | limiting=" + (limitingActive(level, pos, next) ? "YES" : "NO")
                                 + " | normal right-click opens Engineering UI"), true);
             } else {
