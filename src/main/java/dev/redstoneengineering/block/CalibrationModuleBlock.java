@@ -12,6 +12,7 @@ import dev.redstoneengineering.core.signal.SignalMath;
 import dev.redstoneengineering.metrology.MeasurementQuality;
 import dev.redstoneengineering.metrology.MeasurementSnapshot;
 import dev.redstoneengineering.metrology.MetrologySupport;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -53,7 +54,24 @@ public class CalibrationModuleBlock extends DirectionalSignalBlock {
     }
 
     private Direction referenceSide(BlockState state) {
-        return leftOf(outputSide(state));
+        return referenceInputSide(state);
+    }
+
+    private static Direction referenceInputSide(BlockState state) {
+        return leftOf(DirectionalSignalBlock.seriesOutputSide(state));
+    }
+
+    public static RedstoneObservationSupport.Observation observedEvidence(
+            Level level, BlockPos pos, BlockState state
+    ) {
+        return RedstoneObservationSupport.observe(
+                level, pos, DirectionalSignalBlock.seriesInputSide(state));
+    }
+
+    public static RedstoneObservationSupport.Observation referenceEvidence(
+            Level level, BlockPos pos, BlockState state
+    ) {
+        return RedstoneObservationSupport.observe(level, pos, referenceInputSide(state));
     }
 
     @Override
@@ -75,34 +93,72 @@ public class CalibrationModuleBlock extends DirectionalSignalBlock {
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        int observed = readBackInput(level, pos, state);
-        int reference = readInputFrom(level, pos, referenceSide(state));
-        int corrected = calibrate(observed, state.getValue(PROFILE));
-        // The observed/reference residual is retained as traceability evidence; it is not a second control path.
-        MetrologySupport.sample(level, CHANNEL, pos, corrected, reference, false, 1.0, 30L);
-        updateOutput(level, pos, state, corrected);
+        RedstoneObservationSupport.Observation observed = observedEvidence(level, pos, state);
+        RedstoneObservationSupport.Observation reference = referenceEvidence(level, pos, state);
+
+        // OBSERVED is the process path: bad evidence must never be reinterpreted as numerical zero.
+        // REFERENCE remains independent calibration evidence rather than a hidden second control path.
+        if (observed.valid()) {
+            int corrected = calibrate(observed.value(), state.getValue(PROFILE));
+            updateOutput(level, pos, state, corrected);
+            if (reference.valid()) {
+                MetrologySupport.sample(
+                        level, CHANNEL, pos, corrected, reference.value(),
+                        observed.quality() == PortQuality.SATURATED
+                                || reference.quality() == PortQuality.SATURATED,
+                        1.0, 30L);
+            }
+        }
     }
 
     public static MeasurementSnapshot measurement(Level level, BlockPos pos) {
         return MetrologySupport.snapshot(level, CHANNEL, pos, 1.0, 30L);
     }
 
-    @Override
-    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
-            Level level, BlockPos pos, BlockState state, Direction side
-    ) {
-        Optional<EngineeringPortSnapshot> base = super.engineeringSnapshot(level, pos, state, side);
-        if (base.isEmpty() || side != outputSide(state)) return base;
-        EngineeringPortSnapshot snapshot = base.get();
+    private static PortQuality traceabilityQuality(Level level, BlockPos pos) {
         MeasurementQuality quality = measurement(level, pos).quality();
-        PortQuality portQuality = switch (quality) {
+        return switch (quality) {
             case GOOD, DEGRADED -> PortQuality.VALID;
             case SATURATED -> PortQuality.SATURATED;
             case STALE -> PortQuality.STALE;
             case INVALID -> PortQuality.NO_SIGNAL;
         };
-        return Optional.of(new EngineeringPortSnapshot(
-                snapshot.port(), snapshot.value(), snapshot.minimum(), snapshot.maximum(), portQuality));
+    }
+
+    public static PortQuality observedQuality(Level level, BlockPos pos, BlockState state) {
+        return observedEvidence(level, pos, state).quality();
+    }
+
+    public static PortQuality referenceQuality(Level level, BlockPos pos, BlockState state) {
+        return referenceEvidence(level, pos, state).quality();
+    }
+
+    public static PortQuality outputQuality(Level level, BlockPos pos, BlockState state) {
+        return RedstoneObservationSupport.combineQuality(
+                observedQuality(level, pos, state),
+                referenceQuality(level, pos, state),
+                traceabilityQuality(level, pos));
+    }
+
+    @Override
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
+            Level level, BlockPos pos, BlockState state, Direction side
+    ) {
+        Optional<EngineeringPort> port = engineeringPort(state, side);
+        if (port.isEmpty()) return Optional.empty();
+
+        if (side == inputSide(state)) {
+            RedstoneObservationSupport.Observation observed = observedEvidence(level, pos, state);
+            return Optional.of(EngineeringPortSnapshot.redstone(
+                    port.get(), observed.value(), observed.quality()));
+        }
+        if (side == referenceSide(state)) {
+            RedstoneObservationSupport.Observation reference = referenceEvidence(level, pos, state);
+            return Optional.of(EngineeringPortSnapshot.redstone(
+                    port.get(), reference.value(), reference.quality()));
+        }
+        return Optional.of(EngineeringPortSnapshot.redstone(
+                port.get(), state.getValue(OUTPUT), outputQuality(level, pos, state)));
     }
 
     public boolean adjustProfile(Level level, BlockPos pos, int delta) {
@@ -125,16 +181,18 @@ public class CalibrationModuleBlock extends DirectionalSignalBlock {
     ) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
-                int observed = readBackInput(level, pos, state);
-                int reference = readInputFrom(level, pos, referenceSide(state));
+                RedstoneObservationSupport.Observation observed = observedEvidence(level, pos, state);
+                RedstoneObservationSupport.Observation reference = referenceEvidence(level, pos, state);
                 int profile = state.getValue(PROFILE);
-                int corrected = calibrate(observed, profile);
+                int corrected = observed.valid()
+                        ? calibrate(observed.value(), profile)
+                        : state.getValue(OUTPUT);
                 MeasurementSnapshot m = measurement(level, pos);
                 player.displayClientMessage(Component.literal(
                         "Calibration | " + profileName(profile)
-                                + " | OBSERVED=" + observed
-                                + " REF=" + reference
-                                + " → OUT=" + corrected
+                                + " | OBSERVED=" + observed.value() + " " + observed.quality()
+                                + " REF=" + reference.value() + " " + reference.quality()
+                                + " → OUT=" + corrected + " " + outputQuality(level, pos, state)
                                 + " | " + MetrologySupport.compactDiagnostics(m)
                 ), true);
             } else {
