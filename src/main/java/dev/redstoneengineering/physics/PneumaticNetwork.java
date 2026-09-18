@@ -134,6 +134,9 @@ public final class PneumaticNetwork {
         if (state.getBlock() instanceof PressureRegulatorBlock) {
             pressure = Math.min(pressure, PressureRegulatorBlock.actualRegulatedPressure(level, pos));
         }
+        if (state.getBlock() instanceof PneumaticCheckValveBlock) {
+            pressure = PneumaticCheckValveBlock.transmittedPressure(pressure);
+        }
         if (state.getBlock() instanceof PneumaticProportionalValveBlock) {
             int opening = PneumaticProportionalValveBlock.opening(level, pos);
             pressure = (pressure * opening + 7) / 15;
