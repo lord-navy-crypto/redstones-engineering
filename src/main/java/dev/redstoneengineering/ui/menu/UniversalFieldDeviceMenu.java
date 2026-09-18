@@ -64,6 +64,8 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_REFERENCE_SOURCE = 19;
     public static final int CONFIG_REDSTONE_CABLE = 20;
     public static final int CONFIG_CABLE_TERMINAL = 21;
+    public static final int CONFIG_QUARTZ_OSCILLATOR = 22;
+    public static final int CONFIG_FAULT_LATCH = 23;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
@@ -106,7 +108,17 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         configSecondary.set(0);
         configTertiary.set(0);
 
-        if (block instanceof RedstoneCableTerminalBlock) {
+        if (block instanceof QuartzOscillatorBlock) {
+            configKind.set(CONFIG_QUARTZ_OSCILLATOR);
+            configPrimary.set(state.getValue(QuartzOscillatorBlock.PERIOD_INDEX));
+            configSecondary.set(state.getValue(QuartzOscillatorBlock.ACTIVE) ? 1 : 0);
+            configTertiary.set(QuartzOscillatorBlock.periodTicks(state));
+        } else if (block instanceof FaultLatchBlock) {
+            configKind.set(CONFIG_FAULT_LATCH);
+            configPrimary.set(state.getValue(FaultLatchBlock.THRESHOLD));
+            configSecondary.set(FaultLatchBlock.latched(level, blockPos) ? 1 : 0);
+            configTertiary.set(FaultLatchBlock.tripCount(level, blockPos));
+        } else if (block instanceof RedstoneCableTerminalBlock) {
             RedstoneCableNetwork.PathEvidence path = RedstoneCableNetwork.pathEvidence(level, blockPos);
             configKind.set(CONFIG_CABLE_TERMINAL);
             configPrimary.set(state.getValue(RedstoneCableTerminalBlock.POWER));
@@ -302,6 +314,8 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean adjustPrimary(int delta) {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof QuartzOscillatorBlock) return QuartzOscillatorBlock.stepPeriod(level, blockPos, delta > 0);
+        if (block instanceof FaultLatchBlock) return FaultLatchBlock.stepThreshold(level, blockPos, delta > 0);
         if (block instanceof RedstoneReferenceSourceBlock) return RedstoneReferenceSourceBlock.stepPower(level, blockPos, delta > 0);
         if (block instanceof SignalProbeBlock) return SignalProbeBlock.stepChannel(level, blockPos, delta > 0);
         if (block instanceof MagneticFieldSensorBlock) return MagneticFieldSensorBlock.adjustRadius(level, blockPos, delta);
@@ -328,6 +342,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean runAction() {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof FaultLatchBlock latch) return latch.manualReset(level, blockPos);
         if (block instanceof IronCoreBlock) return IronCoreBlock.degauss(level, blockPos);
         if (block instanceof MolecularCloudReceiverBlock receiver) return receiver.resetHistory(level, blockPos);
         if (block instanceof AlarmProcessorBlock alarm) return alarm.acknowledge(level, blockPos);
