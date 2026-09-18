@@ -102,7 +102,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_ANALOG_COMPARATOR;
         boolean range = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE
                 || kind == UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY
-                || kind == UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD;
+                || kind == UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD
+                || kind == UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY;
         boolean hasAction = kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER
                 || kind == UniversalFieldDeviceMenu.CONFIG_ALARM
                 || kind == UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD
@@ -132,6 +133,9 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         } else if (kind == UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD) {
             secondaryPrevious.setMessage(Component.literal("◀ Sample"));
             secondaryNext.setMessage(Component.literal("Sample ▶"));
+        } else if (kind == UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY) {
+            secondaryPrevious.setMessage(Component.literal("◀ Pickup"));
+            secondaryNext.setMessage(Component.literal("Pickup ▶"));
         } else {
             secondaryPrevious.setMessage(Component.literal("◀ Range"));
             secondaryNext.setMessage(Component.literal("Range ▶"));
@@ -302,11 +306,18 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 boolean closed = nc ? !coil : coil;
                 statusBadge(g, "SINGLE RELAY • " + (closed ? "CONTACT CLOSED" : "CONTACT OPEN"),
                         closed ? GOOD : INFO, 16, 80);
+                int pickup = switch (Math.max(0, Math.min(3, menu.configQuaternary()))) {
+                    case 0 -> 1;
+                    case 1 -> 4;
+                    case 2 -> 8;
+                    default -> 12;
+                };
+                int dropout = Math.max(0, pickup - 2);
                 labelValue(g, "Contact mode", nc ? "NC • normally closed" : "NO • normally open", 101);
                 labelValue(g, "Coil control", coil ? "ENERGIZED" : "OFF", 123);
-                labelValue(g, "Switch operations", Integer.toString(menu.configTertiary()), 145);
-                safeText(g, "The coil control is electrically separate from the switched 0..15 redstone signal path.", 16, 178, TEXT);
-                safeText(g, "Use NO/NC selection for fail-safe logic, interlocks and control circuits without converting the carried signal to binary.", 16, 200, MUTED);
+                labelValue(g, "Pickup / dropout", pickup + " / " + dropout, 145);
+                labelValue(g, "Switch operations", Integer.toString(menu.configTertiary()), 167);
+                safeText(g, "The relay uses separate pickup and dropout thresholds so a noisy control level does not chatter the contact.", 16, 194, TEXT);
             }
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_TRACE -> {
                 int sources = menu.configSecondary();
