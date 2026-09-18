@@ -26,7 +26,7 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
 
     @Override protected void syncDeviceWidgetLabels() {
         if(prev==null)return;
-        boolean setpoint=isCompressor()||isProportional()||menu.kind()==PneumaticSystemMenu.KIND_REGULATOR||menu.kind()==PneumaticSystemMenu.KIND_RELIEF;
+        boolean setpoint=isCompressor()||isProportional()||menu.kind()==PneumaticSystemMenu.KIND_REGULATOR||menu.kind()==PneumaticSystemMenu.KIND_RELIEF||menu.kind()==PneumaticSystemMenu.KIND_RECEIVER;
         boolean valve=menu.kind()==PneumaticSystemMenu.KIND_VALVE;
         boolean regulator=menu.kind()==PneumaticSystemMenu.KIND_REGULATOR;
         prev.visible=next.visible=isConfigureSection()&&setpoint;
@@ -38,6 +38,10 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
                 next.setMessage(Component.literal(v+" ▶"));
             }else if(isProportional()){
                 String v=PneumaticProportionalValveLogic.modeName(menu.stateFlag());
+                prev.setMessage(Component.literal("◀ "+v));
+                next.setMessage(Component.literal(v+" ▶"));
+            }else if(menu.kind()==PneumaticSystemMenu.KIND_RECEIVER){
+                String v=menu.tertiary()+"/100 FS";
                 prev.setMessage(Component.literal("◀ "+v));
                 next.setMessage(Component.literal(v+" ▶"));
             }else{
@@ -78,6 +82,14 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
             labelValue(g,"Ramp down",AirCompressorLogic.rampDownRate(menu.stateFlag())+" pressure/tick",154);
             labelValue(g,"Target / actual",menu.secondary()+" / "+menu.tertiary(),176);
             safeText(g,"The DOWN redstone command sets a target; the pneumatic source follows it at the configured finite rate.",16,202,MUTED);
+            return;
+        }
+        if(menu.kind()==PneumaticSystemMenu.KIND_RECEIVER){
+            statusBadge(g,"RECEIVER CALIBRATION",INFO,16,80);
+            labelValue(g,"Full-scale pressure",menu.tertiary()+" / 100",104);
+            labelValue(g,"Measured pressure",menu.primary()+" / 100",132);
+            labelValue(g,"Normalized output",menu.secondary()+" / 15",154);
+            safeText(g,"The receiver maps configured full-scale pneumatic pressure to redstone 15; values above full scale saturate.",16,190,MUTED);
             return;
         }
         if(menu.kind()==PneumaticSystemMenu.KIND_REGULATOR){
@@ -128,6 +140,14 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
             labelValue(g,"Position / target / error",menu.secondary()+" / "+menu.tertiary()+" / "+menu.cylinderError(),170);
             labelValue(g,"Response / remaining",menu.cylinderResponsePeriod()+"t per step / ≈"+menu.cylinderRemainingTicks()+"t",192);
             safeText(g,cylinderNext(),16,216,cylinderColor());return;
+        }
+        if(menu.kind()==PneumaticSystemMenu.KIND_RECEIVER){
+            statusBadge(g,"RECEIVER CALIBRATION",INFO,16,80);
+            labelValue(g,"Pressure / full scale",menu.primary()+" / "+menu.tertiary(),104);
+            labelValue(g,"Normalized output",menu.secondary()+" / 15",128);
+            labelValue(g,"Input quality",menu.inputQuality().name(),152);
+            safeText(g,"Changing range changes conversion gain; 25 pressure equals full-scale only in 25-FS mode.",16,186,MUTED);
+            return;
         }
         if(menu.kind()==PneumaticSystemMenu.KIND_REGULATOR){
             statusBadge(g,regulatorState(),regulatorColor(),16,80);
