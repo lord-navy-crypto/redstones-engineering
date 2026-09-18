@@ -5,6 +5,7 @@ import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.core.signal.SignalMath;
+import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.menu.SignalConditionerMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -26,6 +27,11 @@ import java.util.Optional;
 
 /** Real-time series redstone signal conditioner with independently configurable RX/TX faces. */
 public class SignalConditionerBlock extends DirectionalSignalBlock {
+    private static final String RUNTIME_KEY = "signal_conditioner";
+    private static final int LIMITING_ACTIVE = 0;
+    private static final int LIMITING_EPISODES = 1;
+    private static final int LAST_LIMIT_TICK = 2;
+    private static final int RUNTIME_SIZE = 3;
     public static final IntegerProperty MODE = IntegerProperty.create("mode", 0, 4);
     public static final IntegerProperty PARAM = IntegerProperty.create("param", 0, 15);
 
@@ -49,6 +55,13 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         int input = readBackInput(level, pos, state);
         int output = calculate(input, state.getValue(OUTPUT), state.getValue(MODE), state.getValue(PARAM));
+        boolean limiting = limitingActive(level, pos, state);
+        int[] runtime = RuntimeIntStore.get(level, RUNTIME_KEY, pos, RUNTIME_SIZE);
+        if (limiting && runtime[LIMITING_ACTIVE] == 0) {
+            runtime[LIMITING_EPISODES]++;
+            runtime[LAST_LIMIT_TICK] = (int) Math.min(Integer.MAX_VALUE, level.getGameTime());
+        }
+        runtime[LIMITING_ACTIVE] = limiting ? 1 : 0;
         updateOutput(level, pos, state, output);
     }
 
@@ -90,6 +103,18 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
         EngineeringPortSnapshot snapshot = base.get();
         return Optional.of(new EngineeringPortSnapshot(
                 snapshot.port(), snapshot.value(), snapshot.minimum(), snapshot.maximum(), PortQuality.SATURATED));
+    }
+
+    public static int limitingEpisodes(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, RUNTIME_KEY, pos);
+        return runtime == null || runtime.length < RUNTIME_SIZE ? 0 : Math.max(0, runtime[LIMITING_EPISODES]);
+    }
+
+    public static int lastLimitingAgeTicks(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, RUNTIME_KEY, pos);
+        if (runtime == null || runtime.length < RUNTIME_SIZE || runtime[LIMITING_EPISODES] <= 0) return -1;
+        long age = Math.max(0L, level.getGameTime() - Integer.toUnsignedLong(runtime[LAST_LIMIT_TICK]));
+        return (int) Math.min(Integer.MAX_VALUE, age);
     }
 
     public static int inspectInput(Level level, BlockPos pos, BlockState state) {
@@ -148,6 +173,12 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
     }
 
     @Override
+    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
+        if (!state.is(newState.getBlock())) RuntimeIntStore.remove(level, RUNTIME_KEY, pos);
+        super.onRemove(state, level, pos, newState, moved);
+    }
+
+    @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
@@ -200,7 +231,7 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
 
     private static String modeName(int mode) {
         return switch (mode) {
-            case 0 -> "GAIN";
+            case 0 -> "SCALE";
             case 1 -> "OFFSET";
             case 2 -> "CLAMP";
             case 3 -> "THRESHOLD";
@@ -211,7 +242,7 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
 
     private static String parameterText(int mode, int param) {
         return switch (mode) {
-            case 0 -> "x" + Math.max(1, Math.min(4, param));
+            case 0 -> "scale=x" + Math.max(1, Math.min(4, param));
             case 1 -> "offset=" + (Math.min(10, param) - 5);
             case 2 -> "max=" + Math.max(1, param);
             case 3 -> "threshold=" + Math.max(1, param);
