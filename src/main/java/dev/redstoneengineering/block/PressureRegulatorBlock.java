@@ -76,7 +76,7 @@ public class PressureRegulatorBlock extends DirectionalDomainBlock implements En
     }
 
     public static int inletPressure(Level level, BlockPos pos, BlockState state) {
-        return PneumaticObservationSupport.observe(level, pos.relative(inputSide(state))).pressure();
+        return PneumaticObservationSupport.observe(level, pos.relative(DirectionalDomainBlock.seriesInputSide(state))).pressure();
     }
 
     public static int trackingError(Level level, BlockPos pos, BlockState state) {
