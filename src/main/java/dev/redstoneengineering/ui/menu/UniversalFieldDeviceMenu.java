@@ -311,6 +311,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configKind.set(CONFIG_SAMPLE_HOLD);
             configPrimary.set(state.getValue(SampleHoldBlock.TRIGGER_MODE));
             configSecondary.set(SampleHoldBlock.captureCount(level, blockPos));
+            configTertiary.set(SampleHoldBlock.heldValue(level, blockPos));
         } else if (block instanceof CalibrationModuleBlock) {
             configKind.set(CONFIG_CALIBRATION);
             configPrimary.set(state.getValue(CalibrationModuleBlock.PROFILE));
