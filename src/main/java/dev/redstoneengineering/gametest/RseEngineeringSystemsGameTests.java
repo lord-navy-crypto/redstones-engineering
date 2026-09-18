@@ -18,6 +18,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /** Executable acceptance tests for the systems-level automation primitives. */
