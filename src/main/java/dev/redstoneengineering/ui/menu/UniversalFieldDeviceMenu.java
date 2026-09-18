@@ -70,6 +70,10 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_JUNCTION = 25;
     public static final int CONFIG_BYTE_ENCODER = 26;
     public static final int CONFIG_BYTE_DECODER = 27;
+    public static final int CONFIG_SERIALIZER = 28;
+    public static final int CONFIG_DESERIALIZER = 29;
+    public static final int CONFIG_SERIAL_LINE = 30;
+    public static final int CONFIG_REGENERATOR = 31;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
@@ -112,7 +116,32 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         configSecondary.set(0);
         configTertiary.set(0);
 
-        if (block instanceof RedstoneByteEncoderBlock) {
+        if (block instanceof SerializerBlock) {
+            configKind.set(CONFIG_SERIALIZER);
+            configPrimary.set(state.getValue(SerializerBlock.PERIOD_MODE));
+            var output = dev.redstoneengineering.physics.InformationRuntime.snapshot(level, "serial", blockPos);
+            configSecondary.set(output.value() & 0xFF);
+            configTertiary.set(SerializerBlock.wordPeriod(state));
+        } else if (block instanceof DeserializerBlock) {
+            configKind.set(CONFIG_DESERIALIZER);
+            BlockPos input = blockPos.relative(DirectionalDomainBlock.seriesInputSide(state));
+            var serial = dev.redstoneengineering.physics.InformationRuntime.snapshot(level, "serial", input);
+            configPrimary.set(serial.value() & 0xFF);
+            configSecondary.set(serial.selector());
+            configTertiary.set(serial.qualityPercent());
+        } else if (block instanceof SerialDataLineBlock) {
+            configKind.set(CONFIG_SERIAL_LINE);
+            var serial = dev.redstoneengineering.physics.InformationRuntime.snapshot(level, "serial", blockPos);
+            var diag = dev.redstoneengineering.physics.SerialNetwork.getDiagnostics(level, blockPos);
+            configPrimary.set(serial.value() & 0xFF);
+            configSecondary.set(diag.qualityPercent());
+            configTertiary.set(diag.utilizationPercent());
+        } else if (block instanceof DigitalRegeneratorBlock) {
+            configKind.set(CONFIG_REGENERATOR);
+            configPrimary.set(state.getValue(DigitalRegeneratorBlock.THRESHOLD));
+            configSecondary.set(DigitalRegeneratorBlock.acceptedCount(level, blockPos));
+            configTertiary.set(DigitalRegeneratorBlock.rejectedCount(level, blockPos));
+        } else if (block instanceof RedstoneByteEncoderBlock) {
             configKind.set(CONFIG_BYTE_ENCODER);
             configPrimary.set(state.getValue(RedstoneByteEncoderBlock.MODE));
             var input = dev.redstoneengineering.physics.RedstoneObservationSupport.observe(
@@ -341,6 +370,8 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean adjustPrimary(int delta) {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof SerializerBlock) return SerializerBlock.stepPeriod(level, blockPos, delta > 0);
+        if (block instanceof DigitalRegeneratorBlock) return DigitalRegeneratorBlock.stepThreshold(level, blockPos, delta > 0);
         if (block instanceof RedstoneByteEncoderBlock) return RedstoneByteEncoderBlock.stepMode(level, blockPos, delta > 0);
         if (block instanceof ByteToRedstoneDecoderBlock) return ByteToRedstoneDecoderBlock.stepMode(level, blockPos, delta > 0);
         if (block instanceof QuartzOscillatorBlock) return QuartzOscillatorBlock.stepPeriod(level, blockPos, delta > 0);
