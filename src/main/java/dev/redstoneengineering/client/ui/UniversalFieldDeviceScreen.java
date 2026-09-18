@@ -110,7 +110,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_ANALOG_INDICATOR
                 || kind == UniversalFieldDeviceMenu.CONFIG_WATCHDOG;
         boolean hasToggle = kind == UniversalFieldDeviceMenu.CONFIG_PWM
-                || kind == UniversalFieldDeviceMenu.CONFIG_CABLE_TERMINAL;
+                || kind == UniversalFieldDeviceMenu.CONFIG_CABLE_TERMINAL
+                || kind == UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY;
 
         if (primaryPrevious != null) primaryPrevious.visible = configure && primary;
         if (primaryNext != null) primaryNext.visible = configure && primary;
@@ -143,7 +144,11 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         }
         if (toggle != null) {
             toggle.visible = configure && hasToggle;
-            if (kind == UniversalFieldDeviceMenu.CONFIG_CABLE_TERMINAL) {
+            if (kind == UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY) {
+                toggle.setMessage(Component.literal(menu.configPrimary() != 0
+                        ? "Contact • NC"
+                        : "Contact • NO"));
+            } else if (kind == UniversalFieldDeviceMenu.CONFIG_CABLE_TERMINAL) {
                 toggle.setMessage(Component.literal(menu.configSecondary() != 0
                         ? "Mode • Cable → Vanilla"
                         : "Mode • Vanilla → Cable"));
@@ -209,6 +214,18 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private void configure(GuiGraphics g) {
         int kind = menu.configKind();
         switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY -> {
+                boolean nc = menu.configPrimary() != 0;
+                boolean coil = menu.configSecondary() != 0;
+                boolean closed = nc ? !coil : coil;
+                statusBadge(g, "SINGLE RELAY • " + (closed ? "CONTACT CLOSED" : "CONTACT OPEN"),
+                        closed ? GOOD : INFO, 16, 80);
+                labelValue(g, "Contact mode", nc ? "NC • normally closed" : "NO • normally open", 101);
+                labelValue(g, "Coil control", coil ? "ENERGIZED" : "OFF", 123);
+                labelValue(g, "Switch operations", Integer.toString(menu.configTertiary()), 145);
+                safeText(g, "The coil control is electrically separate from the switched 0..15 redstone signal path.", 16, 178, TEXT);
+                safeText(g, "Use NO/NC selection for fail-safe logic, interlocks and control circuits without converting the carried signal to binary.", 16, 200, MUTED);
+            }
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_TRACE -> {
                 int sources = menu.configSecondary();
                 statusBadge(g, sources > 1 ? "QUARTZ TRACE • CLOCK CONFLICT"
