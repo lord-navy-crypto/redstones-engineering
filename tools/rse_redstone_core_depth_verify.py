@@ -95,6 +95,19 @@ req("src/main/java/dev/redstoneengineering/block/WatchdogBlock.java",
 req("src/main/java/dev/redstoneengineering/block/SafetyInterlockBlock.java",
     "transitionCount","blockedTicks","INITIALIZED","runtime[INITIALIZED] == 0")
 
+req("src/main/java/dev/redstoneengineering/block/FaultInjectorBlock.java",
+    "RedstoneObservationSupport.observe","evidence.arm().valid()",
+    "signalQuality","armQuality","combineQuality",
+    "PortQuality.FAULT")
+
+req("src/main/java/dev/redstoneengineering/gametest/RseEngineeringSystemsGameTests.java",
+    "faultInjectorRejectsFaultQualityArmAuthority",
+    "FAULT-quality HIGH ARM incorrectly authorized fault injection")
+
+req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
+    "FAULT INJECTOR • ARM NO SOURCE","FAULT INJECTOR • ARM EVIDENCE BAD",
+    "SIGNAL evidence","ARM evidence")
+
 req("src/main/java/dev/redstoneengineering/block/SequenceControllerBlock.java",
     "RUN_REACQUIRE","runQuality","runtime[RUN_REACQUIRE] = 1",
     "Reacquire the physical RUN level")
