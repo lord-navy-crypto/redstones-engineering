@@ -82,7 +82,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_SIGNAL_PROBE
                 || kind == UniversalFieldDeviceMenu.CONFIG_REFERENCE_SOURCE
                 || kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR
-                || kind == UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH;
+                || kind == UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH
+                || kind == UniversalFieldDeviceMenu.CONFIG_ANALOG_INDICATOR;
         boolean range = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE
                 || kind == UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY
                 || kind == UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD
@@ -126,6 +127,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             else if (kind == UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER) action.setMessage(Component.literal("Reset scan counters"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_IRON_CORE) action.setMessage(Component.literal("Degauss core"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH) action.setMessage(Component.literal("Manual reset latch"));
+            else if (kind == UniversalFieldDeviceMenu.CONFIG_ANALOG_INDICATOR) action.setMessage(Component.literal("Reset retained min/max"));
         }
         if (toggle != null) {
             toggle.visible = configure && hasToggle;
@@ -195,6 +197,16 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private void configure(GuiGraphics g) {
         int kind = menu.configKind();
         switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_ANALOG_INDICATOR -> {
+                int min = menu.configSecondary();
+                int max = menu.configTertiary();
+                statusBadge(g, "ANALOG REDSTONE INDICATOR", INFO, 16, 80);
+                labelValue(g, "Current level", menu.configPrimary() + " / 15", 101);
+                labelValue(g, "Retained minimum", min < 0 ? "—" : min + " / 15", 123);
+                labelValue(g, "Retained maximum", max < 0 ? "—" : max + " / 15", 145);
+                safeText(g, "The indicator stays read-only but retains observed extrema so short excursions are not lost between inspections.", 16, 178, TEXT);
+                safeText(g, "Reset min/max starts a new observation window without changing the redstone process.", 16, 200, MUTED);
+            }
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> {
                 statusBadge(g, "QUARTZ TIMING SOURCE", menu.configSecondary() != 0 ? GOOD : INFO, 16, 80);
                 labelValue(g, "Period", menu.configTertiary() + " ticks", 101);
