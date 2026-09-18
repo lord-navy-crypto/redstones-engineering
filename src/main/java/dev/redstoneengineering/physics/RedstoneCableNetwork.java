@@ -34,6 +34,10 @@ import java.util.Set;
 public final class RedstoneCableNetwork {
     private static final int MAX_NODES = NetworkKernel.MAX_NODES;
     private static final String EVIDENCE_KEY = "redstone_cable_source_evidence";
+    private static final String PATH_EVIDENCE_KEY = "redstone_cable_path_evidence";
+    private static final int PATH_SOURCE_LEVEL = 0;
+    private static final int PATH_ATTENUATION_LOSS = 1;
+    private static final int PATH_EVIDENCE_SIZE = 2;
 
     private RedstoneCableNetwork() {}
 
@@ -46,6 +50,12 @@ public final class RedstoneCableNetwork {
 
     private record ComponentScan(Set<BlockPos> nodes, boolean truncated) {}
 
+    public record PathEvidence(int winningSourceLevel, int attenuationLoss, boolean initialized) {
+        public int remainingMargin(int receivedPower) {
+            return Math.max(0, 15 - Math.max(0, Math.min(15, receivedPower)));
+        }
+    }
+
     /** Observer-only source evidence; never creates network state. */
     public static SourceEvidence sourceEvidence(Level level, BlockPos pos) {
         int[] runtime = RuntimeIntStore.peek(level, EVIDENCE_KEY, pos);
@@ -54,8 +64,19 @@ public final class RedstoneCableNetwork {
                 : new SourceEvidence(Math.max(0, runtime[0]), true);
     }
 
+    public static PathEvidence pathEvidence(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, PATH_EVIDENCE_KEY, pos);
+        return runtime == null || runtime.length < PATH_EVIDENCE_SIZE
+                ? new PathEvidence(0, 0, false)
+                : new PathEvidence(
+                        Math.max(0, Math.min(15, runtime[PATH_SOURCE_LEVEL])),
+                        Math.max(0, runtime[PATH_ATTENUATION_LOSS]),
+                        true);
+    }
+
     public static void removeEvidence(Level level, BlockPos pos) {
         RuntimeIntStore.remove(level, EVIDENCE_KEY, pos);
+        RuntimeIntStore.remove(level, PATH_EVIDENCE_KEY, pos);
     }
 
     public static void recompute(ServerLevel level, BlockPos start) {
@@ -113,6 +134,7 @@ public final class RedstoneCableNetwork {
 
     private static void recomputeComponent(ServerLevel level, Set<BlockPos> nodes) {
         Map<BlockPos, Integer> best = new HashMap<>();
+        Map<BlockPos, Integer> winningSource = new HashMap<>();
         PriorityQueue<Node> queue = new PriorityQueue<>(Comparator.comparingInt((Node node) -> -node.power));
         int sourceCount = 0;
 
@@ -124,7 +146,8 @@ public final class RedstoneCableNetwork {
                 sourceCount++;
                 int power = terminal.externalInput(level, pos, state);
                 best.put(pos, power);
-                queue.add(new Node(pos, power));
+                winningSource.put(pos, power);
+                queue.add(new Node(pos, power, power));
             }
         }
 
@@ -142,7 +165,8 @@ public final class RedstoneCableNetwork {
                 int nextPower = Math.max(0, current.power - loss);
                 if (nextPower > best.getOrDefault(nextPos, -1)) {
                     best.put(nextPos, nextPower);
-                    queue.add(new Node(nextPos, nextPower));
+                    winningSource.put(nextPos, current.sourcePower);
+                    queue.add(new Node(nextPos, nextPower, current.sourcePower));
                 }
             }
         }
@@ -151,6 +175,10 @@ public final class RedstoneCableNetwork {
             RuntimeIntStore.get(level, EVIDENCE_KEY, pos, 1)[0] = sourceCount;
             BlockState state = level.getBlockState(pos);
             int power = Math.max(0, Math.min(15, best.getOrDefault(pos, 0)));
+            int sourceLevel = Math.max(0, Math.min(15, winningSource.getOrDefault(pos, 0)));
+            int[] path = RuntimeIntStore.get(level, PATH_EVIDENCE_KEY, pos, PATH_EVIDENCE_SIZE);
+            path[PATH_SOURCE_LEVEL] = sourceLevel;
+            path[PATH_ATTENUATION_LOSS] = Math.max(0, sourceLevel - power);
             if (state.getBlock() instanceof RedstoneSignalCableBlock) {
                 RedstoneSignalCableBlock.setPower(level, pos, power);
             } else if (state.getBlock() instanceof RedstoneCableJunctionBlock) {
@@ -224,5 +252,5 @@ public final class RedstoneCableNetwork {
                 && state.getValue(RedstoneCableJunctionBlock.MEDIUM) == TransmissionTopology.SignalMedium.REDSTONE;
     }
 
-    private record Node(BlockPos pos, int power) {}
+    private record Node(BlockPos pos, int power, int sourcePower) {}
 }
