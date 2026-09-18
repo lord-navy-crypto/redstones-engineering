@@ -233,6 +233,7 @@ public final class RedstoneEngineering {
     public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<ServoPositionSensorBlock>> SERVO_POSITION_SENSOR_CODEC = codec("servo_position_sensor", ServoPositionSensorBlock::new);
     public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<RedundantVoterBlock>> REDUNDANT_VOTER_CODEC = codec("redundant_voter", RedundantVoterBlock::new);
     public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<FaultLatchBlock>> FAULT_LATCH_CODEC = codec("fault_latch", FaultLatchBlock::new);
+    public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<SingleRelayBlock>> SINGLE_RELAY_CODEC = codec("single_relay", SingleRelayBlock::new);
     public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<OperationsMonitorBlock>> OPERATIONS_MONITOR_CODEC = codec("operations_monitor", OperationsMonitorBlock::new);
 
     public static final DeferredBlock<SignalAnalyzerBlock> SIGNAL_ANALYZER =
@@ -498,6 +499,7 @@ public final class RedstoneEngineering {
     public static final DeferredBlock<ServoPositionSensorBlock> SERVO_POSITION_SENSOR = BLOCKS.registerBlock("servo_position_sensor", ServoPositionSensorBlock::new, smallInstrumentProps(MapColor.COLOR_CYAN));
     public static final DeferredBlock<RedundantVoterBlock> REDUNDANT_VOTER = BLOCKS.registerBlock("redundant_voter", RedundantVoterBlock::new, machineProps(MapColor.COLOR_LIGHT_GREEN));
     public static final DeferredBlock<FaultLatchBlock> FAULT_LATCH = BLOCKS.registerBlock("fault_latch", FaultLatchBlock::new, machineProps(MapColor.COLOR_RED));
+    public static final DeferredBlock<SingleRelayBlock> SINGLE_RELAY = BLOCKS.registerBlock("single_relay", SingleRelayBlock::new, machineProps(MapColor.METAL));
     public static final DeferredBlock<OperationsMonitorBlock> OPERATIONS_MONITOR = BLOCKS.registerBlock("operations_monitor", OperationsMonitorBlock::new, machineProps(MapColor.COLOR_BLUE));
 
     public static final DeferredItem<BlockItem> SIGNAL_ANALYZER_ITEM =
@@ -702,6 +704,7 @@ public final class RedstoneEngineering {
     public static final DeferredItem<BlockItem> SERVO_POSITION_SENSOR_ITEM = ITEMS.registerSimpleBlockItem("servo_position_sensor", SERVO_POSITION_SENSOR);
     public static final DeferredItem<BlockItem> REDUNDANT_VOTER_ITEM = ITEMS.registerSimpleBlockItem("redundant_voter", REDUNDANT_VOTER);
     public static final DeferredItem<BlockItem> FAULT_LATCH_ITEM = ITEMS.registerSimpleBlockItem("fault_latch", FAULT_LATCH);
+    public static final DeferredItem<BlockItem> SINGLE_RELAY_ITEM = ITEMS.registerSimpleBlockItem("single_relay", SINGLE_RELAY);
     public static final DeferredItem<BlockItem> OPERATIONS_MONITOR_ITEM = ITEMS.registerSimpleBlockItem("operations_monitor", OPERATIONS_MONITOR);
 
     public static final Supplier<CreativeModeTab> RSE_TAB =
@@ -857,6 +860,7 @@ public final class RedstoneEngineering {
                                         output.accept(SERVO_POSITION_SENSOR_ITEM.get());
                                         output.accept(REDUNDANT_VOTER_ITEM.get());
                                         output.accept(FAULT_LATCH_ITEM.get());
+                                        output.accept(SINGLE_RELAY_ITEM.get());
                                         output.accept(OPERATIONS_MONITOR_ITEM.get());
                                     }
                             )
