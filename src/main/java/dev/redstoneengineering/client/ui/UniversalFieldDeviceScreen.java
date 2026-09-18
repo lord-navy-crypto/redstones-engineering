@@ -15,6 +15,7 @@ import dev.redstoneengineering.block.ByteToRedstoneDecoderBlock;
 import dev.redstoneengineering.block.DigitalRegeneratorBlock;
 import dev.redstoneengineering.block.DifferentialDriverBlock;
 import dev.redstoneengineering.block.WatchdogBlock;
+import dev.redstoneengineering.block.RedundantVoterBlock;
 import dev.redstoneengineering.block.TankLevelSensorBlock;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.PortKind;
@@ -94,7 +95,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_SERIALIZER
                 || kind == UniversalFieldDeviceMenu.CONFIG_REGENERATOR
                 || kind == UniversalFieldDeviceMenu.CONFIG_DIFF_DRIVER
-                || kind == UniversalFieldDeviceMenu.CONFIG_WATCHDOG;
+                || kind == UniversalFieldDeviceMenu.CONFIG_WATCHDOG
+                || kind == UniversalFieldDeviceMenu.CONFIG_REDUNDANT_VOTER;
         boolean range = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE
                 || kind == UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY
                 || kind == UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD;
@@ -108,7 +110,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_IRON_CORE
                 || kind == UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH
                 || kind == UniversalFieldDeviceMenu.CONFIG_ANALOG_INDICATOR
-                || kind == UniversalFieldDeviceMenu.CONFIG_WATCHDOG;
+                || kind == UniversalFieldDeviceMenu.CONFIG_WATCHDOG
+                || kind == UniversalFieldDeviceMenu.CONFIG_REDUNDANT_VOTER;
         boolean hasToggle = kind == UniversalFieldDeviceMenu.CONFIG_PWM
                 || kind == UniversalFieldDeviceMenu.CONFIG_CABLE_TERMINAL
                 || kind == UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY;
@@ -141,6 +144,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             else if (kind == UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH) action.setMessage(Component.literal("Manual reset latch"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_ANALOG_INDICATOR) action.setMessage(Component.literal("Reset retained min/max"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_WATCHDOG) action.setMessage(Component.literal("Reset watchdog diagnostics"));
+            else if (kind == UniversalFieldDeviceMenu.CONFIG_REDUNDANT_VOTER) action.setMessage(Component.literal("Reset voter diagnostics"));
         }
         if (toggle != null) {
             toggle.visible = configure && hasToggle;
@@ -214,6 +218,19 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private void configure(GuiGraphics g) {
         int kind = menu.configKind();
         switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_REDUNDANT_VOTER -> {
+                int tolerance = RedundantVoterBlock.toleranceValue(menu.configPrimary());
+                int validInputs = menu.configSecondary();
+                int spread = menu.configTertiary();
+                boolean degraded = validInputs < 3 || spread > tolerance;
+                statusBadge(g, degraded ? "2oo3 VOTER • DEGRADED" : "2oo3 VOTER • HEALTHY",
+                        degraded ? WARN : GOOD, 16, 80);
+                labelValue(g, "Tolerance", tolerance + " levels", 101);
+                labelValue(g, "Valid inputs", validInputs + " / 3", 123);
+                labelValue(g, "Current spread", Integer.toString(spread), 145);
+                safeText(g, "The voter uses the median of three redstone measurements and marks the result degraded when redundancy or agreement is lost.", 16, 178, TEXT);
+                safeText(g, "Tolerance controls acceptable disagreement; it does not fabricate a missing channel.", 16, 200, MUTED);
+            }
             case UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY -> {
                 boolean nc = menu.configPrimary() != 0;
                 boolean coil = menu.configSecondary() != 0;
