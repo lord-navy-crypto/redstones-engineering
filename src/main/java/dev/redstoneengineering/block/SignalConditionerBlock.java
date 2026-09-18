@@ -37,7 +37,9 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
 
     public SignalConditionerBlock(Properties properties) {
         super(properties);
-        registerDefaultState(defaultBlockState().setValue(MODE, 0).setValue(PARAM, 2));
+        // New placements default to neutral OFFSET rather than duplicating the dedicated amplifier.
+        // Existing worlds retain their stored MODE/PARAM values, including legacy SCALE mode.
+        registerDefaultState(defaultBlockState().setValue(MODE, 1).setValue(PARAM, 5));
     }
 
     @Override
@@ -231,7 +233,7 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
 
     private static String modeName(int mode) {
         return switch (mode) {
-            case 0 -> "SCALE";
+            case 0 -> "LEGACY SCALE";
             case 1 -> "OFFSET";
             case 2 -> "CLAMP";
             case 3 -> "THRESHOLD";
