@@ -123,7 +123,7 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
 
     private static String modeName(int mode) {
         return switch (mode) {
-            case 0 -> "SCALE";
+            case 0 -> "LEGACY SCALE";
             case 1 -> "OFFSET";
             case 2 -> "CLAMP";
             case 3 -> "THRESHOLD";
@@ -134,7 +134,7 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
 
     private static String parameterName(int mode) {
         return switch (mode) {
-            case 0 -> "Scale factor";
+            case 0 -> "Legacy scale";
             case 1 -> "Offset";
             case 2 -> "Clamp ceiling";
             case 3 -> "Trip level";
@@ -166,7 +166,7 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
 
     private static String behaviorLine(int mode) {
         return switch (mode) {
-            case 0 -> "SCALE: multiply the engineering signal before enforcing the redstone 0..15 boundary.";
+            case 0 -> "LEGACY SCALE: retained for world compatibility; use Signal Amplifier when gain itself is the engineering task.";
             case 1 -> "OFFSET: add signed correction, then enforce the vanilla 0..15 boundary.";
             case 2 -> "CLAMP: pass input until the configured ceiling is reached.";
             case 3 -> "THRESHOLD: pass values at/above trip; otherwise emit a valid zero.";
