@@ -116,7 +116,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_SIGNAL_AMPLIFIER;
         boolean hasToggle = kind == UniversalFieldDeviceMenu.CONFIG_PWM
                 || kind == UniversalFieldDeviceMenu.CONFIG_CABLE_TERMINAL
-                || kind == UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY;
+                || kind == UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY
+                || kind == UniversalFieldDeviceMenu.CONFIG_SIGNAL_SELECTOR;
 
         if (primaryPrevious != null) primaryPrevious.visible = configure && primary;
         if (primaryNext != null) primaryNext.visible = configure && primary;
@@ -151,7 +152,11 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         }
         if (toggle != null) {
             toggle.visible = configure && hasToggle;
-            if (kind == UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY) {
+            if (kind == UniversalFieldDeviceMenu.CONFIG_SIGNAL_SELECTOR) {
+                toggle.setMessage(Component.literal(menu.configPrimary() != 0
+                        ? "Select logic • INVERTED"
+                        : "Select logic • NORMAL"));
+            } else if (kind == UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY) {
                 toggle.setMessage(Component.literal(menu.configPrimary() != 0
                         ? "Contact • NC"
                         : "Contact • NO"));
@@ -221,6 +226,16 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private void configure(GuiGraphics g) {
         int kind = menu.configKind();
         switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_SIGNAL_SELECTOR -> {
+                boolean invert = menu.configPrimary() != 0;
+                boolean selectedB = menu.configSecondary() != 0;
+                statusBadge(g, "2:1 SIGNAL SELECTOR • " + (selectedB ? "B SELECTED" : "A SELECTED"), INFO, 16, 80);
+                labelValue(g, "Select logic", invert ? "INVERTED" : "NORMAL", 101);
+                labelValue(g, "Active input", selectedB ? "B" : "A", 123);
+                labelValue(g, "Selection changes", Integer.toString(menu.configTertiary()), 145);
+                safeText(g, "Two independent 0..15 redstone inputs share one output; SELECT chooses which analog payload is forwarded.", 16, 178, TEXT);
+                safeText(g, "Invert-select changes only control polarity, not the carried signal value.", 16, 200, MUTED);
+            }
             case UniversalFieldDeviceMenu.CONFIG_SIGNAL_TAP -> {
                 statusBadge(g, "BUFFERED SIGNAL TAP", INFO, 16, 80);
                 labelValue(g, "Copied level", menu.configPrimary() + " / 15", 101);
