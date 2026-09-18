@@ -133,6 +133,19 @@ public class WatchdogBlock extends PassiveDirectionalSignalBlock implements Oper
     }
 
     public static int timeoutTicks(int index) { return TIMEOUT_TICKS[Math.max(0, Math.min(TIMEOUT_TICKS.length - 1, index))]; }
+
+    public static boolean stepTimeout(Level level, BlockPos pos, boolean forward) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof WatchdogBlock watchdog)) return false;
+        int next = Math.floorMod(state.getValue(TIMEOUT) + (forward ? 1 : -1), TIMEOUT_TICKS.length);
+        level.setBlock(pos, state.setValue(TIMEOUT, next), Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, watchdog, 1);
+        return true;
+    }
+
+    public static boolean timedOut(Level level, BlockPos pos, BlockState state) {
+        return ageTicks(level, pos) >= timeoutTicks(state.getValue(TIMEOUT));
+    }
     public static int ageTicks(Level level, BlockPos pos) { int[] rt = RuntimeIntStore.peek(level, KEY, pos); return rt == null || rt.length <= AGE ? 0 : rt[AGE]; }
     public static int transitionCount(Level level, BlockPos pos) { int[] rt = RuntimeIntStore.peek(level, KEY, pos); return rt == null || rt.length <= TRANSITIONS ? 0 : rt[TRANSITIONS]; }
     public static int timeoutCount(Level level, BlockPos pos) { int[] rt = RuntimeIntStore.peek(level, KEY, pos); return rt == null || rt.length <= TIMEOUTS ? 0 : rt[TIMEOUTS]; }
