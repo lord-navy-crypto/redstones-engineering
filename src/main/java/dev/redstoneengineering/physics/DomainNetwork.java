@@ -187,7 +187,7 @@ public final class DomainNetwork {
             boolean tieConflict = false;
             for (BlockPos src : sources) {
                 var ss = level.getBlockState(src);
-                int amp = ss.getValue(AmethystResonatorBlock.AMPLITUDE);
+                int amp = AmethystResonatorBlock.currentAmplitude(level, src);
                 Integer dist = resonanceDistance.get(src).get(p);
                 if(dist==null) continue;
                 int arriving = Math.max(0, amp - dist / 4);
@@ -215,7 +215,10 @@ public final class DomainNetwork {
     public static AmethystSample sampleAmethyst(Level level, BlockPos pos) {
         var s = level.getBlockState(pos);
         if (s.getBlock() instanceof AmethystResonanceDustBlock) return new AmethystSample(AmethystResonanceDustBlock.active(level,pos), AmethystResonanceDustBlock.frequency(level,pos), AmethystResonanceDustBlock.amplitude(level,pos));
-        if (s.getBlock() instanceof AmethystResonatorBlock) return new AmethystSample(AmethystResonatorBlock.isActive(level, pos), s.getValue(AmethystResonatorBlock.FREQUENCY), s.getValue(AmethystResonatorBlock.AMPLITUDE));
+        if (s.getBlock() instanceof AmethystResonatorBlock) return new AmethystSample(
+                AmethystResonatorBlock.isActive(level, pos),
+                s.getValue(AmethystResonatorBlock.FREQUENCY),
+                AmethystResonatorBlock.currentAmplitude(level, pos));
         return new AmethystSample(false, 0, 0);
     }
 
