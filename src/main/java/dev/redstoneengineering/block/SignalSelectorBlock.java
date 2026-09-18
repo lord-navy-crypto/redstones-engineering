@@ -104,6 +104,15 @@ public final class SignalSelectorBlock extends DirectionalSignalBlock {
         return runtime == null || runtime.length < RUNTIME_SIZE ? 0 : Math.max(0, runtime[CONTROL_BAD_EPISODES]);
     }
 
+    public static PortQuality selectQuality(Level level, BlockPos pos, BlockState state) {
+        return RedstoneObservationSupport.observe(level, pos, selectSide(state)).quality();
+    }
+
+    public static PortQuality selectedPayloadQuality(Level level, BlockPos pos, BlockState state) {
+        Direction selectedSide = selectedB(level, pos, state) ? inputBSide(state) : seriesInputSide(state);
+        return RedstoneObservationSupport.observe(level, pos, selectedSide).quality();
+    }
+
     public static boolean toggleInvertSelect(Level level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof SignalSelectorBlock selector)) return false;
@@ -144,9 +153,8 @@ public final class SignalSelectorBlock extends DirectionalSignalBlock {
             Direction selectedSide = selectedB(level, pos, state) ? inputBSide(state) : inputSide(state);
             var selected = RedstoneObservationSupport.observe(level, pos, selectedSide);
             var select = RedstoneObservationSupport.observe(level, pos, selectSide(state));
-            PortQuality outputQuality = controlEvidenceUnusable(select.quality())
-                    ? RedstoneObservationSupport.combineQuality(selected.quality(), select.quality())
-                    : selected.quality();
+            PortQuality outputQuality = RedstoneObservationSupport.combineQuality(
+                    selected.quality(), select.quality());
             return Optional.of(EngineeringPortSnapshot.redstone(
                     port.get(), state.getValue(OUTPUT), outputQuality));
         }
