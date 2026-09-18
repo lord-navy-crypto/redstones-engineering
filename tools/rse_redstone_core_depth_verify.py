@@ -126,6 +126,18 @@ req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java
 req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
     "SINGLE RELAY","2oo3 VOTER")
 
+req("src/main/java/dev/redstoneengineering/block/SignalAmplifierBlock.java",
+    "GAIN_MODE","clippingEpisodes","resetClipEvidence","PortQuality.SATURATED")
+
+req("src/main/java/dev/redstoneengineering/RedstoneEngineering.java",
+    "SIGNAL_AMPLIFIER_CODEC","SIGNAL_AMPLIFIER =","SIGNAL_AMPLIFIER_ITEM")
+
+req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
+    "CONFIG_SIGNAL_AMPLIFIER","SignalAmplifierBlock.stepGain","resetClipEvidence")
+
+req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
+    "SIGNAL AMPLIFIER","Reset clipping evidence")
+
 if failed:
     print("RSE redstone-core engineering-depth verification: FAIL")
     for x in failed: print(" -",x)
@@ -143,3 +155,4 @@ print(" serial/differential communication depth: PASS")
 print(" parallel/serial/differential media roles: PASS")
 print(" instrument/timing/control supervision depth: PASS")
 print(" relay/voter safety-control hardware: PASS")
+print(" dedicated amplifier gain/clipping stage: PASS")
