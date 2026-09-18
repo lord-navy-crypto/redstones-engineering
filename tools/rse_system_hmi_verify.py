@@ -36,11 +36,17 @@ screen = read("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDev
 require(sequence, "SequenceControllerBlock.java",
         "boolean operatorReset(Level level, BlockPos pos)",
         "operatorReset(level, pos);",
-        '"SEQUENCE_OPERATOR_RESET"')
+        '"SEQUENCE_OPERATOR_RESET"',
+        "RUN_REACQUIRE",
+        "runtime[RUN_REACQUIRE] = 1",
+        "runQuality")
 require(interlock, "SafetyInterlockBlock.java",
         "boolean resetDiagnostics(Level level, BlockPos pos)",
         "RuntimeIntStore.remove(level, KEY, pos);",
         "resetDiagnostics(level, pos);",
+        "INITIALIZED",
+        "runtime[INITIALIZED] == 0",
+        "First evaluation establishes the physical state",
         "return runtime == null || runtime.length < RUNTIME_SIZE ? -1 : runtime[0];")
 require(topology, "TopologyDebuggerBlock.java",
         "boolean resetDiagnostics(Level level, BlockPos pos)",
@@ -62,6 +68,7 @@ require(menu, "UniversalFieldDeviceMenu.java",
         "CONFIG_TOPOLOGY_DEBUGGER = 11",
         "SequenceControllerBlock.step(level, blockPos)",
         "SequenceControllerBlock.completedCycles(level, blockPos)",
+        "SequenceControllerBlock.runQuality(level, blockPos, state)",
         "SafetyInterlockBlock.failedMask(level, blockPos)",
         "TopologyDebuggerBlock.scanCount(level, blockPos)",
         "TopologyDebuggerBlock.targetsVanillaRedstone(level, blockPos, state)",
@@ -78,7 +85,7 @@ require(menu, "UniversalFieldDeviceMenu.java",
         "return ROUTE_MULTI_PORT_LAYOUT")
 
 require(screen, "UniversalFieldDeviceScreen.java",
-        'Component.literal("Reset sequence to IDLE")',
+        'Component.literal("Reset to IDLE • require fresh RUN edge")',
         'Component.literal("Reset diagnostic counters")',
         'Component.literal("Reset scan counters")',
         'Component.literal("Reset fault statistics")',
@@ -102,7 +109,9 @@ require(screen, "UniversalFieldDeviceScreen.java",
         '"Retained chronology belongs in analyzers, monitors, or the Diagnostic Tablet."',
         '"Missing permissives"',
         '"Target mode"',
-        '"Completed cycles"')
+        '"Completed cycles"',
+        '"RUN evidence"',
+        '"SEQUENCE • RUN NO SOURCE"')
 forbid(screen, "UniversalFieldDeviceScreen.history",
        '"Universal HMI intentionally stores no client-local history."',
        '"This prevents opening a UI from creating measurement evidence or changing simulation state."')
