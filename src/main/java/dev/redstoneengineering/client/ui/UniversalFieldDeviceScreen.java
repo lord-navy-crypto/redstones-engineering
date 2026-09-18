@@ -221,6 +221,14 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private void configure(GuiGraphics g) {
         int kind = menu.configKind();
         switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAPIS_SAMPLER -> {
+                statusBadge(g, "QUARTZ-SYNCHRONIZED SAMPLE & HOLD", INFO, 16, 80);
+                labelValue(g, "Held value", String.format(java.util.Locale.ROOT, "%.2f", menu.configPrimary() / 100.0), 101);
+                labelValue(g, "Accepted captures", Integer.toString(menu.configSecondary()), 123);
+                labelValue(g, "Rejected captures", Integer.toString(menu.configTertiary()), 145);
+                safeText(g, "A Quartz rising edge captures the current Lapis precision sample. Invalid input evidence is rejected instead of overwriting the last good held value.", 16, 178, TEXT);
+                safeText(g, "Rejected captures invalidate the output evidence until a later valid edge reacquires the sample.", 16, 200, MUTED);
+            }
             case UniversalFieldDeviceMenu.CONFIG_SIGNAL_AMPLIFIER -> {
                 int gain = switch (Math.max(0, Math.min(3, menu.configPrimary()))) {
                     case 0 -> 1;
