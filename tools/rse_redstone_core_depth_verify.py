@@ -52,6 +52,18 @@ req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java
 req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
     "QUARTZ TIMING SOURCE","FAULT LATCH","ANALOG REDSTONE INDICATOR","JUNCTION • ROUTING ONLY")
 
+req("src/main/java/dev/redstoneengineering/block/RedstoneByteEncoderBlock.java",
+    "FULL_SCALE","encode","stepMode","value * 17")
+
+req("src/main/java/dev/redstoneengineering/block/ByteToRedstoneDecoderBlock.java",
+    "FULL_SCALE","decode","stepMode","value / 17.0")
+
+req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
+    "CONFIG_BYTE_ENCODER","CONFIG_BYTE_DECODER","RedstoneByteEncoderBlock.stepMode","ByteToRedstoneDecoderBlock.stepMode")
+
+req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
+    "REDSTONE → BYTE ENCODER","BYTE → REDSTONE DECODER","FULL_SCALE uses the complete byte range")
+
 if failed:
     print("RSE redstone-core engineering-depth verification: FAIL")
     for x in failed: print(" -",x)
@@ -64,3 +76,4 @@ print(" insulated cable signal-integrity evidence: PASS")
 print(" terminal direction authority in HMI: PASS")
 print(" conditioner scale identity + limiting history: PASS")
 print(" timing/safety/junction core HMI: PASS")
+print(" redstone-byte mapping modes: PASS")
