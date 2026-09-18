@@ -164,7 +164,7 @@ public final class PneumaticNetwork {
         for (BlockPos pos : nodes) {
             var block = level.getBlockState(pos).getBlock();
             if (block instanceof AirCompressorBlock) {
-                if (AirCompressorBlock.commandedPressure(level, pos) > 0) sources++;
+                if (AirCompressorBlock.actualPressure(level, pos) > 0) sources++;
             } else if (block instanceof AirReservoirBlock) {
                 if (InformationRuntime.value(level, "air_reservoir", pos) > 0) sources++;
             }
@@ -183,8 +183,8 @@ public final class PneumaticNetwork {
         for (BlockPos pos : nodes) {
             var block = level.getBlockState(pos).getBlock();
             if (block instanceof AirCompressorBlock) {
-                int command = AirCompressorBlock.commandedPressure(level, pos);
-                if (command > 0) queue.add(new Node(pos, command, command, null));
+                int supply = AirCompressorBlock.actualPressure(level, pos);
+                if (supply > 0) queue.add(new Node(pos, supply, supply, null));
             } else if (block instanceof AirReservoirBlock) {
                 int stored = InformationRuntime.value(level, "air_reservoir", pos);
                 if (stored > 0) queue.add(new Node(pos, stored, stored, null));
