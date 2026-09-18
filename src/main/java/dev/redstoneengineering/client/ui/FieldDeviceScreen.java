@@ -663,7 +663,7 @@ public final class FieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> 
             case FieldDeviceMenu.KIND_FAULT_LATCH -> {
                 statusLine(graphics, oppositeDirectionName(menu.facingOrdinal()), "BACK • FAULT INPUT", GOOD, 105);
                 statusLine(graphics, directionName(menu.facingOrdinal()), "FRONT • LATCHED FAULT OUTPUT", INFO, 125);
-                graphics.drawString(font, "RIGHT is an explicit RESET input with priority over FAULT.", 16, 151, MUTED, false);
+                graphics.drawString(font, "RIGHT RESET is accepted on a rising edge only after FAULT is proven clear.", 16, 151, MUTED, false);
             }
             case FieldDeviceMenu.KIND_OPERATIONS_MONITOR -> {
                 statusLine(graphics, "DOWN", "MACHINE RUNNING • MEASUREMENT INPUT", GOOD, 105);
