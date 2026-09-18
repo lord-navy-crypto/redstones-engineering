@@ -422,13 +422,22 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             }
             case UniversalFieldDeviceMenu.CONFIG_DATA_BUS -> {
                 int drivers = menu.configTertiary();
-                statusBadge(g, drivers > 1 ? "8-BIT BUS • MULTI-DRIVER" : "8-BIT DATA BUS",
-                        drivers > 1 ? WARN : INFO, 16, 80);
+                PortQuality evidence = syncedQuality(menu.configQuaternary());
+                String badge = evidence == PortQuality.NO_SIGNAL ? "8-BIT BUS • NO DRIVER"
+                        : evidence == PortQuality.STALE ? "8-BIT BUS • STALE"
+                        : evidence == PortQuality.TOPOLOGY_ERROR ? "8-BIT BUS • TOPOLOGY ERROR"
+                        : evidenceIssue(evidence) ? "8-BIT BUS • EVIDENCE " + evidence.name()
+                        : drivers > 1 ? "8-BIT BUS • MULTI-DRIVER" : "8-BIT DATA BUS";
+                statusBadge(g, badge,
+                        evidenceSevere(evidence) ? BAD
+                                : evidenceIssue(evidence) || drivers > 1 ? WARN : INFO,
+                        16, 80);
                 labelValue(g, "Resolved byte", menu.configPrimary() + " / 255", 101);
                 labelValue(g, "Bus quality", menu.configSecondary() + "%", 123);
-                labelValue(g, "Active drivers", Integer.toString(drivers), 145);
-                safeText(g, "The parallel bus favors immediate shared 8-bit access, but loading and multiple drivers consume signal margin.", 16, 178, TEXT);
-                safeText(g, "Different driven values become a hard topology conflict; same-value multi-driving remains usable but penalized.", 16, 200, MUTED);
+                labelValue(g, "Evidence state", evidence.name(), 145);
+                labelValue(g, "Active drivers", Integer.toString(drivers), 167);
+                safeText(g, "Quality percent describes usable bus margin; Evidence state distinguishes no driver, stale coverage, and topology conflict.", 16, 194, TEXT);
+                safeText(g, "Different driven values become TOPOLOGY_ERROR; same-value multi-driving can remain valid while consuming margin.", 16, 216, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_DIFF_DRIVER -> {
                 int threshold = DifferentialDriverBlock.thresholdValue(menu.configPrimary());
@@ -453,39 +462,75 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             }
             case UniversalFieldDeviceMenu.CONFIG_DIFF_PAIR -> {
                 int drivers = menu.configTertiary();
-                statusBadge(g, drivers > 1 ? "DIFFERENTIAL LINK • DRIVER CONFLICT" : "DIFFERENTIAL LINK",
-                        drivers > 1 ? WARN : INFO, 16, 80);
+                PortQuality evidence = syncedQuality(menu.configQuaternary());
+                String badge = evidence == PortQuality.NO_SIGNAL ? "DIFFERENTIAL LINK • NO SOURCE"
+                        : evidence == PortQuality.STALE ? "DIFFERENTIAL LINK • STALE"
+                        : evidence == PortQuality.TOPOLOGY_ERROR ? "DIFFERENTIAL LINK • TOPOLOGY ERROR"
+                        : evidenceIssue(evidence) ? "DIFFERENTIAL LINK • EVIDENCE " + evidence.name()
+                        : "DIFFERENTIAL LINK";
+                statusBadge(g, badge,
+                        evidenceSevere(evidence) ? BAD : evidenceIssue(evidence) ? WARN : INFO, 16, 80);
                 labelValue(g, "Bit", Integer.toString(menu.configPrimary()), 101);
                 labelValue(g, "Link quality", menu.configSecondary() + "%", 123);
-                labelValue(g, "Driver count", Integer.toString(drivers), 145);
-                safeText(g, "Differential data trades payload density for stronger one-bit link integrity; multiple drivers fail closed.", 16, 178, TEXT);
+                labelValue(g, "Evidence state", evidence.name(), 145);
+                labelValue(g, "Driver count", Integer.toString(drivers), 167);
+                safeText(g, "Differential data trades payload density for stronger one-bit integrity; PortQuality identifies missing, stale, or conflicted authority.", 16, 194, TEXT);
             }
             case UniversalFieldDeviceMenu.CONFIG_DIFF_RECEIVER -> {
-                statusBadge(g, "DIFFERENTIAL RECEIVER", INFO, 16, 80);
+                PortQuality evidence = syncedQuality(menu.configQuaternary());
+                String badge = evidence == PortQuality.NO_SIGNAL ? "DIFFERENTIAL RECEIVER • NO SOURCE"
+                        : evidence == PortQuality.STALE ? "DIFFERENTIAL RECEIVER • STALE"
+                        : evidenceIssue(evidence) ? "DIFFERENTIAL RECEIVER • INPUT " + evidence.name()
+                        : "DIFFERENTIAL RECEIVER";
+                statusBadge(g, badge,
+                        evidenceSevere(evidence) ? BAD : evidenceIssue(evidence) ? WARN : INFO, 16, 80);
                 labelValue(g, "Received bit", Integer.toString(menu.configPrimary()), 101);
-                labelValue(g, "Input quality", menu.configSecondary() + "%", 123);
-                labelValue(g, "Redstone output", menu.configTertiary() + " / 15", 145);
-                safeText(g, "Only a valid differential bit drives the isolated redstone output; invalid or conflicted links fail to zero.", 16, 178, MUTED);
+                labelValue(g, "Link quality", menu.configSecondary() + "%", 123);
+                labelValue(g, "Input evidence", evidence.name(), 145);
+                labelValue(g, "Redstone output", menu.configTertiary() + " / 15", 167);
+                safeText(g, "Only a valid differential bit drives redstone; the discrete evidence state remains visible when fail-closed output is zero.", 16, 194, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_SERIALIZER -> {
-                statusBadge(g, "SERIALIZER", INFO, 16, 80);
+                PortQuality evidence = syncedQuality(menu.configQuaternary());
+                String badge = evidence == PortQuality.NO_SIGNAL ? "SERIALIZER • BYTE SOURCE MISSING"
+                        : evidence == PortQuality.STALE ? "SERIALIZER • INPUT STALE"
+                        : evidenceIssue(evidence) ? "SERIALIZER • INPUT " + evidence.name()
+                        : "SERIALIZER";
+                statusBadge(g, badge,
+                        evidenceSevere(evidence) ? BAD : evidenceIssue(evidence) ? WARN : INFO, 16, 80);
                 labelValue(g, "Word period", menu.configTertiary() + " ticks", 101);
                 labelValue(g, "Current byte", menu.configSecondary() + " / 255", 123);
-                safeText(g, "Configure selects 4/8/16 ticks per word. Shorter periods increase throughput; the serial network reports utilization and quality separately.", 16, 164, TEXT);
+                labelValue(g, "Input evidence", evidence.name(), 145);
+                safeText(g, "Configure selects 4/8/16 ticks per word. The serializer reports upstream bus authority separately from the retained/current byte.", 16, 178, TEXT);
             }
             case UniversalFieldDeviceMenu.CONFIG_DESERIALIZER -> {
-                statusBadge(g, "DESERIALIZER", INFO, 16, 80);
+                PortQuality evidence = syncedQuality(menu.configQuaternary());
+                String badge = evidence == PortQuality.NO_SIGNAL ? "DESERIALIZER • SERIAL NO SOURCE"
+                        : evidence == PortQuality.STALE ? "DESERIALIZER • INPUT STALE"
+                        : evidenceIssue(evidence) ? "DESERIALIZER • INPUT " + evidence.name()
+                        : "DESERIALIZER";
+                statusBadge(g, badge,
+                        evidenceSevere(evidence) ? BAD : evidenceIssue(evidence) ? WARN : INFO, 16, 80);
                 labelValue(g, "Recovered byte", menu.configPrimary() + " / 255", 101);
                 labelValue(g, "Serial period", Math.max(1, menu.configSecondary()) + " ticks", 123);
-                labelValue(g, "Input quality", menu.configTertiary() + "%", 145);
-                safeText(g, "Deserializer is read-only conversion authority: it recovers the latest valid framed byte and drives a local 8-bit bus.", 16, 178, MUTED);
+                labelValue(g, "Frame quality", menu.configTertiary() + "%", 145);
+                labelValue(g, "Input evidence", evidence.name(), 167);
+                safeText(g, "Deserializer conversion remains fail-closed when serial authority is missing, stale, or topologically invalid.", 16, 194, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_SERIAL_LINE -> {
-                statusBadge(g, "SERIAL LINK", INFO, 16, 80);
+                PortQuality evidence = syncedQuality(menu.configQuaternary());
+                String badge = evidence == PortQuality.NO_SIGNAL ? "SERIAL LINK • NO SOURCE"
+                        : evidence == PortQuality.STALE ? "SERIAL LINK • STALE"
+                        : evidence == PortQuality.TOPOLOGY_ERROR ? "SERIAL LINK • TOPOLOGY ERROR"
+                        : evidenceIssue(evidence) ? "SERIAL LINK • EVIDENCE " + evidence.name()
+                        : "SERIAL LINK";
+                statusBadge(g, badge,
+                        evidenceSevere(evidence) ? BAD : evidenceIssue(evidence) ? WARN : INFO, 16, 80);
                 labelValue(g, "Current byte", menu.configPrimary() + " / 255", 101);
                 labelValue(g, "Link quality", menu.configSecondary() + "%", 123);
-                labelValue(g, "Utilization", menu.configTertiary() + "%", 145);
-                safeText(g, "Serial cable carries framed byte traffic; quality and utilization are network evidence, not extra analog physics.", 16, 178, TEXT);
+                labelValue(g, "Evidence state", evidence.name(), 145);
+                labelValue(g, "Utilization", menu.configTertiary() + "%", 167);
+                safeText(g, "Serial quality percent describes link margin; PortQuality separately identifies source absence, stale coverage, and topology failure.", 16, 194, TEXT);
             }
             case UniversalFieldDeviceMenu.CONFIG_REGENERATOR -> {
                 int minQuality = DigitalRegeneratorBlock.minimumQuality(menu.configPrimary());
@@ -808,6 +853,21 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             labelValue(g, "Precision medium", "LAPIS • 0..100 • 0.01 display", 158);
             safeText(g, "History remains external even when the current precision sample is VALID.", 16, 180, MUTED);
         }
+    }
+
+    private static PortQuality syncedQuality(int ordinal) {
+        PortQuality[] qualities = PortQuality.values();
+        return qualities[Math.max(0, Math.min(qualities.length - 1, ordinal))];
+    }
+
+    private static boolean evidenceIssue(PortQuality quality) {
+        return quality != PortQuality.VALID && quality != PortQuality.SATURATED;
+    }
+
+    private static boolean evidenceSevere(PortQuality quality) {
+        return quality == PortQuality.FAULT
+                || quality == PortQuality.DOMAIN_MISMATCH
+                || quality == PortQuality.TOPOLOGY_ERROR;
     }
 
     private int attentionCount() {
