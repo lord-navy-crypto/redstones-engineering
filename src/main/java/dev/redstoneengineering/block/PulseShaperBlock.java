@@ -130,6 +130,7 @@ public class PulseShaperBlock extends DirectionalSignalBlock implements EntityBl
         // Lazy migration for worlds containing Pulse Shapers placed before this block gained a BlockEntity.
         PulseShaperBlockEntity created = new PulseShaperBlockEntity(pos, state);
         level.setBlockEntity(created);
+        created.setChanged();
         return created;
     }
 
