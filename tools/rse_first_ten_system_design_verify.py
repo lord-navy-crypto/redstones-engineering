@@ -53,8 +53,9 @@ require(
 require(
     "src/main/java/dev/redstoneengineering/block/SignalProbeBlock.java",
     "measurementPresent",
-    "PortQuality.VALID : PortQuality.NO_SIGNAL",
-    "open aperture",
+    "measurementObservation",
+    "RedstoneObservationSupport.observe",
+    "observation.quality()",
     "INSTRUMENT BUS CH",
 )
 
