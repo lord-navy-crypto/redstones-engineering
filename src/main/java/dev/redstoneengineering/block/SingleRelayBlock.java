@@ -152,7 +152,7 @@ public final class SingleRelayBlock extends DirectionalSignalBlock {
         int value;
         if (side == outputSide(state)) value = state.getValue(OUTPUT);
         else if (side == inputSide(state)) value = readInputFrom(level, pos, inputSide(state));
-        else value = coilEnergized(level, pos, state) ? 15 : 0;
+        else value = coilInput(level, pos, state);
         return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value, PortQuality.VALID));
     }
 
