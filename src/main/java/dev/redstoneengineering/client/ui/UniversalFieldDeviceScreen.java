@@ -470,7 +470,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 int color = alarmState == 0 ? GOOD : alarmState == 2 ? BAD : WARN;
                 statusBadge(g, label, color, 16, 80);
                 labelValue(g, "Severity", Integer.toString(menu.configPrimary()), 101);
-                labelValue(g, "Operator state", alarmStateName(alarmState), 141);
+                labelValue(g, "Operator state", alarmStateName(alarmState), 129);
+                labelValue(g, "Activations", Integer.toString(menu.configTertiary()), 151);
                 safeText(g, "ACK changes operator-attention state; process RESET / CLEAR remains a physical input.", 16, 188, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD -> {
@@ -500,7 +501,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.CONFIG_SEQUENCE_CONTROLLER -> {
                 statusBadge(g, "SEQUENCE CONTROLLER", menu.configPrimary() == 0 ? MUTED : GOOD, 16, 80);
                 labelValue(g, "Current state", sequenceStepName(menu.configPrimary()), 101);
-                labelValue(g, "Completed cycles", Integer.toString(menu.configSecondary()), 141);
+                labelValue(g, "Completed cycles", Integer.toString(menu.configSecondary()), 129);
+                labelValue(g, "Transitions", Integer.toString(menu.configTertiary()), 151);
                 safeText(g, "Operator reset returns runtime state to IDLE; wired RESET remains independent.", 16, 188, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK -> {
