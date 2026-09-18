@@ -127,6 +127,16 @@ public class SafetyInterlockBlock extends PassiveDirectionalSignalBlock implemen
         return runtime == null || runtime.length < RUNTIME_SIZE ? -1 : runtime[0];
     }
 
+    public static int transitionCount(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length < RUNTIME_SIZE ? 0 : Math.max(0, runtime[3]);
+    }
+
+    public static int blockedTicks(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length < RUNTIME_SIZE ? 0 : Math.max(0, runtime[1]);
+    }
+
     public static String compactDiagnostics(Level level, BlockPos pos) {
         int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
         if (runtime == null || runtime.length < RUNTIME_SIZE) return "INTERLOCK not evaluated";
