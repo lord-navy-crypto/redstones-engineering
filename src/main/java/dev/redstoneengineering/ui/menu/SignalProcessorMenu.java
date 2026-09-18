@@ -105,7 +105,7 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
         } else if (block instanceof PulseShaperBlock) {
             kind.set(KIND_PULSE);
             parameter.set(state.getValue(PulseShaperBlock.WIDTH));
-            secondaryParameter.set(state.getValue(PulseShaperBlock.THRESHOLD));
+            secondaryParameter.set(PulseShaperBlock.threshold(level, blockPos));
             modeFlag.set(state.getValue(PulseShaperBlock.RETRIGGERABLE) ? 1 : 0);
             runtimeA.set(PulseShaperBlock.pulseRemaining(level, blockPos));
             runtimeB.set(PulseShaperBlock.triggerCount(level, blockPos));
