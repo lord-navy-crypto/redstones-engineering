@@ -794,12 +794,28 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.CONFIG_CALIBRATION -> {
                 int residual = menu.configSecondary();
                 int samples = menu.configTertiary();
-                statusBadge(g, "CALIBRATION PROFILE", samples <= 0 ? INFO : Math.abs(residual) <= 1 ? GOOD : WARN, 16, 80);
+                int packed = menu.configQuaternary();
+                PortQuality observedQuality = syncedQuality(packed & 7);
+                PortQuality referenceQuality = syncedQuality((packed >> 3) & 7);
+                PortQuality outputQuality = syncedQuality((packed >> 6) & 7);
+                String badge = observedQuality == PortQuality.NO_SIGNAL ? "CALIBRATION • OBSERVED NO SOURCE"
+                        : referenceQuality == PortQuality.NO_SIGNAL ? "CALIBRATION • REFERENCE NO SOURCE"
+                        : evidenceSevere(observedQuality) ? "CALIBRATION • OBSERVED " + observedQuality.name()
+                        : evidenceSevere(referenceQuality) ? "CALIBRATION • REFERENCE " + referenceQuality.name()
+                        : evidenceIssue(outputQuality) ? "CALIBRATION • OUTPUT " + outputQuality.name()
+                        : "CALIBRATION PROFILE";
+                statusBadge(g, badge,
+                        evidenceSevere(outputQuality) ? BAD
+                                : evidenceIssue(outputQuality) ? WARN
+                                : samples <= 0 ? INFO
+                                : Math.abs(residual) <= 1 ? GOOD : WARN,
+                        16, 80);
                 labelValue(g, "Transfer", CalibrationModuleBlock.profileName(menu.configPrimary()), 101);
-                labelValue(g, "Reference residual", samples <= 0 ? "NO DATA" : signed(residual) + " levels", 123);
-                labelValue(g, "Traceable samples", Integer.toString(samples), 145);
-                safeText(g, "The selected transfer profile corrects OBSERVED; REFERENCE is retained as independent calibration evidence rather than a hidden second control input.", 16, 178, TEXT);
-                safeText(g, "A persistent residual indicates that the chosen range/profile does not match the reference condition.", 16, 200, MUTED);
+                labelValue(g, "OBSERVED evidence", observedQuality.name(), 123);
+                labelValue(g, "REFERENCE evidence", referenceQuality.name(), 145);
+                labelValue(g, "Output evidence", outputQuality.name(), 167);
+                labelValue(g, "Residual / samples", samples <= 0 ? "NO TRACEABLE DATA" : signed(residual) + " levels • n=" + samples, 189);
+                safeText(g, "OBSERVED drives the numeric transfer. REFERENCE only authorizes new traceable calibration evidence; bad reference evidence never becomes a hidden control input.", 16, 214, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_PWM -> {
                 statusBadge(g, "PWM CONTROL", INFO, 16, 80);
