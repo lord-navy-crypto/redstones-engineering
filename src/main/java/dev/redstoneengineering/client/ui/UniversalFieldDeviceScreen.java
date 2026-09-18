@@ -14,6 +14,7 @@ import dev.redstoneengineering.block.RedstoneByteEncoderBlock;
 import dev.redstoneengineering.block.ByteToRedstoneDecoderBlock;
 import dev.redstoneengineering.block.DigitalRegeneratorBlock;
 import dev.redstoneengineering.block.DifferentialDriverBlock;
+import dev.redstoneengineering.block.WatchdogBlock;
 import dev.redstoneengineering.block.TankLevelSensorBlock;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.PortKind;
@@ -92,7 +93,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_BYTE_DECODER
                 || kind == UniversalFieldDeviceMenu.CONFIG_SERIALIZER
                 || kind == UniversalFieldDeviceMenu.CONFIG_REGENERATOR
-                || kind == UniversalFieldDeviceMenu.CONFIG_DIFF_DRIVER;
+                || kind == UniversalFieldDeviceMenu.CONFIG_DIFF_DRIVER
+                || kind == UniversalFieldDeviceMenu.CONFIG_WATCHDOG;
         boolean range = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE
                 || kind == UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY
                 || kind == UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD;
@@ -105,7 +107,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER
                 || kind == UniversalFieldDeviceMenu.CONFIG_IRON_CORE
                 || kind == UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH
-                || kind == UniversalFieldDeviceMenu.CONFIG_ANALOG_INDICATOR;
+                || kind == UniversalFieldDeviceMenu.CONFIG_ANALOG_INDICATOR
+                || kind == UniversalFieldDeviceMenu.CONFIG_WATCHDOG;
         boolean hasToggle = kind == UniversalFieldDeviceMenu.CONFIG_PWM
                 || kind == UniversalFieldDeviceMenu.CONFIG_CABLE_TERMINAL;
 
@@ -136,6 +139,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             else if (kind == UniversalFieldDeviceMenu.CONFIG_IRON_CORE) action.setMessage(Component.literal("Degauss core"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH) action.setMessage(Component.literal("Manual reset latch"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_ANALOG_INDICATOR) action.setMessage(Component.literal("Reset retained min/max"));
+            else if (kind == UniversalFieldDeviceMenu.CONFIG_WATCHDOG) action.setMessage(Component.literal("Reset watchdog diagnostics"));
         }
         if (toggle != null) {
             toggle.visible = configure && hasToggle;
@@ -205,6 +209,23 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private void configure(GuiGraphics g) {
         int kind = menu.configKind();
         switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_INSTRUMENT_BUS -> {
+                statusBadge(g, "INSTRUMENTATION BUS", INFO, 16, 80);
+                labelValue(g, "Valid channels", menu.configPrimary() + " / 4", 101);
+                labelValue(g, "Interference confidence", menu.configSecondary() + "%", 123);
+                labelValue(g, "Shielding coverage", menu.configTertiary() + "%", 145);
+                safeText(g, "This bus is the measurement backbone: channel identity, shielding and interference confidence matter more than payload speed.", 16, 178, TEXT);
+            }
+            case UniversalFieldDeviceMenu.CONFIG_WATCHDOG -> {
+                int timeout = WatchdogBlock.timeoutTicks(menu.configPrimary());
+                boolean timedOut = menu.configSecondary() >= timeout;
+                statusBadge(g, timedOut ? "WATCHDOG • TIMEOUT" : "WATCHDOG • HEALTHY",
+                        timedOut ? WARN : GOOD, 16, 80);
+                labelValue(g, "Timeout", timeout + " ticks", 101);
+                labelValue(g, "Heartbeat age", menu.configSecondary() + " ticks", 123);
+                labelValue(g, "Timeout count", Integer.toString(menu.configTertiary()), 145);
+                safeText(g, "Like a hardware heartbeat watchdog, only observed input transitions refresh supervision; a static level does not fake liveness.", 16, 178, TEXT);
+            }
             case UniversalFieldDeviceMenu.CONFIG_DATA_BUS -> {
                 int drivers = menu.configTertiary();
                 statusBadge(g, drivers > 1 ? "8-BIT BUS • MULTI-DRIVER" : "8-BIT DATA BUS",
