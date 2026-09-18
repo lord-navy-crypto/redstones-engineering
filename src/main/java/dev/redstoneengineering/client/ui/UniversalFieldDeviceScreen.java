@@ -91,7 +91,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK
                 || kind == UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER
                 || kind == UniversalFieldDeviceMenu.CONFIG_IRON_CORE;
-        boolean hasToggle = kind == UniversalFieldDeviceMenu.CONFIG_PWM;
+        boolean hasToggle = kind == UniversalFieldDeviceMenu.CONFIG_PWM
+                || kind == UniversalFieldDeviceMenu.CONFIG_CABLE_TERMINAL;
 
         if (primaryPrevious != null) primaryPrevious.visible = configure && primary;
         if (primaryNext != null) primaryNext.visible = configure && primary;
@@ -181,6 +182,22 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private void configure(GuiGraphics g) {
         int kind = menu.configKind();
         switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_REDSTONE_CABLE -> {
+                statusBadge(g, "INSULATED REDSTONE LINK", INFO, 16, 80);
+                labelValue(g, "Received signal", menu.configPrimary() + " / 15", 101);
+                labelValue(g, "Winning source", menu.configSecondary() + " / 15", 123);
+                labelValue(g, "Attenuation loss", Integer.toString(menu.configTertiary()), 145);
+                labelValue(g, "Remaining margin", Math.max(0, 15 - menu.configPrimary()) + " levels", 167);
+                safeText(g, "The cable keeps Minecraft-style 0..15 attenuation, but exposes enough evidence to engineer path length and signal margin.", 16, 197, MUTED);
+            }
+            case UniversalFieldDeviceMenu.CONFIG_CABLE_TERMINAL -> {
+                statusBadge(g, "REDSTONE CABLE TERMINAL", INFO, 16, 80);
+                labelValue(g, "Boundary mode", menu.configSecondary() != 0 ? "CABLE → VANILLA" : "VANILLA → CABLE", 101);
+                labelValue(g, "Boundary signal", menu.configPrimary() + " / 15", 123);
+                labelValue(g, "Cable attenuation", Integer.toString(menu.configTertiary()), 145);
+                safeText(g, "Toggle changes the active conversion direction. Route independently chooses the Vanilla/Cable physical axis.", 16, 178, TEXT);
+                safeText(g, "This is the explicit boundary between vanilla redstone and the insulated engineering network.", 16, 200, MUTED);
+            }
             case UniversalFieldDeviceMenu.CONFIG_REFERENCE_SOURCE -> {
                 statusBadge(g, "REDSTONE REFERENCE SOURCE", INFO, 16, 80);
                 labelValue(g, "Output level", menu.configPrimary() + " / 15", 101);
