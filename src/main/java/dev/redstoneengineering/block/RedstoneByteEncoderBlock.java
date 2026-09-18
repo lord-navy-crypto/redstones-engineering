@@ -60,6 +60,11 @@ public class RedstoneByteEncoderBlock extends DirectionalDomainBlock implements 
         return mode == FULL_SCALE ? "FULL_SCALE" : "DIRECT";
     }
 
+    public static PortQuality inputEvidenceQuality(Level level, BlockPos pos, BlockState state) {
+        return RedstoneObservationSupport.observe(
+                level, pos, DirectionalDomainBlock.seriesInputSide(state)).quality();
+    }
+
     public static boolean stepMode(Level level, BlockPos pos, boolean forward) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof RedstoneByteEncoderBlock encoder)) return false;
