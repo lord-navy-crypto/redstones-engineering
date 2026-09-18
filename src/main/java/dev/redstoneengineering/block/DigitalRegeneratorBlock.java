@@ -89,20 +89,34 @@ public class DigitalRegeneratorBlock extends DirectionalDomainBlock implements E
         );
     }
 
-    private PortQuality inputQuality(Level level, BlockPos pos, BlockState state) {
-        BlockPos input = inputPos(pos, state);
+    public static PortQuality inputEvidenceQuality(Level level, BlockPos pos, BlockState state) {
+        BlockPos input = pos.relative(DirectionalDomainBlock.seriesInputSide(state));
         if (!level.hasChunkAt(input)) return PortQuality.STALE;
         if (!SerialNetwork.isNode(level, input)) return PortQuality.NO_SIGNAL;
         return SerialNetwork.quality(level, input);
     }
 
-    private PortQuality outputQuality(Level level, BlockPos pos, BlockState state) {
-        PortQuality upstream = inputQuality(level, pos, state);
+    public static int inputQualityPercent(Level level, BlockPos pos, BlockState state) {
+        BlockPos input = pos.relative(DirectionalDomainBlock.seriesInputSide(state));
+        return InformationRuntime.snapshot(level, "serial", input).qualityPercent();
+    }
+
+    public static PortQuality outputEvidenceQuality(Level level, BlockPos pos, BlockState state) {
+        PortQuality upstream = inputEvidenceQuality(level, pos, state);
         if (upstream != PortQuality.VALID && upstream != PortQuality.SATURATED) return upstream;
-        InformationRuntime.Snapshot input = InformationRuntime.snapshot(level, "serial", inputPos(pos, state));
+        BlockPos inputPos = pos.relative(DirectionalDomainBlock.seriesInputSide(state));
+        InformationRuntime.Snapshot input = InformationRuntime.snapshot(level, "serial", inputPos);
         if (!input.valid()) return PortQuality.FAULT;
         return input.qualityPercent() >= minimumQuality(state.getValue(THRESHOLD))
                 ? PortQuality.VALID : PortQuality.FAULT;
+    }
+
+    private PortQuality inputQuality(Level level, BlockPos pos, BlockState state) {
+        return inputEvidenceQuality(level, pos, state);
+    }
+
+    private PortQuality outputQuality(Level level, BlockPos pos, BlockState state) {
+        return outputEvidenceQuality(level, pos, state);
     }
 
     @Override
