@@ -93,7 +93,18 @@ req("src/main/java/dev/redstoneengineering/block/WatchdogBlock.java",
     "stepTimeout","timedOut","TIMEOUT_TICKS","sourceSeen","heartbeat.quality()")
 
 req("src/main/java/dev/redstoneengineering/block/SafetyInterlockBlock.java",
-    "transitionCount","blockedTicks")
+    "transitionCount","blockedTicks","INITIALIZED","runtime[INITIALIZED] == 0")
+
+req("src/main/java/dev/redstoneengineering/block/SequenceControllerBlock.java",
+    "RUN_REACQUIRE","runQuality","runtime[RUN_REACQUIRE] = 1",
+    "Reacquire the physical RUN level")
+
+req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
+    "SequenceControllerBlock.runQuality(level, blockPos, state)")
+
+req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
+    "SEQUENCE • RUN NO SOURCE","RUN evidence",
+    "Reset to IDLE • require fresh RUN edge")
 
 req("src/main/java/dev/redstoneengineering/block/OscilloscopeBlock.java",
     "TIMEBASE_MODE","samplePeriodTicks","BUTTON_TIMEBASE")
