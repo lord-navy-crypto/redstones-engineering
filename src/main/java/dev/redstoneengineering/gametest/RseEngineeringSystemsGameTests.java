@@ -165,6 +165,72 @@ public final class RseEngineeringSystemsGameTests {
     }
 
     @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 110)
+    public static void faultInjectorRejectsFaultQualityArmAuthority(GameTestHelper helper) {
+        BlockPos target = new BlockPos(2, 1, 2);
+        BlockPos signal = target.west();
+        BlockPos armSource = target.south();
+        BlockPos armSourceArm = armSource.east();
+
+        helper.setBlock(signal, Blocks.REDSTONE_BLOCK.defaultBlockState());
+        helper.setBlock(armSource, EngineeringSystemsModule.FAULT_INJECTOR.get().defaultBlockState()
+                .setValue(DirectionalSignalBlock.FACING, Direction.NORTH)
+                .setValue(DirectionalSignalBlock.INPUT_FACING, Direction.WEST)
+                .setValue(FaultInjectorBlock.MODE, 1));
+        helper.setBlock(armSourceArm, Blocks.REDSTONE_BLOCK.defaultBlockState());
+        helper.setBlock(target, EngineeringSystemsModule.FAULT_INJECTOR.get().defaultBlockState()
+                .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
+                .setValue(DirectionalSignalBlock.INPUT_FACING, Direction.WEST)
+                .setValue(FaultInjectorBlock.MODE, 0));
+
+        helper.runAfterDelay(6, () -> {
+            BlockPos world = helper.absolutePos(target);
+            BlockState targetState = helper.getBlockState(target);
+            var armSnapshot = EngineeringSystemsModule.FAULT_INJECTOR.get().engineeringSnapshot(
+                    helper.getLevel(), world, targetState, Direction.SOUTH).orElseThrow();
+            var outSnapshot = EngineeringSystemsModule.FAULT_INJECTOR.get().engineeringSnapshot(
+                    helper.getLevel(), world, targetState, Direction.EAST).orElseThrow();
+            if (armSnapshot.value() != 15.0
+                    || armSnapshot.quality() != PortQuality.FAULT
+                    || FaultInjectorBlock.active(helper.getLevel(), world)
+                    || targetState.getValue(DirectionalSignalBlock.OUTPUT) != 15
+                    || outSnapshot.quality() != PortQuality.FAULT) {
+                helper.fail("FAULT-quality HIGH ARM incorrectly authorized fault injection", target);
+                return;
+            }
+
+            helper.setBlock(armSource, Blocks.REDSTONE_BLOCK.defaultBlockState());
+            helper.runAfterDelay(4, () -> {
+                BlockState armedState = helper.getBlockState(target);
+                var armedOut = EngineeringSystemsModule.FAULT_INJECTOR.get().engineeringSnapshot(
+                        helper.getLevel(), world, armedState, Direction.EAST).orElseThrow();
+                if (!FaultInjectorBlock.active(helper.getLevel(), world)
+                        || FaultInjectorBlock.armQuality(helper.getLevel(), world, armedState) != PortQuality.VALID
+                        || armedState.getValue(DirectionalSignalBlock.OUTPUT) != 0
+                        || armedOut.quality() != PortQuality.FAULT) {
+                    helper.fail("Trustworthy HIGH ARM did not authorize STUCK LOW injection", target);
+                    return;
+                }
+
+                helper.setBlock(armSource, Blocks.REDSTONE_WIRE.defaultBlockState());
+                helper.runAfterDelay(4, () -> {
+                    BlockState safeState = helper.getBlockState(target);
+                    var safeOut = EngineeringSystemsModule.FAULT_INJECTOR.get().engineeringSnapshot(
+                            helper.getLevel(), world, safeState, Direction.EAST).orElseThrow();
+                    if (FaultInjectorBlock.active(helper.getLevel(), world)
+                            || FaultInjectorBlock.armQuality(helper.getLevel(), world, safeState) != PortQuality.VALID
+                            || safeState.getValue(DirectionalSignalBlock.OUTPUT) != 15
+                            || safeOut.quality() != PortQuality.VALID) {
+                        helper.fail("Explicit LOW ARM did not restore trustworthy pass-through", target);
+                        return;
+                    }
+                    helper.succeed();
+                });
+            });
+        });
+    }
+
+    @PrefixGameTestTemplate(false)
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 100)
     public static void alarmProcessorLatchesAndRequiresHealthyReset(GameTestHelper helper) {
         BlockPos alarm = new BlockPos(2, 1, 2); BlockPos condition = new BlockPos(1, 1, 2); BlockPos reset = new BlockPos(2, 1, 3);
