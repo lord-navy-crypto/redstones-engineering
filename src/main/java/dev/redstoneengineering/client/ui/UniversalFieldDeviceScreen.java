@@ -11,6 +11,7 @@ import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.SensorModel;
+import dev.redstoneengineering.signal.ElectromagnetLogic;
 import dev.redstoneengineering.ui.menu.UniversalFieldDeviceMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -174,6 +175,17 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private void configure(GuiGraphics g) {
         int kind = menu.configKind();
         switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_ELECTROMAGNET -> {
+                int target = menu.configPrimary();
+                int thermal = menu.configSecondary();
+                int actual = menu.configTertiary();
+                statusBadge(g, "ELECTROMAGNET COIL", thermal >= 850 ? BAD : thermal >= 700 ? WARN : INFO, 16, 80);
+                labelValue(g, "Target / actual field", target + " / " + actual, 101);
+                labelValue(g, "Tracking error", Integer.toString(target - actual), 123);
+                labelValue(g, "Thermal load", thermal + " / 1000", 145);
+                labelValue(g, "Thermal state", ElectromagnetLogic.thermalState(thermal), 167);
+                safeText(g, "Copper excitation drives a finite inductive field response; sustained high excitation causes thermal derating until the coil cools.", 16, 197, MUTED);
+            }
             case UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD -> {
                 int radiusMode = menu.configPrimary();
                 int sampleMode = menu.configSecondary();
