@@ -312,20 +312,33 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 boolean nc = menu.configPrimary() != 0;
                 boolean coil = menu.configSecondary() != 0;
                 boolean closed = nc ? !coil : coil;
-                statusBadge(g, "SINGLE RELAY • " + (closed ? "CONTACT CLOSED" : "CONTACT OPEN"),
-                        closed ? GOOD : INFO, 16, 80);
-                int pickup = switch (Math.max(0, Math.min(3, menu.configQuaternary()))) {
+                int packed = menu.configQuaternary();
+                int pickupMode = packed & 3;
+                boolean controlHold = (packed & 4) != 0;
+                boolean payloadHold = (packed & 8) != 0;
+                boolean evidenceHold = controlHold || payloadHold;
+                statusBadge(g,
+                        evidenceHold
+                                ? "SINGLE RELAY • EVIDENCE HOLD"
+                                : "SINGLE RELAY • " + (closed ? "CONTACT CLOSED" : "CONTACT OPEN"),
+                        evidenceHold ? WARN : closed ? GOOD : INFO, 16, 80);
+                int pickup = switch (pickupMode) {
                     case 0 -> 1;
                     case 1 -> 4;
                     case 2 -> 8;
                     default -> 12;
                 };
                 int dropout = Math.max(0, pickup - 2);
+                String evidence = controlHold && payloadHold ? "CONTROL + PAYLOAD HOLD"
+                        : controlHold ? "CONTROL HOLD"
+                        : payloadHold ? "PAYLOAD HOLD"
+                        : "LIVE";
                 labelValue(g, "Contact mode", nc ? "NC • normally closed" : "NO • normally open", 101);
                 labelValue(g, "Coil control", coil ? "ENERGIZED" : "OFF", 123);
                 labelValue(g, "Pickup / dropout", pickup + " / " + dropout, 145);
-                labelValue(g, "Switch operations", Integer.toString(menu.configTertiary()), 167);
-                safeText(g, "The relay uses separate pickup and dropout thresholds so a noisy control level does not chatter the contact.", 16, 194, TEXT);
+                labelValue(g, "Evidence", evidence, 167);
+                labelValue(g, "Switch operations", Integer.toString(menu.configTertiary()), 189);
+                safeText(g, "Bad coil evidence holds the last contact state; bad switched-payload evidence holds the last trustworthy output until evidence recovers.", 16, 214, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_TRACE -> {
                 int sources = menu.configSecondary();
