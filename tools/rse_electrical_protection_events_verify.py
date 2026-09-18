@@ -34,8 +34,10 @@ for token in (
     '"COPPER_FUSE_TRIP"',
     "SystemEventKind.ELECTRICAL_READY",
     '"COPPER_FUSE_READY"',
-    "current > state.getValue(RATING)",
-    "READY only after a safe server re-evaluation",
+    "CopperFuseLogic.nextThermal",
+    "thermalRuntime[THERMAL_EXPOSURE] >= CopperFuseLogic.tripThreshold()",
+    "resetAllowed(input, loadTruncated, current, state.getValue(RATING))",
+    "protection ready after verified safe re-evaluation",
 ):
     if fuse and token not in fuse:
         errors.append(f"CopperFuseBlock missing protection/event contract {token!r}")
@@ -100,7 +102,7 @@ if errors:
     raise SystemExit(1)
 
 print("RSE electrical protection event verification: PASS")
-print(" server-authoritative overcurrent trip evidence: PASS")
+print(" server-authoritative I²t overcurrent trip evidence: PASS")
 print(" source-isolated cell-scoped first-out integration: PASS")
 print(" guarded safe-reset/READY semantics: PASS")
 print(" Operations Monitor electrical event rendering: PASS")
