@@ -86,6 +86,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_SIGNAL_AMPLIFIER = 41;
     public static final int CONFIG_QUARTZ_LAPIS_SAMPLER = 42;
     public static final int CONFIG_SIGNAL_TAP = 43;
+    public static final int CONFIG_SIGNAL_SELECTOR = 44;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
@@ -128,7 +129,12 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         configSecondary.set(0);
         configTertiary.set(0);
 
-        if (block instanceof SignalTapBlock) {
+        if (block instanceof SignalSelectorBlock) {
+            configKind.set(CONFIG_SIGNAL_SELECTOR);
+            configPrimary.set(state.getValue(SignalSelectorBlock.INVERT_SELECT) ? 1 : 0);
+            configSecondary.set(SignalSelectorBlock.selectedB(level, blockPos, state) ? 1 : 0);
+            configTertiary.set(SignalSelectorBlock.switchCount(level, blockPos));
+        } else if (block instanceof SignalTapBlock) {
             configKind.set(CONFIG_SIGNAL_TAP);
             configPrimary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             configSecondary.set(SignalTapBlock.seriesInputSide(state).ordinal());
@@ -510,6 +516,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean toggleConfig() {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof SignalSelectorBlock) return SignalSelectorBlock.toggleInvertSelect(level, blockPos);
         if (block instanceof SingleRelayBlock) return SingleRelayBlock.toggleContactMode(level, blockPos);
         if (block instanceof RedstoneCableTerminalBlock) return RedstoneCableTerminalBlock.toggleMode(level, blockPos);
         return block instanceof PwmControllerBlock pwm && pwm.toggleInvert(level, blockPos);
