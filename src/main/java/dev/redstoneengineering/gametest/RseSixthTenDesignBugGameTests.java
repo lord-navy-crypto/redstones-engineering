@@ -253,14 +253,14 @@ public final class RseSixthTenDesignBugGameTests {
     @PrefixGameTestTemplate(false)
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 40)
     public static void tankColumnCoverageSeparatesUnknownFromLoadedEmptyZero(GameTestHelper helper) {
-        TankLevelSensorBlock.ColumnSample incomplete = new TankLevelSensorBlock.ColumnSample(3, 3, 16, false);
+        TankLevelSensorBlock.ColumnSample incomplete = new TankLevelSensorBlock.ColumnSample(3, 3, 16, 16, false);
         if (incomplete.quality() != PortQuality.STALE) {
             helper.fail("Incomplete tank coverage was treated as a trustworthy low-level reading");
             return;
         }
         BlockPos sensor = new BlockPos(2, 1, 2);
         helper.setBlock(sensor, RedstoneEngineering.TANK_LEVEL_SENSOR.get().defaultBlockState());
-        TankLevelSensorBlock.ColumnSample loaded = TankLevelSensorBlock.columnSample(helper.getLevel(), helper.absolutePos(sensor));
+        TankLevelSensorBlock.ColumnSample loaded = TankLevelSensorBlock.columnSample(helper.getLevel(), helper.absolutePos(sensor), helper.getBlockState(sensor));
         if (!loaded.complete() || loaded.fluidBlocks() != 0 || loaded.quality() != PortQuality.VALID) {
             helper.fail("Loaded empty tank column failed to remain a valid zero measurement", sensor);
             return;
