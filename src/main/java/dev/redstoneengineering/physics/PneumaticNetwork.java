@@ -142,17 +142,19 @@ public final class PneumaticNetwork {
             pressure = (pressure * opening + 7) / 15;
         }
         if (state.getBlock() instanceof PneumaticReliefValveBlock) {
-            int setpoint = state.getValue(PneumaticReliefValveBlock.SETPOINT) * 25;
-            if (pressure > setpoint) {
-                int excess = pressure - setpoint;
-                // pneumatic_relief diagnostics remain solver-owned and are recorded only on real overpressure.
+            int setpoint = PneumaticReliefValveBlock.setpointPressure(state);
+            boolean shouldVent = PneumaticReliefValveBlock.shouldVent(level, pos, state, pressure);
+            if (shouldVent) {
+                int excess = Math.max(0, pressure - setpoint);
+                // Keep the relief episode latched through the blowdown band; only real
+                // overpressure contributes vented-pressure evidence and particles.
                 PneumaticReliefValveBlock.recordVent(level, pos, excess);
-                if (level instanceof ServerLevel server) {
+                if (excess > 0 && level instanceof ServerLevel server) {
                     int count = excess >= 25 ? 3 : 1;
                     server.sendParticles(ParticleTypes.CLOUD, pos.getX() + 0.5, pos.getY() + 0.9,
                             pos.getZ() + 0.5, count, 0.18, 0.08, 0.18, 0.02);
                 }
-                pressure = setpoint;
+                pressure = Math.min(pressure, setpoint);
             } else {
                 PneumaticReliefValveBlock.clearVenting(level, pos);
             }
