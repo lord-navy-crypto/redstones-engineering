@@ -168,6 +168,7 @@ public class EntityDensitySensorBlock extends DirectionalRedstoneSensorBlock {
         int profile = state.getValue(PROFILE);
         DensitySample sample = densitySample(level, pos, state);
         if (!sample.complete()) {
+            // Retain the last trustworthy output while aperture coverage is incomplete.
             level.scheduleTick(pos, this, SensorModel.samplePeriod(profile));
             return;
         }
