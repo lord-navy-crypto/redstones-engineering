@@ -8,6 +8,7 @@ import dev.redstoneengineering.block.PwmControllerBlock;
 import dev.redstoneengineering.block.SampleHoldBlock;
 import dev.redstoneengineering.block.SignalProbeBlock;
 import dev.redstoneengineering.block.RedstoneReferenceSourceBlock;
+import dev.redstoneengineering.block.FaultLatchBlock;
 import dev.redstoneengineering.block.TankLevelSensorBlock;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.PortKind;
@@ -79,7 +80,9 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY
                 || kind == UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD
                 || kind == UniversalFieldDeviceMenu.CONFIG_SIGNAL_PROBE
-                || kind == UniversalFieldDeviceMenu.CONFIG_REFERENCE_SOURCE;
+                || kind == UniversalFieldDeviceMenu.CONFIG_REFERENCE_SOURCE
+                || kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR
+                || kind == UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH;
         boolean range = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE
                 || kind == UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY
                 || kind == UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD
@@ -92,7 +95,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_SEQUENCE_CONTROLLER
                 || kind == UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK
                 || kind == UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER
-                || kind == UniversalFieldDeviceMenu.CONFIG_IRON_CORE;
+                || kind == UniversalFieldDeviceMenu.CONFIG_IRON_CORE
+                || kind == UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH;
         boolean hasToggle = kind == UniversalFieldDeviceMenu.CONFIG_PWM
                 || kind == UniversalFieldDeviceMenu.CONFIG_CABLE_TERMINAL;
 
@@ -121,6 +125,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             else if (kind == UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK) action.setMessage(Component.literal("Reset diagnostic counters"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER) action.setMessage(Component.literal("Reset scan counters"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_IRON_CORE) action.setMessage(Component.literal("Degauss core"));
+            else if (kind == UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH) action.setMessage(Component.literal("Manual reset latch"));
         }
         if (toggle != null) {
             toggle.visible = configure && hasToggle;
@@ -190,6 +195,23 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private void configure(GuiGraphics g) {
         int kind = menu.configKind();
         switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> {
+                statusBadge(g, "QUARTZ TIMING SOURCE", menu.configSecondary() != 0 ? GOOD : INFO, 16, 80);
+                labelValue(g, "Period", menu.configTertiary() + " ticks", 101);
+                labelValue(g, "Half-cycle", Math.max(1, menu.configTertiary() / 2) + " ticks", 123);
+                labelValue(g, "Output state", menu.configSecondary() != 0 ? "HIGH" : "LOW", 145);
+                safeText(g, "Configure selects the clock period; Route selects the physical timing output face.", 16, 178, TEXT);
+                safeText(g, "Use Quartz timing as the next layer beyond redstone levels: clocks, sampling, phase and sequencing.", 16, 200, MUTED);
+            }
+            case UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH -> {
+                int thresholdIndex = menu.configPrimary();
+                statusBadge(g, "FAULT LATCH", menu.configSecondary() != 0 ? WARN : GOOD, 16, 80);
+                labelValue(g, "Trip threshold", FaultLatchBlock.thresholdValue(thresholdIndex) + " / 15", 101);
+                labelValue(g, "Latched state", menu.configSecondary() != 0 ? "TRIPPED" : "CLEAR", 123);
+                labelValue(g, "Trip count", Integer.toString(menu.configTertiary()), 145);
+                safeText(g, "The latch converts a transient redstone fault into persistent safety memory until electrical or manual reset.", 16, 178, TEXT);
+                safeText(g, "Threshold is engineering configuration; RESET remains an explicit physical input.", 16, 200, MUTED);
+            }
             case UniversalFieldDeviceMenu.CONFIG_REDSTONE_CABLE -> {
                 statusBadge(g, "INSULATED REDSTONE LINK", INFO, 16, 80);
                 labelValue(g, "Received signal", menu.configPrimary() + " / 15", 101);
