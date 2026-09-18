@@ -56,6 +56,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_LIGHT_SENSOR = 12;
     public static final int CONFIG_TANK_LEVEL = 13;
     public static final int CONFIG_ENTITY_DENSITY = 14;
+    public static final int CONFIG_MAGNETIC_FIELD = 15;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
@@ -96,7 +97,11 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         configPrimary.set(0);
         configSecondary.set(0);
 
-        if (block instanceof EngineeringLightSensorBlock) {
+        if (block instanceof MagneticFieldSensorBlock) {
+            configKind.set(CONFIG_MAGNETIC_FIELD);
+            configPrimary.set(state.getValue(MagneticFieldSensorBlock.RADIUS_MODE));
+            configSecondary.set(state.getValue(MagneticFieldSensorBlock.SAMPLE_MODE));
+        } else if (block instanceof EngineeringLightSensorBlock) {
             configKind.set(CONFIG_LIGHT_SENSOR);
             configPrimary.set(state.getValue(EngineeringLightSensorBlock.PROFILE));
         } else if (block instanceof TankLevelSensorBlock) {
@@ -259,6 +264,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean adjustPrimary(int delta) {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof MagneticFieldSensorBlock) return MagneticFieldSensorBlock.adjustRadius(level, blockPos, delta);
         if (block instanceof EngineeringLightSensorBlock) return EngineeringLightSensorBlock.adjustProfile(level, blockPos, delta);
         if (block instanceof TankLevelSensorBlock) return TankLevelSensorBlock.adjustRange(level, blockPos, delta);
         if (block instanceof EntityDensitySensorBlock) return EntityDensitySensorBlock.adjustProfile(level, blockPos, delta);
@@ -274,6 +280,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean adjustSecondary(int delta) {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof MagneticFieldSensorBlock) return MagneticFieldSensorBlock.adjustSampling(level, blockPos, delta);
         if (block instanceof LapisPrecisionRangeSensorBlock range) return range.adjustRange(level, blockPos, delta);
         if (block instanceof EntityDensitySensorBlock) return EntityDensitySensorBlock.adjustAperture(level, blockPos, delta);
         return false;
