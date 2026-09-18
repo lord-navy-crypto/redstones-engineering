@@ -2,6 +2,7 @@ package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.block.CalibrationModuleBlock;
 import dev.redstoneengineering.block.EntityDensitySensorBlock;
+import dev.redstoneengineering.block.EngineeringLightSensorBlock;
 import dev.redstoneengineering.block.MagneticFieldSensorBlock;
 import dev.redstoneengineering.block.FaultInjectorBlock;
 import dev.redstoneengineering.block.PwmControllerBlock;
@@ -828,6 +829,16 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         if ((mask & 2) != 0) missing.append(missing.isEmpty() ? "B" : ", B");
         if ((mask & 4) != 0) missing.append(missing.isEmpty() ? "C" : ", C");
         return missing.toString();
+    }
+
+    private static String signed(int value) {
+        return value > 0 ? "+" + value : Integer.toString(value);
+    }
+
+    private static String directionName(int ordinal) {
+        Direction[] values = Direction.values();
+        int index = Math.max(0, Math.min(values.length - 1, ordinal));
+        return values[index].getName().toUpperCase(java.util.Locale.ROOT);
     }
 
     private static String lapisProfileName(int profile) {
