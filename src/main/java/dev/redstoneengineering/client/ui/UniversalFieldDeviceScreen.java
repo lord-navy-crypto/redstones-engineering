@@ -4,6 +4,7 @@ import dev.redstoneengineering.block.CalibrationModuleBlock;
 import dev.redstoneengineering.block.FaultInjectorBlock;
 import dev.redstoneengineering.block.PwmControllerBlock;
 import dev.redstoneengineering.block.SampleHoldBlock;
+import dev.redstoneengineering.block.TankLevelSensorBlock;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
@@ -68,7 +69,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_CALIBRATION
                 || kind == UniversalFieldDeviceMenu.CONFIG_PWM
                 || kind == UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR
-                || kind == UniversalFieldDeviceMenu.CONFIG_LIGHT_SENSOR;
+                || kind == UniversalFieldDeviceMenu.CONFIG_LIGHT_SENSOR
+                || kind == UniversalFieldDeviceMenu.CONFIG_TANK_LEVEL;
         boolean range = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE;
         boolean hasAction = kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER
                 || kind == UniversalFieldDeviceMenu.CONFIG_ALARM
@@ -156,6 +158,14 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private void configure(GuiGraphics g) {
         int kind = menu.configKind();
         switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_TANK_LEVEL -> {
+                int mode = menu.configPrimary();
+                statusBadge(g, "TANK LEVEL RANGE", INFO, 16, 80);
+                labelValue(g, "Full-scale height", TankLevelSensorBlock.heightForMode(mode) + " blocks", 101);
+                labelValue(g, "Output scale", "0..15 normalized", 131);
+                safeText(g, "Changing full scale recalibrates block height to redstone level and invalidates the prior normalized sample.", 16, 168, TEXT);
+                safeText(g, "The UP aperture still preserves incomplete-chunk coverage as STALE evidence.", 16, 192, MUTED);
+            }
             case UniversalFieldDeviceMenu.CONFIG_LIGHT_SENSOR -> {
                 int profile = menu.configPrimary();
                 statusBadge(g, "LIGHT SENSOR RESPONSE", INFO, 16, 80);
