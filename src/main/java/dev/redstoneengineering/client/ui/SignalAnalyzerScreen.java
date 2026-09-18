@@ -1,6 +1,7 @@
 package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.block.SignalAnalyzerBlock;
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.menu.SignalAnalyzerMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -41,8 +42,11 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
     }
 
     private void renderOverview(GuiGraphics graphics) {
-        statusBadge(graphics, modeName(), menu.mode() == SignalAnalyzerBlock.TAP ? INFO : GOOD, 16, 80);
-        labelValue(graphics, "Raw measurement", menu.raw() + " / 15", 101);
+        PortQuality quality = liveQuality();
+        statusBadge(graphics,
+                evidenceIssue(quality) ? modeName() + " • " + quality.name() : modeName(),
+                qualityColor(quality), 16, 80);
+        labelValue(graphics, "Raw measurement", menu.raw() + " / 15 • " + quality.name(), 101);
         labelValue(graphics, "Calibrated display", menu.calibrated() + " / 15", 116);
         labelValue(graphics, "Calibration", signed(menu.calibrationOffset()), 131);
         labelValue(graphics, "World output", menu.mode() == SignalAnalyzerBlock.INLINE ? menu.output() + " / 15 RAW" : "DISCONNECTED", 146);
@@ -58,9 +62,12 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
     }
 
     private void renderPorts(GuiGraphics graphics) {
-        statusLine(graphics, "TEST / facing", "MEASUREMENT INPUT • 0..15", GOOD, 82);
+        PortQuality quality = liveQuality();
+        statusLine(graphics, "TEST / facing",
+                "MEASUREMENT INPUT • 0..15 • " + quality.name(), qualityColor(quality), 82);
         if (menu.mode() == SignalAnalyzerBlock.INLINE) {
-            statusLine(graphics, "Opposite face", "RAW PASS-THROUGH OUTPUT • 0..15", GOOD, 103);
+            statusLine(graphics, "Opposite face",
+                    "RAW PASS-THROUGH • " + quality.name(), qualityColor(quality), 103);
         } else {
             statusLine(graphics, "Opposite face", "NO OUTPUT IN TAP MODE", MUTED, 103);
         }
@@ -78,16 +85,17 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
                         ? "TAP observes the TEST side without creating a redstone electrical path."
                         : "INLINE reads TEST and reproduces the RAW sample on the opposite face.",
                 16, 162, TEXT);
-        safeText(graphics, "Calibration changes only the displayed engineering reading.", 16, 177, MUTED);
-        safeText(graphics, "Capture statistics and freshness are synchronized readback; the client never samples the world.", 16, 192, MUTED);
+        safeText(graphics, "Calibration changes only the displayed engineering reading; it never repairs source PortQuality.", 16, 177, MUTED);
+        safeText(graphics, "Capture statistics and freshness are synchronized readback; bad live evidence becomes a history gap, not a fabricated value.", 16, 192, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
         InstrumentDiagnostics.Summary summary = summary();
+        PortQuality quality = liveQuality();
         statusLine(graphics, "Synchronization",
-                InstrumentDiagnostics.freshnessLabel(menu.sampleAgeTicks()) + " • age "
+                quality.name() + " • " + InstrumentDiagnostics.freshnessLabel(menu.sampleAgeTicks()) + " • age "
                         + (menu.sampleAgeTicks() < 0 ? "—" : menu.sampleAgeTicks() + "t"),
-                freshnessColor(), 78);
+                qualityColor(quality), 78);
         statusLine(graphics, "Window diagnosis", InstrumentDiagnostics.analogDiagnosis(summary), diagnosisColor(summary), 98);
         labelValue(graphics, "Window min / max", summary.validSamples() == 0 ? "—" : summary.minimum() + " / " + summary.maximum(), 118);
         labelValue(graphics, "Window avg / span", summary.validSamples() == 0 ? "—" : decimal100(summary.average100()) + " / " + summary.span(), 134);
@@ -154,6 +162,23 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
                 0,
                 15
         );
+    }
+
+    private PortQuality liveQuality() {
+        PortQuality[] values = PortQuality.values();
+        return values[Math.max(0, Math.min(values.length - 1, menu.liveQualityOrdinal()))];
+    }
+
+    private static boolean evidenceIssue(PortQuality quality) {
+        return quality != PortQuality.VALID && quality != PortQuality.SATURATED;
+    }
+
+    private int qualityColor(PortQuality quality) {
+        return switch (quality) {
+            case VALID -> menu.mode() == SignalAnalyzerBlock.TAP ? INFO : GOOD;
+            case SATURATED, NO_SIGNAL, STALE -> WARN;
+            case FAULT, DOMAIN_MISMATCH, TOPOLOGY_ERROR -> BAD;
+        };
     }
 
     private int freshnessColor() {
