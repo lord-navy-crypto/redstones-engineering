@@ -132,6 +132,28 @@ public class SignalProbeBlock extends Block implements EngineeringPortProvider {
         return false;
     }
 
+    public static boolean stepChannel(Level level, BlockPos pos, boolean forward) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof SignalProbeBlock probe)) return false;
+        int channel = state.getValue(CHANNEL);
+        int next = Math.floorMod(channel + (forward ? 1 : -1), 4);
+        if (next == channel) return false;
+        level.setBlock(pos, state.setValue(CHANNEL, next), Block.UPDATE_CLIENTS);
+        level.updateNeighborsAt(pos, probe);
+        level.updateNeighborsAt(pos.relative(testSide(state)), probe);
+        level.updateNeighborsAt(pos.relative(busSide(state)), probe);
+        return true;
+    }
+
+    public static int configuredChannel(BlockState state) {
+        return state.getValue(CHANNEL);
+    }
+
+    public static int measuredValue(Level level, BlockPos pos, BlockState state) {
+        if (!(state.getBlock() instanceof SignalProbeBlock probe)) return 0;
+        return probe.sample(level, pos, state);
+    }
+
     public int sample(Level level, BlockPos pos, BlockState state) {
         Direction targetSide = testSide(state);
         BlockPos targetPos = pos.relative(targetSide);
@@ -163,15 +185,17 @@ public class SignalProbeBlock extends Block implements EngineeringPortProvider {
     ) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
-                int value = sample(level, pos, state);
+                stepChannel(level, pos, true);
+                BlockState next = level.getBlockState(pos);
+                int value = sample(level, pos, next);
                 player.displayClientMessage(
                         Component.literal(
-                                "Probe " + channelName(state.getValue(CHANNEL))
-                                        + " | TEST=" + testSide(state).getName()
-                                        + " | BUS=" + busSide(state).getName()
+                                "Probe channel → " + channelName(next.getValue(CHANNEL))
+                                        + " | TEST=" + testSide(next).getName()
+                                        + " | BUS=" + busSide(next).getName()
                                         + " | value=" + value + "/15"
-                                        + " | measurement=" + (measurementPresent(level, pos, state, value) ? "VALID" : "NO_SIGNAL")
-                                        + " | direction-aware • non-invasive"
+                                        + " | measurement=" + (measurementPresent(level, pos, next, value) ? "VALID" : "NO_SIGNAL")
+                                        + " | normal right-click opens Engineering UI"
                         ),
                         true
                 );
