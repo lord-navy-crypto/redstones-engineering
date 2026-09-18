@@ -21,6 +21,7 @@ selector = "src/main/java/dev/redstoneengineering/block/SignalSelectorBlock.java
 selector_test = "src/main/java/dev/redstoneengineering/gametest/RseSignalSelectorEvidenceGameTests.java"
 scaler = "src/main/java/dev/redstoneengineering/block/RedstoneToLapisScalerBlock.java"
 quantizer = "src/main/java/dev/redstoneengineering/block/LapisToRedstoneQuantizerBlock.java"
+conversion_test = "src/main/java/dev/redstoneengineering/gametest/RseEighthTenDesignBugGameTests.java"
 lapis = "src/main/java/dev/redstoneengineering/block/LapisLowPassFilterBlock.java"
 quartz = "src/main/java/dev/redstoneengineering/block/QuartzClockDividerBlock.java"
 quartz_osc = "src/main/java/dev/redstoneengineering/block/QuartzOscillatorBlock.java"
@@ -52,6 +53,10 @@ require(quantizer,
         "Retain the last",
         "if (sample.valid())",
         "CoreMediaDiagnostics.redstoneFromLapis(sample.value())")
+
+require(conversion_test,
+        "conversionBridgesRetainLastCodeWhenEvidenceDisappears",
+        "Missing upstream evidence was converted into a new numerical code")
 
 require(lapis,
         "HISTORY_SLOT",
