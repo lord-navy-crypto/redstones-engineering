@@ -87,6 +87,30 @@ req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java
 req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
     "8-BIT DATA BUS","SERIALIZER","DIGITAL REGENERATOR","DIFFERENTIAL DRIVER","DIFFERENTIAL LINK","DIFFERENTIAL RECEIVER")
 
+req("src/main/java/dev/redstoneengineering/block/WatchdogBlock.java",
+    "stepTimeout","timedOut","TIMEOUT_TICKS")
+
+req("src/main/java/dev/redstoneengineering/block/SafetyInterlockBlock.java",
+    "transitionCount","blockedTicks")
+
+req("src/main/java/dev/redstoneengineering/block/OscilloscopeBlock.java",
+    "TIMEBASE_MODE","samplePeriodTicks","BUTTON_TIMEBASE")
+
+req("src/main/java/dev/redstoneengineering/blockentity/OscilloscopeBlockEntity.java",
+    "estimatedPeriodTicks(int channel, int samplePeriodTicks)","cursorDeltaTicks(int samplePeriodTicks)")
+
+req("src/main/java/dev/redstoneengineering/ui/menu/OscilloscopeMenu.java",
+    "BUTTON_TIMEBASE","samplePeriodTicks")
+
+req("src/main/java/dev/redstoneengineering/client/ui/OscilloscopeScreen.java",
+    "Timebase","ticks/sample","Changing timebase clears the capture")
+
+req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
+    "CONFIG_INSTRUMENT_BUS","CONFIG_WATCHDOG","CONFIG_QUARTZ_TRACE")
+
+req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
+    "INSTRUMENTATION BUS","WATCHDOG • TIMEOUT","QUARTZ TIMING TRACE","State transitions")
+
 if failed:
     print("RSE redstone-core engineering-depth verification: FAIL")
     for x in failed: print(" -",x)
@@ -102,3 +126,4 @@ print(" timing/safety/junction core HMI: PASS")
 print(" redstone-byte mapping modes: PASS")
 print(" serial/differential communication depth: PASS")
 print(" parallel/serial/differential media roles: PASS")
+print(" instrument/timing/control supervision depth: PASS")
