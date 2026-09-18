@@ -1,6 +1,7 @@
 package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.blockentity.OscilloscopeBlockEntity;
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.menu.OscilloscopeMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -148,12 +149,23 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
 
     private int shieldingColor() { if (!menu.bounded()) return WARN; if (menu.cableNodes() == 0 || menu.shieldingCoverage() >= 90) return GOOD; if (menu.shieldingCoverage() >= 60) return INFO; return WARN; }
     private int interferenceColor() { if (!menu.bounded()) return WARN; if (menu.interferenceConfidence() >= 90) return GOOD; if (menu.interferenceConfidence() >= 70) return INFO; return WARN; }
-    private int probePairColor() { if (menu.probeCount(0) == 1 && menu.probeCount(1) == 1) return GOOD; return menu.probeCount(0) > 1 || menu.probeCount(1) > 1 ? WARN : MUTED; }
+    private int probePairColor() {
+        if (menu.probeCount(0) > 1 || menu.probeCount(1) > 1) return BAD;
+        if (menu.probeCount(0) == 0 || menu.probeCount(1) == 0) return MUTED;
+        int a = probeQualityColor(probeQuality(0));
+        int b = probeQualityColor(probeQuality(1));
+        if (a == BAD || b == BAD) return BAD;
+        if (a == WARN || b == WARN) return WARN;
+        return GOOD;
+    }
 
     private String nextAction() {
         if (!menu.bounded()) return "NEXT • reduce/segment the instrument network before trusting capture timing.";
         if (menu.duplicateChannels() > 0) return "NEXT • resolve duplicate probe channel ownership before waveform comparison.";
         if (menu.probeCount(0) != 1 || menu.probeCount(1) != 1) return "NEXT • connect exactly one probe to each compared channel.";
+        if (probeQuality(0) != PortQuality.VALID && probeQuality(0) != PortQuality.SATURATED
+                || probeQuality(1) != PortQuality.VALID && probeQuality(1) != PortQuality.SATURATED)
+            return "NEXT • restore trustworthy probe evidence before comparing captured waveforms.";
         if (menu.unshieldedExposedNodes() > 0) return "NEXT • shield exposed instrument segments or separate them from energized Redstone/Copper routing.";
         if (menu.exposedCableNodes() > 0) return "NEXT • shielding is containing observed exposure; keep route separation if small differences matter.";
         if (evidenceConfidence() < 70) return "NEXT • acquire a longer valid capture before interpreting waveform differences.";
@@ -168,9 +180,25 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
     private String triggerText() { return modeName(menu.triggerMode()) + " CH " + (menu.triggerChannel() == 0 ? "A" : "B") + " @" + menu.triggerLevel(); }
     private String captureState() { return switch (menu.captureState()) { case 1 -> "ARMED"; case 2 -> "TRIGGERED"; default -> "HOLD"; }; }
     private int captureColor() { return switch (menu.captureState()) { case 1 -> INFO; case 2 -> GOOD; default -> MUTED; }; }
-    private String networkIntegrity() { if (!menu.bounded()) return "TRUNCATED"; if (menu.duplicateChannels() > 0) return "AMBIGUOUS • duplicate channel"; if (menu.probeNodes() == 0) return "NO PROBES"; return "OK • bounded scan"; }
-    private int networkColor() { if (!menu.bounded() || menu.duplicateChannels() > 0) return WARN; return menu.probeNodes() == 0 ? MUTED : GOOD; }
-    private String probeState(int channel) { return switch (menu.probeCount(channel)) { case 0 -> "NO PROBE"; case 1 -> "CONNECTED"; default -> "AMBIGUOUS (" + menu.probeCount(channel) + ")"; }; }
+    private String networkIntegrity() { if (!menu.bounded()) return "TRUNCATED"; if (menu.duplicateChannels() > 0) return "AMBIGUOUS • duplicate channel"; if (menu.probeNodes() == 0) return "NO PROBES"; if (menu.validChannels() < Math.min(2, menu.activeChannels())) return "EVIDENCE DEGRADED"; return "OK • bounded scan"; }
+    private int networkColor() { if (!menu.bounded() || menu.duplicateChannels() > 0) return WARN; if (menu.probeNodes() == 0) return MUTED; return menu.validChannels() < Math.min(2, menu.activeChannels()) ? WARN : GOOD; }
+    private PortQuality probeQuality(int channel) {
+        PortQuality[] values = PortQuality.values();
+        return values[Math.max(0, Math.min(values.length - 1, menu.probeQualityOrdinal(channel)))];
+    }
+    private String probeState(int channel) {
+        int count = menu.probeCount(channel);
+        if (count == 0) return "NO PROBE";
+        if (count > 1) return "AMBIGUOUS (" + count + ")";
+        return "CONNECTED • " + probeQuality(channel).name();
+    }
+    private int probeQualityColor(PortQuality quality) {
+        return switch (quality) {
+            case VALID -> GOOD;
+            case SATURATED, NO_SIGNAL, STALE -> WARN;
+            case FAULT, DOMAIN_MISMATCH, TOPOLOGY_ERROR -> BAD;
+        };
+    }
     private static String modeName(int mode) { return switch (mode) { case 0 -> "FREE"; case 1 -> "RISING"; case 2 -> "FALLING"; default -> "?"; }; }
     private static String value(int value) { return value < 0 ? "N/A" : Integer.toString(value); }
     private static String tickValue(int value) { return value < 0 ? "N/A" : value + "t"; }
