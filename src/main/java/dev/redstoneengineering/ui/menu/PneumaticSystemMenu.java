@@ -114,7 +114,15 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
         } else if (block instanceof AirReservoirBlock) {
             kind.set(KIND_RESERVOIR); primary.set(AirReservoirBlock.storedPressure(level, blockPos)); secondary.set(PneumaticNetwork.pressure(level, blockPos)); setNodeQuality();
         } else if (block instanceof PressureRegulatorBlock) {
-            kind.set(KIND_REGULATOR); primary.set(PneumaticNetwork.pressure(level, blockPos)); secondary.set(PressureRegulatorBlock.setpointPressure(state)); tertiary.set(state.getValue(PressureRegulatorBlock.SETPOINT)); facing.set(DirectionalDomainBlock.seriesOutputSide(state).ordinal()); inputFacing.set(DirectionalDomainBlock.seriesInputSide(state).ordinal()); setNodeQuality();
+            kind.set(KIND_REGULATOR);
+            primary.set(PressureRegulatorBlock.inletPressure(level, blockPos, state));
+            secondary.set(PressureRegulatorBlock.setpointPressure(state));
+            tertiary.set(PressureRegulatorBlock.actualRegulatedPressure(level, blockPos));
+            auxiliary.set(PressureRegulatorBlock.trackingError(level, blockPos, state));
+            stateFlag.set(state.getValue(PressureRegulatorBlock.RESPONSE_MODE));
+            facing.set(DirectionalDomainBlock.seriesOutputSide(state).ordinal());
+            inputFacing.set(DirectionalDomainBlock.seriesInputSide(state).ordinal());
+            setNodeQuality();
         } else if (block instanceof PneumaticReceiverBlock receiver) {
             kind.set(KIND_RECEIVER); directionalSnapshots(state, receiver); secondary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
         } else if (block instanceof PneumaticValveBlock valve) {
@@ -209,11 +217,10 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
             }
         } else if (block instanceof PressureRegulatorBlock) {
             if (id == BUTTON_PARAMETER_PREVIOUS || id == BUTTON_PARAMETER_NEXT) {
-                int value = state.getValue(PressureRegulatorBlock.SETPOINT);
-                value = id == BUTTON_PARAMETER_NEXT ? value % 4 + 1 : value <= 1 ? 4 : value - 1;
-                level.setBlock(blockPos, state.setValue(PressureRegulatorBlock.SETPOINT, value), Block.UPDATE_CLIENTS);
-                if (level instanceof ServerLevel server) PneumaticNetwork.recompute(server, blockPos);
-                changed = true;
+                changed = PressureRegulatorBlock.stepSetpoint(
+                        level, blockPos, id == BUTTON_PARAMETER_NEXT);
+            } else if (id == BUTTON_TOGGLE) {
+                changed = PressureRegulatorBlock.stepResponseMode(level, blockPos, true);
             } else {
                 changed = rotateDirectional(block, id);
             }
