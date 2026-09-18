@@ -101,13 +101,6 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             secondaryPrevious.setMessage(Component.literal("◀ Range"));
             secondaryNext.setMessage(Component.literal("Range ▶"));
         }
-        if (kind == UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY) {
-            secondaryPrevious.setMessage(Component.literal("◀ Aperture"));
-            secondaryNext.setMessage(Component.literal("Aperture ▶"));
-        } else {
-            secondaryPrevious.setMessage(Component.literal("◀ Range"));
-            secondaryNext.setMessage(Component.literal("Range ▶"));
-        }
         if (action != null) {
             action.visible = configure && hasAction;
             action.active = kind != UniversalFieldDeviceMenu.CONFIG_ALARM || menu.configSecondary() == 2;
