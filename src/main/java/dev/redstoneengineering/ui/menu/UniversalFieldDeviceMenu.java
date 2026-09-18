@@ -363,6 +363,10 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configKind.set(CONFIG_FAULT_INJECTOR);
             configPrimary.set(state.getValue(FaultInjectorBlock.MODE));
             configSecondary.set(FaultInjectorBlock.active(level, blockPos) ? 1 : 0);
+            configTertiary.set(FaultInjectorBlock.activationCount(level, blockPos));
+            int injectorEvidence = FaultInjectorBlock.signalQuality(level, blockPos, state).ordinal();
+            injectorEvidence |= FaultInjectorBlock.armQuality(level, blockPos, state).ordinal() << 3;
+            configQuaternary.set(injectorEvidence);
         } else if (block instanceof SequenceControllerBlock) {
             configKind.set(CONFIG_SEQUENCE_CONTROLLER);
             configPrimary.set(SequenceControllerBlock.step(level, blockPos));
