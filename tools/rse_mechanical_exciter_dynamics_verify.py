@@ -26,7 +26,7 @@ require(logic,
         "targetAmp > 0",
         "settled")
 require(block,
-        "RUNTIME_KEY = "mechanical_exciter"",
+        'RUNTIME_KEY = "mechanical_exciter"',
         "ACTUAL_AMPLITUDE",
         "ACTUAL_FREQUENCY",
         "TARGET_AMPLITUDE",
