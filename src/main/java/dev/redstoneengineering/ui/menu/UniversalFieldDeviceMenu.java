@@ -6,6 +6,7 @@ import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.RedstoneCableNetwork;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -61,6 +62,8 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_IRON_CORE = 17;
     public static final int CONFIG_SIGNAL_PROBE = 18;
     public static final int CONFIG_REFERENCE_SOURCE = 19;
+    public static final int CONFIG_REDSTONE_CABLE = 20;
+    public static final int CONFIG_CABLE_TERMINAL = 21;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
@@ -103,7 +106,19 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         configSecondary.set(0);
         configTertiary.set(0);
 
-        if (block instanceof RedstoneReferenceSourceBlock) {
+        if (block instanceof RedstoneCableTerminalBlock) {
+            RedstoneCableNetwork.PathEvidence path = RedstoneCableNetwork.pathEvidence(level, blockPos);
+            configKind.set(CONFIG_CABLE_TERMINAL);
+            configPrimary.set(state.getValue(RedstoneCableTerminalBlock.POWER));
+            configSecondary.set(state.getValue(RedstoneCableTerminalBlock.OUTPUT_MODE) ? 1 : 0);
+            configTertiary.set(path.attenuationLoss());
+        } else if (block instanceof RedstoneSignalCableBlock) {
+            RedstoneCableNetwork.PathEvidence path = RedstoneCableNetwork.pathEvidence(level, blockPos);
+            configKind.set(CONFIG_REDSTONE_CABLE);
+            configPrimary.set(RedstoneSignalCableBlock.power(level, blockPos));
+            configSecondary.set(path.winningSourceLevel());
+            configTertiary.set(path.attenuationLoss());
+        } else if (block instanceof RedstoneReferenceSourceBlock) {
             configKind.set(CONFIG_REFERENCE_SOURCE);
             configPrimary.set(RedstoneReferenceSourceBlock.configuredPower(state));
         } else if (block instanceof SignalProbeBlock) {
@@ -326,6 +341,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean toggleConfig() {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof RedstoneCableTerminalBlock) return RedstoneCableTerminalBlock.toggleMode(level, blockPos);
         return block instanceof PwmControllerBlock pwm && pwm.toggleInvert(level, blockPos);
     }
 
