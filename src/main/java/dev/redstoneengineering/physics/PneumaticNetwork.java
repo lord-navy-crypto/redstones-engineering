@@ -130,7 +130,7 @@ public final class PneumaticNetwork {
     private static int localLimit(Level level, BlockPos pos, int pressure) {
         BlockState state = level.getBlockState(pos);
         if (state.getBlock() instanceof PressureRegulatorBlock) {
-            pressure = Math.min(pressure, state.getValue(PressureRegulatorBlock.SETPOINT) * 25);
+            pressure = Math.min(pressure, PressureRegulatorBlock.actualRegulatedPressure(level, pos));
         }
         if (state.getBlock() instanceof PneumaticProportionalValveBlock) {
             int opening = PneumaticProportionalValveBlock.opening(level, pos);
