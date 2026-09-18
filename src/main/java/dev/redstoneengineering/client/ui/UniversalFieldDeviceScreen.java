@@ -21,7 +21,6 @@ import dev.redstoneengineering.block.TankLevelSensorBlock;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
-import dev.redstoneengineering.physics.SensorModel;
 import dev.redstoneengineering.signal.ElectromagnetLogic;
 import dev.redstoneengineering.ui.menu.UniversalFieldDeviceMenu;
 import net.minecraft.client.gui.GuiGraphics;
@@ -531,11 +530,11 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 int profile = menu.configPrimary();
                 int apertureMode = menu.configSecondary();
                 statusBadge(g, "ENTITY DENSITY APERTURE", INFO, 16, 80);
-                labelValue(g, "Acquisition profile", SensorModel.profileName(profile), 101);
+                labelValue(g, "Acquisition profile", EntityDensitySensorBlock.profileName(profile), 101);
                 labelValue(g, "Aperture radius", EntityDensitySensorBlock.radiusForMode(apertureMode) + " blocks", 123);
-                labelValue(g, "Sampling period", SensorModel.samplePeriod(profile) + " ticks", 145);
-                labelValue(g, "Noise", "±" + SensorModel.noiseAmplitude(profile) + " / 100", 167);
-                labelValue(g, "Latency", SensorModel.latencySamples(profile) + " sample", 189);
+                labelValue(g, "Sampling period", EntityDensitySensorBlock.profileSamplePeriod(profile) + " ticks", 145);
+                labelValue(g, "Noise", "±" + EntityDensitySensorBlock.profileNoiseAmplitude(profile) + " / 100", 167);
+                labelValue(g, "Latency", EntityDensitySensorBlock.profileLatencySamples(profile) + " sample", 189);
                 safeText(g, "Changing profile or aperture invalidates prior measurement evidence before reacquisition.", 16, 207, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_TANK_LEVEL -> {
@@ -549,11 +548,11 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.CONFIG_LIGHT_SENSOR -> {
                 int profile = menu.configPrimary();
                 statusBadge(g, "LIGHT SENSOR RESPONSE", INFO, 16, 80);
-                labelValue(g, "Profile", SensorModel.profileName(profile) + " (" + profile + ")", 101);
-                labelValue(g, "Sampling period", SensorModel.samplePeriod(profile) + " ticks", 123);
-                labelValue(g, "Resolution", SensorModel.resolutionStep(profile) + " / 100", 145);
-                labelValue(g, "Noise", "±" + SensorModel.noiseAmplitude(profile) + " / 100", 167);
-                labelValue(g, "Latency", SensorModel.latencySamples(profile) + " sample", 189);
+                labelValue(g, "Profile", EngineeringLightSensorBlock.profileName(profile) + " (" + profile + ")", 101);
+                labelValue(g, "Sampling period", EngineeringLightSensorBlock.profileSamplePeriod(profile) + " ticks", 123);
+                labelValue(g, "Resolution", EngineeringLightSensorBlock.profileResolutionStep(profile) + " / 100", 145);
+                labelValue(g, "Noise", "±" + EngineeringLightSensorBlock.profileNoiseAmplitude(profile) + " / 100", 167);
+                labelValue(g, "Latency", EngineeringLightSensorBlock.profileLatencySamples(profile) + " sample", 189);
                 safeText(g, "Profile changes acquisition behavior; changing it invalidates prior pending measurement evidence.", 16, 207, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER -> {
