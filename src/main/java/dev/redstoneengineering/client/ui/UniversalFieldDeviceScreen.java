@@ -592,15 +592,37 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 TransmissionTopology.SignalMedium[] media = TransmissionTopology.SignalMedium.values();
                 int ordinal = Math.max(0, Math.min(media.length - 1, menu.configPrimary()));
                 TransmissionTopology.SignalMedium medium = media[ordinal];
-                boolean valid = menu.configTertiary() != 0;
+                PortQuality evidence = syncedQuality(menu.configQuaternary());
+                boolean usable = menu.configTertiary() != 0;
                 boolean mismatch = medium == TransmissionTopology.SignalMedium.MISMATCH;
-                statusBadge(g, mismatch ? "JUNCTION • MEDIUM MISMATCH" : "JUNCTION • ROUTING ONLY",
-                        mismatch ? WARN : valid ? GOOD : INFO, 16, 80);
+                String badge = mismatch ? "JUNCTION • MEDIUM MISMATCH"
+                        : medium == TransmissionTopology.SignalMedium.NONE ? "JUNCTION • NO MEDIUM"
+                        : evidence == PortQuality.NO_SIGNAL ? "JUNCTION • NO CARRIER"
+                        : evidence == PortQuality.STALE ? "JUNCTION • CARRIER STALE"
+                        : evidenceIssue(evidence) ? "JUNCTION • CARRIER " + evidence.name()
+                        : "JUNCTION • ROUTING ONLY";
+                statusBadge(g, badge,
+                        mismatch || evidenceSevere(evidence) ? BAD
+                                : evidenceIssue(evidence) ? WARN : usable ? GOOD : INFO,
+                        16, 80);
+                String carrier = switch (medium) {
+                    case REDSTONE -> menu.configSecondary() + " / 15";
+                    case INSTRUMENT -> menu.configSecondary() + " / 4 channels";
+                    case DATA_BUS_8, SERIAL -> menu.configSecondary() + " / 255";
+                    case DIFFERENTIAL -> "bit " + (menu.configSecondary() & 1);
+                    case OPTICAL -> menu.configSecondary() + " / 15 intensity";
+                    case COPPER -> menu.configSecondary() + " / 15 V-eq";
+                    case NONE, MISMATCH -> "—";
+                };
                 labelValue(g, "Resolved medium", medium.getSerializedName().toUpperCase(), 101);
-                labelValue(g, "Carrier value", valid ? Integer.toString(menu.configSecondary()) : "NO VALID CARRIER", 123);
-                labelValue(g, "Carrier validity", valid ? "VALID" : "NOT VALID", 145);
-                safeText(g, "The junction only carries one physical medium vertically; it never converts between media.", 16, 178, TEXT);
-                safeText(g, mismatch ? "Different media on opposite sides fail closed." : "Use converters at domain boundaries, not the junction.", 16, 200, mismatch ? WARN : MUTED);
+                labelValue(g, "Carrier value", carrier, 123);
+                labelValue(g, "Carrier evidence", evidence.name(), 145);
+                labelValue(g, "Carrier usability", usable ? "USABLE" : "NOT USABLE", 167);
+                safeText(g, "The Junction Point projects the authoritative carrier snapshot for its resolved medium; it routes vertically but never converts domains.", 16, 194, TEXT);
+                safeText(g, mismatch
+                        ? "Different media on opposite sides become TOPOLOGY_ERROR and fail closed."
+                        : "Byte, bit, channel, redstone, optical and copper payloads retain their own evidence semantics.",
+                        16, 216, mismatch ? WARN : MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_ANALOG_INDICATOR -> {
                 int min = menu.configSecondary();
