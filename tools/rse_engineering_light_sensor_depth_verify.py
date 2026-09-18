@@ -48,6 +48,9 @@ require(
 )
 
 text = (root / block).read_text(errors="ignore") if (root / block).is_file() else ""
+screen_text = (root / screen).read_text(errors="ignore") if (root / screen).is_file() else ""
+if "PortQuality;\\nimport dev.redstoneengineering.physics.SensorModel" in screen_text:
+    failed.append("UniversalFieldDeviceScreen.java contains an escaped import newline")
 if "SENSOR_PROFILE = 1" in text:
     failed.append("EngineeringLightSensor must not remain hard-coded to BALANCED profile")
 
