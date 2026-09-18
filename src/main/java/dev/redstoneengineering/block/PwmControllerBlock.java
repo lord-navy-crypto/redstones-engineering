@@ -10,6 +10,7 @@ import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.signal.PwmCarrierLogic;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -34,10 +35,16 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
     public static final IntegerProperty PERIOD_MODE = IntegerProperty.create("period_mode", 0, 3);
     public static final BooleanProperty INVERT = BooleanProperty.create("invert");
     private static final String KEY = "redstone_pwm";
+    private static final int PHASE_SLOT = 0;
+    private static final int LATCHED_COMMAND_SLOT = 1;
+    private static final int INITIALIZED_SLOT = 2;
+    private static final int CYCLE_COUNT_SLOT = 3;
+    private static final int RUNTIME_SIZE = 4;
 
-    public record PwmAssessment(int command, int periodTicks, int onTicks, int phase,
+    public record PwmAssessment(int command, int appliedCommand, int periodTicks, int onTicks, int phase,
                                 int requestedDutyPermille, int effectiveDutyPermille,
-                                int quantizationErrorPermille, boolean inhibited, boolean inverted) {}
+                                int quantizationErrorPermille, boolean pendingUpdate, int completedCycles,
+                                boolean inhibited, boolean inverted) {}
 
     public PwmControllerBlock(Properties properties) {
         super(properties);
@@ -106,25 +113,33 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
         boolean inhibited = (inhibit.valid() && inhibit.value() > 0)
                 || inhibitEvidenceUnusable(inhibit.quality());
         int input = commandUsable ? command.value() : 0;
+        int[] rt = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
+
+        if (!commandUsable || inhibited) {
+            resetCarrier(rt);
+            updateOutput(level, pos, state, 0);
+            return;
+        }
 
         int period = periodFor(state.getValue(PERIOD_MODE));
-        int[] rt = RuntimeIntStore.get(level, KEY, pos, 1);
-        int phase = Math.floorMod(rt[0], period);
-        int onTicks = quantizedOnTicks(input, period);
-        int output = phase < onTicks ? 15 : 0;
-        if (input <= 0) output = 0;
-        if (input >= 15) output = 15;
-        if (state.getValue(INVERT)) output = output > 0 ? 0 : 15;
-        // Invalid command evidence and unusable safety evidence both fail to a de-energized output.
-        if (!commandUsable) output = 0;
-        if (inhibited) output = 0;
+        PwmCarrierLogic.Result carrier = PwmCarrierLogic.step(
+                input,
+                period,
+                new PwmCarrierLogic.State(
+                        rt[INITIALIZED_SLOT] != 0,
+                        rt[PHASE_SLOT],
+                        rt[LATCHED_COMMAND_SLOT],
+                        rt[CYCLE_COUNT_SLOT]
+                )
+        );
+        writeCarrier(rt, carrier.state());
 
+        int output = carrier.outputHigh() ? 15 : 0;
+        if (state.getValue(INVERT)) output = output > 0 ? 0 : 15;
         updateOutput(level, pos, state, output);
-        if (commandUsable && !inhibited && input > 0 && input < 15) {
-            rt[0] = (phase + 1) % period;
+
+        if (input > 0 && input < 15) {
             level.scheduleTick(pos, this, 1);
-        } else {
-            rt[0] = 0;
         }
     }
 
@@ -134,10 +149,7 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
     }
 
     public static int quantizedOnTicks(int command, int periodTicks) {
-        int boundedCommand = Math.max(0, Math.min(15, command));
-        int boundedPeriod = Math.max(1, periodTicks);
-        return Math.max(0, Math.min(boundedPeriod,
-                (int) Math.round((boundedCommand / 15.0) * boundedPeriod)));
+        return PwmCarrierLogic.quantizedOnTicks(command, periodTicks);
     }
 
     public static int requestedDutyPermille(int command) {
@@ -151,7 +163,30 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
 
     public static int phase(Level level, BlockPos pos) {
         int[] rt = RuntimeIntStore.peek(level, KEY, pos);
-        return rt == null || rt.length != 1 ? 0 : rt[0];
+        return rt == null || rt.length < RUNTIME_SIZE ? 0 : Math.max(0, rt[PHASE_SLOT]);
+    }
+
+    public static int appliedCommand(Level level, BlockPos pos, int fallback) {
+        int[] rt = RuntimeIntStore.peek(level, KEY, pos);
+        return rt == null || rt.length < RUNTIME_SIZE || rt[INITIALIZED_SLOT] == 0
+                ? Math.max(0, Math.min(15, fallback))
+                : Math.max(0, Math.min(15, rt[LATCHED_COMMAND_SLOT]));
+    }
+
+    public static int completedCycles(Level level, BlockPos pos) {
+        int[] rt = RuntimeIntStore.peek(level, KEY, pos);
+        return rt == null || rt.length < RUNTIME_SIZE ? 0 : Math.max(0, rt[CYCLE_COUNT_SLOT]);
+    }
+
+    private static void writeCarrier(int[] rt, PwmCarrierLogic.State state) {
+        rt[PHASE_SLOT] = state.phase();
+        rt[LATCHED_COMMAND_SLOT] = state.latchedCommand();
+        rt[INITIALIZED_SLOT] = state.initialized() ? 1 : 0;
+        rt[CYCLE_COUNT_SLOT] = state.completedCycles();
+    }
+
+    private static void resetCarrier(int[] rt) {
+        java.util.Arrays.fill(rt, 0);
     }
 
     public PwmAssessment assessment(Level level, BlockPos pos, BlockState state) {
@@ -160,12 +195,15 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
                 level, pos, leftOf(state.getValue(FACING)));
         int command = commandObservation.valid() ? commandObservation.value() : 0;
         int period = periodFor(state.getValue(PERIOD_MODE));
+        int applied = appliedCommand(level, pos, command);
         int requested = requestedDutyPermille(command);
-        int effective = effectiveDutyPermille(command, period);
+        int effective = effectiveDutyPermille(applied, period);
         boolean inhibited = (inhibitObservation.valid() && inhibitObservation.value() > 0)
                 || inhibitEvidenceUnusable(inhibitObservation.quality());
-        return new PwmAssessment(command, period, quantizedOnTicks(command, period), phase(level, pos),
-                requested, effective, effective - requested, inhibited, state.getValue(INVERT));
+        boolean pending = commandObservation.valid() && command > 0 && command < 15 && command != applied;
+        return new PwmAssessment(command, applied, period, quantizedOnTicks(applied, period), phase(level, pos),
+                requested, effective, effective - requested, pending, completedCycles(level, pos),
+                inhibited, state.getValue(INVERT));
     }
 
     public boolean adjustPeriodMode(Level level, BlockPos pos, int delta) {
@@ -174,7 +212,7 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
         int mode = Math.floorMod(state.getValue(PERIOD_MODE) + delta, 4);
         BlockState next = state.setValue(PERIOD_MODE, mode);
         level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-        RuntimeIntStore.get(level, KEY, pos, 1)[0] = 0;
+        resetCarrier(RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE));
         level.scheduleTick(pos, this, 1);
         return true;
     }
@@ -184,7 +222,7 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
         if (!state.is(this)) return false;
         BlockState next = state.setValue(INVERT, !state.getValue(INVERT));
         level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-        RuntimeIntStore.get(level, KEY, pos, 1)[0] = 0;
+        resetCarrier(RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE));
         level.scheduleTick(pos, this, 1);
         return true;
     }
@@ -196,8 +234,11 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
                 PwmAssessment a = assessment(level, pos, level.getBlockState(pos));
                 player.displayClientMessage(Component.literal(
                         "PWM | invert=" + a.inverted() + " | period=" + a.periodTicks() + "t"
+                                + " | command=" + a.command() + " applied=" + a.appliedCommand()
+                                + (a.pendingUpdate() ? " (NEXT CYCLE)" : "")
                                 + " | requested=" + a.requestedDutyPermille()/10.0 + "%"
                                 + " | realized=" + a.effectiveDutyPermille()/10.0 + "%"
+                                + " | cycles=" + a.completedCycles()
                                 + " | inhibit=" + (a.inhibited() ? "ACTIVE/FAIL-SAFE" : "CLEAR")), true);
             } else {
                 FieldDeviceUi.openUniversal(serverPlayer, pos);
