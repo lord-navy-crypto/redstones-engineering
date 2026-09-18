@@ -64,6 +64,23 @@ req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java
 req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
     "REDSTONE → BYTE ENCODER","BYTE → REDSTONE DECODER","FULL_SCALE uses the complete byte range")
 
+req("src/main/java/dev/redstoneengineering/block/SerializerBlock.java",
+    "PERIOD_MODE","WORD_PERIODS = {4, 8, 16}","stepPeriod","wordPeriod")
+
+req("src/main/java/dev/redstoneengineering/block/DigitalRegeneratorBlock.java",
+    "stepThreshold","acceptedCount","rejectedCount","RuntimeIntStore")
+
+req("src/main/java/dev/redstoneengineering/block/DifferentialDriverBlock.java",
+    "THRESHOLD","thresholdValue","stepThreshold")
+
+req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
+    "CONFIG_SERIALIZER","CONFIG_DESERIALIZER","CONFIG_SERIAL_LINE","CONFIG_REGENERATOR",
+    "CONFIG_DIFF_DRIVER","CONFIG_DIFF_PAIR","CONFIG_DIFF_RECEIVER")
+
+req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
+    "SERIALIZER","DESERIALIZER","SERIAL LINK","DIGITAL REGENERATOR",
+    "DIFFERENTIAL DRIVER","DIFFERENTIAL LINK","DIFFERENTIAL RECEIVER")
+
 if failed:
     print("RSE redstone-core engineering-depth verification: FAIL")
     for x in failed: print(" -",x)
@@ -77,3 +94,4 @@ print(" terminal direction authority in HMI: PASS")
 print(" conditioner scale identity + limiting history: PASS")
 print(" timing/safety/junction core HMI: PASS")
 print(" redstone-byte mapping modes: PASS")
+print(" serial/differential communication depth: PASS")
