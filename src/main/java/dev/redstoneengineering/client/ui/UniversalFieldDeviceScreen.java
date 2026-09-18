@@ -6,7 +6,7 @@ import dev.redstoneengineering.block.PwmControllerBlock;
 import dev.redstoneengineering.block.SampleHoldBlock;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.PortKind;
-import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.core.port.PortQuality;\nimport dev.redstoneengineering.physics.SensorModel;
 import dev.redstoneengineering.ui.menu.UniversalFieldDeviceMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -66,7 +66,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD
                 || kind == UniversalFieldDeviceMenu.CONFIG_CALIBRATION
                 || kind == UniversalFieldDeviceMenu.CONFIG_PWM
-                || kind == UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR;
+                || kind == UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR
+                || kind == UniversalFieldDeviceMenu.CONFIG_LIGHT_SENSOR;
         boolean range = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE;
         boolean hasAction = kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER
                 || kind == UniversalFieldDeviceMenu.CONFIG_ALARM
@@ -154,6 +155,16 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private void configure(GuiGraphics g) {
         int kind = menu.configKind();
         switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_LIGHT_SENSOR -> {
+                int profile = menu.configPrimary();
+                statusBadge(g, "LIGHT SENSOR RESPONSE", INFO, 16, 80);
+                labelValue(g, "Profile", SensorModel.profileName(profile) + " (" + profile + ")", 101);
+                labelValue(g, "Sampling period", SensorModel.samplePeriod(profile) + " ticks", 123);
+                labelValue(g, "Resolution", SensorModel.resolutionStep(profile) + " / 100", 145);
+                labelValue(g, "Noise", "±" + SensorModel.noiseAmplitude(profile) + " / 100", 167);
+                labelValue(g, "Latency", SensorModel.latencySamples(profile) + " sample", 189);
+                safeText(g, "Profile changes acquisition behavior; changing it invalidates prior pending measurement evidence.", 16, 207, MUTED);
+            }
             case UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER -> {
                 statusBadge(g, "MEASUREMENT CONDITIONING", INFO, 16, 80);
                 labelValue(g, "Profile", lapisProfileName(menu.configPrimary()) + " (" + menu.configPrimary() + ")", 101);
