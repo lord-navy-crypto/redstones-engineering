@@ -94,4 +94,63 @@ public final class RseRelayEvidenceGameTests {
             });
         });
     }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 90)
+    public static void relayExposesMissingControlWhileDeenergizing(GameTestHelper helper) {
+        BlockPos payload = new BlockPos(1, 1, 2);
+        BlockPos relay = new BlockPos(2, 1, 2);
+        BlockPos coil = new BlockPos(2, 1, 1);
+
+        helper.setBlock(payload, Blocks.REDSTONE_BLOCK.defaultBlockState());
+        helper.setBlock(coil, Blocks.REDSTONE_BLOCK.defaultBlockState());
+        helper.setBlock(relay, RedstoneEngineering.SINGLE_RELAY.get().defaultBlockState()
+                .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
+                .setValue(DirectionalSignalBlock.INPUT_FACING, Direction.WEST)
+                .setValue(SingleRelayBlock.NORMALLY_CLOSED, false)
+                .setValue(SingleRelayBlock.PICKUP_MODE, 0));
+
+        helper.runAfterDelay(5, () -> {
+            BlockPos relayWorld = helper.absolutePos(relay);
+            BlockState baseline = helper.getBlockState(relay);
+            var baselineOut = RedstoneEngineering.SINGLE_RELAY.get().engineeringSnapshot(
+                    helper.getLevel(), relayWorld, baseline, Direction.EAST).orElseThrow();
+            if (baseline.getValue(DirectionalSignalBlock.OUTPUT) != 15
+                    || baselineOut.quality() != PortQuality.VALID
+                    || SingleRelayBlock.controlQuality(helper.getLevel(), relayWorld, baseline) != PortQuality.VALID) {
+                helper.fail("Relay did not establish valid energized control baseline", relay);
+                return;
+            }
+
+            helper.setBlock(coil, Blocks.AIR.defaultBlockState());
+            helper.runAfterDelay(4, () -> {
+                BlockState missingControl = helper.getBlockState(relay);
+                var missingOut = RedstoneEngineering.SINGLE_RELAY.get().engineeringSnapshot(
+                        helper.getLevel(), relayWorld, missingControl, Direction.EAST).orElseThrow();
+                if (SingleRelayBlock.coilEnergized(helper.getLevel(), relayWorld, missingControl)
+                        || missingControl.getValue(DirectionalSignalBlock.OUTPUT) != 0
+                        || SingleRelayBlock.controlQuality(helper.getLevel(), relayWorld, missingControl) != PortQuality.NO_SIGNAL
+                        || missingOut.quality() != PortQuality.NO_SIGNAL
+                        || SingleRelayBlock.controlHoldActive(helper.getLevel(), relayWorld)) {
+                    helper.fail("Missing coil source was hidden as healthy LOW or incorrectly held energized state", relay);
+                    return;
+                }
+
+                helper.setBlock(coil, Blocks.REDSTONE_BLOCK.defaultBlockState());
+                helper.runAfterDelay(4, () -> {
+                    BlockState recovered = helper.getBlockState(relay);
+                    var recoveredOut = RedstoneEngineering.SINGLE_RELAY.get().engineeringSnapshot(
+                            helper.getLevel(), relayWorld, recovered, Direction.EAST).orElseThrow();
+                    if (!SingleRelayBlock.coilEnergized(helper.getLevel(), relayWorld, recovered)
+                            || recovered.getValue(DirectionalSignalBlock.OUTPUT) != 15
+                            || recoveredOut.quality() != PortQuality.VALID) {
+                        helper.fail("Relay did not recover from missing control evidence", relay);
+                        return;
+                    }
+                    helper.succeed();
+                });
+            });
+        });
+    }
+
 }
