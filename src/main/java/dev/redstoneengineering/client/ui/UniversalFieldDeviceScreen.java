@@ -142,7 +142,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         }
         if (action != null) {
             action.visible = configure && hasAction;
-            action.active = kind != UniversalFieldDeviceMenu.CONFIG_ALARM || menu.configSecondary() == 2;
+            action.active = (kind != UniversalFieldDeviceMenu.CONFIG_ALARM || menu.configSecondary() == 2)
+                    && (kind != UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH || menu.configQuaternary() != 0);
             if (kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER) action.setMessage(Component.literal("Reset measurement history"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_ALARM) action.setMessage(Component.literal(menu.configSecondary() == 2 ? "Acknowledge active alarm" : "Alarm already clear / acknowledged"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD) action.setMessage(Component.literal("Clear held value"));
@@ -151,7 +152,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             else if (kind == UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK) action.setMessage(Component.literal("Reset diagnostic counters"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER) action.setMessage(Component.literal("Reset scan counters"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_IRON_CORE) action.setMessage(Component.literal("Degauss core"));
-            else if (kind == UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH) action.setMessage(Component.literal("Manual reset latch"));
+            else if (kind == UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH) action.setMessage(Component.literal(
+                    menu.configQuaternary() != 0 ? "Manual reset latch" : "Reset blocked • fault not clear"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_ANALOG_INDICATOR) action.setMessage(Component.literal("Reset retained min/max"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_WATCHDOG) action.setMessage(Component.literal("Reset watchdog diagnostics"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_REDUNDANT_VOTER) action.setMessage(Component.literal("Reset voter diagnostics"));
@@ -468,12 +470,14 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             }
             case UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH -> {
                 int thresholdIndex = menu.configPrimary();
+                boolean resetPermitted = menu.configQuaternary() != 0;
                 statusBadge(g, "FAULT LATCH", menu.configSecondary() != 0 ? WARN : GOOD, 16, 80);
                 labelValue(g, "Trip threshold", FaultLatchBlock.thresholdValue(thresholdIndex) + " / 15", 101);
                 labelValue(g, "Latched state", menu.configSecondary() != 0 ? "TRIPPED" : "CLEAR", 123);
                 labelValue(g, "Trip count", Integer.toString(menu.configTertiary()), 145);
-                safeText(g, "The latch converts a transient redstone fault into persistent safety memory until electrical or manual reset.", 16, 178, TEXT);
-                safeText(g, "Threshold is engineering configuration; RESET remains an explicit physical input.", 16, 200, MUTED);
+                labelValue(g, "Reset permissive", resetPermitted ? "YES • FAULT CLEAR" : "NO • BLOCKED", 167);
+                safeText(g, "RESET is edge-triggered. Holding RESET high cannot suppress a continuing fault.", 16, 194, TEXT);
+                safeText(g, "Electrical or manual reset is accepted only after FAULT evidence is clear; bad reset evidence must reacquire before another edge is accepted.", 16, 216, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_REDSTONE_CABLE -> {
                 statusBadge(g, "INSULATED REDSTONE LINK", INFO, 16, 80);
