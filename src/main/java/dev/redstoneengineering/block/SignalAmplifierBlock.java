@@ -83,6 +83,14 @@ public final class SignalAmplifierBlock extends DirectionalSignalBlock {
         return rt != null && rt.length >= RUNTIME_SIZE && rt[CLIP_ACTIVE] != 0;
     }
 
+    public static boolean resetClipEvidence(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof SignalAmplifierBlock amplifier)) return false;
+        RuntimeIntStore.remove(level, RUNTIME_KEY, pos);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, amplifier, 1);
+        return true;
+    }
+
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         int input = readBackInput(level, pos, state);
