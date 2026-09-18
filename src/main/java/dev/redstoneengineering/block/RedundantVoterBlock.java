@@ -122,6 +122,21 @@ public class RedundantVoterBlock extends PassiveDirectionalSignalBlock {
     }
 
     public static int toleranceValue(int index) { return TOL[Math.max(0, Math.min(TOL.length - 1, index))]; }
+
+    public static boolean stepTolerance(Level level, BlockPos pos, boolean forward) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof RedundantVoterBlock voter)) return false;
+        int next = Math.floorMod(state.getValue(TOLERANCE) + (forward ? 1 : -1), TOL.length);
+        level.setBlock(pos, state.setValue(TOLERANCE, next), Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, voter, 1);
+        return true;
+    }
+
+    public static int validInputs(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof RedundantVoterBlock voter)) return 0;
+        return voter.vote(level, pos, state).validInputs();
+    }
     public static int spread(Level level, BlockPos pos) { int[] rt=RuntimeIntStore.peek(level,KEY,pos); return rt==null||rt.length<1?0:rt[0]; }
     public static boolean degraded(Level level, BlockPos pos) { int[] rt=RuntimeIntStore.peek(level,KEY,pos); return rt!=null&&rt.length>1&&rt[1]!=0; }
     public static int maxSpread(Level level, BlockPos pos) { int[] rt=RuntimeIntStore.peek(level,KEY,pos); return rt==null||rt.length<3?0:rt[2]; }
