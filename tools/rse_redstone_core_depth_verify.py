@@ -195,11 +195,13 @@ req("src/main/java/dev/redstoneengineering/block/SingleRelayBlock.java",
 
 req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
     "SingleRelayBlock.PICKUP_MODE","SingleRelayBlock.stepPickup",
-    "SingleRelayBlock.controlHoldActive","SingleRelayBlock.payloadHoldActive")
+    "SingleRelayBlock.controlHoldActive","SingleRelayBlock.payloadHoldActive",
+    "SingleRelayBlock.controlQuality","SingleRelayBlock.payloadQuality")
 
 req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
     "Pickup / dropout","◀ Pickup","Pickup ▶",
-    "SINGLE RELAY • EVIDENCE HOLD","CONTROL HOLD","PAYLOAD HOLD")
+    "SINGLE RELAY • EVIDENCE HOLD","SINGLE RELAY • CONTROL NO SOURCE",
+    "CTRL=","PAY=","CONTROL HOLD","PAYLOAD HOLD")
 
 req("src/main/java/dev/redstoneengineering/physics/RedstoneObservationSupport.java",
     "engineeringSnapshot","combineQuality","snapshot.get().quality()")
@@ -211,11 +213,15 @@ req("src/main/java/dev/redstoneengineering/block/SingleRelayBlock.java",
     "coilObservation","controlEvidenceUnusable","input.quality()",
     "CONTROL_HOLD_ACTIVE","CONTROL_BAD_EPISODES",
     "PAYLOAD_HOLD_ACTIVE","PAYLOAD_BAD_EPISODES",
-    "controlHoldActive","payloadHoldActive","combineQuality")
+    "controlHoldActive","payloadHoldActive","controlQuality","payloadQuality",
+    "combineQuality(PortQuality.VALID, coil.quality())",
+    "combineQuality(input.quality(), coil.quality())")
 
 req("src/main/java/dev/redstoneengineering/gametest/RseRelayEvidenceGameTests.java",
     "relayHoldsLastPayloadAcrossFaultQuality",
-    "PortQuality.FAULT","payloadHoldActive","payloadBadEpisodes")
+    "relayExposesMissingControlWhileDeenergizing",
+    "PortQuality.FAULT","PortQuality.NO_SIGNAL",
+    "payloadHoldActive","payloadBadEpisodes","controlQuality")
 
 req("src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java",
     "event.register(RseRelayEvidenceGameTests.class);")
