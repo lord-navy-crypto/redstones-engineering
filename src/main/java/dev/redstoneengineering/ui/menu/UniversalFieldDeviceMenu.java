@@ -321,6 +321,9 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         } else if (block instanceof CalibrationModuleBlock) {
             configKind.set(CONFIG_CALIBRATION);
             configPrimary.set(state.getValue(CalibrationModuleBlock.PROFILE));
+            var measurement = CalibrationModuleBlock.measurement(level, blockPos);
+            configSecondary.set(measurement.sampleCount() <= 0 ? 0 : (int) Math.round(measurement.bias()));
+            configTertiary.set(measurement.sampleCount());
         } else if (block instanceof PwmControllerBlock) {
             configKind.set(CONFIG_PWM);
             configPrimary.set(state.getValue(PwmControllerBlock.PERIOD_MODE));
