@@ -45,7 +45,9 @@ public final class SignalSelectorBlock extends DirectionalSignalBlock {
     private static final int INITIALIZED = 2;
     private static final int CONTROL_HOLD_ACTIVE = 3;
     private static final int CONTROL_BAD_EPISODES = 4;
-    private static final int RUNTIME_SIZE = 5;
+    private static final int PAYLOAD_HOLD_ACTIVE = 5;
+    private static final int PAYLOAD_BAD_EPISODES = 6;
+    private static final int RUNTIME_SIZE = 7;
 
     public SignalSelectorBlock(Properties properties) {
         super(properties);
@@ -72,7 +74,16 @@ public final class SignalSelectorBlock extends DirectionalSignalBlock {
     }
 
     private static boolean controlEvidenceUnusable(PortQuality quality) {
-        return quality == PortQuality.STALE
+        return quality == PortQuality.NO_SIGNAL
+                || quality == PortQuality.STALE
+                || quality == PortQuality.FAULT
+                || quality == PortQuality.DOMAIN_MISMATCH
+                || quality == PortQuality.TOPOLOGY_ERROR;
+    }
+
+    private static boolean payloadEvidenceUnusable(PortQuality quality) {
+        return quality == PortQuality.NO_SIGNAL
+                || quality == PortQuality.STALE
                 || quality == PortQuality.FAULT
                 || quality == PortQuality.DOMAIN_MISMATCH
                 || quality == PortQuality.TOPOLOGY_ERROR;
@@ -102,6 +113,16 @@ public final class SignalSelectorBlock extends DirectionalSignalBlock {
     public static int controlBadEpisodes(Level level, BlockPos pos) {
         int[] runtime = RuntimeIntStore.peek(level, RUNTIME_KEY, pos);
         return runtime == null || runtime.length < RUNTIME_SIZE ? 0 : Math.max(0, runtime[CONTROL_BAD_EPISODES]);
+    }
+
+    public static boolean payloadHoldActive(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, RUNTIME_KEY, pos);
+        return runtime != null && runtime.length >= RUNTIME_SIZE && runtime[PAYLOAD_HOLD_ACTIVE] != 0;
+    }
+
+    public static int payloadBadEpisodes(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, RUNTIME_KEY, pos);
+        return runtime == null || runtime.length < RUNTIME_SIZE ? 0 : Math.max(0, runtime[PAYLOAD_BAD_EPISODES]);
     }
 
     public static PortQuality selectQuality(Level level, BlockPos pos, BlockState state) {
@@ -194,7 +215,17 @@ public final class SignalSelectorBlock extends DirectionalSignalBlock {
 
         Direction selectedSide = b ? inputBSide(state) : inputSide(state);
         var selected = RedstoneObservationSupport.observe(level, pos, selectedSide);
-        // Preserve the selected numerical payload, while engineeringSnapshot carries its evidence quality.
+        boolean badPayload = payloadEvidenceUnusable(selected.quality());
+        if (badPayload) {
+            if (runtime[PAYLOAD_HOLD_ACTIVE] == 0 && runtime[PAYLOAD_BAD_EPISODES] < Integer.MAX_VALUE) {
+                runtime[PAYLOAD_BAD_EPISODES]++;
+            }
+            runtime[PAYLOAD_HOLD_ACTIVE] = 1;
+            // Unknown payload evidence is not a numerical zero. Retain the last trustworthy OUT value.
+            return;
+        }
+
+        runtime[PAYLOAD_HOLD_ACTIVE] = 0;
         updateOutput(level, pos, state, selected.value());
     }
 
@@ -217,6 +248,8 @@ public final class SignalSelectorBlock extends DirectionalSignalBlock {
                                 + " | selected=" + (selectedB(level, pos, next) ? "B" : "A")
                                 + " | control=" + (controlHoldActive(level, pos) ? "HOLD LAST" : "LIVE")
                                 + " | badControlEpisodes=" + controlBadEpisodes(level, pos)
+                                + " | payload=" + (payloadHoldActive(level, pos) ? "HOLD LAST" : "LIVE")
+                                + " | badPayloadEpisodes=" + payloadBadEpisodes(level, pos)
                                 + " | switches=" + switchCount(level, pos)
                                 + " | OUT=" + next.getValue(OUTPUT) + "/15"), true);
             } else {
