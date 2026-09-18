@@ -10,6 +10,8 @@ import dev.redstoneengineering.block.SignalProbeBlock;
 import dev.redstoneengineering.block.RedstoneReferenceSourceBlock;
 import dev.redstoneengineering.block.FaultLatchBlock;
 import dev.redstoneengineering.block.TransmissionTopology;
+import dev.redstoneengineering.block.RedstoneByteEncoderBlock;
+import dev.redstoneengineering.block.ByteToRedstoneDecoderBlock;
 import dev.redstoneengineering.block.TankLevelSensorBlock;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.PortKind;
@@ -83,7 +85,9 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_SIGNAL_PROBE
                 || kind == UniversalFieldDeviceMenu.CONFIG_REFERENCE_SOURCE
                 || kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR
-                || kind == UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH;
+                || kind == UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH
+                || kind == UniversalFieldDeviceMenu.CONFIG_BYTE_ENCODER
+                || kind == UniversalFieldDeviceMenu.CONFIG_BYTE_DECODER;
         boolean range = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE
                 || kind == UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY
                 || kind == UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD;
@@ -196,6 +200,26 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private void configure(GuiGraphics g) {
         int kind = menu.configKind();
         switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_BYTE_ENCODER -> {
+                statusBadge(g, "REDSTONE → BYTE ENCODER", INFO, 16, 80);
+                labelValue(g, "Mapping mode", RedstoneByteEncoderBlock.modeName(menu.configPrimary()), 101);
+                labelValue(g, "Redstone input", menu.configSecondary() + " / 15", 123);
+                labelValue(g, "Byte output", menu.configTertiary() + " / 255", 145);
+                safeText(g, menu.configPrimary() == RedstoneByteEncoderBlock.FULL_SCALE
+                        ? "FULL_SCALE uses the complete byte range: 0..15 maps to 0..255 in steps of 17."
+                        : "DIRECT preserves legacy semantics: redstone 0..15 becomes byte 0..15.",
+                        16, 178, TEXT);
+            }
+            case UniversalFieldDeviceMenu.CONFIG_BYTE_DECODER -> {
+                statusBadge(g, "BYTE → REDSTONE DECODER", INFO, 16, 80);
+                labelValue(g, "Mapping mode", ByteToRedstoneDecoderBlock.modeName(menu.configPrimary()), 101);
+                labelValue(g, "Byte input", menu.configSecondary() + " / 255", 123);
+                labelValue(g, "Redstone output", menu.configTertiary() + " / 15", 145);
+                safeText(g, menu.configPrimary() == ByteToRedstoneDecoderBlock.FULL_SCALE
+                        ? "FULL_SCALE compresses the complete 8-bit value into the redstone 0..15 range."
+                        : "CLAMP preserves legacy behavior: byte values above 15 saturate at redstone 15.",
+                        16, 178, TEXT);
+            }
             case UniversalFieldDeviceMenu.CONFIG_JUNCTION -> {
                 TransmissionTopology.SignalMedium[] media = TransmissionTopology.SignalMedium.values();
                 int ordinal = Math.max(0, Math.min(media.length - 1, menu.configPrimary()));
