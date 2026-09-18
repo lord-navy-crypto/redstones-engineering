@@ -282,6 +282,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configPrimary.set(state.getValue(AlarmProcessorBlock.SEVERITY));
             configSecondary.set(!AlarmProcessorBlock.latched(level, blockPos) ? 0
                     : AlarmProcessorBlock.unacknowledged(level, blockPos) ? 2 : 1);
+            configTertiary.set(AlarmProcessorBlock.activationCount(level, blockPos));
         } else if (block instanceof SampleHoldBlock) {
             configKind.set(CONFIG_SAMPLE_HOLD);
             configPrimary.set(state.getValue(SampleHoldBlock.TRIGGER_MODE));
@@ -301,6 +302,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configKind.set(CONFIG_SEQUENCE_CONTROLLER);
             configPrimary.set(SequenceControllerBlock.step(level, blockPos));
             configSecondary.set(SequenceControllerBlock.completedCycles(level, blockPos));
+            configTertiary.set(SequenceControllerBlock.transitions(level, blockPos));
         } else if (block instanceof SafetyInterlockBlock) {
             configKind.set(CONFIG_SAFETY_INTERLOCK);
             configPrimary.set(SafetyInterlockBlock.failedMask(level, blockPos));
