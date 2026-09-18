@@ -77,6 +77,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_DIFF_DRIVER = 32;
     public static final int CONFIG_DIFF_PAIR = 33;
     public static final int CONFIG_DIFF_RECEIVER = 34;
+    public static final int CONFIG_DATA_BUS = 35;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
@@ -119,7 +120,13 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         configSecondary.set(0);
         configTertiary.set(0);
 
-        if (block instanceof DifferentialDriverBlock) {
+        if (block instanceof EightBitDataBusBlock) {
+            configKind.set(CONFIG_DATA_BUS);
+            var diag = dev.redstoneengineering.physics.DataBusNetwork.getDiagnostics(level, blockPos);
+            configPrimary.set(dev.redstoneengineering.physics.DataBusNetwork.sample(level, blockPos));
+            configSecondary.set(diag.qualityPercent());
+            configTertiary.set(diag.driverCount());
+        } else if (block instanceof DifferentialDriverBlock) {
             configKind.set(CONFIG_DIFF_DRIVER);
             configPrimary.set(state.getValue(DifferentialDriverBlock.THRESHOLD));
             var input = dev.redstoneengineering.physics.RedstoneObservationSupport.observe(
