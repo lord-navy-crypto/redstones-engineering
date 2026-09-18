@@ -12,6 +12,8 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
     private Button parameterNext;
     private Button thresholdPrevious;
     private Button thresholdNext;
+    private Button hysteresisPrevious;
+    private Button hysteresisNext;
     private Button retriggerToggle;
     private Button fallRatePrevious;
     private Button fallRateNext;
@@ -36,9 +38,15 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         thresholdNext = addConfigureWidget(Button.builder(Component.literal("Trigger threshold ▶"),
                 b -> sendMenuButton(SignalProcessorMenu.BUTTON_THRESHOLD_NEXT))
                 .bounds(leftPos + 194, topPos + 140, 110, 20).build());
+        hysteresisPrevious = addConfigureWidget(Button.builder(Component.literal("◀ Hysteresis"),
+                b -> sendMenuButton(SignalProcessorMenu.BUTTON_PULSE_HYSTERESIS_PREVIOUS))
+                .bounds(leftPos + 16, topPos + 164, 110, 20).build());
+        hysteresisNext = addConfigureWidget(Button.builder(Component.literal("Hysteresis ▶"),
+                b -> sendMenuButton(SignalProcessorMenu.BUTTON_PULSE_HYSTERESIS_NEXT))
+                .bounds(leftPos + 194, topPos + 164, 110, 20).build());
         retriggerToggle = addConfigureWidget(Button.builder(Component.literal("Retrigger"),
                 b -> sendMenuButton(SignalProcessorMenu.BUTTON_TOGGLE_RETRIGGER))
-                .bounds(leftPos + 102, topPos + 164, 116, 20).build());
+                .bounds(leftPos + 102, topPos + 188, 116, 20).build());
 
         fallRatePrevious = addConfigureWidget(Button.builder(Component.literal("◀ Fall rate"),
                 b -> sendMenuButton(SignalProcessorMenu.BUTTON_FILTER_FALL_PREVIOUS))
@@ -59,9 +67,13 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         boolean filter = menu.kind() == SignalProcessorMenu.KIND_FILTER;
         thresholdPrevious.visible = pulse;
         thresholdNext.visible = pulse;
+        hysteresisPrevious.visible = pulse;
+        hysteresisNext.visible = pulse;
         retriggerToggle.visible = pulse;
         thresholdPrevious.active = pulse;
         thresholdNext.active = pulse;
+        hysteresisPrevious.active = pulse;
+        hysteresisNext.active = pulse;
         retriggerToggle.active = pulse;
         fallRatePrevious.visible = filter;
         fallRateNext.visible = filter;
@@ -71,6 +83,9 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
             String threshold = "Trigger threshold " + menu.secondaryParameter() + "/15";
             thresholdPrevious.setMessage(Component.literal(fitForWidth("◀ " + threshold, 94)));
             thresholdNext.setMessage(Component.literal(fitForWidth(threshold + " ▶", 94)));
+            String hysteresis = "Hysteresis " + menu.tertiaryParameter();
+            hysteresisPrevious.setMessage(Component.literal(fitForWidth("◀ " + hysteresis, 94)));
+            hysteresisNext.setMessage(Component.literal(fitForWidth(hysteresis + " ▶", 94)));
             retriggerToggle.setMessage(Component.literal("Retrigger: " + (menu.modeFlag() ? "YES" : "NO")));
         }
         if (filter) {
@@ -101,8 +116,9 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
                 + menu.outputDirection().getName().toUpperCase(), 148);
         runtimeSummary(g, 166);
         if (menu.kind() == SignalProcessorMenu.KIND_PULSE) {
-            safeText(g, "Threshold " + menu.secondaryParameter() + "/15 • retrigger "
-                    + (menu.modeFlag() ? "enabled" : "blocked while busy"), 16, 188, MUTED);
+            safeText(g, "Trigger " + menu.secondaryParameter() + "/15 • re-arm ≤" + pulseRearmThreshold()
+                    + "/15 • hysteresis " + menu.tertiaryParameter()
+                    + " • retrigger " + (menu.modeFlag() ? "enabled" : "blocked while busy"), 16, 188, MUTED);
         } else if (menu.kind() == SignalProcessorMenu.KIND_FILTER) {
             safeText(g, "Rise " + menu.parameter() + " • fall " + menu.secondaryParameter()
                     + " level/tick • settle ETA " + menu.runtimeC() + "t", 16, 188, MUTED);
@@ -123,7 +139,7 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         statusBadge(g, "SERVER-SIDE BOUNDED CONTROL", INFO, 16, 80);
         labelValue(g, parameterName(), parameterValue(), 101);
         if (menu.kind() == SignalProcessorMenu.KIND_PULSE) {
-            safeText(g, "Threshold controls the trigger crossing; retrigger mode decides whether a busy one-shot reloads.", 16, 194, MUTED);
+            safeText(g, "Trigger threshold fires the one-shot; hysteresis sets the lower re-arm level so noisy or bouncing inputs cannot chatter.", 16, 214, MUTED);
         } else if (menu.kind() == SignalProcessorMenu.KIND_FILTER) {
             labelValue(g, "Fall rate", menu.secondaryParameter() + " level/tick", 181);
             safeText(g, "Independent up/down slew limits model asymmetric charge, discharge, acceleration or deceleration.", 16, 201, MUTED);
@@ -141,8 +157,9 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         labelValue(g, parameterName(), parameterValue(), 144);
         runtimeSummary(g, 162);
         if (menu.kind() == SignalProcessorMenu.KIND_PULSE) {
-            labelValue(g, "Trigger threshold", menu.secondaryParameter() + " / 15", 180);
-            labelValue(g, "Retrigger", menu.modeFlag() ? "ENABLED" : "BLOCK WHILE BUSY", 198);
+            labelValue(g, "Trigger / re-arm", menu.secondaryParameter() + " / " + pulseRearmThreshold(), 180);
+            labelValue(g, "Hysteresis", menu.tertiaryParameter() + " levels", 198);
+            labelValue(g, "Retrigger", menu.modeFlag() ? "ENABLED" : "BLOCK WHILE BUSY", 216);
         } else if (menu.kind() == SignalProcessorMenu.KIND_FILTER) {
             labelValue(g, "Fall rate", menu.secondaryParameter() + " level/tick", 180);
             labelValue(g, "Settle ETA", menu.runtimeC() + " ticks", 198);
@@ -218,12 +235,17 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
     private String processDescription() {
         return switch (menu.kind()) {
             case SignalProcessorMenu.KIND_EDGE -> "EDGE DETECTION • " + parameterValue();
-            case SignalProcessorMenu.KIND_PULSE -> "MONOSTABLE • width=" + parameterValue()
-                    + " • threshold=" + menu.secondaryParameter() + "/15"
+            case SignalProcessorMenu.KIND_PULSE -> "SCHMITT MONOSTABLE • width=" + parameterValue()
+                    + " • trigger=" + menu.secondaryParameter() + "/15"
+                    + " • rearm≤" + pulseRearmThreshold() + "/15"
                     + " • retrigger=" + (menu.modeFlag() ? "YES" : "NO");
             default -> "SLEW LIMIT • rise=" + parameterValue()
                     + " • fall=" + menu.secondaryParameter() + " level/tick";
         };
+    }
+
+    private int pulseRearmThreshold() {
+        return Math.max(0, menu.secondaryParameter() - Math.max(1, menu.tertiaryParameter()));
     }
 
     private String stateName() {
