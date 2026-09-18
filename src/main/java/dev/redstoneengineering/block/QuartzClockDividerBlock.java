@@ -38,7 +38,8 @@ public class QuartzClockDividerBlock extends DirectionalDomainBlock implements E
     private static final int PREVIOUS_SLOT = 1;
     private static final int OUTPUT_SLOT = 2;
     private static final int INITIALIZED_SLOT = 3;
-    private static final int RUNTIME_SIZE = 4;
+    private static final int PHASE_STARTED_SLOT = 4;
+    private static final int RUNTIME_SIZE = 5;
 
     public QuartzClockDividerBlock(Properties properties) {
         super(properties);
@@ -55,6 +56,11 @@ public class QuartzClockDividerBlock extends DirectionalDomainBlock implements E
     public static boolean initialized(Level level, BlockPos pos) {
         int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
         return runtime != null && runtime.length == RUNTIME_SIZE && runtime[INITIALIZED_SLOT] == 1;
+    }
+
+    public static boolean phaseStarted(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime != null && runtime.length == RUNTIME_SIZE && runtime[PHASE_STARTED_SLOT] == 1;
     }
 
     public static int countedEdges(Level level, BlockPos pos) {
@@ -115,26 +121,46 @@ public class QuartzClockDividerBlock extends DirectionalDomainBlock implements E
         int divisor = division(state.getValue(DIV_INDEX));
 
         if (!input.valid()) {
+            runtime[COUNT_SLOT] = 0;
             runtime[PREVIOUS_SLOT] = 0;
             runtime[OUTPUT_SLOT] = 0;
             runtime[INITIALIZED_SLOT] = 0;
+            runtime[PHASE_STARTED_SLOT] = 0;
             DomainNetwork.driveQuartz(level, outputPos(pos, state), pos, false, 1, false);
             level.scheduleTick(pos, this, 1);
             return;
         }
 
         if (runtime[INITIALIZED_SLOT] == 0) {
+            // First observation establishes input phase only. A HIGH level at connection time is
+            // not a genuine rising edge and therefore cannot start the divided output clock.
             runtime[PREVIOUS_SLOT] = input.active() ? 1 : 0;
+            runtime[COUNT_SLOT] = 0;
+            runtime[OUTPUT_SLOT] = 0;
             runtime[INITIALIZED_SLOT] = 1;
+            runtime[PHASE_STARTED_SLOT] = 0;
         } else {
             boolean rising = input.active() && runtime[PREVIOUS_SLOT] == 0;
-            if (rising) runtime[COUNT_SLOT] = (runtime[COUNT_SLOT] + 1) % divisor;
+            if (rising) {
+                if (runtime[PHASE_STARTED_SLOT] == 0) {
+                    runtime[COUNT_SLOT] = 0;
+                    runtime[PHASE_STARTED_SLOT] = 1;
+                } else {
+                    runtime[COUNT_SLOT] = (runtime[COUNT_SLOT] + 1) % divisor;
+                }
+            }
             runtime[PREVIOUS_SLOT] = input.active() ? 1 : 0;
         }
 
-        runtime[OUTPUT_SLOT] = runtime[COUNT_SLOT] < divisor / 2 ? 1 : 0;
         int outputPeriod = Math.min(4096, Math.max(1, input.periodTicks()) * divisor);
-        DomainNetwork.driveQuartz(level, outputPos(pos, state), pos, runtime[OUTPUT_SLOT] == 1, outputPeriod, true);
+        if (runtime[PHASE_STARTED_SLOT] == 0) {
+            runtime[OUTPUT_SLOT] = 0;
+            DomainNetwork.driveQuartz(level, outputPos(pos, state), pos, false, outputPeriod, false);
+        } else {
+            runtime[OUTPUT_SLOT] = runtime[COUNT_SLOT] < divisor / 2 ? 1 : 0;
+            DomainNetwork.driveQuartz(
+                    level, outputPos(pos, state), pos, runtime[OUTPUT_SLOT] == 1, outputPeriod, true);
+        }
         level.scheduleTick(pos, this, 1);
     }
 
@@ -143,7 +169,10 @@ public class QuartzClockDividerBlock extends DirectionalDomainBlock implements E
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
                 int configuredDivision = cycleDivision((ServerLevel) level, pos);
-                player.displayClientMessage(Component.literal("Quartz divider | ÷" + configuredDivision + " | phase re-arms on next valid clock sample"), true);
+                player.displayClientMessage(Component.literal(
+                        "Quartz divider | ÷" + configuredDivision
+                                + " | input baseline resets immediately"
+                                + " | divided output starts on the next genuine rising edge"), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
             }
