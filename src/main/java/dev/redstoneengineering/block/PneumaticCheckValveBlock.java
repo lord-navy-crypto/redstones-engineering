@@ -11,6 +11,7 @@ import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.PneumaticNetwork;
 import dev.redstoneengineering.physics.PneumaticObservationSupport;
+import dev.redstoneengineering.signal.PneumaticCheckValveLogic;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -26,9 +27,26 @@ import net.minecraft.world.phys.BlockHitResult;
 import java.util.List;
 import java.util.Optional;
 
-/** One-way pneumatic element: flow is permitted BACK -> FRONT only. */
+/**
+ * One-way pneumatic element with a finite cracking pressure.
+ *
+ * <p>Flow is permitted BACK -> FRONT only. Forward pressure must first overcome the poppet/spring
+ * cracking pressure; the pressure solver then carries the resulting extra drop downstream.</p>
+ */
 public class PneumaticCheckValveBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
+    private static final int CRACKING_PRESSURE = 4;
+
     public PneumaticCheckValveBlock(Properties properties) { super(properties); }
+
+    public static int crackingPressure() { return CRACKING_PRESSURE; }
+
+    public static int transmittedPressure(int upstreamPressure) {
+        return PneumaticCheckValveLogic.transmittedPressure(upstreamPressure, CRACKING_PRESSURE);
+    }
+
+    public static boolean crackedOpen(int upstreamPressure) {
+        return PneumaticCheckValveLogic.crackedOpen(upstreamPressure, CRACKING_PRESSURE);
+    }
 
     @Override public MapCodec<PneumaticCheckValveBlock> codec() {
         return RedstoneEngineering.PNEUMATIC_CHECK_VALVE_CODEC.value();
@@ -82,7 +100,10 @@ public class PneumaticCheckValveBlock extends DirectionalDomainBlock implements 
             if (player.isShiftKeyDown()) {
                 player.displayClientMessage(Component.literal(
                         "Check valve | allowed " + inputSide(state) + " → " + outputSide(state)
-                                + " | pressure=" + PneumaticNetwork.pressure(level, pos) + "/100"
+                                + " | cracking=" + CRACKING_PRESSURE + "/100"
+                                + " | valvePressure=" + PneumaticNetwork.pressure(level, pos) + "/100"
+                                + " | state=" + (crackedOpen(PneumaticNetwork.pressure(level, pos))
+                                ? "CRACKED OPEN" : "SEATED")
                 ), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
