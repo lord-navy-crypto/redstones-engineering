@@ -104,13 +104,19 @@ public class SequenceControllerBlock extends PassiveDirectionalSignalBlock imple
     }
 
     private static PortQuality controllerQuality(ControlEvidence evidence) {
-        PortQuality quality = PortQuality.VALID;
+        // RUN is the primary authority input, so missing RUN must remain visible as NO_SIGNAL.
+        PortQuality quality = evidence.run().quality();
         for (RedstoneObservationSupport.Observation observation : List.of(
-                evidence.run(), evidence.advance(), evidence.reset(), evidence.hold())) {
+                evidence.advance(), evidence.reset(), evidence.hold())) {
             if (observation.quality() == PortQuality.NO_SIGNAL) continue;
             quality = RedstoneObservationSupport.combineQuality(quality, observation.quality());
         }
         return quality;
+    }
+
+    public static PortQuality runQuality(Level level, BlockPos pos, BlockState state) {
+        return RedstoneObservationSupport.observe(
+                level, pos, DirectionalSignalBlock.seriesInputSide(state)).quality();
     }
 
     @Override
@@ -297,7 +303,8 @@ public class SequenceControllerBlock extends PassiveDirectionalSignalBlock imple
         runtime[1] = 0;
         runtime[2] = 0;
         runtime[ADVANCE_REACQUIRE] = 0;
-        runtime[RUN_REACQUIRE] = 0;
+        // Reacquire the physical RUN level before another start edge can be accepted.
+        runtime[RUN_REACQUIRE] = 1;
         runtime[5]++;
         updateOutput(level, pos, state, 0);
         if (oldStep != 0) {
