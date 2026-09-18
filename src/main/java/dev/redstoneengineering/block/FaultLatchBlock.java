@@ -121,6 +121,16 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock implements Op
     }
 
     public static int thresholdValue(int index) { return LEVELS[Math.max(0, Math.min(LEVELS.length - 1, index))]; }
+
+    public static boolean stepThreshold(Level level, BlockPos pos, boolean forward) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof FaultLatchBlock latch)) return false;
+        int current = state.getValue(THRESHOLD);
+        int next = Math.floorMod(current + (forward ? 1 : -1), LEVELS.length);
+        level.setBlock(pos, state.setValue(THRESHOLD, next), Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, latch, 1);
+        return true;
+    }
     public static boolean latched(Level level, BlockPos pos) { int[]rt=RuntimeIntStore.peek(level,KEY,pos); return rt!=null&&rt.length>0&&rt[0]!=0; }
     public static int tripCount(Level level, BlockPos pos) { int[]rt=RuntimeIntStore.peek(level,KEY,pos); return rt==null||rt.length<2?0:rt[1]; }
     public static int resetCount(Level level, BlockPos pos) { int[]rt=RuntimeIntStore.peek(level,KEY,pos); return rt==null||rt.length<3?0:rt[2]; }
