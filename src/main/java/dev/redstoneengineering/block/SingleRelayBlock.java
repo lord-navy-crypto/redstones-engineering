@@ -10,6 +10,7 @@ import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.physics.RedstoneObservationSupport;
+import dev.redstoneengineering.signal.RelayDynamicsLogic;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -40,7 +41,10 @@ import java.util.Optional;
 public final class SingleRelayBlock extends DirectionalSignalBlock {
     public static final BooleanProperty NORMALLY_CLOSED = BooleanProperty.create("normally_closed");
     public static final IntegerProperty PICKUP_MODE = IntegerProperty.create("pickup_mode", 0, 3);
+    public static final IntegerProperty TIMING_MODE = IntegerProperty.create("timing_mode", 0, 3);
     private static final int[] PICKUP_LEVELS = {1, 4, 8, 12};
+    private static final int[] OPERATE_DELAYS = {0, 1, 2, 4};
+    private static final int[] RELEASE_DELAYS = {0, 1, 3, 6};
 
     private static final String RUNTIME_KEY = "single_relay";
     private static final int LAST_CLOSED = 0;
@@ -52,13 +56,16 @@ public final class SingleRelayBlock extends DirectionalSignalBlock {
     private static final int CONTROL_BAD_EPISODES = 6;
     private static final int PAYLOAD_HOLD_ACTIVE = 7;
     private static final int PAYLOAD_BAD_EPISODES = 8;
-    private static final int RUNTIME_SIZE = 9;
+    private static final int PENDING_TARGET = 9;
+    private static final int TRANSITION_REMAINING = 10;
+    private static final int RUNTIME_SIZE = 11;
 
     public SingleRelayBlock(Properties properties) {
         super(properties);
         registerDefaultState(defaultBlockState()
                 .setValue(NORMALLY_CLOSED, false)
-                .setValue(PICKUP_MODE, 0));
+                .setValue(PICKUP_MODE, 0)
+                .setValue(TIMING_MODE, 0));
     }
 
     @Override
@@ -69,7 +76,7 @@ public final class SingleRelayBlock extends DirectionalSignalBlock {
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
-        builder.add(NORMALLY_CLOSED, PICKUP_MODE);
+        builder.add(NORMALLY_CLOSED, PICKUP_MODE, TIMING_MODE);
     }
 
     public static Direction controlSide(BlockState state) {
@@ -82,6 +89,24 @@ public final class SingleRelayBlock extends DirectionalSignalBlock {
 
     public static int dropoutLevel(BlockState state) {
         return Math.max(0, pickupLevel(state) - 2);
+    }
+
+    public static int operateDelayTicks(BlockState state) {
+        return OPERATE_DELAYS[Math.max(0, Math.min(OPERATE_DELAYS.length - 1, state.getValue(TIMING_MODE)))];
+    }
+
+    public static int releaseDelayTicks(BlockState state) {
+        return RELEASE_DELAYS[Math.max(0, Math.min(RELEASE_DELAYS.length - 1, state.getValue(TIMING_MODE)))];
+    }
+
+    public static String timingName(BlockState state) {
+        return switch (state.getValue(TIMING_MODE)) {
+            case 0 -> "INSTANT";
+            case 1 -> "FAST";
+            case 2 -> "STANDARD";
+            case 3 -> "HEAVY";
+            default -> "INSTANT";
+        };
     }
 
     public static RedstoneObservationSupport.Observation coilObservation(Level level, BlockPos pos, BlockState state) {
@@ -113,7 +138,25 @@ public final class SingleRelayBlock extends DirectionalSignalBlock {
         if (runtime != null && runtime.length >= RUNTIME_SIZE && runtime[INITIALIZED] != 0) {
             return runtime[COIL_ACTIVE] != 0;
         }
-        return coilInput(level, pos, state) >= pickupLevel(state);
+        // Timed electromechanical profiles start de-energized until the operate delay is completed.
+        return operateDelayTicks(state) == 0 && coilInput(level, pos, state) >= pickupLevel(state);
+    }
+
+    public static int transitionRemaining(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, RUNTIME_KEY, pos);
+        return runtime == null || runtime.length < RUNTIME_SIZE
+                ? 0 : Math.max(0, runtime[TRANSITION_REMAINING]);
+    }
+
+    public static boolean transitionPending(Level level, BlockPos pos) {
+        return transitionRemaining(level, pos) > 0;
+    }
+
+    public static boolean pendingCoilTarget(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, RUNTIME_KEY, pos);
+        return runtime != null && runtime.length >= RUNTIME_SIZE
+                && runtime[TRANSITION_REMAINING] > 0
+                && runtime[PENDING_TARGET] != 0;
     }
 
     public static boolean contactClosed(Level level, BlockPos pos, BlockState state) {
@@ -127,6 +170,21 @@ public final class SingleRelayBlock extends DirectionalSignalBlock {
         int current = state.getValue(PICKUP_MODE);
         int next = Math.floorMod(current + (forward ? 1 : -1), PICKUP_LEVELS.length);
         level.setBlock(pos, state.setValue(PICKUP_MODE, next), Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, relay, 1);
+        return true;
+    }
+
+    public static boolean stepTiming(Level level, BlockPos pos, boolean forward) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof SingleRelayBlock relay)) return false;
+        int current = state.getValue(TIMING_MODE);
+        int nextMode = Math.floorMod(current + (forward ? 1 : -1), OPERATE_DELAYS.length);
+        BlockState next = state.setValue(TIMING_MODE, nextMode);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+
+        int[] runtime = RuntimeIntStore.get(level, RUNTIME_KEY, pos, RUNTIME_SIZE);
+        runtime[PENDING_TARGET] = runtime[COIL_ACTIVE];
+        runtime[TRANSITION_REMAINING] = 0;
         if (level instanceof ServerLevel server) server.scheduleTick(pos, relay, 1);
         return true;
     }
@@ -229,16 +287,34 @@ public final class SingleRelayBlock extends DirectionalSignalBlock {
                 runtime[CONTROL_BAD_EPISODES]++;
             }
             runtime[CONTROL_HOLD_ACTIVE] = 1;
+            // Unknown control evidence freezes the actual armature and cancels an in-flight move.
+            runtime[PENDING_TARGET] = coilWasActive ? 1 : 0;
+            runtime[TRANSITION_REMAINING] = 0;
         } else {
             runtime[CONTROL_HOLD_ACTIVE] = 0;
         }
 
-        boolean energized = badControl
+        boolean desiredEnergized = badControl
                 ? coilWasActive
                 : coilWasActive
                 ? coilInput > dropoutLevel(state)
                 : coilInput >= pickupLevel(state);
+
+        RelayDynamicsLogic.Result mechanical = RelayDynamicsLogic.step(
+                desiredEnergized,
+                operateDelayTicks(state),
+                releaseDelayTicks(state),
+                new RelayDynamicsLogic.State(
+                        coilWasActive,
+                        runtime[PENDING_TARGET] != 0,
+                        runtime[TRANSITION_REMAINING]
+                )
+        );
+        boolean energized = mechanical.state().energized();
         runtime[COIL_ACTIVE] = energized ? 1 : 0;
+        runtime[PENDING_TARGET] = mechanical.state().pendingTarget() ? 1 : 0;
+        runtime[TRANSITION_REMAINING] = mechanical.state().remainingTicks();
+        if (mechanical.transitionPending()) level.scheduleTick(pos, this, 1);
 
         boolean closed = state.getValue(NORMALLY_CLOSED) ? !energized : energized;
         if (runtime[INITIALIZED] == 0) {
@@ -295,6 +371,12 @@ public final class SingleRelayBlock extends DirectionalSignalBlock {
                                 + " quality=" + coilObservation(level, pos, next).quality()
                                 + " pickup=" + pickupLevel(next)
                                 + " dropout=" + dropoutLevel(next)
+                                + " | timing=" + timingName(next)
+                                + " op/release=" + operateDelayTicks(next) + "/" + releaseDelayTicks(next) + "t"
+                                + (transitionPending(level, pos)
+                                ? " pending=" + (pendingCoilTarget(level, pos) ? "PICKUP" : "RELEASE")
+                                + ":" + transitionRemaining(level, pos) + "t"
+                                : " steady")
                                 + " | contact=" + (contactClosed(level, pos, next) ? "CLOSED" : "OPEN")
                                 + " | evidence=" + (controlHoldActive(level, pos) ? "CONTROL_HOLD" : "CONTROL_LIVE")
                                 + "/" + (payloadHoldActive(level, pos) ? "PAYLOAD_HOLD" : "PAYLOAD_LIVE")
