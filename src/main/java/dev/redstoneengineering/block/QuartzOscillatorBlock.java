@@ -10,6 +10,7 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
+import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -34,6 +35,11 @@ import java.util.Optional;
 public class QuartzOscillatorBlock extends DirectionalDomainSourceBlock implements EngineeringPortProvider {
     public static final BooleanProperty ACTIVE=BooleanProperty.create("active");
     public static final IntegerProperty PERIOD_INDEX=IntegerProperty.create("period",0,4);
+    private static final String KEY = "quartz_oscillator";
+    private static final int EFFECTIVE_PERIOD_INDEX = 0;
+    private static final int INITIALIZED = 1;
+    private static final int EDGE_COUNT = 2;
+    private static final int RUNTIME_SIZE = 3;
 
     public QuartzOscillatorBlock(Properties p){
         super(p);
@@ -63,6 +69,34 @@ public class QuartzOscillatorBlock extends DirectionalDomainSourceBlock implemen
         return d.map(port->new EngineeringPortSnapshot(port,s.getValue(ACTIVE)?1.0:0.0,0.0,1.0,PortQuality.VALID));
     }
 
+    private static int[] snapshot(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime != null && runtime.length == RUNTIME_SIZE ? runtime : null;
+    }
+
+    public static int configuredPeriodTicks(BlockState state) {
+        return QuartzTimingLineBlock.periodTicks(state.getValue(PERIOD_INDEX));
+    }
+
+    public static int effectivePeriodTicks(Level level, BlockPos pos, BlockState state) {
+        int[] runtime = snapshot(level, pos);
+        int index = runtime == null || runtime[INITIALIZED] == 0
+                ? state.getValue(PERIOD_INDEX)
+                : runtime[EFFECTIVE_PERIOD_INDEX];
+        return QuartzTimingLineBlock.periodTicks(index);
+    }
+
+    public static boolean periodChangePending(Level level, BlockPos pos, BlockState state) {
+        int[] runtime = snapshot(level, pos);
+        return runtime != null && runtime[INITIALIZED] != 0
+                && runtime[EFFECTIVE_PERIOD_INDEX] != state.getValue(PERIOD_INDEX);
+    }
+
+    public static int edgeCount(Level level, BlockPos pos) {
+        int[] runtime = snapshot(level, pos);
+        return runtime == null ? 0 : Math.max(0, runtime[EDGE_COUNT]);
+    }
+
     @Override
     protected void onPlace(BlockState s,Level l,BlockPos p,BlockState old,boolean moved){
         super.onPlace(s,l,p,old,moved);
@@ -71,17 +105,31 @@ public class QuartzOscillatorBlock extends DirectionalDomainSourceBlock implemen
 
     @Override
     protected void onRemove(BlockState s,Level l,BlockPos p,BlockState ns,boolean moved){
-        if(l instanceof ServerLevel sl&&!s.is(ns.getBlock()))DomainNetwork.recomputeQuartzAround(sl,p);
+        if(!s.is(ns.getBlock())) {
+            RuntimeIntStore.remove(l, KEY, p);
+            if(l instanceof ServerLevel sl) DomainNetwork.recomputeQuartzAround(sl,p);
+        }
         super.onRemove(s,l,p,ns,moved);
     }
 
     @Override
     protected void tick(BlockState s,ServerLevel l,BlockPos p,RandomSource r){
-        int period=QuartzTimingLineBlock.periodTicks(s.getValue(PERIOD_INDEX));
+        int[] runtime = RuntimeIntStore.get(l, KEY, p, RUNTIME_SIZE);
+        if (runtime[INITIALIZED] == 0) {
+            runtime[EFFECTIVE_PERIOD_INDEX] = s.getValue(PERIOD_INDEX);
+            runtime[INITIALIZED] = 1;
+        }
+
         BlockState n=s.setValue(ACTIVE,!s.getValue(ACTIVE));
         l.setBlock(p,n,Block.UPDATE_CLIENTS);
+
+        // A configured period change becomes effective only at this real waveform transition.
+        runtime[EFFECTIVE_PERIOD_INDEX] = n.getValue(PERIOD_INDEX);
+        if (runtime[EDGE_COUNT] < Integer.MAX_VALUE) runtime[EDGE_COUNT]++;
+
         DomainNetwork.recomputeQuartz(l,p);
-        l.scheduleTick(p,this,Math.max(1,period/2));
+        int effectivePeriod = effectivePeriodTicks(l, p, n);
+        l.scheduleTick(p,this,Math.max(1,effectivePeriod/2));
     }
 
     public static boolean stepPeriod(Level level, BlockPos pos, boolean forward) {
@@ -89,16 +137,15 @@ public class QuartzOscillatorBlock extends DirectionalDomainSourceBlock implemen
         if (!(state.getBlock() instanceof QuartzOscillatorBlock oscillator)) return false;
         int current = state.getValue(PERIOD_INDEX);
         int next = Math.floorMod(current + (forward ? 1 : -1), 5);
-        level.setBlock(pos, state.setValue(PERIOD_INDEX, next), Block.UPDATE_CLIENTS);
-        if (level instanceof ServerLevel server) {
-            DomainNetwork.recomputeQuartz(server, pos);
-            server.scheduleTick(pos, oscillator, 1);
-        }
+        BlockState updated = state.setValue(PERIOD_INDEX, next);
+        level.setBlock(pos, updated, Block.UPDATE_CLIENTS);
+        // Do not create an early edge. The new period is latched by the next real oscillator
+        // transition; until then the timing network keeps the old effective-period evidence.
         return true;
     }
 
     public static int periodTicks(BlockState state) {
-        return QuartzTimingLineBlock.periodTicks(state.getValue(PERIOD_INDEX));
+        return configuredPeriodTicks(state);
     }
 
     @Override
@@ -121,7 +168,10 @@ public class QuartzOscillatorBlock extends DirectionalDomainSourceBlock implemen
                 stepPeriod(l, p, true);
                 BlockState n=l.getBlockState(p);
                 pl.displayClientMessage(Component.literal(
-                        "Quartz oscillator period = "+periodTicks(n)+" ticks"
+                        "Quartz oscillator | configured=" + configuredPeriodTicks(n) + "t"
+                                + " effective=" + effectivePeriodTicks(l, p, n) + "t"
+                                + (periodChangePending(l, p, n) ? " (LATCHES NEXT EDGE)" : "")
+                                + " | edges=" + edgeCount(l, p)
                                 + " | OUT=" + outputSide(n).getName().toUpperCase()),true);
             }
         }
