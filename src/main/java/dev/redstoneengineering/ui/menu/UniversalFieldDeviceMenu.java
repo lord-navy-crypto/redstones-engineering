@@ -168,6 +168,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configPrimary.set(state.getValue(SingleRelayBlock.NORMALLY_CLOSED) ? 1 : 0);
             configSecondary.set(SingleRelayBlock.coilEnergized(level, blockPos, state) ? 1 : 0);
             configTertiary.set(SingleRelayBlock.switchCount(level, blockPos));
+            configQuaternary.set(state.getValue(SingleRelayBlock.PICKUP_MODE));
         } else if (block instanceof QuartzTimingLineBlock) {
             configKind.set(CONFIG_QUARTZ_TRACE);
             configPrimary.set(QuartzTimingLineBlock.period(level, blockPos));
@@ -500,6 +501,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean adjustSecondary(int delta) {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof SingleRelayBlock) return SingleRelayBlock.stepPickup(level, blockPos, delta > 0);
         if (block instanceof MagneticFieldSensorBlock) return MagneticFieldSensorBlock.adjustSampling(level, blockPos, delta);
         if (block instanceof LapisPrecisionRangeSensorBlock range) return range.adjustRange(level, blockPos, delta);
         if (block instanceof EntityDensitySensorBlock) return EntityDensitySensorBlock.adjustAperture(level, blockPos, delta);
