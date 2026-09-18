@@ -180,6 +180,9 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             if (SingleRelayBlock.payloadHoldActive(level, blockPos)) relayStatus |= 8;
             relayStatus |= SingleRelayBlock.controlQuality(level, blockPos, state).ordinal() << 4;
             relayStatus |= SingleRelayBlock.payloadQuality(level, blockPos, state).ordinal() << 7;
+            relayStatus |= state.getValue(SingleRelayBlock.TIMING_MODE) << 10;
+            relayStatus |= Math.min(15, SingleRelayBlock.transitionRemaining(level, blockPos)) << 12;
+            if (SingleRelayBlock.pendingCoilTarget(level, blockPos)) relayStatus |= 1 << 16;
             configQuaternary.set(relayStatus);
         } else if (block instanceof QuartzTimingLineBlock) {
             configKind.set(CONFIG_QUARTZ_TRACE);
@@ -553,6 +556,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean runAction() {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof SingleRelayBlock) return SingleRelayBlock.stepTiming(level, blockPos, true);
         if (block instanceof SignalAmplifierBlock) return SignalAmplifierBlock.resetClipEvidence(level, blockPos);
         if (block instanceof RedundantVoterBlock voter) return voter.resetDiagnostics(level, blockPos);
         if (block instanceof WatchdogBlock watchdog) return watchdog.resetDiagnostics(level, blockPos);
