@@ -4,6 +4,7 @@
   "block.redstoneengineering.oscilloscope": "4-Channel Engineering Oscilloscope",
   "block.redstoneengineering.signal_conditioner": "Analog Signal Conditioner",
   "block.redstoneengineering.signal_amplifier": "Redstone Signal Amplifier",
+  "block.redstoneengineering.signal_selector": "2:1 Redstone Signal Selector",
   "block.redstoneengineering.calibration_module": "Instrument Calibration Reference",
   "block.redstoneengineering.precision_filter": "Precision Low-Pass Filter",
   "block.redstoneengineering.sample_hold": "Sample-and-Hold Module",
