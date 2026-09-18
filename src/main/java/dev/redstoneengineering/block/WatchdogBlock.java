@@ -79,7 +79,11 @@ public class WatchdogBlock extends PassiveDirectionalSignalBlock implements Oper
         int age = ageTicks(level, pos);
         int timeout = timeoutTicks(state.getValue(TIMEOUT));
         boolean timedOut = runtime != null && runtime.length >= RUNTIME_SIZE && age >= timeout;
-        PortQuality quality = runtime == null || runtime.length < RUNTIME_SIZE ? PortQuality.STALE : PortQuality.VALID;
+        RedstoneObservationSupport.Observation heartbeat =
+                RedstoneObservationSupport.observe(level, pos, inputSide(state));
+        PortQuality quality = runtime == null || runtime.length < RUNTIME_SIZE
+                ? PortQuality.STALE
+                : heartbeat.quality();
         return new OperationWorldResourceSnapshot(
                 "watchdog:" + pos.asLong(),
                 Set.of("heartbeat_monitoring"),
@@ -149,6 +153,10 @@ public class WatchdogBlock extends PassiveDirectionalSignalBlock implements Oper
     public static int ageTicks(Level level, BlockPos pos) { int[] rt = RuntimeIntStore.peek(level, KEY, pos); return rt == null || rt.length <= AGE ? 0 : rt[AGE]; }
     public static int transitionCount(Level level, BlockPos pos) { int[] rt = RuntimeIntStore.peek(level, KEY, pos); return rt == null || rt.length <= TRANSITIONS ? 0 : rt[TRANSITIONS]; }
     public static int timeoutCount(Level level, BlockPos pos) { int[] rt = RuntimeIntStore.peek(level, KEY, pos); return rt == null || rt.length <= TIMEOUTS ? 0 : rt[TIMEOUTS]; }
+    public static boolean sourceSeen(Level level, BlockPos pos) {
+        int[] rt = RuntimeIntStore.peek(level, KEY, pos);
+        return rt != null && rt.length > SOURCE_SEEN && rt[SOURCE_SEEN] != 0;
+    }
 
     public boolean resetDiagnostics(Level level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
