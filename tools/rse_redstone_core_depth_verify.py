@@ -186,6 +186,15 @@ req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java
 req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
     "ANALOG COMPARATOR","Process-reference","Decision output","Compare • ")
 
+req("src/main/java/dev/redstoneengineering/block/SingleRelayBlock.java",
+    "PICKUP_MODE","pickupLevel","dropoutLevel","stepPickup","coilInput")
+
+req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
+    "SingleRelayBlock.PICKUP_MODE","SingleRelayBlock.stepPickup")
+
+req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
+    "Pickup / dropout","◀ Pickup","Pickup ▶")
+
 if failed:
     print("RSE redstone-core engineering-depth verification: FAIL")
     for x in failed: print(" -",x)
@@ -209,3 +218,4 @@ print(" buffered tap and sample-hold evidence: PASS")
 print(" tap/sample-hold/calibration evidence: PASS")
 print(" two-input analog signal selection: PASS")
 print(" live-reference hysteretic comparison: PASS")
+print(" relay pickup/dropout hysteresis: PASS")
