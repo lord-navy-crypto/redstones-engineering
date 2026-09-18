@@ -96,7 +96,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_REGENERATOR
                 || kind == UniversalFieldDeviceMenu.CONFIG_DIFF_DRIVER
                 || kind == UniversalFieldDeviceMenu.CONFIG_WATCHDOG
-                || kind == UniversalFieldDeviceMenu.CONFIG_REDUNDANT_VOTER;
+                || kind == UniversalFieldDeviceMenu.CONFIG_REDUNDANT_VOTER
+                || kind == UniversalFieldDeviceMenu.CONFIG_SIGNAL_AMPLIFIER;
         boolean range = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE
                 || kind == UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY
                 || kind == UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD;
@@ -111,7 +112,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH
                 || kind == UniversalFieldDeviceMenu.CONFIG_ANALOG_INDICATOR
                 || kind == UniversalFieldDeviceMenu.CONFIG_WATCHDOG
-                || kind == UniversalFieldDeviceMenu.CONFIG_REDUNDANT_VOTER;
+                || kind == UniversalFieldDeviceMenu.CONFIG_REDUNDANT_VOTER
+                || kind == UniversalFieldDeviceMenu.CONFIG_SIGNAL_AMPLIFIER;
         boolean hasToggle = kind == UniversalFieldDeviceMenu.CONFIG_PWM
                 || kind == UniversalFieldDeviceMenu.CONFIG_CABLE_TERMINAL
                 || kind == UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY;
@@ -145,6 +147,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             else if (kind == UniversalFieldDeviceMenu.CONFIG_ANALOG_INDICATOR) action.setMessage(Component.literal("Reset retained min/max"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_WATCHDOG) action.setMessage(Component.literal("Reset watchdog diagnostics"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_REDUNDANT_VOTER) action.setMessage(Component.literal("Reset voter diagnostics"));
+            else if (kind == UniversalFieldDeviceMenu.CONFIG_SIGNAL_AMPLIFIER) action.setMessage(Component.literal("Reset clipping evidence"));
         }
         if (toggle != null) {
             toggle.visible = configure && hasToggle;
@@ -218,6 +221,22 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private void configure(GuiGraphics g) {
         int kind = menu.configKind();
         switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_SIGNAL_AMPLIFIER -> {
+                int gain = switch (Math.max(0, Math.min(3, menu.configPrimary()))) {
+                    case 0 -> 1;
+                    case 1 -> 2;
+                    case 2 -> 3;
+                    default -> 4;
+                };
+                boolean clipping = menu.configSecondary() != 0;
+                statusBadge(g, clipping ? "SIGNAL AMPLIFIER • CLIPPING" : "SIGNAL AMPLIFIER",
+                        clipping ? WARN : GOOD, 16, 80);
+                labelValue(g, "Gain", "x" + gain, 101);
+                labelValue(g, "Clipping", clipping ? "ACTIVE" : "NO", 123);
+                labelValue(g, "Clip episodes", Integer.toString(menu.configTertiary()), 145);
+                safeText(g, "Dedicated gain stage: raises a redstone signal until the 0..15 headroom limit; excess gain clips rather than wrapping.", 16, 178, TEXT);
+                safeText(g, "Use the conditioner for offset, clamp, threshold and deadband behavior; use this block when gain itself is the engineering task.", 16, 200, MUTED);
+            }
             case UniversalFieldDeviceMenu.CONFIG_REDUNDANT_VOTER -> {
                 int tolerance = RedundantVoterBlock.toleranceValue(menu.configPrimary());
                 int validInputs = menu.configSecondary();
