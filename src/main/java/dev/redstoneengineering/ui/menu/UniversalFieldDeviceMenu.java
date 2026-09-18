@@ -143,6 +143,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configPrimary.set(state.getValue(SignalSelectorBlock.INVERT_SELECT) ? 1 : 0);
             configSecondary.set(SignalSelectorBlock.selectedB(level, blockPos, state) ? 1 : 0);
             configTertiary.set(SignalSelectorBlock.switchCount(level, blockPos));
+            configQuaternary.set(SignalSelectorBlock.controlHoldActive(level, blockPos) ? 1 : 0);
         } else if (block instanceof SignalTapBlock) {
             configKind.set(CONFIG_SIGNAL_TAP);
             configPrimary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
