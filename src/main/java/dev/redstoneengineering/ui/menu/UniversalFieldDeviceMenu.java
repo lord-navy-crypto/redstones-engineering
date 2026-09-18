@@ -54,6 +54,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_SAFETY_INTERLOCK = 10;
     public static final int CONFIG_TOPOLOGY_DEBUGGER = 11;
     public static final int CONFIG_LIGHT_SENSOR = 12;
+    public static final int CONFIG_TANK_LEVEL = 13;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
@@ -97,6 +98,9 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         if (block instanceof EngineeringLightSensorBlock) {
             configKind.set(CONFIG_LIGHT_SENSOR);
             configPrimary.set(state.getValue(EngineeringLightSensorBlock.PROFILE));
+        } else if (block instanceof TankLevelSensorBlock) {
+            configKind.set(CONFIG_TANK_LEVEL);
+            configPrimary.set(state.getValue(TankLevelSensorBlock.RANGE_MODE));
         } else if (block instanceof LapisPrecisionRangeSensorBlock) {
             configKind.set(CONFIG_LAPIS_RANGE);
             configPrimary.set(state.getValue(AbstractLapisTransducerBlock.PROFILE));
@@ -251,6 +255,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     private boolean adjustPrimary(int delta) {
         Block block = level.getBlockState(blockPos).getBlock();
         if (block instanceof EngineeringLightSensorBlock) return EngineeringLightSensorBlock.adjustProfile(level, blockPos, delta);
+        if (block instanceof TankLevelSensorBlock) return TankLevelSensorBlock.adjustRange(level, blockPos, delta);
         if (block instanceof AbstractLapisTransducerBlock transducer) return transducer.adjustProfile(level, blockPos, delta);
         if (block instanceof MolecularCloudReceiverBlock receiver) return receiver.adjustSensitivity(level, blockPos, delta);
         if (block instanceof AlarmProcessorBlock alarm) return alarm.adjustSeverity(level, blockPos, delta);
