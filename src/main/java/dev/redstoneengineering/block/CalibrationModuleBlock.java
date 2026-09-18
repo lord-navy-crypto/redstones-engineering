@@ -97,7 +97,7 @@ public class CalibrationModuleBlock extends DirectionalSignalBlock {
         RedstoneObservationSupport.Observation reference = referenceEvidence(level, pos, state);
 
         // OBSERVED is the process path: bad evidence must never be reinterpreted as numerical zero.
-        // REFERENCE remains independent calibration evidence rather than a hidden second control path.
+        // REFERENCE remains independent calibration traceability evidence rather than a hidden second control path.
         if (observed.valid()) {
             int corrected = calibrate(observed.value(), state.getValue(PROFILE));
             updateOutput(level, pos, state, corrected);
