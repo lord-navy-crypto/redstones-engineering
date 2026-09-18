@@ -90,6 +90,63 @@ public final class RseEngineeringSystemsGameTests {
 
     @PrefixGameTestTemplate(false)
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 100)
+    public static void alarmProcessorFailsSafeOnBadConditionEvidence(GameTestHelper helper) {
+        BlockPos alarm = new BlockPos(3, 1, 2);
+        BlockPos injector = alarm.west();
+        BlockPos injectorInput = injector.west();
+        BlockPos injectorArm = injector.south();
+        BlockPos reset = alarm.south();
+
+        helper.setBlock(injectorInput, Blocks.REDSTONE_WIRE.defaultBlockState());
+        helper.setBlock(injector, EngineeringSystemsModule.FAULT_INJECTOR.get().defaultBlockState()
+                .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
+                .setValue(FaultInjectorBlock.MODE, 0));
+        helper.setBlock(injectorArm, Blocks.REDSTONE_BLOCK.defaultBlockState());
+        helper.setBlock(alarm, EngineeringSystemsModule.ALARM_PROCESSOR.get().defaultBlockState()
+                .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
+                .setValue(AlarmProcessorBlock.SEVERITY, 2));
+
+        helper.runAfterDelay(5, () -> {
+            BlockPos alarmWorld = helper.absolutePos(alarm);
+            var conditionSnapshot = EngineeringSystemsModule.ALARM_PROCESSOR.get().engineeringSnapshot(
+                    helper.getLevel(), alarmWorld, helper.getBlockState(alarm), Direction.WEST).orElseThrow();
+            if (conditionSnapshot.value() != 0.0
+                    || conditionSnapshot.quality() != PortQuality.FAULT
+                    || !AlarmProcessorBlock.latched(helper.getLevel(), alarmWorld)
+                    || AlarmProcessorBlock.activationCount(helper.getLevel(), alarmWorld) != 1
+                    || helper.getBlockState(alarm).getValue(DirectionalSignalBlock.OUTPUT) != 10) {
+                helper.fail("FAULT-quality zero CONDITION did not fail-safe latch the alarm", alarm);
+                return;
+            }
+
+            // Remove injected fault quality. The recovered healthy LOW establishes a baseline only.
+            helper.setBlock(injectorArm, Blocks.AIR.defaultBlockState());
+            helper.runAfterDelay(4, () -> {
+                var recovered = EngineeringSystemsModule.ALARM_PROCESSOR.get().engineeringSnapshot(
+                        helper.getLevel(), alarmWorld, helper.getBlockState(alarm), Direction.WEST).orElseThrow();
+                if (recovered.value() != 0.0
+                        || recovered.quality() != PortQuality.VALID
+                        || !AlarmProcessorBlock.latched(helper.getLevel(), alarmWorld)
+                        || AlarmProcessorBlock.activationCount(helper.getLevel(), alarmWorld) != 1) {
+                    helper.fail("Alarm recovery fabricated an edge or cleared retained safety memory", alarm);
+                    return;
+                }
+
+                helper.setBlock(reset, Blocks.REDSTONE_BLOCK.defaultBlockState());
+                helper.runAfterDelay(4, () -> {
+                    if (AlarmProcessorBlock.latched(helper.getLevel(), alarmWorld)
+                            || helper.getBlockState(alarm).getValue(DirectionalSignalBlock.OUTPUT) != 0) {
+                        helper.fail("Fresh RESET edge did not clear recovered healthy alarm", alarm);
+                        return;
+                    }
+                    helper.succeed();
+                });
+            });
+        });
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 100)
     public static void topologyDebuggerFlagsDanglingEngineeringTarget(GameTestHelper helper) {
         BlockPos debugger = new BlockPos(2, 1, 2); BlockPos target = new BlockPos(1, 1, 2);
         helper.setBlock(debugger, EngineeringSystemsModule.TOPOLOGY_DEBUGGER.get().defaultBlockState().setValue(DirectionalSignalBlock.FACING, Direction.EAST));
