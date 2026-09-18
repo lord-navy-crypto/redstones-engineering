@@ -85,12 +85,7 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
             safeText(g,compressorDiagnosis(),16,216,compressorColor());
             return;
         }
-        if(isCompressor()){
-            labelValue(g,"Starts / run ticks",menu.auxiliary()+" / "+menu.compressorRunTicks(),108);
-            labelValue(g,"Target / actual",menu.secondary()+" / "+menu.tertiary(),130);
-            labelValue(g,"Tracking error",Integer.toString(menu.compressorTrackingError()),152);
-            safeText(g,"Start count and run ticks are server-retained runtime evidence; pressure response is finite-rate, not instantaneous.",16,184,MUTED);
-        }else if(isFlow()){
+        if(isFlow()){
             statusBadge(g,"COMMISSIONING "+menu.commissioningStatus().name().replace('_',' '),acceptanceColor(),16,80);
             PneumaticSectionDiagnostics.Result r=section();
             labelValue(g,"Flow / meter ΔP",menu.primary()+" / "+menu.secondary(),106);labelValue(g,"Pin / Pout",menu.tertiary()+" / "+menu.auxiliary(),126);
@@ -130,7 +125,12 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
 
     private void history(GuiGraphics g){
         statusBadge(g,"PNEUMATIC EVIDENCE",INFO,16,80);
-        if(isFlow()){
+        if(isCompressor()){
+            labelValue(g,"Starts / run ticks",menu.auxiliary()+" / "+menu.compressorRunTicks(),108);
+            labelValue(g,"Target / actual",menu.secondary()+" / "+menu.tertiary(),130);
+            labelValue(g,"Tracking error",Integer.toString(menu.compressorTrackingError()),152);
+            safeText(g,"Start count and run ticks are server-retained runtime evidence; pressure response is finite-rate, not instantaneous.",16,184,MUTED);
+        }else if(isFlow()){
             PneumaticSectionDiagnostics.Result r=section();labelValue(g,"Samples / acceptance",menu.stateFlag()+" / "+menu.commissioningStatus().name(),108);
             labelValue(g,"U / Pin / Pout / D",p(menu.upstreamQuality(),menu.upstreamPressure())+" / "+menu.tertiary()+" / "+menu.auxiliary()+" / "+p(menu.downstreamQuality(),menu.downstreamPressure()),130);
             labelValue(g,"Drops U / M / D",d(r.upstreamDrop())+" / "+r.meterDrop()+" / "+d(r.downstreamDrop()),152);statusLine(g,"Dominant local loss",r.localization(),localColor(),177);safeText(g,"Acceptance is server-evaluated; bends beyond witnesses are not inferred.",16,201,MUTED);
