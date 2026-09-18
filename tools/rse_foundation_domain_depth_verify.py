@@ -19,6 +19,8 @@ def require(path: str, *tokens: str) -> None:
 
 selector = "src/main/java/dev/redstoneengineering/block/SignalSelectorBlock.java"
 selector_test = "src/main/java/dev/redstoneengineering/gametest/RseSignalSelectorEvidenceGameTests.java"
+scaler = "src/main/java/dev/redstoneengineering/block/RedstoneToLapisScalerBlock.java"
+quantizer = "src/main/java/dev/redstoneengineering/block/LapisToRedstoneQuantizerBlock.java"
 lapis = "src/main/java/dev/redstoneengineering/block/LapisLowPassFilterBlock.java"
 quartz = "src/main/java/dev/redstoneengineering/block/QuartzClockDividerBlock.java"
 quartz_osc = "src/main/java/dev/redstoneengineering/block/QuartzOscillatorBlock.java"
@@ -39,6 +41,17 @@ require(selector_test,
         "selectorHoldsLastSelectionAndPayloadAcrossMissingEvidence",
         "Missing SELECT did not hold the last trustworthy selection",
         "Missing selected payload was converted to zero instead of holding OUT")
+
+require(scaler,
+        "Invalid source evidence releases the Lapis driver",
+        "does not erase the last",
+        "DomainNetwork.driveLapis(level, pos.relative(outputSide(state)), pos, 0, false)")
+
+require(quantizer,
+        "Invalid precision evidence cannot define a new quantized code",
+        "Retain the last",
+        "if (sample.valid())",
+        "CoreMediaDiagnostics.redstoneFromLapis(sample.value())")
 
 require(lapis,
         "HISTORY_SLOT",
@@ -148,6 +161,7 @@ if failed:
 
 print("RSE foundation-domain depth verification: PASS")
 print(" redstone selector evidence hold: PASS")
+print(" Redstone↔Lapis conversion retains values while degrading evidence: PASS")
 print(" Lapis low-pass retained-state semantics: PASS")
 print(" Quartz oscillator edge-latched period + divider real-edge phase lock: PASS")
 print(" Amethyst free ring-down source + stale incomplete spectrum evidence: PASS")
