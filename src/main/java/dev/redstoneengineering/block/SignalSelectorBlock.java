@@ -9,6 +9,7 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -115,12 +116,18 @@ public final class SignalSelectorBlock extends DirectionalSignalBlock {
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        int value;
-        if (side == outputSide(state)) value = state.getValue(OUTPUT);
-        else if (side == inputSide(state)) value = readInputFrom(level, pos, inputSide(state));
-        else if (side == inputBSide(state)) value = readInputFrom(level, pos, inputBSide(state));
-        else value = selectedB(level, pos, state) ? 15 : 0;
-        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value, PortQuality.VALID));
+        if (side == outputSide(state)) {
+            Direction selectedSide = selectedB(level, pos, state) ? inputBSide(state) : inputSide(state);
+            var selected = RedstoneObservationSupport.observe(level, pos, selectedSide);
+            return Optional.of(EngineeringPortSnapshot.redstone(port.get(), state.getValue(OUTPUT), selected.quality()));
+        }
+        if (side == inputSide(state) || side == inputBSide(state)) {
+            var observed = RedstoneObservationSupport.observe(level, pos, side);
+            return Optional.of(EngineeringPortSnapshot.redstone(port.get(), observed.value(), observed.quality()));
+        }
+        var select = RedstoneObservationSupport.observe(level, pos, selectSide(state));
+        return Optional.of(EngineeringPortSnapshot.redstone(
+                port.get(), selectedB(level, pos, state) ? 15 : 0, select.quality()));
     }
 
     @Override
