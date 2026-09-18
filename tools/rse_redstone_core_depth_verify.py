@@ -37,6 +37,21 @@ req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.
     "INSTRUMENT PROBE","REDSTONE REFERENCE SOURCE","INSULATED REDSTONE LINK","REDSTONE CABLE TERMINAL",
     "Mode • Cable → Vanilla","CONFIG_SIGNAL_PROBE","CONFIG_REFERENCE_SOURCE")
 
+req("src/main/java/dev/redstoneengineering/block/QuartzOscillatorBlock.java",
+    "stepPeriod","periodTicks")
+
+req("src/main/java/dev/redstoneengineering/block/FaultLatchBlock.java",
+    "stepThreshold","thresholdValue","manualReset")
+
+req("src/main/java/dev/redstoneengineering/block/AnalogIndicatorBlock.java",
+    "retainedMinimum","retainedMaximum","resetExtrema","sampleCount")
+
+req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
+    "CONFIG_QUARTZ_OSCILLATOR","CONFIG_FAULT_LATCH","CONFIG_ANALOG_INDICATOR","CONFIG_JUNCTION")
+
+req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
+    "QUARTZ TIMING SOURCE","FAULT LATCH","ANALOG REDSTONE INDICATOR","JUNCTION • ROUTING ONLY")
+
 if failed:
     print("RSE redstone-core engineering-depth verification: FAIL")
     for x in failed: print(" -",x)
@@ -48,3 +63,4 @@ print(" adjustable 0..15 reference source: PASS")
 print(" insulated cable signal-integrity evidence: PASS")
 print(" terminal direction authority in HMI: PASS")
 print(" conditioner scale identity + limiting history: PASS")
+print(" timing/safety/junction core HMI: PASS")
