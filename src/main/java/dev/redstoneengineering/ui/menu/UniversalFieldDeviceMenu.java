@@ -84,6 +84,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_SINGLE_RELAY = 39;
     public static final int CONFIG_REDUNDANT_VOTER = 40;
     public static final int CONFIG_SIGNAL_AMPLIFIER = 41;
+    public static final int CONFIG_QUARTZ_LAPIS_SAMPLER = 42;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
@@ -126,7 +127,12 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         configSecondary.set(0);
         configTertiary.set(0);
 
-        if (block instanceof SignalAmplifierBlock) {
+        if (block instanceof QuartzTriggeredLapisSamplerBlock) {
+            configKind.set(CONFIG_QUARTZ_LAPIS_SAMPLER);
+            configPrimary.set(QuartzTriggeredLapisSamplerBlock.heldValue(level, blockPos));
+            configSecondary.set(QuartzTriggeredLapisSamplerBlock.acceptedCaptures(level, blockPos));
+            configTertiary.set(QuartzTriggeredLapisSamplerBlock.rejectedCaptures(level, blockPos));
+        } else if (block instanceof SignalAmplifierBlock) {
             configKind.set(CONFIG_SIGNAL_AMPLIFIER);
             configPrimary.set(state.getValue(SignalAmplifierBlock.GAIN_MODE));
             configSecondary.set(SignalAmplifierBlock.clipping(level, blockPos) ? 1 : 0);
