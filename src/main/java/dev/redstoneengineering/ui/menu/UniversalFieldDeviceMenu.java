@@ -74,6 +74,9 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_DESERIALIZER = 29;
     public static final int CONFIG_SERIAL_LINE = 30;
     public static final int CONFIG_REGENERATOR = 31;
+    public static final int CONFIG_DIFF_DRIVER = 32;
+    public static final int CONFIG_DIFF_PAIR = 33;
+    public static final int CONFIG_DIFF_RECEIVER = 34;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
@@ -116,7 +119,27 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         configSecondary.set(0);
         configTertiary.set(0);
 
-        if (block instanceof SerializerBlock) {
+        if (block instanceof DifferentialDriverBlock) {
+            configKind.set(CONFIG_DIFF_DRIVER);
+            configPrimary.set(state.getValue(DifferentialDriverBlock.THRESHOLD));
+            var input = dev.redstoneengineering.physics.RedstoneObservationSupport.observe(
+                    level, blockPos, DirectionalDomainBlock.seriesInputSide(state));
+            configSecondary.set(input.value());
+            configTertiary.set(input.value() >= DifferentialDriverBlock.thresholdValue(state.getValue(DifferentialDriverBlock.THRESHOLD)) ? 1 : 0);
+        } else if (block instanceof DifferentialDataPairBlock) {
+            configKind.set(CONFIG_DIFF_PAIR);
+            var diff = dev.redstoneengineering.physics.InformationRuntime.snapshot(level, "diff", blockPos);
+            configPrimary.set(diff.value() & 1);
+            configSecondary.set(diff.qualityPercent());
+            configTertiary.set(dev.redstoneengineering.physics.DifferentialNetwork.driverCount(level, blockPos));
+        } else if (block instanceof DifferentialReceiverBlock) {
+            configKind.set(CONFIG_DIFF_RECEIVER);
+            BlockPos input = blockPos.relative(DirectionalSignalBlock.seriesInputSide(state));
+            var diff = dev.redstoneengineering.physics.InformationRuntime.snapshot(level, "diff", input);
+            configPrimary.set(diff.value() & 1);
+            configSecondary.set(diff.qualityPercent());
+            configTertiary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+        } else if (block instanceof SerializerBlock) {
             configKind.set(CONFIG_SERIALIZER);
             configPrimary.set(state.getValue(SerializerBlock.PERIOD_MODE));
             var output = dev.redstoneengineering.physics.InformationRuntime.snapshot(level, "serial", blockPos);
@@ -370,6 +393,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean adjustPrimary(int delta) {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof DifferentialDriverBlock) return DifferentialDriverBlock.stepThreshold(level, blockPos, delta > 0);
         if (block instanceof SerializerBlock) return SerializerBlock.stepPeriod(level, blockPos, delta > 0);
         if (block instanceof DigitalRegeneratorBlock) return DigitalRegeneratorBlock.stepThreshold(level, blockPos, delta > 0);
         if (block instanceof RedstoneByteEncoderBlock) return RedstoneByteEncoderBlock.stepMode(level, blockPos, delta > 0);
