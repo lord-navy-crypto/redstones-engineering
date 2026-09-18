@@ -138,6 +138,15 @@ req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java
 req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
     "SIGNAL AMPLIFIER","Reset clipping evidence")
 
+req("src/main/java/dev/redstoneengineering/block/QuartzTriggeredLapisSamplerBlock.java",
+    "ACCEPTED_CAPTURES","REJECTED_CAPTURES","acceptedCaptures","rejectedCaptures")
+
+req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
+    "CONFIG_QUARTZ_LAPIS_SAMPLER")
+
+req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
+    "QUARTZ-SYNCHRONIZED SAMPLE & HOLD","Accepted captures","Rejected captures")
+
 if failed:
     print("RSE redstone-core engineering-depth verification: FAIL")
     for x in failed: print(" -",x)
@@ -156,3 +165,4 @@ print(" parallel/serial/differential media roles: PASS")
 print(" instrument/timing/control supervision depth: PASS")
 print(" relay/voter safety-control hardware: PASS")
 print(" dedicated amplifier gain/clipping stage: PASS")
+print(" synchronized precision sampling semantics: PASS")
