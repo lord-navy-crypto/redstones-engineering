@@ -84,6 +84,20 @@ public final class AnalogComparatorBlock extends DirectionalSignalBlock {
         return processValue(level, pos, state) - referenceValue(level, pos, state);
     }
 
+    public static PortQuality processQuality(Level level, BlockPos pos, BlockState state) {
+        return RedstoneObservationSupport.observe(
+                level, pos, DirectionalSignalBlock.seriesInputSide(state)).quality();
+    }
+
+    public static PortQuality referenceQuality(Level level, BlockPos pos, BlockState state) {
+        return RedstoneObservationSupport.observe(level, pos, referenceSide(state)).quality();
+    }
+
+    public static PortQuality decisionQuality(Level level, BlockPos pos, BlockState state) {
+        return RedstoneObservationSupport.combineQuality(
+                processQuality(level, pos, state), referenceQuality(level, pos, state));
+    }
+
     public static int transitionCount(Level level, BlockPos pos) {
         int[] runtime = RuntimeIntStore.peek(level, RUNTIME_KEY, pos);
         return runtime == null || runtime.length < RUNTIME_SIZE ? 0 : Math.max(0, runtime[TRANSITIONS]);
