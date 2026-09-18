@@ -432,11 +432,24 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             }
             case UniversalFieldDeviceMenu.CONFIG_DIFF_DRIVER -> {
                 int threshold = DifferentialDriverBlock.thresholdValue(menu.configPrimary());
-                statusBadge(g, "DIFFERENTIAL DRIVER", INFO, 16, 80);
+                PortQuality[] qualities = PortQuality.values();
+                PortQuality inputQuality = qualities[Math.max(0,
+                        Math.min(qualities.length - 1, menu.configQuaternary()))];
+                boolean missing = inputQuality == PortQuality.NO_SIGNAL;
+                boolean bad = inputQuality == PortQuality.STALE
+                        || inputQuality == PortQuality.FAULT
+                        || inputQuality == PortQuality.DOMAIN_MISMATCH
+                        || inputQuality == PortQuality.TOPOLOGY_ERROR;
+                statusBadge(g,
+                        missing ? "DIFFERENTIAL DRIVER • INPUT NO SOURCE"
+                                : bad ? "DIFFERENTIAL DRIVER • INPUT EVIDENCE BAD"
+                                : "DIFFERENTIAL DRIVER",
+                        bad ? BAD : missing ? WARN : INFO, 16, 80);
                 labelValue(g, "Decision threshold", threshold + " / 15", 101);
                 labelValue(g, "Redstone input", menu.configSecondary() + " / 15", 123);
-                labelValue(g, "Driven bit", Integer.toString(menu.configTertiary()), 145);
-                safeText(g, "The driver turns an analog redstone level into an explicit digital bit before entering the high-integrity differential link.", 16, 178, TEXT);
+                labelValue(g, "Input evidence", inputQuality.name(), 145);
+                labelValue(g, "Driven bit", Integer.toString(menu.configTertiary()), 167);
+                safeText(g, "The input port preserves the original 0..15 redstone measurement; only the differential output is thresholded into a digital bit.", 16, 194, TEXT);
             }
             case UniversalFieldDeviceMenu.CONFIG_DIFF_PAIR -> {
                 int drivers = menu.configTertiary();
