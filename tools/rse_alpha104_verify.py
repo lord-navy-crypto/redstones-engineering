@@ -74,8 +74,9 @@ check_file(
 check_file(
     "src/main/java/dev/redstoneengineering/block/SignalProbeBlock.java",
     [
-        "SignalAnalyzerBlock.measureNode(",
-        "targetSide",
+        "measurementObservation",
+        "RedstoneObservationSupport.observe",
+        "observation.quality()",
         "direction-aware",
         "return false;",
     ],
