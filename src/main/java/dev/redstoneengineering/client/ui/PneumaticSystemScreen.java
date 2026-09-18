@@ -4,6 +4,7 @@ import dev.redstoneengineering.core.diagnostic.CommissioningStatus;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.signal.AirCompressorLogic;
 import dev.redstoneengineering.signal.PneumaticProportionalValveLogic;
+import dev.redstoneengineering.signal.PressureRegulatorLogic;
 import dev.redstoneengineering.ui.menu.PneumaticSystemMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -27,7 +28,9 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
         if(prev==null)return;
         boolean setpoint=isCompressor()||isProportional()||menu.kind()==PneumaticSystemMenu.KIND_REGULATOR||menu.kind()==PneumaticSystemMenu.KIND_RELIEF;
         boolean valve=menu.kind()==PneumaticSystemMenu.KIND_VALVE;
-        prev.visible=next.visible=isConfigureSection()&&setpoint;toggle.visible=isConfigureSection()&&valve;
+        boolean regulator=menu.kind()==PneumaticSystemMenu.KIND_REGULATOR;
+        prev.visible=next.visible=isConfigureSection()&&setpoint;
+        toggle.visible=isConfigureSection()&&(valve||regulator);
         if(setpoint){
             if(isCompressor()){
                 String v=AirCompressorLogic.modeName(menu.stateFlag());
@@ -44,6 +47,7 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
             }
         }
         if(valve)toggle.setMessage(Component.literal(menu.stateFlag()==1?"Close valve":"Open valve"));
+        if(regulator)toggle.setMessage(Component.literal("Response: "+PressureRegulatorLogic.modeName(menu.stateFlag())));
     }
 
     @Override protected void renderSection(GuiGraphics g,Section section){switch(section){case OVERVIEW->overview(g);case PORTS->ports(g);case CONFIGURE->configure(g);case DIAGNOSTICS->diagnostics(g);case HISTORY->history(g);}}
@@ -74,6 +78,15 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
             labelValue(g,"Ramp down",AirCompressorLogic.rampDownRate(menu.stateFlag())+" pressure/tick",154);
             labelValue(g,"Target / actual",menu.secondary()+" / "+menu.tertiary(),176);
             safeText(g,"The DOWN redstone command sets a target; the pneumatic source follows it at the configured finite rate.",16,202,MUTED);
+            return;
+        }
+        if(menu.kind()==PneumaticSystemMenu.KIND_REGULATOR){
+            statusBadge(g,"REGULATOR RESPONSE",INFO,16,80);
+            labelValue(g,"Setpoint / actual ceiling",menu.secondary()+" / "+menu.tertiary(),104);
+            labelValue(g,"Inlet pressure",menu.primary()+" / 100",132);
+            labelValue(g,"Tracking error",Integer.toString(menu.auxiliary()),154);
+            labelValue(g,"Response mode",PressureRegulatorLogic.modeName(menu.stateFlag()),176);
+            safeText(g,"Left/right changes calibrated setpoint in 10-unit steps; the center control cycles diaphragm response rate.",16,202,MUTED);
             return;
         }
         if(isProportional()){
@@ -116,6 +129,15 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
             labelValue(g,"Response / remaining",menu.cylinderResponsePeriod()+"t per step / ≈"+menu.cylinderRemainingTicks()+"t",192);
             safeText(g,cylinderNext(),16,216,cylinderColor());return;
         }
+        if(menu.kind()==PneumaticSystemMenu.KIND_REGULATOR){
+            statusBadge(g,regulatorState(),regulatorColor(),16,80);
+            labelValue(g,"Inlet pressure",menu.primary()+" / 100",104);
+            labelValue(g,"Setpoint / actual ceiling",menu.secondary()+" / "+menu.tertiary(),126);
+            labelValue(g,"Tracking error",Integer.toString(menu.auxiliary()),148);
+            labelValue(g,"Response mode",PressureRegulatorLogic.modeName(menu.stateFlag()),170);
+            labelValue(g,"Response rate",PressureRegulatorLogic.responseRate(menu.stateFlag())+" pressure/tick",192);
+            safeText(g,regulatorDiagnosis(),16,216,regulatorColor());return;
+        }
         if(isReservoir()){
             statusBadge(g,reservoirState(),reservoirColor(),16,80);
             labelValue(g,"Stored pressure",menu.primary()+" / 100",106);
@@ -152,6 +174,11 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
             labelValue(g,"Samples / travel",menu.cylinderSamples()+" / "+menu.auxiliary(),108);labelValue(g,"Velocity / error",menu.cylinderVelocity()+" / "+menu.cylinderError(),130);
             labelValue(g,"Stall ticks / reversals",menu.cylinderStallTicks()+" / "+menu.cylinderReversals(),152);labelValue(g,"Supply / path loss",menu.cylinderSupply()+" / "+menu.cylinderObservedLoss(),174);
             safeText(g,"Response timing is deterministic and pressure-dependent; no continuous CFD or random leak history is fabricated.",16,202,MUTED);
+        }else if(menu.kind()==PneumaticSystemMenu.KIND_REGULATOR){
+            labelValue(g,"Inlet / setpoint",menu.primary()+" / "+menu.secondary(),110);
+            labelValue(g,"Actual ceiling / error",menu.tertiary()+" / "+menu.auxiliary(),132);
+            labelValue(g,"Response mode",PressureRegulatorLogic.modeName(menu.stateFlag()),154);
+            safeText(g,"Regulation evidence is finite diaphragm response; the solver consumes actual ceiling rather than the configured target.",16,186,MUTED);
         }else if(isReservoir()){
             labelValue(g,"Stored / line",menu.primary()+" / "+menu.secondary(),110);
             safeText(g,"Current recovery state is derived from the existing finite-rate reservoir law; no unretained trend history is invented.",16,148,MUTED);
@@ -178,6 +205,25 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
     private String cylinderNext(){String d=cylinderDiagnosis();if(d.contains("NO PRESSURIZED"))return"NEXT • restore a permitted compressor/reservoir path and check closed or reversed pneumatic elements.";if(d.contains("LOW SUPPLY"))return"NEXT • raise available source pressure before tuning downstream restrictions.";if(d.contains("RESTRICTION"))return"NEXT • inspect regulator setpoint and proportional/closed valve restrictions on the winning pressure path.";if(d.contains("PATH LOSS"))return"NEXT • shorten/segment the pipe run or move storage closer to the actuator.";if(d.contains("STARVATION"))return"NEXT • compare supply pressure with retained path loss before changing the cylinder.";if(d.contains("FAULT"))return"NEXT • repair topology/evidence quality before interpreting actuator response.";return"NEXT • response matches the current lumped pressure model; remaining time follows the synchronized estimate.";}
     private String cylinderState(){String d=cylinderDiagnosis();if(d.startsWith("AT TARGET"))return"AT TARGET";if(d.contains("FAULT")||d.contains("NO PRESSURIZED"))return"NOT READY";if(d.contains("DOMINANT")||d.contains("STARVATION")||d.contains("LOW SUPPLY"))return"MARGINAL";return"RESPONDING";}
     private int cylinderColor(){String s=cylinderState();return s.equals("AT TARGET")?GOOD:s.equals("RESPONDING")?INFO:s.equals("MARGINAL")?WARN:BAD;}
+
+    private String regulatorDiagnosis(){
+        if(menu.primary()<=0&&menu.tertiary()<=0)return "NO INLET PRESSURE";
+        if(menu.auxiliary()>0)return "PRESSURE BUILDING TOWARD REGULATED TARGET";
+        if(menu.auxiliary()<0)return "REGULATOR UNLOADING TOWARD LOWER TARGET";
+        if(menu.primary()<menu.secondary())return "INLET-LIMITED • REGULATOR CANNOT BOOST";
+        return "REGULATED CEILING STABLE";
+    }
+    private String regulatorState(){
+        String d=regulatorDiagnosis();
+        if(d.startsWith("NO INLET"))return "NOT READY";
+        if(d.contains("BUILDING")||d.contains("UNLOADING"))return "RESPONDING";
+        if(d.contains("INLET-LIMITED"))return "INLET LIMITED";
+        return "AT TARGET";
+    }
+    private int regulatorColor(){
+        String s=regulatorState();
+        return s.equals("NOT READY")?WARN:s.equals("AT TARGET")?GOOD:INFO;
+    }
 
     private String reservoirDiagnosis(){
         if(hard(menu.inputQuality()))return"RESERVOIR EVIDENCE FAULT";
