@@ -20,6 +20,7 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_CURSOR_A = 4;
     public static final int BUTTON_CURSOR_B = 5;
     public static final int BUTTON_CLEAR = 6;
+    public static final int BUTTON_TIMEBASE = 7;
 
     private final DataSlot sampleCount = trackedInt();
     private final DataSlot triggerMode = trackedInt();
@@ -28,6 +29,7 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     private final DataSlot captureState = trackedInt();
     private final DataSlot cursorA = trackedInt();
     private final DataSlot cursorB = trackedInt();
+    private final DataSlot samplePeriodTicks = trackedInt();
 
     private final DataSlot[] current = new DataSlot[2];
     private final DataSlot[] coverage = new DataSlot[2];
@@ -77,11 +79,13 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
         sampleCount.set(scope.sampleCount()); triggerMode.set(scope.triggerMode()); triggerChannel.set(scope.triggerChannel());
         triggerLevel.set(scope.triggerLevel()); captureState.set(scope.armed() ? 1 : scope.triggered() ? 2 : 0);
         cursorA.set(scope.cursorA()); cursorB.set(scope.cursorB());
+        int samplePeriod = OscilloscopeBlock.samplePeriodTicks(level.getBlockState(blockPos));
+        samplePeriodTicks.set(samplePeriod);
         for (int channel = 0; channel < 2; channel++) {
             current[channel].set(scope.current(channel)); coverage[channel].set(scope.coveragePercent(channel));
             minimum[channel].set(scope.minimum(channel)); maximum[channel].set(scope.maximum(channel));
             peakToPeak[channel].set(scope.peakToPeak(channel)); average100[channel].set(scope.average100(channel));
-            meanStep100[channel].set(scope.meanStep100(channel)); periodTicks[channel].set(scope.estimatedPeriodTicks(channel));
+            meanStep100[channel].set(scope.meanStep100(channel)); periodTicks[channel].set(scope.estimatedPeriodTicks(channel, samplePeriod));
             for (int slot = 0; slot < OscilloscopeBlockEntity.DISPLAY_SAMPLES; slot++) display[channel][slot].set(scope.displaySample(channel, slot));
         }
 
@@ -111,6 +115,7 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     public int captureState() { return captureState.get(); }
     public int cursorA() { return cursorA.get(); }
     public int cursorB() { return cursorB.get(); }
+    public int samplePeriodTicks() { return Math.max(1, samplePeriodTicks.get()); }
     public int current(int channel) { return current[channel].get(); }
     public int coverage(int channel) { return coverage[channel].get(); }
     public int minimum(int channel) { return minimum[channel].get(); }
