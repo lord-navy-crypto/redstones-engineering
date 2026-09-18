@@ -199,6 +199,11 @@ public class EntityDensitySensorBlock extends DirectionalRedstoneSensorBlock {
         );
     }
 
+    public static String profileName(int profile) { return SensorModel.profileName(profile); }
+    public static int profileSamplePeriod(int profile) { return SensorModel.samplePeriod(profile); }
+    public static int profileNoiseAmplitude(int profile) { return SensorModel.noiseAmplitude(profile); }
+    public static int profileLatencySamples(int profile) { return SensorModel.latencySamples(profile); }
+
     public static boolean adjustProfile(Level level, BlockPos pos, int delta) {
         if (!(level instanceof ServerLevel server)) return false;
         BlockState state = level.getBlockState(pos);
