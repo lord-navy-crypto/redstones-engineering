@@ -2,6 +2,7 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.blockentity.PulseShaperBlockEntity;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.signal.PulseShaperLogic;
 import dev.redstoneengineering.ui.FieldDeviceUi;
@@ -14,6 +15,8 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.EntityBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
@@ -22,27 +25,24 @@ import net.minecraft.world.phys.BlockHitResult;
 
 /**
  * Configurable monostable pulse conditioner.
- * A rising crossing of the configured threshold starts a bounded full-scale pulse.
+ *
+ * BlockState retains only low-cardinality configuration. The precise trigger threshold and
+ * retained trigger evidence live in PulseShaperBlockEntity; pulse timing remains transient.
  */
-public class PulseShaperBlock extends DirectionalSignalBlock {
+public class PulseShaperBlock extends DirectionalSignalBlock implements EntityBlock {
     public static final IntegerProperty WIDTH = IntegerProperty.create("width", 1, 8);
-    public static final IntegerProperty THRESHOLD = IntegerProperty.create("threshold", 1, 15);
     public static final BooleanProperty RETRIGGERABLE = BooleanProperty.create("retriggerable");
 
     private static final String KEY = "redstone_pulse_shaper";
-    private static final int RUNTIME_SIZE = 6;
+    private static final int RUNTIME_SIZE = 3;
     private static final int LAST_ABOVE_SLOT = 0;
     private static final int REMAINING_SLOT = 1;
     private static final int INITIALIZED_SLOT = 2;
-    private static final int TRIGGER_COUNT_SLOT = 3;
-    private static final int SUPPRESSED_COUNT_SLOT = 4;
-    private static final int LAST_TRIGGER_TICK_SLOT = 5;
 
     public PulseShaperBlock(Properties properties) {
         super(properties);
         registerDefaultState(defaultBlockState()
                 .setValue(WIDTH, 4)
-                .setValue(THRESHOLD, 1)
                 .setValue(RETRIGGERABLE, false));
     }
 
@@ -51,7 +51,12 @@ public class PulseShaperBlock extends DirectionalSignalBlock {
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
-        builder.add(WIDTH, THRESHOLD, RETRIGGERABLE);
+        builder.add(WIDTH, RETRIGGERABLE);
+    }
+
+    @Override
+    public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
+        return new PulseShaperBlockEntity(pos, state);
     }
 
     @Override
@@ -65,7 +70,7 @@ public class PulseShaperBlock extends DirectionalSignalBlock {
         );
         PulseShaperLogic.Result result = PulseShaperLogic.step(
                 input,
-                state.getValue(THRESHOLD),
+                threshold(level, pos),
                 state.getValue(WIDTH),
                 state.getValue(RETRIGGERABLE),
                 previous
@@ -74,11 +79,11 @@ public class PulseShaperBlock extends DirectionalSignalBlock {
         rt[INITIALIZED_SLOT] = result.state().initialized() ? 1 : 0;
         rt[LAST_ABOVE_SLOT] = result.state().lastAboveThreshold() ? 1 : 0;
         rt[REMAINING_SLOT] = result.state().remainingTicks();
-        if (result.acceptedTrigger()) {
-            rt[TRIGGER_COUNT_SLOT]++;
-            rt[LAST_TRIGGER_TICK_SLOT] = boundedTick(level.getGameTime());
+
+        if (level.getBlockEntity(pos) instanceof PulseShaperBlockEntity shaperState) {
+            if (result.acceptedTrigger()) shaperState.recordAcceptedTrigger(level.getGameTime());
+            if (result.suppressedTrigger()) shaperState.recordSuppressedTrigger();
         }
-        if (result.suppressedTrigger()) rt[SUPPRESSED_COUNT_SLOT]++;
 
         updateOutput(level, pos, state, result.outputHigh() ? 15 : 0);
         // A one-tick pulse still needs one cleanup tick after its output-high tick.
@@ -114,21 +119,23 @@ public class PulseShaperBlock extends DirectionalSignalBlock {
         return rt != null && rt[INITIALIZED_SLOT] == 1;
     }
 
+    public static int threshold(Level level, BlockPos pos) {
+        return level.getBlockEntity(pos) instanceof PulseShaperBlockEntity entity ? entity.threshold() : 1;
+    }
+
     public static int triggerCount(Level level, BlockPos pos) {
-        int[] rt = snapshot(level, pos);
-        return rt == null ? 0 : Math.max(0, rt[TRIGGER_COUNT_SLOT]);
+        return level.getBlockEntity(pos) instanceof PulseShaperBlockEntity entity
+                ? entity.acceptedTriggerCount() : 0;
     }
 
     public static int suppressedTriggerCount(Level level, BlockPos pos) {
-        int[] rt = snapshot(level, pos);
-        return rt == null ? 0 : Math.max(0, rt[SUPPRESSED_COUNT_SLOT]);
+        return level.getBlockEntity(pos) instanceof PulseShaperBlockEntity entity
+                ? entity.suppressedTriggerCount() : 0;
     }
 
     public static int lastTriggerAgeTicks(Level level, BlockPos pos) {
-        int[] rt = snapshot(level, pos);
-        if (rt == null || rt[TRIGGER_COUNT_SLOT] <= 0) return -1;
-        long age = Math.max(0L, level.getGameTime() - Integer.toUnsignedLong(rt[LAST_TRIGGER_TICK_SLOT]));
-        return (int) Math.min(Integer.MAX_VALUE, age);
+        return level.getBlockEntity(pos) instanceof PulseShaperBlockEntity entity
+                ? entity.lastTriggerAgeTicks(level.getGameTime()) : -1;
     }
 
     /** Shared authoritative operator action used by HMI and Shift-right-click. */
@@ -144,15 +151,14 @@ public class PulseShaperBlock extends DirectionalSignalBlock {
 
     public static boolean stepThreshold(Level level, BlockPos pos, boolean forward) {
         BlockState state = level.getBlockState(pos);
-        if (!(state.getBlock() instanceof PulseShaperBlock shaper)) return false;
-        int threshold = state.getValue(THRESHOLD);
-        int nextThreshold = forward ? (threshold >= 15 ? 1 : threshold + 1) : (threshold <= 1 ? 15 : threshold - 1);
-        BlockState next = state.setValue(THRESHOLD, nextThreshold);
-        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        if (!(state.getBlock() instanceof PulseShaperBlock shaper)
+                || !(level.getBlockEntity(pos) instanceof PulseShaperBlockEntity entity)) return false;
 
-        // Re-baseline the detector at the new threshold so configuration changes never fabricate a trigger.
+        int nextThreshold = entity.stepThreshold(forward);
+
+        // Re-baseline at the new threshold so configuration changes never fabricate a trigger.
         int[] rt = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
-        rt[LAST_ABOVE_SLOT] = shaper.readBackInput(level, pos, next) >= nextThreshold ? 1 : 0;
+        rt[LAST_ABOVE_SLOT] = shaper.readBackInput(level, pos, state) >= nextThreshold ? 1 : 0;
         rt[INITIALIZED_SLOT] = 1;
         level.scheduleTick(pos, shaper, 1);
         return true;
@@ -166,10 +172,6 @@ public class PulseShaperBlock extends DirectionalSignalBlock {
         return true;
     }
 
-    private static int boundedTick(long tick) {
-        return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, tick));
-    }
-
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
@@ -181,7 +183,7 @@ public class PulseShaperBlock extends DirectionalSignalBlock {
                 BlockState configured = level.getBlockState(pos);
                 player.displayClientMessage(Component.literal(
                         "Pulse Shaper | width=" + configured.getValue(WIDTH) + "t"
-                                + " | threshold=" + configured.getValue(THRESHOLD) + "/15"
+                                + " | threshold=" + threshold(level, pos) + "/15"
                                 + " | retrigger=" + (configured.getValue(RETRIGGERABLE) ? "YES" : "NO")
                                 + " | accepted=" + triggerCount(level, pos)
                                 + " | suppressed=" + suppressedTriggerCount(level, pos)), true);
