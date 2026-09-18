@@ -86,10 +86,10 @@ public class TankLevelSensorBlock extends DirectionalRedstoneSensorBlock {
     }
 
     public static int scaledLevelSignal(int fluidBlocks, int fullScale) {
-        int boundedScale = Math.max(1, fullScale);
-        int boundedLevel = Math.max(0, Math.min(boundedScale, fluidBlocks));
+        fullScale = Math.max(1, fullScale);
+        fluidBlocks = Math.max(0, Math.min(fullScale, fluidBlocks));
         return Math.max(0, Math.min(15,
-                (int) Math.round((boundedLevel / (double) boundedScale) * 15.0)));
+                (int) Math.round((fluidBlocks / (double) fullScale) * 15.0)));
     }
 
     @Override
