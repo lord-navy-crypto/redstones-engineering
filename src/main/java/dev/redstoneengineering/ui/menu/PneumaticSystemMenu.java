@@ -71,6 +71,10 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
     private final DataSlot cylinderSamples = trackedInt();
     private final DataSlot compressorTrackingError = trackedInt();
     private final DataSlot compressorRunTicks = trackedInt();
+    private final DataSlot proportionalCommand = trackedInt();
+    private final DataSlot proportionalTrackingError = trackedInt();
+    private final DataSlot proportionalTravel = trackedInt();
+    private final DataSlot proportionalReversals = trackedInt();
 
     public PneumaticSystemMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -93,6 +97,7 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
         cylinderSupply.set(0); cylinderPathEdges.set(0); cylinderObservedLoss.set(0); cylinderLineLoss.set(0); cylinderRestrictionLoss.set(0);
         cylinderResponsePeriod.set(0); cylinderRemainingTicks.set(0); cylinderVelocity.set(0); cylinderError.set(0); cylinderStallTicks.set(0); cylinderReversals.set(0); cylinderSamples.set(0);
         compressorTrackingError.set(0); compressorRunTicks.set(0);
+        proportionalCommand.set(0); proportionalTrackingError.set(0); proportionalTravel.set(0); proportionalReversals.set(0);
 
         if (block instanceof AirCompressorBlock) {
             kind.set(KIND_COMPRESSOR);
@@ -127,7 +132,15 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
             upstreamPressure.set(upstream.pressure()); downstreamPressure.set(downstream.pressure()); upstreamQuality.set(upstream.quality().ordinal()); downstreamQuality.set(downstream.quality().ordinal());
             commissioning.set(flowCommissioning(samples, inputQuality(), outputQuality(), upstream.quality(), downstream.quality(), secondary.get()).code());
         } else if (block instanceof PneumaticProportionalValveBlock valve) {
-            kind.set(KIND_PROPORTIONAL); directionalSnapshots(state, valve); tertiary.set(PneumaticProportionalValveBlock.opening(level, blockPos)); auxiliary.set(PneumaticNetwork.pressure(level, blockPos));
+            kind.set(KIND_PROPORTIONAL);
+            directionalSnapshots(state, valve);
+            tertiary.set(PneumaticProportionalValveBlock.actualOpening(level, blockPos));
+            auxiliary.set(PneumaticNetwork.pressure(level, blockPos));
+            stateFlag.set(state.getValue(PneumaticProportionalValveBlock.RESPONSE_MODE));
+            proportionalCommand.set(PneumaticProportionalValveBlock.commandedOpening(level, blockPos));
+            proportionalTrackingError.set(PneumaticProportionalValveBlock.trackingError(level, blockPos));
+            proportionalTravel.set(PneumaticProportionalValveBlock.travel(level, blockPos));
+            proportionalReversals.set(PneumaticProportionalValveBlock.reversals(level, blockPos));
         } else if (block instanceof PneumaticReliefValveBlock valve) {
             kind.set(KIND_RELIEF); directionalSnapshots(state, valve); tertiary.set(state.getValue(PneumaticReliefValveBlock.SETPOINT) * 25); auxiliary.set(PneumaticReliefValveBlock.ventEvents(level, blockPos)); stateFlag.set(PneumaticReliefValveBlock.venting(level, blockPos) ? 1 : 0);
         } else if (block instanceof PneumaticCylinderBlock cylinder) {
@@ -222,10 +235,16 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
             } else {
                 changed = rotateDirectional(block, id);
             }
+        } else if (block instanceof PneumaticProportionalValveBlock) {
+            if (id == BUTTON_PARAMETER_PREVIOUS || id == BUTTON_PARAMETER_NEXT) {
+                changed = PneumaticProportionalValveBlock.stepResponseMode(
+                        level, blockPos, id == BUTTON_PARAMETER_NEXT);
+            } else {
+                changed = rotateDirectional(block, id);
+            }
         } else if (block instanceof PneumaticReceiverBlock
                 || block instanceof PneumaticCheckValveBlock
                 || block instanceof PneumaticFlowMeterBlock
-                || block instanceof PneumaticProportionalValveBlock
                 || block instanceof PneumaticCylinderBlock) {
             changed = rotateDirectional(block, id);
         } else {
@@ -302,6 +321,10 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
     public int cylinderSamples() { return cylinderSamples.get(); }
     public int compressorTrackingError() { return compressorTrackingError.get(); }
     public int compressorRunTicks() { return compressorRunTicks.get(); }
+    public int proportionalCommand() { return proportionalCommand.get(); }
+    public int proportionalTrackingError() { return proportionalTrackingError.get(); }
+    public int proportionalTravel() { return proportionalTravel.get(); }
+    public int proportionalReversals() { return proportionalReversals.get(); }
     public CommissioningStatus commissioningStatus() { return CommissioningStatus.fromCode(commissioning.get()); }
 
     private static PortQuality quality(int ordinal) {
