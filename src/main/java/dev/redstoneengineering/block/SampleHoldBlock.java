@@ -35,12 +35,13 @@ import java.util.Optional;
 public class SampleHoldBlock extends DirectionalSignalBlock {
     public static final IntegerProperty TRIGGER_MODE = IntegerProperty.create("trigger_mode", 0, 2);
     private static final String KEY = "redstone_sample_hold";
-    private static final int RUNTIME_SIZE = 5;
+    private static final int RUNTIME_SIZE = 6;
     private static final int HELD_SLOT = 0;
     private static final int TRIGGER_STATE_SLOT = 1;
     private static final int INITIALIZED_SLOT = 2;
     private static final int CAPTURE_COUNT = 3;
     private static final int LAST_CAPTURE_TICK = 4;
+    private static final int RESET_COUNT = 5;
 
     public SampleHoldBlock(Properties properties) {
         super(properties); registerDefaultState(defaultBlockState().setValue(TRIGGER_MODE, 0));
@@ -108,7 +109,9 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
         };
 
         if (resetNow) {
-            rt[HELD_SLOT] = 0;
+            if (rt[HELD_SLOT] != 0) rt[RESET_COUNT]++;
+            if (rt[HELD_SLOT] != 0) rt[RESET_COUNT]++;
+        rt[HELD_SLOT] = 0;
         } else if (sample) {
             rt[HELD_SLOT] = readBackInput(level, pos, state);
             rt[CAPTURE_COUNT]++;
@@ -121,6 +124,16 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
     @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
         if (!state.is(newState.getBlock())) RuntimeIntStore.remove(level, KEY, pos);
         super.onRemove(state, level, pos, newState, moved);
+    }
+
+    public static int heldValue(Level level, BlockPos pos) {
+        int[] rt = RuntimeIntStore.peek(level, KEY, pos);
+        return rt == null || rt.length < RUNTIME_SIZE ? 0 : Math.max(0, Math.min(15, rt[HELD_SLOT]));
+    }
+
+    public static int resetCount(Level level, BlockPos pos) {
+        int[] rt = RuntimeIntStore.peek(level, KEY, pos);
+        return rt == null || rt.length < RUNTIME_SIZE ? 0 : Math.max(0, rt[RESET_COUNT]);
     }
 
     public static int captureCount(Level level, BlockPos pos) {
