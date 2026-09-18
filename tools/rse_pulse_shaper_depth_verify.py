@@ -34,6 +34,8 @@ require(
     "acceptedTrigger",
     "suppressedTrigger",
     "retriggerable",
+    "rearmThreshold",
+    "schmittAbove",
 )
 require(
     block,
@@ -41,6 +43,10 @@ require(
     "implements EntityBlock",
     "PulseShaperBlockEntity",
     "threshold(level, pos)",
+    "hysteresis(level, pos)",
+    "rearmThreshold(level, pos)",
+    "stepHysteresis",
+    "RedstoneObservationSupport.observe",
     "triggerCount",
     "suppressedTriggerCount",
     "lastTriggerAgeTicks",
@@ -52,6 +58,8 @@ require(
     entity,
     "class PulseShaperBlockEntity",
     "threshold",
+    "hysteresis",
+    "stepHysteresis",
     "acceptedTriggerCount",
     "suppressedTriggerCount",
     "lastTriggerTick",
@@ -71,13 +79,19 @@ require(
     "BUTTON_THRESHOLD_PREVIOUS",
     "BUTTON_THRESHOLD_NEXT",
     "BUTTON_TOGGLE_RETRIGGER",
+    "BUTTON_PULSE_HYSTERESIS_PREVIOUS",
+    "BUTTON_PULSE_HYSTERESIS_NEXT",
     "PulseShaperBlock.threshold(level, blockPos)",
+    "PulseShaperBlock.hysteresis(level, blockPos)",
     "PulseShaperBlock.stepThreshold",
+    "PulseShaperBlock.stepHysteresis",
     "PulseShaperBlock.toggleRetriggerable",
 )
 require(
     screen,
     "Trigger threshold",
+    "Hysteresis",
+    "re-arm",
     "Retrigger",
     "Accepted triggers",
     "Suppressed triggers",
@@ -135,6 +149,24 @@ public final class PulseShaperHarness {
         check(rSecond.state().remainingTicks() == 3,
                 "retrigger reloads configured width");
 
+        check(PulseShaperLogic.rearmThreshold(8, 2) == 6,
+                "hysteresis 2 must re-arm two levels below trigger");
+        var hInit = PulseShaperLogic.step(6, 8, 2, 4, true,
+                new PulseShaperLogic.State(false, false, 0));
+        var hRise = PulseShaperLogic.step(8, 8, 2, 4, true, hInit.state());
+        check(hRise.acceptedTrigger(), "Schmitt trigger must fire at high threshold");
+        var hBand = PulseShaperLogic.step(7, 8, 2, 4, true, hRise.state());
+        check(hBand.state().lastAboveThreshold(),
+                "input inside hysteresis band must stay latched high");
+        check(!hBand.acceptedTrigger(),
+                "hysteresis-band chatter must not create another trigger");
+        var hRearm = PulseShaperLogic.step(6, 8, 2, 4, true, hBand.state());
+        check(!hRearm.state().lastAboveThreshold(),
+                "input at re-arm threshold must re-arm the one-shot");
+        var hSecond = PulseShaperLogic.step(8, 8, 2, 4, true, hRearm.state());
+        check(hSecond.acceptedTrigger(),
+                "new high crossing after re-arm must trigger again");
+
         System.out.println("PulseShaperLogic semantic harness: PASS");
     }
 }
@@ -175,7 +207,8 @@ if failed:
     raise SystemExit(1)
 
 print("RSE pulse-shaper engineering-depth verification: PASS")
-print(" threshold-triggered monostable semantics: PASS")
+print(" threshold-triggered Schmitt monostable semantics: PASS")
+print(" hysteresis-band chatter rejection + re-arm behavior: PASS")
 print(" retriggerable/non-retriggerable behavior: PASS")
 print(" accepted/suppressed trigger diagnostics: PASS")
 print(" field HMI controls and evidence: PASS")
