@@ -9,6 +9,7 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -149,11 +150,19 @@ public final class SingleRelayBlock extends DirectionalSignalBlock {
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        int value;
-        if (side == outputSide(state)) value = state.getValue(OUTPUT);
-        else if (side == inputSide(state)) value = readInputFrom(level, pos, inputSide(state));
-        else value = coilInput(level, pos, state);
-        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value, PortQuality.VALID));
+        if (side == outputSide(state)) {
+            if (!contactClosed(level, pos, state)) {
+                return Optional.of(EngineeringPortSnapshot.redstone(port.get(), 0, PortQuality.VALID));
+            }
+            var input = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+            return Optional.of(EngineeringPortSnapshot.redstone(port.get(), state.getValue(OUTPUT), input.quality()));
+        }
+        if (side == inputSide(state)) {
+            var input = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+            return Optional.of(EngineeringPortSnapshot.redstone(port.get(), input.value(), input.quality()));
+        }
+        var coil = RedstoneObservationSupport.observe(level, pos, controlSide(state));
+        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), coil.value(), coil.quality()));
     }
 
     @Override
