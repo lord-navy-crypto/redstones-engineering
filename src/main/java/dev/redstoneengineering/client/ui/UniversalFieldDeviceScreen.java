@@ -17,6 +17,7 @@ import dev.redstoneengineering.block.DigitalRegeneratorBlock;
 import dev.redstoneengineering.block.DifferentialDriverBlock;
 import dev.redstoneengineering.block.WatchdogBlock;
 import dev.redstoneengineering.block.RedundantVoterBlock;
+import dev.redstoneengineering.block.SingleRelayBlock;
 import dev.redstoneengineering.block.AnalogComparatorBlock;
 import dev.redstoneengineering.block.TankLevelSensorBlock;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
@@ -116,7 +117,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_ANALOG_INDICATOR
                 || kind == UniversalFieldDeviceMenu.CONFIG_WATCHDOG
                 || kind == UniversalFieldDeviceMenu.CONFIG_REDUNDANT_VOTER
-                || kind == UniversalFieldDeviceMenu.CONFIG_SIGNAL_AMPLIFIER;
+                || kind == UniversalFieldDeviceMenu.CONFIG_SIGNAL_AMPLIFIER
+                || kind == UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY;
         boolean hasToggle = kind == UniversalFieldDeviceMenu.CONFIG_PWM
                 || kind == UniversalFieldDeviceMenu.CONFIG_CABLE_TERMINAL
                 || kind == UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY
@@ -158,6 +160,13 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             else if (kind == UniversalFieldDeviceMenu.CONFIG_WATCHDOG) action.setMessage(Component.literal("Reset watchdog diagnostics"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_REDUNDANT_VOTER) action.setMessage(Component.literal("Reset voter diagnostics"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_SIGNAL_AMPLIFIER) action.setMessage(Component.literal("Reset clipping evidence"));
+            else if (kind == UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY) {
+                int timingMode = (menu.configQuaternary() >> 10) & 3;
+                action.setMessage(Component.literal(
+                        "Timing • " + SingleRelayBlock.timingNameForMode(timingMode)
+                                + " " + SingleRelayBlock.operateDelayForMode(timingMode)
+                                + "/" + SingleRelayBlock.releaseDelayForMode(timingMode) + "t"));
+            }
         }
         if (toggle != null) {
             toggle.visible = configure && hasToggle;
@@ -353,6 +362,9 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 int payloadOrdinal = Math.min(qualities.length - 1, (packed >> 7) & 7);
                 PortQuality controlQuality = qualities[controlOrdinal];
                 PortQuality payloadQuality = qualities[payloadOrdinal];
+                int timingMode = (packed >> 10) & 3;
+                int remaining = (packed >> 12) & 15;
+                boolean pendingPickup = (packed & (1 << 16)) != 0;
                 boolean evidenceHold = controlHold || payloadHold;
                 boolean controlIssue = controlQuality != PortQuality.VALID && controlQuality != PortQuality.SATURATED;
                 boolean payloadIssue = closed
@@ -365,11 +377,14 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                         || payloadQuality == PortQuality.DOMAIN_MISMATCH
                         || payloadQuality == PortQuality.TOPOLOGY_ERROR));
                 String badge = evidenceHold ? "SINGLE RELAY • EVIDENCE HOLD"
+                        : remaining > 0 ? "SINGLE RELAY • " + (pendingPickup ? "OPERATING" : "RELEASING")
                         : controlQuality == PortQuality.NO_SIGNAL ? "SINGLE RELAY • CONTROL NO SOURCE"
                         : closed && payloadQuality == PortQuality.NO_SIGNAL ? "SINGLE RELAY • PAYLOAD NO SOURCE"
                         : "SINGLE RELAY • " + (closed ? "CONTACT CLOSED" : "CONTACT OPEN");
                 statusBadge(g, badge,
-                        severeIssue ? BAD : evidenceHold || controlIssue || payloadIssue ? WARN : closed ? GOOD : INFO,
+                        severeIssue ? BAD
+                                : evidenceHold || controlIssue || payloadIssue || remaining > 0 ? WARN
+                                : closed ? GOOD : INFO,
                         16, 80);
                 int pickup = switch (pickupMode) {
                     case 0 -> 1;
@@ -380,12 +395,19 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 int dropout = Math.max(0, pickup - 2);
                 String controlEvidence = controlQuality.name() + (controlHold ? " HOLD" : "");
                 String payloadEvidence = payloadQuality.name() + (payloadHold ? " HOLD" : "");
-                labelValue(g, "Contact mode", nc ? "NC • normally closed" : "NO • normally open", 101);
-                labelValue(g, "Coil control", coil ? "ENERGIZED" : "OFF", 123);
-                labelValue(g, "Pickup / dropout", pickup + " / " + dropout, 145);
-                labelValue(g, "Evidence", "CTRL=" + controlEvidence + " • PAY=" + payloadEvidence, 167);
-                labelValue(g, "Switch operations", Integer.toString(menu.configTertiary()), 189);
-                safeText(g, "NO_SIGNAL de-energizes the coil but remains visible as missing control evidence. FAULT/STALE control or payload evidence holds the last trustworthy state until recovery.", 16, 214, MUTED);
+                String transition = remaining > 0
+                        ? (pendingPickup ? "PICKUP " : "RELEASE ") + remaining + "t"
+                        : "STEADY";
+                labelValue(g, "Contact / coil",
+                        (nc ? "NC" : "NO") + " • " + (coil ? "ENERGIZED" : "OFF"), 101);
+                labelValue(g, "Pickup / dropout", pickup + " / " + dropout, 123);
+                labelValue(g, "Operate / release",
+                        SingleRelayBlock.timingNameForMode(timingMode) + " • "
+                                + SingleRelayBlock.operateDelayForMode(timingMode) + "/"
+                                + SingleRelayBlock.releaseDelayForMode(timingMode) + "t", 145);
+                labelValue(g, "Mechanical state", transition + " • switches " + menu.configTertiary(), 167);
+                labelValue(g, "Evidence", "CTRL=" + controlEvidence + " • PAY=" + payloadEvidence, 189);
+                safeText(g, "Pickup/dropout models coil hysteresis; operate/release timing models finite armature travel. Bad control evidence freezes the actual armature and cancels an unfinished move.", 16, 214, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_TRACE -> {
                 int sources = menu.configSecondary();
