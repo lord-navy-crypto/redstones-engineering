@@ -24,9 +24,9 @@ screen = "src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceSc
 require(
     block,
     'IntegerProperty.create("profile", 0, 3)',
-    "SensorModel.samplePeriod(profile)",
-    "SensorModel.latencySamples(profile)",
-    "SensorModel.profileName",
+    "EngineeringLightSensorBlock.profileSamplePeriod(profile)",
+    "EngineeringLightSensorBlock.profileLatencySamples(profile)",
+    "EngineeringLightSensorBlock.profileName",
     "adjustProfile",
     "RuntimeIntStore",
     "MetrologyStore.remove",
@@ -40,7 +40,7 @@ require(
 require(
     screen,
     "LIGHT SENSOR RESPONSE",
-    "SensorModel.profileName",
+    "EngineeringLightSensorBlock.profileName",
     "Sampling period",
     "Resolution",
     "Noise",
