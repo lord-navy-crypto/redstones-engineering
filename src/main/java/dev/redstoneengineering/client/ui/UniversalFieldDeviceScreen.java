@@ -12,6 +12,7 @@ import dev.redstoneengineering.block.FaultLatchBlock;
 import dev.redstoneengineering.block.TransmissionTopology;
 import dev.redstoneengineering.block.RedstoneByteEncoderBlock;
 import dev.redstoneengineering.block.ByteToRedstoneDecoderBlock;
+import dev.redstoneengineering.block.DigitalRegeneratorBlock;
 import dev.redstoneengineering.block.TankLevelSensorBlock;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.PortKind;
@@ -87,7 +88,9 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR
                 || kind == UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH
                 || kind == UniversalFieldDeviceMenu.CONFIG_BYTE_ENCODER
-                || kind == UniversalFieldDeviceMenu.CONFIG_BYTE_DECODER;
+                || kind == UniversalFieldDeviceMenu.CONFIG_BYTE_DECODER
+                || kind == UniversalFieldDeviceMenu.CONFIG_SERIALIZER
+                || kind == UniversalFieldDeviceMenu.CONFIG_REGENERATOR;
         boolean range = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE
                 || kind == UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY
                 || kind == UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD;
@@ -200,6 +203,34 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private void configure(GuiGraphics g) {
         int kind = menu.configKind();
         switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_SERIALIZER -> {
+                statusBadge(g, "SERIALIZER", INFO, 16, 80);
+                labelValue(g, "Word period", menu.configTertiary() + " ticks", 101);
+                labelValue(g, "Current byte", menu.configSecondary() + " / 255", 123);
+                safeText(g, "Configure selects 4/8/16 ticks per word. Shorter periods increase throughput; the serial network reports utilization and quality separately.", 16, 164, TEXT);
+            }
+            case UniversalFieldDeviceMenu.CONFIG_DESERIALIZER -> {
+                statusBadge(g, "DESERIALIZER", INFO, 16, 80);
+                labelValue(g, "Recovered byte", menu.configPrimary() + " / 255", 101);
+                labelValue(g, "Serial period", Math.max(1, menu.configSecondary()) + " ticks", 123);
+                labelValue(g, "Input quality", menu.configTertiary() + "%", 145);
+                safeText(g, "Deserializer is read-only conversion authority: it recovers the latest valid framed byte and drives a local 8-bit bus.", 16, 178, MUTED);
+            }
+            case UniversalFieldDeviceMenu.CONFIG_SERIAL_LINE -> {
+                statusBadge(g, "SERIAL LINK", INFO, 16, 80);
+                labelValue(g, "Current byte", menu.configPrimary() + " / 255", 101);
+                labelValue(g, "Link quality", menu.configSecondary() + "%", 123);
+                labelValue(g, "Utilization", menu.configTertiary() + "%", 145);
+                safeText(g, "Serial cable carries framed byte traffic; quality and utilization are network evidence, not extra analog physics.", 16, 178, TEXT);
+            }
+            case UniversalFieldDeviceMenu.CONFIG_REGENERATOR -> {
+                int minQuality = DigitalRegeneratorBlock.minimumQuality(menu.configPrimary());
+                statusBadge(g, "DIGITAL REGENERATOR", INFO, 16, 80);
+                labelValue(g, "Minimum quality", minQuality + "%", 101);
+                labelValue(g, "Accepted transitions", Integer.toString(menu.configSecondary()), 123);
+                labelValue(g, "Rejected transitions", Integer.toString(menu.configTertiary()), 145);
+                safeText(g, "The regenerator accepts sufficiently clean serial input, restores output quality to 100%, and rejects weak frames.", 16, 178, TEXT);
+            }
             case UniversalFieldDeviceMenu.CONFIG_BYTE_ENCODER -> {
                 statusBadge(g, "REDSTONE → BYTE ENCODER", INFO, 16, 80);
                 labelValue(g, "Mapping mode", RedstoneByteEncoderBlock.modeName(menu.configPrimary()), 101);
