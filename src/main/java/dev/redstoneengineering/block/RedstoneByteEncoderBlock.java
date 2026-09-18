@@ -26,6 +26,8 @@ import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
 import javax.annotation.Nullable;
@@ -34,7 +36,41 @@ import java.util.Optional;
 
 /** Explicit scalar-to-byte bridge. Vanilla redstone strength is never silently treated as binary. */
 public class RedstoneByteEncoderBlock extends DirectionalDomainBlock implements EngineeringPortProvider, DataBusDriver {
-    public RedstoneByteEncoderBlock(Properties properties) { super(properties); }
+    public static final IntegerProperty MODE = IntegerProperty.create("mode", 0, 1);
+    public static final int DIRECT = 0;
+    public static final int FULL_SCALE = 1;
+
+    public RedstoneByteEncoderBlock(Properties properties) {
+        super(properties);
+        registerDefaultState(defaultBlockState().setValue(MODE, DIRECT));
+    }
+
+    @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        super.createBlockStateDefinition(builder);
+        builder.add(MODE);
+    }
+
+    public static int encode(int redstone, int mode) {
+        int value = Math.max(0, Math.min(15, redstone));
+        return mode == FULL_SCALE ? value * 17 : value;
+    }
+
+    public static String modeName(int mode) {
+        return mode == FULL_SCALE ? "FULL_SCALE" : "DIRECT";
+    }
+
+    public static boolean stepMode(Level level, BlockPos pos, boolean forward) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof RedstoneByteEncoderBlock encoder)) return false;
+        int next = state.getValue(MODE) == DIRECT ? FULL_SCALE : DIRECT;
+        level.setBlock(pos, state.setValue(MODE, next), Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel server) {
+            encoder.update(server, pos, level.getBlockState(pos));
+            server.scheduleTick(pos, encoder, 1);
+        }
+        return true;
+    }
 
     @Override public MapCodec<RedstoneByteEncoderBlock> codec() { return RedstoneEngineering.REDSTONE_BYTE_ENCODER_CODEC.value(); }
 
@@ -76,7 +112,8 @@ public class RedstoneByteEncoderBlock extends DirectionalDomainBlock implements 
     private void update(ServerLevel level, BlockPos pos, BlockState state) {
         var input = RedstoneObservationSupport.observe(level, pos, inputSide(state));
         InformationRuntime.Snapshot previous = InformationRuntime.snapshot(level, "bus8_out", pos);
-        int value = input.valid() ? input.value() : input.quality() == PortQuality.STALE ? previous.value() & 0xFF : 0;
+        int value = input.valid() ? encode(input.value(), state.getValue(MODE))
+                : input.quality() == PortQuality.STALE ? previous.value() & 0xFF : 0;
         InformationRuntime.write(level, "bus8_out", pos, value, 0, input.valid(), input.valid() ? 100 : 0);
         BlockPos output = outputPos(pos, state);
         if (level.getBlockState(output).getBlock() instanceof EightBitDataBusBlock) {
@@ -123,6 +160,7 @@ public class RedstoneByteEncoderBlock extends DirectionalDomainBlock implements 
                 InformationRuntime.Snapshot output = InformationRuntime.snapshot(level, "bus8_out", pos);
                 player.displayClientMessage(Component.literal(
                         "Encoder: redstone=" + input.value() + "/15 " + input.quality()
+                                + " | mode=" + modeName(state.getValue(MODE))
                                 + " -> byte=" + (output.value() & 0xFF)
                                 + " valid=" + output.valid()), true);
             } else {
