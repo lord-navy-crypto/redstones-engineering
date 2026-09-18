@@ -226,10 +226,26 @@ req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.
     "BUFFERED SIGNAL TAP","Held value","SAMPLE & HOLD")
 
 req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
-    "CONFIG_SIGNAL_TAP","CONFIG_SAMPLE_HOLD","CalibrationModuleBlock.measurement")
+    "CONFIG_SIGNAL_TAP","CONFIG_SAMPLE_HOLD","CalibrationModuleBlock.measurement",
+    "CalibrationModuleBlock.observedQuality","CalibrationModuleBlock.referenceQuality",
+    "CalibrationModuleBlock.outputQuality")
 
 req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
-    "BUFFERED SIGNAL TAP","Held value","Reference residual","Traceable samples")
+    "BUFFERED SIGNAL TAP","Held value",
+    "CALIBRATION • OBSERVED NO SOURCE","CALIBRATION • REFERENCE NO SOURCE",
+    "OBSERVED evidence","REFERENCE evidence","Output evidence","Residual / samples")
+
+req("src/main/java/dev/redstoneengineering/block/CalibrationModuleBlock.java",
+    "observedEvidence","referenceEvidence","observed.valid()",
+    "if (reference.valid())","outputQuality",
+    "RedstoneObservationSupport.combineQuality(",
+    "calibration traceability evidence")
+
+req("src/main/java/dev/redstoneengineering/gametest/RseCalibrationEvidenceGameTests.java",
+    "calibrationHoldsOutputAcrossFaultedObservedEvidence",
+    "missingReferenceDegradesEvidenceWithoutBecomingControlInput",
+    "PortQuality.FAULT","PortQuality.NO_SIGNAL",
+    "faultSamples != baselineSamples","degradedSamples != baselineSamples")
 
 req("src/main/java/dev/redstoneengineering/block/SignalSelectorBlock.java",
     "INVERT_SELECT","SIGNAL A","SIGNAL B","SELECT","switchCount","toggleInvertSelect",
@@ -333,7 +349,8 @@ req("src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java
     "event.register(RseRelayEvidenceGameTests.class);",
     "event.register(RseSignalSelectorEvidenceGameTests.class);",
     "event.register(RseAnalogComparatorEvidenceGameTests.class);",
-    "event.register(RseInstrumentEvidenceGameTests.class);")
+    "event.register(RseInstrumentEvidenceGameTests.class);",
+    "event.register(RseCalibrationEvidenceGameTests.class);")
 
 req("src/main/java/dev/redstoneengineering/block/AnalogComparatorBlock.java",
     "combineQuality","!processObservation.valid()","!referenceObservation.valid()",
