@@ -3,9 +3,13 @@ package dev.redstoneengineering.block;
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.blockentity.PrecisionFilterBlockEntity;
+import dev.redstoneengineering.core.port.EngineeringPort;
+import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.signal.PrecisionFilterLogic;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -20,6 +24,8 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
+
+import java.util.Optional;
 
 /**
  * Asymmetric slew-rate limiter.
@@ -64,8 +70,25 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock implements Enti
     }
 
     @Override
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
+            Level level, BlockPos pos, BlockState state, Direction side
+    ) {
+        Optional<EngineeringPort> port = engineeringPort(state, side);
+        if (port.isEmpty()) return Optional.empty();
+        var input = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+        int value = side == outputSide(state) ? state.getValue(OUTPUT) : input.value();
+        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value, input.quality()));
+    }
+
+    @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        int input = readBackInput(level, pos, state);
+        var inputObservation = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+        if (!inputObservation.valid()) {
+            // Missing or faulty evidence is not a numerical zero; retain the last physical output.
+            return;
+        }
+
+        int input = inputObservation.value();
         int current = state.getValue(OUTPUT);
         int nextValue = PrecisionFilterLogic.step(
                 current,
@@ -79,7 +102,16 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock implements Enti
 
     public static int input(Level level, BlockPos pos, BlockState state) {
         if (!(state.getBlock() instanceof PrecisionFilterBlock filter)) return 0;
-        return filter.readBackInput(level, pos, state);
+        return RedstoneObservationSupport.observe(level, pos, filter.inputSide(state)).value();
+    }
+
+    public static dev.redstoneengineering.core.port.PortQuality inputQuality(
+            Level level, BlockPos pos, BlockState state
+    ) {
+        if (!(state.getBlock() instanceof PrecisionFilterBlock filter)) {
+            return dev.redstoneengineering.core.port.PortQuality.NO_SIGNAL;
+        }
+        return RedstoneObservationSupport.observe(level, pos, filter.inputSide(state)).quality();
     }
 
     /** Signed tracking error: positive means the output still needs to rise, negative means fall. */
@@ -93,7 +125,10 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock implements Enti
     }
 
     public static boolean settled(Level level, BlockPos pos, BlockState state) {
-        return trackingError(level, pos, state) == 0;
+        return inputQuality(level, pos, state) == dev.redstoneengineering.core.port.PortQuality.VALID
+                || inputQuality(level, pos, state) == dev.redstoneengineering.core.port.PortQuality.SATURATED
+                ? trackingError(level, pos, state) == 0
+                : false;
     }
 
     public static int fallRate(Level level, BlockPos pos, BlockState state) {
@@ -154,6 +189,7 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock implements Enti
                                     "Precision Filter | rise=" + rise
                                             + " fall=" + fall
                                             + " level/tick | error=" + error
+                                            + " | inputQuality=" + inputQuality(level, pos, next)
                                             + " | settleETA=" + settleTicks(level, pos, next) + "t"
                             ),
                             true
