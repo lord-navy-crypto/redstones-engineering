@@ -21,6 +21,7 @@ selector = "src/main/java/dev/redstoneengineering/block/SignalSelectorBlock.java
 selector_test = "src/main/java/dev/redstoneengineering/gametest/RseSignalSelectorEvidenceGameTests.java"
 lapis = "src/main/java/dev/redstoneengineering/block/LapisLowPassFilterBlock.java"
 quartz = "src/main/java/dev/redstoneengineering/block/QuartzClockDividerBlock.java"
+quartz_osc = "src/main/java/dev/redstoneengineering/block/QuartzOscillatorBlock.java"
 amethyst = "src/main/java/dev/redstoneengineering/block/AmethystResonatorBlock.java"
 spectrum = "src/main/java/dev/redstoneengineering/block/AmethystSpectrumAnalyzerBlock.java"
 domain = "src/main/java/dev/redstoneengineering/physics/DomainNetwork.java"
@@ -56,6 +57,14 @@ require(quartz,
         "DomainNetwork.driveQuartz(level, outputPos(pos, state), pos, false, outputPeriod, false)",
         "runtime[OUTPUT_SLOT] == 1, outputPeriod, true)")
 
+require(quartz_osc,
+        "EFFECTIVE_PERIOD_INDEX",
+        "configuredPeriodTicks",
+        "effectivePeriodTicks",
+        "periodChangePending",
+        "A configured period change becomes effective only at this real waveform transition",
+        "Do not create an early edge")
+
 require(amethyst,
         "CURRENT_AMPLITUDE",
         "EXCITATION_COUNT",
@@ -72,7 +81,8 @@ require(spectrum,
 
 require(domain,
         "int amp = AmethystResonatorBlock.currentAmplitude(level, src);",
-        "AmethystResonatorBlock.currentAmplitude(level, pos)")
+        "AmethystResonatorBlock.currentAmplitude(level, pos)",
+        "QuartzOscillatorBlock.effectivePeriodTicks(level, n, s)")
 
 require(ring,
         "Reduced free-decay model",
@@ -139,5 +149,5 @@ if failed:
 print("RSE foundation-domain depth verification: PASS")
 print(" redstone selector evidence hold: PASS")
 print(" Lapis low-pass retained-state semantics: PASS")
-print(" Quartz divider real-edge phase lock + period multiplication: PASS")
+print(" Quartz oscillator edge-latched period + divider real-edge phase lock: PASS")
 print(" Amethyst free ring-down source + stale incomplete spectrum evidence: PASS")
