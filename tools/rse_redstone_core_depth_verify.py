@@ -73,15 +73,21 @@ req("src/main/java/dev/redstoneengineering/block/DigitalRegeneratorBlock.java",
     "stepThreshold","acceptedCount","rejectedCount","RuntimeIntStore")
 
 req("src/main/java/dev/redstoneengineering/block/DifferentialDriverBlock.java",
-    "THRESHOLD","thresholdValue","stepThreshold")
+    "THRESHOLD","thresholdValue","stepThreshold",
+    "inputLevel","inputQuality","drivenBit",
+    "EngineeringPortSnapshot.redstone(")
 
 req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
     "CONFIG_SERIALIZER","CONFIG_DESERIALIZER","CONFIG_SERIAL_LINE","CONFIG_REGENERATOR",
-    "CONFIG_DIFF_DRIVER","CONFIG_DIFF_PAIR","CONFIG_DIFF_RECEIVER")
+    "CONFIG_DIFF_DRIVER","CONFIG_DIFF_PAIR","CONFIG_DIFF_RECEIVER",
+    "DifferentialDriverBlock.inputLevel","DifferentialDriverBlock.inputQuality",
+    "DifferentialDriverBlock.drivenBit")
 
 req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
     "SERIALIZER","DESERIALIZER","SERIAL LINK","DIGITAL REGENERATOR",
-    "DIFFERENTIAL DRIVER","DIFFERENTIAL LINK","DIFFERENTIAL RECEIVER")
+    "DIFFERENTIAL DRIVER","DIFFERENTIAL DRIVER • INPUT NO SOURCE",
+    "DIFFERENTIAL DRIVER • INPUT EVIDENCE BAD","Input evidence",
+    "DIFFERENTIAL LINK","DIFFERENTIAL RECEIVER")
 
 req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
     "CONFIG_DATA_BUS","CONFIG_SERIALIZER","CONFIG_REGENERATOR","CONFIG_DIFF_DRIVER","CONFIG_DIFF_PAIR","CONFIG_DIFF_RECEIVER")
