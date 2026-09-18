@@ -81,6 +81,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_INSTRUMENT_BUS = 36;
     public static final int CONFIG_WATCHDOG = 37;
     public static final int CONFIG_QUARTZ_TRACE = 38;
+    public static final int CONFIG_SINGLE_RELAY = 39;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
@@ -123,7 +124,12 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         configSecondary.set(0);
         configTertiary.set(0);
 
-        if (block instanceof QuartzTimingLineBlock) {
+        if (block instanceof SingleRelayBlock) {
+            configKind.set(CONFIG_SINGLE_RELAY);
+            configPrimary.set(state.getValue(SingleRelayBlock.NORMALLY_CLOSED) ? 1 : 0);
+            configSecondary.set(SingleRelayBlock.coilEnergized(level, blockPos, state) ? 1 : 0);
+            configTertiary.set(SingleRelayBlock.switchCount(level, blockPos));
+        } else if (block instanceof QuartzTimingLineBlock) {
             configKind.set(CONFIG_QUARTZ_TRACE);
             configPrimary.set(QuartzTimingLineBlock.period(level, blockPos));
             configSecondary.set(QuartzTimingLineBlock.sourceCount(level, blockPos));
@@ -472,6 +478,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean toggleConfig() {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof SingleRelayBlock) return SingleRelayBlock.toggleContactMode(level, blockPos);
         if (block instanceof RedstoneCableTerminalBlock) return RedstoneCableTerminalBlock.toggleMode(level, blockPos);
         return block instanceof PwmControllerBlock pwm && pwm.toggleInvert(level, blockPos);
     }
