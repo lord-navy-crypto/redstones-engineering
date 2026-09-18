@@ -551,9 +551,14 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 safeText(g, "Clear held value is an operator action; TRIGGER and RESET remain physical ports.", 16, 200, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_CALIBRATION -> {
-                statusBadge(g, "CALIBRATION PROFILE", INFO, 16, 80);
+                int residual = menu.configSecondary();
+                int samples = menu.configTertiary();
+                statusBadge(g, "CALIBRATION PROFILE", samples <= 0 ? INFO : Math.abs(residual) <= 1 ? GOOD : WARN, 16, 80);
                 labelValue(g, "Transfer", CalibrationModuleBlock.profileName(menu.configPrimary()), 101);
-                safeText(g, "OBSERVED, REFERENCE and CALIBRATED faces rotate together on Route.", 16, 148, TEXT);
+                labelValue(g, "Reference residual", samples <= 0 ? "NO DATA" : signed(residual) + " levels", 123);
+                labelValue(g, "Traceable samples", Integer.toString(samples), 145);
+                safeText(g, "The selected transfer profile corrects OBSERVED; REFERENCE is retained as independent calibration evidence rather than a hidden second control input.", 16, 178, TEXT);
+                safeText(g, "A persistent residual indicates that the chosen range/profile does not match the reference condition.", 16, 200, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_PWM -> {
                 statusBadge(g, "PWM CONTROL", INFO, 16, 80);
