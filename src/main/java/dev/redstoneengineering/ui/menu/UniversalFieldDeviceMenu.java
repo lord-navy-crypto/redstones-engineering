@@ -58,6 +58,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_ENTITY_DENSITY = 14;
     public static final int CONFIG_MAGNETIC_FIELD = 15;
     public static final int CONFIG_ELECTROMAGNET = 16;
+    public static final int CONFIG_IRON_CORE = 17;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
@@ -100,7 +101,12 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         configSecondary.set(0);
         configTertiary.set(0);
 
-        if (block instanceof ElectromagnetBlock) {
+        if (block instanceof IronCoreBlock) {
+            configKind.set(CONFIG_IRON_CORE);
+            configPrimary.set(IronCoreBlock.appliedField(level, blockPos));
+            configSecondary.set(IronCoreBlock.remanentField(level, blockPos));
+            configTertiary.set(IronCoreBlock.coverageComplete(level, blockPos) ? 1 : 0);
+        } else if (block instanceof ElectromagnetBlock) {
             configKind.set(CONFIG_ELECTROMAGNET);
             configPrimary.set(ElectromagnetBlock.targetField(level, blockPos));
             configSecondary.set(ElectromagnetBlock.thermalLoad(level, blockPos));
@@ -296,6 +302,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean runAction() {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof IronCoreBlock) return IronCoreBlock.degauss(level, blockPos);
         if (block instanceof MolecularCloudReceiverBlock receiver) return receiver.resetHistory(level, blockPos);
         if (block instanceof AlarmProcessorBlock alarm) return alarm.acknowledge(level, blockPos);
         if (block instanceof SampleHoldBlock sampleHold) return sampleHold.clearHeldValue(level, blockPos);
