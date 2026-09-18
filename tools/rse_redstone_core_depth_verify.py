@@ -41,7 +41,8 @@ req("src/main/java/dev/redstoneengineering/block/QuartzOscillatorBlock.java",
     "stepPeriod","periodTicks")
 
 req("src/main/java/dev/redstoneengineering/block/FaultLatchBlock.java",
-    "stepThreshold","thresholdValue","manualReset")
+    "stepThreshold","thresholdValue","manualReset","resetPermitted",
+    "RESET_REACQUIRE","resetRising","faultClearForReset")
 
 req("src/main/java/dev/redstoneengineering/block/AnalogIndicatorBlock.java",
     "retainedMinimum","retainedMaximum","resetExtrema","sampleCount")
@@ -50,7 +51,8 @@ req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java
     "CONFIG_QUARTZ_OSCILLATOR","CONFIG_FAULT_LATCH","CONFIG_ANALOG_INDICATOR","CONFIG_JUNCTION")
 
 req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
-    "QUARTZ TIMING SOURCE","FAULT LATCH","ANALOG REDSTONE INDICATOR","JUNCTION • ROUTING ONLY")
+    "QUARTZ TIMING SOURCE","FAULT LATCH","Reset permissive","Reset blocked • fault not clear",
+    "ANALOG REDSTONE INDICATOR","JUNCTION • ROUTING ONLY")
 
 req("src/main/java/dev/redstoneengineering/block/RedstoneByteEncoderBlock.java",
     "FULL_SCALE","encode","stepMode","value * 17")
@@ -88,7 +90,7 @@ req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.
     "8-BIT DATA BUS","SERIALIZER","DIGITAL REGENERATOR","DIFFERENTIAL DRIVER","DIFFERENTIAL LINK","DIFFERENTIAL RECEIVER")
 
 req("src/main/java/dev/redstoneengineering/block/WatchdogBlock.java",
-    "stepTimeout","timedOut","TIMEOUT_TICKS")
+    "stepTimeout","timedOut","TIMEOUT_TICKS","sourceSeen","heartbeat.quality()")
 
 req("src/main/java/dev/redstoneengineering/block/SafetyInterlockBlock.java",
     "transitionCount","blockedTicks")
@@ -109,7 +111,8 @@ req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java
     "CONFIG_INSTRUMENT_BUS","CONFIG_WATCHDOG","CONFIG_QUARTZ_TRACE")
 
 req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
-    "INSTRUMENTATION BUS","WATCHDOG • TIMEOUT","QUARTZ TIMING TRACE","State transitions")
+    "INSTRUMENTATION BUS","WATCHDOG • TIMEOUT","WATCHDOG • NO VALID SOURCE",
+    "Source acquired","QUARTZ TIMING TRACE","State transitions")
 
 req("src/main/java/dev/redstoneengineering/block/SingleRelayBlock.java",
     "NORMALLY_CLOSED","RELAY COIL CONTROL","switchCount","toggleContactMode")
@@ -118,7 +121,8 @@ req("src/main/java/dev/redstoneengineering/RedstoneEngineering.java",
     "SINGLE_RELAY_CODEC","SINGLE_RELAY =","SINGLE_RELAY_ITEM")
 
 req("src/main/java/dev/redstoneengineering/block/RedundantVoterBlock.java",
-    "stepTolerance","validInputs","disagreementCount")
+    "stepTolerance","validInputs","disagreementCount","evidenceQuality",
+    "combineQuality(votingQuality, evidenceQuality)")
 
 req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
     "CONFIG_SINGLE_RELAY","CONFIG_REDUNDANT_VOTER")
