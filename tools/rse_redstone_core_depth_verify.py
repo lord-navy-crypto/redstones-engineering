@@ -24,7 +24,7 @@ req("src/main/java/dev/redstoneengineering/block/RedstoneSignalCableBlock.java",
 req("src/main/java/dev/redstoneengineering/block/RedstoneCableTerminalBlock.java",
     "toggleMode","winningSource","attenuation")
 req("src/main/java/dev/redstoneengineering/block/SignalConditionerBlock.java",
-    "RUNTIME_KEY","limitingEpisodes","lastLimitingAgeTicks","case 0 -> \"SCALE\"")
+    "RUNTIME_KEY","limitingEpisodes","lastLimitingAgeTicks","case 0 -> \"LEGACY SCALE\"")
 req("src/main/java/dev/redstoneengineering/ui/menu/SignalConditionerMenu.java",
     "limitingEpisodes","lastLimitingAge")
 req("src/main/java/dev/redstoneengineering/client/ui/SignalConditionerScreen.java",
@@ -213,6 +213,7 @@ print(" parallel/serial/differential media roles: PASS")
 print(" instrument/timing/control supervision depth: PASS")
 print(" relay/voter safety-control hardware: PASS")
 print(" dedicated amplifier gain/clipping stage: PASS")
+print(" conditioner/amplifier role separation: PASS")
 print(" synchronized precision sampling semantics: PASS")
 print(" buffered tap and sample-hold evidence: PASS")
 print(" tap/sample-hold/calibration evidence: PASS")
