@@ -116,13 +116,14 @@ if len(compass_json.get("elements", [])) < 20:
     errors.append("engineering_compass model: expected explicit raised cardinal-letter geometry")
 
 count = len(re.findall(r"@GameTest\s*\(", gt))
-if count < 7: errors.append(f"RseEngineeringSystemsGameTests.java: expected at least 7 @GameTest methods, found {count}")
+if count < 8: errors.append(f"RseEngineeringSystemsGameTests.java: expected at least 8 @GameTest methods, found {count}")
 for needle in (
     "EngineeringSystemsModule.SEQUENCE_CONTROLLER.get().defaultBlockState()",
     "EngineeringSystemsModule.SAFETY_INTERLOCK.get().defaultBlockState()",
     "EngineeringSystemsModule.FAULT_INJECTOR.get().defaultBlockState()",
     "EngineeringSystemsModule.ALARM_PROCESSOR.get().defaultBlockState()",
     "EngineeringSystemsModule.TOPOLOGY_DEBUGGER.get().defaultBlockState()",
+    "alarmProcessorFailsSafeOnBadConditionEvidence",
     "systemTimelineCapturesAlarmLifecycleAndFirstOut",
     "firstOutPreservesEarliestAbnormalEventInIncident",
 ):
