@@ -362,6 +362,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configPrimary.set(SequenceControllerBlock.step(level, blockPos));
             configSecondary.set(SequenceControllerBlock.completedCycles(level, blockPos));
             configTertiary.set(SequenceControllerBlock.transitions(level, blockPos));
+            configQuaternary.set(SequenceControllerBlock.runQuality(level, blockPos, state).ordinal());
         } else if (block instanceof SafetyInterlockBlock) {
             configKind.set(CONFIG_SAFETY_INTERLOCK);
             configPrimary.set(SafetyInterlockBlock.failedMask(level, blockPos));
