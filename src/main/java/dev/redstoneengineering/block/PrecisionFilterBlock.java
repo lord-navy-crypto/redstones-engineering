@@ -112,7 +112,7 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock implements Enti
         return Integer.compare(trackingError(level, pos, state), 0);
     }
 
-    /** Shared authoritative operator action for rise-rate configuration. */
+    /** Shared authoritative operator action used by both HMI and Shift-right-click. */
     public static boolean stepRate(Level level, BlockPos pos, boolean forward) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof PrecisionFilterBlock filter)) return false;
