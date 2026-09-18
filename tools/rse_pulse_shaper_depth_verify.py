@@ -22,7 +22,7 @@ def require(path: str, *tokens: str) -> None:
 logic = "src/main/java/dev/redstoneengineering/signal/PulseShaperLogic.java"
 block = "src/main/java/dev/redstoneengineering/block/PulseShaperBlock.java"
 menu = "src/main/java/dev/redstoneengineering/ui/menu/SignalProcessorMenu.java"
-screen = "src/main/java/dev/redstoneengineering/client/ui/SignalProcessorScreen.java"\nentity = "src/main/java/dev/redstoneengineering/blockentity/PulseShaperBlockEntity.java"
+screen = "src/main/java/dev/redstoneengineering/client/ui/SignalProcessorScreen.java"\nentity = "src/main/java/dev/redstoneengineering/blockentity/PulseShaperBlockEntity.java"\nregistration = "src/main/java/dev/redstoneengineering/RedstoneEngineering.java"
 
 require(logic,
         "record State",
@@ -38,7 +38,7 @@ require(block,
         "suppressedTriggerCount",
         "lastTriggerAgeTicks",
         "PulseShaperLogic.step",\n        "newBlockEntity")
-require(entity,\n        "class PulseShaperBlockEntity",\n        "threshold",\n        "acceptedTriggerCount",\n        "suppressedTriggerCount",\n        "lastTriggerTick",\n        "loadAdditional",\n        "saveAdditional",\n        "setChanged")\nrequire(menu,
+require(entity,\n        "class PulseShaperBlockEntity",\n        "threshold",\n        "acceptedTriggerCount",\n        "suppressedTriggerCount",\n        "lastTriggerTick",\n        "loadAdditional",\n        "saveAdditional",\n        "setChanged")\nrequire(registration,\n        "PulseShaperBlockEntity",\n        "PULSE_SHAPER_BLOCK_ENTITY",\n        'BLOCK_ENTITY_TYPES.register(\',\n        '"pulse_shaper"\')\nrequire(menu,
         "BUTTON_THRESHOLD_PREVIOUS",
         "BUTTON_THRESHOLD_NEXT",
         "BUTTON_TOGGLE_RETRIGGER",
