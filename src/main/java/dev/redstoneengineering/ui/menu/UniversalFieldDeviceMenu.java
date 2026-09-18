@@ -192,6 +192,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configPrimary.set(bus.validChannels());
             configSecondary.set(bus.interferenceConfidencePercent());
             configTertiary.set(bus.shieldingCoveragePercent());
+            configQuaternary.set(bus.qualityForMask(0xF).ordinal());
         } else if (block instanceof WatchdogBlock) {
             configKind.set(CONFIG_WATCHDOG);
             configPrimary.set(state.getValue(WatchdogBlock.TIMEOUT));
@@ -317,7 +318,9 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         } else if (block instanceof SignalProbeBlock) {
             configKind.set(CONFIG_SIGNAL_PROBE);
             configPrimary.set(SignalProbeBlock.configuredChannel(state));
-            configSecondary.set(SignalProbeBlock.measuredValue(level, blockPos, state));
+            var observation = SignalProbeBlock.measurementObservation(level, blockPos, state);
+            configSecondary.set(observation.value());
+            configQuaternary.set(observation.quality().ordinal());
         } else if (block instanceof IronCoreBlock) {
             configKind.set(CONFIG_IRON_CORE);
             configPrimary.set(IronCoreBlock.appliedField(level, blockPos));
