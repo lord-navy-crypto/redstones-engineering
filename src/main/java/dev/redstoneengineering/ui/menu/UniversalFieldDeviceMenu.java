@@ -57,12 +57,14 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_TANK_LEVEL = 13;
     public static final int CONFIG_ENTITY_DENSITY = 14;
     public static final int CONFIG_MAGNETIC_FIELD = 15;
+    public static final int CONFIG_ELECTROMAGNET = 16;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
     private final DataSlot configKind = trackedInt();
     private final DataSlot configPrimary = trackedInt();
     private final DataSlot configSecondary = trackedInt();
+    private final DataSlot configTertiary = trackedInt();
     private final DataSlot declaredPortMask = trackedInt();
     private final DataSlot inputMask = trackedInt();
     private final DataSlot outputMask = trackedInt();
@@ -96,8 +98,14 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         configKind.set(CONFIG_NONE);
         configPrimary.set(0);
         configSecondary.set(0);
+        configTertiary.set(0);
 
-        if (block instanceof MagneticFieldSensorBlock) {
+        if (block instanceof ElectromagnetBlock) {
+            configKind.set(CONFIG_ELECTROMAGNET);
+            configPrimary.set(ElectromagnetBlock.targetField(level, blockPos));
+            configSecondary.set(ElectromagnetBlock.thermalLoad(level, blockPos));
+            configTertiary.set(state.getValue(ElectromagnetBlock.FIELD));
+        } else if (block instanceof MagneticFieldSensorBlock) {
             configKind.set(CONFIG_MAGNETIC_FIELD);
             configPrimary.set(state.getValue(MagneticFieldSensorBlock.RADIUS_MODE));
             configSecondary.set(state.getValue(MagneticFieldSensorBlock.SAMPLE_MODE));
@@ -338,6 +346,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public int configKind() { return configKind.get(); }
     public int configPrimary() { return configPrimary.get(); }
     public int configSecondary() { return configSecondary.get(); }
+    public int configTertiary() { return configTertiary.get(); }
     public int declaredPortMask() { return declaredPortMask.get(); }
     public boolean hasPort(Direction side) { return (declaredPortMask.get() & (1 << side.ordinal())) != 0; }
     public boolean isInput(Direction side) { return (inputMask.get() & (1 << side.ordinal())) != 0; }
