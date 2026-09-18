@@ -51,7 +51,7 @@ checks = {
     ),
     "Pneumatic proportional valve": (
         "src/main/java/dev/redstoneengineering/block/PneumaticProportionalValveBlock.java",
-        ["PneumaticProportionalValveBlock", "opening(level"],
+        ["PneumaticProportionalValveBlock", "actualOpening", "commandedOpening", "stepOpening", "RESPONSE_MODE"],
     ),
     "Pneumatic relief valve": (
         "src/main/java/dev/redstoneengineering/block/PneumaticReliefValveBlock.java",
