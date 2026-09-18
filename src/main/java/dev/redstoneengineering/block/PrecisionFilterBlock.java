@@ -5,6 +5,7 @@ import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.blockentity.PrecisionFilterBlockEntity;
 import dev.redstoneengineering.core.port.EngineeringPort;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.signal.PrecisionFilterLogic;
 import dev.redstoneengineering.ui.FieldDeviceUi;
@@ -105,13 +106,14 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock implements Enti
         return RedstoneObservationSupport.observe(level, pos, filter.inputSide(state)).value();
     }
 
-    public static dev.redstoneengineering.core.port.PortQuality inputQuality(
-            Level level, BlockPos pos, BlockState state
-    ) {
-        if (!(state.getBlock() instanceof PrecisionFilterBlock filter)) {
-            return dev.redstoneengineering.core.port.PortQuality.NO_SIGNAL;
-        }
+    public static PortQuality inputQuality(Level level, BlockPos pos, BlockState state) {
+        if (!(state.getBlock() instanceof PrecisionFilterBlock filter)) return PortQuality.NO_SIGNAL;
         return RedstoneObservationSupport.observe(level, pos, filter.inputSide(state)).quality();
+    }
+
+    private static boolean inputUsable(Level level, BlockPos pos, BlockState state) {
+        PortQuality quality = inputQuality(level, pos, state);
+        return quality == PortQuality.VALID || quality == PortQuality.SATURATED;
     }
 
     /** Signed tracking error: positive means the output still needs to rise, negative means fall. */
@@ -125,10 +127,7 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock implements Enti
     }
 
     public static boolean settled(Level level, BlockPos pos, BlockState state) {
-        return inputQuality(level, pos, state) == dev.redstoneengineering.core.port.PortQuality.VALID
-                || inputQuality(level, pos, state) == dev.redstoneengineering.core.port.PortQuality.SATURATED
-                ? trackingError(level, pos, state) == 0
-                : false;
+        return inputUsable(level, pos, state) && trackingError(level, pos, state) == 0;
     }
 
     public static int fallRate(Level level, BlockPos pos, BlockState state) {
@@ -137,6 +136,7 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock implements Enti
     }
 
     public static int settleTicks(Level level, BlockPos pos, BlockState state) {
+        if (!inputUsable(level, pos, state)) return -1;
         int in = input(level, pos, state);
         int out = state.getValue(OUTPUT);
         return PrecisionFilterLogic.settleTicks(out, in, state.getValue(RATE), fallRate(level, pos, state));
@@ -184,13 +184,14 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock implements Enti
                     int rise = next.getValue(RATE);
                     int fall = fallRate(level, pos, next);
                     int error = trackingError(level, pos, next);
+                    int eta = settleTicks(level, pos, next);
                     player.displayClientMessage(
                             Component.literal(
                                     "Precision Filter | rise=" + rise
                                             + " fall=" + fall
                                             + " level/tick | error=" + error
                                             + " | inputQuality=" + inputQuality(level, pos, next)
-                                            + " | settleETA=" + settleTicks(level, pos, next) + "t"
+                                            + " | settleETA=" + (eta < 0 ? "UNAVAILABLE" : eta + "t")
                             ),
                             true
                     );
