@@ -534,31 +534,59 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             }
             case UniversalFieldDeviceMenu.CONFIG_REGENERATOR -> {
                 int minQuality = DigitalRegeneratorBlock.minimumQuality(menu.configPrimary());
-                statusBadge(g, "DIGITAL REGENERATOR", INFO, 16, 80);
+                int packed = menu.configQuaternary();
+                PortQuality inputEvidence = syncedQuality(packed & 7);
+                PortQuality outputEvidence = syncedQuality((packed >> 3) & 7);
+                int frameQuality = Math.max(0, Math.min(100, packed >> 6));
+                String badge = inputEvidence == PortQuality.NO_SIGNAL ? "DIGITAL REGENERATOR • NO SOURCE"
+                        : inputEvidence == PortQuality.STALE ? "DIGITAL REGENERATOR • INPUT STALE"
+                        : evidenceSevere(inputEvidence) ? "DIGITAL REGENERATOR • INPUT " + inputEvidence.name()
+                        : outputEvidence == PortQuality.FAULT ? "DIGITAL REGENERATOR • FRAME REJECTED"
+                        : "DIGITAL REGENERATOR • ACCEPTING";
+                int badgeColor = evidenceSevere(inputEvidence) ? BAD
+                        : evidenceIssue(inputEvidence) || outputEvidence == PortQuality.FAULT ? WARN : GOOD;
+                statusBadge(g, badge, badgeColor, 16, 80);
                 labelValue(g, "Minimum quality", minQuality + "%", 101);
-                labelValue(g, "Accepted transitions", Integer.toString(menu.configSecondary()), 123);
-                labelValue(g, "Rejected transitions", Integer.toString(menu.configTertiary()), 145);
-                safeText(g, "The regenerator accepts sufficiently clean serial input, restores output quality to 100%, and rejects weak frames.", 16, 178, TEXT);
+                labelValue(g, "Frame quality", frameQuality + "%", 123);
+                labelValue(g, "Input evidence", inputEvidence.name(), 145);
+                labelValue(g, "Output decision", outputEvidence.name(), 167);
+                labelValue(g, "Accepted / rejected", menu.configSecondary() + " / " + menu.configTertiary(), 189);
+                safeText(g, "A trustworthy serial source can still be rejected when frame quality falls below the configured regeneration threshold.", 16, 214, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_BYTE_ENCODER -> {
-                statusBadge(g, "REDSTONE → BYTE ENCODER", INFO, 16, 80);
+                PortQuality evidence = syncedQuality(menu.configQuaternary());
+                String badge = evidence == PortQuality.NO_SIGNAL ? "REDSTONE → BYTE • NO SOURCE"
+                        : evidence == PortQuality.STALE ? "REDSTONE → BYTE • INPUT STALE"
+                        : evidenceIssue(evidence) ? "REDSTONE → BYTE • INPUT " + evidence.name()
+                        : "REDSTONE → BYTE ENCODER";
+                statusBadge(g, badge,
+                        evidenceSevere(evidence) ? BAD : evidenceIssue(evidence) ? WARN : INFO, 16, 80);
                 labelValue(g, "Mapping mode", RedstoneByteEncoderBlock.modeName(menu.configPrimary()), 101);
                 labelValue(g, "Redstone input", menu.configSecondary() + " / 15", 123);
-                labelValue(g, "Byte output", menu.configTertiary() + " / 255", 145);
+                labelValue(g, "Input evidence", evidence.name(), 145);
+                labelValue(g, "Byte output", menu.configTertiary() + " / 255", 167);
                 safeText(g, menu.configPrimary() == RedstoneByteEncoderBlock.FULL_SCALE
-                        ? "FULL_SCALE uses the complete byte range: 0..15 maps to 0..255 in steps of 17."
-                        : "DIRECT preserves legacy semantics: redstone 0..15 becomes byte 0..15.",
-                        16, 178, TEXT);
+                        ? "FULL_SCALE maps 0..15 to 0..255 in steps of 17; evidence state remains independent of the numeric mapping."
+                        : "DIRECT maps redstone 0..15 to byte 0..15 without hiding missing or stale input authority.",
+                        16, 200, TEXT);
             }
             case UniversalFieldDeviceMenu.CONFIG_BYTE_DECODER -> {
-                statusBadge(g, "BYTE → REDSTONE DECODER", INFO, 16, 80);
+                PortQuality evidence = syncedQuality(menu.configQuaternary());
+                String badge = evidence == PortQuality.NO_SIGNAL ? "BYTE → REDSTONE • NO BUS SOURCE"
+                        : evidence == PortQuality.STALE ? "BYTE → REDSTONE • INPUT STALE"
+                        : evidence == PortQuality.TOPOLOGY_ERROR ? "BYTE → REDSTONE • BUS TOPOLOGY ERROR"
+                        : evidenceIssue(evidence) ? "BYTE → REDSTONE • INPUT " + evidence.name()
+                        : "BYTE → REDSTONE DECODER";
+                statusBadge(g, badge,
+                        evidenceSevere(evidence) ? BAD : evidenceIssue(evidence) ? WARN : INFO, 16, 80);
                 labelValue(g, "Mapping mode", ByteToRedstoneDecoderBlock.modeName(menu.configPrimary()), 101);
                 labelValue(g, "Byte input", menu.configSecondary() + " / 255", 123);
-                labelValue(g, "Redstone output", menu.configTertiary() + " / 15", 145);
+                labelValue(g, "Input evidence", evidence.name(), 145);
+                labelValue(g, "Redstone output", menu.configTertiary() + " / 15", 167);
                 safeText(g, menu.configPrimary() == ByteToRedstoneDecoderBlock.FULL_SCALE
-                        ? "FULL_SCALE compresses the complete 8-bit value into the redstone 0..15 range."
-                        : "CLAMP preserves legacy behavior: byte values above 15 saturate at redstone 15.",
-                        16, 178, TEXT);
+                        ? "FULL_SCALE compresses 0..255 into redstone 0..15; invalid bus authority still fails closed."
+                        : "CLAMP saturates byte values above 15, while NO_SIGNAL/STALE/TOPOLOGY_ERROR remain explicit evidence states.",
+                        16, 200, TEXT);
             }
             case UniversalFieldDeviceMenu.CONFIG_JUNCTION -> {
                 TransmissionTopology.SignalMedium[] media = TransmissionTopology.SignalMedium.values();
