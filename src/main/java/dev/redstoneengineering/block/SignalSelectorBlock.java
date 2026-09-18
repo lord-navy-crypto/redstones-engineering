@@ -69,9 +69,21 @@ public final class SignalSelectorBlock extends DirectionalSignalBlock {
         return rightOf(seriesOutputSide(state));
     }
 
+    private static boolean controlEvidenceUnusable(PortQuality quality) {
+        return quality == PortQuality.STALE
+                || quality == PortQuality.FAULT
+                || quality == PortQuality.DOMAIN_MISMATCH
+                || quality == PortQuality.TOPOLOGY_ERROR;
+    }
+
     public static boolean selectedB(Level level, BlockPos pos, BlockState state) {
-        Direction select = selectSide(state);
-        boolean active = level.getSignal(pos.relative(select), select) > 0;
+        var select = RedstoneObservationSupport.observe(level, pos, selectSide(state));
+        int[] runtime = RuntimeIntStore.peek(level, RUNTIME_KEY, pos);
+        if (controlEvidenceUnusable(select.quality())
+                && runtime != null && runtime.length >= RUNTIME_SIZE && runtime[INITIALIZED] != 0) {
+            return runtime[LAST_SELECTION] != 0;
+        }
+        boolean active = select.value() > 0;
         return state.getValue(INVERT_SELECT) ? !active : active;
     }
 
