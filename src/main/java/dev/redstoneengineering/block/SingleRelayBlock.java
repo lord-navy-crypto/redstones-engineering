@@ -92,6 +92,14 @@ public final class SingleRelayBlock extends DirectionalSignalBlock {
         return coilObservation(level, pos, state).value();
     }
 
+    public static PortQuality controlQuality(Level level, BlockPos pos, BlockState state) {
+        return coilObservation(level, pos, state).quality();
+    }
+
+    public static PortQuality payloadQuality(Level level, BlockPos pos, BlockState state) {
+        return RedstoneObservationSupport.observe(level, pos, inputSide(state)).quality();
+    }
+
     private static boolean controlEvidenceUnusable(PortQuality quality) {
         return quality == PortQuality.STALE
                 || quality == PortQuality.FAULT
@@ -187,18 +195,17 @@ public final class SingleRelayBlock extends DirectionalSignalBlock {
         if (side == outputSide(state)) {
             var coil = coilObservation(level, pos, state);
             if (!contactClosed(level, pos, state)) {
-                PortQuality quality = controlEvidenceUnusable(coil.quality())
-                        ? coil.quality()
-                        : PortQuality.VALID;
-                return Optional.of(EngineeringPortSnapshot.redstone(port.get(), 0, quality));
+                return Optional.of(EngineeringPortSnapshot.redstone(
+                        port.get(),
+                        0,
+                        RedstoneObservationSupport.combineQuality(PortQuality.VALID, coil.quality())));
             }
 
             var input = RedstoneObservationSupport.observe(level, pos, inputSide(state));
-            PortQuality quality = controlEvidenceUnusable(coil.quality())
-                    ? RedstoneObservationSupport.combineQuality(input.quality(), coil.quality())
-                    : input.quality();
             return Optional.of(EngineeringPortSnapshot.redstone(
-                    port.get(), state.getValue(OUTPUT), quality));
+                    port.get(),
+                    state.getValue(OUTPUT),
+                    RedstoneObservationSupport.combineQuality(input.quality(), coil.quality())));
         }
         if (side == inputSide(state)) {
             var input = RedstoneObservationSupport.observe(level, pos, inputSide(state));
