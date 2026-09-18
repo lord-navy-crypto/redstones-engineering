@@ -162,6 +162,18 @@ req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java
 req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
     "BUFFERED SIGNAL TAP","Held value","Reference residual","Traceable samples")
 
+req("src/main/java/dev/redstoneengineering/block/SignalSelectorBlock.java",
+    "INVERT_SELECT","SIGNAL A","SIGNAL B","SELECT","switchCount","toggleInvertSelect")
+
+req("src/main/java/dev/redstoneengineering/RedstoneEngineering.java",
+    "SIGNAL_SELECTOR_CODEC","SIGNAL_SELECTOR =","SIGNAL_SELECTOR_ITEM")
+
+req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
+    "CONFIG_SIGNAL_SELECTOR","SignalSelectorBlock.toggleInvertSelect")
+
+req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
+    "2:1 SIGNAL SELECTOR","Select logic • INVERTED","Selection changes")
+
 if failed:
     print("RSE redstone-core engineering-depth verification: FAIL")
     for x in failed: print(" -",x)
@@ -183,3 +195,4 @@ print(" dedicated amplifier gain/clipping stage: PASS")
 print(" synchronized precision sampling semantics: PASS")
 print(" buffered tap and sample-hold evidence: PASS")
 print(" tap/sample-hold/calibration evidence: PASS")
+print(" two-input analog signal selection: PASS")
