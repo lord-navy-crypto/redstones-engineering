@@ -2,6 +2,7 @@ package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.block.CalibrationModuleBlock;
 import dev.redstoneengineering.block.EntityDensitySensorBlock;
+import dev.redstoneengineering.block.MagneticFieldSensorBlock;
 import dev.redstoneengineering.block.FaultInjectorBlock;
 import dev.redstoneengineering.block.PwmControllerBlock;
 import dev.redstoneengineering.block.SampleHoldBlock;
@@ -72,9 +73,11 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR
                 || kind == UniversalFieldDeviceMenu.CONFIG_LIGHT_SENSOR
                 || kind == UniversalFieldDeviceMenu.CONFIG_TANK_LEVEL
-                || kind == UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY;
+                || kind == UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY
+                || kind == UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD;
         boolean range = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE
-                || kind == UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY;
+                || kind == UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY
+                || kind == UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD;
         boolean hasAction = kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER
                 || kind == UniversalFieldDeviceMenu.CONFIG_ALARM
                 || kind == UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD
@@ -88,6 +91,16 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         if (primaryNext != null) primaryNext.visible = configure && primary;
         if (secondaryPrevious != null) secondaryPrevious.visible = configure && range;
         if (secondaryNext != null) secondaryNext.visible = configure && range;
+        if (kind == UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY) {
+            secondaryPrevious.setMessage(Component.literal("◀ Aperture"));
+            secondaryNext.setMessage(Component.literal("Aperture ▶"));
+        } else if (kind == UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD) {
+            secondaryPrevious.setMessage(Component.literal("◀ Sample"));
+            secondaryNext.setMessage(Component.literal("Sample ▶"));
+        } else {
+            secondaryPrevious.setMessage(Component.literal("◀ Range"));
+            secondaryNext.setMessage(Component.literal("Range ▶"));
+        }
         if (kind == UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY) {
             secondaryPrevious.setMessage(Component.literal("◀ Aperture"));
             secondaryNext.setMessage(Component.literal("Aperture ▶"));
@@ -168,6 +181,15 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private void configure(GuiGraphics g) {
         int kind = menu.configKind();
         switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD -> {
+                int radiusMode = menu.configPrimary();
+                int sampleMode = menu.configSecondary();
+                statusBadge(g, "MAGNETIC SENSOR APERTURE", INFO, 16, 80);
+                labelValue(g, "Aperture radius", MagneticFieldSensorBlock.radiusForMode(radiusMode) + " blocks", 101);
+                labelValue(g, "Sample period", MagneticFieldSensorBlock.samplePeriodForMode(sampleMode) + " ticks", 123);
+                safeText(g, "Radius changes the physical free-space field aperture; sampling mode changes how often evidence is reacquired.", 16, 160, TEXT);
+                safeText(g, "Changing either setting clears old coverage evidence before the next sample.", 16, 188, MUTED);
+            }
             case UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY -> {
                 int profile = menu.configPrimary();
                 int apertureMode = menu.configSecondary();
