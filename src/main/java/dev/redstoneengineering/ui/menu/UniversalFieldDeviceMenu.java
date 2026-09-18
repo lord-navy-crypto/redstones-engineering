@@ -83,6 +83,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_QUARTZ_TRACE = 38;
     public static final int CONFIG_SINGLE_RELAY = 39;
     public static final int CONFIG_REDUNDANT_VOTER = 40;
+    public static final int CONFIG_SIGNAL_AMPLIFIER = 41;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
@@ -125,7 +126,12 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         configSecondary.set(0);
         configTertiary.set(0);
 
-        if (block instanceof RedundantVoterBlock) {
+        if (block instanceof SignalAmplifierBlock) {
+            configKind.set(CONFIG_SIGNAL_AMPLIFIER);
+            configPrimary.set(state.getValue(SignalAmplifierBlock.GAIN_MODE));
+            configSecondary.set(SignalAmplifierBlock.clipping(level, blockPos) ? 1 : 0);
+            configTertiary.set(SignalAmplifierBlock.clippingEpisodes(level, blockPos));
+        } else if (block instanceof RedundantVoterBlock) {
             configKind.set(CONFIG_REDUNDANT_VOTER);
             configPrimary.set(state.getValue(RedundantVoterBlock.TOLERANCE));
             configSecondary.set(RedundantVoterBlock.validInputs(level, blockPos));
@@ -434,6 +440,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean adjustPrimary(int delta) {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof SignalAmplifierBlock) return SignalAmplifierBlock.stepGain(level, blockPos, delta > 0);
         if (block instanceof RedundantVoterBlock) return RedundantVoterBlock.stepTolerance(level, blockPos, delta > 0);
         if (block instanceof WatchdogBlock) return WatchdogBlock.stepTimeout(level, blockPos, delta > 0);
         if (block instanceof DifferentialDriverBlock) return DifferentialDriverBlock.stepThreshold(level, blockPos, delta > 0);
@@ -469,6 +476,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean runAction() {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof SignalAmplifierBlock) return SignalAmplifierBlock.resetClipEvidence(level, blockPos);
         if (block instanceof RedundantVoterBlock voter) return voter.resetDiagnostics(level, blockPos);
         if (block instanceof WatchdogBlock watchdog) return watchdog.resetDiagnostics(level, blockPos);
         if (block instanceof AnalogIndicatorBlock) return AnalogIndicatorBlock.resetExtrema(level, blockPos);
