@@ -8,6 +8,7 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
@@ -64,23 +65,47 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
         );
     }
 
+    private static boolean inhibitEvidenceUnusable(PortQuality quality) {
+        return quality == PortQuality.STALE
+                || quality == PortQuality.FAULT
+                || quality == PortQuality.DOMAIN_MISMATCH
+                || quality == PortQuality.TOPOLOGY_ERROR;
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        Direction facing = state.getValue(FACING);
-        int value;
-        if (side == outputSide(state)) value = state.getValue(OUTPUT);
-        else if (side == inputSide(state)) value = readBackInput(level, pos, state);
-        else if (side == leftOf(facing)) value = readInputFrom(level, pos, side);
-        else return Optional.empty();
-        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value, PortQuality.VALID));
+
+        Direction inhibitSide = leftOf(state.getValue(FACING));
+        var command = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+        var inhibit = RedstoneObservationSupport.observe(level, pos, inhibitSide);
+
+        if (side == inputSide(state)) {
+            return Optional.of(EngineeringPortSnapshot.redstone(port.get(), command.value(), command.quality()));
+        }
+        if (side == inhibitSide) {
+            return Optional.of(EngineeringPortSnapshot.redstone(port.get(), inhibit.value(), inhibit.quality()));
+        }
+        if (side == outputSide(state)) {
+            PortQuality quality = inhibitEvidenceUnusable(inhibit.quality())
+                    ? RedstoneObservationSupport.combineQuality(command.quality(), inhibit.quality())
+                    : command.quality();
+            return Optional.of(EngineeringPortSnapshot.redstone(
+                    port.get(), state.getValue(OUTPUT), quality));
+        }
+        return Optional.empty();
     }
 
     @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         Direction inhibitSide = leftOf(state.getValue(FACING));
-        int input = readBackInput(level, pos, state);
-        boolean inhibited = readInputFrom(level, pos, inhibitSide) > 0;
+        var command = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+        var inhibit = RedstoneObservationSupport.observe(level, pos, inhibitSide);
+
+        boolean commandUsable = command.valid();
+        boolean inhibited = (inhibit.valid() && inhibit.value() > 0)
+                || inhibitEvidenceUnusable(inhibit.quality());
+        int input = commandUsable ? command.value() : 0;
 
         int period = periodFor(state.getValue(PERIOD_MODE));
         int[] rt = RuntimeIntStore.get(level, KEY, pos, 1);
@@ -90,10 +115,11 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
         if (input <= 0) output = 0;
         if (input >= 15) output = 15;
         if (state.getValue(INVERT)) output = output > 0 ? 0 : 15;
-        if (inhibited) output = 0;
+        // Invalid command evidence and unusable safety evidence both fail to a de-energized output.
+        if (!commandUsable || inhibited) output = 0;
 
         updateOutput(level, pos, state, output);
-        if (!inhibited && input > 0 && input < 15) {
+        if (commandUsable && !inhibited && input > 0 && input < 15) {
             rt[0] = (phase + 1) % period;
             level.scheduleTick(pos, this, 1);
         } else {
@@ -128,11 +154,15 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
     }
 
     public PwmAssessment assessment(Level level, BlockPos pos, BlockState state) {
-        int command = readBackInput(level, pos, state);
+        var commandObservation = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+        var inhibitObservation = RedstoneObservationSupport.observe(
+                level, pos, leftOf(state.getValue(FACING)));
+        int command = commandObservation.valid() ? commandObservation.value() : 0;
         int period = periodFor(state.getValue(PERIOD_MODE));
         int requested = requestedDutyPermille(command);
         int effective = effectiveDutyPermille(command, period);
-        boolean inhibited = readInputFrom(level, pos, leftOf(state.getValue(FACING))) > 0;
+        boolean inhibited = (inhibitObservation.valid() && inhibitObservation.value() > 0)
+                || inhibitEvidenceUnusable(inhibitObservation.quality());
         return new PwmAssessment(command, period, quantizedOnTicks(command, period), phase(level, pos),
                 requested, effective, effective - requested, inhibited, state.getValue(INVERT));
     }
@@ -166,7 +196,8 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
                 player.displayClientMessage(Component.literal(
                         "PWM | invert=" + a.inverted() + " | period=" + a.periodTicks() + "t"
                                 + " | requested=" + a.requestedDutyPermille()/10.0 + "%"
-                                + " | realized=" + a.effectiveDutyPermille()/10.0 + "%"), true);
+                                + " | realized=" + a.effectiveDutyPermille()/10.0 + "%"
+                                + " | inhibit=" + (a.inhibited() ? "ACTIVE/FAIL-SAFE" : "CLEAR")), true);
             } else {
                 FieldDeviceUi.openUniversal(serverPlayer, pos);
             }
