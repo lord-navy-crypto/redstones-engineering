@@ -179,6 +179,7 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
                 clearHeldValue(level, pos);
                 player.displayClientMessage(Component.literal(
                         "Sample & Hold | held value cleared | captures=" + captureCount(level, pos)
+                                + " | resets=" + resetCount(level, pos)
                                 + " | lastCaptureAge=" + sampleAgeTicks(level, pos) + "t"), true);
             } else {
                 FieldDeviceUi.openUniversal(serverPlayer, pos);
