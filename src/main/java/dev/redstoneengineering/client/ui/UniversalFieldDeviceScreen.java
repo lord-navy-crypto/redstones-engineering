@@ -512,7 +512,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 int actual = menu.configTertiary();
                 statusBadge(g, "ELECTROMAGNET COIL", thermal >= 850 ? BAD : thermal >= 700 ? WARN : INFO, 16, 80);
                 labelValue(g, "Target / actual field", target + " / " + actual, 101);
-                labelValue(g, "Tracking error", Integer.toString(target - actual), 123);
+                labelValue(g, "Tracking error", Integer.toString(menu.configQuaternary()), 123);
                 labelValue(g, "Thermal load", thermal + " / 1000", 145);
                 labelValue(g, "Thermal state", ElectromagnetLogic.thermalState(thermal), 167);
                 safeText(g, "Copper excitation drives a finite inductive field response; sustained high excitation causes thermal derating until the coil cools.", 16, 197, MUTED);
