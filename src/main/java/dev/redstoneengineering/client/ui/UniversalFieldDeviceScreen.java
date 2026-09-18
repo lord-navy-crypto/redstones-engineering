@@ -7,6 +7,7 @@ import dev.redstoneengineering.block.FaultInjectorBlock;
 import dev.redstoneengineering.block.PwmControllerBlock;
 import dev.redstoneengineering.block.SampleHoldBlock;
 import dev.redstoneengineering.block.SignalProbeBlock;
+import dev.redstoneengineering.block.RedstoneReferenceSourceBlock;
 import dev.redstoneengineering.block.TankLevelSensorBlock;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.PortKind;
@@ -77,7 +78,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_TANK_LEVEL
                 || kind == UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY
                 || kind == UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD
-                || kind == UniversalFieldDeviceMenu.CONFIG_SIGNAL_PROBE;
+                || kind == UniversalFieldDeviceMenu.CONFIG_SIGNAL_PROBE
+                || kind == UniversalFieldDeviceMenu.CONFIG_REFERENCE_SOURCE;
         boolean range = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE
                 || kind == UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY
                 || kind == UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD;
@@ -179,6 +181,12 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private void configure(GuiGraphics g) {
         int kind = menu.configKind();
         switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_REFERENCE_SOURCE -> {
+                statusBadge(g, "REDSTONE REFERENCE SOURCE", INFO, 16, 80);
+                labelValue(g, "Output level", menu.configPrimary() + " / 15", 101);
+                safeText(g, "Configure sets the authoritative laboratory reference level. Route selects the real output face independently.", 16, 150, TEXT);
+                safeText(g, "Use it to inject known 0..15 values when calibrating conditioners, filters, thresholds, analyzers and control chains.", 16, 178, MUTED);
+            }
             case UniversalFieldDeviceMenu.CONFIG_SIGNAL_PROBE -> {
                 statusBadge(g, "INSTRUMENT PROBE", INFO, 16, 80);
                 labelValue(g, "Bus channel", SignalProbeBlock.channelName(menu.configPrimary()), 101);
