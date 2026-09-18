@@ -194,10 +194,12 @@ req("src/main/java/dev/redstoneengineering/block/SingleRelayBlock.java",
     "PICKUP_MODE","pickupLevel","dropoutLevel","stepPickup","coilInput")
 
 req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
-    "SingleRelayBlock.PICKUP_MODE","SingleRelayBlock.stepPickup")
+    "SingleRelayBlock.PICKUP_MODE","SingleRelayBlock.stepPickup",
+    "SingleRelayBlock.controlHoldActive","SingleRelayBlock.payloadHoldActive")
 
 req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
-    "Pickup / dropout","◀ Pickup","Pickup ▶")
+    "Pickup / dropout","◀ Pickup","Pickup ▶",
+    "SINGLE RELAY • EVIDENCE HOLD","CONTROL HOLD","PAYLOAD HOLD")
 
 req("src/main/java/dev/redstoneengineering/physics/RedstoneObservationSupport.java",
     "engineeringSnapshot","combineQuality","snapshot.get().quality()")
@@ -206,7 +208,10 @@ req("src/main/java/dev/redstoneengineering/block/SignalSelectorBlock.java",
     "RedstoneObservationSupport.observe","controlEvidenceUnusable")
 
 req("src/main/java/dev/redstoneengineering/block/SingleRelayBlock.java",
-    "coilObservation","controlEvidenceUnusable","input.quality()")
+    "coilObservation","controlEvidenceUnusable","input.quality()",
+    "CONTROL_HOLD_ACTIVE","CONTROL_BAD_EPISODES",
+    "PAYLOAD_HOLD_ACTIVE","PAYLOAD_BAD_EPISODES",
+    "controlHoldActive","payloadHoldActive","combineQuality")
 
 req("src/main/java/dev/redstoneengineering/block/AnalogComparatorBlock.java",
     "combineQuality","!processObservation.valid()","!referenceObservation.valid()")
