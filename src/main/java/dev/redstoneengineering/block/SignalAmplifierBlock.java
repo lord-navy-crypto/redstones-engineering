@@ -94,10 +94,16 @@ public final class SignalAmplifierBlock extends DirectionalSignalBlock {
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        int input = readBackInput(level, pos, state);
+        var inputObservation = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+        int[] rt = RuntimeIntStore.get(level, RUNTIME_KEY, pos, RUNTIME_SIZE);
+        if (!inputObservation.valid()) {
+            rt[CLIP_ACTIVE] = 0;
+            return;
+        }
+
+        int input = inputObservation.value();
         int raw = input * gain(state);
         boolean clipping = raw > 15;
-        int[] rt = RuntimeIntStore.get(level, RUNTIME_KEY, pos, RUNTIME_SIZE);
         if (clipping && rt[CLIP_ACTIVE] == 0 && rt[CLIP_EPISODES] < Integer.MAX_VALUE) rt[CLIP_EPISODES]++;
         rt[CLIP_ACTIVE] = clipping ? 1 : 0;
         rt[MAX_RAW] = Math.max(rt[MAX_RAW], raw);
@@ -137,6 +143,8 @@ public final class SignalAmplifierBlock extends DirectionalSignalBlock {
                 BlockState next = level.getBlockState(pos);
                 player.displayClientMessage(Component.literal(
                         "Signal Amplifier | gain=x" + gain(next)
+                                + " | inputQuality=" + RedstoneObservationSupport.observe(
+                                        level, pos, inputSide(next)).quality()
                                 + " | clipping=" + (clipping(level, pos) ? "YES" : "NO")
                                 + " | clipEpisodes=" + clippingEpisodes(level, pos)
                                 + " | maxRaw=" + maxRawOutput(level, pos)), true);
