@@ -56,6 +56,7 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     private final DataSlot interferenceExposure = trackedInt();
     private final DataSlot interferenceConfidence = trackedInt();
     private final DataSlot[] channelProbeCounts = new DataSlot[2];
+    private final DataSlot[] channelQualities = new DataSlot[2];
 
     public OscilloscopeMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -67,7 +68,7 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
         for (int channel = 0; channel < 2; channel++) {
             current[channel] = trackedInt(); coverage[channel] = trackedInt(); minimum[channel] = trackedInt();
             maximum[channel] = trackedInt(); peakToPeak[channel] = trackedInt(); average100[channel] = trackedInt();
-            meanStep100[channel] = trackedInt(); periodTicks[channel] = trackedInt(); channelProbeCounts[channel] = trackedInt();
+            meanStep100[channel] = trackedInt(); periodTicks[channel] = trackedInt(); channelProbeCounts[channel] = trackedInt(); channelQualities[channel] = trackedInt();
             for (int slot = 0; slot < OscilloscopeBlockEntity.DISPLAY_SAMPLES; slot++) display[channel][slot] = trackedInt();
         }
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
@@ -96,7 +97,10 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
         shieldingCoverage.set(network.shieldingCoveragePercent()); exposedCableNodes.set(network.exposedCableNodes());
         shieldedExposedNodes.set(network.shieldedExposedNodes()); unshieldedExposedNodes.set(network.unshieldedExposedNodes());
         interferenceExposure.set(network.interferenceExposurePercent()); interferenceConfidence.set(network.interferenceConfidencePercent());
-        for (int channel = 0; channel < 2; channel++) channelProbeCounts[channel].set(network.counts()[channel]);
+        for (int channel = 0; channel < 2; channel++) {
+            channelProbeCounts[channel].set(network.counts()[channel]);
+            channelQualities[channel].set(network.quality(channel).ordinal());
+        }
     }
 
     @Override
@@ -140,4 +144,5 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     public int interferenceExposure() { return interferenceExposure.get(); }
     public int interferenceConfidence() { return interferenceConfidence.get(); }
     public int probeCount(int channel) { return channelProbeCounts[channel].get(); }
+    public int probeQualityOrdinal(int channel) { return channelQualities[channel].get(); }
 }
