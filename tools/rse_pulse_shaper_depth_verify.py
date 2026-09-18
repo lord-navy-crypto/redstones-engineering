@@ -22,7 +22,7 @@ def require(path: str, *tokens: str) -> None:
 logic = "src/main/java/dev/redstoneengineering/signal/PulseShaperLogic.java"
 block = "src/main/java/dev/redstoneengineering/block/PulseShaperBlock.java"
 menu = "src/main/java/dev/redstoneengineering/ui/menu/SignalProcessorMenu.java"
-screen = "src/main/java/dev/redstoneengineering/client/ui/SignalProcessorScreen.java"
+screen = "src/main/java/dev/redstoneengineering/client/ui/SignalProcessorScreen.java"\nentity = "src/main/java/dev/redstoneengineering/blockentity/PulseShaperBlockEntity.java"
 
 require(logic,
         "record State",
@@ -37,8 +37,8 @@ require(block,
         "triggerCount",
         "suppressedTriggerCount",
         "lastTriggerAgeTicks",
-        "PulseShaperLogic.step")
-require(menu,
+        "PulseShaperLogic.step",\n        "newBlockEntity")
+require(entity,\n        "class PulseShaperBlockEntity",\n        "threshold",\n        "acceptedTriggerCount",\n        "suppressedTriggerCount",\n        "lastTriggerTick",\n        "loadAdditional",\n        "saveAdditional",\n        "setChanged")\nrequire(menu,
         "BUTTON_THRESHOLD_PREVIOUS",
         "BUTTON_THRESHOLD_NEXT",
         "BUTTON_TOGGLE_RETRIGGER",
@@ -50,7 +50,7 @@ require(screen,
         "Accepted triggers",
         "Suppressed triggers")
 
-# Compile and execute the pure logic against representative monostable cases.
+block_text = (root / block).read_text(errors="ignore") if (root / block).is_file() else ""\nif "IntegerProperty THRESHOLD" in block_text or "builder.add(WIDTH, THRESHOLD" in block_text:\n    failed.append("PulseShaper threshold must not multiply BlockState variants")\n\n# Compile and execute the pure logic against representative monostable cases.
 logic_path = root / logic
 if logic_path.is_file():
     harness = r'''
@@ -122,4 +122,4 @@ print("RSE pulse-shaper engineering-depth verification: PASS")
 print(" threshold-triggered monostable semantics: PASS")
 print(" retriggerable/non-retriggerable behavior: PASS")
 print(" accepted/suppressed trigger diagnostics: PASS")
-print(" field HMI controls and evidence: PASS")
+print(" field HMI controls and evidence: PASS")\nprint(" persistent threshold/trigger evidence without high-cardinality BlockState: PASS")
