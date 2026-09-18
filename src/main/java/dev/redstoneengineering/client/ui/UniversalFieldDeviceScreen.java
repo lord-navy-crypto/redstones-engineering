@@ -148,7 +148,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             else if (kind == UniversalFieldDeviceMenu.CONFIG_ALARM) action.setMessage(Component.literal(menu.configSecondary() == 2 ? "Acknowledge active alarm" : "Alarm already clear / acknowledged"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD) action.setMessage(Component.literal("Clear held value"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR) action.setMessage(Component.literal("Reset fault statistics"));
-            else if (kind == UniversalFieldDeviceMenu.CONFIG_SEQUENCE_CONTROLLER) action.setMessage(Component.literal("Reset sequence to IDLE"));
+            else if (kind == UniversalFieldDeviceMenu.CONFIG_SEQUENCE_CONTROLLER) action.setMessage(Component.literal("Reset to IDLE • require fresh RUN edge"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK) action.setMessage(Component.literal("Reset diagnostic counters"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER) action.setMessage(Component.literal("Reset scan counters"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_IRON_CORE) action.setMessage(Component.literal("Degauss core"));
@@ -660,11 +660,25 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 safeText(g, "Reset statistics preserves ARM state and last I/O evidence; FAULT ARM remains a physical input.", 16, 188, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_SEQUENCE_CONTROLLER -> {
-                statusBadge(g, "SEQUENCE CONTROLLER", menu.configPrimary() == 0 ? MUTED : GOOD, 16, 80);
+                PortQuality[] qualities = PortQuality.values();
+                PortQuality runQuality = qualities[Math.max(0,
+                        Math.min(qualities.length - 1, menu.configQuaternary()))];
+                boolean runMissing = runQuality == PortQuality.NO_SIGNAL;
+                boolean runBad = runQuality == PortQuality.STALE
+                        || runQuality == PortQuality.FAULT
+                        || runQuality == PortQuality.DOMAIN_MISMATCH
+                        || runQuality == PortQuality.TOPOLOGY_ERROR;
+                statusBadge(g,
+                        runMissing ? "SEQUENCE • RUN NO SOURCE"
+                                : runBad ? "SEQUENCE • RUN EVIDENCE BAD"
+                                : "SEQUENCE CONTROLLER",
+                        runBad ? BAD : runMissing ? WARN : menu.configPrimary() == 0 ? MUTED : GOOD,
+                        16, 80);
                 labelValue(g, "Current state", sequenceStepName(menu.configPrimary()), 101);
-                labelValue(g, "Completed cycles", Integer.toString(menu.configSecondary()), 129);
-                labelValue(g, "Transitions", Integer.toString(menu.configTertiary()), 151);
-                safeText(g, "Operator reset returns runtime state to IDLE; wired RESET remains independent.", 16, 188, MUTED);
+                labelValue(g, "RUN evidence", runQuality.name(), 123);
+                labelValue(g, "Completed cycles", Integer.toString(menu.configSecondary()), 145);
+                labelValue(g, "Transitions", Integer.toString(menu.configTertiary()), 167);
+                safeText(g, "Operator reset returns runtime state to IDLE and reacquires RUN; a fresh LOW→HIGH RUN edge is required before STEP 1 can start again.", 16, 200, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK -> {
                 boolean evaluated = menu.configPrimary() >= 0;
