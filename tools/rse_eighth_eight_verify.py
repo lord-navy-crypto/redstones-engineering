@@ -80,9 +80,9 @@ require(
 require(
     "src/main/java/dev/redstoneengineering/block/FaultLatchBlock.java",
     '"FAULT IN"', '"RESET"', '"LATCHED FAULT OUT"',
-    "previousResetLevel",
-    "if (resetHigh)",
-    "return 0;",
+    "resetRising",
+    "faultClearForReset",
+    "RESET_REACQUIRE",
     "resetCount",
     "RuntimeIntStore.remove",
 )
@@ -129,7 +129,7 @@ require(
     "FAULT LATCH",
     "OPERATIONS MONITOR • OBSERVER",
     "MECHATRONIC_POSITION OUTPUT",
-    "RESET input with priority over FAULT",
+    "RESET is accepted on a rising edge only after FAULT is proven clear",
     "READ-ONLY CPS / RELIABILITY DEVICE",
 )
 
