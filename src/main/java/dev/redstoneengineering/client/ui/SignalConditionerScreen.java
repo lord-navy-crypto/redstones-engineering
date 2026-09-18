@@ -89,7 +89,10 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
         labelValue(graphics, "Mode / parameter", modeName(menu.mode()) + " • " + parameterText(menu.mode(), menu.parameter()), 137);
         labelValue(graphics, "Input face", direction(menu.inputDirection().getName()), 153);
         labelValue(graphics, "Output face", direction(menu.outputDirection().getName()), 169);
-        statusLine(graphics, "0..15 boundary", menu.limiting() ? "SATURATION ACTIVE" : "VALID • INCLUDING ZERO", menu.limiting() ? WARN : GOOD, 190);
+        statusLine(graphics, "0..15 boundary", menu.limiting() ? "LIMITING ACTIVE" : "VALID • INCLUDING ZERO", menu.limiting() ? WARN : GOOD, 190);
+        safeText(graphics, "episodes=" + menu.limitingEpisodes()
+                + " • last=" + (menu.lastLimitingAgeTicks() < 0 ? "never" : menu.lastLimitingAgeTicks() + "t ago"),
+                16, 211, menu.limiting() ? WARN : MUTED);
     }
 
     private void renderHistory(GuiGraphics graphics) {
@@ -97,7 +100,9 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
         safeText(graphics, "The conditioner exposes the complete current transfer state above.", 16, 108, TEXT);
         safeText(graphics, "For time history, place Probe / Analyzer / Oscilloscope on the series path.", 16, 127, INFO);
         sectionRule(graphics, 149);
-        safeText(graphics, "Current state = input + mode + parameter + output + I/O direction + saturation.", 16, 162, MUTED);
+        safeText(graphics, "Current state = input + transfer + output + I/O direction + limiting evidence.", 16, 162, MUTED);
+        safeText(graphics, "Boundary limiting episodes=" + menu.limitingEpisodes()
+                + " • last=" + (menu.lastLimitingAgeTicks() < 0 ? "never" : menu.lastLimitingAgeTicks() + "t ago"), 16, 178, INFO);
         safeText(graphics, "A valid zero is data; it is never treated as a fault by this screen.", 16, 180, GOOD);
     }
 
@@ -118,7 +123,7 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
 
     private static String modeName(int mode) {
         return switch (mode) {
-            case 0 -> "GAIN";
+            case 0 -> "SCALE";
             case 1 -> "OFFSET";
             case 2 -> "CLAMP";
             case 3 -> "THRESHOLD";
@@ -129,7 +134,7 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
 
     private static String parameterName(int mode) {
         return switch (mode) {
-            case 0 -> "Gain factor";
+            case 0 -> "Scale factor";
             case 1 -> "Offset";
             case 2 -> "Clamp ceiling";
             case 3 -> "Trip level";
@@ -140,7 +145,7 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
 
     private static String parameterShortName(int mode) {
         return switch (mode) {
-            case 0 -> "Gain";
+            case 0 -> "Scale";
             case 1 -> "Offset";
             case 2 -> "Ceiling";
             case 3 -> "Trip";
@@ -161,7 +166,7 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
 
     private static String behaviorLine(int mode) {
         return switch (mode) {
-            case 0 -> "GAIN: multiply input; only the external redstone boundary clamps to 0..15.";
+            case 0 -> "SCALE: multiply the engineering signal before enforcing the redstone 0..15 boundary.";
             case 1 -> "OFFSET: add signed correction, then enforce the vanilla 0..15 boundary.";
             case 2 -> "CLAMP: pass input until the configured ceiling is reached.";
             case 3 -> "THRESHOLD: pass values at/above trip; otherwise emit a valid zero.";
