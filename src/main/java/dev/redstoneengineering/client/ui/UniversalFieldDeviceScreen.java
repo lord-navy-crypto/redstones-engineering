@@ -1,6 +1,7 @@
 package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.block.CalibrationModuleBlock;
+import dev.redstoneengineering.block.EntityDensitySensorBlock;
 import dev.redstoneengineering.block.FaultInjectorBlock;
 import dev.redstoneengineering.block.PwmControllerBlock;
 import dev.redstoneengineering.block.SampleHoldBlock;
@@ -70,8 +71,10 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_PWM
                 || kind == UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR
                 || kind == UniversalFieldDeviceMenu.CONFIG_LIGHT_SENSOR
-                || kind == UniversalFieldDeviceMenu.CONFIG_TANK_LEVEL;
-        boolean range = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE;
+                || kind == UniversalFieldDeviceMenu.CONFIG_TANK_LEVEL
+                || kind == UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY;
+        boolean range = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE
+                || kind == UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY;
         boolean hasAction = kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER
                 || kind == UniversalFieldDeviceMenu.CONFIG_ALARM
                 || kind == UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD
@@ -85,6 +88,13 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         if (primaryNext != null) primaryNext.visible = configure && primary;
         if (secondaryPrevious != null) secondaryPrevious.visible = configure && range;
         if (secondaryNext != null) secondaryNext.visible = configure && range;
+        if (kind == UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY) {
+            secondaryPrevious.setMessage(Component.literal("◀ Aperture"));
+            secondaryNext.setMessage(Component.literal("Aperture ▶"));
+        } else {
+            secondaryPrevious.setMessage(Component.literal("◀ Range"));
+            secondaryNext.setMessage(Component.literal("Range ▶"));
+        }
         if (action != null) {
             action.visible = configure && hasAction;
             action.active = kind != UniversalFieldDeviceMenu.CONFIG_ALARM || menu.configSecondary() == 2;
@@ -158,6 +168,17 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private void configure(GuiGraphics g) {
         int kind = menu.configKind();
         switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY -> {
+                int profile = menu.configPrimary();
+                int apertureMode = menu.configSecondary();
+                statusBadge(g, "ENTITY DENSITY APERTURE", INFO, 16, 80);
+                labelValue(g, "Acquisition profile", SensorModel.profileName(profile), 101);
+                labelValue(g, "Aperture radius", EntityDensitySensorBlock.radiusForMode(apertureMode) + " blocks", 123);
+                labelValue(g, "Sampling period", SensorModel.samplePeriod(profile) + " ticks", 145);
+                labelValue(g, "Noise", "±" + SensorModel.noiseAmplitude(profile) + " / 100", 167);
+                labelValue(g, "Latency", SensorModel.latencySamples(profile) + " sample", 189);
+                safeText(g, "Changing profile or aperture invalidates prior measurement evidence before reacquisition.", 16, 207, MUTED);
+            }
             case UniversalFieldDeviceMenu.CONFIG_TANK_LEVEL -> {
                 int mode = menu.configPrimary();
                 statusBadge(g, "TANK LEVEL RANGE", INFO, 16, 80);
