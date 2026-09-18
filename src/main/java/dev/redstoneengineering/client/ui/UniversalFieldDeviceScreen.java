@@ -241,12 +241,31 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 int mode = menu.configPrimary();
                 int hysteresis = menu.configSecondary();
                 int margin = menu.configTertiary();
-                statusBadge(g, "ANALOG COMPARATOR • " + AnalogComparatorBlock.modeName(mode), INFO, 16, 80);
+                int packed = menu.configQuaternary();
+                boolean high = (packed & 1) != 0;
+                PortQuality[] qualities = PortQuality.values();
+                PortQuality processQuality = qualities[Math.min(qualities.length - 1, (packed >> 1) & 7)];
+                PortQuality referenceQuality = qualities[Math.min(qualities.length - 1, (packed >> 4) & 7)];
+                boolean processUsable = processQuality == PortQuality.VALID || processQuality == PortQuality.SATURATED;
+                boolean referenceUsable = referenceQuality == PortQuality.VALID || referenceQuality == PortQuality.SATURATED;
+                boolean evidenceUsable = processUsable && referenceUsable;
+                boolean severe = processQuality == PortQuality.FAULT
+                        || processQuality == PortQuality.DOMAIN_MISMATCH
+                        || processQuality == PortQuality.TOPOLOGY_ERROR
+                        || referenceQuality == PortQuality.FAULT
+                        || referenceQuality == PortQuality.DOMAIN_MISMATCH
+                        || referenceQuality == PortQuality.TOPOLOGY_ERROR;
+                String badge = processQuality == PortQuality.NO_SIGNAL ? "ANALOG COMPARATOR • PROCESS NO SOURCE"
+                        : referenceQuality == PortQuality.NO_SIGNAL ? "ANALOG COMPARATOR • REFERENCE NO SOURCE"
+                        : !evidenceUsable ? "ANALOG COMPARATOR • EVIDENCE HOLD"
+                        : "ANALOG COMPARATOR • " + AnalogComparatorBlock.modeName(mode);
+                statusBadge(g, badge, severe ? BAD : evidenceUsable ? INFO : WARN, 16, 80);
                 labelValue(g, "Hysteresis", "±" + hysteresis + " levels", 101);
-                labelValue(g, "Process-reference", signed(margin), 123);
-                labelValue(g, "Decision output", menu.configQuaternary() > 0 ? "HIGH" : "LOW", 145);
-                safeText(g, "PROCESS is compared against a live REFERENCE input. Hysteresis creates separate enter/exit thresholds so small redstone noise does not chatter the decision.", 16, 178, TEXT);
-                safeText(g, "Use Conditioner THRESHOLD for a fixed configured limit; use Comparator when the reference itself is another signal.", 16, 200, MUTED);
+                labelValue(g, "PROCESS evidence", processQuality.name(), 123);
+                labelValue(g, "REFERENCE evidence", referenceQuality.name(), 145);
+                labelValue(g, "Process-reference", evidenceUsable ? signed(margin) : "—", 167);
+                labelValue(g, "Decision output", (high ? "HIGH" : "LOW") + (evidenceUsable ? "" : " • HELD"), 189);
+                safeText(g, "Invalid PROCESS or REFERENCE evidence freezes the last decision; comparison resumes only when both live inputs are trustworthy again.", 16, 214, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_SIGNAL_SELECTOR -> {
                 boolean invert = menu.configPrimary() != 0;
