@@ -4,7 +4,7 @@ import com.mojang.logging.LogUtils;
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.block.*;
 import dev.redstoneengineering.blockentity.LogicAnalyzerBlockEntity;
-import dev.redstoneengineering.blockentity.OscilloscopeBlockEntity;\nimport dev.redstoneengineering.blockentity.PulseShaperBlockEntity;
+import dev.redstoneengineering.blockentity.OscilloscopeBlockEntity;\nimport dev.redstoneengineering.blockentity.PrecisionFilterBlockEntity;\nimport dev.redstoneengineering.blockentity.PulseShaperBlockEntity;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
@@ -418,6 +418,18 @@ public final class RedstoneEngineering {
                             .of(
                                     LogicAnalyzerBlockEntity::new,
                                     LOGIC_ANALYZER.get()
+                            )
+                            .build(null)
+            );
+
+    public static final Supplier<BlockEntityType<PrecisionFilterBlockEntity>>
+            PRECISION_FILTER_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register(
+                    "precision_filter",
+                    () -> BlockEntityType.Builder
+                            .of(
+                                    PrecisionFilterBlockEntity::new,
+                                    PRECISION_FILTER.get()
                             )
                             .build(null)
             );
