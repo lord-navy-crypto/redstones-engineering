@@ -207,10 +207,9 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         } else if (block instanceof DifferentialDriverBlock) {
             configKind.set(CONFIG_DIFF_DRIVER);
             configPrimary.set(state.getValue(DifferentialDriverBlock.THRESHOLD));
-            var input = dev.redstoneengineering.physics.RedstoneObservationSupport.observe(
-                    level, blockPos, DirectionalDomainBlock.seriesInputSide(state));
-            configSecondary.set(input.value());
-            configTertiary.set(input.value() >= DifferentialDriverBlock.thresholdValue(state.getValue(DifferentialDriverBlock.THRESHOLD)) ? 1 : 0);
+            configSecondary.set(DifferentialDriverBlock.inputLevel(level, blockPos, state));
+            configTertiary.set(DifferentialDriverBlock.drivenBit(level, blockPos, state));
+            configQuaternary.set(DifferentialDriverBlock.inputQuality(level, blockPos, state).ordinal());
         } else if (block instanceof DifferentialDataPairBlock) {
             configKind.set(CONFIG_DIFF_PAIR);
             var diff = dev.redstoneengineering.physics.InformationRuntime.snapshot(level, "diff", blockPos);
