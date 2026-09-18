@@ -154,7 +154,7 @@ public class PulseShaperBlock extends DirectionalSignalBlock implements EntityBl
         return entity == null ? -1 : entity.lastTriggerAgeTicks(level.getGameTime());
     }
 
-    /** Shared authoritative operator action used by HMI and Shift-right-click. */
+    /** Shared authoritative operator action used by both HMI and Shift-right-click. */
     public static boolean stepWidth(Level level, BlockPos pos, boolean forward) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof PulseShaperBlock shaper)) return false;
