@@ -30,7 +30,7 @@ public final class RseEngineeringSystemsGameTests {
     public static void sequenceControllerAdvancesOnEdgesAndResets(GameTestHelper helper) {
         BlockPos controller = new BlockPos(2, 1, 2); BlockPos run = new BlockPos(1, 1, 2);
         BlockPos advance = new BlockPos(2, 1, 1); BlockPos reset = new BlockPos(2, 1, 3);
-        helper.setBlock(controller, EngineeringSystemsModule.SEQUENCE_CONTROLLER.get().defaultBlockState().setValue(DirectionalSignalBlock.FACING, Direction.EAST));
+        helper.setBlock(controller, EngineeringSystemsModule.SEQUENCE_CONTROLLER.get().defaultBlockState().setValue(DirectionalSignalBlock.FACING, Direction.EAST).setValue(DirectionalSignalBlock.INPUT_FACING, Direction.WEST));
         helper.setBlock(run, Blocks.REDSTONE_BLOCK.defaultBlockState());
         helper.runAfterDelay(4, () -> {
             if (helper.getBlockState(controller).getValue(DirectionalSignalBlock.OUTPUT) != 1) { helper.fail("Sequence controller did not enter STEP 1", controller); return; }
@@ -50,20 +50,115 @@ public final class RseEngineeringSystemsGameTests {
     }
 
     @PrefixGameTestTemplate(false)
-    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 80)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 110)
+    public static void sequenceOperatorResetRequiresFreshRunEdge(GameTestHelper helper) {
+        BlockPos controller = new BlockPos(2, 1, 2);
+        BlockPos run = new BlockPos(1, 1, 2);
+        helper.setBlock(controller, EngineeringSystemsModule.SEQUENCE_CONTROLLER.get().defaultBlockState()
+                .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
+                .setValue(DirectionalSignalBlock.INPUT_FACING, Direction.WEST));
+        BlockPos world = helper.absolutePos(controller);
+
+        helper.runAfterDelay(3, () -> {
+            var idle = EngineeringSystemsModule.SEQUENCE_CONTROLLER.get().engineeringSnapshot(
+                    helper.getLevel(), world, helper.getBlockState(controller), Direction.EAST).orElseThrow();
+            if (SequenceControllerBlock.step(helper.getLevel(), world) != 0
+                    || idle.quality() != PortQuality.NO_SIGNAL) {
+                helper.fail("Missing RUN source was hidden as healthy sequence authority", controller);
+                return;
+            }
+
+            helper.setBlock(run, Blocks.REDSTONE_BLOCK.defaultBlockState());
+            helper.runAfterDelay(4, () -> {
+                if (SequenceControllerBlock.step(helper.getLevel(), world) != 1) {
+                    helper.fail("Fresh RUN edge did not enter STEP 1", controller);
+                    return;
+                }
+
+                EngineeringSystemsModule.SEQUENCE_CONTROLLER.get().operatorReset(helper.getLevel(), world);
+                helper.runAfterDelay(4, () -> {
+                    if (SequenceControllerBlock.step(helper.getLevel(), world) != 0
+                            || helper.getBlockState(controller).getValue(DirectionalSignalBlock.OUTPUT) != 0) {
+                        helper.fail("Operator reset restarted immediately while RUN remained HIGH", controller);
+                        return;
+                    }
+
+                    helper.setBlock(run, Blocks.AIR.defaultBlockState());
+                    helper.runAfterDelay(3, () -> {
+                        helper.setBlock(run, Blocks.REDSTONE_BLOCK.defaultBlockState());
+                        helper.runAfterDelay(4, () -> {
+                            if (SequenceControllerBlock.step(helper.getLevel(), world) != 1) {
+                                helper.fail("Sequence did not require and accept a fresh LOW-to-HIGH RUN edge", controller);
+                                return;
+                            }
+                            helper.succeed();
+                        });
+                    });
+                });
+            });
+        });
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 110)
     public static void safetyInterlockRequiresAllPermissives(GameTestHelper helper) {
-        BlockPos interlock = new BlockPos(2, 1, 2); BlockPos a = new BlockPos(1, 1, 2); BlockPos b = new BlockPos(2, 1, 1); BlockPos c = new BlockPos(2, 1, 3);
-        helper.setBlock(interlock, EngineeringSystemsModule.SAFETY_INTERLOCK.get().defaultBlockState().setValue(DirectionalSignalBlock.FACING, Direction.EAST));
-        helper.setBlock(a, Blocks.REDSTONE_BLOCK.defaultBlockState()); helper.setBlock(b, Blocks.REDSTONE_BLOCK.defaultBlockState()); helper.setBlock(c, Blocks.REDSTONE_BLOCK.defaultBlockState());
-        helper.runAfterDelay(4, () -> { if (helper.getBlockState(interlock).getValue(DirectionalSignalBlock.OUTPUT) != 15) { helper.fail("Interlock did not issue PERMIT", interlock); return; }
-            helper.setBlock(b, Blocks.AIR.defaultBlockState()); helper.runAfterDelay(3, () -> { if (helper.getBlockState(interlock).getValue(DirectionalSignalBlock.OUTPUT) != 0 || SafetyInterlockBlock.failedMask(helper.getLevel(), helper.absolutePos(interlock)) != 2) { helper.fail("Interlock did not identify B", interlock); return; } helper.succeed(); }); });
+        BlockPos interlock = new BlockPos(2, 1, 2);
+        BlockPos a = new BlockPos(1, 1, 2);
+        BlockPos b = new BlockPos(2, 1, 1);
+        BlockPos cPos = new BlockPos(2, 1, 3);
+        helper.setBlock(interlock, EngineeringSystemsModule.SAFETY_INTERLOCK.get().defaultBlockState()
+                .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
+                .setValue(DirectionalSignalBlock.INPUT_FACING, Direction.WEST));
+        helper.setBlock(a, Blocks.REDSTONE_BLOCK.defaultBlockState());
+        helper.setBlock(b, Blocks.REDSTONE_BLOCK.defaultBlockState());
+        helper.setBlock(cPos, Blocks.REDSTONE_BLOCK.defaultBlockState());
+
+        helper.runAfterDelay(4, () -> {
+            BlockPos world = helper.absolutePos(interlock);
+            if (helper.getBlockState(interlock).getValue(DirectionalSignalBlock.OUTPUT) != 15
+                    || SafetyInterlockBlock.failedMask(helper.getLevel(), world) != 0
+                    || SafetyInterlockBlock.transitionCount(helper.getLevel(), world) != 0) {
+                helper.fail("Initial healthy permissives were counted as a fake interlock transition", interlock);
+                return;
+            }
+
+            helper.setBlock(b, Blocks.AIR.defaultBlockState());
+            helper.runAfterDelay(3, () -> {
+                if (helper.getBlockState(interlock).getValue(DirectionalSignalBlock.OUTPUT) != 0
+                        || SafetyInterlockBlock.failedMask(helper.getLevel(), world) != 2
+                        || SafetyInterlockBlock.transitionCount(helper.getLevel(), world) != 1) {
+                    helper.fail("Interlock did not record exactly one real loss of permissive B", interlock);
+                    return;
+                }
+
+                helper.setBlock(b, Blocks.REDSTONE_BLOCK.defaultBlockState());
+                helper.runAfterDelay(3, () -> {
+                    if (helper.getBlockState(interlock).getValue(DirectionalSignalBlock.OUTPUT) != 15
+                            || SafetyInterlockBlock.transitionCount(helper.getLevel(), world) != 2) {
+                        helper.fail("Interlock did not record exactly one real permit restoration", interlock);
+                        return;
+                    }
+
+                    EngineeringSystemsModule.SAFETY_INTERLOCK.get().resetDiagnostics(helper.getLevel(), world);
+                    helper.runAfterDelay(4, () -> {
+                        if (helper.getBlockState(interlock).getValue(DirectionalSignalBlock.OUTPUT) != 15
+                                || SafetyInterlockBlock.failedMask(helper.getLevel(), world) != 0
+                                || SafetyInterlockBlock.transitionCount(helper.getLevel(), world) != 0) {
+                            helper.fail("Diagnostics reset fabricated a fresh INTERLOCK_READY transition", interlock);
+                            return;
+                        }
+                        helper.succeed();
+                    });
+                });
+            });
+        });
     }
 
     @PrefixGameTestTemplate(false)
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 80)
     public static void faultInjectorIsArmedBoundedAndRecoverable(GameTestHelper helper) {
         BlockPos injector = new BlockPos(2, 1, 2); BlockPos input = new BlockPos(1, 1, 2); BlockPos arm = new BlockPos(2, 1, 3);
-        helper.setBlock(injector, EngineeringSystemsModule.FAULT_INJECTOR.get().defaultBlockState().setValue(DirectionalSignalBlock.FACING, Direction.EAST).setValue(FaultInjectorBlock.MODE, 3));
+        helper.setBlock(injector, EngineeringSystemsModule.FAULT_INJECTOR.get().defaultBlockState().setValue(DirectionalSignalBlock.FACING, Direction.EAST).setValue(DirectionalSignalBlock.INPUT_FACING, Direction.WEST).setValue(FaultInjectorBlock.MODE, 3));
         helper.setBlock(input, Blocks.REDSTONE_BLOCK.defaultBlockState()); helper.setBlock(arm, Blocks.REDSTONE_BLOCK.defaultBlockState());
         helper.runAfterDelay(4, () -> { if (helper.getBlockState(injector).getValue(DirectionalSignalBlock.OUTPUT) != 11 || !FaultInjectorBlock.active(helper.getLevel(), helper.absolutePos(injector))) { helper.fail("Fault injector armed behavior wrong", injector); return; }
             helper.setBlock(arm, Blocks.AIR.defaultBlockState()); helper.runAfterDelay(3, () -> { if (helper.getBlockState(injector).getValue(DirectionalSignalBlock.OUTPUT) != 15 || FaultInjectorBlock.active(helper.getLevel(), helper.absolutePos(injector))) { helper.fail("Fault injector did not recover", injector); return; } helper.succeed(); }); });
@@ -73,7 +168,7 @@ public final class RseEngineeringSystemsGameTests {
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 100)
     public static void alarmProcessorLatchesAndRequiresHealthyReset(GameTestHelper helper) {
         BlockPos alarm = new BlockPos(2, 1, 2); BlockPos condition = new BlockPos(1, 1, 2); BlockPos reset = new BlockPos(2, 1, 3);
-        helper.setBlock(alarm, EngineeringSystemsModule.ALARM_PROCESSOR.get().defaultBlockState().setValue(DirectionalSignalBlock.FACING, Direction.EAST).setValue(AlarmProcessorBlock.SEVERITY, 2));
+        helper.setBlock(alarm, EngineeringSystemsModule.ALARM_PROCESSOR.get().defaultBlockState().setValue(DirectionalSignalBlock.FACING, Direction.EAST).setValue(DirectionalSignalBlock.INPUT_FACING, Direction.WEST).setValue(AlarmProcessorBlock.SEVERITY, 2));
         helper.setBlock(condition, Blocks.REDSTONE_BLOCK.defaultBlockState());
         helper.runAfterDelay(4, () -> {
             if (helper.getBlockState(alarm).getValue(DirectionalSignalBlock.OUTPUT) != 10 || !AlarmProcessorBlock.latched(helper.getLevel(), helper.absolutePos(alarm)) || !AlarmProcessorBlock.unacknowledged(helper.getLevel(), helper.absolutePos(alarm))) { helper.fail("Alarm did not latch severity-2 event", alarm); return; }
@@ -101,10 +196,12 @@ public final class RseEngineeringSystemsGameTests {
         helper.setBlock(injectorInput, Blocks.REDSTONE_WIRE.defaultBlockState());
         helper.setBlock(injector, EngineeringSystemsModule.FAULT_INJECTOR.get().defaultBlockState()
                 .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
+                .setValue(DirectionalSignalBlock.INPUT_FACING, Direction.WEST)
                 .setValue(FaultInjectorBlock.MODE, 0));
         helper.setBlock(injectorArm, Blocks.REDSTONE_BLOCK.defaultBlockState());
         helper.setBlock(alarm, EngineeringSystemsModule.ALARM_PROCESSOR.get().defaultBlockState()
                 .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
+                .setValue(DirectionalSignalBlock.INPUT_FACING, Direction.WEST)
                 .setValue(AlarmProcessorBlock.SEVERITY, 2));
 
         helper.runAfterDelay(5, () -> {
@@ -150,7 +247,7 @@ public final class RseEngineeringSystemsGameTests {
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 100)
     public static void topologyDebuggerFlagsDanglingEngineeringTarget(GameTestHelper helper) {
         BlockPos debugger = new BlockPos(2, 1, 2); BlockPos target = new BlockPos(1, 1, 2);
-        helper.setBlock(debugger, EngineeringSystemsModule.TOPOLOGY_DEBUGGER.get().defaultBlockState().setValue(DirectionalSignalBlock.FACING, Direction.EAST));
+        helper.setBlock(debugger, EngineeringSystemsModule.TOPOLOGY_DEBUGGER.get().defaultBlockState().setValue(DirectionalSignalBlock.FACING, Direction.EAST).setValue(DirectionalSignalBlock.INPUT_FACING, Direction.WEST));
         helper.setBlock(target, EngineeringSystemsModule.SAFETY_INTERLOCK.get().defaultBlockState().setValue(DirectionalSignalBlock.FACING, Direction.NORTH));
         helper.runAfterDelay(5, () -> {
             if (helper.getBlockState(debugger).getValue(DirectionalSignalBlock.OUTPUT) != 15 || !TopologyDebuggerBlock.inspectTarget(helper.getLevel(), helper.absolutePos(debugger), helper.getBlockState(debugger)).hasIssue()) { helper.fail("Topology debugger did not flag dangling target ports", debugger); return; }
@@ -172,6 +269,7 @@ public final class RseEngineeringSystemsGameTests {
         SystemEventScope scope = new SystemEventScope(alarmWorld, 1);
         helper.setBlock(alarm, EngineeringSystemsModule.ALARM_PROCESSOR.get().defaultBlockState()
                 .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
+                .setValue(DirectionalSignalBlock.INPUT_FACING, Direction.WEST)
                 .setValue(AlarmProcessorBlock.SEVERITY, 2));
         helper.setBlock(condition, Blocks.REDSTONE_BLOCK.defaultBlockState());
         helper.runAfterDelay(4, () -> {
