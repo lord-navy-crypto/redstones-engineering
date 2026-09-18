@@ -251,7 +251,7 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
                 if (level instanceof ServerLevel serverLevel) {
                     // Rating change starts a new protection epoch. Thermal exposure is retained:
                     // changing the label on a fuse does not magically cool the element.
-                    // Protection re-evaluates next tick against the new rating and retained thermal exposure.
+                    // protection re-evaluates next tick against the new rating and retained thermal exposure.
                     RuntimeIntStore.remove(level, KEY, pos);
                     RuntimeIntStore.remove(level, QUALITY_KEY, pos);
                     DomainNetwork.driveCopper(serverLevel, outputPos(pos, next), pos, 0, false);
