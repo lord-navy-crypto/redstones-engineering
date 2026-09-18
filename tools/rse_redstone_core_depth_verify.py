@@ -195,16 +195,19 @@ req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.
     "SELECT NO SOURCE","Payload evidence")
 
 req("src/main/java/dev/redstoneengineering/block/AnalogComparatorBlock.java",
-    "HYSTERESIS","PROCESS","REFERENCE","transitionCount","stepHysteresis","stepMode")
+    "HYSTERESIS","PROCESS","REFERENCE","transitionCount","stepHysteresis","stepMode",
+    "processQuality","referenceQuality","decisionQuality")
 
 req("src/main/java/dev/redstoneengineering/RedstoneEngineering.java",
     "ANALOG_COMPARATOR_CODEC","ANALOG_COMPARATOR =","ANALOG_COMPARATOR_ITEM")
 
 req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
-    "CONFIG_ANALOG_COMPARATOR","configQuaternary","AnalogComparatorBlock.stepHysteresis")
+    "CONFIG_ANALOG_COMPARATOR","configQuaternary","AnalogComparatorBlock.stepHysteresis",
+    "AnalogComparatorBlock.processQuality","AnalogComparatorBlock.referenceQuality")
 
 req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
-    "ANALOG COMPARATOR","Process-reference","Decision output","Compare • ")
+    "ANALOG COMPARATOR","Process-reference","Decision output","Compare • ",
+    "PROCESS evidence","REFERENCE evidence","EVIDENCE HOLD","• HELD")
 
 req("src/main/java/dev/redstoneengineering/block/SingleRelayBlock.java",
     "PICKUP_MODE","pickupLevel","dropoutLevel","stepPickup","coilInput")
@@ -244,12 +247,19 @@ req("src/main/java/dev/redstoneengineering/gametest/RseSignalSelectorEvidenceGam
     "PortQuality.NO_SIGNAL","PortQuality.VALID",
     "selectQuality","selectedPayloadQuality")
 
+req("src/main/java/dev/redstoneengineering/gametest/RseAnalogComparatorEvidenceGameTests.java",
+    "comparatorHoldsDecisionAcrossMissingProcessEvidence",
+    "PortQuality.NO_SIGNAL","PortQuality.VALID",
+    "processQuality","referenceQuality")
+
 req("src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java",
     "event.register(RseRelayEvidenceGameTests.class);",
-    "event.register(RseSignalSelectorEvidenceGameTests.class);")
+    "event.register(RseSignalSelectorEvidenceGameTests.class);",
+    "event.register(RseAnalogComparatorEvidenceGameTests.class);")
 
 req("src/main/java/dev/redstoneengineering/block/AnalogComparatorBlock.java",
-    "combineQuality","!processObservation.valid()","!referenceObservation.valid()")
+    "combineQuality","!processObservation.valid()","!referenceObservation.valid()",
+    "processQuality","referenceQuality")
 
 req("src/main/java/dev/redstoneengineering/block/SignalAmplifierBlock.java",
     "RedstoneObservationSupport.observe","input.quality()")
