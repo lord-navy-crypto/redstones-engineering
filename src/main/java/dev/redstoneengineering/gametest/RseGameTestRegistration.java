@@ -103,5 +103,6 @@ public final class RseGameTestRegistration {
         event.register(RseRelayEvidenceGameTests.class);
         event.register(RseSignalSelectorEvidenceGameTests.class);
         event.register(RseAnalogComparatorEvidenceGameTests.class);
+        event.register(RseInstrumentEvidenceGameTests.class);
     }
 }
