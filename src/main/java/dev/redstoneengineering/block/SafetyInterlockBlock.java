@@ -35,7 +35,8 @@ import java.util.Set;
 /** Three-channel permissive/interlock controller. BACK=A, LEFT=B, RIGHT=C, FRONT=PERMIT. */
 public class SafetyInterlockBlock extends PassiveDirectionalSignalBlock implements OperationWorldResourceProvider {
     private static final String KEY = "safety_interlock";
-    private static final int RUNTIME_SIZE = 5;
+    private static final int INITIALIZED = 5;
+    private static final int RUNTIME_SIZE = 6;
 
     public SafetyInterlockBlock(Properties properties) {
         super(properties);
@@ -125,8 +126,12 @@ public class SafetyInterlockBlock extends PassiveDirectionalSignalBlock implemen
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
         int previousPermit = runtime[4];
         runtime[0] = mask;
-        if (permit != previousPermit) {
-            runtime[3]++;
+        if (runtime[INITIALIZED] == 0) {
+            // First evaluation establishes the physical state; it is not a transition event.
+            runtime[4] = permit;
+            runtime[INITIALIZED] = 1;
+        } else if (permit != previousPermit) {
+            if (runtime[3] < Integer.MAX_VALUE) runtime[3]++;
             if (permit == 0) {
                 SystemEventTimeline.record(level, pos, SystemEventKind.INTERLOCK_TRIPPED, 3,
                         "INTERLOCK_TRIPPED", "Permit removed; failed permissive mask=" + mask);
@@ -134,8 +139,8 @@ public class SafetyInterlockBlock extends PassiveDirectionalSignalBlock implemen
                 SystemEventTimeline.record(level, pos, SystemEventKind.INTERLOCK_READY, 0,
                         "INTERLOCK_READY", "All permissives valid; permit restored");
             }
+            runtime[4] = permit;
         }
-        runtime[4] = permit;
         if (permit != 0) runtime[2]++;
         else runtime[1]++;
         return permit != 0 ? 15 : 0;
