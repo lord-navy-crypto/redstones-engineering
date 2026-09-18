@@ -316,12 +316,29 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 int pickupMode = packed & 3;
                 boolean controlHold = (packed & 4) != 0;
                 boolean payloadHold = (packed & 8) != 0;
+                PortQuality[] qualities = PortQuality.values();
+                int controlOrdinal = Math.min(qualities.length - 1, (packed >> 4) & 7);
+                int payloadOrdinal = Math.min(qualities.length - 1, (packed >> 7) & 7);
+                PortQuality controlQuality = qualities[controlOrdinal];
+                PortQuality payloadQuality = qualities[payloadOrdinal];
                 boolean evidenceHold = controlHold || payloadHold;
-                statusBadge(g,
-                        evidenceHold
-                                ? "SINGLE RELAY • EVIDENCE HOLD"
-                                : "SINGLE RELAY • " + (closed ? "CONTACT CLOSED" : "CONTACT OPEN"),
-                        evidenceHold ? WARN : closed ? GOOD : INFO, 16, 80);
+                boolean controlIssue = controlQuality != PortQuality.VALID && controlQuality != PortQuality.SATURATED;
+                boolean payloadIssue = closed
+                        && payloadQuality != PortQuality.VALID
+                        && payloadQuality != PortQuality.SATURATED;
+                boolean severeIssue = controlQuality == PortQuality.FAULT
+                        || controlQuality == PortQuality.DOMAIN_MISMATCH
+                        || controlQuality == PortQuality.TOPOLOGY_ERROR
+                        || (closed && (payloadQuality == PortQuality.FAULT
+                        || payloadQuality == PortQuality.DOMAIN_MISMATCH
+                        || payloadQuality == PortQuality.TOPOLOGY_ERROR));
+                String badge = evidenceHold ? "SINGLE RELAY • EVIDENCE HOLD"
+                        : controlQuality == PortQuality.NO_SIGNAL ? "SINGLE RELAY • CONTROL NO SOURCE"
+                        : closed && payloadQuality == PortQuality.NO_SIGNAL ? "SINGLE RELAY • PAYLOAD NO SOURCE"
+                        : "SINGLE RELAY • " + (closed ? "CONTACT CLOSED" : "CONTACT OPEN");
+                statusBadge(g, badge,
+                        severeIssue ? BAD : evidenceHold || controlIssue || payloadIssue ? WARN : closed ? GOOD : INFO,
+                        16, 80);
                 int pickup = switch (pickupMode) {
                     case 0 -> 1;
                     case 1 -> 4;
@@ -329,16 +346,14 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                     default -> 12;
                 };
                 int dropout = Math.max(0, pickup - 2);
-                String evidence = controlHold && payloadHold ? "CONTROL + PAYLOAD HOLD"
-                        : controlHold ? "CONTROL HOLD"
-                        : payloadHold ? "PAYLOAD HOLD"
-                        : "LIVE";
+                String controlEvidence = controlQuality.name() + (controlHold ? " HOLD" : "");
+                String payloadEvidence = payloadQuality.name() + (payloadHold ? " HOLD" : "");
                 labelValue(g, "Contact mode", nc ? "NC • normally closed" : "NO • normally open", 101);
                 labelValue(g, "Coil control", coil ? "ENERGIZED" : "OFF", 123);
                 labelValue(g, "Pickup / dropout", pickup + " / " + dropout, 145);
-                labelValue(g, "Evidence", evidence, 167);
+                labelValue(g, "Evidence", "CTRL=" + controlEvidence + " • PAY=" + payloadEvidence, 167);
                 labelValue(g, "Switch operations", Integer.toString(menu.configTertiary()), 189);
-                safeText(g, "Bad coil evidence holds the last contact state; bad switched-payload evidence holds the last trustworthy output until evidence recovers.", 16, 214, MUTED);
+                safeText(g, "NO_SIGNAL de-energizes the coil but remains visible as missing control evidence. FAULT/STALE control or payload evidence holds the last trustworthy state until recovery.", 16, 214, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_TRACE -> {
                 int sources = menu.configSecondary();
