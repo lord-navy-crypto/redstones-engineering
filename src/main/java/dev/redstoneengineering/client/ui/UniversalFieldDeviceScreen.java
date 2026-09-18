@@ -347,12 +347,18 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.CONFIG_WATCHDOG -> {
                 int timeout = WatchdogBlock.timeoutTicks(menu.configPrimary());
                 boolean timedOut = menu.configSecondary() >= timeout;
-                statusBadge(g, timedOut ? "WATCHDOG • TIMEOUT" : "WATCHDOG • HEALTHY",
-                        timedOut ? WARN : GOOD, 16, 80);
+                boolean sourceSeen = menu.configQuaternary() != 0;
+                String state = timedOut
+                        ? "WATCHDOG • TIMEOUT"
+                        : sourceSeen ? "WATCHDOG • MONITORING" : "WATCHDOG • NO VALID SOURCE";
+                int color = timedOut || !sourceSeen ? WARN : GOOD;
+                statusBadge(g, state, color, 16, 80);
                 labelValue(g, "Timeout", timeout + " ticks", 101);
                 labelValue(g, "Heartbeat age", menu.configSecondary() + " ticks", 123);
-                labelValue(g, "Timeout count", Integer.toString(menu.configTertiary()), 145);
-                safeText(g, "Like a hardware heartbeat watchdog, only observed input transitions refresh supervision; a static level does not fake liveness.", 16, 178, TEXT);
+                labelValue(g, "Source acquired", sourceSeen ? "YES" : "NO", 145);
+                labelValue(g, "Timeout count", Integer.toString(menu.configTertiary()), 167);
+                safeText(g, "Only observed heartbeat transitions refresh supervision; a static level does not fake liveness.", 16, 194, TEXT);
+                safeText(g, "Before a valid source is acquired the watchdog is in a grace window, not a healthy state. Missing or bad evidence continues aging toward TIMEOUT.", 16, 216, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_DATA_BUS -> {
                 int drivers = menu.configTertiary();
