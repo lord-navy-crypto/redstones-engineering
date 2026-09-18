@@ -121,6 +121,13 @@ jobs:
             tools/rse_field_tools_verify.py \
             tools/rse_instrument_measurement_validity_verify.py \
             tools/rse_pulse_shaper_depth_verify.py \
+            tools/rse_pid_actuator_dynamics_verify.py \
+            tools/rse_single_relay_dynamics_verify.py \
+            tools/rse_pwm_carrier_latch_verify.py \
+            tools/rse_pneumatic_isolation_valve_dynamics_verify.py \
+            tools/rse_pneumatic_check_valve_verify.py \
+            tools/rse_pneumatic_relief_blowdown_verify.py \
+            tools/rse_mechanical_exciter_dynamics_verify.py \
             tools/rse_precision_filter_depth_verify.py \
             tools/rse_engineering_light_sensor_depth_verify.py \
             tools/rse_tank_level_sensor_depth_verify.py \
