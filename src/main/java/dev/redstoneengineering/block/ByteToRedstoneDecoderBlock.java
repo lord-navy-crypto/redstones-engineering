@@ -99,6 +99,11 @@ public class ByteToRedstoneDecoderBlock extends PassiveDirectionalSignalBlock {
         return DataBusNetwork.quality(level, input);
     }
 
+    public static PortQuality inputEvidenceQuality(Level level, BlockPos pos, BlockState state) {
+        BlockPos input = pos.relative(DirectionalSignalBlock.seriesInputSide(state));
+        return inputQuality(level, input);
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(
             Level level,
