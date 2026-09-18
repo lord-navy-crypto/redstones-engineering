@@ -110,8 +110,10 @@ public final class PneumaticNetwork {
     private static boolean permits(Level level, BlockPos from, BlockPos to) {
         BlockState a = level.getBlockState(from), b = level.getBlockState(to);
         if (!discoveryConnects(level, from, to)) return false;
-        if (a.getBlock() instanceof PneumaticValveBlock && !a.getValue(PneumaticValveBlock.OPEN)) return false;
-        if (b.getBlock() instanceof PneumaticValveBlock && !b.getValue(PneumaticValveBlock.OPEN)) return false;
+        if (a.getBlock() instanceof PneumaticValveBlock
+                && !PneumaticValveBlock.actualOpen(level, from, a)) return false;
+        if (b.getBlock() instanceof PneumaticValveBlock
+                && !PneumaticValveBlock.actualOpen(level, to, b)) return false;
         if (a.getBlock() instanceof PneumaticReceiverBlock) return false;
         if (b.getBlock() instanceof PneumaticReceiverBlock) return directionalBackwardEntry(b, from, to);
         if (a.getBlock() instanceof PneumaticCheckValveBlock && !directionalForward(a, from, to)) return false;
