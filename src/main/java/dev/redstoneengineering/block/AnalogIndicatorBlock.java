@@ -11,6 +11,7 @@ import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.signal.EngineeringSignal;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -80,42 +81,8 @@ public class AnalogIndicatorBlock extends DirectionalRedstoneEndpointBlock imple
      * being reduced to the weaker "a block exists here" heuristic.
      */
     public InputObservation inputObservation(Level level, BlockPos pos, BlockState state) {
-        Direction back = backSide(state);
-        BlockPos sourcePos = pos.relative(back);
-        if (!level.hasChunkAt(sourcePos)) {
-            return new InputObservation(state.getValue(LEVEL), PortQuality.STALE);
-        }
-
-        int value = readBackInput(level, pos, state);
-        BlockState sourceState = level.getBlockState(sourcePos);
-        if (sourceState.isAir()) return new InputObservation(0, PortQuality.NO_SIGNAL);
-
-        if (sourceState.getBlock() instanceof EngineeringPortProvider provider) {
-            Direction sourceFace = back.getOpposite();
-            Optional<EngineeringPort> sourcePort = provider.engineeringPort(sourceState, sourceFace);
-            if (sourcePort.isPresent()) {
-                EngineeringPort port = sourcePort.get();
-                if (port.domain() == EngineeringDomain.REDSTONE
-                        && port.redstoneConnectable()
-                        && port.direction() != PortDirection.INPUT) {
-                    Optional<EngineeringPortSnapshot> sourceSnapshot = provider.engineeringSnapshot(
-                            level, sourcePos, sourceState, sourceFace);
-                    if (sourceSnapshot.isPresent()) {
-                        EngineeringPortSnapshot snapshot = sourceSnapshot.get();
-                        return new InputObservation(
-                                EngineeringSignal.clamp((int) Math.round(snapshot.value())),
-                                snapshot.quality());
-                    }
-                    return new InputObservation(value, PortQuality.VALID);
-                }
-            }
-        }
-
-        if (value > 0) return new InputObservation(value, PortQuality.VALID);
-        if (sourceState.getBlock().canConnectRedstone(sourceState, level, sourcePos, back)) {
-            return new InputObservation(0, PortQuality.VALID);
-        }
-        return new InputObservation(0, PortQuality.NO_SIGNAL);
+        var observation = RedstoneObservationSupport.observe(level, pos, backSide(state));
+        return new InputObservation(observation.value(), observation.quality());
     }
 
     @Override
