@@ -251,18 +251,31 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.CONFIG_SIGNAL_SELECTOR -> {
                 boolean invert = menu.configPrimary() != 0;
                 boolean selectedB = menu.configSecondary() != 0;
-                boolean controlHold = menu.configQuaternary() != 0;
-                statusBadge(g,
-                        controlHold
-                                ? "2:1 SIGNAL SELECTOR • CONTROL DEGRADED"
-                                : "2:1 SIGNAL SELECTOR • " + (selectedB ? "B SELECTED" : "A SELECTED"),
-                        controlHold ? WARN : INFO, 16, 80);
+                int packed = menu.configQuaternary();
+                boolean controlHold = (packed & 1) != 0;
+                PortQuality[] qualities = PortQuality.values();
+                PortQuality selectQuality = qualities[Math.min(qualities.length - 1, (packed >> 1) & 7)];
+                PortQuality payloadQuality = qualities[Math.min(qualities.length - 1, (packed >> 4) & 7)];
+                boolean selectIssue = selectQuality != PortQuality.VALID && selectQuality != PortQuality.SATURATED;
+                boolean payloadIssue = payloadQuality != PortQuality.VALID && payloadQuality != PortQuality.SATURATED;
+                boolean severe = selectQuality == PortQuality.FAULT
+                        || selectQuality == PortQuality.DOMAIN_MISMATCH
+                        || selectQuality == PortQuality.TOPOLOGY_ERROR
+                        || payloadQuality == PortQuality.FAULT
+                        || payloadQuality == PortQuality.DOMAIN_MISMATCH
+                        || payloadQuality == PortQuality.TOPOLOGY_ERROR;
+                String badge = controlHold ? "2:1 SIGNAL SELECTOR • CONTROL HOLD"
+                        : selectQuality == PortQuality.NO_SIGNAL ? "2:1 SIGNAL SELECTOR • SELECT NO SOURCE"
+                        : payloadIssue ? "2:1 SIGNAL SELECTOR • PAYLOAD " + payloadQuality.name()
+                        : "2:1 SIGNAL SELECTOR • " + (selectedB ? "B SELECTED" : "A SELECTED");
+                statusBadge(g, badge,
+                        severe ? BAD : controlHold || selectIssue || payloadIssue ? WARN : INFO, 16, 80);
                 labelValue(g, "Select logic", invert ? "INVERTED" : "NORMAL", 101);
                 labelValue(g, "Active input", selectedB ? "B" : "A", 123);
-                labelValue(g, "Control evidence", controlHold ? "HOLD LAST SELECTION" : "LIVE", 145);
-                labelValue(g, "Selection changes", Integer.toString(menu.configTertiary()), 167);
-                safeText(g, "Two independent 0..15 redstone inputs share one output; SELECT chooses which analog payload is forwarded.", 16, 192, TEXT);
-                safeText(g, "If SELECT evidence becomes unusable, the selector holds the last valid route and marks OUT quality degraded instead of fabricating a healthy control decision.", 16, 214, MUTED);
+                labelValue(g, "Control evidence", selectQuality.name() + (controlHold ? " • HOLD LAST" : ""), 145);
+                labelValue(g, "Payload evidence", payloadQuality.name(), 167);
+                labelValue(g, "Selection changes", Integer.toString(menu.configTertiary()), 189);
+                safeText(g, "Missing SELECT may fall back to the configured default route, but OUT quality remains NO_SIGNAL so a broken control wire cannot look like an explicit LOW command.", 16, 214, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_SIGNAL_TAP -> {
                 statusBadge(g, "BUFFERED SIGNAL TAP", INFO, 16, 80);
