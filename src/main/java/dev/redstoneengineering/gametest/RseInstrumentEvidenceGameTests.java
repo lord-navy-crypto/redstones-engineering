@@ -4,6 +4,7 @@ import dev.redstoneengineering.EngineeringSystemsModule;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.block.DirectionalSignalBlock;
 import dev.redstoneengineering.block.FaultInjectorBlock;
+import dev.redstoneengineering.block.SignalAnalyzerBlock;
 import dev.redstoneengineering.block.SignalProbeBlock;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.instrument.InstrumentNetwork;
@@ -84,6 +85,68 @@ public final class RseInstrumentEvidenceGameTests {
                             || !recoveredBus.valid(0)
                             || recoveredBus.valueOr(0, -1) != 15) {
                         helper.fail("Instrument evidence did not recover after source quality returned", probe);
+                        return;
+                    }
+                    helper.succeed();
+                });
+            });
+        });
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 100)
+    public static void inlineAnalyzerPreservesFaultQualityWhilePassingRawLevel(GameTestHelper helper) {
+        BlockPos source = new BlockPos(1, 1, 2);
+        BlockPos injector = new BlockPos(2, 1, 2);
+        BlockPos arm = new BlockPos(2, 1, 3);
+        BlockPos analyzer = new BlockPos(3, 1, 2);
+
+        helper.setBlock(source, Blocks.REDSTONE_BLOCK.defaultBlockState());
+        helper.setBlock(injector, EngineeringSystemsModule.FAULT_INJECTOR.get().defaultBlockState()
+                .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
+                .setValue(DirectionalSignalBlock.INPUT_FACING, Direction.WEST)
+                .setValue(FaultInjectorBlock.MODE, 0));
+        helper.setBlock(analyzer, RedstoneEngineering.SIGNAL_ANALYZER.get().defaultBlockState()
+                .setValue(SignalAnalyzerBlock.FACING, Direction.WEST)
+                .setValue(SignalAnalyzerBlock.MODE, SignalAnalyzerBlock.INLINE));
+
+        helper.runAfterDelay(6, () -> {
+            BlockPos world = helper.absolutePos(analyzer);
+            var baselineState = helper.getBlockState(analyzer);
+            var baselineOut = RedstoneEngineering.SIGNAL_ANALYZER.get().engineeringSnapshot(
+                    helper.getLevel(), world, baselineState, Direction.EAST).orElseThrow();
+            if (baselineState.getValue(SignalAnalyzerBlock.OUTPUT) != 15
+                    || baselineOut.quality() != PortQuality.VALID
+                    || SignalAnalyzerBlock.measurementQuality(helper.getLevel(), world, baselineState) != PortQuality.VALID) {
+                helper.fail("Inline analyzer did not establish valid raw pass-through baseline", analyzer);
+                return;
+            }
+
+            helper.setBlock(arm, Blocks.REDSTONE_BLOCK.defaultBlockState());
+            helper.runAfterDelay(5, () -> {
+                var faultState = helper.getBlockState(analyzer);
+                var faultOut = RedstoneEngineering.SIGNAL_ANALYZER.get().engineeringSnapshot(
+                        helper.getLevel(), world, faultState, Direction.EAST).orElseThrow();
+                var faultUi = SignalAnalyzerBlock.uiSnapshot(helper.getLevel(), world);
+                if (faultState.getValue(SignalAnalyzerBlock.OUTPUT) != 15
+                        || SignalAnalyzerBlock.measurementQuality(helper.getLevel(), world, faultState) != PortQuality.FAULT
+                        || faultOut.value() != 15.0
+                        || faultOut.quality() != PortQuality.FAULT
+                        || faultUi.samples()[SignalAnalyzerBlock.DISPLAY_SAMPLES - 1] >= 0) {
+                    helper.fail("Inline analyzer washed FAULT evidence to VALID or recorded it as a trusted history sample", analyzer);
+                    return;
+                }
+
+                helper.setBlock(arm, Blocks.AIR.defaultBlockState());
+                helper.runAfterDelay(5, () -> {
+                    var recoveredState = helper.getBlockState(analyzer);
+                    var recoveredOut = RedstoneEngineering.SIGNAL_ANALYZER.get().engineeringSnapshot(
+                            helper.getLevel(), world, recoveredState, Direction.EAST).orElseThrow();
+                    var recoveredUi = SignalAnalyzerBlock.uiSnapshot(helper.getLevel(), world);
+                    if (recoveredState.getValue(SignalAnalyzerBlock.OUTPUT) != 15
+                            || recoveredOut.quality() != PortQuality.VALID
+                            || recoveredUi.samples()[SignalAnalyzerBlock.DISPLAY_SAMPLES - 1] != 15) {
+                        helper.fail("Inline analyzer did not recover trusted history after source evidence recovered", analyzer);
                         return;
                     }
                     helper.succeed();
