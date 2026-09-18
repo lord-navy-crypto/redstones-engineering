@@ -207,14 +207,6 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
     @Override protected int observedOutputVoltage(Level level, BlockPos pos, BlockState state) { return outputVoltage(level, pos); }
     @Override protected PortQuality observedOutputQuality(Level level, BlockPos pos, BlockState state) { return outputQuality(level, pos, state); }
 
-    private void invalidateProtectionOutput(ServerLevel level, BlockPos pos, BlockState state) {
-        RuntimeIntStore.remove(level, KEY, pos);
-        RuntimeIntStore.remove(level, QUALITY_KEY, pos);
-        RuntimeIntStore.remove(level, THERMAL_KEY, pos);
-        DomainNetwork.driveCopper(level, outputPos(pos, state), pos, 0);
-        level.scheduleTick(pos, this, 1);
-    }
-
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock())) {
