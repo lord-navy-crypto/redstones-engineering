@@ -48,7 +48,11 @@ public final class SingleRelayBlock extends DirectionalSignalBlock {
     private static final int ENERGIZED_TICKS = 2;
     private static final int INITIALIZED = 3;
     private static final int COIL_ACTIVE = 4;
-    private static final int RUNTIME_SIZE = 5;
+    private static final int CONTROL_HOLD_ACTIVE = 5;
+    private static final int CONTROL_BAD_EPISODES = 6;
+    private static final int PAYLOAD_HOLD_ACTIVE = 7;
+    private static final int PAYLOAD_BAD_EPISODES = 8;
+    private static final int RUNTIME_SIZE = 9;
 
     public SingleRelayBlock(Properties properties) {
         super(properties);
@@ -128,6 +132,26 @@ public final class SingleRelayBlock extends DirectionalSignalBlock {
         return runtime == null || runtime.length < RUNTIME_SIZE ? 0 : Math.max(0, runtime[ENERGIZED_TICKS]);
     }
 
+    public static boolean controlHoldActive(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, RUNTIME_KEY, pos);
+        return runtime != null && runtime.length >= RUNTIME_SIZE && runtime[CONTROL_HOLD_ACTIVE] != 0;
+    }
+
+    public static int controlBadEpisodes(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, RUNTIME_KEY, pos);
+        return runtime == null || runtime.length < RUNTIME_SIZE ? 0 : Math.max(0, runtime[CONTROL_BAD_EPISODES]);
+    }
+
+    public static boolean payloadHoldActive(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, RUNTIME_KEY, pos);
+        return runtime != null && runtime.length >= RUNTIME_SIZE && runtime[PAYLOAD_HOLD_ACTIVE] != 0;
+    }
+
+    public static int payloadBadEpisodes(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, RUNTIME_KEY, pos);
+        return runtime == null || runtime.length < RUNTIME_SIZE ? 0 : Math.max(0, runtime[PAYLOAD_BAD_EPISODES]);
+    }
+
     public static boolean toggleContactMode(Level level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof SingleRelayBlock relay)) return false;
@@ -161,11 +185,20 @@ public final class SingleRelayBlock extends DirectionalSignalBlock {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         if (side == outputSide(state)) {
+            var coil = coilObservation(level, pos, state);
             if (!contactClosed(level, pos, state)) {
-                return Optional.of(EngineeringPortSnapshot.redstone(port.get(), 0, PortQuality.VALID));
+                PortQuality quality = controlEvidenceUnusable(coil.quality())
+                        ? coil.quality()
+                        : PortQuality.VALID;
+                return Optional.of(EngineeringPortSnapshot.redstone(port.get(), 0, quality));
             }
+
             var input = RedstoneObservationSupport.observe(level, pos, inputSide(state));
-            return Optional.of(EngineeringPortSnapshot.redstone(port.get(), state.getValue(OUTPUT), input.quality()));
+            PortQuality quality = controlEvidenceUnusable(coil.quality())
+                    ? RedstoneObservationSupport.combineQuality(input.quality(), coil.quality())
+                    : input.quality();
+            return Optional.of(EngineeringPortSnapshot.redstone(
+                    port.get(), state.getValue(OUTPUT), quality));
         }
         if (side == inputSide(state)) {
             var input = RedstoneObservationSupport.observe(level, pos, inputSide(state));
@@ -181,7 +214,18 @@ public final class SingleRelayBlock extends DirectionalSignalBlock {
         int coilInput = coil.value();
         int[] runtime = RuntimeIntStore.get(level, RUNTIME_KEY, pos, RUNTIME_SIZE);
         boolean coilWasActive = runtime[INITIALIZED] != 0 && runtime[COIL_ACTIVE] != 0;
-        boolean energized = controlEvidenceUnusable(coil.quality())
+        boolean badControl = controlEvidenceUnusable(coil.quality());
+
+        if (badControl) {
+            if (runtime[CONTROL_HOLD_ACTIVE] == 0 && runtime[CONTROL_BAD_EPISODES] < Integer.MAX_VALUE) {
+                runtime[CONTROL_BAD_EPISODES]++;
+            }
+            runtime[CONTROL_HOLD_ACTIVE] = 1;
+        } else {
+            runtime[CONTROL_HOLD_ACTIVE] = 0;
+        }
+
+        boolean energized = badControl
                 ? coilWasActive
                 : coilWasActive
                 ? coilInput > dropoutLevel(state)
@@ -198,8 +242,30 @@ public final class SingleRelayBlock extends DirectionalSignalBlock {
         }
         if (energized && runtime[ENERGIZED_TICKS] < Integer.MAX_VALUE) runtime[ENERGIZED_TICKS]++;
 
-        int input = readBackInput(level, pos, state);
-        updateOutput(level, pos, state, closed ? input : 0);
+        if (!closed) {
+            runtime[PAYLOAD_HOLD_ACTIVE] = 0;
+            updateOutput(level, pos, state, 0);
+            return;
+        }
+
+        var input = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+        if (input.valid()) {
+            runtime[PAYLOAD_HOLD_ACTIVE] = 0;
+            updateOutput(level, pos, state, input.value());
+            return;
+        }
+
+        if (input.quality() == PortQuality.NO_SIGNAL) {
+            runtime[PAYLOAD_HOLD_ACTIVE] = 0;
+            updateOutput(level, pos, state, 0);
+            return;
+        }
+
+        if (runtime[PAYLOAD_HOLD_ACTIVE] == 0 && runtime[PAYLOAD_BAD_EPISODES] < Integer.MAX_VALUE) {
+            runtime[PAYLOAD_BAD_EPISODES]++;
+        }
+        runtime[PAYLOAD_HOLD_ACTIVE] = 1;
+        // Preserve the last trustworthy switched value until payload evidence recovers.
     }
 
     @Override
@@ -218,9 +284,14 @@ public final class SingleRelayBlock extends DirectionalSignalBlock {
                         "Single Relay | mode=" + (next.getValue(NORMALLY_CLOSED) ? "NC" : "NO")
                                 + " | coil=" + (coilEnergized(level, pos, next) ? "ENERGIZED" : "OFF")
                                 + " input=" + coilInput(level, pos, next) + "/15"
+                                + " quality=" + coilObservation(level, pos, next).quality()
                                 + " pickup=" + pickupLevel(next)
                                 + " dropout=" + dropoutLevel(next)
                                 + " | contact=" + (contactClosed(level, pos, next) ? "CLOSED" : "OPEN")
+                                + " | evidence=" + (controlHoldActive(level, pos) ? "CONTROL_HOLD" : "CONTROL_LIVE")
+                                + "/" + (payloadHoldActive(level, pos) ? "PAYLOAD_HOLD" : "PAYLOAD_LIVE")
+                                + " | badEpisodes=" + controlBadEpisodes(level, pos)
+                                + "/" + payloadBadEpisodes(level, pos)
                                 + " | switches=" + switchCount(level, pos)), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
