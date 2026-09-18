@@ -87,6 +87,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_QUARTZ_LAPIS_SAMPLER = 42;
     public static final int CONFIG_SIGNAL_TAP = 43;
     public static final int CONFIG_SIGNAL_SELECTOR = 44;
+    public static final int CONFIG_ANALOG_COMPARATOR = 45;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
@@ -129,7 +130,12 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         configSecondary.set(0);
         configTertiary.set(0);
 
-        if (block instanceof SignalSelectorBlock) {
+        if (block instanceof AnalogComparatorBlock) {
+            configKind.set(CONFIG_ANALOG_COMPARATOR);
+            configPrimary.set(state.getValue(AnalogComparatorBlock.MODE));
+            configSecondary.set(state.getValue(AnalogComparatorBlock.HYSTERESIS));
+            configTertiary.set(AnalogComparatorBlock.margin(level, blockPos, state));
+        } else if (block instanceof SignalSelectorBlock) {
             configKind.set(CONFIG_SIGNAL_SELECTOR);
             configPrimary.set(state.getValue(SignalSelectorBlock.INVERT_SELECT) ? 1 : 0);
             configSecondary.set(SignalSelectorBlock.selectedB(level, blockPos, state) ? 1 : 0);
@@ -462,6 +468,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean adjustPrimary(int delta) {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof AnalogComparatorBlock) return AnalogComparatorBlock.stepHysteresis(level, blockPos, delta > 0);
         if (block instanceof SignalAmplifierBlock) return SignalAmplifierBlock.stepGain(level, blockPos, delta > 0);
         if (block instanceof RedundantVoterBlock) return RedundantVoterBlock.stepTolerance(level, blockPos, delta > 0);
         if (block instanceof WatchdogBlock) return WatchdogBlock.stepTimeout(level, blockPos, delta > 0);
@@ -516,6 +523,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean toggleConfig() {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof AnalogComparatorBlock) return AnalogComparatorBlock.stepMode(level, blockPos, true);
         if (block instanceof SignalSelectorBlock) return SignalSelectorBlock.toggleInvertSelect(level, blockPos);
         if (block instanceof SingleRelayBlock) return SingleRelayBlock.toggleContactMode(level, blockPos);
         if (block instanceof RedstoneCableTerminalBlock) return RedstoneCableTerminalBlock.toggleMode(level, blockPos);
