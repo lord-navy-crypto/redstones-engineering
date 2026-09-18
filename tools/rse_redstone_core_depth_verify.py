@@ -55,22 +55,30 @@ req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.
     "ANALOG REDSTONE INDICATOR","JUNCTION • ROUTING ONLY")
 
 req("src/main/java/dev/redstoneengineering/block/RedstoneByteEncoderBlock.java",
-    "FULL_SCALE","encode","stepMode","value * 17")
+    "FULL_SCALE","encode","stepMode","value * 17","inputEvidenceQuality")
 
 req("src/main/java/dev/redstoneengineering/block/ByteToRedstoneDecoderBlock.java",
-    "FULL_SCALE","decode","stepMode","value / 17.0")
+    "FULL_SCALE","decode","stepMode","value / 17.0","inputEvidenceQuality")
 
 req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
-    "CONFIG_BYTE_ENCODER","CONFIG_BYTE_DECODER","RedstoneByteEncoderBlock.stepMode","ByteToRedstoneDecoderBlock.stepMode")
+    "CONFIG_BYTE_ENCODER","CONFIG_BYTE_DECODER","RedstoneByteEncoderBlock.stepMode","ByteToRedstoneDecoderBlock.stepMode",
+    "RedstoneByteEncoderBlock.inputEvidenceQuality","ByteToRedstoneDecoderBlock.inputEvidenceQuality",
+    "DigitalRegeneratorBlock.inputEvidenceQuality","DigitalRegeneratorBlock.outputEvidenceQuality",
+    "DigitalRegeneratorBlock.inputQualityPercent")
 
 req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
-    "REDSTONE → BYTE ENCODER","BYTE → REDSTONE DECODER","FULL_SCALE uses the complete byte range")
+    "REDSTONE → BYTE ENCODER","REDSTONE → BYTE • NO SOURCE",
+    "BYTE → REDSTONE DECODER","BYTE → REDSTONE • NO BUS SOURCE",
+    "BYTE → REDSTONE • BUS TOPOLOGY ERROR",
+    "DIGITAL REGENERATOR • NO SOURCE","DIGITAL REGENERATOR • FRAME REJECTED",
+    "Frame quality","Output decision","Input evidence")
 
 req("src/main/java/dev/redstoneengineering/block/SerializerBlock.java",
     "PERIOD_MODE","WORD_PERIODS = {4, 8, 16}","stepPeriod","wordPeriod")
 
 req("src/main/java/dev/redstoneengineering/block/DigitalRegeneratorBlock.java",
-    "stepThreshold","acceptedCount","rejectedCount","RuntimeIntStore")
+    "stepThreshold","acceptedCount","rejectedCount","RuntimeIntStore",
+    "inputEvidenceQuality","outputEvidenceQuality","inputQualityPercent")
 
 req("src/main/java/dev/redstoneengineering/block/DeserializerBlock.java",
     "inputEvidenceQuality","SerialNetwork.quality","PortQuality.NO_SIGNAL","PortQuality.STALE")
