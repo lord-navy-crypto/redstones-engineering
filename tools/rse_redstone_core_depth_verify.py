@@ -295,6 +295,20 @@ req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.
 req("src/main/java/dev/redstoneengineering/physics/RedstoneObservationSupport.java",
     "engineeringSnapshot","combineQuality","snapshot.get().quality()")
 
+req("src/main/java/dev/redstoneengineering/block/SignalAnalyzerBlock.java",
+    "measurementObservation","measurementQuality",
+    "RedstoneObservationSupport.observe",
+    "measurementObservation(level, pos, state).valid()",
+    "observation.quality()")
+
+req("src/main/java/dev/redstoneengineering/ui/menu/SignalAnalyzerMenu.java",
+    "liveQuality","measurementQuality","liveQualityOrdinal")
+
+req("src/main/java/dev/redstoneengineering/client/ui/SignalAnalyzerScreen.java",
+    "Raw measurement","liveQualityOrdinal","RAW PASS-THROUGH • ",
+    "bad live evidence becomes a history gap",
+    "qualityColor","evidenceIssue")
+
 req("src/main/java/dev/redstoneengineering/instrument/InstrumentNetwork.java",
     "PortQuality[] qualities","SignalProbeBlock.measurementObservation",
     "qualities[channel] = observation.quality()",
@@ -315,7 +329,10 @@ req("src/main/java/dev/redstoneengineering/client/ui/LogicAnalyzerScreen.java",
 
 req("src/main/java/dev/redstoneengineering/gametest/RseInstrumentEvidenceGameTests.java",
     "instrumentBusPreservesProbeFaultQuality",
+    "inlineAnalyzerPreservesFaultQualityWhilePassingRawLevel",
     "PortQuality.FAULT","faultBus.quality(0)",
+    "faultOut.quality() != PortQuality.FAULT",
+    "faultUi.samples()[SignalAnalyzerBlock.DISPLAY_SAMPLES - 1] >= 0",
     "FAULT-quality source evidence was washed to VALID on the instrument bus")
 
 req("src/main/java/dev/redstoneengineering/block/SignalSelectorBlock.java",
