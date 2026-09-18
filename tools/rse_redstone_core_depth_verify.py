@@ -201,7 +201,7 @@ req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java
 req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
     "Pickup / dropout","◀ Pickup","Pickup ▶",
     "SINGLE RELAY • EVIDENCE HOLD","SINGLE RELAY • CONTROL NO SOURCE",
-    "CTRL=","PAY=","CONTROL HOLD","PAYLOAD HOLD")
+    "CTRL=","PAY=","controlHold","payloadHold")
 
 req("src/main/java/dev/redstoneengineering/physics/RedstoneObservationSupport.java",
     "engineeringSnapshot","combineQuality","snapshot.get().quality()")
