@@ -68,6 +68,8 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_FAULT_LATCH = 23;
     public static final int CONFIG_ANALOG_INDICATOR = 24;
     public static final int CONFIG_JUNCTION = 25;
+    public static final int CONFIG_BYTE_ENCODER = 26;
+    public static final int CONFIG_BYTE_DECODER = 27;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
@@ -110,7 +112,20 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         configSecondary.set(0);
         configTertiary.set(0);
 
-        if (block instanceof RedstoneCableJunctionBlock) {
+        if (block instanceof RedstoneByteEncoderBlock) {
+            configKind.set(CONFIG_BYTE_ENCODER);
+            configPrimary.set(state.getValue(RedstoneByteEncoderBlock.MODE));
+            var input = dev.redstoneengineering.physics.RedstoneObservationSupport.observe(
+                    level, blockPos, DirectionalDomainBlock.seriesInputSide(state));
+            configSecondary.set(input.value());
+            configTertiary.set(RedstoneByteEncoderBlock.encode(input.value(), state.getValue(RedstoneByteEncoderBlock.MODE)));
+        } else if (block instanceof ByteToRedstoneDecoderBlock) {
+            configKind.set(CONFIG_BYTE_DECODER);
+            configPrimary.set(state.getValue(ByteToRedstoneDecoderBlock.MODE));
+            BlockPos input = blockPos.relative(DirectionalSignalBlock.seriesInputSide(state));
+            configSecondary.set(dev.redstoneengineering.physics.DataBusNetwork.sample(level, input));
+            configTertiary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+        } else if (block instanceof RedstoneCableJunctionBlock) {
             configKind.set(CONFIG_JUNCTION);
             configPrimary.set(state.getValue(RedstoneCableJunctionBlock.MEDIUM).ordinal());
             configSecondary.set(RedstoneCableJunctionBlock.power(level, blockPos));
@@ -326,6 +341,8 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean adjustPrimary(int delta) {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof RedstoneByteEncoderBlock) return RedstoneByteEncoderBlock.stepMode(level, blockPos, delta > 0);
+        if (block instanceof ByteToRedstoneDecoderBlock) return ByteToRedstoneDecoderBlock.stepMode(level, blockPos, delta > 0);
         if (block instanceof QuartzOscillatorBlock) return QuartzOscillatorBlock.stepPeriod(level, blockPos, delta > 0);
         if (block instanceof FaultLatchBlock) return FaultLatchBlock.stepThreshold(level, blockPos, delta > 0);
         if (block instanceof RedstoneReferenceSourceBlock) return RedstoneReferenceSourceBlock.stepPower(level, blockPos, delta > 0);
