@@ -80,6 +80,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_DATA_BUS = 35;
     public static final int CONFIG_INSTRUMENT_BUS = 36;
     public static final int CONFIG_WATCHDOG = 37;
+    public static final int CONFIG_QUARTZ_TRACE = 38;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
@@ -122,7 +123,12 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         configSecondary.set(0);
         configTertiary.set(0);
 
-        if (block instanceof InstrumentCableBlock) {
+        if (block instanceof QuartzTimingLineBlock) {
+            configKind.set(CONFIG_QUARTZ_TRACE);
+            configPrimary.set(QuartzTimingLineBlock.period(level, blockPos));
+            configSecondary.set(QuartzTimingLineBlock.sourceCount(level, blockPos));
+            configTertiary.set(QuartzTimingLineBlock.active(level, blockPos) ? 1 : 0);
+        } else if (block instanceof InstrumentCableBlock) {
             configKind.set(CONFIG_INSTRUMENT_BUS);
             var bus = dev.redstoneengineering.instrument.InstrumentNetwork.scan(level, blockPos);
             configPrimary.set(bus.validChannels());
@@ -299,6 +305,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configKind.set(CONFIG_SAFETY_INTERLOCK);
             configPrimary.set(SafetyInterlockBlock.failedMask(level, blockPos));
             configSecondary.set(state.getValue(DirectionalSignalBlock.OUTPUT) > 0 ? 1 : 0);
+            configTertiary.set(SafetyInterlockBlock.transitionCount(level, blockPos));
         } else if (block instanceof TopologyDebuggerBlock) {
             configKind.set(CONFIG_TOPOLOGY_DEBUGGER);
             configPrimary.set(TopologyDebuggerBlock.scanCount(level, blockPos));
