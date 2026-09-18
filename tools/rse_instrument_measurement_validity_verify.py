@@ -20,14 +20,18 @@ def require(path: str, *tokens: str) -> None:
 require(
     "src/main/java/dev/redstoneengineering/block/SignalProbeBlock.java",
     "public static boolean measurementPresent",
-    "return measured > 0 || !target.isAir();",
-    "PortQuality.VALID : PortQuality.NO_SIGNAL",
+    "measurementObservation",
+    "RedstoneObservationSupport.observe",
+    "return measurementObservation(level, pos, state).valid();",
+    "observation.quality()",
 )
 require(
     "src/main/java/dev/redstoneengineering/instrument/InstrumentNetwork.java",
-    "SignalProbeBlock.measurementPresent(level, pos, state, value)",
-    "values[channel] = present ? value : -1",
+    "SignalProbeBlock.measurementObservation(level, pos, state)",
+    "qualities[channel] = observation.quality();",
+    "public PortQuality quality(int channel)",
     "counts[channel] == 1 && values[channel] >= 0",
+    "RedstoneObservationSupport.combineQuality(combined, quality(channel))",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/OscilloscopeBlock.java",
