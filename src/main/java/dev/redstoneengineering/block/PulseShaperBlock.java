@@ -80,7 +80,8 @@ public class PulseShaperBlock extends DirectionalSignalBlock implements EntityBl
         rt[LAST_ABOVE_SLOT] = result.state().lastAboveThreshold() ? 1 : 0;
         rt[REMAINING_SLOT] = result.state().remainingTicks();
 
-        if (level.getBlockEntity(pos) instanceof PulseShaperBlockEntity shaperState) {
+        PulseShaperBlockEntity shaperState = persistentState(level, pos);
+        if (shaperState != null) {
             if (result.acceptedTrigger()) shaperState.recordAcceptedTrigger(level.getGameTime());
             if (result.suppressedTrigger()) shaperState.recordSuppressedTrigger();
         }
@@ -119,23 +120,37 @@ public class PulseShaperBlock extends DirectionalSignalBlock implements EntityBl
         return rt != null && rt[INITIALIZED_SLOT] == 1;
     }
 
+    private static PulseShaperBlockEntity persistentState(Level level, BlockPos pos) {
+        if (level.getBlockEntity(pos) instanceof PulseShaperBlockEntity entity) return entity;
+        if (level.isClientSide) return null;
+
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof PulseShaperBlock)) return null;
+
+        // Lazy migration for worlds containing Pulse Shapers placed before this block gained a BlockEntity.
+        PulseShaperBlockEntity created = new PulseShaperBlockEntity(pos, state);
+        level.setBlockEntity(created);
+        return created;
+    }
+
     public static int threshold(Level level, BlockPos pos) {
-        return level.getBlockEntity(pos) instanceof PulseShaperBlockEntity entity ? entity.threshold() : 1;
+        PulseShaperBlockEntity entity = persistentState(level, pos);
+        return entity == null ? 1 : entity.threshold();
     }
 
     public static int triggerCount(Level level, BlockPos pos) {
-        return level.getBlockEntity(pos) instanceof PulseShaperBlockEntity entity
-                ? entity.acceptedTriggerCount() : 0;
+        PulseShaperBlockEntity entity = persistentState(level, pos);
+        return entity == null ? 0 : entity.acceptedTriggerCount();
     }
 
     public static int suppressedTriggerCount(Level level, BlockPos pos) {
-        return level.getBlockEntity(pos) instanceof PulseShaperBlockEntity entity
-                ? entity.suppressedTriggerCount() : 0;
+        PulseShaperBlockEntity entity = persistentState(level, pos);
+        return entity == null ? 0 : entity.suppressedTriggerCount();
     }
 
     public static int lastTriggerAgeTicks(Level level, BlockPos pos) {
-        return level.getBlockEntity(pos) instanceof PulseShaperBlockEntity entity
-                ? entity.lastTriggerAgeTicks(level.getGameTime()) : -1;
+        PulseShaperBlockEntity entity = persistentState(level, pos);
+        return entity == null ? -1 : entity.lastTriggerAgeTicks(level.getGameTime());
     }
 
     /** Shared authoritative operator action used by HMI and Shift-right-click. */
@@ -151,8 +166,9 @@ public class PulseShaperBlock extends DirectionalSignalBlock implements EntityBl
 
     public static boolean stepThreshold(Level level, BlockPos pos, boolean forward) {
         BlockState state = level.getBlockState(pos);
-        if (!(state.getBlock() instanceof PulseShaperBlock shaper)
-                || !(level.getBlockEntity(pos) instanceof PulseShaperBlockEntity entity)) return false;
+        if (!(state.getBlock() instanceof PulseShaperBlock shaper)) return false;
+        PulseShaperBlockEntity entity = persistentState(level, pos);
+        if (entity == null) return false;
 
         int nextThreshold = entity.stepThreshold(forward);
 
