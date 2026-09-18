@@ -255,6 +255,11 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configPrimary.set(state.getValue(DigitalRegeneratorBlock.THRESHOLD));
             configSecondary.set(DigitalRegeneratorBlock.acceptedCount(level, blockPos));
             configTertiary.set(DigitalRegeneratorBlock.rejectedCount(level, blockPos));
+            int regeneratorStatus = DigitalRegeneratorBlock.inputEvidenceQuality(level, blockPos, state).ordinal();
+            regeneratorStatus |= DigitalRegeneratorBlock.outputEvidenceQuality(level, blockPos, state).ordinal() << 3;
+            regeneratorStatus |= Math.max(0, Math.min(100,
+                    DigitalRegeneratorBlock.inputQualityPercent(level, blockPos, state))) << 6;
+            configQuaternary.set(regeneratorStatus);
         } else if (block instanceof RedstoneByteEncoderBlock) {
             configKind.set(CONFIG_BYTE_ENCODER);
             configPrimary.set(state.getValue(RedstoneByteEncoderBlock.MODE));
@@ -262,12 +267,14 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
                     level, blockPos, DirectionalDomainBlock.seriesInputSide(state));
             configSecondary.set(input.value());
             configTertiary.set(RedstoneByteEncoderBlock.encode(input.value(), state.getValue(RedstoneByteEncoderBlock.MODE)));
+            configQuaternary.set(RedstoneByteEncoderBlock.inputEvidenceQuality(level, blockPos, state).ordinal());
         } else if (block instanceof ByteToRedstoneDecoderBlock) {
             configKind.set(CONFIG_BYTE_DECODER);
             configPrimary.set(state.getValue(ByteToRedstoneDecoderBlock.MODE));
             BlockPos input = blockPos.relative(DirectionalSignalBlock.seriesInputSide(state));
             configSecondary.set(dev.redstoneengineering.physics.DataBusNetwork.sample(level, input));
             configTertiary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+            configQuaternary.set(ByteToRedstoneDecoderBlock.inputEvidenceQuality(level, blockPos, state).ordinal());
         } else if (block instanceof RedstoneCableJunctionBlock) {
             configKind.set(CONFIG_JUNCTION);
             configPrimary.set(state.getValue(RedstoneCableJunctionBlock.MEDIUM).ordinal());
