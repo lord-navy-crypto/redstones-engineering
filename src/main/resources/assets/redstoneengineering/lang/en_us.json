@@ -117,6 +117,7 @@
   "block.redstoneengineering.servo_position_sensor": "Position Feedback Transducer",
   "block.redstoneengineering.redundant_voter": "Redundant Signal Voter",
   "block.redstoneengineering.fault_latch": "Latched Fault Memory",
+  "block.redstoneengineering.single_relay": "Single Redstone Relay",
   "block.redstoneengineering.operations_monitor": "Production Operations Monitor",
   "block.redstoneengineering.pneumatic_valve": "Pneumatic Isolation Valve",
   "block.redstoneengineering.pneumatic_check_valve": "Pneumatic Check Valve",
