@@ -16,6 +16,7 @@ import dev.redstoneengineering.block.DigitalRegeneratorBlock;
 import dev.redstoneengineering.block.DifferentialDriverBlock;
 import dev.redstoneengineering.block.WatchdogBlock;
 import dev.redstoneengineering.block.RedundantVoterBlock;
+import dev.redstoneengineering.block.AnalogComparatorBlock;
 import dev.redstoneengineering.block.TankLevelSensorBlock;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.PortKind;
@@ -97,7 +98,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_DIFF_DRIVER
                 || kind == UniversalFieldDeviceMenu.CONFIG_WATCHDOG
                 || kind == UniversalFieldDeviceMenu.CONFIG_REDUNDANT_VOTER
-                || kind == UniversalFieldDeviceMenu.CONFIG_SIGNAL_AMPLIFIER;
+                || kind == UniversalFieldDeviceMenu.CONFIG_SIGNAL_AMPLIFIER
+                || kind == UniversalFieldDeviceMenu.CONFIG_ANALOG_COMPARATOR;
         boolean range = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE
                 || kind == UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY
                 || kind == UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD;
@@ -117,7 +119,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         boolean hasToggle = kind == UniversalFieldDeviceMenu.CONFIG_PWM
                 || kind == UniversalFieldDeviceMenu.CONFIG_CABLE_TERMINAL
                 || kind == UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY
-                || kind == UniversalFieldDeviceMenu.CONFIG_SIGNAL_SELECTOR;
+                || kind == UniversalFieldDeviceMenu.CONFIG_SIGNAL_SELECTOR
+                || kind == UniversalFieldDeviceMenu.CONFIG_ANALOG_COMPARATOR;
 
         if (primaryPrevious != null) primaryPrevious.visible = configure && primary;
         if (primaryNext != null) primaryNext.visible = configure && primary;
@@ -152,7 +155,9 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         }
         if (toggle != null) {
             toggle.visible = configure && hasToggle;
-            if (kind == UniversalFieldDeviceMenu.CONFIG_SIGNAL_SELECTOR) {
+            if (kind == UniversalFieldDeviceMenu.CONFIG_ANALOG_COMPARATOR) {
+                toggle.setMessage(Component.literal("Compare • " + AnalogComparatorBlock.modeName(menu.configPrimary())));
+            } else if (kind == UniversalFieldDeviceMenu.CONFIG_SIGNAL_SELECTOR) {
                 toggle.setMessage(Component.literal(menu.configPrimary() != 0
                         ? "Select logic • INVERTED"
                         : "Select logic • NORMAL"));
@@ -226,6 +231,17 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private void configure(GuiGraphics g) {
         int kind = menu.configKind();
         switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_ANALOG_COMPARATOR -> {
+                int mode = menu.configPrimary();
+                int hysteresis = menu.configSecondary();
+                int margin = menu.configTertiary();
+                statusBadge(g, "ANALOG COMPARATOR • " + AnalogComparatorBlock.modeName(mode), INFO, 16, 80);
+                labelValue(g, "Hysteresis", "±" + hysteresis + " levels", 101);
+                labelValue(g, "Process-reference", signed(margin), 123);
+                labelValue(g, "Decision output", menu.outputValue() > 0 ? "HIGH" : "LOW", 145);
+                safeText(g, "PROCESS is compared against a live REFERENCE input. Hysteresis creates separate enter/exit thresholds so small redstone noise does not chatter the decision.", 16, 178, TEXT);
+                safeText(g, "Use Conditioner THRESHOLD for a fixed configured limit; use Comparator when the reference itself is another signal.", 16, 200, MUTED);
+            }
             case UniversalFieldDeviceMenu.CONFIG_SIGNAL_SELECTOR -> {
                 boolean invert = menu.configPrimary() != 0;
                 boolean selectedB = menu.configSecondary() != 0;
