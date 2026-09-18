@@ -205,6 +205,16 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private void configure(GuiGraphics g) {
         int kind = menu.configKind();
         switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_DATA_BUS -> {
+                int drivers = menu.configTertiary();
+                statusBadge(g, drivers > 1 ? "8-BIT BUS • MULTI-DRIVER" : "8-BIT DATA BUS",
+                        drivers > 1 ? WARN : INFO, 16, 80);
+                labelValue(g, "Resolved byte", menu.configPrimary() + " / 255", 101);
+                labelValue(g, "Bus quality", menu.configSecondary() + "%", 123);
+                labelValue(g, "Active drivers", Integer.toString(drivers), 145);
+                safeText(g, "The parallel bus favors immediate shared 8-bit access, but loading and multiple drivers consume signal margin.", 16, 178, TEXT);
+                safeText(g, "Different driven values become a hard topology conflict; same-value multi-driving remains usable but penalized.", 16, 200, MUTED);
+            }
             case UniversalFieldDeviceMenu.CONFIG_DIFF_DRIVER -> {
                 int threshold = DifferentialDriverBlock.thresholdValue(menu.configPrimary());
                 statusBadge(g, "DIFFERENTIAL DRIVER", INFO, 16, 80);
