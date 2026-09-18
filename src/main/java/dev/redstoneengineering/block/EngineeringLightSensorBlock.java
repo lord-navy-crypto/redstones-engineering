@@ -104,7 +104,7 @@ public class EngineeringLightSensorBlock extends DirectionalRedstoneSensorBlock 
     @Override
     protected void neighborChanged(BlockState state, Level level, BlockPos pos, Block neighbor, BlockPos neighborPos, boolean movedByPiston) {
         super.neighborChanged(state, level, pos, neighbor, neighborPos, movedByPiston);
-        if (!level.isClientSide) level.scheduleTick(pos, this, 1);
+        if (!level.isClientSide) level.scheduleTick(pos, this, SensorModel.samplePeriod(state.getValue(PROFILE)));
     }
 
     @Override
