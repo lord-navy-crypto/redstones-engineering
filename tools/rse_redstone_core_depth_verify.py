@@ -14,7 +14,9 @@ def req(path,*tokens):
             failed.append(f"{path} missing token: {token}")
 
 req("src/main/java/dev/redstoneengineering/block/SignalProbeBlock.java",
-    "stepChannel","configuredChannel","measuredValue","Probe channel →")
+    "stepChannel","configuredChannel","measuredValue","Probe channel →",
+    "measurementObservation","RedstoneObservationSupport.observe",
+    "observation.quality()")
 req("src/main/java/dev/redstoneengineering/block/RedstoneReferenceSourceBlock.java",
     "stepPower","configuredPower")
 req("src/main/java/dev/redstoneengineering/physics/RedstoneCableNetwork.java",
@@ -32,9 +34,13 @@ req("src/main/java/dev/redstoneengineering/client/ui/SignalConditionerScreen.jav
 
 req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
     "CONFIG_SIGNAL_PROBE","CONFIG_REFERENCE_SOURCE","CONFIG_REDSTONE_CABLE","CONFIG_CABLE_TERMINAL",
-    "RedstoneCableTerminalBlock.toggleMode")
+    "RedstoneCableTerminalBlock.toggleMode",
+    "SignalProbeBlock.measurementObservation",
+    "bus.qualityForMask(0xF).ordinal()")
 req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
-    "INSTRUMENT PROBE","REDSTONE REFERENCE SOURCE","INSULATED REDSTONE LINK","REDSTONE CABLE TERMINAL",
+    "INSTRUMENT PROBE","INSTRUMENT PROBE • NO SOURCE","Measurement evidence",
+    "INSTRUMENTATION BUS • TOPOLOGY ERROR","Evidence state",
+    "REDSTONE REFERENCE SOURCE","INSULATED REDSTONE LINK","REDSTONE CABLE TERMINAL",
     "Mode • Cable → Vanilla","CONFIG_SIGNAL_PROBE","CONFIG_REFERENCE_SOURCE")
 
 req("src/main/java/dev/redstoneengineering/block/QuartzOscillatorBlock.java",
@@ -273,6 +279,29 @@ req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.
 req("src/main/java/dev/redstoneengineering/physics/RedstoneObservationSupport.java",
     "engineeringSnapshot","combineQuality","snapshot.get().quality()")
 
+req("src/main/java/dev/redstoneengineering/instrument/InstrumentNetwork.java",
+    "PortQuality[] qualities","SignalProbeBlock.measurementObservation",
+    "qualities[channel] = observation.quality()",
+    "public PortQuality quality(int channel)",
+    "RedstoneObservationSupport.combineQuality(combined, quality(channel))")
+
+req("src/main/java/dev/redstoneengineering/ui/menu/OscilloscopeMenu.java",
+    "channelQualities","network.quality(channel).ordinal()","probeQualityOrdinal")
+
+req("src/main/java/dev/redstoneengineering/ui/menu/LogicAnalyzerMenu.java",
+    "channelQualities","network.quality(channel).ordinal()","probeQualityOrdinal")
+
+req("src/main/java/dev/redstoneengineering/client/ui/OscilloscopeScreen.java",
+    "CONNECTED • ","probeQualityOrdinal","restore trustworthy probe evidence")
+
+req("src/main/java/dev/redstoneengineering/client/ui/LogicAnalyzerScreen.java",
+    "CONNECTED • ","probeQualityOrdinal","EVIDENCE DEGRADED")
+
+req("src/main/java/dev/redstoneengineering/gametest/RseInstrumentEvidenceGameTests.java",
+    "instrumentBusPreservesProbeFaultQuality",
+    "PortQuality.FAULT","faultBus.quality(0)",
+    "FAULT-quality source evidence was washed to VALID on the instrument bus")
+
 req("src/main/java/dev/redstoneengineering/block/SignalSelectorBlock.java",
     "RedstoneObservationSupport.observe","controlEvidenceUnusable")
 
@@ -303,7 +332,8 @@ req("src/main/java/dev/redstoneengineering/gametest/RseAnalogComparatorEvidenceG
 req("src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java",
     "event.register(RseRelayEvidenceGameTests.class);",
     "event.register(RseSignalSelectorEvidenceGameTests.class);",
-    "event.register(RseAnalogComparatorEvidenceGameTests.class);")
+    "event.register(RseAnalogComparatorEvidenceGameTests.class);",
+    "event.register(RseInstrumentEvidenceGameTests.class);")
 
 req("src/main/java/dev/redstoneengineering/block/AnalogComparatorBlock.java",
     "combineQuality","!processObservation.valid()","!referenceObservation.valid()",
