@@ -204,6 +204,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configPrimary.set(dev.redstoneengineering.physics.DataBusNetwork.sample(level, blockPos));
             configSecondary.set(diag.qualityPercent());
             configTertiary.set(diag.driverCount());
+            configQuaternary.set(dev.redstoneengineering.physics.DataBusNetwork.quality(level, blockPos).ordinal());
         } else if (block instanceof DifferentialDriverBlock) {
             configKind.set(CONFIG_DIFF_DRIVER);
             configPrimary.set(state.getValue(DifferentialDriverBlock.THRESHOLD));
@@ -216,6 +217,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configPrimary.set(diff.value() & 1);
             configSecondary.set(diff.qualityPercent());
             configTertiary.set(dev.redstoneengineering.physics.DifferentialNetwork.driverCount(level, blockPos));
+            configQuaternary.set(dev.redstoneengineering.physics.DifferentialNetwork.quality(level, blockPos).ordinal());
         } else if (block instanceof DifferentialReceiverBlock) {
             configKind.set(CONFIG_DIFF_RECEIVER);
             BlockPos input = blockPos.relative(DirectionalSignalBlock.seriesInputSide(state));
@@ -223,12 +225,15 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configPrimary.set(diff.value() & 1);
             configSecondary.set(diff.qualityPercent());
             configTertiary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+            configQuaternary.set(DifferentialReceiverBlock.inputEvidenceQuality(level, blockPos, state).ordinal());
         } else if (block instanceof SerializerBlock) {
             configKind.set(CONFIG_SERIALIZER);
             configPrimary.set(state.getValue(SerializerBlock.PERIOD_MODE));
             var output = dev.redstoneengineering.physics.InformationRuntime.snapshot(level, "serial", blockPos);
             configSecondary.set(output.value() & 0xFF);
             configTertiary.set(SerializerBlock.wordPeriod(state));
+            BlockPos input = blockPos.relative(DirectionalDomainBlock.seriesInputSide(state));
+            configQuaternary.set(dev.redstoneengineering.physics.DataBusNetwork.quality(level, input).ordinal());
         } else if (block instanceof DeserializerBlock) {
             configKind.set(CONFIG_DESERIALIZER);
             BlockPos input = blockPos.relative(DirectionalDomainBlock.seriesInputSide(state));
@@ -236,6 +241,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configPrimary.set(serial.value() & 0xFF);
             configSecondary.set(serial.selector());
             configTertiary.set(serial.qualityPercent());
+            configQuaternary.set(DeserializerBlock.inputEvidenceQuality(level, blockPos, state).ordinal());
         } else if (block instanceof SerialDataLineBlock) {
             configKind.set(CONFIG_SERIAL_LINE);
             var serial = dev.redstoneengineering.physics.InformationRuntime.snapshot(level, "serial", blockPos);
@@ -243,6 +249,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configPrimary.set(serial.value() & 0xFF);
             configSecondary.set(diag.qualityPercent());
             configTertiary.set(diag.utilizationPercent());
+            configQuaternary.set(dev.redstoneengineering.physics.SerialNetwork.quality(level, blockPos).ordinal());
         } else if (block instanceof DigitalRegeneratorBlock) {
             configKind.set(CONFIG_REGENERATOR);
             configPrimary.set(state.getValue(DigitalRegeneratorBlock.THRESHOLD));
