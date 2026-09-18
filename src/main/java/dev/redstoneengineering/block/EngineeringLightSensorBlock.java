@@ -135,6 +135,12 @@ public class EngineeringLightSensorBlock extends DirectionalRedstoneSensorBlock 
         );
     }
 
+    public static String profileName(int profile) { return SensorModel.profileName(profile); }
+    public static int profileSamplePeriod(int profile) { return SensorModel.samplePeriod(profile); }
+    public static int profileResolutionStep(int profile) { return SensorModel.resolutionStep(profile); }
+    public static int profileNoiseAmplitude(int profile) { return SensorModel.noiseAmplitude(profile); }
+    public static int profileLatencySamples(int profile) { return SensorModel.latencySamples(profile); }
+
     /** Server-authoritative operator action. Changing acquisition profile invalidates old evidence. */
     public static boolean adjustProfile(Level level, BlockPos pos, int delta) {
         if (!(level instanceof ServerLevel server)) return false;
