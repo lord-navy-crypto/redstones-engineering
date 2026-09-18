@@ -92,6 +92,10 @@ public final class RedstoneEngineering {
             SIGNAL_SELECTOR_CODEC =
             codec("signal_selector", SignalSelectorBlock::new);
 
+    public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<AnalogComparatorBlock>>
+            ANALOG_COMPARATOR_CODEC =
+            codec("analog_comparator", AnalogComparatorBlock::new);
+
     public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<CalibrationModuleBlock>>
             CALIBRATION_MODULE_CODEC =
             codec("calibration_module", CalibrationModuleBlock::new);
@@ -510,6 +514,7 @@ public final class RedstoneEngineering {
     public static final DeferredBlock<SingleRelayBlock> SINGLE_RELAY = BLOCKS.registerBlock("single_relay", SingleRelayBlock::new, machineProps(MapColor.METAL));
     public static final DeferredBlock<SignalAmplifierBlock> SIGNAL_AMPLIFIER = BLOCKS.registerBlock("signal_amplifier", SignalAmplifierBlock::new, machineProps(MapColor.COLOR_RED));
     public static final DeferredBlock<SignalSelectorBlock> SIGNAL_SELECTOR = BLOCKS.registerBlock("signal_selector", SignalSelectorBlock::new, machineProps(MapColor.COLOR_PURPLE));
+    public static final DeferredBlock<AnalogComparatorBlock> ANALOG_COMPARATOR = BLOCKS.registerBlock("analog_comparator", AnalogComparatorBlock::new, machineProps(MapColor.COLOR_GRAY));
     public static final DeferredBlock<OperationsMonitorBlock> OPERATIONS_MONITOR = BLOCKS.registerBlock("operations_monitor", OperationsMonitorBlock::new, machineProps(MapColor.COLOR_BLUE));
 
     public static final DeferredItem<BlockItem> SIGNAL_ANALYZER_ITEM =
@@ -717,6 +722,7 @@ public final class RedstoneEngineering {
     public static final DeferredItem<BlockItem> SINGLE_RELAY_ITEM = ITEMS.registerSimpleBlockItem("single_relay", SINGLE_RELAY);
     public static final DeferredItem<BlockItem> SIGNAL_AMPLIFIER_ITEM = ITEMS.registerSimpleBlockItem("signal_amplifier", SIGNAL_AMPLIFIER);
     public static final DeferredItem<BlockItem> SIGNAL_SELECTOR_ITEM = ITEMS.registerSimpleBlockItem("signal_selector", SIGNAL_SELECTOR);
+    public static final DeferredItem<BlockItem> ANALOG_COMPARATOR_ITEM = ITEMS.registerSimpleBlockItem("analog_comparator", ANALOG_COMPARATOR);
     public static final DeferredItem<BlockItem> OPERATIONS_MONITOR_ITEM = ITEMS.registerSimpleBlockItem("operations_monitor", OPERATIONS_MONITOR);
 
     public static final Supplier<CreativeModeTab> RSE_TAB =
@@ -875,6 +881,7 @@ public final class RedstoneEngineering {
                                         output.accept(SINGLE_RELAY_ITEM.get());
                                         output.accept(SIGNAL_AMPLIFIER_ITEM.get());
                                         output.accept(SIGNAL_SELECTOR_ITEM.get());
+                                        output.accept(ANALOG_COMPARATOR_ITEM.get());
                                         output.accept(OPERATIONS_MONITOR_ITEM.get());
                                     }
                             )
