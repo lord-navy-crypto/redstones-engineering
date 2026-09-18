@@ -128,6 +128,7 @@ jobs:
             tools/rse_copper_capacitor_depth_verify.py \
             tools/rse_copper_fuse_depth_verify.py \
             tools/rse_air_compressor_depth_verify.py \
+            tools/rse_pneumatic_proportional_valve_depth_verify.py \
             tools/rse_system_level_closure_phase1_verify.py \
             tools/rse_system_level_closure_phase2_verify.py
           do
