@@ -82,13 +82,10 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_SIGNAL_PROBE
                 || kind == UniversalFieldDeviceMenu.CONFIG_REFERENCE_SOURCE
                 || kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR
-                || kind == UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH
-                || kind == UniversalFieldDeviceMenu.CONFIG_ANALOG_INDICATOR;
+                || kind == UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH;
         boolean range = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE
                 || kind == UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY
-                || kind == UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD
-                || kind == UniversalFieldDeviceMenu.CONFIG_SIGNAL_PROBE
-                || kind == UniversalFieldDeviceMenu.CONFIG_REFERENCE_SOURCE;
+                || kind == UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD;
         boolean hasAction = kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER
                 || kind == UniversalFieldDeviceMenu.CONFIG_ALARM
                 || kind == UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD
@@ -97,7 +94,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK
                 || kind == UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER
                 || kind == UniversalFieldDeviceMenu.CONFIG_IRON_CORE
-                || kind == UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH;
+                || kind == UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH
+                || kind == UniversalFieldDeviceMenu.CONFIG_ANALOG_INDICATOR;
         boolean hasToggle = kind == UniversalFieldDeviceMenu.CONFIG_PWM
                 || kind == UniversalFieldDeviceMenu.CONFIG_CABLE_TERMINAL;
 
