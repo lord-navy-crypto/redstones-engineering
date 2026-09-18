@@ -26,7 +26,11 @@ import net.minecraft.world.phys.BlockHitResult;
 import java.util.List;
 import java.util.Optional;
 
-/** Non-contact, read-only frequency-domain observer for nearby amethyst resonance media. */
+/**
+ * Non-contact, read-only frequency-domain observer for nearby amethyst resonance media.
+ *
+ * <p>Incomplete scan coverage is STALE evidence, never an invented zero-spectrum measurement.</p>
+ */
 public class AmethystSpectrumAnalyzerBlock extends DomainBlock implements EngineeringPortProvider {
     private static final int RADIUS = 6;
     private static final int SAMPLE_PERIOD_TICKS = 10;
@@ -83,7 +87,8 @@ public class AmethystSpectrumAnalyzerBlock extends DomainBlock implements Engine
     public static PortQuality quality(Level level, BlockPos pos) {
         Spectrum spectrum = spectrum(level, pos);
         if (spectrum.conflicts() > 0) return PortQuality.TOPOLOGY_ERROR;
-        if (!spectrum.complete()) return PortQuality.NO_SIGNAL;
+        if (spectrum.expectedCells() <= 0) return PortQuality.NO_SIGNAL;
+        if (!spectrum.complete()) return PortQuality.STALE;
         return spectrum.samples() > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL;
     }
 
