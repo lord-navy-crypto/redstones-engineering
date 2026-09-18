@@ -102,5 +102,6 @@ public final class RseGameTestRegistration {
         event.register(RseRangeSensorEvidenceGameTests.class);
         event.register(RseRelayEvidenceGameTests.class);
         event.register(RseSignalSelectorEvidenceGameTests.class);
+        event.register(RseAnalogComparatorEvidenceGameTests.class);
     }
 }
