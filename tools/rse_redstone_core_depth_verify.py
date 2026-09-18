@@ -174,6 +174,18 @@ req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java
 req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
     "2:1 SIGNAL SELECTOR","Select logic • INVERTED","Selection changes")
 
+req("src/main/java/dev/redstoneengineering/block/AnalogComparatorBlock.java",
+    "HYSTERESIS","PROCESS","REFERENCE","transitionCount","stepHysteresis","stepMode")
+
+req("src/main/java/dev/redstoneengineering/RedstoneEngineering.java",
+    "ANALOG_COMPARATOR_CODEC","ANALOG_COMPARATOR =","ANALOG_COMPARATOR_ITEM")
+
+req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
+    "CONFIG_ANALOG_COMPARATOR","configQuaternary","AnalogComparatorBlock.stepHysteresis")
+
+req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
+    "ANALOG COMPARATOR","Process-reference","Decision output","Compare • ")
+
 if failed:
     print("RSE redstone-core engineering-depth verification: FAIL")
     for x in failed: print(" -",x)
@@ -196,3 +208,4 @@ print(" synchronized precision sampling semantics: PASS")
 print(" buffered tap and sample-hold evidence: PASS")
 print(" tap/sample-hold/calibration evidence: PASS")
 print(" two-input analog signal selection: PASS")
+print(" live-reference hysteretic comparison: PASS")
