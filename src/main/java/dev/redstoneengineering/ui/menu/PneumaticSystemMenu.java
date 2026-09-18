@@ -124,7 +124,11 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
             inputFacing.set(DirectionalDomainBlock.seriesInputSide(state).ordinal());
             setNodeQuality();
         } else if (block instanceof PneumaticReceiverBlock receiver) {
-            kind.set(KIND_RECEIVER); directionalSnapshots(state, receiver); secondary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+            kind.set(KIND_RECEIVER);
+            directionalSnapshots(state, receiver);
+            secondary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+            tertiary.set(PneumaticReceiverBlock.fullScalePressure(state));
+            stateFlag.set(state.getValue(PneumaticReceiverBlock.RANGE_MODE));
         } else if (block instanceof PneumaticValveBlock valve) {
             kind.set(KIND_VALVE); directionalSnapshots(state, valve); stateFlag.set(state.getValue(PneumaticValveBlock.OPEN) ? 1 : 0);
         } else if (block instanceof PneumaticCheckValveBlock valve) {
@@ -249,8 +253,14 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
             } else {
                 changed = rotateDirectional(block, id);
             }
-        } else if (block instanceof PneumaticReceiverBlock
-                || block instanceof PneumaticCheckValveBlock
+        } else if (block instanceof PneumaticReceiverBlock) {
+            if (id == BUTTON_PARAMETER_PREVIOUS || id == BUTTON_PARAMETER_NEXT) {
+                changed = PneumaticReceiverBlock.stepRange(
+                        level, blockPos, id == BUTTON_PARAMETER_NEXT);
+            } else {
+                changed = rotateDirectional(block, id);
+            }
+        } else if (block instanceof PneumaticCheckValveBlock
                 || block instanceof PneumaticFlowMeterBlock
                 || block instanceof PneumaticCylinderBlock) {
             changed = rotateDirectional(block, id);
