@@ -81,6 +81,12 @@ req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.
     "SERIALIZER","DESERIALIZER","SERIAL LINK","DIGITAL REGENERATOR",
     "DIFFERENTIAL DRIVER","DIFFERENTIAL LINK","DIFFERENTIAL RECEIVER")
 
+req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
+    "CONFIG_DATA_BUS","CONFIG_SERIALIZER","CONFIG_REGENERATOR","CONFIG_DIFF_DRIVER","CONFIG_DIFF_PAIR","CONFIG_DIFF_RECEIVER")
+
+req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
+    "8-BIT DATA BUS","SERIALIZER","DIGITAL REGENERATOR","DIFFERENTIAL DRIVER","DIFFERENTIAL LINK","DIFFERENTIAL RECEIVER")
+
 if failed:
     print("RSE redstone-core engineering-depth verification: FAIL")
     for x in failed: print(" -",x)
@@ -95,3 +101,4 @@ print(" conditioner scale identity + limiting history: PASS")
 print(" timing/safety/junction core HMI: PASS")
 print(" redstone-byte mapping modes: PASS")
 print(" serial/differential communication depth: PASS")
+print(" parallel/serial/differential media roles: PASS")
