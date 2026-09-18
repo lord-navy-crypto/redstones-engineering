@@ -195,6 +195,7 @@ public class SignalProbeBlock extends Block implements EngineeringPortProvider {
                                         + " | BUS=" + busSide(next).getName()
                                         + " | value=" + value + "/15"
                                         + " | measurement=" + (measurementPresent(level, pos, next, value) ? "VALID" : "NO_SIGNAL")
+                                        + " | direction-aware • non-invasive"
                                         + " | normal right-click opens Engineering UI"
                         ),
                         true
