@@ -43,7 +43,9 @@ public final class SignalSelectorBlock extends DirectionalSignalBlock {
     private static final int LAST_SELECTION = 0;
     private static final int SWITCH_COUNT = 1;
     private static final int INITIALIZED = 2;
-    private static final int RUNTIME_SIZE = 3;
+    private static final int CONTROL_HOLD_ACTIVE = 3;
+    private static final int CONTROL_BAD_EPISODES = 4;
+    private static final int RUNTIME_SIZE = 5;
 
     public SignalSelectorBlock(Properties properties) {
         super(properties);
@@ -92,6 +94,16 @@ public final class SignalSelectorBlock extends DirectionalSignalBlock {
         return runtime == null || runtime.length < RUNTIME_SIZE ? 0 : Math.max(0, runtime[SWITCH_COUNT]);
     }
 
+    public static boolean controlHoldActive(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, RUNTIME_KEY, pos);
+        return runtime != null && runtime.length >= RUNTIME_SIZE && runtime[CONTROL_HOLD_ACTIVE] != 0;
+    }
+
+    public static int controlBadEpisodes(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, RUNTIME_KEY, pos);
+        return runtime == null || runtime.length < RUNTIME_SIZE ? 0 : Math.max(0, runtime[CONTROL_BAD_EPISODES]);
+    }
+
     public static boolean toggleInvertSelect(Level level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof SignalSelectorBlock selector)) return false;
@@ -131,7 +143,12 @@ public final class SignalSelectorBlock extends DirectionalSignalBlock {
         if (side == outputSide(state)) {
             Direction selectedSide = selectedB(level, pos, state) ? inputBSide(state) : inputSide(state);
             var selected = RedstoneObservationSupport.observe(level, pos, selectedSide);
-            return Optional.of(EngineeringPortSnapshot.redstone(port.get(), state.getValue(OUTPUT), selected.quality()));
+            var select = RedstoneObservationSupport.observe(level, pos, selectSide(state));
+            PortQuality outputQuality = controlEvidenceUnusable(select.quality())
+                    ? RedstoneObservationSupport.combineQuality(selected.quality(), select.quality())
+                    : selected.quality();
+            return Optional.of(EngineeringPortSnapshot.redstone(
+                    port.get(), state.getValue(OUTPUT), outputQuality));
         }
         if (side == inputSide(state) || side == inputBSide(state)) {
             var observed = RedstoneObservationSupport.observe(level, pos, side);
@@ -139,26 +156,38 @@ public final class SignalSelectorBlock extends DirectionalSignalBlock {
         }
         var select = RedstoneObservationSupport.observe(level, pos, selectSide(state));
         return Optional.of(EngineeringPortSnapshot.redstone(
-                port.get(), selectedB(level, pos, state) ? 15 : 0, select.quality()));
+                port.get(), select.value(), select.quality()));
     }
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+        var select = RedstoneObservationSupport.observe(level, pos, selectSide(state));
+        boolean badControl = controlEvidenceUnusable(select.quality());
         boolean b = selectedB(level, pos, state);
         int[] runtime = RuntimeIntStore.get(level, RUNTIME_KEY, pos, RUNTIME_SIZE);
+
+        if (badControl) {
+            if (runtime[CONTROL_HOLD_ACTIVE] == 0 && runtime[CONTROL_BAD_EPISODES] < Integer.MAX_VALUE) {
+                runtime[CONTROL_BAD_EPISODES]++;
+            }
+            runtime[CONTROL_HOLD_ACTIVE] = 1;
+        } else {
+            runtime[CONTROL_HOLD_ACTIVE] = 0;
+        }
+
         int selection = b ? 1 : 0;
         if (runtime[INITIALIZED] == 0) {
             runtime[LAST_SELECTION] = selection;
             runtime[INITIALIZED] = 1;
-        } else if (runtime[LAST_SELECTION] != selection) {
+        } else if (!badControl && runtime[LAST_SELECTION] != selection) {
             runtime[LAST_SELECTION] = selection;
             if (runtime[SWITCH_COUNT] < Integer.MAX_VALUE) runtime[SWITCH_COUNT]++;
         }
 
-        int selected = b
-                ? readInputFrom(level, pos, inputBSide(state))
-                : readBackInput(level, pos, state);
-        updateOutput(level, pos, state, selected);
+        Direction selectedSide = b ? inputBSide(state) : inputSide(state);
+        var selected = RedstoneObservationSupport.observe(level, pos, selectedSide);
+        // Preserve the selected numerical payload, while engineeringSnapshot carries its evidence quality.
+        updateOutput(level, pos, state, selected.value());
     }
 
     @Override
@@ -178,6 +207,8 @@ public final class SignalSelectorBlock extends DirectionalSignalBlock {
                 player.displayClientMessage(Component.literal(
                         "Signal Selector | invertSelect=" + (next.getValue(INVERT_SELECT) ? "YES" : "NO")
                                 + " | selected=" + (selectedB(level, pos, next) ? "B" : "A")
+                                + " | control=" + (controlHoldActive(level, pos) ? "HOLD LAST" : "LIVE")
+                                + " | badControlEpisodes=" + controlBadEpisodes(level, pos)
                                 + " | switches=" + switchCount(level, pos)
                                 + " | OUT=" + next.getValue(OUTPUT) + "/15"), true);
             } else {
