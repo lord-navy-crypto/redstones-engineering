@@ -249,12 +249,18 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.CONFIG_SIGNAL_SELECTOR -> {
                 boolean invert = menu.configPrimary() != 0;
                 boolean selectedB = menu.configSecondary() != 0;
-                statusBadge(g, "2:1 SIGNAL SELECTOR • " + (selectedB ? "B SELECTED" : "A SELECTED"), INFO, 16, 80);
+                boolean controlHold = menu.configQuaternary() != 0;
+                statusBadge(g,
+                        controlHold
+                                ? "2:1 SIGNAL SELECTOR • CONTROL DEGRADED"
+                                : "2:1 SIGNAL SELECTOR • " + (selectedB ? "B SELECTED" : "A SELECTED"),
+                        controlHold ? WARN : INFO, 16, 80);
                 labelValue(g, "Select logic", invert ? "INVERTED" : "NORMAL", 101);
                 labelValue(g, "Active input", selectedB ? "B" : "A", 123);
-                labelValue(g, "Selection changes", Integer.toString(menu.configTertiary()), 145);
-                safeText(g, "Two independent 0..15 redstone inputs share one output; SELECT chooses which analog payload is forwarded.", 16, 178, TEXT);
-                safeText(g, "Invert-select changes only control polarity, not the carried signal value.", 16, 200, MUTED);
+                labelValue(g, "Control evidence", controlHold ? "HOLD LAST SELECTION" : "LIVE", 145);
+                labelValue(g, "Selection changes", Integer.toString(menu.configTertiary()), 167);
+                safeText(g, "Two independent 0..15 redstone inputs share one output; SELECT chooses which analog payload is forwarded.", 16, 192, TEXT);
+                safeText(g, "If SELECT evidence becomes unusable, the selector holds the last valid route and marks OUT quality degraded instead of fabricating a healthy control decision.", 16, 214, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_SIGNAL_TAP -> {
                 statusBadge(g, "BUFFERED SIGNAL TAP", INFO, 16, 80);
