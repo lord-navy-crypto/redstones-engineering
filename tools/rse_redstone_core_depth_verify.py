@@ -48,11 +48,18 @@ req("src/main/java/dev/redstoneengineering/block/AnalogIndicatorBlock.java",
     "retainedMinimum","retainedMaximum","resetExtrema","sampleCount")
 
 req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
-    "CONFIG_QUARTZ_OSCILLATOR","CONFIG_FAULT_LATCH","CONFIG_ANALOG_INDICATOR","CONFIG_JUNCTION")
+    "CONFIG_QUARTZ_OSCILLATOR","CONFIG_FAULT_LATCH","CONFIG_ANALOG_INDICATOR","CONFIG_JUNCTION",
+    "RedstoneCableJunctionBlock.observeCarrier","carrier.quality().ordinal()")
 
 req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
     "QUARTZ TIMING SOURCE","FAULT LATCH","Reset permissive","Reset blocked • fault not clear",
-    "ANALOG REDSTONE INDICATOR","JUNCTION • ROUTING ONLY")
+    "ANALOG REDSTONE INDICATOR","JUNCTION • ROUTING ONLY",
+    "JUNCTION • NO CARRIER","JUNCTION • CARRIER STALE","JUNCTION • MEDIUM MISMATCH",
+    "Carrier evidence","Carrier usability","/ 255","bit ")
+
+req("src/main/java/dev/redstoneengineering/block/RedstoneCableJunctionBlock.java",
+    "record CarrierObservation","observeCarrier","PortQuality.TOPOLOGY_ERROR",
+    "junction.engineeringSnapshot","carrier.quality()")
 
 req("src/main/java/dev/redstoneengineering/block/RedstoneByteEncoderBlock.java",
     "FULL_SCALE","encode","stepMode","value * 17","inputEvidenceQuality")
