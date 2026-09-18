@@ -80,9 +80,19 @@ public final class SingleRelayBlock extends DirectionalSignalBlock {
         return Math.max(0, pickupLevel(state) - 2);
     }
 
+    public static RedstoneObservationSupport.Observation coilObservation(Level level, BlockPos pos, BlockState state) {
+        return RedstoneObservationSupport.observe(level, pos, controlSide(state));
+    }
+
     public static int coilInput(Level level, BlockPos pos, BlockState state) {
-        Direction control = controlSide(state);
-        return level.getSignal(pos.relative(control), control);
+        return coilObservation(level, pos, state).value();
+    }
+
+    private static boolean controlEvidenceUnusable(PortQuality quality) {
+        return quality == PortQuality.STALE
+                || quality == PortQuality.FAULT
+                || quality == PortQuality.DOMAIN_MISMATCH
+                || quality == PortQuality.TOPOLOGY_ERROR;
     }
 
     public static boolean coilEnergized(Level level, BlockPos pos, BlockState state) {
@@ -167,10 +177,13 @@ public final class SingleRelayBlock extends DirectionalSignalBlock {
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        int coilInput = coilInput(level, pos, state);
+        var coil = coilObservation(level, pos, state);
+        int coilInput = coil.value();
         int[] runtime = RuntimeIntStore.get(level, RUNTIME_KEY, pos, RUNTIME_SIZE);
         boolean coilWasActive = runtime[INITIALIZED] != 0 && runtime[COIL_ACTIVE] != 0;
-        boolean energized = coilWasActive
+        boolean energized = controlEvidenceUnusable(coil.quality())
+                ? coilWasActive
+                : coilWasActive
                 ? coilInput > dropoutLevel(state)
                 : coilInput >= pickupLevel(state);
         runtime[COIL_ACTIVE] = energized ? 1 : 0;
