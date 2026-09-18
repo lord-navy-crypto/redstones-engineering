@@ -13,6 +13,8 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
     private Button thresholdPrevious;
     private Button thresholdNext;
     private Button retriggerToggle;
+    private Button fallRatePrevious;
+    private Button fallRateNext;
 
     public SignalProcessorScreen(SignalProcessorMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -37,6 +39,13 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         retriggerToggle = addConfigureWidget(Button.builder(Component.literal("Retrigger"),
                 b -> sendMenuButton(SignalProcessorMenu.BUTTON_TOGGLE_RETRIGGER))
                 .bounds(leftPos + 102, topPos + 164, 116, 20).build());
+
+        fallRatePrevious = addConfigureWidget(Button.builder(Component.literal("◀ Fall rate"),
+                b -> sendMenuButton(SignalProcessorMenu.BUTTON_FILTER_FALL_PREVIOUS))
+                .bounds(leftPos + 16, topPos + 140, 110, 20).build());
+        fallRateNext = addConfigureWidget(Button.builder(Component.literal("Fall rate ▶"),
+                b -> sendMenuButton(SignalProcessorMenu.BUTTON_FILTER_FALL_NEXT))
+                .bounds(leftPos + 194, topPos + 140, 110, 20).build());
     }
 
     @Override
@@ -47,17 +56,27 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         parameterNext.setMessage(Component.literal(fitForWidth(parameter + " ▶", 94)));
 
         boolean pulse = menu.kind() == SignalProcessorMenu.KIND_PULSE;
+        boolean filter = menu.kind() == SignalProcessorMenu.KIND_FILTER;
         thresholdPrevious.visible = pulse;
         thresholdNext.visible = pulse;
         retriggerToggle.visible = pulse;
         thresholdPrevious.active = pulse;
         thresholdNext.active = pulse;
         retriggerToggle.active = pulse;
+        fallRatePrevious.visible = filter;
+        fallRateNext.visible = filter;
+        fallRatePrevious.active = filter;
+        fallRateNext.active = filter;
         if (pulse) {
             String threshold = "Trigger threshold " + menu.secondaryParameter() + "/15";
             thresholdPrevious.setMessage(Component.literal(fitForWidth("◀ " + threshold, 94)));
             thresholdNext.setMessage(Component.literal(fitForWidth(threshold + " ▶", 94)));
             retriggerToggle.setMessage(Component.literal("Retrigger: " + (menu.modeFlag() ? "YES" : "NO")));
+        }
+        if (filter) {
+            String fall = "Fall rate " + menu.secondaryParameter();
+            fallRatePrevious.setMessage(Component.literal(fitForWidth("◀ " + fall, 94)));
+            fallRateNext.setMessage(Component.literal(fitForWidth(fall + " ▶", 94)));
         }
     }
 
@@ -84,6 +103,9 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         if (menu.kind() == SignalProcessorMenu.KIND_PULSE) {
             safeText(g, "Threshold " + menu.secondaryParameter() + "/15 • retrigger "
                     + (menu.modeFlag() ? "enabled" : "blocked while busy"), 16, 188, MUTED);
+        } else if (menu.kind() == SignalProcessorMenu.KIND_FILTER) {
+            safeText(g, "Rise " + menu.parameter() + " • fall " + menu.secondaryParameter()
+                    + " level/tick • settle ETA " + menu.runtimeC() + "t", 16, 188, MUTED);
         } else {
             safeText(g, "All values are synchronized server evidence; processing stays inside the block tick.", 16, 199, MUTED);
         }
@@ -102,6 +124,10 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         labelValue(g, parameterName(), parameterValue(), 101);
         if (menu.kind() == SignalProcessorMenu.KIND_PULSE) {
             safeText(g, "Threshold controls the trigger crossing; retrigger mode decides whether a busy one-shot reloads.", 16, 194, MUTED);
+        } else if (menu.kind() == SignalProcessorMenu.KIND_FILTER) {
+            labelValue(g, "Rise rate", menu.parameter() + " level/tick", 101);
+            labelValue(g, "Fall rate", menu.secondaryParameter() + " level/tick", 181);
+            safeText(g, "Independent up/down slew limits model asymmetric charge, discharge, acceleration or deceleration.", 16, 201, MUTED);
         } else {
             labelValue(g, "Input face", menu.inputDirection().getName().toUpperCase(), 171);
             labelValue(g, "Output face", menu.outputDirection().getName().toUpperCase(), 187);
@@ -118,6 +144,9 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         if (menu.kind() == SignalProcessorMenu.KIND_PULSE) {
             labelValue(g, "Trigger threshold", menu.secondaryParameter() + " / 15", 180);
             labelValue(g, "Retrigger", menu.modeFlag() ? "ENABLED" : "BLOCK WHILE BUSY", 198);
+        } else if (menu.kind() == SignalProcessorMenu.KIND_FILTER) {
+            labelValue(g, "Fall rate", menu.secondaryParameter() + " level/tick", 180);
+            labelValue(g, "Settle ETA", menu.runtimeC() + " ticks", 198);
         } else {
             statusLine(g, "Authority", "SERVER SYNCHRONIZED", GOOD, 198);
         }
@@ -139,10 +168,12 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
             sectionRule(g, 184);
             safeText(g, "Suppressed triggers are threshold crossings rejected only because non-retriggerable mode was busy.", 16, 196, MUTED);
         } else {
-            labelValue(g, "Current lag", menu.runtimeA() + " levels", 110);
-            labelValue(g, "Response", menu.runtimeB() == 1 ? "SETTLED" : "SETTLING", 130);
-            sectionRule(g, 154);
-            safeText(g, "Slew lag is live state; no artificial time-series is created by the client.", 16, 170, MUTED);
+            labelValue(g, "Current lag", menu.runtimeA() + " levels", 104);
+            labelValue(g, "Tracking error", Integer.toString(menu.input() - menu.output()), 124);
+            labelValue(g, "Response", filterDirection(), 144);
+            labelValue(g, "Settle ETA", menu.runtimeC() + " ticks", 164);
+            sectionRule(g, 182);
+            safeText(g, "Rise/fall slew limits are physical response settings; error and ETA are live server evidence.", 16, 194, MUTED);
         }
     }
 
@@ -168,7 +199,7 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         return switch (menu.kind()) {
             case SignalProcessorMenu.KIND_EDGE -> "Edge mode";
             case SignalProcessorMenu.KIND_PULSE -> "Pulse width";
-            default -> "Slew rate";
+            default -> "Rise rate";
         };
     }
 
@@ -191,18 +222,25 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
             case SignalProcessorMenu.KIND_PULSE -> "MONOSTABLE • width=" + parameterValue()
                     + " • threshold=" + menu.secondaryParameter() + "/15"
                     + " • retrigger=" + (menu.modeFlag() ? "YES" : "NO");
-            default -> "SLEW LIMIT • " + parameterValue();
+            default -> "SLEW LIMIT • rise=" + parameterValue()
+                    + " • fall=" + menu.secondaryParameter() + " level/tick";
         };
     }
 
     private String stateName() {
         if (!menu.initialized()) return "UNINITIALIZED";
-        if (menu.kind() == SignalProcessorMenu.KIND_FILTER) return menu.runtimeB() == 1 ? "SETTLED" : "SETTLING";
+        if (menu.kind() == SignalProcessorMenu.KIND_FILTER) return filterDirection();
         if (menu.runtimeA() > 0 || menu.output() > 0) return "PULSE ACTIVE";
         return "READY";
     }
 
+    private String filterDirection() {
+        return menu.runtimeD() > 0 ? "RISING" : menu.runtimeD() < 0 ? "FALLING" : "SETTLED";
+    }
+
     private int stateColor() {
-        return !menu.initialized() ? WARN : (menu.runtimeA() > 0 || menu.output() > 0) ? INFO : GOOD;
+        if (!menu.initialized()) return WARN;
+        if (menu.kind() == SignalProcessorMenu.KIND_FILTER) return menu.runtimeD() == 0 ? GOOD : INFO;
+        return (menu.runtimeA() > 0 || menu.output() > 0) ? INFO : GOOD;
     }
 }
