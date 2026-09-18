@@ -67,6 +67,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_QUARTZ_OSCILLATOR = 22;
     public static final int CONFIG_FAULT_LATCH = 23;
     public static final int CONFIG_ANALOG_INDICATOR = 24;
+    public static final int CONFIG_JUNCTION = 25;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
@@ -109,7 +110,12 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         configSecondary.set(0);
         configTertiary.set(0);
 
-        if (block instanceof AnalogIndicatorBlock) {
+        if (block instanceof RedstoneCableJunctionBlock) {
+            configKind.set(CONFIG_JUNCTION);
+            configPrimary.set(state.getValue(RedstoneCableJunctionBlock.MEDIUM).ordinal());
+            configSecondary.set(RedstoneCableJunctionBlock.power(level, blockPos));
+            configTertiary.set(RedstoneCableJunctionBlock.carrierValid(level, blockPos) ? 1 : 0);
+        } else if (block instanceof AnalogIndicatorBlock) {
             configKind.set(CONFIG_ANALOG_INDICATOR);
             configPrimary.set(state.getValue(AnalogIndicatorBlock.LEVEL));
             configSecondary.set(AnalogIndicatorBlock.retainedMinimum(level, blockPos));
