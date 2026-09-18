@@ -66,6 +66,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_CABLE_TERMINAL = 21;
     public static final int CONFIG_QUARTZ_OSCILLATOR = 22;
     public static final int CONFIG_FAULT_LATCH = 23;
+    public static final int CONFIG_ANALOG_INDICATOR = 24;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
@@ -108,7 +109,12 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         configSecondary.set(0);
         configTertiary.set(0);
 
-        if (block instanceof QuartzOscillatorBlock) {
+        if (block instanceof AnalogIndicatorBlock) {
+            configKind.set(CONFIG_ANALOG_INDICATOR);
+            configPrimary.set(state.getValue(AnalogIndicatorBlock.LEVEL));
+            configSecondary.set(AnalogIndicatorBlock.retainedMinimum(level, blockPos));
+            configTertiary.set(AnalogIndicatorBlock.retainedMaximum(level, blockPos));
+        } else if (block instanceof QuartzOscillatorBlock) {
             configKind.set(CONFIG_QUARTZ_OSCILLATOR);
             configPrimary.set(state.getValue(QuartzOscillatorBlock.PERIOD_INDEX));
             configSecondary.set(state.getValue(QuartzOscillatorBlock.ACTIVE) ? 1 : 0);
@@ -342,6 +348,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean runAction() {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof AnalogIndicatorBlock) return AnalogIndicatorBlock.resetExtrema(level, blockPos);
         if (block instanceof FaultLatchBlock latch) return latch.manualReset(level, blockPos);
         if (block instanceof IronCoreBlock) return IronCoreBlock.degauss(level, blockPos);
         if (block instanceof MolecularCloudReceiverBlock receiver) return receiver.resetHistory(level, blockPos);
