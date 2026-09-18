@@ -180,7 +180,8 @@ req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.
 req("src/main/java/dev/redstoneengineering/block/SignalSelectorBlock.java",
     "INVERT_SELECT","SIGNAL A","SIGNAL B","SELECT","switchCount","toggleInvertSelect",
     "selectQuality","selectedPayloadQuality",
-    "combineQuality(selected.quality(), select.quality())")
+    "RedstoneObservationSupport.combineQuality(",
+    "selected.quality(), select.quality()")
 
 req("src/main/java/dev/redstoneengineering/RedstoneEngineering.java",
     "SIGNAL_SELECTOR_CODEC","SIGNAL_SELECTOR =","SIGNAL_SELECTOR_ITEM")
