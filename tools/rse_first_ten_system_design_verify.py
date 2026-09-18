@@ -111,8 +111,10 @@ require(
     "src/main/java/dev/redstoneengineering/block/PrecisionFilterBlock.java",
     "public static int lag",
     "public static boolean settled",
-    "SETTLING",
-    "Dynamic slew filter",
+    "Asymmetric slew-rate limiter",
+    "trackingError",
+    "settleTicks",
+    "stepFallRate",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/SampleHoldBlock.java",
@@ -195,7 +197,7 @@ print("RSE first-ten system design verification: PASS")
 print(" first ten registered blocks retain distinct engineering roles: PASS")
 print(" live Instrument Bus health vs retained capture separation: PASS")
 print(" zero measurement vs NO_SIGNAL distinction: PASS")
-print(" conditioning/calibration/filter responsibility split: PASS")
+print(" conditioning/calibration/asymmetric-filter responsibility split: PASS")
 print(" sample/edge transient chronology evidence: PASS")
 print(" observer-neutral runtime diagnostics: PASS")
 print(" registered design-contract GameTests: 5 (manual diagnostic / non-blocking)")
