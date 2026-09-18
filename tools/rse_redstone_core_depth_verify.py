@@ -195,6 +195,21 @@ req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java
 req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
     "Pickup / dropout","◀ Pickup","Pickup ▶")
 
+req("src/main/java/dev/redstoneengineering/physics/RedstoneObservationSupport.java",
+    "engineeringSnapshot","combineQuality","snapshot.get().quality()")
+
+req("src/main/java/dev/redstoneengineering/block/SignalSelectorBlock.java",
+    "RedstoneObservationSupport.observe","controlEvidenceUnusable")
+
+req("src/main/java/dev/redstoneengineering/block/SingleRelayBlock.java",
+    "coilObservation","controlEvidenceUnusable","input.quality()")
+
+req("src/main/java/dev/redstoneengineering/block/AnalogComparatorBlock.java",
+    "combineQuality","!processObservation.valid()","!referenceObservation.valid()")
+
+req("src/main/java/dev/redstoneengineering/block/SignalAmplifierBlock.java",
+    "RedstoneObservationSupport.observe","input.quality()")
+
 if failed:
     print("RSE redstone-core engineering-depth verification: FAIL")
     for x in failed: print(" -",x)
@@ -220,3 +235,4 @@ print(" tap/sample-hold/calibration evidence: PASS")
 print(" two-input analog signal selection: PASS")
 print(" live-reference hysteretic comparison: PASS")
 print(" relay pickup/dropout hysteresis: PASS")
+print(" redstone quality propagation and conservative control: PASS")
