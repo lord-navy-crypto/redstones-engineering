@@ -568,7 +568,12 @@ public final class DomainNetwork {
             BlockState s=level.getBlockState(n);
             if(s.getBlock() instanceof QuartzOscillatorBlock){
                 if(DirectionalDomainSourceBlock.outputsToward(s,d.getOpposite())){
-                    claims.add(new DomainDriverRegistry.Claim(n,p,s.getValue(QuartzOscillatorBlock.ACTIVE)?1:0,QuartzTimingLineBlock.periodTicks(s.getValue(QuartzOscillatorBlock.PERIOD_INDEX)),0,s.getBlock().getClass().getName()));
+                    claims.add(new DomainDriverRegistry.Claim(
+                            n, p,
+                            s.getValue(QuartzOscillatorBlock.ACTIVE) ? 1 : 0,
+                            QuartzOscillatorBlock.effectivePeriodTicks(level, n, s),
+                            0,
+                            s.getBlock().getClass().getName()));
                 }
             }else if(s.getBlock() instanceof QuartzLabOscillatorBlock){
                 if(DirectionalDomainSourceBlock.outputsToward(s,d.getOpposite())){
