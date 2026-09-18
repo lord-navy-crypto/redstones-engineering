@@ -32,6 +32,7 @@ import java.util.Optional;
 
 /**
  * Soft iron core with induced magnetization and low, decaying remanence.
+ * This remains a free-space magnetic material, not a wired magnetic-network conductor.
  *
  * MAGNETIZED remains a coarse visual/backward-compatible state flag. The authoritative magnetic
  * contribution is a 0..15 runtime magnetization that follows complete applied-field evidence
