@@ -79,6 +79,22 @@ public class DifferentialDriverBlock extends DirectionalDomainBlock implements E
         return RedstoneObservationSupport.observe(level, pos, inputSide(state));
     }
 
+    public static int inputLevel(Level level, BlockPos pos, BlockState state) {
+        return RedstoneObservationSupport.observe(
+                level, pos, DirectionalDomainBlock.seriesInputSide(state)).value();
+    }
+
+    public static dev.redstoneengineering.core.port.PortQuality inputQuality(
+            Level level, BlockPos pos, BlockState state
+    ) {
+        return RedstoneObservationSupport.observe(
+                level, pos, DirectionalDomainBlock.seriesInputSide(state)).quality();
+    }
+
+    public static int drivenBit(Level level, BlockPos pos, BlockState state) {
+        return inputLevel(level, pos, state) >= thresholdValue(state.getValue(THRESHOLD)) ? 1 : 0;
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(
             Level level, BlockPos pos, BlockState state, Direction side
@@ -87,9 +103,8 @@ public class DifferentialDriverBlock extends DirectionalDomainBlock implements E
         if (port.isEmpty()) return Optional.empty();
         RedstoneObservationSupport.Observation input = inputObservation(level, pos, state);
         if (side == inputSide(state)) {
-            return Optional.of(new EngineeringPortSnapshot(
-                    port.get(), input.value() >= thresholdValue(state.getValue(THRESHOLD)) ? 1.0 : 0.0,
-                    0.0, 1.0, input.quality()));
+            return Optional.of(EngineeringPortSnapshot.redstone(
+                    port.get(), input.value(), input.quality()));
         }
         InformationRuntime.Snapshot output = InformationRuntime.snapshot(level, "diff_out", pos);
         return Optional.of(new EngineeringPortSnapshot(
@@ -161,6 +176,7 @@ public class DifferentialDriverBlock extends DirectionalDomainBlock implements E
                 player.displayClientMessage(net.minecraft.network.chat.Component.literal(
                         "Differential driver | threshold=" + thresholdValue(next.getValue(THRESHOLD))
                                 + "/15 | input=" + input.value() + "/15"
+                                + " " + input.quality()
                                 + " | bit=" + (input.value() >= thresholdValue(next.getValue(THRESHOLD)) ? 1 : 0)), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
