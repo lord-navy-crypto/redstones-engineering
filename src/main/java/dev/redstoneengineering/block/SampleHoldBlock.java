@@ -110,8 +110,7 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
 
         if (resetNow) {
             if (rt[HELD_SLOT] != 0) rt[RESET_COUNT]++;
-            if (rt[HELD_SLOT] != 0) rt[RESET_COUNT]++;
-        rt[HELD_SLOT] = 0;
+            rt[HELD_SLOT] = 0;
         } else if (sample) {
             rt[HELD_SLOT] = readBackInput(level, pos, state);
             rt[CAPTURE_COUNT]++;
@@ -166,6 +165,7 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
         Direction facing = state.getValue(FACING);
         boolean triggerNow = readInputFrom(level, pos, leftOf(facing)) > 0;
         int[] rt = runtime(level, pos, state, triggerNow);
+        if (rt[HELD_SLOT] != 0) rt[RESET_COUNT]++;
         rt[HELD_SLOT] = 0;
         rt[TRIGGER_STATE_SLOT] = triggerNow ? 1 : 0;
         rt[INITIALIZED_SLOT] = 1;
