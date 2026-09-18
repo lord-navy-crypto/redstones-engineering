@@ -35,12 +35,15 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_TOGGLE_RETRIGGER = 10;
     public static final int BUTTON_FILTER_FALL_PREVIOUS = 11;
     public static final int BUTTON_FILTER_FALL_NEXT = 12;
+    public static final int BUTTON_PULSE_HYSTERESIS_PREVIOUS = 13;
+    public static final int BUTTON_PULSE_HYSTERESIS_NEXT = 14;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot input = trackedInt();
     private final DataSlot output = trackedInt();
     private final DataSlot parameter = trackedInt();
     private final DataSlot secondaryParameter = trackedInt();
+    private final DataSlot tertiaryParameter = trackedInt();
     private final DataSlot modeFlag = trackedInt();
     private final DataSlot runtimeA = trackedInt();
     private final DataSlot runtimeB = trackedInt();
@@ -68,6 +71,7 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
         output.set(0);
         parameter.set(0);
         secondaryParameter.set(0);
+        tertiaryParameter.set(0);
         modeFlag.set(0);
         runtimeA.set(0);
         runtimeB.set(0);
@@ -111,6 +115,7 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
             kind.set(KIND_PULSE);
             parameter.set(state.getValue(PulseShaperBlock.WIDTH));
             secondaryParameter.set(PulseShaperBlock.threshold(level, blockPos));
+            tertiaryParameter.set(PulseShaperBlock.hysteresis(level, blockPos));
             modeFlag.set(state.getValue(PulseShaperBlock.RETRIGGERABLE) ? 1 : 0);
             runtimeA.set(PulseShaperBlock.pulseRemaining(level, blockPos));
             runtimeB.set(PulseShaperBlock.triggerCount(level, blockPos));
@@ -150,6 +155,8 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
                 case BUTTON_THRESHOLD_PREVIOUS -> PulseShaperBlock.stepThreshold(level, blockPos, false);
                 case BUTTON_THRESHOLD_NEXT -> PulseShaperBlock.stepThreshold(level, blockPos, true);
                 case BUTTON_TOGGLE_RETRIGGER -> PulseShaperBlock.toggleRetriggerable(level, blockPos);
+                case BUTTON_PULSE_HYSTERESIS_PREVIOUS -> PulseShaperBlock.stepHysteresis(level, blockPos, false);
+                case BUTTON_PULSE_HYSTERESIS_NEXT -> PulseShaperBlock.stepHysteresis(level, blockPos, true);
                 default -> false;
             };
             if (changed) {
@@ -157,7 +164,10 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
                 broadcastChanges();
                 return true;
             }
-            if (id == BUTTON_THRESHOLD_PREVIOUS || id == BUTTON_THRESHOLD_NEXT || id == BUTTON_TOGGLE_RETRIGGER) return false;
+            if (id == BUTTON_THRESHOLD_PREVIOUS || id == BUTTON_THRESHOLD_NEXT
+                    || id == BUTTON_TOGGLE_RETRIGGER
+                    || id == BUTTON_PULSE_HYSTERESIS_PREVIOUS
+                    || id == BUTTON_PULSE_HYSTERESIS_NEXT) return false;
         }
 
         if (block instanceof PrecisionFilterBlock) {
@@ -200,6 +210,7 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
     public int output() { return output.get(); }
     public int parameter() { return parameter.get(); }
     public int secondaryParameter() { return secondaryParameter.get(); }
+    public int tertiaryParameter() { return tertiaryParameter.get(); }
     public boolean modeFlag() { return modeFlag.get() != 0; }
     public int runtimeA() { return runtimeA.get(); }
     public int runtimeB() { return runtimeB.get(); }
