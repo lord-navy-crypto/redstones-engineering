@@ -85,7 +85,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR
                 || kind == UniversalFieldDeviceMenu.CONFIG_SEQUENCE_CONTROLLER
                 || kind == UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK
-                || kind == UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER;
+                || kind == UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER
+                || kind == UniversalFieldDeviceMenu.CONFIG_IRON_CORE;
         boolean hasToggle = kind == UniversalFieldDeviceMenu.CONFIG_PWM;
 
         if (primaryPrevious != null) primaryPrevious.visible = configure && primary;
@@ -112,6 +113,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             else if (kind == UniversalFieldDeviceMenu.CONFIG_SEQUENCE_CONTROLLER) action.setMessage(Component.literal("Reset sequence to IDLE"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK) action.setMessage(Component.literal("Reset diagnostic counters"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER) action.setMessage(Component.literal("Reset scan counters"));
+            else if (kind == UniversalFieldDeviceMenu.CONFIG_IRON_CORE) action.setMessage(Component.literal("Degauss core"));
         }
         if (toggle != null) {
             toggle.visible = configure && hasToggle;
@@ -175,6 +177,15 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private void configure(GuiGraphics g) {
         int kind = menu.configKind();
         switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_IRON_CORE -> {
+                boolean complete = menu.configTertiary() != 0;
+                statusBadge(g, "SOFT IRON CORE", complete ? INFO : WARN, 16, 80);
+                labelValue(g, "Applied field", menu.configPrimary() + " / 15", 101);
+                labelValue(g, "Remanent field", menu.configSecondary() + " / 15", 123);
+                labelValue(g, "Coverage", complete ? "COMPLETE" : "INCOMPLETE / HOLD", 145);
+                safeText(g, "Soft iron follows applied field with finite magnetization and retains only low, decaying remanence after excitation is removed.", 16, 177, TEXT);
+                safeText(g, "Degauss explicitly clears retained magnetization; incomplete applied-field evidence freezes material state.", 16, 201, MUTED);
+            }
             case UniversalFieldDeviceMenu.CONFIG_ELECTROMAGNET -> {
                 int target = menu.configPrimary();
                 int thermal = menu.configSecondary();
