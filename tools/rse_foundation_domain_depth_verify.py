@@ -21,6 +21,7 @@ selector = "src/main/java/dev/redstoneengineering/block/SignalSelectorBlock.java
 lapis = "src/main/java/dev/redstoneengineering/block/LapisLowPassFilterBlock.java"
 quartz = "src/main/java/dev/redstoneengineering/block/QuartzClockDividerBlock.java"
 amethyst = "src/main/java/dev/redstoneengineering/block/AmethystResonatorBlock.java"
+spectrum = "src/main/java/dev/redstoneengineering/block/AmethystSpectrumAnalyzerBlock.java"
 domain = "src/main/java/dev/redstoneengineering/physics/DomainNetwork.java"
 ring = "src/main/java/dev/redstoneengineering/signal/AmethystRingdownLogic.java"
 
@@ -56,6 +57,12 @@ require(amethyst,
         "AmethystRingdownLogic.decay",
         "currentAmplitude",
         "ring-down=1 level / 2t")
+
+require(spectrum,
+        "Incomplete scan coverage is STALE evidence",
+        "if (spectrum.expectedCells() <= 0) return PortQuality.NO_SIGNAL;",
+        "if (!spectrum.complete()) return PortQuality.STALE;",
+        "return spectrum.samples() > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL;")
 
 require(domain,
         "int amp = AmethystResonatorBlock.currentAmplitude(level, src);",
@@ -127,4 +134,4 @@ print("RSE foundation-domain depth verification: PASS")
 print(" redstone selector evidence hold: PASS")
 print(" Lapis low-pass retained-state semantics: PASS")
 print(" Quartz divider real-edge phase lock + period multiplication: PASS")
-print(" Amethyst free ring-down source: PASS")
+print(" Amethyst free ring-down source + stale incomplete spectrum evidence: PASS")
