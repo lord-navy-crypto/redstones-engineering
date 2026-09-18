@@ -82,7 +82,9 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_REFERENCE_SOURCE;
         boolean range = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE
                 || kind == UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY
-                || kind == UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD;
+                || kind == UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD
+                || kind == UniversalFieldDeviceMenu.CONFIG_SIGNAL_PROBE
+                || kind == UniversalFieldDeviceMenu.CONFIG_REFERENCE_SOURCE;
         boolean hasAction = kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER
                 || kind == UniversalFieldDeviceMenu.CONFIG_ALARM
                 || kind == UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD
@@ -122,7 +124,13 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         }
         if (toggle != null) {
             toggle.visible = configure && hasToggle;
-            toggle.setMessage(Component.literal("Invert output • " + (menu.configSecondary() != 0 ? "ON" : "OFF")));
+            if (kind == UniversalFieldDeviceMenu.CONFIG_CABLE_TERMINAL) {
+                toggle.setMessage(Component.literal(menu.configSecondary() != 0
+                        ? "Mode • Cable → Vanilla"
+                        : "Mode • Vanilla → Cable"));
+            } else {
+                toggle.setMessage(Component.literal("Invert output • " + (menu.configSecondary() != 0 ? "ON" : "OFF")));
+            }
         }
     }
 
