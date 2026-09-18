@@ -221,6 +221,13 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private void configure(GuiGraphics g) {
         int kind = menu.configKind();
         switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_SIGNAL_TAP -> {
+                statusBadge(g, "BUFFERED SIGNAL TAP", INFO, 16, 80);
+                labelValue(g, "Copied level", menu.configPrimary() + " / 15", 101);
+                labelValue(g, "Main path", directionName(menu.configSecondary()) + " → " + directionName(menu.configTertiary()), 123);
+                safeText(g, "The THROUGH path preserves the original redstone level while the TAP output provides a separate observation copy.", 16, 164, TEXT);
+                safeText(g, "The tap never back-drives the main path; use it to feed indicators, analyzers and instrumentation without rewriting the process route.", 16, 190, MUTED);
+            }
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAPIS_SAMPLER -> {
                 statusBadge(g, "QUARTZ-SYNCHRONIZED SAMPLE & HOLD", INFO, 16, 80);
                 labelValue(g, "Held value", String.format(java.util.Locale.ROOT, "%.2f", menu.configPrimary() / 100.0), 101);
