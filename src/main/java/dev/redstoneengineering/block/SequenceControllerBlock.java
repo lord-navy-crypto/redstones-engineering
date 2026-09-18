@@ -187,8 +187,16 @@ public class SequenceControllerBlock extends PassiveDirectionalSignalBlock imple
                         (resetBad ? "RESET evidence unusable; fail-safe reset from step=" : "Reset forced sequence from step=")
                                 + oldStep + " to IDLE");
             }
-            if (!advanceBad) runtime[1] = advance > 0 ? 1 : 0;
-            runtime[2] = runBad ? 0 : (run > 0 ? 1 : 0);
+            if (!advanceBad) {
+                runtime[1] = advance > 0 ? 1 : 0;
+                runtime[ADVANCE_REACQUIRE] = 0;
+            }
+            if (runBad) {
+                runtime[2] = 0;
+            } else {
+                runtime[2] = run > 0 ? 1 : 0;
+                runtime[RUN_REACQUIRE] = 0;
+            }
             return 0;
         }
 
@@ -202,8 +210,12 @@ public class SequenceControllerBlock extends PassiveDirectionalSignalBlock imple
                         (runBad ? "RUN evidence unusable at step=" : "RUN removed at step=")
                                 + oldStep + "; sequence returned to IDLE");
             }
-            if (!advanceBad) runtime[1] = advance > 0 ? 1 : 0;
+            if (!advanceBad) {
+                runtime[1] = advance > 0 ? 1 : 0;
+                runtime[ADVANCE_REACQUIRE] = 0;
+            }
             runtime[2] = 0;
+            if (!runBad) runtime[RUN_REACQUIRE] = 0;
             return 0;
         }
 
