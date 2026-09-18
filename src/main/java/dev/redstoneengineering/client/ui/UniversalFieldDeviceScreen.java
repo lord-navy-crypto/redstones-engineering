@@ -398,11 +398,19 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 safeText(g, "This trace distributes timing rather than payload. One authoritative clock source is required; multiple sources become a topology conflict.", 16, 178, TEXT);
             }
             case UniversalFieldDeviceMenu.CONFIG_INSTRUMENT_BUS -> {
-                statusBadge(g, "INSTRUMENTATION BUS", INFO, 16, 80);
+                PortQuality evidence = syncedQuality(menu.configQuaternary());
+                String badge = evidence == PortQuality.NO_SIGNAL ? "INSTRUMENTATION BUS • NO PROBES"
+                        : evidence == PortQuality.STALE ? "INSTRUMENTATION BUS • STALE EVIDENCE"
+                        : evidence == PortQuality.TOPOLOGY_ERROR ? "INSTRUMENTATION BUS • TOPOLOGY ERROR"
+                        : evidenceIssue(evidence) ? "INSTRUMENTATION BUS • " + evidence.name()
+                        : "INSTRUMENTATION BUS";
+                statusBadge(g, badge,
+                        evidenceSevere(evidence) ? BAD : evidenceIssue(evidence) ? WARN : INFO, 16, 80);
                 labelValue(g, "Valid channels", menu.configPrimary() + " / 4", 101);
-                labelValue(g, "Interference confidence", menu.configSecondary() + "%", 123);
-                labelValue(g, "Shielding coverage", menu.configTertiary() + "%", 145);
-                safeText(g, "This bus is the measurement backbone: channel identity, shielding and interference confidence matter more than payload speed.", 16, 178, TEXT);
+                labelValue(g, "Evidence state", evidence.name(), 123);
+                labelValue(g, "Interference confidence", menu.configSecondary() + "%", 145);
+                labelValue(g, "Shielding coverage", menu.configTertiary() + "%", 167);
+                safeText(g, "Channel PortQuality is propagated from each probe; shielding and interference confidence remain separate physical evidence.", 16, 194, TEXT);
             }
             case UniversalFieldDeviceMenu.CONFIG_WATCHDOG -> {
                 int timeout = WatchdogBlock.timeoutTicks(menu.configPrimary());
@@ -676,11 +684,18 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 safeText(g, "Use it to inject known 0..15 values when calibrating conditioners, filters, thresholds, analyzers and control chains.", 16, 178, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_SIGNAL_PROBE -> {
-                statusBadge(g, "INSTRUMENT PROBE", INFO, 16, 80);
+                PortQuality evidence = syncedQuality(menu.configQuaternary());
+                String badge = evidence == PortQuality.NO_SIGNAL ? "INSTRUMENT PROBE • NO SOURCE"
+                        : evidence == PortQuality.STALE ? "INSTRUMENT PROBE • STALE"
+                        : evidenceIssue(evidence) ? "INSTRUMENT PROBE • " + evidence.name()
+                        : "INSTRUMENT PROBE";
+                statusBadge(g, badge,
+                        evidenceSevere(evidence) ? BAD : evidenceIssue(evidence) ? WARN : INFO, 16, 80);
                 labelValue(g, "Bus channel", SignalProbeBlock.channelName(menu.configPrimary()), 101);
                 labelValue(g, "Measured redstone", menu.configSecondary() + " / 15", 123);
-                safeText(g, "Select A/B/C/D to place the measured TEST value onto that Instrument Bus channel.", 16, 160, TEXT);
-                safeText(g, "Route changes the physical TEST/BUS axis; channel selection does not alter the measured redstone source.", 16, 188, MUTED);
+                labelValue(g, "Measurement evidence", evidence.name(), 145);
+                safeText(g, "The probe preserves source PortQuality while placing the observed TEST value onto the selected Instrument Bus channel.", 16, 178, TEXT);
+                safeText(g, "Route changes the physical TEST/BUS axis; channel selection never repairs or hides bad upstream evidence.", 16, 202, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_IRON_CORE -> {
                 boolean complete = menu.configTertiary() != 0;
