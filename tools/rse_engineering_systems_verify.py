@@ -57,8 +57,18 @@ require_all(module, (
 ), "EngineeringSystemsModule.java")
 if "@EventBusSubscriber" in module or "@SubscribeEvent" in module: errors.append("EngineeringSystemsModule.java: deprecated annotation event registration reintroduced")
 
-require_all(sequence, ("extends PassiveDirectionalSignalBlock", "SEQUENCE_CONTROLLER_CODEC.value()", '"RUN / ENABLE"', '"ADVANCE"', '"RESET"', '"HOLD"', '"STEP CODE"', "RuntimeIntStore.remove(level, KEY, pos)"), "SequenceControllerBlock.java")
-require_all(interlock, ("extends PassiveDirectionalSignalBlock", "SAFETY_INTERLOCK_CODEC.value()", '"PERMISSIVE A"', '"PERMISSIVE B"', '"PERMISSIVE C"', '"PERMIT OUT"', "failedMask(", "RuntimeIntStore.remove(level, KEY, pos)"), "SafetyInterlockBlock.java")
+require_all(sequence, (
+    "extends PassiveDirectionalSignalBlock", "SEQUENCE_CONTROLLER_CODEC.value()",
+    '"RUN / ENABLE"', '"ADVANCE"', '"RESET"', '"HOLD"', '"STEP CODE"',
+    "RUN_REACQUIRE", "runQuality", "runtime[RUN_REACQUIRE] = 1",
+    "RuntimeIntStore.remove(level, KEY, pos)"
+), "SequenceControllerBlock.java")
+require_all(interlock, (
+    "extends PassiveDirectionalSignalBlock", "SAFETY_INTERLOCK_CODEC.value()",
+    '"PERMISSIVE A"', '"PERMISSIVE B"', '"PERMISSIVE C"', '"PERMIT OUT"',
+    "failedMask(", "INITIALIZED", "runtime[INITIALIZED] == 0",
+    "RuntimeIntStore.remove(level, KEY, pos)"
+), "SafetyInterlockBlock.java")
 require_all(fault, ("FAULT_INJECTOR_CODEC.value()", "IntegerProperty.create(\"mode\", 0, 3)", '"STUCK LOW"', '"STUCK HIGH"', '"BIAS +4"', '"BIAS -4"', "PortQuality.FAULT", "RuntimeIntStore.remove(level, KEY, pos)"), "FaultInjectorBlock.java")
 require_all(alarm, ("ALARM_PROCESSOR_CODEC.value()", "IntegerProperty.create(\"severity\", 1, 3)", '"ALARM CONDITION"', '"ACKNOWLEDGE"', '"RESET / CLEAR"', '"ALARM OUT"', "RedstoneObservationSupport.observe", "conditionClearForReset", "CONDITION_REACQUIRE", "ACK_REACQUIRE", "RESET_REACQUIRE", "CONDITION_BAD_ACTIVE", "PortQuality.FAULT", "RuntimeIntStore.remove(level, KEY, pos)"), "AlarmProcessorBlock.java")
 require_all(debugger, ("TOPOLOGY_DEBUGGER_CODEC.value()", "EngineeringTopologyView.inspect", "TopologyDiagnosticsReport", '"TOPOLOGY ALARM OUT"', "report.hasIssue()", "RuntimeIntStore.remove(level, KEY, pos)"), "TopologyDebuggerBlock.java")
@@ -116,7 +126,7 @@ if len(compass_json.get("elements", [])) < 20:
     errors.append("engineering_compass model: expected explicit raised cardinal-letter geometry")
 
 count = len(re.findall(r"@GameTest\s*\(", gt))
-if count < 8: errors.append(f"RseEngineeringSystemsGameTests.java: expected at least 8 @GameTest methods, found {count}")
+if count < 9: errors.append(f"RseEngineeringSystemsGameTests.java: expected at least 9 @GameTest methods, found {count}")
 for needle in (
     "EngineeringSystemsModule.SEQUENCE_CONTROLLER.get().defaultBlockState()",
     "EngineeringSystemsModule.SAFETY_INTERLOCK.get().defaultBlockState()",
@@ -124,6 +134,8 @@ for needle in (
     "EngineeringSystemsModule.ALARM_PROCESSOR.get().defaultBlockState()",
     "EngineeringSystemsModule.TOPOLOGY_DEBUGGER.get().defaultBlockState()",
     "alarmProcessorFailsSafeOnBadConditionEvidence",
+    "sequenceOperatorResetRequiresFreshRunEdge",
+    "DirectionalSignalBlock.INPUT_FACING, Direction.WEST",
     "systemTimelineCapturesAlarmLifecycleAndFirstOut",
     "firstOutPreservesEarliestAbnormalEventInIncident",
 ):
