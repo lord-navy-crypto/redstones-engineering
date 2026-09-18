@@ -156,6 +156,12 @@ req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java
 req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
     "BUFFERED SIGNAL TAP","Held value","SAMPLE & HOLD")
 
+req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
+    "CONFIG_SIGNAL_TAP","CONFIG_SAMPLE_HOLD","CalibrationModuleBlock.measurement")
+
+req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
+    "BUFFERED SIGNAL TAP","Held value","Reference residual","Traceable samples")
+
 if failed:
     print("RSE redstone-core engineering-depth verification: FAIL")
     for x in failed: print(" -",x)
@@ -176,3 +182,4 @@ print(" relay/voter safety-control hardware: PASS")
 print(" dedicated amplifier gain/clipping stage: PASS")
 print(" synchronized precision sampling semantics: PASS")
 print(" buffered tap and sample-hold evidence: PASS")
+print(" tap/sample-hold/calibration evidence: PASS")
