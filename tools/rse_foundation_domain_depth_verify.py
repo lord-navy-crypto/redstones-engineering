@@ -18,6 +18,7 @@ def require(path: str, *tokens: str) -> None:
             failed.append(f"{path} missing token: {token}")
 
 selector = "src/main/java/dev/redstoneengineering/block/SignalSelectorBlock.java"
+selector_test = "src/main/java/dev/redstoneengineering/gametest/RseSignalSelectorEvidenceGameTests.java"
 lapis = "src/main/java/dev/redstoneengineering/block/LapisLowPassFilterBlock.java"
 quartz = "src/main/java/dev/redstoneengineering/block/QuartzClockDividerBlock.java"
 amethyst = "src/main/java/dev/redstoneengineering/block/AmethystResonatorBlock.java"
@@ -32,6 +33,11 @@ require(selector,
         "Unknown payload evidence is not a numerical zero",
         "payloadHoldActive",
         "payloadBadEpisodes")
+
+require(selector_test,
+        "selectorHoldsLastSelectionAndPayloadAcrossMissingEvidence",
+        "Missing SELECT did not hold the last trustworthy selection",
+        "Missing selected payload was converted to zero instead of holding OUT")
 
 require(lapis,
         "HISTORY_SLOT",
