@@ -24,12 +24,13 @@ for s in ("EngineeringTopologyView.inspect", "TopologyDiagnosticsReport", '"TOPO
 for s in ("DOMAIN_MISMATCH", "DIRECTION_MISMATCH", "PortQuality.FAULT", "disconnectedIsland", "hasIssue()", "summary()"): need(report,s,"TopologyDiagnosticsReport.java")
 for name in (
     "alarmProcessorLatchesAndRequiresHealthyReset",
+    "alarmProcessorFailsSafeOnBadConditionEvidence",
     "topologyDebuggerFlagsDanglingEngineeringTarget",
     "systemTimelineCapturesAlarmLifecycleAndFirstOut",
     "firstOutPreservesEarliestAbnormalEventInIncident",
 ): need(gt,name,"RseEngineeringSystemsGameTests.java")
 count=len(re.findall(r"@GameTest\s*\(",gt))
-if count < 7: errors.append(f"RseEngineeringSystemsGameTests.java: expected at least 7 systems GameTests, found {count}")
+if count < 8: errors.append(f"RseEngineeringSystemsGameTests.java: expected at least 8 systems GameTests, found {count}")
 if errors:
     print("RSE ALARM + TOPOLOGY DIAGNOSTICS VERIFY: FAIL")
     for e in errors: print(" -",e)
