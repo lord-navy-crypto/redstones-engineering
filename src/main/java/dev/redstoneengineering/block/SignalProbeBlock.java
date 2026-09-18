@@ -9,6 +9,7 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -122,9 +123,9 @@ public class SignalProbeBlock extends Block implements EngineeringPortProvider {
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        int measured = sample(level, pos, state);
-        return Optional.of(EngineeringPortSnapshot.redstone(
-                port.get(), measured, measurementPresent(level, pos, state, measured) ? PortQuality.VALID : PortQuality.NO_SIGNAL));
+        RedstoneObservationSupport.Observation observation = measurementObservation(level, pos, state);
+        return Optional.of(new EngineeringPortSnapshot(
+                port.get(), observation.value(), 0.0, 15.0, observation.quality()));
     }
 
     @Override
@@ -154,25 +155,22 @@ public class SignalProbeBlock extends Block implements EngineeringPortProvider {
         return probe.sample(level, pos, state);
     }
 
+    public static RedstoneObservationSupport.Observation measurementObservation(
+            Level level, BlockPos pos, BlockState state
+    ) {
+        return RedstoneObservationSupport.observe(level, pos, testSide(state));
+    }
+
     public int sample(Level level, BlockPos pos, BlockState state) {
-        Direction targetSide = testSide(state);
-        BlockPos targetPos = pos.relative(targetSide);
-        return SignalAnalyzerBlock.measureNode(
-                level,
-                targetPos,
-                level.getBlockState(targetPos),
-                targetSide
-        );
+        return measurementObservation(level, pos, state).value();
     }
 
     /**
-     * Zero is a valid engineering value when a real target exists. An open aperture with no
-     * target and no observed signal is NO_SIGNAL, preventing "0" from being mistaken for a
-     * confirmed zero-level measurement.
+     * Zero remains a usable engineering measurement when a real source explicitly reports zero.
+     * Missing, stale, faulted or topologically invalid evidence must not be promoted to VALID.
      */
     public static boolean measurementPresent(Level level, BlockPos pos, BlockState state, int measured) {
-        BlockState target = level.getBlockState(pos.relative(testSide(state)));
-        return measured > 0 || !target.isAir();
+        return measurementObservation(level, pos, state).valid();
     }
 
     @Override
@@ -187,14 +185,15 @@ public class SignalProbeBlock extends Block implements EngineeringPortProvider {
             if (player.isShiftKeyDown()) {
                 stepChannel(level, pos, true);
                 BlockState next = level.getBlockState(pos);
-                int value = sample(level, pos, next);
+                RedstoneObservationSupport.Observation observation = measurementObservation(level, pos, next);
+                int value = observation.value();
                 player.displayClientMessage(
                         Component.literal(
                                 "Probe channel → " + channelName(next.getValue(CHANNEL))
                                         + " | TEST=" + testSide(next).getName()
                                         + " | BUS=" + busSide(next).getName()
                                         + " | value=" + value + "/15"
-                                        + " | measurement=" + (measurementPresent(level, pos, next, value) ? "VALID" : "NO_SIGNAL")
+                                        + " | measurement=" + observation.quality()
                                         + " | direction-aware • non-invasive"
                                         + " | normal right-click opens Engineering UI"
                         ),
