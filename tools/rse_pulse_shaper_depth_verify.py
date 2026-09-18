@@ -21,36 +21,75 @@ def require(path: str, *tokens: str) -> None:
 
 logic = "src/main/java/dev/redstoneengineering/signal/PulseShaperLogic.java"
 block = "src/main/java/dev/redstoneengineering/block/PulseShaperBlock.java"
+entity = "src/main/java/dev/redstoneengineering/blockentity/PulseShaperBlockEntity.java"
+registration = "src/main/java/dev/redstoneengineering/RedstoneEngineering.java"
 menu = "src/main/java/dev/redstoneengineering/ui/menu/SignalProcessorMenu.java"
-screen = "src/main/java/dev/redstoneengineering/client/ui/SignalProcessorScreen.java"\nentity = "src/main/java/dev/redstoneengineering/blockentity/PulseShaperBlockEntity.java"\nregistration = "src/main/java/dev/redstoneengineering/RedstoneEngineering.java"
+screen = "src/main/java/dev/redstoneengineering/client/ui/SignalProcessorScreen.java"
 
-require(logic,
-        "record State",
-        "record Result",
-        "public static Result step(",
-        "acceptedTrigger",
-        "suppressedTrigger",
-        "retriggerable")
-require(block,
-        "THRESHOLD",
-        "RETRIGGERABLE",
-        "triggerCount",
-        "suppressedTriggerCount",
-        "lastTriggerAgeTicks",
-        "PulseShaperLogic.step",\n        "newBlockEntity")
-require(entity,\n        "class PulseShaperBlockEntity",\n        "threshold",\n        "acceptedTriggerCount",\n        "suppressedTriggerCount",\n        "lastTriggerTick",\n        "loadAdditional",\n        "saveAdditional",\n        "setChanged")\nrequire(registration,\n        "PulseShaperBlockEntity",\n        "PULSE_SHAPER_BLOCK_ENTITY",\n        'BLOCK_ENTITY_TYPES.register(\',\n        '"pulse_shaper"\')\nrequire(menu,
-        "BUTTON_THRESHOLD_PREVIOUS",
-        "BUTTON_THRESHOLD_NEXT",
-        "BUTTON_TOGGLE_RETRIGGER",
-        "PulseShaperBlock.stepThreshold",
-        "PulseShaperBlock.toggleRetriggerable")
-require(screen,
-        "Trigger threshold",
-        "Retrigger",
-        "Accepted triggers",
-        "Suppressed triggers")
+require(
+    logic,
+    "record State",
+    "record Result",
+    "public static Result step(",
+    "acceptedTrigger",
+    "suppressedTrigger",
+    "retriggerable",
+)
+require(
+    block,
+    "RETRIGGERABLE",
+    "implements EntityBlock",
+    "PulseShaperBlockEntity",
+    "threshold(level, pos)",
+    "triggerCount",
+    "suppressedTriggerCount",
+    "lastTriggerAgeTicks",
+    "PulseShaperLogic.step",
+    "newBlockEntity",
+    "RUNTIME_SIZE = 3",
+)
+require(
+    entity,
+    "class PulseShaperBlockEntity",
+    "threshold",
+    "acceptedTriggerCount",
+    "suppressedTriggerCount",
+    "lastTriggerTick",
+    "loadAdditional",
+    "saveAdditional",
+    "setChanged",
+)
+require(
+    registration,
+    "PulseShaperBlockEntity",
+    "PULSE_SHAPER_BLOCK_ENTITY",
+    "BLOCK_ENTITY_TYPES.register(",
+    '"pulse_shaper"',
+)
+require(
+    menu,
+    "BUTTON_THRESHOLD_PREVIOUS",
+    "BUTTON_THRESHOLD_NEXT",
+    "BUTTON_TOGGLE_RETRIGGER",
+    "PulseShaperBlock.threshold(level, blockPos)",
+    "PulseShaperBlock.stepThreshold",
+    "PulseShaperBlock.toggleRetriggerable",
+)
+require(
+    screen,
+    "Trigger threshold",
+    "Retrigger",
+    "Accepted triggers",
+    "Suppressed triggers",
+)
 
-block_text = (root / block).read_text(errors="ignore") if (root / block).is_file() else ""\nif "IntegerProperty THRESHOLD" in block_text or "builder.add(WIDTH, THRESHOLD" in block_text:\n    failed.append("PulseShaper threshold must not multiply BlockState variants")\n\n# Compile and execute the pure logic against representative monostable cases.
+block_text = (root / block).read_text(errors="ignore") if (root / block).is_file() else ""
+if "IntegerProperty THRESHOLD" in block_text:
+    failed.append("PulseShaper threshold must not multiply BlockState variants")
+if "builder.add(WIDTH, THRESHOLD" in block_text:
+    failed.append("PulseShaper threshold leaked into BlockState definition")
+
+# Compile and execute the pure logic against representative monostable cases.
 logic_path = root / logic
 if logic_path.is_file():
     harness = r'''
@@ -60,6 +99,7 @@ public final class PulseShaperHarness {
     private static void check(boolean condition, String message) {
         if (!condition) throw new AssertionError(message);
     }
+
     public static void main(String[] args) {
         var init = PulseShaperLogic.step(0, 8, 4, false,
                 new PulseShaperLogic.State(false, false, 0));
@@ -76,16 +116,20 @@ public final class PulseShaperHarness {
 
         var lowWhileBusy = PulseShaperLogic.step(0, 8, 4, false, rise.state());
         var secondRiseBlocked = PulseShaperLogic.step(8, 8, 4, false, lowWhileBusy.state());
-        check(secondRiseBlocked.suppressedTrigger(), "non-retriggerable mode suppresses busy retrigger");
-        check(!secondRiseBlocked.acceptedTrigger(), "suppressed trigger is not accepted");
+        check(secondRiseBlocked.suppressedTrigger(),
+                "non-retriggerable mode suppresses busy retrigger");
+        check(!secondRiseBlocked.acceptedTrigger(),
+                "suppressed trigger is not accepted");
 
         var rInit = PulseShaperLogic.step(0, 8, 4, true,
                 new PulseShaperLogic.State(false, false, 0));
         var rRise = PulseShaperLogic.step(8, 8, 4, true, rInit.state());
         var rLow = PulseShaperLogic.step(0, 8, 4, true, rRise.state());
         var rSecond = PulseShaperLogic.step(8, 8, 4, true, rLow.state());
-        check(rSecond.acceptedTrigger(), "retriggerable mode accepts busy retrigger");
-        check(rSecond.state().remainingTicks() == 3, "retrigger reloads configured width");
+        check(rSecond.acceptedTrigger(),
+                "retriggerable mode accepts busy retrigger");
+        check(rSecond.state().remainingTicks() == 3,
+                "retrigger reloads configured width");
 
         System.out.println("PulseShaperLogic semantic harness: PASS");
     }
@@ -98,17 +142,25 @@ public final class PulseShaperHarness {
             harness_path.write_text(harness)
             compile_run = subprocess.run(
                 ["javac", "-d", str(td), str(logic_path), str(harness_path)],
-                text=True, capture_output=True
+                text=True,
+                capture_output=True,
             )
             if compile_run.returncode != 0:
-                failed.append("javac semantic harness failed: " + (compile_run.stderr or compile_run.stdout).strip())
+                failed.append(
+                    "javac semantic harness failed: "
+                    + (compile_run.stderr or compile_run.stdout).strip()
+                )
             else:
                 execute = subprocess.run(
                     ["java", "-cp", str(td), "PulseShaperHarness"],
-                    text=True, capture_output=True
+                    text=True,
+                    capture_output=True,
                 )
                 if execute.returncode != 0:
-                    failed.append("semantic harness failed: " + (execute.stderr or execute.stdout).strip())
+                    failed.append(
+                        "semantic harness failed: "
+                        + (execute.stderr or execute.stdout).strip()
+                    )
     except FileNotFoundError:
         failed.append("javac/java unavailable for PulseShaper semantic harness")
 
@@ -122,4 +174,5 @@ print("RSE pulse-shaper engineering-depth verification: PASS")
 print(" threshold-triggered monostable semantics: PASS")
 print(" retriggerable/non-retriggerable behavior: PASS")
 print(" accepted/suppressed trigger diagnostics: PASS")
-print(" field HMI controls and evidence: PASS")\nprint(" persistent threshold/trigger evidence without high-cardinality BlockState: PASS")
+print(" field HMI controls and evidence: PASS")
+print(" persistent threshold/evidence without high-cardinality BlockState: PASS")
