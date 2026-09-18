@@ -83,6 +83,10 @@ require(
     "Suppressed triggers",
 )
 
+registration_text = (root / registration).read_text(errors="ignore") if (root / registration).is_file() else ""
+if "BlockEntity;\\nimport dev.redstoneengineering.blockentity" in registration_text:
+    failed.append("RedstoneEngineering.java contains an escaped import newline")
+
 block_text = (root / block).read_text(errors="ignore") if (root / block).is_file() else ""
 if "IntegerProperty THRESHOLD" in block_text:
     failed.append("PulseShaper threshold must not multiply BlockState variants")
