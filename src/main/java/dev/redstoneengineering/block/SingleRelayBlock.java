@@ -92,15 +92,27 @@ public final class SingleRelayBlock extends DirectionalSignalBlock {
     }
 
     public static int operateDelayTicks(BlockState state) {
-        return OPERATE_DELAYS[Math.max(0, Math.min(OPERATE_DELAYS.length - 1, state.getValue(TIMING_MODE)))];
+        return operateDelayForMode(state.getValue(TIMING_MODE));
     }
 
     public static int releaseDelayTicks(BlockState state) {
-        return RELEASE_DELAYS[Math.max(0, Math.min(RELEASE_DELAYS.length - 1, state.getValue(TIMING_MODE)))];
+        return releaseDelayForMode(state.getValue(TIMING_MODE));
+    }
+
+    public static int operateDelayForMode(int mode) {
+        return OPERATE_DELAYS[Math.max(0, Math.min(OPERATE_DELAYS.length - 1, mode))];
+    }
+
+    public static int releaseDelayForMode(int mode) {
+        return RELEASE_DELAYS[Math.max(0, Math.min(RELEASE_DELAYS.length - 1, mode))];
     }
 
     public static String timingName(BlockState state) {
-        return switch (state.getValue(TIMING_MODE)) {
+        return timingNameForMode(state.getValue(TIMING_MODE));
+    }
+
+    public static String timingNameForMode(int mode) {
+        return switch (mode) {
             case 0 -> "INSTANT";
             case 1 -> "FAST";
             case 2 -> "STANDARD";
