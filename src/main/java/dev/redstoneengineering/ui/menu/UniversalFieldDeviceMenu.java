@@ -270,6 +270,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configPrimary.set(state.getValue(FaultLatchBlock.THRESHOLD));
             configSecondary.set(FaultLatchBlock.latched(level, blockPos) ? 1 : 0);
             configTertiary.set(FaultLatchBlock.tripCount(level, blockPos));
+            configQuaternary.set(FaultLatchBlock.resetPermitted(level, blockPos, state) ? 1 : 0);
         } else if (block instanceof RedstoneCableTerminalBlock) {
             RedstoneCableNetwork.PathEvidence path = RedstoneCableNetwork.pathEvidence(level, blockPos);
             configKind.set(CONFIG_CABLE_TERMINAL);
