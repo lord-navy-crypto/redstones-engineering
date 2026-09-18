@@ -9,6 +9,7 @@ import dev.redstoneengineering.block.SafetyInterlockBlock;
 import dev.redstoneengineering.block.SequenceControllerBlock;
 import dev.redstoneengineering.block.TopologyDebuggerBlock;
 import dev.redstoneengineering.diagnostics.events.FirstOutAnalysis;
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.diagnostics.events.SystemEventKind;
 import dev.redstoneengineering.diagnostics.events.SystemEventScope;
 import dev.redstoneengineering.diagnostics.events.SystemEventTimeline;
