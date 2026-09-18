@@ -79,7 +79,7 @@ public class RedstoneReferenceSourceBlock extends DirectionalRedstoneEndpointBlo
         if (next == power) return false;
         level.setBlock(pos, state.setValue(POWER, next), Block.UPDATE_CLIENTS);
         level.updateNeighborsAt(pos, source);
-        level.updateNeighborsAt(pos.relative(frontSide(state)), source);
+        level.updateNeighborsAt(pos.relative(state.getValue(DirectionalRedstoneEndpointBlock.FACING)), source);
         return true;
     }
 
