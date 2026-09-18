@@ -116,7 +116,8 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
         if (input >= 15) output = 15;
         if (state.getValue(INVERT)) output = output > 0 ? 0 : 15;
         // Invalid command evidence and unusable safety evidence both fail to a de-energized output.
-        if (!commandUsable || inhibited) output = 0;
+        if (!commandUsable) output = 0;
+        if (inhibited) output = 0;
 
         updateOutput(level, pos, state, output);
         if (commandUsable && !inhibited && input > 0 && input < 15) {
