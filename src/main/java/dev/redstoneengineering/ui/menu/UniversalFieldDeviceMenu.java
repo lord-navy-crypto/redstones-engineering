@@ -169,7 +169,10 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configPrimary.set(state.getValue(SingleRelayBlock.NORMALLY_CLOSED) ? 1 : 0);
             configSecondary.set(SingleRelayBlock.coilEnergized(level, blockPos, state) ? 1 : 0);
             configTertiary.set(SingleRelayBlock.switchCount(level, blockPos));
-            configQuaternary.set(state.getValue(SingleRelayBlock.PICKUP_MODE));
+            int relayStatus = state.getValue(SingleRelayBlock.PICKUP_MODE);
+            if (SingleRelayBlock.controlHoldActive(level, blockPos)) relayStatus |= 4;
+            if (SingleRelayBlock.payloadHoldActive(level, blockPos)) relayStatus |= 8;
+            configQuaternary.set(relayStatus);
         } else if (block instanceof QuartzTimingLineBlock) {
             configKind.set(CONFIG_QUARTZ_TRACE);
             configPrimary.set(QuartzTimingLineBlock.period(level, blockPos));
