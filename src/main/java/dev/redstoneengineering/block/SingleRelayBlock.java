@@ -23,6 +23,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
 import java.util.List;
@@ -37,17 +38,22 @@ import java.util.Optional;
  */
 public final class SingleRelayBlock extends DirectionalSignalBlock {
     public static final BooleanProperty NORMALLY_CLOSED = BooleanProperty.create("normally_closed");
+    public static final IntegerProperty PICKUP_MODE = IntegerProperty.create("pickup_mode", 0, 3);
+    private static final int[] PICKUP_LEVELS = {1, 4, 8, 12};
 
     private static final String RUNTIME_KEY = "single_relay";
     private static final int LAST_CLOSED = 0;
     private static final int SWITCH_COUNT = 1;
     private static final int ENERGIZED_TICKS = 2;
     private static final int INITIALIZED = 3;
-    private static final int RUNTIME_SIZE = 4;
+    private static final int COIL_ACTIVE = 4;
+    private static final int RUNTIME_SIZE = 5;
 
     public SingleRelayBlock(Properties properties) {
         super(properties);
-        registerDefaultState(defaultBlockState().setValue(NORMALLY_CLOSED, false));
+        registerDefaultState(defaultBlockState()
+                .setValue(NORMALLY_CLOSED, false)
+                .setValue(PICKUP_MODE, 0));
     }
 
     @Override
@@ -58,21 +64,47 @@ public final class SingleRelayBlock extends DirectionalSignalBlock {
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
-        builder.add(NORMALLY_CLOSED);
+        builder.add(NORMALLY_CLOSED, PICKUP_MODE);
     }
 
     public static Direction controlSide(BlockState state) {
         return leftOf(seriesOutputSide(state));
     }
 
-    public static boolean coilEnergized(Level level, BlockPos pos, BlockState state) {
+    public static int pickupLevel(BlockState state) {
+        return PICKUP_LEVELS[Math.max(0, Math.min(PICKUP_LEVELS.length - 1, state.getValue(PICKUP_MODE)))];
+    }
+
+    public static int dropoutLevel(BlockState state) {
+        return Math.max(0, pickupLevel(state) - 2);
+    }
+
+    public static int coilInput(Level level, BlockPos pos, BlockState state) {
         Direction control = controlSide(state);
-        return level.getSignal(pos.relative(control), control) > 0;
+        return level.getSignal(pos.relative(control), control);
+    }
+
+    public static boolean coilEnergized(Level level, BlockPos pos, BlockState state) {
+        int[] runtime = RuntimeIntStore.peek(level, RUNTIME_KEY, pos);
+        if (runtime != null && runtime.length >= RUNTIME_SIZE && runtime[INITIALIZED] != 0) {
+            return runtime[COIL_ACTIVE] != 0;
+        }
+        return coilInput(level, pos, state) >= pickupLevel(state);
     }
 
     public static boolean contactClosed(Level level, BlockPos pos, BlockState state) {
         boolean energized = coilEnergized(level, pos, state);
         return state.getValue(NORMALLY_CLOSED) ? !energized : energized;
+    }
+
+    public static boolean stepPickup(Level level, BlockPos pos, boolean forward) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof SingleRelayBlock relay)) return false;
+        int current = state.getValue(PICKUP_MODE);
+        int next = Math.floorMod(current + (forward ? 1 : -1), PICKUP_LEVELS.length);
+        level.setBlock(pos, state.setValue(PICKUP_MODE, next), Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, relay, 1);
+        return true;
     }
 
     public static int switchCount(Level level, BlockPos pos) {
@@ -126,9 +158,15 @@ public final class SingleRelayBlock extends DirectionalSignalBlock {
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        boolean energized = coilEnergized(level, pos, state);
-        boolean closed = state.getValue(NORMALLY_CLOSED) ? !energized : energized;
+        int coilInput = coilInput(level, pos, state);
         int[] runtime = RuntimeIntStore.get(level, RUNTIME_KEY, pos, RUNTIME_SIZE);
+        boolean coilWasActive = runtime[INITIALIZED] != 0 && runtime[COIL_ACTIVE] != 0;
+        boolean energized = coilWasActive
+                ? coilInput > dropoutLevel(state)
+                : coilInput >= pickupLevel(state);
+        runtime[COIL_ACTIVE] = energized ? 1 : 0;
+
+        boolean closed = state.getValue(NORMALLY_CLOSED) ? !energized : energized;
         if (runtime[INITIALIZED] == 0) {
             runtime[LAST_CLOSED] = closed ? 1 : 0;
             runtime[INITIALIZED] = 1;
@@ -157,6 +195,9 @@ public final class SingleRelayBlock extends DirectionalSignalBlock {
                 player.displayClientMessage(Component.literal(
                         "Single Relay | mode=" + (next.getValue(NORMALLY_CLOSED) ? "NC" : "NO")
                                 + " | coil=" + (coilEnergized(level, pos, next) ? "ENERGIZED" : "OFF")
+                                + " input=" + coilInput(level, pos, next) + "/15"
+                                + " pickup=" + pickupLevel(next)
+                                + " dropout=" + dropoutLevel(next)
                                 + " | contact=" + (contactClosed(level, pos, next) ? "CLOSED" : "OPEN")
                                 + " | switches=" + switchCount(level, pos)), true);
             } else {
