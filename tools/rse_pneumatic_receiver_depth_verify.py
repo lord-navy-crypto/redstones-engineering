@@ -18,7 +18,7 @@ screen="src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.ja
 require(block,
         'IntegerProperty.create("range_mode", 0, 2)',
         "fullScalePressure","scaledOutput","stepRange",
-        "Math.round((boundedPressure / (double) fullScale) * 15.0)")
+        "Math.round((boundedPressure / (double) boundedScale) * 15.0)")
 require(menu,
         "PneumaticReceiverBlock.RANGE_MODE",
         "PneumaticReceiverBlock.fullScalePressure",
