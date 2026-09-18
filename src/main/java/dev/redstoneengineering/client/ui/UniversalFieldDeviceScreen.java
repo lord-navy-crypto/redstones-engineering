@@ -538,8 +538,10 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD -> {
                 statusBadge(g, "SAMPLE & HOLD", INFO, 16, 80);
                 labelValue(g, "Trigger mode", SampleHoldBlock.modeName(menu.configPrimary()), 101);
-                labelValue(g, "Captures", Integer.toString(menu.configSecondary()), 141);
-                safeText(g, "Clear held value is an operator action; TRIGGER and RESET remain physical ports.", 16, 188, MUTED);
+                labelValue(g, "Held value", menu.configTertiary() + " / 15", 123);
+                labelValue(g, "Captures", Integer.toString(menu.configSecondary()), 145);
+                safeText(g, "The value input is copied only on the configured trigger edge, then retained until another capture or RESET.", 16, 178, TEXT);
+                safeText(g, "Clear held value is an operator action; TRIGGER and RESET remain physical ports.", 16, 200, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_CALIBRATION -> {
                 statusBadge(g, "CALIBRATION PROFILE", INFO, 16, 80);
