@@ -69,6 +69,8 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
     private final DataSlot cylinderStallTicks = trackedInt();
     private final DataSlot cylinderReversals = trackedInt();
     private final DataSlot cylinderSamples = trackedInt();
+    private final DataSlot compressorTrackingError = trackedInt();
+    private final DataSlot compressorRunTicks = trackedInt();
 
     public PneumaticSystemMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -90,9 +92,18 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
         commissioning.set(CommissioningStatus.NOT_READY.code());
         cylinderSupply.set(0); cylinderPathEdges.set(0); cylinderObservedLoss.set(0); cylinderLineLoss.set(0); cylinderRestrictionLoss.set(0);
         cylinderResponsePeriod.set(0); cylinderRemainingTicks.set(0); cylinderVelocity.set(0); cylinderError.set(0); cylinderStallTicks.set(0); cylinderReversals.set(0); cylinderSamples.set(0);
+        compressorTrackingError.set(0); compressorRunTicks.set(0);
 
         if (block instanceof AirCompressorBlock) {
-            kind.set(KIND_COMPRESSOR); primary.set(AirCompressorBlock.commandSignal(level, blockPos)); secondary.set(AirCompressorBlock.commandedPressure(level, blockPos)); tertiary.set(PneumaticNetwork.pressure(level, blockPos)); setNodeQuality();
+            kind.set(KIND_COMPRESSOR);
+            primary.set(AirCompressorBlock.commandSignal(level, blockPos));
+            secondary.set(AirCompressorBlock.commandedPressure(level, blockPos));
+            tertiary.set(AirCompressorBlock.actualPressure(level, blockPos));
+            auxiliary.set(AirCompressorBlock.startCount(level, blockPos));
+            stateFlag.set(state.getValue(AirCompressorBlock.RESPONSE_MODE));
+            compressorTrackingError.set(AirCompressorBlock.trackingError(level, blockPos));
+            compressorRunTicks.set(AirCompressorBlock.runTicks(level, blockPos));
+            setNodeQuality();
         } else if (block instanceof PneumaticPipeBlock) {
             kind.set(KIND_PIPE); primary.set(PneumaticNetwork.pressure(level, blockPos)); setNodeQuality();
         } else if (block instanceof AirReservoirBlock) {
@@ -178,7 +189,12 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
         Block block = state.getBlock();
         boolean changed = false;
 
-        if (block instanceof PressureRegulatorBlock) {
+        if (block instanceof AirCompressorBlock) {
+            if (id == BUTTON_PARAMETER_PREVIOUS || id == BUTTON_PARAMETER_NEXT) {
+                changed = AirCompressorBlock.stepResponseMode(
+                        level, blockPos, id == BUTTON_PARAMETER_NEXT);
+            }
+        } else if (block instanceof PressureRegulatorBlock) {
             if (id == BUTTON_PARAMETER_PREVIOUS || id == BUTTON_PARAMETER_NEXT) {
                 int value = state.getValue(PressureRegulatorBlock.SETPOINT);
                 value = id == BUTTON_PARAMETER_NEXT ? value % 4 + 1 : value <= 1 ? 4 : value - 1;
@@ -284,6 +300,8 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
     public int cylinderStallTicks() { return cylinderStallTicks.get(); }
     public int cylinderReversals() { return cylinderReversals.get(); }
     public int cylinderSamples() { return cylinderSamples.get(); }
+    public int compressorTrackingError() { return compressorTrackingError.get(); }
+    public int compressorRunTicks() { return compressorRunTicks.get(); }
     public CommissioningStatus commissioningStatus() { return CommissioningStatus.fromCode(commissioning.get()); }
 
     private static PortQuality quality(int ordinal) {
