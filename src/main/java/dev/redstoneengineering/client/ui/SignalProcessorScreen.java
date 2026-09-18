@@ -125,7 +125,6 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         if (menu.kind() == SignalProcessorMenu.KIND_PULSE) {
             safeText(g, "Threshold controls the trigger crossing; retrigger mode decides whether a busy one-shot reloads.", 16, 194, MUTED);
         } else if (menu.kind() == SignalProcessorMenu.KIND_FILTER) {
-            labelValue(g, "Rise rate", menu.parameter() + " level/tick", 101);
             labelValue(g, "Fall rate", menu.secondaryParameter() + " level/tick", 181);
             safeText(g, "Independent up/down slew limits model asymmetric charge, discharge, acceleration or deceleration.", 16, 201, MUTED);
         } else {
