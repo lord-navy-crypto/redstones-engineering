@@ -9,6 +9,7 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.signal.EngineeringSignal;
 import dev.redstoneengineering.ui.menu.SignalAnalyzerMenu;
@@ -101,18 +102,26 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
+        RedstoneObservationSupport.Observation observation = measurementObservation(level, pos, state);
         boolean inlineOutput = side == inlineOutputSide(state) && state.getValue(MODE) == INLINE;
-        int value = inlineOutput ? state.getValue(OUTPUT) : sampleTarget(level, pos, state);
-        PortQuality quality = inlineOutput || measurementPresent(level, pos, state, value)
-                ? PortQuality.VALID
-                : PortQuality.NO_SIGNAL;
-        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value, quality));
+        int value = inlineOutput ? state.getValue(OUTPUT) : observation.value();
+        return Optional.of(EngineeringPortSnapshot.redstone(
+                port.get(), value, observation.quality()));
     }
 
-    /** A real target at zero is VALID; an empty measurement aperture at zero is NO_SIGNAL. */
+    public static RedstoneObservationSupport.Observation measurementObservation(
+            Level level, BlockPos pos, BlockState state
+    ) {
+        return RedstoneObservationSupport.observe(level, pos, testSide(state));
+    }
+
+    public static PortQuality measurementQuality(Level level, BlockPos pos, BlockState state) {
+        return measurementObservation(level, pos, state).quality();
+    }
+
+    /** A real zero remains valid only when the observed source explicitly carries usable evidence. */
     private static boolean measurementPresent(Level level, BlockPos pos, BlockState state, int measured) {
-        BlockState target = level.getBlockState(pos.relative(testSide(state)));
-        return measured > 0 || !target.isAir();
+        return measurementObservation(level, pos, state).valid();
     }
 
     @Override
@@ -169,9 +178,7 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
     }
 
     private static int sampleTarget(Level level, BlockPos pos, BlockState state) {
-        Direction side = testSide(state);
-        BlockPos targetPos = pos.relative(side);
-        return measureNode(level, targetPos, level.getBlockState(targetPos), side);
+        return measurementObservation(level, pos, state).value();
     }
 
     /** Runtime: totals/latest/min/max/edges/timestamps + 16-sample ring at 17..32. */
