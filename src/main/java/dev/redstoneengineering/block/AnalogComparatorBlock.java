@@ -9,6 +9,7 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -134,12 +135,14 @@ public final class AnalogComparatorBlock extends DirectionalSignalBlock {
     ) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
-        int value = side == outputSide(state)
-                ? state.getValue(OUTPUT)
-                : side == inputSide(state)
-                ? processValue(level, pos, state)
-                : referenceValue(level, pos, state);
-        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value, PortQuality.VALID));
+        if (side == outputSide(state)) {
+            var process = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+            var reference = RedstoneObservationSupport.observe(level, pos, referenceSide(state));
+            PortQuality quality = RedstoneObservationSupport.combineQuality(process.quality(), reference.quality());
+            return Optional.of(EngineeringPortSnapshot.redstone(port.get(), state.getValue(OUTPUT), quality));
+        }
+        var observed = RedstoneObservationSupport.observe(level, pos, side);
+        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), observed.value(), observed.quality()));
     }
 
     @Override
