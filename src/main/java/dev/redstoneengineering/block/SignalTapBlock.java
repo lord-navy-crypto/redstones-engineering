@@ -7,7 +7,7 @@ import dev.redstoneengineering.core.port.EngineeringPort;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
-import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -51,8 +51,9 @@ public class SignalTapBlock extends DirectionalSignalBlock {
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> descriptor = engineeringPort(state, side);
         if (descriptor.isEmpty()) return Optional.empty();
-        int value = side == inputSide(state) ? readInputFrom(level, pos, side) : state.getValue(OUTPUT);
-        return Optional.of(EngineeringPortSnapshot.redstone(descriptor.get(), value, PortQuality.VALID));
+        var input = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+        int value = side == inputSide(state) ? input.value() : state.getValue(OUTPUT);
+        return Optional.of(EngineeringPortSnapshot.redstone(descriptor.get(), value, input.quality()));
     }
 
     @Override
@@ -70,7 +71,8 @@ public class SignalTapBlock extends DirectionalSignalBlock {
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        updateOutput(level, pos, state, readBackInput(level, pos, state));
+        var input = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+        updateOutput(level, pos, state, input.value());
         level.updateNeighborsAt(pos.relative(leftOf(state.getValue(FACING))), this);
     }
 
@@ -86,6 +88,7 @@ public class SignalTapBlock extends DirectionalSignalBlock {
                             + " | THROUGH=" + outputSide(state).getName()
                             + " | TAP COPY=" + leftOf(state.getValue(FACING)).getName()
                             + " | value=" + state.getValue(OUTPUT) + "/15"
+                            + " | quality=" + RedstoneObservationSupport.observe(level, pos, inputSide(state)).quality()
                             + " | main path preserved; tap cannot back-drive IN/THROUGH"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
