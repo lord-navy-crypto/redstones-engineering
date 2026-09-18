@@ -84,6 +84,23 @@ public class QuartzOscillatorBlock extends DirectionalDomainSourceBlock implemen
         l.scheduleTick(p,this,Math.max(1,period/2));
     }
 
+    public static boolean stepPeriod(Level level, BlockPos pos, boolean forward) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof QuartzOscillatorBlock oscillator)) return false;
+        int current = state.getValue(PERIOD_INDEX);
+        int next = Math.floorMod(current + (forward ? 1 : -1), 5);
+        level.setBlock(pos, state.setValue(PERIOD_INDEX, next), Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel server) {
+            DomainNetwork.recomputeQuartz(server, pos);
+            server.scheduleTick(pos, oscillator, 1);
+        }
+        return true;
+    }
+
+    public static int periodTicks(BlockState state) {
+        return QuartzTimingLineBlock.periodTicks(state.getValue(PERIOD_INDEX));
+    }
+
     @Override
     protected InteractionResult useWithoutItem(BlockState s,Level l,BlockPos p,Player pl,BlockHitResult hit){
         if(!l.isClientSide&&pl instanceof ServerPlayer serverPlayer){
@@ -101,12 +118,10 @@ public class QuartzOscillatorBlock extends DirectionalDomainSourceBlock implemen
                                     + " | shift-click UP/DOWN changes period"), true);
                 }
             } else {
-                int i=(s.getValue(PERIOD_INDEX)+1)%5;
-                BlockState n=s.setValue(PERIOD_INDEX,i);
-                l.setBlock(p,n,Block.UPDATE_CLIENTS);
-                if(l instanceof ServerLevel sl)DomainNetwork.recomputeQuartz(sl,p);
+                stepPeriod(l, p, true);
+                BlockState n=l.getBlockState(p);
                 pl.displayClientMessage(Component.literal(
-                        "Quartz oscillator period = "+QuartzTimingLineBlock.periodTicks(i)+" ticks"
+                        "Quartz oscillator period = "+periodTicks(n)+" ticks"
                                 + " | OUT=" + outputSide(n).getName().toUpperCase()),true);
             }
         }
