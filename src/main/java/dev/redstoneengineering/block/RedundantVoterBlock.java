@@ -75,20 +75,28 @@ public class RedundantVoterBlock extends PassiveDirectionalSignalBlock {
 
         int[] values = new int[3];
         int valid = 0;
-        boolean anyStale = false;
+        PortQuality evidenceQuality = PortQuality.VALID;
         for (RedstoneObservationSupport.Observation observation : observations) {
-            if (observation.quality() == PortQuality.STALE) anyStale = true;
+            evidenceQuality = RedstoneObservationSupport.combineQuality(
+                    evidenceQuality, observation.quality());
             if (observation.valid()) values[valid++] = observation.value();
         }
         if (valid < 2) {
-            return new Vote(0, anyStale ? PortQuality.STALE : PortQuality.NO_SIGNAL, valid, 0);
+            PortQuality insufficientQuality = RedstoneObservationSupport.combineQuality(
+                    PortQuality.NO_SIGNAL, evidenceQuality);
+            return new Vote(0, insufficientQuality, valid, 0);
         }
 
         Arrays.sort(values, 0, valid);
         int spread = values[valid - 1] - values[0];
         int voted = valid == 3 ? values[1] : (values[0] + values[1] + 1) / 2;
         boolean healthy = valid == 3 && spread <= toleranceValue(state.getValue(TOLERANCE));
-        return new Vote(voted, healthy ? PortQuality.VALID : PortQuality.FAULT, valid, spread);
+        PortQuality votingQuality = healthy ? PortQuality.VALID : PortQuality.FAULT;
+        return new Vote(
+                voted,
+                RedstoneObservationSupport.combineQuality(votingQuality, evidenceQuality),
+                valid,
+                spread);
     }
 
     @Override
