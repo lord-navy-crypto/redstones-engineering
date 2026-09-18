@@ -8,6 +8,7 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
@@ -74,6 +75,29 @@ public class FaultInjectorBlock extends PassiveDirectionalSignalBlock {
         );
     }
 
+    private record Evidence(
+            RedstoneObservationSupport.Observation signal,
+            RedstoneObservationSupport.Observation arm
+    ) {}
+
+    private Evidence evidence(Level level, BlockPos pos, BlockState state) {
+        Direction front = outputSide(state);
+        return new Evidence(
+                RedstoneObservationSupport.observe(level, pos, inputSide(state)),
+                RedstoneObservationSupport.observe(level, pos, rightOf(front))
+        );
+    }
+
+    public static PortQuality signalQuality(Level level, BlockPos pos, BlockState state) {
+        return RedstoneObservationSupport.observe(
+                level, pos, DirectionalSignalBlock.seriesInputSide(state)).quality();
+    }
+
+    public static PortQuality armQuality(Level level, BlockPos pos, BlockState state) {
+        Direction front = DirectionalSignalBlock.seriesOutputSide(state);
+        return RedstoneObservationSupport.observe(level, pos, rightOf(front)).quality();
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(
             Level level, BlockPos pos, BlockState state, Direction side
@@ -81,16 +105,27 @@ public class FaultInjectorBlock extends PassiveDirectionalSignalBlock {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         Direction front = outputSide(state);
-        int value = side == front ? state.getValue(OUTPUT) : readInputFrom(level, pos, side);
-        PortQuality quality = side == front && active(level, pos) ? PortQuality.FAULT : PortQuality.VALID;
-        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value, quality));
+        Evidence evidence = evidence(level, pos, state);
+        if (side == front) {
+            PortQuality quality = RedstoneObservationSupport.combineQuality(
+                    evidence.signal().quality(), evidence.arm().quality());
+            if (active(level, pos)) {
+                quality = RedstoneObservationSupport.combineQuality(quality, PortQuality.FAULT);
+            }
+            return Optional.of(EngineeringPortSnapshot.redstone(
+                    port.get(), state.getValue(OUTPUT), quality));
+        }
+        RedstoneObservationSupport.Observation observation =
+                side == inputSide(state) ? evidence.signal() : evidence.arm();
+        return Optional.of(EngineeringPortSnapshot.redstone(
+                port.get(), observation.value(), observation.quality()));
     }
 
     @Override
     protected int computeOutput(Level level, BlockPos pos, BlockState state) {
-        Direction front = outputSide(state);
-        int input = readBackInput(level, pos, state);
-        boolean armed = readInputFrom(level, pos, rightOf(front)) > 0;
+        Evidence evidence = evidence(level, pos, state);
+        int input = evidence.signal().value();
+        boolean armed = evidence.arm().valid() && evidence.arm().value() > 0;
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
         if (armed && runtime[0] == 0) runtime[1]++;
         runtime[0] = armed ? 1 : 0;
