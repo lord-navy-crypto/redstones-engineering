@@ -381,10 +381,17 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             calibrationEvidence |= CalibrationModuleBlock.referenceQuality(level, blockPos, state).ordinal() << 3;
             calibrationEvidence |= CalibrationModuleBlock.outputQuality(level, blockPos, state).ordinal() << 6;
             configQuaternary.set(calibrationEvidence);
-        } else if (block instanceof PwmControllerBlock) {
+        } else if (block instanceof PwmControllerBlock pwm) {
             configKind.set(CONFIG_PWM);
             configPrimary.set(state.getValue(PwmControllerBlock.PERIOD_MODE));
             configSecondary.set(state.getValue(PwmControllerBlock.INVERT) ? 1 : 0);
+            var assessment = pwm.assessment(level, blockPos, state);
+            configTertiary.set(assessment.appliedCommand());
+            int pwmStatus = assessment.command() & 15;
+            pwmStatus |= (assessment.phase() & 31) << 4;
+            if (assessment.pendingUpdate()) pwmStatus |= 1 << 9;
+            pwmStatus |= Math.min(0x1FFFFF, assessment.completedCycles()) << 10;
+            configQuaternary.set(pwmStatus);
         } else if (block instanceof FaultInjectorBlock) {
             configKind.set(CONFIG_FAULT_INJECTOR);
             configPrimary.set(state.getValue(FaultInjectorBlock.MODE));
