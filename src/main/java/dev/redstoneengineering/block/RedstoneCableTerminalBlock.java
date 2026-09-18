@@ -172,10 +172,14 @@ public class RedstoneCableTerminalBlock extends Block implements EngineeringPort
                 level.updateNeighborsAt(pos, this);
                 level.updateNeighborsAt(pos.relative(vanillaSide(next)), this);
                 RedstoneCableNetwork.SourceEvidence evidence = RedstoneCableNetwork.sourceEvidence(level, pos);
+                RedstoneCableNetwork.PathEvidence path = RedstoneCableNetwork.pathEvidence(level, pos);
                 player.displayClientMessage(Component.literal(
                         "Redstone Cable Terminal | " + PortDiagnostics.terminal(level.getBlockState(pos), this)
                                 + " | signal=" + level.getBlockState(pos).getValue(POWER) + "/15"
-                                + " | cableSources=" + evidence.sourceCount() + " quality=" + evidence.quality()), true);
+                                + " | cableSources=" + evidence.sourceCount() + " quality=" + evidence.quality()
+                                + " | winningSource=" + path.winningSourceLevel()
+                                + " attenuation=" + path.attenuationLoss()
+                                + " | margin=" + path.remainingMargin(level.getBlockState(pos).getValue(POWER))), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
             }
