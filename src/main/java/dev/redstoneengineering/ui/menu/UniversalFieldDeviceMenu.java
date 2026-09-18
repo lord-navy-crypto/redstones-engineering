@@ -59,6 +59,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_MAGNETIC_FIELD = 15;
     public static final int CONFIG_ELECTROMAGNET = 16;
     public static final int CONFIG_IRON_CORE = 17;
+    public static final int CONFIG_SIGNAL_PROBE = 18;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
@@ -101,7 +102,11 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         configSecondary.set(0);
         configTertiary.set(0);
 
-        if (block instanceof IronCoreBlock) {
+        if (block instanceof SignalProbeBlock) {
+            configKind.set(CONFIG_SIGNAL_PROBE);
+            configPrimary.set(SignalProbeBlock.configuredChannel(state));
+            configSecondary.set(SignalProbeBlock.measuredValue(level, blockPos, state));
+        } else if (block instanceof IronCoreBlock) {
             configKind.set(CONFIG_IRON_CORE);
             configPrimary.set(IronCoreBlock.appliedField(level, blockPos));
             configSecondary.set(IronCoreBlock.remanentField(level, blockPos));
@@ -278,6 +283,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean adjustPrimary(int delta) {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof SignalProbeBlock) return SignalProbeBlock.stepChannel(level, blockPos, delta > 0);
         if (block instanceof MagneticFieldSensorBlock) return MagneticFieldSensorBlock.adjustRadius(level, blockPos, delta);
         if (block instanceof EngineeringLightSensorBlock) return EngineeringLightSensorBlock.adjustProfile(level, blockPos, delta);
         if (block instanceof TankLevelSensorBlock) return TankLevelSensorBlock.adjustRange(level, blockPos, delta);
