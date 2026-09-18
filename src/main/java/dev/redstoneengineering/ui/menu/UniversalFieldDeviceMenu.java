@@ -172,6 +172,8 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             int relayStatus = state.getValue(SingleRelayBlock.PICKUP_MODE);
             if (SingleRelayBlock.controlHoldActive(level, blockPos)) relayStatus |= 4;
             if (SingleRelayBlock.payloadHoldActive(level, blockPos)) relayStatus |= 8;
+            relayStatus |= SingleRelayBlock.controlQuality(level, blockPos, state).ordinal() << 4;
+            relayStatus |= SingleRelayBlock.payloadQuality(level, blockPos, state).ordinal() << 7;
             configQuaternary.set(relayStatus);
         } else if (block instanceof QuartzTimingLineBlock) {
             configKind.set(CONFIG_QUARTZ_TRACE);
