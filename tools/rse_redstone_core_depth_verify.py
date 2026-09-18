@@ -23,6 +23,13 @@ req("src/main/java/dev/redstoneengineering/block/RedstoneSignalCableBlock.java",
     "sourceLevel=","loss=","margin=")
 req("src/main/java/dev/redstoneengineering/block/RedstoneCableTerminalBlock.java",
     "toggleMode","winningSource","attenuation")
+req("src/main/java/dev/redstoneengineering/block/SignalConditionerBlock.java",
+    "RUNTIME_KEY","limitingEpisodes","lastLimitingAgeTicks","case 0 -> \"SCALE\"")
+req("src/main/java/dev/redstoneengineering/ui/menu/SignalConditionerMenu.java",
+    "limitingEpisodes","lastLimitingAge")
+req("src/main/java/dev/redstoneengineering/client/ui/SignalConditionerScreen.java",
+    "SCALE","limitingEpisodes","lastLimitingAgeTicks")
+
 req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
     "CONFIG_SIGNAL_PROBE","CONFIG_REFERENCE_SOURCE","CONFIG_REDSTONE_CABLE","CONFIG_CABLE_TERMINAL",
     "RedstoneCableTerminalBlock.toggleMode")
@@ -40,3 +47,4 @@ print(" configurable A/B/C/D signal probe: PASS")
 print(" adjustable 0..15 reference source: PASS")
 print(" insulated cable signal-integrity evidence: PASS")
 print(" terminal direction authority in HMI: PASS")
+print(" conditioner scale identity + limiting history: PASS")
