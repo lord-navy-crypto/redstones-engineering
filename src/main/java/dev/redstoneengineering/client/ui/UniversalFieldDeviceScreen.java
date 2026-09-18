@@ -840,10 +840,23 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 safeText(g, "OBSERVED drives the numeric transfer. REFERENCE only authorizes new traceable calibration evidence; bad reference evidence never becomes a hidden control input.", 16, 214, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_PWM -> {
-                statusBadge(g, "PWM CONTROL", INFO, 16, 80);
-                labelValue(g, "Period", PwmControllerBlock.periodFor(menu.configPrimary()) + " ticks", 101);
-                labelValue(g, "Invert", menu.configSecondary() != 0 ? "ON" : "OFF", 141);
-                safeText(g, "COMMAND, PWM OUT and INHIBIT rotate as one physical interface layout on Route.", 16, 188, MUTED);
+                int packed = menu.configQuaternary();
+                int requested = packed & 15;
+                int phase = (packed >> 4) & 31;
+                boolean pending = (packed & (1 << 9)) != 0;
+                int cycles = Math.max(0, packed >>> 10);
+                int applied = menu.configTertiary();
+                int period = PwmControllerBlock.periodFor(menu.configPrimary());
+                statusBadge(g, pending ? "PWM • DUTY UPDATE PENDING" : "PWM CONTROL",
+                        pending ? WARN : INFO, 16, 80);
+                labelValue(g, "Period / phase", period + "t • " + phase + "/" + period, 101);
+                labelValue(g, "Command requested / active", requested + " / " + applied, 123);
+                labelValue(g, "Duty requested / active",
+                        PwmControllerBlock.requestedDutyPermille(requested) / 10.0 + "% / "
+                                + PwmControllerBlock.effectiveDutyPermille(applied, period) / 10.0 + "%", 145);
+                labelValue(g, "Invert / completed cycles",
+                        (menu.configSecondary() != 0 ? "ON" : "OFF") + " • " + cycles, 167);
+                safeText(g, "Partial-duty commands are latched only at the carrier-cycle boundary, preventing a mid-cycle command change from creating a runt pulse. INHIBIT still shuts down immediately.", 16, 194, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR -> {
                 boolean armed = menu.configSecondary() != 0;
