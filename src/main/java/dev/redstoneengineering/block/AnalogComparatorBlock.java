@@ -147,8 +147,13 @@ public final class AnalogComparatorBlock extends DirectionalSignalBlock {
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        int process = processValue(level, pos, state);
-        int reference = referenceValue(level, pos, state);
+        var processObservation = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+        var referenceObservation = RedstoneObservationSupport.observe(level, pos, referenceSide(state));
+        if (!processObservation.valid() || !referenceObservation.valid()) {
+            return;
+        }
+        int process = processObservation.value();
+        int reference = referenceObservation.value();
         int hysteresis = state.getValue(HYSTERESIS);
         boolean wasHigh = state.getValue(OUTPUT) > 0;
 
