@@ -9,6 +9,7 @@ import dev.redstoneengineering.block.SampleHoldBlock;
 import dev.redstoneengineering.block.SignalProbeBlock;
 import dev.redstoneengineering.block.RedstoneReferenceSourceBlock;
 import dev.redstoneengineering.block.FaultLatchBlock;
+import dev.redstoneengineering.block.TransmissionTopology;
 import dev.redstoneengineering.block.TankLevelSensorBlock;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.PortKind;
@@ -195,6 +196,20 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private void configure(GuiGraphics g) {
         int kind = menu.configKind();
         switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_JUNCTION -> {
+                TransmissionTopology.SignalMedium[] media = TransmissionTopology.SignalMedium.values();
+                int ordinal = Math.max(0, Math.min(media.length - 1, menu.configPrimary()));
+                TransmissionTopology.SignalMedium medium = media[ordinal];
+                boolean valid = menu.configTertiary() != 0;
+                boolean mismatch = medium == TransmissionTopology.SignalMedium.MISMATCH;
+                statusBadge(g, mismatch ? "JUNCTION • MEDIUM MISMATCH" : "JUNCTION • ROUTING ONLY",
+                        mismatch ? WARN : valid ? GOOD : INFO, 16, 80);
+                labelValue(g, "Resolved medium", medium.getSerializedName().toUpperCase(), 101);
+                labelValue(g, "Carrier value", valid ? Integer.toString(menu.configSecondary()) : "NO VALID CARRIER", 123);
+                labelValue(g, "Carrier validity", valid ? "VALID" : "NOT VALID", 145);
+                safeText(g, "The junction only carries one physical medium vertically; it never converts between media.", 16, 178, TEXT);
+                safeText(g, mismatch ? "Different media on opposite sides fail closed." : "Use converters at domain boundaries, not the junction.", 16, 200, mismatch ? WARN : MUTED);
+            }
             case UniversalFieldDeviceMenu.CONFIG_ANALOG_INDICATOR -> {
                 int min = menu.configSecondary();
                 int max = menu.configTertiary();
