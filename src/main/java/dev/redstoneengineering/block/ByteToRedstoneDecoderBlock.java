@@ -19,6 +19,8 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
 import javax.annotation.Nullable;
@@ -27,8 +29,39 @@ import java.util.Optional;
 
 /** Byte-to-redstone bridge: saturates 0..255 into the vanilla 0..15 output range. */
 public class ByteToRedstoneDecoderBlock extends PassiveDirectionalSignalBlock {
+    public static final IntegerProperty MODE = IntegerProperty.create("mode", 0, 1);
+    public static final int CLAMP = 0;
+    public static final int FULL_SCALE = 1;
+
     public ByteToRedstoneDecoderBlock(Properties properties) {
         super(properties);
+        registerDefaultState(defaultBlockState().setValue(MODE, CLAMP));
+    }
+
+    @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<net.minecraft.world.level.block.Block, BlockState> builder) {
+        super.createBlockStateDefinition(builder);
+        builder.add(MODE);
+    }
+
+    public static int decode(int byteValue, int mode) {
+        int value = Math.max(0, Math.min(255, byteValue));
+        return mode == FULL_SCALE
+                ? Math.max(0, Math.min(15, (int) Math.round(value / 17.0)))
+                : Math.min(15, value);
+    }
+
+    public static String modeName(int mode) {
+        return mode == FULL_SCALE ? "FULL_SCALE" : "CLAMP";
+    }
+
+    public static boolean stepMode(Level level, BlockPos pos, boolean forward) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof ByteToRedstoneDecoderBlock decoder)) return false;
+        int next = state.getValue(MODE) == CLAMP ? FULL_SCALE : CLAMP;
+        level.setBlock(pos, state.setValue(MODE, next), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
+        if (level instanceof net.minecraft.server.level.ServerLevel server) server.scheduleTick(pos, decoder, 1);
+        return true;
     }
 
     @Override
@@ -88,7 +121,9 @@ public class ByteToRedstoneDecoderBlock extends PassiveDirectionalSignalBlock {
             ));
         }
         PortQuality outputQuality = inputQuality;
-        if (inputQuality == PortQuality.VALID && byteValue > 15) outputQuality = PortQuality.SATURATED;
+        if (inputQuality == PortQuality.VALID && state.getValue(MODE) == CLAMP && byteValue > 15) {
+            outputQuality = PortQuality.SATURATED;
+        }
         return Optional.of(EngineeringPortSnapshot.redstone(
                 port.get(),
                 state.getValue(OUTPUT),
@@ -110,7 +145,7 @@ public class ByteToRedstoneDecoderBlock extends PassiveDirectionalSignalBlock {
     protected int computeOutput(Level level, BlockPos pos, BlockState state) {
         BlockPos input = inputPos(pos, state);
         if (inputQuality(level, input) != PortQuality.VALID) return 0;
-        return Math.min(15, DataBusNetwork.sample(level, input));
+        return decode(DataBusNetwork.sample(level, input), state.getValue(MODE));
     }
 
     @Override
@@ -127,6 +162,7 @@ public class ByteToRedstoneDecoderBlock extends PassiveDirectionalSignalBlock {
                 player.displayClientMessage(Component.literal(
                         "Byte decoder input=" + DataBusNetwork.sample(level, input)
                                 + " quality=" + inputQuality(level, input)
+                                + " | mode=" + modeName(state.getValue(MODE))
                                 + " | output=" + outputValue(level, pos, state) + "/15"
                 ), true);
             } else {
