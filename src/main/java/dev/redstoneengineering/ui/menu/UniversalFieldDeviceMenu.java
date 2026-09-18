@@ -186,6 +186,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configPrimary.set(state.getValue(WatchdogBlock.TIMEOUT));
             configSecondary.set(WatchdogBlock.ageTicks(level, blockPos));
             configTertiary.set(WatchdogBlock.timeoutCount(level, blockPos));
+            configQuaternary.set(WatchdogBlock.sourceSeen(level, blockPos) ? 1 : 0);
         } else if (block instanceof EightBitDataBusBlock) {
             configKind.set(CONFIG_DATA_BUS);
             var diag = dev.redstoneengineering.physics.DataBusNetwork.getDiagnostics(level, blockPos);
