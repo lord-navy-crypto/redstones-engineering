@@ -209,6 +209,16 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private void configure(GuiGraphics g) {
         int kind = menu.configKind();
         switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_TRACE -> {
+                int sources = menu.configSecondary();
+                statusBadge(g, sources > 1 ? "QUARTZ TRACE • CLOCK CONFLICT"
+                                : sources == 0 ? "QUARTZ TRACE • NO SOURCE" : "QUARTZ TIMING TRACE",
+                        sources > 1 ? WARN : sources == 0 ? INFO : GOOD, 16, 80);
+                labelValue(g, "Clock period", menu.configPrimary() <= 0 ? "—" : menu.configPrimary() + " ticks", 101);
+                labelValue(g, "Clock sources", Integer.toString(sources), 123);
+                labelValue(g, "Current phase", menu.configTertiary() != 0 ? "HIGH" : "LOW", 145);
+                safeText(g, "This trace distributes timing rather than payload. One authoritative clock source is required; multiple sources become a topology conflict.", 16, 178, TEXT);
+            }
             case UniversalFieldDeviceMenu.CONFIG_INSTRUMENT_BUS -> {
                 statusBadge(g, "INSTRUMENTATION BUS", INFO, 16, 80);
                 labelValue(g, "Valid channels", menu.configPrimary() + " / 4", 101);
@@ -499,7 +509,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 statusBadge(g, !evaluated ? "INTERLOCK • REACQUIRING" : permit ? "INTERLOCK • PERMIT" : "INTERLOCK • BLOCKED",
                         !evaluated ? INFO : permit ? GOOD : WARN, 16, 80);
                 labelValue(g, "Missing permissives", failedPermissives(menu.configPrimary()), 101);
-                labelValue(g, "Permit output", permit ? "15 / ENABLED" : "0 / BLOCKED", 141);
+                labelValue(g, "Permit output", permit ? "15 / ENABLED" : "0 / BLOCKED", 129);
+                labelValue(g, "State transitions", Integer.toString(menu.configTertiary()), 151);
                 safeText(g, !evaluated
                                 ? "Diagnostic counters were reset; permissive evidence will repopulate on the next evaluation."
                                 : "Reset counters does not bypass permissives A/B/C or force the permit output.",
