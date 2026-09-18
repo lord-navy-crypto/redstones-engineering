@@ -12,6 +12,7 @@ import dev.redstoneengineering.diagnostics.events.SystemEventKind;
 import dev.redstoneengineering.diagnostics.events.SystemEventTimeline;
 import dev.redstoneengineering.operations.world.OperationWorldResourceProvider;
 import dev.redstoneengineering.operations.world.OperationWorldResourceSnapshot;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
@@ -66,20 +67,42 @@ public class SafetyInterlockBlock extends PassiveDirectionalSignalBlock implemen
         );
     }
 
+    private record PermissiveAssessment(int failedMask, PortQuality quality) {}
+
+    private PermissiveAssessment assessPermissives(Level level, BlockPos pos, BlockState state) {
+        Direction front = outputSide(state);
+        var a = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+        var b = RedstoneObservationSupport.observe(level, pos, leftOf(front));
+        var c = RedstoneObservationSupport.observe(level, pos, rightOf(front));
+
+        int mask = ((!a.valid() || a.value() <= 0) ? 1 : 0)
+                | ((!b.valid() || b.value() <= 0) ? 2 : 0)
+                | ((!c.valid() || c.value() <= 0) ? 4 : 0);
+        PortQuality quality = RedstoneObservationSupport.combineQuality(
+                a.quality(), b.quality(), c.quality());
+        return new PermissiveAssessment(mask, quality);
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         Direction front = outputSide(state);
-        int value = side == front ? state.getValue(OUTPUT) : readInputFrom(level, pos, side);
-        PortQuality quality = value > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL;
-        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value, quality));
+        if (side == front) {
+            PermissiveAssessment assessment = assessPermissives(level, pos, state);
+            return Optional.of(EngineeringPortSnapshot.redstone(
+                    port.get(), state.getValue(OUTPUT), assessment.quality()));
+        }
+        var observed = RedstoneObservationSupport.observe(level, pos, side);
+        return Optional.of(EngineeringPortSnapshot.redstone(
+                port.get(), observed.value(), observed.quality()));
     }
 
     @Override
     public OperationWorldResourceSnapshot operationResourceSnapshot(Level level, BlockPos pos, BlockState state) {
-        int mask = failedMask(level, pos);
-        PortQuality quality = mask < 0 ? PortQuality.STALE : PortQuality.VALID;
+        int runtimeMask = failedMask(level, pos);
+        PermissiveAssessment assessment = assessPermissives(level, pos, state);
+        int mask = runtimeMask < 0 ? assessment.failedMask() : runtimeMask;
         boolean blocked = mask > 0;
         return new OperationWorldResourceSnapshot(
                 "safety_interlock:" + pos.asLong(),
@@ -88,18 +111,15 @@ public class SafetyInterlockBlock extends PassiveDirectionalSignalBlock implemen
                 false,
                 false,
                 blocked,
-                quality,
+                runtimeMask < 0 ? PortQuality.STALE : assessment.quality(),
                 Map.of("failed_mask", (long) mask, "permit", mask == 0 ? 1L : 0L)
         );
     }
 
     @Override
     protected int computeOutput(Level level, BlockPos pos, BlockState state) {
-        Direction front = outputSide(state);
-        int a = readBackInput(level, pos, state);
-        int b = readInputFrom(level, pos, leftOf(front));
-        int c = readInputFrom(level, pos, rightOf(front));
-        int mask = (a <= 0 ? 1 : 0) | (b <= 0 ? 2 : 0) | (c <= 0 ? 4 : 0);
+        PermissiveAssessment assessment = assessPermissives(level, pos, state);
+        int mask = assessment.failedMask();
         int permit = mask == 0 ? 1 : 0;
 
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
@@ -145,7 +165,7 @@ public class SafetyInterlockBlock extends PassiveDirectionalSignalBlock implemen
         if ((runtime[0] & 1) != 0) missing.append("A");
         if ((runtime[0] & 2) != 0) missing.append(missing.isEmpty() ? "B" : ",B");
         if ((runtime[0] & 4) != 0) missing.append(missing.isEmpty() ? "C" : ",C");
-        return "INTERLOCK BLOCKED | missing=" + missing + " | blockedTicks=" + runtime[1];
+        return "INTERLOCK BLOCKED | failed=" + missing + " | blockedTicks=" + runtime[1];
     }
 
     public boolean resetDiagnostics(Level level, BlockPos pos) {
