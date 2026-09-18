@@ -5,6 +5,7 @@ import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -106,10 +107,20 @@ public final class SignalAmplifierBlock extends DirectionalSignalBlock {
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, net.minecraft.core.Direction side) {
         Optional<EngineeringPortSnapshot> base = super.engineeringSnapshot(level, pos, state, side);
-        if (base.isEmpty() || side != outputSide(state) || !clipping(level, pos)) return base;
-        EngineeringPortSnapshot snapshot = base.get();
-        return Optional.of(new EngineeringPortSnapshot(
-                snapshot.port(), snapshot.value(), snapshot.minimum(), snapshot.maximum(), PortQuality.SATURATED));
+        if (base.isEmpty()) return base;
+
+        if (side == inputSide(state)) {
+            var input = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+            return Optional.of(EngineeringPortSnapshot.redstone(base.get().port(), input.value(), input.quality()));
+        }
+
+        if (side == outputSide(state)) {
+            var input = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+            PortQuality quality = clipping(level, pos) ? PortQuality.SATURATED : input.quality();
+            return Optional.of(new EngineeringPortSnapshot(
+                    base.get().port(), state.getValue(OUTPUT), base.get().minimum(), base.get().maximum(), quality));
+        }
+        return base;
     }
 
     @Override
