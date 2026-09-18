@@ -298,6 +298,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configPrimary.set(ElectromagnetBlock.targetField(level, blockPos));
             configSecondary.set(ElectromagnetBlock.thermalLoad(level, blockPos));
             configTertiary.set(state.getValue(ElectromagnetBlock.FIELD));
+            configQuaternary.set(ElectromagnetBlock.trackingError(level, blockPos));
         } else if (block instanceof MagneticFieldSensorBlock) {
             configKind.set(CONFIG_MAGNETIC_FIELD);
             configPrimary.set(state.getValue(MagneticFieldSensorBlock.RADIUS_MODE));
