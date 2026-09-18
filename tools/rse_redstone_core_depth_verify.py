@@ -72,6 +72,12 @@ req("src/main/java/dev/redstoneengineering/block/SerializerBlock.java",
 req("src/main/java/dev/redstoneengineering/block/DigitalRegeneratorBlock.java",
     "stepThreshold","acceptedCount","rejectedCount","RuntimeIntStore")
 
+req("src/main/java/dev/redstoneengineering/block/DeserializerBlock.java",
+    "inputEvidenceQuality","SerialNetwork.quality","PortQuality.NO_SIGNAL","PortQuality.STALE")
+
+req("src/main/java/dev/redstoneengineering/block/DifferentialReceiverBlock.java",
+    "inputEvidenceQuality","DifferentialNetwork.quality","PortQuality.NO_SIGNAL","PortQuality.STALE")
+
 req("src/main/java/dev/redstoneengineering/block/DifferentialDriverBlock.java",
     "THRESHOLD","thresholdValue","stepThreshold",
     "inputLevel","inputQuality","drivenBit",
@@ -90,10 +96,18 @@ req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.
     "DIFFERENTIAL LINK","DIFFERENTIAL RECEIVER")
 
 req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
-    "CONFIG_DATA_BUS","CONFIG_SERIALIZER","CONFIG_REGENERATOR","CONFIG_DIFF_DRIVER","CONFIG_DIFF_PAIR","CONFIG_DIFF_RECEIVER")
+    "CONFIG_DATA_BUS","CONFIG_SERIALIZER","CONFIG_DESERIALIZER","CONFIG_SERIAL_LINE",
+    "CONFIG_REGENERATOR","CONFIG_DIFF_DRIVER","CONFIG_DIFF_PAIR","CONFIG_DIFF_RECEIVER",
+    "DataBusNetwork.quality","SerialNetwork.quality","DifferentialNetwork.quality",
+    "DeserializerBlock.inputEvidenceQuality","DifferentialReceiverBlock.inputEvidenceQuality")
 
 req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
-    "8-BIT DATA BUS","SERIALIZER","DIGITAL REGENERATOR","DIFFERENTIAL DRIVER","DIFFERENTIAL LINK","DIFFERENTIAL RECEIVER")
+    "8-BIT DATA BUS","8-BIT BUS • NO DRIVER","8-BIT BUS • TOPOLOGY ERROR",
+    "SERIALIZER • BYTE SOURCE MISSING","DESERIALIZER • SERIAL NO SOURCE",
+    "SERIAL LINK • NO SOURCE","SERIAL LINK • TOPOLOGY ERROR",
+    "DIFFERENTIAL DRIVER","DIFFERENTIAL LINK • NO SOURCE",
+    "DIFFERENTIAL LINK • TOPOLOGY ERROR","DIFFERENTIAL RECEIVER • NO SOURCE",
+    "Evidence state","Input evidence","syncedQuality","evidenceIssue","evidenceSevere")
 
 req("src/main/java/dev/redstoneengineering/block/WatchdogBlock.java",
     "stepTimeout","timedOut","TIMEOUT_TICKS","sourceSeen","heartbeat.quality()")
