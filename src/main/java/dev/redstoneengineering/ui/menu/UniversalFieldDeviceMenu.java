@@ -278,8 +278,11 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         } else if (block instanceof RedstoneCableJunctionBlock) {
             configKind.set(CONFIG_JUNCTION);
             configPrimary.set(state.getValue(RedstoneCableJunctionBlock.MEDIUM).ordinal());
-            configSecondary.set(RedstoneCableJunctionBlock.power(level, blockPos));
-            configTertiary.set(RedstoneCableJunctionBlock.carrierValid(level, blockPos) ? 1 : 0);
+            RedstoneCableJunctionBlock.CarrierObservation carrier =
+                    RedstoneCableJunctionBlock.observeCarrier(level, blockPos, state);
+            configSecondary.set(carrier.value());
+            configTertiary.set(carrier.usable() ? 1 : 0);
+            configQuaternary.set(carrier.quality().ordinal());
         } else if (block instanceof AnalogIndicatorBlock) {
             configKind.set(CONFIG_ANALOG_INDICATOR);
             configPrimary.set(state.getValue(AnalogIndicatorBlock.LEVEL));
