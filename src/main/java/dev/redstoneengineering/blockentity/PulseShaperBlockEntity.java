@@ -16,6 +16,7 @@ import net.minecraft.world.level.block.state.BlockState;
  */
 public final class PulseShaperBlockEntity extends BlockEntity {
     private int threshold = 1;
+    private int hysteresis = 1;
     private int acceptedTriggerCount;
     private int suppressedTriggerCount;
     private long lastTriggerTick = -1L;
@@ -40,6 +41,24 @@ public final class PulseShaperBlockEntity extends BlockEntity {
                 : (threshold <= 1 ? 15 : threshold - 1);
         setThreshold(next);
         return threshold;
+    }
+
+    public int hysteresis() {
+        return hysteresis;
+    }
+
+    public void setHysteresis(int value) {
+        int next = Math.max(1, Math.min(4, value));
+        if (hysteresis == next) return;
+        hysteresis = next;
+        setChanged();
+    }
+
+    public int stepHysteresis(boolean forward) {
+        int next = forward ? (hysteresis >= 4 ? 1 : hysteresis + 1)
+                : (hysteresis <= 1 ? 4 : hysteresis - 1);
+        setHysteresis(next);
+        return hysteresis;
     }
 
     public void recordAcceptedTrigger(long gameTime) {
@@ -75,6 +94,7 @@ public final class PulseShaperBlockEntity extends BlockEntity {
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
         threshold = Math.max(1, Math.min(15, tag.contains("threshold") ? tag.getInt("threshold") : 1));
+        hysteresis = Math.max(1, Math.min(4, tag.contains("hysteresis") ? tag.getInt("hysteresis") : 1));
         acceptedTriggerCount = Math.max(0, tag.getInt("acceptedTriggerCount"));
         suppressedTriggerCount = Math.max(0, tag.getInt("suppressedTriggerCount"));
         lastTriggerTick = tag.contains("lastTriggerTick") ? tag.getLong("lastTriggerTick") : -1L;
@@ -84,6 +104,7 @@ public final class PulseShaperBlockEntity extends BlockEntity {
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.saveAdditional(tag, registries);
         tag.putInt("threshold", threshold);
+        tag.putInt("hysteresis", hysteresis);
         tag.putInt("acceptedTriggerCount", acceptedTriggerCount);
         tag.putInt("suppressedTriggerCount", suppressedTriggerCount);
         tag.putLong("lastTriggerTick", lastTriggerTick);
