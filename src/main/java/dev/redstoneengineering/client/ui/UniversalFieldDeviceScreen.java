@@ -238,7 +238,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 statusBadge(g, "ANALOG COMPARATOR • " + AnalogComparatorBlock.modeName(mode), INFO, 16, 80);
                 labelValue(g, "Hysteresis", "±" + hysteresis + " levels", 101);
                 labelValue(g, "Process-reference", signed(margin), 123);
-                labelValue(g, "Decision output", menu.outputValue() > 0 ? "HIGH" : "LOW", 145);
+                labelValue(g, "Decision output", menu.configQuaternary() > 0 ? "HIGH" : "LOW", 145);
                 safeText(g, "PROCESS is compared against a live REFERENCE input. Hysteresis creates separate enter/exit thresholds so small redstone noise does not chatter the decision.", 16, 178, TEXT);
                 safeText(g, "Use Conditioner THRESHOLD for a fixed configured limit; use Comparator when the reference itself is another signal.", 16, 200, MUTED);
             }
