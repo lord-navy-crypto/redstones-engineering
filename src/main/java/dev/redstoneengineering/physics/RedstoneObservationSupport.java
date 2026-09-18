@@ -28,6 +28,29 @@ public final class RedstoneObservationSupport {
         }
     }
 
+    /** Worst-of combiner for a derived redstone decision/output. */
+    public static PortQuality combineQuality(PortQuality... qualities) {
+        PortQuality result = PortQuality.VALID;
+        int rank = 0;
+        for (PortQuality quality : qualities) {
+            if (quality == null) continue;
+            int candidate = switch (quality) {
+                case VALID -> 0;
+                case SATURATED -> 1;
+                case NO_SIGNAL -> 2;
+                case STALE -> 3;
+                case FAULT -> 4;
+                case DOMAIN_MISMATCH -> 5;
+                case TOPOLOGY_ERROR -> 6;
+            };
+            if (candidate > rank) {
+                rank = candidate;
+                result = quality;
+            }
+        }
+        return result;
+    }
+
     public static Observation observe(Level level, BlockPos sinkPos, Direction inputSide) {
         BlockPos sourcePos = sinkPos.relative(inputSide);
         if (!level.hasChunkAt(sourcePos)) {
