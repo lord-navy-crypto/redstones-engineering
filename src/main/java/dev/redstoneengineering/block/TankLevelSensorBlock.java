@@ -178,7 +178,7 @@ public class TankLevelSensorBlock extends DirectionalRedstoneSensorBlock {
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         ColumnSample column = columnSample(level, pos, state);
         if (!column.complete()) {
-            // Preserve the last trustworthy output/sample; age naturally turns it STALE.
+            // Retain the last trustworthy output/sample; age naturally turns it STALE.
             level.scheduleTick(pos, this, SAMPLE_PERIOD_TICKS);
             return;
         }
