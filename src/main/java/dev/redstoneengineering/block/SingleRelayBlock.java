@@ -97,7 +97,8 @@ public final class SingleRelayBlock extends DirectionalSignalBlock {
     }
 
     public static PortQuality payloadQuality(Level level, BlockPos pos, BlockState state) {
-        return RedstoneObservationSupport.observe(level, pos, inputSide(state)).quality();
+        return RedstoneObservationSupport.observe(
+                level, pos, DirectionalSignalBlock.seriesInputSide(state)).quality();
     }
 
     private static boolean controlEvidenceUnusable(PortQuality quality) {
