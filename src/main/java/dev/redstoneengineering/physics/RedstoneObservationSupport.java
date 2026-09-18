@@ -35,8 +35,6 @@ public final class RedstoneObservationSupport {
         }
 
         int value = EngineeringMath.clamp(level.getSignal(sourcePos, inputSide), 0, 15);
-        if (value > 0) return new Observation(value, PortQuality.VALID);
-
         BlockState sourceState = level.getBlockState(sourcePos);
         if (sourceState.isAir()) return new Observation(0, PortQuality.NO_SIGNAL);
 
@@ -47,11 +45,19 @@ public final class RedstoneObservationSupport {
                 if (port.domain() == EngineeringDomain.REDSTONE
                         && port.redstoneConnectable()
                         && port.direction() != PortDirection.INPUT) {
-                    return new Observation(0, PortQuality.VALID);
+                    var snapshot = provider.engineeringSnapshot(
+                            level, sourcePos, sourceState, inputSide.getOpposite());
+                    if (snapshot.isPresent()) {
+                        return new Observation(
+                                EngineeringMath.clamp((int) Math.round(snapshot.get().value()), 0, 15),
+                                snapshot.get().quality());
+                    }
+                    return new Observation(value, PortQuality.VALID);
                 }
             }
         }
 
+        if (value > 0) return new Observation(value, PortQuality.VALID);
         if (sourceState.getBlock().canConnectRedstone(sourceState, level, sourcePos, inputSide)) {
             return new Observation(0, PortQuality.VALID);
         }
