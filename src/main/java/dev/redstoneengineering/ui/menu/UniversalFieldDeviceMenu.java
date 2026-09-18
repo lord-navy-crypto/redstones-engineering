@@ -137,7 +137,10 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configPrimary.set(state.getValue(AnalogComparatorBlock.MODE));
             configSecondary.set(state.getValue(AnalogComparatorBlock.HYSTERESIS));
             configTertiary.set(AnalogComparatorBlock.margin(level, blockPos, state));
-            configQuaternary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+            int comparatorStatus = state.getValue(DirectionalSignalBlock.OUTPUT) > 0 ? 1 : 0;
+            comparatorStatus |= AnalogComparatorBlock.processQuality(level, blockPos, state).ordinal() << 1;
+            comparatorStatus |= AnalogComparatorBlock.referenceQuality(level, blockPos, state).ordinal() << 4;
+            configQuaternary.set(comparatorStatus);
         } else if (block instanceof SignalSelectorBlock) {
             configKind.set(CONFIG_SIGNAL_SELECTOR);
             configPrimary.set(state.getValue(SignalSelectorBlock.INVERT_SELECT) ? 1 : 0);
