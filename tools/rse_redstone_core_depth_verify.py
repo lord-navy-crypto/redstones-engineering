@@ -111,6 +111,21 @@ req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java
 req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
     "INSTRUMENTATION BUS","WATCHDOG • TIMEOUT","QUARTZ TIMING TRACE","State transitions")
 
+req("src/main/java/dev/redstoneengineering/block/SingleRelayBlock.java",
+    "NORMALLY_CLOSED","RELAY COIL CONTROL","switchCount","toggleContactMode")
+
+req("src/main/java/dev/redstoneengineering/RedstoneEngineering.java",
+    "SINGLE_RELAY_CODEC","SINGLE_RELAY =","SINGLE_RELAY_ITEM")
+
+req("src/main/java/dev/redstoneengineering/block/RedundantVoterBlock.java",
+    "stepTolerance","validInputs","disagreementCount")
+
+req("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
+    "CONFIG_SINGLE_RELAY","CONFIG_REDUNDANT_VOTER")
+
+req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
+    "SINGLE RELAY","2oo3 VOTER")
+
 if failed:
     print("RSE redstone-core engineering-depth verification: FAIL")
     for x in failed: print(" -",x)
@@ -127,3 +142,4 @@ print(" redstone-byte mapping modes: PASS")
 print(" serial/differential communication depth: PASS")
 print(" parallel/serial/differential media roles: PASS")
 print(" instrument/timing/control supervision depth: PASS")
+print(" relay/voter safety-control hardware: PASS")
