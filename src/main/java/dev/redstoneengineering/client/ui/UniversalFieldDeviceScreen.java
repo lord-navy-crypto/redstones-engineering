@@ -1172,7 +1172,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         if (out != null) labelValue(g, "Output now", menu.value(out) + " • " + menu.quality(out).name(), 186);
         labelValue(g, evidenceLabel, evidenceValue, 202);
         safeText(g, authoritativeHistory, 16, 216, INFO);
-        safeText(g, chronologyBoundary, 16, 228, MUTED);
+        safeText(g, chronologyBoundary + " • source data stay server-owned", 16, 228, MUTED);
     }
 
 
