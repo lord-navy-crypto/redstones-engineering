@@ -204,6 +204,21 @@ public class QuartzPhaseDelayBlock extends DirectionalDomainBlock implements Eng
         level.scheduleTick(pos, this, 1);
     }
 
+    /**
+     * Server-authoritative delay adjustment. Queued edges retain the delay captured when they entered;
+     * the new setting applies only to future accepted edges.
+     */
+    public static boolean adjustDelay(Level level, BlockPos pos, int delta) {
+        if (level.isClientSide || delta == 0) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof QuartzPhaseDelayBlock delayBlock)) return false;
+        int current = state.getValue(DELAY);
+        int nextValue = delta > 0 ? (current >= 8 ? 1 : current + 1) : (current <= 1 ? 8 : current - 1);
+        level.setBlock(pos, state.setValue(DELAY, nextValue), Block.UPDATE_CLIENTS);
+        level.scheduleTick(pos, delayBlock, 1);
+        return true;
+    }
+
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
             int delay = state.getValue(DELAY);
