@@ -295,6 +295,40 @@ class EngineeringWorkbenchV2Tests(unittest.TestCase):
         ]:
             self.assertIn(token, self.catalog)
 
+    def test_lab_profiles_are_device_specific_and_server_grounded(self):
+        for token in [
+            "record LabProfile(",
+            "record LabMetric(",
+            "labProfile(EngineeringDeviceMenu menu)",
+            "How does controller tuning change closed-loop response?",
+            "How do rise/fall limits change tracking and settling?",
+            "How stable is the measured clock against its reference?",
+            "Where is the resonant peak and how selective is it?",
+            "How do supply pressure and path losses affect actuator motion?",
+            "How does the slew profile affect real actuator tracking?",
+            "pid.settlingTicks()",
+            "processor.runtimeC()",
+            "quartz.runtimeC()",
+            "amethyst.extraB()",
+            "pneumatic.cylinderObservedLoss()",
+            "reliability.auxiliary()",
+        ]:
+            self.assertIn(token, self.catalog)
+
+    def test_lab_page_switches_between_metrics_and_measured_xy_sweep(self):
+        for token in [
+            "renderLabWorkbench",
+            "EngineeringWorkbenchCatalog.labProfile(menu)",
+            "lab.question()",
+            "lab.independentVariable()",
+            "lab.dependentVariable()",
+            "metricCard(graphics",
+            "EngineeringPlot.xyTrace",
+            "workbenchSweepPointCount > 0",
+            "measured ",
+        ]:
+            self.assertIn(token, self.screen)
+
     def test_universal_devices_also_participate_in_model_parameter_workbench(self):
         for token in [
             "universal.editPrimaryAvailable()",
