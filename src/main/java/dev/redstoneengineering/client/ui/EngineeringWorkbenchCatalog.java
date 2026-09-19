@@ -1,6 +1,8 @@
 package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.ui.menu.*;
+import dev.redstoneengineering.core.port.PortQuality;
+import net.minecraft.core.Direction;
 
 import java.util.List;
 
@@ -10,6 +12,25 @@ import java.util.List;
  */
 public final class EngineeringWorkbenchCatalog {
     public record ModelCard(String family, String equation, String parameters, String process, String boundary) {}
+
+    /**
+     * One live server-synchronized response quantity for parameter experiments.
+     * This is observation only: it never predicts or drives the device.
+     */
+    public record ResponseSpec(
+            String label,
+            int value,
+            int minimum,
+            int maximum,
+            String unit,
+            boolean usable,
+            String detail
+    ) {
+        public ResponseSpec {
+            unit = unit == null ? "" : unit;
+            detail = detail == null ? "" : detail;
+        }
+    }
     /**
      * One bounded server-owned parameter exposed to the shared Model workbench.
      * decrement/increment are existing menu-button actions; the client never writes world state.
@@ -435,6 +456,135 @@ public final class EngineeringWorkbenchCatalog {
             };
         }
         return List.of();
+    }
+
+    public static ResponseSpec response(EngineeringDeviceMenu menu) {
+        if (menu instanceof UniversalFieldDeviceMenu universal) {
+            for (Direction side : Direction.values()) {
+                if (!universal.hasPort(side) || (!universal.isOutput(side) && !universal.isBidirectional(side))) continue;
+                PortQuality quality = universal.quality(side);
+                boolean usable = quality == PortQuality.VALID || quality == PortQuality.SATURATED;
+                return response("Output " + side.getName().toUpperCase(), universal.value(side),
+                        universal.minimum(side), universal.maximum(side), "port", usable,
+                        "First declared transmit-capable engineering port; quality=" + quality.name() + ".");
+            }
+            return null;
+        }
+        if (menu instanceof PidControllerMenu pid) {
+            return response("Control output", pid.controlOutput(), 0, 15, "/15",
+                    pid.available(), "Live PID command after the currently selected tuning profile.");
+        }
+        if (menu instanceof SignalConditionerMenu conditioner) {
+            return response("Conditioned output", conditioner.output(), 0, 15, "/15",
+                    menu.evidenceState() == EngineeringDeviceMenu.EVIDENCE_VALID
+                            || menu.evidenceState() == EngineeringDeviceMenu.EVIDENCE_SATURATED,
+                    "Live server-computed transfer-function output.");
+        }
+        if (menu instanceof SignalProcessorMenu processor) {
+            return response("Processor output", processor.output(), 0, 15, "/15",
+                    menu.evidenceState() == EngineeringDeviceMenu.EVIDENCE_VALID
+                            || menu.evidenceState() == EngineeringDeviceMenu.EVIDENCE_SATURATED,
+                    "Live output after the selected discrete-time processing stage.");
+        }
+        if (menu instanceof QuartzTimingMenu quartz && quartz.kind() == QuartzTimingMenu.KIND_OSCILLATOR) {
+            return response("Realized period", quartz.secondary(), 1, 64, "ticks",
+                    quartz.quality() == PortQuality.VALID,
+                    "Server timing evidence; not a client-predicted waveform.");
+        }
+        if (menu instanceof RangeSensorMenu range) {
+            return response("Sensor output", range.output(), 0, 15, "/15",
+                    range.evidenceValid(), "Live distance-to-output response from the configured sensing profile.");
+        }
+        if (menu instanceof PneumaticSystemMenu pneumatic) {
+            return switch (pneumatic.kind()) {
+                case PneumaticSystemMenu.KIND_COMPRESSOR ->
+                        response("Actual pressure", pneumatic.tertiary(), 0, 100, "/100",
+                                pneumatic.outputQuality() == PortQuality.VALID,
+                                "Finite-response compressor pressure.");
+                case PneumaticSystemMenu.KIND_REGULATOR ->
+                        response("Regulated pressure", pneumatic.tertiary(), 0, 100, "/100",
+                                pneumatic.outputQuality() == PortQuality.VALID,
+                                "Live regulated downstream pressure.");
+                case PneumaticSystemMenu.KIND_RECEIVER ->
+                        response("Redstone output", pneumatic.secondary(), 0, 15, "/15",
+                                pneumatic.outputQuality() == PortQuality.VALID,
+                                "Pressure-to-Redstone transducer output.");
+                case PneumaticSystemMenu.KIND_PROPORTIONAL ->
+                        response("Actual opening", pneumatic.tertiary(), 0, 15, "/15",
+                                pneumatic.outputQuality() == PortQuality.VALID,
+                                "Finite-response proportional-valve opening.");
+                case PneumaticSystemMenu.KIND_CYLINDER ->
+                        response("Cylinder position", pneumatic.secondary(), 0, 15, "/15",
+                                pneumatic.outputQuality() == PortQuality.VALID,
+                                "Live actuator position, not the requested target.");
+                default -> null;
+            };
+        }
+        if (menu instanceof AmethystSystemMenu amethyst) {
+            return switch (amethyst.kind()) {
+                case AmethystSystemMenu.KIND_FILTER ->
+                        response("Filtered amplitude", amethyst.auxiliary(), 0, 15, "/15",
+                                amethyst.quality() == PortQuality.VALID,
+                                "Expected output amplitude from the live filter evidence.");
+                case AmethystSystemMenu.KIND_TUNED ->
+                        response("Resonant amplitude", amethyst.extraB(), 0, 15, "/15",
+                                amethyst.quality() == PortQuality.VALID,
+                                "Live tuned-resonator output amplitude.");
+                default -> null;
+            };
+        }
+        if (menu instanceof ReliabilitySystemMenu reliability) {
+            return switch (reliability.kind()) {
+                case ReliabilitySystemMenu.KIND_SERVO ->
+                        response("Servo position", reliability.primary(), 0, 15, "/15",
+                                reliability.quality() == PortQuality.VALID,
+                                "Measured actuator position while the slew profile changes.");
+                case ReliabilitySystemMenu.KIND_VOTER ->
+                        response("Voted output", reliability.primary(), 0, 15, "/15",
+                                reliability.quality() == PortQuality.VALID
+                                        || reliability.quality() == PortQuality.SATURATED,
+                                "Current 2oo3 voter output.");
+                case ReliabilitySystemMenu.KIND_WATCHDOG ->
+                        response("Safety output", reliability.extraA(), 0, 15, "/15",
+                                reliability.quality() == PortQuality.VALID,
+                                "Current watchdog output while timeout profile changes.");
+                case ReliabilitySystemMenu.KIND_FAULT_LATCH ->
+                        response("Latch output", reliability.primary(), 0, 15, "/15",
+                                reliability.quality() == PortQuality.VALID,
+                                "Current latched safety output.");
+                default -> null;
+            };
+        }
+        if (menu instanceof MagneticSystemMenu magnetic && magnetic.kind() == MagneticSystemMenu.KIND_COIL) {
+            return response("Induced voltage", magnetic.secondary(), 0, 15, "/15",
+                    magnetic.quality() == PortQuality.VALID,
+                    "Live induction-coil output voltage while turns index changes.");
+        }
+        if (menu instanceof OpticalSystemMenu optical) {
+            return switch (optical.kind()) {
+                case OpticalSystemMenu.KIND_FILTER, OpticalSystemMenu.KIND_ATTENUATOR ->
+                        response("Optical output", optical.tertiary(), 0, 15, "/15",
+                                optical.quality() == PortQuality.VALID,
+                                "Live expected output intensity from synchronized optical evidence.");
+                default -> null;
+            };
+        }
+        if (menu instanceof SignalAnalyzerMenu analyzer) {
+            return response("Calibrated signal", analyzer.calibrated(), 0, 15, "/15",
+                    menu.evidenceState() == EngineeringDeviceMenu.EVIDENCE_VALID,
+                    "Calibrated display/output reading; raw evidence remains separate.");
+        }
+        if (menu instanceof LogicAnalyzerMenu analyzer) {
+            return response("Active channels", analyzer.activeChannels(), 0, 4, "channels",
+                    analyzer.bounded(), "Number of active captured channels at the current logic threshold.");
+        }
+        return null;
+    }
+
+    private static ResponseSpec response(
+            String label, int value, int minimum, int maximum, String unit, boolean usable, String detail
+    ) {
+        return new ResponseSpec(label, value, minimum, maximum, unit, usable, detail);
     }
 
     private static String universalPrimaryLabel(int kind) {
