@@ -306,11 +306,22 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 safeText(g, "Missing SELECT may fall back to the configured default route, but OUT quality remains NO_SIGNAL so a broken control wire cannot look like an explicit LOW command.", 16, 214, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_SIGNAL_TAP -> {
-                statusBadge(g, "BUFFERED SIGNAL TAP", INFO, 16, 80);
+                int packed = menu.configQuaternary();
+                boolean evidenceHold = (packed & 1) != 0;
+                PortQuality inputQuality = syncedQuality((packed >> 1) & 7);
+                int badEpisodes = Math.max(0, packed >>> 4);
+                String badge = evidenceHold ? "BUFFERED SIGNAL TAP • EVIDENCE HOLD"
+                        : inputQuality == PortQuality.NO_SIGNAL ? "BUFFERED SIGNAL TAP • NO SOURCE"
+                        : evidenceSevere(inputQuality) ? "BUFFERED SIGNAL TAP • " + inputQuality.name()
+                        : "BUFFERED SIGNAL TAP";
+                statusBadge(g, badge,
+                        evidenceSevere(inputQuality) ? BAD : evidenceHold || evidenceIssue(inputQuality) ? WARN : INFO, 16, 80);
                 labelValue(g, "Copied level", menu.configPrimary() + " / 15", 101);
-                labelValue(g, "Main path", directionName(menu.configSecondary()) + " → " + directionName(menu.configTertiary()), 123);
-                safeText(g, "The THROUGH path preserves the original redstone level while the TAP output provides a separate observation copy.", 16, 164, TEXT);
-                safeText(g, "The tap never back-drives the main path; use it to feed indicators, analyzers and instrumentation without rewriting the process route.", 16, 190, MUTED);
+                labelValue(g, "Input evidence", inputQuality.name() + (evidenceHold ? " • HOLD LAST" : ""), 123);
+                labelValue(g, "Main path", directionName(menu.configSecondary()) + " → " + directionName(menu.configTertiary()), 145);
+                labelValue(g, "Bad evidence episodes", Integer.toString(badEpisodes), 167);
+                safeText(g, "NO_SIGNAL de-energizes the copied outputs. STALE/FAULT/topology evidence retains the last trustworthy level instead of fabricating a new zero.", 16, 194, TEXT);
+                safeText(g, "The TAP port remains one-way and never back-drives the process path.", 16, 216, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAPIS_SAMPLER -> {
                 statusBadge(g, "QUARTZ-SYNCHRONIZED SAMPLE & HOLD", INFO, 16, 80);
