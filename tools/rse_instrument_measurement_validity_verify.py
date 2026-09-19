@@ -46,8 +46,11 @@ require(
 )
 require(
     "src/main/java/dev/redstoneengineering/block/SignalAnalyzerBlock.java",
-    "boolean present = measurementPresent(level, pos, state, measured)",
+    "RedstoneObservationSupport.Observation observation = measurementObservation(level, pos, state)",
+    "boolean present = observation.valid()",
     "recordSample(level, pos, measured, present)",
+    "observation.quality() == PortQuality.NO_SIGNAL",
+    "requestedOutput = state.getValue(OUTPUT)",
     "r[WINDOW_BASE + write] = present ? measured : -1",
     "if (value < 0) continue",
     "if (before < 0 || now < 0)",
