@@ -82,31 +82,33 @@ public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         CopperObservationSupport.Observation input = CopperObservationSupport.observe(level, inputPos(pos, state), pos);
-        boolean inputValid = input.quality() == PortQuality.VALID;
-        int inputVoltage = inputValid ? input.voltage() : 0;
+        boolean sourceDriven = input.quality() == PortQuality.VALID;
+        boolean sourceAbsent = input.quality() == PortQuality.NO_SIGNAL;
 
         double loadResistance = CircuitPhysics.equivalentLoadResistance(level, outputPos(pos, state), 128);
         boolean loadTruncated = NetworkKernel.stats(level, "copper_load").lastTruncated();
 
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
-        if (!loadTruncated) {
+        if (!loadTruncated && (sourceDriven || sourceAbsent)) {
             runtime[CHARGE_SLOT] = CopperCapacitorLogic.stepCharge(
                     runtime[CHARGE_SLOT],
-                    inputVoltage,
-                    inputValid,
+                    sourceDriven ? input.voltage() : 0,
+                    sourceDriven,
                     state.getValue(C_INDEX),
                     loadResistance
             );
+            runtime[EFFECTIVE_TAU_SLOT] = sourceDriven
+                    ? CopperCapacitorLogic.chargeTau(state.getValue(C_INDEX))
+                    : CopperCapacitorLogic.dischargeTau(state.getValue(C_INDEX), loadResistance);
         }
+        // STALE/FAULT/DOMAIN/TOPOLOGY input evidence cannot tell us whether the source is
+        // charging or absent. Freeze the stored-energy integration rather than inventing discharge.
 
         runtime[INITIALIZED_SLOT] = 1;
         runtime[INPUT_QUALITY_SLOT] = input.quality().ordinal();
         runtime[LOAD_RESISTANCE_X100_SLOT] = Double.isInfinite(loadResistance)
                 ? OPEN_CIRCUIT_SENTINEL
                 : (int) Math.min(Integer.MAX_VALUE - 1L, Math.round(Math.max(0.0, loadResistance) * 100.0));
-        runtime[EFFECTIVE_TAU_SLOT] = inputValid
-                ? CopperCapacitorLogic.chargeTau(state.getValue(C_INDEX))
-                : CopperCapacitorLogic.dischargeTau(state.getValue(C_INDEX), loadResistance);
         runtime[LOAD_TRUNCATED_SLOT] = loadTruncated ? 1 : 0;
 
         int outputVoltage = outputVoltageFromCharge(runtime[CHARGE_SLOT]);
@@ -161,11 +163,13 @@ public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
                 || inputQuality == PortQuality.DOMAIN_MISMATCH) {
             return inputQuality;
         }
-        if (runtime[LOAD_TRUNCATED_SLOT] != 0) return PortQuality.STALE;
+        if (runtime[LOAD_TRUNCATED_SLOT] != 0 || inputQuality == PortQuality.STALE) {
+            return PortQuality.STALE;
+        }
 
-        // Stored charge is a legitimate local energy source while it decays after input removal.
+        // A verified absent source does not erase energy already stored locally in the capacitor.
         if (runtime[CHARGE_SLOT] > 0 || inputQuality == PortQuality.VALID) return PortQuality.VALID;
-        return inputQuality == PortQuality.STALE ? PortQuality.STALE : PortQuality.NO_SIGNAL;
+        return PortQuality.NO_SIGNAL;
     }
 
     public static boolean outputInitialized(Level level, BlockPos pos) {
