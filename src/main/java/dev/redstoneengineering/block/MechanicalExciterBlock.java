@@ -230,6 +230,18 @@ public class MechanicalExciterBlock extends Block implements EngineeringPortProv
         super.onRemove(state, level, pos, newState, movedByPiston);
     }
 
+    /** Server-authoritative frequency adjustment shared by Shift interaction and engineering HMI. */
+    public static boolean adjustFrequency(Level level, BlockPos pos, int delta) {
+        if (level.isClientSide || delta == 0) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof MechanicalExciterBlock exciter)) return false;
+        int current = state.getValue(FREQUENCY);
+        int nextValue = delta > 0 ? (current >= 15 ? 1 : current + 1) : (current <= 1 ? 15 : current - 1);
+        level.setBlock(pos, state.setValue(FREQUENCY, nextValue), Block.UPDATE_CLIENTS);
+        scheduleUpdate(level, pos, exciter);
+        return true;
+    }
+
     @Override
     protected InteractionResult useWithoutItem(
             BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit
