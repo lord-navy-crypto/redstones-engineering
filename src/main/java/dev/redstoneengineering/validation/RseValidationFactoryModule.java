@@ -25,6 +25,7 @@ public final class RseValidationFactoryModule {
         RseValidationPlantService.tick(event.getServer());
         RseMegaValidationService.tick(event.getServer());
         RseIntegratedDemoService.tick(event.getServer());
+        RseSignalProcessingLabService.tick(event.getServer());
     }
 
     private static void registerCommands(RegisterCommandsEvent event) {
@@ -138,6 +139,31 @@ public final class RseValidationFactoryModule {
                                         .executes(context -> {
                                             var source = context.getSource();
                                             return send(source, RseIntegratedDemoService.retest(source.getPlayerOrException()));
+                                        })))
+                        .then(Commands.literal("signal")
+                                .then(Commands.literal("place")
+                                        .executes(context -> {
+                                            var source = context.getSource();
+                                            var player = source.getPlayerOrException();
+                                            BlockPos origin = BlockPos.containing(source.getPosition()).offset(2, 0, 6);
+                                            return send(source, RseSignalProcessingLabService.place(player, origin));
+                                        }))
+                                .then(Commands.literal("status")
+                                        .executes(context -> {
+                                            var source = context.getSource();
+                                            return send(source, RseSignalProcessingLabService.status(source.getPlayerOrException()));
+                                        }))
+                                .then(Commands.literal("stage")
+                                        .then(Commands.argument("number", IntegerArgumentType.integer(1, 9))
+                                                .executes(context -> {
+                                                    var source = context.getSource();
+                                                    int number = IntegerArgumentType.getInteger(context, "number");
+                                                    return send(source, RseSignalProcessingLabService.stage(source.getPlayerOrException(), number));
+                                                })))
+                                .then(Commands.literal("retest")
+                                        .executes(context -> {
+                                            var source = context.getSource();
+                                            return send(source, RseSignalProcessingLabService.retest(source.getPlayerOrException()));
                                         })))
                         .then(Commands.literal("plant")
                                 .then(Commands.literal("place")
