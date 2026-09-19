@@ -80,7 +80,9 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
     }
 
     private void renderConfigure(GuiGraphics graphics) {
-        labelValue(graphics, "Tuning preset", tuningName(menu.tuning()), 82);
+        labelValue(graphics, "Tuning", menu.customTuning()
+                ? "CUSTOM • baseline " + tuningName(menu.tuning())
+                : tuningName(menu.tuning()), 82);
         safeText(graphics, tuningDescription(menu.tuning()), 16, 98, TEXT);
         labelValue(graphics, "Kp / Ki divisor / Kd",
                 menu.proportionalGain() + " / " + menu.integralDivisor() + " / " + menu.derivativeGain(), 139);
@@ -92,7 +94,9 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
         safeText(graphics,
                 "Commissioning actions below capture/reset evidence. Physical RX/TX orientation lives only on Route.",
                 16, 190, INFO);
-        safeText(graphics, "Preset selection and commissioning actions remain server-authoritative.", 16, 226, MUTED);
+        safeText(graphics, menu.customTuning()
+                ? "CUSTOM coefficients are persistent server-owned configuration; runtime I/D history remains transient."
+                : "Preset selection and commissioning actions remain server-authoritative.", 16, 226, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
