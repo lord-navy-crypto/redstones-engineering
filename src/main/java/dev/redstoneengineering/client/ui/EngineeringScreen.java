@@ -746,6 +746,11 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             return;
         }
 
+        if (policy.tier() == EngineeringWorkbenchCatalog.UiTier.LAB) {
+            renderLabWorkbench(graphics, model, specs);
+            return;
+        }
+
         graphics.drawString(font, "Formula / relation", 16, 103, MUTED, false);
         safeWrappedText(graphics, model.equation(), 16, 114, TEXT, 2);
         graphics.drawString(font, "Process", 16, 136, MUTED, false);
@@ -763,44 +768,14 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
                         + "   [" + spec.minimum() + ".." + spec.maximum() + "]";
                 graphics.drawString(font, fitForWidth(value, 222), 82, 178, TEXT, false);
 
-                EngineeringWorkbenchCatalog.ResponseSpec response = EngineeringWorkbenchCatalog.response(menu);
-                boolean showSweepPlot = policy.experimental() && spec.sweepMeaningful() && response != null;
-                if (showSweepPlot) {
-                    int barX = 16, barY = 187, barW = 126, barH = 7;
-                    graphics.fill(barX, barY, barX + barW, barY + barH, PANEL_3);
-                    int span = Math.max(1, spec.maximum() - spec.minimum());
-                    int clamped = Math.max(spec.minimum(), Math.min(spec.maximum(), spec.current()));
-                    int filled = (int) Math.round((clamped - spec.minimum()) * barW / (double) span);
-                    graphics.fill(barX, barY, barX + filled, barY + barH, INFO);
-                    int markerX = barX + Math.max(0, Math.min(barW - 1, filled));
-                    graphics.fill(markerX, barY - 2, markerX + 1, barY + barH + 2, TEXT);
-
-                    int plotX = 151, plotY = 177, plotW = 153, plotH = 17;
-                    EngineeringPlot.analogFrame(graphics, plotX, plotY, plotW, plotH);
-                    EngineeringPlot.xyTrace(graphics, workbenchSweepPointCount,
-                            i -> workbenchSweepParameters[i],
-                            i -> workbenchSweepResponses[i],
-                            spec.minimum(), spec.maximum(),
-                            response.minimum(), response.maximum(),
-                            plotX + 2, plotY + 2, plotW - 4, plotH - 4, GOOD);
-                    String responseText = response.label() + " " + response.value()
-                            + (response.unit().isBlank() ? "" : " " + response.unit());
-                    graphics.drawString(font, fitForWidth(responseText, 150), 153, 166,
-                            response.usable() ? GOOD : WARN, false);
-                    if (workbenchSweepPointCount > 0) {
-                        graphics.drawString(font, "measured sweep • " + workbenchSweepPointCount + " pts",
-                                16, 166, workbenchSweepActive ? INFO : MUTED, false);
-                    }
-                } else {
-                    int barX = 16, barY = 189, barW = 288, barH = 5;
-                    graphics.fill(barX, barY, barX + barW, barY + barH, PANEL_3);
-                    int span = Math.max(1, spec.maximum() - spec.minimum());
-                    int clamped = Math.max(spec.minimum(), Math.min(spec.maximum(), spec.current()));
-                    int filled = (int) Math.round((clamped - spec.minimum()) * barW / (double) span);
-                    graphics.fill(barX, barY, barX + filled, barY + barH, INFO);
-                    int markerX = barX + Math.max(0, Math.min(barW - 1, filled));
-                    graphics.fill(markerX, barY - 2, markerX + 1, barY + barH + 2, TEXT);
-                }
+                int barX = 16, barY = 189, barW = 288, barH = 5;
+                graphics.fill(barX, barY, barX + barW, barY + barH, PANEL_3);
+                int span = Math.max(1, spec.maximum() - spec.minimum());
+                int clamped = Math.max(spec.minimum(), Math.min(spec.maximum(), spec.current()));
+                int filled = (int) Math.round((clamped - spec.minimum()) * barW / (double) span);
+                graphics.fill(barX, barY, barX + filled, barY + barH, INFO);
+                int markerX = barX + Math.max(0, Math.min(barW - 1, filled));
+                graphics.fill(markerX, barY - 2, markerX + 1, barY + barH + 2, TEXT);
 
                 if (!spec.detail().isBlank() && workbenchTarget != null) {
                     workbenchTarget.setTooltip(Tooltip.create(Component.literal(spec.detail())));
@@ -809,6 +784,59 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         } else {
             labelValue(graphics, "Block-owned parameters", "NONE / READ ONLY", 182);
             safeWrappedText(graphics, model.boundary(), 16, 199, MUTED, 2);
+        }
+    }
+
+    private void renderLabWorkbench(
+            GuiGraphics graphics,
+            EngineeringWorkbenchCatalog.ModelCard model,
+            List<EngineeringWorkbenchCatalog.ParameterSpec> specs
+    ) {
+        EngineeringWorkbenchCatalog.LabProfile lab = EngineeringWorkbenchCatalog.labProfile(menu);
+        graphics.drawString(font, "Formula", 16, 103, MUTED, false);
+        safeText(graphics, model.equation(), 58, 103, TEXT);
+
+        if (lab == null) {
+            safeText(graphics, "LAB profile unavailable • use Live / Observe for current server evidence.", 16, 128, WARN);
+            return;
+        }
+
+        graphics.drawString(font, "Experiment", 16, 126, INFO, false);
+        safeText(graphics, lab.question(), 74, 126, TEXT);
+        safeText(graphics, "X • " + lab.independentVariable(), 16, 140, MUTED);
+        safeText(graphics, "Y • " + lab.dependentVariable(), 160, 140, MUTED);
+
+        EngineeringWorkbenchCatalog.ParameterSpec spec = activeWorkbenchParameter();
+        EngineeringWorkbenchCatalog.ResponseSpec response = EngineeringWorkbenchCatalog.response(menu);
+        boolean showSweepPlot = spec != null && spec.sweepMeaningful() && response != null
+                && (workbenchSweepActive || workbenchSweepPointCount > 0);
+
+        if (showSweepPlot) {
+            int plotX = 16, plotY = 156, plotW = 288, plotH = 36;
+            EngineeringPlot.analogFrame(graphics, plotX, plotY, plotW, plotH);
+            EngineeringPlot.xyTrace(graphics, workbenchSweepPointCount,
+                    i -> workbenchSweepParameters[i],
+                    i -> workbenchSweepResponses[i],
+                    spec.minimum(), spec.maximum(),
+                    response.minimum(), response.maximum(),
+                    plotX + 3, plotY + 3, plotW - 6, plotH - 6, GOOD);
+            String caption = "measured " + spec.label() + " → " + response.label()
+                    + " • " + workbenchSweepPointCount + " pts";
+            graphics.drawString(font, fitForWidth(caption, 270), 22, 158,
+                    workbenchSweepActive ? INFO : GOOD, false);
+        } else {
+            List<EngineeringWorkbenchCatalog.LabMetric> metrics = lab.metrics();
+            int[] xs = {16, 111, 206};
+            for (int i = 0; i < Math.min(3, metrics.size()); i++) {
+                EngineeringWorkbenchCatalog.LabMetric metric = metrics.get(i);
+                metricCard(graphics, metric.label(), metric.value(), xs[i], 158, 88, i == 1 ? GOOD : INFO);
+            }
+        }
+
+        if (spec != null && workbenchTarget != null) {
+            String detail = spec.detail();
+            if (!lab.note().isBlank()) detail = detail + " • " + lab.note();
+            workbenchTarget.setTooltip(Tooltip.create(Component.literal(detail)));
         }
     }
 
