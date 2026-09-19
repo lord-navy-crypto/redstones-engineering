@@ -134,7 +134,7 @@ class EngineeringWorkbenchV2Tests(unittest.TestCase):
 
     def test_workbench_has_ordered_sweep_and_fraction_presets(self):
         for token in [
-            "WORKBENCH_SWEEP_DWELL_TICKS",
+            "recommendedSweepDwellTicks",
             "toggleWorkbenchSweep",
             "tickWorkbenchSweep",
             "applyWorkbenchFraction(0.25)",
@@ -314,6 +314,28 @@ class EngineeringWorkbenchV2Tests(unittest.TestCase):
             "reliability.auxiliary()",
         ]:
             self.assertIn(token, self.catalog)
+
+    def test_lab_experiment_types_control_sweep_dwell(self):
+        for token in [
+            "enum ExperimentKind",
+            "DYNAMIC_RESPONSE",
+            "TIMING",
+            "FREQUENCY_RESPONSE",
+            "ACTUATOR_RESPONSE",
+            "INSTRUMENTATION",
+            "recommendedSweepDwellTicks",
+            "if (menu instanceof PidControllerMenu) return 30;",
+            "case PneumaticSystemMenu.KIND_CYLINDER -> 24;",
+            "&& reliability.kind() == ReliabilitySystemMenu.KIND_SERVO) return 18;",
+            "return processor.kind() == SignalProcessorMenu.KIND_FILTER ? 10 : 6;",
+        ]:
+            self.assertIn(token, self.catalog)
+        for token in [
+            "workbenchSweepDwellTicks()",
+            "experimentKind(menu).name()",
+            "ticks dwell per point for this experiment type",
+        ]:
+            self.assertIn(token, self.screen)
 
     def test_lab_page_switches_between_metrics_and_measured_xy_sweep(self):
         for token in [
