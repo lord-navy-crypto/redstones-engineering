@@ -128,6 +128,20 @@ public class ThermalHeaterBlock extends DomainBlock implements EngineeringPortPr
         level.scheduleTick(pos, this, 2);
     }
 
+    /** Server-authoritative heater resistance adjustment; temperature remains physical state, not configuration. */
+    public static boolean adjustResistance(Level level, BlockPos pos, int delta) {
+        if (level.isClientSide || delta == 0) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof ThermalHeaterBlock heater)) return false;
+        int current = state.getValue(RESISTANCE_INDEX);
+        int nextValue = Math.floorMod(current + (delta > 0 ? 1 : -1), R_VALUES.length);
+        BlockState next = state.setValue(RESISTANCE_INDEX, nextValue);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        level.scheduleTick(pos, heater, 1);
+        if (level instanceof ServerLevel serverLevel) CopperNetworkSupport.recomputeAround(serverLevel, pos);
+        return true;
+    }
+
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
