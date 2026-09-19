@@ -99,6 +99,11 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private boolean workbenchSweepActive;
     private int workbenchSweepDelay;
     private static final int WORKBENCH_SWEEP_DWELL_TICKS = 10;
+    private static final int WORKBENCH_SWEEP_POINTS = 64;
+    private static final int INVALID_SWEEP_SAMPLE = Integer.MIN_VALUE;
+    private final int[] workbenchSweepParameters = new int[WORKBENCH_SWEEP_POINTS];
+    private final int[] workbenchSweepResponses = new int[WORKBENCH_SWEEP_POINTS];
+    private int workbenchSweepPointCount;
 
     protected EngineeringScreen(M menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -136,6 +141,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         workbenchSweep = null;
         workbenchSweepActive = false;
         workbenchSweepDelay = 0;
+        workbenchSweepPointCount = 0;
 
         int tabY = topPos + 31;
         int x = leftPos + 8;
@@ -277,6 +283,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         List<EngineeringWorkbenchCatalog.ParameterSpec> specs = workbenchParameters();
         if (specs.isEmpty()) return;
         workbenchSweepActive = false;
+        workbenchSweepPointCount = 0;
         workbenchParameterIndex = Math.floorMod(workbenchParameterIndex + delta, specs.size());
         if (workbenchTarget != null) workbenchTarget.setFocused(false);
         syncWorkbenchControls();
@@ -316,6 +323,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             return;
         }
         workbenchSweepActive = true;
+        workbenchSweepPointCount = 0;
         workbenchSweepDelay = WORKBENCH_SWEEP_DWELL_TICKS;
         applyWorkbenchTargetValue(spec, spec.minimum());
     }
@@ -331,12 +339,38 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             workbenchSweepDelay--;
             return;
         }
+
+        captureWorkbenchSweepPoint(spec);
         if (spec.current() >= spec.maximum()) {
             workbenchSweepActive = false;
             return;
         }
+
         sendMenuButton(spec.incrementButton());
         workbenchSweepDelay = WORKBENCH_SWEEP_DWELL_TICKS;
+    }
+
+    private void captureWorkbenchSweepPoint(EngineeringWorkbenchCatalog.ParameterSpec spec) {
+        EngineeringWorkbenchCatalog.ResponseSpec response = EngineeringWorkbenchCatalog.response(menu);
+        if (response == null) return;
+
+        int parameter = spec.current();
+        int measured = response.usable() ? response.value() : INVALID_SWEEP_SAMPLE;
+
+        if (workbenchSweepPointCount > 0
+                && workbenchSweepParameters[workbenchSweepPointCount - 1] == parameter) {
+            workbenchSweepResponses[workbenchSweepPointCount - 1] = measured;
+            return;
+        }
+
+        if (workbenchSweepPointCount >= WORKBENCH_SWEEP_POINTS) {
+            System.arraycopy(workbenchSweepParameters, 1, workbenchSweepParameters, 0, WORKBENCH_SWEEP_POINTS - 1);
+            System.arraycopy(workbenchSweepResponses, 1, workbenchSweepResponses, 0, WORKBENCH_SWEEP_POINTS - 1);
+            workbenchSweepPointCount = WORKBENCH_SWEEP_POINTS - 1;
+        }
+        workbenchSweepParameters[workbenchSweepPointCount] = parameter;
+        workbenchSweepResponses[workbenchSweepPointCount] = measured;
+        workbenchSweepPointCount++;
     }
 
     private void applyWorkbenchTarget() {
@@ -396,7 +430,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         workbenchSweep.setMessage(Component.literal(workbenchSweepActive ? "Stop" : "Sweep ↑"));
         workbenchSweep.setTooltip(Tooltip.create(Component.literal(
                 "Sweep from minimum to maximum with " + WORKBENCH_SWEEP_DWELL_TICKS
-                        + " ticks dwell per point; every point uses the real server-owned device action.")));
+                        + " ticks dwell per point; each point uses the real server-owned device action, then records a synchronized response.")));
 
         if (workbenchTarget != null && !workbenchTarget.isFocused()) {
             workbenchTarget.setValue(Integer.toString(spec.current()));
@@ -679,14 +713,43 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
                         + "   [" + spec.minimum() + ".." + spec.maximum() + "]";
                 graphics.drawString(font, fitForWidth(value, 222), 82, 178, TEXT, false);
 
-                int barX = 16, barY = 189, barW = 288, barH = 5;
-                graphics.fill(barX, barY, barX + barW, barY + barH, PANEL_3);
-                int span = Math.max(1, spec.maximum() - spec.minimum());
-                int clamped = Math.max(spec.minimum(), Math.min(spec.maximum(), spec.current()));
-                int filled = (int) Math.round((clamped - spec.minimum()) * barW / (double) span);
-                graphics.fill(barX, barY, barX + filled, barY + barH, INFO);
-                int markerX = barX + Math.max(0, Math.min(barW - 1, filled));
-                graphics.fill(markerX, barY - 2, markerX + 1, barY + barH + 2, TEXT);
+                EngineeringWorkbenchCatalog.ResponseSpec response = EngineeringWorkbenchCatalog.response(menu);
+                if (response != null) {
+                    int barX = 16, barY = 187, barW = 126, barH = 7;
+                    graphics.fill(barX, barY, barX + barW, barY + barH, PANEL_3);
+                    int span = Math.max(1, spec.maximum() - spec.minimum());
+                    int clamped = Math.max(spec.minimum(), Math.min(spec.maximum(), spec.current()));
+                    int filled = (int) Math.round((clamped - spec.minimum()) * barW / (double) span);
+                    graphics.fill(barX, barY, barX + filled, barY + barH, INFO);
+                    int markerX = barX + Math.max(0, Math.min(barW - 1, filled));
+                    graphics.fill(markerX, barY - 2, markerX + 1, barY + barH + 2, TEXT);
+
+                    int plotX = 151, plotY = 177, plotW = 153, plotH = 17;
+                    EngineeringPlot.analogFrame(graphics, plotX, plotY, plotW, plotH);
+                    EngineeringPlot.xyTrace(graphics, workbenchSweepPointCount,
+                            i -> workbenchSweepParameters[i],
+                            i -> workbenchSweepResponses[i],
+                            spec.minimum(), spec.maximum(),
+                            response.minimum(), response.maximum(),
+                            plotX + 2, plotY + 2, plotW - 4, plotH - 4, GOOD);
+                    String responseText = response.label() + " " + response.value()
+                            + (response.unit().isBlank() ? "" : " " + response.unit());
+                    graphics.drawString(font, fitForWidth(responseText, 150), 153, 166,
+                            response.usable() ? GOOD : WARN, false);
+                    if (workbenchSweepPointCount > 0) {
+                        graphics.drawString(font, "measured sweep • " + workbenchSweepPointCount + " pts",
+                                16, 166, workbenchSweepActive ? INFO : MUTED, false);
+                    }
+                } else {
+                    int barX = 16, barY = 189, barW = 288, barH = 5;
+                    graphics.fill(barX, barY, barX + barW, barY + barH, PANEL_3);
+                    int span = Math.max(1, spec.maximum() - spec.minimum());
+                    int clamped = Math.max(spec.minimum(), Math.min(spec.maximum(), spec.current()));
+                    int filled = (int) Math.round((clamped - spec.minimum()) * barW / (double) span);
+                    graphics.fill(barX, barY, barX + filled, barY + barH, INFO);
+                    int markerX = barX + Math.max(0, Math.min(barW - 1, filled));
+                    graphics.fill(markerX, barY - 2, markerX + 1, barY + barH + 2, TEXT);
+                }
 
                 if (!spec.detail().isBlank()) {
                     if (workbenchTarget != null) workbenchTarget.setTooltip(Tooltip.create(Component.literal(spec.detail())));
