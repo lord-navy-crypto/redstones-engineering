@@ -235,6 +235,27 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
         }
     }
 
+    /**
+     * Server-authoritative fuse-rating adjustment.
+     * Thermal exposure is retained; only configuration-derived output/evidence is invalidated.
+     */
+    public static boolean adjustRating(Level level, BlockPos pos, int delta) {
+        if (level.isClientSide || delta == 0) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof CopperFuseBlock fuse)) return false;
+        int current = state.getValue(RATING);
+        int nextValue = delta > 0 ? (current >= 15 ? 1 : current + 1) : (current <= 1 ? 15 : current - 1);
+        BlockState next = state.setValue(RATING, nextValue);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel serverLevel) {
+            RuntimeIntStore.remove(level, KEY, pos);
+            RuntimeIntStore.remove(level, QUALITY_KEY, pos);
+            DomainNetwork.driveCopper(serverLevel, fuse.outputPos(pos, next), pos, 0, false);
+            serverLevel.scheduleTick(pos, fuse, 1);
+        }
+        return true;
+    }
+
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
