@@ -33,21 +33,7 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
                 button -> sendMenuButton(PidControllerMenu.BUTTON_TUNING_NEXT)
         ).bounds(leftPos + 114, y, 92, 20).build());
 
-        int routeY = topPos + 137;
-        addConfigureWidget(Button.builder(Component.literal("RX ▲"),
-                button -> sendMenuButton(PidControllerMenu.BUTTON_INPUT_PREVIOUS))
-                .bounds(leftPos + 18, routeY, 62, 20).build());
-        addConfigureWidget(Button.builder(Component.literal("RX ▼"),
-                button -> sendMenuButton(PidControllerMenu.BUTTON_INPUT_NEXT))
-                .bounds(leftPos + 84, routeY, 62, 20).build());
-        addConfigureWidget(Button.builder(Component.literal("TX ▲"),
-                button -> sendMenuButton(PidControllerMenu.BUTTON_OUTPUT_PREVIOUS))
-                .bounds(leftPos + 150, routeY, 62, 20).build());
-        addConfigureWidget(Button.builder(Component.literal("TX ▼"),
-                button -> sendMenuButton(PidControllerMenu.BUTTON_OUTPUT_NEXT))
-                .bounds(leftPos + 216, routeY, 62, 20).build());
-
-        int commissioningY = topPos + 163;
+        int commissioningY = topPos + 198;
         addConfigureWidget(Button.builder(Component.literal("Capture acceptance"),
                 button -> sendMenuButton(PidControllerMenu.BUTTON_CAPTURE_ACCEPTANCE))
                 .bounds(leftPos + 18, commissioningY, 140, 20).build());
@@ -96,15 +82,17 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
     private void renderConfigure(GuiGraphics graphics) {
         labelValue(graphics, "Tuning preset", tuningName(menu.tuning()), 82);
         safeText(graphics, tuningDescription(menu.tuning()), 16, 98, TEXT);
-        labelValue(graphics, "Actuator slew ↑ / ↓",
-                menu.riseLimit() + " / " + menu.fallLimit() + " levels per 2t control cycle", 116);
+        labelValue(graphics, "Kp / Ki divisor / Kd",
+                menu.proportionalGain() + " / " + menu.integralDivisor() + " / " + menu.derivativeGain(), 139);
+        labelValue(graphics, "D smoothing / slew ↑ / ↓",
+                menu.derivativeSmoothing() + " / " + menu.riseLimit() + " / " + menu.fallLimit(), 157);
         safeText(graphics,
-                "Derivative acts on measured PV rather than SP error, reducing setpoint-step derivative kick.",
-                16, 136, MUTED);
+                "Derivative is on measured PV; integral uses the displayed divisor; slew limits apply per 2t control cycle.",
+                16, 176, MUTED);
         safeText(graphics,
-                "Acceptance captures current topology + commissioning evidence; reset keeps retained acceptance history.",
-                16, 191, INFO);
-        safeText(graphics, "All tuning, routing and commissioning actions are server-authoritative.", 16, 207, MUTED);
+                "Commissioning actions below capture/reset evidence. Physical RX/TX orientation lives only on Route.",
+                16, 190, INFO);
+        safeText(graphics, "Preset selection and commissioning actions remain server-authoritative.", 16, 226, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
