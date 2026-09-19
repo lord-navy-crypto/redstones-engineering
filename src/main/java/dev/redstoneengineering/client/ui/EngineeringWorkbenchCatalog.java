@@ -142,6 +142,66 @@ public final class EngineeringWorkbenchCatalog {
         // two independent IntegerProperties and action/toggle controls at the same time.
         if (menu instanceof UniversalFieldDeviceMenu) return List.of();
 
+        if (menu instanceof FieldDeviceMenu field) {
+            return switch (field.kind()) {
+                case FieldDeviceMenu.KIND_PROBE -> List.of(
+                        spec("Probe channel", field.secondary(), 0, 3,
+                                FieldDeviceMenu.BUTTON_PRIMARY_DECREASE, FieldDeviceMenu.BUTTON_PRIMARY_INCREASE,
+                                "channel", "Legacy/fallback field HMI channel selection.")
+                );
+                case FieldDeviceMenu.KIND_FILTER -> List.of(
+                        spec("Filter rate", field.tertiary(), 1, 4,
+                                FieldDeviceMenu.BUTTON_PRIMARY_DECREASE, FieldDeviceMenu.BUTTON_PRIMARY_INCREASE,
+                                "level/tick", "Precision-filter rise rate.")
+                );
+                case FieldDeviceMenu.KIND_REFERENCE -> List.of(
+                        spec("Reference level", field.primary(), 0, 15,
+                                FieldDeviceMenu.BUTTON_PRIMARY_DECREASE, FieldDeviceMenu.BUTTON_PRIMARY_INCREASE,
+                                "/15", "Configured Redstone reference level.")
+                );
+                case FieldDeviceMenu.KIND_DIGITAL_REGENERATOR -> List.of(
+                        spec("Quality threshold", field.tertiary(), 0, 2,
+                                FieldDeviceMenu.BUTTON_PRIMARY_DECREASE, FieldDeviceMenu.BUTTON_PRIMARY_INCREASE,
+                                "mode", "Digital regeneration threshold profile.")
+                );
+                case FieldDeviceMenu.KIND_PERMANENT_MAGNET -> List.of(
+                        spec("Magnet strength", field.primary(), 1, 15,
+                                FieldDeviceMenu.BUTTON_PRIMARY_DECREASE, FieldDeviceMenu.BUTTON_PRIMARY_INCREASE,
+                                "/15", "Permanent magnetic source strength.")
+                );
+                case FieldDeviceMenu.KIND_INDUCTION_COIL -> List.of(
+                        spec("Coil turns index", field.tertiary(), 1, 4,
+                                FieldDeviceMenu.BUTTON_PRIMARY_DECREASE, FieldDeviceMenu.BUTTON_PRIMARY_INCREASE,
+                                "index", "Discrete turns multiplier used by the induction model.")
+                );
+                case FieldDeviceMenu.KIND_OPTICAL_EMITTER -> List.of(
+                        spec("Optical intensity", field.primary(), 0, 15,
+                                FieldDeviceMenu.BUTTON_PRIMARY_DECREASE, FieldDeviceMenu.BUTTON_PRIMARY_INCREASE,
+                                "/15", "Optical source intensity.")
+                );
+                case FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER -> List.of(
+                        spec("Target channel", field.tertiary(), 0, 15,
+                                FieldDeviceMenu.BUTTON_PRIMARY_DECREASE, FieldDeviceMenu.BUTTON_PRIMARY_INCREASE,
+                                "channel", "Channel selected by the optical filter.")
+                );
+                case FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR -> List.of(
+                        spec("Attenuation", field.tertiary(), 0, 8,
+                                FieldDeviceMenu.BUTTON_PRIMARY_DECREASE, FieldDeviceMenu.BUTTON_PRIMARY_INCREASE,
+                                "levels", "Passive optical attenuation.")
+                );
+                default -> List.of();
+            };
+        }
+        if (menu instanceof SignalAnalyzerMenu analyzer) {
+            return List.of(spec("Calibration offset", analyzer.calibrationOffset(), -2, 2,
+                    SignalAnalyzerMenu.BUTTON_CALIBRATION_DECREASE, SignalAnalyzerMenu.BUTTON_CALIBRATION_INCREASE,
+                    "levels", "Display/output calibration offset; raw captured evidence remains distinct."));
+        }
+        if (menu instanceof LogicAnalyzerMenu analyzer) {
+            return List.of(spec("Logic threshold", analyzer.threshold(), 1, 15,
+                    LogicAnalyzerMenu.BUTTON_THRESHOLD_DECREASE, LogicAnalyzerMenu.BUTTON_THRESHOLD_INCREASE,
+                    "/15", "Threshold used to classify captured channel samples as LOW/HIGH."));
+        }
         if (menu instanceof PidControllerMenu pid) {
             return List.of(spec("Tuning preset", pid.tuning(), 0, 3,
                     PidControllerMenu.BUTTON_TUNING_PREVIOUS, PidControllerMenu.BUTTON_TUNING_NEXT,
