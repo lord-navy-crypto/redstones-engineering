@@ -228,19 +228,27 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         String primaryName = primaryParameterName(kind);
         String secondaryName = secondaryParameterName(kind);
         if (primaryPrevious != null) {
-            primaryPrevious.setMessage(Component.literal("◀ " + compactControlName(primaryName)));
+            primaryPrevious.setMessage(kind == UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY
+                    ? Component.literal("◀ Pickup")
+                    : Component.literal("◀ " + compactControlName(primaryName)));
             primaryPrevious.setTooltip(Tooltip.create(Component.literal("Fine -1 • " + primaryName)));
         }
         if (primaryNext != null) {
-            primaryNext.setMessage(Component.literal(compactControlName(primaryName) + " ▶"));
+            primaryNext.setMessage(kind == UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY
+                    ? Component.literal("Pickup ▶")
+                    : Component.literal(compactControlName(primaryName) + " ▶"));
             primaryNext.setTooltip(Tooltip.create(Component.literal("Fine +1 • " + primaryName)));
         }
         if (secondaryPrevious != null) {
-            secondaryPrevious.setMessage(Component.literal("◀ " + compactControlName(secondaryName)));
+            secondaryPrevious.setMessage(kind == UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY
+                    ? Component.literal("◀ Timing")
+                    : Component.literal("◀ " + compactControlName(secondaryName)));
             secondaryPrevious.setTooltip(Tooltip.create(Component.literal("Fine -1 • " + secondaryName)));
         }
         if (secondaryNext != null) {
-            secondaryNext.setMessage(Component.literal(compactControlName(secondaryName) + " ▶"));
+            secondaryNext.setMessage(kind == UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY
+                    ? Component.literal("Timing ▶")
+                    : Component.literal(compactControlName(secondaryName) + " ▶"));
             secondaryNext.setTooltip(Tooltip.create(Component.literal("Fine +1 • " + secondaryName)));
         }
         if (action != null) {
