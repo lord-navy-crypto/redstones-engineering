@@ -968,7 +968,11 @@ public final class EngineeringWorkbenchCatalog {
                 case PneumaticSystemMenu.KIND_REGULATOR -> List.of(
                         experimentSpec("Pressure setpoint", Math.max(1, pneumatic.secondary() / 10), 1, 10,
                                 PneumaticSystemMenu.BUTTON_PARAMETER_PREVIOUS, PneumaticSystemMenu.BUTTON_PARAMETER_NEXT,
-                                "x10 pressure", "Raw setting 1..10 corresponds to 10..100 pressure.")
+                                "x10 pressure", "Raw setting 1..10 corresponds to 10..100 pressure."),
+                        spec("Diaphragm response profile", pneumatic.stateFlag(), 0, 2,
+                                PneumaticSystemMenu.BUTTON_SECONDARY_PARAMETER_PREVIOUS,
+                                PneumaticSystemMenu.BUTTON_SECONDARY_PARAMETER_NEXT,
+                                "mode", "Finite response-rate profile; categorical, so it is selected rather than numerically swept.")
                 );
                 case PneumaticSystemMenu.KIND_RECEIVER -> List.of(
                         spec("Pressure range", pneumatic.stateFlag(), 0, 2,
