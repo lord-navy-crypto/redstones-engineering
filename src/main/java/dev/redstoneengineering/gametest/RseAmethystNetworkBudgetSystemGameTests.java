@@ -6,7 +6,6 @@ import dev.redstoneengineering.block.AmethystResonatorBlock;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.NetworkKernel;
-import dev.redstoneengineering.physics.RuntimeIntStore;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
@@ -166,7 +165,7 @@ public final class RseAmethystNetworkBudgetSystemGameTests {
         level.setBlock(source, RedstoneEngineering.AMETHYST_RESONATOR.get().defaultBlockState()
                 .setValue(AmethystResonatorBlock.FREQUENCY, 6)
                 .setValue(AmethystResonatorBlock.AMPLITUDE, 15), Block.UPDATE_CLIENTS);
-        RuntimeIntStore.get(level, "amethyst_resonator", source, 1)[0] = 1;
+        AmethystResonatorBlock.excite(level, source, level.getBlockState(source));
     }
 
     private static boolean allLoaded(ServerLevel level, List<BlockPos> path, GameTestHelper helper) {
