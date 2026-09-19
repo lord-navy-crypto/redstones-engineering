@@ -56,8 +56,15 @@ public class QuartzTimingLineBlock extends SurfaceTraceBlock implements Engineer
         boolean stale=stats.lastTruncated();
         boolean accepted=!stale&&valid;
         int[] r=RuntimeIntStore.get(l,KEY,p,RUNTIME_SIZE);
-        r[ACTIVE_INDEX]=accepted&&active?1:0;
-        r[PERIOD_INDEX]=accepted?Math.max(1,Math.min(4096,periodTicks)):0;
+        if (accepted) {
+            r[ACTIVE_INDEX]=active?1:0;
+            r[PERIOD_INDEX]=Math.max(1,Math.min(4096,periodTicks));
+        } else if (!stale) {
+            // A complete scan with no clock source is a true NO_SIGNAL condition.
+            r[ACTIVE_INDEX]=0;
+            r[PERIOD_INDEX]=0;
+        }
+        // A truncated scan must not invent a LOW edge or erase the last known period.
         r[VALID_INDEX]=accepted?1:0;
         r[SOURCE_COUNT_INDEX]=Math.max(0,sourceCount);
         r[QUALITY_INDEX]=(stale?PortQuality.STALE:accepted?PortQuality.VALID:PortQuality.NO_SIGNAL).ordinal();
