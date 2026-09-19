@@ -405,6 +405,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                     SingleRelayBlock.timingNameForMode(timingMode) + " • "
                             + SingleRelayBlock.operateDelayForMode(timingMode) + "/"
                             + SingleRelayBlock.releaseDelayForMode(timingMode) + "t", 195);
+            safeText(g, "Timing • " + SingleRelayBlock.timingNameForMode(timingMode)
+                    + " models finite armature travel; edit it independently from pickup/dropout.", 16, 211, INFO);
             safeText(g, "Pickup and timing are discrete relay profiles; Contact NO/NC remains the explicit toggle below.", 16, 229, MUTED);
         } else {
             safeText(g, "Fine buttons step the authoritative model; target boxes apply an exact bounded setting.", 16, 204, MUTED);
