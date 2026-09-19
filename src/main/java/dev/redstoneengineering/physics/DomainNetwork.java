@@ -106,9 +106,19 @@ public final class DomainNetwork {
         for (BlockPos p : nodes) {
             BlockState state = level.getBlockState(p);
             if (state.getBlock() instanceof QuartzOscillatorBlock && rawSeen.add(p)) {
-                claims.add(new DomainDriverRegistry.Claim(p,p,state.getValue(QuartzOscillatorBlock.ACTIVE)?1:0,QuartzTimingLineBlock.periodTicks(state.getValue(QuartzOscillatorBlock.PERIOD_INDEX)),0,state.getBlock().getClass().getName()));
+                claims.add(new DomainDriverRegistry.Claim(
+                        p, p,
+                        state.getValue(QuartzOscillatorBlock.ACTIVE) ? 1 : 0,
+                        QuartzOscillatorBlock.effectivePeriodTicks(level, p, state),
+                        0,
+                        state.getBlock().getClass().getName()));
             } else if (state.getBlock() instanceof QuartzLabOscillatorBlock && rawSeen.add(p)) {
-                claims.add(new DomainDriverRegistry.Claim(p,p,state.getValue(QuartzLabOscillatorBlock.ACTIVE)?1:0,QuartzTimingLineBlock.periodTicks(state.getValue(QuartzLabOscillatorBlock.PERIOD_INDEX)),0,state.getBlock().getClass().getName()));
+                claims.add(new DomainDriverRegistry.Claim(
+                        p, p,
+                        state.getValue(QuartzLabOscillatorBlock.ACTIVE) ? 1 : 0,
+                        QuartzLabOscillatorBlock.effectivePeriodTicks(level, p, state),
+                        0,
+                        state.getBlock().getClass().getName()));
             }
         }
         NetworkKernel.recordDriverState(level, "quartz", claims.size());
@@ -137,9 +147,14 @@ public final class DomainNetwork {
 
     public static QuartzSample sampleQuartz(Level level, BlockPos pos) {
         var s = level.getBlockState(pos);
-        if (s.getBlock() instanceof QuartzTimingLineBlock) return new QuartzSample(QuartzTimingLineBlock.active(level,pos), QuartzTimingLineBlock.period(level,pos), QuartzTimingLineBlock.valid(level,pos));
-        if (s.getBlock() instanceof QuartzOscillatorBlock) return new QuartzSample(s.getValue(QuartzOscillatorBlock.ACTIVE), QuartzTimingLineBlock.periodTicks(s.getValue(QuartzOscillatorBlock.PERIOD_INDEX)), true);
-        if (s.getBlock() instanceof QuartzLabOscillatorBlock) return new QuartzSample(s.getValue(QuartzLabOscillatorBlock.ACTIVE), QuartzTimingLineBlock.periodTicks(s.getValue(QuartzLabOscillatorBlock.PERIOD_INDEX)), true);
+        if (s.getBlock() instanceof QuartzTimingLineBlock) return new QuartzSample(
+                QuartzTimingLineBlock.active(level,pos), QuartzTimingLineBlock.period(level,pos), QuartzTimingLineBlock.valid(level,pos));
+        if (s.getBlock() instanceof QuartzOscillatorBlock) return new QuartzSample(
+                s.getValue(QuartzOscillatorBlock.ACTIVE),
+                QuartzOscillatorBlock.effectivePeriodTicks(level, pos, s), true);
+        if (s.getBlock() instanceof QuartzLabOscillatorBlock) return new QuartzSample(
+                s.getValue(QuartzLabOscillatorBlock.ACTIVE),
+                QuartzLabOscillatorBlock.effectivePeriodTicks(level, pos, s), true);
         return new QuartzSample(false, 0, false);
     }
 
@@ -577,7 +592,12 @@ public final class DomainNetwork {
                 }
             }else if(s.getBlock() instanceof QuartzLabOscillatorBlock){
                 if(DirectionalDomainSourceBlock.outputsToward(s,d.getOpposite())){
-                    claims.add(new DomainDriverRegistry.Claim(n,p,s.getValue(QuartzLabOscillatorBlock.ACTIVE)?1:0,QuartzTimingLineBlock.periodTicks(s.getValue(QuartzLabOscillatorBlock.PERIOD_INDEX)),0,s.getBlock().getClass().getName()));
+                    claims.add(new DomainDriverRegistry.Claim(
+                            n, p,
+                            s.getValue(QuartzLabOscillatorBlock.ACTIVE) ? 1 : 0,
+                            QuartzLabOscillatorBlock.effectivePeriodTicks(level, n, s),
+                            0,
+                            s.getBlock().getClass().getName()));
                 }
             }
         }
