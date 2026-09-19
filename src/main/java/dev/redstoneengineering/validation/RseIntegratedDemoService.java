@@ -247,10 +247,11 @@ public final class RseIntegratedDemoService {
         set(level, origin, CONTROL_CABLE_C, RedstoneEngineering.REDSTONE_SIGNAL_CABLE.get().defaultBlockState());
         set(level, origin, CONTROL_RX_TERMINAL, terminal(Direction.WEST, true));
 
-        // Servo faces WEST into a position sensor. Sensor outputs SOUTH directly into PID NORTH process input.
+        // Servo faces WEST into a position sensor. Medium load makes inertia visible while preserving control authority.
         set(level, origin, SERVO, RedstoneEngineering.SERVO_ACTUATOR.get().defaultBlockState()
                 .setValue(ServoActuatorBlock.FACING, Direction.WEST)
-                .setValue(ServoActuatorBlock.SLEW, 0));
+                .setValue(ServoActuatorBlock.SLEW, 2)
+                .setValue(ServoActuatorBlock.LOAD, 2));
         set(level, origin, POSITION_SENSOR, RedstoneEngineering.SERVO_POSITION_SENSOR.get().defaultBlockState()
                 .setValue(DirectionalSignalBlock.FACING, Direction.SOUTH)
                 .setValue(DirectionalSignalBlock.INPUT_FACING, Direction.EAST));
@@ -312,14 +313,15 @@ public final class RseIntegratedDemoService {
         installBeaconLights(level, session);
 
         return RseValidationFactoryService.Result.ok(
-                "Placed RSE integrated commissioning bench V2.",
+                "Placed RSE integrated commissioning bench V3.",
                 "FIXED: all insulated Redstone links now use legal Cable Terminals.",
-                "Main loop: Lapis -> filter -> Quartz sample -> quantizer -> terminal/cable -> PID -> terminal/cable -> Servo -> direct position feedback.",
+                "Main loop: Lapis -> filter -> Quartz sample -> quantizer -> terminal/cable -> PID -> terminal/cable -> loaded Servo -> direct position feedback.",
                 "Integrated resonance loop: same setpoint cable -> Redstone-Amethyst Exciter -> tuned resonator -> frequency filter -> piezo -> Redstone display.",
                 "Quartz proof: divided clock also drives Quartz->Redstone edge receiver; stage 3 requires real observed edges.",
                 "Floating status blocks: YELLOW=waiting for evidence, LIME=sustained PASS, RED=real failure.",
+                "Servo starts at MEDIUM mechanical load; its shaft animation mirrors authoritative loaded position dynamics.",
                 "A stage needs " + PASS_CONFIRM_SAMPLES + " consecutive valid checks before its lamp turns green.",
-                "Commands: /rsevalidation demo status | stage <1..10> | setpoint <0..100> | nodes | node <id> | retest"
+                "Commands: /rsevalidation demo status | stage <1..10> | setpoint <0..100> | load <0..3> | nodes | node <id> | retest"
         );
     }
 
@@ -353,6 +355,32 @@ public final class RseIntegratedDemoService {
                 "Integrated demo setpoint changed to " + bounded + "/100.",
                 "All stages re-armed. Use a value different from the current settled point to prove PID/Servo motion again.",
                 "Amethyst is no longer a separate impulse test: the same setpoint now drives the Redstone-Amethyst exciter continuously."
+        );
+    }
+
+    public static RseValidationFactoryService.Result load(ServerPlayer player, int profile) {
+        Session s = session(player);
+        if (s == null) return RseValidationFactoryService.Result.fail("No integrated demo session.");
+        int bounded = Math.max(0, Math.min(3, profile));
+        ServerLevel level = player.serverLevel();
+        BlockPos servoPos = at(s, SERVO);
+        BlockState servo = level.getBlockState(servoPos);
+        if (!(servo.getBlock() instanceof ServoActuatorBlock block)) {
+            return RseValidationFactoryService.Result.fail("Servo actuator missing.");
+        }
+        BlockState next = servo.setValue(ServoActuatorBlock.LOAD, bounded);
+        level.setBlock(servoPos, next, Block.UPDATE_CLIENTS);
+        level.scheduleTick(servoPos, block, 1);
+        s.pidResponded = false;
+        s.servoMoved = false;
+        s.feedbackRoundTripSeen = false;
+        s.lastServoPosition = ServoActuatorBlock.position(level, servoPos);
+        resetStages(level, s, 6, 7);
+        return RseValidationFactoryService.Result.ok(
+                "Servo mechanical load profile=" + bounded + " (" + ServoActuatorBlock.loadName(next) + ").",
+                "accelerationPeriod=" + ServoActuatorBlock.accelerationPeriod(next) + "t"
+                        + " effectiveMaxSpeed=" + ServoActuatorBlock.effectiveMaxSpeed(next) + "/step.",
+                "Stages 6-7 re-armed so the loaded closed-loop response must be proven again."
         );
     }
 
@@ -656,13 +684,25 @@ public final class RseIntegratedDemoService {
         }
 
         BlockState tx = level.getBlockState(at(s, CONTROL_TX_TERMINAL));
+        BlockState rx = level.getBlockState(at(s, CONTROL_RX_TERMINAL));
         int pidOut = state.getValue(DirectionalSignalBlock.OUTPUT);
         int terminalInput = tx.getBlock() instanceof RedstoneCableTerminalBlock ? tx.getValue(RedstoneCableTerminalBlock.POWER) : -1;
+        int delivered = rx.getBlock() instanceof RedstoneCableTerminalBlock ? rx.getValue(RedstoneCableTerminalBlock.POWER) : -1;
+        RedstoneCableNetwork.SourceEvidence evidence = RedstoneCableNetwork.sourceEvidence(level, at(s, CONTROL_CABLE_A));
+        RedstoneCableNetwork.PathEvidence path = RedstoneCableNetwork.pathEvidence(level, at(s, CONTROL_RX_TERMINAL));
         if (terminalInput != pidOut) {
             return fail(6, "PID control", "PID OUT=" + pidOut + " control TX terminal=" + terminalInput);
         }
+        if (evidence.quality() != PortQuality.VALID || evidence.sourceCount() != 1) {
+            return fail(6, "PID control", "control cable sources=" + evidence.sourceCount() + " quality=" + evidence.quality());
+        }
+        if (delivered < 0 || delivered > pidOut) {
+            return fail(6, "PID control", "impossible control transport: PID=" + pidOut + " delivered=" + delivered);
+        }
         return pass(6, "PID control", "SP=" + Math.round(sp.value()) + " PV=" + Math.round(pv.value())
-                + " OUT=" + pidOut + " target=" + PidControllerBlock.actuatorTarget(level, pos)
+                + " OUT=" + pidOut + " delivered=" + delivered
+                + " lineLoss=" + path.attenuationLoss()
+                + " target=" + PidControllerBlock.actuatorTarget(level, pos)
                 + " responseWitness=YES");
     }
 
@@ -696,14 +736,37 @@ public final class RseIntegratedDemoService {
         int target = (int) Math.round(pidSp.value());
         int sensorReading = (int) Math.round(sensorOut.value());
         int pidReading = (int) Math.round(pidPv.value());
+        int load = ServoActuatorBlock.loadIndex(servoState);
+        int accelPeriod = ServoActuatorBlock.accelerationPeriod(servoState);
+        int loadDelay = ServoActuatorBlock.loadDelayTicks(level, servoPos);
+        int motionSamples = ServoActuatorBlock.motionSamples(level, servoPos);
+        int pidOut = pidState.getValue(DirectionalSignalBlock.OUTPUT);
+        if (motionSamples <= 0) {
+            return waitFor(7, "Servo closed-loop feedback", "no authoritative mechanical motion samples yet");
+        }
+        if (accelPeriod > 1 && loadDelay <= 0) {
+            return waitFor(7, "Servo closed-loop feedback", "loaded actuator has not yet demonstrated inertia delay");
+        }
         if (sensorReading != pidReading) {
             return fail(7, "Servo closed-loop feedback", "sensorOut=" + sensorReading + " PID-PV=" + pidReading);
         }
         if (Math.abs(position - target) > 2) {
-            return waitFor(7, "Servo closed-loop feedback", "position=" + position + " target≈" + target + " still settling");
+            if (pidOut >= 15 && command.value() < target && position >= Math.round(command.value())
+                    && motionSamples >= 4) {
+                return fail(7, "Servo closed-loop feedback", "control authority exhausted: target=" + target
+                        + " PID=15 deliveredCommand=" + Math.round(command.value())
+                        + " position=" + position + " (transmission loss limits reachable position)");
+            }
+            return waitFor(7, "Servo closed-loop feedback", "position=" + position + " target≈" + target
+                    + " still settling | load=" + ServoActuatorBlock.loadName(servoState)
+                    + " velocity=" + ServoActuatorBlock.velocity(level, servoPos));
         }
         return pass(7, "Servo closed-loop feedback", "moved=YES position=" + position + " target=" + target
-                + " sensor=" + sensorReading + " returned directly to PID");
+                + " sensor=" + sensorReading
+                + " load=" + ServoActuatorBlock.loadName(servoState)
+                + " accelPeriod=" + accelPeriod + "t loadDelay=" + loadDelay + "t"
+                + " motionSamples=" + motionSamples
+                + " feedback returned to PID");
     }
 
     private static StageResult stage8(ServerLevel level, Session s) {
