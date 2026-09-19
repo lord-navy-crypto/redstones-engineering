@@ -93,6 +93,11 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_SIGNAL_TAP = 43;
     public static final int CONFIG_SIGNAL_SELECTOR = 44;
     public static final int CONFIG_ANALOG_COMPARATOR = 45;
+    public static final int CONFIG_COPPER_SOURCE = 46;
+    public static final int CONFIG_COPPER_SERIES_RESISTOR = 47;
+    public static final int CONFIG_COPPER_LOAD = 48;
+    public static final int CONFIG_COPPER_CAPACITOR = 49;
+    public static final int CONFIG_COPPER_FUSE = 50;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
@@ -151,7 +156,31 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         editSecondaryMax.set(0);
         editableMask.set(0);
 
-        if (block instanceof AnalogComparatorBlock) {
+        if (block instanceof CopperVoltageSourceBlock) {
+            configKind.set(CONFIG_COPPER_SOURCE);
+            configPrimary.set(state.getValue(CopperVoltageSourceBlock.VOLTAGE));
+        } else if (block instanceof CopperSeriesResistorBlock) {
+            configKind.set(CONFIG_COPPER_SERIES_RESISTOR);
+            configPrimary.set(state.getValue(CopperSeriesResistorBlock.RESISTANCE));
+            configSecondary.set(CopperSeriesResistorBlock.outputVoltage(level, blockPos));
+            configTertiary.set(CopperSeriesResistorBlock.outputQuality(level, blockPos).ordinal());
+        } else if (block instanceof CopperResistiveLoadBlock) {
+            configKind.set(CONFIG_COPPER_LOAD);
+            configPrimary.set(state.getValue(CopperResistiveLoadBlock.RESISTANCE));
+            configSecondary.set(state.getValue(CopperResistiveLoadBlock.VOLTAGE));
+        } else if (block instanceof CopperCapacitorBlock) {
+            configKind.set(CONFIG_COPPER_CAPACITOR);
+            configPrimary.set(state.getValue(CopperCapacitorBlock.C_INDEX));
+            configSecondary.set(CopperCapacitorBlock.chargePercent(level, blockPos));
+            configTertiary.set(CopperCapacitorBlock.outputVoltage(level, blockPos));
+            configQuaternary.set(CopperCapacitorBlock.effectiveTau(level, blockPos));
+        } else if (block instanceof CopperFuseBlock) {
+            configKind.set(CONFIG_COPPER_FUSE);
+            configPrimary.set(state.getValue(CopperFuseBlock.RATING));
+            configSecondary.set(state.getValue(CopperFuseBlock.TRIPPED) ? 1 : 0);
+            configTertiary.set(CopperFuseBlock.thermalExposure(level, blockPos));
+            configQuaternary.set(CopperFuseBlock.outputQuality(level, blockPos, state).ordinal());
+        } else if (block instanceof AnalogComparatorBlock) {
             configKind.set(CONFIG_ANALOG_COMPARATOR);
             configPrimary.set(state.getValue(AnalogComparatorBlock.MODE));
             configSecondary.set(state.getValue(AnalogComparatorBlock.HYSTERESIS));
@@ -573,6 +602,11 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     }
 
     private IntegerProperty primaryEditableProperty(Block block) {
+        if (block instanceof CopperVoltageSourceBlock) return CopperVoltageSourceBlock.VOLTAGE;
+        if (block instanceof CopperSeriesResistorBlock) return CopperSeriesResistorBlock.RESISTANCE;
+        if (block instanceof CopperResistiveLoadBlock) return CopperResistiveLoadBlock.RESISTANCE;
+        if (block instanceof CopperCapacitorBlock) return CopperCapacitorBlock.C_INDEX;
+        if (block instanceof CopperFuseBlock) return CopperFuseBlock.RATING;
         if (block instanceof AnalogComparatorBlock) return AnalogComparatorBlock.HYSTERESIS;
         if (block instanceof SingleRelayBlock) return SingleRelayBlock.PICKUP_MODE;
         if (block instanceof SignalAmplifierBlock) return SignalAmplifierBlock.GAIN_MODE;
@@ -633,6 +667,11 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean adjustPrimary(int delta) {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof CopperVoltageSourceBlock) return CopperVoltageSourceBlock.adjustVoltage(level, blockPos, delta);
+        if (block instanceof CopperSeriesResistorBlock) return CopperSeriesResistorBlock.adjustResistance(level, blockPos, delta);
+        if (block instanceof CopperResistiveLoadBlock) return CopperResistiveLoadBlock.adjustResistance(level, blockPos, delta);
+        if (block instanceof CopperCapacitorBlock) return CopperCapacitorBlock.adjustCapacitance(level, blockPos, delta);
+        if (block instanceof CopperFuseBlock) return CopperFuseBlock.adjustRating(level, blockPos, delta);
         if (block instanceof AnalogComparatorBlock) return AnalogComparatorBlock.stepHysteresis(level, blockPos, delta > 0);
         if (block instanceof SingleRelayBlock) return SingleRelayBlock.stepPickup(level, blockPos, delta > 0);
         if (block instanceof SignalAmplifierBlock) return SignalAmplifierBlock.stepGain(level, blockPos, delta > 0);
