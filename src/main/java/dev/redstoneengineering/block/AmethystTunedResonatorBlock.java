@@ -153,7 +153,7 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
             // Preserve the last physical resonator state and withhold the network driver until
             // trustworthy evidence returns. Reacquisition resumes from this retained state.
             DomainNetwork.driveAmethyst(
-                    level, outputPos(pos, state),
+                    level, outputPos(pos, state), pos,
                     false,
                     EngineeringMath.clamp(runtime[ACTUAL_FREQUENCY], 0, 15),
                     EngineeringMath.clamp(runtime[ACTUAL_AMPLITUDE], 0, 15));
@@ -178,7 +178,7 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
         runtime[DRIVEN_SLOT] = next.driven() ? 1 : 0;
 
         DomainNetwork.driveAmethyst(
-                level, outputPos(pos, state),
+                level, outputPos(pos, state), pos,
                 next.amplitude() > 0,
                 next.frequency(),
                 next.amplitude());
@@ -190,7 +190,7 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
         if (!state.is(newState.getBlock())) {
             RuntimeIntStore.remove(level, KEY, pos);
             if (level instanceof ServerLevel serverLevel) {
-                DomainNetwork.driveAmethyst(serverLevel, outputPos(pos, state), false, 0, 0);
+                DomainNetwork.driveAmethyst(serverLevel, outputPos(pos, state), pos, false, 0, 0);
             }
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
