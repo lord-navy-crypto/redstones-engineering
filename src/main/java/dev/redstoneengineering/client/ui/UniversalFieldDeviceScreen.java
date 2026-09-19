@@ -244,6 +244,11 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             secondaryNext.setMessage(Component.literal(compactControlName(secondaryName) + " ▶"));
             secondaryNext.setTooltip(Tooltip.create(Component.literal("Fine +1 • " + secondaryName)));
         }
+        // Relay keeps its established explicit control vocabulary while still gaining target entry.
+        if (kind == UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY) {
+            secondaryPrevious.setMessage(Component.literal("◀ Pickup"));
+            secondaryNext.setMessage(Component.literal("Pickup ▶"));
+        }
         if (action != null) {
             action.visible = configure && hasAction;
             action.active = (kind != UniversalFieldDeviceMenu.CONFIG_ALARM || menu.configSecondary() == 2)
