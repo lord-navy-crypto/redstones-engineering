@@ -28,9 +28,9 @@ import java.util.List;
 /** Shared RSE engineering visual language. */
 public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends AbstractContainerScreen<M> {
     protected enum Section {
-        OVERVIEW("Overview", "Live engineering state"),
+        OVERVIEW("Live", "Live engineering state"),
         PORTS("Ports", "Physical I/O contract"),
-        CONFIGURE("Configure", "Parameters, modes and actions"),
+        CONFIGURE("Config", "Parameters, modes and actions"),
         DIAGNOSTICS("Observe", "Signals, topology and health"),
         HISTORY("Log", "Evidence and retained events");
 
@@ -65,6 +65,12 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
     private Section section = Section.OVERVIEW;
     private boolean routePage;
+    private boolean workbenchPage;
+    private Button workbenchTab;
+    private static final int TIMELINE_SAMPLES = 48;
+    private final int[] evidenceTimeline = new int[TIMELINE_SAMPLES];
+    private final int[] healthTimeline = new int[TIMELINE_SAMPLES];
+    private int timelineCount;
     private final List<AbstractWidget> configureWidgets = new ArrayList<>();
     private final List<Button> sectionButtons = new ArrayList<>();
     private Button routeTab;
@@ -90,6 +96,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         configureWidgets.clear();
         sectionButtons.clear();
         routeTab = null;
+        workbenchTab = null;
         routePrevious = null;
         routeNext = null;
         routeInputPrevious = null;
@@ -99,13 +106,15 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
         int tabY = topPos + 31;
         int x = leftPos + 8;
-        int tabWidth = 49;
+        int tabWidth = 42;
         int gap = 1;
 
         addSectionTab(Section.OVERVIEW, x, tabY, tabWidth); x += tabWidth + gap;
         addSectionTab(Section.PORTS, x, tabY, tabWidth); x += tabWidth + gap;
         addSectionTab(Section.CONFIGURE, x, tabY, tabWidth); x += tabWidth + gap;
         routeTab = addRenderableWidget(Button.builder(Component.literal("Route"), button -> setRoutePage())
+                .bounds(x, tabY, tabWidth, 20).build()); x += tabWidth + gap;
+        workbenchTab = addRenderableWidget(Button.builder(Component.literal("Model"), button -> setWorkbenchPage())
                 .bounds(x, tabY, tabWidth, 20).build()); x += tabWidth + gap;
         addSectionTab(Section.DIAGNOSTICS, x, tabY, tabWidth); x += tabWidth + gap;
         addSectionTab(Section.HISTORY, x, tabY, tabWidth);
@@ -294,6 +303,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private void setSection(Section target) {
         this.section = target;
         this.routePage = false;
+        this.workbenchPage = false;
         updateWidgetVisibility();
         syncDeviceWidgetLabels();
         syncRouteControls();
@@ -301,6 +311,15 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
     private void setRoutePage() {
         routePage = true;
+        workbenchPage = false;
+        updateWidgetVisibility();
+        syncDeviceWidgetLabels();
+        syncRouteControls();
+    }
+
+    private void setWorkbenchPage() {
+        routePage = false;
+        workbenchPage = true;
         updateWidgetVisibility();
         syncDeviceWidgetLabels();
         syncRouteControls();
@@ -316,18 +335,39 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         boolean controlsVisible = isConfigureSection();
         for (AbstractWidget widget : configureWidgets) widget.visible = controlsVisible && !isLegacyRouteWidget(widget);
         Section[] tabSections = {Section.OVERVIEW, Section.PORTS, Section.CONFIGURE, Section.DIAGNOSTICS, Section.HISTORY};
-        for (int i = 0; i < sectionButtons.size(); i++) sectionButtons.get(i).active = routePage || tabSections[i] != section;
+        for (int i = 0; i < sectionButtons.size(); i++) {
+            sectionButtons.get(i).active = routePage || workbenchPage || tabSections[i] != section;
+        }
         if (routeTab != null) routeTab.active = !routePage;
+        if (workbenchTab != null) workbenchTab.active = !workbenchPage;
     }
 
-    protected final boolean isConfigureSection() { return !routePage && section == Section.CONFIGURE; }
+    protected final boolean isConfigureSection() { return !routePage && !workbenchPage && section == Section.CONFIGURE; }
+    protected final boolean isWorkbenchPage() { return workbenchPage; }
     public final boolean showsPortVisualization() { return routePage || section == Section.PORTS; }
 
     @Override
     protected void containerTick() {
         super.containerTick();
+        recordSharedTimeline();
         syncDeviceWidgetLabels();
         syncRouteControls();
+    }
+
+    private void recordSharedTimeline() {
+        int evidence = menu.evidenceState() == EngineeringDeviceMenu.EVIDENCE_VALID ? 1 : 0;
+        int health = menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_NOMINAL
+                || menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_ACTIVE ? 1 : 0;
+        if (timelineCount < TIMELINE_SAMPLES) {
+            evidenceTimeline[timelineCount] = evidence;
+            healthTimeline[timelineCount] = health;
+            timelineCount++;
+            return;
+        }
+        System.arraycopy(evidenceTimeline, 1, evidenceTimeline, 0, TIMELINE_SAMPLES - 1);
+        System.arraycopy(healthTimeline, 1, healthTimeline, 0, TIMELINE_SAMPLES - 1);
+        evidenceTimeline[TIMELINE_SAMPLES - 1] = evidence;
+        healthTimeline[TIMELINE_SAMPLES - 1] = health;
     }
 
     @Override
@@ -361,6 +401,10 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             graphics.drawString(font, "ROUTE", 13, 62, TEXT, false);
             graphics.drawString(font, "Direct RX / TX direction control", 92, 62, MUTED, false);
             renderRoutePage(graphics);
+        } else if (workbenchPage) {
+            graphics.drawString(font, "MODEL", 13, 62, TEXT, false);
+            graphics.drawString(font, "Math, process and evidence boundary", 92, 62, MUTED, false);
+            renderWorkbenchPage(graphics);
         } else {
             graphics.drawString(font, section.label.toUpperCase(), 13, 62, TEXT, false);
             graphics.drawString(font, fitForWidth(section.subtitle, 210), 92, 62, MUTED, false);
@@ -371,6 +415,30 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         graphics.drawString(font, evidence, 13, imageHeight - 20, evidenceStateColor(), false);
         String position = fitForWidth("@ " + menu.blockPos().getX() + ", " + menu.blockPos().getY() + ", " + menu.blockPos().getZ(), 142);
         graphics.drawString(font, position, imageWidth - 13 - font.width(position), imageHeight - 20, MUTED, false);
+    }
+
+    protected void renderWorkbenchPage(GuiGraphics graphics) {
+        EngineeringWorkbenchCatalog.ModelCard model = EngineeringWorkbenchCatalog.describe(menu);
+        statusBadge(graphics, model.family(), INFO, 16, 80);
+        statusBadge(graphics, menu.evidenceStateLabel(), evidenceStateColor(), 222, 80);
+        labelValue(graphics, "Formula / relation", model.equation(), 105);
+        labelValue(graphics, "Parameters", model.parameters(), 124);
+        labelValue(graphics, "Process", model.process(), 143);
+        sectionRule(graphics, 162);
+        safeWrappedText(graphics, model.boundary(), 16, 170, MUTED, 2);
+
+        int plotX = 16;
+        int plotY = 202;
+        int plotW = 272;
+        int plotH = 20;
+        EngineeringPlot.analogFrame(graphics, plotX, plotY, plotW, plotH);
+        EngineeringPlot.digitalTrace(graphics, timelineCount, i -> evidenceTimeline[i],
+                plotX, plotY + 2, plotW, 6, GOOD);
+        EngineeringPlot.digitalTrace(graphics, timelineCount, i -> healthTimeline[i],
+                plotX, plotY + 11, plotW, 6, INFO);
+        graphics.drawString(font, "evidence", 16, 225, GOOD, false);
+        graphics.drawString(font, "health", 74, 225, INFO, false);
+        graphics.drawString(font, "display history only", 219, 225, MUTED, false);
     }
 
     private void renderRoutePage(GuiGraphics graphics) {
@@ -526,6 +594,15 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         graphics.drawString(font, "10", x0 + (interior * 2) / 3 - 5, y + 11, MUTED, false);
         graphics.drawString(font, "15", x1 - 11, y + 11, MUTED, false);
         graphics.drawString(font, bounded + " / 15", 245, y - 10, TEXT, false);
+    }
+
+    protected final void safeWrappedText(GuiGraphics graphics, String text, int x, int y, int color, int maxLines) {
+        int width = Math.max(0, CONTENT_RIGHT - x);
+        List<net.minecraft.util.FormattedCharSequence> lines = font.split(Component.literal(text == null ? "" : text), width);
+        int count = Math.min(Math.max(0, maxLines), lines.size());
+        for (int i = 0; i < count; i++) {
+            graphics.drawString(font, lines.get(i), x, y + i * 10, color, false);
+        }
     }
 
     protected abstract void renderSection(GuiGraphics graphics, Section section);
