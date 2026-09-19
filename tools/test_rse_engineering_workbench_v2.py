@@ -18,6 +18,9 @@ class EngineeringWorkbenchV2Tests(unittest.TestCase):
         self.reliability_screen = (ROOT / "src/main/java/dev/redstoneengineering/client/ui/ReliabilitySystemScreen.java").read_text(encoding="utf-8")
         self.pneumatic_menu = (ROOT / "src/main/java/dev/redstoneengineering/ui/menu/PneumaticSystemMenu.java").read_text(encoding="utf-8")
         self.pneumatic_screen = (ROOT / "src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.java").read_text(encoding="utf-8")
+        self.pid_block = (ROOT / "src/main/java/dev/redstoneengineering/block/PidControllerBlock.java").read_text(encoding="utf-8")
+        self.pid_menu = (ROOT / "src/main/java/dev/redstoneengineering/ui/menu/PidControllerMenu.java").read_text(encoding="utf-8")
+        self.pid_screen = (ROOT / "src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java").read_text(encoding="utf-8")
         self.ui_registration = (ROOT / "src/main/java/dev/redstoneengineering/ui/EngineeringUiRegistration.java").read_text(encoding="utf-8")
 
     def test_every_engineering_screen_gets_model_page(self):
@@ -464,6 +467,33 @@ class EngineeringWorkbenchV2Tests(unittest.TestCase):
             "First row changes calibrated setpoint; second row selects",
         ]:
             self.assertIn(token, self.pneumatic_screen)
+
+    def test_pid_preset_is_transparent_six_parameter_bank(self):
+        for token in [
+            "proportionalGain(BlockState state)",
+            "integralDivisor(BlockState state)",
+            "derivativeGain(BlockState state)",
+            "derivativeSmoothing(BlockState state)",
+            "riseLimit(BlockState state)",
+            "fallLimit(BlockState state)",
+        ]:
+            self.assertIn(token, self.pid_block)
+        for token in [
+            "proportionalGain.set",
+            "integralDivisor.set",
+            "derivativeGain.set",
+            "derivativeSmoothing.set",
+        ]:
+            self.assertIn(token, self.pid_menu)
+        for token in [
+            "Kp / Ki divisor / Kd",
+            "D smoothing / slew ↑ / ↓",
+            "Physical RX/TX orientation lives only on Route",
+        ]:
+            self.assertIn(token, self.pid_screen)
+        self.assertIn("KiDiv=", self.catalog)
+        self.assertNotIn('Component.literal("RX ▲")', self.pid_screen)
+        self.assertNotIn('Component.literal("TX ▲")', self.pid_screen)
 
     def test_universal_devices_also_participate_in_model_parameter_workbench(self):
         for token in [
