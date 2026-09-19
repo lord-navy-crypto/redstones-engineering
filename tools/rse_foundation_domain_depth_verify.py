@@ -19,6 +19,8 @@ def require(path: str, *tokens: str) -> None:
 
 selector = "src/main/java/dev/redstoneengineering/block/SignalSelectorBlock.java"
 tap = "src/main/java/dev/redstoneengineering/block/SignalTapBlock.java"
+indicator = "src/main/java/dev/redstoneengineering/block/AnalogIndicatorBlock.java"
+analyzer = "src/main/java/dev/redstoneengineering/block/SignalAnalyzerBlock.java"
 selector_test = "src/main/java/dev/redstoneengineering/gametest/RseSignalSelectorEvidenceGameTests.java"
 scaler = "src/main/java/dev/redstoneengineering/block/RedstoneToLapisScalerBlock.java"
 quantizer = "src/main/java/dev/redstoneengineering/block/LapisToRedstoneQuantizerBlock.java"
@@ -49,6 +51,17 @@ require(tap,
         "evidenceHoldActive",
         "badEvidenceEpisodes")
 
+require(indicator,
+        "Degraded evidence must not overwrite the last trustworthy displayed value",
+        "PortQuality.FAULT",
+        "PortQuality.DOMAIN_MISMATCH",
+        "PortQuality.TOPOLOGY_ERROR")
+
+require(analyzer,
+        "A genuinely absent source de-energizes the inline path",
+        "Degraded evidence is not a new numerical zero",
+        "requestedOutput = state.getValue(OUTPUT)")
+
 require(selector_test,
         "selectorHoldsLastSelectionAndPayloadAcrossMissingEvidence",
         "Missing SELECT did not hold the last trustworthy selection",
@@ -73,6 +86,12 @@ require(conversion_test,
         "signalTapHoldsFaultedEvidenceButDropsOnRealSourceLoss",
         "Faulted tap evidence was converted into a new numerical zero",
         "Real source loss did not de-energize the Signal Tap")
+
+require(conversion_test,
+        "analogIndicatorRetainsFaultedDisplayAndClearsOnNoSource",
+        "Faulted indicator evidence overwrote the last trustworthy display",
+        "inlineAnalyzerRetainsFaultedOutputAndClearsOnNoSource",
+        "Faulted analyzer evidence overwrote the last trustworthy inline output")
 
 require(registration,
         "event.register(RseFoundationDomainGameTests.class);")
@@ -184,7 +203,7 @@ if failed:
     raise SystemExit(1)
 
 print("RSE foundation-domain depth verification: PASS")
-print(" redstone selector + signal tap evidence semantics: PASS")
+print(" redstone selector/tap/analyzer/indicator evidence semantics: PASS")
 print(" Redstone↔Lapis conversion retains values while degrading evidence: PASS")
 print(" Lapis low-pass retained-state semantics: PASS")
 print(" Quartz oscillator edge-latched period + divider real-edge phase lock: PASS")
