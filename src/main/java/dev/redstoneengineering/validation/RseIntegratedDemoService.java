@@ -5,6 +5,8 @@ import dev.redstoneengineering.block.AmethystFrequencyFilterBlock;
 import dev.redstoneengineering.block.AmethystPiezoPickupBlock;
 import dev.redstoneengineering.block.AmethystResonanceDustBlock;
 import dev.redstoneengineering.block.AmethystTunedResonatorBlock;
+import dev.redstoneengineering.block.AirCompressorBlock;
+import dev.redstoneengineering.block.AirReservoirBlock;
 import dev.redstoneengineering.block.AnalogIndicatorBlock;
 import dev.redstoneengineering.block.DirectionalDomainBlock;
 import dev.redstoneengineering.block.DirectionalDomainSourceBlock;
@@ -14,6 +16,10 @@ import dev.redstoneengineering.block.LapisLowPassFilterBlock;
 import dev.redstoneengineering.block.LapisPrecisionSourceBlock;
 import dev.redstoneengineering.block.LapisToRedstoneQuantizerBlock;
 import dev.redstoneengineering.block.PidControllerBlock;
+import dev.redstoneengineering.block.PneumaticCylinderBlock;
+import dev.redstoneengineering.block.PneumaticFlowMeterBlock;
+import dev.redstoneengineering.block.PneumaticReceiverBlock;
+import dev.redstoneengineering.block.PressureRegulatorBlock;
 import dev.redstoneengineering.block.QuartzClockDividerBlock;
 import dev.redstoneengineering.block.QuartzLabOscillatorBlock;
 import dev.redstoneengineering.block.QuartzToRedstoneReceiverBlock;
@@ -28,6 +34,8 @@ import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
+import dev.redstoneengineering.physics.PneumaticNetwork;
+import dev.redstoneengineering.physics.PneumaticObservationSupport;
 import dev.redstoneengineering.physics.PrecisionObservationSupport;
 import dev.redstoneengineering.physics.RedstoneCableNetwork;
 import net.minecraft.ChatFormatting;
@@ -68,7 +76,7 @@ public final class RseIntegratedDemoService {
     public enum Verdict { WAIT, PASS, FAIL }
     public record StageResult(int stage, String name, Verdict verdict, String detail) {}
 
-    private static final int STAGE_COUNT = 10;
+    private static final int STAGE_COUNT = 15;
     private static final int AUTO_INTERVAL_TICKS = 4;
     private static final int PASS_CONFIRM_SAMPLES = 8;
     private static final Map<UUID, Session> SESSIONS = new HashMap<>();
@@ -87,6 +95,11 @@ public final class RseIntegratedDemoService {
         private boolean amethystDriveSeen;
         private boolean resonancePathSeen;
         private boolean piezoSeen;
+        private int lastCylinderPosition;
+        private boolean cylinderMoved;
+        private boolean reservoirCharged;
+        private boolean flowSeen;
+        private boolean pneumaticReceiverSeen;
 
         private Session(UUID owner, BlockPos origin) {
             this.owner = owner;
@@ -145,7 +158,21 @@ public final class RseIntegratedDemoService {
     private static final BlockPos PIEZO_INDICATOR = p(15, 0, 2);
     private static final BlockPos SPECTRUM = p(11, 0, 4);
 
-    // Diagnostic status blocks float at y=2, so they never touch an engineering port.
+    // Pneumatic instrumentation + visibly translating linear actuator branch.
+    private static final BlockPos PNEU_COMMAND_SOURCE = p(19, 0, 0);
+    private static final BlockPos PNEU_COMPRESSOR = p(19, 1, 0);
+    private static final BlockPos PNEU_PIPE_UP = p(19, 2, 0);
+    private static final BlockPos PNEU_PIPE_A = p(20, 2, 0);
+    private static final BlockPos PNEU_RESERVOIR = p(20, 2, 1);
+    private static final BlockPos PNEU_REGULATOR = p(21, 2, 0);
+    private static final BlockPos PNEU_FLOW_METER = p(22, 2, 0);
+    private static final BlockPos PNEU_PIPE_B = p(23, 2, 0);
+    private static final BlockPos PNEU_PRESSURE_RX = p(23, 2, 1);
+    private static final BlockPos PNEU_PRESSURE_DISPLAY = p(23, 2, 2);
+    private static final BlockPos PNEU_CYLINDER = p(24, 2, 0);
+    private static final BlockPos PNEU_POSITION_DISPLAY = p(25, 2, 0);
+
+    // Diagnostic status blocks float above the plant so they never touch an engineering port.
     private static final BlockPos[] LAMPS = {
             null,
             p(0, 2, 0),   // S1 source + first trace
@@ -157,9 +184,14 @@ public final class RseIntegratedDemoService {
             p(11, 2, -1), // S7 servo + direct feedback
             p(8, 2, 2),   // S8 redstone -> Amethyst exciter
             p(12, 2, 2),  // S9 tuned/filter resonance path
-            p(14, 2, 2)   // S10 piezo conversion
+            p(14, 2, 2),  // S10 piezo conversion
+            p(19, 4, 0),  // S11 compressor
+            p(20, 4, 1),  // S12 reservoir/regulator
+            p(22, 4, 0),  // S13 flow meter
+            p(23, 4, 1),  // S14 pneumatic receiver
+            p(24, 4, 0)   // S15 translating cylinder
     };
-    private static final BlockPos OVERALL_LAMP = p(16, 2, 0);
+    private static final BlockPos OVERALL_LAMP = p(27, 4, 0);
 
     private static final Map<String, BlockPos> NODES = nodeOffsets();
     private static Map<String, BlockPos> nodeOffsets() {
@@ -198,6 +230,18 @@ public final class RseIntegratedDemoService {
         n.put("piezo", PIEZO);
         n.put("piezo_indicator", PIEZO_INDICATOR);
         n.put("spectrum", SPECTRUM);
+        n.put("pneu_command_source", PNEU_COMMAND_SOURCE);
+        n.put("pneu_compressor", PNEU_COMPRESSOR);
+        n.put("pneu_pipe_up", PNEU_PIPE_UP);
+        n.put("pneu_pipe_a", PNEU_PIPE_A);
+        n.put("pneu_reservoir", PNEU_RESERVOIR);
+        n.put("pneu_regulator", PNEU_REGULATOR);
+        n.put("pneu_flow_meter", PNEU_FLOW_METER);
+        n.put("pneu_pipe_b", PNEU_PIPE_B);
+        n.put("pneu_pressure_rx", PNEU_PRESSURE_RX);
+        n.put("pneu_pressure_display", PNEU_PRESSURE_DISPLAY);
+        n.put("pneu_cylinder", PNEU_CYLINDER);
+        n.put("pneu_position_display", PNEU_POSITION_DISPLAY);
         return Map.copyOf(n);
     }
 
@@ -301,13 +345,44 @@ public final class RseIntegratedDemoService {
                 .setValue(DirectionalRedstoneEndpointBlock.FACING, Direction.EAST));
         set(level, origin, SPECTRUM, RedstoneEngineering.AMETHYST_SPECTRUM_ANALYZER.get().defaultBlockState());
 
+        // Instrumented pneumatic test cell. The compressor command enters on DOWN and compressed air
+        // leaves UP, then the solved pneumatic path turns horizontal through storage/regulation/metrology.
+        set(level, origin, PNEU_COMMAND_SOURCE, Blocks.REDSTONE_BLOCK.defaultBlockState());
+        set(level, origin, PNEU_COMPRESSOR, RedstoneEngineering.AIR_COMPRESSOR.get().defaultBlockState()
+                .setValue(AirCompressorBlock.RESPONSE_MODE, 1));
+        set(level, origin, PNEU_PIPE_UP, RedstoneEngineering.PNEUMATIC_PIPE.get().defaultBlockState());
+        set(level, origin, PNEU_PIPE_A, RedstoneEngineering.PNEUMATIC_PIPE.get().defaultBlockState());
+        set(level, origin, PNEU_RESERVOIR, RedstoneEngineering.AIR_RESERVOIR.get().defaultBlockState());
+        set(level, origin, PNEU_REGULATOR, RedstoneEngineering.PRESSURE_REGULATOR.get().defaultBlockState()
+                .setValue(DirectionalDomainBlock.FACING, Direction.EAST)
+                .setValue(DirectionalDomainBlock.INPUT_FACING, Direction.WEST)
+                .setValue(PressureRegulatorBlock.SETPOINT, 8)
+                .setValue(PressureRegulatorBlock.RESPONSE_MODE, 1));
+        set(level, origin, PNEU_FLOW_METER, RedstoneEngineering.PNEUMATIC_FLOW_METER.get().defaultBlockState()
+                .setValue(DirectionalDomainBlock.FACING, Direction.EAST)
+                .setValue(DirectionalDomainBlock.INPUT_FACING, Direction.WEST));
+        set(level, origin, PNEU_PIPE_B, RedstoneEngineering.PNEUMATIC_PIPE.get().defaultBlockState());
+        set(level, origin, PNEU_PRESSURE_RX, RedstoneEngineering.PNEUMATIC_RECEIVER.get().defaultBlockState()
+                .setValue(DirectionalSignalBlock.FACING, Direction.SOUTH)
+                .setValue(DirectionalSignalBlock.INPUT_FACING, Direction.NORTH)
+                .setValue(PneumaticReceiverBlock.RANGE_MODE, 2));
+        set(level, origin, PNEU_PRESSURE_DISPLAY, RedstoneEngineering.ANALOG_INDICATOR.get().defaultBlockState()
+                .setValue(DirectionalRedstoneEndpointBlock.FACING, Direction.SOUTH));
+        set(level, origin, PNEU_CYLINDER, RedstoneEngineering.PNEUMATIC_CYLINDER.get().defaultBlockState()
+                .setValue(DirectionalDomainBlock.FACING, Direction.EAST)
+                .setValue(DirectionalDomainBlock.INPUT_FACING, Direction.WEST));
+        set(level, origin, PNEU_POSITION_DISPLAY, RedstoneEngineering.ANALOG_INDICATOR.get().defaultBlockState()
+                .setValue(DirectionalRedstoneEndpointBlock.FACING, Direction.EAST));
+
         DomainNetwork.recomputeLapis(level, origin.offset(LAPIS_SOURCE));
         DomainNetwork.recomputeQuartz(level, origin.offset(QUARTZ_OSC));
         RedstoneCableNetwork.recompute(level, origin.offset(SETPOINT_TX_TERMINAL));
         RedstoneCableNetwork.recompute(level, origin.offset(CONTROL_TX_TERMINAL));
+        PneumaticNetwork.recompute(level, origin.offset(PNEU_COMPRESSOR));
 
         Session session = new Session(player.getUUID(), origin);
         session.lastServoPosition = ServoActuatorBlock.position(level, origin.offset(SERVO));
+        session.lastCylinderPosition = PneumaticCylinderBlock.position(level, origin.offset(PNEU_CYLINDER));
         SESSIONS.put(player.getUUID(), session);
         paintAllWait(level, session);
         installBeaconLights(level, session);
@@ -320,8 +395,9 @@ public final class RseIntegratedDemoService {
                 "Quartz proof: divided clock also drives Quartz->Redstone edge receiver; stage 3 requires real observed edges.",
                 "Floating status blocks: YELLOW=waiting for evidence, LIME=sustained PASS, RED=real failure.",
                 "Servo starts at MEDIUM mechanical load; its shaft animation mirrors authoritative loaded position dynamics.",
+                "Linear actuator cell: compressor -> reservoir/regulator -> flow meter -> pressure transducer -> visibly translating pneumatic cylinder.",
                 "A stage needs " + PASS_CONFIRM_SAMPLES + " consecutive valid checks before its lamp turns green.",
-                "Commands: /rsevalidation demo status | stage <1..10> | setpoint <0..100> | load <0..3> | nodes | node <id> | retest"
+                "Commands: /rsevalidation demo status | stage <1..15> | setpoint <0..100> | load <0..3> | nodes | node <id> | retest"
         );
     }
 
@@ -547,6 +623,21 @@ public final class RseIntegratedDemoService {
                 && AmethystPiezoPickupBlock.outputQuality(level, at(s, PIEZO)) == PortQuality.VALID) {
             s.piezoSeen = true;
         }
+
+        int cylinderPosition = PneumaticCylinderBlock.position(level, at(s, PNEU_CYLINDER));
+        if (cylinderPosition != s.lastCylinderPosition) s.cylinderMoved = true;
+        s.lastCylinderPosition = cylinderPosition;
+        if (AirReservoirBlock.storedPressure(level, at(s, PNEU_RESERVOIR)) > 0) s.reservoirCharged = true;
+        if (PneumaticFlowMeter.flowProxy(level, at(s, PNEU_FLOW_METER)) > 0
+                && PneumaticFlowMeter.measurement(level, at(s, PNEU_FLOW_METER)).sampleCount() > 0) {
+            s.flowSeen = true;
+        }
+        BlockState pressureRx = level.getBlockState(at(s, PNEU_PRESSURE_RX));
+        if (pressureRx.getBlock() instanceof PneumaticReceiverBlock
+                && pressureRx.getValue(DirectionalSignalBlock.OUTPUT) > 0
+                && AnalogIndicatorBlock.retainedMaximum(level, at(s, PNEU_PRESSURE_DISPLAY)) > 0) {
+            s.pneumaticReceiverSeen = true;
+        }
     }
 
     private static StageResult evaluate(ServerLevel level, Session s, int stage) {
@@ -561,6 +652,11 @@ public final class RseIntegratedDemoService {
             case 8 -> stage8(level, s);
             case 9 -> stage9(level, s);
             case 10 -> stage10(level, s);
+            case 11 -> stage11(level, s);
+            case 12 -> stage12(level, s);
+            case 13 -> stage13(level, s);
+            case 14 -> stage14(level, s);
+            case 15 -> stage15(level, s);
             default -> fail(stage, "unknown", "unregistered stage");
         };
     }
@@ -837,6 +933,132 @@ public final class RseIntegratedDemoService {
                 + " -> Redstone=" + out + "/15; displayMax=" + displayMax);
     }
 
+    private static StageResult stage11(ServerLevel level, Session s) {
+        BlockPos pos = at(s, PNEU_COMPRESSOR);
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof AirCompressorBlock)) return fail(11, "Compressor pressure source", "compressor missing");
+        var command = AirCompressorBlock.commandObservation(level, pos);
+        if (command.quality() == PortQuality.STALE) return waitFor(11, "Compressor pressure source", "command STALE");
+        if (command.quality() != PortQuality.VALID || command.value() != 15) {
+            return fail(11, "Compressor pressure source", "command=" + command.value() + " quality=" + command.quality());
+        }
+        if (!AirCompressorBlock.initialized(level, pos) || AirCompressorBlock.startCount(level, pos) <= 0) {
+            return waitFor(11, "Compressor pressure source", "waiting for authoritative compressor start");
+        }
+        int actual = AirCompressorBlock.actualPressure(level, pos);
+        var outlet = PneumaticObservationSupport.observe(level, at(s, PNEU_PIPE_UP));
+        if (actual < 90 || !outlet.valid() || outlet.pressure() <= 0) {
+            return waitFor(11, "Compressor pressure source", "actual=" + actual + "/100 outlet=" + outlet.pressure() + " " + outlet.quality());
+        }
+        return pass(11, "Compressor pressure source", "command=15/15 target=100 actual=" + actual
+                + " outlet=" + outlet.pressure() + " starts=" + AirCompressorBlock.startCount(level, pos));
+    }
+
+    private static StageResult stage12(ServerLevel level, Session s) {
+        BlockPos regulatorPos = at(s, PNEU_REGULATOR);
+        BlockState regulatorState = level.getBlockState(regulatorPos);
+        if (!(regulatorState.getBlock() instanceof PressureRegulatorBlock)) return fail(12, "Reservoir + pressure regulation", "regulator missing");
+        if (!(level.getBlockState(at(s, PNEU_RESERVOIR)).getBlock() instanceof AirReservoirBlock)) {
+            return fail(12, "Reservoir + pressure regulation", "reservoir missing");
+        }
+        int stored = AirReservoirBlock.storedPressure(level, at(s, PNEU_RESERVOIR));
+        int regulated = PressureRegulatorBlock.actualRegulatedPressure(level, regulatorPos);
+        int setpoint = PressureRegulatorBlock.setpointPressure(regulatorState);
+        var downstream = PneumaticObservationSupport.observe(level, at(s, PNEU_FLOW_METER));
+        if (!s.reservoirCharged || stored <= 0 || regulated <= 0 || !downstream.valid()) {
+            return waitFor(12, "Reservoir + pressure regulation", "stored=" + stored + " regulated=" + regulated
+                    + " downstream=" + downstream.quality());
+        }
+        if (regulated > setpoint) return fail(12, "Reservoir + pressure regulation", "regulated=" + regulated + " exceeds setpoint=" + setpoint);
+        if (regulated < setpoint - 10) {
+            return waitFor(12, "Reservoir + pressure regulation", "diaphragm settling: actual=" + regulated + " target=" + setpoint);
+        }
+        return pass(12, "Reservoir + pressure regulation", "reservoir=" + stored + "/100 regulator="
+                + regulated + "/100 setpoint=" + setpoint + "/100 downstream=" + downstream.pressure());
+    }
+
+    private static StageResult stage13(ServerLevel level, Session s) {
+        BlockPos pos = at(s, PNEU_FLOW_METER);
+        if (!(level.getBlockState(pos).getBlock() instanceof PneumaticFlowMeterBlock)) return fail(13, "Pneumatic flow metrology", "flow meter missing");
+        int pin = PneumaticFlowMeter.inletPressure(level, pos);
+        int pout = PneumaticFlowMeter.outletPressure(level, pos);
+        int dp = PneumaticFlowMeter.pressureDrop(level, pos);
+        int flow = PneumaticFlowMeter.flowProxy(level, pos);
+        var measurement = PneumaticFlowMeter.measurement(level, pos);
+        if (!s.flowSeen || measurement.sampleCount() < 2 || flow <= 0) {
+            return waitFor(13, "Pneumatic flow metrology", "Pin/Pout=" + pin + "/" + pout
+                    + " dP=" + dp + " flow≈" + flow + " samples=" + measurement.sampleCount());
+        }
+        if (pin <= 0 || pout <= 0 || dp <= 0 || pin <= pout) {
+            return fail(13, "Pneumatic flow metrology", "nonphysical metering evidence Pin/Pout=" + pin + "/" + pout + " dP=" + dp);
+        }
+        return pass(13, "Pneumatic flow metrology", "Pin/Pout=" + pin + "/" + pout
+                + " dP=" + dp + " flow≈" + flow + " samples=" + measurement.sampleCount());
+    }
+
+    private static StageResult stage14(ServerLevel level, Session s) {
+        BlockPos pos = at(s, PNEU_PRESSURE_RX);
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof PneumaticReceiverBlock receiver)) return fail(14, "Pneumatic pressure transduction", "receiver missing");
+        EngineeringPortSnapshot input = receiver.engineeringSnapshot(level, pos, state, Direction.NORTH).orElse(null);
+        EngineeringPortSnapshot output = receiver.engineeringSnapshot(level, pos, state, Direction.SOUTH).orElse(null);
+        if (input == null || output == null) return fail(14, "Pneumatic pressure transduction", "snapshot missing");
+        if (input.quality() == PortQuality.STALE || output.quality() == PortQuality.STALE) {
+            return waitFor(14, "Pneumatic pressure transduction", "IN=" + input.quality() + " OUT=" + output.quality());
+        }
+        if (input.quality() != PortQuality.VALID || output.quality() != PortQuality.VALID) {
+            return fail(14, "Pneumatic pressure transduction", "IN=" + input.quality() + " OUT=" + output.quality());
+        }
+        int pressure = (int) Math.round(input.value());
+        int expected = PneumaticReceiverBlock.scaledOutput(pressure, PneumaticReceiverBlock.fullScalePressure(state));
+        int actual = state.getValue(DirectionalSignalBlock.OUTPUT);
+        BlockState displayState = level.getBlockState(at(s, PNEU_PRESSURE_DISPLAY));
+        int displayed = displayState.getBlock() instanceof AnalogIndicatorBlock ? displayState.getValue(AnalogIndicatorBlock.LEVEL) : -1;
+        if (actual != expected || displayed != actual) {
+            return fail(14, "Pneumatic pressure transduction", "pressure=" + pressure + " expected="
+                    + expected + " receiver=" + actual + " display=" + displayed);
+        }
+        if (!s.pneumaticReceiverSeen || actual <= 0) return waitFor(14, "Pneumatic pressure transduction", "waiting for non-zero pressure/display witness");
+        return pass(14, "Pneumatic pressure transduction", pressure + "/100 -> Redstone " + actual + "/15; display=" + displayed);
+    }
+
+    private static StageResult stage15(ServerLevel level, Session s) {
+        BlockPos pos = at(s, PNEU_CYLINDER);
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof PneumaticCylinderBlock cylinder)) return fail(15, "Visible pneumatic linear actuator", "cylinder missing");
+        EngineeringPortSnapshot pressureIn = cylinder.engineeringSnapshot(level, pos, state, Direction.WEST).orElse(null);
+        EngineeringPortSnapshot feedback = cylinder.engineeringSnapshot(level, pos, state, Direction.EAST).orElse(null);
+        if (pressureIn == null || feedback == null) return fail(15, "Visible pneumatic linear actuator", "snapshot missing");
+        if (pressureIn.quality() == PortQuality.STALE) return waitFor(15, "Visible pneumatic linear actuator", "pressure evidence STALE");
+        if (pressureIn.quality() != PortQuality.VALID || feedback.quality() != PortQuality.VALID) {
+            return fail(15, "Visible pneumatic linear actuator", "pressure=" + pressureIn.quality() + " feedback=" + feedback.quality());
+        }
+        int position = PneumaticCylinderBlock.position(level, pos);
+        int target = PneumaticCylinderBlock.target(level, pos);
+        int pressure = PneumaticCylinderBlock.pressure(level, pos);
+        int travel = PneumaticCylinderBlock.travel(level, pos);
+        int samples = PneumaticCylinderBlock.samples(level, pos);
+        BlockState displayState = level.getBlockState(at(s, PNEU_POSITION_DISPLAY));
+        int displayed = displayState.getBlock() instanceof AnalogIndicatorBlock ? displayState.getValue(AnalogIndicatorBlock.LEVEL) : -1;
+        var path = PneumaticNetwork.actuatorPathEvidence(level, pos);
+        if (!s.cylinderMoved || travel <= 0 || samples <= 0) {
+            return waitFor(15, "Visible pneumatic linear actuator", "pressure=" + pressure + " position=" + position
+                    + " target=" + target + " travel=" + travel + " samples=" + samples);
+        }
+        if (displayed != position) return fail(15, "Visible pneumatic linear actuator", "position=" + position + " display=" + displayed);
+        if (Math.abs(position - target) > 1) {
+            return waitFor(15, "Visible pneumatic linear actuator", "rod moving position=" + position
+                    + " target=" + target + " velocity=" + PneumaticCylinderBlock.velocity(level, pos));
+        }
+        if (path.supplyPressure() <= 0 || path.pathEdges() <= 0 || path.actuatorPressure() != pressure) {
+            return fail(15, "Visible pneumatic linear actuator", "bad path evidence supply=" + path.supplyPressure()
+                    + " actuator=" + path.actuatorPressure() + " local=" + pressure + " edges=" + path.pathEdges());
+        }
+        return pass(15, "Visible pneumatic linear actuator", "rod settled at " + position + "/15 target=" + target
+                + " pressure=" + pressure + "/100 | pathLoss=" + path.observedLoss()
+                + " | travel=" + travel + " display=" + displayed);
+    }
+
     private static StageResult pass(int stage, String name, String detail) { return new StageResult(stage, name, Verdict.PASS, detail); }
     private static StageResult fail(int stage, String name, String detail) { return new StageResult(stage, name, Verdict.FAIL, detail); }
     private static StageResult waitFor(int stage, String name, String detail) { return new StageResult(stage, name, Verdict.WAIT, detail); }
@@ -871,7 +1093,12 @@ public final class RseIntegratedDemoService {
         s.amethystDriveSeen = false;
         s.resonancePathSeen = false;
         s.piezoSeen = false;
+        s.cylinderMoved = false;
+        s.reservoirCharged = false;
+        s.flowSeen = false;
+        s.pneumaticReceiverSeen = false;
         s.lastServoPosition = ServoActuatorBlock.position(level, at(s, SERVO));
+        s.lastCylinderPosition = PneumaticCylinderBlock.position(level, at(s, PNEU_CYLINDER));
         resetStages(level, s, 1, STAGE_COUNT);
     }
 
@@ -911,10 +1138,10 @@ public final class RseIntegratedDemoService {
     }
 
     private static void clearAndFloor(ServerLevel level, BlockPos origin) {
-        for (int x = -1; x <= 17; x++) {
-            for (int z = -5; z <= 5; z++) {
+        for (int x = -1; x <= 28; x++) {
+            for (int z = -5; z <= 6; z++) {
                 level.setBlock(origin.offset(x, -1, z), Blocks.SMOOTH_STONE.defaultBlockState(), Block.UPDATE_ALL);
-                for (int y = 0; y <= 3; y++) {
+                for (int y = 0; y <= 5; y++) {
                     level.setBlock(origin.offset(x, y, z), Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
                 }
             }
