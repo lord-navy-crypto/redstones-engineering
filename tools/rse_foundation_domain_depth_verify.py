@@ -25,6 +25,9 @@ selector_test = "src/main/java/dev/redstoneengineering/gametest/RseSignalSelecto
 scaler = "src/main/java/dev/redstoneengineering/block/RedstoneToLapisScalerBlock.java"
 quantizer = "src/main/java/dev/redstoneengineering/block/LapisToRedstoneQuantizerBlock.java"
 conversion_test = "src/main/java/dev/redstoneengineering/gametest/RseFoundationDomainGameTests.java"
+amethyst_medium_test = "src/main/java/dev/redstoneengineering/gametest/RseAmethystMediumSystemGameTests.java"
+amethyst_network_budget_test = "src/main/java/dev/redstoneengineering/gametest/RseAmethystNetworkBudgetSystemGameTests.java"
+amethyst_processor_budget_test = "src/main/java/dev/redstoneengineering/gametest/RseAmethystProcessorBudgetSystemGameTests.java"
 registration = "src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java"
 lapis = "src/main/java/dev/redstoneengineering/block/LapisLowPassFilterBlock.java"
 quartz = "src/main/java/dev/redstoneengineering/block/QuartzClockDividerBlock.java"
@@ -137,6 +140,16 @@ require(amethyst,
         "currentAmplitude",
         "ring-down=1 level / 2t")
 
+for amethyst_runtime_test in (
+        amethyst_medium_test,
+        amethyst_network_budget_test,
+        amethyst_processor_budget_test):
+    require(amethyst_runtime_test,
+            "AmethystResonatorBlock.excite")
+    body = (root / amethyst_runtime_test).read_text(errors="ignore")
+    if '"amethyst_resonator"' in body:
+        failed.append(amethyst_runtime_test + " still writes raw resonator runtime layout")
+
 require(spectrum,
         "Incomplete scan coverage is STALE evidence",
         "if (spectrum.expectedCells() <= 0) return PortQuality.NO_SIGNAL;",
@@ -215,4 +228,4 @@ print(" redstone selector/tap/analyzer/indicator evidence semantics: PASS")
 print(" Redstone↔Lapis conversion retains values while degrading evidence: PASS")
 print(" Lapis low-pass retained-state semantics: PASS")
 print(" Quartz oscillator edge-latched period + divider real-edge phase lock: PASS")
-print(" Amethyst free ring-down source + stale incomplete spectrum evidence: PASS")
+print(" Amethyst free ring-down source + runtime-test API migration + stale incomplete spectrum evidence: PASS")
