@@ -97,7 +97,7 @@ public final class RseValidationFactoryModule {
                                             return send(source, RseIntegratedDemoService.status(source.getPlayerOrException()));
                                         }))
                                 .then(Commands.literal("stage")
-                                        .then(Commands.argument("number", IntegerArgumentType.integer(1, 10))
+                                        .then(Commands.argument("number", IntegerArgumentType.integer(1, 15))
                                                 .executes(context -> {
                                                     var source = context.getSource();
                                                     int number = IntegerArgumentType.getInteger(context, "number");
