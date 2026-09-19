@@ -2,6 +2,7 @@ package dev.redstoneengineering.gametest;
 
 import dev.redstoneengineering.EngineeringSystemsModule;
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.block.AnalogIndicatorBlock;
 import dev.redstoneengineering.block.DirectionalDomainSourceBlock;
 import dev.redstoneengineering.block.DirectionalRedstoneEndpointBlock;
 import dev.redstoneengineering.block.DirectionalSignalBlock;
@@ -10,6 +11,7 @@ import dev.redstoneengineering.block.LapisPrecisionSourceBlock;
 import dev.redstoneengineering.block.LapisToRedstoneQuantizerBlock;
 import dev.redstoneengineering.block.RedstoneReferenceSourceBlock;
 import dev.redstoneengineering.block.RedstoneToLapisScalerBlock;
+import dev.redstoneengineering.block.SignalAnalyzerBlock;
 import dev.redstoneengineering.block.SignalTapBlock;
 import dev.redstoneengineering.core.port.PortQuality;
 import net.minecraft.core.BlockPos;
@@ -17,6 +19,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /** Runtime contracts for the foundational Redstone/Lapis/Quartz/Amethyst engineering domains. */
@@ -146,6 +149,113 @@ public final class RseFoundationDomainGameTests {
                             }
                             helper.succeed();
                         });
+                    });
+                });
+            });
+        });
+    }
+
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 100)
+    public static void analogIndicatorRetainsFaultedDisplayAndClearsOnNoSource(GameTestHelper helper) {
+        BlockPos source = new BlockPos(0, 1, 2);
+        BlockPos injector = new BlockPos(1, 1, 2);
+        BlockPos arm = new BlockPos(1, 1, 3);
+        BlockPos indicator = new BlockPos(2, 1, 2);
+
+        helper.setBlock(source, Blocks.REDSTONE_BLOCK.defaultBlockState());
+        helper.setBlock(injector, EngineeringSystemsModule.FAULT_INJECTOR.get().defaultBlockState()
+                .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
+                .setValue(DirectionalSignalBlock.INPUT_FACING, Direction.WEST)
+                .setValue(FaultInjectorBlock.MODE, 0));
+        helper.setBlock(indicator, RedstoneEngineering.ANALOG_INDICATOR.get().defaultBlockState()
+                .setValue(DirectionalRedstoneEndpointBlock.FACING, Direction.EAST));
+
+        helper.runAfterDelay(5, () -> {
+            BlockPos world = helper.absolutePos(indicator);
+            BlockState baseline = helper.getBlockState(indicator);
+            if (baseline.getValue(AnalogIndicatorBlock.LEVEL) != 15
+                    || RedstoneEngineering.ANALOG_INDICATOR.get()
+                    .inputObservation(helper.getLevel(), world, baseline).quality() != PortQuality.VALID) {
+                helper.fail("Analog Indicator did not establish a valid displayed baseline", indicator);
+                return;
+            }
+
+            helper.setBlock(arm, Blocks.REDSTONE_BLOCK.defaultBlockState());
+            helper.runAfterDelay(4, () -> {
+                BlockState faulted = helper.getBlockState(indicator);
+                if (faulted.getValue(AnalogIndicatorBlock.LEVEL) != 15
+                        || RedstoneEngineering.ANALOG_INDICATOR.get()
+                        .inputObservation(helper.getLevel(), world, faulted).quality() != PortQuality.FAULT) {
+                    helper.fail("Faulted indicator evidence overwrote the last trustworthy display", indicator);
+                    return;
+                }
+
+                helper.setBlock(arm, Blocks.AIR.defaultBlockState());
+                helper.runAfterDelay(4, () -> {
+                    helper.setBlock(source, Blocks.AIR.defaultBlockState());
+                    helper.runAfterDelay(4, () -> {
+                        BlockState noSource = helper.getBlockState(indicator);
+                        if (noSource.getValue(AnalogIndicatorBlock.LEVEL) != 0
+                                || RedstoneEngineering.ANALOG_INDICATOR.get()
+                                .inputObservation(helper.getLevel(), world, noSource).quality() != PortQuality.NO_SIGNAL) {
+                            helper.fail("Real source loss did not clear the Analog Indicator", indicator);
+                            return;
+                        }
+                        helper.succeed();
+                    });
+                });
+            });
+        });
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 110)
+    public static void inlineAnalyzerRetainsFaultedOutputAndClearsOnNoSource(GameTestHelper helper) {
+        BlockPos source = new BlockPos(0, 1, 2);
+        BlockPos injector = new BlockPos(1, 1, 2);
+        BlockPos arm = new BlockPos(1, 1, 3);
+        BlockPos analyzer = new BlockPos(2, 1, 2);
+
+        helper.setBlock(source, Blocks.REDSTONE_BLOCK.defaultBlockState());
+        helper.setBlock(injector, EngineeringSystemsModule.FAULT_INJECTOR.get().defaultBlockState()
+                .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
+                .setValue(DirectionalSignalBlock.INPUT_FACING, Direction.WEST)
+                .setValue(FaultInjectorBlock.MODE, 0));
+        helper.setBlock(analyzer, RedstoneEngineering.SIGNAL_ANALYZER.get().defaultBlockState()
+                .setValue(SignalAnalyzerBlock.FACING, Direction.WEST)
+                .setValue(SignalAnalyzerBlock.MODE, SignalAnalyzerBlock.INLINE));
+
+        helper.runAfterDelay(6, () -> {
+            BlockPos world = helper.absolutePos(analyzer);
+            BlockState baseline = helper.getBlockState(analyzer);
+            if (baseline.getValue(SignalAnalyzerBlock.OUTPUT) != 15
+                    || SignalAnalyzerBlock.measurementQuality(helper.getLevel(), world, baseline) != PortQuality.VALID) {
+                helper.fail("Inline analyzer did not establish a valid pass-through baseline", analyzer);
+                return;
+            }
+
+            helper.setBlock(arm, Blocks.REDSTONE_BLOCK.defaultBlockState());
+            helper.runAfterDelay(5, () -> {
+                BlockState faulted = helper.getBlockState(analyzer);
+                if (faulted.getValue(SignalAnalyzerBlock.OUTPUT) != 15
+                        || SignalAnalyzerBlock.measurementQuality(helper.getLevel(), world, faulted) != PortQuality.FAULT) {
+                    helper.fail("Faulted analyzer evidence overwrote the last trustworthy inline output", analyzer);
+                    return;
+                }
+
+                helper.setBlock(arm, Blocks.AIR.defaultBlockState());
+                helper.runAfterDelay(5, () -> {
+                    helper.setBlock(source, Blocks.AIR.defaultBlockState());
+                    helper.runAfterDelay(5, () -> {
+                        BlockState noSource = helper.getBlockState(analyzer);
+                        if (noSource.getValue(SignalAnalyzerBlock.OUTPUT) != 0
+                                || SignalAnalyzerBlock.measurementQuality(helper.getLevel(), world, noSource) != PortQuality.NO_SIGNAL) {
+                            helper.fail("Real source loss did not de-energize the inline analyzer", analyzer);
+                            return;
+                        }
+                        helper.succeed();
                     });
                 });
             });
