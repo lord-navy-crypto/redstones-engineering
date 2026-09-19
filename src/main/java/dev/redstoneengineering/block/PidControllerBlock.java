@@ -20,6 +20,7 @@ import dev.redstoneengineering.diagnostics.topology.EngineeringTopologyView;
 import dev.redstoneengineering.diagnostics.topology.TopologyVisualizationSnapshot;
 import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.physics.PidTuningSavedData;
 import dev.redstoneengineering.signal.PidActuatorLogic;
 import dev.redstoneengineering.ui.menu.PidControllerMenu;
 import net.minecraft.core.BlockPos;
@@ -226,7 +227,7 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
 
         int rawError = setpoint - process;
         int controlError = Math.abs(rawError) <= DEADBAND ? 0 : rawError;
-        int[] k = PRESETS[state.getValue(TUNING)];
+        int[] k = tuning(level, pos, state);
         int kp = k[0], kiDiv = k[1], kd = k[2], dSmooth = k[3];
         int riseLimit = k[4], fallLimit = k[5];
 
@@ -335,16 +336,53 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
         return preset(state)[3];
     }
 
+    public static int proportionalGain(Level level, BlockPos pos, BlockState state) {
+        return tuning(level, pos, state)[0];
+    }
+
+    public static int integralDivisor(Level level, BlockPos pos, BlockState state) {
+        return tuning(level, pos, state)[1];
+    }
+
+    public static int derivativeGain(Level level, BlockPos pos, BlockState state) {
+        return tuning(level, pos, state)[2];
+    }
+
+    public static int derivativeSmoothing(Level level, BlockPos pos, BlockState state) {
+        return tuning(level, pos, state)[3];
+    }
+
     private static int[] preset(BlockState state) {
         return PRESETS[Math.max(0, Math.min(PRESETS.length - 1, state.getValue(TUNING)))];
     }
 
+    private static int[] tuning(Level level, BlockPos pos, BlockState state) {
+        if (level instanceof ServerLevel serverLevel) {
+            PidTuningSavedData.Config custom = PidTuningSavedData.get(serverLevel).config(serverLevel, pos);
+            if (custom != null) return custom.asArray();
+        }
+        return preset(state);
+    }
+
+    public static boolean customTuning(Level level, BlockPos pos) {
+        return level instanceof ServerLevel serverLevel
+                && PidTuningSavedData.get(serverLevel).config(serverLevel, pos) != null;
+    }
+
     public static int riseLimit(BlockState state) {
-        return PRESETS[Math.max(0, Math.min(PRESETS.length - 1, state.getValue(TUNING)))][4];
+        return preset(state)[4];
     }
 
     public static int fallLimit(BlockState state) {
-        return PRESETS[Math.max(0, Math.min(PRESETS.length - 1, state.getValue(TUNING)))][5];
+        return preset(state)[5];
+    }
+
+    public static int riseLimit(Level level, BlockPos pos, BlockState state) {
+        return tuning(level, pos, state)[4];
+    }
+
+    public static int fallLimit(Level level, BlockPos pos, BlockState state) {
+        return tuning(level, pos, state)[5];
     }
 
     private static int recordTelemetry(Level level, BlockPos pos, int setpoint, int process, int output) {
@@ -404,6 +442,7 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
             RuntimeIntStore.remove(level, KEY, pos);
             PidTelemetryStore.clear(level, pos);
             AcceptanceEvidenceStore.clear(level, pos);
+            if (level instanceof ServerLevel serverLevel) PidTuningSavedData.get(serverLevel).remove(serverLevel, pos);
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
     }
@@ -429,7 +468,25 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
         if (next < 0) return false;
 
         level.setBlock(pos, state.setValue(TUNING, next), Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel serverLevel) {
+            PidTuningSavedData.get(serverLevel).remove(serverLevel, pos);
+        }
         return true;
+    }
+
+    /**
+     * Applies one bounded custom PID coefficient adjustment on the logical server.
+     * The selected preset is the starting point; the first edit creates persistent custom tuning.
+     */
+    public static boolean applyCustomTuningAction(Level level, BlockPos pos, int field, int delta) {
+        if (!(level instanceof ServerLevel serverLevel)) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof PidControllerBlock)) return false;
+        int[] baseline = preset(state);
+        PidTuningSavedData data = PidTuningSavedData.get(serverLevel);
+        PidTuningSavedData.Config before = data.configOrPreset(serverLevel, pos, baseline);
+        PidTuningSavedData.Config after = data.adjust(serverLevel, pos, field, delta, baseline);
+        return !after.equals(before);
     }
 
     /** Shared server-authoritative commissioning reset used by HMI and Shift shortcut. */
