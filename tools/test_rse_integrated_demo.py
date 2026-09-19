@@ -10,6 +10,8 @@ class IntegratedDemoPneumaticCellTests(unittest.TestCase):
         self.service = (ROOT / "src/main/java/dev/redstoneengineering/validation/RseIntegratedDemoService.java").read_text(encoding="utf-8")
         self.module = (ROOT / "src/main/java/dev/redstoneengineering/validation/RseValidationFactoryModule.java").read_text(encoding="utf-8")
         self.renderer = (ROOT / "src/main/java/dev/redstoneengineering/client/MechatronicsGeoModel.java").read_text(encoding="utf-8")
+        self.live_diagnostics = (ROOT / "src/main/java/dev/redstoneengineering/diagnostics/RseLiveDiagnostics.java").read_text(encoding="utf-8")
+        self.diagnostics_screen = (ROOT / "src/main/java/dev/redstoneengineering/client/ui/RseDiagnosticsScreen.java").read_text(encoding="utf-8")
         self.geo_path = ROOT / "src/main/resources/assets/redstoneengineering/geo/block/pneumatic_cylinder.geo.json"
 
     def test_demo_exposes_fifteen_stages(self):
@@ -83,6 +85,44 @@ class IntegratedDemoPneumaticCellTests(unittest.TestCase):
         self.assertIn("piston_head", names)
         head = next(b for b in bones if b["name"] == "piston_head")
         self.assertEqual(head.get("parent"), "rod")
+
+
+    def test_red_cross_receives_copy_ready_demo_feedback(self):
+        required_service = [
+            "RseLiveDiagnostics.publishValidationRun(",
+            "feedbackLines(level, s)",
+            "List.copyOf(s.runLog)",
+            "appendRunLog(s, level.getGameTime()",
+        ]
+        for token in required_service:
+            self.assertIn(token, self.service)
+        required_hub = [
+            "record ValidationRunSnapshot(",
+            "===== INTEGRATED DEMO FEEDBACK =====",
+            "===== INTEGRATED DEMO RUN LOG =====",
+            "latestValidationRun()",
+        ]
+        for token in required_hub:
+            self.assertIn(token, self.live_diagnostics)
+
+    def test_red_cross_has_feedback_run_log_and_copy_run_views(self):
+        for token in [
+            'FEEDBACK("FEEDBACK")',
+            'RUN_LOG("RUN LOG")',
+            'Component.literal("Copy Run")',
+            'private void renderFeedback',
+            'private void renderRunLog',
+            'private void copyRun()',
+            '===== FEEDBACK TABLE =====',
+            '===== RUN LOG =====',
+        ]:
+            self.assertIn(token, self.diagnostics_screen)
+
+    def test_run_log_uses_native_wrapped_text_not_scaled_blurry_text(self):
+        self.assertIn("drawWrappedCrisp", self.diagnostics_screen)
+        self.assertIn("font.split(Component.literal", self.diagnostics_screen)
+        self.assertIn("integer-pixel rendering", self.diagnostics_screen)
+        self.assertNotIn("pose().scale(", self.diagnostics_screen)
 
 
 if __name__ == "__main__":
