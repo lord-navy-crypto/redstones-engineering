@@ -1123,6 +1123,160 @@ public final class EngineeringWorkbenchCatalog {
                     "CALIBRATION", "corrected measurement = F(raw measurement, estimated bias/profile)",
                     "calibration profile", "observe raw/reference evidence -> estimate correction -> publish corrected result",
                     "Bias estimates never override missing or contradictory source evidence.");
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER -> card(
+                    "PRECISION TRANSDUCER",
+                    "precision output = F(observed physical input, calibration/profile)",
+                    "profile • source evidence",
+                    "observe physical quantity -> apply bounded transduction profile -> publish 0..100 Lapis evidence",
+                    "Changing representation does not create source precision or repair missing evidence.");
+
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE -> card(
+                    "PRECISION RANGE SENSOR",
+                    "precision output = range-map(distance evidence; configured range/profile)",
+                    "response profile • range index",
+                    "scan physical aperture -> validate distance evidence -> map into Lapis precision output",
+                    "No target found is not silently converted into a trustworthy zero-distance measurement.");
+
+            case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER -> card(
+                    "MOLECULAR CLOUD RECEIVER",
+                    "output = aggregate(observed cloud evidence; sensitivity)",
+                    "sensitivity",
+                    "sample bounded environment -> aggregate valid evidence -> report signal/quality",
+                    "Incomplete environmental evidence degrades quality instead of inventing density.");
+
+            case UniversalFieldDeviceMenu.CONFIG_ALARM -> card(
+                    "ALARM PROCESSOR",
+                    "alarm state = F(input evidence, severity setting, acknowledgement state)",
+                    "severity • acknowledge action",
+                    "classify incoming condition -> enter alarm state -> retain/acknowledge according to server state",
+                    "Acknowledgement changes operator state; it does not rewrite the measured cause.");
+
+            case UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR -> card(
+                    "FAULT INJECTOR",
+                    "test output = perturb(input evidence; selected fault mode)",
+                    "fault mode • reset diagnostics",
+                    "accept explicit test configuration -> inject bounded test fault -> expose resulting evidence",
+                    "Fault injection is a deliberate engineering-test block, not hidden corruption of unrelated networks.");
+
+            case UniversalFieldDeviceMenu.CONFIG_SEQUENCE_CONTROLLER -> card(
+                    "SEQUENCE CONTROLLER",
+                    "state[k+1] = transition(state[k], explicit inputs[k])",
+                    "sequence state • operator reset",
+                    "observe allowed inputs -> advance deterministic state machine -> publish explicit outputs",
+                    "The UI may show/reset the state machine but does not run a separate client scheduler.");
+
+            case UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK -> card(
+                    "SAFETY INTERLOCK",
+                    "permit = required conditions AND NOT trip; reset only when permitted",
+                    "interlock state • reset action",
+                    "validate safety evidence -> fail closed on trip/uncertainty -> require explicit permitted reset",
+                    "Safety state and signal quality remain separate so a valid trip is not mislabeled as bad data.");
+
+            case UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER -> card(
+                    "TOPOLOGY DEBUGGER",
+                    "diagnosis = F(declared ports, connected faces, medium/domain compatibility)",
+                    "observer/reset diagnostics",
+                    "inspect formal port contract -> classify mismatch/conflict -> report without back-driving",
+                    "This block observes topology; it never repairs a network by inventing a connection.");
+
+            case UniversalFieldDeviceMenu.CONFIG_LIGHT_SENSOR -> card(
+                    "LIGHT SENSOR",
+                    "output = bounded profile(light measurement)",
+                    "response profile",
+                    "measure local light evidence -> apply selected response profile -> publish bounded signal",
+                    "A configured profile changes interpretation, not the underlying world light.");
+
+            case UniversalFieldDeviceMenu.CONFIG_TANK_LEVEL -> card(
+                    "TANK LEVEL SENSOR",
+                    "output = range-map(level evidence; configured range)",
+                    "range mode",
+                    "observe tank/level evidence -> scale into bounded output -> preserve quality",
+                    "Out-of-range or unavailable evidence is diagnosed separately from a real empty reading.");
+
+            case UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY -> card(
+                    "ENTITY DENSITY SENSOR",
+                    "output = profile(count(valid entities in aperture))",
+                    "profile • aperture mode",
+                    "scan bounded aperture -> count qualifying entities -> map count to output",
+                    "Aperture selection changes what is measured; it does not create entities outside the scan.");
+
+            case UniversalFieldDeviceMenu.CONFIG_IRON_CORE -> card(
+                    "IRON CORE",
+                    "magnetic state = F(applied field history, core state)",
+                    "degauss action • magnetic evidence",
+                    "receive magnetic excitation -> retain/condition core state -> expose field evidence",
+                    "Degauss is an explicit state-changing action; the UI never fabricates magnetic history.");
+
+            case UniversalFieldDeviceMenu.CONFIG_SIGNAL_PROBE -> card(
+                    "SIGNAL PROBE",
+                    "reported sample = observed channel value",
+                    "channel • measurement axis",
+                    "observe selected signal/channel -> publish instrument evidence",
+                    "Probe semantics are observer-first: measurement does not become a hidden network driver.");
+
+            case UniversalFieldDeviceMenu.CONFIG_CABLE_TERMINAL -> card(
+                    "CABLE TERMINAL",
+                    "boundary maps one explicit external interface to one explicit cable interface",
+                    "terminal mode • physical orientation",
+                    "observe source side -> cross explicit terminal boundary -> drive destination side",
+                    "The terminal is a boundary device; it does not merge unrelated cable and vanilla networks.");
+
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> card(
+                    "QUARTZ OSCILLATOR",
+                    "clock toggles every T/2; configured T becomes effective on a real transition",
+                    "period index",
+                    "run square-wave state -> latch timing change on genuine edge -> publish Quartz timing evidence",
+                    "Opening/configuring the UI never manufactures an edge.");
+
+            case UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH -> card(
+                    "FAULT LATCH",
+                    "latched = latched OR trip(input >= threshold) until valid reset",
+                    "trip threshold • reset action",
+                    "observe trip evidence -> retain protective state -> reset only under permitted conditions",
+                    "Latched safety memory remains distinct from current evidence quality.");
+
+            case UniversalFieldDeviceMenu.CONFIG_ANALOG_INDICATOR -> card(
+                    "ANALOG INDICATOR",
+                    "display = observed bounded signal; extrema derive from observed history",
+                    "read-only display • reset extrema",
+                    "observe input -> update display/extrema -> expose quality",
+                    "The indicator is an observer and must not back-drive the measured signal.");
+
+            case UniversalFieldDeviceMenu.CONFIG_BYTE_ENCODER -> card(
+                    "BYTE ENCODER",
+                    "bus word = encode(input signal/state; selected mode)",
+                    "encoding mode",
+                    "sample source -> encode explicit 8-bit representation -> drive bus evidence",
+                    "Encoding changes representation, not the trustworthiness of source evidence.");
+
+            case UniversalFieldDeviceMenu.CONFIG_BYTE_DECODER -> card(
+                    "BYTE DECODER",
+                    "output = decode(bus word; selected mode)",
+                    "decoding mode",
+                    "validate bus evidence -> decode selected representation -> publish bounded output",
+                    "Invalid bus evidence cannot be decoded into a trustworthy payload.");
+
+            case UniversalFieldDeviceMenu.CONFIG_DESERIALIZER -> card(
+                    "DESERIALIZER",
+                    "parallel word = reconstruct(time-ordered serial symbols)",
+                    "serial timing evidence",
+                    "reacquire serial timing -> collect ordered symbols -> publish reconstructed bus word",
+                    "Missing symbol/timing continuity prevents a fabricated complete word.");
+
+            case UniversalFieldDeviceMenu.CONFIG_DIFF_RECEIVER -> card(
+                    "DIFFERENTIAL RECEIVER",
+                    "decoded state = classify(differential pair evidence)",
+                    "pair evidence • output route",
+                    "observe complementary pair -> validate differential relation -> recover bounded logic output",
+                    "Common-mode or incomplete pair evidence remains diagnosable rather than silently decoded.");
+
+            case UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY -> card(
+                    "SINGLE RELAY",
+                    "contact state follows pickup/dropout logic with configured timing/contact mode",
+                    "pickup profile • timing • contact mode",
+                    "observe coil/control -> apply pickup timing/state -> switch explicit contact path",
+                    "Control and switched payload remain separate ports; relay state does not invent payload evidence.");
+
             default -> card(
                     "FIELD DEVICE MODEL", "state[k+1] = F(state[k], input evidence, configuration)",
                     parameterSummary(menu), "server-authoritative bounded processing with explicit port evidence",
