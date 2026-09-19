@@ -42,8 +42,7 @@ public class AmethystSpectrumAnalyzerBlock extends DomainBlock implements Engine
     private static final int CONFLICT_SAMPLES = 4;
     private static final int SCANNED_CELLS = 5;
     private static final int EXPECTED_CELLS = 6;
-    private static final int HAVE_COMPLETE_SAMPLE = 7;
-    private static final int RUNTIME_SIZE = 8;
+    private static final int RUNTIME_SIZE = 7;
 
     public record Spectrum(
             int dominantFrequency,
@@ -158,7 +157,6 @@ public class AmethystSpectrumAnalyzerBlock extends DomainBlock implements Engine
             runtime[DOMINANT_ENERGY] = dominantEnergy;
             runtime[ACTIVE_BANDS] = bands;
             runtime[ACTIVE_SAMPLES] = events;
-            runtime[HAVE_COMPLETE_SAMPLE] = 1;
         }
         // An incomplete scan changes evidence/coverage, not the last trustworthy spectrum values.
         return new Spectrum(
