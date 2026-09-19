@@ -3,11 +3,15 @@ package dev.redstoneengineering.block;
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.blockentity.PulseShaperBlockEntity;
+import dev.redstoneengineering.core.port.EngineeringPort;
+import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.signal.PulseShaperLogic;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -23,6 +27,8 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
+
+import java.util.Optional;
 
 /**
  * Configurable monostable pulse conditioner.
@@ -58,6 +64,35 @@ public class PulseShaperBlock extends DirectionalSignalBlock implements EntityBl
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new PulseShaperBlockEntity(pos, state);
+    }
+
+    @Override
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
+            Level level, BlockPos pos, BlockState state, Direction side
+    ) {
+        Optional<EngineeringPort> port = engineeringPort(state, side);
+        if (port.isEmpty()) return Optional.empty();
+
+        var input = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+        if (side == inputSide(state)) {
+            return Optional.of(EngineeringPortSnapshot.redstone(
+                    port.get(), input.value(), input.quality()));
+        }
+
+        int output = state.getValue(OUTPUT);
+        PortQuality outputQuality;
+        if (output > 0) {
+            // Once a monostable pulse has been accepted, its present HIGH state is owned by the
+            // internal timer and remains trustworthy even if upstream evidence disappears.
+            outputQuality = PortQuality.VALID;
+        } else if (input.valid()) {
+            outputQuality = PortQuality.VALID;
+        } else {
+            // With no active retained pulse, uncertain trigger evidence means the LOW output
+            // cannot be advertised as trustworthy VALID evidence.
+            outputQuality = input.quality();
+        }
+        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), output, outputQuality));
     }
 
     @Override
