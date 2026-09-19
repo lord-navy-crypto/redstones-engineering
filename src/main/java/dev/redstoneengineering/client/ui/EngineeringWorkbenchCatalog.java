@@ -138,9 +138,24 @@ public final class EngineeringWorkbenchCatalog {
     }
 
     public static List<ParameterSpec> parameters(EngineeringDeviceMenu menu) {
-        // UniversalFieldDevice has its own exact target editor in Configure because it may expose
-        // two independent IntegerProperties and action/toggle controls at the same time.
-        if (menu instanceof UniversalFieldDeviceMenu) return List.of();
+        if (menu instanceof UniversalFieldDeviceMenu universal) {
+            java.util.ArrayList<ParameterSpec> specs = new java.util.ArrayList<>(2);
+            if (universal.editPrimaryAvailable()) {
+                specs.add(spec(universalPrimaryLabel(universal.configKind()), universal.editPrimaryValue(),
+                        universal.editPrimaryMin(), universal.editPrimaryMax(),
+                        UniversalFieldDeviceMenu.BUTTON_CONFIG_PRIMARY_PREVIOUS,
+                        UniversalFieldDeviceMenu.BUTTON_CONFIG_PRIMARY_NEXT,
+                        "raw", "Bounded server-owned field-device parameter A."));
+            }
+            if (universal.editSecondaryAvailable()) {
+                specs.add(spec(universalSecondaryLabel(universal.configKind()), universal.editSecondaryValue(),
+                        universal.editSecondaryMin(), universal.editSecondaryMax(),
+                        UniversalFieldDeviceMenu.BUTTON_CONFIG_SECONDARY_PREVIOUS,
+                        UniversalFieldDeviceMenu.BUTTON_CONFIG_SECONDARY_NEXT,
+                        "raw", "Bounded server-owned field-device parameter B."));
+            }
+            return List.copyOf(specs);
+        }
 
         if (menu instanceof FieldDeviceMenu field) {
             return switch (field.kind()) {
@@ -406,6 +421,45 @@ public final class EngineeringWorkbenchCatalog {
             };
         }
         return List.of();
+    }
+
+    private static String universalPrimaryLabel(int kind) {
+        return switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_ANALOG_COMPARATOR -> "Hysteresis";
+            case UniversalFieldDeviceMenu.CONFIG_SIGNAL_AMPLIFIER -> "Gain mode";
+            case UniversalFieldDeviceMenu.CONFIG_REDUNDANT_VOTER -> "Tolerance";
+            case UniversalFieldDeviceMenu.CONFIG_WATCHDOG -> "Timeout profile";
+            case UniversalFieldDeviceMenu.CONFIG_DIFF_DRIVER,
+                 UniversalFieldDeviceMenu.CONFIG_REGENERATOR,
+                 UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH -> "Threshold";
+            case UniversalFieldDeviceMenu.CONFIG_SERIALIZER,
+                 UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR,
+                 UniversalFieldDeviceMenu.CONFIG_PWM -> "Period";
+            case UniversalFieldDeviceMenu.CONFIG_REFERENCE_SOURCE -> "Reference level";
+            case UniversalFieldDeviceMenu.CONFIG_SIGNAL_PROBE -> "Channel";
+            case UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD -> "Radius";
+            case UniversalFieldDeviceMenu.CONFIG_LIGHT_SENSOR,
+                 UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY,
+                 UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE,
+                 UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER,
+                 UniversalFieldDeviceMenu.CONFIG_CALIBRATION -> "Profile";
+            case UniversalFieldDeviceMenu.CONFIG_TANK_LEVEL -> "Range";
+            case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER -> "Sensitivity";
+            case UniversalFieldDeviceMenu.CONFIG_ALARM -> "Severity";
+            case UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD -> "Trigger mode";
+            case UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR -> "Fault mode";
+            default -> "Parameter A";
+        };
+    }
+
+    private static String universalSecondaryLabel(int kind) {
+        return switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD -> "Sampling mode";
+            case UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY -> "Aperture";
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE -> "Range index";
+            case UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY -> "Pickup profile";
+            default -> "Parameter B";
+        };
     }
 
     private static ParameterSpec spec(
