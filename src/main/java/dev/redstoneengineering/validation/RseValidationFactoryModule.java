@@ -103,6 +103,18 @@ public final class RseValidationFactoryModule {
                                                     int number = IntegerArgumentType.getInteger(context, "number");
                                                     return send(source, RseFourDomainDemoService.stage(source.getPlayerOrException(), number));
                                                 })))
+                                .then(Commands.literal("nodes")
+                                        .executes(context -> {
+                                            var source = context.getSource();
+                                            return send(source, RseFourDomainDemoService.nodes(source.getPlayerOrException()));
+                                        }))
+                                .then(Commands.literal("node")
+                                        .then(Commands.argument("id", StringArgumentType.word())
+                                                .executes(context -> {
+                                                    var source = context.getSource();
+                                                    String id = StringArgumentType.getString(context, "id");
+                                                    return send(source, RseFourDomainDemoService.node(source.getPlayerOrException(), id));
+                                                })))
                                 .then(Commands.literal("setpoint")
                                         .then(Commands.argument("value", IntegerArgumentType.integer(0, 100))
                                                 .executes(context -> {
