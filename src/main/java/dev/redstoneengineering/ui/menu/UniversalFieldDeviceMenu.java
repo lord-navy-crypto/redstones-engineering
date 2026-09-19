@@ -155,6 +155,10 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configPrimary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             configSecondary.set(SignalTapBlock.seriesInputSide(state).ordinal());
             configTertiary.set(SignalTapBlock.seriesOutputSide(state).ordinal());
+            int tapStatus = SignalTapBlock.evidenceHoldActive(level, blockPos) ? 1 : 0;
+            tapStatus |= SignalTapBlock.inputQuality(level, blockPos, state).ordinal() << 1;
+            tapStatus |= Math.min(0x0FFF, SignalTapBlock.badEvidenceEpisodes(level, blockPos)) << 4;
+            configQuaternary.set(tapStatus);
         } else if (block instanceof QuartzTriggeredLapisSamplerBlock) {
             configKind.set(CONFIG_QUARTZ_LAPIS_SAMPLER);
             configPrimary.set(QuartzTriggeredLapisSamplerBlock.heldValue(level, blockPos));
