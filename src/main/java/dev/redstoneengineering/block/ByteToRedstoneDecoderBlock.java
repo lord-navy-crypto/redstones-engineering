@@ -149,8 +149,17 @@ public class ByteToRedstoneDecoderBlock extends PassiveDirectionalSignalBlock {
     @Override
     protected int computeOutput(Level level, BlockPos pos, BlockState state) {
         BlockPos input = inputPos(pos, state);
-        if (inputQuality(level, input) != PortQuality.VALID) return 0;
-        return decode(DataBusNetwork.sample(level, input), state.getValue(MODE));
+        PortQuality quality = inputQuality(level, input);
+        if (quality == PortQuality.VALID) {
+            return decode(DataBusNetwork.sample(level, input), state.getValue(MODE));
+        }
+        if (quality == PortQuality.NO_SIGNAL) {
+            // A complete observation that no byte source exists is a real de-energized output.
+            return 0;
+        }
+        // STALE/FAULT/DOMAIN/TOPOLOGY evidence cannot define a new decoded code.
+        // Retain the last trustworthy Redstone output while engineeringSnapshot exposes quality.
+        return state.getValue(OUTPUT);
     }
 
     @Override
