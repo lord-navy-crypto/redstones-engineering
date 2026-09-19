@@ -153,7 +153,8 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         addSectionTab(Section.CONFIGURE, x, tabY, tabWidth); x += tabWidth + gap;
         routeTab = addRenderableWidget(Button.builder(Component.literal("Route"), button -> setRoutePage())
                 .bounds(x, tabY, tabWidth, 20).build()); x += tabWidth + gap;
-        workbenchTab = addRenderableWidget(Button.builder(Component.literal("Model"), button -> setWorkbenchPage())
+        EngineeringWorkbenchCatalog.UiPolicy initialPolicy = EngineeringWorkbenchCatalog.uiPolicy(menu);
+        workbenchTab = addRenderableWidget(Button.builder(Component.literal(initialPolicy.pageLabel()), button -> setWorkbenchPage())
                 .bounds(x, tabY, tabWidth, 20).build()); x += tabWidth + gap;
         addSectionTab(Section.DIAGNOSTICS, x, tabY, tabWidth); x += tabWidth + gap;
         addSectionTab(Section.HISTORY, x, tabY, tabWidth);
@@ -305,7 +306,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
     private void applyWorkbenchFraction(double fraction) {
         EngineeringWorkbenchCatalog.ParameterSpec spec = activeWorkbenchParameter();
-        if (spec == null) return;
+        if (spec == null || !spec.fractionPresets()) return;
         int span = spec.maximum() - spec.minimum();
         int target = spec.minimum() + (int) Math.round(span * Math.max(0.0, Math.min(1.0, fraction)));
         if (workbenchTarget != null) workbenchTarget.setValue(Integer.toString(target));
@@ -314,7 +315,10 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
     private void toggleWorkbenchSweep() {
         EngineeringWorkbenchCatalog.ParameterSpec spec = activeWorkbenchParameter();
-        if (spec == null || spec.maximum() <= spec.minimum()) {
+        EngineeringWorkbenchCatalog.UiPolicy policy = EngineeringWorkbenchCatalog.uiPolicy(menu);
+        EngineeringWorkbenchCatalog.ResponseSpec response = EngineeringWorkbenchCatalog.response(menu);
+        if (spec == null || !policy.experimental() || !spec.sweepMeaningful()
+                || response == null || spec.maximum() <= spec.minimum()) {
             workbenchSweepActive = false;
             return;
         }
@@ -330,8 +334,9 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
     private void tickWorkbenchSweep() {
         if (!workbenchSweepActive || !workbenchPage) return;
+        EngineeringWorkbenchCatalog.UiPolicy policy = EngineeringWorkbenchCatalog.uiPolicy(menu);
         EngineeringWorkbenchCatalog.ParameterSpec spec = activeWorkbenchParameter();
-        if (spec == null) {
+        if (!policy.experimental() || spec == null || !spec.sweepMeaningful()) {
             workbenchSweepActive = false;
             return;
         }
@@ -397,40 +402,64 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     }
 
     private void syncWorkbenchControls() {
+        EngineeringWorkbenchCatalog.UiPolicy policy = EngineeringWorkbenchCatalog.uiPolicy(menu);
         List<EngineeringWorkbenchCatalog.ParameterSpec> specs = workbenchParameters();
-        boolean show = workbenchPage && !specs.isEmpty();
+        boolean showEditor = workbenchPage && policy.configurable() && !specs.isEmpty();
         if (!specs.isEmpty()) workbenchParameterIndex = Math.floorMod(workbenchParameterIndex, specs.size());
         EngineeringWorkbenchCatalog.ParameterSpec spec = specs.isEmpty() ? null : specs.get(workbenchParameterIndex);
+        EngineeringWorkbenchCatalog.ResponseSpec response = EngineeringWorkbenchCatalog.response(menu);
 
-        for (AbstractWidget widget : List.of(
-                workbenchParameterPrevious, workbenchParameterNext, workbenchDecrease, workbenchIncrease,
-                workbenchTarget, workbenchApply, workbenchMin, workbenchQuarter, workbenchMid,
-                workbenchThreeQuarter, workbenchMax, workbenchSweep)) {
-            if (widget != null) widget.visible = show;
+        if (workbenchTab != null) workbenchTab.setMessage(Component.literal(policy.pageLabel()));
+
+        boolean showFractionPresets = showEditor && spec != null && spec.fractionPresets();
+        boolean showSweep = showEditor && spec != null && policy.experimental()
+                && spec.sweepMeaningful() && response != null;
+
+        if (workbenchParameterPrevious != null) workbenchParameterPrevious.visible = showEditor;
+        if (workbenchParameterNext != null) workbenchParameterNext.visible = showEditor;
+        if (workbenchDecrease != null) workbenchDecrease.visible = showEditor;
+        if (workbenchIncrease != null) workbenchIncrease.visible = showEditor;
+        if (workbenchTarget != null) workbenchTarget.visible = showEditor;
+        if (workbenchApply != null) workbenchApply.visible = showEditor;
+        if (workbenchMin != null) workbenchMin.visible = showEditor;
+        if (workbenchMax != null) workbenchMax.visible = showEditor;
+        if (workbenchQuarter != null) workbenchQuarter.visible = showFractionPresets;
+        if (workbenchMid != null) workbenchMid.visible = showFractionPresets;
+        if (workbenchThreeQuarter != null) workbenchThreeQuarter.visible = showFractionPresets;
+        if (workbenchSweep != null) workbenchSweep.visible = showSweep;
+
+        if (!showSweep) {
+            workbenchSweepActive = false;
+            workbenchSweepDelay = 0;
         }
-        if (!show || spec == null) return;
+        if (!showEditor || spec == null) return;
 
         boolean multiple = specs.size() > 1;
         workbenchParameterPrevious.active = multiple;
         workbenchParameterNext.active = multiple;
         workbenchParameterPrevious.setMessage(Component.literal("◀ P" + (workbenchParameterIndex + 1)));
         workbenchParameterNext.setMessage(Component.literal("P" + (workbenchParameterIndex + 1) + " ▶"));
-        workbenchParameterPrevious.setTooltip(Tooltip.create(Component.literal("Previous model parameter")));
-        workbenchParameterNext.setTooltip(Tooltip.create(Component.literal("Next model parameter")));
+        workbenchParameterPrevious.setTooltip(Tooltip.create(Component.literal("Previous block-owned parameter")));
+        workbenchParameterNext.setTooltip(Tooltip.create(Component.literal("Next block-owned parameter")));
         workbenchDecrease.setTooltip(Tooltip.create(Component.literal(spec.label() + " fine -1")));
         workbenchIncrease.setTooltip(Tooltip.create(Component.literal(spec.label() + " fine +1")));
         workbenchApply.setTooltip(Tooltip.create(Component.literal(
                 "Apply exact bounded target " + spec.minimum() + ".." + spec.maximum()
-                        + " using existing server-authoritative step actions.")));
+                        + " using the existing server-authoritative block action.")));
         workbenchMin.setMessage(Component.literal("Min"));
         workbenchMax.setMessage(Component.literal("Max"));
-        workbenchQuarter.setTooltip(Tooltip.create(Component.literal("Apply 25% of this parameter range.")));
-        workbenchMid.setTooltip(Tooltip.create(Component.literal("Apply midpoint of this parameter range.")));
-        workbenchThreeQuarter.setTooltip(Tooltip.create(Component.literal("Apply 75% of this parameter range.")));
-        workbenchSweep.setMessage(Component.literal(workbenchSweepActive ? "Stop" : "Sweep ↑"));
-        workbenchSweep.setTooltip(Tooltip.create(Component.literal(
-                "Sweep from minimum to maximum with " + WORKBENCH_SWEEP_DWELL_TICKS
-                        + " ticks dwell per point; each point uses the real server-owned device action, then records a synchronized response.")));
+
+        if (showFractionPresets) {
+            workbenchQuarter.setTooltip(Tooltip.create(Component.literal("Apply 25% of this numeric range.")));
+            workbenchMid.setTooltip(Tooltip.create(Component.literal("Apply midpoint of this numeric range.")));
+            workbenchThreeQuarter.setTooltip(Tooltip.create(Component.literal("Apply 75% of this numeric range.")));
+        }
+        if (showSweep) {
+            workbenchSweep.setMessage(Component.literal(workbenchSweepActive ? "Stop" : "Sweep ↑"));
+            workbenchSweep.setTooltip(Tooltip.create(Component.literal(
+                    "Measure a real parameter-response sweep with " + WORKBENCH_SWEEP_DWELL_TICKS
+                            + " ticks dwell per point. Categorical modes/channels never receive this control.")));
+        }
 
         if (workbenchTarget != null && !workbenchTarget.isFocused()) {
             workbenchTarget.setValue(Integer.toString(spec.current()));
@@ -691,17 +720,31 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     }
 
     protected void renderWorkbenchPage(GuiGraphics graphics) {
+        EngineeringWorkbenchCatalog.UiPolicy policy = EngineeringWorkbenchCatalog.uiPolicy(menu);
         EngineeringWorkbenchCatalog.ModelCard model = EngineeringWorkbenchCatalog.describe(menu);
         List<EngineeringWorkbenchCatalog.ParameterSpec> specs = workbenchParameters();
-        statusBadge(graphics, model.family(), INFO, 16, 80);
+
+        statusBadge(graphics, policy.tier().name() + " • " + model.family(), INFO, 16, 80);
         statusBadge(graphics, menu.evidenceStateLabel(), evidenceStateColor(), 222, 80);
+
+        if (policy.tier() == EngineeringWorkbenchCatalog.UiTier.BLOCK) {
+            labelValue(graphics, "Block role", menu.topologyRoleLabel(), 108);
+            labelValue(graphics, "Physical route", menu.portRouteLabel(), 128);
+            labelValue(graphics, "Evidence", menu.evidenceStateLabel(), 148);
+            labelValue(graphics, "Health", menu.operationalHealthLabel(), 168);
+            sectionRule(graphics, 187);
+            safeWrappedText(graphics, policy.rationale(), 16, 196, MUTED, 3);
+            safeText(graphics, "No sweep, no desktop-style experiment workflow: inspect the world wiring first.",
+                    16, 228, INFO);
+            return;
+        }
 
         graphics.drawString(font, "Formula / relation", 16, 103, MUTED, false);
         safeWrappedText(graphics, model.equation(), 16, 114, TEXT, 2);
         graphics.drawString(font, "Process", 16, 136, MUTED, false);
         safeText(graphics, model.process(), 67, 136, TEXT);
         sectionRule(graphics, 151);
-        safeWrappedText(graphics, model.boundary(), 16, 159, MUTED, 2);
+        safeWrappedText(graphics, policy.rationale(), 16, 159, MUTED, 2);
 
         if (!specs.isEmpty()) {
             EngineeringWorkbenchCatalog.ParameterSpec spec = activeWorkbenchParameter();
@@ -714,7 +757,8 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
                 graphics.drawString(font, fitForWidth(value, 222), 82, 178, TEXT, false);
 
                 EngineeringWorkbenchCatalog.ResponseSpec response = EngineeringWorkbenchCatalog.response(menu);
-                if (response != null) {
+                boolean showSweepPlot = policy.experimental() && spec.sweepMeaningful() && response != null;
+                if (showSweepPlot) {
                     int barX = 16, barY = 187, barW = 126, barH = 7;
                     graphics.fill(barX, barY, barX + barW, barY + barH, PANEL_3);
                     int span = Math.max(1, spec.maximum() - spec.minimum());
@@ -751,23 +795,13 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
                     graphics.fill(markerX, barY - 2, markerX + 1, barY + barH + 2, TEXT);
                 }
 
-                if (!spec.detail().isBlank()) {
-                    if (workbenchTarget != null) workbenchTarget.setTooltip(Tooltip.create(Component.literal(spec.detail())));
+                if (!spec.detail().isBlank() && workbenchTarget != null) {
+                    workbenchTarget.setTooltip(Tooltip.create(Component.literal(spec.detail())));
                 }
             }
         } else {
-            int plotX = 16;
-            int plotY = 194;
-            int plotW = 272;
-            int plotH = 26;
-            EngineeringPlot.analogFrame(graphics, plotX, plotY, plotW, plotH);
-            EngineeringPlot.digitalTrace(graphics, timelineCount, i -> evidenceTimeline[i],
-                    plotX, plotY + 3, plotW, 7, GOOD);
-            EngineeringPlot.digitalTrace(graphics, timelineCount, i -> healthTimeline[i],
-                    plotX, plotY + 14, plotW, 7, INFO);
-            graphics.drawString(font, "evidence", 16, 224, GOOD, false);
-            graphics.drawString(font, "health", 74, 224, INFO, false);
-            graphics.drawString(font, "display history only", 219, 224, MUTED, false);
+            labelValue(graphics, "Block-owned parameters", "NONE / READ ONLY", 182);
+            safeWrappedText(graphics, model.boundary(), 16, 199, MUTED, 2);
         }
     }
 
