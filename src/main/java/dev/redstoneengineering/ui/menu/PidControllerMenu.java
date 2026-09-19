@@ -12,6 +12,7 @@ import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceRecord;
 import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceStore;
 import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceTrend;
 import dev.redstoneengineering.diagnostics.acceptance.EngineeringAcceptanceStatus;
+import dev.redstoneengineering.physics.PidTuningSavedData;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -33,6 +34,18 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_OUTPUT_NEXT = 5;
     public static final int BUTTON_CAPTURE_ACCEPTANCE = 6;
     public static final int BUTTON_RESET_RUNTIME_TREND = 7;
+    public static final int BUTTON_KP_DECREASE = 8;
+    public static final int BUTTON_KP_INCREASE = 9;
+    public static final int BUTTON_KI_DECREASE = 10;
+    public static final int BUTTON_KI_INCREASE = 11;
+    public static final int BUTTON_KD_DECREASE = 12;
+    public static final int BUTTON_KD_INCREASE = 13;
+    public static final int BUTTON_D_SMOOTH_DECREASE = 14;
+    public static final int BUTTON_D_SMOOTH_INCREASE = 15;
+    public static final int BUTTON_RISE_DECREASE = 16;
+    public static final int BUTTON_RISE_INCREASE = 17;
+    public static final int BUTTON_FALL_DECREASE = 18;
+    public static final int BUTTON_FALL_INCREASE = 19;
     public static final int TREND_SAMPLES = PidTelemetryStore.MAX_SAMPLES_PER_CONTROLLER;
 
     private final DataSlot tuning = trackedInt();
@@ -63,6 +76,7 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     private final DataSlot integralDivisor = trackedInt();
     private final DataSlot derivativeGain = trackedInt();
     private final DataSlot derivativeSmoothing = trackedInt();
+    private final DataSlot customTuning = trackedInt();
 
     private final DataSlot plantDetected = trackedInt();
     private final DataSlot plantReady = trackedInt();
@@ -133,12 +147,13 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
         actuatorTarget.set(PidControllerBlock.actuatorTarget(level, blockPos));
         slewActive.set(PidControllerBlock.slewLimitActive(level, blockPos) ? 1 : 0);
         slewEvents.set(PidControllerBlock.slewLimitEvents(level, blockPos));
-        riseLimit.set(PidControllerBlock.riseLimit(state));
-        fallLimit.set(PidControllerBlock.fallLimit(state));
-        proportionalGain.set(PidControllerBlock.proportionalGain(state));
-        integralDivisor.set(PidControllerBlock.integralDivisor(state));
-        derivativeGain.set(PidControllerBlock.derivativeGain(state));
-        derivativeSmoothing.set(PidControllerBlock.derivativeSmoothing(state));
+        riseLimit.set(PidControllerBlock.riseLimit(level, blockPos, state));
+        fallLimit.set(PidControllerBlock.fallLimit(level, blockPos, state));
+        proportionalGain.set(PidControllerBlock.proportionalGain(level, blockPos, state));
+        integralDivisor.set(PidControllerBlock.integralDivisor(level, blockPos, state));
+        derivativeGain.set(PidControllerBlock.derivativeGain(level, blockPos, state));
+        derivativeSmoothing.set(PidControllerBlock.derivativeSmoothing(level, blockPos, state));
+        customTuning.set(PidControllerBlock.customTuning(level, blockPos) ? 1 : 0);
 
         PneumaticClosedLoopWitness.Snapshot plant = ClosedLoopCommissioning.inspectPneumaticPlant(level, blockPos);
         plantDetected.set(plant.detected() ? 1 : 0);
@@ -198,6 +213,17 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
             changed = DirectionalSignalBlock.rotateSeriesInput(level, blockPos, id == BUTTON_INPUT_NEXT);
         } else if (id == BUTTON_OUTPUT_PREVIOUS || id == BUTTON_OUTPUT_NEXT) {
             changed = DirectionalSignalBlock.rotateSeriesOutput(level, blockPos, id == BUTTON_OUTPUT_NEXT);
+        } else if (id >= BUTTON_KP_DECREASE && id <= BUTTON_FALL_INCREASE) {
+            int field = switch (id) {
+                case BUTTON_KP_DECREASE, BUTTON_KP_INCREASE -> PidTuningSavedData.FIELD_KP;
+                case BUTTON_KI_DECREASE, BUTTON_KI_INCREASE -> PidTuningSavedData.FIELD_KI_DIVISOR;
+                case BUTTON_KD_DECREASE, BUTTON_KD_INCREASE -> PidTuningSavedData.FIELD_KD;
+                case BUTTON_D_SMOOTH_DECREASE, BUTTON_D_SMOOTH_INCREASE -> PidTuningSavedData.FIELD_D_SMOOTHING;
+                case BUTTON_RISE_DECREASE, BUTTON_RISE_INCREASE -> PidTuningSavedData.FIELD_RISE_LIMIT;
+                default -> PidTuningSavedData.FIELD_FALL_LIMIT;
+            };
+            boolean increase = (id & 1) == 1;
+            changed = PidControllerBlock.applyCustomTuningAction(level, blockPos, field, increase ? 1 : -1);
         } else {
             changed = PidControllerBlock.applyTuningAction(level, blockPos, id);
         }
@@ -235,6 +261,7 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     public int integralDivisor() { return integralDivisor.get(); }
     public int derivativeGain() { return derivativeGain.get(); }
     public int derivativeSmoothing() { return derivativeSmoothing.get(); }
+    public boolean customTuning() { return customTuning.get() != 0; }
 
     public boolean plantDetected() { return plantDetected.get() != 0; }
     public boolean plantReady() { return plantReady.get() != 0; }
