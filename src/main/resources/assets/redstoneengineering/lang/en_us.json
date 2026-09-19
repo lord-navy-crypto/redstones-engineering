@@ -75,6 +75,7 @@
   "block.redstoneengineering.lapis_voltage_transducer": "Lapis Voltage Transducer",
   "block.redstoneengineering.lapis_precision_range_sensor": "Lapis Precision Range Sensor",
   "block.redstoneengineering.lapis_to_redstone_quantizer": "Lapis to Redstone Quantizer",
+  "block.redstoneengineering.amethyst_piezo_pickup": "Amethyst Piezoelectric Pickup",
   "block.redstoneengineering.redstone_to_lapis_scaler": "Redstone to Lapis Scaler",
   "block.redstoneengineering.quartz_triggered_lapis_sampler": "Quartz Triggered Lapis Sampler",
   "block.redstoneengineering.eight_bit_data_bus": "8-bit Bundled Data Bus",
