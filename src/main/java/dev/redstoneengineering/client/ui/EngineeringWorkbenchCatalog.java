@@ -264,7 +264,12 @@ public final class EngineeringWorkbenchCatalog {
                  UniversalFieldDeviceMenu.CONFIG_PWM,
                  UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR,
                  UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAPIS_SAMPLER,
-                 UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR ->
+                 UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR,
+                 UniversalFieldDeviceMenu.CONFIG_LAPIS_LOW_PASS,
+                 UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY,
+                 UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER,
+                 UniversalFieldDeviceMenu.CONFIG_THERMAL_MASS,
+                 UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR ->
                     lab("LAB", "Discrete-time behavior has meaningful server-owned timing or capture dynamics.");
 
             case UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER,
@@ -799,7 +804,9 @@ public final class EngineeringWorkbenchCatalog {
                 boolean sweep = switch (universal.configKind()) {
                     case UniversalFieldDeviceMenu.CONFIG_ANALOG_COMPARATOR,
                          UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD,
-                         UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR -> true;
+                         UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR,
+                         UniversalFieldDeviceMenu.CONFIG_LAPIS_LOW_PASS,
+                         UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY -> true;
                     default -> false;
                 };
                 boolean numeric = switch (universal.configKind()) {
@@ -815,7 +822,12 @@ public final class EngineeringWorkbenchCatalog {
                          UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR,
                          UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD,
                          UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR,
-                         UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE -> true;
+                         UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE,
+                         UniversalFieldDeviceMenu.CONFIG_LAPIS_LOW_PASS,
+                         UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY,
+                         UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER,
+                         UniversalFieldDeviceMenu.CONFIG_THERMAL_MASS,
+                         UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR -> true;
                     default -> false;
                 };
                 boolean fractions = switch (universal.configKind()) {
@@ -1402,6 +1414,11 @@ public final class EngineeringWorkbenchCatalog {
             case UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD -> "Load resistance";
             case UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR -> "Capacitance index";
             case UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE -> "Fuse rating";
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_LOW_PASS -> "Filter alpha";
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY -> "Edge delay";
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER -> "Heater resistance";
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_MASS -> "Heat capacity";
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR -> "Cooling coefficient";
             default -> "Parameter A";
         };
     }
@@ -1422,6 +1439,11 @@ public final class EngineeringWorkbenchCatalog {
                  UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD -> "R-level";
             case UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR -> "C-index";
             case UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE -> "I-rating";
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_LOW_PASS -> "alpha index";
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY -> "ticks";
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER -> "R-index";
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_MASS -> "capacity";
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR -> "cooling";
             default -> "profile";
         };
     }
@@ -1454,6 +1476,16 @@ public final class EngineeringWorkbenchCatalog {
                     "Capacitance profile controlling RC time response; stored charge is retained when C changes.";
             case UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE ->
                     "Protective current rating; thermal exposure is retained across rating changes and this parameter is never auto-swept.";
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_LOW_PASS ->
+                    "Low-pass alpha profile controlling finite smoothing; retained filter history is not rewritten when alpha changes.";
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY ->
+                    "Delay applied to newly accepted rising edges; already queued edges keep their captured delay.";
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER ->
+                    "Electrical heater resistance profile; temperature remains observed physical state and Copper loading is recomputed.";
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_MASS ->
+                    "Thermal inertia/capacity; changing it affects future response while current temperature is retained.";
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR ->
+                    "Passive cooling coefficient toward the ambient floor; exact bounded thermal configuration.";
             default -> "Bounded server-owned device configuration. Categorical modes remain Prev/Next rather than fake numeric sliders.";
         };
     }
@@ -1680,6 +1712,26 @@ public final class EngineeringWorkbenchCatalog {
 
     private static ModelCard universal(UniversalFieldDeviceMenu menu) {
         return switch (menu.configKind()) {
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_LOW_PASS -> card(
+                    "LAPIS LOW-PASS FILTER", "y[k+1] = y[k] + alpha * (x[k] - y[k])",
+                    "alpha profile", "observe valid Lapis input -> update retained filter state -> publish smoothed precision output",
+                    "Changing alpha changes future response; missing evidence does not become a fabricated zero sample.");
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY -> card(
+                    "QUARTZ PHASE DELAY", "t_out(edge_n) = t_in(edge_n) + configured delay",
+                    "rising-edge delay 1..8 ticks", "accept genuine edge -> enqueue timestamped event -> release after captured delay",
+                    "In-flight events retain the delay captured at acceptance; configuration changes apply only to new edges.");
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER -> card(
+                    "ELECTRO-THERMAL HEATER", "I = V/R; P = V^2/R; T approaches environment + P/3",
+                    "heater resistance profile", "observe Copper power -> convert electrical power to thermal target -> evolve finite temperature",
+                    "Temperature is physical state, not a configuration knob; uncertain Copper power freezes evolution.");
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_MASS -> card(
+                    "THERMAL MASS", "T[k+1] approaches local thermal target with rate set by heat capacity",
+                    "heat capacity 1..4", "observe environment/neighbors -> compute target -> evolve temperature at finite rate",
+                    "Changing capacity retains current temperature and changes only future thermal inertia.");
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR -> card(
+                    "THERMAL RADIATOR", "T_neighbor[k+1] = max(T_ambient, T_neighbor - cooling)",
+                    "cooling coefficient 1..4", "observe adjacent thermal mass -> remove bounded heat -> stop at ambient floor",
+                    "The radiator cannot cool below the physical ambient floor.");
             case UniversalFieldDeviceMenu.CONFIG_COPPER_SOURCE -> card(
                     "COPPER VOLTAGE SOURCE", "V_out = configured V_source",
                     "source voltage 0..15", "set durable source level -> recompute connected Copper network -> expose voltage evidence",
