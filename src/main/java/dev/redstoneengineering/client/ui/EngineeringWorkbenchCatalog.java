@@ -1,6 +1,7 @@
 package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.ui.menu.*;
+import dev.redstoneengineering.block.MagneticFieldSensorBlock;
 import dev.redstoneengineering.core.port.PortQuality;
 import net.minecraft.core.Direction;
 
@@ -1070,11 +1071,35 @@ public final class EngineeringWorkbenchCatalog {
                     RadioLinkMenu.BUTTON_CHANNEL_PREVIOUS, RadioLinkMenu.BUTTON_CHANNEL_NEXT,
                     "channel", "Transmitter/receiver channel selection."));
         }
-        if (menu instanceof DigitalCommunicationMenu digital
-                && digital.kind() == DigitalCommunicationMenu.KIND_REGENERATOR) {
-            return List.of(spec("Quality threshold", digital.parameter(), 0, 2,
-                    DigitalCommunicationMenu.BUTTON_PARAMETER_PREVIOUS, DigitalCommunicationMenu.BUTTON_PARAMETER_NEXT,
-                    "mode", "Minimum medium quality required before regeneration."));
+        if (menu instanceof DigitalCommunicationMenu digital) {
+            return switch (digital.kind()) {
+                case DigitalCommunicationMenu.KIND_ENCODER -> List.of(
+                        spec("Encoding mode", digital.parameter(), 0, 1,
+                                DigitalCommunicationMenu.BUTTON_PARAMETER_PREVIOUS, DigitalCommunicationMenu.BUTTON_PARAMETER_NEXT,
+                                "mode", "DIRECT or FULL-SCALE byte encoding; categorical representation choice.")
+                );
+                case DigitalCommunicationMenu.KIND_DECODER -> List.of(
+                        spec("Decoding mode", digital.parameter(), 0, 1,
+                                DigitalCommunicationMenu.BUTTON_PARAMETER_PREVIOUS, DigitalCommunicationMenu.BUTTON_PARAMETER_NEXT,
+                                "mode", "CLAMP or FULL-SCALE byte decoding; categorical representation choice.")
+                );
+                case DigitalCommunicationMenu.KIND_SERIALIZER -> List.of(
+                        spec("Word period", digital.parameter(), 0, 2,
+                                DigitalCommunicationMenu.BUTTON_PARAMETER_PREVIOUS, DigitalCommunicationMenu.BUTTON_PARAMETER_NEXT,
+                                "period profile", "Selects one implemented serializer word-period profile; actual serial timing remains server-owned.")
+                );
+                case DigitalCommunicationMenu.KIND_REGENERATOR -> List.of(
+                        spec("Quality threshold", digital.parameter(), 0, 2,
+                                DigitalCommunicationMenu.BUTTON_PARAMETER_PREVIOUS, DigitalCommunicationMenu.BUTTON_PARAMETER_NEXT,
+                                "profile", "Minimum serial-medium quality profile required before regeneration.")
+                );
+                case DigitalCommunicationMenu.KIND_DIFF_DRIVER -> List.of(
+                        spec("Logic threshold", digital.parameter(), 0, 3,
+                                DigitalCommunicationMenu.BUTTON_PARAMETER_PREVIOUS, DigitalCommunicationMenu.BUTTON_PARAMETER_NEXT,
+                                "profile", "Selects the implemented differential-driver decision threshold.")
+                );
+                default -> List.of();
+            };
         }
         if (menu instanceof ReliabilitySystemMenu reliability) {
             return switch (reliability.kind()) {
@@ -1144,6 +1169,16 @@ public final class EngineeringWorkbenchCatalog {
                         sweepSpec("Coil turns index", magnetic.tertiary(), 1, 4,
                                 MagneticSystemMenu.BUTTON_PRIMARY_PREVIOUS, MagneticSystemMenu.BUTTON_PRIMARY_NEXT,
                                 "turns index", "Induced response scales with the configured turns index.")
+                );
+                case MagneticSystemMenu.KIND_FIELD_SENSOR -> List.of(
+                        rangeSpec("Scan radius mode", magnetic.parameterIndex(), 0, 3,
+                                MagneticSystemMenu.BUTTON_PRIMARY_PREVIOUS, MagneticSystemMenu.BUTTON_PRIMARY_NEXT,
+                                "mode", "Exact radius profile; current physical radius = "
+                                        + MagneticFieldSensorBlock.radiusForMode(magnetic.parameterIndex()) + " blocks."),
+                        rangeSpec("Sampling period mode", magnetic.secondaryParameterIndex(), 0, 2,
+                                MagneticSystemMenu.BUTTON_SECONDARY_PREVIOUS, MagneticSystemMenu.BUTTON_SECONDARY_NEXT,
+                                "mode", "Exact sampling profile; current physical period = "
+                                        + MagneticFieldSensorBlock.samplePeriodForMode(magnetic.secondaryParameterIndex()) + " ticks.")
                 );
                 default -> List.of();
             };
@@ -1268,10 +1303,17 @@ public final class EngineeringWorkbenchCatalog {
                 default -> null;
             };
         }
-        if (menu instanceof MagneticSystemMenu magnetic && magnetic.kind() == MagneticSystemMenu.KIND_COIL) {
-            return response("Induced voltage", magnetic.secondary(), 0, 15, "/15",
-                    magnetic.quality() == PortQuality.VALID,
-                    "Live induction-coil output voltage while turns index changes.");
+        if (menu instanceof MagneticSystemMenu magnetic) {
+            if (magnetic.kind() == MagneticSystemMenu.KIND_COIL) {
+                return response("Induced voltage", magnetic.secondary(), 0, 15, "/15",
+                        magnetic.quality() == PortQuality.VALID,
+                        "Live induction-coil output voltage while turns index changes.");
+            }
+            if (magnetic.kind() == MagneticSystemMenu.KIND_FIELD_SENSOR) {
+                return response("Measured field", magnetic.primary(), 0, 15, "/15",
+                        magnetic.quality() == PortQuality.VALID,
+                        "Live server-computed field over the configured radius/sampling profile.");
+            }
         }
         if (menu instanceof OpticalSystemMenu optical) {
             return switch (optical.kind()) {
