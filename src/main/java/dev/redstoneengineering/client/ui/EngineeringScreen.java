@@ -657,6 +657,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     }
 
     private void recordSharedTimeline() {
+        if (EngineeringWorkbenchCatalog.uiPolicy(menu).tier() == EngineeringWorkbenchCatalog.UiTier.BLOCK) return;
         int evidence = menu.evidenceState() == EngineeringDeviceMenu.EVIDENCE_VALID ? 1 : 0;
         int health = menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_NOMINAL
                 || menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_ACTIVE ? 1 : 0;
