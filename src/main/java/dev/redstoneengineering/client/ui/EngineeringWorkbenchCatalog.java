@@ -343,11 +343,27 @@ public final class EngineeringWorkbenchCatalog {
         if (menu instanceof UniversalFieldDeviceMenu universal) {
             java.util.ArrayList<ParameterSpec> specs = new java.util.ArrayList<>(2);
             if (universal.editPrimaryAvailable()) {
-                specs.add(spec(universalPrimaryLabel(universal.configKind()), universal.editPrimaryValue(),
+                boolean sweep = switch (universal.configKind()) {
+                    case UniversalFieldDeviceMenu.CONFIG_SIGNAL_AMPLIFIER,
+                         UniversalFieldDeviceMenu.CONFIG_DIFF_DRIVER,
+                         UniversalFieldDeviceMenu.CONFIG_REGENERATOR,
+                         UniversalFieldDeviceMenu.CONFIG_ANALOG_COMPARATOR,
+                         UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD -> true;
+                    default -> false;
+                };
+                boolean fractions = switch (universal.configKind()) {
+                    case UniversalFieldDeviceMenu.CONFIG_SIGNAL_AMPLIFIER,
+                         UniversalFieldDeviceMenu.CONFIG_DIFF_DRIVER,
+                         UniversalFieldDeviceMenu.CONFIG_REGENERATOR,
+                         UniversalFieldDeviceMenu.CONFIG_ANALOG_COMPARATOR -> true;
+                    default -> false;
+                };
+                specs.add(new ParameterSpec(
+                        universalPrimaryLabel(universal.configKind()), universal.editPrimaryValue(),
                         universal.editPrimaryMin(), universal.editPrimaryMax(),
                         UniversalFieldDeviceMenu.BUTTON_CONFIG_PRIMARY_PREVIOUS,
                         UniversalFieldDeviceMenu.BUTTON_CONFIG_PRIMARY_NEXT,
-                        "raw", "Bounded server-owned field-device parameter A."));
+                        "raw", "Bounded server-owned field-device parameter A.", fractions, sweep));
             }
             if (universal.editSecondaryAvailable()) {
                 specs.add(spec(universalSecondaryLabel(universal.configKind()), universal.editSecondaryValue(),
@@ -367,7 +383,7 @@ public final class EngineeringWorkbenchCatalog {
                                 "channel", "Legacy/fallback field HMI channel selection.")
                 );
                 case FieldDeviceMenu.KIND_FILTER -> List.of(
-                        spec("Filter rate", field.tertiary(), 1, 4,
+                        experimentSpec("Filter rate", field.tertiary(), 1, 4,
                                 FieldDeviceMenu.BUTTON_PRIMARY_DECREASE, FieldDeviceMenu.BUTTON_PRIMARY_INCREASE,
                                 "level/tick", "Precision-filter rise rate.")
                 );
@@ -387,7 +403,7 @@ public final class EngineeringWorkbenchCatalog {
                                 "/15", "Permanent magnetic source strength.")
                 );
                 case FieldDeviceMenu.KIND_INDUCTION_COIL -> List.of(
-                        spec("Coil turns index", field.tertiary(), 1, 4,
+                        sweepSpec("Coil turns index", field.tertiary(), 1, 4,
                                 FieldDeviceMenu.BUTTON_PRIMARY_DECREASE, FieldDeviceMenu.BUTTON_PRIMARY_INCREASE,
                                 "index", "Discrete turns multiplier used by the induction model.")
                 );
@@ -402,7 +418,7 @@ public final class EngineeringWorkbenchCatalog {
                                 "channel", "Channel selected by the optical filter.")
                 );
                 case FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR -> List.of(
-                        spec("Attenuation", field.tertiary(), 0, 8,
+                        experimentSpec("Attenuation", field.tertiary(), 0, 8,
                                 FieldDeviceMenu.BUTTON_PRIMARY_DECREASE, FieldDeviceMenu.BUTTON_PRIMARY_INCREASE,
                                 "levels", "Passive optical attenuation.")
                 );
@@ -415,7 +431,7 @@ public final class EngineeringWorkbenchCatalog {
                     "levels", "Display/output calibration offset; raw captured evidence remains distinct."));
         }
         if (menu instanceof LogicAnalyzerMenu analyzer) {
-            return List.of(spec("Logic threshold", analyzer.threshold(), 1, 15,
+            return List.of(experimentSpec("Logic threshold", analyzer.threshold(), 1, 15,
                     LogicAnalyzerMenu.BUTTON_THRESHOLD_DECREASE, LogicAnalyzerMenu.BUTTON_THRESHOLD_INCREASE,
                     "/15", "Threshold used to classify captured channel samples as LOW/HIGH."));
         }
@@ -432,7 +448,7 @@ public final class EngineeringWorkbenchCatalog {
                     spec("Transfer mode", mode, 0, 5,
                             SignalConditionerMenu.BUTTON_MODE_PREVIOUS, SignalConditionerMenu.BUTTON_MODE_NEXT,
                             "mode", "Changing mode selects a different transfer equation and restores its default parameter."),
-                    spec("Mode parameter", conditioner.parameter(), min, max,
+                    experimentSpec("Mode parameter", conditioner.parameter(), min, max,
                             SignalConditionerMenu.BUTTON_PARAM_DECREASE, SignalConditionerMenu.BUTTON_PARAM_INCREASE,
                             "raw", "Bounded parameter interpreted by the currently selected transfer mode.")
             );
@@ -440,10 +456,10 @@ public final class EngineeringWorkbenchCatalog {
         if (menu instanceof SignalProcessorMenu processor) {
             return switch (processor.kind()) {
                 case SignalProcessorMenu.KIND_FILTER -> List.of(
-                        spec("Rise rate", processor.parameter(), 1, 4,
+                        experimentSpec("Rise rate", processor.parameter(), 1, 4,
                                 SignalProcessorMenu.BUTTON_PARAMETER_PREVIOUS, SignalProcessorMenu.BUTTON_PARAMETER_NEXT,
                                 "level/tick", "Maximum upward output slew."),
-                        spec("Fall rate", processor.secondaryParameter(), 1, 4,
+                        experimentSpec("Fall rate", processor.secondaryParameter(), 1, 4,
                                 SignalProcessorMenu.BUTTON_FILTER_FALL_PREVIOUS, SignalProcessorMenu.BUTTON_FILTER_FALL_NEXT,
                                 "level/tick", "Maximum downward output slew.")
                 );
@@ -453,13 +469,13 @@ public final class EngineeringWorkbenchCatalog {
                                 "mode", "Rising, falling, or both-edge detection.")
                 );
                 case SignalProcessorMenu.KIND_PULSE -> List.of(
-                        spec("Pulse width", processor.parameter(), 1, 8,
+                        experimentSpec("Pulse width", processor.parameter(), 1, 8,
                                 SignalProcessorMenu.BUTTON_PARAMETER_PREVIOUS, SignalProcessorMenu.BUTTON_PARAMETER_NEXT,
                                 "ticks", "Accepted trigger pulse duration."),
-                        spec("Trigger threshold", processor.secondaryParameter(), 1, 15,
+                        experimentSpec("Trigger threshold", processor.secondaryParameter(), 1, 15,
                                 SignalProcessorMenu.BUTTON_THRESHOLD_PREVIOUS, SignalProcessorMenu.BUTTON_THRESHOLD_NEXT,
                                 "/15", "Input level required for a trigger."),
-                        spec("Hysteresis", processor.tertiaryParameter(), 1, 4,
+                        experimentSpec("Hysteresis", processor.tertiaryParameter(), 1, 4,
                                 SignalProcessorMenu.BUTTON_PULSE_HYSTERESIS_PREVIOUS, SignalProcessorMenu.BUTTON_PULSE_HYSTERESIS_NEXT,
                                 "levels", "Re-arm separation below the trigger threshold.")
                 );
@@ -468,7 +484,7 @@ public final class EngineeringWorkbenchCatalog {
         }
         if (menu instanceof QuartzTimingMenu quartz) {
             if (quartz.kind() == QuartzTimingMenu.KIND_OSCILLATOR) {
-                return List.of(spec("Period index", quartz.tertiary(), 0, 4,
+                return List.of(sweepSpec("Period index", quartz.tertiary(), 0, 4,
                         QuartzTimingMenu.BUTTON_PARAMETER_PREVIOUS, QuartzTimingMenu.BUTTON_PARAMETER_NEXT,
                         "index", "Current realized nominal period = " + quartz.secondary() + " ticks."));
             }
@@ -495,7 +511,7 @@ public final class EngineeringWorkbenchCatalog {
                                 "mode", "Controls finite compressor pressure response.")
                 );
                 case PneumaticSystemMenu.KIND_REGULATOR -> List.of(
-                        spec("Pressure setpoint", Math.max(1, pneumatic.secondary() / 10), 1, 10,
+                        experimentSpec("Pressure setpoint", Math.max(1, pneumatic.secondary() / 10), 1, 10,
                                 PneumaticSystemMenu.BUTTON_PARAMETER_PREVIOUS, PneumaticSystemMenu.BUTTON_PARAMETER_NEXT,
                                 "x10 pressure", "Raw setting 1..10 corresponds to 10..100 pressure.")
                 );
@@ -510,7 +526,7 @@ public final class EngineeringWorkbenchCatalog {
                                 "mode", "Controls finite valve-opening response.")
                 );
                 case PneumaticSystemMenu.KIND_RELIEF -> List.of(
-                        spec("Relief setpoint", Math.max(1, pneumatic.tertiary() / 25), 1, 4,
+                        experimentSpec("Relief setpoint", Math.max(1, pneumatic.tertiary() / 25), 1, 4,
                                 PneumaticSystemMenu.BUTTON_PARAMETER_PREVIOUS, PneumaticSystemMenu.BUTTON_PARAMETER_NEXT,
                                 "x25 pressure", "Raw setting 1..4 corresponds to 25..100 pressure.")
                 );
@@ -528,15 +544,15 @@ public final class EngineeringWorkbenchCatalog {
                                 "/15", "Initial excitation amplitude before ring-down.")
                 );
                 case AmethystSystemMenu.KIND_FILTER -> List.of(
-                        spec("Target frequency", amethyst.tertiary(), 1, 15,
+                        sweepSpec("Target frequency", amethyst.tertiary(), 1, 15,
                                 AmethystSystemMenu.BUTTON_PRIMARY_PREVIOUS, AmethystSystemMenu.BUTTON_PRIMARY_NEXT,
                                 "index", "Pass frequency selected by the frequency filter.")
                 );
                 case AmethystSystemMenu.KIND_TUNED -> List.of(
-                        spec("Natural frequency", amethyst.tertiary(), 1, 15,
+                        sweepSpec("Natural frequency", amethyst.tertiary(), 1, 15,
                                 AmethystSystemMenu.BUTTON_PRIMARY_PREVIOUS, AmethystSystemMenu.BUTTON_PRIMARY_NEXT,
                                 "index", "Natural resonance frequency."),
-                        spec("Q index", amethyst.auxiliary(), 1, 4,
+                        sweepSpec("Q index", amethyst.auxiliary(), 1, 4,
                                 AmethystSystemMenu.BUTTON_SECONDARY_PREVIOUS, AmethystSystemMenu.BUTTON_SECONDARY_NEXT,
                                 "index", "Controls resonance selectivity/bandwidth.")
                 );
@@ -595,7 +611,7 @@ public final class EngineeringWorkbenchCatalog {
                                 "channel", "Only matching channel evidence is passed.")
                 );
                 case OpticalSystemMenu.KIND_ATTENUATOR -> List.of(
-                        spec("Attenuation", optical.secondary(), 0, 8,
+                        experimentSpec("Attenuation", optical.secondary(), 0, 8,
                                 OpticalSystemMenu.BUTTON_PRIMARY_PREVIOUS, OpticalSystemMenu.BUTTON_PRIMARY_NEXT,
                                 "levels", "Configured passive signal loss.")
                 );
@@ -615,7 +631,7 @@ public final class EngineeringWorkbenchCatalog {
                                 "/15", "Permanent source strength.")
                 );
                 case MagneticSystemMenu.KIND_COIL -> List.of(
-                        spec("Coil turns index", magnetic.tertiary(), 1, 4,
+                        sweepSpec("Coil turns index", magnetic.tertiary(), 1, 4,
                                 MagneticSystemMenu.BUTTON_PRIMARY_PREVIOUS, MagneticSystemMenu.BUTTON_PRIMARY_NEXT,
                                 "turns index", "Induced response scales with the configured turns index.")
                 );
