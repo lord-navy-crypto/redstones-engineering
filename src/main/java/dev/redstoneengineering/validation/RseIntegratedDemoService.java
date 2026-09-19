@@ -70,7 +70,7 @@ public final class RseIntegratedDemoService {
 
     private static final int STAGE_COUNT = 10;
     private static final int AUTO_INTERVAL_TICKS = 4;
-    private static final int PASS_CONFIRM_SAMPLES = 3;
+    private static final int PASS_CONFIRM_SAMPLES = 8;
     private static final Map<UUID, Session> SESSIONS = new HashMap<>();
 
     private static final class Session {
@@ -309,6 +309,7 @@ public final class RseIntegratedDemoService {
         session.lastServoPosition = ServoActuatorBlock.position(level, origin.offset(SERVO));
         SESSIONS.put(player.getUUID(), session);
         paintAllWait(level, session);
+        installBeaconLights(level, session);
 
         return RseValidationFactoryService.Result.ok(
                 "Placed RSE integrated commissioning bench V2.",
@@ -822,6 +823,14 @@ public final class RseIntegratedDemoService {
     }
 
     private static void paintAllWait(ServerLevel level, Session s) { resetStages(level, s, 1, STAGE_COUNT); }
+
+    /** Constant light sources sit above the colored status glass and never touch signal wiring. */
+    private static void installBeaconLights(ServerLevel level, Session s) {
+        for (int i = 1; i <= STAGE_COUNT; i++) {
+            level.setBlock(at(s, LAMPS[i]).above(), Blocks.SEA_LANTERN.defaultBlockState(), Block.UPDATE_CLIENTS);
+        }
+        level.setBlock(at(s, OVERALL_LAMP).above(), Blocks.SEA_LANTERN.defaultBlockState(), Block.UPDATE_CLIENTS);
+    }
 
     private static void paintLamp(ServerLevel level, BlockPos pos, Verdict verdict) {
         BlockState target = switch (verdict) {
