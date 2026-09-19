@@ -126,6 +126,11 @@ public final class EngineeringWorkbenchCatalog {
                 default -> device("MODEL", "Magnetic source/sensor needs bounded configuration and evidence.");
             };
         }
+        if (menu instanceof IndustrialBufferMenu
+                || menu instanceof OperationsMonitorMenu
+                || menu instanceof WorkcellControllerMenu) {
+            return device("MODEL", "Operations block: show server-owned state, evidence and decisions without turning it into a desktop simulator.");
+        }
         if (menu instanceof RangeSensorMenu
                 || menu instanceof RadioLinkMenu
                 || menu instanceof DigitalCommunicationMenu
@@ -325,6 +330,24 @@ public final class EngineeringWorkbenchCatalog {
                 "measurement face • observed circuit state",
                 "observe solved circuit -> derive electrical quantities -> report quality",
                 "Readout follows the server circuit solution and never drives the circuit.");
+        if (menu instanceof IndustrialBufferMenu) return card(
+                "INDUSTRIAL BUFFER",
+                "WIP pressure = used units / capacity; lot identity remains server-owned",
+                "read-only capacity • used WIP • explicit workcell bindings",
+                "retain lots -> expose bounded fullness/permit evidence -> never encode lot identity into analog Redstone",
+                "This block is an in-world operations buffer, not an inventory spreadsheet.");
+        if (menu instanceof WorkcellControllerMenu) return card(
+                "WORKCELL ADMISSION",
+                "permit = valid resources AND valid capacity evidence AND no blocking fault",
+                "explicit resource/buffer bindings • read-only admission evidence",
+                "resolve bindings -> validate resources/capacity -> publish permit/hold reason",
+                "Scheduling and lot ownership stay in persistent Operations state, not the client HMI.");
+        if (menu instanceof OperationsMonitorMenu) return card(
+                "OPERATIONS OBSERVER",
+                "KPIs derive from observed RUN / QUEUE / cycle evidence over bounded windows",
+                "observer-only • no plant control authority",
+                "observe plant evidence -> derive throughput/WIP/downtime -> classify constraints/incidents",
+                "The monitor explains the plant; it does not drive or reschedule it.");
         if (menu instanceof SignalAnalyzerMenu || menu instanceof OscilloscopeMenu || menu instanceof LogicAnalyzerMenu) return card(
                 "INSTRUMENTATION",
                 "measurement = sampled server evidence; derived metrics use captured samples",
