@@ -74,7 +74,10 @@ public final class FieldDeviceUi {
             player.openMenu(new SimpleMenuProvider((id, inv, ignored) -> new ReliabilitySystemMenu(id, inv, pos), title), data -> data.writeBlockPos(pos)); return;
         }
         if (block instanceof EngineeringLightSensorBlock || block instanceof TankLevelSensorBlock
-                || block instanceof EntityDensitySensorBlock || block instanceof AnalogIndicatorBlock) {
+                || block instanceof EntityDensitySensorBlock || block instanceof AnalogIndicatorBlock
+                || block instanceof CopperVoltageSourceBlock || block instanceof CopperSeriesResistorBlock
+                || block instanceof CopperResistiveLoadBlock || block instanceof CopperCapacitorBlock
+                || block instanceof CopperFuseBlock) {
             openUniversal(player, pos); return;
         }
         if (block instanceof DirectionalSignalBlock || block instanceof DirectionalDomainBlock) {
