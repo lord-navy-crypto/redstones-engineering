@@ -24,7 +24,7 @@ public final class RseValidationFactoryModule {
         RseValidationSelfTestService.tickAll(event.getServer());
         RseValidationPlantService.tick(event.getServer());
         RseMegaValidationService.tick(event.getServer());
-        RseFourDomainDemoService.tick(event.getServer());
+        RseIntegratedDemoService.tick(event.getServer());
     }
 
     private static void registerCommands(RegisterCommandsEvent event) {
@@ -89,48 +89,48 @@ public final class RseValidationFactoryModule {
                                             var source = context.getSource();
                                             var player = source.getPlayerOrException();
                                             BlockPos origin = BlockPos.containing(source.getPosition()).offset(2, 0, 6);
-                                            return send(source, RseFourDomainDemoService.place(player, origin));
+                                            return send(source, RseIntegratedDemoService.place(player, origin));
                                         }))
                                 .then(Commands.literal("status")
                                         .executes(context -> {
                                             var source = context.getSource();
-                                            return send(source, RseFourDomainDemoService.status(source.getPlayerOrException()));
+                                            return send(source, RseIntegratedDemoService.status(source.getPlayerOrException()));
                                         }))
                                 .then(Commands.literal("stage")
-                                        .then(Commands.argument("number", IntegerArgumentType.integer(1, 9))
+                                        .then(Commands.argument("number", IntegerArgumentType.integer(1, 10))
                                                 .executes(context -> {
                                                     var source = context.getSource();
                                                     int number = IntegerArgumentType.getInteger(context, "number");
-                                                    return send(source, RseFourDomainDemoService.stage(source.getPlayerOrException(), number));
+                                                    return send(source, RseIntegratedDemoService.stage(source.getPlayerOrException(), number));
                                                 })))
                                 .then(Commands.literal("nodes")
                                         .executes(context -> {
                                             var source = context.getSource();
-                                            return send(source, RseFourDomainDemoService.nodes(source.getPlayerOrException()));
+                                            return send(source, RseIntegratedDemoService.nodes(source.getPlayerOrException()));
                                         }))
                                 .then(Commands.literal("node")
                                         .then(Commands.argument("id", StringArgumentType.word())
                                                 .executes(context -> {
                                                     var source = context.getSource();
                                                     String id = StringArgumentType.getString(context, "id");
-                                                    return send(source, RseFourDomainDemoService.node(source.getPlayerOrException(), id));
+                                                    return send(source, RseIntegratedDemoService.node(source.getPlayerOrException(), id));
                                                 })))
                                 .then(Commands.literal("setpoint")
                                         .then(Commands.argument("value", IntegerArgumentType.integer(0, 100))
                                                 .executes(context -> {
                                                     var source = context.getSource();
                                                     int value = IntegerArgumentType.getInteger(context, "value");
-                                                    return send(source, RseFourDomainDemoService.setpoint(source.getPlayerOrException(), value));
+                                                    return send(source, RseIntegratedDemoService.setpoint(source.getPlayerOrException(), value));
                                                 })))
                                 .then(Commands.literal("excite")
                                         .executes(context -> {
                                             var source = context.getSource();
-                                            return send(source, RseFourDomainDemoService.excite(source.getPlayerOrException()));
+                                            return send(source, RseIntegratedDemoService.excite(source.getPlayerOrException()));
                                         }))
                                 .then(Commands.literal("retest")
                                         .executes(context -> {
                                             var source = context.getSource();
-                                            return send(source, RseFourDomainDemoService.retest(source.getPlayerOrException()));
+                                            return send(source, RseIntegratedDemoService.retest(source.getPlayerOrException()));
                                         })))
                         .then(Commands.literal("plant")
                                 .then(Commands.literal("place")
