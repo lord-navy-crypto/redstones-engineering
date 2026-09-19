@@ -906,6 +906,21 @@ public final class EngineeringWorkbenchCatalog {
                                 FieldDeviceMenu.BUTTON_PRIMARY_DECREASE, FieldDeviceMenu.BUTTON_PRIMARY_INCREASE,
                                 "levels", "Passive optical attenuation.")
                 );
+                case FieldDeviceMenu.KIND_MECHANICAL_EXCITER -> List.of(
+                        rangeSpec("Drive frequency", field.secondary(), 1, 15,
+                                FieldDeviceMenu.BUTTON_PRIMARY_DECREASE, FieldDeviceMenu.BUTTON_PRIMARY_INCREASE,
+                                "frequency index", "Mechanical excitation frequency; authoritative source dynamics remain in the block.")
+                );
+                case FieldDeviceMenu.KIND_HYDRO_EXCITER -> List.of(
+                        rangeSpec("Acoustic frequency", field.secondary(), 1, 15,
+                                FieldDeviceMenu.BUTTON_PRIMARY_DECREASE, FieldDeviceMenu.BUTTON_PRIMARY_INCREASE,
+                                "frequency index", "Hydroacoustic source frequency propagated through the physical medium.")
+                );
+                case FieldDeviceMenu.KIND_LAPIS_SOURCE -> List.of(
+                        scaledSpec("Precision source value", field.primary(), 0, 100,
+                                FieldDeviceMenu.BUTTON_PRIMARY_DECREASE, FieldDeviceMenu.BUTTON_PRIMARY_INCREASE,
+                                "0.01", "Exact 0.00..1.00 Lapis precision source setting; valid zero remains real evidence.")
+                );
                 default -> List.of();
             };
         }
