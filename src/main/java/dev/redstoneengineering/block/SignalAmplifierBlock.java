@@ -122,7 +122,9 @@ public final class SignalAmplifierBlock extends DirectionalSignalBlock {
 
         if (side == outputSide(state)) {
             var input = RedstoneObservationSupport.observe(level, pos, inputSide(state));
-            PortQuality quality = clipping(level, pos) ? PortQuality.SATURATED : input.quality();
+            PortQuality quality = input.valid() && clipping(level, pos)
+                    ? PortQuality.SATURATED
+                    : input.quality();
             return Optional.of(new EngineeringPortSnapshot(
                     base.get().port(), state.getValue(OUTPUT), base.get().minimum(), base.get().maximum(), quality));
         }
