@@ -192,6 +192,7 @@ public final class RedstoneEngineering {
     public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<LapisVoltageTransducerBlock>> LAPIS_VOLTAGE_TRANSDUCER_CODEC = codec("lapis_voltage_transducer", LapisVoltageTransducerBlock::new);
     public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<LapisPrecisionRangeSensorBlock>> LAPIS_PRECISION_RANGE_SENSOR_CODEC = codec("lapis_precision_range_sensor", LapisPrecisionRangeSensorBlock::new);
     public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<LapisToRedstoneQuantizerBlock>> LAPIS_TO_REDSTONE_QUANTIZER_CODEC = codec("lapis_to_redstone_quantizer", LapisToRedstoneQuantizerBlock::new);
+    public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<AmethystPiezoPickupBlock>> AMETHYST_PIEZO_PICKUP_CODEC = codec("amethyst_piezo_pickup", AmethystPiezoPickupBlock::new);
     public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<RedstoneToLapisScalerBlock>> REDSTONE_TO_LAPIS_SCALER_CODEC = codec("redstone_to_lapis_scaler", RedstoneToLapisScalerBlock::new);
     public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<QuartzTriggeredLapisSamplerBlock>> QUARTZ_TRIGGERED_LAPIS_SAMPLER_CODEC = codec("quartz_triggered_lapis_sampler", QuartzTriggeredLapisSamplerBlock::new);
 
@@ -410,6 +411,7 @@ public final class RedstoneEngineering {
     public static final DeferredBlock<LapisVoltageTransducerBlock> LAPIS_VOLTAGE_TRANSDUCER = BLOCKS.registerBlock("lapis_voltage_transducer", LapisVoltageTransducerBlock::new, machineProps(MapColor.COLOR_ORANGE));
     public static final DeferredBlock<LapisPrecisionRangeSensorBlock> LAPIS_PRECISION_RANGE_SENSOR = BLOCKS.registerBlock("lapis_precision_range_sensor", LapisPrecisionRangeSensorBlock::new, machineProps(MapColor.COLOR_BLUE));
     public static final DeferredBlock<LapisToRedstoneQuantizerBlock> LAPIS_TO_REDSTONE_QUANTIZER = BLOCKS.registerBlock("lapis_to_redstone_quantizer", LapisToRedstoneQuantizerBlock::new, machineProps(MapColor.COLOR_PURPLE));
+    public static final DeferredBlock<AmethystPiezoPickupBlock> AMETHYST_PIEZO_PICKUP = BLOCKS.registerBlock("amethyst_piezo_pickup", AmethystPiezoPickupBlock::new, machineProps(MapColor.COLOR_PURPLE));
     public static final DeferredBlock<RedstoneToLapisScalerBlock> REDSTONE_TO_LAPIS_SCALER = BLOCKS.registerBlock("redstone_to_lapis_scaler", RedstoneToLapisScalerBlock::new, machineProps(MapColor.COLOR_PURPLE));
     public static final DeferredBlock<QuartzTriggeredLapisSamplerBlock> QUARTZ_TRIGGERED_LAPIS_SAMPLER = BLOCKS.registerBlock("quartz_triggered_lapis_sampler", QuartzTriggeredLapisSamplerBlock::new, machineProps(MapColor.COLOR_GRAY));
 
@@ -663,6 +665,7 @@ public final class RedstoneEngineering {
     public static final DeferredItem<BlockItem> LAPIS_VOLTAGE_TRANSDUCER_ITEM = ITEMS.registerSimpleBlockItem("lapis_voltage_transducer", LAPIS_VOLTAGE_TRANSDUCER);
     public static final DeferredItem<BlockItem> LAPIS_PRECISION_RANGE_SENSOR_ITEM = ITEMS.registerSimpleBlockItem("lapis_precision_range_sensor", LAPIS_PRECISION_RANGE_SENSOR);
     public static final DeferredItem<BlockItem> LAPIS_TO_REDSTONE_QUANTIZER_ITEM = ITEMS.registerSimpleBlockItem("lapis_to_redstone_quantizer", LAPIS_TO_REDSTONE_QUANTIZER);
+    public static final DeferredItem<BlockItem> AMETHYST_PIEZO_PICKUP_ITEM = ITEMS.registerSimpleBlockItem("amethyst_piezo_pickup", AMETHYST_PIEZO_PICKUP);
     public static final DeferredItem<BlockItem> REDSTONE_TO_LAPIS_SCALER_ITEM = ITEMS.registerSimpleBlockItem("redstone_to_lapis_scaler", REDSTONE_TO_LAPIS_SCALER);
     public static final DeferredItem<BlockItem> QUARTZ_TRIGGERED_LAPIS_SAMPLER_ITEM = ITEMS.registerSimpleBlockItem("quartz_triggered_lapis_sampler", QUARTZ_TRIGGERED_LAPIS_SAMPLER);
 
@@ -824,6 +827,7 @@ public final class RedstoneEngineering {
                                         output.accept(LAPIS_VOLTAGE_TRANSDUCER_ITEM.get());
                                         output.accept(LAPIS_PRECISION_RANGE_SENSOR_ITEM.get());
                                         output.accept(LAPIS_TO_REDSTONE_QUANTIZER_ITEM.get());
+                                        output.accept(AMETHYST_PIEZO_PICKUP_ITEM.get());
                                         output.accept(REDSTONE_TO_LAPIS_SCALER_ITEM.get());
                                         output.accept(QUARTZ_TRIGGERED_LAPIS_SAMPLER_ITEM.get());
 
