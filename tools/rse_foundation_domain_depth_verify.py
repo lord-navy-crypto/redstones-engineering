@@ -18,6 +18,7 @@ def require(path: str, *tokens: str) -> None:
             failed.append(f"{path} missing token: {token}")
 
 selector = "src/main/java/dev/redstoneengineering/block/SignalSelectorBlock.java"
+tap = "src/main/java/dev/redstoneengineering/block/SignalTapBlock.java"
 selector_test = "src/main/java/dev/redstoneengineering/gametest/RseSignalSelectorEvidenceGameTests.java"
 scaler = "src/main/java/dev/redstoneengineering/block/RedstoneToLapisScalerBlock.java"
 quantizer = "src/main/java/dev/redstoneengineering/block/LapisToRedstoneQuantizerBlock.java"
@@ -39,6 +40,15 @@ require(selector,
         "payloadHoldActive",
         "payloadBadEpisodes")
 
+require(tap,
+        "unusableButNotAbsent",
+        "EVIDENCE_HOLD_ACTIVE",
+        "BAD_EVIDENCE_EPISODES",
+        "A physically absent upstream source is a real de-energized condition",
+        "Faulted/stale evidence is not a new numerical zero",
+        "evidenceHoldActive",
+        "badEvidenceEpisodes")
+
 require(selector_test,
         "selectorHoldsLastSelectionAndPayloadAcrossMissingEvidence",
         "Missing SELECT did not hold the last trustworthy selection",
@@ -58,6 +68,11 @@ require(quantizer,
 require(conversion_test,
         "conversionBridgesRetainLastCodeWhenEvidenceDisappears",
         "Missing upstream evidence was converted into a new numerical code")
+
+require(conversion_test,
+        "signalTapHoldsFaultedEvidenceButDropsOnRealSourceLoss",
+        "Faulted tap evidence was converted into a new numerical zero",
+        "Real source loss did not de-energize the Signal Tap")
 
 require(registration,
         "event.register(RseFoundationDomainGameTests.class);")
@@ -169,7 +184,7 @@ if failed:
     raise SystemExit(1)
 
 print("RSE foundation-domain depth verification: PASS")
-print(" redstone selector evidence hold: PASS")
+print(" redstone selector + signal tap evidence semantics: PASS")
 print(" Redstone↔Lapis conversion retains values while degrading evidence: PASS")
 print(" Lapis low-pass retained-state semantics: PASS")
 print(" Quartz oscillator edge-latched period + divider real-edge phase lock: PASS")
