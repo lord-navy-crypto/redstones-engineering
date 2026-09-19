@@ -16,6 +16,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.DataSlot;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
 
 /** Generic server-authoritative HMI for EngineeringPortProvider field devices. */
 public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
@@ -32,6 +33,10 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_CONFIG_SECONDARY_NEXT = 113;
     public static final int BUTTON_CONFIG_ACTION = 114;
     public static final int BUTTON_CONFIG_TOGGLE = 115;
+    /** Direct-target controls use the existing server-authoritative step methods internally. */
+    public static final int BUTTON_DIRECT_PRIMARY_BASE = 10_000;
+    public static final int BUTTON_DIRECT_SECONDARY_BASE = 12_000;
+    public static final int BUTTON_DIRECT_LIMIT = 1_023;
 
     public static final int ROUTE_NONE = 0;
     public static final int ROUTE_SERIES_AXIS = 1;
@@ -96,6 +101,13 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     private final DataSlot configSecondary = trackedInt();
     private final DataSlot configTertiary = trackedInt();
     private final DataSlot configQuaternary = trackedInt();
+    private final DataSlot editPrimaryValue = trackedInt();
+    private final DataSlot editPrimaryMin = trackedInt();
+    private final DataSlot editPrimaryMax = trackedInt();
+    private final DataSlot editSecondaryValue = trackedInt();
+    private final DataSlot editSecondaryMin = trackedInt();
+    private final DataSlot editSecondaryMax = trackedInt();
+    private final DataSlot editableMask = trackedInt();
     private final DataSlot declaredPortMask = trackedInt();
     private final DataSlot inputMask = trackedInt();
     private final DataSlot outputMask = trackedInt();
@@ -131,6 +143,13 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         configSecondary.set(0);
         configTertiary.set(0);
         configQuaternary.set(0);
+        editPrimaryValue.set(0);
+        editPrimaryMin.set(0);
+        editPrimaryMax.set(0);
+        editSecondaryValue.set(0);
+        editSecondaryMin.set(0);
+        editSecondaryMax.set(0);
+        editableMask.set(0);
 
         if (block instanceof AnalogComparatorBlock) {
             configKind.set(CONFIG_ANALOG_COMPARATOR);
@@ -421,6 +440,8 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configSecondary.set(TopologyDebuggerBlock.targetsVanillaRedstone(level, blockPos, state) ? 1 : 0);
         }
 
+        refreshEditableMetadata(state, block);
+
         declaredPortMask.set(0);
         inputMask.set(0);
         outputMask.set(0);
@@ -505,7 +526,12 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public boolean clickMenuButton(Player player, int id) {
         if (level.isClientSide) return true;
         if (!stillValid(player)) return false;
-        boolean changed = switch (id) {
+        boolean changed;
+        if (id >= BUTTON_DIRECT_PRIMARY_BASE && id <= BUTTON_DIRECT_PRIMARY_BASE + BUTTON_DIRECT_LIMIT) {
+            changed = applyDirectTarget(true, id - BUTTON_DIRECT_PRIMARY_BASE);
+        } else if (id >= BUTTON_DIRECT_SECONDARY_BASE && id <= BUTTON_DIRECT_SECONDARY_BASE + BUTTON_DIRECT_LIMIT) {
+            changed = applyDirectTarget(false, id - BUTTON_DIRECT_SECONDARY_BASE);
+        } else changed = switch (id) {
             case BUTTON_ROTATE_LEFT -> rotate(false);
             case BUTTON_ROTATE_RIGHT -> rotate(true);
             case BUTTON_INPUT_LEFT -> rotateInput(false);
@@ -525,6 +551,83 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             broadcastChanges();
         }
         return changed;
+    }
+
+    private void refreshEditableMetadata(BlockState state, Block block) {
+        IntegerProperty primary = primaryEditableProperty(block);
+        IntegerProperty secondary = secondaryEditableProperty(block);
+        int mask = 0;
+        if (primary != null && state.hasProperty(primary)) {
+            editPrimaryValue.set(state.getValue(primary));
+            editPrimaryMin.set(primary.getPossibleValues().stream().mapToInt(Integer::intValue).min().orElse(0));
+            editPrimaryMax.set(primary.getPossibleValues().stream().mapToInt(Integer::intValue).max().orElse(0));
+            mask |= 1;
+        }
+        if (secondary != null && state.hasProperty(secondary)) {
+            editSecondaryValue.set(state.getValue(secondary));
+            editSecondaryMin.set(secondary.getPossibleValues().stream().mapToInt(Integer::intValue).min().orElse(0));
+            editSecondaryMax.set(secondary.getPossibleValues().stream().mapToInt(Integer::intValue).max().orElse(0));
+            mask |= 2;
+        }
+        editableMask.set(mask);
+    }
+
+    private IntegerProperty primaryEditableProperty(Block block) {
+        if (block instanceof AnalogComparatorBlock) return AnalogComparatorBlock.HYSTERESIS;
+        if (block instanceof SignalAmplifierBlock) return SignalAmplifierBlock.GAIN_MODE;
+        if (block instanceof RedundantVoterBlock) return RedundantVoterBlock.TOLERANCE;
+        if (block instanceof WatchdogBlock) return WatchdogBlock.TIMEOUT;
+        if (block instanceof DifferentialDriverBlock) return DifferentialDriverBlock.THRESHOLD;
+        if (block instanceof SerializerBlock) return SerializerBlock.PERIOD_MODE;
+        if (block instanceof DigitalRegeneratorBlock) return DigitalRegeneratorBlock.THRESHOLD;
+        if (block instanceof RedstoneByteEncoderBlock) return RedstoneByteEncoderBlock.MODE;
+        if (block instanceof ByteToRedstoneDecoderBlock) return ByteToRedstoneDecoderBlock.MODE;
+        if (block instanceof QuartzOscillatorBlock) return QuartzOscillatorBlock.PERIOD_INDEX;
+        if (block instanceof FaultLatchBlock) return FaultLatchBlock.THRESHOLD;
+        if (block instanceof RedstoneReferenceSourceBlock) return RedstoneReferenceSourceBlock.POWER;
+        if (block instanceof SignalProbeBlock) return SignalProbeBlock.CHANNEL;
+        if (block instanceof MagneticFieldSensorBlock) return MagneticFieldSensorBlock.RADIUS_MODE;
+        if (block instanceof EngineeringLightSensorBlock) return EngineeringLightSensorBlock.PROFILE;
+        if (block instanceof TankLevelSensorBlock) return TankLevelSensorBlock.RANGE_MODE;
+        if (block instanceof EntityDensitySensorBlock) return EntityDensitySensorBlock.PROFILE;
+        if (block instanceof LapisPrecisionRangeSensorBlock) return AbstractLapisTransducerBlock.PROFILE;
+        if (block instanceof AbstractLapisTransducerBlock) return AbstractLapisTransducerBlock.PROFILE;
+        if (block instanceof MolecularCloudReceiverBlock) return MolecularCloudReceiverBlock.SENSITIVITY;
+        if (block instanceof AlarmProcessorBlock) return AlarmProcessorBlock.SEVERITY;
+        if (block instanceof SampleHoldBlock) return SampleHoldBlock.TRIGGER_MODE;
+        if (block instanceof CalibrationModuleBlock) return CalibrationModuleBlock.PROFILE;
+        if (block instanceof PwmControllerBlock) return PwmControllerBlock.PERIOD_MODE;
+        if (block instanceof FaultInjectorBlock) return FaultInjectorBlock.MODE;
+        return null;
+    }
+
+    private IntegerProperty secondaryEditableProperty(Block block) {
+        if (block instanceof MagneticFieldSensorBlock) return MagneticFieldSensorBlock.SAMPLE_MODE;
+        if (block instanceof EntityDensitySensorBlock) return EntityDensitySensorBlock.APERTURE_MODE;
+        if (block instanceof LapisPrecisionRangeSensorBlock) return LapisPrecisionRangeSensorBlock.RANGE_INDEX;
+        if (block instanceof SingleRelayBlock) return SingleRelayBlock.PICKUP_MODE;
+        return null;
+    }
+
+    private boolean applyDirectTarget(boolean primary, int target) {
+        BlockState state = level.getBlockState(blockPos);
+        Block block = state.getBlock();
+        IntegerProperty property = primary ? primaryEditableProperty(block) : secondaryEditableProperty(block);
+        if (property == null || !state.hasProperty(property) || !property.getPossibleValues().contains(target)) return false;
+
+        int current = state.getValue(property);
+        if (current == target) return true;
+        for (int guard = 0; guard < 64 && current != target; guard++) {
+            boolean changed = primary ? adjustPrimary(target > current ? 1 : -1)
+                    : adjustSecondary(target > current ? 1 : -1);
+            if (!changed) return false;
+            BlockState next = level.getBlockState(blockPos);
+            if (!next.hasProperty(property)) return false;
+            int updated = next.getValue(property);
+            if (updated == current) return false;
+            current = updated;
+        }
+        return current == target;
     }
 
     private boolean adjustPrimary(int delta) {
@@ -622,6 +725,15 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         if (block instanceof DirectionalDomainBlock) return DirectionalDomainBlock.rotateSeriesOutput(level, blockPos, clockwise);
         return rotate(clockwise);
     }
+
+    public boolean editPrimaryAvailable() { return (editableMask.get() & 1) != 0; }
+    public int editPrimaryValue() { return editPrimaryValue.get(); }
+    public int editPrimaryMin() { return editPrimaryMin.get(); }
+    public int editPrimaryMax() { return editPrimaryMax.get(); }
+    public boolean editSecondaryAvailable() { return (editableMask.get() & 2) != 0; }
+    public int editSecondaryValue() { return editSecondaryValue.get(); }
+    public int editSecondaryMin() { return editSecondaryMin.get(); }
+    public int editSecondaryMax() { return editSecondaryMax.get(); }
 
     public int facingOrdinal() { return facing.get(); }
     public int routeKind() { return routeKind.get(); }
