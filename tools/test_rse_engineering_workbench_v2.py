@@ -14,6 +14,10 @@ class EngineeringWorkbenchV2Tests(unittest.TestCase):
         self.design_doc = (ROOT / "docs/ENGINEERING_UI_MINECRAFT_FIRST.md").read_text(encoding="utf-8")
         self.client_registration = (ROOT / "src/main/java/dev/redstoneengineering/client/ui/EngineeringUiClientRegistration.java").read_text(encoding="utf-8")
         self.field_menu = (ROOT / "src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java").read_text(encoding="utf-8")
+        self.reliability_menu = (ROOT / "src/main/java/dev/redstoneengineering/ui/menu/ReliabilitySystemMenu.java").read_text(encoding="utf-8")
+        self.reliability_screen = (ROOT / "src/main/java/dev/redstoneengineering/client/ui/ReliabilitySystemScreen.java").read_text(encoding="utf-8")
+        self.pneumatic_menu = (ROOT / "src/main/java/dev/redstoneengineering/ui/menu/PneumaticSystemMenu.java").read_text(encoding="utf-8")
+        self.pneumatic_screen = (ROOT / "src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.java").read_text(encoding="utf-8")
         self.ui_registration = (ROOT / "src/main/java/dev/redstoneengineering/ui/EngineeringUiRegistration.java").read_text(encoding="utf-8")
 
     def test_every_engineering_screen_gets_model_page(self):
@@ -425,6 +429,41 @@ class EngineeringWorkbenchV2Tests(unittest.TestCase):
         missing_universal = sorted(name for name in universal_kinds if f"UniversalFieldDeviceMenu.{name}" not in universal_policy)
         self.assertEqual([], missing_field, f"Unclassified FieldDeviceMenu kinds: {missing_field}")
         self.assertEqual([], missing_universal, f"Unclassified UniversalFieldDeviceMenu configs: {missing_universal}")
+
+    def test_existing_servo_load_parameter_is_not_hidden_from_hmi(self):
+        for token in [
+            "ServoActuatorBlock.LOAD",
+            "secondaryParameterIndex",
+            "BUTTON_SECONDARY_PARAMETER_PREVIOUS",
+            "BUTTON_SECONDARY_PARAMETER_NEXT",
+        ]:
+            self.assertIn(token, self.reliability_menu)
+        for token in [
+            'sweepSpec("Servo slew profile"',
+            'sweepSpec("Load / inertia profile"',
+            "reliability.secondaryParameterIndex()",
+        ]:
+            self.assertIn(token, self.catalog)
+        self.assertIn("servoLoadText()", self.reliability_screen)
+
+    def test_regulator_exposes_setpoint_and_response_profile_separately(self):
+        for token in [
+            "BUTTON_SECONDARY_PARAMETER_PREVIOUS",
+            "BUTTON_SECONDARY_PARAMETER_NEXT",
+            "PressureRegulatorBlock.stepResponseMode",
+        ]:
+            self.assertIn(token, self.pneumatic_menu)
+        for token in [
+            'experimentSpec("Pressure setpoint"',
+            'spec("Diaphragm response profile"',
+        ]:
+            self.assertIn(token, self.catalog)
+        for token in [
+            "secondaryPrev",
+            "secondaryNext",
+            "First row changes calibrated setpoint; second row selects",
+        ]:
+            self.assertIn(token, self.pneumatic_screen)
 
     def test_universal_devices_also_participate_in_model_parameter_workbench(self):
         for token in [
