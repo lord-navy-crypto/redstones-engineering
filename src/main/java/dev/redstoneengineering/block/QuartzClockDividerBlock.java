@@ -95,10 +95,29 @@ public class QuartzClockDividerBlock extends DirectionalDomainBlock implements E
         if (port.isEmpty()) return Optional.empty();
         BlockPos samplePos = side == inputSide(state) ? inputPos(pos, state) : outputPos(pos, state);
         DomainNetwork.QuartzSample sample = DomainNetwork.sampleQuartz(level, samplePos);
-        PortQuality quality = level.getBlockState(samplePos).getBlock() instanceof QuartzTimingLineBlock
+        PortQuality quality = inputQuality(level, samplePos, sample);
+        if (side == outputSide(state)) {
+            BlockPos inputPos = inputPos(pos, state);
+            DomainNetwork.QuartzSample input = DomainNetwork.sampleQuartz(level, inputPos);
+            PortQuality inputQuality = inputQuality(level, inputPos, input);
+            if (inputEvidenceUnknown(inputQuality)) {
+                quality = inputQuality;
+            }
+        }
+        return Optional.of(new EngineeringPortSnapshot(port.get(), sample.periodTicks(), 0.0, 4096.0, quality));
+    }
+
+    private static PortQuality inputQuality(Level level, BlockPos samplePos, DomainNetwork.QuartzSample sample) {
+        return level.getBlockState(samplePos).getBlock() instanceof QuartzTimingLineBlock
                 ? QuartzTimingLineBlock.quality(level, samplePos)
                 : (sample.valid() ? PortQuality.VALID : PortQuality.NO_SIGNAL);
-        return Optional.of(new EngineeringPortSnapshot(port.get(), sample.periodTicks(), 0.0, 4096.0, quality));
+    }
+
+    private static boolean inputEvidenceUnknown(PortQuality quality) {
+        return quality == PortQuality.STALE
+                || quality == PortQuality.FAULT
+                || quality == PortQuality.DOMAIN_MISMATCH
+                || quality == PortQuality.TOPOLOGY_ERROR;
     }
 
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
@@ -116,16 +135,24 @@ public class QuartzClockDividerBlock extends DirectionalDomainBlock implements E
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        DomainNetwork.QuartzSample input = DomainNetwork.sampleQuartz(level, inputPos(pos, state));
+        BlockPos inputPos = inputPos(pos, state);
+        DomainNetwork.QuartzSample input = DomainNetwork.sampleQuartz(level, inputPos);
+        PortQuality inputQuality = inputQuality(level, inputPos, input);
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
         int divisor = division(state.getValue(DIV_INDEX));
 
-        if (!input.valid()) {
-            runtime[COUNT_SLOT] = 0;
-            runtime[PREVIOUS_SLOT] = 0;
-            runtime[OUTPUT_SLOT] = 0;
-            runtime[INITIALIZED_SLOT] = 0;
-            runtime[PHASE_STARTED_SLOT] = 0;
+        if (inputQuality != PortQuality.VALID) {
+            if (inputQuality == PortQuality.NO_SIGNAL) {
+                // A complete observation that proves the source disappeared invalidates phase.
+                runtime[COUNT_SLOT] = 0;
+                runtime[PREVIOUS_SLOT] = 0;
+                runtime[OUTPUT_SLOT] = 0;
+                runtime[INITIALIZED_SLOT] = 0;
+                runtime[PHASE_STARTED_SLOT] = 0;
+            }
+            // STALE/FAULT/DOMAIN/TOPOLOGY evidence cannot prove that the clock stopped.
+            // Preserve phase/counter history, but withhold a valid output claim until input
+            // evidence becomes trustworthy again.
             DomainNetwork.driveQuartz(level, outputPos(pos, state), pos, false, 1, false);
             level.scheduleTick(pos, this, 1);
             return;
