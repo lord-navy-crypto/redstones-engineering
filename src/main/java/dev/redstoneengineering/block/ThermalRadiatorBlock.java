@@ -96,6 +96,18 @@ public class ThermalRadiatorBlock extends DomainBlock implements EngineeringPort
         level.scheduleTick(pos, this, 10);
     }
 
+    /** Server-authoritative cooling-coefficient adjustment shared with the engineering HMI. */
+    public static boolean adjustCooling(Level level, BlockPos pos, int delta) {
+        if (level.isClientSide || delta == 0) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof ThermalRadiatorBlock radiator)) return false;
+        int current = state.getValue(COOLING);
+        int nextValue = delta > 0 ? (current >= 4 ? 1 : current + 1) : (current <= 1 ? 4 : current - 1);
+        level.setBlock(pos, state.setValue(COOLING, nextValue), Block.UPDATE_CLIENTS);
+        level.scheduleTick(pos, radiator, 1);
+        return true;
+    }
+
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
             int cooling = state.getValue(COOLING);
