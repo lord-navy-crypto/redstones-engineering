@@ -43,6 +43,8 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
     private final DataSlot inputFacing = trackedInt();
     private final DataSlot outputFacing = trackedInt();
     private final DataSlot quality = trackedInt();
+    /** Raw bounded configuration index, kept separate from derived physical readbacks. */
+    private final DataSlot parameterIndex = trackedInt();
 
     public ReliabilitySystemMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -62,12 +64,14 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
         extraA.set(0); extraB.set(0); extraC.set(0); facing.set(-1);
         inputFacing.set(-1); outputFacing.set(-1);
         quality.set(PortQuality.NO_SIGNAL.ordinal());
+        parameterIndex.set(-1);
 
         if (block instanceof WatchdogBlock watchdog) {
             kind.set(KIND_WATCHDOG);
             Direction in = DirectionalSignalBlock.seriesInputSide(state);
             Direction out = DirectionalSignalBlock.seriesOutputSide(state);
             captureSignalEndpoints(in, out);
+            parameterIndex.set(state.getValue(WatchdogBlock.TIMEOUT));
             primary.set(WatchdogBlock.ageTicks(level, blockPos));
             secondary.set(WatchdogBlock.timeoutTicks(state.getValue(WatchdogBlock.TIMEOUT)));
             tertiary.set(WatchdogBlock.timeoutCount(level, blockPos));
@@ -79,6 +83,7 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
             kind.set(KIND_SERVO);
             Direction front = state.getValue(ServoActuatorBlock.FACING);
             facing.set(front.ordinal());
+            parameterIndex.set(state.getValue(ServoActuatorBlock.SLEW));
             primary.set(ServoActuatorBlock.position(level, blockPos));
             secondary.set(ServoActuatorBlock.command(level, blockPos));
             tertiary.set(ServoActuatorBlock.velocity(level, blockPos));
@@ -102,6 +107,7 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
             Direction in = DirectionalSignalBlock.seriesInputSide(state);
             Direction out = DirectionalSignalBlock.seriesOutputSide(state);
             captureSignalEndpoints(in, out);
+            parameterIndex.set(state.getValue(RedundantVoterBlock.TOLERANCE));
             RedundantVoterBlock.Vote vote = voter.vote(level, blockPos, state);
             primary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             secondary.set(vote.validInputs());
@@ -116,6 +122,7 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
             Direction in = DirectionalSignalBlock.seriesInputSide(state);
             Direction out = DirectionalSignalBlock.seriesOutputSide(state);
             captureSignalEndpoints(in, out);
+            parameterIndex.set(state.getValue(FaultLatchBlock.THRESHOLD));
             primary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             secondary.set(FaultLatchBlock.thresholdValue(state.getValue(FaultLatchBlock.THRESHOLD)));
             tertiary.set(FaultLatchBlock.tripCount(level, blockPos));
@@ -268,6 +275,7 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
     }
 
     public int kind() { return kind.get(); }
+    public int parameterIndex() { return parameterIndex.get(); }
     public int primary() { return primary.get(); }
     public int secondary() { return secondary.get(); }
     public int tertiary() { return tertiary.get(); }
