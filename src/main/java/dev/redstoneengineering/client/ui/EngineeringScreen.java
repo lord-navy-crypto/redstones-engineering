@@ -18,6 +18,8 @@ import dev.redstoneengineering.ui.menu.UniversalFieldDeviceMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
@@ -81,6 +83,16 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private Button routeOutputPrevious;
     private Button routeOutputNext;
 
+    private EditBox workbenchTarget;
+    private Button workbenchParameterPrevious;
+    private Button workbenchParameterNext;
+    private Button workbenchDecrease;
+    private Button workbenchIncrease;
+    private Button workbenchApply;
+    private Button workbenchMin;
+    private Button workbenchMax;
+    private int workbenchParameterIndex;
+
     protected EngineeringScreen(M menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
         this.imageWidth = 320;
@@ -103,6 +115,14 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         routeInputNext = null;
         routeOutputPrevious = null;
         routeOutputNext = null;
+        workbenchTarget = null;
+        workbenchParameterPrevious = null;
+        workbenchParameterNext = null;
+        workbenchDecrease = null;
+        workbenchIncrease = null;
+        workbenchApply = null;
+        workbenchMin = null;
+        workbenchMax = null;
 
         int tabY = topPos + 31;
         int x = leftPos + 8;
@@ -121,9 +141,11 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
         addDeviceWidgets();
         addRouteControls();
+        addWorkbenchControls();
         updateWidgetVisibility();
         syncDeviceWidgetLabels();
         syncRouteControls();
+        syncWorkbenchControls();
     }
 
     private void addSectionTab(Section target, int x, int y, int width) {
@@ -171,6 +193,137 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         routeOutputNext = addRenderableWidget(Button.builder(
                 Component.literal("TX ▼"), button -> sendMenuButton(routeOutputActionId(true)))
                 .bounds(x0 + (endpointWidth + endpointGap) * 3, topPos + ROUTE_ENDPOINT_Y, endpointWidth, 20).build());
+    }
+
+    private void addWorkbenchControls() {
+        int y = topPos + 198;
+        workbenchParameterPrevious = addRenderableWidget(Button.builder(
+                Component.literal("◀ P"), button -> selectWorkbenchParameter(-1))
+                .bounds(leftPos + 16, y, 34, 20).build());
+        workbenchDecrease = addRenderableWidget(Button.builder(
+                Component.literal("−1"), button -> stepWorkbenchParameter(false))
+                .bounds(leftPos + 54, y, 38, 20).build());
+        workbenchTarget = addRenderableWidget(new EditBox(
+                font, leftPos + 96, y, 56, 20, Component.literal("Parameter target")));
+        workbenchTarget.setMaxLength(5);
+        workbenchTarget.setFilter(EngineeringScreen::numericTargetText);
+        workbenchApply = addRenderableWidget(Button.builder(
+                Component.literal("Apply"), button -> applyWorkbenchTarget())
+                .bounds(leftPos + 156, y, 48, 20).build());
+        workbenchIncrease = addRenderableWidget(Button.builder(
+                Component.literal("+1"), button -> stepWorkbenchParameter(true))
+                .bounds(leftPos + 208, y, 38, 20).build());
+        workbenchParameterNext = addRenderableWidget(Button.builder(
+                Component.literal("P ▶"), button -> selectWorkbenchParameter(1))
+                .bounds(leftPos + 250, y, 54, 20).build());
+
+        workbenchMin = addRenderableWidget(Button.builder(
+                Component.literal("Min"), button -> applyWorkbenchBound(false))
+                .bounds(leftPos + 96, topPos + 221, 52, 18).build());
+        workbenchMax = addRenderableWidget(Button.builder(
+                Component.literal("Max"), button -> applyWorkbenchBound(true))
+                .bounds(leftPos + 152, topPos + 221, 52, 18).build());
+    }
+
+    private static boolean numericTargetText(String value) {
+        if (value == null || value.isEmpty()) return true;
+        if (value.length() > 5) return false;
+        int start = value.charAt(0) == '-' ? 1 : 0;
+        if (start == 1 && value.length() == 1) return true;
+        for (int i = start; i < value.length(); i++) {
+            if (!Character.isDigit(value.charAt(i))) return false;
+        }
+        return true;
+    }
+
+    private List<EngineeringWorkbenchCatalog.ParameterSpec> workbenchParameters() {
+        return EngineeringWorkbenchCatalog.parameters(menu);
+    }
+
+    private EngineeringWorkbenchCatalog.ParameterSpec activeWorkbenchParameter() {
+        List<EngineeringWorkbenchCatalog.ParameterSpec> specs = workbenchParameters();
+        if (specs.isEmpty()) return null;
+        workbenchParameterIndex = Math.floorMod(workbenchParameterIndex, specs.size());
+        return specs.get(workbenchParameterIndex);
+    }
+
+    private void selectWorkbenchParameter(int delta) {
+        List<EngineeringWorkbenchCatalog.ParameterSpec> specs = workbenchParameters();
+        if (specs.isEmpty()) return;
+        workbenchParameterIndex = Math.floorMod(workbenchParameterIndex + delta, specs.size());
+        if (workbenchTarget != null) workbenchTarget.setFocused(false);
+        syncWorkbenchControls();
+    }
+
+    private void stepWorkbenchParameter(boolean increase) {
+        EngineeringWorkbenchCatalog.ParameterSpec spec = activeWorkbenchParameter();
+        if (spec == null) return;
+        sendMenuButton(increase ? spec.incrementButton() : spec.decrementButton());
+    }
+
+    private void applyWorkbenchBound(boolean maximum) {
+        EngineeringWorkbenchCatalog.ParameterSpec spec = activeWorkbenchParameter();
+        if (spec == null) return;
+        int target = maximum ? spec.maximum() : spec.minimum();
+        if (workbenchTarget != null) workbenchTarget.setValue(Integer.toString(target));
+        applyWorkbenchTargetValue(spec, target);
+    }
+
+    private void applyWorkbenchTarget() {
+        EngineeringWorkbenchCatalog.ParameterSpec spec = activeWorkbenchParameter();
+        if (spec == null || workbenchTarget == null) return;
+        try {
+            int target = Integer.parseInt(workbenchTarget.getValue());
+            if (target < spec.minimum() || target > spec.maximum()) {
+                workbenchTarget.setTextColor(BAD);
+                return;
+            }
+            workbenchTarget.setTextColor(TEXT);
+            applyWorkbenchTargetValue(spec, target);
+        } catch (NumberFormatException ignored) {
+            workbenchTarget.setTextColor(BAD);
+        }
+    }
+
+    private void applyWorkbenchTargetValue(EngineeringWorkbenchCatalog.ParameterSpec spec, int target) {
+        int delta = target - spec.current();
+        int steps = Math.min(64, Math.abs(delta));
+        int button = delta >= 0 ? spec.incrementButton() : spec.decrementButton();
+        for (int i = 0; i < steps; i++) sendMenuButton(button);
+    }
+
+    private void syncWorkbenchControls() {
+        List<EngineeringWorkbenchCatalog.ParameterSpec> specs = workbenchParameters();
+        boolean show = workbenchPage && !specs.isEmpty();
+        if (!specs.isEmpty()) workbenchParameterIndex = Math.floorMod(workbenchParameterIndex, specs.size());
+        EngineeringWorkbenchCatalog.ParameterSpec spec = specs.isEmpty() ? null : specs.get(workbenchParameterIndex);
+
+        for (AbstractWidget widget : List.of(
+                workbenchParameterPrevious, workbenchParameterNext, workbenchDecrease, workbenchIncrease,
+                workbenchTarget, workbenchApply, workbenchMin, workbenchMax)) {
+            if (widget != null) widget.visible = show;
+        }
+        if (!show || spec == null) return;
+
+        boolean multiple = specs.size() > 1;
+        workbenchParameterPrevious.active = multiple;
+        workbenchParameterNext.active = multiple;
+        workbenchParameterPrevious.setMessage(Component.literal("◀ P" + (workbenchParameterIndex + 1)));
+        workbenchParameterNext.setMessage(Component.literal("P" + (workbenchParameterIndex + 1) + " ▶"));
+        workbenchParameterPrevious.setTooltip(Tooltip.create(Component.literal("Previous model parameter")));
+        workbenchParameterNext.setTooltip(Tooltip.create(Component.literal("Next model parameter")));
+        workbenchDecrease.setTooltip(Tooltip.create(Component.literal(spec.label() + " fine -1")));
+        workbenchIncrease.setTooltip(Tooltip.create(Component.literal(spec.label() + " fine +1")));
+        workbenchApply.setTooltip(Tooltip.create(Component.literal(
+                "Apply exact bounded target " + spec.minimum() + ".." + spec.maximum()
+                        + " using existing server-authoritative step actions.")));
+        workbenchMin.setMessage(Component.literal("Min " + spec.minimum()));
+        workbenchMax.setMessage(Component.literal("Max " + spec.maximum()));
+
+        if (workbenchTarget != null && !workbenchTarget.isFocused()) {
+            workbenchTarget.setValue(Integer.toString(spec.current()));
+            workbenchTarget.setTextColor(TEXT);
+        }
     }
 
     private int routeActionId(boolean clockwise) {
@@ -307,6 +460,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         updateWidgetVisibility();
         syncDeviceWidgetLabels();
         syncRouteControls();
+        syncWorkbenchControls();
     }
 
     private void setRoutePage() {
@@ -315,6 +469,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         updateWidgetVisibility();
         syncDeviceWidgetLabels();
         syncRouteControls();
+        syncWorkbenchControls();
     }
 
     private void setWorkbenchPage() {
@@ -323,6 +478,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         updateWidgetVisibility();
         syncDeviceWidgetLabels();
         syncRouteControls();
+        syncWorkbenchControls();
     }
 
     private boolean isLegacyRouteWidget(AbstractWidget widget) {
@@ -340,6 +496,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         }
         if (routeTab != null) routeTab.active = !routePage;
         if (workbenchTab != null) workbenchTab.active = !workbenchPage;
+        syncWorkbenchControls();
     }
 
     protected final boolean isConfigureSection() { return !routePage && !workbenchPage && section == Section.CONFIGURE; }
@@ -352,6 +509,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         recordSharedTimeline();
         syncDeviceWidgetLabels();
         syncRouteControls();
+        syncWorkbenchControls();
     }
 
     private void recordSharedTimeline() {
@@ -419,26 +577,44 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
     protected void renderWorkbenchPage(GuiGraphics graphics) {
         EngineeringWorkbenchCatalog.ModelCard model = EngineeringWorkbenchCatalog.describe(menu);
+        List<EngineeringWorkbenchCatalog.ParameterSpec> specs = workbenchParameters();
         statusBadge(graphics, model.family(), INFO, 16, 80);
         statusBadge(graphics, menu.evidenceStateLabel(), evidenceStateColor(), 222, 80);
-        labelValue(graphics, "Formula / relation", model.equation(), 105);
-        labelValue(graphics, "Parameters", model.parameters(), 124);
-        labelValue(graphics, "Process", model.process(), 143);
-        sectionRule(graphics, 162);
-        safeWrappedText(graphics, model.boundary(), 16, 170, MUTED, 2);
 
-        int plotX = 16;
-        int plotY = 202;
-        int plotW = 272;
-        int plotH = 20;
-        EngineeringPlot.analogFrame(graphics, plotX, plotY, plotW, plotH);
-        EngineeringPlot.digitalTrace(graphics, timelineCount, i -> evidenceTimeline[i],
-                plotX, plotY + 2, plotW, 6, GOOD);
-        EngineeringPlot.digitalTrace(graphics, timelineCount, i -> healthTimeline[i],
-                plotX, plotY + 11, plotW, 6, INFO);
-        graphics.drawString(font, "evidence", 16, 225, GOOD, false);
-        graphics.drawString(font, "health", 74, 225, INFO, false);
-        graphics.drawString(font, "display history only", 219, 225, MUTED, false);
+        graphics.drawString(font, "Formula / relation", 16, 103, MUTED, false);
+        safeWrappedText(graphics, model.equation(), 16, 114, TEXT, 2);
+        graphics.drawString(font, "Process", 16, 136, MUTED, false);
+        safeText(graphics, model.process(), 67, 136, TEXT);
+        sectionRule(graphics, 151);
+        safeWrappedText(graphics, model.boundary(), 16, 159, MUTED, 2);
+
+        if (!specs.isEmpty()) {
+            EngineeringWorkbenchCatalog.ParameterSpec spec = activeWorkbenchParameter();
+            if (spec != null) {
+                String index = "PARAM " + (workbenchParameterIndex + 1) + "/" + specs.size();
+                graphics.drawString(font, index, 16, 184, INFO, false);
+                String value = spec.label() + " = " + spec.current()
+                        + (spec.unit().isBlank() ? "" : " " + spec.unit())
+                        + "   [" + spec.minimum() + ".." + spec.maximum() + "]";
+                graphics.drawString(font, fitForWidth(value, 222), 82, 184, TEXT, false);
+                if (!spec.detail().isBlank()) {
+                    if (workbenchTarget != null) workbenchTarget.setTooltip(Tooltip.create(Component.literal(spec.detail())));
+                }
+            }
+        } else {
+            int plotX = 16;
+            int plotY = 194;
+            int plotW = 272;
+            int plotH = 26;
+            EngineeringPlot.analogFrame(graphics, plotX, plotY, plotW, plotH);
+            EngineeringPlot.digitalTrace(graphics, timelineCount, i -> evidenceTimeline[i],
+                    plotX, plotY + 3, plotW, 7, GOOD);
+            EngineeringPlot.digitalTrace(graphics, timelineCount, i -> healthTimeline[i],
+                    plotX, plotY + 14, plotW, 7, INFO);
+            graphics.drawString(font, "evidence", 16, 224, GOOD, false);
+            graphics.drawString(font, "health", 74, 224, INFO, false);
+            graphics.drawString(font, "display history only", 219, 224, MUTED, false);
+        }
     }
 
     private void renderRoutePage(GuiGraphics graphics) {
