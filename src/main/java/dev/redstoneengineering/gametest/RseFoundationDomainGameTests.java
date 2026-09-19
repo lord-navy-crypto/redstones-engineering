@@ -1,12 +1,16 @@
 package dev.redstoneengineering.gametest;
 
+import dev.redstoneengineering.EngineeringSystemsModule;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.block.DirectionalDomainSourceBlock;
 import dev.redstoneengineering.block.DirectionalRedstoneEndpointBlock;
+import dev.redstoneengineering.block.DirectionalSignalBlock;
+import dev.redstoneengineering.block.FaultInjectorBlock;
 import dev.redstoneengineering.block.LapisPrecisionSourceBlock;
 import dev.redstoneengineering.block.LapisToRedstoneQuantizerBlock;
 import dev.redstoneengineering.block.RedstoneReferenceSourceBlock;
 import dev.redstoneengineering.block.RedstoneToLapisScalerBlock;
+import dev.redstoneengineering.block.SignalTapBlock;
 import dev.redstoneengineering.core.port.PortQuality;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -77,4 +81,75 @@ public final class RseFoundationDomainGameTests {
             });
         });
     }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 100)
+    public static void signalTapHoldsFaultedEvidenceButDropsOnRealSourceLoss(GameTestHelper helper) {
+        BlockPos source = new BlockPos(0, 1, 2);
+        BlockPos injector = new BlockPos(1, 1, 2);
+        BlockPos arm = new BlockPos(1, 1, 3);
+        BlockPos tap = new BlockPos(2, 1, 2);
+
+        helper.setBlock(source, Blocks.REDSTONE_BLOCK.defaultBlockState());
+        helper.setBlock(injector, EngineeringSystemsModule.FAULT_INJECTOR.get().defaultBlockState()
+                .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
+                .setValue(DirectionalSignalBlock.INPUT_FACING, Direction.WEST)
+                .setValue(FaultInjectorBlock.MODE, 0));
+        helper.setBlock(tap, RedstoneEngineering.SIGNAL_TAP.get().defaultBlockState()
+                .setValue(DirectionalSignalBlock.FACING, Direction.EAST)
+                .setValue(DirectionalSignalBlock.INPUT_FACING, Direction.WEST));
+
+        helper.runAfterDelay(5, () -> {
+            BlockPos tapWorld = helper.absolutePos(tap);
+            if (helper.getBlockState(tap).getValue(DirectionalSignalBlock.OUTPUT) != 15
+                    || SignalTapBlock.inputQuality(helper.getLevel(), tapWorld, helper.getBlockState(tap)) != PortQuality.VALID
+                    || SignalTapBlock.evidenceHoldActive(helper.getLevel(), tapWorld)) {
+                helper.fail("Signal Tap did not establish a valid copied baseline", tap);
+                return;
+            }
+
+            helper.setBlock(arm, Blocks.REDSTONE_BLOCK.defaultBlockState());
+            helper.runAfterDelay(4, () -> {
+                BlockState faulted = helper.getBlockState(tap);
+                if (faulted.getValue(DirectionalSignalBlock.OUTPUT) != 15
+                        || SignalTapBlock.inputQuality(helper.getLevel(), tapWorld, faulted) != PortQuality.FAULT
+                        || !SignalTapBlock.evidenceHoldActive(helper.getLevel(), tapWorld)
+                        || SignalTapBlock.badEvidenceEpisodes(helper.getLevel(), tapWorld) != 1) {
+                    helper.fail("Faulted tap evidence was converted into a new numerical zero", tap);
+                    return;
+                }
+
+                helper.runAfterDelay(4, () -> {
+                    if (SignalTapBlock.badEvidenceEpisodes(helper.getLevel(), tapWorld) != 1) {
+                        helper.fail("Continuous bad tap evidence inflated the episode counter", tap);
+                        return;
+                    }
+
+                    helper.setBlock(arm, Blocks.AIR.defaultBlockState());
+                    helper.runAfterDelay(4, () -> {
+                        BlockState recovered = helper.getBlockState(tap);
+                        if (recovered.getValue(DirectionalSignalBlock.OUTPUT) != 15
+                                || SignalTapBlock.evidenceHoldActive(helper.getLevel(), tapWorld)
+                                || SignalTapBlock.inputQuality(helper.getLevel(), tapWorld, recovered) != PortQuality.VALID) {
+                            helper.fail("Signal Tap did not recover from degraded evidence", tap);
+                            return;
+                        }
+
+                        helper.setBlock(source, Blocks.AIR.defaultBlockState());
+                        helper.runAfterDelay(4, () -> {
+                            BlockState noSource = helper.getBlockState(tap);
+                            if (noSource.getValue(DirectionalSignalBlock.OUTPUT) != 0
+                                    || SignalTapBlock.evidenceHoldActive(helper.getLevel(), tapWorld)
+                                    || SignalTapBlock.inputQuality(helper.getLevel(), tapWorld, noSource) != PortQuality.NO_SIGNAL) {
+                                helper.fail("Real source loss did not de-energize the Signal Tap", tap);
+                                return;
+                            }
+                            helper.succeed();
+                        });
+                    });
+                });
+            });
+        });
+    }
+
 }
