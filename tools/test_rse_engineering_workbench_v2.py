@@ -130,5 +130,32 @@ class EngineeringWorkbenchV2Tests(unittest.TestCase):
 
 
 
+    def test_workbench_has_ordered_sweep_and_fraction_presets(self):
+        for token in [
+            "WORKBENCH_SWEEP_DWELL_TICKS",
+            "toggleWorkbenchSweep",
+            "tickWorkbenchSweep",
+            "applyWorkbenchFraction(0.25)",
+            "applyWorkbenchFraction(0.50)",
+            "applyWorkbenchFraction(0.75)",
+            "Sweep ↑",
+            "every point uses the real server-owned device action",
+            "graphics.fill(barX, barY",
+        ]:
+            self.assertIn(token, self.screen)
+
+    def test_universal_devices_also_participate_in_model_parameter_workbench(self):
+        for token in [
+            "universal.editPrimaryAvailable()",
+            "universal.editSecondaryAvailable()",
+            "UniversalFieldDeviceMenu.BUTTON_CONFIG_PRIMARY_PREVIOUS",
+            "UniversalFieldDeviceMenu.BUTTON_CONFIG_SECONDARY_PREVIOUS",
+            "universalPrimaryLabel",
+            "universalSecondaryLabel",
+        ]:
+            self.assertIn(token, self.catalog)
+
+
+
 if __name__ == "__main__":
     unittest.main()
