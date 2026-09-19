@@ -155,6 +155,18 @@ public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements E
                 : (sample.valid() ? PortQuality.VALID : PortQuality.NO_SIGNAL);
     }
 
+    /** Server-authoritative filter-alpha adjustment shared by block interaction and engineering HMI. */
+    public static boolean adjustAlpha(Level level, BlockPos pos, int delta) {
+        if (level.isClientSide || delta == 0) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof LapisLowPassFilterBlock filter)) return false;
+        int current = state.getValue(ALPHA);
+        int nextValue = Math.floorMod(current + (delta > 0 ? 1 : -1), 4);
+        level.setBlock(pos, state.setValue(ALPHA, nextValue), Block.UPDATE_CLIENTS);
+        level.scheduleTick(pos, filter, 1);
+        return true;
+    }
+
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
             int index = (state.getValue(ALPHA) + 1) % 4;
