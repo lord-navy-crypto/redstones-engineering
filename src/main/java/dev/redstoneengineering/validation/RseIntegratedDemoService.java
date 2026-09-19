@@ -628,8 +628,8 @@ public final class RseIntegratedDemoService {
         if (cylinderPosition != s.lastCylinderPosition) s.cylinderMoved = true;
         s.lastCylinderPosition = cylinderPosition;
         if (AirReservoirBlock.storedPressure(level, at(s, PNEU_RESERVOIR)) > 0) s.reservoirCharged = true;
-        if (PneumaticFlowMeter.flowProxy(level, at(s, PNEU_FLOW_METER)) > 0
-                && PneumaticFlowMeter.measurement(level, at(s, PNEU_FLOW_METER)).sampleCount() > 0) {
+        if (PneumaticFlowMeterBlock.flowProxy(level, at(s, PNEU_FLOW_METER)) > 0
+                && PneumaticFlowMeterBlock.measurement(level, at(s, PNEU_FLOW_METER)).sampleCount() > 0) {
             s.flowSeen = true;
         }
         BlockState pressureRx = level.getBlockState(at(s, PNEU_PRESSURE_RX));
@@ -980,11 +980,11 @@ public final class RseIntegratedDemoService {
     private static StageResult stage13(ServerLevel level, Session s) {
         BlockPos pos = at(s, PNEU_FLOW_METER);
         if (!(level.getBlockState(pos).getBlock() instanceof PneumaticFlowMeterBlock)) return fail(13, "Pneumatic flow metrology", "flow meter missing");
-        int pin = PneumaticFlowMeter.inletPressure(level, pos);
-        int pout = PneumaticFlowMeter.outletPressure(level, pos);
-        int dp = PneumaticFlowMeter.pressureDrop(level, pos);
-        int flow = PneumaticFlowMeter.flowProxy(level, pos);
-        var measurement = PneumaticFlowMeter.measurement(level, pos);
+        int pin = PneumaticFlowMeterBlock.inletPressure(level, pos);
+        int pout = PneumaticFlowMeterBlock.outletPressure(level, pos);
+        int dp = PneumaticFlowMeterBlock.pressureDrop(level, pos);
+        int flow = PneumaticFlowMeterBlock.flowProxy(level, pos);
+        var measurement = PneumaticFlowMeterBlock.measurement(level, pos);
         if (!s.flowSeen || measurement.sampleCount() < 2 || flow <= 0) {
             return waitFor(13, "Pneumatic flow metrology", "Pin/Pout=" + pin + "/" + pout
                     + " dP=" + dp + " flow≈" + flow + " samples=" + measurement.sampleCount());
