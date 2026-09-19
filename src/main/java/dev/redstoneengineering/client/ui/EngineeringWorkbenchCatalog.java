@@ -277,6 +277,31 @@ public final class EngineeringWorkbenchCatalog {
                     DigitalCommunicationMenu.BUTTON_PARAMETER_PREVIOUS, DigitalCommunicationMenu.BUTTON_PARAMETER_NEXT,
                     "mode", "Minimum medium quality required before regeneration."));
         }
+        if (menu instanceof ReliabilitySystemMenu reliability) {
+            return switch (reliability.kind()) {
+                case ReliabilitySystemMenu.KIND_WATCHDOG -> List.of(
+                        spec("Timeout profile", reliability.parameterIndex(), 0, 3,
+                                ReliabilitySystemMenu.BUTTON_PARAMETER_PREVIOUS, ReliabilitySystemMenu.BUTTON_PARAMETER_NEXT,
+                                "index", "Selects the server-owned heartbeat timeout profile.")
+                );
+                case ReliabilitySystemMenu.KIND_SERVO -> List.of(
+                        spec("Servo slew profile", reliability.parameterIndex(), 0, 2,
+                                ReliabilitySystemMenu.BUTTON_PARAMETER_PREVIOUS, ReliabilitySystemMenu.BUTTON_PARAMETER_NEXT,
+                                "index", "Controls bounded actuator slew response.")
+                );
+                case ReliabilitySystemMenu.KIND_VOTER -> List.of(
+                        spec("Voting tolerance", reliability.parameterIndex(), 0, 3,
+                                ReliabilitySystemMenu.BUTTON_PARAMETER_PREVIOUS, ReliabilitySystemMenu.BUTTON_PARAMETER_NEXT,
+                                "index", "Selects the allowed disagreement tolerance.")
+                );
+                case ReliabilitySystemMenu.KIND_FAULT_LATCH -> List.of(
+                        spec("Trip threshold", reliability.parameterIndex(), 0, 3,
+                                ReliabilitySystemMenu.BUTTON_PARAMETER_PREVIOUS, ReliabilitySystemMenu.BUTTON_PARAMETER_NEXT,
+                                "index", "Selects the latched-fault trip threshold profile.")
+                );
+                default -> List.of();
+            };
+        }
         if (menu instanceof OpticalSystemMenu optical) {
             return switch (optical.kind()) {
                 case OpticalSystemMenu.KIND_EMITTER -> List.of(
