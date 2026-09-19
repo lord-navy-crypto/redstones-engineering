@@ -9,11 +9,13 @@ import dev.redstoneengineering.block.DirectionalSignalBlock;
 import dev.redstoneengineering.block.FaultInjectorBlock;
 import dev.redstoneengineering.block.LapisPrecisionSourceBlock;
 import dev.redstoneengineering.block.LapisToRedstoneQuantizerBlock;
+import dev.redstoneengineering.block.QuartzOscillatorBlock;
 import dev.redstoneengineering.block.RedstoneReferenceSourceBlock;
 import dev.redstoneengineering.block.RedstoneToLapisScalerBlock;
 import dev.redstoneengineering.block.SignalAnalyzerBlock;
 import dev.redstoneengineering.block.SignalTapBlock;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.PrecisionObservationSupport;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
@@ -259,6 +261,38 @@ public final class RseFoundationDomainGameTests {
                     });
                 });
             });
+        });
+    }
+
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 80)
+    public static void quartzObserverKeepsEffectivePeriodUntilRealEdge(GameTestHelper helper) {
+        BlockPos oscillator = new BlockPos(2, 1, 2);
+        helper.setBlock(oscillator, RedstoneEngineering.QUARTZ_OSCILLATOR.get().defaultBlockState()
+                .setValue(DirectionalDomainSourceBlock.FACING, Direction.EAST));
+
+        helper.runAfterDelay(3, () -> {
+            BlockPos world = helper.absolutePos(oscillator);
+            BlockState before = helper.getBlockState(oscillator);
+            int effectiveBefore = QuartzOscillatorBlock.effectivePeriodTicks(helper.getLevel(), world, before);
+
+            if (!QuartzOscillatorBlock.stepPeriod(helper.getLevel(), world, true)) {
+                helper.fail("Quartz oscillator period configuration action was rejected", oscillator);
+                return;
+            }
+
+            BlockState configured = helper.getBlockState(oscillator);
+            int configuredPeriod = QuartzOscillatorBlock.configuredPeriodTicks(configured);
+            var observed = PrecisionObservationSupport.quartz(helper.getLevel(), world);
+
+            if (configuredPeriod == effectiveBefore
+                    || !QuartzOscillatorBlock.periodChangePending(helper.getLevel(), world, configured)
+                    || observed.periodTicks() != effectiveBefore) {
+                helper.fail("Direct Quartz observation reported configured period before a real waveform edge", oscillator);
+                return;
+            }
+            helper.succeed();
         });
     }
 
