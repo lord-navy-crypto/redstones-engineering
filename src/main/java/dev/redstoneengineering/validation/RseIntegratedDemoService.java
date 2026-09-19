@@ -33,6 +33,7 @@ import dev.redstoneengineering.core.diagnostic.CoreMediaDiagnostics;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.diagnostics.RseLiveDiagnostics;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.PneumaticNetwork;
 import dev.redstoneengineering.physics.PneumaticObservationSupport;
@@ -50,6 +51,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -100,10 +102,14 @@ public final class RseIntegratedDemoService {
         private boolean reservoirCharged;
         private boolean flowSeen;
         private boolean pneumaticReceiverSeen;
+        private final String runId;
+        private String lastCommand = "/rsevalidation demo place";
+        private final ArrayDeque<String> runLog = new ArrayDeque<>();
 
         private Session(UUID owner, BlockPos origin) {
             this.owner = owner;
             this.origin = origin.immutable();
+            this.runId = owner.toString().substring(0, 8) + "@" + origin.toShortString();
             for (int i = 1; i <= STAGE_COUNT; i++) {
                 displayed[i] = Verdict.WAIT;
                 announced[i] = Verdict.WAIT;
@@ -386,6 +392,8 @@ public final class RseIntegratedDemoService {
         SESSIONS.put(player.getUUID(), session);
         paintAllWait(level, session);
         installBeaconLights(level, session);
+        appendRunLog(session, level.getGameTime(), "RUN START | integrated commissioning bench placed");
+        publishValidationRun(level, session);
 
         return RseValidationFactoryService.Result.ok(
                 "Placed RSE integrated commissioning bench V3.",
@@ -427,6 +435,9 @@ public final class RseIntegratedDemoService {
         level.setBlock(sourcePos, source.setValue(LapisPrecisionSourceBlock.VALUE, bounded), Block.UPDATE_CLIENTS);
         DomainNetwork.recomputeLapis(level, sourcePos);
         resetDynamicEvidence(level, s);
+        s.lastCommand = "/rsevalidation demo setpoint " + bounded;
+        appendRunLog(s, level.getGameTime(), "COMMAND | setpoint=" + bounded + "/100 | dynamic evidence re-armed");
+        publishValidationRun(level, s);
         return RseValidationFactoryService.Result.ok(
                 "Integrated demo setpoint changed to " + bounded + "/100.",
                 "All stages re-armed. Use a value different from the current settled point to prove PID/Servo motion again.",
@@ -452,6 +463,9 @@ public final class RseIntegratedDemoService {
         s.feedbackRoundTripSeen = false;
         s.lastServoPosition = ServoActuatorBlock.position(level, servoPos);
         resetStages(level, s, 6, 7);
+        s.lastCommand = "/rsevalidation demo load " + bounded;
+        appendRunLog(s, level.getGameTime(), "COMMAND | servo load=" + bounded + " (" + ServoActuatorBlock.loadName(next) + ") | S6-S7 re-armed");
+        publishValidationRun(level, s);
         return RseValidationFactoryService.Result.ok(
                 "Servo mechanical load profile=" + bounded + " (" + ServoActuatorBlock.loadName(next) + ").",
                 "accelerationPeriod=" + ServoActuatorBlock.accelerationPeriod(next) + "t"
@@ -468,6 +482,9 @@ public final class RseIntegratedDemoService {
         s.resonancePathSeen = false;
         s.piezoSeen = false;
         resetStages(player.serverLevel(), s, 8, 10);
+        s.lastCommand = "/rsevalidation demo excite";
+        appendRunLog(s, player.serverLevel().getGameTime(), "COMMAND | Amethyst proof stages S8-S10 re-armed");
+        publishValidationRun(player.serverLevel(), s);
         return RseValidationFactoryService.Result.ok(
                 "Amethyst stages re-armed.",
                 "V2 uses a continuous Redstone-Amethyst exciter driven by the real setpoint branch; no fake/manual resonance impulse is injected.",
@@ -529,6 +546,8 @@ public final class RseIntegratedDemoService {
         }
         lines.add(Component.literal("Overall lamp=" + overallVerdict(s)
                 + " | green requires every stage to be stably PASS."));
+        s.lastCommand = "/rsevalidation demo status";
+        publishValidationRun(player.serverLevel(), s);
         return new RseValidationFactoryService.Result(true, lines);
     }
 
@@ -555,11 +574,16 @@ public final class RseIntegratedDemoService {
                 Verdict stable = stabilize(s, stage, raw.verdict());
                 paintLamp(level, at(s, LAMPS[stage]), stable);
                 if (s.announced[stage] != stable && stable != Verdict.WAIT) {
+                    Verdict previous = s.announced[stage];
                     s.announced[stage] = stable;
+                    appendRunLog(s, level.getGameTime(),
+                            String.format(Locale.ROOT, "S%02d %s | %s | raw=%s | %s",
+                                    stage, stable, raw.name(), raw.verdict(), raw.detail()));
                     player.sendSystemMessage(statusComponent(s, raw));
                 }
             }
             paintLamp(level, at(s, OVERALL_LAMP), overallVerdict(s));
+            publishValidationRun(level, s);
         }
     }
 
@@ -1078,6 +1102,43 @@ public final class RseIntegratedDemoService {
     }
 
     private static Session session(ServerPlayer player) { return player == null ? null : SESSIONS.get(player.getUUID()); }
+
+    private static void appendRunLog(Session s, long tick, String message) {
+        while (s.runLog.size() >= 120) s.runLog.removeFirst();
+        s.runLog.addLast("t=" + tick + " | " + message);
+    }
+
+    private static List<String> feedbackLines(ServerLevel level, Session s) {
+        ArrayList<String> lines = new ArrayList<>();
+        BlockState source = level.getBlockState(at(s, LAPIS_SOURCE));
+        int setpoint = source.getBlock() instanceof LapisPrecisionSourceBlock
+                ? source.getValue(LapisPrecisionSourceBlock.VALUE) : -1;
+        BlockState servo = level.getBlockState(at(s, SERVO));
+        String load = servo.getBlock() instanceof ServoActuatorBlock ? ServoActuatorBlock.loadName(servo) : "MISSING";
+        lines.add("RUN " + s.runId + " | origin=" + s.origin.toShortString()
+                + " | setpoint=" + setpoint + "/100 | servoLoad=" + load);
+        lines.add("OVERALL " + overallVerdict(s) + " | PASS requires all 15 stages stable for "
+                + PASS_CONFIRM_SAMPLES + " consecutive checks");
+        for (int i = 1; i <= STAGE_COUNT; i++) {
+            StageResult raw = evaluate(level, s, i);
+            lines.add(String.format(Locale.ROOT,
+                    "S%02d %-4s | raw=%-4s | confirm=%d/%d | %s | %s",
+                    i, s.displayed[i], raw.verdict(), s.passStreak[i], PASS_CONFIRM_SAMPLES,
+                    raw.name(), raw.detail()));
+        }
+        return List.copyOf(lines);
+    }
+
+    private static void publishValidationRun(ServerLevel level, Session s) {
+        RseLiveDiagnostics.publishValidationRun(
+                s.runId,
+                s.lastCommand,
+                overallVerdict(s).name(),
+                feedbackLines(level, s),
+                List.copyOf(s.runLog),
+                level.getGameTime()
+        );
+    }
 
     private static Verdict overallVerdict(Session s) {
         boolean all = true;
