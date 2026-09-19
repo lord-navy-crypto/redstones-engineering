@@ -130,7 +130,11 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
                 // The stored resonator state is retained, but its present evolution is not
                 // trustworthy while the forcing evidence is incomplete or contradictory.
                 quality = response.inputQuality();
-            } else if (response.actualAmplitude() > 0 && response.ringDown()) {
+            } else if (response.actualAmplitude() > 0
+                    && response.ringDown()
+                    && quality == PortQuality.NO_SIGNAL) {
+                // Internal stored energy can explain a momentary empty output readback, but it
+                // must never mask STALE coverage or a real downstream frequency conflict.
                 quality = PortQuality.VALID;
             } else if (quality == PortQuality.VALID && response.saturated()) {
                 quality = PortQuality.SATURATED;
