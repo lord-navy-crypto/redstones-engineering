@@ -11,6 +11,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
 import net.neoforged.fml.ModList;
 
 import java.nio.file.Path;
@@ -22,6 +23,8 @@ import java.util.Map;
 public final class RseDiagnosticsScreen extends Screen {
     private enum View {
         OVERVIEW("OVERVIEW"),
+        FEEDBACK("FEEDBACK"),
+        RUN_LOG("RUN LOG"),
         LIVE_EVENTS("LIVE EVENTS"),
         SYSTEMS("SYSTEMS"),
         MEGA_FACTORY("MEGA FACTORY"),
@@ -80,30 +83,34 @@ public final class RseDiagnosticsScreen extends Screen {
         clearWidgets();
         int bottom = height - 27;
         addRenderableWidget(Button.builder(Component.literal("Back"), button -> onClose())
-                .bounds(12, bottom, 52, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Copy Report"), button -> copyReport())
-                .bounds(70, bottom, 88, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Export Latest"), button -> exportLatest())
-                .bounds(164, bottom, 92, 20).build());
+                .bounds(12, bottom, 44, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("Copy All"), button -> copyReport())
+                .bounds(62, bottom, 68, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("Copy Run"), button -> copyRun())
+                .bounds(136, bottom, 68, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("Export"), button -> exportLatest())
+                .bounds(210, bottom, 64, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Clear"), button -> {
                     RseDiagnostics.clear();
                     RseLiveDiagnostics.clear();
                     page = 0;
                     showFeedback("SESSION BUFFERS CLEARED");
                 })
-                .bounds(262, bottom, 52, 20).build());
+                .bounds(280, bottom, 44, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Filter: " + filter.label), button -> {
                     filter = Filter.values()[(filter.ordinal() + 1) % Filter.values().length];
                     page = 0;
                     rebuildWidgets();
                 })
-                .bounds(320, bottom, 82, 20).build());
+                .bounds(330, bottom, 78, 20).build());
+        int navStart = width - 78;
+        int viewWidth = Math.max(88, navStart - 420);
         addRenderableWidget(Button.builder(Component.literal("View: " + view.label), button -> {
                     view = View.values()[(view.ordinal() + 1) % View.values().length];
                     page = 0;
                     rebuildWidgets();
                 })
-                .bounds(408, bottom, 112, 20).build());
+                .bounds(414, bottom, viewWidth, 20).build());
         addRenderableWidget(Button.builder(Component.literal("<"), button -> page++)
                 .bounds(width - 78, bottom, 30, 20).build());
         addRenderableWidget(Button.builder(Component.literal(">"), button -> page = Math.max(0, page - 1))
@@ -145,6 +152,8 @@ public final class RseDiagnosticsScreen extends Screen {
 
         switch (view) {
             case OVERVIEW -> renderOverview(graphics);
+            case FEEDBACK -> renderFeedback(graphics);
+            case RUN_LOG -> renderRunLog(graphics);
             case LIVE_EVENTS -> renderLiveEvents(graphics);
             case SYSTEMS -> renderSystems(graphics);
             case MEGA_FACTORY -> renderMegaFactory(graphics);
@@ -178,6 +187,77 @@ public final class RseDiagnosticsScreen extends Screen {
             graphics.drawString(font, truncateToWidth(eventLine(abnormal), width - 52), 30, y,
                     severityColor(abnormal.severity()), false);
         }
+    }
+
+    private void renderFeedback(GuiGraphics graphics) {
+        RseLiveDiagnostics.ValidationRunSnapshot run = RseLiveDiagnostics.latestValidationRun();
+        int y = 78;
+        if (run == null) {
+            graphics.drawString(font, "No integrated demo feedback published yet.", 24, y, MUTED, false);
+            graphics.drawString(font, "Run /rsevalidation demo place, then open this red-cross panel.", 24, y + 16, INFO, false);
+            return;
+        }
+
+        int overallColor = "FAIL".equalsIgnoreCase(run.overall()) ? ERROR
+                : "PASS".equalsIgnoreCase(run.overall()) ? GOOD : WARN;
+        graphics.drawString(font, "INTEGRATED DEMO FEEDBACK TABLE", 24, y, INFO, false);
+        y += 14;
+        graphics.drawString(font, "RUN " + run.runId() + " • OVERALL " + run.overall(), 24, y, overallColor, false);
+        y += 13;
+        graphics.drawString(font, "LAST COMMAND: " + run.command(), 24, y, TEXT, false);
+        y += 16;
+
+        List<String> lines = run.feedbackLines();
+        int rowsPerPage = Math.max(3, (height - 126) / 24);
+        int maxPage = lines.isEmpty() ? 0 : Math.max(0, (lines.size() - 1) / rowsPerPage);
+        page = Math.min(page, maxPage);
+        int start = page * rowsPerPage;
+        int end = Math.min(lines.size(), start + rowsPerPage);
+        for (int i = start; i < end && y < height - 62; i++) {
+            String line = lines.get(i);
+            int color = line.contains(" FAIL ") || line.startsWith("OVERALL FAIL") ? ERROR
+                    : line.contains(" PASS ") || line.startsWith("OVERALL PASS") ? GOOD
+                    : line.contains(" WAIT ") || line.startsWith("OVERALL WAIT") ? WARN : TEXT;
+            y = drawWrappedCrisp(graphics, line, 24, y, width - 52, color, 11);
+            y += 2;
+        }
+        graphics.drawString(font, "Page " + (page + 1) + "/" + (maxPage + 1)
+                        + " • Copy Run copies this table + run log exactly",
+                24, height - 56, MUTED, false);
+    }
+
+    private void renderRunLog(GuiGraphics graphics) {
+        RseLiveDiagnostics.ValidationRunSnapshot run = RseLiveDiagnostics.latestValidationRun();
+        int y = 78;
+        if (run == null) {
+            graphics.drawString(font, "No integrated demo run log published yet.", 24, y, MUTED, false);
+            return;
+        }
+        graphics.drawString(font, "RUN LOG • CRISP 1:1 TEXT • WRAPPED, NEVER SCALED", 24, y, INFO, false);
+        y += 15;
+        graphics.drawString(font, "RUN " + run.runId() + " • tick=" + run.gameTick(), 24, y, TEXT, false);
+        y += 16;
+
+        List<String> lines = run.logLines();
+        int entriesPerPage = Math.max(3, (height - 130) / 26);
+        int maxPage = lines.isEmpty() ? 0 : Math.max(0, (lines.size() - 1) / entriesPerPage);
+        page = Math.min(page, maxPage);
+        int endExclusive = Math.max(0, lines.size() - page * entriesPerPage);
+        int start = Math.max(0, endExclusive - entriesPerPage);
+        if (lines.isEmpty()) {
+            graphics.drawString(font, "Run log is empty; stage transitions will appear here.", 24, y, MUTED, false);
+        } else {
+            for (int i = start; i < endExclusive && y < height - 62; i++) {
+                String line = lines.get(i);
+                int color = line.contains(" FAIL ") ? ERROR : line.contains(" PASS ") ? GOOD
+                        : line.contains("COMMAND") || line.contains("RUN START") ? INFO : TEXT;
+                y = drawWrappedCrisp(graphics, line, 24, y, width - 52, color, 11);
+                y += 3;
+            }
+        }
+        graphics.drawString(font, "Page " + (page + 1) + "/" + (maxPage + 1)
+                        + " • newest on page 1 • integer-pixel rendering",
+                24, height - 56, MUTED, false);
     }
 
     private void renderLiveEvents(GuiGraphics graphics) {
@@ -252,9 +332,11 @@ public final class RseDiagnosticsScreen extends Screen {
         int y = 78;
         graphics.drawString(font, "EXPORT", 24, y, INFO, false);
         y += 16;
-        graphics.drawString(font, "Copy Report: copies the whole live RSE report to clipboard.", 30, y, TEXT, false);
+        graphics.drawString(font, "Copy All: copies feedback table + run log + live diagnostics.", 30, y, TEXT, false);
         y += 14;
-        graphics.drawString(font, "Export Latest: writes run/rse-diagnostics/rse-live-latest.txt", 30, y, TEXT, false);
+        graphics.drawString(font, "Copy Run: copies only the latest demo feedback table + run log.", 30, y, TEXT, false);
+        y += 14;
+        graphics.drawString(font, "Export: writes run/rse-diagnostics/rse-live-latest.txt", 30, y, TEXT, false);
         y += 14;
         graphics.drawString(font, "Mega diagnose separately writes mega-latest.txt + mega-history.log", 30, y, TEXT, false);
         y += 20;
@@ -280,6 +362,26 @@ public final class RseDiagnosticsScreen extends Screen {
         report += "\n\n" + RseDiagnostics.exportReport(runtimeSummary());
         minecraft.keyboardHandler.setClipboard(report);
         showFeedback("REPORT COPIED");
+    }
+
+    private void copyRun() {
+        RseLiveDiagnostics.ValidationRunSnapshot run = RseLiveDiagnostics.latestValidationRun();
+        if (run == null) {
+            showFeedback("NO DEMO RUN TO COPY");
+            return;
+        }
+        StringBuilder out = new StringBuilder(16_000);
+        out.append("RSE INTEGRATED DEMO FEEDBACK\n");
+        out.append("run=").append(run.runId())
+                .append(" command=").append(run.command())
+                .append(" overall=").append(run.overall())
+                .append(" tick=").append(run.gameTick()).append('\n');
+        out.append("\n===== FEEDBACK TABLE =====\n");
+        for (String line : run.feedbackLines()) out.append(line).append('\n');
+        out.append("\n===== RUN LOG =====\n");
+        for (String line : run.logLines()) out.append(line).append('\n');
+        Minecraft.getInstance().keyboardHandler.setClipboard(out.toString());
+        showFeedback("RUN FEEDBACK COPIED");
     }
 
     private void exportLatest() {
@@ -335,6 +437,20 @@ public final class RseDiagnosticsScreen extends Screen {
 
     private static String oneLine(String value) {
         return value == null ? "" : value.replace('\n', ' ').replace('\t', ' ').trim();
+    }
+
+    /**
+     * Logs and feedback deliberately render at the native GUI text scale. No pose-stack scaling,
+     * fractional coordinates or texture resampling is used; long lines wrap instead of shrinking.
+     */
+    private int drawWrappedCrisp(
+            GuiGraphics graphics, String value, int x, int y, int maxWidth, int color, int lineStep
+    ) {
+        for (FormattedCharSequence line : font.split(Component.literal(value == null ? "" : value), maxWidth)) {
+            graphics.drawString(font, line, x, y, color, false);
+            y += lineStep;
+        }
+        return y;
     }
 
     private String truncateToWidth(String value, int maxWidth) {
