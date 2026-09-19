@@ -82,7 +82,7 @@ public class SignalTapBlock extends DirectionalSignalBlock {
     }
 
     public static PortQuality inputQuality(Level level, BlockPos pos, BlockState state) {
-        return RedstoneObservationSupport.observe(level, pos, inputSide(state)).quality();
+        return RedstoneObservationSupport.observe(level, pos, seriesInputSide(state)).quality();
     }
 
     @Override
