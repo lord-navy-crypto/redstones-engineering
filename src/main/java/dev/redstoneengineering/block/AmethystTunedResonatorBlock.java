@@ -91,10 +91,19 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
                 ? 0 : EngineeringMath.clamp(runtime[ACTUAL_AMPLITUDE], 0, 15);
         int outputFrequency = runtime == null || runtime.length < RUNTIME_SIZE
                 ? 0 : EngineeringMath.clamp(runtime[ACTUAL_FREQUENCY], 0, 15);
-        boolean ringDown = actualAmplitude > 0 && !usableInput;
+        boolean responding = usableInput && target > 0;
+        boolean inputStateKnown = inputQuality == PortQuality.VALID || inputQuality == PortQuality.NO_SIGNAL;
+        boolean ringDown = actualAmplitude > 0 && inputStateKnown && !responding;
         return new ResponseEvidence(input.frequency(), input.amplitude(), natural, q, bandwidth, diff,
                 inputQuality, target, actualAmplitude, outputFrequency,
-                raw > 15, usableInput && target > 0, ringDown);
+                raw > 15, responding, ringDown);
+    }
+
+    private static boolean inputEvidenceUnknown(PortQuality quality) {
+        return quality == PortQuality.STALE
+                || quality == PortQuality.FAULT
+                || quality == PortQuality.DOMAIN_MISMATCH
+                || quality == PortQuality.TOPOLOGY_ERROR;
     }
 
     private static PortQuality qualityAt(Level level, BlockPos samplePos, DomainNetwork.AmethystSample sample) {
@@ -117,13 +126,12 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
         PortQuality quality = qualityAt(level, samplePos, signal);
         if (side == outputSide(state)) {
             ResponseEvidence response = response(level, pos, state);
-            if (response.actualAmplitude() > 0 && response.ringDown()
-                    && response.inputQuality() == PortQuality.NO_SIGNAL) {
-                quality = PortQuality.VALID;
-            } else if (quality == PortQuality.NO_SIGNAL
-                    && (response.inputQuality() == PortQuality.TOPOLOGY_ERROR
-                    || response.inputQuality() == PortQuality.STALE)) {
+            if (inputEvidenceUnknown(response.inputQuality())) {
+                // The stored resonator state is retained, but its present evolution is not
+                // trustworthy while the forcing evidence is incomplete or contradictory.
                 quality = response.inputQuality();
+            } else if (response.actualAmplitude() > 0 && response.ringDown()) {
+                quality = PortQuality.VALID;
             } else if (quality == PortQuality.VALID && response.saturated()) {
                 quality = PortQuality.SATURATED;
             }
@@ -139,6 +147,20 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
     @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         ResponseEvidence response = response(level, pos, state);
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
+
+        if (inputEvidenceUnknown(response.inputQuality())) {
+            // Unknown drive evidence is neither a confirmed drive nor a confirmed removal.
+            // Preserve the last physical resonator state and withhold the network driver until
+            // trustworthy evidence returns. Reacquisition resumes from this retained state.
+            DomainNetwork.driveAmethyst(
+                    level, outputPos(pos, state),
+                    false,
+                    EngineeringMath.clamp(runtime[ACTUAL_FREQUENCY], 0, 15),
+                    EngineeringMath.clamp(runtime[ACTUAL_AMPLITUDE], 0, 15));
+            level.scheduleTick(pos, this, 2);
+            return;
+        }
+
         AmethystTunedResonatorLogic.State next = AmethystTunedResonatorLogic.step(
                 response.targetAmplitude(),
                 response.inputFrequency(),
