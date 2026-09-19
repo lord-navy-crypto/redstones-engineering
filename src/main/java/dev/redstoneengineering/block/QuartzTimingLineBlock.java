@@ -83,9 +83,11 @@ public class QuartzTimingLineBlock extends SurfaceTraceBlock implements Engineer
     }
     public static PortQuality quality(Level l,BlockPos p){
         int n=sourceCount(l,p);
-        if(n>1)return PortQuality.TOPOLOGY_ERROR;
         PortQuality stored=storedQuality(l,p);
+        // Incomplete coverage cannot prove a source conflict. STALE therefore outranks the
+        // source-count diagnostic; TOPOLOGY_ERROR is reserved for a complete conflicting solve.
         if(stored==PortQuality.STALE)return PortQuality.STALE;
+        if(n>1)return PortQuality.TOPOLOGY_ERROR;
         if(n==0)return PortQuality.NO_SIGNAL;
         return valid(l,p)?PortQuality.VALID:PortQuality.NO_SIGNAL;
     }
