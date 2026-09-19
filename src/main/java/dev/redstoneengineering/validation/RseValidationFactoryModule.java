@@ -122,6 +122,13 @@ public final class RseValidationFactoryModule {
                                                     int value = IntegerArgumentType.getInteger(context, "value");
                                                     return send(source, RseIntegratedDemoService.setpoint(source.getPlayerOrException(), value));
                                                 })))
+                                .then(Commands.literal("load")
+                                        .then(Commands.argument("profile", IntegerArgumentType.integer(0, 3))
+                                                .executes(context -> {
+                                                    var source = context.getSource();
+                                                    int profile = IntegerArgumentType.getInteger(context, "profile");
+                                                    return send(source, RseIntegratedDemoService.load(source.getPlayerOrException(), profile));
+                                                })))
                                 .then(Commands.literal("excite")
                                         .executes(context -> {
                                             var source = context.getSource();
