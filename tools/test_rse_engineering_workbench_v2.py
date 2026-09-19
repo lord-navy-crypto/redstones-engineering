@@ -13,6 +13,7 @@ class EngineeringWorkbenchV2Tests(unittest.TestCase):
         self.universal_menu = (ROOT / "src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java").read_text(encoding="utf-8")
         self.design_doc = (ROOT / "docs/ENGINEERING_UI_MINECRAFT_FIRST.md").read_text(encoding="utf-8")
         self.client_registration = (ROOT / "src/main/java/dev/redstoneengineering/client/ui/EngineeringUiClientRegistration.java").read_text(encoding="utf-8")
+        self.field_menu = (ROOT / "src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java").read_text(encoding="utf-8")
         self.ui_registration = (ROOT / "src/main/java/dev/redstoneengineering/ui/EngineeringUiRegistration.java").read_text(encoding="utf-8")
 
     def test_every_engineering_screen_gets_model_page(self):
@@ -404,6 +405,26 @@ class EngineeringWorkbenchV2Tests(unittest.TestCase):
                 self.assertIn("extends AbstractContainerScreen", source)
             else:
                 self.assertIn("extends EngineeringScreen<", source, screen_name)
+
+    def test_every_declared_field_and_universal_kind_is_explicitly_classified(self):
+        field_policy = self.catalog[
+            self.catalog.index("private static UiPolicy fieldPolicy"):
+            self.catalog.index("private static UiPolicy block", self.catalog.index("private static UiPolicy fieldPolicy"))
+        ]
+        universal_policy = self.catalog[
+            self.catalog.index("private static UiPolicy universalPolicy"):
+            self.catalog.index("private static UiPolicy fieldPolicy")
+        ]
+
+        field_kinds = set(re.findall(r"public static final int (KIND_[A-Z0-9_]+)\s*=", self.field_menu))
+        universal_kinds = set(re.findall(r"public static final int (CONFIG_[A-Z0-9_]+)\s*=", self.universal_menu))
+        self.assertGreater(len(field_kinds), 70)
+        self.assertGreater(len(universal_kinds), 40)
+
+        missing_field = sorted(name for name in field_kinds if f"FieldDeviceMenu.{name}" not in field_policy)
+        missing_universal = sorted(name for name in universal_kinds if f"UniversalFieldDeviceMenu.{name}" not in universal_policy)
+        self.assertEqual([], missing_field, f"Unclassified FieldDeviceMenu kinds: {missing_field}")
+        self.assertEqual([], missing_universal, f"Unclassified UniversalFieldDeviceMenu configs: {missing_universal}")
 
     def test_universal_devices_also_participate_in_model_parameter_workbench(self):
         for token in [
