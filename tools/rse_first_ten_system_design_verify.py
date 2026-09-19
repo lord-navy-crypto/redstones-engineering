@@ -47,7 +47,11 @@ require(
     "INLINE mode makes the",
     "Calibration affects display",
     "calibratedReading",
-    "requestedOutput = state.getValue(MODE) == INLINE ? measured : 0",
+    "if (observation.valid())",
+    "observation.quality() == PortQuality.NO_SIGNAL",
+    "requestedOutput = state.getValue(OUTPUT)",
+    "A genuinely absent source de-energizes the inline path",
+    "Degraded evidence is not a new numerical zero",
 )
 
 require(
