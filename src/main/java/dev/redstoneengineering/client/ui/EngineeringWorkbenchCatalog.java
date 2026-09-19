@@ -12,6 +12,14 @@ import java.util.List;
  */
 public final class EngineeringWorkbenchCatalog {
     public enum UiTier { BLOCK, DEVICE, LAB }
+    public enum ExperimentKind {
+        TRANSFER,
+        DYNAMIC_RESPONSE,
+        TIMING,
+        FREQUENCY_RESPONSE,
+        ACTUATOR_RESPONSE,
+        INSTRUMENTATION
+    }
 
     /**
      * Minecraft-first UI policy. BLOCK keeps the GUI light, DEVICE adds bounded configuration,
@@ -102,6 +110,71 @@ public final class EngineeringWorkbenchCatalog {
     }
 
     private EngineeringWorkbenchCatalog() {}
+
+    public static ExperimentKind experimentKind(EngineeringDeviceMenu menu) {
+        if (menu instanceof PidControllerMenu) return ExperimentKind.DYNAMIC_RESPONSE;
+        if (menu instanceof SignalConditionerMenu) return ExperimentKind.TRANSFER;
+        if (menu instanceof SignalProcessorMenu processor) {
+            return processor.kind() == SignalProcessorMenu.KIND_FILTER
+                    ? ExperimentKind.DYNAMIC_RESPONSE : ExperimentKind.TIMING;
+        }
+        if (menu instanceof QuartzTimingMenu) return ExperimentKind.TIMING;
+        if (menu instanceof AmethystSystemMenu) return ExperimentKind.FREQUENCY_RESPONSE;
+        if (menu instanceof PneumaticSystemMenu pneumatic) {
+            return switch (pneumatic.kind()) {
+                case PneumaticSystemMenu.KIND_FLOW_METER -> ExperimentKind.INSTRUMENTATION;
+                case PneumaticSystemMenu.KIND_CYLINDER,
+                     PneumaticSystemMenu.KIND_PROPORTIONAL,
+                     PneumaticSystemMenu.KIND_COMPRESSOR -> ExperimentKind.ACTUATOR_RESPONSE;
+                default -> ExperimentKind.DYNAMIC_RESPONSE;
+            };
+        }
+        if (menu instanceof ReliabilitySystemMenu reliability
+                && reliability.kind() == ReliabilitySystemMenu.KIND_SERVO) {
+            return ExperimentKind.ACTUATOR_RESPONSE;
+        }
+        if (menu instanceof MagneticSystemMenu magnetic
+                && magnetic.kind() == MagneticSystemMenu.KIND_COIL) {
+            return ExperimentKind.DYNAMIC_RESPONSE;
+        }
+        if (menu instanceof SignalAnalyzerMenu
+                || menu instanceof OscilloscopeMenu
+                || menu instanceof LogicAnalyzerMenu) {
+            return ExperimentKind.INSTRUMENTATION;
+        }
+        return ExperimentKind.TRANSFER;
+    }
+
+    /**
+     * Minimum display-side dwell between real server actions during a sweep.
+     * Slow physical/dynamic devices intentionally wait longer than static transfer devices.
+     */
+    public static int recommendedSweepDwellTicks(EngineeringDeviceMenu menu) {
+        if (menu instanceof PidControllerMenu) return 30;
+        if (menu instanceof SignalConditionerMenu) return 4;
+        if (menu instanceof SignalProcessorMenu processor) {
+            return processor.kind() == SignalProcessorMenu.KIND_FILTER ? 10 : 6;
+        }
+        if (menu instanceof QuartzTimingMenu) return 18;
+        if (menu instanceof AmethystSystemMenu) return 10;
+        if (menu instanceof PneumaticSystemMenu pneumatic) {
+            return switch (pneumatic.kind()) {
+                case PneumaticSystemMenu.KIND_COMPRESSOR -> 24;
+                case PneumaticSystemMenu.KIND_REGULATOR -> 14;
+                case PneumaticSystemMenu.KIND_PROPORTIONAL -> 18;
+                case PneumaticSystemMenu.KIND_CYLINDER -> 24;
+                default -> 10;
+            };
+        }
+        if (menu instanceof ReliabilitySystemMenu reliability
+                && reliability.kind() == ReliabilitySystemMenu.KIND_SERVO) return 18;
+        if (menu instanceof MagneticSystemMenu magnetic
+                && magnetic.kind() == MagneticSystemMenu.KIND_COIL) return 8;
+        if (menu instanceof SignalAnalyzerMenu
+                || menu instanceof OscilloscopeMenu
+                || menu instanceof LogicAnalyzerMenu) return 4;
+        return 8;
+    }
 
     public static UiPolicy uiPolicy(EngineeringDeviceMenu menu) {
         if (menu instanceof PidControllerMenu
