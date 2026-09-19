@@ -791,28 +791,38 @@ public final class EngineeringWorkbenchCatalog {
             java.util.ArrayList<ParameterSpec> specs = new java.util.ArrayList<>(2);
             if (universal.editPrimaryAvailable()) {
                 boolean sweep = switch (universal.configKind()) {
-                    case UniversalFieldDeviceMenu.CONFIG_SIGNAL_AMPLIFIER,
-                         UniversalFieldDeviceMenu.CONFIG_DIFF_DRIVER,
-                         UniversalFieldDeviceMenu.CONFIG_REGENERATOR,
-                         UniversalFieldDeviceMenu.CONFIG_ANALOG_COMPARATOR,
+                    case UniversalFieldDeviceMenu.CONFIG_ANALOG_COMPARATOR,
                          UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD -> true;
                     default -> false;
                 };
-                boolean fractions = switch (universal.configKind()) {
-                    case UniversalFieldDeviceMenu.CONFIG_SIGNAL_AMPLIFIER,
+                boolean numeric = switch (universal.configKind()) {
+                    case UniversalFieldDeviceMenu.CONFIG_ANALOG_COMPARATOR,
                          UniversalFieldDeviceMenu.CONFIG_DIFF_DRIVER,
                          UniversalFieldDeviceMenu.CONFIG_REGENERATOR,
-                         UniversalFieldDeviceMenu.CONFIG_ANALOG_COMPARATOR -> true;
+                         UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH,
+                         UniversalFieldDeviceMenu.CONFIG_REFERENCE_SOURCE,
+                         UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD,
+                         UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER,
+                         UniversalFieldDeviceMenu.CONFIG_PWM -> true;
+                    default -> false;
+                };
+                boolean fractions = switch (universal.configKind()) {
+                    case UniversalFieldDeviceMenu.CONFIG_ANALOG_COMPARATOR,
+                         UniversalFieldDeviceMenu.CONFIG_DIFF_DRIVER,
+                         UniversalFieldDeviceMenu.CONFIG_REGENERATOR,
+                         UniversalFieldDeviceMenu.CONFIG_REFERENCE_SOURCE,
+                         UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER -> true;
                     default -> false;
                 };
                 ParameterControl control = sweep ? ParameterControl.EXPERIMENT
-                        : fractions ? ParameterControl.RANGE : ParameterControl.CHOICE;
+                        : numeric ? ParameterControl.RANGE : ParameterControl.CHOICE;
                 specs.add(new ParameterSpec(
                         universalPrimaryLabel(universal.configKind()), universal.editPrimaryValue(),
                         universal.editPrimaryMin(), universal.editPrimaryMax(),
                         UniversalFieldDeviceMenu.BUTTON_CONFIG_PRIMARY_PREVIOUS,
                         UniversalFieldDeviceMenu.BUTTON_CONFIG_PRIMARY_NEXT,
-                        "raw", "Bounded server-owned field-device parameter A.", control, fractions, sweep));
+                        universalPrimaryUnit(universal.configKind()),
+                        universalPrimaryDetail(universal.configKind()), control, fractions, sweep));
             }
             if (universal.editSecondaryAvailable()) {
                 specs.add(spec(universalSecondaryLabel(universal.configKind()), universal.editSecondaryValue(),
@@ -956,7 +966,10 @@ public final class EngineeringWorkbenchCatalog {
                                 "/15", "Input level required for a trigger."),
                         experimentSpec("Hysteresis", processor.tertiaryParameter(), 1, 4,
                                 SignalProcessorMenu.BUTTON_PULSE_HYSTERESIS_PREVIOUS, SignalProcessorMenu.BUTTON_PULSE_HYSTERESIS_NEXT,
-                                "levels", "Re-arm separation below the trigger threshold.")
+                                "levels", "Re-arm separation below the trigger threshold."),
+                        spec("Retrigger mode", processor.modeFlag() ? 1 : 0, 0, 1,
+                                SignalProcessorMenu.BUTTON_TOGGLE_RETRIGGER, SignalProcessorMenu.BUTTON_TOGGLE_RETRIGGER,
+                                "mode", "0=one-shot holdoff, 1=retriggerable; categorical toggle, never swept.")
                 );
                 default -> List.of();
             };
@@ -966,6 +979,11 @@ public final class EngineeringWorkbenchCatalog {
                 return List.of(sweepSpec("Period index", quartz.tertiary(), 0, 4,
                         QuartzTimingMenu.BUTTON_PARAMETER_PREVIOUS, QuartzTimingMenu.BUTTON_PARAMETER_NEXT,
                         "index", "Current realized nominal period = " + quartz.secondary() + " ticks."));
+            }
+            if (quartz.kind() == QuartzTimingMenu.KIND_DIVIDER) {
+                return List.of(spec("Division ratio", quartz.tertiary(), 1, 16,
+                        QuartzTimingMenu.BUTTON_PARAMETER_PREVIOUS, QuartzTimingMenu.BUTTON_PARAMETER_NEXT,
+                        "ratio", "Discrete server-owned divider ratio; use Prev/Next because only implemented ratios are valid."));
             }
             return List.of();
         }
@@ -1008,10 +1026,15 @@ public final class EngineeringWorkbenchCatalog {
                                 PneumaticSystemMenu.BUTTON_PARAMETER_PREVIOUS, PneumaticSystemMenu.BUTTON_PARAMETER_NEXT,
                                 "mode", "Controls finite valve-opening response.")
                 );
+                case PneumaticSystemMenu.KIND_VALVE -> List.of(
+                        spec("Valve state", pneumatic.stateFlag(), 0, 1,
+                                PneumaticSystemMenu.BUTTON_TOGGLE, PneumaticSystemMenu.BUTTON_TOGGLE,
+                                "state", "0=CLOSED, 1=OPEN; explicit manual valve state, not a numeric sweep.")
+                );
                 case PneumaticSystemMenu.KIND_RELIEF -> List.of(
-                        experimentSpec("Relief setpoint", Math.max(1, pneumatic.tertiary() / 25), 1, 4,
+                        scaledSpec("Relief setpoint", Math.max(1, pneumatic.tertiary() / 25), 1, 4,
                                 PneumaticSystemMenu.BUTTON_PARAMETER_PREVIOUS, PneumaticSystemMenu.BUTTON_PARAMETER_NEXT,
-                                "x25 pressure", "Raw setting 1..4 corresponds to 25..100 pressure.")
+                                "x25 pressure", "Protective threshold 25..100 pressure; exact/manual configuration only, never an automated sweep.")
                 );
                 default -> List.of();
             };
@@ -1019,9 +1042,9 @@ public final class EngineeringWorkbenchCatalog {
         if (menu instanceof AmethystSystemMenu amethyst) {
             return switch (amethyst.kind()) {
                 case AmethystSystemMenu.KIND_SOURCE -> List.of(
-                        spec("Drive frequency", amethyst.primary(), 1, 15,
+                        rangeSpec("Drive frequency", amethyst.primary(), 1, 15,
                                 AmethystSystemMenu.BUTTON_PRIMARY_PREVIOUS, AmethystSystemMenu.BUTTON_PRIMARY_NEXT,
-                                "index", "Frequency index of the impulse resonator."),
+                                "frequency index", "Exact resonant drive-frequency index for the impulse source."),
                         scaledSpec("Peak amplitude", amethyst.secondary(), 1, 15,
                                 AmethystSystemMenu.BUTTON_SECONDARY_PREVIOUS, AmethystSystemMenu.BUTTON_SECONDARY_NEXT,
                                 "/15", "Initial excitation amplitude before ring-down.")
@@ -1304,6 +1327,43 @@ public final class EngineeringWorkbenchCatalog {
             case UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR -> "Fault mode";
             case UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY -> "Pickup profile";
             default -> "Parameter A";
+        };
+    }
+
+    private static String universalPrimaryUnit(int kind) {
+        return switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_ANALOG_COMPARATOR,
+                 UniversalFieldDeviceMenu.CONFIG_DIFF_DRIVER,
+                 UniversalFieldDeviceMenu.CONFIG_REGENERATOR,
+                 UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH,
+                 UniversalFieldDeviceMenu.CONFIG_REFERENCE_SOURCE -> "level";
+            case UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD -> "blocks";
+            case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER -> "sensitivity";
+            case UniversalFieldDeviceMenu.CONFIG_PWM -> "ticks/index";
+            case UniversalFieldDeviceMenu.CONFIG_SIGNAL_PROBE -> "channel";
+            default -> "profile";
+        };
+    }
+
+    private static String universalPrimaryDetail(int kind) {
+        return switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_ANALOG_COMPARATOR ->
+                    "Comparator hysteresis band; exact bounded numeric configuration with a meaningful measured response.";
+            case UniversalFieldDeviceMenu.CONFIG_DIFF_DRIVER ->
+                    "Differential-driver logic threshold; exact server-owned numeric configuration.";
+            case UniversalFieldDeviceMenu.CONFIG_REGENERATOR ->
+                    "Digital regeneration acceptance threshold; exact server-owned numeric configuration.";
+            case UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH ->
+                    "Protective trip threshold; exact manual configuration, deliberately excluded from automated sweep.";
+            case UniversalFieldDeviceMenu.CONFIG_REFERENCE_SOURCE ->
+                    "Reference source level; exact bounded engineering setpoint.";
+            case UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD ->
+                    "Magnetic sampling radius; spatial numeric parameter with measured field response.";
+            case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER ->
+                    "Receiver sensitivity; exact bounded detection parameter.";
+            case UniversalFieldDeviceMenu.CONFIG_PWM ->
+                    "PWM period/index; exact discrete numeric timing configuration.";
+            default -> "Bounded server-owned device configuration. Categorical modes remain Prev/Next rather than fake numeric sliders.";
         };
     }
 
