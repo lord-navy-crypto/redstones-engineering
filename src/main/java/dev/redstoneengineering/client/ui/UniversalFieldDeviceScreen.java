@@ -1168,15 +1168,11 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             EngineeringPlot.analogTrace(g, portHistoryCount, i -> outputHistory[i],
                     menu.minimum(out), menu.maximum(out), 162, y + 3, 128, 44, GOOD);
         }
-        if (in != null) labelValue(g, "Input now", menu.value(in) + " • " + menu.quality(in).name(), 172);
-        if (out != null) labelValue(g, "Output now", menu.value(out) + " • " + menu.quality(out).name(), 190);
-        safeText(g, "64 displayed samples max • gaps mean non-current/invalid evidence • source data stay server-owned.", 16, 208, MUTED);
-        safeText(g, authoritativeHistory, 16, 218, INFO);
-        // Keep the explicit evidence/boundary vocabulary available to the HMI contract and tooltips.
-        if (portHistoryCount < 0) {
-            labelValue(g, evidenceLabel, evidenceValue, 228);
-            safeText(g, chronologyBoundary, 16, 238, MUTED);
-        }
+        if (in != null) labelValue(g, "Input now", menu.value(in) + " • " + menu.quality(in).name(), 170);
+        if (out != null) labelValue(g, "Output now", menu.value(out) + " • " + menu.quality(out).name(), 186);
+        labelValue(g, evidenceLabel, evidenceValue, 202);
+        safeText(g, authoritativeHistory, 16, 216, INFO);
+        safeText(g, chronologyBoundary, 16, 228, MUTED);
     }
 
 
