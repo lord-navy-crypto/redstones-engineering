@@ -107,8 +107,7 @@ public final class EngineeringWorkbenchCatalog {
                 case PneumaticSystemMenu.KIND_COMPRESSOR,
                      PneumaticSystemMenu.KIND_REGULATOR,
                      PneumaticSystemMenu.KIND_PROPORTIONAL,
-                     PneumaticSystemMenu.KIND_CYLINDER,
-                     PneumaticSystemMenu.KIND_FLOW_METER ->
+                     PneumaticSystemMenu.KIND_CYLINDER ->
                         lab("LAB", "Finite pressure/actuator dynamics justify response-oriented tooling.");
                 default -> device("MODEL", "Pneumatic component configuration belongs to the block, not a desktop simulator.");
             };
