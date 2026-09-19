@@ -1050,9 +1050,11 @@ public final class RseIntegratedDemoService {
             return waitFor(15, "Visible pneumatic linear actuator", "rod moving position=" + position
                     + " target=" + target + " velocity=" + PneumaticCylinderBlock.velocity(level, pos));
         }
-        if (path.supplyPressure() <= 0 || path.pathEdges() <= 0 || path.actuatorPressure() != pressure) {
+        if (path.supplyPressure() <= 0 || path.pathEdges() <= 0 || path.actuatorPressure() <= 0
+                || path.actuatorPressure() > pressure || pressure - path.actuatorPressure() > 2) {
             return fail(15, "Visible pneumatic linear actuator", "bad path evidence supply=" + path.supplyPressure()
-                    + " actuator=" + path.actuatorPressure() + " local=" + pressure + " edges=" + path.pathEdges());
+                    + " actuatorNode=" + path.actuatorPressure() + " inlet=" + pressure
+                    + " edges=" + path.pathEdges() + " observedLoss=" + path.observedLoss());
         }
         return pass(15, "Visible pneumatic linear actuator", "rod settled at " + position + "/15 target=" + target
                 + " pressure=" + pressure + "/100 | pathLoss=" + path.observedLoss()
