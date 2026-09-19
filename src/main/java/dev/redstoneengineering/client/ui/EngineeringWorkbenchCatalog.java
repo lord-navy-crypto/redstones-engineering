@@ -1282,6 +1282,7 @@ public final class EngineeringWorkbenchCatalog {
             case UniversalFieldDeviceMenu.CONFIG_ALARM -> "Severity";
             case UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD -> "Trigger mode";
             case UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR -> "Fault mode";
+            case UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY -> "Pickup profile";
             default -> "Parameter A";
         };
     }
@@ -1291,7 +1292,7 @@ public final class EngineeringWorkbenchCatalog {
             case UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD -> "Sampling mode";
             case UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY -> "Aperture";
             case UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE -> "Range index";
-            case UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY -> "Pickup profile";
+            case UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY -> "Timing profile";
             default -> "Parameter B";
         };
     }
