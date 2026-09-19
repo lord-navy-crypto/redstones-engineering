@@ -33,6 +33,7 @@ CORE_REDSTONE_EXTENSIONS = (
     "signal_amplifier",
     "signal_selector",
     "single_relay",
+    "amethyst_piezo_pickup",
 )
 EXPECTED_REGISTERED = HISTORICAL_CORE + len(CORE_REDSTONE_EXTENSIONS)
 
@@ -359,7 +360,7 @@ def main() -> int:
         for block_id in ids:
             ledger[block_id].append(batch)
     # Preserve the historical 122-block ledger as-is; separately attach the deliberately
-    # approved core-redstone extensions introduced by the engineering-depth retrofit.
+    # approved core engineering extensions introduced by the engineering-depth retrofit.
     for block_id in CORE_REDSTONE_EXTENSIONS:
         ledger[block_id].append(16)
     ledger_ids = sorted(ledger)
@@ -441,7 +442,7 @@ def main() -> int:
     md.append("")
     md.append(f"- Registered blocks: **{len(registered)} / {EXPECTED_REGISTERED}**")
     md.append(f"- Historical deep-audit core: **{HISTORICAL_CORE} blocks**")
-    md.append(f"- Approved core-redstone extensions: **{len(CORE_REDSTONE_EXTENSIONS)} blocks**")
+    md.append(f"- Approved core engineering extensions: **{len(CORE_REDSTONE_EXTENSIONS)} blocks**")
     md.append(f"- Audited registered set: **{len(ledger_ids)} unique blocks / {sum(len(v) for v in BATCHES.values()) + len(CORE_REDSTONE_EXTENSIONS)} audit slots**")
     md.append(f"- Intentional repeated audit: **pid_controller -> batches {duplicates.get('pid_controller', [])}**")
     md.append(f"- Direct GameTest evidence: **{direct_gametest}/{len(results)}**")
@@ -480,7 +481,7 @@ def main() -> int:
     print("RSE 122-BLOCK TOTAL AUDIT")
     print(f"  registered: {len(registered)}/{EXPECTED_REGISTERED}")
     print(f"  historical core: {HISTORICAL_CORE}")
-    print(f"  core-redstone extensions: {len(CORE_REDSTONE_EXTENSIONS)}")
+    print(f"  core engineering extensions: {len(CORE_REDSTONE_EXTENSIONS)}")
     print(f"  ledger: {len(ledger_ids)} unique / {sum(len(v) for v in BATCHES.values()) + len(CORE_REDSTONE_EXTENSIONS)} slots")
     print(f"  duplicate: pid_controller -> {duplicates.get('pid_controller', [])}")
     print(f"  GameTest evidence: {direct_gametest}/{len(results)}")
@@ -501,7 +502,7 @@ def main() -> int:
         for error in hard_errors:
             print("   -", error)
         return 1
-    print("  PASS: historical 122-block core plus approved core-redstone extensions are reconciled to the audit ledger and integrity gates")
+    print("  PASS: historical 122-block core plus approved core engineering extensions are reconciled to the audit ledger and integrity gates")
     return 0
 
 
