@@ -10,6 +10,7 @@ class EngineeringWorkbenchV2Tests(unittest.TestCase):
         self.catalog = (ROOT / "src/main/java/dev/redstoneengineering/client/ui/EngineeringWorkbenchCatalog.java").read_text(encoding="utf-8")
         self.universal_screen = (ROOT / "src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java").read_text(encoding="utf-8")
         self.universal_menu = (ROOT / "src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java").read_text(encoding="utf-8")
+        self.design_doc = (ROOT / "docs/ENGINEERING_UI_MINECRAFT_FIRST.md").read_text(encoding="utf-8")
 
     def test_every_engineering_screen_gets_model_page(self):
         for token in [
@@ -191,6 +192,38 @@ class EngineeringWorkbenchV2Tests(unittest.TestCase):
             'spec("Response profile"',
         ]:
             self.assertIn(token, self.catalog)
+
+    def test_passive_blocks_do_not_accumulate_or_render_lab_history(self):
+        for token in [
+            "UiTier.BLOCK",
+            "BLOCK EVIDENCE • LIVE ONLY",
+            "Use an analyzer/oscilloscope",
+        ]:
+            self.assertIn(token, self.screen + self.universal_screen)
+        self.assertIn("uiPolicy(menu).tier() != EngineeringWorkbenchCatalog.UiTier.BLOCK", self.universal_screen)
+        self.assertIn("uiPolicy(menu).tier() == EngineeringWorkbenchCatalog.UiTier.BLOCK", self.screen)
+
+    def test_operations_hmis_are_explicit_device_consoles_not_labs(self):
+        for token in [
+            "IndustrialBufferMenu",
+            "OperationsMonitorMenu",
+            "WorkcellControllerMenu",
+            "Operations block: show server-owned state",
+            "INDUSTRIAL BUFFER",
+            "WORKCELL ADMISSION",
+            "OPERATIONS OBSERVER",
+        ]:
+            self.assertIn(token, self.catalog)
+
+    def test_design_contract_preserves_minecraft_first_boundary(self):
+        for token in [
+            "Minecraft block first, engineering instrument second, desktop simulator never",
+            "A numeric value is not automatically an experiment variable",
+            "the device is LAB tier",
+            "a real server-synchronized response quantity exists",
+            "The Redstone Encyclopedia, Diagnostic Tablet, and RSE Diagnostics",
+        ]:
+            self.assertIn(token, self.design_doc)
 
     def test_universal_devices_also_participate_in_model_parameter_workbench(self):
         for token in [
