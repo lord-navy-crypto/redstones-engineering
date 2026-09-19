@@ -54,7 +54,13 @@ public class LapisSignalLineBlock extends SurfaceTraceBlock implements Engineeri
         boolean stale=stats.lastTruncated();
         boolean accepted=!stale&&valid;
         int[] r=RuntimeIntStore.get(l,KEY,p,RUNTIME_SIZE);
-        r[VALUE_INDEX]=accepted?Math.max(0,Math.min(100,value)):0;
+        if (accepted) {
+            r[VALUE_INDEX]=Math.max(0,Math.min(100,value));
+        } else if (!stale) {
+            // A complete scan with no valid source is a real NO_SIGNAL state.
+            r[VALUE_INDEX]=0;
+        }
+        // A truncated scan is epistemically stale, not a physical zero: retain last value.
         r[VALID_INDEX]=accepted?1:0;
         r[SOURCE_COUNT_INDEX]=Math.max(0,sourceCount);
         r[QUALITY_INDEX]=(stale?PortQuality.STALE:accepted?PortQuality.VALID:PortQuality.NO_SIGNAL).ordinal();
