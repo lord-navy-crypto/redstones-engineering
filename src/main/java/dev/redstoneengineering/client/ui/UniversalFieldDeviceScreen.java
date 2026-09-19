@@ -27,6 +27,8 @@ import dev.redstoneengineering.signal.ElectromagnetLogic;
 import dev.redstoneengineering.ui.menu.UniversalFieldDeviceMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
@@ -39,6 +41,20 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private Button secondaryNext;
     private Button action;
     private Button toggle;
+    private EditBox primaryTarget;
+    private EditBox secondaryTarget;
+    private Button primaryApply;
+    private Button secondaryApply;
+    private Button primaryMin;
+    private Button primaryMax;
+    private Button secondaryMin;
+    private Button secondaryMax;
+
+    private static final int PORT_HISTORY = 64;
+    private static final int INVALID_SAMPLE = Integer.MIN_VALUE;
+    private final int[] inputHistory = new int[PORT_HISTORY];
+    private final int[] outputHistory = new int[PORT_HISTORY];
+    private int portHistoryCount;
 
     public UniversalFieldDeviceScreen(UniversalFieldDeviceMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -46,65 +62,110 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
 
     @Override
     protected void addDeviceWidgets() {
+        int pY = topPos + 112;
+        int sY = topPos + 164;
         primaryPrevious = addConfigureWidget(Button.builder(
-                Component.literal("◀ Previous"),
+                Component.literal("◀ Fine"),
                 button -> sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_PRIMARY_PREVIOUS)
-        ).bounds(leftPos + 38, topPos + 118, 116, 20).build());
+        ).bounds(leftPos + 16, pY, 78, 20).build());
+        primaryTarget = addConfigureWidget(new EditBox(
+                font, leftPos + 100, pY, 62, 20, Component.literal("Primary target")));
+        primaryTarget.setMaxLength(4);
+        primaryTarget.setFilter(UniversalFieldDeviceScreen::numericEntry);
+        primaryApply = addConfigureWidget(Button.builder(
+                Component.literal("Apply"),
+                button -> applyDirectTarget(true)
+        ).bounds(leftPos + 168, pY, 52, 20).build());
         primaryNext = addConfigureWidget(Button.builder(
-                Component.literal("Next ▶"),
+                Component.literal("Fine ▶"),
                 button -> sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_PRIMARY_NEXT)
-        ).bounds(leftPos + 166, topPos + 118, 116, 20).build());
+        ).bounds(leftPos + 226, pY, 78, 20).build());
+        primaryMin = addConfigureWidget(Button.builder(
+                Component.literal("Min"), button -> applyBound(true, false)
+        ).bounds(leftPos + 16, pY + 24, 54, 18).build());
+        primaryMax = addConfigureWidget(Button.builder(
+                Component.literal("Max"), button -> applyBound(true, true)
+        ).bounds(leftPos + 250, pY + 24, 54, 18).build());
+
         secondaryPrevious = addConfigureWidget(Button.builder(
-                Component.literal("◀ Range"),
+                Component.literal("◀ Fine"),
                 button -> sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_SECONDARY_PREVIOUS)
-        ).bounds(leftPos + 38, topPos + 158, 116, 20).build());
+        ).bounds(leftPos + 16, sY, 78, 20).build());
+        secondaryTarget = addConfigureWidget(new EditBox(
+                font, leftPos + 100, sY, 62, 20, Component.literal("Secondary target")));
+        secondaryTarget.setMaxLength(4);
+        secondaryTarget.setFilter(UniversalFieldDeviceScreen::numericEntry);
+        secondaryApply = addConfigureWidget(Button.builder(
+                Component.literal("Apply"),
+                button -> applyDirectTarget(false)
+        ).bounds(leftPos + 168, sY, 52, 20).build());
         secondaryNext = addConfigureWidget(Button.builder(
-                Component.literal("Range ▶"),
+                Component.literal("Fine ▶"),
                 button -> sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_SECONDARY_NEXT)
-        ).bounds(leftPos + 166, topPos + 158, 116, 20).build());
+        ).bounds(leftPos + 226, sY, 78, 20).build());
+        secondaryMin = addConfigureWidget(Button.builder(
+                Component.literal("Min"), button -> applyBound(false, false)
+        ).bounds(leftPos + 16, sY + 24, 54, 18).build());
+        secondaryMax = addConfigureWidget(Button.builder(
+                Component.literal("Max"), button -> applyBound(false, true)
+        ).bounds(leftPos + 250, sY + 24, 54, 18).build());
+
         action = addConfigureWidget(Button.builder(
                 Component.literal("Action"),
                 button -> sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_ACTION)
-        ).bounds(leftPos + 38, topPos + 158, 244, 20).build());
+        ).bounds(leftPos + 16, topPos + 218, 138, 20).build());
         toggle = addConfigureWidget(Button.builder(
                 Component.literal("Toggle"),
                 button -> sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_TOGGLE)
-        ).bounds(leftPos + 38, topPos + 158, 244, 20).build());
+        ).bounds(leftPos + 166, topPos + 218, 138, 20).build());
+    }
+
+    private static boolean numericEntry(String value) {
+        if (value == null || value.isEmpty()) return true;
+        if (value.length() > 4) return false;
+        for (int i = 0; i < value.length(); i++) {
+            if (!Character.isDigit(value.charAt(i))) return false;
+        }
+        return true;
+    }
+
+    private void applyDirectTarget(boolean primary) {
+        EditBox box = primary ? primaryTarget : secondaryTarget;
+        if (box == null) return;
+        try {
+            int value = Integer.parseInt(box.getValue());
+            int min = primary ? menu.editPrimaryMin() : menu.editSecondaryMin();
+            int max = primary ? menu.editPrimaryMax() : menu.editSecondaryMax();
+            if (value < min || value > max) {
+                box.setTextColor(BAD);
+                return;
+            }
+            box.setTextColor(TEXT);
+            sendMenuButton((primary
+                    ? UniversalFieldDeviceMenu.BUTTON_DIRECT_PRIMARY_BASE
+                    : UniversalFieldDeviceMenu.BUTTON_DIRECT_SECONDARY_BASE) + value);
+        } catch (NumberFormatException ignored) {
+            box.setTextColor(BAD);
+        }
+    }
+
+    private void applyBound(boolean primary, boolean maximum) {
+        int value = primary
+                ? (maximum ? menu.editPrimaryMax() : menu.editPrimaryMin())
+                : (maximum ? menu.editSecondaryMax() : menu.editSecondaryMin());
+        EditBox box = primary ? primaryTarget : secondaryTarget;
+        if (box != null) box.setValue(Integer.toString(value));
+        sendMenuButton((primary
+                ? UniversalFieldDeviceMenu.BUTTON_DIRECT_PRIMARY_BASE
+                : UniversalFieldDeviceMenu.BUTTON_DIRECT_SECONDARY_BASE) + value);
     }
 
     @Override
     protected void syncDeviceWidgetLabels() {
         int kind = menu.configKind();
         boolean configure = isConfigureSection();
-        boolean primary = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER
-                || kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE
-                || kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER
-                || kind == UniversalFieldDeviceMenu.CONFIG_ALARM
-                || kind == UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD
-                || kind == UniversalFieldDeviceMenu.CONFIG_CALIBRATION
-                || kind == UniversalFieldDeviceMenu.CONFIG_PWM
-                || kind == UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR
-                || kind == UniversalFieldDeviceMenu.CONFIG_LIGHT_SENSOR
-                || kind == UniversalFieldDeviceMenu.CONFIG_TANK_LEVEL
-                || kind == UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY
-                || kind == UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD
-                || kind == UniversalFieldDeviceMenu.CONFIG_SIGNAL_PROBE
-                || kind == UniversalFieldDeviceMenu.CONFIG_REFERENCE_SOURCE
-                || kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR
-                || kind == UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH
-                || kind == UniversalFieldDeviceMenu.CONFIG_BYTE_ENCODER
-                || kind == UniversalFieldDeviceMenu.CONFIG_BYTE_DECODER
-                || kind == UniversalFieldDeviceMenu.CONFIG_SERIALIZER
-                || kind == UniversalFieldDeviceMenu.CONFIG_REGENERATOR
-                || kind == UniversalFieldDeviceMenu.CONFIG_DIFF_DRIVER
-                || kind == UniversalFieldDeviceMenu.CONFIG_WATCHDOG
-                || kind == UniversalFieldDeviceMenu.CONFIG_REDUNDANT_VOTER
-                || kind == UniversalFieldDeviceMenu.CONFIG_SIGNAL_AMPLIFIER
-                || kind == UniversalFieldDeviceMenu.CONFIG_ANALOG_COMPARATOR;
-        boolean range = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE
-                || kind == UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY
-                || kind == UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD
-                || kind == UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY;
+        boolean primary = menu.editPrimaryAvailable();
+        boolean range = menu.editSecondaryAvailable();
         boolean hasAction = kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER
                 || kind == UniversalFieldDeviceMenu.CONFIG_ALARM
                 || kind == UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD
@@ -127,20 +188,61 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
 
         if (primaryPrevious != null) primaryPrevious.visible = configure && primary;
         if (primaryNext != null) primaryNext.visible = configure && primary;
+        if (primaryTarget != null) {
+            primaryTarget.visible = configure && primary;
+            primaryTarget.active = primary;
+            if (!primaryTarget.isFocused()) {
+                primaryTarget.setValue(Integer.toString(menu.editPrimaryValue()));
+                primaryTarget.setTextColor(TEXT);
+            }
+        }
+        if (primaryApply != null) primaryApply.visible = configure && primary;
+        if (primaryMin != null) {
+            primaryMin.visible = configure && primary;
+            primaryMin.setMessage(Component.literal("Min " + menu.editPrimaryMin()));
+        }
+        if (primaryMax != null) {
+            primaryMax.visible = configure && primary;
+            primaryMax.setMessage(Component.literal("Max " + menu.editPrimaryMax()));
+        }
+
         if (secondaryPrevious != null) secondaryPrevious.visible = configure && range;
         if (secondaryNext != null) secondaryNext.visible = configure && range;
-        if (kind == UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY) {
-            secondaryPrevious.setMessage(Component.literal("◀ Aperture"));
-            secondaryNext.setMessage(Component.literal("Aperture ▶"));
-        } else if (kind == UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD) {
-            secondaryPrevious.setMessage(Component.literal("◀ Sample"));
-            secondaryNext.setMessage(Component.literal("Sample ▶"));
-        } else if (kind == UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY) {
-            secondaryPrevious.setMessage(Component.literal("◀ Pickup"));
-            secondaryNext.setMessage(Component.literal("Pickup ▶"));
-        } else {
-            secondaryPrevious.setMessage(Component.literal("◀ Range"));
-            secondaryNext.setMessage(Component.literal("Range ▶"));
+        if (secondaryTarget != null) {
+            secondaryTarget.visible = configure && range;
+            secondaryTarget.active = range;
+            if (!secondaryTarget.isFocused()) {
+                secondaryTarget.setValue(Integer.toString(menu.editSecondaryValue()));
+                secondaryTarget.setTextColor(TEXT);
+            }
+        }
+        if (secondaryApply != null) secondaryApply.visible = configure && range;
+        if (secondaryMin != null) {
+            secondaryMin.visible = configure && range;
+            secondaryMin.setMessage(Component.literal("Min " + menu.editSecondaryMin()));
+        }
+        if (secondaryMax != null) {
+            secondaryMax.visible = configure && range;
+            secondaryMax.setMessage(Component.literal("Max " + menu.editSecondaryMax()));
+        }
+
+        String primaryName = primaryParameterName(kind);
+        String secondaryName = secondaryParameterName(kind);
+        if (primaryPrevious != null) {
+            primaryPrevious.setMessage(Component.literal("◀ " + compactControlName(primaryName)));
+            primaryPrevious.setTooltip(Tooltip.create(Component.literal("Fine -1 • " + primaryName)));
+        }
+        if (primaryNext != null) {
+            primaryNext.setMessage(Component.literal(compactControlName(primaryName) + " ▶"));
+            primaryNext.setTooltip(Tooltip.create(Component.literal("Fine +1 • " + primaryName)));
+        }
+        if (secondaryPrevious != null) {
+            secondaryPrevious.setMessage(Component.literal("◀ " + compactControlName(secondaryName)));
+            secondaryPrevious.setTooltip(Tooltip.create(Component.literal("Fine -1 • " + secondaryName)));
+        }
+        if (secondaryNext != null) {
+            secondaryNext.setMessage(Component.literal(compactControlName(secondaryName) + " ▶"));
+            secondaryNext.setTooltip(Tooltip.create(Component.literal("Fine +1 • " + secondaryName)));
         }
         if (action != null) {
             action.visible = configure && hasAction;
@@ -188,6 +290,50 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 toggle.setMessage(Component.literal("Invert output • " + (menu.configSecondary() != 0 ? "ON" : "OFF")));
             }
         }
+    }
+
+    private static String compactControlName(String name) {
+        if (name == null || name.isBlank()) return "Step";
+        return name.length() <= 8 ? name : name.substring(0, 8);
+    }
+
+    private static String primaryParameterName(int kind) {
+        return switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_ANALOG_COMPARATOR -> "Hysteresis";
+            case UniversalFieldDeviceMenu.CONFIG_SIGNAL_AMPLIFIER -> "Gain mode";
+            case UniversalFieldDeviceMenu.CONFIG_REDUNDANT_VOTER -> "Tolerance";
+            case UniversalFieldDeviceMenu.CONFIG_WATCHDOG -> "Timeout";
+            case UniversalFieldDeviceMenu.CONFIG_DIFF_DRIVER -> "Threshold";
+            case UniversalFieldDeviceMenu.CONFIG_SERIALIZER -> "Period";
+            case UniversalFieldDeviceMenu.CONFIG_REGENERATOR -> "Threshold";
+            case UniversalFieldDeviceMenu.CONFIG_BYTE_ENCODER, UniversalFieldDeviceMenu.CONFIG_BYTE_DECODER -> "Mode";
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> "Period idx";
+            case UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH -> "Threshold";
+            case UniversalFieldDeviceMenu.CONFIG_REFERENCE_SOURCE -> "Power";
+            case UniversalFieldDeviceMenu.CONFIG_SIGNAL_PROBE -> "Channel";
+            case UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD -> "Radius";
+            case UniversalFieldDeviceMenu.CONFIG_LIGHT_SENSOR -> "Profile";
+            case UniversalFieldDeviceMenu.CONFIG_TANK_LEVEL -> "Range";
+            case UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY -> "Profile";
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE, UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER -> "Profile";
+            case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER -> "Sensitivity";
+            case UniversalFieldDeviceMenu.CONFIG_ALARM -> "Severity";
+            case UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD -> "Trigger";
+            case UniversalFieldDeviceMenu.CONFIG_CALIBRATION -> "Profile";
+            case UniversalFieldDeviceMenu.CONFIG_PWM -> "Period";
+            case UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR -> "Fault mode";
+            default -> "Parameter";
+        };
+    }
+
+    private static String secondaryParameterName(int kind) {
+        return switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD -> "Sampling";
+            case UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY -> "Aperture";
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE -> "Range idx";
+            case UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY -> "Pickup";
+            default -> "Parameter B";
+        };
     }
 
     @Override
@@ -243,8 +389,28 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         statusLine(g, face, text, qualityColor(quality), y);
     }
 
+    private void renderNumericalWorkbench(GuiGraphics g, int kind) {
+        statusBadge(g, "NUMERICAL PARAMETER WORKBENCH", INFO, 16, 80);
+        if (menu.editPrimaryAvailable()) {
+            labelValue(g, primaryParameterName(kind),
+                    menu.editPrimaryValue() + "   range " + menu.editPrimaryMin() + ".." + menu.editPrimaryMax(), 99);
+        } else {
+            labelValue(g, "Primary parameter", "READ ONLY / NONE", 99);
+        }
+        if (menu.editSecondaryAvailable()) {
+            labelValue(g, secondaryParameterName(kind),
+                    menu.editSecondaryValue() + "   range " + menu.editSecondaryMin() + ".." + menu.editSecondaryMax(), 151);
+        }
+        safeText(g, "Fine buttons step the authoritative model; target boxes apply an exact bounded setting.", 16, 204, MUTED);
+        safeText(g, "Open Model for equation/process meaning. Min/Max are server-validated presets.", 16, 214, MUTED);
+    }
+
     private void configure(GuiGraphics g) {
         int kind = menu.configKind();
+        if (menu.editPrimaryAvailable() || menu.editSecondaryAvailable()) {
+            renderNumericalWorkbench(g, kind);
+            return;
+        }
         switch (kind) {
             case UniversalFieldDeviceMenu.CONFIG_ANALOG_COMPARATOR -> {
                 int mode = menu.configPrimary();
@@ -973,13 +1139,76 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     }
 
     private void history(GuiGraphics g) {
-        statusBadge(g, "LIVE ONLY • NO RETAINED HISTORY", INFO, 16, 80);
-        labelValue(g, "Current evidence", "SYNCHRONIZED SNAPSHOT", 108);
-        safeText(g, "Retained chronology belongs in analyzers, monitors, or the Diagnostic Tablet.", 16, 132, INFO);
-        if (lapisPrecisionMeasurementPresent()) {
-            labelValue(g, "Precision medium", "LAPIS • 0..100 • 0.01 display", 158);
-            safeText(g, "History remains external even when the current precision sample is VALID.", 16, 180, MUTED);
+        statusBadge(g, "UI OBSERVATION HISTORY • DISPLAY ONLY", INFO, 16, 80);
+        Direction in = firstInputSide();
+        Direction out = firstOutputSide();
+        if (portHistoryCount <= 1 || (in == null && out == null)) {
+            labelValue(g, "Observation samples", Integer.toString(portHistoryCount), 108);
+            safeText(g, "Keep the panel open to build a short client-side view of synchronized port evidence.", 16, 132, MUTED);
+            safeText(g, "This display history is not authoritative device memory and never feeds simulation.", 16, 150, INFO);
+            return;
         }
+
+        int y = 112;
+        if (in != null) {
+            graphics.drawString(font, "INPUT • " + in.getName().toUpperCase(), 16, 98, MUTED, false);
+            EngineeringPlot.analogFrame(g, 16, y, 132, 50);
+            EngineeringPlot.analogTrace(g, portHistoryCount, i -> inputHistory[i],
+                    menu.minimum(in), menu.maximum(in), 18, y + 3, 128, 44, INFO);
+        }
+        if (out != null) {
+            graphics.drawString(font, "OUTPUT • " + out.getName().toUpperCase(), 160, 98, MUTED, false);
+            EngineeringPlot.analogFrame(g, 160, y, 132, 50);
+            EngineeringPlot.analogTrace(g, portHistoryCount, i -> outputHistory[i],
+                    menu.minimum(out), menu.maximum(out), 162, y + 3, 128, 44, GOOD);
+        }
+        if (in != null) labelValue(g, "Input now", menu.value(in) + " • " + menu.quality(in).name(), 172);
+        if (out != null) labelValue(g, "Output now", menu.value(out) + " • " + menu.quality(out).name(), 190);
+        safeText(g, "64 displayed samples max • gaps mean non-current/invalid evidence • source data stay server-owned.", 16, 214, MUTED);
+    }
+
+
+    @Override
+    protected void containerTick() {
+        super.containerTick();
+        recordPortHistory();
+    }
+
+    private void recordPortHistory() {
+        Direction in = firstInputSide();
+        Direction out = firstOutputSide();
+        int inValue = observedValue(in);
+        int outValue = observedValue(out);
+        if (portHistoryCount < PORT_HISTORY) {
+            inputHistory[portHistoryCount] = inValue;
+            outputHistory[portHistoryCount] = outValue;
+            portHistoryCount++;
+            return;
+        }
+        System.arraycopy(inputHistory, 1, inputHistory, 0, PORT_HISTORY - 1);
+        System.arraycopy(outputHistory, 1, outputHistory, 0, PORT_HISTORY - 1);
+        inputHistory[PORT_HISTORY - 1] = inValue;
+        outputHistory[PORT_HISTORY - 1] = outValue;
+    }
+
+    private int observedValue(Direction side) {
+        if (side == null) return INVALID_SAMPLE;
+        PortQuality q = menu.quality(side);
+        return q == PortQuality.VALID || q == PortQuality.SATURATED ? menu.value(side) : INVALID_SAMPLE;
+    }
+
+    private Direction firstInputSide() {
+        for (Direction side : Direction.values()) {
+            if (menu.hasPort(side) && (menu.isInput(side) || menu.isBidirectional(side))) return side;
+        }
+        return null;
+    }
+
+    private Direction firstOutputSide() {
+        for (Direction side : Direction.values()) {
+            if (menu.hasPort(side) && (menu.isOutput(side) || menu.isBidirectional(side))) return side;
+        }
+        return null;
     }
 
     private static PortQuality syncedQuality(int ordinal) {
