@@ -161,9 +161,10 @@ public class QuartzClockDividerBlock extends DirectionalDomainBlock implements E
         }
 
         if (runtime[INITIALIZED_SLOT] == 0) {
-            // Startup and post-gap reacquisition establish only the observed input level. This
-            // prevents a HIGH level after an evidence gap from becoming a fabricated rising edge.
-            // Counter/output phase survives uncertain gaps; confirmed NO_SIGNAL cleared it above.
+            // First observation establishes input phase only. The same rule applies after an
+            // uncertain evidence gap: seed the currently observed level without manufacturing
+            // a transition. Counter/output phase survives uncertain gaps; confirmed NO_SIGNAL
+            // cleared it above.
             runtime[PREVIOUS_SLOT] = input.active() ? 1 : 0;
             runtime[INITIALIZED_SLOT] = 1;
         } else {
