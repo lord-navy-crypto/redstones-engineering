@@ -98,6 +98,11 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_COPPER_LOAD = 48;
     public static final int CONFIG_COPPER_CAPACITOR = 49;
     public static final int CONFIG_COPPER_FUSE = 50;
+    public static final int CONFIG_LAPIS_LOW_PASS = 51;
+    public static final int CONFIG_QUARTZ_PHASE_DELAY = 52;
+    public static final int CONFIG_THERMAL_HEATER = 53;
+    public static final int CONFIG_THERMAL_MASS = 54;
+    public static final int CONFIG_THERMAL_RADIATOR = 55;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
@@ -156,7 +161,27 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         editSecondaryMax.set(0);
         editableMask.set(0);
 
-        if (block instanceof CopperVoltageSourceBlock) {
+        if (block instanceof LapisLowPassFilterBlock) {
+            configKind.set(CONFIG_LAPIS_LOW_PASS);
+            configPrimary.set(state.getValue(LapisLowPassFilterBlock.ALPHA));
+        } else if (block instanceof QuartzPhaseDelayBlock) {
+            configKind.set(CONFIG_QUARTZ_PHASE_DELAY);
+            configPrimary.set(state.getValue(QuartzPhaseDelayBlock.DELAY));
+            configSecondary.set(QuartzPhaseDelayBlock.queuedEdges(level, blockPos));
+            configTertiary.set(QuartzPhaseDelayBlock.pendingTicks(level, blockPos));
+            configQuaternary.set(QuartzPhaseDelayBlock.droppedEdges(level, blockPos));
+        } else if (block instanceof ThermalHeaterBlock) {
+            configKind.set(CONFIG_THERMAL_HEATER);
+            configPrimary.set(state.getValue(ThermalHeaterBlock.RESISTANCE_INDEX));
+            configSecondary.set(state.getValue(ThermalHeaterBlock.TEMPERATURE));
+        } else if (block instanceof ThermalMassBlock) {
+            configKind.set(CONFIG_THERMAL_MASS);
+            configPrimary.set(state.getValue(ThermalMassBlock.HEAT_CAPACITY));
+            configSecondary.set(state.getValue(ThermalMassBlock.TEMPERATURE));
+        } else if (block instanceof ThermalRadiatorBlock) {
+            configKind.set(CONFIG_THERMAL_RADIATOR);
+            configPrimary.set(state.getValue(ThermalRadiatorBlock.COOLING));
+        } else if (block instanceof CopperVoltageSourceBlock) {
             configKind.set(CONFIG_COPPER_SOURCE);
             configPrimary.set(state.getValue(CopperVoltageSourceBlock.VOLTAGE));
         } else if (block instanceof CopperSeriesResistorBlock) {
@@ -602,6 +627,11 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     }
 
     private IntegerProperty primaryEditableProperty(Block block) {
+        if (block instanceof LapisLowPassFilterBlock) return LapisLowPassFilterBlock.ALPHA;
+        if (block instanceof QuartzPhaseDelayBlock) return QuartzPhaseDelayBlock.DELAY;
+        if (block instanceof ThermalHeaterBlock) return ThermalHeaterBlock.RESISTANCE_INDEX;
+        if (block instanceof ThermalMassBlock) return ThermalMassBlock.HEAT_CAPACITY;
+        if (block instanceof ThermalRadiatorBlock) return ThermalRadiatorBlock.COOLING;
         if (block instanceof CopperVoltageSourceBlock) return CopperVoltageSourceBlock.VOLTAGE;
         if (block instanceof CopperSeriesResistorBlock) return CopperSeriesResistorBlock.RESISTANCE;
         if (block instanceof CopperResistiveLoadBlock) return CopperResistiveLoadBlock.RESISTANCE;
@@ -667,6 +697,11 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean adjustPrimary(int delta) {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof LapisLowPassFilterBlock) return LapisLowPassFilterBlock.adjustAlpha(level, blockPos, delta);
+        if (block instanceof QuartzPhaseDelayBlock) return QuartzPhaseDelayBlock.adjustDelay(level, blockPos, delta);
+        if (block instanceof ThermalHeaterBlock) return ThermalHeaterBlock.adjustResistance(level, blockPos, delta);
+        if (block instanceof ThermalMassBlock) return ThermalMassBlock.adjustHeatCapacity(level, blockPos, delta);
+        if (block instanceof ThermalRadiatorBlock) return ThermalRadiatorBlock.adjustCooling(level, blockPos, delta);
         if (block instanceof CopperVoltageSourceBlock) return CopperVoltageSourceBlock.adjustVoltage(level, blockPos, delta);
         if (block instanceof CopperSeriesResistorBlock) return CopperSeriesResistorBlock.adjustResistance(level, blockPos, delta);
         if (block instanceof CopperResistiveLoadBlock) return CopperResistiveLoadBlock.adjustResistance(level, blockPos, delta);
