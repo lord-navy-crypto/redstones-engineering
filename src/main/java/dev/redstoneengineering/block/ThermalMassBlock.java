@@ -97,6 +97,18 @@ public class ThermalMassBlock extends DomainBlock implements EngineeringPortProv
         level.scheduleTick(pos, this, 5 * thermal.capacity());
     }
 
+    /** Server-authoritative thermal-capacity adjustment; current temperature is deliberately retained. */
+    public static boolean adjustHeatCapacity(Level level, BlockPos pos, int delta) {
+        if (level.isClientSide || delta == 0) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof ThermalMassBlock mass)) return false;
+        int current = state.getValue(HEAT_CAPACITY);
+        int nextValue = delta > 0 ? (current >= 4 ? 1 : current + 1) : (current <= 1 ? 4 : current - 1);
+        level.setBlock(pos, state.setValue(HEAT_CAPACITY, nextValue), Block.UPDATE_CLIENTS);
+        level.scheduleTick(pos, mass, 1);
+        return true;
+    }
+
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
