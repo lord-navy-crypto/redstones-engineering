@@ -59,6 +59,10 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     private final DataSlot slewEvents = trackedInt();
     private final DataSlot riseLimit = trackedInt();
     private final DataSlot fallLimit = trackedInt();
+    private final DataSlot proportionalGain = trackedInt();
+    private final DataSlot integralDivisor = trackedInt();
+    private final DataSlot derivativeGain = trackedInt();
+    private final DataSlot derivativeSmoothing = trackedInt();
 
     private final DataSlot plantDetected = trackedInt();
     private final DataSlot plantReady = trackedInt();
@@ -131,6 +135,10 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
         slewEvents.set(PidControllerBlock.slewLimitEvents(level, blockPos));
         riseLimit.set(PidControllerBlock.riseLimit(state));
         fallLimit.set(PidControllerBlock.fallLimit(state));
+        proportionalGain.set(PidControllerBlock.proportionalGain(state));
+        integralDivisor.set(PidControllerBlock.integralDivisor(state));
+        derivativeGain.set(PidControllerBlock.derivativeGain(state));
+        derivativeSmoothing.set(PidControllerBlock.derivativeSmoothing(state));
 
         PneumaticClosedLoopWitness.Snapshot plant = ClosedLoopCommissioning.inspectPneumaticPlant(level, blockPos);
         plantDetected.set(plant.detected() ? 1 : 0);
@@ -223,6 +231,10 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     public int slewEvents() { return slewEvents.get(); }
     public int riseLimit() { return riseLimit.get(); }
     public int fallLimit() { return fallLimit.get(); }
+    public int proportionalGain() { return proportionalGain.get(); }
+    public int integralDivisor() { return integralDivisor.get(); }
+    public int derivativeGain() { return derivativeGain.get(); }
+    public int derivativeSmoothing() { return derivativeSmoothing.get(); }
 
     public boolean plantDetected() { return plantDetected.get() != 0; }
     public boolean plantReady() { return plantReady.get() != 0; }
