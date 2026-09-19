@@ -91,7 +91,14 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private Button workbenchApply;
     private Button workbenchMin;
     private Button workbenchMax;
+    private Button workbenchQuarter;
+    private Button workbenchMid;
+    private Button workbenchThreeQuarter;
+    private Button workbenchSweep;
     private int workbenchParameterIndex;
+    private boolean workbenchSweepActive;
+    private int workbenchSweepDelay;
+    private static final int WORKBENCH_SWEEP_DWELL_TICKS = 10;
 
     protected EngineeringScreen(M menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -123,6 +130,12 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         workbenchApply = null;
         workbenchMin = null;
         workbenchMax = null;
+        workbenchQuarter = null;
+        workbenchMid = null;
+        workbenchThreeQuarter = null;
+        workbenchSweep = null;
+        workbenchSweepActive = false;
+        workbenchSweepDelay = 0;
 
         int tabY = topPos + 31;
         int x = leftPos + 8;
@@ -217,12 +230,25 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
                 Component.literal("P ▶"), button -> selectWorkbenchParameter(1))
                 .bounds(leftPos + 250, y, 54, 20).build());
 
+        int presetY = topPos + 221;
         workbenchMin = addRenderableWidget(Button.builder(
                 Component.literal("Min"), button -> applyWorkbenchBound(false))
-                .bounds(leftPos + 96, topPos + 221, 52, 18).build());
+                .bounds(leftPos + 16, presetY, 42, 18).build());
+        workbenchQuarter = addRenderableWidget(Button.builder(
+                Component.literal("25%"), button -> applyWorkbenchFraction(0.25))
+                .bounds(leftPos + 61, presetY, 42, 18).build());
+        workbenchMid = addRenderableWidget(Button.builder(
+                Component.literal("50%"), button -> applyWorkbenchFraction(0.50))
+                .bounds(leftPos + 106, presetY, 42, 18).build());
+        workbenchThreeQuarter = addRenderableWidget(Button.builder(
+                Component.literal("75%"), button -> applyWorkbenchFraction(0.75))
+                .bounds(leftPos + 151, presetY, 42, 18).build());
         workbenchMax = addRenderableWidget(Button.builder(
                 Component.literal("Max"), button -> applyWorkbenchBound(true))
-                .bounds(leftPos + 152, topPos + 221, 52, 18).build());
+                .bounds(leftPos + 196, presetY, 42, 18).build());
+        workbenchSweep = addRenderableWidget(Button.builder(
+                Component.literal("Sweep ↑"), button -> toggleWorkbenchSweep())
+                .bounds(leftPos + 241, presetY, 63, 18).build());
     }
 
     private static boolean numericTargetText(String value) {
@@ -269,6 +295,49 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         applyWorkbenchTargetValue(spec, target);
     }
 
+    private void applyWorkbenchFraction(double fraction) {
+        EngineeringWorkbenchCatalog.ParameterSpec spec = activeWorkbenchParameter();
+        if (spec == null) return;
+        int span = spec.maximum() - spec.minimum();
+        int target = spec.minimum() + (int) Math.round(span * Math.max(0.0, Math.min(1.0, fraction)));
+        if (workbenchTarget != null) workbenchTarget.setValue(Integer.toString(target));
+        applyWorkbenchTargetValue(spec, target);
+    }
+
+    private void toggleWorkbenchSweep() {
+        EngineeringWorkbenchCatalog.ParameterSpec spec = activeWorkbenchParameter();
+        if (spec == null || spec.maximum() <= spec.minimum()) {
+            workbenchSweepActive = false;
+            return;
+        }
+        if (workbenchSweepActive) {
+            workbenchSweepActive = false;
+            return;
+        }
+        workbenchSweepActive = true;
+        workbenchSweepDelay = WORKBENCH_SWEEP_DWELL_TICKS;
+        applyWorkbenchTargetValue(spec, spec.minimum());
+    }
+
+    private void tickWorkbenchSweep() {
+        if (!workbenchSweepActive || !workbenchPage) return;
+        EngineeringWorkbenchCatalog.ParameterSpec spec = activeWorkbenchParameter();
+        if (spec == null) {
+            workbenchSweepActive = false;
+            return;
+        }
+        if (workbenchSweepDelay > 0) {
+            workbenchSweepDelay--;
+            return;
+        }
+        if (spec.current() >= spec.maximum()) {
+            workbenchSweepActive = false;
+            return;
+        }
+        sendMenuButton(spec.incrementButton());
+        workbenchSweepDelay = WORKBENCH_SWEEP_DWELL_TICKS;
+    }
+
     private void applyWorkbenchTarget() {
         EngineeringWorkbenchCatalog.ParameterSpec spec = activeWorkbenchParameter();
         if (spec == null || workbenchTarget == null) return;
@@ -300,7 +369,8 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
         for (AbstractWidget widget : List.of(
                 workbenchParameterPrevious, workbenchParameterNext, workbenchDecrease, workbenchIncrease,
-                workbenchTarget, workbenchApply, workbenchMin, workbenchMax)) {
+                workbenchTarget, workbenchApply, workbenchMin, workbenchQuarter, workbenchMid,
+                workbenchThreeQuarter, workbenchMax, workbenchSweep)) {
             if (widget != null) widget.visible = show;
         }
         if (!show || spec == null) return;
@@ -317,8 +387,15 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         workbenchApply.setTooltip(Tooltip.create(Component.literal(
                 "Apply exact bounded target " + spec.minimum() + ".." + spec.maximum()
                         + " using existing server-authoritative step actions.")));
-        workbenchMin.setMessage(Component.literal("Min " + spec.minimum()));
-        workbenchMax.setMessage(Component.literal("Max " + spec.maximum()));
+        workbenchMin.setMessage(Component.literal("Min"));
+        workbenchMax.setMessage(Component.literal("Max"));
+        workbenchQuarter.setTooltip(Tooltip.create(Component.literal("Apply 25% of this parameter range.")));
+        workbenchMid.setTooltip(Tooltip.create(Component.literal("Apply midpoint of this parameter range.")));
+        workbenchThreeQuarter.setTooltip(Tooltip.create(Component.literal("Apply 75% of this parameter range.")));
+        workbenchSweep.setMessage(Component.literal(workbenchSweepActive ? "Stop" : "Sweep ↑"));
+        workbenchSweep.setTooltip(Tooltip.create(Component.literal(
+                "Sweep from minimum to maximum with " + WORKBENCH_SWEEP_DWELL_TICKS
+                        + " ticks dwell per point; every point uses the real server-owned device action.")));
 
         if (workbenchTarget != null && !workbenchTarget.isFocused()) {
             workbenchTarget.setValue(Integer.toString(spec.current()));
@@ -507,6 +584,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     protected void containerTick() {
         super.containerTick();
         recordSharedTimeline();
+        tickWorkbenchSweep();
         syncDeviceWidgetLabels();
         syncRouteControls();
         syncWorkbenchControls();
@@ -592,11 +670,21 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             EngineeringWorkbenchCatalog.ParameterSpec spec = activeWorkbenchParameter();
             if (spec != null) {
                 String index = "PARAM " + (workbenchParameterIndex + 1) + "/" + specs.size();
-                graphics.drawString(font, index, 16, 184, INFO, false);
+                graphics.drawString(font, index, 16, 178, INFO, false);
                 String value = spec.label() + " = " + spec.current()
                         + (spec.unit().isBlank() ? "" : " " + spec.unit())
                         + "   [" + spec.minimum() + ".." + spec.maximum() + "]";
-                graphics.drawString(font, fitForWidth(value, 222), 82, 184, TEXT, false);
+                graphics.drawString(font, fitForWidth(value, 222), 82, 178, TEXT, false);
+
+                int barX = 16, barY = 189, barW = 288, barH = 5;
+                graphics.fill(barX, barY, barX + barW, barY + barH, PANEL_3);
+                int span = Math.max(1, spec.maximum() - spec.minimum());
+                int clamped = Math.max(spec.minimum(), Math.min(spec.maximum(), spec.current()));
+                int filled = (int) Math.round((clamped - spec.minimum()) * barW / (double) span);
+                graphics.fill(barX, barY, barX + filled, barY + barH, INFO);
+                int markerX = barX + Math.max(0, Math.min(barW - 1, filled));
+                graphics.fill(markerX, barY - 2, markerX + 1, barY + barH + 2, TEXT);
+
                 if (!spec.detail().isBlank()) {
                     if (workbenchTarget != null) workbenchTarget.setTooltip(Tooltip.create(Component.literal(spec.detail())));
                 }
