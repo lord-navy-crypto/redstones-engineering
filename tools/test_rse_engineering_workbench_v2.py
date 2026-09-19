@@ -275,6 +275,26 @@ class EngineeringWorkbenchV2Tests(unittest.TestCase):
         ]:
             self.assertIn(token, self.catalog)
 
+    def test_universal_hmi_models_cover_sensors_state_machines_and_boundaries(self):
+        for token in [
+            "PRECISION TRANSDUCER",
+            "PRECISION RANGE SENSOR",
+            "MOLECULAR CLOUD RECEIVER",
+            "ALARM PROCESSOR",
+            "FAULT INJECTOR",
+            "SEQUENCE CONTROLLER",
+            "SAFETY INTERLOCK",
+            "TOPOLOGY DEBUGGER",
+            "ENTITY DENSITY SENSOR",
+            "CABLE TERMINAL",
+            "BYTE ENCODER",
+            "BYTE DECODER",
+            "DESERIALIZER",
+            "DIFFERENTIAL RECEIVER",
+            "SINGLE RELAY",
+        ]:
+            self.assertIn(token, self.catalog)
+
     def test_universal_devices_also_participate_in_model_parameter_workbench(self):
         for token in [
             "universal.editPrimaryAvailable()",
