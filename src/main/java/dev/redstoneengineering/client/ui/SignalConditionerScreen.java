@@ -128,6 +128,7 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
             case 2 -> "CLAMP";
             case 3 -> "THRESHOLD";
             case 4 -> "DEADBAND";
+            case 5 -> "ATTENUATE";
             default -> "UNKNOWN";
         };
     }
@@ -139,6 +140,7 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
             case 2 -> "Clamp ceiling";
             case 3 -> "Trip level";
             case 4 -> "Deadband width";
+            case 5 -> "Attenuation ratio";
             default -> "Parameter";
         };
     }
@@ -150,6 +152,7 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
             case 2 -> "Ceiling";
             case 3 -> "Trip";
             case 4 -> "Band";
+            case 5 -> "Divide";
             default -> "Param";
         };
     }
@@ -160,6 +163,7 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
             case 1 -> "−5 .. +5";
             case 2, 3 -> "1 .. 15";
             case 4 -> "1 .. 4";
+            case 5 -> "÷2 .. ÷4";
             default -> "—";
         };
     }
@@ -171,6 +175,7 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
             case 2 -> "CLAMP: pass input until the configured ceiling is reached.";
             case 3 -> "THRESHOLD: pass values at/above trip; otherwise emit a valid zero.";
             case 4 -> "DEADBAND: hold output until the input change exceeds the selected band.";
+            case 5 -> "ATTENUATE: reduce full-scale signal range by an integer divider with rounded output.";
             default -> "Unknown conditioning mode.";
         };
     }
@@ -182,6 +187,7 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
             case 2 -> "MAX " + Math.max(1, param);
             case 3 -> "TRIP ≥ " + Math.max(1, param);
             case 4 -> "BAND " + Math.max(1, Math.min(4, param));
+            case 5 -> "÷" + Math.max(2, Math.min(4, param));
             default -> "—";
         };
     }
