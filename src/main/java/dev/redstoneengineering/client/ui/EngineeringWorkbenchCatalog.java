@@ -895,9 +895,29 @@ public final class EngineeringWorkbenchCatalog {
                     "/15", "Threshold used to classify captured channel samples as LOW/HIGH."));
         }
         if (menu instanceof PidControllerMenu pid) {
-            return List.of(spec("Tuning preset", pid.tuning(), 0, 3,
-                    PidControllerMenu.BUTTON_TUNING_PREVIOUS, PidControllerMenu.BUTTON_TUNING_NEXT,
-                    "preset", "Selects one of the four server-owned PID tuning profiles."));
+            return List.of(
+                    spec("Tuning preset", pid.tuning(), 0, 3,
+                            PidControllerMenu.BUTTON_TUNING_PREVIOUS, PidControllerMenu.BUTTON_TUNING_NEXT,
+                            "preset", "Preset is a durable baseline. Selecting another preset clears the custom coefficient overrides."),
+                    rangeSpec("Kp", pid.proportionalGain(), 0, 8,
+                            PidControllerMenu.BUTTON_KP_DECREASE, PidControllerMenu.BUTTON_KP_INCREASE,
+                            "gain", "Proportional gain applied to control error. Individual edits create persistent CUSTOM tuning."),
+                    rangeSpec("Ki divisor", pid.integralDivisor(), 0, 64,
+                            PidControllerMenu.BUTTON_KI_DECREASE, PidControllerMenu.BUTTON_KI_INCREASE,
+                            "divisor", "Integral term = accumulated error / divisor; 0 disables the integral contribution."),
+                    rangeSpec("Kd", pid.derivativeGain(), 0, 8,
+                            PidControllerMenu.BUTTON_KD_DECREASE, PidControllerMenu.BUTTON_KD_INCREASE,
+                            "gain", "Derivative-on-measurement gain; larger values oppose faster measured PV motion."),
+                    rangeSpec("D smoothing", pid.derivativeSmoothing(), 1, 8,
+                            PidControllerMenu.BUTTON_D_SMOOTH_DECREASE, PidControllerMenu.BUTTON_D_SMOOTH_INCREASE,
+                            "samples", "Smoothing strength used by the measured-PV derivative path."),
+                    scaledSpec("Rise slew", pid.riseLimit(), 1, 15,
+                            PidControllerMenu.BUTTON_RISE_DECREASE, PidControllerMenu.BUTTON_RISE_INCREASE,
+                            "levels/2t", "Maximum upward actuator-command change per 2-tick control cycle."),
+                    scaledSpec("Fall slew", pid.fallLimit(), 1, 15,
+                            PidControllerMenu.BUTTON_FALL_DECREASE, PidControllerMenu.BUTTON_FALL_INCREASE,
+                            "levels/2t", "Maximum downward actuator-command change per 2-tick control cycle.")
+            );
         }
         if (menu instanceof SignalConditionerMenu conditioner) {
             int mode = conditioner.mode();
