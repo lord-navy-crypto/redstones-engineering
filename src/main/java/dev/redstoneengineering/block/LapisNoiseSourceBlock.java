@@ -140,6 +140,45 @@ public class LapisNoiseSourceBlock extends DirectionalDomainSourceBlock implemen
         level.scheduleTick(pos, this, samplePeriodTicks(state));
     }
 
+    private static boolean applyNoiseConfig(Level level, BlockPos pos, BlockState next) {
+        if (level.isClientSide || !(next.getBlock() instanceof LapisNoiseSourceBlock source)) return false;
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        source.setSample(level, pos, next.getValue(BASELINE) * 5);
+        if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeLapis(serverLevel, pos);
+        level.scheduleTick(pos, source, 1);
+        return true;
+    }
+
+    /** Exact server-owned baseline step, 0..20 => 0.00..1.00 in 0.05 increments. */
+    public static boolean adjustBaseline(Level level, BlockPos pos, int delta) {
+        if (level.isClientSide || delta == 0) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof LapisNoiseSourceBlock)) return false;
+        int current = state.getValue(BASELINE);
+        int next = delta > 0 ? (current >= 20 ? 0 : current + 1) : (current <= 0 ? 20 : current - 1);
+        return applyNoiseConfig(level, pos, state.setValue(BASELINE, next));
+    }
+
+    /** Server-owned symmetric noise-amplitude step, 0..10 => ±0.00..±0.20. */
+    public static boolean adjustNoise(Level level, BlockPos pos, int delta) {
+        if (level.isClientSide || delta == 0) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof LapisNoiseSourceBlock)) return false;
+        int current = state.getValue(NOISE);
+        int next = delta > 0 ? (current >= 10 ? 0 : current + 1) : (current <= 0 ? 10 : current - 1);
+        return applyNoiseConfig(level, pos, state.setValue(NOISE, next));
+    }
+
+    /** Server-owned sample-rate profile step. */
+    public static boolean adjustRate(Level level, BlockPos pos, int delta) {
+        if (level.isClientSide || delta == 0) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof LapisNoiseSourceBlock)) return false;
+        int current = state.getValue(RATE);
+        int next = Math.floorMod(current + (delta > 0 ? 1 : -1), SAMPLE_PERIODS.length);
+        return applyNoiseConfig(level, pos, state.setValue(RATE, next));
+    }
+
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
             BlockState next = state;
