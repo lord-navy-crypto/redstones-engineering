@@ -51,21 +51,33 @@ import java.util.Set;
 public class ServoActuatorBlock extends Block implements EntityBlock, EngineeringPortProvider, OperationWorldResourceProvider {
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final IntegerProperty SLEW = IntegerProperty.create("slew", 0, 2);
+    /** Lumped mechanical load/inertia profile: 0=unloaded, 1=light, 2=medium, 3=heavy. */
+    public static final IntegerProperty LOAD = IntegerProperty.create("load", 0, 3);
 
     private static final int POSITION_MODE = 0;
     private static final int VELOCITY_MODE = 1;
     private static final int[] STEP = {1, 2, 3};
+    private static final int[] LOAD_ACCEL_PERIOD = {1, 1, 2, 3};
+    private static final int[] LOAD_SPEED_PENALTY = {0, 0, 1, 1};
     private static final String KEY = "servo";
-    private static final int RUNTIME_SIZE = 16;
+    private static final int RUNTIME_SIZE = 21;
+    private static final int ACCEL_PHASE_SLOT = 16;
+    private static final int LOAD_DELAY_TICKS_SLOT = 17;
+    private static final int REVERSALS_SLOT = 18;
+    private static final int LAST_VELOCITY_SLOT = 19;
+    private static final int MOTION_SAMPLES_SLOT = 20;
 
     public ServoActuatorBlock(Properties p) {
         super(p);
-        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH).setValue(SLEW, 0));
+        registerDefaultState(stateDefinition.any()
+                .setValue(FACING, Direction.NORTH)
+                .setValue(SLEW, 0)
+                .setValue(LOAD, 1));
     }
 
     @Override public MapCodec<ServoActuatorBlock> codec() { return RedstoneEngineering.SERVO_ACTUATOR_CODEC.value(); }
     @Override public BlockState getStateForPlacement(BlockPlaceContext c) { return defaultBlockState().setValue(FACING, c.getHorizontalDirection().getOpposite()); }
-    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> b) { b.add(FACING, SLEW); }
+    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> b) { b.add(FACING, SLEW, LOAD); }
     @Override public BlockEntity newBlockEntity(BlockPos pos, BlockState state) { return new MechatronicsVisualBlockEntity(pos, state); }
     @Override public RenderShape getRenderShape(BlockState state) { return RenderShape.ENTITYBLOCK_ANIMATED; }
 
@@ -105,7 +117,10 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
         if (port.isEmpty()) return Optional.empty();
         Direction front = state.getValue(FACING);
         if (side == front) {
-            return Optional.of(new EngineeringPortSnapshot(port.get(), position(level, pos), 0.0, 15.0, PortQuality.VALID));
+            int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+            PortQuality quality = runtime != null && runtime.length >= RUNTIME_SIZE
+                    ? PortQuality.VALID : PortQuality.STALE;
+            return Optional.of(new EngineeringPortSnapshot(port.get(), position(level, pos), 0.0, 15.0, quality));
         }
         RedstoneObservationSupport.Observation observation = controlObservation(level, pos, side);
         return Optional.of(EngineeringPortSnapshot.redstone(
@@ -133,7 +148,11 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
                         "velocity", (long) velocity,
                         "error", (long) error(level, pos),
                         "braking", brake ? 1L : 0L,
-                        "soft_limit_hits", (long) softLimitHits(level, pos)
+                        "soft_limit_hits", (long) softLimitHits(level, pos),
+                        "load_profile", (long) state.getValue(LOAD),
+                        "load_delay_ticks", (long) loadDelayTicks(level, pos),
+                        "motion_samples", (long) motionSamples(level, pos),
+                        "reversals", (long) reversals(level, pos)
                 )
         );
     }
@@ -150,12 +169,29 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
     private static int clamp(int value, int lo, int hi) { return Math.max(lo, Math.min(hi, value)); }
 
     public static int slewStep(int index) { return STEP[Math.max(0, Math.min(STEP.length - 1, index))]; }
+    public static int loadIndex(BlockState state) { return Math.max(0, Math.min(3, state.getValue(LOAD))); }
+    public static String loadName(BlockState state) {
+        return switch (loadIndex(state)) {
+            case 0 -> "UNLOADED";
+            case 1 -> "LIGHT";
+            case 2 -> "MEDIUM";
+            default -> "HEAVY";
+        };
+    }
+    public static int accelerationPeriod(BlockState state) { return LOAD_ACCEL_PERIOD[loadIndex(state)]; }
+    public static int effectiveMaxSpeed(BlockState state) {
+        int base = STEP[Math.max(0, Math.min(STEP.length - 1, state.getValue(SLEW)))];
+        return Math.max(1, base - LOAD_SPEED_PENALTY[loadIndex(state)]);
+    }
     public static int position(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r==null||r.length<1?0:r[0]; }
     public static int command(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r==null||r.length<2?0:r[1]; }
     public static int velocity(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r==null||r.length<3?0:r[2]; }
     public static int error(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r==null||r.length<4?0:r[3]; }
     public static boolean braking(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r!=null&&r.length>4&&r[4]!=0; }
     public static int softLimitHits(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r==null||r.length<16?0:r[15]; }
+    public static int loadDelayTicks(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r==null||r.length<RUNTIME_SIZE?0:Math.max(0,r[LOAD_DELAY_TICKS_SLOT]); }
+    public static int reversals(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r==null||r.length<RUNTIME_SIZE?0:Math.max(0,r[REVERSALS_SLOT]); }
+    public static int motionSamples(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r==null||r.length<RUNTIME_SIZE?0:Math.max(0,r[MOTION_SAMPLES_SLOT]); }
 
     /** Shared server-state text for expert diagnostics and UI regression compatibility. */
     public static String compactDiagnostics(Level level, BlockPos pos) {
@@ -169,6 +205,9 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
                 + " error=" + r[3]
                 + " settle=" + r[11] + "t"
                 + " travel=" + r[12]
+                + " loadDelay=" + r[LOAD_DELAY_TICKS_SLOT] + "t"
+                + " reversals=" + r[REVERSALS_SLOT]
+                + " motionSamples=" + r[MOTION_SAMPLES_SLOT]
                 + " softLimitHits=" + r[15];
     }
 
@@ -213,18 +252,35 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
         r[1] = command; r[4] = brake ? 1 : 0; r[13] = mode;
 
         int oldPosition = r[0];
-        int maxSpeed = STEP[s.getValue(SLEW)];
+        int maxSpeed = effectiveMaxSpeed(s);
+        int accelPeriod = accelerationPeriod(s);
         int appliedVelocity = r[2];
         int velocityCommand = 0;
-        if (brake) appliedVelocity = 0;
-        else if (mode == VELOCITY_MODE) {
+        int desiredVelocity = 0;
+        if (mode == VELOCITY_MODE) {
             velocityCommand = effectiveCommand - 7;
-            appliedVelocity = approach(appliedVelocity, clamp(velocityCommand, -maxSpeed, maxSpeed), 1);
+            desiredVelocity = clamp(velocityCommand, -maxSpeed, maxSpeed);
         } else {
             int positionError = effectiveCommand - r[0];
-            int desiredVelocity = clamp(positionError, -maxSpeed, maxSpeed);
-            appliedVelocity = approach(appliedVelocity, desiredVelocity, 1);
-            if (Math.abs(appliedVelocity) > Math.abs(positionError)) appliedVelocity = positionError;
+            desiredVelocity = clamp(positionError, -maxSpeed, maxSpeed);
+        }
+
+        if (brake) {
+            appliedVelocity = 0;
+            r[ACCEL_PHASE_SLOT] = 0;
+        } else {
+            r[ACCEL_PHASE_SLOT]++;
+            boolean accelerationUpdate = r[ACCEL_PHASE_SLOT] >= accelPeriod;
+            if (accelerationUpdate) {
+                r[ACCEL_PHASE_SLOT] = 0;
+                appliedVelocity = approach(appliedVelocity, desiredVelocity, 1);
+            } else if (appliedVelocity != desiredVelocity) {
+                if (r[LOAD_DELAY_TICKS_SLOT] < Integer.MAX_VALUE) r[LOAD_DELAY_TICKS_SLOT]++;
+            }
+            if (mode == POSITION_MODE) {
+                int positionError = effectiveCommand - r[0];
+                if (Math.abs(appliedVelocity) > Math.abs(positionError)) appliedVelocity = positionError;
+            }
         }
 
         int candidatePosition = r[0] + appliedVelocity;
@@ -236,6 +292,14 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
         r[3] = !commandAvailable ? 0
                 : mode == POSITION_MODE ? effectiveCommand - r[0] : velocityCommand - appliedVelocity;
         r[12] += Math.abs(r[0] - oldPosition);
+        if (r[0] != oldPosition && r[MOTION_SAMPLES_SLOT] < Integer.MAX_VALUE) r[MOTION_SAMPLES_SLOT]++;
+        int previousVelocity = r[LAST_VELOCITY_SLOT];
+        if (previousVelocity != 0 && appliedVelocity != 0
+                && Integer.signum(previousVelocity) != Integer.signum(appliedVelocity)
+                && r[REVERSALS_SLOT] < Integer.MAX_VALUE) {
+            r[REVERSALS_SLOT]++;
+        }
+        r[LAST_VELOCITY_SLOT] = appliedVelocity;
         r[10] = Math.max(r[10], Math.abs(appliedVelocity));
         if (mode == POSITION_MODE && r[3] == 0 && oldPosition != r[0]) r[11] = Math.max(1, now - r[7]);
         if (!brake && r[3] != 0 && r[0] == oldPosition && appliedVelocity == 0) r[5]++;
@@ -255,8 +319,23 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
     protected InteractionResult useWithoutItem(BlockState s, Level l, BlockPos p, Player pl, BlockHitResult h) {
         if (!l.isClientSide && pl instanceof ServerPlayer serverPlayer) {
             if (pl.isShiftKeyDown()) {
-                homeAndReset(l, p);
-                pl.displayClientMessage(net.minecraft.network.chat.Component.literal("Servo homed; trajectory diagnostics reset"), true);
+                if (h.getDirection() == Direction.UP) {
+                    int nextLoad = (s.getValue(LOAD) + 1) % 4;
+                    l.setBlock(p, s.setValue(LOAD, nextLoad), Block.UPDATE_CLIENTS);
+                    if (l instanceof ServerLevel server) server.scheduleTick(p, this, 1);
+                    BlockState next = l.getBlockState(p);
+                    pl.displayClientMessage(net.minecraft.network.chat.Component.literal(
+                            "Servo mechanical load=" + loadName(next)
+                                    + " | accelPeriod=" + accelerationPeriod(next) + "t"
+                                    + " | maxSpeed=" + effectiveMaxSpeed(next)
+                                    + " | Shift-click TOP cycles load; Shift-click another face homes/resets"), true);
+                } else {
+                    homeAndReset(l, p);
+                    pl.displayClientMessage(net.minecraft.network.chat.Component.literal(
+                            "Servo homed; trajectory diagnostics reset"
+                                    + " | load=" + loadName(l.getBlockState(p))
+                                    + " | Shift-click TOP cycles mechanical load"), true);
+                }
             } else {
                 FieldDeviceUi.open(serverPlayer, p);
             }
