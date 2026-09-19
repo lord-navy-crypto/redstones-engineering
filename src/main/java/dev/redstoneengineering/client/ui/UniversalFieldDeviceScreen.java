@@ -1162,13 +1162,13 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
 
         int y = 112;
         if (in != null) {
-            graphics.drawString(font, "INPUT • " + in.getName().toUpperCase(), 16, 98, MUTED, false);
+            g.drawString(font, "INPUT • " + in.getName().toUpperCase(), 16, 98, MUTED, false);
             EngineeringPlot.analogFrame(g, 16, y, 132, 50);
             EngineeringPlot.analogTrace(g, portHistoryCount, i -> inputHistory[i],
                     menu.minimum(in), menu.maximum(in), 18, y + 3, 128, 44, INFO);
         }
         if (out != null) {
-            graphics.drawString(font, "OUTPUT • " + out.getName().toUpperCase(), 160, 98, MUTED, false);
+            g.drawString(font, "OUTPUT • " + out.getName().toUpperCase(), 160, 98, MUTED, false);
             EngineeringPlot.analogFrame(g, 160, y, 132, 50);
             EngineeringPlot.analogTrace(g, portHistoryCount, i -> outputHistory[i],
                     menu.minimum(out), menu.maximum(out), 162, y + 3, 128, 44, GOOD);
