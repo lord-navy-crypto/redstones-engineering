@@ -21,7 +21,8 @@ selector = "src/main/java/dev/redstoneengineering/block/SignalSelectorBlock.java
 selector_test = "src/main/java/dev/redstoneengineering/gametest/RseSignalSelectorEvidenceGameTests.java"
 scaler = "src/main/java/dev/redstoneengineering/block/RedstoneToLapisScalerBlock.java"
 quantizer = "src/main/java/dev/redstoneengineering/block/LapisToRedstoneQuantizerBlock.java"
-conversion_test = "src/main/java/dev/redstoneengineering/gametest/RseEighthTenDesignBugGameTests.java"
+conversion_test = "src/main/java/dev/redstoneengineering/gametest/RseFoundationDomainGameTests.java"
+registration = "src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java"
 lapis = "src/main/java/dev/redstoneengineering/block/LapisLowPassFilterBlock.java"
 quartz = "src/main/java/dev/redstoneengineering/block/QuartzClockDividerBlock.java"
 quartz_osc = "src/main/java/dev/redstoneengineering/block/QuartzOscillatorBlock.java"
@@ -57,6 +58,9 @@ require(quantizer,
 require(conversion_test,
         "conversionBridgesRetainLastCodeWhenEvidenceDisappears",
         "Missing upstream evidence was converted into a new numerical code")
+
+require(registration,
+        "event.register(RseFoundationDomainGameTests.class);")
 
 require(lapis,
         "HISTORY_SLOT",
