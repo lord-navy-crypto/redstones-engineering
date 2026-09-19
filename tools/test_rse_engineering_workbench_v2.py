@@ -495,6 +495,30 @@ class EngineeringWorkbenchV2Tests(unittest.TestCase):
         self.assertNotIn('Component.literal("RX ▲")', self.pid_screen)
         self.assertNotIn('Component.literal("TX ▲")', self.pid_screen)
 
+    def test_single_relay_exposes_pickup_timing_and_contact_mode_separately(self):
+        for token in [
+            "if (block instanceof SingleRelayBlock) return SingleRelayBlock.PICKUP_MODE",
+            "if (block instanceof SingleRelayBlock) return SingleRelayBlock.TIMING_MODE",
+            "SingleRelayBlock.stepPickup(level, blockPos, delta > 0)",
+            "SingleRelayBlock.stepTiming(level, blockPos, delta > 0)",
+            "SingleRelayBlock.toggleContactMode",
+        ]:
+            self.assertIn(token, self.universal_menu)
+        for token in [
+            'case UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY -> "Pickup"',
+            'case UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY -> "Timing"',
+            "RELAY PARAMETER WORKBENCH",
+            "Pickup / dropout",
+            "Operate / release",
+            "finite armature travel",
+        ]:
+            self.assertIn(token, self.universal_screen)
+        for token in [
+            'case UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY -> "Pickup profile"',
+            'case UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY -> "Timing profile"',
+        ]:
+            self.assertIn(token, self.catalog)
+
     def test_universal_devices_also_participate_in_model_parameter_workbench(self):
         for token in [
             "universal.editPrimaryAvailable()",
