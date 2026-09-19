@@ -410,12 +410,16 @@ public final class EngineeringWorkbenchCatalog {
     public static ModelCard describe(EngineeringDeviceMenu menu) {
         if (menu instanceof UniversalFieldDeviceMenu universal) return universal(universal);
         if (menu instanceof FieldDeviceMenu field) return field(field);
-        if (menu instanceof PidControllerMenu) return card(
+        if (menu instanceof PidControllerMenu pid) return card(
                 "FEEDBACK CONTROL",
-                "e = SP - PV;  u = P(e) + I(sum e) + D(delta e)",
-                "setpoint • process value • tuning preset • mode",
-                "compare target to measurement -> compute control effort -> observe response",
-                "Displayed equation explains the implemented control structure; the server remains authoritative.");
+                "e = SP - PV;  u = bias + Kp·e + integral/KiDiv - Kd·D(PV)",
+                "Kp=" + pid.proportionalGain()
+                        + " • KiDiv=" + pid.integralDivisor()
+                        + " • Kd=" + pid.derivativeGain()
+                        + " • Dsmooth=" + pid.derivativeSmoothing()
+                        + " • slew=" + pid.riseLimit() + "/" + pid.fallLimit(),
+                "compare target to measurement -> deadband -> P/I/D -> clamp -> actuator slew -> observe response",
+                "Preset selection changes a transparent six-parameter coefficient bank; the server remains authoritative.");
         if (menu instanceof SignalConditionerMenu) return card(
                 "SIGNAL CONDITIONING",
                 "y = bounded transform(x; gain, offset, clamp, threshold, deadband)",
