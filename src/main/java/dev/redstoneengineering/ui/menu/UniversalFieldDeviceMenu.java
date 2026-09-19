@@ -574,6 +574,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private IntegerProperty primaryEditableProperty(Block block) {
         if (block instanceof AnalogComparatorBlock) return AnalogComparatorBlock.HYSTERESIS;
+        if (block instanceof SingleRelayBlock) return SingleRelayBlock.PICKUP_MODE;
         if (block instanceof SignalAmplifierBlock) return SignalAmplifierBlock.GAIN_MODE;
         if (block instanceof RedundantVoterBlock) return RedundantVoterBlock.TOLERANCE;
         if (block instanceof WatchdogBlock) return WatchdogBlock.TIMEOUT;
@@ -602,6 +603,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     }
 
     private IntegerProperty secondaryEditableProperty(Block block) {
+        if (block instanceof SingleRelayBlock) return SingleRelayBlock.TIMING_MODE;
         if (block instanceof MagneticFieldSensorBlock) return MagneticFieldSensorBlock.SAMPLE_MODE;
         if (block instanceof EntityDensitySensorBlock) return EntityDensitySensorBlock.APERTURE_MODE;
         if (block instanceof LapisPrecisionRangeSensorBlock) return LapisPrecisionRangeSensorBlock.RANGE_INDEX;
@@ -633,7 +635,8 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     private boolean adjustPrimary(int delta) {
         Block block = level.getBlockState(blockPos).getBlock();
         if (block instanceof AnalogComparatorBlock) return AnalogComparatorBlock.stepHysteresis(level, blockPos, delta > 0);
-        if (block instanceof SignalAmplifierBlock) return SignalAmplifierBlock.stepGain(level, blockPos, delta > 0);
+        if (block instanceof SingleRelayBlock) return SingleRelayBlock.stepPickup(level, blockPos, delta > 0);
+                if (block instanceof SignalAmplifierBlock) return SignalAmplifierBlock.stepGain(level, blockPos, delta > 0);
         if (block instanceof RedundantVoterBlock) return RedundantVoterBlock.stepTolerance(level, blockPos, delta > 0);
         if (block instanceof WatchdogBlock) return WatchdogBlock.stepTimeout(level, blockPos, delta > 0);
         if (block instanceof DifferentialDriverBlock) return DifferentialDriverBlock.stepThreshold(level, blockPos, delta > 0);
@@ -661,8 +664,8 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean adjustSecondary(int delta) {
         Block block = level.getBlockState(blockPos).getBlock();
-        if (block instanceof SingleRelayBlock) return SingleRelayBlock.stepPickup(level, blockPos, delta > 0);
-        if (block instanceof MagneticFieldSensorBlock) return MagneticFieldSensorBlock.adjustSampling(level, blockPos, delta);
+        if (block instanceof SingleRelayBlock) return SingleRelayBlock.stepTiming(level, blockPos, delta > 0);
+                if (block instanceof MagneticFieldSensorBlock) return MagneticFieldSensorBlock.adjustSampling(level, blockPos, delta);
         if (block instanceof LapisPrecisionRangeSensorBlock range) return range.adjustRange(level, blockPos, delta);
         if (block instanceof EntityDensitySensorBlock) return EntityDensitySensorBlock.adjustAperture(level, blockPos, delta);
         return false;
