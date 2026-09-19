@@ -319,6 +319,26 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
                 : Math.max(0, rt[SLEW_EPISODES_SLOT]);
     }
 
+    public static int proportionalGain(BlockState state) {
+        return preset(state)[0];
+    }
+
+    public static int integralDivisor(BlockState state) {
+        return preset(state)[1];
+    }
+
+    public static int derivativeGain(BlockState state) {
+        return preset(state)[2];
+    }
+
+    public static int derivativeSmoothing(BlockState state) {
+        return preset(state)[3];
+    }
+
+    private static int[] preset(BlockState state) {
+        return PRESETS[Math.max(0, Math.min(PRESETS.length - 1, state.getValue(TUNING)))];
+    }
+
     public static int riseLimit(BlockState state) {
         return PRESETS[Math.max(0, Math.min(PRESETS.length - 1, state.getValue(TUNING)))][4];
     }
