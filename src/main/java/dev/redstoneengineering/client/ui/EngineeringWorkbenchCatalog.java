@@ -11,6 +11,17 @@ import java.util.List;
  * server-authoritative RSE devices. It never evaluates physics or acceptance logic.
  */
 public final class EngineeringWorkbenchCatalog {
+    public enum UiTier { BLOCK, DEVICE, LAB }
+
+    /**
+     * Minecraft-first UI policy. BLOCK keeps the GUI light, DEVICE adds bounded configuration,
+     * and LAB enables controlled experiments only when the underlying device semantics justify it.
+     */
+    public record UiPolicy(UiTier tier, String pageLabel, String rationale) {
+        public boolean experimental() { return tier == UiTier.LAB; }
+        public boolean configurable() { return tier != UiTier.BLOCK; }
+    }
+
     public record ModelCard(String family, String equation, String parameters, String process, String boundary) {}
 
     /**
@@ -43,8 +54,24 @@ public final class EngineeringWorkbenchCatalog {
             int decrementButton,
             int incrementButton,
             String unit,
-            String detail
+            String detail,
+            boolean fractionPresets,
+            boolean sweepMeaningful
     ) {
+        public ParameterSpec(
+                String label,
+                int current,
+                int minimum,
+                int maximum,
+                int decrementButton,
+                int incrementButton,
+                String unit,
+                String detail
+        ) {
+            this(label, current, minimum, maximum, decrementButton, incrementButton,
+                    unit, detail, false, false);
+        }
+
         public ParameterSpec {
             unit = unit == null ? "" : unit;
             detail = detail == null ? "" : detail;
@@ -52,6 +79,146 @@ public final class EngineeringWorkbenchCatalog {
     }
 
     private EngineeringWorkbenchCatalog() {}
+
+    public static UiPolicy uiPolicy(EngineeringDeviceMenu menu) {
+        if (menu instanceof PidControllerMenu
+                || menu instanceof SignalConditionerMenu
+                || menu instanceof SignalProcessorMenu
+                || menu instanceof SignalAnalyzerMenu
+                || menu instanceof OscilloscopeMenu
+                || menu instanceof LogicAnalyzerMenu) {
+            return lab("LAB", "Dynamic signal/control behavior benefits from measured experiments.");
+        }
+        if (menu instanceof QuartzTimingMenu) {
+            return lab("LAB", "Timing devices expose real edge/period behavior that benefits from measured experiments.");
+        }
+        if (menu instanceof AmethystSystemMenu amethyst) {
+            return switch (amethyst.kind()) {
+                case AmethystSystemMenu.KIND_SOURCE,
+                     AmethystSystemMenu.KIND_FILTER,
+                     AmethystSystemMenu.KIND_TUNED,
+                     AmethystSystemMenu.KIND_SPECTRUM ->
+                        lab("LAB", "Resonance/frequency behavior is meaningful as a measured experiment.");
+                default -> device("MODEL", "Active resonance device with bounded configuration/readback.");
+            };
+        }
+        if (menu instanceof PneumaticSystemMenu pneumatic) {
+            return switch (pneumatic.kind()) {
+                case PneumaticSystemMenu.KIND_COMPRESSOR,
+                     PneumaticSystemMenu.KIND_REGULATOR,
+                     PneumaticSystemMenu.KIND_PROPORTIONAL,
+                     PneumaticSystemMenu.KIND_CYLINDER,
+                     PneumaticSystemMenu.KIND_FLOW_METER ->
+                        lab("LAB", "Finite pressure/actuator dynamics justify response-oriented tooling.");
+                default -> device("MODEL", "Pneumatic component configuration belongs to the block, not a desktop simulator.");
+            };
+        }
+        if (menu instanceof ReliabilitySystemMenu reliability) {
+            return reliability.kind() == ReliabilitySystemMenu.KIND_SERVO
+                    ? lab("LAB", "Servo motion has real finite response and feedback behavior.")
+                    : device("MODEL", "Protection/voting devices need clear settings and state, not a full simulator.");
+        }
+        if (menu instanceof MagneticSystemMenu magnetic) {
+            return switch (magnetic.kind()) {
+                case MagneticSystemMenu.KIND_ELECTROMAGNET,
+                     MagneticSystemMenu.KIND_COIL ->
+                        lab("LAB", "Field/induction dynamics can produce meaningful measured response studies.");
+                default -> device("MODEL", "Magnetic source/sensor needs bounded configuration and evidence.");
+            };
+        }
+        if (menu instanceof RangeSensorMenu
+                || menu instanceof RadioLinkMenu
+                || menu instanceof DigitalCommunicationMenu
+                || menu instanceof OpticalSystemMenu
+                || menu instanceof MediaConversionMenu
+                || menu instanceof CopperCircuitMeterMenu) {
+            return device("MODEL", "Keep configuration and evidence close to the in-world block.");
+        }
+        if (menu instanceof UniversalFieldDeviceMenu universal) {
+            return universalPolicy(universal.configKind());
+        }
+        if (menu instanceof FieldDeviceMenu field) {
+            return fieldPolicy(field.kind());
+        }
+        return device("MODEL", "Use the smallest engineering UI that still explains the block.");
+    }
+
+    private static UiPolicy universalPolicy(int kind) {
+        return switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_NONE,
+                 UniversalFieldDeviceMenu.CONFIG_REDSTONE_CABLE,
+                 UniversalFieldDeviceMenu.CONFIG_JUNCTION,
+                 UniversalFieldDeviceMenu.CONFIG_SERIAL_LINE,
+                 UniversalFieldDeviceMenu.CONFIG_DIFF_PAIR,
+                 UniversalFieldDeviceMenu.CONFIG_DATA_BUS,
+                 UniversalFieldDeviceMenu.CONFIG_INSTRUMENT_BUS,
+                 UniversalFieldDeviceMenu.CONFIG_QUARTZ_TRACE,
+                 UniversalFieldDeviceMenu.CONFIG_SIGNAL_TAP ->
+                    block("INFO", "Passive transport/topology block: world wiring and port evidence are the main interface.");
+            case UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD,
+                 UniversalFieldDeviceMenu.CONFIG_PWM,
+                 UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR,
+                 UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAPIS_SAMPLER ->
+                    lab("LAB", "Discrete-time behavior is meaningful to observe experimentally.");
+            default -> device("MODEL", "Configurable field device: exact settings and evidence, without desktop-style workflow overhead.");
+        };
+    }
+
+    private static UiPolicy fieldPolicy(int kind) {
+        return switch (kind) {
+            case FieldDeviceMenu.KIND_UNKNOWN,
+                 FieldDeviceMenu.KIND_TERMINAL,
+                 FieldDeviceMenu.KIND_REDSTONE_CABLE,
+                 FieldDeviceMenu.KIND_REDSTONE_JUNCTION,
+                 FieldDeviceMenu.KIND_INSTRUMENT_CABLE,
+                 FieldDeviceMenu.KIND_DATA_BUS_8,
+                 FieldDeviceMenu.KIND_SERIAL_LINE,
+                 FieldDeviceMenu.KIND_DIFFERENTIAL_PAIR,
+                 FieldDeviceMenu.KIND_AMETHYST_DUST,
+                 FieldDeviceMenu.KIND_SLIME_VIBRATION,
+                 FieldDeviceMenu.KIND_HYDRO_TUBE,
+                 FieldDeviceMenu.KIND_PHONON_CONDUIT,
+                 FieldDeviceMenu.KIND_SHIELDED_INSTRUMENT_CABLE,
+                 FieldDeviceMenu.KIND_PNEUMATIC_PIPE,
+                 FieldDeviceMenu.KIND_LAPIS_LINE,
+                 FieldDeviceMenu.KIND_QUARTZ_LINE,
+                 FieldDeviceMenu.KIND_OPTICAL_FIBER,
+                 FieldDeviceMenu.KIND_OPTICAL_FIBER_JUNCTION ->
+                    block("INFO", "Passive medium/topology block: keep interaction lightweight and world-centric.");
+
+            case FieldDeviceMenu.KIND_FILTER,
+                 FieldDeviceMenu.KIND_EDGE_DETECTOR,
+                 FieldDeviceMenu.KIND_PULSE_SHAPER,
+                 FieldDeviceMenu.KIND_QUARTZ_OSCILLATOR,
+                 FieldDeviceMenu.KIND_QUARTZ_DIVIDER,
+                 FieldDeviceMenu.KIND_QUARTZ_STABILITY,
+                 FieldDeviceMenu.KIND_AMETHYST_RESONATOR,
+                 FieldDeviceMenu.KIND_AMETHYST_FILTER,
+                 FieldDeviceMenu.KIND_AMETHYST_TUNED,
+                 FieldDeviceMenu.KIND_AMETHYST_SPECTRUM,
+                 FieldDeviceMenu.KIND_AIR_COMPRESSOR,
+                 FieldDeviceMenu.KIND_PRESSURE_REGULATOR,
+                 FieldDeviceMenu.KIND_PNEUMATIC_PROPORTIONAL_VALVE,
+                 FieldDeviceMenu.KIND_PNEUMATIC_CYLINDER,
+                 FieldDeviceMenu.KIND_INDUCTION_COIL,
+                 FieldDeviceMenu.KIND_SERVO_ACTUATOR ->
+                    lab("LAB", "This block has time/frequency/dynamic behavior worth measuring, not merely configuring.");
+
+            default -> device("MODEL", "Active or configurable device: expose settings, result and evidence without overbuilding the GUI.");
+        };
+    }
+
+    private static UiPolicy block(String label, String rationale) {
+        return new UiPolicy(UiTier.BLOCK, label, rationale);
+    }
+
+    private static UiPolicy device(String label, String rationale) {
+        return new UiPolicy(UiTier.DEVICE, label, rationale);
+    }
+
+    private static UiPolicy lab(String label, String rationale) {
+        return new UiPolicy(UiTier.LAB, label, rationale);
+    }
 
     public static ModelCard describe(EngineeringDeviceMenu menu) {
         if (menu instanceof UniversalFieldDeviceMenu universal) return universal(universal);
@@ -632,6 +799,30 @@ public final class EngineeringWorkbenchCatalog {
     ) {
         return new ParameterSpec(label, current, minimum, maximum,
                 decrementButton, incrementButton, unit, detail);
+    }
+
+    private static ParameterSpec scaledSpec(
+            String label, int current, int minimum, int maximum,
+            int decrementButton, int incrementButton, String unit, String detail
+    ) {
+        return new ParameterSpec(label, current, minimum, maximum,
+                decrementButton, incrementButton, unit, detail, true, false);
+    }
+
+    private static ParameterSpec sweepSpec(
+            String label, int current, int minimum, int maximum,
+            int decrementButton, int incrementButton, String unit, String detail
+    ) {
+        return new ParameterSpec(label, current, minimum, maximum,
+                decrementButton, incrementButton, unit, detail, false, true);
+    }
+
+    private static ParameterSpec experimentSpec(
+            String label, int current, int minimum, int maximum,
+            int decrementButton, int incrementButton, String unit, String detail
+    ) {
+        return new ParameterSpec(label, current, minimum, maximum,
+                decrementButton, incrementButton, unit, detail, true, true);
     }
 
     private static ModelCard universal(UniversalFieldDeviceMenu menu) {
