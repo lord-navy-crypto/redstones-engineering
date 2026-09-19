@@ -134,7 +134,13 @@ public class AnalogIndicatorBlock extends DirectionalRedstoneEndpointBlock imple
 
     private void update(Level level, BlockPos pos, BlockState state) {
         InputObservation observation = inputObservation(level, pos, state);
-        if (observation.quality() == PortQuality.STALE) return;
+        if (observation.quality() == PortQuality.STALE
+                || observation.quality() == PortQuality.FAULT
+                || observation.quality() == PortQuality.DOMAIN_MISMATCH
+                || observation.quality() == PortQuality.TOPOLOGY_ERROR) {
+            // Degraded evidence must not overwrite the last trustworthy displayed value.
+            return;
+        }
         int value = observation.value();
         if (observation.quality() == PortQuality.VALID) {
             int[] runtime = RuntimeIntStore.get(level, RUNTIME_KEY, pos, RUNTIME_SIZE);
