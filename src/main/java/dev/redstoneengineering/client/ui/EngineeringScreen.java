@@ -276,6 +276,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private void selectWorkbenchParameter(int delta) {
         List<EngineeringWorkbenchCatalog.ParameterSpec> specs = workbenchParameters();
         if (specs.isEmpty()) return;
+        workbenchSweepActive = false;
         workbenchParameterIndex = Math.floorMod(workbenchParameterIndex + delta, specs.size());
         if (workbenchTarget != null) workbenchTarget.setFocused(false);
         syncWorkbenchControls();
@@ -534,6 +535,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         this.section = target;
         this.routePage = false;
         this.workbenchPage = false;
+        this.workbenchSweepActive = false;
         updateWidgetVisibility();
         syncDeviceWidgetLabels();
         syncRouteControls();
@@ -543,6 +545,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private void setRoutePage() {
         routePage = true;
         workbenchPage = false;
+        workbenchSweepActive = false;
         updateWidgetVisibility();
         syncDeviceWidgetLabels();
         syncRouteControls();
