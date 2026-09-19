@@ -736,13 +736,14 @@ public final class EngineeringWorkbenchCatalog {
         if (menu instanceof ReliabilitySystemMenu reliability
                 && reliability.kind() == ReliabilitySystemMenu.KIND_SERVO) {
             return lab(
-                    "How does the slew profile affect real actuator tracking?",
-                    "slew profile / command",
+                    "How do slew and load profiles affect real actuator tracking?",
+                    "slew / load profile / command",
                     "servo position and error",
                     metric("Position", reliability.primary() + "/15", "Current servo position."),
                     metric("Command", reliability.secondary() + "/15", "Requested position."),
                     metric("Error", Integer.toString(reliability.auxiliary()), "Command minus actual position."),
-                    "Velocity " + reliability.tertiary() + " • soft-limit hits " + reliability.extraB()
+                    "Velocity " + reliability.tertiary() + " • load profile " + reliability.secondaryParameterIndex()
+                            + " • soft-limit hits " + reliability.extraB()
             );
         }
 
@@ -1032,9 +1033,13 @@ public final class EngineeringWorkbenchCatalog {
                                 "index", "Selects the server-owned heartbeat timeout profile.")
                 );
                 case ReliabilitySystemMenu.KIND_SERVO -> List.of(
-                        spec("Servo slew profile", reliability.parameterIndex(), 0, 2,
+                        sweepSpec("Servo slew profile", reliability.parameterIndex(), 0, 2,
                                 ReliabilitySystemMenu.BUTTON_PARAMETER_PREVIOUS, ReliabilitySystemMenu.BUTTON_PARAMETER_NEXT,
-                                "index", "Controls bounded actuator slew response.")
+                                "index", "Controls bounded actuator slew response."),
+                        sweepSpec("Load / inertia profile", reliability.secondaryParameterIndex(), 0, 3,
+                                ReliabilitySystemMenu.BUTTON_SECONDARY_PARAMETER_PREVIOUS,
+                                ReliabilitySystemMenu.BUTTON_SECONDARY_PARAMETER_NEXT,
+                                "index", "0=unloaded, 1=light, 2=medium, 3=heavy; affects finite motion response.")
                 );
                 case ReliabilitySystemMenu.KIND_VOTER -> List.of(
                         spec("Voting tolerance", reliability.parameterIndex(), 0, 3,
