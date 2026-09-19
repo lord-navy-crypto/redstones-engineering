@@ -244,6 +244,37 @@ class EngineeringWorkbenchV2Tests(unittest.TestCase):
         self.assertIn("DiagnosticTabletMenu", self.ui_registration)
         self.assertIn("Global tools are different", self.design_doc)
 
+    def test_fallback_advanced_blocks_have_real_model_cards(self):
+        for token in [
+            "SLEW-RATE FILTER",
+            "EDGE DETECTOR",
+            "MONOSTABLE / PULSE SHAPER",
+            "QUARTZ CLOCK SOURCE",
+            "CLOCK DIVIDER",
+            "TIMING STABILITY MONITOR",
+            "TUNED RESONATOR",
+            "AIR COMPRESSOR",
+            "PRESSURE REGULATOR",
+            "PROPORTIONAL VALVE",
+            "PNEUMATIC CYLINDER",
+            "INDUCTION COIL",
+            "SERVO ACTUATOR",
+            "2oo3 VOTER",
+            "FAULT LATCH",
+            "OPTICAL ATTENUATOR",
+        ]:
+            self.assertIn(token, self.catalog)
+
+    def test_fallback_experiments_use_real_synchronized_responses(self):
+        for token in [
+            'response("Filtered output"',
+            'response("Realized period"',
+            'response("Regulated pressure"',
+            'response("Induced voltage"',
+            'response("Optical output"',
+        ]:
+            self.assertIn(token, self.catalog)
+
     def test_universal_devices_also_participate_in_model_parameter_workbench(self):
         for token in [
             "universal.editPrimaryAvailable()",
