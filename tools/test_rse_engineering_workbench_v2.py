@@ -1,3 +1,4 @@
+import re
 import unittest
 from pathlib import Path
 
@@ -11,6 +12,7 @@ class EngineeringWorkbenchV2Tests(unittest.TestCase):
         self.universal_screen = (ROOT / "src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java").read_text(encoding="utf-8")
         self.universal_menu = (ROOT / "src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java").read_text(encoding="utf-8")
         self.design_doc = (ROOT / "docs/ENGINEERING_UI_MINECRAFT_FIRST.md").read_text(encoding="utf-8")
+        self.client_registration = (ROOT / "src/main/java/dev/redstoneengineering/client/ui/EngineeringUiClientRegistration.java").read_text(encoding="utf-8")
         self.ui_registration = (ROOT / "src/main/java/dev/redstoneengineering/ui/EngineeringUiRegistration.java").read_text(encoding="utf-8")
 
     def test_every_engineering_screen_gets_model_page(self):
@@ -386,6 +388,22 @@ class EngineeringWorkbenchV2Tests(unittest.TestCase):
             "Generic LAB framing is allowed only for an explicitly declared experiment variable",
         ]:
             self.assertIn(token, self.catalog)
+
+    def test_registered_block_hmis_share_the_tiered_engineering_screen(self):
+        registrations = re.findall(
+            r"event\.register\([^,]+,\s*([A-Za-z0-9_]+)::new\)",
+            self.client_registration,
+        )
+        self.assertGreater(len(registrations), 10)
+        global_tools = {"RedstoneEncyclopediaScreen", "DiagnosticTabletScreen"}
+        for screen_name in registrations:
+            path = ROOT / "src/main/java/dev/redstoneengineering/client/ui" / f"{screen_name}.java"
+            self.assertTrue(path.exists(), screen_name)
+            source = path.read_text(encoding="utf-8")
+            if screen_name in global_tools:
+                self.assertIn("extends AbstractContainerScreen", source)
+            else:
+                self.assertIn("extends EngineeringScreen<", source, screen_name)
 
     def test_universal_devices_also_participate_in_model_parameter_workbench(self):
         for token in [
