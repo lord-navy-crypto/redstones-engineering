@@ -62,7 +62,7 @@ public final class RseDiagnosticsScreen extends Screen {
 
     private final Screen parent;
     private Filter filter = Filter.ALL;
-    private View view = View.OVERVIEW;
+    private View view = View.FEEDBACK;
     private int page;
     private String feedback = "";
     private int feedbackTicks;
