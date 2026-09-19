@@ -227,6 +227,7 @@ public final class EngineeringWorkbenchCatalog {
 
     public static ModelCard describe(EngineeringDeviceMenu menu) {
         if (menu instanceof UniversalFieldDeviceMenu universal) return universal(universal);
+        if (menu instanceof FieldDeviceMenu field) return field(field);
         if (menu instanceof PidControllerMenu) return card(
                 "FEEDBACK CONTROL",
                 "e = SP - PV;  u = P(e) + I(sum e) + D(delta e)",
@@ -419,6 +420,16 @@ public final class EngineeringWorkbenchCatalog {
                         spec("Quality threshold", field.tertiary(), 0, 2,
                                 FieldDeviceMenu.BUTTON_PRIMARY_DECREASE, FieldDeviceMenu.BUTTON_PRIMARY_INCREASE,
                                 "mode", "Digital regeneration threshold profile.")
+                );
+                case FieldDeviceMenu.KIND_PRESSURE_REGULATOR -> List.of(
+                        experimentSpec("Pressure setpoint", field.tertiary(), 1, 4,
+                                FieldDeviceMenu.BUTTON_PRIMARY_DECREASE, FieldDeviceMenu.BUTTON_PRIMARY_INCREASE,
+                                "index", "Raw 1..4 setpoint index; physical setpoint is derived server-side.")
+                );
+                case FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE -> List.of(
+                        scaledSpec("Relief setpoint", Math.max(1, field.tertiary() / 25), 1, 4,
+                                FieldDeviceMenu.BUTTON_PRIMARY_DECREASE, FieldDeviceMenu.BUTTON_PRIMARY_INCREASE,
+                                "x25 pressure", "Protective vent threshold; kept as a configuration control rather than an automated sweep.")
                 );
                 case FieldDeviceMenu.KIND_PERMANENT_MAGNET -> List.of(
                         spec("Magnet strength", field.primary(), 1, 15,
@@ -676,6 +687,26 @@ public final class EngineeringWorkbenchCatalog {
             }
             return null;
         }
+        if (menu instanceof FieldDeviceMenu field) {
+            return switch (field.kind()) {
+                case FieldDeviceMenu.KIND_FILTER ->
+                        response("Filtered output", field.secondary(), 0, 15, "/15",
+                                field.dataValid(), "Live slew-limited output.");
+                case FieldDeviceMenu.KIND_QUARTZ_OSCILLATOR ->
+                        response("Realized period", field.secondary(), 1, 64, "ticks",
+                                field.dataValid(), "Synchronized effective period evidence.");
+                case FieldDeviceMenu.KIND_PRESSURE_REGULATOR ->
+                        response("Regulated pressure", field.primary(), 0, 100, "/100",
+                                field.dataValid(), "Live pneumatic pressure at the regulator.");
+                case FieldDeviceMenu.KIND_INDUCTION_COIL ->
+                        response("Induced voltage", field.secondary(), 0, 15, "/15",
+                                field.dataValid(), "Live copper-domain induced output.");
+                case FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR ->
+                        response("Optical output", field.secondary(), 0, 15, "/15",
+                                field.dataValid(), "Live attenuated optical output.");
+                default -> null;
+            };
+        }
         if (menu instanceof PidControllerMenu pid) {
             return response("Control output", pid.controlOutput(), 0, 15, "/15",
                     pid.available(), "Live PID command after the currently selected tuning profile.");
@@ -862,6 +893,172 @@ public final class EngineeringWorkbenchCatalog {
     ) {
         return new ParameterSpec(label, current, minimum, maximum,
                 decrementButton, incrementButton, unit, detail, true, true);
+    }
+
+    private static ModelCard field(FieldDeviceMenu menu) {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_REDSTONE_CABLE,
+                 FieldDeviceMenu.KIND_REDSTONE_JUNCTION,
+                 FieldDeviceMenu.KIND_INSTRUMENT_CABLE,
+                 FieldDeviceMenu.KIND_DATA_BUS_8,
+                 FieldDeviceMenu.KIND_SERIAL_LINE,
+                 FieldDeviceMenu.KIND_DIFFERENTIAL_PAIR,
+                 FieldDeviceMenu.KIND_AMETHYST_DUST,
+                 FieldDeviceMenu.KIND_SLIME_VIBRATION,
+                 FieldDeviceMenu.KIND_HYDRO_TUBE,
+                 FieldDeviceMenu.KIND_PHONON_CONDUIT,
+                 FieldDeviceMenu.KIND_SHIELDED_INSTRUMENT_CABLE,
+                 FieldDeviceMenu.KIND_PNEUMATIC_PIPE,
+                 FieldDeviceMenu.KIND_LAPIS_LINE,
+                 FieldDeviceMenu.KIND_QUARTZ_LINE,
+                 FieldDeviceMenu.KIND_OPTICAL_FIBER,
+                 FieldDeviceMenu.KIND_OPTICAL_FIBER_JUNCTION ->
+                    card("PASSIVE INTERCONNECT",
+                            "output evidence follows the connected medium/topology; no active conversion",
+                            "route • medium • quality",
+                            "world connection -> continuity/topology check -> propagate existing evidence",
+                            "A passive block does not create signal precision, energy, timing edges, or history.");
+
+            case FieldDeviceMenu.KIND_FILTER ->
+                    card("SLEW-RATE FILTER",
+                            "e = x-y; y[k+1] approaches x by bounded rise/fall rate",
+                            "rise rate • fall rate",
+                            "observe input -> retain physical output -> move toward input by bounded rate",
+                            "Missing input evidence retains the last physical output instead of treating unknown as zero.");
+
+            case FieldDeviceMenu.KIND_EDGE_DETECTOR ->
+                    card("EDGE DETECTOR",
+                            "edge[k] = transition(x[k-1], x[k], configured edge mode)",
+                            "rising / falling / both",
+                            "acquire baseline -> compare genuine successive states -> emit finite edge pulse",
+                            "Startup or bad-evidence reacquisition establishes a baseline and must not manufacture an edge.");
+
+            case FieldDeviceMenu.KIND_PULSE_SHAPER ->
+                    card("MONOSTABLE / PULSE SHAPER",
+                            "trigger when x >= threshold; re-arm below threshold-hysteresis; output HIGH for W ticks",
+                            "pulse width • threshold • hysteresis • retrigger mode",
+                            "classify threshold crossing -> accept trigger -> hold timed pulse -> re-arm",
+                            "An accepted pulse may finish on its own timer; uncertain input cannot create a new trigger.");
+
+            case FieldDeviceMenu.KIND_QUARTZ_OSCILLATOR ->
+                    card("QUARTZ CLOCK SOURCE",
+                            "clock toggles every T/2; rising edges repeat every effective period T",
+                            "period index",
+                            "run waveform -> latch configured period only at a real transition -> publish timing evidence",
+                            "Changing the period never creates an early synthetic edge.");
+
+            case FieldDeviceMenu.KIND_QUARTZ_DIVIDER ->
+                    card("CLOCK DIVIDER",
+                            "T_out = N * T_in after genuine input-edge counting",
+                            "division ratio",
+                            "reacquire input baseline -> count real edges -> toggle divided output",
+                            "Missing timing continuity invalidates edge history; the divider does not infer missing transitions.");
+
+            case FieldDeviceMenu.KIND_QUARTZ_STABILITY ->
+                    card("TIMING STABILITY MONITOR",
+                            "T_measured = t(edge_n) - t(edge_n-1)",
+                            "nominal timing evidence",
+                            "observe successive genuine edges -> compare intervals -> report timing error",
+                            "This is a timing observer, not a hidden clock source.");
+
+            case FieldDeviceMenu.KIND_AMETHYST_RESONATOR ->
+                    card("RESONANCE SOURCE",
+                            "amplitude evolves from configured excitation and finite ring-down",
+                            "frequency • peak amplitude",
+                            "excite -> oscillate at configured frequency -> decay over time",
+                            "Frequency/amplitude are physical-domain state, separate from evidence validity.");
+
+            case FieldDeviceMenu.KIND_AMETHYST_FILTER ->
+                    card("FREQUENCY FILTER",
+                            "A_out = A_in when f_in matches selected band; otherwise attenuated/rejected",
+                            "target frequency",
+                            "observe resonance evidence -> compare frequency -> pass/reject amplitude",
+                            "A numerical retained amplitude is not accepted when frequency/topology evidence is invalid.");
+
+            case FieldDeviceMenu.KIND_AMETHYST_TUNED ->
+                    card("TUNED RESONATOR",
+                            "response = F(|f-f0|, Q, input amplitude)",
+                            "natural frequency f0 • Q index",
+                            "receive drive -> compute bounded resonance response -> retain/ring down according to model",
+                            "Sweep is appropriate only because frequency/Q changes have a measurable live amplitude response.");
+
+            case FieldDeviceMenu.KIND_AIR_COMPRESSOR ->
+                    card("AIR COMPRESSOR",
+                            "P_actual[k+1] approaches P_target(command) with finite spool response",
+                            "response profile • Redstone command",
+                            "read command -> compute target pressure -> slew actual pressure -> feed pneumatic network",
+                            "Commanded pressure and actual pressure are intentionally different states.");
+
+            case FieldDeviceMenu.KIND_PRESSURE_REGULATOR ->
+                    card("PRESSURE REGULATOR",
+                            "P_out approaches bounded setpoint subject to upstream supply and network loss",
+                            "pressure setpoint",
+                            "observe upstream pressure -> apply regulation target -> publish downstream pressure",
+                            "Setpoint is not proof that downstream pressure actually reached the requested value.");
+
+            case FieldDeviceMenu.KIND_PNEUMATIC_PROPORTIONAL_VALVE ->
+                    card("PROPORTIONAL VALVE",
+                            "opening[k+1] approaches command with configured finite response",
+                            "response profile • command",
+                            "read control -> move valve opening -> alter pneumatic restriction -> observe downstream state",
+                            "The valve exposes actual opening separately from command.");
+
+            case FieldDeviceMenu.KIND_PNEUMATIC_CYLINDER ->
+                    card("PNEUMATIC CYLINDER",
+                            "target ~= round(15 P/100); position moves one step per pressure-dependent response period",
+                            "supply pressure • path loss",
+                            "solve inlet pressure -> derive equilibrium target -> move finite linear position -> output feedback",
+                            "This is a lumped Minecraft-scale actuator model, not CFD.");
+
+            case FieldDeviceMenu.KIND_INDUCTION_COIL ->
+                    card("INDUCTION COIL",
+                            "|emf| proportional to N * |delta Phi / delta t|",
+                            "turns index N",
+                            "sample magnetic field -> establish derivative baseline -> measure flux change -> drive copper voltage",
+                            "A constant valid field produces valid zero EMF; missing magnetic evidence is not zero field.");
+
+            case FieldDeviceMenu.KIND_SERVO_ACTUATOR ->
+                    card("SERVO ACTUATOR",
+                            "velocity approaches bounded command; position[k+1] = clamp(position[k] + velocity, 0, 15)",
+                            "slew profile • load • mode/brake inputs",
+                            "read command/mode/brake -> update velocity with load-limited acceleration -> integrate position",
+                            "Command, desired velocity, actual velocity, and measured position remain distinct.");
+
+            case FieldDeviceMenu.KIND_WATCHDOG ->
+                    card("WATCHDOG",
+                            "trip when heartbeat age exceeds configured timeout",
+                            "timeout profile",
+                            "observe heartbeat -> measure age -> enter protective output on timeout",
+                            "A timeout is a protective state and must not be confused with invalid measurement evidence.");
+
+            case FieldDeviceMenu.KIND_REDUNDANT_VOTER ->
+                    card("2oo3 VOTER",
+                            "output = consensus(inputs, tolerance) when enough valid channels agree",
+                            "tolerance profile",
+                            "validate three channels -> measure spread -> vote or degrade",
+                            "A retained output does not hide disagreement or degraded evidence.");
+
+            case FieldDeviceMenu.KIND_FAULT_LATCH ->
+                    card("FAULT LATCH",
+                            "latched = latched OR trip(input >= threshold) until permitted reset",
+                            "trip threshold",
+                            "observe fault evidence -> latch protective state -> require explicit valid reset",
+                            "Safety memory is operational state, separate from signal quality.");
+
+            case FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR ->
+                    card("OPTICAL ATTENUATOR",
+                            "I_out = max(0, I_in - configured loss)",
+                            "attenuation loss",
+                            "observe optical input -> subtract bounded passive loss -> propagate channel/evidence",
+                            "Attenuation cannot create intensity or repair missing channel evidence.");
+
+            default ->
+                    card("ENGINEERING BLOCK MODEL",
+                            "state[k+1] = F(state[k], input evidence, block-owned configuration)",
+                            "device-specific synchronized configuration",
+                            "world input -> server-owned state update -> explicit output/evidence",
+                            "The HMI explains this Minecraft block; it does not replace the world with a desktop simulator.");
+        };
     }
 
     private static ModelCard universal(UniversalFieldDeviceMenu menu) {
