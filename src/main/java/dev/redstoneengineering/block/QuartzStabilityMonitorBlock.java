@@ -95,6 +95,7 @@ public class QuartzStabilityMonitorBlock extends DirectionalDomainBlock implemen
                 : (input.valid() ? PortQuality.VALID : PortQuality.NO_SIGNAL);
         PortQuality quality;
         if (upstream == PortQuality.TOPOLOGY_ERROR) quality = PortQuality.TOPOLOGY_ERROR;
+        else if (upstream == PortQuality.STALE) quality = PortQuality.STALE;
         else if (input.valid() && measurement.currentMeasurement()) quality = PortQuality.VALID;
         else if (measurement.period() > 0) quality = PortQuality.STALE;
         else quality = PortQuality.NO_SIGNAL;
