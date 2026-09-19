@@ -263,7 +263,8 @@ public final class EngineeringWorkbenchCatalog {
             case UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD,
                  UniversalFieldDeviceMenu.CONFIG_PWM,
                  UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR,
-                 UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAPIS_SAMPLER ->
+                 UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAPIS_SAMPLER,
+                 UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR ->
                     lab("LAB", "Discrete-time behavior has meaningful server-owned timing or capture dynamics.");
 
             case UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER,
@@ -298,7 +299,11 @@ public final class EngineeringWorkbenchCatalog {
                  UniversalFieldDeviceMenu.CONFIG_REDUNDANT_VOTER,
                  UniversalFieldDeviceMenu.CONFIG_SIGNAL_AMPLIFIER,
                  UniversalFieldDeviceMenu.CONFIG_SIGNAL_SELECTOR,
-                 UniversalFieldDeviceMenu.CONFIG_ANALOG_COMPARATOR ->
+                 UniversalFieldDeviceMenu.CONFIG_ANALOG_COMPARATOR,
+                 UniversalFieldDeviceMenu.CONFIG_COPPER_SOURCE,
+                 UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR,
+                 UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD,
+                 UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE ->
                     device("MODEL", "Active/configurable block: expose owned settings, readback and evidence without desktop-workspace overhead.");
 
             default -> device("MODEL", "UNREVIEWED CONFIG KIND • fail-safe device UI; CI requires every registered kind to be classified explicitly.");
@@ -793,7 +798,8 @@ public final class EngineeringWorkbenchCatalog {
             if (universal.editPrimaryAvailable()) {
                 boolean sweep = switch (universal.configKind()) {
                     case UniversalFieldDeviceMenu.CONFIG_ANALOG_COMPARATOR,
-                         UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD -> true;
+                         UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD,
+                         UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR -> true;
                     default -> false;
                 };
                 boolean numeric = switch (universal.configKind()) {
@@ -804,7 +810,12 @@ public final class EngineeringWorkbenchCatalog {
                          UniversalFieldDeviceMenu.CONFIG_REFERENCE_SOURCE,
                          UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD,
                          UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER,
-                         UniversalFieldDeviceMenu.CONFIG_PWM -> true;
+                         UniversalFieldDeviceMenu.CONFIG_PWM,
+                         UniversalFieldDeviceMenu.CONFIG_COPPER_SOURCE,
+                         UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR,
+                         UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD,
+                         UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR,
+                         UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE -> true;
                     default -> false;
                 };
                 boolean fractions = switch (universal.configKind()) {
@@ -812,7 +823,10 @@ public final class EngineeringWorkbenchCatalog {
                          UniversalFieldDeviceMenu.CONFIG_DIFF_DRIVER,
                          UniversalFieldDeviceMenu.CONFIG_REGENERATOR,
                          UniversalFieldDeviceMenu.CONFIG_REFERENCE_SOURCE,
-                         UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER -> true;
+                         UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER,
+                         UniversalFieldDeviceMenu.CONFIG_COPPER_SOURCE,
+                         UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR,
+                         UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD -> true;
                     default -> false;
                 };
                 ParameterControl control = sweep ? ParameterControl.EXPERIMENT
@@ -1368,6 +1382,11 @@ public final class EngineeringWorkbenchCatalog {
             case UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD -> "Trigger mode";
             case UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR -> "Fault mode";
             case UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY -> "Pickup profile";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_SOURCE -> "Source voltage";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR -> "Series resistance";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD -> "Load resistance";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR -> "Capacitance index";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE -> "Fuse rating";
             default -> "Parameter A";
         };
     }
@@ -1383,6 +1402,11 @@ public final class EngineeringWorkbenchCatalog {
             case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER -> "sensitivity";
             case UniversalFieldDeviceMenu.CONFIG_PWM -> "ticks/index";
             case UniversalFieldDeviceMenu.CONFIG_SIGNAL_PROBE -> "channel";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_SOURCE -> "V-level";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR,
+                 UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD -> "R-level";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR -> "C-index";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE -> "I-rating";
             default -> "profile";
         };
     }
@@ -1405,6 +1429,16 @@ public final class EngineeringWorkbenchCatalog {
                     "Receiver sensitivity; exact bounded detection parameter.";
             case UniversalFieldDeviceMenu.CONFIG_PWM ->
                     "PWM period/index; exact discrete numeric timing configuration.";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_SOURCE ->
+                    "Exact 0..15 Copper source voltage; network recomputes after every authoritative change.";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR ->
+                    "Exact series resistance; changing it invalidates stale Vout evidence before the next physical tick.";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD ->
+                    "Exact terminal load resistance used by I=V/R and P=VI calculations.";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR ->
+                    "Capacitance profile controlling RC time response; stored charge is retained when C changes.";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE ->
+                    "Protective current rating; thermal exposure is retained across rating changes and this parameter is never auto-swept.";
             default -> "Bounded server-owned device configuration. Categorical modes remain Prev/Next rather than fake numeric sliders.";
         };
     }
@@ -1631,6 +1665,26 @@ public final class EngineeringWorkbenchCatalog {
 
     private static ModelCard universal(UniversalFieldDeviceMenu menu) {
         return switch (menu.configKind()) {
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_SOURCE -> card(
+                    "COPPER VOLTAGE SOURCE", "V_out = configured V_source",
+                    "source voltage 0..15", "set durable source level -> recompute connected Copper network -> expose voltage evidence",
+                    "Configured zero is a real source setting; changing voltage recomputes the network.");
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR -> card(
+                    "SERIES RESISTOR", "I = V_in / (R_s + R_load); V_out = I * R_load",
+                    "series resistance R_s", "observe input/load -> solve divider -> publish output voltage/current evidence",
+                    "Changing R_s invalidates the old derived output until the next authoritative circuit observation.");
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD -> card(
+                    "RESISTIVE LOAD", "I = V/R; P = V*I = V^2/R",
+                    "load resistance R", "observe terminal voltage -> compute current and power -> contribute load to network",
+                    "Observed voltage is not a player parameter; resistance is the owned load configuration.");
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR -> card(
+                    "RC CAPACITOR", "V_c[k+1] approaches V_in with tau = R_eq*C",
+                    "capacitance index C • observed load R", "observe source/load -> update retained charge -> publish finite-time output response",
+                    "Changing C retains physical stored charge; it changes future tau rather than teleporting capacitor energy.");
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE -> card(
+                    "THERMAL FUSE", "trip when retained thermal exposure from I/rating exceeds protection threshold",
+                    "current rating • retained thermal state", "observe current -> accumulate/cool thermal exposure -> trip or remain armed",
+                    "Changing the rating does not cool the fuse or erase prior thermal exposure.");
             case UniversalFieldDeviceMenu.CONFIG_ANALOG_COMPARATOR -> card(
                     "SCHMITT COMPARATOR", "decision = Schmitt(process - reference, hysteresis)",
                     "comparison mode • hysteresis", "compare two live inputs -> retain decision inside hysteresis band",
