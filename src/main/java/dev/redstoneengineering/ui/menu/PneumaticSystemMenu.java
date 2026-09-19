@@ -40,6 +40,8 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_INPUT_RIGHT = 6;
     public static final int BUTTON_OUTPUT_LEFT = 7;
     public static final int BUTTON_OUTPUT_RIGHT = 8;
+    public static final int BUTTON_SECONDARY_PARAMETER_PREVIOUS = 9;
+    public static final int BUTTON_SECONDARY_PARAMETER_NEXT = 10;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot primary = trackedInt();
@@ -223,7 +225,11 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
             if (id == BUTTON_PARAMETER_PREVIOUS || id == BUTTON_PARAMETER_NEXT) {
                 changed = PressureRegulatorBlock.stepSetpoint(
                         level, blockPos, id == BUTTON_PARAMETER_NEXT);
+            } else if (id == BUTTON_SECONDARY_PARAMETER_PREVIOUS || id == BUTTON_SECONDARY_PARAMETER_NEXT) {
+                changed = PressureRegulatorBlock.stepResponseMode(
+                        level, blockPos, id == BUTTON_SECONDARY_PARAMETER_NEXT);
             } else if (id == BUTTON_TOGGLE) {
+                // Compatibility action: legacy center button still advances the response mode.
                 changed = PressureRegulatorBlock.stepResponseMode(level, blockPos, true);
             } else {
                 changed = rotateDirectional(block, id);
