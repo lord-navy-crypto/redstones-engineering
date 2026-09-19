@@ -77,6 +77,8 @@ public final class EngineeringWorkbenchCatalog {
      * One bounded server-owned parameter exposed to the shared Model workbench.
      * decrement/increment are existing menu-button actions; the client never writes world state.
      */
+    public enum ParameterControl { CHOICE, RANGE, EXPERIMENT }
+
     public record ParameterSpec(
             String label,
             int current,
@@ -86,6 +88,7 @@ public final class EngineeringWorkbenchCatalog {
             int incrementButton,
             String unit,
             String detail,
+            ParameterControl control,
             boolean fractionPresets,
             boolean sweepMeaningful
     ) {
@@ -100,7 +103,7 @@ public final class EngineeringWorkbenchCatalog {
                 String detail
         ) {
             this(label, current, minimum, maximum, decrementButton, incrementButton,
-                    unit, detail, false, false);
+                    unit, detail, ParameterControl.CHOICE, false, false);
         }
 
         public ParameterSpec {
@@ -707,12 +710,14 @@ public final class EngineeringWorkbenchCatalog {
                          UniversalFieldDeviceMenu.CONFIG_ANALOG_COMPARATOR -> true;
                     default -> false;
                 };
+                ParameterControl control = sweep ? ParameterControl.EXPERIMENT
+                        : fractions ? ParameterControl.RANGE : ParameterControl.CHOICE;
                 specs.add(new ParameterSpec(
                         universalPrimaryLabel(universal.configKind()), universal.editPrimaryValue(),
                         universal.editPrimaryMin(), universal.editPrimaryMax(),
                         UniversalFieldDeviceMenu.BUTTON_CONFIG_PRIMARY_PREVIOUS,
                         UniversalFieldDeviceMenu.BUTTON_CONFIG_PRIMARY_NEXT,
-                        "raw", "Bounded server-owned field-device parameter A.", fractions, sweep));
+                        "raw", "Bounded server-owned field-device parameter A.", control, fractions, sweep));
             }
             if (universal.editSecondaryAvailable()) {
                 specs.add(spec(universalSecondaryLabel(universal.configKind()), universal.editSecondaryValue(),
@@ -737,7 +742,7 @@ public final class EngineeringWorkbenchCatalog {
                                 "level/tick", "Precision-filter rise rate.")
                 );
                 case FieldDeviceMenu.KIND_REFERENCE -> List.of(
-                        spec("Reference level", field.primary(), 0, 15,
+                        scaledSpec("Reference level", field.primary(), 0, 15,
                                 FieldDeviceMenu.BUTTON_PRIMARY_DECREASE, FieldDeviceMenu.BUTTON_PRIMARY_INCREASE,
                                 "/15", "Configured Redstone reference level.")
                 );
@@ -757,7 +762,7 @@ public final class EngineeringWorkbenchCatalog {
                                 "x25 pressure", "Protective vent threshold; kept as a configuration control rather than an automated sweep.")
                 );
                 case FieldDeviceMenu.KIND_PERMANENT_MAGNET -> List.of(
-                        spec("Magnet strength", field.primary(), 1, 15,
+                        scaledSpec("Magnet strength", field.primary(), 1, 15,
                                 FieldDeviceMenu.BUTTON_PRIMARY_DECREASE, FieldDeviceMenu.BUTTON_PRIMARY_INCREASE,
                                 "/15", "Permanent magnetic source strength.")
                 );
@@ -767,7 +772,7 @@ public final class EngineeringWorkbenchCatalog {
                                 "index", "Discrete turns multiplier used by the induction model.")
                 );
                 case FieldDeviceMenu.KIND_OPTICAL_EMITTER -> List.of(
-                        spec("Optical intensity", field.primary(), 0, 15,
+                        scaledSpec("Optical intensity", field.primary(), 0, 15,
                                 FieldDeviceMenu.BUTTON_PRIMARY_DECREASE, FieldDeviceMenu.BUTTON_PRIMARY_INCREASE,
                                 "/15", "Optical source intensity.")
                 );
@@ -785,7 +790,7 @@ public final class EngineeringWorkbenchCatalog {
             };
         }
         if (menu instanceof SignalAnalyzerMenu analyzer) {
-            return List.of(spec("Calibration offset", analyzer.calibrationOffset(), -2, 2,
+            return List.of(rangeSpec("Calibration offset", analyzer.calibrationOffset(), -2, 2,
                     SignalAnalyzerMenu.BUTTON_CALIBRATION_DECREASE, SignalAnalyzerMenu.BUTTON_CALIBRATION_INCREASE,
                     "levels", "Display/output calibration offset; raw captured evidence remains distinct."));
         }
@@ -898,7 +903,7 @@ public final class EngineeringWorkbenchCatalog {
                         spec("Drive frequency", amethyst.primary(), 1, 15,
                                 AmethystSystemMenu.BUTTON_PRIMARY_PREVIOUS, AmethystSystemMenu.BUTTON_PRIMARY_NEXT,
                                 "index", "Frequency index of the impulse resonator."),
-                        spec("Peak amplitude", amethyst.secondary(), 1, 15,
+                        scaledSpec("Peak amplitude", amethyst.secondary(), 1, 15,
                                 AmethystSystemMenu.BUTTON_SECONDARY_PREVIOUS, AmethystSystemMenu.BUTTON_SECONDARY_NEXT,
                                 "/15", "Initial excitation amplitude before ring-down.")
                 );
@@ -957,7 +962,7 @@ public final class EngineeringWorkbenchCatalog {
         if (menu instanceof OpticalSystemMenu optical) {
             return switch (optical.kind()) {
                 case OpticalSystemMenu.KIND_EMITTER -> List.of(
-                        spec("Optical intensity", optical.primary(), 0, 15,
+                        scaledSpec("Optical intensity", optical.primary(), 0, 15,
                                 OpticalSystemMenu.BUTTON_PRIMARY_PREVIOUS, OpticalSystemMenu.BUTTON_PRIMARY_NEXT,
                                 "/15", "Source intensity."),
                         spec("Optical channel", optical.secondary(), 0, 15,
@@ -985,7 +990,7 @@ public final class EngineeringWorkbenchCatalog {
         if (menu instanceof MagneticSystemMenu magnetic) {
             return switch (magnetic.kind()) {
                 case MagneticSystemMenu.KIND_PERMANENT -> List.of(
-                        spec("Magnet strength", magnetic.primary(), 1, 15,
+                        scaledSpec("Magnet strength", magnetic.primary(), 1, 15,
                                 MagneticSystemMenu.BUTTON_PRIMARY_PREVIOUS, MagneticSystemMenu.BUTTON_PRIMARY_NEXT,
                                 "/15", "Permanent source strength.")
                 );
@@ -1196,12 +1201,22 @@ public final class EngineeringWorkbenchCatalog {
                 decrementButton, incrementButton, unit, detail);
     }
 
+    private static ParameterSpec rangeSpec(
+            String label, int current, int minimum, int maximum,
+            int decrementButton, int incrementButton, String unit, String detail
+    ) {
+        return new ParameterSpec(label, current, minimum, maximum,
+                decrementButton, incrementButton, unit, detail,
+                ParameterControl.RANGE, false, false);
+    }
+
     private static ParameterSpec scaledSpec(
             String label, int current, int minimum, int maximum,
             int decrementButton, int incrementButton, String unit, String detail
     ) {
         return new ParameterSpec(label, current, minimum, maximum,
-                decrementButton, incrementButton, unit, detail, true, false);
+                decrementButton, incrementButton, unit, detail,
+                ParameterControl.RANGE, true, false);
     }
 
     private static ParameterSpec sweepSpec(
@@ -1209,7 +1224,8 @@ public final class EngineeringWorkbenchCatalog {
             int decrementButton, int incrementButton, String unit, String detail
     ) {
         return new ParameterSpec(label, current, minimum, maximum,
-                decrementButton, incrementButton, unit, detail, false, true);
+                decrementButton, incrementButton, unit, detail,
+                ParameterControl.EXPERIMENT, false, true);
     }
 
     private static ParameterSpec experimentSpec(
@@ -1217,7 +1233,8 @@ public final class EngineeringWorkbenchCatalog {
             int decrementButton, int incrementButton, String unit, String detail
     ) {
         return new ParameterSpec(label, current, minimum, maximum,
-                decrementButton, incrementButton, unit, detail, true, true);
+                decrementButton, incrementButton, unit, detail,
+                ParameterControl.EXPERIMENT, true, true);
     }
 
     private static ModelCard field(FieldDeviceMenu menu) {
