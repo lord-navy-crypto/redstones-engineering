@@ -149,23 +149,23 @@ public class QuartzClockDividerBlock extends DirectionalDomainBlock implements E
                 runtime[OUTPUT_SLOT] = 0;
                 runtime[INITIALIZED_SLOT] = 0;
                 runtime[PHASE_STARTED_SLOT] = 0;
+            } else {
+                // Missing/contradictory evidence cannot prove the clock stopped, so retain the
+                // divider's accumulated counter/output phase. However, the next valid level must
+                // establish a fresh input baseline before another edge can be counted.
+                runtime[INITIALIZED_SLOT] = 0;
             }
-            // STALE/FAULT/DOMAIN/TOPOLOGY evidence cannot prove that the clock stopped.
-            // Preserve phase/counter history, but withhold a valid output claim until input
-            // evidence becomes trustworthy again.
             DomainNetwork.driveQuartz(level, outputPos(pos, state), pos, false, 1, false);
             level.scheduleTick(pos, this, 1);
             return;
         }
 
         if (runtime[INITIALIZED_SLOT] == 0) {
-            // First observation establishes input phase only. A HIGH level at connection time is
-            // not a genuine rising edge and therefore cannot start the divided output clock.
+            // Startup and post-gap reacquisition establish only the observed input level. This
+            // prevents a HIGH level after an evidence gap from becoming a fabricated rising edge.
+            // Counter/output phase survives uncertain gaps; confirmed NO_SIGNAL cleared it above.
             runtime[PREVIOUS_SLOT] = input.active() ? 1 : 0;
-            runtime[COUNT_SLOT] = 0;
-            runtime[OUTPUT_SLOT] = 0;
             runtime[INITIALIZED_SLOT] = 1;
-            runtime[PHASE_STARTED_SLOT] = 0;
         } else {
             boolean rising = input.active() && runtime[PREVIOUS_SLOT] == 0;
             if (rising) {
