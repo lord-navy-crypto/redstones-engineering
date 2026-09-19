@@ -32,6 +32,7 @@ quartz_osc = "src/main/java/dev/redstoneengineering/block/QuartzOscillatorBlock.
 amethyst = "src/main/java/dev/redstoneengineering/block/AmethystResonatorBlock.java"
 spectrum = "src/main/java/dev/redstoneengineering/block/AmethystSpectrumAnalyzerBlock.java"
 domain = "src/main/java/dev/redstoneengineering/physics/DomainNetwork.java"
+precision_observation = "src/main/java/dev/redstoneengineering/physics/PrecisionObservationSupport.java"
 ring = "src/main/java/dev/redstoneengineering/signal/AmethystRingdownLogic.java"
 
 require(selector,
@@ -93,6 +94,10 @@ require(conversion_test,
         "inlineAnalyzerRetainsFaultedOutputAndClearsOnNoSource",
         "Faulted analyzer evidence overwrote the last trustworthy inline output")
 
+require(conversion_test,
+        "quartzObserverKeepsEffectivePeriodUntilRealEdge",
+        "Direct Quartz observation reported configured period before a real waveform edge")
+
 require(registration,
         "event.register(RseFoundationDomainGameTests.class);")
 
@@ -120,6 +125,9 @@ require(quartz_osc,
         "periodChangePending",
         "A configured period change becomes effective only at this real waveform transition",
         "Do not create an early edge")
+
+require(precision_observation,
+        "QuartzOscillatorBlock.effectivePeriodTicks(level, pos, state)")
 
 require(amethyst,
         "CURRENT_AMPLITUDE",
