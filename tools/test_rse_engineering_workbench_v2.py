@@ -19,7 +19,7 @@ class EngineeringWorkbenchV2Tests(unittest.TestCase):
             "renderWorkbenchPage(graphics)",
             "EngineeringWorkbenchCatalog.describe(menu)",
             "Formula / relation",
-            "display history only",
+            "EngineeringWorkbenchCatalog.uiPolicy(menu)",
             "safeWrappedText",
         ]:
             self.assertIn(token, self.screen)
@@ -123,7 +123,7 @@ class EngineeringWorkbenchV2Tests(unittest.TestCase):
             "spec.decrementButton()",
             "Min ",
             "Max ",
-            "existing server-authoritative step actions",
+            "existing server-authoritative block action",
         ]:
             self.assertIn(token, self.screen)
         self.assertNotIn("setBlock(", self.screen)
