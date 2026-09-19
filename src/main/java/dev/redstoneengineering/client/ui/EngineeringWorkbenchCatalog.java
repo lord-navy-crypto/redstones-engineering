@@ -117,6 +117,20 @@ public final class EngineeringWorkbenchCatalog {
                 "source domain • destination domain • conversion profile",
                 "observe source -> convert/scale/quantize -> publish destination evidence",
                 "Conversion may change representation without creating new source precision.");
+        if (menu instanceof IndustrialBufferMenu buffer) return card(
+                "WIP / BUFFER FLOW",
+                "WIP pressure = used capacity / total capacity; flow is constrained by available buffer space",
+                "capacity=" + buffer.capacityUnits() + " • used=" + buffer.usedUnits() + " • available=" + buffer.availableUnits(),
+                "accept lots -> accumulate WIP -> release downstream when capacity and route permit",
+                "The buffer reports real retained lot/capacity state; the Model page does not invent throughput.");
+        if (menu instanceof OperationsMonitorMenu monitor) return card(
+                "OPERATIONS / PLANT OBSERVATION",
+                "queue pressure = queued work / observed capacity; throughput and downtime come from retained plant evidence",
+                "queue=" + monitor.queue() + " • throughput=" + monitor.throughput() + " • downtime=" + monitor.downtimeTicks() + "t",
+                "observe RUN/queue/cycle evidence -> retain events -> derive WIP, yield, availability and bottleneck indicators",
+                monitor.telemetryReady()
+                        ? "Plant telemetry is authoritative for the current retained observation scope."
+                        : "Telemetry is not ready; missing evidence must not be interpreted as idle production.");
         if (menu instanceof CopperCircuitMeterMenu) return card(
                 "ELECTRICAL METROLOGY",
                 "I = V/R;  P = V I",
