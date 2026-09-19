@@ -379,6 +379,14 @@ class EngineeringWorkbenchV2Tests(unittest.TestCase):
         ]:
             self.assertIn(token, self.catalog)
 
+    def test_generic_lab_fallback_requires_explicit_experiment_variable(self):
+        for token in [
+            "parameter.control() == ParameterControl.EXPERIMENT",
+            ".filter(ParameterSpec::sweepMeaningful)",
+            "Generic LAB framing is allowed only for an explicitly declared experiment variable",
+        ]:
+            self.assertIn(token, self.catalog)
+
     def test_universal_devices_also_participate_in_model_parameter_workbench(self):
         for token in [
             "universal.editPrimaryAvailable()",
