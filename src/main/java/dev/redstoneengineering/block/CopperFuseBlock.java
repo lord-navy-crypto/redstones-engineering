@@ -88,7 +88,19 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
         if (loadTruncated) {
             qualityRuntime[INPUT_QUALITY] = PortQuality.STALE.ordinal();
             runtime[OUTPUT_VOLTAGE] = 0;
-            DomainNetwork.driveCopper(level, outputPos(pos, state), pos, 0);
+            DomainNetwork.driveCopper(level, outputPos(pos, state), pos, 0, false);
+            level.scheduleTick(pos, this, 2);
+            return;
+        }
+
+        boolean inputAuthoritative = input.quality() == PortQuality.VALID
+                || input.quality() == PortQuality.NO_SIGNAL;
+        if (!inputAuthoritative) {
+            // Unknown upstream evidence cannot justify a new current estimate, trip decision,
+            // or thermal cooldown. Freeze I²t history and fail the protected output closed
+            // until authoritative source evidence returns.
+            runtime[OUTPUT_VOLTAGE] = 0;
+            DomainNetwork.driveCopper(level, outputPos(pos, state), pos, 0, false);
             level.scheduleTick(pos, this, 2);
             return;
         }
@@ -142,7 +154,9 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
         if (next != state) level.setBlock(pos, next, Block.UPDATE_CLIENTS);
         int outputVoltage = tripped ? 0 : inputVoltage;
         runtime[OUTPUT_VOLTAGE] = outputVoltage;
-        DomainNetwork.driveCopper(level, outputPos(pos, next), pos, outputVoltage);
+        DomainNetwork.driveCopper(
+                level, outputPos(pos, next), pos, outputVoltage,
+                !tripped && input.quality() == PortQuality.VALID);
         level.scheduleTick(pos, this, 2);
     }
 
