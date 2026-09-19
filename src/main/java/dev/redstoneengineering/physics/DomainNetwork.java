@@ -191,8 +191,21 @@ public final class DomainNetwork {
             if (s.getBlock() instanceof AmethystResonatorBlock && AmethystResonatorBlock.isActive(level, p)) sources.add(p);
         }
 
+        // Processor outputs are registered by physical driver/output-start ownership so two
+        // independent filters/resonators feeding the same trace cannot overwrite each other by
+        // scheduler order. They participate in the same strongest-arrival/tie-conflict physics as
+        // raw resonators rather than turning Amethyst into a single-driver digital bus.
+        List<DomainDriverRegistry.Claim> processorClaims =
+                new ArrayList<>(DomainDriverRegistry.activeClaims(level, "amethyst", nodes));
+
         Map<BlockPos,Map<BlockPos,Integer>> resonanceDistance=new HashMap<>();
         for(BlockPos src:sources) resonanceDistance.put(src,distancesHorizontalTrace(level,nodes,src,AmethystResonanceDustBlock.class));
+        Map<DomainDriverRegistry.Claim,Map<BlockPos,Integer>> processorDistance=new HashMap<>();
+        for (DomainDriverRegistry.Claim claim : processorClaims) {
+            processorDistance.put(
+                    claim,
+                    distancesHorizontalTrace(level, nodes, claim.outputStart(), AmethystResonanceDustBlock.class));
+        }
 
         for (BlockPos p : nodes) {
             var state = level.getBlockState(p);
@@ -211,6 +224,20 @@ public final class DomainNetwork {
                     bestFreq = ss.getValue(AmethystResonatorBlock.FREQUENCY);
                     tieConflict = false;
                 } else if (arriving > 0 && arriving == bestAmp && bestFreq != ss.getValue(AmethystResonatorBlock.FREQUENCY)) {
+                    tieConflict = true;
+                }
+            }
+            for (DomainDriverRegistry.Claim claim : processorClaims) {
+                Integer dist = processorDistance.get(claim).get(p);
+                if (dist == null) continue;
+                int sourceAmp = EngineeringMath.clamp(claim.b(), 0, 15);
+                int sourceFreq = EngineeringMath.clamp(claim.a(), 1, 15);
+                int arriving = Math.max(0, sourceAmp - dist / 4);
+                if (arriving > bestAmp) {
+                    bestAmp = arriving;
+                    bestFreq = sourceFreq;
+                    tieConflict = false;
+                } else if (arriving > 0 && arriving == bestAmp && bestFreq != sourceFreq) {
                     tieConflict = true;
                 }
             }
@@ -237,6 +264,27 @@ public final class DomainNetwork {
         return new AmethystSample(false, 0, 0);
     }
 
+    /**
+     * Owned Amethyst processor drive. Unlike the legacy direct writer below, this path preserves
+     * driver identity and resolves all active processor/raw-resonator sources together.
+     */
+    public static void driveAmethyst(ServerLevel level, BlockPos start, BlockPos driverPos,
+                                     boolean active, int frequency, int amplitude) {
+        int boundedAmplitude = EngineeringMath.clamp(amplitude, 0, 15);
+        if (active && boundedAmplitude > 0) {
+            DomainDriverRegistry.claim(
+                    level, "amethyst", driverPos, start,
+                    EngineeringMath.clamp(frequency, 1, 15), boundedAmplitude, 0);
+        } else {
+            DomainDriverRegistry.release(level, "amethyst", driverPos, start);
+        }
+        recomputeAmethyst(level, start);
+    }
+
+    /**
+     * Legacy/internal direct propagation without driver ownership. Retained for compatibility with
+     * old diagnostics/tests; real processor blocks should use the driverPos overload above.
+     */
     public static void driveAmethyst(ServerLevel level, BlockPos start, boolean active, int frequency, int amplitude) {
         Set<BlockPos> nodes = collectHorizontalEdges(level,start,"amethyst",p -> level.getBlockState(p).getBlock() instanceof AmethystResonanceDustBlock,(a,b,d)->surfaceEdgeAllowed(level,a,b,d,AmethystResonanceDustBlock.class));
         if (nodes.isEmpty()) return;
