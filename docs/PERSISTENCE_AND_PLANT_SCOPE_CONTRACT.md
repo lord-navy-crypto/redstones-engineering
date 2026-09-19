@@ -30,7 +30,8 @@ Spatial proximity is only a scope boundary. It is **not** a claim that nearby ev
 | Fault Injector mode | BlockState | retained | retained | removed with block | Keep durable bounded configuration |
 | Fault Injector diagnostic runtime | `RuntimeIntStore` | retained | reset | cleared | Keep transient |
 | System event timeline | level runtime | retained | reset | history remains if source block is removed | Candidate for bounded durable recorder / SavedData |
-| PID tuning preset | BlockState | retained | retained | removed with block | Keep durable bounded configuration |
+| PID tuning preset | BlockState | retained | retained | removed with block | Keep durable bounded baseline configuration |
+| PID custom Kp / Ki divisor / Kd / derivative smoothing / rise / fall | `PidTuningSavedData` | retained | retained | cleared with PID | Durable bounded player configuration without BlockState cardinality explosion |
 | PID integrator / derivative / transfer runtime | `RuntimeIntStore` | retained | reset | cleared | Keep transient to avoid stale hidden controller energy |
 | Explicit commissioning evidence | `AcceptanceEvidenceStore` | retained | reset | cleared with PID | Candidate for explicit durable recorder |
 
