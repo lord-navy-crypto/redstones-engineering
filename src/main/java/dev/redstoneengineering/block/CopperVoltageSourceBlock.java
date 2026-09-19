@@ -93,6 +93,19 @@ public class CopperVoltageSourceBlock extends DomainBlock implements Engineering
         }
     }
 
+    /** Server-authoritative voltage adjustment shared by in-world interaction and engineering HMI. */
+    public static boolean adjustVoltage(Level level, BlockPos pos, int delta) {
+        if (level.isClientSide || delta == 0) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof CopperVoltageSourceBlock)) return false;
+        int current = state.getValue(VOLTAGE);
+        int nextValue = Math.floorMod(current + (delta > 0 ? 1 : -1), 16);
+        BlockState next = state.setValue(VOLTAGE, nextValue);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeCopper(serverLevel, pos);
+        return true;
+    }
+
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
