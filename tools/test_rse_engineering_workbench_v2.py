@@ -13,7 +13,7 @@ class EngineeringWorkbenchV2Tests(unittest.TestCase):
 
     def test_every_engineering_screen_gets_model_page(self):
         for token in [
-            'Component.literal("Model")',
+            "initialPolicy.pageLabel()",
             "setWorkbenchPage()",
             "renderWorkbenchPage(graphics)",
             "EngineeringWorkbenchCatalog.describe(menu)",
@@ -139,10 +139,58 @@ class EngineeringWorkbenchV2Tests(unittest.TestCase):
             "applyWorkbenchFraction(0.50)",
             "applyWorkbenchFraction(0.75)",
             "Sweep ↑",
-            "every point uses the real server-owned device action",
+            "Measure a real parameter-response sweep",
             "graphics.fill(barX, barY",
         ]:
             self.assertIn(token, self.screen)
+
+    def test_minecraft_first_ui_policy_has_three_tiers(self):
+        for token in [
+            "enum UiTier { BLOCK, DEVICE, LAB }",
+            "record UiPolicy(",
+            "universalPolicy",
+            "fieldPolicy",
+            'block("INFO"',
+            'device("MODEL"',
+            'lab("LAB"',
+            "KIND_REDSTONE_CABLE",
+            "KIND_PNEUMATIC_PIPE",
+            "KIND_SERVO_ACTUATOR",
+            "KIND_AMETHYST_TUNED",
+        ]:
+            self.assertIn(token, self.catalog)
+
+    def test_experiment_controls_are_semantically_gated(self):
+        for token in [
+            "fractionPresets",
+            "sweepMeaningful",
+            "spec.fractionPresets()",
+            "policy.experimental()",
+            "spec.sweepMeaningful()",
+            "Categorical modes/channels never receive this control",
+            "UiTier.BLOCK",
+            "No sweep, no desktop-style experiment workflow",
+        ]:
+            self.assertIn(token, self.screen + self.catalog)
+
+    def test_only_selected_parameters_declare_sweep_semantics(self):
+        for token in [
+            'experimentSpec("Pressure setpoint"',
+            'sweepSpec("Natural frequency"',
+            'sweepSpec("Target frequency"',
+            'experimentSpec("Logic threshold"',
+            'experimentSpec("Attenuation"',
+            'sweepSpec("Coil turns index"',
+        ]:
+            self.assertIn(token, self.catalog)
+        # Categorical parameters stay plain specs rather than desktop-style numeric experiments.
+        for token in [
+            'spec("Radio channel"',
+            'spec("Transfer mode"',
+            'spec("Detection mode"',
+            'spec("Response profile"',
+        ]:
+            self.assertIn(token, self.catalog)
 
     def test_universal_devices_also_participate_in_model_parameter_workbench(self):
         for token in [
