@@ -6,6 +6,7 @@ import dev.redstoneengineering.ui.menu.EngineeringDeviceMenu;
 import dev.redstoneengineering.ui.menu.FieldDeviceMenu;
 import dev.redstoneengineering.ui.menu.MagneticSystemMenu;
 import dev.redstoneengineering.ui.menu.OpticalSystemMenu;
+import dev.redstoneengineering.ui.menu.PidControllerMenu;
 import dev.redstoneengineering.ui.menu.PneumaticSystemMenu;
 import dev.redstoneengineering.ui.menu.QuartzTimingMenu;
 import dev.redstoneengineering.ui.menu.RadioLinkMenu;
@@ -515,6 +516,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         if (menu instanceof OpticalSystemMenu) return clockwise ? OpticalSystemMenu.BUTTON_INPUT_RIGHT : OpticalSystemMenu.BUTTON_INPUT_LEFT;
         if (menu instanceof MagneticSystemMenu) return clockwise ? MagneticSystemMenu.BUTTON_INPUT_RIGHT : MagneticSystemMenu.BUTTON_INPUT_LEFT;
         if (menu instanceof ReliabilitySystemMenu) return clockwise ? ReliabilitySystemMenu.BUTTON_INPUT_RIGHT : ReliabilitySystemMenu.BUTTON_INPUT_LEFT;
+        if (menu instanceof PidControllerMenu) return clockwise ? PidControllerMenu.BUTTON_INPUT_NEXT : PidControllerMenu.BUTTON_INPUT_PREVIOUS;
         return -1;
     }
 
@@ -531,6 +533,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         if (menu instanceof MagneticSystemMenu) return clockwise ? MagneticSystemMenu.BUTTON_OUTPUT_RIGHT : MagneticSystemMenu.BUTTON_OUTPUT_LEFT;
         if (menu instanceof ReliabilitySystemMenu) return clockwise ? ReliabilitySystemMenu.BUTTON_OUTPUT_RIGHT : ReliabilitySystemMenu.BUTTON_OUTPUT_LEFT;
         if (menu instanceof RadioLinkMenu) return clockwise ? RadioLinkMenu.BUTTON_OUTPUT_RIGHT : RadioLinkMenu.BUTTON_OUTPUT_LEFT;
+        if (menu instanceof PidControllerMenu) return clockwise ? PidControllerMenu.BUTTON_OUTPUT_NEXT : PidControllerMenu.BUTTON_OUTPUT_PREVIOUS;
         return -1;
     }
 
@@ -545,6 +548,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         if (menu instanceof OpticalSystemMenu optical) return optical.hasInputEndpoint();
         if (menu instanceof MagneticSystemMenu magnetic) return magnetic.hasInputEndpoint();
         if (menu instanceof ReliabilitySystemMenu reliability) return reliability.hasInputEndpoint();
+        if (menu instanceof PidControllerMenu) return true;
         return menu instanceof PneumaticSystemMenu pneumatic && pneumatic.directional();
     }
 
@@ -560,6 +564,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         if (menu instanceof MagneticSystemMenu magnetic) return magnetic.hasOutputEndpoint();
         if (menu instanceof ReliabilitySystemMenu reliability) return reliability.hasOutputEndpoint();
         if (menu instanceof RadioLinkMenu radio) return radio.kind() == RadioLinkMenu.KIND_RECEIVER;
+        if (menu instanceof PidControllerMenu) return true;
         return menu instanceof PneumaticSystemMenu pneumatic && pneumatic.directional();
     }
 
@@ -577,6 +582,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         if (menu instanceof OpticalSystemMenu optical) return optical.directional() || optical.kind() == OpticalSystemMenu.KIND_METER;
         if (menu instanceof AmethystSystemMenu amethyst) return amethyst.directional();
         if (menu instanceof MagneticSystemMenu magnetic) return magnetic.kind() == MagneticSystemMenu.KIND_PERMANENT || magnetic.kind() == MagneticSystemMenu.KIND_COIL;
+        if (menu instanceof PidControllerMenu) return true;
         return menu instanceof ReliabilitySystemMenu;
     }
 
