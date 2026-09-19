@@ -705,8 +705,14 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             graphics.drawString(font, "Direct RX / TX direction control", 92, 62, MUTED, false);
             renderRoutePage(graphics);
         } else if (workbenchPage) {
-            graphics.drawString(font, "MODEL", 13, 62, TEXT, false);
-            graphics.drawString(font, "Math, process and evidence boundary", 92, 62, MUTED, false);
+            EngineeringWorkbenchCatalog.UiPolicy policy = EngineeringWorkbenchCatalog.uiPolicy(menu);
+            graphics.drawString(font, policy.pageLabel(), 13, 62, TEXT, false);
+            String subtitle = switch (policy.tier()) {
+                case BLOCK -> "Role, route and current evidence";
+                case DEVICE -> "Model, settings and evidence boundary";
+                case LAB -> "Model, tuning and measured response";
+            };
+            graphics.drawString(font, fitForWidth(subtitle, 210), 92, 62, MUTED, false);
             renderWorkbenchPage(graphics);
         } else {
             graphics.drawString(font, section.label.toUpperCase(), 13, 62, TEXT, false);
