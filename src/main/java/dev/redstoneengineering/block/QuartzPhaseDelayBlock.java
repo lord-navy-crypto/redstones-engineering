@@ -130,6 +130,16 @@ public class QuartzPhaseDelayBlock extends DirectionalDomainBlock implements Eng
         PortQuality quality = level.getBlockState(samplePos).getBlock() instanceof QuartzTimingLineBlock
                 ? QuartzTimingLineBlock.quality(level, samplePos)
                 : (sample.valid() ? PortQuality.VALID : PortQuality.NO_SIGNAL);
+        if (side == outputSide(state) && quality == PortQuality.NO_SIGNAL) {
+            BlockPos upstreamPos = inputPos(pos, state);
+            DomainNetwork.QuartzSample upstreamSample = DomainNetwork.sampleQuartz(level, upstreamPos);
+            PortQuality upstreamQuality = level.getBlockState(upstreamPos).getBlock() instanceof QuartzTimingLineBlock
+                    ? QuartzTimingLineBlock.quality(level, upstreamPos)
+                    : (upstreamSample.valid() ? PortQuality.VALID : PortQuality.NO_SIGNAL);
+            if (upstreamQuality == PortQuality.STALE || upstreamQuality == PortQuality.TOPOLOGY_ERROR) {
+                quality = upstreamQuality;
+            }
+        }
         return Optional.of(new EngineeringPortSnapshot(port.get(), sample.periodTicks(), 0.0, 4096.0, quality));
     }
 
