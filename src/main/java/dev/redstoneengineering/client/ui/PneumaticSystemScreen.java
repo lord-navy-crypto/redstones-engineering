@@ -13,7 +13,7 @@ import net.minecraft.world.entity.player.Inventory;
 
 /** Pneumatic HMI with server-synchronized section, actuator-path and storage diagnostics. */
 public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSystemMenu> {
-    private Button prev, next, toggle;
+    private Button prev, next, secondaryPrev, secondaryNext, toggle;
 
     public PneumaticSystemScreen(PneumaticSystemMenu menu, Inventory inventory, Component title) { super(menu, inventory, title); }
 
@@ -22,6 +22,9 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
         prev=addConfigureWidget(Button.builder(Component.literal("◀ Setpoint"),b->sendMenuButton(PneumaticSystemMenu.BUTTON_PARAMETER_PREVIOUS)).bounds(leftPos+16,y,95,20).build());
         next=addConfigureWidget(Button.builder(Component.literal("Setpoint ▶"),b->sendMenuButton(PneumaticSystemMenu.BUTTON_PARAMETER_NEXT)).bounds(leftPos+209,y,95,20).build());
         toggle=addConfigureWidget(Button.builder(Component.literal("Toggle valve"),b->sendMenuButton(PneumaticSystemMenu.BUTTON_TOGGLE)).bounds(leftPos+100,y,120,20).build());
+        int secondaryY=topPos+145;
+        secondaryPrev=addConfigureWidget(Button.builder(Component.literal("◀ Response"),b->sendMenuButton(PneumaticSystemMenu.BUTTON_SECONDARY_PARAMETER_PREVIOUS)).bounds(leftPos+16,secondaryY,120,20).build());
+        secondaryNext=addConfigureWidget(Button.builder(Component.literal("Response ▶"),b->sendMenuButton(PneumaticSystemMenu.BUTTON_SECONDARY_PARAMETER_NEXT)).bounds(leftPos+184,secondaryY,120,20).build());
     }
 
     @Override protected void syncDeviceWidgetLabels() {
@@ -30,7 +33,10 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
         boolean valve=menu.kind()==PneumaticSystemMenu.KIND_VALVE;
         boolean regulator=menu.kind()==PneumaticSystemMenu.KIND_REGULATOR;
         prev.visible=next.visible=isConfigureSection()&&setpoint;
-        toggle.visible=isConfigureSection()&&(valve||regulator);
+        toggle.visible=isConfigureSection()&&valve;
+        boolean regulatorResponse=isConfigureSection()&&regulator;
+        secondaryPrev.visible=secondaryNext.visible=regulatorResponse;
+        secondaryPrev.active=secondaryNext.active=regulatorResponse;
         if(setpoint){
             if(isCompressor()){
                 String v=AirCompressorLogic.modeName(menu.stateFlag());
@@ -51,7 +57,11 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
             }
         }
         if(valve)toggle.setMessage(Component.literal(menu.stateFlag()==1?"Close valve":"Open valve"));
-        if(regulator)toggle.setMessage(Component.literal("Response: "+PressureRegulatorLogic.modeName(menu.stateFlag())));
+        if(regulator){
+            String response=PressureRegulatorLogic.modeName(menu.stateFlag());
+            secondaryPrev.setMessage(Component.literal("◀ "+response));
+            secondaryNext.setMessage(Component.literal(response+" ▶"));
+        }
     }
 
     @Override protected void renderSection(GuiGraphics g,Section section){switch(section){case OVERVIEW->overview(g);case PORTS->ports(g);case CONFIGURE->configure(g);case DIAGNOSTICS->diagnostics(g);case HISTORY->history(g);}}
@@ -98,7 +108,7 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
             labelValue(g,"Inlet pressure",menu.primary()+" / 100",132);
             labelValue(g,"Tracking error",Integer.toString(menu.auxiliary()),154);
             labelValue(g,"Response mode",PressureRegulatorLogic.modeName(menu.stateFlag()),176);
-            safeText(g,"Left/right changes calibrated setpoint in 10-unit steps; the center control cycles diaphragm response rate.",16,202,MUTED);
+            safeText(g,"First row changes calibrated setpoint; second row selects the finite diaphragm response profile.",16,202,MUTED);
             return;
         }
         if(isProportional()){
