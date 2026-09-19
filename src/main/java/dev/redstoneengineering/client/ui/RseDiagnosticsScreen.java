@@ -84,7 +84,7 @@ public final class RseDiagnosticsScreen extends Screen {
         int bottom = height - 27;
         addRenderableWidget(Button.builder(Component.literal("Back"), button -> onClose())
                 .bounds(12, bottom, 44, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Copy All"), button -> copyReport())
+        addRenderableWidget(Button.builder(Component.literal("Copy Report"), button -> copyReport())
                 .bounds(62, bottom, 68, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Copy Run"), button -> copyRun())
                 .bounds(136, bottom, 68, 20).build());
@@ -332,7 +332,7 @@ public final class RseDiagnosticsScreen extends Screen {
         int y = 78;
         graphics.drawString(font, "EXPORT", 24, y, INFO, false);
         y += 16;
-        graphics.drawString(font, "Copy All: copies feedback table + run log + live diagnostics.", 30, y, TEXT, false);
+        graphics.drawString(font, "Copy Report: copies feedback table + run log + live diagnostics.", 30, y, TEXT, false);
         y += 14;
         graphics.drawString(font, "Copy Run: copies only the latest demo feedback table + run log.", 30, y, TEXT, false);
         y += 14;
