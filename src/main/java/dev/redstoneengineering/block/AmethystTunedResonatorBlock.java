@@ -47,7 +47,12 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
                                    int qIndex, int bandwidth, int frequencyError,
                                    PortQuality inputQuality, int targetAmplitude,
                                    int actualAmplitude, int outputFrequency,
-                                   boolean saturated, boolean responding, boolean ringDown) {}
+                                   boolean saturated, boolean responding, boolean ringDown) {
+        /** Legacy steady-state transfer readback; runtime propagation uses actualAmplitude instead. */
+        public int outputAmplitude() {
+            return targetAmplitude;
+        }
+    }
 
     public AmethystTunedResonatorBlock(Properties properties) {
         super(properties);
