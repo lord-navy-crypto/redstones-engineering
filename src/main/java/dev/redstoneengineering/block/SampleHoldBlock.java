@@ -138,9 +138,10 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
                 rt[LAST_CAPTURE_TICK] = boundedTick(level.getGameTime());
                 rt[HELD_QUALITY_SLOT] = valueObservation.quality().ordinal();
             } else {
-                // Preserve the last good numerical sample but invalidate its evidence until a good capture reacquires.
+                // The acquisition was rejected, so no new sample entered the hold element.
+                // Preserve both the last held number and its existing evidence; record the failed
+                // attempt separately instead of contaminating a previously trustworthy sample.
                 if (rt[REJECTED_CAPTURE_COUNT] < Integer.MAX_VALUE) rt[REJECTED_CAPTURE_COUNT]++;
-                rt[HELD_QUALITY_SLOT] = valueObservation.quality().ordinal();
             }
         }
         rt[TRIGGER_STATE_SLOT] = triggerNow ? 1 : 0;
