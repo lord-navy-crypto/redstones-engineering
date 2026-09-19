@@ -441,6 +441,7 @@ public final class DomainNetwork {
                 if (s.getBlock() instanceof CopperCapacitorBlock) return CopperCapacitorBlock.outputVoltage(level,pos);
                 if (s.getBlock() instanceof CopperFuseBlock) return CopperFuseBlock.outputVoltage(level,pos);
                 if (s.getBlock() instanceof InductionCoilBlock) return InductionCoilBlock.outputVoltage(level,pos);
+                if (s.getBlock() instanceof RedstoneCopperDriverBlock) return RedstoneCopperDriverBlock.actualVoltage(level,pos);
             }
             if (observerPos.equals(input)) {
                 return sampleCopperVoltage(level, input);
