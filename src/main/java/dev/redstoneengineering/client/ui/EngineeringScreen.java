@@ -98,7 +98,6 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private int workbenchParameterIndex;
     private boolean workbenchSweepActive;
     private int workbenchSweepDelay;
-    private static final int WORKBENCH_SWEEP_DWELL_TICKS = 10;
     private static final int WORKBENCH_SWEEP_POINTS = 64;
     private static final int INVALID_SWEEP_SAMPLE = Integer.MIN_VALUE;
     private final int[] workbenchSweepParameters = new int[WORKBENCH_SWEEP_POINTS];
@@ -313,6 +312,10 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         applyWorkbenchTargetValue(spec, target);
     }
 
+    private int workbenchSweepDwellTicks() {
+        return EngineeringWorkbenchCatalog.recommendedSweepDwellTicks(menu);
+    }
+
     private void toggleWorkbenchSweep() {
         EngineeringWorkbenchCatalog.ParameterSpec spec = activeWorkbenchParameter();
         EngineeringWorkbenchCatalog.UiPolicy policy = EngineeringWorkbenchCatalog.uiPolicy(menu);
@@ -328,7 +331,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         }
         workbenchSweepActive = true;
         workbenchSweepPointCount = 0;
-        workbenchSweepDelay = WORKBENCH_SWEEP_DWELL_TICKS;
+        workbenchSweepDelay = workbenchSweepDwellTicks();
         applyWorkbenchTargetValue(spec, spec.minimum());
     }
 
@@ -352,7 +355,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         }
 
         sendMenuButton(spec.incrementButton());
-        workbenchSweepDelay = WORKBENCH_SWEEP_DWELL_TICKS;
+        workbenchSweepDelay = workbenchSweepDwellTicks();
     }
 
     private void captureWorkbenchSweepPoint(EngineeringWorkbenchCatalog.ParameterSpec spec) {
@@ -457,8 +460,8 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         if (showSweep) {
             workbenchSweep.setMessage(Component.literal(workbenchSweepActive ? "Stop" : "Sweep ↑"));
             workbenchSweep.setTooltip(Tooltip.create(Component.literal(
-                    "Measure a real parameter-response sweep with " + WORKBENCH_SWEEP_DWELL_TICKS
-                            + " ticks dwell per point. Categorical modes/channels never receive this control.")));
+                    "Measure a real parameter-response sweep with " + workbenchSweepDwellTicks()
+                            + " ticks dwell per point for this experiment type. Categorical modes/channels never receive this control.")));
         }
 
         if (workbenchTarget != null && !workbenchTarget.isFocused()) {
@@ -801,8 +804,9 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             return;
         }
 
-        graphics.drawString(font, "Experiment", 16, 126, INFO, false);
-        safeText(graphics, lab.question(), 74, 126, TEXT);
+        String experimentLabel = "Experiment • " + EngineeringWorkbenchCatalog.experimentKind(menu).name().replace('_', ' ');
+        graphics.drawString(font, fitForWidth(experimentLabel, 118), 16, 126, INFO, false);
+        safeText(graphics, lab.question(), 138, 126, TEXT);
         safeText(graphics, "X • " + lab.independentVariable(), 16, 140, MUTED);
         safeText(graphics, "Y • " + lab.dependentVariable(), 160, 140, MUTED);
 
