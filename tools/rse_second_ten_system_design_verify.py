@@ -50,8 +50,10 @@ require("back-drive" in tap and "active 0..15 output" in tap,
 # 14: measurement coverage is first-class evidence.
 for token in ("ScanStatus", "TARGET", "CLEAR", "INCOMPLETE_UNLOADED", "lastScan", "scannedCells"):
     require(token in range_sensor, f"Range Sensor coverage semantics missing {token}")
-require("scan.complete() ? PortQuality.VALID : PortQuality.NO_SIGNAL" in range_sensor,
-        "Range Sensor complete CLEAR scans must remain valid measurements")
+require("case TARGET, CLEAR -> PortQuality.VALID;" in range_sensor,
+        "Range Sensor complete TARGET/CLEAR scans must remain valid measurements")
+require("case INCOMPLETE_UNLOADED -> PortQuality.STALE;" in range_sensor,
+        "Range Sensor incomplete unloaded scans must remain stale rather than false zero")
 require("RuntimeIntStore.peek" in range_sensor,
         "Range Sensor engineering snapshots must read cached server scan evidence")
 
