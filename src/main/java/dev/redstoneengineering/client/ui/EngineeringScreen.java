@@ -400,7 +400,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
     private void applyWorkbenchTargetValue(EngineeringWorkbenchCatalog.ParameterSpec spec, int target) {
         int delta = target - spec.current();
-        int steps = Math.min(64, Math.abs(delta));
+        int steps = Math.min(1024, Math.abs(delta));
         int button = delta >= 0 ? spec.incrementButton() : spec.decrementButton();
         for (int i = 0; i < steps; i++) sendMenuButton(button);
     }
