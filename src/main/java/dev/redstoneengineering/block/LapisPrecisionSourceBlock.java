@@ -72,6 +72,19 @@ public class LapisPrecisionSourceBlock extends DirectionalDomainSourceBlock impl
         super.onRemove(s,l,p,ns,moved);
     }
 
+    public static boolean stepValue(Level level, BlockPos pos, int delta) {
+        if (level.isClientSide || delta == 0) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof LapisPrecisionSourceBlock source)) return false;
+        int current = state.getValue(VALUE);
+        int next = Math.max(0, Math.min(100, current + Integer.signum(delta)));
+        if (next == current) return false;
+        BlockState updated = state.setValue(VALUE, next);
+        level.setBlock(pos, updated, Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeLapis(serverLevel, pos);
+        return true;
+    }
+
     @Override
     protected InteractionResult useWithoutItem(BlockState s, Level l, BlockPos p, Player pl, BlockHitResult hit){
         if(!l.isClientSide && pl instanceof ServerPlayer serverPlayer){
@@ -86,17 +99,17 @@ public class LapisPrecisionSourceBlock extends DirectionalDomainSourceBlock impl
                     BlockState next = l.getBlockState(p);
                     pl.displayClientMessage(Component.literal(
                             "Lapis precision source OUT=" + outputSide(next).getName().toUpperCase()
-                                    + " | shift-click UP/DOWN adjusts value"), true);
+                                    + " | shift-click UP/DOWN adjusts value by 0.01"), true);
                 }
             } else {
-                int v=s.getValue(VALUE);
-                v=hit.getDirection()==Direction.DOWN?Math.max(0,v-5):(v>=100?0:v+5);
-                BlockState n=s.setValue(VALUE,v);
-                l.setBlock(p,n,Block.UPDATE_CLIENTS);
-                if(l instanceof ServerLevel sl)DomainNetwork.recomputeLapis(sl,p);
+                int delta = hit.getDirection() == Direction.DOWN ? -1 : 1;
+                stepValue(l, p, delta);
+                BlockState n = l.getBlockState(p);
+                int v = n.getValue(VALUE);
                 pl.displayClientMessage(Component.literal(
-                        "Lapis precision source = "+String.format("%.2f",v/100.0)
-                                + " | OUT=" + outputSide(n).getName().toUpperCase()),true);
+                        "Lapis precision source = " + String.format("%.2f", v / 100.0)
+                                + " | fine step=0.01"
+                                + " | OUT=" + outputSide(n).getName().toUpperCase()), true);
             }
         }
         return InteractionResult.sidedSuccess(l.isClientSide);
