@@ -60,13 +60,16 @@ class RseLiveDiagnosticsTests(unittest.TestCase):
         self.assertIn("RseDiagnostics.record(", source)
         self.assertIn("RseLiveDiagnostics.recordLogEvent(", source)
 
-    def test_red_cross_console_has_five_live_views(self) -> None:
+    def test_red_cross_console_preserves_core_views_and_adds_run_feedback(self) -> None:
         source = SCREEN.read_text(encoding="utf-8")
         for label in ("OVERVIEW", "LIVE_EVENTS", "SYSTEMS", "MEGA_FACTORY", "EXPORT"):
             self.assertIn(label, source)
+        for label in ("FEEDBACK", "RUN LOG"):
+            self.assertIn(label, source)
         self.assertIn("RseLiveDiagnostics", source)
         self.assertIn("exportLatest", source)
-        self.assertIn("Copy Report", source)
+        self.assertIn("Copy All", source)
+        self.assertIn("Copy Run", source)
 
     def test_mega_reporter_publishes_structured_snapshot(self) -> None:
         self.assertTrue(MEGA_REPORTER.exists(), "Mega diagnostic reporter must be split out")
