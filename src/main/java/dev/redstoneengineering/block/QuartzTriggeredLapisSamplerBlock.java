@@ -193,14 +193,19 @@ public class QuartzTriggeredLapisSamplerBlock extends DirectionalDomainBlock imp
                         true
                 );
             } else {
-                runtime[HELD_QUALITY] = encodeQuality(sample.quality());
                 if (runtime[REJECTED_CAPTURES] < Integer.MAX_VALUE) runtime[REJECTED_CAPTURES]++;
+                // A rejected acquisition never occurred physically: preserve the previous held
+                // sample and its evidence instead of turning failed input evidence into loss of
+                // an already trustworthy sample-and-hold state.
+                PortQuality retainedQuality = heldQuality(level, pos);
+                boolean retainedSampleValid = retainedQuality == PortQuality.VALID
+                        || retainedQuality == PortQuality.SATURATED;
                 DomainNetwork.driveLapis(
                         level,
                         outputPos(pos, state),
                         pos,
                         runtime[HELD_VALUE],
-                        false
+                        retainedSampleValid
                 );
             }
         }
