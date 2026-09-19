@@ -351,6 +351,34 @@ class EngineeringWorkbenchV2Tests(unittest.TestCase):
         ]:
             self.assertIn(token, self.screen)
 
+    def test_parameter_controls_distinguish_choice_range_and_experiment(self):
+        for token in [
+            "enum ParameterControl { CHOICE, RANGE, EXPERIMENT }",
+            "spec.control() == EngineeringWorkbenchCatalog.ParameterControl.CHOICE",
+            "spec.control() == EngineeringWorkbenchCatalog.ParameterControl.EXPERIMENT",
+            'Component.literal("◀ Prev")',
+            'Component.literal("Next ▶")',
+            "workbenchTarget.visible = numeric",
+            "workbenchApply.visible = numeric",
+        ]:
+            self.assertIn(token, self.catalog + self.screen)
+
+    def test_choice_parameters_do_not_get_numeric_desktop_controls(self):
+        for token in [
+            'spec("Radio channel"',
+            'spec("Transfer mode"',
+            'spec("Detection mode"',
+            'spec("Edge mode"',
+        ]:
+            self.assertIn(token, self.catalog)
+        for token in [
+            'rangeSpec("Calibration offset"',
+            'scaledSpec("Reference level"',
+            'experimentSpec("Pressure setpoint"',
+            'sweepSpec("Natural frequency"',
+        ]:
+            self.assertIn(token, self.catalog)
+
     def test_universal_devices_also_participate_in_model_parameter_workbench(self):
         for token in [
             "universal.editPrimaryAvailable()",
