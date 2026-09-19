@@ -1144,6 +1144,20 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     }
 
     private void history(GuiGraphics g) {
+        EngineeringWorkbenchCatalog.UiPolicy policy = EngineeringWorkbenchCatalog.uiPolicy(menu);
+        if (policy.tier() == EngineeringWorkbenchCatalog.UiTier.BLOCK) {
+            statusBadge(g, "BLOCK EVIDENCE • LIVE ONLY", INFO, 16, 80);
+            Direction in = firstInputSide();
+            Direction out = firstOutputSide();
+            labelValue(g, "Topology role", menu.topologyRoleLabel(), 106);
+            labelValue(g, "Route", menu.portRouteLabel(), 126);
+            labelValue(g, "Input now", in == null ? "—" : menu.value(in) + " • " + menu.quality(in).name(), 146);
+            labelValue(g, "Output now", out == null ? "—" : menu.value(out) + " • " + menu.quality(out).name(), 166);
+            labelValue(g, "Evidence", menu.evidenceStateLabel(), 186);
+            safeText(g, "LIVE ONLY • NO RETAINED HISTORY", 16, 208, INFO);
+            safeText(g, "Use an analyzer/oscilloscope when the experiment needs time-series evidence.", 16, 224, MUTED);
+            return;
+        }
         statusBadge(g, "UI OBSERVATION HISTORY • DISPLAY ONLY", INFO, 16, 80);
         // Compatibility and scientific-boundary contract: the device itself still owns no
         // retained server chronology. The graph below is only a client view of synchronized snapshots.
@@ -1184,7 +1198,9 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     @Override
     protected void containerTick() {
         super.containerTick();
-        recordPortHistory();
+        if (EngineeringWorkbenchCatalog.uiPolicy(menu).tier() != EngineeringWorkbenchCatalog.UiTier.BLOCK) {
+            recordPortHistory();
+        }
     }
 
     private void recordPortHistory() {
