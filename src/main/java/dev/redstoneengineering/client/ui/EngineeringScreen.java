@@ -414,18 +414,22 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
         if (workbenchTab != null) workbenchTab.setMessage(Component.literal(policy.pageLabel()));
 
-        boolean showFractionPresets = showEditor && spec != null && spec.fractionPresets();
-        boolean showSweep = showEditor && spec != null && policy.experimental()
+        boolean choice = showEditor && spec != null
+                && spec.control() == EngineeringWorkbenchCatalog.ParameterControl.CHOICE;
+        boolean numeric = showEditor && spec != null && !choice;
+        boolean showFractionPresets = numeric && spec.fractionPresets();
+        boolean showSweep = numeric && spec != null && policy.experimental()
+                && spec.control() == EngineeringWorkbenchCatalog.ParameterControl.EXPERIMENT
                 && spec.sweepMeaningful() && response != null;
 
         if (workbenchParameterPrevious != null) workbenchParameterPrevious.visible = showEditor;
         if (workbenchParameterNext != null) workbenchParameterNext.visible = showEditor;
         if (workbenchDecrease != null) workbenchDecrease.visible = showEditor;
         if (workbenchIncrease != null) workbenchIncrease.visible = showEditor;
-        if (workbenchTarget != null) workbenchTarget.visible = showEditor;
-        if (workbenchApply != null) workbenchApply.visible = showEditor;
-        if (workbenchMin != null) workbenchMin.visible = showEditor;
-        if (workbenchMax != null) workbenchMax.visible = showEditor;
+        if (workbenchTarget != null) workbenchTarget.visible = numeric;
+        if (workbenchApply != null) workbenchApply.visible = numeric;
+        if (workbenchMin != null) workbenchMin.visible = numeric;
+        if (workbenchMax != null) workbenchMax.visible = numeric;
         if (workbenchQuarter != null) workbenchQuarter.visible = showFractionPresets;
         if (workbenchMid != null) workbenchMid.visible = showFractionPresets;
         if (workbenchThreeQuarter != null) workbenchThreeQuarter.visible = showFractionPresets;
@@ -444,13 +448,24 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         workbenchParameterNext.setMessage(Component.literal("P" + (workbenchParameterIndex + 1) + " ▶"));
         workbenchParameterPrevious.setTooltip(Tooltip.create(Component.literal("Previous block-owned parameter")));
         workbenchParameterNext.setTooltip(Tooltip.create(Component.literal("Next block-owned parameter")));
-        workbenchDecrease.setTooltip(Tooltip.create(Component.literal(spec.label() + " fine -1")));
-        workbenchIncrease.setTooltip(Tooltip.create(Component.literal(spec.label() + " fine +1")));
-        workbenchApply.setTooltip(Tooltip.create(Component.literal(
-                "Apply exact bounded target " + spec.minimum() + ".." + spec.maximum()
-                        + " using the existing server-authoritative block action.")));
-        workbenchMin.setMessage(Component.literal("Min"));
-        workbenchMax.setMessage(Component.literal("Max"));
+        if (choice) {
+            workbenchDecrease.setMessage(Component.literal("◀ Prev"));
+            workbenchIncrease.setMessage(Component.literal("Next ▶"));
+            workbenchDecrease.setTooltip(Tooltip.create(Component.literal("Previous " + spec.label())));
+            workbenchIncrease.setTooltip(Tooltip.create(Component.literal("Next " + spec.label())));
+        } else {
+            workbenchDecrease.setMessage(Component.literal("−1"));
+            workbenchIncrease.setMessage(Component.literal("+1"));
+            workbenchDecrease.setTooltip(Tooltip.create(Component.literal(spec.label() + " fine -1")));
+            workbenchIncrease.setTooltip(Tooltip.create(Component.literal(spec.label() + " fine +1")));
+        }
+        if (numeric) {
+            workbenchApply.setTooltip(Tooltip.create(Component.literal(
+                    "Apply exact bounded target " + spec.minimum() + ".." + spec.maximum()
+                            + " using the existing server-authoritative block action.")));
+            workbenchMin.setMessage(Component.literal("Min"));
+            workbenchMax.setMessage(Component.literal("Max"));
+        }
 
         if (showFractionPresets) {
             workbenchQuarter.setTooltip(Tooltip.create(Component.literal("Apply 25% of this numeric range.")));
@@ -766,7 +781,12 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             if (spec != null) {
                 String index = "PARAM " + (workbenchParameterIndex + 1) + "/" + specs.size();
                 graphics.drawString(font, index, 16, 178, INFO, false);
-                String value = spec.label() + " = " + spec.current()
+                String controlTag = switch (spec.control()) {
+                    case CHOICE -> "CHOICE";
+                    case RANGE -> "RANGE";
+                    case EXPERIMENT -> "EXPERIMENT";
+                };
+                String value = controlTag + " • " + spec.label() + " = " + spec.current()
                         + (spec.unit().isBlank() ? "" : " " + spec.unit())
                         + "   [" + spec.minimum() + ".." + spec.maximum() + "]";
                 graphics.drawString(font, fitForWidth(value, 222), 82, 178, TEXT, false);
