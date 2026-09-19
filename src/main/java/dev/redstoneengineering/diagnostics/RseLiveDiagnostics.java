@@ -42,6 +42,7 @@ public final class RseLiveDiagnostics {
     private static final LinkedHashMap<String, RseLiveDeviceHealth> DEVICES = new LinkedHashMap<>();
     private static final AtomicLong SEQUENCE = new AtomicLong();
     private static MegaSnapshot megaSnapshot;
+    private static ValidationRunSnapshot validationRunSnapshot;
 
     public enum Domain {
         ANALOG,
@@ -81,6 +82,25 @@ public final class RseLiveDiagnostics {
             rootBlockers = List.copyOf(rootBlockers == null ? List.of() : rootBlockers);
             cascades = List.copyOf(cascades == null ? List.of() : cascades);
             cellSummary = Collections.unmodifiableMap(new LinkedHashMap<>(cellSummary == null ? Map.of() : cellSummary));
+        }
+    }
+
+    /** Latest copy/paste-ready result from the integrated manual commissioning bench. */
+    public record ValidationRunSnapshot(
+            String runId,
+            String command,
+            String overall,
+            List<String> feedbackLines,
+            List<String> logLines,
+            long gameTick,
+            long epochMillis
+    ) {
+        public ValidationRunSnapshot {
+            runId = safe(runId, "UNSET");
+            command = safe(command, "unknown");
+            overall = safe(overall, "WAIT");
+            feedbackLines = List.copyOf(feedbackLines == null ? List.of() : feedbackLines);
+            logLines = List.copyOf(logLines == null ? List.of() : logLines);
         }
     }
 
@@ -268,6 +288,27 @@ public final class RseLiveDiagnostics {
         }
     }
 
+    public static void publishValidationRun(
+            String runId,
+            String command,
+            String overall,
+            List<String> feedbackLines,
+            List<String> logLines,
+            long gameTick
+    ) {
+        ValidationRunSnapshot next = new ValidationRunSnapshot(
+                runId, command, overall, feedbackLines, logLines, gameTick, System.currentTimeMillis());
+        synchronized (LOCK) {
+            validationRunSnapshot = next;
+        }
+    }
+
+    public static ValidationRunSnapshot latestValidationRun() {
+        synchronized (LOCK) {
+            return validationRunSnapshot;
+        }
+    }
+
     public static String exportReport(String environmentHeader, long currentTick) {
         Summary summary = summary(currentTick);
         StringBuilder out = new StringBuilder(48_000);
@@ -282,6 +323,21 @@ public final class RseLiveDiagnostics {
         out.append("qualityCounts=").append(summary.qualityCounts()).append('\n');
         out.append("domainCounts=").append(summary.domainCounts()).append('\n');
         out.append("unhealthyByDomain=").append(summary.unhealthyByDomain()).append("\n\n");
+
+        ValidationRunSnapshot validation = latestValidationRun();
+        out.append("===== INTEGRATED DEMO FEEDBACK =====\n");
+        if (validation == null) {
+            out.append("no integrated demo run published in this session\n");
+        } else {
+            out.append("runId=").append(validation.runId())
+                    .append(" command=").append(validation.command())
+                    .append(" overall=").append(validation.overall())
+                    .append(" tick=").append(validation.gameTick()).append('\n');
+            for (String line : validation.feedbackLines()) out.append(line).append('\n');
+            out.append("\n===== INTEGRATED DEMO RUN LOG =====\n");
+            for (String line : validation.logLines()) out.append(line).append('\n');
+        }
+        out.append('\n');
 
         MegaSnapshot mega = latestMegaSnapshot();
         out.append("===== MEGA FACTORY =====\n");
@@ -348,6 +404,7 @@ public final class RseLiveDiagnostics {
             EVENTS.clear();
             DEVICES.clear();
             megaSnapshot = null;
+            validationRunSnapshot = null;
         }
     }
 
