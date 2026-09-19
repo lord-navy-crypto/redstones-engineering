@@ -11,6 +11,8 @@ import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.EngineeringMath;
+import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.signal.AmethystTunedResonatorLogic;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -35,10 +37,17 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
     public static final IntegerProperty NATURAL = IntegerProperty.create("natural", 1, 15);
     public static final IntegerProperty Q_INDEX = IntegerProperty.create("q", 1, 4);
 
+    private static final String KEY = "amethyst_tuned_resonator";
+    private static final int ACTUAL_AMPLITUDE = 0;
+    private static final int ACTUAL_FREQUENCY = 1;
+    private static final int DRIVEN_SLOT = 2;
+    private static final int RUNTIME_SIZE = 3;
+
     public record ResponseEvidence(int inputFrequency, int inputAmplitude, int naturalFrequency,
                                    int qIndex, int bandwidth, int frequencyError,
-                                   PortQuality inputQuality, int outputAmplitude,
-                                   boolean saturated, boolean responding) {}
+                                   PortQuality inputQuality, int targetAmplitude,
+                                   int actualAmplitude, int outputFrequency,
+                                   boolean saturated, boolean responding, boolean ringDown) {}
 
     public AmethystTunedResonatorBlock(Properties properties) {
         super(properties);
@@ -71,9 +80,16 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
             if (diff == 0) raw = input.amplitude() + q * 2;
             else if (diff <= bandwidth) raw = input.amplitude() - Math.max(1, diff * q);
         }
-        int output = EngineeringMath.clamp(raw, 0, 15);
+        int target = EngineeringMath.clamp(raw, 0, 15);
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        int actualAmplitude = runtime == null || runtime.length < RUNTIME_SIZE
+                ? 0 : EngineeringMath.clamp(runtime[ACTUAL_AMPLITUDE], 0, 15);
+        int outputFrequency = runtime == null || runtime.length < RUNTIME_SIZE
+                ? 0 : EngineeringMath.clamp(runtime[ACTUAL_FREQUENCY], 0, 15);
+        boolean ringDown = actualAmplitude > 0 && !usableInput;
         return new ResponseEvidence(input.frequency(), input.amplitude(), natural, q, bandwidth, diff,
-                inputQuality, output, raw > 15, usableInput && output > 0);
+                inputQuality, target, actualAmplitude, outputFrequency,
+                raw > 15, usableInput && target > 0, ringDown);
     }
 
     private static PortQuality qualityAt(Level level, BlockPos samplePos, DomainNetwork.AmethystSample sample) {
@@ -96,7 +112,12 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
         PortQuality quality = qualityAt(level, samplePos, signal);
         if (side == outputSide(state)) {
             ResponseEvidence response = response(level, pos, state);
-            if (quality == PortQuality.NO_SIGNAL && (response.inputQuality() == PortQuality.TOPOLOGY_ERROR || response.inputQuality() == PortQuality.STALE)) {
+            if (response.actualAmplitude() > 0 && response.ringDown()
+                    && response.inputQuality() == PortQuality.NO_SIGNAL) {
+                quality = PortQuality.VALID;
+            } else if (quality == PortQuality.NO_SIGNAL
+                    && (response.inputQuality() == PortQuality.TOPOLOGY_ERROR
+                    || response.inputQuality() == PortQuality.STALE)) {
                 quality = response.inputQuality();
             } else if (quality == PortQuality.VALID && response.saturated()) {
                 quality = PortQuality.SATURATED;
@@ -112,13 +133,38 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
 
     @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         ResponseEvidence response = response(level, pos, state);
-        DomainNetwork.driveAmethyst(level, outputPos(pos, state), response.responding(), response.inputFrequency(), response.outputAmplitude());
+        int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
+        AmethystTunedResonatorLogic.State next = AmethystTunedResonatorLogic.step(
+                response.targetAmplitude(),
+                response.inputFrequency(),
+                response.naturalFrequency(),
+                response.qIndex(),
+                response.responding(),
+                new AmethystTunedResonatorLogic.State(
+                        runtime[ACTUAL_AMPLITUDE],
+                        runtime[ACTUAL_FREQUENCY],
+                        runtime[DRIVEN_SLOT] != 0)
+        );
+
+        runtime[ACTUAL_AMPLITUDE] = next.amplitude();
+        runtime[ACTUAL_FREQUENCY] = next.frequency();
+        runtime[DRIVEN_SLOT] = next.driven() ? 1 : 0;
+
+        DomainNetwork.driveAmethyst(
+                level, outputPos(pos, state),
+                next.amplitude() > 0,
+                next.frequency(),
+                next.amplitude());
+
         level.scheduleTick(pos, this, 2);
     }
 
     @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
-        if (!state.is(newState.getBlock()) && level instanceof ServerLevel serverLevel) {
-            DomainNetwork.driveAmethyst(serverLevel, outputPos(pos, state), false, 0, 0);
+        if (!state.is(newState.getBlock())) {
+            RuntimeIntStore.remove(level, KEY, pos);
+            if (level instanceof ServerLevel serverLevel) {
+                DomainNetwork.driveAmethyst(serverLevel, outputPos(pos, state), false, 0, 0);
+            }
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
     }
@@ -135,8 +181,14 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
             level.scheduleTick(pos, this, 1);
             ResponseEvidence response = response(level, pos, next);
             player.displayClientMessage(Component.literal(
-                    "Tuned resonator quick-adjust | natural index=" + response.naturalFrequency()
-                            + " | Q-index=" + response.qIndex() + " | bandwidth index=±" + response.bandwidth()
+                    "Tuned resonator | natural=" + response.naturalFrequency()
+                            + " Q=" + response.qIndex()
+                            + " bandwidth=±" + response.bandwidth()
+                            + " | targetA=" + response.targetAmplitude()
+                            + " actualA=" + response.actualAmplitude()
+                            + " outputF=" + response.outputFrequency()
+                            + (response.ringDown() ? " FREE RING-DOWN" : response.responding() ? " DRIVEN" : " IDLE")
+                            + " | response step=" + AmethystTunedResonatorLogic.responseStep(response.qIndex())
                             + " | normal right-click opens Engineering UI"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
