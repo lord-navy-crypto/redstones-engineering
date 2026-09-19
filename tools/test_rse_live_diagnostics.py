@@ -68,7 +68,7 @@ class RseLiveDiagnosticsTests(unittest.TestCase):
             self.assertIn(label, source)
         self.assertIn("RseLiveDiagnostics", source)
         self.assertIn("exportLatest", source)
-        self.assertIn("Copy All", source)
+        self.assertIn("Copy Report", source)
         self.assertIn("Copy Run", source)
 
     def test_mega_reporter_publishes_structured_snapshot(self) -> None:
