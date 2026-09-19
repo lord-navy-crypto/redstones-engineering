@@ -257,13 +257,50 @@ public final class EngineeringWorkbenchCatalog {
                  UniversalFieldDeviceMenu.CONFIG_INSTRUMENT_BUS,
                  UniversalFieldDeviceMenu.CONFIG_QUARTZ_TRACE,
                  UniversalFieldDeviceMenu.CONFIG_SIGNAL_TAP ->
-                    block("INFO", "Passive transport/topology block: world wiring and port evidence are the main interface.");
+                    block("INFO", "Passive/topology-first block: world wiring and current port evidence are the main interface.");
+
             case UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD,
                  UniversalFieldDeviceMenu.CONFIG_PWM,
                  UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR,
                  UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAPIS_SAMPLER ->
-                    lab("LAB", "Discrete-time behavior is meaningful to observe experimentally.");
-            default -> device("MODEL", "Configurable field device: exact settings and evidence, without desktop-style workflow overhead.");
+                    lab("LAB", "Discrete-time behavior has meaningful server-owned timing or capture dynamics.");
+
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER,
+                 UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE,
+                 UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER,
+                 UniversalFieldDeviceMenu.CONFIG_ALARM,
+                 UniversalFieldDeviceMenu.CONFIG_CALIBRATION,
+                 UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR,
+                 UniversalFieldDeviceMenu.CONFIG_SEQUENCE_CONTROLLER,
+                 UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK,
+                 UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER,
+                 UniversalFieldDeviceMenu.CONFIG_LIGHT_SENSOR,
+                 UniversalFieldDeviceMenu.CONFIG_TANK_LEVEL,
+                 UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY,
+                 UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD,
+                 UniversalFieldDeviceMenu.CONFIG_ELECTROMAGNET,
+                 UniversalFieldDeviceMenu.CONFIG_IRON_CORE,
+                 UniversalFieldDeviceMenu.CONFIG_SIGNAL_PROBE,
+                 UniversalFieldDeviceMenu.CONFIG_REFERENCE_SOURCE,
+                 UniversalFieldDeviceMenu.CONFIG_CABLE_TERMINAL,
+                 UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH,
+                 UniversalFieldDeviceMenu.CONFIG_ANALOG_INDICATOR,
+                 UniversalFieldDeviceMenu.CONFIG_BYTE_ENCODER,
+                 UniversalFieldDeviceMenu.CONFIG_BYTE_DECODER,
+                 UniversalFieldDeviceMenu.CONFIG_SERIALIZER,
+                 UniversalFieldDeviceMenu.CONFIG_DESERIALIZER,
+                 UniversalFieldDeviceMenu.CONFIG_REGENERATOR,
+                 UniversalFieldDeviceMenu.CONFIG_DIFF_DRIVER,
+                 UniversalFieldDeviceMenu.CONFIG_DIFF_RECEIVER,
+                 UniversalFieldDeviceMenu.CONFIG_WATCHDOG,
+                 UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY,
+                 UniversalFieldDeviceMenu.CONFIG_REDUNDANT_VOTER,
+                 UniversalFieldDeviceMenu.CONFIG_SIGNAL_AMPLIFIER,
+                 UniversalFieldDeviceMenu.CONFIG_SIGNAL_SELECTOR,
+                 UniversalFieldDeviceMenu.CONFIG_ANALOG_COMPARATOR ->
+                    device("MODEL", "Active/configurable block: expose owned settings, readback and evidence without desktop-workspace overhead.");
+
+            default -> device("MODEL", "UNREVIEWED CONFIG KIND • fail-safe device UI; CI requires every registered kind to be classified explicitly.");
         };
     }
 
@@ -292,22 +329,69 @@ public final class EngineeringWorkbenchCatalog {
             case FieldDeviceMenu.KIND_FILTER,
                  FieldDeviceMenu.KIND_EDGE_DETECTOR,
                  FieldDeviceMenu.KIND_PULSE_SHAPER,
-                 FieldDeviceMenu.KIND_QUARTZ_OSCILLATOR,
                  FieldDeviceMenu.KIND_QUARTZ_DIVIDER,
                  FieldDeviceMenu.KIND_QUARTZ_STABILITY,
+                 FieldDeviceMenu.KIND_QUARTZ_OSCILLATOR,
                  FieldDeviceMenu.KIND_AMETHYST_RESONATOR,
                  FieldDeviceMenu.KIND_AMETHYST_FILTER,
                  FieldDeviceMenu.KIND_AMETHYST_TUNED,
                  FieldDeviceMenu.KIND_AMETHYST_SPECTRUM,
+                 FieldDeviceMenu.KIND_SERVO_ACTUATOR,
                  FieldDeviceMenu.KIND_AIR_COMPRESSOR,
                  FieldDeviceMenu.KIND_PRESSURE_REGULATOR,
                  FieldDeviceMenu.KIND_PNEUMATIC_PROPORTIONAL_VALVE,
                  FieldDeviceMenu.KIND_PNEUMATIC_CYLINDER,
-                 FieldDeviceMenu.KIND_INDUCTION_COIL,
-                 FieldDeviceMenu.KIND_SERVO_ACTUATOR ->
-                    lab("LAB", "This block has time/frequency/dynamic behavior worth measuring, not merely configuring.");
+                 FieldDeviceMenu.KIND_ELECTROMAGNET,
+                 FieldDeviceMenu.KIND_INDUCTION_COIL ->
+                    lab("LAB", "Time/frequency/feedback/actuator behavior is meaningful to measure, not merely configure.");
 
-            default -> device("MODEL", "Active or configurable device: expose settings, result and evidence without overbuilding the GUI.");
+            case FieldDeviceMenu.KIND_PROBE,
+                 FieldDeviceMenu.KIND_REFERENCE,
+                 FieldDeviceMenu.KIND_ENCODER,
+                 FieldDeviceMenu.KIND_DECODER,
+                 FieldDeviceMenu.KIND_SERIALIZER,
+                 FieldDeviceMenu.KIND_DESERIALIZER,
+                 FieldDeviceMenu.KIND_DIGITAL_REGENERATOR,
+                 FieldDeviceMenu.KIND_DIFFERENTIAL_DRIVER,
+                 FieldDeviceMenu.KIND_DIFFERENTIAL_RECEIVER,
+                 FieldDeviceMenu.KIND_RADIO_TRANSMITTER,
+                 FieldDeviceMenu.KIND_RADIO_RECEIVER,
+                 FieldDeviceMenu.KIND_FREE_OPTICAL_TRANSMITTER,
+                 FieldDeviceMenu.KIND_FREE_OPTICAL_RECEIVER,
+                 FieldDeviceMenu.KIND_MECHANICAL_EXCITER,
+                 FieldDeviceMenu.KIND_MECHANICAL_RECEIVER,
+                 FieldDeviceMenu.KIND_HONEY_DAMPER,
+                 FieldDeviceMenu.KIND_SCULK_INTERFACE,
+                 FieldDeviceMenu.KIND_HYDRO_EXCITER,
+                 FieldDeviceMenu.KIND_HYDRO_RECEIVER,
+                 FieldDeviceMenu.KIND_THERMAL_ENCODER,
+                 FieldDeviceMenu.KIND_THERMAL_RECEIVER,
+                 FieldDeviceMenu.KIND_WATCHDOG,
+                 FieldDeviceMenu.KIND_SERVO_POSITION_SENSOR,
+                 FieldDeviceMenu.KIND_REDUNDANT_VOTER,
+                 FieldDeviceMenu.KIND_FAULT_LATCH,
+                 FieldDeviceMenu.KIND_OPERATIONS_MONITOR,
+                 FieldDeviceMenu.KIND_AIR_RESERVOIR,
+                 FieldDeviceMenu.KIND_PNEUMATIC_RECEIVER,
+                 FieldDeviceMenu.KIND_PNEUMATIC_VALVE,
+                 FieldDeviceMenu.KIND_PNEUMATIC_CHECK_VALVE,
+                 FieldDeviceMenu.KIND_PNEUMATIC_FLOW_METER,
+                 FieldDeviceMenu.KIND_SIGNAL_TAP,
+                 FieldDeviceMenu.KIND_RANGE_SENSOR,
+                 FieldDeviceMenu.KIND_LAPIS_SOURCE,
+                 FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE,
+                 FieldDeviceMenu.KIND_PERMANENT_MAGNET,
+                 FieldDeviceMenu.KIND_MAGNETIC_FIELD_SENSOR,
+                 FieldDeviceMenu.KIND_MAGNETIC_GRADIENT_METER,
+                 FieldDeviceMenu.KIND_OPTICAL_EMITTER,
+                 FieldDeviceMenu.KIND_OPTICAL_RECEIVER,
+                 FieldDeviceMenu.KIND_OPTICAL_POWER_METER,
+                 FieldDeviceMenu.KIND_OPTICAL_SPLITTER,
+                 FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER,
+                 FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR ->
+                    device("MODEL", "Active/configurable/observer block: keep settings and evidence close to the in-world component.");
+
+            default -> device("MODEL", "UNREVIEWED FIELD KIND • fail-safe device UI; CI requires every registered kind to be classified explicitly.");
         };
     }
 
