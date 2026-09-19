@@ -117,8 +117,17 @@ public class RedstoneByteEncoderBlock extends DirectionalDomainBlock implements 
     private void update(ServerLevel level, BlockPos pos, BlockState state) {
         var input = RedstoneObservationSupport.observe(level, pos, inputSide(state));
         InformationRuntime.Snapshot previous = InformationRuntime.snapshot(level, "bus8_out", pos);
-        int value = input.valid() ? encode(input.value(), state.getValue(MODE))
-                : input.quality() == PortQuality.STALE ? previous.value() & 0xFF : 0;
+        int value;
+        if (input.valid()) {
+            value = encode(input.value(), state.getValue(MODE));
+        } else if (input.quality() == PortQuality.NO_SIGNAL) {
+            // A confirmed absent source is a real zero/undriven byte condition.
+            value = 0;
+        } else {
+            // Degraded evidence cannot define a new byte. Keep the last trustworthy numerical
+            // readback while validity remains false and the engineering port exposes the quality.
+            value = previous.value() & 0xFF;
+        }
         InformationRuntime.write(level, "bus8_out", pos, value, 0, input.valid(), input.valid() ? 100 : 0);
         BlockPos output = outputPos(pos, state);
         if (level.getBlockState(output).getBlock() instanceof EightBitDataBusBlock) {
