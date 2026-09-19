@@ -178,8 +178,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_ANALOG_INDICATOR
                 || kind == UniversalFieldDeviceMenu.CONFIG_WATCHDOG
                 || kind == UniversalFieldDeviceMenu.CONFIG_REDUNDANT_VOTER
-                || kind == UniversalFieldDeviceMenu.CONFIG_SIGNAL_AMPLIFIER
-                || kind == UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY;
+                || kind == UniversalFieldDeviceMenu.CONFIG_SIGNAL_AMPLIFIER;
         boolean hasToggle = kind == UniversalFieldDeviceMenu.CONFIG_PWM
                 || kind == UniversalFieldDeviceMenu.CONFIG_CABLE_TERMINAL
                 || kind == UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY
@@ -244,11 +243,6 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             secondaryNext.setMessage(Component.literal(compactControlName(secondaryName) + " ▶"));
             secondaryNext.setTooltip(Tooltip.create(Component.literal("Fine +1 • " + secondaryName)));
         }
-        // Relay keeps its established explicit control vocabulary while still gaining target entry.
-        if (kind == UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY) {
-            secondaryPrevious.setMessage(Component.literal("◀ Pickup"));
-            secondaryNext.setMessage(Component.literal("Pickup ▶"));
-        }
         if (action != null) {
             action.visible = configure && hasAction;
             action.active = (kind != UniversalFieldDeviceMenu.CONFIG_ALARM || menu.configSecondary() == 2)
@@ -267,13 +261,6 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             else if (kind == UniversalFieldDeviceMenu.CONFIG_WATCHDOG) action.setMessage(Component.literal("Reset watchdog diagnostics"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_REDUNDANT_VOTER) action.setMessage(Component.literal("Reset voter diagnostics"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_SIGNAL_AMPLIFIER) action.setMessage(Component.literal("Reset clipping evidence"));
-            else if (kind == UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY) {
-                int timingMode = (menu.configQuaternary() >> 10) & 3;
-                action.setMessage(Component.literal(
-                        "Timing • " + SingleRelayBlock.timingNameForMode(timingMode)
-                                + " " + SingleRelayBlock.operateDelayForMode(timingMode)
-                                + "/" + SingleRelayBlock.releaseDelayForMode(timingMode) + "t"));
-            }
         }
         if (toggle != null) {
             toggle.visible = configure && hasToggle;
@@ -327,6 +314,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.CONFIG_CALIBRATION -> "Profile";
             case UniversalFieldDeviceMenu.CONFIG_PWM -> "Period";
             case UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR -> "Fault mode";
+            case UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY -> "Pickup";
             default -> "Parameter";
         };
     }
@@ -336,7 +324,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD -> "Sampling";
             case UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY -> "Aperture";
             case UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE -> "Range idx";
-            case UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY -> "Pickup";
+            case UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY -> "Timing";
             default -> "Parameter B";
         };
     }
@@ -395,7 +383,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     }
 
     private void renderNumericalWorkbench(GuiGraphics g, int kind) {
-        statusBadge(g, "NUMERICAL PARAMETER WORKBENCH", INFO, 16, 80);
+        statusBadge(g, kind == UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY
+                ? "RELAY PARAMETER WORKBENCH" : "NUMERICAL PARAMETER WORKBENCH", INFO, 16, 80);
         if (menu.editPrimaryAvailable()) {
             labelValue(g, primaryParameterName(kind),
                     menu.editPrimaryValue() + "   range " + menu.editPrimaryMin() + ".." + menu.editPrimaryMax(), 99);
@@ -406,8 +395,21 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             labelValue(g, secondaryParameterName(kind),
                     menu.editSecondaryValue() + "   range " + menu.editSecondaryMin() + ".." + menu.editSecondaryMax(), 151);
         }
-        safeText(g, "Fine buttons step the authoritative model; target boxes apply an exact bounded setting.", 16, 204, MUTED);
-        safeText(g, "Open Model for equation/process meaning. Min/Max are server-validated presets.", 16, 214, MUTED);
+        if (kind == UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY) {
+            int pickupMode = menu.editPrimaryValue();
+            int timingMode = menu.editSecondaryValue();
+            int pickup = switch (pickupMode) { case 0 -> 1; case 1 -> 4; case 2 -> 8; default -> 12; };
+            int dropout = Math.max(0, pickup - 2);
+            labelValue(g, "Pickup / dropout", pickup + " / " + dropout, 183);
+            labelValue(g, "Operate / release",
+                    SingleRelayBlock.timingNameForMode(timingMode) + " • "
+                            + SingleRelayBlock.operateDelayForMode(timingMode) + "/"
+                            + SingleRelayBlock.releaseDelayForMode(timingMode) + "t", 195);
+            safeText(g, "Pickup and timing are discrete relay profiles; Contact NO/NC remains the explicit toggle below.", 16, 229, MUTED);
+        } else {
+            safeText(g, "Fine buttons step the authoritative model; target boxes apply an exact bounded setting.", 16, 204, MUTED);
+            safeText(g, "Open Model for equation/process meaning. Min/Max are server-validated presets.", 16, 214, MUTED);
+        }
     }
 
     private void configure(GuiGraphics g) {
