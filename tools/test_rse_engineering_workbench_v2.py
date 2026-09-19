@@ -11,6 +11,7 @@ class EngineeringWorkbenchV2Tests(unittest.TestCase):
         self.universal_screen = (ROOT / "src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java").read_text(encoding="utf-8")
         self.universal_menu = (ROOT / "src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java").read_text(encoding="utf-8")
         self.design_doc = (ROOT / "docs/ENGINEERING_UI_MINECRAFT_FIRST.md").read_text(encoding="utf-8")
+        self.ui_registration = (ROOT / "src/main/java/dev/redstoneengineering/ui/EngineeringUiRegistration.java").read_text(encoding="utf-8")
 
     def test_every_engineering_screen_gets_model_page(self):
         for token in [
@@ -224,6 +225,24 @@ class EngineeringWorkbenchV2Tests(unittest.TestCase):
             "The Redstone Encyclopedia, Diagnostic Tablet, and RSE Diagnostics",
         ]:
             self.assertIn(token, self.design_doc)
+
+    def test_every_registered_block_hmi_is_explicitly_reviewed_by_policy(self):
+        reviewed = [
+            "SignalConditionerMenu", "PidControllerMenu", "OscilloscopeMenu", "LogicAnalyzerMenu",
+            "SignalAnalyzerMenu", "FieldDeviceMenu", "UniversalFieldDeviceMenu", "CopperCircuitMeterMenu",
+            "MediaConversionMenu", "RangeSensorMenu", "SignalProcessorMenu", "QuartzTimingMenu",
+            "RadioLinkMenu", "DigitalCommunicationMenu", "PneumaticSystemMenu", "OpticalSystemMenu",
+            "AmethystSystemMenu", "MagneticSystemMenu", "ReliabilitySystemMenu", "OperationsMonitorMenu",
+            "WorkcellControllerMenu", "IndustrialBufferMenu",
+        ]
+        for menu_name in reviewed:
+            self.assertIn(menu_name, self.ui_registration)
+            self.assertIn(menu_name, self.catalog)
+
+        # Global information tools intentionally use their own information architecture.
+        self.assertIn("RedstoneEncyclopediaMenu", self.ui_registration)
+        self.assertIn("DiagnosticTabletMenu", self.ui_registration)
+        self.assertIn("Global tools are different", self.design_doc)
 
     def test_universal_devices_also_participate_in_model_parameter_workbench(self):
         for token in [
