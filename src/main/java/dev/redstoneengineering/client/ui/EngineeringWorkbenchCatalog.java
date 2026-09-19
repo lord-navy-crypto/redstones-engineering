@@ -664,18 +664,24 @@ public final class EngineeringWorkbenchCatalog {
 
         EngineeringWorkbenchCatalog.ResponseSpec response = response(menu);
         List<ParameterSpec> parameters = parameters(menu);
-        if (response != null && !parameters.isEmpty()) {
-            ParameterSpec p = parameters.get(0);
-            return lab(
-                    "How does this block-owned parameter affect the synchronized response?",
-                    p.label(),
-                    response.label(),
-                    metric("Parameter", Integer.toString(p.current()), "Current server-owned setting."),
-                    metric("Response", response.value() + (response.unit().isBlank() ? "" : " " + response.unit()),
-                            response.detail()),
-                    metric("Evidence", response.usable() ? "VALID" : "NOT CURRENT", "Response validity gate."),
-                    "Generic LAB framing used only because both a real parameter and real response are available."
-            );
+        if (response != null) {
+            ParameterSpec p = parameters.stream()
+                    .filter(parameter -> parameter.control() == ParameterControl.EXPERIMENT)
+                    .filter(ParameterSpec::sweepMeaningful)
+                    .findFirst()
+                    .orElse(null);
+            if (p != null) {
+                return lab(
+                        "How does this experiment variable affect the synchronized response?",
+                        p.label(),
+                        response.label(),
+                        metric("Parameter", Integer.toString(p.current()), "Current server-owned experiment setting."),
+                        metric("Response", response.value() + (response.unit().isBlank() ? "" : " " + response.unit()),
+                                response.detail()),
+                        metric("Evidence", response.usable() ? "VALID" : "NOT CURRENT", "Response validity gate."),
+                        "Generic LAB framing is allowed only for an explicitly declared experiment variable with a real response."
+                );
+            }
         }
         return null;
     }
