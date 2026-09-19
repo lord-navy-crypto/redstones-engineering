@@ -2,12 +2,33 @@ package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.ui.menu.*;
 
+import java.util.List;
+
 /**
  * Client-only presentation catalog for the equations and processing ideas already represented by
  * server-authoritative RSE devices. It never evaluates physics or acceptance logic.
  */
 public final class EngineeringWorkbenchCatalog {
     public record ModelCard(String family, String equation, String parameters, String process, String boundary) {}
+    /**
+     * One bounded server-owned parameter exposed to the shared Model workbench.
+     * decrement/increment are existing menu-button actions; the client never writes world state.
+     */
+    public record ParameterSpec(
+            String label,
+            int current,
+            int minimum,
+            int maximum,
+            int decrementButton,
+            int incrementButton,
+            String unit,
+            String detail
+    ) {
+        public ParameterSpec {
+            unit = unit == null ? "" : unit;
+            detail = detail == null ? "" : detail;
+        }
+    }
 
     private EngineeringWorkbenchCatalog() {}
 
@@ -114,6 +135,200 @@ public final class EngineeringWorkbenchCatalog {
                 "device-specific synchronized configuration",
                 "observe inputs -> update authoritative server state -> publish outputs/evidence",
                 "This page explains the server-owned model; it never moves simulation authority into the client.");
+    }
+
+    public static List<ParameterSpec> parameters(EngineeringDeviceMenu menu) {
+        // UniversalFieldDevice has its own exact target editor in Configure because it may expose
+        // two independent IntegerProperties and action/toggle controls at the same time.
+        if (menu instanceof UniversalFieldDeviceMenu) return List.of();
+
+        if (menu instanceof PidControllerMenu pid) {
+            return List.of(spec("Tuning preset", pid.tuning(), 0, 3,
+                    PidControllerMenu.BUTTON_TUNING_PREVIOUS, PidControllerMenu.BUTTON_TUNING_NEXT,
+                    "preset", "Selects one of the four server-owned PID tuning profiles."));
+        }
+        if (menu instanceof SignalConditionerMenu conditioner) {
+            int mode = conditioner.mode();
+            int min = switch (mode) { case 1 -> 0; case 5 -> 2; default -> 1; };
+            int max = switch (mode) { case 0, 4, 5 -> 4; case 1 -> 10; case 2, 3 -> 15; default -> 15; };
+            return List.of(
+                    spec("Transfer mode", mode, 0, 5,
+                            SignalConditionerMenu.BUTTON_MODE_PREVIOUS, SignalConditionerMenu.BUTTON_MODE_NEXT,
+                            "mode", "Changing mode selects a different transfer equation and restores its default parameter."),
+                    spec("Mode parameter", conditioner.parameter(), min, max,
+                            SignalConditionerMenu.BUTTON_PARAM_DECREASE, SignalConditionerMenu.BUTTON_PARAM_INCREASE,
+                            "raw", "Bounded parameter interpreted by the currently selected transfer mode.")
+            );
+        }
+        if (menu instanceof SignalProcessorMenu processor) {
+            return switch (processor.kind()) {
+                case SignalProcessorMenu.KIND_FILTER -> List.of(
+                        spec("Rise rate", processor.parameter(), 1, 4,
+                                SignalProcessorMenu.BUTTON_PARAMETER_PREVIOUS, SignalProcessorMenu.BUTTON_PARAMETER_NEXT,
+                                "level/tick", "Maximum upward output slew."),
+                        spec("Fall rate", processor.secondaryParameter(), 1, 4,
+                                SignalProcessorMenu.BUTTON_FILTER_FALL_PREVIOUS, SignalProcessorMenu.BUTTON_FILTER_FALL_NEXT,
+                                "level/tick", "Maximum downward output slew.")
+                );
+                case SignalProcessorMenu.KIND_EDGE -> List.of(
+                        spec("Edge mode", processor.parameter(), 0, 2,
+                                SignalProcessorMenu.BUTTON_PARAMETER_PREVIOUS, SignalProcessorMenu.BUTTON_PARAMETER_NEXT,
+                                "mode", "Rising, falling, or both-edge detection.")
+                );
+                case SignalProcessorMenu.KIND_PULSE -> List.of(
+                        spec("Pulse width", processor.parameter(), 1, 8,
+                                SignalProcessorMenu.BUTTON_PARAMETER_PREVIOUS, SignalProcessorMenu.BUTTON_PARAMETER_NEXT,
+                                "ticks", "Accepted trigger pulse duration."),
+                        spec("Trigger threshold", processor.secondaryParameter(), 1, 15,
+                                SignalProcessorMenu.BUTTON_THRESHOLD_PREVIOUS, SignalProcessorMenu.BUTTON_THRESHOLD_NEXT,
+                                "/15", "Input level required for a trigger."),
+                        spec("Hysteresis", processor.tertiaryParameter(), 1, 4,
+                                SignalProcessorMenu.BUTTON_PULSE_HYSTERESIS_PREVIOUS, SignalProcessorMenu.BUTTON_PULSE_HYSTERESIS_NEXT,
+                                "levels", "Re-arm separation below the trigger threshold.")
+                );
+                default -> List.of();
+            };
+        }
+        if (menu instanceof QuartzTimingMenu quartz) {
+            if (quartz.kind() == QuartzTimingMenu.KIND_OSCILLATOR) {
+                return List.of(spec("Period index", quartz.tertiary(), 0, 4,
+                        QuartzTimingMenu.BUTTON_PARAMETER_PREVIOUS, QuartzTimingMenu.BUTTON_PARAMETER_NEXT,
+                        "index", "Current realized nominal period = " + quartz.secondary() + " ticks."));
+            }
+            return List.of();
+        }
+        if (menu instanceof RangeSensorMenu range) {
+            return List.of(
+                    spec("Detection mode", range.detectMode(), 0, 2,
+                            RangeSensorMenu.BUTTON_MODE_PREVIOUS, RangeSensorMenu.BUTTON_MODE_NEXT,
+                            "mode", "Selects the detection interpretation."),
+                    spec("Range mode", range.rangeMode(), 0, 2,
+                            RangeSensorMenu.BUTTON_RANGE_PREVIOUS, RangeSensorMenu.BUTTON_RANGE_NEXT,
+                            "mode", "Changes the bounded sensing range."),
+                    spec("Response mode", range.responseMode(), 0, 3,
+                            RangeSensorMenu.BUTTON_RESPONSE_PREVIOUS, RangeSensorMenu.BUTTON_RESPONSE_NEXT,
+                            "mode", "Changes the distance-to-output response.")
+            );
+        }
+        if (menu instanceof PneumaticSystemMenu pneumatic) {
+            return switch (pneumatic.kind()) {
+                case PneumaticSystemMenu.KIND_COMPRESSOR -> List.of(
+                        spec("Response profile", pneumatic.stateFlag(), 0, 2,
+                                PneumaticSystemMenu.BUTTON_PARAMETER_PREVIOUS, PneumaticSystemMenu.BUTTON_PARAMETER_NEXT,
+                                "mode", "Controls finite compressor pressure response.")
+                );
+                case PneumaticSystemMenu.KIND_REGULATOR -> List.of(
+                        spec("Pressure setpoint", Math.max(1, pneumatic.secondary() / 10), 1, 10,
+                                PneumaticSystemMenu.BUTTON_PARAMETER_PREVIOUS, PneumaticSystemMenu.BUTTON_PARAMETER_NEXT,
+                                "x10 pressure", "Raw setting 1..10 corresponds to 10..100 pressure.")
+                );
+                case PneumaticSystemMenu.KIND_RECEIVER -> List.of(
+                        spec("Pressure range", pneumatic.stateFlag(), 0, 2,
+                                PneumaticSystemMenu.BUTTON_PARAMETER_PREVIOUS, PneumaticSystemMenu.BUTTON_PARAMETER_NEXT,
+                                "mode", "Selects the pressure full-scale used for transduction.")
+                );
+                case PneumaticSystemMenu.KIND_PROPORTIONAL -> List.of(
+                        spec("Response profile", pneumatic.stateFlag(), 0, 2,
+                                PneumaticSystemMenu.BUTTON_PARAMETER_PREVIOUS, PneumaticSystemMenu.BUTTON_PARAMETER_NEXT,
+                                "mode", "Controls finite valve-opening response.")
+                );
+                case PneumaticSystemMenu.KIND_RELIEF -> List.of(
+                        spec("Relief setpoint", Math.max(1, pneumatic.tertiary() / 25), 1, 4,
+                                PneumaticSystemMenu.BUTTON_PARAMETER_PREVIOUS, PneumaticSystemMenu.BUTTON_PARAMETER_NEXT,
+                                "x25 pressure", "Raw setting 1..4 corresponds to 25..100 pressure.")
+                );
+                default -> List.of();
+            };
+        }
+        if (menu instanceof AmethystSystemMenu amethyst) {
+            return switch (amethyst.kind()) {
+                case AmethystSystemMenu.KIND_SOURCE -> List.of(
+                        spec("Drive frequency", amethyst.primary(), 1, 15,
+                                AmethystSystemMenu.BUTTON_PRIMARY_PREVIOUS, AmethystSystemMenu.BUTTON_PRIMARY_NEXT,
+                                "index", "Frequency index of the impulse resonator."),
+                        spec("Peak amplitude", amethyst.secondary(), 1, 15,
+                                AmethystSystemMenu.BUTTON_SECONDARY_PREVIOUS, AmethystSystemMenu.BUTTON_SECONDARY_NEXT,
+                                "/15", "Initial excitation amplitude before ring-down.")
+                );
+                case AmethystSystemMenu.KIND_FILTER -> List.of(
+                        spec("Target frequency", amethyst.tertiary(), 1, 15,
+                                AmethystSystemMenu.BUTTON_PRIMARY_PREVIOUS, AmethystSystemMenu.BUTTON_PRIMARY_NEXT,
+                                "index", "Pass frequency selected by the frequency filter.")
+                );
+                case AmethystSystemMenu.KIND_TUNED -> List.of(
+                        spec("Natural frequency", amethyst.tertiary(), 1, 15,
+                                AmethystSystemMenu.BUTTON_PRIMARY_PREVIOUS, AmethystSystemMenu.BUTTON_PRIMARY_NEXT,
+                                "index", "Natural resonance frequency."),
+                        spec("Q index", amethyst.auxiliary(), 1, 4,
+                                AmethystSystemMenu.BUTTON_SECONDARY_PREVIOUS, AmethystSystemMenu.BUTTON_SECONDARY_NEXT,
+                                "index", "Controls resonance selectivity/bandwidth.")
+                );
+                default -> List.of();
+            };
+        }
+        if (menu instanceof RadioLinkMenu radio) {
+            return List.of(spec("Radio channel", radio.channel(), 0, 3,
+                    RadioLinkMenu.BUTTON_CHANNEL_PREVIOUS, RadioLinkMenu.BUTTON_CHANNEL_NEXT,
+                    "channel", "Transmitter/receiver channel selection."));
+        }
+        if (menu instanceof DigitalCommunicationMenu digital
+                && digital.kind() == DigitalCommunicationMenu.KIND_REGENERATOR) {
+            return List.of(spec("Quality threshold", digital.parameter(), 0, 2,
+                    DigitalCommunicationMenu.BUTTON_PARAMETER_PREVIOUS, DigitalCommunicationMenu.BUTTON_PARAMETER_NEXT,
+                    "mode", "Minimum medium quality required before regeneration."));
+        }
+        if (menu instanceof OpticalSystemMenu optical) {
+            return switch (optical.kind()) {
+                case OpticalSystemMenu.KIND_EMITTER -> List.of(
+                        spec("Optical intensity", optical.primary(), 0, 15,
+                                OpticalSystemMenu.BUTTON_PRIMARY_PREVIOUS, OpticalSystemMenu.BUTTON_PRIMARY_NEXT,
+                                "/15", "Source intensity."),
+                        spec("Optical channel", optical.secondary(), 0, 15,
+                                OpticalSystemMenu.BUTTON_SECONDARY_PREVIOUS, OpticalSystemMenu.BUTTON_SECONDARY_NEXT,
+                                "channel", "Source wavelength/channel identity.")
+                );
+                case OpticalSystemMenu.KIND_FILTER -> List.of(
+                        spec("Target channel", optical.secondary(), 0, 15,
+                                OpticalSystemMenu.BUTTON_PRIMARY_PREVIOUS, OpticalSystemMenu.BUTTON_PRIMARY_NEXT,
+                                "channel", "Only matching channel evidence is passed.")
+                );
+                case OpticalSystemMenu.KIND_ATTENUATOR -> List.of(
+                        spec("Attenuation", optical.secondary(), 0, 8,
+                                OpticalSystemMenu.BUTTON_PRIMARY_PREVIOUS, OpticalSystemMenu.BUTTON_PRIMARY_NEXT,
+                                "levels", "Configured passive signal loss.")
+                );
+                case OpticalSystemMenu.KIND_FREE_SPACE_TX, OpticalSystemMenu.KIND_FREE_SPACE_RX -> List.of(
+                        spec("Optical channel", optical.secondary(), 0, 3,
+                                OpticalSystemMenu.BUTTON_SECONDARY_PREVIOUS, OpticalSystemMenu.BUTTON_SECONDARY_NEXT,
+                                "channel", "Free-space link channel.")
+                );
+                default -> List.of();
+            };
+        }
+        if (menu instanceof MagneticSystemMenu magnetic) {
+            return switch (magnetic.kind()) {
+                case MagneticSystemMenu.KIND_PERMANENT -> List.of(
+                        spec("Magnet strength", magnetic.primary(), 1, 15,
+                                MagneticSystemMenu.BUTTON_PRIMARY_PREVIOUS, MagneticSystemMenu.BUTTON_PRIMARY_NEXT,
+                                "/15", "Permanent source strength.")
+                );
+                case MagneticSystemMenu.KIND_COIL -> List.of(
+                        spec("Coil turns index", magnetic.tertiary(), 1, 4,
+                                MagneticSystemMenu.BUTTON_PRIMARY_PREVIOUS, MagneticSystemMenu.BUTTON_PRIMARY_NEXT,
+                                "turns index", "Induced response scales with the configured turns index.")
+                );
+                default -> List.of();
+            };
+        }
+        return List.of();
+    }
+
+    private static ParameterSpec spec(
+            String label, int current, int minimum, int maximum,
+            int decrementButton, int incrementButton, String unit, String detail
+    ) {
+        return new ParameterSpec(label, current, minimum, maximum,
+                decrementButton, incrementButton, unit, detail);
     }
 
     private static ModelCard universal(UniversalFieldDeviceMenu menu) {
