@@ -22,12 +22,14 @@ import dev.redstoneengineering.block.QuartzTriggeredLapisSamplerBlock;
 import dev.redstoneengineering.block.ServoActuatorBlock;
 import dev.redstoneengineering.block.ServoPositionSensorBlock;
 import dev.redstoneengineering.core.diagnostic.CoreMediaDiagnostics;
+import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.PrecisionObservationSupport;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
@@ -39,6 +41,7 @@ import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -112,6 +115,44 @@ public final class RseFourDomainDemoService {
     private static final BlockPos PIEZO = p(6, 0, 4);
     private static final BlockPos PIEZO_INDICATOR = p(7, 0, 4);
     private static final BlockPos SPECTRUM = p(4, 0, 6);
+
+    /** Stable node ids for per-block field diagnostics. */
+    private static final Map<String, BlockPos> NODES = nodeOffsets();
+
+    private static Map<String, BlockPos> nodeOffsets() {
+        LinkedHashMap<String, BlockPos> nodes = new LinkedHashMap<>();
+        nodes.put("lapis_source", LAPIS_SOURCE);
+        nodes.put("lapis_trace_a", LAPIS_TRACE_A);
+        nodes.put("lapis_filter", LAPIS_FILTER);
+        nodes.put("lapis_trace_b", LAPIS_TRACE_B);
+        nodes.put("sampler", SAMPLER);
+        nodes.put("lapis_trace_c", LAPIS_TRACE_C);
+        nodes.put("quantizer", QUANTIZER);
+        nodes.put("setpoint_cable", SETPOINT_CABLE);
+        nodes.put("setpoint_indicator", SETPOINT_INDICATOR);
+        nodes.put("pid", PID);
+        nodes.put("control_cable", CONTROL_CABLE);
+        nodes.put("servo", SERVO);
+        nodes.put("position_sensor", POSITION_SENSOR);
+        nodes.put("feedback_1", FEEDBACK_1);
+        nodes.put("feedback_2", FEEDBACK_2);
+        nodes.put("feedback_3", FEEDBACK_3);
+        nodes.put("feedback_4", FEEDBACK_4);
+        nodes.put("quartz_osc", QUARTZ_OSC);
+        nodes.put("quartz_trace_a", QUARTZ_TRACE_A);
+        nodes.put("quartz_divider", QUARTZ_DIVIDER);
+        nodes.put("quartz_trace_b", QUARTZ_TRACE_B);
+        nodes.put("amethyst_source", AMETHYST_SOURCE);
+        nodes.put("amethyst_trace_a", AMETHYST_TRACE_A);
+        nodes.put("amethyst_tuned", AMETHYST_TUNED);
+        nodes.put("amethyst_trace_b", AMETHYST_TRACE_B);
+        nodes.put("amethyst_filter", AMETHYST_FILTER);
+        nodes.put("amethyst_trace_c", AMETHYST_TRACE_C);
+        nodes.put("piezo", PIEZO);
+        nodes.put("piezo_indicator", PIEZO_INDICATOR);
+        nodes.put("spectrum", SPECTRUM);
+        return Map.copyOf(nodes);
+    }
 
     private static BlockPos p(int x, int y, int z) {
         return new BlockPos(x, y, z);
@@ -223,6 +264,7 @@ public final class RseFourDomainDemoService {
                 "Main chain: Lapis -> Quartz-triggered sample -> Redstone PID -> Servo -> position feedback.",
                 "Resonance chain: Amethyst source -> tuned resonator -> exact filter -> piezo pickup -> Redstone indicator.",
                 "Automatic stage checker armed. PASS/FAIL transitions will appear in your chat.",
+                "Per-block diagnostics: /rsevalidation demo nodes | node <id>",
                 "Commands: /rsevalidation demo status | stage <1..9> | setpoint <0..100> | excite | retest"
         );
     }
@@ -272,6 +314,73 @@ public final class RseFourDomainDemoService {
         AmethystResonatorBlock.excite(level, sourcePos, source);
         level.scheduleTick(sourcePos, source.getBlock(), 2);
         DomainNetwork.recomputeAmethyst(level, sourcePos);
+    }
+
+    public static RseValidationFactoryService.Result nodes(ServerPlayer player) {
+        Session session = session(player);
+        if (session == null) return RseValidationFactoryService.Result.fail("No four-domain demo session.");
+        ArrayList<Component> lines = new ArrayList<>();
+        lines.add(Component.literal("RSE demo node ids (" + NODES.size() + "):"));
+        for (String id : NODES.keySet()) lines.add(Component.literal(" - " + id));
+        return new RseValidationFactoryService.Result(true, lines);
+    }
+
+    /**
+     * Observer-only per-block dump. It reports the actual block at the expected coordinate and
+     * every engineering port snapshot exposed by that block, so a field failure can be pasted
+     * back verbatim without guessing which boundary lost value or quality.
+     */
+    public static RseValidationFactoryService.Result node(ServerPlayer player, String nodeId) {
+        Session session = session(player);
+        if (session == null) return RseValidationFactoryService.Result.fail("No four-domain demo session.");
+        String id = nodeId == null ? "" : nodeId.trim().toLowerCase(java.util.Locale.ROOT);
+        BlockPos offset = NODES.get(id);
+        if (offset == null) {
+            return RseValidationFactoryService.Result.fail(
+                    "Unknown demo node: " + id,
+                    "Run /rsevalidation demo nodes for valid node ids.");
+        }
+
+        ServerLevel level = player.serverLevel();
+        BlockPos pos = at(session, offset);
+        BlockState state = level.getBlockState(pos);
+        String blockId = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
+        ArrayList<Component> lines = new ArrayList<>();
+        lines.add(Component.literal("[RSE DEMO NODE] " + id + " @ " + pos.toShortString() + " | block=" + blockId));
+
+        if (state.getBlock() instanceof EngineeringPortProvider provider) {
+            var ports = provider.engineeringPorts(state);
+            if (ports.isEmpty()) {
+                lines.add(Component.literal(" ports=0"));
+            } else {
+                for (var port : ports) {
+                    EngineeringPortSnapshot snapshot =
+                            provider.engineeringSnapshot(level, pos, state, port.side()).orElse(null);
+                    if (snapshot == null) {
+                        lines.add(Component.literal(
+                                " " + port.label()
+                                        + " side=" + port.side().getName().toUpperCase()
+                                        + " domain=" + port.domain()
+                                        + " dir=" + port.direction()
+                                        + " snapshot=MISSING"));
+                    } else {
+                        lines.add(Component.literal(
+                                " " + port.label()
+                                        + " side=" + port.side().getName().toUpperCase()
+                                        + " domain=" + port.domain()
+                                        + " dir=" + port.direction()
+                                        + " value=" + String.format(java.util.Locale.ROOT, "%.2f", snapshot.value())
+                                        + " range=[" + String.format(java.util.Locale.ROOT, "%.2f", snapshot.minimum())
+                                        + "," + String.format(java.util.Locale.ROOT, "%.2f", snapshot.maximum()) + "]"
+                                        + " quality=" + snapshot.quality()));
+                    }
+                }
+            }
+        } else {
+            lines.add(Component.literal(" block does not expose EngineeringPortProvider diagnostics"));
+        }
+
+        return new RseValidationFactoryService.Result(true, lines);
     }
 
     public static RseValidationFactoryService.Result status(ServerPlayer player) {
