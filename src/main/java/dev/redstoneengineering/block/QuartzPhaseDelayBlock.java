@@ -43,7 +43,8 @@ public class QuartzPhaseDelayBlock extends DirectionalDomainBlock implements Eng
     private static final int INITIALIZED_SLOT = 2;
     private static final int QUEUE_COUNT_SLOT = 3;
     private static final int DROPPED_EDGE_SLOT = 4;
-    private static final int QUEUE_BASE = 5;
+    private static final int LAST_VALID_PERIOD_SLOT = 5;
+    private static final int QUEUE_BASE = 6;
     private static final int QUEUE_CAPACITY = 8;
     private static final int RUNTIME_SIZE = QUEUE_BASE + QUEUE_CAPACITY;
 
@@ -157,33 +158,39 @@ public class QuartzPhaseDelayBlock extends DirectionalDomainBlock implements Eng
         DomainNetwork.QuartzSample input = DomainNetwork.sampleQuartz(level, inputPos(pos, state));
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
 
-        if (!input.valid()) {
-            runtime[PREVIOUS_SLOT] = 0;
-            runtime[OUTPUT_SLOT] = 0;
-            runtime[INITIALIZED_SLOT] = 0;
-            runtime[QUEUE_COUNT_SLOT] = 0;
-            for (int i = 0; i < QUEUE_CAPACITY; i++) runtime[QUEUE_BASE + i] = 0;
-            DomainNetwork.driveQuartz(level, outputPos(pos, state), pos, false, 1, false);
-            level.scheduleTick(pos, this, 1);
-            return;
-        }
-
+        // Events that were captured while evidence was valid are already "inside" the delay line.
+        // They continue to propagate even if the upstream source disappears afterwards.
         runtime[OUTPUT_SLOT] = advanceQueue(runtime) ? 1 : 0;
 
-        if (runtime[INITIALIZED_SLOT] == 0) {
-            runtime[PREVIOUS_SLOT] = input.active() ? 1 : 0;
-            runtime[INITIALIZED_SLOT] = 1;
-        } else {
-            boolean rising = input.active() && runtime[PREVIOUS_SLOT] == 0;
-            if (rising) {
-                enqueue(runtime, FaultInjectionModel.latencyTicks(state.getValue(DELAY), 8));
+        if (input.valid()) {
+            runtime[LAST_VALID_PERIOD_SLOT] = Math.max(1, input.periodTicks());
+            if (runtime[INITIALIZED_SLOT] == 0) {
+                runtime[PREVIOUS_SLOT] = input.active() ? 1 : 0;
+                runtime[INITIALIZED_SLOT] = 1;
+            } else {
+                boolean rising = input.active() && runtime[PREVIOUS_SLOT] == 0;
+                if (rising) {
+                    enqueue(runtime, FaultInjectionModel.latencyTicks(state.getValue(DELAY), 8));
+                }
+                runtime[PREVIOUS_SLOT] = input.active() ? 1 : 0;
             }
-            runtime[PREVIOUS_SLOT] = input.active() ? 1 : 0;
+        } else {
+            // Reacquisition must establish a fresh phase baseline; never fabricate an edge.
+            runtime[PREVIOUS_SLOT] = 0;
+            runtime[INITIALIZED_SLOT] = 0;
         }
 
+        boolean retainedEventEvidence = runtime[OUTPUT_SLOT] == 1 || runtime[QUEUE_COUNT_SLOT] > 0;
+        boolean outputEvidenceValid = input.valid() || retainedEventEvidence;
+        int outputPeriod = input.valid()
+                ? Math.max(1, input.periodTicks())
+                : Math.max(1, runtime[LAST_VALID_PERIOD_SLOT]);
+
         DomainNetwork.driveQuartz(
-                level, outputPos(pos, state), pos, runtime[OUTPUT_SLOT] == 1,
-                Math.max(1, input.periodTicks()), true);
+                level, outputPos(pos, state), pos,
+                runtime[OUTPUT_SLOT] == 1,
+                outputPeriod,
+                outputEvidenceValid);
         level.scheduleTick(pos, this, 1);
     }
 
