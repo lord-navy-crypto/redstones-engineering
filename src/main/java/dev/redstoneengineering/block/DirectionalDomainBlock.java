@@ -1,6 +1,7 @@
 package dev.redstoneengineering.block;
 
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
+import dev.redstoneengineering.physics.DomainDriverRegistry;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -96,8 +97,15 @@ public abstract class DirectionalDomainBlock extends DomainBlock {
         if (!physicalPortsDoNotOverlap(block, next)) return false;
         level.setBlock(pos, next, Block.UPDATE_CLIENTS);
 
+        if (level instanceof ServerLevel serverLevel) {
+            // Output topology changed. Claims are keyed by (driver, output-start), so retaining
+            // the old entries would leave ghost drivers on the former segment after rotation.
+            // Multi-output devices are intentionally cleared as a unit and rebuild all current
+            // outputs on their next authoritative tick.
+            DomainDriverRegistry.releaseAll(serverLevel, pos);
+            serverLevel.scheduleTick(pos, block, 1);
+        }
         notifyNeighbors(level, pos, block, oldInput, oldOutput, newInput, newOutput);
-        if (level instanceof ServerLevel serverLevel) serverLevel.scheduleTick(pos, block, 1);
         return true;
     }
 
@@ -144,8 +152,13 @@ public abstract class DirectionalDomainBlock extends DomainBlock {
             BlockState next = state.setValue(FACING, newOutput);
             if (!physicalPortsDoNotOverlap(block, next)) continue;
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+            if (level instanceof ServerLevel serverLevel) {
+                // The physical output-start changed; discard every old claim owned by this device
+                // before the scheduled tick publishes the newly routed output(s).
+                DomainDriverRegistry.releaseAll(serverLevel, pos);
+                serverLevel.scheduleTick(pos, block, 1);
+            }
             notifyNeighbors(level, pos, block, oldOutput, newOutput, input);
-            if (level instanceof ServerLevel serverLevel) serverLevel.scheduleTick(pos, block, 1);
             return true;
         }
         return hasAuxiliaryPorts(block, state) && rotateWholeRoute(level, pos, clockwise);
