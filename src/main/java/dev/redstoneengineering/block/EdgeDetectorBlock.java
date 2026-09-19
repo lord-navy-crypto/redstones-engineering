@@ -2,9 +2,16 @@ package dev.redstoneengineering.block;
 
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.core.domain.EngineeringDomain;
+import dev.redstoneengineering.core.port.EngineeringPort;
+import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
+import dev.redstoneengineering.core.port.PortDirection;
+import dev.redstoneengineering.core.port.PortKind;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -18,16 +25,21 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
+import java.util.List;
+import java.util.Optional;
+
 /** Converts level transitions into bounded redstone event pulses with inspectable transient evidence. */
 public class EdgeDetectorBlock extends DirectionalSignalBlock {
     public static final IntegerProperty MODE = IntegerProperty.create("mode", 0, 2);
     private static final String KEY = "redstone_edge_detector";
-    private static final int RUNTIME_SIZE = 5;
+    private static final int RUNTIME_SIZE = 7;
     private static final int LAST_INPUT_SLOT = 0;
     private static final int PULSE_TICKS_SLOT = 1;
     private static final int INITIALIZED_SLOT = 2;
     private static final int EDGE_COUNT = 3;
     private static final int LAST_EDGE_TICK = 4;
+    private static final int BAD_EVIDENCE_ACTIVE = 5;
+    private static final int REJECTED_INPUT_EPISODES = 6;
 
     public EdgeDetectorBlock(Properties properties) {
         super(properties);
@@ -39,10 +51,46 @@ public class EdgeDetectorBlock extends DirectionalSignalBlock {
         super.createBlockStateDefinition(builder); builder.add(MODE);
     }
 
+    @Override
+    public List<EngineeringPort> engineeringPorts(BlockState state) {
+        return List.of(
+                new EngineeringPort("LEVEL IN", inputSide(state), EngineeringDomain.REDSTONE,
+                        PortKind.MEASUREMENT, PortDirection.INPUT, true, "signal"),
+                new EngineeringPort("EDGE PULSE", outputSide(state), EngineeringDomain.REDSTONE,
+                        PortKind.TRIGGER, PortDirection.OUTPUT, true, "edge")
+        );
+    }
+
+    @Override
+    public Optional<EngineeringPortSnapshot> engineeringSnapshot(
+            Level level, BlockPos pos, BlockState state, Direction side
+    ) {
+        Optional<EngineeringPort> port = engineeringPort(state, side);
+        if (port.isEmpty()) return Optional.empty();
+        var input = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+        int value = side == outputSide(state) ? state.getValue(OUTPUT) : input.value();
+        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value, input.quality()));
+    }
+
     @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        boolean now = readBackInput(level, pos, state) > 0;
+        var input = RedstoneObservationSupport.observe(level, pos, inputSide(state));
         int[] rt = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
+
+        if (!input.valid()) {
+            if (rt[BAD_EVIDENCE_ACTIVE] == 0 && rt[REJECTED_INPUT_EPISODES] < Integer.MAX_VALUE) {
+                rt[REJECTED_INPUT_EPISODES]++;
+            }
+            rt[BAD_EVIDENCE_ACTIVE] = 1;
+            rt[INITIALIZED_SLOT] = 0;
+            rt[PULSE_TICKS_SLOT] = 0;
+            updateOutput(level, pos, state, 0);
+            return;
+        }
+
+        rt[BAD_EVIDENCE_ACTIVE] = 0;
+        boolean now = input.value() > 0;
         if (rt[INITIALIZED_SLOT] == 0) {
+            // Reacquire a baseline after startup or bad evidence without manufacturing a false edge.
             rt[LAST_INPUT_SLOT] = now ? 1 : 0;
             rt[PULSE_TICKS_SLOT] = 0;
             rt[INITIALIZED_SLOT] = 1;
@@ -60,7 +108,7 @@ public class EdgeDetectorBlock extends DirectionalSignalBlock {
         };
         if (edge) {
             remaining = 2;
-            rt[EDGE_COUNT]++;
+            if (rt[EDGE_COUNT] < Integer.MAX_VALUE) rt[EDGE_COUNT]++;
             rt[LAST_EDGE_TICK] = boundedTick(level.getGameTime());
         }
 
@@ -91,6 +139,10 @@ public class EdgeDetectorBlock extends DirectionalSignalBlock {
     public static int edgeCount(Level level, BlockPos pos) {
         int[] rt = RuntimeIntStore.peek(level, KEY, pos);
         return rt == null || rt.length < RUNTIME_SIZE ? 0 : Math.max(0, rt[EDGE_COUNT]);
+    }
+    public static int rejectedInputEpisodes(Level level, BlockPos pos) {
+        int[] rt = RuntimeIntStore.peek(level, KEY, pos);
+        return rt == null || rt.length < RUNTIME_SIZE ? 0 : Math.max(0, rt[REJECTED_INPUT_EPISODES]);
     }
     public static int lastEdgeAgeTicks(Level level, BlockPos pos) {
         int[] rt = RuntimeIntStore.peek(level, KEY, pos);
@@ -125,6 +177,7 @@ public class EdgeDetectorBlock extends DirectionalSignalBlock {
                 player.displayClientMessage(Component.literal(
                         "Edge Detector | mode=" + modeName(mode)
                                 + " | edges=" + edgeCount(level, pos)
+                                + " | rejectedInputEpisodes=" + rejectedInputEpisodes(level, pos)
                                 + " | lastEdgeAge=" + lastEdgeAgeTicks(level, pos) + "t"), true);
             }
         }

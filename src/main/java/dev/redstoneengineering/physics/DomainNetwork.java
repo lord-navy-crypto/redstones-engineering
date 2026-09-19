@@ -106,9 +106,19 @@ public final class DomainNetwork {
         for (BlockPos p : nodes) {
             BlockState state = level.getBlockState(p);
             if (state.getBlock() instanceof QuartzOscillatorBlock && rawSeen.add(p)) {
-                claims.add(new DomainDriverRegistry.Claim(p,p,state.getValue(QuartzOscillatorBlock.ACTIVE)?1:0,QuartzTimingLineBlock.periodTicks(state.getValue(QuartzOscillatorBlock.PERIOD_INDEX)),0,state.getBlock().getClass().getName()));
+                claims.add(new DomainDriverRegistry.Claim(
+                        p, p,
+                        state.getValue(QuartzOscillatorBlock.ACTIVE) ? 1 : 0,
+                        QuartzOscillatorBlock.effectivePeriodTicks(level, p, state),
+                        0,
+                        state.getBlock().getClass().getName()));
             } else if (state.getBlock() instanceof QuartzLabOscillatorBlock && rawSeen.add(p)) {
-                claims.add(new DomainDriverRegistry.Claim(p,p,state.getValue(QuartzLabOscillatorBlock.ACTIVE)?1:0,QuartzTimingLineBlock.periodTicks(state.getValue(QuartzLabOscillatorBlock.PERIOD_INDEX)),0,state.getBlock().getClass().getName()));
+                claims.add(new DomainDriverRegistry.Claim(
+                        p, p,
+                        state.getValue(QuartzLabOscillatorBlock.ACTIVE) ? 1 : 0,
+                        QuartzLabOscillatorBlock.effectivePeriodTicks(level, p, state),
+                        0,
+                        state.getBlock().getClass().getName()));
             }
         }
         NetworkKernel.recordDriverState(level, "quartz", claims.size());
@@ -137,9 +147,14 @@ public final class DomainNetwork {
 
     public static QuartzSample sampleQuartz(Level level, BlockPos pos) {
         var s = level.getBlockState(pos);
-        if (s.getBlock() instanceof QuartzTimingLineBlock) return new QuartzSample(QuartzTimingLineBlock.active(level,pos), QuartzTimingLineBlock.period(level,pos), QuartzTimingLineBlock.valid(level,pos));
-        if (s.getBlock() instanceof QuartzOscillatorBlock) return new QuartzSample(s.getValue(QuartzOscillatorBlock.ACTIVE), QuartzTimingLineBlock.periodTicks(s.getValue(QuartzOscillatorBlock.PERIOD_INDEX)), true);
-        if (s.getBlock() instanceof QuartzLabOscillatorBlock) return new QuartzSample(s.getValue(QuartzLabOscillatorBlock.ACTIVE), QuartzTimingLineBlock.periodTicks(s.getValue(QuartzLabOscillatorBlock.PERIOD_INDEX)), true);
+        if (s.getBlock() instanceof QuartzTimingLineBlock) return new QuartzSample(
+                QuartzTimingLineBlock.active(level,pos), QuartzTimingLineBlock.period(level,pos), QuartzTimingLineBlock.valid(level,pos));
+        if (s.getBlock() instanceof QuartzOscillatorBlock) return new QuartzSample(
+                s.getValue(QuartzOscillatorBlock.ACTIVE),
+                QuartzOscillatorBlock.effectivePeriodTicks(level, pos, s), true);
+        if (s.getBlock() instanceof QuartzLabOscillatorBlock) return new QuartzSample(
+                s.getValue(QuartzLabOscillatorBlock.ACTIVE),
+                QuartzLabOscillatorBlock.effectivePeriodTicks(level, pos, s), true);
         return new QuartzSample(false, 0, false);
     }
 
@@ -176,8 +191,21 @@ public final class DomainNetwork {
             if (s.getBlock() instanceof AmethystResonatorBlock && AmethystResonatorBlock.isActive(level, p)) sources.add(p);
         }
 
+        // Processor outputs are registered by physical driver/output-start ownership so two
+        // independent filters/resonators feeding the same trace cannot overwrite each other by
+        // scheduler order. They participate in the same strongest-arrival/tie-conflict physics as
+        // raw resonators rather than turning Amethyst into a single-driver digital bus.
+        List<DomainDriverRegistry.Claim> processorClaims =
+                new ArrayList<>(DomainDriverRegistry.activeClaims(level, "amethyst", nodes));
+
         Map<BlockPos,Map<BlockPos,Integer>> resonanceDistance=new HashMap<>();
         for(BlockPos src:sources) resonanceDistance.put(src,distancesHorizontalTrace(level,nodes,src,AmethystResonanceDustBlock.class));
+        Map<DomainDriverRegistry.Claim,Map<BlockPos,Integer>> processorDistance=new HashMap<>();
+        for (DomainDriverRegistry.Claim claim : processorClaims) {
+            processorDistance.put(
+                    claim,
+                    distancesHorizontalTrace(level, nodes, claim.outputStart(), AmethystResonanceDustBlock.class));
+        }
 
         for (BlockPos p : nodes) {
             var state = level.getBlockState(p);
@@ -187,7 +215,7 @@ public final class DomainNetwork {
             boolean tieConflict = false;
             for (BlockPos src : sources) {
                 var ss = level.getBlockState(src);
-                int amp = ss.getValue(AmethystResonatorBlock.AMPLITUDE);
+                int amp = AmethystResonatorBlock.currentAmplitude(level, src);
                 Integer dist = resonanceDistance.get(src).get(p);
                 if(dist==null) continue;
                 int arriving = Math.max(0, amp - dist / 4);
@@ -196,6 +224,20 @@ public final class DomainNetwork {
                     bestFreq = ss.getValue(AmethystResonatorBlock.FREQUENCY);
                     tieConflict = false;
                 } else if (arriving > 0 && arriving == bestAmp && bestFreq != ss.getValue(AmethystResonatorBlock.FREQUENCY)) {
+                    tieConflict = true;
+                }
+            }
+            for (DomainDriverRegistry.Claim claim : processorClaims) {
+                Integer dist = processorDistance.get(claim).get(p);
+                if (dist == null) continue;
+                int sourceAmp = EngineeringMath.clamp(claim.b(), 0, 15);
+                int sourceFreq = EngineeringMath.clamp(claim.a(), 1, 15);
+                int arriving = Math.max(0, sourceAmp - dist / 4);
+                if (arriving > bestAmp) {
+                    bestAmp = arriving;
+                    bestFreq = sourceFreq;
+                    tieConflict = false;
+                } else if (arriving > 0 && arriving == bestAmp && bestFreq != sourceFreq) {
                     tieConflict = true;
                 }
             }
@@ -215,10 +257,34 @@ public final class DomainNetwork {
     public static AmethystSample sampleAmethyst(Level level, BlockPos pos) {
         var s = level.getBlockState(pos);
         if (s.getBlock() instanceof AmethystResonanceDustBlock) return new AmethystSample(AmethystResonanceDustBlock.active(level,pos), AmethystResonanceDustBlock.frequency(level,pos), AmethystResonanceDustBlock.amplitude(level,pos));
-        if (s.getBlock() instanceof AmethystResonatorBlock) return new AmethystSample(AmethystResonatorBlock.isActive(level, pos), s.getValue(AmethystResonatorBlock.FREQUENCY), s.getValue(AmethystResonatorBlock.AMPLITUDE));
+        if (s.getBlock() instanceof AmethystResonatorBlock) return new AmethystSample(
+                AmethystResonatorBlock.isActive(level, pos),
+                s.getValue(AmethystResonatorBlock.FREQUENCY),
+                AmethystResonatorBlock.currentAmplitude(level, pos));
         return new AmethystSample(false, 0, 0);
     }
 
+    /**
+     * Owned Amethyst processor drive. Unlike the legacy direct writer below, this path preserves
+     * driver identity and resolves all active processor/raw-resonator sources together.
+     */
+    public static void driveAmethyst(ServerLevel level, BlockPos start, BlockPos driverPos,
+                                     boolean active, int frequency, int amplitude) {
+        int boundedAmplitude = EngineeringMath.clamp(amplitude, 0, 15);
+        if (active && boundedAmplitude > 0) {
+            DomainDriverRegistry.claim(
+                    level, "amethyst", driverPos, start,
+                    EngineeringMath.clamp(frequency, 1, 15), boundedAmplitude, 0);
+        } else {
+            DomainDriverRegistry.release(level, "amethyst", driverPos, start);
+        }
+        recomputeAmethyst(level, start);
+    }
+
+    /**
+     * Legacy/internal direct propagation without driver ownership. Retained for compatibility with
+     * old diagnostics/tests; real processor blocks should use the driverPos overload above.
+     */
     public static void driveAmethyst(ServerLevel level, BlockPos start, boolean active, int frequency, int amplitude) {
         Set<BlockPos> nodes = collectHorizontalEdges(level,start,"amethyst",p -> level.getBlockState(p).getBlock() instanceof AmethystResonanceDustBlock,(a,b,d)->surfaceEdgeAllowed(level,a,b,d,AmethystResonanceDustBlock.class));
         if (nodes.isEmpty()) return;
@@ -375,6 +441,7 @@ public final class DomainNetwork {
                 if (s.getBlock() instanceof CopperCapacitorBlock) return CopperCapacitorBlock.outputVoltage(level,pos);
                 if (s.getBlock() instanceof CopperFuseBlock) return CopperFuseBlock.outputVoltage(level,pos);
                 if (s.getBlock() instanceof InductionCoilBlock) return InductionCoilBlock.outputVoltage(level,pos);
+                if (s.getBlock() instanceof RedstoneCopperDriverBlock) return RedstoneCopperDriverBlock.actualVoltage(level,pos);
             }
             if (observerPos.equals(input)) {
                 return sampleCopperVoltage(level, input);
@@ -565,11 +632,21 @@ public final class DomainNetwork {
             BlockState s=level.getBlockState(n);
             if(s.getBlock() instanceof QuartzOscillatorBlock){
                 if(DirectionalDomainSourceBlock.outputsToward(s,d.getOpposite())){
-                    claims.add(new DomainDriverRegistry.Claim(n,p,s.getValue(QuartzOscillatorBlock.ACTIVE)?1:0,QuartzTimingLineBlock.periodTicks(s.getValue(QuartzOscillatorBlock.PERIOD_INDEX)),0,s.getBlock().getClass().getName()));
+                    claims.add(new DomainDriverRegistry.Claim(
+                            n, p,
+                            s.getValue(QuartzOscillatorBlock.ACTIVE) ? 1 : 0,
+                            QuartzOscillatorBlock.effectivePeriodTicks(level, n, s),
+                            0,
+                            s.getBlock().getClass().getName()));
                 }
             }else if(s.getBlock() instanceof QuartzLabOscillatorBlock){
                 if(DirectionalDomainSourceBlock.outputsToward(s,d.getOpposite())){
-                    claims.add(new DomainDriverRegistry.Claim(n,p,s.getValue(QuartzLabOscillatorBlock.ACTIVE)?1:0,QuartzTimingLineBlock.periodTicks(s.getValue(QuartzLabOscillatorBlock.PERIOD_INDEX)),0,s.getBlock().getClass().getName()));
+                    claims.add(new DomainDriverRegistry.Claim(
+                            n, p,
+                            s.getValue(QuartzLabOscillatorBlock.ACTIVE) ? 1 : 0,
+                            QuartzLabOscillatorBlock.effectivePeriodTicks(level, n, s),
+                            0,
+                            s.getBlock().getClass().getName()));
                 }
             }
         }

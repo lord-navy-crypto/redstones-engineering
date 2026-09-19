@@ -46,12 +46,16 @@ public class DifferentialReceiverBlock extends PassiveDirectionalSignalBlock {
         );
     }
 
-    private PortQuality inputQuality(Level level, BlockPos pos, BlockState state) {
-        BlockPos input = inputPos(pos, state);
+    public static PortQuality inputEvidenceQuality(Level level, BlockPos pos, BlockState state) {
+        BlockPos input = pos.relative(DirectionalSignalBlock.seriesInputSide(state));
         if (!level.hasChunkAt(input)) return PortQuality.STALE;
         return DifferentialNetwork.isNode(level, input)
                 ? DifferentialNetwork.quality(level, input)
                 : PortQuality.NO_SIGNAL;
+    }
+
+    private PortQuality inputQuality(Level level, BlockPos pos, BlockState state) {
+        return inputEvidenceQuality(level, pos, state);
     }
 
     @Override

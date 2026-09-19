@@ -10,6 +10,8 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.signal.EngineeringSignal;
+import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -32,6 +34,13 @@ import java.util.Optional;
 /** Front-facing process measurement display with a single BACK redstone input port. */
 public class AnalogIndicatorBlock extends DirectionalRedstoneEndpointBlock implements EngineeringPortProvider {
     public static final IntegerProperty LEVEL = IntegerProperty.create("level", 0, 15);
+
+    private static final String RUNTIME_KEY = "analog_indicator";
+    private static final int MIN_SLOT = 0;
+    private static final int MAX_SLOT = 1;
+    private static final int SAMPLE_COUNT_SLOT = 2;
+    private static final int INITIALIZED_SLOT = 3;
+    private static final int RUNTIME_SIZE = 4;
 
     public record InputObservation(int value, PortQuality quality) {}
 
@@ -72,42 +81,8 @@ public class AnalogIndicatorBlock extends DirectionalRedstoneEndpointBlock imple
      * being reduced to the weaker "a block exists here" heuristic.
      */
     public InputObservation inputObservation(Level level, BlockPos pos, BlockState state) {
-        Direction back = backSide(state);
-        BlockPos sourcePos = pos.relative(back);
-        if (!level.hasChunkAt(sourcePos)) {
-            return new InputObservation(state.getValue(LEVEL), PortQuality.STALE);
-        }
-
-        int value = readBackInput(level, pos, state);
-        BlockState sourceState = level.getBlockState(sourcePos);
-        if (sourceState.isAir()) return new InputObservation(0, PortQuality.NO_SIGNAL);
-
-        if (sourceState.getBlock() instanceof EngineeringPortProvider provider) {
-            Direction sourceFace = back.getOpposite();
-            Optional<EngineeringPort> sourcePort = provider.engineeringPort(sourceState, sourceFace);
-            if (sourcePort.isPresent()) {
-                EngineeringPort port = sourcePort.get();
-                if (port.domain() == EngineeringDomain.REDSTONE
-                        && port.redstoneConnectable()
-                        && port.direction() != PortDirection.INPUT) {
-                    Optional<EngineeringPortSnapshot> sourceSnapshot = provider.engineeringSnapshot(
-                            level, sourcePos, sourceState, sourceFace);
-                    if (sourceSnapshot.isPresent()) {
-                        EngineeringPortSnapshot snapshot = sourceSnapshot.get();
-                        return new InputObservation(
-                                EngineeringSignal.clamp((int) Math.round(snapshot.value())),
-                                snapshot.quality());
-                    }
-                    return new InputObservation(value, PortQuality.VALID);
-                }
-            }
-        }
-
-        if (value > 0) return new InputObservation(value, PortQuality.VALID);
-        if (sourceState.getBlock().canConnectRedstone(sourceState, level, sourcePos, back)) {
-            return new InputObservation(0, PortQuality.VALID);
-        }
-        return new InputObservation(0, PortQuality.NO_SIGNAL);
+        var observation = RedstoneObservationSupport.observe(level, pos, backSide(state));
+        return new InputObservation(observation.value(), observation.quality());
     }
 
     @Override
@@ -159,11 +134,63 @@ public class AnalogIndicatorBlock extends DirectionalRedstoneEndpointBlock imple
 
     private void update(Level level, BlockPos pos, BlockState state) {
         InputObservation observation = inputObservation(level, pos, state);
-        if (observation.quality() == PortQuality.STALE) return;
+        if (observation.quality() == PortQuality.STALE
+                || observation.quality() == PortQuality.FAULT
+                || observation.quality() == PortQuality.DOMAIN_MISMATCH
+                || observation.quality() == PortQuality.TOPOLOGY_ERROR) {
+            // Degraded evidence must not overwrite the last trustworthy displayed value.
+            return;
+        }
         int value = observation.value();
+        if (observation.quality() == PortQuality.VALID) {
+            int[] runtime = RuntimeIntStore.get(level, RUNTIME_KEY, pos, RUNTIME_SIZE);
+            if (runtime[INITIALIZED_SLOT] == 0) {
+                runtime[MIN_SLOT] = value;
+                runtime[MAX_SLOT] = value;
+                runtime[INITIALIZED_SLOT] = 1;
+            } else {
+                runtime[MIN_SLOT] = Math.min(runtime[MIN_SLOT], value);
+                runtime[MAX_SLOT] = Math.max(runtime[MAX_SLOT], value);
+            }
+            if (runtime[SAMPLE_COUNT_SLOT] < Integer.MAX_VALUE) runtime[SAMPLE_COUNT_SLOT]++;
+        }
         if (value != state.getValue(LEVEL)) {
             level.setBlock(pos, state.setValue(LEVEL, value), Block.UPDATE_CLIENTS);
         }
+    }
+
+    public static int retainedMinimum(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, RUNTIME_KEY, pos);
+        return runtime == null || runtime.length < RUNTIME_SIZE || runtime[INITIALIZED_SLOT] == 0 ? -1 : runtime[MIN_SLOT];
+    }
+
+    public static int retainedMaximum(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, RUNTIME_KEY, pos);
+        return runtime == null || runtime.length < RUNTIME_SIZE || runtime[INITIALIZED_SLOT] == 0 ? -1 : runtime[MAX_SLOT];
+    }
+
+    public static int sampleCount(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, RUNTIME_KEY, pos);
+        return runtime == null || runtime.length < RUNTIME_SIZE ? 0 : Math.max(0, runtime[SAMPLE_COUNT_SLOT]);
+    }
+
+    public static boolean resetExtrema(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof AnalogIndicatorBlock indicator)) return false;
+        InputObservation observation = indicator.inputObservation(level, pos, state);
+        int[] runtime = RuntimeIntStore.get(level, RUNTIME_KEY, pos, RUNTIME_SIZE);
+        int value = observation.quality() == PortQuality.VALID ? observation.value() : state.getValue(LEVEL);
+        runtime[MIN_SLOT] = value;
+        runtime[MAX_SLOT] = value;
+        runtime[SAMPLE_COUNT_SLOT] = 0;
+        runtime[INITIALIZED_SLOT] = 1;
+        return true;
+    }
+
+    @Override
+    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
+        if (!state.is(newState.getBlock())) RuntimeIntStore.remove(level, RUNTIME_KEY, pos);
+        super.onRemove(state, level, pos, newState, moved);
     }
 
     @Override
@@ -182,6 +209,9 @@ public class AnalogIndicatorBlock extends DirectionalRedstoneEndpointBlock imple
                                 + " | inputQuality=" + observation.quality()
                                 + " | FRONT display=" + frontSide(state).getName()
                                 + " BACK IN=" + backSide(state).getName()
+                                + " | min=" + retainedMinimum(level, pos)
+                                + " max=" + retainedMaximum(level, pos)
+                                + " samples=" + sampleCount(level, pos)
                                 + " | readout-only"
                 ), true);
             } else {

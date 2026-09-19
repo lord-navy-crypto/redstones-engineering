@@ -12,6 +12,7 @@ import dev.redstoneengineering.diagnostics.events.SystemEventKind;
 import dev.redstoneengineering.diagnostics.events.SystemEventTimeline;
 import dev.redstoneengineering.operations.world.OperationWorldResourceProvider;
 import dev.redstoneengineering.operations.world.OperationWorldResourceSnapshot;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
@@ -34,7 +35,8 @@ import java.util.Set;
 /** Three-channel permissive/interlock controller. BACK=A, LEFT=B, RIGHT=C, FRONT=PERMIT. */
 public class SafetyInterlockBlock extends PassiveDirectionalSignalBlock implements OperationWorldResourceProvider {
     private static final String KEY = "safety_interlock";
-    private static final int RUNTIME_SIZE = 5;
+    private static final int INITIALIZED = 5;
+    private static final int RUNTIME_SIZE = 6;
 
     public SafetyInterlockBlock(Properties properties) {
         super(properties);
@@ -66,20 +68,42 @@ public class SafetyInterlockBlock extends PassiveDirectionalSignalBlock implemen
         );
     }
 
+    private record PermissiveAssessment(int failedMask, PortQuality quality) {}
+
+    private PermissiveAssessment assessPermissives(Level level, BlockPos pos, BlockState state) {
+        Direction front = outputSide(state);
+        var a = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+        var b = RedstoneObservationSupport.observe(level, pos, leftOf(front));
+        var c = RedstoneObservationSupport.observe(level, pos, rightOf(front));
+
+        int mask = ((!a.valid() || a.value() <= 0) ? 1 : 0)
+                | ((!b.valid() || b.value() <= 0) ? 2 : 0)
+                | ((!c.valid() || c.value() <= 0) ? 4 : 0);
+        PortQuality quality = RedstoneObservationSupport.combineQuality(
+                a.quality(), b.quality(), c.quality());
+        return new PermissiveAssessment(mask, quality);
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         Direction front = outputSide(state);
-        int value = side == front ? state.getValue(OUTPUT) : readInputFrom(level, pos, side);
-        PortQuality quality = value > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL;
-        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value, quality));
+        if (side == front) {
+            PermissiveAssessment assessment = assessPermissives(level, pos, state);
+            return Optional.of(EngineeringPortSnapshot.redstone(
+                    port.get(), state.getValue(OUTPUT), assessment.quality()));
+        }
+        var observed = RedstoneObservationSupport.observe(level, pos, side);
+        return Optional.of(EngineeringPortSnapshot.redstone(
+                port.get(), observed.value(), observed.quality()));
     }
 
     @Override
     public OperationWorldResourceSnapshot operationResourceSnapshot(Level level, BlockPos pos, BlockState state) {
-        int mask = failedMask(level, pos);
-        PortQuality quality = mask < 0 ? PortQuality.STALE : PortQuality.VALID;
+        int runtimeMask = failedMask(level, pos);
+        PermissiveAssessment assessment = assessPermissives(level, pos, state);
+        int mask = runtimeMask < 0 ? assessment.failedMask() : runtimeMask;
         boolean blocked = mask > 0;
         return new OperationWorldResourceSnapshot(
                 "safety_interlock:" + pos.asLong(),
@@ -88,25 +112,26 @@ public class SafetyInterlockBlock extends PassiveDirectionalSignalBlock implemen
                 false,
                 false,
                 blocked,
-                quality,
+                runtimeMask < 0 ? PortQuality.STALE : assessment.quality(),
                 Map.of("failed_mask", (long) mask, "permit", mask == 0 ? 1L : 0L)
         );
     }
 
     @Override
     protected int computeOutput(Level level, BlockPos pos, BlockState state) {
-        Direction front = outputSide(state);
-        int a = readBackInput(level, pos, state);
-        int b = readInputFrom(level, pos, leftOf(front));
-        int c = readInputFrom(level, pos, rightOf(front));
-        int mask = (a <= 0 ? 1 : 0) | (b <= 0 ? 2 : 0) | (c <= 0 ? 4 : 0);
+        PermissiveAssessment assessment = assessPermissives(level, pos, state);
+        int mask = assessment.failedMask();
         int permit = mask == 0 ? 1 : 0;
 
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
         int previousPermit = runtime[4];
         runtime[0] = mask;
-        if (permit != previousPermit) {
-            runtime[3]++;
+        if (runtime[INITIALIZED] == 0) {
+            // First evaluation establishes the physical state; it is not a transition event.
+            runtime[4] = permit;
+            runtime[INITIALIZED] = 1;
+        } else if (permit != previousPermit) {
+            if (runtime[3] < Integer.MAX_VALUE) runtime[3]++;
             if (permit == 0) {
                 SystemEventTimeline.record(level, pos, SystemEventKind.INTERLOCK_TRIPPED, 3,
                         "INTERLOCK_TRIPPED", "Permit removed; failed permissive mask=" + mask);
@@ -114,8 +139,8 @@ public class SafetyInterlockBlock extends PassiveDirectionalSignalBlock implemen
                 SystemEventTimeline.record(level, pos, SystemEventKind.INTERLOCK_READY, 0,
                         "INTERLOCK_READY", "All permissives valid; permit restored");
             }
+            runtime[4] = permit;
         }
-        runtime[4] = permit;
         if (permit != 0) runtime[2]++;
         else runtime[1]++;
         return permit != 0 ? 15 : 0;
@@ -127,6 +152,16 @@ public class SafetyInterlockBlock extends PassiveDirectionalSignalBlock implemen
         return runtime == null || runtime.length < RUNTIME_SIZE ? -1 : runtime[0];
     }
 
+    public static int transitionCount(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length < RUNTIME_SIZE ? 0 : Math.max(0, runtime[3]);
+    }
+
+    public static int blockedTicks(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length < RUNTIME_SIZE ? 0 : Math.max(0, runtime[1]);
+    }
+
     public static String compactDiagnostics(Level level, BlockPos pos) {
         int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
         if (runtime == null || runtime.length < RUNTIME_SIZE) return "INTERLOCK not evaluated";
@@ -135,7 +170,7 @@ public class SafetyInterlockBlock extends PassiveDirectionalSignalBlock implemen
         if ((runtime[0] & 1) != 0) missing.append("A");
         if ((runtime[0] & 2) != 0) missing.append(missing.isEmpty() ? "B" : ",B");
         if ((runtime[0] & 4) != 0) missing.append(missing.isEmpty() ? "C" : ",C");
-        return "INTERLOCK BLOCKED | missing=" + missing + " | blockedTicks=" + runtime[1];
+        return "INTERLOCK BLOCKED | failed=" + missing + " | blockedTicks=" + runtime[1];
     }
 
     public boolean resetDiagnostics(Level level, BlockPos pos) {

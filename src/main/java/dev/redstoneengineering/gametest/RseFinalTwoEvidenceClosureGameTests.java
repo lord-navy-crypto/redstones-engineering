@@ -25,7 +25,7 @@ public final class RseFinalTwoEvidenceClosureGameTests {
     private RseFinalTwoEvidenceClosureGameTests() {}
 
     @PrefixGameTestTemplate(false)
-    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 80)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 100)
     public static void faultLatchSeparatesMissingZeroAndResetPriority(GameTestHelper helper) {
         BlockPos latchPos = new BlockPos(2, 1, 2);
         BlockPos faultPos = latchPos.west();
@@ -66,15 +66,39 @@ public final class RseFinalTwoEvidenceClosureGameTests {
                     helper.fail("Valid FAULT source did not latch exactly once", latchPos);
                     return;
                 }
+
+                // A RESET edge cannot mask a fault that is still asserted.
                 helper.setBlock(resetPos, reference(Direction.NORTH, 15));
                 helper.runAfterDelay(4, () -> {
-                    if (FaultLatchBlock.latched(helper.getLevel(), world)
-                            || helper.getBlockState(latchPos).getValue(DirectionalSignalBlock.OUTPUT) != 0
-                            || FaultLatchBlock.resetCount(helper.getLevel(), world) != 1) {
-                        helper.fail("Valid RESET source did not dominate the still-active fault", latchPos);
+                    if (!FaultLatchBlock.latched(helper.getLevel(), world)
+                            || FaultLatchBlock.resetCount(helper.getLevel(), world) != 0) {
+                        helper.fail("RESET incorrectly cleared a still-active FAULT", latchPos);
                         return;
                     }
-                    helper.succeed();
+
+                    // Clearing FAULT while RESET remains high must not reuse the old edge.
+                    helper.setBlock(faultPos, reference(Direction.EAST, 0));
+                    helper.runAfterDelay(4, () -> {
+                        if (!FaultLatchBlock.latched(helper.getLevel(), world)
+                                || FaultLatchBlock.resetCount(helper.getLevel(), world) != 0) {
+                            helper.fail("Held RESET cleared the latch without a new rising edge", latchPos);
+                            return;
+                        }
+
+                        helper.setBlock(resetPos, reference(Direction.NORTH, 0));
+                        helper.runAfterDelay(3, () -> {
+                            helper.setBlock(resetPos, reference(Direction.NORTH, 15));
+                            helper.runAfterDelay(4, () -> {
+                                if (FaultLatchBlock.latched(helper.getLevel(), world)
+                                        || helper.getBlockState(latchPos).getValue(DirectionalSignalBlock.OUTPUT) != 0
+                                        || FaultLatchBlock.resetCount(helper.getLevel(), world) != 1) {
+                                    helper.fail("Guarded RESET edge did not clear the proven-clear latch once", latchPos);
+                                    return;
+                                }
+                                helper.succeed();
+                            });
+                        });
+                    });
                 });
             });
         });

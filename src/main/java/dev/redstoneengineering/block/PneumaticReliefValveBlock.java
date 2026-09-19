@@ -12,6 +12,7 @@ import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.PneumaticNetwork;
 import dev.redstoneengineering.physics.PneumaticObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.signal.PneumaticReliefValveLogic;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -34,6 +35,7 @@ import java.util.Optional;
 public class PneumaticReliefValveBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
     public static final IntegerProperty SETPOINT = IntegerProperty.create("setpoint", 1, 4);
     private static final String RUNTIME = "pneumatic_relief";
+    private static final int BLOWDOWN_PRESSURE = 5;
     private static final int DIAG_SIZE = 4; // events, lastExcess, totalVentedProxy, previousVenting
 
     public PneumaticReliefValveBlock(Properties properties) {
@@ -94,6 +96,21 @@ public class PneumaticReliefValveBlock extends DirectionalDomainBlock implements
     public static int totalVentedProxy(Level level, BlockPos pos) { return diagnosticsSnapshot(level, pos)[2]; }
     public static boolean venting(Level level, BlockPos pos) { return diagnosticsSnapshot(level, pos)[3] != 0; }
 
+    public static int blowdownPressure() { return BLOWDOWN_PRESSURE; }
+
+    public static int setpointPressure(BlockState state) {
+        return state.getValue(SETPOINT) * 25;
+    }
+
+    public static int reseatPressure(BlockState state) {
+        return PneumaticReliefValveLogic.reseatPressure(setpointPressure(state), BLOWDOWN_PRESSURE);
+    }
+
+    public static boolean shouldVent(Level level, BlockPos pos, BlockState state, int pressure) {
+        return PneumaticReliefValveLogic.shouldVent(
+                pressure, setpointPressure(state), BLOWDOWN_PRESSURE, venting(level, pos));
+    }
+
     /** Called by the pneumatic solver. Repeated solver passes during one overpressure episode count one event. */
     public static void recordVent(Level level, BlockPos pos, int excess) {
         int[] diag = mutableDiagnostics(level, pos);
@@ -135,7 +152,11 @@ public class PneumaticReliefValveBlock extends DirectionalDomainBlock implements
                 level.setBlock(pos, newState, Block.UPDATE_CLIENTS);
                 if (level instanceof ServerLevel server) PneumaticNetwork.recomputeAround(server, pos);
                 player.displayClientMessage(Component.literal(
-                        "Relief valve setpoint=" + (next * 25) + "/100 ventEvents=" + ventEvents(level, pos)
+                        "Relief valve | setpoint=" + setpointPressure(newState) + "/100"
+                                + " reseat=" + reseatPressure(newState) + "/100"
+                                + " blowdown=" + BLOWDOWN_PRESSURE
+                                + " | state=" + (venting(level, pos) ? "VENTING" : "SEATED")
+                                + " | ventEvents=" + ventEvents(level, pos)
                                 + " lastExcess=" + lastExcess(level, pos)
                                 + " totalVentedProxy=" + totalVentedProxy(level, pos)
                 ), true);

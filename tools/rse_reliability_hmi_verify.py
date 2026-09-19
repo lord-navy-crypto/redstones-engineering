@@ -47,8 +47,10 @@ require(voter, "RedundantVoterBlock.java",
         "resetDiagnostics(level,pos);")
 require(latch, "FaultLatchBlock.java",
         "boolean manualReset(Level level, BlockPos pos)",
-        "runtime[0] = 0;",
-        "runtime[2]++;",
+        "resetPermitted(level, pos, state)",
+        "runtime[LATCHED] = 0;",
+        "runtime[RESET_COUNT]",
+        "RESET_REACQUIRE",
         "updateOutput(level, pos, state, 0);",
         "manualReset(level, pos);")
 
@@ -61,6 +63,7 @@ require(menu, "ReliabilitySystemMenu.java",
         "sensor.resetMetrology(level, blockPos)",
         "voter.resetDiagnostics(level, blockPos)",
         "latch.manualReset(level, blockPos)",
+        "FaultLatchBlock.resetPermitted(level, blockPos, state)",
         "refreshAuthoritativeSnapshot(); broadcastChanges();")
 
 require(screen, "ReliabilitySystemScreen.java",
@@ -71,7 +74,10 @@ require(screen, "ReliabilitySystemScreen.java",
         '"Reset position metrology"',
         '"Reset voter diagnostics"',
         '"Manual reset latch"',
+        '"Reset blocked • fault not clear"',
+        '"NO VALID SOURCE"',
         "maintenanceAction.visible = configure",
+        "menu.kind() != ReliabilitySystemMenu.KIND_FAULT_LATCH || menu.extraC() != 0",
         '"Routing stays on Route; maintenance actions use the same server methods as Shift-right-click."')
 
 if errors:
@@ -85,4 +91,4 @@ print(" watchdog: explicit diagnostics reset shares Shift-right-click server met
 print(" servo: explicit home/trajectory reset shares renderer-safe server method")
 print(" position sensor: explicit metrology reset shares server method")
 print(" voter: explicit diagnostics reset shares server method")
-print(" fault latch: explicit manual reset preserves reset-event semantics")
+print(" fault latch: reset is permissive-gated, edge-safe, and shared with HMI maintenance action")

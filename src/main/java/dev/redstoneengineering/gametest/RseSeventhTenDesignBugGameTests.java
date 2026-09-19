@@ -34,8 +34,8 @@ public final class RseSeventhTenDesignBugGameTests {
     @PrefixGameTestTemplate(false)
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 40)
     public static void entityDensityIncompleteCoverageIsStaleInsteadOfLowCount(GameTestHelper helper) {
-        EntityDensitySensorBlock.DensitySample incomplete = new EntityDensitySensorBlock.DensitySample(0, false);
-        EntityDensitySensorBlock.DensitySample saturated = new EntityDensitySensorBlock.DensitySample(20, true);
+        EntityDensitySensorBlock.DensitySample incomplete = new EntityDensitySensorBlock.DensitySample(0, 4, false);
+        EntityDensitySensorBlock.DensitySample saturated = new EntityDensitySensorBlock.DensitySample(20, 4, true);
         BlockState state = RedstoneEngineering.ENTITY_DENSITY_SENSOR.get().defaultBlockState();
         if (incomplete.quality() != PortQuality.STALE
                 || saturated.quality() != PortQuality.SATURATED

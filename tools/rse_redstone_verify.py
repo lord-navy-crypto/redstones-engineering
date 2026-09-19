@@ -31,12 +31,16 @@ require(
     "direction == outputSide(state).getOpposite()",
     "Directional output uses backwards redstone query convention",
 )
-for name in ["EdgeDetectorBlock.java", "PulseShaperBlock.java"]:
-    require(
-        Path("src/main/java/dev/redstoneengineering/block") / name,
-        "if (remaining > 0)",
-        f"{name} schedules final clear tick",
-    )
+require(
+    Path("src/main/java/dev/redstoneengineering/block/EdgeDetectorBlock.java"),
+    "if (remaining > 0)",
+    "EdgeDetectorBlock.java schedules final clear tick",
+)
+require_regex(
+    Path("src/main/java/dev/redstoneengineering/block/PulseShaperBlock.java"),
+    r"if\s*\(\s*result\.outputHigh\(\)\s*\|\|\s*result\.state\(\)\.remainingTicks\(\)\s*>\s*0\s*\)",
+    "PulseShaperBlock.java schedules cleanup after the final output-high tick",
+)
 forbid(
     Path("src/main/java/dev/redstoneengineering/block/SignalTapBlock.java"),
     "direction == outputSide(state) || direction == leftOf(facing)",

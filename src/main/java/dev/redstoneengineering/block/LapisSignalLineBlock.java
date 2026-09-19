@@ -54,7 +54,14 @@ public class LapisSignalLineBlock extends SurfaceTraceBlock implements Engineeri
         boolean stale=stats.lastTruncated();
         boolean accepted=!stale&&valid;
         int[] r=RuntimeIntStore.get(l,KEY,p,RUNTIME_SIZE);
-        r[VALUE_INDEX]=accepted?Math.max(0,Math.min(100,value)):0;
+        if (accepted) {
+            r[VALUE_INDEX]=Math.max(0,Math.min(100,value));
+        } else if (!stale && sourceCount == 0) {
+            // A complete scan proving there is no source is a real NO_SIGNAL state.
+            r[VALUE_INDEX]=0;
+        }
+        // STALE coverage and complete source conflicts cannot define a replacement number:
+        // retain the last trustworthy value while quality carries the uncertainty/fault.
         r[VALID_INDEX]=accepted?1:0;
         r[SOURCE_COUNT_INDEX]=Math.max(0,sourceCount);
         r[QUALITY_INDEX]=(stale?PortQuality.STALE:accepted?PortQuality.VALID:PortQuality.NO_SIGNAL).ordinal();
@@ -75,9 +82,11 @@ public class LapisSignalLineBlock extends SurfaceTraceBlock implements Engineeri
     }
     public static PortQuality quality(Level l,BlockPos p){
         int n=sourceCount(l,p);
-        if(n>1)return PortQuality.TOPOLOGY_ERROR;
         PortQuality stored=storedQuality(l,p);
+        // Incomplete coverage cannot prove a source conflict. STALE therefore outranks the
+        // source-count diagnostic; TOPOLOGY_ERROR is reserved for a complete conflicting solve.
         if(stored==PortQuality.STALE)return PortQuality.STALE;
+        if(n>1)return PortQuality.TOPOLOGY_ERROR;
         if(n==0)return PortQuality.NO_SIGNAL;
         return valid(l,p)?PortQuality.VALID:PortQuality.NO_SIGNAL;
     }

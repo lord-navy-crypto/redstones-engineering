@@ -226,7 +226,7 @@ public final class RseEighthEightAcceptanceGameTests {
     }
 
     @PrefixGameTestTemplate(false)
-    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 70)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 90)
     public static void faultLatchResetHasPriorityAndCountsOneEdge(GameTestHelper helper) {
         BlockPos latchPos = new BlockPos(2, 1, 2);
         BlockPos faultPos = latchPos.west();
@@ -242,28 +242,46 @@ public final class RseEighthEightAcceptanceGameTests {
                 helper.fail("Fault latch did not capture the first threshold crossing", latchPos);
                 return;
             }
+
+            // RESET rising while FAULT is still active must be rejected, not allowed to mask the fault.
             helper.setBlock(resetPos, Blocks.REDSTONE_BLOCK.defaultBlockState());
             helper.runAfterDelay(4, () -> {
-                if (FaultLatchBlock.latched(helper.getLevel(), world)
-                        || helper.getBlockState(latchPos).getValue(DirectionalSignalBlock.OUTPUT) != 0
-                        || FaultLatchBlock.resetCount(helper.getLevel(), world) != 1) {
-                    helper.fail("RESET did not dominate a still-active fault with one reset event", latchPos);
+                if (!FaultLatchBlock.latched(helper.getLevel(), world)
+                        || helper.getBlockState(latchPos).getValue(DirectionalSignalBlock.OUTPUT) != 15
+                        || FaultLatchBlock.resetCount(helper.getLevel(), world) != 0) {
+                    helper.fail("Active FAULT was incorrectly cleared by RESET", latchPos);
                     return;
                 }
-                helper.runAfterDelay(6, () -> {
-                    if (FaultLatchBlock.resetCount(helper.getLevel(), world) != 1
-                            || FaultLatchBlock.latched(helper.getLevel(), world)) {
-                        helper.fail("Held RESET inflated counters or allowed same-level re-latching", latchPos);
+
+                // Clear FAULT while RESET remains held. The old RESET edge must not be reused.
+                helper.setBlock(faultPos, reference(Direction.EAST, 0));
+                helper.runAfterDelay(4, () -> {
+                    if (!FaultLatchBlock.latched(helper.getLevel(), world)
+                            || FaultLatchBlock.resetCount(helper.getLevel(), world) != 0) {
+                        helper.fail("Held RESET cleared the latch without a new edge after FAULT cleared", latchPos);
                         return;
                     }
-                    helper.setBlock(resetPos, Blocks.AIR.defaultBlockState());
-                    helper.runAfterDelay(4, () -> {
-                        if (!FaultLatchBlock.latched(helper.getLevel(), world)
-                                || FaultLatchBlock.tripCount(helper.getLevel(), world) != 2) {
-                            helper.fail("Fault latch did not re-arm after RESET was released", latchPos);
-                            return;
-                        }
-                        helper.succeed();
+
+                    // Release RESET to establish LOW, then issue a new rising edge with FAULT proven clear.
+                    helper.setBlock(resetPos, reference(Direction.NORTH, 0));
+                    helper.runAfterDelay(3, () -> {
+                        helper.setBlock(resetPos, reference(Direction.NORTH, 15));
+                        helper.runAfterDelay(4, () -> {
+                            if (FaultLatchBlock.latched(helper.getLevel(), world)
+                                    || helper.getBlockState(latchPos).getValue(DirectionalSignalBlock.OUTPUT) != 0
+                                    || FaultLatchBlock.resetCount(helper.getLevel(), world) != 1) {
+                                helper.fail("New RESET edge did not clear a proven-clear fault latch exactly once", latchPos);
+                                return;
+                            }
+                            helper.runAfterDelay(6, () -> {
+                                if (FaultLatchBlock.resetCount(helper.getLevel(), world) != 1
+                                        || FaultLatchBlock.latched(helper.getLevel(), world)) {
+                                    helper.fail("Held RESET inflated reset count or re-latched a clear fault", latchPos);
+                                    return;
+                                }
+                                helper.succeed();
+                            });
+                        });
                     });
                 });
             });

@@ -1,0 +1,5 @@
+{
+  "multipart": [
+    { "apply": { "model": "redstoneengineering:block/quartz_to_redstone_receiver" } }
+  ]
+}

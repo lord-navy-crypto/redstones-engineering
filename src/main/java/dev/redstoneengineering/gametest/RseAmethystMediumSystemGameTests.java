@@ -8,7 +8,6 @@ import dev.redstoneengineering.block.AmethystTunedResonatorBlock;
 import dev.redstoneengineering.block.DirectionalDomainBlock;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
-import dev.redstoneengineering.physics.RuntimeIntStore;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
@@ -52,8 +51,8 @@ public final class RseAmethystMediumSystemGameTests {
         BlockPos inputWorld = helper.absolutePos(input);
         BlockPos filterWorld = helper.absolutePos(filter);
         BlockPos outputWorld = helper.absolutePos(output);
-        RuntimeIntStore.get(helper.getLevel(), "amethyst_resonator", northWorld, 1)[0] = 1;
-        RuntimeIntStore.get(helper.getLevel(), "amethyst_resonator", southWorld, 1)[0] = 1;
+        AmethystResonatorBlock.excite(helper.getLevel(), northWorld, helper.getLevel().getBlockState(northWorld));
+        AmethystResonatorBlock.excite(helper.getLevel(), southWorld, helper.getLevel().getBlockState(southWorld));
         DomainNetwork.recomputeAmethyst(helper.getLevel(), inputWorld);
 
         helper.runAfterDelay(6, () -> {
@@ -134,8 +133,8 @@ public final class RseAmethystMediumSystemGameTests {
         BlockPos inputWorld = helper.absolutePos(input);
         BlockPos tunedWorld = helper.absolutePos(tuned);
         BlockPos outputWorld = helper.absolutePos(output);
-        RuntimeIntStore.get(helper.getLevel(), "amethyst_resonator", northWorld, 1)[0] = 1;
-        RuntimeIntStore.get(helper.getLevel(), "amethyst_resonator", southWorld, 1)[0] = 1;
+        AmethystResonatorBlock.excite(helper.getLevel(), northWorld, helper.getLevel().getBlockState(northWorld));
+        AmethystResonatorBlock.excite(helper.getLevel(), southWorld, helper.getLevel().getBlockState(southWorld));
         DomainNetwork.recomputeAmethyst(helper.getLevel(), inputWorld);
 
         helper.runAfterDelay(6, () -> {

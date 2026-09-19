@@ -75,20 +75,28 @@ public class RedundantVoterBlock extends PassiveDirectionalSignalBlock {
 
         int[] values = new int[3];
         int valid = 0;
-        boolean anyStale = false;
+        PortQuality evidenceQuality = PortQuality.VALID;
         for (RedstoneObservationSupport.Observation observation : observations) {
-            if (observation.quality() == PortQuality.STALE) anyStale = true;
+            evidenceQuality = RedstoneObservationSupport.combineQuality(
+                    evidenceQuality, observation.quality());
             if (observation.valid()) values[valid++] = observation.value();
         }
         if (valid < 2) {
-            return new Vote(0, anyStale ? PortQuality.STALE : PortQuality.NO_SIGNAL, valid, 0);
+            PortQuality insufficientQuality = RedstoneObservationSupport.combineQuality(
+                    PortQuality.NO_SIGNAL, evidenceQuality);
+            return new Vote(0, insufficientQuality, valid, 0);
         }
 
         Arrays.sort(values, 0, valid);
         int spread = values[valid - 1] - values[0];
         int voted = valid == 3 ? values[1] : (values[0] + values[1] + 1) / 2;
         boolean healthy = valid == 3 && spread <= toleranceValue(state.getValue(TOLERANCE));
-        return new Vote(voted, healthy ? PortQuality.VALID : PortQuality.FAULT, valid, spread);
+        PortQuality votingQuality = healthy ? PortQuality.VALID : PortQuality.FAULT;
+        return new Vote(
+                voted,
+                RedstoneObservationSupport.combineQuality(votingQuality, evidenceQuality),
+                valid,
+                spread);
     }
 
     @Override
@@ -122,6 +130,21 @@ public class RedundantVoterBlock extends PassiveDirectionalSignalBlock {
     }
 
     public static int toleranceValue(int index) { return TOL[Math.max(0, Math.min(TOL.length - 1, index))]; }
+
+    public static boolean stepTolerance(Level level, BlockPos pos, boolean forward) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof RedundantVoterBlock voter)) return false;
+        int next = Math.floorMod(state.getValue(TOLERANCE) + (forward ? 1 : -1), TOL.length);
+        level.setBlock(pos, state.setValue(TOLERANCE, next), Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, voter, 1);
+        return true;
+    }
+
+    public static int validInputs(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof RedundantVoterBlock voter)) return 0;
+        return voter.vote(level, pos, state).validInputs();
+    }
     public static int spread(Level level, BlockPos pos) { int[] rt=RuntimeIntStore.peek(level,KEY,pos); return rt==null||rt.length<1?0:rt[0]; }
     public static boolean degraded(Level level, BlockPos pos) { int[] rt=RuntimeIntStore.peek(level,KEY,pos); return rt!=null&&rt.length>1&&rt[1]!=0; }
     public static int maxSpread(Level level, BlockPos pos) { int[] rt=RuntimeIntStore.peek(level,KEY,pos); return rt==null||rt.length<3?0:rt[2]; }

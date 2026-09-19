@@ -75,12 +75,13 @@ public class AmethystResonanceDustBlock extends SurfaceTraceBlock implements Eng
     }
 
     public static void setResonance(Level level, BlockPos pos, int frequency, int amplitude, ResonanceStatus status) {
-        if (NetworkKernel.stats(level, "amethyst").lastTruncated()) {
-            status = ResonanceStatus.STALE;
-            frequency = 0;
-            amplitude = 0;
-        }
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, 3);
+        if (NetworkKernel.stats(level, "amethyst").lastTruncated()) {
+            // A budget-truncated network solve cannot define a new resonance payload.
+            // Preserve the last trustworthy frequency/amplitude and downgrade evidence to STALE.
+            runtime[2] = ResonanceStatus.STALE.ordinal();
+            return;
+        }
         int boundedAmplitude = Math.max(0, Math.min(15, amplitude));
         runtime[0] = status == ResonanceStatus.ACTIVE && boundedAmplitude > 0 ? Math.max(1, Math.min(15, frequency)) : 0;
         runtime[1] = status == ResonanceStatus.ACTIVE ? boundedAmplitude : 0;

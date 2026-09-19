@@ -188,6 +188,8 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
                 || line.contains("q=DOMAIN_MISMATCH")
                 || line.contains("q=TOPOLOGY_ERROR")
                 || line.contains("→ DOMAIN_MISMATCH")
+                || line.contains("→ QUANTITY_MISMATCH")
+                || line.contains("→ UNIT_MISMATCH")
                 || line.contains("→ DIRECTION_MISMATCH")) return BAD;
         if (line.contains("q=NO_SIGNAL")
                 || line.contains("q=SATURATED")

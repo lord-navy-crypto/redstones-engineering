@@ -160,22 +160,35 @@ public class RedstoneCableTerminalBlock extends Block implements EngineeringPort
         if (level instanceof ServerLevel server) RedstoneCableNetwork.recompute(server, pos);
     }
 
+    public static boolean toggleMode(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof RedstoneCableTerminalBlock terminal)) return false;
+        BlockState next = state
+                .setValue(OUTPUT_MODE, !state.getValue(OUTPUT_MODE))
+                .setValue(POWER, 0);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel server) RedstoneCableNetwork.recompute(server, pos);
+        level.updateNeighborsAt(pos, terminal);
+        level.updateNeighborsAt(pos.relative(terminal.vanillaSide(next)), terminal);
+        level.updateNeighborsAt(pos.relative(terminal.cableSide(next)), terminal);
+        return true;
+    }
+
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
-                BlockState next = state
-                        .setValue(OUTPUT_MODE, !state.getValue(OUTPUT_MODE))
-                        .setValue(POWER, 0);
-                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-                if (level instanceof ServerLevel server) RedstoneCableNetwork.recompute(server, pos);
-                level.updateNeighborsAt(pos, this);
-                level.updateNeighborsAt(pos.relative(vanillaSide(next)), this);
+                toggleMode(level, pos);
+                BlockState next = level.getBlockState(pos);
                 RedstoneCableNetwork.SourceEvidence evidence = RedstoneCableNetwork.sourceEvidence(level, pos);
+                RedstoneCableNetwork.PathEvidence path = RedstoneCableNetwork.pathEvidence(level, pos);
                 player.displayClientMessage(Component.literal(
                         "Redstone Cable Terminal | " + PortDiagnostics.terminal(level.getBlockState(pos), this)
                                 + " | signal=" + level.getBlockState(pos).getValue(POWER) + "/15"
-                                + " | cableSources=" + evidence.sourceCount() + " quality=" + evidence.quality()), true);
+                                + " | cableSources=" + evidence.sourceCount() + " quality=" + evidence.quality()
+                                + " | winningSource=" + path.winningSourceLevel()
+                                + " attenuation=" + path.attenuationLoss()
+                                + " | margin=" + path.remainingMargin(level.getBlockState(pos).getValue(POWER))), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
             }

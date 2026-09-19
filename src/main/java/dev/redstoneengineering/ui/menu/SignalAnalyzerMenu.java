@@ -39,6 +39,7 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
     private final DataSlot totalSamples = trackedInt();
     private final DataSlot modeSwitches = trackedInt();
     private final DataSlot calibrationSwitches = trackedInt();
+    private final DataSlot liveQuality = trackedInt();
     private final DataSlot[] samples = new DataSlot[SignalAnalyzerBlock.DISPLAY_SAMPLES];
 
     public SignalAnalyzerMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
@@ -81,6 +82,8 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
         totalSamples.set(snapshot.totalSamples());
         modeSwitches.set(snapshot.modeSwitches());
         calibrationSwitches.set(snapshot.calibrationSwitches());
+        liveQuality.set(SignalAnalyzerBlock.measurementQuality(
+                level, blockPos, level.getBlockState(blockPos)).ordinal());
         for (int i = 0; i < samples.length; i++) samples[i].set(snapshot.samples()[i]);
     }
 
@@ -119,5 +122,6 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
     public int totalSamples() { return totalSamples.get(); }
     public int modeSwitches() { return modeSwitches.get(); }
     public int calibrationSwitches() { return calibrationSwitches.get(); }
+    public int liveQualityOrdinal() { return liveQuality.get(); }
     public int sample(int slot) { return samples[slot].get(); }
 }

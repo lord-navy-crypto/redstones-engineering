@@ -58,7 +58,7 @@ public final class MechatronicsGeoModel extends GeoModel<MechatronicsVisualBlock
 
         GeoBone rod = getAnimationProcessor().getBone("rod");
         if (rod != null) {
-            rod.setPosZ((float) (state.position01() * 7.0));
+            rod.setPosZ((float) (state.position01() * 10.0));
         }
 
         GeoBone spool = getAnimationProcessor().getBone("spool");

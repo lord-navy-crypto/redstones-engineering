@@ -1,0 +1,21 @@
+{
+  "multipart": [
+    {"when":{"facing":"north"},"apply":{"model":"redstoneengineering:block/single_relay"}},
+    {"when":{"facing":"east"},"apply":{"model":"redstoneengineering:block/single_relay","y":90}},
+    {"when":{"facing":"south"},"apply":{"model":"redstoneengineering:block/single_relay","y":180}},
+    {"when":{"facing":"west"},"apply":{"model":"redstoneengineering:block/single_relay","y":270}},
+
+    {"when":{"facing":"north"},"apply":{"model":"redstoneengineering:block/engineering_tx_marker"}},
+    {"when":{"facing":"east"},"apply":{"model":"redstoneengineering:block/engineering_tx_marker","y":90}},
+    {"when":{"facing":"south"},"apply":{"model":"redstoneengineering:block/engineering_tx_marker","y":180}},
+    {"when":{"facing":"west"},"apply":{"model":"redstoneengineering:block/engineering_tx_marker","y":270}},
+
+    {"when":{"input_facing":"north"},"apply":{"model":"redstoneengineering:block/engineering_rx_marker"}},
+    {"when":{"input_facing":"east"},"apply":{"model":"redstoneengineering:block/engineering_rx_marker","y":90}},
+    {"when":{"input_facing":"south"},"apply":{"model":"redstoneengineering:block/engineering_rx_marker","y":180}},
+    {"when":{"input_facing":"west"},"apply":{"model":"redstoneengineering:block/engineering_rx_marker","y":270}},
+
+    {"when":{"normally_closed":"true"},"apply":{"model":"redstoneengineering:block/config_segment_2"}},
+    {"when":{"output":"1|2|3|4|5|6|7|8|9|10|11|12|13|14|15"},"apply":{"model":"redstoneengineering:block/fault_latch_active_indicator"}}
+  ]
+}

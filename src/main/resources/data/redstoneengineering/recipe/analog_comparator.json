@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": [" R ","QCQ","TRT"],
+  "key": {
+    "R": {"item": "minecraft:redstone"},
+    "Q": {"item": "minecraft:quartz"},
+    "C": {"item": "minecraft:comparator"},
+    "T": {"item": "minecraft:redstone_torch"}
+  },
+  "result": {"id": "redstoneengineering:analog_comparator","count": 1}
+}

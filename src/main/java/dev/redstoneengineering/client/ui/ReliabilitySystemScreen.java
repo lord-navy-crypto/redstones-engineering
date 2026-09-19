@@ -10,7 +10,7 @@ import net.minecraft.world.entity.player.Inventory;
 
 /** Dedicated reliability HMI for watchdog, servo, feedback sensor, voter and fault latch. */
 public final class ReliabilitySystemScreen extends EngineeringScreen<ReliabilitySystemMenu> {
-    private Button parameterPrevious, parameterNext, maintenanceAction;
+    private Button parameterPrevious, parameterNext, secondaryPrevious, secondaryNext, maintenanceAction;
 
     public ReliabilitySystemScreen(ReliabilitySystemMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -20,7 +20,10 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
         int y = topPos + 116;
         parameterPrevious = addConfigureWidget(Button.builder(Component.literal("◀ Parameter"), b -> sendMenuButton(ReliabilitySystemMenu.BUTTON_PARAMETER_PREVIOUS)).bounds(leftPos+16,y,105,20).build());
         parameterNext = addConfigureWidget(Button.builder(Component.literal("Parameter ▶"), b -> sendMenuButton(ReliabilitySystemMenu.BUTTON_PARAMETER_NEXT)).bounds(leftPos+199,y,105,20).build());
-        maintenanceAction = addConfigureWidget(Button.builder(Component.literal("Maintenance action"), b -> sendMenuButton(ReliabilitySystemMenu.BUTTON_ACTION)).bounds(leftPos+38,topPos+147,244,20).build());
+        int secondaryY = topPos + 145;
+        secondaryPrevious = addConfigureWidget(Button.builder(Component.literal("◀ Load"), b -> sendMenuButton(ReliabilitySystemMenu.BUTTON_SECONDARY_PARAMETER_PREVIOUS)).bounds(leftPos+16,secondaryY,105,20).build());
+        secondaryNext = addConfigureWidget(Button.builder(Component.literal("Load ▶"), b -> sendMenuButton(ReliabilitySystemMenu.BUTTON_SECONDARY_PARAMETER_NEXT)).bounds(leftPos+199,secondaryY,105,20).build());
+        maintenanceAction = addConfigureWidget(Button.builder(Component.literal("Maintenance action"), b -> sendMenuButton(ReliabilitySystemMenu.BUTTON_ACTION)).bounds(leftPos+38,topPos+176,244,20).build());
     }
 
     @Override protected void syncDeviceWidgetLabels() {
@@ -34,8 +37,18 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
         parameterNext.active = adjustable;
         parameterPrevious.visible = configure && adjustable;
         parameterNext.visible = configure && adjustable;
+        boolean servoLoad = configure && menu.kind() == ReliabilitySystemMenu.KIND_SERVO;
+        secondaryPrevious.visible = servoLoad;
+        secondaryNext.visible = servoLoad;
+        secondaryPrevious.active = servoLoad;
+        secondaryNext.active = servoLoad;
+        if (servoLoad) {
+            String load = servoLoadText();
+            secondaryPrevious.setMessage(Component.literal(fitForWidth("◀ " + load, 89)));
+            secondaryNext.setMessage(Component.literal(fitForWidth(load + " ▶", 89)));
+        }
         maintenanceAction.visible = configure;
-        maintenanceAction.active = true;
+        maintenanceAction.active = menu.kind() != ReliabilitySystemMenu.KIND_FAULT_LATCH || menu.extraC() != 0;
         maintenanceAction.setMessage(Component.literal(fitForWidth(maintenanceActionText(), 228)));
         String parameter = parameterText();
         if (adjustable) {
@@ -58,7 +71,7 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
                 metricCard(g,"Alarms",Integer.toString(menu.tertiary()),206,103,88,WARN);
                 labelValue(g,"Transitions",Integer.toString(menu.auxiliary()),149);
                 labelValue(g,"Alarm output",menu.extraA()+" / 15",165);
-                labelValue(g,"Path",seriesPath(),181);
+                labelValue(g,"Source acquired",menu.extraB()==1?"YES":"NO",181);
             }
             case ReliabilitySystemMenu.KIND_SERVO -> {
                 metricCard(g,"Position",menu.primary()+" / 15",16,103,88,GOOD);
@@ -66,7 +79,7 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
                 metricCard(g,"Velocity",Integer.toString(menu.tertiary()),206,103,88,INFO);
                 labelValue(g,"Error",Integer.toString(menu.auxiliary()),149);
                 labelValue(g,"Brake / slew",(menu.extraA()==1?"ON":"OFF")+" / "+menu.extraC(),165);
-                labelValue(g,"Soft-limit hits",Integer.toString(menu.extraB()),181);
+                labelValue(g,"Load / soft limits",servoLoadText()+" / "+menu.extraB(),181);
             }
             case ReliabilitySystemMenu.KIND_POSITION_SENSOR -> {
                 metricCard(g,"Mech in",menu.primary()+" / 15",16,103,88,INFO);
@@ -91,6 +104,7 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
                 labelValue(g,"Resets",Integer.toString(menu.auxiliary()),149);
                 labelValue(g,"Latch state",menu.extraA()==1?"LATCHED":"CLEAR",165);
                 labelValue(g,"Reset input",menu.extraB()==1?"ACTIVE":"LOW",181);
+                labelValue(g,"Reset permissive",menu.extraC()==1?"YES":"BLOCKED",197);
             }
         }
         safeText(g, hint(),16,199,MUTED);
@@ -110,10 +124,16 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
 
     private void configure(GuiGraphics g) {
         statusBadge(g,"SERVER-SIDE BOUNDED CONTROL",INFO,16,80);
-        labelValue(g,"Parameter",parameterText(),101);
-        labelValue(g,"Maintenance",maintenanceActionText(),179);
-        labelValue(g,"Front / primary output",face(menu.facing()),195);
-        safeText(g,"Routing stays on Route; maintenance actions use the same server methods as Shift-right-click.",16,213,MUTED);
+        labelValue(g, menu.kind()==ReliabilitySystemMenu.KIND_SERVO ? "Primary parameter" : "Parameter",parameterText(),101);
+        if(menu.kind()==ReliabilitySystemMenu.KIND_SERVO) {
+            labelValue(g,"Secondary parameter","LOAD "+servoLoadText()+" ["+menu.secondaryParameterIndex()+"]",132);
+            labelValue(g,"Maintenance",maintenanceActionText(),166);
+            labelValue(g,"Front / primary output",face(menu.facing()),204);
+        } else {
+            labelValue(g,"Maintenance",maintenanceActionText(),166);
+            labelValue(g,"Front / primary output",face(menu.facing()),204);
+        }
+        safeText(g,"Routing stays on Route; maintenance actions use the same server methods as Shift-right-click.",16,224,MUTED);
     }
 
     private void diagnostics(GuiGraphics g) {
@@ -122,7 +142,7 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
         labelValue(g,"Quality",menu.quality().name(),124);
         switch(menu.kind()) {
             case ReliabilitySystemMenu.KIND_WATCHDOG -> {labelValue(g,"Age / timeout",menu.primary()+" / "+menu.secondary()+" t",144);labelValue(g,"Transitions / timeouts",menu.auxiliary()+" / "+menu.tertiary(),162);}
-            case ReliabilitySystemMenu.KIND_SERVO -> {labelValue(g,"Position / command",menu.primary()+" / "+menu.secondary(),144);labelValue(g,"Velocity / error",menu.tertiary()+" / "+menu.auxiliary(),162);labelValue(g,"Brake / soft limits",menu.extraA()+" / "+menu.extraB(),180);}
+            case ReliabilitySystemMenu.KIND_SERVO -> {labelValue(g,"Position / command",menu.primary()+" / "+menu.secondary(),144);labelValue(g,"Velocity / error",menu.tertiary()+" / "+menu.auxiliary(),162);labelValue(g,"Brake / load / limits",menu.extraA()+" / "+servoLoadText()+" / "+menu.extraB(),180);}
             case ReliabilitySystemMenu.KIND_POSITION_SENSOR -> {labelValue(g,"Input / output",menu.primary()+" / "+menu.secondary(),144);labelValue(g,"Samples",Integer.toString(menu.tertiary()),162);}
             case ReliabilitySystemMenu.KIND_VOTER -> {labelValue(g,"Valid / spread",menu.secondary()+" / "+menu.tertiary(),144);labelValue(g,"Tolerance",Integer.toString(menu.auxiliary()),162);labelValue(g,"Disagreements",Integer.toString(menu.extraB()),180);}
             default -> {labelValue(g,"Threshold / trips",menu.secondary()+" / "+menu.tertiary(),144);labelValue(g,"Resets",Integer.toString(menu.auxiliary()),162);labelValue(g,"Latched",menu.extraA()==1?"YES":"NO",180);}
@@ -141,11 +161,12 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
     }
 
     private String parameterText(){return switch(menu.kind()){case ReliabilitySystemMenu.KIND_WATCHDOG->"TIMEOUT "+menu.secondary()+"t";case ReliabilitySystemMenu.KIND_SERVO->"SLEW STEP "+menu.extraC();case ReliabilitySystemMenu.KIND_VOTER->"TOLERANCE "+menu.auxiliary();case ReliabilitySystemMenu.KIND_FAULT_LATCH->"THRESHOLD "+menu.secondary();default->"READ ONLY";};}
-    private String maintenanceActionText(){return switch(menu.kind()){case ReliabilitySystemMenu.KIND_WATCHDOG->"Reset watchdog diagnostics";case ReliabilitySystemMenu.KIND_SERVO->"Home / reset trajectory";case ReliabilitySystemMenu.KIND_POSITION_SENSOR->"Reset position metrology";case ReliabilitySystemMenu.KIND_VOTER->"Reset voter diagnostics";default->"Manual reset latch";};}
+    private String servoLoadText(){return switch(menu.secondaryParameterIndex()){case 0->"UNLOADED";case 1->"LIGHT";case 2->"MEDIUM";case 3->"HEAVY";default->"—";};}
+    private String maintenanceActionText(){return switch(menu.kind()){case ReliabilitySystemMenu.KIND_WATCHDOG->"Reset watchdog diagnostics";case ReliabilitySystemMenu.KIND_SERVO->"Home / reset trajectory";case ReliabilitySystemMenu.KIND_POSITION_SENSOR->"Reset position metrology";case ReliabilitySystemMenu.KIND_VOTER->"Reset voter diagnostics";default->menu.extraC()!=0?"Manual reset latch":"Reset blocked • fault not clear";};}
     private String deviceName(){return switch(menu.kind()){case ReliabilitySystemMenu.KIND_WATCHDOG->"WATCHDOG";case ReliabilitySystemMenu.KIND_SERVO->"SERVO ACTUATOR";case ReliabilitySystemMenu.KIND_POSITION_SENSOR->"SERVO POSITION SENSOR";case ReliabilitySystemMenu.KIND_VOTER->"REDUNDANT VOTER";default->"FAULT LATCH";};}
     private String roleName(){return switch(menu.kind()){case ReliabilitySystemMenu.KIND_WATCHDOG->"SAFETY PROCESSOR";case ReliabilitySystemMenu.KIND_SERVO->"MECHATRONIC ACTUATOR";case ReliabilitySystemMenu.KIND_POSITION_SENSOR->"FEEDBACK SENSOR";case ReliabilitySystemMenu.KIND_VOTER->"2oo3 SAFETY VOTER";default->"PERSISTENT FAULT MEMORY";};}
-    private String stateName(){return switch(menu.kind()){case ReliabilitySystemMenu.KIND_WATCHDOG->menu.extraA()>0?"TIMEOUT":"HEALTHY";case ReliabilitySystemMenu.KIND_SERVO->menu.extraA()==1?"BRAKING":menu.auxiliary()==0?"AT COMMAND":"MOVING / ERROR";case ReliabilitySystemMenu.KIND_POSITION_SENSOR->menu.quality()==PortQuality.VALID?"VALID FEEDBACK":"SOURCE ISSUE";case ReliabilitySystemMenu.KIND_VOTER->menu.extraC()==1?"DEGRADED":"NOMINAL";default->menu.extraA()==1?"LATCHED":"CLEAR";};}
-    private int stateColor(){if(menu.kind()==ReliabilitySystemMenu.KIND_FAULT_LATCH&&menu.extraA()==1)return BAD;if(menu.kind()==ReliabilitySystemMenu.KIND_WATCHDOG&&menu.extraA()>0)return BAD;if(menu.kind()==ReliabilitySystemMenu.KIND_VOTER&&menu.extraC()==1)return WARN;if(menu.quality()==PortQuality.FAULT)return BAD;return GOOD;}
+    private String stateName(){return switch(menu.kind()){case ReliabilitySystemMenu.KIND_WATCHDOG->menu.extraA()>0?"TIMEOUT":menu.extraB()==0?"NO VALID SOURCE":"MONITORING";case ReliabilitySystemMenu.KIND_SERVO->menu.extraA()==1?"BRAKING":menu.auxiliary()==0?"AT COMMAND":"MOVING / ERROR";case ReliabilitySystemMenu.KIND_POSITION_SENSOR->menu.quality()==PortQuality.VALID?"VALID FEEDBACK":"SOURCE ISSUE";case ReliabilitySystemMenu.KIND_VOTER->menu.extraC()==1?"DEGRADED":"NOMINAL";default->menu.extraA()==1?"LATCHED":"CLEAR";};}
+    private int stateColor(){if(menu.kind()==ReliabilitySystemMenu.KIND_FAULT_LATCH&&menu.extraA()==1)return BAD;if(menu.kind()==ReliabilitySystemMenu.KIND_WATCHDOG&&menu.extraA()>0)return BAD;if(menu.kind()==ReliabilitySystemMenu.KIND_WATCHDOG&&menu.extraB()==0)return WARN;if(menu.kind()==ReliabilitySystemMenu.KIND_VOTER&&menu.extraC()==1)return WARN;if(menu.quality()==PortQuality.FAULT)return BAD;return GOOD;}
     private String seriesPath(){return face(menu.facing().getOpposite())+" → "+face(menu.facing());}
     private String hint(){return menu.kind()==ReliabilitySystemMenu.KIND_SERVO?"Control validity, brake state, motion and soft-limit evidence stay separate.":"Safety state and source validity are synchronized independently; numerical zero is not absence.";}
     private int qualityColor(){return menu.quality()==PortQuality.VALID?GOOD:menu.quality()==PortQuality.NO_SIGNAL||menu.quality()==PortQuality.STALE?WARN:BAD;}

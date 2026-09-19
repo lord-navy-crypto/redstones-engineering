@@ -58,14 +58,14 @@ public final class PrecisionObservationSupport {
         if (state.getBlock() instanceof QuartzOscillatorBlock) {
             return new QuartzObservation(
                     state.getValue(QuartzOscillatorBlock.ACTIVE),
-                    QuartzTimingLineBlock.periodTicks(state.getValue(QuartzOscillatorBlock.PERIOD_INDEX)),
+                    QuartzOscillatorBlock.effectivePeriodTicks(level, pos, state),
                     PortQuality.VALID
             );
         }
         if (state.getBlock() instanceof QuartzLabOscillatorBlock) {
             return new QuartzObservation(
                     state.getValue(QuartzLabOscillatorBlock.ACTIVE),
-                    QuartzTimingLineBlock.periodTicks(state.getValue(QuartzLabOscillatorBlock.PERIOD_INDEX)),
+                    QuartzLabOscillatorBlock.effectivePeriodTicks(level, pos, state),
                     PortQuality.VALID
             );
         }

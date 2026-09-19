@@ -9,6 +9,7 @@ import dev.redstoneengineering.block.SignalProbeBlock;
 import dev.redstoneengineering.block.TransmissionTopology;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.NetworkKernel;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.Level;
@@ -56,6 +57,10 @@ public final class InstrumentNetwork {
     public static ProbeSnapshot scan(Level level, BlockPos instrumentPos) {
         int[] values = {-1, -1, -1, -1};
         int[] counts = {0, 0, 0, 0};
+        PortQuality[] qualities = {
+                PortQuality.NO_SIGNAL, PortQuality.NO_SIGNAL,
+                PortQuality.NO_SIGNAL, PortQuality.NO_SIGNAL
+        };
         ArrayDeque<CableVisit> queue = new ArrayDeque<>();
         Set<BlockPos> visited = new HashSet<>();
         Set<BlockPos> seenProbes = new HashSet<>();
@@ -77,7 +82,7 @@ public final class InstrumentNetwork {
                 queue.add(new CableVisit(neighbor, 1));
             } else if (state.getBlock() instanceof SignalProbeBlock probe
                     && TransmissionTopology.instrumentPort(state, direction)) {
-                if (seenProbes.add(neighbor)) recordProbe(level, neighbor, state, probe, values, counts);
+                if (seenProbes.add(neighbor)) recordProbe(level, neighbor, state, probe, values, counts, qualities);
             }
         }
 
@@ -112,7 +117,7 @@ public final class InstrumentNetwork {
                 } else if (state.getBlock() instanceof SignalProbeBlock probe
                         && TransmissionTopology.instrumentPort(state, direction)) {
                     if (seenProbes.add(neighbor)) {
-                        recordProbe(level, neighbor, state, probe, values, counts);
+                        recordProbe(level, neighbor, state, probe, values, counts, qualities);
                         maxProbeDepth = Math.max(maxProbeDepth, visit.depth());
                     }
                 }
@@ -120,25 +125,45 @@ public final class InstrumentNetwork {
         }
 
         NetworkKernel.recordScan(level, "instrument", visited.size(), truncated);
-        return new ProbeSnapshot(values, counts, !truncated, visited.size(), seenProbes.size(),
+        return new ProbeSnapshot(values, counts, qualities, !truncated, visited.size(), seenProbes.size(),
                 maxCableDepth, maxProbeDepth, shieldedCableNodes, unshieldedCableNodes,
                 exposedCableNodes, shieldedExposedNodes, unshieldedExposedNodes);
     }
 
-    private static void recordProbe(Level level, BlockPos pos, BlockState state, SignalProbeBlock probe, int[] values, int[] counts) {
+    private static void recordProbe(
+            Level level, BlockPos pos, BlockState state, SignalProbeBlock probe,
+            int[] values, int[] counts, PortQuality[] qualities
+    ) {
         int channel = state.getValue(SignalProbeBlock.CHANNEL);
-        int value = probe.sample(level, pos, state);
+        RedstoneObservationSupport.Observation observation =
+                SignalProbeBlock.measurementObservation(level, pos, state);
         counts[channel]++;
-        if (counts[channel] == 1) values[channel] = value;
-        else values[channel] = -1;
+        if (counts[channel] == 1) {
+            values[channel] = observation.valid() ? observation.value() : -1;
+            qualities[channel] = observation.quality();
+        } else {
+            values[channel] = -1;
+            qualities[channel] = PortQuality.TOPOLOGY_ERROR;
+        }
     }
 
     public record ProbeSnapshot(
-            int[] values, int[] counts, boolean bounded, int cableNodes, int probeNodes,
+            int[] values, int[] counts, PortQuality[] qualities, boolean bounded, int cableNodes, int probeNodes,
             int maxCableDepth, int maxProbeDepth, int shieldedCableNodes, int unshieldedCableNodes,
             int exposedCableNodes, int shieldedExposedNodes, int unshieldedExposedNodes
     ) {
-        public boolean valid(int channel) { return channel >= 0 && channel < 4 && counts[channel] == 1 && values[channel] >= 0; }
+        public PortQuality quality(int channel) {
+            if (channel < 0 || channel >= 4) return PortQuality.NO_SIGNAL;
+            if (!bounded) return PortQuality.TOPOLOGY_ERROR;
+            if (counts[channel] > 1) return PortQuality.TOPOLOGY_ERROR;
+            if (counts[channel] == 0) return PortQuality.NO_SIGNAL;
+            return qualities[channel];
+        }
+        public boolean valid(int channel) {
+            PortQuality quality = quality(channel);
+            return counts[channel] == 1 && values[channel] >= 0
+                    && (quality == PortQuality.VALID || quality == PortQuality.SATURATED);
+        }
         public int valueOr(int channel, int fallback) { return valid(channel) ? values[channel] : fallback; }
         public int duplicateChannels() { int duplicates = 0; for (int count : counts) if (count > 1) duplicates++; return duplicates; }
         public int duplicateProbes() { int duplicates = 0; for (int count : counts) duplicates += Math.max(0, count - 1); return duplicates; }
@@ -158,7 +183,14 @@ public final class InstrumentNetwork {
             int mask = channelMask & 0xF;
             if (!bounded) return PortQuality.TOPOLOGY_ERROR;
             if (duplicateChannelsInMask(mask) > 0) return PortQuality.TOPOLOGY_ERROR;
-            return validChannelsInMask(mask) > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL;
+            PortQuality combined = PortQuality.VALID;
+            boolean observed = false;
+            for (int channel = 0; channel < 4; channel++) {
+                if ((mask & (1 << channel)) == 0 || counts[channel] == 0) continue;
+                observed = true;
+                combined = RedstoneObservationSupport.combineQuality(combined, quality(channel));
+            }
+            return observed ? combined : PortQuality.NO_SIGNAL;
         }
         public int shieldingCoveragePercent() {
             int total = shieldedCableNodes + unshieldedCableNodes;
@@ -190,7 +222,8 @@ public final class InstrumentNetwork {
             if (channel < 0 || channel >= 4) return "INVALID CHANNEL";
             if (counts[channel] == 0) return "NO PROBE";
             if (counts[channel] > 1) return "AMBIGUOUS";
-            return Integer.toString(values[channel]);
+            PortQuality quality = quality(channel);
+            return valid(channel) ? values[channel] + " " + quality.name() : quality.name();
         }
         public String integrity() {
             if (!bounded) return "TRUNCATED";

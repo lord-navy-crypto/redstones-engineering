@@ -116,7 +116,18 @@ for forbidden in ["bestVoltage", "Multiple real feeds are allowed", "Math.max(be
     if forbidden in copper_support:
         failed.append(f"CopperNetworkSupport must not restore implicit terminal aggregation: {forbidden!r}")
 
-# Runtime tests, not source-only promises.
+# Circuit physics must distinguish an open circuit from an arbitrary finite fallback load.
+# Otherwise a series resistor drops voltage with no current, and a low-rated fuse can trip
+# despite having no downstream load.
+require(
+    "src/main/java/dev/redstoneengineering/physics/CircuitPhysics.java",
+    "Double.POSITIVE_INFINITY",
+    "Double.isInfinite(loadR)",
+    "open circuit",
+)
+
+# Runtime tests, not source-only promises. The original Alpha 1.0.13 topology cases remain in
+# RseCopperGameTests; later open-circuit regressions live in their dedicated registered class.
 tests = "src/main/java/dev/redstoneengineering/gametest/RseCopperGameTests.java"
 require(
     tests,
@@ -127,10 +138,19 @@ require(
     "DomainNetwork.sampleCopperVoltage",
     "CopperFuseBlock.TRIPPED",
 )
+open_tests = "src/main/java/dev/redstoneengineering/gametest/RseCopperOpenCircuitGameTests.java"
+require(
+    open_tests,
+    "seriesResistorOpenCircuitHasNoVoltageDrop",
+    "unloadedFuseDoesNotTrip",
+    "DomainNetwork.sampleCopperVoltage",
+    "CopperFuseBlock.TRIPPED",
+)
 require(
     "src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java",
     "event.register(RseTopologyGameTests.class)",
     "event.register(RseCopperGameTests.class)",
+    "event.register(RseCopperOpenCircuitGameTests.class)",
 )
 
 # Preserve simulation ownership: UI/rendering libraries must not define copper physics.
@@ -166,5 +186,6 @@ print(" axial copper BACK/FRONT contract: PASS")
 print(" planar copper direct-run / Junction Point vertical contract: PASS")
 print(" source/load/meter semantic ports: PASS")
 print(" single-feed terminal / explicit-aggregation policy: PASS")
-print(" runtime propagation and fuse GameTests present: PASS")
+print(" physical open-circuit semantics: PASS")
+print(" runtime propagation, open-circuit, and fuse GameTests present: PASS")
 print(" dependency ownership boundary: PASS")

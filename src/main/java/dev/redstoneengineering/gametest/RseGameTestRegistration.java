@@ -15,6 +15,7 @@ public final class RseGameTestRegistration {
     private static void registerGameTests(RegisterGameTestsEvent event) {
         event.register(RseTopologyGameTests.class);
         event.register(RseCopperGameTests.class);
+        event.register(RseCopperOpenCircuitGameTests.class);
         event.register(RseCopperTerminalEvidenceGameTests.class);
         event.register(RseMetrologyGameTests.class);
         event.register(RseCommissioningGameTests.class);
@@ -24,6 +25,12 @@ public final class RseGameTestRegistration {
         event.register(RseEngineeringUiGameTests.class);
         event.register(RseOperationsTimelineGameTests.class);
         event.register(RseOperationsIncidentGameTests.class);
+        event.register(RsePersistentPlantRuntimeGameTests.class);
+        event.register(RseMaterialReleasePersistenceGameTests.class);
+        event.register(RseQueuePersistenceGameTests.class);
+        event.register(RseMaintenancePersistenceGameTests.class);
+        event.register(RseAmrWorldLogisticsPersistenceGameTests.class);
+        event.register(RseValidationFactoryGameTests.class);
         event.register(RseElectricalReliabilityGameTests.class);
         event.register(RseCommunicationIdentityGameTests.class);
         event.register(RseSignalJunctionTopologyGameTests.class);
@@ -93,5 +100,11 @@ public final class RseGameTestRegistration {
         event.register(RseQuartzLabConfigurationLifecycleSystemGameTests.class);
         event.register(RseCopperConfigurationLifecycleSystemGameTests.class);
         event.register(RseRangeSensorEvidenceGameTests.class);
+        event.register(RseRelayEvidenceGameTests.class);
+        event.register(RseSignalSelectorEvidenceGameTests.class);
+        event.register(RseAnalogComparatorEvidenceGameTests.class);
+        event.register(RseInstrumentEvidenceGameTests.class);
+        event.register(RseCalibrationEvidenceGameTests.class);
+        event.register(RseFoundationDomainGameTests.class);
     }
 }

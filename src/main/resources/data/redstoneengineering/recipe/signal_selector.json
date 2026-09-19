@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": ["RCR","QCQ","RCR"],
+  "key": {
+    "R": {"item": "minecraft:redstone"},
+    "C": {"item": "minecraft:copper_ingot"},
+    "Q": {"item": "minecraft:quartz"}
+  },
+  "result": {"id": "redstoneengineering:signal_selector","count": 1}
+}

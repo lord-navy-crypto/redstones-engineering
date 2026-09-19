@@ -30,6 +30,8 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_OUTPUT_LEFT = 6;
     public static final int BUTTON_OUTPUT_RIGHT = 7;
     public static final int BUTTON_ACTION = 8;
+    public static final int BUTTON_SECONDARY_PARAMETER_PREVIOUS = 9;
+    public static final int BUTTON_SECONDARY_PARAMETER_NEXT = 10;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot primary = trackedInt();
@@ -43,6 +45,10 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
     private final DataSlot inputFacing = trackedInt();
     private final DataSlot outputFacing = trackedInt();
     private final DataSlot quality = trackedInt();
+    /** Raw bounded configuration index, kept separate from derived physical readbacks. */
+    private final DataSlot parameterIndex = trackedInt();
+    /** Optional second block-owned configuration index; currently Servo LOAD. */
+    private final DataSlot secondaryParameterIndex = trackedInt();
 
     public ReliabilitySystemMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -62,22 +68,28 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
         extraA.set(0); extraB.set(0); extraC.set(0); facing.set(-1);
         inputFacing.set(-1); outputFacing.set(-1);
         quality.set(PortQuality.NO_SIGNAL.ordinal());
+        parameterIndex.set(-1);
+        secondaryParameterIndex.set(-1);
 
         if (block instanceof WatchdogBlock watchdog) {
             kind.set(KIND_WATCHDOG);
             Direction in = DirectionalSignalBlock.seriesInputSide(state);
             Direction out = DirectionalSignalBlock.seriesOutputSide(state);
             captureSignalEndpoints(in, out);
+            parameterIndex.set(state.getValue(WatchdogBlock.TIMEOUT));
             primary.set(WatchdogBlock.ageTicks(level, blockPos));
             secondary.set(WatchdogBlock.timeoutTicks(state.getValue(WatchdogBlock.TIMEOUT)));
             tertiary.set(WatchdogBlock.timeoutCount(level, blockPos));
             auxiliary.set(WatchdogBlock.transitionCount(level, blockPos));
             extraA.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+            extraB.set(WatchdogBlock.sourceSeen(level, blockPos) ? 1 : 0);
             quality.set(snapshotQuality(watchdog, state, in).ordinal());
         } else if (block instanceof ServoActuatorBlock servo) {
             kind.set(KIND_SERVO);
             Direction front = state.getValue(ServoActuatorBlock.FACING);
             facing.set(front.ordinal());
+            parameterIndex.set(state.getValue(ServoActuatorBlock.SLEW));
+            secondaryParameterIndex.set(state.getValue(ServoActuatorBlock.LOAD));
             primary.set(ServoActuatorBlock.position(level, blockPos));
             secondary.set(ServoActuatorBlock.command(level, blockPos));
             tertiary.set(ServoActuatorBlock.velocity(level, blockPos));
@@ -101,6 +113,7 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
             Direction in = DirectionalSignalBlock.seriesInputSide(state);
             Direction out = DirectionalSignalBlock.seriesOutputSide(state);
             captureSignalEndpoints(in, out);
+            parameterIndex.set(state.getValue(RedundantVoterBlock.TOLERANCE));
             RedundantVoterBlock.Vote vote = voter.vote(level, blockPos, state);
             primary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             secondary.set(vote.validInputs());
@@ -115,12 +128,14 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
             Direction in = DirectionalSignalBlock.seriesInputSide(state);
             Direction out = DirectionalSignalBlock.seriesOutputSide(state);
             captureSignalEndpoints(in, out);
+            parameterIndex.set(state.getValue(FaultLatchBlock.THRESHOLD));
             primary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             secondary.set(FaultLatchBlock.thresholdValue(state.getValue(FaultLatchBlock.THRESHOLD)));
             tertiary.set(FaultLatchBlock.tripCount(level, blockPos));
             auxiliary.set(FaultLatchBlock.resetCount(level, blockPos));
             extraA.set(FaultLatchBlock.latched(level, blockPos) ? 1 : 0);
             extraB.set(FaultLatchBlock.resetActive(level, blockPos) ? 1 : 0);
+            extraC.set(FaultLatchBlock.resetPermitted(level, blockPos, state) ? 1 : 0);
             quality.set(snapshotQuality(latch, state, out).ordinal());
         } else kind.set(-1);
     }
@@ -173,13 +188,19 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
             level.scheduleTick(blockPos, watchdog, 1);
             changed = true;
         } else if (block instanceof ServoActuatorBlock servo) {
-            int index = state.getValue(ServoActuatorBlock.SLEW);
-            if (id == BUTTON_PARAMETER_NEXT) index = (index + 1) % 3;
-            else if (id == BUTTON_PARAMETER_PREVIOUS) index = Math.floorMod(index - 1, 3);
-            else return false;
-            level.setBlock(blockPos, state.setValue(ServoActuatorBlock.SLEW, index), Block.UPDATE_CLIENTS);
-            level.scheduleTick(blockPos, servo, 1);
-            changed = true;
+            if (id == BUTTON_PARAMETER_NEXT || id == BUTTON_PARAMETER_PREVIOUS) {
+                int index = state.getValue(ServoActuatorBlock.SLEW);
+                index = id == BUTTON_PARAMETER_NEXT ? (index + 1) % 3 : Math.floorMod(index - 1, 3);
+                level.setBlock(blockPos, state.setValue(ServoActuatorBlock.SLEW, index), Block.UPDATE_CLIENTS);
+                level.scheduleTick(blockPos, servo, 1);
+                changed = true;
+            } else if (id == BUTTON_SECONDARY_PARAMETER_NEXT || id == BUTTON_SECONDARY_PARAMETER_PREVIOUS) {
+                int load = state.getValue(ServoActuatorBlock.LOAD);
+                load = id == BUTTON_SECONDARY_PARAMETER_NEXT ? (load + 1) % 4 : Math.floorMod(load - 1, 4);
+                level.setBlock(blockPos, state.setValue(ServoActuatorBlock.LOAD, load), Block.UPDATE_CLIENTS);
+                level.scheduleTick(blockPos, servo, 1);
+                changed = true;
+            } else return false;
         } else if (block instanceof RedundantVoterBlock voter) {
             int index = state.getValue(RedundantVoterBlock.TOLERANCE);
             if (id == BUTTON_PARAMETER_NEXT) index = (index + 1) % 4;
@@ -266,6 +287,8 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
     }
 
     public int kind() { return kind.get(); }
+    public int parameterIndex() { return parameterIndex.get(); }
+    public int secondaryParameterIndex() { return secondaryParameterIndex.get(); }
     public int primary() { return primary.get(); }
     public int secondary() { return secondary.get(); }
     public int tertiary() { return tertiary.get(); }

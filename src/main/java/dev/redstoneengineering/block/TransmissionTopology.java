@@ -169,6 +169,10 @@ public final class TransmissionTopology {
         if (b instanceof QuartzTimingLineBlock || b instanceof QuartzOscillatorBlock || b instanceof QuartzLabOscillatorBlock) return true;
         if (b instanceof QuartzClockDividerBlock || b instanceof QuartzPhaseDelayBlock || b instanceof QuartzStabilityMonitorBlock)
             return onFrontBack(s, mediumToDevice);
+        if (b instanceof QuartzToRedstoneReceiverBlock) {
+            Direction input = s.getValue(QuartzToRedstoneReceiverBlock.INPUT_FACING);
+            return deviceToMedium(mediumToDevice) == input;
+        }
         if (b instanceof QuartzTriggeredLapisSamplerBlock) {
             Direction facing=s.getValue(DirectionalDomainBlock.FACING);
             return deviceToMedium(mediumToDevice)==DirectionalDomainBlock.leftOf(facing);
@@ -181,6 +185,14 @@ public final class TransmissionTopology {
         if (b instanceof AmethystResonanceDustBlock || b instanceof AmethystResonatorBlock) return true;
         if (b instanceof AmethystFrequencyFilterBlock || b instanceof AmethystTunedResonatorBlock)
             return onFrontBack(s, mediumToDevice);
+        if (b instanceof AmethystPiezoPickupBlock) {
+            Direction input = s.getValue(AmethystPiezoPickupBlock.INPUT_FACING);
+            return deviceToMedium(mediumToDevice) == input;
+        }
+        if (b instanceof RedstoneAmethystExciterBlock) {
+            Direction output = s.getValue(RedstoneAmethystExciterBlock.FACING);
+            return deviceToMedium(mediumToDevice) == output;
+        }
         return false;
     }
 
@@ -271,6 +283,10 @@ public final class TransmissionTopology {
             return onFrontBack(s, mediumToDevice);
         if (b instanceof LapisVoltageTransducerBlock) return onBack(s, mediumToDevice);
         if (b instanceof InductionCoilBlock) return onFront(s, mediumToDevice);
+        if (b instanceof RedstoneCopperDriverBlock) {
+            Direction output = s.getValue(RedstoneCopperDriverBlock.FACING);
+            return deviceToMedium(mediumToDevice) == output;
+        }
         if (b instanceof CopperCircuitMeterBlock) return s.getValue(CopperCircuitMeterBlock.FACING) == mediumToDevice.getOpposite();
         return false;
     }

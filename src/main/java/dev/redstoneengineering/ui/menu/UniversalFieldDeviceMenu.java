@@ -6,6 +6,7 @@ import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.RedstoneCableNetwork;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -15,6 +16,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.DataSlot;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
 
 /** Generic server-authoritative HMI for EngineeringPortProvider field devices. */
 public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
@@ -31,6 +33,10 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_CONFIG_SECONDARY_NEXT = 113;
     public static final int BUTTON_CONFIG_ACTION = 114;
     public static final int BUTTON_CONFIG_TOGGLE = 115;
+    /** Direct-target controls use the existing server-authoritative step methods internally. */
+    public static final int BUTTON_DIRECT_PRIMARY_BASE = 10_000;
+    public static final int BUTTON_DIRECT_SECONDARY_BASE = 12_000;
+    public static final int BUTTON_DIRECT_LIMIT = 1_023;
 
     public static final int ROUTE_NONE = 0;
     public static final int ROUTE_SERIES_AXIS = 1;
@@ -53,12 +59,65 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_SEQUENCE_CONTROLLER = 9;
     public static final int CONFIG_SAFETY_INTERLOCK = 10;
     public static final int CONFIG_TOPOLOGY_DEBUGGER = 11;
+    public static final int CONFIG_LIGHT_SENSOR = 12;
+    public static final int CONFIG_TANK_LEVEL = 13;
+    public static final int CONFIG_ENTITY_DENSITY = 14;
+    public static final int CONFIG_MAGNETIC_FIELD = 15;
+    public static final int CONFIG_ELECTROMAGNET = 16;
+    public static final int CONFIG_IRON_CORE = 17;
+    public static final int CONFIG_SIGNAL_PROBE = 18;
+    public static final int CONFIG_REFERENCE_SOURCE = 19;
+    public static final int CONFIG_REDSTONE_CABLE = 20;
+    public static final int CONFIG_CABLE_TERMINAL = 21;
+    public static final int CONFIG_QUARTZ_OSCILLATOR = 22;
+    public static final int CONFIG_FAULT_LATCH = 23;
+    public static final int CONFIG_ANALOG_INDICATOR = 24;
+    public static final int CONFIG_JUNCTION = 25;
+    public static final int CONFIG_BYTE_ENCODER = 26;
+    public static final int CONFIG_BYTE_DECODER = 27;
+    public static final int CONFIG_SERIALIZER = 28;
+    public static final int CONFIG_DESERIALIZER = 29;
+    public static final int CONFIG_SERIAL_LINE = 30;
+    public static final int CONFIG_REGENERATOR = 31;
+    public static final int CONFIG_DIFF_DRIVER = 32;
+    public static final int CONFIG_DIFF_PAIR = 33;
+    public static final int CONFIG_DIFF_RECEIVER = 34;
+    public static final int CONFIG_DATA_BUS = 35;
+    public static final int CONFIG_INSTRUMENT_BUS = 36;
+    public static final int CONFIG_WATCHDOG = 37;
+    public static final int CONFIG_QUARTZ_TRACE = 38;
+    public static final int CONFIG_SINGLE_RELAY = 39;
+    public static final int CONFIG_REDUNDANT_VOTER = 40;
+    public static final int CONFIG_SIGNAL_AMPLIFIER = 41;
+    public static final int CONFIG_QUARTZ_LAPIS_SAMPLER = 42;
+    public static final int CONFIG_SIGNAL_TAP = 43;
+    public static final int CONFIG_SIGNAL_SELECTOR = 44;
+    public static final int CONFIG_ANALOG_COMPARATOR = 45;
+    public static final int CONFIG_COPPER_SOURCE = 46;
+    public static final int CONFIG_COPPER_SERIES_RESISTOR = 47;
+    public static final int CONFIG_COPPER_LOAD = 48;
+    public static final int CONFIG_COPPER_CAPACITOR = 49;
+    public static final int CONFIG_COPPER_FUSE = 50;
+    public static final int CONFIG_LAPIS_LOW_PASS = 51;
+    public static final int CONFIG_QUARTZ_PHASE_DELAY = 52;
+    public static final int CONFIG_THERMAL_HEATER = 53;
+    public static final int CONFIG_THERMAL_MASS = 54;
+    public static final int CONFIG_THERMAL_RADIATOR = 55;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
     private final DataSlot configKind = trackedInt();
     private final DataSlot configPrimary = trackedInt();
     private final DataSlot configSecondary = trackedInt();
+    private final DataSlot configTertiary = trackedInt();
+    private final DataSlot configQuaternary = trackedInt();
+    private final DataSlot editPrimaryValue = trackedInt();
+    private final DataSlot editPrimaryMin = trackedInt();
+    private final DataSlot editPrimaryMax = trackedInt();
+    private final DataSlot editSecondaryValue = trackedInt();
+    private final DataSlot editSecondaryMin = trackedInt();
+    private final DataSlot editSecondaryMax = trackedInt();
+    private final DataSlot editableMask = trackedInt();
     private final DataSlot declaredPortMask = trackedInt();
     private final DataSlot inputMask = trackedInt();
     private final DataSlot outputMask = trackedInt();
@@ -92,8 +151,282 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         configKind.set(CONFIG_NONE);
         configPrimary.set(0);
         configSecondary.set(0);
+        configTertiary.set(0);
+        configQuaternary.set(0);
+        editPrimaryValue.set(0);
+        editPrimaryMin.set(0);
+        editPrimaryMax.set(0);
+        editSecondaryValue.set(0);
+        editSecondaryMin.set(0);
+        editSecondaryMax.set(0);
+        editableMask.set(0);
 
-        if (block instanceof LapisPrecisionRangeSensorBlock) {
+        if (block instanceof LapisLowPassFilterBlock) {
+            configKind.set(CONFIG_LAPIS_LOW_PASS);
+            configPrimary.set(state.getValue(LapisLowPassFilterBlock.ALPHA));
+        } else if (block instanceof QuartzPhaseDelayBlock) {
+            configKind.set(CONFIG_QUARTZ_PHASE_DELAY);
+            configPrimary.set(state.getValue(QuartzPhaseDelayBlock.DELAY));
+            configSecondary.set(QuartzPhaseDelayBlock.queuedEdges(level, blockPos));
+            configTertiary.set(QuartzPhaseDelayBlock.pendingTicks(level, blockPos));
+            configQuaternary.set(QuartzPhaseDelayBlock.droppedEdges(level, blockPos));
+        } else if (block instanceof ThermalHeaterBlock) {
+            configKind.set(CONFIG_THERMAL_HEATER);
+            configPrimary.set(state.getValue(ThermalHeaterBlock.RESISTANCE_INDEX));
+            configSecondary.set(state.getValue(ThermalHeaterBlock.TEMPERATURE));
+        } else if (block instanceof ThermalMassBlock) {
+            configKind.set(CONFIG_THERMAL_MASS);
+            configPrimary.set(state.getValue(ThermalMassBlock.HEAT_CAPACITY));
+            configSecondary.set(state.getValue(ThermalMassBlock.TEMPERATURE));
+        } else if (block instanceof ThermalRadiatorBlock) {
+            configKind.set(CONFIG_THERMAL_RADIATOR);
+            configPrimary.set(state.getValue(ThermalRadiatorBlock.COOLING));
+        } else if (block instanceof CopperVoltageSourceBlock) {
+            configKind.set(CONFIG_COPPER_SOURCE);
+            configPrimary.set(state.getValue(CopperVoltageSourceBlock.VOLTAGE));
+        } else if (block instanceof CopperSeriesResistorBlock) {
+            configKind.set(CONFIG_COPPER_SERIES_RESISTOR);
+            configPrimary.set(state.getValue(CopperSeriesResistorBlock.RESISTANCE));
+            configSecondary.set(CopperSeriesResistorBlock.outputVoltage(level, blockPos));
+            configTertiary.set(CopperSeriesResistorBlock.outputQuality(level, blockPos).ordinal());
+        } else if (block instanceof CopperResistiveLoadBlock) {
+            configKind.set(CONFIG_COPPER_LOAD);
+            configPrimary.set(state.getValue(CopperResistiveLoadBlock.RESISTANCE));
+            configSecondary.set(state.getValue(CopperResistiveLoadBlock.VOLTAGE));
+        } else if (block instanceof CopperCapacitorBlock) {
+            configKind.set(CONFIG_COPPER_CAPACITOR);
+            configPrimary.set(state.getValue(CopperCapacitorBlock.C_INDEX));
+            configSecondary.set(CopperCapacitorBlock.chargePercent(level, blockPos));
+            configTertiary.set(CopperCapacitorBlock.outputVoltage(level, blockPos));
+            configQuaternary.set(CopperCapacitorBlock.effectiveTau(level, blockPos));
+        } else if (block instanceof CopperFuseBlock) {
+            configKind.set(CONFIG_COPPER_FUSE);
+            configPrimary.set(state.getValue(CopperFuseBlock.RATING));
+            configSecondary.set(state.getValue(CopperFuseBlock.TRIPPED) ? 1 : 0);
+            configTertiary.set(CopperFuseBlock.thermalExposure(level, blockPos));
+            configQuaternary.set(CopperFuseBlock.outputQuality(level, blockPos, state).ordinal());
+        } else if (block instanceof AnalogComparatorBlock) {
+            configKind.set(CONFIG_ANALOG_COMPARATOR);
+            configPrimary.set(state.getValue(AnalogComparatorBlock.MODE));
+            configSecondary.set(state.getValue(AnalogComparatorBlock.HYSTERESIS));
+            configTertiary.set(AnalogComparatorBlock.margin(level, blockPos, state));
+            int comparatorStatus = state.getValue(DirectionalSignalBlock.OUTPUT) > 0 ? 1 : 0;
+            comparatorStatus |= AnalogComparatorBlock.processQuality(level, blockPos, state).ordinal() << 1;
+            comparatorStatus |= AnalogComparatorBlock.referenceQuality(level, blockPos, state).ordinal() << 4;
+            configQuaternary.set(comparatorStatus);
+        } else if (block instanceof SignalSelectorBlock) {
+            configKind.set(CONFIG_SIGNAL_SELECTOR);
+            configPrimary.set(state.getValue(SignalSelectorBlock.INVERT_SELECT) ? 1 : 0);
+            configSecondary.set(SignalSelectorBlock.selectedB(level, blockPos, state) ? 1 : 0);
+            configTertiary.set(SignalSelectorBlock.switchCount(level, blockPos));
+            int selectorStatus = SignalSelectorBlock.controlHoldActive(level, blockPos) ? 1 : 0;
+            selectorStatus |= SignalSelectorBlock.selectQuality(level, blockPos, state).ordinal() << 1;
+            selectorStatus |= SignalSelectorBlock.selectedPayloadQuality(level, blockPos, state).ordinal() << 4;
+            configQuaternary.set(selectorStatus);
+        } else if (block instanceof SignalTapBlock) {
+            configKind.set(CONFIG_SIGNAL_TAP);
+            configPrimary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+            configSecondary.set(SignalTapBlock.seriesInputSide(state).ordinal());
+            configTertiary.set(SignalTapBlock.seriesOutputSide(state).ordinal());
+            int tapStatus = SignalTapBlock.evidenceHoldActive(level, blockPos) ? 1 : 0;
+            tapStatus |= SignalTapBlock.inputQuality(level, blockPos, state).ordinal() << 1;
+            tapStatus |= Math.min(0x0FFF, SignalTapBlock.badEvidenceEpisodes(level, blockPos)) << 4;
+            configQuaternary.set(tapStatus);
+        } else if (block instanceof QuartzTriggeredLapisSamplerBlock) {
+            configKind.set(CONFIG_QUARTZ_LAPIS_SAMPLER);
+            configPrimary.set(QuartzTriggeredLapisSamplerBlock.heldValue(level, blockPos));
+            configSecondary.set(QuartzTriggeredLapisSamplerBlock.acceptedCaptures(level, blockPos));
+            configTertiary.set(QuartzTriggeredLapisSamplerBlock.rejectedCaptures(level, blockPos));
+        } else if (block instanceof SignalAmplifierBlock) {
+            configKind.set(CONFIG_SIGNAL_AMPLIFIER);
+            configPrimary.set(state.getValue(SignalAmplifierBlock.GAIN_MODE));
+            configSecondary.set(SignalAmplifierBlock.clipping(level, blockPos) ? 1 : 0);
+            configTertiary.set(SignalAmplifierBlock.clippingEpisodes(level, blockPos));
+        } else if (block instanceof RedundantVoterBlock) {
+            configKind.set(CONFIG_REDUNDANT_VOTER);
+            configPrimary.set(state.getValue(RedundantVoterBlock.TOLERANCE));
+            configSecondary.set(RedundantVoterBlock.validInputs(level, blockPos));
+            configTertiary.set(RedundantVoterBlock.spread(level, blockPos));
+        } else if (block instanceof SingleRelayBlock) {
+            configKind.set(CONFIG_SINGLE_RELAY);
+            configPrimary.set(state.getValue(SingleRelayBlock.NORMALLY_CLOSED) ? 1 : 0);
+            configSecondary.set(SingleRelayBlock.coilEnergized(level, blockPos, state) ? 1 : 0);
+            configTertiary.set(SingleRelayBlock.switchCount(level, blockPos));
+            int relayStatus = state.getValue(SingleRelayBlock.PICKUP_MODE);
+            if (SingleRelayBlock.controlHoldActive(level, blockPos)) relayStatus |= 4;
+            if (SingleRelayBlock.payloadHoldActive(level, blockPos)) relayStatus |= 8;
+            relayStatus |= SingleRelayBlock.controlQuality(level, blockPos, state).ordinal() << 4;
+            relayStatus |= SingleRelayBlock.payloadQuality(level, blockPos, state).ordinal() << 7;
+            relayStatus |= state.getValue(SingleRelayBlock.TIMING_MODE) << 10;
+            relayStatus |= Math.min(15, SingleRelayBlock.transitionRemaining(level, blockPos)) << 12;
+            if (SingleRelayBlock.pendingCoilTarget(level, blockPos)) relayStatus |= 1 << 16;
+            configQuaternary.set(relayStatus);
+        } else if (block instanceof QuartzTimingLineBlock) {
+            configKind.set(CONFIG_QUARTZ_TRACE);
+            configPrimary.set(QuartzTimingLineBlock.period(level, blockPos));
+            configSecondary.set(QuartzTimingLineBlock.sourceCount(level, blockPos));
+            configTertiary.set(QuartzTimingLineBlock.active(level, blockPos) ? 1 : 0);
+        } else if (block instanceof InstrumentCableBlock) {
+            configKind.set(CONFIG_INSTRUMENT_BUS);
+            var bus = dev.redstoneengineering.instrument.InstrumentNetwork.scan(level, blockPos);
+            configPrimary.set(bus.validChannels());
+            configSecondary.set(bus.interferenceConfidencePercent());
+            configTertiary.set(bus.shieldingCoveragePercent());
+            configQuaternary.set(bus.qualityForMask(0xF).ordinal());
+        } else if (block instanceof WatchdogBlock) {
+            configKind.set(CONFIG_WATCHDOG);
+            configPrimary.set(state.getValue(WatchdogBlock.TIMEOUT));
+            configSecondary.set(WatchdogBlock.ageTicks(level, blockPos));
+            configTertiary.set(WatchdogBlock.timeoutCount(level, blockPos));
+            configQuaternary.set(WatchdogBlock.sourceSeen(level, blockPos) ? 1 : 0);
+        } else if (block instanceof EightBitDataBusBlock) {
+            configKind.set(CONFIG_DATA_BUS);
+            var diag = dev.redstoneengineering.physics.DataBusNetwork.getDiagnostics(level, blockPos);
+            configPrimary.set(dev.redstoneengineering.physics.DataBusNetwork.sample(level, blockPos));
+            configSecondary.set(diag.qualityPercent());
+            configTertiary.set(diag.driverCount());
+            configQuaternary.set(dev.redstoneengineering.physics.DataBusNetwork.quality(level, blockPos).ordinal());
+        } else if (block instanceof DifferentialDriverBlock) {
+            configKind.set(CONFIG_DIFF_DRIVER);
+            configPrimary.set(state.getValue(DifferentialDriverBlock.THRESHOLD));
+            configSecondary.set(DifferentialDriverBlock.inputLevel(level, blockPos, state));
+            configTertiary.set(DifferentialDriverBlock.drivenBit(level, blockPos, state));
+            configQuaternary.set(DifferentialDriverBlock.inputQuality(level, blockPos, state).ordinal());
+        } else if (block instanceof DifferentialDataPairBlock) {
+            configKind.set(CONFIG_DIFF_PAIR);
+            var diff = dev.redstoneengineering.physics.InformationRuntime.snapshot(level, "diff", blockPos);
+            configPrimary.set(diff.value() & 1);
+            configSecondary.set(diff.qualityPercent());
+            configTertiary.set(dev.redstoneengineering.physics.DifferentialNetwork.driverCount(level, blockPos));
+            configQuaternary.set(dev.redstoneengineering.physics.DifferentialNetwork.quality(level, blockPos).ordinal());
+        } else if (block instanceof DifferentialReceiverBlock) {
+            configKind.set(CONFIG_DIFF_RECEIVER);
+            BlockPos input = blockPos.relative(DirectionalSignalBlock.seriesInputSide(state));
+            var diff = dev.redstoneengineering.physics.InformationRuntime.snapshot(level, "diff", input);
+            configPrimary.set(diff.value() & 1);
+            configSecondary.set(diff.qualityPercent());
+            configTertiary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+            configQuaternary.set(DifferentialReceiverBlock.inputEvidenceQuality(level, blockPos, state).ordinal());
+        } else if (block instanceof SerializerBlock) {
+            configKind.set(CONFIG_SERIALIZER);
+            configPrimary.set(state.getValue(SerializerBlock.PERIOD_MODE));
+            var output = dev.redstoneengineering.physics.InformationRuntime.snapshot(level, "serial", blockPos);
+            configSecondary.set(output.value() & 0xFF);
+            configTertiary.set(SerializerBlock.wordPeriod(state));
+            BlockPos input = blockPos.relative(DirectionalDomainBlock.seriesInputSide(state));
+            configQuaternary.set(dev.redstoneengineering.physics.DataBusNetwork.quality(level, input).ordinal());
+        } else if (block instanceof DeserializerBlock) {
+            configKind.set(CONFIG_DESERIALIZER);
+            BlockPos input = blockPos.relative(DirectionalDomainBlock.seriesInputSide(state));
+            var serial = dev.redstoneengineering.physics.InformationRuntime.snapshot(level, "serial", input);
+            configPrimary.set(serial.value() & 0xFF);
+            configSecondary.set(serial.selector());
+            configTertiary.set(serial.qualityPercent());
+            configQuaternary.set(DeserializerBlock.inputEvidenceQuality(level, blockPos, state).ordinal());
+        } else if (block instanceof SerialDataLineBlock) {
+            configKind.set(CONFIG_SERIAL_LINE);
+            var serial = dev.redstoneengineering.physics.InformationRuntime.snapshot(level, "serial", blockPos);
+            var diag = dev.redstoneengineering.physics.SerialNetwork.getDiagnostics(level, blockPos);
+            configPrimary.set(serial.value() & 0xFF);
+            configSecondary.set(diag.qualityPercent());
+            configTertiary.set(diag.utilizationPercent());
+            configQuaternary.set(dev.redstoneengineering.physics.SerialNetwork.quality(level, blockPos).ordinal());
+        } else if (block instanceof DigitalRegeneratorBlock) {
+            configKind.set(CONFIG_REGENERATOR);
+            configPrimary.set(state.getValue(DigitalRegeneratorBlock.THRESHOLD));
+            configSecondary.set(DigitalRegeneratorBlock.acceptedCount(level, blockPos));
+            configTertiary.set(DigitalRegeneratorBlock.rejectedCount(level, blockPos));
+            int regeneratorStatus = DigitalRegeneratorBlock.inputEvidenceQuality(level, blockPos, state).ordinal();
+            regeneratorStatus |= DigitalRegeneratorBlock.outputEvidenceQuality(level, blockPos, state).ordinal() << 3;
+            regeneratorStatus |= Math.max(0, Math.min(100,
+                    DigitalRegeneratorBlock.inputQualityPercent(level, blockPos, state))) << 6;
+            configQuaternary.set(regeneratorStatus);
+        } else if (block instanceof RedstoneByteEncoderBlock) {
+            configKind.set(CONFIG_BYTE_ENCODER);
+            configPrimary.set(state.getValue(RedstoneByteEncoderBlock.MODE));
+            var input = dev.redstoneengineering.physics.RedstoneObservationSupport.observe(
+                    level, blockPos, DirectionalDomainBlock.seriesInputSide(state));
+            configSecondary.set(input.value());
+            configTertiary.set(RedstoneByteEncoderBlock.encode(input.value(), state.getValue(RedstoneByteEncoderBlock.MODE)));
+            configQuaternary.set(RedstoneByteEncoderBlock.inputEvidenceQuality(level, blockPos, state).ordinal());
+        } else if (block instanceof ByteToRedstoneDecoderBlock) {
+            configKind.set(CONFIG_BYTE_DECODER);
+            configPrimary.set(state.getValue(ByteToRedstoneDecoderBlock.MODE));
+            BlockPos input = blockPos.relative(DirectionalSignalBlock.seriesInputSide(state));
+            configSecondary.set(dev.redstoneengineering.physics.DataBusNetwork.sample(level, input));
+            configTertiary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+            configQuaternary.set(ByteToRedstoneDecoderBlock.inputEvidenceQuality(level, blockPos, state).ordinal());
+        } else if (block instanceof RedstoneCableJunctionBlock) {
+            configKind.set(CONFIG_JUNCTION);
+            configPrimary.set(state.getValue(RedstoneCableJunctionBlock.MEDIUM).ordinal());
+            RedstoneCableJunctionBlock.CarrierObservation carrier =
+                    RedstoneCableJunctionBlock.observeCarrier(level, blockPos, state);
+            configSecondary.set(carrier.value());
+            configTertiary.set(carrier.usable() ? 1 : 0);
+            configQuaternary.set(carrier.quality().ordinal());
+        } else if (block instanceof AnalogIndicatorBlock) {
+            configKind.set(CONFIG_ANALOG_INDICATOR);
+            configPrimary.set(state.getValue(AnalogIndicatorBlock.LEVEL));
+            configSecondary.set(AnalogIndicatorBlock.retainedMinimum(level, blockPos));
+            configTertiary.set(AnalogIndicatorBlock.retainedMaximum(level, blockPos));
+        } else if (block instanceof QuartzOscillatorBlock) {
+            configKind.set(CONFIG_QUARTZ_OSCILLATOR);
+            configPrimary.set(state.getValue(QuartzOscillatorBlock.PERIOD_INDEX));
+            configSecondary.set(state.getValue(QuartzOscillatorBlock.ACTIVE) ? 1 : 0);
+            configTertiary.set(QuartzOscillatorBlock.periodTicks(state));
+        } else if (block instanceof FaultLatchBlock) {
+            configKind.set(CONFIG_FAULT_LATCH);
+            configPrimary.set(state.getValue(FaultLatchBlock.THRESHOLD));
+            configSecondary.set(FaultLatchBlock.latched(level, blockPos) ? 1 : 0);
+            configTertiary.set(FaultLatchBlock.tripCount(level, blockPos));
+            configQuaternary.set(FaultLatchBlock.resetPermitted(level, blockPos, state) ? 1 : 0);
+        } else if (block instanceof RedstoneCableTerminalBlock) {
+            RedstoneCableNetwork.PathEvidence path = RedstoneCableNetwork.pathEvidence(level, blockPos);
+            configKind.set(CONFIG_CABLE_TERMINAL);
+            configPrimary.set(state.getValue(RedstoneCableTerminalBlock.POWER));
+            configSecondary.set(state.getValue(RedstoneCableTerminalBlock.OUTPUT_MODE) ? 1 : 0);
+            configTertiary.set(path.attenuationLoss());
+        } else if (block instanceof RedstoneSignalCableBlock) {
+            RedstoneCableNetwork.PathEvidence path = RedstoneCableNetwork.pathEvidence(level, blockPos);
+            configKind.set(CONFIG_REDSTONE_CABLE);
+            configPrimary.set(RedstoneSignalCableBlock.power(level, blockPos));
+            configSecondary.set(path.winningSourceLevel());
+            configTertiary.set(path.attenuationLoss());
+        } else if (block instanceof RedstoneReferenceSourceBlock) {
+            configKind.set(CONFIG_REFERENCE_SOURCE);
+            configPrimary.set(RedstoneReferenceSourceBlock.configuredPower(state));
+        } else if (block instanceof SignalProbeBlock) {
+            configKind.set(CONFIG_SIGNAL_PROBE);
+            configPrimary.set(SignalProbeBlock.configuredChannel(state));
+            var observation = SignalProbeBlock.measurementObservation(level, blockPos, state);
+            configSecondary.set(observation.value());
+            configQuaternary.set(observation.quality().ordinal());
+        } else if (block instanceof IronCoreBlock) {
+            configKind.set(CONFIG_IRON_CORE);
+            configPrimary.set(IronCoreBlock.appliedField(level, blockPos));
+            configSecondary.set(IronCoreBlock.remanentField(level, blockPos));
+            configTertiary.set(IronCoreBlock.coverageComplete(level, blockPos) ? 1 : 0);
+        } else if (block instanceof ElectromagnetBlock) {
+            configKind.set(CONFIG_ELECTROMAGNET);
+            configPrimary.set(ElectromagnetBlock.targetField(level, blockPos));
+            configSecondary.set(ElectromagnetBlock.thermalLoad(level, blockPos));
+            configTertiary.set(state.getValue(ElectromagnetBlock.FIELD));
+            configQuaternary.set(ElectromagnetBlock.trackingError(level, blockPos));
+        } else if (block instanceof MagneticFieldSensorBlock) {
+            configKind.set(CONFIG_MAGNETIC_FIELD);
+            configPrimary.set(state.getValue(MagneticFieldSensorBlock.RADIUS_MODE));
+            configSecondary.set(state.getValue(MagneticFieldSensorBlock.SAMPLE_MODE));
+        } else if (block instanceof EngineeringLightSensorBlock) {
+            configKind.set(CONFIG_LIGHT_SENSOR);
+            configPrimary.set(state.getValue(EngineeringLightSensorBlock.PROFILE));
+        } else if (block instanceof TankLevelSensorBlock) {
+            configKind.set(CONFIG_TANK_LEVEL);
+            configPrimary.set(state.getValue(TankLevelSensorBlock.RANGE_MODE));
+        } else if (block instanceof EntityDensitySensorBlock) {
+            configKind.set(CONFIG_ENTITY_DENSITY);
+            configPrimary.set(state.getValue(EntityDensitySensorBlock.PROFILE));
+            configSecondary.set(state.getValue(EntityDensitySensorBlock.APERTURE_MODE));
+        } else if (block instanceof LapisPrecisionRangeSensorBlock) {
             configKind.set(CONFIG_LAPIS_RANGE);
             configPrimary.set(state.getValue(AbstractLapisTransducerBlock.PROFILE));
             configSecondary.set(LapisPrecisionRangeSensorBlock.rangeBlocks(state));
@@ -109,34 +442,59 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configPrimary.set(state.getValue(AlarmProcessorBlock.SEVERITY));
             configSecondary.set(!AlarmProcessorBlock.latched(level, blockPos) ? 0
                     : AlarmProcessorBlock.unacknowledged(level, blockPos) ? 2 : 1);
+            configTertiary.set(AlarmProcessorBlock.activationCount(level, blockPos));
         } else if (block instanceof SampleHoldBlock) {
             configKind.set(CONFIG_SAMPLE_HOLD);
             configPrimary.set(state.getValue(SampleHoldBlock.TRIGGER_MODE));
             configSecondary.set(SampleHoldBlock.captureCount(level, blockPos));
+            configTertiary.set(SampleHoldBlock.heldValue(level, blockPos));
         } else if (block instanceof CalibrationModuleBlock) {
             configKind.set(CONFIG_CALIBRATION);
             configPrimary.set(state.getValue(CalibrationModuleBlock.PROFILE));
-        } else if (block instanceof PwmControllerBlock) {
+            var measurement = CalibrationModuleBlock.measurement(level, blockPos);
+            configSecondary.set(measurement.sampleCount() <= 0 ? 0 : (int) Math.round(measurement.bias()));
+            configTertiary.set(measurement.sampleCount());
+            int calibrationEvidence = CalibrationModuleBlock.observedQuality(level, blockPos, state).ordinal();
+            calibrationEvidence |= CalibrationModuleBlock.referenceQuality(level, blockPos, state).ordinal() << 3;
+            calibrationEvidence |= CalibrationModuleBlock.outputQuality(level, blockPos, state).ordinal() << 6;
+            configQuaternary.set(calibrationEvidence);
+        } else if (block instanceof PwmControllerBlock pwm) {
             configKind.set(CONFIG_PWM);
             configPrimary.set(state.getValue(PwmControllerBlock.PERIOD_MODE));
             configSecondary.set(state.getValue(PwmControllerBlock.INVERT) ? 1 : 0);
+            var assessment = pwm.assessment(level, blockPos, state);
+            configTertiary.set(assessment.appliedCommand());
+            int pwmStatus = assessment.command() & 15;
+            pwmStatus |= (assessment.phase() & 31) << 4;
+            if (assessment.pendingUpdate()) pwmStatus |= 1 << 9;
+            pwmStatus |= Math.min(0x1FFFFF, assessment.completedCycles()) << 10;
+            configQuaternary.set(pwmStatus);
         } else if (block instanceof FaultInjectorBlock) {
             configKind.set(CONFIG_FAULT_INJECTOR);
             configPrimary.set(state.getValue(FaultInjectorBlock.MODE));
             configSecondary.set(FaultInjectorBlock.active(level, blockPos) ? 1 : 0);
+            configTertiary.set(FaultInjectorBlock.activationCount(level, blockPos));
+            int injectorEvidence = FaultInjectorBlock.signalQuality(level, blockPos, state).ordinal();
+            injectorEvidence |= FaultInjectorBlock.armQuality(level, blockPos, state).ordinal() << 3;
+            configQuaternary.set(injectorEvidence);
         } else if (block instanceof SequenceControllerBlock) {
             configKind.set(CONFIG_SEQUENCE_CONTROLLER);
             configPrimary.set(SequenceControllerBlock.step(level, blockPos));
             configSecondary.set(SequenceControllerBlock.completedCycles(level, blockPos));
+            configTertiary.set(SequenceControllerBlock.transitions(level, blockPos));
+            configQuaternary.set(SequenceControllerBlock.runQuality(level, blockPos, state).ordinal());
         } else if (block instanceof SafetyInterlockBlock) {
             configKind.set(CONFIG_SAFETY_INTERLOCK);
             configPrimary.set(SafetyInterlockBlock.failedMask(level, blockPos));
             configSecondary.set(state.getValue(DirectionalSignalBlock.OUTPUT) > 0 ? 1 : 0);
+            configTertiary.set(SafetyInterlockBlock.transitionCount(level, blockPos));
         } else if (block instanceof TopologyDebuggerBlock) {
             configKind.set(CONFIG_TOPOLOGY_DEBUGGER);
             configPrimary.set(TopologyDebuggerBlock.scanCount(level, blockPos));
             configSecondary.set(TopologyDebuggerBlock.targetsVanillaRedstone(level, blockPos, state) ? 1 : 0);
         }
+
+        refreshEditableMetadata(state, block);
 
         declaredPortMask.set(0);
         inputMask.set(0);
@@ -222,7 +580,12 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public boolean clickMenuButton(Player player, int id) {
         if (level.isClientSide) return true;
         if (!stillValid(player)) return false;
-        boolean changed = switch (id) {
+        boolean changed;
+        if (id >= BUTTON_DIRECT_PRIMARY_BASE && id <= BUTTON_DIRECT_PRIMARY_BASE + BUTTON_DIRECT_LIMIT) {
+            changed = applyDirectTarget(true, id - BUTTON_DIRECT_PRIMARY_BASE);
+        } else if (id >= BUTTON_DIRECT_SECONDARY_BASE && id <= BUTTON_DIRECT_SECONDARY_BASE + BUTTON_DIRECT_LIMIT) {
+            changed = applyDirectTarget(false, id - BUTTON_DIRECT_SECONDARY_BASE);
+        } else changed = switch (id) {
             case BUTTON_ROTATE_LEFT -> rotate(false);
             case BUTTON_ROTATE_RIGHT -> rotate(true);
             case BUTTON_INPUT_LEFT -> rotateInput(false);
@@ -244,8 +607,124 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         return changed;
     }
 
+    private void refreshEditableMetadata(BlockState state, Block block) {
+        IntegerProperty primary = primaryEditableProperty(block);
+        IntegerProperty secondary = secondaryEditableProperty(block);
+        int mask = 0;
+        if (primary != null && state.hasProperty(primary)) {
+            editPrimaryValue.set(state.getValue(primary));
+            editPrimaryMin.set(primary.getPossibleValues().stream().mapToInt(Integer::intValue).min().orElse(0));
+            editPrimaryMax.set(primary.getPossibleValues().stream().mapToInt(Integer::intValue).max().orElse(0));
+            mask |= 1;
+        }
+        if (secondary != null && state.hasProperty(secondary)) {
+            editSecondaryValue.set(state.getValue(secondary));
+            editSecondaryMin.set(secondary.getPossibleValues().stream().mapToInt(Integer::intValue).min().orElse(0));
+            editSecondaryMax.set(secondary.getPossibleValues().stream().mapToInt(Integer::intValue).max().orElse(0));
+            mask |= 2;
+        }
+        editableMask.set(mask);
+    }
+
+    private IntegerProperty primaryEditableProperty(Block block) {
+        if (block instanceof LapisLowPassFilterBlock) return LapisLowPassFilterBlock.ALPHA;
+        if (block instanceof QuartzPhaseDelayBlock) return QuartzPhaseDelayBlock.DELAY;
+        if (block instanceof ThermalHeaterBlock) return ThermalHeaterBlock.RESISTANCE_INDEX;
+        if (block instanceof ThermalMassBlock) return ThermalMassBlock.HEAT_CAPACITY;
+        if (block instanceof ThermalRadiatorBlock) return ThermalRadiatorBlock.COOLING;
+        if (block instanceof CopperVoltageSourceBlock) return CopperVoltageSourceBlock.VOLTAGE;
+        if (block instanceof CopperSeriesResistorBlock) return CopperSeriesResistorBlock.RESISTANCE;
+        if (block instanceof CopperResistiveLoadBlock) return CopperResistiveLoadBlock.RESISTANCE;
+        if (block instanceof CopperCapacitorBlock) return CopperCapacitorBlock.C_INDEX;
+        if (block instanceof CopperFuseBlock) return CopperFuseBlock.RATING;
+        if (block instanceof AnalogComparatorBlock) return AnalogComparatorBlock.HYSTERESIS;
+        if (block instanceof SingleRelayBlock) return SingleRelayBlock.PICKUP_MODE;
+        if (block instanceof SignalAmplifierBlock) return SignalAmplifierBlock.GAIN_MODE;
+        if (block instanceof RedundantVoterBlock) return RedundantVoterBlock.TOLERANCE;
+        if (block instanceof WatchdogBlock) return WatchdogBlock.TIMEOUT;
+        if (block instanceof DifferentialDriverBlock) return DifferentialDriverBlock.THRESHOLD;
+        if (block instanceof SerializerBlock) return SerializerBlock.PERIOD_MODE;
+        if (block instanceof DigitalRegeneratorBlock) return DigitalRegeneratorBlock.THRESHOLD;
+        if (block instanceof RedstoneByteEncoderBlock) return RedstoneByteEncoderBlock.MODE;
+        if (block instanceof ByteToRedstoneDecoderBlock) return ByteToRedstoneDecoderBlock.MODE;
+        if (block instanceof QuartzOscillatorBlock) return QuartzOscillatorBlock.PERIOD_INDEX;
+        if (block instanceof FaultLatchBlock) return FaultLatchBlock.THRESHOLD;
+        if (block instanceof RedstoneReferenceSourceBlock) return RedstoneReferenceSourceBlock.POWER;
+        if (block instanceof SignalProbeBlock) return SignalProbeBlock.CHANNEL;
+        if (block instanceof MagneticFieldSensorBlock) return MagneticFieldSensorBlock.RADIUS_MODE;
+        if (block instanceof EngineeringLightSensorBlock) return EngineeringLightSensorBlock.PROFILE;
+        if (block instanceof TankLevelSensorBlock) return TankLevelSensorBlock.RANGE_MODE;
+        if (block instanceof EntityDensitySensorBlock) return EntityDensitySensorBlock.PROFILE;
+        if (block instanceof LapisPrecisionRangeSensorBlock) return AbstractLapisTransducerBlock.PROFILE;
+        if (block instanceof AbstractLapisTransducerBlock) return AbstractLapisTransducerBlock.PROFILE;
+        if (block instanceof MolecularCloudReceiverBlock) return MolecularCloudReceiverBlock.SENSITIVITY;
+        if (block instanceof AlarmProcessorBlock) return AlarmProcessorBlock.SEVERITY;
+        if (block instanceof SampleHoldBlock) return SampleHoldBlock.TRIGGER_MODE;
+        if (block instanceof CalibrationModuleBlock) return CalibrationModuleBlock.PROFILE;
+        if (block instanceof PwmControllerBlock) return PwmControllerBlock.PERIOD_MODE;
+        if (block instanceof FaultInjectorBlock) return FaultInjectorBlock.MODE;
+        return null;
+    }
+
+    private IntegerProperty secondaryEditableProperty(Block block) {
+        if (block instanceof SingleRelayBlock) return SingleRelayBlock.TIMING_MODE;
+        if (block instanceof MagneticFieldSensorBlock) return MagneticFieldSensorBlock.SAMPLE_MODE;
+        if (block instanceof EntityDensitySensorBlock) return EntityDensitySensorBlock.APERTURE_MODE;
+        if (block instanceof LapisPrecisionRangeSensorBlock) return LapisPrecisionRangeSensorBlock.RANGE_INDEX;
+        return null;
+    }
+
+    private boolean applyDirectTarget(boolean primary, int target) {
+        BlockState state = level.getBlockState(blockPos);
+        Block block = state.getBlock();
+        IntegerProperty property = primary ? primaryEditableProperty(block) : secondaryEditableProperty(block);
+        if (property == null || !state.hasProperty(property) || !property.getPossibleValues().contains(target)) return false;
+
+        int current = state.getValue(property);
+        if (current == target) return true;
+        for (int guard = 0; guard < 64 && current != target; guard++) {
+            boolean changed = primary ? adjustPrimary(target > current ? 1 : -1)
+                    : adjustSecondary(target > current ? 1 : -1);
+            if (!changed) return false;
+            BlockState next = level.getBlockState(blockPos);
+            if (!next.hasProperty(property)) return false;
+            int updated = next.getValue(property);
+            if (updated == current) return false;
+            current = updated;
+        }
+        return current == target;
+    }
+
     private boolean adjustPrimary(int delta) {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof LapisLowPassFilterBlock) return LapisLowPassFilterBlock.adjustAlpha(level, blockPos, delta);
+        if (block instanceof QuartzPhaseDelayBlock) return QuartzPhaseDelayBlock.adjustDelay(level, blockPos, delta);
+        if (block instanceof ThermalHeaterBlock) return ThermalHeaterBlock.adjustResistance(level, blockPos, delta);
+        if (block instanceof ThermalMassBlock) return ThermalMassBlock.adjustHeatCapacity(level, blockPos, delta);
+        if (block instanceof ThermalRadiatorBlock) return ThermalRadiatorBlock.adjustCooling(level, blockPos, delta);
+        if (block instanceof CopperVoltageSourceBlock) return CopperVoltageSourceBlock.adjustVoltage(level, blockPos, delta);
+        if (block instanceof CopperSeriesResistorBlock) return CopperSeriesResistorBlock.adjustResistance(level, blockPos, delta);
+        if (block instanceof CopperResistiveLoadBlock) return CopperResistiveLoadBlock.adjustResistance(level, blockPos, delta);
+        if (block instanceof CopperCapacitorBlock) return CopperCapacitorBlock.adjustCapacitance(level, blockPos, delta);
+        if (block instanceof CopperFuseBlock) return CopperFuseBlock.adjustRating(level, blockPos, delta);
+        if (block instanceof AnalogComparatorBlock) return AnalogComparatorBlock.stepHysteresis(level, blockPos, delta > 0);
+        if (block instanceof SingleRelayBlock) return SingleRelayBlock.stepPickup(level, blockPos, delta > 0);
+        if (block instanceof SignalAmplifierBlock) return SignalAmplifierBlock.stepGain(level, blockPos, delta > 0);
+        if (block instanceof RedundantVoterBlock) return RedundantVoterBlock.stepTolerance(level, blockPos, delta > 0);
+        if (block instanceof WatchdogBlock) return WatchdogBlock.stepTimeout(level, blockPos, delta > 0);
+        if (block instanceof DifferentialDriverBlock) return DifferentialDriverBlock.stepThreshold(level, blockPos, delta > 0);
+        if (block instanceof SerializerBlock) return SerializerBlock.stepPeriod(level, blockPos, delta > 0);
+        if (block instanceof DigitalRegeneratorBlock) return DigitalRegeneratorBlock.stepThreshold(level, blockPos, delta > 0);
+        if (block instanceof RedstoneByteEncoderBlock) return RedstoneByteEncoderBlock.stepMode(level, blockPos, delta > 0);
+        if (block instanceof ByteToRedstoneDecoderBlock) return ByteToRedstoneDecoderBlock.stepMode(level, blockPos, delta > 0);
+        if (block instanceof QuartzOscillatorBlock) return QuartzOscillatorBlock.stepPeriod(level, blockPos, delta > 0);
+        if (block instanceof FaultLatchBlock) return FaultLatchBlock.stepThreshold(level, blockPos, delta > 0);
+        if (block instanceof RedstoneReferenceSourceBlock) return RedstoneReferenceSourceBlock.stepPower(level, blockPos, delta > 0);
+        if (block instanceof SignalProbeBlock) return SignalProbeBlock.stepChannel(level, blockPos, delta > 0);
+        if (block instanceof MagneticFieldSensorBlock) return MagneticFieldSensorBlock.adjustRadius(level, blockPos, delta);
+        if (block instanceof EngineeringLightSensorBlock) return EngineeringLightSensorBlock.adjustProfile(level, blockPos, delta);
+        if (block instanceof TankLevelSensorBlock) return TankLevelSensorBlock.adjustRange(level, blockPos, delta);
+        if (block instanceof EntityDensitySensorBlock) return EntityDensitySensorBlock.adjustProfile(level, blockPos, delta);
         if (block instanceof AbstractLapisTransducerBlock transducer) return transducer.adjustProfile(level, blockPos, delta);
         if (block instanceof MolecularCloudReceiverBlock receiver) return receiver.adjustSensitivity(level, blockPos, delta);
         if (block instanceof AlarmProcessorBlock alarm) return alarm.adjustSeverity(level, blockPos, delta);
@@ -258,11 +737,22 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean adjustSecondary(int delta) {
         Block block = level.getBlockState(blockPos).getBlock();
-        return block instanceof LapisPrecisionRangeSensorBlock range && range.adjustRange(level, blockPos, delta);
+        if (block instanceof SingleRelayBlock) return SingleRelayBlock.stepTiming(level, blockPos, delta > 0);
+        if (block instanceof MagneticFieldSensorBlock) return MagneticFieldSensorBlock.adjustSampling(level, blockPos, delta);
+        if (block instanceof LapisPrecisionRangeSensorBlock range) return range.adjustRange(level, blockPos, delta);
+        if (block instanceof EntityDensitySensorBlock) return EntityDensitySensorBlock.adjustAperture(level, blockPos, delta);
+        return false;
     }
 
     private boolean runAction() {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof SingleRelayBlock) return SingleRelayBlock.stepTiming(level, blockPos, true);
+        if (block instanceof SignalAmplifierBlock) return SignalAmplifierBlock.resetClipEvidence(level, blockPos);
+        if (block instanceof RedundantVoterBlock voter) return voter.resetDiagnostics(level, blockPos);
+        if (block instanceof WatchdogBlock watchdog) return watchdog.resetDiagnostics(level, blockPos);
+        if (block instanceof AnalogIndicatorBlock) return AnalogIndicatorBlock.resetExtrema(level, blockPos);
+        if (block instanceof FaultLatchBlock latch) return latch.manualReset(level, blockPos);
+        if (block instanceof IronCoreBlock) return IronCoreBlock.degauss(level, blockPos);
         if (block instanceof MolecularCloudReceiverBlock receiver) return receiver.resetHistory(level, blockPos);
         if (block instanceof AlarmProcessorBlock alarm) return alarm.acknowledge(level, blockPos);
         if (block instanceof SampleHoldBlock sampleHold) return sampleHold.clearHeldValue(level, blockPos);
@@ -275,6 +765,10 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean toggleConfig() {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof AnalogComparatorBlock) return AnalogComparatorBlock.stepMode(level, blockPos, true);
+        if (block instanceof SignalSelectorBlock) return SignalSelectorBlock.toggleInvertSelect(level, blockPos);
+        if (block instanceof SingleRelayBlock) return SingleRelayBlock.toggleContactMode(level, blockPos);
+        if (block instanceof RedstoneCableTerminalBlock) return RedstoneCableTerminalBlock.toggleMode(level, blockPos);
         return block instanceof PwmControllerBlock pwm && pwm.toggleInvert(level, blockPos);
     }
 
@@ -308,11 +802,22 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         return rotate(clockwise);
     }
 
+    public boolean editPrimaryAvailable() { return (editableMask.get() & 1) != 0; }
+    public int editPrimaryValue() { return editPrimaryValue.get(); }
+    public int editPrimaryMin() { return editPrimaryMin.get(); }
+    public int editPrimaryMax() { return editPrimaryMax.get(); }
+    public boolean editSecondaryAvailable() { return (editableMask.get() & 2) != 0; }
+    public int editSecondaryValue() { return editSecondaryValue.get(); }
+    public int editSecondaryMin() { return editSecondaryMin.get(); }
+    public int editSecondaryMax() { return editSecondaryMax.get(); }
+
     public int facingOrdinal() { return facing.get(); }
     public int routeKind() { return routeKind.get(); }
     public int configKind() { return configKind.get(); }
     public int configPrimary() { return configPrimary.get(); }
     public int configSecondary() { return configSecondary.get(); }
+    public int configTertiary() { return configTertiary.get(); }
+    public int configQuaternary() { return configQuaternary.get(); }
     public int declaredPortMask() { return declaredPortMask.get(); }
     public boolean hasPort(Direction side) { return (declaredPortMask.get() & (1 << side.ordinal())) != 0; }
     public boolean isInput(Direction side) { return (inputMask.get() & (1 << side.ordinal())) != 0; }

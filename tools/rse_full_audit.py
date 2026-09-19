@@ -37,7 +37,9 @@ for fn,oldprops in {
  if 'RuntimeIntStore' not in s: errors.append(fn+' must use RuntimeIntStore')
  for token in oldprops:
   if token in s: errors.append(fn+' still stores transient property '+token)
-require('src/main/java/dev/redstoneengineering/block/PwmControllerBlock.java','if (inhibited) output = 0;','PWM inhibit must force OFF')
+require('src/main/java/dev/redstoneengineering/block/PwmControllerBlock.java','if (!commandUsable || inhibited) {','PWM inhibit / invalid command must enter fail-safe branch')
+require('src/main/java/dev/redstoneengineering/block/PwmControllerBlock.java','resetCarrier(rt);','PWM fail-safe must reset the carrier')
+require('src/main/java/dev/redstoneengineering/block/PwmControllerBlock.java','updateOutput(level, pos, state, 0);','PWM fail-safe must force OFF')
 require('src/main/java/dev/redstoneengineering/block/SignalAnalyzerBlock.java','return EngineeringSignal.clamp(targetState.getValue(RedStoneWireBlock.POWER));','Analyzer must read dust node itself')
 
 # Domain correctness repairs.

@@ -117,14 +117,21 @@ public final class DigitalCommunicationMenu extends EngineeringDeviceMenu {
             outputQuality.set(snapshot.quality().ordinal());
         });
 
-        if (block instanceof DigitalRegeneratorBlock) {
-            int threshold = state.getValue(DigitalRegeneratorBlock.THRESHOLD);
-            parameter.set(threshold);
-            auxiliary.set(InformationRuntime.snapshot(level, "serial", blockPos.relative(inputSide)).qualityPercent());
+        if (block instanceof RedstoneByteEncoderBlock) {
+            parameter.set(state.getValue(RedstoneByteEncoderBlock.MODE));
+        } else if (block instanceof ByteToRedstoneDecoderBlock) {
+            parameter.set(state.getValue(ByteToRedstoneDecoderBlock.MODE));
         } else if (block instanceof SerializerBlock) {
+            parameter.set(state.getValue(SerializerBlock.PERIOD_MODE));
             auxiliary.set(InformationRuntime.snapshot(level, "serial", blockPos).selector());
         } else if (block instanceof DeserializerBlock) {
             auxiliary.set(InformationRuntime.snapshot(level, "serial", blockPos.relative(inputSide)).selector());
+        } else if (block instanceof DigitalRegeneratorBlock) {
+            int threshold = state.getValue(DigitalRegeneratorBlock.THRESHOLD);
+            parameter.set(threshold);
+            auxiliary.set(InformationRuntime.snapshot(level, "serial", blockPos.relative(inputSide)).qualityPercent());
+        } else if (block instanceof DifferentialDriverBlock) {
+            parameter.set(state.getValue(DifferentialDriverBlock.THRESHOLD));
         }
 
         refreshMediumTelemetry(deviceKind, inputSide, outputSide);
@@ -247,13 +254,22 @@ public final class DigitalCommunicationMenu extends EngineeringDeviceMenu {
             else if (block instanceof DirectionalSignalBlock) changed = DirectionalSignalBlock.rotateSeriesOutput(level, blockPos, clockwise);
             else return false;
             if (changed) level.scheduleTick(blockPos, block, 1);
-        } else if (block instanceof DigitalRegeneratorBlock regenerator
-                && (id == BUTTON_PARAMETER_PREVIOUS || id == BUTTON_PARAMETER_NEXT)) {
-            int threshold = state.getValue(DigitalRegeneratorBlock.THRESHOLD);
-            threshold = id == BUTTON_PARAMETER_NEXT ? (threshold + 1) % 3 : Math.floorMod(threshold - 1, 3);
-            level.setBlock(blockPos, state.setValue(DigitalRegeneratorBlock.THRESHOLD, threshold), Block.UPDATE_CLIENTS);
-            level.scheduleTick(blockPos, regenerator, 1);
-            changed = true;
+        } else if (id == BUTTON_PARAMETER_PREVIOUS || id == BUTTON_PARAMETER_NEXT) {
+            boolean forward = id == BUTTON_PARAMETER_NEXT;
+            if (block instanceof RedstoneByteEncoderBlock) {
+                changed = RedstoneByteEncoderBlock.stepMode(level, blockPos, forward);
+            } else if (block instanceof ByteToRedstoneDecoderBlock) {
+                changed = ByteToRedstoneDecoderBlock.stepMode(level, blockPos, forward);
+            } else if (block instanceof SerializerBlock) {
+                changed = SerializerBlock.stepPeriod(level, blockPos, forward);
+            } else if (block instanceof DigitalRegeneratorBlock) {
+                changed = DigitalRegeneratorBlock.stepThreshold(level, blockPos, forward);
+            } else if (block instanceof DifferentialDriverBlock) {
+                changed = DifferentialDriverBlock.stepThreshold(level, blockPos, forward);
+            } else {
+                return false;
+            }
+            if (changed) level.scheduleTick(blockPos, block, 1);
         } else return false;
 
         if (changed) {

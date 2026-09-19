@@ -64,21 +64,26 @@ public class CopperSeriesResistorBlock extends DirectionalCopperProcessorBlock {
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         CopperObservationSupport.Observation input = CopperObservationSupport.observe(level, inputPos(pos, state), pos);
-        int inputVoltage = input.quality() == PortQuality.VALID ? input.voltage() : 0;
         double loadResistance = CircuitPhysics.equivalentLoadResistance(level, outputPos(pos, state), 128);
-        int outputVoltage = input.quality() == PortQuality.VALID
-                ? CircuitPhysics.divider(inputVoltage, state.getValue(RESISTANCE), loadResistance)
-                : 0;
-
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
-        runtime[OUTPUT_VOLTAGE_SLOT] = outputVoltage;
+
+        if (input.quality() == PortQuality.VALID) {
+            runtime[OUTPUT_VOLTAGE_SLOT] = CircuitPhysics.divider(
+                    input.voltage(), state.getValue(RESISTANCE), loadResistance);
+        } else if (input.quality() == PortQuality.NO_SIGNAL) {
+            // A verified absent source is a real de-energized electrical condition.
+            runtime[OUTPUT_VOLTAGE_SLOT] = 0;
+        }
+        // STALE/FAULT/DOMAIN/TOPOLOGY evidence cannot define a new circuit voltage.
+        // Preserve the last derived Vout as readback while releasing the Copper driver.
+
         runtime[INITIALIZED_SLOT] = 1;
         runtime[INPUT_QUALITY_SLOT] = input.quality().ordinal();
         DomainNetwork.driveCopper(
                 level,
                 outputPos(pos, state),
                 pos,
-                outputVoltage,
+                runtime[OUTPUT_VOLTAGE_SLOT],
                 input.quality() == PortQuality.VALID
         );
         level.scheduleTick(pos, this, 2);
@@ -108,6 +113,27 @@ public class CopperSeriesResistorBlock extends DirectionalCopperProcessorBlock {
 
     @Override protected int observedOutputVoltage(Level level, BlockPos pos, BlockState state) { return outputVoltage(level, pos); }
     @Override protected PortQuality observedOutputQuality(Level level, BlockPos pos, BlockState state) { return outputQuality(level, pos); }
+
+    /**
+     * Server-authoritative series-resistance adjustment.
+     * Changing Rs invalidates the old derived output/evidence until the next real observation tick.
+     */
+    public static boolean adjustResistance(Level level, BlockPos pos, int delta) {
+        if (level.isClientSide || delta == 0) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof CopperSeriesResistorBlock resistor)) return false;
+        int current = state.getValue(RESISTANCE);
+        int nextValue = delta > 0 ? (current >= 15 ? 1 : current + 1) : (current <= 1 ? 15 : current - 1);
+        BlockState next = state.setValue(RESISTANCE, nextValue);
+
+        RuntimeIntStore.remove(level, KEY, pos);
+        if (level instanceof ServerLevel serverLevel) {
+            DomainNetwork.driveCopper(serverLevel, resistor.outputPos(pos, state), pos, 0, false);
+        }
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        level.scheduleTick(pos, resistor, 1);
+        return true;
+    }
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {

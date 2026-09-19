@@ -112,6 +112,20 @@ public class CopperResistiveLoadBlock extends DomainBlock implements Engineering
         }
     }
 
+    /** Server-authoritative load-resistance adjustment shared with the engineering HMI. */
+    public static boolean adjustResistance(Level level, BlockPos pos, int delta) {
+        if (level.isClientSide || delta == 0) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof CopperResistiveLoadBlock load)) return false;
+        int current = state.getValue(RESISTANCE);
+        int nextValue = delta > 0 ? (current >= 15 ? 1 : current + 1) : (current <= 1 ? 15 : current - 1);
+        BlockState next = state.setValue(RESISTANCE, nextValue);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel serverLevel) CopperNetworkSupport.recomputeAround(serverLevel, pos);
+        level.scheduleTick(pos, load, 1);
+        return true;
+    }
+
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {

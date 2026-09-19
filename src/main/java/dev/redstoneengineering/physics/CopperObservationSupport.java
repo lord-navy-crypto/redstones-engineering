@@ -9,6 +9,7 @@ import dev.redstoneengineering.block.CopperVoltageSourceBlock;
 import dev.redstoneengineering.block.CopperWireBlock;
 import dev.redstoneengineering.block.DirectionalDomainBlock;
 import dev.redstoneengineering.block.InductionCoilBlock;
+import dev.redstoneengineering.block.RedstoneCopperDriverBlock;
 import dev.redstoneengineering.core.port.PortQuality;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -78,6 +79,11 @@ public final class CopperObservationSupport {
                 return new Observation(
                         InductionCoilBlock.outputVoltage(level, pos),
                         InductionCoilBlock.outputQuality(level, pos));
+            }
+            if (state.getBlock() instanceof RedstoneCopperDriverBlock) {
+                return new Observation(
+                        RedstoneCopperDriverBlock.actualVoltage(level, pos),
+                        RedstoneCopperDriverBlock.inputQuality(level, pos));
             }
         }
 

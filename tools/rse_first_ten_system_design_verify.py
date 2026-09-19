@@ -47,14 +47,19 @@ require(
     "INLINE mode makes the",
     "Calibration affects display",
     "calibratedReading",
-    "requestedOutput = state.getValue(MODE) == INLINE ? measured : 0",
+    "if (observation.valid())",
+    "observation.quality() == PortQuality.NO_SIGNAL",
+    "requestedOutput = state.getValue(OUTPUT)",
+    "A genuinely absent source de-energizes the inline path",
+    "Degraded evidence is not a new numerical zero",
 )
 
 require(
     "src/main/java/dev/redstoneengineering/block/SignalProbeBlock.java",
     "measurementPresent",
-    "PortQuality.VALID : PortQuality.NO_SIGNAL",
-    "open aperture",
+    "measurementObservation",
+    "RedstoneObservationSupport.observe",
+    "observation.quality()",
     "INSTRUMENT BUS CH",
 )
 
@@ -111,8 +116,10 @@ require(
     "src/main/java/dev/redstoneengineering/block/PrecisionFilterBlock.java",
     "public static int lag",
     "public static boolean settled",
-    "SETTLING",
-    "Dynamic slew filter",
+    "Asymmetric slew-rate limiter",
+    "trackingError",
+    "settleTicks",
+    "stepFallRate",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/SampleHoldBlock.java",
@@ -195,7 +202,7 @@ print("RSE first-ten system design verification: PASS")
 print(" first ten registered blocks retain distinct engineering roles: PASS")
 print(" live Instrument Bus health vs retained capture separation: PASS")
 print(" zero measurement vs NO_SIGNAL distinction: PASS")
-print(" conditioning/calibration/filter responsibility split: PASS")
+print(" conditioning/calibration/asymmetric-filter responsibility split: PASS")
 print(" sample/edge transient chronology evidence: PASS")
 print(" observer-neutral runtime diagnostics: PASS")
 print(" registered design-contract GameTests: 5 (manual diagnostic / non-blocking)")

@@ -28,8 +28,14 @@ tests = text("gametest/RseSecondTenDesignGameTests.java")
 
 # 11: event conditioner, observer-neutral chronology.
 require("RuntimeIntStore.peek" in pulse, "Pulse Shaper diagnostics must use observer-neutral peek()")
-require("if (now && !last) remaining = state.getValue(WIDTH)" in pulse,
-        "Pulse Shaper must retain rising-edge one-shot semantics")
+for token in (
+    "PulseShaperLogic.step(",
+    "LAST_ABOVE_SLOT",
+    "acceptedTrigger()",
+    "suppressedTrigger()",
+    "result.outputHigh() || result.state().remainingTicks() > 0",
+):
+    require(token in pulse, f"Pulse Shaper must retain threshold-crossing one-shot semantics: {token}")
 
 # 12: periodic PWM must expose discrete realization rather than pretending analog duty is exact.
 for token in ("quantizedOnTicks", "requestedDutyPermille", "effectiveDutyPermille", "quantizationErrorPermille"):
@@ -44,8 +50,10 @@ require("back-drive" in tap and "active 0..15 output" in tap,
 # 14: measurement coverage is first-class evidence.
 for token in ("ScanStatus", "TARGET", "CLEAR", "INCOMPLETE_UNLOADED", "lastScan", "scannedCells"):
     require(token in range_sensor, f"Range Sensor coverage semantics missing {token}")
-require("scan.complete() ? PortQuality.VALID : PortQuality.NO_SIGNAL" in range_sensor,
-        "Range Sensor complete CLEAR scans must remain valid measurements")
+require("case TARGET, CLEAR -> PortQuality.VALID;" in range_sensor,
+        "Range Sensor complete TARGET/CLEAR scans must remain valid measurements")
+require("case INCOMPLETE_UNLOADED -> PortQuality.STALE;" in range_sensor,
+        "Range Sensor incomplete unloaded scans must remain stale rather than false zero")
 require("RuntimeIntStore.peek" in range_sensor,
         "Range Sensor engineering snapshots must read cached server scan evidence")
 
@@ -84,7 +92,7 @@ for test_name in (
     require(test_name in tests, f"Missing second-ten runtime contract: {test_name}")
 
 print("RSE second-ten system design verification: PASS")
-print("  Pulse Shaper event identity + observer neutrality: PASS")
+print("  Pulse Shaper threshold-crossing one-shot + observer neutrality: PASS")
 print("  PWM requested-vs-realized duty quantization evidence: PASS")
 print("  Signal Tap non-backdriving copy semantics: PASS")
 print("  Range Sensor complete-vs-incomplete scan evidence: PASS")

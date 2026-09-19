@@ -11,6 +11,8 @@ import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.RedstoneObservationSupport;
+import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.signal.MechanicalExciterLogic;
 import dev.redstoneengineering.physics.VibrationNetwork;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
@@ -18,6 +20,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.BlockGetter;
@@ -38,6 +41,16 @@ import java.util.Optional;
  */
 public class MechanicalExciterBlock extends Block implements EngineeringPortProvider {
     public static final IntegerProperty FREQUENCY = IntegerProperty.create("frequency", 1, 15);
+
+    private static final String RUNTIME_KEY = "mechanical_exciter";
+    private static final int ACTUAL_AMPLITUDE = 0;
+    private static final int ACTUAL_FREQUENCY = 1;
+    private static final int TARGET_AMPLITUDE = 2;
+    private static final int START_COUNT = 3;
+    private static final int RUN_TICKS = 4;
+    private static final int INITIALIZED = 5;
+    private static final int RUNTIME_SIZE = 6;
+
     private static final Direction[] OUTPUTS = {
             Direction.UP, Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST
     };
@@ -79,6 +92,41 @@ public class MechanicalExciterBlock extends Block implements EngineeringPortProv
         return RedstoneObservationSupport.observe(level, pos, Direction.DOWN);
     }
 
+    private static int[] snapshot(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, RUNTIME_KEY, pos);
+        return runtime != null && runtime.length >= RUNTIME_SIZE ? runtime : null;
+    }
+
+    public static int actualAmplitude(Level level, BlockPos pos) {
+        int[] runtime = snapshot(level, pos);
+        return runtime == null ? 0 : Math.max(0, Math.min(15, runtime[ACTUAL_AMPLITUDE]));
+    }
+
+    public static int actualFrequency(Level level, BlockPos pos) {
+        int[] runtime = snapshot(level, pos);
+        return runtime == null ? 0 : Math.max(0, Math.min(15, runtime[ACTUAL_FREQUENCY]));
+    }
+
+    public static int targetAmplitude(Level level, BlockPos pos) {
+        int[] runtime = snapshot(level, pos);
+        return runtime == null ? 0 : Math.max(0, Math.min(15, runtime[TARGET_AMPLITUDE]));
+    }
+
+    public static int startCount(Level level, BlockPos pos) {
+        int[] runtime = snapshot(level, pos);
+        return runtime == null ? 0 : Math.max(0, runtime[START_COUNT]);
+    }
+
+    public static int runTicks(Level level, BlockPos pos) {
+        int[] runtime = snapshot(level, pos);
+        return runtime == null ? 0 : Math.max(0, runtime[RUN_TICKS]);
+    }
+
+    public static boolean initialized(Level level, BlockPos pos) {
+        int[] runtime = snapshot(level, pos);
+        return runtime != null && runtime[INITIALIZED] != 0;
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(
             Level level, BlockPos pos, BlockState state, Direction side
@@ -86,13 +134,13 @@ public class MechanicalExciterBlock extends Block implements EngineeringPortProv
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         RedstoneObservationSupport.Observation drive = driveObservation(level, pos);
-        int amplitude = drive.valid() ? drive.value() : 0;
         if (side == Direction.DOWN) {
             return Optional.of(EngineeringPortSnapshot.redstone(port.get(), drive.value(), drive.quality()));
         }
-        PortQuality outputQuality = drive.valid()
-                ? (amplitude > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL)
-                : drive.quality();
+        int amplitude = actualAmplitude(level, pos);
+        PortQuality outputQuality = amplitude > 0
+                ? PortQuality.VALID
+                : drive.valid() ? PortQuality.NO_SIGNAL : drive.quality();
         return Optional.of(new EngineeringPortSnapshot(
                 port.get(), amplitude, 0.0, 15.0, outputQuality));
     }
@@ -109,16 +157,54 @@ public class MechanicalExciterBlock extends Block implements EngineeringPortProv
         return drive.valid() ? drive.value() : 0;
     }
 
-    private void updateExcitation(BlockState state, Level level, BlockPos pos) {
-        if (!(level instanceof ServerLevel serverLevel)) return;
-        int amplitude = inputAmplitude(level, pos);
-        int frequency = state.getValue(FREQUENCY);
-        if (amplitude <= 0) {
-            InformationRuntime.clear(level, "mech_exciter", pos);
-            return;
+    private static void scheduleUpdate(Level level, BlockPos pos, MechanicalExciterBlock block) {
+        if (level instanceof ServerLevel serverLevel) serverLevel.scheduleTick(pos, block, 1);
+    }
+
+    @Override
+    protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+        RedstoneObservationSupport.Observation drive = driveObservation(level, pos);
+        int command = drive.valid() ? drive.value() : 0;
+        int[] runtime = RuntimeIntStore.get(level, RUNTIME_KEY, pos, RUNTIME_SIZE);
+
+        if (runtime[INITIALIZED] == 0) {
+            runtime[ACTUAL_AMPLITUDE] = 0;
+            runtime[ACTUAL_FREQUENCY] = 0;
+            runtime[TARGET_AMPLITUDE] = 0;
+            runtime[INITIALIZED] = 1;
         }
-        InformationRuntime.write(level, "mech_exciter", pos, amplitude, frequency, true, 100);
-        VibrationNetwork.propagate(serverLevel, pos, amplitude, frequency, OUTPUTS);
+
+        int previousTarget = runtime[TARGET_AMPLITUDE];
+        MechanicalExciterLogic.State next = MechanicalExciterLogic.step(
+                command,
+                state.getValue(FREQUENCY),
+                new MechanicalExciterLogic.State(
+                        runtime[ACTUAL_AMPLITUDE],
+                        runtime[ACTUAL_FREQUENCY])
+        );
+
+        if (command > 0 && previousTarget <= 0 && runtime[START_COUNT] < Integer.MAX_VALUE) {
+            runtime[START_COUNT]++;
+        }
+        runtime[TARGET_AMPLITUDE] = command;
+        runtime[ACTUAL_AMPLITUDE] = next.amplitude();
+        runtime[ACTUAL_FREQUENCY] = next.frequency();
+        if (next.amplitude() > 0 && runtime[RUN_TICKS] < Integer.MAX_VALUE) runtime[RUN_TICKS]++;
+
+        if (next.amplitude() > 0) {
+            InformationRuntime.write(level, "mech_exciter", pos,
+                    next.amplitude(), Math.max(1, next.frequency()), true, 100);
+            // A powered exciter is a continuous mechanical source, not a one-shot packet.
+            VibrationNetwork.propagate(level, pos,
+                    next.amplitude(), Math.max(1, next.frequency()), OUTPUTS);
+        } else {
+            InformationRuntime.clear(level, "mech_exciter", pos);
+        }
+
+        if (command > 0 || next.amplitude() > 0
+                || !MechanicalExciterLogic.settled(command, state.getValue(FREQUENCY), next)) {
+            level.scheduleTick(pos, this, 1);
+        }
     }
 
     @Override
@@ -126,19 +212,34 @@ public class MechanicalExciterBlock extends Block implements EngineeringPortProv
             BlockState state, Level level, BlockPos pos, Block neighborBlock,
             BlockPos neighborPos, boolean movedByPiston
     ) {
-        if (neighborPos.equals(pos.below())) updateExcitation(state, level, pos);
+        if (neighborPos.equals(pos.below())) scheduleUpdate(level, pos, this);
     }
 
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
-        if (!state.is(oldState.getBlock())) updateExcitation(state, level, pos);
+        if (!state.is(oldState.getBlock())) scheduleUpdate(level, pos, this);
     }
 
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
-        if (!state.is(newState.getBlock())) InformationRuntime.clear(level, "mech_exciter", pos);
+        if (!state.is(newState.getBlock())) {
+            RuntimeIntStore.remove(level, RUNTIME_KEY, pos);
+            InformationRuntime.clear(level, "mech_exciter", pos);
+        }
         super.onRemove(state, level, pos, newState, movedByPiston);
+    }
+
+    /** Server-authoritative frequency adjustment shared by Shift interaction and engineering HMI. */
+    public static boolean adjustFrequency(Level level, BlockPos pos, int delta) {
+        if (level.isClientSide || delta == 0) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof MechanicalExciterBlock exciter)) return false;
+        int current = state.getValue(FREQUENCY);
+        int nextValue = delta > 0 ? (current >= 15 ? 1 : current + 1) : (current <= 1 ? 15 : current - 1);
+        level.setBlock(pos, state.setValue(FREQUENCY, nextValue), Block.UPDATE_CLIENTS);
+        scheduleUpdate(level, pos, exciter);
+        return true;
     }
 
     @Override
@@ -150,9 +251,14 @@ public class MechanicalExciterBlock extends Block implements EngineeringPortProv
                 int frequency = state.getValue(FREQUENCY) % 15 + 1;
                 BlockState next = state.setValue(FREQUENCY, frequency);
                 level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-                updateExcitation(next, level, pos);
+                scheduleUpdate(level, pos, this);
                 player.displayClientMessage(Component.literal(
-                        "Mechanical exciter f=" + frequency + " amplitude=" + inputAmplitude(level, pos)), true);
+                        "Mechanical exciter | targetA=" + inputAmplitude(level, pos)
+                                + " actualA=" + actualAmplitude(level, pos)
+                                + " | targetF=" + frequency
+                                + " actualF=" + actualFrequency(level, pos)
+                                + " | starts=" + startCount(level, pos)
+                                + " runTicks=" + runTicks(level, pos)), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
             }

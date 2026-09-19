@@ -22,6 +22,8 @@ import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
 import javax.annotation.Nullable;
@@ -30,8 +32,32 @@ import java.util.Optional;
 
 /** Redstone binary input -> recomputable differential-data driver. */
 public class DifferentialDriverBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
+    public static final IntegerProperty THRESHOLD = IntegerProperty.create("threshold", 0, 3);
+    private static final int[] THRESHOLDS = {1, 4, 8, 12};
+
     public DifferentialDriverBlock(Properties properties) {
         super(properties);
+        registerDefaultState(defaultBlockState().setValue(THRESHOLD, 0));
+    }
+
+    @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        super.createBlockStateDefinition(builder);
+        builder.add(THRESHOLD);
+    }
+
+    public static int thresholdValue(int index) {
+        return THRESHOLDS[Math.max(0, Math.min(THRESHOLDS.length - 1, index))];
+    }
+
+    public static boolean stepThreshold(Level level, BlockPos pos, boolean forward) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof DifferentialDriverBlock driver)) return false;
+        int next = Math.floorMod(state.getValue(THRESHOLD) + (forward ? 1 : -1), THRESHOLDS.length);
+        BlockState updated = state.setValue(THRESHOLD, next);
+        level.setBlock(pos, updated, Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel server) driver.update(server, pos, updated);
+        return true;
     }
 
     @Override
@@ -53,6 +79,22 @@ public class DifferentialDriverBlock extends DirectionalDomainBlock implements E
         return RedstoneObservationSupport.observe(level, pos, inputSide(state));
     }
 
+    public static int inputLevel(Level level, BlockPos pos, BlockState state) {
+        return RedstoneObservationSupport.observe(
+                level, pos, DirectionalDomainBlock.seriesInputSide(state)).value();
+    }
+
+    public static dev.redstoneengineering.core.port.PortQuality inputQuality(
+            Level level, BlockPos pos, BlockState state
+    ) {
+        return RedstoneObservationSupport.observe(
+                level, pos, DirectionalDomainBlock.seriesInputSide(state)).quality();
+    }
+
+    public static int drivenBit(Level level, BlockPos pos, BlockState state) {
+        return inputLevel(level, pos, state) >= thresholdValue(state.getValue(THRESHOLD)) ? 1 : 0;
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(
             Level level, BlockPos pos, BlockState state, Direction side
@@ -61,8 +103,8 @@ public class DifferentialDriverBlock extends DirectionalDomainBlock implements E
         if (port.isEmpty()) return Optional.empty();
         RedstoneObservationSupport.Observation input = inputObservation(level, pos, state);
         if (side == inputSide(state)) {
-            return Optional.of(new EngineeringPortSnapshot(
-                    port.get(), input.value() > 0 ? 1.0 : 0.0, 0.0, 1.0, input.quality()));
+            return Optional.of(EngineeringPortSnapshot.redstone(
+                    port.get(), input.value(), input.quality()));
         }
         InformationRuntime.Snapshot output = InformationRuntime.snapshot(level, "diff_out", pos);
         return Optional.of(new EngineeringPortSnapshot(
@@ -79,7 +121,7 @@ public class DifferentialDriverBlock extends DirectionalDomainBlock implements E
 
     private void update(ServerLevel level, BlockPos pos, BlockState state) {
         RedstoneObservationSupport.Observation input = inputObservation(level, pos, state);
-        int bit = input.value() > 0 ? 1 : 0;
+        int bit = input.value() >= thresholdValue(state.getValue(THRESHOLD)) ? 1 : 0;
         InformationRuntime.Snapshot previous = InformationRuntime.snapshot(level, "diff_out", pos);
         InformationRuntime.write(level, "diff_out", pos, bit, 0, input.valid(), input.valid() ? 100 : 0);
         BlockPos output = outputPos(pos, state);
@@ -127,7 +169,18 @@ public class DifferentialDriverBlock extends DirectionalDomainBlock implements E
             BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit
     ) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
-            FieldDeviceUi.open(serverPlayer, pos);
+            if (player.isShiftKeyDown()) {
+                stepThreshold(level, pos, true);
+                BlockState next = level.getBlockState(pos);
+                RedstoneObservationSupport.Observation input = inputObservation(level, pos, next);
+                player.displayClientMessage(net.minecraft.network.chat.Component.literal(
+                        "Differential driver | threshold=" + thresholdValue(next.getValue(THRESHOLD))
+                                + "/15 | input=" + input.value() + "/15"
+                                + " " + input.quality()
+                                + " | bit=" + (input.value() >= thresholdValue(next.getValue(THRESHOLD)) ? 1 : 0)), true);
+            } else {
+                FieldDeviceUi.open(serverPlayer, pos);
+            }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }

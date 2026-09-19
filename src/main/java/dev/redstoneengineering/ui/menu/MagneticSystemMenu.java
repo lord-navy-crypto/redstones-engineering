@@ -31,6 +31,8 @@ public final class MagneticSystemMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_INPUT_RIGHT = 5;
     public static final int BUTTON_OUTPUT_LEFT = 6;
     public static final int BUTTON_OUTPUT_RIGHT = 7;
+    public static final int BUTTON_SECONDARY_PREVIOUS = 8;
+    public static final int BUTTON_SECONDARY_NEXT = 9;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot primary = trackedInt();
@@ -43,6 +45,8 @@ public final class MagneticSystemMenu extends EngineeringDeviceMenu {
     private final DataSlot inputFacing = trackedInt();
     private final DataSlot outputFacing = trackedInt();
     private final DataSlot complete = trackedInt();
+    private final DataSlot parameterIndex = trackedInt();
+    private final DataSlot secondaryParameterIndex = trackedInt();
 
     public MagneticSystemMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -60,6 +64,7 @@ public final class MagneticSystemMenu extends EngineeringDeviceMenu {
         Block block = state.getBlock();
         primary.set(0); secondary.set(0); tertiary.set(0); auxiliary.set(0); extra.set(0);
         quality.set(PortQuality.NO_SIGNAL.ordinal()); facing.set(-1); inputFacing.set(-1); outputFacing.set(-1); complete.set(0);
+        parameterIndex.set(0); secondaryParameterIndex.set(0);
 
         if (block instanceof ElectromagnetBlock) {
             kind.set(KIND_ELECTROMAGNET);
@@ -96,6 +101,8 @@ public final class MagneticSystemMenu extends EngineeringDeviceMenu {
             primary.set(observation.field());
             secondary.set(observation.scannedCells());
             tertiary.set(observation.expectedCells());
+            parameterIndex.set(state.getValue(MagneticFieldSensorBlock.RADIUS_MODE));
+            secondaryParameterIndex.set(state.getValue(MagneticFieldSensorBlock.SAMPLE_MODE));
             complete.set(observation.complete() ? 1 : 0);
             quality.set(observation.complete() ? PortQuality.VALID.ordinal() : PortQuality.STALE.ordinal());
         } else if (block instanceof MagneticGradientMeterBlock) {
@@ -132,6 +139,12 @@ public final class MagneticSystemMenu extends EngineeringDeviceMenu {
                 level.setBlock(blockPos, state.setValue(PermanentMagnetBlock.FACING, next), Block.UPDATE_CLIENTS);
                 changed = true;
             } else return false;
+        } else if (block instanceof MagneticFieldSensorBlock) {
+            if (id == BUTTON_PRIMARY_PREVIOUS || id == BUTTON_PRIMARY_NEXT) {
+                changed = MagneticFieldSensorBlock.adjustRadius(level, blockPos, id == BUTTON_PRIMARY_NEXT ? 1 : -1);
+            } else if (id == BUTTON_SECONDARY_PREVIOUS || id == BUTTON_SECONDARY_NEXT) {
+                changed = MagneticFieldSensorBlock.adjustSampling(level, blockPos, id == BUTTON_SECONDARY_NEXT ? 1 : -1);
+            } else return false;
         } else if (block instanceof InductionCoilBlock) {
             if (id == BUTTON_PRIMARY_NEXT) {
                 if (!(level instanceof ServerLevel server)) return false;
@@ -161,6 +174,8 @@ public final class MagneticSystemMenu extends EngineeringDeviceMenu {
     public int tertiary() { return tertiary.get(); }
     public int auxiliary() { return auxiliary.get(); }
     public int extra() { return extra.get(); }
+    public int parameterIndex() { return parameterIndex.get(); }
+    public int secondaryParameterIndex() { return secondaryParameterIndex.get(); }
     public boolean complete() { return complete.get() != 0; }
     public PortQuality quality() {
         int o = quality.get(); PortQuality[] all = PortQuality.values();

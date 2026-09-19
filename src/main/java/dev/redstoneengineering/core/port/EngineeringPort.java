@@ -19,6 +19,7 @@ public record EngineeringPort(
         PortKind kind,
         PortDirection direction,
         boolean redstoneConnectable,
+        EngineeringQuantity quantity,
         String unit
 ) {
     public EngineeringPort {
@@ -27,7 +28,36 @@ public record EngineeringPort(
         Objects.requireNonNull(domain, "domain");
         Objects.requireNonNull(kind, "kind");
         Objects.requireNonNull(direction, "direction");
+        Objects.requireNonNull(quantity, "quantity");
         unit = unit == null || unit.isBlank() ? "unitless" : unit;
+    }
+
+    /**
+     * Source-compatible constructor for the Alpha 1.0.10 descriptor shape.
+     *
+     * <p>The carried quantity is inferred from the existing engineering domain,
+     * so current block declarations keep compiling and retain their connection
+     * behavior while gaining the richer semantic contract.</p>
+     */
+    public EngineeringPort(
+            String label,
+            Direction side,
+            EngineeringDomain domain,
+            PortKind kind,
+            PortDirection direction,
+            boolean redstoneConnectable,
+            String unit
+    ) {
+        this(
+                label,
+                side,
+                domain,
+                kind,
+                direction,
+                redstoneConnectable,
+                EngineeringQuantity.defaultFor(domain, kind),
+                unit
+        );
     }
 
     /** Backward-compatible constructor for the Alpha 1.0.7 descriptor shape. */

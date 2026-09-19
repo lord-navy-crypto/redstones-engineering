@@ -11,6 +11,7 @@ import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.physics.CircuitPhysics;
 import dev.redstoneengineering.physics.CopperNetworkSupport;
 import dev.redstoneengineering.physics.EngineeringMath;
+import dev.redstoneengineering.physics.ThermalPhysics;
 import dev.redstoneengineering.physics.MagneticPhysics;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -106,15 +107,39 @@ public class ThermalHeaterBlock extends DomainBlock implements EngineeringPortPr
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         CopperNetworkSupport.TerminalInput input = CopperNetworkSupport.terminalInput(level, pos);
-        int voltage = input.quality() == dev.redstoneengineering.core.port.PortQuality.VALID ? input.voltage() : 0;
-        int resistance = resistance(state);
-        double power = CircuitPhysics.power(voltage, resistance);
-        int target = EngineeringMath.clamp(20 + (int) Math.round(power / 3.0), 20, 100);
         int current = state.getValue(TEMPERATURE);
-        int next = EngineeringMath.approach(current, target, 3);
-        BlockState updated = state.setValue(TEMPERATURE, next);
-        if (updated != state) level.setBlock(pos, updated, Block.UPDATE_CLIENTS);
+
+        if (input.quality() == dev.redstoneengineering.core.port.PortQuality.VALID
+                || input.quality() == dev.redstoneengineering.core.port.PortQuality.NO_SIGNAL) {
+            int voltage = input.quality() == dev.redstoneengineering.core.port.PortQuality.VALID
+                    ? input.voltage() : 0;
+            int resistance = resistance(state);
+            double power = CircuitPhysics.power(voltage, resistance);
+            int environment = ThermalPhysics.environmentTarget(level, pos);
+            int target = EngineeringMath.clamp(
+                    environment + (int) Math.round(power / 3.0), 0, 100);
+            int next = EngineeringMath.approach(current, target, 3);
+            if (next != current) {
+                level.setBlock(pos, state.setValue(TEMPERATURE, next), Block.UPDATE_CLIENTS);
+            }
+        }
+        // STALE/FAULT/DOMAIN/TOPOLOGY power evidence cannot tell whether heat input is present.
+        // Freeze temperature evolution instead of silently treating unknown electrical power as 0 W.
         level.scheduleTick(pos, this, 2);
+    }
+
+    /** Server-authoritative heater resistance adjustment; temperature remains physical state, not configuration. */
+    public static boolean adjustResistance(Level level, BlockPos pos, int delta) {
+        if (level.isClientSide || delta == 0) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof ThermalHeaterBlock heater)) return false;
+        int current = state.getValue(RESISTANCE_INDEX);
+        int nextValue = Math.floorMod(current + (delta > 0 ? 1 : -1), R_VALUES.length);
+        BlockState next = state.setValue(RESISTANCE_INDEX, nextValue);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        level.scheduleTick(pos, heater, 1);
+        if (level instanceof ServerLevel serverLevel) CopperNetworkSupport.recomputeAround(serverLevel, pos);
+        return true;
     }
 
     @Override

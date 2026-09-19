@@ -49,11 +49,15 @@ public class DeserializerBlock extends DirectionalDomainBlock implements Enginee
         );
     }
 
-    private PortQuality inputQuality(Level level, BlockPos pos, BlockState state) {
-        BlockPos input = inputPos(pos, state);
+    public static PortQuality inputEvidenceQuality(Level level, BlockPos pos, BlockState state) {
+        BlockPos input = pos.relative(DirectionalDomainBlock.seriesInputSide(state));
         if (!level.hasChunkAt(input)) return PortQuality.STALE;
         if (!SerialNetwork.isNode(level, input)) return PortQuality.NO_SIGNAL;
         return SerialNetwork.quality(level, input);
+    }
+
+    private PortQuality inputQuality(Level level, BlockPos pos, BlockState state) {
+        return inputEvidenceQuality(level, pos, state);
     }
 
     @Override

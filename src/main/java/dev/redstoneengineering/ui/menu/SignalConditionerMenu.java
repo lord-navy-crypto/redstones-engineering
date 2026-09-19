@@ -33,6 +33,8 @@ public final class SignalConditionerMenu extends EngineeringDeviceMenu {
     private final DataSlot inputFacing = trackedInt();
     private final DataSlot outputFacing = trackedInt();
     private final DataSlot limiting = trackedInt();
+    private final DataSlot limitingEpisodes = trackedInt();
+    private final DataSlot lastLimitingAge = trackedInt();
 
     public SignalConditionerMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -55,6 +57,8 @@ public final class SignalConditionerMenu extends EngineeringDeviceMenu {
         inputFacing.set(DirectionalSignalBlock.seriesInputSide(state).ordinal());
         outputFacing.set(DirectionalSignalBlock.seriesOutputSide(state).ordinal());
         limiting.set(SignalConditionerBlock.limitingActive(level, blockPos, state) ? 1 : 0);
+        limitingEpisodes.set(SignalConditionerBlock.limitingEpisodes(level, blockPos));
+        lastLimitingAge.set(SignalConditionerBlock.lastLimitingAgeTicks(level, blockPos));
     }
 
     @Override
@@ -84,6 +88,8 @@ public final class SignalConditionerMenu extends EngineeringDeviceMenu {
     public int input() { return input.get(); }
     public int output() { return output.get(); }
     public boolean limiting() { return limiting.get() != 0; }
+    public int limitingEpisodes() { return limitingEpisodes.get(); }
+    public int lastLimitingAgeTicks() { return lastLimitingAge.get(); }
     public boolean hasInputEndpoint() { return inputFacing.get() >= 0; }
     public boolean hasOutputEndpoint() { return outputFacing.get() >= 0; }
 

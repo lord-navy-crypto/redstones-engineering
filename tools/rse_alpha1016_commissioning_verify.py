@@ -49,7 +49,9 @@ require(
 require(
     "src/main/java/dev/redstoneengineering/block/QuartzPhaseDelayBlock.java",
     "FaultInjectionModel.latencyTicks",
-    "Fault injection [LATENCY]",
+    "QUEUE_CAPACITY",
+    "queuedEdges",
+    "in-flight edges retain their original delay",
 )
 require(
     "src/main/java/dev/redstoneengineering/gametest/RseCommissioningGameTests.java",

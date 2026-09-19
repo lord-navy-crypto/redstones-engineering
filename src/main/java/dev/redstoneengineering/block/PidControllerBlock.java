@@ -20,6 +20,8 @@ import dev.redstoneengineering.diagnostics.topology.EngineeringTopologyView;
 import dev.redstoneengineering.diagnostics.topology.TopologyVisualizationSnapshot;
 import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.physics.PidTuningSavedData;
+import dev.redstoneengineering.signal.PidActuatorLogic;
 import dev.redstoneengineering.ui.menu.PidControllerMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -62,14 +64,22 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
     private static final int MAX_OUT = 15;
     private static final int DEADBAND = 1;
 
+    /**
+     * Kp, Ki divisor, Kd, derivative smoothing, max rise / control-cycle, max fall / control-cycle.
+     * The final two terms approximate actuator-command dynamics without pretending to simulate
+     * a particular motor, valve or drive.
+     */
     private static final int[][] PRESETS = {
-            {1, 0, 0, 2},
-            {2, 24, 0, 2},
-            {2, 18, 1, 3},
-            {3, 14, 2, 4}
+            {1, 0, 0, 2, 1, 1},
+            {2, 24, 0, 2, 1, 1},
+            {2, 18, 1, 3, 2, 2},
+            {3, 14, 2, 4, 3, 3}
     };
 
-    private static final int RUNTIME_SIZE = 22;
+    private static final int RUNTIME_SIZE = 25;
+    private static final int ACTUATOR_TARGET_SLOT = 22;
+    private static final int SLEW_ACTIVE_SLOT = 23;
+    private static final int SLEW_EPISODES_SLOT = 24;
 
     public PidControllerBlock(Properties p) {
         super(p);
@@ -185,18 +195,21 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
         if (rt[21] == 0) {
             rt[20] = 8;
             rt[17] = AUTO_MODE;
+            rt[3] = state.getValue(OUTPUT);
+            rt[ACTUATOR_TARGET_SLOT] = rt[3];
+            if (usable(processObservation)) rt[6] = process;
             rt[21] = 1;
         }
 
         // Unknown safety/mode coverage fails safe and must not mutate controller history as a fake zero sample.
         if (inhibitObservation.quality() == PortQuality.STALE || modeObservation.quality() == PortQuality.STALE) {
-            rt[3] = 0;
+            forceFailSafe(rt);
             return 0;
         }
 
         rt[4] = inhibit > 0 ? 1 : 0;
         if (rt[4] != 0) {
-            rt[3] = 0;
+            forceFailSafe(rt);
             if (usable(processObservation)) rt[6] = process;
             return usable(setpointObservation) && usable(processObservation)
                     ? recordTelemetry(level, pos, setpoint, process, 0) : 0;
@@ -204,18 +217,19 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
 
         // Required signal evidence is mode-dependent. Do not commit mode transfer against fabricated zeroes.
         if (requestedMode == MANUAL_MODE && !usable(manualObservation)) {
-            rt[3] = 0;
+            forceFailSafe(rt);
             return 0;
         }
         if (requestedMode == AUTO_MODE && (!usable(setpointObservation) || !usable(processObservation))) {
-            rt[3] = 0;
+            forceFailSafe(rt);
             return 0;
         }
 
         int rawError = setpoint - process;
         int controlError = Math.abs(rawError) <= DEADBAND ? 0 : rawError;
-        int[] k = PRESETS[state.getValue(TUNING)];
+        int[] k = tuning(level, pos, state);
         int kp = k[0], kiDiv = k[1], kd = k[2], dSmooth = k[3];
+        int riseLimit = k[4], fallLimit = k[5];
 
         if (requestedMode != rt[17]) {
             if (rt[17] == MANUAL_MODE && requestedMode == AUTO_MODE) {
@@ -232,31 +246,36 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
         if (requestedMode == MANUAL_MODE) {
             rt[1] = controlError;
             rt[2] = 0;
-            rt[3] = manualOutput;
+            int out = applyActuatorDynamics(rt, manualOutput, riseLimit, fallLimit);
+            rt[3] = out;
             if (usable(processObservation)) rt[6] = process;
             if (usable(setpointObservation) && usable(processObservation)) {
                 updateStepDiagnostics(level, rt, setpoint, process, rawError);
-                return recordTelemetry(level, pos, setpoint, process, manualOutput);
+                return recordTelemetry(level, pos, setpoint, process, out);
             }
-            return manualOutput;
+            return out;
         }
 
-        int rawDerivative = controlError - rt[1];
-        rt[2] += (rawDerivative - rt[2]) / Math.max(1, dSmooth);
+        // Derivative-on-measurement avoids a control spike caused only by a setpoint step.
+        rt[2] = PidActuatorLogic.filteredMeasurementDerivative(rt[6], process, rt[2], dSmooth);
         rt[1] = controlError;
 
         int candidateIntegral = clamp(rt[0] + controlError, -180, 180);
         int pTerm = kp * controlError;
         int iTerm = kiDiv == 0 ? 0 : candidateIntegral / kiDiv;
-        int dTerm = kd * rt[2];
+        int dTerm = -kd * rt[2];
         int unsat = rt[20] + pTerm + iTerm + dTerm;
-        int out = clamp(unsat, MIN_OUT, MAX_OUT);
+        int actuatorTarget = clamp(unsat, MIN_OUT, MAX_OUT);
+        int out = applyActuatorDynamics(rt, actuatorTarget, riseLimit, fallLimit);
 
         boolean saturatedHigh = unsat > MAX_OUT && controlError > 0;
         boolean saturatedLow = unsat < MIN_OUT && controlError < 0;
-        if (!saturatedHigh && !saturatedLow) {
+        boolean rateLimitedAgainstError = rt[SLEW_ACTIVE_SLOT] != 0
+                && ((actuatorTarget > out && controlError > 0)
+                || (actuatorTarget < out && controlError < 0));
+        if (!saturatedHigh && !saturatedLow && !rateLimitedAgainstError) {
             rt[0] = candidateIntegral;
-        } else {
+        } else if (saturatedHigh || saturatedLow) {
             rt[5]++;
         }
 
@@ -264,6 +283,106 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
         rt[6] = process;
         updateStepDiagnostics(level, rt, setpoint, process, rawError);
         return recordTelemetry(level, pos, setpoint, process, out);
+    }
+
+    private static int applyActuatorDynamics(int[] rt, int target, int riseLimit, int fallLimit) {
+        PidActuatorLogic.SlewResult result = PidActuatorLogic.slew(
+                rt[3], target, riseLimit, fallLimit);
+        boolean wasLimited = rt[SLEW_ACTIVE_SLOT] != 0;
+        rt[ACTUATOR_TARGET_SLOT] = clamp(target, MIN_OUT, MAX_OUT);
+        rt[SLEW_ACTIVE_SLOT] = result.limited() ? 1 : 0;
+        if (result.limited() && !wasLimited && rt[SLEW_EPISODES_SLOT] < Integer.MAX_VALUE) {
+            rt[SLEW_EPISODES_SLOT]++;
+        }
+        return result.output();
+    }
+
+    private static void forceFailSafe(int[] rt) {
+        rt[3] = 0;
+        rt[ACTUATOR_TARGET_SLOT] = 0;
+        rt[SLEW_ACTIVE_SLOT] = 0;
+    }
+
+    public static int actuatorTarget(Level level, BlockPos pos) {
+        int[] rt = RuntimeIntStore.peek(level, KEY, pos);
+        return rt == null || rt.length < RUNTIME_SIZE ? 0
+                : clamp(rt[ACTUATOR_TARGET_SLOT], MIN_OUT, MAX_OUT);
+    }
+
+    public static boolean slewLimitActive(Level level, BlockPos pos) {
+        int[] rt = RuntimeIntStore.peek(level, KEY, pos);
+        return rt != null && rt.length >= RUNTIME_SIZE && rt[SLEW_ACTIVE_SLOT] != 0;
+    }
+
+    public static int slewLimitEvents(Level level, BlockPos pos) {
+        int[] rt = RuntimeIntStore.peek(level, KEY, pos);
+        return rt == null || rt.length < RUNTIME_SIZE ? 0
+                : Math.max(0, rt[SLEW_EPISODES_SLOT]);
+    }
+
+    public static int proportionalGain(BlockState state) {
+        return preset(state)[0];
+    }
+
+    public static int integralDivisor(BlockState state) {
+        return preset(state)[1];
+    }
+
+    public static int derivativeGain(BlockState state) {
+        return preset(state)[2];
+    }
+
+    public static int derivativeSmoothing(BlockState state) {
+        return preset(state)[3];
+    }
+
+    public static int proportionalGain(Level level, BlockPos pos, BlockState state) {
+        return tuning(level, pos, state)[0];
+    }
+
+    public static int integralDivisor(Level level, BlockPos pos, BlockState state) {
+        return tuning(level, pos, state)[1];
+    }
+
+    public static int derivativeGain(Level level, BlockPos pos, BlockState state) {
+        return tuning(level, pos, state)[2];
+    }
+
+    public static int derivativeSmoothing(Level level, BlockPos pos, BlockState state) {
+        return tuning(level, pos, state)[3];
+    }
+
+    private static int[] preset(BlockState state) {
+        return PRESETS[Math.max(0, Math.min(PRESETS.length - 1, state.getValue(TUNING)))];
+    }
+
+    private static int[] tuning(Level level, BlockPos pos, BlockState state) {
+        if (level instanceof ServerLevel serverLevel) {
+            PidTuningSavedData.Config custom = PidTuningSavedData.get(serverLevel).config(serverLevel, pos);
+            if (custom != null) return custom.asArray();
+        }
+        return preset(state);
+    }
+
+    public static boolean customTuning(Level level, BlockPos pos) {
+        return level instanceof ServerLevel serverLevel
+                && PidTuningSavedData.get(serverLevel).config(serverLevel, pos) != null;
+    }
+
+    public static int riseLimit(BlockState state) {
+        return preset(state)[4];
+    }
+
+    public static int fallLimit(BlockState state) {
+        return preset(state)[5];
+    }
+
+    public static int riseLimit(Level level, BlockPos pos, BlockState state) {
+        return tuning(level, pos, state)[4];
+    }
+
+    public static int fallLimit(Level level, BlockPos pos, BlockState state) {
+        return tuning(level, pos, state)[5];
     }
 
     private static int recordTelemetry(Level level, BlockPos pos, int setpoint, int process, int output) {
@@ -323,6 +442,7 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
             RuntimeIntStore.remove(level, KEY, pos);
             PidTelemetryStore.clear(level, pos);
             AcceptanceEvidenceStore.clear(level, pos);
+            if (level instanceof ServerLevel serverLevel) PidTuningSavedData.get(serverLevel).remove(serverLevel, pos);
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
     }
@@ -348,7 +468,25 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
         if (next < 0) return false;
 
         level.setBlock(pos, state.setValue(TUNING, next), Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel serverLevel) {
+            PidTuningSavedData.get(serverLevel).remove(serverLevel, pos);
+        }
         return true;
+    }
+
+    /**
+     * Applies one bounded custom PID coefficient adjustment on the logical server.
+     * The selected preset is the starting point; the first edit creates persistent custom tuning.
+     */
+    public static boolean applyCustomTuningAction(Level level, BlockPos pos, int field, int delta) {
+        if (!(level instanceof ServerLevel serverLevel)) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof PidControllerBlock)) return false;
+        int[] baseline = preset(state);
+        PidTuningSavedData data = PidTuningSavedData.get(serverLevel);
+        PidTuningSavedData.Config before = data.configOrPreset(serverLevel, pos, baseline);
+        PidTuningSavedData.Config after = data.adjust(serverLevel, pos, field, delta, baseline);
+        return !after.equals(before);
     }
 
     /** Shared server-authoritative commissioning reset used by HMI and Shift shortcut. */

@@ -27,6 +27,8 @@ jobs:
         run: chmod +x gradlew
       - name: Validate verifier syntax
         run: python3 -m compileall -q tools
+      - name: Validation yard and plant contract tests
+        run: python3 -m unittest tools.test_rse_validation_autorun tools.test_rse_validation_plant tools.test_rse_mega_factory tools.test_rse_live_diagnostics tools.test_rse_integrated_demo tools.test_rse_signal_processing_lab tools.test_rse_engineering_workbench_v2 -v
       - name: Static and reference verification
         shell: bash
         run: |
@@ -117,6 +119,30 @@ jobs:
             tools/rse_copper_hmi_verify.py \
             tools/rse_media_conversion_hmi_verify.py \
             tools/rse_field_tools_verify.py \
+            tools/rse_instrument_measurement_validity_verify.py \
+            tools/rse_pulse_shaper_depth_verify.py \
+            tools/rse_pid_actuator_dynamics_verify.py \
+            tools/rse_single_relay_dynamics_verify.py \
+            tools/rse_pwm_carrier_latch_verify.py \
+            tools/rse_pneumatic_isolation_valve_dynamics_verify.py \
+            tools/rse_pneumatic_check_valve_verify.py \
+            tools/rse_pneumatic_relief_blowdown_verify.py \
+            tools/rse_mechanical_exciter_dynamics_verify.py \
+            tools/rse_precision_filter_depth_verify.py \
+            tools/rse_engineering_light_sensor_depth_verify.py \
+            tools/rse_tank_level_sensor_depth_verify.py \
+            tools/rse_entity_density_sensor_depth_verify.py \
+            tools/rse_copper_capacitor_depth_verify.py \
+            tools/rse_copper_fuse_depth_verify.py \
+            tools/rse_air_compressor_depth_verify.py \
+            tools/rse_pneumatic_proportional_valve_depth_verify.py \
+            tools/rse_pressure_regulator_depth_verify.py \
+            tools/rse_pneumatic_receiver_depth_verify.py \
+            tools/rse_magnetic_field_sensor_depth_verify.py \
+            tools/rse_electromagnet_depth_verify.py \
+            tools/rse_iron_core_depth_verify.py \
+            tools/rse_redstone_core_depth_verify.py \
+            tools/rse_foundation_domain_depth_verify.py \
             tools/rse_system_level_closure_phase1_verify.py \
             tools/rse_system_level_closure_phase2_verify.py
           do

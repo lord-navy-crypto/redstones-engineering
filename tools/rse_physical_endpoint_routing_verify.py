@@ -23,6 +23,7 @@ signal = BLOCK / "DirectionalSignalBlock.java"
 domain = BLOCK / "DirectionalDomainBlock.java"
 pid_menu = UI / "ui/menu/PidControllerMenu.java"
 pid_screen = UI / "client/ui/PidControllerScreen.java"
+engineering_screen = UI / "client/ui/EngineeringScreen.java"
 conditioner = BLOCK / "SignalConditionerBlock.java"
 servo_sensor = BLOCK / "ServoPositionSensorBlock.java"
 scaler = BLOCK / "RedstoneToLapisScalerBlock.java"
@@ -40,8 +41,11 @@ require(pid_menu, "BUTTON_INPUT_PREVIOUS", "PID RX controls")
 require(pid_menu, "BUTTON_OUTPUT_NEXT", "PID TX controls")
 require(pid_menu, "DirectionalSignalBlock.rotateSeriesInput", "PID server-authoritative RX routing")
 require(pid_menu, "DirectionalSignalBlock.rotateSeriesOutput", "PID server-authoritative TX routing")
-require(pid_screen, 'Component.literal("RX ▲")', "PID RX up control")
-require(pid_screen, 'Component.literal("TX ▼")', "PID TX down control")
+require(engineering_screen, 'Component.literal("RX ▲")', "shared Route RX up control")
+require(engineering_screen, 'Component.literal("TX ▼")', "shared Route TX down control")
+require(engineering_screen, "menu instanceof PidControllerMenu", "PID shared Route support")
+require(engineering_screen, "PidControllerMenu.BUTTON_INPUT_NEXT", "PID shared Route RX mapping")
+require(engineering_screen, "PidControllerMenu.BUTTON_OUTPUT_NEXT", "PID shared Route TX mapping")
 require(pid_screen, "menu.inputFacing()", "dynamic PID RX face display")
 require(pid_screen, "menu.outputFacing()", "dynamic PID TX face display")
 

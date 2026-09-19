@@ -110,8 +110,10 @@ public final class PneumaticNetwork {
     private static boolean permits(Level level, BlockPos from, BlockPos to) {
         BlockState a = level.getBlockState(from), b = level.getBlockState(to);
         if (!discoveryConnects(level, from, to)) return false;
-        if (a.getBlock() instanceof PneumaticValveBlock && !a.getValue(PneumaticValveBlock.OPEN)) return false;
-        if (b.getBlock() instanceof PneumaticValveBlock && !b.getValue(PneumaticValveBlock.OPEN)) return false;
+        if (a.getBlock() instanceof PneumaticValveBlock
+                && !PneumaticValveBlock.actualOpen(level, from, a)) return false;
+        if (b.getBlock() instanceof PneumaticValveBlock
+                && !PneumaticValveBlock.actualOpen(level, to, b)) return false;
         if (a.getBlock() instanceof PneumaticReceiverBlock) return false;
         if (b.getBlock() instanceof PneumaticReceiverBlock) return directionalBackwardEntry(b, from, to);
         if (a.getBlock() instanceof PneumaticCheckValveBlock && !directionalForward(a, from, to)) return false;
@@ -130,24 +132,29 @@ public final class PneumaticNetwork {
     private static int localLimit(Level level, BlockPos pos, int pressure) {
         BlockState state = level.getBlockState(pos);
         if (state.getBlock() instanceof PressureRegulatorBlock) {
-            pressure = Math.min(pressure, state.getValue(PressureRegulatorBlock.SETPOINT) * 25);
+            pressure = Math.min(pressure, PressureRegulatorBlock.actualRegulatedPressure(level, pos));
+        }
+        if (state.getBlock() instanceof PneumaticCheckValveBlock) {
+            pressure = PneumaticCheckValveBlock.transmittedPressure(pressure);
         }
         if (state.getBlock() instanceof PneumaticProportionalValveBlock) {
             int opening = PneumaticProportionalValveBlock.opening(level, pos);
             pressure = (pressure * opening + 7) / 15;
         }
         if (state.getBlock() instanceof PneumaticReliefValveBlock) {
-            int setpoint = state.getValue(PneumaticReliefValveBlock.SETPOINT) * 25;
-            if (pressure > setpoint) {
-                int excess = pressure - setpoint;
-                // pneumatic_relief diagnostics remain solver-owned and are recorded only on real overpressure.
+            int setpoint = PneumaticReliefValveBlock.setpointPressure(state);
+            boolean shouldVent = PneumaticReliefValveBlock.shouldVent(level, pos, state, pressure);
+            if (shouldVent) {
+                int excess = Math.max(0, pressure - setpoint);
+                // Keep the relief episode latched through the blowdown band; only real
+                // overpressure contributes vented-pressure evidence and particles.
                 PneumaticReliefValveBlock.recordVent(level, pos, excess);
-                if (level instanceof ServerLevel server) {
+                if (excess > 0 && level instanceof ServerLevel server) {
                     int count = excess >= 25 ? 3 : 1;
                     server.sendParticles(ParticleTypes.CLOUD, pos.getX() + 0.5, pos.getY() + 0.9,
                             pos.getZ() + 0.5, count, 0.18, 0.08, 0.18, 0.02);
                 }
-                pressure = setpoint;
+                pressure = Math.min(pressure, setpoint);
             } else {
                 PneumaticReliefValveBlock.clearVenting(level, pos);
             }
@@ -164,7 +171,7 @@ public final class PneumaticNetwork {
         for (BlockPos pos : nodes) {
             var block = level.getBlockState(pos).getBlock();
             if (block instanceof AirCompressorBlock) {
-                if (AirCompressorBlock.commandedPressure(level, pos) > 0) sources++;
+                if (AirCompressorBlock.actualPressure(level, pos) > 0) sources++;
             } else if (block instanceof AirReservoirBlock) {
                 if (InformationRuntime.value(level, "air_reservoir", pos) > 0) sources++;
             }
@@ -183,8 +190,8 @@ public final class PneumaticNetwork {
         for (BlockPos pos : nodes) {
             var block = level.getBlockState(pos).getBlock();
             if (block instanceof AirCompressorBlock) {
-                int command = AirCompressorBlock.commandedPressure(level, pos);
-                if (command > 0) queue.add(new Node(pos, command, command, null));
+                int supply = AirCompressorBlock.actualPressure(level, pos);
+                if (supply > 0) queue.add(new Node(pos, supply, supply, null));
             } else if (block instanceof AirReservoirBlock) {
                 int stored = InformationRuntime.value(level, "air_reservoir", pos);
                 if (stored > 0) queue.add(new Node(pos, stored, stored, null));

@@ -70,6 +70,52 @@ public final class EngineeringPlot {
         }
     }
 
+    /**
+     * Plot a measured response against a measured/configured x-coordinate.
+     * Invalid/out-of-range points break the trace instead of being clamped into fake evidence.
+     */
+    public static void xyTrace(
+            GuiGraphics graphics,
+            int sampleCount,
+            IntUnaryOperator xAt,
+            IntUnaryOperator yAt,
+            int xMinimum,
+            int xMaximum,
+            int yMinimum,
+            int yMaximum,
+            int x,
+            int y,
+            int width,
+            int height,
+            int color
+    ) {
+        if (sampleCount <= 0 || xMaximum <= xMinimum || yMaximum <= yMinimum) return;
+        int previousX = -1;
+        int previousY = -1;
+        int xSpan = xMaximum - xMinimum;
+        int ySpan = yMaximum - yMinimum;
+
+        for (int slot = 0; slot < sampleCount; slot++) {
+            int xv = xAt.applyAsInt(slot);
+            int yv = yAt.applyAsInt(slot);
+            if (xv < xMinimum || xv > xMaximum || yv < yMinimum || yv > yMaximum) {
+                previousX = -1;
+                previousY = -1;
+                continue;
+            }
+
+            int px = x + Math.round((xv - xMinimum) * width / (float) xSpan);
+            int py = y + height - Math.round((yv - yMinimum) * height / (float) ySpan);
+            if (previousX >= 0) {
+                graphics.fill(Math.min(previousX, px), previousY, Math.max(previousX, px) + 1, previousY + 1, color);
+                graphics.fill(px, Math.min(previousY, py), px + 1, Math.max(previousY, py) + 1, color);
+            }
+            graphics.fill(px - 1, py - 1, px + 2, py + 2, color);
+            previousX = px;
+            previousY = py;
+        }
+    }
+
     public static void digitalTrace(
             GuiGraphics graphics,
             int sampleCount,

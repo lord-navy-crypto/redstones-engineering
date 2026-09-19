@@ -60,7 +60,11 @@ public class CopperWireBlock extends ConnectedCableBlock implements EngineeringP
                 : PortQuality.NO_SIGNAL;
 
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
-        runtime[VOLTAGE_INDEX] = quality == PortQuality.STALE ? 0 : Math.max(0, Math.min(15, voltage));
+        if (quality != PortQuality.STALE) {
+            runtime[VOLTAGE_INDEX] = Math.max(0, Math.min(15, voltage));
+        }
+        // A truncated solve is incomplete evidence, not a physical command to zero the conductor.
+        // Preserve the last trustworthy V-eq while publishing STALE quality.
         runtime[DRIVER_COUNT_INDEX] = drivers;
         runtime[QUALITY_INDEX] = quality.ordinal();
     }

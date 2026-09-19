@@ -33,7 +33,6 @@ block = read("src/main/java/dev/redstoneengineering/block/PidControllerBlock.jav
 # contract to a particular Java return/conditional spelling.
 for token in (
     "recordTelemetry(level, pos, setpoint, process, 0)",
-    "recordTelemetry(level, pos, setpoint, process, manualOutput)",
     "recordTelemetry(level, pos, setpoint, process, out)",
     "PidTelemetryStore.clear(level, pos);",
     "PidTelemetryStore.clear(l, p);",

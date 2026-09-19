@@ -906,6 +906,18 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             level.setBlock(blockPos, state.setValue(OpticalAttenuatorBlock.LOSS, loss), Block.UPDATE_CLIENTS);
             level.scheduleTick(blockPos, attenuator, 1);
             changed = true;
+        } else if (block instanceof MechanicalExciterBlock) {
+            if (id != BUTTON_PRIMARY_DECREASE && id != BUTTON_PRIMARY_INCREASE) return false;
+            changed = MechanicalExciterBlock.adjustFrequency(level, blockPos,
+                    id == BUTTON_PRIMARY_INCREASE ? 1 : -1);
+        } else if (block instanceof HydroacousticExciterBlock) {
+            if (id != BUTTON_PRIMARY_DECREASE && id != BUTTON_PRIMARY_INCREASE) return false;
+            changed = HydroacousticExciterBlock.adjustFrequency(level, blockPos,
+                    id == BUTTON_PRIMARY_INCREASE ? 1 : -1);
+        } else if (block instanceof LapisPrecisionSourceBlock) {
+            if (id != BUTTON_PRIMARY_DECREASE && id != BUTTON_PRIMARY_INCREASE) return false;
+            changed = LapisPrecisionSourceBlock.stepValue(level, blockPos,
+                    id == BUTTON_PRIMARY_INCREASE ? 1 : -1);
         }
 
         if (changed) {

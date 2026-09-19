@@ -11,6 +11,7 @@ import dev.redstoneengineering.physics.CopperObservationSupport;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.NetworkKernel;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.signal.CopperFuseLogic;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -31,6 +32,7 @@ import java.util.Locale;
 public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
     private static final String KEY = "copper_fuse";
     private static final String QUALITY_KEY = "copper_fuse_quality";
+    private static final String THERMAL_KEY = "copper_fuse_thermal";
     private static final int OUTPUT_VOLTAGE = 0;
     private static final int LAST_EVALUATED_TRIP = 1;
     private static final int PROTECTION_STATE_INITIALIZED = 2;
@@ -39,6 +41,9 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
     private static final int RUNTIME_SIZE = 3;
     private static final int INPUT_QUALITY = 0;
     private static final int QUALITY_RUNTIME_SIZE = 1;
+    private static final int THERMAL_EXPOSURE = 0;
+    private static final int LAST_CURRENT_X100 = 1;
+    private static final int THERMAL_RUNTIME_SIZE = 2;
     public static final IntegerProperty RATING = IntegerProperty.create("rating", 1, 15);
     public static final BooleanProperty TRIPPED = BooleanProperty.create("tripped");
 
@@ -83,13 +88,38 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
         if (loadTruncated) {
             qualityRuntime[INPUT_QUALITY] = PortQuality.STALE.ordinal();
             runtime[OUTPUT_VOLTAGE] = 0;
-            DomainNetwork.driveCopper(level, outputPos(pos, state), pos, 0);
+            DomainNetwork.driveCopper(level, outputPos(pos, state), pos, 0, false);
+            level.scheduleTick(pos, this, 2);
+            return;
+        }
+
+        boolean inputAuthoritative = input.quality() == PortQuality.VALID
+                || input.quality() == PortQuality.NO_SIGNAL;
+        if (!inputAuthoritative) {
+            // Unknown upstream evidence cannot justify a new current estimate, trip decision,
+            // or thermal cooldown. Freeze I²t history and fail the protected output closed
+            // until authoritative source evidence returns.
+            runtime[OUTPUT_VOLTAGE] = 0;
+            DomainNetwork.driveCopper(level, outputPos(pos, state), pos, 0, false);
             level.scheduleTick(pos, this, 2);
             return;
         }
 
         double current = CircuitPhysics.current(inputVoltage, loadResistance);
-        boolean tripped = state.getValue(TRIPPED) || current > state.getValue(RATING);
+        int[] thermalRuntime = RuntimeIntStore.get(level, THERMAL_KEY, pos, THERMAL_RUNTIME_SIZE);
+        double fuseCurrent = state.getValue(TRIPPED) ? 0.0 : current;
+        thermalRuntime[THERMAL_EXPOSURE] = CopperFuseLogic.nextThermal(
+                thermalRuntime[THERMAL_EXPOSURE],
+                fuseCurrent,
+                state.getValue(RATING)
+        );
+        thermalRuntime[LAST_CURRENT_X100] = (int) Math.min(
+                Integer.MAX_VALUE,
+                Math.round(Math.max(0.0, fuseCurrent) * 100.0)
+        );
+
+        boolean tripped = state.getValue(TRIPPED)
+                || thermalRuntime[THERMAL_EXPOSURE] >= CopperFuseLogic.tripThreshold();
         int tripState = tripped ? 1 : 0;
 
         if (runtime[LAST_EVALUATED_TRIP] != tripState) {
@@ -101,8 +131,9 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
                         2,
                         "COPPER_FUSE_TRIP",
                         String.format(Locale.ROOT,
-                                "Copper fuse overcurrent trip; inputV=%d; Req=%.3f; I≈%.3f; rating=%d; protectedOutput=0",
-                                inputVoltage, loadResistance, current, state.getValue(RATING))
+                                "Copper fuse I2t trip; inputV=%d; Req=%.3f; I≈%.3f; rating=%d; thermal=%d/1000; protectedOutput=0",
+                                inputVoltage, loadResistance, current, state.getValue(RATING),
+                                thermalRuntime[THERMAL_EXPOSURE])
                 );
             } else {
                 SystemEventTimeline.record(
@@ -123,7 +154,9 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
         if (next != state) level.setBlock(pos, next, Block.UPDATE_CLIENTS);
         int outputVoltage = tripped ? 0 : inputVoltage;
         runtime[OUTPUT_VOLTAGE] = outputVoltage;
-        DomainNetwork.driveCopper(level, outputPos(pos, next), pos, outputVoltage);
+        DomainNetwork.driveCopper(
+                level, outputPos(pos, next), pos, outputVoltage,
+                !tripped && input.quality() == PortQuality.VALID);
         level.scheduleTick(pos, this, 2);
     }
 
@@ -156,15 +189,37 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
         return runtime != null && runtime[PROTECTION_STATE_INITIALIZED] == 1;
     }
 
+    public static int thermalExposure(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, THERMAL_KEY, pos);
+        return runtime == null || runtime.length != THERMAL_RUNTIME_SIZE
+                ? 0
+                : Math.max(0, Math.min(CopperFuseLogic.tripThreshold(), runtime[THERMAL_EXPOSURE]));
+    }
+
+    public static int tripProgressPermille(Level level, BlockPos pos) {
+        return CopperFuseLogic.tripProgressPermille(thermalExposure(level, pos));
+    }
+
+    public static double lastEvaluatedCurrent(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, THERMAL_KEY, pos);
+        return runtime == null || runtime.length != THERMAL_RUNTIME_SIZE
+                ? 0.0
+                : Math.max(0, runtime[LAST_CURRENT_X100]) / 100.0;
+    }
+
+    public static boolean resetAllowed(
+            CopperObservationSupport.Observation input,
+            boolean loadTruncated,
+            double current,
+            int rating
+    ) {
+        if (loadTruncated) return false;
+        if (input.quality() == PortQuality.NO_SIGNAL) return true;
+        return input.quality() == PortQuality.VALID && current <= Math.max(1, rating);
+    }
+
     @Override protected int observedOutputVoltage(Level level, BlockPos pos, BlockState state) { return outputVoltage(level, pos); }
     @Override protected PortQuality observedOutputQuality(Level level, BlockPos pos, BlockState state) { return outputQuality(level, pos, state); }
-
-    private void invalidateProtectionOutput(ServerLevel level, BlockPos pos, BlockState state) {
-        RuntimeIntStore.remove(level, KEY, pos);
-        RuntimeIntStore.remove(level, QUALITY_KEY, pos);
-        DomainNetwork.driveCopper(level, outputPos(pos, state), pos, 0);
-        level.scheduleTick(pos, this, 1);
-    }
 
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
@@ -172,6 +227,7 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
             if (level instanceof ServerLevel serverLevel) DomainNetwork.driveCopper(serverLevel, outputPos(pos, state), pos, 0);
             RuntimeIntStore.remove(level, KEY, pos);
             RuntimeIntStore.remove(level, QUALITY_KEY, pos);
+            RuntimeIntStore.remove(level, THERMAL_KEY, pos);
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
         if (!state.is(newState.getBlock()) && level instanceof ServerLevel serverLevel) {
@@ -179,44 +235,78 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
         }
     }
 
+    /**
+     * Server-authoritative fuse-rating adjustment.
+     * Thermal exposure is retained; only configuration-derived output/evidence is invalidated.
+     */
+    public static boolean adjustRating(Level level, BlockPos pos, int delta) {
+        if (level.isClientSide || delta == 0) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof CopperFuseBlock fuse)) return false;
+        int current = state.getValue(RATING);
+        int nextValue = delta > 0 ? (current >= 15 ? 1 : current + 1) : (current <= 1 ? 15 : current - 1);
+        BlockState next = state.setValue(RATING, nextValue);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel serverLevel) {
+            RuntimeIntStore.remove(level, KEY, pos);
+            RuntimeIntStore.remove(level, QUALITY_KEY, pos);
+            DomainNetwork.driveCopper(serverLevel, fuse.outputPos(pos, next), pos, 0, false);
+            serverLevel.scheduleTick(pos, fuse, 1);
+        }
+        return true;
+    }
+
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
+            CopperObservationSupport.Observation input = CopperObservationSupport.observe(level, inputPos(pos, state), pos);
+            int inputVoltage = input.quality() == PortQuality.VALID ? input.voltage() : 0;
+            double loadResistance = CircuitPhysics.equivalentLoadResistance(level, outputPos(pos, state), 128);
+            boolean loadTruncated = NetworkKernel.stats(level, "copper_load").lastTruncated();
+            double current = loadTruncated ? 0.0 : CircuitPhysics.current(inputVoltage, loadResistance);
+
             BlockState next = state;
-            boolean ratingChanged = !player.isShiftKeyDown();
+            String operatorResult;
             if (player.isShiftKeyDown()) {
-                next = state.setValue(TRIPPED, false);
+                if (resetAllowed(input, loadTruncated, current, state.getValue(RATING))) {
+                    next = state.setValue(TRIPPED, false);
+                    level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+                    int[] thermal = RuntimeIntStore.get(level, THERMAL_KEY, pos, THERMAL_RUNTIME_SIZE);
+                    thermal[THERMAL_EXPOSURE] = 0;
+                    thermal[LAST_CURRENT_X100] = 0;
+                    level.scheduleTick(pos, this, 1);
+                    operatorResult = "RESET ACCEPTED";
+                } else {
+                    operatorResult = "RESET BLOCKED";
+                }
             } else {
                 int rating = state.getValue(RATING);
                 next = state.setValue(RATING, rating >= 15 ? 1 : rating + 1);
-            }
-            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            if (ratingChanged && level instanceof ServerLevel serverLevel) {
-                // A rating change starts a new protection-evidence epoch. The old safe output was
-                // proven against a different threshold, so it must not remain authoritative until
-                // the server performs a complete load scan under the new rating.
-                invalidateProtectionOutput(serverLevel, pos, next);
-            } else {
-                level.scheduleTick(pos, this, 1);
+                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+                if (level instanceof ServerLevel serverLevel) {
+                    // Rating change starts a new protection epoch. Thermal exposure is retained:
+                    // changing the label on a fuse does not magically cool the element.
+                    // protection re-evaluates next tick against the new rating and retained thermal exposure.
+                    RuntimeIntStore.remove(level, KEY, pos);
+                    RuntimeIntStore.remove(level, QUALITY_KEY, pos);
+                    DomainNetwork.driveCopper(serverLevel, outputPos(pos, next), pos, 0, false);
+                    serverLevel.scheduleTick(pos, this, 1);
+                }
+                operatorResult = "RATING CHANGED";
             }
 
-            CopperObservationSupport.Observation input = CopperObservationSupport.observe(level, inputPos(pos, next), pos);
-            int inputVoltage = input.quality() == PortQuality.VALID ? input.voltage() : 0;
-            double loadResistance = CircuitPhysics.equivalentLoadResistance(level, outputPos(pos, next), 128);
-            boolean loadTruncated = NetworkKernel.stats(level, "copper_load").lastTruncated();
-            double current = loadTruncated ? 0.0 : CircuitPhysics.current(inputVoltage, loadResistance);
             player.displayClientMessage(Component.literal(String.format(Locale.ROOT,
-                    "Copper fuse | BACK input -> FRONT protected output | rating=%d | V=%d | Req=%s | I≈%s | %s | inputQuality=%s | outputQuality=%s%s",
+                    "Copper fuse | %s | rating=%d | V=%d | Req=%s | I≈%s | thermal=%d/1000 (%4.1f%%) | %s | inputQuality=%s | outputQuality=%s",
+                    operatorResult,
                     next.getValue(RATING),
                     inputVoltage,
                     loadTruncated ? "STALE" : String.format(Locale.ROOT, "%.3f", loadResistance),
                     loadTruncated ? "STALE" : String.format(Locale.ROOT, "%.3f", current),
+                    thermalExposure(level, pos),
+                    tripProgressPermille(level, pos) / 10.0,
                     next.getValue(TRIPPED) ? "TRIPPED" : "armed",
                     input.quality(),
-                    outputQuality(level, pos, next),
-                    player.isShiftKeyDown()
-                            ? " | reset requested; protection re-evaluates next tick; READY only after a safe server re-evaluation"
-                            : ""
+                    outputQuality(level, pos, next)
             )), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);

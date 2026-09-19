@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": ["CRC","RQR","CCC"],
+  "key": {
+    "C": { "item": "minecraft:copper_ingot" },
+    "R": { "item": "minecraft:redstone" },
+    "Q": { "item": "minecraft:quartz" }
+  },
+  "result": { "id": "redstoneengineering:redstone_copper_driver", "count": 1 }
+}

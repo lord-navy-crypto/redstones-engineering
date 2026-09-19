@@ -6,6 +6,7 @@ import dev.redstoneengineering.ui.menu.EngineeringDeviceMenu;
 import dev.redstoneengineering.ui.menu.FieldDeviceMenu;
 import dev.redstoneengineering.ui.menu.MagneticSystemMenu;
 import dev.redstoneengineering.ui.menu.OpticalSystemMenu;
+import dev.redstoneengineering.ui.menu.PidControllerMenu;
 import dev.redstoneengineering.ui.menu.PneumaticSystemMenu;
 import dev.redstoneengineering.ui.menu.QuartzTimingMenu;
 import dev.redstoneengineering.ui.menu.RadioLinkMenu;
@@ -18,6 +19,8 @@ import dev.redstoneengineering.ui.menu.UniversalFieldDeviceMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
@@ -28,9 +31,9 @@ import java.util.List;
 /** Shared RSE engineering visual language. */
 public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends AbstractContainerScreen<M> {
     protected enum Section {
-        OVERVIEW("Overview", "Live engineering state"),
+        OVERVIEW("Live", "Live engineering state"),
         PORTS("Ports", "Physical I/O contract"),
-        CONFIGURE("Configure", "Parameters, modes and actions"),
+        CONFIGURE("Config", "Parameters, modes and actions"),
         DIAGNOSTICS("Observe", "Signals, topology and health"),
         HISTORY("Log", "Evidence and retained events");
 
@@ -65,6 +68,12 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
     private Section section = Section.OVERVIEW;
     private boolean routePage;
+    private boolean workbenchPage;
+    private Button workbenchTab;
+    private static final int TIMELINE_SAMPLES = 48;
+    private final int[] evidenceTimeline = new int[TIMELINE_SAMPLES];
+    private final int[] healthTimeline = new int[TIMELINE_SAMPLES];
+    private int timelineCount;
     private final List<AbstractWidget> configureWidgets = new ArrayList<>();
     private final List<Button> sectionButtons = new ArrayList<>();
     private Button routeTab;
@@ -74,6 +83,27 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private Button routeInputNext;
     private Button routeOutputPrevious;
     private Button routeOutputNext;
+
+    private EditBox workbenchTarget;
+    private Button workbenchParameterPrevious;
+    private Button workbenchParameterNext;
+    private Button workbenchDecrease;
+    private Button workbenchIncrease;
+    private Button workbenchApply;
+    private Button workbenchMin;
+    private Button workbenchMax;
+    private Button workbenchQuarter;
+    private Button workbenchMid;
+    private Button workbenchThreeQuarter;
+    private Button workbenchSweep;
+    private int workbenchParameterIndex;
+    private boolean workbenchSweepActive;
+    private int workbenchSweepDelay;
+    private static final int WORKBENCH_SWEEP_POINTS = 64;
+    private static final int INVALID_SWEEP_SAMPLE = Integer.MIN_VALUE;
+    private final int[] workbenchSweepParameters = new int[WORKBENCH_SWEEP_POINTS];
+    private final int[] workbenchSweepResponses = new int[WORKBENCH_SWEEP_POINTS];
+    private int workbenchSweepPointCount;
 
     protected EngineeringScreen(M menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -90,16 +120,32 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         configureWidgets.clear();
         sectionButtons.clear();
         routeTab = null;
+        workbenchTab = null;
         routePrevious = null;
         routeNext = null;
         routeInputPrevious = null;
         routeInputNext = null;
         routeOutputPrevious = null;
         routeOutputNext = null;
+        workbenchTarget = null;
+        workbenchParameterPrevious = null;
+        workbenchParameterNext = null;
+        workbenchDecrease = null;
+        workbenchIncrease = null;
+        workbenchApply = null;
+        workbenchMin = null;
+        workbenchMax = null;
+        workbenchQuarter = null;
+        workbenchMid = null;
+        workbenchThreeQuarter = null;
+        workbenchSweep = null;
+        workbenchSweepActive = false;
+        workbenchSweepDelay = 0;
+        workbenchSweepPointCount = 0;
 
         int tabY = topPos + 31;
         int x = leftPos + 8;
-        int tabWidth = 49;
+        int tabWidth = 42;
         int gap = 1;
 
         addSectionTab(Section.OVERVIEW, x, tabY, tabWidth); x += tabWidth + gap;
@@ -107,14 +153,19 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         addSectionTab(Section.CONFIGURE, x, tabY, tabWidth); x += tabWidth + gap;
         routeTab = addRenderableWidget(Button.builder(Component.literal("Route"), button -> setRoutePage())
                 .bounds(x, tabY, tabWidth, 20).build()); x += tabWidth + gap;
+        EngineeringWorkbenchCatalog.UiPolicy initialPolicy = EngineeringWorkbenchCatalog.uiPolicy(menu);
+        workbenchTab = addRenderableWidget(Button.builder(Component.literal(initialPolicy.pageLabel()), button -> setWorkbenchPage())
+                .bounds(x, tabY, tabWidth, 20).build()); x += tabWidth + gap;
         addSectionTab(Section.DIAGNOSTICS, x, tabY, tabWidth); x += tabWidth + gap;
         addSectionTab(Section.HISTORY, x, tabY, tabWidth);
 
         addDeviceWidgets();
         addRouteControls();
+        addWorkbenchControls();
         updateWidgetVisibility();
         syncDeviceWidgetLabels();
         syncRouteControls();
+        syncWorkbenchControls();
     }
 
     private void addSectionTab(Section target, int x, int y, int width) {
@@ -164,6 +215,277 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
                 .bounds(x0 + (endpointWidth + endpointGap) * 3, topPos + ROUTE_ENDPOINT_Y, endpointWidth, 20).build());
     }
 
+    private void addWorkbenchControls() {
+        int y = topPos + 198;
+        workbenchParameterPrevious = addRenderableWidget(Button.builder(
+                Component.literal("◀ P"), button -> selectWorkbenchParameter(-1))
+                .bounds(leftPos + 16, y, 34, 20).build());
+        workbenchDecrease = addRenderableWidget(Button.builder(
+                Component.literal("−1"), button -> stepWorkbenchParameter(false))
+                .bounds(leftPos + 54, y, 38, 20).build());
+        workbenchTarget = addRenderableWidget(new EditBox(
+                font, leftPos + 96, y, 56, 20, Component.literal("Parameter target")));
+        workbenchTarget.setMaxLength(5);
+        workbenchTarget.setFilter(EngineeringScreen::numericTargetText);
+        workbenchApply = addRenderableWidget(Button.builder(
+                Component.literal("Apply"), button -> applyWorkbenchTarget())
+                .bounds(leftPos + 156, y, 48, 20).build());
+        workbenchIncrease = addRenderableWidget(Button.builder(
+                Component.literal("+1"), button -> stepWorkbenchParameter(true))
+                .bounds(leftPos + 208, y, 38, 20).build());
+        workbenchParameterNext = addRenderableWidget(Button.builder(
+                Component.literal("P ▶"), button -> selectWorkbenchParameter(1))
+                .bounds(leftPos + 250, y, 54, 20).build());
+
+        int presetY = topPos + 221;
+        workbenchMin = addRenderableWidget(Button.builder(
+                Component.literal("Min"), button -> applyWorkbenchBound(false))
+                .bounds(leftPos + 16, presetY, 42, 18).build());
+        workbenchQuarter = addRenderableWidget(Button.builder(
+                Component.literal("25%"), button -> applyWorkbenchFraction(0.25))
+                .bounds(leftPos + 61, presetY, 42, 18).build());
+        workbenchMid = addRenderableWidget(Button.builder(
+                Component.literal("50%"), button -> applyWorkbenchFraction(0.50))
+                .bounds(leftPos + 106, presetY, 42, 18).build());
+        workbenchThreeQuarter = addRenderableWidget(Button.builder(
+                Component.literal("75%"), button -> applyWorkbenchFraction(0.75))
+                .bounds(leftPos + 151, presetY, 42, 18).build());
+        workbenchMax = addRenderableWidget(Button.builder(
+                Component.literal("Max"), button -> applyWorkbenchBound(true))
+                .bounds(leftPos + 196, presetY, 42, 18).build());
+        workbenchSweep = addRenderableWidget(Button.builder(
+                Component.literal("Sweep ↑"), button -> toggleWorkbenchSweep())
+                .bounds(leftPos + 241, presetY, 63, 18).build());
+    }
+
+    private static boolean numericTargetText(String value) {
+        if (value == null || value.isEmpty()) return true;
+        if (value.length() > 5) return false;
+        int start = value.charAt(0) == '-' ? 1 : 0;
+        if (start == 1 && value.length() == 1) return true;
+        for (int i = start; i < value.length(); i++) {
+            if (!Character.isDigit(value.charAt(i))) return false;
+        }
+        return true;
+    }
+
+    private List<EngineeringWorkbenchCatalog.ParameterSpec> workbenchParameters() {
+        return EngineeringWorkbenchCatalog.parameters(menu);
+    }
+
+    private EngineeringWorkbenchCatalog.ParameterSpec activeWorkbenchParameter() {
+        List<EngineeringWorkbenchCatalog.ParameterSpec> specs = workbenchParameters();
+        if (specs.isEmpty()) return null;
+        workbenchParameterIndex = Math.floorMod(workbenchParameterIndex, specs.size());
+        return specs.get(workbenchParameterIndex);
+    }
+
+    private void selectWorkbenchParameter(int delta) {
+        List<EngineeringWorkbenchCatalog.ParameterSpec> specs = workbenchParameters();
+        if (specs.isEmpty()) return;
+        workbenchSweepActive = false;
+        workbenchSweepPointCount = 0;
+        workbenchParameterIndex = Math.floorMod(workbenchParameterIndex + delta, specs.size());
+        if (workbenchTarget != null) workbenchTarget.setFocused(false);
+        syncWorkbenchControls();
+    }
+
+    private void stepWorkbenchParameter(boolean increase) {
+        EngineeringWorkbenchCatalog.ParameterSpec spec = activeWorkbenchParameter();
+        if (spec == null) return;
+        sendMenuButton(increase ? spec.incrementButton() : spec.decrementButton());
+    }
+
+    private void applyWorkbenchBound(boolean maximum) {
+        EngineeringWorkbenchCatalog.ParameterSpec spec = activeWorkbenchParameter();
+        if (spec == null) return;
+        int target = maximum ? spec.maximum() : spec.minimum();
+        if (workbenchTarget != null) workbenchTarget.setValue(Integer.toString(target));
+        applyWorkbenchTargetValue(spec, target);
+    }
+
+    private void applyWorkbenchFraction(double fraction) {
+        EngineeringWorkbenchCatalog.ParameterSpec spec = activeWorkbenchParameter();
+        if (spec == null || !spec.fractionPresets()) return;
+        int span = spec.maximum() - spec.minimum();
+        int target = spec.minimum() + (int) Math.round(span * Math.max(0.0, Math.min(1.0, fraction)));
+        if (workbenchTarget != null) workbenchTarget.setValue(Integer.toString(target));
+        applyWorkbenchTargetValue(spec, target);
+    }
+
+    private int workbenchSweepDwellTicks() {
+        return EngineeringWorkbenchCatalog.recommendedSweepDwellTicks(menu);
+    }
+
+    private void toggleWorkbenchSweep() {
+        EngineeringWorkbenchCatalog.ParameterSpec spec = activeWorkbenchParameter();
+        EngineeringWorkbenchCatalog.UiPolicy policy = EngineeringWorkbenchCatalog.uiPolicy(menu);
+        EngineeringWorkbenchCatalog.ResponseSpec response = EngineeringWorkbenchCatalog.response(menu);
+        if (spec == null || !policy.experimental() || !spec.sweepMeaningful()
+                || response == null || spec.maximum() <= spec.minimum()) {
+            workbenchSweepActive = false;
+            return;
+        }
+        if (workbenchSweepActive) {
+            workbenchSweepActive = false;
+            return;
+        }
+        workbenchSweepActive = true;
+        workbenchSweepPointCount = 0;
+        workbenchSweepDelay = workbenchSweepDwellTicks();
+        applyWorkbenchTargetValue(spec, spec.minimum());
+    }
+
+    private void tickWorkbenchSweep() {
+        if (!workbenchSweepActive || !workbenchPage) return;
+        EngineeringWorkbenchCatalog.UiPolicy policy = EngineeringWorkbenchCatalog.uiPolicy(menu);
+        EngineeringWorkbenchCatalog.ParameterSpec spec = activeWorkbenchParameter();
+        if (!policy.experimental() || spec == null || !spec.sweepMeaningful()) {
+            workbenchSweepActive = false;
+            return;
+        }
+        if (workbenchSweepDelay > 0) {
+            workbenchSweepDelay--;
+            return;
+        }
+
+        captureWorkbenchSweepPoint(spec);
+        if (spec.current() >= spec.maximum()) {
+            workbenchSweepActive = false;
+            return;
+        }
+
+        sendMenuButton(spec.incrementButton());
+        workbenchSweepDelay = workbenchSweepDwellTicks();
+    }
+
+    private void captureWorkbenchSweepPoint(EngineeringWorkbenchCatalog.ParameterSpec spec) {
+        EngineeringWorkbenchCatalog.ResponseSpec response = EngineeringWorkbenchCatalog.response(menu);
+        if (response == null) return;
+
+        int parameter = spec.current();
+        int measured = response.usable() ? response.value() : INVALID_SWEEP_SAMPLE;
+
+        if (workbenchSweepPointCount > 0
+                && workbenchSweepParameters[workbenchSweepPointCount - 1] == parameter) {
+            workbenchSweepResponses[workbenchSweepPointCount - 1] = measured;
+            return;
+        }
+
+        if (workbenchSweepPointCount >= WORKBENCH_SWEEP_POINTS) {
+            System.arraycopy(workbenchSweepParameters, 1, workbenchSweepParameters, 0, WORKBENCH_SWEEP_POINTS - 1);
+            System.arraycopy(workbenchSweepResponses, 1, workbenchSweepResponses, 0, WORKBENCH_SWEEP_POINTS - 1);
+            workbenchSweepPointCount = WORKBENCH_SWEEP_POINTS - 1;
+        }
+        workbenchSweepParameters[workbenchSweepPointCount] = parameter;
+        workbenchSweepResponses[workbenchSweepPointCount] = measured;
+        workbenchSweepPointCount++;
+    }
+
+    private void applyWorkbenchTarget() {
+        EngineeringWorkbenchCatalog.ParameterSpec spec = activeWorkbenchParameter();
+        if (spec == null || workbenchTarget == null) return;
+        try {
+            int target = Integer.parseInt(workbenchTarget.getValue());
+            if (target < spec.minimum() || target > spec.maximum()) {
+                workbenchTarget.setTextColor(BAD);
+                return;
+            }
+            workbenchTarget.setTextColor(TEXT);
+            applyWorkbenchTargetValue(spec, target);
+        } catch (NumberFormatException ignored) {
+            workbenchTarget.setTextColor(BAD);
+        }
+    }
+
+    private void applyWorkbenchTargetValue(EngineeringWorkbenchCatalog.ParameterSpec spec, int target) {
+        int delta = target - spec.current();
+        int steps = Math.min(1024, Math.abs(delta));
+        int button = delta >= 0 ? spec.incrementButton() : spec.decrementButton();
+        for (int i = 0; i < steps; i++) sendMenuButton(button);
+    }
+
+    private void syncWorkbenchControls() {
+        EngineeringWorkbenchCatalog.UiPolicy policy = EngineeringWorkbenchCatalog.uiPolicy(menu);
+        List<EngineeringWorkbenchCatalog.ParameterSpec> specs = workbenchParameters();
+        boolean showEditor = workbenchPage && policy.configurable() && !specs.isEmpty();
+        if (!specs.isEmpty()) workbenchParameterIndex = Math.floorMod(workbenchParameterIndex, specs.size());
+        EngineeringWorkbenchCatalog.ParameterSpec spec = specs.isEmpty() ? null : specs.get(workbenchParameterIndex);
+        EngineeringWorkbenchCatalog.ResponseSpec response = EngineeringWorkbenchCatalog.response(menu);
+
+        if (workbenchTab != null) workbenchTab.setMessage(Component.literal(policy.pageLabel()));
+
+        boolean choice = showEditor && spec != null
+                && spec.control() == EngineeringWorkbenchCatalog.ParameterControl.CHOICE;
+        boolean numeric = showEditor && spec != null && !choice;
+        boolean showFractionPresets = numeric && spec.fractionPresets();
+        boolean showSweep = numeric && spec != null && policy.experimental()
+                && spec.control() == EngineeringWorkbenchCatalog.ParameterControl.EXPERIMENT
+                && spec.sweepMeaningful() && response != null;
+
+        if (workbenchParameterPrevious != null) workbenchParameterPrevious.visible = showEditor;
+        if (workbenchParameterNext != null) workbenchParameterNext.visible = showEditor;
+        if (workbenchDecrease != null) workbenchDecrease.visible = showEditor;
+        if (workbenchIncrease != null) workbenchIncrease.visible = showEditor;
+        if (workbenchTarget != null) workbenchTarget.visible = numeric;
+        if (workbenchApply != null) workbenchApply.visible = numeric;
+        if (workbenchMin != null) workbenchMin.visible = numeric;
+        if (workbenchMax != null) workbenchMax.visible = numeric;
+        if (workbenchQuarter != null) workbenchQuarter.visible = showFractionPresets;
+        if (workbenchMid != null) workbenchMid.visible = showFractionPresets;
+        if (workbenchThreeQuarter != null) workbenchThreeQuarter.visible = showFractionPresets;
+        if (workbenchSweep != null) workbenchSweep.visible = showSweep;
+
+        if (!showSweep) {
+            workbenchSweepActive = false;
+            workbenchSweepDelay = 0;
+        }
+        if (!showEditor || spec == null) return;
+
+        boolean multiple = specs.size() > 1;
+        workbenchParameterPrevious.active = multiple;
+        workbenchParameterNext.active = multiple;
+        workbenchParameterPrevious.setMessage(Component.literal("◀ P" + (workbenchParameterIndex + 1)));
+        workbenchParameterNext.setMessage(Component.literal("P" + (workbenchParameterIndex + 1) + " ▶"));
+        workbenchParameterPrevious.setTooltip(Tooltip.create(Component.literal("Previous block-owned parameter")));
+        workbenchParameterNext.setTooltip(Tooltip.create(Component.literal("Next block-owned parameter")));
+        if (choice) {
+            workbenchDecrease.setMessage(Component.literal("◀ Prev"));
+            workbenchIncrease.setMessage(Component.literal("Next ▶"));
+            workbenchDecrease.setTooltip(Tooltip.create(Component.literal("Previous " + spec.label())));
+            workbenchIncrease.setTooltip(Tooltip.create(Component.literal("Next " + spec.label())));
+        } else {
+            workbenchDecrease.setMessage(Component.literal("−1"));
+            workbenchIncrease.setMessage(Component.literal("+1"));
+            workbenchDecrease.setTooltip(Tooltip.create(Component.literal(spec.label() + " fine -1")));
+            workbenchIncrease.setTooltip(Tooltip.create(Component.literal(spec.label() + " fine +1")));
+        }
+        if (numeric) {
+            workbenchApply.setTooltip(Tooltip.create(Component.literal(
+                    "Apply exact bounded target " + spec.minimum() + ".." + spec.maximum()
+                            + " using the existing server-authoritative block action.")));
+            workbenchMin.setMessage(Component.literal("Min"));
+            workbenchMax.setMessage(Component.literal("Max"));
+        }
+
+        if (showFractionPresets) {
+            workbenchQuarter.setTooltip(Tooltip.create(Component.literal("Apply 25% of this numeric range.")));
+            workbenchMid.setTooltip(Tooltip.create(Component.literal("Apply midpoint of this numeric range.")));
+            workbenchThreeQuarter.setTooltip(Tooltip.create(Component.literal("Apply 75% of this numeric range.")));
+        }
+        if (showSweep) {
+            workbenchSweep.setMessage(Component.literal(workbenchSweepActive ? "Stop" : "Sweep ↑"));
+            workbenchSweep.setTooltip(Tooltip.create(Component.literal(
+                    "Measure a real parameter-response sweep with " + workbenchSweepDwellTicks()
+                            + " ticks dwell per point for this experiment type. Categorical modes/channels never receive this control.")));
+        }
+
+        if (workbenchTarget != null && !workbenchTarget.isFocused()) {
+            workbenchTarget.setValue(Integer.toString(spec.current()));
+            workbenchTarget.setTextColor(TEXT);
+        }
+    }
+
     private int routeActionId(boolean clockwise) {
         if (menu instanceof FieldDeviceMenu) return clockwise ? FieldDeviceMenu.BUTTON_ROTATE_CW : FieldDeviceMenu.BUTTON_ROTATE_CCW;
         if (menu instanceof UniversalFieldDeviceMenu) return clockwise ? UniversalFieldDeviceMenu.BUTTON_ROTATE_RIGHT : UniversalFieldDeviceMenu.BUTTON_ROTATE_LEFT;
@@ -194,6 +516,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         if (menu instanceof OpticalSystemMenu) return clockwise ? OpticalSystemMenu.BUTTON_INPUT_RIGHT : OpticalSystemMenu.BUTTON_INPUT_LEFT;
         if (menu instanceof MagneticSystemMenu) return clockwise ? MagneticSystemMenu.BUTTON_INPUT_RIGHT : MagneticSystemMenu.BUTTON_INPUT_LEFT;
         if (menu instanceof ReliabilitySystemMenu) return clockwise ? ReliabilitySystemMenu.BUTTON_INPUT_RIGHT : ReliabilitySystemMenu.BUTTON_INPUT_LEFT;
+        if (menu instanceof PidControllerMenu) return clockwise ? PidControllerMenu.BUTTON_INPUT_NEXT : PidControllerMenu.BUTTON_INPUT_PREVIOUS;
         return -1;
     }
 
@@ -210,6 +533,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         if (menu instanceof MagneticSystemMenu) return clockwise ? MagneticSystemMenu.BUTTON_OUTPUT_RIGHT : MagneticSystemMenu.BUTTON_OUTPUT_LEFT;
         if (menu instanceof ReliabilitySystemMenu) return clockwise ? ReliabilitySystemMenu.BUTTON_OUTPUT_RIGHT : ReliabilitySystemMenu.BUTTON_OUTPUT_LEFT;
         if (menu instanceof RadioLinkMenu) return clockwise ? RadioLinkMenu.BUTTON_OUTPUT_RIGHT : RadioLinkMenu.BUTTON_OUTPUT_LEFT;
+        if (menu instanceof PidControllerMenu) return clockwise ? PidControllerMenu.BUTTON_OUTPUT_NEXT : PidControllerMenu.BUTTON_OUTPUT_PREVIOUS;
         return -1;
     }
 
@@ -224,6 +548,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         if (menu instanceof OpticalSystemMenu optical) return optical.hasInputEndpoint();
         if (menu instanceof MagneticSystemMenu magnetic) return magnetic.hasInputEndpoint();
         if (menu instanceof ReliabilitySystemMenu reliability) return reliability.hasInputEndpoint();
+        if (menu instanceof PidControllerMenu) return true;
         return menu instanceof PneumaticSystemMenu pneumatic && pneumatic.directional();
     }
 
@@ -239,6 +564,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         if (menu instanceof MagneticSystemMenu magnetic) return magnetic.hasOutputEndpoint();
         if (menu instanceof ReliabilitySystemMenu reliability) return reliability.hasOutputEndpoint();
         if (menu instanceof RadioLinkMenu radio) return radio.kind() == RadioLinkMenu.KIND_RECEIVER;
+        if (menu instanceof PidControllerMenu) return true;
         return menu instanceof PneumaticSystemMenu pneumatic && pneumatic.directional();
     }
 
@@ -256,6 +582,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         if (menu instanceof OpticalSystemMenu optical) return optical.directional() || optical.kind() == OpticalSystemMenu.KIND_METER;
         if (menu instanceof AmethystSystemMenu amethyst) return amethyst.directional();
         if (menu instanceof MagneticSystemMenu magnetic) return magnetic.kind() == MagneticSystemMenu.KIND_PERMANENT || magnetic.kind() == MagneticSystemMenu.KIND_COIL;
+        if (menu instanceof PidControllerMenu) return true;
         return menu instanceof ReliabilitySystemMenu;
     }
 
@@ -294,16 +621,31 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private void setSection(Section target) {
         this.section = target;
         this.routePage = false;
+        this.workbenchPage = false;
+        this.workbenchSweepActive = false;
         updateWidgetVisibility();
         syncDeviceWidgetLabels();
         syncRouteControls();
+        syncWorkbenchControls();
     }
 
     private void setRoutePage() {
         routePage = true;
+        workbenchPage = false;
+        workbenchSweepActive = false;
         updateWidgetVisibility();
         syncDeviceWidgetLabels();
         syncRouteControls();
+        syncWorkbenchControls();
+    }
+
+    private void setWorkbenchPage() {
+        routePage = false;
+        workbenchPage = true;
+        updateWidgetVisibility();
+        syncDeviceWidgetLabels();
+        syncRouteControls();
+        syncWorkbenchControls();
     }
 
     private boolean isLegacyRouteWidget(AbstractWidget widget) {
@@ -316,18 +658,43 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         boolean controlsVisible = isConfigureSection();
         for (AbstractWidget widget : configureWidgets) widget.visible = controlsVisible && !isLegacyRouteWidget(widget);
         Section[] tabSections = {Section.OVERVIEW, Section.PORTS, Section.CONFIGURE, Section.DIAGNOSTICS, Section.HISTORY};
-        for (int i = 0; i < sectionButtons.size(); i++) sectionButtons.get(i).active = routePage || tabSections[i] != section;
+        for (int i = 0; i < sectionButtons.size(); i++) {
+            sectionButtons.get(i).active = routePage || workbenchPage || tabSections[i] != section;
+        }
         if (routeTab != null) routeTab.active = !routePage;
+        if (workbenchTab != null) workbenchTab.active = !workbenchPage;
+        syncWorkbenchControls();
     }
 
-    protected final boolean isConfigureSection() { return !routePage && section == Section.CONFIGURE; }
+    protected final boolean isConfigureSection() { return !routePage && !workbenchPage && section == Section.CONFIGURE; }
+    protected final boolean isWorkbenchPage() { return workbenchPage; }
     public final boolean showsPortVisualization() { return routePage || section == Section.PORTS; }
 
     @Override
     protected void containerTick() {
         super.containerTick();
+        recordSharedTimeline();
+        tickWorkbenchSweep();
         syncDeviceWidgetLabels();
         syncRouteControls();
+        syncWorkbenchControls();
+    }
+
+    private void recordSharedTimeline() {
+        if (EngineeringWorkbenchCatalog.uiPolicy(menu).tier() == EngineeringWorkbenchCatalog.UiTier.BLOCK) return;
+        int evidence = menu.evidenceState() == EngineeringDeviceMenu.EVIDENCE_VALID ? 1 : 0;
+        int health = menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_NOMINAL
+                || menu.operationalHealth() == EngineeringDeviceMenu.HEALTH_ACTIVE ? 1 : 0;
+        if (timelineCount < TIMELINE_SAMPLES) {
+            evidenceTimeline[timelineCount] = evidence;
+            healthTimeline[timelineCount] = health;
+            timelineCount++;
+            return;
+        }
+        System.arraycopy(evidenceTimeline, 1, evidenceTimeline, 0, TIMELINE_SAMPLES - 1);
+        System.arraycopy(healthTimeline, 1, healthTimeline, 0, TIMELINE_SAMPLES - 1);
+        evidenceTimeline[TIMELINE_SAMPLES - 1] = evidence;
+        healthTimeline[TIMELINE_SAMPLES - 1] = health;
     }
 
     @Override
@@ -361,6 +728,16 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             graphics.drawString(font, "ROUTE", 13, 62, TEXT, false);
             graphics.drawString(font, "Direct RX / TX direction control", 92, 62, MUTED, false);
             renderRoutePage(graphics);
+        } else if (workbenchPage) {
+            EngineeringWorkbenchCatalog.UiPolicy policy = EngineeringWorkbenchCatalog.uiPolicy(menu);
+            graphics.drawString(font, policy.pageLabel(), 13, 62, TEXT, false);
+            String subtitle = switch (policy.tier()) {
+                case BLOCK -> "Role, route and current evidence";
+                case DEVICE -> "Model, settings and evidence boundary";
+                case LAB -> "Model, tuning and measured response";
+            };
+            graphics.drawString(font, fitForWidth(subtitle, 210), 92, 62, MUTED, false);
+            renderWorkbenchPage(graphics);
         } else {
             graphics.drawString(font, section.label.toUpperCase(), 13, 62, TEXT, false);
             graphics.drawString(font, fitForWidth(section.subtitle, 210), 92, 62, MUTED, false);
@@ -371,6 +748,126 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         graphics.drawString(font, evidence, 13, imageHeight - 20, evidenceStateColor(), false);
         String position = fitForWidth("@ " + menu.blockPos().getX() + ", " + menu.blockPos().getY() + ", " + menu.blockPos().getZ(), 142);
         graphics.drawString(font, position, imageWidth - 13 - font.width(position), imageHeight - 20, MUTED, false);
+    }
+
+    protected void renderWorkbenchPage(GuiGraphics graphics) {
+        EngineeringWorkbenchCatalog.UiPolicy policy = EngineeringWorkbenchCatalog.uiPolicy(menu);
+        EngineeringWorkbenchCatalog.ModelCard model = EngineeringWorkbenchCatalog.describe(menu);
+        List<EngineeringWorkbenchCatalog.ParameterSpec> specs = workbenchParameters();
+
+        statusBadge(graphics, policy.tier().name() + " • " + model.family(), INFO, 16, 80);
+        statusBadge(graphics, menu.evidenceStateLabel(), evidenceStateColor(), 222, 80);
+
+        if (policy.tier() == EngineeringWorkbenchCatalog.UiTier.BLOCK) {
+            labelValue(graphics, "Block role", menu.topologyRoleLabel(), 108);
+            labelValue(graphics, "Physical route", menu.portRouteLabel(), 128);
+            labelValue(graphics, "Evidence", menu.evidenceStateLabel(), 148);
+            labelValue(graphics, "Health", menu.operationalHealthLabel(), 168);
+            sectionRule(graphics, 187);
+            safeWrappedText(graphics, policy.rationale(), 16, 196, MUTED, 3);
+            safeText(graphics, "No sweep, no desktop-style experiment workflow: inspect the world wiring first.",
+                    16, 228, INFO);
+            return;
+        }
+
+        if (policy.tier() == EngineeringWorkbenchCatalog.UiTier.LAB) {
+            renderLabWorkbench(graphics, model, specs);
+            return;
+        }
+
+        graphics.drawString(font, "Formula / relation", 16, 103, MUTED, false);
+        safeWrappedText(graphics, model.equation(), 16, 114, TEXT, 2);
+        graphics.drawString(font, "Process", 16, 136, MUTED, false);
+        safeText(graphics, model.process(), 67, 136, TEXT);
+        sectionRule(graphics, 151);
+        safeWrappedText(graphics, policy.rationale(), 16, 159, MUTED, 2);
+
+        if (!specs.isEmpty()) {
+            EngineeringWorkbenchCatalog.ParameterSpec spec = activeWorkbenchParameter();
+            if (spec != null) {
+                String index = "PARAM " + (workbenchParameterIndex + 1) + "/" + specs.size();
+                graphics.drawString(font, index, 16, 178, INFO, false);
+                String controlTag = switch (spec.control()) {
+                    case CHOICE -> "CHOICE";
+                    case RANGE -> "RANGE";
+                    case EXPERIMENT -> "EXPERIMENT";
+                };
+                String value = controlTag + " • " + spec.label() + " = " + spec.current()
+                        + (spec.unit().isBlank() ? "" : " " + spec.unit())
+                        + "   [" + spec.minimum() + ".." + spec.maximum() + "]";
+                graphics.drawString(font, fitForWidth(value, 222), 82, 178, TEXT, false);
+
+                int barX = 16, barY = 189, barW = 288, barH = 5;
+                graphics.fill(barX, barY, barX + barW, barY + barH, PANEL_3);
+                int span = Math.max(1, spec.maximum() - spec.minimum());
+                int clamped = Math.max(spec.minimum(), Math.min(spec.maximum(), spec.current()));
+                int filled = (int) Math.round((clamped - spec.minimum()) * barW / (double) span);
+                graphics.fill(barX, barY, barX + filled, barY + barH, INFO);
+                int markerX = barX + Math.max(0, Math.min(barW - 1, filled));
+                graphics.fill(markerX, barY - 2, markerX + 1, barY + barH + 2, TEXT);
+
+                if (!spec.detail().isBlank() && workbenchTarget != null) {
+                    workbenchTarget.setTooltip(Tooltip.create(Component.literal(spec.detail())));
+                }
+            }
+        } else {
+            labelValue(graphics, "Block-owned parameters", "NONE / READ ONLY", 182);
+            safeWrappedText(graphics, model.boundary(), 16, 199, MUTED, 2);
+        }
+    }
+
+    private void renderLabWorkbench(
+            GuiGraphics graphics,
+            EngineeringWorkbenchCatalog.ModelCard model,
+            List<EngineeringWorkbenchCatalog.ParameterSpec> specs
+    ) {
+        EngineeringWorkbenchCatalog.LabProfile lab = EngineeringWorkbenchCatalog.labProfile(menu);
+        graphics.drawString(font, "Formula", 16, 103, MUTED, false);
+        safeText(graphics, model.equation(), 58, 103, TEXT);
+
+        if (lab == null) {
+            safeText(graphics, "LAB profile unavailable • use Live / Observe for current server evidence.", 16, 128, WARN);
+            return;
+        }
+
+        String experimentLabel = "Experiment • " + EngineeringWorkbenchCatalog.experimentKind(menu).name().replace('_', ' ');
+        graphics.drawString(font, fitForWidth(experimentLabel, 118), 16, 126, INFO, false);
+        safeText(graphics, lab.question(), 138, 126, TEXT);
+        safeText(graphics, "X • " + lab.independentVariable(), 16, 140, MUTED);
+        safeText(graphics, "Y • " + lab.dependentVariable(), 160, 140, MUTED);
+
+        EngineeringWorkbenchCatalog.ParameterSpec spec = activeWorkbenchParameter();
+        EngineeringWorkbenchCatalog.ResponseSpec response = EngineeringWorkbenchCatalog.response(menu);
+        boolean showSweepPlot = spec != null && spec.sweepMeaningful() && response != null
+                && (workbenchSweepActive || workbenchSweepPointCount > 0);
+
+        if (showSweepPlot) {
+            int plotX = 16, plotY = 156, plotW = 288, plotH = 36;
+            EngineeringPlot.analogFrame(graphics, plotX, plotY, plotW, plotH);
+            EngineeringPlot.xyTrace(graphics, workbenchSweepPointCount,
+                    i -> workbenchSweepParameters[i],
+                    i -> workbenchSweepResponses[i],
+                    spec.minimum(), spec.maximum(),
+                    response.minimum(), response.maximum(),
+                    plotX + 3, plotY + 3, plotW - 6, plotH - 6, GOOD);
+            String caption = "measured " + spec.label() + " → " + response.label()
+                    + " • " + workbenchSweepPointCount + " pts";
+            graphics.drawString(font, fitForWidth(caption, 270), 22, 158,
+                    workbenchSweepActive ? INFO : GOOD, false);
+        } else {
+            List<EngineeringWorkbenchCatalog.LabMetric> metrics = lab.metrics();
+            int[] xs = {16, 111, 206};
+            for (int i = 0; i < Math.min(3, metrics.size()); i++) {
+                EngineeringWorkbenchCatalog.LabMetric metric = metrics.get(i);
+                metricCard(graphics, metric.label(), metric.value(), xs[i], 158, 88, i == 1 ? GOOD : INFO);
+            }
+        }
+
+        if (spec != null && workbenchTarget != null) {
+            String detail = spec.detail();
+            if (!lab.note().isBlank()) detail = detail + " • " + lab.note();
+            workbenchTarget.setTooltip(Tooltip.create(Component.literal(detail)));
+        }
     }
 
     private void renderRoutePage(GuiGraphics graphics) {
@@ -526,6 +1023,15 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         graphics.drawString(font, "10", x0 + (interior * 2) / 3 - 5, y + 11, MUTED, false);
         graphics.drawString(font, "15", x1 - 11, y + 11, MUTED, false);
         graphics.drawString(font, bounded + " / 15", 245, y - 10, TEXT, false);
+    }
+
+    protected final void safeWrappedText(GuiGraphics graphics, String text, int x, int y, int color, int maxLines) {
+        int width = Math.max(0, CONTENT_RIGHT - x);
+        List<net.minecraft.util.FormattedCharSequence> lines = font.split(Component.literal(text == null ? "" : text), width);
+        int count = Math.min(Math.max(0, maxLines), lines.size());
+        for (int i = 0; i < count; i++) {
+            graphics.drawString(font, lines.get(i), x, y + i * 10, color, false);
+        }
     }
 
     protected abstract void renderSection(GuiGraphics graphics, Section section);

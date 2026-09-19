@@ -5,6 +5,8 @@ import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.block.*;
 import dev.redstoneengineering.blockentity.LogicAnalyzerBlockEntity;
 import dev.redstoneengineering.blockentity.OscilloscopeBlockEntity;
+import dev.redstoneengineering.blockentity.PrecisionFilterBlockEntity;
+import dev.redstoneengineering.blockentity.PulseShaperBlockEntity;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
@@ -81,6 +83,18 @@ public final class RedstoneEngineering {
     public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<SignalConditionerBlock>>
             SIGNAL_CONDITIONER_CODEC =
             codec("signal_conditioner", SignalConditionerBlock::new);
+
+    public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<SignalAmplifierBlock>>
+            SIGNAL_AMPLIFIER_CODEC =
+            codec("signal_amplifier", SignalAmplifierBlock::new);
+
+    public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<SignalSelectorBlock>>
+            SIGNAL_SELECTOR_CODEC =
+            codec("signal_selector", SignalSelectorBlock::new);
+
+    public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<AnalogComparatorBlock>>
+            ANALOG_COMPARATOR_CODEC =
+            codec("analog_comparator", AnalogComparatorBlock::new);
 
     public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<CalibrationModuleBlock>>
             CALIBRATION_MODULE_CODEC =
@@ -178,6 +192,10 @@ public final class RedstoneEngineering {
     public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<LapisVoltageTransducerBlock>> LAPIS_VOLTAGE_TRANSDUCER_CODEC = codec("lapis_voltage_transducer", LapisVoltageTransducerBlock::new);
     public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<LapisPrecisionRangeSensorBlock>> LAPIS_PRECISION_RANGE_SENSOR_CODEC = codec("lapis_precision_range_sensor", LapisPrecisionRangeSensorBlock::new);
     public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<LapisToRedstoneQuantizerBlock>> LAPIS_TO_REDSTONE_QUANTIZER_CODEC = codec("lapis_to_redstone_quantizer", LapisToRedstoneQuantizerBlock::new);
+    public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<AmethystPiezoPickupBlock>> AMETHYST_PIEZO_PICKUP_CODEC = codec("amethyst_piezo_pickup", AmethystPiezoPickupBlock::new);
+    public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<RedstoneAmethystExciterBlock>> REDSTONE_AMETHYST_EXCITER_CODEC = codec("redstone_amethyst_exciter", RedstoneAmethystExciterBlock::new);
+    public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<QuartzToRedstoneReceiverBlock>> QUARTZ_TO_REDSTONE_RECEIVER_CODEC = codec("quartz_to_redstone_receiver", QuartzToRedstoneReceiverBlock::new);
+    public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<RedstoneCopperDriverBlock>> REDSTONE_COPPER_DRIVER_CODEC = codec("redstone_copper_driver", RedstoneCopperDriverBlock::new);
     public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<RedstoneToLapisScalerBlock>> REDSTONE_TO_LAPIS_SCALER_CODEC = codec("redstone_to_lapis_scaler", RedstoneToLapisScalerBlock::new);
     public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<QuartzTriggeredLapisSamplerBlock>> QUARTZ_TRIGGERED_LAPIS_SAMPLER_CODEC = codec("quartz_triggered_lapis_sampler", QuartzTriggeredLapisSamplerBlock::new);
 
@@ -231,6 +249,7 @@ public final class RedstoneEngineering {
     public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<ServoPositionSensorBlock>> SERVO_POSITION_SENSOR_CODEC = codec("servo_position_sensor", ServoPositionSensorBlock::new);
     public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<RedundantVoterBlock>> REDUNDANT_VOTER_CODEC = codec("redundant_voter", RedundantVoterBlock::new);
     public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<FaultLatchBlock>> FAULT_LATCH_CODEC = codec("fault_latch", FaultLatchBlock::new);
+    public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<SingleRelayBlock>> SINGLE_RELAY_CODEC = codec("single_relay", SingleRelayBlock::new);
     public static final DeferredHolder<MapCodec<? extends Block>, MapCodec<OperationsMonitorBlock>> OPERATIONS_MONITOR_CODEC = codec("operations_monitor", OperationsMonitorBlock::new);
 
     public static final DeferredBlock<SignalAnalyzerBlock> SIGNAL_ANALYZER =
@@ -395,6 +414,10 @@ public final class RedstoneEngineering {
     public static final DeferredBlock<LapisVoltageTransducerBlock> LAPIS_VOLTAGE_TRANSDUCER = BLOCKS.registerBlock("lapis_voltage_transducer", LapisVoltageTransducerBlock::new, machineProps(MapColor.COLOR_ORANGE));
     public static final DeferredBlock<LapisPrecisionRangeSensorBlock> LAPIS_PRECISION_RANGE_SENSOR = BLOCKS.registerBlock("lapis_precision_range_sensor", LapisPrecisionRangeSensorBlock::new, machineProps(MapColor.COLOR_BLUE));
     public static final DeferredBlock<LapisToRedstoneQuantizerBlock> LAPIS_TO_REDSTONE_QUANTIZER = BLOCKS.registerBlock("lapis_to_redstone_quantizer", LapisToRedstoneQuantizerBlock::new, machineProps(MapColor.COLOR_PURPLE));
+    public static final DeferredBlock<AmethystPiezoPickupBlock> AMETHYST_PIEZO_PICKUP = BLOCKS.registerBlock("amethyst_piezo_pickup", AmethystPiezoPickupBlock::new, machineProps(MapColor.COLOR_PURPLE));
+    public static final DeferredBlock<RedstoneAmethystExciterBlock> REDSTONE_AMETHYST_EXCITER = BLOCKS.registerBlock("redstone_amethyst_exciter", RedstoneAmethystExciterBlock::new, machineProps(MapColor.COLOR_PURPLE));
+    public static final DeferredBlock<QuartzToRedstoneReceiverBlock> QUARTZ_TO_REDSTONE_RECEIVER = BLOCKS.registerBlock("quartz_to_redstone_receiver", QuartzToRedstoneReceiverBlock::new, machineProps(MapColor.COLOR_GRAY));
+    public static final DeferredBlock<RedstoneCopperDriverBlock> REDSTONE_COPPER_DRIVER = BLOCKS.registerBlock("redstone_copper_driver", RedstoneCopperDriverBlock::new, machineProps(MapColor.COLOR_ORANGE));
     public static final DeferredBlock<RedstoneToLapisScalerBlock> REDSTONE_TO_LAPIS_SCALER = BLOCKS.registerBlock("redstone_to_lapis_scaler", RedstoneToLapisScalerBlock::new, machineProps(MapColor.COLOR_PURPLE));
     public static final DeferredBlock<QuartzTriggeredLapisSamplerBlock> QUARTZ_TRIGGERED_LAPIS_SAMPLER = BLOCKS.registerBlock("quartz_triggered_lapis_sampler", QuartzTriggeredLapisSamplerBlock::new, machineProps(MapColor.COLOR_GRAY));
 
@@ -418,6 +441,30 @@ public final class RedstoneEngineering {
                             .of(
                                     LogicAnalyzerBlockEntity::new,
                                     LOGIC_ANALYZER.get()
+                            )
+                            .build(null)
+            );
+
+    public static final Supplier<BlockEntityType<PrecisionFilterBlockEntity>>
+            PRECISION_FILTER_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register(
+                    "precision_filter",
+                    () -> BlockEntityType.Builder
+                            .of(
+                                    PrecisionFilterBlockEntity::new,
+                                    PRECISION_FILTER.get()
+                            )
+                            .build(null)
+            );
+
+    public static final Supplier<BlockEntityType<PulseShaperBlockEntity>>
+            PULSE_SHAPER_BLOCK_ENTITY =
+            BLOCK_ENTITY_TYPES.register(
+                    "pulse_shaper",
+                    () -> BlockEntityType.Builder
+                            .of(
+                                    PulseShaperBlockEntity::new,
+                                    PULSE_SHAPER.get()
                             )
                             .build(null)
             );
@@ -472,6 +519,10 @@ public final class RedstoneEngineering {
     public static final DeferredBlock<ServoPositionSensorBlock> SERVO_POSITION_SENSOR = BLOCKS.registerBlock("servo_position_sensor", ServoPositionSensorBlock::new, smallInstrumentProps(MapColor.COLOR_CYAN));
     public static final DeferredBlock<RedundantVoterBlock> REDUNDANT_VOTER = BLOCKS.registerBlock("redundant_voter", RedundantVoterBlock::new, machineProps(MapColor.COLOR_LIGHT_GREEN));
     public static final DeferredBlock<FaultLatchBlock> FAULT_LATCH = BLOCKS.registerBlock("fault_latch", FaultLatchBlock::new, machineProps(MapColor.COLOR_RED));
+    public static final DeferredBlock<SingleRelayBlock> SINGLE_RELAY = BLOCKS.registerBlock("single_relay", SingleRelayBlock::new, machineProps(MapColor.METAL));
+    public static final DeferredBlock<SignalAmplifierBlock> SIGNAL_AMPLIFIER = BLOCKS.registerBlock("signal_amplifier", SignalAmplifierBlock::new, machineProps(MapColor.COLOR_RED));
+    public static final DeferredBlock<SignalSelectorBlock> SIGNAL_SELECTOR = BLOCKS.registerBlock("signal_selector", SignalSelectorBlock::new, machineProps(MapColor.COLOR_PURPLE));
+    public static final DeferredBlock<AnalogComparatorBlock> ANALOG_COMPARATOR = BLOCKS.registerBlock("analog_comparator", AnalogComparatorBlock::new, machineProps(MapColor.COLOR_GRAY));
     public static final DeferredBlock<OperationsMonitorBlock> OPERATIONS_MONITOR = BLOCKS.registerBlock("operations_monitor", OperationsMonitorBlock::new, machineProps(MapColor.COLOR_BLUE));
 
     public static final DeferredItem<BlockItem> SIGNAL_ANALYZER_ITEM =
@@ -620,6 +671,10 @@ public final class RedstoneEngineering {
     public static final DeferredItem<BlockItem> LAPIS_VOLTAGE_TRANSDUCER_ITEM = ITEMS.registerSimpleBlockItem("lapis_voltage_transducer", LAPIS_VOLTAGE_TRANSDUCER);
     public static final DeferredItem<BlockItem> LAPIS_PRECISION_RANGE_SENSOR_ITEM = ITEMS.registerSimpleBlockItem("lapis_precision_range_sensor", LAPIS_PRECISION_RANGE_SENSOR);
     public static final DeferredItem<BlockItem> LAPIS_TO_REDSTONE_QUANTIZER_ITEM = ITEMS.registerSimpleBlockItem("lapis_to_redstone_quantizer", LAPIS_TO_REDSTONE_QUANTIZER);
+    public static final DeferredItem<BlockItem> AMETHYST_PIEZO_PICKUP_ITEM = ITEMS.registerSimpleBlockItem("amethyst_piezo_pickup", AMETHYST_PIEZO_PICKUP);
+    public static final DeferredItem<BlockItem> REDSTONE_AMETHYST_EXCITER_ITEM = ITEMS.registerSimpleBlockItem("redstone_amethyst_exciter", REDSTONE_AMETHYST_EXCITER);
+    public static final DeferredItem<BlockItem> QUARTZ_TO_REDSTONE_RECEIVER_ITEM = ITEMS.registerSimpleBlockItem("quartz_to_redstone_receiver", QUARTZ_TO_REDSTONE_RECEIVER);
+    public static final DeferredItem<BlockItem> REDSTONE_COPPER_DRIVER_ITEM = ITEMS.registerSimpleBlockItem("redstone_copper_driver", REDSTONE_COPPER_DRIVER);
     public static final DeferredItem<BlockItem> REDSTONE_TO_LAPIS_SCALER_ITEM = ITEMS.registerSimpleBlockItem("redstone_to_lapis_scaler", REDSTONE_TO_LAPIS_SCALER);
     public static final DeferredItem<BlockItem> QUARTZ_TRIGGERED_LAPIS_SAMPLER_ITEM = ITEMS.registerSimpleBlockItem("quartz_triggered_lapis_sampler", QUARTZ_TRIGGERED_LAPIS_SAMPLER);
 
@@ -676,6 +731,10 @@ public final class RedstoneEngineering {
     public static final DeferredItem<BlockItem> SERVO_POSITION_SENSOR_ITEM = ITEMS.registerSimpleBlockItem("servo_position_sensor", SERVO_POSITION_SENSOR);
     public static final DeferredItem<BlockItem> REDUNDANT_VOTER_ITEM = ITEMS.registerSimpleBlockItem("redundant_voter", REDUNDANT_VOTER);
     public static final DeferredItem<BlockItem> FAULT_LATCH_ITEM = ITEMS.registerSimpleBlockItem("fault_latch", FAULT_LATCH);
+    public static final DeferredItem<BlockItem> SINGLE_RELAY_ITEM = ITEMS.registerSimpleBlockItem("single_relay", SINGLE_RELAY);
+    public static final DeferredItem<BlockItem> SIGNAL_AMPLIFIER_ITEM = ITEMS.registerSimpleBlockItem("signal_amplifier", SIGNAL_AMPLIFIER);
+    public static final DeferredItem<BlockItem> SIGNAL_SELECTOR_ITEM = ITEMS.registerSimpleBlockItem("signal_selector", SIGNAL_SELECTOR);
+    public static final DeferredItem<BlockItem> ANALOG_COMPARATOR_ITEM = ITEMS.registerSimpleBlockItem("analog_comparator", ANALOG_COMPARATOR);
     public static final DeferredItem<BlockItem> OPERATIONS_MONITOR_ITEM = ITEMS.registerSimpleBlockItem("operations_monitor", OPERATIONS_MONITOR);
 
     public static final Supplier<CreativeModeTab> RSE_TAB =
@@ -777,6 +836,10 @@ public final class RedstoneEngineering {
                                         output.accept(LAPIS_VOLTAGE_TRANSDUCER_ITEM.get());
                                         output.accept(LAPIS_PRECISION_RANGE_SENSOR_ITEM.get());
                                         output.accept(LAPIS_TO_REDSTONE_QUANTIZER_ITEM.get());
+                                        output.accept(AMETHYST_PIEZO_PICKUP_ITEM.get());
+                                        output.accept(REDSTONE_AMETHYST_EXCITER_ITEM.get());
+                                        output.accept(QUARTZ_TO_REDSTONE_RECEIVER_ITEM.get());
+                                        output.accept(REDSTONE_COPPER_DRIVER_ITEM.get());
                                         output.accept(REDSTONE_TO_LAPIS_SCALER_ITEM.get());
                                         output.accept(QUARTZ_TRIGGERED_LAPIS_SAMPLER_ITEM.get());
 
@@ -831,6 +894,10 @@ public final class RedstoneEngineering {
                                         output.accept(SERVO_POSITION_SENSOR_ITEM.get());
                                         output.accept(REDUNDANT_VOTER_ITEM.get());
                                         output.accept(FAULT_LATCH_ITEM.get());
+                                        output.accept(SINGLE_RELAY_ITEM.get());
+                                        output.accept(SIGNAL_AMPLIFIER_ITEM.get());
+                                        output.accept(SIGNAL_SELECTOR_ITEM.get());
+                                        output.accept(ANALOG_COMPARATOR_ITEM.get());
                                         output.accept(OPERATIONS_MONITOR_ITEM.get());
                                     }
                             )

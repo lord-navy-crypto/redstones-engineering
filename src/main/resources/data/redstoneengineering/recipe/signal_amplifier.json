@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": ["CRC","QRR","CRC"],
+  "key": {
+    "C": {"item": "minecraft:copper_ingot"},
+    "R": {"item": "minecraft:redstone"},
+    "Q": {"item": "minecraft:quartz"}
+  },
+  "result": {"id": "redstoneengineering:signal_amplifier","count": 1}
+}
