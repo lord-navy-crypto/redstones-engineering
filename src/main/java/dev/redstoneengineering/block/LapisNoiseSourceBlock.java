@@ -41,6 +41,8 @@ import java.util.Optional;
 public class LapisNoiseSourceBlock extends DirectionalDomainSourceBlock implements EngineeringPortProvider {
     public static final IntegerProperty BASELINE = IntegerProperty.create("baseline", 0, 20);
     public static final IntegerProperty NOISE = IntegerProperty.create("noise", 0, 10);
+    public static final IntegerProperty RATE = IntegerProperty.create("rate", 0, 3);
+    private static final int[] SAMPLE_PERIODS = {2, 4, 8, 16};
     private static final String KEY = "lapis_noise";
     private static final int SAMPLE_SLOT = 0;
     private static final int INITIALIZED_SLOT = 1;
@@ -48,13 +50,16 @@ public class LapisNoiseSourceBlock extends DirectionalDomainSourceBlock implemen
 
     public LapisNoiseSourceBlock(Properties properties) {
         super(properties);
-        registerDefaultState(defaultBlockState().setValue(BASELINE, 10).setValue(NOISE, 3));
+        registerDefaultState(defaultBlockState()
+                .setValue(BASELINE, 10)
+                .setValue(NOISE, 3)
+                .setValue(RATE, 1));
     }
 
     @Override public MapCodec<LapisNoiseSourceBlock> codec() { return RedstoneEngineering.LAPIS_NOISE_SOURCE_CODEC.value(); }
     @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
-        builder.add(BASELINE, NOISE);
+        builder.add(BASELINE, NOISE, RATE);
     }
 
     private static EngineeringPort port(Direction side) {
@@ -88,6 +93,20 @@ public class LapisNoiseSourceBlock extends DirectionalDomainSourceBlock implemen
         return runtime != null && runtime.length == RUNTIME_SIZE && runtime[INITIALIZED_SLOT] == 1;
     }
 
+    public static int samplePeriodTicks(BlockState state) {
+        return SAMPLE_PERIODS[Math.max(0, Math.min(SAMPLE_PERIODS.length - 1, state.getValue(RATE)))];
+    }
+
+    public static String rateName(BlockState state) {
+        return switch (state.getValue(RATE)) {
+            case 0 -> "FAST";
+            case 1 -> "MEDIUM";
+            case 2 -> "SLOW";
+            case 3 -> "DRIFT";
+            default -> "MEDIUM";
+        };
+    }
+
     /** Authoritative physics write used by placement, the scheduler and deterministic runtime tests. */
     public static void setSample(Level level, BlockPos pos, int sample) {
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
@@ -118,7 +137,7 @@ public class LapisNoiseSourceBlock extends DirectionalDomainSourceBlock implemen
         int sample = FaultInjectionModel.addDeterministicNoise(base, noise, level.getGameTime(), pos.asLong(), 0, 100);
         setSample(level, pos, sample);
         DomainNetwork.recomputeLapis(level, pos);
-        level.scheduleTick(pos, this, 4);
+        level.scheduleTick(pos, this, samplePeriodTicks(state));
     }
 
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
@@ -130,8 +149,13 @@ public class LapisNoiseSourceBlock extends DirectionalDomainSourceBlock implemen
                     if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeLapisAround(serverLevel, pos);
                 }
             } else if (player.isShiftKeyDown()) {
-                int noise = state.getValue(NOISE);
-                next = state.setValue(NOISE, noise >= 10 ? 0 : noise + 1);
+                if (hit.getDirection() == Direction.UP) {
+                    int noise = state.getValue(NOISE);
+                    next = state.setValue(NOISE, noise >= 10 ? 0 : noise + 1);
+                } else {
+                    int rate = state.getValue(RATE);
+                    next = state.setValue(RATE, (rate + 1) % SAMPLE_PERIODS.length);
+                }
                 level.setBlock(pos, next, Block.UPDATE_CLIENTS);
             } else {
                 int baseline = state.getValue(BASELINE);
@@ -146,8 +170,9 @@ public class LapisNoiseSourceBlock extends DirectionalDomainSourceBlock implemen
                     "Fault injection [NOISE] | LAPIS OUT=" + outputSide(next).getName().toUpperCase()
                             + " | baseline=" + String.format("%.2f", next.getValue(BASELINE) * 0.05)
                             + " | noise=±" + String.format("%.2f", next.getValue(NOISE) * 0.02)
+                            + " | rate=" + rateName(next) + " (" + samplePeriodTicks(next) + "t)"
                             + " | now=" + String.format("%.2f", current / 100.0)
-                            + " | zero is valid | shift-side=route, shift-vertical=noise"), true);
+                            + " | zero is valid | shift-side=route, shift-UP=noise, shift-DOWN=rate"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
