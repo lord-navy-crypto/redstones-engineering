@@ -152,10 +152,24 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        int measured = sampleTarget(level, pos, state);
-        boolean present = measurementPresent(level, pos, state, measured);
+        RedstoneObservationSupport.Observation observation = measurementObservation(level, pos, state);
+        int measured = observation.value();
+        boolean present = observation.valid();
         recordSample(level, pos, measured, present);
-        int requestedOutput = state.getValue(MODE) == INLINE ? measured : 0;
+
+        int requestedOutput = 0;
+        if (state.getValue(MODE) == INLINE) {
+            if (observation.valid()) {
+                requestedOutput = measured;
+            } else if (observation.quality() == PortQuality.NO_SIGNAL) {
+                // A genuinely absent source de-energizes the inline path.
+                requestedOutput = 0;
+            } else {
+                // Degraded evidence is not a new numerical zero. Keep the last trustworthy pass-through value.
+                requestedOutput = state.getValue(OUTPUT);
+            }
+        }
+
         if (state.getValue(OUTPUT) != requestedOutput) {
             BlockState next = state.setValue(OUTPUT, requestedOutput);
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
