@@ -34,7 +34,7 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
     private static final int LIMITING_EPISODES = 1;
     private static final int LAST_LIMIT_TICK = 2;
     private static final int RUNTIME_SIZE = 3;
-    public static final IntegerProperty MODE = IntegerProperty.create("mode", 0, 4);
+    public static final IntegerProperty MODE = IntegerProperty.create("mode", 0, 5);
     public static final IntegerProperty PARAM = IntegerProperty.create("param", 0, 15);
 
     public SignalConditionerBlock(Properties properties) {
@@ -82,6 +82,7 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
             case 2 -> Math.min(input, Math.max(1, param));
             case 3 -> SignalMath.threshold(input, Math.max(1, param));
             case 4 -> Math.abs(input - previousOutput) >= Math.max(1, Math.min(4, param)) ? input : previousOutput;
+            case 5 -> (int) Math.round(input / (double) Math.max(2, Math.min(4, param)));
             default -> input;
         };
     }
@@ -175,11 +176,11 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
         BlockState next;
         switch (action) {
             case SignalConditionerMenu.BUTTON_MODE_PREVIOUS -> {
-                int nextMode = (mode + 4) % 5;
+                int nextMode = (mode + 5) % 6;
                 next = state.setValue(MODE, nextMode).setValue(PARAM, defaultParam(nextMode));
             }
             case SignalConditionerMenu.BUTTON_MODE_NEXT -> {
-                int nextMode = (mode + 1) % 5;
+                int nextMode = (mode + 1) % 6;
                 next = state.setValue(MODE, nextMode).setValue(PARAM, defaultParam(nextMode));
             }
             case SignalConditionerMenu.BUTTON_PARAM_DECREASE ->
@@ -239,14 +240,19 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
             case 2 -> 10;
             case 3 -> 8;
             case 4 -> 2;
+            case 5 -> 2;
             default -> 1;
         };
     }
 
     private static int cycleParam(int mode, int param, int delta) {
-        int min = mode == 1 ? 0 : 1;
+        int min = switch (mode) {
+            case 1 -> 0;
+            case 5 -> 2;
+            default -> 1;
+        };
         int max = switch (mode) {
-            case 0, 4 -> 4;
+            case 0, 4, 5 -> 4;
             case 1 -> 10;
             case 2, 3 -> 15;
             default -> 15;
@@ -264,6 +270,7 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
             case 2 -> "CLAMP";
             case 3 -> "THRESHOLD";
             case 4 -> "DEADBAND";
+            case 5 -> "ATTENUATE";
             default -> "UNKNOWN";
         };
     }
@@ -275,6 +282,7 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
             case 2 -> "max=" + Math.max(1, param);
             case 3 -> "threshold=" + Math.max(1, param);
             case 4 -> "band=" + Math.max(1, Math.min(4, param));
+            case 5 -> "divide=÷" + Math.max(2, Math.min(4, param));
             default -> "";
         };
     }
