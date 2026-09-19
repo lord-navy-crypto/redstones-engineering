@@ -180,6 +180,18 @@ public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
     @Override protected int observedOutputVoltage(Level level, BlockPos pos, BlockState state) { return outputVoltage(level, pos); }
     @Override protected PortQuality observedOutputQuality(Level level, BlockPos pos, BlockState state) { return outputQuality(level, pos); }
 
+    /** Server-authoritative capacitance-index adjustment; stored charge is intentionally retained. */
+    public static boolean adjustCapacitance(Level level, BlockPos pos, int delta) {
+        if (level.isClientSide || delta == 0) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof CopperCapacitorBlock capacitor)) return false;
+        int current = state.getValue(C_INDEX);
+        int nextValue = Math.floorMod(current + (delta > 0 ? 1 : -1), 4);
+        level.setBlock(pos, state.setValue(C_INDEX, nextValue), Block.UPDATE_CLIENTS);
+        level.scheduleTick(pos, capacitor, 1);
+        return true;
+    }
+
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
