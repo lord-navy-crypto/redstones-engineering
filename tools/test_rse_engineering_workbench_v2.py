@@ -96,5 +96,39 @@ class EngineeringWorkbenchV2Tests(unittest.TestCase):
             self.assertIn(token, self.universal_menu)
 
 
+    def test_specialized_hmis_get_shared_bounded_parameter_catalog(self):
+        for token in [
+            "record ParameterSpec(",
+            "PidControllerMenu.BUTTON_TUNING_PREVIOUS",
+            "SignalConditionerMenu.BUTTON_PARAM_DECREASE",
+            "SignalProcessorMenu.BUTTON_FILTER_FALL_PREVIOUS",
+            "SignalProcessorMenu.BUTTON_THRESHOLD_PREVIOUS",
+            "RangeSensorMenu.BUTTON_RESPONSE_PREVIOUS",
+            "PneumaticSystemMenu.KIND_REGULATOR",
+            "AmethystSystemMenu.KIND_TUNED",
+            "RadioLinkMenu.BUTTON_CHANNEL_PREVIOUS",
+            "DigitalCommunicationMenu.KIND_REGENERATOR",
+            "OpticalSystemMenu.KIND_ATTENUATOR",
+            "MagneticSystemMenu.KIND_COIL",
+        ]:
+            self.assertIn(token, self.catalog)
+
+    def test_model_page_has_exact_target_editor_without_world_mutation(self):
+        for token in [
+            "addWorkbenchControls",
+            "workbenchTarget",
+            "applyWorkbenchTargetValue",
+            "spec.incrementButton()",
+            "spec.decrementButton()",
+            "Min ",
+            "Max ",
+            "existing server-authoritative step actions",
+        ]:
+            self.assertIn(token, self.screen)
+        self.assertNotIn("setBlock(", self.screen)
+        self.assertNotIn("RuntimeIntStore", self.screen)
+
+
+
 if __name__ == "__main__":
     unittest.main()
