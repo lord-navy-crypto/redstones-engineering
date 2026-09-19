@@ -74,6 +74,7 @@
   "block.redstoneengineering.lapis_voltage_transducer": "青金石电压变送器",
   "block.redstoneengineering.lapis_precision_range_sensor": "青金石精密距离传感器",
   "block.redstoneengineering.lapis_to_redstone_quantizer": "青金石→红石量化器",
+  "block.redstoneengineering.amethyst_piezo_pickup": "紫水晶压电拾振器",
   "block.redstoneengineering.redstone_to_lapis_scaler": "红石→青金石缩放器",
   "block.redstoneengineering.quartz_triggered_lapis_sampler": "石英触发青金石采样器",
   "block.redstoneengineering.eight_bit_data_bus": "8位捆绑数据总线",
