@@ -87,7 +87,7 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
         labelValue(graphics, "D smoothing / slew ↑ / ↓",
                 menu.derivativeSmoothing() + " / " + menu.riseLimit() + " / " + menu.fallLimit(), 157);
         safeText(graphics,
-                "Derivative is on measured PV; integral uses the displayed divisor; slew limits apply per 2t control cycle.",
+                "Derivative is on measured PV to avoid setpoint derivative kick; rise/fall slew limits are levels per 2t control cycle.",
                 16, 176, MUTED);
         safeText(graphics,
                 "Commissioning actions below capture/reset evidence. Physical RX/TX orientation lives only on Route.",
