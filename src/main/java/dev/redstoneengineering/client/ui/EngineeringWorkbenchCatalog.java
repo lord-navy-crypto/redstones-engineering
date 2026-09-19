@@ -24,6 +24,29 @@ public final class EngineeringWorkbenchCatalog {
 
     public record ModelCard(String family, String equation, String parameters, String process, String boundary) {}
 
+    public record LabMetric(String label, String value, String detail) {
+        public LabMetric {
+            detail = detail == null ? "" : detail;
+        }
+    }
+
+    /**
+     * Device-specific experiment framing for LAB-tier blocks.
+     * Every value shown here is derived from already synchronized server state.
+     */
+    public record LabProfile(
+            String question,
+            String independentVariable,
+            String dependentVariable,
+            List<LabMetric> metrics,
+            String note
+    ) {
+        public LabProfile {
+            metrics = metrics == null ? List.of() : List.copyOf(metrics);
+            note = note == null ? "" : note;
+        }
+    }
+
     /**
      * One live server-synchronized response quantity for parameter experiments.
      * This is observation only: it never predicts or drives the device.
@@ -360,6 +383,236 @@ public final class EngineeringWorkbenchCatalog {
                 "device-specific synchronized configuration",
                 "observe inputs -> update authoritative server state -> publish outputs/evidence",
                 "This page explains the server-owned model; it never moves simulation authority into the client.");
+    }
+
+    public static LabProfile labProfile(EngineeringDeviceMenu menu) {
+        if (uiPolicy(menu).tier() != UiTier.LAB) return null;
+
+        if (menu instanceof PidControllerMenu pid) {
+            return lab(
+                    "How does controller tuning change closed-loop response?",
+                    "tuning preset / setpoint disturbance",
+                    "PV tracking and control effort",
+                    metric("Error", Integer.toString(pid.error()), "SP - PV"),
+                    metric("Settling", pid.settlingTicks() < 0 ? "—" : pid.settlingTicks() + "t", "Measured commissioning settling time."),
+                    metric("Overshoot", Integer.toString(pid.overshoot()), "Measured peak overshoot above target."),
+                    "Saturation events " + pid.saturationEvents() + " • rise90 "
+                            + (pid.rise90Ticks() < 0 ? "—" : pid.rise90Ticks() + "t")
+            );
+        }
+
+        if (menu instanceof SignalConditionerMenu conditioner) {
+            return lab(
+                    "How does the transfer setting change a live signal?",
+                    "mode parameter",
+                    "conditioned output",
+                    metric("Input", conditioner.input() + "/15", "Server-synchronized input."),
+                    metric("Output", conditioner.output() + "/15", "Server-computed transfer output."),
+                    metric("Limit events", Integer.toString(conditioner.limitingEpisodes()), "Count of limiting/clipping episodes."),
+                    conditioner.limiting() ? "Currently limiting" : "Not currently limiting"
+            );
+        }
+
+        if (menu instanceof SignalProcessorMenu processor) {
+            return switch (processor.kind()) {
+                case SignalProcessorMenu.KIND_FILTER -> lab(
+                        "How do rise/fall limits change tracking and settling?",
+                        "rise/fall rate",
+                        "output lag and settling",
+                        metric("Output", processor.output() + "/15", "Filtered live output."),
+                        metric("Lag", Integer.toString(processor.runtimeA()), "Current input-output lag."),
+                        metric("Settle ETA", processor.runtimeC() + "t", "Server-estimated remaining settling time."),
+                        processor.runtimeB() == 1 ? "SETTLED" : "SETTLING"
+                );
+                case SignalProcessorMenu.KIND_EDGE -> lab(
+                        "How does edge mode change accepted event evidence?",
+                        "edge mode",
+                        "detected edge events",
+                        metric("Output", processor.output() + "/15", "Current event output."),
+                        metric("Edges", Integer.toString(processor.runtimeB()), "Detected genuine edges."),
+                        metric("Edge age", processor.runtimeC() < 0 ? "NONE" : processor.runtimeC() + "t", "Age of last accepted edge."),
+                        "Edge detection uses retained baseline; UI inspection never creates an edge."
+                );
+                case SignalProcessorMenu.KIND_PULSE -> lab(
+                        "How do pulse width, threshold and hysteresis change trigger behavior?",
+                        "pulse / threshold / hysteresis",
+                        "accepted versus suppressed triggers",
+                        metric("Accepted", Integer.toString(processor.runtimeB()), "Accepted trigger count."),
+                        metric("Suppressed", Integer.toString(processor.runtimeC()), "Rejected/suppressed trigger count."),
+                        metric("Pulse left", processor.runtimeA() + "t", "Remaining authoritative output pulse time."),
+                        "Last trigger age " + (processor.runtimeD() < 0 ? "NONE" : processor.runtimeD() + "t")
+                );
+                default -> null;
+            };
+        }
+
+        if (menu instanceof QuartzTimingMenu quartz) {
+            return switch (quartz.kind()) {
+                case QuartzTimingMenu.KIND_OSCILLATOR -> lab(
+                        "How does the configured period change the realized server clock?",
+                        "period index",
+                        "realized clock period",
+                        metric("State", quartz.primary() == 1 ? "HIGH" : "LOW", "Current oscillator state."),
+                        metric("Period", quartz.secondary() + "t", "Realized nominal period."),
+                        metric("Index", Integer.toString(quartz.tertiary()), "Configured period index."),
+                        "Clock source is server-owned; opening the GUI never advances phase."
+                );
+                case QuartzTimingMenu.KIND_DIVIDER -> lab(
+                        "Does the divider preserve the expected timing ratio?",
+                        "division ratio",
+                        "output period",
+                        metric("Period in", quartz.primary() + "t", "Measured upstream period."),
+                        metric("Period out", quartz.secondary() + "t", "Measured divided period."),
+                        metric("Edges", Integer.toString(quartz.runtimeA()), "Counted genuine input edges."),
+                        quartz.runtimeB() == 1 ? "Divider initialized" : "Waiting for genuine edge baseline"
+                );
+                case QuartzTimingMenu.KIND_STABILITY -> lab(
+                        "How stable is the measured clock against its reference?",
+                        "incoming edge timing",
+                        "measured period error",
+                        metric("Measured", quartz.primary() + "t", "Current/retained measured period."),
+                        metric("Error", quartz.secondary() + "t", "Deviation from nominal/reference."),
+                        metric("Current", quartz.runtimeC() == 1 ? "YES" : "NO", "Whether current timing evidence is fresh."),
+                        "Two genuine rising edges are required before timing evidence is accepted."
+                );
+                default -> null;
+            };
+        }
+
+        if (menu instanceof AmethystSystemMenu amethyst) {
+            return switch (amethyst.kind()) {
+                case AmethystSystemMenu.KIND_SOURCE -> lab(
+                        "How do drive frequency and peak amplitude shape the emitted resonance state?",
+                        "drive frequency / peak amplitude",
+                        "active resonant amplitude",
+                        metric("Frequency", Integer.toString(amethyst.primary()), "Drive frequency index."),
+                        metric("Amplitude", amethyst.secondary() + "/15", "Configured peak amplitude."),
+                        metric("Active", amethyst.stateFlag() == 1 ? "YES" : "NO", "Whether the source is currently resonating."),
+                        "Source experiment is local excitation; downstream response belongs to connected resonators/filters."
+                );
+                case AmethystSystemMenu.KIND_FILTER -> lab(
+                        "Which frequencies pass the configured filter?",
+                        "target frequency",
+                        "filtered output amplitude",
+                        metric("Input f", Integer.toString(amethyst.primary()), "Observed input frequency."),
+                        metric("Target f", Integer.toString(amethyst.tertiary()), "Configured pass frequency."),
+                        metric("Aout", amethyst.auxiliary() + "/15", "Server-computed filtered output amplitude."),
+                        amethyst.stateFlag() == 1 ? "MATCHED" : "OUT OF BAND"
+                );
+                case AmethystSystemMenu.KIND_TUNED -> lab(
+                        "Where is the resonant peak and how selective is it?",
+                        "natural frequency / Q",
+                        "resonant output amplitude",
+                        metric("Input f", Integer.toString(amethyst.primary()), "Observed drive frequency."),
+                        metric("Natural f", Integer.toString(amethyst.tertiary()), "Configured natural frequency."),
+                        metric("Aout", amethyst.extraB() + "/15", "Live tuned-resonator response amplitude."),
+                        "Modeled bandwidth index ±" + amethyst.extraA()
+                );
+                case AmethystSystemMenu.KIND_SPECTRUM -> lab(
+                        "What frequency evidence exists on this local resonance network?",
+                        "observed sources",
+                        "frequency coverage/conflicts",
+                        metric("Samples", Integer.toString(amethyst.auxiliary()), "Observed spectrum samples."),
+                        metric("Conflicts", Integer.toString(amethyst.extraA()), "Overlapping/conflicting evidence."),
+                        metric("Coverage", amethyst.extraB() + "/" + amethyst.stateFlag(), "Bounded spectrum coverage evidence."),
+                        "Observer-only spectrum view; no source is created by the UI."
+                );
+                default -> null;
+            };
+        }
+
+        if (menu instanceof PneumaticSystemMenu pneumatic) {
+            return switch (pneumatic.kind()) {
+                case PneumaticSystemMenu.KIND_COMPRESSOR -> lab(
+                        "How quickly does the compressor track commanded pressure?",
+                        "command / response profile",
+                        "actual pressure",
+                        metric("Target P", pneumatic.secondary() + "/100", "Command-derived pressure target."),
+                        metric("Actual P", pneumatic.tertiary() + "/100", "Finite-response compressor pressure."),
+                        metric("Track err", Integer.toString(pneumatic.compressorTrackingError()), "Target minus actual pressure."),
+                        "Runtime " + pneumatic.compressorRunTicks() + "t"
+                );
+                case PneumaticSystemMenu.KIND_REGULATOR -> lab(
+                        "How does setpoint interact with upstream pressure and downstream loss?",
+                        "pressure setpoint",
+                        "regulated downstream pressure",
+                        metric("Upstream", pneumatic.upstreamPressure() + "/100", "Solved upstream pressure."),
+                        metric("Downstream", pneumatic.downstreamPressure() + "/100", "Solved downstream pressure."),
+                        metric("Setpoint", pneumatic.secondary() + "/100", "Configured regulator setpoint."),
+                        "Pressure is read from the authoritative network solve."
+                );
+                case PneumaticSystemMenu.KIND_PROPORTIONAL -> lab(
+                        "How closely does valve opening follow its command?",
+                        "command / response profile",
+                        "actual opening",
+                        metric("Command", pneumatic.proportionalCommand() + "/15", "Requested valve opening."),
+                        metric("Opening", pneumatic.tertiary() + "/15", "Actual finite-response opening."),
+                        metric("Track err", Integer.toString(pneumatic.proportionalTrackingError()), "Command minus actual opening."),
+                        "Travel " + pneumatic.proportionalTravel() + " • reversals " + pneumatic.proportionalReversals()
+                );
+                case PneumaticSystemMenu.KIND_CYLINDER -> lab(
+                        "How do supply pressure and path losses affect actuator motion?",
+                        "supply / target position",
+                        "actual cylinder position",
+                        metric("Position", pneumatic.secondary() + "/15", "Current actuator position."),
+                        metric("Error", Integer.toString(pneumatic.cylinderError()), "Target minus actual position."),
+                        metric("Path loss", Integer.toString(pneumatic.cylinderObservedLoss()), "Line + restriction loss on winning path."),
+                        "Velocity " + pneumatic.cylinderVelocity() + " • stall " + pneumatic.cylinderStallTicks()
+                                + "t • samples " + pneumatic.cylinderSamples()
+                );
+                case PneumaticSystemMenu.KIND_FLOW_METER -> lab(
+                        "What flow proxy follows the measured pressure drop?",
+                        "network pressure state",
+                        "flow proxy",
+                        metric("Flow", Integer.toString(pneumatic.primary()), "Server-computed flow proxy."),
+                        metric("dP", Integer.toString(pneumatic.secondary()), "Measured pressure drop."),
+                        metric("Pin", pneumatic.tertiary() + "/100", "Upstream pressure."),
+                        "Commissioning " + pneumatic.commissioningStatus().name()
+                );
+                default -> null;
+            };
+        }
+
+        if (menu instanceof ReliabilitySystemMenu reliability
+                && reliability.kind() == ReliabilitySystemMenu.KIND_SERVO) {
+            return lab(
+                    "How does the slew profile affect real actuator tracking?",
+                    "slew profile / command",
+                    "servo position and error",
+                    metric("Position", reliability.primary() + "/15", "Current servo position."),
+                    metric("Command", reliability.secondary() + "/15", "Requested position."),
+                    metric("Error", Integer.toString(reliability.auxiliary()), "Command minus actual position."),
+                    "Velocity " + reliability.tertiary() + " • soft-limit hits " + reliability.extraB()
+            );
+        }
+
+        EngineeringWorkbenchCatalog.ResponseSpec response = response(menu);
+        List<ParameterSpec> parameters = parameters(menu);
+        if (response != null && !parameters.isEmpty()) {
+            ParameterSpec p = parameters.get(0);
+            return lab(
+                    "How does this block-owned parameter affect the synchronized response?",
+                    p.label(),
+                    response.label(),
+                    metric("Parameter", Integer.toString(p.current()), "Current server-owned setting."),
+                    metric("Response", response.value() + (response.unit().isBlank() ? "" : " " + response.unit()),
+                            response.detail()),
+                    metric("Evidence", response.usable() ? "VALID" : "NOT CURRENT", "Response validity gate."),
+                    "Generic LAB framing used only because both a real parameter and real response are available."
+            );
+        }
+        return null;
+    }
+
+    private static LabProfile lab(
+            String question, String independent, String dependent,
+            LabMetric a, LabMetric b, LabMetric c, String note
+    ) {
+        return new LabProfile(question, independent, dependent, List.of(a, b, c), note);
+    }
+
+    private static LabMetric metric(String label, String value, String detail) {
+        return new LabMetric(label, value, detail);
     }
 
     public static List<ParameterSpec> parameters(EngineeringDeviceMenu menu) {
