@@ -133,7 +133,7 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
             labelValue(g,"Maintenance",maintenanceActionText(),166);
             labelValue(g,"Front / primary output",face(menu.facing()),204);
         }
-        safeText(g,"All settings use server-owned block properties; Route remains the physical orientation control.",16,224,MUTED);
+        safeText(g,"Routing stays on Route; maintenance actions use the same server methods as Shift-right-click.",16,224,MUTED);
     }
 
     private void diagnostics(GuiGraphics g) {
