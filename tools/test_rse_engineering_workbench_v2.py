@@ -315,7 +315,7 @@ class EngineeringWorkbenchV2Tests(unittest.TestCase):
             "How stable is the measured clock against its reference?",
             "Where is the resonant peak and how selective is it?",
             "How do supply pressure and path losses affect actuator motion?",
-            "How does the slew profile affect real actuator tracking?",
+            "How do slew and load profiles affect real actuator tracking?",
             "pid.settlingTicks()",
             "processor.runtimeC()",
             "quartz.runtimeC()",
