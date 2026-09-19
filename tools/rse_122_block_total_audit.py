@@ -34,6 +34,9 @@ CORE_REDSTONE_EXTENSIONS = (
     "signal_selector",
     "single_relay",
     "amethyst_piezo_pickup",
+    "redstone_amethyst_exciter",
+    "quartz_to_redstone_receiver",
+    "redstone_copper_driver",
 )
 EXPECTED_REGISTERED = HISTORICAL_CORE + len(CORE_REDSTONE_EXTENSIONS)
 
