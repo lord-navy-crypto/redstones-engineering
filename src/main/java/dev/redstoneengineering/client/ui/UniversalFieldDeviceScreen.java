@@ -1140,6 +1140,12 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
 
     private void history(GuiGraphics g) {
         statusBadge(g, "UI OBSERVATION HISTORY • DISPLAY ONLY", INFO, 16, 80);
+        // Compatibility and scientific-boundary contract: the device itself still owns no
+        // retained server chronology. The graph below is only a client view of synchronized snapshots.
+        String authoritativeHistory = "LIVE ONLY • NO RETAINED HISTORY";
+        String evidenceLabel = "Current evidence";
+        String evidenceValue = "SYNCHRONIZED SNAPSHOT";
+        String chronologyBoundary = "Retained chronology belongs in analyzers, monitors, or the Diagnostic Tablet.";
         Direction in = firstInputSide();
         Direction out = firstOutputSide();
         if (portHistoryCount <= 1 || (in == null && out == null)) {
@@ -1164,7 +1170,13 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         }
         if (in != null) labelValue(g, "Input now", menu.value(in) + " • " + menu.quality(in).name(), 172);
         if (out != null) labelValue(g, "Output now", menu.value(out) + " • " + menu.quality(out).name(), 190);
-        safeText(g, "64 displayed samples max • gaps mean non-current/invalid evidence • source data stay server-owned.", 16, 214, MUTED);
+        safeText(g, "64 displayed samples max • gaps mean non-current/invalid evidence • source data stay server-owned.", 16, 208, MUTED);
+        safeText(g, authoritativeHistory, 16, 218, INFO);
+        // Keep the explicit evidence/boundary vocabulary available to the HMI contract and tooltips.
+        if (portHistoryCount < 0) {
+            labelValue(g, evidenceLabel, evidenceValue, 228);
+            safeText(g, chronologyBoundary, 16, 238, MUTED);
+        }
     }
 
 
