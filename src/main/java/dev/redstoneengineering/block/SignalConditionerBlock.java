@@ -8,6 +8,7 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.core.signal.SignalMath;
 import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import dev.redstoneengineering.ui.menu.SignalConditionerMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -223,11 +224,7 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
                                 + " | limiting=" + (limitingActive(level, pos, next) ? "YES" : "NO")
                                 + " | normal right-click opens Engineering UI"), true);
             } else {
-                serverPlayer.openMenu(
-                        new SimpleMenuProvider(
-                                (containerId, inventory, ignored) -> new SignalConditionerMenu(containerId, inventory, pos),
-                                Component.translatable("block.redstoneengineering.signal_conditioner")),
-                        data -> data.writeBlockPos(pos));
+                FieldDeviceUi.open(serverPlayer, pos);
             }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
