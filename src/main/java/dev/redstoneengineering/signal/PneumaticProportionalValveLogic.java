@@ -13,9 +13,13 @@ public final class PneumaticProportionalValveLogic {
     }
 
     public static int stepOpening(int actualOpening, int commandedOpening, int responseMode) {
+        return stepOpeningRate(actualOpening, commandedOpening, responseRate(responseMode));
+    }
+
+    public static int stepOpeningRate(int actualOpening, int commandedOpening, int responseRate) {
         int actual = Math.max(0, Math.min(15, actualOpening));
         int command = Math.max(0, Math.min(15, commandedOpening));
-        int rate = responseRate(responseMode);
+        int rate = Math.max(1, Math.min(15, responseRate));
         if (command > actual) return Math.min(command, actual + rate);
         if (command < actual) return Math.max(command, actual - rate);
         return actual;
