@@ -7,6 +7,7 @@ import dev.redstoneengineering.physics.CircuitPhysics;
 import dev.redstoneengineering.physics.CopperNetworkSupport;
 import dev.redstoneengineering.physics.CopperObservationSupport;
 import dev.redstoneengineering.physics.DomainNetwork;
+import dev.redstoneengineering.physics.EngineeringDeviceParameters;
 import dev.redstoneengineering.physics.EngineeringMath;
 import dev.redstoneengineering.physics.NetworkKernel;
 import dev.redstoneengineering.physics.RuntimeIntStore;
@@ -59,6 +60,26 @@ public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
         builder.add(C_INDEX);
     }
 
+    public static int configuredBaseTau(Level level, BlockPos pos, BlockState state) {
+        int fallback = CopperCapacitorLogic.chargeTau(state.getValue(C_INDEX));
+        if (level instanceof ServerLevel serverLevel) {
+            return Math.max(1, Math.min(64, EngineeringDeviceParameters.get(serverLevel)
+                    .extendedParameters(serverLevel, pos,
+                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
+        }
+        return fallback;
+    }
+
+    public static boolean setConfiguredBaseTau(ServerLevel level, BlockPos pos, int tau) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof CopperCapacitorBlock capacitor)) return false;
+        int bounded = Math.max(1, Math.min(64, tau));
+        boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
+                level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
+        if (changed) level.scheduleTick(pos, capacitor, 1);
+        return changed;
+    }
+
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
@@ -72,6 +93,9 @@ public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
                 DomainNetwork.driveCopper(serverLevel, outputPos(pos, state), pos, 0, false);
             }
             RuntimeIntStore.remove(level, KEY, pos);
+            if (level instanceof ServerLevel serverLevel) {
+                EngineeringDeviceParameters.get(serverLevel).removeExtendedParameters(serverLevel, pos);
+            }
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
         if (!state.is(newState.getBlock()) && level instanceof ServerLevel serverLevel) {
@@ -90,16 +114,17 @@ public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
 
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
         if (!loadTruncated && (sourceDriven || sourceAbsent)) {
-            runtime[CHARGE_SLOT] = CopperCapacitorLogic.stepCharge(
+            int baseTau = configuredBaseTau(level, pos, state);
+            runtime[CHARGE_SLOT] = CopperCapacitorLogic.stepChargeBaseTau(
                     runtime[CHARGE_SLOT],
                     sourceDriven ? input.voltage() : 0,
                     sourceDriven,
-                    state.getValue(C_INDEX),
+                    baseTau,
                     loadResistance
             );
             runtime[EFFECTIVE_TAU_SLOT] = sourceDriven
-                    ? CopperCapacitorLogic.chargeTau(state.getValue(C_INDEX))
-                    : CopperCapacitorLogic.dischargeTau(state.getValue(C_INDEX), loadResistance);
+                    ? baseTau
+                    : CopperCapacitorLogic.dischargeTauBase(baseTau, loadResistance);
         }
         // STALE/FAULT/DOMAIN/TOPOLOGY input evidence cannot tell us whether the source is
         // charging or absent. Freeze the stored-energy integration rather than inventing discharge.
@@ -186,6 +211,12 @@ public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
             int capacitanceIndex = (state.getValue(C_INDEX) + 1) % 4;
             BlockState next = state.setValue(C_INDEX, capacitanceIndex);
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+            if (level instanceof ServerLevel serverLevel) {
+                EngineeringDeviceParameters.get(serverLevel).setExtendedParameters(
+                        serverLevel, pos,
+                        new EngineeringDeviceParameters.ExtendedParameters(
+                                CopperCapacitorLogic.chargeTau(capacitanceIndex), 0, 0, 0));
+            }
             level.scheduleTick(pos, this, 1);
 
             double load = observedLoadResistance(level, pos);
