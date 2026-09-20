@@ -24,6 +24,7 @@ import dev.redstoneengineering.ui.menu.ReliabilitySystemMenu;
 import dev.redstoneengineering.ui.menu.SignalAnalyzerMenu;
 import dev.redstoneengineering.ui.menu.SignalConditionerMenu;
 import dev.redstoneengineering.ui.menu.SignalProcessorMenu;
+import dev.redstoneengineering.ui.menu.ServoActuatorMenu;
 import dev.redstoneengineering.ui.menu.UniversalFieldDeviceMenu;
 import dev.redstoneengineering.ui.menu.WorkcellControllerMenu;
 import net.minecraft.core.registries.Registries;
@@ -49,6 +50,7 @@ public final class EngineeringUiRegistration {
     public static final DeferredHolder<MenuType<?>, MenuType<RangeSensorMenu>> RANGE_SENSOR = MENUS.register("range_sensor", () -> IMenuTypeExtension.create(RangeSensorMenu::new));
     public static final DeferredHolder<MenuType<?>, MenuType<SignalProcessorMenu>> SIGNAL_PROCESSOR = MENUS.register("signal_processor", () -> IMenuTypeExtension.create(SignalProcessorMenu::new));
     public static final DeferredHolder<MenuType<?>, MenuType<LapisLowPassFilterMenu>> LAPIS_LOW_PASS_FILTER = MENUS.register("lapis_low_pass_filter", () -> IMenuTypeExtension.create(LapisLowPassFilterMenu::new));
+    public static final DeferredHolder<MenuType<?>, MenuType<ServoActuatorMenu>> SERVO_ACTUATOR = MENUS.register("servo_actuator", () -> IMenuTypeExtension.create(ServoActuatorMenu::new));
     public static final DeferredHolder<MenuType<?>, MenuType<QuartzTimingMenu>> QUARTZ_TIMING = MENUS.register("quartz_timing", () -> IMenuTypeExtension.create(QuartzTimingMenu::new));
     public static final DeferredHolder<MenuType<?>, MenuType<RadioLinkMenu>> RADIO_LINK = MENUS.register("radio_link", () -> IMenuTypeExtension.create(RadioLinkMenu::new));
     public static final DeferredHolder<MenuType<?>, MenuType<DigitalCommunicationMenu>> DIGITAL_COMMUNICATION = MENUS.register("digital_communication", () -> IMenuTypeExtension.create(DigitalCommunicationMenu::new));
