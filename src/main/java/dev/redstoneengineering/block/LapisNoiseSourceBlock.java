@@ -11,6 +11,7 @@ import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.diagnostics.FaultInjectionModel;
 import dev.redstoneengineering.physics.DomainNetwork;
+import dev.redstoneengineering.physics.EngineeringDeviceParameters;
 import dev.redstoneengineering.physics.EngineeringMath;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import net.minecraft.core.BlockPos;
@@ -85,7 +86,7 @@ public class LapisNoiseSourceBlock extends DirectionalDomainSourceBlock implemen
         if (runtime != null && runtime.length == RUNTIME_SIZE && runtime[INITIALIZED_SLOT] == 1) {
             return EngineeringMath.clamp(runtime[SAMPLE_SLOT], 0, 100);
         }
-        return EngineeringMath.clamp(state.getValue(BASELINE) * 5, 0, 100);
+        return EngineeringMath.clamp(configuredParameters(level, pos, state).a(), 0, 100);
     }
 
     public static boolean sampleInitialized(Level level, BlockPos pos) {
@@ -95,6 +96,35 @@ public class LapisNoiseSourceBlock extends DirectionalDomainSourceBlock implemen
 
     public static int samplePeriodTicks(BlockState state) {
         return SAMPLE_PERIODS[Math.max(0, Math.min(SAMPLE_PERIODS.length - 1, state.getValue(RATE)))];
+    }
+
+    public static EngineeringDeviceParameters.ExtendedParameters configuredParameters(Level level, BlockPos pos, BlockState state) {
+        var fallback = new EngineeringDeviceParameters.ExtendedParameters(
+                state.getValue(BASELINE) * 5,
+                state.getValue(NOISE) * 2,
+                samplePeriodTicks(state),
+                0);
+        if (level instanceof ServerLevel serverLevel) {
+            return EngineeringDeviceParameters.get(serverLevel).extendedParameters(serverLevel, pos, fallback);
+        }
+        return fallback;
+    }
+
+    public static boolean setEngineeringParameters(ServerLevel level, BlockPos pos, int baseline, int noiseAmplitude, int samplePeriod) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof LapisNoiseSourceBlock source)) return false;
+        var next = new EngineeringDeviceParameters.ExtendedParameters(
+                EngineeringMath.clamp(baseline, 0, 100),
+                EngineeringMath.clamp(noiseAmplitude, 0, 50),
+                Math.max(1, Math.min(64, samplePeriod)),
+                0);
+        boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(level, pos, next);
+        if (changed) {
+            setSample(level, pos, next.a());
+            DomainNetwork.recomputeLapis(level, pos);
+            level.scheduleTick(pos, source, 1);
+        }
+        return changed;
     }
 
     public static String rateName(BlockState state) {
@@ -126,18 +156,22 @@ public class LapisNoiseSourceBlock extends DirectionalDomainSourceBlock implemen
     @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
         if (!state.is(newState.getBlock())) {
             RuntimeIntStore.remove(level, KEY, pos);
-            if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeLapisAround(serverLevel, pos);
+            if (level instanceof ServerLevel serverLevel) {
+                EngineeringDeviceParameters.get(serverLevel).removeExtendedParameters(serverLevel, pos);
+                DomainNetwork.recomputeLapisAround(serverLevel, pos);
+            }
         }
         super.onRemove(state, level, pos, newState, moved);
     }
 
     @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        int base = state.getValue(BASELINE) * 5;
-        int noise = state.getValue(NOISE) * 2;
+        var parameters = configuredParameters(level, pos, state);
+        int base = EngineeringMath.clamp(parameters.a(), 0, 100);
+        int noise = EngineeringMath.clamp(parameters.b(), 0, 50);
         int sample = FaultInjectionModel.addDeterministicNoise(base, noise, level.getGameTime(), pos.asLong(), 0, 100);
         setSample(level, pos, sample);
         DomainNetwork.recomputeLapis(level, pos);
-        level.scheduleTick(pos, this, samplePeriodTicks(state));
+        level.scheduleTick(pos, this, Math.max(1, Math.min(64, configuredParameters(level, pos, state).c())));
     }
 
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
