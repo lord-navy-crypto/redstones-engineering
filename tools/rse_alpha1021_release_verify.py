@@ -67,18 +67,19 @@ for dependency in ("jei", "jade", "geckolib", "cloth_config", "fusion"):
     if f'modId="{dependency}"' not in mods:
         errors.append(f"required dependency missing from NeoForge metadata: {dependency}")
 
-for token in (
-    "tools/test_rse_integrated_demo.py",
-    "tools/test_rse_signal_processing_lab.py",
-    "tools/rse_pid_actuator_dynamics_verify.py",
-    "tools/rse_ninth_ten_control_pneumatic_verify.py",
-    "tools/rse_alpha1021_release_verify.py",
-    "compileJava",
-    "clean build",
-    "sha256sum *.jar > SHA256SUMS.txt",
-):
-    if token not in workflow:
-        errors.append(f"workflow missing release gate: {token}")
+workflow_requirements = (
+    ("integrated demo contract test", ("tools.test_rse_integrated_demo", "tools/test_rse_integrated_demo.py")),
+    ("signal processing lab contract test", ("tools.test_rse_signal_processing_lab", "tools/test_rse_signal_processing_lab.py")),
+    ("PID actuator dynamics verifier", ("tools/rse_pid_actuator_dynamics_verify.py",)),
+    ("control/pneumatic verifier", ("tools/rse_ninth_ten_control_pneumatic_verify.py",)),
+    ("Alpha 1.0.21 release verifier", ("tools/rse_alpha1021_release_verify.py",)),
+    ("Java compile gate", ("compileJava",)),
+    ("clean build gate", ("clean build",)),
+    ("SHA-256 packaging gate", ("sha256sum *.jar > SHA256SUMS.txt",)),
+)
+for label, alternatives in workflow_requirements:
+    if not any(token in workflow for token in alternatives):
+        errors.append(f"workflow missing release gate: {label}")
 
 if EXPECTED_VERSION not in readme or "Alpha 1.0.21" not in readme:
     errors.append("README does not identify Alpha 1.0.21 / 1.0.21-alpha")
