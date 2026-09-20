@@ -6,6 +6,25 @@ All notable RSE engineering milestones are recorded here. RSE remains in alpha d
 
 - Future work should remain behind a focused branch/PR and pass the repository verification workflow before being merged into `main`.
 
+## [1.0.21-alpha] — Release candidate
+
+### Integrated validation
+- Preserved Integrated Commissioning Bench V2 with sustained server-authoritative stage evidence and visible status beacons.
+- Preserved copy-ready validation feedback and run-log publication.
+
+### Actuator deepening
+- Preserved PID actuator slew dynamics, derivative-on-measurement behavior, servo mechanical load/inertia behavior, and load-profile commissioning.
+- Preserved the instrumented pneumatic linear actuator cell with solver-owned supply/path/restriction evidence and pressure-dependent response timing.
+
+### Signal processing laboratory
+- Added/retained the four-device unit + integrated laboratory for Low-Pass Filter, Quartz Clock Oscillator, Quartz-triggered Sample-and-Hold, and Lapis-to-Redstone Quantizer.
+- Validation requires real step response, real clock edges, edge-triggered capture, and deterministic quantization math.
+
+### Release boundary
+- Intentionally excludes the later shared Engineering Workbench / generic LAB UI redesign.
+- Adds Alpha 1.0.21 manifest, testing guide, and release packaging verifier.
+
+
 ## [1.0.13-alpha] — 2026-09-03
 
 ### Copper circuit topology renovation
