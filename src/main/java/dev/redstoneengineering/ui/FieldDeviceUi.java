@@ -1,6 +1,7 @@
 package dev.redstoneengineering.ui;
 
 import dev.redstoneengineering.block.*;
+import dev.redstoneengineering.ui.menu.AdvancedParameterMenu;
 import dev.redstoneengineering.ui.menu.AmethystSystemMenu;
 import dev.redstoneengineering.ui.menu.CopperCircuitMeterMenu;
 import dev.redstoneengineering.ui.menu.DigitalCommunicationMenu;
@@ -29,6 +30,21 @@ public final class FieldDeviceUi {
         var state = player.level().getBlockState(pos);
         var block = state.getBlock();
         var title = block.getName();
+        if (block instanceof PrecisionFilterBlock
+                || block instanceof PulseShaperBlock
+                || block instanceof EdgeDetectorBlock
+                || block instanceof SignalAmplifierBlock
+                || block instanceof ElectromagnetBlock
+                || block instanceof InductionCoilBlock
+                || block instanceof PneumaticReliefValveBlock
+                || block instanceof LapisNoiseSourceBlock
+                || block instanceof LapisPrecisionRangeSensorBlock
+                || block instanceof OpticalEmitterBlock) {
+            player.openMenu(new SimpleMenuProvider(
+                    (id, inv, ignored) -> new AdvancedParameterMenu(id, inv, pos), title),
+                    data -> data.writeBlockPos(pos));
+            return;
+        }
         if (block instanceof QuartzOscillatorBlock
                 || block instanceof QuartzClockDividerBlock
                 || block instanceof QuartzPhaseDelayBlock
