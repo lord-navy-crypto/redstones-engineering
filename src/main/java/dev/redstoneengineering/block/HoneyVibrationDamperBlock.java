@@ -9,6 +9,7 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.EngineeringDeviceParameters;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.VibrationNetwork;
 import dev.redstoneengineering.ui.FieldDeviceUi;
@@ -62,6 +63,26 @@ public class HoneyVibrationDamperBlock extends Block implements EngineeringPortP
                 wave.valid() && wave.amplitude() > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL));
     }
 
+    public static int configuredAttenuation(Level level, BlockPos pos) {
+        int fallback = 4;
+        if (level instanceof ServerLevel serverLevel) {
+            return Math.max(1, Math.min(15, EngineeringDeviceParameters.get(serverLevel)
+                    .extendedParameters(serverLevel, pos,
+                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
+        }
+        return fallback;
+    }
+
+    public static boolean setConfiguredAttenuation(ServerLevel level, BlockPos pos, int attenuation) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof HoneyVibrationDamperBlock damper)) return false;
+        int bounded = Math.max(1, Math.min(15, attenuation));
+        boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
+                level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
+        if (changed) level.scheduleTick(pos, damper, 1);
+        return changed;
+    }
+
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         int amplitude = InformationRuntime.value(level, "mech_wave", pos);
@@ -69,7 +90,7 @@ public class HoneyVibrationDamperBlock extends Block implements EngineeringPortP
             InformationRuntime.clear(level, "mech_wave", pos);
             return;
         }
-        int next = Math.max(0, amplitude - 4);
+        int next = Math.max(0, amplitude - configuredAttenuation(level, pos));
         if (next == 0) {
             InformationRuntime.clear(level, "mech_wave", pos);
         } else {
@@ -82,7 +103,12 @@ public class HoneyVibrationDamperBlock extends Block implements EngineeringPortP
 
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
-        if (!state.is(newState.getBlock())) InformationRuntime.clear(level, "mech_wave", pos);
+        if (!state.is(newState.getBlock())) {
+            InformationRuntime.clear(level, "mech_wave", pos);
+            if (level instanceof ServerLevel serverLevel) {
+                EngineeringDeviceParameters.get(serverLevel).removeExtendedParameters(serverLevel, pos);
+            }
+        }
         super.onRemove(state, level, pos, newState, movedByPiston);
     }
 
