@@ -259,6 +259,7 @@ public final class DigitalCommunicationScreen extends EngineeringScreen<DigitalC
     private String contract() { return menu.inputDomain().label() + " → " + menu.outputDomain().label(); }
     private String processName() { return switch (menu.kind()) { case DigitalCommunicationMenu.KIND_ENCODER -> "ENCODE 0..15 → BYTE"; case DigitalCommunicationMenu.KIND_DECODER -> "DECODE BYTE → 0..15"; case DigitalCommunicationMenu.KIND_SERIALIZER -> "BYTE → SERIAL FRAME"; case DigitalCommunicationMenu.KIND_DESERIALIZER -> "SERIAL FRAME → BYTE"; case DigitalCommunicationMenu.KIND_REGENERATOR -> "QUALITY GATE + REGENERATION"; case DigitalCommunicationMenu.KIND_DIFF_DRIVER -> "LOGIC → DIFFERENTIAL"; case DigitalCommunicationMenu.KIND_DIFF_RECEIVER -> "DIFFERENTIAL → REDSTONE"; default -> "DECLARED TRANSFORM"; }; }
     private String valueText(int value, EngineeringDomain domain) { return switch (domain) { case DATA_BUS_8, SERIAL_DATA -> String.format("0x%02X", value & 0xFF); case DIFFERENTIAL_DATA -> Integer.toString(value & 1); default -> Integer.toString(value); }; }
+    private static String signed(int value) { return value >= 0 ? "+" + value : Integer.toString(value); }
     private String outputQualityName() { return menu.outputQuality().name().replace('_', ' '); }
     private int thresholdPercent() { return switch (menu.parameter()) { case 0 -> 20; case 1 -> 40; default -> 60; }; }
     private String face(net.minecraft.core.Direction direction) { return direction.getName().toUpperCase(); }
