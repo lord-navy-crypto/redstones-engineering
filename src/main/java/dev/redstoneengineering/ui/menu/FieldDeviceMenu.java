@@ -910,6 +910,10 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             if (id != BUTTON_PRIMARY_DECREASE && id != BUTTON_PRIMARY_INCREASE) return false;
             changed = MechanicalExciterBlock.adjustFrequency(level, blockPos,
                     id == BUTTON_PRIMARY_INCREASE ? 1 : -1);
+        } else if (block instanceof HydroacousticTubeBlock) {
+            if (id != BUTTON_PRIMARY_DECREASE && id != BUTTON_PRIMARY_INCREASE) return false;
+            changed = HydroacousticTubeBlock.adjustMedium(level, blockPos,
+                    id == BUTTON_PRIMARY_INCREASE ? 1 : -1);
         } else if (block instanceof HydroacousticExciterBlock) {
             if (id != BUTTON_PRIMARY_DECREASE && id != BUTTON_PRIMARY_INCREASE) return false;
             changed = HydroacousticExciterBlock.adjustFrequency(level, blockPos,
