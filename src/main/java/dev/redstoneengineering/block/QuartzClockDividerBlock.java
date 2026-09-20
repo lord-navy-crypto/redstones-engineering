@@ -10,6 +10,7 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
+import dev.redstoneengineering.physics.EngineeringDeviceParameters;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
@@ -53,6 +54,30 @@ public class QuartzClockDividerBlock extends DirectionalDomainBlock implements E
         return switch (index) { case 0 -> 2; case 1 -> 4; case 2 -> 8; default -> 16; };
     }
 
+    public static int configuredDivision(Level level, BlockPos pos, BlockState state) {
+        int fallback = division(state.getValue(DIV_INDEX));
+        if (level instanceof ServerLevel serverLevel) {
+            return Math.max(2, Math.min(32, EngineeringDeviceParameters.get(serverLevel)
+                    .extendedParameters(serverLevel, pos,
+                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
+        }
+        return fallback;
+    }
+
+    public static boolean setConfiguredDivision(ServerLevel level, BlockPos pos, int divisor) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof QuartzClockDividerBlock divider)) return false;
+        int bounded = Math.max(2, Math.min(32, divisor));
+        boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
+                level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
+        if (changed) {
+            DomainNetwork.driveQuartz(level, divider.outputPos(pos, state), pos, false, 1, false);
+            RuntimeIntStore.remove(level, KEY, pos);
+            level.scheduleTick(pos, divider, 1);
+        }
+        return changed;
+    }
+
     public static boolean initialized(Level level, BlockPos pos) {
         int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
         return runtime != null && runtime.length == RUNTIME_SIZE && runtime[INITIALIZED_SLOT] == 1;
@@ -73,7 +98,10 @@ public class QuartzClockDividerBlock extends DirectionalDomainBlock implements E
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof QuartzClockDividerBlock divider)) return 0;
         int index = (state.getValue(DIV_INDEX) + 1) % 4;
-        level.setBlock(pos, state.setValue(DIV_INDEX, index), Block.UPDATE_CLIENTS);
+        BlockState nextState = state.setValue(DIV_INDEX, index);
+        level.setBlock(pos, nextState, Block.UPDATE_CLIENTS);
+        EngineeringDeviceParameters.get(level).setExtendedParameters(
+                level, pos, new EngineeringDeviceParameters.ExtendedParameters(division(index), 0, 0, 0));
         DomainNetwork.driveQuartz(level, divider.outputPos(pos, state), pos, false, 1, false);
         RuntimeIntStore.remove(level, KEY, pos);
         level.scheduleTick(pos, divider, 1);
@@ -129,6 +157,7 @@ public class QuartzClockDividerBlock extends DirectionalDomainBlock implements E
         if (!state.is(newState.getBlock())) {
             if (level instanceof ServerLevel serverLevel) DomainNetwork.driveQuartz(serverLevel, outputPos(pos, state), pos, false, 1, false);
             RuntimeIntStore.remove(level, KEY, pos);
+            if (level instanceof ServerLevel serverLevel) EngineeringDeviceParameters.get(serverLevel).removeExtendedParameters(serverLevel, pos);
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
     }
@@ -139,7 +168,7 @@ public class QuartzClockDividerBlock extends DirectionalDomainBlock implements E
         DomainNetwork.QuartzSample input = DomainNetwork.sampleQuartz(level, inputPos);
         PortQuality inputQuality = inputQuality(level, inputPos, input);
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
-        int divisor = division(state.getValue(DIV_INDEX));
+        int divisor = configuredDivision(level, pos, state);
 
         if (inputQuality != PortQuality.VALID) {
             if (inputQuality == PortQuality.NO_SIGNAL) {
