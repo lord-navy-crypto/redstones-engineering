@@ -1,0 +1,32 @@
+Redstone Systems Engineering — Alpha 1.0.21
+Artifact: 1.0.21-alpha
+Minecraft: 1.21.1
+NeoForge: 21.1.249
+Java: 21
+License: MPL-2.0
+
+Milestone: Integrated Validation, Actuator Deepening & Signal Processing Laboratory
+Public alpha testing guide: docs/ALPHA1_0_21_TESTING_GUIDE.md
+
+Release scope:
+- Preserves the complete Integrated Commissioning Bench V2 and server-authoritative validation flow.
+- Preserves servo actuator dynamics deepening, mechanical load behavior, load profiles, and closed-loop position feedback.
+- Preserves the instrumented pneumatic linear actuator cell, pressure-path evidence, response timing, and cylinder visualization.
+- Preserves the four-device Signal Processing Laboratory: Low-Pass Filter, Quartz Clock Oscillator, Quartz-triggered Sample-and-Hold, and Lapis-to-Redstone Quantizer.
+- Preserves live diagnostic feedback/run-log publication and copy-ready validation evidence.
+- Intentionally excludes the later shared Engineering Workbench / generic LAB UI redesign and equation-heavy showcase layer.
+
+Platform:
+- Required client: JEI, Cloth Config, Fusion.
+- Required both sides: Jade, GeckoLib.
+- Required dependency versions remain pinned in gradle.properties and NeoForge metadata.
+
+Verification:
+- tools/rse_repo_verify.py
+- tools/test_rse_integrated_demo.py
+- tools/test_rse_signal_processing_lab.py
+- tools/rse_pid_actuator_dynamics_verify.py
+- tools/rse_ninth_ten_control_pneumatic_verify.py
+- tools/rse_alpha1021_release_verify.py
+- Java 21 compile/test/clean-build CI
+- Minecraft GameTest runtime diagnostic required before public release
