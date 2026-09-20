@@ -10,6 +10,7 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
+import dev.redstoneengineering.physics.EngineeringDeviceParameters;
 import dev.redstoneengineering.physics.EngineeringMath;
 import dev.redstoneengineering.physics.MagneticPhysics;
 import dev.redstoneengineering.physics.RuntimeIntStore;
@@ -72,6 +73,30 @@ public class InductionCoilBlock extends DirectionalDomainBlock implements Engine
                 descriptor.get(), outputVoltage(level, pos), 0.0, 15.0, outputQuality(level, pos)));
     }
 
+    public static int configuredTurns(Level level, BlockPos pos, BlockState state) {
+        int fallback = state.getValue(TURNS);
+        if (level instanceof ServerLevel serverLevel) {
+            return Math.max(1, Math.min(16, EngineeringDeviceParameters.get(serverLevel)
+                    .extendedParameters(serverLevel, pos,
+                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
+        }
+        return fallback;
+    }
+
+    public static boolean setConfiguredTurns(ServerLevel level, BlockPos pos, int turns) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof InductionCoilBlock coil)) return false;
+        int bounded = Math.max(1, Math.min(16, turns));
+        boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
+                level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
+        if (changed) {
+            DomainNetwork.driveCopper(level, coil.outputPos(pos, state), pos, 0, false);
+            RuntimeIntStore.remove(level, KEY, pos);
+            level.scheduleTick(pos, coil, 1);
+        }
+        return changed;
+    }
+
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
         super.onPlace(state, level, pos, oldState, moved);
@@ -92,6 +117,7 @@ public class InductionCoilBlock extends DirectionalDomainBlock implements Engine
                 DomainNetwork.driveCopper(server, outputPos(pos, state), pos, 0, false);
             }
             RuntimeIntStore.remove(level, KEY, pos);
+            if (level instanceof ServerLevel serverLevel) EngineeringDeviceParameters.get(serverLevel).removeExtendedParameters(serverLevel, pos);
         }
         super.onRemove(state, level, pos, nextState, moved);
     }
@@ -105,7 +131,7 @@ public class InductionCoilBlock extends DirectionalDomainBlock implements Engine
         if (sample.complete()) {
             if (runtime[BASELINE_VALID] != 0) {
                 int delta = Math.abs(sample.field() - runtime[PREVIOUS_FLUX]);
-                emf = EngineeringMath.clamp(delta * state.getValue(TURNS), 0, 15);
+                emf = EngineeringMath.clamp(delta * configuredTurns(level, pos, state), 0, 15);
             }
             runtime[PREVIOUS_FLUX] = sample.field();
             runtime[BASELINE_VALID] = 1;
@@ -141,7 +167,10 @@ public class InductionCoilBlock extends DirectionalDomainBlock implements Engine
         if (!(state.getBlock() instanceof InductionCoilBlock coil)) return 0;
         int turns = state.getValue(TURNS);
         turns = turns >= 4 ? 1 : turns + 1;
-        level.setBlock(pos, state.setValue(TURNS, turns), Block.UPDATE_CLIENTS);
+        BlockState nextState = state.setValue(TURNS, turns);
+        level.setBlock(pos, nextState, Block.UPDATE_CLIENTS);
+        EngineeringDeviceParameters.get(level).setExtendedParameters(
+                level, pos, new EngineeringDeviceParameters.ExtendedParameters(turns, 0, 0, 0));
         DomainNetwork.driveCopper(level, coil.outputPos(pos, state), pos, 0, false);
         RuntimeIntStore.remove(level, KEY, pos);
         level.scheduleTick(pos, coil, 1);
