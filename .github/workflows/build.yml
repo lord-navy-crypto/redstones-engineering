@@ -2,7 +2,7 @@ name: RSE Build Verification
 
 on:
   push:
-    branches: [main, 'release/1.0.21-alpha-rc1']
+    branches: [main, 'release/1.0.21-alpha-rc1', 'feature/engineering-notebook-v1']
   pull_request:
     branches: [main]
   workflow_dispatch:
