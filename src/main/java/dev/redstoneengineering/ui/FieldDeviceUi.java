@@ -77,7 +77,7 @@ public final class FieldDeviceUi {
                 || block instanceof EntityDensitySensorBlock || block instanceof AnalogIndicatorBlock
                 || block instanceof CopperVoltageSourceBlock || block instanceof CopperSeriesResistorBlock
                 || block instanceof CopperResistiveLoadBlock || block instanceof CopperCapacitorBlock
-                || block instanceof CopperFuseBlock
+                || block instanceof CopperFuseBlock || block instanceof RedstoneCopperDriverBlock
                 || block instanceof ThermalHeaterBlock || block instanceof ThermalMassBlock
                 || block instanceof ThermalRadiatorBlock) {
             openUniversal(player, pos); return;
