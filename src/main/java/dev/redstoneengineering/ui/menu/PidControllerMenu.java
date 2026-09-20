@@ -16,6 +16,7 @@ import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.DataSlot;
@@ -33,6 +34,18 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_OUTPUT_NEXT = 5;
     public static final int BUTTON_CAPTURE_ACCEPTANCE = 6;
     public static final int BUTTON_RESET_RUNTIME_TREND = 7;
+    public static final int BUTTON_KP_MINUS = 8;
+    public static final int BUTTON_KP_PLUS = 9;
+    public static final int BUTTON_KI_DIV_MINUS = 10;
+    public static final int BUTTON_KI_DIV_PLUS = 11;
+    public static final int BUTTON_KD_MINUS = 12;
+    public static final int BUTTON_KD_PLUS = 13;
+    public static final int BUTTON_DSMOOTH_MINUS = 14;
+    public static final int BUTTON_DSMOOTH_PLUS = 15;
+    public static final int BUTTON_RISE_MINUS = 16;
+    public static final int BUTTON_RISE_PLUS = 17;
+    public static final int BUTTON_FALL_MINUS = 18;
+    public static final int BUTTON_FALL_PLUS = 19;
     public static final int TREND_SAMPLES = PidTelemetryStore.MAX_SAMPLES_PER_CONTROLLER;
 
     private final DataSlot tuning = trackedInt();
@@ -59,6 +72,10 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     private final DataSlot slewEvents = trackedInt();
     private final DataSlot riseLimit = trackedInt();
     private final DataSlot fallLimit = trackedInt();
+    private final DataSlot kp = trackedInt();
+    private final DataSlot kiDivisor = trackedInt();
+    private final DataSlot kd = trackedInt();
+    private final DataSlot derivativeSmoothing = trackedInt();
 
     private final DataSlot plantDetected = trackedInt();
     private final DataSlot plantReady = trackedInt();
@@ -129,8 +146,13 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
         actuatorTarget.set(PidControllerBlock.actuatorTarget(level, blockPos));
         slewActive.set(PidControllerBlock.slewLimitActive(level, blockPos) ? 1 : 0);
         slewEvents.set(PidControllerBlock.slewLimitEvents(level, blockPos));
-        riseLimit.set(PidControllerBlock.riseLimit(state));
-        fallLimit.set(PidControllerBlock.fallLimit(state));
+        var parameters = PidControllerBlock.configuredParameters(level, blockPos, state);
+        kp.set(parameters.kp());
+        kiDivisor.set(parameters.kiDivisor());
+        kd.set(parameters.kd());
+        derivativeSmoothing.set(parameters.derivativeSmoothing());
+        riseLimit.set(parameters.riseLimit());
+        fallLimit.set(parameters.fallLimit());
 
         PneumaticClosedLoopWitness.Snapshot plant = ClosedLoopCommissioning.inspectPneumaticPlant(level, blockPos);
         plantDetected.set(plant.detected() ? 1 : 0);
@@ -190,6 +212,22 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
             changed = DirectionalSignalBlock.rotateSeriesInput(level, blockPos, id == BUTTON_INPUT_NEXT);
         } else if (id == BUTTON_OUTPUT_PREVIOUS || id == BUTTON_OUTPUT_NEXT) {
             changed = DirectionalSignalBlock.rotateSeriesOutput(level, blockPos, id == BUTTON_OUTPUT_NEXT);
+        } else if (level instanceof ServerLevel serverLevel && id >= BUTTON_KP_MINUS && id <= BUTTON_FALL_PLUS) {
+            changed = switch (id) {
+                case BUTTON_KP_MINUS -> PidControllerBlock.adjustParameter(serverLevel, blockPos, 0, -1);
+                case BUTTON_KP_PLUS -> PidControllerBlock.adjustParameter(serverLevel, blockPos, 0, 1);
+                case BUTTON_KI_DIV_MINUS -> PidControllerBlock.adjustParameter(serverLevel, blockPos, 1, -1);
+                case BUTTON_KI_DIV_PLUS -> PidControllerBlock.adjustParameter(serverLevel, blockPos, 1, 1);
+                case BUTTON_KD_MINUS -> PidControllerBlock.adjustParameter(serverLevel, blockPos, 2, -1);
+                case BUTTON_KD_PLUS -> PidControllerBlock.adjustParameter(serverLevel, blockPos, 2, 1);
+                case BUTTON_DSMOOTH_MINUS -> PidControllerBlock.adjustParameter(serverLevel, blockPos, 3, -1);
+                case BUTTON_DSMOOTH_PLUS -> PidControllerBlock.adjustParameter(serverLevel, blockPos, 3, 1);
+                case BUTTON_RISE_MINUS -> PidControllerBlock.adjustParameter(serverLevel, blockPos, 4, -1);
+                case BUTTON_RISE_PLUS -> PidControllerBlock.adjustParameter(serverLevel, blockPos, 4, 1);
+                case BUTTON_FALL_MINUS -> PidControllerBlock.adjustParameter(serverLevel, blockPos, 5, -1);
+                case BUTTON_FALL_PLUS -> PidControllerBlock.adjustParameter(serverLevel, blockPos, 5, 1);
+                default -> false;
+            };
         } else {
             changed = PidControllerBlock.applyTuningAction(level, blockPos, id);
         }
@@ -223,6 +261,10 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     public int slewEvents() { return slewEvents.get(); }
     public int riseLimit() { return riseLimit.get(); }
     public int fallLimit() { return fallLimit.get(); }
+    public int kp() { return kp.get(); }
+    public int kiDivisor() { return kiDivisor.get(); }
+    public int kd() { return kd.get(); }
+    public int derivativeSmoothing() { return derivativeSmoothing.get(); }
 
     public boolean plantDetected() { return plantDetected.get() != 0; }
     public boolean plantReady() { return plantReady.get() != 0; }
