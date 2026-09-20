@@ -9,6 +9,7 @@ import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
+import dev.redstoneengineering.physics.EngineeringDeviceParameters;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.PneumaticNetwork;
 import dev.redstoneengineering.physics.PneumaticObservationSupport;
@@ -94,6 +95,26 @@ public class PneumaticProportionalValveBlock extends DirectionalDomainBlock impl
         return RedstoneObservationSupport.observe(level, pos, Direction.UP);
     }
 
+    public static int configuredResponseRate(Level level, BlockPos pos, BlockState state) {
+        int fallback = PneumaticProportionalValveLogic.responseRate(state.getValue(RESPONSE_MODE));
+        if (level instanceof ServerLevel serverLevel) {
+            return Math.max(1, Math.min(15, EngineeringDeviceParameters.get(serverLevel)
+                    .extendedParameters(serverLevel, pos,
+                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
+        }
+        return fallback;
+    }
+
+    public static boolean setConfiguredResponseRate(ServerLevel level, BlockPos pos, int rate) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof PneumaticProportionalValveBlock)) return false;
+        int bounded = Math.max(1, Math.min(15, rate));
+        boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
+                level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
+        if (changed) level.scheduleTick(pos, state.getBlock(), 1);
+        return changed;
+    }
+
     public static int commandedOpening(Level level, BlockPos pos) {
         RedstoneObservationSupport.Observation command = commandObservation(level, pos);
         return command.valid() ? command.value() : 0;
@@ -135,8 +156,15 @@ public class PneumaticProportionalValveBlock extends DirectionalDomainBlock impl
         if (!(state.getBlock() instanceof PneumaticProportionalValveBlock valve)) return false;
         int mode = state.getValue(RESPONSE_MODE);
         int next = Math.floorMod(mode + (forward ? 1 : -1), 3);
-        level.setBlock(pos, state.setValue(RESPONSE_MODE, next), Block.UPDATE_CLIENTS);
-        if (level instanceof ServerLevel server) server.scheduleTick(pos, valve, 1);
+        BlockState nextState = state.setValue(RESPONSE_MODE, next);
+        level.setBlock(pos, nextState, Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel server) {
+            EngineeringDeviceParameters.get(server).setExtendedParameters(
+                    server, pos,
+                    new EngineeringDeviceParameters.ExtendedParameters(
+                            PneumaticProportionalValveLogic.responseRate(next), 0, 0, 0));
+            server.scheduleTick(pos, valve, 1);
+        }
         return true;
     }
 
@@ -209,8 +237,8 @@ public class PneumaticProportionalValveBlock extends DirectionalDomainBlock impl
             oldDelta = 0;
         }
 
-        int nextOpening = PneumaticProportionalValveLogic.stepOpening(
-                oldOpening, command, state.getValue(RESPONSE_MODE));
+        int nextOpening = PneumaticProportionalValveLogic.stepOpeningRate(
+                oldOpening, command, configuredResponseRate(level, pos, state));
         int delta = nextOpening - oldOpening;
 
         runtime[ACTUAL_OPENING] = nextOpening;
@@ -236,6 +264,7 @@ public class PneumaticProportionalValveBlock extends DirectionalDomainBlock impl
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
         if (!state.is(newState.getBlock())) {
             RuntimeIntStore.remove(level, RUNTIME_KEY, pos);
+            if (level instanceof ServerLevel serverLevel) EngineeringDeviceParameters.get(serverLevel).removeExtendedParameters(serverLevel, pos);
             if (level instanceof ServerLevel server) {
                 InformationRuntime.clear(level, "pneumatic", pos);
                 PneumaticNetwork.recomputeAround(server, pos);
