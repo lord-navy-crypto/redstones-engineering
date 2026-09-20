@@ -3,11 +3,14 @@ package dev.redstoneengineering.block;
 import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.CircuitPhysics;
 import dev.redstoneengineering.physics.CopperNetworkSupport;
 import dev.redstoneengineering.physics.CopperObservationSupport;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.EngineeringMath;
+import dev.redstoneengineering.physics.NetworkKernel;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.signal.CopperCapacitorLogic;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -21,14 +24,27 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
-/** Axial copper RC storage element: BACK input, FRONT output. */
+import java.util.Locale;
+
+/**
+ * Axial copper RC storage element: BACK input, FRONT output.
+ *
+ * Source-present charging follows the selected capacitance time constant. When the source
+ * disappears, downstream equivalent resistance controls discharge; open circuit retains charge
+ * longest through leakage only. Bounded/truncated load scans are surfaced as STALE evidence
+ * instead of being treated as authoritative RC data.
+ */
 public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
     public static final IntegerProperty C_INDEX = IntegerProperty.create("capacitance", 0, 3);
     private static final String KEY = "copper_capacitor";
     private static final int CHARGE_SLOT = 0;
     private static final int INITIALIZED_SLOT = 1;
     private static final int INPUT_QUALITY_SLOT = 2;
-    private static final int RUNTIME_SIZE = 3;
+    private static final int LOAD_RESISTANCE_X100_SLOT = 3;
+    private static final int EFFECTIVE_TAU_SLOT = 4;
+    private static final int LOAD_TRUNCATED_SLOT = 5;
+    private static final int RUNTIME_SIZE = 6;
+    private static final int OPEN_CIRCUIT_SENTINEL = Integer.MAX_VALUE;
 
     public CopperCapacitorBlock(Properties properties) {
         super(properties);
@@ -43,15 +59,6 @@ public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
         builder.add(C_INDEX);
     }
 
-    private static int tau(int index) {
-        return switch (index) {
-            case 0 -> 2;
-            case 1 -> 4;
-            case 2 -> 8;
-            default -> 16;
-        };
-    }
-
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
@@ -61,7 +68,9 @@ public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock())) {
-            if (level instanceof ServerLevel serverLevel) DomainNetwork.driveCopper(serverLevel, outputPos(pos, state), pos, 0);
+            if (level instanceof ServerLevel serverLevel) {
+                DomainNetwork.driveCopper(serverLevel, outputPos(pos, state), pos, 0, false);
+            }
             RuntimeIntStore.remove(level, KEY, pos);
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
@@ -73,18 +82,38 @@ public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         CopperObservationSupport.Observation input = CopperObservationSupport.observe(level, inputPos(pos, state), pos);
-        int inputVoltage = input.quality() == PortQuality.VALID ? input.voltage() : 0;
-        int targetCharge = (int) Math.round(inputVoltage / 15.0 * 100.0);
-        int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
-        int delta = targetCharge - runtime[CHARGE_SLOT];
-        int step = delta == 0
-                ? 0
-                : (int) Math.copySign(Math.max(1, Math.abs(delta) / tau(state.getValue(C_INDEX))), delta);
+        boolean sourceDriven = input.quality() == PortQuality.VALID;
+        boolean sourceAbsent = input.quality() == PortQuality.NO_SIGNAL;
 
-        runtime[CHARGE_SLOT] = EngineeringMath.clamp(runtime[CHARGE_SLOT] + step, 0, 100);
+        double loadResistance = CircuitPhysics.equivalentLoadResistance(level, outputPos(pos, state), 128);
+        boolean loadTruncated = NetworkKernel.stats(level, "copper_load").lastTruncated();
+
+        int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
+        if (!loadTruncated && (sourceDriven || sourceAbsent)) {
+            runtime[CHARGE_SLOT] = CopperCapacitorLogic.stepCharge(
+                    runtime[CHARGE_SLOT],
+                    sourceDriven ? input.voltage() : 0,
+                    sourceDriven,
+                    state.getValue(C_INDEX),
+                    loadResistance
+            );
+            runtime[EFFECTIVE_TAU_SLOT] = sourceDriven
+                    ? CopperCapacitorLogic.chargeTau(state.getValue(C_INDEX))
+                    : CopperCapacitorLogic.dischargeTau(state.getValue(C_INDEX), loadResistance);
+        }
+        // STALE/FAULT/DOMAIN/TOPOLOGY input evidence cannot tell us whether the source is
+        // charging or absent. Freeze the stored-energy integration rather than inventing discharge.
+
         runtime[INITIALIZED_SLOT] = 1;
         runtime[INPUT_QUALITY_SLOT] = input.quality().ordinal();
-        DomainNetwork.driveCopper(level, outputPos(pos, state), pos, outputVoltageFromCharge(runtime[CHARGE_SLOT]));
+        runtime[LOAD_RESISTANCE_X100_SLOT] = Double.isInfinite(loadResistance)
+                ? OPEN_CIRCUIT_SENTINEL
+                : (int) Math.min(Integer.MAX_VALUE - 1L, Math.round(Math.max(0.0, loadResistance) * 100.0));
+        runtime[LOAD_TRUNCATED_SLOT] = loadTruncated ? 1 : 0;
+
+        int outputVoltage = outputVoltageFromCharge(runtime[CHARGE_SLOT]);
+        boolean outputValid = !loadTruncated && outputQuality(level, pos) == PortQuality.VALID;
+        DomainNetwork.driveCopper(level, outputPos(pos, state), pos, outputVoltage, outputValid);
         level.scheduleTick(pos, this, 2);
     }
 
@@ -106,9 +135,27 @@ public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
         return outputVoltageFromCharge(chargePercent(level, pos));
     }
 
+    public static double observedLoadResistance(Level level, BlockPos pos) {
+        int[] runtime = snapshot(level, pos);
+        if (runtime == null) return Double.POSITIVE_INFINITY;
+        int encoded = runtime[LOAD_RESISTANCE_X100_SLOT];
+        return encoded == OPEN_CIRCUIT_SENTINEL ? Double.POSITIVE_INFINITY : Math.max(0.0, encoded / 100.0);
+    }
+
+    public static int effectiveTau(Level level, BlockPos pos) {
+        int[] runtime = snapshot(level, pos);
+        return runtime == null ? 0 : Math.max(0, runtime[EFFECTIVE_TAU_SLOT]);
+    }
+
+    public static boolean loadTruncated(Level level, BlockPos pos) {
+        int[] runtime = snapshot(level, pos);
+        return runtime != null && runtime[LOAD_TRUNCATED_SLOT] != 0;
+    }
+
     public static PortQuality outputQuality(Level level, BlockPos pos) {
         int[] runtime = snapshot(level, pos);
         if (runtime == null || runtime[INITIALIZED_SLOT] == 0) return PortQuality.STALE;
+
         int index = Math.max(0, Math.min(PortQuality.values().length - 1, runtime[INPUT_QUALITY_SLOT]));
         PortQuality inputQuality = PortQuality.values()[index];
         if (inputQuality == PortQuality.FAULT
@@ -116,9 +163,13 @@ public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
                 || inputQuality == PortQuality.DOMAIN_MISMATCH) {
             return inputQuality;
         }
-        // Stored charge is a legitimate local energy source while it decays after input removal.
+        if (runtime[LOAD_TRUNCATED_SLOT] != 0 || inputQuality == PortQuality.STALE) {
+            return PortQuality.STALE;
+        }
+
+        // A verified absent source does not erase energy already stored locally in the capacitor.
         if (runtime[CHARGE_SLOT] > 0 || inputQuality == PortQuality.VALID) return PortQuality.VALID;
-        return inputQuality == PortQuality.STALE ? PortQuality.STALE : PortQuality.NO_SIGNAL;
+        return PortQuality.NO_SIGNAL;
     }
 
     public static boolean outputInitialized(Level level, BlockPos pos) {
@@ -136,9 +187,15 @@ public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
             BlockState next = state.setValue(C_INDEX, capacitanceIndex);
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
             level.scheduleTick(pos, this, 1);
+
+            double load = observedLoadResistance(level, pos);
+            String loadText = Double.isInfinite(load) ? "OPEN" : String.format(Locale.ROOT, "%.2f", load);
             player.displayClientMessage(Component.literal(
                     "Copper capacitor | BACK input -> FRONT output | C-index=" + (capacitanceIndex + 1)
-                            + " | RC time-constant proxy=" + tau(capacitanceIndex) + " ticks"
+                            + " | baseTau=" + CopperCapacitorLogic.chargeTau(capacitanceIndex) + "t"
+                            + " | effectiveTau=" + effectiveTau(level, pos) + "t"
+                            + " | Rload=" + loadText
+                            + " | loadScan=" + (loadTruncated(level, pos) ? "TRUNCATED" : "COMPLETE")
                             + " | charge=" + chargePercent(level, pos) + "%"
                             + " | Vout=" + outputVoltage(level, pos)
                             + " | quality=" + outputQuality(level, pos)

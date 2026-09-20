@@ -60,6 +60,8 @@ public final class EngineeringTopologyView {
         return switch (result.status()) {
             case COMPATIBLE -> TopologyLinkStatus.CONNECTED;
             case DOMAIN_MISMATCH -> TopologyLinkStatus.DOMAIN_MISMATCH;
+            case QUANTITY_MISMATCH -> TopologyLinkStatus.QUANTITY_MISMATCH;
+            case UNIT_MISMATCH -> TopologyLinkStatus.UNIT_MISMATCH;
             case DIRECTION_MISMATCH -> TopologyLinkStatus.DIRECTION_MISMATCH;
             case ISOLATED -> TopologyLinkStatus.ISOLATED;
         };

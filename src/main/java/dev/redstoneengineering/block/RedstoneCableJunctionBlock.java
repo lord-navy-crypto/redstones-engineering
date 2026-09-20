@@ -195,6 +195,35 @@ public class RedstoneCableJunctionBlock extends ConnectedCableBlock implements E
         return ordinal >= 0 && ordinal < values.length ? values[ordinal] : PortQuality.NO_SIGNAL;
     }
 
+    public record CarrierObservation(int value, PortQuality quality) {
+        public boolean usable() {
+            return quality == PortQuality.VALID || quality == PortQuality.SATURATED;
+        }
+    }
+
+    public static CarrierObservation observeCarrier(Level level, BlockPos pos, BlockState state) {
+        if (!(state.getBlock() instanceof RedstoneCableJunctionBlock junction)) {
+            return new CarrierObservation(0, PortQuality.NO_SIGNAL);
+        }
+        SignalMedium medium = state.getValue(MEDIUM);
+        if (medium == SignalMedium.MISMATCH) {
+            return new CarrierObservation(0, PortQuality.TOPOLOGY_ERROR);
+        }
+        if (medium == SignalMedium.NONE) {
+            return new CarrierObservation(0, PortQuality.NO_SIGNAL);
+        }
+        for (Direction direction : List.of(Direction.UP, Direction.DOWN)) {
+            Optional<EngineeringPortSnapshot> snapshot =
+                    junction.engineeringSnapshot(level, pos, state, direction);
+            if (snapshot.isPresent()) {
+                return new CarrierObservation(
+                        Math.max(0, (int) Math.round(snapshot.get().value())),
+                        snapshot.get().quality());
+            }
+        }
+        return new CarrierObservation(0, PortQuality.NO_SIGNAL);
+    }
+
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         SignalMedium medium = state.getValue(MEDIUM);
@@ -302,8 +331,10 @@ public class RedstoneCableJunctionBlock extends ConnectedCableBlock implements E
                 String status = medium == SignalMedium.MISMATCH
                         ? "MISMATCH — different media blocked"
                         : medium == SignalMedium.NONE ? "NO MEDIUM" : "medium=" + medium.getSerializedName();
+                CarrierObservation carrier = observeCarrier(level, pos, state);
                 status += " | UP=" + (connected(state, Direction.UP) ? "LINK" : "OPEN")
                         + " DOWN=" + (connected(state, Direction.DOWN) ? "LINK" : "OPEN")
+                        + " | carrier=" + carrier.value() + " " + carrier.quality()
                         + " | ROUTING ONLY — NO CONVERSION";
                 player.displayClientMessage(Component.literal("Junction Point | " + status), true);
             } else {

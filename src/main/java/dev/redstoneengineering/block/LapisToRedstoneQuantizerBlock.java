@@ -102,13 +102,18 @@ public class LapisToRedstoneQuantizerBlock extends Block implements EngineeringP
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         var sample = PrecisionObservationSupport.lapis(level, pos.relative(inputSide(state)));
         RuntimeIntStore.get(level, KEY, pos, 1)[0] = encodeQuality(sample.quality());
-        int power = sample.valid() ? CoreMediaDiagnostics.redstoneFromLapis(sample.value()) : 0;
-        if (power != state.getValue(POWER)) {
-            BlockState next = state.setValue(POWER, power);
-            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            level.updateNeighborsAt(pos, this);
-            level.updateNeighborsAt(pos.relative(outputSide(next)), this);
+
+        if (sample.valid()) {
+            int power = CoreMediaDiagnostics.redstoneFromLapis(sample.value());
+            if (power != state.getValue(POWER)) {
+                BlockState next = state.setValue(POWER, power);
+                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+                level.updateNeighborsAt(pos, this);
+                level.updateNeighborsAt(pos.relative(outputSide(next)), this);
+            }
         }
+        // Invalid precision evidence cannot define a new quantized code. Retain the last
+        // trustworthy Redstone code while outputQuality exposes the degraded evidence.
         level.scheduleTick(pos, this, 2);
     }
 

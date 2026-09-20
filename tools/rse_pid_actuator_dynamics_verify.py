@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+from pathlib import Path
+import subprocess
+import tempfile
+import sys
+
+root = Path(sys.argv[1] if len(sys.argv) > 1 else ".")
+errors = []
+
+def require(rel: str, *tokens: str) -> None:
+    path = root / rel
+    if not path.is_file():
+        errors.append(f"missing: {rel}")
+        return
+    text = path.read_text(errors="ignore")
+    for token in tokens:
+        if token not in text:
+            errors.append(f"{rel} missing token: {token}")
+
+logic = "src/main/java/dev/redstoneengineering/signal/PidActuatorLogic.java"
+block = "src/main/java/dev/redstoneengineering/block/PidControllerBlock.java"
+menu = "src/main/java/dev/redstoneengineering/ui/menu/PidControllerMenu.java"
+screen = "src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java"
+
+require(logic,
+        "record SlewResult",
+        "public static SlewResult slew(",
+        "filteredMeasurementDerivative",
+        "next != requested")
+require(block,
+        "PidActuatorLogic.filteredMeasurementDerivative",
+        "applyActuatorDynamics",
+        "rateLimitedAgainstError",
+        "ACTUATOR_TARGET_SLOT",
+        "SLEW_ACTIVE_SLOT",
+        "SLEW_EPISODES_SLOT",
+        "riseLimit(BlockState state)",
+        "fallLimit(BlockState state)")
+require(menu,
+        "actuatorTarget",
+        "slewActive",
+        "slewEvents",
+        "riseLimit",
+        "fallLimit")
+require(screen,
+        "Output / actuator target",
+        "Actuator slew",
+        "derivative kick",
+        "levels per 2t control cycle")
+
+logic_path = root / logic
+if logic_path.is_file():
+    harness = r"""
+import dev.redstoneengineering.signal.PidActuatorLogic;
+
+public final class PidActuatorHarness {
+    private static void check(boolean ok, String message) {
+        if (!ok) throw new AssertionError(message);
+    }
+
+    public static void main(String[] args) {
+        var rise = PidActuatorLogic.slew(0, 15, 2, 3);
+        check(rise.output() == 2 && rise.limited(), "rise slew must bound actuator command");
+
+        var fall = PidActuatorLogic.slew(10, 0, 2, 3);
+        check(fall.output() == 7 && fall.limited(), "fall slew must use independent fall limit");
+
+        var settled = PidActuatorLogic.slew(7, 7, 2, 3);
+        check(settled.output() == 7 && !settled.limited(), "target equality must not report limiting");
+
+        int noKick = PidActuatorLogic.filteredMeasurementDerivative(6, 6, 0, 3);
+        check(noKick == 0, "unchanged PV must have zero derivative regardless of SP changes");
+
+        int pvRise = PidActuatorLogic.filteredMeasurementDerivative(6, 9, 0, 3);
+        check(pvRise == 1, "PV derivative must follow measurement movement");
+
+        System.out.println("PidActuatorLogic harness: PASS");
+    }
+}
+"""
+    try:
+        with tempfile.TemporaryDirectory(prefix="rse-pid-actuator-") as td:
+            td = Path(td)
+            hp = td / "PidActuatorHarness.java"
+            hp.write_text(harness)
+            compile_run = subprocess.run(
+                ["javac", "-d", str(td), str(logic_path), str(hp)],
+                cwd=root, capture_output=True, text=True
+            )
+            if compile_run.returncode != 0:
+                errors.append("PidActuatorLogic javac failed: " + compile_run.stderr.strip())
+            else:
+                run = subprocess.run(
+                    ["java", "-cp", str(td), "PidActuatorHarness"],
+                    cwd=root, capture_output=True, text=True
+                )
+                if run.returncode != 0:
+                    errors.append("PidActuatorLogic harness failed: " + (run.stderr or run.stdout).strip())
+    except FileNotFoundError:
+        errors.append("javac/java unavailable for PID actuator harness")
+
+if errors:
+    print("RSE PID actuator dynamics verification: FAIL")
+    for e in errors:
+        print(" -", e)
+    raise SystemExit(1)
+
+print("RSE PID actuator dynamics verification: PASS")
+print(" asymmetric actuator command slew: PASS")
+print(" derivative-on-measurement primitive: PASS")
+print(" PID/HMI integration contract: PASS")

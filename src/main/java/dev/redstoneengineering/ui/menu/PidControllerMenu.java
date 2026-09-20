@@ -54,6 +54,11 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     private final DataSlot manualMode = trackedInt();
     private final DataSlot inhibited = trackedInt();
     private final DataSlot modeTransfers = trackedInt();
+    private final DataSlot actuatorTarget = trackedInt();
+    private final DataSlot slewActive = trackedInt();
+    private final DataSlot slewEvents = trackedInt();
+    private final DataSlot riseLimit = trackedInt();
+    private final DataSlot fallLimit = trackedInt();
 
     private final DataSlot plantDetected = trackedInt();
     private final DataSlot plantReady = trackedInt();
@@ -121,6 +126,11 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
         manualMode.set(snapshot.manualMode() ? 1 : 0);
         inhibited.set(snapshot.inhibited() ? 1 : 0);
         modeTransfers.set(snapshot.modeTransfers());
+        actuatorTarget.set(PidControllerBlock.actuatorTarget(level, blockPos));
+        slewActive.set(PidControllerBlock.slewLimitActive(level, blockPos) ? 1 : 0);
+        slewEvents.set(PidControllerBlock.slewLimitEvents(level, blockPos));
+        riseLimit.set(PidControllerBlock.riseLimit(state));
+        fallLimit.set(PidControllerBlock.fallLimit(state));
 
         PneumaticClosedLoopWitness.Snapshot plant = ClosedLoopCommissioning.inspectPneumaticPlant(level, blockPos);
         plantDetected.set(plant.detected() ? 1 : 0);
@@ -208,6 +218,11 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     public boolean manualMode() { return manualMode.get() != 0; }
     public boolean inhibited() { return inhibited.get() != 0; }
     public int modeTransfers() { return modeTransfers.get(); }
+    public int actuatorTarget() { return actuatorTarget.get(); }
+    public boolean slewActive() { return slewActive.get() != 0; }
+    public int slewEvents() { return slewEvents.get(); }
+    public int riseLimit() { return riseLimit.get(); }
+    public int fallLimit() { return fallLimit.get(); }
 
     public boolean plantDetected() { return plantDetected.get() != 0; }
     public boolean plantReady() { return plantReady.get() != 0; }

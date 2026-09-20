@@ -133,7 +133,11 @@ public class RangeSensorBlock extends Block implements EngineeringPortProvider {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         ScanResult scan = lastScan(level, pos, state);
-        PortQuality quality = scan.complete() ? PortQuality.VALID : PortQuality.NO_SIGNAL;
+        PortQuality quality = switch (scan.status()) {
+            case TARGET, CLEAR -> PortQuality.VALID;
+            case INCOMPLETE_UNLOADED -> PortQuality.STALE;
+            case UNINITIALIZED -> PortQuality.NO_SIGNAL;
+        };
         return Optional.of(EngineeringPortSnapshot.redstone(port.get(), state.getValue(OUTPUT), quality));
     }
 
@@ -171,18 +175,24 @@ public class RangeSensorBlock extends Block implements EngineeringPortProvider {
         int range = configuredRange(state);
         ScanResult scan = scan(level, pos, state);
         int[] runtime = RuntimeIntStore.get(level, RUNTIME_KEY, pos, 3);
-        runtime[0] = scan.distance();
+        if (scan.complete()) {
+            runtime[0] = scan.distance();
+        }
+        // Incomplete coverage changes evidence, not the last trustworthy distance.
         runtime[1] = scan.status().ordinal();
         runtime[2] = scan.scannedCells();
 
-        int output = scan.complete() ? responseSignal(scan.distance(), range, state.getValue(RESPONSE)) : 0;
-        int oldOutput = state.getValue(OUTPUT);
-        if (oldOutput != output) {
-            BlockState next = state.setValue(OUTPUT, output);
-            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            level.updateNeighborsAt(pos, this);
-            level.updateNeighborsAt(pos.relative(next.getValue(FACING).getOpposite()), this);
+        if (scan.complete()) {
+            int output = responseSignal(scan.distance(), range, state.getValue(RESPONSE));
+            int oldOutput = state.getValue(OUTPUT);
+            if (oldOutput != output) {
+                BlockState next = state.setValue(OUTPUT, output);
+                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+                level.updateNeighborsAt(pos, this);
+                level.updateNeighborsAt(pos.relative(next.getValue(FACING).getOpposite()), this);
+            }
         }
+        // INCOMPLETE_UNLOADED retains the last physical output; engineeringSnapshot marks it STALE.
         level.scheduleTick(pos, this, 4);
     }
 
@@ -213,7 +223,9 @@ public class RangeSensorBlock extends Block implements EngineeringPortProvider {
                             + " | scan=" + scan.status()
                             + " " + scan.scannedCells() + "/" + scan.configuredRange()
                             + " | distance=" + scan.distance()
-                            + " | OUT=" + next.getValue(OUTPUT)), true);
+                            + (scan.status() == ScanStatus.INCOMPLETE_UNLOADED ? " (LAST TRUSTED)" : "")
+                            + " | OUT=" + next.getValue(OUTPUT)
+                            + (scan.status() == ScanStatus.INCOMPLETE_UNLOADED ? " HOLD" : "")), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }

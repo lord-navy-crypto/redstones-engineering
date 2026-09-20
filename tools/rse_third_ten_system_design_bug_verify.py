@@ -64,14 +64,16 @@ require("descriptor.direction() == PortDirection.INPUT" in copper_support,
         "Copper terminal input resolver must reject INPUT-only neighbors as sources")
 
 # 27-29: external-field/remanence separation and magnetic measurement certainty.
-require("appliedFieldAt" in core and "MAGNETIZE_THRESHOLD" in core,
-        "Iron Core must magnetize from bounded external applied field")
+for token in ("appliedFieldSample", "APPLIED_FIELD_RADIUS", "IronCoreLogic.nextMagnetization",
+              "applied.complete()", "remanentField"):
+    require(token in core, f"Iron Core bounded soft-magnetic response missing {token}")
 require("terminalInput" in magnet and "adjacentCopperLevel" not in magnet,
         "Electromagnet must consume source-safe Copper terminal evidence")
 for token in ("FieldSample", "scannedCells", "expectedCells", "complete"):
     require(token in magnetic, f"Magnetic free-space scan coverage missing {token}")
-require("includeRemanence" in magnetic and "appliedFieldAt" in magnetic,
-        "Magnetic physics must separate external applied field from iron-core remanence")
+require("includeRemanence" in magnetic and "appliedFieldSample" in magnetic
+        and "IronCoreBlock.remanentField" in magnetic,
+        "Magnetic physics must separate external applied field from variable iron-core remanence")
 require("observation.complete() ? PortQuality.VALID : PortQuality.STALE" in sensor,
         "Magnetic sensor must report complete measurements as VALID and incomplete/awaiting evidence as STALE")
 require("RuntimeIntStore.peek" in sensor,
@@ -107,7 +109,7 @@ print("RSE third-ten system design + bug audit verification: PASS")
 print("  optical no-source/conflict + opaque receiver terminal: PASS")
 print("  copper observer-neutral ownership + non-backdriving sink: PASS")
 print("  source-vs-input port direction enforcement: PASS")
-print("  magnetic valid-zero + STALE coverage + external-field remanence: PASS")
+print("  magnetic valid-zero + STALE coverage + finite soft-core remanence: PASS")
 print("  thermal direction-order independence + inertia evidence: PASS")
 print("  eight executable third-ten bug regressions + dedicated magnetic lifecycle regression: PASS")
 print("  fixed-content architecture: 127 blocks; no new block/domain required")

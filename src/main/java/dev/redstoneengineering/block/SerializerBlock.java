@@ -24,6 +24,8 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
 import java.util.List;
@@ -31,11 +33,34 @@ import java.util.Optional;
 
 /** Converts one 8-bit bus word into a framed serial payload. */
 public class SerializerBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
+    public static final IntegerProperty PERIOD_MODE = IntegerProperty.create("period_mode", 0, 2);
+    private static final int[] WORD_PERIODS = {4, 8, 16};
     /** Slow authority watchdog: normal source changes remain neighbor-driven, coverage loss is bounded. */
     private static final int WATCHDOG_TICKS = 16;
 
     public SerializerBlock(Properties properties) {
         super(properties);
+        registerDefaultState(defaultBlockState().setValue(PERIOD_MODE, 1));
+    }
+
+    @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        super.createBlockStateDefinition(builder);
+        builder.add(PERIOD_MODE);
+    }
+
+    public static int wordPeriod(BlockState state) {
+        return WORD_PERIODS[Math.max(0, Math.min(WORD_PERIODS.length - 1, state.getValue(PERIOD_MODE)))];
+    }
+
+    public static boolean stepPeriod(Level level, BlockPos pos, boolean forward) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof SerializerBlock serializer)) return false;
+        int next = Math.floorMod(state.getValue(PERIOD_MODE) + (forward ? 1 : -1), WORD_PERIODS.length);
+        BlockState updated = state.setValue(PERIOD_MODE, next);
+        level.setBlock(pos, updated, Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel server) serializer.update(server, pos, updated);
+        return true;
     }
 
     @Override
@@ -78,7 +103,7 @@ public class SerializerBlock extends DirectionalDomainBlock implements Engineeri
         InformationRuntime.Snapshot previous = InformationRuntime.snapshot(level, "serial", pos);
         int value = valid ? DataBusNetwork.sample(level, input)
                 : inputQuality == PortQuality.STALE ? previous.value() & 0xFF : 0;
-        InformationRuntime.write(level, "serial", pos, value, 8, valid, valid ? 100 : 0);
+        InformationRuntime.write(level, "serial", pos, value, wordPeriod(state), valid, valid ? 100 : 0);
         if (level.getBlockState(output).getBlock() instanceof SerialDataLineBlock) {
             SerialNetwork.recompute(level, output);
         }
@@ -130,7 +155,7 @@ public class SerializerBlock extends DirectionalDomainBlock implements Engineeri
                 PortQuality inputQuality = DataBusNetwork.quality(level, inputPos(pos, state));
                 player.displayClientMessage(Component.literal(
                         "Serializer framed byte=" + (output.value() & 0xFF)
-                                + " @ 8t/word"
+                                + " @ " + wordPeriod(state) + "t/word"
                                 + " | inputQuality=" + inputQuality
                                 + " | sourceValid=" + output.valid()), true);
             } else {

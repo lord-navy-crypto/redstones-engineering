@@ -1,0 +1,12 @@
+{
+  "multipart": [
+    {"when":{"facing":"north"},"apply":{"model":"redstoneengineering:block/signal_amplifier"}},
+    {"when":{"facing":"east"},"apply":{"model":"redstoneengineering:block/signal_amplifier","y":90}},
+    {"when":{"facing":"south"},"apply":{"model":"redstoneengineering:block/signal_amplifier","y":180}},
+    {"when":{"facing":"west"},"apply":{"model":"redstoneengineering:block/signal_amplifier","y":270}},
+    {"when":{"output":"1|2|3|4|5|6|7|8|9|10|11|12|13|14|15"},"apply":{"model":"redstoneengineering:block/live_output_segment_1"}},
+    {"when":{"output":"5|6|7|8|9|10|11|12|13|14|15"},"apply":{"model":"redstoneengineering:block/live_output_segment_2"}},
+    {"when":{"output":"9|10|11|12|13|14|15"},"apply":{"model":"redstoneengineering:block/live_output_segment_3"}},
+    {"when":{"output":"13|14|15"},"apply":{"model":"redstoneengineering:block/live_output_segment_4"}}
+  ]
+}

@@ -46,7 +46,9 @@ require(
     "src/main/java/dev/redstoneengineering/block/RedstoneToLapisScalerBlock.java",
     "RedstoneObservationSupport.observe",
     "outputQuality(Level level, BlockPos pos)",
-    "quality == PortQuality.STALE",
+    "if (observation.valid())",
+    "Invalid source evidence releases the Lapis driver",
+    "does not erase the last",
     "DomainNetwork.driveLapis",
 )
 require(

@@ -74,8 +74,12 @@ for name, source in (("Quartz Clock Divider", divider), ("Quartz Phase Delay", p
             f"{name} does not separate first sample from a real edge")
     require("RuntimeIntStore.peek" in source,
             f"{name} inspection helpers must be observer-neutral")
-require("runtime[PENDING_SLOT] = 0" in phase and "if (!input.valid())" in phase,
-        "Quartz Phase Delay must clear stale pending events when timing input is invalid")
+require("QUEUE_CAPACITY" in phase and "advanceQueue(runtime)" in phase,
+        "Quartz Phase Delay must preserve independent in-flight rising edges")
+require("if (input.valid())" in phase and "runtime[INITIALIZED_SLOT] = 0" in phase,
+        "Quartz Phase Delay must block new edge capture and re-baseline after invalid input")
+require("retainedEventEvidence" in phase and "LAST_VALID_PERIOD_SLOT" in phase,
+        "Quartz Phase Delay must let previously captured valid edges drain after source loss")
 
 for token in ("REFERENCE_EDGE_SLOT", "CURRENT_MEASUREMENT_SLOT", "TimingMeasurement", "RuntimeIntStore.peek", "PortQuality.STALE"):
     require(token in stability, f"Quartz Stability Monitor complete-period semantics missing {token}")

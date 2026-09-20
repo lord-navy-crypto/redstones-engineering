@@ -31,11 +31,13 @@ import java.util.Optional;
 /** Quartz rising-edge triggered sample-and-hold for the Lapis precision domain. */
 public class QuartzTriggeredLapisSamplerBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
     private static final String KEY = "quartz_triggered_lapis_sampler";
-    private static final int RUNTIME_SIZE = 4;
+    private static final int RUNTIME_SIZE = 6;
     private static final int CLOCK_SEEN = 0;
     private static final int PREVIOUS_CLOCK = 1;
     private static final int HELD_VALUE = 2;
     private static final int HELD_QUALITY = 3;
+    private static final int ACCEPTED_CAPTURES = 4;
+    private static final int REJECTED_CAPTURES = 5;
 
     public QuartzTriggeredLapisSamplerBlock(Properties p) {
         super(p);
@@ -65,6 +67,16 @@ public class QuartzTriggeredLapisSamplerBlock extends DirectionalDomainBlock imp
         int ordinal = runtime[HELD_QUALITY] - 1;
         PortQuality[] values = PortQuality.values();
         return ordinal >= 0 && ordinal < values.length ? values[ordinal] : PortQuality.STALE;
+    }
+
+    public static int acceptedCaptures(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length != RUNTIME_SIZE ? 0 : Math.max(0, runtime[ACCEPTED_CAPTURES]);
+    }
+
+    public static int rejectedCaptures(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length != RUNTIME_SIZE ? 0 : Math.max(0, runtime[REJECTED_CAPTURES]);
     }
 
     @Override
@@ -169,15 +181,33 @@ public class QuartzTriggeredLapisSamplerBlock extends DirectionalDomainBlock imp
         boolean rising = active == 1 && runtime[PREVIOUS_CLOCK] == 0;
         if (rising) {
             var sample = PrecisionObservationSupport.lapis(level, inputPos(pos, state));
-            runtime[HELD_VALUE] = sample.valid() ? sample.value() : 0;
-            runtime[HELD_QUALITY] = encodeQuality(sample.quality());
-            DomainNetwork.driveLapis(
-                    level,
-                    outputPos(pos, state),
-                    pos,
-                    runtime[HELD_VALUE],
-                    sample.valid()
-            );
+            if (sample.valid()) {
+                runtime[HELD_VALUE] = sample.value();
+                runtime[HELD_QUALITY] = encodeQuality(sample.quality());
+                if (runtime[ACCEPTED_CAPTURES] < Integer.MAX_VALUE) runtime[ACCEPTED_CAPTURES]++;
+                DomainNetwork.driveLapis(
+                        level,
+                        outputPos(pos, state),
+                        pos,
+                        runtime[HELD_VALUE],
+                        true
+                );
+            } else {
+                if (runtime[REJECTED_CAPTURES] < Integer.MAX_VALUE) runtime[REJECTED_CAPTURES]++;
+                // A rejected acquisition never occurred physically: preserve the previous held
+                // sample and its evidence instead of turning failed input evidence into loss of
+                // an already trustworthy sample-and-hold state.
+                PortQuality retainedQuality = heldQuality(level, pos);
+                boolean retainedSampleValid = retainedQuality == PortQuality.VALID
+                        || retainedQuality == PortQuality.SATURATED;
+                DomainNetwork.driveLapis(
+                        level,
+                        outputPos(pos, state),
+                        pos,
+                        runtime[HELD_VALUE],
+                        retainedSampleValid
+                );
+            }
         }
         runtime[PREVIOUS_CLOCK] = active;
         level.scheduleTick(pos, this, 1);
@@ -203,6 +233,8 @@ public class QuartzTriggeredLapisSamplerBlock extends DirectionalDomainBlock imp
                                 + (heldQuality(level, pos) == PortQuality.VALID
                                 ? String.format("%.2f", heldValue(level, pos) / 100.0)
                                 : heldQuality(level, pos).name())
+                                + " | captures=" + acceptedCaptures(level, pos)
+                                + " rejected=" + rejectedCaptures(level, pos)
                                 + " | quartz input=LEFT | lapis input=BACK | output=FRONT"
                 ), true);
             } else {

@@ -29,9 +29,11 @@ require(
     "RedstoneObservationSupport.observe",
     "resetObservation.valid()",
     "faultObservation.valid()",
-    "if (resetHigh)",
-    "return 0;",
-    "previousResetLevel",
+    "resetRising",
+    "faultClearForReset",
+    "RESET_REACQUIRE",
+    "PREVIOUS_RESET",
+    "runtime[LATCHED] = 0",
     "RuntimeIntStore.remove",
 )
 

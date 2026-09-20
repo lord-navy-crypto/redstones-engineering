@@ -30,6 +30,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
 
 import javax.annotation.Nullable;
@@ -40,16 +41,28 @@ import java.util.Optional;
 /** Two-channel observer on the non-invasive RSE instrument bus. */
 public class OscilloscopeBlock extends Block implements EntityBlock, EngineeringPortProvider {
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
+    public static final IntegerProperty TIMEBASE_MODE = IntegerProperty.create("timebase_mode", 0, 3);
     private static final int OBSERVED_CHANNEL_MASK = 0b0011;
 
     public OscilloscopeBlock(Properties properties) {
         super(properties);
-        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH));
+        registerDefaultState(stateDefinition.any()
+                .setValue(FACING, Direction.NORTH)
+                .setValue(TIMEBASE_MODE, 1));
     }
 
     @Override public MapCodec<OscilloscopeBlock> codec() { return RedstoneEngineering.OSCILLOSCOPE_CODEC.value(); }
     @Override public BlockState getStateForPlacement(BlockPlaceContext context) { return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite()); }
-    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { builder.add(FACING); }
+    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { builder.add(FACING, TIMEBASE_MODE); }
+
+    public static int samplePeriodTicks(BlockState state) {
+        return switch (state.getValue(TIMEBASE_MODE)) {
+            case 0 -> 1;
+            case 1 -> 2;
+            case 2 -> 4;
+            default -> 8;
+        };
+    }
 
     /**
      * The scope is a six-face listener on one logical Instrument Bus. A face is an attachment
@@ -85,7 +98,7 @@ public class OscilloscopeBlock extends Block implements EntityBlock, Engineering
 
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
-        if (!level.isClientSide && !state.is(oldState.getBlock())) level.scheduleTick(pos, this, OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS);
+        if (!level.isClientSide && !state.is(oldState.getBlock())) level.scheduleTick(pos, this, samplePeriodTicks(state));
     }
 
     @Override
@@ -94,11 +107,13 @@ public class OscilloscopeBlock extends Block implements EntityBlock, Engineering
         if (level.getBlockEntity(pos) instanceof OscilloscopeBlockEntity scope) {
             scope.addSample(snapshot.valueOr(0, -1), snapshot.valueOr(1, -1));
         }
-        level.scheduleTick(pos, this, OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS);
+        level.scheduleTick(pos, this, samplePeriodTicks(state));
     }
 
     public static boolean applyUiAction(Level level, BlockPos pos, int action) {
         if (level.isClientSide || !(level.getBlockEntity(pos) instanceof OscilloscopeBlockEntity scope)) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof OscilloscopeBlock block)) return false;
         switch (action) {
             case OscilloscopeMenu.BUTTON_ARM -> scope.arm();
             case OscilloscopeMenu.BUTTON_TRIGGER_MODE -> scope.cycleTriggerMode();
@@ -107,6 +122,13 @@ public class OscilloscopeBlock extends Block implements EntityBlock, Engineering
             case OscilloscopeMenu.BUTTON_CURSOR_A -> scope.moveCursorA();
             case OscilloscopeMenu.BUTTON_CURSOR_B -> scope.moveCursorB();
             case OscilloscopeMenu.BUTTON_CLEAR -> scope.clear();
+            case OscilloscopeMenu.BUTTON_TIMEBASE -> {
+                int next = Math.floorMod(state.getValue(TIMEBASE_MODE) + 1, 4);
+                BlockState updated = state.setValue(TIMEBASE_MODE, next);
+                level.setBlock(pos, updated, Block.UPDATE_CLIENTS);
+                scope.clear();
+                if (level instanceof ServerLevel server) server.scheduleTick(pos, block, 1);
+            }
             default -> { return false; }
         }
         return true;

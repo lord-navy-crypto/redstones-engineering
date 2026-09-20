@@ -36,7 +36,8 @@ public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements E
     private static final int OUTPUT_SLOT = 0;
     private static final int VALID_SLOT = 1;
     private static final int QUALITY_SLOT = 2;
-    private static final int RUNTIME_SIZE = 3;
+    private static final int HISTORY_SLOT = 3;
+    private static final int RUNTIME_SIZE = 4;
 
     public record FilterState(int output, boolean valid, PortQuality quality) {}
 
@@ -70,6 +71,11 @@ public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements E
     public static boolean runtimePresent(Level level, BlockPos pos) {
         int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
         return runtime != null && runtime.length == RUNTIME_SIZE;
+    }
+
+    public static boolean retainedHistory(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime != null && runtime.length == RUNTIME_SIZE && runtime[HISTORY_SLOT] != 0;
     }
 
     @Override
@@ -125,14 +131,17 @@ public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements E
         PortQuality inputQuality = inputQuality(level, inputPos, input);
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
         if (input.valid() && inputQuality == PortQuality.VALID) {
-            int previous = runtime[VALID_SLOT] == 0 ? input.value() : runtime[OUTPUT_SLOT];
+            int previous = runtime[HISTORY_SLOT] == 0 ? input.value() : runtime[OUTPUT_SLOT];
             runtime[OUTPUT_SLOT] = EngineeringMath.clamp(
                     (int) Math.round(previous + alpha(state.getValue(ALPHA)) * (input.value() - previous)), 0, 100);
+            runtime[HISTORY_SLOT] = 1;
             runtime[VALID_SLOT] = 1;
             runtime[QUALITY_SLOT] = PortQuality.VALID.ordinal();
             DomainNetwork.driveLapis(level, outputPos(pos, state), pos, runtime[OUTPUT_SLOT], true);
         } else {
-            runtime[OUTPUT_SLOT] = 0;
+            // Loss of upstream evidence invalidates the driver, but it does not erase the filter's
+            // internal state. On reacquisition the first-order response continues from the last
+            // trustworthy physical output instead of fabricating a zero-valued history.
             runtime[VALID_SLOT] = 0;
             runtime[QUALITY_SLOT] = inputQuality.ordinal();
             DomainNetwork.driveLapis(level, outputPos(pos, state), pos, 0, false);
@@ -155,7 +164,9 @@ public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements E
             FilterState runtime = filterState(level, pos);
             player.displayClientMessage(Component.literal(
                     "Lapis low-pass | BACK input → FRONT output | alpha=" + alpha(index)
-                            + " | output=" + (runtime.valid() ? String.format("%.2f", runtime.output() / 100.0) : runtime.quality())
+                            + " | output=" + String.format("%.2f", runtime.output() / 100.0)
+                            + " | quality=" + runtime.quality()
+                            + " | history=" + (retainedHistory(level, pos) ? "RETAINED" : "EMPTY")
                             + " | diagnostic readback is observer-neutral"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);

@@ -53,8 +53,8 @@ workflow = (ROOT / ".github/workflows/build.yml").read_text(encoding="utf-8")
 for token in ("record DensitySample", "level.hasChunkAt(cursor)", "PortQuality.STALE", "if (!sample.complete())", "last trustworthy output"):
     require(token in entity, f"Entity Density Sensor coverage contract missing {token}")
 
-for token in ("record InputObservation", "PortQuality.STALE", "PortQuality.NO_SIGNAL", "EngineeringPortProvider", "port.direction() != PortDirection.INPUT"):
-    require(token in indicator, f"Analog Indicator source-evidence contract missing {token}")
+for token in ("record InputObservation", "RedstoneObservationSupport.observe", "EngineeringPortProvider"):
+    require(token in indicator, f"Analog Indicator shared source-evidence contract missing {token}")
 snapshot_body = method_body(indicator, "public Optional<EngineeringPortSnapshot> engineeringSnapshot")
 require("inputObservation" in snapshot_body and "PortQuality.VALID" not in snapshot_body,
         "Analog Indicator snapshot still fabricates unconditional VALID")
@@ -143,7 +143,7 @@ for token in (
 
 print("RSE seventh-ten system design + bug verification: PASS")
 print("  entity-density aperture coverage and trusted-count retention: PASS")
-print("  analog indicator driven-zero/source evidence: PASS")
+print("  analog indicator driven-zero/shared source evidence: PASS")
 print("  unified signal-junction cross-medium diagnostics: PASS")
 print("  optical service-isolation runtime lifecycle: PASS")
 print("  copper junction zero/source/conflict semantics: PASS")

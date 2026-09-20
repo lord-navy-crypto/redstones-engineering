@@ -77,9 +77,8 @@ public final class MagneticPhysics {
                     int source = 0;
                     if (state.getBlock() instanceof ElectromagnetBlock) {
                         source = state.getValue(ElectromagnetBlock.FIELD);
-                    } else if (includeRemanence && state.getBlock() instanceof IronCoreBlock
-                            && state.getValue(IronCoreBlock.MAGNETIZED)) {
-                        source = 6;
+                    } else if (includeRemanence && state.getBlock() instanceof IronCoreBlock) {
+                        source = IronCoreBlock.remanentField(level, cursor);
                     } else if (state.getBlock() instanceof PermanentMagnetBlock) {
                         source = state.getValue(PermanentMagnetBlock.STRENGTH);
                     }

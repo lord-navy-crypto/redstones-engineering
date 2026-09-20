@@ -34,22 +34,63 @@ import java.util.Optional;
 /** Observer-only scalar magnetic-field sensor with explicit free-space scan coverage. */
 public class MagneticFieldSensorBlock extends DomainBlock implements EngineeringPortProvider {
     public static final IntegerProperty FIELD = IntegerProperty.create("field", 0, 15);
+    public static final IntegerProperty RADIUS_MODE = IntegerProperty.create("radius_mode", 0, 3);
+    public static final IntegerProperty SAMPLE_MODE = IntegerProperty.create("sample_mode", 0, 2);
     private static final String KEY = "magnetic_field_sensor";
     private static final int SCANNED = 0;
     private static final int EXPECTED = 1;
     private static final int INITIALIZED = 2;
     private static final int RUNTIME_SIZE = 3;
-    private static final int RADIUS = 6;
 
     public record Observation(int field, int scannedCells, int expectedCells, boolean initialized, boolean complete) {}
 
     public MagneticFieldSensorBlock(Properties properties) {
         super(properties);
-        registerDefaultState(defaultBlockState().setValue(FIELD, 0));
+        registerDefaultState(defaultBlockState()
+                .setValue(FIELD, 0)
+                .setValue(RADIUS_MODE, 2)
+                .setValue(SAMPLE_MODE, 1));
     }
 
     @Override public MapCodec<MagneticFieldSensorBlock> codec() { return RedstoneEngineering.MAGNETIC_FIELD_SENSOR_CODEC.value(); }
-    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { builder.add(FIELD); }
+    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { builder.add(FIELD, RADIUS_MODE, SAMPLE_MODE); }
+
+    public static int radiusForMode(int mode) {
+        return switch (Math.max(0, Math.min(3, mode))) {
+            case 0 -> 2;
+            case 1 -> 4;
+            case 2 -> 6;
+            default -> 8;
+        };
+    }
+
+    public static int samplePeriodForMode(int mode) {
+        return switch (Math.max(0, Math.min(2, mode))) {
+            case 0 -> 1;
+            case 1 -> 5;
+            default -> 10;
+        };
+    }
+
+    public static boolean adjustRadius(Level level, BlockPos pos, int delta) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof MagneticFieldSensorBlock sensor)) return false;
+        int next = Math.floorMod(state.getValue(RADIUS_MODE) + delta, 4);
+        level.setBlock(pos, state.setValue(RADIUS_MODE, next), Block.UPDATE_CLIENTS);
+        RuntimeIntStore.remove(level, KEY, pos);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, sensor, 1);
+        return true;
+    }
+
+    public static boolean adjustSampling(Level level, BlockPos pos, int delta) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof MagneticFieldSensorBlock sensor)) return false;
+        int next = Math.floorMod(state.getValue(SAMPLE_MODE) + delta, 3);
+        level.setBlock(pos, state.setValue(SAMPLE_MODE, next), Block.UPDATE_CLIENTS);
+        RuntimeIntStore.remove(level, KEY, pos);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, sensor, 1);
+        return true;
+    }
 
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
@@ -87,7 +128,8 @@ public class MagneticFieldSensorBlock extends DomainBlock implements Engineering
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        MagneticPhysics.FieldSample sample = MagneticPhysics.fieldSample(level, pos, RADIUS);
+        int radius = radiusForMode(state.getValue(RADIUS_MODE));
+        MagneticPhysics.FieldSample sample = MagneticPhysics.fieldSample(level, pos, radius);
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
         runtime[SCANNED] = sample.scannedCells();
         runtime[EXPECTED] = sample.expectedCells();
@@ -95,7 +137,7 @@ public class MagneticFieldSensorBlock extends DomainBlock implements Engineering
         if (sample.field() != state.getValue(FIELD)) {
             level.setBlock(pos, state.setValue(FIELD, sample.field()), Block.UPDATE_CLIENTS);
         }
-        level.scheduleTick(pos, this, 5);
+        level.scheduleTick(pos, this, samplePeriodForMode(state.getValue(SAMPLE_MODE)));
     }
 
     @Override
@@ -114,7 +156,8 @@ public class MagneticFieldSensorBlock extends DomainBlock implements Engineering
             Observation observation = observation(level, pos, state);
             player.displayClientMessage(Component.literal(
                     "Magnetic field sensor | B-level=" + observation.field() + "/15"
-                            + " | radius=" + RADIUS
+                            + " | radius=" + radiusForMode(state.getValue(RADIUS_MODE))
+                            + " | sample=" + samplePeriodForMode(state.getValue(SAMPLE_MODE)) + "t"
                             + " | coverage=" + observation.scannedCells() + "/" + observation.expectedCells()
                             + " | " + (observation.complete() ? "VALID" : "INCOMPLETE")), true);
         }

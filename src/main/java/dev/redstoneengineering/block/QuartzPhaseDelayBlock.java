@@ -29,15 +29,24 @@ import net.minecraft.world.phys.BlockHitResult;
 import java.util.List;
 import java.util.Optional;
 
-/** Quartz timing-line edge delay that emits only delayed real post-initialization rising edges. */
+/**
+ * Quartz timing-line rising-edge delay with a bounded in-flight event queue.
+ *
+ * <p>Every genuine post-initialization rising edge is delayed independently. Slow delay settings
+ * therefore preserve a faster input clock instead of dropping edges while one event is pending.</p>
+ */
 public class QuartzPhaseDelayBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
     public static final IntegerProperty DELAY = IntegerProperty.create("delay", 1, 8);
     private static final String KEY = "quartz_phase_delay";
-    private static final int PENDING_SLOT = 0;
-    private static final int PREVIOUS_SLOT = 1;
-    private static final int OUTPUT_SLOT = 2;
-    private static final int INITIALIZED_SLOT = 3;
-    private static final int RUNTIME_SIZE = 4;
+    private static final int PREVIOUS_SLOT = 0;
+    private static final int OUTPUT_SLOT = 1;
+    private static final int INITIALIZED_SLOT = 2;
+    private static final int QUEUE_COUNT_SLOT = 3;
+    private static final int DROPPED_EDGE_SLOT = 4;
+    private static final int LAST_VALID_PERIOD_SLOT = 5;
+    private static final int QUEUE_BASE = 6;
+    private static final int QUEUE_CAPACITY = 8;
+    private static final int RUNTIME_SIZE = QUEUE_BASE + QUEUE_CAPACITY;
 
     public QuartzPhaseDelayBlock(Properties properties) {
         super(properties);
@@ -49,7 +58,53 @@ public class QuartzPhaseDelayBlock extends DirectionalDomainBlock implements Eng
 
     public static int pendingTicks(Level level, BlockPos pos) {
         int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
-        return runtime == null || runtime.length != RUNTIME_SIZE ? 0 : runtime[PENDING_SLOT];
+        if (runtime == null || runtime.length != RUNTIME_SIZE || runtime[QUEUE_COUNT_SLOT] <= 0) return 0;
+        int min = Integer.MAX_VALUE;
+        for (int i = 0; i < runtime[QUEUE_COUNT_SLOT]; i++) {
+            min = Math.min(min, Math.max(0, runtime[QUEUE_BASE + i]));
+        }
+        return min == Integer.MAX_VALUE ? 0 : min;
+    }
+
+    public static int queuedEdges(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length != RUNTIME_SIZE
+                ? 0 : Math.max(0, Math.min(QUEUE_CAPACITY, runtime[QUEUE_COUNT_SLOT]));
+    }
+
+    public static int droppedEdges(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length != RUNTIME_SIZE
+                ? 0 : Math.max(0, runtime[DROPPED_EDGE_SLOT]);
+    }
+
+    private static void enqueue(int[] runtime, int delay) {
+        int count = Math.max(0, Math.min(QUEUE_CAPACITY, runtime[QUEUE_COUNT_SLOT]));
+        if (count >= QUEUE_CAPACITY) {
+            if (runtime[DROPPED_EDGE_SLOT] < Integer.MAX_VALUE) runtime[DROPPED_EDGE_SLOT]++;
+            return;
+        }
+        runtime[QUEUE_BASE + count] = Math.max(1, delay);
+        runtime[QUEUE_COUNT_SLOT] = count + 1;
+    }
+
+    private static boolean advanceQueue(int[] runtime) {
+        int count = Math.max(0, Math.min(QUEUE_CAPACITY, runtime[QUEUE_COUNT_SLOT]));
+        if (count <= 0) return false;
+
+        boolean emit = false;
+        int write = 0;
+        for (int i = 0; i < count; i++) {
+            int remaining = Math.max(0, runtime[QUEUE_BASE + i] - 1);
+            if (remaining <= 0) {
+                emit = true;
+                continue;
+            }
+            runtime[QUEUE_BASE + write++] = remaining;
+        }
+        for (int i = write; i < QUEUE_CAPACITY; i++) runtime[QUEUE_BASE + i] = 0;
+        runtime[QUEUE_COUNT_SLOT] = write;
+        return emit;
     }
 
     public static boolean initialized(Level level, BlockPos pos) {
@@ -75,6 +130,16 @@ public class QuartzPhaseDelayBlock extends DirectionalDomainBlock implements Eng
         PortQuality quality = level.getBlockState(samplePos).getBlock() instanceof QuartzTimingLineBlock
                 ? QuartzTimingLineBlock.quality(level, samplePos)
                 : (sample.valid() ? PortQuality.VALID : PortQuality.NO_SIGNAL);
+        if (side == outputSide(state) && quality == PortQuality.NO_SIGNAL) {
+            BlockPos upstreamPos = inputPos(pos, state);
+            DomainNetwork.QuartzSample upstreamSample = DomainNetwork.sampleQuartz(level, upstreamPos);
+            PortQuality upstreamQuality = level.getBlockState(upstreamPos).getBlock() instanceof QuartzTimingLineBlock
+                    ? QuartzTimingLineBlock.quality(level, upstreamPos)
+                    : (upstreamSample.valid() ? PortQuality.VALID : PortQuality.NO_SIGNAL);
+            if (upstreamQuality == PortQuality.STALE || upstreamQuality == PortQuality.TOPOLOGY_ERROR) {
+                quality = upstreamQuality;
+            }
+        }
         return Optional.of(new EngineeringPortSnapshot(port.get(), sample.periodTicks(), 0.0, 4096.0, quality));
     }
 
@@ -103,36 +168,39 @@ public class QuartzPhaseDelayBlock extends DirectionalDomainBlock implements Eng
         DomainNetwork.QuartzSample input = DomainNetwork.sampleQuartz(level, inputPos(pos, state));
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
 
-        if (!input.valid()) {
-            runtime[PENDING_SLOT] = 0;
-            runtime[PREVIOUS_SLOT] = 0;
-            runtime[OUTPUT_SLOT] = 0;
-            runtime[INITIALIZED_SLOT] = 0;
-            DomainNetwork.driveQuartz(level, outputPos(pos, state), pos, false, 1, false);
-            level.scheduleTick(pos, this, 1);
-            return;
-        }
+        // Events that were captured while evidence was valid are already "inside" the delay line.
+        // They continue to propagate even if the upstream source disappears afterwards.
+        runtime[OUTPUT_SLOT] = advanceQueue(runtime) ? 1 : 0;
 
-        runtime[OUTPUT_SLOT] = 0;
-        if (runtime[PENDING_SLOT] > 0) {
-            runtime[PENDING_SLOT]--;
-            if (runtime[PENDING_SLOT] == 0) runtime[OUTPUT_SLOT] = 1;
-        }
-
-        if (runtime[INITIALIZED_SLOT] == 0) {
-            runtime[PREVIOUS_SLOT] = input.active() ? 1 : 0;
-            runtime[INITIALIZED_SLOT] = 1;
-        } else {
-            boolean rising = input.active() && runtime[PREVIOUS_SLOT] == 0;
-            if (rising && runtime[PENDING_SLOT] == 0 && runtime[OUTPUT_SLOT] == 0) {
-                runtime[PENDING_SLOT] = FaultInjectionModel.latencyTicks(state.getValue(DELAY), 8);
+        if (input.valid()) {
+            runtime[LAST_VALID_PERIOD_SLOT] = Math.max(1, input.periodTicks());
+            if (runtime[INITIALIZED_SLOT] == 0) {
+                runtime[PREVIOUS_SLOT] = input.active() ? 1 : 0;
+                runtime[INITIALIZED_SLOT] = 1;
+            } else {
+                boolean rising = input.active() && runtime[PREVIOUS_SLOT] == 0;
+                if (rising) {
+                    enqueue(runtime, FaultInjectionModel.latencyTicks(state.getValue(DELAY), 8));
+                }
+                runtime[PREVIOUS_SLOT] = input.active() ? 1 : 0;
             }
-            runtime[PREVIOUS_SLOT] = input.active() ? 1 : 0;
+        } else {
+            // Reacquisition must establish a fresh phase baseline; never fabricate an edge.
+            runtime[PREVIOUS_SLOT] = 0;
+            runtime[INITIALIZED_SLOT] = 0;
         }
+
+        boolean retainedEventEvidence = runtime[OUTPUT_SLOT] == 1 || runtime[QUEUE_COUNT_SLOT] > 0;
+        boolean outputEvidenceValid = input.valid() || retainedEventEvidence;
+        int outputPeriod = input.valid()
+                ? Math.max(1, input.periodTicks())
+                : Math.max(1, runtime[LAST_VALID_PERIOD_SLOT]);
 
         DomainNetwork.driveQuartz(
-                level, outputPos(pos, state), pos, runtime[OUTPUT_SLOT] == 1,
-                Math.max(1, input.periodTicks()), true);
+                level, outputPos(pos, state), pos,
+                runtime[OUTPUT_SLOT] == 1,
+                outputPeriod,
+                outputEvidenceValid);
         level.scheduleTick(pos, this, 1);
     }
 
@@ -142,14 +210,13 @@ public class QuartzPhaseDelayBlock extends DirectionalDomainBlock implements Eng
             delay = delay >= 8 ? 1 : delay + 1;
             BlockState next = state.setValue(DELAY, delay);
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            if (level instanceof ServerLevel serverLevel) {
-                DomainNetwork.driveQuartz(serverLevel, outputPos(pos, state), pos, false, 1, false);
-            }
-            RuntimeIntStore.remove(level, KEY, pos);
-            level.scheduleTick(pos, this, 1);
             player.displayClientMessage(Component.literal(
-                    "Fault injection [LATENCY] | BACK QUARTZ in → FRONT QUARTZ out | rising-edge delay=" + delay
-                            + " ticks | reconnect HIGH only re-arms; it does not fabricate an edge"), true);
+                    "Quartz phase delay | rising-edge delay=" + delay
+                            + "t for NEW edges"
+                            + " | queued=" + queuedEdges(level, pos)
+                            + " next=" + pendingTicks(level, pos) + "t"
+                            + " | dropped=" + droppedEdges(level, pos)
+                            + " | in-flight edges retain their original delay"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }

@@ -18,6 +18,9 @@ public final class CircuitPhysics {
      * Estimate the parallel equivalent resistance of loads reachable from a
      * Copper conductor segment. Junctions are conductors; loads are terminal
      * nodes and never become accidental pass-through wires.
+     *
+     * <p>No reachable load is a physical open circuit, represented as positive
+     * infinity rather than an arbitrary finite fallback resistance.</p>
      */
     public static double equivalentLoadResistance(Level level, BlockPos start, int maxNodes) {
         int limit = Math.max(1, Math.min(NetworkKernel.MAX_NODES, maxNodes));
@@ -75,10 +78,15 @@ public final class CircuitPhysics {
         }
 
         NetworkKernel.recordScan(level, "copper_load", visited.size(), !queue.isEmpty());
-        return conductance <= 0.0 ? 15.0 : 1.0 / conductance;
+        return conductance <= 0.0 ? Double.POSITIVE_INFINITY : 1.0 / conductance;
     }
 
     public static double current(double voltage,double resistance){return resistance<=0?0:voltage/resistance;}
     public static double power(double voltage,double resistance){double i=current(voltage,resistance);return voltage*i;}
-    public static int divider(int vin,double seriesR,double loadR){if(vin<=0)return 0;double v=vin*loadR/(seriesR+loadR);return EngineeringMath.clamp((int)Math.round(v),0,15);}
+    public static int divider(int vin,double seriesR,double loadR){
+        if(vin<=0)return 0;
+        if(Double.isInfinite(loadR))return EngineeringMath.clamp(vin,0,15);
+        double v=vin*loadR/(seriesR+loadR);
+        return EngineeringMath.clamp((int)Math.round(v),0,15);
+    }
 }

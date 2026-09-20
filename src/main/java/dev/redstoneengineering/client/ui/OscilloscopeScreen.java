@@ -1,6 +1,7 @@
 package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.blockentity.OscilloscopeBlockEntity;
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.menu.OscilloscopeMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -19,7 +20,8 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
         addConfigureWidget(Button.builder(Component.literal("Level +"), b -> sendMenuButton(OscilloscopeMenu.BUTTON_TRIGGER_LEVEL)).bounds(x, y + 25, w, 20).build());
         addConfigureWidget(Button.builder(Component.literal("Cursor A +"), b -> sendMenuButton(OscilloscopeMenu.BUTTON_CURSOR_A)).bounds(x + w + gap, y + 25, w, 20).build());
         addConfigureWidget(Button.builder(Component.literal("Cursor B +"), b -> sendMenuButton(OscilloscopeMenu.BUTTON_CURSOR_B)).bounds(x + (w + gap) * 2, y + 25, w, 20).build());
-        addConfigureWidget(Button.builder(Component.literal("Clear capture"), b -> sendMenuButton(OscilloscopeMenu.BUTTON_CLEAR)).bounds(x, y + 50, w * 3 + gap * 2, 20).build());
+        addConfigureWidget(Button.builder(Component.literal("Timebase"), b -> sendMenuButton(OscilloscopeMenu.BUTTON_TIMEBASE)).bounds(x, y + 50, w, 20).build());
+        addConfigureWidget(Button.builder(Component.literal("Clear capture"), b -> sendMenuButton(OscilloscopeMenu.BUTTON_CLEAR)).bounds(x + w + gap, y + 50, w * 2 + gap, 20).build());
     }
 
     @Override protected void renderSection(GuiGraphics graphics, Section section) {
@@ -51,10 +53,11 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
         labelValue(graphics, "Trigger mode", modeName(menu.triggerMode()), 80);
         labelValue(graphics, "Trigger source", "CH " + (menu.triggerChannel() == 0 ? "A" : "B"), 95);
         labelValue(graphics, "Trigger level", menu.triggerLevel() + " / 15", 110);
-        labelValue(graphics, "Cursors", "A=" + menu.cursorA() + " B=" + menu.cursorB(), 125);
-        labelValue(graphics, "Cursor Δ", Math.abs(menu.cursorB() - menu.cursorA()) + " samples / " + Math.abs(menu.cursorB() - menu.cursorA()) * OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS + "t", 140);
-        safeText(graphics, "All controls are validated on the logical server.", 16, 178, MUTED);
-        safeText(graphics, "Trigger/cursor interpretation uses synchronized retained samples only.", 16, 194, MUTED);
+        labelValue(graphics, "Timebase", menu.samplePeriodTicks() + " ticks/sample", 125);
+        labelValue(graphics, "Cursors", "A=" + menu.cursorA() + " B=" + menu.cursorB(), 140);
+        labelValue(graphics, "Cursor Δ", Math.abs(menu.cursorB() - menu.cursorA()) + " samples / " + Math.abs(menu.cursorB() - menu.cursorA()) * menu.samplePeriodTicks() + "t", 155);
+        safeText(graphics, "Changing timebase clears the capture so one buffer never mixes different sample intervals.", 16, 184, MUTED);
+        safeText(graphics, "All controls are validated on the logical server.", 16, 202, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
@@ -118,8 +121,8 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
         int avgDelta = Math.abs(menu.average100(0) - menu.average100(1));
         int p2pDelta = Math.abs(menu.peakToPeak(0) - menu.peakToPeak(1));
         int periodA = menu.periodTicks(0), periodB = menu.periodTicks(1);
-        if (periodA > 0 && periodB > 0 && Math.abs(periodA - periodB) <= OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS && avgDelta <= 100 && p2pDelta <= 1) return "CHANNEL RELATIONSHIP • closely tracking";
-        if (periodA > 0 && periodB > 0 && Math.abs(periodA - periodB) > OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS * 2) return "CHANNEL RELATIONSHIP • timing mismatch";
+        if (periodA > 0 && periodB > 0 && Math.abs(periodA - periodB) <= menu.samplePeriodTicks() && avgDelta <= 100 && p2pDelta <= 1) return "CHANNEL RELATIONSHIP • closely tracking";
+        if (periodA > 0 && periodB > 0 && Math.abs(periodA - periodB) > menu.samplePeriodTicks() * 2) return "CHANNEL RELATIONSHIP • timing mismatch";
         if (avgDelta >= 400) return "CHANNEL RELATIONSHIP • large level offset";
         if (p2pDelta >= 5) return "CHANNEL RELATIONSHIP • amplitude mismatch";
         return "CHANNEL RELATIONSHIP • distinct but comparable";
@@ -146,12 +149,23 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
 
     private int shieldingColor() { if (!menu.bounded()) return WARN; if (menu.cableNodes() == 0 || menu.shieldingCoverage() >= 90) return GOOD; if (menu.shieldingCoverage() >= 60) return INFO; return WARN; }
     private int interferenceColor() { if (!menu.bounded()) return WARN; if (menu.interferenceConfidence() >= 90) return GOOD; if (menu.interferenceConfidence() >= 70) return INFO; return WARN; }
-    private int probePairColor() { if (menu.probeCount(0) == 1 && menu.probeCount(1) == 1) return GOOD; return menu.probeCount(0) > 1 || menu.probeCount(1) > 1 ? WARN : MUTED; }
+    private int probePairColor() {
+        if (menu.probeCount(0) > 1 || menu.probeCount(1) > 1) return BAD;
+        if (menu.probeCount(0) == 0 || menu.probeCount(1) == 0) return MUTED;
+        int a = probeQualityColor(probeQuality(0));
+        int b = probeQualityColor(probeQuality(1));
+        if (a == BAD || b == BAD) return BAD;
+        if (a == WARN || b == WARN) return WARN;
+        return GOOD;
+    }
 
     private String nextAction() {
         if (!menu.bounded()) return "NEXT • reduce/segment the instrument network before trusting capture timing.";
         if (menu.duplicateChannels() > 0) return "NEXT • resolve duplicate probe channel ownership before waveform comparison.";
         if (menu.probeCount(0) != 1 || menu.probeCount(1) != 1) return "NEXT • connect exactly one probe to each compared channel.";
+        if (probeQuality(0) != PortQuality.VALID && probeQuality(0) != PortQuality.SATURATED
+                || probeQuality(1) != PortQuality.VALID && probeQuality(1) != PortQuality.SATURATED)
+            return "NEXT • restore trustworthy probe evidence before comparing captured waveforms.";
         if (menu.unshieldedExposedNodes() > 0) return "NEXT • shield exposed instrument segments or separate them from energized Redstone/Copper routing.";
         if (menu.exposedCableNodes() > 0) return "NEXT • shielding is containing observed exposure; keep route separation if small differences matter.";
         if (evidenceConfidence() < 70) return "NEXT • acquire a longer valid capture before interpreting waveform differences.";
@@ -161,14 +175,30 @@ public final class OscilloscopeScreen extends EngineeringScreen<OscilloscopeMenu
     }
 
     private int cursorDeltaSamples() { return Math.abs(menu.cursorB() - menu.cursorA()); }
-    private int cursorDeltaTicks() { return cursorDeltaSamples() * OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS; }
+    private int cursorDeltaTicks() { return cursorDeltaSamples() * menu.samplePeriodTicks(); }
     private String cursorDeltaValue(int channel) { int a = menu.displaySample(channel, menu.cursorA()); int b = menu.displaySample(channel, menu.cursorB()); return a < 0 || b < 0 ? "N/A" : signed(b - a); }
     private String triggerText() { return modeName(menu.triggerMode()) + " CH " + (menu.triggerChannel() == 0 ? "A" : "B") + " @" + menu.triggerLevel(); }
     private String captureState() { return switch (menu.captureState()) { case 1 -> "ARMED"; case 2 -> "TRIGGERED"; default -> "HOLD"; }; }
     private int captureColor() { return switch (menu.captureState()) { case 1 -> INFO; case 2 -> GOOD; default -> MUTED; }; }
-    private String networkIntegrity() { if (!menu.bounded()) return "TRUNCATED"; if (menu.duplicateChannels() > 0) return "AMBIGUOUS • duplicate channel"; if (menu.probeNodes() == 0) return "NO PROBES"; return "OK • bounded scan"; }
-    private int networkColor() { if (!menu.bounded() || menu.duplicateChannels() > 0) return WARN; return menu.probeNodes() == 0 ? MUTED : GOOD; }
-    private String probeState(int channel) { return switch (menu.probeCount(channel)) { case 0 -> "NO PROBE"; case 1 -> "CONNECTED"; default -> "AMBIGUOUS (" + menu.probeCount(channel) + ")"; }; }
+    private String networkIntegrity() { if (!menu.bounded()) return "TRUNCATED"; if (menu.duplicateChannels() > 0) return "AMBIGUOUS • duplicate channel"; if (menu.probeNodes() == 0) return "NO PROBES"; if (menu.validChannels() < Math.min(2, menu.activeChannels())) return "EVIDENCE DEGRADED"; return "OK • bounded scan"; }
+    private int networkColor() { if (!menu.bounded() || menu.duplicateChannels() > 0) return WARN; if (menu.probeNodes() == 0) return MUTED; return menu.validChannels() < Math.min(2, menu.activeChannels()) ? WARN : GOOD; }
+    private PortQuality probeQuality(int channel) {
+        PortQuality[] values = PortQuality.values();
+        return values[Math.max(0, Math.min(values.length - 1, menu.probeQualityOrdinal(channel)))];
+    }
+    private String probeState(int channel) {
+        int count = menu.probeCount(channel);
+        if (count == 0) return "NO PROBE";
+        if (count > 1) return "AMBIGUOUS (" + count + ")";
+        return "CONNECTED • " + probeQuality(channel).name();
+    }
+    private int probeQualityColor(PortQuality quality) {
+        return switch (quality) {
+            case VALID -> GOOD;
+            case SATURATED, NO_SIGNAL, STALE -> WARN;
+            case FAULT, DOMAIN_MISMATCH, TOPOLOGY_ERROR -> BAD;
+        };
+    }
     private static String modeName(int mode) { return switch (mode) { case 0 -> "FREE"; case 1 -> "RISING"; case 2 -> "FALLING"; default -> "?"; }; }
     private static String value(int value) { return value < 0 ? "N/A" : Integer.toString(value); }
     private static String tickValue(int value) { return value < 0 ? "N/A" : value + "t"; }

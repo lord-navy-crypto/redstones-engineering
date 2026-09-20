@@ -56,8 +56,16 @@ public class QuartzTimingLineBlock extends SurfaceTraceBlock implements Engineer
         boolean stale=stats.lastTruncated();
         boolean accepted=!stale&&valid;
         int[] r=RuntimeIntStore.get(l,KEY,p,RUNTIME_SIZE);
-        r[ACTIVE_INDEX]=accepted&&active?1:0;
-        r[PERIOD_INDEX]=accepted?Math.max(1,Math.min(4096,periodTicks)):0;
+        if (accepted) {
+            r[ACTIVE_INDEX]=active?1:0;
+            r[PERIOD_INDEX]=Math.max(1,Math.min(4096,periodTicks));
+        } else if (!stale && sourceCount == 0) {
+            // A complete scan proving there is no clock source is a true NO_SIGNAL condition.
+            r[ACTIVE_INDEX]=0;
+            r[PERIOD_INDEX]=0;
+        }
+        // STALE coverage and complete clock conflicts must not invent a LOW edge or erase the
+        // last trustworthy timing state; quality/sourceCount carry the unusable evidence.
         r[VALID_INDEX]=accepted?1:0;
         r[SOURCE_COUNT_INDEX]=Math.max(0,sourceCount);
         r[QUALITY_INDEX]=(stale?PortQuality.STALE:accepted?PortQuality.VALID:PortQuality.NO_SIGNAL).ordinal();
@@ -76,9 +84,11 @@ public class QuartzTimingLineBlock extends SurfaceTraceBlock implements Engineer
     }
     public static PortQuality quality(Level l,BlockPos p){
         int n=sourceCount(l,p);
-        if(n>1)return PortQuality.TOPOLOGY_ERROR;
         PortQuality stored=storedQuality(l,p);
+        // Incomplete coverage cannot prove a source conflict. STALE therefore outranks the
+        // source-count diagnostic; TOPOLOGY_ERROR is reserved for a complete conflicting solve.
         if(stored==PortQuality.STALE)return PortQuality.STALE;
+        if(n>1)return PortQuality.TOPOLOGY_ERROR;
         if(n==0)return PortQuality.NO_SIGNAL;
         return valid(l,p)?PortQuality.VALID:PortQuality.NO_SIGNAL;
     }

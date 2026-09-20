@@ -30,14 +30,25 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_INPUT_RIGHT = 5;
     public static final int BUTTON_OUTPUT_LEFT = 6;
     public static final int BUTTON_OUTPUT_RIGHT = 7;
+    public static final int BUTTON_THRESHOLD_PREVIOUS = 8;
+    public static final int BUTTON_THRESHOLD_NEXT = 9;
+    public static final int BUTTON_TOGGLE_RETRIGGER = 10;
+    public static final int BUTTON_FILTER_FALL_PREVIOUS = 11;
+    public static final int BUTTON_FILTER_FALL_NEXT = 12;
+    public static final int BUTTON_PULSE_HYSTERESIS_PREVIOUS = 13;
+    public static final int BUTTON_PULSE_HYSTERESIS_NEXT = 14;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot input = trackedInt();
     private final DataSlot output = trackedInt();
     private final DataSlot parameter = trackedInt();
+    private final DataSlot secondaryParameter = trackedInt();
+    private final DataSlot tertiaryParameter = trackedInt();
+    private final DataSlot modeFlag = trackedInt();
     private final DataSlot runtimeA = trackedInt();
     private final DataSlot runtimeB = trackedInt();
     private final DataSlot runtimeC = trackedInt();
+    private final DataSlot runtimeD = trackedInt();
     private final DataSlot initialized = trackedInt();
     private final DataSlot inputFacing = trackedInt();
     private final DataSlot outputFacing = trackedInt();
@@ -59,9 +70,13 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
         input.set(0);
         output.set(0);
         parameter.set(0);
+        secondaryParameter.set(0);
+        tertiaryParameter.set(0);
+        modeFlag.set(0);
         runtimeA.set(0);
         runtimeB.set(0);
         runtimeC.set(0);
+        runtimeD.set(-1);
         initialized.set(1);
         inputFacing.set(-1);
         outputFacing.set(-1);
@@ -84,8 +99,11 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
         if (block instanceof PrecisionFilterBlock) {
             kind.set(KIND_FILTER);
             parameter.set(state.getValue(PrecisionFilterBlock.RATE));
+            secondaryParameter.set(PrecisionFilterBlock.fallRate(level, blockPos, state));
             runtimeA.set(PrecisionFilterBlock.lag(level, blockPos, state));
             runtimeB.set(PrecisionFilterBlock.settled(level, blockPos, state) ? 1 : 0);
+            runtimeC.set(PrecisionFilterBlock.settleTicks(level, blockPos, state));
+            runtimeD.set(PrecisionFilterBlock.responseDirection(level, blockPos, state));
         } else if (block instanceof EdgeDetectorBlock) {
             kind.set(KIND_EDGE);
             parameter.set(state.getValue(EdgeDetectorBlock.MODE));
@@ -96,8 +114,13 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
         } else if (block instanceof PulseShaperBlock) {
             kind.set(KIND_PULSE);
             parameter.set(state.getValue(PulseShaperBlock.WIDTH));
+            secondaryParameter.set(PulseShaperBlock.threshold(level, blockPos));
+            tertiaryParameter.set(PulseShaperBlock.hysteresis(level, blockPos));
+            modeFlag.set(state.getValue(PulseShaperBlock.RETRIGGERABLE) ? 1 : 0);
             runtimeA.set(PulseShaperBlock.pulseRemaining(level, blockPos));
-            runtimeB.set(PulseShaperBlock.lastInput(level, blockPos));
+            runtimeB.set(PulseShaperBlock.triggerCount(level, blockPos));
+            runtimeC.set(PulseShaperBlock.suppressedTriggerCount(level, blockPos));
+            runtimeD.set(PulseShaperBlock.lastTriggerAgeTicks(level, blockPos));
             initialized.set(PulseShaperBlock.initialized(level, blockPos) ? 1 : 0);
         } else {
             kind.set(-1);
@@ -127,6 +150,40 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
         }
         if (id >= BUTTON_ROTATE_LEFT && id <= BUTTON_OUTPUT_RIGHT) return false;
 
+        if (block instanceof PulseShaperBlock) {
+            boolean changed = switch (id) {
+                case BUTTON_THRESHOLD_PREVIOUS -> PulseShaperBlock.stepThreshold(level, blockPos, false);
+                case BUTTON_THRESHOLD_NEXT -> PulseShaperBlock.stepThreshold(level, blockPos, true);
+                case BUTTON_TOGGLE_RETRIGGER -> PulseShaperBlock.toggleRetriggerable(level, blockPos);
+                case BUTTON_PULSE_HYSTERESIS_PREVIOUS -> PulseShaperBlock.stepHysteresis(level, blockPos, false);
+                case BUTTON_PULSE_HYSTERESIS_NEXT -> PulseShaperBlock.stepHysteresis(level, blockPos, true);
+                default -> false;
+            };
+            if (changed) {
+                refreshAuthoritativeSnapshot();
+                broadcastChanges();
+                return true;
+            }
+            if (id == BUTTON_THRESHOLD_PREVIOUS || id == BUTTON_THRESHOLD_NEXT
+                    || id == BUTTON_TOGGLE_RETRIGGER
+                    || id == BUTTON_PULSE_HYSTERESIS_PREVIOUS
+                    || id == BUTTON_PULSE_HYSTERESIS_NEXT) return false;
+        }
+
+        if (block instanceof PrecisionFilterBlock) {
+            boolean changed = switch (id) {
+                case BUTTON_FILTER_FALL_PREVIOUS -> PrecisionFilterBlock.stepFallRate(level, blockPos, false);
+                case BUTTON_FILTER_FALL_NEXT -> PrecisionFilterBlock.stepFallRate(level, blockPos, true);
+                default -> false;
+            };
+            if (changed) {
+                refreshAuthoritativeSnapshot();
+                broadcastChanges();
+                return true;
+            }
+            if (id == BUTTON_FILTER_FALL_PREVIOUS || id == BUTTON_FILTER_FALL_NEXT) return false;
+        }
+
         boolean forward;
         if (id == BUTTON_PARAMETER_PREVIOUS) forward = false;
         else if (id == BUTTON_PARAMETER_NEXT) forward = true;
@@ -152,9 +209,13 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
     public int input() { return input.get(); }
     public int output() { return output.get(); }
     public int parameter() { return parameter.get(); }
+    public int secondaryParameter() { return secondaryParameter.get(); }
+    public int tertiaryParameter() { return tertiaryParameter.get(); }
+    public boolean modeFlag() { return modeFlag.get() != 0; }
     public int runtimeA() { return runtimeA.get(); }
     public int runtimeB() { return runtimeB.get(); }
     public int runtimeC() { return runtimeC.get(); }
+    public int runtimeD() { return runtimeD.get(); }
     public boolean initialized() { return initialized.get() != 0; }
     public int facingOrdinal() { return outputFacing.get(); }
     public boolean hasInputEndpoint() { return inputFacing.get() >= 0; }

@@ -99,14 +99,15 @@ public class AmethystFrequencyFilterBlock extends DirectionalDomainBlock impleme
 
     @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         FilterEvidence evidence = evidence(level, pos, state);
-        DomainNetwork.driveAmethyst(level, outputPos(pos, state), evidence.matched() && evidence.expectedOutputAmplitude() > 0,
+        DomainNetwork.driveAmethyst(level, outputPos(pos, state), pos,
+                evidence.matched() && evidence.expectedOutputAmplitude() > 0,
                 evidence.inputFrequency(), evidence.expectedOutputAmplitude());
         level.scheduleTick(pos, this, 2);
     }
 
     @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock()) && level instanceof ServerLevel serverLevel) {
-            DomainNetwork.driveAmethyst(serverLevel, outputPos(pos, state), false, 0, 0);
+            DomainNetwork.driveAmethyst(serverLevel, outputPos(pos, state), pos, false, 0, 0);
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
     }

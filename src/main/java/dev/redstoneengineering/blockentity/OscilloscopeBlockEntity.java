@@ -173,7 +173,11 @@ public class OscilloscopeBlockEntity extends BlockEntity {
     }
 
     public int cursorDeltaTicks() {
-        return cursorDeltaSamples() * SAMPLE_PERIOD_TICKS;
+        return cursorDeltaTicks(SAMPLE_PERIOD_TICKS);
+    }
+
+    public int cursorDeltaTicks(int samplePeriodTicks) {
+        return cursorDeltaSamples() * Math.max(1, samplePeriodTicks);
     }
 
     public int cursorValue(int channel, boolean second) {
@@ -281,8 +285,12 @@ public class OscilloscopeBlockEntity extends BlockEntity {
     }
 
     public int estimatedPeriodTicks(int channel) {
+        return estimatedPeriodTicks(channel, SAMPLE_PERIOD_TICKS);
+    }
+
+    public int estimatedPeriodTicks(int channel, int samplePeriodTicks) {
         int samples = estimatedPeriodSamples(channel);
-        return samples < 0 ? -1 : samples * SAMPLE_PERIOD_TICKS;
+        return samples < 0 ? -1 : samples * Math.max(1, samplePeriodTicks);
     }
 
     public String captureQuality(int channel) {

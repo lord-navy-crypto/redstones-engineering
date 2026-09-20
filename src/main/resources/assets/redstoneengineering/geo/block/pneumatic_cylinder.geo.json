@@ -27,6 +27,14 @@
           ]
         },
         {
+          "name": "piston_head",
+          "parent": "rod",
+          "pivot": [0, 8, 10],
+          "cubes": [
+            {"origin": [-4, 5, 10], "size": [8, 6, 2], "uv": [0, 0]}
+          ]
+        },
+        {
           "name": "pressure_indicator",
           "parent": "base",
           "pivot": [5, 3, -6],

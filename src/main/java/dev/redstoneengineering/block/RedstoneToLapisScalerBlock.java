@@ -106,13 +106,12 @@ public class RedstoneToLapisScalerBlock extends Block implements EngineeringPort
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
         PortQuality quality = observation.quality();
         runtime[1] = encodeQuality(quality);
-        if (quality == PortQuality.STALE) {
-            DomainNetwork.driveLapis(level, pos.relative(outputSide(state)), pos, runtime[0], false);
-        } else if (observation.valid()) {
+        if (observation.valid()) {
             runtime[0] = CoreMediaDiagnostics.lapisFromRedstone(observation.value());
             DomainNetwork.driveLapis(level, pos.relative(outputSide(state)), pos, runtime[0], true);
         } else {
-            runtime[0] = 0;
+            // Invalid source evidence releases the Lapis driver but does not erase the last
+            // trustworthy converted value. Readback and validity remain separate concepts.
             DomainNetwork.driveLapis(level, pos.relative(outputSide(state)), pos, 0, false);
         }
         level.scheduleTick(pos, this, 2);

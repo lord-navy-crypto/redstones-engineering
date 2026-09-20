@@ -8,6 +8,7 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
@@ -35,12 +36,15 @@ import java.util.Optional;
 public class SampleHoldBlock extends DirectionalSignalBlock {
     public static final IntegerProperty TRIGGER_MODE = IntegerProperty.create("trigger_mode", 0, 2);
     private static final String KEY = "redstone_sample_hold";
-    private static final int RUNTIME_SIZE = 5;
+    private static final int RUNTIME_SIZE = 8;
     private static final int HELD_SLOT = 0;
     private static final int TRIGGER_STATE_SLOT = 1;
     private static final int INITIALIZED_SLOT = 2;
     private static final int CAPTURE_COUNT = 3;
     private static final int LAST_CAPTURE_TICK = 4;
+    private static final int RESET_COUNT = 5;
+    private static final int HELD_QUALITY_SLOT = 6;
+    private static final int REJECTED_CAPTURE_COUNT = 7;
 
     public SampleHoldBlock(Properties properties) {
         super(properties); registerDefaultState(defaultBlockState().setValue(TRIGGER_MODE, 0));
@@ -76,30 +80,45 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         Direction facing = state.getValue(FACING);
-        int value;
-        if (side == outputSide(state)) value = state.getValue(OUTPUT);
-        else if (side == inputSide(state)) value = readBackInput(level, pos, state);
-        else if (side == leftOf(facing) || side == rightOf(facing)) value = readInputFrom(level, pos, side);
-        else return Optional.empty();
-        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value, PortQuality.VALID));
+        if (side == outputSide(state)) {
+            return Optional.of(EngineeringPortSnapshot.redstone(
+                    port.get(), heldValue(level, pos), heldQuality(level, pos, state)));
+        }
+
+        var observed = RedstoneObservationSupport.observe(level, pos, side);
+        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), observed.value(), observed.quality()));
     }
 
-    private int[] runtime(Level level, BlockPos pos, BlockState state, boolean triggerNow) {
+    private int[] runtime(Level level, BlockPos pos, BlockState state, boolean triggerNow, boolean triggerValid) {
         int[] rt = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
         if (rt[INITIALIZED_SLOT] == 0) {
             rt[HELD_SLOT] = state.getValue(OUTPUT);
-            // Seed the observed trigger level to avoid a false edge after reload or first runtime allocation.
-            rt[TRIGGER_STATE_SLOT] = triggerNow ? 1 : 0;
-            rt[INITIALIZED_SLOT] = 1;
+            rt[HELD_QUALITY_SLOT] = (state.getValue(OUTPUT) == 0 ? PortQuality.NO_SIGNAL : PortQuality.STALE).ordinal();
+            if (triggerValid) {
+                // Seed the observed trigger level to avoid a false edge after reload or evidence reacquisition.
+                rt[TRIGGER_STATE_SLOT] = triggerNow ? 1 : 0;
+                rt[INITIALIZED_SLOT] = 1;
+            }
         }
         return rt;
     }
 
     @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         Direction facing = state.getValue(FACING);
-        boolean triggerNow = readInputFrom(level, pos, leftOf(facing)) > 0;
-        boolean resetNow = readInputFrom(level, pos, rightOf(facing)) > 0;
-        int[] rt = runtime(level, pos, state, triggerNow);
+        var triggerObservation = RedstoneObservationSupport.observe(level, pos, leftOf(facing));
+        var resetObservation = RedstoneObservationSupport.observe(level, pos, rightOf(facing));
+        boolean triggerValid = triggerObservation.valid();
+        boolean triggerNow = triggerValid && triggerObservation.value() > 0;
+        boolean resetNow = resetObservation.valid() && resetObservation.value() > 0;
+        int[] rt = runtime(level, pos, state, triggerNow, triggerValid);
+
+        if (!triggerValid) {
+            // Do not synthesize an edge when trigger evidence disappears or later returns.
+            rt[INITIALIZED_SLOT] = 0;
+            updateOutput(level, pos, state, rt[HELD_SLOT]);
+            return;
+        }
+
         boolean triggerBefore = rt[TRIGGER_STATE_SLOT] == 1;
         boolean rising = !triggerBefore && triggerNow;
         boolean falling = triggerBefore && !triggerNow;
@@ -108,11 +127,22 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
         };
 
         if (resetNow) {
+            if (rt[HELD_SLOT] != 0) rt[RESET_COUNT]++;
             rt[HELD_SLOT] = 0;
+            rt[HELD_QUALITY_SLOT] = PortQuality.VALID.ordinal();
         } else if (sample) {
-            rt[HELD_SLOT] = readBackInput(level, pos, state);
-            rt[CAPTURE_COUNT]++;
-            rt[LAST_CAPTURE_TICK] = boundedTick(level.getGameTime());
+            var valueObservation = RedstoneObservationSupport.observe(level, pos, inputSide(state));
+            if (valueObservation.valid()) {
+                rt[HELD_SLOT] = valueObservation.value();
+                if (rt[CAPTURE_COUNT] < Integer.MAX_VALUE) rt[CAPTURE_COUNT]++;
+                rt[LAST_CAPTURE_TICK] = boundedTick(level.getGameTime());
+                rt[HELD_QUALITY_SLOT] = valueObservation.quality().ordinal();
+            } else {
+                // The acquisition was rejected, so no new sample entered the hold element.
+                // Preserve both the last held number and its existing evidence; record the failed
+                // attempt separately instead of contaminating a previously trustworthy sample.
+                if (rt[REJECTED_CAPTURE_COUNT] < Integer.MAX_VALUE) rt[REJECTED_CAPTURE_COUNT]++;
+            }
         }
         rt[TRIGGER_STATE_SLOT] = triggerNow ? 1 : 0;
         updateOutput(level, pos, state, rt[HELD_SLOT]);
@@ -123,9 +153,33 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
         super.onRemove(state, level, pos, newState, moved);
     }
 
+    public static int heldValue(Level level, BlockPos pos) {
+        int[] rt = RuntimeIntStore.peek(level, KEY, pos);
+        return rt == null || rt.length < RUNTIME_SIZE ? 0 : Math.max(0, Math.min(15, rt[HELD_SLOT]));
+    }
+
+    public static int resetCount(Level level, BlockPos pos) {
+        int[] rt = RuntimeIntStore.peek(level, KEY, pos);
+        return rt == null || rt.length < RUNTIME_SIZE ? 0 : Math.max(0, rt[RESET_COUNT]);
+    }
+
     public static int captureCount(Level level, BlockPos pos) {
         int[] rt = RuntimeIntStore.peek(level, KEY, pos);
         return rt == null || rt.length < RUNTIME_SIZE ? 0 : Math.max(0, rt[CAPTURE_COUNT]);
+    }
+
+    public static int rejectedCaptureCount(Level level, BlockPos pos) {
+        int[] rt = RuntimeIntStore.peek(level, KEY, pos);
+        return rt == null || rt.length < RUNTIME_SIZE ? 0 : Math.max(0, rt[REJECTED_CAPTURE_COUNT]);
+    }
+
+    public static PortQuality heldQuality(Level level, BlockPos pos, BlockState state) {
+        int[] rt = RuntimeIntStore.peek(level, KEY, pos);
+        if (rt == null || rt.length < RUNTIME_SIZE) {
+            return state.getValue(OUTPUT) == 0 ? PortQuality.NO_SIGNAL : PortQuality.STALE;
+        }
+        int ordinal = Math.max(0, Math.min(PortQuality.values().length - 1, rt[HELD_QUALITY_SLOT]));
+        return PortQuality.values()[ordinal];
     }
 
     public static int sampleAgeTicks(Level level, BlockPos pos) {
@@ -151,11 +205,15 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
         BlockState state = level.getBlockState(pos);
         if (!state.is(this)) return false;
         Direction facing = state.getValue(FACING);
-        boolean triggerNow = readInputFrom(level, pos, leftOf(facing)) > 0;
-        int[] rt = runtime(level, pos, state, triggerNow);
+        var triggerObservation = RedstoneObservationSupport.observe(level, pos, leftOf(facing));
+        boolean triggerValid = triggerObservation.valid();
+        boolean triggerNow = triggerValid && triggerObservation.value() > 0;
+        int[] rt = runtime(level, pos, state, triggerNow, triggerValid);
+        if (rt[HELD_SLOT] != 0) rt[RESET_COUNT]++;
         rt[HELD_SLOT] = 0;
+        rt[HELD_QUALITY_SLOT] = PortQuality.VALID.ordinal();
         rt[TRIGGER_STATE_SLOT] = triggerNow ? 1 : 0;
-        rt[INITIALIZED_SLOT] = 1;
+        rt[INITIALIZED_SLOT] = triggerValid ? 1 : 0;
         updateOutput(level, pos, state, 0);
         return true;
     }
@@ -166,6 +224,9 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
                 clearHeldValue(level, pos);
                 player.displayClientMessage(Component.literal(
                         "Sample & Hold | held value cleared | captures=" + captureCount(level, pos)
+                                + " | rejected=" + rejectedCaptureCount(level, pos)
+                                + " | resets=" + resetCount(level, pos)
+                                + " | quality=" + heldQuality(level, pos, level.getBlockState(pos))
                                 + " | lastCaptureAge=" + sampleAgeTicks(level, pos) + "t"), true);
             } else {
                 FieldDeviceUi.openUniversal(serverPlayer, pos);

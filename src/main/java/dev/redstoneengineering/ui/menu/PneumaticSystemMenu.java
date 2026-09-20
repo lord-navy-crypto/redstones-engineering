@@ -69,6 +69,12 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
     private final DataSlot cylinderStallTicks = trackedInt();
     private final DataSlot cylinderReversals = trackedInt();
     private final DataSlot cylinderSamples = trackedInt();
+    private final DataSlot compressorTrackingError = trackedInt();
+    private final DataSlot compressorRunTicks = trackedInt();
+    private final DataSlot proportionalCommand = trackedInt();
+    private final DataSlot proportionalTrackingError = trackedInt();
+    private final DataSlot proportionalTravel = trackedInt();
+    private final DataSlot proportionalReversals = trackedInt();
 
     public PneumaticSystemMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -90,17 +96,39 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
         commissioning.set(CommissioningStatus.NOT_READY.code());
         cylinderSupply.set(0); cylinderPathEdges.set(0); cylinderObservedLoss.set(0); cylinderLineLoss.set(0); cylinderRestrictionLoss.set(0);
         cylinderResponsePeriod.set(0); cylinderRemainingTicks.set(0); cylinderVelocity.set(0); cylinderError.set(0); cylinderStallTicks.set(0); cylinderReversals.set(0); cylinderSamples.set(0);
+        compressorTrackingError.set(0); compressorRunTicks.set(0);
+        proportionalCommand.set(0); proportionalTrackingError.set(0); proportionalTravel.set(0); proportionalReversals.set(0);
 
         if (block instanceof AirCompressorBlock) {
-            kind.set(KIND_COMPRESSOR); primary.set(AirCompressorBlock.commandSignal(level, blockPos)); secondary.set(AirCompressorBlock.commandedPressure(level, blockPos)); tertiary.set(PneumaticNetwork.pressure(level, blockPos)); setNodeQuality();
+            kind.set(KIND_COMPRESSOR);
+            primary.set(AirCompressorBlock.commandSignal(level, blockPos));
+            secondary.set(AirCompressorBlock.commandedPressure(level, blockPos));
+            tertiary.set(AirCompressorBlock.actualPressure(level, blockPos));
+            auxiliary.set(AirCompressorBlock.startCount(level, blockPos));
+            stateFlag.set(state.getValue(AirCompressorBlock.RESPONSE_MODE));
+            compressorTrackingError.set(AirCompressorBlock.trackingError(level, blockPos));
+            compressorRunTicks.set(AirCompressorBlock.runTicks(level, blockPos));
+            setNodeQuality();
         } else if (block instanceof PneumaticPipeBlock) {
             kind.set(KIND_PIPE); primary.set(PneumaticNetwork.pressure(level, blockPos)); setNodeQuality();
         } else if (block instanceof AirReservoirBlock) {
             kind.set(KIND_RESERVOIR); primary.set(AirReservoirBlock.storedPressure(level, blockPos)); secondary.set(PneumaticNetwork.pressure(level, blockPos)); setNodeQuality();
         } else if (block instanceof PressureRegulatorBlock) {
-            kind.set(KIND_REGULATOR); primary.set(PneumaticNetwork.pressure(level, blockPos)); secondary.set(PressureRegulatorBlock.setpointPressure(state)); tertiary.set(state.getValue(PressureRegulatorBlock.SETPOINT)); facing.set(DirectionalDomainBlock.seriesOutputSide(state).ordinal()); inputFacing.set(DirectionalDomainBlock.seriesInputSide(state).ordinal()); setNodeQuality();
+            kind.set(KIND_REGULATOR);
+            primary.set(PressureRegulatorBlock.inletPressure(level, blockPos, state));
+            secondary.set(PressureRegulatorBlock.setpointPressure(state));
+            tertiary.set(PressureRegulatorBlock.actualRegulatedPressure(level, blockPos));
+            auxiliary.set(PressureRegulatorBlock.trackingError(level, blockPos, state));
+            stateFlag.set(state.getValue(PressureRegulatorBlock.RESPONSE_MODE));
+            facing.set(DirectionalDomainBlock.seriesOutputSide(state).ordinal());
+            inputFacing.set(DirectionalDomainBlock.seriesInputSide(state).ordinal());
+            setNodeQuality();
         } else if (block instanceof PneumaticReceiverBlock receiver) {
-            kind.set(KIND_RECEIVER); directionalSnapshots(state, receiver); secondary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+            kind.set(KIND_RECEIVER);
+            directionalSnapshots(state, receiver);
+            secondary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+            tertiary.set(PneumaticReceiverBlock.fullScalePressure(state));
+            stateFlag.set(state.getValue(PneumaticReceiverBlock.RANGE_MODE));
         } else if (block instanceof PneumaticValveBlock valve) {
             kind.set(KIND_VALVE); directionalSnapshots(state, valve); stateFlag.set(state.getValue(PneumaticValveBlock.OPEN) ? 1 : 0);
         } else if (block instanceof PneumaticCheckValveBlock valve) {
@@ -116,7 +144,15 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
             upstreamPressure.set(upstream.pressure()); downstreamPressure.set(downstream.pressure()); upstreamQuality.set(upstream.quality().ordinal()); downstreamQuality.set(downstream.quality().ordinal());
             commissioning.set(flowCommissioning(samples, inputQuality(), outputQuality(), upstream.quality(), downstream.quality(), secondary.get()).code());
         } else if (block instanceof PneumaticProportionalValveBlock valve) {
-            kind.set(KIND_PROPORTIONAL); directionalSnapshots(state, valve); tertiary.set(PneumaticProportionalValveBlock.opening(level, blockPos)); auxiliary.set(PneumaticNetwork.pressure(level, blockPos));
+            kind.set(KIND_PROPORTIONAL);
+            directionalSnapshots(state, valve);
+            tertiary.set(PneumaticProportionalValveBlock.actualOpening(level, blockPos));
+            auxiliary.set(PneumaticNetwork.pressure(level, blockPos));
+            stateFlag.set(state.getValue(PneumaticProportionalValveBlock.RESPONSE_MODE));
+            proportionalCommand.set(PneumaticProportionalValveBlock.commandedOpening(level, blockPos));
+            proportionalTrackingError.set(PneumaticProportionalValveBlock.trackingError(level, blockPos));
+            proportionalTravel.set(PneumaticProportionalValveBlock.travel(level, blockPos));
+            proportionalReversals.set(PneumaticProportionalValveBlock.reversals(level, blockPos));
         } else if (block instanceof PneumaticReliefValveBlock valve) {
             kind.set(KIND_RELIEF); directionalSnapshots(state, valve); tertiary.set(state.getValue(PneumaticReliefValveBlock.SETPOINT) * 25); auxiliary.set(PneumaticReliefValveBlock.ventEvents(level, blockPos)); stateFlag.set(PneumaticReliefValveBlock.venting(level, blockPos) ? 1 : 0);
         } else if (block instanceof PneumaticCylinderBlock cylinder) {
@@ -178,13 +214,17 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
         Block block = state.getBlock();
         boolean changed = false;
 
-        if (block instanceof PressureRegulatorBlock) {
+        if (block instanceof AirCompressorBlock) {
             if (id == BUTTON_PARAMETER_PREVIOUS || id == BUTTON_PARAMETER_NEXT) {
-                int value = state.getValue(PressureRegulatorBlock.SETPOINT);
-                value = id == BUTTON_PARAMETER_NEXT ? value % 4 + 1 : value <= 1 ? 4 : value - 1;
-                level.setBlock(blockPos, state.setValue(PressureRegulatorBlock.SETPOINT, value), Block.UPDATE_CLIENTS);
-                if (level instanceof ServerLevel server) PneumaticNetwork.recompute(server, blockPos);
-                changed = true;
+                changed = AirCompressorBlock.stepResponseMode(
+                        level, blockPos, id == BUTTON_PARAMETER_NEXT);
+            }
+        } else if (block instanceof PressureRegulatorBlock) {
+            if (id == BUTTON_PARAMETER_PREVIOUS || id == BUTTON_PARAMETER_NEXT) {
+                changed = PressureRegulatorBlock.stepSetpoint(
+                        level, blockPos, id == BUTTON_PARAMETER_NEXT);
+            } else if (id == BUTTON_TOGGLE) {
+                changed = PressureRegulatorBlock.stepResponseMode(level, blockPos, true);
             } else {
                 changed = rotateDirectional(block, id);
             }
@@ -206,10 +246,22 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
             } else {
                 changed = rotateDirectional(block, id);
             }
-        } else if (block instanceof PneumaticReceiverBlock
-                || block instanceof PneumaticCheckValveBlock
+        } else if (block instanceof PneumaticProportionalValveBlock) {
+            if (id == BUTTON_PARAMETER_PREVIOUS || id == BUTTON_PARAMETER_NEXT) {
+                changed = PneumaticProportionalValveBlock.stepResponseMode(
+                        level, blockPos, id == BUTTON_PARAMETER_NEXT);
+            } else {
+                changed = rotateDirectional(block, id);
+            }
+        } else if (block instanceof PneumaticReceiverBlock) {
+            if (id == BUTTON_PARAMETER_PREVIOUS || id == BUTTON_PARAMETER_NEXT) {
+                changed = PneumaticReceiverBlock.stepRange(
+                        level, blockPos, id == BUTTON_PARAMETER_NEXT);
+            } else {
+                changed = rotateDirectional(block, id);
+            }
+        } else if (block instanceof PneumaticCheckValveBlock
                 || block instanceof PneumaticFlowMeterBlock
-                || block instanceof PneumaticProportionalValveBlock
                 || block instanceof PneumaticCylinderBlock) {
             changed = rotateDirectional(block, id);
         } else {
@@ -284,6 +336,12 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
     public int cylinderStallTicks() { return cylinderStallTicks.get(); }
     public int cylinderReversals() { return cylinderReversals.get(); }
     public int cylinderSamples() { return cylinderSamples.get(); }
+    public int compressorTrackingError() { return compressorTrackingError.get(); }
+    public int compressorRunTicks() { return compressorRunTicks.get(); }
+    public int proportionalCommand() { return proportionalCommand.get(); }
+    public int proportionalTrackingError() { return proportionalTrackingError.get(); }
+    public int proportionalTravel() { return proportionalTravel.get(); }
+    public int proportionalReversals() { return proportionalReversals.get(); }
     public CommissioningStatus commissioningStatus() { return CommissioningStatus.fromCode(commissioning.get()); }
 
     private static PortQuality quality(int ordinal) {

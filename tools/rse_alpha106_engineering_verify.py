@@ -98,12 +98,13 @@ for rel in [
 require(
     "src/main/java/dev/redstoneengineering/physics/PneumaticNetwork.java",
     "if (state.getBlock() instanceof PneumaticReliefValveBlock)",
-    "int setpoint = state.getValue(PneumaticReliefValveBlock.SETPOINT) * 25;",
-    "if (pressure > setpoint)",
+    "int setpoint = PneumaticReliefValveBlock.setpointPressure(state);",
+    "boolean shouldVent = PneumaticReliefValveBlock.shouldVent(level, pos, state, pressure);",
+    "if (shouldVent)",
     "PneumaticReliefValveBlock.recordVent(level, pos, excess);",
     "ParticleTypes.CLOUD",
     "sendParticles",
-    "pressure = setpoint;",
+    "pressure = Math.min(pressure, setpoint);",
     "PneumaticReliefValveBlock.clearVenting(level, pos);",
 )
 workflow = read(".github/workflows/build.yml")

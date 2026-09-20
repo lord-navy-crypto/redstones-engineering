@@ -20,7 +20,7 @@ allreq(directional,("implements EngineeringPortProvider","EngineeringDomain.REDS
 allreq(pwm,("class PwmControllerBlock extends DirectionalSignalBlock",'"COMMAND IN"','"PWM OUT"','"INHIBIT"',"PortKind.SAFETY","engineeringSnapshot("),"PwmControllerBlock.java"); allreq(sample,("class SampleHoldBlock extends DirectionalSignalBlock",'"VALUE IN"','"HELD OUT"','"TRIGGER"','"RESET"',"PortKind.TRIGGER","PortKind.RESET","engineeringSnapshot("),"SampleHoldBlock.java")
 count=len(re.findall(r"@GameTest\s*\(",gt))
 if count!=4: errors.append(f"RseTotalAuditClosureGameTests.java: expected exactly 4 @GameTest methods, found {count}")
-req(reg,"event.register(RseTotalAuditClosureGameTests.class);","RseGameTestRegistration.java"); req(workflow,"tools/rse_122_block_total_audit.py","build.yml"); req(workflow,"tools/rse_122_block_closure_verify.py","build.yml"); req(workflow,"tools/rse_alarm_topology_verify.py","build.yml"); req(workflow,"Too many chained neighbor updates","build.yml"); req(total,"EXPECTED_REGISTERED = 122","rse_122_block_total_audit.py"); req(total,'"pid_controller"',"rse_122_block_total_audit.py")
+req(reg,"event.register(RseTotalAuditClosureGameTests.class);","RseGameTestRegistration.java"); req(workflow,"tools/rse_122_block_total_audit.py","build.yml"); req(workflow,"tools/rse_122_block_closure_verify.py","build.yml"); req(workflow,"tools/rse_alarm_topology_verify.py","build.yml"); req(workflow,"Too many chained neighbor updates","build.yml"); req(total,"HISTORICAL_CORE = 122","rse_122_block_total_audit.py"); req(total,"CORE_REDSTONE_EXTENSIONS","rse_122_block_total_audit.py"); req(total,'"pid_controller"',"rse_122_block_total_audit.py")
 for verifier,label in ((SYSTEMS_VERIFY,"engineering systems"),(LIVE_OUTPUT_VERIFY,"live output bars"),(HANDHELD_VERIFY,"handheld tools"),(SIGNAL_PROCESSOR_VERIFY,"signal processor HMI"),(PID_COMMISSIONING_VERIFY,"PID commissioning HMI"),(PNEUMATIC_GOLDEN_VERIFY,"pneumatic Golden System"),(INDUSTRIAL_OPERATIONS_VERIFY,"Industrial Operations foundation"),(ROBOTICS_FOUNDATION_VERIFY,"Robotics foundation"),(MOBILE_ROBOT_VERIFY,"mobile robot entity"),(ROBOTICS_NAVIGATION_VERIFY,"robotics navigation network"),(ROBOTICS_DOCK_VERIFY,"robotics dock foundation"),(ROBOTICS_MATERIAL_FLOW_VERIFY,"robotics material flow foundation")):
     if not verifier.exists():
         errors.append(f"missing {verifier.relative_to(ROOT)}")
@@ -30,11 +30,12 @@ for verifier,label in ((SYSTEMS_VERIFY,"engineering systems"),(LIVE_OUTPUT_VERIF
     if p.stderr: print(p.stderr,end="",file=sys.stderr)
     if p.returncode!=0: errors.append(f"{label} verifier failed with exit code {p.returncode}")
 if errors:
-    print("RSE 130-BLOCK AGGREGATE CLOSURE VERIFY: FAIL")
+    print("RSE 138-BLOCK AGGREGATE CLOSURE VERIFY: FAIL")
     for e in errors: print(" -",e)
     sys.exit(1)
-print("RSE 130-BLOCK AGGREGATE CLOSURE VERIFY: PASS")
+print("RSE 135-BLOCK AGGREGATE CLOSURE VERIFY: PASS")
 print("  historical deep-audit core: 122")
+print("  core engineering extensions: 8")
 print("  systems extension: 8")
 print("  systems closure: sequence controller, safety interlock, fault injector, alarm processor, topology debugger, engineering compass, workcell controller, industrial buffer")
 print("  live output bars: sample hold / calibration / PWM authoritative BlockState projection")

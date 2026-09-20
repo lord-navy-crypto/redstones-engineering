@@ -9,6 +9,7 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.signal.EngineeringSignal;
 import dev.redstoneengineering.ui.menu.SignalAnalyzerMenu;
@@ -101,18 +102,26 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
+        RedstoneObservationSupport.Observation observation = measurementObservation(level, pos, state);
         boolean inlineOutput = side == inlineOutputSide(state) && state.getValue(MODE) == INLINE;
-        int value = inlineOutput ? state.getValue(OUTPUT) : sampleTarget(level, pos, state);
-        PortQuality quality = inlineOutput || measurementPresent(level, pos, state, value)
-                ? PortQuality.VALID
-                : PortQuality.NO_SIGNAL;
-        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value, quality));
+        int value = inlineOutput ? state.getValue(OUTPUT) : observation.value();
+        return Optional.of(EngineeringPortSnapshot.redstone(
+                port.get(), value, observation.quality()));
     }
 
-    /** A real target at zero is VALID; an empty measurement aperture at zero is NO_SIGNAL. */
+    public static RedstoneObservationSupport.Observation measurementObservation(
+            Level level, BlockPos pos, BlockState state
+    ) {
+        return RedstoneObservationSupport.observe(level, pos, testSide(state));
+    }
+
+    public static PortQuality measurementQuality(Level level, BlockPos pos, BlockState state) {
+        return measurementObservation(level, pos, state).quality();
+    }
+
+    /** A real zero remains valid only when the observed source explicitly carries usable evidence. */
     private static boolean measurementPresent(Level level, BlockPos pos, BlockState state, int measured) {
-        BlockState target = level.getBlockState(pos.relative(testSide(state)));
-        return measured > 0 || !target.isAir();
+        return measurementObservation(level, pos, state).valid();
     }
 
     @Override
@@ -143,9 +152,24 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        int measured = sampleTarget(level, pos, state);
-        recordSample(level, pos, measured);
-        int requestedOutput = state.getValue(MODE) == INLINE ? measured : 0;
+        RedstoneObservationSupport.Observation observation = measurementObservation(level, pos, state);
+        int measured = observation.value();
+        boolean present = observation.valid();
+        recordSample(level, pos, measured, present);
+
+        int requestedOutput = 0;
+        if (state.getValue(MODE) == INLINE) {
+            if (observation.valid()) {
+                requestedOutput = measured;
+            } else if (observation.quality() == PortQuality.NO_SIGNAL) {
+                // A genuinely absent source de-energizes the inline path.
+                requestedOutput = 0;
+            } else {
+                // Degraded evidence is not a new numerical zero. Keep the last trustworthy pass-through value.
+                requestedOutput = state.getValue(OUTPUT);
+            }
+        }
+
         if (state.getValue(OUTPUT) != requestedOutput) {
             BlockState next = state.setValue(OUTPUT, requestedOutput);
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
@@ -168,38 +192,38 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
     }
 
     private static int sampleTarget(Level level, BlockPos pos, BlockState state) {
-        Direction side = testSide(state);
-        BlockPos targetPos = pos.relative(side);
-        return measureNode(level, targetPos, level.getBlockState(targetPos), side);
+        return measurementObservation(level, pos, state).value();
     }
 
     /** Runtime: totals/latest/min/max/edges/timestamps + 16-sample ring at 17..32. */
-    private static void recordSample(Level level, BlockPos pos, int measured) {
+    private static void recordSample(Level level, BlockPos pos, int measured, boolean present) {
         int[] r = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
         int now = (int) Math.min(Integer.MAX_VALUE, level.getGameTime());
         r[0]++;
         r[14] = now;
-        if (r[8] == 0) {
-            r[1] = measured;
-            r[2] = measured;
-            r[3] = measured;
-            r[7] = now;
-            r[8] = 1;
-        } else {
-            r[2] = Math.min(r[2], measured);
-            r[3] = Math.max(r[3], measured);
-            int delta = measured - r[1];
-            r[9] = delta;
-            r[10] = Math.max(r[10], Math.abs(delta));
-            if (delta != 0) {
-                r[4]++;
-                if (delta > 0) r[5]++; else r[6]++;
+        if (present) {
+            if (r[8] == 0) {
+                r[1] = measured;
+                r[2] = measured;
+                r[3] = measured;
                 r[7] = now;
+                r[8] = 1;
+            } else {
+                r[2] = Math.min(r[2], measured);
+                r[3] = Math.max(r[3], measured);
+                int delta = measured - r[1];
+                r[9] = delta;
+                r[10] = Math.max(r[10], Math.abs(delta));
+                if (delta != 0) {
+                    r[4]++;
+                    if (delta > 0) r[5]++; else r[6]++;
+                    r[7] = now;
+                }
+                r[1] = measured;
             }
-            r[1] = measured;
         }
         int write = Math.floorMod(r[12], WINDOW);
-        r[WINDOW_BASE + write] = measured;
+        r[WINDOW_BASE + write] = present ? measured : -1;
         r[12] = (write + 1) % WINDOW;
         r[13] = Math.min(WINDOW, r[13] + 1);
     }
@@ -340,31 +364,44 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
     private static int rollingAverage100(int[] r, int count) {
         if (count <= 0) return 0;
         int sum = 0;
-        for (int i = 0; i < count; i++) sum += rollingSample(r, count, i);
-        return (sum * 100 + count / 2) / count;
+        int valid = 0;
+        for (int i = 0; i < count; i++) {
+            int value = rollingSample(r, count, i);
+            if (value < 0) continue;
+            sum += value;
+            valid++;
+        }
+        return valid == 0 ? 0 : (sum * 100 + valid / 2) / valid;
     }
 
     private static int rollingPeakToPeak(int[] r, int count) {
         if (count <= 0) return 0;
-        int lo = 15, hi = 0;
+        int lo = 16, hi = -1;
         for (int i = 0; i < count; i++) {
             int value = rollingSample(r, count, i);
+            if (value < 0) continue;
             lo = Math.min(lo, value);
             hi = Math.max(hi, value);
         }
-        return hi - lo;
+        return hi < 0 ? 0 : hi - lo;
     }
 
     private static int rollingMeanStep100(int[] r, int count) {
         if (count < 2) return 0;
         int total = 0;
+        int pairs = 0;
         int before = rollingSample(r, count, 0);
         for (int i = 1; i < count; i++) {
             int now = rollingSample(r, count, i);
+            if (before < 0 || now < 0) {
+                before = now;
+                continue;
+            }
             total += Math.abs(now - before);
+            pairs++;
             before = now;
         }
-        return (total * 100 + (count - 1) / 2) / (count - 1);
+        return pairs == 0 ? 0 : (total * 100 + pairs / 2) / pairs;
     }
 
     private static int rollingSample(int[] r, int count, int chronologicalIndex) {

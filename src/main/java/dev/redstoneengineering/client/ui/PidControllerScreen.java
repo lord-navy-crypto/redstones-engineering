@@ -73,7 +73,8 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
         labelValue(graphics, "Setpoint (SP)", menu.setpoint() + " / 15", 101);
         labelValue(graphics, "Process value (PV)", menu.processValue() + " / 15", 116);
         labelValue(graphics, "Error (SP − PV)", signed(menu.error()), 131);
-        labelValue(graphics, "Control output", menu.controlOutput() + " / 15", 146);
+        labelValue(graphics, "Output / actuator target",
+                menu.controlOutput() + " / " + menu.actuatorTarget(), 146);
         labelValue(graphics, "System score", menu.available() ? menu.score() + " / 100" : "N/A", 161);
         signalBar(graphics, menu.controlOutput(), 177);
     }
@@ -95,6 +96,11 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
     private void renderConfigure(GuiGraphics graphics) {
         labelValue(graphics, "Tuning preset", tuningName(menu.tuning()), 82);
         safeText(graphics, tuningDescription(menu.tuning()), 16, 98, TEXT);
+        labelValue(graphics, "Actuator slew ↑ / ↓",
+                menu.riseLimit() + " / " + menu.fallLimit() + " levels per 2t control cycle", 116);
+        safeText(graphics,
+                "Derivative acts on measured PV rather than SP error, reducing setpoint-step derivative kick.",
+                16, 136, MUTED);
         safeText(graphics,
                 "Acceptance captures current topology + commissioning evidence; reset keeps retained acceptance history.",
                 16, 191, INFO);
@@ -109,33 +115,38 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
                 metricTicks(menu.rise90Ticks()) + " / " + metricTicks(menu.settlingTicks()), 96);
         labelValue(graphics, "Overshoot / saturation",
                 menu.overshoot() + " / " + menu.saturationEvents(), 112);
+        statusLine(graphics, "Actuator slew",
+                (menu.slewActive() ? "LIMITING • target " : "TRACKING • target ")
+                        + menu.actuatorTarget() + " • episodes " + menu.slewEvents(),
+                menu.slewActive() ? WARN : GOOD, 128);
 
         if (!menu.plantDetected()) {
-            statusLine(graphics, "Plant witness", "NONE • explicit cylinder feedback not detected", MUTED, 132);
+            statusLine(graphics, "Plant witness", "NONE • explicit cylinder feedback not detected", MUTED, 148);
             safeText(graphics,
                     "Generic PID commissioning remains controller-only until PROCESS VALUE is directly wired to a formal cylinder FEEDBACK port.",
-                    16, 151, MUTED);
+                    16, 167, MUTED);
             statusLine(graphics, "System verdict",
-                    menu.status().name() + " • score " + menu.score(), statusColor(menu.status()), 184);
+                    menu.status().name() + " • score " + menu.score(), statusColor(menu.status()), 194);
             statusLine(graphics, "Inhibit",
                     menu.inhibited() ? "ACTIVE • OUTPUT FORCED LOW" : "CLEAR",
-                    menu.inhibited() ? BAD : GOOD, 200);
+                    menu.inhibited() ? BAD : GOOD, 210);
             return;
         }
 
         String plantState = menu.plantReady() ? menu.plantStatus().name() : "WARMING";
         statusLine(graphics, "Pneumatic plant",
                 plantState + " • penalty " + menu.plantPenalty() + " • n=" + menu.plantSamples(),
-                menu.plantReady() ? statusColor(menu.plantStatus()) : WARN, 132);
+                menu.plantReady() ? statusColor(menu.plantStatus()) : WARN, 148);
         labelValue(graphics, "Position / target / stall",
-                menu.plantPosition() + " / " + menu.plantTarget() + " / " + menu.plantStallTicks() + "t", 148);
-        labelValue(graphics, "Actuator / supply pressure", menu.plantPressure() + " / " + menu.plantSupply(), 164);
+                menu.plantPosition() + " / " + menu.plantTarget() + " / " + menu.plantStallTicks() + "t", 164);
+        labelValue(graphics, "Actuator / supply pressure", menu.plantPressure() + " / " + menu.plantSupply(), 180);
         labelValue(graphics, "Loss obs / line / restrict",
-                menu.plantObservedLoss() + " / " + menu.plantLineLoss() + " / " + menu.plantRestrictionLoss(), 180);
+                menu.plantObservedLoss() + " / " + menu.plantLineLoss() + " / " + menu.plantRestrictionLoss(), 196);
         statusLine(graphics, "Likely cause",
-                diagnosisLabel(menu.plantDiagnosis()), diagnosisColor(menu.plantDiagnosis()), 196);
-        statusLine(graphics, "System verdict",
-                menu.status().name() + " • score " + menu.score(), statusColor(menu.status()), 212);
+                diagnosisLabel(menu.plantDiagnosis()), diagnosisColor(menu.plantDiagnosis()), 212);
+        safeText(graphics,
+                "System " + menu.status().name() + " • score " + menu.score(),
+                218, 228, statusColor(menu.status()));
     }
 
     private void renderHistory(GuiGraphics graphics) {
@@ -214,10 +225,10 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
 
     private static String tuningDescription(int tuning) {
         return switch (tuning) {
-            case 0 -> "Gentle proportional-only response for simple, stable plants.";
-            case 1 -> "Adds slow integral correction to remove persistent steady-state error.";
-            case 2 -> "Balanced P + I + D preset for general closed-loop commissioning.";
-            case 3 -> "Higher proportional/derivative action for faster, more demanding plants.";
+            case 0 -> "Gentle P-only response with slow 1-level/cycle actuator motion.";
+            case 1 -> "PI control with slow actuator motion for steady, inertia-dominated plants.";
+            case 2 -> "Balanced PID with 2-level/cycle actuator command slew and PV derivative.";
+            case 3 -> "Aggressive PID with faster 3-level/cycle actuator command slew.";
             default -> "Unknown tuning preset.";
         };
     }

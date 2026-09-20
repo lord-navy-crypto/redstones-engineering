@@ -11,6 +11,8 @@ import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.CopperNetworkSupport;
 import dev.redstoneengineering.physics.DomainNetwork;
+import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.signal.ElectromagnetLogic;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.Direction;
 import net.minecraft.core.BlockPos;
@@ -31,9 +33,22 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-/** Copper-powered magnetic actuator. INPUT-only Copper neighbors can never back-drive its coil. */
+/**
+ * Copper-powered electromagnet with finite inductive response and thermal derating.
+ *
+ * Copper voltage commands excitation, but actual field does not jump instantly. Sustained high
+ * excitation accumulates thermal load; protection progressively caps achievable field until the
+ * coil cools. FIELD remains the external magnetic source consumed by MagneticPhysics.
+ */
 public class ElectromagnetBlock extends DomainBlock implements EngineeringPortProvider {
     public static final IntegerProperty FIELD = IntegerProperty.create("field", 0, 15);
+
+    private static final String RUNTIME_KEY = "electromagnet";
+    private static final int TARGET_FIELD = 0;
+    private static final int THERMAL_LOAD = 1;
+    private static final int RUN_TICKS = 2;
+    private static final int INITIALIZED = 3;
+    private static final int RUNTIME_SIZE = 4;
 
     public ElectromagnetBlock(Properties properties) {
         super(properties);
@@ -63,6 +78,34 @@ public class ElectromagnetBlock extends DomainBlock implements EngineeringPortPr
         return CopperNetworkSupport.terminalInput(level, pos);
     }
 
+    private static int[] snapshot(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, RUNTIME_KEY, pos);
+        return runtime != null && runtime.length == RUNTIME_SIZE ? runtime : null;
+    }
+
+    public static int targetField(Level level, BlockPos pos) {
+        int[] runtime = snapshot(level, pos);
+        return runtime == null ? 0 : Math.max(0, Math.min(15, runtime[TARGET_FIELD]));
+    }
+
+    public static int thermalLoad(Level level, BlockPos pos) {
+        int[] runtime = snapshot(level, pos);
+        return runtime == null ? 0 : Math.max(0, Math.min(1000, runtime[THERMAL_LOAD]));
+    }
+
+    public static int trackingError(Level level, BlockPos pos) {
+        return targetField(level, pos) - Math.max(0, Math.min(15, level.getBlockState(pos).getValue(FIELD)));
+    }
+
+    public static int runTicks(Level level, BlockPos pos) {
+        int[] runtime = snapshot(level, pos);
+        return runtime == null ? 0 : Math.max(0, runtime[RUN_TICKS]);
+    }
+
+    public static boolean thermalDerated(Level level, BlockPos pos) {
+        return thermalLoad(level, pos) >= 700;
+    }
+
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
         super.onPlace(state, level, pos, oldState, moved);
         if (!level.isClientSide) level.scheduleTick(pos, this, 1);
@@ -76,14 +119,34 @@ public class ElectromagnetBlock extends DomainBlock implements EngineeringPortPr
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         CopperNetworkSupport.TerminalInput input = CopperNetworkSupport.terminalInput(level, pos);
-        int field = input.quality() == PortQuality.VALID ? input.voltage() : 0;
-        if (field != state.getValue(FIELD)) level.setBlock(pos, state.setValue(FIELD, field), Block.UPDATE_CLIENTS);
+        int commandedField = input.quality() == PortQuality.VALID ? input.voltage() : 0;
+        int[] runtime = RuntimeIntStore.get(level, RUNTIME_KEY, pos, RUNTIME_SIZE);
+
+        int thermal = ElectromagnetLogic.nextThermal(runtime[THERMAL_LOAD], commandedField);
+        int target = ElectromagnetLogic.deratedTarget(commandedField, thermal);
+        int actual = ElectromagnetLogic.stepField(state.getValue(FIELD), target);
+
+        runtime[TARGET_FIELD] = target;
+        runtime[THERMAL_LOAD] = thermal;
+        runtime[INITIALIZED] = 1;
+        if (commandedField > 0 && runtime[RUN_TICKS] < Integer.MAX_VALUE) runtime[RUN_TICKS]++;
+
+        if (actual != state.getValue(FIELD)) {
+            level.setBlock(pos, state.setValue(FIELD, actual), Block.UPDATE_CLIENTS);
+        }
+
+        if (actual != target || commandedField > 0 || thermal > 0) {
+            level.scheduleTick(pos, this, 1);
+        }
     }
 
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState nextState, boolean moved) {
-        if (!state.is(nextState.getBlock()) && level instanceof ServerLevel serverLevel) {
-            for (Direction direction : Direction.values()) DomainNetwork.recomputeCopper(serverLevel, pos.relative(direction));
+        if (!state.is(nextState.getBlock())) {
+            RuntimeIntStore.remove(level, RUNTIME_KEY, pos);
+            if (level instanceof ServerLevel serverLevel) {
+                for (Direction direction : Direction.values()) DomainNetwork.recomputeCopper(serverLevel, pos.relative(direction));
+            }
         }
         super.onRemove(state, level, pos, nextState, moved);
     }
@@ -97,9 +160,14 @@ public class ElectromagnetBlock extends DomainBlock implements EngineeringPortPr
             }
             CopperNetworkSupport.TerminalInput input = CopperNetworkSupport.terminalInput(level, pos);
             player.displayClientMessage(Component.literal(
-                    "Electromagnet | B-level=" + state.getValue(FIELD) + "/15"
-                            + " | copper feeds=" + input.connectedFeeds()
-                            + " | V=" + input.voltage() + "/15"
+                    "Electromagnet | V=" + input.voltage() + "/15"
+                            + " targetB=" + targetField(level, pos) + "/15"
+                            + " actualB=" + state.getValue(FIELD) + "/15"
+                            + " error=" + trackingError(level, pos)
+                            + " | thermal=" + thermalLoad(level, pos) + "/1000"
+                            + " " + ElectromagnetLogic.thermalState(thermalLoad(level, pos))
+                            + " | runTicks=" + runTicks(level, pos)
+                            + " | feeds=" + input.connectedFeeds()
                             + " | " + input.quality()), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);

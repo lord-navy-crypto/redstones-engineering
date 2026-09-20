@@ -76,10 +76,23 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
         int healthColor = menu.worldPlantFaultResources() > 0 ? BAD : (health >= 100 ? GOOD : WARN);
         drawPlantMetricBar(graphics, 16, 180, 176, health, healthColor);
 
-        statusBadge(graphics, "PLANT KPIs • INCOMPLETE", WARN, 16, 196);
-        labelValue(graphics, "Quality / reliability / delivery", "WITHHELD • EVIDENCE MISSING", 212);
-        safeText(graphics, "FPY / reject / rework — / — / —", 16, 226, MUTED);
-        safeText(graphics, "Availability / failures — / — • Queue/job history is not persisted yet", 16, 238, MUTED);
+        int runtimeColor = switch (menu.persistentPlantCoverage()) {
+            case COMPLETE -> GOOD;
+            case PARTIAL -> WARN;
+            case EMPTY, INVALID -> MUTED;
+        };
+        statusBadge(graphics, "PERSISTENT PLANT RUNTIME • " + menu.persistentPlantCoverage().name(), runtimeColor, 16, 196);
+        labelValue(graphics, "Jobs active / completed / retained",
+                menu.persistentPlantActiveJobs() + " / " + menu.persistentPlantCompletedJobs()
+                        + " / " + menu.persistentPlantRetainedJobs(), 212);
+        safeText(graphics, "FPY/reject/rework " + menu.persistentPlantFirstPassYieldPercent() + "% / "
+                + menu.persistentPlantRejectRatePercent() + "% / " + menu.persistentPlantReworkRatePercent()
+                + "% • PM faults " + menu.persistentPlantMaintenanceFaultEvents(), 16, 226, TEXT);
+        safeText(graphics, "Due outstanding/overdue " + menu.persistentPlantOutstandingWithDueDate() + "/"
+                + menu.persistentPlantOverdueOutstandingJobs() + " • OTD "
+                + menu.persistentPlantOnTimeDeliveries() + "/" + menu.persistentPlantLateDeliveries()
+                + " • " + menu.persistentPlantOnTimeDeliveryPercent() + "%", 16, 238,
+                menu.persistentPlantLateDeliveries() > 0 ? WARN : TEXT);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
@@ -121,10 +134,14 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
         }
         graphics.drawString(font, "oldest", 18, 180, MUTED, false);
         graphics.drawString(font, "newest →", 244, 180, MUTED, false);
-        safeText(graphics, "confidence=" + evidenceConfidencePercent() + "% • diagnosis=" + systemDiagnosis(), 16, 197, TEXT);
+        safeText(graphics, "confidence=" + evidenceConfidencePercent() + "% • diagnosis=" + systemDiagnosis(), 16, 195, TEXT);
         safeText(graphics, "Electrical downtime " + formatTicks(menu.electricalDowntimeTicks())
-                + " • Protection status " + protectionText(), 16, 213, TEXT);
-        safeText(graphics, "MTBF/MTTR withheld • Copper evidence " + copperEvidenceText(), 16, 229, MUTED);
+                + " • Protection status " + protectionText(), 16, 209, TEXT);
+        safeText(graphics, "MTBF/MTTR withheld • Copper evidence " + copperEvidenceText(), 16, 222, MUTED);
+        safeText(graphics, "Plant ledger Q/QC/PM/D/L " + menu.persistentPlantQueueEvents() + "/"
+                + menu.persistentPlantQualityEvents() + "/" + menu.persistentPlantMaintenanceEvents() + "/"
+                + menu.persistentPlantDeliveryEvents() + "/" + menu.persistentPlantLogisticsEvents()
+                + " • retained " + menu.persistentPlantRetainedEvents(), 16, 234, MUTED);
     }
 
     private int configurationPercent() {

@@ -17,7 +17,14 @@ for label,needle in checks.items():
 for name in ['PneumaticProportionalValveBlock.java','PneumaticReliefValveBlock.java','PneumaticCylinderBlock.java']:
     if not (root/'src/main/java/dev/redstoneengineering/block'/name).exists(): raise SystemExit('FAIL: missing '+name)
 net=(root/'src/main/java/dev/redstoneengineering/physics/PneumaticNetwork.java').read_text()
-for needle in ['PneumaticProportionalValveBlock','PneumaticReliefValveBlock','PneumaticCylinderBlock','pneumatic_relief']:
+for needle in [
+    'PneumaticProportionalValveBlock',
+    'PneumaticReliefValveBlock',
+    'PneumaticCylinderBlock',
+    'PneumaticReliefValveBlock.shouldVent',
+    'PneumaticReliefValveBlock.recordVent',
+    'PneumaticReliefValveBlock.clearVenting',
+]:
     if needle not in net: raise SystemExit('FAIL: pneumatic network missing '+needle)
 for rid in ['pneumatic_proportional_valve','pneumatic_relief_valve','pneumatic_cylinder']:
     for rel in [f'src/main/resources/assets/redstoneengineering/blockstates/{rid}.json',f'src/main/resources/assets/redstoneengineering/models/block/{rid}.json',f'src/main/resources/assets/redstoneengineering/models/item/{rid}.json',f'src/main/resources/data/redstoneengineering/recipe/{rid}.json',f'src/main/resources/data/redstoneengineering/loot_table/blocks/{rid}.json']:

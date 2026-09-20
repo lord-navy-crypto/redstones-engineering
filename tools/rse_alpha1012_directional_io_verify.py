@@ -73,7 +73,7 @@ indicator = "src/main/java/dev/redstoneengineering/block/AnalogIndicatorBlock.ja
 require(indicator,
         "extends DirectionalRedstoneEndpointBlock", "EngineeringPortProvider",
         "SIGNAL IN", "backSide(state)", "PortDirection.INPUT",
-        "connectionMatches(direction, backSide(state))", "readBackInput",
+        "connectionMatches(direction, backSide(state))", "RedstoneObservationSupport.observe",
         "onEndpointRouteChanged(Level level, BlockPos pos, BlockState oldState, BlockState newState)",
         "update(level, pos, newState)",
         "player.isShiftKeyDown()", "FieldDeviceUi.open(serverPlayer, pos)")
@@ -128,6 +128,6 @@ print(" FRONT-only reference and sensor outputs: PASS")
 print(" reference output rotation old/new neighbor notification: PASS")
 print(" endpoint route-change refresh hook: PASS")
 print(" endpoint Engineering UI reachability + Shift diagnostics: PASS")
-print(" BACK-only analog indicator input + immediate route refresh: PASS")
+print(" BACK-only analog indicator input + shared quality-aware observation + immediate route refresh: PASS")
 print(" low-cardinality multipart resource guard: PASS")
 print(" executable Minecraft directional GameTests: PASS")

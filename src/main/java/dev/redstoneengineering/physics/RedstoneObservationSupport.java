@@ -28,6 +28,29 @@ public final class RedstoneObservationSupport {
         }
     }
 
+    /** Worst-of combiner for a derived redstone decision/output. */
+    public static PortQuality combineQuality(PortQuality... qualities) {
+        PortQuality result = PortQuality.VALID;
+        int rank = 0;
+        for (PortQuality quality : qualities) {
+            if (quality == null) continue;
+            int candidate = switch (quality) {
+                case VALID -> 0;
+                case SATURATED -> 1;
+                case NO_SIGNAL -> 2;
+                case STALE -> 3;
+                case FAULT -> 4;
+                case DOMAIN_MISMATCH -> 5;
+                case TOPOLOGY_ERROR -> 6;
+            };
+            if (candidate > rank) {
+                rank = candidate;
+                result = quality;
+            }
+        }
+        return result;
+    }
+
     public static Observation observe(Level level, BlockPos sinkPos, Direction inputSide) {
         BlockPos sourcePos = sinkPos.relative(inputSide);
         if (!level.hasChunkAt(sourcePos)) {
@@ -35,8 +58,6 @@ public final class RedstoneObservationSupport {
         }
 
         int value = EngineeringMath.clamp(level.getSignal(sourcePos, inputSide), 0, 15);
-        if (value > 0) return new Observation(value, PortQuality.VALID);
-
         BlockState sourceState = level.getBlockState(sourcePos);
         if (sourceState.isAir()) return new Observation(0, PortQuality.NO_SIGNAL);
 
@@ -47,11 +68,19 @@ public final class RedstoneObservationSupport {
                 if (port.domain() == EngineeringDomain.REDSTONE
                         && port.redstoneConnectable()
                         && port.direction() != PortDirection.INPUT) {
-                    return new Observation(0, PortQuality.VALID);
+                    var snapshot = provider.engineeringSnapshot(
+                            level, sourcePos, sourceState, inputSide.getOpposite());
+                    if (snapshot.isPresent()) {
+                        return new Observation(
+                                EngineeringMath.clamp((int) Math.round(snapshot.get().value()), 0, 15),
+                                snapshot.get().quality());
+                    }
+                    return new Observation(value, PortQuality.VALID);
                 }
             }
         }
 
+        if (value > 0) return new Observation(value, PortQuality.VALID);
         if (sourceState.getBlock().canConnectRedstone(sourceState, level, sourcePos, inputSide)) {
             return new Observation(0, PortQuality.VALID);
         }

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import re
+import subprocess
 import sys
 
 root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
@@ -28,7 +29,14 @@ if not match or tuple(map(int, match.groups())) < (1, 0, 10):
     failed.append("Alpha 1.0.10 requires mod_version >= 1.0.10-alpha")
 
 require("src/main/java/dev/redstoneengineering/core/port/EngineeringPort.java",
-        "EngineeringDomain", "String unit", "canReceive", "canTransmit", "EngineeringPortSnapshot")
+        "EngineeringDomain", "EngineeringQuantity quantity", "String unit", "canReceive", "canTransmit",
+        "EngineeringQuantity.defaultFor(domain, kind)", "EngineeringPortSnapshot")
+require("src/main/java/dev/redstoneengineering/core/port/EngineeringQuantity.java",
+        "UNSPECIFIED", "SIGNAL_LEVEL", "VOLTAGE", "PRESSURE", "DIGITAL_DATA",
+        "defaultFor", "compatibleWith")
+require("src/main/java/dev/redstoneengineering/core/port/EngineeringUnits.java",
+        "compatible(String left, String right)", "conversionFactor(String from, String to)",
+        'register("mV", "V", 1.0e-3)', 'register("kPa", "Pa", 1.0e3)')
 require("src/main/java/dev/redstoneengineering/core/port/PortQuality.java",
         "VALID", "SATURATED", "STALE", "FAULT", "DOMAIN_MISMATCH", "TOPOLOGY_ERROR")
 require("src/main/java/dev/redstoneengineering/core/port/EngineeringPortSnapshot.java",
@@ -36,7 +44,18 @@ require("src/main/java/dev/redstoneengineering/core/port/EngineeringPortSnapshot
 require("src/main/java/dev/redstoneengineering/core/port/EngineeringPortProvider.java",
         "engineeringPorts", "engineeringPort", "engineeringSnapshot")
 require("src/main/java/dev/redstoneengineering/core/port/PortCompatibility.java",
-        "COMPATIBLE", "DOMAIN_MISMATCH", "DIRECTION_MISMATCH", "evaluate")
+        "COMPATIBLE", "DOMAIN_MISMATCH", "QUANTITY_MISMATCH", "UNIT_MISMATCH", "DIRECTION_MISMATCH",
+        "quantity().compatibleWith", "EngineeringUnits.compatible(left.unit(), right.unit())", "evaluate")
+require("src/main/java/dev/redstoneengineering/diagnostics/topology/TopologyLinkStatus.java",
+        "DOMAIN_MISMATCH", "QUANTITY_MISMATCH", "UNIT_MISMATCH", "DIRECTION_MISMATCH")
+require("src/main/java/dev/redstoneengineering/diagnostics/topology/EngineeringTopologyView.java",
+        "case QUANTITY_MISMATCH -> TopologyLinkStatus.QUANTITY_MISMATCH",
+        "case UNIT_MISMATCH -> TopologyLinkStatus.UNIT_MISMATCH")
+require("src/main/java/dev/redstoneengineering/diagnostics/topology/TopologyFaceSnapshot.java",
+        "TopologyLinkStatus.QUANTITY_MISMATCH", "TopologyLinkStatus.UNIT_MISMATCH")
+require("src/main/java/dev/redstoneengineering/diagnostics/topology/TopologyDiagnosticsReport.java",
+        "DOMAIN_MISMATCH, QUANTITY_MISMATCH, UNIT_MISMATCH, DIRECTION_MISMATCH",
+        "incompatible domain/quantity/unit/direction")
 require("src/main/java/dev/redstoneengineering/core/domain/EngineeringDomain.java",
         "INSULATED_REDSTONE", "INSTRUMENT_BUS", "PNEUMATIC")
 
@@ -110,6 +129,19 @@ workflow = text(".github/workflows/build.yml")
 if "rse_alpha1010_port_architecture_verify.py" not in workflow:
     failed.append("workflow missing Alpha 1.0.10 verifier")
 
+unit_verifier = root / "tools/rse_engineering_units_verify.py"
+if not unit_verifier.is_file():
+    failed.append("missing engineering unit verifier")
+elif not failed:
+    completed = subprocess.run(
+        [sys.executable, str(unit_verifier), str(root)],
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        detail = (completed.stdout + "\n" + completed.stderr).strip()
+        failed.append("engineering unit verifier failed:\n" + detail)
+
 if failed:
     print("RSE Alpha 1.0.10 engineering-port architecture verification: FAIL")
     for item in failed:
@@ -118,7 +150,10 @@ if failed:
 
 print("RSE Alpha 1.0.10 engineering-port architecture verification: PASS")
 print(" static port descriptor + runtime snapshot separation: PASS")
-print(" domain/direction compatibility model: PASS")
+print(" domain + carried-quantity + convertible-unit + direction compatibility model: PASS")
+print(" source-compatible legacy constructor defaults: PASS")
+print(" first-class quantity + unit mismatch topology projection: PASS")
+print(" engineering unit semantic harness: PASS")
 print(" representative legacy migration/inheritance: PASS")
 print(" required-dependency core boundary: PASS")
 print(" forward-compatible historical documentation gate: PASS")

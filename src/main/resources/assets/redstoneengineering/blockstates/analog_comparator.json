@@ -1,0 +1,10 @@
+{
+  "multipart": [
+    {"when":{"facing":"north"},"apply":{"model":"redstoneengineering:block/analog_comparator"}},
+    {"when":{"facing":"east"},"apply":{"model":"redstoneengineering:block/analog_comparator","y":90}},
+    {"when":{"facing":"south"},"apply":{"model":"redstoneengineering:block/analog_comparator","y":180}},
+    {"when":{"facing":"west"},"apply":{"model":"redstoneengineering:block/analog_comparator","y":270}},
+    {"when":{"output":"1|2|3|4|5|6|7|8|9|10|11|12|13|14|15"},"apply":{"model":"redstoneengineering:block/live_output_segment_4"}},
+    {"when":{"mode":"1"},"apply":{"model":"redstoneengineering:block/config_segment_2"}}
+  ]
+}

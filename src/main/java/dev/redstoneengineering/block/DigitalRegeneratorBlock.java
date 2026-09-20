@@ -11,6 +11,7 @@ import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.SerialNetwork;
+import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -35,6 +36,11 @@ public class DigitalRegeneratorBlock extends DirectionalDomainBlock implements E
     public static final IntegerProperty THRESHOLD = IntegerProperty.create("threshold", 0, 2);
     private static final int[] MIN_QUALITY = {20, 40, 60};
     private static final int WATCHDOG_TICKS = 16;
+    private static final String RUNTIME_KEY = "digital_regenerator";
+    private static final int LAST_ACCEPTED = 0;
+    private static final int ACCEPTED_COUNT = 1;
+    private static final int REJECTED_COUNT = 2;
+    private static final int RUNTIME_SIZE = 3;
 
     public DigitalRegeneratorBlock(Properties properties) {
         super(properties);
@@ -53,6 +59,26 @@ public class DigitalRegeneratorBlock extends DirectionalDomainBlock implements E
         return MIN_QUALITY[Math.max(0, Math.min(MIN_QUALITY.length - 1, thresholdIndex))];
     }
 
+    public static boolean stepThreshold(Level level, BlockPos pos, boolean forward) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof DigitalRegeneratorBlock regenerator)) return false;
+        int next = Math.floorMod(state.getValue(THRESHOLD) + (forward ? 1 : -1), MIN_QUALITY.length);
+        BlockState updated = state.setValue(THRESHOLD, next);
+        level.setBlock(pos, updated, Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel server) regenerator.update(server, pos, updated);
+        return true;
+    }
+
+    public static int acceptedCount(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, RUNTIME_KEY, pos);
+        return runtime == null || runtime.length < RUNTIME_SIZE ? 0 : Math.max(0, runtime[ACCEPTED_COUNT]);
+    }
+
+    public static int rejectedCount(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, RUNTIME_KEY, pos);
+        return runtime == null || runtime.length < RUNTIME_SIZE ? 0 : Math.max(0, runtime[REJECTED_COUNT]);
+    }
+
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         return List.of(
@@ -63,20 +89,34 @@ public class DigitalRegeneratorBlock extends DirectionalDomainBlock implements E
         );
     }
 
-    private PortQuality inputQuality(Level level, BlockPos pos, BlockState state) {
-        BlockPos input = inputPos(pos, state);
+    public static PortQuality inputEvidenceQuality(Level level, BlockPos pos, BlockState state) {
+        BlockPos input = pos.relative(DirectionalDomainBlock.seriesInputSide(state));
         if (!level.hasChunkAt(input)) return PortQuality.STALE;
         if (!SerialNetwork.isNode(level, input)) return PortQuality.NO_SIGNAL;
         return SerialNetwork.quality(level, input);
     }
 
-    private PortQuality outputQuality(Level level, BlockPos pos, BlockState state) {
-        PortQuality upstream = inputQuality(level, pos, state);
+    public static int inputQualityPercent(Level level, BlockPos pos, BlockState state) {
+        BlockPos input = pos.relative(DirectionalDomainBlock.seriesInputSide(state));
+        return InformationRuntime.snapshot(level, "serial", input).qualityPercent();
+    }
+
+    public static PortQuality outputEvidenceQuality(Level level, BlockPos pos, BlockState state) {
+        PortQuality upstream = inputEvidenceQuality(level, pos, state);
         if (upstream != PortQuality.VALID && upstream != PortQuality.SATURATED) return upstream;
-        InformationRuntime.Snapshot input = InformationRuntime.snapshot(level, "serial", inputPos(pos, state));
+        BlockPos inputPos = pos.relative(DirectionalDomainBlock.seriesInputSide(state));
+        InformationRuntime.Snapshot input = InformationRuntime.snapshot(level, "serial", inputPos);
         if (!input.valid()) return PortQuality.FAULT;
         return input.qualityPercent() >= minimumQuality(state.getValue(THRESHOLD))
                 ? PortQuality.VALID : PortQuality.FAULT;
+    }
+
+    private PortQuality inputQuality(Level level, BlockPos pos, BlockState state) {
+        return inputEvidenceQuality(level, pos, state);
+    }
+
+    private PortQuality outputQuality(Level level, BlockPos pos, BlockState state) {
+        return outputEvidenceQuality(level, pos, state);
     }
 
     @Override
@@ -101,6 +141,13 @@ public class DigitalRegeneratorBlock extends DirectionalDomainBlock implements E
         boolean accepted = (upstream == PortQuality.VALID || upstream == PortQuality.SATURATED)
                 && input.valid()
                 && input.qualityPercent() >= minimumQuality(state.getValue(THRESHOLD));
+        int[] runtime = RuntimeIntStore.get(level, RUNTIME_KEY, pos, RUNTIME_SIZE);
+        int current = accepted ? 1 : 0;
+        if (current != runtime[LAST_ACCEPTED]) {
+            if (accepted) runtime[ACCEPTED_COUNT]++;
+            else if (runtime[LAST_ACCEPTED] != 0) runtime[REJECTED_COUNT]++;
+            runtime[LAST_ACCEPTED] = current;
+        }
         int period = Math.max(1, input.selector());
         InformationRuntime.write(level, "serial", pos, input.value() & 0xFF, period,
                 accepted, accepted ? 100 : 0);
@@ -136,6 +183,7 @@ public class DigitalRegeneratorBlock extends DirectionalDomainBlock implements E
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock()) && level instanceof ServerLevel serverLevel) {
             InformationRuntime.clear(level, "serial", pos);
+            RuntimeIntStore.remove(level, RUNTIME_KEY, pos);
             BlockPos output = outputPos(pos, state);
             BlockState outputState = level.getBlockState(output);
             if (outputState.getBlock() instanceof SerialDataLineBlock line) {
@@ -150,15 +198,16 @@ public class DigitalRegeneratorBlock extends DirectionalDomainBlock implements E
                                                Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
-                int nextThreshold = (state.getValue(THRESHOLD) + 1) % 3;
-                BlockState next = state.setValue(THRESHOLD, nextThreshold);
-                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-                update(serverPlayer.serverLevel(), pos, next);
+                stepThreshold(level, pos, true);
+                BlockState next = level.getBlockState(pos);
+                int nextThreshold = next.getValue(THRESHOLD);
                 InformationRuntime.Snapshot input = InformationRuntime.snapshot(level, "serial", inputPos(pos, next));
                 player.displayClientMessage(Component.literal(
                         "Digital regenerator minQuality=" + minimumQuality(nextThreshold) + "%"
                                 + " inputQuality=" + input.qualityPercent() + "%"
-                                + " state=" + outputQuality(level, pos, next)), true);
+                                + " state=" + outputQuality(level, pos, next)
+                                + " accepted=" + acceptedCount(level, pos)
+                                + " rejected=" + rejectedCount(level, pos)), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
             }

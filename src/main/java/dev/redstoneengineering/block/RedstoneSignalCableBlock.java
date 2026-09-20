@@ -97,12 +97,16 @@ public class RedstoneSignalCableBlock extends ConnectedCableBlock implements Eng
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
                 RedstoneCableNetwork.SourceEvidence evidence = RedstoneCableNetwork.sourceEvidence(level, pos);
+                RedstoneCableNetwork.PathEvidence path = RedstoneCableNetwork.pathEvidence(level, pos);
                 player.displayClientMessage(Component.literal(
                         "Insulated Redstone Cable"
                                 + " | " + PortDiagnostics.connectedCable(level, pos, state, PortDiagnostics.Domain.INSULATED_REDSTONE)
                                 + " | engineeringPorts=" + engineeringPorts(state).size()
                                 + " | signal=" + power(level, pos) + "/15"
                                 + " | sources=" + evidence.sourceCount() + " quality=" + evidence.quality()
+                                + " | sourceLevel=" + path.winningSourceLevel()
+                                + " loss=" + path.attenuationLoss()
+                                + " margin=" + path.remainingMargin(power(level, pos))
                                 + " | routing=PLANAR; vertical via Signal Junction Point"
                                 + " | " + NetworkKernel.summary(level, "redstone_cable")
                 ), true);

@@ -71,6 +71,22 @@ public class RedstoneReferenceSourceBlock extends DirectionalRedstoneEndpointBlo
                 port, state.getValue(POWER), PortQuality.VALID));
     }
 
+    public static boolean stepPower(Level level, BlockPos pos, boolean forward) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof RedstoneReferenceSourceBlock source)) return false;
+        int power = state.getValue(POWER);
+        int next = Math.floorMod(power + (forward ? 1 : -1), 16);
+        if (next == power) return false;
+        level.setBlock(pos, state.setValue(POWER, next), Block.UPDATE_CLIENTS);
+        level.updateNeighborsAt(pos, source);
+        level.updateNeighborsAt(pos.relative(state.getValue(DirectionalRedstoneEndpointBlock.FACING)), source);
+        return true;
+    }
+
+    public static int configuredPower(BlockState state) {
+        return state.getValue(POWER);
+    }
+
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {

@@ -16,6 +16,7 @@ def read(rel: str) -> str:
 
 due = read("src/main/java/dev/redstoneengineering/diagnostics/OperationDueDateExposureAssessment.java")
 plant = read("src/main/java/dev/redstoneengineering/diagnostics/OperationPlantViewAssessment.java")
+persistent = read("src/main/java/dev/redstoneengineering/diagnostics/OperationPersistentPlantRuntimeAssessment.java")
 menu = read("src/main/java/dev/redstoneengineering/ui/menu/OperationsMonitorMenu.java")
 screen = read("src/main/java/dev/redstoneengineering/client/ui/OperationsMonitorScreen.java")
 monitor = read("src/main/java/dev/redstoneengineering/block/OperationsMonitorBlock.java")
@@ -58,38 +59,92 @@ for token in (
         errors.append(f"Plant view missing cross-domain observer signal {token!r}")
 
 for token in (
+    "class OperationPersistentPlantRuntimeAssessment",
+    "Read-only observer projection of the world-backed Persistent Plant Runtime",
+    "OperationPlantSavedData",
+    "retainedJobs",
+    "activeJobs",
+    "completedJobs",
+    "queueEvents",
+    "qualityEvents",
+    "maintenanceEvents",
+    "deliveryEvents",
+    "logisticsEvents",
+    "onTimeDeliveries",
+    "lateDeliveries",
+    "undatedDeliveries",
+    "onTimeDeliveryPercent",
+    "firstPassYieldPercent",
+    "rejectRatePercent",
+    "reworkRatePercent",
+    "maintenanceFaultEvents",
+    "outstandingWithDueDate",
+    "overdueOutstandingJobs",
+    "parseInspectionUnits",
+    '"ON_TIME"',
+    'startsWith("LATE_BY_")',
+    "!job.status().terminal()",
+):
+    if persistent and token not in persistent:
+        errors.append(f"Persistent Plant Runtime assessment missing retained observer evidence {token!r}")
+
+for token in (
     "OperationPlantViewAssessment",
-    "plantCoverage",
-    "plantBottleneckPresent",
-    "plantBottleneckConstraint",
-    "plantConstrainedWorkcells",
-    "plantFirstPassYieldPercent",
-    "plantRejectRatePercent",
-    "plantReworkRatePercent",
-    "plantObservedAvailabilityPercent",
-    "plantFailureCount",
-    "plantOverdueOutstandingJobs",
-    "plantOutstandingWithDueDate",
-    "plantEvidenceAuthoritative",
+    "OperationPersistentPlantRuntimeAssessment",
+    "persistentPlantCoverage",
+    "persistentPlantRetainedJobs",
+    "persistentPlantActiveJobs",
+    "persistentPlantCompletedJobs",
+    "persistentPlantRetainedEvents",
+    "persistentPlantQueueEvents",
+    "persistentPlantQualityEvents",
+    "persistentPlantMaintenanceEvents",
+    "persistentPlantDeliveryEvents",
+    "persistentPlantLogisticsEvents",
+    "persistentPlantOnTimeDeliveries",
+    "persistentPlantLateDeliveries",
+    "persistentPlantUndatedDeliveries",
+    "persistentPlantOnTimeDeliveryPercent",
+    "persistentPlantFirstPassYieldPercent",
+    "persistentPlantRejectRatePercent",
+    "persistentPlantReworkRatePercent",
+    "persistentPlantMaintenanceFaultEvents",
+    "persistentPlantOutstandingWithDueDate",
+    "persistentPlantOverdueOutstandingJobs",
+    "worldPlantCoverage",
 ):
     if menu and token not in menu:
-        errors.append(f"Operations Monitor menu missing synchronized Plant View projection {token!r}")
+        errors.append(f"Operations Monitor menu missing synchronized persistent plant evidence {token!r}")
 
-# World workcell/buffer state is now real and should be shown. Full cross-domain KPIs are still
-# withheld until queue/job/quality/reliability/delivery world evidence exists.
 for token in (
     "WORLD PLANT STATE",
-    "PLANT KPIs • INCOMPLETE",
-    "FPY / reject / rework",
-    "Availability / failures",
-    "Quality / reliability / delivery",
-    "WITHHELD • EVIDENCE MISSING",
-    "Queue/job history is not persisted yet",
+    "PERSISTENT PLANT RUNTIME",
+    "Jobs active / completed / retained",
+    "FPY/reject/rework",
+    "PM faults",
+    "Due outstanding/overdue",
+    "OTD",
+    "Plant ledger Q/QC/PM/D/L",
 ):
     if screen and token not in screen:
-        errors.append(f"Operations Monitor screen missing truthful Plant View presentation {token!r}")
+        errors.append(f"Operations Monitor screen missing persistent Plant Runtime presentation {token!r}")
 
-for body, label in ((due, "Due-date exposure"), (plant, "Plant view"), (menu, "Operations Monitor menu"), (screen, "Operations Monitor screen"), (monitor, "Operations Monitor block")):
+for stale in (
+    "Queue/job history is not persisted yet",
+    "Quality / reliability / delivery\", \"WITHHELD • EVIDENCE MISSING",
+    "PLANT KPIs • INCOMPLETE",
+):
+    if screen and stale in screen:
+        errors.append(f"Operations Monitor screen still claims obsolete missing persistence: {stale!r}")
+
+for body, label in (
+    (due, "Due-date exposure"),
+    (plant, "Plant view"),
+    (persistent, "Persistent Plant Runtime assessment"),
+    (menu, "Operations Monitor menu"),
+    (screen, "Operations Monitor screen"),
+    (monitor, "Operations Monitor block"),
+):
     for forbidden in (
         "OperationQueueRuntime.enqueue",
         "OperationQueueRuntime.dispatch",
@@ -120,9 +175,10 @@ if errors:
     raise SystemExit(1)
 
 print("RSE OPERATIONS PLANT VIEW VERIFY: PASS")
-print(" current overdue-work exposure without fake completion timing: PASS")
-print(" throughput/WIP/bottleneck/quality/reliability/due-date composition contract: PASS")
+print(" conservative legacy due-date observer contract retained: PASS")
 print(" persisted world workcell/buffer state visible through existing Operations Monitor: PASS")
-print(" unsupported queue/quality/reliability/delivery world KPIs remain INCOMPLETE: PASS")
+print(" persistent job + queue/quality/maintenance/delivery/logistics evidence visible read-only: PASS")
+print(" quality KPI derived only from explicit inspection units: PASS")
+print(" dated on-time/late delivery performance derived from retained completion timing: PASS")
 print(" automatic ranking or optimization: NONE")
 print(" dispatch/queue/maintenance/world/robotics authority leakage: NONE")

@@ -26,7 +26,11 @@ import net.minecraft.world.phys.BlockHitResult;
 import java.util.List;
 import java.util.Optional;
 
-/** Non-contact, read-only frequency-domain observer for nearby amethyst resonance media. */
+/**
+ * Non-contact, read-only frequency-domain observer for nearby amethyst resonance media.
+ *
+ * <p>Incomplete scan coverage is STALE evidence, never an invented zero-spectrum measurement.</p>
+ */
 public class AmethystSpectrumAnalyzerBlock extends DomainBlock implements EngineeringPortProvider {
     private static final int RADIUS = 6;
     private static final int SAMPLE_PERIOD_TICKS = 10;
@@ -83,7 +87,8 @@ public class AmethystSpectrumAnalyzerBlock extends DomainBlock implements Engine
     public static PortQuality quality(Level level, BlockPos pos) {
         Spectrum spectrum = spectrum(level, pos);
         if (spectrum.conflicts() > 0) return PortQuality.TOPOLOGY_ERROR;
-        if (!spectrum.complete()) return PortQuality.NO_SIGNAL;
+        if (spectrum.expectedCells() <= 0) return PortQuality.NO_SIGNAL;
+        if (!spectrum.complete()) return PortQuality.STALE;
         return spectrum.samples() > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL;
     }
 
@@ -142,14 +147,24 @@ public class AmethystSpectrumAnalyzerBlock extends DomainBlock implements Engine
             }
         }
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
-        runtime[DOMINANT_FREQUENCY] = dominantFrequency;
-        runtime[DOMINANT_ENERGY] = dominantEnergy;
-        runtime[ACTIVE_BANDS] = bands;
-        runtime[ACTIVE_SAMPLES] = events;
         runtime[CONFLICT_SAMPLES] = conflicts;
         runtime[SCANNED_CELLS] = scanned;
         runtime[EXPECTED_CELLS] = expected;
-        return new Spectrum(dominantFrequency, dominantEnergy, bands, events, conflicts, scanned, expected);
+
+        if (expected > 0 && scanned == expected) {
+            // Only a complete aperture scan may replace the trusted numerical spectrum.
+            runtime[DOMINANT_FREQUENCY] = dominantFrequency;
+            runtime[DOMINANT_ENERGY] = dominantEnergy;
+            runtime[ACTIVE_BANDS] = bands;
+            runtime[ACTIVE_SAMPLES] = events;
+        }
+        // An incomplete scan changes evidence/coverage, not the last trustworthy spectrum values.
+        return new Spectrum(
+                runtime[DOMINANT_FREQUENCY],
+                runtime[DOMINANT_ENERGY],
+                runtime[ACTIVE_BANDS],
+                runtime[ACTIVE_SAMPLES],
+                conflicts, scanned, expected);
     }
 
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {

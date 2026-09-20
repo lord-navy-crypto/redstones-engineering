@@ -37,6 +37,7 @@ public final class LogicAnalyzerMenu extends EngineeringDeviceMenu {
     private final DataSlot[] rising = new DataSlot[4];
     private final DataSlot[] falling = new DataSlot[4];
     private final DataSlot[] channelProbeCounts = new DataSlot[4];
+    private final DataSlot[] channelQualities = new DataSlot[4];
     private final DataSlot[][] display = new DataSlot[4][LogicAnalyzerBlockEntity.DISPLAY_SAMPLES];
 
     private final DataSlot cableNodes = trackedInt();
@@ -63,7 +64,7 @@ public final class LogicAnalyzerMenu extends EngineeringDeviceMenu {
                 RedstoneEngineering.LOGIC_ANALYZER.get());
         for (int channel = 0; channel < 4; channel++) {
             coverage[channel] = trackedInt(); duty[channel] = trackedInt(); transitionRate[channel] = trackedInt();
-            rising[channel] = trackedInt(); falling[channel] = trackedInt(); channelProbeCounts[channel] = trackedInt();
+            rising[channel] = trackedInt(); falling[channel] = trackedInt(); channelProbeCounts[channel] = trackedInt(); channelQualities[channel] = trackedInt();
             for (int slot = 0; slot < LogicAnalyzerBlockEntity.DISPLAY_SAMPLES; slot++) display[channel][slot] = trackedInt();
         }
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
@@ -93,7 +94,10 @@ public final class LogicAnalyzerMenu extends EngineeringDeviceMenu {
         shieldingCoverage.set(network.shieldingCoveragePercent()); exposedCableNodes.set(network.exposedCableNodes());
         shieldedExposedNodes.set(network.shieldedExposedNodes()); unshieldedExposedNodes.set(network.unshieldedExposedNodes());
         interferenceExposure.set(network.interferenceExposurePercent()); interferenceConfidence.set(network.interferenceConfidencePercent());
-        for (int channel = 0; channel < 4; channel++) channelProbeCounts[channel].set(network.counts()[channel]);
+        for (int channel = 0; channel < 4; channel++) {
+            channelProbeCounts[channel].set(network.counts()[channel]);
+            channelQualities[channel].set(network.quality(channel).ordinal());
+        }
     }
 
     @Override
@@ -119,6 +123,7 @@ public final class LogicAnalyzerMenu extends EngineeringDeviceMenu {
     public int falling(int channel) { return falling[channel].get(); }
     public int displayState(int channel, int slot) { return display[channel][slot].get(); }
     public int probeCount(int channel) { return channelProbeCounts[channel].get(); }
+    public int probeQualityOrdinal(int channel) { return channelQualities[channel].get(); }
     public int cableNodes() { return cableNodes.get(); }
     public int probeNodes() { return probeNodes.get(); }
     public int validChannels() { return validChannels.get(); }

@@ -20,6 +20,7 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_CURSOR_A = 4;
     public static final int BUTTON_CURSOR_B = 5;
     public static final int BUTTON_CLEAR = 6;
+    public static final int BUTTON_TIMEBASE = 7;
 
     private final DataSlot sampleCount = trackedInt();
     private final DataSlot triggerMode = trackedInt();
@@ -28,6 +29,7 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     private final DataSlot captureState = trackedInt();
     private final DataSlot cursorA = trackedInt();
     private final DataSlot cursorB = trackedInt();
+    private final DataSlot samplePeriodTicks = trackedInt();
 
     private final DataSlot[] current = new DataSlot[2];
     private final DataSlot[] coverage = new DataSlot[2];
@@ -54,6 +56,7 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     private final DataSlot interferenceExposure = trackedInt();
     private final DataSlot interferenceConfidence = trackedInt();
     private final DataSlot[] channelProbeCounts = new DataSlot[2];
+    private final DataSlot[] channelQualities = new DataSlot[2];
 
     public OscilloscopeMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -65,7 +68,7 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
         for (int channel = 0; channel < 2; channel++) {
             current[channel] = trackedInt(); coverage[channel] = trackedInt(); minimum[channel] = trackedInt();
             maximum[channel] = trackedInt(); peakToPeak[channel] = trackedInt(); average100[channel] = trackedInt();
-            meanStep100[channel] = trackedInt(); periodTicks[channel] = trackedInt(); channelProbeCounts[channel] = trackedInt();
+            meanStep100[channel] = trackedInt(); periodTicks[channel] = trackedInt(); channelProbeCounts[channel] = trackedInt(); channelQualities[channel] = trackedInt();
             for (int slot = 0; slot < OscilloscopeBlockEntity.DISPLAY_SAMPLES; slot++) display[channel][slot] = trackedInt();
         }
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
@@ -77,11 +80,13 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
         sampleCount.set(scope.sampleCount()); triggerMode.set(scope.triggerMode()); triggerChannel.set(scope.triggerChannel());
         triggerLevel.set(scope.triggerLevel()); captureState.set(scope.armed() ? 1 : scope.triggered() ? 2 : 0);
         cursorA.set(scope.cursorA()); cursorB.set(scope.cursorB());
+        int samplePeriod = OscilloscopeBlock.samplePeriodTicks(level.getBlockState(blockPos));
+        samplePeriodTicks.set(samplePeriod);
         for (int channel = 0; channel < 2; channel++) {
             current[channel].set(scope.current(channel)); coverage[channel].set(scope.coveragePercent(channel));
             minimum[channel].set(scope.minimum(channel)); maximum[channel].set(scope.maximum(channel));
             peakToPeak[channel].set(scope.peakToPeak(channel)); average100[channel].set(scope.average100(channel));
-            meanStep100[channel].set(scope.meanStep100(channel)); periodTicks[channel].set(scope.estimatedPeriodTicks(channel));
+            meanStep100[channel].set(scope.meanStep100(channel)); periodTicks[channel].set(scope.estimatedPeriodTicks(channel, samplePeriod));
             for (int slot = 0; slot < OscilloscopeBlockEntity.DISPLAY_SAMPLES; slot++) display[channel][slot].set(scope.displaySample(channel, slot));
         }
 
@@ -92,7 +97,10 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
         shieldingCoverage.set(network.shieldingCoveragePercent()); exposedCableNodes.set(network.exposedCableNodes());
         shieldedExposedNodes.set(network.shieldedExposedNodes()); unshieldedExposedNodes.set(network.unshieldedExposedNodes());
         interferenceExposure.set(network.interferenceExposurePercent()); interferenceConfidence.set(network.interferenceConfidencePercent());
-        for (int channel = 0; channel < 2; channel++) channelProbeCounts[channel].set(network.counts()[channel]);
+        for (int channel = 0; channel < 2; channel++) {
+            channelProbeCounts[channel].set(network.counts()[channel]);
+            channelQualities[channel].set(network.quality(channel).ordinal());
+        }
     }
 
     @Override
@@ -111,6 +119,7 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     public int captureState() { return captureState.get(); }
     public int cursorA() { return cursorA.get(); }
     public int cursorB() { return cursorB.get(); }
+    public int samplePeriodTicks() { return Math.max(1, samplePeriodTicks.get()); }
     public int current(int channel) { return current[channel].get(); }
     public int coverage(int channel) { return coverage[channel].get(); }
     public int minimum(int channel) { return minimum[channel].get(); }
@@ -135,4 +144,5 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     public int interferenceExposure() { return interferenceExposure.get(); }
     public int interferenceConfidence() { return interferenceConfidence.get(); }
     public int probeCount(int channel) { return channelProbeCounts[channel].get(); }
+    public int probeQualityOrdinal(int channel) { return channelQualities[channel].get(); }
 }

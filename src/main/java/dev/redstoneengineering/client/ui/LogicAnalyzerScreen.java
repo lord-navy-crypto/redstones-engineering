@@ -2,6 +2,7 @@ package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.block.SignalProbeBlock;
 import dev.redstoneengineering.blockentity.LogicAnalyzerBlockEntity;
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.menu.LogicAnalyzerMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -150,10 +151,27 @@ public final class LogicAnalyzerScreen extends EngineeringScreen<LogicAnalyzerMe
 
     private String captureState() { return switch (menu.captureState()) { case 1 -> "ARMED"; case 2 -> "TRIGGERED"; default -> "HOLD"; }; }
     private int captureColor() { return switch (menu.captureState()) { case 1 -> INFO; case 2 -> GOOD; default -> MUTED; }; }
-    private String networkIntegrity() { if (!menu.bounded()) return "TRUNCATED"; if (menu.duplicateChannels() > 0) return "AMBIGUOUS • duplicate channels"; if (menu.probeNodes() == 0) return "NO PROBES"; return "OK • " + menu.validChannels() + "/" + menu.activeChannels() + " valid/active"; }
-    private int networkColor() { if (!menu.bounded() || menu.duplicateChannels() > 0) return WARN; return menu.probeNodes() == 0 ? MUTED : GOOD; }
-    private String probeState(int channel) { return switch (menu.probeCount(channel)) { case 0 -> "NO PROBE"; case 1 -> "CONNECTED"; default -> "AMBIGUOUS (" + menu.probeCount(channel) + ")"; }; }
-    private int probeColor(int channel) { return menu.probeCount(channel) == 1 ? GOOD : menu.probeCount(channel) > 1 ? WARN : MUTED; }
+    private String networkIntegrity() { if (!menu.bounded()) return "TRUNCATED"; if (menu.duplicateChannels() > 0) return "AMBIGUOUS • duplicate channels"; if (menu.probeNodes() == 0) return "NO PROBES"; return (menu.validChannels() < menu.activeChannels() ? "EVIDENCE DEGRADED • " : "OK • ") + menu.validChannels() + "/" + menu.activeChannels() + " valid/active"; }
+    private int networkColor() { if (!menu.bounded() || menu.duplicateChannels() > 0) return WARN; if (menu.probeNodes() == 0) return MUTED; return menu.validChannels() < menu.activeChannels() ? WARN : GOOD; }
+    private PortQuality probeQuality(int channel) {
+        PortQuality[] values = PortQuality.values();
+        return values[Math.max(0, Math.min(values.length - 1, menu.probeQualityOrdinal(channel)))];
+    }
+    private String probeState(int channel) {
+        int count = menu.probeCount(channel);
+        if (count == 0) return "NO PROBE";
+        if (count > 1) return "AMBIGUOUS (" + count + ")";
+        return "CONNECTED • " + probeQuality(channel).name();
+    }
+    private int probeColor(int channel) {
+        if (menu.probeCount(channel) == 0) return MUTED;
+        if (menu.probeCount(channel) > 1) return BAD;
+        return switch (probeQuality(channel)) {
+            case VALID -> GOOD;
+            case SATURATED, NO_SIGNAL, STALE -> WARN;
+            case FAULT, DOMAIN_MISMATCH, TOPOLOGY_ERROR -> BAD;
+        };
+    }
     private static String channelName(int channel) { return SignalProbeBlock.channelName(channel); }
     private static String edgeName(int edge) { return edge == 2 ? "FALLING" : "RISING"; }
     private static int channelColor(int channel) { return switch (channel) { case 0 -> 0xFF66C2FF; case 1 -> 0xFF7DDB8A; case 2 -> 0xFFFFC857; default -> 0xFFE879F9; }; }

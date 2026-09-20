@@ -138,7 +138,6 @@ public final class DataBusNetwork {
         boolean conflict = distinctValues > 1;
         boolean sameValueMultiDriver = driverCount > 1 && distinctValues == 1;
         int value = values.isEmpty() ? 0 : values.iterator().next();
-        int resolvedValue = valid ? value : 0;
 
         int loadingPenalty = Math.max(0, nodes.size() - 1) / 2;
         int contentionPenalty = sameValueMultiDriver ? Math.min(30, (driverCount - 1) * 12) : 0;
@@ -153,6 +152,13 @@ public final class DataBusNetwork {
             int oldValue = InformationRuntime.value(level, "bus8", pos) & 0xFF;
             boolean oldValid = InformationRuntime.valid(level, "bus8", pos);
             int oldQuality = InformationRuntime.quality(level, "bus8", pos);
+
+            // Only a complete scan proving there are no drivers defines a true zero/idle payload.
+            // A truncated scan or a multi-value conflict invalidates the evidence but cannot define
+            // a replacement byte, so preserve the last trustworthy numerical readback.
+            int resolvedValue = valid
+                    ? value
+                    : (!truncated && driverCount == 0 ? 0 : oldValue);
             boolean effectiveChanged = oldValue != resolvedValue
                     || oldValid != valid
                     || oldQuality != resolvedQuality;

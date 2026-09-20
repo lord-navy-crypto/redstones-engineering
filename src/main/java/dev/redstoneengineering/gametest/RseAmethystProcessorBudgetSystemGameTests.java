@@ -9,7 +9,6 @@ import dev.redstoneengineering.block.DirectionalDomainBlock;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.NetworkKernel;
-import dev.redstoneengineering.physics.RuntimeIntStore;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
@@ -269,7 +268,7 @@ public final class RseAmethystProcessorBudgetSystemGameTests {
         level.setBlock(source, RedstoneEngineering.AMETHYST_RESONATOR.get().defaultBlockState()
                 .setValue(AmethystResonatorBlock.FREQUENCY, 6)
                 .setValue(AmethystResonatorBlock.AMPLITUDE, amplitude), Block.UPDATE_CLIENTS);
-        RuntimeIntStore.get(level, "amethyst_resonator", source, 1)[0] = 1;
+        AmethystResonatorBlock.excite(level, source, level.getBlockState(source));
     }
 
     private static void placeDustRange(ServerLevel level, List<BlockPos> path, int from, int to) {

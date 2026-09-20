@@ -79,7 +79,10 @@ contracts = {
         "EngineeringDomain.REDSTONE",
         "PortQuality.SATURATED",
         "canConnectRedstone",
-        "Math.min(15, DataBusNetwork.sample",
+        "CLAMP",
+        "FULL_SCALE",
+        "decode(DataBusNetwork.sample",
+        "state.getValue(MODE) == CLAMP",
     ),
     "src/main/java/dev/redstoneengineering/block/SerialDataLineBlock.java": (
         "implements EngineeringPortProvider",
@@ -186,6 +189,6 @@ print("RSE fourth-eight digital communication verification: PASS")
 print("  explicit DATA_BUS_8 / SERIAL_DATA / DIFFERENTIAL_DATA domains: PASS")
 print("  ghost-driver + floating-bus + physical-output alignment guards: PASS")
 print("  serial/differential topology invalidation: PASS")
-print("  eight communication devices expose inspectable engineering contracts: PASS")
+print("  eight communication devices expose inspectable engineering contracts + dual decoder mapping: PASS")
 print("  Field Device Inspector communication projection: PASS")
 print("  eight executable fourth-batch GameTests registered: PASS")

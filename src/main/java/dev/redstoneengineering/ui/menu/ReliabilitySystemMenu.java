@@ -73,6 +73,7 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
             tertiary.set(WatchdogBlock.timeoutCount(level, blockPos));
             auxiliary.set(WatchdogBlock.transitionCount(level, blockPos));
             extraA.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+            extraB.set(WatchdogBlock.sourceSeen(level, blockPos) ? 1 : 0);
             quality.set(snapshotQuality(watchdog, state, in).ordinal());
         } else if (block instanceof ServoActuatorBlock servo) {
             kind.set(KIND_SERVO);
@@ -121,6 +122,7 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
             auxiliary.set(FaultLatchBlock.resetCount(level, blockPos));
             extraA.set(FaultLatchBlock.latched(level, blockPos) ? 1 : 0);
             extraB.set(FaultLatchBlock.resetActive(level, blockPos) ? 1 : 0);
+            extraC.set(FaultLatchBlock.resetPermitted(level, blockPos, state) ? 1 : 0);
             quality.set(snapshotQuality(latch, state, out).ordinal());
         } else kind.set(-1);
     }
