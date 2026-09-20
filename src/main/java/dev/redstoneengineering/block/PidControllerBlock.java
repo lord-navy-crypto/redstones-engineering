@@ -18,6 +18,7 @@ import dev.redstoneengineering.diagnostics.acceptance.EngineeringAcceptance;
 import dev.redstoneengineering.diagnostics.acceptance.EngineeringAcceptanceSnapshot;
 import dev.redstoneengineering.diagnostics.topology.EngineeringTopologyView;
 import dev.redstoneengineering.diagnostics.topology.TopologyVisualizationSnapshot;
+import dev.redstoneengineering.physics.EngineeringDeviceParameters;
 import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.signal.PidActuatorLogic;
@@ -226,9 +227,13 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
 
         int rawError = setpoint - process;
         int controlError = Math.abs(rawError) <= DEADBAND ? 0 : rawError;
-        int[] k = PRESETS[state.getValue(TUNING)];
-        int kp = k[0], kiDiv = k[1], kd = k[2], dSmooth = k[3];
-        int riseLimit = k[4], fallLimit = k[5];
+        EngineeringDeviceParameters.PidParameters parameters = configuredParameters(level, pos, state);
+        int kp = parameters.kp();
+        int kiDiv = parameters.kiDivisor();
+        int kd = parameters.kd();
+        int dSmooth = parameters.derivativeSmoothing();
+        int riseLimit = parameters.riseLimit();
+        int fallLimit = parameters.fallLimit();
 
         if (requestedMode != rt[17]) {
             if (rt[17] == MANUAL_MODE && requestedMode == AUTO_MODE) {
@@ -319,12 +324,63 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
                 : Math.max(0, rt[SLEW_EPISODES_SLOT]);
     }
 
+    public static EngineeringDeviceParameters.PidParameters presetParameters(BlockState state) {
+        int[] p = PRESETS[Math.max(0, Math.min(PRESETS.length - 1, state.getValue(TUNING)))];
+        return new EngineeringDeviceParameters.PidParameters(p[0], p[1], p[2], p[3], p[4], p[5]);
+    }
+
+    public static EngineeringDeviceParameters.PidParameters configuredParameters(Level level, BlockPos pos, BlockState state) {
+        EngineeringDeviceParameters.PidParameters fallback = presetParameters(state);
+        if (level instanceof ServerLevel serverLevel) {
+            return EngineeringDeviceParameters.get(serverLevel).pidParameters(serverLevel, pos, fallback);
+        }
+        return fallback;
+    }
+
     public static int riseLimit(BlockState state) {
-        return PRESETS[Math.max(0, Math.min(PRESETS.length - 1, state.getValue(TUNING)))][4];
+        return presetParameters(state).riseLimit();
     }
 
     public static int fallLimit(BlockState state) {
-        return PRESETS[Math.max(0, Math.min(PRESETS.length - 1, state.getValue(TUNING)))][5];
+        return presetParameters(state).fallLimit();
+    }
+
+    public static int riseLimit(Level level, BlockPos pos, BlockState state) {
+        return configuredParameters(level, pos, state).riseLimit();
+    }
+
+    public static int fallLimit(Level level, BlockPos pos, BlockState state) {
+        return configuredParameters(level, pos, state).fallLimit();
+    }
+
+    public static boolean adjustParameter(ServerLevel level, BlockPos pos, int parameter, int delta) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof PidControllerBlock)) return false;
+        EngineeringDeviceParameters.PidParameters current = configuredParameters(level, pos, state);
+        EngineeringDeviceParameters.PidParameters next = switch (parameter) {
+            case 0 -> new EngineeringDeviceParameters.PidParameters(current.kp() + delta, current.kiDivisor(), current.kd(), current.derivativeSmoothing(), current.riseLimit(), current.fallLimit());
+            case 1 -> new EngineeringDeviceParameters.PidParameters(current.kp(), current.kiDivisor() + delta, current.kd(), current.derivativeSmoothing(), current.riseLimit(), current.fallLimit());
+            case 2 -> new EngineeringDeviceParameters.PidParameters(current.kp(), current.kiDivisor(), current.kd() + delta, current.derivativeSmoothing(), current.riseLimit(), current.fallLimit());
+            case 3 -> new EngineeringDeviceParameters.PidParameters(current.kp(), current.kiDivisor(), current.kd(), current.derivativeSmoothing() + delta, current.riseLimit(), current.fallLimit());
+            case 4 -> new EngineeringDeviceParameters.PidParameters(current.kp(), current.kiDivisor(), current.kd(), current.derivativeSmoothing(), current.riseLimit() + delta, current.fallLimit());
+            case 5 -> new EngineeringDeviceParameters.PidParameters(current.kp(), current.kiDivisor(), current.kd(), current.derivativeSmoothing(), current.riseLimit(), current.fallLimit() + delta);
+            default -> current;
+        };
+        boolean changed = EngineeringDeviceParameters.get(level).setPidParameters(level, pos, next);
+        if (changed) level.scheduleTick(pos, state.getBlock(), 1);
+        return changed;
+    }
+
+    public static boolean loadPreset(ServerLevel level, BlockPos pos, int presetIndex) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof PidControllerBlock)) return false;
+        int bounded = Math.max(0, Math.min(PRESETS.length - 1, presetIndex));
+        BlockState nextState = state.setValue(TUNING, bounded);
+        level.setBlock(pos, nextState, Block.UPDATE_CLIENTS);
+        boolean changed = EngineeringDeviceParameters.get(level)
+                .setPidParameters(level, pos, presetParameters(nextState));
+        level.scheduleTick(pos, nextState.getBlock(), 1);
+        return changed || bounded != state.getValue(TUNING);
     }
 
     private static int recordTelemetry(Level level, BlockPos pos, int setpoint, int process, int output) {
@@ -384,6 +440,9 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
             RuntimeIntStore.remove(level, KEY, pos);
             PidTelemetryStore.clear(level, pos);
             AcceptanceEvidenceStore.clear(level, pos);
+            if (level instanceof ServerLevel serverLevel) {
+                EngineeringDeviceParameters.get(serverLevel).removePidParameters(serverLevel, pos);
+            }
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
     }
@@ -408,6 +467,9 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
         };
         if (next < 0) return false;
 
+        if (level instanceof ServerLevel serverLevel) {
+            return loadPreset(serverLevel, pos, next);
+        }
         level.setBlock(pos, state.setValue(TUNING, next), Block.UPDATE_CLIENTS);
         return true;
     }
