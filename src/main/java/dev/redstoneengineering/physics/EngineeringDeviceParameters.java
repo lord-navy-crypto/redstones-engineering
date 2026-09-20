@@ -23,6 +23,7 @@ public final class EngineeringDeviceParameters extends SavedData {
     private static final int SCHEMA_VERSION = 1;
     private final Map<String, Integer> lapisLowPassAlphaPercent = new LinkedHashMap<>();
     private final Map<String, PidParameters> pidParameters = new LinkedHashMap<>();
+    private final Map<String, ServoParameters> servoParameters = new LinkedHashMap<>();
 
     public record PidParameters(int kp, int kiDivisor, int kd, int derivativeSmoothing, int riseLimit, int fallLimit) {
         public PidParameters {
@@ -32,6 +33,14 @@ public final class EngineeringDeviceParameters extends SavedData {
             derivativeSmoothing = clamp(derivativeSmoothing, 1, 16);
             riseLimit = clamp(riseLimit, 1, 15);
             fallLimit = clamp(fallLimit, 1, 15);
+        }
+    }
+
+    public record ServoParameters(int maxSpeed, int accelerationPeriod, int accelerationStep) {
+        public ServoParameters {
+            maxSpeed = clamp(maxSpeed, 1, 8);
+            accelerationPeriod = clamp(accelerationPeriod, 1, 12);
+            accelerationStep = clamp(accelerationStep, 1, 4);
         }
     }
 
@@ -66,6 +75,17 @@ public final class EngineeringDeviceParameters extends SavedData {
                     row.getInt("FallLimit")
             ));
         }
+        ListTag servoRows = tag.getList("ServoActuators", Tag.TAG_COMPOUND);
+        for (int i = 0; i < servoRows.size(); i++) {
+            CompoundTag row = servoRows.getCompound(i);
+            String key = row.getString("Key");
+            if (key.isBlank()) continue;
+            data.servoParameters.put(key, new ServoParameters(
+                    row.getInt("MaxSpeed"),
+                    row.getInt("AccelerationPeriod"),
+                    row.getInt("AccelerationStep")
+            ));
+        }
         return data;
     }
 
@@ -95,6 +115,18 @@ public final class EngineeringDeviceParameters extends SavedData {
             pidRows.add(row);
         }
         tag.put("PidControllers", pidRows);
+
+        ListTag servoRows = new ListTag();
+        for (Map.Entry<String, ServoParameters> entry : servoParameters.entrySet()) {
+            ServoParameters value = entry.getValue();
+            CompoundTag row = new CompoundTag();
+            row.putString("Key", entry.getKey());
+            row.putInt("MaxSpeed", value.maxSpeed());
+            row.putInt("AccelerationPeriod", value.accelerationPeriod());
+            row.putInt("AccelerationStep", value.accelerationStep());
+            servoRows.add(row);
+        }
+        tag.put("ServoActuators", servoRows);
         return tag;
     }
 
@@ -135,6 +167,24 @@ public final class EngineeringDeviceParameters extends SavedData {
 
     public boolean removePidParameters(ServerLevel level, BlockPos pos) {
         if (pidParameters.remove(key(level, pos)) == null) return false;
+        setDirty();
+        return true;
+    }
+
+    public ServoParameters servoParameters(ServerLevel level, BlockPos pos, ServoParameters fallback) {
+        return servoParameters.getOrDefault(key(level, pos), fallback);
+    }
+
+    public boolean setServoParameters(ServerLevel level, BlockPos pos, ServoParameters parameters) {
+        String key = key(level, pos);
+        ServoParameters previous = servoParameters.put(key, parameters);
+        if (parameters.equals(previous)) return false;
+        setDirty();
+        return true;
+    }
+
+    public boolean removeServoParameters(ServerLevel level, BlockPos pos) {
+        if (servoParameters.remove(key(level, pos)) == null) return false;
         setDirty();
         return true;
     }
