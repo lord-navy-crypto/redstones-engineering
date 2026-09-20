@@ -115,15 +115,16 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         labelValue(g, "Series path", menu.inputDirection().getName().toUpperCase() + " → "
                 + menu.outputDirection().getName().toUpperCase(), 148);
         runtimeSummary(g, 166);
+        safeText(g, "MODEL • " + processorEquation(), 16, 180, GOOD);
         if (menu.kind() == SignalProcessorMenu.KIND_PULSE) {
             safeText(g, "Trigger " + menu.secondaryParameter() + "/15 • re-arm ≤" + pulseRearmThreshold()
                     + "/15 • hysteresis " + menu.tertiaryParameter()
-                    + " • retrigger " + (menu.modeFlag() ? "enabled" : "blocked while busy"), 16, 188, MUTED);
+                    + " • retrigger " + (menu.modeFlag() ? "enabled" : "blocked while busy"), 16, 192, MUTED);
         } else if (menu.kind() == SignalProcessorMenu.KIND_FILTER) {
             safeText(g, "Rise " + menu.parameter() + " • fall " + menu.secondaryParameter()
-                    + " level/tick • settle ETA " + menu.runtimeC() + "t", 16, 188, MUTED);
+                    + " level/tick • settle ETA " + menu.runtimeC() + "t", 16, 192, MUTED);
         } else {
-            safeText(g, "All values are synchronized server evidence; processing stays inside the block tick.", 16, 199, MUTED);
+            safeText(g, "All values are synchronized server evidence; processing stays inside the block tick.", 16, 204, MUTED);
         }
     }
 
@@ -132,20 +133,23 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         statusLine(g, menu.inputDirection().getName().toUpperCase(), "INPUT • REDSTONE 0..15", GOOD, 112);
         statusLine(g, "PROCESS", processDescription(), INFO, 140);
         statusLine(g, menu.outputDirection().getName().toUpperCase(), "OUTPUT • REDSTONE 0..15", GOOD, 168);
-        safeText(g, "Direction rotates the complete INPUT → PROCESS → OUTPUT axis.", 16, 198, MUTED);
+        safeText(g, "TRANSFER • " + processorEquation(), 16, 190, GOOD);
+        safeText(g, "Direction rotates the complete INPUT → PROCESS → OUTPUT axis.", 16, 206, MUTED);
     }
 
     private void configure(GuiGraphics g) {
         statusBadge(g, "SERVER-SIDE BOUNDED CONTROL", INFO, 16, 80);
         labelValue(g, parameterName(), parameterValue(), 101);
+        safeText(g, "EQUATION • " + processorEquation(), 16, 124, GOOD);
+        safeText(g, "CONTROL MAP • " + processorControlMap(), 16, 140, INFO);
         if (menu.kind() == SignalProcessorMenu.KIND_PULSE) {
-            safeText(g, "Trigger threshold fires the one-shot; hysteresis sets the lower re-arm level so noisy or bouncing inputs cannot chatter.", 16, 214, MUTED);
+            safeText(g, "Threshold/re-arm are Schmitt limits; width is the server countdown duration after an accepted trigger.", 16, 214, MUTED);
         } else if (menu.kind() == SignalProcessorMenu.KIND_FILTER) {
-            labelValue(g, "Fall rate", menu.secondaryParameter() + " level/tick", 181);
-            safeText(g, "Independent up/down slew limits model asymmetric charge, discharge, acceleration or deceleration.", 16, 201, MUTED);
+            labelValue(g, "Fall rate", menu.secondaryParameter() + " level/tick", 165);
+            safeText(g, "Rise/fall are separate bounded |Δy| per tick; settle ETA is derived from current tracking error.", 16, 185, MUTED);
         } else {
-            labelValue(g, "Input face", menu.inputDirection().getName().toUpperCase(), 171);
-            labelValue(g, "Output face", menu.outputDirection().getName().toUpperCase(), 187);
+            labelValue(g, "Input face", menu.inputDirection().getName().toUpperCase(), 165);
+            labelValue(g, "Output face", menu.outputDirection().getName().toUpperCase(), 181);
             safeText(g, "Physical direction is controlled only on Route.", 16, 207, MUTED);
         }
     }
@@ -155,14 +159,15 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         labelValue(g, "Input", menu.input() + " / 15", 108);
         labelValue(g, "Output", menu.output() + " / 15", 126);
         labelValue(g, parameterName(), parameterValue(), 144);
-        runtimeSummary(g, 162);
+        safeText(g, "CHECK • " + diagnosticRelation(), 16, 162, GOOD);
+        runtimeSummary(g, 176);
         if (menu.kind() == SignalProcessorMenu.KIND_PULSE) {
-            labelValue(g, "Trigger / re-arm", menu.secondaryParameter() + " / " + pulseRearmThreshold(), 180);
-            labelValue(g, "Hysteresis", menu.tertiaryParameter() + " levels", 198);
-            labelValue(g, "Retrigger", menu.modeFlag() ? "ENABLED" : "BLOCK WHILE BUSY", 216);
+            labelValue(g, "Trigger / re-arm", menu.secondaryParameter() + " / " + pulseRearmThreshold(), 194);
+            labelValue(g, "Hysteresis", menu.tertiaryParameter() + " levels", 210);
+            labelValue(g, "Retrigger", menu.modeFlag() ? "ENABLED" : "BLOCK WHILE BUSY", 226);
         } else if (menu.kind() == SignalProcessorMenu.KIND_FILTER) {
-            labelValue(g, "Fall rate", menu.secondaryParameter() + " level/tick", 180);
-            labelValue(g, "Settle ETA", menu.runtimeC() + " ticks", 198);
+            labelValue(g, "Fall rate", menu.secondaryParameter() + " level/tick", 194);
+            labelValue(g, "Settle ETA", menu.runtimeC() + " ticks", 212);
         } else {
             statusLine(g, "Authority", "SERVER SYNCHRONIZED", GOOD, 198);
         }
@@ -201,6 +206,36 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         } else {
             labelValue(g, "Pulse / accepted", menu.runtimeA() + "t • " + menu.runtimeB(), y);
         }
+    }
+
+    private String processorEquation() {
+        return switch (menu.kind()) {
+            case SignalProcessorMenu.KIND_EDGE ->
+                    "event = selected edge(x[k-1], x[k]); output = pulse while timer > 0";
+            case SignalProcessorMenu.KIND_PULSE ->
+                    "fire when x >= Vth and armed; re-arm when x <= Vth-H; pulse = Tw ticks";
+            default ->
+                    "rise: y'=min(x,y+r_up); fall: y'=max(x,y-r_down)";
+        };
+    }
+
+    private String processorControlMap() {
+        return switch (menu.kind()) {
+            case SignalProcessorMenu.KIND_EDGE -> "edge mode selects which sign of Δx creates an event";
+            case SignalProcessorMenu.KIND_PULSE -> "Tw=" + menu.parameter() + "t • Vth=" + menu.secondaryParameter()
+                    + " • H=" + menu.tertiaryParameter() + " • rearm=" + pulseRearmThreshold();
+            default -> "r_up=" + menu.parameter() + "/t • r_down=" + menu.secondaryParameter() + "/t";
+        };
+    }
+
+    private String diagnosticRelation() {
+        return switch (menu.kind()) {
+            case SignalProcessorMenu.KIND_EDGE -> "edges=" + menu.runtimeB() + " • last age=" + menu.runtimeC() + "t";
+            case SignalProcessorMenu.KIND_PULSE -> "accepted=" + menu.runtimeB() + " • suppressed=" + menu.runtimeC()
+                    + " • remaining=" + menu.runtimeA() + "t";
+            default -> "e=x-y=" + (menu.input() - menu.output()) + " • |lag|=" + menu.runtimeA()
+                    + " • ETA=" + menu.runtimeC() + "t";
+        };
     }
 
     private String deviceType() {
