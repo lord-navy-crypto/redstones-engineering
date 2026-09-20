@@ -182,7 +182,13 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configQuaternary.set(timingStatus);
         } else if (block instanceof LapisLowPassFilterBlock) {
             configKind.set(CONFIG_LAPIS_LOW_PASS);
+            LapisLowPassFilterBlock.FilterState filter = LapisLowPassFilterBlock.filterState(level, blockPos);
             configPrimary.set(state.getValue(LapisLowPassFilterBlock.ALPHA));
+            configSecondary.set(filter.output());
+            configTertiary.set(filter.valid() ? 1 : 0);
+            int filterStatus = filter.quality().ordinal();
+            if (LapisLowPassFilterBlock.retainedHistory(level, blockPos)) filterStatus |= 1 << 4;
+            configQuaternary.set(filterStatus);
         } else if (block instanceof QuartzPhaseDelayBlock) {
             configKind.set(CONFIG_QUARTZ_PHASE_DELAY);
             configPrimary.set(state.getValue(QuartzPhaseDelayBlock.DELAY));
@@ -262,6 +268,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configPrimary.set(QuartzTriggeredLapisSamplerBlock.heldValue(level, blockPos));
             configSecondary.set(QuartzTriggeredLapisSamplerBlock.acceptedCaptures(level, blockPos));
             configTertiary.set(QuartzTriggeredLapisSamplerBlock.rejectedCaptures(level, blockPos));
+            configQuaternary.set(QuartzTriggeredLapisSamplerBlock.heldQuality(level, blockPos).ordinal());
         } else if (block instanceof SignalAmplifierBlock) {
             configKind.set(CONFIG_SIGNAL_AMPLIFIER);
             configPrimary.set(state.getValue(SignalAmplifierBlock.GAIN_MODE));
