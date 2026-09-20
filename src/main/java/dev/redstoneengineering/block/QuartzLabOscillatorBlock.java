@@ -11,6 +11,7 @@ import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -147,8 +148,32 @@ public class QuartzLabOscillatorBlock extends DirectionalDomainSourceBlock imple
         level.scheduleTick(pos, this, realized);
     }
 
+    /** Configuration changes are shadow state and latch only on the next genuine waveform edge. */
+    public static boolean adjustPeriod(Level level, BlockPos pos, int delta) {
+        if (level.isClientSide || delta == 0) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof QuartzLabOscillatorBlock)) return false;
+        int next = Math.floorMod(state.getValue(PERIOD_INDEX) + (delta > 0 ? 1 : -1), 5);
+        level.setBlock(pos, state.setValue(PERIOD_INDEX, next), Block.UPDATE_CLIENTS);
+        return true;
+    }
+
+    /** Adjusts bounded timing jitter without inserting an early edge or rewriting realized evidence. */
+    public static boolean adjustJitter(Level level, BlockPos pos, int delta) {
+        if (level.isClientSide || delta == 0) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof QuartzLabOscillatorBlock)) return false;
+        int next = Math.floorMod(state.getValue(JITTER) + (delta > 0 ? 1 : -1), 4);
+        level.setBlock(pos, state.setValue(JITTER, next), Block.UPDATE_CLIENTS);
+        return true;
+    }
+
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
+            if (!player.isShiftKeyDown() && player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+                FieldDeviceUi.openUniversal(serverPlayer, pos);
+                return InteractionResult.CONSUME;
+            }
             BlockState next = state;
             if (player.isShiftKeyDown() && hit.getDirection().getAxis().isHorizontal()) {
                 if (rotateOutput(level, pos, true)) {
@@ -156,13 +181,8 @@ public class QuartzLabOscillatorBlock extends DirectionalDomainSourceBlock imple
                     if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeQuartzAround(serverLevel, pos);
                 }
             } else if (player.isShiftKeyDown()) {
-                int jitter = state.getValue(JITTER);
-                next = state.setValue(JITTER, jitter >= 3 ? 0 : jitter + 1);
-                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            } else {
-                int periodIndex = state.getValue(PERIOD_INDEX);
-                next = state.setValue(PERIOD_INDEX, (periodIndex + 1) % 5);
-                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+                adjustJitter(level, pos, 1);
+                next = level.getBlockState(pos);
             }
             // Route changes alter topology immediately; timing configuration waits for the next
             // already-scheduled physical edge and therefore never creates an artificial transition.
