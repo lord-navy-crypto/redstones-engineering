@@ -29,4 +29,4 @@ Verification:
 - tools/rse_ninth_ten_control_pneumatic_verify.py
 - tools/rse_alpha1021_release_verify.py
 - Java 21 compile/test/clean-build CI
-- Minecraft GameTest runtime diagnostic required before public release
+- Legacy Minecraft GameTest suite retained as a non-blocking diagnostic; known historical runtime-test debt does not gate Alpha 1.0.21 packaging
