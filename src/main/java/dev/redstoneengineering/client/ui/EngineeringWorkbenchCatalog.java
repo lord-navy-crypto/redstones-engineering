@@ -132,20 +132,29 @@ public final class EngineeringWorkbenchCatalog {
             equations.add("v[k+1] = approach(v, v_cmd, a(load))");
             equations.add("x[k+1] = clamp(x[k] + v[k+1], 0, 15)");
         } else if (menu instanceof SignalConditionerMenu) {
-            equations.add("y = clamp(gain*x + offset, configured bounds)");
+            // The model card already exposes the current mode-specific transfer relation.
         } else if (menu instanceof SignalProcessorMenu processor) {
-            if (processor.kind() == SignalProcessorMenu.KIND_FILTER) equations.add("y[k+1] = y[k] + rate*(x-y)");
+            if (processor.kind() == SignalProcessorMenu.KIND_FILTER)
+                equations.add("rise: y'=min(x,y+r_up); fall: y'=max(x,y-r_down)");
             else equations.add("event = threshold/hysteresis test on sampled x[k]");
         } else if (menu instanceof QuartzTimingMenu quartz) {
             if (quartz.kind() == QuartzTimingMenu.KIND_DIVIDER) equations.add("f_out = f_in / N");
             else equations.add("f = 1/T; half-cycle ~= T/2");
         } else if (menu instanceof AmethystSystemMenu amethyst) {
-            if (amethyst.kind() == AmethystSystemMenu.KIND_TUNED) equations.add("response ~ 1 / (1 + Q*|f-f0|)");
-            else if (amethyst.kind() == AmethystSystemMenu.KIND_FILTER) equations.add("pass when |f-f_target| is inside filter band");
+            if (amethyst.kind() == AmethystSystemMenu.KIND_TUNED) {
+                equations.add("d=|f_in-f0|; BW=5-Q; A*=Ain+2Q if d=0, else Ain-max(1,dQ) if d<=BW");
+                equations.add("A[k+1]=approach(A[k],clamp(A*,0,15),max(1,5-Q))");
+            } else if (amethyst.kind() == AmethystSystemMenu.KIND_FILTER) {
+                equations.add("match=(f_in=f_target); Aout=match ? max(0,Ain-1) : 0");
+            }
         } else if (menu instanceof PneumaticSystemMenu pneumatic) {
-            if (pneumatic.kind() == PneumaticSystemMenu.KIND_REGULATOR) equations.add("P_out -> min(P_supply, P_set)");
-            else if (pneumatic.kind() == PneumaticSystemMenu.KIND_CYLINDER) equations.add("x_target ~= round(15*P/100)");
-            else if (pneumatic.kind() == PneumaticSystemMenu.KIND_PROPORTIONAL) equations.add("opening[k+1] -> command with response limit");
+            if (pneumatic.kind() == PneumaticSystemMenu.KIND_REGULATOR) {
+                equations.add("P*=min(Pin,Pset); P'=moveToward(P,P*,rate), rate={4,8,16}");
+            } else if (pneumatic.kind() == PneumaticSystemMenu.KIND_CYLINDER) {
+                equations.add("x_target=clamp((15P+50)/100,0,15)");
+            } else if (pneumatic.kind() == PneumaticSystemMenu.KIND_PROPORTIONAL) {
+                equations.add("open'=moveToward(open,command,rate), rate={1,2,4}");
+            }
         } else if (menu instanceof MagneticSystemMenu magnetic) {
             if (magnetic.kind() == MagneticSystemMenu.KIND_COIL) equations.add("|emf| ~ N*|dPhi/dt|");
             else if (magnetic.kind() == MagneticSystemMenu.KIND_FIELD_SENSOR) equations.add("B_meas = bounded spatial sample over radius r");
@@ -215,6 +224,10 @@ public final class EngineeringWorkbenchCatalog {
             case "Clock period index", "Period index", "Word period" -> "T";
             case "Timing jitter" -> "J";
             case "Carrier frequency", "Drive frequency", "Acoustic frequency" -> "f";
+            case "Target frequency" -> "f_target";
+            case "Natural frequency" -> "f0";
+            case "Q index" -> "Q";
+            case "Peak amplitude" -> "A0";
             case "Heater resistance" -> "Rh";
             case "Heat capacity" -> "Cth";
             case "Cooling coefficient" -> "kcool";
