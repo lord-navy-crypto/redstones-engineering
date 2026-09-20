@@ -10,14 +10,17 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
+import dev.redstoneengineering.physics.EngineeringDeviceParameters;
 import dev.redstoneengineering.physics.EngineeringMath;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -56,6 +59,43 @@ public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements E
             case 2 -> 0.50;
             default -> 0.75;
         };
+    }
+
+    public static int defaultAlphaPercent(BlockState state) {
+        return (int) Math.round(alpha(state.getValue(ALPHA)) * 100.0);
+    }
+
+    public static int alphaPercent(Level level, BlockPos pos, BlockState state) {
+        int fallback = defaultAlphaPercent(state);
+        if (level instanceof ServerLevel serverLevel) {
+            return EngineeringDeviceParameters.get(serverLevel)
+                    .lapisLowPassAlphaPercent(serverLevel, pos, fallback);
+        }
+        return fallback;
+    }
+
+    public static double configuredAlpha(Level level, BlockPos pos, BlockState state) {
+        return alphaPercent(level, pos, state) / 100.0;
+    }
+
+    public static boolean adjustAlpha(ServerLevel level, BlockPos pos, int deltaPercent) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof LapisLowPassFilterBlock)) return false;
+        int current = alphaPercent(level, pos, state);
+        int next = EngineeringMath.clamp(current + deltaPercent, 1, 99);
+        boolean changed = EngineeringDeviceParameters.get(level)
+                .setLapisLowPassAlphaPercent(level, pos, next);
+        if (changed) level.scheduleTick(pos, state.getBlock(), 1);
+        return changed;
+    }
+
+    public static boolean resetAlpha(ServerLevel level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof LapisLowPassFilterBlock)) return false;
+        boolean changed = EngineeringDeviceParameters.get(level)
+                .setLapisLowPassAlphaPercent(level, pos, defaultAlphaPercent(state));
+        if (changed) level.scheduleTick(pos, state.getBlock(), 1);
+        return changed;
     }
 
     public static FilterState filterState(Level level, BlockPos pos) {
@@ -121,6 +161,9 @@ public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements E
                 DomainNetwork.recomputeLapisAround(serverLevel, pos);
             }
             RuntimeIntStore.remove(level, KEY, pos);
+            if (level instanceof ServerLevel serverLevel) {
+                EngineeringDeviceParameters.get(serverLevel).removeLapisLowPass(serverLevel, pos);
+            }
         }
         super.onRemove(state, level, pos, newState, moved);
     }
@@ -133,7 +176,7 @@ public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements E
         if (input.valid() && inputQuality == PortQuality.VALID) {
             int previous = runtime[HISTORY_SLOT] == 0 ? input.value() : runtime[OUTPUT_SLOT];
             runtime[OUTPUT_SLOT] = EngineeringMath.clamp(
-                    (int) Math.round(previous + alpha(state.getValue(ALPHA)) * (input.value() - previous)), 0, 100);
+                    (int) Math.round(previous + configuredAlpha(level, pos, state) * (input.value() - previous)), 0, 100);
             runtime[HISTORY_SLOT] = 1;
             runtime[VALID_SLOT] = 1;
             runtime[QUALITY_SLOT] = PortQuality.VALID.ordinal();
@@ -156,18 +199,15 @@ public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements E
     }
 
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (!level.isClientSide) {
-            int index = (state.getValue(ALPHA) + 1) % 4;
-            BlockState next = state.setValue(ALPHA, index);
-            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            level.scheduleTick(pos, this, 1);
-            FilterState runtime = filterState(level, pos);
-            player.displayClientMessage(Component.literal(
-                    "Lapis low-pass | BACK input → FRONT output | alpha=" + alpha(index)
-                            + " | output=" + String.format("%.2f", runtime.output() / 100.0)
-                            + " | quality=" + runtime.quality()
-                            + " | history=" + (retainedHistory(level, pos) ? "RETAINED" : "EMPTY")
-                            + " | diagnostic readback is observer-neutral"), true);
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            serverPlayer.openMenu(
+                    new SimpleMenuProvider(
+                            (containerId, inventory, ignored) ->
+                                    new dev.redstoneengineering.ui.menu.LapisLowPassFilterMenu(containerId, inventory, pos),
+                            Component.translatable("block.redstoneengineering.lapis_low_pass_filter")
+                    ),
+                    data -> data.writeBlockPos(pos)
+            );
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
