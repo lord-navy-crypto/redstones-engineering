@@ -11,6 +11,7 @@ import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.CopperNetworkSupport;
 import dev.redstoneengineering.physics.DomainNetwork;
+import dev.redstoneengineering.physics.EngineeringDeviceParameters;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.signal.ElectromagnetLogic;
 import dev.redstoneengineering.ui.FieldDeviceUi;
@@ -106,6 +107,26 @@ public class ElectromagnetBlock extends DomainBlock implements EngineeringPortPr
         return thermalLoad(level, pos) >= 700;
     }
 
+    public static EngineeringDeviceParameters.ExtendedParameters configuredResponse(Level level, BlockPos pos) {
+        var fallback = new EngineeringDeviceParameters.ExtendedParameters(2, 3, 0, 0);
+        if (level instanceof ServerLevel serverLevel) {
+            return EngineeringDeviceParameters.get(serverLevel).extendedParameters(serverLevel, pos, fallback);
+        }
+        return fallback;
+    }
+
+    public static boolean setResponseRates(ServerLevel level, BlockPos pos, int rise, int fall) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof ElectromagnetBlock magnet)) return false;
+        var next = new EngineeringDeviceParameters.ExtendedParameters(
+                Math.max(1, Math.min(15, rise)),
+                Math.max(1, Math.min(15, fall)),
+                0, 0);
+        boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(level, pos, next);
+        if (changed) level.scheduleTick(pos, magnet, 1);
+        return changed;
+    }
+
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
         super.onPlace(state, level, pos, oldState, moved);
         if (!level.isClientSide) level.scheduleTick(pos, this, 1);
@@ -124,7 +145,8 @@ public class ElectromagnetBlock extends DomainBlock implements EngineeringPortPr
 
         int thermal = ElectromagnetLogic.nextThermal(runtime[THERMAL_LOAD], commandedField);
         int target = ElectromagnetLogic.deratedTarget(commandedField, thermal);
-        int actual = ElectromagnetLogic.stepField(state.getValue(FIELD), target);
+        var response = configuredResponse(level, pos);
+        int actual = ElectromagnetLogic.stepFieldRate(state.getValue(FIELD), target, response.a(), response.b());
 
         runtime[TARGET_FIELD] = target;
         runtime[THERMAL_LOAD] = thermal;
@@ -145,6 +167,7 @@ public class ElectromagnetBlock extends DomainBlock implements EngineeringPortPr
         if (!state.is(nextState.getBlock())) {
             RuntimeIntStore.remove(level, RUNTIME_KEY, pos);
             if (level instanceof ServerLevel serverLevel) {
+                EngineeringDeviceParameters.get(serverLevel).removeExtendedParameters(serverLevel, pos);
                 for (Direction direction : Direction.values()) DomainNetwork.recomputeCopper(serverLevel, pos.relative(direction));
             }
         }
