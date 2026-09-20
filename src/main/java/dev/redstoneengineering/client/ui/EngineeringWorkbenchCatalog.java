@@ -874,6 +874,34 @@ public final class EngineeringWorkbenchCatalog {
                             "raw", "Bounded server-owned field-device parameter B."));
                 }
             }
+            switch (universal.configKind()) {
+                case UniversalFieldDeviceMenu.CONFIG_PWM ->
+                        specs.add(spec("Invert output", universal.configSecondary(), 0, 1,
+                                UniversalFieldDeviceMenu.BUTTON_CONFIG_TOGGLE,
+                                UniversalFieldDeviceMenu.BUTTON_CONFIG_TOGGLE,
+                                "mode", "0=NORMAL, 1=INVERTED. Explicit categorical output polarity."));
+                case UniversalFieldDeviceMenu.CONFIG_SIGNAL_SELECTOR ->
+                        specs.add(spec("Select polarity", universal.configPrimary(), 0, 1,
+                                UniversalFieldDeviceMenu.BUTTON_CONFIG_TOGGLE,
+                                UniversalFieldDeviceMenu.BUTTON_CONFIG_TOGGLE,
+                                "mode", "0=NORMAL select logic, 1=INVERTED select logic."));
+                case UniversalFieldDeviceMenu.CONFIG_ANALOG_COMPARATOR ->
+                        specs.add(spec("Comparison mode", universal.configPrimary(), 0, 1,
+                                UniversalFieldDeviceMenu.BUTTON_CONFIG_TOGGLE,
+                                UniversalFieldDeviceMenu.BUTTON_CONFIG_TOGGLE,
+                                "mode", "Explicit comparator interpretation mode; hysteresis remains an independent numeric parameter."));
+                case UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY ->
+                        specs.add(spec("Contact mode", universal.configPrimary(), 0, 1,
+                                UniversalFieldDeviceMenu.BUTTON_CONFIG_TOGGLE,
+                                UniversalFieldDeviceMenu.BUTTON_CONFIG_TOGGLE,
+                                "mode", "0=NO, 1=NC. Mechanical contact identity remains distinct from coil/timing state."));
+                case UniversalFieldDeviceMenu.CONFIG_CABLE_TERMINAL ->
+                        specs.add(spec("Terminal direction", universal.configSecondary(), 0, 1,
+                                UniversalFieldDeviceMenu.BUTTON_CONFIG_TOGGLE,
+                                UniversalFieldDeviceMenu.BUTTON_CONFIG_TOGGLE,
+                                "mode", "0=Vanilla→Cable, 1=Cable→Vanilla; explicit boundary direction."));
+                default -> { }
+            }
             return List.copyOf(specs);
         }
 
