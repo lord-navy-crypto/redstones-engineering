@@ -21,10 +21,17 @@ public final class AirCompressorLogic {
     }
 
     public static int stepPressure(int actualPressure, int targetPressure, int responseMode) {
+        return stepPressureRates(actualPressure, targetPressure,
+                rampUpRate(responseMode), rampDownRate(responseMode));
+    }
+
+    public static int stepPressureRates(int actualPressure, int targetPressure, int upRate, int downRate) {
         int actual = Math.max(0, Math.min(100, actualPressure));
         int target = Math.max(0, Math.min(100, targetPressure));
-        if (target > actual) return Math.min(target, actual + rampUpRate(responseMode));
-        if (target < actual) return Math.max(target, actual - rampDownRate(responseMode));
+        int up = Math.max(1, Math.min(100, upRate));
+        int down = Math.max(1, Math.min(100, downRate));
+        if (target > actual) return Math.min(target, actual + up);
+        if (target < actual) return Math.max(target, actual - down);
         return actual;
     }
 
