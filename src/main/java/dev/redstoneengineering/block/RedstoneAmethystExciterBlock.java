@@ -188,6 +188,19 @@ public class RedstoneAmethystExciterBlock extends Block implements EngineeringPo
         super.onRemove(state, level, pos, newState, moved);
     }
 
+    /** Server-authoritative carrier-frequency adjustment shared by Shift-click and engineering HMI. */
+    public static boolean adjustFrequency(Level level, BlockPos pos, int delta) {
+        if (level.isClientSide || delta == 0) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof RedstoneAmethystExciterBlock exciter)) return false;
+        int current = state.getValue(FREQUENCY);
+        int next = delta > 0 ? (current >= 15 ? 1 : current + 1) : (current <= 1 ? 15 : current - 1);
+        BlockState updated = state.setValue(FREQUENCY, next);
+        level.setBlock(pos, updated, Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, exciter, 1);
+        return true;
+    }
+
     @Override protected InteractionResult useWithoutItem(
             BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit
     ) {
