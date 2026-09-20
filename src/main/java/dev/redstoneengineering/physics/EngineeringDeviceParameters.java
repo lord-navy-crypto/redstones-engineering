@@ -22,6 +22,18 @@ public final class EngineeringDeviceParameters extends SavedData {
     private static final String DATA_NAME = "rse_engineering_device_parameters_v1";
     private static final int SCHEMA_VERSION = 1;
     private final Map<String, Integer> lapisLowPassAlphaPercent = new LinkedHashMap<>();
+    private final Map<String, PidParameters> pidParameters = new LinkedHashMap<>();
+
+    public record PidParameters(int kp, int kiDivisor, int kd, int derivativeSmoothing, int riseLimit, int fallLimit) {
+        public PidParameters {
+            kp = clamp(kp, 0, 12);
+            kiDivisor = clamp(kiDivisor, 0, 64);
+            kd = clamp(kd, 0, 12);
+            derivativeSmoothing = clamp(derivativeSmoothing, 1, 16);
+            riseLimit = clamp(riseLimit, 1, 15);
+            fallLimit = clamp(fallLimit, 1, 15);
+        }
+    }
 
     public static EngineeringDeviceParameters get(ServerLevel level) {
         if (level == null || level.getServer() == null) throw new IllegalArgumentException("server level required");
@@ -40,6 +52,20 @@ public final class EngineeringDeviceParameters extends SavedData {
             int alpha = row.getInt("AlphaPercent");
             if (!key.isBlank() && alpha >= 1 && alpha <= 99) data.lapisLowPassAlphaPercent.put(key, alpha);
         }
+        ListTag pidRows = tag.getList("PidControllers", Tag.TAG_COMPOUND);
+        for (int i = 0; i < pidRows.size(); i++) {
+            CompoundTag row = pidRows.getCompound(i);
+            String key = row.getString("Key");
+            if (key.isBlank()) continue;
+            data.pidParameters.put(key, new PidParameters(
+                    row.getInt("Kp"),
+                    row.getInt("KiDivisor"),
+                    row.getInt("Kd"),
+                    row.getInt("DerivativeSmoothing"),
+                    row.getInt("RiseLimit"),
+                    row.getInt("FallLimit")
+            ));
+        }
         return data;
     }
 
@@ -54,6 +80,21 @@ public final class EngineeringDeviceParameters extends SavedData {
             rows.add(row);
         }
         tag.put("LapisLowPass", rows);
+
+        ListTag pidRows = new ListTag();
+        for (Map.Entry<String, PidParameters> entry : pidParameters.entrySet()) {
+            PidParameters value = entry.getValue();
+            CompoundTag row = new CompoundTag();
+            row.putString("Key", entry.getKey());
+            row.putInt("Kp", value.kp());
+            row.putInt("KiDivisor", value.kiDivisor());
+            row.putInt("Kd", value.kd());
+            row.putInt("DerivativeSmoothing", value.derivativeSmoothing());
+            row.putInt("RiseLimit", value.riseLimit());
+            row.putInt("FallLimit", value.fallLimit());
+            pidRows.add(row);
+        }
+        tag.put("PidControllers", pidRows);
         return tag;
     }
 
@@ -76,6 +117,24 @@ public final class EngineeringDeviceParameters extends SavedData {
 
     public boolean removeLapisLowPass(ServerLevel level, BlockPos pos) {
         if (lapisLowPassAlphaPercent.remove(key(level, pos)) == null) return false;
+        setDirty();
+        return true;
+    }
+
+    public PidParameters pidParameters(ServerLevel level, BlockPos pos, PidParameters fallback) {
+        return pidParameters.getOrDefault(key(level, pos), fallback);
+    }
+
+    public boolean setPidParameters(ServerLevel level, BlockPos pos, PidParameters parameters) {
+        String key = key(level, pos);
+        PidParameters previous = pidParameters.put(key, parameters);
+        if (parameters.equals(previous)) return false;
+        setDirty();
+        return true;
+    }
+
+    public boolean removePidParameters(ServerLevel level, BlockPos pos) {
+        if (pidParameters.remove(key(level, pos)) == null) return false;
         setDirty();
         return true;
     }
