@@ -90,7 +90,8 @@ public final class MagneticSystemScreen extends EngineeringScreen<MagneticSystem
                 labelValue(g,"Role","DIFFERENTIAL OBSERVER",181);
             }
         }
-        safeText(g, "A measured zero is VALID whenever magnetic coverage/evidence is valid.", 16, 199, menu.complete()?GOOD:MUTED);
+        safeText(g, "MODEL • "+magneticEquation(), 16, 195, GOOD);
+        safeText(g, "A measured zero is VALID whenever magnetic coverage/evidence is valid.", 16, 211, menu.complete()?GOOD:MUTED);
     }
 
     private void ports(GuiGraphics g) {
@@ -102,31 +103,35 @@ public final class MagneticSystemScreen extends EngineeringScreen<MagneticSystem
             case MagneticSystemMenu.KIND_FIELD_SENSOR -> {statusLine(g,"ALL 6 APERTURES","MEASUREMENT INPUT • MAGNETIC FIELD",qualityColor(),112);statusLine(g,"AUTHORITY","OBSERVER ONLY • NO DRIVER",INFO,142);}
             default -> {statusLine(g,"±X / ±Y / ±Z","MEASUREMENT INPUT • FIELD GRADIENT",qualityColor(),112);statusLine(g,"AUTHORITY","OBSERVER ONLY • NO DRIVER",INFO,142);}
         }
+        safeText(g,"TRANSFER • "+magneticEquation(),16,188,GOOD);
     }
 
     private void configure(GuiGraphics g) {
         statusBadge(g,"SERVER-SIDE BOUNDED CONTROL",INFO,16,80);
+        safeText(g,"EQUATION • "+magneticEquation(),16,101,GOOD);
+        safeText(g,"CONTROL MAP • "+magneticControlMap(),16,119,INFO);
         if(menu.kind()==MagneticSystemMenu.KIND_PERMANENT){
-            labelValue(g,"Strength",menu.primary()+" / 15",101);
-            labelValue(g,"N marker",face(menu.facing()),171);
+            labelValue(g,"Strength",menu.primary()+" / 15",143);
+            labelValue(g,"N marker",face(menu.facing()),165);
             safeText(g,"North-marker orientation is controlled only on Route.",16,199,MUTED);
         }
         else if(menu.kind()==MagneticSystemMenu.KIND_COIL){
-            labelValue(g,"Turns index",Integer.toString(menu.tertiary()),101);
-            labelValue(g,"I/O axis",face(menu.facing().getOpposite())+" → "+face(menu.facing()),171);
+            labelValue(g,"Turns index",Integer.toString(menu.tertiary()),143);
+            labelValue(g,"I/O axis",face(menu.facing().getOpposite())+" → "+face(menu.facing()),165);
             safeText(g,"Physical coil direction is controlled only on Route.",16,199,MUTED);
         }
-        else {labelValue(g,"Configuration","READ ONLY / PHYSICS-DRIVEN",101);labelValue(g,"Network authority",observerOrActuator(),171);}
+        else {labelValue(g,"Configuration","READ ONLY / PHYSICS-DRIVEN",143);labelValue(g,"Network authority",observerOrActuator(),165);}
     }
 
     private void diagnostics(GuiGraphics g) {
         statusBadge(g,qualityName(),qualityColor(),16,80);
         labelValue(g,"Device role",role(),106);
-        if(menu.kind()==MagneticSystemMenu.KIND_GRADIENT){labelValue(g,"Gradient X / Y / Z",menu.primary()+" / "+menu.secondary()+" / "+menu.tertiary(),126);labelValue(g,"Local field",Integer.toString(menu.auxiliary()),146);labelValue(g,"Coverage",menu.complete()?"COMPLETE":"INCOMPLETE",166);}
-        else if(menu.kind()==MagneticSystemMenu.KIND_FIELD_SENSOR){labelValue(g,"Field",Integer.toString(menu.primary()),126);labelValue(g,"Coverage",menu.secondary()+" / "+menu.tertiary(),146);labelValue(g,"Validity",menu.complete()?"VALID":"STALE",166);}
-        else if(menu.kind()==MagneticSystemMenu.KIND_COIL){labelValue(g,"Field / EMF",menu.primary()+" / "+menu.secondary(),126);labelValue(g,"Turns",Integer.toString(menu.tertiary()),146);labelValue(g,"Output validity",qualityName(),166);}
-        else {labelValue(g,"Primary field",Integer.toString(menu.primary()),126);labelValue(g,"Evidence",qualityName(),146);}
-        statusLine(g,"Authority","SERVER SYNCHRONIZED",GOOD,198);
+        safeText(g,"CHECK • "+magneticDiagnosticRelation(),16,120,GOOD);
+        if(menu.kind()==MagneticSystemMenu.KIND_GRADIENT){labelValue(g,"Gradient X / Y / Z",menu.primary()+" / "+menu.secondary()+" / "+menu.tertiary(),142);labelValue(g,"Local field",Integer.toString(menu.auxiliary()),160);labelValue(g,"Coverage",menu.complete()?"COMPLETE":"INCOMPLETE",178);}
+        else if(menu.kind()==MagneticSystemMenu.KIND_FIELD_SENSOR){labelValue(g,"Field",Integer.toString(menu.primary()),142);labelValue(g,"Coverage",menu.secondary()+" / "+menu.tertiary(),160);labelValue(g,"Validity",menu.complete()?"VALID":"STALE",178);}
+        else if(menu.kind()==MagneticSystemMenu.KIND_COIL){labelValue(g,"Field / EMF",menu.primary()+" / "+menu.secondary(),142);labelValue(g,"Turns",Integer.toString(menu.tertiary()),160);labelValue(g,"Output validity",qualityName(),178);}
+        else {labelValue(g,"Primary field",Integer.toString(menu.primary()),142);labelValue(g,"Evidence",qualityName(),160);}
+        statusLine(g,"Authority","SERVER SYNCHRONIZED",GOOD,204);
     }
 
     private void history(GuiGraphics g) {
@@ -134,6 +139,40 @@ public final class MagneticSystemScreen extends EngineeringScreen<MagneticSystem
         safeText(g,"This HMI exposes current/retained server observations; it does not fabricate field history.",16,108,TEXT);
         if(menu.kind()==MagneticSystemMenu.KIND_COIL){labelValue(g,"Current induced EMF",menu.secondary()+" / 15",136);labelValue(g,"Derivative baseline",menu.complete()?"VALID":"STALE / RE-ARM",156);}
         else if(menu.kind()==MagneticSystemMenu.KIND_FIELD_SENSOR){labelValue(g,"Coverage",menu.secondary()+" / "+menu.tertiary(),136);}
+    }
+
+    private String magneticEquation(){
+        return switch(menu.kind()){
+            case MagneticSystemMenu.KIND_ELECTROMAGNET ->
+                    "B = bounded field response to copper drive and active feed count";
+            case MagneticSystemMenu.KIND_PERMANENT ->
+                    "Bsource = configured scalar strength; orientation sets N marker";
+            case MagneticSystemMenu.KIND_COIL ->
+                    "|emf| ~ N*|ΔB| per sample; output is bounded to copper 0..15";
+            case MagneticSystemMenu.KIND_FIELD_SENSOR ->
+                    "Bmeas = bounded spatial sample; completeness = scanned/expected coverage";
+            default ->
+                    "∇B ≈ (ΔBx,ΔBy,ΔBz) from opposite spatial samples around local B";
+        };
+    }
+
+    private String magneticControlMap(){
+        return switch(menu.kind()){
+            case MagneticSystemMenu.KIND_PERMANENT -> "Bsource="+menu.primary()+"/15 • orientation on Route";
+            case MagneticSystemMenu.KIND_COIL -> "N="+menu.tertiary()+" • axis="+face(menu.facing().getOpposite())+"→"+face(menu.facing());
+            case MagneticSystemMenu.KIND_FIELD_SENSOR -> "radius/sampling are configured in Model; measurement is read-only";
+            default -> "runtime physics state is observed, not client-written";
+        };
+    }
+
+    private String magneticDiagnosticRelation(){
+        return switch(menu.kind()){
+            case MagneticSystemMenu.KIND_COIL -> "B="+menu.primary()+" • emf="+menu.secondary()+" • N="+menu.tertiary();
+            case MagneticSystemMenu.KIND_FIELD_SENSOR -> "coverage="+menu.secondary()+"/"+menu.tertiary()+" • B="+menu.primary();
+            case MagneticSystemMenu.KIND_GRADIENT -> "ΔB=("+menu.primary()+","+menu.secondary()+","+menu.tertiary()+") • B0="+menu.auxiliary();
+            case MagneticSystemMenu.KIND_ELECTROMAGNET -> "drive="+menu.secondary()+"/15 • feeds="+menu.tertiary()+" • B="+menu.primary();
+            default -> "Bsource="+menu.primary()+"/15";
+        };
     }
 
     private String deviceName(){return switch(menu.kind()){case MagneticSystemMenu.KIND_ELECTROMAGNET->"ELECTROMAGNET";case MagneticSystemMenu.KIND_PERMANENT->"PERMANENT MAGNET";case MagneticSystemMenu.KIND_COIL->"INDUCTION COIL";case MagneticSystemMenu.KIND_FIELD_SENSOR->"MAGNETIC FIELD SENSOR";default->"MAGNETIC GRADIENT METER";};}
