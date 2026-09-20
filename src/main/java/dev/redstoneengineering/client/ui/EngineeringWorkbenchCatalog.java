@@ -270,7 +270,8 @@ public final class EngineeringWorkbenchCatalog {
                  UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER,
                  UniversalFieldDeviceMenu.CONFIG_THERMAL_MASS,
                  UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR,
-                 UniversalFieldDeviceMenu.CONFIG_REDSTONE_COPPER_DRIVER ->
+                 UniversalFieldDeviceMenu.CONFIG_REDSTONE_COPPER_DRIVER,
+                 UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAB_OSCILLATOR ->
                     lab("LAB", "Discrete-time behavior has meaningful server-owned timing or capture dynamics.");
 
             case UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER,
@@ -807,7 +808,9 @@ public final class EngineeringWorkbenchCatalog {
                          UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD,
                          UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR,
                          UniversalFieldDeviceMenu.CONFIG_LAPIS_LOW_PASS,
-                         UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY -> true;
+                         UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY,
+                         UniversalFieldDeviceMenu.CONFIG_REDSTONE_COPPER_DRIVER,
+                         UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAB_OSCILLATOR -> true;
                     default -> false;
                 };
                 boolean numeric = switch (universal.configKind()) {
@@ -828,7 +831,9 @@ public final class EngineeringWorkbenchCatalog {
                          UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY,
                          UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER,
                          UniversalFieldDeviceMenu.CONFIG_THERMAL_MASS,
-                         UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR -> true;
+                         UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR,
+                         UniversalFieldDeviceMenu.CONFIG_REDSTONE_COPPER_DRIVER,
+                         UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAB_OSCILLATOR -> true;
                     default -> false;
                 };
                 boolean fractions = switch (universal.configKind()) {
@@ -853,11 +858,19 @@ public final class EngineeringWorkbenchCatalog {
                         universalPrimaryDetail(universal.configKind()), control, fractions, sweep));
             }
             if (universal.editSecondaryAvailable()) {
-                specs.add(spec(universalSecondaryLabel(universal.configKind()), universal.editSecondaryValue(),
-                        universal.editSecondaryMin(), universal.editSecondaryMax(),
-                        UniversalFieldDeviceMenu.BUTTON_CONFIG_SECONDARY_PREVIOUS,
-                        UniversalFieldDeviceMenu.BUTTON_CONFIG_SECONDARY_NEXT,
-                        "raw", "Bounded server-owned field-device parameter B."));
+                if (universal.configKind() == UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAB_OSCILLATOR) {
+                    specs.add(rangeSpec("Timing jitter", universal.editSecondaryValue(),
+                            universal.editSecondaryMin(), universal.editSecondaryMax(),
+                            UniversalFieldDeviceMenu.BUTTON_CONFIG_SECONDARY_PREVIOUS,
+                            UniversalFieldDeviceMenu.BUTTON_CONFIG_SECONDARY_NEXT,
+                            "ticks", "Bounded ±jitter applied only when the next genuine half-cycle interval is scheduled."));
+                } else {
+                    specs.add(spec(universalSecondaryLabel(universal.configKind()), universal.editSecondaryValue(),
+                            universal.editSecondaryMin(), universal.editSecondaryMax(),
+                            UniversalFieldDeviceMenu.BUTTON_CONFIG_SECONDARY_PREVIOUS,
+                            UniversalFieldDeviceMenu.BUTTON_CONFIG_SECONDARY_NEXT,
+                            "raw", "Bounded server-owned field-device parameter B."));
+                }
             }
             return List.copyOf(specs);
         }
@@ -1420,6 +1433,8 @@ public final class EngineeringWorkbenchCatalog {
             case UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER -> "Heater resistance";
             case UniversalFieldDeviceMenu.CONFIG_THERMAL_MASS -> "Heat capacity";
             case UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR -> "Cooling coefficient";
+            case UniversalFieldDeviceMenu.CONFIG_REDSTONE_COPPER_DRIVER -> "Slew profile";
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAB_OSCILLATOR -> "Clock period index";
             default -> "Parameter A";
         };
     }
@@ -1445,6 +1460,8 @@ public final class EngineeringWorkbenchCatalog {
             case UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER -> "R-index";
             case UniversalFieldDeviceMenu.CONFIG_THERMAL_MASS -> "capacity";
             case UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR -> "cooling";
+            case UniversalFieldDeviceMenu.CONFIG_REDSTONE_COPPER_DRIVER -> "V-level/tick profile";
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAB_OSCILLATOR -> "period index";
             default -> "profile";
         };
     }
@@ -1487,6 +1504,10 @@ public final class EngineeringWorkbenchCatalog {
                     "Thermal inertia/capacity; changing it affects future response while current temperature is retained.";
             case UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR ->
                     "Passive cooling coefficient toward the ambient floor; exact bounded thermal configuration.";
+            case UniversalFieldDeviceMenu.CONFIG_REDSTONE_COPPER_DRIVER ->
+                    "Finite output slew profile; target and actual Copper voltage remain separate synchronized states.";
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAB_OSCILLATOR ->
+                    "Configured clock period index. Period/jitter changes latch only on a genuine waveform transition and never create an early edge.";
             default -> "Bounded server-owned device configuration. Categorical modes remain Prev/Next rather than fake numeric sliders.";
         };
     }
@@ -1733,6 +1754,12 @@ public final class EngineeringWorkbenchCatalog {
                     "THERMAL RADIATOR", "T_neighbor[k+1] = max(T_ambient, T_neighbor - cooling)",
                     "cooling coefficient 1..4", "observe adjacent thermal mass -> remove bounded heat -> stop at ambient floor",
                     "The radiator cannot cool below the physical ambient floor.");
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAB_OSCILLATOR -> card(
+                    "QUARTZ LAB OSCILLATOR",
+                    "halfInterval = max(1, T/2 + jitterOffset), jitterOffset ∈ [-J,+J]",
+                    "period index • jitter • realized half-interval",
+                    "retain shadow configuration -> latch on genuine edge -> schedule bounded jittered next edge -> publish timing evidence",
+                    "Editing timing never inserts an artificial edge; realized interval evidence stays distinct from configured period/jitter.");
             case UniversalFieldDeviceMenu.CONFIG_REDSTONE_COPPER_DRIVER -> card(
                     "REDSTONE → COPPER DRIVER", "V_actual[k+1] = moveToward(V_actual, V_target, slew)",
                     "slew profile • target V • actual V", "observe redstone command -> classify evidence -> slew physical Copper output -> publish network source",
