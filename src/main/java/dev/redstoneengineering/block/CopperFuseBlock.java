@@ -220,6 +220,25 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
         return input.quality() == PortQuality.VALID && current <= Math.max(1, rating);
     }
 
+    public static boolean setRating(ServerLevel level, BlockPos pos, int rating) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof CopperFuseBlock fuse)) return false;
+        int bounded = Math.max(1, Math.min(15, rating));
+        if (bounded == state.getValue(RATING)) return false;
+
+        BlockState next = state.setValue(RATING, bounded);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+
+        // Rating change starts a new protection epoch. Thermal exposure is retained:
+        // changing the label on a fuse does not magically cool the element.
+        // protection re-evaluates next tick against the new rating and retained thermal exposure.
+        RuntimeIntStore.remove(level, KEY, pos);
+        RuntimeIntStore.remove(level, QUALITY_KEY, pos);
+        DomainNetwork.driveCopper(level, fuse.outputPos(pos, next), pos, 0, false);
+        level.scheduleTick(pos, fuse, 1);
+        return true;
+    }
+
     public static boolean tryReset(ServerLevel level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof CopperFuseBlock fuse)) return false;
