@@ -12,9 +12,11 @@ import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.NetworkKernel;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.signal.CopperFuseLogic;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -259,7 +261,11 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (!level.isClientSide) {
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (!player.isShiftKeyDown()) {
+                FieldDeviceUi.open(serverPlayer, pos);
+                return InteractionResult.CONSUME;
+            }
             CopperObservationSupport.Observation input = CopperObservationSupport.observe(level, inputPos(pos, state), pos);
             int inputVoltage = input.quality() == PortQuality.VALID ? input.voltage() : 0;
             double loadResistance = CircuitPhysics.equivalentLoadResistance(level, outputPos(pos, state), 128);
@@ -268,8 +274,7 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
 
             BlockState next = state;
             String operatorResult;
-            if (player.isShiftKeyDown()) {
-                if (resetAllowed(input, loadTruncated, current, state.getValue(RATING))) {
+            if (resetAllowed(input, loadTruncated, current, state.getValue(RATING))) {
                     next = state.setValue(TRIPPED, false);
                     level.setBlock(pos, next, Block.UPDATE_CLIENTS);
                     int[] thermal = RuntimeIntStore.get(level, THERMAL_KEY, pos, THERMAL_RUNTIME_SIZE);
@@ -277,23 +282,8 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
                     thermal[LAST_CURRENT_X100] = 0;
                     level.scheduleTick(pos, this, 1);
                     operatorResult = "RESET ACCEPTED";
-                } else {
-                    operatorResult = "RESET BLOCKED";
-                }
             } else {
-                int rating = state.getValue(RATING);
-                next = state.setValue(RATING, rating >= 15 ? 1 : rating + 1);
-                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-                if (level instanceof ServerLevel serverLevel) {
-                    // Rating change starts a new protection epoch. Thermal exposure is retained:
-                    // changing the label on a fuse does not magically cool the element.
-                    // protection re-evaluates next tick against the new rating and retained thermal exposure.
-                    RuntimeIntStore.remove(level, KEY, pos);
-                    RuntimeIntStore.remove(level, QUALITY_KEY, pos);
-                    DomainNetwork.driveCopper(serverLevel, outputPos(pos, next), pos, 0, false);
-                    serverLevel.scheduleTick(pos, this, 1);
-                }
-                operatorResult = "RATING CHANGED";
+                operatorResult = "RESET BLOCKED";
             }
 
             player.displayClientMessage(Component.literal(String.format(Locale.ROOT,
