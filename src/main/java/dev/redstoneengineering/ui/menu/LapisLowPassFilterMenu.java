@@ -1,0 +1,105 @@
+package dev.redstoneengineering.ui.menu;
+
+import dev.redstoneengineering.block.DirectionalDomainBlock;
+import dev.redstoneengineering.block.LapisLowPassFilterBlock;
+import dev.redstoneengineering.core.port.EngineeringPortProvider;
+import dev.redstoneengineering.ui.EngineeringUiRegistration;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.DataSlot;
+import net.minecraft.world.level.block.state.BlockState;
+
+/** Server-authoritative engineering notebook model for the Lapis low-pass filter. */
+public final class LapisLowPassFilterMenu extends EngineeringDeviceMenu {
+    public static final int BUTTON_ALPHA_MINUS_5 = 0;
+    public static final int BUTTON_ALPHA_MINUS_1 = 1;
+    public static final int BUTTON_ALPHA_PLUS_1 = 2;
+    public static final int BUTTON_ALPHA_PLUS_5 = 3;
+    public static final int BUTTON_ALPHA_RESET = 4;
+
+    private final DataSlot alphaPercent = trackedInt();
+    private final DataSlot input = trackedInt();
+    private final DataSlot output = trackedInt();
+    private final DataSlot valid = trackedInt();
+    private final DataSlot history = trackedInt();
+
+    public LapisLowPassFilterMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
+        this(containerId, inventory, data.readBlockPos());
+    }
+
+    public LapisLowPassFilterMenu(int containerId, Inventory inventory, BlockPos pos) {
+        super(EngineeringUiRegistration.LAPIS_LOW_PASS_FILTER.get(), containerId, inventory, pos,
+                inventory.player.level().getBlockState(pos).getBlock());
+        if (!level.isClientSide) refreshAuthoritativeSnapshot();
+    }
+
+    @Override
+    protected void refreshAuthoritativeSnapshot() {
+        BlockState state = level.getBlockState(blockPos);
+        if (!(state.getBlock() instanceof LapisLowPassFilterBlock)) {
+            alphaPercent.set(25);
+            input.set(0);
+            output.set(0);
+            valid.set(0);
+            history.set(0);
+            return;
+        }
+
+        alphaPercent.set(LapisLowPassFilterBlock.alphaPercent(level, blockPos, state));
+        LapisLowPassFilterBlock.FilterState filter = LapisLowPassFilterBlock.filterState(level, blockPos);
+        output.set(filter.output());
+        valid.set(filter.valid() ? 1 : 0);
+        history.set(LapisLowPassFilterBlock.retainedHistory(level, blockPos) ? 1 : 0);
+
+        int inputValue = 0;
+        if (state.getBlock() instanceof EngineeringPortProvider provider) {
+            Direction in = DirectionalDomainBlock.seriesInputSide(state);
+            inputValue = provider.engineeringSnapshot(level, blockPos, state, in)
+                    .map(snapshot -> (int) Math.round(snapshot.value()))
+                    .orElse(0);
+        }
+        input.set(Math.max(0, Math.min(100, inputValue)));
+    }
+
+    @Override
+    public boolean clickMenuButton(Player player, int id) {
+        if (level.isClientSide) return true;
+        if (!stillValid(player) || !(level instanceof ServerLevel serverLevel)) return false;
+
+        boolean changed = switch (id) {
+            case BUTTON_ALPHA_MINUS_5 -> LapisLowPassFilterBlock.adjustAlpha(serverLevel, blockPos, -5);
+            case BUTTON_ALPHA_MINUS_1 -> LapisLowPassFilterBlock.adjustAlpha(serverLevel, blockPos, -1);
+            case BUTTON_ALPHA_PLUS_1 -> LapisLowPassFilterBlock.adjustAlpha(serverLevel, blockPos, 1);
+            case BUTTON_ALPHA_PLUS_5 -> LapisLowPassFilterBlock.adjustAlpha(serverLevel, blockPos, 5);
+            case BUTTON_ALPHA_RESET -> LapisLowPassFilterBlock.resetAlpha(serverLevel, blockPos);
+            default -> false;
+        };
+        if (changed) {
+            refreshAuthoritativeSnapshot();
+            broadcastChanges();
+        }
+        return changed;
+    }
+
+    public int alphaPercent() { return alphaPercent.get(); }
+    public double alpha() { return alphaPercent() / 100.0; }
+    public int input() { return input.get(); }
+    public int output() { return output.get(); }
+    public boolean valid() { return valid.get() != 0; }
+    public boolean historyPresent() { return history.get() != 0; }
+
+    /** Discrete-time e-folding constant in filter samples. */
+    public double tauSamples() {
+        double a = alpha();
+        return a >= 1.0 ? 0.0 : -1.0 / Math.log(1.0 - a);
+    }
+
+    /** Filter is scheduled every two ticks in the authoritative block model. */
+    public double tauTicks() {
+        return tauSamples() * 2.0;
+    }
+}
