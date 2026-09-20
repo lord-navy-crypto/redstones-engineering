@@ -107,7 +107,8 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
                 labelValue(g,"Reset permissive",menu.extraC()==1?"YES":"BLOCKED",197);
             }
         }
-        safeText(g, hint(),16,199,MUTED);
+        safeText(g,"MODEL • "+reliabilityEquation(),16,195,GOOD);
+        safeText(g, hint(),16,211,MUTED);
     }
 
     private void ports(GuiGraphics g) {
@@ -116,38 +117,42 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
         switch(menu.kind()) {
             case ReliabilitySystemMenu.KIND_WATCHDOG -> {statusLine(g,face(front.getOpposite()),"INPUT • HEARTBEAT",qualityColor(),108);statusLine(g,face(front),"OUTPUT • TIMEOUT ALARM",GOOD,140);}
             case ReliabilitySystemMenu.KIND_SERVO -> {statusLine(g,face(front.getOpposite()),"INPUT • COMMAND",qualityColor(),102);statusLine(g,"UP","INPUT • POSITION/VELOCITY MODE",INFO,126);statusLine(g,face(rightOf(front)),"INPUT • BRAKE",WARN,150);statusLine(g,face(front),"OUTPUT • MECHATRONIC POSITION",GOOD,174);}
-            case ReliabilitySystemMenu.KIND_POSITION_SENSOR -> {statusLine(g,face(front.getOpposite()),"INPUT • SERVO POSITION",qualityColor(),112);statusLine(g,face(front),"OUTPUT • REDSTONE FEEDBACK",GOOD,144);}
+            case ReliabilitySystemMenu.KIND_POSITION_SENSOR -> {statusLine(g,face(front.getOpposite()),"INPUT • SERVO POSITION",qualityColor(),112);statusLine(g,face(front),"OUTPUT • REDSTONE FEEDBACK",GOOD,152);}
             case ReliabilitySystemMenu.KIND_VOTER -> {statusLine(g,face(front.getOpposite()),"INPUT A • REDSTONE",INFO,102);statusLine(g,face(leftOf(front)),"INPUT B • REDSTONE",INFO,126);statusLine(g,face(rightOf(front)),"INPUT C • REDSTONE",INFO,150);statusLine(g,face(front),"OUTPUT • 2oo3 VOTED",qualityColor(),174);}
             default -> {statusLine(g,face(front.getOpposite()),"INPUT • FAULT",INFO,108);statusLine(g,face(rightOf(front)),"INPUT • RESET",INFO,136);statusLine(g,face(front),"OUTPUT • LATCHED ALARM",qualityColor(),164);}
         }
+        safeText(g,"TRANSFER • "+reliabilityEquation(),16,190,GOOD);
     }
 
     private void configure(GuiGraphics g) {
         statusBadge(g,"SERVER-SIDE BOUNDED CONTROL",INFO,16,80);
-        labelValue(g, menu.kind()==ReliabilitySystemMenu.KIND_SERVO ? "Primary parameter" : "Parameter",parameterText(),101);
+        safeText(g,"EQUATION • "+reliabilityEquation(),16,98,GOOD);
+        safeText(g,"CONTROL MAP • "+reliabilityControlMap(),16,116,INFO);
+        labelValue(g, menu.kind()==ReliabilitySystemMenu.KIND_SERVO ? "Primary parameter" : "Parameter",parameterText(),140);
         if(menu.kind()==ReliabilitySystemMenu.KIND_SERVO) {
-            labelValue(g,"Secondary parameter","LOAD "+servoLoadText()+" ["+menu.secondaryParameterIndex()+"]",132);
-            labelValue(g,"Maintenance",maintenanceActionText(),166);
-            labelValue(g,"Front / primary output",face(menu.facing()),204);
+            labelValue(g,"Secondary parameter","LOAD "+servoLoadText()+" ["+menu.secondaryParameterIndex()+"]",158);
+            labelValue(g,"Maintenance",maintenanceActionText(),178);
+            labelValue(g,"Front / primary output",face(menu.facing()),198);
         } else {
             labelValue(g,"Maintenance",maintenanceActionText(),166);
             labelValue(g,"Front / primary output",face(menu.facing()),204);
         }
-        safeText(g,"Routing stays on Route; maintenance actions use the same server methods as Shift-right-click.",16,224,MUTED);
+        safeText(g,"Routing stays on Route; maintenance actions use the same server methods as Shift-right-click.",16,218,MUTED);
     }
 
     private void diagnostics(GuiGraphics g) {
         statusBadge(g,stateName(),stateColor(),16,80);
-        labelValue(g,"Role",roleName(),106);
-        labelValue(g,"Quality",menu.quality().name(),124);
+        safeText(g,"CHECK • "+reliabilityDiagnosticRelation(),16,98,GOOD);
+        labelValue(g,"Role",roleName(),116);
+        labelValue(g,"Quality",menu.quality().name(),134);
         switch(menu.kind()) {
-            case ReliabilitySystemMenu.KIND_WATCHDOG -> {labelValue(g,"Age / timeout",menu.primary()+" / "+menu.secondary()+" t",144);labelValue(g,"Transitions / timeouts",menu.auxiliary()+" / "+menu.tertiary(),162);}
-            case ReliabilitySystemMenu.KIND_SERVO -> {labelValue(g,"Position / command",menu.primary()+" / "+menu.secondary(),144);labelValue(g,"Velocity / error",menu.tertiary()+" / "+menu.auxiliary(),162);labelValue(g,"Brake / load / limits",menu.extraA()+" / "+servoLoadText()+" / "+menu.extraB(),180);}
+            case ReliabilitySystemMenu.KIND_WATCHDOG -> {labelValue(g,"Age / timeout",menu.primary()+" / "+menu.secondary()+" t",144);labelValue(g,"Transitions / timeouts",menu.auxiliary()+" / "+menu.tertiary(),170);}
+            case ReliabilitySystemMenu.KIND_SERVO -> {labelValue(g,"Position / command",menu.primary()+" / "+menu.secondary(),144);labelValue(g,"Velocity / error",menu.tertiary()+" / "+menu.auxiliary(),162);labelValue(g,"Brake / load / limits",menu.extraA()+" / "+servoLoadText()+" / "+menu.extraB(),188);}
             case ReliabilitySystemMenu.KIND_POSITION_SENSOR -> {labelValue(g,"Input / output",menu.primary()+" / "+menu.secondary(),144);labelValue(g,"Samples",Integer.toString(menu.tertiary()),162);}
             case ReliabilitySystemMenu.KIND_VOTER -> {labelValue(g,"Valid / spread",menu.secondary()+" / "+menu.tertiary(),144);labelValue(g,"Tolerance",Integer.toString(menu.auxiliary()),162);labelValue(g,"Disagreements",Integer.toString(menu.extraB()),180);}
             default -> {labelValue(g,"Threshold / trips",menu.secondary()+" / "+menu.tertiary(),144);labelValue(g,"Resets",Integer.toString(menu.auxiliary()),162);labelValue(g,"Latched",menu.extraA()==1?"YES":"NO",180);}
         }
-        statusLine(g,"Authority","SERVER SYNCHRONIZED",GOOD,200);
+        statusLine(g,"Authority","SERVER SYNCHRONIZED",GOOD,208);
     }
 
     private void history(GuiGraphics g) {
@@ -158,6 +163,46 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
         else if(menu.kind()==ReliabilitySystemMenu.KIND_SERVO){labelValue(g,"Soft-limit hits",Integer.toString(menu.extraB()),110);labelValue(g,"Current error",Integer.toString(menu.auxiliary()),130);}
         else {labelValue(g,"Measurement samples",Integer.toString(menu.tertiary()),110);}
         sectionRule(g,154);safeText(g,"Counters are retained server evidence; opening the HMI never manufactures events.",16,170,MUTED);
+    }
+
+    private String reliabilityEquation(){
+        return switch(menu.kind()){
+            case ReliabilitySystemMenu.KIND_WATCHDOG ->
+                    "timeout = sourceSeen AND heartbeatAge >= Ttimeout; alarm=15 on timeout";
+            case ReliabilitySystemMenu.KIND_SERVO ->
+                    "e=x_cmd-x; x[k+1]=bounded finite-slew step toward command unless brake is active";
+            case ReliabilitySystemMenu.KIND_POSITION_SENSOR ->
+                    "redstone feedback = bounded observed servo position";
+            case ReliabilitySystemMenu.KIND_VOTER ->
+                    "2oo3 vote accepted from valid channels when disagreement stays within tolerance";
+            default ->
+                    "latched[k+1]=latched[k] OR (fault>=Vth); clear only on permitted reset";
+        };
+    }
+
+    private String reliabilityControlMap(){
+        return switch(menu.kind()){
+            case ReliabilitySystemMenu.KIND_WATCHDOG -> "Ttimeout="+menu.secondary()+"t";
+            case ReliabilitySystemMenu.KIND_SERVO -> "slew="+menu.extraC()+" • load="+servoLoadText();
+            case ReliabilitySystemMenu.KIND_VOTER -> "tolerance="+menu.auxiliary()+" levels";
+            case ReliabilitySystemMenu.KIND_FAULT_LATCH -> "Vth="+menu.secondary()+" • reset requires permissive";
+            default -> "read-only metrology";
+        };
+    }
+
+    private String reliabilityDiagnosticRelation(){
+        return switch(menu.kind()){
+            case ReliabilitySystemMenu.KIND_WATCHDOG ->
+                    "age="+menu.primary()+"t • timeout="+menu.secondary()+"t • margin="+(menu.secondary()-menu.primary())+"t";
+            case ReliabilitySystemMenu.KIND_SERVO ->
+                    "x="+menu.primary()+" • cmd="+menu.secondary()+" • e="+menu.auxiliary()+" • v="+menu.tertiary();
+            case ReliabilitySystemMenu.KIND_POSITION_SENSOR ->
+                    "mechanical="+menu.primary()+"/15 • redstone="+menu.secondary()+"/15 • samples="+menu.tertiary();
+            case ReliabilitySystemMenu.KIND_VOTER ->
+                    "valid="+menu.secondary()+"/3 • spread="+menu.tertiary()+" • tolerance="+menu.auxiliary();
+            default ->
+                    "fault threshold="+menu.secondary()+" • trips="+menu.tertiary()+" • latched="+(menu.extraA()==1);
+        };
     }
 
     private String parameterText(){return switch(menu.kind()){case ReliabilitySystemMenu.KIND_WATCHDOG->"TIMEOUT "+menu.secondary()+"t";case ReliabilitySystemMenu.KIND_SERVO->"SLEW STEP "+menu.extraC();case ReliabilitySystemMenu.KIND_VOTER->"TOLERANCE "+menu.auxiliary();case ReliabilitySystemMenu.KIND_FAULT_LATCH->"THRESHOLD "+menu.secondary();default->"READ ONLY";};}
