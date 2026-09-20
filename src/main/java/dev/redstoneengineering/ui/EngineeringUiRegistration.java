@@ -11,6 +11,7 @@ import dev.redstoneengineering.ui.menu.LogicAnalyzerMenu;
 import dev.redstoneengineering.ui.menu.LapisLowPassFilterMenu;
 import dev.redstoneengineering.ui.menu.MagneticSystemMenu;
 import dev.redstoneengineering.ui.menu.MediaConversionMenu;
+import dev.redstoneengineering.ui.menu.MultiPhysicsParameterMenu;
 import dev.redstoneengineering.ui.menu.OperationsMonitorMenu;
 import dev.redstoneengineering.ui.menu.OpticalSystemMenu;
 import dev.redstoneengineering.ui.menu.OscilloscopeMenu;
@@ -51,6 +52,7 @@ public final class EngineeringUiRegistration {
     public static final DeferredHolder<MenuType<?>, MenuType<SignalProcessorMenu>> SIGNAL_PROCESSOR = MENUS.register("signal_processor", () -> IMenuTypeExtension.create(SignalProcessorMenu::new));
     public static final DeferredHolder<MenuType<?>, MenuType<LapisLowPassFilterMenu>> LAPIS_LOW_PASS_FILTER = MENUS.register("lapis_low_pass_filter", () -> IMenuTypeExtension.create(LapisLowPassFilterMenu::new));
     public static final DeferredHolder<MenuType<?>, MenuType<ServoActuatorMenu>> SERVO_ACTUATOR = MENUS.register("servo_actuator", () -> IMenuTypeExtension.create(ServoActuatorMenu::new));
+    public static final DeferredHolder<MenuType<?>, MenuType<MultiPhysicsParameterMenu>> MULTI_PHYSICS_PARAMETER = MENUS.register("multi_physics_parameter", () -> IMenuTypeExtension.create(MultiPhysicsParameterMenu::new));
     public static final DeferredHolder<MenuType<?>, MenuType<QuartzTimingMenu>> QUARTZ_TIMING = MENUS.register("quartz_timing", () -> IMenuTypeExtension.create(QuartzTimingMenu::new));
     public static final DeferredHolder<MenuType<?>, MenuType<RadioLinkMenu>> RADIO_LINK = MENUS.register("radio_link", () -> IMenuTypeExtension.create(RadioLinkMenu::new));
     public static final DeferredHolder<MenuType<?>, MenuType<DigitalCommunicationMenu>> DIGITAL_COMMUNICATION = MENUS.register("digital_communication", () -> IMenuTypeExtension.create(DigitalCommunicationMenu::new));
