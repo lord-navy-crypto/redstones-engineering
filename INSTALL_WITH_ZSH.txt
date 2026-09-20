@@ -1,46 +1,70 @@
-RSE v0.1.0-alpha.7.1 — STABILITY FIXED — zsh / Terminal install
+Redstone Systems Engineering (RSE) 1.0.21-alpha — zsh / Terminal install & verification
 
-Prerequisite: alpha.4 or later project; alpha.7.1 is cumulative and includes the alpha.5/alpha.6/alpha.7 feature layers plus the alpha.6.1 stability architecture.
+Target:
+- Minecraft 1.21.1
+- NeoForge 21.1.249
+- Java 21
+- RSE artifact: 1.0.21-alpha
 
-1) Stop any existing Gradle daemon and back up:
+Required dependencies:
+- JEI 19.27.0.336
+- Jade 15.10.6
+- GeckoLib 4.9.2
+- Cloth Config 15.0.140
+- Fusion 1.3.14
 
-cd ~/Desktop/RedstoneSystemsEngineering
+RSE does not bundle dependency jars. NeoForge must be able to load all required dependencies.
+
+1) Open the repository and stop Gradle:
+
+cd ~/redstones-engineering
 ./gradlew --stop
-cp -R src ~/Desktop/RSE-src-backup-before-alpha7_1
 
-2) Overlay alpha.7.1:
+2) Fetch the release candidate:
 
-rm -rf /tmp/rse-alpha7_1
-mkdir -p /tmp/rse-alpha7_1
-unzip -q ~/Downloads/RSE_v0.1_alpha7_1_STABILITY_FIXED_overlay.zip -d /tmp/rse-alpha7_1
-rsync -av /tmp/rse-alpha7_1/ ~/Desktop/RedstoneSystemsEngineering/
+git fetch origin
+git checkout release/1.0.21-alpha-rc1
+git reset --hard origin/release/1.0.21-alpha-rc1
 
-3) Set version:
-
-python3 - <<'PY'
-from pathlib import Path
-p=Path('gradle.properties')
-lines=p.read_text().splitlines()
-out=[]; found=False
-for line in lines:
-    if line.startswith('mod_version='):
-        out.append('mod_version=0.1.0-alpha.7.1'); found=True
-    else:
-        out.append(line)
-if not found:
-    out.append('mod_version=0.1.0-alpha.7.1')
-p.write_text('\n'.join(out)+'\n')
-PY
-
-4) Verify source/version before build:
+3) Confirm the version:
 
 grep '^mod_version=' gradle.properties
-find src/main/java/dev/redstoneengineering -type f | grep -E 'RedstoneSignalCable|RedstoneCableJunction|RedstoneCableTerminal|LightSensor|TankLevel|EntityDensity|AnalogIndicator' | sort
 
-5) Safe build first:
+Expected:
+mod_version=1.0.21-alpha
 
-./gradlew clean build --no-daemon --console=plain
+4) Run release verification:
 
-6) Only after BUILD SUCCESSFUL, launch with a log:
+python3 tools/rse_repo_verify.py
+python3 tools/test_rse_integrated_demo.py
+python3 tools/test_rse_signal_processing_lab.py
+python3 tools/rse_pid_actuator_dynamics_verify.py
+python3 tools/rse_ninth_ten_control_pneumatic_verify.py
+python3 tools/rse_alpha1021_release_verify.py
 
-./gradlew runClient --no-daemon --stacktrace 2>&1 | tee ~/Desktop/RSE-alpha7_1-run.log
+5) Compile/test/build:
+
+./gradlew test --no-daemon --stacktrace
+./gradlew compileJava --no-daemon --stacktrace
+./gradlew clean build --no-daemon --stacktrace
+
+6) Run Minecraft GameTests before public release:
+
+./gradlew runGameTestServer --no-daemon --stacktrace
+
+7) Launch the client for the real-use smoke test:
+
+./gradlew runClient --no-daemon --stacktrace 2>&1 | tee latest.log
+
+In-game smoke-test focus:
+- Integrated Commissioning Bench V2
+- Servo / PID actuator dynamics and feedback
+- Pneumatic linear actuator cell
+- Signal Processing Laboratory
+- Broken/misrouted connection behavior
+- JEI/Jade/GUI usability
+
+If startup or runtime fails, preserve latest.log.
+
+Scope:
+This release candidate preserves the complete-chain + actuator-deepening era and intentionally excludes the later shared Engineering Workbench / generic LAB UI redesign.
