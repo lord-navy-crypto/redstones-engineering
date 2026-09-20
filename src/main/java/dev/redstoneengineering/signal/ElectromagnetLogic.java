@@ -8,10 +8,16 @@ public final class ElectromagnetLogic {
 
     /** Energization rises more slowly than field collapse to make inductive response visible. */
     public static int stepField(int actualField, int targetField) {
+        return stepFieldRate(actualField, targetField, 2, 3);
+    }
+
+    public static int stepFieldRate(int actualField, int targetField, int riseRate, int fallRate) {
         int actual = Math.max(0, Math.min(15, actualField));
         int target = Math.max(0, Math.min(15, targetField));
-        if (target > actual) return Math.min(target, actual + 2);
-        if (target < actual) return Math.max(target, actual - 3);
+        int rise = Math.max(1, Math.min(15, riseRate));
+        int fall = Math.max(1, Math.min(15, fallRate));
+        if (target > actual) return Math.min(target, actual + rise);
+        if (target < actual) return Math.max(target, actual - fall);
         return actual;
     }
 
