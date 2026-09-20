@@ -72,7 +72,8 @@ public final class AmethystSystemScreen extends EngineeringScreen<AmethystSystem
             metricCard(g,"Dominant idx",Integer.toString(menu.primary()),16,103,88,INFO); metricCard(g,"Energy",Integer.toString(menu.secondary()),111,103,88,GOOD); metricCard(g,"Active bands",Integer.toString(menu.tertiary()),206,103,88,INFO);
             labelValue(g,"Samples / conflicts",menu.auxiliary()+" / "+menu.extraA(),149); labelValue(g,"Coverage",menu.extraB()+" / "+menu.stateFlag(),165); labelValue(g,"Authority","OBSERVER ONLY",181);
         }
-        safeText(g,"Frequency values are discrete model indices, not fabricated Hz units.",16,199,MUTED);
+        safeText(g,"MODEL • "+amethystEquation(),16,195,GOOD);
+        safeText(g,"Frequency values are discrete model indices, not fabricated Hz units.",16,211,MUTED);
     }
 
     private void ports(GuiGraphics g){
@@ -80,15 +81,18 @@ public final class AmethystSystemScreen extends EngineeringScreen<AmethystSystem
         if(menu.kind()==AmethystSystemMenu.KIND_SOURCE){statusLine(g,"N/E/S/W","OUTPUT • AMETHYST RESONANCE",GOOD,112);}
         else if(menu.kind()==AmethystSystemMenu.KIND_SPECTRUM){statusLine(g,"UP / LOCAL VOLUME","MEASUREMENT • OBSERVER ONLY",INFO,112);}
         else {statusLine(g,face(menu.facing().getOpposite()),"INPUT • AMETHYST RESONANCE",qualityColor(),112);statusLine(g,"PROCESS",menu.kind()==AmethystSystemMenu.KIND_FILTER?"EXACT FREQUENCY SELECTION":"TUNED RESONANT RESPONSE",INFO,140);statusLine(g,face(menu.facing()),"OUTPUT • AMETHYST RESONANCE",GOOD,168);}
+        safeText(g,"TRANSFER • "+amethystEquation(),16,192,GOOD);
     }
 
     private void configure(GuiGraphics g){
         statusBadge(g,"SERVER-SIDE BOUNDED CONTROL",INFO,16,80);
         labelValue(g,"Primary",primaryControl(),98);
-        labelValue(g,"Secondary",secondaryControl(),181);
+        safeText(g,"EQUATION • "+amethystEquation(),16,120,GOOD);
+        safeText(g,"CONTROL MAP • "+amethystControlMap(),16,138,INFO);
+        labelValue(g,"Secondary",secondaryControl(),164);
         if(menu.directional()) {
-            labelValue(g,"I/O axis",path(),197);
-            safeText(g,"Physical resonance direction is controlled only on Route.",16,216,MUTED);
+            labelValue(g,"I/O axis",path(),184);
+            safeText(g,"Physical resonance direction is controlled only on Route.",16,204,MUTED);
         }
     }
 
@@ -97,15 +101,16 @@ public final class AmethystSystemScreen extends EngineeringScreen<AmethystSystem
         labelValue(g,"Device",deviceName(),104);
         labelValue(g,"Primary",primaryDiagnostic(),122);
         labelValue(g,"Secondary",secondaryDiagnostic(),140);
+        safeText(g,"CHECK • "+amethystDiagnosticRelation(),16,156,GOOD);
         if(menu.kind()==AmethystSystemMenu.KIND_SPECTRUM){
-            labelValue(g,"Conflicts",Integer.toString(menu.extraA()),158);
-            labelValue(g,"Coverage",menu.extraB()+" / "+menu.stateFlag(),176);
+            labelValue(g,"Conflicts",Integer.toString(menu.extraA()),174);
+            labelValue(g,"Coverage",menu.extraB()+" / "+menu.stateFlag(),190);
         } else if(menu.directional()){
-            labelValue(g,"Path",path(),158);
-            labelValue(g,"Output evidence",menu.kind()==AmethystSystemMenu.KIND_TUNED?(menu.stateFlag()==2?"SATURATED":"BOUNDED"):(menu.stateFlag()==1?"PASS":"REJECT"),176);
+            labelValue(g,"Path",path(),174);
+            labelValue(g,"Output evidence",menu.kind()==AmethystSystemMenu.KIND_TUNED?(menu.stateFlag()==2?"SATURATED":"BOUNDED"):(menu.stateFlag()==1?"PASS":"REJECT"),190);
         }
-        statusLine(g,"Diagnosis",diagnosis(),diagnosisColor(),194);
-        safeText(g,nextAction(),16,214,diagnosisColor());
+        statusLine(g,"Diagnosis",diagnosis(),diagnosisColor(),208);
+        safeText(g,nextAction(),16,226,diagnosisColor());
     }
 
     private void history(GuiGraphics g){
@@ -120,6 +125,38 @@ public final class AmethystSystemScreen extends EngineeringScreen<AmethystSystem
             safeText(g,"Current server resonance evidence is shown; no client-side spectrum/history is invented.",16,112,MUTED);
             safeText(g,diagnosis(),16,136,diagnosisColor());
         }
+    }
+
+    private String amethystEquation(){
+        return switch(menu.kind()){
+            case AmethystSystemMenu.KIND_SOURCE ->
+                    "pulse source: f=f_drive, A=A0 while excitation is active";
+            case AmethystSystemMenu.KIND_FILTER ->
+                    "match=(f_in=f_target); Aout=match ? max(0,Ain-1) : 0";
+            case AmethystSystemMenu.KIND_TUNED ->
+                    "d=|f_in-f0|; BW=5-Q; A*=Ain+2Q at d=0, else Ain-max(1,dQ) inside BW";
+            default ->
+                    "spectrum = aggregate valid local bands; report dominant index, energy and conflicts";
+        };
+    }
+
+    private String amethystControlMap(){
+        return switch(menu.kind()){
+            case AmethystSystemMenu.KIND_SOURCE -> "f_drive="+menu.primary()+" • A0="+menu.secondary()+"/15";
+            case AmethystSystemMenu.KIND_FILTER -> "f_target="+menu.tertiary()+" • fixed pass loss=1 amplitude";
+            case AmethystSystemMenu.KIND_TUNED -> "f0="+menu.tertiary()+" • Q="+menu.auxiliary()+" • BW=±"+menu.extraA();
+            default -> "observer only • no client-side tuning";
+        };
+    }
+
+    private String amethystDiagnosticRelation(){
+        return switch(menu.kind()){
+            case AmethystSystemMenu.KIND_SOURCE -> "configured A0="+menu.secondary()+" • active="+(menu.stateFlag()==1);
+            case AmethystSystemMenu.KIND_FILTER -> "Δf="+Math.abs(menu.primary()-menu.tertiary())+" • expected Aout="+menu.auxiliary();
+            case AmethystSystemMenu.KIND_TUNED -> "detune="+Math.abs(menu.primary()-menu.tertiary())
+                    +" • BW="+menu.extraA()+" • target A="+menu.extraB();
+            default -> "samples="+menu.auxiliary()+" • conflicts="+menu.extraA()+" • active bands="+menu.tertiary();
+        };
     }
 
     private String diagnosis(){
