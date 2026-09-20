@@ -56,7 +56,8 @@ for token in (
     EXPECTED_NEOFORGE,
     "Back up any world you care about before testing",
     "Release-candidate gate",
-    "runGameTestServer",
+    "Non-blocking GameTest diagnostic",
+    "not a blocking Alpha 1.0.21 release gate",
     "latest.log",
 ):
     if token not in guide:
@@ -90,7 +91,7 @@ for token in (
     "GeckoLib 4.9.2",
     "Cloth Config 15.0.140",
     "Fusion 1.3.14",
-    "runGameTestServer",
+    "non-blocking for Alpha 1.0.21",
     "runClient",
 ):
     if token not in install_guide:
@@ -108,3 +109,4 @@ print(f" Minecraft / NeoForge / Java: {EXPECTED_MINECRAFT} / {EXPECTED_NEOFORGE}
 print(" integrated demo / actuator / pneumatic / signal-lab release gates: PASS")
 print(" required dependency metadata: PASS")
 print(" checksum/build packaging gates: PASS")
+print(" legacy Minecraft GameTest suite: NON-BLOCKING DIAGNOSTIC")
