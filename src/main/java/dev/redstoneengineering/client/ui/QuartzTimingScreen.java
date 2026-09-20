@@ -68,7 +68,8 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
             labelValue(g, "Measurement face", inputFace(), 153);
             labelValue(g, "Current evidence", menu.runtimeC() == 1 ? "CURRENT" : menu.primary() > 0 ? "STALE/RETAINED" : "NONE", 171);
         }
-        safeText(g, topologyHint(), 16, 199, MUTED);
+        safeText(g, "MODEL • " + timingEquation(), 16, 195, GOOD);
+        safeText(g, topologyHint(), 16, 211, MUTED);
     }
 
     private void ports(GuiGraphics g) {
@@ -86,19 +87,22 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
             statusLine(g, "NETWORK AUTHORITY", "OBSERVE ONLY • NO OUTPUT DRIVER", INFO, 146);
             safeText(g, "Stability Monitor has one measurement input; the opposite face is not an output.", 16, 176, MUTED);
         }
+        safeText(g, "TRANSFER • " + timingEquation(), 16, 190, GOOD);
     }
 
     private void configure(GuiGraphics g) {
         statusBadge(g, "SERVER-SIDE BOUNDED CONTROL", INFO, 16, 80);
+        safeText(g, "EQUATION • " + timingEquation(), 16, 96, GOOD);
+        safeText(g, "CONTROL MAP • " + timingControlMap(), 16, 114, INFO);
         if (menu.kind() == QuartzTimingMenu.KIND_OSCILLATOR) {
-            labelValue(g, "Period", menu.secondary() + " ticks", 101);
+            labelValue(g, "Period", menu.secondary() + " ticks", 138);
             labelValue(g, "Topology", "FOUR-WAY SOURCE", 172);
         } else if (menu.kind() == QuartzTimingMenu.KIND_DIVIDER) {
-            labelValue(g, "Division", "÷" + menu.tertiary(), 101);
+            labelValue(g, "Division", "÷" + menu.tertiary(), 138);
             labelValue(g, "I/O axis", inputFace() + " → " + outputFace(), 172);
             safeText(g, "Physical I/O direction is controlled only on Route.", 16, 199, MUTED);
         } else {
-            labelValue(g, "Measurement", menu.primary() + " ticks", 101);
+            labelValue(g, "Measurement", menu.primary() + " ticks", 138);
             labelValue(g, "Input face", inputFace(), 172);
             safeText(g, "Measurement face is controlled only on Route.", 16, 199, MUTED);
         }
@@ -106,20 +110,21 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
 
     private void diagnostics(GuiGraphics g) {
         statusBadge(g, qualityName(), qualityColor(), 16, 80);
+        safeText(g, "CHECK • " + timingDiagnosticRelation(), 16, 96, GOOD);
         if (menu.kind() == QuartzTimingMenu.KIND_STABILITY) {
-            labelValue(g, "Initialized", yesNo(menu.runtimeA()), 104);
+            labelValue(g, "Initialized", yesNo(menu.runtimeA()), 116);
             labelValue(g, "Reference edge", yesNo(menu.runtimeB()), 122);
             labelValue(g, "Current measurement", yesNo(menu.runtimeC()), 140);
             labelValue(g, "Measured / error", menu.primary() + " / " + menu.secondary() + " ticks", 158);
             labelValue(g, "Input face", inputFace(), 176);
         } else if (menu.kind() == QuartzTimingMenu.KIND_DIVIDER) {
-            labelValue(g, "Input period", menu.primary() + " ticks", 104);
+            labelValue(g, "Input period", menu.primary() + " ticks", 116);
             labelValue(g, "Output period", menu.secondary() + " ticks", 122);
             labelValue(g, "Counted edges", Integer.toString(menu.runtimeA()), 140);
             labelValue(g, "Initialized", yesNo(menu.runtimeB()), 158);
             labelValue(g, "Path", inputFace() + " → " + outputFace(), 176);
         } else {
-            labelValue(g, "Oscillator state", menu.primary() == 1 ? "HIGH" : "LOW", 104);
+            labelValue(g, "Oscillator state", menu.primary() == 1 ? "HIGH" : "LOW", 116);
             labelValue(g, "Period", menu.secondary() + " ticks", 122);
             labelValue(g, "Evidence", "VALID SOURCE CONFIGURATION", 140);
         }
@@ -140,6 +145,31 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
             safeText(g, "This device exposes current timing state; it does not fabricate client-side waveform history.", 16, 112, MUTED);
             safeText(g, diagnosis(), 16, 136, diagnosisColor());
         }
+    }
+
+    private String timingEquation() {
+        return switch (menu.kind()) {
+            case QuartzTimingMenu.KIND_OSCILLATOR -> "f=1/T; output toggles each half-cycle from server clock";
+            case QuartzTimingMenu.KIND_DIVIDER -> "T_out = N*T_in; f_out = f_in/N";
+            default -> "error = T_measured - T_reference; measurement requires genuine edge intervals";
+        };
+    }
+
+    private String timingControlMap() {
+        return switch (menu.kind()) {
+            case QuartzTimingMenu.KIND_OSCILLATOR -> "T=" + menu.secondary() + " ticks • period index=" + menu.tertiary();
+            case QuartzTimingMenu.KIND_DIVIDER -> "N=" + menu.tertiary() + " • current Tin=" + menu.primary() + "t";
+            default -> "observer/reset only • no fabricated measurement target";
+        };
+    }
+
+    private String timingDiagnosticRelation() {
+        return switch (menu.kind()) {
+            case QuartzTimingMenu.KIND_OSCILLATOR -> "T=" + menu.secondary() + "t • phase=" + (menu.primary() == 1 ? "HIGH" : "LOW");
+            case QuartzTimingMenu.KIND_DIVIDER -> "Tout expected=" + (Math.max(0, menu.primary()) * Math.max(1, menu.tertiary()))
+                    + "t • measured=" + menu.secondary() + "t";
+            default -> "Tmeas=" + menu.primary() + "t • error=" + menu.secondary() + "t • Tref=" + menu.tertiary() + "t";
+        };
     }
 
     private String diagnosis() {
