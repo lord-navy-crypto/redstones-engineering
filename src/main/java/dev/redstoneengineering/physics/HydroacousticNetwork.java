@@ -73,7 +73,7 @@ public final class HydroacousticNetwork {
 
             pending.put(node.pos.immutable(), new Pending(node.amplitude, HydroacousticTubeBlock.PACKET_TTL_TICKS));
             int medium = state.getValue(HydroacousticTubeBlock.MEDIUM);
-            int loss = medium == 0 ? 1 : medium == 1 ? 2 : 3;
+            int loss = HydroacousticTubeBlock.mediumLoss(medium);
             int next = node.amplitude - loss;
             if (next <= 0) continue;
             for (Direction side : Direction.values()) {
