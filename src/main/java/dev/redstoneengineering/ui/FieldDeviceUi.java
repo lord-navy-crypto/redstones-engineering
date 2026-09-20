@@ -7,6 +7,7 @@ import dev.redstoneengineering.ui.menu.DigitalCommunicationMenu;
 import dev.redstoneengineering.ui.menu.FieldDeviceMenu;
 import dev.redstoneengineering.ui.menu.MagneticSystemMenu;
 import dev.redstoneengineering.ui.menu.MediaConversionMenu;
+import dev.redstoneengineering.ui.menu.MultiPhysicsParameterMenu;
 import dev.redstoneengineering.ui.menu.OpticalSystemMenu;
 import dev.redstoneengineering.ui.menu.PneumaticSystemMenu;
 import dev.redstoneengineering.ui.menu.QuartzTimingMenu;
@@ -28,6 +29,21 @@ public final class FieldDeviceUi {
         var state = player.level().getBlockState(pos);
         var block = state.getBlock();
         var title = block.getName();
+        if (block instanceof QuartzOscillatorBlock
+                || block instanceof QuartzClockDividerBlock
+                || block instanceof QuartzPhaseDelayBlock
+                || block instanceof AmethystFrequencyFilterBlock
+                || block instanceof AmethystTunedResonatorBlock
+                || block instanceof PressureRegulatorBlock
+                || block instanceof PneumaticProportionalValveBlock
+                || block instanceof OpticalAttenuatorBlock
+                || block instanceof OpticalChannelFilterBlock
+                || block instanceof RangeSensorBlock) {
+            player.openMenu(new SimpleMenuProvider(
+                    (id, inv, ignored) -> new MultiPhysicsParameterMenu(id, inv, pos), title),
+                    data -> data.writeBlockPos(pos));
+            return;
+        }
         if (block instanceof CopperCircuitMeterBlock) {
             player.openMenu(new SimpleMenuProvider((id, inv, ignored) -> new CopperCircuitMeterMenu(id, inv, pos), title), data -> data.writeBlockPos(pos)); return;
         }
