@@ -10,6 +10,7 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
+import dev.redstoneengineering.physics.EngineeringDeviceParameters;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
@@ -78,18 +79,37 @@ public class QuartzOscillatorBlock extends DirectionalDomainSourceBlock implemen
         return QuartzTimingLineBlock.periodTicks(state.getValue(PERIOD_INDEX));
     }
 
+    public static int configuredPeriodTicks(Level level, BlockPos pos, BlockState state) {
+        int fallback = configuredPeriodTicks(state);
+        if (level instanceof ServerLevel serverLevel) {
+            return EngineeringDeviceParameters.get(serverLevel)
+                    .extendedParameters(serverLevel, pos,
+                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a();
+        }
+        return fallback;
+    }
+
     public static int effectivePeriodTicks(Level level, BlockPos pos, BlockState state) {
         int[] runtime = snapshot(level, pos);
-        int index = runtime == null || runtime[INITIALIZED] == 0
-                ? state.getValue(PERIOD_INDEX)
-                : runtime[EFFECTIVE_PERIOD_INDEX];
-        return QuartzTimingLineBlock.periodTicks(index);
+        return runtime == null || runtime[INITIALIZED] == 0
+                ? configuredPeriodTicks(level, pos, state)
+                : Math.max(2, runtime[EFFECTIVE_PERIOD_INDEX]);
     }
 
     public static boolean periodChangePending(Level level, BlockPos pos, BlockState state) {
         int[] runtime = snapshot(level, pos);
         return runtime != null && runtime[INITIALIZED] != 0
-                && runtime[EFFECTIVE_PERIOD_INDEX] != state.getValue(PERIOD_INDEX);
+                && runtime[EFFECTIVE_PERIOD_INDEX] != configuredPeriodTicks(level, pos, state);
+    }
+
+    public static boolean setConfiguredPeriodTicks(ServerLevel level, BlockPos pos, int ticks) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof QuartzOscillatorBlock)) return false;
+        int bounded = Math.max(2, Math.min(200, ticks));
+        boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
+                level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
+        if (changed) level.scheduleTick(pos, state.getBlock(), 1);
+        return changed;
     }
 
     public static int edgeCount(Level level, BlockPos pos) {
@@ -107,7 +127,10 @@ public class QuartzOscillatorBlock extends DirectionalDomainSourceBlock implemen
     protected void onRemove(BlockState s,Level l,BlockPos p,BlockState ns,boolean moved){
         if(!s.is(ns.getBlock())) {
             RuntimeIntStore.remove(l, KEY, p);
-            if(l instanceof ServerLevel sl) DomainNetwork.recomputeQuartzAround(sl,p);
+            if(l instanceof ServerLevel sl) {
+                EngineeringDeviceParameters.get(sl).removeExtendedParameters(sl, p);
+                DomainNetwork.recomputeQuartzAround(sl,p);
+            }
         }
         super.onRemove(s,l,p,ns,moved);
     }
@@ -116,7 +139,7 @@ public class QuartzOscillatorBlock extends DirectionalDomainSourceBlock implemen
     protected void tick(BlockState s,ServerLevel l,BlockPos p,RandomSource r){
         int[] runtime = RuntimeIntStore.get(l, KEY, p, RUNTIME_SIZE);
         if (runtime[INITIALIZED] == 0) {
-            runtime[EFFECTIVE_PERIOD_INDEX] = s.getValue(PERIOD_INDEX);
+            runtime[EFFECTIVE_PERIOD_INDEX] = configuredPeriodTicks(l, p, s);
             runtime[INITIALIZED] = 1;
         }
 
@@ -124,7 +147,7 @@ public class QuartzOscillatorBlock extends DirectionalDomainSourceBlock implemen
         l.setBlock(p,n,Block.UPDATE_CLIENTS);
 
         // A configured period change becomes effective only at this real waveform transition.
-        runtime[EFFECTIVE_PERIOD_INDEX] = n.getValue(PERIOD_INDEX);
+        runtime[EFFECTIVE_PERIOD_INDEX] = configuredPeriodTicks(l, p, n);
         if (runtime[EDGE_COUNT] < Integer.MAX_VALUE) runtime[EDGE_COUNT]++;
 
         DomainNetwork.recomputeQuartz(l,p);
@@ -139,6 +162,11 @@ public class QuartzOscillatorBlock extends DirectionalDomainSourceBlock implemen
         int next = Math.floorMod(current + (forward ? 1 : -1), 5);
         BlockState updated = state.setValue(PERIOD_INDEX, next);
         level.setBlock(pos, updated, Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel serverLevel) {
+            EngineeringDeviceParameters.get(serverLevel).setExtendedParameters(
+                    serverLevel, pos,
+                    new EngineeringDeviceParameters.ExtendedParameters(configuredPeriodTicks(updated), 0, 0, 0));
+        }
         // Do not create an early edge. The new period is latched by the next real oscillator
         // transition; until then the timing network keeps the old effective-period evidence.
         return true;
