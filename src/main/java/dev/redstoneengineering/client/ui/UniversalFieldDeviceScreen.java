@@ -356,12 +356,14 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         labelValue(g, "Declared interfaces", Integer.toString(declared), 106);
         labelValue(g, "Physical route", routeText(), 124);
         labelValue(g, "Attention ports", Integer.toString(attention), 142);
-        sectionRule(g, 161);
-        safeText(g, "Every displayed value and quality is synchronized from the logical server.", 16, 174, TEXT);
+        EngineeringWorkbenchCatalog.ModelCard model = EngineeringWorkbenchCatalog.describe(menu);
+        safeText(g, "MODEL • " + model.equation(), 16, 160, GOOD);
+        safeText(g, "TERMS • " + model.parameters(), 16, 176, INFO);
+        sectionRule(g, 190);
         safeText(g, lapisPrecisionMeasurementPresent()
-                        ? "Lapis measurement uses the 0..100 precision-information domain; valid zero remains real evidence."
-                        : "Use Ports for physical faces, Configure for parameters, and Route for real orientation.",
-                16, 191, lapisPrecisionMeasurementPresent() ? INFO : MUTED);
+                        ? "0..100 Lapis precision domain • resolution 0.01 • valid zero is real evidence."
+                        : "Values and quality come from synchronized server ports; no client-side physics is invented.",
+                16, 201, lapisPrecisionMeasurementPresent() ? INFO : MUTED);
     }
 
     private void ports(GuiGraphics g) {
@@ -393,32 +395,40 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private void renderNumericalWorkbench(GuiGraphics g, int kind) {
         statusBadge(g, kind == UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY
                 ? "RELAY PARAMETER WORKBENCH" : "NUMERICAL PARAMETER WORKBENCH", INFO, 16, 80);
+        EngineeringWorkbenchCatalog.ModelCard model = EngineeringWorkbenchCatalog.describe(menu);
+        safeText(g, "EQUATION • " + model.equation(), 16, 98, GOOD);
+        safeText(g, "TERMS • " + model.parameters(), 16, 114, INFO);
         if (menu.editPrimaryAvailable()) {
             labelValue(g, primaryParameterName(kind),
-                    menu.editPrimaryValue() + "   range " + menu.editPrimaryMin() + ".." + menu.editPrimaryMax(), 99);
+                    menu.editPrimaryValue() + "   range " + menu.editPrimaryMin() + ".." + menu.editPrimaryMax(), 136);
         } else {
-            labelValue(g, "Primary parameter", "READ ONLY / NONE", 99);
+            labelValue(g, "Primary parameter", "READ ONLY / NONE", 136);
         }
         if (menu.editSecondaryAvailable()) {
             labelValue(g, secondaryParameterName(kind),
-                    menu.editSecondaryValue() + "   range " + menu.editSecondaryMin() + ".." + menu.editSecondaryMax(), 151);
+                    menu.editSecondaryValue() + "   range " + menu.editSecondaryMin() + ".." + menu.editSecondaryMax(), 154);
         }
         if (kind == UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY) {
             int pickupMode = menu.editPrimaryValue();
             int timingMode = menu.editSecondaryValue();
             int pickup = switch (pickupMode) { case 0 -> 1; case 1 -> 4; case 2 -> 8; default -> 12; };
             int dropout = Math.max(0, pickup - 2);
-            labelValue(g, "Pickup / dropout", pickup + " / " + dropout, 183);
+            labelValue(g, "Pickup / dropout", pickup + " / " + dropout, 176);
             labelValue(g, "Operate / release",
                     SingleRelayBlock.timingNameForMode(timingMode) + " • "
                             + SingleRelayBlock.operateDelayForMode(timingMode) + "/"
-                            + SingleRelayBlock.releaseDelayForMode(timingMode) + "t", 195);
+                            + SingleRelayBlock.releaseDelayForMode(timingMode) + "t", 192);
             safeText(g, "Timing • " + SingleRelayBlock.timingNameForMode(timingMode)
-                    + " models finite armature travel; edit it independently from pickup/dropout.", 16, 211, INFO);
-            safeText(g, "Pickup and timing are discrete relay profiles; Contact NO/NC remains the explicit toggle below.", 16, 229, MUTED);
+                    + " models finite armature travel; edit it independently from pickup/dropout.", 16, 208, INFO);
+            safeText(g, "Pickup and timing are discrete relay profiles; Contact NO/NC remains the explicit toggle below.", 16, 224, MUTED);
         } else {
-            safeText(g, "Fine buttons step the authoritative model; target boxes apply an exact bounded setting.", 16, 204, MUTED);
-            safeText(g, "Open Model for equation/process meaning. Min/Max are server-validated presets.", 16, 214, MUTED);
+            EngineeringWorkbenchCatalog.ParameterSpec p = firstEditableParameter();
+            if (p != null) {
+                String symbol = EngineeringWorkbenchCatalog.parameterSymbol(menu, p);
+                int eq = EngineeringWorkbenchCatalog.parameterEquationIndex(menu, p);
+                safeText(g, "CONTROL • " + p.label() + " → " + symbol + " in Eq." + eq, 16, 184, GOOD);
+            }
+            safeText(g, "Fine/exact targets call the authoritative block action; Min/Max remain server validated.", 16, 204, MUTED);
         }
     }
 
@@ -1140,14 +1150,15 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private void diagnostics(GuiGraphics g) {
         statusBadge(g, attentionCount() == 0 ? "PORT EVIDENCE NOMINAL" : "PORT EVIDENCE ATTENTION",
                 attentionCount() == 0 ? GOOD : WARN, 16, 80);
-        int y = 104;
+        safeText(g, "CHECK • " + universalDiagnosticRelation(), 16, 96, GOOD);
+        int y = 116;
         for (Direction side : Direction.values()) {
             if (!menu.hasPort(side)) continue;
             PortQuality quality = menu.quality(side);
             statusLine(g, side.getName().toUpperCase(), quality.name() + " • " + menu.domain(side).label(), qualityColor(quality), y);
             y += 18;
         }
-        if (y == 104) safeText(g, "No EngineeringPortProvider interfaces are declared by this block.", 16, 108, WARN);
+        if (y == 116) safeText(g, "No EngineeringPortProvider interfaces are declared by this block.", 16, 120, WARN);
         if (lapisPrecisionMeasurementPresent() && y <= 190) {
             sectionRule(g, y + 2);
             statusLine(g, "Precision identity", lapisPrecisionText(), lapisPrecisionColor(), y + 14);
@@ -1230,6 +1241,29 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         System.arraycopy(outputHistory, 1, outputHistory, 0, PORT_HISTORY - 1);
         inputHistory[PORT_HISTORY - 1] = inValue;
         outputHistory[PORT_HISTORY - 1] = outValue;
+    }
+
+    private EngineeringWorkbenchCatalog.ParameterSpec firstEditableParameter() {
+        java.util.List<EngineeringWorkbenchCatalog.ParameterSpec> specs = EngineeringWorkbenchCatalog.parameters(menu);
+        return specs.isEmpty() ? null : specs.get(0);
+    }
+
+    private String universalDiagnosticRelation() {
+        Direction in = firstInputSide();
+        Direction out = firstOutputSide();
+        if (in != null && out != null) {
+            PortQuality qi = menu.quality(in);
+            PortQuality qo = menu.quality(out);
+            if ((qi == PortQuality.VALID || qi == PortQuality.SATURATED)
+                    && (qo == PortQuality.VALID || qo == PortQuality.SATURATED)) {
+                double delta = menu.value(out) - menu.value(in);
+                return "input=" + menu.value(in) + " • output=" + menu.value(out)
+                        + " • Δ(out-in)=" + String.format(java.util.Locale.ROOT, "%.2f", delta);
+            }
+            return "I/O residual unavailable • input=" + qi.name() + " • output=" + qo.name();
+        }
+        EngineeringWorkbenchCatalog.ModelCard model = EngineeringWorkbenchCatalog.describe(menu);
+        return model.process() + " • evidence=" + menu.evidenceStateLabel();
     }
 
     private int observedValue(Direction side) {
