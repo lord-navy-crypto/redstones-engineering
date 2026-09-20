@@ -24,6 +24,7 @@ public final class EngineeringDeviceParameters extends SavedData {
     private final Map<String, Integer> lapisLowPassAlphaPercent = new LinkedHashMap<>();
     private final Map<String, PidParameters> pidParameters = new LinkedHashMap<>();
     private final Map<String, ServoParameters> servoParameters = new LinkedHashMap<>();
+    private final Map<String, ExtendedParameters> extendedParameters = new LinkedHashMap<>();
 
     public record PidParameters(int kp, int kiDivisor, int kd, int derivativeSmoothing, int riseLimit, int fallLimit) {
         public PidParameters {
@@ -43,6 +44,9 @@ public final class EngineeringDeviceParameters extends SavedData {
             accelerationStep = clamp(accelerationStep, 1, 4);
         }
     }
+
+    /** Four bounded integer slots for device-specific engineering parameters. */
+    public record ExtendedParameters(int a, int b, int c, int d) {}
 
     public static EngineeringDeviceParameters get(ServerLevel level) {
         if (level == null || level.getServer() == null) throw new IllegalArgumentException("server level required");
@@ -86,6 +90,14 @@ public final class EngineeringDeviceParameters extends SavedData {
                     row.getInt("AccelerationStep")
             ));
         }
+        ListTag extendedRows = tag.getList("ExtendedParameters", Tag.TAG_COMPOUND);
+        for (int i = 0; i < extendedRows.size(); i++) {
+            CompoundTag row = extendedRows.getCompound(i);
+            String key = row.getString("Key");
+            if (key.isBlank()) continue;
+            data.extendedParameters.put(key, new ExtendedParameters(
+                    row.getInt("A"), row.getInt("B"), row.getInt("C"), row.getInt("D")));
+        }
         return data;
     }
 
@@ -127,6 +139,19 @@ public final class EngineeringDeviceParameters extends SavedData {
             servoRows.add(row);
         }
         tag.put("ServoActuators", servoRows);
+
+        ListTag extendedRows = new ListTag();
+        for (Map.Entry<String, ExtendedParameters> entry : extendedParameters.entrySet()) {
+            ExtendedParameters value = entry.getValue();
+            CompoundTag row = new CompoundTag();
+            row.putString("Key", entry.getKey());
+            row.putInt("A", value.a());
+            row.putInt("B", value.b());
+            row.putInt("C", value.c());
+            row.putInt("D", value.d());
+            extendedRows.add(row);
+        }
+        tag.put("ExtendedParameters", extendedRows);
         return tag;
     }
 
@@ -185,6 +210,24 @@ public final class EngineeringDeviceParameters extends SavedData {
 
     public boolean removeServoParameters(ServerLevel level, BlockPos pos) {
         if (servoParameters.remove(key(level, pos)) == null) return false;
+        setDirty();
+        return true;
+    }
+
+    public ExtendedParameters extendedParameters(ServerLevel level, BlockPos pos, ExtendedParameters fallback) {
+        return extendedParameters.getOrDefault(key(level, pos), fallback);
+    }
+
+    public boolean setExtendedParameters(ServerLevel level, BlockPos pos, ExtendedParameters parameters) {
+        String key = key(level, pos);
+        ExtendedParameters previous = extendedParameters.put(key, parameters);
+        if (parameters.equals(previous)) return false;
+        setDirty();
+        return true;
+    }
+
+    public boolean removeExtendedParameters(ServerLevel level, BlockPos pos) {
+        if (extendedParameters.remove(key(level, pos)) == null) return false;
         setDirty();
         return true;
     }
