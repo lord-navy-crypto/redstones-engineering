@@ -6,6 +6,7 @@ import dev.redstoneengineering.blockentity.PrecisionFilterBlockEntity;
 import dev.redstoneengineering.core.port.EngineeringPort;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.EngineeringDeviceParameters;
 import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.signal.PrecisionFilterLogic;
 import dev.redstoneengineering.ui.FieldDeviceUi;
@@ -94,7 +95,7 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock implements Enti
         int nextValue = PrecisionFilterLogic.step(
                 current,
                 input,
-                state.getValue(RATE),
+                riseRate(level, pos, state),
                 fallRate(level, pos, state)
         );
         updateOutput(level, pos, state, nextValue);
@@ -130,6 +131,26 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock implements Enti
         return inputUsable(level, pos, state) && trackingError(level, pos, state) == 0;
     }
 
+    public static int riseRate(Level level, BlockPos pos, BlockState state) {
+        int fallback = state.getValue(RATE);
+        if (level instanceof ServerLevel serverLevel) {
+            return Math.max(1, Math.min(15, EngineeringDeviceParameters.get(serverLevel)
+                    .extendedParameters(serverLevel, pos,
+                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
+        }
+        return fallback;
+    }
+
+    public static boolean setRiseRate(ServerLevel level, BlockPos pos, int value) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof PrecisionFilterBlock filter)) return false;
+        int bounded = Math.max(1, Math.min(15, value));
+        boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
+                level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
+        if (changed) level.scheduleTick(pos, filter, 1);
+        return changed;
+    }
+
     public static int fallRate(Level level, BlockPos pos, BlockState state) {
         PrecisionFilterBlockEntity entity = persistentState(level, pos, state);
         return entity == null ? state.getValue(RATE) : entity.fallRate();
@@ -139,7 +160,7 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock implements Enti
         if (!inputUsable(level, pos, state)) return -1;
         int in = input(level, pos, state);
         int out = state.getValue(OUTPUT);
-        return PrecisionFilterLogic.settleTicks(out, in, state.getValue(RATE), fallRate(level, pos, state));
+        return PrecisionFilterLogic.settleTicks(out, in, riseRate(level, pos, state), fallRate(level, pos, state));
     }
 
     /** -1 falling, 0 settled, +1 rising. */
@@ -153,7 +174,12 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock implements Enti
         if (!(state.getBlock() instanceof PrecisionFilterBlock filter)) return false;
         int rate = state.getValue(RATE);
         int nextRate = forward ? (rate >= 4 ? 1 : rate + 1) : (rate <= 1 ? 4 : rate - 1);
-        level.setBlock(pos, state.setValue(RATE, nextRate), Block.UPDATE_CLIENTS);
+        BlockState nextState = state.setValue(RATE, nextRate);
+        level.setBlock(pos, nextState, Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel serverLevel) {
+            EngineeringDeviceParameters.get(serverLevel).setExtendedParameters(
+                    serverLevel, pos, new EngineeringDeviceParameters.ExtendedParameters(nextRate, 0, 0, 0));
+        }
         level.scheduleTick(pos, filter, 1);
         return true;
     }
