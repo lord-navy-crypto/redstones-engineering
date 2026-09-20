@@ -10,6 +10,7 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
+import dev.redstoneengineering.physics.EngineeringDeviceParameters;
 import dev.redstoneengineering.physics.EngineeringMath;
 import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
@@ -103,6 +104,26 @@ public class RedstoneCopperDriverBlock extends Block implements EngineeringPortP
         return SLEW_STEPS[state.getValue(SLEW)];
     }
 
+    public static int configuredSlew(Level level, BlockPos pos, BlockState state) {
+        int fallback = slewStep(state);
+        if (level instanceof ServerLevel serverLevel) {
+            return Math.max(1, Math.min(15, EngineeringDeviceParameters.get(serverLevel)
+                    .extendedParameters(serverLevel, pos,
+                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
+        }
+        return fallback;
+    }
+
+    public static boolean setConfiguredSlew(ServerLevel level, BlockPos pos, int slew) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof RedstoneCopperDriverBlock driver)) return false;
+        int bounded = Math.max(1, Math.min(15, slew));
+        boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
+                level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
+        if (changed) level.scheduleTick(pos, driver, 1);
+        return changed;
+    }
+
     private static int encodeQuality(PortQuality quality) { return quality.ordinal() + 1; }
 
     @Override public List<EngineeringPort> engineeringPorts(BlockState state) {
@@ -151,12 +172,12 @@ public class RedstoneCopperDriverBlock extends Block implements EngineeringPortP
 
         if (observation.valid()) {
             rt[TARGET] = EngineeringMath.clamp(observation.value(), 0, 15);
-            rt[ACTUAL] = moveToward(rt[ACTUAL], rt[TARGET], slewStep(state));
+            rt[ACTUAL] = moveToward(rt[ACTUAL], rt[TARGET], configuredSlew(level, pos, state));
             // sourcePresent=true even for actual 0 V: a valid zero command is a real electrical state.
             DomainNetwork.driveCopper(level, pos.relative(outputSide(state)), pos, rt[ACTUAL], true);
         } else if (observation.quality() == PortQuality.NO_SIGNAL) {
             rt[TARGET] = 0;
-            rt[ACTUAL] = moveToward(rt[ACTUAL], 0, slewStep(state));
+            rt[ACTUAL] = moveToward(rt[ACTUAL], 0, configuredSlew(level, pos, state));
             DomainNetwork.driveCopper(level, pos.relative(outputSide(state)), pos, 0, false);
         } else {
             // Unknown command evidence is not a new numeric command.
@@ -179,6 +200,9 @@ public class RedstoneCopperDriverBlock extends Block implements EngineeringPortP
                 DomainNetwork.driveCopper(server, pos.relative(outputSide(state)), pos, 0, false);
             }
             RuntimeIntStore.remove(level, KEY, pos);
+            if (level instanceof ServerLevel serverLevel) {
+                EngineeringDeviceParameters.get(serverLevel).removeExtendedParameters(serverLevel, pos);
+            }
         }
         super.onRemove(state, level, pos, newState, moved);
     }
@@ -193,6 +217,11 @@ public class RedstoneCopperDriverBlock extends Block implements EngineeringPortP
                 int next = (state.getValue(SLEW) + 1) % 3;
                 BlockState updated = state.setValue(SLEW, next);
                 level.setBlock(pos, updated, Block.UPDATE_CLIENTS);
+                if (level instanceof ServerLevel serverLevel) {
+                    EngineeringDeviceParameters.get(serverLevel).setExtendedParameters(
+                            serverLevel, pos,
+                            new EngineeringDeviceParameters.ExtendedParameters(slewStep(updated), 0, 0, 0));
+                }
                 player.displayClientMessage(Component.literal(
                         "Redstone-Copper Driver | target=" + targetVoltage(level, pos)
                                 + " V-level | actual=" + actualVoltage(level, pos)
