@@ -66,7 +66,12 @@ public final class MediaConversionScreen extends EngineeringScreen<MediaConversi
         labelValue(g, "RX face", menu.inputFace().getName().toUpperCase(), 149);
         labelValue(g, "TX face", menu.outputFace().getName().toUpperCase(), 167);
         labelValue(g, "Evidence", menu.inputQuality().name() + " → " + menu.outputQuality().name(), 185);
-        safeText(g, identityText(), 16, 207, INFO);
+        if (menu.lapisToRedstone()) {
+            safeWrappedText(g, "MODEL  q = round(15x/100);  x_hat = 100q/15", 16, 207, GOOD, 2);
+            safeText(g, "Quantization error = |x - x_hat| = " + formatNormalized(menu.quantizationLoss()), 16, 229, INFO);
+        } else {
+            safeText(g, identityText(), 16, 207, INFO);
+        }
     }
 
     private void ports(GuiGraphics g) {
@@ -96,7 +101,7 @@ public final class MediaConversionScreen extends EngineeringScreen<MediaConversi
             safeText(g, "DIAGNOSIS • UPSCALED REPRESENTATION — NO NEW SOURCE PRECISION", 16, 212, diagnosisColor());
         } else {
             labelValue(g, "Reconstructed input", formatNormalized(menu.reconstructedLapis()), 190);
-            labelValue(g, "Quantization loss", formatNormalized(menu.quantizationLoss()), 210);
+            labelValue(g, "Quantization error", formatNormalized(menu.quantizationLoss()), 210);
         }
     }
 

@@ -8,6 +8,10 @@ class SignalProcessingLabContractTests(unittest.TestCase):
     def setUp(self):
         self.service = (ROOT / "src/main/java/dev/redstoneengineering/validation/RseSignalProcessingLabService.java").read_text(encoding="utf-8")
         self.module = (ROOT / "src/main/java/dev/redstoneengineering/validation/RseValidationFactoryModule.java").read_text(encoding="utf-8")
+        self.catalog = (ROOT / "src/main/java/dev/redstoneengineering/client/ui/EngineeringWorkbenchCatalog.java").read_text(encoding="utf-8")
+        self.universal_menu = (ROOT / "src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java").read_text(encoding="utf-8")
+        self.universal_screen = (ROOT / "src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java").read_text(encoding="utf-8")
+        self.conversion_screen = (ROOT / "src/main/java/dev/redstoneengineering/client/ui/MediaConversionScreen.java").read_text(encoding="utf-8")
 
     def test_four_unit_cells_and_one_integrated_chain_exist(self):
         for token in [
@@ -94,6 +98,55 @@ class SignalProcessingLabContractTests(unittest.TestCase):
             "IntegerArgumentType.integer(1, 9)",
         ]:
             self.assertIn(token, self.module)
+
+    def test_showcase_story_and_bay_zoning_are_explicit(self):
+        for token in [
+            "SHOWCASE MODE",
+            "STORY: SMOOTH → TIME → CAPTURE → ENCODE",
+            "SHOWCASE STORY | SMOOTH -> TIME -> CAPTURE -> ENCODE",
+            "CHAIN MATH | y+=alpha(x-y) | Quartz rising edge -> hold | q=round(15x/100)",
+            "Blocks.BLUE_CONCRETE",
+            "Blocks.WHITE_CONCRETE",
+            "Blocks.CYAN_CONCRETE",
+            "Blocks.RED_CONCRETE",
+        ]:
+            self.assertIn(token, self.service)
+
+    def test_three_dynamic_showcase_blocks_have_real_lab_profiles(self):
+        for token in [
+            "How strongly does alpha smooth a real Lapis step input?",
+            "How do period and jitter settings change a real server clock?",
+            "Does the sample-and-hold change only on genuine Quartz rising edges?",
+            "CONFIG PENDING • edited timing will latch on the next genuine edge",
+            "rejected acquisition preserves the previous trustworthy sample",
+        ]:
+            self.assertIn(token, self.catalog)
+
+    def test_universal_snapshot_exposes_showcase_runtime_evidence(self):
+        for token in [
+            "LapisLowPassFilterBlock.FilterState filter",
+            "filter.output()",
+            "filter.quality().ordinal()",
+            "LapisLowPassFilterBlock.retainedHistory",
+            "QuartzTriggeredLapisSamplerBlock.heldQuality",
+        ]:
+            self.assertIn(token, self.universal_menu)
+        for token in [
+            'CONFIG_LAPIS_LOW_PASS -> "Alpha"',
+            'CONFIG_QUARTZ_LAB_OSCILLATOR -> "Jitter"',
+            "opening this page never creates a Quartz edge",
+        ]:
+            self.assertIn(token, self.universal_screen)
+
+    def test_quantizer_showcase_explains_information_loss(self):
+        for token in [
+            "q = round(15x/100)",
+            "x_hat = 100q/15",
+            "Quantization error",
+            "precision is intentionally discarded at this boundary",
+            "compare x, q and x_hat",
+        ]:
+            self.assertIn(token, self.conversion_screen)
 
     def test_signal_lab_publishes_copy_ready_feedback(self):
         for token in [

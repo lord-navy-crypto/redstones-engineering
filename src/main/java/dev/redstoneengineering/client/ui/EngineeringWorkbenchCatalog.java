@@ -170,12 +170,18 @@ public final class EngineeringWorkbenchCatalog {
                         equations.add("thermal[k+1] = heat(I/Irated) - cooling");
                 case UniversalFieldDeviceMenu.CONFIG_REDSTONE_COPPER_DRIVER ->
                         equations.add("Vactual[k+1] = moveToward(Vactual,Vtarget,slew)");
-                case UniversalFieldDeviceMenu.CONFIG_LAPIS_LOW_PASS ->
-                        equations.add("alpha controls the fraction of (x-y) applied each update");
+                case UniversalFieldDeviceMenu.CONFIG_LAPIS_LOW_PASS -> {
+                        equations.add("e[k] = x[k] - y[k]");
+                        equations.add("Δy[k] = alpha * e[k]");
+                    }
                 case UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY ->
                         equations.add("t_release = t_edge + td");
-                case UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAB_OSCILLATOR ->
+                case UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAB_OSCILLATOR -> {
                         equations.add("halfInterval = max(1,T/2 + deltaJ), deltaJ in [-J,+J]");
+                        equations.add("one full clock period = two genuine half-cycle transitions");
+                    }
+                case UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAPIS_SAMPLER ->
+                        equations.add("y[n] = x(t_n) on accepted Quartz rising edge; otherwise hold y[n-1]");
                 case UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER ->
                         equations.add("P = V^2/Rh; T -> Tambient + P/3");
                 case UniversalFieldDeviceMenu.CONFIG_THERMAL_MASS ->
@@ -722,6 +728,66 @@ public final class EngineeringWorkbenchCatalog {
 
     public static LabProfile labProfile(EngineeringDeviceMenu menu) {
         if (uiPolicy(menu).tier() != UiTier.LAB) return null;
+
+        if (menu instanceof UniversalFieldDeviceMenu universal) {
+            if (universal.configKind() == UniversalFieldDeviceMenu.CONFIG_LAPIS_LOW_PASS) {
+                int alphaIndex = Math.max(0, Math.min(3, universal.configPrimary()));
+                String alpha = switch (alphaIndex) {
+                    case 0 -> "0.10";
+                    case 1 -> "0.25";
+                    case 2 -> "0.50";
+                    default -> "0.75";
+                };
+                int packed = universal.configQuaternary();
+                PortQuality quality = PortQuality.values()[Math.max(0, Math.min(PortQuality.values().length - 1, packed & 0x0F))];
+                boolean retained = (packed & (1 << 4)) != 0;
+                return lab(
+                        "How strongly does alpha smooth a real Lapis step input?",
+                        "filter alpha",
+                        "smoothed Lapis output / tracking error",
+                        metric("Alpha", alpha, "Fraction of the current input-output error corrected each update."),
+                        metric("Output", String.format(java.util.Locale.ROOT, "%.2f", universal.configSecondary() / 100.0),
+                                "Server-retained first-order filter output."),
+                        metric("Evidence", quality.name(), "Current output evidence quality."),
+                        "Retained state " + (retained ? "PRESENT" : "EMPTY")
+                                + " • changing alpha changes future response; it never rewrites the existing state."
+                );
+            }
+            if (universal.configKind() == UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAB_OSCILLATOR) {
+                int status = universal.configQuaternary();
+                boolean available = (status & 1) != 0;
+                int jitterOffset = ((status >> 1) & 31) - 15;
+                boolean pending = (status & (1 << 6)) != 0;
+                return lab(
+                        "How do period and jitter settings change a real server clock?",
+                        "period index / jitter bound",
+                        "realized half-cycle timing",
+                        metric("Period index", Integer.toString(universal.configPrimary()), "Configured period profile; latched on a genuine transition."),
+                        metric("Last half-cycle", available ? universal.configTertiary() + "t" : "—",
+                                "Measured interval scheduled by the authoritative oscillator."),
+                        metric("Jitter offset", available ? (jitterOffset >= 0 ? "+" : "") + jitterOffset + "t" : "—",
+                                "Realized deviation from nominal half-period."),
+                        pending
+                                ? "CONFIG PENDING • edited timing will latch on the next genuine edge; opening the UI never creates one."
+                                : "CONFIG LATCHED • timing evidence corresponds to an actual waveform transition."
+                );
+            }
+            if (universal.configKind() == UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAPIS_SAMPLER) {
+                PortQuality heldQuality = PortQuality.values()[Math.max(0,
+                        Math.min(PortQuality.values().length - 1, universal.configQuaternary()))];
+                return lab(
+                        "Does the sample-and-hold change only on genuine Quartz rising edges?",
+                        "Quartz rising-edge events",
+                        "held Lapis sample",
+                        metric("Held sample", String.format(java.util.Locale.ROOT, "%.2f", universal.configPrimary() / 100.0),
+                                "Last accepted precision sample."),
+                        metric("Accepted", Integer.toString(universal.configSecondary()), "Valid rising-edge captures."),
+                        metric("Rejected", Integer.toString(universal.configTertiary()), "Edges rejected because input evidence was not trustworthy."),
+                        "Held evidence " + heldQuality.name()
+                                + " • rejected acquisition preserves the previous trustworthy sample instead of fabricating zero."
+                );
+            }
+        }
 
         if (menu instanceof PidControllerMenu pid) {
             return lab(
@@ -1998,8 +2064,13 @@ public final class EngineeringWorkbenchCatalog {
                     "BUFFER / TAP", "y = x for trustworthy input evidence",
                     "route only", "observe series input -> copy payload -> preserve evidence quality",
                     "Retained numeric history is not automatically current evidence.");
-            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAPIS_SAMPLER,
-                 UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD -> card(
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAPIS_SAMPLER -> card(
+                    "QUARTZ-TRIGGERED LAPIS SAMPLE & HOLD",
+                    "y[n] = x(t_n) on a valid Quartz rising edge; between edges y is held",
+                    "Quartz trigger evidence • held Lapis value • accepted/rejected captures",
+                    "detect genuine rising edge -> validate Lapis input -> capture or reject -> hold last trustworthy sample",
+                    "GUI inspection never creates an edge; rejected capture preserves the previous trustworthy sample.");
+            case UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD -> card(
                     "SAMPLE AND HOLD", "y[n] = x(t_n); hold y until the next accepted trigger",
                     "trigger mode • clock/trigger evidence", "detect trigger edge -> capture valid input -> hold sample",
                     "A rejected capture keeps the previous value instead of fabricating zero.");

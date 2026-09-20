@@ -847,6 +847,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             EngineeringWorkbenchCatalog.ModelCard model,
             List<EngineeringWorkbenchCatalog.ParameterSpec> specs
     ) {
+        if (renderSignalShowcaseLab(graphics)) return;
         EngineeringWorkbenchCatalog.LabProfile lab = EngineeringWorkbenchCatalog.labProfile(menu);
         List<String> equations = EngineeringWorkbenchCatalog.physicsEquations(menu);
         graphics.drawString(font, "PHYSICS • Formula / relation", 16, 103, INFO, false);
@@ -910,6 +911,48 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             if (!lab.note().isBlank()) detail = detail + " • " + lab.note();
             workbenchTarget.setTooltip(Tooltip.create(Component.literal(detail)));
         }
+    }
+
+    private boolean renderSignalShowcaseLab(GuiGraphics graphics) {
+        if (!(menu instanceof UniversalFieldDeviceMenu universal)) return false;
+        int kind = universal.configKind();
+        boolean lpf = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_LOW_PASS;
+        boolean clock = kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAB_OSCILLATOR;
+        boolean sampler = kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAPIS_SAMPLER;
+        if (!lpf && !clock && !sampler) return false;
+
+        EngineeringWorkbenchCatalog.LabProfile lab = EngineeringWorkbenchCatalog.labProfile(menu);
+        List<String> equations = EngineeringWorkbenchCatalog.physicsEquations(menu);
+
+        String title = lpf ? "LOW-PASS FILTER"
+                : clock ? "QUARTZ CLOCK"
+                : "SAMPLE & HOLD";
+        statusBadge(graphics, title, INFO, 16, 103);
+
+        // Showcase rule: one complete equation, never ellipsized.
+        if (!equations.isEmpty()) {
+            graphics.drawString(font, "MODEL", 16, 126, MUTED, false);
+            safeWrappedText(graphics, equations.get(0), 58, 126, TEXT, 2);
+        }
+
+        if (lab != null) {
+            List<EngineeringWorkbenchCatalog.LabMetric> metrics = lab.metrics();
+            int[] xs = {16, 111, 206};
+            for (int i = 0; i < Math.min(3, metrics.size()); i++) {
+                EngineeringWorkbenchCatalog.LabMetric metric = metrics.get(i);
+                metricCard(graphics, metric.label(), metric.value(), xs[i], 157, 88, i == 1 ? GOOD : INFO);
+            }
+
+            if (lpf) {
+                safeText(graphics, "Meaning: each update removes alpha of the current input-output error.", 16, 202, INFO);
+            } else if (clock) {
+                safeText(graphics, "Meaning: period sets cadence; jitter shifts the next real edge within its bound.", 16, 202, INFO);
+            } else {
+                safeText(graphics, "Meaning: only a genuine rising edge may replace the held sample.", 16, 202, INFO);
+            }
+            safeWrappedText(graphics, lab.note(), 16, 218, MUTED, 2);
+        }
+        return true;
     }
 
     private void renderRoutePage(GuiGraphics graphics) {

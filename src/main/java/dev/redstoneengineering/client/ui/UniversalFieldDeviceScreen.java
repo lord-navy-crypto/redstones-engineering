@@ -307,7 +307,9 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.CONFIG_SERIALIZER -> "Period";
             case UniversalFieldDeviceMenu.CONFIG_REGENERATOR -> "Threshold";
             case UniversalFieldDeviceMenu.CONFIG_BYTE_ENCODER, UniversalFieldDeviceMenu.CONFIG_BYTE_DECODER -> "Mode";
-            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> "Period idx";
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR,
+                 UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAB_OSCILLATOR -> "Period idx";
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_LOW_PASS -> "Alpha";
             case UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH -> "Threshold";
             case UniversalFieldDeviceMenu.CONFIG_REFERENCE_SOURCE -> "Power";
             case UniversalFieldDeviceMenu.CONFIG_SIGNAL_PROBE -> "Channel";
@@ -333,6 +335,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY -> "Aperture";
             case UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE -> "Range idx";
             case UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY -> "Timing";
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAB_OSCILLATOR -> "Jitter";
             default -> "Parameter B";
         };
     }
@@ -522,7 +525,10 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Accepted captures", Integer.toString(menu.configSecondary()), 123);
                 labelValue(g, "Rejected captures", Integer.toString(menu.configTertiary()), 145);
                 safeText(g, "A Quartz rising edge captures the current Lapis precision sample. Invalid input evidence is rejected instead of overwriting the last good held value.", 16, 178, TEXT);
-                safeText(g, "Rejected captures invalidate the output evidence until a later valid edge reacquires the sample.", 16, 200, MUTED);
+                PortQuality heldQuality = syncedQuality(menu.configQuaternary());
+                labelValue(g, "Held evidence", heldQuality.name(), 167);
+                safeText(g, "A rejected edge does not erase a previously trustworthy held sample; accepted/rejected counters make the acquisition history explicit.", 16, 194, TEXT);
+                safeText(g, "The GUI is observer-only: opening this page never creates a Quartz edge or forces a capture.", 16, 216, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_SIGNAL_AMPLIFIER -> {
                 int gain = switch (Math.max(0, Math.min(3, menu.configPrimary()))) {
