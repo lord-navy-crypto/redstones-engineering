@@ -239,9 +239,10 @@ public final class RseSignalProcessingLabService {
         publishValidationRun(level, session);
 
         return RseValidationFactoryService.Result.ok(
-                "Placed RSE Signal Processing Laboratory.",
-                "UNIT CELLS: S1 low-pass | S2 clock oscillator | S3 sample-and-hold | S4 quantizer.",
-                "INTEGRATED: S5 LPF | S6 clock | S7 sampler | S8 quantizer | S9 end-to-end.",
+                "Placed RSE Signal Processing Laboratory • SHOWCASE MODE.",
+                "STORY: SMOOTH → TIME → CAPTURE → ENCODE.",
+                "FRONT UNIT BAYS: BLUE=S1 low-pass | WHITE=S2 clock | CYAN=S3 sample-and-hold | RED=S4 quantizer.",
+                "REAR INTEGRATED BAY: S5 LPF | S6 clock | S7 sampler | S8 quantizer | S9 end-to-end.",
                 "U1 automatically steps 20 -> 80 to prove a real first-order response.",
                 "Integrated chain automatically steps 25 -> 75 to prove filter -> sample -> quantize propagation.",
                 "Math: LPF y[k]=0.75y[k-1]+0.25x[k] | clock T=8t | rising-edge hold | q=round(15x/100).",
@@ -731,6 +732,9 @@ public final class RseSignalProcessingLabService {
         lines.add("SIGNAL LAB " + s.runId + " | origin=" + s.origin.toShortString());
         lines.add("OVERALL " + overall(s)
                 + " | 4 unit validations + 4 integrated stage validations + 1 end-to-end validation");
+        lines.add("SHOWCASE STORY | SMOOTH -> TIME -> CAPTURE -> ENCODE");
+        lines.add("CHAIN MATH | y+=alpha(x-y) | Quartz rising edge -> hold | q=round(15x/100)");
+        lines.add("DEMO CLAIM | every visible result is server-owned evidence; GUI inspection never creates clock edges or samples");
         for (int i = 1; i <= STAGE_COUNT; i++) {
             StageResult raw = evaluate(level, s, i);
             lines.add(String.format("S%02d %s | raw=%s | confirm=%d/%d | %s | %s",
@@ -840,10 +844,16 @@ public final class RseSignalProcessingLabService {
             }
         }
 
-        // Floor zoning: four small unit bays in front and one long integrated bay behind them.
+        // Floor zoning: four visually distinct teaching bays. The colors follow each stage's
+        // engineering identity so a presenter can walk left-to-right: Lapis filter, Quartz clock,
+        // sampled precision, then Redstone code.
         for (int x = -1; x <= 22; x++) {
+            Block bay = x <= 5 ? Blocks.BLUE_CONCRETE
+                    : x <= 10 ? Blocks.WHITE_CONCRETE
+                    : x <= 16 ? Blocks.CYAN_CONCRETE
+                    : Blocks.RED_CONCRETE;
             for (int z = -2; z <= 2; z++) {
-                level.setBlock(origin.offset(x, -1, z), Blocks.LIGHT_GRAY_CONCRETE.defaultBlockState(), Block.UPDATE_ALL);
+                level.setBlock(origin.offset(x, -1, z), bay.defaultBlockState(), Block.UPDATE_ALL);
             }
         }
         for (int x = -1; x <= 12; x++) {
