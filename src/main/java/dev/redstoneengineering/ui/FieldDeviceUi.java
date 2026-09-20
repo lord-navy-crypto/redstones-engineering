@@ -11,6 +11,7 @@ import dev.redstoneengineering.ui.menu.MediaConversionMenu;
 import dev.redstoneengineering.ui.menu.MultiPhysicsParameterMenu;
 import dev.redstoneengineering.ui.menu.OpticalSystemMenu;
 import dev.redstoneengineering.ui.menu.PneumaticSystemMenu;
+import dev.redstoneengineering.ui.menu.ProcessParameterMenu;
 import dev.redstoneengineering.ui.menu.QuartzTimingMenu;
 import dev.redstoneengineering.ui.menu.RadioLinkMenu;
 import dev.redstoneengineering.ui.menu.RangeSensorMenu;
