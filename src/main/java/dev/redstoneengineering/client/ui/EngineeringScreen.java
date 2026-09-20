@@ -452,8 +452,13 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         String symbol = EngineeringWorkbenchCatalog.parameterSymbol(menu, spec);
         int equationIndex = EngineeringWorkbenchCatalog.parameterEquationIndex(menu, spec);
         if (choice) {
-            workbenchDecrease.setMessage(Component.literal("◀" + symbol));
-            workbenchIncrease.setMessage(Component.literal(symbol + "▶"));
+            if ("P".equals(symbol)) {
+                workbenchDecrease.setMessage(Component.literal("◀ Prev"));
+                workbenchIncrease.setMessage(Component.literal("Next ▶"));
+            } else {
+                workbenchDecrease.setMessage(Component.literal("◀" + symbol));
+                workbenchIncrease.setMessage(Component.literal(symbol + "▶"));
+            }
             workbenchDecrease.setTooltip(Tooltip.create(Component.literal(
                     "Previous " + spec.label() + " • changes " + symbol + " in Eq." + equationIndex)));
             workbenchIncrease.setTooltip(Tooltip.create(Component.literal(
@@ -782,7 +787,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         }
 
         List<String> equations = EngineeringWorkbenchCatalog.physicsEquations(menu);
-        graphics.drawString(font, "PHYSICS", 16, 103, INFO, false);
+        graphics.drawString(font, "PHYSICS • Formula / relation", 16, 103, INFO, false);
         if (!equations.isEmpty()) {
             graphics.drawString(font, "Eq.1", 16, 115, MUTED, false);
             safeText(graphics, equations.get(0), 48, 115, TEXT);
@@ -844,7 +849,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     ) {
         EngineeringWorkbenchCatalog.LabProfile lab = EngineeringWorkbenchCatalog.labProfile(menu);
         List<String> equations = EngineeringWorkbenchCatalog.physicsEquations(menu);
-        graphics.drawString(font, "PHYSICS", 16, 103, INFO, false);
+        graphics.drawString(font, "PHYSICS • Formula / relation", 16, 103, INFO, false);
         if (!equations.isEmpty()) {
             graphics.drawString(font, "Eq.1", 16, 115, MUTED, false);
             safeText(graphics, equations.get(0), 48, 115, TEXT);
