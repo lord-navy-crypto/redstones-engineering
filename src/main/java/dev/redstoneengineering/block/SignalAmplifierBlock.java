@@ -4,6 +4,7 @@ import com.mojang.serialization.MapCodec;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.EngineeringDeviceParameters;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.ui.FieldDeviceUi;
@@ -60,12 +61,37 @@ public final class SignalAmplifierBlock extends DirectionalSignalBlock {
         return GAINS[Math.max(0, Math.min(GAINS.length - 1, state.getValue(GAIN_MODE)))];
     }
 
+    public static int configuredGain(Level level, BlockPos pos, BlockState state) {
+        int fallback = gain(state);
+        if (level instanceof ServerLevel serverLevel) {
+            return Math.max(1, Math.min(8, EngineeringDeviceParameters.get(serverLevel)
+                    .extendedParameters(serverLevel, pos,
+                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
+        }
+        return fallback;
+    }
+
+    public static boolean setConfiguredGain(ServerLevel level, BlockPos pos, int gain) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof SignalAmplifierBlock amplifier)) return false;
+        int bounded = Math.max(1, Math.min(8, gain));
+        boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
+                level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
+        if (changed) level.scheduleTick(pos, amplifier, 1);
+        return changed;
+    }
+
     public static boolean stepGain(Level level, BlockPos pos, boolean forward) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof SignalAmplifierBlock amplifier)) return false;
         int next = Math.floorMod(state.getValue(GAIN_MODE) + (forward ? 1 : -1), GAINS.length);
-        level.setBlock(pos, state.setValue(GAIN_MODE, next), Block.UPDATE_CLIENTS);
-        if (level instanceof ServerLevel server) server.scheduleTick(pos, amplifier, 1);
+        BlockState nextState = state.setValue(GAIN_MODE, next);
+        level.setBlock(pos, nextState, Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel server) {
+            EngineeringDeviceParameters.get(server).setExtendedParameters(
+                    server, pos, new EngineeringDeviceParameters.ExtendedParameters(gain(nextState), 0, 0, 0));
+            server.scheduleTick(pos, amplifier, 1);
+        }
         return true;
     }
 
@@ -102,7 +128,7 @@ public final class SignalAmplifierBlock extends DirectionalSignalBlock {
         }
 
         int input = inputObservation.value();
-        int raw = input * gain(state);
+        int raw = input * configuredGain(level, pos, state);
         boolean clipping = raw > 15;
         if (clipping && rt[CLIP_ACTIVE] == 0 && rt[CLIP_EPISODES] < Integer.MAX_VALUE) rt[CLIP_EPISODES]++;
         rt[CLIP_ACTIVE] = clipping ? 1 : 0;
@@ -133,7 +159,10 @@ public final class SignalAmplifierBlock extends DirectionalSignalBlock {
 
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
-        if (!state.is(newState.getBlock())) RuntimeIntStore.remove(level, RUNTIME_KEY, pos);
+        if (!state.is(newState.getBlock())) {
+            RuntimeIntStore.remove(level, RUNTIME_KEY, pos);
+            if (level instanceof ServerLevel serverLevel) EngineeringDeviceParameters.get(serverLevel).removeExtendedParameters(serverLevel, pos);
+        }
         super.onRemove(state, level, pos, newState, moved);
     }
 
