@@ -10,6 +10,7 @@ import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
+import dev.redstoneengineering.physics.EngineeringDeviceParameters;
 import dev.redstoneengineering.physics.EngineeringMath;
 import dev.redstoneengineering.physics.OpticalObservationSupport;
 import dev.redstoneengineering.ui.FieldDeviceUi;
@@ -46,10 +47,30 @@ public class OpticalAttenuatorBlock extends DirectionalDomainBlock implements En
     @Override public MapCodec<OpticalAttenuatorBlock> codec() { return RedstoneEngineering.OPTICAL_ATTENUATOR_CODEC.value(); }
     @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { super.createBlockStateDefinition(builder); builder.add(LOSS); }
 
+    public static int configuredLoss(Level level, BlockPos pos, BlockState state) {
+        int fallback = state.getValue(LOSS);
+        if (level instanceof ServerLevel serverLevel) {
+            return Math.max(0, Math.min(15, EngineeringDeviceParameters.get(serverLevel)
+                    .extendedParameters(serverLevel, pos,
+                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
+        }
+        return fallback;
+    }
+
+    public static boolean setConfiguredLoss(ServerLevel level, BlockPos pos, int loss) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof OpticalAttenuatorBlock attenuator)) return false;
+        int bounded = Math.max(0, Math.min(15, loss));
+        boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
+                level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
+        if (changed) configurationChanged(level, pos, state);
+        return changed;
+    }
+
     public static AttenuationEvidence evidence(Level level, BlockPos pos, BlockState state) {
         Direction inputSide = seriesInputSide(state);
         OpticalObservationSupport.Observation input = OpticalObservationSupport.observe(level, pos.relative(inputSide));
-        int loss = state.getValue(LOSS);
+        int loss = configuredLoss(level, pos, state);
         int out = input.quality() == PortQuality.VALID ? EngineeringMath.opticalAfterLoss(input.intensity(), loss) : 0;
         return new AttenuationEvidence(input.intensity(), input.channel(), input.quality(), loss, out,
                 input.quality() == PortQuality.VALID && input.intensity() > 0 && out == 0);
@@ -105,6 +126,7 @@ public class OpticalAttenuatorBlock extends DirectionalDomainBlock implements En
 
     @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState next, boolean moved) {
         if (!state.is(next.getBlock()) && level instanceof ServerLevel serverLevel) {
+            EngineeringDeviceParameters.get(serverLevel).removeExtendedParameters(serverLevel, pos);
             invalidateOutput(serverLevel, pos, state);
             DomainNetwork.recomputeOpticalAround(serverLevel, pos);
         }
@@ -115,11 +137,10 @@ public class OpticalAttenuatorBlock extends DirectionalDomainBlock implements En
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer && !player.isShiftKeyDown()) {
             FieldDeviceUi.open(serverPlayer, pos);
         } else if (!level.isClientSide) {
-            int loss = state.getValue(LOSS);
-            loss = loss >= 8 ? 0 : loss + 1;
-            BlockState next = state.setValue(LOSS, loss);
-            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            AttenuationEvidence evidence = evidence(level, pos, next);
+            int loss = configuredLoss(level, pos, state);
+            loss = loss >= 15 ? 0 : loss + 1;
+            if (level instanceof ServerLevel serverLevel) setConfiguredLoss(serverLevel, pos, loss);
+            AttenuationEvidence evidence = evidence(level, pos, state);
             player.displayClientMessage(Component.literal(
                     "Optical attenuator | loss index=" + loss
                             + " | input quality=" + evidence.inputQuality()
