@@ -23,6 +23,7 @@ All notable RSE engineering milestones are recorded here. RSE remains in alpha d
 ### Release boundary
 - Intentionally excludes the later shared Engineering Workbench / generic LAB UI redesign.
 - Adds Alpha 1.0.21 manifest, testing guide, and release packaging verifier.
+- Keeps the legacy full Minecraft GameTest suite as a non-blocking diagnostic; known cross-domain runtime-test debt is not part of the Alpha 1.0.21 blocking release chain.
 
 
 ## [1.0.13-alpha] — 2026-09-03
