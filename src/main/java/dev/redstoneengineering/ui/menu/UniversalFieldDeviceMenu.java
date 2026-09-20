@@ -103,6 +103,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_THERMAL_HEATER = 53;
     public static final int CONFIG_THERMAL_MASS = 54;
     public static final int CONFIG_THERMAL_RADIATOR = 55;
+    public static final int CONFIG_REDSTONE_COPPER_DRIVER = 56;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
@@ -181,6 +182,12 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         } else if (block instanceof ThermalRadiatorBlock) {
             configKind.set(CONFIG_THERMAL_RADIATOR);
             configPrimary.set(state.getValue(ThermalRadiatorBlock.COOLING));
+        } else if (block instanceof RedstoneCopperDriverBlock) {
+            configKind.set(CONFIG_REDSTONE_COPPER_DRIVER);
+            configPrimary.set(state.getValue(RedstoneCopperDriverBlock.SLEW));
+            configSecondary.set(RedstoneCopperDriverBlock.targetVoltage(level, blockPos));
+            configTertiary.set(RedstoneCopperDriverBlock.actualVoltage(level, blockPos));
+            configQuaternary.set(RedstoneCopperDriverBlock.inputQuality(level, blockPos).ordinal());
         } else if (block instanceof CopperVoltageSourceBlock) {
             configKind.set(CONFIG_COPPER_SOURCE);
             configPrimary.set(state.getValue(CopperVoltageSourceBlock.VOLTAGE));
@@ -627,6 +634,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     }
 
     private IntegerProperty primaryEditableProperty(Block block) {
+        if (block instanceof RedstoneCopperDriverBlock) return RedstoneCopperDriverBlock.SLEW;
         if (block instanceof LapisLowPassFilterBlock) return LapisLowPassFilterBlock.ALPHA;
         if (block instanceof QuartzPhaseDelayBlock) return QuartzPhaseDelayBlock.DELAY;
         if (block instanceof ThermalHeaterBlock) return ThermalHeaterBlock.RESISTANCE_INDEX;
@@ -697,6 +705,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean adjustPrimary(int delta) {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof RedstoneCopperDriverBlock) return RedstoneCopperDriverBlock.adjustSlew(level, blockPos, delta);
         if (block instanceof LapisLowPassFilterBlock) return LapisLowPassFilterBlock.adjustAlpha(level, blockPos, delta);
         if (block instanceof QuartzPhaseDelayBlock) return QuartzPhaseDelayBlock.adjustDelay(level, blockPos, delta);
         if (block instanceof ThermalHeaterBlock) return ThermalHeaterBlock.adjustResistance(level, blockPos, delta);
