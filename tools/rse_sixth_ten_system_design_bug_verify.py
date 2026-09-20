@@ -28,7 +28,10 @@ require(
     "MagneticPhysics.fieldSample",
     "BASELINE_VALID",
     "if (sample.complete())",
-    "delta * state.getValue(TURNS)",
+    "delta * configuredTurns(level, pos, state)",
+    "configuredTurns(Level level, BlockPos pos, BlockState state)",
+    "Math.min(16",
+    "setConfiguredTurns",
     "Coverage changes are not physics",
     "PortQuality.STALE",
 )
@@ -197,7 +200,7 @@ for token in (
         raise SystemExit(f"build.yml missing manual/non-blocking GameTest policy token {token!r}")
 
 print("RSE sixth-ten system design + bug verification: PASS")
-print("  induction transient/read-only/coverage evidence: PASS")
+print("  induction transient/read-only/coverage evidence + persistent turns parameterization: PASS")
 print("  magnetic zero-gradient + coverage semantics: PASS")
 print("  heater/radiator/calorimeter role boundaries: PASS")
 print("  insulated redstone actual-source/value/terminal lifecycle: PASS")
