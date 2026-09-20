@@ -8,6 +8,7 @@ import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
+import dev.redstoneengineering.physics.EngineeringDeviceParameters;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.PneumaticNetwork;
 import dev.redstoneengineering.physics.PneumaticObservationSupport;
@@ -102,13 +103,37 @@ public class PneumaticReliefValveBlock extends DirectionalDomainBlock implements
         return state.getValue(SETPOINT) * 25;
     }
 
+    public static int setpointPressure(Level level, BlockPos pos, BlockState state) {
+        int fallback = setpointPressure(state);
+        if (level instanceof ServerLevel serverLevel) {
+            return Math.max(1, Math.min(100, EngineeringDeviceParameters.get(serverLevel)
+                    .extendedParameters(serverLevel, pos,
+                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
+        }
+        return fallback;
+    }
+
+    public static boolean setConfiguredSetpoint(ServerLevel level, BlockPos pos, int pressure) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof PneumaticReliefValveBlock)) return false;
+        int bounded = Math.max(1, Math.min(100, pressure));
+        boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
+                level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
+        if (changed) PneumaticNetwork.recomputeAround(level, pos);
+        return changed;
+    }
+
     public static int reseatPressure(BlockState state) {
         return PneumaticReliefValveLogic.reseatPressure(setpointPressure(state), BLOWDOWN_PRESSURE);
     }
 
+    public static int reseatPressure(Level level, BlockPos pos, BlockState state) {
+        return PneumaticReliefValveLogic.reseatPressure(setpointPressure(level, pos, state), BLOWDOWN_PRESSURE);
+    }
+
     public static boolean shouldVent(Level level, BlockPos pos, BlockState state, int pressure) {
         return PneumaticReliefValveLogic.shouldVent(
-                pressure, setpointPressure(state), BLOWDOWN_PRESSURE, venting(level, pos));
+                pressure, setpointPressure(level, pos, state), BLOWDOWN_PRESSURE, venting(level, pos));
     }
 
     /** Called by the pneumatic solver. Repeated solver passes during one overpressure episode count one event. */
@@ -137,6 +162,7 @@ public class PneumaticReliefValveBlock extends DirectionalDomainBlock implements
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
         if (!state.is(newState.getBlock()) && level instanceof ServerLevel server) {
             RuntimeIntStore.remove(level, RUNTIME, pos);
+            EngineeringDeviceParameters.get(server).removeExtendedParameters(server, pos);
             InformationRuntime.clear(level, "pneumatic", pos);
             PneumaticNetwork.recomputeAround(server, pos);
         }
@@ -150,10 +176,14 @@ public class PneumaticReliefValveBlock extends DirectionalDomainBlock implements
                 int next = state.getValue(SETPOINT) % 4 + 1;
                 BlockState newState = state.setValue(SETPOINT, next);
                 level.setBlock(pos, newState, Block.UPDATE_CLIENTS);
-                if (level instanceof ServerLevel server) PneumaticNetwork.recomputeAround(server, pos);
+                if (level instanceof ServerLevel server) {
+                    EngineeringDeviceParameters.get(server).setExtendedParameters(
+                            server, pos, new EngineeringDeviceParameters.ExtendedParameters(setpointPressure(newState), 0, 0, 0));
+                    PneumaticNetwork.recomputeAround(server, pos);
+                }
                 player.displayClientMessage(Component.literal(
-                        "Relief valve | setpoint=" + setpointPressure(newState) + "/100"
-                                + " reseat=" + reseatPressure(newState) + "/100"
+                        "Relief valve | setpoint=" + setpointPressure(level, pos, newState) + "/100"
+                                + " reseat=" + reseatPressure(level, pos, newState) + "/100"
                                 + " blowdown=" + BLOWDOWN_PRESSURE
                                 + " | state=" + (venting(level, pos) ? "VENTING" : "SEATED")
                                 + " | ventEvents=" + ventEvents(level, pos)
