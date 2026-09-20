@@ -220,9 +220,9 @@ class EngineeringWorkbenchV2Tests(unittest.TestCase):
             "OperationsMonitorMenu",
             "WorkcellControllerMenu",
             "Operations block: show server-owned state",
-            "INDUSTRIAL BUFFER",
+            "WIP / BUFFER FLOW",
             "WORKCELL ADMISSION",
-            "OPERATIONS OBSERVER",
+            "OPERATIONS / PLANT OBSERVATION",
         ]:
             self.assertIn(token, self.catalog)
 
