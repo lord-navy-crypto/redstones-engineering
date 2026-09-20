@@ -183,6 +183,17 @@ public class RedstoneCopperDriverBlock extends Block implements EngineeringPortP
         super.onRemove(state, level, pos, newState, moved);
     }
 
+    /** Server-authoritative slew-profile adjustment shared by Shift-click and the engineering HMI. */
+    public static boolean adjustSlew(Level level, BlockPos pos, int delta) {
+        if (level.isClientSide || delta == 0) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof RedstoneCopperDriverBlock driver)) return false;
+        int next = Math.floorMod(state.getValue(SLEW) + (delta > 0 ? 1 : -1), SLEW_STEPS.length);
+        level.setBlock(pos, state.setValue(SLEW, next), Block.UPDATE_CLIENTS);
+        level.scheduleTick(pos, driver, 1);
+        return true;
+    }
+
     @Override protected InteractionResult useWithoutItem(
             BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit
     ) {
