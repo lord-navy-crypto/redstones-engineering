@@ -91,7 +91,7 @@ public final class AdvancedParameterMenu extends EngineeringDeviceMenu {
         } else if (block instanceof SignalAmplifierBlock amplifier) {
             kind.set(KIND_SIGNAL_AMPLIFIER);
             p0.set(SignalAmplifierBlock.configuredGain(level, blockPos, state));
-            var input = RedstoneObservationSupport.observe(level, blockPos, amplifier.inputSide(state));
+            var input = RedstoneObservationSupport.observe(level, blockPos, DirectionalSignalBlock.seriesInputSide(state));
             liveA.set(input.value());
             liveB.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             liveC.set(SignalAmplifierBlock.clippingEpisodes(level, blockPos));
