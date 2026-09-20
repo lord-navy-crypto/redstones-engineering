@@ -14,12 +14,20 @@ public final class MechanicalExciterLogic {
     }
 
     public static State step(int commandedAmplitude, int targetFrequency, State previous) {
+        return stepWithRates(commandedAmplitude, targetFrequency, previous, 2, 1, 1);
+    }
+
+    public static State stepWithRates(
+            int commandedAmplitude, int targetFrequency, State previous,
+            int amplitudeRise, int amplitudeFall, int frequencySlew
+    ) {
         State prior = previous == null ? new State(0, 0) : previous;
         int targetAmp = clamp(commandedAmplitude, 0, 15);
         int targetFreq = targetAmp > 0 ? clamp(targetFrequency, 1, 15) : 0;
 
-        int amplitude = approachAsymmetric(prior.amplitude(), targetAmp, 2, 1);
-        int frequency = approach(prior.frequency(), targetFreq, 1);
+        int amplitude = approachAsymmetric(prior.amplitude(), targetAmp,
+                Math.max(1, amplitudeRise), Math.max(1, amplitudeFall));
+        int frequency = approach(prior.frequency(), targetFreq, Math.max(1, frequencySlew));
 
         // While coasting with non-zero mechanical energy, preserve a non-zero carrier frequency.
         if (amplitude > 0 && frequency == 0) frequency = 1;
