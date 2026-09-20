@@ -9,6 +9,7 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.EngineeringDeviceParameters;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
@@ -127,6 +128,27 @@ public class MechanicalExciterBlock extends Block implements EngineeringPortProv
         return runtime != null && runtime[INITIALIZED] != 0;
     }
 
+    public static EngineeringDeviceParameters.ExtendedParameters configuredDynamics(Level level, BlockPos pos) {
+        var fallback = new EngineeringDeviceParameters.ExtendedParameters(2, 1, 1, 0);
+        if (level instanceof ServerLevel serverLevel) {
+            return EngineeringDeviceParameters.get(serverLevel).extendedParameters(serverLevel, pos, fallback);
+        }
+        return fallback;
+    }
+
+    public static boolean setConfiguredDynamics(ServerLevel level, BlockPos pos, int rise, int fall, int frequencySlew) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof MechanicalExciterBlock exciter)) return false;
+        var next = new EngineeringDeviceParameters.ExtendedParameters(
+                Math.max(1, Math.min(15, rise)),
+                Math.max(1, Math.min(15, fall)),
+                Math.max(1, Math.min(15, frequencySlew)),
+                0);
+        boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(level, pos, next);
+        if (changed) level.scheduleTick(pos, exciter, 1);
+        return changed;
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(
             Level level, BlockPos pos, BlockState state, Direction side
@@ -175,12 +197,14 @@ public class MechanicalExciterBlock extends Block implements EngineeringPortProv
         }
 
         int previousTarget = runtime[TARGET_AMPLITUDE];
-        MechanicalExciterLogic.State next = MechanicalExciterLogic.step(
+        var dynamics = configuredDynamics(level, pos);
+        MechanicalExciterLogic.State next = MechanicalExciterLogic.stepWithRates(
                 command,
                 state.getValue(FREQUENCY),
                 new MechanicalExciterLogic.State(
                         runtime[ACTUAL_AMPLITUDE],
-                        runtime[ACTUAL_FREQUENCY])
+                        runtime[ACTUAL_FREQUENCY]),
+                dynamics.a(), dynamics.b(), dynamics.c()
         );
 
         if (command > 0 && previousTarget <= 0 && runtime[START_COUNT] < Integer.MAX_VALUE) {
@@ -226,6 +250,9 @@ public class MechanicalExciterBlock extends Block implements EngineeringPortProv
         if (!state.is(newState.getBlock())) {
             RuntimeIntStore.remove(level, RUNTIME_KEY, pos);
             InformationRuntime.clear(level, "mech_exciter", pos);
+            if (level instanceof ServerLevel serverLevel) {
+                EngineeringDeviceParameters.get(serverLevel).removeExtendedParameters(serverLevel, pos);
+            }
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
     }
