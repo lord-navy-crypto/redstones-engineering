@@ -49,7 +49,8 @@ public final class DigitalCommunicationScreen extends EngineeringScreen<DigitalC
         labelValue(g, "Contract", contract(), 149);
         labelValue(g, "Series path", face(menu.inputDirection()) + " → " + face(menu.outputDirection()), 165);
         labelValue(g, "Media evidence", mediumHeadline(), 181);
-        safeText(g, mediaIdentity(), 16, 199, MUTED);
+        safeText(g, "MODEL • " + digitalEquation(), 16, 195, GOOD);
+        safeText(g, mediaIdentity(), 16, 211, MUTED);
     }
 
     private void ports(GuiGraphics g) {
@@ -57,13 +58,16 @@ public final class DigitalCommunicationScreen extends EngineeringScreen<DigitalC
         statusLine(g, face(menu.inputDirection()), "INPUT • " + menu.inputDomain().label(), qualityColor(menu.inputQuality()), 112);
         statusLine(g, "PROCESS", processName(), INFO, 140);
         statusLine(g, face(menu.outputDirection()), "OUTPUT • " + menu.outputDomain().label(), qualityColor(menu.outputQuality()), 168);
-        safeText(g, "Input and output are an explicit two-face path; no hidden side port is implied.", 16, 198, MUTED);
+        safeText(g, "TRANSFER • " + digitalEquation(), 16, 190, GOOD);
+        safeText(g, "Input and output are an explicit two-face path; no hidden side port is implied.", 16, 206, MUTED);
     }
 
     private void configure(GuiGraphics g) {
         statusBadge(g, "SERVER-SIDE BOUNDED CONTROL", INFO, 16, 80);
-        if (menu.kind() == DigitalCommunicationMenu.KIND_REGENERATOR) labelValue(g, "Min input quality", thresholdPercent() + "%", 101);
-        else labelValue(g, "Device parameter", "FIXED FUNCTION", 101);
+        safeText(g, "EQUATION • " + digitalEquation(), 16, 98, GOOD);
+        safeText(g, "CONTROL MAP • " + digitalControlMap(), 16, 116, INFO);
+        if (menu.kind() == DigitalCommunicationMenu.KIND_REGENERATOR) labelValue(g, "Min input quality", thresholdPercent() + "%", 140);
+        else labelValue(g, "Device parameter", digitalParameterText(), 140);
         labelValue(g, "Input face", face(menu.inputDirection()), 171);
         labelValue(g, "Output face", face(menu.outputDirection()), 187);
         safeText(g, "Physical input/output direction is controlled only on Route.", 16, 207, MUTED);
@@ -71,13 +75,14 @@ public final class DigitalCommunicationScreen extends EngineeringScreen<DigitalC
 
     private void diagnostics(GuiGraphics g) {
         statusBadge(g, outputQualityName(), qualityColor(menu.outputQuality()), 16, 80);
-        statusLine(g, mediumName(), mediumHeadline(), mediumColor(), 104);
-        labelValue(g, "Input / output quality", menu.inputQuality().name() + " → " + menu.outputQuality().name(), 126);
-        labelValue(g, "Link quality / age", mediumQualityText() + " / " + mediumAgeText(), 144);
-        labelValue(g, "Link drivers", Integer.toString(menu.mediumDriverCount()), 162);
-        labelValue(g, mediumMetricLabel(), mediumMetricValue(), 180);
-        statusLine(g, "Diagnosis", diagnosis(), diagnosisColor(), 198);
-        safeText(g, nextAction(), 16, 218, diagnosisColor());
+        safeText(g, "CHECK • " + digitalDiagnosticRelation(), 16, 98, GOOD);
+        statusLine(g, mediumName(), mediumHeadline(), mediumColor(), 116);
+        labelValue(g, "Input / output quality", menu.inputQuality().name() + " → " + menu.outputQuality().name(), 138);
+        labelValue(g, "Link quality / age", mediumQualityText() + " / " + mediumAgeText(), 156);
+        labelValue(g, "Link drivers", Integer.toString(menu.mediumDriverCount()), 174);
+        labelValue(g, mediumMetricLabel(), mediumMetricValue(), 192);
+        statusLine(g, "Diagnosis", diagnosis(), diagnosisColor(), 210);
+        safeText(g, nextAction(), 16, 226, diagnosisColor());
     }
 
     private void history(GuiGraphics g) {
@@ -89,6 +94,62 @@ public final class DigitalCommunicationScreen extends EngineeringScreen<DigitalC
         labelValue(g, "Quality / age", mediumQualityText() + " / " + mediumAgeText(), 184);
         labelValue(g, mediumMetricLabel(), mediumMetricValue(), 202);
         safeText(g, mediumTradeoff(), 16, 222, MUTED);
+    }
+
+    private String digitalEquation() {
+        return switch (menu.kind()) {
+            case DigitalCommunicationMenu.KIND_ENCODER ->
+                    "byte = DIRECT ? clamp(x,0,15) : 17*clamp(x,0,15)";
+            case DigitalCommunicationMenu.KIND_DECODER ->
+                    "y = CLAMP ? min(15,byte) : round(byte/17)";
+            case DigitalCommunicationMenu.KIND_SERIALIZER ->
+                    "serial.value=byte; word period T∈{4,8,16} ticks";
+            case DigitalCommunicationMenu.KIND_REGENERATOR ->
+                    "accept = inputValid AND q_in >= q_min; output keeps value/period only when accepted";
+            case DigitalCommunicationMenu.KIND_DIFF_DRIVER ->
+                    "bit = (redstone >= Vth) ? 1 : 0; Vth∈{1,4,8,12}";
+            case DigitalCommunicationMenu.KIND_DIFF_RECEIVER ->
+                    "redstone output = decoded differential bit mapped to 0/15";
+            default -> "explicit domain conversion with evidence preserved";
+        };
+    }
+
+    private String digitalControlMap() {
+        return switch (menu.kind()) {
+            case DigitalCommunicationMenu.KIND_ENCODER -> "mode selects DIRECT or FULL_SCALE byte mapping";
+            case DigitalCommunicationMenu.KIND_DECODER -> "mode selects CLAMP or FULL_SCALE decode mapping";
+            case DigitalCommunicationMenu.KIND_SERIALIZER -> "T profile selects 4/8/16 ticks per word";
+            case DigitalCommunicationMenu.KIND_REGENERATOR -> "q_min=" + thresholdPercent() + "%";
+            case DigitalCommunicationMenu.KIND_DIFF_DRIVER -> "threshold profile selects Vth";
+            default -> "no extra player-owned scalar beyond declared route";
+        };
+    }
+
+    private String digitalParameterText() {
+        return switch (menu.kind()) {
+            case DigitalCommunicationMenu.KIND_ENCODER -> processName();
+            case DigitalCommunicationMenu.KIND_DECODER -> processName();
+            case DigitalCommunicationMenu.KIND_SERIALIZER -> "word period profile • " + mediumMetricValue();
+            case DigitalCommunicationMenu.KIND_DIFF_DRIVER -> processName();
+            default -> "FIXED FUNCTION";
+        };
+    }
+
+    private String digitalDiagnosticRelation() {
+        return switch (menu.kind()) {
+            case DigitalCommunicationMenu.KIND_ENCODER, DigitalCommunicationMenu.KIND_DECODER ->
+                    "input=" + valueText(menu.inputValue(), menu.inputDomain()) + " • output="
+                            + valueText(menu.outputValue(), menu.outputDomain());
+            case DigitalCommunicationMenu.KIND_SERIALIZER ->
+                    "byte=" + menu.outputValue() + " • period=" + Math.max(1, menu.mediumMetricA()) + "t"
+                            + " • util=" + menu.mediumMetricB() + "%";
+            case DigitalCommunicationMenu.KIND_REGENERATOR ->
+                    "q_in=" + menu.auxiliary() + "% • q_min=" + thresholdPercent() + "% • margin="
+                            + signed(menu.auxiliary() - thresholdPercent()) + "%";
+            case DigitalCommunicationMenu.KIND_DIFF_DRIVER ->
+                    "input=" + menu.inputValue() + "/15 • output bit=" + (menu.outputValue() & 1);
+            default -> "link quality=" + mediumQualityText() + " • drivers=" + menu.mediumDriverCount();
+        };
     }
 
     private String diagnosis() {
