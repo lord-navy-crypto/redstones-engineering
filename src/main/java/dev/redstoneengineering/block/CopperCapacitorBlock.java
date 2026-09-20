@@ -12,9 +12,11 @@ import dev.redstoneengineering.physics.EngineeringMath;
 import dev.redstoneengineering.physics.NetworkKernel;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.signal.CopperCapacitorLogic;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -207,7 +209,11 @@ public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (!level.isClientSide) {
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (!player.isShiftKeyDown()) {
+                FieldDeviceUi.open(serverPlayer, pos);
+                return InteractionResult.CONSUME;
+            }
             int capacitanceIndex = (state.getValue(C_INDEX) + 1) % 4;
             BlockState next = state.setValue(C_INDEX, capacitanceIndex);
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
