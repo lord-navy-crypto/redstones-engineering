@@ -7,6 +7,7 @@ import dev.redstoneengineering.core.port.EngineeringPort;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
+import dev.redstoneengineering.physics.EngineeringDeviceParameters;
 import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
@@ -72,6 +73,26 @@ public class EdgeDetectorBlock extends DirectionalSignalBlock {
         return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value, input.quality()));
     }
 
+    public static int configuredPulseWidth(Level level, BlockPos pos, BlockState state) {
+        int fallback = 2;
+        if (level instanceof ServerLevel serverLevel) {
+            return Math.max(1, Math.min(20, EngineeringDeviceParameters.get(serverLevel)
+                    .extendedParameters(serverLevel, pos,
+                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
+        }
+        return fallback;
+    }
+
+    public static boolean setConfiguredPulseWidth(ServerLevel level, BlockPos pos, int width) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof EdgeDetectorBlock detector)) return false;
+        int bounded = Math.max(1, Math.min(20, width));
+        boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
+                level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
+        if (changed) level.scheduleTick(pos, detector, 1);
+        return changed;
+    }
+
     @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         var input = RedstoneObservationSupport.observe(level, pos, inputSide(state));
         int[] rt = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
@@ -107,7 +128,7 @@ public class EdgeDetectorBlock extends DirectionalSignalBlock {
             default -> false;
         };
         if (edge) {
-            remaining = 2;
+            remaining = configuredPulseWidth(level, pos, state);
             if (rt[EDGE_COUNT] < Integer.MAX_VALUE) rt[EDGE_COUNT]++;
             rt[LAST_EDGE_TICK] = boundedTick(level.getGameTime());
         }
@@ -119,7 +140,10 @@ public class EdgeDetectorBlock extends DirectionalSignalBlock {
     }
 
     @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
-        if (!state.is(newState.getBlock())) RuntimeIntStore.remove(level, KEY, pos);
+        if (!state.is(newState.getBlock())) {
+            RuntimeIntStore.remove(level, KEY, pos);
+            if (level instanceof ServerLevel serverLevel) EngineeringDeviceParameters.get(serverLevel).removeExtendedParameters(serverLevel, pos);
+        }
         super.onRemove(state, level, pos, newState, moved);
     }
 
