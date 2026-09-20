@@ -9,6 +9,7 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.EngineeringDeviceParameters;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.PneumaticNetwork;
 import dev.redstoneengineering.physics.RedstoneObservationSupport;
@@ -109,13 +110,41 @@ public class AirCompressorBlock extends Block implements EngineeringPortProvider
         return runtime != null && runtime[INITIALIZED] != 0;
     }
 
+    public static EngineeringDeviceParameters.ExtendedParameters configuredResponse(Level level, BlockPos pos, BlockState state) {
+        var fallback = new EngineeringDeviceParameters.ExtendedParameters(
+                AirCompressorLogic.rampUpRate(state.getValue(RESPONSE_MODE)),
+                AirCompressorLogic.rampDownRate(state.getValue(RESPONSE_MODE)), 0, 0);
+        if (level instanceof ServerLevel serverLevel) {
+            return EngineeringDeviceParameters.get(serverLevel).extendedParameters(serverLevel, pos, fallback);
+        }
+        return fallback;
+    }
+
+    public static boolean setResponseRates(ServerLevel level, BlockPos pos, int up, int down) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof AirCompressorBlock compressor)) return false;
+        var next = new EngineeringDeviceParameters.ExtendedParameters(
+                Math.max(1, Math.min(100, up)),
+                Math.max(1, Math.min(100, down)), 0, 0);
+        boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(level, pos, next);
+        if (changed) level.scheduleTick(pos, compressor, 1);
+        return changed;
+    }
+
     public static boolean stepResponseMode(Level level, BlockPos pos, boolean forward) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof AirCompressorBlock compressor)) return false;
         int mode = state.getValue(RESPONSE_MODE);
         int next = Math.floorMod(mode + (forward ? 1 : -1), 3);
-        level.setBlock(pos, state.setValue(RESPONSE_MODE, next), Block.UPDATE_CLIENTS);
-        if (level instanceof ServerLevel server) server.scheduleTick(pos, compressor, 1);
+        BlockState nextState = state.setValue(RESPONSE_MODE, next);
+        level.setBlock(pos, nextState, Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel server) {
+            EngineeringDeviceParameters.get(server).setExtendedParameters(
+                    server, pos, new EngineeringDeviceParameters.ExtendedParameters(
+                            AirCompressorLogic.rampUpRate(next),
+                            AirCompressorLogic.rampDownRate(next), 0, 0));
+            server.scheduleTick(pos, compressor, 1);
+        }
         return true;
     }
 
@@ -187,11 +216,9 @@ public class AirCompressorBlock extends Block implements EngineeringPortProvider
             runtime[START_COUNT]++;
         }
 
-        int actual = AirCompressorLogic.stepPressure(
-                previousActual,
-                target,
-                state.getValue(RESPONSE_MODE)
-        );
+        var response = configuredResponse(level, pos, state);
+        int actual = AirCompressorLogic.stepPressureRates(
+                previousActual, target, response.a(), response.b());
         runtime[ACTUAL_PRESSURE] = actual;
         runtime[LAST_TARGET] = target;
         if (actual > 0 && runtime[RUN_TICKS] < Integer.MAX_VALUE) runtime[RUN_TICKS]++;
@@ -212,6 +239,7 @@ public class AirCompressorBlock extends Block implements EngineeringPortProvider
         if (!state.is(newState.getBlock())) {
             RuntimeIntStore.remove(level, RUNTIME_KEY, pos);
             if (level instanceof ServerLevel server) {
+                EngineeringDeviceParameters.get(server).removeExtendedParameters(server, pos);
                 InformationRuntime.clear(level, "pneumatic", pos);
                 PneumaticNetwork.recomputeAround(server, pos);
             }
