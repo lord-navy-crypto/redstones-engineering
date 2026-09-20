@@ -901,7 +901,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             int[] xs = {16, 111, 206};
             for (int i = 0; i < Math.min(3, metrics.size()); i++) {
                 EngineeringWorkbenchCatalog.LabMetric metric = metrics.get(i);
-                metricCard(graphics, metric.label(), metric.value(), xs[i], 168, 88, i == 1 ? GOOD : INFO);
+                metricCard(graphics, metric.label(), metric.value(), xs[i], 166, 88, i == 1 ? GOOD : INFO);
             }
         }
 
