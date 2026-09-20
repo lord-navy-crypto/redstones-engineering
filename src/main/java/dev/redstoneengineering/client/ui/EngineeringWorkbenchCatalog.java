@@ -269,7 +269,8 @@ public final class EngineeringWorkbenchCatalog {
                  UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY,
                  UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER,
                  UniversalFieldDeviceMenu.CONFIG_THERMAL_MASS,
-                 UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR ->
+                 UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR,
+                 UniversalFieldDeviceMenu.CONFIG_REDSTONE_COPPER_DRIVER ->
                     lab("LAB", "Discrete-time behavior has meaningful server-owned timing or capture dynamics.");
 
             case UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER,
