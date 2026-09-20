@@ -1,0 +1,212 @@
+package dev.redstoneengineering.client.ui;
+
+import dev.redstoneengineering.ui.menu.ProcessParameterMenu;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.player.Inventory;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/** Full-page notebook for process/control parameter batch three. */
+public final class ProcessParameterNotebookScreen extends AbstractContainerScreen<ProcessParameterMenu> {
+    private static final int BG=0xFFF2E9D8, PAGE=0xFFFFF8E8, INK=0xFF2C2925, MUTED=0xFF6E675E, RULE=0xFFB9A98F, ACCENT=0xFF4F5F7B, GOOD=0xFF2F7D4A;
+    private enum Tab { OPERATE("Operate"), PARAMETERS("Parameters"), MODEL("Model"); final String label; Tab(String s){label=s;} }
+    private Tab tab=Tab.PARAMETERS;
+    private final List<Button> controls=new ArrayList<>();
+    private Button action;
+
+    public ProcessParameterNotebookScreen(ProcessParameterMenu menu, Inventory inventory, Component title){
+        super(menu,inventory,title); imageWidth=520; imageHeight=300; titleLabelX=18; titleLabelY=12; inventoryLabelY=1000;
+    }
+
+    @Override protected void init(){
+        super.init(); controls.clear();
+        int x=leftPos+83;
+        for(Tab t:Tab.values()){
+            addRenderableWidget(Button.builder(Component.literal(t.label),b->{tab=t;syncVisibility();}).bounds(x,topPos+34,112,20).build());
+            x+=118;
+        }
+        addRow(0,topPos+116); addRow(1,topPos+154); addRow(2,topPos+192); addRow(3,topPos+230);
+        action=addRenderableWidget(Button.builder(Component.literal("Action"),b->send(ProcessParameterMenu.BUTTON_ACTION))
+                .bounds(leftPos+350,topPos+260,130,20).build());
+        syncVisibility();
+    }
+
+    private void addRow(int row,int y){
+        int minus=switch(row){
+            case 0->ProcessParameterMenu.BUTTON_P0_MINUS;
+            case 1->ProcessParameterMenu.BUTTON_P1_MINUS;
+            case 2->ProcessParameterMenu.BUTTON_P2_MINUS;
+            default->ProcessParameterMenu.BUTTON_P3_MINUS;
+        };
+        int plus=switch(row){
+            case 0->ProcessParameterMenu.BUTTON_P0_PLUS;
+            case 1->ProcessParameterMenu.BUTTON_P1_PLUS;
+            case 2->ProcessParameterMenu.BUTTON_P2_PLUS;
+            default->ProcessParameterMenu.BUTTON_P3_PLUS;
+        };
+        controls.add(addRenderableWidget(Button.builder(Component.literal("−"),b->send(minus)).bounds(leftPos+356,y,38,20).build()));
+        controls.add(addRenderableWidget(Button.builder(Component.literal("+"),b->send(plus)).bounds(leftPos+442,y,38,20).build()));
+    }
+
+    private void send(int id){ if(minecraft!=null&&minecraft.gameMode!=null) minecraft.gameMode.handleInventoryButtonClick(menu.containerId,id); }
+
+    @Override protected void containerTick(){ super.containerTick(); syncVisibility(); }
+
+    private int parameterCount(){
+        return switch(menu.kind()){
+            case ProcessParameterMenu.KIND_CONDITIONER,
+                 ProcessParameterMenu.KIND_PWM,
+                 ProcessParameterMenu.KIND_COMPRESSOR -> 2;
+            case ProcessParameterMenu.KIND_EXCITER -> 4;
+            default -> 1;
+        };
+    }
+
+    private void syncVisibility(){
+        int n=parameterCount();
+        for(int i=0;i<controls.size();i++) controls.get(i).visible=tab==Tab.PARAMETERS&&(i/2)<n;
+        if(action!=null){
+            boolean hasAction=menu.kind()==ProcessParameterMenu.KIND_PWM||menu.kind()==ProcessParameterMenu.KIND_FUSE;
+            action.visible=tab==Tab.PARAMETERS&&hasAction;
+            action.setMessage(Component.literal(menu.kind()==ProcessParameterMenu.KIND_FUSE?"Attempt reset":"Toggle invert"));
+        }
+    }
+
+    @Override public void render(GuiGraphics g,int mx,int my,float pt){ renderBackground(g,mx,my,pt); super.render(g,mx,my,pt); renderTooltip(g,mx,my); }
+
+    @Override protected void renderBg(GuiGraphics g,float pt,int mx,int my){
+        g.fill(leftPos,topPos,leftPos+imageWidth,topPos+imageHeight,BG);
+        g.fill(leftPos+5,topPos+5,leftPos+imageWidth-5,topPos+imageHeight-5,PAGE);
+        g.fill(leftPos+18,topPos+29,leftPos+imageWidth-18,topPos+30,RULE);
+        g.fill(leftPos+18,topPos+62,leftPos+imageWidth-18,topPos+63,RULE);
+    }
+
+    @Override protected void renderLabels(GuiGraphics g,int mx,int my){
+        g.drawString(font,title,18,12,INK,false);
+        String live="SERVER ENGINEERING MODEL";
+        g.drawString(font,live,imageWidth-18-font.width(live),12,GOOD,false);
+        g.drawString(font,tab.label.toUpperCase(),22,70,ACCENT,false);
+        switch(tab){case OPERATE->operate(g);case PARAMETERS->parameters(g);case MODEL->model(g);}
+        g.drawString(font,fit(footer(),imageWidth-36),18,imageHeight-20,MUTED,false);
+    }
+
+    private void parameters(GuiGraphics g){
+        String[] labels=parameterLabels(); int[] vals={menu.p0(),menu.p1(),menu.p2(),menu.p3()};
+        for(int i=0;i<labels.length;i++){
+            g.drawString(font,labels[i],38,120+i*38,MUTED,false);
+            g.drawString(font,paramValue(i,vals[i]),200,120+i*38,INK,false);
+        }
+    }
+
+    private void operate(GuiGraphics g){
+        String[] labels=liveLabels(); int[] vals={menu.liveA(),menu.liveB(),menu.liveC(),menu.liveD()};
+        for(int i=0;i<labels.length;i++) pair(g,labels[i],liveValue(i,vals[i]),102+i*30);
+    }
+
+    private void model(GuiGraphics g){
+        g.drawString(font,fit(model1(),455),34,108,INK,false);
+        g.drawString(font,fit(model2(),455),34,143,INK,false);
+        g.drawString(font,fit(model3(),455),34,184,MUTED,false);
+        g.drawString(font,fit("Measured state, stored energy, trip exposure, network evidence and topology stay world/solver-owned.",455),34,228,MUTED,false);
+    }
+
+    private String[] parameterLabels(){
+        return switch(menu.kind()){
+            case ProcessParameterMenu.KIND_CONDITIONER -> new String[]{"Transfer mode","Mode parameter"};
+            case ProcessParameterMenu.KIND_PWM -> new String[]{"Carrier period","Invert"};
+            case ProcessParameterMenu.KIND_COPPER_DRIVER -> new String[]{"Voltage slew"};
+            case ProcessParameterMenu.KIND_CAPACITOR -> new String[]{"Base time constant"};
+            case ProcessParameterMenu.KIND_FUSE -> new String[]{"Current rating"};
+            case ProcessParameterMenu.KIND_COMPRESSOR -> new String[]{"Ramp-up rate","Ramp-down rate"};
+            case ProcessParameterMenu.KIND_DAMPER -> new String[]{"Amplitude attenuation"};
+            case ProcessParameterMenu.KIND_EXCITER -> new String[]{"Target frequency","Amplitude rise","Amplitude fall","Frequency slew"};
+            case ProcessParameterMenu.KIND_LAPIS_SOURCE -> new String[]{"Precision value"};
+            case ProcessParameterMenu.KIND_COPPER_SOURCE -> new String[]{"Voltage level"};
+            default -> new String[]{"Parameter"};
+        };
+    }
+
+    private String paramValue(int slot,int v){
+        return switch(menu.kind()){
+            case ProcessParameterMenu.KIND_CONDITIONER -> slot==0?conditionerMode(v):Integer.toString(v);
+            case ProcessParameterMenu.KIND_PWM -> slot==0?v+" ticks":(v!=0?"INVERTED":"NORMAL");
+            case ProcessParameterMenu.KIND_COPPER_DRIVER -> v+" V-level/tick";
+            case ProcessParameterMenu.KIND_CAPACITOR -> v+" ticks";
+            case ProcessParameterMenu.KIND_FUSE -> v+" current units";
+            case ProcessParameterMenu.KIND_COMPRESSOR -> v+" pressure/tick";
+            case ProcessParameterMenu.KIND_DAMPER -> v+" amplitude/step";
+            case ProcessParameterMenu.KIND_EXCITER -> slot==0?v+"/15":v+" units/tick";
+            case ProcessParameterMenu.KIND_LAPIS_SOURCE -> String.format("%.2f",v/100.0);
+            case ProcessParameterMenu.KIND_COPPER_SOURCE -> v+"/15";
+            default -> Integer.toString(v);
+        };
+    }
+
+    private String[] liveLabels(){
+        return switch(menu.kind()){
+            case ProcessParameterMenu.KIND_CONDITIONER -> new String[]{"Input","Output","Limit episodes","Limiting now"};
+            case ProcessParameterMenu.KIND_PWM -> new String[]{"Command","Applied command","Effective duty","Completed cycles"};
+            case ProcessParameterMenu.KIND_COPPER_DRIVER -> new String[]{"Target voltage","Actual voltage","Input quality"};
+            case ProcessParameterMenu.KIND_CAPACITOR -> new String[]{"Stored charge","Output voltage","Effective tau","Load scan truncated"};
+            case ProcessParameterMenu.KIND_FUSE -> new String[]{"Thermal exposure","Trip progress","Trip state","Last current ×100"};
+            case ProcessParameterMenu.KIND_COMPRESSOR -> new String[]{"Target pressure","Actual pressure","Tracking error","Start count"};
+            case ProcessParameterMenu.KIND_DAMPER -> new String[]{"Wave amplitude","Wave frequency","Valid wave"};
+            case ProcessParameterMenu.KIND_EXCITER -> new String[]{"Target amplitude","Actual amplitude","Actual frequency","Start count"};
+            case ProcessParameterMenu.KIND_LAPIS_SOURCE -> new String[]{"Output value"};
+            case ProcessParameterMenu.KIND_COPPER_SOURCE -> new String[]{"Output voltage"};
+            default -> new String[]{"Live"};
+        };
+    }
+
+    private String liveValue(int i,int v){
+        if(menu.kind()==ProcessParameterMenu.KIND_CONDITIONER&&i==3) return v!=0?"YES":"NO";
+        if(menu.kind()==ProcessParameterMenu.KIND_PWM&&i==2) return String.format("%.1f%%",v/10.0);
+        if(menu.kind()==ProcessParameterMenu.KIND_CAPACITOR){
+            if(i==0) return v+"%";
+            if(i==2) return v+" ticks";
+            if(i==3) return v!=0?"YES":"NO";
+        }
+        if(menu.kind()==ProcessParameterMenu.KIND_FUSE){
+            if(i==1) return String.format("%.1f%%",v/10.0);
+            if(i==2) return v!=0?"TRIPPED":"ARMED";
+        }
+        if(menu.kind()==ProcessParameterMenu.KIND_DAMPER&&i==2) return v!=0?"YES":"NO";
+        return Integer.toString(v);
+    }
+
+    private String model1(){
+        return switch(menu.kind()){
+            case ProcessParameterMenu.KIND_CONDITIONER -> "Mode-specific transfer function maps Redstone input to bounded 0..15 output.";
+            case ProcessParameterMenu.KIND_PWM -> "Duty request comes from command 0..15; carrier period controls time quantization.";
+            case ProcessParameterMenu.KIND_COPPER_DRIVER -> "Actual Copper voltage approaches target command by configured slew each tick.";
+            case ProcessParameterMenu.KIND_CAPACITOR -> "Stored charge approaches source target with base tau; discharge tau also depends on downstream load.";
+            case ProcessParameterMenu.KIND_FUSE -> "I²t-style thermal exposure accumulates from verified current and trips the protected output.";
+            case ProcessParameterMenu.KIND_COMPRESSOR -> "Pressure target derives from Redstone command; actual pressure follows asymmetric ramp rates.";
+            case ProcessParameterMenu.KIND_DAMPER -> "Each decay step removes configured amplitude while preserving carrier frequency evidence.";
+            case ProcessParameterMenu.KIND_EXCITER -> "Redstone controls target amplitude; frequency and amplitude approach their targets with finite dynamics.";
+            case ProcessParameterMenu.KIND_LAPIS_SOURCE -> "Configured 0..100 precision value is a valid Lapis-domain source, including exact zero.";
+            case ProcessParameterMenu.KIND_COPPER_SOURCE -> "Configured 0..15 voltage is a valid six-face Copper source.";
+            default -> "";
+        };
+    }
+
+    private String model2(){
+        return switch(menu.kind()){
+            case ProcessParameterMenu.KIND_PWM -> "Command updates latch at carrier-cycle boundaries; changing period resets carrier phase evidence.";
+            case ProcessParameterMenu.KIND_CAPACITOR -> "Open circuit retains energy longest; incomplete load scans freeze integration instead of inventing discharge.";
+            case ProcessParameterMenu.KIND_FUSE -> "Changing rating does not erase thermal exposure; reset remains fail-safe and evidence-gated.";
+            case ProcessParameterMenu.KIND_EXCITER -> "Amplitude rise/fall and frequency slew are independent configuration variables.";
+            default -> "The parameter changes the authoritative server model, not a client-only display.";
+        };
+    }
+
+    private String model3(){ return "Operate values are synchronized readback from the real device and connected world."; }
+    private String footer(){ return "Engineering Notebook • configuration editable • state/evidence/topology authoritative"; }
+    private void pair(GuiGraphics g,String label,String value,int y){ g.drawString(font,label,42,y,MUTED,false); g.drawString(font,fit(value,230),245,y,INK,false); }
+    private String fit(String s,int width){ if(font.width(s)<=width)return s; String x=s; while(x.length()>1&&font.width(x+"…")>width)x=x.substring(0,x.length()-1); return x+"…"; }
+    private static String conditionerMode(int m){ return switch(m){case 0->"SCALE";case 1->"OFFSET";case 2->"CLAMP";case 3->"THRESHOLD";case 4->"DEADBAND";case 5->"ATTENUATE";default->"UNKNOWN";}; }
+}
