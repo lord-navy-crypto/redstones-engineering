@@ -143,8 +143,7 @@ class SignalProcessingLabContractTests(unittest.TestCase):
             "q = round(15x/100)",
             "x_hat = 100q/15",
             "Quantization error",
-            "precision is intentionally discarded at this boundary",
-            "compare x, q and x_hat",
+            "Quantization intentionally compresses Lapis precision",
         ]:
             self.assertIn(token, self.conversion_screen)
 
