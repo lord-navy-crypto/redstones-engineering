@@ -35,6 +35,33 @@ public class HydroacousticTubeBlock extends Block implements EngineeringPortProv
     public static final IntegerProperty MEDIUM = IntegerProperty.create("medium", 0, 2);
     public static final int PACKET_TTL_TICKS = 4;
 
+    public static int mediumLoss(int medium) {
+        return switch (Math.max(0, Math.min(2, medium))) {
+            case 0 -> 1; // water: lowest modeled attenuation
+            case 1 -> 2; // milk-model: intermediate damping
+            default -> 3; // lava: strongest modeled attenuation
+        };
+    }
+
+    public static String mediumName(int medium) {
+        return switch (Math.max(0, Math.min(2, medium))) {
+            case 0 -> "WATER";
+            case 1 -> "MILK-MODEL";
+            default -> "LAVA";
+        };
+    }
+
+    /** Server-authoritative medium selection shared by Shift-click and the engineering HMI. */
+    public static boolean adjustMedium(Level level, BlockPos pos, int delta) {
+        if (level.isClientSide || delta == 0) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof HydroacousticTubeBlock tube)) return false;
+        int next = Math.floorMod(state.getValue(MEDIUM) + (delta > 0 ? 1 : -1), 3);
+        level.setBlock(pos, state.setValue(MEDIUM, next), Block.UPDATE_CLIENTS);
+        level.scheduleTick(pos, tube, 1);
+        return true;
+    }
+
     public HydroacousticTubeBlock(Properties properties) {
         super(properties);
         registerDefaultState(stateDefinition.any().setValue(MEDIUM, 0));
@@ -80,7 +107,7 @@ public class HydroacousticTubeBlock extends Block implements EngineeringPortProv
             if (packet.ageTicks() >= 0) InformationRuntime.clear(level, "hydro", pos);
             return;
         }
-        int next = Math.max(0, packet.value() - 2);
+        int next = Math.max(0, packet.value() - mediumLoss(state.getValue(MEDIUM)));
         if (next == 0) {
             InformationRuntime.clear(level, "hydro", pos);
         } else {
@@ -103,10 +130,12 @@ public class HydroacousticTubeBlock extends Block implements EngineeringPortProv
     ) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
-                int medium = (state.getValue(MEDIUM) + 1) % 3;
-                level.setBlock(pos, state.setValue(MEDIUM, medium), Block.UPDATE_CLIENTS);
-                String name = medium == 0 ? "water" : medium == 1 ? "milk-model" : "lava";
-                player.displayClientMessage(Component.literal("Hydroacoustic medium=" + name), true);
+                adjustMedium(level, pos, 1);
+                BlockState next = level.getBlockState(pos);
+                int medium = next.getValue(MEDIUM);
+                player.displayClientMessage(Component.literal(
+                        "Hydroacoustic medium=" + mediumName(medium)
+                                + " | attenuation=" + mediumLoss(medium) + " level/hop"), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
             }
