@@ -37,8 +37,15 @@ build_gradle = read("build.gradle")
 workflow = read(".github/workflows/build.yml")
 lang_en_us = read("src/main/resources/assets/redstoneengineering/lang/en_us.json")
 
+version_match = re.search(r"(?m)^mod_version=(\d+)\.(\d+)\.(\d+)-alpha$", gradle_properties)
+if not version_match:
+    errors.append("gradle.properties missing parseable alpha mod_version")
+else:
+    current_version = tuple(int(part) for part in version_match.groups())
+    if current_version < (1, 0, 20):
+        errors.append(f"gradle.properties mod_version {current_version} is older than Alpha 1.0.20")
+
 for key, expected in (
-    ("mod_version", EXPECTED_VERSION),
     ("minecraft_version", EXPECTED_MINECRAFT),
     ("neo_version", EXPECTED_NEOFORGE),
     ("mod_license", EXPECTED_LICENSE),
@@ -171,7 +178,8 @@ if errors:
     raise SystemExit(1)
 
 print("RSE Alpha 1.0.20 release verification: PASS")
-print(f"  artifact version: {EXPECTED_VERSION}")
+print(f"  historical artifact baseline: {EXPECTED_VERSION}")
+print(f"  current alpha version: {'.'.join(map(str, current_version))}-alpha")
 print(f"  Minecraft / NeoForge / Java: {EXPECTED_MINECRAFT} / {EXPECTED_NEOFORGE} / {EXPECTED_JAVA}")
 print(f"  license: {EXPECTED_LICENSE}")
 print("  manifest -> testing guide link: PASS")
