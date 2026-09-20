@@ -25,6 +25,7 @@ guide = read("docs/ALPHA1_0_21_TESTING_GUIDE.md")
 mods = read("src/main/templates/META-INF/neoforge.mods.toml")
 workflow = read(".github/workflows/build.yml")
 readme = read("README.md")
+install_guide = read("INSTALL_WITH_ZSH.txt")
 
 for key, expected in (
     ("mod_version", EXPECTED_VERSION),
@@ -80,6 +81,20 @@ for token in (
 
 if EXPECTED_VERSION not in readme or "Alpha 1.0.21" not in readme:
     errors.append("README does not identify Alpha 1.0.21 / 1.0.21-alpha")
+
+for token in (
+    "1.0.21-alpha",
+    "release/1.0.21-alpha-rc1",
+    "JEI 19.27.0.336",
+    "Jade 15.10.6",
+    "GeckoLib 4.9.2",
+    "Cloth Config 15.0.140",
+    "Fusion 1.3.14",
+    "runGameTestServer",
+    "runClient",
+):
+    if token not in install_guide:
+        errors.append(f"INSTALL_WITH_ZSH.txt missing current release instruction: {token}")
 
 if errors:
     print("RSE Alpha 1.0.21 release verification: FAIL")
