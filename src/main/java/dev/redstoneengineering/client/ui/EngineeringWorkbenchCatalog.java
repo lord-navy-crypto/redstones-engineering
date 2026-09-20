@@ -329,7 +329,6 @@ public final class EngineeringWorkbenchCatalog {
                  FieldDeviceMenu.KIND_DIFFERENTIAL_PAIR,
                  FieldDeviceMenu.KIND_AMETHYST_DUST,
                  FieldDeviceMenu.KIND_SLIME_VIBRATION,
-                 FieldDeviceMenu.KIND_HYDRO_TUBE,
                  FieldDeviceMenu.KIND_PHONON_CONDUIT,
                  FieldDeviceMenu.KIND_SHIELDED_INSTRUMENT_CABLE,
                  FieldDeviceMenu.KIND_PNEUMATIC_PIPE,
@@ -375,6 +374,7 @@ public final class EngineeringWorkbenchCatalog {
                  FieldDeviceMenu.KIND_MECHANICAL_RECEIVER,
                  FieldDeviceMenu.KIND_HONEY_DAMPER,
                  FieldDeviceMenu.KIND_SCULK_INTERFACE,
+                 FieldDeviceMenu.KIND_HYDRO_TUBE,
                  FieldDeviceMenu.KIND_HYDRO_EXCITER,
                  FieldDeviceMenu.KIND_HYDRO_RECEIVER,
                  FieldDeviceMenu.KIND_THERMAL_ENCODER,
@@ -936,6 +936,11 @@ public final class EngineeringWorkbenchCatalog {
                         rangeSpec("Drive frequency", field.secondary(), 1, 15,
                                 FieldDeviceMenu.BUTTON_PRIMARY_DECREASE, FieldDeviceMenu.BUTTON_PRIMARY_INCREASE,
                                 "frequency index", "Mechanical excitation frequency; authoritative source dynamics remain in the block.")
+                );
+                case FieldDeviceMenu.KIND_HYDRO_TUBE -> List.of(
+                        spec("Waveguide medium", field.tertiary(), 0, 2,
+                                FieldDeviceMenu.BUTTON_PRIMARY_DECREASE, FieldDeviceMenu.BUTTON_PRIMARY_INCREASE,
+                                "medium", "0=WATER loss1, 1=MILK-MODEL loss2, 2=LAVA loss3 per modeled propagation step.")
                 );
                 case FieldDeviceMenu.KIND_HYDRO_EXCITER -> List.of(
                         rangeSpec("Acoustic frequency", field.secondary(), 1, 15,
