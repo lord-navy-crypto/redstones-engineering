@@ -811,8 +811,7 @@ public final class EngineeringWorkbenchCatalog {
                          UniversalFieldDeviceMenu.CONFIG_LAPIS_LOW_PASS,
                          UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY,
                          UniversalFieldDeviceMenu.CONFIG_REDSTONE_COPPER_DRIVER,
-                         UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAB_OSCILLATOR,
-                         UniversalFieldDeviceMenu.CONFIG_REDSTONE_AMETHYST_EXCITER -> true;
+                         UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAB_OSCILLATOR -> true;
                     default -> false;
                 };
                 boolean numeric = switch (universal.configKind()) {
@@ -835,7 +834,8 @@ public final class EngineeringWorkbenchCatalog {
                          UniversalFieldDeviceMenu.CONFIG_THERMAL_MASS,
                          UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR,
                          UniversalFieldDeviceMenu.CONFIG_REDSTONE_COPPER_DRIVER,
-                         UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAB_OSCILLATOR -> true;
+                         UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAB_OSCILLATOR,
+                         UniversalFieldDeviceMenu.CONFIG_REDSTONE_AMETHYST_EXCITER -> true;
                     default -> false;
                 };
                 boolean fractions = switch (universal.configKind()) {
