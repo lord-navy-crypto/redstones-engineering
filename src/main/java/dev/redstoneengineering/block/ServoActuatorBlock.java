@@ -12,6 +12,7 @@ import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.operations.world.OperationWorldResourceProvider;
 import dev.redstoneengineering.operations.world.OperationWorldResourceSnapshot;
+import dev.redstoneengineering.physics.EngineeringDeviceParameters;
 import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
@@ -178,10 +179,51 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
             default -> "HEAVY";
         };
     }
-    public static int accelerationPeriod(BlockState state) { return LOAD_ACCEL_PERIOD[loadIndex(state)]; }
-    public static int effectiveMaxSpeed(BlockState state) {
+    public static EngineeringDeviceParameters.ServoParameters presetParameters(BlockState state) {
+        int load = loadIndex(state);
         int base = STEP[Math.max(0, Math.min(STEP.length - 1, state.getValue(SLEW)))];
-        return Math.max(1, base - LOAD_SPEED_PENALTY[loadIndex(state)]);
+        int maxSpeed = Math.max(1, base - LOAD_SPEED_PENALTY[load]);
+        return new EngineeringDeviceParameters.ServoParameters(maxSpeed, LOAD_ACCEL_PERIOD[load], 1);
+    }
+
+    public static EngineeringDeviceParameters.ServoParameters configuredParameters(Level level, BlockPos pos, BlockState state) {
+        EngineeringDeviceParameters.ServoParameters fallback = presetParameters(state);
+        if (level instanceof ServerLevel serverLevel) {
+            return EngineeringDeviceParameters.get(serverLevel).servoParameters(serverLevel, pos, fallback);
+        }
+        return fallback;
+    }
+
+    public static int accelerationPeriod(BlockState state) { return presetParameters(state).accelerationPeriod(); }
+    public static int effectiveMaxSpeed(BlockState state) { return presetParameters(state).maxSpeed(); }
+    public static int accelerationPeriod(Level level, BlockPos pos, BlockState state) { return configuredParameters(level, pos, state).accelerationPeriod(); }
+    public static int effectiveMaxSpeed(Level level, BlockPos pos, BlockState state) { return configuredParameters(level, pos, state).maxSpeed(); }
+    public static int accelerationStep(Level level, BlockPos pos, BlockState state) { return configuredParameters(level, pos, state).accelerationStep(); }
+
+    public static boolean adjustParameter(ServerLevel level, BlockPos pos, int parameter, int delta) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof ServoActuatorBlock)) return false;
+        EngineeringDeviceParameters.ServoParameters current = configuredParameters(level, pos, state);
+        EngineeringDeviceParameters.ServoParameters next = switch (parameter) {
+            case 0 -> new EngineeringDeviceParameters.ServoParameters(current.maxSpeed() + delta, current.accelerationPeriod(), current.accelerationStep());
+            case 1 -> new EngineeringDeviceParameters.ServoParameters(current.maxSpeed(), current.accelerationPeriod() + delta, current.accelerationStep());
+            case 2 -> new EngineeringDeviceParameters.ServoParameters(current.maxSpeed(), current.accelerationPeriod(), current.accelerationStep() + delta);
+            default -> current;
+        };
+        boolean changed = EngineeringDeviceParameters.get(level).setServoParameters(level, pos, next);
+        if (changed) level.scheduleTick(pos, state.getBlock(), 1);
+        return changed;
+    }
+
+    public static boolean loadPreset(ServerLevel level, BlockPos pos, int loadPreset) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof ServoActuatorBlock)) return false;
+        int bounded = Math.max(0, Math.min(3, loadPreset));
+        BlockState nextState = state.setValue(LOAD, bounded);
+        level.setBlock(pos, nextState, Block.UPDATE_CLIENTS);
+        boolean changed = EngineeringDeviceParameters.get(level).setServoParameters(level, pos, presetParameters(nextState));
+        level.scheduleTick(pos, nextState.getBlock(), 1);
+        return changed || bounded != state.getValue(LOAD);
     }
     public static int position(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r==null||r.length<1?0:r[0]; }
     public static int command(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r==null||r.length<2?0:r[1]; }
@@ -252,8 +294,9 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
         r[1] = command; r[4] = brake ? 1 : 0; r[13] = mode;
 
         int oldPosition = r[0];
-        int maxSpeed = effectiveMaxSpeed(s);
-        int accelPeriod = accelerationPeriod(s);
+        int maxSpeed = effectiveMaxSpeed(l, p, s);
+        int accelPeriod = accelerationPeriod(l, p, s);
+        int accelStep = accelerationStep(l, p, s);
         int appliedVelocity = r[2];
         int velocityCommand = 0;
         int desiredVelocity = 0;
@@ -273,7 +316,7 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
             boolean accelerationUpdate = r[ACCEL_PHASE_SLOT] >= accelPeriod;
             if (accelerationUpdate) {
                 r[ACCEL_PHASE_SLOT] = 0;
-                appliedVelocity = approach(appliedVelocity, desiredVelocity, 1);
+                appliedVelocity = approach(appliedVelocity, desiredVelocity, accelStep);
             } else if (appliedVelocity != desiredVelocity) {
                 if (r[LOAD_DELAY_TICKS_SLOT] < Integer.MAX_VALUE) r[LOAD_DELAY_TICKS_SLOT]++;
             }
@@ -311,7 +354,12 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
 
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
-        if (!state.is(newState.getBlock())) RuntimeIntStore.remove(level, KEY, pos);
+        if (!state.is(newState.getBlock())) {
+            RuntimeIntStore.remove(level, KEY, pos);
+            if (level instanceof ServerLevel serverLevel) {
+                EngineeringDeviceParameters.get(serverLevel).removeServoParameters(serverLevel, pos);
+            }
+        }
         super.onRemove(state, level, pos, newState, movedByPiston);
     }
 
@@ -321,14 +369,15 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
             if (pl.isShiftKeyDown()) {
                 if (h.getDirection() == Direction.UP) {
                     int nextLoad = (s.getValue(LOAD) + 1) % 4;
-                    l.setBlock(p, s.setValue(LOAD, nextLoad), Block.UPDATE_CLIENTS);
-                    if (l instanceof ServerLevel server) server.scheduleTick(p, this, 1);
+                    if (l instanceof ServerLevel server) loadPreset(server, p, nextLoad);
                     BlockState next = l.getBlockState(p);
+                    var parameters = configuredParameters(l, p, next);
                     pl.displayClientMessage(net.minecraft.network.chat.Component.literal(
-                            "Servo mechanical load=" + loadName(next)
-                                    + " | accelPeriod=" + accelerationPeriod(next) + "t"
-                                    + " | maxSpeed=" + effectiveMaxSpeed(next)
-                                    + " | Shift-click TOP cycles load; Shift-click another face homes/resets"), true);
+                            "Servo mechanical preset=" + loadName(next)
+                                    + " | accelPeriod=" + parameters.accelerationPeriod() + "t"
+                                    + " | accelStep=" + parameters.accelerationStep()
+                                    + " | maxSpeed=" + parameters.maxSpeed()
+                                    + " | Shift-click TOP cycles preset; Shift-click another face homes/resets"), true);
                 } else {
                     homeAndReset(l, p);
                     pl.displayClientMessage(net.minecraft.network.chat.Component.literal(
