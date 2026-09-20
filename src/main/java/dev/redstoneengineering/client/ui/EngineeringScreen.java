@@ -449,16 +449,22 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         workbenchParameterNext.setMessage(Component.literal("P" + (workbenchParameterIndex + 1) + " ▶"));
         workbenchParameterPrevious.setTooltip(Tooltip.create(Component.literal("Previous block-owned parameter")));
         workbenchParameterNext.setTooltip(Tooltip.create(Component.literal("Next block-owned parameter")));
+        String symbol = EngineeringWorkbenchCatalog.parameterSymbol(menu, spec);
+        int equationIndex = EngineeringWorkbenchCatalog.parameterEquationIndex(menu, spec);
         if (choice) {
-            workbenchDecrease.setMessage(Component.literal("◀ Prev"));
-            workbenchIncrease.setMessage(Component.literal("Next ▶"));
-            workbenchDecrease.setTooltip(Tooltip.create(Component.literal("Previous " + spec.label())));
-            workbenchIncrease.setTooltip(Tooltip.create(Component.literal("Next " + spec.label())));
+            workbenchDecrease.setMessage(Component.literal("◀" + symbol));
+            workbenchIncrease.setMessage(Component.literal(symbol + "▶"));
+            workbenchDecrease.setTooltip(Tooltip.create(Component.literal(
+                    "Previous " + spec.label() + " • changes " + symbol + " in Eq." + equationIndex)));
+            workbenchIncrease.setTooltip(Tooltip.create(Component.literal(
+                    "Next " + spec.label() + " • changes " + symbol + " in Eq." + equationIndex)));
         } else {
-            workbenchDecrease.setMessage(Component.literal("−1"));
-            workbenchIncrease.setMessage(Component.literal("+1"));
-            workbenchDecrease.setTooltip(Tooltip.create(Component.literal(spec.label() + " fine -1")));
-            workbenchIncrease.setTooltip(Tooltip.create(Component.literal(spec.label() + " fine +1")));
+            workbenchDecrease.setMessage(Component.literal("−" + symbol));
+            workbenchIncrease.setMessage(Component.literal("+" + symbol));
+            workbenchDecrease.setTooltip(Tooltip.create(Component.literal(
+                    spec.label() + " fine -1 • changes " + symbol + " in Eq." + equationIndex)));
+            workbenchIncrease.setTooltip(Tooltip.create(Component.literal(
+                    spec.label() + " fine +1 • changes " + symbol + " in Eq." + equationIndex)));
         }
         if (numeric) {
             workbenchApply.setTooltip(Tooltip.create(Component.literal(
@@ -775,18 +781,26 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             return;
         }
 
-        graphics.drawString(font, "Formula / relation", 16, 103, MUTED, false);
-        safeWrappedText(graphics, model.equation(), 16, 114, TEXT, 2);
-        graphics.drawString(font, "Process", 16, 136, MUTED, false);
-        safeText(graphics, model.process(), 67, 136, TEXT);
-        sectionRule(graphics, 151);
-        safeWrappedText(graphics, policy.rationale(), 16, 159, MUTED, 2);
+        List<String> equations = EngineeringWorkbenchCatalog.physicsEquations(menu);
+        graphics.drawString(font, "PHYSICS", 16, 103, INFO, false);
+        if (!equations.isEmpty()) {
+            graphics.drawString(font, "Eq.1", 16, 115, MUTED, false);
+            safeText(graphics, equations.get(0), 48, 115, TEXT);
+        }
+        if (equations.size() > 1) {
+            graphics.drawString(font, "Eq.2", 16, 127, MUTED, false);
+            safeText(graphics, equations.get(1), 48, 127, TEXT);
+        }
+        graphics.drawString(font, "Process", 16, 141, MUTED, false);
+        safeText(graphics, model.process(), 67, 141, TEXT);
+        sectionRule(graphics, 154);
+        safeText(graphics, policy.rationale(), 16, 160, MUTED);
 
         if (!specs.isEmpty()) {
             EngineeringWorkbenchCatalog.ParameterSpec spec = activeWorkbenchParameter();
             if (spec != null) {
                 String index = "PARAM " + (workbenchParameterIndex + 1) + "/" + specs.size();
-                graphics.drawString(font, index, 16, 178, INFO, false);
+                graphics.drawString(font, index, 16, 173, INFO, false);
                 String controlTag = switch (spec.control()) {
                     case CHOICE -> "CHOICE";
                     case RANGE -> "RANGE";
@@ -794,25 +808,32 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
                 };
                 String value = controlTag + " • " + spec.label() + " = " + spec.current()
                         + (spec.unit().isBlank() ? "" : " " + spec.unit())
-                        + "   [" + spec.minimum() + ".." + spec.maximum() + "]";
-                graphics.drawString(font, fitForWidth(value, 222), 82, 178, TEXT, false);
+                        + " [" + spec.minimum() + ".." + spec.maximum() + "]";
+                graphics.drawString(font, fitForWidth(value, 222), 82, 173, TEXT, false);
 
-                int barX = 16, barY = 189, barW = 288, barH = 5;
+                String symbol = EngineeringWorkbenchCatalog.parameterSymbol(menu, spec);
+                int equationIndex = EngineeringWorkbenchCatalog.parameterEquationIndex(menu, spec);
+                String binding = "CONTROL → " + symbol + " in Eq." + equationIndex
+                        + " • buttons below change this server-owned term";
+                safeText(graphics, binding, 16, 184, GOOD);
+
+                int barX = 16, barY = 193, barW = 288, barH = 3;
                 graphics.fill(barX, barY, barX + barW, barY + barH, PANEL_3);
                 int span = Math.max(1, spec.maximum() - spec.minimum());
                 int clamped = Math.max(spec.minimum(), Math.min(spec.maximum(), spec.current()));
                 int filled = (int) Math.round((clamped - spec.minimum()) * barW / (double) span);
                 graphics.fill(barX, barY, barX + filled, barY + barH, INFO);
                 int markerX = barX + Math.max(0, Math.min(barW - 1, filled));
-                graphics.fill(markerX, barY - 2, markerX + 1, barY + barH + 2, TEXT);
+                graphics.fill(markerX, barY - 1, markerX + 1, barY + barH + 1, TEXT);
 
                 if (!spec.detail().isBlank() && workbenchTarget != null) {
-                    workbenchTarget.setTooltip(Tooltip.create(Component.literal(spec.detail())));
+                    workbenchTarget.setTooltip(Tooltip.create(Component.literal(
+                            spec.detail() + " • Changes " + symbol + " in Eq." + equationIndex + ".")));
                 }
             }
         } else {
-            labelValue(graphics, "Block-owned parameters", "NONE / READ ONLY", 182);
-            safeWrappedText(graphics, model.boundary(), 16, 199, MUTED, 2);
+            labelValue(graphics, "Block-owned parameters", "NONE / READ ONLY", 177);
+            safeText(graphics, model.boundary(), 16, 189, MUTED);
         }
     }
 
@@ -822,27 +843,41 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             List<EngineeringWorkbenchCatalog.ParameterSpec> specs
     ) {
         EngineeringWorkbenchCatalog.LabProfile lab = EngineeringWorkbenchCatalog.labProfile(menu);
-        graphics.drawString(font, "Formula", 16, 103, MUTED, false);
-        safeText(graphics, model.equation(), 58, 103, TEXT);
+        List<String> equations = EngineeringWorkbenchCatalog.physicsEquations(menu);
+        graphics.drawString(font, "PHYSICS", 16, 103, INFO, false);
+        if (!equations.isEmpty()) {
+            graphics.drawString(font, "Eq.1", 16, 115, MUTED, false);
+            safeText(graphics, equations.get(0), 48, 115, TEXT);
+        }
+        if (equations.size() > 1) {
+            graphics.drawString(font, "Eq.2", 16, 127, MUTED, false);
+            safeText(graphics, equations.get(1), 48, 127, TEXT);
+        }
 
         if (lab == null) {
-            safeText(graphics, "LAB profile unavailable • use Live / Observe for current server evidence.", 16, 128, WARN);
+            safeText(graphics, "LAB profile unavailable • use Live / Observe for current server evidence.", 16, 143, WARN);
             return;
         }
 
         String experimentLabel = "Experiment • " + EngineeringWorkbenchCatalog.experimentKind(menu).name().replace('_', ' ');
-        graphics.drawString(font, fitForWidth(experimentLabel, 118), 16, 126, INFO, false);
-        safeText(graphics, lab.question(), 138, 126, TEXT);
-        safeText(graphics, "X • " + lab.independentVariable(), 16, 140, MUTED);
-        safeText(graphics, "Y • " + lab.dependentVariable(), 160, 140, MUTED);
+        graphics.drawString(font, fitForWidth(experimentLabel, 108), 16, 141, INFO, false);
+        safeText(graphics, lab.question(), 128, 141, TEXT);
 
         EngineeringWorkbenchCatalog.ParameterSpec spec = activeWorkbenchParameter();
         EngineeringWorkbenchCatalog.ResponseSpec response = EngineeringWorkbenchCatalog.response(menu);
+        if (spec != null) {
+            String symbol = EngineeringWorkbenchCatalog.parameterSymbol(menu, spec);
+            int equationIndex = EngineeringWorkbenchCatalog.parameterEquationIndex(menu, spec);
+            safeText(graphics, "CONTROL → " + spec.label() + " = " + symbol + " in Eq." + equationIndex
+                    + " • X=" + lab.independentVariable() + " • Y=" + lab.dependentVariable(), 16, 153, GOOD);
+        } else {
+            safeText(graphics, "X • " + lab.independentVariable() + "    Y • " + lab.dependentVariable(), 16, 153, MUTED);
+        }
         boolean showSweepPlot = spec != null && spec.sweepMeaningful() && response != null
                 && (workbenchSweepActive || workbenchSweepPointCount > 0);
 
         if (showSweepPlot) {
-            int plotX = 16, plotY = 156, plotW = 288, plotH = 36;
+            int plotX = 16, plotY = 164, plotW = 288, plotH = 28;
             EngineeringPlot.analogFrame(graphics, plotX, plotY, plotW, plotH);
             EngineeringPlot.xyTrace(graphics, workbenchSweepPointCount,
                     i -> workbenchSweepParameters[i],
@@ -852,14 +887,14 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
                     plotX + 3, plotY + 3, plotW - 6, plotH - 6, GOOD);
             String caption = "measured " + spec.label() + " → " + response.label()
                     + " • " + workbenchSweepPointCount + " pts";
-            graphics.drawString(font, fitForWidth(caption, 270), 22, 158,
+            graphics.drawString(font, fitForWidth(caption, 270), 22, 165,
                     workbenchSweepActive ? INFO : GOOD, false);
         } else {
             List<EngineeringWorkbenchCatalog.LabMetric> metrics = lab.metrics();
             int[] xs = {16, 111, 206};
             for (int i = 0; i < Math.min(3, metrics.size()); i++) {
                 EngineeringWorkbenchCatalog.LabMetric metric = metrics.get(i);
-                metricCard(graphics, metric.label(), metric.value(), xs[i], 158, 88, i == 1 ? GOOD : INFO);
+                metricCard(graphics, metric.label(), metric.value(), xs[i], 164, 88, i == 1 ? GOOD : INFO);
             }
         }
 
