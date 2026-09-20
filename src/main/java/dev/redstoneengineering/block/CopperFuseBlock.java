@@ -218,6 +218,28 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
         return input.quality() == PortQuality.VALID && current <= Math.max(1, rating);
     }
 
+    public static boolean tryReset(ServerLevel level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof CopperFuseBlock fuse)) return false;
+
+        CopperObservationSupport.Observation input =
+                CopperObservationSupport.observe(level, fuse.inputPos(pos, state), pos);
+        int inputVoltage = input.quality() == PortQuality.VALID ? input.voltage() : 0;
+        double loadResistance = CircuitPhysics.equivalentLoadResistance(level, fuse.outputPos(pos, state), 128);
+        boolean loadTruncated = NetworkKernel.stats(level, "copper_load").lastTruncated();
+        double current = loadTruncated ? 0.0 : CircuitPhysics.current(inputVoltage, loadResistance);
+
+        if (!resetAllowed(input, loadTruncated, current, state.getValue(RATING))) return false;
+
+        BlockState next = state.setValue(TRIPPED, false);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        int[] thermal = RuntimeIntStore.get(level, THERMAL_KEY, pos, THERMAL_RUNTIME_SIZE);
+        thermal[THERMAL_EXPOSURE] = 0;
+        thermal[LAST_CURRENT_X100] = 0;
+        level.scheduleTick(pos, fuse, 1);
+        return true;
+    }
+
     @Override protected int observedOutputVoltage(Level level, BlockPos pos, BlockState state) { return outputVoltage(level, pos); }
     @Override protected PortQuality observedOutputQuality(Level level, BlockPos pos, BlockState state) { return outputQuality(level, pos, state); }
 
