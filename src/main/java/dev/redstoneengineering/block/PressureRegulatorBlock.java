@@ -8,6 +8,7 @@ import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
+import dev.redstoneengineering.physics.EngineeringDeviceParameters;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.PneumaticNetwork;
 import dev.redstoneengineering.physics.PneumaticObservationSupport;
@@ -65,6 +66,37 @@ public class PressureRegulatorBlock extends DirectionalDomainBlock implements En
         return state.getValue(SETPOINT) * 10;
     }
 
+    public static int setpointPressure(Level level, BlockPos pos, BlockState state) {
+        int fallback = setpointPressure(state);
+        if (level instanceof ServerLevel serverLevel) {
+            return Math.max(1, Math.min(100, EngineeringDeviceParameters.get(serverLevel)
+                    .extendedParameters(serverLevel, pos,
+                            new EngineeringDeviceParameters.ExtendedParameters(fallback, PressureRegulatorLogic.responseRate(state.getValue(RESPONSE_MODE)), 0, 0)).a()));
+        }
+        return fallback;
+    }
+
+    public static int responseRate(Level level, BlockPos pos, BlockState state) {
+        int fallback = PressureRegulatorLogic.responseRate(state.getValue(RESPONSE_MODE));
+        if (level instanceof ServerLevel serverLevel) {
+            return Math.max(1, Math.min(100, EngineeringDeviceParameters.get(serverLevel)
+                    .extendedParameters(serverLevel, pos,
+                            new EngineeringDeviceParameters.ExtendedParameters(setpointPressure(state), fallback, 0, 0)).b()));
+        }
+        return fallback;
+    }
+
+    public static boolean setEngineeringParameters(ServerLevel level, BlockPos pos, int setpoint, int rate) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof PressureRegulatorBlock)) return false;
+        int boundedSetpoint = Math.max(1, Math.min(100, setpoint));
+        int boundedRate = Math.max(1, Math.min(100, rate));
+        boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
+                level, pos, new EngineeringDeviceParameters.ExtendedParameters(boundedSetpoint, boundedRate, 0, 0));
+        if (changed) level.scheduleTick(pos, state.getBlock(), 1);
+        return changed;
+    }
+
     private static int[] snapshot(Level level, BlockPos pos) {
         int[] rt = RuntimeIntStore.peek(level, RUNTIME_KEY, pos);
         return rt != null && rt.length == RUNTIME_SIZE ? rt : null;
@@ -83,7 +115,7 @@ public class PressureRegulatorBlock extends DirectionalDomainBlock implements En
         return PressureRegulatorLogic.trackingError(
                 actualRegulatedPressure(level, pos),
                 inletPressure(level, pos, state),
-                setpointPressure(state)
+                setpointPressure(level, pos, state)
         );
     }
 
@@ -92,8 +124,15 @@ public class PressureRegulatorBlock extends DirectionalDomainBlock implements En
         if (!(state.getBlock() instanceof PressureRegulatorBlock regulator)) return false;
         int mode = state.getValue(RESPONSE_MODE);
         int next = Math.floorMod(mode + (forward ? 1 : -1), 3);
-        level.setBlock(pos, state.setValue(RESPONSE_MODE, next), Block.UPDATE_CLIENTS);
-        if (level instanceof ServerLevel server) server.scheduleTick(pos, regulator, 1);
+        BlockState nextState = state.setValue(RESPONSE_MODE, next);
+        level.setBlock(pos, nextState, Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel server) {
+            EngineeringDeviceParameters.get(server).setExtendedParameters(
+                    server, pos,
+                    new EngineeringDeviceParameters.ExtendedParameters(setpointPressure(nextState),
+                            PressureRegulatorLogic.responseRate(next), 0, 0));
+            server.scheduleTick(pos, regulator, 1);
+        }
         return true;
     }
 
@@ -102,8 +141,15 @@ public class PressureRegulatorBlock extends DirectionalDomainBlock implements En
         if (!(state.getBlock() instanceof PressureRegulatorBlock regulator)) return false;
         int value = state.getValue(SETPOINT);
         int next = forward ? (value >= 10 ? 1 : value + 1) : (value <= 1 ? 10 : value - 1);
-        level.setBlock(pos, state.setValue(SETPOINT, next), Block.UPDATE_CLIENTS);
-        if (level instanceof ServerLevel server) server.scheduleTick(pos, regulator, 1);
+        BlockState nextState = state.setValue(SETPOINT, next);
+        level.setBlock(pos, nextState, Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel server) {
+            EngineeringDeviceParameters.get(server).setExtendedParameters(
+                    server, pos,
+                    new EngineeringDeviceParameters.ExtendedParameters(setpointPressure(nextState),
+                            PressureRegulatorLogic.responseRate(nextState.getValue(RESPONSE_MODE)), 0, 0));
+            server.scheduleTick(pos, regulator, 1);
+        }
         return true;
     }
 
@@ -154,15 +200,15 @@ public class PressureRegulatorBlock extends DirectionalDomainBlock implements En
         int inlet = inletPressure(level, pos, state);
         int[] rt = RuntimeIntStore.get(level, RUNTIME_KEY, pos, RUNTIME_SIZE);
         int oldActual = rt[ACTUAL_PRESSURE];
-        int next = PressureRegulatorLogic.stepPressure(
-                oldActual, inlet, setpointPressure(state), state.getValue(RESPONSE_MODE));
+        int next = PressureRegulatorLogic.stepPressureRate(
+                oldActual, inlet, setpointPressure(level, pos, state), responseRate(level, pos, state));
 
         rt[ACTUAL_PRESSURE] = next;
         rt[LAST_INLET] = inlet;
         rt[INITIALIZED] = 1;
 
         if (next != oldActual) PneumaticNetwork.recompute(level, pos);
-        if (next != PressureRegulatorLogic.targetPressure(inlet, setpointPressure(state))) {
+        if (next != PressureRegulatorLogic.targetPressure(inlet, setpointPressure(level, pos, state))) {
             level.scheduleTick(pos, this, 1);
         }
     }
@@ -171,6 +217,7 @@ public class PressureRegulatorBlock extends DirectionalDomainBlock implements En
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
         if (!state.is(newState.getBlock())) {
             RuntimeIntStore.remove(level, RUNTIME_KEY, pos);
+            if (level instanceof ServerLevel serverLevel) EngineeringDeviceParameters.get(serverLevel).removeExtendedParameters(serverLevel, pos);
             if (level instanceof ServerLevel server) {
                 InformationRuntime.clear(level, "pneumatic", pos);
                 PneumaticNetwork.recomputeAround(server, pos);
