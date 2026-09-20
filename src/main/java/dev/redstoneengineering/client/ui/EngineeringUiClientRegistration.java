@@ -46,6 +46,7 @@ public final class EngineeringUiClientRegistration {
         event.register(EngineeringUiRegistration.SERVO_ACTUATOR.get(), ServoActuatorNotebookScreen::new);
         event.register(EngineeringUiRegistration.MULTI_PHYSICS_PARAMETER.get(), MultiPhysicsParameterNotebookScreen::new);
         event.register(EngineeringUiRegistration.ADVANCED_PARAMETER.get(), AdvancedParameterNotebookScreen::new);
+        event.register(EngineeringUiRegistration.PROCESS_PARAMETER.get(), ProcessParameterNotebookScreen::new);
         event.register(EngineeringUiRegistration.QUARTZ_TIMING.get(), QuartzTimingScreen::new);
         event.register(EngineeringUiRegistration.RADIO_LINK.get(), RadioLinkScreen::new);
         event.register(EngineeringUiRegistration.DIGITAL_COMMUNICATION.get(), DigitalCommunicationScreen::new);
