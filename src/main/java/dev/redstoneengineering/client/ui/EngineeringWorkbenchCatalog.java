@@ -1732,6 +1732,10 @@ public final class EngineeringWorkbenchCatalog {
                     "THERMAL RADIATOR", "T_neighbor[k+1] = max(T_ambient, T_neighbor - cooling)",
                     "cooling coefficient 1..4", "observe adjacent thermal mass -> remove bounded heat -> stop at ambient floor",
                     "The radiator cannot cool below the physical ambient floor.");
+            case UniversalFieldDeviceMenu.CONFIG_REDSTONE_COPPER_DRIVER -> card(
+                    "REDSTONE → COPPER DRIVER", "V_actual[k+1] = moveToward(V_actual, V_target, slew)",
+                    "slew profile • target V • actual V", "observe redstone command -> classify evidence -> slew physical Copper output -> publish network source",
+                    "A valid zero command is a real 0 V source; missing/uncertain command evidence is source absence, not numeric zero.");
             case UniversalFieldDeviceMenu.CONFIG_COPPER_SOURCE -> card(
                     "COPPER VOLTAGE SOURCE", "V_out = configured V_source",
                     "source voltage 0..15", "set durable source level -> recompute connected Copper network -> expose voltage evidence",
