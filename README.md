@@ -24,13 +24,23 @@ RSE does not shade or bundle their jars. Physics, topology, measurement, control
 
 | Item | Current RSE baseline |
 | --- | --- |
-| Development milestone | **Alpha 1.0.20 — Commissioning Run History & Baseline Comparison** |
-| Artifact version | `1.0.20-alpha` |
+| Development milestone | **Alpha 1.0.21 — Integrated Validation, Actuator Deepening & Signal Processing Laboratory** |
+| Artifact version | `1.0.21-alpha` |
 | Minecraft | `1.21.1` |
 | NeoForge | `21.1.249` |
 | Java | `21` |
 | Mod ID | `redstoneengineering` |
 | License | **MPL-2.0** |
+
+## Alpha 1.0.21 — Integrated Validation, Actuator Deepening & Signal Processing Laboratory
+
+Alpha 1.0.21 packages the stable **complete-chain + actuator-deepening** baseline used by the integrated commissioning demos. It retains the Integrated Commissioning Bench V2, sustained stage evidence, servo load/inertia behavior, pneumatic actuator diagnostics and motion, and the four-device Signal Processing Laboratory.
+
+The signal laboratory uses the real Low-Pass Filter, Quartz Clock Oscillator, Quartz-triggered Sample-and-Hold, and Lapis-to-Redstone Quantizer in both unit and integrated validation paths. The actuator side retains closed-loop PID/servo feedback plus the instrumented pneumatic linear actuator cell and solver-owned pressure-path evidence.
+
+This release intentionally **does not include** the later shared Engineering Workbench / generic LAB UI redesign or equation-heavy showcase layer. Runtime authority remains in the existing server-side physics, topology, control, and validation code.
+
+See [`ALPHA1_0_21_MANIFEST.txt`](ALPHA1_0_21_MANIFEST.txt) and [`docs/ALPHA1_0_21_TESTING_GUIDE.md`](docs/ALPHA1_0_21_TESTING_GUIDE.md).
 
 ## Alpha 1.0.20 — Commissioning Run History & Baseline Comparison
 
