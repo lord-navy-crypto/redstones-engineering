@@ -799,7 +799,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         graphics.drawString(font, "Process", 16, 141, MUTED, false);
         safeText(graphics, model.process(), 67, 141, TEXT);
         sectionRule(graphics, 154);
-        safeText(graphics, policy.rationale(), 16, 160, MUTED);
+        safeText(graphics, "TERMS • " + model.parameters(), 16, 160, MUTED);
 
         if (!specs.isEmpty()) {
             EngineeringWorkbenchCatalog.ParameterSpec spec = activeWorkbenchParameter();
@@ -859,14 +859,16 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             safeText(graphics, equations.get(1), 48, 127, TEXT);
         }
 
+        safeText(graphics, "TERMS • " + model.parameters(), 16, 139, MUTED);
+
         if (lab == null) {
-            safeText(graphics, "LAB profile unavailable • use Live / Observe for current server evidence.", 16, 143, WARN);
+            safeText(graphics, "LAB profile unavailable • use Live / Observe for current server evidence.", 16, 151, WARN);
             return;
         }
 
         String experimentLabel = "Experiment • " + EngineeringWorkbenchCatalog.experimentKind(menu).name().replace('_', ' ');
-        graphics.drawString(font, fitForWidth(experimentLabel, 108), 16, 141, INFO, false);
-        safeText(graphics, lab.question(), 128, 141, TEXT);
+        graphics.drawString(font, fitForWidth(experimentLabel, 108), 16, 150, INFO, false);
+        safeText(graphics, lab.question(), 128, 150, TEXT);
 
         EngineeringWorkbenchCatalog.ParameterSpec spec = activeWorkbenchParameter();
         EngineeringWorkbenchCatalog.ResponseSpec response = EngineeringWorkbenchCatalog.response(menu);
@@ -874,15 +876,15 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             String symbol = EngineeringWorkbenchCatalog.parameterSymbol(menu, spec);
             int equationIndex = EngineeringWorkbenchCatalog.parameterEquationIndex(menu, spec);
             safeText(graphics, "CONTROL → " + spec.label() + " = " + symbol + " in Eq." + equationIndex
-                    + " • X=" + lab.independentVariable() + " • Y=" + lab.dependentVariable(), 16, 153, GOOD);
+                    + " • X=" + lab.independentVariable() + " • Y=" + lab.dependentVariable(), 16, 160, GOOD);
         } else {
-            safeText(graphics, "X • " + lab.independentVariable() + "    Y • " + lab.dependentVariable(), 16, 153, MUTED);
+            safeText(graphics, "X • " + lab.independentVariable() + "    Y • " + lab.dependentVariable(), 16, 160, MUTED);
         }
         boolean showSweepPlot = spec != null && spec.sweepMeaningful() && response != null
                 && (workbenchSweepActive || workbenchSweepPointCount > 0);
 
         if (showSweepPlot) {
-            int plotX = 16, plotY = 164, plotW = 288, plotH = 28;
+            int plotX = 16, plotY = 170, plotW = 288, plotH = 22;
             EngineeringPlot.analogFrame(graphics, plotX, plotY, plotW, plotH);
             EngineeringPlot.xyTrace(graphics, workbenchSweepPointCount,
                     i -> workbenchSweepParameters[i],
@@ -892,14 +894,14 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
                     plotX + 3, plotY + 3, plotW - 6, plotH - 6, GOOD);
             String caption = "measured " + spec.label() + " → " + response.label()
                     + " • " + workbenchSweepPointCount + " pts";
-            graphics.drawString(font, fitForWidth(caption, 270), 22, 165,
+            graphics.drawString(font, fitForWidth(caption, 270), 22, 171,
                     workbenchSweepActive ? INFO : GOOD, false);
         } else {
             List<EngineeringWorkbenchCatalog.LabMetric> metrics = lab.metrics();
             int[] xs = {16, 111, 206};
             for (int i = 0; i < Math.min(3, metrics.size()); i++) {
                 EngineeringWorkbenchCatalog.LabMetric metric = metrics.get(i);
-                metricCard(graphics, metric.label(), metric.value(), xs[i], 164, 88, i == 1 ? GOOD : INFO);
+                metricCard(graphics, metric.label(), metric.value(), xs[i], 168, 88, i == 1 ? GOOD : INFO);
             }
         }
 
