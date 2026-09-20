@@ -33,6 +33,9 @@ public final class FieldDeviceUi {
         if (block instanceof SignalConditionerBlock
                 || block instanceof PwmControllerBlock
                 || block instanceof RedstoneCopperDriverBlock
+                || block instanceof CopperCapacitorBlock
+                || block instanceof CopperFuseBlock
+                || block instanceof CopperVoltageSourceBlock
                 || block instanceof AirCompressorBlock
                 || block instanceof HoneyVibrationDamperBlock
                 || block instanceof MechanicalExciterBlock
