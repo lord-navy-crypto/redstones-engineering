@@ -104,6 +104,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_THERMAL_MASS = 54;
     public static final int CONFIG_THERMAL_RADIATOR = 55;
     public static final int CONFIG_REDSTONE_COPPER_DRIVER = 56;
+    public static final int CONFIG_QUARTZ_LAB_OSCILLATOR = 57;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
@@ -162,7 +163,17 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         editSecondaryMax.set(0);
         editableMask.set(0);
 
-        if (block instanceof LapisLowPassFilterBlock) {
+        if (block instanceof QuartzLabOscillatorBlock) {
+            configKind.set(CONFIG_QUARTZ_LAB_OSCILLATOR);
+            QuartzLabOscillatorBlock.TimingEvidence timing = QuartzLabOscillatorBlock.timingEvidence(level, blockPos, state);
+            configPrimary.set(state.getValue(QuartzLabOscillatorBlock.PERIOD_INDEX));
+            configSecondary.set(state.getValue(QuartzLabOscillatorBlock.JITTER));
+            configTertiary.set(timing.available() ? timing.lastHalfInterval() : 0);
+            int timingStatus = timing.available() ? 1 : 0;
+            timingStatus |= (Math.max(-15, Math.min(15, timing.lastJitterOffset())) + 15) << 1;
+            if (QuartzLabOscillatorBlock.configurationPending(level, blockPos, state)) timingStatus |= 1 << 6;
+            configQuaternary.set(timingStatus);
+        } else if (block instanceof LapisLowPassFilterBlock) {
             configKind.set(CONFIG_LAPIS_LOW_PASS);
             configPrimary.set(state.getValue(LapisLowPassFilterBlock.ALPHA));
         } else if (block instanceof QuartzPhaseDelayBlock) {
@@ -634,6 +645,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     }
 
     private IntegerProperty primaryEditableProperty(Block block) {
+        if (block instanceof QuartzLabOscillatorBlock) return QuartzLabOscillatorBlock.PERIOD_INDEX;
         if (block instanceof RedstoneCopperDriverBlock) return RedstoneCopperDriverBlock.SLEW;
         if (block instanceof LapisLowPassFilterBlock) return LapisLowPassFilterBlock.ALPHA;
         if (block instanceof QuartzPhaseDelayBlock) return QuartzPhaseDelayBlock.DELAY;
@@ -675,6 +687,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     }
 
     private IntegerProperty secondaryEditableProperty(Block block) {
+        if (block instanceof QuartzLabOscillatorBlock) return QuartzLabOscillatorBlock.JITTER;
         if (block instanceof SingleRelayBlock) return SingleRelayBlock.TIMING_MODE;
         if (block instanceof MagneticFieldSensorBlock) return MagneticFieldSensorBlock.SAMPLE_MODE;
         if (block instanceof EntityDensitySensorBlock) return EntityDensitySensorBlock.APERTURE_MODE;
@@ -705,6 +718,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean adjustPrimary(int delta) {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof QuartzLabOscillatorBlock) return QuartzLabOscillatorBlock.adjustPeriod(level, blockPos, delta);
         if (block instanceof RedstoneCopperDriverBlock) return RedstoneCopperDriverBlock.adjustSlew(level, blockPos, delta);
         if (block instanceof LapisLowPassFilterBlock) return LapisLowPassFilterBlock.adjustAlpha(level, blockPos, delta);
         if (block instanceof QuartzPhaseDelayBlock) return QuartzPhaseDelayBlock.adjustDelay(level, blockPos, delta);
@@ -746,6 +760,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean adjustSecondary(int delta) {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof QuartzLabOscillatorBlock) return QuartzLabOscillatorBlock.adjustJitter(level, blockPos, delta);
         if (block instanceof SingleRelayBlock) return SingleRelayBlock.stepTiming(level, blockPos, delta > 0);
         if (block instanceof MagneticFieldSensorBlock) return MagneticFieldSensorBlock.adjustSampling(level, blockPos, delta);
         if (block instanceof LapisPrecisionRangeSensorBlock range) return range.adjustRange(level, blockPos, delta);
