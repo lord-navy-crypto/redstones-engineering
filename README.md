@@ -44,6 +44,8 @@ See [`ALPHA1_0_21_MANIFEST.txt`](ALPHA1_0_21_MANIFEST.txt) and [`docs/ALPHA1_0_2
 
 ## Alpha 1.0.20 — Commissioning Run History & Baseline Comparison
 
+Historical artifact: `1.0.20-alpha`.
+
 Alpha 1.0.20 turns the acceptance result from a momentary HUD observation into an **explicitly captured engineering run record**. A player can crouch and right-click the **FRONT face of a PID Controller** to freeze the current authoritative acceptance snapshot together with game tick, tuning preset, and a monotonic local sequence number.
 
 ```text
