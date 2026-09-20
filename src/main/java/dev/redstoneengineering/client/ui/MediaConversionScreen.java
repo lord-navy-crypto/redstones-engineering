@@ -67,9 +67,8 @@ public final class MediaConversionScreen extends EngineeringScreen<MediaConversi
         labelValue(g, "TX face", menu.outputFace().getName().toUpperCase(), 167);
         labelValue(g, "Evidence", menu.inputQuality().name() + " → " + menu.outputQuality().name(), 185);
         if (menu.lapisToRedstone()) {
-            safeText(g, "MODEL • q = round(15x/100) • x_hat = 100q/15", 16, 207, GOOD);
-            safeText(g, "ERROR • |x - x_hat| = " + formatNormalized(menu.quantizationLoss())
-                    + " • precision is intentionally discarded at this boundary.", 16, 225, INFO);
+            safeWrappedText(g, "MODEL  q = round(15x/100);  x_hat = 100q/15", 16, 207, GOOD, 2);
+            safeText(g, "Quantization error = |x - x_hat| = " + formatNormalized(menu.quantizationLoss()), 16, 229, INFO);
         } else {
             safeText(g, identityText(), 16, 207, INFO);
         }
@@ -103,7 +102,6 @@ public final class MediaConversionScreen extends EngineeringScreen<MediaConversi
         } else {
             labelValue(g, "Reconstructed input", formatNormalized(menu.reconstructedLapis()), 190);
             labelValue(g, "Quantization error", formatNormalized(menu.quantizationLoss()), 210);
-            safeText(g, "INTERPRET • compare x, q and x_hat: the output is a valid Redstone code, but it cannot preserve every 0.01 Lapis step.", 16, 228, INFO);
         }
     }
 
