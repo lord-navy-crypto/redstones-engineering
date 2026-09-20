@@ -5,6 +5,7 @@ import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
+import dev.redstoneengineering.physics.EngineeringDeviceParameters;
 import dev.redstoneengineering.physics.EngineeringMath;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import net.minecraft.core.BlockPos;
@@ -46,8 +47,32 @@ public class LapisPrecisionRangeSensorBlock extends AbstractLapisTransducerBlock
         builder.add(RANGE_INDEX);
     }
 
+    public static int configuredRange(Level level, BlockPos pos, BlockState state) {
+        int fallback = RANGES[state.getValue(RANGE_INDEX)];
+        if (level instanceof ServerLevel serverLevel) {
+            return Math.max(1, Math.min(128, EngineeringDeviceParameters.get(serverLevel)
+                    .extendedParameters(serverLevel, pos,
+                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
+        }
+        return fallback;
+    }
+
+    public static boolean setConfiguredRange(ServerLevel level, BlockPos pos, int range) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof LapisPrecisionRangeSensorBlock sensor)) return false;
+        int bounded = Math.max(1, Math.min(128, range));
+        boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
+                level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
+        if (changed) {
+            RuntimeIntStore.remove(level, sensor.runtimeKey(), pos);
+            DomainNetwork.driveLapis(level, sensor.outputPos(pos, state), pos, 0, false);
+            level.scheduleTick(pos, sensor, 1);
+        }
+        return changed;
+    }
+
     public static RangeSample rangeSample(ServerLevel level, BlockPos pos, BlockState state) {
-        int max = RANGES[state.getValue(RANGE_INDEX)];
+        int max = configuredRange(level, pos, state);
         Direction direction = state.getValue(DirectionalDomainBlock.FACING).getOpposite();
         for (int i = 1; i <= max; i++) {
             BlockPos p = pos.relative(direction, i);
@@ -85,6 +110,8 @@ public class LapisPrecisionRangeSensorBlock extends AbstractLapisTransducerBlock
         int next = Math.floorMod(state.getValue(RANGE_INDEX) + delta, RANGES.length);
         BlockState updated = state.setValue(RANGE_INDEX, next);
         level.setBlock(pos, updated, Block.UPDATE_CLIENTS);
+        EngineeringDeviceParameters.get(server).setExtendedParameters(
+                server, pos, new EngineeringDeviceParameters.ExtendedParameters(RANGES[next], 0, 0, 0));
         RuntimeIntStore.remove(server, runtimeKey(), pos);
         DomainNetwork.driveLapis(server, outputPos(pos, updated), pos, 0, false);
         server.scheduleTick(pos, this, 1);
@@ -95,13 +122,17 @@ public class LapisPrecisionRangeSensorBlock extends AbstractLapisTransducerBlock
         return RANGES[state.getValue(RANGE_INDEX)];
     }
 
+    public static int rangeBlocks(Level level, BlockPos pos, BlockState state) {
+        return configuredRange(level, pos, state);
+    }
+
     @Override
     protected net.minecraft.world.InteractionResult useWithoutItem(BlockState state, net.minecraft.world.level.Level level, BlockPos pos, net.minecraft.world.entity.player.Player player, net.minecraft.world.phys.BlockHitResult hit) {
         if (!level.isClientSide && player.isShiftKeyDown()) {
             adjustRange(level, pos, 1);
             BlockState updated = level.getBlockState(pos);
             player.displayClientMessage(net.minecraft.network.chat.Component.literal(
-                    "Precision Range Sensor range = " + rangeBlocks(updated) + " blocks"), true);
+                    "Precision Range Sensor range = " + rangeBlocks(level, pos, updated) + " blocks"), true);
             return net.minecraft.world.InteractionResult.SUCCESS;
         }
         return super.useWithoutItem(state, level, pos, player, hit);
