@@ -30,6 +30,18 @@ public final class FieldDeviceUi {
         var state = player.level().getBlockState(pos);
         var block = state.getBlock();
         var title = block.getName();
+        if (block instanceof SignalConditionerBlock
+                || block instanceof PwmControllerBlock
+                || block instanceof RedstoneCopperDriverBlock
+                || block instanceof AirCompressorBlock
+                || block instanceof HoneyVibrationDamperBlock
+                || block instanceof MechanicalExciterBlock
+                || block instanceof LapisPrecisionSourceBlock) {
+            player.openMenu(new SimpleMenuProvider(
+                    (id, inv, ignored) -> new ProcessParameterMenu(id, inv, pos), title),
+                    data -> data.writeBlockPos(pos));
+            return;
+        }
         if (block instanceof PrecisionFilterBlock
                 || block instanceof PulseShaperBlock
                 || block instanceof EdgeDetectorBlock
