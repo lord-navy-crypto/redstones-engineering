@@ -105,6 +105,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_THERMAL_RADIATOR = 55;
     public static final int CONFIG_REDSTONE_COPPER_DRIVER = 56;
     public static final int CONFIG_QUARTZ_LAB_OSCILLATOR = 57;
+    public static final int CONFIG_REDSTONE_AMETHYST_EXCITER = 58;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
@@ -163,7 +164,13 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         editSecondaryMax.set(0);
         editableMask.set(0);
 
-        if (block instanceof QuartzLabOscillatorBlock) {
+        if (block instanceof RedstoneAmethystExciterBlock) {
+            configKind.set(CONFIG_REDSTONE_AMETHYST_EXCITER);
+            configPrimary.set(state.getValue(RedstoneAmethystExciterBlock.FREQUENCY));
+            configSecondary.set(RedstoneAmethystExciterBlock.targetAmplitude(level, blockPos));
+            configTertiary.set(RedstoneAmethystExciterBlock.actualAmplitude(level, blockPos));
+            configQuaternary.set(RedstoneAmethystExciterBlock.inputQuality(level, blockPos).ordinal());
+        } else if (block instanceof QuartzLabOscillatorBlock) {
             configKind.set(CONFIG_QUARTZ_LAB_OSCILLATOR);
             QuartzLabOscillatorBlock.TimingEvidence timing = QuartzLabOscillatorBlock.timingEvidence(level, blockPos, state);
             configPrimary.set(state.getValue(QuartzLabOscillatorBlock.PERIOD_INDEX));
@@ -645,6 +652,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     }
 
     private IntegerProperty primaryEditableProperty(Block block) {
+        if (block instanceof RedstoneAmethystExciterBlock) return RedstoneAmethystExciterBlock.FREQUENCY;
         if (block instanceof QuartzLabOscillatorBlock) return QuartzLabOscillatorBlock.PERIOD_INDEX;
         if (block instanceof RedstoneCopperDriverBlock) return RedstoneCopperDriverBlock.SLEW;
         if (block instanceof LapisLowPassFilterBlock) return LapisLowPassFilterBlock.ALPHA;
@@ -718,6 +726,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
 
     private boolean adjustPrimary(int delta) {
         Block block = level.getBlockState(blockPos).getBlock();
+        if (block instanceof RedstoneAmethystExciterBlock) return RedstoneAmethystExciterBlock.adjustFrequency(level, blockPos, delta);
         if (block instanceof QuartzLabOscillatorBlock) return QuartzLabOscillatorBlock.adjustPeriod(level, blockPos, delta);
         if (block instanceof RedstoneCopperDriverBlock) return RedstoneCopperDriverBlock.adjustSlew(level, blockPos, delta);
         if (block instanceof LapisLowPassFilterBlock) return LapisLowPassFilterBlock.adjustAlpha(level, blockPos, delta);
