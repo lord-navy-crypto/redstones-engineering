@@ -9,6 +9,7 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.EngineeringDeviceParameters;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.signal.EngineeringSignal;
 import dev.redstoneengineering.ui.FieldDeviceUi;
@@ -83,6 +84,26 @@ public class RangeSensorBlock extends Block implements EngineeringPortProvider {
     public static Direction outputSide(BlockState state) { return sensingSide(state).getOpposite(); }
     public static int configuredRange(BlockState state) { return rangeForMode(state.getValue(RANGE_MODE)); }
 
+    public static int configuredRange(Level level, BlockPos pos, BlockState state) {
+        int fallback = configuredRange(state);
+        if (level instanceof ServerLevel serverLevel) {
+            return Math.max(1, Math.min(32, EngineeringDeviceParameters.get(serverLevel)
+                    .extendedParameters(serverLevel, pos,
+                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
+        }
+        return fallback;
+    }
+
+    public static boolean setConfiguredRange(ServerLevel level, BlockPos pos, int range) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof RangeSensorBlock sensor)) return false;
+        int bounded = Math.max(1, Math.min(32, range));
+        boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
+                level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
+        if (changed) level.scheduleTick(pos, sensor, 1);
+        return changed;
+    }
+
     /**
      * Rotate the physical sensing/output axis on the server and invalidate both the old and new
      * electrical neighborhoods. The sensing face and redstone output face are always opposite.
@@ -114,7 +135,7 @@ public class RangeSensorBlock extends Block implements EngineeringPortProvider {
 
     /** Observer-neutral server-owned result from the most recent scheduled sensor scan. */
     public static ScanResult lastScan(Level level, BlockPos pos, BlockState state) {
-        int range = configuredRange(state);
+        int range = configuredRange(level, pos, state);
         int[] runtime = RuntimeIntStore.peek(level, RUNTIME_KEY, pos);
         if (runtime == null || runtime.length != 3) return new ScanResult(0, ScanStatus.UNINITIALIZED, 0, range);
         int statusIndex = Math.max(0, Math.min(ScanStatus.values().length - 1, runtime[1]));
@@ -164,6 +185,7 @@ public class RangeSensorBlock extends Block implements EngineeringPortProvider {
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock())) {
             RuntimeIntStore.remove(level, RUNTIME_KEY, pos);
+            if (level instanceof ServerLevel serverLevel) EngineeringDeviceParameters.get(serverLevel).removeExtendedParameters(serverLevel, pos);
             level.updateNeighborsAt(pos, this);
             level.updateNeighborsAt(pos.relative(state.getValue(FACING).getOpposite()), this);
         }
@@ -172,7 +194,7 @@ public class RangeSensorBlock extends Block implements EngineeringPortProvider {
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        int range = configuredRange(state);
+        int range = configuredRange(level, pos, state);
         ScanResult scan = scan(level, pos, state);
         int[] runtime = RuntimeIntStore.get(level, RUNTIME_KEY, pos, 3);
         if (scan.complete()) {
@@ -218,7 +240,7 @@ public class RangeSensorBlock extends Block implements EngineeringPortProvider {
             ScanResult scan = lastScan(level, pos, next);
             player.displayClientMessage(Component.literal(
                     "Range Sensor | detect=" + modeName(next.getValue(MODE))
-                            + " | range=" + configuredRange(next)
+                            + " | range=" + configuredRange(level, pos, next)
                             + " | response=" + responseName(next.getValue(RESPONSE))
                             + " | scan=" + scan.status()
                             + " " + scan.scannedCells() + "/" + scan.configuredRange()
@@ -232,7 +254,7 @@ public class RangeSensorBlock extends Block implements EngineeringPortProvider {
 
     private static ScanResult scan(Level level, BlockPos pos, BlockState state) {
         Direction facing = sensingSide(state);
-        int range = configuredRange(state);
+        int range = configuredRange(level, pos, state);
         int mode = state.getValue(MODE);
         for (int distance = 1; distance <= range; distance++) {
             BlockPos target = pos.relative(facing, distance);
