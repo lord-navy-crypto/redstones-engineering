@@ -115,6 +115,162 @@ public final class EngineeringWorkbenchCatalog {
 
     private EngineeringWorkbenchCatalog() {}
 
+    /**
+     * High-density physics equations for the shared Model/LAB page.
+     * These are explanatory projections of the server-owned model; the client never evaluates them.
+     */
+    public static List<String> physicsEquations(EngineeringDeviceMenu menu) {
+        ModelCard model = describe(menu);
+        java.util.ArrayList<String> equations = new java.util.ArrayList<>(3);
+        if (model != null && model.equation() != null && !model.equation().isBlank()) equations.add(model.equation());
+
+        if (menu instanceof PidControllerMenu) {
+            equations.add("e = SP - PV; D = filtered d(PV)/dt");
+            equations.add("u[k+1] = slew(clamp(u_raw), rise, fall)");
+        } else if (menu instanceof ReliabilitySystemMenu reliability
+                && reliability.kind() == ReliabilitySystemMenu.KIND_SERVO) {
+            equations.add("v[k+1] = approach(v, v_cmd, a(load))");
+            equations.add("x[k+1] = clamp(x[k] + v[k+1], 0, 15)");
+        } else if (menu instanceof SignalConditionerMenu) {
+            equations.add("y = clamp(gain*x + offset, configured bounds)");
+        } else if (menu instanceof SignalProcessorMenu processor) {
+            if (processor.kind() == SignalProcessorMenu.KIND_FILTER) equations.add("y[k+1] = y[k] + rate*(x-y)");
+            else equations.add("event = threshold/hysteresis test on sampled x[k]");
+        } else if (menu instanceof QuartzTimingMenu quartz) {
+            if (quartz.kind() == QuartzTimingMenu.KIND_DIVIDER) equations.add("f_out = f_in / N");
+            else equations.add("f = 1/T; half-cycle ~= T/2");
+        } else if (menu instanceof AmethystSystemMenu amethyst) {
+            if (amethyst.kind() == AmethystSystemMenu.KIND_TUNED) equations.add("response ~ 1 / (1 + Q*|f-f0|)");
+            else if (amethyst.kind() == AmethystSystemMenu.KIND_FILTER) equations.add("pass when |f-f_target| is inside filter band");
+        } else if (menu instanceof PneumaticSystemMenu pneumatic) {
+            if (pneumatic.kind() == PneumaticSystemMenu.KIND_REGULATOR) equations.add("P_out -> min(P_supply, P_set)");
+            else if (pneumatic.kind() == PneumaticSystemMenu.KIND_CYLINDER) equations.add("x_target ~= round(15*P/100)");
+            else if (pneumatic.kind() == PneumaticSystemMenu.KIND_PROPORTIONAL) equations.add("opening[k+1] -> command with response limit");
+        } else if (menu instanceof MagneticSystemMenu magnetic) {
+            if (magnetic.kind() == MagneticSystemMenu.KIND_COIL) equations.add("|emf| ~ N*|dPhi/dt|");
+            else if (magnetic.kind() == MagneticSystemMenu.KIND_FIELD_SENSOR) equations.add("B_meas = bounded spatial sample over radius r");
+        } else if (menu instanceof UniversalFieldDeviceMenu universal) {
+            switch (universal.configKind()) {
+                case UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR ->
+                        equations.add("I = Vin/(Rs+RL); Vout = I*RL");
+                case UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD ->
+                        equations.add("I = V/RL; P = V*I = V^2/RL");
+                case UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR ->
+                        equations.add("tau = Req*C; Vc[k+1] -> Vin with time constant tau");
+                case UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE ->
+                        equations.add("thermal[k+1] = heat(I/Irated) - cooling");
+                case UniversalFieldDeviceMenu.CONFIG_REDSTONE_COPPER_DRIVER ->
+                        equations.add("Vactual[k+1] = moveToward(Vactual,Vtarget,slew)");
+                case UniversalFieldDeviceMenu.CONFIG_LAPIS_LOW_PASS ->
+                        equations.add("alpha controls the fraction of (x-y) applied each update");
+                case UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY ->
+                        equations.add("t_release = t_edge + td");
+                case UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAB_OSCILLATOR ->
+                        equations.add("halfInterval = max(1,T/2 + deltaJ), deltaJ in [-J,+J]");
+                case UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER ->
+                        equations.add("P = V^2/Rh; T -> Tambient + P/3");
+                case UniversalFieldDeviceMenu.CONFIG_THERMAL_MASS ->
+                        equations.add("dT/dt ~ (Ttarget-T)/Cth");
+                case UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR ->
+                        equations.add("Tnext = max(Tambient, T-kcool)");
+                case UniversalFieldDeviceMenu.CONFIG_REDSTONE_AMETHYST_EXCITER ->
+                        equations.add("Aactual[k+1] = moveToward(Aactual,Atarget,2)");
+                case UniversalFieldDeviceMenu.CONFIG_ANALOG_COMPARATOR ->
+                        equations.add("decision = Schmitt(process-reference, H)");
+                case UniversalFieldDeviceMenu.CONFIG_PWM ->
+                        equations.add("duty ~= command/15; output toggles over configured period T");
+                default -> { }
+            }
+        }
+
+        if (equations.size() > 3) return List.copyOf(equations.subList(0, 3));
+        return List.copyOf(equations);
+    }
+
+    /**
+     * Symbol used beside the live controls so the player can see exactly which term in the physics
+     * model is being changed. Falls back to a compact engineering identifier rather than hiding it.
+     */
+    public static String parameterSymbol(EngineeringDeviceMenu menu, ParameterSpec spec) {
+        if (spec == null) return "—";
+        String label = spec.label();
+        if (label == null) return "P";
+        return switch (label) {
+            case "Kp" -> "Kp";
+            case "Ki divisor" -> "KiDiv";
+            case "Kd" -> "Kd";
+            case "D smoothing" -> "aD";
+            case "Rise slew" -> "du+";
+            case "Fall slew" -> "du-";
+            case "Tuning preset" -> "bank";
+            case "Source voltage" -> "Vs";
+            case "Series resistance" -> "Rs";
+            case "Load resistance" -> "RL";
+            case "Capacitance index" -> "C";
+            case "Fuse rating" -> "Ir";
+            case "Slew profile", "Servo slew profile" -> "slew";
+            case "Load / inertia profile" -> "Jload";
+            case "Filter alpha" -> "alpha";
+            case "Edge delay" -> "td";
+            case "Clock period index", "Period index", "Word period" -> "T";
+            case "Timing jitter" -> "J";
+            case "Carrier frequency", "Drive frequency", "Acoustic frequency" -> "f";
+            case "Heater resistance" -> "Rh";
+            case "Heat capacity" -> "Cth";
+            case "Cooling coefficient" -> "kcool";
+            case "Hysteresis" -> "H";
+            case "Comparison mode" -> "mode";
+            case "Pressure setpoint", "Relief setpoint" -> "Pset";
+            case "Coil turns index" -> "N";
+            case "Magnet strength" -> "Bsrc";
+            case "Scan radius mode" -> "r";
+            case "Sampling period mode" -> "Ts";
+            case "Optical intensity" -> "Iopt";
+            case "Attenuation" -> "L";
+            case "Target channel", "Optical channel", "Probe channel" -> "ch";
+            case "Logic threshold", "Quality threshold", "Trip threshold" -> "Vth";
+            case "Pulse width" -> "tw";
+            case "Threshold" -> "th";
+            case "Retrigger mode" -> "retrig";
+            case "Filter rate" -> "rate";
+            case "Reference level" -> "Vref";
+            case "Precision source value" -> "xsrc";
+            case "Waveguide medium" -> "medium";
+            case "Valve state" -> "open";
+            case "Response profile" -> "tauResp";
+            case "Timeout profile" -> "Ttimeout";
+            case "Voting tolerance" -> "tol";
+            case "Invert output" -> "inv";
+            case "Select polarity" -> "selPol";
+            case "Contact mode" -> "NO/NC";
+            case "Terminal direction" -> "dir";
+            default -> compactSymbol(label);
+        };
+    }
+
+    public static int parameterEquationIndex(EngineeringDeviceMenu menu, ParameterSpec spec) {
+        if (spec == null) return 1;
+        String s = parameterSymbol(menu, spec);
+        if (s.equals("J") || s.equals("Ts") || s.equals("Jload") || s.equals("du+") || s.equals("du-")
+                || s.equals("kcool") || s.equals("Cth") || s.equals("Rh") || s.equals("Ir")) return 2;
+        return 1;
+    }
+
+    private static String compactSymbol(String label) {
+        StringBuilder out = new StringBuilder();
+        boolean take = true;
+        for (int i = 0; i < label.length() && out.length() < 6; i++) {
+            char ch = label.charAt(i);
+            if (Character.isLetterOrDigit(ch) && (take || Character.isUpperCase(ch))) {
+                out.append(ch);
+                take = false;
+            } else if (ch == ' ' || ch == '/' || ch == '-') {
+                take = true;
+            }
+        }
+        return out.length() == 0 ? "P" : out.toString();
+    }
+
     public static ExperimentKind experimentKind(EngineeringDeviceMenu menu) {
         if (menu instanceof PidControllerMenu) return ExperimentKind.DYNAMIC_RESPONSE;
         if (menu instanceof SignalConditionerMenu) return ExperimentKind.TRANSFER;
