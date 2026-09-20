@@ -271,7 +271,8 @@ public final class EngineeringWorkbenchCatalog {
                  UniversalFieldDeviceMenu.CONFIG_THERMAL_MASS,
                  UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR,
                  UniversalFieldDeviceMenu.CONFIG_REDSTONE_COPPER_DRIVER,
-                 UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAB_OSCILLATOR ->
+                 UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAB_OSCILLATOR,
+                 UniversalFieldDeviceMenu.CONFIG_REDSTONE_AMETHYST_EXCITER ->
                     lab("LAB", "Discrete-time behavior has meaningful server-owned timing or capture dynamics.");
 
             case UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER,
@@ -810,7 +811,8 @@ public final class EngineeringWorkbenchCatalog {
                          UniversalFieldDeviceMenu.CONFIG_LAPIS_LOW_PASS,
                          UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY,
                          UniversalFieldDeviceMenu.CONFIG_REDSTONE_COPPER_DRIVER,
-                         UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAB_OSCILLATOR -> true;
+                         UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAB_OSCILLATOR,
+                         UniversalFieldDeviceMenu.CONFIG_REDSTONE_AMETHYST_EXCITER -> true;
                     default -> false;
                 };
                 boolean numeric = switch (universal.configKind()) {
@@ -1440,6 +1442,7 @@ public final class EngineeringWorkbenchCatalog {
             case UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR -> "Cooling coefficient";
             case UniversalFieldDeviceMenu.CONFIG_REDSTONE_COPPER_DRIVER -> "Slew profile";
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAB_OSCILLATOR -> "Clock period index";
+            case UniversalFieldDeviceMenu.CONFIG_REDSTONE_AMETHYST_EXCITER -> "Carrier frequency";
             default -> "Parameter A";
         };
     }
@@ -1467,6 +1470,7 @@ public final class EngineeringWorkbenchCatalog {
             case UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR -> "cooling";
             case UniversalFieldDeviceMenu.CONFIG_REDSTONE_COPPER_DRIVER -> "V-level/tick profile";
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAB_OSCILLATOR -> "period index";
+            case UniversalFieldDeviceMenu.CONFIG_REDSTONE_AMETHYST_EXCITER -> "frequency index";
             default -> "profile";
         };
     }
@@ -1513,6 +1517,8 @@ public final class EngineeringWorkbenchCatalog {
                     "Finite output slew profile; target and actual Copper voltage remain separate synchronized states.";
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAB_OSCILLATOR ->
                     "Configured clock period index. Period/jitter changes latch only on a genuine waveform transition and never create an early edge.";
+            case UniversalFieldDeviceMenu.CONFIG_REDSTONE_AMETHYST_EXCITER ->
+                    "Exact Amethyst carrier frequency 1..15. Drive amplitude remains a live finite-slew response to the Redstone command.";
             default -> "Bounded server-owned device configuration. Categorical modes remain Prev/Next rather than fake numeric sliders.";
         };
     }
@@ -1759,6 +1765,12 @@ public final class EngineeringWorkbenchCatalog {
                     "THERMAL RADIATOR", "T_neighbor[k+1] = max(T_ambient, T_neighbor - cooling)",
                     "cooling coefficient 1..4", "observe adjacent thermal mass -> remove bounded heat -> stop at ambient floor",
                     "The radiator cannot cool below the physical ambient floor.");
+            case UniversalFieldDeviceMenu.CONFIG_REDSTONE_AMETHYST_EXCITER -> card(
+                    "REDSTONE → AMETHYST EXCITER",
+                    "A_actual[k+1] = moveToward(A_actual, A_target(command), 2); carrier = configured f",
+                    "carrier frequency • target amplitude • actual amplitude",
+                    "observe Redstone command -> preserve evidence quality -> slew resonance amplitude -> publish configured-frequency Amethyst drive",
+                    "Frequency is owned configuration; amplitude is physical runtime state. Uncertain input releases downstream drive instead of fabricating zero.");
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAB_OSCILLATOR -> card(
                     "QUARTZ LAB OSCILLATOR",
                     "halfInterval = max(1, T/2 + jitterOffset), jitterOffset ∈ [-J,+J]",
