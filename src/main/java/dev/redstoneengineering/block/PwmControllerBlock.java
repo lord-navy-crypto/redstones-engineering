@@ -8,6 +8,7 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.EngineeringDeviceParameters;
 import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.signal.PwmCarrierLogic;
@@ -121,7 +122,7 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
             return;
         }
 
-        int period = periodFor(state.getValue(PERIOD_MODE));
+        int period = configuredPeriod(level, pos, state);
         PwmCarrierLogic.Result carrier = PwmCarrierLogic.step(
                 input,
                 period,
@@ -144,7 +145,12 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
     }
 
     @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
-        if (!state.is(newState.getBlock())) RuntimeIntStore.remove(level, KEY, pos);
+        if (!state.is(newState.getBlock())) {
+            RuntimeIntStore.remove(level, KEY, pos);
+            if (level instanceof ServerLevel serverLevel) {
+                EngineeringDeviceParameters.get(serverLevel).removeExtendedParameters(serverLevel, pos);
+            }
+        }
         super.onRemove(state, level, pos, newState, moved);
     }
 
@@ -194,7 +200,7 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
         var inhibitObservation = RedstoneObservationSupport.observe(
                 level, pos, leftOf(state.getValue(FACING)));
         int command = commandObservation.valid() ? commandObservation.value() : 0;
-        int period = periodFor(state.getValue(PERIOD_MODE));
+        int period = configuredPeriod(level, pos, state);
         int applied = appliedCommand(level, pos, command);
         int requested = requestedDutyPermille(command);
         int effective = effectiveDutyPermille(applied, period);
@@ -212,6 +218,11 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
         int mode = Math.floorMod(state.getValue(PERIOD_MODE) + delta, 4);
         BlockState next = state.setValue(PERIOD_MODE, mode);
         level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel serverLevel) {
+            EngineeringDeviceParameters.get(serverLevel).setExtendedParameters(
+                    serverLevel, pos,
+                    new EngineeringDeviceParameters.ExtendedParameters(periodFor(mode), 0, 0, 0));
+        }
         resetCarrier(RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE));
         level.scheduleTick(pos, this, 1);
         return true;
@@ -249,5 +260,28 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
 
     public static int periodFor(int mode) {
         return switch (mode) { case 0 -> 4; case 1 -> 8; case 2 -> 16; case 3 -> 32; default -> 16; };
+    }
+
+    public static int configuredPeriod(Level level, BlockPos pos, BlockState state) {
+        int fallback = periodFor(state.getValue(PERIOD_MODE));
+        if (level instanceof ServerLevel serverLevel) {
+            return Math.max(2, Math.min(64, EngineeringDeviceParameters.get(serverLevel)
+                    .extendedParameters(serverLevel, pos,
+                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
+        }
+        return fallback;
+    }
+
+    public static boolean setConfiguredPeriod(ServerLevel level, BlockPos pos, int period) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof PwmControllerBlock pwm)) return false;
+        int bounded = Math.max(2, Math.min(64, period));
+        boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
+                level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
+        if (changed) {
+            resetCarrier(RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE));
+            level.scheduleTick(pos, pwm, 1);
+        }
+        return changed;
     }
 }
