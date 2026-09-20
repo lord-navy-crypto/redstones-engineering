@@ -20,11 +20,31 @@ public final class CopperCapacitorLogic {
     }
 
     public static int dischargeTau(int capacitanceIndex, double loadResistance) {
-        int base = chargeTau(capacitanceIndex);
+        return dischargeTauBase(chargeTau(capacitanceIndex), loadResistance);
+    }
+
+    public static int dischargeTauBase(int baseTau, double loadResistance) {
+        int base = Math.max(1, Math.min(64, baseTau));
         if (Double.isInfinite(loadResistance)) return base * 8;
         double boundedLoad = Math.max(0.25, Math.min(32.0, loadResistance));
         int loadMultiplier = Math.max(1, (int) Math.round(boundedLoad / 4.0));
         return Math.max(base, base * loadMultiplier);
+    }
+
+    public static int stepChargeBaseTau(
+            int chargePercent, int inputVoltage, boolean inputValid,
+            int baseTau, double loadResistance
+    ) {
+        int charge = Math.max(0, Math.min(100, chargePercent));
+        int target = inputValid
+                ? (int) Math.round(Math.max(0, Math.min(15, inputVoltage)) / 15.0 * 100.0)
+                : 0;
+        int tau = inputValid ? Math.max(1, Math.min(64, baseTau))
+                : dischargeTauBase(baseTau, loadResistance);
+        int delta = target - charge;
+        if (delta == 0) return charge;
+        int step = Math.max(1, Math.abs(delta) / Math.max(1, tau));
+        return Math.max(0, Math.min(100, charge + Integer.signum(delta) * step));
     }
 
     public static int stepCharge(
