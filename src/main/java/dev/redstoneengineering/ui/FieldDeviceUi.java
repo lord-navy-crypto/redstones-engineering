@@ -14,6 +14,7 @@ import dev.redstoneengineering.ui.menu.RadioLinkMenu;
 import dev.redstoneengineering.ui.menu.RangeSensorMenu;
 import dev.redstoneengineering.ui.menu.ReliabilitySystemMenu;
 import dev.redstoneengineering.ui.menu.SignalProcessorMenu;
+import dev.redstoneengineering.ui.menu.ServoActuatorMenu;
 import dev.redstoneengineering.ui.menu.UniversalFieldDeviceMenu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
@@ -69,7 +70,10 @@ public final class FieldDeviceUi {
                 || block instanceof MagneticFieldSensorBlock || block instanceof MagneticGradientMeterBlock) {
             player.openMenu(new SimpleMenuProvider((id, inv, ignored) -> new MagneticSystemMenu(id, inv, pos), title), data -> data.writeBlockPos(pos)); return;
         }
-        if (block instanceof WatchdogBlock || block instanceof ServoActuatorBlock || block instanceof ServoPositionSensorBlock
+        if (block instanceof ServoActuatorBlock) {
+            player.openMenu(new SimpleMenuProvider((id, inv, ignored) -> new ServoActuatorMenu(id, inv, pos), title), data -> data.writeBlockPos(pos)); return;
+        }
+        if (block instanceof WatchdogBlock || block instanceof ServoPositionSensorBlock
                 || block instanceof RedundantVoterBlock || block instanceof FaultLatchBlock) {
             player.openMenu(new SimpleMenuProvider((id, inv, ignored) -> new ReliabilitySystemMenu(id, inv, pos), title), data -> data.writeBlockPos(pos)); return;
         }
