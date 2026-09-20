@@ -11,6 +11,7 @@ import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.diagnostics.FaultInjectionModel;
 import dev.redstoneengineering.physics.DomainNetwork;
+import dev.redstoneengineering.physics.EngineeringDeviceParameters;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -55,6 +56,26 @@ public class QuartzPhaseDelayBlock extends DirectionalDomainBlock implements Eng
 
     @Override public MapCodec<QuartzPhaseDelayBlock> codec() { return RedstoneEngineering.QUARTZ_PHASE_DELAY_CODEC.value(); }
     @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { super.createBlockStateDefinition(builder); builder.add(DELAY); }
+
+    public static int configuredDelayTicks(Level level, BlockPos pos, BlockState state) {
+        int fallback = state.getValue(DELAY);
+        if (level instanceof ServerLevel serverLevel) {
+            return Math.max(1, Math.min(32, EngineeringDeviceParameters.get(serverLevel)
+                    .extendedParameters(serverLevel, pos,
+                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
+        }
+        return fallback;
+    }
+
+    public static boolean setConfiguredDelayTicks(ServerLevel level, BlockPos pos, int ticks) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof QuartzPhaseDelayBlock)) return false;
+        int bounded = Math.max(1, Math.min(32, ticks));
+        boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
+                level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
+        if (changed) level.scheduleTick(pos, state.getBlock(), 1);
+        return changed;
+    }
 
     public static int pendingTicks(Level level, BlockPos pos) {
         int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
@@ -160,6 +181,9 @@ public class QuartzPhaseDelayBlock extends DirectionalDomainBlock implements Eng
                 DomainNetwork.recomputeQuartzAround(serverLevel, pos);
             }
             RuntimeIntStore.remove(level, KEY, pos);
+            if (level instanceof ServerLevel serverLevel) {
+                EngineeringDeviceParameters.get(serverLevel).removeExtendedParameters(serverLevel, pos);
+            }
         }
         super.onRemove(state, level, pos, newState, moved);
     }
@@ -180,7 +204,7 @@ public class QuartzPhaseDelayBlock extends DirectionalDomainBlock implements Eng
             } else {
                 boolean rising = input.active() && runtime[PREVIOUS_SLOT] == 0;
                 if (rising) {
-                    enqueue(runtime, FaultInjectionModel.latencyTicks(state.getValue(DELAY), 8));
+                    enqueue(runtime, FaultInjectionModel.latencyTicks(configuredDelayTicks(level, pos, state), 32));
                 }
                 runtime[PREVIOUS_SLOT] = input.active() ? 1 : 0;
             }
@@ -206,10 +230,9 @@ public class QuartzPhaseDelayBlock extends DirectionalDomainBlock implements Eng
 
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
-            int delay = state.getValue(DELAY);
-            delay = delay >= 8 ? 1 : delay + 1;
-            BlockState next = state.setValue(DELAY, delay);
-            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+            int delay = configuredDelayTicks(level, pos, state);
+            delay = delay >= 32 ? 1 : delay + 1;
+            if (level instanceof ServerLevel serverLevel) setConfiguredDelayTicks(serverLevel, pos, delay);
             player.displayClientMessage(Component.literal(
                     "Quartz phase delay | rising-edge delay=" + delay
                             + "t for NEW edges"
