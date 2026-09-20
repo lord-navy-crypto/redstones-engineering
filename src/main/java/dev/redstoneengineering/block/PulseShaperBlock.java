@@ -6,6 +6,7 @@ import dev.redstoneengineering.blockentity.PulseShaperBlockEntity;
 import dev.redstoneengineering.core.port.EngineeringPort;
 import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.EngineeringDeviceParameters;
 import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.signal.PulseShaperLogic;
@@ -122,7 +123,7 @@ public class PulseShaperBlock extends DirectionalSignalBlock implements EntityBl
                 inputObservation.value(),
                 threshold(level, pos),
                 hysteresis(level, pos),
-                state.getValue(WIDTH),
+                configuredWidth(level, pos, state),
                 state.getValue(RETRIGGERABLE),
                 previous
         );
@@ -146,7 +147,10 @@ public class PulseShaperBlock extends DirectionalSignalBlock implements EntityBl
 
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
-        if (!state.is(newState.getBlock())) RuntimeIntStore.remove(level, KEY, pos);
+        if (!state.is(newState.getBlock())) {
+            RuntimeIntStore.remove(level, KEY, pos);
+            if (level instanceof ServerLevel serverLevel) EngineeringDeviceParameters.get(serverLevel).removeExtendedParameters(serverLevel, pos);
+        }
         super.onRemove(state, level, pos, newState, moved);
     }
 
@@ -185,6 +189,26 @@ public class PulseShaperBlock extends DirectionalSignalBlock implements EntityBl
         return created;
     }
 
+    public static int configuredWidth(Level level, BlockPos pos, BlockState state) {
+        int fallback = state.getValue(WIDTH);
+        if (level instanceof ServerLevel serverLevel) {
+            return Math.max(1, Math.min(32, EngineeringDeviceParameters.get(serverLevel)
+                    .extendedParameters(serverLevel, pos,
+                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
+        }
+        return fallback;
+    }
+
+    public static boolean setConfiguredWidth(ServerLevel level, BlockPos pos, int width) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof PulseShaperBlock shaper)) return false;
+        int bounded = Math.max(1, Math.min(32, width));
+        boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
+                level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
+        if (changed) level.scheduleTick(pos, shaper, 1);
+        return changed;
+    }
+
     public static int threshold(Level level, BlockPos pos) {
         PulseShaperBlockEntity entity = persistentState(level, pos);
         return entity == null ? 1 : entity.threshold();
@@ -220,7 +244,12 @@ public class PulseShaperBlock extends DirectionalSignalBlock implements EntityBl
         if (!(state.getBlock() instanceof PulseShaperBlock shaper)) return false;
         int width = state.getValue(WIDTH);
         int nextWidth = forward ? (width >= 8 ? 1 : width + 1) : (width <= 1 ? 8 : width - 1);
-        level.setBlock(pos, state.setValue(WIDTH, nextWidth), Block.UPDATE_CLIENTS);
+        BlockState nextState = state.setValue(WIDTH, nextWidth);
+        level.setBlock(pos, nextState, Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel serverLevel) {
+            EngineeringDeviceParameters.get(serverLevel).setExtendedParameters(
+                    serverLevel, pos, new EngineeringDeviceParameters.ExtendedParameters(nextWidth, 0, 0, 0));
+        }
         level.scheduleTick(pos, shaper, 1);
         return true;
     }
