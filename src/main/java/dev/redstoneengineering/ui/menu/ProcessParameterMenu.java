@@ -169,12 +169,7 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
             changed = CopperCapacitorBlock.setConfiguredBaseTau(server, blockPos, p0.get() + delta);
         } else if (block instanceof CopperFuseBlock fuse) {
             if (slot == 0) {
-                int next = Math.max(1, Math.min(15, p0.get() + delta));
-                if (next != p0.get()) {
-                    level.setBlock(blockPos, state.setValue(CopperFuseBlock.RATING, next), Block.UPDATE_CLIENTS);
-                    server.scheduleTick(blockPos, fuse, 1);
-                    changed = true;
-                }
+                changed = CopperFuseBlock.setRating(server, blockPos, p0.get() + delta);
             } else if (id == BUTTON_ACTION) {
                 changed = CopperFuseBlock.tryReset(server, blockPos);
             }
