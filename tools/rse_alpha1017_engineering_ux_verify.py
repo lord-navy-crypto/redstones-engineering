@@ -289,11 +289,18 @@ require(
     "src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java",
     "ROLE • ",
     "menu.topologyRoleLabel()",
-    "this.imageHeight = 270",
+    "imageHeight = Math.max(240, height - VIEW_MARGIN * 2)",
     "showsPortVisualization",
     "fitForWidth",
     "safeText",
-    "ROUTE_CONTROL_Y = 196",
+    "ROUTE_CONTROL_Y = 236",
+    "HEADER_BOTTOM",
+    "FOOTER_HEIGHT",
+    "scrollOffset",
+    "mouseScrolled",
+    "enableScissor",
+    "virtualContentHeight",
+    "configureVirtualY",
     "routePage",
     'Component.literal("Route")',
     'Component.literal("Direction ▲")',
@@ -385,7 +392,7 @@ print(" pneumatic explicit-route solver contract: PASS")
 print(" optical configurable-route sampling contract: PASS")
 print(" shared physical topology-role HMI: PASS")
 print(" Ports/Route six-face I/O Compass projection: PASS")
-print(" dedicated Route page + full-height anti-crowding shell: PASS")
+print(" dedicated Route page + viewport-filling scrollable shell: PASS")
 print(" reference-source adjustable output + route authority: PASS")
 print(" signal-probe and cable-terminal route authority: PASS")
 print(" shared EngineeringPort evidence-quality HMI: PASS")
