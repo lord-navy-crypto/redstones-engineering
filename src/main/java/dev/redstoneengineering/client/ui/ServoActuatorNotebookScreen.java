@@ -27,6 +27,7 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
         PARAMETERS("Parameters"),
         MODEL("Model"),
         RESPONSE("Response"),
+        ROUTING("Routing"),
         EVIDENCE("Evidence");
 
         final String label;
@@ -35,6 +36,7 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
 
     private PageTab page = PageTab.PARAMETERS;
     private final List<Button> parameterWidgets = new ArrayList<>();
+    private final List<Button> routeWidgets = new ArrayList<>();
     private final List<Button> evidenceWidgets = new ArrayList<>();
     private int scrollOffset = 0;
     private static final int VIEW_MARGIN = 8;
@@ -56,6 +58,7 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
         imageHeight = Math.max(240, height - VIEW_MARGIN * 2);
         super.init();
         parameterWidgets.clear();
+        routeWidgets.clear();
         evidenceWidgets.clear();
         scrollOffset = 0;
 
@@ -82,6 +85,15 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
         addParameterControl(1, ServoActuatorMenu.BUTTON_ACCEL_PERIOD_MINUS, ServoActuatorMenu.BUTTON_ACCEL_PERIOD_PLUS);
         addParameterControl(2, ServoActuatorMenu.BUTTON_ACCEL_STEP_MINUS, ServoActuatorMenu.BUTTON_ACCEL_STEP_PLUS);
 
+        int routeWidth = routeButtonWidth();
+        int routeX = routeButtonStartX();
+        routeWidgets.add(addRenderableWidget(Button.builder(Component.literal("Rotate layout ◀"),
+                b -> send(ServoActuatorMenu.BUTTON_ROTATE_LEFT))
+                .bounds(routeX, topPos + CONTENT_TOP + 210, routeWidth, 22).build()));
+        routeWidgets.add(addRenderableWidget(Button.builder(Component.literal("Rotate layout ▶"),
+                b -> send(ServoActuatorMenu.BUTTON_ROTATE_RIGHT))
+                .bounds(routeX + routeWidth + 8, topPos + CONTENT_TOP + 210, routeWidth, 22).build()));
+
         evidenceWidgets.add(addRenderableWidget(Button.builder(Component.literal("Home / reset trajectory"),
                 b -> send(ServoActuatorMenu.BUTTON_HOME_RESET))
                 .bounds(leftPos + imageWidth / 2 - 90, topPos + CONTENT_TOP + 240, 180, 22).build()));
@@ -96,8 +108,18 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
             case PARAMETERS -> "Params";
             case MODEL -> "Model";
             case RESPONSE -> "Resp";
-            case EVIDENCE -> "Evidence";
+            case ROUTING -> "Route";
+            case EVIDENCE -> "Evid";
         };
+    }
+
+    private int routeButtonWidth() {
+        return Math.max(96, Math.min(140, (imageWidth - 72) / 2));
+    }
+
+    private int routeButtonStartX() {
+        int total = routeButtonWidth() * 2 + 8;
+        return leftPos + Math.max(24, (imageWidth - total) / 2);
     }
 
     private void addParameterControl(int row, int minusId, int plusId) {
@@ -129,6 +151,16 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
                     && b.getY() >= topPos + CONTENT_TOP
                     && b.getY() <= topPos + imageHeight - CONTENT_BOTTOM_MARGIN - 22;
         }
+        int routeWidth = routeButtonWidth();
+        int routeX = routeButtonStartX();
+        for (int i = 0; i < routeWidgets.size(); i++) {
+            Button b = routeWidgets.get(i);
+            b.setX(routeX + i * (routeWidth + 8));
+            b.setY(topPos + CONTENT_TOP + 210 - scrollOffset);
+            b.visible = page == PageTab.ROUTING
+                    && b.getY() >= topPos + CONTENT_TOP
+                    && b.getY() <= topPos + imageHeight - CONTENT_BOTTOM_MARGIN - 22;
+        }
         for (Button b : evidenceWidgets) {
             b.setX(leftPos + imageWidth / 2 - 90);
             b.setY(topPos + CONTENT_TOP + 240 - scrollOffset);
@@ -155,6 +187,7 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
             case PARAMETERS -> 540;
             case MODEL -> 760;
             case RESPONSE -> 560;
+            case ROUTING -> 620;
             case EVIDENCE -> 650;
         };
     }
@@ -197,6 +230,7 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
             case PARAMETERS -> parameters(g);
             case MODEL -> model(g);
             case RESPONSE -> response(g);
+            case ROUTING -> routing(g);
             case EVIDENCE -> evidence(g);
         }
         g.pose().popPose();
@@ -262,6 +296,29 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
         pair(g, "Load-delay ticks", Integer.toString(menu.loadDelayTicks()), CONTENT_TOP + 328);
         pair(g, "Motion samples", Integer.toString(menu.motionSamples()), CONTENT_TOP + 370);
         pair(g, "Reversals", Integer.toString(menu.reversals()), CONTENT_TOP + 412);
+    }
+
+    private void routing(GuiGraphics g) {
+        int w = Math.max(300, imageWidth - 96);
+        g.drawString(font, "RIGID SERVO PORT LAYOUT", 42, CONTENT_TOP + 22, MUTED, false);
+        pair(g, "FRONT • POSITION OUT", menu.positionOutputDirection().getName().toUpperCase(), CONTENT_TOP + 58);
+        pair(g, "BACK • COMMAND IN", menu.commandDirection().getName().toUpperCase(), CONTENT_TOP + 94);
+        pair(g, "RIGHT • BRAKE", menu.brakeDirection().getName().toUpperCase(), CONTENT_TOP + 130);
+        pair(g, "UP • MODE SELECT", menu.modeDirection().getName().toUpperCase(), CONTENT_TOP + 166);
+
+        int y = CONTENT_TOP + 264;
+        y = drawWrapped(g,
+                "The servo rotates as one rigid horizontal assembly. COMMAND stays opposite FRONT, BRAKE stays to the servo's right, MODE stays on UP, and POSITION OUT stays on FRONT.",
+                42, y, w, INK) + 18;
+        y = drawWrapped(g,
+                "Rotation changes only physical orientation. It does not independently reroute command, brake or position ports and cannot create an impossible connector layout.",
+                42, y, w, MUTED) + 18;
+        y = drawWrapped(g,
+                "Position, load configuration and retained trajectory evidence survive the rotation. The next scheduled server tick reacquires COMMAND, MODE and BRAKE evidence from the new physical faces.",
+                42, y, w, MUTED) + 18;
+        drawWrapped(g,
+                "Use Evidence after rotation to confirm command/mode/brake PortQuality before interpreting motion response.",
+                42, y, w, MUTED);
     }
 
     private void evidence(GuiGraphics g) {
