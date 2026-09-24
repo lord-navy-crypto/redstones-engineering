@@ -88,7 +88,7 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
         return switch(tab){
             case OPERATE -> 420;
             case PARAMETERS -> 470;
-            case MODEL -> 620;
+            case MODEL -> 760;
         };
     }
 
@@ -179,13 +179,14 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
     private void model(GuiGraphics g){
         int textWidth=Math.max(280,imageWidth-96);
         g.drawString(font,"DEVICE MODEL",42,CONTENT_TOP+28,MUTED,false);
-        g.drawString(font,fit(model1(),textWidth),42,CONTENT_TOP+62,INK,false);
-        g.drawString(font,fit(model2(),textWidth),42,CONTENT_TOP+112,INK,false);
-        g.drawString(font,fit(model3(),textWidth),42,CONTENT_TOP+170,MUTED,false);
-        g.drawString(font,fit("Measured state, stored energy, trip exposure, network evidence and topology stay world/solver-owned.",textWidth),
-                42,CONTENT_TOP+232,MUTED,false);
-        g.drawString(font,fit("This page may grow vertically as richer equations, assumptions, response metrics and diagnostic evidence are added; use the mouse wheel to inspect the full model.",textWidth),
-                42,CONTENT_TOP+330,MUTED,false);
+        int y=CONTENT_TOP+62;
+        y=drawWrapped(g,model1(),42,y,textWidth,INK)+18;
+        y=drawWrapped(g,model2(),42,y,textWidth,INK)+22;
+        y=drawWrapped(g,model3(),42,y,textWidth,MUTED)+22;
+        y=drawWrapped(g,"Measured state, stored energy, trip exposure, network evidence and topology stay world/solver-owned.",
+                42,y,textWidth,MUTED)+22;
+        drawWrapped(g,"This page grows vertically as equations, assumptions, response metrics and diagnostic evidence are added. Scroll instead of shrinking or truncating the engineering model.",
+                42,y,textWidth,MUTED);
     }
 
     private String[] parameterLabels(){
@@ -284,6 +285,15 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
 
     private String model3(){ return "Operate values are synchronized readback from the real device and connected world."; }
     private String footer(){ return "Engineering Notebook • configuration editable • state/evidence/topology authoritative"; }
+
+    private int drawWrapped(GuiGraphics g,String text,int x,int y,int width,int color){
+        for(var line:font.split(Component.literal(text),width)){
+            g.drawString(font,line,x,y,color,false);
+            y+=14;
+        }
+        return y;
+    }
+
     private void pair(GuiGraphics g,String label,String value,int y){
         g.drawString(font,label,42,y,MUTED,false);
         int valueX=Math.min(300,imageWidth/2);
