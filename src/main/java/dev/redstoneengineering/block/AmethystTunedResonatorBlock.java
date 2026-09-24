@@ -36,6 +36,8 @@ import java.util.Optional;
 public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
     public static final IntegerProperty NATURAL = IntegerProperty.create("natural", 1, 15);
     public static final IntegerProperty Q_INDEX = IntegerProperty.create("q", 1, 4);
+    public static final IntegerProperty COUPLING = IntegerProperty.create("coupling", 1, 4);
+    public static final IntegerProperty DECAY_RATE = IntegerProperty.create("decay_rate", 1, 4);
 
     private static final String KEY = "amethyst_tuned_resonator";
     private static final int ACTUAL_AMPLITUDE = 0;
@@ -44,7 +46,8 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
     private static final int RUNTIME_SIZE = 3;
 
     public record ResponseEvidence(int inputFrequency, int inputAmplitude, int naturalFrequency,
-                                   int qIndex, int bandwidth, int frequencyError,
+                                   int qIndex, int couplingIndex, int decayRate,
+                                   int bandwidth, int frequencyError,
                                    PortQuality inputQuality, int targetAmplitude,
                                    int actualAmplitude, int outputFrequency,
                                    boolean saturated, boolean responding, boolean ringDown) {
@@ -56,11 +59,18 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
 
     public AmethystTunedResonatorBlock(Properties properties) {
         super(properties);
-        registerDefaultState(defaultBlockState().setValue(NATURAL, 8).setValue(Q_INDEX, 2));
+        registerDefaultState(defaultBlockState()
+                .setValue(NATURAL, 8)
+                .setValue(Q_INDEX, 2)
+                .setValue(COUPLING, 2)
+                .setValue(DECAY_RATE, 1));
     }
 
     @Override public MapCodec<AmethystTunedResonatorBlock> codec() { return RedstoneEngineering.AMETHYST_TUNED_RESONATOR_CODEC.value(); }
-    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { super.createBlockStateDefinition(builder); builder.add(NATURAL, Q_INDEX); }
+    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        super.createBlockStateDefinition(builder);
+        builder.add(NATURAL, Q_INDEX, COUPLING, DECAY_RATE);
+    }
 
     @Override public List<EngineeringPort> engineeringPorts(BlockState state) {
         return List.of(
@@ -77,13 +87,19 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
         PortQuality inputQuality = qualityAt(level, samplePos, input);
         int natural = state.getValue(NATURAL);
         int q = state.getValue(Q_INDEX);
+        int coupling = state.getValue(COUPLING);
+        int decayRate = state.getValue(DECAY_RATE);
         int bandwidth = 5 - q;
         boolean usableInput = inputQuality == PortQuality.VALID && input.active();
         int diff = usableInput ? Math.abs(input.frequency() - natural) : 99;
         int raw = 0;
         if (usableInput) {
-            if (diff == 0) raw = input.amplitude() + q * 2;
-            else if (diff <= bandwidth) raw = input.amplitude() - Math.max(1, diff * q);
+            // Nominal coupling C=2 preserves the previous transfer curve. C then becomes a
+            // separate, bounded drive-coupling experiment instead of overloading Q.
+            if (diff == 0) raw = input.amplitude() + q * coupling;
+            else if (diff <= bandwidth) {
+                raw = input.amplitude() - Math.max(1, diff * q) + (coupling - 2);
+            }
         }
         int target = EngineeringMath.clamp(raw, 0, 15);
         int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
@@ -94,8 +110,8 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
         boolean responding = usableInput && target > 0;
         boolean inputStateKnown = inputQuality == PortQuality.VALID || inputQuality == PortQuality.NO_SIGNAL;
         boolean ringDown = actualAmplitude > 0 && inputStateKnown && !responding;
-        return new ResponseEvidence(input.frequency(), input.amplitude(), natural, q, bandwidth, diff,
-                inputQuality, target, actualAmplitude, outputFrequency,
+        return new ResponseEvidence(input.frequency(), input.amplitude(), natural, q, coupling, decayRate,
+                bandwidth, diff, inputQuality, target, actualAmplitude, outputFrequency,
                 raw > 15, responding, ringDown);
     }
 
@@ -170,6 +186,7 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
                 response.inputFrequency(),
                 response.naturalFrequency(),
                 response.qIndex(),
+                response.decayRate(),
                 response.responding(),
                 new AmethystTunedResonatorLogic.State(
                         runtime[ACTUAL_AMPLITUDE],
@@ -214,12 +231,15 @@ public class AmethystTunedResonatorBlock extends DirectionalDomainBlock implemen
             player.displayClientMessage(Component.literal(
                     "Tuned resonator | natural=" + response.naturalFrequency()
                             + " Q=" + response.qIndex()
+                            + " coupling=" + response.couplingIndex()
+                            + " decay=" + response.decayRate()
                             + " bandwidth=±" + response.bandwidth()
                             + " | targetA=" + response.targetAmplitude()
                             + " actualA=" + response.actualAmplitude()
                             + " outputF=" + response.outputFrequency()
                             + (response.ringDown() ? " FREE RING-DOWN" : response.responding() ? " DRIVEN" : " IDLE")
-                            + " | response step=" + AmethystTunedResonatorLogic.responseStep(response.qIndex())
+                            + " | driven step=" + AmethystTunedResonatorLogic.responseStep(response.qIndex())
+                            + " free-decay step=" + AmethystTunedResonatorLogic.freeDecayStep(response.decayRate())
                             + " | normal right-click opens Engineering UI"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
