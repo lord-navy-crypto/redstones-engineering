@@ -172,7 +172,7 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
     }
 
     private void operate(GuiGraphics g){
-        String[] labels=liveLabels(); int[] vals={menu.liveA(),menu.liveB(),menu.liveC(),menu.liveD(),menu.liveE()};
+        String[] labels=liveLabels(); int[] vals={menu.liveA(),menu.liveB(),menu.liveC(),menu.liveD(),menu.liveE(),menu.liveF(),menu.liveG()};
         for(int i=0;i<labels.length;i++) pair(g,labels[i],liveValue(i,vals[i]),CONTENT_TOP+34+i*40);
     }
 
@@ -226,8 +226,8 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             case ProcessParameterMenu.KIND_CONDITIONER -> new String[]{"Input","Output","Limit episodes","Limiting now"};
             case ProcessParameterMenu.KIND_PWM -> new String[]{"Command","Applied command","Effective duty","Completed cycles"};
             case ProcessParameterMenu.KIND_COPPER_DRIVER -> new String[]{"Target voltage","Actual voltage","Input quality","Tracking error"};
-            case ProcessParameterMenu.KIND_CAPACITOR -> new String[]{"Stored charge","Output voltage","Effective tau","Observed load R","Load scan truncated"};
-            case ProcessParameterMenu.KIND_FUSE -> new String[]{"Thermal exposure","Trip progress","Trip state","Last current ×100","Current / rating"};
+            case ProcessParameterMenu.KIND_CAPACITOR -> new String[]{"Stored charge","Output voltage","Effective tau","Observed load R","Load scan truncated","Input quality","Output quality"};
+            case ProcessParameterMenu.KIND_FUSE -> new String[]{"Thermal exposure","Trip progress","Trip state","Last current ×100","Current / rating","Input quality","Output quality"};
             case ProcessParameterMenu.KIND_COMPRESSOR -> new String[]{"Target pressure","Actual pressure","Tracking error","Start count"};
             case ProcessParameterMenu.KIND_DAMPER -> new String[]{"Wave amplitude","Wave frequency","Valid wave"};
             case ProcessParameterMenu.KIND_EXCITER -> new String[]{"Target amplitude","Actual amplitude","Actual frequency","Start count"};
@@ -246,11 +246,13 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             if(i==2) return v+" ticks";
             if(i==3) return v<0?"OPEN":String.format("%.1f R-eq",v/10.0);
             if(i==4) return v!=0?"YES":"NO";
+            if(i==5||i==6) return qualityName(v);
         }
         if(menu.kind()==ProcessParameterMenu.KIND_FUSE){
             if(i==1) return String.format("%.1f%%",v/10.0);
             if(i==2) return v!=0?"TRIPPED":"ARMED";
             if(i==4) return String.format("%.2f × Irated",v/1000.0);
+            if(i==5||i==6) return qualityName(v);
         }
         if(menu.kind()==ProcessParameterMenu.KIND_DAMPER&&i==2) return v!=0?"YES":"NO";
         return Integer.toString(v);
@@ -283,7 +285,9 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
         };
     }
 
-    private String model3(){ return "Operate values are synchronized readback from the real device and connected world."; }
+    private String model3(){ return menu.kind()==ProcessParameterMenu.KIND_CAPACITOR||menu.kind()==ProcessParameterMenu.KIND_FUSE
+            ?"Operate separates retained physical state from input/output evidence quality, so stored energy or heat is never mistaken for fresh source evidence."
+            :"Operate values are synchronized readback from the real device and connected world."; }
     private String footer(){ return "Engineering Notebook • configuration editable • state/evidence/topology authoritative"; }
 
     private int drawWrapped(GuiGraphics g,String text,int x,int y,int width,int color){
