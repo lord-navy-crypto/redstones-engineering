@@ -31,6 +31,10 @@ public final class MagneticSystemMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_INPUT_RIGHT = 5;
     public static final int BUTTON_OUTPUT_LEFT = 6;
     public static final int BUTTON_OUTPUT_RIGHT = 7;
+    public static final int BUTTON_SECONDARY_PREVIOUS = 8;
+    public static final int BUTTON_SECONDARY_NEXT = 9;
+    public static final int BUTTON_TERTIARY_PREVIOUS = 10;
+    public static final int BUTTON_TERTIARY_NEXT = 11;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot primary = trackedInt();
@@ -43,6 +47,11 @@ public final class MagneticSystemMenu extends EngineeringDeviceMenu {
     private final DataSlot inputFacing = trackedInt();
     private final DataSlot outputFacing = trackedInt();
     private final DataSlot complete = trackedInt();
+    private final DataSlot engineeringA = trackedInt();
+    private final DataSlot engineeringB = trackedInt();
+    private final DataSlot engineeringC = trackedInt();
+    private final DataSlot runtimeA = trackedInt();
+    private final DataSlot runtimeB = trackedInt();
 
     public MagneticSystemMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -60,13 +69,22 @@ public final class MagneticSystemMenu extends EngineeringDeviceMenu {
         Block block = state.getBlock();
         primary.set(0); secondary.set(0); tertiary.set(0); auxiliary.set(0); extra.set(0);
         quality.set(PortQuality.NO_SIGNAL.ordinal()); facing.set(-1); inputFacing.set(-1); outputFacing.set(-1); complete.set(0);
+        engineeringA.set(0); engineeringB.set(0); engineeringC.set(0); runtimeA.set(0); runtimeB.set(0);
 
         if (block instanceof ElectromagnetBlock) {
             kind.set(KIND_ELECTROMAGNET);
             CopperNetworkSupport.TerminalInput input = ElectromagnetBlock.input(level, blockPos);
+            var response = ElectromagnetBlock.configuredResponse(level, blockPos);
             primary.set(state.getValue(ElectromagnetBlock.FIELD));
             secondary.set(input.voltage());
             tertiary.set(input.connectedFeeds());
+            auxiliary.set(ElectromagnetBlock.targetField(level, blockPos));
+            extra.set(ElectromagnetBlock.thermalLoad(level, blockPos));
+            engineeringA.set(response.a());
+            engineeringB.set(response.b());
+            engineeringC.set(response.c());
+            runtimeA.set(ElectromagnetBlock.trackingError(level, blockPos));
+            runtimeB.set(ElectromagnetBlock.runTicks(level, blockPos));
             quality.set(input.quality().ordinal());
             complete.set(input.quality() == PortQuality.VALID ? 1 : 0);
         } else if (block instanceof PermanentMagnetBlock) {
@@ -86,7 +104,8 @@ public final class MagneticSystemMenu extends EngineeringDeviceMenu {
             var input = coil.engineeringSnapshot(level, blockPos, state, in);
             primary.set(input.map(s -> (int) Math.round(s.value())).orElse(0));
             secondary.set(InductionCoilBlock.outputVoltage(level, blockPos));
-            tertiary.set(state.getValue(InductionCoilBlock.TURNS));
+            tertiary.set(InductionCoilBlock.configuredTurns(level, blockPos, state));
+            engineeringA.set(InductionCoilBlock.configuredTurns(level, blockPos, state));
             PortQuality q = InductionCoilBlock.outputQuality(level, blockPos);
             quality.set(q.ordinal());
             complete.set(q == PortQuality.VALID ? 1 : 0);
@@ -120,7 +139,28 @@ public final class MagneticSystemMenu extends EngineeringDeviceMenu {
         Block block = state.getBlock();
         boolean changed = false;
 
-        if (block instanceof PermanentMagnetBlock) {
+        if (block instanceof ElectromagnetBlock) {
+            if (!(level instanceof ServerLevel server)) return false;
+            if (id == BUTTON_PRIMARY_PREVIOUS || id == BUTTON_PRIMARY_NEXT) {
+                changed = ElectromagnetBlock.setEngineeringParameters(
+                        server, blockPos,
+                        engineeringA.get() + (id == BUTTON_PRIMARY_NEXT ? 1 : -1),
+                        engineeringB.get(),
+                        engineeringC.get());
+            } else if (id == BUTTON_SECONDARY_PREVIOUS || id == BUTTON_SECONDARY_NEXT) {
+                changed = ElectromagnetBlock.setEngineeringParameters(
+                        server, blockPos,
+                        engineeringA.get(),
+                        engineeringB.get() + (id == BUTTON_SECONDARY_NEXT ? 1 : -1),
+                        engineeringC.get());
+            } else if (id == BUTTON_TERTIARY_PREVIOUS || id == BUTTON_TERTIARY_NEXT) {
+                changed = ElectromagnetBlock.setEngineeringParameters(
+                        server, blockPos,
+                        engineeringA.get(),
+                        engineeringB.get(),
+                        engineeringC.get() + (id == BUTTON_TERTIARY_NEXT ? 1 : -1));
+            } else return false;
+        } else if (block instanceof PermanentMagnetBlock) {
             if (id == BUTTON_PRIMARY_PREVIOUS || id == BUTTON_PRIMARY_NEXT) {
                 int strength = state.getValue(PermanentMagnetBlock.STRENGTH);
                 strength = id == BUTTON_PRIMARY_NEXT ? (strength >= 15 ? 1 : strength + 1) : (strength <= 1 ? 15 : strength - 1);
@@ -133,14 +173,10 @@ public final class MagneticSystemMenu extends EngineeringDeviceMenu {
                 changed = true;
             } else return false;
         } else if (block instanceof InductionCoilBlock) {
-            if (id == BUTTON_PRIMARY_NEXT) {
+            if (id == BUTTON_PRIMARY_PREVIOUS || id == BUTTON_PRIMARY_NEXT) {
                 if (!(level instanceof ServerLevel server)) return false;
-                InductionCoilBlock.cycleTurns(server, blockPos);
-                changed = true;
-            } else if (id == BUTTON_PRIMARY_PREVIOUS) {
-                if (!(level instanceof ServerLevel server)) return false;
-                for (int i = 0; i < 3; i++) InductionCoilBlock.cycleTurns(server, blockPos);
-                changed = true;
+                changed = InductionCoilBlock.setConfiguredTurns(
+                        server, blockPos, engineeringA.get() + (id == BUTTON_PRIMARY_NEXT ? 1 : -1));
             } else if (id == BUTTON_INPUT_LEFT || id == BUTTON_INPUT_RIGHT) {
                 changed = DirectionalDomainBlock.rotateSeriesInput(level, blockPos, id == BUTTON_INPUT_RIGHT);
             } else if (id == BUTTON_OUTPUT_LEFT || id == BUTTON_OUTPUT_RIGHT) {
@@ -161,6 +197,11 @@ public final class MagneticSystemMenu extends EngineeringDeviceMenu {
     public int tertiary() { return tertiary.get(); }
     public int auxiliary() { return auxiliary.get(); }
     public int extra() { return extra.get(); }
+    public int engineeringA() { return engineeringA.get(); }
+    public int engineeringB() { return engineeringB.get(); }
+    public int engineeringC() { return engineeringC.get(); }
+    public int runtimeA() { return runtimeA.get(); }
+    public int runtimeB() { return runtimeB.get(); }
     public boolean complete() { return complete.get() != 0; }
     public PortQuality quality() {
         int o = quality.get(); PortQuality[] all = PortQuality.values();
