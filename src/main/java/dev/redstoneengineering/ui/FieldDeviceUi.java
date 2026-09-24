@@ -65,8 +65,7 @@ public final class FieldDeviceUi {
                 || block instanceof PressureRegulatorBlock
                 || block instanceof PneumaticProportionalValveBlock
                 || block instanceof OpticalAttenuatorBlock
-                || block instanceof OpticalChannelFilterBlock
-                || block instanceof RangeSensorBlock) {
+                || block instanceof OpticalChannelFilterBlock) {
             player.openMenu(new SimpleMenuProvider(
                     (id, inv, ignored) -> new MultiPhysicsParameterMenu(id, inv, pos), title),
                     data -> data.writeBlockPos(pos));
