@@ -46,8 +46,6 @@ public final class FieldDeviceUi {
             return;
         }
         if (block instanceof SignalAmplifierBlock
-                || block instanceof ElectromagnetBlock
-                || block instanceof InductionCoilBlock
                 || block instanceof LapisNoiseSourceBlock
                 || block instanceof LapisPrecisionRangeSensorBlock) {
             player.openMenu(new SimpleMenuProvider(
