@@ -261,7 +261,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         if (menu instanceof SignalProcessorMenu processor) return processor.hasInputEndpoint();
         if (menu instanceof SignalConditionerMenu conditioner) return conditioner.hasInputEndpoint();
         if (menu instanceof QuartzTimingMenu quartz) return quartz.hasInputEndpoint();
-        if (menu instanceof AmethystSystemMenu amethyst) return amethyst.hasInputEndpoint();
+        if (menu instanceof AmethystSystemMenu) return false;
         if (menu instanceof OpticalSystemMenu optical) return optical.hasInputEndpoint();
         if (menu instanceof MagneticSystemMenu magnetic) return magnetic.hasInputEndpoint();
         if (menu instanceof ReliabilitySystemMenu reliability) return reliability.hasInputEndpoint();
@@ -276,7 +276,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         if (menu instanceof SignalProcessorMenu processor) return processor.hasOutputEndpoint();
         if (menu instanceof SignalConditionerMenu conditioner) return conditioner.hasOutputEndpoint();
         if (menu instanceof QuartzTimingMenu quartz) return quartz.hasOutputEndpoint();
-        if (menu instanceof AmethystSystemMenu amethyst) return amethyst.hasOutputEndpoint();
+        if (menu instanceof AmethystSystemMenu) return false;
         if (menu instanceof OpticalSystemMenu optical) return optical.hasOutputEndpoint();
         if (menu instanceof MagneticSystemMenu magnetic) return magnetic.hasOutputEndpoint();
         if (menu instanceof ReliabilitySystemMenu reliability) return reliability.hasOutputEndpoint();
@@ -313,10 +313,17 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         routeNext.active = enabled && !endpoints;
         routePrevious.visible = routePage && enabled && !endpoints;
         routeNext.visible = routePage && enabled && !endpoints;
+        boolean rigidAmethyst = menu instanceof AmethystSystemMenu && enabled;
+        routePrevious.setMessage(Component.literal(rigidAmethyst ? "Rotate block ◀" : "Direction ▲"));
+        routeNext.setMessage(Component.literal(rigidAmethyst ? "Rotate block ▶" : "Direction ▼"));
         routePrevious.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
-                "Cycle the device orientation to the previous valid direction.")));
+                rigidAmethyst
+                        ? "Rotate the complete rigid block layout. RX remains exactly opposite TX."
+                        : "Cycle the device orientation to the previous valid direction.")));
         routeNext.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
-                "Cycle the device orientation to the next valid direction.")));
+                rigidAmethyst
+                        ? "Rotate the complete rigid block layout. RX remains exactly opposite TX."
+                        : "Cycle the device orientation to the next valid direction.")));
 
         if (routeInputPrevious != null && routeInputNext != null && routeOutputPrevious != null && routeOutputNext != null) {
             routeInputPrevious.active = rx;
@@ -537,7 +544,13 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
                     : "Use TX ▲ / ▼ below to change the output direction.";
             safeText(graphics, controls, 16, 196, TEXT);
         } else if (enabled) {
-            safeText(graphics, "Use Direction ▲ / ▼ below to change the physical interface direction.", 16, 174, TEXT);
+            if (menu instanceof AmethystSystemMenu) {
+                wrappedText(graphics,
+                        "Rigid two-port layout: INPUT is fixed opposite OUTPUT. Use Rotate block below to turn the complete physical axis; RX and TX cannot be bent independently.",
+                        16, 174, 760, TEXT);
+            } else {
+                safeText(graphics, "Use Direction ▲ / ▼ below to change the physical interface direction.", 16, 174, TEXT);
+            }
         } else {
             safeText(graphics, "This device has a fixed physical port contract. Its remaining controls, if any, are on Configure.", 16, 174, MUTED);
         }
