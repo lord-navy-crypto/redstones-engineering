@@ -17,7 +17,7 @@ Release scope:
 - Intentionally excludes the later shared Engineering Workbench / generic LAB UI redesign and equation-heavy showcase layer.
 
 Platform:
-- Required client: JEI, Cloth Config, Fusion.
+- Required client: JEI, Cloth Config.
 - Required both sides: Jade, GeckoLib.
 - Required dependency versions remain pinned in gradle.properties and NeoForge metadata.
 
