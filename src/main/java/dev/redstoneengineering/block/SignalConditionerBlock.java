@@ -120,11 +120,8 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
             return Optional.of(EngineeringPortSnapshot.redstone(port.get(), input.value(), input.quality()));
         }
         if (side == outputSide(state)) {
-            PortQuality quality = RedstoneObservationSupport.combineQuality(
-                    input.quality(),
-                    limitingActive(level, pos, state) ? PortQuality.SATURATED : PortQuality.VALID);
             return Optional.of(EngineeringPortSnapshot.redstone(
-                    port.get(), state.getValue(OUTPUT), quality));
+                    port.get(), state.getValue(OUTPUT), inspectOutputQuality(level, pos, state)));
         }
         return Optional.empty();
     }
@@ -149,6 +146,13 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
     public static PortQuality inspectInputQuality(Level level, BlockPos pos, BlockState state) {
         if (!(state.getBlock() instanceof SignalConditionerBlock conditioner)) return PortQuality.NO_SIGNAL;
         return RedstoneObservationSupport.observe(level, pos, conditioner.inputSide(state)).quality();
+    }
+
+    public static PortQuality inspectOutputQuality(Level level, BlockPos pos, BlockState state) {
+        PortQuality inputQuality = inspectInputQuality(level, pos, state);
+        return RedstoneObservationSupport.combineQuality(
+                inputQuality,
+                limitingActive(level, pos, state) ? PortQuality.SATURATED : PortQuality.VALID);
     }
 
     public static Direction inputDirection(BlockState state) {
