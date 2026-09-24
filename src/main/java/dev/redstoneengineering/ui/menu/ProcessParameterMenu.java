@@ -131,6 +131,8 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
             var wave = VibrationNetwork.sample(level, blockPos);
             liveA.set(wave.amplitude()); liveB.set(wave.frequency());
             liveC.set(wave.valid() ? 1 : 0);
+            liveD.set(HoneyVibrationDamperBlock.localEnvelopeQuality(level, blockPos));
+            liveE.set(HoneyVibrationDamperBlock.localEnvelopeAgeTicks(level, blockPos));
         } else if (block instanceof MechanicalExciterBlock) {
             kind.set(KIND_EXCITER);
             p0.set(state.getValue(MechanicalExciterBlock.FREQUENCY));
@@ -140,6 +142,9 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
             liveB.set(MechanicalExciterBlock.actualAmplitude(level, blockPos));
             liveC.set(MechanicalExciterBlock.actualFrequency(level, blockPos));
             liveD.set(MechanicalExciterBlock.startCount(level, blockPos));
+            liveE.set(MechanicalExciterBlock.runTicks(level, blockPos));
+            liveF.set(MechanicalExciterBlock.driveObservation(level, blockPos).quality().ordinal());
+            liveG.set(MechanicalExciterBlock.outputQuality(level, blockPos).ordinal());
         } else if (block instanceof LapisPrecisionSourceBlock) {
             kind.set(KIND_LAPIS_SOURCE);
             p0.set(state.getValue(LapisPrecisionSourceBlock.VALUE));
