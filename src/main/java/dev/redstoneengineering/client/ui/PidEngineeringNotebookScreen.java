@@ -62,12 +62,12 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
         evidenceWidgets.clear();
         scrollOffset = 0;
 
-        int gap = 6;
-        int tabWidth = Math.max(78, (imageWidth - 48 - gap * (Page.values().length - 1)) / Page.values().length);
+        int gap = imageWidth < 480 ? 4 : 6;
+        int tabWidth = Math.max(54, (imageWidth - 48 - gap * (Page.values().length - 1)) / Page.values().length);
         int x = leftPos + 24;
         int tabY = topPos + 38;
         for (Page value : Page.values()) {
-            addRenderableWidget(Button.builder(Component.literal(value.label), b -> {
+            addRenderableWidget(Button.builder(Component.literal(pageTabLabel(value)), b -> {
                 page = value;
                 scrollOffset = 0;
                 updateVisibility();
@@ -90,27 +90,62 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
         addParameterRow(5, "Fall limit", PidControllerMenu.BUTTON_FALL_MINUS, PidControllerMenu.BUTTON_FALL_PLUS);
 
         int routeY = topPos + CONTENT_TOP + 92;
+        int routeWidth = routeButtonWidth();
+        int routeGap = 8;
+        int routeX = routeButtonStartX();
         routingWidgets.add(addRenderableWidget(Button.builder(Component.literal("RX ◀"),
                 b -> send(PidControllerMenu.BUTTON_INPUT_PREVIOUS))
-                .bounds(leftPos + 82, routeY, 88, 22).build()));
+                .bounds(routeX, routeY, routeWidth, 22).build()));
         routingWidgets.add(addRenderableWidget(Button.builder(Component.literal("RX ▶"),
                 b -> send(PidControllerMenu.BUTTON_INPUT_NEXT))
-                .bounds(leftPos + 178, routeY, 88, 22).build()));
+                .bounds(routeX + routeWidth + routeGap, routeY, routeWidth, 22).build()));
         routingWidgets.add(addRenderableWidget(Button.builder(Component.literal("TX ◀"),
                 b -> send(PidControllerMenu.BUTTON_OUTPUT_PREVIOUS))
-                .bounds(leftPos + 286, routeY, 88, 22).build()));
+                .bounds(routeX + (routeWidth + routeGap) * 2, routeY, routeWidth, 22).build()));
         routingWidgets.add(addRenderableWidget(Button.builder(Component.literal("TX ▶"),
                 b -> send(PidControllerMenu.BUTTON_OUTPUT_NEXT))
-                .bounds(leftPos + 382, routeY, 88, 22).build()));
+                .bounds(routeX + (routeWidth + routeGap) * 3, routeY, routeWidth, 22).build()));
 
+        int evidenceWidth = evidenceButtonWidth();
+        int evidenceGap = 12;
+        int evidenceX = evidenceButtonStartX();
         evidenceWidgets.add(addRenderableWidget(Button.builder(Component.literal("Capture acceptance"),
                 b -> send(PidControllerMenu.BUTTON_CAPTURE_ACCEPTANCE))
-                .bounds(leftPos + 78, topPos + CONTENT_TOP + 240, 170, 22).build()));
+                .bounds(evidenceX, topPos + CONTENT_TOP + 240, evidenceWidth, 22).build()));
         evidenceWidgets.add(addRenderableWidget(Button.builder(Component.literal("Reset runtime + trend"),
                 b -> send(PidControllerMenu.BUTTON_RESET_RUNTIME_TREND))
-                .bounds(leftPos + 268, topPos + CONTENT_TOP + 240, 180, 22).build()));
+                .bounds(evidenceX + evidenceWidth + evidenceGap, topPos + CONTENT_TOP + 240, evidenceWidth, 22).build()));
 
         updateVisibility();
+    }
+
+    private String pageTabLabel(Page value) {
+        if (imageWidth >= 480) return value.label;
+        return switch (value) {
+            case OPERATE -> "Run";
+            case PARAMETERS -> "Params";
+            case RESPONSE -> "Resp";
+            case ROUTING -> "Route";
+            case EVIDENCE -> "Evidence";
+        };
+    }
+
+    private int routeButtonWidth() {
+        return Math.max(60, Math.min(88, (imageWidth - 48 - 8 * 3) / 4));
+    }
+
+    private int routeButtonStartX() {
+        int total = routeButtonWidth() * 4 + 8 * 3;
+        return leftPos + Math.max(24, (imageWidth - total) / 2);
+    }
+
+    private int evidenceButtonWidth() {
+        return Math.max(120, Math.min(170, (imageWidth - 48 - 12) / 2));
+    }
+
+    private int evidenceButtonStartX() {
+        int total = evidenceButtonWidth() * 2 + 12;
+        return leftPos + Math.max(24, (imageWidth - total) / 2);
     }
 
     private void addParameterRow(int row, String label, int minusId, int plusId) {
@@ -146,18 +181,23 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
                     && b.getY() >= topPos + CONTENT_TOP
                     && b.getY() <= topPos + imageHeight - CONTENT_BOTTOM_MARGIN - 22;
         }
+        int routeWidth = routeButtonWidth();
+        int routeGap = 8;
+        int routeX = routeButtonStartX();
         for (int i = 0; i < routingWidgets.size(); i++) {
             Button b = routingWidgets.get(i);
-            int x = leftPos + 82 + (i % 4) * 104;
-            b.setX(x);
+            b.setX(routeX + (i % 4) * (routeWidth + routeGap));
             b.setY(topPos + CONTENT_TOP + 92 - scrollOffset);
             b.visible = page == Page.ROUTING
                     && b.getY() >= topPos + CONTENT_TOP
                     && b.getY() <= topPos + imageHeight - CONTENT_BOTTOM_MARGIN - 22;
         }
+        int evidenceWidth = evidenceButtonWidth();
+        int evidenceGap = 12;
+        int evidenceX = evidenceButtonStartX();
         for (int i = 0; i < evidenceWidgets.size(); i++) {
             Button b = evidenceWidgets.get(i);
-            b.setX(i == 0 ? leftPos + 78 : leftPos + 268);
+            b.setX(evidenceX + i * (evidenceWidth + evidenceGap));
             b.setY(topPos + CONTENT_TOP + 240 - scrollOffset);
             b.visible = page == Page.EVIDENCE
                     && b.getY() >= topPos + CONTENT_TOP
