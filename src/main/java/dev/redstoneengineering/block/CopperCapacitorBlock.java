@@ -62,24 +62,45 @@ public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
         builder.add(C_INDEX);
     }
 
-    public static int configuredBaseTau(Level level, BlockPos pos, BlockState state) {
-        int fallback = CopperCapacitorLogic.chargeTau(state.getValue(C_INDEX));
+    private static EngineeringDeviceParameters.ExtendedParameters configuredParameters(
+            Level level, BlockPos pos, BlockState state
+    ) {
+        int fallbackTau = CopperCapacitorLogic.chargeTau(state.getValue(C_INDEX));
         if (level instanceof ServerLevel serverLevel) {
-            return Math.max(1, Math.min(64, EngineeringDeviceParameters.get(serverLevel)
+            EngineeringDeviceParameters.ExtendedParameters raw = EngineeringDeviceParameters.get(serverLevel)
                     .extendedParameters(serverLevel, pos,
-                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
+                            new EngineeringDeviceParameters.ExtendedParameters(fallbackTau, 8, 0, 0));
+            int tau = Math.max(1, Math.min(64, raw.a()));
+            // Alpha 1.0.21 stored only slot A. Slot B=0 therefore migrates to the historical ×8 leakage.
+            int leakage = raw.b() <= 0 ? 8 : Math.max(2, Math.min(16, raw.b()));
+            return new EngineeringDeviceParameters.ExtendedParameters(tau, leakage, 0, 0);
         }
-        return fallback;
+        return new EngineeringDeviceParameters.ExtendedParameters(fallbackTau, 8, 0, 0);
+    }
+
+    public static int configuredBaseTau(Level level, BlockPos pos, BlockState state) {
+        return configuredParameters(level, pos, state).a();
+    }
+
+    public static int configuredLeakageFactor(Level level, BlockPos pos, BlockState state) {
+        return configuredParameters(level, pos, state).b();
+    }
+
+    public static boolean setEngineeringParameters(ServerLevel level, BlockPos pos, int tau, int leakageFactor) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof CopperCapacitorBlock capacitor)) return false;
+        int boundedTau = Math.max(1, Math.min(64, tau));
+        int boundedLeakage = Math.max(2, Math.min(16, leakageFactor));
+        boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
+                level, pos, new EngineeringDeviceParameters.ExtendedParameters(
+                        boundedTau, boundedLeakage, 0, 0));
+        if (changed) level.scheduleTick(pos, capacitor, 1);
+        return changed;
     }
 
     public static boolean setConfiguredBaseTau(ServerLevel level, BlockPos pos, int tau) {
         BlockState state = level.getBlockState(pos);
-        if (!(state.getBlock() instanceof CopperCapacitorBlock capacitor)) return false;
-        int bounded = Math.max(1, Math.min(64, tau));
-        boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
-                level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
-        if (changed) level.scheduleTick(pos, capacitor, 1);
-        return changed;
+        return setEngineeringParameters(level, pos, tau, configuredLeakageFactor(level, pos, state));
     }
 
     @Override
@@ -117,16 +138,18 @@ public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
         if (!loadTruncated && (sourceDriven || sourceAbsent)) {
             int baseTau = configuredBaseTau(level, pos, state);
+            int leakageFactor = configuredLeakageFactor(level, pos, state);
             runtime[CHARGE_SLOT] = CopperCapacitorLogic.stepChargeBaseTau(
                     runtime[CHARGE_SLOT],
                     sourceDriven ? input.voltage() : 0,
                     sourceDriven,
                     baseTau,
-                    loadResistance
+                    loadResistance,
+                    leakageFactor
             );
             runtime[EFFECTIVE_TAU_SLOT] = sourceDriven
                     ? baseTau
-                    : CopperCapacitorLogic.dischargeTauBase(baseTau, loadResistance);
+                    : CopperCapacitorLogic.dischargeTauBase(baseTau, loadResistance, leakageFactor);
         }
         // STALE/FAULT/DOMAIN/TOPOLOGY input evidence cannot tell us whether the source is
         // charging or absent. Freeze the stored-energy integration rather than inventing discharge.
@@ -221,7 +244,7 @@ public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
                 EngineeringDeviceParameters.get(serverLevel).setExtendedParameters(
                         serverLevel, pos,
                         new EngineeringDeviceParameters.ExtendedParameters(
-                                CopperCapacitorLogic.chargeTau(capacitanceIndex), 0, 0, 0));
+                                CopperCapacitorLogic.chargeTau(capacitanceIndex), 8, 0, 0));
             }
             level.scheduleTick(pos, this, 1);
 
@@ -230,6 +253,7 @@ public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
             player.displayClientMessage(Component.literal(
                     "Copper capacitor | BACK input -> FRONT output | C-index=" + (capacitanceIndex + 1)
                             + " | baseTau=" + CopperCapacitorLogic.chargeTau(capacitanceIndex) + "t"
+                            + " | leakageFactor=" + configuredLeakageFactor(level, pos, next) + "x"
                             + " | effectiveTau=" + effectiveTau(level, pos) + "t"
                             + " | Rload=" + loadText
                             + " | loadScan=" + (loadTruncated(level, pos) ? "TRUNCATED" : "COMPLETE")
