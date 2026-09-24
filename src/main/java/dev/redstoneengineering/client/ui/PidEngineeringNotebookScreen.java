@@ -27,7 +27,6 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
     private static final int SP_COLOR = WARN;
     private static final int PV_COLOR = GOOD;
     private static final int OUT_COLOR = ACCENT;
-    private static final int EVIDENCE_ACTION_VIRTUAL_Y = CONTENT_TOP + 500;
 
     private enum Page {
         OPERATE("Operate"),
@@ -49,6 +48,7 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
     private static final int VIEW_MARGIN = 8;
     private static final int CONTENT_TOP = 84;
     private static final int CONTENT_BOTTOM_MARGIN = 34;
+    private static final int EVIDENCE_ACTION_VIRTUAL_Y = CONTENT_TOP + 500;
 
     public PidEngineeringNotebookScreen(PidControllerMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
