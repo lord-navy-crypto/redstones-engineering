@@ -1,5 +1,6 @@
 package dev.redstoneengineering.client.ui;
 
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.menu.LapisLowPassFilterMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -201,10 +202,11 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
     private void renderOperate(GuiGraphics g) {
         drawPair(g, "Input x[k]", menu.input() + " / 100", CONTENT_TOP + 34);
         drawPair(g, "Output y[k]", menu.output() + " / 100", CONTENT_TOP + 76);
-        drawPair(g, "Evidence", menu.valid() ? "VALID" : "NO VALID INPUT", CONTENT_TOP + 118);
-        drawPair(g, "Internal history", menu.historyPresent() ? "RETAINED" : "EMPTY", CONTENT_TOP + 160);
-        drawPair(g, "Current α", String.format("%.2f", menu.alpha()), CONTENT_TOP + 202);
-        drawPair(g, "Tracking error x−y", signed(menu.trackingError()), CONTENT_TOP + 244);
+        drawPair(g, "Input quality", qualityName(menu.inputQuality()), CONTENT_TOP + 118);
+        drawPair(g, "Output quality", qualityName(menu.outputQuality()), CONTENT_TOP + 160);
+        drawPair(g, "Internal history", menu.historyPresent() ? "RETAINED" : "EMPTY", CONTENT_TOP + 202);
+        drawPair(g, "Current α", String.format("%.2f", menu.alpha()), CONTENT_TOP + 244);
+        drawPair(g, "Tracking error x−y", trackingErrorLabel(), CONTENT_TOP + 286);
     }
 
     private void renderParameters(GuiGraphics g) {
@@ -232,9 +234,10 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
         drawPair(g, "Equivalent cutoff", String.format("%.3f Hz", menu.equivalentCutoffHz()), CONTENT_TOP + 160);
         drawPair(g, "Current input", menu.input() + " / 100", CONTENT_TOP + 202);
         drawPair(g, "Current output", menu.output() + " / 100", CONTENT_TOP + 244);
-        drawPair(g, "Tracking error", signed(menu.trackingError()), CONTENT_TOP + 286);
+        drawPair(g, "Tracking error", trackingErrorLabel(), CONTENT_TOP + 286);
+        drawPair(g, "Input / output quality", qualityName(menu.inputQuality()) + " / " + qualityName(menu.outputQuality()), CONTENT_TOP + 328);
         g.drawString(font, fit("Smaller α = stronger smoothing / slower response. Larger α = weaker smoothing / faster response.", Math.max(300,imageWidth-96)),
-                42, CONTENT_TOP + 350, MUTED, false);
+                42, CONTENT_TOP + 392, MUTED, false);
     }
 
     private void renderModel(GuiGraphics g) {
@@ -244,15 +247,29 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
         g.drawString(font, "H(z) = α / (1 − (1−α)z⁻¹)", 42, CONTENT_TOP + 112, INK, false);
         g.drawString(font, "τsamples = −1 / ln(1−α)", 42, CONTENT_TOP + 158, INK, false);
         g.drawString(font, "fc ≈ −ln(1−α) / (2πTs),  Ts = 0.1 s", 42, CONTENT_TOP + 204, INK, false);
-        g.drawString(font, fit("Input quality is authoritative world evidence. Missing input invalidates output but retained filter history is not fabricated as zero.", w),
+        g.drawString(font, fit("Input quality is authoritative world evidence. Missing input invalidates the driver but retained filter history is not fabricated as zero.", w),
                 42, CONTENT_TOP + 276, MUTED, false);
-        g.drawString(font, fit("This model page intentionally grows vertically as derivation, assumptions, sample-rate effects and validation notes are added; use scrolling instead of shrinking the content.", w),
-                42, CONTENT_TOP + 380, MUTED, false);
+        g.drawString(font, "A valid numerical zero remains 0; NO_SIGNAL / STALE / TOPOLOGY_ERROR are separate quality states.", 42, CONTENT_TOP + 332, MUTED, false);
+        g.drawString(font, fit("On evidence loss the output driver becomes invalid while y[k] is retained internally; reacquisition continues from the last trustworthy output.", w),
+                42, CONTENT_TOP + 388, MUTED, false);
+        g.drawString(font, fit("Derived τ and cutoff are explanatory values computed only from synchronized α and the fixed 2-tick sample interval; the client is not a second filter solver.", w),
+                42, CONTENT_TOP + 444, MUTED, false);
     }
 
     private void drawPair(GuiGraphics g, String label, String value, int y) {
         g.drawString(font, label, 42, y, MUTED, false);
         g.drawString(font, value, Math.min(300, imageWidth / 2), y, INK, false);
+    }
+
+    private String trackingErrorLabel() {
+        if (menu.inputQuality() != PortQuality.VALID || menu.outputQuality() != PortQuality.VALID) {
+            return "N/A • " + qualityName(menu.outputQuality());
+        }
+        return signed(menu.trackingError());
+    }
+
+    private static String qualityName(PortQuality quality) {
+        return quality.name().replace('_', ' ');
     }
 
     private static String signed(int value) {
