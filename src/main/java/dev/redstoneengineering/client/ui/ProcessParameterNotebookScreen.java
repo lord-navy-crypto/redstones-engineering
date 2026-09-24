@@ -223,8 +223,8 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
 
     private String[] liveLabels(){
         return switch(menu.kind()){
-            case ProcessParameterMenu.KIND_CONDITIONER -> new String[]{"Input","Output","Limit episodes","Limiting now"};
-            case ProcessParameterMenu.KIND_PWM -> new String[]{"Command","Applied command","Effective duty","Completed cycles"};
+            case ProcessParameterMenu.KIND_CONDITIONER -> new String[]{"Input","Output","Limit episodes","Limiting now","Input quality","Output quality","Last limit age"};
+            case ProcessParameterMenu.KIND_PWM -> new String[]{"Command","Applied command","Effective duty","Completed cycles","Command quality","Inhibit quality","Output quality"};
             case ProcessParameterMenu.KIND_COPPER_DRIVER -> new String[]{"Target voltage","Internal actual voltage","Input quality","Tracking error","Copper source present"};
             case ProcessParameterMenu.KIND_CAPACITOR -> new String[]{"Stored charge","Output voltage","Effective tau","Observed load R","Load scan truncated","Input quality","Output quality"};
             case ProcessParameterMenu.KIND_FUSE -> new String[]{"Thermal exposure","Trip progress","Trip state","Last current ×100","Current / rating","Input quality","Output quality"};
@@ -238,7 +238,11 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
     }
 
     private String liveValue(int i,int v){
-        if(menu.kind()==ProcessParameterMenu.KIND_CONDITIONER&&i==3) return v!=0?"YES":"NO";
+        if(menu.kind()==ProcessParameterMenu.KIND_CONDITIONER){
+            if(i==3) return v!=0?"YES":"NO";
+            if(i==4||i==5) return qualityName(v);
+            if(i==6) return v<0?"NONE":v+" ticks";
+        }
         if(menu.kind()==ProcessParameterMenu.KIND_COPPER_DRIVER){
             if(i==2) return qualityName(v);
             if(i==4) return v!=0?"YES • ACTIVE DRIVER":"NO • RELEASED";
@@ -247,7 +251,10 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             if(i==1) return qualityName(v);
             if(i==2) return v!=0?"YES":"NO";
         }
-        if(menu.kind()==ProcessParameterMenu.KIND_PWM&&i==2) return String.format("%.1f%%",v/10.0);
+        if(menu.kind()==ProcessParameterMenu.KIND_PWM){
+            if(i==2) return String.format("%.1f%%",v/10.0);
+            if(i==4||i==5||i==6) return qualityName(v);
+        }
         if(menu.kind()==ProcessParameterMenu.KIND_CAPACITOR){
             if(i==0) return v+"%";
             if(i==2) return v+" ticks";
@@ -291,7 +298,8 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
 
     private String model2(){
         return switch(menu.kind()){
-            case ProcessParameterMenu.KIND_PWM -> "Command updates latch at carrier-cycle boundaries; changing period resets carrier phase evidence.";
+            case ProcessParameterMenu.KIND_CONDITIONER -> "Input and output quality are separate. Active limiting marks output SATURATED while preserving the upstream input quality.";
+            case ProcessParameterMenu.KIND_PWM -> "Command updates latch at carrier-cycle boundaries; command, inhibit and output quality remain independent evidence channels.";
             case ProcessParameterMenu.KIND_COPPER_DRIVER -> "Rise and fall slew are independent. Internal actual voltage can decay after command loss, but the Copper source is released immediately unless input evidence is VALID.";
             case ProcessParameterMenu.KIND_CAPACITOR -> "τcharge=τbase; τdischarge=f(τbase,Rload); open circuit uses τbase×leakageFactor; incomplete load scans freeze integration.";
             case ProcessParameterMenu.KIND_FUSE -> "FAST/NORMAL/SLOW change overload heating rate; rating/class changes retain heat, and reset remains evidence-gated.";
@@ -304,6 +312,10 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
     private String model3(){
         if(menu.kind()==ProcessParameterMenu.KIND_CAPACITOR||menu.kind()==ProcessParameterMenu.KIND_FUSE)
             return "Operate separates retained physical state from input/output evidence quality, so stored energy or heat is never mistaken for fresh source evidence.";
+        if(menu.kind()==ProcessParameterMenu.KIND_CONDITIONER)
+            return "A clipped/limited numerical output is not missing evidence: SATURATED is an explicit output-quality state, and the last limiting episode age remains retained evidence.";
+        if(menu.kind()==ProcessParameterMenu.KIND_PWM)
+            return "PWM fail-safe behavior uses command and inhibit quality separately; a bad inhibit path can invalidate output evidence even when the command number itself looks ordinary.";
         if(menu.kind()==ProcessParameterMenu.KIND_COPPER_DRIVER)
             return "A valid 0 command is a real 0 V Copper source. NO_SIGNAL/STALE/FAULT are evidence states, not numerical zero; non-valid command evidence releases the network driver.";
         if(menu.kind()==ProcessParameterMenu.KIND_COPPER_SOURCE)
