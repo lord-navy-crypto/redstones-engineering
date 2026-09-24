@@ -21,6 +21,10 @@ public final class LapisLowPassFilterMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_ALPHA_PLUS_1 = 2;
     public static final int BUTTON_ALPHA_PLUS_5 = 3;
     public static final int BUTTON_ALPHA_RESET = 4;
+    public static final int BUTTON_INPUT_PREVIOUS = 20;
+    public static final int BUTTON_INPUT_NEXT = 21;
+    public static final int BUTTON_OUTPUT_PREVIOUS = 22;
+    public static final int BUTTON_OUTPUT_NEXT = 23;
 
     private final DataSlot alphaPercent = trackedInt();
     private final DataSlot input = trackedInt();
@@ -29,6 +33,8 @@ public final class LapisLowPassFilterMenu extends EngineeringDeviceMenu {
     private final DataSlot history = trackedInt();
     private final DataSlot inputQuality = trackedInt();
     private final DataSlot outputQuality = trackedInt();
+    private final DataSlot inputFacing = trackedInt();
+    private final DataSlot outputFacing = trackedInt();
 
     public LapisLowPassFilterMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -51,6 +57,8 @@ public final class LapisLowPassFilterMenu extends EngineeringDeviceMenu {
             history.set(0);
             inputQuality.set(PortQuality.NO_SIGNAL.ordinal());
             outputQuality.set(PortQuality.NO_SIGNAL.ordinal());
+            inputFacing.set(-1);
+            outputFacing.set(-1);
             return;
         }
 
@@ -71,6 +79,8 @@ public final class LapisLowPassFilterMenu extends EngineeringDeviceMenu {
         }
         input.set(Math.max(0, Math.min(100, inputValue)));
         inputQuality.set(observedInputQuality.ordinal());
+        inputFacing.set(DirectionalDomainBlock.seriesInputSide(state).ordinal());
+        outputFacing.set(DirectionalDomainBlock.seriesOutputSide(state).ordinal());
     }
 
     @Override
@@ -78,14 +88,23 @@ public final class LapisLowPassFilterMenu extends EngineeringDeviceMenu {
         if (level.isClientSide) return true;
         if (!stillValid(player) || !(level instanceof ServerLevel serverLevel)) return false;
 
-        boolean changed = switch (id) {
-            case BUTTON_ALPHA_MINUS_5 -> LapisLowPassFilterBlock.adjustAlpha(serverLevel, blockPos, -5);
-            case BUTTON_ALPHA_MINUS_1 -> LapisLowPassFilterBlock.adjustAlpha(serverLevel, blockPos, -1);
-            case BUTTON_ALPHA_PLUS_1 -> LapisLowPassFilterBlock.adjustAlpha(serverLevel, blockPos, 1);
-            case BUTTON_ALPHA_PLUS_5 -> LapisLowPassFilterBlock.adjustAlpha(serverLevel, blockPos, 5);
-            case BUTTON_ALPHA_RESET -> LapisLowPassFilterBlock.resetAlpha(serverLevel, blockPos);
-            default -> false;
-        };
+        boolean changed;
+        if (id == BUTTON_INPUT_PREVIOUS || id == BUTTON_INPUT_NEXT) {
+            changed = DirectionalDomainBlock.rotateSeriesInput(
+                    level, blockPos, id == BUTTON_INPUT_NEXT);
+        } else if (id == BUTTON_OUTPUT_PREVIOUS || id == BUTTON_OUTPUT_NEXT) {
+            changed = DirectionalDomainBlock.rotateSeriesOutput(
+                    level, blockPos, id == BUTTON_OUTPUT_NEXT);
+        } else {
+            changed = switch (id) {
+                case BUTTON_ALPHA_MINUS_5 -> LapisLowPassFilterBlock.adjustAlpha(serverLevel, blockPos, -5);
+                case BUTTON_ALPHA_MINUS_1 -> LapisLowPassFilterBlock.adjustAlpha(serverLevel, blockPos, -1);
+                case BUTTON_ALPHA_PLUS_1 -> LapisLowPassFilterBlock.adjustAlpha(serverLevel, blockPos, 1);
+                case BUTTON_ALPHA_PLUS_5 -> LapisLowPassFilterBlock.adjustAlpha(serverLevel, blockPos, 5);
+                case BUTTON_ALPHA_RESET -> LapisLowPassFilterBlock.resetAlpha(serverLevel, blockPos);
+                default -> false;
+            };
+        }
         if (changed) {
             refreshAuthoritativeSnapshot();
             broadcastChanges();
@@ -101,10 +120,19 @@ public final class LapisLowPassFilterMenu extends EngineeringDeviceMenu {
     public boolean historyPresent() { return history.get() != 0; }
     public PortQuality inputQuality() { return decodeQuality(inputQuality.get()); }
     public PortQuality outputQuality() { return decodeQuality(outputQuality.get()); }
+    public boolean hasInputEndpoint() { return inputFacing.get() >= 0; }
+    public boolean hasOutputEndpoint() { return outputFacing.get() >= 0; }
+    public Direction inputDirection() { return decodeDirection(inputFacing.get(), Direction.SOUTH); }
+    public Direction outputDirection() { return decodeDirection(outputFacing.get(), Direction.NORTH); }
 
     private static PortQuality decodeQuality(int ordinal) {
         PortQuality[] all = PortQuality.values();
         return ordinal < 0 || ordinal >= all.length ? PortQuality.NO_SIGNAL : all[ordinal];
+    }
+
+    private static Direction decodeDirection(int ordinal, Direction fallback) {
+        Direction[] all = Direction.values();
+        return ordinal < 0 || ordinal >= all.length ? fallback : all[ordinal];
     }
 
     /** Discrete-time e-folding constant in filter samples. */
