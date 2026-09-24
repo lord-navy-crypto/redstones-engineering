@@ -46,10 +46,7 @@ public final class FieldDeviceUi {
                     data -> data.writeBlockPos(pos));
             return;
         }
-        if (block instanceof PrecisionFilterBlock
-                || block instanceof PulseShaperBlock
-                || block instanceof EdgeDetectorBlock
-                || block instanceof SignalAmplifierBlock
+        if (block instanceof SignalAmplifierBlock
                 || block instanceof ElectromagnetBlock
                 || block instanceof InductionCoilBlock
                 || block instanceof PneumaticReliefValveBlock
