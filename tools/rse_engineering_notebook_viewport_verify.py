@@ -31,6 +31,9 @@ for rel in SCREENS:
         "enableScissor",
         "disableScissor",
         "maxScroll",
+        "horizontalOffset",
+        "maxHorizontalScroll",
+        "hasShiftDown",
     ):
         if token not in text:
             failed.append(f"{rel} missing viewport/scroll contract token: {token}")
@@ -40,8 +43,8 @@ for rel in SCREENS:
     if not re.search(r"imageHeight\s*=\s*Math\.max\([^;]*height\s*[-]", text):
         failed.append(f"{rel} does not derive imageHeight from live game viewport")
 
-    if "g.pose().translate(0, -scrollOffset, 0)" not in text and "g.pose().translate(0,-scrollOffset,0)" not in text:
-        failed.append(f"{rel} does not scroll rendered engineering content")
+    if not re.search(r"g\.pose\(\)\.translate\(\s*-horizontalOffset\s*,\s*-scrollOffset\s*,\s*0\s*\)", text):
+        failed.append(f"{rel} does not scroll rendered engineering content on both X and Y")
 
 SHARED_SCREEN = "src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java"
 shared_path = root / SHARED_SCREEN
@@ -62,6 +65,11 @@ else:
         "configureVirtualY",
         "routeWidgets",
         "routeVirtualY",
+        "configureVirtualX",
+        "routeVirtualX",
+        "horizontalOffset",
+        "virtualContentWidth",
+        "maxHorizontalScroll",
         "addRouteWidget",
         "syncRouteWidgetViewport",
     ):
@@ -71,8 +79,8 @@ else:
         failed.append(f"{SHARED_SCREEN} does not derive imageWidth from live game viewport")
     if not re.search(r"imageHeight\s*=\s*Math\.max\([^;]*height\s*[-]", shared):
         failed.append(f"{SHARED_SCREEN} does not derive imageHeight from live game viewport")
-    if "graphics.pose().translate(0, -scrollOffset, 0)" not in shared:
-        failed.append(f"{SHARED_SCREEN} does not scroll rendered engineering content")
+    if "graphics.pose().translate(-horizontalOffset, -scrollOffset, 0)" not in shared:
+        failed.append(f"{SHARED_SCREEN} does not scroll rendered engineering content on both X and Y")
     for route_field in (
         "routePrevious",
         "routeNext",
@@ -189,10 +197,10 @@ if failed:
 print("RSE engineering notebook viewport verification: PASS")
 print(" viewport-derived width/height: PASS")
 print(" fixed header/footer + clipped scroll workspace: PASS")
-print(" mouse-wheel scroll contract: PASS")
+print(" vertical + horizontal scroll contract: PASS")
 print(" six engineering notebook screens migrated: PASS")
 print(" shared EngineeringScreen viewport shell migrated: PASS")
 print(" route controls move and clip with scrolled engineering content: PASS")
 print(" narrow-viewport tabs and controls stay inside notebook bounds: PASS")
-print(" parameter notebook models wrap vertically instead of ellipsizing equations: PASS")
+print(" parameter notebook models wrap vertically and expose long values through horizontal panning: PASS")
 print(" Redstone Encyclopedia viewport document migrated: PASS")
