@@ -112,9 +112,12 @@ responsive_contracts = {
         "evidenceButtonStartX",
     ),
     "src/main/java/dev/redstoneengineering/client/ui/LapisLowPassFilterScreen.java": (
+        "pageLabel",
         "alphaStepButtonWidth",
         "alphaStepStartX",
-        "Math.max(64",
+        "routeButtonWidth",
+        "routeButtonStartX",
+        "Math.max(48",
     ),
     "src/main/java/dev/redstoneengineering/client/ui/ServoActuatorNotebookScreen.java": (
         "pageTabLabel",
