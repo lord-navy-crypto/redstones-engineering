@@ -73,7 +73,7 @@ public final class CopperCircuitMeterScreen extends EngineeringScreen<CopperCirc
 
     private void history(GuiGraphics g) {
         statusBadge(g, "METROLOGY + COMMISSIONING EVIDENCE", commissioningColor(), 16, 80);
-        safeText(g, "V, Req, I and P come from server-side CircuitPhysics. The measurement statistics below come from the retained server metrology tracker.", 16, 108, TEXT);
+        safeText(g, "V, Req, I and P come from the server electrical model; the statistics below come from the retained server metrology tracker.", 16, 108, TEXT);
         labelValue(g, "Measurement quality", measurementQualityName(), 142);
         labelValue(g, "Conditioned reading", menu.sampleCount() > 0 ? String.format("%.2f V-eq", menu.meterReading()) : "NO DATA", 162);
         labelValue(g, "Repeatability", menu.sampleCount() > 0 ? String.format("±%.2f", menu.repeatability()) : "N/A", 182);
