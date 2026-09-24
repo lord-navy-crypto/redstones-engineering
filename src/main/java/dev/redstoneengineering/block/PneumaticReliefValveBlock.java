@@ -103,24 +103,48 @@ public class PneumaticReliefValveBlock extends DirectionalDomainBlock implements
         return state.getValue(SETPOINT) * 25;
     }
 
-    public static int setpointPressure(Level level, BlockPos pos, BlockState state) {
+    private static EngineeringDeviceParameters.ExtendedParameters configuredParameters(
+            Level level, BlockPos pos, BlockState state
+    ) {
         int fallback = setpointPressure(state);
         if (level instanceof ServerLevel serverLevel) {
-            return Math.max(1, Math.min(100, EngineeringDeviceParameters.get(serverLevel)
+            var raw = EngineeringDeviceParameters.get(serverLevel)
                     .extendedParameters(serverLevel, pos,
-                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
+                            new EngineeringDeviceParameters.ExtendedParameters(fallback, BLOWDOWN_PRESSURE, 0, 0));
+            int setpoint = Math.max(1, Math.min(100, raw.a()));
+            // Older saves used slot B=0; preserve the historical five-unit blowdown.
+            int blowdown = raw.b() <= 0 ? BLOWDOWN_PRESSURE : Math.max(1, Math.min(25, raw.b()));
+            return new EngineeringDeviceParameters.ExtendedParameters(setpoint, blowdown, 0, 0);
         }
-        return fallback;
+        return new EngineeringDeviceParameters.ExtendedParameters(fallback, BLOWDOWN_PRESSURE, 0, 0);
+    }
+
+    public static int setpointPressure(Level level, BlockPos pos, BlockState state) {
+        return configuredParameters(level, pos, state).a();
+    }
+
+    public static int configuredBlowdown(Level level, BlockPos pos, BlockState state) {
+        return configuredParameters(level, pos, state).b();
+    }
+
+    public static boolean setEngineeringParameters(
+            ServerLevel level, BlockPos pos, int pressure, int blowdown
+    ) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof PneumaticReliefValveBlock)) return false;
+        int boundedSetpoint = Math.max(1, Math.min(100, pressure));
+        int boundedBlowdown = Math.max(1, Math.min(Math.min(25, boundedSetpoint), blowdown));
+        boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
+                level, pos, new EngineeringDeviceParameters.ExtendedParameters(
+                        boundedSetpoint, boundedBlowdown, 0, 0));
+        if (changed) PneumaticNetwork.recomputeAround(level, pos);
+        return changed;
     }
 
     public static boolean setConfiguredSetpoint(ServerLevel level, BlockPos pos, int pressure) {
         BlockState state = level.getBlockState(pos);
-        if (!(state.getBlock() instanceof PneumaticReliefValveBlock)) return false;
-        int bounded = Math.max(1, Math.min(100, pressure));
-        boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
-                level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
-        if (changed) PneumaticNetwork.recomputeAround(level, pos);
-        return changed;
+        return setEngineeringParameters(
+                level, pos, pressure, configuredBlowdown(level, pos, state));
     }
 
     public static int reseatPressure(BlockState state) {
@@ -128,12 +152,16 @@ public class PneumaticReliefValveBlock extends DirectionalDomainBlock implements
     }
 
     public static int reseatPressure(Level level, BlockPos pos, BlockState state) {
-        return PneumaticReliefValveLogic.reseatPressure(setpointPressure(level, pos, state), BLOWDOWN_PRESSURE);
+        return PneumaticReliefValveLogic.reseatPressure(
+                setpointPressure(level, pos, state), configuredBlowdown(level, pos, state));
     }
 
     public static boolean shouldVent(Level level, BlockPos pos, BlockState state, int pressure) {
         return PneumaticReliefValveLogic.shouldVent(
-                pressure, setpointPressure(level, pos, state), BLOWDOWN_PRESSURE, venting(level, pos));
+                pressure,
+                setpointPressure(level, pos, state),
+                configuredBlowdown(level, pos, state),
+                venting(level, pos));
     }
 
     /** Called by the pneumatic solver. Repeated solver passes during one overpressure episode count one event. */
@@ -177,14 +205,16 @@ public class PneumaticReliefValveBlock extends DirectionalDomainBlock implements
                 BlockState newState = state.setValue(SETPOINT, next);
                 level.setBlock(pos, newState, Block.UPDATE_CLIENTS);
                 if (level instanceof ServerLevel server) {
+                    int currentBlowdown = configuredBlowdown(server, pos, state);
                     EngineeringDeviceParameters.get(server).setExtendedParameters(
-                            server, pos, new EngineeringDeviceParameters.ExtendedParameters(setpointPressure(newState), 0, 0, 0));
+                            server, pos, new EngineeringDeviceParameters.ExtendedParameters(
+                                    setpointPressure(newState), currentBlowdown, 0, 0));
                     PneumaticNetwork.recomputeAround(server, pos);
                 }
                 player.displayClientMessage(Component.literal(
                         "Relief valve | setpoint=" + setpointPressure(level, pos, newState) + "/100"
                                 + " reseat=" + reseatPressure(level, pos, newState) + "/100"
-                                + " blowdown=" + BLOWDOWN_PRESSURE
+                                + " blowdown=" + configuredBlowdown(level, pos, newState)
                                 + " | state=" + (venting(level, pos) ? "VENTING" : "SEATED")
                                 + " | ventEvents=" + ventEvents(level, pos)
                                 + " lastExcess=" + lastExcess(level, pos)
