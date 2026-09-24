@@ -1,6 +1,7 @@
 package dev.redstoneengineering.ui.menu;
 
 import dev.redstoneengineering.block.*;
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.MagneticPhysics;
 import dev.redstoneengineering.physics.PneumaticNetwork;
 import dev.redstoneengineering.physics.RedstoneObservationSupport;
@@ -44,6 +45,8 @@ public final class AdvancedParameterMenu extends EngineeringDeviceMenu {
     private final DataSlot liveB = trackedInt();
     private final DataSlot liveC = trackedInt();
     private final DataSlot liveD = trackedInt();
+    private final DataSlot liveE = trackedInt();
+    private final DataSlot liveF = trackedInt();
 
     public AdvancedParameterMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -61,6 +64,7 @@ public final class AdvancedParameterMenu extends EngineeringDeviceMenu {
         Block block = state.getBlock();
         p0.set(0); p1.set(0); p2.set(0); p3.set(0);
         liveA.set(0); liveB.set(0); liveC.set(0); liveD.set(0);
+        liveE.set(PortQuality.NO_SIGNAL.ordinal()); liveF.set(PortQuality.NO_SIGNAL.ordinal());
 
         if (block instanceof PrecisionFilterBlock) {
             kind.set(KIND_PRECISION_FILTER);
@@ -96,6 +100,10 @@ public final class AdvancedParameterMenu extends EngineeringDeviceMenu {
             liveB.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             liveC.set(SignalAmplifierBlock.clippingEpisodes(level, blockPos));
             liveD.set(SignalAmplifierBlock.maxRawOutput(level, blockPos));
+            liveE.set(input.quality().ordinal());
+            liveF.set(input.valid() && SignalAmplifierBlock.clipping(level, blockPos)
+                    ? PortQuality.SATURATED.ordinal()
+                    : input.quality().ordinal());
         } else if (block instanceof ElectromagnetBlock) {
             kind.set(KIND_ELECTROMAGNET);
             var response = ElectromagnetBlock.configuredResponse(level, blockPos);
@@ -124,11 +132,13 @@ public final class AdvancedParameterMenu extends EngineeringDeviceMenu {
             p0.set(parameters.a()); p1.set(parameters.b()); p2.set(parameters.c());
             liveA.set(LapisNoiseSourceBlock.currentValue(level, blockPos, state));
             liveB.set(LapisNoiseSourceBlock.sampleInitialized(level, blockPos) ? 1 : 0);
+            liveC.set(PortQuality.VALID.ordinal());
         } else if (block instanceof LapisPrecisionRangeSensorBlock && level instanceof ServerLevel server) {
             kind.set(KIND_LAPIS_RANGE);
             p0.set(LapisPrecisionRangeSensorBlock.configuredRange(level, blockPos, state));
             var sample = LapisPrecisionRangeSensorBlock.rangeSample(server, blockPos, state);
             liveA.set(sample.distance()); liveB.set(sample.maxRange()); liveC.set(sample.complete() ? 1 : 0);
+            liveD.set(sample.quality().ordinal());
         } else if (block instanceof OpticalEmitterBlock) {
             kind.set(KIND_OPTICAL_EMITTER);
             p0.set(state.getValue(OpticalEmitterBlock.INTENSITY));
@@ -221,4 +231,6 @@ public final class AdvancedParameterMenu extends EngineeringDeviceMenu {
     public int liveB() { return liveB.get(); }
     public int liveC() { return liveC.get(); }
     public int liveD() { return liveD.get(); }
+    public int liveE() { return liveE.get(); }
+    public int liveF() { return liveF.get(); }
 }
