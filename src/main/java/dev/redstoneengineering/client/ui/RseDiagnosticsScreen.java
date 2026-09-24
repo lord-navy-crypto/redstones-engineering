@@ -228,7 +228,7 @@ public final class RseDiagnosticsScreen extends Screen {
                 var run = RseLiveDiagnostics.latestValidationRun();
                 yield run == null ? 260 : Math.max(420, 150 + run.logLines().size() * 26);
             }
-            case LIVE_EVENTS -> Math.max(420, 120 + filteredLiveEvents().size() * 14);
+            case LIVE_EVENTS -> liveEventsVirtualHeight();
             case SYSTEMS -> Math.max(360, 130 + RseLiveDiagnostics.Domain.values().length * 18);
             case MEGA_FACTORY -> {
                 var mega = RseLiveDiagnostics.latestMegaSnapshot();
@@ -267,6 +267,8 @@ public final class RseDiagnosticsScreen extends Screen {
             y += 13;
             graphics.drawString(font, truncateToWidth(eventLine(abnormal), width - 52), 30, y,
                     severityColor(abnormal.severity()), false);
+            y += 13;
+            graphics.drawString(font, truncateToWidth(eventContextLine(abnormal), width - 58), 30, y, MUTED, false);
         }
     }
 
@@ -334,12 +336,29 @@ public final class RseDiagnosticsScreen extends Screen {
             graphics.drawString(font, "No matching structured RSE events in this session.", 24, y, MUTED, false);
             return;
         }
+        int contentWidth = Math.max(180, width - 60);
         for (RseLiveDiagnosticEvent event : entries) {
-            graphics.drawString(font, truncateToWidth(eventLine(event), width - 52), 24, y,
-                    severityColor(event.severity()), false);
-            y += 14;
+            graphics.drawString(font, eventHeader(event), 24, y, severityColor(event.severity()), false);
+            y += 13;
+            graphics.drawString(font, eventContextLine(event), 30, y, MUTED, false);
+            y += 12;
+            if (!event.oldState().isBlank() || !event.newState().isBlank()) {
+                y = drawWrappedCrisp(graphics, eventTransitionLine(event), 30, y, contentWidth, INFO, 11);
+                y += 2;
+            }
+            if (!event.upstream().isBlank()) {
+                y = drawWrappedCrisp(graphics, "UPSTREAM • " + oneLine(event.upstream()), 30, y, contentWidth, WARN, 11);
+                y += 2;
+            }
+            if (!event.message().isBlank()) {
+                y = drawWrappedCrisp(graphics, "MESSAGE • " + oneLine(event.message()), 30, y, contentWidth, TEXT, 11);
+                y += 3;
+            }
+            graphics.fill(24, y, width - 24, y + 1, BORDER);
+            y += 8;
         }
-        graphics.drawString(font, "Continuous scroll • retained structured events", 24, y + 8, MUTED, false);
+        graphics.drawString(font, "Continuous scroll • structured tick/location/state/upstream evidence • observer only",
+                24, y + 4, MUTED, false);
     }
 
     private void renderSystems(GuiGraphics graphics) {
@@ -403,6 +422,26 @@ public final class RseDiagnosticsScreen extends Screen {
         graphics.drawString(font, "Legacy log buffer: " + RseDiagnostics.size() + "/" + RseDiagnostics.MAX_ENTRIES
                 + " | WARN " + RseDiagnostics.count(RseDiagnosticSeverity.WARN)
                 + " | ERROR " + RseDiagnostics.count(RseDiagnosticSeverity.ERROR), 30, y, MUTED, false);
+    }
+
+    private int liveEventsVirtualHeight() {
+        List<RseLiveDiagnosticEvent> events = filteredLiveEvents();
+        int total = 120;
+        int contentWidth = Math.max(180, width - 60);
+        for (RseLiveDiagnosticEvent event : events) {
+            int lines = 2;
+            if (!event.oldState().isBlank() || !event.newState().isBlank()) {
+                lines += Math.max(1, font.split(Component.literal(eventTransitionLine(event)), contentWidth).size());
+            }
+            if (!event.upstream().isBlank()) {
+                lines += Math.max(1, font.split(Component.literal("UPSTREAM • " + oneLine(event.upstream())), contentWidth).size());
+            }
+            if (!event.message().isBlank()) {
+                lines += Math.max(1, font.split(Component.literal("MESSAGE • " + oneLine(event.message())), contentWidth).size());
+            }
+            total += lines * 12 + 14;
+        }
+        return Math.max(420, total);
     }
 
     private List<RseLiveDiagnosticEvent> filteredLiveEvents() {
@@ -491,8 +530,25 @@ public final class RseDiagnosticsScreen extends Screen {
     }
 
     private String eventLine(RseLiveDiagnosticEvent event) {
+        return eventHeader(event) + " — " + oneLine(event.message());
+    }
+
+    private String eventHeader(RseLiveDiagnosticEvent event) {
         return "[" + event.severity() + "] " + event.domain() + "/" + event.source()
-                + " " + event.eventType() + " " + event.reasonCode() + " — " + oneLine(event.message());
+                + " • " + event.eventType() + " • " + event.reasonCode();
+    }
+
+    private String eventContextLine(RseLiveDiagnosticEvent event) {
+        String tick = event.gameTick() >= 0 ? Long.toString(event.gameTick()) : "N/A";
+        String dimension = event.dimension().isBlank() ? "N/A" : oneLine(event.dimension());
+        String position = event.position().isBlank() ? "N/A" : oneLine(event.position());
+        return "tick=" + tick + " • dimension=" + dimension + " • position=" + position;
+    }
+
+    private String eventTransitionLine(RseLiveDiagnosticEvent event) {
+        String oldState = event.oldState().isBlank() ? "N/A" : oneLine(event.oldState());
+        String newState = event.newState().isBlank() ? "N/A" : oneLine(event.newState());
+        return "STATE • " + oldState + " → " + newState;
     }
 
     private static String oneLine(String value) {
