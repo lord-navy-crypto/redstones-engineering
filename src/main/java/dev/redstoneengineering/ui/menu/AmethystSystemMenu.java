@@ -81,7 +81,7 @@ public final class AmethystSystemMenu extends EngineeringDeviceMenu {
             int sourceQuality = stateFlag.get() == 1 ? PortQuality.VALID.ordinal() : PortQuality.NO_SIGNAL.ordinal();
             quality.set(sourceQuality);
             outputQuality.set(sourceQuality);
-        } else if (block instanceof AmethystFrequencyFilterBlock) {
+        } else if (block instanceof AmethystFrequencyFilterBlock filter) {
             kind.set(KIND_FILTER);
             AmethystFrequencyFilterBlock.FilterEvidence e = AmethystFrequencyFilterBlock.evidence(level, blockPos, state);
             primary.set(e.inputFrequency()); secondary.set(e.inputAmplitude()); tertiary.set(e.targetFrequency());
