@@ -186,7 +186,8 @@ for name in route_capable_screens:
             errors.append(f"{name}: duplicates physical Route authority on Configure via {forbidden!r}")
 
 for name in (
-    "EnhancedFieldDeviceScreen.java", "SignalConditionerScreen.java", "PidControllerScreen.java",
+    "EnhancedFieldDeviceScreen.java", "SignalConditionerScreen.java", "PidEngineeringNotebookScreen.java",
+    "ServoActuatorNotebookScreen.java",
     "OscilloscopeScreen.java", "LogicAnalyzerScreen.java", "SignalAnalyzerScreen.java",
     "UniversalFieldDeviceScreen.java", "RangeSensorScreen.java", "SignalProcessorScreen.java",
     "QuartzTimingScreen.java", "RadioLinkScreen.java", "DigitalCommunicationScreen.java",
@@ -246,6 +247,7 @@ if client_dir.is_dir():
                 errors.append(f"client UI authority violation in {source.name}: contains {token!r}")
 
 require("src/main/java/dev/redstoneengineering/client/ui/EngineeringUiClientRegistration.java",
+        "SignalConditionerScreen::new", "PidEngineeringNotebookScreen::new", "ServoActuatorNotebookScreen::new",
         "EnhancedFieldDeviceScreen::new", "UniversalFieldDeviceScreen::new", "AmethystSystemScreen::new",
         "ReliabilitySystemScreen::new", "OperationsMonitorScreen::new", "EngineeringIoCompassOverlay::render")
 require("src/main/java/dev/redstoneengineering/gametest/RseEngineeringUiGameTests.java",
