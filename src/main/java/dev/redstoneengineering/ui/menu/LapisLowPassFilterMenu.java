@@ -3,6 +3,7 @@ package dev.redstoneengineering.ui.menu;
 import dev.redstoneengineering.block.DirectionalDomainBlock;
 import dev.redstoneengineering.block.LapisLowPassFilterBlock;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -26,6 +27,8 @@ public final class LapisLowPassFilterMenu extends EngineeringDeviceMenu {
     private final DataSlot output = trackedInt();
     private final DataSlot valid = trackedInt();
     private final DataSlot history = trackedInt();
+    private final DataSlot inputQuality = trackedInt();
+    private final DataSlot outputQuality = trackedInt();
 
     public LapisLowPassFilterMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -46,6 +49,8 @@ public final class LapisLowPassFilterMenu extends EngineeringDeviceMenu {
             output.set(0);
             valid.set(0);
             history.set(0);
+            inputQuality.set(PortQuality.NO_SIGNAL.ordinal());
+            outputQuality.set(PortQuality.NO_SIGNAL.ordinal());
             return;
         }
 
@@ -54,15 +59,18 @@ public final class LapisLowPassFilterMenu extends EngineeringDeviceMenu {
         output.set(filter.output());
         valid.set(filter.valid() ? 1 : 0);
         history.set(LapisLowPassFilterBlock.retainedHistory(level, blockPos) ? 1 : 0);
+        outputQuality.set(filter.quality().ordinal());
 
         int inputValue = 0;
+        PortQuality observedInputQuality = PortQuality.NO_SIGNAL;
         if (state.getBlock() instanceof EngineeringPortProvider provider) {
             Direction in = DirectionalDomainBlock.seriesInputSide(state);
-            inputValue = provider.engineeringSnapshot(level, blockPos, state, in)
-                    .map(snapshot -> (int) Math.round(snapshot.value()))
-                    .orElse(0);
+            var snapshot = provider.engineeringSnapshot(level, blockPos, state, in);
+            inputValue = snapshot.map(port -> (int) Math.round(port.value())).orElse(0);
+            observedInputQuality = snapshot.map(port -> port.quality()).orElse(PortQuality.NO_SIGNAL);
         }
         input.set(Math.max(0, Math.min(100, inputValue)));
+        inputQuality.set(observedInputQuality.ordinal());
     }
 
     @Override
@@ -91,6 +99,13 @@ public final class LapisLowPassFilterMenu extends EngineeringDeviceMenu {
     public int output() { return output.get(); }
     public boolean valid() { return valid.get() != 0; }
     public boolean historyPresent() { return history.get() != 0; }
+    public PortQuality inputQuality() { return decodeQuality(inputQuality.get()); }
+    public PortQuality outputQuality() { return decodeQuality(outputQuality.get()); }
+
+    private static PortQuality decodeQuality(int ordinal) {
+        PortQuality[] all = PortQuality.values();
+        return ordinal < 0 || ordinal >= all.length ? PortQuality.NO_SIGNAL : all[ordinal];
+    }
 
     /** Discrete-time e-folding constant in filter samples. */
     public double tauSamples() {
