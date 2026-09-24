@@ -20,10 +20,10 @@ if not failed:
     amp = amp_path.read_text(errors='ignore')
     noise = noise_path.read_text(errors='ignore')
     rng = range_path.read_text(errors='ignore')
-    for token in ('liveE.set(input.quality().ordinal())','PortQuality.SATURATED.ordinal()','liveC.set(PortQuality.VALID.ordinal())','liveD.set(sample.quality().ordinal())','public int liveE()','public int liveF()'):
-        if token not in menu: failed.append(f'AdvancedParameterMenu missing explicit quality token: {token}')
-    for token in ('Input quality','Output quality','Measurement quality','NO TARGET','UNKNOWN','Clipping is explicit SATURATED output quality','A generated sample of 0 remains VALID evidence.','Complete clear coverage with no target is NO_SIGNAL; incomplete coverage is STALE.','Raw distance and measurement quality are synchronized separately','DIAGNOSTICS("Diagnostics")','private void diagnostics(GuiGraphics g)','diagnosticStatus()','diagnosticLines()','diagnosticNextAction()','OUTPUT SATURATED • HEADROOM LIMIT','COMPLETE SCAN • NO TARGET','SCAN COVERAGE INCOMPLETE','The client does not rescan the world, generate a new sample, or run a second device solver.'):
-        if token not in screen: failed.append(f'AdvancedParameterNotebookScreen missing evidence/diagnostic token: {token}')
+    for token in ('liveE.set(input.quality().ordinal())','PortQuality.SATURATED.ordinal()','liveC.set(PortQuality.VALID.ordinal())','liveD.set(sample.quality().ordinal())','public int liveE()','public int liveF()','BUTTON_INPUT_PREVIOUS','BUTTON_INPUT_NEXT','BUTTON_OUTPUT_PREVIOUS','BUTTON_OUTPUT_NEXT','DirectionalSignalBlock.rotateSeriesInput','DirectionalSignalBlock.rotateSeriesOutput','DirectionalDomainBlock.rotateSeriesInput','DirectionalDomainBlock.rotateSeriesOutput','DirectionalDomainSourceBlock.rotateOutput','public boolean canRouteInput()','public boolean canRouteOutput()','public Direction inputDirection()','public Direction outputDirection()'):
+        if token not in menu: failed.append(f'AdvancedParameterMenu missing explicit quality/routing token: {token}')
+    for token in ('Input quality','Output quality','Measurement quality','NO TARGET','UNKNOWN','Clipping is explicit SATURATED output quality','A generated sample of 0 remains VALID evidence.','Complete clear coverage with no target is NO_SIGNAL; incomplete coverage is STALE.','Raw distance and measurement quality are synchronized separately','DIAGNOSTICS("Diagnostics")','private void diagnostics(GuiGraphics g)','diagnosticStatus()','diagnosticLines()','diagnosticNextAction()','OUTPUT SATURATED • HEADROOM LIMIT','COMPLETE SCAN • NO TARGET','SCAN COVERAGE INCOMPLETE','The client does not rescan the world, generate a new sample, or run a second device solver.','ROUTING("Routing")','tabLabel(Tab value)','Math.max(48','private void routing(GuiGraphics g)','menu.canRouteInput()','menu.canRouteOutput()','physical measurement aperture','there is no synthetic input endpoint','sensing aperture is not a wired source input'):
+        if token not in screen: failed.append(f'AdvancedParameterNotebookScreen missing evidence/diagnostic/routing token: {token}')
     for token in ('PortQuality.SATURATED','clipping(level, pos)','input.quality()'):
         if token not in amp: failed.append(f'SignalAmplifierBlock missing saturation-quality token: {token}')
     for token in ('A numeric sample of zero is a legitimate generated value.','PortQuality.VALID'):
@@ -44,3 +44,7 @@ print(' Lapis range NO_SIGNAL vs STALE remains explicit: PASS')
 print(' generic notebook avoids fabricated numeric substitutes for missing evidence: PASS')
 print(' active generic devices expose device-specific diagnostics: PASS')
 print(' diagnostics remain server-evidence-only and do not rescan/re-simulate: PASS')
+print(' Advanced Routing page mutates only declared server-owned endpoints: PASS')
+print(' Lapis noise source remains output-only: PASS')
+print(' Lapis range sensing aperture stays distinct from its Lapis output: PASS')
+print(' five-tab Advanced notebook stays narrow-viewport aware: PASS')
