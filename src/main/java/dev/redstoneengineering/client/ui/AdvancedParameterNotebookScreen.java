@@ -56,7 +56,7 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
             case AdvancedParameterMenu.KIND_PULSE_SHAPER, AdvancedParameterMenu.KIND_LAPIS_NOISE,
                  AdvancedParameterMenu.KIND_ELECTROMAGNET -> 3;
             case AdvancedParameterMenu.KIND_PRECISION_FILTER, AdvancedParameterMenu.KIND_EDGE_DETECTOR,
-                 AdvancedParameterMenu.KIND_OPTICAL_EMITTER -> 2;
+                 AdvancedParameterMenu.KIND_RELIEF_VALVE, AdvancedParameterMenu.KIND_OPTICAL_EMITTER -> 2;
             default -> 1;
         };
     }
@@ -110,7 +110,7 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
             case AdvancedParameterMenu.KIND_SIGNAL_AMPLIFIER -> new String[]{"Gain"};
             case AdvancedParameterMenu.KIND_ELECTROMAGNET -> new String[]{"Field rise rate","Field fall rate","Cooling rate"};
             case AdvancedParameterMenu.KIND_INDUCTION_COIL -> new String[]{"Coil turns"};
-            case AdvancedParameterMenu.KIND_RELIEF_VALVE -> new String[]{"Relief setpoint"};
+            case AdvancedParameterMenu.KIND_RELIEF_VALVE -> new String[]{"Relief setpoint","Blowdown band"};
             case AdvancedParameterMenu.KIND_LAPIS_NOISE -> new String[]{"Baseline","Noise amplitude","Sample period"};
             case AdvancedParameterMenu.KIND_LAPIS_RANGE -> new String[]{"Maximum range"};
             case AdvancedParameterMenu.KIND_OPTICAL_EMITTER -> new String[]{"Intensity","Channel"};
@@ -166,7 +166,7 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
             case AdvancedParameterMenu.KIND_SIGNAL_AMPLIFIER -> "raw = input × gain; output = min(15, raw).";
             case AdvancedParameterMenu.KIND_ELECTROMAGNET -> "B[k+1] approaches Btarget with independent rise/fall slew; Btarget is thermally derated.";
             case AdvancedParameterMenu.KIND_INDUCTION_COIL -> "|emf| ∝ N × |ΔΦ/Δt|, then clamps to Copper 0..15.";
-            case AdvancedParameterMenu.KIND_RELIEF_VALVE -> "Valve vents above setpoint and reseats below setpoint − blowdown.";
+            case AdvancedParameterMenu.KIND_RELIEF_VALVE -> "Open if P>Pset; while venting, stay open until P≤Pset−ΔPblowdown.";
             case AdvancedParameterMenu.KIND_LAPIS_NOISE -> "sample = baseline + deterministic bounded noise.";
             case AdvancedParameterMenu.KIND_LAPIS_RANGE -> "Normalized output derives from measured distance / configured maximum range.";
             case AdvancedParameterMenu.KIND_OPTICAL_EMITTER -> "Emitter launches selected intensity on one discrete optical channel.";
@@ -178,7 +178,7 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
         return switch(menu.kind()){
             case AdvancedParameterMenu.KIND_PULSE_SHAPER -> "Rearm threshold = trigger threshold − hysteresis.";
             case AdvancedParameterMenu.KIND_ELECTROMAGNET -> "H[k+1] = clamp(H + heating(V) − cooling, 0,1000); cooling is an operator design parameter.";
-            case AdvancedParameterMenu.KIND_RELIEF_VALVE -> "Blowdown remains a safety-model constant; only the operator setpoint is configurable.";
+            case AdvancedParameterMenu.KIND_RELIEF_VALVE -> "Setpoint and blowdown are independent safety parameters; blowdown prevents rapid open/close chatter.";
             case AdvancedParameterMenu.KIND_LAPIS_NOISE -> "Baseline, amplitude and sampling cadence are independent experiment variables.";
             default -> "Configuration affects the authoritative device solver, not a client-only visualization.";
         };
