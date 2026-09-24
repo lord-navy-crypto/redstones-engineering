@@ -66,7 +66,7 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
     }
 
     private int contentHeight(){
-        return switch(tab){case OPERATE->430;case PARAMETERS->500;case MODEL->640;};
+        return switch(tab){case OPERATE->430;case PARAMETERS->500;case MODEL->760;};
     }
     private int maxScroll(){
         int visible=Math.max(80,imageHeight-CONTENT_TOP-CONTENT_BOTTOM_MARGIN);
@@ -148,11 +148,12 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
     private void model(GuiGraphics g){
         int w=Math.max(280,imageWidth-96);
         g.drawString(font,"ENGINEERING MODEL",42,CONTENT_TOP+28,MUTED,false);
-        g.drawString(font,fit(model1(),w),42,CONTENT_TOP+66,INK,false);
-        g.drawString(font,fit(model2(),w),42,CONTENT_TOP+118,INK,false);
-        g.drawString(font,fit(model3(),w),42,CONTENT_TOP+180,MUTED,false);
-        g.drawString(font,fit("Only configuration variables are editable; measured state, thermal load, evidence and topology stay solver/world-owned.",w),42,CONTENT_TOP+252,MUTED,false);
-        g.drawString(font,fit("Additional equations, assumptions, response diagnostics and validation notes may extend below; scroll instead of compressing them into a fixed panel.",w),42,CONTENT_TOP+350,MUTED,false);
+        int y=CONTENT_TOP+66;
+        y=drawWrapped(g,model1(),42,y,w,INK)+18;
+        y=drawWrapped(g,model2(),42,y,w,INK)+22;
+        y=drawWrapped(g,model3(),42,y,w,MUTED)+22;
+        y=drawWrapped(g,"Only configuration variables are editable; measured state, thermal load, evidence and topology stay solver/world-owned.",42,y,w,MUTED)+22;
+        drawWrapped(g,"Additional equations, assumptions, response diagnostics and validation notes extend vertically. Scroll instead of compressing or truncating them.",42,y,w,MUTED);
     }
 
     private String[] parameterLabels(){
@@ -240,6 +241,14 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
     private String model3(){ return "All values shown on Operate are synchronized evidence from the real Minecraft world state."; }
 
     private String footer(){ return "Engineering Notebook • precise parameters where physics supports them • discrete variables remain discrete"; }
+
+    private int drawWrapped(GuiGraphics g,String text,int x,int y,int width,int color){
+        for(var line:font.split(Component.literal(text),width)){
+            g.drawString(font,line,x,y,color,false);
+            y+=14;
+        }
+        return y;
+    }
 
     private void pair(GuiGraphics g,String label,String value,int y){
         g.drawString(font,label,42,y,MUTED,false);
