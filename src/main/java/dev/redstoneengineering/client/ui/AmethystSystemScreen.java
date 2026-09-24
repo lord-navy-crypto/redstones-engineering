@@ -10,17 +10,25 @@ import net.minecraft.world.entity.player.Inventory;
 
 /** Dedicated HMI for amethyst source, exact filtering, tuned response, and spectrum observation. */
 public final class AmethystSystemScreen extends EngineeringScreen<AmethystSystemMenu> {
-    private Button primaryPrevious, primaryNext, secondaryPrevious, secondaryNext, pulse;
+    private Button primaryPrevious, primaryNext, secondaryPrevious, secondaryNext;
+    private Button couplingPrevious, couplingNext, decayPrevious, decayNext, pulse;
 
     public AmethystSystemScreen(AmethystSystemMenu menu, Inventory inventory, Component title) { super(menu, inventory, title); }
 
     @Override protected void addDeviceWidgets() {
-        int y = topPos + 111;
-        primaryPrevious = addConfigureWidget(Button.builder(Component.literal("◀ Primary"), b -> sendMenuButton(AmethystSystemMenu.BUTTON_PRIMARY_PREVIOUS)).bounds(leftPos+16,y,105,20).build());
-        primaryNext = addConfigureWidget(Button.builder(Component.literal("Primary ▶"), b -> sendMenuButton(AmethystSystemMenu.BUTTON_PRIMARY_NEXT)).bounds(leftPos+199,y,105,20).build());
-        secondaryPrevious = addConfigureWidget(Button.builder(Component.literal("◀ Secondary"), b -> sendMenuButton(AmethystSystemMenu.BUTTON_SECONDARY_PREVIOUS)).bounds(leftPos+16,y+26,105,20).build());
-        secondaryNext = addConfigureWidget(Button.builder(Component.literal("Secondary ▶"), b -> sendMenuButton(AmethystSystemMenu.BUTTON_SECONDARY_NEXT)).bounds(leftPos+199,y+26,105,20).build());
-        pulse = addConfigureWidget(Button.builder(Component.literal("Pulse"), b -> sendMenuButton(AmethystSystemMenu.BUTTON_PULSE)).bounds(leftPos+70,y+52,180,20).build());
+        int controlWidth = Math.max(100, Math.min(160, (imageWidth - 72) / 2));
+        int leftX = leftPos + 24;
+        int rightX = leftPos + imageWidth - 24 - controlWidth;
+        int y = topPos + 120;
+        primaryPrevious = addConfigureWidget(Button.builder(Component.literal("◀ Primary"), b -> sendMenuButton(AmethystSystemMenu.BUTTON_PRIMARY_PREVIOUS)).bounds(leftX,y,controlWidth,22).build());
+        primaryNext = addConfigureWidget(Button.builder(Component.literal("Primary ▶"), b -> sendMenuButton(AmethystSystemMenu.BUTTON_PRIMARY_NEXT)).bounds(rightX,y,controlWidth,22).build());
+        secondaryPrevious = addConfigureWidget(Button.builder(Component.literal("◀ Secondary"), b -> sendMenuButton(AmethystSystemMenu.BUTTON_SECONDARY_PREVIOUS)).bounds(leftX,y+46,controlWidth,22).build());
+        secondaryNext = addConfigureWidget(Button.builder(Component.literal("Secondary ▶"), b -> sendMenuButton(AmethystSystemMenu.BUTTON_SECONDARY_NEXT)).bounds(rightX,y+46,controlWidth,22).build());
+        couplingPrevious = addConfigureWidget(Button.builder(Component.literal("◀ Coupling"), b -> sendMenuButton(AmethystSystemMenu.BUTTON_COUPLING_PREVIOUS)).bounds(leftX,y+92,controlWidth,22).build());
+        couplingNext = addConfigureWidget(Button.builder(Component.literal("Coupling ▶"), b -> sendMenuButton(AmethystSystemMenu.BUTTON_COUPLING_NEXT)).bounds(rightX,y+92,controlWidth,22).build());
+        decayPrevious = addConfigureWidget(Button.builder(Component.literal("◀ Decay"), b -> sendMenuButton(AmethystSystemMenu.BUTTON_DECAY_PREVIOUS)).bounds(leftX,y+138,controlWidth,22).build());
+        decayNext = addConfigureWidget(Button.builder(Component.literal("Decay ▶"), b -> sendMenuButton(AmethystSystemMenu.BUTTON_DECAY_NEXT)).bounds(rightX,y+138,controlWidth,22).build());
+        pulse = addConfigureWidget(Button.builder(Component.literal("Pulse / excite"), b -> sendMenuButton(AmethystSystemMenu.BUTTON_PULSE)).bounds(leftX,y+92,Math.max(180, imageWidth-48),22).build());
     }
 
     @Override protected void syncDeviceWidgetLabels() {
@@ -39,6 +47,14 @@ public final class AmethystSystemScreen extends EngineeringScreen<AmethystSystem
         secondaryNext.active = secondary;
         secondaryPrevious.visible = configure && secondary;
         secondaryNext.visible = configure && secondary;
+        couplingPrevious.active = tuned;
+        couplingNext.active = tuned;
+        decayPrevious.active = tuned;
+        decayNext.active = tuned;
+        couplingPrevious.visible = configure && tuned;
+        couplingNext.visible = configure && tuned;
+        decayPrevious.visible = configure && tuned;
+        decayNext.visible = configure && tuned;
         pulse.active = source;
         pulse.visible = configure && source;
         if (source) {
@@ -48,8 +64,10 @@ public final class AmethystSystemScreen extends EngineeringScreen<AmethystSystem
         } else if (filter) {
             primaryPrevious.setMessage(Component.literal("◀ TARGET " + menu.tertiary())); primaryNext.setMessage(Component.literal("TARGET " + menu.tertiary() + " ▶"));
         } else if (tuned) {
-            primaryPrevious.setMessage(Component.literal("◀ F0 " + menu.tertiary())); primaryNext.setMessage(Component.literal("F0 " + menu.tertiary() + " ▶"));
+            primaryPrevious.setMessage(Component.literal("◀ f0 " + menu.tertiary())); primaryNext.setMessage(Component.literal("f0 " + menu.tertiary() + " ▶"));
             secondaryPrevious.setMessage(Component.literal("◀ Q " + menu.auxiliary())); secondaryNext.setMessage(Component.literal("Q " + menu.auxiliary() + " ▶"));
+            couplingPrevious.setMessage(Component.literal("◀ C " + menu.extraG())); couplingNext.setMessage(Component.literal("C " + menu.extraG() + " ▶"));
+            decayPrevious.setMessage(Component.literal("◀ D " + menu.extraH())); decayNext.setMessage(Component.literal("D " + menu.extraH() + " ▶"));
         }
     }
 
@@ -67,7 +85,10 @@ public final class AmethystSystemScreen extends EngineeringScreen<AmethystSystem
             labelValue(g,"Expected out",menu.auxiliary()+" / 15",149); labelValue(g,"Decision",menu.stateFlag()==1?"PASS":"REJECT",165); labelValue(g,"Series path",path(),181);
         } else if(menu.kind()==AmethystSystemMenu.KIND_TUNED){
             metricCard(g,"Input F idx",Integer.toString(menu.primary()),16,103,88,INFO); metricCard(g,"Natural idx",Integer.toString(menu.tertiary()),111,103,88,GOOD); metricCard(g,"Actual A",menu.extraC()+" / 15",206,103,88,INFO);
-            labelValue(g,"Q / bandwidth",menu.auxiliary()+" / ±"+menu.extraA(),149); labelValue(g,"Target / output F",menu.extraB()+" / "+menu.extraD(),165); labelValue(g,"State",tunedState(),181);
+            labelValue(g,"Q / bandwidth",menu.auxiliary()+" / ±"+menu.extraA(),149);
+            labelValue(g,"Coupling / decay",menu.extraG()+" / "+menu.extraH()+" per 2t",165);
+            labelValue(g,"Target / output F",menu.extraB()+" / "+menu.extraD(),181);
+            labelValue(g,"State",tunedState(),197);
         } else {
             metricCard(g,"Dominant idx",Integer.toString(menu.primary()),16,103,88,INFO); metricCard(g,"Energy",Integer.toString(menu.secondary()),111,103,88,GOOD); metricCard(g,"Active bands",Integer.toString(menu.tertiary()),206,103,88,INFO);
             labelValue(g,"Samples / conflicts",menu.auxiliary()+" / "+menu.extraA(),149); labelValue(g,"Coverage",menu.extraB()+" / "+menu.stateFlag(),165); labelValue(g,"Authority","OBSERVER ONLY",181);
@@ -84,16 +105,32 @@ public final class AmethystSystemScreen extends EngineeringScreen<AmethystSystem
 
     private void configure(GuiGraphics g){
         statusBadge(g,"SERVER-SIDE BOUNDED CONTROL",INFO,16,80);
-        labelValue(g,"Primary",primaryControl(),98);
-        labelValue(g,"Secondary",secondaryControl(),181);
         if(menu.kind()==AmethystSystemMenu.KIND_TUNED){
-            labelValue(g,"Bandwidth","±"+menu.extraA()+" index",197);
-            labelValue(g,"Response step",menu.extraF()+" amplitude / 2t",215);
-            labelValue(g,"I/O axis",path(),233);
-            safeText(g,"Natural index and Q change the server target and dynamic response; physical endpoints are controlled only on Route.",16,252,MUTED);
-        } else if(menu.directional()) {
-            labelValue(g,"I/O axis",path(),197);
-            safeText(g,"Physical resonance direction is controlled only on Route.",16,216,MUTED);
+            labelValue(g,"Natural frequency index f0",Integer.toString(menu.tertiary()),100);
+            labelValue(g,"Quality index Q",menu.auxiliary()+"  → bandwidth ±"+menu.extraA(),146);
+            labelValue(g,"Drive coupling C",menu.extraG()+"  → resonant boost Q·C = "+(menu.auxiliary()*menu.extraG()),192);
+            labelValue(g,"Free decay D",menu.extraH()+" amplitude / 2 ticks",238);
+            sectionRule(g,286);
+            int y=wrappedText(g,
+                    "MODEL 1 • Δf = |fin - f0| ; B = 5 - Q. Q controls selectivity and driven response speed, while C controls drive coupling.",
+                    16,302,760,TEXT)+12;
+            y=wrappedText(g,
+                    "MODEL 2 • Δf=0: Atarget = clamp(Ain + Q·C, 0..15). In-band: Atarget = clamp(Ain - max(1, Δf·Q) + (C-2), 0..15).",
+                    16,y,760,TEXT)+12;
+            y=wrappedText(g,
+                    "MODEL 3 • Driven amplitude approaches Atarget by "+menu.extraF()+" per 2t. When trustworthy drive disappears, free ring-down approaches zero by D="+menu.extraH()+" per 2t.",
+                    16,y,760,TEXT)+12;
+            labelValue(g,"Rigid physical axis",path()+"  • RX fixed opposite TX",y);
+            wrappedText(g,
+                    "Route rotates the complete block axis only. This keeps the wiring legible in-world while the Parameters page carries the model complexity.",
+                    16,y+24,760,MUTED);
+        } else {
+            labelValue(g,"Primary",primaryControl(),100);
+            labelValue(g,"Secondary",secondaryControl(),146);
+            if(menu.directional()) {
+                labelValue(g,"Rigid I/O axis",path()+"  • RX opposite TX",192);
+                wrappedText(g,"Use Route to rotate the complete block. The two physical ports stay opposite.",16,216,700,MUTED);
+            }
         }
     }
 
@@ -108,9 +145,10 @@ public final class AmethystSystemScreen extends EngineeringScreen<AmethystSystem
         } else if(menu.kind()==AmethystSystemMenu.KIND_TUNED){
             labelValue(g,"Detune / bandwidth",menu.extraE()+" / ±"+menu.extraA(),158);
             labelValue(g,"Target / actual A",menu.extraB()+" / "+menu.extraC(),176);
-            labelValue(g,"Output F / step",menu.extraD()+" / "+menu.extraF()+" per 2t",194);
-            labelValue(g,"Input / output quality",qualityName()+" / "+outputQualityName(),212);
-            labelValue(g,"Path",path(),230);
+            labelValue(g,"Output F / driven step",menu.extraD()+" / "+menu.extraF()+" per 2t",194);
+            labelValue(g,"Coupling / free decay",menu.extraG()+" / "+menu.extraH()+" per 2t",212);
+            labelValue(g,"Input / output quality",qualityName()+" / "+outputQualityName(),230);
+            labelValue(g,"Path",path(),248);
         } else if(menu.kind()==AmethystSystemMenu.KIND_FILTER){
             labelValue(g,"Path",path(),158);
             labelValue(g,"Decision / Aout",(menu.stateFlag()==1?"PASS":"REJECT")+" / "+menu.auxiliary(),176);
@@ -147,13 +185,17 @@ public final class AmethystSystemScreen extends EngineeringScreen<AmethystSystem
         } else {
             labelValue(g,"Detune","Δf = |fin - f0| = "+menu.extraE(),110);
             labelValue(g,"Bandwidth","B = 5 - Q = "+menu.extraA(),130);
-            labelValue(g,"On resonance","Atarget = clamp(Ain + 2Q, 0..15)",150);
-            labelValue(g,"In band","Atarget = clamp(Ain - max(1, ΔfQ), 0..15)",170);
-            labelValue(g,"Out of band","Atarget = 0",190);
-            labelValue(g,"Dynamics","actual approaches target by "+menu.extraF()+" every 2t",210);
-            labelValue(g,"Target / actual",menu.extraB()+" / "+menu.extraC(),230);
-            labelValue(g,"Output frequency",Integer.toString(menu.extraD()),250);
-            safeText(g,"Known drive removal produces free ring-down at the natural frequency; stale/unknown drive evidence freezes retained state and withholds the network driver.",16,274,MUTED);
+            labelValue(g,"Coupling","C = "+menu.extraG()+" ; nominal C=2 preserves baseline transfer",150);
+            labelValue(g,"On resonance","Atarget = clamp(Ain + Q·C, 0..15)",170);
+            labelValue(g,"In band","Atarget = clamp(Ain - max(1, Δf·Q) + (C-2), 0..15)",190);
+            labelValue(g,"Out of band","Atarget = 0",210);
+            labelValue(g,"Driven dynamics","A approaches target by "+menu.extraF()+" every 2t",230);
+            labelValue(g,"Free ring-down","A[k+1] = max(0, A[k] - D), D="+menu.extraH(),250);
+            labelValue(g,"Target / actual",menu.extraB()+" / "+menu.extraC(),270);
+            labelValue(g,"Output frequency",Integer.toString(menu.extraD()),290);
+            wrappedText(g,
+                    "Known drive removal rings freely at f0. STALE/FAULT/TOPOLOGY_ERROR evidence freezes retained state and withholds the network driver instead of inventing a removal event.",
+                    16,316,780,MUTED);
         }
     }
 
