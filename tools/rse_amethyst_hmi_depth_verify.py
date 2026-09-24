@@ -8,8 +8,9 @@ failed = []
 menu_path = root / "src/main/java/dev/redstoneengineering/ui/menu/AmethystSystemMenu.java"
 screen_path = root / "src/main/java/dev/redstoneengineering/client/ui/AmethystSystemScreen.java"
 source_path = root / "src/main/java/dev/redstoneengineering/block/AmethystResonatorBlock.java"
+opener_path = root / "src/main/java/dev/redstoneengineering/ui/FieldDeviceUi.java"
 
-for path in (menu_path, screen_path, source_path):
+for path in (menu_path, screen_path, source_path, opener_path):
     if not path.is_file():
         failed.append(f"missing amethyst HMI contract file: {path.relative_to(root)}")
 
@@ -17,6 +18,7 @@ if not failed:
     menu = menu_path.read_text(errors="ignore")
     screen = screen_path.read_text(errors="ignore")
     source = source_path.read_text(errors="ignore")
+    opener = opener_path.read_text(errors="ignore")
 
     for token in (
         "AmethystResonatorBlock.excite(level, blockPos, state)",
@@ -59,6 +61,11 @@ if not failed:
     if '"Expected output"' in screen:
         failed.append("AmethystSystemScreen still labels tuned steady-state target as actual output")
 
+    if "if (block instanceof AmethystResonatorBlock || block instanceof AmethystFrequencyFilterBlock" not in opener:
+        failed.append("FieldDeviceUi does not route Amethyst filter/tuned devices to the dedicated resonance HMI")
+    if "|| block instanceof AmethystFrequencyFilterBlock\n                || block instanceof AmethystTunedResonatorBlock\n                || block instanceof PressureRegulatorBlock" in opener:
+        failed.append("FieldDeviceUi generic MultiPhysics dispatch still intercepts Amethyst filter/tuned devices")
+
     # The base amethyst resonator really is a four-horizontal-output source.
     for side in ("Direction.NORTH", "Direction.SOUTH", "Direction.WEST", "Direction.EAST"):
         if f"sourcePort({side})" not in source:
@@ -78,3 +85,4 @@ print(" source runtime amplitude and excitation count are synchronized: PASS")
 print(" tuned target and actual response are distinct: PASS")
 print(" tuned ring-down/output quality are server-backed: PASS")
 print(" four-way source topology remains truthful: PASS")
+print(" normal filter/tuned dispatch reaches dedicated Amethyst HMI: PASS")
