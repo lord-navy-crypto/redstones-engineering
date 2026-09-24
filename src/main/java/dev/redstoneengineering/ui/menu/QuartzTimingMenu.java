@@ -4,6 +4,7 @@ import dev.redstoneengineering.block.DirectionalDomainBlock;
 import dev.redstoneengineering.block.DirectionalDomainSourceBlock;
 import dev.redstoneengineering.block.QuartzClockDividerBlock;
 import dev.redstoneengineering.block.QuartzOscillatorBlock;
+import dev.redstoneengineering.block.QuartzPhaseDelayBlock;
 import dev.redstoneengineering.block.QuartzStabilityMonitorBlock;
 import dev.redstoneengineering.block.QuartzTimingLineBlock;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
@@ -26,6 +27,7 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
     public static final int KIND_OSCILLATOR = 0;
     public static final int KIND_DIVIDER = 1;
     public static final int KIND_STABILITY = 2;
+    public static final int KIND_DELAY = 3;
 
     public static final int BUTTON_PARAMETER_PREVIOUS = 0;
     public static final int BUTTON_PARAMETER_NEXT = 1;
@@ -119,6 +121,24 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
             return;
         }
 
+        if (block instanceof QuartzPhaseDelayBlock delay) {
+            kind.set(KIND_DELAY);
+            Direction in = DirectionalDomainBlock.seriesInputSide(state);
+            Direction out = DirectionalDomainBlock.seriesOutputSide(state);
+            inputFacing.set(in.ordinal());
+            outputFacing.set(out.ordinal());
+            primary.set(QuartzPhaseDelayBlock.configuredDelayTicks(level, blockPos, state));
+            secondary.set(QuartzPhaseDelayBlock.queuedEdges(level, blockPos));
+            tertiary.set(QuartzPhaseDelayBlock.pendingTicks(level, blockPos));
+            runtimeA.set(QuartzPhaseDelayBlock.droppedEdges(level, blockPos));
+            runtimeB.set(QuartzPhaseDelayBlock.initialized(level, blockPos) ? 1 : 0);
+            if (delay instanceof EngineeringPortProvider provider) {
+                quality.set(provider.engineeringSnapshot(level, blockPos, state, out)
+                        .map(snapshot -> snapshot.quality().ordinal()).orElse(PortQuality.NO_SIGNAL.ordinal()));
+            }
+            return;
+        }
+
         if (block instanceof QuartzStabilityMonitorBlock monitor) {
             kind.set(KIND_STABILITY);
             Direction inputSide = DirectionalDomainBlock.seriesInputSide(state);
@@ -168,7 +188,7 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
                     DomainNetwork.recomputeQuartzAround(server, blockPos);
                 }
             } else return false;
-        } else if (block instanceof QuartzClockDividerBlock || block instanceof QuartzStabilityMonitorBlock) {
+        } else if (block instanceof QuartzClockDividerBlock || block instanceof QuartzStabilityMonitorBlock || block instanceof QuartzPhaseDelayBlock) {
             if (block instanceof QuartzStabilityMonitorBlock monitor && id == BUTTON_RESET_MEASUREMENT) {
                 RuntimeIntStore.remove(level, "quartz_stability", blockPos);
                 level.scheduleTick(blockPos, monitor, 1);
@@ -178,6 +198,10 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
                 int current = QuartzClockDividerBlock.configuredDivision(level, blockPos, state);
                 changed = QuartzClockDividerBlock.setConfiguredDivision(
                         server, blockPos, current + (id == BUTTON_PARAMETER_NEXT ? 1 : -1));
+            } else if (block instanceof QuartzPhaseDelayBlock && (id == BUTTON_PARAMETER_NEXT || id == BUTTON_PARAMETER_PREVIOUS)) {
+                if (!(level instanceof ServerLevel server)) return false;
+                changed = QuartzPhaseDelayBlock.setConfiguredDelayTicks(
+                        server, blockPos, primary.get() + (id == BUTTON_PARAMETER_NEXT ? 1 : -1));
             } else if (id == BUTTON_INPUT_LEFT || id == BUTTON_INPUT_RIGHT) {
                 changed = DirectionalDomainBlock.rotateSeriesInput(level, blockPos, id == BUTTON_INPUT_RIGHT);
             } else if (id == BUTTON_OUTPUT_LEFT || id == BUTTON_OUTPUT_RIGHT) {
