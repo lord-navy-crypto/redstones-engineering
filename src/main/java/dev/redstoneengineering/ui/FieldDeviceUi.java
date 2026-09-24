@@ -37,7 +37,6 @@ public final class FieldDeviceUi {
                 || block instanceof CopperCapacitorBlock
                 || block instanceof CopperFuseBlock
                 || block instanceof CopperVoltageSourceBlock
-                || block instanceof AirCompressorBlock
                 || block instanceof HoneyVibrationDamperBlock
                 || block instanceof MechanicalExciterBlock
                 || block instanceof LapisPrecisionSourceBlock) {
@@ -49,7 +48,6 @@ public final class FieldDeviceUi {
         if (block instanceof SignalAmplifierBlock
                 || block instanceof ElectromagnetBlock
                 || block instanceof InductionCoilBlock
-                || block instanceof PneumaticReliefValveBlock
                 || block instanceof LapisNoiseSourceBlock
                 || block instanceof LapisPrecisionRangeSensorBlock) {
             player.openMenu(new SimpleMenuProvider(
@@ -57,9 +55,7 @@ public final class FieldDeviceUi {
                     data -> data.writeBlockPos(pos));
             return;
         }
-        if (block instanceof QuartzPhaseDelayBlock
-                || block instanceof PressureRegulatorBlock
-                || block instanceof PneumaticProportionalValveBlock) {
+        if (block instanceof QuartzPhaseDelayBlock) {
             player.openMenu(new SimpleMenuProvider(
                     (id, inv, ignored) -> new MultiPhysicsParameterMenu(id, inv, pos), title),
                     data -> data.writeBlockPos(pos));
