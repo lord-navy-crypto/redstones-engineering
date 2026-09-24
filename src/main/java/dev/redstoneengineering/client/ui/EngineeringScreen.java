@@ -280,7 +280,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         if (menu instanceof SignalAnalyzerMenu) return true;
         if (menu instanceof SignalProcessorMenu) return true;
         if (menu instanceof SignalConditionerMenu) return true;
-        if (menu instanceof QuartzTimingMenu quartz) return quartz.kind() == QuartzTimingMenu.KIND_DIVIDER || quartz.kind() == QuartzTimingMenu.KIND_STABILITY;
+        if (menu instanceof QuartzTimingMenu quartz) return quartz.hasInputEndpoint() || quartz.hasOutputEndpoint();
         if (menu instanceof RadioLinkMenu radio) return radio.kind() == RadioLinkMenu.KIND_RECEIVER;
         if (menu instanceof DigitalCommunicationMenu) return true;
         if (menu instanceof PneumaticSystemMenu pneumatic) return pneumatic.directional();
