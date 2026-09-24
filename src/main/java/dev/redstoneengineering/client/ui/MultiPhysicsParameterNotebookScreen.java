@@ -116,7 +116,7 @@ public final class MultiPhysicsParameterNotebookScreen extends AbstractContainer
         return switch (tab) {
             case OPERATE -> 430;
             case PARAMETERS -> 520;
-            case MODEL -> 660;
+            case MODEL -> 780;
         };
     }
 
@@ -213,12 +213,13 @@ public final class MultiPhysicsParameterNotebookScreen extends AbstractContainer
     private void renderModel(GuiGraphics g) {
         int w = Math.max(280, imageWidth - 96);
         g.drawString(font, "MULTI-PHYSICS MODEL", 42, CONTENT_TOP + 28, MUTED, false);
-        g.drawString(font, fit(modelLine1(), w), 42, CONTENT_TOP + 66, INK, false);
-        g.drawString(font, fit(modelLine2(), w), 42, CONTENT_TOP + 118, INK, false);
-        g.drawString(font, fit(modelLine3(), w), 42, CONTENT_TOP + 182, MUTED, false);
-        g.drawString(font, fit(modelLine4(), w), 42, CONTENT_TOP + 246, MUTED, false);
-        g.drawString(font, fit("The engineering page can extend vertically with assumptions, derivations, response metrics and validation evidence; scrolling is preferred over text compression.", w),
-                42, CONTENT_TOP + 350, MUTED, false);
+        int y = CONTENT_TOP + 66;
+        y = drawWrapped(g, modelLine1(), 42, y, w, INK) + 18;
+        y = drawWrapped(g, modelLine2(), 42, y, w, INK) + 22;
+        y = drawWrapped(g, modelLine3(), 42, y, w, MUTED) + 22;
+        y = drawWrapped(g, modelLine4(), 42, y, w, MUTED) + 22;
+        drawWrapped(g, "The engineering page extends vertically with assumptions, derivations, response metrics and validation evidence. Scroll instead of compressing or truncating the model.",
+                42, y, w, MUTED);
     }
 
     private String[] parameterLabels() {
@@ -341,6 +342,14 @@ public final class MultiPhysicsParameterNotebookScreen extends AbstractContainer
 
     private String modelLine4() {
         return "Topology, upstream evidence and physical network state remain world-owned rather than editable UI variables.";
+    }
+
+    private int drawWrapped(GuiGraphics g, String text, int x, int y, int width, int color) {
+        for (var line : font.split(Component.literal(text), width)) {
+            g.drawString(font, line, x, y, color, false);
+            y += 14;
+        }
+        return y;
     }
 
     private String deviceFooter() {
