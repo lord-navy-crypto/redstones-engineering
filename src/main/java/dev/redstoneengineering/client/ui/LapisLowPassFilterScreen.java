@@ -41,6 +41,7 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
     private final List<Button> parameterButtons = new ArrayList<>();
     private final List<Button> routeButtons = new ArrayList<>();
     private int scrollOffset = 0;
+    private int horizontalOffset = 0;
     private static final int VIEW_MARGIN = 8;
     private static final int CONTENT_TOP = 84;
     private static final int CONTENT_BOTTOM_MARGIN = 34;
@@ -62,6 +63,7 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
         parameterButtons.clear();
         routeButtons.clear();
         scrollOffset = 0;
+        horizontalOffset = 0;
 
         int tabY = topPos + 38;
         int gap = imageWidth < 460 ? 4 : 7;
@@ -71,6 +73,7 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
             addRenderableWidget(Button.builder(Component.literal(pageLabel(value)), b -> {
                 page = value;
                 scrollOffset = 0;
+                horizontalOffset = 0;
                 updateVisibility();
             }).bounds(start, tabY, tabW, 22).build());
             start += tabW + gap;
@@ -100,18 +103,12 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
         int routeGap = 8;
         int routeX = routeButtonStartX();
         int routeY = topPos + CONTENT_TOP + 118;
-        routeButtons.add(addRenderableWidget(Button.builder(Component.literal("RX ◀"),
-                b -> send(LapisLowPassFilterMenu.BUTTON_INPUT_PREVIOUS))
+        routeButtons.add(addRenderableWidget(Button.builder(Component.literal("Rotate block ◀"),
+                b -> send(LapisLowPassFilterMenu.BUTTON_ROTATE_LEFT))
                 .bounds(routeX, routeY, routeWidth, 22).build()));
-        routeButtons.add(addRenderableWidget(Button.builder(Component.literal("RX ▶"),
-                b -> send(LapisLowPassFilterMenu.BUTTON_INPUT_NEXT))
+        routeButtons.add(addRenderableWidget(Button.builder(Component.literal("Rotate block ▶"),
+                b -> send(LapisLowPassFilterMenu.BUTTON_ROTATE_RIGHT))
                 .bounds(routeX + routeWidth + routeGap, routeY, routeWidth, 22).build()));
-        routeButtons.add(addRenderableWidget(Button.builder(Component.literal("TX ◀"),
-                b -> send(LapisLowPassFilterMenu.BUTTON_OUTPUT_PREVIOUS))
-                .bounds(routeX + (routeWidth + routeGap) * 2, routeY, routeWidth, 22).build()));
-        routeButtons.add(addRenderableWidget(Button.builder(Component.literal("TX ▶"),
-                b -> send(LapisLowPassFilterMenu.BUTTON_OUTPUT_NEXT))
-                .bounds(routeX + (routeWidth + routeGap) * 3, routeY, routeWidth, 22).build()));
 
         updateVisibility();
     }
@@ -128,11 +125,11 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
     }
 
     private int routeButtonWidth() {
-        return Math.max(54, Math.min(82, (imageWidth - 48 - 8 * 3) / 4));
+        return Math.max(112, Math.min(180, (imageWidth - 64) / 2));
     }
 
     private int routeButtonStartX() {
-        int total = routeButtonWidth() * 4 + 8 * 3;
+        int total = routeButtonWidth() * 2 + 8;
         return leftPos + Math.max(24, (imageWidth - total) / 2);
     }
 
@@ -159,12 +156,10 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
         int stepX = alphaStepStartX();
         for (int i = 0; i < parameterButtons.size(); i++) {
             Button button = parameterButtons.get(i);
-            if (i < 4) button.setX(stepX + i * (stepWidth + stepGap));
-            else button.setX(leftPos + imageWidth / 2 - 50);
+            if (i < 4) button.setX(stepX + i * (stepWidth + stepGap) - horizontalOffset);
+            else button.setX(leftPos + imageWidth / 2 - 50 - horizontalOffset);
             button.setY(i < 4 ? y : topPos + CONTENT_TOP + 170 - scrollOffset);
-            button.visible = visible
-                    && button.getY() >= topPos + CONTENT_TOP
-                    && button.getY() <= topPos + imageHeight - CONTENT_BOTTOM_MARGIN - 22;
+            button.visible = visible && inViewport(button);
         }
 
         int routeWidth = routeButtonWidth();
@@ -173,13 +168,10 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
         int routeY = topPos + CONTENT_TOP + 118 - scrollOffset;
         for (int i = 0; i < routeButtons.size(); i++) {
             Button button = routeButtons.get(i);
-            button.setX(routeX + i * (routeWidth + routeGap));
+            button.setX(routeX + i * (routeWidth + routeGap) - horizontalOffset);
             button.setY(routeY);
-            boolean input = i < 2;
-            boolean endpoint = input ? menu.hasInputEndpoint() : menu.hasOutputEndpoint();
-            button.visible = page == Page.ROUTING && endpoint
-                    && button.getY() >= topPos + CONTENT_TOP
-                    && button.getY() <= topPos + imageHeight - CONTENT_BOTTOM_MARGIN - 22;
+            button.visible = page == Page.ROUTING
+                    && menu.hasInputEndpoint() && menu.hasOutputEndpoint() && inViewport(button);
         }
     }
 
@@ -187,7 +179,13 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         if (mouseX >= leftPos + 18 && mouseX <= leftPos + imageWidth - 18
                 && mouseY >= topPos + CONTENT_TOP && mouseY <= topPos + imageHeight - CONTENT_BOTTOM_MARGIN) {
-            scrollOffset = Math.max(0, Math.min(maxScroll(), scrollOffset - (int)Math.round(scrollY * 24.0)));
+            double horizontalDelta = Math.abs(scrollX) > 0.01 ? scrollX : (hasShiftDown() ? scrollY : 0.0);
+            if (Math.abs(horizontalDelta) > 0.01 && maxHorizontalScroll() > 0) {
+                horizontalOffset = Math.max(0, Math.min(maxHorizontalScroll(),
+                        horizontalOffset - (int)Math.round(horizontalDelta * 32.0)));
+            } else {
+                scrollOffset = Math.max(0, Math.min(maxScroll(), scrollOffset - (int)Math.round(scrollY * 24.0)));
+            }
             updateVisibility();
             return true;
         }
@@ -207,6 +205,18 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
     private int maxScroll() {
         int visible = Math.max(80, imageHeight - CONTENT_TOP - CONTENT_BOTTOM_MARGIN);
         return Math.max(0, contentHeight() - visible);
+    }
+
+    private int virtualContentWidth() { return Math.max(imageWidth - 36, 1100); }
+    private int maxHorizontalScroll() {
+        int visible = Math.max(240, imageWidth - 36);
+        return Math.max(0, virtualContentWidth() - visible);
+    }
+    private boolean inViewport(Button b) {
+        return b.getY() >= topPos + CONTENT_TOP
+                && b.getY() <= topPos + imageHeight - CONTENT_BOTTOM_MARGIN - b.getHeight()
+                && b.getX() + b.getWidth() >= leftPos + 18
+                && b.getX() <= leftPos + imageWidth - 18;
     }
 
     @Override
@@ -236,7 +246,7 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
         g.enableScissor(leftPos + 18, topPos + CONTENT_TOP, leftPos + imageWidth - 18,
                 topPos + imageHeight - CONTENT_BOTTOM_MARGIN);
         g.pose().pushPose();
-        g.pose().translate(0, -scrollOffset, 0);
+        g.pose().translate(-horizontalOffset, -scrollOffset, 0);
         switch (page) {
             case OPERATE -> renderOperate(g);
             case PARAMETERS -> renderParameters(g);
@@ -247,12 +257,15 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
         g.pose().popPose();
         g.disableScissor();
 
-        if (maxScroll() > 0) {
-            String scroll = "SCROLL " + scrollOffset + " / " + maxScroll();
-            g.drawString(font, scroll, imageWidth - 24 - font.width(scroll), 72, MUTED, false);
+        if (maxScroll() > 0 || maxHorizontalScroll() > 0) {
+            String raw = "SCROLL Y " + scrollOffset + "/" + maxScroll()
+                    + " • X " + horizontalOffset + "/" + maxHorizontalScroll()
+                    + " • Shift+wheel / trackpad";
+            String compact = fit(raw, Math.max(170, imageWidth - 220));
+            g.drawString(font, compact, imageWidth - 24 - font.width(compact), 72, MUTED, false);
         }
 
-        String footer = "Lapis precision domain • BACK input → FRONT output • parameter changes affect the authoritative filter";
+        String footer = "Lapis LPF • rigid RX↔TX axis • α is server-owned • Shift+wheel = horizontal";
         g.drawString(font, fit(footer, imageWidth - 36), 18, imageHeight - 20, MUTED, false);
     }
 
