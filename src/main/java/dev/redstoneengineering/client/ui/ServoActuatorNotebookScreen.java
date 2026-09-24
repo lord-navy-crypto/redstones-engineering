@@ -57,8 +57,8 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
         evidenceWidgets.clear();
         scrollOffset = 0;
 
-        int gap = 7;
-        int tabWidth = Math.max(84, (imageWidth - 48 - gap * (PageTab.values().length - 1)) / PageTab.values().length);
+        int gap = imageWidth < 440 ? 5 : 7;
+        int tabWidth = Math.max(64, (imageWidth - 48 - gap * (PageTab.values().length - 1)) / PageTab.values().length);
         int x = leftPos + 24;
         for (PageTab value : PageTab.values()) {
             addRenderableWidget(Button.builder(Component.literal(value.label), b -> {
