@@ -359,7 +359,8 @@ public final class RseLiveDiagnostics {
                     .append(" domain=").append(device.domain())
                     .append(" quality=").append(device.quality())
                     .append(" severity=").append(device.severity())
-                    .append(" pos=").append(device.position())
+                    .append(" dimension=").append(oneLine(device.dimension()))
+                    .append(" pos=").append(oneLine(device.position()))
                     .append(" detail=").append(oneLine(device.detail())).append('\n');
         }
 
@@ -372,6 +373,8 @@ public final class RseLiveDiagnostics {
                     .append(" source=").append(event.source())
                     .append(" event=").append(event.eventType())
                     .append(" severity=").append(event.severity())
+                    .append(" dimension=").append(oneLine(event.dimension()))
+                    .append(" pos=").append(oneLine(event.position()))
                     .append(" old=").append(oneLine(event.oldState()))
                     .append(" new=").append(oneLine(event.newState()))
                     .append(" reason=").append(oneLine(event.reasonCode()))
