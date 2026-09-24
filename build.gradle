@@ -107,7 +107,6 @@ dependencies {
     implementation "maven.modrinth:nvQzSEkH:${jade_modrinth_version}"
     implementation "software.bernie.geckolib:geckolib-neoforge-${minecraft_version}:${geckolib_version}"
     implementation "me.shedaniel.cloth:cloth-config-neoforge:${cloth_config_version}"
-    implementation "maven.modrinth:fusion-connected-textures:${fusion_maven_version}"
 }
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
@@ -124,7 +123,6 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
             jade_version           : jade_version,
             geckolib_version       : geckolib_version,
             cloth_config_version   : cloth_config_version,
-            fusion_version         : fusion_version,
     ]
     inputs.properties replaceProperties
     expand replaceProperties
