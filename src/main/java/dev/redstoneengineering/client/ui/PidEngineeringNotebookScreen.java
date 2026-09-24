@@ -26,6 +26,7 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
     private enum Page {
         OPERATE("Operate"),
         PARAMETERS("Parameters"),
+        MODEL("Model"),
         RESPONSE("Response"),
         ROUTING("Routing"),
         EVIDENCE("Evidence");
@@ -124,6 +125,7 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
         return switch (value) {
             case OPERATE -> "Run";
             case PARAMETERS -> "Params";
+            case MODEL -> "Model";
             case RESPONSE -> "Resp";
             case ROUTING -> "Route";
             case EVIDENCE -> "Evidence";
@@ -220,6 +222,7 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
         return switch (page) {
             case OPERATE -> 460;
             case PARAMETERS -> 620;
+            case MODEL -> 820;
             case RESPONSE -> 520;
             case ROUTING -> 500;
             case EVIDENCE -> 580;
@@ -262,6 +265,7 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
         switch (page) {
             case OPERATE -> operate(g);
             case PARAMETERS -> parameters(g);
+            case MODEL -> model(g);
             case RESPONSE -> response(g);
             case ROUTING -> routing(g);
             case EVIDENCE -> evidence(g);
@@ -302,6 +306,22 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
         g.drawString(font, "u* = bias + Kp·e + I/Ki − Kd·d(PV)", 42, CONTENT_TOP + 350, INK, false);
         g.drawString(font, fit("Parameter controls stay aligned with this scrollable engineering sheet instead of being squeezed into a fixed 300 px panel.", Math.max(300,imageWidth-96)),
                 42, CONTENT_TOP + 410, MUTED, false);
+    }
+
+    private void model(GuiGraphics g) {
+        int w = Math.max(300, imageWidth - 96);
+        g.drawString(font, "DISCRETE PID CONTROL MODEL", 42, CONTENT_TOP + 22, MUTED, false);
+        int y = CONTENT_TOP + 58;
+        y = drawWrapped(g, "Control cycle = 2 ticks. Engineering boundary: setpoint, process value and controller output are bounded to the Redstone 0..15 range.", 42, y, w, INK) + 18;
+        y = drawWrapped(g, "Raw error: e_raw[k] = SP[k] − PV[k]. With deadband = 1, e[k] = 0 when |e_raw| ≤ 1; otherwise e[k] = e_raw[k].", 42, y, w, INK) + 18;
+        y = drawWrapped(g, "Derivative is taken on the measured process value, not on setpoint: d_raw = PV[k] − PV[k−1]. Filtered derivative d[k] = d[k−1] + (d_raw − d[k−1]) / max(1, D_smoothing).", 42, y, w, INK) + 18;
+        y = drawWrapped(g, "Candidate integral: I* = clamp(I[k] + e[k], −180, 180). P = Kp·e. Iterm = 0 when Ki divisor = 0, otherwise I*/Ki. D = −Kd·d[k].", 42, y, w, INK) + 18;
+        y = drawWrapped(g, "Unsaturated command: u_unsat = bias + P + Iterm + D. Actuator target u_target = clamp(u_unsat, 0, 15).", 42, y, w, INK) + 18;
+        y = drawWrapped(g, "Actuator command has asymmetric slew: rising output advances by at most the configured rise limit per control cycle; falling output uses the independent fall limit.", 42, y, w, INK) + 18;
+        y = drawWrapped(g, "Anti-windup is conditional integration: the candidate integral is committed only when the controller is not saturated against the error direction and the actuator slew limit is not blocking correction in that same direction.", 42, y, w, INK) + 18;
+        y = drawWrapped(g, "Manual → AUTO transfer is bumpless: derivative state is reset and bias is recomputed from the current output so the automatic law starts from the existing command instead of jumping.", 42, y, w, INK) + 18;
+        y = drawWrapped(g, "Fail-safe rule: stale safety/mode evidence, or missing required AUTO setpoint/process evidence, drives output to 0 without treating the missing observation as a fabricated numeric zero sample.", 42, y, w, MUTED) + 18;
+        drawWrapped(g, "The HMI displays synchronized parameters, response metrics and retained evidence only; this page does not execute a second PID solver.", 42, y, w, MUTED);
     }
 
     private void response(GuiGraphics g) {
@@ -347,6 +367,14 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
         g.drawString(font, label, 42, y, MUTED, false);
         int x = Math.min(320, imageWidth / 2);
         g.drawString(font, fit(value, Math.max(180, imageWidth - x - 56)), x, y, INK, false);
+    }
+
+    private int drawWrapped(GuiGraphics g, String text, int x, int y, int width, int color) {
+        for (var line : font.split(Component.literal(text), width)) {
+            g.drawString(font, line, x, y, color, false);
+            y += 14;
+        }
+        return y;
     }
 
     private String fit(String text, int width) {
