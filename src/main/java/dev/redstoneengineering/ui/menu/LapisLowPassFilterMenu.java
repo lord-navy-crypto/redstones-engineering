@@ -25,6 +25,8 @@ public final class LapisLowPassFilterMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_INPUT_NEXT = 21;
     public static final int BUTTON_OUTPUT_PREVIOUS = 22;
     public static final int BUTTON_OUTPUT_NEXT = 23;
+    public static final int BUTTON_ROTATE_LEFT = 24;
+    public static final int BUTTON_ROTATE_RIGHT = 25;
 
     private final DataSlot alphaPercent = trackedInt();
     private final DataSlot input = trackedInt();
@@ -89,12 +91,12 @@ public final class LapisLowPassFilterMenu extends EngineeringDeviceMenu {
         if (!stillValid(player) || !(level instanceof ServerLevel serverLevel)) return false;
 
         boolean changed;
-        if (id == BUTTON_INPUT_PREVIOUS || id == BUTTON_INPUT_NEXT) {
-            changed = DirectionalDomainBlock.rotateSeriesInput(
-                    level, blockPos, id == BUTTON_INPUT_NEXT);
-        } else if (id == BUTTON_OUTPUT_PREVIOUS || id == BUTTON_OUTPUT_NEXT) {
-            changed = DirectionalDomainBlock.rotateSeriesOutput(
-                    level, blockPos, id == BUTTON_OUTPUT_NEXT);
+        if (id == BUTTON_ROTATE_LEFT || id == BUTTON_INPUT_PREVIOUS || id == BUTTON_OUTPUT_PREVIOUS) {
+            // Straight-through filter: RX is permanently opposite TX. Legacy endpoint IDs rotate
+            // the full axis too, preventing old clients from creating a bent filter topology.
+            changed = DirectionalDomainBlock.rotateRigidSeriesAxis(level, blockPos, false);
+        } else if (id == BUTTON_ROTATE_RIGHT || id == BUTTON_INPUT_NEXT || id == BUTTON_OUTPUT_NEXT) {
+            changed = DirectionalDomainBlock.rotateRigidSeriesAxis(level, blockPos, true);
         } else {
             changed = switch (id) {
                 case BUTTON_ALPHA_MINUS_5 -> LapisLowPassFilterBlock.adjustAlpha(serverLevel, blockPos, -5);
