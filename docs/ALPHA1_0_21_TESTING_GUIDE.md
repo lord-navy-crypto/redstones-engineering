@@ -15,7 +15,6 @@ Install the required RSE platform dependencies for Minecraft 1.21.1 NeoForge:
 - Jade 15.10.6
 - GeckoLib 4.9.2
 - Cloth Config 15.0.140
-- Fusion 1.3.14
 
 RSE does not bundle these jars. Missing required dependencies are expected to stop startup through NeoForge dependency resolution.
 
