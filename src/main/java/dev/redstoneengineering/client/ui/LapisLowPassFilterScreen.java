@@ -28,7 +28,8 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
     private enum Page {
         OPERATE("Operate"),
         PARAMETERS("Parameters"),
-        RESPONSE("Response");
+        RESPONSE("Response"),
+        MODEL("Model");
 
         final String label;
         Page(String label) { this.label = label; }
@@ -39,8 +40,8 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
 
     public LapisLowPassFilterScreen(LapisLowPassFilterMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
-        imageWidth = 440;
-        imageHeight = 252;
+        imageWidth = 520;
+        imageHeight = 300;
         titleLabelX = 18;
         titleLabelY = 12;
         inventoryLabelY = 1000;
@@ -52,32 +53,32 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
         parameterButtons.clear();
 
         int tabY = topPos + 34;
-        int tabW = 112;
-        int start = leftPos + 45;
+        int tabW = 104;
+        int start = leftPos + 43;
         for (Page value : Page.values()) {
             addRenderableWidget(Button.builder(Component.literal(value.label), b -> {
                 page = value;
                 updateVisibility();
             }).bounds(start, tabY, tabW, 20).build());
-            start += tabW + 6;
+            start += tabW + 7;
         }
 
-        int y = topPos + 164;
+        int y = topPos + 176;
         parameterButtons.add(addRenderableWidget(Button.builder(Component.literal("-0.05"),
                 b -> send(LapisLowPassFilterMenu.BUTTON_ALPHA_MINUS_5))
-                .bounds(leftPos + 62, y, 64, 20).build()));
+                .bounds(leftPos + 86, y, 64, 20).build()));
         parameterButtons.add(addRenderableWidget(Button.builder(Component.literal("-0.01"),
                 b -> send(LapisLowPassFilterMenu.BUTTON_ALPHA_MINUS_1))
-                .bounds(leftPos + 132, y, 64, 20).build()));
+                .bounds(leftPos + 156, y, 64, 20).build()));
         parameterButtons.add(addRenderableWidget(Button.builder(Component.literal("+0.01"),
                 b -> send(LapisLowPassFilterMenu.BUTTON_ALPHA_PLUS_1))
-                .bounds(leftPos + 244, y, 64, 20).build()));
+                .bounds(leftPos + 300, y, 64, 20).build()));
         parameterButtons.add(addRenderableWidget(Button.builder(Component.literal("+0.05"),
                 b -> send(LapisLowPassFilterMenu.BUTTON_ALPHA_PLUS_5))
-                .bounds(leftPos + 314, y, 64, 20).build()));
+                .bounds(leftPos + 370, y, 64, 20).build()));
         parameterButtons.add(addRenderableWidget(Button.builder(Component.literal("Reset α"),
                 b -> send(LapisLowPassFilterMenu.BUTTON_ALPHA_RESET))
-                .bounds(leftPos + 174, topPos + 194, 92, 20).build()));
+                .bounds(leftPos + 214, topPos + 210, 92, 20).build()));
 
         updateVisibility();
     }
@@ -119,6 +120,7 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
             case OPERATE -> renderOperate(g);
             case PARAMETERS -> renderParameters(g);
             case RESPONSE -> renderResponse(g);
+            case MODEL -> renderModel(g);
         }
 
         String footer = "Lapis precision domain • BACK input → FRONT output • parameter changes affect the authoritative filter";
@@ -131,6 +133,7 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
         drawPair(g, "Evidence", menu.valid() ? "VALID" : "NO VALID INPUT", 138);
         drawPair(g, "Internal history", menu.historyPresent() ? "RETAINED" : "EMPTY", 160);
         drawPair(g, "Current α", String.format("%.2f", menu.alpha()), 182);
+        drawPair(g, "Tracking error x−y", signed(menu.trackingError()), 204);
     }
 
     private void renderParameters(GuiGraphics g) {
@@ -138,32 +141,48 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
         String alpha = String.format("α = %.2f", menu.alpha());
         g.drawString(font, alpha, 28, 111, INK, false);
 
-        int x0 = 112;
-        int x1 = 328;
-        int y = 137;
+        int x0 = 142;
+        int x1 = 378;
+        int y = 143;
         g.fill(x0, y, x1, y + 8, 0xFFD8CCB7);
         int fill = (int) Math.round((menu.alphaPercent() - 1) / 98.0 * (x1 - x0 - 2));
         if (fill > 0) g.fill(x0 + 1, y + 1, x0 + 1 + fill, y + 7, ACCENT);
         g.drawString(font, "0.01", x0 - 6, y + 12, MUTED, false);
         g.drawString(font, "0.99", x1 - 18, y + 12, MUTED, false);
 
-        String equation = "y[k+1] = y[k] + α · (x[k] − y[k])";
-        g.drawString(font, equation, (imageWidth - font.width(equation)) / 2, 219, INK, false);
+        g.drawString(font, "Fine adjustment ±0.01 • coarse adjustment ±0.05 • reset restores device preset",
+                48, 246, MUTED, false);
     }
 
     private void renderResponse(GuiGraphics g) {
         drawPair(g, "Current α", String.format("%.2f", menu.alpha()), 94);
         drawPair(g, "Equivalent e-fold time", String.format("%.2f samples", menu.tauSamples()), 116);
         drawPair(g, "At 2 ticks/sample", String.format("%.2f ticks", menu.tauTicks()), 138);
-        drawPair(g, "Current input", menu.input() + " / 100", 160);
-        drawPair(g, "Current output", menu.output() + " / 100", 182);
-        g.drawString(font, fit("Smaller α = stronger smoothing / slower response. Larger α = weaker smoothing / faster response.", 390),
-                28, 210, MUTED, false);
+        drawPair(g, "Equivalent cutoff", String.format("%.3f Hz", menu.equivalentCutoffHz()), 160);
+        drawPair(g, "Current input", menu.input() + " / 100", 182);
+        drawPair(g, "Current output", menu.output() + " / 100", 204);
+        drawPair(g, "Tracking error", signed(menu.trackingError()), 226);
+        g.drawString(font, fit("Smaller α = stronger smoothing / slower response. Larger α = weaker smoothing / faster response.", 460),
+                28, 254, MUTED, false);
+    }
+
+    private void renderModel(GuiGraphics g) {
+        g.drawString(font, "DISCRETE FIRST-ORDER LOW-PASS MODEL", 28, 94, MUTED, false);
+        g.drawString(font, "y[k+1] = y[k] + α · (x[k] − y[k])", 42, 120, INK, false);
+        g.drawString(font, "H(z) = α / (1 − (1−α)z⁻¹)", 42, 150, INK, false);
+        g.drawString(font, "τsamples = −1 / ln(1−α)", 42, 180, INK, false);
+        g.drawString(font, "fc ≈ −ln(1−α) / (2πTs),  Ts = 0.1 s", 42, 210, INK, false);
+        g.drawString(font, fit("Input quality is authoritative world evidence. Missing input invalidates output but retained filter history is not fabricated as zero.", 450),
+                42, 244, MUTED, false);
     }
 
     private void drawPair(GuiGraphics g, String label, String value, int y) {
         g.drawString(font, label, 34, y, MUTED, false);
         g.drawString(font, value, 238, y, INK, false);
+    }
+
+    private static String signed(int value) {
+        return value > 0 ? "+" + value : Integer.toString(value);
     }
 
     private String fit(String text, int width) {
