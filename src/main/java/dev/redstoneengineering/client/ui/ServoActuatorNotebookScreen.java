@@ -39,6 +39,7 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
     private final List<Button> routeWidgets = new ArrayList<>();
     private final List<Button> evidenceWidgets = new ArrayList<>();
     private int scrollOffset = 0;
+    private int horizontalOffset = 0;
     private static final int VIEW_MARGIN = 8;
     private static final int CONTENT_TOP = 84;
     private static final int CONTENT_BOTTOM_MARGIN = 34;
@@ -61,6 +62,7 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
         routeWidgets.clear();
         evidenceWidgets.clear();
         scrollOffset = 0;
+        horizontalOffset = 0;
 
         int gap = imageWidth < 440 ? 4 : 7;
         int tabWidth = Math.max(48, (imageWidth - 48 - gap * (PageTab.values().length - 1)) / PageTab.values().length);
@@ -69,6 +71,7 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
             addRenderableWidget(Button.builder(Component.literal(pageTabLabel(value)), b -> {
                 page = value;
                 scrollOffset = 0;
+                horizontalOffset = 0;
                 updateVisibility();
             }).bounds(x, topPos + 38, tabWidth, 22).build());
             x += tabWidth + gap;
@@ -140,33 +143,27 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
         for (int i = 0; i < parameterWidgets.size(); i++) {
             Button b = parameterWidgets.get(i);
             if (i < 2) {
-                b.setX(i == 0 ? leftPos + imageWidth - 194 : leftPos + imageWidth - 108);
+                b.setX((i == 0 ? leftPos + imageWidth - 194 : leftPos + imageWidth - 108) - horizontalOffset);
                 b.setY(topPos + CONTENT_TOP + 10 - scrollOffset);
             } else {
                 int row = (i - 2) / 2;
-                b.setX(((i - 2) % 2 == 0) ? leftPos + imageWidth - 164 : leftPos + imageWidth - 78);
+                b.setX((((i - 2) % 2 == 0) ? leftPos + imageWidth - 164 : leftPos + imageWidth - 78) - horizontalOffset);
                 b.setY(topPos + CONTENT_TOP + 72 + row * 56 - scrollOffset);
             }
-            b.visible = page == PageTab.PARAMETERS
-                    && b.getY() >= topPos + CONTENT_TOP
-                    && b.getY() <= topPos + imageHeight - CONTENT_BOTTOM_MARGIN - 22;
+            b.visible = page == PageTab.PARAMETERS && inViewport(b);
         }
         int routeWidth = routeButtonWidth();
         int routeX = routeButtonStartX();
         for (int i = 0; i < routeWidgets.size(); i++) {
             Button b = routeWidgets.get(i);
-            b.setX(routeX + i * (routeWidth + 8));
+            b.setX(routeX + i * (routeWidth + 8) - horizontalOffset);
             b.setY(topPos + CONTENT_TOP + 210 - scrollOffset);
-            b.visible = page == PageTab.ROUTING
-                    && b.getY() >= topPos + CONTENT_TOP
-                    && b.getY() <= topPos + imageHeight - CONTENT_BOTTOM_MARGIN - 22;
+            b.visible = page == PageTab.ROUTING && inViewport(b);
         }
         for (Button b : evidenceWidgets) {
-            b.setX(leftPos + imageWidth / 2 - 90);
+            b.setX(leftPos + imageWidth / 2 - 90 - horizontalOffset);
             b.setY(topPos + CONTENT_TOP + 240 - scrollOffset);
-            b.visible = page == PageTab.EVIDENCE
-                    && b.getY() >= topPos + CONTENT_TOP
-                    && b.getY() <= topPos + imageHeight - CONTENT_BOTTOM_MARGIN - 22;
+            b.visible = page == PageTab.EVIDENCE && inViewport(b);
         }
     }
 
@@ -174,7 +171,13 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         if (mouseX >= leftPos + 18 && mouseX <= leftPos + imageWidth - 18
                 && mouseY >= topPos + CONTENT_TOP && mouseY <= topPos + imageHeight - CONTENT_BOTTOM_MARGIN) {
-            scrollOffset = Math.max(0, Math.min(maxScroll(), scrollOffset - (int)Math.round(scrollY * 24.0)));
+            double horizontalDelta = Math.abs(scrollX) > 0.01 ? scrollX : (hasShiftDown() ? scrollY : 0.0);
+            if (Math.abs(horizontalDelta) > 0.01 && maxHorizontalScroll() > 0) {
+                horizontalOffset = Math.max(0, Math.min(maxHorizontalScroll(),
+                        horizontalOffset - (int)Math.round(horizontalDelta * 32.0)));
+            } else {
+                scrollOffset = Math.max(0, Math.min(maxScroll(), scrollOffset - (int)Math.round(scrollY * 24.0)));
+            }
             updateVisibility();
             return true;
         }
@@ -195,6 +198,18 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
     private int maxScroll() {
         int visible = Math.max(80, imageHeight - CONTENT_TOP - CONTENT_BOTTOM_MARGIN);
         return Math.max(0, contentHeight() - visible);
+    }
+
+    private int virtualContentWidth() { return Math.max(imageWidth - 36, 1180); }
+    private int maxHorizontalScroll() {
+        int visible = Math.max(240, imageWidth - 36);
+        return Math.max(0, virtualContentWidth() - visible);
+    }
+    private boolean inViewport(Button b) {
+        return b.getY() >= topPos + CONTENT_TOP
+                && b.getY() <= topPos + imageHeight - CONTENT_BOTTOM_MARGIN - b.getHeight()
+                && b.getX() + b.getWidth() >= leftPos + 18
+                && b.getX() <= leftPos + imageWidth - 18;
     }
 
     @Override
@@ -224,7 +239,7 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
         g.enableScissor(leftPos + 18, topPos + CONTENT_TOP, leftPos + imageWidth - 18,
                 topPos + imageHeight - CONTENT_BOTTOM_MARGIN);
         g.pose().pushPose();
-        g.pose().translate(0, -scrollOffset, 0);
+        g.pose().translate(-horizontalOffset, -scrollOffset, 0);
         switch (page) {
             case OPERATE -> operate(g);
             case PARAMETERS -> parameters(g);
@@ -236,12 +251,15 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
         g.pose().popPose();
         g.disableScissor();
 
-        if (maxScroll() > 0) {
-            String scroll = "SCROLL " + scrollOffset + " / " + maxScroll();
-            g.drawString(font, scroll, imageWidth - 24 - font.width(scroll), 72, MUTED, false);
+        if (maxScroll() > 0 || maxHorizontalScroll() > 0) {
+            String raw = "SCROLL Y " + scrollOffset + "/" + maxScroll()
+                    + " • X " + horizontalOffset + "/" + maxHorizontalScroll()
+                    + " • Shift+wheel / trackpad";
+            String compact = fit(raw, Math.max(170, imageWidth - 220));
+            g.drawString(font, compact, imageWidth - 24 - font.width(compact), 72, MUTED, false);
         }
 
-        String footer = "Servo position 0..15 • command/mode/brake are physical ports • parameters modify authoritative motion";
+        String footer = "Servo • rigid layout rotation • server-owned motion • Shift+wheel = horizontal";
         g.drawString(font, fit(footer, imageWidth - 36), 18, imageHeight - 20, MUTED, false);
     }
 
@@ -265,10 +283,10 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
         parameter(g, "Acceleration period", menu.accelerationPeriod() + " control cycles", CONTENT_TOP + 132);
         parameter(g, "Acceleration step", menu.accelerationStep() + " velocity units / update", CONTENT_TOP + 188);
 
-        g.drawString(font, fit("Preset loads are starting points only. These three parameters independently define the actual motion model.", Math.max(300,imageWidth-96)),
-                42, CONTENT_TOP + 270, MUTED, false);
-        g.drawString(font, fit("More mechanical assumptions, load response and trajectory diagnostics can extend below without forcing the page into a fixed-height panel.", Math.max(300,imageWidth-96)),
-                42, CONTENT_TOP + 350, MUTED, false);
+        drawWrapped(g, "Preset loads are starting points only. These three parameters independently define the actual motion model.",
+                42, CONTENT_TOP + 270, Math.max(300, imageWidth - 96), MUTED);
+        drawWrapped(g, "More mechanical assumptions, load response and trajectory diagnostics can extend below without forcing the page into a fixed-height panel.",
+                42, CONTENT_TOP + 350, Math.max(300, imageWidth - 96), MUTED);
     }
 
     private void model(GuiGraphics g) {
@@ -332,8 +350,8 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
         pair(g, "Reversals", Integer.toString(menu.reversals()), CONTENT_TOP + 346);
         pair(g, "Settling time", menu.settleTicks() > 0 ? menu.settleTicks() + " ticks" : "—", CONTENT_TOP + 388);
         pair(g, "Total travel", Integer.toString(menu.travel()), CONTENT_TOP + 430);
-        g.drawString(font, fit("Home/reset clears transient trajectory evidence but does not erase the configured mechanical parameters.", Math.max(300,imageWidth-96)),
-                42, CONTENT_TOP + 500, MUTED, false);
+        drawWrapped(g, "Home/reset clears transient trajectory evidence but does not erase the configured mechanical parameters.",
+                42, CONTENT_TOP + 500, Math.max(300, imageWidth - 96), MUTED);
     }
 
     private int drawWrapped(GuiGraphics g, String text, int x, int y, int width, int color) {
@@ -351,13 +369,13 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
     private void parameter(GuiGraphics g, String label, String value, int y) {
         g.drawString(font, label, 42, y, MUTED, false);
         int x = Math.min(300, imageWidth / 2);
-        g.drawString(font, fit(value, Math.max(180,imageWidth-x-56)), x, y, INK, false);
+        g.drawString(font, value, x, y, INK, false);
     }
 
     private void pair(GuiGraphics g, String label, String value, int y) {
         g.drawString(font, label, 42, y, MUTED, false);
         int x = Math.min(320, imageWidth / 2);
-        g.drawString(font, fit(value, Math.max(180,imageWidth-x-56)), x, y, INK, false);
+        g.drawString(font, value, x, y, INK, false);
     }
 
     private String fit(String text, int width) {
