@@ -31,6 +31,7 @@ public final class MultiPhysicsParameterNotebookScreen extends AbstractContainer
     private Tab tab = Tab.PARAMETERS;
     private final List<Button> parameterButtons = new ArrayList<>();
     private int scrollOffset = 0;
+    private int horizontalOffset = 0;
     private static final int VIEW_MARGIN = 8;
     private static final int CONTENT_TOP = 84;
     private static final int CONTENT_BOTTOM_MARGIN = 34;
@@ -51,6 +52,7 @@ public final class MultiPhysicsParameterNotebookScreen extends AbstractContainer
         super.init();
         parameterButtons.clear();
         scrollOffset = 0;
+        horizontalOffset = 0;
 
         int count = Tab.values().length;
         int gap = 8;
@@ -60,6 +62,7 @@ public final class MultiPhysicsParameterNotebookScreen extends AbstractContainer
             addRenderableWidget(Button.builder(Component.literal(value.label), b -> {
                 tab = value;
                 scrollOffset = 0;
+                horizontalOffset = 0;
                 updateVisibility();
             }).bounds(x, topPos + 38, tabWidth, 22).build());
             x += tabWidth + gap;
@@ -105,7 +108,13 @@ public final class MultiPhysicsParameterNotebookScreen extends AbstractContainer
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         if (mouseX >= leftPos + 18 && mouseX <= leftPos + imageWidth - 18
                 && mouseY >= topPos + CONTENT_TOP && mouseY <= topPos + imageHeight - CONTENT_BOTTOM_MARGIN) {
-            scrollOffset = Math.max(0, Math.min(maxScroll(), scrollOffset - (int)Math.round(scrollY * 24.0)));
+            double horizontalDelta = Math.abs(scrollX) > 0.01 ? scrollX : (hasShiftDown() ? scrollY : 0.0);
+            if (Math.abs(horizontalDelta) > 0.01 && maxHorizontalScroll() > 0) {
+                horizontalOffset = Math.max(0, Math.min(maxHorizontalScroll(),
+                        horizontalOffset - (int)Math.round(horizontalDelta * 32.0)));
+            } else {
+                scrollOffset = Math.max(0, Math.min(maxScroll(), scrollOffset - (int)Math.round(scrollY * 24.0)));
+            }
             updateVisibility();
             return true;
         }
@@ -125,17 +134,27 @@ public final class MultiPhysicsParameterNotebookScreen extends AbstractContainer
         return Math.max(0, contentHeight() - visible);
     }
 
+    private int virtualContentWidth() { return Math.max(imageWidth - 36, 1100); }
+    private int maxHorizontalScroll() {
+        int visible = Math.max(240, imageWidth - 36);
+        return Math.max(0, virtualContentWidth() - visible);
+    }
+    private boolean inViewport(Button b) {
+        return b.getY() >= topPos + CONTENT_TOP
+                && b.getY() <= topPos + imageHeight - CONTENT_BOTTOM_MARGIN - b.getHeight()
+                && b.getX() + b.getWidth() >= leftPos + 18
+                && b.getX() <= leftPos + imageWidth - 18;
+    }
+
     private void updateVisibility() {
         int count = parameterCount();
         for (int i = 0; i < parameterButtons.size(); i++) {
             int row = i / 2;
             Button button = parameterButtons.get(i);
             int virtualY = CONTENT_TOP + 52 + row * 58;
-            button.setX((i % 2 == 0) ? leftPos + imageWidth - 164 : leftPos + imageWidth - 78);
+            button.setX(((i % 2 == 0) ? leftPos + imageWidth - 164 : leftPos + imageWidth - 78) - horizontalOffset);
             button.setY(topPos + virtualY - scrollOffset);
-            button.visible = tab == Tab.PARAMETERS && row < count
-                    && button.getY() >= topPos + CONTENT_TOP
-                    && button.getY() <= topPos + imageHeight - CONTENT_BOTTOM_MARGIN - 22;
+            button.visible = tab == Tab.PARAMETERS && row < count && inViewport(button);
         }
     }
 
@@ -175,7 +194,7 @@ public final class MultiPhysicsParameterNotebookScreen extends AbstractContainer
         g.enableScissor(leftPos + 18, topPos + CONTENT_TOP, leftPos + imageWidth - 18,
                 topPos + imageHeight - CONTENT_BOTTOM_MARGIN);
         g.pose().pushPose();
-        g.pose().translate(0, -scrollOffset, 0);
+        g.pose().translate(-horizontalOffset, -scrollOffset, 0);
         switch (tab) {
             case OPERATE -> renderOperate(g);
             case PARAMETERS -> renderParameters(g);
@@ -184,9 +203,12 @@ public final class MultiPhysicsParameterNotebookScreen extends AbstractContainer
         g.pose().popPose();
         g.disableScissor();
 
-        if (maxScroll() > 0) {
-            String scroll = "SCROLL " + scrollOffset + " / " + maxScroll();
-            g.drawString(font, scroll, imageWidth - 24 - font.width(scroll), 72, MUTED, false);
+        if (maxScroll() > 0 || maxHorizontalScroll() > 0) {
+            String raw = "SCROLL Y " + scrollOffset + "/" + maxScroll()
+                    + " • X " + horizontalOffset + "/" + maxHorizontalScroll()
+                    + " • Shift+wheel / trackpad";
+            String compact = fit(raw, Math.max(170, imageWidth - 220));
+            g.drawString(font, compact, imageWidth - 24 - font.width(compact), 72, MUTED, false);
         }
         g.drawString(font, fit(deviceFooter(), imageWidth - 36), 18, imageHeight - 20, MUTED, false);
     }
@@ -207,7 +229,7 @@ public final class MultiPhysicsParameterNotebookScreen extends AbstractContainer
             g.drawString(font, labels[i], 42, y, MUTED, false);
             g.drawString(font, parameterValue(i, values[i]), Math.min(280, imageWidth / 2), y, INK, false);
         }
-        g.drawString(font, fit(parameterHint(), Math.max(280, imageWidth - 96)), 42, CONTENT_TOP + 280, MUTED, false);
+        drawWrapped(g, parameterHint(), 42, CONTENT_TOP + 280, Math.max(280, imageWidth - 96), MUTED);
     }
 
     private void renderModel(GuiGraphics g) {
@@ -371,7 +393,7 @@ public final class MultiPhysicsParameterNotebookScreen extends AbstractContainer
     private void pair(GuiGraphics g, String label, String value, int y) {
         g.drawString(font, label, 42, y, MUTED, false);
         int x = Math.min(300, imageWidth / 2);
-        g.drawString(font, fit(value, Math.max(180, imageWidth - x - 56)), x, y, INK, false);
+        g.drawString(font, value, x, y, INK, false);
     }
 
     private String fit(String text, int width) {
