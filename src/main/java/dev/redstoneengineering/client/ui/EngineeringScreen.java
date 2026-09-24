@@ -70,10 +70,13 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private boolean routePage;
     private final List<AbstractWidget> configureWidgets = new ArrayList<>();
     private final Map<AbstractWidget, Integer> configureVirtualY = new IdentityHashMap<>();
+    private final Map<AbstractWidget, Integer> configureVirtualX = new IdentityHashMap<>();
     private final List<AbstractWidget> routeWidgets = new ArrayList<>();
     private final Map<AbstractWidget, Integer> routeVirtualY = new IdentityHashMap<>();
+    private final Map<AbstractWidget, Integer> routeVirtualX = new IdentityHashMap<>();
     private final List<Button> sectionButtons = new ArrayList<>();
     private int scrollOffset;
+    private int horizontalOffset;
     private Button routeTab;
     private Button routePrevious;
     private Button routeNext;
@@ -98,10 +101,13 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         super.init();
         configureWidgets.clear();
         configureVirtualY.clear();
+        configureVirtualX.clear();
         routeWidgets.clear();
         routeVirtualY.clear();
+        routeVirtualX.clear();
         sectionButtons.clear();
         scrollOffset = 0;
+        horizontalOffset = 0;
         routeTab = null;
         routePrevious = null;
         routeNext = null;
@@ -154,12 +160,14 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     protected final <T extends AbstractWidget> T addConfigureWidget(T widget) {
         configureWidgets.add(widget);
         configureVirtualY.put(widget, widget.getY() - topPos + scrollOffset);
+        configureVirtualX.put(widget, widget.getX() - leftPos + horizontalOffset);
         return addRenderableWidget(widget);
     }
 
     private <T extends AbstractWidget> T addRouteWidget(T widget) {
         routeWidgets.add(widget);
         routeVirtualY.put(widget, widget.getY() - topPos + scrollOffset);
+        routeVirtualX.put(widget, widget.getX() - leftPos + horizontalOffset);
         return addRenderableWidget(widget);
     }
 
@@ -332,10 +340,16 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         boolean requestedVisible = widget.visible;
         boolean requestedActive = widget.active;
         int virtualY = routeVirtualY.getOrDefault(widget, widget.getY() - topPos + scrollOffset);
+        int virtualX = routeVirtualX.getOrDefault(widget, widget.getX() - leftPos + horizontalOffset);
         widget.setY(topPos + virtualY - scrollOffset);
+        widget.setX(leftPos + virtualX - horizontalOffset);
         int viewportBottom = topPos + imageHeight - FOOTER_HEIGHT;
+        int viewportLeft = leftPos + CONTENT_LEFT;
+        int viewportRight = leftPos + contentRight();
         boolean inViewport = widget.getY() >= topPos + HEADER_BOTTOM
-                && widget.getY() <= viewportBottom - widget.getHeight();
+                && widget.getY() <= viewportBottom - widget.getHeight()
+                && widget.getX() + widget.getWidth() >= viewportLeft
+                && widget.getX() <= viewportRight;
         widget.visible = requestedVisible && inViewport;
         widget.active = requestedActive && inViewport;
     }
@@ -344,6 +358,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         this.section = target;
         this.routePage = false;
         this.scrollOffset = 0;
+        this.horizontalOffset = 0;
         updateWidgetVisibility();
         syncDeviceWidgetLabels();
         syncRouteControls();
@@ -352,6 +367,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private void setRoutePage() {
         routePage = true;
         scrollOffset = 0;
+        horizontalOffset = 0;
         updateWidgetVisibility();
         syncDeviceWidgetLabels();
         syncRouteControls();
@@ -366,12 +382,18 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private void updateWidgetVisibility() {
         boolean controlsVisible = isConfigureSection();
         int viewportBottom = topPos + imageHeight - FOOTER_HEIGHT;
+        int viewportLeft = leftPos + CONTENT_LEFT;
+        int viewportRight = leftPos + contentRight();
         for (AbstractWidget widget : configureWidgets) {
-            int virtualY = configureVirtualY.getOrDefault(widget, widget.getY() - topPos);
+            int virtualY = configureVirtualY.getOrDefault(widget, widget.getY() - topPos + scrollOffset);
+            int virtualX = configureVirtualX.getOrDefault(widget, widget.getX() - leftPos + horizontalOffset);
             widget.setY(topPos + virtualY - scrollOffset);
+            widget.setX(leftPos + virtualX - horizontalOffset);
             widget.visible = controlsVisible && !isLegacyRouteWidget(widget)
                     && widget.getY() >= topPos + HEADER_BOTTOM
-                    && widget.getY() <= viewportBottom - widget.getHeight();
+                    && widget.getY() <= viewportBottom - widget.getHeight()
+                    && widget.getX() + widget.getWidth() >= viewportLeft
+                    && widget.getX() <= viewportRight;
         }
         Section[] tabSections = {Section.OVERVIEW, Section.PORTS, Section.CONFIGURE, Section.DIAGNOSTICS, Section.HISTORY};
         for (int i = 0; i < sectionButtons.size(); i++) sectionButtons.get(i).active = routePage || tabSections[i] != section;
@@ -393,7 +415,13 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         if (mouseX >= leftPos + CONTENT_LEFT && mouseX <= leftPos + contentRight()
                 && mouseY >= topPos + HEADER_BOTTOM && mouseY <= topPos + imageHeight - FOOTER_HEIGHT) {
-            scrollOffset = Math.max(0, Math.min(maxScroll(), scrollOffset - (int)Math.round(scrollY * 24.0)));
+            double horizontalDelta = Math.abs(scrollX) > 0.01 ? scrollX : (hasShiftDown() ? scrollY : 0.0);
+            if (Math.abs(horizontalDelta) > 0.01 && maxHorizontalScroll() > 0) {
+                horizontalOffset = Math.max(0, Math.min(maxHorizontalScroll(),
+                        horizontalOffset - (int)Math.round(horizontalDelta * 32.0)));
+            } else {
+                scrollOffset = Math.max(0, Math.min(maxScroll(), scrollOffset - (int)Math.round(scrollY * 24.0)));
+            }
             updateWidgetVisibility();
             syncRouteControls();
             return true;
@@ -415,6 +443,15 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private int maxScroll() {
         int visible = Math.max(80, imageHeight - HEADER_BOTTOM - FOOTER_HEIGHT);
         return Math.max(0, virtualContentHeight() - visible);
+    }
+
+    protected int virtualContentWidth() {
+        return Math.max(contentWidth(), 1100);
+    }
+
+    private int maxHorizontalScroll() {
+        int visible = Math.max(240, contentWidth());
+        return Math.max(0, virtualContentWidth() - visible);
     }
 
     private int contentRight() { return imageWidth - CONTENT_LEFT; }
@@ -455,7 +492,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             graphics.enableScissor(leftPos + CONTENT_LEFT, topPos + HEADER_BOTTOM,
                     leftPos + contentRight(), topPos + imageHeight - FOOTER_HEIGHT);
             graphics.pose().pushPose();
-            graphics.pose().translate(0, -scrollOffset, 0);
+            graphics.pose().translate(-horizontalOffset, -scrollOffset, 0);
             renderRoutePage(graphics);
             graphics.pose().popPose();
             graphics.disableScissor();
@@ -465,15 +502,18 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             graphics.enableScissor(leftPos + CONTENT_LEFT, topPos + HEADER_BOTTOM,
                     leftPos + contentRight(), topPos + imageHeight - FOOTER_HEIGHT);
             graphics.pose().pushPose();
-            graphics.pose().translate(0, -scrollOffset, 0);
+            graphics.pose().translate(-horizontalOffset, -scrollOffset, 0);
             renderSection(graphics, section);
             graphics.pose().popPose();
             graphics.disableScissor();
         }
 
-        if (maxScroll() > 0) {
-            String scroll = "SCROLL " + scrollOffset + " / " + maxScroll();
-            graphics.drawString(font, scroll, imageWidth - 14 - font.width(scroll), 62, MUTED, false);
+        if (maxScroll() > 0 || maxHorizontalScroll() > 0) {
+            String scroll = "SCROLL Y " + scrollOffset + " / " + maxScroll()
+                    + "  •  X " + horizontalOffset + " / " + maxHorizontalScroll()
+                    + "  •  trackpad X or Shift+wheel";
+            graphics.drawString(font, fitForWidth(scroll, Math.max(180, imageWidth - 220)),
+                    imageWidth - 14 - font.width(fitForWidth(scroll, Math.max(180, imageWidth - 220))), 62, MUTED, false);
         }
 
         String evidence = fitForWidth("EVIDENCE • " + menu.evidenceStateLabel(), Math.max(150, imageWidth / 3));
@@ -513,8 +553,18 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     }
 
     protected final void safeText(GuiGraphics graphics, String text, int x, int y, int color) {
-        int width = Math.max(0, contentRight() - x);
-        graphics.drawString(font, fitForWidth(text, width), x, y, color, false);
+        String visible = text == null || text.isBlank() ? "—" : text;
+        graphics.drawString(font, visible, x, y, color, false);
+    }
+
+    protected final int wrappedText(GuiGraphics graphics, String text, int x, int y, int width, int color) {
+        int cursor = y;
+        String visible = text == null ? "" : text;
+        for (var line : font.split(Component.literal(visible), Math.max(120, width))) {
+            graphics.drawString(font, line, x, cursor, color, false);
+            cursor += 12;
+        }
+        return cursor;
     }
 
     protected final int operationalHealthColor() {
@@ -577,7 +627,8 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         PresentationLine normalized = normalizeLegacyPresentation(label, value);
         int vx = valueX();
         graphics.drawString(font, fitForWidth(normalized.label(), Math.max(130, vx - CONTENT_LEFT - 20)), CONTENT_LEFT, y, MUTED, false);
-        graphics.drawString(font, fitForWidth(normalized.value(), contentRight() - vx), vx, y, TEXT, false);
+        String valueText = normalized.value() == null || normalized.value().isBlank() ? "—" : normalized.value();
+        graphics.drawString(font, valueText, vx, y, TEXT, false);
     }
 
     protected final void statusLine(GuiGraphics graphics, String label, String value, int color, int y) {
@@ -588,7 +639,8 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         PresentationLine normalized = normalizeLegacyPresentation(label, value);
         int vx = valueX();
         graphics.drawString(font, fitForWidth(normalized.label(), Math.max(130, vx - CONTENT_LEFT - 20)), CONTENT_LEFT, y, MUTED, false);
-        graphics.drawString(font, fitForWidth(normalized.value(), contentRight() - vx), vx, y, color, false);
+        String valueText = normalized.value() == null || normalized.value().isBlank() ? "—" : normalized.value();
+        graphics.drawString(font, valueText, vx, y, color, false);
     }
 
     protected final void statusBadge(GuiGraphics graphics, String value, int color, int x, int y) {
