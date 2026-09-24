@@ -113,6 +113,7 @@ public final class AdvancedParameterMenu extends EngineeringDeviceMenu {
         } else if (block instanceof PneumaticReliefValveBlock) {
             kind.set(KIND_RELIEF_VALVE);
             p0.set(PneumaticReliefValveBlock.setpointPressure(level, blockPos, state));
+            p1.set(PneumaticReliefValveBlock.configuredBlowdown(level, blockPos, state));
             liveA.set(PneumaticNetwork.pressure(level, blockPos));
             liveB.set(PneumaticReliefValveBlock.reseatPressure(level, blockPos, state));
             liveC.set(PneumaticReliefValveBlock.ventEvents(level, blockPos));
@@ -179,8 +180,10 @@ public final class AdvancedParameterMenu extends EngineeringDeviceMenu {
             changed = ElectromagnetBlock.setEngineeringParameters(server, blockPos, rise, fall, cooling);
         } else if (block instanceof InductionCoilBlock && slot == 0) {
             changed = InductionCoilBlock.setConfiguredTurns(server, blockPos, p0.get() + delta);
-        } else if (block instanceof PneumaticReliefValveBlock && slot == 0) {
-            changed = PneumaticReliefValveBlock.setConfiguredSetpoint(server, blockPos, p0.get() + delta);
+        } else if (block instanceof PneumaticReliefValveBlock && (slot == 0 || slot == 1)) {
+            int setpoint = p0.get() + (slot == 0 ? delta : 0);
+            int blowdown = p1.get() + (slot == 1 ? delta : 0);
+            changed = PneumaticReliefValveBlock.setEngineeringParameters(server, blockPos, setpoint, blowdown);
         } else if (block instanceof LapisNoiseSourceBlock && slot >= 0 && slot <= 2) {
             int baseline = p0.get() + (slot == 0 ? delta : 0);
             int noise = p1.get() + (slot == 1 ? delta : 0);
