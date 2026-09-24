@@ -356,12 +356,12 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
     private String model1(){
         return switch(menu.kind()){
             case ProcessParameterMenu.KIND_CONDITIONER -> "Mode-specific transfer function maps Redstone input to bounded 0..15 output.";
-            case ProcessParameterMenu.KIND_PWM -> "Duty request comes from command 0..15; carrier period controls time quantization.";
+            case ProcessParameterMenu.KIND_PWM -> "onTicks = round((command / 15) × period); output is HIGH while carrier phase < onTicks.";
             case ProcessParameterMenu.KIND_COPPER_DRIVER -> "V[k+1] = V[k] + clamp(Vtarget − V[k], −Sfall, +Srise).";
             case ProcessParameterMenu.KIND_CAPACITOR -> "q*[k] = 100·Vin/15; q[k+1] moves toward q* by max(1, |q*−q|/τ).";
             case ProcessParameterMenu.KIND_FUSE -> "r = I/Irated; for r>1, ΔH ∝ (r²−1)·Kclass; trip when H ≥ 1000.";
             case ProcessParameterMenu.KIND_COMPRESSOR -> "Pressure target derives from Redstone command; actual pressure follows asymmetric ramp rates.";
-            case ProcessParameterMenu.KIND_DAMPER -> "Each decay step removes configured amplitude while preserving carrier frequency evidence; the local envelope also carries bounded quality and freshness.";
+            case ProcessParameterMenu.KIND_DAMPER -> "A[k+1] = max(0, A[k] − attenuation); each decay step preserves carrier frequency while reducing the local envelope.";
             case ProcessParameterMenu.KIND_EXCITER -> "Redstone controls target amplitude; frequency and amplitude approach their targets with finite dynamics.";
             case ProcessParameterMenu.KIND_LAPIS_SOURCE -> "Configured 0..100 precision value is a valid Lapis-domain source, including exact zero.";
             case ProcessParameterMenu.KIND_COPPER_SOURCE -> "Configured 0..15 voltage is a valid six-face Copper source.";
@@ -372,11 +372,11 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
     private String model2(){
         return switch(menu.kind()){
             case ProcessParameterMenu.KIND_CONDITIONER -> "Input and output quality are separate. Active limiting marks output SATURATED while preserving the upstream input quality.";
-            case ProcessParameterMenu.KIND_PWM -> "Command updates latch at carrier-cycle boundaries; command, inhibit and output quality remain independent evidence channels.";
+            case ProcessParameterMenu.KIND_PWM -> "Partial-duty commands latch only at carrier-cycle boundaries; 0% and 100% endpoint commands apply immediately. Command, inhibit and output quality remain independent evidence channels.";
             case ProcessParameterMenu.KIND_COPPER_DRIVER -> "Rise and fall slew are independent. Internal actual voltage can decay after command loss, but the Copper source is released immediately unless input evidence is VALID.";
             case ProcessParameterMenu.KIND_CAPACITOR -> "τcharge=τbase; τdischarge=f(τbase,Rload); open circuit uses τbase×leakageFactor; incomplete load scans freeze integration.";
             case ProcessParameterMenu.KIND_FUSE -> "FAST/NORMAL/SLOW change overload heating rate; rating/class changes retain heat, and reset remains evidence-gated.";
-            case ProcessParameterMenu.KIND_DAMPER -> "Envelope quality is server-owned 0..100 evidence and age is time since the last authoritative local write; neither is inferred from amplitude alone.";
+            case ProcessParameterMenu.KIND_DAMPER -> "Each surviving decay step reduces envelope quality by 20 and schedules the next decay after the fixed 4-tick packet TTL. Those are model assumptions, not editable parameters.";
             case ProcessParameterMenu.KIND_EXCITER -> "Amplitude rise/fall and frequency slew are independent configuration variables. Input and mechanical-output quality are synchronized independently from numeric amplitude.";
             default -> "The parameter changes the authoritative server model, not a client-only display.";
         };
