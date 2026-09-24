@@ -69,6 +69,8 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private boolean routePage;
     private final List<AbstractWidget> configureWidgets = new ArrayList<>();
     private final Map<AbstractWidget, Integer> configureVirtualY = new IdentityHashMap<>();
+    private final List<AbstractWidget> routeWidgets = new ArrayList<>();
+    private final Map<AbstractWidget, Integer> routeVirtualY = new IdentityHashMap<>();
     private final List<Button> sectionButtons = new ArrayList<>();
     private int scrollOffset;
     private Button routeTab;
@@ -95,6 +97,8 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         super.init();
         configureWidgets.clear();
         configureVirtualY.clear();
+        routeWidgets.clear();
+        routeVirtualY.clear();
         sectionButtons.clear();
         scrollOffset = 0;
         routeTab = null;
@@ -141,6 +145,12 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         return addRenderableWidget(widget);
     }
 
+    private <T extends AbstractWidget> T addRouteWidget(T widget) {
+        routeWidgets.add(widget);
+        routeVirtualY.put(widget, widget.getY() - topPos + scrollOffset);
+        return addRenderableWidget(widget);
+    }
+
     protected final void sendMenuButton(int buttonId) {
         if (buttonId < 0) return;
         if (minecraft != null && minecraft.gameMode != null) {
@@ -150,26 +160,26 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
     private void addRouteControls() {
         int width = Math.max(136, Math.min(220, (contentWidth() - 24) / 2));
-        routePrevious = addRenderableWidget(Button.builder(
+        routePrevious = addRouteWidget(Button.builder(
                 Component.literal("Direction ▲"), button -> sendMenuButton(routeActionId(false)))
                 .bounds(leftPos + CONTENT_LEFT, topPos + ROUTE_CONTROL_Y, width, 22).build());
-        routeNext = addRenderableWidget(Button.builder(
+        routeNext = addRouteWidget(Button.builder(
                 Component.literal("Direction ▼"), button -> sendMenuButton(routeActionId(true)))
                 .bounds(leftPos + contentRight() - width, topPos + ROUTE_CONTROL_Y, width, 22).build());
 
         int endpointGap = 8;
         int endpointWidth = Math.max(72, (contentWidth() - endpointGap * 3) / 4);
         int x0 = leftPos + CONTENT_LEFT;
-        routeInputPrevious = addRenderableWidget(Button.builder(
+        routeInputPrevious = addRouteWidget(Button.builder(
                 Component.literal("RX ▲"), button -> sendMenuButton(routeInputActionId(false)))
                 .bounds(x0, topPos + ROUTE_ENDPOINT_Y, endpointWidth, 20).build());
-        routeInputNext = addRenderableWidget(Button.builder(
+        routeInputNext = addRouteWidget(Button.builder(
                 Component.literal("RX ▼"), button -> sendMenuButton(routeInputActionId(true)))
                 .bounds(x0 + endpointWidth + endpointGap, topPos + ROUTE_ENDPOINT_Y, endpointWidth, 20).build());
-        routeOutputPrevious = addRenderableWidget(Button.builder(
+        routeOutputPrevious = addRouteWidget(Button.builder(
                 Component.literal("TX ▲"), button -> sendMenuButton(routeOutputActionId(false)))
                 .bounds(x0 + (endpointWidth + endpointGap) * 2, topPos + ROUTE_ENDPOINT_Y, endpointWidth, 20).build());
-        routeOutputNext = addRenderableWidget(Button.builder(
+        routeOutputNext = addRouteWidget(Button.builder(
                 Component.literal("TX ▼"), button -> sendMenuButton(routeOutputActionId(true)))
                 .bounds(x0 + (endpointWidth + endpointGap) * 3, topPos + ROUTE_ENDPOINT_Y, endpointWidth, 20).build());
     }
@@ -299,6 +309,20 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             routeOutputPrevious.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal("Cycle TX / OUTPUT to the previous valid direction.")));
             routeOutputNext.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal("Cycle TX / OUTPUT to the next valid direction.")));
         }
+
+        for (AbstractWidget widget : routeWidgets) syncRouteWidgetViewport(widget);
+    }
+
+    private void syncRouteWidgetViewport(AbstractWidget widget) {
+        boolean requestedVisible = widget.visible;
+        boolean requestedActive = widget.active;
+        int virtualY = routeVirtualY.getOrDefault(widget, widget.getY() - topPos + scrollOffset);
+        widget.setY(topPos + virtualY - scrollOffset);
+        int viewportBottom = topPos + imageHeight - FOOTER_HEIGHT;
+        boolean inViewport = widget.getY() >= topPos + HEADER_BOTTOM
+                && widget.getY() <= viewportBottom - widget.getHeight();
+        widget.visible = requestedVisible && inViewport;
+        widget.active = requestedActive && inViewport;
     }
 
     private void setSection(Section target) {
@@ -356,6 +380,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
                 && mouseY >= topPos + HEADER_BOTTOM && mouseY <= topPos + imageHeight - FOOTER_HEIGHT) {
             scrollOffset = Math.max(0, Math.min(maxScroll(), scrollOffset - (int)Math.round(scrollY * 24.0)));
             updateWidgetVisibility();
+            syncRouteControls();
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
