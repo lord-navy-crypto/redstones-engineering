@@ -102,10 +102,16 @@ public final class RangeSensorMenu extends EngineeringDeviceMenu {
                     Math.floorMod(state.getValue(RangeSensorBlock.MODE) - 1, 3));
             case BUTTON_MODE_NEXT -> next = state.setValue(RangeSensorBlock.MODE,
                     (state.getValue(RangeSensorBlock.MODE) + 1) % 3);
-            case BUTTON_RANGE_PREVIOUS -> next = state.setValue(RangeSensorBlock.RANGE_MODE,
-                    Math.floorMod(state.getValue(RangeSensorBlock.RANGE_MODE) - 1, 3));
-            case BUTTON_RANGE_NEXT -> next = state.setValue(RangeSensorBlock.RANGE_MODE,
-                    (state.getValue(RangeSensorBlock.RANGE_MODE) + 1) % 3);
+            case BUTTON_RANGE_PREVIOUS, BUTTON_RANGE_NEXT -> {
+                if (!(level instanceof net.minecraft.server.level.ServerLevel server)) return false;
+                boolean changed = RangeSensorBlock.setConfiguredRange(
+                        server, blockPos, configuredRange.get() + (id == BUTTON_RANGE_NEXT ? 1 : -1));
+                if (changed) {
+                    refreshAuthoritativeSnapshot();
+                    broadcastChanges();
+                }
+                return changed;
+            }
             case BUTTON_RESPONSE_PREVIOUS -> next = state.setValue(RangeSensorBlock.RESPONSE,
                     Math.floorMod(state.getValue(RangeSensorBlock.RESPONSE) - 1, 4));
             case BUTTON_RESPONSE_NEXT -> next = state.setValue(RangeSensorBlock.RESPONSE,
