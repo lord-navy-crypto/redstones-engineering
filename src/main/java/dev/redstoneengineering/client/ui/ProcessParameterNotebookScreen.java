@@ -18,25 +18,37 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
     private Tab tab=Tab.PARAMETERS;
     private final List<Button> controls=new ArrayList<>();
     private Button action;
+    private int scrollOffset = 0;
+    private static final int VIEW_MARGIN = 8;
+    private static final int CONTENT_TOP = 84;
+    private static final int CONTENT_BOTTOM_MARGIN = 34;
 
     public ProcessParameterNotebookScreen(ProcessParameterMenu menu, Inventory inventory, Component title){
         super(menu,inventory,title); imageWidth=520; imageHeight=300; titleLabelX=18; titleLabelY=12; inventoryLabelY=1000;
     }
 
     @Override protected void init(){
-        super.init(); controls.clear();
-        int x=leftPos+83;
+        imageWidth=Math.max(360,width-VIEW_MARGIN*2);
+        imageHeight=Math.max(240,height-VIEW_MARGIN*2);
+        super.init(); controls.clear(); scrollOffset=0;
+
+        int tabCount=Tab.values().length;
+        int gap=8;
+        int tabWidth=Math.max(88,(imageWidth-48-gap*(tabCount-1))/tabCount);
+        int x=leftPos+24;
         for(Tab t:Tab.values()){
-            addRenderableWidget(Button.builder(Component.literal(t.label),b->{tab=t;syncVisibility();}).bounds(x,topPos+34,112,20).build());
-            x+=118;
+            addRenderableWidget(Button.builder(Component.literal(t.label),b->{tab=t;scrollOffset=0;syncVisibility();})
+                    .bounds(x,topPos+38,tabWidth,22).build());
+            x+=tabWidth+gap;
         }
-        addRow(0,topPos+116); addRow(1,topPos+154); addRow(2,topPos+192); addRow(3,topPos+230);
+
+        addRow(0,CONTENT_TOP+44); addRow(1,CONTENT_TOP+96); addRow(2,CONTENT_TOP+148); addRow(3,CONTENT_TOP+200);
         action=addRenderableWidget(Button.builder(Component.literal("Action"),b->send(ProcessParameterMenu.BUTTON_ACTION))
-                .bounds(leftPos+350,topPos+260,130,20).build());
+                .bounds(leftPos+imageWidth-188,topPos+CONTENT_TOP+250,150,22).build());
         syncVisibility();
     }
 
-    private void addRow(int row,int y){
+    private void addRow(int row,int virtualY){
         int minus=switch(row){
             case 0->ProcessParameterMenu.BUTTON_P0_MINUS;
             case 1->ProcessParameterMenu.BUTTON_P1_MINUS;
@@ -49,13 +61,41 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             case 2->ProcessParameterMenu.BUTTON_P2_PLUS;
             default->ProcessParameterMenu.BUTTON_P3_PLUS;
         };
-        controls.add(addRenderableWidget(Button.builder(Component.literal("−"),b->send(minus)).bounds(leftPos+356,y,38,20).build()));
-        controls.add(addRenderableWidget(Button.builder(Component.literal("+"),b->send(plus)).bounds(leftPos+442,y,38,20).build()));
+        int y=topPos+virtualY-scrollOffset;
+        controls.add(addRenderableWidget(Button.builder(Component.literal("−"),b->send(minus))
+                .bounds(leftPos+imageWidth-164,y,42,22).build()));
+        controls.add(addRenderableWidget(Button.builder(Component.literal("+"),b->send(plus))
+                .bounds(leftPos+imageWidth-78,y,42,22).build()));
     }
 
     private void send(int id){ if(minecraft!=null&&minecraft.gameMode!=null) minecraft.gameMode.handleInventoryButtonClick(menu.containerId,id); }
 
     @Override protected void containerTick(){ super.containerTick(); syncVisibility(); }
+
+    @Override
+    public boolean mouseScrolled(double mouseX,double mouseY,double scrollX,double scrollY){
+        if(mouseX>=leftPos+18&&mouseX<=leftPos+imageWidth-18
+                &&mouseY>=topPos+CONTENT_TOP&&mouseY<=topPos+imageHeight-CONTENT_BOTTOM_MARGIN){
+            int max=maxScroll();
+            scrollOffset=Math.max(0,Math.min(max,scrollOffset-(int)Math.round(scrollY*24.0)));
+            syncVisibility();
+            return true;
+        }
+        return super.mouseScrolled(mouseX,mouseY,scrollX,scrollY);
+    }
+
+    private int contentHeight(){
+        return switch(tab){
+            case OPERATE -> 420;
+            case PARAMETERS -> 470;
+            case MODEL -> 620;
+        };
+    }
+
+    private int maxScroll(){
+        int visible=Math.max(80,imageHeight-CONTENT_TOP-CONTENT_BOTTOM_MARGIN);
+        return Math.max(0,contentHeight()-visible);
+    }
 
     private int parameterCount(){
         return switch(menu.kind()){
@@ -72,10 +112,20 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
 
     private void syncVisibility(){
         int n=parameterCount();
-        for(int i=0;i<controls.size();i++) controls.get(i).visible=tab==Tab.PARAMETERS&&(i/2)<n;
+        for(int i=0;i<controls.size();i++){
+            int row=i/2;
+            Button b=controls.get(i);
+            int virtualY=CONTENT_TOP+44+row*52;
+            b.setY(topPos+virtualY-scrollOffset);
+            b.visible=tab==Tab.PARAMETERS&&row<n
+                    &&b.getY()>=topPos+CONTENT_TOP&&b.getY()<=topPos+imageHeight-CONTENT_BOTTOM_MARGIN-22;
+        }
         if(action!=null){
+            action.setX(leftPos+imageWidth-188);
+            action.setY(topPos+CONTENT_TOP+250-scrollOffset);
             boolean hasAction=menu.kind()==ProcessParameterMenu.KIND_PWM||menu.kind()==ProcessParameterMenu.KIND_FUSE;
-            action.visible=tab==Tab.PARAMETERS&&hasAction;
+            action.visible=tab==Tab.PARAMETERS&&hasAction
+                    &&action.getY()>=topPos+CONTENT_TOP&&action.getY()<=topPos+imageHeight-CONTENT_BOTTOM_MARGIN-22;
             action.setMessage(Component.literal(menu.kind()==ProcessParameterMenu.KIND_FUSE?"Attempt reset":"Toggle invert"));
         }
     }
@@ -86,36 +136,56 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
         g.fill(leftPos,topPos,leftPos+imageWidth,topPos+imageHeight,BG);
         g.fill(leftPos+5,topPos+5,leftPos+imageWidth-5,topPos+imageHeight-5,PAGE);
         g.fill(leftPos+18,topPos+29,leftPos+imageWidth-18,topPos+30,RULE);
-        g.fill(leftPos+18,topPos+62,leftPos+imageWidth-18,topPos+63,RULE);
+        g.fill(leftPos+18,topPos+66,leftPos+imageWidth-18,topPos+67,RULE);
+        g.fill(leftPos+18,topPos+imageHeight-CONTENT_BOTTOM_MARGIN,leftPos+imageWidth-18,
+                topPos+imageHeight-CONTENT_BOTTOM_MARGIN+1,RULE);
     }
 
     @Override protected void renderLabels(GuiGraphics g,int mx,int my){
         g.drawString(font,title,18,12,INK,false);
         String live="SERVER ENGINEERING MODEL";
         g.drawString(font,live,imageWidth-18-font.width(live),12,GOOD,false);
-        g.drawString(font,tab.label.toUpperCase(),22,70,ACCENT,false);
+        g.drawString(font,tab.label.toUpperCase(),24,72,ACCENT,false);
+
+        g.enableScissor(leftPos+18,topPos+CONTENT_TOP,leftPos+imageWidth-18,
+                topPos+imageHeight-CONTENT_BOTTOM_MARGIN);
+        g.pose().pushPose();
+        g.pose().translate(0,-scrollOffset,0);
         switch(tab){case OPERATE->operate(g);case PARAMETERS->parameters(g);case MODEL->model(g);}
+        g.pose().popPose();
+        g.disableScissor();
+
+        if(maxScroll()>0){
+            String scroll="SCROLL "+scrollOffset+" / "+maxScroll();
+            g.drawString(font,scroll,imageWidth-24-font.width(scroll),72,MUTED,false);
+        }
         g.drawString(font,fit(footer(),imageWidth-36),18,imageHeight-20,MUTED,false);
     }
 
     private void parameters(GuiGraphics g){
         String[] labels=parameterLabels(); int[] vals={menu.p0(),menu.p1(),menu.p2(),menu.p3()};
         for(int i=0;i<labels.length;i++){
-            g.drawString(font,labels[i],38,120+i*38,MUTED,false);
-            g.drawString(font,paramValue(i,vals[i]),200,120+i*38,INK,false);
+            int y=CONTENT_TOP+48+i*52;
+            g.drawString(font,labels[i],42,y,MUTED,false);
+            g.drawString(font,paramValue(i,vals[i]),Math.min(260,imageWidth/2),y,INK,false);
         }
     }
 
     private void operate(GuiGraphics g){
         String[] labels=liveLabels(); int[] vals={menu.liveA(),menu.liveB(),menu.liveC(),menu.liveD(),menu.liveE()};
-        for(int i=0;i<labels.length;i++) pair(g,labels[i],liveValue(i,vals[i]),96+i*27);
+        for(int i=0;i<labels.length;i++) pair(g,labels[i],liveValue(i,vals[i]),CONTENT_TOP+34+i*40);
     }
 
     private void model(GuiGraphics g){
-        g.drawString(font,fit(model1(),455),34,108,INK,false);
-        g.drawString(font,fit(model2(),455),34,143,INK,false);
-        g.drawString(font,fit(model3(),455),34,184,MUTED,false);
-        g.drawString(font,fit("Measured state, stored energy, trip exposure, network evidence and topology stay world/solver-owned.",455),34,228,MUTED,false);
+        int textWidth=Math.max(280,imageWidth-96);
+        g.drawString(font,"DEVICE MODEL",42,CONTENT_TOP+28,MUTED,false);
+        g.drawString(font,fit(model1(),textWidth),42,CONTENT_TOP+62,INK,false);
+        g.drawString(font,fit(model2(),textWidth),42,CONTENT_TOP+112,INK,false);
+        g.drawString(font,fit(model3(),textWidth),42,CONTENT_TOP+170,MUTED,false);
+        g.drawString(font,fit("Measured state, stored energy, trip exposure, network evidence and topology stay world/solver-owned.",textWidth),
+                42,CONTENT_TOP+232,MUTED,false);
+        g.drawString(font,fit("This page may grow vertically as richer equations, assumptions, response metrics and diagnostic evidence are added; use the mouse wheel to inspect the full model.",textWidth),
+                42,CONTENT_TOP+330,MUTED,false);
     }
 
     private String[] parameterLabels(){
@@ -214,7 +284,11 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
 
     private String model3(){ return "Operate values are synchronized readback from the real device and connected world."; }
     private String footer(){ return "Engineering Notebook • configuration editable • state/evidence/topology authoritative"; }
-    private void pair(GuiGraphics g,String label,String value,int y){ g.drawString(font,label,42,y,MUTED,false); g.drawString(font,fit(value,230),245,y,INK,false); }
+    private void pair(GuiGraphics g,String label,String value,int y){
+        g.drawString(font,label,42,y,MUTED,false);
+        int valueX=Math.min(300,imageWidth/2);
+        g.drawString(font,fit(value,Math.max(180,imageWidth-valueX-56)),valueX,y,INK,false);
+    }
     private String fit(String s,int width){ if(font.width(s)<=width)return s; String x=s; while(x.length()>1&&font.width(x+"…")>width)x=x.substring(0,x.length()-1); return x+"…"; }
     private static String conditionerMode(int m){ return switch(m){case 0->"SCALE";case 1->"OFFSET";case 2->"CLAMP";case 3->"THRESHOLD";case 4->"DEADBAND";case 5->"ATTENUATE";default->"UNKNOWN";}; }
     private static String fuseClass(int value){
