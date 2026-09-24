@@ -26,12 +26,22 @@ public final class ElectromagnetLogic {
      * disproportionately; de-energized coils cool substantially faster.
      */
     public static int nextThermal(int thermalLoad, int excitation) {
+        return nextThermal(thermalLoad, excitation, 20);
+    }
+
+    /**
+     * Cooling rate is an engineering heat-rejection parameter in thermal units/tick.
+     * The historical model used 20 when de-energized and 4 while energized; a cooling
+     * rate of 20 therefore reproduces the Alpha 1.0.21 baseline.
+     */
+    public static int nextThermal(int thermalLoad, int excitation, int coolingRate) {
         int thermal = Math.max(0, Math.min(1000, thermalLoad));
         int field = Math.max(0, Math.min(15, excitation));
-        if (field <= 0) return Math.max(0, thermal - 20);
+        int cooling = Math.max(1, Math.min(40, coolingRate));
+        if (field <= 0) return Math.max(0, thermal - cooling);
         int heating = Math.max(1, (field * field + 7) / 8);
-        int passiveCooling = 4;
-        return Math.max(0, Math.min(1000, thermal + heating - passiveCooling));
+        int energizedCooling = Math.max(1, cooling / 5);
+        return Math.max(0, Math.min(1000, thermal + heating - energizedCooling));
     }
 
     /** Thermal protection limits achievable field before the coil reaches destructive temperature. */
