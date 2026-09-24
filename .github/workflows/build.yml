@@ -85,6 +85,7 @@ jobs:
             tools/rse_amethyst_hmi_depth_verify.py \
             tools/rse_range_sensor_hmi_verify.py \
             tools/rse_optical_hmi_dispatch_verify.py \
+            tools/rse_pneumatic_hmi_dispatch_verify.py \
             tools/rse_universal_dual_endpoint_verify.py \
             tools/rse_physical_endpoint_routing_verify.py \
             tools/rse_diagnostics_console_verify.py \
