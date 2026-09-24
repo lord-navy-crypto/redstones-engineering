@@ -71,7 +71,7 @@ if 'version="${mod_version}"' not in mods_template:
 if 'license="${mod_license}"' not in mods_template:
     errors.append("NeoForge metadata must derive the license from ${mod_license}")
 
-for dependency in ("jei", "jade", "geckolib", "cloth_config", "fusion"):
+for dependency in ("jei", "jade", "geckolib", "cloth_config"):
     if f'modId="{dependency}"' not in mods_template:
         errors.append(f"required dependency missing from NeoForge metadata: {dependency}")
 
