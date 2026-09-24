@@ -1,6 +1,7 @@
 package dev.redstoneengineering.ui.menu;
 
 import dev.redstoneengineering.block.DirectionalDomainBlock;
+import dev.redstoneengineering.block.DirectionalDomainSourceBlock;
 import dev.redstoneengineering.block.QuartzClockDividerBlock;
 import dev.redstoneengineering.block.QuartzOscillatorBlock;
 import dev.redstoneengineering.block.QuartzStabilityMonitorBlock;
@@ -44,6 +45,12 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
     private final DataSlot runtimeA = trackedInt();
     private final DataSlot runtimeB = trackedInt();
     private final DataSlot runtimeC = trackedInt();
+    private final DataSlot runtimeD = trackedInt();
+    private final DataSlot runtimeE = trackedInt();
+    private final DataSlot runtimeF = trackedInt();
+    private final DataSlot runtimeG = trackedInt();
+    private final DataSlot runtimeH = trackedInt();
+    private final DataSlot runtimeI = trackedInt();
     private final DataSlot inputFacing = trackedInt();
     private final DataSlot outputFacing = trackedInt();
     private final DataSlot quality = trackedInt();
@@ -68,6 +75,12 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
         runtimeA.set(0);
         runtimeB.set(0);
         runtimeC.set(0);
+        runtimeD.set(0);
+        runtimeE.set(0);
+        runtimeF.set(0);
+        runtimeG.set(0);
+        runtimeH.set(0);
+        runtimeI.set(0);
         inputFacing.set(-1);
         outputFacing.set(-1);
         quality.set(PortQuality.NO_SIGNAL.ordinal());
@@ -75,8 +88,12 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
         if (block instanceof QuartzOscillatorBlock) {
             kind.set(KIND_OSCILLATOR);
             primary.set(state.getValue(QuartzOscillatorBlock.ACTIVE) ? 1 : 0);
-            secondary.set(QuartzTimingLineBlock.periodTicks(state.getValue(QuartzOscillatorBlock.PERIOD_INDEX)));
+            secondary.set(QuartzOscillatorBlock.configuredPeriodTicks(level, blockPos, state));
             tertiary.set(state.getValue(QuartzOscillatorBlock.PERIOD_INDEX));
+            runtimeA.set(QuartzOscillatorBlock.effectivePeriodTicks(level, blockPos, state));
+            runtimeB.set(QuartzOscillatorBlock.periodChangePending(level, blockPos, state) ? 1 : 0);
+            runtimeC.set(QuartzOscillatorBlock.edgeCount(level, blockPos));
+            outputFacing.set(DirectionalDomainSourceBlock.outputSide(state).ordinal());
             quality.set(PortQuality.VALID.ordinal());
             return;
         }
@@ -91,19 +108,21 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
             DomainNetwork.QuartzSample result = DomainNetwork.sampleQuartz(level, blockPos.relative(out));
             primary.set(inputSample.periodTicks());
             secondary.set(result.periodTicks());
-            tertiary.set(QuartzClockDividerBlock.division(state.getValue(QuartzClockDividerBlock.DIV_INDEX)));
+            tertiary.set(QuartzClockDividerBlock.configuredDivision(level, blockPos, state));
             runtimeA.set(QuartzClockDividerBlock.countedEdges(level, blockPos));
             runtimeB.set(QuartzClockDividerBlock.initialized(level, blockPos) ? 1 : 0);
-            quality.set(result.valid() ? PortQuality.VALID.ordinal() : PortQuality.NO_SIGNAL.ordinal());
+            runtimeC.set(QuartzClockDividerBlock.phaseStarted(level, blockPos) ? 1 : 0);
+            if (block instanceof EngineeringPortProvider provider) {
+                quality.set(provider.engineeringSnapshot(level, blockPos, state, out)
+                        .map(snapshot -> snapshot.quality().ordinal()).orElse(PortQuality.NO_SIGNAL.ordinal()));
+            }
             return;
         }
 
         if (block instanceof QuartzStabilityMonitorBlock monitor) {
             kind.set(KIND_STABILITY);
             Direction inputSide = DirectionalDomainBlock.seriesInputSide(state);
-            Direction outputSide = DirectionalDomainBlock.seriesOutputSide(state);
             inputFacing.set(inputSide.ordinal());
-            outputFacing.set(outputSide.ordinal());
             QuartzStabilityMonitorBlock.TimingMeasurement measurement = QuartzStabilityMonitorBlock.measurement(level, blockPos);
             DomainNetwork.QuartzSample upstream = DomainNetwork.sampleQuartz(level, blockPos.relative(inputSide));
             primary.set(measurement.period());
@@ -112,6 +131,12 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
             runtimeA.set(measurement.initialized() ? 1 : 0);
             runtimeB.set(measurement.referenceEdgeSeen() ? 1 : 0);
             runtimeC.set(measurement.currentMeasurement() ? 1 : 0);
+            runtimeD.set(measurement.sampleCount());
+            runtimeE.set(measurement.minPeriod());
+            runtimeF.set(measurement.maxPeriod());
+            runtimeG.set(measurement.meanPeriodX100());
+            runtimeH.set(measurement.jitter());
+            runtimeI.set(measurement.maxNominalError());
             if (monitor instanceof EngineeringPortProvider provider) {
                 quality.set(provider.engineeringSnapshot(level, blockPos, state, inputSide)
                         .map(snapshot -> snapshot.quality().ordinal()).orElse(PortQuality.NO_SIGNAL.ordinal()));
@@ -130,14 +155,17 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
         Block block = state.getBlock();
         boolean changed = false;
 
-        if (block instanceof QuartzOscillatorBlock oscillator) {
-            if (id != BUTTON_PARAMETER_PREVIOUS && id != BUTTON_PARAMETER_NEXT) return false;
-            int index = state.getValue(QuartzOscillatorBlock.PERIOD_INDEX);
-            index = id == BUTTON_PARAMETER_NEXT ? (index + 1) % 5 : Math.floorMod(index - 1, 5);
-            level.setBlock(blockPos, state.setValue(QuartzOscillatorBlock.PERIOD_INDEX, index), Block.UPDATE_CLIENTS);
-            if (level instanceof ServerLevel server) DomainNetwork.recomputeQuartzAround(server, blockPos);
-            level.scheduleTick(blockPos, oscillator, 1);
-            changed = true;
+        if (block instanceof QuartzOscillatorBlock) {
+            if (id == BUTTON_PARAMETER_PREVIOUS || id == BUTTON_PARAMETER_NEXT) {
+                changed = QuartzOscillatorBlock.stepPeriod(level, blockPos, id == BUTTON_PARAMETER_NEXT);
+            } else if (id == BUTTON_OUTPUT_LEFT || id == BUTTON_OUTPUT_RIGHT
+                    || id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT) {
+                boolean clockwise = id == BUTTON_OUTPUT_RIGHT || id == BUTTON_ROTATE_RIGHT;
+                changed = DirectionalDomainSourceBlock.rotateOutput(level, blockPos, clockwise);
+                if (changed && level instanceof ServerLevel server) {
+                    DomainNetwork.recomputeQuartzAround(server, blockPos);
+                }
+            } else return false;
         } else if (block instanceof QuartzClockDividerBlock || block instanceof QuartzStabilityMonitorBlock) {
             if (block instanceof QuartzStabilityMonitorBlock monitor && id == BUTTON_RESET_MEASUREMENT) {
                 RuntimeIntStore.remove(level, "quartz_stability", blockPos);
@@ -171,6 +199,12 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
     public int runtimeA() { return runtimeA.get(); }
     public int runtimeB() { return runtimeB.get(); }
     public int runtimeC() { return runtimeC.get(); }
+    public int runtimeD() { return runtimeD.get(); }
+    public int runtimeE() { return runtimeE.get(); }
+    public int runtimeF() { return runtimeF.get(); }
+    public int runtimeG() { return runtimeG.get(); }
+    public int runtimeH() { return runtimeH.get(); }
+    public int runtimeI() { return runtimeI.get(); }
     public int facingOrdinal() { return outputFacing.get(); }
     public boolean hasInputEndpoint() { return inputFacing.get() >= 0; }
     public boolean hasOutputEndpoint() { return outputFacing.get() >= 0; }
@@ -181,9 +215,20 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
         return ordinal < 0 || ordinal >= all.length ? PortQuality.NO_SIGNAL : all[ordinal];
     }
 
-    public Direction logicalFacing() {
+    public Direction inputDirection() {
+        int ordinal = inputFacing.get();
+        Direction[] all = Direction.values();
+        return ordinal < 0 || ordinal >= all.length ? Direction.NORTH : all[ordinal];
+    }
+
+    public Direction outputDirection() {
         int ordinal = outputFacing.get();
         Direction[] all = Direction.values();
         return ordinal < 0 || ordinal >= all.length ? Direction.NORTH : all[ordinal];
+    }
+
+    public Direction logicalFacing() {
+        if (hasOutputEndpoint()) return outputDirection();
+        return hasInputEndpoint() ? inputDirection().getOpposite() : Direction.NORTH;
     }
 }
