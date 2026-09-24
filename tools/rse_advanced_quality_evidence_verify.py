@@ -22,8 +22,8 @@ if not failed:
     rng = range_path.read_text(errors='ignore')
     for token in ('liveE.set(input.quality().ordinal())','PortQuality.SATURATED.ordinal()','liveC.set(PortQuality.VALID.ordinal())','liveD.set(sample.quality().ordinal())','public int liveE()','public int liveF()'):
         if token not in menu: failed.append(f'AdvancedParameterMenu missing explicit quality token: {token}')
-    for token in ('Input quality','Output quality','Measurement quality','NO TARGET','UNKNOWN','Clipping is explicit SATURATED output quality','A generated sample of 0 remains VALID evidence.','Complete clear coverage with no target is NO_SIGNAL; incomplete coverage is STALE.','Raw distance and measurement quality are synchronized separately'):
-        if token not in screen: failed.append(f'AdvancedParameterNotebookScreen missing evidence token: {token}')
+    for token in ('Input quality','Output quality','Measurement quality','NO TARGET','UNKNOWN','Clipping is explicit SATURATED output quality','A generated sample of 0 remains VALID evidence.','Complete clear coverage with no target is NO_SIGNAL; incomplete coverage is STALE.','Raw distance and measurement quality are synchronized separately','DIAGNOSTICS("Diagnostics")','private void diagnostics(GuiGraphics g)','diagnosticStatus()','diagnosticLines()','diagnosticNextAction()','OUTPUT SATURATED • HEADROOM LIMIT','COMPLETE SCAN • NO TARGET','SCAN COVERAGE INCOMPLETE','The client does not rescan the world, generate a new sample, or run a second device solver.'):
+        if token not in screen: failed.append(f'AdvancedParameterNotebookScreen missing evidence/diagnostic token: {token}')
     for token in ('PortQuality.SATURATED','clipping(level, pos)','input.quality()'):
         if token not in amp: failed.append(f'SignalAmplifierBlock missing saturation-quality token: {token}')
     for token in ('A numeric sample of zero is a legitimate generated value.','PortQuality.VALID'):
@@ -42,3 +42,5 @@ print(' saturated output remains explicit evidence: PASS')
 print(' Lapis noise zero remains valid generated evidence: PASS')
 print(' Lapis range NO_SIGNAL vs STALE remains explicit: PASS')
 print(' generic notebook avoids fabricated numeric substitutes for missing evidence: PASS')
+print(' active generic devices expose device-specific diagnostics: PASS')
+print(' diagnostics remain server-evidence-only and do not rescan/re-simulate: PASS')
