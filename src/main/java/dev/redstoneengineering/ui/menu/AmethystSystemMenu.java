@@ -34,6 +34,10 @@ public final class AmethystSystemMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_INPUT_RIGHT = 8;
     public static final int BUTTON_OUTPUT_LEFT = 9;
     public static final int BUTTON_OUTPUT_RIGHT = 10;
+    public static final int BUTTON_COUPLING_PREVIOUS = 11;
+    public static final int BUTTON_COUPLING_NEXT = 12;
+    public static final int BUTTON_DECAY_PREVIOUS = 13;
+    public static final int BUTTON_DECAY_NEXT = 14;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot primary = trackedInt();
@@ -46,6 +50,8 @@ public final class AmethystSystemMenu extends EngineeringDeviceMenu {
     private final DataSlot extraD = trackedInt();
     private final DataSlot extraE = trackedInt();
     private final DataSlot extraF = trackedInt();
+    private final DataSlot extraG = trackedInt();
+    private final DataSlot extraH = trackedInt();
     private final DataSlot quality = trackedInt();
     private final DataSlot outputQuality = trackedInt();
     private final DataSlot inputFacing = trackedInt();
@@ -67,7 +73,7 @@ public final class AmethystSystemMenu extends EngineeringDeviceMenu {
         BlockState state = level.getBlockState(blockPos);
         Block block = state.getBlock();
         primary.set(0); secondary.set(0); tertiary.set(0); auxiliary.set(0); extraA.set(0); extraB.set(0);
-        extraC.set(0); extraD.set(0); extraE.set(0); extraF.set(0);
+        extraC.set(0); extraD.set(0); extraE.set(0); extraF.set(0); extraG.set(0); extraH.set(0);
         quality.set(PortQuality.NO_SIGNAL.ordinal()); outputQuality.set(PortQuality.NO_SIGNAL.ordinal());
         inputFacing.set(-1); outputFacing.set(-1); stateFlag.set(0);
 
@@ -100,6 +106,8 @@ public final class AmethystSystemMenu extends EngineeringDeviceMenu {
             auxiliary.set(e.qIndex()); extraA.set(e.bandwidth()); extraB.set(e.targetAmplitude());
             extraC.set(e.actualAmplitude()); extraD.set(e.outputFrequency()); extraE.set(e.frequencyError());
             extraF.set(AmethystTunedResonatorLogic.responseStep(e.qIndex()));
+            extraG.set(e.couplingIndex());
+            extraH.set(e.decayRate());
             stateFlag.set(e.saturated() ? 2 : e.ringDown() ? 3 : e.responding() ? 1 : 0);
             quality.set(e.inputQuality().ordinal());
             Direction tunedInput = DirectionalDomainBlock.seriesInputSide(state);
@@ -164,6 +172,18 @@ public final class AmethystSystemMenu extends EngineeringDeviceMenu {
                 q = id == BUTTON_SECONDARY_NEXT ? (q >= 4 ? 1 : q + 1) : (q <= 1 ? 4 : q - 1);
                 level.setBlock(blockPos, state.setValue(AmethystTunedResonatorBlock.Q_INDEX, q), Block.UPDATE_CLIENTS);
                 level.scheduleTick(blockPos, tuned, 1); changed = true;
+            } else if (id == BUTTON_COUPLING_PREVIOUS || id == BUTTON_COUPLING_NEXT) {
+                int coupling = state.getValue(AmethystTunedResonatorBlock.COUPLING);
+                coupling = id == BUTTON_COUPLING_NEXT
+                        ? (coupling >= 4 ? 1 : coupling + 1)
+                        : (coupling <= 1 ? 4 : coupling - 1);
+                level.setBlock(blockPos, state.setValue(AmethystTunedResonatorBlock.COUPLING, coupling), Block.UPDATE_CLIENTS);
+                level.scheduleTick(blockPos, tuned, 1); changed = true;
+            } else if (id == BUTTON_DECAY_PREVIOUS || id == BUTTON_DECAY_NEXT) {
+                int decay = state.getValue(AmethystTunedResonatorBlock.DECAY_RATE);
+                decay = id == BUTTON_DECAY_NEXT ? (decay >= 4 ? 1 : decay + 1) : (decay <= 1 ? 4 : decay - 1);
+                level.setBlock(blockPos, state.setValue(AmethystTunedResonatorBlock.DECAY_RATE, decay), Block.UPDATE_CLIENTS);
+                level.scheduleTick(blockPos, tuned, 1); changed = true;
             } else changed = route(id);
         } else return false;
 
@@ -172,13 +192,14 @@ public final class AmethystSystemMenu extends EngineeringDeviceMenu {
     }
 
     private boolean route(int id) {
+        // Amethyst filter/resonator blocks are rigid two-port series devices: RX is always the
+        // face opposite TX. Legacy endpoint button IDs are accepted, but every action rotates
+        // the complete block route so an old client cannot create a bent RX/TX path.
         return switch (id) {
-            case BUTTON_ROTATE_LEFT -> DirectionalDomainBlock.rotateWholeRoute(level, blockPos, false);
-            case BUTTON_ROTATE_RIGHT -> DirectionalDomainBlock.rotateWholeRoute(level, blockPos, true);
-            case BUTTON_INPUT_LEFT -> DirectionalDomainBlock.rotateSeriesInput(level, blockPos, false);
-            case BUTTON_INPUT_RIGHT -> DirectionalDomainBlock.rotateSeriesInput(level, blockPos, true);
-            case BUTTON_OUTPUT_LEFT -> DirectionalDomainBlock.rotateSeriesOutput(level, blockPos, false);
-            case BUTTON_OUTPUT_RIGHT -> DirectionalDomainBlock.rotateSeriesOutput(level, blockPos, true);
+            case BUTTON_ROTATE_LEFT, BUTTON_INPUT_LEFT, BUTTON_OUTPUT_LEFT ->
+                    DirectionalDomainBlock.rotateRigidSeriesAxis(level, blockPos, false);
+            case BUTTON_ROTATE_RIGHT, BUTTON_INPUT_RIGHT, BUTTON_OUTPUT_RIGHT ->
+                    DirectionalDomainBlock.rotateRigidSeriesAxis(level, blockPos, true);
             default -> false;
         };
     }
@@ -188,7 +209,8 @@ public final class AmethystSystemMenu extends EngineeringDeviceMenu {
     public int auxiliary() { return auxiliary.get(); } public int extraA() { return extraA.get(); }
     public int extraB() { return extraB.get(); } public int extraC() { return extraC.get(); }
     public int extraD() { return extraD.get(); } public int extraE() { return extraE.get(); }
-    public int extraF() { return extraF.get(); } public int stateFlag() { return stateFlag.get(); }
+    public int extraF() { return extraF.get(); } public int extraG() { return extraG.get(); }
+    public int extraH() { return extraH.get(); } public int stateFlag() { return stateFlag.get(); }
     public PortQuality quality() { int o=quality.get(); PortQuality[] a=PortQuality.values(); return o<0||o>=a.length?PortQuality.NO_SIGNAL:a[o]; }
     public PortQuality outputQuality() { int o=outputQuality.get(); PortQuality[] a=PortQuality.values(); return o<0||o>=a.length?PortQuality.NO_SIGNAL:a[o]; }
     public Direction facing() { int o=outputFacing.get(); Direction[] a=Direction.values(); return o<0||o>=a.length?Direction.NORTH:a[o]; }
