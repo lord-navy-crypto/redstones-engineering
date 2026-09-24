@@ -8,8 +8,10 @@ failed = []
 menu_path = root / "src/main/java/dev/redstoneengineering/ui/menu/QuartzTimingMenu.java"
 screen_path = root / "src/main/java/dev/redstoneengineering/client/ui/QuartzTimingScreen.java"
 shared_path = root / "src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java"
+source_path = root / "src/main/java/dev/redstoneengineering/block/QuartzOscillatorBlock.java"
+opener_path = root / "src/main/java/dev/redstoneengineering/ui/FieldDeviceUi.java"
 
-for path in (menu_path, screen_path, shared_path):
+for path in (menu_path, screen_path, shared_path, source_path, opener_path):
     if not path.is_file():
         failed.append(f"missing quartz HMI contract file: {path.relative_to(root)}")
 
@@ -17,9 +19,11 @@ if not failed:
     menu = menu_path.read_text(errors="ignore")
     screen = screen_path.read_text(errors="ignore")
     shared = shared_path.read_text(errors="ignore")
+    source = source_path.read_text(errors="ignore")
+    opener = opener_path.read_text(errors="ignore")
 
     for token in (
-        "QuartzOscillatorBlock.stepPeriod(level, blockPos",
+        "QuartzOscillatorBlock.adjustConfiguredPeriodTicks(",
         "DirectionalDomainSourceBlock.rotateOutput(level, blockPos",
         "DirectionalDomainSourceBlock.outputSide(state).ordinal()",
         "QuartzOscillatorBlock.effectivePeriodTicks(level, blockPos, state)",
@@ -39,6 +43,22 @@ if not failed:
 
     if "level.scheduleTick(blockPos, oscillator, 1)" in menu:
         failed.append("QuartzTimingMenu can still manufacture an early oscillator transition after a period edit")
+
+    for token in (
+        "public static boolean adjustConfiguredPeriodTicks",
+        "deliberately does not schedule an early tick",
+    ):
+        if token not in source:
+            failed.append(f"QuartzOscillatorBlock missing edge-safe fine adjustment token: {token}")
+    fine_start = source.find("public static boolean adjustConfiguredPeriodTicks")
+    fine_end = source.find("public static int edgeCount", fine_start)
+    if fine_start >= 0 and fine_end > fine_start and "scheduleTick(" in source[fine_start:fine_end]:
+        failed.append("fine Quartz period adjustment schedules an artificial early transition")
+
+    if "if (block instanceof QuartzOscillatorBlock || block instanceof QuartzClockDividerBlock || block instanceof QuartzStabilityMonitorBlock)" not in opener:
+        failed.append("FieldDeviceUi does not route Quartz oscillator/divider to the dedicated timing HMI")
+    if "block instanceof QuartzOscillatorBlock\n                || block instanceof QuartzClockDividerBlock\n                || block instanceof QuartzPhaseDelayBlock" in opener:
+        failed.append("FieldDeviceUi generic MultiPhysics dispatch still intercepts Quartz oscillator/divider")
 
     stability = menu[menu.find("if (block instanceof QuartzStabilityMonitorBlock monitor)"):menu.find("kind.set(-1);")]
     if "outputFacing.set(" in stability:
@@ -76,7 +96,8 @@ if failed:
     raise SystemExit(1)
 
 print("RSE quartz timing HMI verification: PASS")
-print(" oscillator edits latch through the server timing model: PASS")
+print(" oscillator fine edits latch through the server timing model: PASS")
+print(" normal Quartz oscillator/divider dispatch reaches dedicated HMI: PASS")
 print(" quartz routing matches declared physical endpoints: PASS")
 print(" divider phase/configuration evidence is server-backed: PASS")
 print(" stability window statistics are synchronized, not client-fabricated: PASS")
