@@ -214,6 +214,10 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
                 changed = inputRoute
                         ? DirectionalSignalBlock.rotateSeriesInput(level, blockPos, clockwise)
                         : DirectionalSignalBlock.rotateSeriesOutput(level, blockPos, clockwise);
+            } else if (block instanceof RedstoneCopperDriverBlock) {
+                changed = inputRoute
+                        ? RedstoneCopperDriverBlock.rotateInput(level, blockPos, clockwise)
+                        : RedstoneCopperDriverBlock.rotateOutput(level, blockPos, clockwise);
             } else if (block instanceof CopperCapacitorBlock || block instanceof CopperFuseBlock) {
                 changed = inputRoute
                         ? DirectionalDomainBlock.rotateSeriesInput(level, blockPos, clockwise)
@@ -298,7 +302,7 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
     public boolean hasInputEndpoint(){return inputFacing.get()>=0;}
     public boolean hasOutputEndpoint(){return outputFacing.get()>=0;}
     public boolean canRouteInput(){
-        return kind.get()==KIND_CONDITIONER || kind.get()==KIND_PWM
+        return kind.get()==KIND_CONDITIONER || kind.get()==KIND_PWM || kind.get()==KIND_COPPER_DRIVER
                 || kind.get()==KIND_CAPACITOR || kind.get()==KIND_FUSE;
     }
     public boolean canRouteOutput(){
