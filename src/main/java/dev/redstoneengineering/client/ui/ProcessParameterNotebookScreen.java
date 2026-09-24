@@ -20,6 +20,7 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
     private final List<Button> routeControls=new ArrayList<>();
     private Button action;
     private int scrollOffset = 0;
+    private int horizontalOffset = 0;
     private static final int VIEW_MARGIN = 8;
     private static final int CONTENT_TOP = 84;
     private static final int CONTENT_BOTTOM_MARGIN = 34;
@@ -31,14 +32,14 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
     @Override protected void init(){
         imageWidth=Math.max(360,width-VIEW_MARGIN*2);
         imageHeight=Math.max(240,height-VIEW_MARGIN*2);
-        super.init(); controls.clear(); routeControls.clear(); scrollOffset=0;
+        super.init(); controls.clear(); routeControls.clear(); scrollOffset=0; horizontalOffset=0;
 
         int tabCount=Tab.values().length;
         int gap=imageWidth<460?4:7;
         int tabWidth=Math.max(48,(imageWidth-48-gap*(tabCount-1))/tabCount);
         int x=leftPos+24;
         for(Tab t:Tab.values()){
-            addRenderableWidget(Button.builder(Component.literal(tabLabel(t)),b->{tab=t;scrollOffset=0;syncVisibility();})
+            addRenderableWidget(Button.builder(Component.literal(tabLabel(t)),b->{tab=t;scrollOffset=0;horizontalOffset=0;syncVisibility();})
                     .bounds(x,topPos+38,tabWidth,22).build());
             x+=tabWidth+gap;
         }
@@ -107,8 +108,13 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
     public boolean mouseScrolled(double mouseX,double mouseY,double scrollX,double scrollY){
         if(mouseX>=leftPos+18&&mouseX<=leftPos+imageWidth-18
                 &&mouseY>=topPos+CONTENT_TOP&&mouseY<=topPos+imageHeight-CONTENT_BOTTOM_MARGIN){
-            int max=maxScroll();
-            scrollOffset=Math.max(0,Math.min(max,scrollOffset-(int)Math.round(scrollY*24.0)));
+            double horizontalDelta=Math.abs(scrollX)>0.01?scrollX:(hasShiftDown()?scrollY:0.0);
+            if(Math.abs(horizontalDelta)>0.01&&maxHorizontalScroll()>0){
+                horizontalOffset=Math.max(0,Math.min(maxHorizontalScroll(),horizontalOffset-(int)Math.round(horizontalDelta*32.0)));
+            }else{
+                int max=maxScroll();
+                scrollOffset=Math.max(0,Math.min(max,scrollOffset-(int)Math.round(scrollY*24.0)));
+            }
             syncVisibility();
             return true;
         }
@@ -130,6 +136,19 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
         return Math.max(0,contentHeight()-visible);
     }
 
+    private int virtualContentWidth(){ return Math.max(imageWidth-36,1100); }
+    private int maxHorizontalScroll(){
+        int visible=Math.max(240,imageWidth-36);
+        return Math.max(0,virtualContentWidth()-visible);
+    }
+
+    private boolean inViewport(Button b){
+        return b.getY()>=topPos+CONTENT_TOP
+                &&b.getY()<=topPos+imageHeight-CONTENT_BOTTOM_MARGIN-b.getHeight()
+                &&b.getX()+b.getWidth()>=leftPos+18
+                &&b.getX()<=leftPos+imageWidth-18;
+    }
+
     private int parameterCount(){
         return switch(menu.kind()){
             case ProcessParameterMenu.KIND_CONDITIONER,
@@ -149,26 +168,24 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             int row=i/2;
             Button b=controls.get(i);
             int virtualY=CONTENT_TOP+44+row*52;
+            b.setX(((i%2)==0?leftPos+imageWidth-164:leftPos+imageWidth-78)-horizontalOffset);
             b.setY(topPos+virtualY-scrollOffset);
-            b.visible=tab==Tab.PARAMETERS&&row<n
-                    &&b.getY()>=topPos+CONTENT_TOP&&b.getY()<=topPos+imageHeight-CONTENT_BOTTOM_MARGIN-22;
+            b.visible=tab==Tab.PARAMETERS&&row<n&&inViewport(b);
         }
         int routeWidth=routeButtonWidth(), routeGap=8, routeX=routeButtonStartX();
         for(int i=0;i<routeControls.size();i++){
             Button b=routeControls.get(i);
-            b.setX(routeX+i*(routeWidth+routeGap));
+            b.setX(routeX+i*(routeWidth+routeGap)-horizontalOffset);
             b.setY(topPos+CONTENT_TOP+112-scrollOffset);
             boolean input=i<2;
             boolean routable=input?menu.canRouteInput():menu.canRouteOutput();
-            b.visible=tab==Tab.ROUTING&&routable
-                    &&b.getY()>=topPos+CONTENT_TOP&&b.getY()<=topPos+imageHeight-CONTENT_BOTTOM_MARGIN-22;
+            b.visible=tab==Tab.ROUTING&&routable&&inViewport(b);
         }
         if(action!=null){
-            action.setX(leftPos+imageWidth-188);
+            action.setX(leftPos+imageWidth-188-horizontalOffset);
             action.setY(topPos+CONTENT_TOP+250-scrollOffset);
             boolean hasAction=menu.kind()==ProcessParameterMenu.KIND_PWM||menu.kind()==ProcessParameterMenu.KIND_FUSE;
-            action.visible=tab==Tab.PARAMETERS&&hasAction
-                    &&action.getY()>=topPos+CONTENT_TOP&&action.getY()<=topPos+imageHeight-CONTENT_BOTTOM_MARGIN-22;
+            action.visible=tab==Tab.PARAMETERS&&hasAction&&inViewport(action);
             action.setMessage(Component.literal(menu.kind()==ProcessParameterMenu.KIND_FUSE?"Attempt reset":"Toggle invert"));
         }
     }
@@ -193,14 +210,15 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
         g.enableScissor(leftPos+18,topPos+CONTENT_TOP,leftPos+imageWidth-18,
                 topPos+imageHeight-CONTENT_BOTTOM_MARGIN);
         g.pose().pushPose();
-        g.pose().translate(0,-scrollOffset,0);
+        g.pose().translate(-horizontalOffset,-scrollOffset,0);
         switch(tab){case OPERATE->operate(g);case PARAMETERS->parameters(g);case MODEL->model(g);case ROUTING->routing(g);case DIAGNOSTICS->diagnostics(g);}
         g.pose().popPose();
         g.disableScissor();
 
-        if(maxScroll()>0){
-            String scroll="SCROLL "+scrollOffset+" / "+maxScroll();
-            g.drawString(font,scroll,imageWidth-24-font.width(scroll),72,MUTED,false);
+        if(maxScroll()>0||maxHorizontalScroll()>0){
+            String scroll="SCROLL Y "+scrollOffset+"/"+maxScroll()+" • X "+horizontalOffset+"/"+maxHorizontalScroll()+" • Shift+wheel / trackpad";
+            String compact=fit(scroll,Math.max(170,imageWidth-220));
+            g.drawString(font,compact,imageWidth-24-font.width(compact),72,MUTED,false);
         }
         g.drawString(font,fit(footer(),imageWidth-36),18,imageHeight-20,MUTED,false);
     }
@@ -563,7 +581,7 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
     private void pair(GuiGraphics g,String label,String value,int y){
         g.drawString(font,label,42,y,MUTED,false);
         int valueX=Math.min(300,imageWidth/2);
-        g.drawString(font,fit(value,Math.max(180,imageWidth-valueX-56)),valueX,y,INK,false);
+        g.drawString(font,value,valueX,y,INK,false);
     }
     private String fit(String s,int width){ if(font.width(s)<=width)return s; String x=s; while(x.length()>1&&font.width(x+"…")>width)x=x.substring(0,x.length()-1); return x+"…"; }
     private static String conditionerMode(int m){ return switch(m){case 0->"SCALE";case 1->"OFFSET";case 2->"CLAMP";case 3->"THRESHOLD";case 4->"DEADBAND";case 5->"ATTENUATE";default->"UNKNOWN";}; }
