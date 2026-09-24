@@ -104,24 +104,49 @@ public class RedstoneCopperDriverBlock extends Block implements EngineeringPortP
         return SLEW_STEPS[state.getValue(SLEW)];
     }
 
-    public static int configuredSlew(Level level, BlockPos pos, BlockState state) {
+    private static EngineeringDeviceParameters.ExtendedParameters configuredDynamics(
+            Level level, BlockPos pos, BlockState state
+    ) {
         int fallback = slewStep(state);
         if (level instanceof ServerLevel serverLevel) {
-            return Math.max(1, Math.min(15, EngineeringDeviceParameters.get(serverLevel)
+            EngineeringDeviceParameters.ExtendedParameters raw = EngineeringDeviceParameters.get(serverLevel)
                     .extendedParameters(serverLevel, pos,
-                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
+                            new EngineeringDeviceParameters.ExtendedParameters(fallback, fallback, 0, 0));
+            int rise = EngineeringMath.clamp(raw.a(), 1, 15);
+            // Backward compatibility with Alpha 1.0.21 saves, where slot B was unused and stored as zero.
+            int fall = raw.b() <= 0 ? rise : EngineeringMath.clamp(raw.b(), 1, 15);
+            return new EngineeringDeviceParameters.ExtendedParameters(rise, fall, 0, 0);
         }
-        return fallback;
+        return new EngineeringDeviceParameters.ExtendedParameters(fallback, fallback, 0, 0);
     }
 
-    public static boolean setConfiguredSlew(ServerLevel level, BlockPos pos, int slew) {
+    public static int configuredRiseSlew(Level level, BlockPos pos, BlockState state) {
+        return configuredDynamics(level, pos, state).a();
+    }
+
+    public static int configuredFallSlew(Level level, BlockPos pos, BlockState state) {
+        return configuredDynamics(level, pos, state).b();
+    }
+
+    /** Compatibility accessor retained for older tests and callers. */
+    public static int configuredSlew(Level level, BlockPos pos, BlockState state) {
+        return configuredRiseSlew(level, pos, state);
+    }
+
+    public static boolean setEngineeringSlewRates(ServerLevel level, BlockPos pos, int riseSlew, int fallSlew) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof RedstoneCopperDriverBlock driver)) return false;
-        int bounded = Math.max(1, Math.min(15, slew));
+        int rise = EngineeringMath.clamp(riseSlew, 1, 15);
+        int fall = EngineeringMath.clamp(fallSlew, 1, 15);
         boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
-                level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
+                level, pos, new EngineeringDeviceParameters.ExtendedParameters(rise, fall, 0, 0));
         if (changed) level.scheduleTick(pos, driver, 1);
         return changed;
+    }
+
+    /** Compatibility mutator: changing the legacy single slew updates both directions. */
+    public static boolean setConfiguredSlew(ServerLevel level, BlockPos pos, int slew) {
+        return setEngineeringSlewRates(level, pos, slew, slew);
     }
 
     private static int encodeQuality(PortQuality quality) { return quality.ordinal() + 1; }
@@ -172,12 +197,18 @@ public class RedstoneCopperDriverBlock extends Block implements EngineeringPortP
 
         if (observation.valid()) {
             rt[TARGET] = EngineeringMath.clamp(observation.value(), 0, 15);
-            rt[ACTUAL] = moveToward(rt[ACTUAL], rt[TARGET], configuredSlew(level, pos, state));
+            rt[ACTUAL] = moveToward(
+                    rt[ACTUAL], rt[TARGET],
+                    configuredRiseSlew(level, pos, state),
+                    configuredFallSlew(level, pos, state));
             // sourcePresent=true even for actual 0 V: a valid zero command is a real electrical state.
             DomainNetwork.driveCopper(level, pos.relative(outputSide(state)), pos, rt[ACTUAL], true);
         } else if (observation.quality() == PortQuality.NO_SIGNAL) {
             rt[TARGET] = 0;
-            rt[ACTUAL] = moveToward(rt[ACTUAL], 0, configuredSlew(level, pos, state));
+            rt[ACTUAL] = moveToward(
+                    rt[ACTUAL], 0,
+                    configuredRiseSlew(level, pos, state),
+                    configuredFallSlew(level, pos, state));
             DomainNetwork.driveCopper(level, pos.relative(outputSide(state)), pos, 0, false);
         } else {
             // Unknown command evidence is not a new numeric command.
@@ -186,11 +217,13 @@ public class RedstoneCopperDriverBlock extends Block implements EngineeringPortP
         level.scheduleTick(pos, this, 1);
     }
 
-    private static int moveToward(int current, int target, int step) {
+    private static int moveToward(int current, int target, int riseStep, int fallStep) {
         current = EngineeringMath.clamp(current, 0, 15);
         target = EngineeringMath.clamp(target, 0, 15);
-        if (current < target) return Math.min(target, current + step);
-        if (current > target) return Math.max(target, current - step);
+        int rise = EngineeringMath.clamp(riseStep, 1, 15);
+        int fall = EngineeringMath.clamp(fallStep, 1, 15);
+        if (current < target) return Math.min(target, current + rise);
+        if (current > target) return Math.max(target, current - fall);
         return current;
     }
 
@@ -220,12 +253,14 @@ public class RedstoneCopperDriverBlock extends Block implements EngineeringPortP
                 if (level instanceof ServerLevel serverLevel) {
                     EngineeringDeviceParameters.get(serverLevel).setExtendedParameters(
                             serverLevel, pos,
-                            new EngineeringDeviceParameters.ExtendedParameters(slewStep(updated), 0, 0, 0));
+                            new EngineeringDeviceParameters.ExtendedParameters(
+                                    slewStep(updated), slewStep(updated), 0, 0));
                 }
                 player.displayClientMessage(Component.literal(
                         "Redstone-Copper Driver | target=" + targetVoltage(level, pos)
                                 + " V-level | actual=" + actualVoltage(level, pos)
-                                + " | slew=" + slewStep(updated) + " V-level/tick"
+                                + " | riseSlew=" + slewStep(updated) + " V-level/tick"
+                                + " | fallSlew=" + slewStep(updated) + " V-level/tick"
                                 + " | quality=" + inputQuality(level, pos)
                                 + " | valid 0 V != missing command"), true);
             }
