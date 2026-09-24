@@ -61,11 +61,7 @@ public final class FieldDeviceUi {
                     data -> data.writeBlockPos(pos));
             return;
         }
-        if (block instanceof QuartzOscillatorBlock
-                || block instanceof QuartzClockDividerBlock
-                || block instanceof QuartzPhaseDelayBlock
-                || block instanceof AmethystFrequencyFilterBlock
-                || block instanceof AmethystTunedResonatorBlock
+        if (block instanceof QuartzPhaseDelayBlock
                 || block instanceof PressureRegulatorBlock
                 || block instanceof PneumaticProportionalValveBlock
                 || block instanceof OpticalAttenuatorBlock
