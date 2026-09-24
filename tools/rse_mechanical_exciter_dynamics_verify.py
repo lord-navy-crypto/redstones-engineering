@@ -19,6 +19,9 @@ def require(path: str, *tokens: str) -> None:
 
 logic = "src/main/java/dev/redstoneengineering/signal/MechanicalExciterLogic.java"
 block = "src/main/java/dev/redstoneengineering/block/MechanicalExciterBlock.java"
+damper = "src/main/java/dev/redstoneengineering/block/HoneyVibrationDamperBlock.java"
+menu = "src/main/java/dev/redstoneengineering/ui/menu/ProcessParameterMenu.java"
+screen = "src/main/java/dev/redstoneengineering/client/ui/ProcessParameterNotebookScreen.java"
 
 require(logic,
         "run-up/coast-down",
@@ -34,7 +37,29 @@ require(block,
         "A powered exciter is a continuous mechanical source",
         "VibrationNetwork.propagate(level, pos",
         "level.scheduleTick(pos, this, 1)",
-        "RuntimeIntStore.remove(level, RUNTIME_KEY, pos)")
+        "RuntimeIntStore.remove(level, RUNTIME_KEY, pos)",
+        "public static PortQuality outputQuality",
+        "drive.valid() ? PortQuality.NO_SIGNAL : drive.quality()")
+
+require(damper,
+        "localEnvelopeQuality",
+        "localEnvelopeAgeTicks",
+        'InformationRuntime.quality(level, "mech_wave", pos)',
+        'InformationRuntime.ageTicks(level, "mech_wave", pos)')
+require(menu,
+        "HoneyVibrationDamperBlock.localEnvelopeQuality",
+        "HoneyVibrationDamperBlock.localEnvelopeAgeTicks",
+        "MechanicalExciterBlock.runTicks",
+        "MechanicalExciterBlock.driveObservation",
+        "MechanicalExciterBlock.outputQuality")
+require(screen,
+        '"Envelope quality"',
+        '"Envelope age"',
+        '"Run ticks"',
+        '"Input quality"',
+        '"Output quality"',
+        "low-quality retained envelope",
+        "Actual amplitude may coast toward zero after command loss")
 
 logic_path = root / logic
 if logic_path.is_file():
@@ -105,3 +130,5 @@ print(" finite run-up / coast-down: PASS")
 print(" frequency tracking inertia: PASS")
 print(" sustained-drive continuous propagation contract: PASS")
 print(" runtime cleanup contract: PASS")
+print(" exciter input/output quality + run evidence: PASS")
+print(" damper envelope quality/freshness evidence: PASS")
