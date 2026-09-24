@@ -37,6 +37,8 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_FILTER_FALL_NEXT = 12;
     public static final int BUTTON_PULSE_HYSTERESIS_PREVIOUS = 13;
     public static final int BUTTON_PULSE_HYSTERESIS_NEXT = 14;
+    public static final int BUTTON_EDGE_WIDTH_PREVIOUS = 15;
+    public static final int BUTTON_EDGE_WIDTH_NEXT = 16;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot input = trackedInt();
@@ -107,9 +109,11 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
         } else if (block instanceof EdgeDetectorBlock) {
             kind.set(KIND_EDGE);
             parameter.set(state.getValue(EdgeDetectorBlock.MODE));
+            secondaryParameter.set(EdgeDetectorBlock.configuredPulseWidth(level, blockPos, state));
             runtimeA.set(EdgeDetectorBlock.pulseRemaining(level, blockPos));
             runtimeB.set(EdgeDetectorBlock.edgeCount(level, blockPos));
             runtimeC.set(EdgeDetectorBlock.lastEdgeAgeTicks(level, blockPos));
+            runtimeD.set(EdgeDetectorBlock.rejectedInputEpisodes(level, blockPos));
             initialized.set(EdgeDetectorBlock.initialized(level, blockPos) ? 1 : 0);
         } else if (block instanceof PulseShaperBlock) {
             kind.set(KIND_PULSE);
@@ -184,6 +188,18 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
             if (id == BUTTON_FILTER_FALL_PREVIOUS || id == BUTTON_FILTER_FALL_NEXT) return false;
         }
 
+        if (block instanceof EdgeDetectorBlock
+                && (id == BUTTON_EDGE_WIDTH_PREVIOUS || id == BUTTON_EDGE_WIDTH_NEXT)) {
+            if (!(level instanceof net.minecraft.server.level.ServerLevel server)) return false;
+            boolean changed = EdgeDetectorBlock.setConfiguredPulseWidth(
+                    server, blockPos, secondaryParameter.get() + (id == BUTTON_EDGE_WIDTH_NEXT ? 1 : -1));
+            if (changed) {
+                refreshAuthoritativeSnapshot();
+                broadcastChanges();
+            }
+            return changed;
+        }
+
         boolean forward;
         if (id == BUTTON_PARAMETER_PREVIOUS) forward = false;
         else if (id == BUTTON_PARAMETER_NEXT) forward = true;
@@ -191,11 +207,15 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
 
         boolean changed;
         if (block instanceof PrecisionFilterBlock) {
-            changed = PrecisionFilterBlock.stepRate(level, blockPos, forward);
+            if (!(level instanceof net.minecraft.server.level.ServerLevel server)) return false;
+            changed = PrecisionFilterBlock.setRiseRate(
+                    server, blockPos, parameter.get() + (forward ? 1 : -1));
         } else if (block instanceof EdgeDetectorBlock) {
             changed = EdgeDetectorBlock.stepMode(level, blockPos, forward);
         } else if (block instanceof PulseShaperBlock) {
-            changed = PulseShaperBlock.stepWidth(level, blockPos, forward);
+            if (!(level instanceof net.minecraft.server.level.ServerLevel server)) return false;
+            changed = PulseShaperBlock.setConfiguredWidth(
+                    server, blockPos, parameter.get() + (forward ? 1 : -1));
         } else return false;
 
         if (changed) {
