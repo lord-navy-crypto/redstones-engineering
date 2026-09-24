@@ -118,7 +118,8 @@ public final class RseDiagnosticsScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal(compactFooter ? "Report" : "Copy Report"), button -> copyReport())
                 .bounds(footerX, bottom, footerWidth, 20).build());
         footerX += footerWidth + footerGap;
-        addRenderableWidget(Button.builder(Component.literal(compactFooter ? "Run" : "Copy Run"), button -> copyRun())
+        Component copyRunLabel = compactFooter ? Component.literal("Run") : Component.literal("Copy Run");
+        addRenderableWidget(Button.builder(copyRunLabel, button -> copyRun())
                 .bounds(footerX, bottom, footerWidth, 20).build());
         footerX += footerWidth + footerGap;
         addRenderableWidget(Button.builder(Component.literal("Export"), button -> exportLatest())
