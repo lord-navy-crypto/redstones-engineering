@@ -203,8 +203,8 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
         }else if(menu.kind()==PneumaticSystemMenu.KIND_REGULATOR){
             labelValue(g,"Inlet / setpoint",menu.primary()+" / "+menu.secondary(),110);
             labelValue(g,"Actual ceiling / error",menu.tertiary()+" / "+menu.auxiliary(),132);
-            labelValue(g,"Response mode",PressureRegulatorLogic.modeName(menu.stateFlag()),154);
-            safeText(g,"Regulation evidence is finite diaphragm response; the solver consumes actual ceiling rather than the configured target.",16,186,MUTED);
+            labelValue(g,"Setpoint / response rate",menu.engineeringA()+" / "+menu.engineeringB(),154);
+            safeText(g,"Regulation evidence is finite diaphragm response; exact setpoint/rate are server configuration while actual ceiling remains runtime evidence.",16,186,MUTED);
         }else if(isReservoir()){
             labelValue(g,"Stored / line",menu.primary()+" / "+menu.secondary(),110);
             safeText(g,"Current recovery state is derived from the existing finite-rate reservoir law; no unretained trend history is invented.",16,148,MUTED);
@@ -212,8 +212,9 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
             labelValue(g,"Command / actual",menu.proportionalCommand()+" / "+menu.tertiary(),110);
             labelValue(g,"Tracking error",Integer.toString(menu.proportionalTrackingError()),132);
             labelValue(g,"Travel / reversals",menu.proportionalTravel()+" / "+menu.proportionalReversals(),154);
-            labelValue(g,"Current local drop",Integer.toString(Math.max(0,menu.primary()-menu.secondary())),176);
-            safeText(g,"Valve history is real spool travel/reversal evidence; restriction uses actual opening, not the command target.",16,202,MUTED);
+            labelValue(g,"Configured spool rate",menu.engineeringA()+" opening/tick",176);
+            labelValue(g,"Current local drop",Integer.toString(Math.max(0,menu.primary()-menu.secondary())),198);
+            safeText(g,"Valve history is real spool travel/reversal evidence; restriction uses actual opening, not the command target.",16,224,MUTED);
         }else if(menu.kind()==PneumaticSystemMenu.KIND_RELIEF){labelValue(g,"Vent events",Integer.toString(menu.auxiliary()),110);labelValue(g,"Setpoint / blowdown",menu.engineeringA()+" / "+menu.engineeringB(),132);labelValue(g,"Reseat pressure",Integer.toString(Math.max(0,menu.engineeringA()-menu.engineeringB())),154);safeText(g,"VENTING is an operating event, not missing measurement evidence; blowdown defines the retained reset band.",16,180,GOOD);}
         else safeText(g,"Live server state only; no client-side pneumatic history is fabricated.",16,112,MUTED);
     }
