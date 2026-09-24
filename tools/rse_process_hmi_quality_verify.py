@@ -9,8 +9,10 @@ menu_path = root / "src/main/java/dev/redstoneengineering/ui/menu/ProcessParamet
 screen_path = root / "src/main/java/dev/redstoneengineering/client/ui/ProcessParameterNotebookScreen.java"
 conditioner_path = root / "src/main/java/dev/redstoneengineering/block/SignalConditionerBlock.java"
 pwm_path = root / "src/main/java/dev/redstoneengineering/block/PwmControllerBlock.java"
+pwm_logic_path = root / "src/main/java/dev/redstoneengineering/signal/PwmCarrierLogic.java"
+damper_path = root / "src/main/java/dev/redstoneengineering/block/HoneyVibrationDamperBlock.java"
 
-for path in (menu_path, screen_path, conditioner_path, pwm_path):
+for path in (menu_path, screen_path, conditioner_path, pwm_path, pwm_logic_path, damper_path):
     if not path.is_file():
         failed.append(f"missing process quality contract file: {path.relative_to(root)}")
 
@@ -19,6 +21,8 @@ if not failed:
     screen = screen_path.read_text(errors="ignore")
     conditioner = conditioner_path.read_text(errors="ignore")
     pwm = pwm_path.read_text(errors="ignore")
+    pwm_logic = pwm_logic_path.read_text(errors="ignore")
+    damper = damper_path.read_text(errors="ignore")
 
     for token in (
         "SignalConditionerBlock.inspectInputQuality",
@@ -76,6 +80,12 @@ if not failed:
         "Output-only LAPIS precision source",
         "Six-face COPPER voltage source",
         "moving TX releases the old Copper driver claim",
+        "onTicks = round((command / 15) × period)",
+        "Partial-duty commands latch only at carrier-cycle boundaries",
+        "0% and 100% endpoint commands apply immediately",
+        "A[k+1] = max(0, A[k] − attenuation)",
+        "reduces envelope quality by 20",
+        "fixed 4-tick packet TTL",
     ):
         if token not in screen:
             failed.append(f"ProcessParameterNotebookScreen missing quality/diagnostic/routing presentation token: {token}")
@@ -97,6 +107,23 @@ if not failed:
     ):
         if token not in (root / "src/main/java/dev/redstoneengineering/block/RedstoneCopperDriverBlock.java").read_text(errors="ignore"):
             failed.append(f"RedstoneCopperDriverBlock missing safe routing token: {token}")
+
+    for token in (
+        "quantizedOnTicks",
+        "Math.round((boundedCommand / 15.0) * boundedPeriod)",
+        "requested <= 0 || requested >= 15",
+        "phase == 0",
+    ):
+        if token not in pwm_logic:
+            failed.append(f"PwmCarrierLogic missing carrier assumption token: {token}")
+
+    for token in (
+        "PACKET_TTL_TICKS = 4",
+        "InformationRuntime.quality(level, \"mech_wave\", pos) - 20",
+        "level.scheduleTick(pos, this, PACKET_TTL_TICKS)",
+    ):
+        if token not in damper:
+            failed.append(f"HoneyVibrationDamperBlock missing fixed model assumption token: {token}")
 
     for token in (
         "public static PortQuality commandQuality",
@@ -126,3 +153,5 @@ print(" fixed/multi-face devices do not receive fake RX/TX controls: PASS")
 print(" Redstone-Copper driver reroute releases the old Copper claim: PASS")
 print(" output-only Lapis source remains output-only: PASS")
 print(" five-tab Process notebook stays narrow-viewport aware: PASS")
+print(" PWM quantization/latch assumptions match server carrier logic: PASS")
+print(" damper TTL/quality-decay assumptions match server model: PASS")
