@@ -59,11 +59,11 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
         evidenceWidgets.clear();
         scrollOffset = 0;
 
-        int gap = imageWidth < 440 ? 5 : 7;
-        int tabWidth = Math.max(64, (imageWidth - 48 - gap * (PageTab.values().length - 1)) / PageTab.values().length);
+        int gap = imageWidth < 440 ? 4 : 7;
+        int tabWidth = Math.max(48, (imageWidth - 48 - gap * (PageTab.values().length - 1)) / PageTab.values().length);
         int x = leftPos + 24;
         for (PageTab value : PageTab.values()) {
-            addRenderableWidget(Button.builder(Component.literal(value.label), b -> {
+            addRenderableWidget(Button.builder(Component.literal(pageTabLabel(value)), b -> {
                 page = value;
                 scrollOffset = 0;
                 updateVisibility();
@@ -87,6 +87,17 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
                 .bounds(leftPos + imageWidth / 2 - 90, topPos + CONTENT_TOP + 240, 180, 22).build()));
 
         updateVisibility();
+    }
+
+    private String pageTabLabel(PageTab value) {
+        if (imageWidth >= 460) return value.label;
+        return switch (value) {
+            case OPERATE -> "Run";
+            case PARAMETERS -> "Params";
+            case MODEL -> "Model";
+            case RESPONSE -> "Resp";
+            case EVIDENCE -> "Evidence";
+        };
     }
 
     private void addParameterControl(int row, int minusId, int plusId) {
