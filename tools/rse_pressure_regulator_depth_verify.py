@@ -27,11 +27,20 @@ require(block,
 require(network,"PressureRegulatorBlock.actualRegulatedPressure")
 require(menu,
         "PressureRegulatorBlock.RESPONSE_MODE",
-        "PressureRegulatorBlock.stepResponseMode",
+        "PressureRegulatorBlock.setpointPressure(level, blockPos, state)",
+        "PressureRegulatorBlock.responseRate(level, blockPos, state)",
+        "PressureRegulatorBlock.setEngineeringParameters",
+        "engineeringA.set(PressureRegulatorBlock.setpointPressure",
+        "engineeringB.set(PressureRegulatorBlock.responseRate",
         "PressureRegulatorBlock.actualRegulatedPressure",
         "PressureRegulatorBlock.trackingError")
 require(screen,
-        "REGULATOR RESPONSE","Setpoint / actual ceiling","Tracking error","Response mode")
+        "REGULATOR RESPONSE",
+        "Setpoint / actual ceiling",
+        "Tracking error",
+        "Response rate",
+        '"Setpoint / response rate"',
+        'menu.engineeringB()+" pressure/tick"')
 
 lp=root/logic
 if lp.is_file():
@@ -70,4 +79,4 @@ print("RSE pressure-regulator engineering-depth verification: PASS")
 print(" 10-step calibrated setpoint: PASS")
 print(" finite regulator response: PASS")
 print(" solver consumes actual ceiling: PASS")
-print(" HMI response evidence: PASS")
+print(" HMI exact setpoint/response-rate authority + response evidence: PASS")
