@@ -15,6 +15,7 @@ import dev.redstoneengineering.ui.menu.QuartzTimingMenu;
 import dev.redstoneengineering.ui.menu.RadioLinkMenu;
 import dev.redstoneengineering.ui.menu.RangeSensorMenu;
 import dev.redstoneengineering.ui.menu.ReliabilitySystemMenu;
+import dev.redstoneengineering.ui.menu.SignalConditionerMenu;
 import dev.redstoneengineering.ui.menu.SignalProcessorMenu;
 import dev.redstoneengineering.ui.menu.ServoActuatorMenu;
 import dev.redstoneengineering.ui.menu.UniversalFieldDeviceMenu;
@@ -30,8 +31,13 @@ public final class FieldDeviceUi {
         var state = player.level().getBlockState(pos);
         var block = state.getBlock();
         var title = block.getName();
-        if (block instanceof SignalConditionerBlock
-                || block instanceof PwmControllerBlock
+        if (block instanceof SignalConditionerBlock) {
+            player.openMenu(new SimpleMenuProvider(
+                    (id, inv, ignored) -> new SignalConditionerMenu(id, inv, pos), title),
+                    data -> data.writeBlockPos(pos));
+            return;
+        }
+        if (block instanceof PwmControllerBlock
                 || block instanceof RedstoneCopperDriverBlock
                 || block instanceof CopperCapacitorBlock
                 || block instanceof CopperFuseBlock
