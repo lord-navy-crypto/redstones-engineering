@@ -33,7 +33,11 @@ require(block,
         "desiredVelocity = clamp(positionError, -maxSpeed, maxSpeed)",
         "appliedVelocity = approach(appliedVelocity, desiredVelocity, accelStep)",
         "int limitedPosition = clamp(candidatePosition, 0, 15)",
-        "brake = !commandAvailable")
+        "brake = !commandAvailable",
+        "public static boolean rotateLayout",
+        "COMMAND remains BACK",
+        "Runtime position and trajectory evidence are retained",
+        "server.scheduleTick(pos, block, 1)")
 
 require(menu,
         "private final DataSlot mode",
@@ -49,7 +53,14 @@ require(menu,
         "ServoActuatorBlock.outputQuality",
         "public boolean velocityMode()",
         "public int settleTicks()",
-        "public int travel()")
+        "public int travel()",
+        "BUTTON_ROTATE_LEFT",
+        "BUTTON_ROTATE_RIGHT",
+        "ServoActuatorBlock.rotateLayout",
+        "public Direction commandDirection()",
+        "public Direction brakeDirection()",
+        "public Direction modeDirection()",
+        "public Direction positionOutputDirection()")
 
 require(screen,
         'MODEL("Model")',
@@ -60,6 +71,16 @@ require(screen,
         '"Mode input quality"',
         '"Brake input quality"',
         '"Position output quality"',
+        'ROUTING("Routing")',
+        "routeButtonWidth",
+        "routeButtonStartX",
+        '"Rotate layout ◀"',
+        '"FRONT • POSITION OUT"',
+        '"BACK • COMMAND IN"',
+        '"RIGHT • BRAKE"',
+        '"UP • MODE SELECT"',
+        "rotates as one rigid horizontal assembly",
+        "Position, load configuration and retained trajectory evidence survive the rotation.",
         "POSITION mode: desiredVelocity = clamp(command − position",
         "VELOCITY mode: velocityCommand = command − 7",
         "Acceleration is discrete:",
@@ -79,5 +100,5 @@ print(" position/velocity mode model: PASS")
 print(" discrete acceleration + brake fail-safe contract: PASS")
 print(" trajectory response evidence: PASS")
 print(" command/mode/brake/output quality synchronization: PASS")
-print(" five-tab viewport-aware engineering notebook: PASS")
+print(" six-tab viewport-aware engineering notebook with rigid Route page: PASS")
 print(" client remains render-only; no second Servo solver: PASS")
