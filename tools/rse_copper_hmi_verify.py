@@ -44,11 +44,37 @@ require(assessment, "case VALID -> voltage > 0 ? CommissioningStatus.PASS : Comm
 require(menu, "CopperCommissioningAssessment.assess", "menu shared commissioning evidence")
 require(menu, "commissioningStatus.set", "server commissioning synchronization")
 require(menu, "rotateMeasurementFace", "real measurement-face routing")
+for token in (
+    "MeasurementSnapshot measurement = CopperCircuitMeterBlock.measurement",
+    "meterReadingCenti",
+    "repeatabilityCenti",
+    "biasCenti",
+    "driftCenti",
+    "noiseCenti",
+    "uncertaintyCenti",
+    "sampleAgeTicks",
+    "sampleCount",
+    "measurementQuality",
+    "measurement.saturated()",
+):
+    require(menu, token, "server metrology synchronization")
 
 require(screen, "COPPER POWER / LOAD NETWORK", "Copper medium identity")
 require(screen, "SERVER-SYNCHRONIZED OBSERVER", "observer authority")
 require(screen, "V, Req, I and P", "electrical telemetry explanation")
 require(screen, "commissioningStatus()", "commissioning presentation")
+for token in (
+    "METROLOGY + COMMISSIONING EVIDENCE",
+    "Measurement quality",
+    "Conditioned reading",
+    "Repeatability",
+    "Bias / drift",
+    "Noise",
+    "Uncertainty proxy",
+    "Sample count / age",
+    "diagnostic metrology proxies",
+):
+    require(screen, token, "retained metrology presentation")
 # UI prose may name the authoritative server model. What is forbidden is importing or invoking it client-side.
 forbid(screen, "import dev.redstoneengineering.physics.CircuitPhysics", "client must not import circuit solver")
 forbid(screen, "CircuitPhysics.", "client must not invoke circuit solver")
@@ -121,6 +147,7 @@ print("RSE Copper HMI verification: PASS")
 print("  server-authoritative V/Req/I/P evidence: PASS")
 print("  dedicated power/load identity: PASS")
 print("  commissioning synchronization: PASS")
+print("  retained server metrology synchronization/presentation: PASS")
 print("  transition-only plant timeline integration: PASS")
 print("  protection reliability / evidence readiness separation: PASS")
 print("  client physics isolation: PASS")
