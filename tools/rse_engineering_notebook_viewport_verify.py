@@ -121,6 +121,8 @@ responsive_contracts = {
     ),
     "src/main/java/dev/redstoneengineering/client/ui/ServoActuatorNotebookScreen.java": (
         "pageTabLabel",
+        "routeButtonWidth",
+        "routeButtonStartX",
         "Math.max(48",
         "imageWidth < 440 ? 4 : 7",
     ),
