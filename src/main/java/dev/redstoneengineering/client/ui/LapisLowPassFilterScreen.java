@@ -30,7 +30,8 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
         OPERATE("Operate"),
         PARAMETERS("Parameters"),
         RESPONSE("Response"),
-        MODEL("Model");
+        MODEL("Model"),
+        ROUTING("Routing");
 
         final String label;
         Page(String label) { this.label = label; }
@@ -38,6 +39,7 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
 
     private Page page = Page.PARAMETERS;
     private final List<Button> parameterButtons = new ArrayList<>();
+    private final List<Button> routeButtons = new ArrayList<>();
     private int scrollOffset = 0;
     private static final int VIEW_MARGIN = 8;
     private static final int CONTENT_TOP = 84;
@@ -58,14 +60,15 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
         imageHeight = Math.max(240, height - VIEW_MARGIN * 2);
         super.init();
         parameterButtons.clear();
+        routeButtons.clear();
         scrollOffset = 0;
 
         int tabY = topPos + 38;
-        int gap = imageWidth < 440 ? 5 : 7;
-        int tabW = Math.max(64, (imageWidth - 48 - gap * (Page.values().length - 1)) / Page.values().length);
+        int gap = imageWidth < 460 ? 4 : 7;
+        int tabW = Math.max(48, (imageWidth - 48 - gap * (Page.values().length - 1)) / Page.values().length);
         int start = leftPos + 24;
         for (Page value : Page.values()) {
-            addRenderableWidget(Button.builder(Component.literal(value.label), b -> {
+            addRenderableWidget(Button.builder(Component.literal(pageLabel(value)), b -> {
                 page = value;
                 scrollOffset = 0;
                 updateVisibility();
@@ -93,7 +96,44 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
                 b -> send(LapisLowPassFilterMenu.BUTTON_ALPHA_RESET))
                 .bounds(leftPos + imageWidth / 2 - 50, topPos + CONTENT_TOP + 170, 100, 22).build()));
 
+        int routeWidth = routeButtonWidth();
+        int routeGap = 8;
+        int routeX = routeButtonStartX();
+        int routeY = topPos + CONTENT_TOP + 118;
+        routeButtons.add(addRenderableWidget(Button.builder(Component.literal("RX ◀"),
+                b -> send(LapisLowPassFilterMenu.BUTTON_INPUT_PREVIOUS))
+                .bounds(routeX, routeY, routeWidth, 22).build()));
+        routeButtons.add(addRenderableWidget(Button.builder(Component.literal("RX ▶"),
+                b -> send(LapisLowPassFilterMenu.BUTTON_INPUT_NEXT))
+                .bounds(routeX + routeWidth + routeGap, routeY, routeWidth, 22).build()));
+        routeButtons.add(addRenderableWidget(Button.builder(Component.literal("TX ◀"),
+                b -> send(LapisLowPassFilterMenu.BUTTON_OUTPUT_PREVIOUS))
+                .bounds(routeX + (routeWidth + routeGap) * 2, routeY, routeWidth, 22).build()));
+        routeButtons.add(addRenderableWidget(Button.builder(Component.literal("TX ▶"),
+                b -> send(LapisLowPassFilterMenu.BUTTON_OUTPUT_NEXT))
+                .bounds(routeX + (routeWidth + routeGap) * 3, routeY, routeWidth, 22).build()));
+
         updateVisibility();
+    }
+
+    private String pageLabel(Page value) {
+        if (imageWidth >= 500) return value.label;
+        return switch (value) {
+            case OPERATE -> "Run";
+            case PARAMETERS -> "Params";
+            case RESPONSE -> "Resp";
+            case MODEL -> "Model";
+            case ROUTING -> "Route";
+        };
+    }
+
+    private int routeButtonWidth() {
+        return Math.max(54, Math.min(82, (imageWidth - 48 - 8 * 3) / 4));
+    }
+
+    private int routeButtonStartX() {
+        int total = routeButtonWidth() * 4 + 8 * 3;
+        return leftPos + Math.max(24, (imageWidth - total) / 2);
     }
 
     private int alphaStepButtonWidth() {
@@ -126,6 +166,21 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
                     && button.getY() >= topPos + CONTENT_TOP
                     && button.getY() <= topPos + imageHeight - CONTENT_BOTTOM_MARGIN - 22;
         }
+
+        int routeWidth = routeButtonWidth();
+        int routeGap = 8;
+        int routeX = routeButtonStartX();
+        int routeY = topPos + CONTENT_TOP + 118 - scrollOffset;
+        for (int i = 0; i < routeButtons.size(); i++) {
+            Button button = routeButtons.get(i);
+            button.setX(routeX + i * (routeWidth + routeGap));
+            button.setY(routeY);
+            boolean input = i < 2;
+            boolean endpoint = input ? menu.hasInputEndpoint() : menu.hasOutputEndpoint();
+            button.visible = page == Page.ROUTING && endpoint
+                    && button.getY() >= topPos + CONTENT_TOP
+                    && button.getY() <= topPos + imageHeight - CONTENT_BOTTOM_MARGIN - 22;
+        }
     }
 
     @Override
@@ -145,6 +200,7 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
             case PARAMETERS -> 500;
             case RESPONSE -> 520;
             case MODEL -> 650;
+            case ROUTING -> 500;
         };
     }
 
@@ -186,6 +242,7 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
             case PARAMETERS -> renderParameters(g);
             case RESPONSE -> renderResponse(g);
             case MODEL -> renderModel(g);
+            case ROUTING -> renderRouting(g);
         }
         g.pose().popPose();
         g.disableScissor();
@@ -255,6 +312,39 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
         g.drawString(font, "Reacquisition continues from the last trustworthy output.", 42, CONTENT_TOP + 406, MUTED, false);
         g.drawString(font, "τ and cutoff are display-only values from synchronized α and Ts = 0.1 s.", 42, CONTENT_TOP + 444, MUTED, false);
         g.drawString(font, "The client does not run a second filter solver.", 42, CONTENT_TOP + 462, MUTED, false);
+    }
+
+    private void renderRouting(GuiGraphics g) {
+        int w = Math.max(300, imageWidth - 96);
+        g.drawString(font, "PHYSICAL LAPIS ROUTING", 42, CONTENT_TOP + 24, MUTED, false);
+        drawPair(g, "RX • LAPIS FILTER IN",
+                menu.hasInputEndpoint() ? menu.inputDirection().getName().toUpperCase() : "NONE",
+                CONTENT_TOP + 62);
+        drawPair(g, "TX • LAPIS FILTER OUT",
+                menu.hasOutputEndpoint() ? menu.outputDirection().getName().toUpperCase() : "NONE",
+                CONTENT_TOP + 96);
+
+        int y = CONTENT_TOP + 170;
+        y = drawWrapped(g,
+                "RX and TX are independent horizontal physical endpoints. The block routing model rejects endpoint overlap and schedules the real server filter after a successful move.",
+                42, y, w, INK) + 18;
+        y = drawWrapped(g,
+                "Moving TX releases the old domain-driver claim before the newly routed output is republished, so the previous Lapis segment cannot retain a ghost filter output.",
+                42, y, w, MUTED) + 18;
+        y = drawWrapped(g,
+                "Routing changes topology only. α, retained y[k], input/output PortQuality and response evidence remain server-owned filter state.",
+                42, y, w, MUTED) + 18;
+        drawWrapped(g,
+                "After rerouting, use Operate and Response to verify reacquisition and tracking on the new physical path.",
+                42, y, w, MUTED);
+    }
+
+    private int drawWrapped(GuiGraphics g, String text, int x, int y, int width, int color) {
+        for (var line : font.split(Component.literal(text), width)) {
+            g.drawString(font, line, x, y, color, false);
+            y += 14;
+        }
+        return y;
     }
 
     private void drawPair(GuiGraphics g, String label, String value, int y) {
