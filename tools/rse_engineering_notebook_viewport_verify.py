@@ -89,6 +89,20 @@ else:
         if token not in shared:
             failed.append(f"{SHARED_SCREEN} missing narrow-viewport tab contract token: {token}")
 
+model_wrap_contracts = {
+    "src/main/java/dev/redstoneengineering/client/ui/ProcessParameterNotebookScreen.java": ("drawWrapped", "font.split(Component.literal"),
+    "src/main/java/dev/redstoneengineering/client/ui/AdvancedParameterNotebookScreen.java": ("drawWrapped", "font.split(Component.literal"),
+    "src/main/java/dev/redstoneengineering/client/ui/MultiPhysicsParameterNotebookScreen.java": ("drawWrapped", "font.split(Component.literal"),
+}
+for rel, tokens in model_wrap_contracts.items():
+    text = (root / rel).read_text(errors="ignore")
+    for token in tokens:
+        if token not in text:
+            failed.append(f"{rel} missing vertical model-wrap token: {token}")
+    for stale in ("fit(model1()", "fit(modelLine1()"):
+        if stale in text:
+            failed.append(f"{rel} reintroduced one-line model truncation: {stale}")
+
 responsive_contracts = {
     "src/main/java/dev/redstoneengineering/client/ui/PidEngineeringNotebookScreen.java": (
         "pageTabLabel",
@@ -174,4 +188,5 @@ print(" six engineering notebook screens migrated: PASS")
 print(" shared EngineeringScreen viewport shell migrated: PASS")
 print(" route controls move and clip with scrolled engineering content: PASS")
 print(" narrow-viewport tabs and controls stay inside notebook bounds: PASS")
+print(" parameter notebook models wrap vertically instead of ellipsizing equations: PASS")
 print(" Redstone Encyclopedia viewport document migrated: PASS")
