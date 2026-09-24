@@ -14,9 +14,10 @@ import java.util.List;
 /** Full-page notebook for the second ten-block parameter batch. */
 public final class AdvancedParameterNotebookScreen extends AbstractContainerScreen<AdvancedParameterMenu> {
     private static final int BG=0xFFF2E9D8, PAGE=0xFFFFF8E8, INK=0xFF2C2925, MUTED=0xFF6E675E, RULE=0xFFB9A98F, ACCENT=0xFF6B4E3D, GOOD=0xFF2F7D4A, WARN=0xFF9A6A19, BAD=0xFFA43838;
-    private enum Tab { OPERATE("Operate"), PARAMETERS("Parameters"), MODEL("Model"), DIAGNOSTICS("Diagnostics"); final String label; Tab(String s){label=s;} }
+    private enum Tab { OPERATE("Operate"), PARAMETERS("Parameters"), MODEL("Model"), ROUTING("Routing"), DIAGNOSTICS("Diagnostics"); final String label; Tab(String s){label=s;} }
     private Tab tab=Tab.PARAMETERS;
     private final List<Button> controls=new ArrayList<>();
+    private final List<Button> routeControls=new ArrayList<>();
     private Button toggle;
     private int scrollOffset=0;
     private static final int VIEW_MARGIN=8, CONTENT_TOP=84, CONTENT_BOTTOM_MARGIN=34;
@@ -28,19 +29,49 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
     @Override protected void init(){
         imageWidth=Math.max(360,width-VIEW_MARGIN*2);
         imageHeight=Math.max(240,height-VIEW_MARGIN*2);
-        super.init(); controls.clear(); scrollOffset=0;
-        int count=Tab.values().length, gap=8;
-        int tabWidth=Math.max(88,(imageWidth-48-gap*(count-1))/count);
+        super.init(); controls.clear(); routeControls.clear(); scrollOffset=0;
+        int count=Tab.values().length, gap=imageWidth<460?4:7;
+        int tabWidth=Math.max(48,(imageWidth-48-gap*(count-1))/count);
         int x=leftPos+24;
         for(Tab t:Tab.values()){
-            addRenderableWidget(Button.builder(Component.literal(t.label),b->{tab=t;scrollOffset=0;syncVisibility();})
+            addRenderableWidget(Button.builder(Component.literal(tabLabel(t)),b->{tab=t;scrollOffset=0;syncVisibility();})
                     .bounds(x,topPos+38,tabWidth,22).build());
             x+=tabWidth+gap;
         }
         addRow(0,CONTENT_TOP+50); addRow(1,CONTENT_TOP+106); addRow(2,CONTENT_TOP+162);
         toggle=addRenderableWidget(Button.builder(Component.literal("Toggle"),b->send(AdvancedParameterMenu.BUTTON_P3_TOGGLE))
                 .bounds(leftPos+imageWidth-184,topPos+CONTENT_TOP+224,146,22).build());
+
+        int routeWidth=routeButtonWidth(), routeGap=8, routeX=routeButtonStartX(), routeY=topPos+CONTENT_TOP+112;
+        routeControls.add(addRenderableWidget(Button.builder(Component.literal("RX ◀"),b->send(AdvancedParameterMenu.BUTTON_INPUT_PREVIOUS))
+                .bounds(routeX,routeY,routeWidth,22).build()));
+        routeControls.add(addRenderableWidget(Button.builder(Component.literal("RX ▶"),b->send(AdvancedParameterMenu.BUTTON_INPUT_NEXT))
+                .bounds(routeX+routeWidth+routeGap,routeY,routeWidth,22).build()));
+        routeControls.add(addRenderableWidget(Button.builder(Component.literal("TX ◀"),b->send(AdvancedParameterMenu.BUTTON_OUTPUT_PREVIOUS))
+                .bounds(routeX+(routeWidth+routeGap)*2,routeY,routeWidth,22).build()));
+        routeControls.add(addRenderableWidget(Button.builder(Component.literal("TX ▶"),b->send(AdvancedParameterMenu.BUTTON_OUTPUT_NEXT))
+                .bounds(routeX+(routeWidth+routeGap)*3,routeY,routeWidth,22).build()));
         syncVisibility();
+    }
+
+    private String tabLabel(Tab value){
+        if(imageWidth>=500)return value.label;
+        return switch(value){
+            case OPERATE->"Run";
+            case PARAMETERS->"Params";
+            case MODEL->"Model";
+            case ROUTING->"Route";
+            case DIAGNOSTICS->"Diag";
+        };
+    }
+
+    private int routeButtonWidth(){
+        return Math.max(54,Math.min(82,(imageWidth-48-8*3)/4));
+    }
+
+    private int routeButtonStartX(){
+        int total=routeButtonWidth()*4+8*3;
+        return leftPos+Math.max(24,(imageWidth-total)/2);
     }
 
     private void addRow(int row,int virtualY){
@@ -67,7 +98,7 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
     }
 
     private int contentHeight(){
-        return switch(tab){case OPERATE->430;case PARAMETERS->500;case MODEL->760;case DIAGNOSTICS->620;};
+        return switch(tab){case OPERATE->430;case PARAMETERS->500;case MODEL->760;case ROUTING->520;case DIAGNOSTICS->620;};
     }
     private int maxScroll(){
         int visible=Math.max(80,imageHeight-CONTENT_TOP-CONTENT_BOTTOM_MARGIN);
@@ -82,6 +113,16 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
             b.setX((i%2==0)?leftPos+imageWidth-164:leftPos+imageWidth-78);
             b.setY(topPos+virtualY-scrollOffset);
             b.visible=tab==Tab.PARAMETERS&&row<n
+                    &&b.getY()>=topPos+CONTENT_TOP&&b.getY()<=topPos+imageHeight-CONTENT_BOTTOM_MARGIN-22;
+        }
+        int routeWidth=routeButtonWidth(), routeGap=8, routeX=routeButtonStartX();
+        for(int i=0;i<routeControls.size();i++){
+            Button b=routeControls.get(i);
+            b.setX(routeX+i*(routeWidth+routeGap));
+            b.setY(topPos+CONTENT_TOP+112-scrollOffset);
+            boolean input=i<2;
+            boolean routable=input?menu.canRouteInput():menu.canRouteOutput();
+            b.visible=tab==Tab.ROUTING&&routable
                     &&b.getY()>=topPos+CONTENT_TOP&&b.getY()<=topPos+imageHeight-CONTENT_BOTTOM_MARGIN-22;
         }
         if(toggle!=null){
@@ -118,7 +159,7 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
         g.drawString(font,tab.label.toUpperCase(),24,72,ACCENT,false);
         g.enableScissor(leftPos+18,topPos+CONTENT_TOP,leftPos+imageWidth-18,topPos+imageHeight-CONTENT_BOTTOM_MARGIN);
         g.pose().pushPose(); g.pose().translate(0,-scrollOffset,0);
-        switch(tab){case OPERATE->operate(g);case PARAMETERS->parameters(g);case MODEL->model(g);case DIAGNOSTICS->diagnostics(g);}
+        switch(tab){case OPERATE->operate(g);case PARAMETERS->parameters(g);case MODEL->model(g);case ROUTING->routing(g);case DIAGNOSTICS->diagnostics(g);}
         g.pose().popPose(); g.disableScissor();
         if(maxScroll()>0){
             String s="SCROLL "+scrollOffset+" / "+maxScroll();
@@ -156,6 +197,18 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
         y=drawWrapped(g,model3(),42,y,w,MUTED)+22;
         y=drawWrapped(g,"Only configuration variables are editable; measured state, thermal load, evidence and topology stay solver/world-owned.",42,y,w,MUTED)+22;
         drawWrapped(g,"Additional equations, assumptions, response diagnostics and validation notes extend vertically. Scroll instead of compressing or truncating them.",42,y,w,MUTED);
+    }
+
+    private void routing(GuiGraphics g){
+        int w=Math.max(280,imageWidth-96);
+        g.drawString(font,"PHYSICAL ROUTING",42,CONTENT_TOP+28,MUTED,false);
+        pair(g,"Input / sensing endpoint",menu.hasInputEndpoint()?menu.inputDirection().getName().toUpperCase():"NONE",CONTENT_TOP+62);
+        pair(g,"Output endpoint",menu.hasOutputEndpoint()?menu.outputDirection().getName().toUpperCase():"NONE",CONTENT_TOP+96);
+        int y=CONTENT_TOP+170;
+        y=drawWrapped(g,routingContract(),42,y,w,INK)+18;
+        y=drawWrapped(g,"Route controls mutate only declared server-owned endpoint properties. They do not rotate measurements in the client or manufacture connectivity.",
+                42,y,w,MUTED)+18;
+        drawWrapped(g,"After rerouting, Operate and Diagnostics remain the authority for live value and PortQuality evidence.",42,y,w,MUTED);
     }
 
     private void diagnostics(GuiGraphics g){
@@ -354,6 +407,15 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
                 yield "NEXT • compare measured distance against the same configured range before changing sensor reach.";
             }
             default -> "NEXT • use the dedicated HMI for device-specific response, routing and evidence diagnostics.";
+        };
+    }
+
+    private String routingContract(){
+        return switch(menu.kind()){
+            case AdvancedParameterMenu.KIND_SIGNAL_AMPLIFIER -> "REDSTONE analog input RX → gain model → REDSTONE output TX. RX and TX are independently routable physical endpoints.";
+            case AdvancedParameterMenu.KIND_LAPIS_NOISE -> "Output-only LAPIS precision source. TX may rotate; there is no synthetic input endpoint.";
+            case AdvancedParameterMenu.KIND_LAPIS_RANGE -> "RX is the physical measurement aperture used by the server range model; TX is the normalized LAPIS output. The sensing aperture is not a wired source input.";
+            default -> "Compatibility kind: normal gameplay dispatch uses its dedicated HMI for physical routing and device-specific evidence.";
         };
     }
 
