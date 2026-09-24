@@ -41,7 +41,10 @@ require(network,
         "int supply = AirCompressorBlock.actualPressure(level, pos)")
 require(menu,
         "AirCompressorBlock.RESPONSE_MODE",
-        "AirCompressorBlock.stepResponseMode",
+        "AirCompressorBlock.configuredResponse",
+        "AirCompressorBlock.setResponseRates",
+        "engineeringA.set(response.a())",
+        "engineeringB.set(response.b())",
         "AirCompressorBlock.actualPressure",
         "AirCompressorBlock.startCount",
         "AirCompressorBlock.runTicks")
@@ -50,7 +53,10 @@ require(screen,
         "Target / actual",
         "Tracking error",
         "Starts / run ticks",
-        "Response mode")
+        "Ramp up",
+        "Ramp down",
+        'menu.engineeringA()+" pressure/tick"',
+        'menu.engineeringB()+" pressure/tick"')
 
 logic_path = root / logic
 if logic_path.is_file():
@@ -105,4 +111,4 @@ print("RSE air-compressor engineering-depth verification: PASS")
 print(" finite spool-up/spool-down pressure dynamics: PASS")
 print(" pneumatic network consumes actual supply, not command target: PASS")
 print(" retained start/run evidence: PASS")
-print(" pneumatic HMI response-mode authority: PASS")
+print(" pneumatic HMI exact ramp-rate authority: PASS")
