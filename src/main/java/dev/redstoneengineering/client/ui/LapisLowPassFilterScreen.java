@@ -339,16 +339,16 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
 
         int y = CONTENT_TOP + 170;
         y = drawWrapped(g,
-                "RX and TX are independent horizontal physical endpoints. The block routing model rejects endpoint overlap and schedules the real server filter after a successful move.",
+                "RX and TX form one rigid straight-through axis: RX is always exactly opposite TX. Rotate the whole block axis; the server then schedules the real filter on the new physical path.",
                 42, y, w, INK) + 18;
         y = drawWrapped(g,
-                "Moving TX releases the old domain-driver claim before the newly routed output is republished, so the previous Lapis segment cannot retain a ghost filter output.",
+                "Rotating the axis releases the old domain-driver claim before the newly oriented output is republished, so the previous Lapis segment cannot retain a ghost filter output.",
                 42, y, w, MUTED) + 18;
         y = drawWrapped(g,
                 "Routing changes topology only. α, retained y[k], input/output PortQuality and response evidence remain server-owned filter state.",
                 42, y, w, MUTED) + 18;
         drawWrapped(g,
-                "After rerouting, use Operate and Response to verify reacquisition and tracking on the new physical path.",
+                "After rotation, use Operate and Response to verify reacquisition and tracking. Parameter α and retained filter history are not fabricated or reset by a topology change.",
                 42, y, w, MUTED);
     }
 
