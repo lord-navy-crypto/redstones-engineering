@@ -1,5 +1,6 @@
 package dev.redstoneengineering.client.ui;
 
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.menu.ServoActuatorMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -24,6 +25,7 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
     private enum PageTab {
         OPERATE("Operate"),
         PARAMETERS("Parameters"),
+        MODEL("Model"),
         RESPONSE("Response"),
         EVIDENCE("Evidence");
 
@@ -138,10 +140,11 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
 
     private int contentHeight() {
         return switch (page) {
-            case OPERATE -> 450;
+            case OPERATE -> 520;
             case PARAMETERS -> 540;
-            case RESPONSE -> 470;
-            case EVIDENCE -> 520;
+            case MODEL -> 760;
+            case RESPONSE -> 560;
+            case EVIDENCE -> 650;
         };
     }
 
@@ -181,6 +184,7 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
         switch (page) {
             case OPERATE -> operate(g);
             case PARAMETERS -> parameters(g);
+            case MODEL -> model(g);
             case RESPONSE -> response(g);
             case EVIDENCE -> evidence(g);
         }
@@ -197,12 +201,15 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
     }
 
     private void operate(GuiGraphics g) {
-        pair(g, "Position", menu.position() + " / 15", CONTENT_TOP + 34);
+        pair(g, "Mode", menu.velocityMode() ? "VELOCITY" : "POSITION", CONTENT_TOP + 34);
         pair(g, "Command", menu.command() + " / 15", CONTENT_TOP + 76);
-        pair(g, "Velocity", signed(menu.velocity()), CONTENT_TOP + 118);
-        pair(g, "Position / velocity error", signed(menu.error()), CONTENT_TOP + 160);
-        pair(g, "Brake", menu.braking() ? "ACTIVE" : "RELEASED", CONTENT_TOP + 202);
-        pair(g, "Mechanical preset", presetName(menu.preset()), CONTENT_TOP + 244);
+        pair(g, "Position", menu.position() + " / 15", CONTENT_TOP + 118);
+        pair(g, "Applied velocity", signed(menu.velocity()), CONTENT_TOP + 160);
+        pair(g, menu.velocityMode() ? "Velocity-command error" : "Position error", signed(menu.error()), CONTENT_TOP + 202);
+        pair(g, "Brake", menu.braking() ? "ACTIVE" : "RELEASED", CONTENT_TOP + 244);
+        pair(g, "Command quality", qualityName(menu.commandQuality()), CONTENT_TOP + 286);
+        pair(g, "Output quality", qualityName(menu.outputQuality()), CONTENT_TOP + 328);
+        pair(g, "Mechanical preset", presetName(menu.preset()), CONTENT_TOP + 370);
     }
 
     private void parameters(GuiGraphics g) {
@@ -219,22 +226,58 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
                 42, CONTENT_TOP + 350, MUTED, false);
     }
 
+    private void model(GuiGraphics g) {
+        int w = Math.max(300, imageWidth - 96);
+        g.drawString(font, "MECHATRONIC SERVO MODEL", 42, CONTENT_TOP + 22, MUTED, false);
+        int y = CONTENT_TOP + 58;
+        y = drawWrapped(g, "Server update period = 2 ticks. The servo has two command interpretations selected by the physical MODE input.", 42, y, w, INK) + 18;
+        y = drawWrapped(g, "POSITION mode: desiredVelocity = clamp(command − position, −maxSpeed, +maxSpeed). The applied velocity is also limited so it cannot step past the remaining position error.", 42, y, w, INK) + 18;
+        y = drawWrapped(g, "VELOCITY mode: velocityCommand = command − 7, so command 7 = stop, 0..6 = reverse and 8..15 = forward. desiredVelocity = clamp(velocityCommand, −maxSpeed, +maxSpeed).", 42, y, w, INK) + 18;
+        y = drawWrapped(g, "Acceleration is discrete: every accelerationPeriod control cycles, appliedVelocity approaches desiredVelocity by at most accelerationStep. Between acceleration updates, load-delay evidence accumulates while the requested and applied velocities differ.", 42, y, w, INK) + 18;
+        y = drawWrapped(g, "Brake is authoritative: missing command evidence or an asserted brake input forces appliedVelocity = 0 and resets the acceleration phase.", 42, y, w, INK) + 18;
+        y = drawWrapped(g, "Position update: position[k+1] = clamp(position[k] + appliedVelocity, 0, 15). A boundary clamp increments retained soft-limit-hit evidence and zeroes applied velocity.", 42, y, w, INK) + 18;
+        y = drawWrapped(g, "Trajectory evidence records total travel, motion samples, reversals, maximum observed velocity, settling time and load-delay ticks. These are server-owned response measurements, not client estimates.", 42, y, w, MUTED) + 18;
+        drawWrapped(g, "The notebook renders synchronized state only. It does not advance acceleration phase, integrate position, infer missing control evidence, or run a second servo solver.", 42, y, w, MUTED);
+    }
+
     private void response(GuiGraphics g) {
-        pair(g, "Current position", Integer.toString(menu.position()), CONTENT_TOP + 34);
-        pair(g, "Current velocity", signed(menu.velocity()), CONTENT_TOP + 76);
-        pair(g, "Current error", signed(menu.error()), CONTENT_TOP + 118);
-        pair(g, "Load-delay ticks", Integer.toString(menu.loadDelayTicks()), CONTENT_TOP + 160);
-        pair(g, "Motion samples", Integer.toString(menu.motionSamples()), CONTENT_TOP + 202);
-        pair(g, "Reversals", Integer.toString(menu.reversals()), CONTENT_TOP + 244);
+        pair(g, "Current mode", menu.velocityMode() ? "VELOCITY" : "POSITION", CONTENT_TOP + 34);
+        pair(g, "Velocity command", signed(menu.velocityCommand()), CONTENT_TOP + 76);
+        pair(g, "Applied velocity", signed(menu.velocity()), CONTENT_TOP + 118);
+        pair(g, "Current error", signed(menu.error()), CONTENT_TOP + 160);
+        pair(g, "Maximum observed velocity", Integer.toString(menu.maxObservedVelocity()), CONTENT_TOP + 202);
+        pair(g, "Settling time", menu.settleTicks() > 0 ? menu.settleTicks() + " ticks" : "—", CONTENT_TOP + 244);
+        pair(g, "Total travel", Integer.toString(menu.travel()), CONTENT_TOP + 286);
+        pair(g, "Load-delay ticks", Integer.toString(menu.loadDelayTicks()), CONTENT_TOP + 328);
+        pair(g, "Motion samples", Integer.toString(menu.motionSamples()), CONTENT_TOP + 370);
+        pair(g, "Reversals", Integer.toString(menu.reversals()), CONTENT_TOP + 412);
     }
 
     private void evidence(GuiGraphics g) {
-        pair(g, "Soft-limit hits", Integer.toString(menu.softLimitHits()), CONTENT_TOP + 40);
-        pair(g, "Load-delay ticks", Integer.toString(menu.loadDelayTicks()), CONTENT_TOP + 88);
-        pair(g, "Motion samples", Integer.toString(menu.motionSamples()), CONTENT_TOP + 136);
-        pair(g, "Reversals", Integer.toString(menu.reversals()), CONTENT_TOP + 184);
-        g.drawString(font, fit("Home/reset clears transient trajectory evidence but does not erase your mechanical parameter configuration.", Math.max(300,imageWidth-96)),
-                42, CONTENT_TOP + 300, MUTED, false);
+        pair(g, "Command input quality", qualityName(menu.commandQuality()), CONTENT_TOP + 34);
+        pair(g, "Mode input quality", qualityName(menu.modeQuality()), CONTENT_TOP + 76);
+        pair(g, "Brake input quality", qualityName(menu.brakeQuality()), CONTENT_TOP + 118);
+        pair(g, "Position output quality", qualityName(menu.outputQuality()), CONTENT_TOP + 160);
+        pair(g, "Soft-limit hits", Integer.toString(menu.softLimitHits()), CONTENT_TOP + 220);
+        pair(g, "Load-delay ticks", Integer.toString(menu.loadDelayTicks()), CONTENT_TOP + 262);
+        pair(g, "Motion samples", Integer.toString(menu.motionSamples()), CONTENT_TOP + 304);
+        pair(g, "Reversals", Integer.toString(menu.reversals()), CONTENT_TOP + 346);
+        pair(g, "Settling time", menu.settleTicks() > 0 ? menu.settleTicks() + " ticks" : "—", CONTENT_TOP + 388);
+        pair(g, "Total travel", Integer.toString(menu.travel()), CONTENT_TOP + 430);
+        g.drawString(font, fit("Home/reset clears transient trajectory evidence but does not erase the configured mechanical parameters.", Math.max(300,imageWidth-96)),
+                42, CONTENT_TOP + 500, MUTED, false);
+    }
+
+    private int drawWrapped(GuiGraphics g, String text, int x, int y, int width, int color) {
+        for (var line : font.split(Component.literal(text), width)) {
+            g.drawString(font, line, x, y, color, false);
+            y += 14;
+        }
+        return y;
+    }
+
+    private static String qualityName(PortQuality quality) {
+        return quality.name().replace('_', ' ');
     }
 
     private void parameter(GuiGraphics g, String label, String value, int y) {
