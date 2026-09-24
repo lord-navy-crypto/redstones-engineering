@@ -36,6 +36,8 @@ if not failed:
         "DirectionalDomainBlock.rotateSeriesInput",
         "DirectionalDomainBlock.rotateSeriesOutput",
         "DirectionalDomainSourceBlock.rotateOutput",
+        "RedstoneCopperDriverBlock.rotateInput",
+        "RedstoneCopperDriverBlock.rotateOutput",
         "public boolean canRouteInput()",
         "public boolean canRouteOutput()",
         "public Direction inputDirection()",
@@ -73,7 +75,7 @@ if not failed:
         "no synthetic single RX/TX pair is created",
         "Output-only LAPIS precision source",
         "Six-face COPPER voltage source",
-        "this custom converter does not expose generic route mutation here",
+        "moving TX releases the old Copper driver claim",
     ):
         if token not in screen:
             failed.append(f"ProcessParameterNotebookScreen missing quality/diagnostic/routing presentation token: {token}")
@@ -86,6 +88,15 @@ if not failed:
     ):
         if token not in conditioner:
             failed.append(f"SignalConditionerBlock missing quality contract: {token}")
+
+    for token in (
+        "public static boolean rotateInput",
+        "public static boolean rotateOutput",
+        "DomainNetwork.driveCopper(server, pos.relative(oldOutput), pos, 0, false)",
+        "nextFreeHorizontal",
+    ):
+        if token not in (root / "src/main/java/dev/redstoneengineering/block/RedstoneCopperDriverBlock.java").read_text(errors="ignore"):
+            failed.append(f"RedstoneCopperDriverBlock missing safe routing token: {token}")
 
     for token in (
         "public static PortQuality commandQuality",
@@ -112,5 +123,6 @@ print(" device-specific diagnostics page uses synchronized evidence only: PASS")
 print(" diagnostics do not introduce a client-side second solver: PASS")
 print(" Process Routing page mutates only declared server-owned endpoints: PASS")
 print(" fixed/multi-face devices do not receive fake RX/TX controls: PASS")
+print(" Redstone-Copper driver reroute releases the old Copper claim: PASS")
 print(" output-only Lapis source remains output-only: PASS")
 print(" five-tab Process notebook stays narrow-viewport aware: PASS")
