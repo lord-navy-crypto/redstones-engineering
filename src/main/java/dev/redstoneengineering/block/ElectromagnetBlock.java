@@ -108,23 +108,36 @@ public class ElectromagnetBlock extends DomainBlock implements EngineeringPortPr
     }
 
     public static EngineeringDeviceParameters.ExtendedParameters configuredResponse(Level level, BlockPos pos) {
-        var fallback = new EngineeringDeviceParameters.ExtendedParameters(2, 3, 0, 0);
+        var fallback = new EngineeringDeviceParameters.ExtendedParameters(2, 3, 20, 0);
         if (level instanceof ServerLevel serverLevel) {
-            return EngineeringDeviceParameters.get(serverLevel).extendedParameters(serverLevel, pos, fallback);
+            var raw = EngineeringDeviceParameters.get(serverLevel).extendedParameters(serverLevel, pos, fallback);
+            int rise = Math.max(1, Math.min(15, raw.a()));
+            int fall = Math.max(1, Math.min(15, raw.b()));
+            // Alpha 1.0.21 used slot C=0; migrate that to the historical cooling rate of 20.
+            int cooling = raw.c() <= 0 ? 20 : Math.max(1, Math.min(40, raw.c()));
+            return new EngineeringDeviceParameters.ExtendedParameters(rise, fall, cooling, 0);
         }
         return fallback;
     }
 
-    public static boolean setResponseRates(ServerLevel level, BlockPos pos, int rise, int fall) {
+    public static boolean setEngineeringParameters(
+            ServerLevel level, BlockPos pos, int rise, int fall, int coolingRate
+    ) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof ElectromagnetBlock magnet)) return false;
         var next = new EngineeringDeviceParameters.ExtendedParameters(
                 Math.max(1, Math.min(15, rise)),
                 Math.max(1, Math.min(15, fall)),
-                0, 0);
+                Math.max(1, Math.min(40, coolingRate)),
+                0);
         boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(level, pos, next);
         if (changed) level.scheduleTick(pos, magnet, 1);
         return changed;
+    }
+
+    public static boolean setResponseRates(ServerLevel level, BlockPos pos, int rise, int fall) {
+        var current = configuredResponse(level, pos);
+        return setEngineeringParameters(level, pos, rise, fall, current.c());
     }
 
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
@@ -143,9 +156,9 @@ public class ElectromagnetBlock extends DomainBlock implements EngineeringPortPr
         int commandedField = input.quality() == PortQuality.VALID ? input.voltage() : 0;
         int[] runtime = RuntimeIntStore.get(level, RUNTIME_KEY, pos, RUNTIME_SIZE);
 
-        int thermal = ElectromagnetLogic.nextThermal(runtime[THERMAL_LOAD], commandedField);
-        int target = ElectromagnetLogic.deratedTarget(commandedField, thermal);
         var response = configuredResponse(level, pos);
+        int thermal = ElectromagnetLogic.nextThermal(runtime[THERMAL_LOAD], commandedField, response.c());
+        int target = ElectromagnetLogic.deratedTarget(commandedField, thermal);
         int actual = ElectromagnetLogic.stepFieldRate(state.getValue(FIELD), target, response.a(), response.b());
 
         runtime[TARGET_FIELD] = target;
@@ -188,6 +201,7 @@ public class ElectromagnetBlock extends DomainBlock implements EngineeringPortPr
                             + " actualB=" + state.getValue(FIELD) + "/15"
                             + " error=" + trackingError(level, pos)
                             + " | thermal=" + thermalLoad(level, pos) + "/1000"
+                            + " cooling=" + configuredResponse(level, pos).c() + "/tick"
                             + " " + ElectromagnetLogic.thermalState(thermalLoad(level, pos))
                             + " | runTicks=" + runTicks(level, pos)
                             + " | feeds=" + input.connectedFeeds()
