@@ -112,6 +112,21 @@ public class QuartzOscillatorBlock extends DirectionalDomainSourceBlock implemen
         return changed;
     }
 
+    /**
+     * Fine HMI adjustment that changes only the configured period. The running oscillator already
+     * owns a scheduled future transition, so this deliberately does not schedule an early tick.
+     * The new period becomes effective at that genuine transition.
+     */
+    public static boolean adjustConfiguredPeriodTicks(ServerLevel level, BlockPos pos, int deltaTicks) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof QuartzOscillatorBlock)) return false;
+        int current = configuredPeriodTicks(level, pos, state);
+        int next = Math.max(2, Math.min(200, current + deltaTicks));
+        if (next == current) return false;
+        return EngineeringDeviceParameters.get(level).setExtendedParameters(
+                level, pos, new EngineeringDeviceParameters.ExtendedParameters(next, 0, 0, 0));
+    }
+
     public static int edgeCount(Level level, BlockPos pos) {
         int[] runtime = snapshot(level, pos);
         return runtime == null ? 0 : Math.max(0, runtime[EDGE_COUNT]);
