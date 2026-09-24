@@ -59,6 +59,11 @@ if not errors:
         "enableScissor",
         "viewButtons",
         "Continuous scroll",
+        "viewTabLabel",
+        "width < 520 ? 3 : 5",
+        "Math.max(38, Math.min(88",
+        "compactFooter",
+        "Math.max(46, Math.min(78",
     )
     for marker in required_ui:
         if marker not in screen:
@@ -115,6 +120,6 @@ print("  bounded session-local ring buffer: PASS")
 print("  automatic package/stack-trace log capture: PASS")
 print("  survival + creative inventory red-cross entry point: PASS")
 print("  filter/copy/clear workflow: PASS")
-print("  fixed top diagnostics tabs + continuous scroll workspace: PASS")
+print("  responsive fixed top diagnostics tabs/footer + continuous scroll workspace: PASS")
 print("  viewport diagnostic tablet + scrollable retained snapshots: PASS")
 print("  observer-only authority boundary: PASS")
