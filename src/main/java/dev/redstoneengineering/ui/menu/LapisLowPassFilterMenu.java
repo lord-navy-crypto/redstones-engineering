@@ -102,4 +102,15 @@ public final class LapisLowPassFilterMenu extends EngineeringDeviceMenu {
     public double tauTicks() {
         return tauSamples() * 2.0;
     }
+
+    /** Minecraft runs at 20 ticks/s; this filter updates every two ticks, so Ts = 0.1 s. */
+    public double equivalentCutoffHz() {
+        double a = alpha();
+        return a >= 1.0 ? Double.POSITIVE_INFINITY
+                : -Math.log(1.0 - a) / (2.0 * Math.PI * 0.1);
+    }
+
+    public int trackingError() {
+        return input() - output();
+    }
 }
