@@ -48,7 +48,7 @@ require(screen,
         '"Input quality"',
         '"Output quality"',
         "if(i==5||i==6) return qualityName(v);",
-        "stored physical state from input/output evidence quality")
+        "retained physical state from input/output evidence quality")
 
 logic_path = root / logic
 if logic_path.is_file():
