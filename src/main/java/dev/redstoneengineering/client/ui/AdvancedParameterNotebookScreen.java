@@ -1,5 +1,6 @@
 package dev.redstoneengineering.client.ui;
 
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.menu.AdvancedParameterMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -141,7 +142,8 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
     }
 
     private void operate(GuiGraphics g){
-        String[] labels=liveLabels(); int[] values={menu.liveA(),menu.liveB(),menu.liveC(),menu.liveD()};
+        String[] labels=liveLabels();
+        int[] values={menu.liveA(),menu.liveB(),menu.liveC(),menu.liveD(),menu.liveE(),menu.liveF()};
         for(int i=0;i<labels.length;i++) pair(g,labels[i],liveValue(i,values[i]),CONTENT_TOP+38+i*42);
     }
 
@@ -193,12 +195,12 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
             case AdvancedParameterMenu.KIND_PRECISION_FILTER -> new String[]{"Input","Output","Tracking error","Settle ETA"};
             case AdvancedParameterMenu.KIND_PULSE_SHAPER -> new String[]{"Pulse remaining","Accepted triggers","Suppressed triggers","Rearm threshold"};
             case AdvancedParameterMenu.KIND_EDGE_DETECTOR -> new String[]{"Edge count","Pulse remaining","Rejected evidence","Last edge age"};
-            case AdvancedParameterMenu.KIND_SIGNAL_AMPLIFIER -> new String[]{"Input","Output","Clip episodes","Max raw"};
+            case AdvancedParameterMenu.KIND_SIGNAL_AMPLIFIER -> new String[]{"Input","Output","Clip episodes","Max raw","Input quality","Output quality"};
             case AdvancedParameterMenu.KIND_ELECTROMAGNET -> new String[]{"Copper voltage","Actual field","Target field","Thermal load"};
             case AdvancedParameterMenu.KIND_INDUCTION_COIL -> new String[]{"Magnetic field","Induced output","Output quality"};
             case AdvancedParameterMenu.KIND_RELIEF_VALVE -> new String[]{"Network pressure","Reseat pressure","Vent events","Last excess"};
-            case AdvancedParameterMenu.KIND_LAPIS_NOISE -> new String[]{"Current sample","Initialized"};
-            case AdvancedParameterMenu.KIND_LAPIS_RANGE -> new String[]{"Measured distance","Configured range","Coverage complete"};
+            case AdvancedParameterMenu.KIND_LAPIS_NOISE -> new String[]{"Current sample","Initialized","Output quality"};
+            case AdvancedParameterMenu.KIND_LAPIS_RANGE -> new String[]{"Measured distance","Configured range","Coverage complete","Measurement quality"};
             case AdvancedParameterMenu.KIND_OPTICAL_EMITTER -> new String[]{"Emission intensity","Channel"};
             default -> new String[]{"Live"};
         };
@@ -207,8 +209,18 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
     private String liveValue(int i,int v){
         if(menu.kind()==AdvancedParameterMenu.KIND_PRECISION_FILTER&&i==3) return v<0?"UNAVAILABLE":v+" ticks";
         if(menu.kind()==AdvancedParameterMenu.KIND_EDGE_DETECTOR&&i==3) return v<0?"NONE":v+" ticks";
+        if(menu.kind()==AdvancedParameterMenu.KIND_SIGNAL_AMPLIFIER&&(i==4||i==5)) return qualityName(v);
         if(menu.kind()==AdvancedParameterMenu.KIND_LAPIS_NOISE&&i==1) return v!=0?"YES":"NO";
+        if(menu.kind()==AdvancedParameterMenu.KIND_LAPIS_NOISE&&i==2) return qualityName(v);
+        if(menu.kind()==AdvancedParameterMenu.KIND_LAPIS_RANGE&&i==0){
+            PortQuality q=quality(menu.liveD());
+            if(q==PortQuality.NO_SIGNAL) return "NO TARGET";
+            if(q==PortQuality.STALE) return "UNKNOWN";
+            return v+" blocks";
+        }
+        if(menu.kind()==AdvancedParameterMenu.KIND_LAPIS_RANGE&&i==1) return v+" blocks";
         if(menu.kind()==AdvancedParameterMenu.KIND_LAPIS_RANGE&&i==2) return v!=0?"YES":"NO";
+        if(menu.kind()==AdvancedParameterMenu.KIND_LAPIS_RANGE&&i==3) return qualityName(v);
         return Integer.toString(v);
     }
 
@@ -233,12 +245,29 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
             case AdvancedParameterMenu.KIND_PULSE_SHAPER -> "Rearm threshold = trigger threshold − hysteresis.";
             case AdvancedParameterMenu.KIND_ELECTROMAGNET -> "H[k+1] = clamp(H + heating(V) − cooling, 0,1000); cooling is an operator design parameter.";
             case AdvancedParameterMenu.KIND_RELIEF_VALVE -> "Setpoint and blowdown are independent safety parameters; blowdown prevents rapid open/close chatter.";
-            case AdvancedParameterMenu.KIND_LAPIS_NOISE -> "Baseline, amplitude and sampling cadence are independent experiment variables.";
+            case AdvancedParameterMenu.KIND_SIGNAL_AMPLIFIER -> "Clipping is explicit SATURATED output quality; it does not rewrite a valid input into missing evidence.";
+            case AdvancedParameterMenu.KIND_LAPIS_NOISE -> "Baseline, amplitude and sampling cadence are independent experiment variables. A generated sample of 0 remains VALID evidence.";
+            case AdvancedParameterMenu.KIND_LAPIS_RANGE -> "Complete clear coverage with no target is NO_SIGNAL; incomplete coverage is STALE. Those states are not interchangeable with a numeric zero.";
             default -> "Configuration affects the authoritative device solver, not a client-only visualization.";
         };
     }
 
-    private String model3(){ return "All values shown on Operate are synchronized evidence from the real Minecraft world state."; }
+    private String model3(){
+        return switch(menu.kind()){
+            case AdvancedParameterMenu.KIND_SIGNAL_AMPLIFIER -> "Operate separates input quality from output quality, so headroom saturation stays visible even when the numerical output is clamped to 15.";
+            case AdvancedParameterMenu.KIND_LAPIS_RANGE -> "Raw distance and measurement quality are synchronized separately; the UI never converts NO_SIGNAL or STALE into a fabricated distance.";
+            default -> "All values shown on Operate are synchronized evidence from the real Minecraft world state.";
+        };
+    }
+
+    private static PortQuality quality(int ordinal){
+        PortQuality[] all=PortQuality.values();
+        return ordinal<0||ordinal>=all.length?PortQuality.NO_SIGNAL:all[ordinal];
+    }
+
+    private static String qualityName(int ordinal){
+        return quality(ordinal).name().replace('_',' ');
+    }
 
     private String footer(){ return "Engineering Notebook • precise parameters where physics supports them • discrete variables remain discrete"; }
 
