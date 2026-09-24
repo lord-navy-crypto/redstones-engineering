@@ -99,7 +99,7 @@ public final class AdvancedParameterMenu extends EngineeringDeviceMenu {
         } else if (block instanceof ElectromagnetBlock) {
             kind.set(KIND_ELECTROMAGNET);
             var response = ElectromagnetBlock.configuredResponse(level, blockPos);
-            p0.set(response.a()); p1.set(response.b());
+            p0.set(response.a()); p1.set(response.b()); p2.set(response.c());
             liveA.set(ElectromagnetBlock.input(level, blockPos).voltage());
             liveB.set(state.getValue(ElectromagnetBlock.FIELD));
             liveC.set(ElectromagnetBlock.targetField(level, blockPos));
@@ -172,10 +172,11 @@ public final class AdvancedParameterMenu extends EngineeringDeviceMenu {
             else if (slot == 1) changed = EdgeDetectorBlock.setConfiguredPulseWidth(server, blockPos, p1.get() + delta);
         } else if (block instanceof SignalAmplifierBlock && slot == 0) {
             changed = SignalAmplifierBlock.setConfiguredGain(server, blockPos, p0.get() + delta);
-        } else if (block instanceof ElectromagnetBlock && (slot == 0 || slot == 1)) {
+        } else if (block instanceof ElectromagnetBlock && slot >= 0 && slot <= 2) {
             int rise = p0.get() + (slot == 0 ? delta : 0);
             int fall = p1.get() + (slot == 1 ? delta : 0);
-            changed = ElectromagnetBlock.setResponseRates(server, blockPos, rise, fall);
+            int cooling = p2.get() + (slot == 2 ? delta : 0);
+            changed = ElectromagnetBlock.setEngineeringParameters(server, blockPos, rise, fall, cooling);
         } else if (block instanceof InductionCoilBlock && slot == 0) {
             changed = InductionCoilBlock.setConfiguredTurns(server, blockPos, p0.get() + delta);
         } else if (block instanceof PneumaticReliefValveBlock && slot == 0) {
