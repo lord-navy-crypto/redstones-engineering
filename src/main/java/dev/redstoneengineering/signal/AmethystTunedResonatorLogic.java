@@ -17,6 +17,18 @@ public final class AmethystTunedResonatorLogic {
         }
     }
 
+    /** Compatibility overload retaining the historical one-step free decay. */
+    public static State step(
+            int targetAmplitude,
+            int driveFrequency,
+            int naturalFrequency,
+            int qIndex,
+            boolean driven,
+            State previous
+    ) {
+        return step(targetAmplitude, driveFrequency, naturalFrequency, qIndex, 1, driven, previous);
+    }
+
     public static State step(
             int targetAmplitude,
             int driveFrequency,
