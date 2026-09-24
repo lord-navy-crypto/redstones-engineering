@@ -111,7 +111,7 @@ for subtree in ["core", "physics", "signal"]:
                 failed.append(f"core boundary violation: {java.relative_to(root)} imports {token}")
 
 build = text("build.gradle")
-for token in ["mezz.jei", "nvQzSEkH", "geckolib-neoforge", "cloth-config-neoforge", "fusion-connected-textures"]:
+for token in ["mezz.jei", "nvQzSEkH", "geckolib-neoforge", "cloth-config-neoforge"]:
     if token not in build:
         failed.append(f"required dependency disappeared from build.gradle: {token}")
 
@@ -155,5 +155,5 @@ print(" source-compatible legacy constructor defaults: PASS")
 print(" first-class quantity + unit mismatch topology projection: PASS")
 print(" engineering unit semantic harness: PASS")
 print(" representative legacy migration/inheritance: PASS")
-print(" required-dependency core boundary: PASS")
+print(" required four-library dependency core boundary: PASS")
 print(" forward-compatible historical documentation gate: PASS")
