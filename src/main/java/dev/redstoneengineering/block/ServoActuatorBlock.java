@@ -118,10 +118,8 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
         if (port.isEmpty()) return Optional.empty();
         Direction front = state.getValue(FACING);
         if (side == front) {
-            int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
-            PortQuality quality = runtime != null && runtime.length >= RUNTIME_SIZE
-                    ? PortQuality.VALID : PortQuality.STALE;
-            return Optional.of(new EngineeringPortSnapshot(port.get(), position(level, pos), 0.0, 15.0, quality));
+            return Optional.of(new EngineeringPortSnapshot(
+                    port.get(), position(level, pos), 0.0, 15.0, outputQuality(level, pos)));
         }
         RedstoneObservationSupport.Observation observation = controlObservation(level, pos, side);
         return Optional.of(EngineeringPortSnapshot.redstone(
@@ -225,15 +223,41 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
         level.scheduleTick(pos, nextState.getBlock(), 1);
         return changed || bounded != state.getValue(LOAD);
     }
-    public static int position(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r==null||r.length<1?0:r[0]; }
-    public static int command(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r==null||r.length<2?0:r[1]; }
-    public static int velocity(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r==null||r.length<3?0:r[2]; }
-    public static int error(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r==null||r.length<4?0:r[3]; }
-    public static boolean braking(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r!=null&&r.length>4&&r[4]!=0; }
-    public static int softLimitHits(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r==null||r.length<16?0:r[15]; }
-    public static int loadDelayTicks(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r==null||r.length<RUNTIME_SIZE?0:Math.max(0,r[LOAD_DELAY_TICKS_SLOT]); }
-    public static int reversals(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r==null||r.length<RUNTIME_SIZE?0:Math.max(0,r[REVERSALS_SLOT]); }
-    public static int motionSamples(Level level, BlockPos pos) { int[] r=RuntimeIntStore.peek(level,KEY,pos); return r==null||r.length<RUNTIME_SIZE?0:Math.max(0,r[MOTION_SAMPLES_SLOT]); }
+    private static int[] readRuntime(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime != null && runtime.length >= RUNTIME_SIZE ? runtime : null;
+    }
+
+    public static int position(Level level, BlockPos pos) { int[] r=readRuntime(level,pos); return r==null?0:r[0]; }
+    public static int command(Level level, BlockPos pos) { int[] r=readRuntime(level,pos); return r==null?0:r[1]; }
+    public static int velocity(Level level, BlockPos pos) { int[] r=readRuntime(level,pos); return r==null?0:r[2]; }
+    public static int error(Level level, BlockPos pos) { int[] r=readRuntime(level,pos); return r==null?0:r[3]; }
+    public static boolean braking(Level level, BlockPos pos) { int[] r=readRuntime(level,pos); return r!=null&&r[4]!=0; }
+    public static int mode(Level level, BlockPos pos) { int[] r=readRuntime(level,pos); return r==null?POSITION_MODE:Math.max(POSITION_MODE,Math.min(VELOCITY_MODE,r[13])); }
+    public static int velocityCommand(Level level, BlockPos pos) { int[] r=readRuntime(level,pos); return r==null?0:r[14]; }
+    public static int maxObservedVelocity(Level level, BlockPos pos) { int[] r=readRuntime(level,pos); return r==null?0:Math.max(0,r[10]); }
+    public static int settleTicks(Level level, BlockPos pos) { int[] r=readRuntime(level,pos); return r==null?0:Math.max(0,r[11]); }
+    public static int travel(Level level, BlockPos pos) { int[] r=readRuntime(level,pos); return r==null?0:Math.max(0,r[12]); }
+    public static int softLimitHits(Level level, BlockPos pos) { int[] r=readRuntime(level,pos); return r==null?0:Math.max(0,r[15]); }
+    public static int loadDelayTicks(Level level, BlockPos pos) { int[] r=readRuntime(level,pos); return r==null?0:Math.max(0,r[LOAD_DELAY_TICKS_SLOT]); }
+    public static int reversals(Level level, BlockPos pos) { int[] r=readRuntime(level,pos); return r==null?0:Math.max(0,r[REVERSALS_SLOT]); }
+    public static int motionSamples(Level level, BlockPos pos) { int[] r=readRuntime(level,pos); return r==null?0:Math.max(0,r[MOTION_SAMPLES_SLOT]); }
+
+    public static PortQuality commandQuality(Level level, BlockPos pos, BlockState state) {
+        return controlObservation(level, pos, state.getValue(FACING).getOpposite()).quality();
+    }
+
+    public static PortQuality modeQuality(Level level, BlockPos pos) {
+        return controlObservation(level, pos, Direction.UP).quality();
+    }
+
+    public static PortQuality brakeQuality(Level level, BlockPos pos, BlockState state) {
+        return controlObservation(level, pos, rightOf(state.getValue(FACING))).quality();
+    }
+
+    public static PortQuality outputQuality(Level level, BlockPos pos) {
+        return readRuntime(level, pos) == null ? PortQuality.STALE : PortQuality.VALID;
+    }
 
     /** Shared server-state text for expert diagnostics and UI regression compatibility. */
     public static String compactDiagnostics(Level level, BlockPos pos) {
