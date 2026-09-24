@@ -1,5 +1,6 @@
 package dev.redstoneengineering.client.ui;
 
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.menu.SignalConditionerMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -56,10 +57,11 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
         labelValue(graphics, "Input", menu.input() + " / 15", 105);
         labelValue(graphics, "Transfer", modeName(menu.mode()) + " • " + parameterText(menu.mode(), menu.parameter()), 121);
         labelValue(graphics, "Output", menu.output() + " / 15", 137);
-        labelValue(graphics, "Series path", direction(menu.inputDirection().getName()) + " → " + direction(menu.outputDirection().getName()), 153);
-        statusLine(graphics, "Boundary", boundaryState(), boundaryColor(), 173);
-        graphics.drawString(font, "OUTPUT", 16, 194, MUTED, false);
-        signalBar(graphics, menu.output(), 205);
+        labelValue(graphics, "Evidence", qualityName(menu.inputQuality()) + " → " + qualityName(menu.outputQuality()), 153);
+        labelValue(graphics, "Series path", direction(menu.inputDirection().getName()) + " → " + direction(menu.outputDirection().getName()), 169);
+        statusLine(graphics, "Boundary", boundaryState(), boundaryColor(), 189);
+        graphics.drawString(font, "OUTPUT", 16, 210, MUTED, false);
+        signalBar(graphics, menu.output(), 221);
     }
 
     private void renderPorts(GuiGraphics graphics) {
@@ -83,16 +85,17 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
-        statusBadge(graphics, menu.limiting() ? "SATURATED" : "TRANSFER VALID", menu.limiting() ? WARN : GOOD, 16, 80);
+        statusBadge(graphics, diagnosticTitle(), diagnosticColor(), 16, 80);
         labelValue(graphics, "Live input", menu.input() + " / 15", 105);
         labelValue(graphics, "Live output", menu.output() + " / 15", 121);
-        labelValue(graphics, "Mode / parameter", modeName(menu.mode()) + " • " + parameterText(menu.mode(), menu.parameter()), 137);
-        labelValue(graphics, "Input face", direction(menu.inputDirection().getName()), 153);
-        labelValue(graphics, "Output face", direction(menu.outputDirection().getName()), 169);
-        statusLine(graphics, "0..15 boundary", menu.limiting() ? "LIMITING ACTIVE" : "VALID • INCLUDING ZERO", menu.limiting() ? WARN : GOOD, 190);
+        labelValue(graphics, "Input quality", qualityName(menu.inputQuality()), 137);
+        labelValue(graphics, "Output quality", qualityName(menu.outputQuality()), 153);
+        labelValue(graphics, "Mode / parameter", modeName(menu.mode()) + " • " + parameterText(menu.mode(), menu.parameter()), 169);
+        statusLine(graphics, "0..15 boundary", boundaryState(), boundaryColor(), 190);
         safeText(graphics, "episodes=" + menu.limitingEpisodes()
                 + " • last=" + (menu.lastLimitingAgeTicks() < 0 ? "never" : menu.lastLimitingAgeTicks() + "t ago"),
                 16, 211, menu.limiting() ? WARN : MUTED);
+        safeText(graphics, diagnosticNextAction(), 16, 231, diagnosticColor());
     }
 
     private void renderHistory(GuiGraphics graphics) {
@@ -100,21 +103,58 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
         safeText(graphics, "The conditioner exposes the complete current transfer state above.", 16, 108, TEXT);
         safeText(graphics, "For time history, place Probe / Analyzer / Oscilloscope on the series path.", 16, 127, INFO);
         sectionRule(graphics, 149);
-        safeText(graphics, "Current state = input + transfer + output + I/O direction + limiting evidence.", 16, 162, MUTED);
+        safeText(graphics, "Current state = input + transfer + output + I/O direction + explicit PortQuality.", 16, 162, MUTED);
         safeText(graphics, "Boundary limiting episodes=" + menu.limitingEpisodes()
-                + " • last=" + (menu.lastLimitingAgeTicks() < 0 ? "never" : menu.lastLimitingAgeTicks() + "t ago"), 16, 178, INFO);
-        safeText(graphics, "A valid zero is data; it is never treated as a fault by this screen.", 16, 180, GOOD);
+                + " • last=" + (menu.lastLimitingAgeTicks() < 0 ? "never" : menu.lastLimitingAgeTicks() + "t ago"), 16, 186, INFO);
+        safeText(graphics, "A valid zero is data; NO_SIGNAL / STALE / topology evidence remain separate states.", 16, 210, GOOD);
     }
 
     private String boundaryState() {
-        if (menu.limiting()) return "SATURATED • WORLD BOUNDARY ACTIVE";
+        if (menu.outputQuality() == PortQuality.SATURATED || menu.limiting()) return "SATURATED • WORLD BOUNDARY ACTIVE";
+        if (menu.outputQuality() != PortQuality.VALID) return qualityName(menu.outputQuality());
         if (menu.output() == 0) return "VALID ZERO";
         if (menu.output() == 15) return "VALID FULL-SCALE";
         return "IN RANGE";
     }
 
+    private String diagnosticTitle() {
+        if (menu.inputQuality() != PortQuality.VALID) return "INPUT EVIDENCE • " + qualityName(menu.inputQuality());
+        if (menu.outputQuality() == PortQuality.SATURATED || menu.limiting()) return "OUTPUT SATURATED";
+        if (menu.outputQuality() != PortQuality.VALID) return "OUTPUT EVIDENCE • " + qualityName(menu.outputQuality());
+        return "TRANSFER EVIDENCE COHERENT";
+    }
+
+    private int diagnosticColor() {
+        PortQuality input = menu.inputQuality();
+        PortQuality output = menu.outputQuality();
+        if (severe(input) || severe(output)) return BAD;
+        if (input != PortQuality.VALID || output != PortQuality.VALID) return WARN;
+        return GOOD;
+    }
+
+    private String diagnosticNextAction() {
+        if (menu.inputQuality() != PortQuality.VALID)
+            return "NEXT • restore trustworthy upstream Redstone evidence before changing the transfer parameter.";
+        if (menu.outputQuality() == PortQuality.SATURATED || menu.limiting())
+            return "NEXT • decide whether boundary limiting is intentional; compare input, transfer mode and retained clip episodes before retuning.";
+        if (menu.outputQuality() != PortQuality.VALID)
+            return "NEXT • resolve output evidence quality before interpreting the numerical level.";
+        return "NEXT • transfer evidence is coherent; compare the selected model against the same input stimulus before changing configuration.";
+    }
+
+    private static String qualityName(PortQuality quality) {
+        return quality.name().replace('_', ' ');
+    }
+
+    private static boolean severe(PortQuality quality) {
+        return quality == PortQuality.FAULT
+                || quality == PortQuality.DOMAIN_MISMATCH
+                || quality == PortQuality.TOPOLOGY_ERROR;
+    }
+
     private int boundaryColor() {
-        return menu.limiting() ? WARN : GOOD;
+        if (severe(menu.outputQuality())) return BAD;
+        return menu.outputQuality() == PortQuality.VALID && !menu.limiting() ? GOOD : WARN;
     }
 
     private static String direction(String name) {
