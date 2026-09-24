@@ -10,7 +10,7 @@ import net.minecraft.world.entity.player.Inventory;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Full-page, device-aware parameter notebook for ten multi-physics engineering blocks. */
+/** Legacy compatibility notebook; normal gameplay uses the corresponding dedicated family HMI. */
 public final class MultiPhysicsParameterNotebookScreen extends AbstractContainerScreen<MultiPhysicsParameterMenu> {
     private static final int BG = 0xFFF2E9D8;
     private static final int PAGE = 0xFFFFF8E8;
