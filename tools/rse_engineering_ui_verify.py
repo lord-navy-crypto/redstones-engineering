@@ -45,8 +45,9 @@ require("src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java"
         'DIAGNOSTICS("Observe"', "ROLE • ", "HEALTH • ", "EVIDENCE • ",
         "ROUTE_CONTROL_Y = 236", "HEADER_BOTTOM", "FOOTER_HEIGHT",
         "scrollOffset", "mouseScrolled", "enableScissor", "virtualContentHeight",
-        "fitForWidth", "safeText", "configureVirtualY",
-        "isConfigureSection()", "showsPortVisualization", "contentRight() - vx",
+        "fitForWidth", "safeText", "configureVirtualY", "configureVirtualX", "routeVirtualX",
+        "horizontalOffset", "maxHorizontalScroll", "graphics.pose().translate(-horizontalOffset, -scrollOffset, 0)",
+        "isConfigureSection()", "showsPortVisualization",
         '"Parameters, modes and actions"', '"Direct RX / TX direction control"',
         "SignalAnalyzerMenu.BUTTON_ROTATE_LEFT", "SignalAnalyzerMenu.BUTTON_ROTATE_RIGHT",
         "if (menu instanceof SignalAnalyzerMenu) return true;")
@@ -127,7 +128,12 @@ require("src/main/java/dev/redstoneengineering/ui/menu/SignalConditionerMenu.jav
 require("src/main/java/dev/redstoneengineering/ui/menu/QuartzTimingMenu.java",
         "BUTTON_INPUT_LEFT", "BUTTON_OUTPUT_RIGHT", "DirectionalDomainBlock.rotateSeriesInput", "DirectionalDomainBlock.rotateSeriesOutput")
 require("src/main/java/dev/redstoneengineering/ui/menu/AmethystSystemMenu.java",
-        "BUTTON_INPUT_LEFT", "BUTTON_OUTPUT_RIGHT", "DirectionalDomainBlock.rotateSeriesInput", "DirectionalDomainBlock.rotateSeriesOutput")
+        "BUTTON_INPUT_LEFT", "BUTTON_OUTPUT_RIGHT", "DirectionalDomainBlock.rotateRigidSeriesAxis")
+amethyst_menu = read("src/main/java/dev/redstoneengineering/ui/menu/AmethystSystemMenu.java")
+for stale in ("DirectionalDomainBlock.rotateSeriesInput(level, blockPos", "DirectionalDomainBlock.rotateSeriesOutput(level, blockPos"):
+    if stale in amethyst_menu:
+        errors.append(f"Amethyst rigid two-port route regressed to independent endpoint control via {stale!r}")
+
 require("src/main/java/dev/redstoneengineering/ui/menu/MagneticSystemMenu.java",
         "BUTTON_INPUT_LEFT", "BUTTON_OUTPUT_RIGHT", "DirectionalDomainBlock.rotateSeriesInput", "DirectionalDomainBlock.rotateSeriesOutput")
 require("src/main/java/dev/redstoneengineering/ui/menu/ReliabilitySystemMenu.java",
