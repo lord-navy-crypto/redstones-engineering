@@ -8,7 +8,7 @@
 
 ## Required dependencies
 
-Five mature ecosystem libraries are part of the RSE platform contract:
+Four mature ecosystem libraries are part of the RSE platform contract:
 
 | Dependency | Pinned development version | Required side | RSE purpose |
 | --- | --- | --- | --- |
@@ -16,7 +16,6 @@ Five mature ecosystem libraries are part of the RSE platform contract:
 | Jade | `15.10.6` | Client + Server | engineering HUD and server-backed port/acceptance/run-history diagnostics |
 | GeckoLib | `4.9.2` | Client + Server | articulated machine visualization |
 | Cloth Config | `15.0.140` | Client | configuration and tuning UI |
-| Fusion | `1.3.14` (`1.3.14-neoforge-mc1.21.1`) | Client | connected textures, advanced models, topology-aware visuals |
 
 RSE does not shade or bundle their jars. Physics, topology, measurement, control, reliability and operations behavior remain native RSE responsibilities. See [`docs/DEPENDENCY_POLICY.md`](docs/DEPENDENCY_POLICY.md).
 
