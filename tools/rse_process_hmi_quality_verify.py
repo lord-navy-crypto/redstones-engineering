@@ -39,9 +39,20 @@ if not failed:
         '"Inhibit quality"',
         "Active limiting marks output SATURATED",
         "PWM fail-safe behavior uses command and inhibit quality separately",
+        'DIAGNOSTICS("Diagnostics")',
+        "private void diagnostics(GuiGraphics g)",
+        "diagnosticStatus()",
+        "diagnosticLines()",
+        "diagnosticNextAction()",
+        "Diagnostic text interprets synchronized device evidence only.",
+        "It does not run a second solver",
+        "LOAD EVIDENCE INCOMPLETE",
+        "OVERLOAD HEATING ACTIVE",
+        "COAST-DOWN",
+        "NEXT •",
     ):
         if token not in screen:
-            failed.append(f"ProcessParameterNotebookScreen missing quality presentation token: {token}")
+            failed.append(f"ProcessParameterNotebookScreen missing quality/diagnostic presentation token: {token}")
 
     for token in (
         "public static PortQuality inspectInputQuality",
@@ -73,3 +84,5 @@ print(" conditioner input/output quality separation: PASS")
 print(" conditioner saturation + retained limiting age: PASS")
 print(" PWM command/inhibit/output quality separation: PASS")
 print(" PWM fail-safe evidence remains server-backed: PASS")
+print(" device-specific diagnostics page uses synchronized evidence only: PASS")
+print(" diagnostics do not introduce a client-side second solver: PASS")
