@@ -90,6 +90,7 @@ jobs:
             tools/rse_magnetic_hmi_dispatch_verify.py \
             tools/rse_advanced_quality_evidence_verify.py \
             tools/rse_process_hmi_quality_verify.py \
+            tools/rse_lapis_low_pass_hmi_verify.py \
             tools/rse_universal_dual_endpoint_verify.py \
             tools/rse_physical_endpoint_routing_verify.py \
             tools/rse_diagnostics_console_verify.py \
