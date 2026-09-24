@@ -121,7 +121,6 @@ public final class RseDiagnosticsScreen extends Screen {
                 .bounds(280, bottom, 44, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Filter: " + filter.label), button -> {
                     filter = Filter.values()[(filter.ordinal() + 1) % Filter.values().length];
-                    page = 0;
                     rebuildWidgets();
                 })
                 .bounds(330, bottom, 78, 20).build());
