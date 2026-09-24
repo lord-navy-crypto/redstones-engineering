@@ -126,8 +126,9 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
             } else changed = routeDomain(id);
         } else if (block instanceof OpticalAttenuatorBlock) {
             if (id == BUTTON_PRIMARY_PREVIOUS || id == BUTTON_PRIMARY_NEXT) {
-                int loss = state.getValue(OpticalAttenuatorBlock.LOSS); loss = id == BUTTON_PRIMARY_NEXT ? (loss >= 8 ? 0 : loss + 1) : (loss <= 0 ? 8 : loss - 1);
-                BlockState next = state.setValue(OpticalAttenuatorBlock.LOSS, loss); level.setBlock(blockPos, next, Block.UPDATE_CLIENTS); if (level instanceof ServerLevel server) OpticalAttenuatorBlock.configurationChanged(server, blockPos, next); changed = true;
+                if (!(level instanceof ServerLevel server)) return false;
+                changed = OpticalAttenuatorBlock.setConfiguredLoss(
+                        server, blockPos, secondary.get() + (id == BUTTON_PRIMARY_NEXT ? 1 : -1));
             } else changed = routeDomain(id);
         } else if (block instanceof OpticalSplitterBlock) changed = routeSplitter(id);
         else if (block instanceof OpticalPowerMeterBlock) {
