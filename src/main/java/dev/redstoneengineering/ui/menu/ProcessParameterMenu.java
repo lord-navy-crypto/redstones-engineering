@@ -45,6 +45,7 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
     private final DataSlot liveB = trackedInt();
     private final DataSlot liveC = trackedInt();
     private final DataSlot liveD = trackedInt();
+    private final DataSlot liveE = trackedInt();
 
     public ProcessParameterMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -61,7 +62,7 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
         BlockState state = level.getBlockState(blockPos);
         Block block = state.getBlock();
         p0.set(0); p1.set(0); p2.set(0); p3.set(0);
-        liveA.set(0); liveB.set(0); liveC.set(0); liveD.set(0);
+        liveA.set(0); liveB.set(0); liveC.set(0); liveD.set(0); liveE.set(0);
 
         if (block instanceof SignalConditionerBlock) {
             kind.set(KIND_CONDITIONER);
@@ -90,10 +91,13 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
         } else if (block instanceof CopperCapacitorBlock) {
             kind.set(KIND_CAPACITOR);
             p0.set(CopperCapacitorBlock.configuredBaseTau(level, blockPos, state));
+            p1.set(CopperCapacitorBlock.configuredLeakageFactor(level, blockPos, state));
             liveA.set(CopperCapacitorBlock.chargePercent(level, blockPos));
             liveB.set(CopperCapacitorBlock.outputVoltage(level, blockPos));
             liveC.set(CopperCapacitorBlock.effectiveTau(level, blockPos));
-            liveD.set(CopperCapacitorBlock.loadTruncated(level, blockPos) ? 1 : 0);
+            double load = CopperCapacitorBlock.observedLoadResistance(level, blockPos);
+            liveD.set(Double.isInfinite(load) ? -1 : (int)Math.round(Math.min(32.0, load) * 10.0));
+            liveE.set(CopperCapacitorBlock.loadTruncated(level, blockPos) ? 1 : 0);
         } else if (block instanceof CopperFuseBlock) {
             kind.set(KIND_FUSE);
             p0.set(state.getValue(CopperFuseBlock.RATING));
@@ -170,8 +174,10 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
             int rise = p0.get() + (slot == 0 ? delta : 0);
             int fall = p1.get() + (slot == 1 ? delta : 0);
             changed = RedstoneCopperDriverBlock.setEngineeringSlewRates(server, blockPos, rise, fall);
-        } else if (block instanceof CopperCapacitorBlock && slot == 0) {
-            changed = CopperCapacitorBlock.setConfiguredBaseTau(server, blockPos, p0.get() + delta);
+        } else if (block instanceof CopperCapacitorBlock && (slot == 0 || slot == 1)) {
+            int tau = p0.get() + (slot == 0 ? delta : 0);
+            int leakage = p1.get() + (slot == 1 ? delta : 0);
+            changed = CopperCapacitorBlock.setEngineeringParameters(server, blockPos, tau, leakage);
         } else if (block instanceof CopperFuseBlock fuse) {
             if (slot == 0) {
                 changed = CopperFuseBlock.setRating(server, blockPos, p0.get() + delta);
@@ -225,4 +231,5 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
     public int liveB(){return liveB.get();}
     public int liveC(){return liveC.get();}
     public int liveD(){return liveD.get();}
+    public int liveE(){return liveE.get();}
 }
