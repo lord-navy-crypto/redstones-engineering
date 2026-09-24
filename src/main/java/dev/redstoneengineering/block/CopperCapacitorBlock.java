@@ -202,12 +202,18 @@ public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
         return runtime != null && runtime[LOAD_TRUNCATED_SLOT] != 0;
     }
 
+    public static PortQuality inputQuality(Level level, BlockPos pos) {
+        int[] runtime = snapshot(level, pos);
+        if (runtime == null || runtime[INITIALIZED_SLOT] == 0) return PortQuality.STALE;
+        int index = Math.max(0, Math.min(PortQuality.values().length - 1, runtime[INPUT_QUALITY_SLOT]));
+        return PortQuality.values()[index];
+    }
+
     public static PortQuality outputQuality(Level level, BlockPos pos) {
         int[] runtime = snapshot(level, pos);
         if (runtime == null || runtime[INITIALIZED_SLOT] == 0) return PortQuality.STALE;
 
-        int index = Math.max(0, Math.min(PortQuality.values().length - 1, runtime[INPUT_QUALITY_SLOT]));
-        PortQuality inputQuality = PortQuality.values()[index];
+        PortQuality inputQuality = inputQuality(level, pos);
         if (inputQuality == PortQuality.FAULT
                 || inputQuality == PortQuality.TOPOLOGY_ERROR
                 || inputQuality == PortQuality.DOMAIN_MISMATCH) {
