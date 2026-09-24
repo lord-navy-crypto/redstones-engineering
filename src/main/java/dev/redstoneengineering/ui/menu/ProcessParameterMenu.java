@@ -6,6 +6,7 @@ import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.VibrationNetwork;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Inventory;
@@ -36,6 +37,10 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_P3_MINUS = 6;
     public static final int BUTTON_P3_PLUS = 7;
     public static final int BUTTON_ACTION = 8;
+    public static final int BUTTON_INPUT_PREVIOUS = 20;
+    public static final int BUTTON_INPUT_NEXT = 21;
+    public static final int BUTTON_OUTPUT_PREVIOUS = 22;
+    public static final int BUTTON_OUTPUT_NEXT = 23;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot p0 = trackedInt();
@@ -49,6 +54,8 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
     private final DataSlot liveE = trackedInt();
     private final DataSlot liveF = trackedInt();
     private final DataSlot liveG = trackedInt();
+    private final DataSlot inputFacing = trackedInt();
+    private final DataSlot outputFacing = trackedInt();
 
     public ProcessParameterMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -66,6 +73,7 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
         Block block = state.getBlock();
         p0.set(0); p1.set(0); p2.set(0); p3.set(0);
         liveA.set(0); liveB.set(0); liveC.set(0); liveD.set(0); liveE.set(0); liveF.set(PortQuality.NO_SIGNAL.ordinal()); liveG.set(PortQuality.NO_SIGNAL.ordinal());
+        inputFacing.set(-1); outputFacing.set(-1);
 
         if (block instanceof SignalConditionerBlock) {
             kind.set(KIND_CONDITIONER);
@@ -78,6 +86,8 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
             liveE.set(SignalConditionerBlock.inspectInputQuality(level, blockPos, state).ordinal());
             liveF.set(SignalConditionerBlock.inspectOutputQuality(level, blockPos, state).ordinal());
             liveG.set(SignalConditionerBlock.lastLimitingAgeTicks(level, blockPos));
+            inputFacing.set(DirectionalSignalBlock.seriesInputSide(state).ordinal());
+            outputFacing.set(DirectionalSignalBlock.seriesOutputSide(state).ordinal());
         } else if (block instanceof PwmControllerBlock pwm) {
             kind.set(KIND_PWM);
             p0.set(PwmControllerBlock.configuredPeriod(level, blockPos, state));
@@ -88,6 +98,8 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
             liveE.set(PwmControllerBlock.commandQuality(level, blockPos, state).ordinal());
             liveF.set(PwmControllerBlock.inhibitQuality(level, blockPos, state).ordinal());
             liveG.set(PwmControllerBlock.outputQuality(level, blockPos, state).ordinal());
+            inputFacing.set(DirectionalSignalBlock.seriesInputSide(state).ordinal());
+            outputFacing.set(DirectionalSignalBlock.seriesOutputSide(state).ordinal());
         } else if (block instanceof RedstoneCopperDriverBlock) {
             kind.set(KIND_COPPER_DRIVER);
             p0.set(RedstoneCopperDriverBlock.configuredRiseSlew(level, blockPos, state));
@@ -99,6 +111,8 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
             liveD.set(Math.abs(RedstoneCopperDriverBlock.targetVoltage(level, blockPos)
                     - RedstoneCopperDriverBlock.actualVoltage(level, blockPos)));
             liveE.set(inputQuality == PortQuality.VALID ? 1 : 0);
+            inputFacing.set(RedstoneCopperDriverBlock.inputSide(state).ordinal());
+            outputFacing.set(RedstoneCopperDriverBlock.outputSide(state).ordinal());
         } else if (block instanceof CopperCapacitorBlock) {
             kind.set(KIND_CAPACITOR);
             p0.set(CopperCapacitorBlock.configuredBaseTau(level, blockPos, state));
@@ -111,6 +125,8 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
             liveE.set(CopperCapacitorBlock.loadTruncated(level, blockPos) ? 1 : 0);
             liveF.set(CopperCapacitorBlock.inputQuality(level, blockPos).ordinal());
             liveG.set(CopperCapacitorBlock.outputQuality(level, blockPos).ordinal());
+            inputFacing.set(DirectionalDomainBlock.seriesInputSide(state).ordinal());
+            outputFacing.set(DirectionalDomainBlock.seriesOutputSide(state).ordinal());
         } else if (block instanceof CopperFuseBlock) {
             kind.set(KIND_FUSE);
             p0.set(state.getValue(CopperFuseBlock.RATING));
@@ -123,6 +139,8 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
             liveE.set((int)Math.round(current / Math.max(1, state.getValue(CopperFuseBlock.RATING)) * 1000.0));
             liveF.set(CopperFuseBlock.inputQuality(level, blockPos).ordinal());
             liveG.set(CopperFuseBlock.outputQuality(level, blockPos, state).ordinal());
+            inputFacing.set(DirectionalDomainBlock.seriesInputSide(state).ordinal());
+            outputFacing.set(DirectionalDomainBlock.seriesOutputSide(state).ordinal());
         } else if (block instanceof AirCompressorBlock) {
             kind.set(KIND_COMPRESSOR);
             var r = AirCompressorBlock.configuredResponse(level, blockPos, state);
@@ -155,6 +173,7 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
             kind.set(KIND_LAPIS_SOURCE);
             p0.set(state.getValue(LapisPrecisionSourceBlock.VALUE));
             liveA.set(state.getValue(LapisPrecisionSourceBlock.VALUE));
+            outputFacing.set(DirectionalDomainSourceBlock.outputSide(state).ordinal());
         } else if (block instanceof CopperVoltageSourceBlock) {
             kind.set(KIND_COPPER_SOURCE);
             p0.set(state.getValue(CopperVoltageSourceBlock.VOLTAGE));
@@ -187,7 +206,22 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
         };
         boolean changed = false;
 
-        if (block instanceof SignalConditionerBlock) {
+        if (id == BUTTON_INPUT_PREVIOUS || id == BUTTON_INPUT_NEXT
+                || id == BUTTON_OUTPUT_PREVIOUS || id == BUTTON_OUTPUT_NEXT) {
+            boolean clockwise = id == BUTTON_INPUT_NEXT || id == BUTTON_OUTPUT_NEXT;
+            boolean inputRoute = id == BUTTON_INPUT_PREVIOUS || id == BUTTON_INPUT_NEXT;
+            if (block instanceof SignalConditionerBlock || block instanceof PwmControllerBlock) {
+                changed = inputRoute
+                        ? DirectionalSignalBlock.rotateSeriesInput(level, blockPos, clockwise)
+                        : DirectionalSignalBlock.rotateSeriesOutput(level, blockPos, clockwise);
+            } else if (block instanceof CopperCapacitorBlock || block instanceof CopperFuseBlock) {
+                changed = inputRoute
+                        ? DirectionalDomainBlock.rotateSeriesInput(level, blockPos, clockwise)
+                        : DirectionalDomainBlock.rotateSeriesOutput(level, blockPos, clockwise);
+            } else if (block instanceof LapisPrecisionSourceBlock && !inputRoute) {
+                changed = DirectionalDomainSourceBlock.rotateOutput(level, blockPos, clockwise);
+            }
+        } else if (block instanceof SignalConditionerBlock) {
             if (slot == 0) changed = SignalConditionerBlock.applyConfigurationAction(
                     level, blockPos, delta > 0 ? SignalConditionerMenu.BUTTON_MODE_NEXT : SignalConditionerMenu.BUTTON_MODE_PREVIOUS);
             else if (slot == 1) changed = SignalConditionerBlock.applyConfigurationAction(
@@ -261,4 +295,19 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
     public int liveE(){return liveE.get();}
     public int liveF(){return liveF.get();}
     public int liveG(){return liveG.get();}
+    public boolean hasInputEndpoint(){return inputFacing.get()>=0;}
+    public boolean hasOutputEndpoint(){return outputFacing.get()>=0;}
+    public boolean canRouteInput(){
+        return kind.get()==KIND_CONDITIONER || kind.get()==KIND_PWM
+                || kind.get()==KIND_CAPACITOR || kind.get()==KIND_FUSE;
+    }
+    public boolean canRouteOutput(){
+        return canRouteInput() || kind.get()==KIND_LAPIS_SOURCE;
+    }
+    public Direction inputDirection(){return direction(inputFacing.get(),Direction.SOUTH);}
+    public Direction outputDirection(){return direction(outputFacing.get(),Direction.NORTH);}
+    private static Direction direction(int ordinal,Direction fallback){
+        Direction[] values=Direction.values();
+        return ordinal>=0&&ordinal<values.length?values[ordinal]:fallback;
+    }
 }
