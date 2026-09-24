@@ -7,6 +7,7 @@ import dev.redstoneengineering.physics.PneumaticNetwork;
 import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Inventory;
@@ -35,6 +36,10 @@ public final class AdvancedParameterMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_P2_MINUS = 4;
     public static final int BUTTON_P2_PLUS = 5;
     public static final int BUTTON_P3_TOGGLE = 6;
+    public static final int BUTTON_INPUT_PREVIOUS = 20;
+    public static final int BUTTON_INPUT_NEXT = 21;
+    public static final int BUTTON_OUTPUT_PREVIOUS = 22;
+    public static final int BUTTON_OUTPUT_NEXT = 23;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot p0 = trackedInt();
@@ -47,6 +52,8 @@ public final class AdvancedParameterMenu extends EngineeringDeviceMenu {
     private final DataSlot liveD = trackedInt();
     private final DataSlot liveE = trackedInt();
     private final DataSlot liveF = trackedInt();
+    private final DataSlot inputFacing = trackedInt();
+    private final DataSlot outputFacing = trackedInt();
 
     public AdvancedParameterMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -65,6 +72,7 @@ public final class AdvancedParameterMenu extends EngineeringDeviceMenu {
         p0.set(0); p1.set(0); p2.set(0); p3.set(0);
         liveA.set(0); liveB.set(0); liveC.set(0); liveD.set(0);
         liveE.set(PortQuality.NO_SIGNAL.ordinal()); liveF.set(PortQuality.NO_SIGNAL.ordinal());
+        inputFacing.set(-1); outputFacing.set(-1);
 
         if (block instanceof PrecisionFilterBlock) {
             kind.set(KIND_PRECISION_FILTER);
@@ -104,6 +112,8 @@ public final class AdvancedParameterMenu extends EngineeringDeviceMenu {
             liveF.set(input.valid() && SignalAmplifierBlock.clipping(level, blockPos)
                     ? PortQuality.SATURATED.ordinal()
                     : input.quality().ordinal());
+            inputFacing.set(DirectionalSignalBlock.seriesInputSide(state).ordinal());
+            outputFacing.set(DirectionalSignalBlock.seriesOutputSide(state).ordinal());
         } else if (block instanceof ElectromagnetBlock) {
             kind.set(KIND_ELECTROMAGNET);
             var response = ElectromagnetBlock.configuredResponse(level, blockPos);
@@ -133,12 +143,15 @@ public final class AdvancedParameterMenu extends EngineeringDeviceMenu {
             liveA.set(LapisNoiseSourceBlock.currentValue(level, blockPos, state));
             liveB.set(LapisNoiseSourceBlock.sampleInitialized(level, blockPos) ? 1 : 0);
             liveC.set(PortQuality.VALID.ordinal());
+            outputFacing.set(DirectionalDomainSourceBlock.outputSide(state).ordinal());
         } else if (block instanceof LapisPrecisionRangeSensorBlock && level instanceof ServerLevel server) {
             kind.set(KIND_LAPIS_RANGE);
             p0.set(LapisPrecisionRangeSensorBlock.configuredRange(level, blockPos, state));
             var sample = LapisPrecisionRangeSensorBlock.rangeSample(server, blockPos, state);
             liveA.set(sample.distance()); liveB.set(sample.maxRange()); liveC.set(sample.complete() ? 1 : 0);
             liveD.set(sample.quality().ordinal());
+            inputFacing.set(DirectionalDomainBlock.seriesInputSide(state).ordinal());
+            outputFacing.set(DirectionalDomainBlock.seriesOutputSide(state).ordinal());
         } else if (block instanceof OpticalEmitterBlock) {
             kind.set(KIND_OPTICAL_EMITTER);
             p0.set(state.getValue(OpticalEmitterBlock.INTENSITY));
@@ -163,7 +176,22 @@ public final class AdvancedParameterMenu extends EngineeringDeviceMenu {
                 : (id == BUTTON_P2_MINUS || id == BUTTON_P2_PLUS) ? 2 : -1;
         boolean changed = false;
 
-        if (block instanceof PrecisionFilterBlock filter && (slot == 0 || slot == 1)) {
+        if (id == BUTTON_INPUT_PREVIOUS || id == BUTTON_INPUT_NEXT
+                || id == BUTTON_OUTPUT_PREVIOUS || id == BUTTON_OUTPUT_NEXT) {
+            boolean clockwise = id == BUTTON_INPUT_NEXT || id == BUTTON_OUTPUT_NEXT;
+            boolean inputRoute = id == BUTTON_INPUT_PREVIOUS || id == BUTTON_INPUT_NEXT;
+            if (block instanceof SignalAmplifierBlock) {
+                changed = inputRoute
+                        ? DirectionalSignalBlock.rotateSeriesInput(level, blockPos, clockwise)
+                        : DirectionalSignalBlock.rotateSeriesOutput(level, blockPos, clockwise);
+            } else if (block instanceof LapisPrecisionRangeSensorBlock) {
+                changed = inputRoute
+                        ? DirectionalDomainBlock.rotateSeriesInput(level, blockPos, clockwise)
+                        : DirectionalDomainBlock.rotateSeriesOutput(level, blockPos, clockwise);
+            } else if (block instanceof LapisNoiseSourceBlock && !inputRoute) {
+                changed = DirectionalDomainSourceBlock.rotateOutput(level, blockPos, clockwise);
+            }
+        } else if (block instanceof PrecisionFilterBlock filter && (slot == 0 || slot == 1)) {
             if (slot == 0) changed = PrecisionFilterBlock.setRiseRate(server, blockPos, p0.get() + delta);
             else {
                 var entity = level.getBlockEntity(blockPos);
@@ -233,4 +261,19 @@ public final class AdvancedParameterMenu extends EngineeringDeviceMenu {
     public int liveD() { return liveD.get(); }
     public int liveE() { return liveE.get(); }
     public int liveF() { return liveF.get(); }
+    public boolean hasInputEndpoint() { return inputFacing.get() >= 0; }
+    public boolean hasOutputEndpoint() { return outputFacing.get() >= 0; }
+    public boolean canRouteInput() {
+        return kind.get() == KIND_SIGNAL_AMPLIFIER || kind.get() == KIND_LAPIS_RANGE;
+    }
+    public boolean canRouteOutput() {
+        return canRouteInput() || kind.get() == KIND_LAPIS_NOISE;
+    }
+    public Direction inputDirection() { return direction(inputFacing.get(), Direction.SOUTH); }
+    public Direction outputDirection() { return direction(outputFacing.get(), Direction.NORTH); }
+
+    private static Direction direction(int ordinal, Direction fallback) {
+        Direction[] values = Direction.values();
+        return ordinal >= 0 && ordinal < values.length ? values[ordinal] : fallback;
+    }
 }
