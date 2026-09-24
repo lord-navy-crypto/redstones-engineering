@@ -51,8 +51,7 @@ public final class FieldDeviceUi {
                 || block instanceof InductionCoilBlock
                 || block instanceof PneumaticReliefValveBlock
                 || block instanceof LapisNoiseSourceBlock
-                || block instanceof LapisPrecisionRangeSensorBlock
-                || block instanceof OpticalEmitterBlock) {
+                || block instanceof LapisPrecisionRangeSensorBlock) {
             player.openMenu(new SimpleMenuProvider(
                     (id, inv, ignored) -> new AdvancedParameterMenu(id, inv, pos), title),
                     data -> data.writeBlockPos(pos));
@@ -60,9 +59,7 @@ public final class FieldDeviceUi {
         }
         if (block instanceof QuartzPhaseDelayBlock
                 || block instanceof PressureRegulatorBlock
-                || block instanceof PneumaticProportionalValveBlock
-                || block instanceof OpticalAttenuatorBlock
-                || block instanceof OpticalChannelFilterBlock) {
+                || block instanceof PneumaticProportionalValveBlock) {
             player.openMenu(new SimpleMenuProvider(
                     (id, inv, ignored) -> new MultiPhysicsParameterMenu(id, inv, pos), title),
                     data -> data.writeBlockPos(pos));
