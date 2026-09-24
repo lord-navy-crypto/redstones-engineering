@@ -80,6 +80,24 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
                 || quality == PortQuality.TOPOLOGY_ERROR;
     }
 
+    public static PortQuality commandQuality(Level level, BlockPos pos, BlockState state) {
+        if (!(state.getBlock() instanceof PwmControllerBlock pwm)) return PortQuality.NO_SIGNAL;
+        return RedstoneObservationSupport.observe(level, pos, pwm.inputSide(state)).quality();
+    }
+
+    public static PortQuality inhibitQuality(Level level, BlockPos pos, BlockState state) {
+        if (!(state.getBlock() instanceof PwmControllerBlock)) return PortQuality.NO_SIGNAL;
+        return RedstoneObservationSupport.observe(level, pos, leftOf(state.getValue(FACING))).quality();
+    }
+
+    public static PortQuality outputQuality(Level level, BlockPos pos, BlockState state) {
+        PortQuality commandQuality = commandQuality(level, pos, state);
+        PortQuality inhibitQuality = inhibitQuality(level, pos, state);
+        return inhibitEvidenceUnusable(inhibitQuality)
+                ? RedstoneObservationSupport.combineQuality(commandQuality, inhibitQuality)
+                : commandQuality;
+    }
+
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         Optional<EngineeringPort> port = engineeringPort(state, side);
@@ -96,11 +114,8 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
             return Optional.of(EngineeringPortSnapshot.redstone(port.get(), inhibit.value(), inhibit.quality()));
         }
         if (side == outputSide(state)) {
-            PortQuality quality = inhibitEvidenceUnusable(inhibit.quality())
-                    ? RedstoneObservationSupport.combineQuality(command.quality(), inhibit.quality())
-                    : command.quality();
             return Optional.of(EngineeringPortSnapshot.redstone(
-                    port.get(), state.getValue(OUTPUT), quality));
+                    port.get(), state.getValue(OUTPUT), outputQuality(level, pos, state)));
         }
         return Optional.empty();
     }
