@@ -1,5 +1,6 @@
 package dev.redstoneengineering.client.ui;
 
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.menu.ProcessParameterMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -60,6 +61,7 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
         return switch(menu.kind()){
             case ProcessParameterMenu.KIND_CONDITIONER,
                  ProcessParameterMenu.KIND_PWM,
+                 ProcessParameterMenu.KIND_COPPER_DRIVER,
                  ProcessParameterMenu.KIND_COMPRESSOR -> 2;
             case ProcessParameterMenu.KIND_EXCITER -> 4;
             default -> 1;
@@ -118,7 +120,7 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
         return switch(menu.kind()){
             case ProcessParameterMenu.KIND_CONDITIONER -> new String[]{"Transfer mode","Mode parameter"};
             case ProcessParameterMenu.KIND_PWM -> new String[]{"Carrier period","Invert"};
-            case ProcessParameterMenu.KIND_COPPER_DRIVER -> new String[]{"Voltage slew"};
+            case ProcessParameterMenu.KIND_COPPER_DRIVER -> new String[]{"Rise slew limit","Fall slew limit"};
             case ProcessParameterMenu.KIND_CAPACITOR -> new String[]{"Base time constant"};
             case ProcessParameterMenu.KIND_FUSE -> new String[]{"Current rating"};
             case ProcessParameterMenu.KIND_COMPRESSOR -> new String[]{"Ramp-up rate","Ramp-down rate"};
@@ -150,7 +152,7 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
         return switch(menu.kind()){
             case ProcessParameterMenu.KIND_CONDITIONER -> new String[]{"Input","Output","Limit episodes","Limiting now"};
             case ProcessParameterMenu.KIND_PWM -> new String[]{"Command","Applied command","Effective duty","Completed cycles"};
-            case ProcessParameterMenu.KIND_COPPER_DRIVER -> new String[]{"Target voltage","Actual voltage","Input quality"};
+            case ProcessParameterMenu.KIND_COPPER_DRIVER -> new String[]{"Target voltage","Actual voltage","Input quality","Tracking error"};
             case ProcessParameterMenu.KIND_CAPACITOR -> new String[]{"Stored charge","Output voltage","Effective tau","Load scan truncated"};
             case ProcessParameterMenu.KIND_FUSE -> new String[]{"Thermal exposure","Trip progress","Trip state","Last current ×100"};
             case ProcessParameterMenu.KIND_COMPRESSOR -> new String[]{"Target pressure","Actual pressure","Tracking error","Start count"};
@@ -164,6 +166,7 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
 
     private String liveValue(int i,int v){
         if(menu.kind()==ProcessParameterMenu.KIND_CONDITIONER&&i==3) return v!=0?"YES":"NO";
+        if(menu.kind()==ProcessParameterMenu.KIND_COPPER_DRIVER&&i==2) return qualityName(v);
         if(menu.kind()==ProcessParameterMenu.KIND_PWM&&i==2) return String.format("%.1f%%",v/10.0);
         if(menu.kind()==ProcessParameterMenu.KIND_CAPACITOR){
             if(i==0) return v+"%";
@@ -182,7 +185,7 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
         return switch(menu.kind()){
             case ProcessParameterMenu.KIND_CONDITIONER -> "Mode-specific transfer function maps Redstone input to bounded 0..15 output.";
             case ProcessParameterMenu.KIND_PWM -> "Duty request comes from command 0..15; carrier period controls time quantization.";
-            case ProcessParameterMenu.KIND_COPPER_DRIVER -> "Actual Copper voltage approaches target command by configured slew each tick.";
+            case ProcessParameterMenu.KIND_COPPER_DRIVER -> "V[k+1] = V[k] + clamp(Vtarget − V[k], −Sfall, +Srise).";
             case ProcessParameterMenu.KIND_CAPACITOR -> "Stored charge approaches source target with base tau; discharge tau also depends on downstream load.";
             case ProcessParameterMenu.KIND_FUSE -> "I²t-style thermal exposure accumulates from verified current and trips the protected output.";
             case ProcessParameterMenu.KIND_COMPRESSOR -> "Pressure target derives from Redstone command; actual pressure follows asymmetric ramp rates.";
@@ -199,6 +202,7 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             case ProcessParameterMenu.KIND_PWM -> "Command updates latch at carrier-cycle boundaries; changing period resets carrier phase evidence.";
             case ProcessParameterMenu.KIND_CAPACITOR -> "Open circuit retains energy longest; incomplete load scans freeze integration instead of inventing discharge.";
             case ProcessParameterMenu.KIND_FUSE -> "Changing rating does not erase thermal exposure; reset remains fail-safe and evidence-gated.";
+            case ProcessParameterMenu.KIND_COPPER_DRIVER -> "Rise and fall slew are independent, so energizing and de-energizing can have different dynamics.";
             case ProcessParameterMenu.KIND_EXCITER -> "Amplitude rise/fall and frequency slew are independent configuration variables.";
             default -> "The parameter changes the authoritative server model, not a client-only display.";
         };
@@ -209,4 +213,8 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
     private void pair(GuiGraphics g,String label,String value,int y){ g.drawString(font,label,42,y,MUTED,false); g.drawString(font,fit(value,230),245,y,INK,false); }
     private String fit(String s,int width){ if(font.width(s)<=width)return s; String x=s; while(x.length()>1&&font.width(x+"…")>width)x=x.substring(0,x.length()-1); return x+"…"; }
     private static String conditionerMode(int m){ return switch(m){case 0->"SCALE";case 1->"OFFSET";case 2->"CLAMP";case 3->"THRESHOLD";case 4->"DEADBAND";case 5->"ATTENUATE";default->"UNKNOWN";}; }
+    private static String qualityName(int ordinal){
+        PortQuality[] values=PortQuality.values();
+        return ordinal>=0&&ordinal<values.length?values[ordinal].name():"UNKNOWN";
+    }
 }
