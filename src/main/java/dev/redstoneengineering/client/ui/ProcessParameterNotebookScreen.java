@@ -13,8 +13,8 @@ import java.util.List;
 
 /** Full-page notebook for process/control parameter batch three. */
 public final class ProcessParameterNotebookScreen extends AbstractContainerScreen<ProcessParameterMenu> {
-    private static final int BG=0xFFF2E9D8, PAGE=0xFFFFF8E8, INK=0xFF2C2925, MUTED=0xFF6E675E, RULE=0xFFB9A98F, ACCENT=0xFF4F5F7B, GOOD=0xFF2F7D4A;
-    private enum Tab { OPERATE("Operate"), PARAMETERS("Parameters"), MODEL("Model"); final String label; Tab(String s){label=s;} }
+    private static final int BG=0xFFF2E9D8, PAGE=0xFFFFF8E8, INK=0xFF2C2925, MUTED=0xFF6E675E, RULE=0xFFB9A98F, ACCENT=0xFF4F5F7B, GOOD=0xFF2F7D4A, WARN=0xFF9A6A19, BAD=0xFFA43838;
+    private enum Tab { OPERATE("Operate"), PARAMETERS("Parameters"), MODEL("Model"), DIAGNOSTICS("Diagnostics"); final String label; Tab(String s){label=s;} }
     private Tab tab=Tab.PARAMETERS;
     private final List<Button> controls=new ArrayList<>();
     private Button action;
@@ -89,6 +89,7 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             case OPERATE -> 420;
             case PARAMETERS -> 470;
             case MODEL -> 760;
+            case DIAGNOSTICS -> 650;
         };
     }
 
@@ -151,7 +152,7 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
                 topPos+imageHeight-CONTENT_BOTTOM_MARGIN);
         g.pose().pushPose();
         g.pose().translate(0,-scrollOffset,0);
-        switch(tab){case OPERATE->operate(g);case PARAMETERS->parameters(g);case MODEL->model(g);}
+        switch(tab){case OPERATE->operate(g);case PARAMETERS->parameters(g);case MODEL->model(g);case DIAGNOSTICS->diagnostics(g);}
         g.pose().popPose();
         g.disableScissor();
 
@@ -187,6 +188,19 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
                 42,y,textWidth,MUTED)+22;
         drawWrapped(g,"This page grows vertically as equations, assumptions, response metrics and diagnostic evidence are added. Scroll instead of shrinking or truncating the engineering model.",
                 42,y,textWidth,MUTED);
+    }
+
+    private void diagnostics(GuiGraphics g){
+        int textWidth=Math.max(280,imageWidth-96);
+        g.drawString(font,"SERVER-BACKED DIAGNOSTICS",42,CONTENT_TOP+28,MUTED,false);
+        g.drawString(font,diagnosticStatus(),42,CONTENT_TOP+58,diagnosticColor(),false);
+        int y=CONTENT_TOP+96;
+        for(String line:diagnosticLines()){
+            y=drawWrapped(g,line,42,y,textWidth,INK)+18;
+        }
+        y=drawWrapped(g,"Diagnostic text interprets synchronized device evidence only. It does not run a second solver or repair missing topology/evidence on the client.",
+                42,y,textWidth,MUTED)+18;
+        drawWrapped(g,diagnosticNextAction(),42,y,textWidth,diagnosticColor());
     }
 
     private String[] parameterLabels(){
@@ -326,6 +340,141 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             return "Actual amplitude may coast toward zero after command loss; input quality and output quality remain explicit evidence rather than being inferred from the numeric state.";
         return "Operate values are synchronized readback from the real device and connected world.";
     }
+    private String diagnosticStatus(){
+        return switch(menu.kind()){
+            case ProcessParameterMenu.KIND_CONDITIONER -> {
+                String out=qualityName(menu.liveF());
+                if(menu.liveD()!=0||"SATURATED".equals(out)) yield "LIMITING ACTIVE • OUTPUT SATURATED";
+                if(!"VALID".equals(qualityName(menu.liveE()))) yield "INPUT EVIDENCE • "+qualityName(menu.liveE());
+                yield "TRANSFER EVIDENCE COHERENT";
+            }
+            case ProcessParameterMenu.KIND_PWM -> {
+                if(!"VALID".equals(qualityName(menu.liveG()))) yield "PWM OUTPUT EVIDENCE • "+qualityName(menu.liveG());
+                if(menu.liveA()!=menu.liveB()) yield "COMMAND / APPLIED DIFFER • CHECK LATCH OR INHIBIT";
+                yield "PWM EVIDENCE COHERENT";
+            }
+            case ProcessParameterMenu.KIND_COPPER_DRIVER -> {
+                String q=qualityName(menu.liveC());
+                if(!"VALID".equals(q)) yield q+" INPUT • COPPER DRIVER "+(menu.liveE()!=0?"PRESENT":"RELEASED");
+                if(menu.liveD()>0) yield "COPPER SLEW TRANSIENT";
+                yield "COPPER TRACKING COMMAND";
+            }
+            case ProcessParameterMenu.KIND_CAPACITOR -> {
+                if(menu.liveE()!=0) yield "LOAD EVIDENCE INCOMPLETE";
+                String q=qualityName(menu.liveG());
+                if(!"VALID".equals(q)) yield "CAPACITOR OUTPUT • "+q;
+                yield "CAPACITOR EVIDENCE COHERENT";
+            }
+            case ProcessParameterMenu.KIND_FUSE -> {
+                if(menu.liveC()!=0) yield "FUSE TRIPPED";
+                if(menu.liveE()>1000) yield "OVERLOAD HEATING ACTIVE";
+                String q=qualityName(menu.liveG());
+                if(!"VALID".equals(q)) yield "FUSE OUTPUT • "+q;
+                yield "FUSE ARMED";
+            }
+            case ProcessParameterMenu.KIND_COMPRESSOR -> menu.liveC()>0?"PRESSURE RESPONSE TRANSIENT":"PRESSURE TRACKING TARGET";
+            case ProcessParameterMenu.KIND_DAMPER -> menu.liveC()==0?"NO ACTIVE MECHANICAL WAVE":menu.liveD()<100?"DEGRADED WAVE ENVELOPE":"WAVE EVIDENCE CURRENT";
+            case ProcessParameterMenu.KIND_EXCITER -> {
+                String in=qualityName(menu.liveF());
+                if(!"VALID".equals(in)&&menu.liveB()>0) yield "COAST-DOWN • INPUT "+in;
+                if(menu.liveA()==0&&menu.liveB()==0) yield "EXCITER IDLE";
+                if(menu.liveA()!=menu.liveB()||menu.p0()!=menu.liveC()) yield "EXCITER RESPONSE TRANSIENT";
+                yield "EXCITER TRACKING COMMAND";
+            }
+            case ProcessParameterMenu.KIND_LAPIS_SOURCE -> "VALID LAPIS PRECISION SOURCE";
+            case ProcessParameterMenu.KIND_COPPER_SOURCE -> "VALID COPPER VOLTAGE SOURCE";
+            default -> "DEVICE EVIDENCE AVAILABLE";
+        };
+    }
+
+    private int diagnosticColor(){
+        String s=diagnosticStatus();
+        if(s.contains("TRIPPED")||s.contains("FAULT")||s.contains("TOPOLOGY")) return BAD;
+        if(s.contains("SATURATED")||s.contains("INCOMPLETE")||s.contains("TRANSIENT")
+                ||s.contains("DEGRADED")||s.contains("NO ACTIVE")||s.contains("CHECK")
+                ||s.contains("NO_SIGNAL")||s.contains("STALE")) return WARN;
+        return GOOD;
+    }
+
+    private String[] diagnosticLines(){
+        return switch(menu.kind()){
+            case ProcessParameterMenu.KIND_CONDITIONER -> new String[]{
+                    "Transfer = "+conditionerMode(menu.p0())+" • parameter="+menu.p1()+" • input/output="+menu.liveA()+" / "+menu.liveB()+".",
+                    "Evidence = "+qualityName(menu.liveE())+" input → "+qualityName(menu.liveF())+" output.",
+                    "Limiting = "+(menu.liveD()!=0?"ACTIVE":"CLEAR")+" • episodes="+menu.liveC()+" • last limiting age="+(menu.liveG()<0?"NONE":menu.liveG()+" ticks")+"."
+            };
+            case ProcessParameterMenu.KIND_PWM -> new String[]{
+                    "Command / applied = "+menu.liveA()+" / "+menu.liveB()+" • effective duty="+String.format("%.1f%%",menu.liveC()/10.0)+".",
+                    "Evidence = command "+qualityName(menu.liveE())+" • inhibit "+qualityName(menu.liveF())+" • output "+qualityName(menu.liveG())+".",
+                    "Completed carrier cycles = "+menu.liveD()+"; command/applied differences are retained state, not client interpolation."
+            };
+            case ProcessParameterMenu.KIND_COPPER_DRIVER -> new String[]{
+                    "Target / actual / error = "+menu.liveA()+" / "+menu.liveB()+" / "+menu.liveD()+" V-level.",
+                    "Input evidence = "+qualityName(menu.liveC())+" • network driver = "+(menu.liveE()!=0?"PRESENT":"RELEASED")+".",
+                    "Configured rise/fall slew = "+menu.p0()+" / "+menu.p1()+" V-level per tick."
+            };
+            case ProcessParameterMenu.KIND_CAPACITOR -> new String[]{
+                    "Stored charge / output = "+menu.liveA()+"% / "+menu.liveB()+" • effective τ="+menu.liveC()+" ticks.",
+                    "Input/output evidence = "+qualityName(menu.liveF())+" / "+qualityName(menu.liveG())+".",
+                    "Observed load = "+(menu.liveD()<0?"OPEN":String.format("%.1f R-eq",menu.liveD()/10.0))+" • scan truncated="+(menu.liveE()!=0?"YES":"NO")+"."
+            };
+            case ProcessParameterMenu.KIND_FUSE -> new String[]{
+                    "Thermal exposure / trip progress = "+menu.liveA()+" / "+String.format("%.1f%%",menu.liveB()/10.0)+".",
+                    "Current ratio = "+String.format("%.2f × Irated",menu.liveE()/1000.0)+" • state="+(menu.liveC()!=0?"TRIPPED":"ARMED")+".",
+                    "Input/output evidence = "+qualityName(menu.liveF())+" / "+qualityName(menu.liveG())+"."
+            };
+            case ProcessParameterMenu.KIND_COMPRESSOR -> new String[]{
+                    "Target / actual / tracking error = "+menu.liveA()+" / "+menu.liveB()+" / "+menu.liveC()+".",
+                    "Configured ramp-up / ramp-down = "+menu.p0()+" / "+menu.p1()+" pressure per tick.",
+                    "Start count = "+menu.liveD()+"; this is retained runtime evidence from the server compressor model."
+            };
+            case ProcessParameterMenu.KIND_DAMPER -> new String[]{
+                    "Wave amplitude / frequency = "+menu.liveA()+" / "+menu.liveB()+".",
+                    "Envelope validity / quality = "+(menu.liveC()!=0?"VALID":"NO ACTIVE WAVE")+" / "+menu.liveD()+"%.",
+                    "Envelope age = "+(menu.liveE()<0?"NEVER WRITTEN":menu.liveE()+" ticks")+" • attenuation="+menu.p0()+" amplitude per step."
+            };
+            case ProcessParameterMenu.KIND_EXCITER -> new String[]{
+                    "Target / actual amplitude = "+menu.liveA()+" / "+menu.liveB()+" • actual frequency="+menu.liveC()+".",
+                    "Configured target frequency="+menu.p0()+" • rise/fall/frequency slew="+menu.p1()+" / "+menu.p2()+" / "+menu.p3()+".",
+                    "Input/output evidence = "+qualityName(menu.liveF())+" / "+qualityName(menu.liveG())+" • starts/run ticks="+menu.liveD()+" / "+menu.liveE()+"."
+            };
+            case ProcessParameterMenu.KIND_LAPIS_SOURCE -> new String[]{
+                    "Configured output = "+String.format("%.2f",menu.liveA()/100.0)+" on the Lapis domain.",
+                    "Exact numerical zero remains a valid source state; this device does not infer absence from value 0."
+            };
+            case ProcessParameterMenu.KIND_COPPER_SOURCE -> new String[]{
+                    "Configured output = "+menu.liveA()+" / 15 • quality="+qualityName(menu.liveB())+".",
+                    "Driver present = "+(menu.liveC()!=0?"YES":"NO")+"; a valid 0 V source remains present electrical evidence."
+            };
+            default -> new String[]{"No device-specific diagnostic interpretation is registered for this compatibility kind."};
+        };
+    }
+
+    private String diagnosticNextAction(){
+        return switch(menu.kind()){
+            case ProcessParameterMenu.KIND_CONDITIONER -> menu.liveD()!=0
+                    ?"NEXT • inspect whether limiting is intended for this transfer mode before changing the parameter; keep upstream evidence separate."
+                    :"NEXT • if the transfer is wrong, compare input/output with the selected mode before retuning.";
+            case ProcessParameterMenu.KIND_PWM -> !"VALID".equals(qualityName(menu.liveG()))
+                    ?"NEXT • inspect command and inhibit evidence first; do not retune carrier period to mask an evidence fault."
+                    :"NEXT • compare requested behavior against completed carrier cycles before changing period or inversion.";
+            case ProcessParameterMenu.KIND_COPPER_DRIVER -> !"VALID".equals(qualityName(menu.liveC()))
+                    ?"NEXT • restore trustworthy Redstone command evidence before judging Copper slew response."
+                    :"NEXT • compare tracking error against configured asymmetric rise/fall slew.";
+            case ProcessParameterMenu.KIND_CAPACITOR -> menu.liveE()!=0
+                    ?"NEXT • complete the load scan before treating discharge τ as authoritative."
+                    :"NEXT • compare stored charge/output and effective τ under the same load before changing leakage.";
+            case ProcessParameterMenu.KIND_FUSE -> menu.liveC()!=0
+                    ?"NEXT • inspect overload evidence and reset conditions; do not erase retained exposure by changing rating/class."
+                    :"NEXT • compare current ratio and thermal exposure before changing protection parameters.";
+            case ProcessParameterMenu.KIND_COMPRESSOR -> "NEXT • compare tracking error under the same pressure command before changing ramp rates.";
+            case ProcessParameterMenu.KIND_DAMPER -> "NEXT • compare amplitude, quality and age together; a weak or stale envelope is not the same as a clean zero.";
+            case ProcessParameterMenu.KIND_EXCITER -> "NEXT • distinguish command evidence loss from physical coast-down before changing amplitude/frequency slew.";
+            case ProcessParameterMenu.KIND_LAPIS_SOURCE, ProcessParameterMenu.KIND_COPPER_SOURCE -> "NEXT • use downstream measurement evidence to validate the configured source; the source value itself is configuration, not a load test.";
+            default -> "NEXT • inspect synchronized world evidence before changing configuration.";
+        };
+    }
+
     private String footer(){ return "Engineering Notebook • configuration editable • state/evidence/topology authoritative"; }
 
     private int drawWrapped(GuiGraphics g,String text,int x,int y,int width,int color){
