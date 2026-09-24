@@ -28,8 +28,6 @@ for token in [
     "jade_version=15.10.6",
     "geckolib_version=4.9.2",
     "cloth_config_version=15.0.140",
-    "fusion_version=1.3.14",
-    "fusion_maven_version=1.3.14-neoforge-mc1.21.1",
 ]:
     if token not in props:
         failed.append(f"gradle.properties missing {token}")
@@ -40,7 +38,6 @@ for token in [
     'implementation "maven.modrinth:nvQzSEkH:${jade_modrinth_version}"',
     'implementation "software.bernie.geckolib:geckolib-neoforge-${minecraft_version}:${geckolib_version}"',
     'implementation "me.shedaniel.cloth:cloth-config-neoforge:${cloth_config_version}"',
-    'implementation "maven.modrinth:fusion-connected-textures:${fusion_maven_version}"',
     'url = "https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/"',
     'url = "https://maven.shedaniel.me/"',
 ]:
@@ -53,7 +50,6 @@ required = {
     "jade": "BOTH",
     "geckolib": "BOTH",
     "cloth_config": "CLIENT",
-    "fusion": "CLIENT",
 }
 for mod_id, side in required.items():
     pattern = rf'\[\[dependencies\.\$\{{mod_id\}}\]\][\s\S]*?modId="{re.escape(mod_id)}"[\s\S]*?type="required"[\s\S]*?side="{side}"'
@@ -70,14 +66,14 @@ for forbidden in [
         failed.append(f"legacy optional dependency form still present: {forbidden}")
 
 integration = text("src/main/java/dev/redstoneengineering/integration/IntegrationStatus.java")
-for token in ["GECKOLIB_MOD_ID", "CLOTH_CONFIG_MOD_ID", "FUSION_MOD_ID", "requiredPlatform", "MISSING"]:
+for token in ["GECKOLIB_MOD_ID", "CLOTH_CONFIG_MOD_ID", "requiredPlatform", "MISSING"]:
     if token not in integration:
         failed.append(f"IntegrationStatus missing {token}")
 
 policy = text("docs/DEPENDENCY_POLICY.md")
 if "required platform" not in policy.lower():
     failed.append("dependency policy missing required platform")
-for token in ["JEI", "Jade", "GeckoLib", "Cloth Config", "Fusion"]:
+for token in ["JEI", "Jade", "GeckoLib", "Cloth Config"]:
     if token not in policy:
         failed.append(f"dependency policy missing {token}")
 
@@ -97,5 +93,5 @@ if failed:
     sys.exit(1)
 
 print("RSE Alpha 1.0.9 required dependency regression: PASS")
-print(" required five-library platform retained: PASS")
+print(" required four-library platform retained: PASS")
 print(" forward-compatible version gate: PASS")
