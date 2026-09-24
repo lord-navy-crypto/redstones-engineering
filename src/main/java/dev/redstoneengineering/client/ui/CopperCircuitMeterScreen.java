@@ -4,35 +4,18 @@ import dev.redstoneengineering.core.diagnostic.CommissioningStatus;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.menu.CopperCircuitMeterMenu;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
 /** Dedicated electrical HMI for the observer-only Copper Circuit Meter. */
 public final class CopperCircuitMeterScreen extends EngineeringScreen<CopperCircuitMeterMenu> {
-    private Button facePrevious;
-    private Button faceNext;
-
     public CopperCircuitMeterScreen(CopperCircuitMeterMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
     }
 
     @Override
     protected void addDeviceWidgets() {
-        int y = topPos + 118;
-        facePrevious = addConfigureWidget(Button.builder(Component.literal("◀ Measure face"),
-                b -> sendMenuButton(CopperCircuitMeterMenu.BUTTON_FACE_PREVIOUS))
-                .bounds(leftPos + 38, y, 116, 20).build());
-        faceNext = addConfigureWidget(Button.builder(Component.literal("Measure face ▶"),
-                b -> sendMenuButton(CopperCircuitMeterMenu.BUTTON_FACE_NEXT))
-                .bounds(leftPos + 166, y, 116, 20).build());
-    }
-
-    @Override
-    protected void syncDeviceWidgetLabels() {
-        boolean configure = isConfigureSection();
-        if (facePrevious != null) facePrevious.visible = configure;
-        if (faceNext != null) faceNext.visible = configure;
+        // Physical measurement-face routing lives exclusively on the shared Route page.
     }
 
     @Override
@@ -67,10 +50,11 @@ public final class CopperCircuitMeterScreen extends EngineeringScreen<CopperCirc
     }
 
     private void configure(GuiGraphics g) {
-        statusBadge(g, "MEASUREMENT FACE ROUTING", INFO, 16, 80);
+        statusBadge(g, "OBSERVER-ONLY INSTRUMENT", INFO, 16, 80);
         labelValue(g, "Current face", menu.facing().getName().toUpperCase(), 101);
-        safeText(g, "Changing Route changes the real sampled face and invalidates stale meter history.", 16, 158, TEXT);
-        safeText(g, "No electrical setpoint is configurable: the meter remains observer-only.", 16, 180, MUTED);
+        labelValue(g, "Electrical setpoint", "NONE", 121);
+        safeText(g, "Physical measurement-face routing is controlled only on Route.", 16, 158, TEXT);
+        safeText(g, "Configure is intentionally read-only: the meter never drives or loads the Copper network.", 16, 180, MUTED);
     }
 
     private void diagnostics(GuiGraphics g) {
