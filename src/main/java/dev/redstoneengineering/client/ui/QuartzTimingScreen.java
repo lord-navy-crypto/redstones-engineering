@@ -128,12 +128,6 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
 
     private void diagnostics(GuiGraphics g) {
         statusBadge(g, qualityName(), qualityColor(), 16, 80);
-        if (menu.kind() == QuartzTimingMenu.KIND_DELAY) {
-            if (menu.runtimeB() == 0 && menu.secondary() == 0) return "DELAY LINE NOT INITIALIZED";
-            if (menu.runtimeA() > 0) return "DELAY QUEUE OVERFLOW EVIDENCE";
-            if (menu.secondary() > 0) return "DELAY EVENTS IN FLIGHT";
-            return "DELAY LINE READY";
-        }
         if (menu.kind() == QuartzTimingMenu.KIND_STABILITY) {
             labelValue(g, "Initialized", yesNo(menu.runtimeA()), 104);
             labelValue(g, "Reference edge", yesNo(menu.runtimeB()), 122);
@@ -206,6 +200,12 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
         if (menu.quality().name().equals("TOPOLOGY_ERROR")) return "CLOCK SOURCE / TOPOLOGY CONFLICT";
         if (menu.quality().name().equals("NO_SIGNAL")) return "NO TIMING EVIDENCE";
         if (menu.quality().name().equals("STALE")) return "STALE TIMING EVIDENCE";
+        if (menu.kind() == QuartzTimingMenu.KIND_DELAY) {
+            if (menu.runtimeB() == 0 && menu.secondary() == 0) return "DELAY LINE NOT INITIALIZED";
+            if (menu.runtimeA() > 0) return "DELAY QUEUE OVERFLOW EVIDENCE";
+            if (menu.secondary() > 0) return "DELAY EVENTS IN FLIGHT";
+            return "DELAY LINE READY";
+        }
         if (menu.kind() == QuartzTimingMenu.KIND_DIVIDER) {
             if (menu.runtimeB() == 0) return "DIVIDER NOT INITIALIZED";
             if (menu.runtimeC() == 0) return "WAITING FOR FIRST GENUINE RISING EDGE";
@@ -228,10 +228,10 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
         if (d.contains("CONFLICT")) return "NEXT • isolate competing timing sources before measuring period.";
         if (d.contains("STALE") || d.contains("NO TIMING") || d.contains("NOT CURRENT")) return "NEXT • restore current edge evidence before accepting timing quality.";
         if (d.contains("PENDING REAL EDGE")) return "NEXT • leave the oscillator running; the configured period will latch on the next genuine transition.";
-        if (d.contains("NOT INITIALIZED") || d.contains("WAITING")) return "NEXT • allow genuine source edges to initialize the timing state.";
+        if (d.contains("DELAY LINE NOT INITIALIZED")) return "NEXT • restore valid quartz input and allow a real level baseline before judging delay behavior.";
         if (d.contains("OVERFLOW")) return "NEXT • reduce incoming edge density or shorten configured delay before accepting event-transfer integrity.";
         if (d.contains("IN FLIGHT")) return "NEXT • allow retained queued events to emit; do not clear them merely because upstream evidence changed.";
-        if (d.contains("DELAY LINE NOT INITIALIZED")) return "NEXT • restore valid quartz input and allow a real level baseline before judging delay behavior.";
+        if (d.contains("NOT INITIALIZED") || d.contains("WAITING")) return "NEXT • allow genuine source edges to initialize the timing state.";
         if (d.contains("MISMATCH")) return "NEXT • verify divider ratio and upstream period before changing downstream logic.";
         if (d.contains("ELEVATED")) return "NEXT • compare measured period against upstream/reference timing and inspect clock integrity.";
         return "NEXT • timing evidence is coherent; retain this state as the commissioning reference.";
