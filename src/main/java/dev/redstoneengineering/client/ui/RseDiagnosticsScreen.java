@@ -97,7 +97,6 @@ public final class RseDiagnosticsScreen extends Screen {
         for (View candidate : View.values()) {
             Button tab = addRenderableWidget(Button.builder(Component.literal(candidate.label), button -> {
                         view = candidate;
-                        page = 0;
                         scrollOffset = 0;
                         rebuildWidgets();
                     })
@@ -117,7 +116,6 @@ public final class RseDiagnosticsScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal("Clear"), button -> {
                     RseDiagnostics.clear();
                     RseLiveDiagnostics.clear();
-                    page = 0;
                     showFeedback("SESSION BUFFERS CLEARED");
                 })
                 .bounds(280, bottom, 44, 20).build());
