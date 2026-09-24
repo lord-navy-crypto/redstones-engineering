@@ -1,6 +1,8 @@
 package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.diagnostics.PneumaticClosedLoopWitness;
+import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceTrend;
+import dev.redstoneengineering.diagnostics.acceptance.EngineeringAcceptanceStatus;
 import dev.redstoneengineering.ui.menu.PidControllerMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -22,6 +24,10 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
     private static final int GOOD = 0xFF2F7D4A;
     private static final int WARN = 0xFF9A6A19;
     private static final int BAD = 0xFFA43838;
+    private static final int SP_COLOR = WARN;
+    private static final int PV_COLOR = GOOD;
+    private static final int OUT_COLOR = ACCENT;
+    private static final int EVIDENCE_ACTION_VIRTUAL_Y = CONTENT_TOP + 500;
 
     private enum Page {
         OPERATE("Operate"),
@@ -112,10 +118,10 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
         int evidenceX = evidenceButtonStartX();
         evidenceWidgets.add(addRenderableWidget(Button.builder(Component.literal("Capture acceptance"),
                 b -> send(PidControllerMenu.BUTTON_CAPTURE_ACCEPTANCE))
-                .bounds(evidenceX, topPos + CONTENT_TOP + 240, evidenceWidth, 22).build()));
+                .bounds(evidenceX, topPos + EVIDENCE_ACTION_VIRTUAL_Y, evidenceWidth, 22).build()));
         evidenceWidgets.add(addRenderableWidget(Button.builder(Component.literal("Reset runtime + trend"),
                 b -> send(PidControllerMenu.BUTTON_RESET_RUNTIME_TREND))
-                .bounds(evidenceX + evidenceWidth + evidenceGap, topPos + CONTENT_TOP + 240, evidenceWidth, 22).build()));
+                .bounds(evidenceX + evidenceWidth + evidenceGap, topPos + EVIDENCE_ACTION_VIRTUAL_Y, evidenceWidth, 22).build()));
 
         updateVisibility();
     }
@@ -200,7 +206,7 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
         for (int i = 0; i < evidenceWidgets.size(); i++) {
             Button b = evidenceWidgets.get(i);
             b.setX(evidenceX + i * (evidenceWidth + evidenceGap));
-            b.setY(topPos + CONTENT_TOP + 240 - scrollOffset);
+            b.setY(topPos + EVIDENCE_ACTION_VIRTUAL_Y - scrollOffset);
             b.visible = page == Page.EVIDENCE
                     && b.getY() >= topPos + CONTENT_TOP
                     && b.getY() <= topPos + imageHeight - CONTENT_BOTTOM_MARGIN - 22;
@@ -225,7 +231,7 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
             case MODEL -> 820;
             case RESPONSE -> 520;
             case ROUTING -> 500;
-            case EVIDENCE -> 580;
+            case EVIDENCE -> 760;
         };
     }
 
@@ -345,16 +351,56 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
     }
 
     private void evidence(GuiGraphics g) {
-        pair(g, "Commissioning", menu.status().name() + " • " + menu.score() + "/100", CONTENT_TOP + 34);
-        pair(g, "Retained captures", menu.historyCount() + " / 8", CONTENT_TOP + 76);
-        pair(g, "Latest capture", menu.historyCount() == 0 ? "NONE" : "#" + menu.latestSequence() + " • " + menu.latestAcceptanceStatus().name(), CONTENT_TOP + 118);
-        pair(g, "Score delta", menu.historyCount() < 2 ? "—" : signed(menu.scoreDelta()), CONTENT_TOP + 160);
-        pair(g, "Topology issue delta", menu.historyCount() < 2 ? "—" : signed(menu.topologyIssueDelta()), CONTENT_TOP + 202);
+        pair(g, "Commissioning", menu.status().name() + " • " + menu.score() + "/100", CONTENT_TOP + 28);
+        pair(g, "Retained captures", menu.historyCount() + " / 8", CONTENT_TOP + 68);
+
+        if (menu.historyCount() == 0) {
+            pair(g, "Latest capture", "NONE", CONTENT_TOP + 108);
+            drawWrapped(g, "No retained acceptance capture yet. Use Capture acceptance after a representative run; reset clears live runtime/trend but preserves retained acceptance history.",
+                    42, CONTENT_TOP + 148, Math.max(300, imageWidth - 96), MUTED);
+        } else {
+            String latest = "#" + menu.latestSequence() + " • " + menu.latestAcceptanceStatus().name()
+                    + " • score " + menu.latestAcceptanceScore();
+            g.drawString(font, "Latest capture", 42, CONTENT_TOP + 108, MUTED, false);
+            g.drawString(font, fit(latest, Math.max(180, imageWidth - Math.min(320, imageWidth / 2) - 56)),
+                    Math.min(320, imageWidth / 2), CONTENT_TOP + 108, acceptanceColor(menu.latestAcceptanceStatus()), false);
+            AcceptanceEvidenceTrend trend = menu.comparisonTrend();
+            String comparison = trend == null
+                    ? "Baseline capture established; capture again after a change to compare."
+                    : "Compared with previous: " + trend.name()
+                        + " • Δscore " + signed(menu.scoreDelta())
+                        + " • Δissues " + signed(menu.topologyIssueDelta());
+            drawWrapped(g, comparison, 42, CONTENT_TOP + 148, Math.max(300, imageWidth - 96),
+                    trend == null ? MUTED : comparisonColor(trend));
+        }
+
+        int plotX = 58;
+        int plotY = CONTENT_TOP + 214;
+        int plotWidth = Math.max(240, imageWidth - 116);
+        int plotHeight = 96;
+        EngineeringPlot.analogFrame(g, plotX, plotY, plotWidth, plotHeight);
+        EngineeringPlot.analogTrace(g, PidControllerMenu.TREND_SAMPLES, menu::trendSetpoint,
+                0, 15, plotX, plotY, plotWidth, plotHeight, SP_COLOR);
+        EngineeringPlot.analogTrace(g, PidControllerMenu.TREND_SAMPLES, menu::trendProcessValue,
+                0, 15, plotX, plotY, plotWidth, plotHeight, PV_COLOR);
+        EngineeringPlot.analogTrace(g, PidControllerMenu.TREND_SAMPLES, menu::trendControlOutput,
+                0, 15, plotX, plotY, plotWidth, plotHeight, OUT_COLOR);
+        g.drawString(font, "15", 42, plotY - 3, MUTED, false);
+        g.drawString(font, "0", 48, plotY + plotHeight - 4, MUTED, false);
+        g.drawString(font, "SP", 58, CONTENT_TOP + 320, SP_COLOR, false);
+        g.drawString(font, "PV", 92, CONTENT_TOP + 320, PV_COLOR, false);
+        g.drawString(font, "OUT", 126, CONTENT_TOP + 320, OUT_COLOR, false);
+        String newest = "newest →";
+        g.drawString(font, newest, Math.max(170, imageWidth - 58 - font.width(newest)), CONTENT_TOP + 320, MUTED, false);
+        g.drawString(font, menu.trendCount() + "/32 authoritative samples • 2t/sample • transient",
+                58, CONTENT_TOP + 340, MUTED, false);
 
         if (menu.plantDetected()) {
-            pair(g, "Plant witness", menu.plantStatus().name() + " • " + diagnosis(menu.plantDiagnosis()), CONTENT_TOP + 310);
+            pair(g, "Plant witness", menu.plantStatus().name() + " • " + diagnosis(menu.plantDiagnosis()), CONTENT_TOP + 390);
+            pair(g, "Plant position / target", menu.plantPosition() + " / " + menu.plantTarget(), CONTENT_TOP + 430);
+            pair(g, "Actuator / supply pressure", menu.plantPressure() + " / " + menu.plantSupply(), CONTENT_TOP + 470);
         } else {
-            g.drawString(font, "No explicit pneumatic plant witness detected.", 42, CONTENT_TOP + 310, MUTED, false);
+            g.drawString(font, "No explicit pneumatic plant witness detected.", 42, CONTENT_TOP + 390, MUTED, false);
         }
     }
 
@@ -394,6 +440,24 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
             case 2 -> "PID-BALANCED";
             case 3 -> "PID-AGGRESSIVE";
             default -> "CUSTOM";
+        };
+    }
+
+    private static int acceptanceColor(EngineeringAcceptanceStatus status) {
+        return switch (status) {
+            case PASS -> GOOD;
+            case MARGINAL -> WARN;
+            case FAIL -> BAD;
+            case NOT_READY -> MUTED;
+        };
+    }
+
+    private static int comparisonColor(AcceptanceEvidenceTrend trend) {
+        return switch (trend) {
+            case IMPROVED -> GOOD;
+            case SAME -> ACCENT;
+            case REGRESSED -> BAD;
+            case INCOMPARABLE -> WARN;
         };
     }
 
