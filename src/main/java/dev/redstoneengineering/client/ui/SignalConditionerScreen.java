@@ -82,6 +82,8 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
         labelValue(graphics, "Input → Output", direction(menu.inputDirection().getName()) + " → " + direction(menu.outputDirection().getName()), 150);
         safeText(graphics, behaviorLine(menu.mode()), 16, 177, TEXT);
         safeText(graphics, "Buttons change configuration only; physical direction is controlled on Route.", 16, 194, MUTED);
+        safeText(graphics, modelLine(menu.mode(), menu.parameter()), 16, 216, INFO);
+        safeText(graphics, "Transfer math executes on the server tick; this HMI only renders synchronized configuration and evidence.", 16, 242, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
@@ -205,6 +207,21 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
             case 4 -> "1 .. 4";
             case 5 -> "÷2 .. ÷4";
             default -> "—";
+        };
+    }
+
+    private static String modelLine(int mode, int param) {
+        return switch (mode) {
+            case 0 -> "MODEL • y = clamp(round(x × " + Math.max(1, Math.min(4, param)) + "), 0, 15)";
+            case 1 -> {
+                int offset = Math.min(10, param) - 5;
+                yield "MODEL • y = clamp(x " + (offset >= 0 ? "+ " : "− ") + Math.abs(offset) + ", 0, 15)";
+            }
+            case 2 -> "MODEL • y = min(x, " + Math.max(1, param) + ")";
+            case 3 -> "MODEL • y = x when x ≥ " + Math.max(1, param) + "; otherwise y = 0";
+            case 4 -> "MODEL • if |x − yprev| ≥ " + Math.max(1, Math.min(4, param)) + ", y = x; otherwise retain yprev";
+            case 5 -> "MODEL • y = round(x / " + Math.max(2, Math.min(4, param)) + ")";
+            default -> "MODEL • y = x";
         };
     }
 
