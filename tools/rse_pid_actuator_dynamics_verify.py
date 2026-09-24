@@ -20,7 +20,7 @@ def require(rel: str, *tokens: str) -> None:
 logic = "src/main/java/dev/redstoneengineering/signal/PidActuatorLogic.java"
 block = "src/main/java/dev/redstoneengineering/block/PidControllerBlock.java"
 menu = "src/main/java/dev/redstoneengineering/ui/menu/PidControllerMenu.java"
-screen = "src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java"
+screen = "src/main/java/dev/redstoneengineering/client/ui/PidEngineeringNotebookScreen.java"
 
 require(logic,
         "record SlewResult",
@@ -43,10 +43,15 @@ require(menu,
         "riseLimit",
         "fallLimit")
 require(screen,
-        "Output / actuator target",
-        "Actuator slew",
-        "derivative kick",
-        "levels per 2t control cycle")
+        'MODEL("Model")',
+        '"Actuator target"',
+        '"Slew limiting"',
+        "Derivative is taken on the measured process value",
+        "Anti-windup is conditional integration",
+        "Manual → AUTO transfer is bumpless",
+        "does not execute a second PID solver",
+        "rise limit per control cycle",
+        "independent fall limit")
 
 logic_path = root / logic
 if logic_path.is_file():
@@ -108,4 +113,5 @@ if errors:
 print("RSE PID actuator dynamics verification: PASS")
 print(" asymmetric actuator command slew: PASS")
 print(" derivative-on-measurement primitive: PASS")
-print(" PID/HMI integration contract: PASS")
+print(" current PID engineering notebook model contract: PASS")
+print(" anti-windup / bumpless / asymmetric slew HMI explanation: PASS")
