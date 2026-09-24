@@ -3,6 +3,7 @@ package dev.redstoneengineering.ui.menu;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.block.DirectionalSignalBlock;
 import dev.redstoneengineering.block.SignalConditionerBlock;
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -35,6 +36,8 @@ public final class SignalConditionerMenu extends EngineeringDeviceMenu {
     private final DataSlot limiting = trackedInt();
     private final DataSlot limitingEpisodes = trackedInt();
     private final DataSlot lastLimitingAge = trackedInt();
+    private final DataSlot inputQuality = trackedInt();
+    private final DataSlot outputQuality = trackedInt();
 
     public SignalConditionerMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -59,6 +62,8 @@ public final class SignalConditionerMenu extends EngineeringDeviceMenu {
         limiting.set(SignalConditionerBlock.limitingActive(level, blockPos, state) ? 1 : 0);
         limitingEpisodes.set(SignalConditionerBlock.limitingEpisodes(level, blockPos));
         lastLimitingAge.set(SignalConditionerBlock.lastLimitingAgeTicks(level, blockPos));
+        inputQuality.set(SignalConditionerBlock.inspectInputQuality(level, blockPos, state).ordinal());
+        outputQuality.set(SignalConditionerBlock.inspectOutputQuality(level, blockPos, state).ordinal());
     }
 
     @Override
@@ -90,6 +95,8 @@ public final class SignalConditionerMenu extends EngineeringDeviceMenu {
     public boolean limiting() { return limiting.get() != 0; }
     public int limitingEpisodes() { return limitingEpisodes.get(); }
     public int lastLimitingAgeTicks() { return lastLimitingAge.get(); }
+    public PortQuality inputQuality() { return decodeQuality(inputQuality.get()); }
+    public PortQuality outputQuality() { return decodeQuality(outputQuality.get()); }
     public boolean hasInputEndpoint() { return inputFacing.get() >= 0; }
     public boolean hasOutputEndpoint() { return outputFacing.get() >= 0; }
 
@@ -101,5 +108,10 @@ public final class SignalConditionerMenu extends EngineeringDeviceMenu {
     public Direction inputDirection() {
         int ordinal = inputFacing.get();
         return ordinal >= 0 && ordinal < Direction.values().length ? Direction.values()[ordinal] : Direction.SOUTH;
+    }
+
+    private static PortQuality decodeQuality(int ordinal) {
+        PortQuality[] values = PortQuality.values();
+        return ordinal >= 0 && ordinal < values.length ? values[ordinal] : PortQuality.NO_SIGNAL;
     }
 }
