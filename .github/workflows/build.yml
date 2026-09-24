@@ -133,6 +133,7 @@ jobs:
             tools/rse_pulse_shaper_depth_verify.py \
             tools/rse_pid_actuator_dynamics_verify.py \
             tools/rse_pid_commissioning_hmi_verify.py \
+            tools/rse_servo_actuator_depth_verify.py \
             tools/rse_single_relay_dynamics_verify.py \
             tools/rse_pwm_carrier_latch_verify.py \
             tools/rse_pneumatic_isolation_valve_dynamics_verify.py \
