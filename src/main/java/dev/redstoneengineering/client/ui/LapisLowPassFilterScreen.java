@@ -60,8 +60,8 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
         scrollOffset = 0;
 
         int tabY = topPos + 38;
-        int gap = 7;
-        int tabW = Math.max(82, (imageWidth - 48 - gap * (Page.values().length - 1)) / Page.values().length);
+        int gap = imageWidth < 440 ? 5 : 7;
+        int tabW = Math.max(64, (imageWidth - 48 - gap * (Page.values().length - 1)) / Page.values().length);
         int start = leftPos + 24;
         for (Page value : Page.values()) {
             addRenderableWidget(Button.builder(Component.literal(value.label), b -> {
@@ -73,23 +73,35 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
         }
 
         int y = topPos + CONTENT_TOP + 118;
+        int stepWidth = alphaStepButtonWidth();
+        int stepGap = 8;
+        int stepX = alphaStepStartX();
         parameterButtons.add(addRenderableWidget(Button.builder(Component.literal("-0.05"),
                 b -> send(LapisLowPassFilterMenu.BUTTON_ALPHA_MINUS_5))
-                .bounds(leftPos + 96, y, 68, 22).build()));
+                .bounds(stepX, y, stepWidth, 22).build()));
         parameterButtons.add(addRenderableWidget(Button.builder(Component.literal("-0.01"),
                 b -> send(LapisLowPassFilterMenu.BUTTON_ALPHA_MINUS_1))
-                .bounds(leftPos + 172, y, 68, 22).build()));
+                .bounds(stepX + stepWidth + stepGap, y, stepWidth, 22).build()));
         parameterButtons.add(addRenderableWidget(Button.builder(Component.literal("+0.01"),
                 b -> send(LapisLowPassFilterMenu.BUTTON_ALPHA_PLUS_1))
-                .bounds(leftPos + imageWidth - 240, y, 68, 22).build()));
+                .bounds(stepX + (stepWidth + stepGap) * 2, y, stepWidth, 22).build()));
         parameterButtons.add(addRenderableWidget(Button.builder(Component.literal("+0.05"),
                 b -> send(LapisLowPassFilterMenu.BUTTON_ALPHA_PLUS_5))
-                .bounds(leftPos + imageWidth - 164, y, 68, 22).build()));
+                .bounds(stepX + (stepWidth + stepGap) * 3, y, stepWidth, 22).build()));
         parameterButtons.add(addRenderableWidget(Button.builder(Component.literal("Reset α"),
                 b -> send(LapisLowPassFilterMenu.BUTTON_ALPHA_RESET))
                 .bounds(leftPos + imageWidth / 2 - 50, topPos + CONTENT_TOP + 170, 100, 22).build()));
 
         updateVisibility();
+    }
+
+    private int alphaStepButtonWidth() {
+        return Math.max(56, Math.min(68, (imageWidth - 48 - 8 * 3) / 4));
+    }
+
+    private int alphaStepStartX() {
+        int total = alphaStepButtonWidth() * 4 + 8 * 3;
+        return leftPos + Math.max(24, (imageWidth - total) / 2);
     }
 
     private void send(int id) {
@@ -101,12 +113,12 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
     private void updateVisibility() {
         boolean visible = page == Page.PARAMETERS;
         int y = topPos + CONTENT_TOP + 118 - scrollOffset;
+        int stepWidth = alphaStepButtonWidth();
+        int stepGap = 8;
+        int stepX = alphaStepStartX();
         for (int i = 0; i < parameterButtons.size(); i++) {
             Button button = parameterButtons.get(i);
-            if (i == 0) button.setX(leftPos + 96);
-            else if (i == 1) button.setX(leftPos + 172);
-            else if (i == 2) button.setX(leftPos + imageWidth - 240);
-            else if (i == 3) button.setX(leftPos + imageWidth - 164);
+            if (i < 4) button.setX(stepX + i * (stepWidth + stepGap));
             else button.setX(leftPos + imageWidth / 2 - 50);
             button.setY(i < 4 ? y : topPos + CONTENT_TOP + 170 - scrollOffset);
             button.visible = visible
