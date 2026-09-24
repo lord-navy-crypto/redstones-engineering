@@ -43,6 +43,33 @@ for rel in SCREENS:
     if "g.pose().translate(0, -scrollOffset, 0)" not in text and "g.pose().translate(0,-scrollOffset,0)" not in text:
         failed.append(f"{rel} does not scroll rendered engineering content")
 
+SHARED_SCREEN = "src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java"
+shared_path = root / SHARED_SCREEN
+if not shared_path.is_file():
+    failed.append(f"missing shared engineering screen: {SHARED_SCREEN}")
+else:
+    shared = shared_path.read_text(errors="ignore")
+    for token in (
+        "VIEW_MARGIN",
+        "HEADER_BOTTOM",
+        "FOOTER_HEIGHT",
+        "scrollOffset",
+        "mouseScrolled",
+        "enableScissor",
+        "disableScissor",
+        "virtualContentHeight",
+        "maxScroll",
+        "configureVirtualY",
+    ):
+        if token not in shared:
+            failed.append(f"{SHARED_SCREEN} missing viewport/scroll contract token: {token}")
+    if not re.search(r"imageWidth\s*=\s*Math\.max\([^;]*width\s*[-]", shared):
+        failed.append(f"{SHARED_SCREEN} does not derive imageWidth from live game viewport")
+    if not re.search(r"imageHeight\s*=\s*Math\.max\([^;]*height\s*[-]", shared):
+        failed.append(f"{SHARED_SCREEN} does not derive imageHeight from live game viewport")
+    if "graphics.pose().translate(0, -scrollOffset, 0)" not in shared:
+        failed.append(f"{SHARED_SCREEN} does not scroll rendered engineering content")
+
 # Protect the actual principle, not one exact pixel value.
 process = (root / SCREENS[0]).read_text(errors="ignore") if (root / SCREENS[0]).is_file() else ""
 if "VIEW_MARGIN=8" not in process and "VIEW_MARGIN = 8" not in process:
@@ -63,3 +90,4 @@ print(" viewport-derived width/height: PASS")
 print(" fixed header/footer + clipped scroll workspace: PASS")
 print(" mouse-wheel scroll contract: PASS")
 print(" six engineering notebook screens migrated: PASS")
+print(" shared EngineeringScreen viewport shell migrated: PASS")
