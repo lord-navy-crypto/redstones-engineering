@@ -8,9 +8,11 @@ CAPTURE = ROOT / "src/main/java/dev/redstoneengineering/client/diagnostics/RseLo
 SCREEN = ROOT / "src/main/java/dev/redstoneengineering/client/ui/RseDiagnosticsScreen.java"
 TABLET = ROOT / "src/main/java/dev/redstoneengineering/client/ui/DiagnosticTabletScreen.java"
 REGISTRATION = ROOT / "src/main/java/dev/redstoneengineering/client/ui/EngineeringUiClientRegistration.java"
+LIVE_EVENT = ROOT / "src/main/java/dev/redstoneengineering/diagnostics/RseLiveDiagnosticEvent.java"
+LIVE_DIAGNOSTICS = ROOT / "src/main/java/dev/redstoneengineering/diagnostics/RseLiveDiagnostics.java"
 
 errors = []
-for path in (DIAGNOSTICS, CAPTURE, SCREEN, TABLET, REGISTRATION):
+for path in (DIAGNOSTICS, CAPTURE, SCREEN, TABLET, REGISTRATION, LIVE_EVENT, LIVE_DIAGNOSTICS):
     if not path.is_file():
         errors.append(f"missing diagnostics-console file: {path.relative_to(ROOT)}")
 
@@ -20,6 +22,8 @@ if not errors:
     screen = SCREEN.read_text(encoding="utf-8")
     tablet = TABLET.read_text(encoding="utf-8")
     registration = REGISTRATION.read_text(encoding="utf-8")
+    live_event = LIVE_EVENT.read_text(encoding="utf-8")
+    live_diagnostics = LIVE_DIAGNOSTICS.read_text(encoding="utf-8")
 
     required_diagnostics = (
         "MAX_ENTRIES = 256",
@@ -64,10 +68,46 @@ if not errors:
         "Math.max(38, Math.min(88",
         "compactFooter",
         "Math.max(46, Math.min(78",
+        "liveEventsVirtualHeight",
+        "eventHeader",
+        "eventContextLine",
+        "eventTransitionLine",
+        "UPSTREAM •",
+        "MESSAGE •",
+        "structured tick/location/state/upstream evidence",
     )
     for marker in required_ui:
         if marker not in screen:
             errors.append(f"diagnostics console UI is missing contract: {marker}")
+
+    required_live_event = (
+        "long gameTick",
+        "String dimension",
+        "String position",
+        "String oldState",
+        "String newState",
+        "String reasonCode",
+        "String upstream",
+    )
+    for marker in required_live_event:
+        if marker not in live_event:
+            errors.append(f"structured live diagnostic event missing evidence field: {marker}")
+
+    required_live_diagnostics = (
+        "recordEvent(",
+        "String dimension",
+        "String position",
+        "String oldState",
+        "String newState",
+        "String reasonCode",
+        "String upstream",
+        '.append(" dimension=")',
+        '.append(" pos=")',
+        '.append(" upstream=")',
+    )
+    for marker in required_live_diagnostics:
+        if marker not in live_diagnostics:
+            errors.append(f"structured live diagnostics export missing contract: {marker}")
 
     required_tablet = (
         "VIEW_MARGIN",
@@ -104,7 +144,7 @@ if not errors:
         "EngineeringAcceptance.evaluate",
         "dev.redstoneengineering.physics",
     )
-    for path, text in ((DIAGNOSTICS, diagnostics), (CAPTURE, capture), (SCREEN, screen), (TABLET, tablet), (REGISTRATION, registration)):
+    for path, text in ((DIAGNOSTICS, diagnostics), (CAPTURE, capture), (SCREEN, screen), (TABLET, tablet), (REGISTRATION, registration), (LIVE_DIAGNOSTICS, live_diagnostics)):
         for marker in forbidden:
             if marker in text:
                 errors.append(f"diagnostics observer boundary violation in {path.name}: {marker}")
@@ -122,4 +162,6 @@ print("  survival + creative inventory red-cross entry point: PASS")
 print("  filter/copy/clear workflow: PASS")
 print("  responsive fixed top diagnostics tabs/footer + continuous scroll workspace: PASS")
 print("  viewport diagnostic tablet + scrollable retained snapshots: PASS")
+print("  structured live events expose tick/location/state/upstream evidence: PASS")
+print("  diagnostics export preserves dimension/position evidence: PASS")
 print("  observer-only authority boundary: PASS")
