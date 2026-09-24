@@ -20,6 +20,7 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
     private final List<Button> routeControls=new ArrayList<>();
     private Button toggle;
     private int scrollOffset=0;
+    private int horizontalOffset=0;
     private static final int VIEW_MARGIN=8, CONTENT_TOP=84, CONTENT_BOTTOM_MARGIN=34;
 
     public AdvancedParameterNotebookScreen(AdvancedParameterMenu menu, Inventory inventory, Component title){
@@ -29,12 +30,12 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
     @Override protected void init(){
         imageWidth=Math.max(360,width-VIEW_MARGIN*2);
         imageHeight=Math.max(240,height-VIEW_MARGIN*2);
-        super.init(); controls.clear(); routeControls.clear(); scrollOffset=0;
+        super.init(); controls.clear(); routeControls.clear(); scrollOffset=0; horizontalOffset=0;
         int count=Tab.values().length, gap=imageWidth<460?4:7;
         int tabWidth=Math.max(48,(imageWidth-48-gap*(count-1))/count);
         int x=leftPos+24;
         for(Tab t:Tab.values()){
-            addRenderableWidget(Button.builder(Component.literal(tabLabel(t)),b->{tab=t;scrollOffset=0;syncVisibility();})
+            addRenderableWidget(Button.builder(Component.literal(tabLabel(t)),b->{tab=t;scrollOffset=0;horizontalOffset=0;syncVisibility();})
                     .bounds(x,topPos+38,tabWidth,22).build());
             x+=tabWidth+gap;
         }
@@ -90,7 +91,12 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
     public boolean mouseScrolled(double mouseX,double mouseY,double scrollX,double scrollY){
         if(mouseX>=leftPos+18&&mouseX<=leftPos+imageWidth-18
                 &&mouseY>=topPos+CONTENT_TOP&&mouseY<=topPos+imageHeight-CONTENT_BOTTOM_MARGIN){
-            scrollOffset=Math.max(0,Math.min(maxScroll(),scrollOffset-(int)Math.round(scrollY*24.0)));
+            double horizontalDelta=Math.abs(scrollX)>0.01?scrollX:(hasShiftDown()?scrollY:0.0);
+            if(Math.abs(horizontalDelta)>0.01&&maxHorizontalScroll()>0){
+                horizontalOffset=Math.max(0,Math.min(maxHorizontalScroll(),horizontalOffset-(int)Math.round(horizontalDelta*32.0)));
+            }else{
+                scrollOffset=Math.max(0,Math.min(maxScroll(),scrollOffset-(int)Math.round(scrollY*24.0)));
+            }
             syncVisibility();
             return true;
         }
@@ -105,31 +111,40 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
         return Math.max(0,contentHeight()-visible);
     }
 
+    private int virtualContentWidth(){ return Math.max(imageWidth-36,1100); }
+    private int maxHorizontalScroll(){
+        int visible=Math.max(240,imageWidth-36);
+        return Math.max(0,virtualContentWidth()-visible);
+    }
+    private boolean inViewport(Button b){
+        return b.getY()>=topPos+CONTENT_TOP
+                &&b.getY()<=topPos+imageHeight-CONTENT_BOTTOM_MARGIN-b.getHeight()
+                &&b.getX()+b.getWidth()>=leftPos+18
+                &&b.getX()<=leftPos+imageWidth-18;
+    }
+
     private void syncVisibility(){
         int n=parameterCount();
         for(int i=0;i<controls.size();i++){
             int row=i/2; Button b=controls.get(i);
             int virtualY=CONTENT_TOP+50+row*56;
-            b.setX((i%2==0)?leftPos+imageWidth-164:leftPos+imageWidth-78);
+            b.setX(((i%2==0)?leftPos+imageWidth-164:leftPos+imageWidth-78)-horizontalOffset);
             b.setY(topPos+virtualY-scrollOffset);
-            b.visible=tab==Tab.PARAMETERS&&row<n
-                    &&b.getY()>=topPos+CONTENT_TOP&&b.getY()<=topPos+imageHeight-CONTENT_BOTTOM_MARGIN-22;
+            b.visible=tab==Tab.PARAMETERS&&row<n&&inViewport(b);
         }
         int routeWidth=routeButtonWidth(), routeGap=8, routeX=routeButtonStartX();
         for(int i=0;i<routeControls.size();i++){
             Button b=routeControls.get(i);
-            b.setX(routeX+i*(routeWidth+routeGap));
+            b.setX(routeX+i*(routeWidth+routeGap)-horizontalOffset);
             b.setY(topPos+CONTENT_TOP+112-scrollOffset);
             boolean input=i<2;
             boolean routable=input?menu.canRouteInput():menu.canRouteOutput();
-            b.visible=tab==Tab.ROUTING&&routable
-                    &&b.getY()>=topPos+CONTENT_TOP&&b.getY()<=topPos+imageHeight-CONTENT_BOTTOM_MARGIN-22;
+            b.visible=tab==Tab.ROUTING&&routable&&inViewport(b);
         }
         if(toggle!=null){
-            toggle.setX(leftPos+imageWidth-184);
+            toggle.setX(leftPos+imageWidth-184-horizontalOffset);
             toggle.setY(topPos+CONTENT_TOP+224-scrollOffset);
-            toggle.visible=tab==Tab.PARAMETERS&&menu.kind()==AdvancedParameterMenu.KIND_PULSE_SHAPER
-                    &&toggle.getY()>=topPos+CONTENT_TOP&&toggle.getY()<=topPos+imageHeight-CONTENT_BOTTOM_MARGIN-22;
+            toggle.visible=tab==Tab.PARAMETERS&&menu.kind()==AdvancedParameterMenu.KIND_PULSE_SHAPER&&inViewport(toggle);
         }
     }
 
@@ -158,12 +173,13 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
         String live="SERVER PHYSICS"; g.drawString(font,live,imageWidth-18-font.width(live),12,GOOD,false);
         g.drawString(font,tab.label.toUpperCase(),24,72,ACCENT,false);
         g.enableScissor(leftPos+18,topPos+CONTENT_TOP,leftPos+imageWidth-18,topPos+imageHeight-CONTENT_BOTTOM_MARGIN);
-        g.pose().pushPose(); g.pose().translate(0,-scrollOffset,0);
+        g.pose().pushPose(); g.pose().translate(-horizontalOffset,-scrollOffset,0);
         switch(tab){case OPERATE->operate(g);case PARAMETERS->parameters(g);case MODEL->model(g);case ROUTING->routing(g);case DIAGNOSTICS->diagnostics(g);}
         g.pose().popPose(); g.disableScissor();
-        if(maxScroll()>0){
-            String s="SCROLL "+scrollOffset+" / "+maxScroll();
-            g.drawString(font,s,imageWidth-24-font.width(s),72,MUTED,false);
+        if(maxScroll()>0||maxHorizontalScroll()>0){
+            String raw="SCROLL Y "+scrollOffset+"/"+maxScroll()+" • X "+horizontalOffset+"/"+maxHorizontalScroll()+" • Shift+wheel / trackpad";
+            String compact=fit(raw,Math.max(170,imageWidth-220));
+            g.drawString(font,compact,imageWidth-24-font.width(compact),72,MUTED,false);
         }
         g.drawString(font,fit(footer(),imageWidth-36),18,imageHeight-20,MUTED,false);
     }
@@ -441,7 +457,7 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
     private void pair(GuiGraphics g,String label,String value,int y){
         g.drawString(font,label,42,y,MUTED,false);
         int x=Math.min(300,imageWidth/2);
-        g.drawString(font,fit(value,Math.max(180,imageWidth-x-56)),x,y,INK,false);
+        g.drawString(font,value,x,y,INK,false);
     }
     private String fit(String s,int width){ if(font.width(s)<=width)return s; String x=s; while(x.length()>1&&font.width(x+"…")>width)x=x.substring(0,x.length()-1); return x+"…"; }
 }
