@@ -92,6 +92,36 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
         };
     }
 
+    /**
+     * Rotates the entire horizontal servo layout as one rigid physical unit.
+     * COMMAND remains BACK, BRAKE remains RIGHT, MODE remains UP, and POSITION OUT remains FRONT.
+     * Runtime position and trajectory evidence are retained; the next scheduled server tick
+     * reacquires control evidence from the newly oriented physical faces.
+     */
+    public static boolean rotateLayout(Level level, BlockPos pos, boolean clockwise) {
+        if (level.isClientSide) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof ServoActuatorBlock block)) return false;
+
+        Direction oldFront = state.getValue(FACING);
+        Direction newFront = clockwise ? oldFront.getClockWise() : oldFront.getCounterClockWise();
+        if (newFront == oldFront) return false;
+
+        Direction oldBack = oldFront.getOpposite();
+        Direction oldBrake = rightOf(oldFront);
+        Direction newBack = newFront.getOpposite();
+        Direction newBrake = rightOf(newFront);
+
+        level.setBlock(pos, state.setValue(FACING, newFront), Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, block, 1);
+
+        level.updateNeighborsAt(pos, block);
+        for (Direction side : new Direction[]{oldFront, oldBack, oldBrake, newFront, newBack, newBrake, Direction.UP}) {
+            level.updateNeighborsAt(pos.relative(side), block);
+        }
+        return true;
+    }
+
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         Direction front = state.getValue(FACING);
