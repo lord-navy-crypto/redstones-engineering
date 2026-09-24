@@ -12,7 +12,11 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
- * Device-aware parameter notebook model for ten multi-physics blocks.
+ * Legacy compatibility parameter transport for ten multi-physics blocks.
+ *
+ * <p>Normal gameplay dispatch now prefers each family's dedicated HMI (Quartz, Pneumatic,
+ * Optical, Amethyst, Range Sensor). This menu remains registered only so compatibility callers
+ * can still render authoritative parameters without becoming the primary right-click path.</p>
  *
  * <p>The transport is shared; parameter semantics are not. Each kind maps its own physical
  * parameters, bounds, live response and authoritative server action.</p>
