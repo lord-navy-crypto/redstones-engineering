@@ -117,8 +117,9 @@ responsive_contracts = {
         "Math.max(64",
     ),
     "src/main/java/dev/redstoneengineering/client/ui/ServoActuatorNotebookScreen.java": (
-        "Math.max(64",
-        "imageWidth < 440 ? 5 : 7",
+        "pageTabLabel",
+        "Math.max(48",
+        "imageWidth < 440 ? 4 : 7",
     ),
 }
 for rel, tokens in responsive_contracts.items():
