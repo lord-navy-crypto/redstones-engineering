@@ -338,10 +338,11 @@ public final class RseDiagnosticsScreen extends Screen {
         }
         int contentWidth = Math.max(180, width - 60);
         for (RseLiveDiagnosticEvent event : entries) {
-            graphics.drawString(font, eventHeader(event), 24, y, severityColor(event.severity()), false);
-            y += 13;
-            graphics.drawString(font, eventContextLine(event), 30, y, MUTED, false);
-            y += 12;
+            y = drawWrappedCrisp(graphics, eventHeader(event), 24, y, contentWidth,
+                    severityColor(event.severity()), 11);
+            y += 2;
+            y = drawWrappedCrisp(graphics, eventContextLine(event), 30, y, contentWidth, MUTED, 11);
+            y += 2;
             if (!event.oldState().isBlank() || !event.newState().isBlank()) {
                 y = drawWrappedCrisp(graphics, eventTransitionLine(event), 30, y, contentWidth, INFO, 11);
                 y += 2;
@@ -429,7 +430,8 @@ public final class RseDiagnosticsScreen extends Screen {
         int total = 120;
         int contentWidth = Math.max(180, width - 60);
         for (RseLiveDiagnosticEvent event : events) {
-            int lines = 2;
+            int lines = Math.max(1, font.split(Component.literal(eventHeader(event)), contentWidth).size())
+                    + Math.max(1, font.split(Component.literal(eventContextLine(event)), contentWidth).size());
             if (!event.oldState().isBlank() || !event.newState().isBlank()) {
                 lines += Math.max(1, font.split(Component.literal(eventTransitionLine(event)), contentWidth).size());
             }
