@@ -21,6 +21,8 @@ def require(path: str, *tokens: str) -> None:
 
 logic = "src/main/java/dev/redstoneengineering/signal/CopperFuseLogic.java"
 block = "src/main/java/dev/redstoneengineering/block/CopperFuseBlock.java"
+menu = "src/main/java/dev/redstoneengineering/ui/menu/ProcessParameterMenu.java"
+screen = "src/main/java/dev/redstoneengineering/client/ui/ProcessParameterNotebookScreen.java"
 
 require(logic,
         "nextThermal",
@@ -35,6 +37,18 @@ require(block,
         "tripProgressPermille",
         "resetAllowed",
         "RESET BLOCKED")
+
+require(block,
+        "public static PortQuality inputQuality",
+        "public static PortQuality outputQuality")
+require(menu,
+        "liveF.set(CopperFuseBlock.inputQuality",
+        "liveG.set(CopperFuseBlock.outputQuality")
+require(screen,
+        '"Input quality"',
+        '"Output quality"',
+        "if(i==5||i==6) return qualityName(v);",
+        "stored physical state from input/output evidence quality")
 
 logic_path = root / logic
 if logic_path.is_file():
@@ -107,3 +121,4 @@ print(" I2t-style overload accumulation: PASS")
 print(" below-rating cooling: PASS")
 print(" severe faults trip faster than modest overloads: PASS")
 print(" unsafe reset rejection: PASS")
+print(" explicit fuse input/output evidence quality in notebook: PASS")
