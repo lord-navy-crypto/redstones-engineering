@@ -110,9 +110,9 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         routeOutputNext = null;
 
         int tabY = topPos + 36;
-        int gap = 6;
+        int gap = imageWidth < 420 ? 4 : 6;
         int tabCount = 6;
-        int tabWidth = Math.max(52, (imageWidth - 48 - gap * (tabCount - 1)) / tabCount);
+        int tabWidth = Math.max(36, (imageWidth - 48 - gap * (tabCount - 1)) / tabCount);
         int x = leftPos + 24;
 
         addSectionTab(Section.OVERVIEW, x, tabY, tabWidth); x += tabWidth + gap;
@@ -131,9 +131,20 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     }
 
     private void addSectionTab(Section target, int x, int y, int width) {
-        Button tab = Button.builder(Component.literal(target.label), button -> setSection(target))
+        Button tab = Button.builder(Component.literal(sectionTabLabel(target)), button -> setSection(target))
                 .bounds(x, y, width, 22).build();
         sectionButtons.add(addRenderableWidget(tab));
+    }
+
+    private String sectionTabLabel(Section target) {
+        if (imageWidth >= 420) return target.label;
+        return switch (target) {
+            case OVERVIEW -> "State";
+            case PORTS -> "Ports";
+            case CONFIGURE -> "Config";
+            case DIAGNOSTICS -> "Diag";
+            case HISTORY -> "Log";
+        };
     }
 
     protected void addDeviceWidgets() {}
