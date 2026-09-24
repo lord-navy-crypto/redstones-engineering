@@ -4,6 +4,7 @@ import dev.redstoneengineering.block.*;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.signal.AmethystTunedResonatorLogic;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -41,7 +42,12 @@ public final class AmethystSystemMenu extends EngineeringDeviceMenu {
     private final DataSlot auxiliary = trackedInt();
     private final DataSlot extraA = trackedInt();
     private final DataSlot extraB = trackedInt();
+    private final DataSlot extraC = trackedInt();
+    private final DataSlot extraD = trackedInt();
+    private final DataSlot extraE = trackedInt();
+    private final DataSlot extraF = trackedInt();
     private final DataSlot quality = trackedInt();
+    private final DataSlot outputQuality = trackedInt();
     private final DataSlot inputFacing = trackedInt();
     private final DataSlot outputFacing = trackedInt();
     private final DataSlot stateFlag = trackedInt();
@@ -61,37 +67,55 @@ public final class AmethystSystemMenu extends EngineeringDeviceMenu {
         BlockState state = level.getBlockState(blockPos);
         Block block = state.getBlock();
         primary.set(0); secondary.set(0); tertiary.set(0); auxiliary.set(0); extraA.set(0); extraB.set(0);
-        quality.set(PortQuality.NO_SIGNAL.ordinal()); inputFacing.set(-1); outputFacing.set(-1); stateFlag.set(0);
+        extraC.set(0); extraD.set(0); extraE.set(0); extraF.set(0);
+        quality.set(PortQuality.NO_SIGNAL.ordinal()); outputQuality.set(PortQuality.NO_SIGNAL.ordinal());
+        inputFacing.set(-1); outputFacing.set(-1); stateFlag.set(0);
 
         if (block instanceof AmethystResonatorBlock) {
             kind.set(KIND_SOURCE);
             primary.set(state.getValue(AmethystResonatorBlock.FREQUENCY));
             secondary.set(state.getValue(AmethystResonatorBlock.AMPLITUDE));
+            tertiary.set(AmethystResonatorBlock.currentAmplitude(level, blockPos));
+            auxiliary.set(AmethystResonatorBlock.excitationCount(level, blockPos));
             stateFlag.set(AmethystResonatorBlock.isActive(level, blockPos) ? 1 : 0);
-            quality.set(stateFlag.get() == 1 ? PortQuality.VALID.ordinal() : PortQuality.NO_SIGNAL.ordinal());
+            int sourceQuality = stateFlag.get() == 1 ? PortQuality.VALID.ordinal() : PortQuality.NO_SIGNAL.ordinal();
+            quality.set(sourceQuality);
+            outputQuality.set(sourceQuality);
         } else if (block instanceof AmethystFrequencyFilterBlock) {
             kind.set(KIND_FILTER);
             AmethystFrequencyFilterBlock.FilterEvidence e = AmethystFrequencyFilterBlock.evidence(level, blockPos, state);
             primary.set(e.inputFrequency()); secondary.set(e.inputAmplitude()); tertiary.set(e.targetFrequency());
             auxiliary.set(e.expectedOutputAmplitude()); stateFlag.set(e.matched() ? 1 : 0);
             quality.set(e.inputQuality().ordinal());
-            inputFacing.set(DirectionalDomainBlock.seriesInputSide(state).ordinal());
-            outputFacing.set(DirectionalDomainBlock.seriesOutputSide(state).ordinal());
-        } else if (block instanceof AmethystTunedResonatorBlock) {
+            Direction filterInput = DirectionalDomainBlock.seriesInputSide(state);
+            Direction filterOutput = DirectionalDomainBlock.seriesOutputSide(state);
+            inputFacing.set(filterInput.ordinal());
+            outputFacing.set(filterOutput.ordinal());
+            outputQuality.set(filter.engineeringSnapshot(level, blockPos, state, filterOutput)
+                    .map(snapshot -> snapshot.quality().ordinal()).orElse(PortQuality.NO_SIGNAL.ordinal()));
+        } else if (block instanceof AmethystTunedResonatorBlock tuned) {
             kind.set(KIND_TUNED);
             AmethystTunedResonatorBlock.ResponseEvidence e = AmethystTunedResonatorBlock.response(level, blockPos, state);
             primary.set(e.inputFrequency()); secondary.set(e.inputAmplitude()); tertiary.set(e.naturalFrequency());
-            auxiliary.set(e.qIndex()); extraA.set(e.bandwidth()); extraB.set(e.outputAmplitude());
-            stateFlag.set(e.saturated() ? 2 : e.responding() ? 1 : 0);
+            auxiliary.set(e.qIndex()); extraA.set(e.bandwidth()); extraB.set(e.targetAmplitude());
+            extraC.set(e.actualAmplitude()); extraD.set(e.outputFrequency()); extraE.set(e.frequencyError());
+            extraF.set(AmethystTunedResonatorLogic.responseStep(e.qIndex()));
+            stateFlag.set(e.saturated() ? 2 : e.ringDown() ? 3 : e.responding() ? 1 : 0);
             quality.set(e.inputQuality().ordinal());
-            inputFacing.set(DirectionalDomainBlock.seriesInputSide(state).ordinal());
-            outputFacing.set(DirectionalDomainBlock.seriesOutputSide(state).ordinal());
+            Direction tunedInput = DirectionalDomainBlock.seriesInputSide(state);
+            Direction tunedOutput = DirectionalDomainBlock.seriesOutputSide(state);
+            inputFacing.set(tunedInput.ordinal());
+            outputFacing.set(tunedOutput.ordinal());
+            outputQuality.set(tuned.engineeringSnapshot(level, blockPos, state, tunedOutput)
+                    .map(snapshot -> snapshot.quality().ordinal()).orElse(PortQuality.NO_SIGNAL.ordinal()));
         } else if (block instanceof AmethystSpectrumAnalyzerBlock) {
             kind.set(KIND_SPECTRUM);
             AmethystSpectrumAnalyzerBlock.Spectrum s = AmethystSpectrumAnalyzerBlock.spectrum(level, blockPos);
             primary.set(s.dominantFrequency()); secondary.set(s.energy()); tertiary.set(s.activeBands());
             auxiliary.set(s.samples()); extraA.set(s.conflicts()); extraB.set(s.scannedCells()); stateFlag.set(s.expectedCells());
-            quality.set(AmethystSpectrumAnalyzerBlock.quality(level, blockPos).ordinal());
+            int spectrumQuality = AmethystSpectrumAnalyzerBlock.quality(level, blockPos).ordinal();
+            quality.set(spectrumQuality);
+            outputQuality.set(spectrumQuality);
         } else kind.set(-1);
     }
 
@@ -113,8 +137,8 @@ public final class AmethystSystemMenu extends EngineeringDeviceMenu {
                 a = id == BUTTON_SECONDARY_NEXT ? (a >= 15 ? 1 : a + 1) : (a <= 1 ? 15 : a - 1);
                 state = state.setValue(AmethystResonatorBlock.AMPLITUDE, a);
             } else if (id == BUTTON_PULSE) {
-                RuntimeIntStore.get(level, "amethyst_resonator", blockPos, 1)[0] = 1;
-                level.scheduleTick(blockPos, resonator, 4);
+                AmethystResonatorBlock.excite(level, blockPos, state);
+                level.scheduleTick(blockPos, resonator, 2);
                 if (level instanceof ServerLevel server) DomainNetwork.recomputeAmethyst(server, blockPos);
                 changed = true;
                 refreshAuthoritativeSnapshot(); broadcastChanges(); return true;
@@ -162,8 +186,11 @@ public final class AmethystSystemMenu extends EngineeringDeviceMenu {
     public int kind() { return kind.get(); } public int primary() { return primary.get(); }
     public int secondary() { return secondary.get(); } public int tertiary() { return tertiary.get(); }
     public int auxiliary() { return auxiliary.get(); } public int extraA() { return extraA.get(); }
-    public int extraB() { return extraB.get(); } public int stateFlag() { return stateFlag.get(); }
+    public int extraB() { return extraB.get(); } public int extraC() { return extraC.get(); }
+    public int extraD() { return extraD.get(); } public int extraE() { return extraE.get(); }
+    public int extraF() { return extraF.get(); } public int stateFlag() { return stateFlag.get(); }
     public PortQuality quality() { int o=quality.get(); PortQuality[] a=PortQuality.values(); return o<0||o>=a.length?PortQuality.NO_SIGNAL:a[o]; }
+    public PortQuality outputQuality() { int o=outputQuality.get(); PortQuality[] a=PortQuality.values(); return o<0||o>=a.length?PortQuality.NO_SIGNAL:a[o]; }
     public Direction facing() { int o=outputFacing.get(); Direction[] a=Direction.values(); return o<0||o>=a.length?Direction.NORTH:a[o]; }
     public boolean directional() { return kind.get()==KIND_FILTER || kind.get()==KIND_TUNED; }
     public boolean hasInputEndpoint() { return directional() && inputFacing.get() >= 0; }
