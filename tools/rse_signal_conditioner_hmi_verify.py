@@ -43,6 +43,12 @@ for token in (
     "restore trustworthy upstream Redstone evidence",
     "NO_SIGNAL / STALE / topology evidence remain separate states.",
     "Boundary limiting episodes=",
+    "private static String modelLine",
+    "y = clamp(round(x ×",
+    "y = min(x,",
+    "otherwise y = 0",
+    "retain yprev",
+    "Transfer math executes on the server tick",
 ):
     if screen and token not in screen:
         errors.append(f"SignalConditionerScreen missing evidence token: {token}")
@@ -85,3 +91,4 @@ print(" input/output PortQuality evidence synchronized: PASS")
 print(" saturation remains explicit output evidence: PASS")
 print(" valid zero stays distinct from missing/stale/topology evidence: PASS")
 print(" History limiting evidence layout does not overlap: PASS")
+print(" Configure page exposes exact server transfer model: PASS")
