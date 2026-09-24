@@ -46,7 +46,7 @@ if not failed:
         "Observed segment loss",
         "Source / channel",
         "Channel mismatches",
-        "Physical",
+        "controlled only on Route",
     ):
         if token not in screen:
             failed.append(f"OpticalSystemScreen missing engineering evidence token: {token}")
