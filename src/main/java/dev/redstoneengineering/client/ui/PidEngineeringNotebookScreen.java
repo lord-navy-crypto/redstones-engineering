@@ -45,6 +45,7 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
     private final List<Button> routingWidgets = new ArrayList<>();
     private final List<Button> evidenceWidgets = new ArrayList<>();
     private int scrollOffset = 0;
+    private int horizontalOffset = 0;
     private static final int VIEW_MARGIN = 8;
     private static final int CONTENT_TOP = 84;
     private static final int CONTENT_BOTTOM_MARGIN = 34;
@@ -68,6 +69,7 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
         routingWidgets.clear();
         evidenceWidgets.clear();
         scrollOffset = 0;
+        horizontalOffset = 0;
 
         int gap = imageWidth < 480 ? 4 : 6;
         int tabWidth = Math.max(54, (imageWidth - 48 - gap * (Page.values().length - 1)) / Page.values().length);
@@ -77,6 +79,7 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
             addRenderableWidget(Button.builder(Component.literal(pageTabLabel(value)), b -> {
                 page = value;
                 scrollOffset = 0;
+                horizontalOffset = 0;
                 updateVisibility();
             }).bounds(x, tabY, tabWidth, 22).build());
             x += tabWidth + gap;
@@ -178,38 +181,32 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
         for (int i = 0; i < parameterWidgets.size(); i++) {
             Button b = parameterWidgets.get(i);
             if (i < 2) {
-                b.setX(i == 0 ? leftPos + imageWidth - 194 : leftPos + imageWidth - 108);
+                b.setX((i == 0 ? leftPos + imageWidth - 194 : leftPos + imageWidth - 108) - horizontalOffset);
                 b.setY(topPos + CONTENT_TOP + 10 - scrollOffset);
             } else {
                 int row = (i - 2) / 2;
-                b.setX(((i - 2) % 2 == 0) ? leftPos + imageWidth - 164 : leftPos + imageWidth - 78);
+                b.setX((((i - 2) % 2 == 0) ? leftPos + imageWidth - 164 : leftPos + imageWidth - 78) - horizontalOffset);
                 b.setY(topPos + CONTENT_TOP + 60 + row * 44 - scrollOffset);
             }
-            b.visible = page == Page.PARAMETERS
-                    && b.getY() >= topPos + CONTENT_TOP
-                    && b.getY() <= topPos + imageHeight - CONTENT_BOTTOM_MARGIN - 22;
+            b.visible = page == Page.PARAMETERS && inViewport(b);
         }
         int routeWidth = routeButtonWidth();
         int routeGap = 8;
         int routeX = routeButtonStartX();
         for (int i = 0; i < routingWidgets.size(); i++) {
             Button b = routingWidgets.get(i);
-            b.setX(routeX + (i % 4) * (routeWidth + routeGap));
+            b.setX(routeX + (i % 4) * (routeWidth + routeGap) - horizontalOffset);
             b.setY(topPos + CONTENT_TOP + 92 - scrollOffset);
-            b.visible = page == Page.ROUTING
-                    && b.getY() >= topPos + CONTENT_TOP
-                    && b.getY() <= topPos + imageHeight - CONTENT_BOTTOM_MARGIN - 22;
+            b.visible = page == Page.ROUTING && inViewport(b);
         }
         int evidenceWidth = evidenceButtonWidth();
         int evidenceGap = 12;
         int evidenceX = evidenceButtonStartX();
         for (int i = 0; i < evidenceWidgets.size(); i++) {
             Button b = evidenceWidgets.get(i);
-            b.setX(evidenceX + i * (evidenceWidth + evidenceGap));
+            b.setX(evidenceX + i * (evidenceWidth + evidenceGap) - horizontalOffset);
             b.setY(topPos + EVIDENCE_ACTION_VIRTUAL_Y - scrollOffset);
-            b.visible = page == Page.EVIDENCE
-                    && b.getY() >= topPos + CONTENT_TOP
-                    && b.getY() <= topPos + imageHeight - CONTENT_BOTTOM_MARGIN - 22;
+            b.visible = page == Page.EVIDENCE && inViewport(b);
         }
     }
 
@@ -217,7 +214,13 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         if (mouseX >= leftPos + 18 && mouseX <= leftPos + imageWidth - 18
                 && mouseY >= topPos + CONTENT_TOP && mouseY <= topPos + imageHeight - CONTENT_BOTTOM_MARGIN) {
-            scrollOffset = Math.max(0, Math.min(maxScroll(), scrollOffset - (int)Math.round(scrollY * 24.0)));
+            double horizontalDelta = Math.abs(scrollX) > 0.01 ? scrollX : (hasShiftDown() ? scrollY : 0.0);
+            if (Math.abs(horizontalDelta) > 0.01 && maxHorizontalScroll() > 0) {
+                horizontalOffset = Math.max(0, Math.min(maxHorizontalScroll(),
+                        horizontalOffset - (int)Math.round(horizontalDelta * 32.0)));
+            } else {
+                scrollOffset = Math.max(0, Math.min(maxScroll(), scrollOffset - (int)Math.round(scrollY * 24.0)));
+            }
             updateVisibility();
             return true;
         }
@@ -238,6 +241,18 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
     private int maxScroll() {
         int visible = Math.max(90, imageHeight - CONTENT_TOP - CONTENT_BOTTOM_MARGIN);
         return Math.max(0, contentHeight() - visible);
+    }
+
+    private int virtualContentWidth() { return Math.max(imageWidth - 36, 1180); }
+    private int maxHorizontalScroll() {
+        int visible = Math.max(240, imageWidth - 36);
+        return Math.max(0, virtualContentWidth() - visible);
+    }
+    private boolean inViewport(Button b) {
+        return b.getY() >= topPos + CONTENT_TOP
+                && b.getY() <= topPos + imageHeight - CONTENT_BOTTOM_MARGIN - b.getHeight()
+                && b.getX() + b.getWidth() >= leftPos + 18
+                && b.getX() <= leftPos + imageWidth - 18;
     }
 
     @Override
@@ -267,7 +282,7 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
         g.enableScissor(leftPos + 18, topPos + CONTENT_TOP, leftPos + imageWidth - 18,
                 topPos + imageHeight - CONTENT_BOTTOM_MARGIN);
         g.pose().pushPose();
-        g.pose().translate(0, -scrollOffset, 0);
+        g.pose().translate(-horizontalOffset, -scrollOffset, 0);
         switch (page) {
             case OPERATE -> operate(g);
             case PARAMETERS -> parameters(g);
@@ -279,9 +294,12 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
         g.pose().popPose();
         g.disableScissor();
 
-        if (maxScroll() > 0) {
-            String scroll = "SCROLL " + scrollOffset + " / " + maxScroll();
-            g.drawString(font, scroll, imageWidth - 24 - font.width(scroll), 72, MUTED, false);
+        if (maxScroll() > 0 || maxHorizontalScroll() > 0) {
+            String raw = "SCROLL Y " + scrollOffset + "/" + maxScroll()
+                    + " • X " + horizontalOffset + "/" + maxHorizontalScroll()
+                    + " • Shift+wheel / trackpad";
+            String compact = fit(raw, Math.max(170, imageWidth - 220));
+            g.drawString(font, compact, imageWidth - 24 - font.width(compact), 72, MUTED, false);
         }
 
         String footer = "Discrete PID • 2-tick control cycle • derivative on measured PV • bounded output 0..15";
@@ -310,8 +328,8 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
         parameterLine(g, "Fall limit", menu.fallLimit() + " level / cycle", CONTENT_TOP + 284);
 
         g.drawString(font, "u* = bias + Kp·e + I/Ki − Kd·d(PV)", 42, CONTENT_TOP + 350, INK, false);
-        g.drawString(font, fit("Parameter controls stay aligned with this scrollable engineering sheet instead of being squeezed into a fixed 300 px panel.", Math.max(300,imageWidth-96)),
-                42, CONTENT_TOP + 410, MUTED, false);
+        drawWrapped(g, "Parameter controls stay aligned with this scrollable engineering sheet instead of being squeezed into a fixed panel. Use vertical scroll for depth and horizontal scroll for long formulas or evidence strings.",
+                42, CONTENT_TOP + 410, Math.max(300, imageWidth - 96), MUTED);
     }
 
     private void model(GuiGraphics g) {
@@ -338,7 +356,7 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
         pair(g, "Slew-limit episodes", Integer.toString(menu.slewEvents()), CONTENT_TOP + 202);
         pair(g, "Controller status", menu.controllerStatus().name() + " • " + menu.controllerScore() + "/100", CONTENT_TOP + 244);
         String note = "Change one tuning parameter, create the same setpoint step, then compare rise/settling/overshoot instead of relying on preset labels.";
-        g.drawString(font, fit(note, Math.max(300,imageWidth-96)), 42, CONTENT_TOP + 310, MUTED, false);
+        drawWrapped(g, note, 42, CONTENT_TOP + 310, Math.max(300, imageWidth - 96), MUTED);
     }
 
     private void routing(GuiGraphics g) {
@@ -362,7 +380,7 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
             String latest = "#" + menu.latestSequence() + " • " + menu.latestAcceptanceStatus().name()
                     + " • score " + menu.latestAcceptanceScore();
             g.drawString(font, "Latest capture", 42, CONTENT_TOP + 108, MUTED, false);
-            g.drawString(font, fit(latest, Math.max(180, imageWidth - Math.min(320, imageWidth / 2) - 56)),
+            g.drawString(font, latest,
                     Math.min(320, imageWidth / 2), CONTENT_TOP + 108, acceptanceColor(menu.latestAcceptanceStatus()), false);
             AcceptanceEvidenceTrend trend = menu.comparisonTrend();
             String comparison = trend == null
@@ -412,7 +430,7 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
     private void pair(GuiGraphics g, String label, String value, int y) {
         g.drawString(font, label, 42, y, MUTED, false);
         int x = Math.min(320, imageWidth / 2);
-        g.drawString(font, fit(value, Math.max(180, imageWidth - x - 56)), x, y, INK, false);
+        g.drawString(font, value, x, y, INK, false);
     }
 
     private int drawWrapped(GuiGraphics g, String text, int x, int y, int width, int color) {
