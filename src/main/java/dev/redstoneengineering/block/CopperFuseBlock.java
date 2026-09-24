@@ -9,6 +9,7 @@ import dev.redstoneengineering.physics.CircuitPhysics;
 import dev.redstoneengineering.physics.CopperNetworkSupport;
 import dev.redstoneengineering.physics.CopperObservationSupport;
 import dev.redstoneengineering.physics.DomainNetwork;
+import dev.redstoneengineering.physics.EngineeringDeviceParameters;
 import dev.redstoneengineering.physics.NetworkKernel;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.signal.CopperFuseLogic;
@@ -113,7 +114,8 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
         thermalRuntime[THERMAL_EXPOSURE] = CopperFuseLogic.nextThermal(
                 thermalRuntime[THERMAL_EXPOSURE],
                 fuseCurrent,
-                state.getValue(RATING)
+                state.getValue(RATING),
+                configuredTimeCurrentClass(level, pos)
         );
         thermalRuntime[LAST_CURRENT_X100] = (int) Math.min(
                 Integer.MAX_VALUE,
@@ -220,6 +222,31 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
         return input.quality() == PortQuality.VALID && current <= Math.max(1, rating);
     }
 
+    public static int configuredTimeCurrentClass(Level level, BlockPos pos) {
+        if (level instanceof ServerLevel serverLevel) {
+            int raw = EngineeringDeviceParameters.get(serverLevel)
+                    .extendedParameters(serverLevel, pos,
+                            new EngineeringDeviceParameters.ExtendedParameters(1, 0, 0, 0)).a();
+            return Math.max(0, Math.min(2, raw));
+        }
+        return 1;
+    }
+
+    public static boolean setTimeCurrentClass(ServerLevel level, BlockPos pos, int timeCurrentClass) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof CopperFuseBlock fuse)) return false;
+        int bounded = Math.max(0, Math.min(2, timeCurrentClass));
+        boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
+                level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
+        if (changed) {
+            RuntimeIntStore.remove(level, KEY, pos);
+            RuntimeIntStore.remove(level, QUALITY_KEY, pos);
+            DomainNetwork.driveCopper(level, fuse.outputPos(pos, state), pos, 0, false);
+            level.scheduleTick(pos, fuse, 1);
+        }
+        return changed;
+    }
+
     public static boolean setRating(ServerLevel level, BlockPos pos, int rating) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof CopperFuseBlock fuse)) return false;
@@ -271,6 +298,9 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
             RuntimeIntStore.remove(level, KEY, pos);
             RuntimeIntStore.remove(level, QUALITY_KEY, pos);
             RuntimeIntStore.remove(level, THERMAL_KEY, pos);
+            if (level instanceof ServerLevel serverLevel) {
+                EngineeringDeviceParameters.get(serverLevel).removeExtendedParameters(serverLevel, pos);
+            }
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
         if (!state.is(newState.getBlock()) && level instanceof ServerLevel serverLevel) {
@@ -306,9 +336,10 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
             }
 
             player.displayClientMessage(Component.literal(String.format(Locale.ROOT,
-                    "Copper fuse | %s | rating=%d | V=%d | Req=%s | I≈%s | thermal=%d/1000 (%4.1f%%) | %s | inputQuality=%s | outputQuality=%s",
+                    "Copper fuse | %s | rating=%d | class=%d | V=%d | Req=%s | I≈%s | thermal=%d/1000 (%4.1f%%) | %s | inputQuality=%s | outputQuality=%s",
                     operatorResult,
                     next.getValue(RATING),
+                    configuredTimeCurrentClass(level, pos),
                     inputVoltage,
                     loadTruncated ? "STALE" : String.format(Locale.ROOT, "%.3f", loadResistance),
                     loadTruncated ? "STALE" : String.format(Locale.ROOT, "%.3f", current),
