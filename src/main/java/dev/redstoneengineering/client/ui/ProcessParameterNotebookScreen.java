@@ -538,7 +538,7 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
         return switch(menu.kind()){
             case ProcessParameterMenu.KIND_CONDITIONER -> "Compatibility route: REDSTONE analog input → conditioned REDSTONE output. Normal gameplay opens the dedicated Signal Conditioner HMI.";
             case ProcessParameterMenu.KIND_PWM -> "REDSTONE command RX → binary PWM TX. The inhibit input is an auxiliary physical safety port managed by the block's route model.";
-            case ProcessParameterMenu.KIND_COPPER_DRIVER -> "REDSTONE command RX → COPPER voltage TX. Current directions are authoritative readback; this custom converter does not expose generic route mutation here.";
+            case ProcessParameterMenu.KIND_COPPER_DRIVER -> "REDSTONE command RX → COPPER voltage TX. RX and TX rotate independently; moving TX releases the old Copper driver claim before the server publishes the new path.";
             case ProcessParameterMenu.KIND_CAPACITOR -> "COPPER input RX → stored-energy model → COPPER output TX.";
             case ProcessParameterMenu.KIND_FUSE -> "COPPER input RX → protection element → COPPER output TX.";
             case ProcessParameterMenu.KIND_COMPRESSOR -> "Compatibility view only; normal gameplay routes compressor operation through the dedicated Pneumatic HMI.";
