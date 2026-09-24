@@ -1,6 +1,7 @@
 package dev.redstoneengineering.ui.menu;
 
 import dev.redstoneengineering.block.ServoActuatorBlock;
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -35,6 +36,15 @@ public final class ServoActuatorMenu extends EngineeringDeviceMenu {
     private final DataSlot loadDelayTicks = trackedInt();
     private final DataSlot reversals = trackedInt();
     private final DataSlot motionSamples = trackedInt();
+    private final DataSlot mode = trackedInt();
+    private final DataSlot velocityCommand = trackedInt();
+    private final DataSlot settleTicks = trackedInt();
+    private final DataSlot travel = trackedInt();
+    private final DataSlot maxObservedVelocity = trackedInt();
+    private final DataSlot commandQuality = trackedInt();
+    private final DataSlot modeQuality = trackedInt();
+    private final DataSlot brakeQuality = trackedInt();
+    private final DataSlot outputQuality = trackedInt();
 
     public ServoActuatorMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -64,6 +74,15 @@ public final class ServoActuatorMenu extends EngineeringDeviceMenu {
         loadDelayTicks.set(ServoActuatorBlock.loadDelayTicks(level, blockPos));
         reversals.set(ServoActuatorBlock.reversals(level, blockPos));
         motionSamples.set(ServoActuatorBlock.motionSamples(level, blockPos));
+        mode.set(ServoActuatorBlock.mode(level, blockPos));
+        velocityCommand.set(ServoActuatorBlock.velocityCommand(level, blockPos));
+        settleTicks.set(ServoActuatorBlock.settleTicks(level, blockPos));
+        travel.set(ServoActuatorBlock.travel(level, blockPos));
+        maxObservedVelocity.set(ServoActuatorBlock.maxObservedVelocity(level, blockPos));
+        commandQuality.set(ServoActuatorBlock.commandQuality(level, blockPos, state).ordinal());
+        modeQuality.set(ServoActuatorBlock.modeQuality(level, blockPos).ordinal());
+        brakeQuality.set(ServoActuatorBlock.brakeQuality(level, blockPos, state).ordinal());
+        outputQuality.set(ServoActuatorBlock.outputQuality(level, blockPos).ordinal());
     }
 
     @Override
@@ -106,4 +125,19 @@ public final class ServoActuatorMenu extends EngineeringDeviceMenu {
     public int loadDelayTicks() { return loadDelayTicks.get(); }
     public int reversals() { return reversals.get(); }
     public int motionSamples() { return motionSamples.get(); }
+    public int mode() { return mode.get(); }
+    public boolean velocityMode() { return mode.get() != 0; }
+    public int velocityCommand() { return velocityCommand.get(); }
+    public int settleTicks() { return settleTicks.get(); }
+    public int travel() { return travel.get(); }
+    public int maxObservedVelocity() { return maxObservedVelocity.get(); }
+    public PortQuality commandQuality() { return decodeQuality(commandQuality.get()); }
+    public PortQuality modeQuality() { return decodeQuality(modeQuality.get()); }
+    public PortQuality brakeQuality() { return decodeQuality(brakeQuality.get()); }
+    public PortQuality outputQuality() { return decodeQuality(outputQuality.get()); }
+
+    private static PortQuality decodeQuality(int ordinal) {
+        PortQuality[] values = PortQuality.values();
+        return ordinal >= 0 && ordinal < values.length ? values[ordinal] : PortQuality.NO_SIGNAL;
+    }
 }
