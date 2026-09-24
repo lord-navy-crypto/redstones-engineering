@@ -21,6 +21,8 @@ def require(path: str, *tokens: str) -> None:
 
 logic = "src/main/java/dev/redstoneengineering/signal/CopperCapacitorLogic.java"
 block = "src/main/java/dev/redstoneengineering/block/CopperCapacitorBlock.java"
+menu = "src/main/java/dev/redstoneengineering/ui/menu/ProcessParameterMenu.java"
+screen = "src/main/java/dev/redstoneengineering/client/ui/ProcessParameterNotebookScreen.java"
 
 require(
     logic,
@@ -37,6 +39,24 @@ require(
     "effectiveTau",
     "observedLoadResistance",
     "loadTruncated",
+)
+
+require(
+    block,
+    "public static PortQuality inputQuality",
+    "public static PortQuality outputQuality",
+)
+require(
+    menu,
+    "liveF.set(CopperCapacitorBlock.inputQuality",
+    "liveG.set(CopperCapacitorBlock.outputQuality",
+)
+require(
+    screen,
+    '"Input quality"',
+    '"Output quality"',
+    "if(i==5||i==6) return qualityName(v);",
+    "stored physical state from input/output evidence quality",
 )
 
 logic_path = root / logic
@@ -105,3 +125,4 @@ print(" load-dependent discharge: PASS")
 print(" open-circuit leakage slower than loaded discharge: PASS")
 print(" valid source charge/discharge semantics: PASS")
 print(" load-truncation evidence: PASS")
+print(" explicit capacitor input/output evidence quality in notebook: PASS")
