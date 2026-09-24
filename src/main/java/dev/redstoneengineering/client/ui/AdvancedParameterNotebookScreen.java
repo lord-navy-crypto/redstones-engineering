@@ -13,8 +13,8 @@ import java.util.List;
 
 /** Full-page notebook for the second ten-block parameter batch. */
 public final class AdvancedParameterNotebookScreen extends AbstractContainerScreen<AdvancedParameterMenu> {
-    private static final int BG=0xFFF2E9D8, PAGE=0xFFFFF8E8, INK=0xFF2C2925, MUTED=0xFF6E675E, RULE=0xFFB9A98F, ACCENT=0xFF6B4E3D, GOOD=0xFF2F7D4A;
-    private enum Tab { OPERATE("Operate"), PARAMETERS("Parameters"), MODEL("Model"); final String label; Tab(String s){label=s;} }
+    private static final int BG=0xFFF2E9D8, PAGE=0xFFFFF8E8, INK=0xFF2C2925, MUTED=0xFF6E675E, RULE=0xFFB9A98F, ACCENT=0xFF6B4E3D, GOOD=0xFF2F7D4A, WARN=0xFF9A6A19, BAD=0xFFA43838;
+    private enum Tab { OPERATE("Operate"), PARAMETERS("Parameters"), MODEL("Model"), DIAGNOSTICS("Diagnostics"); final String label; Tab(String s){label=s;} }
     private Tab tab=Tab.PARAMETERS;
     private final List<Button> controls=new ArrayList<>();
     private Button toggle;
@@ -67,7 +67,7 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
     }
 
     private int contentHeight(){
-        return switch(tab){case OPERATE->430;case PARAMETERS->500;case MODEL->760;};
+        return switch(tab){case OPERATE->430;case PARAMETERS->500;case MODEL->760;case DIAGNOSTICS->620;};
     }
     private int maxScroll(){
         int visible=Math.max(80,imageHeight-CONTENT_TOP-CONTENT_BOTTOM_MARGIN);
@@ -118,7 +118,7 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
         g.drawString(font,tab.label.toUpperCase(),24,72,ACCENT,false);
         g.enableScissor(leftPos+18,topPos+CONTENT_TOP,leftPos+imageWidth-18,topPos+imageHeight-CONTENT_BOTTOM_MARGIN);
         g.pose().pushPose(); g.pose().translate(0,-scrollOffset,0);
-        switch(tab){case OPERATE->operate(g);case PARAMETERS->parameters(g);case MODEL->model(g);}
+        switch(tab){case OPERATE->operate(g);case PARAMETERS->parameters(g);case MODEL->model(g);case DIAGNOSTICS->diagnostics(g);}
         g.pose().popPose(); g.disableScissor();
         if(maxScroll()>0){
             String s="SCROLL "+scrollOffset+" / "+maxScroll();
@@ -156,6 +156,19 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
         y=drawWrapped(g,model3(),42,y,w,MUTED)+22;
         y=drawWrapped(g,"Only configuration variables are editable; measured state, thermal load, evidence and topology stay solver/world-owned.",42,y,w,MUTED)+22;
         drawWrapped(g,"Additional equations, assumptions, response diagnostics and validation notes extend vertically. Scroll instead of compressing or truncating them.",42,y,w,MUTED);
+    }
+
+    private void diagnostics(GuiGraphics g){
+        int w=Math.max(280,imageWidth-96);
+        g.drawString(font,"EVIDENCE DIAGNOSTICS",42,CONTENT_TOP+28,MUTED,false);
+        g.drawString(font,diagnosticStatus(),42,CONTENT_TOP+58,diagnosticColor(),false);
+        int y=CONTENT_TOP+96;
+        for(String line:diagnosticLines()){
+            y=drawWrapped(g,line,42,y,w,INK)+18;
+        }
+        y=drawWrapped(g,"Diagnostics use synchronized server evidence only. The client does not rescan the world, generate a new sample, or run a second device solver.",
+                42,y,w,MUTED)+18;
+        drawWrapped(g,diagnosticNextAction(),42,y,w,diagnosticColor());
     }
 
     private String[] parameterLabels(){
@@ -257,6 +270,90 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
             case AdvancedParameterMenu.KIND_SIGNAL_AMPLIFIER -> "Operate separates input quality from output quality, so headroom saturation stays visible even when the numerical output is clamped to 15.";
             case AdvancedParameterMenu.KIND_LAPIS_RANGE -> "Raw distance and measurement quality are synchronized separately; the UI never converts NO_SIGNAL or STALE into a fabricated distance.";
             default -> "All values shown on Operate are synchronized evidence from the real Minecraft world state.";
+        };
+    }
+
+    private String diagnosticStatus(){
+        return switch(menu.kind()){
+            case AdvancedParameterMenu.KIND_SIGNAL_AMPLIFIER -> {
+                PortQuality in=quality(menu.liveE()), out=quality(menu.liveF());
+                if(out==PortQuality.SATURATED) yield "OUTPUT SATURATED • HEADROOM LIMIT";
+                if(in!=PortQuality.VALID) yield "INPUT EVIDENCE • "+qualityName(menu.liveE());
+                yield "AMPLIFIER EVIDENCE COHERENT";
+            }
+            case AdvancedParameterMenu.KIND_LAPIS_NOISE -> menu.liveB()==0
+                    ?"NOISE SOURCE INITIALIZING"
+                    :"NOISE SOURCE ACTIVE • VALID OUTPUT";
+            case AdvancedParameterMenu.KIND_LAPIS_RANGE -> {
+                PortQuality q=quality(menu.liveD());
+                if(q==PortQuality.STALE) yield "SCAN COVERAGE INCOMPLETE";
+                if(q==PortQuality.NO_SIGNAL) yield "COMPLETE SCAN • NO TARGET";
+                if(q==PortQuality.VALID) yield "TARGET MEASURED";
+                yield "RANGE EVIDENCE • "+q.name().replace('_',' ');
+            }
+            default -> "COMPATIBILITY DEVICE • USE DEVICE-SPECIFIC HMI WHEN AVAILABLE";
+        };
+    }
+
+    private int diagnosticColor(){
+        String s=diagnosticStatus();
+        if(s.contains("FAULT")||s.contains("TOPOLOGY")) return BAD;
+        if(s.contains("SATURATED")||s.contains("STALE")||s.contains("INCOMPLETE")||s.contains("INITIALIZING")) return WARN;
+        return GOOD;
+    }
+
+    private String[] diagnosticLines(){
+        return switch(menu.kind()){
+            case AdvancedParameterMenu.KIND_SIGNAL_AMPLIFIER -> new String[]{
+                    "Gain = ×"+menu.p0()+" • input/output = "+menu.liveA()+" / "+menu.liveB()+".",
+                    "Input/output evidence = "+qualityName(menu.liveE())+" / "+qualityName(menu.liveF())+".",
+                    "Clipping episodes = "+menu.liveC()+" • maximum retained raw output = "+menu.liveD()+".",
+                    "A numerical output of 15 is not by itself a fault; SATURATED quality is the explicit headroom evidence."
+            };
+            case AdvancedParameterMenu.KIND_LAPIS_NOISE -> new String[]{
+                    "Baseline / amplitude / sample period = "+menu.p0()+" / ±"+menu.p1()+" / "+menu.p2()+" ticks.",
+                    "Current server sample = "+menu.liveA()+" • initialized = "+(menu.liveB()!=0?"YES":"NO")+".",
+                    "Output evidence = "+qualityName(menu.liveC())+". A generated sample of 0 remains a valid numerical result.",
+                    "Opening this page never advances the deterministic noise sequence or fabricates a replacement sample."
+            };
+            case AdvancedParameterMenu.KIND_LAPIS_RANGE -> new String[]{
+                    "Configured maximum range = "+menu.p0()+" blocks • synchronized scan range = "+menu.liveB()+" blocks.",
+                    "Measurement = "+rangeMeasurementLabel()+" • coverage complete = "+(menu.liveC()!=0?"YES":"NO")+".",
+                    "Measurement evidence = "+qualityName(menu.liveD())+".",
+                    "NO SIGNAL means a complete clear scan with no target; STALE means the requested coverage was not fully available."
+            };
+            default -> new String[]{
+                    "This parameter menu remains registered for compatibility, but normal gameplay dispatch uses a richer device-specific HMI for this kind.",
+                    "No additional client-side diagnosis is invented here; use Operate/Model or the dedicated HMI for authoritative evidence."
+            };
+        };
+    }
+
+    private String rangeMeasurementLabel(){
+        PortQuality q=quality(menu.liveD());
+        if(q==PortQuality.NO_SIGNAL) return "NO TARGET";
+        if(q==PortQuality.STALE) return "UNKNOWN • INCOMPLETE COVERAGE";
+        return menu.liveA()+" blocks";
+    }
+
+    private String diagnosticNextAction(){
+        return switch(menu.kind()){
+            case AdvancedParameterMenu.KIND_SIGNAL_AMPLIFIER -> {
+                PortQuality in=quality(menu.liveE()), out=quality(menu.liveF());
+                if(in!=PortQuality.VALID) yield "NEXT • restore trustworthy upstream Redstone evidence before changing gain.";
+                if(out==PortQuality.SATURATED) yield "NEXT • decide whether clipping is intended; if not, reduce gain or upstream level and compare retained clip episodes.";
+                yield "NEXT • compare input × gain against output and retained max-raw evidence under the same stimulus.";
+            }
+            case AdvancedParameterMenu.KIND_LAPIS_NOISE -> menu.liveB()==0
+                    ?"NEXT • allow the authoritative source to produce its first sample before judging amplitude or cadence."
+                    :"NEXT • change one experiment variable at a time; do not treat a valid zero sample as missing evidence.";
+            case AdvancedParameterMenu.KIND_LAPIS_RANGE -> {
+                PortQuality q=quality(menu.liveD());
+                if(q==PortQuality.STALE) yield "NEXT • restore complete world/chunk coverage before interpreting distance; increasing range does not repair missing evidence.";
+                if(q==PortQuality.NO_SIGNAL) yield "NEXT • treat this as a real clear-scan result; change range only if the experiment intentionally needs a wider search volume.";
+                yield "NEXT • compare measured distance against the same configured range before changing sensor reach.";
+            }
+            default -> "NEXT • use the dedicated HMI for device-specific response, routing and evidence diagnostics.";
         };
     }
 
