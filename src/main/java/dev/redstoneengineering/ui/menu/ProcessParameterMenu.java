@@ -1,6 +1,7 @@
 package dev.redstoneengineering.ui.menu;
 
 import dev.redstoneengineering.block.*;
+import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.RedstoneObservationSupport;
 import dev.redstoneengineering.physics.VibrationNetwork;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
@@ -46,6 +47,8 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
     private final DataSlot liveC = trackedInt();
     private final DataSlot liveD = trackedInt();
     private final DataSlot liveE = trackedInt();
+    private final DataSlot liveF = trackedInt();
+    private final DataSlot liveG = trackedInt();
 
     public ProcessParameterMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -62,7 +65,7 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
         BlockState state = level.getBlockState(blockPos);
         Block block = state.getBlock();
         p0.set(0); p1.set(0); p2.set(0); p3.set(0);
-        liveA.set(0); liveB.set(0); liveC.set(0); liveD.set(0); liveE.set(0);
+        liveA.set(0); liveB.set(0); liveC.set(0); liveD.set(0); liveE.set(0); liveF.set(PortQuality.NO_SIGNAL.ordinal()); liveG.set(PortQuality.NO_SIGNAL.ordinal());
 
         if (block instanceof SignalConditionerBlock) {
             kind.set(KIND_CONDITIONER);
@@ -98,6 +101,8 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
             double load = CopperCapacitorBlock.observedLoadResistance(level, blockPos);
             liveD.set(Double.isInfinite(load) ? -1 : (int)Math.round(Math.min(32.0, load) * 10.0));
             liveE.set(CopperCapacitorBlock.loadTruncated(level, blockPos) ? 1 : 0);
+            liveF.set(CopperCapacitorBlock.inputQuality(level, blockPos).ordinal());
+            liveG.set(CopperCapacitorBlock.outputQuality(level, blockPos).ordinal());
         } else if (block instanceof CopperFuseBlock) {
             kind.set(KIND_FUSE);
             p0.set(state.getValue(CopperFuseBlock.RATING));
@@ -108,6 +113,8 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
             double current = CopperFuseBlock.lastEvaluatedCurrent(level, blockPos);
             liveD.set((int)Math.round(current * 100.0));
             liveE.set((int)Math.round(current / Math.max(1, state.getValue(CopperFuseBlock.RATING)) * 1000.0));
+            liveF.set(CopperFuseBlock.inputQuality(level, blockPos).ordinal());
+            liveG.set(CopperFuseBlock.outputQuality(level, blockPos, state).ordinal());
         } else if (block instanceof AirCompressorBlock) {
             kind.set(KIND_COMPRESSOR);
             var r = AirCompressorBlock.configuredResponse(level, blockPos, state);
@@ -237,4 +244,6 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
     public int liveC(){return liveC.get();}
     public int liveD(){return liveD.get();}
     public int liveE(){return liveE.get();}
+    public int liveF(){return liveF.get();}
+    public int liveG(){return liveG.get();}
 }
