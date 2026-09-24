@@ -33,17 +33,20 @@ require(block,
         "PneumaticNetwork.recompute")
 require(menu,
         "PneumaticProportionalValveBlock.RESPONSE_MODE",
-        "PneumaticProportionalValveBlock.stepResponseMode",
+        "PneumaticProportionalValveBlock.configuredResponseRate",
+        "PneumaticProportionalValveBlock.setConfiguredResponseRate",
         "PneumaticProportionalValveBlock.commandedOpening",
         "PneumaticProportionalValveBlock.actualOpening",
         "PneumaticProportionalValveBlock.travel",
-        "PneumaticProportionalValveBlock.reversals")
+        "PneumaticProportionalValveBlock.reversals",
+        "engineeringA.set(PneumaticProportionalValveBlock.configuredResponseRate")
 require(screen,
         "VALVE SPOOL RESPONSE",
         "Command / actual opening",
         "Tracking error",
         "Travel / reversals",
-        "Response mode")
+        "Configured spool rate",
+        'menu.engineeringA()+" opening/tick"')
 
 logic_path = root / logic
 if logic_path.is_file():
@@ -87,4 +90,4 @@ print("RSE proportional-valve engineering-depth verification: PASS")
 print(" finite spool travel: PASS")
 print(" actual opening drives pneumatic restriction: PASS")
 print(" travel/reversal evidence: PASS")
-print(" HMI response-mode authority: PASS")
+print(" HMI exact response-rate authority: PASS")
