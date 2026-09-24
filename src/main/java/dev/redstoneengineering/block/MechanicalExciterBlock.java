@@ -93,6 +93,13 @@ public class MechanicalExciterBlock extends Block implements EngineeringPortProv
         return RedstoneObservationSupport.observe(level, pos, Direction.DOWN);
     }
 
+    public static PortQuality outputQuality(Level level, BlockPos pos) {
+        var drive = driveObservation(level, pos);
+        return actualAmplitude(level, pos) > 0
+                ? PortQuality.VALID
+                : drive.valid() ? PortQuality.NO_SIGNAL : drive.quality();
+    }
+
     private static int[] snapshot(Level level, BlockPos pos) {
         int[] runtime = RuntimeIntStore.peek(level, RUNTIME_KEY, pos);
         return runtime != null && runtime.length >= RUNTIME_SIZE ? runtime : null;
@@ -160,11 +167,8 @@ public class MechanicalExciterBlock extends Block implements EngineeringPortProv
             return Optional.of(EngineeringPortSnapshot.redstone(port.get(), drive.value(), drive.quality()));
         }
         int amplitude = actualAmplitude(level, pos);
-        PortQuality outputQuality = amplitude > 0
-                ? PortQuality.VALID
-                : drive.valid() ? PortQuality.NO_SIGNAL : drive.quality();
         return Optional.of(new EngineeringPortSnapshot(
-                port.get(), amplitude, 0.0, 15.0, outputQuality));
+                port.get(), amplitude, 0.0, 15.0, outputQuality(level, pos)));
     }
 
     @Override
