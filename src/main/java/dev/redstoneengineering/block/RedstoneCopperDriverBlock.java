@@ -82,6 +82,50 @@ public class RedstoneCopperDriverBlock extends Block implements EngineeringPortP
     public static Direction outputSide(BlockState state) { return state.getValue(FACING); }
     public static Direction inputSide(BlockState state) { return state.getValue(INPUT_FACING); }
 
+    public static boolean rotateInput(Level level, BlockPos pos, boolean clockwise) {
+        if (level.isClientSide) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof RedstoneCopperDriverBlock block)) return false;
+        Direction output = outputSide(state);
+        Direction oldInput = inputSide(state);
+        Direction nextInput = nextFreeHorizontal(oldInput, output, clockwise);
+        if (nextInput == oldInput) return false;
+        level.setBlock(pos, state.setValue(INPUT_FACING, nextInput), Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, block, 1);
+        level.updateNeighborsAt(pos, block);
+        level.updateNeighborsAt(pos.relative(oldInput), block);
+        level.updateNeighborsAt(pos.relative(nextInput), block);
+        return true;
+    }
+
+    public static boolean rotateOutput(Level level, BlockPos pos, boolean clockwise) {
+        if (level.isClientSide) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof RedstoneCopperDriverBlock block)) return false;
+        Direction input = inputSide(state);
+        Direction oldOutput = outputSide(state);
+        Direction nextOutput = nextFreeHorizontal(oldOutput, input, clockwise);
+        if (nextOutput == oldOutput) return false;
+        if (level instanceof ServerLevel server) {
+            DomainNetwork.driveCopper(server, pos.relative(oldOutput), pos, 0, false);
+        }
+        level.setBlock(pos, state.setValue(FACING, nextOutput), Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, block, 1);
+        level.updateNeighborsAt(pos, block);
+        level.updateNeighborsAt(pos.relative(oldOutput), block);
+        level.updateNeighborsAt(pos.relative(nextOutput), block);
+        return true;
+    }
+
+    private static Direction nextFreeHorizontal(Direction current, Direction forbidden, boolean clockwise) {
+        Direction candidate = current;
+        for (int i = 0; i < 3; i++) {
+            candidate = clockwise ? candidate.getClockWise() : candidate.getCounterClockWise();
+            if (candidate != forbidden) return candidate;
+        }
+        return current;
+    }
+
     public static int actualVoltage(Level level, BlockPos pos) {
         int[] rt = RuntimeIntStore.peek(level, KEY, pos);
         return rt == null || rt.length != RUNTIME_SIZE ? 0 : EngineeringMath.clamp(rt[ACTUAL], 0, 15);
