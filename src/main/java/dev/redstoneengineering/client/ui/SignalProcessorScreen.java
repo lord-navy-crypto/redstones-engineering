@@ -17,6 +17,8 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
     private Button retriggerToggle;
     private Button fallRatePrevious;
     private Button fallRateNext;
+    private Button edgeWidthPrevious;
+    private Button edgeWidthNext;
 
     public SignalProcessorScreen(SignalProcessorMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -54,6 +56,13 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         fallRateNext = addConfigureWidget(Button.builder(Component.literal("Fall rate ▶"),
                 b -> sendMenuButton(SignalProcessorMenu.BUTTON_FILTER_FALL_NEXT))
                 .bounds(leftPos + 194, topPos + 140, 110, 20).build());
+
+        edgeWidthPrevious = addConfigureWidget(Button.builder(Component.literal("◀ Pulse width"),
+                b -> sendMenuButton(SignalProcessorMenu.BUTTON_EDGE_WIDTH_PREVIOUS))
+                .bounds(leftPos + 16, topPos + 140, 110, 20).build());
+        edgeWidthNext = addConfigureWidget(Button.builder(Component.literal("Pulse width ▶"),
+                b -> sendMenuButton(SignalProcessorMenu.BUTTON_EDGE_WIDTH_NEXT))
+                .bounds(leftPos + 194, topPos + 140, 110, 20).build());
     }
 
     @Override
@@ -65,6 +74,7 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
 
         boolean pulse = menu.kind() == SignalProcessorMenu.KIND_PULSE;
         boolean filter = menu.kind() == SignalProcessorMenu.KIND_FILTER;
+        boolean edge = menu.kind() == SignalProcessorMenu.KIND_EDGE;
         thresholdPrevious.visible = pulse;
         thresholdNext.visible = pulse;
         hysteresisPrevious.visible = pulse;
@@ -79,6 +89,10 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         fallRateNext.visible = filter;
         fallRatePrevious.active = filter;
         fallRateNext.active = filter;
+        edgeWidthPrevious.visible = edge;
+        edgeWidthNext.visible = edge;
+        edgeWidthPrevious.active = edge;
+        edgeWidthNext.active = edge;
         if (pulse) {
             String threshold = "Trigger threshold " + menu.secondaryParameter() + "/15";
             thresholdPrevious.setMessage(Component.literal(fitForWidth("◀ " + threshold, 94)));
@@ -92,6 +106,11 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
             String fall = "Fall rate " + menu.secondaryParameter();
             fallRatePrevious.setMessage(Component.literal(fitForWidth("◀ " + fall, 94)));
             fallRateNext.setMessage(Component.literal(fitForWidth(fall + " ▶", 94)));
+        }
+        if (edge) {
+            String width = "Pulse width " + menu.secondaryParameter() + "t";
+            edgeWidthPrevious.setMessage(Component.literal(fitForWidth("◀ " + width, 94)));
+            edgeWidthNext.setMessage(Component.literal(fitForWidth(width + " ▶", 94)));
         }
     }
 
@@ -144,9 +163,10 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
             labelValue(g, "Fall rate", menu.secondaryParameter() + " level/tick", 181);
             safeText(g, "Independent up/down slew limits model asymmetric charge, discharge, acceleration or deceleration.", 16, 201, MUTED);
         } else {
-            labelValue(g, "Input face", menu.inputDirection().getName().toUpperCase(), 171);
-            labelValue(g, "Output face", menu.outputDirection().getName().toUpperCase(), 187);
-            safeText(g, "Physical direction is controlled only on Route.", 16, 207, MUTED);
+            labelValue(g, "Pulse width", menu.secondaryParameter() + " ticks", 181);
+            labelValue(g, "Input face", menu.inputDirection().getName().toUpperCase(), 201);
+            labelValue(g, "Output face", menu.outputDirection().getName().toUpperCase(), 219);
+            safeText(g, "Physical direction is controlled only on Route.", 16, 239, MUTED);
         }
     }
 
@@ -164,7 +184,9 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
             labelValue(g, "Fall rate", menu.secondaryParameter() + " level/tick", 180);
             labelValue(g, "Settle ETA", menu.runtimeC() + " ticks", 198);
         } else {
-            statusLine(g, "Authority", "SERVER SYNCHRONIZED", GOOD, 198);
+            labelValue(g, "Pulse width", menu.secondaryParameter() + " ticks", 180);
+            labelValue(g, "Rejected evidence", Integer.toString(menu.runtimeD()), 198);
+            statusLine(g, "Authority", "SERVER SYNCHRONIZED", GOOD, 216);
         }
     }
 
@@ -174,8 +196,10 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
             labelValue(g, "Detected edges", Integer.toString(menu.runtimeB()), 110);
             labelValue(g, "Last edge age", menu.runtimeC() < 0 ? "NONE" : menu.runtimeC() + " ticks", 130);
             labelValue(g, "Pulse remaining", menu.runtimeA() + " ticks", 150);
-            sectionRule(g, 170);
-            safeText(g, "Edge chronology is retained by server runtime; opening this UI never creates an edge.", 16, 184, MUTED);
+            labelValue(g, "Pulse width", menu.secondaryParameter() + " ticks", 170);
+            labelValue(g, "Rejected evidence episodes", Integer.toString(menu.runtimeD()), 190);
+            sectionRule(g, 210);
+            safeText(g, "Bad or stale evidence resets the baseline without manufacturing an edge; rejected episodes remain explicit server evidence.", 16, 224, MUTED);
         } else if (menu.kind() == SignalProcessorMenu.KIND_PULSE) {
             labelValue(g, "Accepted triggers", Integer.toString(menu.runtimeB()), 106);
             labelValue(g, "Suppressed triggers", Integer.toString(menu.runtimeC()), 126);
@@ -234,7 +258,8 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
 
     private String processDescription() {
         return switch (menu.kind()) {
-            case SignalProcessorMenu.KIND_EDGE -> "EDGE DETECTION • " + parameterValue();
+            case SignalProcessorMenu.KIND_EDGE -> "EDGE DETECTION • " + parameterValue()
+                    + " • pulse=" + menu.secondaryParameter() + "t";
             case SignalProcessorMenu.KIND_PULSE -> "SCHMITT MONOSTABLE • width=" + parameterValue()
                     + " • trigger=" + menu.secondaryParameter() + "/15"
                     + " • rearm≤" + pulseRearmThreshold() + "/15"
