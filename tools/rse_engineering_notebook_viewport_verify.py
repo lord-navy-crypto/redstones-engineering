@@ -60,6 +60,10 @@ else:
         "virtualContentHeight",
         "maxScroll",
         "configureVirtualY",
+        "routeWidgets",
+        "routeVirtualY",
+        "addRouteWidget",
+        "syncRouteWidgetViewport",
     ):
         if token not in shared:
             failed.append(f"{SHARED_SCREEN} missing viewport/scroll contract token: {token}")
@@ -69,6 +73,18 @@ else:
         failed.append(f"{SHARED_SCREEN} does not derive imageHeight from live game viewport")
     if "graphics.pose().translate(0, -scrollOffset, 0)" not in shared:
         failed.append(f"{SHARED_SCREEN} does not scroll rendered engineering content")
+    for route_field in (
+        "routePrevious",
+        "routeNext",
+        "routeInputPrevious",
+        "routeInputNext",
+        "routeOutputPrevious",
+        "routeOutputNext",
+    ):
+        if not re.search(rf"{route_field}\s*=\s*addRouteWidget\(", shared):
+            failed.append(f"{SHARED_SCREEN} route control is not registered with the scroll workspace: {route_field}")
+    if "syncRouteControls();" not in shared[shared.find("public boolean mouseScrolled"):shared.find("protected int virtualContentHeight")]:
+        failed.append(f"{SHARED_SCREEN} does not refresh routed controls after mouse-wheel scrolling")
 
 DOCUMENT_SCREEN = "src/main/java/dev/redstoneengineering/client/ui/RedstoneEncyclopediaScreen.java"
 document_path = root / DOCUMENT_SCREEN
@@ -116,4 +132,5 @@ print(" fixed header/footer + clipped scroll workspace: PASS")
 print(" mouse-wheel scroll contract: PASS")
 print(" six engineering notebook screens migrated: PASS")
 print(" shared EngineeringScreen viewport shell migrated: PASS")
+print(" route controls move and clip with scrolled engineering content: PASS")
 print(" Redstone Encyclopedia viewport document migrated: PASS")
