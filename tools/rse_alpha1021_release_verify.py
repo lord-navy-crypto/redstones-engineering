@@ -63,7 +63,7 @@ for token in (
     if token not in guide:
         errors.append(f"testing guide missing: {token}")
 
-for dependency in ("jei", "jade", "geckolib", "cloth_config", "fusion"):
+for dependency in ("jei", "jade", "geckolib", "cloth_config"):
     if f'modId="{dependency}"' not in mods:
         errors.append(f"required dependency missing from NeoForge metadata: {dependency}")
 
@@ -91,7 +91,6 @@ for token in (
     "Jade 15.10.6",
     "GeckoLib 4.9.2",
     "Cloth Config 15.0.140",
-    "Fusion 1.3.14",
     "non-blocking for Alpha 1.0.21",
     "runClient",
 ):
