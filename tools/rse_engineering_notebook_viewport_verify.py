@@ -70,6 +70,31 @@ else:
     if "graphics.pose().translate(0, -scrollOffset, 0)" not in shared:
         failed.append(f"{SHARED_SCREEN} does not scroll rendered engineering content")
 
+DOCUMENT_SCREEN = "src/main/java/dev/redstoneengineering/client/ui/RedstoneEncyclopediaScreen.java"
+document_path = root / DOCUMENT_SCREEN
+if not document_path.is_file():
+    failed.append(f"missing engineering document screen: {DOCUMENT_SCREEN}")
+else:
+    document = document_path.read_text(errors="ignore")
+    for token in (
+        "VIEW_MARGIN",
+        "CONTENT_TOP",
+        "CONTENT_BOTTOM_MARGIN",
+        "scrollOffset",
+        "mouseScrolled",
+        "enableScissor",
+        "contentDocumentHeight",
+        "maxScroll",
+    ):
+        if token not in document:
+            failed.append(f"{DOCUMENT_SCREEN} missing viewport document token: {token}")
+    if not re.search(r"imageWidth\s*=\s*Math\.max\([^;]*width\s*[-]", document):
+        failed.append(f"{DOCUMENT_SCREEN} does not derive imageWidth from live game viewport")
+    if not re.search(r"imageHeight\s*=\s*Math\.max\([^;]*height\s*[-]", document):
+        failed.append(f"{DOCUMENT_SCREEN} does not derive imageHeight from live game viewport")
+    if "graphics.pose().translate(0, CONTENT_TOP - scrollOffset, 0)" not in document:
+        failed.append(f"{DOCUMENT_SCREEN} does not scroll the manual document body")
+
 # Protect the actual principle, not one exact pixel value.
 process = (root / SCREENS[0]).read_text(errors="ignore") if (root / SCREENS[0]).is_file() else ""
 if "VIEW_MARGIN=8" not in process and "VIEW_MARGIN = 8" not in process:
@@ -91,3 +116,4 @@ print(" fixed header/footer + clipped scroll workspace: PASS")
 print(" mouse-wheel scroll contract: PASS")
 print(" six engineering notebook screens migrated: PASS")
 print(" shared EngineeringScreen viewport shell migrated: PASS")
+print(" Redstone Encyclopedia viewport document migrated: PASS")
