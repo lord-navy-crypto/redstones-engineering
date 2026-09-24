@@ -30,6 +30,8 @@ amethyst_network_budget_test = "src/main/java/dev/redstoneengineering/gametest/R
 amethyst_processor_budget_test = "src/main/java/dev/redstoneengineering/gametest/RseAmethystProcessorBudgetSystemGameTests.java"
 registration = "src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java"
 lapis = "src/main/java/dev/redstoneengineering/block/LapisLowPassFilterBlock.java"
+lapis_menu = "src/main/java/dev/redstoneengineering/ui/menu/LapisLowPassFilterMenu.java"
+lapis_screen = "src/main/java/dev/redstoneengineering/client/ui/LapisLowPassFilterScreen.java"
 quartz = "src/main/java/dev/redstoneengineering/block/QuartzClockDividerBlock.java"
 quartz_osc = "src/main/java/dev/redstoneengineering/block/QuartzOscillatorBlock.java"
 amethyst = "src/main/java/dev/redstoneengineering/block/AmethystResonatorBlock.java"
@@ -111,6 +113,22 @@ require(lapis,
         "runtime[QUALITY_SLOT] = inputQuality.ordinal()",
         "retainedHistory",
         "DomainNetwork.driveLapis(level, outputPos(pos, state), pos, 0, false)")
+
+require(lapis_menu,
+        "private final DataSlot inputQuality = trackedInt();",
+        "private final DataSlot outputQuality = trackedInt();",
+        "outputQuality.set(filter.quality().ordinal());",
+        "observedInputQuality = snapshot.map(port -> port.quality()).orElse(PortQuality.NO_SIGNAL);",
+        "public PortQuality inputQuality()",
+        "public PortQuality outputQuality()")
+
+require(lapis_screen,
+        '"Input quality"',
+        '"Output quality"',
+        "trackingErrorLabel()",
+        '"A valid numerical zero remains 0."',
+        '"NO_SIGNAL / STALE / TOPOLOGY_ERROR remain separate quality states."',
+        '"The client does not run a second filter solver."')
 
 require(quartz,
         "PHASE_STARTED_SLOT",
@@ -226,6 +244,6 @@ if failed:
 print("RSE foundation-domain depth verification: PASS")
 print(" redstone selector/tap/analyzer/indicator evidence semantics: PASS")
 print(" Redstone↔Lapis conversion retains values while degrading evidence: PASS")
-print(" Lapis low-pass retained-state semantics: PASS")
+print(" Lapis low-pass retained-state + explicit quality HMI semantics: PASS")
 print(" Quartz oscillator edge-latched period + divider real-edge phase lock: PASS")
 print(" Amethyst free ring-down source + runtime-test API migration + stale incomplete spectrum evidence: PASS")
