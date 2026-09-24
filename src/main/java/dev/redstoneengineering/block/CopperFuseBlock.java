@@ -179,13 +179,18 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
         return runtime == null ? 0 : runtime[OUTPUT_VOLTAGE];
     }
 
+    public static PortQuality inputQuality(Level level, BlockPos pos) {
+        int[] quality = qualitySnapshot(level, pos);
+        if (quality == null) return PortQuality.STALE;
+        int index = Math.max(0, Math.min(PortQuality.values().length - 1, quality[INPUT_QUALITY]));
+        return PortQuality.values()[index];
+    }
+
     public static PortQuality outputQuality(Level level, BlockPos pos, BlockState state) {
         if (state.getValue(TRIPPED)) return PortQuality.FAULT;
         int[] runtime = snapshot(level, pos);
-        int[] quality = qualitySnapshot(level, pos);
-        if (runtime == null || runtime[PROTECTION_STATE_INITIALIZED] == 0 || quality == null) return PortQuality.STALE;
-        int index = Math.max(0, Math.min(PortQuality.values().length - 1, quality[INPUT_QUALITY]));
-        return PortQuality.values()[index];
+        if (runtime == null || runtime[PROTECTION_STATE_INITIALIZED] == 0) return PortQuality.STALE;
+        return inputQuality(level, pos);
     }
 
     public static boolean protectionInitialized(Level level, BlockPos pos) {
