@@ -204,11 +204,9 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
     private String model2(){
         return switch(menu.kind()){
             case ProcessParameterMenu.KIND_PWM -> "Command updates latch at carrier-cycle boundaries; changing period resets carrier phase evidence.";
-            case ProcessParameterMenu.KIND_CAPACITOR -> "Open circuit retains energy longest; incomplete load scans freeze integration instead of inventing discharge.";
-            case ProcessParameterMenu.KIND_FUSE -> "Changing rating does not erase thermal exposure; reset remains fail-safe and evidence-gated.";
             case ProcessParameterMenu.KIND_COPPER_DRIVER -> "Rise and fall slew are independent, so energizing and de-energizing can have different dynamics.";
-            case ProcessParameterMenu.KIND_CAPACITOR -> "τcharge = τbase; τdischarge = f(τbase,Rload); open circuit uses τbase × leakageFactor.";
-            case ProcessParameterMenu.KIND_FUSE -> "FAST/NORMAL/SLOW change overload heating rate; changing the class does not erase retained thermal exposure.";
+            case ProcessParameterMenu.KIND_CAPACITOR -> "τcharge=τbase; τdischarge=f(τbase,Rload); open circuit uses τbase×leakageFactor; incomplete load scans freeze integration.";
+            case ProcessParameterMenu.KIND_FUSE -> "FAST/NORMAL/SLOW change overload heating rate; rating/class changes retain heat, and reset remains evidence-gated.";
             case ProcessParameterMenu.KIND_EXCITER -> "Amplitude rise/fall and frequency slew are independent configuration variables.";
             default -> "The parameter changes the authoritative server model, not a client-only display.";
         };
