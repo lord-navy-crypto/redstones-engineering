@@ -46,7 +46,7 @@ if not failed:
         "Thermal load",
         "Run ticks",
         "Changing turns invalidates the old derivative baseline",
-        "Physical coil direction is controlled only on Route.",
+        "physical coil direction is controlled only on Route.",
     ):
         if token not in screen:
             failed.append(f"MagneticSystemScreen missing engineering token: {token}")
