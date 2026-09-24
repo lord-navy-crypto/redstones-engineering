@@ -80,10 +80,13 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
             liveC.set(a.effectiveDutyPermille()); liveD.set(a.completedCycles());
         } else if (block instanceof RedstoneCopperDriverBlock) {
             kind.set(KIND_COPPER_DRIVER);
-            p0.set(RedstoneCopperDriverBlock.configuredSlew(level, blockPos, state));
+            p0.set(RedstoneCopperDriverBlock.configuredRiseSlew(level, blockPos, state));
+            p1.set(RedstoneCopperDriverBlock.configuredFallSlew(level, blockPos, state));
             liveA.set(RedstoneCopperDriverBlock.targetVoltage(level, blockPos));
             liveB.set(RedstoneCopperDriverBlock.actualVoltage(level, blockPos));
             liveC.set(RedstoneCopperDriverBlock.inputQuality(level, blockPos).ordinal());
+            liveD.set(Math.abs(RedstoneCopperDriverBlock.targetVoltage(level, blockPos)
+                    - RedstoneCopperDriverBlock.actualVoltage(level, blockPos)));
         } else if (block instanceof CopperCapacitorBlock) {
             kind.set(KIND_CAPACITOR);
             p0.set(CopperCapacitorBlock.configuredBaseTau(level, blockPos, state));
@@ -163,8 +166,10 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
         } else if (block instanceof PwmControllerBlock pwm) {
             if (slot == 0) changed = PwmControllerBlock.setConfiguredPeriod(server, blockPos, p0.get() + delta);
             else if (slot == 1 || id == BUTTON_ACTION) changed = pwm.toggleInvert(level, blockPos);
-        } else if (block instanceof RedstoneCopperDriverBlock && slot == 0) {
-            changed = RedstoneCopperDriverBlock.setConfiguredSlew(server, blockPos, p0.get() + delta);
+        } else if (block instanceof RedstoneCopperDriverBlock && (slot == 0 || slot == 1)) {
+            int rise = p0.get() + (slot == 0 ? delta : 0);
+            int fall = p1.get() + (slot == 1 ? delta : 0);
+            changed = RedstoneCopperDriverBlock.setEngineeringSlewRates(server, blockPos, rise, fall);
         } else if (block instanceof CopperCapacitorBlock && slot == 0) {
             changed = CopperCapacitorBlock.setConfiguredBaseTau(server, blockPos, p0.get() + delta);
         } else if (block instanceof CopperFuseBlock fuse) {
