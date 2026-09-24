@@ -21,10 +21,23 @@ public final class CopperFuseLogic {
     }
 
     public static int nextThermal(int thermalExposure, double current, int rating) {
+        return nextThermal(thermalExposure, current, rating, 1);
+    }
+
+    /**
+     * Time-current class: 0=FAST, 1=NORMAL, 2=SLOW.
+     * The class changes overload heating rate while preserving the same rated-current threshold.
+     */
+    public static int nextThermal(int thermalExposure, double current, int rating, int timeCurrentClass) {
         int thermal = Math.max(0, Math.min(TRIP_THRESHOLD, thermalExposure));
         double ratio = currentRatio(current, rating);
         if (ratio > 1.0) {
-            int heating = (int) Math.ceil((ratio * ratio - 1.0) * 50.0);
+            double classFactor = switch (Math.max(0, Math.min(2, timeCurrentClass))) {
+                case 0 -> 1.50;
+                case 2 -> 0.65;
+                default -> 1.00;
+            };
+            int heating = (int) Math.ceil((ratio * ratio - 1.0) * 50.0 * classFactor);
             return Math.min(TRIP_THRESHOLD, thermal + Math.max(1, heating));
         }
 
