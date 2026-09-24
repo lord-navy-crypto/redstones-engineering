@@ -229,8 +229,8 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             case ProcessParameterMenu.KIND_CAPACITOR -> new String[]{"Stored charge","Output voltage","Effective tau","Observed load R","Load scan truncated","Input quality","Output quality"};
             case ProcessParameterMenu.KIND_FUSE -> new String[]{"Thermal exposure","Trip progress","Trip state","Last current ×100","Current / rating","Input quality","Output quality"};
             case ProcessParameterMenu.KIND_COMPRESSOR -> new String[]{"Target pressure","Actual pressure","Tracking error","Start count"};
-            case ProcessParameterMenu.KIND_DAMPER -> new String[]{"Wave amplitude","Wave frequency","Valid wave"};
-            case ProcessParameterMenu.KIND_EXCITER -> new String[]{"Target amplitude","Actual amplitude","Actual frequency","Start count"};
+            case ProcessParameterMenu.KIND_DAMPER -> new String[]{"Wave amplitude","Wave frequency","Valid wave","Envelope quality","Envelope age"};
+            case ProcessParameterMenu.KIND_EXCITER -> new String[]{"Target amplitude","Actual amplitude","Actual frequency","Start count","Run ticks","Input quality","Output quality"};
             case ProcessParameterMenu.KIND_LAPIS_SOURCE -> new String[]{"Output value"};
             case ProcessParameterMenu.KIND_COPPER_SOURCE -> new String[]{"Output voltage","Output quality","Copper source present"};
             default -> new String[]{"Live"};
@@ -261,7 +261,15 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             if(i==4) return String.format("%.2f × Irated",v/1000.0);
             if(i==5||i==6) return qualityName(v);
         }
-        if(menu.kind()==ProcessParameterMenu.KIND_DAMPER&&i==2) return v!=0?"YES":"NO";
+        if(menu.kind()==ProcessParameterMenu.KIND_DAMPER){
+            if(i==2) return v!=0?"YES":"NO";
+            if(i==3) return v+"%";
+            if(i==4) return v<0?"NEVER WRITTEN":v+" ticks";
+        }
+        if(menu.kind()==ProcessParameterMenu.KIND_EXCITER){
+            if(i==4) return v+" ticks";
+            if(i==5||i==6) return qualityName(v);
+        }
         return Integer.toString(v);
     }
 
@@ -273,7 +281,7 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             case ProcessParameterMenu.KIND_CAPACITOR -> "q*[k] = 100·Vin/15; q[k+1] moves toward q* by max(1, |q*−q|/τ).";
             case ProcessParameterMenu.KIND_FUSE -> "r = I/Irated; for r>1, ΔH ∝ (r²−1)·Kclass; trip when H ≥ 1000.";
             case ProcessParameterMenu.KIND_COMPRESSOR -> "Pressure target derives from Redstone command; actual pressure follows asymmetric ramp rates.";
-            case ProcessParameterMenu.KIND_DAMPER -> "Each decay step removes configured amplitude while preserving carrier frequency evidence.";
+            case ProcessParameterMenu.KIND_DAMPER -> "Each decay step removes configured amplitude while preserving carrier frequency evidence; the local envelope also carries bounded quality and freshness.";
             case ProcessParameterMenu.KIND_EXCITER -> "Redstone controls target amplitude; frequency and amplitude approach their targets with finite dynamics.";
             case ProcessParameterMenu.KIND_LAPIS_SOURCE -> "Configured 0..100 precision value is a valid Lapis-domain source, including exact zero.";
             case ProcessParameterMenu.KIND_COPPER_SOURCE -> "Configured 0..15 voltage is a valid six-face Copper source.";
@@ -287,7 +295,8 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             case ProcessParameterMenu.KIND_COPPER_DRIVER -> "Rise and fall slew are independent. Internal actual voltage can decay after command loss, but the Copper source is released immediately unless input evidence is VALID.";
             case ProcessParameterMenu.KIND_CAPACITOR -> "τcharge=τbase; τdischarge=f(τbase,Rload); open circuit uses τbase×leakageFactor; incomplete load scans freeze integration.";
             case ProcessParameterMenu.KIND_FUSE -> "FAST/NORMAL/SLOW change overload heating rate; rating/class changes retain heat, and reset remains evidence-gated.";
-            case ProcessParameterMenu.KIND_EXCITER -> "Amplitude rise/fall and frequency slew are independent configuration variables.";
+            case ProcessParameterMenu.KIND_DAMPER -> "Envelope quality is server-owned 0..100 evidence and age is time since the last authoritative local write; neither is inferred from amplitude alone.";
+            case ProcessParameterMenu.KIND_EXCITER -> "Amplitude rise/fall and frequency slew are independent configuration variables. Input and mechanical-output quality are synchronized independently from numeric amplitude.";
             default -> "The parameter changes the authoritative server model, not a client-only display.";
         };
     }
@@ -299,6 +308,10 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             return "A valid 0 command is a real 0 V Copper source. NO_SIGNAL/STALE/FAULT are evidence states, not numerical zero; non-valid command evidence releases the network driver.";
         if(menu.kind()==ProcessParameterMenu.KIND_COPPER_SOURCE)
             return "The configured source is always a real Copper driver. 0 V is VALID/PRESENT electrical evidence, not an absent source.";
+        if(menu.kind()==ProcessParameterMenu.KIND_DAMPER)
+            return "A missing wave is distinct from a low-quality retained envelope; Operate shows amplitude, validity, quality percentage and freshness separately.";
+        if(menu.kind()==ProcessParameterMenu.KIND_EXCITER)
+            return "Actual amplitude may coast toward zero after command loss; input quality and output quality remain explicit evidence rather than being inferred from the numeric state.";
         return "Operate values are synchronized readback from the real device and connected world.";
     }
     private String footer(){ return "Engineering Notebook • configuration editable • state/evidence/topology authoritative"; }
