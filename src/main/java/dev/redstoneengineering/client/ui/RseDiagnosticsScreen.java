@@ -66,7 +66,6 @@ public final class RseDiagnosticsScreen extends Screen {
     private final Screen parent;
     private Filter filter = Filter.ALL;
     private View view = View.FEEDBACK;
-    private int page;
     private String feedback = "";
     private int feedbackTicks;
     private long lastObservedEventSequence = -1L;
@@ -128,10 +127,7 @@ public final class RseDiagnosticsScreen extends Screen {
                     rebuildWidgets();
                 })
                 .bounds(330, bottom, 78, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("<"), button -> { page++; scrollOffset = 0; })
-                .bounds(width - 78, bottom, 30, 20).build());
-        addRenderableWidget(Button.builder(Component.literal(">"), button -> { page = Math.max(0, page - 1); scrollOffset = 0; })
-                .bounds(width - 42, bottom, 30, 20).build());
+
     }
 
     @Override
@@ -146,7 +142,6 @@ public final class RseDiagnosticsScreen extends Screen {
             long newest = events.get(events.size() - 1).sequence();
             if (newest != lastObservedEventSequence) {
                 lastObservedEventSequence = newest;
-                if (view == View.LIVE_EVENTS && page == 0) page = 0;
             }
         }
     }
@@ -271,22 +266,15 @@ public final class RseDiagnosticsScreen extends Screen {
         y += 16;
 
         List<String> lines = run.feedbackLines();
-        int rowsPerPage = Math.max(3, (height - 126) / 24);
-        int maxPage = lines.isEmpty() ? 0 : Math.max(0, (lines.size() - 1) / rowsPerPage);
-        page = Math.min(page, maxPage);
-        int start = page * rowsPerPage;
-        int end = Math.min(lines.size(), start + rowsPerPage);
-        for (int i = start; i < end && y < height - 62; i++) {
-            String line = lines.get(i);
+        for (String line : lines) {
             int color = line.contains(" FAIL ") || line.startsWith("OVERALL FAIL") ? ERROR
                     : line.contains(" PASS ") || line.startsWith("OVERALL PASS") ? GOOD
                     : line.contains(" WAIT ") || line.startsWith("OVERALL WAIT") ? WARN : TEXT;
             y = drawWrappedCrisp(graphics, line, 24, y, width - 52, color, 11);
-            y += 2;
+            y += 3;
         }
-        graphics.drawString(font, "Page " + (page + 1) + "/" + (maxPage + 1)
-                        + " • Copy Run copies this table + run log exactly",
-                24, height - 56, MUTED, false);
+        graphics.drawString(font, "Continuous scroll • Copy Run copies this table + run log exactly",
+                24, y + 8, MUTED, false);
     }
 
     private void renderRunLog(GuiGraphics graphics) {
@@ -302,47 +290,33 @@ public final class RseDiagnosticsScreen extends Screen {
         y += 16;
 
         List<String> lines = run.logLines();
-        int entriesPerPage = Math.max(3, (height - 130) / 26);
-        int maxPage = lines.isEmpty() ? 0 : Math.max(0, (lines.size() - 1) / entriesPerPage);
-        page = Math.min(page, maxPage);
-        int endExclusive = Math.max(0, lines.size() - page * entriesPerPage);
-        int start = Math.max(0, endExclusive - entriesPerPage);
         if (lines.isEmpty()) {
             graphics.drawString(font, "Run log is empty; stage transitions will appear here.", 24, y, MUTED, false);
         } else {
-            for (int i = start; i < endExclusive && y < height - 62; i++) {
-                String line = lines.get(i);
+            for (String line : lines) {
                 int color = line.contains(" FAIL ") ? ERROR : line.contains(" PASS ") ? GOOD
                         : line.contains("COMMAND") || line.contains("RUN START") ? INFO : TEXT;
                 y = drawWrappedCrisp(graphics, line, 24, y, width - 52, color, 11);
-                y += 3;
+                y += 4;
             }
         }
-        graphics.drawString(font, "Page " + (page + 1) + "/" + (maxPage + 1)
-                        + " • newest on page 1 • integer-pixel rendering",
-                24, height - 56, MUTED, false);
+        graphics.drawString(font, "Continuous scroll • chronological retained run evidence • integer-pixel rendering",
+                24, y + 8, MUTED, false);
     }
 
     private void renderLiveEvents(GuiGraphics graphics) {
         List<RseLiveDiagnosticEvent> entries = filteredLiveEvents();
-        int rows = Math.max(4, (height - 122) / 12);
-        int maxPage = entries.isEmpty() ? 0 : Math.max(0, (entries.size() - 1) / rows);
-        page = Math.min(page, maxPage);
-        int endExclusive = Math.max(0, entries.size() - page * rows);
-        int start = Math.max(0, endExclusive - rows);
         int y = HEADER_BOTTOM + 14;
         if (entries.isEmpty()) {
             graphics.drawString(font, "No matching structured RSE events in this session.", 24, y, MUTED, false);
             return;
         }
-        for (int i = start; i < endExclusive; i++) {
-            RseLiveDiagnosticEvent event = entries.get(i);
+        for (RseLiveDiagnosticEvent event : entries) {
             graphics.drawString(font, truncateToWidth(eventLine(event), width - 52), 24, y,
                     severityColor(event.severity()), false);
-            y += 12;
+            y += 14;
         }
-        graphics.drawString(font, "Page " + (page + 1) + "/" + (maxPage + 1) + " • newest on page 1",
-                24, height - 56, MUTED, false);
+        graphics.drawString(font, "Continuous scroll • retained structured events", 24, y + 8, MUTED, false);
     }
 
     private void renderSystems(GuiGraphics graphics) {
