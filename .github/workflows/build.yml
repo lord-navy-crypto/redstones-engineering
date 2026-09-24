@@ -82,6 +82,7 @@ jobs:
             tools/rse_engineering_ui_verify.py \
             tools/rse_engineering_notebook_viewport_verify.py \
             tools/rse_quartz_timing_hmi_verify.py \
+            tools/rse_amethyst_hmi_depth_verify.py \
             tools/rse_universal_dual_endpoint_verify.py \
             tools/rse_physical_endpoint_routing_verify.py \
             tools/rse_diagnostics_console_verify.py \
