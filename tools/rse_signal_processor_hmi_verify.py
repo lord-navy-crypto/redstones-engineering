@@ -68,6 +68,13 @@ require(screen, "case HISTORY -> history(graphics);", "SignalProcessorScreen.jav
 
 require(field_ui, "block instanceof PrecisionFilterBlock || block instanceof EdgeDetectorBlock || block instanceof PulseShaperBlock", "FieldDeviceUi.java")
 require(field_ui, "new SignalProcessorMenu(id, inv, pos)", "FieldDeviceUi.java")
+advanced_start = field_ui.find("if (block instanceof SignalAmplifierBlock")
+advanced_end = field_ui.find("if (block instanceof QuartzPhaseDelayBlock", advanced_start)
+if advanced_start >= 0 and advanced_end > advanced_start:
+    advanced_dispatch = field_ui[advanced_start:advanced_end]
+    for processor in ("PrecisionFilterBlock", "EdgeDetectorBlock", "PulseShaperBlock"):
+        if processor in advanced_dispatch:
+            errors.append(f"FieldDeviceUi.java: AdvancedParameterMenu still intercepts {processor}")
 
 # Guard against reintroducing duplicate direct parameter mutation in the dedicated HMI.
 for forbidden in (
@@ -90,3 +97,4 @@ print("  Pulse Shaper: full-range configured width + threshold/hysteresis/retrig
 print("  Precision Filter: full-range rise rate + independent fall-rate control")
 print("  legacy Shift shortcuts remain bounded server actions; HMI fine controls remain server-authoritative")
 print("  dedicated UI exposes Overview / Ports / Configure / Diagnostics / History")
+print("  normal processor right-click dispatch reaches dedicated Signal Processor HMI")
