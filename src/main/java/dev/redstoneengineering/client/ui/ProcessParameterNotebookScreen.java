@@ -225,21 +225,28 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
         return switch(menu.kind()){
             case ProcessParameterMenu.KIND_CONDITIONER -> new String[]{"Input","Output","Limit episodes","Limiting now"};
             case ProcessParameterMenu.KIND_PWM -> new String[]{"Command","Applied command","Effective duty","Completed cycles"};
-            case ProcessParameterMenu.KIND_COPPER_DRIVER -> new String[]{"Target voltage","Actual voltage","Input quality","Tracking error"};
+            case ProcessParameterMenu.KIND_COPPER_DRIVER -> new String[]{"Target voltage","Internal actual voltage","Input quality","Tracking error","Copper source present"};
             case ProcessParameterMenu.KIND_CAPACITOR -> new String[]{"Stored charge","Output voltage","Effective tau","Observed load R","Load scan truncated","Input quality","Output quality"};
             case ProcessParameterMenu.KIND_FUSE -> new String[]{"Thermal exposure","Trip progress","Trip state","Last current ×100","Current / rating","Input quality","Output quality"};
             case ProcessParameterMenu.KIND_COMPRESSOR -> new String[]{"Target pressure","Actual pressure","Tracking error","Start count"};
             case ProcessParameterMenu.KIND_DAMPER -> new String[]{"Wave amplitude","Wave frequency","Valid wave"};
             case ProcessParameterMenu.KIND_EXCITER -> new String[]{"Target amplitude","Actual amplitude","Actual frequency","Start count"};
             case ProcessParameterMenu.KIND_LAPIS_SOURCE -> new String[]{"Output value"};
-            case ProcessParameterMenu.KIND_COPPER_SOURCE -> new String[]{"Output voltage"};
+            case ProcessParameterMenu.KIND_COPPER_SOURCE -> new String[]{"Output voltage","Output quality","Copper source present"};
             default -> new String[]{"Live"};
         };
     }
 
     private String liveValue(int i,int v){
         if(menu.kind()==ProcessParameterMenu.KIND_CONDITIONER&&i==3) return v!=0?"YES":"NO";
-        if(menu.kind()==ProcessParameterMenu.KIND_COPPER_DRIVER&&i==2) return qualityName(v);
+        if(menu.kind()==ProcessParameterMenu.KIND_COPPER_DRIVER){
+            if(i==2) return qualityName(v);
+            if(i==4) return v!=0?"YES • ACTIVE DRIVER":"NO • RELEASED";
+        }
+        if(menu.kind()==ProcessParameterMenu.KIND_COPPER_SOURCE){
+            if(i==1) return qualityName(v);
+            if(i==2) return v!=0?"YES":"NO";
+        }
         if(menu.kind()==ProcessParameterMenu.KIND_PWM&&i==2) return String.format("%.1f%%",v/10.0);
         if(menu.kind()==ProcessParameterMenu.KIND_CAPACITOR){
             if(i==0) return v+"%";
@@ -277,7 +284,7 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
     private String model2(){
         return switch(menu.kind()){
             case ProcessParameterMenu.KIND_PWM -> "Command updates latch at carrier-cycle boundaries; changing period resets carrier phase evidence.";
-            case ProcessParameterMenu.KIND_COPPER_DRIVER -> "Rise and fall slew are independent, so energizing and de-energizing can have different dynamics.";
+            case ProcessParameterMenu.KIND_COPPER_DRIVER -> "Rise and fall slew are independent. Internal actual voltage can decay after command loss, but the Copper source is released immediately unless input evidence is VALID.";
             case ProcessParameterMenu.KIND_CAPACITOR -> "τcharge=τbase; τdischarge=f(τbase,Rload); open circuit uses τbase×leakageFactor; incomplete load scans freeze integration.";
             case ProcessParameterMenu.KIND_FUSE -> "FAST/NORMAL/SLOW change overload heating rate; rating/class changes retain heat, and reset remains evidence-gated.";
             case ProcessParameterMenu.KIND_EXCITER -> "Amplitude rise/fall and frequency slew are independent configuration variables.";
@@ -285,9 +292,15 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
         };
     }
 
-    private String model3(){ return menu.kind()==ProcessParameterMenu.KIND_CAPACITOR||menu.kind()==ProcessParameterMenu.KIND_FUSE
-            ?"Operate separates retained physical state from input/output evidence quality, so stored energy or heat is never mistaken for fresh source evidence."
-            :"Operate values are synchronized readback from the real device and connected world."; }
+    private String model3(){
+        if(menu.kind()==ProcessParameterMenu.KIND_CAPACITOR||menu.kind()==ProcessParameterMenu.KIND_FUSE)
+            return "Operate separates retained physical state from input/output evidence quality, so stored energy or heat is never mistaken for fresh source evidence.";
+        if(menu.kind()==ProcessParameterMenu.KIND_COPPER_DRIVER)
+            return "A valid 0 command is a real 0 V Copper source. NO_SIGNAL/STALE/FAULT are evidence states, not numerical zero; non-valid command evidence releases the network driver.";
+        if(menu.kind()==ProcessParameterMenu.KIND_COPPER_SOURCE)
+            return "The configured source is always a real Copper driver. 0 V is VALID/PRESENT electrical evidence, not an absent source.";
+        return "Operate values are synchronized readback from the real device and connected world.";
+    }
     private String footer(){ return "Engineering Notebook • configuration editable • state/evidence/topology authoritative"; }
 
     private int drawWrapped(GuiGraphics g,String text,int x,int y,int width,int color){
