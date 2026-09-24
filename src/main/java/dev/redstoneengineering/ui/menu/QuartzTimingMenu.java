@@ -157,7 +157,9 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
 
         if (block instanceof QuartzOscillatorBlock) {
             if (id == BUTTON_PARAMETER_PREVIOUS || id == BUTTON_PARAMETER_NEXT) {
-                changed = QuartzOscillatorBlock.stepPeriod(level, blockPos, id == BUTTON_PARAMETER_NEXT);
+                if (!(level instanceof ServerLevel server)) return false;
+                changed = QuartzOscillatorBlock.adjustConfiguredPeriodTicks(
+                        server, blockPos, id == BUTTON_PARAMETER_NEXT ? 1 : -1);
             } else if (id == BUTTON_OUTPUT_LEFT || id == BUTTON_OUTPUT_RIGHT
                     || id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT) {
                 boolean clockwise = id == BUTTON_OUTPUT_RIGHT || id == BUTTON_ROTATE_RIGHT;
@@ -173,9 +175,9 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
                 changed = true;
             } else if (block instanceof QuartzClockDividerBlock && (id == BUTTON_PARAMETER_NEXT || id == BUTTON_PARAMETER_PREVIOUS)) {
                 if (!(level instanceof ServerLevel server)) return false;
-                if (id == BUTTON_PARAMETER_NEXT) QuartzClockDividerBlock.cycleDivision(server, blockPos);
-                else for (int i = 0; i < 3; i++) QuartzClockDividerBlock.cycleDivision(server, blockPos);
-                changed = true;
+                int current = QuartzClockDividerBlock.configuredDivision(level, blockPos, state);
+                changed = QuartzClockDividerBlock.setConfiguredDivision(
+                        server, blockPos, current + (id == BUTTON_PARAMETER_NEXT ? 1 : -1));
             } else if (id == BUTTON_INPUT_LEFT || id == BUTTON_INPUT_RIGHT) {
                 changed = DirectionalDomainBlock.rotateSeriesInput(level, blockPos, id == BUTTON_INPUT_RIGHT);
             } else if (id == BUTTON_OUTPUT_LEFT || id == BUTTON_OUTPUT_RIGHT) {
