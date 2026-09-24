@@ -101,10 +101,13 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
         } else if (block instanceof CopperFuseBlock) {
             kind.set(KIND_FUSE);
             p0.set(state.getValue(CopperFuseBlock.RATING));
+            p1.set(CopperFuseBlock.configuredTimeCurrentClass(level, blockPos));
             liveA.set(CopperFuseBlock.thermalExposure(level, blockPos));
             liveB.set(CopperFuseBlock.tripProgressPermille(level, blockPos));
             liveC.set(state.getValue(CopperFuseBlock.TRIPPED) ? 1 : 0);
-            liveD.set((int)Math.round(CopperFuseBlock.lastEvaluatedCurrent(level, blockPos) * 100.0));
+            double current = CopperFuseBlock.lastEvaluatedCurrent(level, blockPos);
+            liveD.set((int)Math.round(current * 100.0));
+            liveE.set((int)Math.round(current / Math.max(1, state.getValue(CopperFuseBlock.RATING)) * 1000.0));
         } else if (block instanceof AirCompressorBlock) {
             kind.set(KIND_COMPRESSOR);
             var r = AirCompressorBlock.configuredResponse(level, blockPos, state);
@@ -181,6 +184,8 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
         } else if (block instanceof CopperFuseBlock fuse) {
             if (slot == 0) {
                 changed = CopperFuseBlock.setRating(server, blockPos, p0.get() + delta);
+            } else if (slot == 1) {
+                changed = CopperFuseBlock.setTimeCurrentClass(server, blockPos, p1.get() + delta);
             } else if (id == BUTTON_ACTION) {
                 changed = CopperFuseBlock.tryReset(server, blockPos);
             }
