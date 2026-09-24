@@ -223,8 +223,8 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
         g.drawString(font, "0.01", x0 - 6, y + 12, MUTED, false);
         g.drawString(font, "0.99", x1 - 18, y + 12, MUTED, false);
 
-        g.drawString(font, fit("Fine adjustment ±0.01 • coarse adjustment ±0.05 • reset restores device preset", Math.max(280,imageWidth-96)),
-                42, CONTENT_TOP + 242, MUTED, false);
+        g.drawString(font, "Fine adjustment ±0.01 • coarse adjustment ±0.05", 42, CONTENT_TOP + 242, MUTED, false);
+        g.drawString(font, "Reset restores the device preset.", 42, CONTENT_TOP + 260, MUTED, false);
     }
 
     private void renderResponse(GuiGraphics g) {
@@ -236,8 +236,8 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
         drawPair(g, "Current output", menu.output() + " / 100", CONTENT_TOP + 244);
         drawPair(g, "Tracking error", trackingErrorLabel(), CONTENT_TOP + 286);
         drawPair(g, "Input / output quality", qualityName(menu.inputQuality()) + " / " + qualityName(menu.outputQuality()), CONTENT_TOP + 328);
-        g.drawString(font, fit("Smaller α = stronger smoothing / slower response. Larger α = weaker smoothing / faster response.", Math.max(300,imageWidth-96)),
-                42, CONTENT_TOP + 392, MUTED, false);
+        g.drawString(font, "Smaller α = stronger smoothing / slower response.", 42, CONTENT_TOP + 392, MUTED, false);
+        g.drawString(font, "Larger α = weaker smoothing / faster response.", 42, CONTENT_TOP + 410, MUTED, false);
     }
 
     private void renderModel(GuiGraphics g) {
@@ -247,13 +247,14 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
         g.drawString(font, "H(z) = α / (1 − (1−α)z⁻¹)", 42, CONTENT_TOP + 112, INK, false);
         g.drawString(font, "τsamples = −1 / ln(1−α)", 42, CONTENT_TOP + 158, INK, false);
         g.drawString(font, "fc ≈ −ln(1−α) / (2πTs),  Ts = 0.1 s", 42, CONTENT_TOP + 204, INK, false);
-        g.drawString(font, fit("Input quality is authoritative world evidence. Missing input invalidates the driver but retained filter history is not fabricated as zero.", w),
-                42, CONTENT_TOP + 276, MUTED, false);
-        g.drawString(font, "A valid numerical zero remains 0; NO_SIGNAL / STALE / TOPOLOGY_ERROR are separate quality states.", 42, CONTENT_TOP + 332, MUTED, false);
-        g.drawString(font, fit("On evidence loss the output driver becomes invalid while y[k] is retained internally; reacquisition continues from the last trustworthy output.", w),
-                42, CONTENT_TOP + 388, MUTED, false);
-        g.drawString(font, fit("Derived τ and cutoff are explanatory values computed only from synchronized α and the fixed 2-tick sample interval; the client is not a second filter solver.", w),
-                42, CONTENT_TOP + 444, MUTED, false);
+        g.drawString(font, "Input quality is authoritative world evidence.", 42, CONTENT_TOP + 276, MUTED, false);
+        g.drawString(font, "Missing input invalidates the driver; retained y[k] is not rewritten as zero.", 42, CONTENT_TOP + 294, MUTED, false);
+        g.drawString(font, "A valid numerical zero remains 0.", 42, CONTENT_TOP + 332, MUTED, false);
+        g.drawString(font, "NO_SIGNAL / STALE / TOPOLOGY_ERROR remain separate quality states.", 42, CONTENT_TOP + 350, MUTED, false);
+        g.drawString(font, "On evidence loss the driver becomes invalid while y[k] is retained.", 42, CONTENT_TOP + 388, MUTED, false);
+        g.drawString(font, "Reacquisition continues from the last trustworthy output.", 42, CONTENT_TOP + 406, MUTED, false);
+        g.drawString(font, "τ and cutoff are display-only values from synchronized α and Ts = 0.1 s.", 42, CONTENT_TOP + 444, MUTED, false);
+        g.drawString(font, "The client does not run a second filter solver.", 42, CONTENT_TOP + 462, MUTED, false);
     }
 
     private void drawPair(GuiGraphics g, String label, String value, int y) {
