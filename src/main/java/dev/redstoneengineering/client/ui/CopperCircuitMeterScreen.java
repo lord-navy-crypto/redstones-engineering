@@ -55,7 +55,8 @@ public final class CopperCircuitMeterScreen extends EngineeringScreen<CopperCirc
         labelValue(g, "Estimated power", String.format("%.2f P-eq", menu.power()), 149);
         labelValue(g, "Measurement face", menu.facing().getName().toUpperCase(), 167);
         labelValue(g, "Electrical state", stateLabel(), 185);
-        safeText(g, "Copper is modeled as an electrical load network, not as a control-signal medium.", 16, 207, INFO);
+        labelValue(g, "Meter samples / age", menu.sampleCount() + " / " + menu.sampleAgeTicks() + " t", 203);
+        safeText(g, "Copper is modeled as an electrical load network, not as a control-signal medium.", 16, 225, INFO);
     }
 
     private void ports(GuiGraphics g) {
@@ -78,21 +79,37 @@ public final class CopperCircuitMeterScreen extends EngineeringScreen<CopperCirc
         labelValue(g, "Electrical state", stateLabel(), 104);
         labelValue(g, "V / Req", String.format("%d / %.2f", menu.voltage(), menu.resistance()), 124);
         labelValue(g, "I / P", String.format("%.3f / %.2f", menu.current(), menu.power()), 144);
-        labelValue(g, "Authority", "SERVER-SYNCHRONIZED OBSERVER", 164);
-        safeText(g, diagnosis(), 16, 190, diagnosisColor());
-        safeText(g, nextAction(), 16, 210, diagnosisColor());
+        labelValue(g, "Meter quality", measurementQualityName(), 164);
+        labelValue(g, "Reading / uncertainty", meterReadingSummary(), 184);
+        labelValue(g, "Samples / age", menu.sampleCount() + " / " + menu.sampleAgeTicks() + " t", 204);
+        labelValue(g, "Authority", "SERVER-SYNCHRONIZED OBSERVER", 224);
+        safeText(g, diagnosis(), 16, 248, diagnosisColor());
+        safeText(g, nextAction(), 16, 268, diagnosisColor());
     }
 
     private void history(GuiGraphics g) {
-        statusBadge(g, "COMMISSIONING EVIDENCE", commissioningColor(), 16, 80);
-        safeText(g, "V, Req, I and P come from the same server-side CircuitPhysics evidence used by the meter.", 16, 108, TEXT);
-        safeText(g, "The client does not recalculate the circuit and this HMI does not fabricate retained electrical history.", 16, 130, TEXT);
-        labelValue(g, "Medium identity", "COPPER • POWER / LOAD", 164);
-        labelValue(g, "Commissioning", commissioningLabel(), 184);
-        safeText(g, commissioningMeaning(), 16, 206, commissioningColor());
+        statusBadge(g, "METROLOGY + COMMISSIONING EVIDENCE", commissioningColor(), 16, 80);
+        safeText(g, "V, Req, I and P come from server-side CircuitPhysics. The measurement statistics below come from the retained server metrology tracker.", 16, 108, TEXT);
+        labelValue(g, "Measurement quality", measurementQualityName(), 142);
+        labelValue(g, "Conditioned reading", menu.sampleCount() > 0 ? String.format("%.2f V-eq", menu.meterReading()) : "NO DATA", 162);
+        labelValue(g, "Repeatability", menu.sampleCount() > 0 ? String.format("±%.2f", menu.repeatability()) : "N/A", 182);
+        labelValue(g, "Bias / drift", menu.sampleCount() > 0 ? String.format("%+.2f / %+.2f", menu.bias(), menu.drift()) : "N/A", 202);
+        labelValue(g, "Noise", menu.sampleCount() > 0 ? String.format("%.2f", menu.noise()) : "N/A", 222);
+        labelValue(g, "Uncertainty proxy", menu.sampleCount() > 0 ? String.format("±%.2f", menu.uncertaintyProxy()) : "N/A", 242);
+        labelValue(g, "Sample count / age", menu.sampleCount() + " / " + menu.sampleAgeTicks() + " t", 262);
+        labelValue(g, "Saturation", menu.saturated() ? "YES" : "NO", 282);
+        labelValue(g, "Medium identity", "COPPER • POWER / LOAD", 302);
+        labelValue(g, "Commissioning", commissioningLabel(), 322);
+        safeText(g, commissioningMeaning(), 16, 344, commissioningColor());
+        safeText(g, "Repeatability, bias, drift, noise and uncertainty are diagnostic metrology proxies; they are not client-side circuit calculations.", 16, 366, MUTED);
     }
 
     private String qualityName() { return menu.quality().name().replace('_', ' '); }
+    private String measurementQualityName() { return menu.measurementQuality().name().replace('_', ' '); }
+    private String meterReadingSummary() {
+        if (menu.sampleCount() <= 0) return "NO DATA";
+        return String.format("%.2f / ±%.2f V-eq", menu.meterReading(), menu.uncertaintyProxy());
+    }
     private int qualityColor() {
         return switch (menu.quality()) {
             case VALID -> GOOD;
