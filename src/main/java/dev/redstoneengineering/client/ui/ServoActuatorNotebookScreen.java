@@ -34,6 +34,10 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
     private PageTab page = PageTab.PARAMETERS;
     private final List<Button> parameterWidgets = new ArrayList<>();
     private final List<Button> evidenceWidgets = new ArrayList<>();
+    private int scrollOffset = 0;
+    private static final int VIEW_MARGIN = 8;
+    private static final int CONTENT_TOP = 84;
+    private static final int CONTENT_BOTTOM_MARGIN = 34;
 
     public ServoActuatorNotebookScreen(ServoActuatorMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -46,26 +50,31 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
 
     @Override
     protected void init() {
+        imageWidth = Math.max(360, width - VIEW_MARGIN * 2);
+        imageHeight = Math.max(240, height - VIEW_MARGIN * 2);
         super.init();
         parameterWidgets.clear();
         evidenceWidgets.clear();
+        scrollOffset = 0;
 
-        int tabWidth = 108;
-        int x = leftPos + 26;
+        int gap = 7;
+        int tabWidth = Math.max(84, (imageWidth - 48 - gap * (PageTab.values().length - 1)) / PageTab.values().length);
+        int x = leftPos + 24;
         for (PageTab value : PageTab.values()) {
             addRenderableWidget(Button.builder(Component.literal(value.label), b -> {
                 page = value;
+                scrollOffset = 0;
                 updateVisibility();
-            }).bounds(x, topPos + 34, tabWidth, 20).build());
-            x += tabWidth + 6;
+            }).bounds(x, topPos + 38, tabWidth, 22).build());
+            x += tabWidth + gap;
         }
 
         parameterWidgets.add(addRenderableWidget(Button.builder(Component.literal("◀ Preset"),
                 b -> send(ServoActuatorMenu.BUTTON_PRESET_PREVIOUS))
-                .bounds(leftPos + 318, topPos + 82, 74, 20).build()));
+                .bounds(leftPos + imageWidth - 194, topPos + CONTENT_TOP + 10, 78, 22).build()));
         parameterWidgets.add(addRenderableWidget(Button.builder(Component.literal("Preset ▶"),
                 b -> send(ServoActuatorMenu.BUTTON_PRESET_NEXT))
-                .bounds(leftPos + 398, topPos + 82, 74, 20).build()));
+                .bounds(leftPos + imageWidth - 108, topPos + CONTENT_TOP + 10, 78, 22).build()));
 
         addParameterControl(0, ServoActuatorMenu.BUTTON_MAX_SPEED_MINUS, ServoActuatorMenu.BUTTON_MAX_SPEED_PLUS);
         addParameterControl(1, ServoActuatorMenu.BUTTON_ACCEL_PERIOD_MINUS, ServoActuatorMenu.BUTTON_ACCEL_PERIOD_PLUS);
@@ -73,17 +82,17 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
 
         evidenceWidgets.add(addRenderableWidget(Button.builder(Component.literal("Home / reset trajectory"),
                 b -> send(ServoActuatorMenu.BUTTON_HOME_RESET))
-                .bounds(leftPos + 166, topPos + 214, 168, 20).build()));
+                .bounds(leftPos + imageWidth / 2 - 90, topPos + CONTENT_TOP + 240, 180, 22).build()));
 
         updateVisibility();
     }
 
     private void addParameterControl(int row, int minusId, int plusId) {
-        int y = topPos + 126 + row * 38;
+        int y = topPos + CONTENT_TOP + 72 + row * 56 - scrollOffset;
         parameterWidgets.add(addRenderableWidget(Button.builder(Component.literal("−"),
-                b -> send(minusId)).bounds(leftPos + 340, y, 36, 20).build()));
+                b -> send(minusId)).bounds(leftPos + imageWidth - 164, y, 42, 22).build()));
         parameterWidgets.add(addRenderableWidget(Button.builder(Component.literal("+"),
-                b -> send(plusId)).bounds(leftPos + 430, y, 36, 20).build()));
+                b -> send(plusId)).bounds(leftPos + imageWidth - 78, y, 42, 22).build()));
     }
 
     private void send(int id) {
@@ -93,8 +102,52 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
     }
 
     private void updateVisibility() {
-        for (Button b : parameterWidgets) b.visible = page == PageTab.PARAMETERS;
-        for (Button b : evidenceWidgets) b.visible = page == PageTab.EVIDENCE;
+        for (int i = 0; i < parameterWidgets.size(); i++) {
+            Button b = parameterWidgets.get(i);
+            if (i < 2) {
+                b.setX(i == 0 ? leftPos + imageWidth - 194 : leftPos + imageWidth - 108);
+                b.setY(topPos + CONTENT_TOP + 10 - scrollOffset);
+            } else {
+                int row = (i - 2) / 2;
+                b.setX(((i - 2) % 2 == 0) ? leftPos + imageWidth - 164 : leftPos + imageWidth - 78);
+                b.setY(topPos + CONTENT_TOP + 72 + row * 56 - scrollOffset);
+            }
+            b.visible = page == PageTab.PARAMETERS
+                    && b.getY() >= topPos + CONTENT_TOP
+                    && b.getY() <= topPos + imageHeight - CONTENT_BOTTOM_MARGIN - 22;
+        }
+        for (Button b : evidenceWidgets) {
+            b.setX(leftPos + imageWidth / 2 - 90);
+            b.setY(topPos + CONTENT_TOP + 240 - scrollOffset);
+            b.visible = page == PageTab.EVIDENCE
+                    && b.getY() >= topPos + CONTENT_TOP
+                    && b.getY() <= topPos + imageHeight - CONTENT_BOTTOM_MARGIN - 22;
+        }
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (mouseX >= leftPos + 18 && mouseX <= leftPos + imageWidth - 18
+                && mouseY >= topPos + CONTENT_TOP && mouseY <= topPos + imageHeight - CONTENT_BOTTOM_MARGIN) {
+            scrollOffset = Math.max(0, Math.min(maxScroll(), scrollOffset - (int)Math.round(scrollY * 24.0)));
+            updateVisibility();
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+
+    private int contentHeight() {
+        return switch (page) {
+            case OPERATE -> 450;
+            case PARAMETERS -> 540;
+            case RESPONSE -> 470;
+            case EVIDENCE -> 520;
+        };
+    }
+
+    private int maxScroll() {
+        int visible = Math.max(80, imageHeight - CONTENT_TOP - CONTENT_BOTTOM_MARGIN);
+        return Math.max(0, contentHeight() - visible);
     }
 
     @Override
@@ -109,7 +162,9 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
         g.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, BG);
         g.fill(leftPos + 5, topPos + 5, leftPos + imageWidth - 5, topPos + imageHeight - 5, PAGE);
         g.fill(leftPos + 18, topPos + 29, leftPos + imageWidth - 18, topPos + 30, RULE);
-        g.fill(leftPos + 18, topPos + 62, leftPos + imageWidth - 18, topPos + 63, RULE);
+        g.fill(leftPos + 18, topPos + 66, leftPos + imageWidth - 18, topPos + 67, RULE);
+        g.fill(leftPos + 18, topPos + imageHeight - CONTENT_BOTTOM_MARGIN,
+                leftPos + imageWidth - 18, topPos + imageHeight - CONTENT_BOTTOM_MARGIN + 1, RULE);
     }
 
     @Override
@@ -117,13 +172,24 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
         g.drawString(font, title, 18, 12, INK, false);
         String live = "SERVER MECHANICAL MODEL";
         g.drawString(font, live, imageWidth - 18 - font.width(live), 12, GOOD, false);
-        g.drawString(font, page.label.toUpperCase(), 22, 70, ACCENT, false);
+        g.drawString(font, page.label.toUpperCase(), 24, 72, ACCENT, false);
 
+        g.enableScissor(leftPos + 18, topPos + CONTENT_TOP, leftPos + imageWidth - 18,
+                topPos + imageHeight - CONTENT_BOTTOM_MARGIN);
+        g.pose().pushPose();
+        g.pose().translate(0, -scrollOffset, 0);
         switch (page) {
             case OPERATE -> operate(g);
             case PARAMETERS -> parameters(g);
             case RESPONSE -> response(g);
             case EVIDENCE -> evidence(g);
+        }
+        g.pose().popPose();
+        g.disableScissor();
+
+        if (maxScroll() > 0) {
+            String scroll = "SCROLL " + scrollOffset + " / " + maxScroll();
+            g.drawString(font, scroll, imageWidth - 24 - font.width(scroll), 72, MUTED, false);
         }
 
         String footer = "Servo position 0..15 • command/mode/brake are physical ports • parameters modify authoritative motion";
@@ -131,52 +197,56 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
     }
 
     private void operate(GuiGraphics g) {
-        pair(g, "Position", menu.position() + " / 15", 98);
-        pair(g, "Command", menu.command() + " / 15", 124);
-        pair(g, "Velocity", signed(menu.velocity()), 150);
-        pair(g, "Position / velocity error", signed(menu.error()), 176);
-        pair(g, "Brake", menu.braking() ? "ACTIVE" : "RELEASED", 202);
-        pair(g, "Mechanical preset", presetName(menu.preset()), 228);
+        pair(g, "Position", menu.position() + " / 15", CONTENT_TOP + 34);
+        pair(g, "Command", menu.command() + " / 15", CONTENT_TOP + 76);
+        pair(g, "Velocity", signed(menu.velocity()), CONTENT_TOP + 118);
+        pair(g, "Position / velocity error", signed(menu.error()), CONTENT_TOP + 160);
+        pair(g, "Brake", menu.braking() ? "ACTIVE" : "RELEASED", CONTENT_TOP + 202);
+        pair(g, "Mechanical preset", presetName(menu.preset()), CONTENT_TOP + 244);
     }
 
     private void parameters(GuiGraphics g) {
-        g.drawString(font, "Mechanical preset", 30, 88, MUTED, false);
-        g.drawString(font, presetName(menu.preset()), 170, 88, INK, false);
+        g.drawString(font, "Mechanical preset", 42, CONTENT_TOP + 18, MUTED, false);
+        g.drawString(font, presetName(menu.preset()), 200, CONTENT_TOP + 18, INK, false);
 
-        parameter(g, "Maximum speed", menu.maxSpeed() + " position units / 2t", 128);
-        parameter(g, "Acceleration period", menu.accelerationPeriod() + " control cycles", 166);
-        parameter(g, "Acceleration step", menu.accelerationStep() + " velocity units / update", 204);
+        parameter(g, "Maximum speed", menu.maxSpeed() + " position units / 2t", CONTENT_TOP + 76);
+        parameter(g, "Acceleration period", menu.accelerationPeriod() + " control cycles", CONTENT_TOP + 132);
+        parameter(g, "Acceleration step", menu.accelerationStep() + " velocity units / update", CONTENT_TOP + 188);
 
-        g.drawString(font, fit("Preset loads are starting points only. These three parameters independently define the actual motion model.", 430),
-                30, 242, MUTED, false);
+        g.drawString(font, fit("Preset loads are starting points only. These three parameters independently define the actual motion model.", Math.max(300,imageWidth-96)),
+                42, CONTENT_TOP + 270, MUTED, false);
+        g.drawString(font, fit("More mechanical assumptions, load response and trajectory diagnostics can extend below without forcing the page into a fixed-height panel.", Math.max(300,imageWidth-96)),
+                42, CONTENT_TOP + 350, MUTED, false);
     }
 
     private void response(GuiGraphics g) {
-        pair(g, "Current position", Integer.toString(menu.position()), 98);
-        pair(g, "Current velocity", signed(menu.velocity()), 124);
-        pair(g, "Current error", signed(menu.error()), 150);
-        pair(g, "Load-delay ticks", Integer.toString(menu.loadDelayTicks()), 176);
-        pair(g, "Motion samples", Integer.toString(menu.motionSamples()), 202);
-        pair(g, "Reversals", Integer.toString(menu.reversals()), 228);
+        pair(g, "Current position", Integer.toString(menu.position()), CONTENT_TOP + 34);
+        pair(g, "Current velocity", signed(menu.velocity()), CONTENT_TOP + 76);
+        pair(g, "Current error", signed(menu.error()), CONTENT_TOP + 118);
+        pair(g, "Load-delay ticks", Integer.toString(menu.loadDelayTicks()), CONTENT_TOP + 160);
+        pair(g, "Motion samples", Integer.toString(menu.motionSamples()), CONTENT_TOP + 202);
+        pair(g, "Reversals", Integer.toString(menu.reversals()), CONTENT_TOP + 244);
     }
 
     private void evidence(GuiGraphics g) {
-        pair(g, "Soft-limit hits", Integer.toString(menu.softLimitHits()), 104);
-        pair(g, "Load-delay ticks", Integer.toString(menu.loadDelayTicks()), 132);
-        pair(g, "Motion samples", Integer.toString(menu.motionSamples()), 160);
-        pair(g, "Reversals", Integer.toString(menu.reversals()), 188);
-        g.drawString(font, fit("Home/reset clears transient trajectory evidence but does not erase your mechanical parameter configuration.", 430),
-                30, 244, MUTED, false);
+        pair(g, "Soft-limit hits", Integer.toString(menu.softLimitHits()), CONTENT_TOP + 40);
+        pair(g, "Load-delay ticks", Integer.toString(menu.loadDelayTicks()), CONTENT_TOP + 88);
+        pair(g, "Motion samples", Integer.toString(menu.motionSamples()), CONTENT_TOP + 136);
+        pair(g, "Reversals", Integer.toString(menu.reversals()), CONTENT_TOP + 184);
+        g.drawString(font, fit("Home/reset clears transient trajectory evidence but does not erase your mechanical parameter configuration.", Math.max(300,imageWidth-96)),
+                42, CONTENT_TOP + 300, MUTED, false);
     }
 
     private void parameter(GuiGraphics g, String label, String value, int y) {
         g.drawString(font, label, 42, y, MUTED, false);
-        g.drawString(font, fit(value, 180), 190, y, INK, false);
+        int x = Math.min(300, imageWidth / 2);
+        g.drawString(font, fit(value, Math.max(180,imageWidth-x-56)), x, y, INK, false);
     }
 
     private void pair(GuiGraphics g, String label, String value, int y) {
         g.drawString(font, label, 42, y, MUTED, false);
-        g.drawString(font, fit(value, 210), 230, y, INK, false);
+        int x = Math.min(320, imageWidth / 2);
+        g.drawString(font, fit(value, Math.max(180,imageWidth-x-56)), x, y, INK, false);
     }
 
     private String fit(String text, int width) {
