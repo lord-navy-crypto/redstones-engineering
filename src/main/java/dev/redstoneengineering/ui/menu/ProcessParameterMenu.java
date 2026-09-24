@@ -75,6 +75,9 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
             liveB.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             liveC.set(SignalConditionerBlock.limitingEpisodes(level, blockPos));
             liveD.set(SignalConditionerBlock.limitingActive(level, blockPos, state) ? 1 : 0);
+            liveE.set(SignalConditionerBlock.inspectInputQuality(level, blockPos, state).ordinal());
+            liveF.set(SignalConditionerBlock.inspectOutputQuality(level, blockPos, state).ordinal());
+            liveG.set(SignalConditionerBlock.lastLimitingAgeTicks(level, blockPos));
         } else if (block instanceof PwmControllerBlock pwm) {
             kind.set(KIND_PWM);
             p0.set(PwmControllerBlock.configuredPeriod(level, blockPos, state));
@@ -82,6 +85,9 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
             var a = pwm.assessment(level, blockPos, state);
             liveA.set(a.command()); liveB.set(a.appliedCommand());
             liveC.set(a.effectiveDutyPermille()); liveD.set(a.completedCycles());
+            liveE.set(PwmControllerBlock.commandQuality(level, blockPos, state).ordinal());
+            liveF.set(PwmControllerBlock.inhibitQuality(level, blockPos, state).ordinal());
+            liveG.set(PwmControllerBlock.outputQuality(level, blockPos, state).ordinal());
         } else if (block instanceof RedstoneCopperDriverBlock) {
             kind.set(KIND_COPPER_DRIVER);
             p0.set(RedstoneCopperDriverBlock.configuredRiseSlew(level, blockPos, state));
