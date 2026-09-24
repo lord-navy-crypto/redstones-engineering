@@ -1,6 +1,7 @@
 package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.ui.menu.AmethystSystemMenu;
+import dev.redstoneengineering.ui.menu.CopperCircuitMeterMenu;
 import dev.redstoneengineering.ui.menu.DigitalCommunicationMenu;
 import dev.redstoneengineering.ui.menu.EngineeringDeviceMenu;
 import dev.redstoneengineering.ui.menu.FieldDeviceMenu;
@@ -225,6 +226,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         if (menu instanceof OpticalSystemMenu) return clockwise ? OpticalSystemMenu.BUTTON_INPUT_RIGHT : OpticalSystemMenu.BUTTON_INPUT_LEFT;
         if (menu instanceof MagneticSystemMenu) return clockwise ? MagneticSystemMenu.BUTTON_INPUT_RIGHT : MagneticSystemMenu.BUTTON_INPUT_LEFT;
         if (menu instanceof ReliabilitySystemMenu) return clockwise ? ReliabilitySystemMenu.BUTTON_INPUT_RIGHT : ReliabilitySystemMenu.BUTTON_INPUT_LEFT;
+        if (menu instanceof CopperCircuitMeterMenu) return clockwise ? CopperCircuitMeterMenu.BUTTON_FACE_NEXT : CopperCircuitMeterMenu.BUTTON_FACE_PREVIOUS;
         return -1;
     }
 
@@ -255,6 +257,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         if (menu instanceof OpticalSystemMenu optical) return optical.hasInputEndpoint();
         if (menu instanceof MagneticSystemMenu magnetic) return magnetic.hasInputEndpoint();
         if (menu instanceof ReliabilitySystemMenu reliability) return reliability.hasInputEndpoint();
+        if (menu instanceof CopperCircuitMeterMenu) return true;
         return menu instanceof PneumaticSystemMenu pneumatic && pneumatic.directional();
     }
 
@@ -287,6 +290,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         if (menu instanceof OpticalSystemMenu optical) return optical.directional() || optical.kind() == OpticalSystemMenu.KIND_METER;
         if (menu instanceof AmethystSystemMenu amethyst) return amethyst.directional();
         if (menu instanceof MagneticSystemMenu magnetic) return magnetic.kind() == MagneticSystemMenu.KIND_PERMANENT || magnetic.kind() == MagneticSystemMenu.KIND_COIL;
+        if (menu instanceof CopperCircuitMeterMenu) return true;
         return menu instanceof ReliabilitySystemMenu;
     }
 
