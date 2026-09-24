@@ -85,6 +85,46 @@ else:
             failed.append(f"{SHARED_SCREEN} route control is not registered with the scroll workspace: {route_field}")
     if "syncRouteControls();" not in shared[shared.find("public boolean mouseScrolled"):shared.find("protected int virtualContentHeight")]:
         failed.append(f"{SHARED_SCREEN} does not refresh routed controls after mouse-wheel scrolling")
+    for token in ("sectionTabLabel", "imageWidth < 420 ? 4 : 6", "Math.max(36"):
+        if token not in shared:
+            failed.append(f"{SHARED_SCREEN} missing narrow-viewport tab contract token: {token}")
+
+responsive_contracts = {
+    "src/main/java/dev/redstoneengineering/client/ui/PidEngineeringNotebookScreen.java": (
+        "pageTabLabel",
+        "routeButtonWidth",
+        "routeButtonStartX",
+        "evidenceButtonWidth",
+        "evidenceButtonStartX",
+    ),
+    "src/main/java/dev/redstoneengineering/client/ui/LapisLowPassFilterScreen.java": (
+        "alphaStepButtonWidth",
+        "alphaStepStartX",
+        "Math.max(64",
+    ),
+    "src/main/java/dev/redstoneengineering/client/ui/ServoActuatorNotebookScreen.java": (
+        "Math.max(64",
+        "imageWidth < 440 ? 5 : 7",
+    ),
+}
+for rel, tokens in responsive_contracts.items():
+    path = root / rel
+    if not path.is_file():
+        failed.append(f"missing responsive engineering screen: {rel}")
+        continue
+    text = path.read_text(errors="ignore")
+    for token in tokens:
+        if token not in text:
+            failed.append(f"{rel} missing narrow-viewport layout token: {token}")
+
+pid_text = (root / "src/main/java/dev/redstoneengineering/client/ui/PidEngineeringNotebookScreen.java").read_text(errors="ignore")
+if "leftPos + 82 + (i % 4) * 104" in pid_text or "leftPos + 268" in pid_text:
+    failed.append("PID notebook reintroduced fixed routing/evidence coordinates that can leave the viewport")
+
+lapis_text = (root / "src/main/java/dev/redstoneengineering/client/ui/LapisLowPassFilterScreen.java").read_text(errors="ignore")
+for stale in ("leftPos + 96", "leftPos + 172", "leftPos + imageWidth - 240", "leftPos + imageWidth - 164"):
+    if stale in lapis_text:
+        failed.append(f"Lapis notebook reintroduced overlapping fixed alpha-control coordinate: {stale}")
 
 DOCUMENT_SCREEN = "src/main/java/dev/redstoneengineering/client/ui/RedstoneEncyclopediaScreen.java"
 document_path = root / DOCUMENT_SCREEN
@@ -133,4 +173,5 @@ print(" mouse-wheel scroll contract: PASS")
 print(" six engineering notebook screens migrated: PASS")
 print(" shared EngineeringScreen viewport shell migrated: PASS")
 print(" route controls move and clip with scrolled engineering content: PASS")
+print(" narrow-viewport tabs and controls stay inside notebook bounds: PASS")
 print(" Redstone Encyclopedia viewport document migrated: PASS")
