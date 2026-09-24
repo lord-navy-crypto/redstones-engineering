@@ -110,6 +110,36 @@ public abstract class DirectionalDomainBlock extends DomainBlock {
     }
 
     /**
+     * Server-authoritative rotation for rigid two-port equipment.
+     *
+     * <p>TX follows FACING and RX is always the exact opposite face. This is the preferred
+     * interaction for filters, resonators and other straight-through block instruments where
+     * separately bending RX and TX adds UI complexity without adding a meaningful physical model.</p>
+     */
+    public static boolean rotateRigidSeriesAxis(Level level, BlockPos pos, boolean clockwise) {
+        if (level.isClientSide) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof DirectionalDomainBlock block)) return false;
+
+        Direction oldOutput = seriesOutputSide(state);
+        Direction oldInput = seriesInputSide(state);
+        Direction newOutput = rotateHorizontal(oldOutput, clockwise);
+        Direction newInput = newOutput.getOpposite();
+        BlockState next = state
+                .setValue(FACING, newOutput)
+                .setValue(INPUT_FACING, newInput);
+        if (!physicalPortsDoNotOverlap(block, next)) return false;
+
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel serverLevel) {
+            DomainDriverRegistry.releaseAll(serverLevel, pos);
+            serverLevel.scheduleTick(pos, block, 1);
+        }
+        notifyNeighbors(level, pos, block, oldInput, oldOutput, newInput, newOutput);
+        return true;
+    }
+
+    /**
      * Routes only INPUT while keeping OUTPUT fixed. Every candidate is checked against the block's
      * full engineering-port map, so RX cannot collide with an auxiliary physical connector.
      */
