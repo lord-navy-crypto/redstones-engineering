@@ -26,11 +26,12 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
         boolean oscillator = menu.kind() == QuartzTimingMenu.KIND_OSCILLATOR;
         boolean divider = menu.kind() == QuartzTimingMenu.KIND_DIVIDER;
         boolean stability = menu.kind() == QuartzTimingMenu.KIND_STABILITY;
+        boolean delay = menu.kind() == QuartzTimingMenu.KIND_DELAY;
         boolean configure = isConfigureSection();
-        parameterPrevious.active = oscillator || divider;
-        parameterNext.active = oscillator || divider;
-        parameterPrevious.visible = configure && (oscillator || divider);
-        parameterNext.visible = configure && (oscillator || divider);
+        parameterPrevious.active = oscillator || divider || delay;
+        parameterNext.active = oscillator || divider || delay;
+        parameterPrevious.visible = configure && (oscillator || divider || delay);
+        parameterNext.visible = configure && (oscillator || divider || delay);
         reset.active = stability;
         reset.visible = configure && stability;
         if (oscillator) {
@@ -39,6 +40,9 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
         } else if (divider) {
             parameterPrevious.setMessage(Component.literal("◀ ÷" + menu.tertiary()));
             parameterNext.setMessage(Component.literal("÷" + menu.tertiary() + " ▶"));
+        } else if (delay) {
+            parameterPrevious.setMessage(Component.literal("◀ " + menu.primary() + "t delay"));
+            parameterNext.setMessage(Component.literal(menu.primary() + "t delay ▶"));
         } else reset.setMessage(Component.literal("Reset measurement"));
     }
 
@@ -63,6 +67,12 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
             labelValue(g, "Series path", inputFace() + " → " + outputFace(), 153);
             labelValue(g, "Count / initialized", menu.runtimeA() + " / " + yesNo(menu.runtimeB()), 171);
             labelValue(g, "Phase started", yesNo(menu.runtimeC()), 189);
+        } else if (menu.kind() == QuartzTimingMenu.KIND_DELAY) {
+            metricCard(g, "Delay", menu.primary() + " t", 16, 103, 88, INFO);
+            metricCard(g, "Queued", Integer.toString(menu.secondary()), 111, 103, 88, GOOD);
+            metricCard(g, "Next event", menu.tertiary() > 0 ? menu.tertiary() + " t" : "NONE", 206, 103, 88, INFO);
+            labelValue(g, "Series path", inputFace() + " → " + outputFace(), 153);
+            labelValue(g, "Dropped / initialized", menu.runtimeA() + " / " + yesNo(menu.runtimeB()), 171);
         } else {
             metricCard(g, "Measured", menu.primary() + " t", 16, 103, 88, GOOD);
             metricCard(g, "Error", menu.secondary() + " t", 111, 103, 88, INFO);
@@ -83,6 +93,10 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
             statusLine(g, inputFace(), "INPUT • QUARTZ CLOCK", GOOD, 112);
             statusLine(g, "PROCESS", "CLOCK DIVISION • ÷" + menu.tertiary(), INFO, 140);
             statusLine(g, outputFace(), "OUTPUT • DIVIDED QUARTZ CLOCK", GOOD, 168);
+        } else if (menu.kind() == QuartzTimingMenu.KIND_DELAY) {
+            statusLine(g, inputFace(), "INPUT • QUARTZ RISING EDGES", GOOD, 112);
+            statusLine(g, "PROCESS", "BOUNDED EVENT DELAY • " + menu.primary() + "t", INFO, 140);
+            statusLine(g, outputFace(), "OUTPUT • DELAYED QUARTZ EDGES", qualityColor(), 168);
         } else {
             statusLine(g, inputFace(), "INPUT • QUARTZ TIMING MEASUREMENT", GOOD, 118);
             statusLine(g, "NETWORK AUTHORITY", "OBSERVE ONLY • NO OUTPUT DRIVER", INFO, 146);
@@ -101,6 +115,10 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
             labelValue(g, "Division", "÷" + menu.tertiary(), 101);
             labelValue(g, "I/O axis", inputFace() + " → " + outputFace(), 172);
             safeText(g, "Physical I/O direction is controlled only on Route.", 16, 199, MUTED);
+        } else if (menu.kind() == QuartzTimingMenu.KIND_DELAY) {
+            labelValue(g, "Configured edge delay", menu.primary() + " ticks", 101);
+            labelValue(g, "Queued / next event", menu.secondary() + " / " + (menu.tertiary() > 0 ? menu.tertiary() + "t" : "NONE"), 172);
+            safeText(g, "Newly captured edges use the new delay; edges already in the queue retain their original remaining time. Physical I/O is controlled only on Route.", 16, 199, MUTED);
         } else {
             labelValue(g, "Measurement", menu.primary() + " ticks", 101);
             labelValue(g, "Input face", inputFace(), 172);
@@ -110,6 +128,12 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
 
     private void diagnostics(GuiGraphics g) {
         statusBadge(g, qualityName(), qualityColor(), 16, 80);
+        if (menu.kind() == QuartzTimingMenu.KIND_DELAY) {
+            if (menu.runtimeB() == 0 && menu.secondary() == 0) return "DELAY LINE NOT INITIALIZED";
+            if (menu.runtimeA() > 0) return "DELAY QUEUE OVERFLOW EVIDENCE";
+            if (menu.secondary() > 0) return "DELAY EVENTS IN FLIGHT";
+            return "DELAY LINE READY";
+        }
         if (menu.kind() == QuartzTimingMenu.KIND_STABILITY) {
             labelValue(g, "Initialized", yesNo(menu.runtimeA()), 104);
             labelValue(g, "Reference edge", yesNo(menu.runtimeB()), 122);
@@ -124,6 +148,13 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
             labelValue(g, "Counted edges", Integer.toString(menu.runtimeA()), 140);
             labelValue(g, "Initialized", yesNo(menu.runtimeB()), 158);
             labelValue(g, "Phase started", yesNo(menu.runtimeC()), 176);
+            labelValue(g, "Path", inputFace() + " → " + outputFace(), 194);
+        } else if (menu.kind() == QuartzTimingMenu.KIND_DELAY) {
+            labelValue(g, "Configured delay", menu.primary() + " ticks", 104);
+            labelValue(g, "Queued edges", Integer.toString(menu.secondary()), 122);
+            labelValue(g, "Next event", menu.tertiary() > 0 ? menu.tertiary() + " ticks" : "NONE", 140);
+            labelValue(g, "Dropped edges", Integer.toString(menu.runtimeA()), 158);
+            labelValue(g, "Initialized", yesNo(menu.runtimeB()), 176);
             labelValue(g, "Path", inputFace() + " → " + outputFace(), 194);
         } else {
             labelValue(g, "Oscillator state", menu.primary() == 1 ? "HIGH" : "LOW", 104);
@@ -155,6 +186,13 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
             labelValue(g, "Counted edges", Integer.toString(menu.runtimeA()), 152);
             labelValue(g, "Phase started", yesNo(menu.runtimeC()), 172);
             safeText(g, "The first valid observation seeds level only; the next genuine rising edge starts divider phase.", 16, 196, MUTED);
+        } else if (menu.kind() == QuartzTimingMenu.KIND_DELAY) {
+            labelValue(g, "Configured delay", menu.primary() + " ticks", 112);
+            labelValue(g, "Queued edges", Integer.toString(menu.secondary()), 132);
+            labelValue(g, "Next emission", menu.tertiary() > 0 ? menu.tertiary() + " ticks" : "NONE", 152);
+            labelValue(g, "Dropped edges", Integer.toString(menu.runtimeA()), 172);
+            labelValue(g, "Initialized", yesNo(menu.runtimeB()), 192);
+            safeText(g, "Every captured rising edge owns its own countdown. Queue overflow increments dropped-edge evidence; upstream loss never deletes events already inside the delay line.", 16, 216, MUTED);
         } else {
             labelValue(g, "Configured period", menu.secondary() + " ticks", 112);
             labelValue(g, "Effective period", menu.runtimeA() + " ticks", 132);
@@ -191,6 +229,9 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
         if (d.contains("STALE") || d.contains("NO TIMING") || d.contains("NOT CURRENT")) return "NEXT • restore current edge evidence before accepting timing quality.";
         if (d.contains("PENDING REAL EDGE")) return "NEXT • leave the oscillator running; the configured period will latch on the next genuine transition.";
         if (d.contains("NOT INITIALIZED") || d.contains("WAITING")) return "NEXT • allow genuine source edges to initialize the timing state.";
+        if (d.contains("OVERFLOW")) return "NEXT • reduce incoming edge density or shorten configured delay before accepting event-transfer integrity.";
+        if (d.contains("IN FLIGHT")) return "NEXT • allow retained queued events to emit; do not clear them merely because upstream evidence changed.";
+        if (d.contains("DELAY LINE NOT INITIALIZED")) return "NEXT • restore valid quartz input and allow a real level baseline before judging delay behavior.";
         if (d.contains("MISMATCH")) return "NEXT • verify divider ratio and upstream period before changing downstream logic.";
         if (d.contains("ELEVATED")) return "NEXT • compare measured period against upstream/reference timing and inspect clock integrity.";
         return "NEXT • timing evidence is coherent; retain this state as the commissioning reference.";
@@ -206,12 +247,12 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
         return (scaled / 100) + "." + String.format("%02d", scaled % 100) + " ticks";
     }
 
-    private int diagnosisColor() { String d = diagnosis(); return d.contains("COHERENT") || d.contains("NOMINAL") || d.contains("CONFIGURED") ? GOOD : WARN; }
-    private String deviceName() { return switch (menu.kind()) { case QuartzTimingMenu.KIND_DIVIDER -> "QUARTZ CLOCK DIVIDER"; case QuartzTimingMenu.KIND_STABILITY -> "QUARTZ STABILITY MONITOR"; default -> "QUARTZ OSCILLATOR"; }; }
+    private int diagnosisColor() { String d = diagnosis(); return d.contains("COHERENT") || d.contains("NOMINAL") || d.contains("CONFIGURED") || d.contains("READY") || d.contains("IN FLIGHT") ? GOOD : WARN; }
+    private String deviceName() { return switch (menu.kind()) { case QuartzTimingMenu.KIND_DIVIDER -> "QUARTZ CLOCK DIVIDER"; case QuartzTimingMenu.KIND_STABILITY -> "QUARTZ STABILITY MONITOR"; case QuartzTimingMenu.KIND_DELAY -> "QUARTZ PHASE DELAY"; default -> "QUARTZ OSCILLATOR"; }; }
     private String qualityName() { return menu.quality().name().replace('_', ' '); }
     private int qualityColor() { return switch (menu.quality()) { case VALID -> GOOD; case STALE, NO_SIGNAL -> WARN; default -> BAD; }; }
     private String inputFace() { return menu.inputDirection().getName().toUpperCase(); }
     private String outputFace() { return menu.outputDirection().getName().toUpperCase(); }
     private String yesNo(int value) { return value == 1 ? "YES" : "NO"; }
-    private String topologyHint() { return switch (menu.kind()) { case QuartzTimingMenu.KIND_DIVIDER -> "Divider exposes one clock input and one divided-clock output; Route changes those real endpoints."; case QuartzTimingMenu.KIND_STABILITY -> "Monitor is observer-only; Route selects its one measurement input and exposes no output."; default -> "Oscillator exposes one configurable quartz-clock output; Route rotates that physical source face."; }; }
+    private String topologyHint() { return switch (menu.kind()) { case QuartzTimingMenu.KIND_DIVIDER -> "Divider exposes one clock input and one divided-clock output; Route changes those real endpoints."; case QuartzTimingMenu.KIND_STABILITY -> "Monitor is observer-only; Route selects its one measurement input and exposes no output."; case QuartzTimingMenu.KIND_DELAY -> "Phase Delay exposes one Quartz edge input and one delayed-edge output; Route changes those real endpoints."; default -> "Oscillator exposes one configurable quartz-clock output; Route rotates that physical source face."; }; }
 }
