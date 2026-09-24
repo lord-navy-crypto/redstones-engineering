@@ -14,9 +14,10 @@ import java.util.List;
 /** Full-page notebook for process/control parameter batch three. */
 public final class ProcessParameterNotebookScreen extends AbstractContainerScreen<ProcessParameterMenu> {
     private static final int BG=0xFFF2E9D8, PAGE=0xFFFFF8E8, INK=0xFF2C2925, MUTED=0xFF6E675E, RULE=0xFFB9A98F, ACCENT=0xFF4F5F7B, GOOD=0xFF2F7D4A, WARN=0xFF9A6A19, BAD=0xFFA43838;
-    private enum Tab { OPERATE("Operate"), PARAMETERS("Parameters"), MODEL("Model"), DIAGNOSTICS("Diagnostics"); final String label; Tab(String s){label=s;} }
+    private enum Tab { OPERATE("Operate"), PARAMETERS("Parameters"), MODEL("Model"), ROUTING("Routing"), DIAGNOSTICS("Diagnostics"); final String label; Tab(String s){label=s;} }
     private Tab tab=Tab.PARAMETERS;
     private final List<Button> controls=new ArrayList<>();
+    private final List<Button> routeControls=new ArrayList<>();
     private Button action;
     private int scrollOffset = 0;
     private static final int VIEW_MARGIN = 8;
@@ -30,14 +31,14 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
     @Override protected void init(){
         imageWidth=Math.max(360,width-VIEW_MARGIN*2);
         imageHeight=Math.max(240,height-VIEW_MARGIN*2);
-        super.init(); controls.clear(); scrollOffset=0;
+        super.init(); controls.clear(); routeControls.clear(); scrollOffset=0;
 
         int tabCount=Tab.values().length;
-        int gap=8;
-        int tabWidth=Math.max(88,(imageWidth-48-gap*(tabCount-1))/tabCount);
+        int gap=imageWidth<460?4:7;
+        int tabWidth=Math.max(48,(imageWidth-48-gap*(tabCount-1))/tabCount);
         int x=leftPos+24;
         for(Tab t:Tab.values()){
-            addRenderableWidget(Button.builder(Component.literal(t.label),b->{tab=t;scrollOffset=0;syncVisibility();})
+            addRenderableWidget(Button.builder(Component.literal(tabLabel(t)),b->{tab=t;scrollOffset=0;syncVisibility();})
                     .bounds(x,topPos+38,tabWidth,22).build());
             x+=tabWidth+gap;
         }
@@ -45,7 +46,37 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
         addRow(0,CONTENT_TOP+44); addRow(1,CONTENT_TOP+96); addRow(2,CONTENT_TOP+148); addRow(3,CONTENT_TOP+200);
         action=addRenderableWidget(Button.builder(Component.literal("Action"),b->send(ProcessParameterMenu.BUTTON_ACTION))
                 .bounds(leftPos+imageWidth-188,topPos+CONTENT_TOP+250,150,22).build());
+
+        int routeWidth=routeButtonWidth(), routeGap=8, routeX=routeButtonStartX(), routeY=topPos+CONTENT_TOP+112;
+        routeControls.add(addRenderableWidget(Button.builder(Component.literal("RX ◀"),b->send(ProcessParameterMenu.BUTTON_INPUT_PREVIOUS))
+                .bounds(routeX,routeY,routeWidth,22).build()));
+        routeControls.add(addRenderableWidget(Button.builder(Component.literal("RX ▶"),b->send(ProcessParameterMenu.BUTTON_INPUT_NEXT))
+                .bounds(routeX+routeWidth+routeGap,routeY,routeWidth,22).build()));
+        routeControls.add(addRenderableWidget(Button.builder(Component.literal("TX ◀"),b->send(ProcessParameterMenu.BUTTON_OUTPUT_PREVIOUS))
+                .bounds(routeX+(routeWidth+routeGap)*2,routeY,routeWidth,22).build()));
+        routeControls.add(addRenderableWidget(Button.builder(Component.literal("TX ▶"),b->send(ProcessParameterMenu.BUTTON_OUTPUT_NEXT))
+                .bounds(routeX+(routeWidth+routeGap)*3,routeY,routeWidth,22).build()));
         syncVisibility();
+    }
+
+    private String tabLabel(Tab value){
+        if(imageWidth>=500)return value.label;
+        return switch(value){
+            case OPERATE->"Run";
+            case PARAMETERS->"Params";
+            case MODEL->"Model";
+            case ROUTING->"Route";
+            case DIAGNOSTICS->"Diag";
+        };
+    }
+
+    private int routeButtonWidth(){
+        return Math.max(54,Math.min(82,(imageWidth-48-8*3)/4));
+    }
+
+    private int routeButtonStartX(){
+        int total=routeButtonWidth()*4+8*3;
+        return leftPos+Math.max(24,(imageWidth-total)/2);
     }
 
     private void addRow(int row,int virtualY){
@@ -89,6 +120,7 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             case OPERATE -> 420;
             case PARAMETERS -> 470;
             case MODEL -> 760;
+            case ROUTING -> 520;
             case DIAGNOSTICS -> 650;
         };
     }
@@ -119,6 +151,16 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             int virtualY=CONTENT_TOP+44+row*52;
             b.setY(topPos+virtualY-scrollOffset);
             b.visible=tab==Tab.PARAMETERS&&row<n
+                    &&b.getY()>=topPos+CONTENT_TOP&&b.getY()<=topPos+imageHeight-CONTENT_BOTTOM_MARGIN-22;
+        }
+        int routeWidth=routeButtonWidth(), routeGap=8, routeX=routeButtonStartX();
+        for(int i=0;i<routeControls.size();i++){
+            Button b=routeControls.get(i);
+            b.setX(routeX+i*(routeWidth+routeGap));
+            b.setY(topPos+CONTENT_TOP+112-scrollOffset);
+            boolean input=i<2;
+            boolean routable=input?menu.canRouteInput():menu.canRouteOutput();
+            b.visible=tab==Tab.ROUTING&&routable
                     &&b.getY()>=topPos+CONTENT_TOP&&b.getY()<=topPos+imageHeight-CONTENT_BOTTOM_MARGIN-22;
         }
         if(action!=null){
@@ -152,7 +194,7 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
                 topPos+imageHeight-CONTENT_BOTTOM_MARGIN);
         g.pose().pushPose();
         g.pose().translate(0,-scrollOffset,0);
-        switch(tab){case OPERATE->operate(g);case PARAMETERS->parameters(g);case MODEL->model(g);case DIAGNOSTICS->diagnostics(g);}
+        switch(tab){case OPERATE->operate(g);case PARAMETERS->parameters(g);case MODEL->model(g);case ROUTING->routing(g);case DIAGNOSTICS->diagnostics(g);}
         g.pose().popPose();
         g.disableScissor();
 
@@ -188,6 +230,23 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
                 42,y,textWidth,MUTED)+22;
         drawWrapped(g,"This page grows vertically as equations, assumptions, response metrics and diagnostic evidence are added. Scroll instead of shrinking or truncating the engineering model.",
                 42,y,textWidth,MUTED);
+    }
+
+    private void routing(GuiGraphics g){
+        int textWidth=Math.max(280,imageWidth-96);
+        g.drawString(font,"PHYSICAL ROUTING",42,CONTENT_TOP+28,MUTED,false);
+        pair(g,"Input endpoint",menu.hasInputEndpoint()?menu.inputDirection().getName().toUpperCase():"NONE / FIXED",CONTENT_TOP+62);
+        pair(g,"Output endpoint",menu.hasOutputEndpoint()?menu.outputDirection().getName().toUpperCase():"MULTI-FACE / FIXED",CONTENT_TOP+96);
+        int y=CONTENT_TOP+170;
+        y=drawWrapped(g,routingContract(),42,y,textWidth,INK)+18;
+        if(menu.canRouteInput()||menu.canRouteOutput()){
+            y=drawWrapped(g,"RX/TX buttons mutate only declared server-owned physical endpoint properties. Every candidate route is checked by the block routing model; the client does not invent connectivity.",
+                    42,y,textWidth,MUTED)+18;
+        }else{
+            y=drawWrapped(g,"This device has no legal generic RX/TX rotation in this notebook. Its fixed or multi-face port contract is shown rather than replaced with fake direction controls.",
+                    42,y,textWidth,MUTED)+18;
+        }
+        drawWrapped(g,"Topology and evidence remain world-owned after rerouting; use Operate/Diagnostics to validate the new physical path.",42,y,textWidth,MUTED);
     }
 
     private void diagnostics(GuiGraphics g){
@@ -472,6 +531,22 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             case ProcessParameterMenu.KIND_EXCITER -> "NEXT • distinguish command evidence loss from physical coast-down before changing amplitude/frequency slew.";
             case ProcessParameterMenu.KIND_LAPIS_SOURCE, ProcessParameterMenu.KIND_COPPER_SOURCE -> "NEXT • use downstream measurement evidence to validate the configured source; the source value itself is configuration, not a load test.";
             default -> "NEXT • inspect synchronized world evidence before changing configuration.";
+        };
+    }
+
+    private String routingContract(){
+        return switch(menu.kind()){
+            case ProcessParameterMenu.KIND_CONDITIONER -> "Compatibility route: REDSTONE analog input → conditioned REDSTONE output. Normal gameplay opens the dedicated Signal Conditioner HMI.";
+            case ProcessParameterMenu.KIND_PWM -> "REDSTONE command RX → binary PWM TX. The inhibit input is an auxiliary physical safety port managed by the block's route model.";
+            case ProcessParameterMenu.KIND_COPPER_DRIVER -> "REDSTONE command RX → COPPER voltage TX. Current directions are authoritative readback; this custom converter does not expose generic route mutation here.";
+            case ProcessParameterMenu.KIND_CAPACITOR -> "COPPER input RX → stored-energy model → COPPER output TX.";
+            case ProcessParameterMenu.KIND_FUSE -> "COPPER input RX → protection element → COPPER output TX.";
+            case ProcessParameterMenu.KIND_COMPRESSOR -> "Compatibility view only; normal gameplay routes compressor operation through the dedicated Pneumatic HMI.";
+            case ProcessParameterMenu.KIND_DAMPER -> "MECHANICAL vibration envelope is a multi-face bidirectional physical interaction; no synthetic single RX/TX pair is created.";
+            case ProcessParameterMenu.KIND_EXCITER -> "Fixed REDSTONE drive enters on DOWN; mechanical vibration is emitted through the declared multi-face actuator ports.";
+            case ProcessParameterMenu.KIND_LAPIS_SOURCE -> "Output-only LAPIS precision source. TX may rotate; no synthetic input endpoint exists.";
+            case ProcessParameterMenu.KIND_COPPER_SOURCE -> "Six-face COPPER voltage source. Every face is a real source boundary; there is no single routable TX face.";
+            default -> "No generic routing contract is available for this compatibility kind.";
         };
     }
 
