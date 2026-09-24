@@ -30,6 +30,10 @@ public final class MultiPhysicsParameterNotebookScreen extends AbstractContainer
 
     private Tab tab = Tab.PARAMETERS;
     private final List<Button> parameterButtons = new ArrayList<>();
+    private int scrollOffset = 0;
+    private static final int VIEW_MARGIN = 8;
+    private static final int CONTENT_TOP = 84;
+    private static final int CONTENT_BOTTOM_MARGIN = 34;
 
     public MultiPhysicsParameterNotebookScreen(MultiPhysicsParameterMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -42,25 +46,32 @@ public final class MultiPhysicsParameterNotebookScreen extends AbstractContainer
 
     @Override
     protected void init() {
+        imageWidth = Math.max(360, width - VIEW_MARGIN * 2);
+        imageHeight = Math.max(240, height - VIEW_MARGIN * 2);
         super.init();
         parameterButtons.clear();
+        scrollOffset = 0;
 
-        int x = leftPos + 83;
+        int count = Tab.values().length;
+        int gap = 8;
+        int tabWidth = Math.max(88, (imageWidth - 48 - gap * (count - 1)) / count);
+        int x = leftPos + 24;
         for (Tab value : Tab.values()) {
             addRenderableWidget(Button.builder(Component.literal(value.label), b -> {
                 tab = value;
+                scrollOffset = 0;
                 updateVisibility();
-            }).bounds(x, topPos + 34, 112, 20).build());
-            x += 118;
+            }).bounds(x, topPos + 38, tabWidth, 22).build());
+            x += tabWidth + gap;
         }
 
-        addPair(0, topPos + 126);
-        addPair(1, topPos + 166);
-        addPair(2, topPos + 206);
+        addPair(0, CONTENT_TOP + 52);
+        addPair(1, CONTENT_TOP + 110);
+        addPair(2, CONTENT_TOP + 168);
         updateVisibility();
     }
 
-    private void addPair(int slot, int y) {
+    private void addPair(int slot, int virtualY) {
         int minus = switch (slot) {
             case 0 -> MultiPhysicsParameterMenu.BUTTON_P0_MINUS;
             case 1 -> MultiPhysicsParameterMenu.BUTTON_P1_MINUS;
@@ -71,10 +82,11 @@ public final class MultiPhysicsParameterNotebookScreen extends AbstractContainer
             case 1 -> MultiPhysicsParameterMenu.BUTTON_P1_PLUS;
             default -> MultiPhysicsParameterMenu.BUTTON_P2_PLUS;
         };
+        int y = topPos + virtualY - scrollOffset;
         parameterButtons.add(addRenderableWidget(Button.builder(Component.literal("−"), b -> send(minus))
-                .bounds(leftPos + 356, y, 38, 20).build()));
+                .bounds(leftPos + imageWidth - 164, y, 42, 22).build()));
         parameterButtons.add(addRenderableWidget(Button.builder(Component.literal("+"), b -> send(plus))
-                .bounds(leftPos + 442, y, 38, 20).build()));
+                .bounds(leftPos + imageWidth - 78, y, 42, 22).build()));
     }
 
     private void send(int id) {
@@ -89,11 +101,41 @@ public final class MultiPhysicsParameterNotebookScreen extends AbstractContainer
         updateVisibility();
     }
 
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (mouseX >= leftPos + 18 && mouseX <= leftPos + imageWidth - 18
+                && mouseY >= topPos + CONTENT_TOP && mouseY <= topPos + imageHeight - CONTENT_BOTTOM_MARGIN) {
+            scrollOffset = Math.max(0, Math.min(maxScroll(), scrollOffset - (int)Math.round(scrollY * 24.0)));
+            updateVisibility();
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+
+    private int contentHeight() {
+        return switch (tab) {
+            case OPERATE -> 430;
+            case PARAMETERS -> 520;
+            case MODEL -> 660;
+        };
+    }
+
+    private int maxScroll() {
+        int visible = Math.max(80, imageHeight - CONTENT_TOP - CONTENT_BOTTOM_MARGIN);
+        return Math.max(0, contentHeight() - visible);
+    }
+
     private void updateVisibility() {
         int count = parameterCount();
         for (int i = 0; i < parameterButtons.size(); i++) {
             int row = i / 2;
-            parameterButtons.get(i).visible = tab == Tab.PARAMETERS && row < count;
+            Button button = parameterButtons.get(i);
+            int virtualY = CONTENT_TOP + 52 + row * 58;
+            button.setX((i % 2 == 0) ? leftPos + imageWidth - 164 : leftPos + imageWidth - 78);
+            button.setY(topPos + virtualY - scrollOffset);
+            button.visible = tab == Tab.PARAMETERS && row < count
+                    && button.getY() >= topPos + CONTENT_TOP
+                    && button.getY() <= topPos + imageHeight - CONTENT_BOTTOM_MARGIN - 22;
         }
     }
 
@@ -118,7 +160,9 @@ public final class MultiPhysicsParameterNotebookScreen extends AbstractContainer
         g.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, BG);
         g.fill(leftPos + 5, topPos + 5, leftPos + imageWidth - 5, topPos + imageHeight - 5, PAGE);
         g.fill(leftPos + 18, topPos + 29, leftPos + imageWidth - 18, topPos + 30, RULE);
-        g.fill(leftPos + 18, topPos + 62, leftPos + imageWidth - 18, topPos + 63, RULE);
+        g.fill(leftPos + 18, topPos + 66, leftPos + imageWidth - 18, topPos + 67, RULE);
+        g.fill(leftPos + 18, topPos + imageHeight - CONTENT_BOTTOM_MARGIN,
+                leftPos + imageWidth - 18, topPos + imageHeight - CONTENT_BOTTOM_MARGIN + 1, RULE);
     }
 
     @Override
@@ -126,14 +170,24 @@ public final class MultiPhysicsParameterNotebookScreen extends AbstractContainer
         g.drawString(font, title, 18, 12, INK, false);
         String live = "SERVER PHYSICS";
         g.drawString(font, live, imageWidth - 18 - font.width(live), 12, GOOD, false);
-        g.drawString(font, tab.label.toUpperCase(), 22, 70, ACCENT, false);
+        g.drawString(font, tab.label.toUpperCase(), 24, 72, ACCENT, false);
 
+        g.enableScissor(leftPos + 18, topPos + CONTENT_TOP, leftPos + imageWidth - 18,
+                topPos + imageHeight - CONTENT_BOTTOM_MARGIN);
+        g.pose().pushPose();
+        g.pose().translate(0, -scrollOffset, 0);
         switch (tab) {
             case OPERATE -> renderOperate(g);
             case PARAMETERS -> renderParameters(g);
             case MODEL -> renderModel(g);
         }
+        g.pose().popPose();
+        g.disableScissor();
 
+        if (maxScroll() > 0) {
+            String scroll = "SCROLL " + scrollOffset + " / " + maxScroll();
+            g.drawString(font, scroll, imageWidth - 24 - font.width(scroll), 72, MUTED, false);
+        }
         g.drawString(font, fit(deviceFooter(), imageWidth - 36), 18, imageHeight - 20, MUTED, false);
     }
 
@@ -149,17 +203,22 @@ public final class MultiPhysicsParameterNotebookScreen extends AbstractContainer
         String[] labels = parameterLabels();
         int[] values = {menu.p0(), menu.p1(), menu.p2()};
         for (int i = 0; i < labels.length; i++) {
-            g.drawString(font, labels[i], 38, 130 + i * 40, MUTED, false);
-            g.drawString(font, parameterValue(i, values[i]), 200, 130 + i * 40, INK, false);
+            int y = CONTENT_TOP + 56 + i * 58;
+            g.drawString(font, labels[i], 42, y, MUTED, false);
+            g.drawString(font, parameterValue(i, values[i]), Math.min(280, imageWidth / 2), y, INK, false);
         }
-        g.drawString(font, fit(parameterHint(), 450), 38, 250, MUTED, false);
+        g.drawString(font, fit(parameterHint(), Math.max(280, imageWidth - 96)), 42, CONTENT_TOP + 280, MUTED, false);
     }
 
     private void renderModel(GuiGraphics g) {
-        g.drawString(font, fit(modelLine1(), 455), 34, 105, INK, false);
-        g.drawString(font, fit(modelLine2(), 455), 34, 136, INK, false);
-        g.drawString(font, fit(modelLine3(), 455), 34, 167, MUTED, false);
-        g.drawString(font, fit(modelLine4(), 455), 34, 214, MUTED, false);
+        int w = Math.max(280, imageWidth - 96);
+        g.drawString(font, "MULTI-PHYSICS MODEL", 42, CONTENT_TOP + 28, MUTED, false);
+        g.drawString(font, fit(modelLine1(), w), 42, CONTENT_TOP + 66, INK, false);
+        g.drawString(font, fit(modelLine2(), w), 42, CONTENT_TOP + 118, INK, false);
+        g.drawString(font, fit(modelLine3(), w), 42, CONTENT_TOP + 182, MUTED, false);
+        g.drawString(font, fit(modelLine4(), w), 42, CONTENT_TOP + 246, MUTED, false);
+        g.drawString(font, fit("The engineering page can extend vertically with assumptions, derivations, response metrics and validation evidence; scrolling is preferred over text compression.", w),
+                42, CONTENT_TOP + 350, MUTED, false);
     }
 
     private String[] parameterLabels() {
@@ -302,7 +361,8 @@ public final class MultiPhysicsParameterNotebookScreen extends AbstractContainer
 
     private void pair(GuiGraphics g, String label, String value, int y) {
         g.drawString(font, label, 42, y, MUTED, false);
-        g.drawString(font, fit(value, 230), 245, y, INK, false);
+        int x = Math.min(300, imageWidth / 2);
+        g.drawString(font, fit(value, Math.max(180, imageWidth - x - 56)), x, y, INK, false);
     }
 
     private String fit(String text, int width) {
