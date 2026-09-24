@@ -57,7 +57,7 @@ for token in (
     if menu and token not in menu:
         errors.append(f"PidControllerMenu missing compact trend sync contract {token!r}")
 
-screen = read("src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java")
+screen = read("src/main/java/dev/redstoneengineering/client/ui/PidEngineeringNotebookScreen.java")
 for token in (
     "EngineeringPlot.analogFrame",
     "menu::trendSetpoint",
@@ -65,9 +65,11 @@ for token in (
     "menu::trendControlOutput",
     "authoritative samples",
     "2t/sample",
+    "Compared with previous:",
+    "Baseline capture established; capture again after a change to compare.",
 ):
     if screen and token not in screen:
-        errors.append(f"PidControllerScreen missing trend visualization {token!r}")
+        errors.append(f"PidEngineeringNotebookScreen missing trend/evidence visualization {token!r}")
 for forbidden in (
     "RuntimeIntStore",
     "PidTelemetryStore",
@@ -97,6 +99,7 @@ if errors:
 print("RSE PID telemetry visualization verification: PASS")
 print(" server-owned 32-sample SP/PV/OUT ring buffer: PASS")
 print(" compact 12-bit menu synchronization: PASS")
-print(" shared render-only PID trend graph: PASS")
+print(" current engineering notebook trend graph: PASS")
+print(" retained acceptance comparison restored in current notebook: PASS")
 print(" controller removal/reset lifecycle cleanup: PASS")
 print(" executable bounded-retention + cleanup GameTests: PASS")
