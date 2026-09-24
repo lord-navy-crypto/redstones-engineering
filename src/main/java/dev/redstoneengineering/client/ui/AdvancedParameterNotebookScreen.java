@@ -17,38 +17,78 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
     private Tab tab=Tab.PARAMETERS;
     private final List<Button> controls=new ArrayList<>();
     private Button toggle;
+    private int scrollOffset=0;
+    private static final int VIEW_MARGIN=8, CONTENT_TOP=84, CONTENT_BOTTOM_MARGIN=34;
 
     public AdvancedParameterNotebookScreen(AdvancedParameterMenu menu, Inventory inventory, Component title){
         super(menu,inventory,title); imageWidth=520; imageHeight=292; titleLabelX=18; titleLabelY=12; inventoryLabelY=1000;
     }
 
     @Override protected void init(){
-        super.init(); controls.clear();
-        int x=leftPos+83;
+        imageWidth=Math.max(360,width-VIEW_MARGIN*2);
+        imageHeight=Math.max(240,height-VIEW_MARGIN*2);
+        super.init(); controls.clear(); scrollOffset=0;
+        int count=Tab.values().length, gap=8;
+        int tabWidth=Math.max(88,(imageWidth-48-gap*(count-1))/count);
+        int x=leftPos+24;
         for(Tab t:Tab.values()){
-            addRenderableWidget(Button.builder(Component.literal(t.label),b->{tab=t;syncVisibility();}).bounds(x,topPos+34,112,20).build());
-            x+=118;
+            addRenderableWidget(Button.builder(Component.literal(t.label),b->{tab=t;scrollOffset=0;syncVisibility();})
+                    .bounds(x,topPos+38,tabWidth,22).build());
+            x+=tabWidth+gap;
         }
-        addRow(0,topPos+124); addRow(1,topPos+164); addRow(2,topPos+204);
-        toggle=addRenderableWidget(Button.builder(Component.literal("Toggle"),b->send(AdvancedParameterMenu.BUTTON_P3_TOGGLE)).bounds(leftPos+354,topPos+244,126,20).build());
+        addRow(0,CONTENT_TOP+50); addRow(1,CONTENT_TOP+106); addRow(2,CONTENT_TOP+162);
+        toggle=addRenderableWidget(Button.builder(Component.literal("Toggle"),b->send(AdvancedParameterMenu.BUTTON_P3_TOGGLE))
+                .bounds(leftPos+imageWidth-184,topPos+CONTENT_TOP+224,146,22).build());
         syncVisibility();
     }
 
-    private void addRow(int row,int y){
+    private void addRow(int row,int virtualY){
         int minus=row==0?AdvancedParameterMenu.BUTTON_P0_MINUS:row==1?AdvancedParameterMenu.BUTTON_P1_MINUS:AdvancedParameterMenu.BUTTON_P2_MINUS;
         int plus=row==0?AdvancedParameterMenu.BUTTON_P0_PLUS:row==1?AdvancedParameterMenu.BUTTON_P1_PLUS:AdvancedParameterMenu.BUTTON_P2_PLUS;
-        controls.add(addRenderableWidget(Button.builder(Component.literal("−"),b->send(minus)).bounds(leftPos+356,y,38,20).build()));
-        controls.add(addRenderableWidget(Button.builder(Component.literal("+"),b->send(plus)).bounds(leftPos+442,y,38,20).build()));
+        int y=topPos+virtualY-scrollOffset;
+        controls.add(addRenderableWidget(Button.builder(Component.literal("−"),b->send(minus)).bounds(leftPos+imageWidth-164,y,42,22).build()));
+        controls.add(addRenderableWidget(Button.builder(Component.literal("+"),b->send(plus)).bounds(leftPos+imageWidth-78,y,42,22).build()));
     }
 
     private void send(int id){ if(minecraft!=null&&minecraft.gameMode!=null) minecraft.gameMode.handleInventoryButtonClick(menu.containerId,id); }
 
     @Override protected void containerTick(){ super.containerTick(); syncVisibility(); }
 
+    @Override
+    public boolean mouseScrolled(double mouseX,double mouseY,double scrollX,double scrollY){
+        if(mouseX>=leftPos+18&&mouseX<=leftPos+imageWidth-18
+                &&mouseY>=topPos+CONTENT_TOP&&mouseY<=topPos+imageHeight-CONTENT_BOTTOM_MARGIN){
+            scrollOffset=Math.max(0,Math.min(maxScroll(),scrollOffset-(int)Math.round(scrollY*24.0)));
+            syncVisibility();
+            return true;
+        }
+        return super.mouseScrolled(mouseX,mouseY,scrollX,scrollY);
+    }
+
+    private int contentHeight(){
+        return switch(tab){case OPERATE->430;case PARAMETERS->500;case MODEL->640;};
+    }
+    private int maxScroll(){
+        int visible=Math.max(80,imageHeight-CONTENT_TOP-CONTENT_BOTTOM_MARGIN);
+        return Math.max(0,contentHeight()-visible);
+    }
+
     private void syncVisibility(){
         int n=parameterCount();
-        for(int i=0;i<controls.size();i++) controls.get(i).visible=tab==Tab.PARAMETERS&&(i/2)<n;
-        if(toggle!=null) toggle.visible=tab==Tab.PARAMETERS&&menu.kind()==AdvancedParameterMenu.KIND_PULSE_SHAPER;
+        for(int i=0;i<controls.size();i++){
+            int row=i/2; Button b=controls.get(i);
+            int virtualY=CONTENT_TOP+50+row*56;
+            b.setX((i%2==0)?leftPos+imageWidth-164:leftPos+imageWidth-78);
+            b.setY(topPos+virtualY-scrollOffset);
+            b.visible=tab==Tab.PARAMETERS&&row<n
+                    &&b.getY()>=topPos+CONTENT_TOP&&b.getY()<=topPos+imageHeight-CONTENT_BOTTOM_MARGIN-22;
+        }
+        if(toggle!=null){
+            toggle.setX(leftPos+imageWidth-184);
+            toggle.setY(topPos+CONTENT_TOP+224-scrollOffset);
+            toggle.visible=tab==Tab.PARAMETERS&&menu.kind()==AdvancedParameterMenu.KIND_PULSE_SHAPER
+                    &&toggle.getY()>=topPos+CONTENT_TOP&&toggle.getY()<=topPos+imageHeight-CONTENT_BOTTOM_MARGIN-22;
+        }
     }
 
     private int parameterCount(){
@@ -67,39 +107,52 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
         g.fill(leftPos,topPos,leftPos+imageWidth,topPos+imageHeight,BG);
         g.fill(leftPos+5,topPos+5,leftPos+imageWidth-5,topPos+imageHeight-5,PAGE);
         g.fill(leftPos+18,topPos+29,leftPos+imageWidth-18,topPos+30,RULE);
-        g.fill(leftPos+18,topPos+62,leftPos+imageWidth-18,topPos+63,RULE);
+        g.fill(leftPos+18,topPos+66,leftPos+imageWidth-18,topPos+67,RULE);
+        g.fill(leftPos+18,topPos+imageHeight-CONTENT_BOTTOM_MARGIN,leftPos+imageWidth-18,topPos+imageHeight-CONTENT_BOTTOM_MARGIN+1,RULE);
     }
 
     @Override protected void renderLabels(GuiGraphics g,int mx,int my){
         g.drawString(font,title,18,12,INK,false);
         String live="SERVER PHYSICS"; g.drawString(font,live,imageWidth-18-font.width(live),12,GOOD,false);
-        g.drawString(font,tab.label.toUpperCase(),22,70,ACCENT,false);
+        g.drawString(font,tab.label.toUpperCase(),24,72,ACCENT,false);
+        g.enableScissor(leftPos+18,topPos+CONTENT_TOP,leftPos+imageWidth-18,topPos+imageHeight-CONTENT_BOTTOM_MARGIN);
+        g.pose().pushPose(); g.pose().translate(0,-scrollOffset,0);
         switch(tab){case OPERATE->operate(g);case PARAMETERS->parameters(g);case MODEL->model(g);}
+        g.pose().popPose(); g.disableScissor();
+        if(maxScroll()>0){
+            String s="SCROLL "+scrollOffset+" / "+maxScroll();
+            g.drawString(font,s,imageWidth-24-font.width(s),72,MUTED,false);
+        }
         g.drawString(font,fit(footer(),imageWidth-36),18,imageHeight-20,MUTED,false);
     }
 
     private void parameters(GuiGraphics g){
         String[] labels=parameterLabels(); int[] values={menu.p0(),menu.p1(),menu.p2()};
         for(int i=0;i<labels.length;i++){
-            g.drawString(font,labels[i],38,128+i*40,MUTED,false);
-            g.drawString(font,paramValue(i,values[i]),200,128+i*40,INK,false);
+            int y=CONTENT_TOP+54+i*56;
+            g.drawString(font,labels[i],42,y,MUTED,false);
+            g.drawString(font,paramValue(i,values[i]),Math.min(280,imageWidth/2),y,INK,false);
         }
         if(menu.kind()==AdvancedParameterMenu.KIND_PULSE_SHAPER){
-            g.drawString(font,"Retriggerable",38,248,MUTED,false);
-            g.drawString(font,menu.p3()!=0?"YES":"NO",200,248,INK,false);
+            int y=CONTENT_TOP+226;
+            g.drawString(font,"Retriggerable",42,y,MUTED,false);
+            g.drawString(font,menu.p3()!=0?"YES":"NO",Math.min(280,imageWidth/2),y,INK,false);
         }
     }
 
     private void operate(GuiGraphics g){
         String[] labels=liveLabels(); int[] values={menu.liveA(),menu.liveB(),menu.liveC(),menu.liveD()};
-        for(int i=0;i<labels.length;i++) pair(g,labels[i],liveValue(i,values[i]),100+i*30);
+        for(int i=0;i<labels.length;i++) pair(g,labels[i],liveValue(i,values[i]),CONTENT_TOP+38+i*42);
     }
 
     private void model(GuiGraphics g){
-        g.drawString(font,fit(model1(),455),34,108,INK,false);
-        g.drawString(font,fit(model2(),455),34,142,INK,false);
-        g.drawString(font,fit(model3(),455),34,180,MUTED,false);
-        g.drawString(font,fit("Only configuration variables are editable; measured state, thermal load, evidence and topology stay solver/world-owned.",455),34,224,MUTED,false);
+        int w=Math.max(280,imageWidth-96);
+        g.drawString(font,"ENGINEERING MODEL",42,CONTENT_TOP+28,MUTED,false);
+        g.drawString(font,fit(model1(),w),42,CONTENT_TOP+66,INK,false);
+        g.drawString(font,fit(model2(),w),42,CONTENT_TOP+118,INK,false);
+        g.drawString(font,fit(model3(),w),42,CONTENT_TOP+180,MUTED,false);
+        g.drawString(font,fit("Only configuration variables are editable; measured state, thermal load, evidence and topology stay solver/world-owned.",w),42,CONTENT_TOP+252,MUTED,false);
+        g.drawString(font,fit("Additional equations, assumptions, response diagnostics and validation notes may extend below; scroll instead of compressing them into a fixed panel.",w),42,CONTENT_TOP+350,MUTED,false);
     }
 
     private String[] parameterLabels(){
@@ -188,6 +241,10 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
 
     private String footer(){ return "Engineering Notebook • precise parameters where physics supports them • discrete variables remain discrete"; }
 
-    private void pair(GuiGraphics g,String label,String value,int y){ g.drawString(font,label,42,y,MUTED,false); g.drawString(font,fit(value,230),245,y,INK,false); }
+    private void pair(GuiGraphics g,String label,String value,int y){
+        g.drawString(font,label,42,y,MUTED,false);
+        int x=Math.min(300,imageWidth/2);
+        g.drawString(font,fit(value,Math.max(180,imageWidth-x-56)),x,y,INK,false);
+    }
     private String fit(String s,int width){ if(font.width(s)<=width)return s; String x=s; while(x.length()>1&&font.width(x+"…")>width)x=x.substring(0,x.length()-1); return x+"…"; }
 }
