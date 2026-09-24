@@ -59,6 +59,9 @@ public final class RseDiagnosticsScreen extends Screen {
     private static final int WARN = 0xFFF6C453;
     private static final int ERROR = 0xFFF06A6A;
     private static final int ACCENT = 0xFFE05555;
+    private static final int OUTER_MARGIN = 8;
+    private static final int HEADER_BOTTOM = 82;
+    private static final int FOOTER_HEIGHT = 34;
 
     private final Screen parent;
     private Filter filter = Filter.ALL;
@@ -67,6 +70,8 @@ public final class RseDiagnosticsScreen extends Screen {
     private String feedback = "";
     private int feedbackTicks;
     private long lastObservedEventSequence = -1L;
+    private int scrollOffset;
+    private final List<Button> viewButtons = new ArrayList<>();
 
     public RseDiagnosticsScreen(Screen parent) {
         super(Component.literal("RSE Live Diagnostics Hub"));
@@ -75,13 +80,33 @@ public final class RseDiagnosticsScreen extends Screen {
 
     @Override
     protected void init() {
+        scrollOffset = 0;
         rebuildWidgets();
     }
 
     @Override
     protected void rebuildWidgets() {
         clearWidgets();
+        viewButtons.clear();
         int bottom = height - 27;
+
+        int tabGap = 5;
+        int tabCount = View.values().length;
+        int tabWidth = Math.max(72, (width - 36 - tabGap * (tabCount - 1)) / tabCount);
+        int tabX = 18;
+        int tabY = 52;
+        for (View candidate : View.values()) {
+            Button tab = addRenderableWidget(Button.builder(Component.literal(candidate.label), button -> {
+                        view = candidate;
+                        page = 0;
+                        scrollOffset = 0;
+                        rebuildWidgets();
+                    })
+                    .bounds(tabX, tabY, tabWidth, 22).build());
+            tab.active = candidate != view;
+            viewButtons.add(tab);
+            tabX += tabWidth + tabGap;
+        }
         addRenderableWidget(Button.builder(Component.literal("Back"), button -> onClose())
                 .bounds(12, bottom, 44, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Copy Report"), button -> copyReport())
@@ -103,17 +128,9 @@ public final class RseDiagnosticsScreen extends Screen {
                     rebuildWidgets();
                 })
                 .bounds(330, bottom, 78, 20).build());
-        int navStart = width - 78;
-        int viewWidth = Math.max(88, navStart - 420);
-        addRenderableWidget(Button.builder(Component.literal("View: " + view.label), button -> {
-                    view = View.values()[(view.ordinal() + 1) % View.values().length];
-                    page = 0;
-                    rebuildWidgets();
-                })
-                .bounds(414, bottom, viewWidth, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("<"), button -> page++)
+        addRenderableWidget(Button.builder(Component.literal("<"), button -> { page++; scrollOffset = 0; })
                 .bounds(width - 78, bottom, 30, 20).build());
-        addRenderableWidget(Button.builder(Component.literal(">"), button -> page = Math.max(0, page - 1))
+        addRenderableWidget(Button.builder(Component.literal(">"), button -> { page = Math.max(0, page - 1); scrollOffset = 0; })
                 .bounds(width - 42, bottom, 30, 20).build());
     }
 
@@ -137,19 +154,21 @@ public final class RseDiagnosticsScreen extends Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         renderBackground(graphics, mouseX, mouseY, partialTick);
-        graphics.fill(8, 8, width - 8, height - 34, BORDER);
-        graphics.fill(10, 10, width - 10, height - 36, PANEL);
-        graphics.fill(16, 55, width - 16, height - 43, PANEL_2);
-        graphics.fill(16, 47, width - 16, 49, ACCENT);
+        graphics.fill(OUTER_MARGIN, OUTER_MARGIN, width - OUTER_MARGIN, height - FOOTER_HEIGHT, BORDER);
+        graphics.fill(OUTER_MARGIN + 2, OUTER_MARGIN + 2, width - OUTER_MARGIN - 2, height - FOOTER_HEIGHT - 2, PANEL);
+        graphics.fill(16, HEADER_BOTTOM, width - 16, height - FOOTER_HEIGHT - 9, PANEL_2);
+        graphics.fill(16, 45, width - 16, 47, ACCENT);
 
         graphics.drawString(font, title, 18, 16, TEXT, false);
         graphics.drawString(font, runtimeSummary(), 18, 31, MUTED, false);
-        graphics.drawString(font, "OBSERVER ONLY • LIVE + BOUNDED", 18, 58, GOOD, false);
-        graphics.drawString(font, view.label, 220, 58, INFO, false);
+        graphics.drawString(font, "OBSERVER ONLY • LIVE + BOUNDED", 18, 31, GOOD, false);
         if (!feedback.isEmpty()) {
-            graphics.drawString(font, feedback, width - font.width(feedback) - 22, 58, GOOD, false);
+            graphics.drawString(font, feedback, width - font.width(feedback) - 22, 31, GOOD, false);
         }
 
+        graphics.enableScissor(16, HEADER_BOTTOM, width - 16, height - FOOTER_HEIGHT - 9);
+        graphics.pose().pushPose();
+        graphics.pose().translate(0, -scrollOffset, 0);
         switch (view) {
             case OVERVIEW -> renderOverview(graphics);
             case FEEDBACK -> renderFeedback(graphics);
@@ -159,13 +178,57 @@ public final class RseDiagnosticsScreen extends Screen {
             case MEGA_FACTORY -> renderMegaFactory(graphics);
             case EXPORT -> renderExport(graphics);
         }
+        graphics.pose().popPose();
+        graphics.disableScissor();
+
+        if (maxScroll() > 0) {
+            String scroll = "SCROLL " + scrollOffset + " / " + maxScroll();
+            graphics.drawString(font, scroll, width - font.width(scroll) - 18, 78, MUTED, false);
+        }
+
         super.render(graphics, mouseX, mouseY, partialTick);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (mouseX >= 16 && mouseX <= width - 16
+                && mouseY >= HEADER_BOTTOM && mouseY <= height - FOOTER_HEIGHT - 9) {
+            scrollOffset = Math.max(0, Math.min(maxScroll(), scrollOffset - (int)Math.round(scrollY * 24.0)));
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+
+    private int virtualContentHeight() {
+        return switch (view) {
+            case OVERVIEW -> Math.max(360, 150 + RseLiveDiagnostics.summary(currentTick()).qualityCounts().size() * 16);
+            case FEEDBACK -> {
+                var run = RseLiveDiagnostics.latestValidationRun();
+                yield run == null ? 260 : Math.max(360, 150 + run.feedbackLines().size() * 24);
+            }
+            case RUN_LOG -> {
+                var run = RseLiveDiagnostics.latestValidationRun();
+                yield run == null ? 260 : Math.max(420, 150 + run.logLines().size() * 26);
+            }
+            case LIVE_EVENTS -> Math.max(420, 120 + filteredLiveEvents().size() * 14);
+            case SYSTEMS -> Math.max(360, 130 + RseLiveDiagnostics.Domain.values().length * 18);
+            case MEGA_FACTORY -> {
+                var mega = RseLiveDiagnostics.latestMegaSnapshot();
+                yield mega == null ? 260 : Math.max(420, 180 + mega.cellSummary().size() * 16);
+            }
+            case EXPORT -> 320;
+        };
+    }
+
+    private int maxScroll() {
+        int visible = Math.max(80, height - HEADER_BOTTOM - FOOTER_HEIGHT - 9);
+        return Math.max(0, virtualContentHeight() - visible);
     }
 
     private void renderOverview(GuiGraphics graphics) {
         long tick = currentTick();
         RseLiveDiagnostics.Summary summary = RseLiveDiagnostics.summary(tick);
-        int y = 78;
+        int y = HEADER_BOTTOM + 14;
         graphics.drawString(font, "Active monitored RSE devices: " + summary.activeDevices(), 24, y, TEXT, false);
         y += 14;
         graphics.drawString(font, "WARN events: " + summary.warnEvents(), 24, y, WARN, false);
@@ -191,7 +254,7 @@ public final class RseDiagnosticsScreen extends Screen {
 
     private void renderFeedback(GuiGraphics graphics) {
         RseLiveDiagnostics.ValidationRunSnapshot run = RseLiveDiagnostics.latestValidationRun();
-        int y = 78;
+        int y = HEADER_BOTTOM + 14;
         if (run == null) {
             graphics.drawString(font, "No integrated demo feedback published yet.", 24, y, MUTED, false);
             graphics.drawString(font, "Run /rsevalidation demo place, then open this red-cross panel.", 24, y + 16, INFO, false);
@@ -228,7 +291,7 @@ public final class RseDiagnosticsScreen extends Screen {
 
     private void renderRunLog(GuiGraphics graphics) {
         RseLiveDiagnostics.ValidationRunSnapshot run = RseLiveDiagnostics.latestValidationRun();
-        int y = 78;
+        int y = HEADER_BOTTOM + 14;
         if (run == null) {
             graphics.drawString(font, "No integrated demo run log published yet.", 24, y, MUTED, false);
             return;
@@ -267,7 +330,7 @@ public final class RseDiagnosticsScreen extends Screen {
         page = Math.min(page, maxPage);
         int endExclusive = Math.max(0, entries.size() - page * rows);
         int start = Math.max(0, endExclusive - rows);
-        int y = 78;
+        int y = HEADER_BOTTOM + 14;
         if (entries.isEmpty()) {
             graphics.drawString(font, "No matching structured RSE events in this session.", 24, y, MUTED, false);
             return;
@@ -284,7 +347,7 @@ public final class RseDiagnosticsScreen extends Screen {
 
     private void renderSystems(GuiGraphics graphics) {
         RseLiveDiagnostics.Summary summary = RseLiveDiagnostics.summary(currentTick());
-        int y = 78;
+        int y = HEADER_BOTTOM + 14;
         graphics.drawString(font, "SUBSYSTEM HEALTH", 24, y, INFO, false);
         y += 16;
         for (RseLiveDiagnostics.Domain domain : RseLiveDiagnostics.Domain.values()) {
@@ -300,7 +363,7 @@ public final class RseDiagnosticsScreen extends Screen {
 
     private void renderMegaFactory(GuiGraphics graphics) {
         RseLiveDiagnostics.MegaSnapshot mega = RseLiveDiagnostics.latestMegaSnapshot();
-        int y = 78;
+        int y = HEADER_BOTTOM + 14;
         if (mega == null) {
             graphics.drawString(font, "No Mega Factory telemetry published yet.", 24, y, MUTED, false);
             graphics.drawString(font, "Run /rsevalidation mega diagnose to publish a live snapshot.", 24, y + 16, INFO, false);
@@ -329,7 +392,7 @@ public final class RseDiagnosticsScreen extends Screen {
     }
 
     private void renderExport(GuiGraphics graphics) {
-        int y = 78;
+        int y = HEADER_BOTTOM + 14;
         graphics.drawString(font, "EXPORT", 24, y, INFO, false);
         y += 16;
         graphics.drawString(font, "Copy Report: copies feedback table + run log + live diagnostics.", 30, y, TEXT, false);
