@@ -8,7 +8,6 @@ import dev.redstoneengineering.ui.menu.DigitalCommunicationMenu;
 import dev.redstoneengineering.ui.menu.FieldDeviceMenu;
 import dev.redstoneengineering.ui.menu.MagneticSystemMenu;
 import dev.redstoneengineering.ui.menu.MediaConversionMenu;
-import dev.redstoneengineering.ui.menu.MultiPhysicsParameterMenu;
 import dev.redstoneengineering.ui.menu.OpticalSystemMenu;
 import dev.redstoneengineering.ui.menu.PneumaticSystemMenu;
 import dev.redstoneengineering.ui.menu.ProcessParameterMenu;
@@ -53,12 +52,6 @@ public final class FieldDeviceUi {
                     data -> data.writeBlockPos(pos));
             return;
         }
-        if (block instanceof QuartzPhaseDelayBlock) {
-            player.openMenu(new SimpleMenuProvider(
-                    (id, inv, ignored) -> new MultiPhysicsParameterMenu(id, inv, pos), title),
-                    data -> data.writeBlockPos(pos));
-            return;
-        }
         if (block instanceof CopperCircuitMeterBlock) {
             player.openMenu(new SimpleMenuProvider((id, inv, ignored) -> new CopperCircuitMeterMenu(id, inv, pos), title), data -> data.writeBlockPos(pos)); return;
         }
@@ -71,7 +64,8 @@ public final class FieldDeviceUi {
         if (block instanceof PrecisionFilterBlock || block instanceof EdgeDetectorBlock || block instanceof PulseShaperBlock) {
             player.openMenu(new SimpleMenuProvider((id, inv, ignored) -> new SignalProcessorMenu(id, inv, pos), title), data -> data.writeBlockPos(pos)); return;
         }
-        if (block instanceof QuartzOscillatorBlock || block instanceof QuartzClockDividerBlock || block instanceof QuartzStabilityMonitorBlock) {
+        if (block instanceof QuartzOscillatorBlock || block instanceof QuartzClockDividerBlock
+                || block instanceof QuartzPhaseDelayBlock || block instanceof QuartzStabilityMonitorBlock) {
             player.openMenu(new SimpleMenuProvider((id, inv, ignored) -> new QuartzTimingMenu(id, inv, pos), title), data -> data.writeBlockPos(pos)); return;
         }
         if (block instanceof RadioTransmitterBlock || block instanceof RadioReceiverBlock) {
