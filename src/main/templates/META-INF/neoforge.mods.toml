@@ -21,7 +21,6 @@ Required platform dependencies:
 - Jade ${jade_version} or newer compatible 15.x release
 - GeckoLib ${geckolib_version} or newer compatible 4.x release
 - Cloth Config ${cloth_config_version} or newer compatible 15.x release
-- Fusion ${fusion_version} or newer compatible 1.x release
 
 Minecraft ${minecraft_version}
 NeoForge ${neo_version} or newer compatible release
@@ -89,13 +88,5 @@ side="BOTH"
 modId="cloth_config"
 type="required"
 versionRange="[${cloth_config_version},16)"
-ordering="AFTER"
-side="CLIENT"
-
-# Required connected-texture/model platform for engineering visual topology.
-[[dependencies.${mod_id}]]
-modId="fusion"
-type="required"
-versionRange="[${fusion_version},2)"
 ordering="AFTER"
 side="CLIENT"
