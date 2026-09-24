@@ -89,13 +89,13 @@ public final class RseDiagnosticsScreen extends Screen {
         viewButtons.clear();
         int bottom = height - 27;
 
-        int tabGap = 5;
+        int tabGap = width < 520 ? 3 : 5;
         int tabCount = View.values().length;
-        int tabWidth = Math.max(72, (width - 36 - tabGap * (tabCount - 1)) / tabCount);
+        int tabWidth = Math.max(38, Math.min(88, (width - 36 - tabGap * (tabCount - 1)) / tabCount));
         int tabX = 18;
         int tabY = 52;
         for (View candidate : View.values()) {
-            Button tab = addRenderableWidget(Button.builder(Component.literal(candidate.label), button -> {
+            Button tab = addRenderableWidget(Button.builder(Component.literal(viewTabLabel(candidate)), button -> {
                         view = candidate;
                         scrollOffset = 0;
                         rebuildWidgets();
@@ -105,26 +105,51 @@ public final class RseDiagnosticsScreen extends Screen {
             viewButtons.add(tab);
             tabX += tabWidth + tabGap;
         }
+
+        int footerGap = width < 520 ? 4 : 6;
+        int footerCount = 6;
+        int footerWidth = Math.max(46, Math.min(78, (width - 24 - footerGap * (footerCount - 1)) / footerCount));
+        int footerX = 12;
+        boolean compactFooter = width < 520;
+
         addRenderableWidget(Button.builder(Component.literal("Back"), button -> onClose())
-                .bounds(12, bottom, 44, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Copy Report"), button -> copyReport())
-                .bounds(62, bottom, 68, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Copy Run"), button -> copyRun())
-                .bounds(136, bottom, 68, 20).build());
+                .bounds(footerX, bottom, footerWidth, 20).build());
+        footerX += footerWidth + footerGap;
+        addRenderableWidget(Button.builder(Component.literal(compactFooter ? "Report" : "Copy Report"), button -> copyReport())
+                .bounds(footerX, bottom, footerWidth, 20).build());
+        footerX += footerWidth + footerGap;
+        addRenderableWidget(Button.builder(Component.literal(compactFooter ? "Run" : "Copy Run"), button -> copyRun())
+                .bounds(footerX, bottom, footerWidth, 20).build());
+        footerX += footerWidth + footerGap;
         addRenderableWidget(Button.builder(Component.literal("Export"), button -> exportLatest())
-                .bounds(210, bottom, 64, 20).build());
+                .bounds(footerX, bottom, footerWidth, 20).build());
+        footerX += footerWidth + footerGap;
         addRenderableWidget(Button.builder(Component.literal("Clear"), button -> {
                     RseDiagnostics.clear();
                     RseLiveDiagnostics.clear();
                     showFeedback("SESSION BUFFERS CLEARED");
                 })
-                .bounds(280, bottom, 44, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Filter: " + filter.label), button -> {
+                .bounds(footerX, bottom, footerWidth, 20).build());
+        footerX += footerWidth + footerGap;
+        addRenderableWidget(Button.builder(Component.literal(compactFooter ? filter.label : "Filter: " + filter.label), button -> {
                     filter = Filter.values()[(filter.ordinal() + 1) % Filter.values().length];
                     rebuildWidgets();
                 })
-                .bounds(330, bottom, 78, 20).build());
+                .bounds(footerX, bottom, footerWidth, 20).build());
 
+    }
+
+    private String viewTabLabel(View candidate) {
+        if (width >= 520) return candidate.label;
+        return switch (candidate) {
+            case OVERVIEW -> "State";
+            case FEEDBACK -> "Feed";
+            case RUN_LOG -> "Run";
+            case LIVE_EVENTS -> "Events";
+            case SYSTEMS -> "Sys";
+            case MEGA_FACTORY -> "Plant";
+            case EXPORT -> "Export";
+        };
     }
 
     @Override
