@@ -23,29 +23,38 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
     private static final int WARN = 0xFFFFB45C;
     private static final int BAD = 0xFFFF7373;
     private static final int ACCENT = 0xFFE25757;
+    private static final int VIEW_MARGIN = 8;
+    private static final int CONTENT_TOP = 70;
+    private static final int CONTENT_BOTTOM_MARGIN = 62;
     private int page;
+    private int scrollOffset;
     private Button newerButton;
     private Button olderButton;
 
     public DiagnosticTabletScreen(DiagnosticTabletMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
-        imageWidth = 316;
-        imageHeight = 222;
+        imageWidth = 520;
+        imageHeight = 300;
     }
 
     @Override
     protected void init() {
+        imageWidth = Math.max(360, width - VIEW_MARGIN * 2);
+        imageHeight = Math.max(240, height - VIEW_MARGIN * 2);
         super.init();
+        scrollOffset = 0;
         addRenderableWidget(Button.builder(Component.literal("Diagnostics"), button ->
                         Minecraft.getInstance().setScreen(new RseDiagnosticsScreen(this)))
                 .bounds(leftPos + 12, topPos + imageHeight - 28, 88, 20).build());
         newerButton = addRenderableWidget(Button.builder(Component.literal("Newer"), button -> {
                     page = Math.max(0, page - 1);
+                    scrollOffset = 0;
                     refreshHistoryButtons();
                 })
                 .bounds(leftPos + imageWidth - 122, topPos + imageHeight - 28, 52, 20).build());
         olderButton = addRenderableWidget(Button.builder(Component.literal("Older"), button -> {
                     page = Math.min(Math.max(0, menu.history().size() - 1), page + 1);
+                    scrollOffset = 0;
                     refreshHistoryButtons();
                 })
                 .bounds(leftPos + imageWidth - 64, topPos + imageHeight - 28, 52, 20).build());
@@ -63,19 +72,31 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
     protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
         graphics.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, BORDER);
         graphics.fill(leftPos + 3, topPos + 3, leftPos + imageWidth - 3, topPos + imageHeight - 3, PANEL);
-        graphics.fill(leftPos + 10, topPos + 42, leftPos + imageWidth - 10, topPos + imageHeight - 36, PANEL_2);
-        graphics.fill(leftPos + 10, topPos + 35, leftPos + imageWidth - 10, topPos + 37, ACCENT);
+        graphics.fill(leftPos + 10, topPos + CONTENT_TOP - 8, leftPos + imageWidth - 10,
+                topPos + imageHeight - CONTENT_BOTTOM_MARGIN, PANEL_2);
+        graphics.fill(leftPos + 10, topPos + 43, leftPos + imageWidth - 10, topPos + 45, ACCENT);
+        graphics.fill(leftPos + 10, topPos + imageHeight - CONTENT_BOTTOM_MARGIN,
+                leftPos + imageWidth - 10, topPos + imageHeight - CONTENT_BOTTOM_MARGIN + 1, BORDER);
     }
 
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
-        graphics.drawString(font, "ENGINEERING DIAGNOSTIC TABLET", 14, 13, TEXT, false);
-        graphics.drawString(font, "OBSERVER ONLY • retained snapshots", 14, 25, GOOD, false);
+        graphics.drawString(font, "ENGINEERING DIAGNOSTIC TABLET", 16, 14, TEXT, false);
+        graphics.drawString(font, "OBSERVER ONLY • retained snapshots", 16, 29, GOOD, false);
         List<String> history = menu.history();
         refreshHistoryButtons();
+
         if (history.isEmpty()) {
-            graphics.drawString(font, "No retained snapshots.", 18, 53, MUTED, false);
-            drawWrapped(graphics, "Right-click an RSE or vanilla block with the tablet to capture and open its current identity and EngineeringPort topology evidence. Right-click air to reopen retained history.", 18, 70, imageWidth - 36, INFO, 11);
+            graphics.enableScissor(leftPos + 12, topPos + CONTENT_TOP - 6,
+                    leftPos + imageWidth - 12, topPos + imageHeight - CONTENT_BOTTOM_MARGIN);
+            graphics.pose().pushPose();
+            graphics.pose().translate(0, -scrollOffset, 0);
+            graphics.drawString(font, "No retained snapshots.", 22, CONTENT_TOP, MUTED, false);
+            drawWrapped(graphics,
+                    "Right-click an RSE or vanilla block with the tablet to capture and open its current identity and EngineeringPort topology evidence. Right-click air to reopen retained history.",
+                    22, CONTENT_TOP + 22, imageWidth - 52, INFO, 12);
+            graphics.pose().popPose();
+            graphics.disableScissor();
             return;
         }
 
@@ -83,14 +104,57 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
         String status = findLine(lines, "STATUS:");
         drawStatusBadge(graphics, status);
 
-        int y = 68;
-        for (int i = 0; i < lines.length && y < imageHeight - 58; i++) {
+        graphics.enableScissor(leftPos + 12, topPos + CONTENT_TOP - 6,
+                leftPos + imageWidth - 12, topPos + imageHeight - CONTENT_BOTTOM_MARGIN);
+        graphics.pose().pushPose();
+        graphics.pose().translate(0, -scrollOffset, 0);
+
+        int y = CONTENT_TOP + 12;
+        for (int i = 0; i < lines.length; i++) {
             if (lines[i].startsWith("STATUS:") || lines[i].startsWith("MODE:")) continue;
-            y = drawWrapped(graphics, lines[i], 18, y, imageWidth - 36, lineColor(lines[i], i), 10);
+            y = drawWrapped(graphics, lines[i], 22, y, imageWidth - 52, lineColor(lines[i], i), 12);
+            y += 2;
         }
+
+        graphics.pose().popPose();
+        graphics.disableScissor();
+
         String footer = "Snapshot " + (page + 1) + " / " + history.size() + " • " + chronologyCue(history);
-        graphics.drawString(font, footer, 108, imageHeight - 48, MUTED, false);
-        graphics.drawString(font, comparisonCue(history), 108, imageHeight - 38, comparisonColor(history), false);
+        graphics.drawString(font, footer, 112, imageHeight - 50, MUTED, false);
+        graphics.drawString(font, comparisonCue(history), 112, imageHeight - 36, comparisonColor(history), false);
+        if (maxScroll(lines) > 0) {
+            String scroll = "SCROLL " + scrollOffset + " / " + maxScroll(lines);
+            graphics.drawString(font, scroll, imageWidth - font.width(scroll) - 18, 50, MUTED, false);
+        }
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        List<String> history = menu.history();
+        if (!history.isEmpty()
+                && mouseX >= leftPos + 12 && mouseX <= leftPos + imageWidth - 12
+                && mouseY >= topPos + CONTENT_TOP - 6
+                && mouseY <= topPos + imageHeight - CONTENT_BOTTOM_MARGIN) {
+            String[] lines = history.get(Math.max(0, Math.min(page, history.size() - 1))).split("\\n");
+            scrollOffset = Math.max(0, Math.min(maxScroll(lines), scrollOffset - (int)Math.round(scrollY * 24.0)));
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+
+    private int virtualContentHeight(String[] lines) {
+        int height = CONTENT_TOP + 12;
+        for (String line : lines) {
+            if (line.startsWith("STATUS:") || line.startsWith("MODE:")) continue;
+            int wrapped = Math.max(1, font.split(Component.literal(line), imageWidth - 52).size());
+            height += wrapped * 12 + 2;
+        }
+        return height + 24;
+    }
+
+    private int maxScroll(String[] lines) {
+        int visible = Math.max(80, imageHeight - CONTENT_TOP - CONTENT_BOTTOM_MARGIN + 6);
+        return Math.max(0, virtualContentHeight(lines) - CONTENT_TOP - visible);
     }
 
     private String chronologyCue(List<String> history) {
