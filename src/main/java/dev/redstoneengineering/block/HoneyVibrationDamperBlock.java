@@ -63,6 +63,14 @@ public class HoneyVibrationDamperBlock extends Block implements EngineeringPortP
                 wave.valid() && wave.amplitude() > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL));
     }
 
+    public static int localEnvelopeQuality(Level level, BlockPos pos) {
+        return InformationRuntime.quality(level, "mech_wave", pos);
+    }
+
+    public static int localEnvelopeAgeTicks(Level level, BlockPos pos) {
+        return InformationRuntime.ageTicks(level, "mech_wave", pos);
+    }
+
     public static int configuredAttenuation(Level level, BlockPos pos) {
         int fallback = 4;
         if (level instanceof ServerLevel serverLevel) {
