@@ -30,6 +30,9 @@ public final class RedstoneEncyclopediaScreen extends AbstractContainerScreen<Re
     private static final int INK = 0xFF2B2118;
     private static final int MUTED = 0xFF6A5842;
     private static final int ACCENT = 0xFF9A2C2C;
+    private static final int VIEW_MARGIN = 8;
+    private static final int CONTENT_TOP = 42;
+    private static final int CONTENT_BOTTOM_MARGIN = 38;
     private final List<Block> blocks;
     private List<Block> filteredBlocks;
     private int page;
@@ -38,11 +41,12 @@ public final class RedstoneEncyclopediaScreen extends AbstractContainerScreen<Re
     private Button nextButton;
     private Button viewButton;
     private EditBox searchBox;
+    private int scrollOffset;
 
     public RedstoneEncyclopediaScreen(RedstoneEncyclopediaMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
-        imageWidth = 316;
-        imageHeight = 236;
+        imageWidth = 520;
+        imageHeight = 300;
         blocks = BuiltInRegistries.BLOCK.stream()
                 .filter(block -> RedstoneEngineering.MOD_ID.equals(BuiltInRegistries.BLOCK.getKey(block).getNamespace()))
                 .sorted(Comparator.comparing(block -> BuiltInRegistries.BLOCK.getKey(block).toString()))
@@ -52,8 +56,12 @@ public final class RedstoneEncyclopediaScreen extends AbstractContainerScreen<Re
 
     @Override
     protected void init() {
+        imageWidth = Math.max(360, width - VIEW_MARGIN * 2);
+        imageHeight = Math.max(240, height - VIEW_MARGIN * 2);
         super.init();
-        searchBox = addRenderableWidget(new EditBox(font, leftPos + 170, topPos + 11, 126, 16,
+        scrollOffset = 0;
+        int searchWidth = Math.max(150, Math.min(320, imageWidth / 3));
+        searchBox = addRenderableWidget(new EditBox(font, leftPos + imageWidth - searchWidth - 20, topPos + 11, searchWidth, 18,
                 Component.literal("Search engineering blocks")));
         searchBox.setHint(Component.literal("Search blocks..."));
         searchBox.setMaxLength(64);
@@ -66,6 +74,7 @@ public final class RedstoneEncyclopediaScreen extends AbstractContainerScreen<Re
         viewButton = addRenderableWidget(Button.builder(Component.literal("Ports / Config"), button -> {
                     if (page == 0) return;
                     configurationView = !configurationView;
+                    scrollOffset = 0;
                     refreshNavigationButtons();
                 })
                 .bounds(leftPos + imageWidth / 2 - 42, topPos + imageHeight - 27, 84, 20).build());
@@ -77,6 +86,7 @@ public final class RedstoneEncyclopediaScreen extends AbstractContainerScreen<Re
         if (needle.isEmpty()) {
             filteredBlocks = blocks;
             page = 0;
+            scrollOffset = 0;
         } else {
             filteredBlocks = blocks.stream()
                     .filter(block -> {
@@ -88,8 +98,10 @@ public final class RedstoneEncyclopediaScreen extends AbstractContainerScreen<Re
                     })
                     .toList();
             page = filteredBlocks.isEmpty() ? 0 : 1;
+            scrollOffset = 0;
         }
         configurationView = false;
+        scrollOffset = 0;
         refreshNavigationButtons();
     }
 
@@ -104,6 +116,7 @@ public final class RedstoneEncyclopediaScreen extends AbstractContainerScreen<Re
     private void changePage(int delta) {
         page = Math.max(minimumPage(), Math.min(filteredBlocks.size(), page + delta));
         configurationView = false;
+        scrollOffset = 0;
         refreshNavigationButtons();
     }
 
@@ -119,41 +132,101 @@ public final class RedstoneEncyclopediaScreen extends AbstractContainerScreen<Re
     protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
         graphics.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, PAPER_DARK);
         graphics.fill(leftPos + 5, topPos + 5, leftPos + imageWidth - 5, topPos + imageHeight - 5, PAPER);
-        graphics.fill(leftPos + imageWidth / 2 - 1, topPos + 8, leftPos + imageWidth / 2 + 1, topPos + imageHeight - 34, 0x33806A45);
+        graphics.fill(leftPos + imageWidth / 2 - 1, topPos + CONTENT_TOP, leftPos + imageWidth / 2 + 1,
+                topPos + imageHeight - CONTENT_BOTTOM_MARGIN, 0x33806A45);
     }
 
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
+        graphics.enableScissor(leftPos + 10, topPos + CONTENT_TOP,
+                leftPos + imageWidth - 10, topPos + imageHeight - CONTENT_BOTTOM_MARGIN);
+        graphics.pose().pushPose();
+        graphics.pose().translate(0, CONTENT_TOP - scrollOffset, 0);
+
         if (page == 0 && searchActive()) renderNoMatches(graphics);
         else if (page == 0) renderIntroduction(graphics);
         else if (configurationView) renderConfigurationPage(graphics, filteredBlocks.get(page - 1));
         else renderGuidePage(graphics, filteredBlocks.get(page - 1));
+
+        graphics.pose().popPose();
+        graphics.disableScissor();
 
         String footer = searchActive()
                 ? filteredBlocks.isEmpty() ? "0 matches / " + blocks.size() + " entries"
                 : "Match " + page + " / " + filteredBlocks.size() + " • " + blocks.size() + " total"
                 : "Entry " + page + " / " + blocks.size();
         graphics.drawString(font, footer, (imageWidth - font.width(footer)) / 2, imageHeight - 25, MUTED, false);
+        if (maxScroll() > 0) {
+            String scroll = "SCROLL " + scrollOffset + " / " + maxScroll();
+            graphics.drawString(font, scroll, imageWidth - font.width(scroll) - 18, imageHeight - 25, MUTED, false);
+        }
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (mouseX >= leftPos + 10 && mouseX <= leftPos + imageWidth - 10
+                && mouseY >= topPos + CONTENT_TOP
+                && mouseY <= topPos + imageHeight - CONTENT_BOTTOM_MARGIN) {
+            scrollOffset = Math.max(0, Math.min(maxScroll(), scrollOffset - (int)Math.round(scrollY * 24.0)));
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+
+    private int contentDocumentHeight() {
+        int width = Math.max(220, imageWidth - 60);
+        if (page == 0) {
+            String a = searchActive()
+                    ? "No registered RSE block matches the current name, registry id, or engineering role. Refine the search or clear it to return to the full live registry."
+                    : "Field manual for every registered Redstone Systems Engineering block. The table of contents is the live RSE block registry, so a newly registered block cannot silently disappear from the manual.";
+            int lines = font.split(Component.literal(a), width).size();
+            return searchActive() ? 100 + lines * 12 : 360;
+        }
+        Block block = filteredBlocks.get(page - 1);
+        String id = BuiltInRegistries.BLOCK.getKey(block).toString();
+        if (!configurationView) {
+            int usageLines = font.split(Component.literal(usage(id)), width).size();
+            int checkLines = font.split(Component.literal(fieldCheck(id)), width).size();
+            return 150 + (usageLines + checkLines) * 12;
+        }
+        int height = 120;
+        if (block instanceof EngineeringPortProvider provider) {
+            for (EngineeringPort port : provider.engineeringPorts(block.defaultBlockState())) {
+                String line = port.side().getName().toUpperCase(Locale.ROOT) + " • "
+                        + port.domain().label() + " • " + port.direction() + " • " + port.label();
+                height += Math.max(1, font.split(Component.literal(line), width).size()) * 11;
+            }
+        }
+        for (Property<?> property : block.defaultBlockState().getProperties()) {
+            height += 24;
+        }
+        height += Math.max(1, font.split(Component.literal(domainNote(id)), width).size()) * 11 + 60;
+        return height;
+    }
+
+    private int maxScroll() {
+        int visible = Math.max(80, imageHeight - CONTENT_TOP - CONTENT_BOTTOM_MARGIN);
+        return Math.max(0, contentDocumentHeight() - visible);
     }
 
     private void renderNoMatches(GuiGraphics graphics) {
         graphics.drawString(font, Component.literal("NO MATCHES"), 18, 40, ACCENT, false);
         drawWrapped(graphics,
                 "No registered RSE block matches the current name, registry id, or engineering role. Refine the search or clear it to return to the full live registry.",
-                18, 60, 278, INK, 10);
+                18, 60, Math.max(220, imageWidth - 60), INK, 10);
     }
 
     private void renderIntroduction(GuiGraphics graphics) {
         graphics.drawString(font, Component.literal("REDSTONE ENCYCLOPEDIA"), 18, 16, ACCENT, false);
         drawWrapped(graphics,
                 "Field manual for every registered Redstone Systems Engineering block. The table of contents is the live RSE block registry, so a newly registered block cannot silently disappear from the manual.",
-                18, 38, 278, INK, 10);
+                18, 38, Math.max(220, imageWidth - 60), INK, 10);
         drawWrapped(graphics,
                 "Each entry has two views: GUIDE explains how to use the device; PORTS / CONFIG documents declared physical I/O and common configurable state. Live measurements and fault decisions remain in the device HMI or Diagnostic Tablet.",
-                18, 91, 278, INK, 10);
+                18, 91, Math.max(220, imageWidth - 60), INK, 10);
         drawWrapped(graphics,
                 "Core rule: connect declared engineering-port faces. A legitimate zero is not missing evidence. Redstone = coarse 0..15 control; Lapis = 0..100 precision information; Copper = power/load.",
-                18, 149, 278, MUTED, 10);
+                18, 149, Math.max(220, imageWidth - 60), MUTED, 10);
     }
 
     private void renderGuidePage(GuiGraphics graphics, Block block) {
@@ -162,11 +235,11 @@ public final class RedstoneEncyclopediaScreen extends AbstractContainerScreen<Re
         graphics.drawString(font, id, 18, 27, MUTED, false);
         graphics.drawString(font, "ROLE • " + role(id), 18, 43, INK, false);
         graphics.drawString(font, "HOW TO USE", 18, 60, ACCENT, false);
-        int y = drawWrapped(graphics, usage(id), 18, 74, 278, INK, 10) + 5;
+        int y = drawWrapped(graphics, usage(id), 18, 74, Math.max(220, imageWidth - 60), INK, 10) + 5;
         if (y < imageHeight - 54) {
             graphics.drawString(font, "FIELD CHECK", 18, y, ACCENT, false);
             y += 13;
-            drawWrapped(graphics, fieldCheck(id), 18, y, 278, MUTED, 9);
+            drawWrapped(graphics, fieldCheck(id), 18, y, Math.max(220, imageWidth - 60), MUTED, 9);
         }
     }
 
@@ -187,7 +260,7 @@ public final class RedstoneEncyclopediaScreen extends AbstractContainerScreen<Re
                 for (EngineeringPort port : ports) {
                     String line = port.side().getName().toUpperCase(Locale.ROOT) + " • "
                             + port.domain().label() + " • " + port.direction() + " • " + port.label();
-                    y = drawWrapped(graphics, line, 18, y, 278, MUTED, 9);
+                    y = drawWrapped(graphics, line, 18, y, Math.max(220, imageWidth - 60), MUTED, 9);
                     if (y > 112) break;
                 }
             }
@@ -211,7 +284,7 @@ public final class RedstoneEncyclopediaScreen extends AbstractContainerScreen<Re
                     String values = property.getPossibleValues().stream().map(Object::toString).limit(6).collect(Collectors.joining("/"));
                     if (property.getPossibleValues().size() > 6) values += "/…";
                     String line = property.getName() + " = " + values + " • " + propertyMeaning(property.getName());
-                    y = drawWrapped(graphics, line, 18, y, 278, INK, 9);
+                    y = drawWrapped(graphics, line, 18, y, Math.max(220, imageWidth - 60), INK, 9);
                     if (y > 174) break;
                 }
             }
@@ -219,7 +292,7 @@ public final class RedstoneEncyclopediaScreen extends AbstractContainerScreen<Re
 
         if (y < imageHeight - 45) {
             y += 2;
-            drawWrapped(graphics, domainNote(id), 18, y, 278, MUTED, 9);
+            drawWrapped(graphics, domainNote(id), 18, y, Math.max(220, imageWidth - 60), MUTED, 9);
         }
     }
 
