@@ -100,7 +100,7 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
 
         if (block instanceof PrecisionFilterBlock) {
             kind.set(KIND_FILTER);
-            parameter.set(state.getValue(PrecisionFilterBlock.RATE));
+            parameter.set(PrecisionFilterBlock.riseRate(level, blockPos, state));
             secondaryParameter.set(PrecisionFilterBlock.fallRate(level, blockPos, state));
             runtimeA.set(PrecisionFilterBlock.lag(level, blockPos, state));
             runtimeB.set(PrecisionFilterBlock.settled(level, blockPos, state) ? 1 : 0);
@@ -117,7 +117,7 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
             initialized.set(EdgeDetectorBlock.initialized(level, blockPos) ? 1 : 0);
         } else if (block instanceof PulseShaperBlock) {
             kind.set(KIND_PULSE);
-            parameter.set(state.getValue(PulseShaperBlock.WIDTH));
+            parameter.set(PulseShaperBlock.configuredWidth(level, blockPos, state));
             secondaryParameter.set(PulseShaperBlock.threshold(level, blockPos));
             tertiaryParameter.set(PulseShaperBlock.hysteresis(level, blockPos));
             modeFlag.set(state.getValue(PulseShaperBlock.RETRIGGERABLE) ? 1 : 0);
