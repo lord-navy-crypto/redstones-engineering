@@ -30,6 +30,11 @@ if not failed:
         "e.outputFrequency()",
         "e.frequencyError()",
         "AmethystTunedResonatorLogic.responseStep(e.qIndex())",
+        "e.couplingIndex()",
+        "e.decayRate()",
+        "BUTTON_COUPLING_PREVIOUS",
+        "BUTTON_DECAY_PREVIOUS",
+        "rotateRigidSeriesAxis",
         "e.ringDown() ? 3",
         "outputQuality",
         "engineeringSnapshot(level, blockPos, state, tunedOutput)",
@@ -48,10 +53,11 @@ if not failed:
         '"Current A"',
         '"Excitations"',
         '"Target / actual A"',
-        '"Output F / step"',
-        '"A[k+1] = max(0, A[k] - 1)"',
-        '"Atarget = clamp(Ain + 2Q, 0..15)"',
-        '"Atarget = clamp(Ain - max(1, ΔfQ), 0..15)"',
+        '"Output F / driven step"',
+        '"Coupling / free decay"',
+        '"A[k+1] = max(0, A[k] - D), D="',
+        '"Atarget = clamp(Ain + Q·C, 0..15)"',
+        '"Atarget = clamp(Ain - max(1, Δf·Q) + (C-2), 0..15)"',
         '"FREE RING-DOWN"',
         "outputQualityName()",
     ):
@@ -84,5 +90,7 @@ print(" source pulse uses real excitation/ring-down model: PASS")
 print(" source runtime amplitude and excitation count are synchronized: PASS")
 print(" tuned target and actual response are distinct: PASS")
 print(" tuned ring-down/output quality are server-backed: PASS")
+print(" tuned coupling and free-decay controls are server-owned: PASS")
+print(" tuned two-port routing stays rigid and opposite: PASS")
 print(" four-way source topology remains truthful: PASS")
 print(" normal filter/tuned dispatch reaches dedicated Amethyst HMI: PASS")
