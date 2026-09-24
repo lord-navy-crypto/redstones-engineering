@@ -13,45 +13,42 @@ import net.minecraft.world.entity.player.Inventory;
 
 /** Pneumatic HMI with server-synchronized section, actuator-path and storage diagnostics. */
 public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSystemMenu> {
-    private Button prev, next, toggle;
+    private Button prev, next, secondaryPrev, secondaryNext, toggle;
 
     public PneumaticSystemScreen(PneumaticSystemMenu menu, Inventory inventory, Component title) { super(menu, inventory, title); }
 
     @Override protected void addDeviceWidgets() {
         int y=topPos+116;
-        prev=addConfigureWidget(Button.builder(Component.literal("◀ Setpoint"),b->sendMenuButton(PneumaticSystemMenu.BUTTON_PARAMETER_PREVIOUS)).bounds(leftPos+16,y,95,20).build());
-        next=addConfigureWidget(Button.builder(Component.literal("Setpoint ▶"),b->sendMenuButton(PneumaticSystemMenu.BUTTON_PARAMETER_NEXT)).bounds(leftPos+209,y,95,20).build());
-        toggle=addConfigureWidget(Button.builder(Component.literal("Toggle valve"),b->sendMenuButton(PneumaticSystemMenu.BUTTON_TOGGLE)).bounds(leftPos+100,y,120,20).build());
+        prev=addConfigureWidget(Button.builder(Component.literal("◀ Parameter"),b->sendMenuButton(PneumaticSystemMenu.BUTTON_PARAMETER_PREVIOUS)).bounds(leftPos+16,y,120,20).build());
+        next=addConfigureWidget(Button.builder(Component.literal("Parameter ▶"),b->sendMenuButton(PneumaticSystemMenu.BUTTON_PARAMETER_NEXT)).bounds(leftPos+184,y,120,20).build());
+        secondaryPrev=addConfigureWidget(Button.builder(Component.literal("◀ Secondary"),b->sendMenuButton(PneumaticSystemMenu.BUTTON_SECONDARY_PREVIOUS)).bounds(leftPos+16,y+26,120,20).build());
+        secondaryNext=addConfigureWidget(Button.builder(Component.literal("Secondary ▶"),b->sendMenuButton(PneumaticSystemMenu.BUTTON_SECONDARY_NEXT)).bounds(leftPos+184,y+26,120,20).build());
+        toggle=addConfigureWidget(Button.builder(Component.literal("Toggle valve"),b->sendMenuButton(PneumaticSystemMenu.BUTTON_TOGGLE)).bounds(leftPos+100,y+52,120,20).build());
     }
 
     @Override protected void syncDeviceWidgetLabels() {
         if(prev==null)return;
-        boolean setpoint=isCompressor()||isProportional()||menu.kind()==PneumaticSystemMenu.KIND_REGULATOR||menu.kind()==PneumaticSystemMenu.KIND_RELIEF||menu.kind()==PneumaticSystemMenu.KIND_RECEIVER;
+        boolean primaryControl=isCompressor()||isProportional()||menu.kind()==PneumaticSystemMenu.KIND_REGULATOR||menu.kind()==PneumaticSystemMenu.KIND_RELIEF||menu.kind()==PneumaticSystemMenu.KIND_RECEIVER;
+        boolean secondaryControl=isCompressor()||menu.kind()==PneumaticSystemMenu.KIND_REGULATOR||menu.kind()==PneumaticSystemMenu.KIND_RELIEF;
         boolean valve=menu.kind()==PneumaticSystemMenu.KIND_VALVE;
-        boolean regulator=menu.kind()==PneumaticSystemMenu.KIND_REGULATOR;
-        prev.visible=next.visible=isConfigureSection()&&setpoint;
-        toggle.visible=isConfigureSection()&&(valve||regulator);
-        if(setpoint){
-            if(isCompressor()){
-                String v=AirCompressorLogic.modeName(menu.stateFlag());
-                prev.setMessage(Component.literal("◀ "+v));
-                next.setMessage(Component.literal(v+" ▶"));
-            }else if(isProportional()){
-                String v=PneumaticProportionalValveLogic.modeName(menu.stateFlag());
-                prev.setMessage(Component.literal("◀ "+v));
-                next.setMessage(Component.literal(v+" ▶"));
-            }else if(menu.kind()==PneumaticSystemMenu.KIND_RECEIVER){
-                String v=menu.tertiary()+"/100 FS";
-                prev.setMessage(Component.literal("◀ "+v));
-                next.setMessage(Component.literal(v+" ▶"));
-            }else{
-                String v=menu.kind()==PneumaticSystemMenu.KIND_REGULATOR?menu.secondary()+"/100":menu.tertiary()+"/100";
-                prev.setMessage(Component.literal("◀ "+v));
-                next.setMessage(Component.literal(v+" ▶"));
-            }
+        prev.visible=next.visible=isConfigureSection()&&primaryControl;
+        secondaryPrev.visible=secondaryNext.visible=isConfigureSection()&&secondaryControl;
+        toggle.visible=isConfigureSection()&&valve;
+        if(isCompressor()){
+            setPairLabel(prev,next,"Ramp up "+menu.engineeringA()+"/t");
+            setPairLabel(secondaryPrev,secondaryNext,"Ramp down "+menu.engineeringB()+"/t");
+        }else if(isProportional()){
+            setPairLabel(prev,next,"Spool "+menu.engineeringA()+"/t");
+        }else if(menu.kind()==PneumaticSystemMenu.KIND_RECEIVER){
+            setPairLabel(prev,next,menu.tertiary()+"/100 FS");
+        }else if(menu.kind()==PneumaticSystemMenu.KIND_REGULATOR){
+            setPairLabel(prev,next,"Setpoint "+menu.engineeringA()+"/100");
+            setPairLabel(secondaryPrev,secondaryNext,"Rate "+menu.engineeringB()+"/t");
+        }else if(menu.kind()==PneumaticSystemMenu.KIND_RELIEF){
+            setPairLabel(prev,next,"Setpoint "+menu.engineeringA()+"/100");
+            setPairLabel(secondaryPrev,secondaryNext,"Blowdown "+menu.engineeringB());
         }
         if(valve)toggle.setMessage(Component.literal(menu.stateFlag()==1?"Close valve":"Open valve"));
-        if(regulator)toggle.setMessage(Component.literal("Response: "+PressureRegulatorLogic.modeName(menu.stateFlag())));
     }
 
     @Override protected void renderSection(GuiGraphics g,Section section){switch(section){case OVERVIEW->overview(g);case PORTS->ports(g);case CONFIGURE->configure(g);case DIAGNOSTICS->diagnostics(g);case HISTORY->history(g);}}
@@ -77,9 +74,9 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
     private void configure(GuiGraphics g){
         if(isCompressor()){
             statusBadge(g,"COMPRESSOR RESPONSE",INFO,16,80);
-            labelValue(g,"Response mode",AirCompressorLogic.modeName(menu.stateFlag()),104);
-            labelValue(g,"Ramp up",AirCompressorLogic.rampUpRate(menu.stateFlag())+" pressure/tick",132);
-            labelValue(g,"Ramp down",AirCompressorLogic.rampDownRate(menu.stateFlag())+" pressure/tick",154);
+            labelValue(g,"Ramp up",menu.engineeringA()+" pressure/tick",104);
+            labelValue(g,"Ramp down",menu.engineeringB()+" pressure/tick",132);
+            labelValue(g,"Legacy preset",AirCompressorLogic.modeName(menu.stateFlag())+" • exact rates override",154);
             labelValue(g,"Target / actual",menu.secondary()+" / "+menu.tertiary(),176);
             safeText(g,"The DOWN redstone command sets a target; the pneumatic source follows it at the configured finite rate.",16,202,MUTED);
             return;
@@ -94,20 +91,29 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
         }
         if(menu.kind()==PneumaticSystemMenu.KIND_REGULATOR){
             statusBadge(g,"REGULATOR RESPONSE",INFO,16,80);
-            labelValue(g,"Setpoint / actual ceiling",menu.secondary()+" / "+menu.tertiary(),104);
+            labelValue(g,"Setpoint / actual ceiling",menu.engineeringA()+" / "+menu.tertiary(),104);
             labelValue(g,"Inlet pressure",menu.primary()+" / 100",132);
             labelValue(g,"Tracking error",Integer.toString(menu.auxiliary()),154);
-            labelValue(g,"Response mode",PressureRegulatorLogic.modeName(menu.stateFlag()),176);
-            safeText(g,"Left/right changes calibrated setpoint in 10-unit steps; the center control cycles diaphragm response rate.",16,202,MUTED);
+            labelValue(g,"Response rate",menu.engineeringB()+" pressure/tick",176);
+            safeText(g,"Setpoint and diaphragm rate are independent exact server parameters; physical I/O remains on Route.",16,202,MUTED);
             return;
         }
         if(isProportional()){
             statusBadge(g,"VALVE SPOOL RESPONSE",INFO,16,80);
-            labelValue(g,"Response mode",PneumaticProportionalValveLogic.modeName(menu.stateFlag()),104);
-            labelValue(g,"Spool rate",PneumaticProportionalValveLogic.responseRate(menu.stateFlag())+" opening/tick",132);
+            labelValue(g,"Spool rate",menu.engineeringA()+" opening/tick",104);
+            labelValue(g,"Legacy preset",PneumaticProportionalValveLogic.modeName(menu.stateFlag())+" • exact rate override",132);
             labelValue(g,"Command / actual opening",menu.proportionalCommand()+" / "+menu.tertiary(),154);
             labelValue(g,"Tracking error",Integer.toString(menu.proportionalTrackingError()),176);
             safeText(g,"UP sets commanded opening; the pneumatic restriction follows actual finite-rate spool position.",16,202,MUTED);
+            return;
+        }
+        if(menu.kind()==PneumaticSystemMenu.KIND_RELIEF){
+            statusBadge(g,"RELIEF PROTECTION PARAMETERS",INFO,16,80);
+            labelValue(g,"Setpoint",menu.engineeringA()+" / 100",104);
+            labelValue(g,"Blowdown",menu.engineeringB()+" pressure units",132);
+            labelValue(g,"Reseat pressure",Math.max(0,menu.engineeringA()-menu.engineeringB())+" / 100",154);
+            labelValue(g,"Physical route",route(),176);
+            safeText(g,"Blowdown is independent of setpoint and prevents rapid relief chatter after an overpressure event.",16,202,MUTED);
             return;
         }
         statusBadge(g,"SERVER-SIDE BOUNDED CONTROL",INFO,16,80);labelValue(g,"Control",controlText(),104);labelValue(g,"Physical route",route(),174);safeText(g,"Physical direction is controlled only on Route.",16,202,MUTED);
@@ -119,7 +125,7 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
             labelValue(g,"Command /15",Integer.toString(menu.primary()),104);
             labelValue(g,"Target / actual",menu.secondary()+" / "+menu.tertiary(),126);
             labelValue(g,"Tracking error",Integer.toString(menu.compressorTrackingError()),148);
-            labelValue(g,"Response mode",AirCompressorLogic.modeName(menu.stateFlag()),170);
+            labelValue(g,"Ramp up / down",menu.engineeringA()+" / "+menu.engineeringB()+" per tick",170);
             labelValue(g,"Starts / run ticks",menu.auxiliary()+" / "+menu.compressorRunTicks(),192);
             safeText(g,compressorDiagnosis(),16,216,compressorColor());
             return;
@@ -154,8 +160,8 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
             labelValue(g,"Inlet pressure",menu.primary()+" / 100",104);
             labelValue(g,"Setpoint / actual ceiling",menu.secondary()+" / "+menu.tertiary(),126);
             labelValue(g,"Tracking error",Integer.toString(menu.auxiliary()),148);
-            labelValue(g,"Response mode",PressureRegulatorLogic.modeName(menu.stateFlag()),170);
-            labelValue(g,"Response rate",PressureRegulatorLogic.responseRate(menu.stateFlag())+" pressure/tick",192);
+            labelValue(g,"Setpoint",menu.engineeringA()+" / 100",170);
+            labelValue(g,"Response rate",menu.engineeringB()+" pressure/tick",192);
             safeText(g,regulatorDiagnosis(),16,216,regulatorColor());return;
         }
         if(isReservoir()){
@@ -208,7 +214,7 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
             labelValue(g,"Travel / reversals",menu.proportionalTravel()+" / "+menu.proportionalReversals(),154);
             labelValue(g,"Current local drop",Integer.toString(Math.max(0,menu.primary()-menu.secondary())),176);
             safeText(g,"Valve history is real spool travel/reversal evidence; restriction uses actual opening, not the command target.",16,202,MUTED);
-        }else if(menu.kind()==PneumaticSystemMenu.KIND_RELIEF){labelValue(g,"Vent events",Integer.toString(menu.auxiliary()),110);safeText(g,"VENTING is an operating event, not missing measurement evidence.",16,150,GOOD);}
+        }else if(menu.kind()==PneumaticSystemMenu.KIND_RELIEF){labelValue(g,"Vent events",Integer.toString(menu.auxiliary()),110);labelValue(g,"Setpoint / blowdown",menu.engineeringA()+" / "+menu.engineeringB(),132);labelValue(g,"Reseat pressure",Integer.toString(Math.max(0,menu.engineeringA()-menu.engineeringB())),154);safeText(g,"VENTING is an operating event, not missing measurement evidence; blowdown defines the retained reset band.",16,180,GOOD);}
         else safeText(g,"Live server state only; no client-side pneumatic history is fabricated.",16,112,MUTED);
     }
 
@@ -285,7 +291,12 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
     private int stateColor(){return menu.inputQuality()==PortQuality.FAULT||menu.outputQuality()==PortQuality.FAULT||(menu.kind()==9&&menu.stateFlag()==1)?WARN:GOOD;}
     private String primaryLabel(){return isCompressor()?"Command":isFlow()?"Flow":isCylinder()?"Pressure":isReservoir()?"Stored":menu.directional()?"Inlet":"Pressure";}private String secondaryLabel(){return isCompressor()?"Target P":isFlow()?"Δ pressure":isCylinder()?"Position":isReservoir()?"Line":menu.directional()?"Outlet":"Aux";}private String thirdLabel(){return isCompressor()?"Actual P":isFlow()?"Inlet P":isCylinder()?"Target":isProportional()?"Opening":"State";}
     private String primaryText(){return menu.primary()+(isCompressor()?" / 15":" / 100");}private String secondaryText(){return menu.secondary()+(isCylinder()?" / 15":" / 100");}private String thirdText(){return menu.tertiary()+(isCylinder()||isProportional()?" / 15":" / 100");}
-    private String controlText(){return switch(menu.kind()){case 0->"RESPONSE "+AirCompressorLogic.modeName(menu.stateFlag());case 3->"SETPOINT "+menu.secondary()+"/100";case 9->"RELIEF "+menu.tertiary()+"/100";case 5->menu.stateFlag()==1?"OPEN":"CLOSED";case 8->"SPOOL "+PneumaticProportionalValveLogic.modeName(menu.stateFlag());default->"NO MANUAL PROCESS PARAMETER";};}
+    private String controlText(){return switch(menu.kind()){case 0->"RAMP "+menu.engineeringA()+"/"+menu.engineeringB();case 3->"SETPOINT "+menu.engineeringA()+"/100 • RATE "+menu.engineeringB();case 9->"RELIEF "+menu.engineeringA()+"/100 • BLOWDOWN "+menu.engineeringB();case 5->menu.stateFlag()==1?"OPEN":"CLOSED";case 8->"SPOOL "+menu.engineeringA()+"/t";default->"NO MANUAL PROCESS PARAMETER";};}
+
+    private void setPairLabel(Button previous,Button next,String value){
+        previous.setMessage(Component.literal(fitForWidth("◀ "+value,104)));
+        next.setMessage(Component.literal(fitForWidth(value+" ▶",104)));
+    }
 
     private String compressorDiagnosis(){
         if(menu.primary()<=0&&menu.tertiary()<=0)return "IDLE • NO PRESSURE COMMAND";
