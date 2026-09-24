@@ -43,8 +43,10 @@ require("src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java"
         "ReliabilitySystemMenu.BUTTON_INPUT_LEFT", "ReliabilitySystemMenu.BUTTON_OUTPUT_RIGHT",
         "FieldDeviceMenu.BUTTON_INPUT_PREVIOUS", "FieldDeviceMenu.BUTTON_OUTPUT_NEXT",
         'DIAGNOSTICS("Observe"', "ROLE • ", "HEALTH • ", "EVIDENCE • ",
-        "ROUTE_CONTROL_Y = 196", "FOOTER_TOP = 245", "fitForWidth", "safeText",
-        "isConfigureSection()", "showsPortVisualization", "CONTENT_RIGHT - VALUE_X",
+        "ROUTE_CONTROL_Y = 236", "HEADER_BOTTOM", "FOOTER_HEIGHT",
+        "scrollOffset", "mouseScrolled", "enableScissor", "virtualContentHeight",
+        "fitForWidth", "safeText", "configureVirtualY",
+        "isConfigureSection()", "showsPortVisualization", "contentRight() - vx",
         '"Parameters, modes and actions"', '"Direct RX / TX direction control"',
         "SignalAnalyzerMenu.BUTTON_ROTATE_LEFT", "SignalAnalyzerMenu.BUTTON_ROTATE_RIGHT",
         "if (menu instanceof SignalAnalyzerMenu) return true;")
@@ -271,7 +273,7 @@ print(" signal probe six-face measurement-axis rotation: PASS")
 print(" cable terminal physical-interface rotation: PASS")
 print(" free-space optical Configure/Route responsibility split: PASS")
 print(" fixed Operations Monitor port contract preserved: PASS")
-print(" full-height page workspace / no duplicate route schematic: PASS")
+print(" viewport-filling scrollable workspace / no duplicate route schematic: PASS")
 print(" narrow-screen I/O Compass fail-safe: PASS")
 print(" shared pixel-clamped long-form text policy: PASS")
 print(" server-authoritative ROLE / HEALTH / EVIDENCE HMI: PASS")
