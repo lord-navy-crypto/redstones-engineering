@@ -4,6 +4,7 @@ import dev.redstoneengineering.block.ServoActuatorBlock;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Inventory;
@@ -22,6 +23,8 @@ public final class ServoActuatorMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_ACCEL_STEP_MINUS = 6;
     public static final int BUTTON_ACCEL_STEP_PLUS = 7;
     public static final int BUTTON_HOME_RESET = 8;
+    public static final int BUTTON_ROTATE_LEFT = 20;
+    public static final int BUTTON_ROTATE_RIGHT = 21;
 
     private final DataSlot preset = trackedInt();
     private final DataSlot maxSpeed = trackedInt();
@@ -45,6 +48,7 @@ public final class ServoActuatorMenu extends EngineeringDeviceMenu {
     private final DataSlot modeQuality = trackedInt();
     private final DataSlot brakeQuality = trackedInt();
     private final DataSlot outputQuality = trackedInt();
+    private final DataSlot facing = trackedInt();
 
     public ServoActuatorMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -83,6 +87,7 @@ public final class ServoActuatorMenu extends EngineeringDeviceMenu {
         modeQuality.set(ServoActuatorBlock.modeQuality(level, blockPos).ordinal());
         brakeQuality.set(ServoActuatorBlock.brakeQuality(level, blockPos, state).ordinal());
         outputQuality.set(ServoActuatorBlock.outputQuality(level, blockPos).ordinal());
+        facing.set(state.getValue(ServoActuatorBlock.FACING).ordinal());
     }
 
     @Override
@@ -92,18 +97,23 @@ public final class ServoActuatorMenu extends EngineeringDeviceMenu {
         BlockState state = level.getBlockState(blockPos);
         if (!(state.getBlock() instanceof ServoActuatorBlock servo)) return false;
 
-        boolean changed = switch (id) {
-            case BUTTON_PRESET_PREVIOUS -> ServoActuatorBlock.loadPreset(serverLevel, blockPos, (preset.get() + 3) % 4);
-            case BUTTON_PRESET_NEXT -> ServoActuatorBlock.loadPreset(serverLevel, blockPos, (preset.get() + 1) % 4);
-            case BUTTON_MAX_SPEED_MINUS -> ServoActuatorBlock.adjustParameter(serverLevel, blockPos, 0, -1);
-            case BUTTON_MAX_SPEED_PLUS -> ServoActuatorBlock.adjustParameter(serverLevel, blockPos, 0, 1);
-            case BUTTON_ACCEL_PERIOD_MINUS -> ServoActuatorBlock.adjustParameter(serverLevel, blockPos, 1, -1);
-            case BUTTON_ACCEL_PERIOD_PLUS -> ServoActuatorBlock.adjustParameter(serverLevel, blockPos, 1, 1);
-            case BUTTON_ACCEL_STEP_MINUS -> ServoActuatorBlock.adjustParameter(serverLevel, blockPos, 2, -1);
-            case BUTTON_ACCEL_STEP_PLUS -> ServoActuatorBlock.adjustParameter(serverLevel, blockPos, 2, 1);
-            case BUTTON_HOME_RESET -> servo.homeAndReset(level, blockPos);
-            default -> false;
-        };
+        boolean changed;
+        if (id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT) {
+            changed = ServoActuatorBlock.rotateLayout(level, blockPos, id == BUTTON_ROTATE_RIGHT);
+        } else {
+            changed = switch (id) {
+                case BUTTON_PRESET_PREVIOUS -> ServoActuatorBlock.loadPreset(serverLevel, blockPos, (preset.get() + 3) % 4);
+                case BUTTON_PRESET_NEXT -> ServoActuatorBlock.loadPreset(serverLevel, blockPos, (preset.get() + 1) % 4);
+                case BUTTON_MAX_SPEED_MINUS -> ServoActuatorBlock.adjustParameter(serverLevel, blockPos, 0, -1);
+                case BUTTON_MAX_SPEED_PLUS -> ServoActuatorBlock.adjustParameter(serverLevel, blockPos, 0, 1);
+                case BUTTON_ACCEL_PERIOD_MINUS -> ServoActuatorBlock.adjustParameter(serverLevel, blockPos, 1, -1);
+                case BUTTON_ACCEL_PERIOD_PLUS -> ServoActuatorBlock.adjustParameter(serverLevel, blockPos, 1, 1);
+                case BUTTON_ACCEL_STEP_MINUS -> ServoActuatorBlock.adjustParameter(serverLevel, blockPos, 2, -1);
+                case BUTTON_ACCEL_STEP_PLUS -> ServoActuatorBlock.adjustParameter(serverLevel, blockPos, 2, 1);
+                case BUTTON_HOME_RESET -> servo.homeAndReset(level, blockPos);
+                default -> false;
+            };
+        }
 
         if (changed) {
             refreshAuthoritativeSnapshot();
@@ -135,6 +145,16 @@ public final class ServoActuatorMenu extends EngineeringDeviceMenu {
     public PortQuality modeQuality() { return decodeQuality(modeQuality.get()); }
     public PortQuality brakeQuality() { return decodeQuality(brakeQuality.get()); }
     public PortQuality outputQuality() { return decodeQuality(outputQuality.get()); }
+    public Direction frontDirection() { return decodeDirection(facing.get(), Direction.NORTH); }
+    public Direction commandDirection() { return frontDirection().getOpposite(); }
+    public Direction brakeDirection() { return ServoActuatorBlock.rightOf(frontDirection()); }
+    public Direction modeDirection() { return Direction.UP; }
+    public Direction positionOutputDirection() { return frontDirection(); }
+
+    private static Direction decodeDirection(int ordinal, Direction fallback) {
+        Direction[] values = Direction.values();
+        return ordinal >= 0 && ordinal < values.length ? values[ordinal] : fallback;
+    }
 
     private static PortQuality decodeQuality(int ordinal) {
         PortQuality[] values = PortQuality.values();
