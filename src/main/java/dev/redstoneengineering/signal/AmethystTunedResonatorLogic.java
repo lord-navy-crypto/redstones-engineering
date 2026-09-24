@@ -22,13 +22,14 @@ public final class AmethystTunedResonatorLogic {
             int driveFrequency,
             int naturalFrequency,
             int qIndex,
+            int decayRate,
             boolean driven,
             State previous
     ) {
         State prior = previous == null ? new State(0, 0, false) : previous;
         int q = clamp(qIndex, 1, 4);
         int target = driven ? clamp(targetAmplitude, 0, 15) : 0;
-        int responseStep = Math.max(1, 5 - q);
+        int responseStep = driven ? responseStep(q) : freeDecayStep(decayRate);
 
         int amplitude = approach(prior.amplitude(), target, responseStep);
         int frequency;
@@ -50,6 +51,14 @@ public final class AmethystTunedResonatorLogic {
 
     public static int responseStep(int qIndex) {
         return Math.max(1, 5 - clamp(qIndex, 1, 4));
+    }
+
+    /**
+     * Free ring-down is intentionally independent from Q so the player can study bandwidth
+     * and stored-energy release as separate model variables.
+     */
+    public static int freeDecayStep(int decayRate) {
+        return clamp(decayRate, 1, 4);
     }
 
     private static int approach(int value, int target, int step) {
