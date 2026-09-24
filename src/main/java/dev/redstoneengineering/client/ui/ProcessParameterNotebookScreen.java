@@ -63,6 +63,7 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
                  ProcessParameterMenu.KIND_PWM,
                  ProcessParameterMenu.KIND_COPPER_DRIVER,
                  ProcessParameterMenu.KIND_CAPACITOR,
+                 ProcessParameterMenu.KIND_FUSE,
                  ProcessParameterMenu.KIND_COMPRESSOR -> 2;
             case ProcessParameterMenu.KIND_EXCITER -> 4;
             default -> 1;
@@ -123,7 +124,7 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             case ProcessParameterMenu.KIND_PWM -> new String[]{"Carrier period","Invert"};
             case ProcessParameterMenu.KIND_COPPER_DRIVER -> new String[]{"Rise slew limit","Fall slew limit"};
             case ProcessParameterMenu.KIND_CAPACITOR -> new String[]{"Base time constant","Open-circuit leakage factor"};
-            case ProcessParameterMenu.KIND_FUSE -> new String[]{"Current rating"};
+            case ProcessParameterMenu.KIND_FUSE -> new String[]{"Current rating","Time-current class"};
             case ProcessParameterMenu.KIND_COMPRESSOR -> new String[]{"Ramp-up rate","Ramp-down rate"};
             case ProcessParameterMenu.KIND_DAMPER -> new String[]{"Amplitude attenuation"};
             case ProcessParameterMenu.KIND_EXCITER -> new String[]{"Target frequency","Amplitude rise","Amplitude fall","Frequency slew"};
@@ -139,7 +140,7 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             case ProcessParameterMenu.KIND_PWM -> slot==0?v+" ticks":(v!=0?"INVERTED":"NORMAL");
             case ProcessParameterMenu.KIND_COPPER_DRIVER -> v+" V-level/tick";
             case ProcessParameterMenu.KIND_CAPACITOR -> slot==0?v+" ticks":"×"+v;
-            case ProcessParameterMenu.KIND_FUSE -> v+" current units";
+            case ProcessParameterMenu.KIND_FUSE -> slot==0?v+" current units":fuseClass(v);
             case ProcessParameterMenu.KIND_COMPRESSOR -> v+" pressure/tick";
             case ProcessParameterMenu.KIND_DAMPER -> v+" amplitude/step";
             case ProcessParameterMenu.KIND_EXCITER -> slot==0?v+"/15":v+" units/tick";
@@ -155,7 +156,7 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             case ProcessParameterMenu.KIND_PWM -> new String[]{"Command","Applied command","Effective duty","Completed cycles"};
             case ProcessParameterMenu.KIND_COPPER_DRIVER -> new String[]{"Target voltage","Actual voltage","Input quality","Tracking error"};
             case ProcessParameterMenu.KIND_CAPACITOR -> new String[]{"Stored charge","Output voltage","Effective tau","Observed load R","Load scan truncated"};
-            case ProcessParameterMenu.KIND_FUSE -> new String[]{"Thermal exposure","Trip progress","Trip state","Last current ×100"};
+            case ProcessParameterMenu.KIND_FUSE -> new String[]{"Thermal exposure","Trip progress","Trip state","Last current ×100","Current / rating"};
             case ProcessParameterMenu.KIND_COMPRESSOR -> new String[]{"Target pressure","Actual pressure","Tracking error","Start count"};
             case ProcessParameterMenu.KIND_DAMPER -> new String[]{"Wave amplitude","Wave frequency","Valid wave"};
             case ProcessParameterMenu.KIND_EXCITER -> new String[]{"Target amplitude","Actual amplitude","Actual frequency","Start count"};
@@ -178,6 +179,7 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
         if(menu.kind()==ProcessParameterMenu.KIND_FUSE){
             if(i==1) return String.format("%.1f%%",v/10.0);
             if(i==2) return v!=0?"TRIPPED":"ARMED";
+            if(i==4) return String.format("%.2f × Irated",v/1000.0);
         }
         if(menu.kind()==ProcessParameterMenu.KIND_DAMPER&&i==2) return v!=0?"YES":"NO";
         return Integer.toString(v);
@@ -189,7 +191,7 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             case ProcessParameterMenu.KIND_PWM -> "Duty request comes from command 0..15; carrier period controls time quantization.";
             case ProcessParameterMenu.KIND_COPPER_DRIVER -> "V[k+1] = V[k] + clamp(Vtarget − V[k], −Sfall, +Srise).";
             case ProcessParameterMenu.KIND_CAPACITOR -> "q*[k] = 100·Vin/15; q[k+1] moves toward q* by max(1, |q*−q|/τ).";
-            case ProcessParameterMenu.KIND_FUSE -> "I²t-style thermal exposure accumulates from verified current and trips the protected output.";
+            case ProcessParameterMenu.KIND_FUSE -> "r = I/Irated; for r>1, ΔH ∝ (r²−1)·Kclass; trip when H ≥ 1000.";
             case ProcessParameterMenu.KIND_COMPRESSOR -> "Pressure target derives from Redstone command; actual pressure follows asymmetric ramp rates.";
             case ProcessParameterMenu.KIND_DAMPER -> "Each decay step removes configured amplitude while preserving carrier frequency evidence.";
             case ProcessParameterMenu.KIND_EXCITER -> "Redstone controls target amplitude; frequency and amplitude approach their targets with finite dynamics.";
@@ -206,6 +208,7 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             case ProcessParameterMenu.KIND_FUSE -> "Changing rating does not erase thermal exposure; reset remains fail-safe and evidence-gated.";
             case ProcessParameterMenu.KIND_COPPER_DRIVER -> "Rise and fall slew are independent, so energizing and de-energizing can have different dynamics.";
             case ProcessParameterMenu.KIND_CAPACITOR -> "τcharge = τbase; τdischarge = f(τbase,Rload); open circuit uses τbase × leakageFactor.";
+            case ProcessParameterMenu.KIND_FUSE -> "FAST/NORMAL/SLOW change overload heating rate; changing the class does not erase retained thermal exposure.";
             case ProcessParameterMenu.KIND_EXCITER -> "Amplitude rise/fall and frequency slew are independent configuration variables.";
             default -> "The parameter changes the authoritative server model, not a client-only display.";
         };
@@ -216,6 +219,9 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
     private void pair(GuiGraphics g,String label,String value,int y){ g.drawString(font,label,42,y,MUTED,false); g.drawString(font,fit(value,230),245,y,INK,false); }
     private String fit(String s,int width){ if(font.width(s)<=width)return s; String x=s; while(x.length()>1&&font.width(x+"…")>width)x=x.substring(0,x.length()-1); return x+"…"; }
     private static String conditionerMode(int m){ return switch(m){case 0->"SCALE";case 1->"OFFSET";case 2->"CLAMP";case 3->"THRESHOLD";case 4->"DEADBAND";case 5->"ATTENUATE";default->"UNKNOWN";}; }
+    private static String fuseClass(int value){
+        return switch(value){case 0->"FAST";case 2->"SLOW";default->"NORMAL";};
+    }
     private static String qualityName(int ordinal){
         PortQuality[] values=PortQuality.values();
         return ordinal>=0&&ordinal<values.length?values[ordinal].name():"UNKNOWN";
