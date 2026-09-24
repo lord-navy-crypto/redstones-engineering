@@ -53,9 +53,10 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
 
     private int parameterCount(){
         return switch(menu.kind()){
-            case AdvancedParameterMenu.KIND_PULSE_SHAPER, AdvancedParameterMenu.KIND_LAPIS_NOISE -> 3;
+            case AdvancedParameterMenu.KIND_PULSE_SHAPER, AdvancedParameterMenu.KIND_LAPIS_NOISE,
+                 AdvancedParameterMenu.KIND_ELECTROMAGNET -> 3;
             case AdvancedParameterMenu.KIND_PRECISION_FILTER, AdvancedParameterMenu.KIND_EDGE_DETECTOR,
-                 AdvancedParameterMenu.KIND_ELECTROMAGNET, AdvancedParameterMenu.KIND_OPTICAL_EMITTER -> 2;
+                 AdvancedParameterMenu.KIND_OPTICAL_EMITTER -> 2;
             default -> 1;
         };
     }
@@ -107,7 +108,7 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
             case AdvancedParameterMenu.KIND_PULSE_SHAPER -> new String[]{"Pulse width","Trigger threshold","Hysteresis"};
             case AdvancedParameterMenu.KIND_EDGE_DETECTOR -> new String[]{"Edge mode","Pulse width"};
             case AdvancedParameterMenu.KIND_SIGNAL_AMPLIFIER -> new String[]{"Gain"};
-            case AdvancedParameterMenu.KIND_ELECTROMAGNET -> new String[]{"Field rise rate","Field fall rate"};
+            case AdvancedParameterMenu.KIND_ELECTROMAGNET -> new String[]{"Field rise rate","Field fall rate","Cooling rate"};
             case AdvancedParameterMenu.KIND_INDUCTION_COIL -> new String[]{"Coil turns"};
             case AdvancedParameterMenu.KIND_RELIEF_VALVE -> new String[]{"Relief setpoint"};
             case AdvancedParameterMenu.KIND_LAPIS_NOISE -> new String[]{"Baseline","Noise amplitude","Sample period"};
@@ -123,7 +124,7 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
             case AdvancedParameterMenu.KIND_PULSE_SHAPER -> slot==0?v+" ticks":v+"/15";
             case AdvancedParameterMenu.KIND_EDGE_DETECTOR -> slot==0?(v==0?"RISING":v==1?"FALLING":"BOTH"):v+" ticks";
             case AdvancedParameterMenu.KIND_SIGNAL_AMPLIFIER -> "×"+v;
-            case AdvancedParameterMenu.KIND_ELECTROMAGNET -> v+" field/tick";
+            case AdvancedParameterMenu.KIND_ELECTROMAGNET -> slot<2?v+" field/tick":v+" thermal/tick";
             case AdvancedParameterMenu.KIND_INDUCTION_COIL -> Integer.toString(v);
             case AdvancedParameterMenu.KIND_RELIEF_VALVE -> v+"/100";
             case AdvancedParameterMenu.KIND_LAPIS_NOISE -> slot==0?v+"/100":slot==1?"±"+v+"/100":v+" ticks";
@@ -163,7 +164,7 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
             case AdvancedParameterMenu.KIND_PULSE_SHAPER -> "Accepted threshold crossing starts a monostable pulse of configured width.";
             case AdvancedParameterMenu.KIND_EDGE_DETECTOR -> "Selected level transition emits a bounded pulse instead of forwarding a steady level.";
             case AdvancedParameterMenu.KIND_SIGNAL_AMPLIFIER -> "raw = input × gain; output = min(15, raw).";
-            case AdvancedParameterMenu.KIND_ELECTROMAGNET -> "Field approaches thermally-derated target using independent rise/fall rates.";
+            case AdvancedParameterMenu.KIND_ELECTROMAGNET -> "B[k+1] approaches Btarget with independent rise/fall slew; Btarget is thermally derated.";
             case AdvancedParameterMenu.KIND_INDUCTION_COIL -> "|emf| ∝ N × |ΔΦ/Δt|, then clamps to Copper 0..15.";
             case AdvancedParameterMenu.KIND_RELIEF_VALVE -> "Valve vents above setpoint and reseats below setpoint − blowdown.";
             case AdvancedParameterMenu.KIND_LAPIS_NOISE -> "sample = baseline + deterministic bounded noise.";
@@ -176,7 +177,7 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
     private String model2(){
         return switch(menu.kind()){
             case AdvancedParameterMenu.KIND_PULSE_SHAPER -> "Rearm threshold = trigger threshold − hysteresis.";
-            case AdvancedParameterMenu.KIND_ELECTROMAGNET -> "Thermal load and protection caps remain internal solver state and cannot be edited here.";
+            case AdvancedParameterMenu.KIND_ELECTROMAGNET -> "H[k+1] = clamp(H + heating(V) − cooling, 0,1000); cooling is an operator design parameter.";
             case AdvancedParameterMenu.KIND_RELIEF_VALVE -> "Blowdown remains a safety-model constant; only the operator setpoint is configurable.";
             case AdvancedParameterMenu.KIND_LAPIS_NOISE -> "Baseline, amplitude and sampling cadence are independent experiment variables.";
             default -> "Configuration affects the authoritative device solver, not a client-only visualization.";
