@@ -299,8 +299,8 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
             case AdvancedParameterMenu.KIND_ELECTROMAGNET -> "B[k+1] approaches Btarget with independent rise/fall slew; Btarget is thermally derated.";
             case AdvancedParameterMenu.KIND_INDUCTION_COIL -> "|emf| ∝ N × |ΔΦ/Δt|, then clamps to Copper 0..15.";
             case AdvancedParameterMenu.KIND_RELIEF_VALVE -> "Open if P>Pset; while venting, stay open until P≤Pset−ΔPblowdown.";
-            case AdvancedParameterMenu.KIND_LAPIS_NOISE -> "sample = baseline + deterministic bounded noise.";
-            case AdvancedParameterMenu.KIND_LAPIS_RANGE -> "Normalized output derives from measured distance / configured maximum range.";
+            case AdvancedParameterMenu.KIND_LAPIS_NOISE -> "delta = deterministic mix(gameTime XOR blockPos seed) mapped into [−A,+A]; sample = clamp(baseline + delta, 0,100).";
+            case AdvancedParameterMenu.KIND_LAPIS_RANGE -> "Scan i=1..R along the physical sensing aperture; first non-air/fluid cell is distance d. Output = round(clamp(d,0,R) × 100 / R).";
             case AdvancedParameterMenu.KIND_OPTICAL_EMITTER -> "Emitter launches selected intensity on one discrete optical channel.";
             default -> "";
         };
@@ -312,8 +312,8 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
             case AdvancedParameterMenu.KIND_ELECTROMAGNET -> "H[k+1] = clamp(H + heating(V) − cooling, 0,1000); cooling is an operator design parameter.";
             case AdvancedParameterMenu.KIND_RELIEF_VALVE -> "Setpoint and blowdown are independent safety parameters; blowdown prevents rapid open/close chatter.";
             case AdvancedParameterMenu.KIND_SIGNAL_AMPLIFIER -> "Clipping is explicit SATURATED output quality; it does not rewrite a valid input into missing evidence.";
-            case AdvancedParameterMenu.KIND_LAPIS_NOISE -> "Baseline, amplitude and sampling cadence are independent experiment variables. A generated sample of 0 remains VALID evidence.";
-            case AdvancedParameterMenu.KIND_LAPIS_RANGE -> "Complete clear coverage with no target is NO_SIGNAL; incomplete coverage is STALE. Those states are not interchangeable with a numeric zero.";
+            case AdvancedParameterMenu.KIND_LAPIS_NOISE -> "Baseline, amplitude and cadence are independent experiment variables. The server writes one deterministic sample per configured 1..64-tick period; a generated sample of 0 remains VALID evidence.";
+            case AdvancedParameterMenu.KIND_LAPIS_RANGE -> "If any scanned cell lies in an unavailable chunk, coverage stops and quality is STALE. Complete clear coverage with no target is NO_SIGNAL; only a found target is VALID.";
             default -> "Configuration affects the authoritative device solver, not a client-only visualization.";
         };
     }
