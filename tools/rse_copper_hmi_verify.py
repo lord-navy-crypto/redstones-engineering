@@ -23,6 +23,7 @@ def forbid(body: str, needle: str, label: str) -> None:
 block = text("src/main/java/dev/redstoneengineering/block/CopperCircuitMeterBlock.java")
 menu = text("src/main/java/dev/redstoneengineering/ui/menu/CopperCircuitMeterMenu.java")
 screen = text("src/main/java/dev/redstoneengineering/client/ui/CopperCircuitMeterScreen.java")
+shared_screen = text("src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java")
 assessment = text("src/main/java/dev/redstoneengineering/core/diagnostic/CopperCommissioningAssessment.java")
 evidence_assessment = text("src/main/java/dev/redstoneengineering/diagnostics/CopperEvidenceAssessment.java")
 operations_menu = text("src/main/java/dev/redstoneengineering/ui/menu/OperationsMonitorMenu.java")
@@ -80,6 +81,11 @@ forbid(screen, "import dev.redstoneengineering.physics.CircuitPhysics", "client 
 forbid(screen, "CircuitPhysics.", "client must not invoke circuit solver")
 forbid(screen, "import dev.redstoneengineering.physics.DomainNetwork", "client must not import network solver")
 forbid(screen, "DomainNetwork.", "client must not sample network physics")
+require(shared_screen, "menu instanceof CopperCircuitMeterMenu", "Copper meter shared Route registration")
+require(shared_screen, "CopperCircuitMeterMenu.BUTTON_FACE_NEXT", "Copper meter Route next-face action")
+require(shared_screen, "CopperCircuitMeterMenu.BUTTON_FACE_PREVIOUS", "Copper meter Route previous-face action")
+require(screen, "Physical measurement-face routing is controlled only on Route.", "Copper topology ownership")
+forbid(screen, "addConfigureWidget(Button.builder", "Copper physical routing must not be duplicated on Configure")
 
 for token in (
     "COMMISSIONING_EVENT_INITIALIZED",
@@ -148,6 +154,7 @@ print("  server-authoritative V/Req/I/P evidence: PASS")
 print("  dedicated power/load identity: PASS")
 print("  commissioning synchronization: PASS")
 print("  retained server metrology synchronization/presentation: PASS")
+print("  physical measurement face owned by shared Route page: PASS")
 print("  transition-only plant timeline integration: PASS")
 print("  protection reliability / evidence readiness separation: PASS")
 print("  client physics isolation: PASS")
