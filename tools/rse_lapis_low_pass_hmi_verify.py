@@ -34,8 +34,9 @@ for token in (
     "BUTTON_INPUT_NEXT",
     "BUTTON_OUTPUT_PREVIOUS",
     "BUTTON_OUTPUT_NEXT",
-    "DirectionalDomainBlock.rotateSeriesInput",
-    "DirectionalDomainBlock.rotateSeriesOutput",
+    "BUTTON_ROTATE_LEFT",
+    "BUTTON_ROTATE_RIGHT",
+    "DirectionalDomainBlock.rotateRigidSeriesAxis",
     "inputFacing.set(DirectionalDomainBlock.seriesInputSide(state).ordinal())",
     "outputFacing.set(DirectionalDomainBlock.seriesOutputSide(state).ordinal())",
     "public Direction inputDirection()",
@@ -55,8 +56,10 @@ for token in (
     "private void renderRouting",
     '"RX • LAPIS FILTER IN"',
     '"TX • LAPIS FILTER OUT"',
-    "The block routing model rejects endpoint overlap",
-    "Moving TX releases the old domain-driver claim",
+    'Component.literal("Rotate block ◀")',
+    'Component.literal("Rotate block ▶")',
+    "RX and TX form one rigid straight-through axis",
+    "releases the old domain-driver claim",
     "previous Lapis segment cannot retain a ghost filter output",
     "α, retained y[k], input/output PortQuality and response evidence remain server-owned filter state",
     "y[k+1] = y[k] + α · (x[k] − y[k])",
@@ -64,6 +67,13 @@ for token in (
 ):
     if token not in screen:
         errors.append(f"LapisLowPassFilterScreen missing notebook/routing token: {token}")
+
+for stale in (
+    "DirectionalDomainBlock.rotateSeriesInput(level, blockPos",
+    "DirectionalDomainBlock.rotateSeriesOutput(level, blockPos",
+):
+    if stale in menu:
+        errors.append(f"LapisLowPassFilterMenu reintroduced independent endpoint routing: {stale}")
 
 for token in (
     "DomainDriverRegistry.releaseAll(serverLevel, pos)",
@@ -81,7 +91,7 @@ if errors:
 
 print("RSE Lapis Low-Pass HMI verification: PASS")
 print(" viewport-filling five-tab notebook: PASS")
-print(" independent server-authoritative Lapis RX/TX routing: PASS")
+print(" rigid opposite-port server-authoritative Lapis routing: PASS")
 print(" old TX driver claims are released before republish: PASS")
 print(" endpoint overlap remains rejected by shared routing authority: PASS")
 print(" valid zero remains distinct from missing input evidence: PASS")
