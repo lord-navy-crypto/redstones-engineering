@@ -4,6 +4,7 @@ import dev.redstoneengineering.block.DirectionalSignalBlock;
 import dev.redstoneengineering.block.HoneyVibrationDamperBlock;
 import dev.redstoneengineering.block.MechanicalVibrationReceiverBlock;
 import dev.redstoneengineering.block.SlimeVibrationConduitBlock;
+import dev.redstoneengineering.signal.HoneyVibrationDamperLogic;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -90,9 +91,11 @@ public final class VibrationNetwork {
                 quality = 100;
                 ttl = SlimeVibrationConduitBlock.PACKET_TTL_TICKS;
             } else {
-                loss = 4;
-                quality = 80;
-                ttl = HoneyVibrationDamperBlock.PACKET_TTL_TICKS;
+                // The same server-owned damper parameter governs both through-path loss and the
+                // damper's retained local envelope decay. No fixed hidden loss remains here.
+                loss = HoneyVibrationDamperBlock.configuredAttenuation(level, node.pos);
+                quality = HoneyVibrationDamperLogic.INITIAL_ENVELOPE_QUALITY;
+                ttl = HoneyVibrationDamperLogic.PACKET_TTL_TICKS;
             }
             pending.put(node.pos.immutable(), new Pending(node.amplitude, quality, ttl));
 

@@ -43,10 +43,23 @@ require(
     "expectedInput",
 )
 require(
+    "src/main/java/dev/redstoneengineering/signal/HoneyVibrationDamperLogic.java",
+    "MIN_ATTENUATION = 1",
+    "MAX_ATTENUATION = 15",
+    "DEFAULT_ATTENUATION = 4",
+    "PACKET_TTL_TICKS = 4",
+    "INITIAL_ENVELOPE_QUALITY = 80",
+    "QUALITY_DECAY_PER_STEP = 20",
+    "attenuatedAmplitude",
+    "degradedQuality",
+)
+
+require(
     "src/main/java/dev/redstoneengineering/physics/VibrationNetwork.java",
     "HoneyVibrationDamperBlock",
-    "loss = 4;",
-    "HoneyVibrationDamperBlock.PACKET_TTL_TICKS",
+    "HoneyVibrationDamperBlock.configuredAttenuation(level, node.pos)",
+    "HoneyVibrationDamperLogic.INITIAL_ENVELOPE_QUALITY",
+    "HoneyVibrationDamperLogic.PACKET_TTL_TICKS",
 )
 
 contracts = {

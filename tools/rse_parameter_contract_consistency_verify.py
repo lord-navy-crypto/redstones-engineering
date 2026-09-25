@@ -351,6 +351,41 @@ require(
 )
 
 require(
+    "src/main/java/dev/redstoneengineering/signal/HoneyVibrationDamperLogic.java",
+    "MIN_ATTENUATION = 1",
+    "MAX_ATTENUATION = 15",
+    "DEFAULT_ATTENUATION = 4",
+    "PACKET_TTL_TICKS = 4",
+    "INITIAL_ENVELOPE_QUALITY = 80",
+    "QUALITY_DECAY_PER_STEP = 20",
+    "boundedAttenuation",
+    "attenuatedAmplitude",
+    "degradedQuality",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/HoneyVibrationDamperBlock.java",
+    "HoneyVibrationDamperLogic.DEFAULT_ATTENUATION",
+    "HoneyVibrationDamperLogic.boundedAttenuation",
+    "HoneyVibrationDamperLogic.attenuatedAmplitude",
+    "HoneyVibrationDamperLogic.degradedQuality",
+)
+require(
+    "src/main/java/dev/redstoneengineering/physics/VibrationNetwork.java",
+    "HoneyVibrationDamperBlock.configuredAttenuation(level, node.pos)",
+    "HoneyVibrationDamperLogic.INITIAL_ENVELOPE_QUALITY",
+    "HoneyVibrationDamperLogic.PACKET_TTL_TICKS",
+)
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/ProcessParameterNotebookScreen.java",
+    "HoneyVibrationDamperLogic.MIN_ATTENUATION",
+    "HoneyVibrationDamperLogic.MAX_ATTENUATION",
+    "HoneyVibrationDamperLogic.INITIAL_ENVELOPE_QUALITY",
+    "HoneyVibrationDamperLogic.QUALITY_DECAY_PER_STEP",
+    "HoneyVibrationDamperLogic.PACKET_TTL_TICKS",
+    "same server-owned D",
+)
+
+require(
     "src/main/java/dev/redstoneengineering/signal/MechanicalExciterLogic.java",
     "MIN_AMPLITUDE = 0",
     "MAX_AMPLITUDE = 15",
@@ -760,6 +795,7 @@ print(" Signal Conditioner pure transfer/range authority: PASS")
 print(" Optical attenuator/filter exact transfer + rigid-route authority: PASS")
 print(" Redstone-Copper exact slew/legacy preset dynamics authority: PASS")
 print(" PWM exact-period/legacy-preset carrier authority: PASS")
+print(" Honey Vibration Damper configurable through-loss/local-decay authority: PASS")
 print(" Mechanical Exciter frequency/rate stored-effective authority: PASS")
 print(" Permanent Magnet single scalar-strength parameter authority: PASS")
 print(" Induction Coil exact/legacy turns + sampled EMF authority: PASS")

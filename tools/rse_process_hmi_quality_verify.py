@@ -13,10 +13,12 @@ conditioner_path = root / "src/main/java/dev/redstoneengineering/block/SignalCon
 pwm_path = root / "src/main/java/dev/redstoneengineering/block/PwmControllerBlock.java"
 pwm_logic_path = root / "src/main/java/dev/redstoneengineering/signal/PwmCarrierLogic.java"
 damper_path = root / "src/main/java/dev/redstoneengineering/block/HoneyVibrationDamperBlock.java"
+damper_logic_path = root / "src/main/java/dev/redstoneengineering/signal/HoneyVibrationDamperLogic.java"
+vibration_network_path = root / "src/main/java/dev/redstoneengineering/physics/VibrationNetwork.java"
 driver_path = root / "src/main/java/dev/redstoneengineering/block/RedstoneCopperDriverBlock.java"
 driver_logic_path = root / "src/main/java/dev/redstoneengineering/signal/RedstoneCopperDriverLogic.java"
 
-for path in (menu_path, screen_path, conditioner_path, pwm_path, pwm_logic_path, damper_path, driver_path, driver_logic_path):
+for path in (menu_path, screen_path, conditioner_path, pwm_path, pwm_logic_path, damper_path, damper_logic_path, vibration_network_path, driver_path, driver_logic_path):
     if not path.is_file():
         failed.append(f"missing process quality contract file: {path.relative_to(root)}")
 
@@ -27,6 +29,8 @@ if not failed:
     pwm = pwm_path.read_text(errors="ignore")
     pwm_logic = pwm_logic_path.read_text(errors="ignore")
     damper = damper_path.read_text(errors="ignore")
+    damper_logic = damper_logic_path.read_text(errors="ignore")
+    vibration_network = vibration_network_path.read_text(errors="ignore")
     driver = driver_path.read_text(errors="ignore")
     driver_logic = driver_logic_path.read_text(errors="ignore")
 
@@ -101,8 +105,12 @@ if not failed:
         "Partial-duty commands latch only at phase-0 carrier boundaries",
         "0%/100% endpoints apply immediately",
         "A[k+1] = max(0, A[k] − attenuation)",
-        "reduces envelope quality by 20",
-        "fixed 4-tick packet TTL",
+        "HoneyVibrationDamperLogic.MIN_ATTENUATION",
+        "HoneyVibrationDamperLogic.MAX_ATTENUATION",
+        "HoneyVibrationDamperLogic.INITIAL_ENVELOPE_QUALITY",
+        "HoneyVibrationDamperLogic.QUALITY_DECAY_PER_STEP",
+        "HoneyVibrationDamperLogic.PACKET_TTL_TICKS",
+        "same server-owned D",
     ):
         if token not in screen:
             failed.append(f"ProcessParameterNotebookScreen missing quality/diagnostic/routing presentation token: {token}")
@@ -161,12 +169,38 @@ if not failed:
             failed.append(f"PwmCarrierLogic missing carrier assumption token: {token}")
 
     for token in (
-        "PACKET_TTL_TICKS = 4",
-        "InformationRuntime.quality(level, \"mech_wave\", pos) - 20",
+        "PACKET_TTL_TICKS = HoneyVibrationDamperLogic.PACKET_TTL_TICKS",
+        "HoneyVibrationDamperLogic.DEFAULT_ATTENUATION",
+        "HoneyVibrationDamperLogic.boundedAttenuation",
+        "HoneyVibrationDamperLogic.attenuatedAmplitude",
+        "HoneyVibrationDamperLogic.degradedQuality",
         "level.scheduleTick(pos, this, PACKET_TTL_TICKS)",
     ):
         if token not in damper:
-            failed.append(f"HoneyVibrationDamperBlock missing fixed model assumption token: {token}")
+            failed.append(f"HoneyVibrationDamperBlock missing pure-model binding token: {token}")
+
+    for token in (
+        "MIN_ATTENUATION = 1",
+        "MAX_ATTENUATION = 15",
+        "DEFAULT_ATTENUATION = 4",
+        "PACKET_TTL_TICKS = 4",
+        "INITIAL_ENVELOPE_QUALITY = 80",
+        "QUALITY_DECAY_PER_STEP = 20",
+        "boundedAttenuation",
+        "attenuatedAmplitude",
+        "degradedQuality",
+    ):
+        if token not in damper_logic:
+            failed.append(f"HoneyVibrationDamperLogic missing pure-model token: {token}")
+
+    for token in (
+        "HoneyVibrationDamperBlock.configuredAttenuation(level, node.pos)",
+        "HoneyVibrationDamperLogic.INITIAL_ENVELOPE_QUALITY",
+        "HoneyVibrationDamperLogic.PACKET_TTL_TICKS",
+        "No fixed hidden loss remains here",
+    ):
+        if token not in vibration_network:
+            failed.append(f"VibrationNetwork missing configurable Honey loss token: {token}")
 
     for token in (
         "public static PortQuality commandQuality",
@@ -234,6 +268,56 @@ public final class RedstoneCopperDriverHarness {
     except FileNotFoundError:
         failed.append("javac/java unavailable for Redstone-Copper driver harness")
 
+if damper_logic_path.is_file():
+    harness = r"""
+import dev.redstoneengineering.signal.HoneyVibrationDamperLogic;
+
+public final class HoneyVibrationDamperHarness {
+    private static void check(boolean ok, String message) {
+        if (!ok) throw new AssertionError(message);
+    }
+
+    public static void main(String[] args) {
+        check(HoneyVibrationDamperLogic.boundedAttenuation(0)
+                        == HoneyVibrationDamperLogic.MIN_ATTENUATION,
+                "attenuation lower bound");
+        check(HoneyVibrationDamperLogic.boundedAttenuation(99)
+                        == HoneyVibrationDamperLogic.MAX_ATTENUATION,
+                "attenuation upper bound");
+        check(HoneyVibrationDamperLogic.attenuatedAmplitude(12, 4) == 8,
+                "configured attenuation subtracts from amplitude");
+        check(HoneyVibrationDamperLogic.attenuatedAmplitude(3, 4) == 0,
+                "attenuation floors amplitude at zero");
+        check(HoneyVibrationDamperLogic.degradedQuality(80) == 60,
+                "quality decays by fixed step");
+        check(HoneyVibrationDamperLogic.degradedQuality(10) == 0,
+                "quality floors at zero");
+        System.out.println("HoneyVibrationDamperLogic harness: PASS");
+    }
+}
+"""
+    try:
+        with tempfile.TemporaryDirectory(prefix="rse-honey-damper-") as td:
+            td = Path(td)
+            hp = td / "HoneyVibrationDamperHarness.java"
+            hp.write_text(harness)
+            compile_run = subprocess.run(
+                ["javac", "-d", str(td), str(damper_logic_path), str(hp)],
+                cwd=root, capture_output=True, text=True
+            )
+            if compile_run.returncode != 0:
+                failed.append("HoneyVibrationDamperLogic javac failed: " + compile_run.stderr.strip())
+            else:
+                run = subprocess.run(
+                    ["java", "-cp", str(td), "HoneyVibrationDamperHarness"],
+                    cwd=root, capture_output=True, text=True
+                )
+                if run.returncode != 0:
+                    failed.append("HoneyVibrationDamperLogic harness failed: "
+                                  + (run.stderr or run.stdout).strip())
+    except FileNotFoundError:
+        failed.append("javac/java unavailable for Honey damper harness")
+
 if failed:
     print("RSE process HMI quality verification: FAIL")
     for item in failed:
@@ -255,4 +339,5 @@ print(" Redstone-Copper exact slew + legacy preset pure dynamics contract: PASS"
 print(" output-only Lapis source remains output-only: PASS")
 print(" five-tab Process notebook stays narrow-viewport aware: PASS")
 print(" PWM exact-period quantization/latch assumptions match server carrier logic: PASS")
-print(" damper TTL/quality-decay assumptions match server model: PASS")
+print(" damper attenuation bounds/TTL/quality-decay pure model: PASS")
+print(" configurable damper attenuation also governs network through-path loss: PASS")

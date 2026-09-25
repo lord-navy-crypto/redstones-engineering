@@ -12,6 +12,7 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.EngineeringDeviceParameters;
 import dev.redstoneengineering.physics.InformationRuntime;
 import dev.redstoneengineering.physics.VibrationNetwork;
+import dev.redstoneengineering.signal.HoneyVibrationDamperLogic;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -31,7 +32,7 @@ import java.util.Optional;
 
 /** High-loss six-way mechanical-vibration damper with transient packet diagnostics. */
 public class HoneyVibrationDamperBlock extends Block implements EngineeringPortProvider {
-    public static final int PACKET_TTL_TICKS = 4;
+    public static final int PACKET_TTL_TICKS = HoneyVibrationDamperLogic.PACKET_TTL_TICKS;
 
     public HoneyVibrationDamperBlock(Properties properties) {
         super(properties);
@@ -72,11 +73,13 @@ public class HoneyVibrationDamperBlock extends Block implements EngineeringPortP
     }
 
     public static int configuredAttenuation(Level level, BlockPos pos) {
-        int fallback = 4;
+        int fallback = HoneyVibrationDamperLogic.DEFAULT_ATTENUATION;
         if (level instanceof ServerLevel serverLevel) {
-            return Math.max(1, Math.min(15, EngineeringDeviceParameters.get(serverLevel)
-                    .extendedParameters(serverLevel, pos,
-                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
+            return HoneyVibrationDamperLogic.boundedAttenuation(
+                    EngineeringDeviceParameters.get(serverLevel)
+                            .extendedParameters(serverLevel, pos,
+                                    new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0))
+                            .a());
         }
         return fallback;
     }
@@ -84,7 +87,7 @@ public class HoneyVibrationDamperBlock extends Block implements EngineeringPortP
     public static boolean setConfiguredAttenuation(ServerLevel level, BlockPos pos, int attenuation) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof HoneyVibrationDamperBlock damper)) return false;
-        int bounded = Math.max(1, Math.min(15, attenuation));
+        int bounded = HoneyVibrationDamperLogic.boundedAttenuation(attenuation);
         boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
                 level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
         if (changed) level.scheduleTick(pos, damper, 1);
@@ -98,13 +101,15 @@ public class HoneyVibrationDamperBlock extends Block implements EngineeringPortP
             InformationRuntime.clear(level, "mech_wave", pos);
             return;
         }
-        int next = Math.max(0, amplitude - configuredAttenuation(level, pos));
+        int next = HoneyVibrationDamperLogic.attenuatedAmplitude(
+                amplitude, configuredAttenuation(level, pos));
         if (next == 0) {
             InformationRuntime.clear(level, "mech_wave", pos);
         } else {
             InformationRuntime.write(level, "mech_wave", pos, next,
                     InformationRuntime.aux(level, "mech_wave", pos), true,
-                    Math.max(0, InformationRuntime.quality(level, "mech_wave", pos) - 20));
+                    HoneyVibrationDamperLogic.degradedQuality(
+                            InformationRuntime.quality(level, "mech_wave", pos)));
             level.scheduleTick(pos, this, PACKET_TTL_TICKS);
         }
     }

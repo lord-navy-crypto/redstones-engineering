@@ -3,6 +3,7 @@ package dev.redstoneengineering.client.ui;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.signal.CopperCapacitorLogic;
 import dev.redstoneengineering.signal.CopperFuseLogic;
+import dev.redstoneengineering.signal.HoneyVibrationDamperLogic;
 import dev.redstoneengineering.signal.MechanicalExciterLogic;
 import dev.redstoneengineering.signal.PwmCarrierLogic;
 import dev.redstoneengineering.signal.RedstoneCopperDriverLogic;
@@ -330,7 +331,8 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
                     ? v+" current units • allowed "+CopperFuseLogic.MIN_RATING+".."+CopperFuseLogic.MAX_RATING
                     : fuseClass(v)+" • class "+CopperFuseLogic.MIN_TIME_CURRENT_CLASS+".."+CopperFuseLogic.MAX_TIME_CURRENT_CLASS;
             case ProcessParameterMenu.KIND_COMPRESSOR -> v+" pressure/tick";
-            case ProcessParameterMenu.KIND_DAMPER -> v+" amplitude/step";
+            case ProcessParameterMenu.KIND_DAMPER -> v+" amplitude/step • allowed "
+                    +HoneyVibrationDamperLogic.MIN_ATTENUATION+".."+HoneyVibrationDamperLogic.MAX_ATTENUATION;
             case ProcessParameterMenu.KIND_EXCITER -> slot==0
                     ? v+" • allowed "+MechanicalExciterLogic.MIN_CONFIGURED_FREQUENCY+".."+MechanicalExciterLogic.MAX_CONFIGURED_FREQUENCY
                     : v+" units/tick • allowed "+MechanicalExciterLogic.MIN_RATE+".."+MechanicalExciterLogic.MAX_RATE;
@@ -409,7 +411,8 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             case ProcessParameterMenu.KIND_CAPACITOR -> "q*=100·Vin/15; q[k+1] moves toward q* by max(1, |q*−q|/τ). Current τbase="+menu.p0()+" ticks.";
             case ProcessParameterMenu.KIND_FUSE -> "r=I/Irated; for r>1, ΔH=ceil((r²−1)·50·Kclass); Htrip="+CopperFuseLogic.TRIP_THRESHOLD+". Current Kclass="+String.format(java.util.Locale.ROOT,"%.2f",CopperFuseLogic.timeCurrentClassFactor(menu.p1()))+".";
             case ProcessParameterMenu.KIND_COMPRESSOR -> "Pressure target derives from Redstone command; actual pressure follows asymmetric ramp rates.";
-            case ProcessParameterMenu.KIND_DAMPER -> "A[k+1] = max(0, A[k] − attenuation); each decay step preserves carrier frequency while reducing the local envelope.";
+            case ProcessParameterMenu.KIND_DAMPER -> "A[k+1] = max(0, A[k] − attenuation); D="
+                    +menu.p0()+". The same server-owned D is also the amplitude loss applied when propagation crosses this Honey damper.";
             case ProcessParameterMenu.KIND_EXCITER -> "A[k+1]=toward(Acmd, Rrise/Rfall); F[k+1]=toward(Ftarget, Fslew). Control cadence="+MechanicalExciterLogic.CONTROL_TICK_TICKS+" tick.";
             case ProcessParameterMenu.KIND_LAPIS_SOURCE -> "Configured 0..100 precision value is a valid Lapis-domain source, including exact zero.";
             case ProcessParameterMenu.KIND_COPPER_SOURCE -> "Configured 0..15 voltage is a valid six-face Copper source.";
@@ -428,7 +431,10 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
                     +" V-level/tick; exact rise/fall remain independently editable. Internal actual voltage may coast after command loss, while the Copper source claim is released immediately unless input evidence is VALID.";
             case ProcessParameterMenu.KIND_CAPACITOR -> "τcharge=τbase; loaded discharge uses bounded Rload; open circuit uses τopen=τbase×leakage="+menu.p0()+"×"+menu.p1()+"="+(menu.p0()*menu.p1())+" ticks. Incomplete load scans freeze integration.";
             case ProcessParameterMenu.KIND_FUSE -> "FAST/NORMAL/SLOW factors are 1.50/1.00/0.65. Rating/class changes retain thermal exposure; reset is allowed only under complete, safe electrical evidence.";
-            case ProcessParameterMenu.KIND_DAMPER -> "Each surviving decay step reduces envelope quality by 20 and schedules the next decay after the fixed 4-tick packet TTL. Those are model assumptions, not editable parameters.";
+            case ProcessParameterMenu.KIND_DAMPER -> "Incoming damper envelope quality starts at "
+                    +HoneyVibrationDamperLogic.INITIAL_ENVELOPE_QUALITY+"; each surviving local decay step reduces quality by "
+                    +HoneyVibrationDamperLogic.QUALITY_DECAY_PER_STEP+" and schedules the next decay after "
+                    +HoneyVibrationDamperLogic.PACKET_TTL_TICKS+" ticks. Quality decay and TTL are fixed model assumptions, not editable parameters.";
             case ProcessParameterMenu.KIND_EXCITER -> "Full-scale amplitude ramp: rise≈"+MechanicalExciterLogic.fullScaleRampTicks(menu.p1())+" ticks, fall≈"+MechanicalExciterLogic.fullScaleRampTicks(menu.p2())+" ticks. Frequency slew is independently bounded; while coasting with A>0 the carrier never collapses to 0 before mechanical energy reaches rest.";
             default -> "The parameter changes the authoritative server model, not a client-only display.";
         };
