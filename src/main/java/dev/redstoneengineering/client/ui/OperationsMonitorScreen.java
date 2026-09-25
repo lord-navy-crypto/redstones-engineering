@@ -44,9 +44,9 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
         statusLine(graphics, "DOWN • MACHINE RUNNING", menu.runEvidenceValid() ? "VALID SOURCE" : "NO TRUSTWORTHY SOURCE", menu.runEvidenceValid() ? GOOD : WARN, 84);
         statusLine(graphics, "UP • CYCLE PULSE", menu.cycleEvidenceValid() ? "VALID SOURCE" : "OPTIONAL / UNAVAILABLE", menu.cycleEvidenceValid() ? GOOD : INFO, 104);
         statusLine(graphics, "N / S / E / W • QUEUE", menu.queueEvidenceSources() + " VALID SOURCE(S)", menu.queueEvidenceSources() > 0 ? GOOD : WARN, 124);
-        safeText(graphics, "KPIs advance only while RUN + at least one QUEUE source are trustworthy.", 16, 150, TEXT);
-        safeText(graphics, "Cycle timing requires observed LOW→HIGH edges; missing coverage breaks timing continuity.", 16, 168, MUTED);
-        safeText(graphics, "Observer-only: this block measures operations state and never drives the plant.", 16, 186, MUTED);
+        int noteY = wrappedText(graphics, "KPIs advance only while RUN + at least one QUEUE source are trustworthy.", 16, 150, 620, TEXT);
+        noteY = wrappedText(graphics, "Cycle timing requires observed LOW→HIGH edges; missing coverage breaks timing continuity.", 16, noteY + 4, 620, MUTED);
+        wrappedText(graphics, "Observer-only: this block measures operations state and never drives the plant.", 16, noteY + 4, 620, MUTED);
     }
 
     /** Existing Configure page is the plant observer page; the monitor retains no configuration authority. */
@@ -105,7 +105,7 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
         labelValue(graphics, "Incident span", menu.incidentPresent() ? formatTicks(menu.incidentDurationTicks()) : "—", 182);
         labelValue(graphics, "Follow-up evidence", menu.incidentPresent() ? incidentEvidenceText() : "0", 198);
         labelValue(graphics, "Electrical trips / recovered", menu.electricalTripCount() + " / " + menu.electricalRecoveryCount(), 214);
-        safeText(graphics, nextActionText(), 16, 232, systemDiagnosisColor());
+        wrappedText(graphics, nextActionText(), 16, 232, 620, systemDiagnosisColor());
     }
 
     private void renderHistory(GuiGraphics graphics) {
