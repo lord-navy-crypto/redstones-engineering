@@ -32,6 +32,7 @@ conversion_screen = UI / "client/ui/MediaConversionScreen.java"
 
 for path in (signal, domain):
     require(path, "physicalPortsDoNotOverlap", "full physical-port collision validation")
+require(signal, "rotateRigidSeriesAxis", "rigid opposite-port signal rotation")
     require(path, "hasAuxiliaryPorts", "dense multi-port fallback classification")
     require(path, "rotateWholeRoute(level, pos, clockwise)", "rigid legal-layout rotation fallback")
     require(path, "INPUT_FACING", "independent configured RX property")
@@ -100,6 +101,7 @@ print("RSE physical endpoint routing verification: PASS")
 print(" - independent RX/TX route properties retained")
 print(" - declared physical ports are collision-checked before route mutation")
 print(" - dense multi-port layouts fall back to rigid legal rotation")
+print(" - straight-through signal processors can enforce exact opposite RX/TX")
 print(" - dedicated PID HMI exposes server-authoritative RX/TX routing")
 print(" - Redstone/Lapis converters expose independent server-authoritative RX/TX routing")
 print(" - old converter outputs are cleared or notified before TX relocation")
