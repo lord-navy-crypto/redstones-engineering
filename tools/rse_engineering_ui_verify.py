@@ -223,7 +223,7 @@ for name in (
         if token in body:
             errors.append(f"{name}: long explanatory text bypasses safeText via {token!r}")
 
-for wrapped_screen in ("RangeSensorScreen.java", "SignalProcessorScreen.java", "RadioLinkScreen.java", "MagneticSystemScreen.java"):
+for wrapped_screen in ("RangeSensorScreen.java", "SignalProcessorScreen.java", "RadioLinkScreen.java", "MagneticSystemScreen.java", "ReliabilitySystemScreen.java"):
     wrapped_body = read("src/main/java/dev/redstoneengineering/client/ui/" + wrapped_screen)
     if "safeText(g," in wrapped_body:
         errors.append(f"{wrapped_screen}: paragraph-style text regressed to single-line safeText rendering")
