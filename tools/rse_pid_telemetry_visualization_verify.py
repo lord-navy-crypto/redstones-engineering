@@ -65,7 +65,8 @@ for token in (
     "menu::trendProcessValue",
     "menu::trendControlOutput",
     "authoritative samples",
-    'PidControllerBlock.CONTROL_CYCLE_TICKS + "t/sample"',
+    "PidControllerBlock.CONTROL_CYCLE_TICKS",
+    '"t/sample • transient"',
     "Compared with previous:",
     "Baseline capture established; capture again after a change to compare.",
 ):
