@@ -219,9 +219,9 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
                         ? RedstoneCopperDriverBlock.rotateInput(level, blockPos, clockwise)
                         : RedstoneCopperDriverBlock.rotateOutput(level, blockPos, clockwise);
             } else if (block instanceof CopperCapacitorBlock || block instanceof CopperFuseBlock) {
-                changed = inputRoute
-                        ? DirectionalDomainBlock.rotateSeriesInput(level, blockPos, clockwise)
-                        : DirectionalDomainBlock.rotateSeriesOutput(level, blockPos, clockwise);
+                // Both subclasses are DirectionalCopperProcessorBlock axial devices: BACK input
+                // and FRONT output stay exactly opposite. Legacy RX/TX buttons rotate one rigid axis.
+                changed = DirectionalDomainBlock.rotateRigidSeriesAxis(level, blockPos, clockwise);
             } else if (block instanceof LapisPrecisionSourceBlock && !inputRoute) {
                 changed = DirectionalDomainSourceBlock.rotateOutput(level, blockPos, clockwise);
             }
@@ -304,6 +304,9 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
     public boolean canRouteInput(){
         return kind.get()==KIND_CONDITIONER || kind.get()==KIND_PWM || kind.get()==KIND_COPPER_DRIVER
                 || kind.get()==KIND_CAPACITOR || kind.get()==KIND_FUSE;
+    }
+    public boolean rigidSeriesRoute(){
+        return kind.get()==KIND_CAPACITOR || kind.get()==KIND_FUSE;
     }
     public boolean canRouteOutput(){
         return canRouteInput() || kind.get()==KIND_LAPIS_SOURCE;

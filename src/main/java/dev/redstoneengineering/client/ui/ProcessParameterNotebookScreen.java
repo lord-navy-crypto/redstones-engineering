@@ -1,6 +1,7 @@
 package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.signal.CopperCapacitorLogic;
 import dev.redstoneengineering.ui.menu.ProcessParameterMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -173,12 +174,23 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             b.visible=tab==Tab.PARAMETERS&&row<n&&inViewport(b);
         }
         int routeWidth=routeButtonWidth(), routeGap=8, routeX=routeButtonStartX();
+        boolean rigidSeries=menu.rigidSeriesRoute();
         for(int i=0;i<routeControls.size();i++){
             Button b=routeControls.get(i);
-            b.setX(routeX+i*(routeWidth+routeGap)-horizontalOffset);
+            if(rigidSeries && i<2){
+                int rigidX=leftPos+Math.max(24,(imageWidth-(routeWidth*2+routeGap))/2);
+                b.setX(rigidX+i*(routeWidth+routeGap)-horizontalOffset);
+                b.setMessage(Component.literal(i==0?"Rotate block ◀":"Rotate block ▶"));
+            }else{
+                b.setX(routeX+i*(routeWidth+routeGap)-horizontalOffset);
+                b.setMessage(Component.literal(switch(i){
+                    case 0->"RX ◀"; case 1->"RX ▶"; case 2->"TX ◀"; default->"TX ▶";
+                }));
+            }
             b.setY(topPos+CONTENT_TOP+112-scrollOffset);
             boolean input=i<2;
             boolean routable=input?menu.canRouteInput():menu.canRouteOutput();
+            if(rigidSeries) routable=i<2;
             b.visible=tab==Tab.ROUTING&&routable&&inViewport(b);
         }
         if(action!=null){
@@ -301,7 +313,9 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             case ProcessParameterMenu.KIND_CONDITIONER -> slot==0?conditionerMode(v):Integer.toString(v);
             case ProcessParameterMenu.KIND_PWM -> slot==0?v+" ticks":(v!=0?"INVERTED":"NORMAL");
             case ProcessParameterMenu.KIND_COPPER_DRIVER -> v+" V-level/tick";
-            case ProcessParameterMenu.KIND_CAPACITOR -> slot==0?v+" ticks":"×"+v;
+            case ProcessParameterMenu.KIND_CAPACITOR -> slot==0
+                    ? v+" ticks • allowed "+CopperCapacitorLogic.MIN_BASE_TAU+".."+CopperCapacitorLogic.MAX_BASE_TAU
+                    : "×"+v+" • allowed ×"+CopperCapacitorLogic.MIN_LEAKAGE_FACTOR+"..×"+CopperCapacitorLogic.MAX_LEAKAGE_FACTOR;
             case ProcessParameterMenu.KIND_FUSE -> slot==0?v+" current units":fuseClass(v);
             case ProcessParameterMenu.KIND_COMPRESSOR -> v+" pressure/tick";
             case ProcessParameterMenu.KIND_DAMPER -> v+" amplitude/step";
@@ -376,7 +390,7 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             case ProcessParameterMenu.KIND_CONDITIONER -> "Mode-specific transfer function maps Redstone input to bounded 0..15 output.";
             case ProcessParameterMenu.KIND_PWM -> "onTicks = round((command / 15) × period); output is HIGH while carrier phase < onTicks.";
             case ProcessParameterMenu.KIND_COPPER_DRIVER -> "V[k+1] = V[k] + clamp(Vtarget − V[k], −Sfall, +Srise).";
-            case ProcessParameterMenu.KIND_CAPACITOR -> "q*[k] = 100·Vin/15; q[k+1] moves toward q* by max(1, |q*−q|/τ).";
+            case ProcessParameterMenu.KIND_CAPACITOR -> "q*=100·Vin/15; q[k+1] moves toward q* by max(1, |q*−q|/τ). Current τbase="+menu.p0()+" ticks.";
             case ProcessParameterMenu.KIND_FUSE -> "r = I/Irated; for r>1, ΔH ∝ (r²−1)·Kclass; trip when H ≥ 1000.";
             case ProcessParameterMenu.KIND_COMPRESSOR -> "Pressure target derives from Redstone command; actual pressure follows asymmetric ramp rates.";
             case ProcessParameterMenu.KIND_DAMPER -> "A[k+1] = max(0, A[k] − attenuation); each decay step preserves carrier frequency while reducing the local envelope.";
@@ -392,7 +406,7 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             case ProcessParameterMenu.KIND_CONDITIONER -> "Input and output quality are separate. Active limiting marks output SATURATED while preserving the upstream input quality.";
             case ProcessParameterMenu.KIND_PWM -> "Partial-duty commands latch only at carrier-cycle boundaries; 0% and 100% endpoint commands apply immediately. Command, inhibit and output quality remain independent evidence channels.";
             case ProcessParameterMenu.KIND_COPPER_DRIVER -> "Rise and fall slew are independent. Internal actual voltage can decay after command loss, but the Copper source is released immediately unless input evidence is VALID.";
-            case ProcessParameterMenu.KIND_CAPACITOR -> "τcharge=τbase; τdischarge=f(τbase,Rload); open circuit uses τbase×leakageFactor; incomplete load scans freeze integration.";
+            case ProcessParameterMenu.KIND_CAPACITOR -> "τcharge=τbase; loaded discharge uses bounded Rload; open circuit uses τopen=τbase×leakage="+menu.p0()+"×"+menu.p1()+"="+(menu.p0()*menu.p1())+" ticks. Incomplete load scans freeze integration.";
             case ProcessParameterMenu.KIND_FUSE -> "FAST/NORMAL/SLOW change overload heating rate; rating/class changes retain heat, and reset remains evidence-gated.";
             case ProcessParameterMenu.KIND_DAMPER -> "Each surviving decay step reduces envelope quality by 20 and schedules the next decay after the fixed 4-tick packet TTL. Those are model assumptions, not editable parameters.";
             case ProcessParameterMenu.KIND_EXCITER -> "Amplitude rise/fall and frequency slew are independent configuration variables. Input and mechanical-output quality are synchronized independently from numeric amplitude.";
@@ -557,8 +571,8 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             case ProcessParameterMenu.KIND_CONDITIONER -> "Compatibility route: REDSTONE analog input → conditioned REDSTONE output. Normal gameplay opens the dedicated Signal Conditioner HMI.";
             case ProcessParameterMenu.KIND_PWM -> "REDSTONE command RX → binary PWM TX. The inhibit input is an auxiliary physical safety port managed by the block's route model.";
             case ProcessParameterMenu.KIND_COPPER_DRIVER -> "REDSTONE command RX → COPPER voltage TX. RX and TX rotate independently; moving TX releases the old Copper driver claim before the server publishes the new path.";
-            case ProcessParameterMenu.KIND_CAPACITOR -> "COPPER input RX → stored-energy model → COPPER output TX.";
-            case ProcessParameterMenu.KIND_FUSE -> "COPPER input RX → protection element → COPPER output TX.";
+            case ProcessParameterMenu.KIND_CAPACITOR -> "Rigid axial COPPER path: BACK input → stored-energy model → FRONT output. Rotate block turns the complete INPUT/OUTPUT axis; endpoints cannot be bent independently.";
+            case ProcessParameterMenu.KIND_FUSE -> "Rigid axial COPPER path: BACK input → protection element → FRONT output. Rotate block turns the complete INPUT/OUTPUT axis; endpoints cannot be bent independently.";
             case ProcessParameterMenu.KIND_COMPRESSOR -> "Compatibility view only; normal gameplay routes compressor operation through the dedicated Pneumatic HMI.";
             case ProcessParameterMenu.KIND_DAMPER -> "MECHANICAL vibration envelope is a multi-face bidirectional physical interaction; no synthetic single RX/TX pair is created.";
             case ProcessParameterMenu.KIND_EXCITER -> "Fixed REDSTONE drive enters on DOWN; mechanical vibration is emitted through the declared multi-face actuator ports.";

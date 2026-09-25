@@ -222,6 +222,40 @@ require(
 )
 
 require(
+    "src/main/java/dev/redstoneengineering/signal/CopperCapacitorLogic.java",
+    "MIN_CAPACITANCE_INDEX = 0",
+    "MAX_CAPACITANCE_INDEX = 3",
+    "DEFAULT_CAPACITANCE_INDEX = 1",
+    "MIN_BASE_TAU = 1",
+    "MAX_BASE_TAU = 64",
+    "MIN_LEAKAGE_FACTOR = 2",
+    "MAX_LEAKAGE_FACTOR = 16",
+    "DEFAULT_LEAKAGE_FACTOR = 8",
+    "boundedBaseTau",
+    "boundedLeakageFactor",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/CopperCapacitorBlock.java",
+    "CopperCapacitorLogic.boundedBaseTau",
+    "CopperCapacitorLogic.boundedLeakageFactor",
+    "CopperCapacitorLogic.DEFAULT_LEAKAGE_FACTOR",
+)
+require(
+    "src/main/java/dev/redstoneengineering/ui/menu/ProcessParameterMenu.java",
+    "DirectionalDomainBlock.rotateRigidSeriesAxis",
+    "rigidSeriesRoute",
+)
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/ProcessParameterNotebookScreen.java",
+    "CopperCapacitorLogic.MIN_BASE_TAU",
+    "CopperCapacitorLogic.MAX_BASE_TAU",
+    "CopperCapacitorLogic.MIN_LEAKAGE_FACTOR",
+    "CopperCapacitorLogic.MAX_LEAKAGE_FACTOR",
+    "τopen=τbase×leakage",
+    "endpoints cannot be bent independently",
+)
+
+require(
     "src/main/java/dev/redstoneengineering/block/EdgeDetectorBlock.java",
     "MIN_PULSE_WIDTH = 1",
     "MAX_PULSE_WIDTH = 20",
@@ -424,6 +458,7 @@ print("RSE parameter-contract consistency verification: PASS")
 print(" Precision Filter effective 1..4 slew authority: PASS")
 print(" Pulse Shaper threshold/hysteresis/width authority: PASS")
 print(" Signal Conditioner pure transfer/range authority: PASS")
+print(" Copper Capacitor baseTau/leakage + rigid axial route authority: PASS")
 print(" Edge Detector exact 1..20 pulse-width authority: PASS")
 print(" Pressure Regulator setpoint/response-rate pure authority: PASS")
 print(" Proportional Valve opening/response-rate pure authority: PASS")

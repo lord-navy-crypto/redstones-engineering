@@ -38,7 +38,10 @@ import java.util.Locale;
  * instead of being treated as authoritative RC data.
  */
 public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
-    public static final IntegerProperty C_INDEX = IntegerProperty.create("capacitance", 0, 3);
+    public static final IntegerProperty C_INDEX = IntegerProperty.create(
+            "capacitance",
+            CopperCapacitorLogic.MIN_CAPACITANCE_INDEX,
+            CopperCapacitorLogic.MAX_CAPACITANCE_INDEX);
     private static final String KEY = "copper_capacitor";
     private static final int CHARGE_SLOT = 0;
     private static final int INITIALIZED_SLOT = 1;
@@ -51,7 +54,8 @@ public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
 
     public CopperCapacitorBlock(Properties properties) {
         super(properties);
-        registerDefaultState(defaultBlockState().setValue(C_INDEX, 1));
+        registerDefaultState(defaultBlockState().setValue(
+                C_INDEX, CopperCapacitorLogic.DEFAULT_CAPACITANCE_INDEX));
     }
 
     @Override public MapCodec<CopperCapacitorBlock> codec() { return RedstoneEngineering.COPPER_CAPACITOR_CODEC.value(); }
@@ -69,13 +73,17 @@ public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
         if (level instanceof ServerLevel serverLevel) {
             EngineeringDeviceParameters.ExtendedParameters raw = EngineeringDeviceParameters.get(serverLevel)
                     .extendedParameters(serverLevel, pos,
-                            new EngineeringDeviceParameters.ExtendedParameters(fallbackTau, 8, 0, 0));
-            int tau = Math.max(1, Math.min(64, raw.a()));
+                            new EngineeringDeviceParameters.ExtendedParameters(
+                                    fallbackTau, CopperCapacitorLogic.DEFAULT_LEAKAGE_FACTOR, 0, 0));
+            int tau = CopperCapacitorLogic.boundedBaseTau(raw.a());
             // Alpha 1.0.21 stored only slot A. Slot B=0 therefore migrates to the historical ×8 leakage.
-            int leakage = raw.b() <= 0 ? 8 : Math.max(2, Math.min(16, raw.b()));
+            int leakage = raw.b() <= 0
+                    ? CopperCapacitorLogic.DEFAULT_LEAKAGE_FACTOR
+                    : CopperCapacitorLogic.boundedLeakageFactor(raw.b());
             return new EngineeringDeviceParameters.ExtendedParameters(tau, leakage, 0, 0);
         }
-        return new EngineeringDeviceParameters.ExtendedParameters(fallbackTau, 8, 0, 0);
+        return new EngineeringDeviceParameters.ExtendedParameters(
+                fallbackTau, CopperCapacitorLogic.DEFAULT_LEAKAGE_FACTOR, 0, 0);
     }
 
     public static int configuredBaseTau(Level level, BlockPos pos, BlockState state) {
@@ -89,8 +97,8 @@ public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
     public static boolean setEngineeringParameters(ServerLevel level, BlockPos pos, int tau, int leakageFactor) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof CopperCapacitorBlock capacitor)) return false;
-        int boundedTau = Math.max(1, Math.min(64, tau));
-        int boundedLeakage = Math.max(2, Math.min(16, leakageFactor));
+        int boundedTau = CopperCapacitorLogic.boundedBaseTau(tau);
+        int boundedLeakage = CopperCapacitorLogic.boundedLeakageFactor(leakageFactor);
         boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
                 level, pos, new EngineeringDeviceParameters.ExtendedParameters(
                         boundedTau, boundedLeakage, 0, 0));
@@ -243,14 +251,19 @@ public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
                 FieldDeviceUi.open(serverPlayer, pos);
                 return InteractionResult.CONSUME;
             }
-            int capacitanceIndex = (state.getValue(C_INDEX) + 1) % 4;
+            int span = CopperCapacitorLogic.MAX_CAPACITANCE_INDEX
+                    - CopperCapacitorLogic.MIN_CAPACITANCE_INDEX + 1;
+            int capacitanceIndex = CopperCapacitorLogic.MIN_CAPACITANCE_INDEX
+                    + Math.floorMod(state.getValue(C_INDEX)
+                    - CopperCapacitorLogic.MIN_CAPACITANCE_INDEX + 1, span);
             BlockState next = state.setValue(C_INDEX, capacitanceIndex);
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
             if (level instanceof ServerLevel serverLevel) {
                 EngineeringDeviceParameters.get(serverLevel).setExtendedParameters(
                         serverLevel, pos,
                         new EngineeringDeviceParameters.ExtendedParameters(
-                                CopperCapacitorLogic.chargeTau(capacitanceIndex), 8, 0, 0));
+                                CopperCapacitorLogic.chargeTau(capacitanceIndex),
+                                CopperCapacitorLogic.DEFAULT_LEAKAGE_FACTOR, 0, 0));
             }
             level.scheduleTick(pos, this, 1);
 

@@ -26,6 +26,17 @@ screen = "src/main/java/dev/redstoneengineering/client/ui/ProcessParameterNotebo
 
 require(
     logic,
+    "MIN_CAPACITANCE_INDEX = 0",
+    "MAX_CAPACITANCE_INDEX = 3",
+    "DEFAULT_CAPACITANCE_INDEX = 1",
+    "MIN_BASE_TAU = 1",
+    "MAX_BASE_TAU = 64",
+    "MIN_LEAKAGE_FACTOR = 2",
+    "MAX_LEAKAGE_FACTOR = 16",
+    "DEFAULT_LEAKAGE_FACTOR = 8",
+    "boundedCapacitanceIndex",
+    "boundedBaseTau",
+    "boundedLeakageFactor",
     "stepCharge",
     "chargeTau",
     "dischargeTau",
@@ -39,6 +50,8 @@ require(
     "effectiveTau",
     "observedLoadResistance",
     "loadTruncated",
+    "CopperCapacitorLogic.boundedBaseTau",
+    "CopperCapacitorLogic.boundedLeakageFactor",
 )
 
 require(
@@ -50,6 +63,8 @@ require(
     menu,
     "liveF.set(CopperCapacitorBlock.inputQuality",
     "liveG.set(CopperCapacitorBlock.outputQuality",
+    "DirectionalDomainBlock.rotateRigidSeriesAxis",
+    "rigidSeriesRoute",
 )
 require(
     screen,
@@ -57,6 +72,13 @@ require(
     '"Output quality"',
     "if(i==5||i==6) return qualityName(v);",
     "retained physical state from input/output evidence quality",
+    "CopperCapacitorLogic.MIN_BASE_TAU",
+    "CopperCapacitorLogic.MAX_BASE_TAU",
+    "CopperCapacitorLogic.MIN_LEAKAGE_FACTOR",
+    "CopperCapacitorLogic.MAX_LEAKAGE_FACTOR",
+    "τopen=τbase×leakage",
+    "Rotate block",
+    "endpoints cannot be bent independently",
 )
 
 logic_path = root / logic
@@ -88,6 +110,17 @@ public final class CopperCapacitorHarness {
         check(CopperCapacitorLogic.dischargeTau(1, Double.POSITIVE_INFINITY)
                         > CopperCapacitorLogic.dischargeTau(1, 15.0),
                 "open circuit keeps only slow leakage");
+        check(CopperCapacitorLogic.boundedBaseTau(0) == CopperCapacitorLogic.MIN_BASE_TAU,
+                "base tau lower bound");
+        check(CopperCapacitorLogic.boundedBaseTau(999) == CopperCapacitorLogic.MAX_BASE_TAU,
+                "base tau upper bound");
+        check(CopperCapacitorLogic.boundedLeakageFactor(0) == CopperCapacitorLogic.MIN_LEAKAGE_FACTOR,
+                "leakage lower bound");
+        check(CopperCapacitorLogic.boundedLeakageFactor(999) == CopperCapacitorLogic.MAX_LEAKAGE_FACTOR,
+                "leakage upper bound");
+        check(CopperCapacitorLogic.dischargeTauBase(
+                        4, Double.POSITIVE_INFINITY, CopperCapacitorLogic.DEFAULT_LEAKAGE_FACTOR) == 32,
+                "default open-circuit tau is base tau times historical leakage factor");
 
         System.out.println("CopperCapacitorLogic semantic harness: PASS");
     }
@@ -126,3 +159,5 @@ print(" open-circuit leakage slower than loaded discharge: PASS")
 print(" valid source charge/discharge semantics: PASS")
 print(" load-truncation evidence: PASS")
 print(" explicit capacitor input/output evidence quality in notebook: PASS")
+print(" baseTau/leakage pure parameter authority: PASS")
+print(" axial capacitor/fuse route uses rigid whole-axis rotation: PASS")

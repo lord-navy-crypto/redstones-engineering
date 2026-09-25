@@ -8,10 +8,31 @@ package dev.redstoneengineering.signal;
  * charge longest and decays only through modeled leakage.
  */
 public final class CopperCapacitorLogic {
+    public static final int MIN_CAPACITANCE_INDEX = 0;
+    public static final int MAX_CAPACITANCE_INDEX = 3;
+    public static final int DEFAULT_CAPACITANCE_INDEX = 1;
+    public static final int MIN_BASE_TAU = 1;
+    public static final int MAX_BASE_TAU = 64;
+    public static final int MIN_LEAKAGE_FACTOR = 2;
+    public static final int MAX_LEAKAGE_FACTOR = 16;
+    public static final int DEFAULT_LEAKAGE_FACTOR = 8;
+
     private CopperCapacitorLogic() {}
 
+    public static int boundedCapacitanceIndex(int index) {
+        return Math.max(MIN_CAPACITANCE_INDEX, Math.min(MAX_CAPACITANCE_INDEX, index));
+    }
+
+    public static int boundedBaseTau(int baseTau) {
+        return Math.max(MIN_BASE_TAU, Math.min(MAX_BASE_TAU, baseTau));
+    }
+
+    public static int boundedLeakageFactor(int leakageFactor) {
+        return Math.max(MIN_LEAKAGE_FACTOR, Math.min(MAX_LEAKAGE_FACTOR, leakageFactor));
+    }
+
     public static int chargeTau(int capacitanceIndex) {
-        return switch (Math.max(0, Math.min(3, capacitanceIndex))) {
+        return switch (boundedCapacitanceIndex(capacitanceIndex)) {
             case 0 -> 2;
             case 1 -> 4;
             case 2 -> 8;
@@ -24,12 +45,12 @@ public final class CopperCapacitorLogic {
     }
 
     public static int dischargeTauBase(int baseTau, double loadResistance) {
-        return dischargeTauBase(baseTau, loadResistance, 8);
+        return dischargeTauBase(baseTau, loadResistance, DEFAULT_LEAKAGE_FACTOR);
     }
 
     public static int dischargeTauBase(int baseTau, double loadResistance, int leakageFactor) {
-        int base = Math.max(1, Math.min(64, baseTau));
-        int leakage = Math.max(2, Math.min(16, leakageFactor));
+        int base = boundedBaseTau(baseTau);
+        int leakage = boundedLeakageFactor(leakageFactor);
         if (Double.isInfinite(loadResistance)) return base * leakage;
         double boundedLoad = Math.max(0.25, Math.min(32.0, loadResistance));
         int loadMultiplier = Math.max(1, (int) Math.round(boundedLoad / 4.0));
@@ -40,7 +61,9 @@ public final class CopperCapacitorLogic {
             int chargePercent, int inputVoltage, boolean inputValid,
             int baseTau, double loadResistance
     ) {
-        return stepChargeBaseTau(chargePercent, inputVoltage, inputValid, baseTau, loadResistance, 8);
+        return stepChargeBaseTau(
+                chargePercent, inputVoltage, inputValid, baseTau, loadResistance,
+                DEFAULT_LEAKAGE_FACTOR);
     }
 
     public static int stepChargeBaseTau(
@@ -51,7 +74,7 @@ public final class CopperCapacitorLogic {
         int target = inputValid
                 ? (int) Math.round(Math.max(0, Math.min(15, inputVoltage)) / 15.0 * 100.0)
                 : 0;
-        int tau = inputValid ? Math.max(1, Math.min(64, baseTau))
+        int tau = inputValid ? boundedBaseTau(baseTau)
                 : dischargeTauBase(baseTau, loadResistance, leakageFactor);
         int delta = target - charge;
         if (delta == 0) return charge;
