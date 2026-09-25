@@ -211,10 +211,10 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         labelValue(g, "Attention ports", Integer.toString(attention), 142);
         sectionRule(g, 161);
         wrappedText(g, "Every displayed value and quality is synchronized from the logical server.", 16, 174, 620, TEXT);
-        safeText(g, lapisPrecisionMeasurementPresent()
+        wrappedText(g, lapisPrecisionMeasurementPresent()
                         ? "Lapis measurement uses the 0..100 precision-information domain; valid zero remains real evidence."
                         : "Use Ports for physical faces, Configure for parameters, and Route for real orientation.",
-                16, 191, lapisPrecisionMeasurementPresent() ? INFO : MUTED);
+                16, 191, 620, lapisPrecisionMeasurementPresent() ? INFO : MUTED);
     }
 
     private void ports(GuiGraphics g) {
@@ -940,16 +940,16 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 statusBadge(g, lapisPrecisionMeasurementPresent() ? "PRECISION OBSERVER • NO PROCESS PARAMETER" : "NO UNIVERSAL PARAMETERS",
                         lapisPrecisionMeasurementPresent() ? INFO : MUTED, 16, 80);
                 labelValue(g, "Current route", routeText(), 106);
-                safeText(g, lapisPrecisionMeasurementPresent()
+                int noteY = wrappedText(g, lapisPrecisionMeasurementPresent()
                                 ? "The selected measurement face samples precision information; it does not drive or quantize the source."
                                 : rotatable
                                 ? "This device has a real routable interface; change it on Route, not Configure."
                                 : "This device has no shared configurable parameter in the universal HMI.",
-                        16, 132, TEXT);
-                safeText(g, lapisPrecisionMeasurementPresent()
+                        16, 132, 620, TEXT);
+                wrappedText(g, lapisPrecisionMeasurementPresent()
                                 ? "Precision identity is observational: 0..100 engineering scale with 0.01 display resolution."
                                 : "No client-side physics or hidden port mutation is performed.",
-                        16, 152, lapisPrecisionMeasurementPresent() ? INFO : MUTED);
+                        16, noteY + 4, 620, lapisPrecisionMeasurementPresent() ? INFO : MUTED);
             }
         }
     }
