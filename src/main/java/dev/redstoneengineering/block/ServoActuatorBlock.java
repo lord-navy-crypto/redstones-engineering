@@ -51,6 +51,12 @@ import java.util.Set;
  */
 public class ServoActuatorBlock extends Block implements EntityBlock, EngineeringPortProvider, OperationWorldResourceProvider {
     public static final int CONTROL_CYCLE_TICKS = 2;
+    public static final int MIN_SPEED_LIMIT = EngineeringDeviceParameters.ServoParameters.MIN_SPEED_LIMIT;
+    public static final int MAX_SPEED_LIMIT = EngineeringDeviceParameters.ServoParameters.MAX_SPEED_LIMIT;
+    public static final int MIN_ACCELERATION_PERIOD = EngineeringDeviceParameters.ServoParameters.MIN_ACCELERATION_PERIOD;
+    public static final int MAX_ACCELERATION_PERIOD = EngineeringDeviceParameters.ServoParameters.MAX_ACCELERATION_PERIOD;
+    public static final int MIN_ACCELERATION_STEP = EngineeringDeviceParameters.ServoParameters.MIN_ACCELERATION_STEP;
+    public static final int MAX_ACCELERATION_STEP = EngineeringDeviceParameters.ServoParameters.MAX_ACCELERATION_STEP;
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final IntegerProperty SLEW = IntegerProperty.create("slew", 0, 2);
     /** Lumped mechanical load/inertia profile: 0=unloaded, 1=light, 2=medium, 3=heavy. */
