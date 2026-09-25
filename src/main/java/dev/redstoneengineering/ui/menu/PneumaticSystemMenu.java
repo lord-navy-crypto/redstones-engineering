@@ -256,7 +256,7 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
                         engineeringA.get(),
                         engineeringB.get() + (id == BUTTON_SECONDARY_NEXT ? 1 : -1));
             } else {
-                changed = rotateDirectional(block, id);
+                changed = rotateRigidDirectional(id);
             }
         } else if (block instanceof PneumaticValveBlock) {
             if (id == BUTTON_TOGGLE) {
@@ -287,7 +287,7 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
                 changed = PneumaticProportionalValveBlock.setConfiguredResponseRate(
                         server, blockPos, engineeringA.get() + (id == BUTTON_PARAMETER_NEXT ? 1 : -1));
             } else {
-                changed = rotateDirectional(block, id);
+                changed = rotateRigidDirectional(id);
             }
         } else if (block instanceof PneumaticReceiverBlock) {
             if (id == BUTTON_PARAMETER_PREVIOUS || id == BUTTON_PARAMETER_NEXT) {
@@ -308,6 +308,20 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
             refreshAuthoritativeSnapshot();
             broadcastChanges();
         }
+        return changed;
+    }
+
+    private boolean rotateRigidDirectional(int id) {
+        if (id != BUTTON_ROTATE_LEFT && id != BUTTON_ROTATE_RIGHT
+                && id != BUTTON_INPUT_LEFT && id != BUTTON_INPUT_RIGHT
+                && id != BUTTON_OUTPUT_LEFT && id != BUTTON_OUTPUT_RIGHT) {
+            return false;
+        }
+        // Straight-through regulator/proportional-valve contract. Legacy endpoint button IDs
+        // remain accepted, but they rotate the complete opposite-face axis rather than bending it.
+        boolean clockwise = id == BUTTON_ROTATE_RIGHT || id == BUTTON_INPUT_RIGHT || id == BUTTON_OUTPUT_RIGHT;
+        boolean changed = DirectionalDomainBlock.rotateRigidSeriesAxis(level, blockPos, clockwise);
+        if (changed && level instanceof ServerLevel server) PneumaticNetwork.recomputeAround(server, blockPos);
         return changed;
     }
 
