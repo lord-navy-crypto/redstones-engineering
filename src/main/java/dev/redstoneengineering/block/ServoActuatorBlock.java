@@ -50,6 +50,7 @@ import java.util.Set;
  * In velocity mode command 7=stop, 0..6 reverse, 8..15 forward.
  */
 public class ServoActuatorBlock extends Block implements EntityBlock, EngineeringPortProvider, OperationWorldResourceProvider {
+    public static final int CONTROL_CYCLE_TICKS = 2;
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final IntegerProperty SLEW = IntegerProperty.create("slew", 0, 2);
     /** Lumped mechanical load/inertia profile: 0=unloaded, 1=light, 2=medium, 3=heavy. */
@@ -319,11 +320,11 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
         if (!state.is(this)) return false;
         RuntimeIntStore.remove(level, KEY, pos);
         MechatronicsVisualBlockEntity.push(level, pos, visualState(level, pos, state));
-        if (level instanceof ServerLevel server) server.scheduleTick(pos, this, 2);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, this, CONTROL_CYCLE_TICKS);
         return true;
     }
 
-    @Override protected void onPlace(BlockState s, Level l, BlockPos p, BlockState o, boolean m) { super.onPlace(s, l, p, o, m); if (l instanceof ServerLevel sl) sl.scheduleTick(p, this, 2); }
+    @Override protected void onPlace(BlockState s, Level l, BlockPos p, BlockState o, boolean m) { super.onPlace(s, l, p, o, m); if (l instanceof ServerLevel sl) sl.scheduleTick(p, this, CONTROL_CYCLE_TICKS); }
 
     @Override
     protected void tick(BlockState s, ServerLevel l, BlockPos p, RandomSource rnd) {
@@ -403,7 +404,7 @@ public class ServoActuatorBlock extends Block implements EntityBlock, Engineerin
 
         MechatronicsVisualBlockEntity.push(l, p, visualState(l, p, s));
         l.updateNeighborsAt(p, this);
-        l.scheduleTick(p, this, 2);
+        l.scheduleTick(p, this, CONTROL_CYCLE_TICKS);
     }
 
     @Override

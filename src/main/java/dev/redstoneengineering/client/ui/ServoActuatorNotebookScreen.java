@@ -1,6 +1,8 @@
 package dev.redstoneengineering.client.ui;
 
+import dev.redstoneengineering.block.ServoActuatorBlock;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.EngineeringDeviceParameters;
 import dev.redstoneengineering.ui.menu.ServoActuatorMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -187,7 +189,7 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
     private int contentHeight() {
         return switch (page) {
             case OPERATE -> 520;
-            case PARAMETERS -> 540;
+            case PARAMETERS -> 700;
             case MODEL -> 760;
             case RESPONSE -> 560;
             case ROUTING -> 620;
@@ -279,26 +281,46 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
         g.drawString(font, "Mechanical preset", 42, CONTENT_TOP + 18, MUTED, false);
         g.drawString(font, presetName(menu.preset()), 200, CONTENT_TOP + 18, INK, false);
 
-        parameter(g, "Maximum speed", menu.maxSpeed() + " position units / 2t", CONTENT_TOP + 76);
-        parameter(g, "Acceleration period", menu.accelerationPeriod() + " control cycles", CONTENT_TOP + 132);
-        parameter(g, "Acceleration step", menu.accelerationStep() + " velocity units / update", CONTENT_TOP + 188);
+        parameter(g, "Maximum speed",
+                menu.maxSpeed() + " position units / control cycle • allowed "
+                        + EngineeringDeviceParameters.ServoParameters.MIN_SPEED_LIMIT + ".."
+                        + EngineeringDeviceParameters.ServoParameters.MAX_SPEED_LIMIT, CONTENT_TOP + 76);
+        parameter(g, "Acceleration period",
+                menu.accelerationPeriod() + " cycles • allowed "
+                        + EngineeringDeviceParameters.ServoParameters.MIN_ACCELERATION_PERIOD + ".."
+                        + EngineeringDeviceParameters.ServoParameters.MAX_ACCELERATION_PERIOD, CONTENT_TOP + 132);
+        parameter(g, "Acceleration step",
+                menu.accelerationStep() + " velocity units / update • allowed "
+                        + EngineeringDeviceParameters.ServoParameters.MIN_ACCELERATION_STEP + ".."
+                        + EngineeringDeviceParameters.ServoParameters.MAX_ACCELERATION_STEP, CONTENT_TOP + 188);
 
-        drawWrapped(g, "Preset loads are starting points only. These three parameters independently define the actual motion model.",
-                42, CONTENT_TOP + 270, Math.max(300, imageWidth - 96), MUTED);
-        drawWrapped(g, "More mechanical assumptions, load response and trajectory diagnostics can extend below without forcing the page into a fixed-height panel.",
-                42, CONTENT_TOP + 350, Math.max(300, imageWidth - 96), MUTED);
+        parameter(g, "Control cycle",
+                ServoActuatorBlock.CONTROL_CYCLE_TICKS + " game ticks", CONTENT_TOP + 250);
+        parameter(g, "Acceleration update interval",
+                menu.accelerationPeriod() + " × " + ServoActuatorBlock.CONTROL_CYCLE_TICKS
+                        + " = " + accelerationIntervalTicks() + " ticks", CONTENT_TOP + 292);
+        parameter(g, "0 → max-speed ramp",
+                "ceil(" + menu.maxSpeed() + " / " + menu.accelerationStep() + ") × "
+                        + accelerationIntervalTicks() + " = " + theoreticalRampTicks() + " ticks",
+                CONTENT_TOP + 334);
+
+        drawWrapped(g, "The ramp estimate assumes a command that continuously demands maximum speed, no brake, and no soft-limit collision. It is a derived timing bound from synchronized server parameters, not a second motion simulation.",
+                42, CONTENT_TOP + 390, Math.max(300, imageWidth - 96), MUTED);
+        drawWrapped(g, "Preset loads are starting points only. After a preset is loaded, max speed, acceleration period and acceleration step remain independently configurable server-owned parameters.",
+                42, CONTENT_TOP + 470, Math.max(300, imageWidth - 96), MUTED);
     }
 
     private void model(GuiGraphics g) {
         int w = Math.max(300, imageWidth - 96);
         g.drawString(font, "MECHATRONIC SERVO MODEL", 42, CONTENT_TOP + 22, MUTED, false);
         int y = CONTENT_TOP + 58;
-        y = drawWrapped(g, "Server update period = 2 ticks. The servo has two command interpretations selected by the physical MODE input.", 42, y, w, INK) + 18;
+        y = drawWrapped(g, "Server control cycle = " + ServoActuatorBlock.CONTROL_CYCLE_TICKS + " ticks. The servo has two command interpretations selected by the physical MODE input.", 42, y, w, INK) + 18;
         y = drawWrapped(g, "POSITION mode: desiredVelocity = clamp(command − position, −maxSpeed, +maxSpeed). The applied velocity is also limited so it cannot step past the remaining position error.", 42, y, w, INK) + 18;
         y = drawWrapped(g, "VELOCITY mode: velocityCommand = command − 7, so command 7 = stop, 0..6 = reverse and 8..15 = forward. desiredVelocity = clamp(velocityCommand, −maxSpeed, +maxSpeed).", 42, y, w, INK) + 18;
-        y = drawWrapped(g, "Acceleration is discrete: every accelerationPeriod control cycles, appliedVelocity approaches desiredVelocity by at most accelerationStep. Between acceleration updates, load-delay evidence accumulates while the requested and applied velocities differ.", 42, y, w, INK) + 18;
+        y = drawWrapped(g, "Acceleration is discrete: every accelerationPeriod control cycles (" + accelerationIntervalTicks() + " game ticks with the current setting), appliedVelocity approaches desiredVelocity by at most accelerationStep. v[k+1] = toward(v[k], v_des, Δv) only on those acceleration updates.", 42, y, w, INK) + 18;
         y = drawWrapped(g, "Brake is authoritative: missing command evidence or an asserted brake input forces appliedVelocity = 0 and resets the acceleration phase.", 42, y, w, INK) + 18;
         y = drawWrapped(g, "Position update: position[k+1] = clamp(position[k] + appliedVelocity, 0, 15). A boundary clamp increments retained soft-limit-hit evidence and zeroes applied velocity.", 42, y, w, INK) + 18;
+        y = drawWrapped(g, "Current theoretical 0→max-speed ramp bound = " + theoreticalRampTicks() + " ticks = ceil(maxSpeed / accelerationStep) × accelerationPeriod × controlCycleTicks, before brake/soft-limit interruptions.", 42, y, w, INFO) + 18;
         y = drawWrapped(g, "Trajectory evidence records total travel, motion samples, reversals, maximum observed velocity, settling time and load-delay ticks. These are server-owned response measurements, not client estimates.", 42, y, w, MUTED) + 18;
         drawWrapped(g, "The notebook renders synchronized state only. It does not advance acceleration phase, integrate position, infer missing control evidence, or run a second servo solver.", 42, y, w, MUTED);
     }
@@ -360,6 +382,15 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
             y += 14;
         }
         return y;
+    }
+
+    private int accelerationIntervalTicks() {
+        return menu.accelerationPeriod() * ServoActuatorBlock.CONTROL_CYCLE_TICKS;
+    }
+
+    private int theoreticalRampTicks() {
+        int updates = (menu.maxSpeed() + menu.accelerationStep() - 1) / menu.accelerationStep();
+        return updates * accelerationIntervalTicks();
     }
 
     private static String qualityName(PortQuality quality) {

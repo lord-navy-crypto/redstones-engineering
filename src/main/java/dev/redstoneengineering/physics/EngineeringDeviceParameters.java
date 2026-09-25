@@ -38,10 +38,17 @@ public final class EngineeringDeviceParameters extends SavedData {
     }
 
     public record ServoParameters(int maxSpeed, int accelerationPeriod, int accelerationStep) {
+        public static final int MIN_SPEED_LIMIT = 1;
+        public static final int MAX_SPEED_LIMIT = 8;
+        public static final int MIN_ACCELERATION_PERIOD = 1;
+        public static final int MAX_ACCELERATION_PERIOD = 12;
+        public static final int MIN_ACCELERATION_STEP = 1;
+        public static final int MAX_ACCELERATION_STEP = 4;
+
         public ServoParameters {
-            maxSpeed = clamp(maxSpeed, 1, 8);
-            accelerationPeriod = clamp(accelerationPeriod, 1, 12);
-            accelerationStep = clamp(accelerationStep, 1, 4);
+            maxSpeed = clamp(maxSpeed, MIN_SPEED_LIMIT, MAX_SPEED_LIMIT);
+            accelerationPeriod = clamp(accelerationPeriod, MIN_ACCELERATION_PERIOD, MAX_ACCELERATION_PERIOD);
+            accelerationStep = clamp(accelerationStep, MIN_ACCELERATION_STEP, MAX_ACCELERATION_STEP);
         }
     }
 

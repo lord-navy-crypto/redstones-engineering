@@ -15,11 +15,25 @@ def require(rel, *tokens):
         if token not in text:
             errors.append(f"{rel} missing Servo depth token: {token}")
 
+parameters = "src/main/java/dev/redstoneengineering/physics/EngineeringDeviceParameters.java"
 block = "src/main/java/dev/redstoneengineering/block/ServoActuatorBlock.java"
 menu = "src/main/java/dev/redstoneengineering/ui/menu/ServoActuatorMenu.java"
 screen = "src/main/java/dev/redstoneengineering/client/ui/ServoActuatorNotebookScreen.java"
 
+require(parameters,
+        "MIN_SPEED_LIMIT = 1",
+        "MAX_SPEED_LIMIT = 8",
+        "MIN_ACCELERATION_PERIOD = 1",
+        "MAX_ACCELERATION_PERIOD = 12",
+        "MIN_ACCELERATION_STEP = 1",
+        "MAX_ACCELERATION_STEP = 4",
+        "clamp(maxSpeed, MIN_SPEED_LIMIT, MAX_SPEED_LIMIT)",
+        "clamp(accelerationPeriod, MIN_ACCELERATION_PERIOD, MAX_ACCELERATION_PERIOD)",
+        "clamp(accelerationStep, MIN_ACCELERATION_STEP, MAX_ACCELERATION_STEP)")
+
 require(block,
+        "CONTROL_CYCLE_TICKS = 2",
+        "scheduleTick(p, this, CONTROL_CYCLE_TICKS)",
         "public static int mode(Level level, BlockPos pos)",
         "public static int velocityCommand(Level level, BlockPos pos)",
         "public static int maxObservedVelocity(Level level, BlockPos pos)",
@@ -87,7 +101,19 @@ require(screen,
         "missing command evidence or an asserted brake input forces appliedVelocity = 0",
         "Position update: position[k+1] = clamp(position[k] + appliedVelocity, 0, 15)",
         "does not advance acceleration phase",
-        "does not erase the configured mechanical parameters")
+        "does not erase the configured mechanical parameters",
+        "MIN_SPEED_LIMIT",
+        "MAX_SPEED_LIMIT",
+        "MIN_ACCELERATION_PERIOD",
+        "MAX_ACCELERATION_PERIOD",
+        "MIN_ACCELERATION_STEP",
+        "MAX_ACCELERATION_STEP",
+        '"Control cycle"',
+        '"Acceleration update interval"',
+        '"0 → max-speed ramp"',
+        "accelerationIntervalTicks()",
+        "theoreticalRampTicks()",
+        "ceil(maxSpeed / accelerationStep) × accelerationPeriod × controlCycleTicks")
 
 if errors:
     print("RSE Servo actuator depth verification: FAIL")
@@ -98,6 +124,8 @@ if errors:
 print("RSE Servo actuator depth verification: PASS")
 print(" position/velocity mode model: PASS")
 print(" discrete acceleration + brake fail-safe contract: PASS")
+print(" exact Servo parameter bounds + 2-tick control-cycle timing contract: PASS")
+print(" derived acceleration interval + theoretical ramp-time HMI: PASS")
 print(" trajectory response evidence: PASS")
 print(" command/mode/brake/output quality synchronization: PASS")
 print(" six-tab viewport-aware engineering notebook with rigid Route page: PASS")
