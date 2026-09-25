@@ -207,6 +207,32 @@ public abstract class DirectionalSignalBlock extends Block implements Engineerin
     }
 
     /**
+     * Server-authoritative rotation for rigid two-port signal processors.
+     *
+     * <p>TX follows FACING and RX is forced to the exact opposite face. Legacy endpoint actions
+     * can therefore remain protocol-compatible without preserving old bent/L-shaped routes.</p>
+     */
+    public static boolean rotateRigidSeriesAxis(Level level, BlockPos pos, boolean clockwise) {
+        if (level.isClientSide) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof DirectionalSignalBlock block)) return false;
+
+        Direction oldOutput = seriesOutputSide(state);
+        Direction oldInput = seriesInputSide(state);
+        Direction newOutput = rotateHorizontal(oldOutput, clockwise);
+        Direction newInput = newOutput.getOpposite();
+        BlockState next = state
+                .setValue(FACING, newOutput)
+                .setValue(INPUT_FACING, newInput);
+        if (!physicalPortsDoNotOverlap(block, next)) return false;
+
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        notifyNeighbors(level, pos, block, oldInput, oldOutput, newInput, newOutput);
+        if (level instanceof ServerLevel serverLevel) serverLevel.scheduleTick(pos, block, 1);
+        return true;
+    }
+
+    /**
      * Routes only INPUT while keeping OUTPUT fixed. Candidate states are checked against every
      * declared engineering port, so a primary RX can never be moved onto an auxiliary input/output.
      * Dense multi-port layouts fall back to rotating the whole legal physical layout.
