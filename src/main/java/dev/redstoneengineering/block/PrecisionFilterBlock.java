@@ -134,9 +134,9 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock implements Enti
     public static int riseRate(Level level, BlockPos pos, BlockState state) {
         int fallback = state.getValue(RATE);
         if (level instanceof ServerLevel serverLevel) {
-            return Math.max(1, Math.min(4, EngineeringDeviceParameters.get(serverLevel)
+            return PrecisionFilterLogic.boundedRate(EngineeringDeviceParameters.get(serverLevel)
                     .extendedParameters(serverLevel, pos,
-                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
+                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a());
         }
         return fallback;
     }
@@ -144,7 +144,7 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock implements Enti
     public static boolean setRiseRate(ServerLevel level, BlockPos pos, int value) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof PrecisionFilterBlock filter)) return false;
-        int bounded = Math.max(1, Math.min(4, value));
+        int bounded = PrecisionFilterLogic.boundedRate(value);
         boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
                 level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
         if (changed) level.scheduleTick(pos, filter, 1);
@@ -173,7 +173,9 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock implements Enti
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof PrecisionFilterBlock filter)) return false;
         int rate = state.getValue(RATE);
-        int nextRate = forward ? (rate >= 4 ? 1 : rate + 1) : (rate <= 1 ? 4 : rate - 1);
+        int nextRate = forward
+                ? (rate >= PrecisionFilterLogic.MAX_RATE ? PrecisionFilterLogic.MIN_RATE : rate + 1)
+                : (rate <= PrecisionFilterLogic.MIN_RATE ? PrecisionFilterLogic.MAX_RATE : rate - 1);
         BlockState nextState = state.setValue(RATE, nextRate);
         level.setBlock(pos, nextState, Block.UPDATE_CLIENTS);
         if (level instanceof ServerLevel serverLevel) {

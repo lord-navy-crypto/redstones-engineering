@@ -1,5 +1,6 @@
 package dev.redstoneengineering.client.ui;
 
+import dev.redstoneengineering.signal.PrecisionFilterLogic;
 import dev.redstoneengineering.ui.menu.SignalProcessorMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -160,8 +161,16 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         if (menu.kind() == SignalProcessorMenu.KIND_PULSE) {
             wrappedText(g, "Trigger threshold fires the one-shot; hysteresis sets the lower re-arm level so noisy or bouncing inputs cannot chatter.", 16, 214, 620, MUTED);
         } else if (menu.kind() == SignalProcessorMenu.KIND_FILTER) {
-            labelValue(g, "Fall rate", menu.secondaryParameter() + " level/tick", 181);
-            wrappedText(g, "Independent up/down slew limits model asymmetric charge, discharge, acceleration or deceleration.", 16, 201, 620, MUTED);
+            labelValue(g, "Fall rate Rfall", menu.secondaryParameter() + " level/tick", 181);
+            labelValue(g, "Allowed rates",
+                    PrecisionFilterLogic.MIN_RATE + ".." + PrecisionFilterLogic.MAX_RATE + " level/tick", 201);
+            labelValue(g, "Response law",
+                    "rise: y[k+1]=min(x,y+Rrise) • fall: y[k+1]=max(x,y-Rfall)", 221);
+            labelValue(g, "ETA model",
+                    "ceil(|x-y| / Rdir) = " + (menu.runtimeC() < 0 ? "UNAVAILABLE" : menu.runtimeC() + " ticks"), 241);
+            wrappedText(g,
+                    "Rrise and Rfall are exact server-owned slew limits. Legacy over-range stored values are interpreted at the effective 1..4 model boundary; invalid input evidence retains the last physical output instead of becoming numerical zero.",
+                    16, 265, 620, MUTED);
         } else {
             labelValue(g, "Pulse width", menu.secondaryParameter() + " ticks", 181);
             labelValue(g, "Input face", menu.inputDirection().getName().toUpperCase(), 201);

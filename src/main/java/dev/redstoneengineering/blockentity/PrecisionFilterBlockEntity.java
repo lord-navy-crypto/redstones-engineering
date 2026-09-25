@@ -2,6 +2,7 @@ package dev.redstoneengineering.blockentity;
 
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.block.PrecisionFilterBlock;
+import dev.redstoneengineering.signal.PrecisionFilterLogic;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -24,15 +25,16 @@ public final class PrecisionFilterBlockEntity extends BlockEntity {
     }
 
     public void setFallRate(int value) {
-        int next = Math.max(1, Math.min(4, value));
+        int next = PrecisionFilterLogic.boundedRate(value);
         if (fallRate == next) return;
         fallRate = next;
         setChanged();
     }
 
     public int stepFallRate(boolean forward) {
-        int next = forward ? (fallRate >= 4 ? 1 : fallRate + 1)
-                : (fallRate <= 1 ? 4 : fallRate - 1);
+        int next = forward
+                ? (fallRate >= PrecisionFilterLogic.MAX_RATE ? PrecisionFilterLogic.MIN_RATE : fallRate + 1)
+                : (fallRate <= PrecisionFilterLogic.MIN_RATE ? PrecisionFilterLogic.MAX_RATE : fallRate - 1);
         setFallRate(next);
         return fallRate;
     }
@@ -41,7 +43,7 @@ public final class PrecisionFilterBlockEntity extends BlockEntity {
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
         if (tag.contains("fallRate")) {
-            fallRate = Math.max(1, Math.min(4, tag.getInt("fallRate")));
+            fallRate = PrecisionFilterLogic.boundedRate(tag.getInt("fallRate"));
         }
     }
 

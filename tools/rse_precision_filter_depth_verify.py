@@ -26,7 +26,14 @@ registration = "src/main/java/dev/redstoneengineering/RedstoneEngineering.java"
 menu = "src/main/java/dev/redstoneengineering/ui/menu/SignalProcessorMenu.java"
 screen = "src/main/java/dev/redstoneengineering/client/ui/SignalProcessorScreen.java"
 
-require(logic, "public static int step(", "riseRate", "fallRate", "settleTicks")
+require(logic,
+        "MIN_RATE = 1",
+        "MAX_RATE = 4",
+        "public static int boundedRate",
+        "public static int step(",
+        "riseRate",
+        "fallRate",
+        "settleTicks")
 require(block,
         "implements EntityBlock",
         "PrecisionFilterBlockEntity",
@@ -34,6 +41,8 @@ require(block,
         "stepFallRate",
         "settleTicks",
         "trackingError",
+        'IntegerProperty.create("rate", 1, 4)',
+        "PrecisionFilterLogic.boundedRate",
         "PrecisionFilterLogic.step")
 require(entity,
         "class PrecisionFilterBlockEntity",
@@ -41,6 +50,7 @@ require(entity,
         "stepFallRate",
         "loadAdditional",
         "saveAdditional",
+        "PrecisionFilterLogic.boundedRate",
         "setChanged")
 require(registration,
         "PrecisionFilterBlockEntity",
@@ -55,12 +65,23 @@ require(menu,
 require(screen,
         "Rise rate",
         "Fall rate",
+        "Allowed rates",
+        "Response law",
+        "ETA model",
+        "PrecisionFilterLogic.MIN_RATE",
+        "PrecisionFilterLogic.MAX_RATE",
         "Settle ETA",
         "Tracking error")
 
 block_text = (root / block).read_text(errors="ignore") if (root / block).is_file() else ""
 if "IntegerProperty FALL_RATE" in block_text:
     failed.append("PrecisionFilter fall-rate must not multiply BlockState variants")
+if "Math.min(15, value)" in block_text or "Math.min(15, EngineeringDeviceParameters" in block_text:
+    failed.append("PrecisionFilter rise-rate authority regressed to fake 1..15 range")
+
+entity_text = (root / entity).read_text(errors="ignore") if (root / entity).is_file() else ""
+if "Math.min(15, value)" in entity_text or "fallRate >= 15" in entity_text:
+    failed.append("PrecisionFilter fall-rate persistence regressed to fake 1..15 range")
 
 logic_path = root / logic
 if logic_path.is_file():
@@ -87,6 +108,16 @@ public final class PrecisionFilterHarness {
                 "fall ETA uses ceil(error/rate)");
         check(PrecisionFilterLogic.settleTicks(8, 8, 3, 2) == 0,
                 "settled ETA is zero");
+        check(PrecisionFilterLogic.step(0, 15, 99, 1) == 4,
+                "legacy over-range rise values clamp to effective MAX_RATE");
+        check(PrecisionFilterLogic.step(15, 0, 1, 99) == 11,
+                "legacy over-range fall values clamp to effective MAX_RATE");
+        check(PrecisionFilterLogic.settleTicks(0, 15, 99, 1) == 4,
+                "ETA uses effective MAX_RATE for legacy over-range settings");
+        check(PrecisionFilterLogic.boundedRate(0) == PrecisionFilterLogic.MIN_RATE,
+                "below-range rate clamps to MIN_RATE");
+        check(PrecisionFilterLogic.boundedRate(99) == PrecisionFilterLogic.MAX_RATE,
+                "above-range rate clamps to MAX_RATE");
         System.out.println("PrecisionFilterLogic semantic harness: PASS");
     }
 }
@@ -122,4 +153,5 @@ print("RSE precision-filter engineering-depth verification: PASS")
 print(" asymmetric rise/fall slew semantics: PASS")
 print(" settle ETA/tracking evidence: PASS")
 print(" persistent fall-rate without BlockState multiplication: PASS")
-print(" HMI independent rise/fall authority: PASS")
+print(" HMI independent rise/fall authority + exact 1..4 model equations: PASS")
+print(" legacy over-range persisted rates clamp to the effective 1..4 contract: PASS")
