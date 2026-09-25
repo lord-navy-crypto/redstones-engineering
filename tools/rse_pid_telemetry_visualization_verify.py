@@ -36,6 +36,7 @@ for token in (
     "recordTelemetry(level, pos, setpoint, process, out)",
     "PidTelemetryStore.clear(level, pos);",
     "PidTelemetryStore.clear(l, p);",
+    "CONTROL_CYCLE_TICKS = 2",
 ):
     if block and token not in block:
         errors.append(f"PidControllerBlock missing trend lifecycle contract {token!r}")
@@ -64,7 +65,7 @@ for token in (
     "menu::trendProcessValue",
     "menu::trendControlOutput",
     "authoritative samples",
-    "2t/sample",
+    'PidControllerBlock.CONTROL_CYCLE_TICKS + "t/sample"',
     "Compared with previous:",
     "Baseline capture established; capture again after a change to compare.",
 ):
