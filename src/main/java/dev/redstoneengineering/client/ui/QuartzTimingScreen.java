@@ -1,5 +1,6 @@
 package dev.redstoneengineering.client.ui;
 
+import dev.redstoneengineering.block.QuartzOscillatorBlock;
 import dev.redstoneengineering.ui.menu.QuartzTimingMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -10,6 +11,8 @@ import net.minecraft.world.entity.player.Inventory;
 public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu> {
     private Button parameterPrevious;
     private Button parameterNext;
+    private Button parameterCoarsePrevious;
+    private Button parameterCoarseNext;
     private Button reset;
 
     public QuartzTimingScreen(QuartzTimingMenu menu, Inventory inventory, Component title) { super(menu, inventory, title); }
@@ -18,7 +21,10 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
         int y = topPos + 116;
         parameterPrevious = addConfigureWidget(Button.builder(Component.literal("◀ Parameter"), b -> sendMenuButton(QuartzTimingMenu.BUTTON_PARAMETER_PREVIOUS)).bounds(leftPos + 16, y, 110, 20).build());
         parameterNext = addConfigureWidget(Button.builder(Component.literal("Parameter ▶"), b -> sendMenuButton(QuartzTimingMenu.BUTTON_PARAMETER_NEXT)).bounds(leftPos + 194, y, 110, 20).build());
-        reset = addConfigureWidget(Button.builder(Component.literal("Reset measurement"), b -> sendMenuButton(QuartzTimingMenu.BUTTON_RESET_MEASUREMENT)).bounds(leftPos + 70, y, 180, 20).build());
+        int coarseY = y + 24;
+        parameterCoarsePrevious = addConfigureWidget(Button.builder(Component.literal("−5 t"), b -> sendMenuButton(QuartzTimingMenu.BUTTON_PARAMETER_COARSE_PREVIOUS)).bounds(leftPos + 16, coarseY, 90, 20).build());
+        reset = addConfigureWidget(Button.builder(Component.literal("Reset measurement"), b -> sendMenuButton(QuartzTimingMenu.BUTTON_RESET_MEASUREMENT)).bounds(leftPos + 116, coarseY, 88, 20).build());
+        parameterCoarseNext = addConfigureWidget(Button.builder(Component.literal("+5 t"), b -> sendMenuButton(QuartzTimingMenu.BUTTON_PARAMETER_COARSE_NEXT)).bounds(leftPos + 214, coarseY, 90, 20).build());
     }
 
     @Override protected void syncDeviceWidgetLabels() {
@@ -32,18 +38,27 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
         parameterNext.active = oscillator || divider || delay;
         parameterPrevious.visible = configure && (oscillator || divider || delay);
         parameterNext.visible = configure && (oscillator || divider || delay);
-        reset.active = stability;
-        reset.visible = configure && stability;
+        parameterCoarsePrevious.active = oscillator;
+        parameterCoarseNext.active = oscillator;
+        parameterCoarsePrevious.visible = configure && oscillator;
+        parameterCoarseNext.visible = configure && oscillator;
+        reset.active = stability || oscillator;
+        reset.visible = configure && (stability || oscillator);
         if (oscillator) {
-            parameterPrevious.setMessage(Component.literal("◀ " + menu.secondary() + "t"));
-            parameterNext.setMessage(Component.literal(menu.secondary() + "t ▶"));
+            parameterPrevious.setMessage(Component.literal("−1 t"));
+            parameterNext.setMessage(Component.literal("+1 t"));
+            parameterCoarsePrevious.setMessage(Component.literal("−5 t"));
+            parameterCoarseNext.setMessage(Component.literal("+5 t"));
+            reset.setMessage(Component.literal("Default " + QuartzOscillatorBlock.DEFAULT_PERIOD_TICKS + "t"));
         } else if (divider) {
             parameterPrevious.setMessage(Component.literal("◀ ÷" + menu.tertiary()));
             parameterNext.setMessage(Component.literal("÷" + menu.tertiary() + " ▶"));
         } else if (delay) {
             parameterPrevious.setMessage(Component.literal("◀ " + menu.primary() + "t delay"));
             parameterNext.setMessage(Component.literal(menu.primary() + "t delay ▶"));
-        } else reset.setMessage(Component.literal("Reset measurement"));
+        } else if (stability) {
+            reset.setMessage(Component.literal("Reset measurement"));
+        }
     }
 
     @Override protected void renderSection(GuiGraphics graphics, Section section) {
@@ -107,10 +122,15 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
     private void configure(GuiGraphics g) {
         statusBadge(g, "SERVER-SIDE BOUNDED CONTROL", INFO, 16, 80);
         if (menu.kind() == QuartzTimingMenu.KIND_OSCILLATOR) {
-            labelValue(g, "Configured period", menu.secondary() + " ticks", 101);
-            labelValue(g, "Effective period", menu.runtimeA() + " ticks", 172);
-            labelValue(g, "Apply policy", menu.runtimeB() == 1 ? "LATCH AT NEXT REAL TRANSITION" : "ALREADY LATCHED", 190);
-            wrappedText(g, "Changing period updates configuration now but does not manufacture an early waveform edge.", 16, 214, 760, MUTED);
+            labelValue(g, "Configured period Tcfg", menu.secondary() + " ticks", 101);
+            labelValue(g, "Effective period Teff", menu.runtimeA() + " ticks", 168);
+            labelValue(g, "Allowed range", QuartzOscillatorBlock.MIN_PERIOD_TICKS + ".." + QuartzOscillatorBlock.MAX_PERIOD_TICKS + " ticks", 186);
+            labelValue(g, "Fine / coarse step", QuartzOscillatorBlock.FINE_STEP_TICKS + " / " + QuartzOscillatorBlock.COARSE_STEP_TICKS + " ticks", 204);
+            labelValue(g, "Default", QuartzOscillatorBlock.DEFAULT_PERIOD_TICKS + " ticks", 222);
+            labelValue(g, "Frequency model", "f = 20 / Tcfg = " + frequencyLabel(menu.secondary()) + " Hz", 240);
+            labelValue(g, "Half-cycle schedule", "Δt = max(1, Teff / 2) = " + Math.max(1, menu.runtimeA() / 2) + " ticks", 258);
+            labelValue(g, "Apply policy", menu.runtimeB() == 1 ? "LATCH AT NEXT REAL TRANSITION" : "ALREADY LATCHED", 276);
+            wrappedText(g, "Fine and coarse controls change only the server-owned configured period. The running waveform keeps its already scheduled transition, then latches the new period at that genuine edge.", 16, 300, 620, MUTED);
         } else if (menu.kind() == QuartzTimingMenu.KIND_DIVIDER) {
             labelValue(g, "Division", "÷" + menu.tertiary(), 101);
             labelValue(g, "I/O axis", inputFace() + " → " + outputFace(), 172);
@@ -240,6 +260,10 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
     private int expectedDividerPeriod() {
         long period = (long)Math.max(1, menu.primary()) * Math.max(2, menu.tertiary());
         return (int)Math.min(4096L, period);
+    }
+
+    private String frequencyLabel(int periodTicks) {
+        return String.format(java.util.Locale.ROOT, "%.3f", 20.0 / Math.max(1, periodTicks));
     }
 
     private String meanPeriodLabel() {
