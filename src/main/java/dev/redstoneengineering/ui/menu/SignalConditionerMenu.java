@@ -72,12 +72,13 @@ public final class SignalConditionerMenu extends EngineeringDeviceMenu {
         if (!stillValid(player)) return false;
 
         boolean changed;
-        if (id == BUTTON_INPUT_LEFT || id == BUTTON_INPUT_RIGHT) {
-            changed = DirectionalSignalBlock.rotateSeriesInput(level, blockPos, id == BUTTON_INPUT_RIGHT);
-        } else if (id == BUTTON_OUTPUT_LEFT || id == BUTTON_OUTPUT_RIGHT) {
-            changed = DirectionalSignalBlock.rotateSeriesOutput(level, blockPos, id == BUTTON_OUTPUT_RIGHT);
-        } else if (id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT) {
-            changed = DirectionalSignalBlock.rotateWholeRoute(level, blockPos, id == BUTTON_ROTATE_RIGHT);
+        if (id == BUTTON_INPUT_LEFT || id == BUTTON_INPUT_RIGHT
+                || id == BUTTON_OUTPUT_LEFT || id == BUTTON_OUTPUT_RIGHT
+                || id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT) {
+            // Signal Conditioner is a straight-through two-port processor. Legacy RX/TX IDs
+            // rotate the complete opposite-face axis instead of creating bent routes.
+            boolean clockwise = id == BUTTON_INPUT_RIGHT || id == BUTTON_OUTPUT_RIGHT || id == BUTTON_ROTATE_RIGHT;
+            changed = DirectionalSignalBlock.rotateRigidSeriesAxis(level, blockPos, clockwise);
         } else {
             changed = SignalConditionerBlock.applyConfigurationAction(level, blockPos, id);
         }
