@@ -202,12 +202,19 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
                 if (!(level instanceof ServerLevel server)) return false;
                 changed = QuartzPhaseDelayBlock.setConfiguredDelayTicks(
                         server, blockPos, primary.get() + (id == BUTTON_PARAMETER_NEXT ? 1 : -1));
-            } else if (id == BUTTON_INPUT_LEFT || id == BUTTON_INPUT_RIGHT) {
-                changed = DirectionalDomainBlock.rotateSeriesInput(level, blockPos, id == BUTTON_INPUT_RIGHT);
-            } else if (id == BUTTON_OUTPUT_LEFT || id == BUTTON_OUTPUT_RIGHT) {
-                changed = DirectionalDomainBlock.rotateSeriesOutput(level, blockPos, id == BUTTON_OUTPUT_RIGHT);
-            } else if (id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT) {
-                changed = DirectionalDomainBlock.rotateWholeRoute(level, blockPos, id == BUTTON_ROTATE_RIGHT);
+            } else if (block instanceof QuartzStabilityMonitorBlock
+                    && (id == BUTTON_INPUT_LEFT || id == BUTTON_INPUT_RIGHT
+                    || id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT)) {
+                boolean clockwise = id == BUTTON_INPUT_RIGHT || id == BUTTON_ROTATE_RIGHT;
+                changed = DirectionalDomainBlock.rotateSeriesInput(level, blockPos, clockwise);
+            } else if ((block instanceof QuartzClockDividerBlock || block instanceof QuartzPhaseDelayBlock)
+                    && (id == BUTTON_INPUT_LEFT || id == BUTTON_INPUT_RIGHT
+                    || id == BUTTON_OUTPUT_LEFT || id == BUTTON_OUTPUT_RIGHT
+                    || id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT)) {
+                // Divider and phase delay are physically straight-through two-port timing devices.
+                // Legacy RX/TX button IDs are retained, but all of them rotate one rigid opposite-face axis.
+                boolean clockwise = id == BUTTON_INPUT_RIGHT || id == BUTTON_OUTPUT_RIGHT || id == BUTTON_ROTATE_RIGHT;
+                changed = DirectionalDomainBlock.rotateRigidSeriesAxis(level, blockPos, clockwise);
             } else return false;
         } else return false;
 
