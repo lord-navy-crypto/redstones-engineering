@@ -302,38 +302,46 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         return menu instanceof ReliabilitySystemMenu;
     }
 
+    private boolean isRigidSeriesRoute() {
+        if (menu instanceof AmethystSystemMenu amethyst) return amethyst.directional();
+        if (menu instanceof QuartzTimingMenu quartz) {
+            return quartz.kind() == QuartzTimingMenu.KIND_DIVIDER || quartz.kind() == QuartzTimingMenu.KIND_DELAY;
+        }
+        return menu instanceof MagneticSystemMenu magnetic && magnetic.kind() == MagneticSystemMenu.KIND_COIL;
+    }
+
     private void syncRouteControls() {
         if (routePrevious == null || routeNext == null) return;
         boolean enabled = routeSupported();
         boolean rx = enabled && hasRouteInputEndpoint();
         boolean tx = enabled && hasRouteOutputEndpoint();
-        boolean endpoints = rx || tx;
+        boolean rigidSeries = enabled && isRigidSeriesRoute();
+        boolean endpoints = (rx || tx) && !rigidSeries;
 
         routePrevious.active = enabled && !endpoints;
         routeNext.active = enabled && !endpoints;
         routePrevious.visible = routePage && enabled && !endpoints;
         routeNext.visible = routePage && enabled && !endpoints;
-        boolean rigidAmethyst = menu instanceof AmethystSystemMenu && enabled;
-        routePrevious.setMessage(Component.literal(rigidAmethyst ? "Rotate block ◀" : "Direction ▲"));
-        routeNext.setMessage(Component.literal(rigidAmethyst ? "Rotate block ▶" : "Direction ▼"));
+        routePrevious.setMessage(Component.literal(rigidSeries ? "Rotate block ◀" : "Direction ▲"));
+        routeNext.setMessage(Component.literal(rigidSeries ? "Rotate block ▶" : "Direction ▼"));
         routePrevious.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
-                rigidAmethyst
-                        ? "Rotate the complete rigid block layout. RX remains exactly opposite TX."
+                rigidSeries
+                        ? "Rotate the complete rigid block layout. INPUT remains exactly opposite OUTPUT."
                         : "Cycle the device orientation to the previous valid direction.")));
         routeNext.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
-                rigidAmethyst
-                        ? "Rotate the complete rigid block layout. RX remains exactly opposite TX."
+                rigidSeries
+                        ? "Rotate the complete rigid block layout. INPUT remains exactly opposite OUTPUT."
                         : "Cycle the device orientation to the next valid direction.")));
 
         if (routeInputPrevious != null && routeInputNext != null && routeOutputPrevious != null && routeOutputNext != null) {
-            routeInputPrevious.active = rx;
-            routeInputNext.active = rx;
-            routeOutputPrevious.active = tx;
-            routeOutputNext.active = tx;
-            routeInputPrevious.visible = routePage && rx;
-            routeInputNext.visible = routePage && rx;
-            routeOutputPrevious.visible = routePage && tx;
-            routeOutputNext.visible = routePage && tx;
+            routeInputPrevious.active = rx && !rigidSeries;
+            routeInputNext.active = rx && !rigidSeries;
+            routeOutputPrevious.active = tx && !rigidSeries;
+            routeOutputNext.active = tx && !rigidSeries;
+            routeInputPrevious.visible = routePage && rx && !rigidSeries;
+            routeInputNext.visible = routePage && rx && !rigidSeries;
+            routeOutputPrevious.visible = routePage && tx && !rigidSeries;
+            routeOutputNext.visible = routePage && tx && !rigidSeries;
             routeInputPrevious.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal("Cycle RX / INPUT to the previous valid direction.")));
             routeInputNext.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal("Cycle RX / INPUT to the next valid direction.")));
             routeOutputPrevious.setTooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal("Cycle TX / OUTPUT to the previous valid direction.")));
@@ -495,7 +503,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
         if (routePage) {
             graphics.drawString(font, "ROUTE", 13, 62, TEXT, false);
-            graphics.drawString(font, "Direct RX / TX direction control", 92, 62, MUTED, false);
+            graphics.drawString(font, isRigidSeriesRoute() ? "Rigid opposite-port axis rotation" : "Direct RX / TX direction control", 92, 62, MUTED, false);
             graphics.enableScissor(leftPos + CONTENT_LEFT, topPos + HEADER_BOTTOM,
                     leftPos + contentRight(), topPos + imageHeight - FOOTER_HEIGHT);
             graphics.pose().pushPose();
@@ -533,26 +541,25 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         boolean enabled = routeSupported();
         boolean rx = enabled && hasRouteInputEndpoint();
         boolean tx = enabled && hasRouteOutputEndpoint();
-        boolean endpoints = rx || tx;
+        boolean rigidSeries = enabled && isRigidSeriesRoute();
+        boolean endpoints = (rx || tx) && !rigidSeries;
         statusBadge(graphics, enabled ? "ROUTING ENABLED" : "FIXED INTERFACE", enabled ? INFO : MUTED, 16, 84);
         labelValue(graphics, "Topology role", menu.topologyRoleLabel(), 112);
         labelValue(graphics, "Current route", menu.portRouteLabel(), 132);
         labelValue(graphics, "Control authority", enabled ? "SERVER-SIDE" : "READ ONLY", 152);
-        if (enabled && endpoints) {
+        if (rigidSeries) {
+            wrappedText(graphics,
+                    "Rigid two-port layout: INPUT is fixed exactly opposite OUTPUT. Use Rotate block below to turn the complete physical axis; the two endpoints cannot be bent independently.",
+                    16, 174, 620, TEXT);
+        } else if (enabled && endpoints) {
             String controls = rx && tx ? "Use RX and TX ▲ / ▼ below to change endpoint direction."
                     : rx ? "Use RX ▲ / ▼ below to change the input direction."
                     : "Use TX ▲ / ▼ below to change the output direction.";
-            safeText(graphics, controls, 16, 196, TEXT);
+            wrappedText(graphics, controls, 16, 196, 620, TEXT);
         } else if (enabled) {
-            if (menu instanceof AmethystSystemMenu) {
-                wrappedText(graphics,
-                        "Rigid two-port layout: INPUT is fixed opposite OUTPUT. Use Rotate block below to turn the complete physical axis; RX and TX cannot be bent independently.",
-                        16, 174, 760, TEXT);
-            } else {
-                safeText(graphics, "Use Direction ▲ / ▼ below to change the physical interface direction.", 16, 174, TEXT);
-            }
+            wrappedText(graphics, "Use Direction ▲ / ▼ below to change the physical interface direction.", 16, 174, 620, TEXT);
         } else {
-            safeText(graphics, "This device has a fixed physical port contract. Its remaining controls, if any, are on Configure.", 16, 174, MUTED);
+            wrappedText(graphics, "This device has a fixed physical port contract. Its remaining controls, if any, are on Configure.", 16, 174, 620, MUTED);
         }
     }
 
