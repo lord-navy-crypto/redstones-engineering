@@ -33,14 +33,20 @@ require(menu,
         "engineeringA.set(PressureRegulatorBlock.setpointPressure",
         "engineeringB.set(PressureRegulatorBlock.responseRate",
         "PressureRegulatorBlock.actualRegulatedPressure",
-        "PressureRegulatorBlock.trackingError")
+        "PressureRegulatorBlock.trackingError",
+        "rotateRigidDirectional(id)",
+        "DirectionalDomainBlock.rotateRigidSeriesAxis")
 require(screen,
         "REGULATOR RESPONSE",
         "Setpoint / actual ceiling",
         "Tracking error",
         "Response rate",
         '"Setpoint / response rate"',
-        'menu.engineeringB()+" pressure/tick"')
+        'menu.engineeringB()+" pressure/tick"',
+        "Ptarget = min(Pin, Psp)",
+        "P[k+1] = toward(Ptarget, ±R)",
+        "Psp=1..100 • R=1..100",
+        "rigid opposite-port axis")
 
 lp=root/logic
 if lp.is_file():
@@ -79,4 +85,5 @@ print("RSE pressure-regulator engineering-depth verification: PASS")
 print(" 10-step calibrated setpoint: PASS")
 print(" finite regulator response: PASS")
 print(" solver consumes actual ceiling: PASS")
-print(" HMI exact setpoint/response-rate authority + response evidence: PASS")
+print(" HMI exact setpoint/response-rate authority + response equations: PASS")
+print(" rigid opposite-port regulator routing: PASS")
