@@ -39,14 +39,21 @@ require(menu,
         "PneumaticProportionalValveBlock.actualOpening",
         "PneumaticProportionalValveBlock.travel",
         "PneumaticProportionalValveBlock.reversals",
-        "engineeringA.set(PneumaticProportionalValveBlock.configuredResponseRate")
+        "engineeringA.set(PneumaticProportionalValveBlock.configuredResponseRate",
+        "rotateRigidDirectional(id)",
+        "DirectionalDomainBlock.rotateRigidSeriesAxis")
 require(screen,
         "VALVE SPOOL RESPONSE",
         "Command / actual opening",
         "Tracking error",
         "Travel / reversals",
         "Configured spool rate",
-        'menu.engineeringA()+" opening/tick"')
+        'menu.engineeringA()+" opening/tick"',
+        "R=1..15 opening/tick",
+        "a[k+1] = toward(u, ±R)",
+        "e = u - a",
+        "pneumatic solver uses actual a, not command u",
+        "exactly opposite")
 
 logic_path = root / logic
 if logic_path.is_file():
@@ -90,4 +97,5 @@ print("RSE proportional-valve engineering-depth verification: PASS")
 print(" finite spool travel: PASS")
 print(" actual opening drives pneumatic restriction: PASS")
 print(" travel/reversal evidence: PASS")
-print(" HMI exact response-rate authority: PASS")
+print(" HMI exact response-rate authority + spool equations: PASS")
+print(" rigid opposite-port proportional-valve routing: PASS")
