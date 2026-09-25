@@ -313,6 +313,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
                     || pneumatic.kind() == PneumaticSystemMenu.KIND_RECEIVER;
         }
         if (menu instanceof SignalProcessorMenu || menu instanceof SignalConditionerMenu) return true;
+        if (menu instanceof OpticalSystemMenu optical) return optical.rigidSeriesRoute();
         return menu instanceof MagneticSystemMenu magnetic && magnetic.kind() == MagneticSystemMenu.KIND_COIL;
     }
 

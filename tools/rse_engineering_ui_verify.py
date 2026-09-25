@@ -206,11 +206,16 @@ require("src/main/java/dev/redstoneengineering/ui/menu/OpticalSystemMenu.java",
         "DirectionalSignalBlock.rotateSeriesOutput(level, blockPos, false)",
         "DirectionalDomainBlock.rotateSeriesInput(level, blockPos, false)",
         "DirectionalDomainBlock.rotateSeriesOutput(level, blockPos, false)",
+        "routeRigidDomain(id)",
+        "DirectionalDomainBlock.rotateRigidSeriesAxis(level, blockPos, clockwise)",
+        "public boolean rigidSeriesRoute()",
         "routeSplitter(id)")
 require("src/main/java/dev/redstoneengineering/client/ui/OpticalSystemScreen.java",
         "KIND_FREE_SPACE_TX", "KIND_FREE_SPACE_RX",
         '"CHANNEL " + menu.secondary()',
-        '"Direction and physical interface orientation are controlled only on Route."')
+        '"Direction and physical interface orientation are controlled only on Route."',
+        "menu.inputDirection()",
+        "Rigid optical axis")
 
 # Specialized Configure pages may not recreate a second direction/orientation authority.
 route_capable_screens = (
@@ -224,6 +229,18 @@ for name in route_capable_screens:
     for forbidden in ("directionCycle", "orientationCycle", "BUTTON_ROTATE_LEFT", "BUTTON_ROTATE_RIGHT", "BUTTON_OUTPUT_LEFT", "BUTTON_OUTPUT_RIGHT"):
         if forbidden in body:
             errors.append(f"{name}: duplicates physical Route authority on Configure via {forbidden!r}")
+
+optical_menu = read("src/main/java/dev/redstoneengineering/ui/menu/OpticalSystemMenu.java")
+optical_click = optical_menu[optical_menu.find("public boolean clickMenuButton"):]
+for device, next_device in (
+    ("block instanceof OpticalChannelFilterBlock", "block instanceof OpticalAttenuatorBlock"),
+    ("block instanceof OpticalAttenuatorBlock", "block instanceof OpticalSplitterBlock"),
+):
+    start = optical_click.find(device)
+    end = optical_click.find(next_device, start)
+    window = optical_click[start:end] if start >= 0 and end > start else ""
+    if "routeRigidDomain(id)" not in window:
+        errors.append(f"{device}: straight-through optical route no longer uses rigid whole-axis rotation")
 
 for name in (
     "EnhancedFieldDeviceScreen.java", "SignalConditionerScreen.java", "PidEngineeringNotebookScreen.java",
@@ -264,6 +281,7 @@ for token in (
     "PneumaticSystemMenu.KIND_PROPORTIONAL",
     "PneumaticSystemMenu.KIND_RECEIVER",
     "menu instanceof SignalProcessorMenu || menu instanceof SignalConditionerMenu",
+    "if (menu instanceof OpticalSystemMenu optical) return optical.rigidSeriesRoute();",
 ):
     if token not in screen:
         errors.append(f"EngineeringScreen rigid-route classifier missing {token}")

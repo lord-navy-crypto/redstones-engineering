@@ -222,6 +222,60 @@ require(
 )
 
 require(
+    "src/main/java/dev/redstoneengineering/signal/OpticalPassiveLogic.java",
+    "MIN_INTENSITY = 0",
+    "MAX_INTENSITY = 15",
+    "MIN_CONFIGURED_LOSS = 0",
+    "MAX_CONFIGURED_LOSS = 15",
+    "MIN_LEGACY_LOSS = 0",
+    "MAX_LEGACY_LOSS = 8",
+    "DEFAULT_LEGACY_LOSS = 2",
+    "MIN_CHANNEL = 0",
+    "MAX_CHANNEL = 15",
+    "FILTER_INSERTION_LOSS = 1",
+    "TRANSFER_TICK_TICKS = 2",
+    "CONFIGURATION_RECHECK_TICKS = 1",
+    "attenuatedIntensity",
+    "fullyAttenuated",
+    "channelMatched",
+    "filteredIntensity",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/OpticalAttenuatorBlock.java",
+    "OpticalPassiveLogic.boundedConfiguredLoss",
+    "OpticalPassiveLogic.boundedLegacyLoss",
+    "OpticalPassiveLogic.attenuatedIntensity",
+    "OpticalPassiveLogic.fullyAttenuated",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/OpticalChannelFilterBlock.java",
+    "OpticalPassiveLogic.boundedChannel",
+    "OpticalPassiveLogic.channelMatched",
+    "OpticalPassiveLogic.filteredIntensity",
+    "OpticalPassiveLogic.FILTER_INSERTION_LOSS",
+)
+require(
+    "src/main/java/dev/redstoneengineering/ui/menu/OpticalSystemMenu.java",
+    "legacyParameter.set(state.getValue(OpticalAttenuatorBlock.LOSS))",
+    "routeRigidDomain(id)",
+    "DirectionalDomainBlock.rotateRigidSeriesAxis",
+    "public boolean rigidSeriesRoute()",
+    "public Direction inputDirection()",
+)
+optical_screen = require(
+    "src/main/java/dev/redstoneengineering/client/ui/OpticalSystemScreen.java",
+    "OpticalPassiveLogic.MIN_CONFIGURED_LOSS",
+    "OpticalPassiveLogic.MAX_CONFIGURED_LOSS",
+    "OpticalPassiveLogic.MIN_LEGACY_LOSS",
+    "OpticalPassiveLogic.MAX_LEGACY_LOSS",
+    "OpticalPassiveLogic.FILTER_INSERTION_LOSS",
+    "menu.inputDirection()",
+    "Rigid optical axis",
+)
+if "dev.redstoneengineering.physics" in optical_screen:
+    errors.append("Optical client HMI crossed the persistence/physics authority boundary")
+
+require(
     "src/main/java/dev/redstoneengineering/signal/RedstoneCopperDriverLogic.java",
     "MIN_VOLTAGE = 0",
     "MAX_VOLTAGE = 15",
@@ -703,6 +757,7 @@ print("RSE parameter-contract consistency verification: PASS")
 print(" Precision Filter effective 1..4 slew authority: PASS")
 print(" Pulse Shaper threshold/hysteresis/width authority: PASS")
 print(" Signal Conditioner pure transfer/range authority: PASS")
+print(" Optical attenuator/filter exact transfer + rigid-route authority: PASS")
 print(" Redstone-Copper exact slew/legacy preset dynamics authority: PASS")
 print(" PWM exact-period/legacy-preset carrier authority: PASS")
 print(" Mechanical Exciter frequency/rate stored-effective authority: PASS")

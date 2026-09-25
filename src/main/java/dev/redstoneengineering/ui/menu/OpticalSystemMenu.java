@@ -27,6 +27,7 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
             BUTTON_OUTPUT_LEFT = 8, BUTTON_OUTPUT_RIGHT = 9;
 
     private final DataSlot kind = trackedInt(), primary = trackedInt(), secondary = trackedInt(), tertiary = trackedInt(), auxiliary = trackedInt();
+    private final DataSlot legacyParameter = trackedInt();
     private final DataSlot quality = trackedInt(), facing = trackedInt(), inputFacing = trackedInt(), outputFacing = trackedInt();
     private final DataSlot meterConnected = trackedInt(), meterSameChannel = trackedInt(), meterMismatched = trackedInt();
     private final DataSlot meterStrongest = trackedInt(), meterWeakest = trackedInt(), commissioning = trackedInt();
@@ -42,7 +43,8 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
 
     @Override protected void refreshAuthoritativeSnapshot() {
         BlockState state = level.getBlockState(blockPos); Block block = state.getBlock();
-        primary.set(0); secondary.set(0); tertiary.set(0); auxiliary.set(0); facing.set(-1); inputFacing.set(-1); outputFacing.set(-1);
+        primary.set(0); secondary.set(0); tertiary.set(0); auxiliary.set(0); legacyParameter.set(-1);
+        facing.set(-1); inputFacing.set(-1); outputFacing.set(-1);
         quality.set(PortQuality.NO_SIGNAL.ordinal()); meterConnected.set(0); meterSameChannel.set(0); meterMismatched.set(0); meterStrongest.set(0); meterWeakest.set(0);
         budgetBounded.set(0); budgetPassiveNodes.set(0); budgetPassiveHops.set(0); budgetSourceCount.set(0); budgetSourceIntensity.set(0); budgetSourceChannel.set(0); budgetObservedLoss.set(0); budgetReceiverHeadroom.set(0);
         commissioning.set(CommissioningStatus.NOT_READY.code());
@@ -73,7 +75,9 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
             primary.set(e.inputIntensity()); secondary.set(e.targetChannel()); tertiary.set(e.expectedOutputIntensity()); auxiliary.set(e.inputChannel()); quality.set(e.inputQuality().ordinal()); captureDomainEndpoints(state);
         } else if (block instanceof OpticalAttenuatorBlock) {
             kind.set(KIND_ATTENUATOR); OpticalAttenuatorBlock.AttenuationEvidence e = OpticalAttenuatorBlock.evidence(level, blockPos, state);
-            primary.set(e.inputIntensity()); secondary.set(e.loss()); tertiary.set(e.expectedOutputIntensity()); auxiliary.set(e.channel()); quality.set(e.inputQuality().ordinal()); captureDomainEndpoints(state);
+            primary.set(e.inputIntensity()); secondary.set(e.loss()); tertiary.set(e.expectedOutputIntensity()); auxiliary.set(e.channel());
+            legacyParameter.set(state.getValue(OpticalAttenuatorBlock.LOSS));
+            quality.set(e.inputQuality().ordinal()); captureDomainEndpoints(state);
         } else if (block instanceof FreeSpaceOpticalTransmitterBlock transmitter) {
             kind.set(KIND_FREE_SPACE_TX); var observation = transmitter.inputObservation(level, blockPos, state);
             primary.set(observation.value()); secondary.set(state.getValue(FreeSpaceOpticalTransmitterBlock.CHANNEL)); tertiary.set(observation.valid() ? 1 : 0); quality.set(observation.quality().ordinal()); captureDomainEndpoints(state);
@@ -123,13 +127,13 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
             if (id == BUTTON_PRIMARY_PREVIOUS || id == BUTTON_PRIMARY_NEXT) {
                 int channel = state.getValue(OpticalChannelFilterBlock.TARGET); channel = id == BUTTON_PRIMARY_NEXT ? (channel + 1) % 16 : Math.floorMod(channel - 1, 16);
                 BlockState next = state.setValue(OpticalChannelFilterBlock.TARGET, channel); level.setBlock(blockPos, next, Block.UPDATE_CLIENTS); if (level instanceof ServerLevel server) OpticalChannelFilterBlock.configurationChanged(server, blockPos, next); changed = true;
-            } else changed = routeDomain(id);
+            } else changed = routeRigidDomain(id);
         } else if (block instanceof OpticalAttenuatorBlock) {
             if (id == BUTTON_PRIMARY_PREVIOUS || id == BUTTON_PRIMARY_NEXT) {
                 if (!(level instanceof ServerLevel server)) return false;
                 changed = OpticalAttenuatorBlock.setConfiguredLoss(
                         server, blockPos, secondary.get() + (id == BUTTON_PRIMARY_NEXT ? 1 : -1));
-            } else changed = routeDomain(id);
+            } else changed = routeRigidDomain(id);
         } else if (block instanceof OpticalSplitterBlock) changed = routeSplitter(id);
         else if (block instanceof OpticalPowerMeterBlock) {
             if (id != BUTTON_ROTATE_LEFT && id != BUTTON_ROTATE_RIGHT) return false;
@@ -147,6 +151,17 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
             } else changed = routeSignal(id);
         } else return false;
         if (changed) { refreshAuthoritativeSnapshot(); broadcastChanges(); } return changed;
+    }
+
+    private boolean routeRigidDomain(int id) {
+        if (id != BUTTON_ROTATE_LEFT && id != BUTTON_ROTATE_RIGHT
+                && id != BUTTON_INPUT_LEFT && id != BUTTON_INPUT_RIGHT
+                && id != BUTTON_OUTPUT_LEFT && id != BUTTON_OUTPUT_RIGHT) {
+            return false;
+        }
+        boolean clockwise = id == BUTTON_ROTATE_RIGHT
+                || id == BUTTON_INPUT_RIGHT || id == BUTTON_OUTPUT_RIGHT;
+        return DirectionalDomainBlock.rotateRigidSeriesAxis(level, blockPos, clockwise);
     }
 
     private boolean routeDomain(int id) {
@@ -192,6 +207,7 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
 
     public int kind() { return kind.get(); } public int primary() { return primary.get(); } public int secondary() { return secondary.get(); }
     public int tertiary() { return tertiary.get(); } public int auxiliary() { return auxiliary.get(); }
+    public int legacyParameter() { return legacyParameter.get(); }
     public int meterConnectedNeighbors() { return meterConnected.get(); } public int meterSameChannelNeighbors() { return meterSameChannel.get(); }
     public int meterChannelMismatches() { return meterMismatched.get(); } public int meterStrongestNeighbor() { return meterStrongest.get(); } public int meterWeakestNeighbor() { return meterWeakest.get(); }
     public boolean budgetBounded() { return budgetBounded.get() != 0; } public int budgetPassiveNodes() { return budgetPassiveNodes.get(); } public int budgetPassiveHops() { return budgetPassiveHops.get(); }
@@ -203,4 +219,13 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
     public boolean directional() { return kind.get() == KIND_SPLITTER || kind.get() == KIND_FILTER || kind.get() == KIND_ATTENUATOR || kind.get() == KIND_FREE_SPACE_TX || kind.get() == KIND_FREE_SPACE_RX; }
     public boolean hasInputEndpoint() { return directional() && inputFacing.get() >= 0; }
     public boolean hasOutputEndpoint() { return directional() && outputFacing.get() >= 0; }
+    public boolean rigidSeriesRoute() { return kind.get() == KIND_FILTER || kind.get() == KIND_ATTENUATOR; }
+    public Direction inputDirection() {
+        int ordinal = inputFacing.get(); Direction[] all = Direction.values();
+        return ordinal >= 0 && ordinal < all.length ? all[ordinal] : Direction.SOUTH;
+    }
+    public Direction outputDirection() {
+        int ordinal = outputFacing.get(); Direction[] all = Direction.values();
+        return ordinal >= 0 && ordinal < all.length ? all[ordinal] : facing();
+    }
 }

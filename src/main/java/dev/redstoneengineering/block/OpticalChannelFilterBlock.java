@@ -11,6 +11,7 @@ import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.OpticalObservationSupport;
+import dev.redstoneengineering.signal.OpticalPassiveLogic;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -32,14 +33,16 @@ import java.util.Optional;
 
 /** Exact optical channel selector with one-level insertion loss and explicit rejection evidence. */
 public class OpticalChannelFilterBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
-    public static final IntegerProperty TARGET = IntegerProperty.create("target", 0, 15);
+    public static final IntegerProperty TARGET = IntegerProperty.create(
+            "target", OpticalPassiveLogic.MIN_CHANNEL, OpticalPassiveLogic.MAX_CHANNEL);
 
     public record FilterEvidence(int inputIntensity, int inputChannel, PortQuality inputQuality,
                                  int targetChannel, boolean matched, int expectedOutputIntensity) {}
 
     public OpticalChannelFilterBlock(Properties properties) {
         super(properties);
-        registerDefaultState(defaultBlockState().setValue(TARGET, 0));
+        registerDefaultState(defaultBlockState().setValue(
+                TARGET, OpticalPassiveLogic.DEFAULT_CHANNEL));
     }
 
     @Override public MapCodec<OpticalChannelFilterBlock> codec() { return RedstoneEngineering.OPTICAL_CHANNEL_FILTER_CODEC.value(); }
@@ -48,9 +51,12 @@ public class OpticalChannelFilterBlock extends DirectionalDomainBlock implements
     public static FilterEvidence evidence(Level level, BlockPos pos, BlockState state) {
         Direction inputSide = seriesInputSide(state);
         OpticalObservationSupport.Observation input = OpticalObservationSupport.observe(level, pos.relative(inputSide));
-        int target = state.getValue(TARGET);
-        boolean matched = input.quality() == PortQuality.VALID && input.intensity() > 0 && input.channel() == target;
-        int outputIntensity = matched ? Math.max(0, input.intensity() - 1) : 0;
+        int target = OpticalPassiveLogic.boundedChannel(state.getValue(TARGET));
+        boolean valid = input.quality() == PortQuality.VALID;
+        boolean matched = OpticalPassiveLogic.channelMatched(
+                input.intensity(), input.channel(), target, valid);
+        int outputIntensity = OpticalPassiveLogic.filteredIntensity(
+                input.intensity(), input.channel(), target, valid);
         return new FilterEvidence(input.intensity(), input.channel(), input.quality(), target, matched, outputIntensity);
     }
 
@@ -65,7 +71,10 @@ public class OpticalChannelFilterBlock extends DirectionalDomainBlock implements
         if (port.isEmpty()) return Optional.empty();
         BlockPos samplePos = side == inputSide(state) ? inputPos(pos, state) : outputPos(pos, state);
         OpticalObservationSupport.Observation observation = OpticalObservationSupport.observe(level, samplePos);
-        return Optional.of(new EngineeringPortSnapshot(port.get(), observation.intensity(), 0.0, 15.0, observation.quality()));
+        return Optional.of(new EngineeringPortSnapshot(
+                port.get(), observation.intensity(),
+                OpticalPassiveLogic.MIN_INTENSITY, OpticalPassiveLogic.MAX_INTENSITY,
+                observation.quality()));
     }
 
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
@@ -80,7 +89,7 @@ public class OpticalChannelFilterBlock extends DirectionalDomainBlock implements
                 && state.getValue(TARGET).intValue() != oldState.getValue(TARGET).intValue())) {
             configurationChanged(serverLevel, pos, oldState.hasProperty(FACING) ? oldState : state);
         }
-        serverLevel.scheduleTick(pos, this, 1);
+        serverLevel.scheduleTick(pos, this, OpticalPassiveLogic.CONFIGURATION_RECHECK_TICKS);
     }
 
     @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
@@ -88,7 +97,7 @@ public class OpticalChannelFilterBlock extends DirectionalDomainBlock implements
         boolean driven = evidence.matched() && evidence.expectedOutputIntensity() > 0;
         DomainNetwork.driveOptical(level, outputPos(pos, state), pos,
                 evidence.expectedOutputIntensity(), evidence.inputChannel(), driven);
-        level.scheduleTick(pos, this, 2);
+        level.scheduleTick(pos, this, OpticalPassiveLogic.TRANSFER_TICK_TICKS);
     }
 
     public static void invalidateOutput(ServerLevel level, BlockPos pos, BlockState state) {
@@ -99,7 +108,9 @@ public class OpticalChannelFilterBlock extends DirectionalDomainBlock implements
     /** Shared state-transition hook so every configuration path clears the previous carrier first. */
     public static void configurationChanged(ServerLevel level, BlockPos pos, BlockState state) {
         invalidateOutput(level, pos, state);
-        if (level.getBlockState(pos).getBlock() instanceof OpticalChannelFilterBlock filter) level.scheduleTick(pos, filter, 1);
+        if (level.getBlockState(pos).getBlock() instanceof OpticalChannelFilterBlock filter) {
+            level.scheduleTick(pos, filter, OpticalPassiveLogic.CONFIGURATION_RECHECK_TICKS);
+        }
     }
 
     @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState next, boolean moved) {
@@ -114,12 +125,15 @@ public class OpticalChannelFilterBlock extends DirectionalDomainBlock implements
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer && !player.isShiftKeyDown()) {
             FieldDeviceUi.open(serverPlayer, pos);
         } else if (!level.isClientSide) {
-            int channel = (state.getValue(TARGET) + 1) % 16;
+            int span = OpticalPassiveLogic.MAX_CHANNEL - OpticalPassiveLogic.MIN_CHANNEL + 1;
+            int channel = OpticalPassiveLogic.MIN_CHANNEL + Math.floorMod(
+                    state.getValue(TARGET) - OpticalPassiveLogic.MIN_CHANNEL + 1, span);
             BlockState next = state.setValue(TARGET, channel);
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
             FilterEvidence evidence = evidence(level, pos, next);
             player.displayClientMessage(Component.literal(
-                    "Optical channel filter | pass channel=" + channel + " | insertion loss=1"
+                    "Optical channel filter | pass channel=" + channel
+                            + " | insertion loss=" + OpticalPassiveLogic.FILTER_INSERTION_LOSS
                             + " | input quality=" + evidence.inputQuality()
                             + (evidence.inputIntensity() > 0
                             ? " | input ch=" + evidence.inputChannel() + " I=" + evidence.inputIntensity()

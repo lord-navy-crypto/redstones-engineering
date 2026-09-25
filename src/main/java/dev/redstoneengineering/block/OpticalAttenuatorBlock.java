@@ -11,8 +11,8 @@ import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.EngineeringDeviceParameters;
-import dev.redstoneengineering.physics.EngineeringMath;
 import dev.redstoneengineering.physics.OpticalObservationSupport;
+import dev.redstoneengineering.signal.OpticalPassiveLogic;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -34,25 +34,31 @@ import java.util.Optional;
 
 /** Configurable passive optical loss element; complete attenuation is a valid transfer result, not a fault. */
 public class OpticalAttenuatorBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
-    public static final IntegerProperty LOSS = IntegerProperty.create("loss", 0, 8);
+    public static final IntegerProperty LOSS = IntegerProperty.create(
+            "loss",
+            OpticalPassiveLogic.MIN_LEGACY_LOSS,
+            OpticalPassiveLogic.MAX_LEGACY_LOSS);
 
     public record AttenuationEvidence(int inputIntensity, int channel, PortQuality inputQuality,
                                       int loss, int expectedOutputIntensity, boolean fullyAttenuated) {}
 
     public OpticalAttenuatorBlock(Properties properties) {
         super(properties);
-        registerDefaultState(defaultBlockState().setValue(LOSS, 2));
+        registerDefaultState(defaultBlockState().setValue(
+                LOSS, OpticalPassiveLogic.DEFAULT_LEGACY_LOSS));
     }
 
     @Override public MapCodec<OpticalAttenuatorBlock> codec() { return RedstoneEngineering.OPTICAL_ATTENUATOR_CODEC.value(); }
     @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { super.createBlockStateDefinition(builder); builder.add(LOSS); }
 
     public static int configuredLoss(Level level, BlockPos pos, BlockState state) {
-        int fallback = state.getValue(LOSS);
+        int fallback = OpticalPassiveLogic.boundedLegacyLoss(state.getValue(LOSS));
         if (level instanceof ServerLevel serverLevel) {
-            return Math.max(0, Math.min(15, EngineeringDeviceParameters.get(serverLevel)
-                    .extendedParameters(serverLevel, pos,
-                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
+            return OpticalPassiveLogic.boundedConfiguredLoss(
+                    EngineeringDeviceParameters.get(serverLevel)
+                            .extendedParameters(serverLevel, pos,
+                                    new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0))
+                            .a());
         }
         return fallback;
     }
@@ -60,7 +66,7 @@ public class OpticalAttenuatorBlock extends DirectionalDomainBlock implements En
     public static boolean setConfiguredLoss(ServerLevel level, BlockPos pos, int loss) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof OpticalAttenuatorBlock attenuator)) return false;
-        int bounded = Math.max(0, Math.min(15, loss));
+        int bounded = OpticalPassiveLogic.boundedConfiguredLoss(loss);
         boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
                 level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
         if (changed) configurationChanged(level, pos, state);
@@ -71,9 +77,13 @@ public class OpticalAttenuatorBlock extends DirectionalDomainBlock implements En
         Direction inputSide = seriesInputSide(state);
         OpticalObservationSupport.Observation input = OpticalObservationSupport.observe(level, pos.relative(inputSide));
         int loss = configuredLoss(level, pos, state);
-        int out = input.quality() == PortQuality.VALID ? EngineeringMath.opticalAfterLoss(input.intensity(), loss) : 0;
-        return new AttenuationEvidence(input.intensity(), input.channel(), input.quality(), loss, out,
-                input.quality() == PortQuality.VALID && input.intensity() > 0 && out == 0);
+        boolean valid = input.quality() == PortQuality.VALID;
+        int out = valid
+                ? OpticalPassiveLogic.attenuatedIntensity(input.intensity(), loss)
+                : OpticalPassiveLogic.MIN_INTENSITY;
+        return new AttenuationEvidence(
+                input.intensity(), input.channel(), input.quality(), loss, out,
+                OpticalPassiveLogic.fullyAttenuated(input.intensity(), loss, valid));
     }
 
     @Override public List<EngineeringPort> engineeringPorts(BlockState state) {
@@ -87,7 +97,10 @@ public class OpticalAttenuatorBlock extends DirectionalDomainBlock implements En
         if (port.isEmpty()) return Optional.empty();
         BlockPos samplePos = side == inputSide(state) ? inputPos(pos, state) : outputPos(pos, state);
         OpticalObservationSupport.Observation observation = OpticalObservationSupport.observe(level, samplePos);
-        return Optional.of(new EngineeringPortSnapshot(port.get(), observation.intensity(), 0.0, 15.0, observation.quality()));
+        return Optional.of(new EngineeringPortSnapshot(
+                port.get(), observation.intensity(),
+                OpticalPassiveLogic.MIN_INTENSITY, OpticalPassiveLogic.MAX_INTENSITY,
+                observation.quality()));
     }
 
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
@@ -102,7 +115,7 @@ public class OpticalAttenuatorBlock extends DirectionalDomainBlock implements En
                 && state.getValue(LOSS).intValue() != oldState.getValue(LOSS).intValue())) {
             configurationChanged(serverLevel, pos, oldState.hasProperty(FACING) ? oldState : state);
         }
-        serverLevel.scheduleTick(pos, this, 1);
+        serverLevel.scheduleTick(pos, this, OpticalPassiveLogic.CONFIGURATION_RECHECK_TICKS);
     }
 
     @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
@@ -110,7 +123,7 @@ public class OpticalAttenuatorBlock extends DirectionalDomainBlock implements En
         boolean driven = evidence.inputQuality() == PortQuality.VALID && evidence.expectedOutputIntensity() > 0;
         DomainNetwork.driveOptical(level, outputPos(pos, state), pos,
                 evidence.expectedOutputIntensity(), evidence.channel(), driven);
-        level.scheduleTick(pos, this, 2);
+        level.scheduleTick(pos, this, OpticalPassiveLogic.TRANSFER_TICK_TICKS);
     }
 
     public static void invalidateOutput(ServerLevel level, BlockPos pos, BlockState state) {
@@ -121,7 +134,9 @@ public class OpticalAttenuatorBlock extends DirectionalDomainBlock implements En
     /** Shared state-transition hook so every configuration path clears the previous carrier first. */
     public static void configurationChanged(ServerLevel level, BlockPos pos, BlockState state) {
         invalidateOutput(level, pos, state);
-        if (level.getBlockState(pos).getBlock() instanceof OpticalAttenuatorBlock attenuator) level.scheduleTick(pos, attenuator, 1);
+        if (level.getBlockState(pos).getBlock() instanceof OpticalAttenuatorBlock attenuator) {
+            level.scheduleTick(pos, attenuator, OpticalPassiveLogic.CONFIGURATION_RECHECK_TICKS);
+        }
     }
 
     @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState next, boolean moved) {
@@ -138,7 +153,8 @@ public class OpticalAttenuatorBlock extends DirectionalDomainBlock implements En
             FieldDeviceUi.open(serverPlayer, pos);
         } else if (!level.isClientSide) {
             int loss = configuredLoss(level, pos, state);
-            loss = loss >= 15 ? 0 : loss + 1;
+            loss = loss >= OpticalPassiveLogic.MAX_CONFIGURED_LOSS
+                    ? OpticalPassiveLogic.MIN_CONFIGURED_LOSS : loss + 1;
             if (level instanceof ServerLevel serverLevel) setConfiguredLoss(serverLevel, pos, loss);
             AttenuationEvidence evidence = evidence(level, pos, state);
             player.displayClientMessage(Component.literal(

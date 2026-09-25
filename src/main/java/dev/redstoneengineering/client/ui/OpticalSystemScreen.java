@@ -1,7 +1,9 @@
 package dev.redstoneengineering.client.ui;
 
+import dev.redstoneengineering.block.OpticalAttenuatorBlock;
 import dev.redstoneengineering.core.diagnostic.CommissioningStatus;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.signal.OpticalPassiveLogic;
 import dev.redstoneengineering.ui.menu.OpticalSystemMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -40,7 +42,17 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
     private void overview(GuiGraphics g){
         statusBadge(g,name(),GOOD,16,80);
         statusBadge(g,hasAcceptance()?menu.commissioningStatus().name().replace('_',' '):qName(),hasAcceptance()?acceptanceColor():qColor(),205,80);
-        metricCard(g,"Input",menu.primary()+" / 15",16,103,88,INFO);metricCard(g,"Channel",Integer.toString(menu.secondary()),111,103,88,GOOD);metricCard(g,"Aux",Integer.toString(menu.tertiary()),206,103,88,INFO);
+        if(menu.kind()==OpticalSystemMenu.KIND_ATTENUATOR){
+            metricCard(g,"Input",menu.primary()+" / "+OpticalPassiveLogic.MAX_INTENSITY,16,103,88,INFO);
+            metricCard(g,"Loss",Integer.toString(menu.secondary()),111,103,88,GOOD);
+            metricCard(g,"Output",menu.tertiary()+" / "+OpticalPassiveLogic.MAX_INTENSITY,206,103,88,INFO);
+        }else if(menu.kind()==OpticalSystemMenu.KIND_FILTER){
+            metricCard(g,"Input",menu.primary()+" / "+OpticalPassiveLogic.MAX_INTENSITY,16,103,88,INFO);
+            metricCard(g,"Target CH",Integer.toString(menu.secondary()),111,103,88,GOOD);
+            metricCard(g,"Output",menu.tertiary()+" / "+OpticalPassiveLogic.MAX_INTENSITY,206,103,88,INFO);
+        }else{
+            metricCard(g,"Input",menu.primary()+" / 15",16,103,88,INFO);metricCard(g,"Channel",Integer.toString(menu.secondary()),111,103,88,GOOD);metricCard(g,"Aux",Integer.toString(menu.tertiary()),206,103,88,INFO);
+        }
         labelValue(g,"Topology",topology(),149);labelValue(g,"Role",role(),169);
         wrappedText(g,menu.kind()==OpticalSystemMenu.KIND_RECEIVER?receiverBudgetSummary():menu.kind()==OpticalSystemMenu.KIND_METER?acceptanceSummary():diagnosis(),16,195,620,hasAcceptance()?acceptanceColor():dColor());
     }
@@ -56,10 +68,29 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
 
     private void configure(GuiGraphics g){
         statusBadge(g,menu.kind()==OpticalSystemMenu.KIND_METER||menu.kind()==OpticalSystemMenu.KIND_RECEIVER?"READ-ONLY DEVICE":"SERVER-SIDE BOUNDED CONTROL",INFO,16,80);
-        labelValue(g,"Primary",primaryControl(),104);labelValue(g,"Secondary",secondaryControl(),180);
-        if(menu.directional())wrappedText(g,"Direction and physical interface orientation are controlled only on Route.",16,207,620,MUTED);
-        else if(menu.kind()==OpticalSystemMenu.KIND_METER)wrappedText(g,"Measurement face is controlled only on Route.",16,207,620,MUTED);
-        else if(menu.kind()==OpticalSystemMenu.KIND_RECEIVER)wrappedText(g,"Receiver budget is observer-only; no path or carrier value is changed by this page.",16,207,620,MUTED);
+        if(menu.kind()==OpticalSystemMenu.KIND_ATTENUATOR){
+            labelValue(g,"Exact loss L",menu.secondary()+" intensity units",104);
+            labelValue(g,"Allowed exact L",OpticalPassiveLogic.MIN_CONFIGURED_LOSS+".."+OpticalPassiveLogic.MAX_CONFIGURED_LOSS,126);
+            labelValue(g,"Legacy BlockState fallback",menu.legacyParameter()+" • allowed "+OpticalPassiveLogic.MIN_LEGACY_LOSS+".."+OpticalPassiveLogic.MAX_LEGACY_LOSS,148);
+            labelValue(g,"Transfer law","Iout=max(0, Iin−L)",170);
+            labelValue(g,"Current transfer",menu.primary()+" − "+menu.secondary()+" → "+menu.tertiary(),192);
+            labelValue(g,"Dark output semantics",OpticalPassiveLogic.fullyAttenuated(menu.primary(),menu.secondary(),menu.quality()==PortQuality.VALID)?"FULLY ATTENUATED • VALID TRANSFER":"NOT FULLY ATTENUATED",214);
+            labelValue(g,"Rigid optical axis",face(inputFace())+" → "+face(menu.outputDirection()),236);
+            wrappedText(g,"The exact server loss may be any 0..15 value; the narrower 0..8 BlockState is only a legacy fallback. Filter body routing is straight-through, so Route rotates the whole INPUT/OUTPUT axis and never bends the endpoints independently.",16,260,620,MUTED);
+        }else if(menu.kind()==OpticalSystemMenu.KIND_FILTER){
+            labelValue(g,"Target channel",menu.secondary()+" / "+OpticalPassiveLogic.MAX_CHANNEL,104);
+            labelValue(g,"Insertion loss",OpticalPassiveLogic.FILTER_INSERTION_LOSS+" intensity unit",126);
+            labelValue(g,"Transfer law","matching CH: Iout=max(0,Iin−1); mismatch: dark",148);
+            labelValue(g,"Input / target CH",menu.auxiliary()+" / "+menu.secondary(),170);
+            labelValue(g,"Current result",menu.tertiary()+" / "+OpticalPassiveLogic.MAX_INTENSITY,192);
+            labelValue(g,"Rigid optical axis",face(inputFace())+" → "+face(menu.outputDirection()),214);
+            wrappedText(g,"Channel selection is exact 0..15. Rejection is an expected dark transfer, not missing evidence. The two-port filter is physically straight-through, so legacy RX/TX actions rotate one rigid opposite-face axis.",16,238,620,MUTED);
+        }else{
+            labelValue(g,"Primary",primaryControl(),104);labelValue(g,"Secondary",secondaryControl(),180);
+            if(menu.directional())wrappedText(g,"Direction and physical interface orientation are controlled only on Route.",16,207,620,MUTED);
+            else if(menu.kind()==OpticalSystemMenu.KIND_METER)wrappedText(g,"Measurement face is controlled only on Route.",16,207,620,MUTED);
+            else if(menu.kind()==OpticalSystemMenu.KIND_RECEIVER)wrappedText(g,"Receiver budget is observer-only; no path or carrier value is changed by this page.",16,207,620,MUTED);
+        }
     }
 
     private void diagnostics(GuiGraphics g){
@@ -107,7 +138,9 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
         if(menu.kind()==OpticalSystemMenu.KIND_METER){if(menu.meterChannelMismatches()>0)return"LOCAL CHANNEL MISMATCH EVIDENCE";if(menu.meterConnectedNeighbors()==0)return"ISOLATED MEASUREMENT POINT";if(menu.meterSameChannelNeighbors()==0)return"NO SAME-CHANNEL COMPARISON POINT";if(menu.meterStrongestNeighbor()-menu.primary()>=2)return"LOCAL ATTENUATION STEP EVIDENCE";if(spread()>=2)return"ONE-HOP BUDGET VARIATION";return"LOCAL OPTICAL BUDGET COHERENT";}
         if(menu.kind()==OpticalSystemMenu.KIND_RECEIVER&&menu.auxiliary()>1)return"MULTIPLE ACTIVE DRIVERS";
         if(menu.kind()==OpticalSystemMenu.KIND_FILTER&&menu.auxiliary()!=menu.secondary()&&menu.primary()>0)return"CHANNEL REJECTION • EXPECTED";
-        if(menu.kind()==OpticalSystemMenu.KIND_ATTENUATOR&&menu.tertiary()!=Math.max(0,menu.primary()-menu.secondary()))return"ATTENUATION TRANSFER MISMATCH";
+        if(menu.kind()==OpticalSystemMenu.KIND_ATTENUATOR
+                && menu.tertiary()!=OpticalPassiveLogic.attenuatedIntensity(menu.primary(),menu.secondary()))
+            return"ATTENUATION TRANSFER MISMATCH";
         if(menu.kind()==OpticalSystemMenu.KIND_SPLITTER&&menu.secondary()+menu.tertiary()+Math.max(0,menu.auxiliary())!=Math.max(0,menu.primary()))return"SPLIT BUDGET MISMATCH";
         return"OPTICAL EVIDENCE COHERENT";
     }
@@ -121,6 +154,6 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
     private String primaryControl(){return switch(menu.kind()){case OpticalSystemMenu.KIND_EMITTER->"INTENSITY "+menu.primary()+"/15";case OpticalSystemMenu.KIND_FILTER->"TARGET CHANNEL "+menu.secondary();case OpticalSystemMenu.KIND_ATTENUATOR->"LOSS "+menu.secondary();default->"READ ONLY";};}
     private String secondaryControl(){return switch(menu.kind()){case OpticalSystemMenu.KIND_EMITTER,OpticalSystemMenu.KIND_FREE_SPACE_TX,OpticalSystemMenu.KIND_FREE_SPACE_RX->"CHANNEL " + menu.secondary();default->"NONE";};}
     private String qName(){return menu.quality().name().replace('_',' ');}private int qColor(){return menu.quality()==PortQuality.VALID?GOOD:menu.quality()==PortQuality.NO_SIGNAL||menu.quality()==PortQuality.STALE?WARN:BAD;}
-    private Direction inputFace(){return menu.facing().getOpposite();}private String face(Direction d){return d.getName().toUpperCase();}
+    private Direction inputFace(){return menu.inputDirection();}private String face(Direction d){return d.getName().toUpperCase();}
     private Direction leftOf(Direction f){return switch(f){case NORTH->Direction.WEST;case WEST->Direction.SOUTH;case SOUTH->Direction.EAST;case EAST->Direction.NORTH;default->Direction.WEST;};}
 }
