@@ -117,6 +117,10 @@ if "private static int calculate(" in block:
     errors.append("SignalConditionerBlock duplicated transfer math instead of using SignalConditionerLogic")
 if "independently configurable RX/TX faces" in block:
     errors.append("SignalConditionerBlock class contract still claims independently bendable RX/TX faces")
+if "return rotateWholeRoute(level, pos" in block:
+    errors.append("SignalConditionerBlock legacy route action can preserve bent/L-shaped endpoints")
+if "return rotateRigidSeriesAxis(level, pos" not in block:
+    errors.append("SignalConditionerBlock legacy route action does not normalize to a rigid opposite axis")
 
 dedicated = "if (block instanceof SignalConditionerBlock)"
 if dedicated not in opener or "new SignalConditionerMenu(id, inv, pos)" not in opener:
