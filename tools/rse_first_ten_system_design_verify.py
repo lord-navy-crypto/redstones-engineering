@@ -100,8 +100,13 @@ require(
     "limitingActive",
     "PortQuality.SATURATED",
     "Threshold HIGH and deadband hold",
-    "case 0 -> input *",
-    "case 2 -> input >",
+    "SignalConditionerLogic.limiting",
+)
+require(
+    "src/main/java/dev/redstoneengineering/signal/SignalConditionerLogic.java",
+    "case MODE_SCALE -> x * p > EngineeringSignal.MAX",
+    "case MODE_CLAMP -> x > p",
+    "Threshold LOW and deadband",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/CalibrationModuleBlock.java",
