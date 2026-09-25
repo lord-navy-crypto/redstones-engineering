@@ -45,7 +45,7 @@ for token in (
     "OUTPUT SATURATED",
     "restore trustworthy upstream Redstone evidence",
     "NO_SIGNAL / STALE / topology evidence remain separate states.",
-    "Boundary limiting episodes=",
+    "Boundary limiting episodes / last",
     "private static String modelLine",
     "y = clamp(round(x ×",
     "y = min(x,",
@@ -56,8 +56,17 @@ for token in (
     if screen and token not in screen:
         errors.append(f"SignalConditionerScreen missing evidence token: {token}")
 
-if '16, 178' in screen and '16, 180' in screen:
-    errors.append("SignalConditionerScreen reintroduced overlapping History text rows")
+for token in (
+    "Two rows of configuration buttons occupy the 108..153 region.",
+    'labelValue(graphics, "Mode", modeName(menu.mode()), 164)',
+    '"Rigid Input → Output"',
+    '"Transfer model"',
+    "noteY = wrappedText",
+):
+    if token not in screen:
+        errors.append(f"SignalConditionerScreen missing non-overlapping engineering layout token: {token}")
+if "safeText(graphics," in screen:
+    errors.append("SignalConditionerScreen regressed to fixed single-line narrative rows")
 
 for token in (
     "public static PortQuality inspectInputQuality",
@@ -93,5 +102,5 @@ print(" rigid opposite-port Route authority enforced: PASS")
 print(" input/output PortQuality evidence synchronized: PASS")
 print(" saturation remains explicit output evidence: PASS")
 print(" valid zero stays distinct from missing/stale/topology evidence: PASS")
-print(" History limiting evidence layout does not overlap: PASS")
+print(" Configure/History engineering text flows below controls without overlap: PASS")
 print(" Configure page exposes exact server transfer model: PASS")
