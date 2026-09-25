@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import subprocess
 import sys
+import tempfile
 
 root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
 failed = []
@@ -11,8 +13,10 @@ conditioner_path = root / "src/main/java/dev/redstoneengineering/block/SignalCon
 pwm_path = root / "src/main/java/dev/redstoneengineering/block/PwmControllerBlock.java"
 pwm_logic_path = root / "src/main/java/dev/redstoneengineering/signal/PwmCarrierLogic.java"
 damper_path = root / "src/main/java/dev/redstoneengineering/block/HoneyVibrationDamperBlock.java"
+driver_path = root / "src/main/java/dev/redstoneengineering/block/RedstoneCopperDriverBlock.java"
+driver_logic_path = root / "src/main/java/dev/redstoneengineering/signal/RedstoneCopperDriverLogic.java"
 
-for path in (menu_path, screen_path, conditioner_path, pwm_path, pwm_logic_path, damper_path):
+for path in (menu_path, screen_path, conditioner_path, pwm_path, pwm_logic_path, damper_path, driver_path, driver_logic_path):
     if not path.is_file():
         failed.append(f"missing process quality contract file: {path.relative_to(root)}")
 
@@ -23,6 +27,8 @@ if not failed:
     pwm = pwm_path.read_text(errors="ignore")
     pwm_logic = pwm_logic_path.read_text(errors="ignore")
     damper = damper_path.read_text(errors="ignore")
+    driver = driver_path.read_text(errors="ignore")
+    driver_logic = driver_logic_path.read_text(errors="ignore")
 
     for token in (
         "SignalConditionerBlock.inspectInputQuality",
@@ -42,6 +48,8 @@ if not failed:
         "DirectionalDomainSourceBlock.rotateOutput",
         "RedstoneCopperDriverBlock.rotateInput",
         "RedstoneCopperDriverBlock.rotateOutput",
+        "RedstoneCopperDriverBlock.trackingError",
+        "p2.set(state.getValue(RedstoneCopperDriverBlock.SLEW))",
         "public boolean canRouteInput()",
         "public boolean canRouteOutput()",
         "public Direction inputDirection()",
@@ -82,6 +90,10 @@ if not failed:
         "Output-only LAPIS precision source",
         "Six-face COPPER voltage source",
         "moving TX releases the old Copper driver claim",
+        "RedstoneCopperDriverLogic.MIN_SLEW",
+        "RedstoneCopperDriverLogic.MAX_SLEW",
+        "RedstoneCopperDriverLogic.fullScaleRampTicks",
+        "RedstoneCopperDriverLogic.slewForLegacyMode",
         "PwmCarrierLogic.MAX_COMMAND",
         "PwmCarrierLogic.MIN_CONFIGURED_PERIOD_TICKS",
         "PwmCarrierLogic.MAX_CONFIGURED_PERIOD_TICKS",
@@ -109,9 +121,35 @@ if not failed:
         "public static boolean rotateOutput",
         "DomainNetwork.driveCopper(server, pos.relative(oldOutput), pos, 0, false)",
         "nextFreeHorizontal",
+        "RedstoneCopperDriverLogic.boundedSlew",
+        "RedstoneCopperDriverLogic.moveToward",
+        "RedstoneCopperDriverLogic.trackingError",
+        "RedstoneCopperDriverLogic.CONTROL_TICK_TICKS",
     ):
-        if token not in (root / "src/main/java/dev/redstoneengineering/block/RedstoneCopperDriverBlock.java").read_text(errors="ignore"):
-            failed.append(f"RedstoneCopperDriverBlock missing safe routing token: {token}")
+        if token not in driver:
+            failed.append(f"RedstoneCopperDriverBlock missing safe routing/dynamics token: {token}")
+
+    for token in (
+        "MIN_VOLTAGE = 0",
+        "MAX_VOLTAGE = 15",
+        "MIN_SLEW = 1",
+        "MAX_SLEW = 15",
+        "MIN_LEGACY_SLEW_MODE = 0",
+        "MAX_LEGACY_SLEW_MODE = 2",
+        "DEFAULT_LEGACY_SLEW_MODE = 1",
+        "LEGACY_SLEW_SLOW = 1",
+        "LEGACY_SLEW_NORMAL = 2",
+        "LEGACY_SLEW_FAST = 4",
+        "CONTROL_TICK_TICKS = 1",
+        "boundedVoltage",
+        "boundedSlew",
+        "slewForLegacyMode",
+        "moveToward",
+        "trackingError",
+        "fullScaleRampTicks",
+    ):
+        if token not in driver_logic:
+            failed.append(f"RedstoneCopperDriverLogic missing pure-model token: {token}")
 
     for token in (
         "quantizedOnTicks",
@@ -140,6 +178,62 @@ if not failed:
         if token not in pwm:
             failed.append(f"PwmControllerBlock missing quality contract: {token}")
 
+if driver_logic_path.is_file():
+    harness = r"""
+import dev.redstoneengineering.signal.RedstoneCopperDriverLogic;
+
+public final class RedstoneCopperDriverHarness {
+    private static void check(boolean ok, String message) {
+        if (!ok) throw new AssertionError(message);
+    }
+
+    public static void main(String[] args) {
+        check(RedstoneCopperDriverLogic.moveToward(0, 15, 2, 1) == 2,
+                "rise slew must apply exactly");
+        check(RedstoneCopperDriverLogic.moveToward(15, 0, 2, 3) == 12,
+                "fall slew must apply exactly");
+        check(RedstoneCopperDriverLogic.moveToward(7, 7, 2, 3) == 7,
+                "settled voltage must remain unchanged");
+        check(RedstoneCopperDriverLogic.boundedSlew(0) == RedstoneCopperDriverLogic.MIN_SLEW,
+                "slew lower bound");
+        check(RedstoneCopperDriverLogic.boundedSlew(99) == RedstoneCopperDriverLogic.MAX_SLEW,
+                "slew upper bound");
+        check(RedstoneCopperDriverLogic.slewForLegacyMode(0) == 1,
+                "legacy slow preset");
+        check(RedstoneCopperDriverLogic.slewForLegacyMode(1) == 2,
+                "legacy normal preset");
+        check(RedstoneCopperDriverLogic.slewForLegacyMode(2) == 4,
+                "legacy fast preset");
+        check(RedstoneCopperDriverLogic.fullScaleRampTicks(2) == 8,
+                "full-scale ramp at slew two takes eight ticks");
+        check(RedstoneCopperDriverLogic.trackingError(15, 11) == 4,
+                "tracking error uses bounded voltages");
+        System.out.println("RedstoneCopperDriverLogic harness: PASS");
+    }
+}
+"""
+    try:
+        with tempfile.TemporaryDirectory(prefix="rse-copper-driver-") as td:
+            td = Path(td)
+            hp = td / "RedstoneCopperDriverHarness.java"
+            hp.write_text(harness)
+            compile_run = subprocess.run(
+                ["javac", "-d", str(td), str(driver_logic_path), str(hp)],
+                cwd=root, capture_output=True, text=True
+            )
+            if compile_run.returncode != 0:
+                failed.append("RedstoneCopperDriverLogic javac failed: " + compile_run.stderr.strip())
+            else:
+                run = subprocess.run(
+                    ["java", "-cp", str(td), "RedstoneCopperDriverHarness"],
+                    cwd=root, capture_output=True, text=True
+                )
+                if run.returncode != 0:
+                    failed.append("RedstoneCopperDriverLogic harness failed: "
+                                  + (run.stderr or run.stdout).strip())
+    except FileNotFoundError:
+        failed.append("javac/java unavailable for Redstone-Copper driver harness")
+
 if failed:
     print("RSE process HMI quality verification: FAIL")
     for item in failed:
@@ -157,6 +251,7 @@ print(" Process Routing page mutates only declared server-owned endpoints: PASS"
 print(" axial Copper capacitor/fuse routes stay rigid and opposite: PASS")
 print(" fixed/multi-face devices do not receive fake RX/TX controls: PASS")
 print(" Redstone-Copper driver reroute releases the old Copper claim: PASS")
+print(" Redstone-Copper exact slew + legacy preset pure dynamics contract: PASS")
 print(" output-only Lapis source remains output-only: PASS")
 print(" five-tab Process notebook stays narrow-viewport aware: PASS")
 print(" PWM exact-period quantization/latch assumptions match server carrier logic: PASS")

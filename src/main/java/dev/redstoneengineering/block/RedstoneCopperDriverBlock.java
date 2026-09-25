@@ -11,8 +11,8 @@ import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.EngineeringDeviceParameters;
-import dev.redstoneengineering.physics.EngineeringMath;
 import dev.redstoneengineering.physics.RedstoneObservationSupport;
+import dev.redstoneengineering.signal.RedstoneCopperDriverLogic;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
@@ -49,9 +49,10 @@ public class RedstoneCopperDriverBlock extends Block implements EngineeringPortP
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final DirectionProperty INPUT_FACING =
             DirectionProperty.create("input_facing", Direction.Plane.HORIZONTAL);
-    public static final IntegerProperty SLEW = IntegerProperty.create("slew", 0, 2);
-
-    private static final int[] SLEW_STEPS = {1, 2, 4};
+    public static final IntegerProperty SLEW = IntegerProperty.create(
+            "slew",
+            RedstoneCopperDriverLogic.MIN_LEGACY_SLEW_MODE,
+            RedstoneCopperDriverLogic.MAX_LEGACY_SLEW_MODE);
     private static final String KEY = "redstone_copper_driver";
     private static final int ACTUAL = 0;
     private static final int TARGET = 1;
@@ -63,7 +64,7 @@ public class RedstoneCopperDriverBlock extends Block implements EngineeringPortP
         registerDefaultState(stateDefinition.any()
                 .setValue(FACING, Direction.NORTH)
                 .setValue(INPUT_FACING, Direction.SOUTH)
-                .setValue(SLEW, 1));
+                .setValue(SLEW, RedstoneCopperDriverLogic.DEFAULT_LEGACY_SLEW_MODE));
     }
 
     @Override public MapCodec<RedstoneCopperDriverBlock> codec() {
@@ -91,7 +92,7 @@ public class RedstoneCopperDriverBlock extends Block implements EngineeringPortP
         Direction nextInput = nextFreeHorizontal(oldInput, output, clockwise);
         if (nextInput == oldInput) return false;
         level.setBlock(pos, state.setValue(INPUT_FACING, nextInput), Block.UPDATE_CLIENTS);
-        if (level instanceof ServerLevel server) server.scheduleTick(pos, block, 1);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, block, RedstoneCopperDriverLogic.CONTROL_TICK_TICKS);
         level.updateNeighborsAt(pos, block);
         level.updateNeighborsAt(pos.relative(oldInput), block);
         level.updateNeighborsAt(pos.relative(nextInput), block);
@@ -110,7 +111,7 @@ public class RedstoneCopperDriverBlock extends Block implements EngineeringPortP
             DomainNetwork.driveCopper(server, pos.relative(oldOutput), pos, 0, false);
         }
         level.setBlock(pos, state.setValue(FACING, nextOutput), Block.UPDATE_CLIENTS);
-        if (level instanceof ServerLevel server) server.scheduleTick(pos, block, 1);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, block, RedstoneCopperDriverLogic.CONTROL_TICK_TICKS);
         level.updateNeighborsAt(pos, block);
         level.updateNeighborsAt(pos.relative(oldOutput), block);
         level.updateNeighborsAt(pos.relative(nextOutput), block);
@@ -128,12 +129,16 @@ public class RedstoneCopperDriverBlock extends Block implements EngineeringPortP
 
     public static int actualVoltage(Level level, BlockPos pos) {
         int[] rt = RuntimeIntStore.peek(level, KEY, pos);
-        return rt == null || rt.length != RUNTIME_SIZE ? 0 : EngineeringMath.clamp(rt[ACTUAL], 0, 15);
+        return rt == null || rt.length != RUNTIME_SIZE
+                ? RedstoneCopperDriverLogic.MIN_VOLTAGE
+                : RedstoneCopperDriverLogic.boundedVoltage(rt[ACTUAL]);
     }
 
     public static int targetVoltage(Level level, BlockPos pos) {
         int[] rt = RuntimeIntStore.peek(level, KEY, pos);
-        return rt == null || rt.length != RUNTIME_SIZE ? 0 : EngineeringMath.clamp(rt[TARGET], 0, 15);
+        return rt == null || rt.length != RUNTIME_SIZE
+                ? RedstoneCopperDriverLogic.MIN_VOLTAGE
+                : RedstoneCopperDriverLogic.boundedVoltage(rt[TARGET]);
     }
 
     public static PortQuality inputQuality(Level level, BlockPos pos) {
@@ -145,7 +150,7 @@ public class RedstoneCopperDriverBlock extends Block implements EngineeringPortP
     }
 
     public static int slewStep(BlockState state) {
-        return SLEW_STEPS[state.getValue(SLEW)];
+        return RedstoneCopperDriverLogic.slewForLegacyMode(state.getValue(SLEW));
     }
 
     private static EngineeringDeviceParameters.ExtendedParameters configuredDynamics(
@@ -156,9 +161,9 @@ public class RedstoneCopperDriverBlock extends Block implements EngineeringPortP
             EngineeringDeviceParameters.ExtendedParameters raw = EngineeringDeviceParameters.get(serverLevel)
                     .extendedParameters(serverLevel, pos,
                             new EngineeringDeviceParameters.ExtendedParameters(fallback, fallback, 0, 0));
-            int rise = EngineeringMath.clamp(raw.a(), 1, 15);
+            int rise = RedstoneCopperDriverLogic.boundedSlew(raw.a());
             // Backward compatibility with Alpha 1.0.21 saves, where slot B was unused and stored as zero.
-            int fall = raw.b() <= 0 ? rise : EngineeringMath.clamp(raw.b(), 1, 15);
+            int fall = raw.b() <= 0 ? rise : RedstoneCopperDriverLogic.boundedSlew(raw.b());
             return new EngineeringDeviceParameters.ExtendedParameters(rise, fall, 0, 0);
         }
         return new EngineeringDeviceParameters.ExtendedParameters(fallback, fallback, 0, 0);
@@ -177,14 +182,20 @@ public class RedstoneCopperDriverBlock extends Block implements EngineeringPortP
         return configuredRiseSlew(level, pos, state);
     }
 
+    public static int trackingError(Level level, BlockPos pos) {
+        return RedstoneCopperDriverLogic.trackingError(
+                targetVoltage(level, pos), actualVoltage(level, pos));
+    }
+
     public static boolean setEngineeringSlewRates(ServerLevel level, BlockPos pos, int riseSlew, int fallSlew) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof RedstoneCopperDriverBlock driver)) return false;
-        int rise = EngineeringMath.clamp(riseSlew, 1, 15);
-        int fall = EngineeringMath.clamp(fallSlew, 1, 15);
+        int rise = RedstoneCopperDriverLogic.boundedSlew(riseSlew);
+        int fall = RedstoneCopperDriverLogic.boundedSlew(fallSlew);
         boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
                 level, pos, new EngineeringDeviceParameters.ExtendedParameters(rise, fall, 0, 0));
-        if (changed) level.scheduleTick(pos, driver, 1);
+        if (changed) level.scheduleTick(
+                pos, driver, RedstoneCopperDriverLogic.CONTROL_TICK_TICKS);
         return changed;
     }
 
@@ -214,7 +225,10 @@ public class RedstoneCopperDriverBlock extends Block implements EngineeringPortP
             return Optional.of(EngineeringPortSnapshot.redstone(port.get(), observation.value(), observation.quality()));
         }
         return Optional.of(new EngineeringPortSnapshot(
-                port.get(), actualVoltage(level, pos), 0.0, 15.0, inputQuality(level, pos)));
+                port.get(), actualVoltage(level, pos),
+                RedstoneCopperDriverLogic.MIN_VOLTAGE,
+                RedstoneCopperDriverLogic.MAX_VOLTAGE,
+                inputQuality(level, pos)));
     }
 
     @Override public boolean canConnectRedstone(
@@ -225,13 +239,13 @@ public class RedstoneCopperDriverBlock extends Block implements EngineeringPortP
 
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
         super.onPlace(state, level, pos, oldState, moved);
-        if (!level.isClientSide) level.scheduleTick(pos, this, 1);
+        if (!level.isClientSide) level.scheduleTick(pos, this, RedstoneCopperDriverLogic.CONTROL_TICK_TICKS);
     }
 
     @Override protected void neighborChanged(
             BlockState state, Level level, BlockPos pos, Block neighbor, BlockPos neighborPos, boolean moved
     ) {
-        if (!level.isClientSide) level.scheduleTick(pos, this, 1);
+        if (!level.isClientSide) level.scheduleTick(pos, this, RedstoneCopperDriverLogic.CONTROL_TICK_TICKS);
     }
 
     @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
@@ -240,8 +254,8 @@ public class RedstoneCopperDriverBlock extends Block implements EngineeringPortP
         rt[QUALITY] = encodeQuality(observation.quality());
 
         if (observation.valid()) {
-            rt[TARGET] = EngineeringMath.clamp(observation.value(), 0, 15);
-            rt[ACTUAL] = moveToward(
+            rt[TARGET] = RedstoneCopperDriverLogic.boundedVoltage(observation.value());
+            rt[ACTUAL] = RedstoneCopperDriverLogic.moveToward(
                     rt[ACTUAL], rt[TARGET],
                     configuredRiseSlew(level, pos, state),
                     configuredFallSlew(level, pos, state));
@@ -249,8 +263,8 @@ public class RedstoneCopperDriverBlock extends Block implements EngineeringPortP
             DomainNetwork.driveCopper(level, pos.relative(outputSide(state)), pos, rt[ACTUAL], true);
         } else if (observation.quality() == PortQuality.NO_SIGNAL) {
             rt[TARGET] = 0;
-            rt[ACTUAL] = moveToward(
-                    rt[ACTUAL], 0,
+            rt[ACTUAL] = RedstoneCopperDriverLogic.moveToward(
+                    rt[ACTUAL], RedstoneCopperDriverLogic.MIN_VOLTAGE,
                     configuredRiseSlew(level, pos, state),
                     configuredFallSlew(level, pos, state));
             DomainNetwork.driveCopper(level, pos.relative(outputSide(state)), pos, 0, false);
@@ -258,17 +272,7 @@ public class RedstoneCopperDriverBlock extends Block implements EngineeringPortP
             // Unknown command evidence is not a new numeric command.
             DomainNetwork.driveCopper(level, pos.relative(outputSide(state)), pos, 0, false);
         }
-        level.scheduleTick(pos, this, 1);
-    }
-
-    private static int moveToward(int current, int target, int riseStep, int fallStep) {
-        current = EngineeringMath.clamp(current, 0, 15);
-        target = EngineeringMath.clamp(target, 0, 15);
-        int rise = EngineeringMath.clamp(riseStep, 1, 15);
-        int fall = EngineeringMath.clamp(fallStep, 1, 15);
-        if (current < target) return Math.min(target, current + rise);
-        if (current > target) return Math.max(target, current - fall);
-        return current;
+        level.scheduleTick(pos, this, RedstoneCopperDriverLogic.CONTROL_TICK_TICKS);
     }
 
     @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
@@ -291,7 +295,11 @@ public class RedstoneCopperDriverBlock extends Block implements EngineeringPortP
             if (!player.isShiftKeyDown()) {
                 FieldDeviceUi.open(serverPlayer, pos);
             } else {
-                int next = (state.getValue(SLEW) + 1) % 3;
+                int span = RedstoneCopperDriverLogic.MAX_LEGACY_SLEW_MODE
+                        - RedstoneCopperDriverLogic.MIN_LEGACY_SLEW_MODE + 1;
+                int next = RedstoneCopperDriverLogic.MIN_LEGACY_SLEW_MODE + Math.floorMod(
+                        state.getValue(SLEW) - RedstoneCopperDriverLogic.MIN_LEGACY_SLEW_MODE + 1,
+                        span);
                 BlockState updated = state.setValue(SLEW, next);
                 level.setBlock(pos, updated, Block.UPDATE_CLIENTS);
                 if (level instanceof ServerLevel serverLevel) {

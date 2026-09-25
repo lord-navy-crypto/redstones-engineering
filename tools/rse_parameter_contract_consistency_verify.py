@@ -222,6 +222,46 @@ require(
 )
 
 require(
+    "src/main/java/dev/redstoneengineering/signal/RedstoneCopperDriverLogic.java",
+    "MIN_VOLTAGE = 0",
+    "MAX_VOLTAGE = 15",
+    "MIN_SLEW = 1",
+    "MAX_SLEW = 15",
+    "MIN_LEGACY_SLEW_MODE = 0",
+    "MAX_LEGACY_SLEW_MODE = 2",
+    "DEFAULT_LEGACY_SLEW_MODE = 1",
+    "LEGACY_SLEW_SLOW = 1",
+    "LEGACY_SLEW_NORMAL = 2",
+    "LEGACY_SLEW_FAST = 4",
+    "CONTROL_TICK_TICKS = 1",
+    "boundedVoltage",
+    "boundedSlew",
+    "slewForLegacyMode",
+    "moveToward",
+    "trackingError",
+    "fullScaleRampTicks",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/RedstoneCopperDriverBlock.java",
+    "RedstoneCopperDriverLogic.boundedSlew",
+    "RedstoneCopperDriverLogic.moveToward",
+    "RedstoneCopperDriverLogic.trackingError",
+    "RedstoneCopperDriverLogic.CONTROL_TICK_TICKS",
+)
+require(
+    "src/main/java/dev/redstoneengineering/ui/menu/ProcessParameterMenu.java",
+    "p2.set(state.getValue(RedstoneCopperDriverBlock.SLEW))",
+    "RedstoneCopperDriverBlock.trackingError",
+)
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/ProcessParameterNotebookScreen.java",
+    "RedstoneCopperDriverLogic.MIN_SLEW",
+    "RedstoneCopperDriverLogic.MAX_SLEW",
+    "RedstoneCopperDriverLogic.fullScaleRampTicks",
+    "RedstoneCopperDriverLogic.slewForLegacyMode",
+)
+
+require(
     "src/main/java/dev/redstoneengineering/signal/PwmCarrierLogic.java",
     "MIN_COMMAND = 0",
     "MAX_COMMAND = 15",
@@ -663,6 +703,7 @@ print("RSE parameter-contract consistency verification: PASS")
 print(" Precision Filter effective 1..4 slew authority: PASS")
 print(" Pulse Shaper threshold/hysteresis/width authority: PASS")
 print(" Signal Conditioner pure transfer/range authority: PASS")
+print(" Redstone-Copper exact slew/legacy preset dynamics authority: PASS")
 print(" PWM exact-period/legacy-preset carrier authority: PASS")
 print(" Mechanical Exciter frequency/rate stored-effective authority: PASS")
 print(" Permanent Magnet single scalar-strength parameter authority: PASS")

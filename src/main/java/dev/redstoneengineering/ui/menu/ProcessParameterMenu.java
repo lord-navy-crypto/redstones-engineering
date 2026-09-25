@@ -105,12 +105,12 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
             kind.set(KIND_COPPER_DRIVER);
             p0.set(RedstoneCopperDriverBlock.configuredRiseSlew(level, blockPos, state));
             p1.set(RedstoneCopperDriverBlock.configuredFallSlew(level, blockPos, state));
+            p2.set(state.getValue(RedstoneCopperDriverBlock.SLEW));
             PortQuality inputQuality = RedstoneCopperDriverBlock.inputQuality(level, blockPos);
             liveA.set(RedstoneCopperDriverBlock.targetVoltage(level, blockPos));
             liveB.set(RedstoneCopperDriverBlock.actualVoltage(level, blockPos));
             liveC.set(inputQuality.ordinal());
-            liveD.set(Math.abs(RedstoneCopperDriverBlock.targetVoltage(level, blockPos)
-                    - RedstoneCopperDriverBlock.actualVoltage(level, blockPos)));
+            liveD.set(RedstoneCopperDriverBlock.trackingError(level, blockPos));
             liveE.set(inputQuality == PortQuality.VALID ? 1 : 0);
             inputFacing.set(RedstoneCopperDriverBlock.inputSide(state).ordinal());
             outputFacing.set(RedstoneCopperDriverBlock.outputSide(state).ordinal());

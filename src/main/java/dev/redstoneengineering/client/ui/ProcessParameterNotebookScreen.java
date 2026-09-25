@@ -5,6 +5,8 @@ import dev.redstoneengineering.signal.CopperCapacitorLogic;
 import dev.redstoneengineering.signal.CopperFuseLogic;
 import dev.redstoneengineering.signal.MechanicalExciterLogic;
 import dev.redstoneengineering.signal.PwmCarrierLogic;
+import dev.redstoneengineering.signal.RedstoneCopperDriverLogic;
+import dev.redstoneengineering.block.RedstoneCopperDriverBlock;
 import dev.redstoneengineering.block.PwmControllerBlock;
 import dev.redstoneengineering.ui.menu.ProcessParameterMenu;
 import net.minecraft.client.gui.GuiGraphics;
@@ -318,7 +320,9 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             case ProcessParameterMenu.KIND_PWM -> slot==0
                     ? v+" ticks • exact "+PwmCarrierLogic.MIN_CONFIGURED_PERIOD_TICKS+".."+PwmCarrierLogic.MAX_CONFIGURED_PERIOD_TICKS
                     : (v!=0?"INVERTED":"NORMAL");
-            case ProcessParameterMenu.KIND_COPPER_DRIVER -> v+" V-level/tick";
+            case ProcessParameterMenu.KIND_COPPER_DRIVER ->
+                    v+" V-level/tick • allowed "
+                            +RedstoneCopperDriverLogic.MIN_SLEW+".."+RedstoneCopperDriverLogic.MAX_SLEW;
             case ProcessParameterMenu.KIND_CAPACITOR -> slot==0
                     ? v+" ticks • allowed "+CopperCapacitorLogic.MIN_BASE_TAU+".."+CopperCapacitorLogic.MAX_BASE_TAU
                     : "×"+v+" • allowed ×"+CopperCapacitorLogic.MIN_LEAKAGE_FACTOR+"..×"+CopperCapacitorLogic.MAX_LEAKAGE_FACTOR;
@@ -399,7 +403,9 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
         return switch(menu.kind()){
             case ProcessParameterMenu.KIND_CONDITIONER -> "Mode-specific transfer function maps Redstone input to bounded 0..15 output.";
             case ProcessParameterMenu.KIND_PWM -> "onTicks=round((command/"+PwmCarrierLogic.MAX_COMMAND+")×T); output HIGH while phase<onTicks. Exact T="+menu.p0()+" ticks.";
-            case ProcessParameterMenu.KIND_COPPER_DRIVER -> "V[k+1] = V[k] + clamp(Vtarget − V[k], −Sfall, +Srise).";
+            case ProcessParameterMenu.KIND_COPPER_DRIVER -> "V[k+1]=toward(Vtarget; +Srise/−Sfall), V∈"
+                    +RedstoneCopperDriverLogic.MIN_VOLTAGE+".."+RedstoneCopperDriverLogic.MAX_VOLTAGE
+                    +". Control cadence="+RedstoneCopperDriverLogic.CONTROL_TICK_TICKS+" tick.";
             case ProcessParameterMenu.KIND_CAPACITOR -> "q*=100·Vin/15; q[k+1] moves toward q* by max(1, |q*−q|/τ). Current τbase="+menu.p0()+" ticks.";
             case ProcessParameterMenu.KIND_FUSE -> "r=I/Irated; for r>1, ΔH=ceil((r²−1)·50·Kclass); Htrip="+CopperFuseLogic.TRIP_THRESHOLD+". Current Kclass="+String.format(java.util.Locale.ROOT,"%.2f",CopperFuseLogic.timeCurrentClassFactor(menu.p1()))+".";
             case ProcessParameterMenu.KIND_COMPRESSOR -> "Pressure target derives from Redstone command; actual pressure follows asymmetric ramp rates.";
@@ -415,7 +421,11 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
         return switch(menu.kind()){
             case ProcessParameterMenu.KIND_CONDITIONER -> "Input and output quality are separate. Active limiting marks output SATURATED while preserving the upstream input quality.";
             case ProcessParameterMenu.KIND_PWM -> "Partial-duty commands latch only at phase-0 carrier boundaries; 0%/100% endpoints apply immediately. Duty quantum≈"+String.format(java.util.Locale.ROOT,"%.1f%%",PwmCarrierLogic.dutyQuantumPermille(menu.p0())/10.0)+" per carrier tick. Legacy BlockState preset="+PwmControllerBlock.periodFor(menu.p2())+"t; exact server T may be any "+PwmCarrierLogic.MIN_CONFIGURED_PERIOD_TICKS+".."+PwmCarrierLogic.MAX_CONFIGURED_PERIOD_TICKS+".";
-            case ProcessParameterMenu.KIND_COPPER_DRIVER -> "Rise and fall slew are independent. Internal actual voltage can decay after command loss, but the Copper source is released immediately unless input evidence is VALID.";
+            case ProcessParameterMenu.KIND_COPPER_DRIVER -> "Full-scale 0→15 rise≈"
+                    +RedstoneCopperDriverLogic.fullScaleRampTicks(menu.p0())+" ticks; 15→0 fall≈"
+                    +RedstoneCopperDriverLogic.fullScaleRampTicks(menu.p1())+" ticks. Legacy preset="
+                    +RedstoneCopperDriverLogic.slewForLegacyMode(menu.p2())
+                    +" V-level/tick; exact rise/fall remain independently editable. Internal actual voltage may coast after command loss, while the Copper source claim is released immediately unless input evidence is VALID.";
             case ProcessParameterMenu.KIND_CAPACITOR -> "τcharge=τbase; loaded discharge uses bounded Rload; open circuit uses τopen=τbase×leakage="+menu.p0()+"×"+menu.p1()+"="+(menu.p0()*menu.p1())+" ticks. Incomplete load scans freeze integration.";
             case ProcessParameterMenu.KIND_FUSE -> "FAST/NORMAL/SLOW factors are 1.50/1.00/0.65. Rating/class changes retain thermal exposure; reset is allowed only under complete, safe electrical evidence.";
             case ProcessParameterMenu.KIND_DAMPER -> "Each surviving decay step reduces envelope quality by 20 and schedules the next decay after the fixed 4-tick packet TTL. Those are model assumptions, not editable parameters.";
@@ -513,7 +523,12 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             case ProcessParameterMenu.KIND_COPPER_DRIVER -> new String[]{
                     "Target / actual / error = "+menu.liveA()+" / "+menu.liveB()+" / "+menu.liveD()+" V-level.",
                     "Input evidence = "+qualityName(menu.liveC())+" • network driver = "+(menu.liveE()!=0?"PRESENT":"RELEASED")+".",
-                    "Configured rise/fall slew = "+menu.p0()+" / "+menu.p1()+" V-level per tick."
+                    "Configured rise/fall slew = "+menu.p0()+" / "+menu.p1()
+                            +" V-level per tick • legacy preset="
+                            +RedstoneCopperDriverLogic.slewForLegacyMode(menu.p2())+".",
+                    "Full-scale rise/fall timing = "
+                            +RedstoneCopperDriverLogic.fullScaleRampTicks(menu.p0())+" / "
+                            +RedstoneCopperDriverLogic.fullScaleRampTicks(menu.p1())+" ticks."
             };
             case ProcessParameterMenu.KIND_CAPACITOR -> new String[]{
                     "Stored charge / output = "+menu.liveA()+"% / "+menu.liveB()+" • effective τ="+menu.liveC()+" ticks.",
