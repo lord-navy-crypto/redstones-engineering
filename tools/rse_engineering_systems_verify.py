@@ -70,8 +70,13 @@ require_all(interlock, (
     "RuntimeIntStore.remove(level, KEY, pos)"
 ), "SafetyInterlockBlock.java")
 require_all(fault, (
-    "FAULT_INJECTOR_CODEC.value()", "IntegerProperty.create(\"mode\", 0, 3)",
+    "FAULT_INJECTOR_CODEC.value()",
+    "MIN_MODE = 0", "MAX_MODE = 3", "DEFAULT_MODE = 0",
+    "MODE_STUCK_LOW = 0", "MODE_STUCK_HIGH = 1",
+    "MODE_BIAS_PLUS = 2", "MODE_BIAS_MINUS = 3",
+    "BIAS_STEP = 4", "MAX_SIGNAL = 15",
     '"STUCK LOW"', '"STUCK HIGH"', '"BIAS +4"', '"BIAS -4"',
+    "applyFault", "transferLawText",
     "RedstoneObservationSupport.observe", "evidence.arm().valid()",
     "signalQuality", "armQuality", "PortQuality.FAULT",
     "RuntimeIntStore.remove(level, KEY, pos)"

@@ -888,12 +888,17 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                         : signalIssue ? "FAULT INJECTOR • SIGNAL " + signalQuality.name()
                         : armed ? "FAULT INJECTOR • ARMED" : "FAULT INJECTOR • SAFE";
                 statusBadge(g, badge, severe ? BAD : armIssue || signalIssue || armed ? WARN : GOOD, 16, 80);
+                int lastInput = (packed >> 6) & 15;
+                int lastOutput = (packed >> 10) & 15;
+                int effectCount = (packed >>> 14) & 0x1FFFF;
                 labelValue(g, "Fault mode", FaultInjectorBlock.modeLabelFor(menu.configPrimary()), 101);
-                labelValue(g, "ARM state", armed ? "ARMED / INJECTION ACTIVE" : "SAFE / PASS-THROUGH", 123);
-                labelValue(g, "SIGNAL evidence", signalQuality.name(), 145);
-                labelValue(g, "ARM evidence", armQuality.name(), 167);
-                labelValue(g, "Activations", Integer.toString(menu.configTertiary()), 189);
-                wrappedText(g, "Only trustworthy HIGH ARM evidence authorizes injection. Missing or bad ARM evidence forces safe pass-through while remaining visible in OUT quality.", 16, 214, 760, MUTED);
+                labelValue(g, "Transfer law", FaultInjectorBlock.transferLawText(menu.configPrimary()), 123);
+                labelValue(g, "ARM state", armed ? "ARMED / INJECTION ACTIVE" : "SAFE / PASS-THROUGH", 145);
+                labelValue(g, "SIGNAL / ARM evidence", signalQuality.name() + " / " + armQuality.name(), 167);
+                labelValue(g, "Last input → output", lastInput + " → " + lastOutput, 189);
+                labelValue(g, "Activations / effective transforms",
+                        menu.configTertiary() + " / " + effectCount, 211);
+                wrappedText(g, "Only trustworthy HIGH ARM evidence authorizes injection. Missing or bad ARM evidence forces safe pass-through while remaining visible in OUT quality. Reset fault statistics clears activation/effect counters only; live ARM state and the retained last I/O evidence are preserved.", 16, 238, 760, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_SEQUENCE_CONTROLLER -> {
                 PortQuality[] qualities = PortQuality.values();

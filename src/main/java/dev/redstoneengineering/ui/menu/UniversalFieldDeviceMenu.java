@@ -403,6 +403,9 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configTertiary.set(FaultInjectorBlock.activationCount(level, blockPos));
             int injectorEvidence = FaultInjectorBlock.signalQuality(level, blockPos, state).ordinal();
             injectorEvidence |= FaultInjectorBlock.armQuality(level, blockPos, state).ordinal() << 3;
+            injectorEvidence |= (FaultInjectorBlock.lastInput(level, blockPos) & 15) << 6;
+            injectorEvidence |= (FaultInjectorBlock.lastOutput(level, blockPos) & 15) << 10;
+            injectorEvidence |= Math.min(0x1FFFF, FaultInjectorBlock.effectCount(level, blockPos)) << 14;
             configQuaternary.set(injectorEvidence);
         } else if (block instanceof SequenceControllerBlock) {
             configKind.set(CONFIG_SEQUENCE_CONTROLLER);

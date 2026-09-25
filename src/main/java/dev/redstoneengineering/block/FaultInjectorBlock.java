@@ -35,14 +35,23 @@ import java.util.Optional;
  * Modes: 0 STUCK_LOW, 1 STUCK_HIGH, 2 BIAS_PLUS_4, 3 BIAS_MINUS_4.
  */
 public class FaultInjectorBlock extends PassiveDirectionalSignalBlock {
-    public static final IntegerProperty MODE = IntegerProperty.create("mode", 0, 3);
+    public static final int MIN_MODE = 0;
+    public static final int MAX_MODE = 3;
+    public static final int DEFAULT_MODE = 0;
+    public static final int MODE_STUCK_LOW = 0;
+    public static final int MODE_STUCK_HIGH = 1;
+    public static final int MODE_BIAS_PLUS = 2;
+    public static final int MODE_BIAS_MINUS = 3;
+    public static final int BIAS_STEP = 4;
+    public static final int MAX_SIGNAL = 15;
+    public static final IntegerProperty MODE = IntegerProperty.create("mode", MIN_MODE, MAX_MODE);
     private static final String KEY = "fault_injector";
     private static final String[] MODE_LABELS = {"STUCK LOW", "STUCK HIGH", "BIAS +4", "BIAS -4"};
     private static final int RUNTIME_SIZE = 5;
 
     public FaultInjectorBlock(Properties properties) {
         super(properties);
-        registerDefaultState(defaultBlockState().setValue(MODE, 0));
+        registerDefaultState(defaultBlockState().setValue(MODE, DEFAULT_MODE));
     }
 
     @Override
@@ -132,17 +141,41 @@ public class FaultInjectorBlock extends PassiveDirectionalSignalBlock {
 
         int output = input;
         if (armed) {
-            output = switch (state.getValue(MODE)) {
-                case 0 -> 0;
-                case 1 -> 15;
-                case 2 -> Math.min(15, input + 4);
-                default -> Math.max(0, input - 4);
-            };
+            output = applyFault(input, state.getValue(MODE));
             if (output != input) runtime[2]++;
         }
         runtime[3] = input;
         runtime[4] = output;
         return output;
+    }
+
+    public static int boundedMode(int mode) {
+        return Math.max(MIN_MODE, Math.min(MAX_MODE, mode));
+    }
+
+    public static int boundedSignal(int value) {
+        return Math.max(0, Math.min(MAX_SIGNAL, value));
+    }
+
+    public static int applyFault(int input, int mode) {
+        int x = boundedSignal(input);
+        return switch (boundedMode(mode)) {
+            case MODE_STUCK_LOW -> 0;
+            case MODE_STUCK_HIGH -> MAX_SIGNAL;
+            case MODE_BIAS_PLUS -> Math.min(MAX_SIGNAL, x + BIAS_STEP);
+            case MODE_BIAS_MINUS -> Math.max(0, x - BIAS_STEP);
+            default -> x;
+        };
+    }
+
+    public static String transferLawText(int mode) {
+        return switch (boundedMode(mode)) {
+            case MODE_STUCK_LOW -> "y = 0";
+            case MODE_STUCK_HIGH -> "y = " + MAX_SIGNAL;
+            case MODE_BIAS_PLUS -> "y = min(" + MAX_SIGNAL + ", x + " + BIAS_STEP + ")";
+            case MODE_BIAS_MINUS -> "y = max(0, x - " + BIAS_STEP + ")";
+            default -> "y = x";
+        };
     }
 
     public static boolean active(Level level, BlockPos pos) {
@@ -153,6 +186,11 @@ public class FaultInjectorBlock extends PassiveDirectionalSignalBlock {
     public static int activationCount(Level level, BlockPos pos) {
         int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
         return runtime == null || runtime.length < 2 ? 0 : runtime[1];
+    }
+
+    public static int effectCount(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length < 3 ? 0 : Math.max(0, runtime[2]);
     }
 
     public static int lastInput(Level level, BlockPos pos) {
@@ -170,13 +208,15 @@ public class FaultInjectorBlock extends PassiveDirectionalSignalBlock {
     }
 
     public static String modeLabelFor(int mode) {
-        return MODE_LABELS[Math.floorMod(mode, MODE_LABELS.length)];
+        return MODE_LABELS[boundedMode(mode)];
     }
 
     public boolean adjustMode(Level level, BlockPos pos, int delta) {
         BlockState state = level.getBlockState(pos);
         if (!state.is(this)) return false;
-        int next = Math.floorMod(state.getValue(MODE) + delta, 4);
+        int current = boundedMode(state.getValue(MODE));
+        int next = MIN_MODE + Math.floorMod(
+                current - MIN_MODE + delta, MAX_MODE - MIN_MODE + 1);
         BlockState updated = state.setValue(MODE, next);
         level.setBlock(pos, updated, Block.UPDATE_CLIENTS);
         if (level instanceof ServerLevel server) server.scheduleTick(pos, this, 1);

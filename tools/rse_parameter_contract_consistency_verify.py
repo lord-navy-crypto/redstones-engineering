@@ -495,6 +495,41 @@ require(
 )
 
 require(
+    "src/main/java/dev/redstoneengineering/block/FaultInjectorBlock.java",
+    "MIN_MODE = 0",
+    "MAX_MODE = 3",
+    "DEFAULT_MODE = 0",
+    "MODE_STUCK_LOW = 0",
+    "MODE_STUCK_HIGH = 1",
+    "MODE_BIAS_PLUS = 2",
+    "MODE_BIAS_MINUS = 3",
+    "BIAS_STEP = 4",
+    "MAX_SIGNAL = 15",
+    "boundedMode",
+    "boundedSignal",
+    "applyFault",
+    "transferLawText",
+    "effectCount",
+    "Clears retained fault statistics while preserving live ARM state and the latest I/O evidence",
+)
+require(
+    "src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
+    "FaultInjectorBlock.signalQuality",
+    "FaultInjectorBlock.armQuality",
+    "FaultInjectorBlock.lastInput",
+    "FaultInjectorBlock.lastOutput",
+    "FaultInjectorBlock.effectCount",
+    "Math.min(0x1FFFF",
+)
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
+    "FaultInjectorBlock.transferLawText",
+    "Last input → output",
+    "Activations / effective transforms",
+    "Reset fault statistics clears activation/effect counters only",
+)
+
+require(
     "src/main/java/dev/redstoneengineering/block/WatchdogBlock.java",
     "MIN_TIMEOUT_INDEX = 0",
     "MAX_TIMEOUT_INDEX = 3",
@@ -984,6 +1019,7 @@ print(" Lapis Precision Range exact/legacy range + normalization authority: PASS
 print(" Signal Amplifier exact gain/headroom + legacy preset authority: PASS")
 print(" Lapis Noise Source stored/effective + legacy preset authority: PASS")
 print(" Honey Vibration Damper configurable through-loss/local-decay authority: PASS")
+print(" Fault Injector mode transfer + retained evidence authority: PASS")
 print(" Watchdog discrete timeout + heartbeat baseline authority: PASS")
 print(" Redundant Voter tolerance + degraded quorum authority: PASS")
 print(" Fault Latch threshold + fail-safe missing-evidence authority: PASS")
