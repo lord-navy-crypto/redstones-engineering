@@ -56,7 +56,7 @@ if not failed:
         "InductionCoilBlock.MIN_LEGACY_TURNS",
         "InductionCoilBlock.MAX_LEGACY_TURNS",
         "InductionCoilBlock.SAMPLE_TICKS",
-        "Changing turns invalidates the old derivative baseline",
+        "Any exact-turn change releases the old Copper output and invalidates the derivative baseline",
         "rigid opposite INPUT/OUTPUT axis",
         "Field response",
         "Heat proxy",
