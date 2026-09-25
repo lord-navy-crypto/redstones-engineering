@@ -135,7 +135,7 @@ require(quartz,
         "First observation establishes input phase only",
         "runtime[PHASE_STARTED_SLOT] = 0",
         "runtime[PHASE_STARTED_SLOT] = 1",
-        "int outputPeriod = Math.min(4096, Math.max(1, input.periodTicks()) * divisor);",
+        "int outputPeriod = Math.min(MAX_OUTPUT_PERIOD_TICKS, Math.max(1, input.periodTicks()) * divisor);",
         "DomainNetwork.driveQuartz(level, outputPos(pos, state), pos, false, outputPeriod, false)",
         "runtime[OUTPUT_SLOT] == 1, outputPeriod, true)")
 
