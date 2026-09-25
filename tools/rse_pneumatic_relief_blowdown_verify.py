@@ -20,17 +20,35 @@ def require(path: str, *tokens: str) -> None:
 logic = "src/main/java/dev/redstoneengineering/signal/PneumaticReliefValveLogic.java"
 block = "src/main/java/dev/redstoneengineering/block/PneumaticReliefValveBlock.java"
 network = "src/main/java/dev/redstoneengineering/physics/PneumaticNetwork.java"
+screen = "src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.java"
 
 require(logic,
+        "MIN_PRESSURE = 0",
+        "MAX_PRESSURE = 100",
+        "MIN_CONFIGURED_SETPOINT = 1",
+        "MAX_CONFIGURED_SETPOINT = 100",
+        "MIN_BLOWDOWN = 1",
+        "MAX_BLOWDOWN = 25",
+        "DEFAULT_BLOWDOWN = 5",
+        "boundedConfiguredSetpoint",
+        "boundedConfiguredBlowdown",
         "reseatPressure",
         "shouldVent",
         "currentlyVenting")
 require(block,
-        "BLOWDOWN_PRESSURE = 5",
+        "BLOWDOWN_PRESSURE = PneumaticReliefValveLogic.DEFAULT_BLOWDOWN",
+        "PneumaticReliefValveLogic.boundedConfiguredSetpoint",
+        "PneumaticReliefValveLogic.boundedConfiguredBlowdown",
         "reseatPressure(BlockState state)",
         "shouldVent(Level level",
         "VENTING",
         "SEATED")
+require(screen,
+        "PneumaticReliefValveLogic.MIN_CONFIGURED_SETPOINT",
+        "PneumaticReliefValveLogic.MAX_CONFIGURED_SETPOINT",
+        "PneumaticReliefValveLogic.MIN_BLOWDOWN",
+        "PneumaticReliefValveLogic.MAX_BLOWDOWN",
+        "RELIEF PROTECTION PARAMETERS")
 require(network,
         "PneumaticReliefValveBlock.shouldVent",
         "Keep the relief episode latched through the blowdown band",
@@ -63,6 +81,14 @@ public final class PneumaticReliefValveHarness {
                 "open relief must remain open until reseat threshold is reached");
         check(!PneumaticReliefValveLogic.shouldVent(70, setpoint, blowdown, true),
                 "open relief must reseat at the lower threshold");
+        check(PneumaticReliefValveLogic.boundedConfiguredSetpoint(0) == 1,
+                "configured setpoint lower bound");
+        check(PneumaticReliefValveLogic.boundedConfiguredSetpoint(150) == 100,
+                "configured setpoint upper bound");
+        check(PneumaticReliefValveLogic.boundedConfiguredBlowdown(10, 99) == 10,
+                "blowdown cannot exceed setpoint");
+        check(PneumaticReliefValveLogic.boundedConfiguredBlowdown(100, 99) == 25,
+                "blowdown engineering cap");
 
         System.out.println("PneumaticReliefValveLogic harness: PASS");
     }
@@ -100,3 +126,4 @@ print(" opening setpoint threshold: PASS")
 print(" lower reseat threshold / blowdown: PASS")
 print(" anti-chatter vent-state retention: PASS")
 print(" solver integration contract: PASS")
+print(" pure setpoint/blowdown bounds shared by Block/HMI/verifier: PASS")

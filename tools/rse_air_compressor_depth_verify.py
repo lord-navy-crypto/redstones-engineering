@@ -24,6 +24,12 @@ menu = "src/main/java/dev/redstoneengineering/ui/menu/PneumaticSystemMenu.java"
 screen = "src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.java"
 
 require(logic,
+        "MIN_PRESSURE = 0",
+        "MAX_PRESSURE = 100",
+        "MIN_RAMP_RATE = 1",
+        "MAX_RAMP_RATE = 100",
+        "boundedPressure",
+        "boundedRampRate",
         "rampUpRate",
         "rampDownRate",
         "stepPressure",
@@ -33,6 +39,9 @@ require(block,
         "actualPressure",
         "startCount",
         "runTicks",
+        "AirCompressorLogic.boundedRampRate(stored.a())",
+        "AirCompressorLogic.boundedRampRate(stored.b())",
+        "AirCompressorLogic.boundedPressure",
         "AirCompressorLogic.stepPressure",
         "PneumaticNetwork.recompute")
 require(network,
@@ -56,7 +65,9 @@ require(screen,
         "Ramp up",
         "Ramp down",
         'menu.engineeringA()+" pressure/tick"',
-        'menu.engineeringB()+" pressure/tick"')
+        'menu.engineeringB()+" pressure/tick"',
+        "AirCompressorLogic.MIN_RAMP_RATE",
+        "AirCompressorLogic.MAX_RAMP_RATE")
 
 logic_path = root / logic
 if logic_path.is_file():
@@ -76,6 +87,10 @@ public final class AirCompressorHarness {
         check(AirCompressorLogic.stepPressure(6, 0, 2) == 0, "down clamp");
         check(AirCompressorLogic.trackingError(70, 100) == 30, "positive tracking error");
         check(AirCompressorLogic.trackingError(90, 40) == -50, "negative tracking error");
+        check(AirCompressorLogic.boundedRampRate(0) == 1, "ramp lower bound");
+        check(AirCompressorLogic.boundedRampRate(150) == 100, "ramp upper bound");
+        check(AirCompressorLogic.boundedPressure(-5) == 0, "pressure lower bound");
+        check(AirCompressorLogic.boundedPressure(150) == 100, "pressure upper bound");
         System.out.println("AirCompressorLogic semantic harness: PASS");
     }
 }
@@ -112,3 +127,4 @@ print(" finite spool-up/spool-down pressure dynamics: PASS")
 print(" pneumatic network consumes actual supply, not command target: PASS")
 print(" retained start/run evidence: PASS")
 print(" pneumatic HMI exact ramp-rate authority: PASS")
+print(" persisted ramp rates share the pure 1..100 effective contract: PASS")

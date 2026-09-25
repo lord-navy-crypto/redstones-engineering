@@ -88,7 +88,7 @@ public class AirCompressorBlock extends Block implements EngineeringPortProvider
 
     public static int actualPressure(Level level, BlockPos pos) {
         int[] runtime = snapshot(level, pos);
-        return runtime == null ? 0 : Math.max(0, Math.min(100, runtime[ACTUAL_PRESSURE]));
+        return runtime == null ? 0 : AirCompressorLogic.boundedPressure(runtime[ACTUAL_PRESSURE]);
     }
 
     public static int trackingError(Level level, BlockPos pos) {
@@ -115,7 +115,11 @@ public class AirCompressorBlock extends Block implements EngineeringPortProvider
                 AirCompressorLogic.rampUpRate(state.getValue(RESPONSE_MODE)),
                 AirCompressorLogic.rampDownRate(state.getValue(RESPONSE_MODE)), 0, 0);
         if (level instanceof ServerLevel serverLevel) {
-            return EngineeringDeviceParameters.get(serverLevel).extendedParameters(serverLevel, pos, fallback);
+            var stored = EngineeringDeviceParameters.get(serverLevel)
+                    .extendedParameters(serverLevel, pos, fallback);
+            return new EngineeringDeviceParameters.ExtendedParameters(
+                    AirCompressorLogic.boundedRampRate(stored.a()),
+                    AirCompressorLogic.boundedRampRate(stored.b()), 0, 0);
         }
         return fallback;
     }
@@ -124,8 +128,8 @@ public class AirCompressorBlock extends Block implements EngineeringPortProvider
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof AirCompressorBlock compressor)) return false;
         var next = new EngineeringDeviceParameters.ExtendedParameters(
-                Math.max(1, Math.min(100, up)),
-                Math.max(1, Math.min(100, down)), 0, 0);
+                AirCompressorLogic.boundedRampRate(up),
+                AirCompressorLogic.boundedRampRate(down), 0, 0);
         boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(level, pos, next);
         if (changed) level.scheduleTick(pos, compressor, 1);
         return changed;

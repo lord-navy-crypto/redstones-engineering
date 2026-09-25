@@ -36,7 +36,7 @@ import java.util.Optional;
 public class PneumaticReliefValveBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
     public static final IntegerProperty SETPOINT = IntegerProperty.create("setpoint", 1, 4);
     private static final String RUNTIME = "pneumatic_relief";
-    private static final int BLOWDOWN_PRESSURE = 5;
+    private static final int BLOWDOWN_PRESSURE = PneumaticReliefValveLogic.DEFAULT_BLOWDOWN;
     private static final int DIAG_SIZE = 4; // events, lastExcess, totalVentedProxy, previousVenting
 
     public PneumaticReliefValveBlock(Properties properties) {
@@ -111,9 +111,12 @@ public class PneumaticReliefValveBlock extends DirectionalDomainBlock implements
             var raw = EngineeringDeviceParameters.get(serverLevel)
                     .extendedParameters(serverLevel, pos,
                             new EngineeringDeviceParameters.ExtendedParameters(fallback, BLOWDOWN_PRESSURE, 0, 0));
-            int setpoint = Math.max(1, Math.min(100, raw.a()));
-            // Older saves used slot B=0; preserve the historical five-unit blowdown.
-            int blowdown = raw.b() <= 0 ? BLOWDOWN_PRESSURE : Math.max(1, Math.min(25, raw.b()));
+            int setpoint = PneumaticReliefValveLogic.boundedConfiguredSetpoint(raw.a());
+            // Older saves used slot B=0; preserve the historical five-unit default, then
+            // normalize the effective blowdown against the configured setpoint.
+            int candidateBlowdown = raw.b() <= 0 ? BLOWDOWN_PRESSURE : raw.b();
+            int blowdown = PneumaticReliefValveLogic.boundedConfiguredBlowdown(
+                    setpoint, candidateBlowdown);
             return new EngineeringDeviceParameters.ExtendedParameters(setpoint, blowdown, 0, 0);
         }
         return new EngineeringDeviceParameters.ExtendedParameters(fallback, BLOWDOWN_PRESSURE, 0, 0);
@@ -132,8 +135,9 @@ public class PneumaticReliefValveBlock extends DirectionalDomainBlock implements
     ) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof PneumaticReliefValveBlock)) return false;
-        int boundedSetpoint = Math.max(1, Math.min(100, pressure));
-        int boundedBlowdown = Math.max(1, Math.min(Math.min(25, boundedSetpoint), blowdown));
+        int boundedSetpoint = PneumaticReliefValveLogic.boundedConfiguredSetpoint(pressure);
+        int boundedBlowdown = PneumaticReliefValveLogic.boundedConfiguredBlowdown(
+                boundedSetpoint, blowdown);
         boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
                 level, pos, new EngineeringDeviceParameters.ExtendedParameters(
                         boundedSetpoint, boundedBlowdown, 0, 0));

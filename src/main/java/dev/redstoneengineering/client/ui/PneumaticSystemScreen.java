@@ -5,6 +5,7 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.signal.AirCompressorLogic;
 import dev.redstoneengineering.signal.PneumaticProportionalValveLogic;
 import dev.redstoneengineering.signal.PressureRegulatorLogic;
+import dev.redstoneengineering.signal.PneumaticReliefValveLogic;
 import dev.redstoneengineering.ui.menu.PneumaticSystemMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -77,8 +78,11 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
             labelValue(g,"Ramp up",menu.engineeringA()+" pressure/tick",104);
             labelValue(g,"Ramp down",menu.engineeringB()+" pressure/tick",132);
             labelValue(g,"Legacy preset",AirCompressorLogic.modeName(menu.stateFlag())+" • exact rates override",154);
-            labelValue(g,"Target / actual",menu.secondary()+" / "+menu.tertiary(),176);
-            wrappedText(g,"The DOWN redstone command sets a target; the pneumatic source follows it at the configured finite rate.",16,202,620,MUTED);
+            labelValue(g,"Parameter bounds",
+                    "Rup,Rdown=" + AirCompressorLogic.MIN_RAMP_RATE + ".."
+                            + AirCompressorLogic.MAX_RAMP_RATE + " pressure/tick",176);
+            labelValue(g,"Target / actual",menu.secondary()+" / "+menu.tertiary(),196);
+            wrappedText(g,"The DOWN redstone command sets a target; the pneumatic source follows it at the configured finite rate. Persisted over-range values are rendered and simulated through the same bounded ramp-rate authority.",16,220,620,MUTED);
             return;
         }
         if(menu.kind()==PneumaticSystemMenu.KIND_RECEIVER){
@@ -126,8 +130,13 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
             labelValue(g,"Setpoint",menu.engineeringA()+" / 100",104);
             labelValue(g,"Blowdown",menu.engineeringB()+" pressure units",132);
             labelValue(g,"Reseat pressure",Math.max(0,menu.engineeringA()-menu.engineeringB())+" / 100",154);
-            labelValue(g,"Physical route",route(),176);
-            wrappedText(g,"Blowdown is independent of setpoint and prevents rapid relief chatter after an overpressure event.",16,202,620,MUTED);
+            labelValue(g,"Parameter bounds",
+                    "Pset=" + PneumaticReliefValveLogic.MIN_CONFIGURED_SETPOINT + ".."
+                            + PneumaticReliefValveLogic.MAX_CONFIGURED_SETPOINT
+                            + " • B=" + PneumaticReliefValveLogic.MIN_BLOWDOWN
+                            + "..min(" + PneumaticReliefValveLogic.MAX_BLOWDOWN + ",Pset)",176);
+            labelValue(g,"Physical route",route(),196);
+            wrappedText(g,"Blowdown is an independent server-owned hysteresis width, bounded by both the 25-unit engineering cap and the configured setpoint. This prevents an invalid negative reseat threshold while retaining anti-chatter behavior.",16,220,620,MUTED);
             return;
         }
         statusBadge(g,"SERVER-SIDE BOUNDED CONTROL",INFO,16,80);labelValue(g,"Control",controlText(),104);labelValue(g,"Physical route",route(),174);wrappedText(g,"Physical direction is controlled only on Route.",16,202,620,MUTED);

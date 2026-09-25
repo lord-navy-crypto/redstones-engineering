@@ -275,6 +275,47 @@ if "dev.redstoneengineering.physics" in pneumatic_screen:
     errors.append("Pneumatic client HMI crossed the persistence/physics authority boundary")
 
 require(
+    "src/main/java/dev/redstoneengineering/signal/AirCompressorLogic.java",
+    "MIN_PRESSURE = 0",
+    "MAX_PRESSURE = 100",
+    "MIN_RAMP_RATE = 1",
+    "MAX_RAMP_RATE = 100",
+    "boundedPressure",
+    "boundedRampRate",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/AirCompressorBlock.java",
+    "AirCompressorLogic.boundedRampRate(stored.a())",
+    "AirCompressorLogic.boundedRampRate(stored.b())",
+    "AirCompressorLogic.boundedPressure",
+)
+require(
+    "src/main/java/dev/redstoneengineering/signal/PneumaticReliefValveLogic.java",
+    "MIN_CONFIGURED_SETPOINT = 1",
+    "MAX_CONFIGURED_SETPOINT = 100",
+    "MIN_BLOWDOWN = 1",
+    "MAX_BLOWDOWN = 25",
+    "DEFAULT_BLOWDOWN = 5",
+    "boundedConfiguredSetpoint",
+    "boundedConfiguredBlowdown",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/PneumaticReliefValveBlock.java",
+    "PneumaticReliefValveLogic.DEFAULT_BLOWDOWN",
+    "PneumaticReliefValveLogic.boundedConfiguredSetpoint",
+    "PneumaticReliefValveLogic.boundedConfiguredBlowdown",
+)
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.java",
+    "AirCompressorLogic.MIN_RAMP_RATE",
+    "AirCompressorLogic.MAX_RAMP_RATE",
+    "PneumaticReliefValveLogic.MIN_CONFIGURED_SETPOINT",
+    "PneumaticReliefValveLogic.MAX_CONFIGURED_SETPOINT",
+    "PneumaticReliefValveLogic.MIN_BLOWDOWN",
+    "PneumaticReliefValveLogic.MAX_BLOWDOWN",
+)
+
+require(
     "src/main/java/dev/redstoneengineering/block/QuartzOscillatorBlock.java",
     "MIN_PERIOD_TICKS = 2",
     "MAX_PERIOD_TICKS = 200",
@@ -328,6 +369,8 @@ print(" Signal Conditioner pure transfer/range authority: PASS")
 print(" Edge Detector exact 1..20 pulse-width authority: PASS")
 print(" Pressure Regulator setpoint/response-rate pure authority: PASS")
 print(" Proportional Valve opening/response-rate pure authority: PASS")
+print(" Air Compressor bounded ramp-rate persistence authority: PASS")
+print(" Relief Valve setpoint/blowdown pure authority: PASS")
 print(" Servo persistent bounds + 2-tick control cycle + client boundary: PASS")
 print(" PID persistent bounds + deadband/integral/cycle + client boundary: PASS")
 print(" Lapis LPF synchronized alpha + 2-tick sample/derived response contract: PASS")
