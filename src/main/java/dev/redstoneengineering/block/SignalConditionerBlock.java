@@ -148,10 +148,10 @@ public class SignalConditionerBlock extends DirectionalSignalBlock {
         if (!(state.getBlock() instanceof SignalConditionerBlock conditioner)) return false;
 
         if (action == SignalConditionerMenu.BUTTON_ROTATE_LEFT) {
-            return rotateWholeRoute(level, pos, false);
+            return rotateRigidSeriesAxis(level, pos, false);
         }
         if (action == SignalConditionerMenu.BUTTON_ROTATE_RIGHT) {
-            return rotateWholeRoute(level, pos, true);
+            return rotateRigidSeriesAxis(level, pos, true);
         }
 
         int mode = state.getValue(MODE);
