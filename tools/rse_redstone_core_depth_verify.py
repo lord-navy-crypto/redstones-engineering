@@ -147,7 +147,8 @@ req("src/main/java/dev/redstoneengineering/gametest/RseEngineeringSystemsGameTes
 
 req("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
     "FAULT INJECTOR • ARM NO SOURCE","FAULT INJECTOR • ARM EVIDENCE BAD",
-    "SIGNAL evidence","ARM evidence")
+    "SIGNAL / ARM evidence","Transfer law","Last input → output",
+    "Activations / effective transforms")
 
 req("src/main/java/dev/redstoneengineering/block/SequenceControllerBlock.java",
     "RUN_REACQUIRE","runQuality","runtime[RUN_REACQUIRE] = 1",
