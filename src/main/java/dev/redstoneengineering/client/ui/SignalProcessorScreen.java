@@ -151,7 +151,7 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         statusLine(g, menu.inputDirection().getName().toUpperCase(), "INPUT • REDSTONE 0..15", GOOD, 112);
         statusLine(g, "PROCESS", processDescription(), INFO, 140);
         statusLine(g, menu.outputDirection().getName().toUpperCase(), "OUTPUT • REDSTONE 0..15", GOOD, 168);
-        wrappedText(g, "Direction rotates the complete INPUT → PROCESS → OUTPUT axis.", 16, 198, 620, MUTED);
+        wrappedText(g, "Route rotates one rigid INPUT → PROCESS → OUTPUT axis; INPUT remains exactly opposite OUTPUT.", 16, 198, 620, MUTED);
     }
 
     private void configure(GuiGraphics g) {
@@ -166,7 +166,7 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
             labelValue(g, "Pulse width", menu.secondaryParameter() + " ticks", 181);
             labelValue(g, "Input face", menu.inputDirection().getName().toUpperCase(), 201);
             labelValue(g, "Output face", menu.outputDirection().getName().toUpperCase(), 219);
-            wrappedText(g, "Physical direction is controlled only on Route.", 16, 239, 620, MUTED);
+            wrappedText(g, "Physical direction is controlled only on Route; the series endpoints remain exactly opposite.", 16, 239, 620, MUTED);
         }
     }
 
