@@ -87,10 +87,25 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock implements Op
         return faultClearForReset(fault, thresholdValue(state.getValue(THRESHOLD)));
     }
 
-    private static PortQuality operationQuality(
-            RedstoneObservationSupport.Observation fault,
-            RedstoneObservationSupport.Observation reset
-    ) {
+    public static PortQuality faultInputQuality(Level level, BlockPos pos, BlockState state) {
+        if (!(state.getBlock() instanceof FaultLatchBlock latch)) return PortQuality.NO_SIGNAL;
+        return observeInput(level, pos, latch.inputSide(state)).quality();
+    }
+
+    public static PortQuality resetInputQuality(Level level, BlockPos pos, BlockState state) {
+        if (!(state.getBlock() instanceof FaultLatchBlock)) return PortQuality.NO_SIGNAL;
+        return observeInput(level, pos, rightOf(outputSide(state))).quality();
+    }
+
+    /**
+     * Combined operational evidence is intentionally distinct from the FRONT alarm output quality.
+     * The latched alarm is authoritative state and therefore VALID as an output even when FAULT IN
+     * or RESET evidence is stale/contradictory.
+     */
+    public static PortQuality operationalEvidenceQuality(Level level, BlockPos pos, BlockState state) {
+        if (!(state.getBlock() instanceof FaultLatchBlock latch)) return PortQuality.NO_SIGNAL;
+        var fault = observeInput(level, pos, latch.inputSide(state));
+        var reset = observeInput(level, pos, rightOf(outputSide(state)));
         PortQuality quality = fault.quality();
         if (quality == PortQuality.NO_SIGNAL) quality = PortQuality.VALID;
         if (evidenceUnusable(reset.quality())) {
@@ -117,11 +132,9 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock implements Op
     public OperationWorldResourceSnapshot operationResourceSnapshot(Level level, BlockPos pos, BlockState state) {
         int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
         boolean latched = latched(level, pos);
-        var fault = observeInput(level, pos, inputSide(state));
-        var reset = observeInput(level, pos, rightOf(outputSide(state)));
         PortQuality quality = runtime == null || runtime.length < RUNTIME_SIZE
                 ? PortQuality.STALE
-                : operationQuality(fault, reset);
+                : operationalEvidenceQuality(level, pos, state);
         return new OperationWorldResourceSnapshot(
                 "fault_latch:" + pos.asLong(),
                 Set.of("fault_memory"),

@@ -52,7 +52,11 @@ require(latch, "FaultLatchBlock.java",
         "runtime[RESET_COUNT]",
         "RESET_REACQUIRE",
         "updateOutput(level, pos, state, 0);",
-        "manualReset(level, pos);")
+        "manualReset(level, pos);",
+        "PortQuality faultInputQuality(Level level, BlockPos pos, BlockState state)",
+        "PortQuality resetInputQuality(Level level, BlockPos pos, BlockState state)",
+        "PortQuality operationalEvidenceQuality(Level level, BlockPos pos, BlockState state)",
+        "Combined operational evidence is intentionally distinct from the FRONT alarm output quality")
 
 require(menu, "ReliabilitySystemMenu.java",
         "BUTTON_ACTION = 8",
@@ -64,6 +68,11 @@ require(menu, "ReliabilitySystemMenu.java",
         "voter.resetDiagnostics(level, blockPos)",
         "latch.manualReset(level, blockPos)",
         "FaultLatchBlock.resetPermitted(level, blockPos, state)",
+        "faultInputQuality.set(FaultLatchBlock.faultInputQuality",
+        "resetInputQuality.set(FaultLatchBlock.resetInputQuality",
+        "quality.set(FaultLatchBlock.operationalEvidenceQuality",
+        "public PortQuality faultInputQuality()",
+        "public PortQuality resetInputQuality()",
         "refreshAuthoritativeSnapshot(); broadcastChanges();")
 
 require(screen, "ReliabilitySystemScreen.java",
@@ -78,7 +87,17 @@ require(screen, "ReliabilitySystemScreen.java",
         '"NO VALID SOURCE"',
         "maintenanceAction.visible = configure",
         "menu.kind() != ReliabilitySystemMenu.KIND_FAULT_LATCH || menu.extraC() != 0",
-        '"Routing stays on Route; maintenance actions use the same server methods as Shift-right-click."')
+        '"Routing stays on Route; maintenance actions use the same server methods as Shift-right-click."',
+        '"Fault input evidence"',
+        '"Reset input evidence"',
+        '"Operational evidence"',
+        '"OUTPUT • LATCHED ALARM • AUTHORITATIVE"',
+        '"Fault input quality"',
+        '"Reset input quality"',
+        '"SERVER SYNCHRONIZED • FRONT ALARM OUTPUT VALID"')
+
+if "quality.set(snapshotQuality(latch, state, out).ordinal())" in menu:
+    errors.append("Fault Latch HMI regressed to reporting authoritative alarm-output quality as device evidence")
 
 if errors:
     print("RSE RELIABILITY HMI VERIFY: FAIL")
@@ -92,3 +111,4 @@ print(" servo: explicit home/trajectory reset shares renderer-safe server method
 print(" position sensor: explicit metrology reset shares server method")
 print(" voter: explicit diagnostics reset shares server method")
 print(" fault latch: reset is permissive-gated, edge-safe, and shared with HMI maintenance action")
+print(" fault latch: FAULT/RESET input qualities are synchronized separately from authoritative alarm output")

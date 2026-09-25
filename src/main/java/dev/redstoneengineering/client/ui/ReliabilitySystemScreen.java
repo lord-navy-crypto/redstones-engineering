@@ -51,6 +51,7 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
     private void overview(GuiGraphics g) {
         statusBadge(g, deviceName(), GOOD, 16,80);
         statusBadge(g, stateName(), stateColor(),205,80);
+        int hintY = 199;
         switch(menu.kind()) {
             case ReliabilitySystemMenu.KIND_WATCHDOG -> {
                 metricCard(g,"Age",menu.primary()+" t",16,103,88,INFO);
@@ -89,12 +90,15 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
                 metricCard(g,"Threshold",Integer.toString(menu.secondary()),111,103,88,INFO);
                 metricCard(g,"Trips",Integer.toString(menu.tertiary()),206,103,88,INFO);
                 labelValue(g,"Resets",Integer.toString(menu.auxiliary()),149);
-                labelValue(g,"Latch state",menu.extraA()==1?"LATCHED":"CLEAR",165);
-                labelValue(g,"Reset input",menu.extraB()==1?"ACTIVE":"LOW",181);
-                labelValue(g,"Reset permissive",menu.extraC()==1?"YES":"BLOCKED",197);
+                labelValue(g,"Latch state",menu.extraA()==1?"LATCHED":"CLEAR",167);
+                labelValue(g,"Fault input evidence",menu.faultInputQuality().name(),185);
+                labelValue(g,"Reset input evidence",menu.resetInputQuality().name(),203);
+                labelValue(g,"Reset state / permissive",
+                        (menu.extraB()==1?"ACTIVE":"LOW")+" / "+(menu.extraC()==1?"YES":"BLOCKED"),221);
+                hintY = 247;
             }
         }
-        wrappedText(g, hint(),16,199,620,MUTED);
+        wrappedText(g, hint(),16,hintY,620,MUTED);
     }
 
     private void ports(GuiGraphics g) {
@@ -105,7 +109,7 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
             case ReliabilitySystemMenu.KIND_SERVO -> {statusLine(g,face(front.getOpposite()),"INPUT • COMMAND",qualityColor(),102);statusLine(g,"UP","INPUT • POSITION/VELOCITY MODE",INFO,126);statusLine(g,face(rightOf(front)),"INPUT • BRAKE",WARN,150);statusLine(g,face(front),"OUTPUT • MECHATRONIC POSITION",GOOD,174);}
             case ReliabilitySystemMenu.KIND_POSITION_SENSOR -> {statusLine(g,face(front.getOpposite()),"INPUT • SERVO POSITION",qualityColor(),112);statusLine(g,face(front),"OUTPUT • REDSTONE FEEDBACK",GOOD,144);}
             case ReliabilitySystemMenu.KIND_VOTER -> {statusLine(g,face(front.getOpposite()),"INPUT A • REDSTONE",INFO,102);statusLine(g,face(leftOf(front)),"INPUT B • REDSTONE",INFO,126);statusLine(g,face(rightOf(front)),"INPUT C • REDSTONE",INFO,150);statusLine(g,face(front),"OUTPUT • 2oo3 VOTED",qualityColor(),174);}
-            default -> {statusLine(g,face(front.getOpposite()),"INPUT • FAULT",INFO,108);statusLine(g,face(rightOf(front)),"INPUT • RESET",INFO,136);statusLine(g,face(front),"OUTPUT • LATCHED ALARM",qualityColor(),164);}
+            default -> {statusLine(g,face(front.getOpposite()),"INPUT • FAULT",qualityColor(menu.faultInputQuality()),108);statusLine(g,face(rightOf(front)),"INPUT • RESET",qualityColor(menu.resetInputQuality()),136);statusLine(g,face(front),"OUTPUT • LATCHED ALARM • AUTHORITATIVE",GOOD,164);}
         }
     }
 
@@ -120,15 +124,23 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
     private void diagnostics(GuiGraphics g) {
         statusBadge(g,stateName(),stateColor(),16,80);
         labelValue(g,"Role",roleName(),106);
-        labelValue(g,"Quality",menu.quality().name(),124);
+        labelValue(g,menu.kind()==ReliabilitySystemMenu.KIND_FAULT_LATCH?"Operational evidence":"Quality",menu.quality().name(),124);
         switch(menu.kind()) {
             case ReliabilitySystemMenu.KIND_WATCHDOG -> {labelValue(g,"Age / timeout",menu.primary()+" / "+menu.secondary()+" t",144);labelValue(g,"Transitions / timeouts",menu.auxiliary()+" / "+menu.tertiary(),162);}
             case ReliabilitySystemMenu.KIND_SERVO -> {labelValue(g,"Position / command",menu.primary()+" / "+menu.secondary(),144);labelValue(g,"Velocity / error",menu.tertiary()+" / "+menu.auxiliary(),162);labelValue(g,"Brake / soft limits",menu.extraA()+" / "+menu.extraB(),180);}
             case ReliabilitySystemMenu.KIND_POSITION_SENSOR -> {labelValue(g,"Input / output",menu.primary()+" / "+menu.secondary(),144);labelValue(g,"Samples",Integer.toString(menu.tertiary()),162);}
             case ReliabilitySystemMenu.KIND_VOTER -> {labelValue(g,"Valid / spread",menu.secondary()+" / "+menu.tertiary(),144);labelValue(g,"Tolerance",Integer.toString(menu.auxiliary()),162);labelValue(g,"Disagreements",Integer.toString(menu.extraB()),180);}
-            default -> {labelValue(g,"Threshold / trips",menu.secondary()+" / "+menu.tertiary(),144);labelValue(g,"Resets",Integer.toString(menu.auxiliary()),162);labelValue(g,"Latched",menu.extraA()==1?"YES":"NO",180);}
+            default -> {
+                labelValue(g,"Threshold / trips",menu.secondary()+" / "+menu.tertiary(),144);
+                labelValue(g,"Fault input quality",menu.faultInputQuality().name(),162);
+                labelValue(g,"Reset input quality",menu.resetInputQuality().name(),180);
+                labelValue(g,"Latched / reset permissive",
+                        (menu.extraA()==1?"YES":"NO")+" / "+(menu.extraC()==1?"YES":"BLOCKED"),198);
+                labelValue(g,"Reset events",Integer.toString(menu.auxiliary()),216);
+            }
         }
-        statusLine(g,"Authority","SERVER SYNCHRONIZED",GOOD,200);
+        statusLine(g,"Authority","SERVER SYNCHRONIZED • FRONT ALARM OUTPUT VALID",GOOD,
+                menu.kind()==ReliabilitySystemMenu.KIND_FAULT_LATCH?238:200);
     }
 
     private void history(GuiGraphics g) {
@@ -149,7 +161,10 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
     private int stateColor(){if(menu.kind()==ReliabilitySystemMenu.KIND_FAULT_LATCH&&menu.extraA()==1)return BAD;if(menu.kind()==ReliabilitySystemMenu.KIND_WATCHDOG&&menu.extraA()>0)return BAD;if(menu.kind()==ReliabilitySystemMenu.KIND_WATCHDOG&&menu.extraB()==0)return WARN;if(menu.kind()==ReliabilitySystemMenu.KIND_VOTER&&menu.extraC()==1)return WARN;if(menu.quality()==PortQuality.FAULT)return BAD;return GOOD;}
     private String seriesPath(){return face(menu.facing().getOpposite())+" → "+face(menu.facing());}
     private String hint(){return menu.kind()==ReliabilitySystemMenu.KIND_SERVO?"Control validity, brake state, motion and soft-limit evidence stay separate.":"Safety state and source validity are synchronized independently; numerical zero is not absence.";}
-    private int qualityColor(){return menu.quality()==PortQuality.VALID?GOOD:menu.quality()==PortQuality.NO_SIGNAL||menu.quality()==PortQuality.STALE?WARN:BAD;}
+    private int qualityColor(){return qualityColor(menu.quality());}
+    private int qualityColor(PortQuality quality){
+        return quality==PortQuality.VALID?GOOD:quality==PortQuality.NO_SIGNAL||quality==PortQuality.STALE?WARN:BAD;
+    }
     private String face(Direction d){return d.getName().toUpperCase();}
     private Direction leftOf(Direction f){return switch(f){case NORTH->Direction.WEST;case WEST->Direction.SOUTH;case SOUTH->Direction.EAST;case EAST->Direction.NORTH;default->Direction.WEST;};}
     private Direction rightOf(Direction f){return leftOf(f).getOpposite();}

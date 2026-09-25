@@ -43,6 +43,8 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
     private final DataSlot inputFacing = trackedInt();
     private final DataSlot outputFacing = trackedInt();
     private final DataSlot quality = trackedInt();
+    private final DataSlot faultInputQuality = trackedInt();
+    private final DataSlot resetInputQuality = trackedInt();
 
     public ReliabilitySystemMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -62,6 +64,8 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
         extraA.set(0); extraB.set(0); extraC.set(0); facing.set(-1);
         inputFacing.set(-1); outputFacing.set(-1);
         quality.set(PortQuality.NO_SIGNAL.ordinal());
+        faultInputQuality.set(PortQuality.NO_SIGNAL.ordinal());
+        resetInputQuality.set(PortQuality.NO_SIGNAL.ordinal());
 
         if (block instanceof WatchdogBlock watchdog) {
             kind.set(KIND_WATCHDOG);
@@ -123,7 +127,9 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
             extraA.set(FaultLatchBlock.latched(level, blockPos) ? 1 : 0);
             extraB.set(FaultLatchBlock.resetActive(level, blockPos) ? 1 : 0);
             extraC.set(FaultLatchBlock.resetPermitted(level, blockPos, state) ? 1 : 0);
-            quality.set(snapshotQuality(latch, state, out).ordinal());
+            faultInputQuality.set(FaultLatchBlock.faultInputQuality(level, blockPos, state).ordinal());
+            resetInputQuality.set(FaultLatchBlock.resetInputQuality(level, blockPos, state).ordinal());
+            quality.set(FaultLatchBlock.operationalEvidenceQuality(level, blockPos, state).ordinal());
         } else kind.set(-1);
     }
 
@@ -276,7 +282,16 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
     public int extraB() { return extraB.get(); }
     public int extraC() { return extraC.get(); }
     public PortQuality quality() {
-        int ordinal = quality.get(); PortQuality[] all = PortQuality.values();
+        return qualityFromOrdinal(quality.get());
+    }
+    public PortQuality faultInputQuality() {
+        return qualityFromOrdinal(faultInputQuality.get());
+    }
+    public PortQuality resetInputQuality() {
+        return qualityFromOrdinal(resetInputQuality.get());
+    }
+    private static PortQuality qualityFromOrdinal(int ordinal) {
+        PortQuality[] all = PortQuality.values();
         return ordinal < 0 || ordinal >= all.length ? PortQuality.NO_SIGNAL : all[ordinal];
     }
     public Direction facing() {
