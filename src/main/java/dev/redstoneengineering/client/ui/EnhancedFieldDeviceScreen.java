@@ -125,7 +125,7 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             labelValue(g, "Evidence", evidenceState(), 165);
             labelValue(g, "Topology", menu.topologyValid() ? "PASS" : "FAIL-CLOSED", 181);
         }
-        safeText(g, engineeringHint(), 16, 199, menu.topologyValid() ? MUTED : BAD);
+        wrappedText(g, engineeringHint(), 16, 199, 620, menu.topologyValid() ? MUTED : BAD);
     }
 
     private void metricCard(GuiGraphics g, int x, int y, String label, String value) {
@@ -145,44 +145,44 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
         if (menu.kind() == FieldDeviceMenu.KIND_REDSTONE_JUNCTION) {
             faceLine(g, Direction.UP, y);
             faceLine(g, Direction.DOWN, y + 18);
-            safeText(g, "VERTICAL RISER ONLY • SAME MEDIUM • NO CONVERSION", 16, 194, INFO);
+            wrappedText(g, "VERTICAL RISER ONLY • SAME MEDIUM • NO CONVERSION", 16, 194, 620, INFO);
         } else if (menu.kind() == FieldDeviceMenu.KIND_PROBE) {
             statusLine(g, facingName(), "SENSE • REDSTONE MEASUREMENT INPUT", GOOD, y);
             statusLine(g, oppositeFacingName(), "REPORT • INSTRUMENT BUS OUTPUT", INFO, y + 20);
-            safeText(g, "Observer interface: sensing never back-drives the measured redstone network.", 16, 198, MUTED);
+            wrappedText(g, "Observer interface: sensing never back-drives the measured redstone network.", 16, 198, 620, MUTED);
         } else if (menu.kind() == FieldDeviceMenu.KIND_SIGNAL_TAP) {
             statusLine(g, oppositeFacingName(), "SENSE • REDSTONE SAMPLE INPUT", GOOD, y);
             statusLine(g, facingName(), "MIRROR • REDSTONE OUTPUT", INFO, y + 20);
-            safeText(g, "Tap reports/mirrors sampled evidence without becoming a hidden input-side driver.", 16, 198, MUTED);
+            wrappedText(g, "Tap reports/mirrors sampled evidence without becoming a hidden input-side driver.", 16, 198, 620, MUTED);
         } else if (menu.kind() == FieldDeviceMenu.KIND_RANGE_SENSOR) {
             statusLine(g, facingName(), "SENSE • FREE-SPACE RANGE SCAN", GOOD, y);
             statusLine(g, oppositeFacingName(), "OUTPUT • REDSTONE 0..15", INFO, y + 20);
-            safeText(g, "Sensing face is physical observation; opposite face carries the electrical result.", 16, 198, MUTED);
+            wrappedText(g, "Sensing face is physical observation; opposite face carries the electrical result.", 16, 198, 620, MUTED);
         } else if (menu.kind() == FieldDeviceMenu.KIND_RADIO_TRANSMITTER) {
             statusLine(g, "UP", "INPUT • WIRED PAYLOAD", GOOD, y);
             statusLine(g, "FREE SPACE", "OUTPUT • RADIO CH " + menu.secondary() + " • RANGE " + menu.tertiary(), INFO, y + 20);
-            safeText(g, "Radio boundary is explicit: wired payload becomes a free-space transmission.", 16, 198, MUTED);
+            wrappedText(g, "Radio boundary is explicit: wired payload becomes a free-space transmission.", 16, 198, 620, MUTED);
         } else if (menu.kind() == FieldDeviceMenu.KIND_RADIO_RECEIVER) {
             statusLine(g, "FREE SPACE", "INPUT • RADIO CH " + menu.secondary(), GOOD, y);
             statusLine(g, facingName(), "OUTPUT • REDSTONE 0..15", INFO, y + 20);
-            safeText(g, "Reception evidence is wireless; only the declared output face drives redstone.", 16, 198, MUTED);
+            wrappedText(g, "Reception evidence is wireless; only the declared output face drives redstone.", 16, 198, 620, MUTED);
         } else if (menu.kind() == FieldDeviceMenu.KIND_FREE_OPTICAL_TRANSMITTER) {
             statusLine(g, oppositeFacingName(), "INPUT • WIRED SIGNAL", GOOD, y);
             statusLine(g, facingName(), "OUTPUT • FREE-SPACE OPTICAL • CH " + menu.secondary(), INFO, y + 20);
-            safeText(g, "Optical launch direction is explicit; input and free-space interfaces are distinct.", 16, 198, MUTED);
+            wrappedText(g, "Optical launch direction is explicit; input and free-space interfaces are distinct.", 16, 198, 620, MUTED);
         } else if (menu.kind() == FieldDeviceMenu.KIND_FREE_OPTICAL_RECEIVER) {
             statusLine(g, oppositeFacingName(), "INPUT • FREE-SPACE OPTICAL • CH " + menu.tertiary(), GOOD, y);
             statusLine(g, facingName(), "OUTPUT • REDSTONE 0..15", INFO, y + 20);
-            safeText(g, "Optical reception is observational until converted onto the declared wired output.", 16, 198, MUTED);
+            wrappedText(g, "Optical reception is observational until converted onto the declared wired output.", 16, 198, 620, MUTED);
         } else if (isDirectionalConverter()) {
             statusLine(g, oppositeFacingName(), "INPUT • " + converterInput(), GOOD, y);
             statusLine(g, facingName(), "OUTPUT • " + converterOutput(), INFO, y + 20);
-            safeText(g, "Converter boundary is explicit: input and output media remain distinct.", 16, 198, MUTED);
+            wrappedText(g, "Converter boundary is explicit: input and output media remain distinct.", 16, 198, 620, MUTED);
         } else if (isDirectionalProcessor()) {
             statusLine(g, oppositeFacingName(), "INPUT • " + processorInput(), GOOD, y);
             statusLine(g, "PROCESS", processorFunction() + " • " + processorParameter(), INFO, y + 20);
             statusLine(g, facingName(), "OUTPUT • " + processorOutput(), GOOD, y + 40);
-            safeText(g, "Processor transforms evidence inside one declared domain path; it does not imply conversion.", 16, 216, MUTED);
+            wrappedText(g, "Processor transforms evidence inside one declared domain path; it does not imply conversion.", 16, 216, 620, MUTED);
         } else if (isPassiveMedium()) {
             faceLine(g, Direction.UP, y);
             faceLine(g, Direction.DOWN, y + 14);
@@ -214,19 +214,19 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
         labelValue(g, "Control axis", adjustmentLabel(), 102);
         labelValue(g, "Current value", controlValueText(), 158);
         if (menu.kind() == FieldDeviceMenu.KIND_REDSTONE_JUNCTION) {
-            safeText(g, "Junction Point has no conversion mode and no routing-mode toggle.", 16, 178, WARN);
-            safeText(g, "Its medium is inferred from UP/DOWN physical cables.", 16, 194, MUTED);
+            int noteY = wrappedText(g, "Junction Point has no conversion mode and no routing-mode toggle.", 16, 178, 620, WARN);
+            wrappedText(g, "Its medium is inferred from UP/DOWN physical cables.", 16, noteY + 4, 620, MUTED);
         } else if (isObserver()) {
-            safeText(g, "Observer controls select what to measure; they never create network drive evidence.", 16, 178, INFO);
-            safeText(g, "Any sampled zero remains distinct from missing or invalid evidence.", 16, 194, MUTED);
+            int noteY = wrappedText(g, "Observer controls select what to measure; they never create network drive evidence.", 16, 178, 620, INFO);
+            wrappedText(g, "Any sampled zero remains distinct from missing or invalid evidence.", 16, noteY + 4, 620, MUTED);
         } else if (isDirectionalProcessor()) {
-            safeText(g, "Processing parameter: " + processorParameter(), 16, 178, INFO);
-            safeText(g, "Input and output stay on an explicit directional processing path.", 16, 194, MUTED);
+            int noteY = wrappedText(g, "Processing parameter: " + processorParameter(), 16, 178, 620, INFO);
+            wrappedText(g, "Input and output stay on an explicit directional processing path.", 16, noteY + 4, 620, MUTED);
         } else if (isPassiveMedium()) {
-            safeText(g, "Passive medium: continuity only; this screen never changes routing semantics.", 16, 178, INFO);
-            safeText(g, routingContract(), 16, 194, MUTED);
+            int noteY = wrappedText(g, "Passive medium: continuity only; this screen never changes routing semantics.", 16, 178, 620, INFO);
+            wrappedText(g, routingContract(), 16, noteY + 4, 620, MUTED);
         } else {
-            safeText(g, "Buttons send intent to the server; this client never solves device physics.", 16, 184, MUTED);
+            wrappedText(g, "Buttons send intent to the server; this client never solves device physics.", 16, 184, 620, MUTED);
         }
     }
 
@@ -269,16 +269,16 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             labelValue(g, "Connection mask", "0x" + Integer.toHexString(menu.connectionMask()).toUpperCase(), 168);
         }
         statusLine(g, "Authority", "SERVER SYNCHRONIZED", GOOD, 188);
-        safeText(g, diagnosticHint(), 16, 207, menu.topologyValid() ? MUTED : BAD);
+        wrappedText(g, diagnosticHint(), 16, 207, 620, menu.topologyValid() ? MUTED : BAD);
     }
 
     private void history(GuiGraphics g) {
         statusBadge(g, "EVIDENCE POLICY", INFO, 16, 80);
-        safeText(g, "This lightweight device view does not invent local time-series state.", 16, 108, TEXT);
-        safeText(g, "Use Signal Analyzer / Oscilloscope / Logic Analyzer for waveform history.", 16, 126, INFO);
-        safeText(g, "Diagnostics here expose current authoritative quality, topology and source state.", 16, 144, MUTED);
-        sectionRule(g, 166);
-        safeText(g, "Design rule: measurement UI observes; it does not become a hidden network driver.", 16, 180, GOOD);
+        int noteY = wrappedText(g, "This lightweight device view does not invent local time-series state.", 16, 108, 620, TEXT);
+        noteY = wrappedText(g, "Use Signal Analyzer / Oscilloscope / Logic Analyzer for waveform history.", 16, noteY + 4, 620, INFO);
+        noteY = wrappedText(g, "Diagnostics here expose current authoritative quality, topology and source state.", 16, noteY + 4, 620, MUTED);
+        sectionRule(g, noteY + 8);
+        wrappedText(g, "Design rule: measurement UI observes; it does not become a hidden network driver.", 16, noteY + 20, 620, GOOD);
     }
 
     private void junctionSummary(GuiGraphics g, int y) {
