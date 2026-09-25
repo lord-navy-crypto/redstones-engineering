@@ -49,7 +49,7 @@ public final class DigitalCommunicationScreen extends EngineeringScreen<DigitalC
         labelValue(g, "Contract", contract(), 149);
         labelValue(g, "Series path", face(menu.inputDirection()) + " → " + face(menu.outputDirection()), 165);
         labelValue(g, "Media evidence", mediumHeadline(), 181);
-        safeText(g, mediaIdentity(), 16, 199, MUTED);
+        wrappedText(g, mediaIdentity(), 16, 199, 620, MUTED);
     }
 
     private void ports(GuiGraphics g) {
@@ -57,7 +57,7 @@ public final class DigitalCommunicationScreen extends EngineeringScreen<DigitalC
         statusLine(g, face(menu.inputDirection()), "INPUT • " + menu.inputDomain().label(), qualityColor(menu.inputQuality()), 112);
         statusLine(g, "PROCESS", processName(), INFO, 140);
         statusLine(g, face(menu.outputDirection()), "OUTPUT • " + menu.outputDomain().label(), qualityColor(menu.outputQuality()), 168);
-        safeText(g, "Input and output are an explicit two-face path; no hidden side port is implied.", 16, 198, MUTED);
+        wrappedText(g, "Input and output are an explicit two-face path; no hidden side port is implied.", 16, 198, 620, MUTED);
     }
 
     private void configure(GuiGraphics g) {
@@ -66,7 +66,7 @@ public final class DigitalCommunicationScreen extends EngineeringScreen<DigitalC
         else labelValue(g, "Device parameter", "FIXED FUNCTION", 101);
         labelValue(g, "Input face", face(menu.inputDirection()), 171);
         labelValue(g, "Output face", face(menu.outputDirection()), 187);
-        safeText(g, "Physical input/output direction is controlled only on Route.", 16, 207, MUTED);
+        wrappedText(g, "Physical input/output direction is controlled only on Route.", 16, 207, 620, MUTED);
     }
 
     private void diagnostics(GuiGraphics g) {
@@ -77,18 +77,18 @@ public final class DigitalCommunicationScreen extends EngineeringScreen<DigitalC
         labelValue(g, "Link drivers", Integer.toString(menu.mediumDriverCount()), 162);
         labelValue(g, mediumMetricLabel(), mediumMetricValue(), 180);
         statusLine(g, "Diagnosis", diagnosis(), diagnosisColor(), 198);
-        safeText(g, nextAction(), 16, 218, diagnosisColor());
+        wrappedText(g, nextAction(), 16, 218, 620, diagnosisColor());
     }
 
     private void history(GuiGraphics g) {
         statusBadge(g, "CURRENT LINK EVIDENCE", INFO, 16, 80);
-        safeText(g, "This directional communication HMI exposes authoritative current evidence.", 16, 106, TEXT);
-        safeText(g, "It does not synthesize packet history that the server does not retain.", 16, 124, MUTED);
+        int noteY = wrappedText(g, "This directional communication HMI exposes authoritative current evidence.", 16, 106, 620, TEXT);
+        wrappedText(g, "It does not synthesize packet history that the server does not retain.", 16, noteY + 4, 620, MUTED);
         labelValue(g, "Medium", mediumName(), 148);
         labelValue(g, "Evidence", mediumHeadline(), 166);
         labelValue(g, "Quality / age", mediumQualityText() + " / " + mediumAgeText(), 184);
         labelValue(g, mediumMetricLabel(), mediumMetricValue(), 202);
-        safeText(g, mediumTradeoff(), 16, 222, MUTED);
+        wrappedText(g, mediumTradeoff(), 16, 222, 620, MUTED);
     }
 
     private String diagnosis() {
