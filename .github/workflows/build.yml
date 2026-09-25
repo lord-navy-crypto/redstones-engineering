@@ -133,6 +133,7 @@ jobs:
             tools/rse_field_tools_verify.py \
             tools/rse_instrument_measurement_validity_verify.py \
             tools/rse_signal_conditioner_hmi_verify.py \
+            tools/rse_parameter_contract_consistency_verify.py \
             tools/rse_pulse_shaper_depth_verify.py \
             tools/rse_pid_actuator_dynamics_verify.py \
             tools/rse_pid_commissioning_hmi_verify.py \
