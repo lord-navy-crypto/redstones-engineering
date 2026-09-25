@@ -25,6 +25,19 @@ menu = "src/main/java/dev/redstoneengineering/ui/menu/ProcessParameterMenu.java"
 screen = "src/main/java/dev/redstoneengineering/client/ui/ProcessParameterNotebookScreen.java"
 
 require(logic,
+        "MIN_RATING = 1",
+        "MAX_RATING = 15",
+        "DEFAULT_RATING = 4",
+        "MIN_TIME_CURRENT_CLASS = 0",
+        "MAX_TIME_CURRENT_CLASS = 2",
+        "FAST_CLASS = 0",
+        "NORMAL_CLASS = 1",
+        "SLOW_CLASS = 2",
+        "DEFAULT_TIME_CURRENT_CLASS = NORMAL_CLASS",
+        "TRIP_THRESHOLD = 1000",
+        "boundedRating",
+        "boundedTimeCurrentClass",
+        "timeCurrentClassFactor",
         "nextThermal",
         "tripThreshold",
         "tripProgressPermille",
@@ -36,6 +49,9 @@ require(block,
         "thermalExposure",
         "tripProgressPermille",
         "resetAllowed",
+        "CopperFuseLogic.boundedRating",
+        "CopperFuseLogic.boundedTimeCurrentClass",
+        "CopperFuseLogic.DEFAULT_TIME_CURRENT_CLASS",
         "RESET BLOCKED")
 
 require(block,
@@ -48,7 +64,13 @@ require(screen,
         '"Input quality"',
         '"Output quality"',
         "if(i==5||i==6) return qualityName(v);",
-        "retained physical state from input/output evidence quality")
+        "retained physical state from input/output evidence quality",
+        "CopperFuseLogic.MIN_RATING",
+        "CopperFuseLogic.MAX_RATING",
+        "CopperFuseLogic.MIN_TIME_CURRENT_CLASS",
+        "CopperFuseLogic.MAX_TIME_CURRENT_CLASS",
+        "CopperFuseLogic.TRIP_THRESHOLD",
+        "timeCurrentClassFactor")
 
 logic_path = root / logic
 if logic_path.is_file():
@@ -84,6 +106,20 @@ public final class CopperFuseHarness {
         check(CopperFuseLogic.tripProgressPermille(0) == 0, "zero heat progress");
         check(CopperFuseLogic.tripProgressPermille(CopperFuseLogic.tripThreshold()) == 1000,
                 "threshold is 100 percent");
+        check(CopperFuseLogic.boundedRating(0) == CopperFuseLogic.MIN_RATING,
+                "rating lower bound");
+        check(CopperFuseLogic.boundedRating(99) == CopperFuseLogic.MAX_RATING,
+                "rating upper bound");
+        check(CopperFuseLogic.boundedTimeCurrentClass(-1) == CopperFuseLogic.MIN_TIME_CURRENT_CLASS,
+                "time-current class lower bound");
+        check(CopperFuseLogic.boundedTimeCurrentClass(99) == CopperFuseLogic.MAX_TIME_CURRENT_CLASS,
+                "time-current class upper bound");
+        check(Math.abs(CopperFuseLogic.timeCurrentClassFactor(CopperFuseLogic.FAST_CLASS) - 1.50) < 1.0e-9,
+                "FAST factor");
+        check(Math.abs(CopperFuseLogic.timeCurrentClassFactor(CopperFuseLogic.NORMAL_CLASS) - 1.00) < 1.0e-9,
+                "NORMAL factor");
+        check(Math.abs(CopperFuseLogic.timeCurrentClassFactor(CopperFuseLogic.SLOW_CLASS) - 0.65) < 1.0e-9,
+                "SLOW factor");
 
         System.out.println("CopperFuseLogic semantic harness: PASS");
     }
@@ -122,3 +158,5 @@ print(" below-rating cooling: PASS")
 print(" severe faults trip faster than modest overloads: PASS")
 print(" unsafe reset rejection: PASS")
 print(" explicit fuse input/output evidence quality in notebook: PASS")
+print(" rating/class/trip-threshold pure parameter authority: PASS")
+print(" time-current class factors shared by server model and HMI: PASS")

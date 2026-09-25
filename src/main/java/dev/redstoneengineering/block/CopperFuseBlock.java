@@ -47,12 +47,15 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
     private static final int THERMAL_EXPOSURE = 0;
     private static final int LAST_CURRENT_X100 = 1;
     private static final int THERMAL_RUNTIME_SIZE = 2;
-    public static final IntegerProperty RATING = IntegerProperty.create("rating", 1, 15);
+    public static final IntegerProperty RATING = IntegerProperty.create(
+            "rating", CopperFuseLogic.MIN_RATING, CopperFuseLogic.MAX_RATING);
     public static final BooleanProperty TRIPPED = BooleanProperty.create("tripped");
 
     public CopperFuseBlock(Properties properties) {
         super(properties);
-        registerDefaultState(defaultBlockState().setValue(RATING, 4).setValue(TRIPPED, false));
+        registerDefaultState(defaultBlockState()
+                .setValue(RATING, CopperFuseLogic.DEFAULT_RATING)
+                .setValue(TRIPPED, false));
     }
 
     @Override public MapCodec<CopperFuseBlock> codec() { return RedstoneEngineering.COPPER_FUSE_CODEC.value(); }
@@ -224,23 +227,25 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
     ) {
         if (loadTruncated) return false;
         if (input.quality() == PortQuality.NO_SIGNAL) return true;
-        return input.quality() == PortQuality.VALID && current <= Math.max(1, rating);
+        return input.quality() == PortQuality.VALID
+                && current <= CopperFuseLogic.boundedRating(rating);
     }
 
     public static int configuredTimeCurrentClass(Level level, BlockPos pos) {
         if (level instanceof ServerLevel serverLevel) {
             int raw = EngineeringDeviceParameters.get(serverLevel)
                     .extendedParameters(serverLevel, pos,
-                            new EngineeringDeviceParameters.ExtendedParameters(1, 0, 0, 0)).a();
-            return Math.max(0, Math.min(2, raw));
+                            new EngineeringDeviceParameters.ExtendedParameters(
+                                    CopperFuseLogic.DEFAULT_TIME_CURRENT_CLASS, 0, 0, 0)).a();
+            return CopperFuseLogic.boundedTimeCurrentClass(raw);
         }
-        return 1;
+        return CopperFuseLogic.DEFAULT_TIME_CURRENT_CLASS;
     }
 
     public static boolean setTimeCurrentClass(ServerLevel level, BlockPos pos, int timeCurrentClass) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof CopperFuseBlock fuse)) return false;
-        int bounded = Math.max(0, Math.min(2, timeCurrentClass));
+        int bounded = CopperFuseLogic.boundedTimeCurrentClass(timeCurrentClass);
         boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
                 level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
         if (changed) {
@@ -255,7 +260,7 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
     public static boolean setRating(ServerLevel level, BlockPos pos, int rating) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof CopperFuseBlock fuse)) return false;
-        int bounded = Math.max(1, Math.min(15, rating));
+        int bounded = CopperFuseLogic.boundedRating(rating);
         if (bounded == state.getValue(RATING)) return false;
 
         BlockState next = state.setValue(RATING, bounded);

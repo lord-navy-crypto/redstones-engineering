@@ -8,20 +8,46 @@ package dev.redstoneengineering.signal;
  * trip much faster than modest overloads without requiring a full thermal simulation.
  */
 public final class CopperFuseLogic {
-    private static final int TRIP_THRESHOLD = 1000;
+    public static final int MIN_RATING = 1;
+    public static final int MAX_RATING = 15;
+    public static final int DEFAULT_RATING = 4;
+    public static final int MIN_TIME_CURRENT_CLASS = 0;
+    public static final int MAX_TIME_CURRENT_CLASS = 2;
+    public static final int FAST_CLASS = 0;
+    public static final int NORMAL_CLASS = 1;
+    public static final int SLOW_CLASS = 2;
+    public static final int DEFAULT_TIME_CURRENT_CLASS = NORMAL_CLASS;
+    public static final int TRIP_THRESHOLD = 1000;
 
     private CopperFuseLogic() {}
+
+    public static int boundedRating(int rating) {
+        return Math.max(MIN_RATING, Math.min(MAX_RATING, rating));
+    }
+
+    public static int boundedTimeCurrentClass(int timeCurrentClass) {
+        return Math.max(MIN_TIME_CURRENT_CLASS, Math.min(MAX_TIME_CURRENT_CLASS, timeCurrentClass));
+    }
+
+    public static double timeCurrentClassFactor(int timeCurrentClass) {
+        return switch (boundedTimeCurrentClass(timeCurrentClass)) {
+            case FAST_CLASS -> 1.50;
+            case SLOW_CLASS -> 0.65;
+            default -> 1.00;
+        };
+    }
 
     public static int tripThreshold() {
         return TRIP_THRESHOLD;
     }
 
     public static double currentRatio(double current, int rating) {
-        return Math.max(0.0, current) / Math.max(1, rating);
+        return Math.max(0.0, current) / boundedRating(rating);
     }
 
     public static int nextThermal(int thermalExposure, double current, int rating) {
-        return nextThermal(thermalExposure, current, rating, 1);
+        return nextThermal(
+                thermalExposure, current, rating, DEFAULT_TIME_CURRENT_CLASS);
     }
 
     /**
@@ -32,11 +58,7 @@ public final class CopperFuseLogic {
         int thermal = Math.max(0, Math.min(TRIP_THRESHOLD, thermalExposure));
         double ratio = currentRatio(current, rating);
         if (ratio > 1.0) {
-            double classFactor = switch (Math.max(0, Math.min(2, timeCurrentClass))) {
-                case 0 -> 1.50;
-                case 2 -> 0.65;
-                default -> 1.00;
-            };
+            double classFactor = timeCurrentClassFactor(timeCurrentClass);
             int heating = (int) Math.ceil((ratio * ratio - 1.0) * 50.0 * classFactor);
             return Math.min(TRIP_THRESHOLD, thermal + Math.max(1, heating));
         }

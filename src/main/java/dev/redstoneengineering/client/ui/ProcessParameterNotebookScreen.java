@@ -2,6 +2,7 @@ package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.signal.CopperCapacitorLogic;
+import dev.redstoneengineering.signal.CopperFuseLogic;
 import dev.redstoneengineering.ui.menu.ProcessParameterMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -316,7 +317,9 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             case ProcessParameterMenu.KIND_CAPACITOR -> slot==0
                     ? v+" ticks • allowed "+CopperCapacitorLogic.MIN_BASE_TAU+".."+CopperCapacitorLogic.MAX_BASE_TAU
                     : "×"+v+" • allowed ×"+CopperCapacitorLogic.MIN_LEAKAGE_FACTOR+"..×"+CopperCapacitorLogic.MAX_LEAKAGE_FACTOR;
-            case ProcessParameterMenu.KIND_FUSE -> slot==0?v+" current units":fuseClass(v);
+            case ProcessParameterMenu.KIND_FUSE -> slot==0
+                    ? v+" current units • allowed "+CopperFuseLogic.MIN_RATING+".."+CopperFuseLogic.MAX_RATING
+                    : fuseClass(v)+" • class "+CopperFuseLogic.MIN_TIME_CURRENT_CLASS+".."+CopperFuseLogic.MAX_TIME_CURRENT_CLASS;
             case ProcessParameterMenu.KIND_COMPRESSOR -> v+" pressure/tick";
             case ProcessParameterMenu.KIND_DAMPER -> v+" amplitude/step";
             case ProcessParameterMenu.KIND_EXCITER -> slot==0?v+"/15":v+" units/tick";
@@ -391,7 +394,7 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             case ProcessParameterMenu.KIND_PWM -> "onTicks = round((command / 15) × period); output is HIGH while carrier phase < onTicks.";
             case ProcessParameterMenu.KIND_COPPER_DRIVER -> "V[k+1] = V[k] + clamp(Vtarget − V[k], −Sfall, +Srise).";
             case ProcessParameterMenu.KIND_CAPACITOR -> "q*=100·Vin/15; q[k+1] moves toward q* by max(1, |q*−q|/τ). Current τbase="+menu.p0()+" ticks.";
-            case ProcessParameterMenu.KIND_FUSE -> "r = I/Irated; for r>1, ΔH ∝ (r²−1)·Kclass; trip when H ≥ 1000.";
+            case ProcessParameterMenu.KIND_FUSE -> "r=I/Irated; for r>1, ΔH=ceil((r²−1)·50·Kclass); Htrip="+CopperFuseLogic.TRIP_THRESHOLD+". Current Kclass="+String.format(java.util.Locale.ROOT,"%.2f",CopperFuseLogic.timeCurrentClassFactor(menu.p1()))+".";
             case ProcessParameterMenu.KIND_COMPRESSOR -> "Pressure target derives from Redstone command; actual pressure follows asymmetric ramp rates.";
             case ProcessParameterMenu.KIND_DAMPER -> "A[k+1] = max(0, A[k] − attenuation); each decay step preserves carrier frequency while reducing the local envelope.";
             case ProcessParameterMenu.KIND_EXCITER -> "Redstone controls target amplitude; frequency and amplitude approach their targets with finite dynamics.";
@@ -407,7 +410,7 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             case ProcessParameterMenu.KIND_PWM -> "Partial-duty commands latch only at carrier-cycle boundaries; 0% and 100% endpoint commands apply immediately. Command, inhibit and output quality remain independent evidence channels.";
             case ProcessParameterMenu.KIND_COPPER_DRIVER -> "Rise and fall slew are independent. Internal actual voltage can decay after command loss, but the Copper source is released immediately unless input evidence is VALID.";
             case ProcessParameterMenu.KIND_CAPACITOR -> "τcharge=τbase; loaded discharge uses bounded Rload; open circuit uses τopen=τbase×leakage="+menu.p0()+"×"+menu.p1()+"="+(menu.p0()*menu.p1())+" ticks. Incomplete load scans freeze integration.";
-            case ProcessParameterMenu.KIND_FUSE -> "FAST/NORMAL/SLOW change overload heating rate; rating/class changes retain heat, and reset remains evidence-gated.";
+            case ProcessParameterMenu.KIND_FUSE -> "FAST/NORMAL/SLOW factors are 1.50/1.00/0.65. Rating/class changes retain thermal exposure; reset is allowed only under complete, safe electrical evidence.";
             case ProcessParameterMenu.KIND_DAMPER -> "Each surviving decay step reduces envelope quality by 20 and schedules the next decay after the fixed 4-tick packet TTL. Those are model assumptions, not editable parameters.";
             case ProcessParameterMenu.KIND_EXCITER -> "Amplitude rise/fall and frequency slew are independent configuration variables. Input and mechanical-output quality are synchronized independently from numeric amplitude.";
             default -> "The parameter changes the authoritative server model, not a client-only display.";
@@ -600,7 +603,11 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
     private String fit(String s,int width){ if(font.width(s)<=width)return s; String x=s; while(x.length()>1&&font.width(x+"…")>width)x=x.substring(0,x.length()-1); return x+"…"; }
     private static String conditionerMode(int m){ return switch(m){case 0->"SCALE";case 1->"OFFSET";case 2->"CLAMP";case 3->"THRESHOLD";case 4->"DEADBAND";case 5->"ATTENUATE";default->"UNKNOWN";}; }
     private static String fuseClass(int value){
-        return switch(value){case 0->"FAST";case 2->"SLOW";default->"NORMAL";};
+        return switch(CopperFuseLogic.boundedTimeCurrentClass(value)){
+            case CopperFuseLogic.FAST_CLASS->"FAST";
+            case CopperFuseLogic.SLOW_CLASS->"SLOW";
+            default->"NORMAL";
+        };
     }
     private static String qualityName(int ordinal){
         PortQuality[] values=PortQuality.values();

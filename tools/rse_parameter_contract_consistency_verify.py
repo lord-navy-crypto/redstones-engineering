@@ -222,6 +222,40 @@ require(
 )
 
 require(
+    "src/main/java/dev/redstoneengineering/signal/CopperFuseLogic.java",
+    "MIN_RATING = 1",
+    "MAX_RATING = 15",
+    "DEFAULT_RATING = 4",
+    "MIN_TIME_CURRENT_CLASS = 0",
+    "MAX_TIME_CURRENT_CLASS = 2",
+    "FAST_CLASS = 0",
+    "NORMAL_CLASS = 1",
+    "SLOW_CLASS = 2",
+    "TRIP_THRESHOLD = 1000",
+    "boundedRating",
+    "boundedTimeCurrentClass",
+    "timeCurrentClassFactor",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/CopperFuseBlock.java",
+    "CopperFuseLogic.MIN_RATING",
+    "CopperFuseLogic.MAX_RATING",
+    "CopperFuseLogic.DEFAULT_RATING",
+    "CopperFuseLogic.boundedRating",
+    "CopperFuseLogic.boundedTimeCurrentClass",
+    "CopperFuseLogic.DEFAULT_TIME_CURRENT_CLASS",
+)
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/ProcessParameterNotebookScreen.java",
+    "CopperFuseLogic.MIN_RATING",
+    "CopperFuseLogic.MAX_RATING",
+    "CopperFuseLogic.MIN_TIME_CURRENT_CLASS",
+    "CopperFuseLogic.MAX_TIME_CURRENT_CLASS",
+    "CopperFuseLogic.TRIP_THRESHOLD",
+    "CopperFuseLogic.timeCurrentClassFactor",
+)
+
+require(
     "src/main/java/dev/redstoneengineering/signal/CopperCapacitorLogic.java",
     "MIN_CAPACITANCE_INDEX = 0",
     "MAX_CAPACITANCE_INDEX = 3",
@@ -458,6 +492,7 @@ print("RSE parameter-contract consistency verification: PASS")
 print(" Precision Filter effective 1..4 slew authority: PASS")
 print(" Pulse Shaper threshold/hysteresis/width authority: PASS")
 print(" Signal Conditioner pure transfer/range authority: PASS")
+print(" Copper Fuse rating/class/I2t parameter authority: PASS")
 print(" Copper Capacitor baseTau/leakage + rigid axial route authority: PASS")
 print(" Edge Detector exact 1..20 pulse-width authority: PASS")
 print(" Pressure Regulator setpoint/response-rate pure authority: PASS")
