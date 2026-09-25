@@ -72,11 +72,11 @@ public final class RangeSensorScreen extends EngineeringScreen<RangeSensorMenu> 
         labelValue(g, "Detect mode", detectModeName(), 145);
         labelValue(g, "Response", responseName(), 161);
         labelValue(g, "Scan progress", menu.scannedCells() + " / " + menu.configuredRange(), 177);
-        safeText(g,
+        wrappedText(g,
                 menu.distance() == 0 && menu.evidenceValid()
                         ? "0 is VALID evidence: the completed scan found no target."
                         : "Distance and output are server-authoritative retained scan evidence.",
-                16, 198, menu.distance() == 0 && menu.evidenceValid() ? GOOD : MUTED);
+                16, 198, 620, menu.distance() == 0 && menu.evidenceValid() ? GOOD : MUTED);
     }
 
     private void ports(GuiGraphics g) {
@@ -85,7 +85,7 @@ public final class RangeSensorScreen extends EngineeringScreen<RangeSensorMenu> 
         labelValue(g, "Interface", "FREE-SPACE RANGE APERTURE", 124);
         labelValue(g, "Output face", menu.outputDirection().getName().toUpperCase(), 150);
         labelValue(g, "Interface", "REDSTONE • 0..15 OUTPUT", 168);
-        safeText(g, "The sensing aperture observes only; the opposite face is the electrical output.", 16, 196, INFO);
+        wrappedText(g, "The sensing aperture observes only; the opposite face is the electrical output.", 16, 196, 620, INFO);
     }
 
     private void configure(GuiGraphics g) {
@@ -95,7 +95,7 @@ public final class RangeSensorScreen extends EngineeringScreen<RangeSensorMenu> 
         labelValue(g, "Response", responseName(), 146);
         labelValue(g, "I/O axis", menu.sensingDirection().getName().toUpperCase() + " SENSE → "
                 + menu.outputDirection().getName().toUpperCase() + " OUT", 171);
-        safeText(g, "Physical sensing/output direction is controlled only on Route.", 16, 199, MUTED);
+        wrappedText(g, "Physical sensing/output direction is controlled only on Route.", 16, 199, 620, MUTED);
     }
 
     private void diagnostics(GuiGraphics g) {
@@ -107,7 +107,7 @@ public final class RangeSensorScreen extends EngineeringScreen<RangeSensorMenu> 
         labelValue(g, "Redstone output", menu.output() + " / 15", 162);
         labelValue(g, "Direction", menu.sensingDirection().getName().toUpperCase() + " → "
                 + menu.outputDirection().getName().toUpperCase(), 180);
-        safeText(g, "Validity comes from ScanResult.complete(), never from distance > 0.", 16, 201, GOOD);
+        wrappedText(g, "Validity comes from ScanResult.complete(), never from distance > 0.", 16, 201, 620, GOOD);
     }
 
     private void history(GuiGraphics g) {
@@ -116,7 +116,7 @@ public final class RangeSensorScreen extends EngineeringScreen<RangeSensorMenu> 
         labelValue(g, "Latest distance", Integer.toString(menu.distance()), 126);
         labelValue(g, "Latest progress", menu.scannedCells() + " / " + menu.configuredRange(), 144);
         sectionRule(g, 166);
-        safeText(g, "The sensor retains its latest authoritative scan, not a fabricated client history.", 16, 180, MUTED);
+        wrappedText(g, "The sensor retains its latest authoritative scan, not a fabricated client history.", 16, 180, 620, MUTED);
     }
 
     private String scanStatusName() {
