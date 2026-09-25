@@ -93,7 +93,7 @@ public final class AmethystSystemScreen extends EngineeringScreen<AmethystSystem
             metricCard(g,"Dominant idx",Integer.toString(menu.primary()),16,103,88,INFO); metricCard(g,"Energy",Integer.toString(menu.secondary()),111,103,88,GOOD); metricCard(g,"Active bands",Integer.toString(menu.tertiary()),206,103,88,INFO);
             labelValue(g,"Samples / conflicts",menu.auxiliary()+" / "+menu.extraA(),149); labelValue(g,"Coverage",menu.extraB()+" / "+menu.stateFlag(),165); labelValue(g,"Authority","OBSERVER ONLY",181);
         }
-        safeText(g,"Frequency values are discrete model indices, not fabricated Hz units.",16,199,MUTED);
+        wrappedText(g,"Frequency values are discrete model indices, not fabricated Hz units.",16,199,620,MUTED);
     }
 
     private void ports(GuiGraphics g){
@@ -158,7 +158,7 @@ public final class AmethystSystemScreen extends EngineeringScreen<AmethystSystem
             labelValue(g,"Excitations",Integer.toString(menu.auxiliary()),176);
         }
         statusLine(g,"Diagnosis",diagnosis(),diagnosisColor(),252);
-        safeText(g,nextAction(),16,272,diagnosisColor());
+        wrappedText(g,nextAction(),16,272,620,diagnosisColor());
     }
 
     private void history(GuiGraphics g){
@@ -168,7 +168,7 @@ public final class AmethystSystemScreen extends EngineeringScreen<AmethystSystem
             labelValue(g,"Conflicts",Integer.toString(menu.extraA()),130);
             labelValue(g,"Coverage",menu.extraB()+" / "+menu.stateFlag(),150);
             labelValue(g,"Dominant / active",menu.primary()+" / "+menu.tertiary(),170);
-            safeText(g,"Only a complete aperture scan replaces the retained numerical spectrum; incomplete coverage is STALE rather than invented zero data.",16,194,MUTED);
+            wrappedText(g,"Only a complete aperture scan replaces the retained numerical spectrum; incomplete coverage is STALE rather than invented zero data.",16,194,620,MUTED);
         } else if(menu.kind()==AmethystSystemMenu.KIND_SOURCE){
             labelValue(g,"Configured frequency",Integer.toString(menu.primary()),110);
             labelValue(g,"Configured peak A",menu.secondary()+" / 15",130);
