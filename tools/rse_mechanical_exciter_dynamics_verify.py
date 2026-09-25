@@ -59,7 +59,7 @@ require(block,
         "setConfiguredFrequency",
         "A powered exciter is a continuous mechanical source",
         "VibrationNetwork.propagate(level, pos",
-        "level.scheduleTick(pos, this, 1)",
+        "level.scheduleTick(pos, this, MechanicalExciterLogic.CONTROL_TICK_TICKS)",
         "RuntimeIntStore.remove(level, RUNTIME_KEY, pos)",
         "public static PortQuality outputQuality",
         "drive.valid() ? PortQuality.NO_SIGNAL : drive.quality()")
