@@ -34,8 +34,22 @@ import java.util.Set;
 
 /** Persistent fault memory. BACK=fault signal, RIGHT=electrical reset, FRONT=fault output. */
 public class FaultLatchBlock extends PassiveDirectionalSignalBlock implements OperationWorldResourceProvider {
-    public static final IntegerProperty THRESHOLD = IntegerProperty.create("threshold",0,3);
-    private static final int[] LEVELS={1,4,8,12};
+    public static final int MIN_THRESHOLD_INDEX = 0;
+    public static final int MAX_THRESHOLD_INDEX = 3;
+    public static final int DEFAULT_THRESHOLD_INDEX = 0;
+    public static final int THRESHOLD_LEVEL_LOW = 1;
+    public static final int THRESHOLD_LEVEL_MEDIUM = 4;
+    public static final int THRESHOLD_LEVEL_HIGH = 8;
+    public static final int THRESHOLD_LEVEL_CRITICAL = 12;
+    public static final int MAX_ALARM_OUTPUT = 15;
+    public static final IntegerProperty THRESHOLD =
+            IntegerProperty.create("threshold", MIN_THRESHOLD_INDEX, MAX_THRESHOLD_INDEX);
+    private static final int[] LEVELS={
+            THRESHOLD_LEVEL_LOW,
+            THRESHOLD_LEVEL_MEDIUM,
+            THRESHOLD_LEVEL_HIGH,
+            THRESHOLD_LEVEL_CRITICAL
+    };
     private static final String KEY="fault_latch";
     private static final int LATCHED = 0;
     private static final int TRIP_COUNT = 1;
@@ -44,7 +58,8 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock implements Op
     private static final int RESET_REACQUIRE = 4;
     private static final int RUNTIME_SIZE = 5;
 
-    public FaultLatchBlock(Properties p){super(p);registerDefaultState(defaultBlockState().setValue(THRESHOLD,0));}
+    public FaultLatchBlock(Properties p){super(p);registerDefaultState(
+            defaultBlockState().setValue(THRESHOLD,DEFAULT_THRESHOLD_INDEX));}
     @Override public MapCodec<FaultLatchBlock> codec(){return RedstoneEngineering.FAULT_LATCH_CODEC.value();}
     @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block,BlockState>b){super.createBlockStateDefinition(b);b.add(THRESHOLD);}
     @Override protected boolean isEngineeringPort(BlockState s, Direction side){return super.isEngineeringPort(s,side)||side==rightOf(outputSide(s));}
@@ -76,8 +91,8 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock implements Op
     private static boolean faultClearForReset(
             RedstoneObservationSupport.Observation faultObservation, int threshold
     ) {
-        if (evidenceUnusable(faultObservation.quality())) return false;
-        if (faultObservation.quality() == PortQuality.NO_SIGNAL) return true;
+        // Safety reset requires affirmative evidence. NO_SIGNAL is air/non-redstone adjacency,
+        // not a measured zero, so it can never prove the fault input clear.
         return faultObservation.valid() && faultObservation.value() < threshold;
     }
 
@@ -107,7 +122,6 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock implements Op
         var fault = observeInput(level, pos, latch.inputSide(state));
         var reset = observeInput(level, pos, rightOf(latch.outputSide(state)));
         PortQuality quality = fault.quality();
-        if (quality == PortQuality.NO_SIGNAL) quality = PortQuality.VALID;
         if (evidenceUnusable(reset.quality())) {
             quality = RedstoneObservationSupport.combineQuality(quality, reset.quality());
         }
@@ -159,7 +173,7 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock implements Op
         var resetObservation = observeInput(level, pos, rightOf(outputSide(state)));
         var faultObservation = observeInput(level, pos, inputSide(state));
 
-        boolean resetEvidenceBad = evidenceUnusable(resetObservation.quality());
+        boolean resetEvidenceBad = !resetObservation.valid();
         boolean resetHigh = resetObservation.valid() && resetObservation.value() > 0;
         boolean resetRising = false;
 
@@ -181,23 +195,38 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock implements Op
             }
         }
 
-        boolean faultActive = evidenceUnusable(faultObservation.quality())
-                || (faultObservation.valid() && faultObservation.value() >= threshold);
+        // Missing/invalid FAULT evidence is fail-safe active. A real numerical zero from a valid
+        // redstone source remains distinct from NO_SIGNAL and therefore can prove a clear input.
+        boolean faultActive = !faultObservation.valid()
+                || faultObservation.value() >= threshold;
         if (faultActive && runtime[LATCHED] == 0) {
             runtime[LATCHED] = 1;
             if (runtime[TRIP_COUNT] < Integer.MAX_VALUE) runtime[TRIP_COUNT]++;
         }
 
-        return runtime[LATCHED] != 0 ? 15 : 0;
+        return runtime[LATCHED] != 0 ? MAX_ALARM_OUTPUT : 0;
     }
 
-    public static int thresholdValue(int index) { return LEVELS[Math.max(0, Math.min(LEVELS.length - 1, index))]; }
+    public static int boundedThresholdIndex(int index) {
+        return Math.max(MIN_THRESHOLD_INDEX, Math.min(MAX_THRESHOLD_INDEX, index));
+    }
+
+    public static int thresholdValue(int index) {
+        return LEVELS[boundedThresholdIndex(index)];
+    }
+
+    public static String thresholdChoicesText() {
+        return THRESHOLD_LEVEL_LOW + " / " + THRESHOLD_LEVEL_MEDIUM + " / "
+                + THRESHOLD_LEVEL_HIGH + " / " + THRESHOLD_LEVEL_CRITICAL;
+    }
 
     public static boolean stepThreshold(Level level, BlockPos pos, boolean forward) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof FaultLatchBlock latch)) return false;
-        int current = state.getValue(THRESHOLD);
-        int next = Math.floorMod(current + (forward ? 1 : -1), LEVELS.length);
+        int current = boundedThresholdIndex(state.getValue(THRESHOLD));
+        int next = MIN_THRESHOLD_INDEX + Math.floorMod(
+                current - MIN_THRESHOLD_INDEX + (forward ? 1 : -1),
+                MAX_THRESHOLD_INDEX - MIN_THRESHOLD_INDEX + 1);
         level.setBlock(pos, state.setValue(THRESHOLD, next), Block.UPDATE_CLIENTS);
         if (level instanceof ServerLevel server) server.scheduleTick(pos, latch, 1);
         return true;

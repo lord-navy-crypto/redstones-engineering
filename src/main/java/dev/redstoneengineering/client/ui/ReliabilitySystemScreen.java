@@ -116,9 +116,20 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
     private void configure(GuiGraphics g) {
         statusBadge(g,"SERVER-SIDE BOUNDED CONTROL",INFO,16,80);
         labelValue(g,"Parameter",parameterText(),101);
-        labelValue(g,"Maintenance",maintenanceActionText(),179);
-        labelValue(g,"Front / primary output",face(menu.facing()),195);
-        wrappedText(g,"Routing stays on Route; maintenance actions use the same server methods as Shift-right-click.",16,213,620,MUTED);
+        if(menu.kind()==ReliabilitySystemMenu.KIND_FAULT_LATCH){
+            labelValue(g,"Allowed trip levels",FaultLatchBlock.thresholdChoicesText(),121);
+            labelValue(g,"Trip rule","FAULT evidence missing/invalid OR value ≥ T → LATCH",141);
+            labelValue(g,"Reset rule","rising RESET + VALID fault value < T → CLEAR",159);
+        }
+        labelValue(g,"Maintenance",maintenanceActionText(),
+                menu.kind()==ReliabilitySystemMenu.KIND_FAULT_LATCH?187:179);
+        labelValue(g,"Front / primary output",face(menu.facing()),
+                menu.kind()==ReliabilitySystemMenu.KIND_FAULT_LATCH?205:195);
+        wrappedText(g,
+                menu.kind()==ReliabilitySystemMenu.KIND_FAULT_LATCH
+                        ? "NO_SIGNAL on FAULT IN is missing evidence, not a measured zero: the latch fails safe and reset remains blocked. RESET evidence recovery only reacquires the electrical level; it never fabricates a reset edge. FRONT alarm output remains authoritative VALID state."
+                        : "Routing stays on Route; maintenance actions use the same server methods as Shift-right-click.",
+                16,menu.kind()==ReliabilitySystemMenu.KIND_FAULT_LATCH?229:213,620,MUTED);
     }
 
     private void diagnostics(GuiGraphics g) {

@@ -56,7 +56,20 @@ require(latch, "FaultLatchBlock.java",
         "PortQuality faultInputQuality(Level level, BlockPos pos, BlockState state)",
         "PortQuality resetInputQuality(Level level, BlockPos pos, BlockState state)",
         "PortQuality operationalEvidenceQuality(Level level, BlockPos pos, BlockState state)",
-        "Combined operational evidence is intentionally distinct from the FRONT alarm output quality")
+        "Combined operational evidence is intentionally distinct from the FRONT alarm output quality",
+        "MIN_THRESHOLD_INDEX = 0",
+        "MAX_THRESHOLD_INDEX = 3",
+        "DEFAULT_THRESHOLD_INDEX = 0",
+        "THRESHOLD_LEVEL_LOW = 1",
+        "THRESHOLD_LEVEL_MEDIUM = 4",
+        "THRESHOLD_LEVEL_HIGH = 8",
+        "THRESHOLD_LEVEL_CRITICAL = 12",
+        "MAX_ALARM_OUTPUT = 15",
+        "boundedThresholdIndex",
+        "thresholdChoicesText",
+        "NO_SIGNAL is air/non-redstone adjacency",
+        "boolean resetEvidenceBad = !resetObservation.valid()",
+        "boolean faultActive = !faultObservation.valid()")
 
 require(menu, "ReliabilitySystemMenu.java",
         "BUTTON_ACTION = 8",
@@ -68,6 +81,7 @@ require(menu, "ReliabilitySystemMenu.java",
         "voter.resetDiagnostics(level, blockPos)",
         "latch.manualReset(level, blockPos)",
         "FaultLatchBlock.resetPermitted(level, blockPos, state)",
+        "FaultLatchBlock.stepThreshold(",
         "faultInputQuality.set(FaultLatchBlock.faultInputQuality",
         "resetInputQuality.set(FaultLatchBlock.resetInputQuality",
         "quality.set(FaultLatchBlock.operationalEvidenceQuality",
@@ -94,7 +108,22 @@ require(screen, "ReliabilitySystemScreen.java",
         '"OUTPUT • LATCHED ALARM • AUTHORITATIVE"',
         '"Fault input quality"',
         '"Reset input quality"',
-        '"SERVER SYNCHRONIZED • FRONT ALARM OUTPUT VALID"')
+        '"SERVER SYNCHRONIZED • FRONT ALARM OUTPUT VALID"',
+        '"Allowed trip levels"',
+        "FaultLatchBlock.thresholdChoicesText()",
+        '"FAULT evidence missing/invalid OR value ≥ T → LATCH"',
+        '"rising RESET + VALID fault value < T → CLEAR"',
+        '"NO_SIGNAL on FAULT IN is missing evidence, not a measured zero"',
+        '"RESET evidence recovery only reacquires the electrical level"')
+
+if "if (faultObservation.quality() == PortQuality.NO_SIGNAL) return true;" in latch:
+    errors.append("Fault Latch reset permissive regressed to treating NO_SIGNAL as proven-clear fault evidence")
+if "if (quality == PortQuality.NO_SIGNAL) quality = PortQuality.VALID;" in latch:
+    errors.append("Fault Latch operational evidence regressed to relabeling missing FAULT input as VALID")
+if "boolean resetEvidenceBad = evidenceUnusable(resetObservation.quality());" in latch:
+    errors.append("Fault Latch RESET reacquisition still ignores NO_SIGNAL evidence gaps")
+if "int index = state.getValue(FaultLatchBlock.THRESHOLD);" in menu:
+    errors.append("Reliability menu duplicated Fault Latch threshold-index cycling instead of delegating to Block authority")
 
 if "quality.set(snapshotQuality(latch, state, out).ordinal())" in menu:
     errors.append("Fault Latch HMI regressed to reporting authoritative alarm-output quality as device evidence")
@@ -112,3 +141,6 @@ print(" position sensor: explicit metrology reset shares server method")
 print(" voter: explicit diagnostics reset shares server method")
 print(" fault latch: reset is permissive-gated, edge-safe, and shared with HMI maintenance action")
 print(" fault latch: FAULT/RESET input qualities are synchronized separately from authoritative alarm output")
+print(" fault latch: NO_SIGNAL FAULT input is fail-safe and cannot satisfy reset permissive")
+print(" fault latch: RESET evidence gaps reacquire baseline without fabricating a reset edge")
+print(" fault latch: threshold index 0..3 maps only to trip levels 1/4/8/12")

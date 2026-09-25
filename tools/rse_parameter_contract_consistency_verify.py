@@ -495,6 +495,37 @@ require(
 )
 
 require(
+    "src/main/java/dev/redstoneengineering/block/FaultLatchBlock.java",
+    "MIN_THRESHOLD_INDEX = 0",
+    "MAX_THRESHOLD_INDEX = 3",
+    "DEFAULT_THRESHOLD_INDEX = 0",
+    "THRESHOLD_LEVEL_LOW = 1",
+    "THRESHOLD_LEVEL_MEDIUM = 4",
+    "THRESHOLD_LEVEL_HIGH = 8",
+    "THRESHOLD_LEVEL_CRITICAL = 12",
+    "MAX_ALARM_OUTPUT = 15",
+    "boundedThresholdIndex",
+    "thresholdChoicesText",
+    "boolean resetEvidenceBad = !resetObservation.valid()",
+    "boolean faultActive = !faultObservation.valid()",
+)
+require(
+    "src/main/java/dev/redstoneengineering/ui/menu/ReliabilitySystemMenu.java",
+    "FaultLatchBlock.stepThreshold",
+    "FaultLatchBlock.faultInputQuality",
+    "FaultLatchBlock.resetInputQuality",
+    "FaultLatchBlock.operationalEvidenceQuality",
+)
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/ReliabilitySystemScreen.java",
+    "FaultLatchBlock.thresholdChoicesText()",
+    "FAULT evidence missing/invalid OR value ≥ T → LATCH",
+    "rising RESET + VALID fault value < T → CLEAR",
+    "NO_SIGNAL on FAULT IN is missing evidence, not a measured zero",
+    "FRONT alarm output remains authoritative VALID state",
+)
+
+require(
     "src/main/java/dev/redstoneengineering/signal/MechanicalExciterLogic.java",
     "MIN_AMPLITUDE = 0",
     "MAX_AMPLITUDE = 15",
@@ -908,6 +939,7 @@ print(" Lapis Precision Range exact/legacy range + normalization authority: PASS
 print(" Signal Amplifier exact gain/headroom + legacy preset authority: PASS")
 print(" Lapis Noise Source stored/effective + legacy preset authority: PASS")
 print(" Honey Vibration Damper configurable through-loss/local-decay authority: PASS")
+print(" Fault Latch threshold + fail-safe missing-evidence authority: PASS")
 print(" Mechanical Exciter frequency/rate stored-effective authority: PASS")
 print(" Permanent Magnet single scalar-strength parameter authority: PASS")
 print(" Induction Coil exact/legacy turns + sampled EMF authority: PASS")

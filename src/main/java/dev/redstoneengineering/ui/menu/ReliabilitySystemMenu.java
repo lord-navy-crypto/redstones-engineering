@@ -196,14 +196,11 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
             level.setBlock(blockPos, state.setValue(RedundantVoterBlock.TOLERANCE, index), Block.UPDATE_CLIENTS);
             level.scheduleTick(blockPos, voter, 1);
             changed = true;
-        } else if (block instanceof FaultLatchBlock latch) {
-            int index = state.getValue(FaultLatchBlock.THRESHOLD);
-            if (id == BUTTON_PARAMETER_NEXT) index = (index + 1) % 4;
-            else if (id == BUTTON_PARAMETER_PREVIOUS) index = Math.floorMod(index - 1, 4);
-            else return false;
-            level.setBlock(blockPos, state.setValue(FaultLatchBlock.THRESHOLD, index), Block.UPDATE_CLIENTS);
-            level.scheduleTick(blockPos, latch, 1);
-            changed = true;
+        } else if (block instanceof FaultLatchBlock) {
+            if (id == BUTTON_PARAMETER_PREVIOUS || id == BUTTON_PARAMETER_NEXT) {
+                changed = FaultLatchBlock.stepThreshold(
+                        level, blockPos, id == BUTTON_PARAMETER_NEXT);
+            } else return false;
         } else return false;
 
         if (changed) { refreshAuthoritativeSnapshot(); broadcastChanges(); }
