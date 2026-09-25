@@ -135,14 +135,14 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
                 + menu.outputDirection().getName().toUpperCase(), 148);
         runtimeSummary(g, 166);
         if (menu.kind() == SignalProcessorMenu.KIND_PULSE) {
-            safeText(g, "Trigger " + menu.secondaryParameter() + "/15 • re-arm ≤" + pulseRearmThreshold()
+            wrappedText(g, "Trigger " + menu.secondaryParameter() + "/15 • re-arm ≤" + pulseRearmThreshold()
                     + "/15 • hysteresis " + menu.tertiaryParameter()
-                    + " • retrigger " + (menu.modeFlag() ? "enabled" : "blocked while busy"), 16, 188, MUTED);
+                    + " • retrigger " + (menu.modeFlag() ? "enabled" : "blocked while busy"), 16, 188, 620, MUTED);
         } else if (menu.kind() == SignalProcessorMenu.KIND_FILTER) {
-            safeText(g, "Rise " + menu.parameter() + " • fall " + menu.secondaryParameter()
-                    + " level/tick • settle ETA " + menu.runtimeC() + "t", 16, 188, MUTED);
+            wrappedText(g, "Rise " + menu.parameter() + " • fall " + menu.secondaryParameter()
+                    + " level/tick • settle ETA " + menu.runtimeC() + "t", 16, 188, 620, MUTED);
         } else {
-            safeText(g, "All values are synchronized server evidence; processing stays inside the block tick.", 16, 199, MUTED);
+            wrappedText(g, "All values are synchronized server evidence; processing stays inside the block tick.", 16, 199, 620, MUTED);
         }
     }
 
@@ -151,22 +151,22 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         statusLine(g, menu.inputDirection().getName().toUpperCase(), "INPUT • REDSTONE 0..15", GOOD, 112);
         statusLine(g, "PROCESS", processDescription(), INFO, 140);
         statusLine(g, menu.outputDirection().getName().toUpperCase(), "OUTPUT • REDSTONE 0..15", GOOD, 168);
-        safeText(g, "Direction rotates the complete INPUT → PROCESS → OUTPUT axis.", 16, 198, MUTED);
+        wrappedText(g, "Direction rotates the complete INPUT → PROCESS → OUTPUT axis.", 16, 198, 620, MUTED);
     }
 
     private void configure(GuiGraphics g) {
         statusBadge(g, "SERVER-SIDE BOUNDED CONTROL", INFO, 16, 80);
         labelValue(g, parameterName(), parameterValue(), 101);
         if (menu.kind() == SignalProcessorMenu.KIND_PULSE) {
-            safeText(g, "Trigger threshold fires the one-shot; hysteresis sets the lower re-arm level so noisy or bouncing inputs cannot chatter.", 16, 214, MUTED);
+            wrappedText(g, "Trigger threshold fires the one-shot; hysteresis sets the lower re-arm level so noisy or bouncing inputs cannot chatter.", 16, 214, 620, MUTED);
         } else if (menu.kind() == SignalProcessorMenu.KIND_FILTER) {
             labelValue(g, "Fall rate", menu.secondaryParameter() + " level/tick", 181);
-            safeText(g, "Independent up/down slew limits model asymmetric charge, discharge, acceleration or deceleration.", 16, 201, MUTED);
+            wrappedText(g, "Independent up/down slew limits model asymmetric charge, discharge, acceleration or deceleration.", 16, 201, 620, MUTED);
         } else {
             labelValue(g, "Pulse width", menu.secondaryParameter() + " ticks", 181);
             labelValue(g, "Input face", menu.inputDirection().getName().toUpperCase(), 201);
             labelValue(g, "Output face", menu.outputDirection().getName().toUpperCase(), 219);
-            safeText(g, "Physical direction is controlled only on Route.", 16, 239, MUTED);
+            wrappedText(g, "Physical direction is controlled only on Route.", 16, 239, 620, MUTED);
         }
     }
 
@@ -199,21 +199,21 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
             labelValue(g, "Pulse width", menu.secondaryParameter() + " ticks", 170);
             labelValue(g, "Rejected evidence episodes", Integer.toString(menu.runtimeD()), 190);
             sectionRule(g, 210);
-            safeText(g, "Bad or stale evidence resets the baseline without manufacturing an edge; rejected episodes remain explicit server evidence.", 16, 224, MUTED);
+            wrappedText(g, "Bad or stale evidence resets the baseline without manufacturing an edge; rejected episodes remain explicit server evidence.", 16, 224, 620, MUTED);
         } else if (menu.kind() == SignalProcessorMenu.KIND_PULSE) {
             labelValue(g, "Accepted triggers", Integer.toString(menu.runtimeB()), 106);
             labelValue(g, "Suppressed triggers", Integer.toString(menu.runtimeC()), 126);
             labelValue(g, "Last trigger age", menu.runtimeD() < 0 ? "NONE" : menu.runtimeD() + " ticks", 146);
             labelValue(g, "Pulse remaining", menu.runtimeA() + " ticks", 166);
             sectionRule(g, 184);
-            safeText(g, "Suppressed triggers are threshold crossings rejected only because non-retriggerable mode was busy.", 16, 196, MUTED);
+            wrappedText(g, "Suppressed triggers are threshold crossings rejected only because non-retriggerable mode was busy.", 16, 196, 620, MUTED);
         } else {
             labelValue(g, "Current lag", menu.runtimeA() + " levels", 104);
             labelValue(g, "Tracking error", Integer.toString(menu.input() - menu.output()), 124);
             labelValue(g, "Response", filterDirection(), 144);
             labelValue(g, "Settle ETA", menu.runtimeC() + " ticks", 164);
             sectionRule(g, 182);
-            safeText(g, "Rise/fall slew limits are physical response settings; error and ETA are live server evidence.", 16, 194, MUTED);
+            wrappedText(g, "Rise/fall slew limits are physical response settings; error and ETA are live server evidence.", 16, 194, 620, MUTED);
         }
     }
 
