@@ -144,15 +144,18 @@ for token in (
 for token in (
     "RedstoneObservationSupport.observe",
     "record Vote",
-    "if (valid < 2)",
+    "MIN_VALID_INPUTS = 2",
+    "NOMINAL_INPUTS = 3",
+    "if (valid < MIN_VALID_INPUTS)",
     "PortQuality.NO_SIGNAL",
     "evidenceQuality",
     "RedstoneObservationSupport.combineQuality",
     "PortQuality insufficientQuality = RedstoneObservationSupport.combineQuality(",
     "PortQuality.NO_SIGNAL, evidenceQuality",
-    "valid == 3 ? values[1]",
+    "valid == NOMINAL_INPUTS ? values[1]",
     "PortQuality.FAULT",
-    "valid == 3 && spread <= toleranceValue",
+    "valid == NOMINAL_INPUTS",
+    "spread <= toleranceValue",
 ):
     require(token in voter, f"Redundant voter source/quorum contract missing {token}")
 require("readInputFrom" not in voter,
