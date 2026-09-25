@@ -18,6 +18,7 @@ def require(rel: str, *tokens: str) -> None:
             errors.append(f"{rel} missing token: {token}")
 
 logic = "src/main/java/dev/redstoneengineering/signal/PidActuatorLogic.java"
+parameters = "src/main/java/dev/redstoneengineering/physics/EngineeringDeviceParameters.java"
 block = "src/main/java/dev/redstoneengineering/block/PidControllerBlock.java"
 menu = "src/main/java/dev/redstoneengineering/ui/menu/PidControllerMenu.java"
 screen = "src/main/java/dev/redstoneengineering/client/ui/PidEngineeringNotebookScreen.java"
@@ -27,7 +28,27 @@ require(logic,
         "public static SlewResult slew(",
         "filteredMeasurementDerivative",
         "next != requested")
+require(parameters,
+        "MIN_KP = 0",
+        "MAX_KP = 12",
+        "MIN_KI_DIVISOR = 0",
+        "MAX_KI_DIVISOR = 64",
+        "MIN_KD = 0",
+        "MAX_KD = 12",
+        "MIN_DERIVATIVE_SMOOTHING = 1",
+        "MAX_DERIVATIVE_SMOOTHING = 16",
+        "MIN_RISE_LIMIT = 1",
+        "MAX_RISE_LIMIT = 15",
+        "MIN_FALL_LIMIT = 1",
+        "MAX_FALL_LIMIT = 15")
+
 require(block,
+        "CONTROL_CYCLE_TICKS = 2",
+        "DEADBAND_LEVELS = 1",
+        "INTEGRAL_MIN = -180",
+        "INTEGRAL_MAX = 180",
+        "clamp(rt[0] + controlError, INTEGRAL_MIN, INTEGRAL_MAX)",
+        "scheduleTick(p, this, CONTROL_CYCLE_TICKS)",
         "PidActuatorLogic.filteredMeasurementDerivative",
         "applyActuatorDynamics",
         "rateLimitedAgainstError",
@@ -51,7 +72,19 @@ require(screen,
         "Manual → AUTO transfer is bumpless",
         "does not execute a second PID solver",
         "rise limit per control cycle",
-        "independent fall limit")
+        "independent fall limit",
+        '"Control cycle"',
+        '"Error deadband"',
+        '"Integral state clamp"',
+        '"0 → 15 actuator slew"',
+        '"15 → 0 actuator slew"',
+        "fullScaleRiseTicks()",
+        "fullScaleFallTicks()",
+        "PidControllerBlock.MIN_KP",
+        "PidControllerBlock.MAX_KI_DIVISOR",
+        "PidControllerBlock.MAX_DERIVATIVE_SMOOTHING",
+        "PidControllerBlock.MAX_RISE_LIMIT",
+        "PidControllerBlock.MAX_FALL_LIMIT")
 
 logic_path = root / logic
 if logic_path.is_file():
@@ -114,4 +147,6 @@ print("RSE PID actuator dynamics verification: PASS")
 print(" asymmetric actuator command slew: PASS")
 print(" derivative-on-measurement primitive: PASS")
 print(" current PID engineering notebook model contract: PASS")
+print(" exact PID parameter bounds + 2-tick control-cycle contract: PASS")
+print(" derived full-scale actuator slew timing shown without pretending to model plant response: PASS")
 print(" anti-windup / bumpless / asymmetric slew HMI explanation: PASS")

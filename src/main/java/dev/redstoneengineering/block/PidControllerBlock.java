@@ -57,12 +57,30 @@ import java.util.Optional;
 public class PidControllerBlock extends PassiveDirectionalSignalBlock {
     public static final IntegerProperty TUNING = IntegerProperty.create("tuning", 0, 3);
 
+    public static final int CONTROL_CYCLE_TICKS = 2;
+    public static final int MIN_OUT = 0;
+    public static final int MAX_OUT = 15;
+    public static final int DEADBAND_LEVELS = 1;
+    public static final int INTEGRAL_MIN = -180;
+    public static final int INTEGRAL_MAX = 180;
+
+    public static final int MIN_KP = EngineeringDeviceParameters.PidParameters.MIN_KP;
+    public static final int MAX_KP = EngineeringDeviceParameters.PidParameters.MAX_KP;
+    public static final int MIN_KI_DIVISOR = EngineeringDeviceParameters.PidParameters.MIN_KI_DIVISOR;
+    public static final int MAX_KI_DIVISOR = EngineeringDeviceParameters.PidParameters.MAX_KI_DIVISOR;
+    public static final int MIN_KD = EngineeringDeviceParameters.PidParameters.MIN_KD;
+    public static final int MAX_KD = EngineeringDeviceParameters.PidParameters.MAX_KD;
+    public static final int MIN_DERIVATIVE_SMOOTHING = EngineeringDeviceParameters.PidParameters.MIN_DERIVATIVE_SMOOTHING;
+    public static final int MAX_DERIVATIVE_SMOOTHING = EngineeringDeviceParameters.PidParameters.MAX_DERIVATIVE_SMOOTHING;
+    public static final int MIN_RISE_LIMIT = EngineeringDeviceParameters.PidParameters.MIN_RISE_LIMIT;
+    public static final int MAX_RISE_LIMIT = EngineeringDeviceParameters.PidParameters.MAX_RISE_LIMIT;
+    public static final int MIN_FALL_LIMIT = EngineeringDeviceParameters.PidParameters.MIN_FALL_LIMIT;
+    public static final int MAX_FALL_LIMIT = EngineeringDeviceParameters.PidParameters.MAX_FALL_LIMIT;
+
     private static final String KEY = "pid";
     private static final int AUTO_MODE = 0;
     private static final int MANUAL_MODE = 1;
-    private static final int MIN_OUT = 0;
-    private static final int MAX_OUT = 15;
-    private static final int DEADBAND = 1;
+    private static final int DEADBAND = DEADBAND_LEVELS;
 
     /**
      * Kp, Ki divisor, Kd, derivative smoothing, max rise / control-cycle, max fall / control-cycle.
@@ -264,7 +282,7 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
         rt[2] = PidActuatorLogic.filteredMeasurementDerivative(rt[6], process, rt[2], dSmooth);
         rt[1] = controlError;
 
-        int candidateIntegral = clamp(rt[0] + controlError, -180, 180);
+        int candidateIntegral = clamp(rt[0] + controlError, INTEGRAL_MIN, INTEGRAL_MAX);
         int pTerm = kp * controlError;
         int iTerm = kiDiv == 0 ? 0 : candidateIntegral / kiDiv;
         int dTerm = -kd * rt[2];
@@ -431,7 +449,7 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
     @Override
     protected void onPlace(BlockState s, Level l, BlockPos p, BlockState o, boolean m) {
         super.onPlace(s, l, p, o, m);
-        if (l instanceof ServerLevel sl) sl.scheduleTick(p, this, 2);
+        if (l instanceof ServerLevel sl) sl.scheduleTick(p, this, CONTROL_CYCLE_TICKS);
     }
 
     @Override
@@ -450,7 +468,7 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
     @Override
     protected void tick(BlockState s, ServerLevel l, BlockPos p, RandomSource r) {
         updateOutput(l, p, s, outputValue(l, p, s));
-        l.scheduleTick(p, this, 2);
+        l.scheduleTick(p, this, CONTROL_CYCLE_TICKS);
     }
 
     /** Applies only the existing bounded tuning-preset selection on the logical server. */

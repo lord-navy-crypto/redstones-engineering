@@ -1,5 +1,6 @@
 package dev.redstoneengineering.client.ui;
 
+import dev.redstoneengineering.block.PidControllerBlock;
 import dev.redstoneengineering.diagnostics.PneumaticClosedLoopWitness;
 import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceTrend;
 import dev.redstoneengineering.diagnostics.acceptance.EngineeringAcceptanceStatus;
@@ -230,7 +231,7 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
     private int contentHeight() {
         return switch (page) {
             case OPERATE -> 460;
-            case PARAMETERS -> 620;
+            case PARAMETERS -> 820;
             case MODEL -> 820;
             case RESPONSE -> 520;
             case ROUTING -> 500;
@@ -302,7 +303,8 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
             g.drawString(font, compact, imageWidth - 24 - font.width(compact), 72, MUTED, false);
         }
 
-        String footer = "Discrete PID • 2-tick control cycle • derivative on measured PV • bounded output 0..15";
+        String footer = "Discrete PID • " + PidControllerBlock.CONTROL_CYCLE_TICKS
+                + "-tick control cycle • derivative on measured PV • bounded output 0..15";
         g.drawString(font, fit(footer, imageWidth - 36), 18, imageHeight - 20, MUTED, false);
     }
 
@@ -320,28 +322,58 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
         g.drawString(font, "Preset template", 42, CONTENT_TOP + 18, MUTED, false);
         g.drawString(font, tuningName(menu.tuning()), 190, CONTENT_TOP + 18, INK, false);
 
-        parameterLine(g, "Kp", Integer.toString(menu.kp()), CONTENT_TOP + 64);
-        parameterLine(g, "Ki divisor", menu.kiDivisor() == 0 ? "0  (integral disabled)" : Integer.toString(menu.kiDivisor()), CONTENT_TOP + 108);
-        parameterLine(g, "Kd", Integer.toString(menu.kd()), CONTENT_TOP + 152);
-        parameterLine(g, "Derivative smoothing", Integer.toString(menu.derivativeSmoothing()), CONTENT_TOP + 196);
-        parameterLine(g, "Rise limit", menu.riseLimit() + " level / cycle", CONTENT_TOP + 240);
-        parameterLine(g, "Fall limit", menu.fallLimit() + " level / cycle", CONTENT_TOP + 284);
+        parameterLine(g, "Kp",
+                menu.kp() + " • allowed " + PidControllerBlock.MIN_KP + ".." + PidControllerBlock.MAX_KP,
+                CONTENT_TOP + 64);
+        parameterLine(g, "Ki divisor",
+                (menu.kiDivisor() == 0 ? "0 (integral disabled)" : Integer.toString(menu.kiDivisor()))
+                        + " • allowed " + PidControllerBlock.MIN_KI_DIVISOR + ".." + PidControllerBlock.MAX_KI_DIVISOR,
+                CONTENT_TOP + 108);
+        parameterLine(g, "Kd",
+                menu.kd() + " • allowed " + PidControllerBlock.MIN_KD + ".." + PidControllerBlock.MAX_KD,
+                CONTENT_TOP + 152);
+        parameterLine(g, "Derivative smoothing",
+                menu.derivativeSmoothing() + " • allowed " + PidControllerBlock.MIN_DERIVATIVE_SMOOTHING
+                        + ".." + PidControllerBlock.MAX_DERIVATIVE_SMOOTHING,
+                CONTENT_TOP + 196);
+        parameterLine(g, "Rise limit",
+                menu.riseLimit() + " level / cycle • allowed " + PidControllerBlock.MIN_RISE_LIMIT
+                        + ".." + PidControllerBlock.MAX_RISE_LIMIT,
+                CONTENT_TOP + 240);
+        parameterLine(g, "Fall limit",
+                menu.fallLimit() + " level / cycle • allowed " + PidControllerBlock.MIN_FALL_LIMIT
+                        + ".." + PidControllerBlock.MAX_FALL_LIMIT,
+                CONTENT_TOP + 284);
 
-        g.drawString(font, "u* = bias + Kp·e + I/Ki − Kd·d(PV)", 42, CONTENT_TOP + 350, INK, false);
-        drawWrapped(g, "Parameter controls stay aligned with this scrollable engineering sheet instead of being squeezed into a fixed panel. Use vertical scroll for depth and horizontal scroll for long formulas or evidence strings.",
-                42, CONTENT_TOP + 410, Math.max(300, imageWidth - 96), MUTED);
+        parameterLine(g, "Control cycle",
+                PidControllerBlock.CONTROL_CYCLE_TICKS + " game ticks", CONTENT_TOP + 342);
+        parameterLine(g, "Error deadband",
+                "±" + PidControllerBlock.DEADBAND_LEVELS + " level", CONTENT_TOP + 384);
+        parameterLine(g, "Integral state clamp",
+                PidControllerBlock.INTEGRAL_MIN + " .. " + PidControllerBlock.INTEGRAL_MAX, CONTENT_TOP + 426);
+        parameterLine(g, "0 → 15 actuator slew",
+                "ceil(15 / " + menu.riseLimit() + ") × " + PidControllerBlock.CONTROL_CYCLE_TICKS
+                        + " = " + fullScaleRiseTicks() + " ticks", CONTENT_TOP + 468);
+        parameterLine(g, "15 → 0 actuator slew",
+                "ceil(15 / " + menu.fallLimit() + ") × " + PidControllerBlock.CONTROL_CYCLE_TICKS
+                        + " = " + fullScaleFallTicks() + " ticks", CONTENT_TOP + 510);
+
+        g.drawString(font, "u* = bias + Kp·e + I/Ki − Kd·d(PV)", 42, CONTENT_TOP + 566, INK, false);
+        drawWrapped(g,
+                "The two slew times are actuator-command bounds for a continuously held full-scale target. They do not predict plant rise time, which must be measured on Response/Evidence.",
+                42, CONTENT_TOP + 610, Math.max(300, imageWidth - 96), MUTED);
     }
 
     private void model(GuiGraphics g) {
         int w = Math.max(300, imageWidth - 96);
         g.drawString(font, "DISCRETE PID CONTROL MODEL", 42, CONTENT_TOP + 22, MUTED, false);
         int y = CONTENT_TOP + 58;
-        y = drawWrapped(g, "Control cycle = 2 ticks. Engineering boundary: setpoint, process value and controller output are bounded to the Redstone 0..15 range.", 42, y, w, INK) + 18;
-        y = drawWrapped(g, "Raw error: e_raw[k] = SP[k] − PV[k]. With deadband = 1, e[k] = 0 when |e_raw| ≤ 1; otherwise e[k] = e_raw[k].", 42, y, w, INK) + 18;
+        y = drawWrapped(g, "Control cycle = " + PidControllerBlock.CONTROL_CYCLE_TICKS + " ticks. Engineering boundary: setpoint, process value and controller output are bounded to the Redstone 0..15 range.", 42, y, w, INK) + 18;
+        y = drawWrapped(g, "Raw error: e_raw[k] = SP[k] − PV[k]. With deadband = " + PidControllerBlock.DEADBAND_LEVELS + ", e[k] = 0 when |e_raw| ≤ " + PidControllerBlock.DEADBAND_LEVELS + "; otherwise e[k] = e_raw[k].", 42, y, w, INK) + 18;
         y = drawWrapped(g, "Derivative is taken on the measured process value, not on setpoint: d_raw = PV[k] − PV[k−1]. Filtered derivative d[k] = d[k−1] + (d_raw − d[k−1]) / max(1, D_smoothing).", 42, y, w, INK) + 18;
-        y = drawWrapped(g, "Candidate integral: I* = clamp(I[k] + e[k], −180, 180). P = Kp·e. Iterm = 0 when Ki divisor = 0, otherwise I*/Ki. D = −Kd·d[k].", 42, y, w, INK) + 18;
+        y = drawWrapped(g, "Candidate integral: I* = clamp(I[k] + e[k], " + PidControllerBlock.INTEGRAL_MIN + ", " + PidControllerBlock.INTEGRAL_MAX + "). P = Kp·e. Iterm = 0 when Ki divisor = 0, otherwise I*/Ki. D = −Kd·d[k].", 42, y, w, INK) + 18;
         y = drawWrapped(g, "Unsaturated command: u_unsat = bias + P + Iterm + D. Actuator target u_target = clamp(u_unsat, 0, 15).", 42, y, w, INK) + 18;
-        y = drawWrapped(g, "Actuator command has asymmetric slew: rising output advances by at most the configured rise limit per control cycle; falling output uses the independent fall limit.", 42, y, w, INK) + 18;
+        y = drawWrapped(g, "Actuator command has asymmetric slew: rising output advances by at most the configured rise limit per control cycle; falling output uses the independent fall limit. Current full-scale command bounds are " + fullScaleRiseTicks() + " ticks up and " + fullScaleFallTicks() + " ticks down.", 42, y, w, INK) + 18;
         y = drawWrapped(g, "Anti-windup is conditional integration: the candidate integral is committed only when the controller is not saturated against the error direction and the actuator slew limit is not blocking correction in that same direction.", 42, y, w, INK) + 18;
         y = drawWrapped(g, "Manual → AUTO transfer is bumpless: derivative state is reset and bias is recomputed from the current output so the automatic law starts from the existing command instead of jumping.", 42, y, w, INK) + 18;
         y = drawWrapped(g, "Fail-safe rule: stale safety/mode evidence, or missing required AUTO setpoint/process evidence, drives output to 0 without treating the missing observation as a fabricated numeric zero sample.", 42, y, w, MUTED) + 18;
@@ -410,7 +442,7 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
         g.drawString(font, "OUT", 126, CONTENT_TOP + 320, OUT_COLOR, false);
         String newest = "newest →";
         g.drawString(font, newest, Math.max(170, imageWidth - 58 - font.width(newest)), CONTENT_TOP + 320, MUTED, false);
-        g.drawString(font, menu.trendCount() + "/32 authoritative samples • 2t/sample • transient",
+        g.drawString(font, menu.trendCount() + "/32 authoritative samples • " + PidControllerBlock.CONTROL_CYCLE_TICKS + "t/sample • transient",
                 58, CONTENT_TOP + 340, MUTED, false);
 
         if (menu.plantDetected()) {
@@ -446,6 +478,18 @@ public final class PidEngineeringNotebookScreen extends AbstractContainerScreen<
         String s = text;
         while (s.length() > 1 && font.width(s + "…") > width) s = s.substring(0, s.length() - 1);
         return s + "…";
+    }
+
+    private int fullScaleRiseTicks() {
+        int span = PidControllerBlock.MAX_OUT - PidControllerBlock.MIN_OUT;
+        int cycles = (span + menu.riseLimit() - 1) / menu.riseLimit();
+        return cycles * PidControllerBlock.CONTROL_CYCLE_TICKS;
+    }
+
+    private int fullScaleFallTicks() {
+        int span = PidControllerBlock.MAX_OUT - PidControllerBlock.MIN_OUT;
+        int cycles = (span + menu.fallLimit() - 1) / menu.fallLimit();
+        return cycles * PidControllerBlock.CONTROL_CYCLE_TICKS;
     }
 
     private static String metric(int ticks) { return ticks > 0 ? ticks + " ticks" : "—"; }

@@ -27,13 +27,26 @@ public final class EngineeringDeviceParameters extends SavedData {
     private final Map<String, ExtendedParameters> extendedParameters = new LinkedHashMap<>();
 
     public record PidParameters(int kp, int kiDivisor, int kd, int derivativeSmoothing, int riseLimit, int fallLimit) {
+        public static final int MIN_KP = 0;
+        public static final int MAX_KP = 12;
+        public static final int MIN_KI_DIVISOR = 0;
+        public static final int MAX_KI_DIVISOR = 64;
+        public static final int MIN_KD = 0;
+        public static final int MAX_KD = 12;
+        public static final int MIN_DERIVATIVE_SMOOTHING = 1;
+        public static final int MAX_DERIVATIVE_SMOOTHING = 16;
+        public static final int MIN_RISE_LIMIT = 1;
+        public static final int MAX_RISE_LIMIT = 15;
+        public static final int MIN_FALL_LIMIT = 1;
+        public static final int MAX_FALL_LIMIT = 15;
+
         public PidParameters {
-            kp = clamp(kp, 0, 12);
-            kiDivisor = clamp(kiDivisor, 0, 64);
-            kd = clamp(kd, 0, 12);
-            derivativeSmoothing = clamp(derivativeSmoothing, 1, 16);
-            riseLimit = clamp(riseLimit, 1, 15);
-            fallLimit = clamp(fallLimit, 1, 15);
+            kp = clamp(kp, MIN_KP, MAX_KP);
+            kiDivisor = clamp(kiDivisor, MIN_KI_DIVISOR, MAX_KI_DIVISOR);
+            kd = clamp(kd, MIN_KD, MAX_KD);
+            derivativeSmoothing = clamp(derivativeSmoothing, MIN_DERIVATIVE_SMOOTHING, MAX_DERIVATIVE_SMOOTHING);
+            riseLimit = clamp(riseLimit, MIN_RISE_LIMIT, MAX_RISE_LIMIT);
+            fallLimit = clamp(fallLimit, MIN_FALL_LIMIT, MAX_FALL_LIMIT);
         }
     }
 
