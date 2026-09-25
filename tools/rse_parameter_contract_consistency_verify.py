@@ -351,6 +351,40 @@ require(
 )
 
 require(
+    "src/main/java/dev/redstoneengineering/signal/SignalAmplifierLogic.java",
+    "MIN_SIGNAL = 0",
+    "MAX_SIGNAL = 15",
+    "MIN_GAIN = 1",
+    "MAX_GAIN = 8",
+    "MIN_LEGACY_GAIN_MODE = 0",
+    "MAX_LEGACY_GAIN_MODE = 3",
+    "DEFAULT_LEGACY_GAIN_MODE = 1",
+    "gainForLegacyMode",
+    "boundedGain",
+    "rawOutput",
+    "output",
+    "clipping",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/SignalAmplifierBlock.java",
+    "SignalAmplifierLogic.MIN_LEGACY_GAIN_MODE",
+    "SignalAmplifierLogic.MAX_LEGACY_GAIN_MODE",
+    "SignalAmplifierLogic.DEFAULT_LEGACY_GAIN_MODE",
+    "SignalAmplifierLogic.boundedGain",
+    "SignalAmplifierLogic.rawOutput",
+    "SignalAmplifierLogic.clipping",
+    "SignalAmplifierLogic.output",
+)
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/AdvancedParameterNotebookScreen.java",
+    "SignalAmplifierLogic.MIN_GAIN",
+    "SignalAmplifierLogic.MAX_GAIN",
+    "SignalAmplifierLogic.MIN_SIGNAL",
+    "SignalAmplifierLogic.MAX_SIGNAL",
+    "Shift-click compatibility presets cover ×1..×4",
+)
+
+require(
     "src/main/java/dev/redstoneengineering/signal/LapisNoiseSourceLogic.java",
     "MIN_BASELINE = 0",
     "MAX_BASELINE = 100",
@@ -831,6 +865,7 @@ print(" Signal Conditioner pure transfer/range authority: PASS")
 print(" Optical attenuator/filter exact transfer + rigid-route authority: PASS")
 print(" Redstone-Copper exact slew/legacy preset dynamics authority: PASS")
 print(" PWM exact-period/legacy-preset carrier authority: PASS")
+print(" Signal Amplifier exact gain/headroom + legacy preset authority: PASS")
 print(" Lapis Noise Source stored/effective + legacy preset authority: PASS")
 print(" Honey Vibration Damper configurable through-loss/local-decay authority: PASS")
 print(" Mechanical Exciter frequency/rate stored-effective authority: PASS")

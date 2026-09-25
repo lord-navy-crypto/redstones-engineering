@@ -2,6 +2,7 @@ package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.signal.LapisNoiseSourceLogic;
+import dev.redstoneengineering.signal.SignalAmplifierLogic;
 import dev.redstoneengineering.ui.menu.AdvancedParameterMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -262,7 +263,8 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
             case AdvancedParameterMenu.KIND_PRECISION_FILTER -> v+" level/tick";
             case AdvancedParameterMenu.KIND_PULSE_SHAPER -> slot==0?v+" ticks":v+"/15";
             case AdvancedParameterMenu.KIND_EDGE_DETECTOR -> slot==0?(v==0?"RISING":v==1?"FALLING":"BOTH"):v+" ticks";
-            case AdvancedParameterMenu.KIND_SIGNAL_AMPLIFIER -> "×"+v;
+            case AdvancedParameterMenu.KIND_SIGNAL_AMPLIFIER -> "×"+v+" • exact "
+                    +SignalAmplifierLogic.MIN_GAIN+".."+SignalAmplifierLogic.MAX_GAIN;
             case AdvancedParameterMenu.KIND_ELECTROMAGNET -> slot<2?v+" field/tick":v+" thermal/tick";
             case AdvancedParameterMenu.KIND_INDUCTION_COIL -> Integer.toString(v);
             case AdvancedParameterMenu.KIND_RELIEF_VALVE -> v+"/100";
@@ -316,7 +318,9 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
             case AdvancedParameterMenu.KIND_PRECISION_FILTER -> "y[k+1] approaches x[k] with independent rise and fall slew limits.";
             case AdvancedParameterMenu.KIND_PULSE_SHAPER -> "Accepted threshold crossing starts a monostable pulse of configured width.";
             case AdvancedParameterMenu.KIND_EDGE_DETECTOR -> "Selected level transition emits a bounded pulse instead of forwarding a steady level.";
-            case AdvancedParameterMenu.KIND_SIGNAL_AMPLIFIER -> "raw = input × gain; output = min(15, raw).";
+            case AdvancedParameterMenu.KIND_SIGNAL_AMPLIFIER -> "raw=clamp(input,"
+                    +SignalAmplifierLogic.MIN_SIGNAL+".."+SignalAmplifierLogic.MAX_SIGNAL+")×G; output=min("
+                    +SignalAmplifierLogic.MAX_SIGNAL+",raw).";
             case AdvancedParameterMenu.KIND_ELECTROMAGNET -> "B[k+1] approaches Btarget with independent rise/fall slew; Btarget is thermally derated.";
             case AdvancedParameterMenu.KIND_INDUCTION_COIL -> "|emf| ∝ N × |ΔΦ/Δt|, then clamps to Copper 0..15.";
             case AdvancedParameterMenu.KIND_RELIEF_VALVE -> "Open if P>Pset; while venting, stay open until P≤Pset−ΔPblowdown.";
@@ -332,7 +336,9 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
             case AdvancedParameterMenu.KIND_PULSE_SHAPER -> "Rearm threshold = trigger threshold − hysteresis.";
             case AdvancedParameterMenu.KIND_ELECTROMAGNET -> "H[k+1] = clamp(H + heating(V) − cooling, 0,1000); cooling is an operator design parameter.";
             case AdvancedParameterMenu.KIND_RELIEF_VALVE -> "Setpoint and blowdown are independent safety parameters; blowdown prevents rapid open/close chatter.";
-            case AdvancedParameterMenu.KIND_SIGNAL_AMPLIFIER -> "Clipping is explicit SATURATED output quality; it does not rewrite a valid input into missing evidence.";
+            case AdvancedParameterMenu.KIND_SIGNAL_AMPLIFIER -> "Exact server gain is "
+                    +SignalAmplifierLogic.MIN_GAIN+".."+SignalAmplifierLogic.MAX_GAIN
+                    +". Shift-click compatibility presets cover ×1..×4 and overwrite the exact gain with that preset. Clipping is explicit SATURATED output quality; it does not rewrite a valid input into missing evidence.";
             case AdvancedParameterMenu.KIND_LAPIS_NOISE -> "Baseline, amplitude and cadence are independent experiment variables. Exact server ranges are "
                     +LapisNoiseSourceLogic.MIN_BASELINE+".."+LapisNoiseSourceLogic.MAX_BASELINE+", ±"
                     +LapisNoiseSourceLogic.MIN_NOISE_AMPLITUDE+".."+LapisNoiseSourceLogic.MAX_NOISE_AMPLITUDE
