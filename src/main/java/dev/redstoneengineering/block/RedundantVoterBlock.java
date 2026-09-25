@@ -30,13 +30,26 @@ import java.util.Optional;
 
 /** 2-out-of-3 analog voter: source-aware median/consensus output plus disagreement diagnostics. */
 public class RedundantVoterBlock extends PassiveDirectionalSignalBlock {
-    public static final IntegerProperty TOLERANCE = IntegerProperty.create("tolerance",0,3);
-    private static final int[] TOL = {0,1,2,4};
+    public static final int MIN_TOLERANCE_INDEX = 0;
+    public static final int MAX_TOLERANCE_INDEX = 3;
+    public static final int DEFAULT_TOLERANCE_INDEX = 1;
+    public static final int TOLERANCE_EXACT = 0;
+    public static final int TOLERANCE_TIGHT = 1;
+    public static final int TOLERANCE_NORMAL = 2;
+    public static final int TOLERANCE_RELAXED = 4;
+    public static final int MIN_VALID_INPUTS = 2;
+    public static final int NOMINAL_INPUTS = 3;
+    public static final IntegerProperty TOLERANCE =
+            IntegerProperty.create("tolerance", MIN_TOLERANCE_INDEX, MAX_TOLERANCE_INDEX);
+    private static final int[] TOL = {
+            TOLERANCE_EXACT, TOLERANCE_TIGHT, TOLERANCE_NORMAL, TOLERANCE_RELAXED
+    };
     private static final String KEY="redundant_voter";
     // [spread, degraded, maxSpread, disagreementEvents, previousDegraded/disagreement]
     private static final int RUNTIME_SIZE = 5;
 
-    public RedundantVoterBlock(Properties p){ super(p); registerDefaultState(defaultBlockState().setValue(TOLERANCE,1)); }
+    public RedundantVoterBlock(Properties p){ super(p); registerDefaultState(
+            defaultBlockState().setValue(TOLERANCE,DEFAULT_TOLERANCE_INDEX)); }
     @Override public MapCodec<RedundantVoterBlock> codec(){return RedstoneEngineering.REDUNDANT_VOTER_CODEC.value();}
     @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block,BlockState>b){super.createBlockStateDefinition(b);b.add(TOLERANCE);}
     @Override protected boolean isEngineeringPort(BlockState s, Direction side){return super.isEngineeringPort(s,side)||side==leftOf(outputSide(s))||side==rightOf(outputSide(s));}
@@ -81,7 +94,7 @@ public class RedundantVoterBlock extends PassiveDirectionalSignalBlock {
                     evidenceQuality, observation.quality());
             if (observation.valid()) values[valid++] = observation.value();
         }
-        if (valid < 2) {
+        if (valid < MIN_VALID_INPUTS) {
             PortQuality insufficientQuality = RedstoneObservationSupport.combineQuality(
                     PortQuality.NO_SIGNAL, evidenceQuality);
             return new Vote(0, insufficientQuality, valid, 0);
@@ -89,8 +102,9 @@ public class RedundantVoterBlock extends PassiveDirectionalSignalBlock {
 
         Arrays.sort(values, 0, valid);
         int spread = values[valid - 1] - values[0];
-        int voted = valid == 3 ? values[1] : (values[0] + values[1] + 1) / 2;
-        boolean healthy = valid == 3 && spread <= toleranceValue(state.getValue(TOLERANCE));
+        int voted = valid == NOMINAL_INPUTS ? values[1] : (values[0] + values[1] + 1) / 2;
+        boolean healthy = valid == NOMINAL_INPUTS
+                && spread <= toleranceValue(state.getValue(TOLERANCE));
         PortQuality votingQuality = healthy ? PortQuality.VALID : PortQuality.FAULT;
         return new Vote(
                 voted,
@@ -129,12 +143,26 @@ public class RedundantVoterBlock extends PassiveDirectionalSignalBlock {
         return vote.value();
     }
 
-    public static int toleranceValue(int index) { return TOL[Math.max(0, Math.min(TOL.length - 1, index))]; }
+    public static int boundedToleranceIndex(int index) {
+        return Math.max(MIN_TOLERANCE_INDEX, Math.min(MAX_TOLERANCE_INDEX, index));
+    }
+
+    public static int toleranceValue(int index) {
+        return TOL[boundedToleranceIndex(index)];
+    }
+
+    public static String toleranceChoicesText() {
+        return TOLERANCE_EXACT + " / " + TOLERANCE_TIGHT + " / "
+                + TOLERANCE_NORMAL + " / " + TOLERANCE_RELAXED;
+    }
 
     public static boolean stepTolerance(Level level, BlockPos pos, boolean forward) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof RedundantVoterBlock voter)) return false;
-        int next = Math.floorMod(state.getValue(TOLERANCE) + (forward ? 1 : -1), TOL.length);
+        int current = boundedToleranceIndex(state.getValue(TOLERANCE));
+        int next = MIN_TOLERANCE_INDEX + Math.floorMod(
+                current - MIN_TOLERANCE_INDEX + (forward ? 1 : -1),
+                MAX_TOLERANCE_INDEX - MIN_TOLERANCE_INDEX + 1);
         level.setBlock(pos, state.setValue(TOLERANCE, next), Block.UPDATE_CLIENTS);
         if (level instanceof ServerLevel server) server.scheduleTick(pos, voter, 1);
         return true;

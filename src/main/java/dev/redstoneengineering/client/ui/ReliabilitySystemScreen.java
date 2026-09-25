@@ -1,6 +1,8 @@
 package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.block.FaultLatchBlock;
+import dev.redstoneengineering.block.RedundantVoterBlock;
+import dev.redstoneengineering.block.WatchdogBlock;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.menu.ReliabilitySystemMenu;
 import net.minecraft.client.gui.GuiGraphics;
@@ -117,20 +119,33 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
     private void configure(GuiGraphics g) {
         statusBadge(g,"SERVER-SIDE BOUNDED CONTROL",INFO,16,80);
         labelValue(g,"Parameter",parameterText(),101);
-        if(menu.kind()==ReliabilitySystemMenu.KIND_FAULT_LATCH){
+        boolean detailedSafety = menu.kind()==ReliabilitySystemMenu.KIND_WATCHDOG
+                || menu.kind()==ReliabilitySystemMenu.KIND_VOTER
+                || menu.kind()==ReliabilitySystemMenu.KIND_FAULT_LATCH;
+        if(menu.kind()==ReliabilitySystemMenu.KIND_WATCHDOG){
+            labelValue(g,"Allowed timeouts",WatchdogBlock.timeoutChoicesText(),121);
+            labelValue(g,"Sample cadence",WatchdogBlock.SAMPLE_TICKS+" ticks",141);
+            labelValue(g,"Heartbeat rule","only a VALID observed transition resets age",159);
+        }else if(menu.kind()==ReliabilitySystemMenu.KIND_VOTER){
+            labelValue(g,"Allowed tolerance",RedundantVoterBlock.toleranceChoicesText(),121);
+            labelValue(g,"Vote quorum","numeric vote requires ≥"+RedundantVoterBlock.MIN_VALID_INPUTS+" valid inputs",141);
+            labelValue(g,"Healthy rule",RedundantVoterBlock.NOMINAL_INPUTS+" valid inputs + spread ≤ tolerance",159);
+        }else if(menu.kind()==ReliabilitySystemMenu.KIND_FAULT_LATCH){
             labelValue(g,"Allowed trip levels",FaultLatchBlock.thresholdChoicesText(),121);
             labelValue(g,"Trip rule","FAULT evidence missing/invalid OR value ≥ T → LATCH",141);
             labelValue(g,"Reset rule","rising RESET + VALID fault value < T → CLEAR",159);
         }
-        labelValue(g,"Maintenance",maintenanceActionText(),
-                menu.kind()==ReliabilitySystemMenu.KIND_FAULT_LATCH?187:179);
-        labelValue(g,"Front / primary output",face(menu.facing()),
-                menu.kind()==ReliabilitySystemMenu.KIND_FAULT_LATCH?205:195);
+        labelValue(g,"Maintenance",maintenanceActionText(),detailedSafety?187:179);
+        labelValue(g,"Front / primary output",face(menu.facing()),detailedSafety?205:195);
         wrappedText(g,
                 menu.kind()==ReliabilitySystemMenu.KIND_FAULT_LATCH
                         ? "NO_SIGNAL on FAULT IN is missing evidence, not a measured zero: the latch fails safe and reset remains blocked. RESET evidence recovery only reacquires the electrical level; it never fabricates a reset edge. FRONT alarm output remains authoritative VALID state."
+                        : menu.kind()==ReliabilitySystemMenu.KIND_WATCHDOG
+                        ? "Missing/invalid heartbeat evidence never masquerades as a LOW transition. Age keeps increasing; when a valid source reappears, its first sample establishes a baseline and does not fabricate a heartbeat edge."
+                        : menu.kind()==ReliabilitySystemMenu.KIND_VOTER
+                        ? "With two valid channels the voter can compute a degraded numeric 2oo3 result, but quality remains FAULT. NOMINAL requires all three valid channels and spread within the configured tolerance."
                         : "Routing stays on Route; maintenance actions use the same server methods as Shift-right-click.",
-                16,menu.kind()==ReliabilitySystemMenu.KIND_FAULT_LATCH?229:213,620,MUTED);
+                16,detailedSafety?229:213,620,MUTED);
     }
 
     private void diagnostics(GuiGraphics g) {

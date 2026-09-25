@@ -34,8 +34,22 @@ import java.util.Set;
 
 /** Heartbeat watchdog with configurable timeout. Only an observed input transition resets the timer. */
 public class WatchdogBlock extends PassiveDirectionalSignalBlock implements OperationWorldResourceProvider {
-    public static final IntegerProperty TIMEOUT = IntegerProperty.create("timeout", 0, 3);
-    private static final int[] TIMEOUT_TICKS = {20, 40, 80, 160};
+    public static final int MIN_TIMEOUT_INDEX = 0;
+    public static final int MAX_TIMEOUT_INDEX = 3;
+    public static final int DEFAULT_TIMEOUT_INDEX = 1;
+    public static final int TIMEOUT_SHORT_TICKS = 20;
+    public static final int TIMEOUT_MEDIUM_TICKS = 40;
+    public static final int TIMEOUT_LONG_TICKS = 80;
+    public static final int TIMEOUT_EXTENDED_TICKS = 160;
+    public static final int SAMPLE_TICKS = 2;
+    public static final int MAX_AGE_TICKS = 12000;
+    public static final int MAX_ALARM_OUTPUT = 15;
+    public static final IntegerProperty TIMEOUT =
+            IntegerProperty.create("timeout", MIN_TIMEOUT_INDEX, MAX_TIMEOUT_INDEX);
+    private static final int[] TIMEOUT_TICKS = {
+            TIMEOUT_SHORT_TICKS, TIMEOUT_MEDIUM_TICKS,
+            TIMEOUT_LONG_TICKS, TIMEOUT_EXTENDED_TICKS
+    };
     private static final String KEY = "watchdog";
     private static final int LAST_VALUE = 0;
     private static final int AGE = 1;
@@ -46,7 +60,7 @@ public class WatchdogBlock extends PassiveDirectionalSignalBlock implements Oper
 
     public WatchdogBlock(Properties p) {
         super(p);
-        registerDefaultState(defaultBlockState().setValue(TIMEOUT, 1));
+        registerDefaultState(defaultBlockState().setValue(TIMEOUT, DEFAULT_TIMEOUT_INDEX));
     }
 
     @Override public MapCodec<WatchdogBlock> codec() { return RedstoneEngineering.WATCHDOG_CODEC.value(); }
@@ -105,7 +119,7 @@ public class WatchdogBlock extends PassiveDirectionalSignalBlock implements Oper
     @Override protected int computeOutput(Level l, BlockPos p, BlockState s) {
         int[] rt = RuntimeIntStore.peek(l, KEY, p);
         int age = rt == null || rt.length <= AGE ? 0 : rt[AGE];
-        return age >= timeoutTicks(s.getValue(TIMEOUT)) ? 15 : 0;
+        return age >= timeoutTicks(s.getValue(TIMEOUT)) ? MAX_ALARM_OUTPUT : 0;
     }
 
     private void sample(ServerLevel l, BlockPos p, BlockState s) {
@@ -117,18 +131,18 @@ public class WatchdogBlock extends PassiveDirectionalSignalBlock implements Oper
                 // A source appearing is only a baseline. It is not a fabricated heartbeat edge.
                 rt[LAST_VALUE] = now;
                 rt[SOURCE_SEEN] = 1;
-                rt[AGE] = Math.min(12000, rt[AGE] + 2);
+                rt[AGE] = Math.min(MAX_AGE_TICKS, rt[AGE] + SAMPLE_TICKS);
             } else if (now != rt[LAST_VALUE]) {
                 rt[LAST_VALUE] = now;
                 rt[AGE] = 0;
                 rt[TRANSITIONS]++;
             } else {
-                rt[AGE] = Math.min(12000, rt[AGE] + 2);
+                rt[AGE] = Math.min(MAX_AGE_TICKS, rt[AGE] + SAMPLE_TICKS);
             }
         } else {
             // Unknown/missing coverage cannot masquerade as a LOW transition.
             rt[SOURCE_SEEN] = 0;
-            rt[AGE] = Math.min(12000, rt[AGE] + 2);
+            rt[AGE] = Math.min(MAX_AGE_TICKS, rt[AGE] + SAMPLE_TICKS);
         }
         int before = s.getValue(OUTPUT);
         int out = computeOutput(l, p, s);
@@ -136,12 +150,26 @@ public class WatchdogBlock extends PassiveDirectionalSignalBlock implements Oper
         updateOutput(l, p, s, out);
     }
 
-    public static int timeoutTicks(int index) { return TIMEOUT_TICKS[Math.max(0, Math.min(TIMEOUT_TICKS.length - 1, index))]; }
+    public static int boundedTimeoutIndex(int index) {
+        return Math.max(MIN_TIMEOUT_INDEX, Math.min(MAX_TIMEOUT_INDEX, index));
+    }
+
+    public static int timeoutTicks(int index) {
+        return TIMEOUT_TICKS[boundedTimeoutIndex(index)];
+    }
+
+    public static String timeoutChoicesText() {
+        return TIMEOUT_SHORT_TICKS + " / " + TIMEOUT_MEDIUM_TICKS + " / "
+                + TIMEOUT_LONG_TICKS + " / " + TIMEOUT_EXTENDED_TICKS + " ticks";
+    }
 
     public static boolean stepTimeout(Level level, BlockPos pos, boolean forward) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof WatchdogBlock watchdog)) return false;
-        int next = Math.floorMod(state.getValue(TIMEOUT) + (forward ? 1 : -1), TIMEOUT_TICKS.length);
+        int current = boundedTimeoutIndex(state.getValue(TIMEOUT));
+        int next = MIN_TIMEOUT_INDEX + Math.floorMod(
+                current - MIN_TIMEOUT_INDEX + (forward ? 1 : -1),
+                MAX_TIMEOUT_INDEX - MIN_TIMEOUT_INDEX + 1);
         level.setBlock(pos, state.setValue(TIMEOUT, next), Block.UPDATE_CLIENTS);
         if (level instanceof ServerLevel server) server.scheduleTick(pos, watchdog, 1);
         return true;
@@ -163,12 +191,12 @@ public class WatchdogBlock extends PassiveDirectionalSignalBlock implements Oper
         if (!state.is(this)) return false;
         RuntimeIntStore.remove(level, KEY, pos);
         updateOutput(level, pos, state, 0);
-        if (level instanceof ServerLevel server) server.scheduleTick(pos, this, 2);
+        if (level instanceof ServerLevel server) server.scheduleTick(pos, this, SAMPLE_TICKS);
         return true;
     }
 
-    @Override protected void onPlace(BlockState s, Level l, BlockPos p, BlockState o, boolean m) { super.onPlace(s,l,p,o,m); if(l instanceof ServerLevel sl) sl.scheduleTick(p,this,2); }
-    @Override protected void tick(BlockState s, ServerLevel l, BlockPos p, RandomSource r) { sample(l,p,s); l.scheduleTick(p,this,2); }
+    @Override protected void onPlace(BlockState s, Level l, BlockPos p, BlockState o, boolean m) { super.onPlace(s,l,p,o,m); if(l instanceof ServerLevel sl) sl.scheduleTick(p,this,SAMPLE_TICKS); }
+    @Override protected void tick(BlockState s, ServerLevel l, BlockPos p, RandomSource r) { sample(l,p,s); l.scheduleTick(p,this,SAMPLE_TICKS); }
 
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {

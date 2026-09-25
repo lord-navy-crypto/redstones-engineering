@@ -495,6 +495,51 @@ require(
 )
 
 require(
+    "src/main/java/dev/redstoneengineering/block/WatchdogBlock.java",
+    "MIN_TIMEOUT_INDEX = 0",
+    "MAX_TIMEOUT_INDEX = 3",
+    "DEFAULT_TIMEOUT_INDEX = 1",
+    "TIMEOUT_SHORT_TICKS = 20",
+    "TIMEOUT_MEDIUM_TICKS = 40",
+    "TIMEOUT_LONG_TICKS = 80",
+    "TIMEOUT_EXTENDED_TICKS = 160",
+    "SAMPLE_TICKS = 2",
+    "MAX_AGE_TICKS = 12000",
+    "boundedTimeoutIndex",
+    "timeoutChoicesText",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/RedundantVoterBlock.java",
+    "MIN_TOLERANCE_INDEX = 0",
+    "MAX_TOLERANCE_INDEX = 3",
+    "DEFAULT_TOLERANCE_INDEX = 1",
+    "TOLERANCE_EXACT = 0",
+    "TOLERANCE_TIGHT = 1",
+    "TOLERANCE_NORMAL = 2",
+    "TOLERANCE_RELAXED = 4",
+    "MIN_VALID_INPUTS = 2",
+    "NOMINAL_INPUTS = 3",
+    "boundedToleranceIndex",
+    "toleranceChoicesText",
+)
+require(
+    "src/main/java/dev/redstoneengineering/ui/menu/ReliabilitySystemMenu.java",
+    "WatchdogBlock.stepTimeout",
+    "RedundantVoterBlock.stepTolerance",
+    "FaultLatchBlock.stepThreshold",
+)
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/ReliabilitySystemScreen.java",
+    "WatchdogBlock.timeoutChoicesText()",
+    "WatchdogBlock.SAMPLE_TICKS",
+    "RedundantVoterBlock.toleranceChoicesText()",
+    "RedundantVoterBlock.MIN_VALID_INPUTS",
+    "RedundantVoterBlock.NOMINAL_INPUTS",
+    "only a VALID observed transition resets age",
+    "quality remains FAULT",
+)
+
+require(
     "src/main/java/dev/redstoneengineering/block/FaultLatchBlock.java",
     "MIN_THRESHOLD_INDEX = 0",
     "MAX_THRESHOLD_INDEX = 3",
@@ -939,6 +984,8 @@ print(" Lapis Precision Range exact/legacy range + normalization authority: PASS
 print(" Signal Amplifier exact gain/headroom + legacy preset authority: PASS")
 print(" Lapis Noise Source stored/effective + legacy preset authority: PASS")
 print(" Honey Vibration Damper configurable through-loss/local-decay authority: PASS")
+print(" Watchdog discrete timeout + heartbeat baseline authority: PASS")
+print(" Redundant Voter tolerance + degraded quorum authority: PASS")
 print(" Fault Latch threshold + fail-safe missing-evidence authority: PASS")
 print(" Mechanical Exciter frequency/rate stored-effective authority: PASS")
 print(" Permanent Magnet single scalar-strength parameter authority: PASS")

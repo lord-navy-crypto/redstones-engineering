@@ -172,14 +172,11 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
                 level.scheduleTick(blockPos, servo, 1);
                 changed = true;
             } else return false;
-        } else if (block instanceof WatchdogBlock watchdog) {
-            int index = state.getValue(WatchdogBlock.TIMEOUT);
-            if (id == BUTTON_PARAMETER_NEXT) index = (index + 1) % 4;
-            else if (id == BUTTON_PARAMETER_PREVIOUS) index = Math.floorMod(index - 1, 4);
-            else return false;
-            level.setBlock(blockPos, state.setValue(WatchdogBlock.TIMEOUT, index), Block.UPDATE_CLIENTS);
-            level.scheduleTick(blockPos, watchdog, 1);
-            changed = true;
+        } else if (block instanceof WatchdogBlock) {
+            if (id == BUTTON_PARAMETER_PREVIOUS || id == BUTTON_PARAMETER_NEXT) {
+                changed = WatchdogBlock.stepTimeout(
+                        level, blockPos, id == BUTTON_PARAMETER_NEXT);
+            } else return false;
         } else if (block instanceof ServoActuatorBlock servo) {
             int index = state.getValue(ServoActuatorBlock.SLEW);
             if (id == BUTTON_PARAMETER_NEXT) index = (index + 1) % 3;
@@ -188,14 +185,11 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
             level.setBlock(blockPos, state.setValue(ServoActuatorBlock.SLEW, index), Block.UPDATE_CLIENTS);
             level.scheduleTick(blockPos, servo, 1);
             changed = true;
-        } else if (block instanceof RedundantVoterBlock voter) {
-            int index = state.getValue(RedundantVoterBlock.TOLERANCE);
-            if (id == BUTTON_PARAMETER_NEXT) index = (index + 1) % 4;
-            else if (id == BUTTON_PARAMETER_PREVIOUS) index = Math.floorMod(index - 1, 4);
-            else return false;
-            level.setBlock(blockPos, state.setValue(RedundantVoterBlock.TOLERANCE, index), Block.UPDATE_CLIENTS);
-            level.scheduleTick(blockPos, voter, 1);
-            changed = true;
+        } else if (block instanceof RedundantVoterBlock) {
+            if (id == BUTTON_PARAMETER_PREVIOUS || id == BUTTON_PARAMETER_NEXT) {
+                changed = RedundantVoterBlock.stepTolerance(
+                        level, blockPos, id == BUTTON_PARAMETER_NEXT);
+            } else return false;
         } else if (block instanceof FaultLatchBlock) {
             if (id == BUTTON_PARAMETER_PREVIOUS || id == BUTTON_PARAMETER_NEXT) {
                 changed = FaultLatchBlock.stepThreshold(
