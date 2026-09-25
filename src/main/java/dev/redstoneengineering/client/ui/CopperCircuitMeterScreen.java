@@ -39,22 +39,24 @@ public final class CopperCircuitMeterScreen extends EngineeringScreen<CopperCirc
         labelValue(g, "Measurement face", menu.facing().getName().toUpperCase(), 167);
         labelValue(g, "Electrical state", stateLabel(), 185);
         labelValue(g, "Meter samples / age", menu.sampleCount() + " / " + menu.sampleAgeTicks() + " t", 203);
-        safeText(g, "Copper is modeled as an electrical load network, not as a control-signal medium.", 16, 225, INFO);
+        wrappedText(g, "Copper is modeled as an electrical load network, not as a control-signal medium.", 16, 225, 620, INFO);
     }
 
     private void ports(GuiGraphics g) {
         statusBadge(g, "MEASUREMENT APERTURE", INFO, 16, 80);
         statusLine(g, menu.facing().getName().toUpperCase(), "INPUT • COPPER MEASUREMENT • OBSERVER ONLY", qualityColor(), 112);
         statusLine(g, "OTHER FACES", "NO DECLARED ELECTRICAL DRIVER PORT", MUTED, 142);
-        safeText(g, "The meter samples the selected adjacent copper node without becoming a load or source.", 16, 176, TEXT);
+        wrappedText(g, "The meter samples the selected adjacent copper node without becoming a load or source.", 16, 176, 620, TEXT);
     }
 
     private void configure(GuiGraphics g) {
         statusBadge(g, "OBSERVER-ONLY INSTRUMENT", INFO, 16, 80);
         labelValue(g, "Current face", menu.facing().getName().toUpperCase(), 101);
         labelValue(g, "Electrical setpoint", "NONE", 121);
-        safeText(g, "Physical measurement-face routing is controlled only on Route.", 16, 158, TEXT);
-        safeText(g, "Configure is intentionally read-only: the meter never drives or loads the Copper network.", 16, 180, MUTED);
+        labelValue(g, "Server current law", "I = V / Req = " + String.format("%.3f I-eq", menu.current()), 145);
+        labelValue(g, "Server power law", "P = V·I = " + String.format("%.2f P-eq", menu.power()), 165);
+        int noteY = wrappedText(g, "Physical measurement-face routing is controlled only on Route.", 16, 191, 620, TEXT);
+        wrappedText(g, "Configure is intentionally read-only: the meter never drives or loads the Copper network.", 16, noteY + 4, 620, MUTED);
     }
 
     private void diagnostics(GuiGraphics g) {
@@ -67,13 +69,13 @@ public final class CopperCircuitMeterScreen extends EngineeringScreen<CopperCirc
         labelValue(g, "Reading / uncertainty", meterReadingSummary(), 184);
         labelValue(g, "Samples / age", menu.sampleCount() + " / " + menu.sampleAgeTicks() + " t", 204);
         labelValue(g, "Authority", "SERVER-SYNCHRONIZED OBSERVER", 224);
-        safeText(g, diagnosis(), 16, 248, diagnosisColor());
-        safeText(g, nextAction(), 16, 268, diagnosisColor());
+        int noteY = wrappedText(g, diagnosis(), 16, 248, 620, diagnosisColor());
+        wrappedText(g, nextAction(), 16, noteY + 4, 620, diagnosisColor());
     }
 
     private void history(GuiGraphics g) {
         statusBadge(g, "METROLOGY + COMMISSIONING EVIDENCE", commissioningColor(), 16, 80);
-        safeText(g, "V, Req, I and P come from the server electrical model; the statistics below come from the retained server metrology tracker.", 16, 108, TEXT);
+        wrappedText(g, "V, Req, I and P come from the server electrical model; the statistics below come from the retained server metrology tracker.", 16, 108, 620, TEXT);
         labelValue(g, "Measurement quality", measurementQualityName(), 142);
         labelValue(g, "Conditioned reading", menu.sampleCount() > 0 ? String.format("%.2f V-eq", menu.meterReading()) : "NO DATA", 162);
         labelValue(g, "Repeatability", menu.sampleCount() > 0 ? String.format("±%.2f", menu.repeatability()) : "N/A", 182);
@@ -84,8 +86,8 @@ public final class CopperCircuitMeterScreen extends EngineeringScreen<CopperCirc
         labelValue(g, "Saturation", menu.saturated() ? "YES" : "NO", 282);
         labelValue(g, "Medium identity", "COPPER • POWER / LOAD", 302);
         labelValue(g, "Commissioning", commissioningLabel(), 322);
-        safeText(g, commissioningMeaning(), 16, 344, commissioningColor());
-        safeText(g, "Repeatability, bias, drift, noise and uncertainty are diagnostic metrology proxies; they are not client-side circuit calculations.", 16, 366, MUTED);
+        int noteY = wrappedText(g, commissioningMeaning(), 16, 344, 620, commissioningColor());
+        wrappedText(g, "Repeatability, bias, drift, noise and uncertainty are diagnostic metrology proxies; they are not client-side circuit calculations.", 16, noteY + 4, 620, MUTED);
     }
 
     private String qualityName() { return menu.quality().name().replace('_', ' '); }
