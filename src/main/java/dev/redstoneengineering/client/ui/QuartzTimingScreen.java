@@ -1,6 +1,8 @@
 package dev.redstoneengineering.client.ui;
 
+import dev.redstoneengineering.block.QuartzClockDividerBlock;
 import dev.redstoneengineering.block.QuartzOscillatorBlock;
+import dev.redstoneengineering.block.QuartzPhaseDelayBlock;
 import dev.redstoneengineering.ui.menu.QuartzTimingMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -132,13 +134,33 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
             labelValue(g, "Apply policy", menu.runtimeB() == 1 ? "LATCH AT NEXT REAL TRANSITION" : "ALREADY LATCHED", 276);
             wrappedText(g, "Fine and coarse controls change only the server-owned configured period. The running waveform keeps its already scheduled transition, then latches the new period at that genuine edge.", 16, 300, 620, MUTED);
         } else if (menu.kind() == QuartzTimingMenu.KIND_DIVIDER) {
-            labelValue(g, "Division", "÷" + menu.tertiary(), 101);
-            labelValue(g, "I/O axis", inputFace() + " → " + outputFace(), 172);
-            wrappedText(g, "Physical I/O direction is controlled only on Route. Divider input and output remain opposite because the block is a straight-through timing device.", 16, 199, 760, MUTED);
+            labelValue(g, "Division N", "÷" + menu.tertiary(), 101);
+            labelValue(g, "Allowed N",
+                    QuartzClockDividerBlock.MIN_DIVISION + ".." + QuartzClockDividerBlock.MAX_DIVISION
+                            + " • step " + QuartzClockDividerBlock.PARAMETER_STEP, 172);
+            labelValue(g, "Period model",
+                    "Tout = clamp(Tin × N, 1, " + QuartzClockDividerBlock.MAX_OUTPUT_PERIOD_TICKS + ")",
+                    190);
+            labelValue(g, "Current period check",
+                    menu.primary() + " × " + menu.tertiary() + " → expected " + expectedDividerPeriod()
+                            + " ticks", 208);
+            labelValue(g, "I/O axis", inputFace() + " → " + outputFace(), 226);
+            wrappedText(g,
+                    "Changing N withdraws the old divided-clock claim and resets divider phase. The first trustworthy input level establishes a baseline; only a later genuine rising edge starts phase, so reconfiguration cannot manufacture a clock edge.",
+                    16, 250, 620, MUTED);
         } else if (menu.kind() == QuartzTimingMenu.KIND_DELAY) {
-            labelValue(g, "Configured edge delay", menu.primary() + " ticks", 101);
-            labelValue(g, "Queued / next event", menu.secondary() + " / " + (menu.tertiary() > 0 ? menu.tertiary() + "t" : "NONE"), 172);
-            wrappedText(g, "Newly captured edges use the new delay; edges already in the queue retain their original remaining time. Physical I/O is controlled only on Route, and the input/output faces remain opposite as one rigid series axis.", 16, 199, 760, MUTED);
+            labelValue(g, "Configured edge delay D", menu.primary() + " ticks", 101);
+            labelValue(g, "Allowed D",
+                    QuartzPhaseDelayBlock.MIN_DELAY_TICKS + ".." + QuartzPhaseDelayBlock.MAX_DELAY_TICKS
+                            + " ticks • step " + QuartzPhaseDelayBlock.PARAMETER_STEP_TICKS, 172);
+            labelValue(g, "Queue occupancy",
+                    menu.secondary() + " / " + QuartzPhaseDelayBlock.QUEUE_CAPACITY + " edges", 190);
+            labelValue(g, "Next retained event",
+                    menu.tertiary() > 0 ? menu.tertiary() + " ticks" : "NONE", 208);
+            labelValue(g, "I/O axis", inputFace() + " → " + outputFace(), 226);
+            wrappedText(g,
+                    "Each newly captured rising edge stores its own countdown initialized from D. Changing D affects future captures only; already queued events keep their retained remaining time. Queue overflow increments dropped-edge evidence rather than silently overwriting an event.",
+                    16, 250, 620, MUTED);
         } else {
             labelValue(g, "Measurement", menu.primary() + " ticks", 101);
             labelValue(g, "Input face", inputFace(), 172);
@@ -165,7 +187,7 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
             labelValue(g, "Path", inputFace() + " → " + outputFace(), 194);
         } else if (menu.kind() == QuartzTimingMenu.KIND_DELAY) {
             labelValue(g, "Configured delay", menu.primary() + " ticks", 104);
-            labelValue(g, "Queued edges", Integer.toString(menu.secondary()), 122);
+            labelValue(g, "Queued edges", menu.secondary() + " / " + QuartzPhaseDelayBlock.QUEUE_CAPACITY, 122);
             labelValue(g, "Next event", menu.tertiary() > 0 ? menu.tertiary() + " ticks" : "NONE", 140);
             labelValue(g, "Dropped edges", Integer.toString(menu.runtimeA()), 158);
             labelValue(g, "Initialized", yesNo(menu.runtimeB()), 176);
@@ -195,7 +217,8 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
             sectionRule(g, 272);
             wrappedText(g, "Window statistics come from up to eight complete server-observed periods; a gap makes retained evidence stale and starts the next valid window fresh.", 16, 286, 760, MUTED);
         } else if (menu.kind() == QuartzTimingMenu.KIND_DIVIDER) {
-            labelValue(g, "Model", "Tout = clamp(Tin × N, 1, 4096) ticks", 112);
+            labelValue(g, "Model",
+                    "Tout = clamp(Tin × N, 1, " + QuartzClockDividerBlock.MAX_OUTPUT_PERIOD_TICKS + ") ticks", 112);
             labelValue(g, "Configured N", Integer.toString(menu.tertiary()), 132);
             labelValue(g, "Counted edges", Integer.toString(menu.runtimeA()), 152);
             labelValue(g, "Phase started", yesNo(menu.runtimeC()), 172);
@@ -259,7 +282,7 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
 
     private int expectedDividerPeriod() {
         long period = (long)Math.max(1, menu.primary()) * Math.max(2, menu.tertiary());
-        return (int)Math.min(4096L, period);
+        return (int)Math.min(QuartzClockDividerBlock.MAX_OUTPUT_PERIOD_TICKS, period);
     }
 
     private String frequencyLabel(int periodTicks) {

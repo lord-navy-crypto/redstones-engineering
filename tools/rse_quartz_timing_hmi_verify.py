@@ -9,10 +9,11 @@ menu_path = root / "src/main/java/dev/redstoneengineering/ui/menu/QuartzTimingMe
 screen_path = root / "src/main/java/dev/redstoneengineering/client/ui/QuartzTimingScreen.java"
 shared_path = root / "src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java"
 source_path = root / "src/main/java/dev/redstoneengineering/block/QuartzOscillatorBlock.java"
+divider_source_path = root / "src/main/java/dev/redstoneengineering/block/QuartzClockDividerBlock.java"
 delay_source_path = root / "src/main/java/dev/redstoneengineering/block/QuartzPhaseDelayBlock.java"
 opener_path = root / "src/main/java/dev/redstoneengineering/ui/FieldDeviceUi.java"
 
-for path in (menu_path, screen_path, shared_path, source_path, delay_source_path, opener_path):
+for path in (menu_path, screen_path, shared_path, source_path, divider_source_path, delay_source_path, opener_path):
     if not path.is_file():
         failed.append(f"missing quartz HMI contract file: {path.relative_to(root)}")
 
@@ -21,6 +22,7 @@ if not failed:
     screen = screen_path.read_text(errors="ignore")
     shared = shared_path.read_text(errors="ignore")
     source = source_path.read_text(errors="ignore")
+    divider_source = divider_source_path.read_text(errors="ignore")
     delay_source = delay_source_path.read_text(errors="ignore")
     opener = opener_path.read_text(errors="ignore")
 
@@ -67,13 +69,34 @@ if not failed:
     ):
         if token not in source:
             failed.append(f"QuartzOscillatorBlock missing edge-safe fine adjustment token: {token}")
+    setter_start = source.find("public static boolean setConfiguredPeriodTicks")
+    setter_end = source.find("public static boolean adjustConfiguredPeriodTicks", setter_start)
+    if setter_start < 0 or setter_end <= setter_start:
+        failed.append("QuartzOscillatorBlock missing configured-period setter region")
+    elif "scheduleTick(" in source[setter_start:setter_end]:
+        failed.append("generic Quartz period setter can still manufacture an early oscillator transition")
+
     fine_start = source.find("public static boolean adjustConfiguredPeriodTicks")
     fine_end = source.find("public static int edgeCount", fine_start)
     if fine_start >= 0 and fine_end > fine_start and "scheduleTick(" in source[fine_start:fine_end]:
         failed.append("fine Quartz period adjustment schedules an artificial early transition")
 
     for token in (
+        "MIN_DIVISION = 2",
+        "MAX_DIVISION = 32",
+        "PARAMETER_STEP = 1",
+        "MAX_OUTPUT_PERIOD_TICKS = 4096",
+        "Math.min(MAX_OUTPUT_PERIOD_TICKS",
+    ):
+        if token not in divider_source:
+            failed.append(f"QuartzClockDividerBlock missing bounded division token: {token}")
+
+    for token in (
         "public static boolean setConfiguredDelayTicks",
+        "MIN_DELAY_TICKS = 1",
+        "MAX_DELAY_TICKS = 32",
+        "PARAMETER_STEP_TICKS = 1",
+        "QUEUE_CAPACITY = 8",
         "public static int pendingTicks",
         "public static int queuedEdges",
         "public static int droppedEdges",
@@ -101,7 +124,16 @@ if not failed:
         "Window samples",
         "Jitter = max - min",
         "Max |T - Tnom|",
-        "Tout = clamp(Tin × N, 1, 4096) ticks",
+        "Period model",
+        "Current period check",
+        "QuartzClockDividerBlock.MIN_DIVISION",
+        "QuartzClockDividerBlock.MAX_DIVISION",
+        "QuartzClockDividerBlock.MAX_OUTPUT_PERIOD_TICKS",
+        "Allowed D",
+        "Queue occupancy",
+        "QuartzPhaseDelayBlock.MIN_DELAY_TICKS",
+        "QuartzPhaseDelayBlock.MAX_DELAY_TICKS",
+        "QuartzPhaseDelayBlock.QUEUE_CAPACITY",
         "up to eight complete server-observed periods",
         "Configured edge delay",
         "Queued edges",
@@ -162,7 +194,9 @@ print("RSE quartz timing HMI verification: PASS")
 print(" oscillator fine edits latch through the server timing model: PASS")
 print(" normal Quartz oscillator/divider/phase-delay dispatch reaches dedicated HMI: PASS")
 print(" quartz routing matches declared physical endpoints: PASS")
+print(" divider 2..32 parameter + 4096-tick output cap contract: PASS")
 print(" divider phase/configuration evidence is server-backed: PASS")
+print(" phase-delay 1..32 parameter + 8-event queue contract: PASS")
 print(" phase-delay queue/pending/drop evidence is server-backed: PASS")
 print(" phase-delay edits affect new events without erasing in-flight evidence: PASS")
 print(" stability window statistics are synchronized, not client-fabricated: PASS")

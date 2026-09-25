@@ -221,6 +221,47 @@ require(
     "menu.step90Ticks()",
 )
 
+require(
+    "src/main/java/dev/redstoneengineering/block/QuartzOscillatorBlock.java",
+    "MIN_PERIOD_TICKS = 2",
+    "MAX_PERIOD_TICKS = 200",
+    "DEFAULT_PERIOD_TICKS = 8",
+    "FINE_STEP_TICKS = 1",
+    "COARSE_STEP_TICKS = 5",
+    "setter must never inject an early edge",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/QuartzClockDividerBlock.java",
+    "MIN_DIVISION = 2",
+    "MAX_DIVISION = 32",
+    "PARAMETER_STEP = 1",
+    "MAX_OUTPUT_PERIOD_TICKS = 4096",
+    "Math.min(MAX_OUTPUT_PERIOD_TICKS",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/QuartzPhaseDelayBlock.java",
+    "MIN_DELAY_TICKS = 1",
+    "MAX_DELAY_TICKS = 32",
+    "PARAMETER_STEP_TICKS = 1",
+    "QUEUE_CAPACITY = 8",
+)
+require(
+    "src/main/java/dev/redstoneengineering/ui/menu/QuartzTimingMenu.java",
+    "QuartzClockDividerBlock.PARAMETER_STEP",
+    "QuartzPhaseDelayBlock.PARAMETER_STEP_TICKS",
+)
+quartz_screen = require(
+    "src/main/java/dev/redstoneengineering/client/ui/QuartzTimingScreen.java",
+    "QuartzClockDividerBlock.MIN_DIVISION",
+    "QuartzClockDividerBlock.MAX_DIVISION",
+    "QuartzClockDividerBlock.MAX_OUTPUT_PERIOD_TICKS",
+    "QuartzPhaseDelayBlock.MIN_DELAY_TICKS",
+    "QuartzPhaseDelayBlock.MAX_DELAY_TICKS",
+    "QuartzPhaseDelayBlock.QUEUE_CAPACITY",
+)
+if "dev.redstoneengineering.physics" in quartz_screen:
+    errors.append("Quartz client HMI crossed the persistence/physics authority boundary")
+
 if errors:
     print("RSE parameter-contract consistency verification: FAIL")
     for error in errors:
@@ -234,3 +275,4 @@ print(" Signal Conditioner pure transfer/range authority: PASS")
 print(" Servo persistent bounds + 2-tick control cycle + client boundary: PASS")
 print(" PID persistent bounds + deadband/integral/cycle + client boundary: PASS")
 print(" Lapis LPF synchronized alpha + 2-tick sample/derived response contract: PASS")
+print(" Quartz oscillator/divider/delay bounds + edge-safe timing contract: PASS")

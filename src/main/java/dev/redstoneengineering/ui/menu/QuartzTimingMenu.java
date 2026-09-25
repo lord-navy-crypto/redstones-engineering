@@ -208,11 +208,15 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
                 if (!(level instanceof ServerLevel server)) return false;
                 int current = QuartzClockDividerBlock.configuredDivision(level, blockPos, state);
                 changed = QuartzClockDividerBlock.setConfiguredDivision(
-                        server, blockPos, current + (id == BUTTON_PARAMETER_NEXT ? 1 : -1));
+                        server, blockPos, current + (id == BUTTON_PARAMETER_NEXT
+                                ? QuartzClockDividerBlock.PARAMETER_STEP
+                                : -QuartzClockDividerBlock.PARAMETER_STEP));
             } else if (block instanceof QuartzPhaseDelayBlock && (id == BUTTON_PARAMETER_NEXT || id == BUTTON_PARAMETER_PREVIOUS)) {
                 if (!(level instanceof ServerLevel server)) return false;
                 changed = QuartzPhaseDelayBlock.setConfiguredDelayTicks(
-                        server, blockPos, primary.get() + (id == BUTTON_PARAMETER_NEXT ? 1 : -1));
+                        server, blockPos, primary.get() + (id == BUTTON_PARAMETER_NEXT
+                                ? QuartzPhaseDelayBlock.PARAMETER_STEP_TICKS
+                                : -QuartzPhaseDelayBlock.PARAMETER_STEP_TICKS));
             } else if (block instanceof QuartzStabilityMonitorBlock
                     && (id == BUTTON_INPUT_LEFT || id == BUTTON_INPUT_RIGHT
                     || id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT)) {

@@ -34,6 +34,10 @@ import java.util.Optional;
 /** Quartz timing divider. First observation of a HIGH input establishes phase; it is not a fabricated edge. */
 public class QuartzClockDividerBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
     public static final IntegerProperty DIV_INDEX = IntegerProperty.create("division", 0, 3);
+    public static final int MIN_DIVISION = 2;
+    public static final int MAX_DIVISION = 32;
+    public static final int PARAMETER_STEP = 1;
+    public static final int MAX_OUTPUT_PERIOD_TICKS = 4096;
     private static final String KEY = "quartz_divider";
     private static final int COUNT_SLOT = 0;
     private static final int PREVIOUS_SLOT = 1;
@@ -57,7 +61,7 @@ public class QuartzClockDividerBlock extends DirectionalDomainBlock implements E
     public static int configuredDivision(Level level, BlockPos pos, BlockState state) {
         int fallback = division(state.getValue(DIV_INDEX));
         if (level instanceof ServerLevel serverLevel) {
-            return Math.max(2, Math.min(32, EngineeringDeviceParameters.get(serverLevel)
+            return Math.max(MIN_DIVISION, Math.min(MAX_DIVISION, EngineeringDeviceParameters.get(serverLevel)
                     .extendedParameters(serverLevel, pos,
                             new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
         }
@@ -67,7 +71,7 @@ public class QuartzClockDividerBlock extends DirectionalDomainBlock implements E
     public static boolean setConfiguredDivision(ServerLevel level, BlockPos pos, int divisor) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof QuartzClockDividerBlock divider)) return false;
-        int bounded = Math.max(2, Math.min(32, divisor));
+        int bounded = Math.max(MIN_DIVISION, Math.min(MAX_DIVISION, divisor));
         boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
                 level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
         if (changed) {
@@ -132,7 +136,7 @@ public class QuartzClockDividerBlock extends DirectionalDomainBlock implements E
                 quality = inputQuality;
             }
         }
-        return Optional.of(new EngineeringPortSnapshot(port.get(), sample.periodTicks(), 0.0, 4096.0, quality));
+        return Optional.of(new EngineeringPortSnapshot(port.get(), sample.periodTicks(), 0.0, MAX_OUTPUT_PERIOD_TICKS, quality));
     }
 
     private static PortQuality inputQuality(Level level, BlockPos samplePos, DomainNetwork.QuartzSample sample) {
@@ -209,7 +213,7 @@ public class QuartzClockDividerBlock extends DirectionalDomainBlock implements E
             runtime[PREVIOUS_SLOT] = input.active() ? 1 : 0;
         }
 
-        int outputPeriod = Math.min(4096, Math.max(1, input.periodTicks()) * divisor);
+        int outputPeriod = Math.min(MAX_OUTPUT_PERIOD_TICKS, Math.max(1, input.periodTicks()) * divisor);
         if (runtime[PHASE_STARTED_SLOT] == 0) {
             runtime[OUTPUT_SLOT] = 0;
             DomainNetwork.driveQuartz(level, outputPos(pos, state), pos, false, outputPeriod, false);

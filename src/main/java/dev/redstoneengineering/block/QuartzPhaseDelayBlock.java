@@ -38,6 +38,9 @@ import java.util.Optional;
  */
 public class QuartzPhaseDelayBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
     public static final IntegerProperty DELAY = IntegerProperty.create("delay", 1, 8);
+    public static final int MIN_DELAY_TICKS = 1;
+    public static final int MAX_DELAY_TICKS = 32;
+    public static final int PARAMETER_STEP_TICKS = 1;
     private static final String KEY = "quartz_phase_delay";
     private static final int PREVIOUS_SLOT = 0;
     private static final int OUTPUT_SLOT = 1;
@@ -46,7 +49,7 @@ public class QuartzPhaseDelayBlock extends DirectionalDomainBlock implements Eng
     private static final int DROPPED_EDGE_SLOT = 4;
     private static final int LAST_VALID_PERIOD_SLOT = 5;
     private static final int QUEUE_BASE = 6;
-    private static final int QUEUE_CAPACITY = 8;
+    public static final int QUEUE_CAPACITY = 8;
     private static final int RUNTIME_SIZE = QUEUE_BASE + QUEUE_CAPACITY;
 
     public QuartzPhaseDelayBlock(Properties properties) {
@@ -60,7 +63,7 @@ public class QuartzPhaseDelayBlock extends DirectionalDomainBlock implements Eng
     public static int configuredDelayTicks(Level level, BlockPos pos, BlockState state) {
         int fallback = state.getValue(DELAY);
         if (level instanceof ServerLevel serverLevel) {
-            return Math.max(1, Math.min(32, EngineeringDeviceParameters.get(serverLevel)
+            return Math.max(MIN_DELAY_TICKS, Math.min(MAX_DELAY_TICKS, EngineeringDeviceParameters.get(serverLevel)
                     .extendedParameters(serverLevel, pos,
                             new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
         }
@@ -70,7 +73,7 @@ public class QuartzPhaseDelayBlock extends DirectionalDomainBlock implements Eng
     public static boolean setConfiguredDelayTicks(ServerLevel level, BlockPos pos, int ticks) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof QuartzPhaseDelayBlock)) return false;
-        int bounded = Math.max(1, Math.min(32, ticks));
+        int bounded = Math.max(MIN_DELAY_TICKS, Math.min(MAX_DELAY_TICKS, ticks));
         boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
                 level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
         if (changed) level.scheduleTick(pos, state.getBlock(), 1);
@@ -105,7 +108,7 @@ public class QuartzPhaseDelayBlock extends DirectionalDomainBlock implements Eng
             if (runtime[DROPPED_EDGE_SLOT] < Integer.MAX_VALUE) runtime[DROPPED_EDGE_SLOT]++;
             return;
         }
-        runtime[QUEUE_BASE + count] = Math.max(1, delay);
+        runtime[QUEUE_BASE + count] = Math.max(MIN_DELAY_TICKS, delay);
         runtime[QUEUE_COUNT_SLOT] = count + 1;
     }
 

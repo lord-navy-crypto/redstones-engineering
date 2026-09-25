@@ -107,14 +107,16 @@ public class QuartzOscillatorBlock extends DirectionalDomainSourceBlock implemen
                 && runtime[EFFECTIVE_PERIOD_INDEX] != configuredPeriodTicks(level, pos, state);
     }
 
+    /**
+     * Replaces only the shadow timing configuration. The oscillator already owns its next
+     * scheduled physical transition, so a setter must never inject an early edge.
+     */
     public static boolean setConfiguredPeriodTicks(ServerLevel level, BlockPos pos, int ticks) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof QuartzOscillatorBlock)) return false;
         int bounded = Math.max(MIN_PERIOD_TICKS, Math.min(MAX_PERIOD_TICKS, ticks));
-        boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
+        return EngineeringDeviceParameters.get(level).setExtendedParameters(
                 level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
-        if (changed) level.scheduleTick(pos, state.getBlock(), 1);
-        return changed;
     }
 
     /**
