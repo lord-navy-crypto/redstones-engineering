@@ -39,6 +39,8 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_INPUT_RIGHT = 6;
     public static final int BUTTON_OUTPUT_LEFT = 7;
     public static final int BUTTON_OUTPUT_RIGHT = 8;
+    public static final int BUTTON_PARAMETER_COARSE_PREVIOUS = 9;
+    public static final int BUTTON_PARAMETER_COARSE_NEXT = 10;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot primary = trackedInt();
@@ -176,10 +178,19 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
         boolean changed = false;
 
         if (block instanceof QuartzOscillatorBlock) {
-            if (id == BUTTON_PARAMETER_PREVIOUS || id == BUTTON_PARAMETER_NEXT) {
+            if (id == BUTTON_PARAMETER_PREVIOUS || id == BUTTON_PARAMETER_NEXT
+                    || id == BUTTON_PARAMETER_COARSE_PREVIOUS || id == BUTTON_PARAMETER_COARSE_NEXT) {
                 if (!(level instanceof ServerLevel server)) return false;
-                changed = QuartzOscillatorBlock.adjustConfiguredPeriodTicks(
-                        server, blockPos, id == BUTTON_PARAMETER_NEXT ? 1 : -1);
+                int delta = switch (id) {
+                    case BUTTON_PARAMETER_PREVIOUS -> -QuartzOscillatorBlock.FINE_STEP_TICKS;
+                    case BUTTON_PARAMETER_NEXT -> QuartzOscillatorBlock.FINE_STEP_TICKS;
+                    case BUTTON_PARAMETER_COARSE_PREVIOUS -> -QuartzOscillatorBlock.COARSE_STEP_TICKS;
+                    default -> QuartzOscillatorBlock.COARSE_STEP_TICKS;
+                };
+                changed = QuartzOscillatorBlock.adjustConfiguredPeriodTicks(server, blockPos, delta);
+            } else if (id == BUTTON_RESET_MEASUREMENT) {
+                if (!(level instanceof ServerLevel server)) return false;
+                changed = QuartzOscillatorBlock.resetConfiguredPeriodTicks(server, blockPos);
             } else if (id == BUTTON_OUTPUT_LEFT || id == BUTTON_OUTPUT_RIGHT
                     || id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT) {
                 boolean clockwise = id == BUTTON_OUTPUT_RIGHT || id == BUTTON_ROTATE_RIGHT;
