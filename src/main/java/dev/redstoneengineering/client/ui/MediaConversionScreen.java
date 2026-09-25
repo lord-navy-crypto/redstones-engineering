@@ -66,23 +66,23 @@ public final class MediaConversionScreen extends EngineeringScreen<MediaConversi
         labelValue(g, "RX face", menu.inputFace().getName().toUpperCase(), 149);
         labelValue(g, "TX face", menu.outputFace().getName().toUpperCase(), 167);
         labelValue(g, "Evidence", menu.inputQuality().name() + " → " + menu.outputQuality().name(), 185);
-        safeText(g, identityText(), 16, 207, INFO);
+        wrappedText(g, identityText(), 16, 207, 620, INFO);
     }
 
     private void ports(GuiGraphics g) {
         statusBadge(g, "PHYSICAL CONVERSION PORTS", INFO, 16, 80);
         statusLine(g, "RX • " + menu.inputFace().getName().toUpperCase(), inputPortText(), qualityColor(menu.inputQuality()), 108);
         statusLine(g, "TX • " + menu.outputFace().getName().toUpperCase(), outputPortText(), qualityColor(menu.outputQuality()), 136);
-        safeText(g, "RX and TX are independently routed horizontal endpoints; the backend reads and drives these exact faces.", 16, 170, TEXT);
-        safeText(g, "The HMI never permits RX and TX to occupy the same physical face.", 16, 192, MUTED);
+        int noteY = wrappedText(g, "RX and TX are independently routed horizontal endpoints; the backend reads and drives these exact faces.", 16, 170, 620, TEXT);
+        wrappedText(g, "The HMI never permits RX and TX to occupy the same physical face.", 16, noteY + 4, 620, MUTED);
     }
 
     private void configure(GuiGraphics g) {
         statusBadge(g, "INDEPENDENT RX / TX ROUTING", INFO, 16, 80);
         labelValue(g, "Conversion", menu.redstoneToLapis() ? "0..15 → 0..100" : "0..100 → 0..15", 100);
         labelValue(g, "RX / TX", menu.inputFace().getName().toUpperCase() + " / " + menu.outputFace().getName().toUpperCase(), 184);
-        safeText(g, "Route changes are server-authoritative; output relocation clears/notifies the old physical endpoint.", 16, 206, TEXT);
-        safeText(g, "The conversion law itself remains fixed and deterministic.", 16, 226, MUTED);
+        int noteY = wrappedText(g, "Route changes are server-authoritative; output relocation clears/notifies the old physical endpoint.", 16, 206, 620, TEXT);
+        wrappedText(g, "The conversion law itself remains fixed and deterministic.", 16, noteY + 4, 620, MUTED);
     }
 
     private void diagnostics(GuiGraphics g) {
@@ -93,7 +93,7 @@ public final class MediaConversionScreen extends EngineeringScreen<MediaConversi
         labelValue(g, "Input / output", inputText() + " → " + outputText(), 170);
         if (menu.redstoneToLapis()) {
             labelValue(g, "Source code spacing", formatNormalized(menu.sourceSpacing()), 190);
-            safeText(g, "DIAGNOSIS • UPSCALED REPRESENTATION — NO NEW SOURCE PRECISION", 16, 212, diagnosisColor());
+            wrappedText(g, "DIAGNOSIS • UPSCALED REPRESENTATION — NO NEW SOURCE PRECISION", 16, 212, 620, diagnosisColor());
         } else {
             labelValue(g, "Reconstructed input", formatNormalized(menu.reconstructedLapis()), 190);
             labelValue(g, "Quantization loss", formatNormalized(menu.quantizationLoss()), 210);
@@ -102,12 +102,12 @@ public final class MediaConversionScreen extends EngineeringScreen<MediaConversi
 
     private void history(GuiGraphics g) {
         statusBadge(g, "COMMISSIONING EVIDENCE", commissioningColor(), 16, 80);
-        safeText(g, "SERVER-SYNCHRONIZED OBSERVER • values come from the converter's existing EngineeringPort snapshots.", 16, 108, TEXT);
-        safeText(g, "The client does not resample Redstone/Lapis networks and does not run a second conversion model.", 16, 130, TEXT);
+        int noteY = wrappedText(g, "SERVER-SYNCHRONIZED OBSERVER • values come from the converter's existing EngineeringPort snapshots.", 16, 108, 620, TEXT);
+        wrappedText(g, "The client does not resample Redstone/Lapis networks and does not run a second conversion model.", 16, noteY + 4, 620, TEXT);
         labelValue(g, "Medium boundary", menu.redstoneToLapis() ? "REDSTONE → LAPIS" : "LAPIS → REDSTONE", 162);
         labelValue(g, "Physical route", menu.inputFace().getName().toUpperCase() + " → " + menu.outputFace().getName().toUpperCase(), 182);
         labelValue(g, "Commissioning", commissioningLabel(), 202);
-        safeText(g, commissioningMeaning(), 16, 224, commissioningColor());
+        wrappedText(g, commissioningMeaning(), 16, 224, 620, commissioningColor());
     }
 
     private String modeTitle() {
