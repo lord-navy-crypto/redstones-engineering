@@ -311,6 +311,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             return pneumatic.kind() == PneumaticSystemMenu.KIND_REGULATOR
                     || pneumatic.kind() == PneumaticSystemMenu.KIND_PROPORTIONAL;
         }
+        if (menu instanceof SignalProcessorMenu || menu instanceof SignalConditionerMenu) return true;
         return menu instanceof MagneticSystemMenu magnetic && magnetic.kind() == MagneticSystemMenu.KIND_COIL;
     }
 
