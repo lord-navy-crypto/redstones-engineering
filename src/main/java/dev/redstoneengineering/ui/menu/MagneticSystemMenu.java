@@ -177,12 +177,13 @@ public final class MagneticSystemMenu extends EngineeringDeviceMenu {
                 if (!(level instanceof ServerLevel server)) return false;
                 changed = InductionCoilBlock.setConfiguredTurns(
                         server, blockPos, engineeringA.get() + (id == BUTTON_PRIMARY_NEXT ? 1 : -1));
-            } else if (id == BUTTON_INPUT_LEFT || id == BUTTON_INPUT_RIGHT) {
-                changed = DirectionalDomainBlock.rotateSeriesInput(level, blockPos, id == BUTTON_INPUT_RIGHT);
-            } else if (id == BUTTON_OUTPUT_LEFT || id == BUTTON_OUTPUT_RIGHT) {
-                changed = DirectionalDomainBlock.rotateSeriesOutput(level, blockPos, id == BUTTON_OUTPUT_RIGHT);
-            } else if (id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT) {
-                changed = DirectionalDomainBlock.rotateWholeRoute(level, blockPos, id == BUTTON_ROTATE_RIGHT);
+            } else if (id == BUTTON_INPUT_LEFT || id == BUTTON_INPUT_RIGHT
+                    || id == BUTTON_OUTPUT_LEFT || id == BUTTON_OUTPUT_RIGHT
+                    || id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT) {
+                // A physical induction coil is a straight-through converter: magnetic INPUT and
+                // copper OUTPUT remain exactly opposite. Legacy endpoint IDs rotate one rigid axis.
+                boolean clockwise = id == BUTTON_INPUT_RIGHT || id == BUTTON_OUTPUT_RIGHT || id == BUTTON_ROTATE_RIGHT;
+                changed = DirectionalDomainBlock.rotateRigidSeriesAxis(level, blockPos, clockwise);
             } else return false;
             if (changed) level.scheduleTick(blockPos, block, 1);
         } else return false;
