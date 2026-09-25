@@ -101,7 +101,7 @@ public final class MagneticSystemScreen extends EngineeringScreen<MagneticSystem
                 labelValue(g,"Role","DIFFERENTIAL OBSERVER",181);
             }
         }
-        safeText(g, "A measured zero is VALID whenever magnetic coverage/evidence is valid.", 16, 199, menu.complete()?GOOD:MUTED);
+        wrappedText(g, "A measured zero is VALID whenever magnetic coverage/evidence is valid.", 16, 199, 620, menu.complete()?GOOD:MUTED);
     }
 
     private void ports(GuiGraphics g) {
@@ -118,21 +118,27 @@ public final class MagneticSystemScreen extends EngineeringScreen<MagneticSystem
     private void configure(GuiGraphics g) {
         statusBadge(g,"SERVER-SIDE BOUNDED CONTROL",INFO,16,80);
         if(menu.kind()==MagneticSystemMenu.KIND_ELECTROMAGNET){
-            labelValue(g,"Field rise rate",menu.engineeringA()+" field/tick",101);
-            labelValue(g,"Field fall rate",menu.engineeringB()+" field/tick",127);
-            labelValue(g,"Cooling rate",menu.engineeringC()+" thermal/tick",153);
-            labelValue(g,"Target / actual",menu.auxiliary()+" / "+menu.primary(),179);
-            safeText(g,"These are exact server-owned response parameters; Copper input and thermal state remain world evidence.",16,205,MUTED);
+            labelValue(g,"Field rise rate Rrise",menu.engineeringA()+" field/tick",205);
+            labelValue(g,"Field fall rate Rfall",menu.engineeringB()+" field/tick",225);
+            labelValue(g,"Cooling rate C",menu.engineeringC()+" thermal/tick",245);
+            labelValue(g,"Parameter bounds","Rrise,Rfall=1..15 • C=1..40",265);
+            labelValue(g,"Target / actual B",menu.auxiliary()+" / "+menu.primary(),285);
+            labelValue(g,"Field response","B[k+1]=toward(Btarget, +Rrise / -Rfall)",305);
+            labelValue(g,"Heat proxy","H=max(1,(V²+7)/8) • Cenerg=max(1,C/5)",325);
+            labelValue(g,"Thermal update","θ[k+1]=clamp(θ+H-Cenerg,0..1000)",345);
+            labelValue(g,"De-energized cooling","V=0 → θ[k+1]=max(0,θ-C)",365);
+            labelValue(g,"Derating","θ<700: Btarget=V • 700..849: min(V,10) • ≥850: min(V,6)",385);
+            wrappedText(g,"These equations are the actual server model. Copper voltage and evidence come from the world network; the HMI only changes the bounded response rates and cooling parameter.",16,409,620,MUTED);
         }
         else if(menu.kind()==MagneticSystemMenu.KIND_PERMANENT){
             labelValue(g,"Strength",menu.primary()+" / 15",101);
             labelValue(g,"N marker",face(menu.facing()),171);
-            safeText(g,"North-marker orientation is controlled only on Route.",16,199,MUTED);
+            wrappedText(g,"North-marker orientation is controlled only on Route.",16,199,620,MUTED);
         }
         else if(menu.kind()==MagneticSystemMenu.KIND_COIL){
             labelValue(g,"Turns",Integer.toString(menu.tertiary()),101);
             labelValue(g,"I/O axis",face(menu.facing().getOpposite())+" → "+face(menu.facing()),171);
-            safeText(g,"Changing turns invalidates the old derivative baseline; physical coil direction is controlled only on Route.",16,199,MUTED);
+            wrappedText(g,"Changing turns invalidates the old derivative baseline. The induction coil uses one rigid opposite INPUT/OUTPUT axis; Route rotates the whole converter rather than bending endpoints independently.",16,199,620,MUTED);
         }
         else {labelValue(g,"Configuration","READ ONLY / PHYSICS-DRIVEN",101);labelValue(g,"Network authority",observerOrActuator(),171);}
     }
@@ -150,9 +156,9 @@ public final class MagneticSystemScreen extends EngineeringScreen<MagneticSystem
 
     private void history(GuiGraphics g) {
         statusBadge(g,"MAGNETIC EVIDENCE",INFO,16,80);
-        safeText(g,"This HMI exposes current/retained server observations; it does not fabricate field history.",16,108,TEXT);
+        wrappedText(g,"This HMI exposes current/retained server observations; it does not fabricate field history.",16,108,620,TEXT);
         if(menu.kind()==MagneticSystemMenu.KIND_COIL){labelValue(g,"Current induced EMF",menu.secondary()+" / 15",136);labelValue(g,"Turns",Integer.toString(menu.tertiary()),156);labelValue(g,"Derivative baseline",menu.complete()?"VALID":"STALE / RE-ARM",176);}
-        else if(menu.kind()==MagneticSystemMenu.KIND_ELECTROMAGNET){labelValue(g,"Run ticks",Integer.toString(menu.runtimeB()),136);labelValue(g,"Thermal load",menu.extra()+" / 1000",156);labelValue(g,"Tracking error",Integer.toString(menu.runtimeA()),176);safeText(g,"Thermal and run evidence are server-retained runtime state; the HMI does not integrate a second coil model.",16,198,MUTED);}
+        else if(menu.kind()==MagneticSystemMenu.KIND_ELECTROMAGNET){labelValue(g,"Run ticks",Integer.toString(menu.runtimeB()),136);labelValue(g,"Thermal load",menu.extra()+" / 1000",156);labelValue(g,"Tracking error",Integer.toString(menu.runtimeA()),176);wrappedText(g,"Thermal and run evidence are server-retained runtime state; the HMI does not integrate a second coil model.",16,198,620,MUTED);}
         else if(menu.kind()==MagneticSystemMenu.KIND_FIELD_SENSOR){labelValue(g,"Coverage",menu.secondary()+" / "+menu.tertiary(),136);}
     }
 
