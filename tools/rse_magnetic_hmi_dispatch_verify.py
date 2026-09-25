@@ -34,6 +34,7 @@ if not failed:
         "engineeringA",
         "engineeringB",
         "engineeringC",
+        "DirectionalDomainBlock.rotateRigidSeriesAxis",
     ):
         if token not in menu:
             failed.append(f"MagneticSystemMenu missing exact-parameter/evidence token: {token}")
@@ -46,7 +47,11 @@ if not failed:
         "Thermal load",
         "Run ticks",
         "Changing turns invalidates the old derivative baseline",
-        "physical coil direction is controlled only on Route.",
+        "rigid opposite INPUT/OUTPUT axis",
+        "Field response",
+        "Heat proxy",
+        "Thermal update",
+        "Derating",
     ):
         if token not in screen:
             failed.append(f"MagneticSystemScreen missing engineering token: {token}")
@@ -81,5 +86,5 @@ print(" electromagnet exact rise/fall/cooling controls: PASS")
 print(" electromagnet target/thermal/tracking/run evidence: PASS")
 print(" induction coil exact 1..16 turns control: PASS")
 print(" derivative-baseline invalidation remains server-owned: PASS")
-print(" physical topology remains on shared Route page: PASS")
+print(" induction coil rigid opposite-port topology remains on shared Route page: PASS")
 print(" normal right-click reaches dedicated Magnetic HMI: PASS")
