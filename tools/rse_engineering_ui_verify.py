@@ -126,7 +126,12 @@ require("src/main/java/dev/redstoneengineering/ui/menu/SignalProcessorMenu.java"
 require("src/main/java/dev/redstoneengineering/ui/menu/SignalConditionerMenu.java",
         "BUTTON_INPUT_LEFT", "BUTTON_OUTPUT_RIGHT", "DirectionalSignalBlock.rotateSeriesInput", "DirectionalSignalBlock.rotateSeriesOutput")
 require("src/main/java/dev/redstoneengineering/ui/menu/QuartzTimingMenu.java",
-        "BUTTON_INPUT_LEFT", "BUTTON_OUTPUT_RIGHT", "DirectionalDomainBlock.rotateSeriesInput", "DirectionalDomainBlock.rotateSeriesOutput")
+        "BUTTON_INPUT_LEFT", "BUTTON_OUTPUT_RIGHT", "DirectionalDomainBlock.rotateSeriesInput", "DirectionalDomainBlock.rotateRigidSeriesAxis")
+quartz_menu = read("src/main/java/dev/redstoneengineering/ui/menu/QuartzTimingMenu.java")
+if "block instanceof QuartzClockDividerBlock || block instanceof QuartzPhaseDelayBlock" not in quartz_menu:
+    errors.append("Quartz timing route no longer classifies divider + phase delay as rigid two-port series devices")
+if "DirectionalDomainBlock.rotateSeriesOutput(level, blockPos" in quartz_menu:
+    errors.append("Quartz timing route regressed to independently bendable series output control")
 require("src/main/java/dev/redstoneengineering/ui/menu/AmethystSystemMenu.java",
         "BUTTON_INPUT_LEFT", "BUTTON_OUTPUT_RIGHT", "DirectionalDomainBlock.rotateRigidSeriesAxis")
 amethyst_menu = read("src/main/java/dev/redstoneengineering/ui/menu/AmethystSystemMenu.java")
