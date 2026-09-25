@@ -36,6 +36,11 @@ import java.util.Optional;
 public class QuartzOscillatorBlock extends DirectionalDomainSourceBlock implements EngineeringPortProvider {
     public static final BooleanProperty ACTIVE=BooleanProperty.create("active");
     public static final IntegerProperty PERIOD_INDEX=IntegerProperty.create("period",0,4);
+    public static final int MIN_PERIOD_TICKS = 2;
+    public static final int MAX_PERIOD_TICKS = 200;
+    public static final int DEFAULT_PERIOD_TICKS = 8;
+    public static final int FINE_STEP_TICKS = 1;
+    public static final int COARSE_STEP_TICKS = 5;
     private static final String KEY = "quartz_oscillator";
     private static final int EFFECTIVE_PERIOD_INDEX = 0;
     private static final int INITIALIZED = 1;
@@ -105,7 +110,7 @@ public class QuartzOscillatorBlock extends DirectionalDomainSourceBlock implemen
     public static boolean setConfiguredPeriodTicks(ServerLevel level, BlockPos pos, int ticks) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof QuartzOscillatorBlock)) return false;
-        int bounded = Math.max(2, Math.min(200, ticks));
+        int bounded = Math.max(MIN_PERIOD_TICKS, Math.min(MAX_PERIOD_TICKS, ticks));
         boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
                 level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
         if (changed) level.scheduleTick(pos, state.getBlock(), 1);
@@ -121,10 +126,17 @@ public class QuartzOscillatorBlock extends DirectionalDomainSourceBlock implemen
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof QuartzOscillatorBlock)) return false;
         int current = configuredPeriodTicks(level, pos, state);
-        int next = Math.max(2, Math.min(200, current + deltaTicks));
+        int next = Math.max(MIN_PERIOD_TICKS, Math.min(MAX_PERIOD_TICKS, current + deltaTicks));
         if (next == current) return false;
         return EngineeringDeviceParameters.get(level).setExtendedParameters(
                 level, pos, new EngineeringDeviceParameters.ExtendedParameters(next, 0, 0, 0));
+    }
+
+    public static boolean resetConfiguredPeriodTicks(ServerLevel level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof QuartzOscillatorBlock)) return false;
+        int current = configuredPeriodTicks(level, pos, state);
+        return adjustConfiguredPeriodTicks(level, pos, DEFAULT_PERIOD_TICKS - current);
     }
 
     public static int edgeCount(Level level, BlockPos pos) {
