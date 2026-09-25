@@ -42,7 +42,7 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
         statusBadge(g,hasAcceptance()?menu.commissioningStatus().name().replace('_',' '):qName(),hasAcceptance()?acceptanceColor():qColor(),205,80);
         metricCard(g,"Input",menu.primary()+" / 15",16,103,88,INFO);metricCard(g,"Channel",Integer.toString(menu.secondary()),111,103,88,GOOD);metricCard(g,"Aux",Integer.toString(menu.tertiary()),206,103,88,INFO);
         labelValue(g,"Topology",topology(),149);labelValue(g,"Role",role(),169);
-        safeText(g,menu.kind()==OpticalSystemMenu.KIND_RECEIVER?receiverBudgetSummary():menu.kind()==OpticalSystemMenu.KIND_METER?acceptanceSummary():diagnosis(),16,195,hasAcceptance()?acceptanceColor():dColor());
+        wrappedText(g,menu.kind()==OpticalSystemMenu.KIND_RECEIVER?receiverBudgetSummary():menu.kind()==OpticalSystemMenu.KIND_METER?acceptanceSummary():diagnosis(),16,195,620,hasAcceptance()?acceptanceColor():dColor());
     }
 
     private void ports(GuiGraphics g){
@@ -57,9 +57,9 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
     private void configure(GuiGraphics g){
         statusBadge(g,menu.kind()==OpticalSystemMenu.KIND_METER||menu.kind()==OpticalSystemMenu.KIND_RECEIVER?"READ-ONLY DEVICE":"SERVER-SIDE BOUNDED CONTROL",INFO,16,80);
         labelValue(g,"Primary",primaryControl(),104);labelValue(g,"Secondary",secondaryControl(),180);
-        if(menu.directional())safeText(g,"Direction and physical interface orientation are controlled only on Route.",16,207,MUTED);
-        else if(menu.kind()==OpticalSystemMenu.KIND_METER)safeText(g,"Measurement face is controlled only on Route.",16,207,MUTED);
-        else if(menu.kind()==OpticalSystemMenu.KIND_RECEIVER)safeText(g,"Receiver budget is observer-only; no path or carrier value is changed by this page.",16,207,MUTED);
+        if(menu.directional())wrappedText(g,"Direction and physical interface orientation are controlled only on Route.",16,207,620,MUTED);
+        else if(menu.kind()==OpticalSystemMenu.KIND_METER)wrappedText(g,"Measurement face is controlled only on Route.",16,207,620,MUTED);
+        else if(menu.kind()==OpticalSystemMenu.KIND_RECEIVER)wrappedText(g,"Receiver budget is observer-only; no path or carrier value is changed by this page.",16,207,620,MUTED);
     }
 
     private void diagnostics(GuiGraphics g){
@@ -70,16 +70,16 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
             labelValue(g,"Receiver headroom",menu.budgetReceiverHeadroom()+" above I=1 threshold",148);
             labelValue(g,"Passive nodes / hops",menu.budgetPassiveNodes()+" / "+menu.budgetPassiveHops(),170);
             labelValue(g,"Source / channel",menu.budgetSourceCount()+" source • CH "+menu.budgetSourceChannel()+" → CH "+menu.secondary(),192);
-            safeText(g,receiverNext(),16,216,acceptanceColor());
+            wrappedText(g,receiverNext(),16,216,620,acceptanceColor());
         }else if(menu.kind()==OpticalSystemMenu.KIND_METER){
             labelValue(g,"Point",menu.primary()+"/15 • CH "+menu.secondary(),106);
             labelValue(g,"Connected / same CH",menu.meterConnectedNeighbors()+" / "+menu.meterSameChannelNeighbors(),128);
             labelValue(g,"Channel mismatches",Integer.toString(menu.meterChannelMismatches()),150);
             labelValue(g,"Neighbor strong / weak",menu.meterStrongestNeighbor()+" / "+menu.meterWeakestNeighbor(),172);
-            statusLine(g,"Local diagnosis",diagnosis(),dColor(),194);safeText(g,acceptanceSummary(),16,214,acceptanceColor());
+            statusLine(g,"Local diagnosis",diagnosis(),dColor(),194);wrappedText(g,acceptanceSummary(),16,214,620,acceptanceColor());
         }else{
             labelValue(g,"Transfer",budget(),108);labelValue(g,"Quality",qName(),132);
-            statusLine(g,"Commissioning",diagnosis(),dColor(),194);safeText(g,next(),16,214,dColor());
+            statusLine(g,"Commissioning",diagnosis(),dColor(),194);wrappedText(g,next(),16,214,620,dColor());
         }
     }
 
@@ -91,9 +91,9 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
             labelValue(g,"Loss / headroom",menu.budgetObservedLoss()+" / "+menu.budgetReceiverHeadroom(),152);
             labelValue(g,"Source count / channel",menu.budgetSourceCount()+" / "+menu.budgetSourceChannel(),174);
             labelValue(g,"Audit bounded",menu.budgetBounded()?"YES":"NO",196);
-            safeText(g,"Intensity-unit segment budget only; no continuous dB or unretained optical history is invented.",16,218,MUTED);
-        }else if(menu.kind()==OpticalSystemMenu.KIND_METER){labelValue(g,"Acceptance",menu.commissioningStatus().name(),110);labelValue(g,"One-hop connected",Integer.toString(menu.meterConnectedNeighbors()),132);labelValue(g,"Same / mismatch",menu.meterSameChannelNeighbors()+" / "+menu.meterChannelMismatches(),154);labelValue(g,"Strong / weak / spread",menu.meterStrongestNeighbor()+" / "+menu.meterWeakestNeighbor()+" / "+spread(),176);safeText(g,"Server-evaluated one-hop acceptance only; no hidden path or continuous dB history is invented.",16,202,MUTED);}
-        else{labelValue(g,"Budget evidence",budget(),112);safeText(g,"Current server optical evidence only; no client-side carrier history is fabricated.",16,154,MUTED);}
+            wrappedText(g,"Intensity-unit segment budget only; no continuous dB or unretained optical history is invented.",16,218,620,MUTED);
+        }else if(menu.kind()==OpticalSystemMenu.KIND_METER){labelValue(g,"Acceptance",menu.commissioningStatus().name(),110);labelValue(g,"One-hop connected",Integer.toString(menu.meterConnectedNeighbors()),132);labelValue(g,"Same / mismatch",menu.meterSameChannelNeighbors()+" / "+menu.meterChannelMismatches(),154);labelValue(g,"Strong / weak / spread",menu.meterStrongestNeighbor()+" / "+menu.meterWeakestNeighbor()+" / "+spread(),176);wrappedText(g,"Server-evaluated one-hop acceptance only; no hidden path or continuous dB history is invented.",16,202,620,MUTED);}
+        else{labelValue(g,"Budget evidence",budget(),112);wrappedText(g,"Current server optical evidence only; no client-side carrier history is fabricated.",16,154,620,MUTED);}
     }
 
     private String receiverBudgetSummary(){return switch(menu.commissioningStatus()){case NOT_READY->"NOT READY • guided segment needs bounded, live source-to-receiver evidence.";case PASS->"PASS • guided segment has coherent channel and useful receiver headroom.";case MARGINAL->"MARGINAL • carrier arrives with only 0–1 intensity unit of headroom above dark.";case FAIL->"FAIL • multiple sources, topology fault, or channel incoherence invalidates the segment.";};}
