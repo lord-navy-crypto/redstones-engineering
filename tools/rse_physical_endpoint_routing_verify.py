@@ -36,6 +36,9 @@ for path in (signal, domain):
     require(path, "rotateWholeRoute(level, pos, clockwise)", "rigid legal-layout rotation fallback")
     require(path, "INPUT_FACING", "independent configured RX property")
 require(signal, "rotateRigidSeriesAxis", "rigid opposite-port signal rotation")
+require(signal, "Direction newInput = newOutput.getOpposite();", "exact opposite RX/TX invariant")
+require(signal, ".setValue(FACING, newOutput)", "rigid TX state mutation")
+require(signal, ".setValue(INPUT_FACING, newInput)", "rigid RX state mutation")
 
 require(pid_menu, "BUTTON_INPUT_PREVIOUS", "PID RX controls")
 require(pid_menu, "BUTTON_OUTPUT_NEXT", "PID TX controls")
