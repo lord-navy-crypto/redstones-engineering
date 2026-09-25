@@ -22,7 +22,7 @@ dedicated = {
     "SignalConditionerBlock": "new SignalConditionerMenu",
     "RangeSensorBlock": "new RangeSensorMenu",
     "PrecisionFilterBlock || block instanceof EdgeDetectorBlock || block instanceof PulseShaperBlock": "new SignalProcessorMenu",
-    "QuartzOscillatorBlock || block instanceof QuartzClockDividerBlock": "new QuartzTimingMenu",
+    "QuartzOscillatorBlock || block instanceof QuartzLabOscillatorBlock": "new QuartzTimingMenu",
     "RadioTransmitterBlock || block instanceof RadioReceiverBlock": "new RadioLinkMenu",
     "RedstoneByteEncoderBlock || block instanceof ByteToRedstoneDecoderBlock || block instanceof SerializerBlock": "new DigitalCommunicationMenu",
     "AirCompressorBlock || block instanceof PneumaticPipeBlock || block instanceof AirReservoirBlock": "new PneumaticSystemMenu",
