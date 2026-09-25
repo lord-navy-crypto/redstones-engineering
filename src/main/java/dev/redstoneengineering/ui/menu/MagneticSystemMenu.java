@@ -163,10 +163,8 @@ public final class MagneticSystemMenu extends EngineeringDeviceMenu {
             } else return false;
         } else if (block instanceof PermanentMagnetBlock) {
             if (id == BUTTON_PRIMARY_PREVIOUS || id == BUTTON_PRIMARY_NEXT) {
-                int strength = state.getValue(PermanentMagnetBlock.STRENGTH);
-                strength = id == BUTTON_PRIMARY_NEXT ? (strength >= 15 ? 1 : strength + 1) : (strength <= 1 ? 15 : strength - 1);
-                level.setBlock(blockPos, state.setValue(PermanentMagnetBlock.STRENGTH, strength), Block.UPDATE_CLIENTS);
-                changed = true;
+                changed = PermanentMagnetBlock.stepStrength(
+                        level, blockPos, id == BUTTON_PRIMARY_NEXT);
             } else if (id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT) {
                 Direction current = state.getValue(PermanentMagnetBlock.FACING);
                 Direction next = id == BUTTON_ROTATE_RIGHT ? current.getClockWise() : current.getCounterClockWise();

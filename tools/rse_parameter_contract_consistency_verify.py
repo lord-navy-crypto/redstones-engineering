@@ -222,6 +222,28 @@ require(
 )
 
 require(
+    "src/main/java/dev/redstoneengineering/block/PermanentMagnetBlock.java",
+    "MIN_STRENGTH = 1",
+    "MAX_STRENGTH = 15",
+    "DEFAULT_STRENGTH = 8",
+    "STRENGTH_STEP = 1",
+    "boundedStrength",
+    "stepStrength",
+)
+require(
+    "src/main/java/dev/redstoneengineering/ui/menu/MagneticSystemMenu.java",
+    "PermanentMagnetBlock.stepStrength",
+)
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/MagneticSystemScreen.java",
+    "PermanentMagnetBlock.MIN_STRENGTH",
+    "PermanentMagnetBlock.MAX_STRENGTH",
+    "PermanentMagnetBlock.DEFAULT_STRENGTH",
+    "PermanentMagnetBlock.STRENGTH_STEP",
+    "STATIC SCALAR FREE-SPACE SOURCE",
+)
+
+require(
     "src/main/java/dev/redstoneengineering/block/InductionCoilBlock.java",
     "MIN_LEGACY_TURNS = 1",
     "MAX_LEGACY_TURNS = 4",
@@ -565,6 +587,7 @@ print("RSE parameter-contract consistency verification: PASS")
 print(" Precision Filter effective 1..4 slew authority: PASS")
 print(" Pulse Shaper threshold/hysteresis/width authority: PASS")
 print(" Signal Conditioner pure transfer/range authority: PASS")
+print(" Permanent Magnet single scalar-strength parameter authority: PASS")
 print(" Induction Coil exact/legacy turns + sampled EMF authority: PASS")
 print(" Electromagnet response/cooling/thermal pure parameter authority: PASS")
 print(" Copper Fuse rating/class/I2t parameter authority: PASS")

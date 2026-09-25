@@ -25,6 +25,7 @@ if not failed:
         "ElectromagnetBlock.thermalLoad",
         "ElectromagnetBlock.trackingError",
         "ElectromagnetBlock.runTicks",
+        "PermanentMagnetBlock.stepStrength",
         "InductionCoilBlock.configuredTurns",
         "InductionCoilBlock.setConfiguredTurns",
         "engineeringB.set(state.getValue(InductionCoilBlock.TURNS))",
@@ -41,6 +42,11 @@ if not failed:
             failed.append(f"MagneticSystemMenu missing exact-parameter/evidence token: {token}")
 
     for token in (
+        "Field strength B",
+        "Allowed strength",
+        "PermanentMagnetBlock.MIN_STRENGTH",
+        "PermanentMagnetBlock.MAX_STRENGTH",
+        "STATIC SCALAR FREE-SPACE SOURCE",
         "Field rise rate",
         "Field fall rate",
         "Cooling rate",
@@ -92,6 +98,7 @@ if failed:
     raise SystemExit(1)
 
 print("RSE Magnetic HMI dispatch verification: PASS")
+print(" permanent magnet single strength 1..15 contract: PASS")
 print(" electromagnet exact rise/fall/cooling controls: PASS")
 print(" electromagnet target/thermal/tracking/run evidence: PASS")
 print(" induction coil exact 1..16 turns + legacy 1..4 preset contract: PASS")

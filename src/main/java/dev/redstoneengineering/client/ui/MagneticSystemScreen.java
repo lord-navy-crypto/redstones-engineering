@@ -2,6 +2,7 @@ package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.block.InductionCoilBlock;
+import dev.redstoneengineering.block.PermanentMagnetBlock;
 import dev.redstoneengineering.signal.ElectromagnetLogic;
 import dev.redstoneengineering.ui.menu.MagneticSystemMenu;
 import net.minecraft.client.gui.GuiGraphics;
@@ -71,7 +72,7 @@ public final class MagneticSystemScreen extends EngineeringScreen<MagneticSystem
                 labelValue(g,"Evidence",qualityName(),181);
             }
             case MagneticSystemMenu.KIND_PERMANENT -> {
-                metricCard(g,"Field source",menu.primary()+" / 15",16,103,88,GOOD);
+                metricCard(g,"Field source",menu.primary()+" / "+PermanentMagnetBlock.MAX_STRENGTH,16,103,88,GOOD);
                 metricCard(g,"N marker",face(menu.facing()),111,103,88,INFO);
                 metricCard(g,"Wired","NO",206,103,88,INFO);
                 labelValue(g,"Role","STATIC FREE-SPACE SOURCE",149);
@@ -143,9 +144,14 @@ public final class MagneticSystemScreen extends EngineeringScreen<MagneticSystem
             wrappedText(g,"These equations are the actual server model. Copper voltage and evidence come from the world network; the HMI only changes the bounded response rates and cooling parameter.",16,409,620,MUTED);
         }
         else if(menu.kind()==MagneticSystemMenu.KIND_PERMANENT){
-            labelValue(g,"Strength",menu.primary()+" / 15",101);
-            labelValue(g,"N marker",face(menu.facing()),171);
-            wrappedText(g,"North-marker orientation is controlled only on Route.",16,199,620,MUTED);
+            labelValue(g,"Field strength B",menu.primary()+" / "+PermanentMagnetBlock.MAX_STRENGTH,101);
+            labelValue(g,"Allowed strength",
+                    PermanentMagnetBlock.MIN_STRENGTH+".."+PermanentMagnetBlock.MAX_STRENGTH
+                            +" • step "+PermanentMagnetBlock.STRENGTH_STEP,171);
+            labelValue(g,"Default",Integer.toString(PermanentMagnetBlock.DEFAULT_STRENGTH),191);
+            labelValue(g,"Field model","STATIC SCALAR FREE-SPACE SOURCE",211);
+            labelValue(g,"N marker",face(menu.facing()),231);
+            wrappedText(g,"Strength is the only numerical source parameter. The N marker is an orientation label in the current scalar solver and is controlled only on Route; it does not create a second vector-field parameter.",16,255,620,MUTED);
         }
         else if(menu.kind()==MagneticSystemMenu.KIND_COIL){
             labelValue(g,"Exact turns N",Integer.toString(menu.engineeringA()),101);
