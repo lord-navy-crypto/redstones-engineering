@@ -91,20 +91,28 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
         }
         if(menu.kind()==PneumaticSystemMenu.KIND_REGULATOR){
             statusBadge(g,"REGULATOR RESPONSE",INFO,16,80);
-            labelValue(g,"Setpoint / actual ceiling",menu.engineeringA()+" / "+menu.tertiary(),104);
-            labelValue(g,"Inlet pressure",menu.primary()+" / 100",132);
-            labelValue(g,"Tracking error",Integer.toString(menu.auxiliary()),154);
-            labelValue(g,"Response rate",menu.engineeringB()+" pressure/tick",176);
-            safeText(g,"Setpoint and diaphragm rate are independent exact server parameters; physical I/O remains on Route.",16,202,MUTED);
+            labelValue(g,"Setpoint / actual ceiling",menu.engineeringA()+" / "+menu.tertiary(),176);
+            labelValue(g,"Inlet pressure Pin",menu.primary()+" / 100",196);
+            labelValue(g,"Response rate R",menu.engineeringB()+" pressure/tick",216);
+            labelValue(g,"Parameter bounds","Psp=1..100 • R=1..100",236);
+            labelValue(g,"Target pressure","Ptarget = min(Pin, Psp) = "+Math.min(menu.primary(),menu.engineeringA()),256);
+            labelValue(g,"Tracking error e",Integer.toString(menu.auxiliary()),276);
+            labelValue(g,"Response law","P[k+1] = toward(Ptarget, ±R)",296);
+            wrappedText(g,"Setpoint and diaphragm rate are independent exact server parameters. The regulator cannot boost above inlet pressure, and its pneumatic INPUT/OUTPUT remain one rigid opposite-port axis on Route.",16,320,620,MUTED);
             return;
         }
         if(isProportional()){
             statusBadge(g,"VALVE SPOOL RESPONSE",INFO,16,80);
-            labelValue(g,"Spool rate",menu.engineeringA()+" opening/tick",104);
-            labelValue(g,"Legacy preset",PneumaticProportionalValveLogic.modeName(menu.stateFlag())+" • exact rate override",132);
-            labelValue(g,"Command / actual opening",menu.proportionalCommand()+" / "+menu.tertiary(),154);
-            labelValue(g,"Tracking error",Integer.toString(menu.proportionalTrackingError()),176);
-            safeText(g,"UP sets commanded opening; the pneumatic restriction follows actual finite-rate spool position.",16,202,MUTED);
+            labelValue(g,"Spool rate R",menu.engineeringA()+" opening/tick",158);
+            labelValue(g,"Parameter bounds","R=1..15 opening/tick",178);
+            labelValue(g,"Legacy preset",PneumaticProportionalValveLogic.modeName(menu.stateFlag())+" • exact rate override",198);
+            labelValue(g,"Command / actual opening",menu.proportionalCommand()+" / "+menu.tertiary(),218);
+            labelValue(g,"Tracking error e",Integer.toString(menu.proportionalTrackingError()),238);
+            labelValue(g,"Spool law","a[k+1] = toward(u, ±R)",258);
+            labelValue(g,"Error law","e = u - a",278);
+            labelValue(g,"Restriction authority","pneumatic solver uses actual a, not command u",298);
+            labelValue(g,"Travel / reversals",menu.proportionalTravel()+" / "+menu.proportionalReversals(),318);
+            wrappedText(g,"UP is the redstone opening command u. The spool moves at the bounded server rate R; pneumatic INPUT and OUTPUT remain exactly opposite and Route rotates the whole valve axis.",16,342,620,MUTED);
             return;
         }
         if(menu.kind()==PneumaticSystemMenu.KIND_RELIEF){
