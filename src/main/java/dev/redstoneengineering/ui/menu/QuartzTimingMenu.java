@@ -3,6 +3,7 @@ package dev.redstoneengineering.ui.menu;
 import dev.redstoneengineering.block.DirectionalDomainBlock;
 import dev.redstoneengineering.block.DirectionalDomainSourceBlock;
 import dev.redstoneengineering.block.QuartzClockDividerBlock;
+import dev.redstoneengineering.block.QuartzLabOscillatorBlock;
 import dev.redstoneengineering.block.QuartzOscillatorBlock;
 import dev.redstoneengineering.block.QuartzPhaseDelayBlock;
 import dev.redstoneengineering.block.QuartzStabilityMonitorBlock;
@@ -28,6 +29,7 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
     public static final int KIND_DIVIDER = 1;
     public static final int KIND_STABILITY = 2;
     public static final int KIND_DELAY = 3;
+    public static final int KIND_LAB_OSCILLATOR = 4;
 
     public static final int BUTTON_PARAMETER_PREVIOUS = 0;
     public static final int BUTTON_PARAMETER_NEXT = 1;
@@ -88,6 +90,25 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
         inputFacing.set(-1);
         outputFacing.set(-1);
         quality.set(PortQuality.NO_SIGNAL.ordinal());
+
+        if (block instanceof QuartzLabOscillatorBlock) {
+            kind.set(KIND_LAB_OSCILLATOR);
+            QuartzLabOscillatorBlock.TimingEvidence evidence =
+                    QuartzLabOscillatorBlock.timingEvidence(level, blockPos, state);
+            primary.set(state.getValue(QuartzLabOscillatorBlock.ACTIVE) ? 1 : 0);
+            secondary.set(QuartzLabOscillatorBlock.configuredPeriodTicks(state));
+            tertiary.set(QuartzLabOscillatorBlock.configuredJitterTicks(state));
+            runtimeA.set(QuartzLabOscillatorBlock.effectivePeriodTicks(level, blockPos, state));
+            runtimeB.set(QuartzLabOscillatorBlock.effectiveJitter(level, blockPos, state));
+            runtimeC.set(QuartzLabOscillatorBlock.configurationPending(level, blockPos, state) ? 1 : 0);
+            runtimeD.set(evidence.available() ? 1 : 0);
+            runtimeE.set(evidence.nominalPeriod());
+            runtimeF.set(evidence.lastHalfInterval());
+            runtimeG.set(evidence.lastJitterOffset());
+            outputFacing.set(DirectionalDomainSourceBlock.outputSide(state).ordinal());
+            quality.set(PortQuality.VALID.ordinal());
+            return;
+        }
 
         if (block instanceof QuartzOscillatorBlock) {
             kind.set(KIND_OSCILLATOR);
@@ -177,7 +198,24 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
         Block block = state.getBlock();
         boolean changed = false;
 
-        if (block instanceof QuartzOscillatorBlock) {
+        if (block instanceof QuartzLabOscillatorBlock) {
+            if (id == BUTTON_PARAMETER_PREVIOUS || id == BUTTON_PARAMETER_NEXT) {
+                changed = QuartzLabOscillatorBlock.stepPeriodIndex(
+                        level, blockPos, id == BUTTON_PARAMETER_NEXT);
+            } else if (id == BUTTON_PARAMETER_COARSE_PREVIOUS || id == BUTTON_PARAMETER_COARSE_NEXT) {
+                changed = QuartzLabOscillatorBlock.stepJitter(
+                        level, blockPos, id == BUTTON_PARAMETER_COARSE_NEXT);
+            } else if (id == BUTTON_RESET_MEASUREMENT) {
+                changed = QuartzLabOscillatorBlock.resetTimingConfiguration(level, blockPos);
+            } else if (id == BUTTON_OUTPUT_LEFT || id == BUTTON_OUTPUT_RIGHT
+                    || id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT) {
+                boolean clockwise = id == BUTTON_OUTPUT_RIGHT || id == BUTTON_ROTATE_RIGHT;
+                changed = DirectionalDomainSourceBlock.rotateOutput(level, blockPos, clockwise);
+                if (changed && level instanceof ServerLevel server) {
+                    DomainNetwork.recomputeQuartzAround(server, blockPos);
+                }
+            } else return false;
+        } else         if (block instanceof QuartzOscillatorBlock) {
             if (id == BUTTON_PARAMETER_PREVIOUS || id == BUTTON_PARAMETER_NEXT
                     || id == BUTTON_PARAMETER_COARSE_PREVIOUS || id == BUTTON_PARAMETER_COARSE_NEXT) {
                 if (!(level instanceof ServerLevel server)) return false;

@@ -70,7 +70,8 @@ public final class FieldDeviceUi {
         if (block instanceof PrecisionFilterBlock || block instanceof EdgeDetectorBlock || block instanceof PulseShaperBlock) {
             player.openMenu(new SimpleMenuProvider((id, inv, ignored) -> new SignalProcessorMenu(id, inv, pos), title), data -> data.writeBlockPos(pos)); return;
         }
-        if (block instanceof QuartzOscillatorBlock || block instanceof QuartzClockDividerBlock
+        if (block instanceof QuartzOscillatorBlock || block instanceof QuartzLabOscillatorBlock
+                || block instanceof QuartzClockDividerBlock
                 || block instanceof QuartzPhaseDelayBlock || block instanceof QuartzStabilityMonitorBlock) {
             player.openMenu(new SimpleMenuProvider((id, inv, ignored) -> new QuartzTimingMenu(id, inv, pos), title), data -> data.writeBlockPos(pos)); return;
         }

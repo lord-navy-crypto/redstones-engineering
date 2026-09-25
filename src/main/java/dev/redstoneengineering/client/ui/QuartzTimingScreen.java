@@ -1,8 +1,10 @@
 package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.block.QuartzClockDividerBlock;
+import dev.redstoneengineering.block.QuartzLabOscillatorBlock;
 import dev.redstoneengineering.block.QuartzOscillatorBlock;
 import dev.redstoneengineering.block.QuartzPhaseDelayBlock;
+import dev.redstoneengineering.block.QuartzTimingLineBlock;
 import dev.redstoneengineering.ui.menu.QuartzTimingMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -32,21 +34,28 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
     @Override protected void syncDeviceWidgetLabels() {
         if (parameterPrevious == null) return;
         boolean oscillator = menu.kind() == QuartzTimingMenu.KIND_OSCILLATOR;
+        boolean labOscillator = menu.kind() == QuartzTimingMenu.KIND_LAB_OSCILLATOR;
         boolean divider = menu.kind() == QuartzTimingMenu.KIND_DIVIDER;
         boolean stability = menu.kind() == QuartzTimingMenu.KIND_STABILITY;
         boolean delay = menu.kind() == QuartzTimingMenu.KIND_DELAY;
         boolean configure = isConfigureSection();
-        parameterPrevious.active = oscillator || divider || delay;
-        parameterNext.active = oscillator || divider || delay;
-        parameterPrevious.visible = configure && (oscillator || divider || delay);
-        parameterNext.visible = configure && (oscillator || divider || delay);
-        parameterCoarsePrevious.active = oscillator;
-        parameterCoarseNext.active = oscillator;
-        parameterCoarsePrevious.visible = configure && oscillator;
-        parameterCoarseNext.visible = configure && oscillator;
-        reset.active = stability || oscillator;
-        reset.visible = configure && (stability || oscillator);
-        if (oscillator) {
+        parameterPrevious.active = oscillator || labOscillator || divider || delay;
+        parameterNext.active = oscillator || labOscillator || divider || delay;
+        parameterPrevious.visible = configure && (oscillator || labOscillator || divider || delay);
+        parameterNext.visible = configure && (oscillator || labOscillator || divider || delay);
+        parameterCoarsePrevious.active = oscillator || labOscillator;
+        parameterCoarseNext.active = oscillator || labOscillator;
+        parameterCoarsePrevious.visible = configure && (oscillator || labOscillator);
+        parameterCoarseNext.visible = configure && (oscillator || labOscillator);
+        reset.active = stability || oscillator || labOscillator;
+        reset.visible = configure && (stability || oscillator || labOscillator);
+        if (labOscillator) {
+            parameterPrevious.setMessage(Component.literal("◀ Period"));
+            parameterNext.setMessage(Component.literal("Period ▶"));
+            parameterCoarsePrevious.setMessage(Component.literal("Jitter −"));
+            parameterCoarseNext.setMessage(Component.literal("Jitter +"));
+            reset.setMessage(Component.literal("Default 8t ±1t"));
+        } else if (oscillator) {
             parameterPrevious.setMessage(Component.literal("−1 t"));
             parameterNext.setMessage(Component.literal("+1 t"));
             parameterCoarsePrevious.setMessage(Component.literal("−5 t"));
@@ -70,7 +79,14 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
     private void overview(GuiGraphics g) {
         statusBadge(g, deviceName(), GOOD, 16, 80);
         statusBadge(g, qualityName(), qualityColor(), 200, 80);
-        if (menu.kind() == QuartzTimingMenu.KIND_OSCILLATOR) {
+        if (menu.kind() == QuartzTimingMenu.KIND_LAB_OSCILLATOR) {
+            metricCard(g, "State", menu.primary() == 1 ? "HIGH" : "LOW", 16, 103, 88, INFO);
+            metricCard(g, "Configured", menu.secondary() + " t", 111, 103, 88, GOOD);
+            metricCard(g, "Effective", menu.runtimeA() + " t", 206, 103, 88, INFO);
+            labelValue(g, "Configured / effective jitter", menu.tertiary() + " / " + menu.runtimeB() + " ticks", 153);
+            labelValue(g, "Timing latch", menu.runtimeC() == 1 ? "PENDING • NEXT REAL EDGE" : "CURRENT", 171);
+            labelValue(g, "Realized interval evidence", menu.runtimeD() == 1 ? "CURRENT CONFIG" : "WAITING", 189);
+        } else         if (menu.kind() == QuartzTimingMenu.KIND_OSCILLATOR) {
             metricCard(g, "State", menu.primary() == 1 ? "HIGH" : "LOW", 16, 103, 88, INFO);
             metricCard(g, "Configured", menu.secondary() + " t", 111, 103, 88, GOOD);
             metricCard(g, "Effective", menu.runtimeA() + " t", 206, 103, 88, INFO);
@@ -102,7 +118,11 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
 
     private void ports(GuiGraphics g) {
         statusBadge(g, "QUARTZ INTERFACES", GOOD, 16, 80);
-        if (menu.kind() == QuartzTimingMenu.KIND_OSCILLATOR) {
+        if (menu.kind() == QuartzTimingMenu.KIND_LAB_OSCILLATOR) {
+            statusLine(g, outputFace(), "OUTPUT • QUARTZ LAB CLOCK", GOOD, 112);
+            statusLine(g, "OTHER FACES", "NO DECLARED QUARTZ PORT", MUTED, 140);
+            wrappedText(g, "Lab Oscillator is a single-output source. Route rotates only the physical clock output; period and jitter remain edge-latched timing configuration.", 16, 174, 760, INFO);
+        } else         if (menu.kind() == QuartzTimingMenu.KIND_OSCILLATOR) {
             statusLine(g, outputFace(), "OUTPUT • QUARTZ CLOCK", GOOD, 112);
             statusLine(g, "OTHER FACES", "NO DECLARED QUARTZ PORT", MUTED, 140);
             wrappedText(g, "This is a single-output source. Route rotates the real physical output face.", 16, 174, 760, INFO);
@@ -123,7 +143,30 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
 
     private void configure(GuiGraphics g) {
         statusBadge(g, "SERVER-SIDE BOUNDED CONTROL", INFO, 16, 80);
-        if (menu.kind() == QuartzTimingMenu.KIND_OSCILLATOR) {
+        if (menu.kind() == QuartzTimingMenu.KIND_LAB_OSCILLATOR) {
+            labelValue(g, "Configured period Tcfg", menu.secondary() + " ticks", 101);
+            labelValue(g, "Period choices",
+                    QuartzTimingLineBlock.periodTicks(QuartzLabOscillatorBlock.MIN_PERIOD_INDEX)
+                            + "/4/8/16/"
+                            + QuartzTimingLineBlock.periodTicks(QuartzLabOscillatorBlock.MAX_PERIOD_INDEX)
+                            + " ticks", 168);
+            labelValue(g, "Configured jitter Jcfg",
+                    menu.tertiary() + " ticks • allowed "
+                            + QuartzLabOscillatorBlock.MIN_JITTER_TICKS + ".."
+                            + QuartzLabOscillatorBlock.MAX_JITTER_TICKS, 186);
+            labelValue(g, "Effective timing",
+                    menu.runtimeA() + " ticks ±" + menu.runtimeB() + " ticks", 204);
+            labelValue(g, "Half-cycle model",
+                    "Δt = max(1, Teff/2 + ε), ε∈[−J,+J]", 222);
+            labelValue(g, "Apply policy",
+                    menu.runtimeC() == 1 ? "PERIOD/JITTER LATCH NEXT REAL EDGE" : "CURRENT", 240);
+            labelValue(g, "Default",
+                    QuartzTimingLineBlock.periodTicks(QuartzLabOscillatorBlock.DEFAULT_PERIOD_INDEX)
+                            + " ticks ±" + QuartzLabOscillatorBlock.DEFAULT_JITTER_TICKS + " tick", 258);
+            wrappedText(g,
+                    "Period and jitter buttons change only shadow configuration. The already scheduled transition is preserved; the new configuration becomes effective at the next genuine waveform edge, never through an HMI-generated early tick.",
+                    16, 282, 620, MUTED);
+        } else         if (menu.kind() == QuartzTimingMenu.KIND_OSCILLATOR) {
             labelValue(g, "Configured period Tcfg", menu.secondary() + " ticks", 101);
             labelValue(g, "Effective period Teff", menu.runtimeA() + " ticks", 168);
             labelValue(g, "Allowed range", QuartzOscillatorBlock.MIN_PERIOD_TICKS + ".." + QuartzOscillatorBlock.MAX_PERIOD_TICKS + " ticks", 186);
@@ -170,7 +213,14 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
 
     private void diagnostics(GuiGraphics g) {
         statusBadge(g, qualityName(), qualityColor(), 16, 80);
-        if (menu.kind() == QuartzTimingMenu.KIND_STABILITY) {
+        if (menu.kind() == QuartzTimingMenu.KIND_LAB_OSCILLATOR) {
+            labelValue(g, "Oscillator state", menu.primary() == 1 ? "HIGH" : "LOW", 104);
+            labelValue(g, "Configured period / jitter", menu.secondary() + "t / ±" + menu.tertiary() + "t", 122);
+            labelValue(g, "Effective period / jitter", menu.runtimeA() + "t / ±" + menu.runtimeB() + "t", 140);
+            labelValue(g, "Pending config latch", yesNo(menu.runtimeC()), 158);
+            labelValue(g, "Current-config evidence", yesNo(menu.runtimeD()), 176);
+            labelValue(g, "Output face", outputFace(), 194);
+        } else         if (menu.kind() == QuartzTimingMenu.KIND_STABILITY) {
             labelValue(g, "Initialized", yesNo(menu.runtimeA()), 104);
             labelValue(g, "Reference edge", yesNo(menu.runtimeB()), 122);
             labelValue(g, "Current measurement", yesNo(menu.runtimeC()), 140);
@@ -205,7 +255,17 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
 
     private void history(GuiGraphics g) {
         statusBadge(g, "TIMING EVIDENCE", INFO, 16, 80);
-        if (menu.kind() == QuartzTimingMenu.KIND_STABILITY) {
+        if (menu.kind() == QuartzTimingMenu.KIND_LAB_OSCILLATOR) {
+            labelValue(g, "Configured period", menu.secondary() + " ticks", 112);
+            labelValue(g, "Effective period", menu.runtimeA() + " ticks", 132);
+            labelValue(g, "Effective jitter", "±" + menu.runtimeB() + " ticks", 152);
+            labelValue(g, "Evidence nominal period", menu.runtimeD() == 1 ? menu.runtimeE() + " ticks" : "STALE CONFIG EPOCH", 172);
+            labelValue(g, "Last realized half interval", menu.runtimeD() == 1 ? menu.runtimeF() + " ticks" : "—", 192);
+            labelValue(g, "Last realized jitter offset", menu.runtimeD() == 1 ? signedTicks(menu.runtimeG()) : "—", 212);
+            wrappedText(g,
+                    "Realized interval evidence is configuration-epoch scoped. A period/jitter edit immediately makes the old realized sample unavailable while the running waveform retains its old effective timing until the next genuine edge publishes fresh evidence.",
+                    16, 236, 760, MUTED);
+        } else         if (menu.kind() == QuartzTimingMenu.KIND_STABILITY) {
             labelValue(g, "Retained period", menu.primary() + " ticks", 110);
             labelValue(g, "Nominal error", menu.secondary() + " ticks", 130);
             labelValue(g, "Evidence age class", menu.runtimeC() == 1 ? "CURRENT" : menu.primary() > 0 ? "STALE" : "NONE", 150);
@@ -240,6 +300,11 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
     }
 
     private String diagnosis() {
+        if (menu.kind() == QuartzTimingMenu.KIND_LAB_OSCILLATOR) {
+            if (menu.runtimeC() == 1) return "LAB TIMING CHANGE PENDING REAL EDGE";
+            if (menu.runtimeD() == 0) return "WAITING FOR CURRENT-CONFIG REALIZED INTERVAL";
+            return "LAB CLOCK EVIDENCE CURRENT";
+        }
         if (menu.quality().name().equals("TOPOLOGY_ERROR")) return "CLOCK SOURCE / TOPOLOGY CONFLICT";
         if (menu.quality().name().equals("NO_SIGNAL")) return "NO TIMING EVIDENCE";
         if (menu.quality().name().equals("STALE")) return "STALE TIMING EVIDENCE";
@@ -295,11 +360,12 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
     }
 
     private int diagnosisColor() { String d = diagnosis(); return d.contains("COHERENT") || d.contains("NOMINAL") || d.contains("CONFIGURED") || d.contains("READY") || d.contains("IN FLIGHT") ? GOOD : WARN; }
-    private String deviceName() { return switch (menu.kind()) { case QuartzTimingMenu.KIND_DIVIDER -> "QUARTZ CLOCK DIVIDER"; case QuartzTimingMenu.KIND_STABILITY -> "QUARTZ STABILITY MONITOR"; case QuartzTimingMenu.KIND_DELAY -> "QUARTZ PHASE DELAY"; default -> "QUARTZ OSCILLATOR"; }; }
+    private String deviceName() { return switch (menu.kind()) { case QuartzTimingMenu.KIND_LAB_OSCILLATOR -> "QUARTZ LAB OSCILLATOR"; case QuartzTimingMenu.KIND_DIVIDER -> "QUARTZ CLOCK DIVIDER"; case QuartzTimingMenu.KIND_STABILITY -> "QUARTZ STABILITY MONITOR"; case QuartzTimingMenu.KIND_DELAY -> "QUARTZ PHASE DELAY"; default -> "QUARTZ OSCILLATOR"; }; }
     private String qualityName() { return menu.quality().name().replace('_', ' '); }
     private int qualityColor() { return switch (menu.quality()) { case VALID -> GOOD; case STALE, NO_SIGNAL -> WARN; default -> BAD; }; }
     private String inputFace() { return menu.inputDirection().getName().toUpperCase(); }
     private String outputFace() { return menu.outputDirection().getName().toUpperCase(); }
     private String yesNo(int value) { return value == 1 ? "YES" : "NO"; }
-    private String topologyHint() { return switch (menu.kind()) { case QuartzTimingMenu.KIND_DIVIDER -> "Divider exposes one clock input and one divided-clock output; Route changes those real endpoints."; case QuartzTimingMenu.KIND_STABILITY -> "Monitor is observer-only; Route selects its one measurement input and exposes no output."; case QuartzTimingMenu.KIND_DELAY -> "Phase Delay exposes one Quartz edge input and one delayed-edge output; Route changes those real endpoints."; default -> "Oscillator exposes one configurable quartz-clock output; Route rotates that physical source face."; }; }
+    private String signedTicks(int value) { return (value > 0 ? "+" : "") + value + " ticks"; }
+    private String topologyHint() { return switch (menu.kind()) { case QuartzTimingMenu.KIND_LAB_OSCILLATOR -> "Lab Oscillator exposes one configurable Quartz clock output; period/jitter are timing configuration, while Route owns only the physical output face."; case QuartzTimingMenu.KIND_DIVIDER -> "Divider exposes one clock input and one divided-clock output; Route changes those real endpoints."; case QuartzTimingMenu.KIND_STABILITY -> "Monitor is observer-only; Route selects its one measurement input and exposes no output."; case QuartzTimingMenu.KIND_DELAY -> "Phase Delay exposes one Quartz edge input and one delayed-edge output; Route changes those real endpoints."; default -> "Oscillator exposes one configurable quartz-clock output; Route rotates that physical source face."; }; }
 }

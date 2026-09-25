@@ -275,6 +275,34 @@ if "dev.redstoneengineering.physics" in pneumatic_screen:
     errors.append("Pneumatic client HMI crossed the persistence/physics authority boundary")
 
 require(
+    "src/main/java/dev/redstoneengineering/block/QuartzLabOscillatorBlock.java",
+    "MIN_PERIOD_INDEX = 0",
+    "MAX_PERIOD_INDEX = 4",
+    "DEFAULT_PERIOD_INDEX = 2",
+    "MIN_JITTER_TICKS = 0",
+    "MAX_JITTER_TICKS = 3",
+    "DEFAULT_JITTER_TICKS = 1",
+    "stepPeriodIndex",
+    "stepJitter",
+    "resetTimingConfiguration",
+    "currentEpoch",
+)
+require(
+    "src/main/java/dev/redstoneengineering/ui/menu/QuartzTimingMenu.java",
+    "KIND_LAB_OSCILLATOR = 4",
+    "QuartzLabOscillatorBlock.timingEvidence",
+    "QuartzLabOscillatorBlock.stepPeriodIndex",
+    "QuartzLabOscillatorBlock.stepJitter",
+)
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/QuartzTimingScreen.java",
+    "QuartzLabOscillatorBlock.MIN_JITTER_TICKS",
+    "QuartzLabOscillatorBlock.MAX_JITTER_TICKS",
+    "STALE CONFIG EPOCH",
+    "CURRENT-CONFIG REALIZED INTERVAL",
+)
+
+require(
     "src/main/java/dev/redstoneengineering/signal/AirCompressorLogic.java",
     "MIN_PRESSURE = 0",
     "MAX_PRESSURE = 100",
@@ -375,3 +403,4 @@ print(" Servo persistent bounds + 2-tick control cycle + client boundary: PASS")
 print(" PID persistent bounds + deadband/integral/cycle + client boundary: PASS")
 print(" Lapis LPF synchronized alpha + 2-tick sample/derived response contract: PASS")
 print(" Quartz oscillator/divider/delay bounds + edge-safe timing contract: PASS")
+print(" Quartz Lab period/jitter epoch-scoped realized-evidence contract: PASS")

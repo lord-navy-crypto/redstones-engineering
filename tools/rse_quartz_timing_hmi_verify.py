@@ -9,11 +9,13 @@ menu_path = root / "src/main/java/dev/redstoneengineering/ui/menu/QuartzTimingMe
 screen_path = root / "src/main/java/dev/redstoneengineering/client/ui/QuartzTimingScreen.java"
 shared_path = root / "src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java"
 source_path = root / "src/main/java/dev/redstoneengineering/block/QuartzOscillatorBlock.java"
+lab_source_path = root / "src/main/java/dev/redstoneengineering/block/QuartzLabOscillatorBlock.java"
+lab_lifecycle_path = root / "src/main/java/dev/redstoneengineering/gametest/RseQuartzLabConfigurationLifecycleSystemGameTests.java"
 divider_source_path = root / "src/main/java/dev/redstoneengineering/block/QuartzClockDividerBlock.java"
 delay_source_path = root / "src/main/java/dev/redstoneengineering/block/QuartzPhaseDelayBlock.java"
 opener_path = root / "src/main/java/dev/redstoneengineering/ui/FieldDeviceUi.java"
 
-for path in (menu_path, screen_path, shared_path, source_path, divider_source_path, delay_source_path, opener_path):
+for path in (menu_path, screen_path, shared_path, source_path, lab_source_path, lab_lifecycle_path, divider_source_path, delay_source_path, opener_path):
     if not path.is_file():
         failed.append(f"missing quartz HMI contract file: {path.relative_to(root)}")
 
@@ -22,12 +24,18 @@ if not failed:
     screen = screen_path.read_text(errors="ignore")
     shared = shared_path.read_text(errors="ignore")
     source = source_path.read_text(errors="ignore")
+    lab_source = lab_source_path.read_text(errors="ignore")
+    lab_lifecycle = lab_lifecycle_path.read_text(errors="ignore")
     divider_source = divider_source_path.read_text(errors="ignore")
     delay_source = delay_source_path.read_text(errors="ignore")
     opener = opener_path.read_text(errors="ignore")
 
     for token in (
-        "QuartzOscillatorBlock.adjustConfiguredPeriodTicks(",
+        "QuartzLabOscillatorBlock.timingEvidence(level, blockPos, state)",
+        "QuartzLabOscillatorBlock.stepPeriodIndex(",
+        "QuartzLabOscillatorBlock.stepJitter(",
+        "KIND_LAB_OSCILLATOR = 4",
+                "QuartzOscillatorBlock.adjustConfiguredPeriodTicks(",
         "QuartzOscillatorBlock.resetConfiguredPeriodTicks(",
         "BUTTON_PARAMETER_COARSE_PREVIOUS",
         "BUTTON_PARAMETER_COARSE_NEXT",
@@ -82,6 +90,30 @@ if not failed:
         failed.append("fine Quartz period adjustment schedules an artificial early transition")
 
     for token in (
+        "MIN_PERIOD_INDEX = 0",
+        "MAX_PERIOD_INDEX = 4",
+        "DEFAULT_PERIOD_INDEX = 2",
+        "MIN_JITTER_TICKS = 0",
+        "MAX_JITTER_TICKS = 3",
+        "DEFAULT_JITTER_TICKS = 1",
+        "boolean currentEpoch",
+        "stepPeriodIndex",
+        "stepJitter",
+        "resetTimingConfiguration",
+        "do not schedule an early edge",
+    ):
+        if token not in lab_source:
+            failed.append(f"QuartzLabOscillatorBlock missing timing-epoch/HMI token: {token}")
+
+    for token in (
+        "configurationChangeInvalidatesOldRealizedTimingEvidenceUntilNextSample",
+        "if (afterConfig.available())",
+        "did not publish fresh realized timing evidence for the new configuration",
+    ):
+        if token not in lab_lifecycle:
+            failed.append(f"Quartz Lab lifecycle GameTest missing regression token: {token}")
+
+    for token in (
         "MIN_DIVISION = 2",
         "MAX_DIVISION = 32",
         "PARAMETER_STEP = 1",
@@ -107,6 +139,8 @@ if not failed:
         if token not in delay_source:
             failed.append(f"QuartzPhaseDelayBlock missing queue/evidence token: {token}")
 
+    if "block instanceof QuartzOscillatorBlock || block instanceof QuartzLabOscillatorBlock" not in opener:
+        failed.append("FieldDeviceUi does not route Quartz Lab Oscillator into the dedicated timing HMI")
     if "block instanceof QuartzPhaseDelayBlock || block instanceof QuartzStabilityMonitorBlock" not in opener:
         failed.append("FieldDeviceUi does not route Quartz Phase Delay with the dedicated timing HMI")
     if "new QuartzTimingMenu(id, inv, pos)" not in opener:
@@ -119,7 +153,14 @@ if not failed:
         failed.append("Quartz stability monitor reintroduced a synthetic output endpoint")
 
     for token in (
-        "single-output source",
+        "QUARTZ LAB OSCILLATOR",
+        "Configured / effective jitter",
+        "CURRENT-CONFIG REALIZED INTERVAL",
+        "STALE CONFIG EPOCH",
+        "QuartzLabOscillatorBlock.MIN_JITTER_TICKS",
+        "QuartzLabOscillatorBlock.MAX_JITTER_TICKS",
+        "Realized interval evidence is configuration-epoch scoped",
+                "single-output source",
         "Configured / effective",
         "Window samples",
         "Jitter = max - min",
@@ -192,6 +233,8 @@ if failed:
 
 print("RSE quartz timing HMI verification: PASS")
 print(" oscillator fine edits latch through the server timing model: PASS")
+print(" Quartz Lab dedicated HMI + edge-latched period/jitter controls: PASS")
+print(" Quartz Lab realized evidence is configuration-epoch scoped: PASS")
 print(" normal Quartz oscillator/divider/phase-delay dispatch reaches dedicated HMI: PASS")
 print(" quartz routing matches declared physical endpoints: PASS")
 print(" divider 2..32 parameter + 4096-tick output cap contract: PASS")
