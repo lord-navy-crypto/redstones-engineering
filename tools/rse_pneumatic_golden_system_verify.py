@@ -90,9 +90,16 @@ for needle in (
 # Controlled restriction scenario reuses the real signal fault injector and real pneumatic solver.
 for needle in (
     'Modes: 0 STUCK_LOW, 1 STUCK_HIGH, 2 BIAS_PLUS_4, 3 BIAS_MINUS_4.',
+    "MODE_STUCK_LOW = 0",
+    "MODE_STUCK_HIGH = 1",
+    "MODE_BIAS_PLUS = 2",
+    "MODE_BIAS_MINUS = 3",
+    "BIAS_STEP = 4",
+    "MAX_SIGNAL = 15",
     '"STUCK LOW"',
     '"BIAS -4"',
-    'default -> Math.max(0, input - 4);',
+    "public static int applyFault",
+    "case MODE_BIAS_MINUS -> Math.max(0, x - BIAS_STEP);",
 ):
     req(fault, needle, "FaultInjectorBlock.java")
 for needle in (
