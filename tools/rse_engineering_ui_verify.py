@@ -103,7 +103,8 @@ for rel in (
 ):
     require(rel, "player.isShiftKeyDown()", "FieldDeviceUi.open(serverPlayer, pos)")
 
-# Dedicated pneumatic HMI must track both declared endpoint faces, not infer RX as TX.opposite().
+# Dedicated pneumatic HMI tracks real endpoint faces. Generic pneumatic devices may retain
+# independent endpoint authority, while physically inline regulator/proportional devices are rigid.
 require("src/main/java/dev/redstoneengineering/ui/menu/PneumaticSystemMenu.java",
         "block instanceof PressureRegulatorBlock",
         "facing.set(DirectionalDomainBlock.seriesOutputSide(state).ordinal())",
@@ -112,7 +113,20 @@ require("src/main/java/dev/redstoneengineering/ui/menu/PneumaticSystemMenu.java"
         "DirectionalSignalBlock.seriesInputSide(state)",
         "DirectionalDomainBlock.rotateSeriesInput(level, blockPos, clockwise)",
         "DirectionalDomainBlock.rotateSeriesOutput(level, blockPos, clockwise)",
+        "rotateRigidDirectional(id)",
+        "DirectionalDomainBlock.rotateRigidSeriesAxis(level, blockPos, clockwise)",
         "changed = rotateDirectional(block, id)")
+pneumatic_menu = read("src/main/java/dev/redstoneengineering/ui/menu/PneumaticSystemMenu.java")
+for device, next_device in (
+    ("block instanceof PressureRegulatorBlock", "block instanceof PneumaticValveBlock"),
+    ("block instanceof PneumaticProportionalValveBlock", "block instanceof PneumaticReceiverBlock"),
+):
+    start = pneumatic_menu.find(device)
+    end = pneumatic_menu.find(next_device, start)
+    window = pneumatic_menu[start:end] if start >= 0 and end > start else ""
+    if "rotateRigidDirectional(id)" not in window:
+        errors.append(f"{device}: inline pneumatic route no longer uses rigid whole-axis rotation")
+
 
 # Digital communication HMI likewise tracks independent RX/TX authority.
 require("src/main/java/dev/redstoneengineering/ui/menu/DigitalCommunicationMenu.java",
@@ -235,6 +249,9 @@ if 'int noteY = wrappedText(g,' not in universal:
     errors.append("UniversalFieldDeviceScreen is missing flow-aware wrapped paragraph layout")
 
 screen = read("src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java")
+for token in ("PneumaticSystemMenu.KIND_REGULATOR", "PneumaticSystemMenu.KIND_PROPORTIONAL"):
+    if token not in screen:
+        errors.append(f"EngineeringScreen rigid-route classifier missing {token}")
 for forbidden in ("sharedRotateCcw", "sharedRotateCw", '"SIGNAL ROUTE"', "drawFaceMatrix(", "ROUTE_CONTROL_Y = 160"):
     if forbidden in screen:
         errors.append(f"EngineeringScreen restored crowded/duplicated layout element {forbidden!r}")
@@ -296,7 +313,7 @@ print(" simple Direction controls preserved for measurement/interface axes: PASS
 print(" redstone reference/source/sensor FieldDevice route authority: PASS")
 print(" endpoint Engineering UI reachability + Shift diagnostics: PASS")
 print(" universal + legacy fallback route authority parity: PASS")
-print(" pneumatic regulator dual-endpoint route authority: PASS")
+print(" pneumatic regulator/proportional rigid opposite-port route authority: PASS")
 print(" range sensor old/new output invalidation on rotation: PASS")
 print(" signal analyzer six-face route + history invalidation: PASS")
 print(" signal probe six-face measurement-axis rotation: PASS")
