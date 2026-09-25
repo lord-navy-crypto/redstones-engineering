@@ -70,20 +70,22 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
         statusLine(graphics, "PROCESS", modeName(menu.mode()) + " • " + parameterText(menu.mode(), menu.parameter()), INFO, 130);
         statusLine(graphics, direction(menu.outputDirection().getName()), "OUTPUT • REDSTONE 0..15", GOOD, 152);
         sectionRule(graphics, 174);
-        safeText(graphics, "Input and output remain opposite ends of one rotatable series path.", 16, 186, MUTED);
-        safeText(graphics, "Physical direction is controlled only on Route; side faces remain non-driving.", 16, 202, MUTED);
+        int noteY = wrappedText(graphics, "Input and output remain opposite ends of one rigid rotatable series path.", 16, 186, 620, MUTED);
+        wrappedText(graphics, "Physical direction is controlled only on Route; side faces remain non-driving.", 16, noteY + 4, 620, MUTED);
     }
 
     private void renderConfigure(GuiGraphics graphics) {
         statusBadge(graphics, "SERVER-AUTHORITATIVE CONTROL", INFO, 16, 80);
-        labelValue(graphics, "Mode", modeName(menu.mode()), 102);
-        labelValue(graphics, parameterName(menu.mode()), parameterText(menu.mode(), menu.parameter()), 118);
-        labelValue(graphics, "Allowed", parameterRange(menu.mode()), 134);
-        labelValue(graphics, "Input → Output", direction(menu.inputDirection().getName()) + " → " + direction(menu.outputDirection().getName()), 150);
-        safeText(graphics, behaviorLine(menu.mode()), 16, 177, TEXT);
-        safeText(graphics, "Buttons change configuration only; physical direction is controlled on Route.", 16, 194, MUTED);
-        safeText(graphics, modelLine(menu.mode(), menu.parameter()), 16, 216, INFO);
-        safeText(graphics, "Transfer math executes on the server tick; this HMI only renders synchronized configuration and evidence.", 16, 242, MUTED);
+        // Two rows of configuration buttons occupy the 108..153 region.
+        // Keep model text below them so controls and engineering explanation never overlap.
+        labelValue(graphics, "Mode", modeName(menu.mode()), 164);
+        labelValue(graphics, parameterName(menu.mode()), parameterText(menu.mode(), menu.parameter()), 184);
+        labelValue(graphics, "Allowed", parameterRange(menu.mode()), 204);
+        labelValue(graphics, "Rigid Input → Output", direction(menu.inputDirection().getName()) + " → " + direction(menu.outputDirection().getName()), 224);
+        int noteY = wrappedText(graphics, behaviorLine(menu.mode()), 16, 248, 620, TEXT);
+        noteY = wrappedText(graphics, "Buttons change configuration only; Route rotates the complete opposite-port axis.", 16, noteY + 4, 620, MUTED);
+        labelValue(graphics, "Transfer model", modelLine(menu.mode(), menu.parameter()).replace("MODEL • ", ""), noteY + 10);
+        wrappedText(graphics, "Transfer math executes on the server tick; this HMI only renders synchronized configuration and evidence.", 16, noteY + 34, 620, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
@@ -94,21 +96,20 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
         labelValue(graphics, "Output quality", qualityName(menu.outputQuality()), 153);
         labelValue(graphics, "Mode / parameter", modeName(menu.mode()) + " • " + parameterText(menu.mode(), menu.parameter()), 169);
         statusLine(graphics, "0..15 boundary", boundaryState(), boundaryColor(), 190);
-        safeText(graphics, "episodes=" + menu.limitingEpisodes()
-                + " • last=" + (menu.lastLimitingAgeTicks() < 0 ? "never" : menu.lastLimitingAgeTicks() + "t ago"),
-                16, 211, menu.limiting() ? WARN : MUTED);
-        safeText(graphics, diagnosticNextAction(), 16, 231, diagnosticColor());
+        labelValue(graphics, "Limiting episodes / last",
+                menu.limitingEpisodes() + " / " + (menu.lastLimitingAgeTicks() < 0 ? "never" : menu.lastLimitingAgeTicks() + "t ago"), 211);
+        wrappedText(graphics, diagnosticNextAction(), 16, 235, 620, diagnosticColor());
     }
 
     private void renderHistory(GuiGraphics graphics) {
         statusBadge(graphics, "LIVE STATE / EXTERNAL HISTORY", INFO, 16, 80);
-        safeText(graphics, "The conditioner exposes the complete current transfer state above.", 16, 108, TEXT);
-        safeText(graphics, "For time history, place Probe / Analyzer / Oscilloscope on the series path.", 16, 127, INFO);
-        sectionRule(graphics, 149);
-        safeText(graphics, "Current state = input + transfer + output + I/O direction + explicit PortQuality.", 16, 162, MUTED);
-        safeText(graphics, "Boundary limiting episodes=" + menu.limitingEpisodes()
-                + " • last=" + (menu.lastLimitingAgeTicks() < 0 ? "never" : menu.lastLimitingAgeTicks() + "t ago"), 16, 186, INFO);
-        safeText(graphics, "A valid zero is data; NO_SIGNAL / STALE / topology evidence remain separate states.", 16, 210, GOOD);
+        int noteY = wrappedText(graphics, "The conditioner exposes the complete current transfer state above.", 16, 108, 620, TEXT);
+        noteY = wrappedText(graphics, "For time history, place Probe / Analyzer / Oscilloscope on the series path.", 16, noteY + 4, 620, INFO);
+        sectionRule(graphics, noteY + 8);
+        noteY = wrappedText(graphics, "Current state = input + transfer + output + rigid I/O axis + explicit PortQuality.", 16, noteY + 20, 620, MUTED);
+        labelValue(graphics, "Boundary limiting episodes / last",
+                menu.limitingEpisodes() + " / " + (menu.lastLimitingAgeTicks() < 0 ? "never" : menu.lastLimitingAgeTicks() + "t ago"), noteY + 8);
+        wrappedText(graphics, "A valid zero is data; NO_SIGNAL / STALE / topology evidence remain separate states.", 16, noteY + 32, 620, GOOD);
     }
 
     private String boundaryState() {
