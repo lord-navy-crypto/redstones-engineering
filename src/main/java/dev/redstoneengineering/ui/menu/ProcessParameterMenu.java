@@ -92,6 +92,7 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
             kind.set(KIND_PWM);
             p0.set(PwmControllerBlock.configuredPeriod(level, blockPos, state));
             p1.set(state.getValue(PwmControllerBlock.INVERT) ? 1 : 0);
+            p2.set(state.getValue(PwmControllerBlock.PERIOD_MODE));
             var a = pwm.assessment(level, blockPos, state);
             liveA.set(a.command()); liveB.set(a.appliedCommand());
             liveC.set(a.effectiveDutyPermille()); liveD.set(a.completedCycles());

@@ -19,10 +19,17 @@ def require(path: str, *tokens: str) -> None:
 
 logic = "src/main/java/dev/redstoneengineering/signal/PwmCarrierLogic.java"
 block = "src/main/java/dev/redstoneengineering/block/PwmControllerBlock.java"
-menu = "src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java"
-screen = "src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java"
+menu = "src/main/java/dev/redstoneengineering/ui/menu/ProcessParameterMenu.java"
+screen = "src/main/java/dev/redstoneengineering/client/ui/ProcessParameterNotebookScreen.java"
 
 require(logic,
+        "MIN_COMMAND = 0",
+        "MAX_COMMAND = 15",
+        "MIN_CONFIGURED_PERIOD_TICKS = 2",
+        "MAX_CONFIGURED_PERIOD_TICKS = 64",
+        "boundedCommand",
+        "boundedConfiguredPeriod",
+        "dutyQuantumPermille",
         "period-boundary command latching",
         "latchedCommand",
         "pendingUpdate",
@@ -34,16 +41,31 @@ require(block,
         "appliedCommand",
         "completedCycles",
         "pendingUpdate",
+        "MIN_LEGACY_PERIOD_MODE = 0",
+        "MAX_LEGACY_PERIOD_MODE = 3",
+        "DEFAULT_LEGACY_PERIOD_MODE = 2",
+        "LEGACY_PERIOD_FAST = 4",
+        "LEGACY_PERIOD_MEDIUM = 8",
+        "LEGACY_PERIOD_DEFAULT = 16",
+        "LEGACY_PERIOD_SLOW = 32",
+        "PwmCarrierLogic.boundedConfiguredPeriod",
+        "CARRIER_TICK_TICKS = 1",
         "resetCarrier")
 require(menu,
-        "assessment.appliedCommand()",
-        "assessment.pendingUpdate()",
-        "assessment.completedCycles()")
+        "a.appliedCommand()",
+        "a.effectiveDutyPermille()",
+        "a.completedCycles()",
+        "p2.set(state.getValue(PwmControllerBlock.PERIOD_MODE))",
+        "PwmControllerBlock.setConfiguredPeriod")
 require(screen,
-        "DUTY UPDATE PENDING",
-        "Command requested / active",
-        "carrier-cycle boundary",
-        "runt pulse")
+        "Command / applied",
+        "Partial-duty commands latch only at phase-0 carrier boundaries",
+        "0%/100% endpoints apply immediately",
+        "PwmCarrierLogic.MIN_CONFIGURED_PERIOD_TICKS",
+        "PwmCarrierLogic.MAX_CONFIGURED_PERIOD_TICKS",
+        "PwmCarrierLogic.dutyQuantumPermille",
+        "PwmControllerBlock.periodFor(menu.p2())",
+        "partial duty updates wait for the next phase-0 boundary")
 
 logic_path = root / logic
 if logic_path.is_file():
@@ -93,6 +115,15 @@ public final class PwmCarrierHarness {
                         && off.state().latchedCommand() == 0 && !off.pendingUpdate(),
                 "0% endpoint must shut down immediately");
 
+        check(PwmCarrierLogic.boundedConfiguredPeriod(1)
+                        == PwmCarrierLogic.MIN_CONFIGURED_PERIOD_TICKS,
+                "configured period lower bound");
+        check(PwmCarrierLogic.boundedConfiguredPeriod(999)
+                        == PwmCarrierLogic.MAX_CONFIGURED_PERIOD_TICKS,
+                "configured period upper bound");
+        check(PwmCarrierLogic.dutyQuantumPermille(8) == 125,
+                "period 8 has 12.5 percent duty quantum");
+
         var full = PwmCarrierLogic.step(15, period, off.state());
         check(full.outputHigh() && full.state().phase() == 0
                         && full.state().latchedCommand() == 15 && !full.pendingUpdate(),
@@ -134,3 +165,5 @@ print(" period-boundary shadow/active duty update: PASS")
 print(" runt-pulse prevention across command changes: PASS")
 print(" immediate 0%/100% endpoints: PASS")
 print(" synchronized active/pending drive state: PASS")
+print(" exact 2..64 period + legacy 4/8/16/32 preset contract: PASS")
+print(" Process Notebook is the verified active PWM HMI: PASS")

@@ -4,6 +4,8 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.signal.CopperCapacitorLogic;
 import dev.redstoneengineering.signal.CopperFuseLogic;
 import dev.redstoneengineering.signal.MechanicalExciterLogic;
+import dev.redstoneengineering.signal.PwmCarrierLogic;
+import dev.redstoneengineering.block.PwmControllerBlock;
 import dev.redstoneengineering.ui.menu.ProcessParameterMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -313,7 +315,9 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
     private String paramValue(int slot,int v){
         return switch(menu.kind()){
             case ProcessParameterMenu.KIND_CONDITIONER -> slot==0?conditionerMode(v):Integer.toString(v);
-            case ProcessParameterMenu.KIND_PWM -> slot==0?v+" ticks":(v!=0?"INVERTED":"NORMAL");
+            case ProcessParameterMenu.KIND_PWM -> slot==0
+                    ? v+" ticks • exact "+PwmCarrierLogic.MIN_CONFIGURED_PERIOD_TICKS+".."+PwmCarrierLogic.MAX_CONFIGURED_PERIOD_TICKS
+                    : (v!=0?"INVERTED":"NORMAL");
             case ProcessParameterMenu.KIND_COPPER_DRIVER -> v+" V-level/tick";
             case ProcessParameterMenu.KIND_CAPACITOR -> slot==0
                     ? v+" ticks • allowed "+CopperCapacitorLogic.MIN_BASE_TAU+".."+CopperCapacitorLogic.MAX_BASE_TAU
@@ -394,7 +398,7 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
     private String model1(){
         return switch(menu.kind()){
             case ProcessParameterMenu.KIND_CONDITIONER -> "Mode-specific transfer function maps Redstone input to bounded 0..15 output.";
-            case ProcessParameterMenu.KIND_PWM -> "onTicks = round((command / 15) × period); output is HIGH while carrier phase < onTicks.";
+            case ProcessParameterMenu.KIND_PWM -> "onTicks=round((command/"+PwmCarrierLogic.MAX_COMMAND+")×T); output HIGH while phase<onTicks. Exact T="+menu.p0()+" ticks.";
             case ProcessParameterMenu.KIND_COPPER_DRIVER -> "V[k+1] = V[k] + clamp(Vtarget − V[k], −Sfall, +Srise).";
             case ProcessParameterMenu.KIND_CAPACITOR -> "q*=100·Vin/15; q[k+1] moves toward q* by max(1, |q*−q|/τ). Current τbase="+menu.p0()+" ticks.";
             case ProcessParameterMenu.KIND_FUSE -> "r=I/Irated; for r>1, ΔH=ceil((r²−1)·50·Kclass); Htrip="+CopperFuseLogic.TRIP_THRESHOLD+". Current Kclass="+String.format(java.util.Locale.ROOT,"%.2f",CopperFuseLogic.timeCurrentClassFactor(menu.p1()))+".";
@@ -410,7 +414,7 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
     private String model2(){
         return switch(menu.kind()){
             case ProcessParameterMenu.KIND_CONDITIONER -> "Input and output quality are separate. Active limiting marks output SATURATED while preserving the upstream input quality.";
-            case ProcessParameterMenu.KIND_PWM -> "Partial-duty commands latch only at carrier-cycle boundaries; 0% and 100% endpoint commands apply immediately. Command, inhibit and output quality remain independent evidence channels.";
+            case ProcessParameterMenu.KIND_PWM -> "Partial-duty commands latch only at phase-0 carrier boundaries; 0%/100% endpoints apply immediately. Duty quantum≈"+String.format(java.util.Locale.ROOT,"%.1f%%",PwmCarrierLogic.dutyQuantumPermille(menu.p0())/10.0)+" per carrier tick. Legacy BlockState preset="+PwmControllerBlock.periodFor(menu.p2())+"t; exact server T may be any "+PwmCarrierLogic.MIN_CONFIGURED_PERIOD_TICKS+".."+PwmCarrierLogic.MAX_CONFIGURED_PERIOD_TICKS+".";
             case ProcessParameterMenu.KIND_COPPER_DRIVER -> "Rise and fall slew are independent. Internal actual voltage can decay after command loss, but the Copper source is released immediately unless input evidence is VALID.";
             case ProcessParameterMenu.KIND_CAPACITOR -> "τcharge=τbase; loaded discharge uses bounded Rload; open circuit uses τopen=τbase×leakage="+menu.p0()+"×"+menu.p1()+"="+(menu.p0()*menu.p1())+" ticks. Incomplete load scans freeze integration.";
             case ProcessParameterMenu.KIND_FUSE -> "FAST/NORMAL/SLOW factors are 1.50/1.00/0.65. Rating/class changes retain thermal exposure; reset is allowed only under complete, safe electrical evidence.";
@@ -503,7 +507,8 @@ public final class ProcessParameterNotebookScreen extends AbstractContainerScree
             case ProcessParameterMenu.KIND_PWM -> new String[]{
                     "Command / applied = "+menu.liveA()+" / "+menu.liveB()+" • effective duty="+String.format("%.1f%%",menu.liveC()/10.0)+".",
                     "Evidence = command "+qualityName(menu.liveE())+" • inhibit "+qualityName(menu.liveF())+" • output "+qualityName(menu.liveG())+".",
-                    "Completed carrier cycles = "+menu.liveD()+"; command/applied differences are retained state, not client interpolation."
+                    "Completed carrier cycles = "+menu.liveD()+" • exact period="+menu.p0()+"t • legacy preset="+PwmControllerBlock.periodFor(menu.p2())+"t.",
+                    "Command/applied differences are retained carrier state, not client interpolation; partial duty updates wait for the next phase-0 boundary."
             };
             case ProcessParameterMenu.KIND_COPPER_DRIVER -> new String[]{
                     "Target / actual / error = "+menu.liveA()+" / "+menu.liveB()+" / "+menu.liveD()+" V-level.",

@@ -222,6 +222,41 @@ require(
 )
 
 require(
+    "src/main/java/dev/redstoneengineering/signal/PwmCarrierLogic.java",
+    "MIN_COMMAND = 0",
+    "MAX_COMMAND = 15",
+    "MIN_CONFIGURED_PERIOD_TICKS = 2",
+    "MAX_CONFIGURED_PERIOD_TICKS = 64",
+    "boundedCommand",
+    "boundedConfiguredPeriod",
+    "dutyQuantumPermille",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/PwmControllerBlock.java",
+    "MIN_LEGACY_PERIOD_MODE = 0",
+    "MAX_LEGACY_PERIOD_MODE = 3",
+    "DEFAULT_LEGACY_PERIOD_MODE = 2",
+    "LEGACY_PERIOD_FAST = 4",
+    "LEGACY_PERIOD_MEDIUM = 8",
+    "LEGACY_PERIOD_DEFAULT = 16",
+    "LEGACY_PERIOD_SLOW = 32",
+    "PwmCarrierLogic.boundedConfiguredPeriod",
+    "CARRIER_TICK_TICKS = 1",
+)
+require(
+    "src/main/java/dev/redstoneengineering/ui/menu/ProcessParameterMenu.java",
+    "p2.set(state.getValue(PwmControllerBlock.PERIOD_MODE))",
+    "PwmControllerBlock.setConfiguredPeriod",
+)
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/ProcessParameterNotebookScreen.java",
+    "PwmCarrierLogic.MIN_CONFIGURED_PERIOD_TICKS",
+    "PwmCarrierLogic.MAX_CONFIGURED_PERIOD_TICKS",
+    "PwmCarrierLogic.dutyQuantumPermille",
+    "PwmControllerBlock.periodFor(menu.p2())",
+)
+
+require(
     "src/main/java/dev/redstoneengineering/signal/MechanicalExciterLogic.java",
     "MIN_AMPLITUDE = 0",
     "MAX_AMPLITUDE = 15",
@@ -628,6 +663,7 @@ print("RSE parameter-contract consistency verification: PASS")
 print(" Precision Filter effective 1..4 slew authority: PASS")
 print(" Pulse Shaper threshold/hysteresis/width authority: PASS")
 print(" Signal Conditioner pure transfer/range authority: PASS")
+print(" PWM exact-period/legacy-preset carrier authority: PASS")
 print(" Mechanical Exciter frequency/rate stored-effective authority: PASS")
 print(" Permanent Magnet single scalar-strength parameter authority: PASS")
 print(" Induction Coil exact/legacy turns + sampled EMF authority: PASS")

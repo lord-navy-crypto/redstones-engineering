@@ -33,7 +33,16 @@ import java.util.List;
 import java.util.Optional;
 
 public class PwmControllerBlock extends DirectionalSignalBlock {
-    public static final IntegerProperty PERIOD_MODE = IntegerProperty.create("period_mode", 0, 3);
+    public static final int MIN_LEGACY_PERIOD_MODE = 0;
+    public static final int MAX_LEGACY_PERIOD_MODE = 3;
+    public static final int DEFAULT_LEGACY_PERIOD_MODE = 2;
+    public static final int LEGACY_PERIOD_FAST = 4;
+    public static final int LEGACY_PERIOD_MEDIUM = 8;
+    public static final int LEGACY_PERIOD_DEFAULT = 16;
+    public static final int LEGACY_PERIOD_SLOW = 32;
+    public static final int CARRIER_TICK_TICKS = 1;
+    public static final IntegerProperty PERIOD_MODE = IntegerProperty.create(
+            "period_mode", MIN_LEGACY_PERIOD_MODE, MAX_LEGACY_PERIOD_MODE);
     public static final BooleanProperty INVERT = BooleanProperty.create("invert");
     private static final String KEY = "redstone_pwm";
     private static final int PHASE_SLOT = 0;
@@ -49,7 +58,9 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
 
     public PwmControllerBlock(Properties properties) {
         super(properties);
-        registerDefaultState(defaultBlockState().setValue(PERIOD_MODE, 2).setValue(INVERT, false));
+        registerDefaultState(defaultBlockState()
+                .setValue(PERIOD_MODE, DEFAULT_LEGACY_PERIOD_MODE)
+                .setValue(INVERT, false));
     }
     @Override public MapCodec<PwmControllerBlock> codec() { return RedstoneEngineering.PWM_CONTROLLER_CODEC.value(); }
     @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
@@ -154,8 +165,8 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
         if (state.getValue(INVERT)) output = output > 0 ? 0 : 15;
         updateOutput(level, pos, state, output);
 
-        if (input > 0 && input < 15) {
-            level.scheduleTick(pos, this, 1);
+        if (input > PwmCarrierLogic.MIN_COMMAND && input < PwmCarrierLogic.MAX_COMMAND) {
+            level.scheduleTick(pos, this, CARRIER_TICK_TICKS);
         }
     }
 
@@ -174,11 +185,12 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
     }
 
     public static int requestedDutyPermille(int command) {
-        return (int) Math.round(Math.max(0, Math.min(15, command)) * (1000.0 / 15.0));
+        return (int) Math.round(PwmCarrierLogic.boundedCommand(command)
+                * (1000.0 / PwmCarrierLogic.MAX_COMMAND));
     }
 
     public static int effectiveDutyPermille(int command, int periodTicks) {
-        int period = Math.max(1, periodTicks);
+        int period = PwmCarrierLogic.boundedConfiguredPeriod(periodTicks);
         return (int) Math.round(quantizedOnTicks(command, period) * (1000.0 / period));
     }
 
@@ -190,8 +202,8 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
     public static int appliedCommand(Level level, BlockPos pos, int fallback) {
         int[] rt = RuntimeIntStore.peek(level, KEY, pos);
         return rt == null || rt.length < RUNTIME_SIZE || rt[INITIALIZED_SLOT] == 0
-                ? Math.max(0, Math.min(15, fallback))
-                : Math.max(0, Math.min(15, rt[LATCHED_COMMAND_SLOT]));
+                ? PwmCarrierLogic.boundedCommand(fallback)
+                : PwmCarrierLogic.boundedCommand(rt[LATCHED_COMMAND_SLOT]);
     }
 
     public static int completedCycles(Level level, BlockPos pos) {
@@ -230,7 +242,9 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
     public boolean adjustPeriodMode(Level level, BlockPos pos, int delta) {
         BlockState state = level.getBlockState(pos);
         if (!state.is(this)) return false;
-        int mode = Math.floorMod(state.getValue(PERIOD_MODE) + delta, 4);
+        int span = MAX_LEGACY_PERIOD_MODE - MIN_LEGACY_PERIOD_MODE + 1;
+        int mode = MIN_LEGACY_PERIOD_MODE + Math.floorMod(
+                state.getValue(PERIOD_MODE) - MIN_LEGACY_PERIOD_MODE + delta, span);
         BlockState next = state.setValue(PERIOD_MODE, mode);
         level.setBlock(pos, next, Block.UPDATE_CLIENTS);
         if (level instanceof ServerLevel serverLevel) {
@@ -239,7 +253,7 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
                     new EngineeringDeviceParameters.ExtendedParameters(periodFor(mode), 0, 0, 0));
         }
         resetCarrier(RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE));
-        level.scheduleTick(pos, this, 1);
+        level.scheduleTick(pos, this, CARRIER_TICK_TICKS);
         return true;
     }
 
@@ -249,7 +263,7 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
         BlockState next = state.setValue(INVERT, !state.getValue(INVERT));
         level.setBlock(pos, next, Block.UPDATE_CLIENTS);
         resetCarrier(RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE));
-        level.scheduleTick(pos, this, 1);
+        level.scheduleTick(pos, this, CARRIER_TICK_TICKS);
         return true;
     }
 
@@ -274,15 +288,23 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
     }
 
     public static int periodFor(int mode) {
-        return switch (mode) { case 0 -> 4; case 1 -> 8; case 2 -> 16; case 3 -> 32; default -> 16; };
+        return switch (mode) {
+            case MIN_LEGACY_PERIOD_MODE -> LEGACY_PERIOD_FAST;
+            case 1 -> LEGACY_PERIOD_MEDIUM;
+            case DEFAULT_LEGACY_PERIOD_MODE -> LEGACY_PERIOD_DEFAULT;
+            case MAX_LEGACY_PERIOD_MODE -> LEGACY_PERIOD_SLOW;
+            default -> LEGACY_PERIOD_DEFAULT;
+        };
     }
 
     public static int configuredPeriod(Level level, BlockPos pos, BlockState state) {
         int fallback = periodFor(state.getValue(PERIOD_MODE));
         if (level instanceof ServerLevel serverLevel) {
-            return Math.max(2, Math.min(64, EngineeringDeviceParameters.get(serverLevel)
-                    .extendedParameters(serverLevel, pos,
-                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
+            return PwmCarrierLogic.boundedConfiguredPeriod(
+                    EngineeringDeviceParameters.get(serverLevel)
+                            .extendedParameters(serverLevel, pos,
+                                    new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0))
+                            .a());
         }
         return fallback;
     }
@@ -290,12 +312,12 @@ public class PwmControllerBlock extends DirectionalSignalBlock {
     public static boolean setConfiguredPeriod(ServerLevel level, BlockPos pos, int period) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof PwmControllerBlock pwm)) return false;
-        int bounded = Math.max(2, Math.min(64, period));
+        int bounded = PwmCarrierLogic.boundedConfiguredPeriod(period);
         boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
                 level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
         if (changed) {
             resetCarrier(RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE));
-            level.scheduleTick(pos, pwm, 1);
+            level.scheduleTick(pos, pwm, CARRIER_TICK_TICKS);
         }
         return changed;
     }
