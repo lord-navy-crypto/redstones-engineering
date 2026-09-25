@@ -307,6 +307,10 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         if (menu instanceof QuartzTimingMenu quartz) {
             return quartz.kind() == QuartzTimingMenu.KIND_DIVIDER || quartz.kind() == QuartzTimingMenu.KIND_DELAY;
         }
+        if (menu instanceof PneumaticSystemMenu pneumatic) {
+            return pneumatic.kind() == PneumaticSystemMenu.KIND_REGULATOR
+                    || pneumatic.kind() == PneumaticSystemMenu.KIND_PROPORTIONAL;
+        }
         return menu instanceof MagneticSystemMenu magnetic && magnetic.kind() == MagneticSystemMenu.KIND_COIL;
     }
 
