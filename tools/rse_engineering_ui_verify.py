@@ -138,9 +138,17 @@ require("src/main/java/dev/redstoneengineering/ui/menu/DigitalCommunicationMenu.
 
 # Newly audited specialized device HMIs must expose true endpoint authority where physically valid.
 require("src/main/java/dev/redstoneengineering/ui/menu/SignalProcessorMenu.java",
-        "BUTTON_INPUT_LEFT", "BUTTON_OUTPUT_RIGHT", "DirectionalSignalBlock.rotateSeriesInput", "DirectionalSignalBlock.rotateSeriesOutput")
+        "BUTTON_INPUT_LEFT", "BUTTON_OUTPUT_RIGHT", "DirectionalSignalBlock.rotateRigidSeriesAxis")
+signal_processor_menu = read("src/main/java/dev/redstoneengineering/ui/menu/SignalProcessorMenu.java")
+for stale in ("DirectionalSignalBlock.rotateSeriesInput", "DirectionalSignalBlock.rotateSeriesOutput", "DirectionalSignalBlock.rotateWholeRoute"):
+    if stale in signal_processor_menu:
+        errors.append(f"SignalProcessorMenu rigid series route regressed via {stale!r}")
 require("src/main/java/dev/redstoneengineering/ui/menu/SignalConditionerMenu.java",
-        "BUTTON_INPUT_LEFT", "BUTTON_OUTPUT_RIGHT", "DirectionalSignalBlock.rotateSeriesInput", "DirectionalSignalBlock.rotateSeriesOutput")
+        "BUTTON_INPUT_LEFT", "BUTTON_OUTPUT_RIGHT", "DirectionalSignalBlock.rotateRigidSeriesAxis")
+signal_conditioner_menu = read("src/main/java/dev/redstoneengineering/ui/menu/SignalConditionerMenu.java")
+for stale in ("DirectionalSignalBlock.rotateSeriesInput", "DirectionalSignalBlock.rotateSeriesOutput", "DirectionalSignalBlock.rotateWholeRoute"):
+    if stale in signal_conditioner_menu:
+        errors.append(f"SignalConditionerMenu rigid series route regressed via {stale!r}")
 require("src/main/java/dev/redstoneengineering/ui/menu/QuartzTimingMenu.java",
         "BUTTON_INPUT_LEFT", "BUTTON_OUTPUT_RIGHT", "DirectionalDomainBlock.rotateSeriesInput", "DirectionalDomainBlock.rotateRigidSeriesAxis")
 quartz_menu = read("src/main/java/dev/redstoneengineering/ui/menu/QuartzTimingMenu.java")
@@ -250,7 +258,11 @@ if 'int noteY = wrappedText(g,' not in universal:
     errors.append("UniversalFieldDeviceScreen is missing flow-aware wrapped paragraph layout")
 
 screen = read("src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java")
-for token in ("PneumaticSystemMenu.KIND_REGULATOR", "PneumaticSystemMenu.KIND_PROPORTIONAL"):
+for token in (
+    "PneumaticSystemMenu.KIND_REGULATOR",
+    "PneumaticSystemMenu.KIND_PROPORTIONAL",
+    "menu instanceof SignalProcessorMenu || menu instanceof SignalConditionerMenu",
+):
     if token not in screen:
         errors.append(f"EngineeringScreen rigid-route classifier missing {token}")
 for forbidden in ("sharedRotateCcw", "sharedRotateCw", '"SIGNAL ROUTE"', "drawFaceMatrix(", "ROUTE_CONTROL_Y = 160"):
