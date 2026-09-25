@@ -63,6 +63,8 @@ for token in (
 require(screen, "COPPER POWER / LOAD NETWORK", "Copper medium identity")
 require(screen, "SERVER-SYNCHRONIZED OBSERVER", "observer authority")
 require(screen, "V, Req, I and P", "electrical telemetry explanation")
+require(screen, "I = V / Req", "server current-law presentation")
+require(screen, "P = V·I", "server power-law presentation")
 require(screen, "commissioningStatus()", "commissioning presentation")
 for token in (
     "METROLOGY + COMMISSIONING EVIDENCE",
@@ -150,7 +152,7 @@ if errors:
     raise SystemExit(1)
 
 print("RSE Copper HMI verification: PASS")
-print("  server-authoritative V/Req/I/P evidence: PASS")
+print("  server-authoritative V/Req/I/P evidence + displayed Ohm-law relations: PASS")
 print("  dedicated power/load identity: PASS")
 print("  commissioning synchronization: PASS")
 print("  retained server metrology synchronization/presentation: PASS")
