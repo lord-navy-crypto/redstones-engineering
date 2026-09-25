@@ -27,6 +27,7 @@ if not failed:
         "ElectromagnetBlock.runTicks",
         "InductionCoilBlock.configuredTurns",
         "InductionCoilBlock.setConfiguredTurns",
+        "engineeringB.set(state.getValue(InductionCoilBlock.TURNS))",
         "BUTTON_SECONDARY_PREVIOUS",
         "BUTTON_SECONDARY_NEXT",
         "BUTTON_TERTIARY_PREVIOUS",
@@ -46,6 +47,15 @@ if not failed:
         "Target / actual",
         "Thermal load",
         "Run ticks",
+        "Exact turns N",
+        "Allowed exact N",
+        "Legacy preset",
+        "Sample model",
+        "InductionCoilBlock.MIN_CONFIGURED_TURNS",
+        "InductionCoilBlock.MAX_CONFIGURED_TURNS",
+        "InductionCoilBlock.MIN_LEGACY_TURNS",
+        "InductionCoilBlock.MAX_LEGACY_TURNS",
+        "InductionCoilBlock.SAMPLE_TICKS",
         "Changing turns invalidates the old derivative baseline",
         "rigid opposite INPUT/OUTPUT axis",
         "Field response",
@@ -84,7 +94,8 @@ if failed:
 print("RSE Magnetic HMI dispatch verification: PASS")
 print(" electromagnet exact rise/fall/cooling controls: PASS")
 print(" electromagnet target/thermal/tracking/run evidence: PASS")
-print(" induction coil exact 1..16 turns control: PASS")
+print(" induction coil exact 1..16 turns + legacy 1..4 preset contract: PASS")
+print(" induction coil 2-tick sampled EMF model is explicit in HMI: PASS")
 print(" derivative-baseline invalidation remains server-owned: PASS")
 print(" induction coil rigid opposite-port topology remains on shared Route page: PASS")
 print(" normal right-click reaches dedicated Magnetic HMI: PASS")

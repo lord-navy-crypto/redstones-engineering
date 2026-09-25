@@ -222,6 +222,38 @@ require(
 )
 
 require(
+    "src/main/java/dev/redstoneengineering/block/InductionCoilBlock.java",
+    "MIN_LEGACY_TURNS = 1",
+    "MAX_LEGACY_TURNS = 4",
+    "DEFAULT_LEGACY_TURNS = 2",
+    "MIN_CONFIGURED_TURNS = 1",
+    "MAX_CONFIGURED_TURNS = 16",
+    "FIELD_RADIUS = 6",
+    "SAMPLE_TICKS = 2",
+    "MAX_EMF = 15",
+    "boundedConfiguredTurns",
+    "boundedLegacyTurns",
+)
+require(
+    "src/main/java/dev/redstoneengineering/ui/menu/MagneticSystemMenu.java",
+    "InductionCoilBlock.configuredTurns",
+    "engineeringB.set(state.getValue(InductionCoilBlock.TURNS))",
+    "DirectionalDomainBlock.rotateRigidSeriesAxis",
+)
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/MagneticSystemScreen.java",
+    "InductionCoilBlock.MIN_CONFIGURED_TURNS",
+    "InductionCoilBlock.MAX_CONFIGURED_TURNS",
+    "InductionCoilBlock.MIN_LEGACY_TURNS",
+    "InductionCoilBlock.MAX_LEGACY_TURNS",
+    "InductionCoilBlock.FIELD_RADIUS",
+    "InductionCoilBlock.SAMPLE_TICKS",
+    "InductionCoilBlock.MAX_EMF",
+    "Exact turns N",
+    "Legacy preset",
+)
+
+require(
     "src/main/java/dev/redstoneengineering/signal/ElectromagnetLogic.java",
     "MIN_FIELD = 0",
     "MAX_FIELD = 15",
@@ -533,6 +565,7 @@ print("RSE parameter-contract consistency verification: PASS")
 print(" Precision Filter effective 1..4 slew authority: PASS")
 print(" Pulse Shaper threshold/hysteresis/width authority: PASS")
 print(" Signal Conditioner pure transfer/range authority: PASS")
+print(" Induction Coil exact/legacy turns + sampled EMF authority: PASS")
 print(" Electromagnet response/cooling/thermal pure parameter authority: PASS")
 print(" Copper Fuse rating/class/I2t parameter authority: PASS")
 print(" Copper Capacitor baseTau/leakage + rigid axial route authority: PASS")

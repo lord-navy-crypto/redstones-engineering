@@ -34,9 +34,17 @@ import java.util.List;
 import java.util.Optional;
 
 public class InductionCoilBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
-    public static final IntegerProperty TURNS = IntegerProperty.create("turns", 1, 4);
+    public static final int MIN_LEGACY_TURNS = 1;
+    public static final int MAX_LEGACY_TURNS = 4;
+    public static final int DEFAULT_LEGACY_TURNS = 2;
+    public static final int MIN_CONFIGURED_TURNS = 1;
+    public static final int MAX_CONFIGURED_TURNS = 16;
+    public static final int FIELD_RADIUS = 6;
+    public static final int SAMPLE_TICKS = 2;
+    public static final int MAX_EMF = 15;
+    public static final IntegerProperty TURNS =
+            IntegerProperty.create("turns", MIN_LEGACY_TURNS, MAX_LEGACY_TURNS);
     private static final String KEY = "induction_coil";
-    private static final int RADIUS = 6;
     private static final int PREVIOUS_FLUX = 0;
     private static final int EMF = 1;
     private static final int BASELINE_VALID = 2;
@@ -44,7 +52,7 @@ public class InductionCoilBlock extends DirectionalDomainBlock implements Engine
 
     public InductionCoilBlock(Properties p) {
         super(p);
-        registerDefaultState(defaultBlockState().setValue(TURNS, 2));
+        registerDefaultState(defaultBlockState().setValue(TURNS, DEFAULT_LEGACY_TURNS));
     }
 
     @Override public MapCodec<InductionCoilBlock> codec() { return RedstoneEngineering.INDUCTION_COIL_CODEC.value(); }
@@ -64,21 +72,29 @@ public class InductionCoilBlock extends DirectionalDomainBlock implements Engine
         Optional<EngineeringPort> descriptor = engineeringPort(state, side);
         if (descriptor.isEmpty()) return Optional.empty();
         if (side == inputSide(state)) {
-            MagneticPhysics.FieldSample sample = MagneticPhysics.fieldSample(level, pos, RADIUS);
+            MagneticPhysics.FieldSample sample = MagneticPhysics.fieldSample(level, pos, FIELD_RADIUS);
             return Optional.of(new EngineeringPortSnapshot(
-                    descriptor.get(), sample.field(), 0.0, 15.0,
+                    descriptor.get(), sample.field(), 0.0, MAX_EMF,
                     sample.complete() ? PortQuality.VALID : PortQuality.STALE));
         }
         return Optional.of(new EngineeringPortSnapshot(
-                descriptor.get(), outputVoltage(level, pos), 0.0, 15.0, outputQuality(level, pos)));
+                descriptor.get(), outputVoltage(level, pos), 0.0, MAX_EMF, outputQuality(level, pos)));
+    }
+
+    public static int boundedConfiguredTurns(int turns) {
+        return Math.max(MIN_CONFIGURED_TURNS, Math.min(MAX_CONFIGURED_TURNS, turns));
+    }
+
+    public static int boundedLegacyTurns(int turns) {
+        return Math.max(MIN_LEGACY_TURNS, Math.min(MAX_LEGACY_TURNS, turns));
     }
 
     public static int configuredTurns(Level level, BlockPos pos, BlockState state) {
-        int fallback = state.getValue(TURNS);
+        int fallback = boundedLegacyTurns(state.getValue(TURNS));
         if (level instanceof ServerLevel serverLevel) {
-            return Math.max(1, Math.min(16, EngineeringDeviceParameters.get(serverLevel)
+            return boundedConfiguredTurns(EngineeringDeviceParameters.get(serverLevel)
                     .extendedParameters(serverLevel, pos,
-                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
+                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a());
         }
         return fallback;
     }
@@ -86,7 +102,7 @@ public class InductionCoilBlock extends DirectionalDomainBlock implements Engine
     public static boolean setConfiguredTurns(ServerLevel level, BlockPos pos, int turns) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof InductionCoilBlock coil)) return false;
-        int bounded = Math.max(1, Math.min(16, turns));
+        int bounded = boundedConfiguredTurns(turns);
         boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
                 level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
         if (changed) {
@@ -101,12 +117,12 @@ public class InductionCoilBlock extends DirectionalDomainBlock implements Engine
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
         super.onPlace(state, level, pos, oldState, moved);
         if (!level.isClientSide) {
-            MagneticPhysics.FieldSample sample = MagneticPhysics.fieldSample(level, pos, RADIUS);
+            MagneticPhysics.FieldSample sample = MagneticPhysics.fieldSample(level, pos, FIELD_RADIUS);
             int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
             runtime[PREVIOUS_FLUX] = sample.field();
             runtime[EMF] = 0;
             runtime[BASELINE_VALID] = sample.complete() ? 1 : 0;
-            level.scheduleTick(pos, this, 2);
+            level.scheduleTick(pos, this, SAMPLE_TICKS);
         }
     }
 
@@ -125,13 +141,14 @@ public class InductionCoilBlock extends DirectionalDomainBlock implements Engine
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
-        MagneticPhysics.FieldSample sample = MagneticPhysics.fieldSample(level, pos, RADIUS);
+        MagneticPhysics.FieldSample sample = MagneticPhysics.fieldSample(level, pos, FIELD_RADIUS);
         int emf = 0;
 
         if (sample.complete()) {
             if (runtime[BASELINE_VALID] != 0) {
                 int delta = Math.abs(sample.field() - runtime[PREVIOUS_FLUX]);
-                emf = EngineeringMath.clamp(delta * configuredTurns(level, pos, state), 0, 15);
+                emf = EngineeringMath.clamp(
+                        delta * configuredTurns(level, pos, state), 0, MAX_EMF);
             }
             runtime[PREVIOUS_FLUX] = sample.field();
             runtime[BASELINE_VALID] = 1;
@@ -146,7 +163,7 @@ public class InductionCoilBlock extends DirectionalDomainBlock implements Engine
         // when ΔΦ=0 and the induced voltage is exactly 0 V. Incomplete coverage is
         // unknown evidence, so release the Copper driver instead of publishing 0 V.
         DomainNetwork.driveCopper(level, outputPos(pos, state), pos, emf, runtime[BASELINE_VALID] != 0);
-        level.scheduleTick(pos, this, 2);
+        level.scheduleTick(pos, this, SAMPLE_TICKS);
     }
 
     public static int outputVoltage(Level level, BlockPos pos) {
@@ -165,8 +182,8 @@ public class InductionCoilBlock extends DirectionalDomainBlock implements Engine
     public static int cycleTurns(ServerLevel level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof InductionCoilBlock coil)) return 0;
-        int turns = state.getValue(TURNS);
-        turns = turns >= 4 ? 1 : turns + 1;
+        int turns = boundedLegacyTurns(state.getValue(TURNS));
+        turns = turns >= MAX_LEGACY_TURNS ? MIN_LEGACY_TURNS : turns + 1;
         BlockState nextState = state.setValue(TURNS, turns);
         level.setBlock(pos, nextState, Block.UPDATE_CLIENTS);
         EngineeringDeviceParameters.get(level).setExtendedParameters(
@@ -190,7 +207,7 @@ public class InductionCoilBlock extends DirectionalDomainBlock implements Engine
             player.displayClientMessage(Component.literal(
                     "Induction coil | turns-index=" + turns
                             + " | |emf| ∝ N·|ΔΦ/Δt|"
-                            + " | current emf=" + emf + "/15"
+                            + " | current emf=" + emf + "/" + MAX_EMF
                             + " | " + (valid ? "VALID" : "STALE COVERAGE")), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);

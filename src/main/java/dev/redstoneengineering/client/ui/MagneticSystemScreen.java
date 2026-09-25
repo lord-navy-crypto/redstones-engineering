@@ -1,6 +1,7 @@
 package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.block.InductionCoilBlock;
 import dev.redstoneengineering.signal.ElectromagnetLogic;
 import dev.redstoneengineering.ui.menu.MagneticSystemMenu;
 import net.minecraft.client.gui.GuiGraphics;
@@ -147,9 +148,17 @@ public final class MagneticSystemScreen extends EngineeringScreen<MagneticSystem
             wrappedText(g,"North-marker orientation is controlled only on Route.",16,199,620,MUTED);
         }
         else if(menu.kind()==MagneticSystemMenu.KIND_COIL){
-            labelValue(g,"Turns",Integer.toString(menu.tertiary()),101);
-            labelValue(g,"I/O axis",face(menu.facing().getOpposite())+" → "+face(menu.facing()),171);
-            wrappedText(g,"Changing turns invalidates the old derivative baseline. The induction coil uses one rigid opposite INPUT/OUTPUT axis; Route rotates the whole converter rather than bending endpoints independently.",16,199,620,MUTED);
+            labelValue(g,"Exact turns N",Integer.toString(menu.engineeringA()),101);
+            labelValue(g,"Allowed exact N",
+                    InductionCoilBlock.MIN_CONFIGURED_TURNS+".."+InductionCoilBlock.MAX_CONFIGURED_TURNS,171);
+            labelValue(g,"Legacy preset",
+                    menu.engineeringB()+" • BlockState "+InductionCoilBlock.MIN_LEGACY_TURNS+".."+InductionCoilBlock.MAX_LEGACY_TURNS,191);
+            labelValue(g,"Sampling",
+                    "radius="+InductionCoilBlock.FIELD_RADIUS+" blocks • every "+InductionCoilBlock.SAMPLE_TICKS+" ticks",211);
+            labelValue(g,"Sample model",
+                    "|EMF|=clamp(|B[k]-B[k-1]|×N,0.."+InductionCoilBlock.MAX_EMF+")",231);
+            labelValue(g,"I/O axis",face(menu.facing().getOpposite())+" → "+face(menu.facing()),251);
+            wrappedText(g,"The dedicated HMI edits exact N=1..16 in server parameters. The 1..4 BlockState value is a legacy preset used only by the Shift-click compatibility action. Any exact-turn change releases the old Copper output and invalidates the derivative baseline before reacquisition. The converter stays on one rigid opposite INPUT/OUTPUT axis.",16,275,620,MUTED);
         }
         else {labelValue(g,"Configuration","READ ONLY / PHYSICS-DRIVEN",101);labelValue(g,"Network authority",observerOrActuator(),171);}
     }
@@ -159,7 +168,7 @@ public final class MagneticSystemScreen extends EngineeringScreen<MagneticSystem
         labelValue(g,"Device role",role(),106);
         if(menu.kind()==MagneticSystemMenu.KIND_GRADIENT){labelValue(g,"Gradient X / Y / Z",menu.primary()+" / "+menu.secondary()+" / "+menu.tertiary(),126);labelValue(g,"Local field",Integer.toString(menu.auxiliary()),146);labelValue(g,"Coverage",menu.complete()?"COMPLETE":"INCOMPLETE",166);}
         else if(menu.kind()==MagneticSystemMenu.KIND_FIELD_SENSOR){labelValue(g,"Field",Integer.toString(menu.primary()),126);labelValue(g,"Coverage",menu.secondary()+" / "+menu.tertiary(),146);labelValue(g,"Validity",menu.complete()?"VALID":"STALE",166);}
-        else if(menu.kind()==MagneticSystemMenu.KIND_COIL){labelValue(g,"Field / EMF",menu.primary()+" / "+menu.secondary(),126);labelValue(g,"Turns",Integer.toString(menu.tertiary()),146);labelValue(g,"Output validity",qualityName(),166);}
+        else if(menu.kind()==MagneticSystemMenu.KIND_COIL){labelValue(g,"Field / EMF",menu.primary()+" / "+menu.secondary(),126);labelValue(g,"Exact / legacy turns",menu.engineeringA()+" / "+menu.engineeringB(),146);labelValue(g,"Sample cadence",InductionCoilBlock.SAMPLE_TICKS+" ticks",166);labelValue(g,"Output validity",qualityName(),186);}
         else if(menu.kind()==MagneticSystemMenu.KIND_ELECTROMAGNET){labelValue(g,"Input V / feeds",menu.secondary()+" / "+menu.tertiary(),126);labelValue(g,"Target / actual / error",menu.auxiliary()+" / "+menu.primary()+" / "+menu.runtimeA(),146);labelValue(g,"Thermal load",menu.extra()+" / "+ElectromagnetLogic.MAX_THERMAL_LOAD,166);labelValue(g,"Response R/F/C",menu.engineeringA()+" / "+menu.engineeringB()+" / "+menu.engineeringC(),184);}
         else {labelValue(g,"Primary field",Integer.toString(menu.primary()),126);labelValue(g,"Evidence",qualityName(),146);}
         statusLine(g,"Authority","SERVER SYNCHRONIZED",GOOD,198);
@@ -168,7 +177,7 @@ public final class MagneticSystemScreen extends EngineeringScreen<MagneticSystem
     private void history(GuiGraphics g) {
         statusBadge(g,"MAGNETIC EVIDENCE",INFO,16,80);
         wrappedText(g,"This HMI exposes current/retained server observations; it does not fabricate field history.",16,108,620,TEXT);
-        if(menu.kind()==MagneticSystemMenu.KIND_COIL){labelValue(g,"Current induced EMF",menu.secondary()+" / 15",136);labelValue(g,"Turns",Integer.toString(menu.tertiary()),156);labelValue(g,"Derivative baseline",menu.complete()?"VALID":"STALE / RE-ARM",176);}
+        if(menu.kind()==MagneticSystemMenu.KIND_COIL){labelValue(g,"Current induced EMF",menu.secondary()+" / "+InductionCoilBlock.MAX_EMF,136);labelValue(g,"Exact turns",Integer.toString(menu.engineeringA()),156);labelValue(g,"Legacy preset",Integer.toString(menu.engineeringB()),176);labelValue(g,"Derivative baseline",menu.complete()?"VALID":"STALE / RE-ARM",196);}
         else if(menu.kind()==MagneticSystemMenu.KIND_ELECTROMAGNET){labelValue(g,"Run ticks",Integer.toString(menu.runtimeB()),136);labelValue(g,"Thermal load",menu.extra()+" / "+ElectromagnetLogic.MAX_THERMAL_LOAD,156);labelValue(g,"Tracking error",Integer.toString(menu.runtimeA()),176);wrappedText(g,"Thermal and run evidence are server-retained runtime state; the HMI does not integrate a second coil model.",16,198,620,MUTED);}
         else if(menu.kind()==MagneticSystemMenu.KIND_FIELD_SENSOR){labelValue(g,"Coverage",menu.secondary()+" / "+menu.tertiary(),136);}
     }

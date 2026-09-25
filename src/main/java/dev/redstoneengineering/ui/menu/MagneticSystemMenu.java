@@ -106,6 +106,7 @@ public final class MagneticSystemMenu extends EngineeringDeviceMenu {
             secondary.set(InductionCoilBlock.outputVoltage(level, blockPos));
             tertiary.set(InductionCoilBlock.configuredTurns(level, blockPos, state));
             engineeringA.set(InductionCoilBlock.configuredTurns(level, blockPos, state));
+            engineeringB.set(state.getValue(InductionCoilBlock.TURNS));
             PortQuality q = InductionCoilBlock.outputQuality(level, blockPos);
             quality.set(q.ordinal());
             complete.set(q == PortQuality.VALID ? 1 : 0);
