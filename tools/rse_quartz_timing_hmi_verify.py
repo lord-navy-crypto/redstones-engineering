@@ -102,6 +102,9 @@ if not failed:
         "Every captured rising edge owns its own countdown",
         "inputDirection()",
         "outputDirection()",
+        "wrappedText(g, topologyHint(), 16, 199, 760, MUTED)",
+        "straight-through timing device",
+        "rigid series axis",
     ):
         if token not in screen:
             failed.append(f"QuartzTimingScreen missing engineering evidence/model token: {token}")
@@ -116,6 +119,21 @@ if not failed:
 
     if "quartz.hasInputEndpoint() || quartz.hasOutputEndpoint()" not in shared:
         failed.append("EngineeringScreen does not derive quartz routing availability from declared endpoints")
+
+    for token in (
+        "DirectionalDomainBlock.rotateRigidSeriesAxis(level, blockPos, clockwise)",
+        "block instanceof QuartzClockDividerBlock || block instanceof QuartzPhaseDelayBlock",
+        "Legacy RX/TX button IDs are retained",
+    ):
+        if token not in menu:
+            failed.append(f"QuartzTimingMenu missing rigid series-route contract token: {token}")
+
+    route_window = menu[menu.find("if (block instanceof QuartzStabilityMonitorBlock"):menu.find("if (changed) {", menu.find("if (block instanceof QuartzStabilityMonitorBlock"))]
+    if "rotateSeriesOutput(level, blockPos" in route_window or "rotateWholeRoute(level, blockPos" in route_window:
+        failed.append("QuartzTimingMenu reintroduced independently bendable or non-rigid routing for straight-through timing devices")
+
+    if screen.count("safeText(g,") > 0:
+        failed.append("QuartzTimingScreen still uses single-line safeText for narrative content; use wrappedText for paragraph-style explanations")
 
 if failed:
     print("RSE quartz timing HMI verification: FAIL")
