@@ -2,7 +2,6 @@ package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.block.ServoActuatorBlock;
 import dev.redstoneengineering.core.port.PortQuality;
-import dev.redstoneengineering.physics.EngineeringDeviceParameters;
 import dev.redstoneengineering.ui.menu.ServoActuatorMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -283,16 +282,16 @@ public final class ServoActuatorNotebookScreen extends AbstractContainerScreen<S
 
         parameter(g, "Maximum speed",
                 menu.maxSpeed() + " position units / control cycle • allowed "
-                        + EngineeringDeviceParameters.ServoParameters.MIN_SPEED_LIMIT + ".."
-                        + EngineeringDeviceParameters.ServoParameters.MAX_SPEED_LIMIT, CONTENT_TOP + 76);
+                        + ServoActuatorBlock.MIN_SPEED_LIMIT + ".."
+                        + ServoActuatorBlock.MAX_SPEED_LIMIT, CONTENT_TOP + 76);
         parameter(g, "Acceleration period",
                 menu.accelerationPeriod() + " cycles • allowed "
-                        + EngineeringDeviceParameters.ServoParameters.MIN_ACCELERATION_PERIOD + ".."
-                        + EngineeringDeviceParameters.ServoParameters.MAX_ACCELERATION_PERIOD, CONTENT_TOP + 132);
+                        + ServoActuatorBlock.MIN_ACCELERATION_PERIOD + ".."
+                        + ServoActuatorBlock.MAX_ACCELERATION_PERIOD, CONTENT_TOP + 132);
         parameter(g, "Acceleration step",
                 menu.accelerationStep() + " velocity units / update • allowed "
-                        + EngineeringDeviceParameters.ServoParameters.MIN_ACCELERATION_STEP + ".."
-                        + EngineeringDeviceParameters.ServoParameters.MAX_ACCELERATION_STEP, CONTENT_TOP + 188);
+                        + ServoActuatorBlock.MIN_ACCELERATION_STEP + ".."
+                        + ServoActuatorBlock.MAX_ACCELERATION_STEP, CONTENT_TOP + 188);
 
         parameter(g, "Control cycle",
                 ServoActuatorBlock.CONTROL_CYCLE_TICKS + " game ticks", CONTENT_TOP + 250);
