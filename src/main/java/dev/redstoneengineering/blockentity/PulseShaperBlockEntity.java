@@ -1,6 +1,7 @@
 package dev.redstoneengineering.blockentity;
 
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.signal.PulseShaperLogic;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -30,15 +31,16 @@ public final class PulseShaperBlockEntity extends BlockEntity {
     }
 
     public void setThreshold(int value) {
-        int next = Math.max(1, Math.min(15, value));
+        int next = PulseShaperLogic.boundedThreshold(value);
         if (threshold == next) return;
         threshold = next;
         setChanged();
     }
 
     public int stepThreshold(boolean forward) {
-        int next = forward ? (threshold >= 15 ? 1 : threshold + 1)
-                : (threshold <= 1 ? 15 : threshold - 1);
+        int next = forward
+                ? (threshold >= PulseShaperLogic.MAX_THRESHOLD ? PulseShaperLogic.MIN_THRESHOLD : threshold + 1)
+                : (threshold <= PulseShaperLogic.MIN_THRESHOLD ? PulseShaperLogic.MAX_THRESHOLD : threshold - 1);
         setThreshold(next);
         return threshold;
     }
@@ -48,15 +50,16 @@ public final class PulseShaperBlockEntity extends BlockEntity {
     }
 
     public void setHysteresis(int value) {
-        int next = Math.max(1, Math.min(4, value));
+        int next = PulseShaperLogic.boundedHysteresis(value);
         if (hysteresis == next) return;
         hysteresis = next;
         setChanged();
     }
 
     public int stepHysteresis(boolean forward) {
-        int next = forward ? (hysteresis >= 4 ? 1 : hysteresis + 1)
-                : (hysteresis <= 1 ? 4 : hysteresis - 1);
+        int next = forward
+                ? (hysteresis >= PulseShaperLogic.MAX_HYSTERESIS ? PulseShaperLogic.MIN_HYSTERESIS : hysteresis + 1)
+                : (hysteresis <= PulseShaperLogic.MIN_HYSTERESIS ? PulseShaperLogic.MAX_HYSTERESIS : hysteresis - 1);
         setHysteresis(next);
         return hysteresis;
     }
@@ -93,8 +96,10 @@ public final class PulseShaperBlockEntity extends BlockEntity {
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
-        threshold = Math.max(1, Math.min(15, tag.contains("threshold") ? tag.getInt("threshold") : 1));
-        hysteresis = Math.max(1, Math.min(4, tag.contains("hysteresis") ? tag.getInt("hysteresis") : 1));
+        threshold = PulseShaperLogic.boundedThreshold(
+                tag.contains("threshold") ? tag.getInt("threshold") : PulseShaperLogic.MIN_THRESHOLD);
+        hysteresis = PulseShaperLogic.boundedHysteresis(
+                tag.contains("hysteresis") ? tag.getInt("hysteresis") : PulseShaperLogic.MIN_HYSTERESIS);
         acceptedTriggerCount = Math.max(0, tag.getInt("acceptedTriggerCount"));
         suppressedTriggerCount = Math.max(0, tag.getInt("suppressedTriggerCount"));
         lastTriggerTick = tag.contains("lastTriggerTick") ? tag.getLong("lastTriggerTick") : -1L;

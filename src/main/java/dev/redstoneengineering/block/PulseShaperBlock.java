@@ -192,9 +192,9 @@ public class PulseShaperBlock extends DirectionalSignalBlock implements EntityBl
     public static int configuredWidth(Level level, BlockPos pos, BlockState state) {
         int fallback = state.getValue(WIDTH);
         if (level instanceof ServerLevel serverLevel) {
-            return Math.max(1, Math.min(32, EngineeringDeviceParameters.get(serverLevel)
+            return PulseShaperLogic.boundedWidth(EngineeringDeviceParameters.get(serverLevel)
                     .extendedParameters(serverLevel, pos,
-                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
+                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a());
         }
         return fallback;
     }
@@ -202,7 +202,7 @@ public class PulseShaperBlock extends DirectionalSignalBlock implements EntityBl
     public static boolean setConfiguredWidth(ServerLevel level, BlockPos pos, int width) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof PulseShaperBlock shaper)) return false;
-        int bounded = Math.max(1, Math.min(32, width));
+        int bounded = PulseShaperLogic.boundedWidth(width);
         boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
                 level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
         if (changed) level.scheduleTick(pos, shaper, 1);
@@ -243,7 +243,9 @@ public class PulseShaperBlock extends DirectionalSignalBlock implements EntityBl
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof PulseShaperBlock shaper)) return false;
         int width = state.getValue(WIDTH);
-        int nextWidth = forward ? (width >= 8 ? 1 : width + 1) : (width <= 1 ? 8 : width - 1);
+        int nextWidth = forward
+                ? (width >= PulseShaperLogic.MAX_WIDTH ? PulseShaperLogic.MIN_WIDTH : width + 1)
+                : (width <= PulseShaperLogic.MIN_WIDTH ? PulseShaperLogic.MAX_WIDTH : width - 1);
         BlockState nextState = state.setValue(WIDTH, nextWidth);
         level.setBlock(pos, nextState, Block.UPDATE_CLIENTS);
         if (level instanceof ServerLevel serverLevel) {

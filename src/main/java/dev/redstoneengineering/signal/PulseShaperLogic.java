@@ -2,6 +2,25 @@ package dev.redstoneengineering.signal;
 
 /** Pure monostable pulse-conditioning logic shared by the block runtime and semantic verification. */
 public final class PulseShaperLogic {
+    public static final int MIN_THRESHOLD = 1;
+    public static final int MAX_THRESHOLD = 15;
+    public static final int MIN_HYSTERESIS = 1;
+    public static final int MAX_HYSTERESIS = 4;
+    public static final int MIN_WIDTH = 1;
+    public static final int MAX_WIDTH = 8;
+
+    public static int boundedThreshold(int value) {
+        return Math.max(MIN_THRESHOLD, Math.min(MAX_THRESHOLD, value));
+    }
+
+    public static int boundedHysteresis(int value) {
+        return Math.max(MIN_HYSTERESIS, Math.min(MAX_HYSTERESIS, value));
+    }
+
+    public static int boundedWidth(int value) {
+        return Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, value));
+    }
+
     public record State(boolean initialized, boolean lastAboveThreshold, int remainingTicks) {
         public State {
             remainingTicks = Math.max(0, remainingTicks);
@@ -35,9 +54,9 @@ public final class PulseShaperLogic {
             State previous
     ) {
         int boundedInput = Math.max(0, Math.min(15, input));
-        int boundedThreshold = Math.max(1, Math.min(15, threshold));
-        int boundedHysteresis = Math.max(1, Math.min(4, hysteresis));
-        int boundedWidth = Math.max(1, Math.min(8, widthTicks));
+        int boundedThreshold = boundedThreshold(threshold);
+        int boundedHysteresis = boundedHysteresis(hysteresis);
+        int boundedWidth = boundedWidth(widthTicks);
 
         if (previous == null || !previous.initialized()) {
             boolean above = boundedInput >= boundedThreshold;
@@ -66,8 +85,8 @@ public final class PulseShaperLogic {
     }
 
     public static int rearmThreshold(int threshold, int hysteresis) {
-        int boundedThreshold = Math.max(1, Math.min(15, threshold));
-        int boundedHysteresis = Math.max(1, Math.min(4, hysteresis));
+        int boundedThreshold = boundedThreshold(threshold);
+        int boundedHysteresis = boundedHysteresis(hysteresis);
         return Math.max(0, boundedThreshold - boundedHysteresis);
     }
 
@@ -75,7 +94,7 @@ public final class PulseShaperLogic {
             int input, int threshold, int hysteresis, boolean previouslyAbove
     ) {
         int boundedInput = Math.max(0, Math.min(15, input));
-        int boundedThreshold = Math.max(1, Math.min(15, threshold));
+        int boundedThreshold = boundedThreshold(threshold);
         if (!previouslyAbove) return boundedInput >= boundedThreshold;
         return boundedInput > rearmThreshold(boundedThreshold, hysteresis);
     }

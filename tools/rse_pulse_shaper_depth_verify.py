@@ -28,6 +28,15 @@ screen = "src/main/java/dev/redstoneengineering/client/ui/SignalProcessorScreen.
 
 require(
     logic,
+    "MIN_THRESHOLD = 1",
+    "MAX_THRESHOLD = 15",
+    "MIN_HYSTERESIS = 1",
+    "MAX_HYSTERESIS = 4",
+    "MIN_WIDTH = 1",
+    "MAX_WIDTH = 8",
+    "boundedThreshold",
+    "boundedHysteresis",
+    "boundedWidth",
     "record State",
     "record Result",
     "public static Result step(",
@@ -51,6 +60,7 @@ require(
     "suppressedTriggerCount",
     "lastTriggerAgeTicks",
     "PulseShaperLogic.step",
+    "PulseShaperLogic.boundedWidth",
     "newBlockEntity",
     "RUNTIME_SIZE = 3",
 )
@@ -63,6 +73,8 @@ require(
     "acceptedTriggerCount",
     "suppressedTriggerCount",
     "lastTriggerTick",
+    "PulseShaperLogic.boundedThreshold",
+    "PulseShaperLogic.boundedHysteresis",
     "loadAdditional",
     "saveAdditional",
     "setChanged",
@@ -95,6 +107,13 @@ require(
     "Retrigger",
     "Accepted triggers",
     "Suppressed triggers",
+    "Trigger threshold T",
+    "Re-arm threshold",
+    "Pulse width W",
+    "Trigger law",
+    "Busy policy",
+    "PulseShaperLogic.MIN_WIDTH",
+    "PulseShaperLogic.MAX_WIDTH",
 )
 
 registration_text = (root / registration).read_text(errors="ignore") if (root / registration).is_file() else ""
@@ -106,6 +125,8 @@ if "IntegerProperty THRESHOLD" in block_text:
     failed.append("PulseShaper threshold must not multiply BlockState variants")
 if "builder.add(WIDTH, THRESHOLD" in block_text:
     failed.append("PulseShaper threshold leaked into BlockState definition")
+if "Math.min(32" in block_text:
+    failed.append("PulseShaper configured width regressed to fake 1..32 range")
 
 # Compile and execute the pure logic against representative monostable cases.
 logic_path = root / logic
@@ -167,6 +188,17 @@ public final class PulseShaperHarness {
         check(hSecond.acceptedTrigger(),
                 "new high crossing after re-arm must trigger again");
 
+        var wideInit = PulseShaperLogic.step(0, 8, 2, 99, true,
+                new PulseShaperLogic.State(false, false, 0));
+        var wideRise = PulseShaperLogic.step(8, 8, 2, 99, true, wideInit.state());
+        check(wideRise.acceptedTrigger(), "legacy over-range width still produces a valid trigger");
+        check(wideRise.state().remainingTicks() == PulseShaperLogic.MAX_WIDTH - 1,
+                "legacy over-range width clamps to effective MAX_WIDTH");
+        check(PulseShaperLogic.boundedWidth(99) == PulseShaperLogic.MAX_WIDTH,
+                "configured width cannot exceed the effective 1..8 model");
+        check(PulseShaperLogic.boundedHysteresis(99) == PulseShaperLogic.MAX_HYSTERESIS,
+                "hysteresis clamps to its real 1..4 model");
+
         System.out.println("PulseShaperLogic semantic harness: PASS");
     }
 }
@@ -211,5 +243,6 @@ print(" threshold-triggered Schmitt monostable semantics: PASS")
 print(" hysteresis-band chatter rejection + re-arm behavior: PASS")
 print(" retriggerable/non-retriggerable behavior: PASS")
 print(" accepted/suppressed trigger diagnostics: PASS")
-print(" field HMI controls and evidence: PASS")
+print(" field HMI controls + Schmitt/monostable model equations: PASS")
+print(" legacy over-range pulse width clamps to the effective 1..8 contract: PASS")
 print(" persistent threshold/evidence without high-cardinality BlockState: PASS")

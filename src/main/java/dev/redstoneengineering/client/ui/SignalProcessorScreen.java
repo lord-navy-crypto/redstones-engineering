@@ -1,6 +1,7 @@
 package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.signal.PrecisionFilterLogic;
+import dev.redstoneengineering.signal.PulseShaperLogic;
 import dev.redstoneengineering.ui.menu.SignalProcessorMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -159,7 +160,23 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         statusBadge(g, "SERVER-SIDE BOUNDED CONTROL", INFO, 16, 80);
         labelValue(g, parameterName(), parameterValue(), 101);
         if (menu.kind() == SignalProcessorMenu.KIND_PULSE) {
-            wrappedText(g, "Trigger threshold fires the one-shot; hysteresis sets the lower re-arm level so noisy or bouncing inputs cannot chatter.", 16, 214, 620, MUTED);
+            labelValue(g, "Trigger threshold T", menu.secondaryParameter() + " / 15", 218);
+            labelValue(g, "Hysteresis H",
+                    menu.tertiaryParameter() + " levels • allowed "
+                            + PulseShaperLogic.MIN_HYSTERESIS + ".." + PulseShaperLogic.MAX_HYSTERESIS, 238);
+            labelValue(g, "Re-arm threshold",
+                    "T-H clamped = " + pulseRearmThreshold() + " / 15", 258);
+            labelValue(g, "Pulse width W",
+                    menu.parameter() + " ticks • allowed "
+                            + PulseShaperLogic.MIN_WIDTH + ".." + PulseShaperLogic.MAX_WIDTH, 278);
+            labelValue(g, "Trigger law",
+                    "fire on x≥T after re-arm at x≤T-H", 298);
+            labelValue(g, "Busy policy",
+                    menu.modeFlag() ? "RETRIGGERABLE • accepted crossing reloads W"
+                            : "NON-RETRIGGERABLE • busy crossing is suppressed", 318);
+            wrappedText(g,
+                    "The server owns the Schmitt state and monostable countdown. An accepted pulse remains self-timed if upstream evidence disappears; reacquisition establishes a fresh baseline instead of fabricating a crossing.",
+                    16, 342, 620, MUTED);
         } else if (menu.kind() == SignalProcessorMenu.KIND_FILTER) {
             labelValue(g, "Fall rate Rfall", menu.secondaryParameter() + " level/tick", 181);
             labelValue(g, "Allowed rates",
