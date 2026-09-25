@@ -27,11 +27,14 @@ for token in (
     "public PortQuality outputQuality()",
     "BUTTON_INPUT_LEFT",
     "BUTTON_OUTPUT_RIGHT",
-    "DirectionalSignalBlock.rotateSeriesInput",
-    "DirectionalSignalBlock.rotateSeriesOutput",
+    "DirectionalSignalBlock.rotateRigidSeriesAxis",
 ):
     if menu and token not in menu:
         errors.append(f"SignalConditionerMenu missing dedicated quality/route token: {token}")
+
+for stale in ("DirectionalSignalBlock.rotateSeriesInput", "DirectionalSignalBlock.rotateSeriesOutput", "DirectionalSignalBlock.rotateWholeRoute"):
+    if stale in menu:
+        errors.append(f"SignalConditionerMenu reintroduced bendable route via {stale}")
 
 for token in (
     '"Input quality"',
@@ -86,7 +89,7 @@ if errors:
 
 print("RSE Signal Conditioner HMI verification: PASS")
 print(" normal right-click reaches dedicated HMI: PASS")
-print(" independent RX/TX Route authority retained: PASS")
+print(" rigid opposite-port Route authority enforced: PASS")
 print(" input/output PortQuality evidence synchronized: PASS")
 print(" saturation remains explicit output evidence: PASS")
 print(" valid zero stays distinct from missing/stale/topology evidence: PASS")
