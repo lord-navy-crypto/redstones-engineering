@@ -139,12 +139,10 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
         Block block = state.getBlock();
 
         boolean routed = switch (id) {
-            case BUTTON_ROTATE_LEFT -> DirectionalSignalBlock.rotateWholeRoute(level, blockPos, false);
-            case BUTTON_ROTATE_RIGHT -> DirectionalSignalBlock.rotateWholeRoute(level, blockPos, true);
-            case BUTTON_INPUT_LEFT -> DirectionalSignalBlock.rotateSeriesInput(level, blockPos, false);
-            case BUTTON_INPUT_RIGHT -> DirectionalSignalBlock.rotateSeriesInput(level, blockPos, true);
-            case BUTTON_OUTPUT_LEFT -> DirectionalSignalBlock.rotateSeriesOutput(level, blockPos, false);
-            case BUTTON_OUTPUT_RIGHT -> DirectionalSignalBlock.rotateSeriesOutput(level, blockPos, true);
+            case BUTTON_ROTATE_LEFT, BUTTON_INPUT_LEFT, BUTTON_OUTPUT_LEFT ->
+                    DirectionalSignalBlock.rotateRigidSeriesAxis(level, blockPos, false);
+            case BUTTON_ROTATE_RIGHT, BUTTON_INPUT_RIGHT, BUTTON_OUTPUT_RIGHT ->
+                    DirectionalSignalBlock.rotateRigidSeriesAxis(level, blockPos, true);
             default -> false;
         };
         if (routed) {
