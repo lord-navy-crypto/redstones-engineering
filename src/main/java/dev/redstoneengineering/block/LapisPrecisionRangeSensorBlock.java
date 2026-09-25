@@ -6,8 +6,8 @@ import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.EngineeringDeviceParameters;
-import dev.redstoneengineering.physics.EngineeringMath;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.signal.LapisPrecisionRangeSensorLogic;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -19,8 +19,10 @@ import net.minecraft.world.level.block.state.properties.IntegerProperty;
 
 /** Directional time-of-flight-style range sensor, represented as a normalized Lapis quantity. */
 public class LapisPrecisionRangeSensorBlock extends AbstractLapisTransducerBlock {
-    public static final IntegerProperty RANGE_INDEX = IntegerProperty.create("range_index", 0, 3);
-    private static final int[] RANGES = {8, 16, 32, 64};
+    public static final IntegerProperty RANGE_INDEX = IntegerProperty.create(
+            "range_index",
+            LapisPrecisionRangeSensorLogic.MIN_LEGACY_RANGE_INDEX,
+            LapisPrecisionRangeSensorLogic.MAX_LEGACY_RANGE_INDEX);
 
     public record RangeSample(int distance, int maxRange, boolean complete) {
         public PortQuality quality() {
@@ -31,13 +33,16 @@ public class LapisPrecisionRangeSensorBlock extends AbstractLapisTransducerBlock
 
     public LapisPrecisionRangeSensorBlock(Properties p) {
         super(p);
-        registerDefaultState(defaultBlockState().setValue(RANGE_INDEX, 1));
+        registerDefaultState(defaultBlockState().setValue(
+                RANGE_INDEX, LapisPrecisionRangeSensorLogic.DEFAULT_LEGACY_RANGE_INDEX));
     }
 
     @Override public MapCodec<LapisPrecisionRangeSensorBlock> codec() { return RedstoneEngineering.LAPIS_PRECISION_RANGE_SENSOR_CODEC.value(); }
     @Override protected String runtimeKey() { return "lapis_precision_range_sensor"; }
     @Override protected String instrumentName() { return "Lapis Precision Range Sensor"; }
-    @Override protected String rangeText(BlockState state) { return RANGES[state.getValue(RANGE_INDEX)] + " blocks"; }
+    @Override protected String rangeText(BlockState state) {
+        return LapisPrecisionRangeSensorLogic.rangeForLegacyIndex(state.getValue(RANGE_INDEX)) + " blocks";
+    }
     @Override protected EngineeringDomain inputDomain() { return EngineeringDomain.GENERIC; }
     @Override protected String inputPortLabel() { return "RANGE SENSE"; }
 
@@ -48,11 +53,13 @@ public class LapisPrecisionRangeSensorBlock extends AbstractLapisTransducerBlock
     }
 
     public static int configuredRange(Level level, BlockPos pos, BlockState state) {
-        int fallback = RANGES[state.getValue(RANGE_INDEX)];
+        int fallback = LapisPrecisionRangeSensorLogic.rangeForLegacyIndex(state.getValue(RANGE_INDEX));
         if (level instanceof ServerLevel serverLevel) {
-            return Math.max(1, Math.min(128, EngineeringDeviceParameters.get(serverLevel)
-                    .extendedParameters(serverLevel, pos,
-                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
+            return LapisPrecisionRangeSensorLogic.boundedRange(
+                    EngineeringDeviceParameters.get(serverLevel)
+                            .extendedParameters(serverLevel, pos,
+                                    new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0))
+                            .a());
         }
         return fallback;
     }
@@ -60,7 +67,7 @@ public class LapisPrecisionRangeSensorBlock extends AbstractLapisTransducerBlock
     public static boolean setConfiguredRange(ServerLevel level, BlockPos pos, int range) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof LapisPrecisionRangeSensorBlock sensor)) return false;
-        int bounded = Math.max(1, Math.min(128, range));
+        int bounded = LapisPrecisionRangeSensorLogic.boundedRange(range);
         boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
                 level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
         if (changed) {
@@ -96,8 +103,8 @@ public class LapisPrecisionRangeSensorBlock extends AbstractLapisTransducerBlock
             return new Measurement(0, PortQuality.NO_SIGNAL,
                     "no target within " + sample.maxRange() + " blocks");
         }
-        int normalized = Math.round(EngineeringMath.clamp(sample.distance(), 0, sample.maxRange())
-                * 100.0f / sample.maxRange());
+        int normalized = LapisPrecisionRangeSensorLogic.normalizedDistance(
+                sample.distance(), sample.maxRange());
         return new Measurement(normalized, PortQuality.VALID,
                 "distance=" + sample.distance() + "/" + sample.maxRange() + " blocks");
     }
@@ -107,11 +114,16 @@ public class LapisPrecisionRangeSensorBlock extends AbstractLapisTransducerBlock
         if (!(level instanceof ServerLevel server)) return false;
         BlockState state = level.getBlockState(pos);
         if (state.getBlock() != this) return false;
-        int next = Math.floorMod(state.getValue(RANGE_INDEX) + delta, RANGES.length);
+        int span = LapisPrecisionRangeSensorLogic.MAX_LEGACY_RANGE_INDEX
+                - LapisPrecisionRangeSensorLogic.MIN_LEGACY_RANGE_INDEX + 1;
+        int next = LapisPrecisionRangeSensorLogic.MIN_LEGACY_RANGE_INDEX + Math.floorMod(
+                state.getValue(RANGE_INDEX) - LapisPrecisionRangeSensorLogic.MIN_LEGACY_RANGE_INDEX + delta,
+                span);
         BlockState updated = state.setValue(RANGE_INDEX, next);
         level.setBlock(pos, updated, Block.UPDATE_CLIENTS);
         EngineeringDeviceParameters.get(server).setExtendedParameters(
-                server, pos, new EngineeringDeviceParameters.ExtendedParameters(RANGES[next], 0, 0, 0));
+                server, pos, new EngineeringDeviceParameters.ExtendedParameters(
+                        LapisPrecisionRangeSensorLogic.rangeForLegacyIndex(next), 0, 0, 0));
         RuntimeIntStore.remove(server, runtimeKey(), pos);
         DomainNetwork.driveLapis(server, outputPos(pos, updated), pos, 0, false);
         server.scheduleTick(pos, this, 1);
@@ -119,7 +131,7 @@ public class LapisPrecisionRangeSensorBlock extends AbstractLapisTransducerBlock
     }
 
     public static int rangeBlocks(BlockState state) {
-        return RANGES[state.getValue(RANGE_INDEX)];
+        return LapisPrecisionRangeSensorLogic.rangeForLegacyIndex(state.getValue(RANGE_INDEX));
     }
 
     public static int rangeBlocks(Level level, BlockPos pos, BlockState state) {

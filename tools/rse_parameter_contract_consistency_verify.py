@@ -351,6 +351,45 @@ require(
 )
 
 require(
+    "src/main/java/dev/redstoneengineering/signal/LapisPrecisionRangeSensorLogic.java",
+    "MIN_RANGE_BLOCKS = 1",
+    "MAX_RANGE_BLOCKS = 128",
+    "MIN_LEGACY_RANGE_INDEX = 0",
+    "MAX_LEGACY_RANGE_INDEX = 3",
+    "DEFAULT_LEGACY_RANGE_INDEX = 1",
+    "LEGACY_RANGE_SHORT = 8",
+    "LEGACY_RANGE_MEDIUM = 16",
+    "LEGACY_RANGE_LONG = 32",
+    "LEGACY_RANGE_EXTENDED = 64",
+    "MIN_NORMALIZED_OUTPUT = 0",
+    "MAX_NORMALIZED_OUTPUT = 100",
+    "boundedRange",
+    "rangeForLegacyIndex",
+    "normalizedDistance",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/LapisPrecisionRangeSensorBlock.java",
+    "LapisPrecisionRangeSensorLogic.boundedRange",
+    "LapisPrecisionRangeSensorLogic.rangeForLegacyIndex",
+    "LapisPrecisionRangeSensorLogic.normalizedDistance",
+)
+require(
+    "src/main/java/dev/redstoneengineering/ui/menu/AdvancedParameterMenu.java",
+    "p1.set(state.getValue(LapisPrecisionRangeSensorBlock.RANGE_INDEX))",
+)
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/AdvancedParameterNotebookScreen.java",
+    "LapisPrecisionRangeSensorLogic.MIN_RANGE_BLOCKS",
+    "LapisPrecisionRangeSensorLogic.MAX_RANGE_BLOCKS",
+    "LapisPrecisionRangeSensorLogic.LEGACY_RANGE_SHORT",
+    "LapisPrecisionRangeSensorLogic.LEGACY_RANGE_MEDIUM",
+    "LapisPrecisionRangeSensorLogic.LEGACY_RANGE_LONG",
+    "LapisPrecisionRangeSensorLogic.LEGACY_RANGE_EXTENDED",
+    "LapisPrecisionRangeSensorLogic.MAX_NORMALIZED_OUTPUT",
+    "Current legacy preset=",
+)
+
+require(
     "src/main/java/dev/redstoneengineering/signal/SignalAmplifierLogic.java",
     "MIN_SIGNAL = 0",
     "MAX_SIGNAL = 15",
@@ -865,6 +904,7 @@ print(" Signal Conditioner pure transfer/range authority: PASS")
 print(" Optical attenuator/filter exact transfer + rigid-route authority: PASS")
 print(" Redstone-Copper exact slew/legacy preset dynamics authority: PASS")
 print(" PWM exact-period/legacy-preset carrier authority: PASS")
+print(" Lapis Precision Range exact/legacy range + normalization authority: PASS")
 print(" Signal Amplifier exact gain/headroom + legacy preset authority: PASS")
 print(" Lapis Noise Source stored/effective + legacy preset authority: PASS")
 print(" Honey Vibration Damper configurable through-loss/local-decay authority: PASS")

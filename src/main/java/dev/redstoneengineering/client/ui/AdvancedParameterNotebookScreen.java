@@ -2,6 +2,7 @@ package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.signal.LapisNoiseSourceLogic;
+import dev.redstoneengineering.signal.LapisPrecisionRangeSensorLogic;
 import dev.redstoneengineering.signal.SignalAmplifierLogic;
 import dev.redstoneengineering.ui.menu.AdvancedParameterMenu;
 import net.minecraft.client.gui.GuiGraphics;
@@ -273,7 +274,9 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
                     : slot==1
                     ? "±"+v+"/100 • allowed ±"+LapisNoiseSourceLogic.MIN_NOISE_AMPLITUDE+".."+LapisNoiseSourceLogic.MAX_NOISE_AMPLITUDE
                     : v+" ticks • allowed "+LapisNoiseSourceLogic.MIN_SAMPLE_PERIOD_TICKS+".."+LapisNoiseSourceLogic.MAX_SAMPLE_PERIOD_TICKS;
-            case AdvancedParameterMenu.KIND_LAPIS_RANGE -> v+" blocks";
+            case AdvancedParameterMenu.KIND_LAPIS_RANGE -> v+" blocks • exact "
+                    +LapisPrecisionRangeSensorLogic.MIN_RANGE_BLOCKS+".."
+                    +LapisPrecisionRangeSensorLogic.MAX_RANGE_BLOCKS;
             case AdvancedParameterMenu.KIND_OPTICAL_EMITTER -> Integer.toString(v);
             default -> Integer.toString(v);
         };
@@ -325,7 +328,8 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
             case AdvancedParameterMenu.KIND_INDUCTION_COIL -> "|emf| ∝ N × |ΔΦ/Δt|, then clamps to Copper 0..15.";
             case AdvancedParameterMenu.KIND_RELIEF_VALVE -> "Open if P>Pset; while venting, stay open until P≤Pset−ΔPblowdown.";
             case AdvancedParameterMenu.KIND_LAPIS_NOISE -> "delta = deterministic mix(gameTime XOR blockPos seed) mapped into [−A,+A]; sample = clamp(baseline + delta, 0,100).";
-            case AdvancedParameterMenu.KIND_LAPIS_RANGE -> "Scan i=1..R along the physical sensing aperture; first non-air/fluid cell is distance d. Output = round(clamp(d,0,R) × 100 / R).";
+            case AdvancedParameterMenu.KIND_LAPIS_RANGE -> "Scan i=1..R along the physical sensing aperture; first non-air/fluid cell is distance d. Output=round(clamp(d,0,R)×"
+                    +LapisPrecisionRangeSensorLogic.MAX_NORMALIZED_OUTPUT+"/R).";
             case AdvancedParameterMenu.KIND_OPTICAL_EMITTER -> "Emitter launches selected intensity on one discrete optical channel.";
             default -> "";
         };
@@ -344,7 +348,14 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
                     +LapisNoiseSourceLogic.MIN_NOISE_AMPLITUDE+".."+LapisNoiseSourceLogic.MAX_NOISE_AMPLITUDE
                     +", and "+LapisNoiseSourceLogic.MIN_SAMPLE_PERIOD_TICKS+".."+LapisNoiseSourceLogic.MAX_SAMPLE_PERIOD_TICKS
                     +" ticks. Legacy quick presets map into these same exact parameters; a generated sample of 0 remains VALID evidence.";
-            case AdvancedParameterMenu.KIND_LAPIS_RANGE -> "If any scanned cell lies in an unavailable chunk, coverage stops and quality is STALE. Complete clear coverage with no target is NO_SIGNAL; only a found target is VALID.";
+            case AdvancedParameterMenu.KIND_LAPIS_RANGE -> "Exact server range is "
+                    +LapisPrecisionRangeSensorLogic.MIN_RANGE_BLOCKS+".."+LapisPrecisionRangeSensorLogic.MAX_RANGE_BLOCKS
+                    +" blocks. Shift-click legacy presets are "
+                    +LapisPrecisionRangeSensorLogic.LEGACY_RANGE_SHORT+"/"
+                    +LapisPrecisionRangeSensorLogic.LEGACY_RANGE_MEDIUM+"/"
+                    +LapisPrecisionRangeSensorLogic.LEGACY_RANGE_LONG+"/"
+                    +LapisPrecisionRangeSensorLogic.LEGACY_RANGE_EXTENDED
+                    +" and overwrite the exact range with that preset. If any scanned cell lies in an unavailable chunk, coverage stops and quality is STALE. Complete clear coverage with no target is NO_SIGNAL; only a found target is VALID.";
             default -> "Configuration affects the authoritative device solver, not a client-only visualization.";
         };
     }
@@ -352,7 +363,8 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
     private String model3(){
         return switch(menu.kind()){
             case AdvancedParameterMenu.KIND_SIGNAL_AMPLIFIER -> "Operate separates input quality from output quality, so headroom saturation stays visible even when the numerical output is clamped to 15.";
-            case AdvancedParameterMenu.KIND_LAPIS_RANGE -> "Raw distance and measurement quality are synchronized separately; the UI never converts NO_SIGNAL or STALE into a fabricated distance.";
+            case AdvancedParameterMenu.KIND_LAPIS_RANGE -> "Raw distance and measurement quality are synchronized separately; the UI never converts NO_SIGNAL or STALE into a fabricated distance. Current legacy preset="
+                    +LapisPrecisionRangeSensorLogic.rangeForLegacyIndex(menu.p1())+" blocks; exact server range="+menu.p0()+" blocks.";
             case AdvancedParameterMenu.KIND_LAPIS_NOISE -> "Rotating the LAPIS output changes topology only; it never advances, resets or fabricates the deterministic sample. Legacy BlockState presets synchronize the same exact server parameter authority.";
             default -> "All values shown on Operate are synchronized evidence from the real Minecraft world state.";
         };
@@ -402,7 +414,9 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
                     "Opening this page never advances the deterministic noise sequence or fabricates a replacement sample."
             };
             case AdvancedParameterMenu.KIND_LAPIS_RANGE -> new String[]{
-                    "Configured maximum range = "+menu.p0()+" blocks • synchronized scan range = "+menu.liveB()+" blocks.",
+                    "Exact maximum range = "+menu.p0()+" blocks • legacy preset = "
+                            +LapisPrecisionRangeSensorLogic.rangeForLegacyIndex(menu.p1())
+                            +" blocks • synchronized scan range = "+menu.liveB()+" blocks.",
                     "Measurement = "+rangeMeasurementLabel()+" • coverage complete = "+(menu.liveC()!=0?"YES":"NO")+".",
                     "Measurement evidence = "+qualityName(menu.liveD())+".",
                     "NO SIGNAL means a complete clear scan with no target; STALE means the requested coverage was not fully available."

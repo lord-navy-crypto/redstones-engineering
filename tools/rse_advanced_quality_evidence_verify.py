@@ -12,9 +12,10 @@ amp_logic_path = root / 'src/main/java/dev/redstoneengineering/signal/SignalAmpl
 noise_path = root / 'src/main/java/dev/redstoneengineering/block/LapisNoiseSourceBlock.java'
 noise_logic_path = root / 'src/main/java/dev/redstoneengineering/signal/LapisNoiseSourceLogic.java'
 range_path = root / 'src/main/java/dev/redstoneengineering/block/LapisPrecisionRangeSensorBlock.java'
+range_logic_path = root / 'src/main/java/dev/redstoneengineering/signal/LapisPrecisionRangeSensorLogic.java'
 fault_path = root / 'src/main/java/dev/redstoneengineering/diagnostics/FaultInjectionModel.java'
 
-for path in (menu_path, screen_path, amp_path, amp_logic_path, noise_path, noise_logic_path, range_path, fault_path):
+for path in (menu_path, screen_path, amp_path, amp_logic_path, noise_path, noise_logic_path, range_path, range_logic_path, fault_path):
     if not path.is_file(): failed.append(f'missing advanced quality contract file: {path.relative_to(root)}')
 
 if not failed:
@@ -25,10 +26,11 @@ if not failed:
     noise = noise_path.read_text(errors='ignore')
     noise_logic = noise_logic_path.read_text(errors='ignore')
     rng = range_path.read_text(errors='ignore')
+    range_logic = range_logic_path.read_text(errors='ignore')
     fault = fault_path.read_text(errors='ignore')
     for token in ('liveE.set(input.quality().ordinal())','PortQuality.SATURATED.ordinal()','liveC.set(PortQuality.VALID.ordinal())','liveD.set(sample.quality().ordinal())','public int liveE()','public int liveF()','BUTTON_INPUT_PREVIOUS','BUTTON_INPUT_NEXT','BUTTON_OUTPUT_PREVIOUS','BUTTON_OUTPUT_NEXT','DirectionalSignalBlock.rotateSeriesInput','DirectionalSignalBlock.rotateSeriesOutput','DirectionalDomainBlock.rotateSeriesInput','DirectionalDomainBlock.rotateSeriesOutput','DirectionalDomainSourceBlock.rotateOutput','public boolean canRouteInput()','public boolean canRouteOutput()','public Direction inputDirection()','public Direction outputDirection()'):
         if token not in menu: failed.append(f'AdvancedParameterMenu missing explicit quality/routing token: {token}')
-    for token in ('Input quality','Output quality','Measurement quality','NO TARGET','UNKNOWN','SignalAmplifierLogic.MIN_GAIN','SignalAmplifierLogic.MAX_GAIN','Shift-click compatibility presets cover ×1..×4','Clipping is explicit SATURATED output quality','generated sample of 0 remains VALID evidence.','coverage stops and quality is STALE.','Complete clear coverage with no target is NO_SIGNAL','Raw distance and measurement quality are synchronized separately','DIAGNOSTICS("Diagnostics")','private void diagnostics(GuiGraphics g)','diagnosticStatus()','diagnosticLines()','diagnosticNextAction()','OUTPUT SATURATED • HEADROOM LIMIT','COMPLETE SCAN • NO TARGET','SCAN COVERAGE INCOMPLETE','The client does not rescan the world, generate a new sample, or run a second device solver.','ROUTING("Routing")','tabLabel(Tab value)','Math.max(48','private void routing(GuiGraphics g)','menu.canRouteInput()','menu.canRouteOutput()','physical measurement aperture','there is no synthetic input endpoint','sensing aperture is not a wired source input','deterministic mix(gameTime XOR blockPos seed)','LapisNoiseSourceLogic.MIN_SAMPLE_PERIOD_TICKS','LapisNoiseSourceLogic.MAX_SAMPLE_PERIOD_TICKS','Legacy quick presets map into these same exact parameters','Rotating the LAPIS output changes topology only','Scan i=1..R along the physical sensing aperture','round(clamp(d,0,R) × 100 / R)','coverage stops and quality is STALE'):
+    for token in ('Input quality','Output quality','Measurement quality','NO TARGET','UNKNOWN','SignalAmplifierLogic.MIN_GAIN','SignalAmplifierLogic.MAX_GAIN','Shift-click compatibility presets cover ×1..×4','Clipping is explicit SATURATED output quality','generated sample of 0 remains VALID evidence.','coverage stops and quality is STALE.','Complete clear coverage with no target is NO_SIGNAL','Raw distance and measurement quality are synchronized separately','DIAGNOSTICS("Diagnostics")','private void diagnostics(GuiGraphics g)','diagnosticStatus()','diagnosticLines()','diagnosticNextAction()','OUTPUT SATURATED • HEADROOM LIMIT','COMPLETE SCAN • NO TARGET','SCAN COVERAGE INCOMPLETE','The client does not rescan the world, generate a new sample, or run a second device solver.','ROUTING("Routing")','tabLabel(Tab value)','Math.max(48','private void routing(GuiGraphics g)','menu.canRouteInput()','menu.canRouteOutput()','physical measurement aperture','there is no synthetic input endpoint','sensing aperture is not a wired source input','deterministic mix(gameTime XOR blockPos seed)','LapisNoiseSourceLogic.MIN_SAMPLE_PERIOD_TICKS','LapisNoiseSourceLogic.MAX_SAMPLE_PERIOD_TICKS','Legacy quick presets map into these same exact parameters','Rotating the LAPIS output changes topology only','Scan i=1..R along the physical sensing aperture','LapisPrecisionRangeSensorLogic.MAX_NORMALIZED_OUTPUT','Shift-click legacy presets are','Current legacy preset=','coverage stops and quality is STALE'):
         if token not in screen: failed.append(f'AdvancedParameterNotebookScreen missing evidence/diagnostic/routing token: {token}')
     for token in (
         'PortQuality.SATURATED',
@@ -92,8 +94,35 @@ if not failed:
         failed.append('LapisNoiseSourceBlock missing route-only branch for sample-neutrality audit')
     elif 'setSample(' in noise[route_start:route_end]:
         failed.append('Lapis noise route action still rewrites the deterministic sample')
-    for token in ('if (!complete) return PortQuality.STALE;','return distance < 0 ? PortQuality.NO_SIGNAL : PortQuality.VALID;','range coverage incomplete','no target within','if (!level.hasChunkAt(p)) return new RangeSample(-1, max, false);','Math.round(EngineeringMath.clamp(sample.distance(), 0, sample.maxRange())'):
-        if token not in rng: failed.append(f'LapisPrecisionRangeSensorBlock missing quality token: {token}')
+    for token in (
+        'if (!complete) return PortQuality.STALE;',
+        'return distance < 0 ? PortQuality.NO_SIGNAL : PortQuality.VALID;',
+        'range coverage incomplete',
+        'no target within',
+        'if (!level.hasChunkAt(p)) return new RangeSample(-1, max, false);',
+        'LapisPrecisionRangeSensorLogic.boundedRange',
+        'LapisPrecisionRangeSensorLogic.normalizedDistance',
+        'LapisPrecisionRangeSensorLogic.rangeForLegacyIndex',
+    ):
+        if token not in rng: failed.append(f'LapisPrecisionRangeSensorBlock missing range/quality token: {token}')
+
+    for token in (
+        'MIN_RANGE_BLOCKS = 1',
+        'MAX_RANGE_BLOCKS = 128',
+        'MIN_LEGACY_RANGE_INDEX = 0',
+        'MAX_LEGACY_RANGE_INDEX = 3',
+        'DEFAULT_LEGACY_RANGE_INDEX = 1',
+        'LEGACY_RANGE_SHORT = 8',
+        'LEGACY_RANGE_MEDIUM = 16',
+        'LEGACY_RANGE_LONG = 32',
+        'LEGACY_RANGE_EXTENDED = 64',
+        'MIN_NORMALIZED_OUTPUT = 0',
+        'MAX_NORMALIZED_OUTPUT = 100',
+        'boundedRange',
+        'rangeForLegacyIndex',
+        'normalizedDistance',
+    ):
+        if token not in range_logic: failed.append(f'LapisPrecisionRangeSensorLogic missing pure range token: {token}')
 
 if failed:
     print('RSE advanced generic quality verification: FAIL')
@@ -109,6 +138,8 @@ print(' Lapis noise stored/effective parameter ranges are synchronized: PASS')
 print(' Lapis noise legacy presets share the exact server authority: PASS')
 print(' Lapis noise route rotation is sample-neutral: PASS')
 print(' Lapis range NO_SIGNAL vs STALE remains explicit: PASS')
+print(' Lapis range exact 1..128 + legacy 8/16/32/64 authority: PASS')
+print(' Lapis range normalization shares one pure model: PASS')
 print(' generic notebook avoids fabricated numeric substitutes for missing evidence: PASS')
 print(' active generic devices expose device-specific diagnostics: PASS')
 print(' diagnostics remain server-evidence-only and do not rescan/re-simulate: PASS')

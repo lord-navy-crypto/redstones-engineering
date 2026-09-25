@@ -147,6 +147,7 @@ public final class AdvancedParameterMenu extends EngineeringDeviceMenu {
         } else if (block instanceof LapisPrecisionRangeSensorBlock && level instanceof ServerLevel server) {
             kind.set(KIND_LAPIS_RANGE);
             p0.set(LapisPrecisionRangeSensorBlock.configuredRange(level, blockPos, state));
+            p1.set(state.getValue(LapisPrecisionRangeSensorBlock.RANGE_INDEX));
             var sample = LapisPrecisionRangeSensorBlock.rangeSample(server, blockPos, state);
             liveA.set(sample.distance()); liveB.set(sample.maxRange()); liveC.set(sample.complete() ? 1 : 0);
             liveD.set(sample.quality().ordinal());
