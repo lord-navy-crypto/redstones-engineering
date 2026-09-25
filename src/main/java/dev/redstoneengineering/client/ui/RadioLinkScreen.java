@@ -61,9 +61,9 @@ public final class RadioLinkScreen extends EngineeringScreen<RadioLinkMenu> {
             labelValue(g, "Wireless interface", "UP • RADIO ANTENNA", 165);
             labelValue(g, "Frame evidence", menu.quality() == PortQuality.VALID ? "VALID" : qualityName(), 181);
         }
-        safeText(g, menu.payload() == 0 && menu.quality() == PortQuality.VALID
+        wrappedText(g, menu.payload() == 0 && menu.quality() == PortQuality.VALID
                 ? "Payload 0 is a valid frame when source evidence is VALID."
-                : "Radio validity comes from evidence quality, never payload > 0.", 16, 199, GOOD);
+                : "Radio validity comes from evidence quality, never payload > 0.", 16, 199, 620, GOOD);
     }
 
     private void ports(GuiGraphics g) {
@@ -71,11 +71,11 @@ public final class RadioLinkScreen extends EngineeringScreen<RadioLinkMenu> {
         if (menu.kind() == RadioLinkMenu.KIND_TRANSMITTER) {
             statusLine(g, "DOWN / N / S / E / W", "INPUT • REDSTONE PAYLOAD", GOOD, 112);
             statusLine(g, "UP", "OUTPUT • FREE-SPACE RADIO ANTENNA", INFO, 142);
-            safeText(g, "Transmitter is intentionally multi-input; it is not forced into a fake series axis.", 16, 176, MUTED);
+            wrappedText(g, "Transmitter is intentionally multi-input; it is not forced into a fake series axis.", 16, 176, 620, MUTED);
         } else {
             statusLine(g, "UP", "INPUT • FREE-SPACE RADIO ANTENNA", INFO, 112);
             statusLine(g, menu.outputDirection().getName().toUpperCase(), "OUTPUT • REDSTONE 0..15", GOOD, 142);
-            safeText(g, "Only the wired output face rotates; the antenna remains the physical UP interface.", 16, 176, MUTED);
+            wrappedText(g, "Only the wired output face rotates; the antenna remains the physical UP interface.", 16, 176, 620, MUTED);
         }
     }
 
@@ -84,7 +84,7 @@ public final class RadioLinkScreen extends EngineeringScreen<RadioLinkMenu> {
         labelValue(g, "Channel", Integer.toString(menu.channel()), 101);
         if (menu.kind() == RadioLinkMenu.KIND_RECEIVER) {
             labelValue(g, "Output face", menu.outputDirection().getName().toUpperCase(), 171);
-            safeText(g, "Wired output direction is controlled only on Route; antenna remains UP.", 16, 199, MUTED);
+            wrappedText(g, "Wired output direction is controlled only on Route; antenna remains UP.", 16, 199, 620, MUTED);
         } else {
             labelValue(g, "Antenna", "UP • FIXED", 171);
         }
@@ -106,8 +106,8 @@ public final class RadioLinkScreen extends EngineeringScreen<RadioLinkMenu> {
         labelValue(g, "Obstacles / adjacent", menu.obstacleHits() + " / " + menu.adjacentAggressors(), 142);
         labelValue(g, "Drivers / collision", menu.drivers() + " / " + (menu.collision() ? "YES" : "NO"), 160);
         labelValue(g, "Coverage", menu.coverageComplete() ? "COMPLETE" : "TRUNCATED / STALE", 178);
-        safeText(g, nextAction(), 16, 201, diagnosisColor());
-        safeText(g, "Distance, obstacles, adjacent-channel penalty and fading come from server-synchronized radio evidence.", 16, 221, MUTED);
+        int noteY = wrappedText(g, nextAction(), 16, 201, 620, diagnosisColor());
+        wrappedText(g, "Distance, obstacles, adjacent-channel penalty and fading come from server-synchronized radio evidence.", 16, noteY + 4, 620, MUTED);
     }
 
     private void history(GuiGraphics g) {
@@ -118,10 +118,10 @@ public final class RadioLinkScreen extends EngineeringScreen<RadioLinkMenu> {
             labelValue(g, "Collisions / dropouts", menu.collisions() + " / " + menu.dropouts(), 142);
             labelValue(g, "Channel handoffs", Integer.toString(menu.handoffs()), 160);
             labelValue(g, "Current noise proxy", menu.noise() + "%", 178);
-            safeText(g, "Counters are receiver-tick evidence; the client does not fabricate packet history.", 16, 203, MUTED);
+            wrappedText(g, "Counters are receiver-tick evidence; the client does not fabricate packet history.", 16, 203, 620, MUTED);
         } else {
-            safeText(g, "Transmitter currently exposes live frame evidence; it does not invent client-side history.", 16, 112, MUTED);
-            safeText(g, "Receiver counters provide the authoritative link chronology for a radio path.", 16, 134, INFO);
+            int noteY = wrappedText(g, "Transmitter currently exposes live frame evidence; it does not invent client-side history.", 16, 112, 620, MUTED);
+            wrappedText(g, "Receiver counters provide the authoritative link chronology for a radio path.", 16, noteY + 4, 620, INFO);
         }
     }
 
