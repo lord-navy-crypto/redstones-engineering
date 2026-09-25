@@ -94,7 +94,7 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
                 labelValue(g,"Reset permissive",menu.extraC()==1?"YES":"BLOCKED",197);
             }
         }
-        safeText(g, hint(),16,199,MUTED);
+        wrappedText(g, hint(),16,199,620,MUTED);
     }
 
     private void ports(GuiGraphics g) {
@@ -114,7 +114,7 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
         labelValue(g,"Parameter",parameterText(),101);
         labelValue(g,"Maintenance",maintenanceActionText(),179);
         labelValue(g,"Front / primary output",face(menu.facing()),195);
-        safeText(g,"Routing stays on Route; maintenance actions use the same server methods as Shift-right-click.",16,213,MUTED);
+        wrappedText(g,"Routing stays on Route; maintenance actions use the same server methods as Shift-right-click.",16,213,620,MUTED);
     }
 
     private void diagnostics(GuiGraphics g) {
@@ -138,7 +138,7 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
         else if(menu.kind()==ReliabilitySystemMenu.KIND_FAULT_LATCH){labelValue(g,"Trip events",Integer.toString(menu.tertiary()),110);labelValue(g,"Reset events",Integer.toString(menu.auxiliary()),130);}
         else if(menu.kind()==ReliabilitySystemMenu.KIND_SERVO){labelValue(g,"Soft-limit hits",Integer.toString(menu.extraB()),110);labelValue(g,"Current error",Integer.toString(menu.auxiliary()),130);}
         else {labelValue(g,"Measurement samples",Integer.toString(menu.tertiary()),110);}
-        sectionRule(g,154);safeText(g,"Counters are retained server evidence; opening the HMI never manufactures events.",16,170,MUTED);
+        sectionRule(g,154);wrappedText(g,"Counters are retained server evidence; opening the HMI never manufactures events.",16,170,620,MUTED);
     }
 
     private String parameterText(){return switch(menu.kind()){case ReliabilitySystemMenu.KIND_WATCHDOG->"TIMEOUT "+menu.secondary()+"t";case ReliabilitySystemMenu.KIND_SERVO->"SLEW STEP "+menu.extraC();case ReliabilitySystemMenu.KIND_VOTER->"TOLERANCE "+menu.auxiliary();case ReliabilitySystemMenu.KIND_FAULT_LATCH->"THRESHOLD "+menu.secondary();default->"READ ONLY";};}
