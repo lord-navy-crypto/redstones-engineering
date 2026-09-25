@@ -34,6 +34,7 @@ import java.util.Optional;
 
 /** First-order discrete low-pass filter with observer-neutral runtime readback. */
 public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
+    public static final int FILTER_SAMPLE_TICKS = 2;
     public static final IntegerProperty ALPHA = IntegerProperty.create("alpha", 0, 3);
     private static final String KEY = "lapis_lpf";
     private static final int OUTPUT_SLOT = 0;
@@ -189,7 +190,7 @@ public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements E
             runtime[QUALITY_SLOT] = inputQuality.ordinal();
             DomainNetwork.driveLapis(level, outputPos(pos, state), pos, 0, false);
         }
-        level.scheduleTick(pos, this, 2);
+        level.scheduleTick(pos, this, FILTER_SAMPLE_TICKS);
     }
 
     private static PortQuality inputQuality(Level level, BlockPos inputPos, DomainNetwork.LapisSample sample) {

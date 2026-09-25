@@ -24,7 +24,8 @@ for token in (
     "DomainNetwork.driveLapis(level, outputPos(pos, state), pos, runtime[OUTPUT_SLOT], true)",
     "DomainNetwork.driveLapis(level, outputPos(pos, state), pos, 0, false)",
     "PortQuality.VALID.ordinal()",
-    "level.scheduleTick(pos, this, 2)",
+    "FILTER_SAMPLE_TICKS = 2",
+    "level.scheduleTick(pos, this, FILTER_SAMPLE_TICKS)",
 ):
     if token not in block:
         errors.append(f"LapisLowPassFilterBlock missing physical/evidence token: {token}")
@@ -43,6 +44,11 @@ for token in (
     "public Direction outputDirection()",
     "public PortQuality inputQuality()",
     "public PortQuality outputQuality()",
+    "public int sampleTicks()",
+    "public double samplePeriodSeconds()",
+    "public double pole()",
+    "public int step90Samples()",
+    "public int step90Ticks()",
 ):
     if token not in menu:
         errors.append(f"LapisLowPassFilterMenu missing routing/evidence token: {token}")
@@ -63,6 +69,11 @@ for token in (
     "previous Lapis segment cannot retain a ghost filter output",
     "α, retained y[k], input/output PortQuality and response evidence remain server-owned filter state",
     "y[k+1] = y[k] + α · (x[k] − y[k])",
+    "e[k+1] = (1−α) · e[k]",
+    "pole p = 1−α",
+    "Initialized 90% step response",
+    "n90 = ceil(ln(0.1) / ln(1−α))",
+    "First valid acquisition seeds history directly",
     "The client does not run a second filter solver.",
 ):
     if token not in screen:
@@ -96,4 +107,6 @@ print(" old TX driver claims are released before republish: PASS")
 print(" endpoint overlap remains rejected by shared routing authority: PASS")
 print(" valid zero remains distinct from missing input evidence: PASS")
 print(" filter response/model evidence remains server-owned: PASS")
+print(" shared 2-tick sample contract + pole/e-fold/90% response math: PASS")
+print(" first-acquisition seeding remains distinguished from initialized step response: PASS")
 print(" client does not run a second low-pass solver: PASS")

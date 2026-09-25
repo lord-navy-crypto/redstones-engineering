@@ -143,16 +143,43 @@ public final class LapisLowPassFilterMenu extends EngineeringDeviceMenu {
         return a >= 1.0 ? 0.0 : -1.0 / Math.log(1.0 - a);
     }
 
-    /** Filter is scheduled every two ticks in the authoritative block model. */
-    public double tauTicks() {
-        return tauSamples() * 2.0;
+    public int sampleTicks() {
+        return LapisLowPassFilterBlock.FILTER_SAMPLE_TICKS;
     }
 
-    /** Minecraft runs at 20 ticks/s; this filter updates every two ticks, so Ts = 0.1 s. */
+    public double samplePeriodSeconds() {
+        return sampleTicks() / 20.0;
+    }
+
+    /** Discrete pole governing error decay once a trustworthy filter history exists. */
+    public double pole() {
+        return 1.0 - alpha();
+    }
+
+    /** Filter e-folding constant converted from samples into authoritative game ticks. */
+    public double tauTicks() {
+        return tauSamples() * sampleTicks();
+    }
+
+    /**
+     * Samples required for an already-initialized step error to decay to 10% or less:
+     * (1-alpha)^n <= 0.1.
+     */
+    public int step90Samples() {
+        double p = pole();
+        if (p <= 0.0) return 1;
+        return Math.max(1, (int) Math.ceil(Math.log(0.10) / Math.log(p)));
+    }
+
+    public int step90Ticks() {
+        return step90Samples() * sampleTicks();
+    }
+
+    /** Equivalent continuous-time cutoff derived from synchronized alpha and sample period. */
     public double equivalentCutoffHz() {
         double a = alpha();
         return a >= 1.0 ? Double.POSITIVE_INFINITY
-                : -Math.log(1.0 - a) / (2.0 * Math.PI * 0.1);
+                : -Math.log(1.0 - a) / (2.0 * Math.PI * samplePeriodSeconds());
     }
 
     public int trackingError() {

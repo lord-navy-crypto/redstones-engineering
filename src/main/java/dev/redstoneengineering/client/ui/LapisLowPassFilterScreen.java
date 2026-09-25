@@ -196,7 +196,7 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
         return switch (page) {
             case OPERATE -> 440;
             case PARAMETERS -> 500;
-            case RESPONSE -> 520;
+            case RESPONSE -> 620;
             case MODEL -> 650;
             case ROUTING -> 500;
         };
@@ -299,32 +299,44 @@ public final class LapisLowPassFilterScreen extends AbstractContainerScreen<Lapi
 
     private void renderResponse(GuiGraphics g) {
         drawPair(g, "Current α", String.format("%.2f", menu.alpha()), CONTENT_TOP + 34);
-        drawPair(g, "Equivalent e-fold time", String.format("%.2f samples", menu.tauSamples()), CONTENT_TOP + 76);
-        drawPair(g, "At 2 ticks/sample", String.format("%.2f ticks", menu.tauTicks()), CONTENT_TOP + 118);
-        drawPair(g, "Equivalent cutoff", String.format("%.3f Hz", menu.equivalentCutoffHz()), CONTENT_TOP + 160);
-        drawPair(g, "Current input", menu.input() + " / 100", CONTENT_TOP + 202);
-        drawPair(g, "Current output", menu.output() + " / 100", CONTENT_TOP + 244);
-        drawPair(g, "Tracking error", trackingErrorLabel(), CONTENT_TOP + 286);
-        drawPair(g, "Input / output quality", qualityName(menu.inputQuality()) + " / " + qualityName(menu.outputQuality()), CONTENT_TOP + 328);
-        g.drawString(font, "Smaller α = stronger smoothing / slower response.", 42, CONTENT_TOP + 392, MUTED, false);
-        g.drawString(font, "Larger α = weaker smoothing / faster response.", 42, CONTENT_TOP + 410, MUTED, false);
+        drawPair(g, "Discrete pole p = 1−α", String.format("%.3f", menu.pole()), CONTENT_TOP + 76);
+        drawPair(g, "Sample period",
+                menu.sampleTicks() + " ticks • " + String.format("%.3f s", menu.samplePeriodSeconds()), CONTENT_TOP + 118);
+        drawPair(g, "Equivalent e-fold time",
+                String.format("%.2f samples • %.2f ticks", menu.tauSamples(), menu.tauTicks()), CONTENT_TOP + 160);
+        drawPair(g, "Initialized 90% step response",
+                menu.step90Samples() + " samples • " + menu.step90Ticks() + " ticks", CONTENT_TOP + 202);
+        drawPair(g, "Equivalent cutoff", String.format("%.3f Hz", menu.equivalentCutoffHz()), CONTENT_TOP + 244);
+        drawPair(g, "Current input / output", menu.input() + " / " + menu.output(), CONTENT_TOP + 286);
+        drawPair(g, "Tracking error", trackingErrorLabel(), CONTENT_TOP + 328);
+        drawPair(g, "Input / output quality",
+                qualityName(menu.inputQuality()) + " / " + qualityName(menu.outputQuality()), CONTENT_TOP + 370);
+        int y = drawWrapped(g,
+                "For an already-initialized filter after an input step, error obeys e[k+1]=(1−α)e[k]. The 90% figure is the first sample count with |e|≤10% of the original step.",
+                42, CONTENT_TOP + 414, Math.max(300, imageWidth - 96), MUTED);
+        drawWrapped(g,
+                "First trustworthy acquisition is intentionally different: when no retained history exists, the server seeds y directly from the valid input instead of fabricating a startup transient.",
+                42, y + 10, Math.max(300, imageWidth - 96), MUTED);
     }
 
     private void renderModel(GuiGraphics g) {
         int w = Math.max(300, imageWidth - 96);
         g.drawString(font, "DISCRETE FIRST-ORDER LOW-PASS MODEL", 42, CONTENT_TOP + 24, MUTED, false);
         g.drawString(font, "y[k+1] = y[k] + α · (x[k] − y[k])", 42, CONTENT_TOP + 66, INK, false);
-        g.drawString(font, "H(z) = α / (1 − (1−α)z⁻¹)", 42, CONTENT_TOP + 112, INK, false);
-        g.drawString(font, "τsamples = −1 / ln(1−α)", 42, CONTENT_TOP + 158, INK, false);
-        g.drawString(font, "fc ≈ −ln(1−α) / (2πTs),  Ts = 0.1 s", 42, CONTENT_TOP + 204, INK, false);
-        g.drawString(font, "Input quality is authoritative world evidence.", 42, CONTENT_TOP + 276, MUTED, false);
-        g.drawString(font, "Missing input invalidates the driver; retained y[k] is not rewritten as zero.", 42, CONTENT_TOP + 294, MUTED, false);
-        g.drawString(font, "A valid numerical zero remains 0.", 42, CONTENT_TOP + 332, MUTED, false);
-        g.drawString(font, "NO_SIGNAL / STALE / TOPOLOGY_ERROR remain separate quality states.", 42, CONTENT_TOP + 350, MUTED, false);
-        g.drawString(font, "On evidence loss the driver becomes invalid while y[k] is retained.", 42, CONTENT_TOP + 388, MUTED, false);
-        g.drawString(font, "Reacquisition continues from the last trustworthy output.", 42, CONTENT_TOP + 406, MUTED, false);
-        g.drawString(font, "τ and cutoff are display-only values from synchronized α and Ts = 0.1 s.", 42, CONTENT_TOP + 444, MUTED, false);
-        g.drawString(font, "The client does not run a second filter solver.", 42, CONTENT_TOP + 462, MUTED, false);
+        g.drawString(font, "e[k+1] = (1−α) · e[k]  •  pole p = 1−α", 42, CONTENT_TOP + 94, INK, false);
+        g.drawString(font, "H(z) = α / (1 − (1−α)z⁻¹)", 42, CONTENT_TOP + 130, INK, false);
+        g.drawString(font, "τsamples = −1 / ln(1−α)", 42, CONTENT_TOP + 166, INK, false);
+        g.drawString(font, "n90 = ceil(ln(0.1) / ln(1−α))  • initialized step only", 42, CONTENT_TOP + 202, INK, false);
+        g.drawString(font, "fc ≈ −ln(1−α) / (2πTs),  Ts = " + String.format("%.3f s", menu.samplePeriodSeconds()), 42, CONTENT_TOP + 238, INK, false);
+        g.drawString(font, "Input quality is authoritative world evidence.", 42, CONTENT_TOP + 292, MUTED, false);
+        g.drawString(font, "Missing input invalidates the driver; retained y[k] is not rewritten as zero.", 42, CONTENT_TOP + 310, MUTED, false);
+        g.drawString(font, "A valid numerical zero remains 0.", 42, CONTENT_TOP + 348, MUTED, false);
+        g.drawString(font, "NO_SIGNAL / STALE / TOPOLOGY_ERROR remain separate quality states.", 42, CONTENT_TOP + 366, MUTED, false);
+        g.drawString(font, "On evidence loss the driver becomes invalid while y[k] is retained.", 42, CONTENT_TOP + 404, MUTED, false);
+        g.drawString(font, "Reacquisition continues from the last trustworthy output.", 42, CONTENT_TOP + 422, MUTED, false);
+        g.drawString(font, "First valid acquisition seeds history directly; n90 applies only after history exists.", 42, CONTENT_TOP + 460, MUTED, false);
+        g.drawString(font, "τ, n90 and cutoff are display-only values from synchronized α and sample period.", 42, CONTENT_TOP + 478, MUTED, false);
+        g.drawString(font, "The client does not run a second filter solver.", 42, CONTENT_TOP + 496, MUTED, false);
     }
 
     private void renderRouting(GuiGraphics g) {
