@@ -210,7 +210,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         labelValue(g, "Physical route", routeText(), 124);
         labelValue(g, "Attention ports", Integer.toString(attention), 142);
         sectionRule(g, 161);
-        safeText(g, "Every displayed value and quality is synchronized from the logical server.", 16, 174, TEXT);
+        wrappedText(g, "Every displayed value and quality is synchronized from the logical server.", 16, 174, 620, TEXT);
         safeText(g, lapisPrecisionMeasurementPresent()
                         ? "Lapis measurement uses the 0..100 precision-information domain; valid zero remains real evidence."
                         : "Use Ports for physical faces, Configure for parameters, and Route for real orientation.",
@@ -443,7 +443,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Evidence state", evidence.name(), 123);
                 labelValue(g, "Interference confidence", menu.configSecondary() + "%", 145);
                 labelValue(g, "Shielding coverage", menu.configTertiary() + "%", 167);
-                safeText(g, "Channel PortQuality is propagated from each probe; shielding and interference confidence remain separate physical evidence.", 16, 194, TEXT);
+                wrappedText(g, "Channel PortQuality is propagated from each probe; shielding and interference confidence remain separate physical evidence.", 16, 194, 620, TEXT);
             }
             case UniversalFieldDeviceMenu.CONFIG_WATCHDOG -> {
                 int timeout = WatchdogBlock.timeoutTicks(menu.configPrimary());
@@ -515,7 +515,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Link quality", menu.configSecondary() + "%", 123);
                 labelValue(g, "Evidence state", evidence.name(), 145);
                 labelValue(g, "Driver count", Integer.toString(drivers), 167);
-                safeText(g, "Differential data trades payload density for stronger one-bit integrity; PortQuality identifies missing, stale, or conflicted authority.", 16, 194, TEXT);
+                wrappedText(g, "Differential data trades payload density for stronger one-bit integrity; PortQuality identifies missing, stale, or conflicted authority.", 16, 194, 620, TEXT);
             }
             case UniversalFieldDeviceMenu.CONFIG_DIFF_RECEIVER -> {
                 PortQuality evidence = syncedQuality(menu.configQuaternary());
@@ -529,7 +529,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Link quality", menu.configSecondary() + "%", 123);
                 labelValue(g, "Input evidence", evidence.name(), 145);
                 labelValue(g, "Redstone output", menu.configTertiary() + " / 15", 167);
-                safeText(g, "Only a valid differential bit drives redstone; the discrete evidence state remains visible when fail-closed output is zero.", 16, 194, MUTED);
+                wrappedText(g, "Only a valid differential bit drives redstone; the discrete evidence state remains visible when fail-closed output is zero.", 16, 194, 620, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_SERIALIZER -> {
                 PortQuality evidence = syncedQuality(menu.configQuaternary());
@@ -542,7 +542,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Word period", menu.configTertiary() + " ticks", 101);
                 labelValue(g, "Current byte", menu.configSecondary() + " / 255", 123);
                 labelValue(g, "Input evidence", evidence.name(), 145);
-                safeText(g, "Configure selects 4/8/16 ticks per word. The serializer reports upstream bus authority separately from the retained/current byte.", 16, 178, TEXT);
+                wrappedText(g, "Configure selects 4/8/16 ticks per word. The serializer reports upstream bus authority separately from the retained/current byte.", 16, 178, 620, TEXT);
             }
             case UniversalFieldDeviceMenu.CONFIG_DESERIALIZER -> {
                 PortQuality evidence = syncedQuality(menu.configQuaternary());
@@ -556,7 +556,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Serial period", Math.max(1, menu.configSecondary()) + " ticks", 123);
                 labelValue(g, "Frame quality", menu.configTertiary() + "%", 145);
                 labelValue(g, "Input evidence", evidence.name(), 167);
-                safeText(g, "Deserializer conversion remains fail-closed when serial authority is missing, stale, or topologically invalid.", 16, 194, MUTED);
+                wrappedText(g, "Deserializer conversion remains fail-closed when serial authority is missing, stale, or topologically invalid.", 16, 194, 620, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_SERIAL_LINE -> {
                 PortQuality evidence = syncedQuality(menu.configQuaternary());
@@ -571,7 +571,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Link quality", menu.configSecondary() + "%", 123);
                 labelValue(g, "Evidence state", evidence.name(), 145);
                 labelValue(g, "Utilization", menu.configTertiary() + "%", 167);
-                safeText(g, "Serial quality percent describes link margin; PortQuality separately identifies source absence, stale coverage, and topology failure.", 16, 194, TEXT);
+                wrappedText(g, "Serial quality percent describes link margin; PortQuality separately identifies source absence, stale coverage, and topology failure.", 16, 194, 620, TEXT);
             }
             case UniversalFieldDeviceMenu.CONFIG_REGENERATOR -> {
                 int minQuality = DigitalRegeneratorBlock.minimumQuality(menu.configPrimary());
@@ -606,10 +606,10 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Redstone input", menu.configSecondary() + " / 15", 123);
                 labelValue(g, "Input evidence", evidence.name(), 145);
                 labelValue(g, "Byte output", menu.configTertiary() + " / 255", 167);
-                safeText(g, menu.configPrimary() == RedstoneByteEncoderBlock.FULL_SCALE
+                wrappedText(g, menu.configPrimary() == RedstoneByteEncoderBlock.FULL_SCALE
                         ? "FULL_SCALE maps 0..15 to 0..255 in steps of 17; evidence state remains independent of the numeric mapping."
                         : "DIRECT maps redstone 0..15 to byte 0..15 without hiding missing or stale input authority.",
-                        16, 200, TEXT);
+                        16, 200, 620, TEXT);
             }
             case UniversalFieldDeviceMenu.CONFIG_BYTE_DECODER -> {
                 PortQuality evidence = syncedQuality(menu.configQuaternary());
@@ -624,10 +624,10 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Byte input", menu.configSecondary() + " / 255", 123);
                 labelValue(g, "Input evidence", evidence.name(), 145);
                 labelValue(g, "Redstone output", menu.configTertiary() + " / 15", 167);
-                safeText(g, menu.configPrimary() == ByteToRedstoneDecoderBlock.FULL_SCALE
+                wrappedText(g, menu.configPrimary() == ByteToRedstoneDecoderBlock.FULL_SCALE
                         ? "FULL_SCALE compresses 0..255 into redstone 0..15; invalid bus authority still fails closed."
                         : "CLAMP saturates byte values above 15, while NO_SIGNAL/STALE/TOPOLOGY_ERROR remain explicit evidence states.",
-                        16, 200, TEXT);
+                        16, 200, 620, TEXT);
             }
             case UniversalFieldDeviceMenu.CONFIG_JUNCTION -> {
                 TransmissionTopology.SignalMedium[] media = TransmissionTopology.SignalMedium.values();
@@ -659,11 +659,11 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Carrier value", carrier, 123);
                 labelValue(g, "Carrier evidence", evidence.name(), 145);
                 labelValue(g, "Carrier usability", usable ? "USABLE" : "NOT USABLE", 167);
-                wrappedText(g, "The Junction Point projects the authoritative carrier snapshot for its resolved medium; it routes vertically but never converts domains.", 16, 194, 760, TEXT);
-                safeText(g, mismatch
+                int noteY = wrappedText(g, "The Junction Point projects the authoritative carrier snapshot for its resolved medium; it routes vertically but never converts domains.", 16, 194, 620, TEXT);
+                wrappedText(g, mismatch
                         ? "Different media on opposite sides become TOPOLOGY_ERROR and fail closed."
                         : "Byte, bit, channel, redstone, optical and copper payloads retain their own evidence semantics.",
-                        16, 216, mismatch ? WARN : MUTED);
+                        16, noteY + 4, 620, mismatch ? WARN : MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_ANALOG_INDICATOR -> {
                 int min = menu.configSecondary();
@@ -672,16 +672,16 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Current level", menu.configPrimary() + " / 15", 101);
                 labelValue(g, "Retained minimum", min < 0 ? "—" : min + " / 15", 123);
                 labelValue(g, "Retained maximum", max < 0 ? "—" : max + " / 15", 145);
-                safeText(g, "The indicator stays read-only but retains observed extrema so short excursions are not lost between inspections.", 16, 178, TEXT);
-                safeText(g, "Reset min/max starts a new observation window without changing the redstone process.", 16, 200, MUTED);
+                int noteY = wrappedText(g, "The indicator stays read-only but retains observed extrema so short excursions are not lost between inspections.", 16, 178, 620, TEXT);
+                wrappedText(g, "Reset min/max starts a new observation window without changing the redstone process.", 16, noteY + 4, 620, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> {
                 statusBadge(g, "QUARTZ TIMING SOURCE", menu.configSecondary() != 0 ? GOOD : INFO, 16, 80);
                 labelValue(g, "Period", menu.configTertiary() + " ticks", 101);
                 labelValue(g, "Half-cycle", Math.max(1, menu.configTertiary() / 2) + " ticks", 123);
                 labelValue(g, "Output state", menu.configSecondary() != 0 ? "HIGH" : "LOW", 145);
-                safeText(g, "Configure selects the clock period; Route selects the physical timing output face.", 16, 178, TEXT);
-                safeText(g, "Use Quartz timing as the next layer beyond redstone levels: clocks, sampling, phase and sequencing.", 16, 200, MUTED);
+                int noteY = wrappedText(g, "Configure selects the clock period; Route selects the physical timing output face.", 16, 178, 620, TEXT);
+                wrappedText(g, "Use Quartz timing as the next layer beyond redstone levels: clocks, sampling, phase and sequencing.", 16, noteY + 4, 620, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_FAULT_LATCH -> {
                 int thresholdIndex = menu.configPrimary();
@@ -691,8 +691,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Latched state", menu.configSecondary() != 0 ? "TRIPPED" : "CLEAR", 123);
                 labelValue(g, "Trip count", Integer.toString(menu.configTertiary()), 145);
                 labelValue(g, "Reset permissive", resetPermitted ? "YES • FAULT CLEAR" : "NO • BLOCKED", 167);
-                safeText(g, "RESET is edge-triggered. Holding RESET high cannot suppress a continuing fault.", 16, 194, TEXT);
-                safeText(g, "Electrical or manual reset is accepted only after FAULT evidence is clear; bad reset evidence must reacquire before another edge is accepted.", 16, 216, MUTED);
+                int noteY = wrappedText(g, "RESET is edge-triggered. Holding RESET high cannot suppress a continuing fault.", 16, 194, 620, TEXT);
+                wrappedText(g, "Electrical or manual reset is accepted only after FAULT evidence is clear; bad reset evidence must reacquire before another edge is accepted.", 16, noteY + 4, 620, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_REDSTONE_CABLE -> {
                 statusBadge(g, "INSULATED REDSTONE LINK", INFO, 16, 80);
@@ -713,7 +713,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.CONFIG_REFERENCE_SOURCE -> {
                 statusBadge(g, "REDSTONE REFERENCE SOURCE", INFO, 16, 80);
                 labelValue(g, "Output level", menu.configPrimary() + " / 15", 101);
-                safeText(g, "Configure sets the authoritative laboratory reference level. Route selects the real output face independently.", 16, 150, TEXT);
+                wrappedText(g, "Configure sets the authoritative laboratory reference level. Route selects the real output face independently.", 16, 150, 620, TEXT);
                 wrappedText(g, "Use it to inject known 0..15 values when calibrating conditioners, filters, thresholds, analyzers and control chains.", 16, 178, 760, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_SIGNAL_PROBE -> {
@@ -756,8 +756,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 statusBadge(g, "MAGNETIC SENSOR APERTURE", INFO, 16, 80);
                 labelValue(g, "Aperture radius", MagneticFieldSensorBlock.radiusForMode(radiusMode) + " blocks", 101);
                 labelValue(g, "Sample period", MagneticFieldSensorBlock.samplePeriodForMode(sampleMode) + " ticks", 123);
-                safeText(g, "Radius changes the physical free-space field aperture; sampling mode changes how often evidence is reacquired.", 16, 160, TEXT);
-                safeText(g, "Changing either setting clears old coverage evidence before the next sample.", 16, 188, MUTED);
+                int noteY = wrappedText(g, "Radius changes the physical free-space field aperture; sampling mode changes how often evidence is reacquired.", 16, 160, 620, TEXT);
+                wrappedText(g, "Changing either setting clears old coverage evidence before the next sample.", 16, noteY + 4, 620, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_ENTITY_DENSITY -> {
                 int profile = menu.configPrimary();
@@ -768,7 +768,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Sampling period", EntityDensitySensorBlock.profileSamplePeriod(profile) + " ticks", 145);
                 labelValue(g, "Noise", "±" + EntityDensitySensorBlock.profileNoiseAmplitude(profile) + " / 100", 167);
                 labelValue(g, "Latency", EntityDensitySensorBlock.profileLatencySamples(profile) + " sample", 189);
-                safeText(g, "Changing profile or aperture invalidates prior measurement evidence before reacquisition.", 16, 207, MUTED);
+                wrappedText(g, "Changing profile or aperture invalidates prior measurement evidence before reacquisition.", 16, 207, 620, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_TANK_LEVEL -> {
                 int mode = menu.configPrimary();
@@ -786,7 +786,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Resolution", EngineeringLightSensorBlock.profileResolutionStep(profile) + " / 100", 145);
                 labelValue(g, "Noise", "±" + EngineeringLightSensorBlock.profileNoiseAmplitude(profile) + " / 100", 167);
                 labelValue(g, "Latency", EngineeringLightSensorBlock.profileLatencySamples(profile) + " sample", 189);
-                safeText(g, "Profile changes acquisition behavior; changing it invalidates prior pending measurement evidence.", 16, 207, MUTED);
+                wrappedText(g, "Profile changes acquisition behavior; changing it invalidates prior pending measurement evidence.", 16, 207, 620, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER -> {
                 statusBadge(g, "MEASUREMENT CONDITIONING", INFO, 16, 80);
@@ -798,13 +798,13 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 statusBadge(g, "RANGE MEASUREMENT CONDITIONING", INFO, 16, 80);
                 labelValue(g, "Profile", lapisProfileName(menu.configPrimary()) + " (" + menu.configPrimary() + ")", 101);
                 labelValue(g, "Maximum range", menu.configSecondary() + " blocks", 141);
-                safeText(g, "Changing profile or range invalidates the old sample before resampling.", 16, 188, MUTED);
+                wrappedText(g, "Changing profile or range invalidates the old sample before resampling.", 16, 188, 620, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER -> {
                 statusBadge(g, "MOLECULAR RECEIVER", INFO, 16, 80);
                 labelValue(g, "Sensitivity", Integer.toString(menu.configPrimary()), 101);
                 labelValue(g, "Retained peak", Integer.toString(menu.configSecondary()), 141);
-                safeText(g, "Reset clears filtered/peak history; the fixed UP aperture remains unchanged.", 16, 188, MUTED);
+                wrappedText(g, "Reset clears filtered/peak history; the fixed UP aperture remains unchanged.", 16, 188, 620, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_ALARM -> {
                 int alarmState = menu.configSecondary();
@@ -814,7 +814,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Severity", Integer.toString(menu.configPrimary()), 101);
                 labelValue(g, "Operator state", alarmStateName(alarmState), 129);
                 labelValue(g, "Activations", Integer.toString(menu.configTertiary()), 151);
-                safeText(g, "ACK changes operator-attention state; process RESET / CLEAR remains a physical input.", 16, 188, MUTED);
+                wrappedText(g, "ACK changes operator-attention state; process RESET / CLEAR remains a physical input.", 16, 188, 620, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD -> {
                 statusBadge(g, "SAMPLE & HOLD", INFO, 16, 80);
@@ -848,7 +848,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "REFERENCE evidence", referenceQuality.name(), 145);
                 labelValue(g, "Output evidence", outputQuality.name(), 167);
                 labelValue(g, "Residual / samples", samples <= 0 ? "NO TRACEABLE DATA" : signed(residual) + " levels • n=" + samples, 189);
-                safeText(g, "OBSERVED drives the numeric transfer. REFERENCE only authorizes new traceable calibration evidence; bad reference evidence never becomes a hidden control input.", 16, 214, MUTED);
+                wrappedText(g, "OBSERVED drives the numeric transfer. REFERENCE only authorizes new traceable calibration evidence; bad reference evidence never becomes a hidden control input.", 16, 214, 620, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_PWM -> {
                 int packed = menu.configQuaternary();
@@ -914,7 +914,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "RUN evidence", runQuality.name(), 123);
                 labelValue(g, "Completed cycles", Integer.toString(menu.configSecondary()), 145);
                 labelValue(g, "Transitions", Integer.toString(menu.configTertiary()), 167);
-                safeText(g, "Operator reset returns runtime state to IDLE and reacquires RUN; a fresh LOW→HIGH RUN edge is required before STEP 1 can start again.", 16, 200, MUTED);
+                wrappedText(g, "Operator reset returns runtime state to IDLE and reacquires RUN; a fresh LOW→HIGH RUN edge is required before STEP 1 can start again.", 16, 200, 620, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK -> {
                 boolean evaluated = menu.configPrimary() >= 0;
@@ -924,16 +924,16 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Missing permissives", failedPermissives(menu.configPrimary()), 101);
                 labelValue(g, "Permit output", permit ? "15 / ENABLED" : "0 / BLOCKED", 129);
                 labelValue(g, "State transitions", Integer.toString(menu.configTertiary()), 151);
-                safeText(g, !evaluated
+                wrappedText(g, !evaluated
                                 ? "Diagnostic counters were reset; permissive evidence will repopulate on the next evaluation."
                                 : "Reset counters does not bypass permissives A/B/C or force the permit output.",
-                        16, 188, MUTED);
+                        16, 188, 620, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER -> {
                 statusBadge(g, attentionCount() == 0 ? "TOPOLOGY • NOMINAL" : "TOPOLOGY • ISSUE", attentionCount() == 0 ? GOOD : WARN, 16, 80);
                 labelValue(g, "Scan count", Integer.toString(menu.configPrimary()), 101);
                 labelValue(g, "Target mode", menu.configSecondary() != 0 ? "VANILLA REDSTONE" : "ENGINEERING PORTS", 141);
-                safeText(g, "SCAN is opposite alarm TX; reset clears retained scan counters only.", 16, 188, MUTED);
+                wrappedText(g, "SCAN is opposite alarm TX; reset clears retained scan counters only.", 16, 188, 620, MUTED);
             }
             default -> {
                 boolean rotatable = menu.rotatableSeriesAxis();
@@ -964,21 +964,21 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             statusLine(g, side.getName().toUpperCase(), quality.name() + " • " + menu.domain(side).label(), qualityColor(quality), y);
             y += 18;
         }
-        if (y == 104) safeText(g, "No EngineeringPortProvider interfaces are declared by this block.", 16, 108, WARN);
+        if (y == 104) wrappedText(g, "No EngineeringPortProvider interfaces are declared by this block.", 16, 108, 620, WARN);
         if (lapisPrecisionMeasurementPresent() && y <= 190) {
             sectionRule(g, y + 2);
             statusLine(g, "Precision identity", lapisPrecisionText(), lapisPrecisionColor(), y + 14);
-            safeText(g, lapisPrecisionNextAction(), 16, y + 34, lapisPrecisionColor());
+            wrappedText(g, lapisPrecisionNextAction(), 16, y + 34, 620, lapisPrecisionColor());
         }
     }
 
     private void history(GuiGraphics g) {
         statusBadge(g, "LIVE ONLY • NO RETAINED HISTORY", INFO, 16, 80);
         labelValue(g, "Current evidence", "SYNCHRONIZED SNAPSHOT", 108);
-        safeText(g, "Retained chronology belongs in analyzers, monitors, or the Diagnostic Tablet.", 16, 132, INFO);
+        wrappedText(g, "Retained chronology belongs in analyzers, monitors, or the Diagnostic Tablet.", 16, 132, 620, INFO);
         if (lapisPrecisionMeasurementPresent()) {
             labelValue(g, "Precision medium", "LAPIS • 0..100 • 0.01 display", 158);
-            safeText(g, "History remains external even when the current precision sample is VALID.", 16, 180, MUTED);
+            wrappedText(g, "History remains external even when the current precision sample is VALID.", 16, 180, 620, MUTED);
         }
     }
 
