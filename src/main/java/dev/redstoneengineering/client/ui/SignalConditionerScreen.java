@@ -1,6 +1,7 @@
 package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.signal.SignalConditionerLogic;
 import dev.redstoneengineering.ui.menu.SignalConditionerMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -81,11 +82,20 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
         labelValue(graphics, "Mode", modeName(menu.mode()), 164);
         labelValue(graphics, parameterName(menu.mode()), parameterText(menu.mode(), menu.parameter()), 184);
         labelValue(graphics, "Allowed", parameterRange(menu.mode()), 204);
-        labelValue(graphics, "Rigid Input → Output", direction(menu.inputDirection().getName()) + " → " + direction(menu.outputDirection().getName()), 224);
-        int noteY = wrappedText(graphics, behaviorLine(menu.mode()), 16, 248, 620, TEXT);
+        labelValue(graphics, "Stored → effective", parameterContract(menu.mode(), menu.parameter()), 224);
+        labelValue(graphics, "State dependence",
+                SignalConditionerLogic.usesPreviousOutput(menu.mode())
+                        ? "STATEFUL • transfer uses previous output yprev"
+                        : "MEMORYLESS • current input + parameter only", 244);
+        labelValue(graphics, "Boundary evidence", boundaryContract(menu.mode(), menu.parameter()), 264);
+        labelValue(graphics, "Rigid Input → Output",
+                direction(menu.inputDirection().getName()) + " → " + direction(menu.outputDirection().getName()), 284);
+        int noteY = wrappedText(graphics, behaviorLine(menu.mode()), 16, 308, 620, TEXT);
         noteY = wrappedText(graphics, "Buttons change configuration only; Route rotates the complete opposite-port axis.", 16, noteY + 4, 620, MUTED);
         labelValue(graphics, "Transfer model", modelLine(menu.mode(), menu.parameter()).replace("MODEL • ", ""), noteY + 10);
-        wrappedText(graphics, "Transfer math executes on the server tick; this HMI only renders synchronized configuration and evidence.", 16, noteY + 34, 620, MUTED);
+        wrappedText(graphics,
+                "Server tick execution calls the same pure SignalConditionerLogic contract verified by the semantic harness; the client only renders synchronized configuration and evidence.",
+                16, noteY + 34, 620, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
@@ -201,28 +211,54 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
     }
 
     private static String parameterRange(int mode) {
+        int min = SignalConditionerLogic.minParameter(mode);
+        int max = SignalConditionerLogic.maxParameter(mode);
         return switch (mode) {
-            case 0 -> "×1 .. ×4";
-            case 1 -> "−5 .. +5";
-            case 2, 3 -> "1 .. 15";
-            case 4 -> "1 .. 4";
-            case 5 -> "÷2 .. ÷4";
+            case 0 -> "×" + min + " .. ×" + max;
+            case 1 -> (min - 5) + " .. +" + (max - 5);
+            case 2, 3, 4 -> min + " .. " + max;
+            case 5 -> "÷" + min + " .. ÷" + max;
             default -> "—";
         };
     }
 
     private static String modelLine(int mode, int param) {
+        int p = SignalConditionerLogic.boundedParameter(mode, param);
         return switch (mode) {
-            case 0 -> "MODEL • y = clamp(round(x × " + Math.max(1, Math.min(4, param)) + "), 0, 15)";
+            case 0 -> "MODEL • y = clamp(x × " + p + ", 0, 15)";
             case 1 -> {
-                int offset = Math.min(10, param) - 5;
+                int offset = p - 5;
                 yield "MODEL • y = clamp(x " + (offset >= 0 ? "+ " : "− ") + Math.abs(offset) + ", 0, 15)";
             }
-            case 2 -> "MODEL • y = min(x, " + Math.max(1, param) + ")";
-            case 3 -> "MODEL • y = x when x ≥ " + Math.max(1, param) + "; otherwise y = 0";
-            case 4 -> "MODEL • if |x − yprev| ≥ " + Math.max(1, Math.min(4, param)) + ", y = x; otherwise retain yprev";
-            case 5 -> "MODEL • y = round(x / " + Math.max(2, Math.min(4, param)) + ")";
+            case 2 -> "MODEL • y = min(x, " + p + ")";
+            case 3 -> "MODEL • y = x when x ≥ " + p + "; otherwise y = 0";
+            case 4 -> "MODEL • if |x − yprev| ≥ " + p + ", y = x; otherwise retain yprev";
+            case 5 -> "MODEL • y = round(x / " + p + ")";
             default -> "MODEL • y = x";
+        };
+    }
+
+    private static String parameterContract(int mode, int stored) {
+        int effective = SignalConditionerLogic.boundedParameter(mode, stored);
+        return stored == effective
+                ? "stored " + stored + " = effective " + effective
+                : "legacy stored " + stored + " → effective " + effective;
+    }
+
+    private static String boundaryContract(int mode, int param) {
+        int p = SignalConditionerLogic.boundedParameter(mode, param);
+        return switch (mode) {
+            case 0 -> "SATURATED only when x × " + p + " > 15";
+            case 1 -> {
+                int offset = p - 5;
+                yield "SATURATED only when raw x " + (offset >= 0 ? "+ " : "− ")
+                        + Math.abs(offset) + " leaves 0..15";
+            }
+            case 2 -> "SATURATED when x > ceiling " + p;
+            case 3 -> "threshold LOW is valid transfer semantics, not saturation";
+            case 4 -> "deadband hold is stateful transfer semantics, not saturation";
+            case 5 -> "attenuation is in-range transfer semantics, not saturation";
+            default -> "no boundary-limiting evidence";
         };
     }
 
@@ -240,12 +276,12 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
 
     private static String parameterText(int mode, int param) {
         return switch (mode) {
-            case 0 -> "×" + Math.max(1, Math.min(4, param));
-            case 1 -> (Math.min(10, param) - 5 >= 0 ? "+" : "") + (Math.min(10, param) - 5);
-            case 2 -> "MAX " + Math.max(1, param);
-            case 3 -> "TRIP ≥ " + Math.max(1, param);
-            case 4 -> "BAND " + Math.max(1, Math.min(4, param));
-            case 5 -> "÷" + Math.max(2, Math.min(4, param));
+            case 0 -> "×" + SignalConditionerLogic.boundedParameter(0, param);
+            case 1 -> (SignalConditionerLogic.boundedParameter(1, param) - 5 >= 0 ? "+" : "") + (SignalConditionerLogic.boundedParameter(1, param) - 5);
+            case 2 -> "MAX " + SignalConditionerLogic.boundedParameter(2, param);
+            case 3 -> "TRIP ≥ " + SignalConditionerLogic.boundedParameter(3, param);
+            case 4 -> "BAND " + SignalConditionerLogic.boundedParameter(4, param);
+            case 5 -> "÷" + SignalConditionerLogic.boundedParameter(5, param);
             default -> "—";
         };
     }
