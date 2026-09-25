@@ -134,7 +134,7 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock implements Enti
     public static int riseRate(Level level, BlockPos pos, BlockState state) {
         int fallback = state.getValue(RATE);
         if (level instanceof ServerLevel serverLevel) {
-            return Math.max(1, Math.min(15, EngineeringDeviceParameters.get(serverLevel)
+            return Math.max(1, Math.min(4, EngineeringDeviceParameters.get(serverLevel)
                     .extendedParameters(serverLevel, pos,
                             new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
         }
@@ -144,7 +144,7 @@ public class PrecisionFilterBlock extends DirectionalSignalBlock implements Enti
     public static boolean setRiseRate(ServerLevel level, BlockPos pos, int value) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof PrecisionFilterBlock filter)) return false;
-        int bounded = Math.max(1, Math.min(15, value));
+        int bounded = Math.max(1, Math.min(4, value));
         boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
                 level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
         if (changed) level.scheduleTick(pos, filter, 1);
