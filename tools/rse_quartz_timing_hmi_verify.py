@@ -26,6 +26,9 @@ if not failed:
 
     for token in (
         "QuartzOscillatorBlock.adjustConfiguredPeriodTicks(",
+        "QuartzOscillatorBlock.resetConfiguredPeriodTicks(",
+        "BUTTON_PARAMETER_COARSE_PREVIOUS",
+        "BUTTON_PARAMETER_COARSE_NEXT",
         "DirectionalDomainSourceBlock.rotateOutput(level, blockPos",
         "DirectionalDomainSourceBlock.outputSide(state).ordinal()",
         "QuartzOscillatorBlock.effectivePeriodTicks(level, blockPos, state)",
@@ -54,6 +57,12 @@ if not failed:
 
     for token in (
         "public static boolean adjustConfiguredPeriodTicks",
+        "public static boolean resetConfiguredPeriodTicks",
+        "MIN_PERIOD_TICKS = 2",
+        "MAX_PERIOD_TICKS = 200",
+        "DEFAULT_PERIOD_TICKS = 8",
+        "FINE_STEP_TICKS = 1",
+        "COARSE_STEP_TICKS = 5",
         "deliberately does not schedule an early tick",
     ):
         if token not in source:
@@ -105,6 +114,14 @@ if not failed:
         "wrappedText(g, topologyHint(), 16, 199, 760, MUTED)",
         "straight-through timing device",
         "rigid series axis",
+        "Configured period Tcfg",
+        "Allowed range",
+        "Fine / coarse step",
+        "Frequency model",
+        "f = 20 / Tcfg",
+        "Half-cycle schedule",
+        "Δt = max(1, Teff / 2)",
+        "Default ",
     ):
         if token not in screen:
             failed.append(f"QuartzTimingScreen missing engineering evidence/model token: {token}")
