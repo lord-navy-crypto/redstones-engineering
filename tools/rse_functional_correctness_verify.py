@@ -28,6 +28,7 @@ tests = read("src/main/java/dev/redstoneengineering/gametest/RseFunctionalCorrec
 registration = read("src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java")
 directional = read("src/main/java/dev/redstoneengineering/block/DirectionalSignalBlock.java")
 conditioner = read("src/main/java/dev/redstoneengineering/block/SignalConditionerBlock.java")
+conditioner_logic = read("src/main/java/dev/redstoneengineering/signal/SignalConditionerLogic.java")
 robot_entity = read("src/main/java/dev/redstoneengineering/entity/EngineeringMobileRobotEntity.java")
 robot_safety = read("src/main/java/dev/redstoneengineering/robotics/RobotSafetyAssessment.java")
 robot_state_machine = read("src/main/java/dev/redstoneengineering/robotics/RobotStateMachine.java")
@@ -57,14 +58,22 @@ for token in (
         errors.append(f"DirectionalSignalBlock lost core directional/boundary contract: {token}")
 
 for token in (
-    "case 0 -> SignalMath.gain",
-    "case 1 -> SignalMath.offset",
-    "case 2 -> Math.min",
-    "case 3 -> SignalMath.threshold",
-    "case 4 -> Math.abs(input - previousOutput)",
+    "SignalConditionerLogic.apply(",
+    "SignalConditionerLogic.limiting(",
 ):
     if token not in conditioner:
-        errors.append(f"SignalConditioner mode contract missing: {token}")
+        errors.append(f"SignalConditioner block no longer delegates to pure transfer authority: {token}")
+
+for token in (
+    "case MODE_SCALE -> EngineeringSignal.clamp",
+    "case MODE_OFFSET -> EngineeringSignal.clamp",
+    "case MODE_CLAMP -> Math.min",
+    "case MODE_THRESHOLD -> x >= p ? x : 0",
+    "case MODE_DEADBAND -> Math.abs(x - yPrevious) >= p ? x : yPrevious",
+    "case MODE_ATTENUATE -> EngineeringSignal.clamp",
+):
+    if token not in conditioner_logic:
+        errors.append(f"SignalConditioner pure mode contract missing: {token}")
 
 for token in (
     'new Snapshot(Verdict.SAFE_STOP, false, "E_STOP_ACTIVE")',
