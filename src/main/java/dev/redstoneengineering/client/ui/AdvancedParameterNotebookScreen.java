@@ -1,6 +1,7 @@
 package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.signal.LapisNoiseSourceLogic;
 import dev.redstoneengineering.ui.menu.AdvancedParameterMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -265,7 +266,11 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
             case AdvancedParameterMenu.KIND_ELECTROMAGNET -> slot<2?v+" field/tick":v+" thermal/tick";
             case AdvancedParameterMenu.KIND_INDUCTION_COIL -> Integer.toString(v);
             case AdvancedParameterMenu.KIND_RELIEF_VALVE -> v+"/100";
-            case AdvancedParameterMenu.KIND_LAPIS_NOISE -> slot==0?v+"/100":slot==1?"±"+v+"/100":v+" ticks";
+            case AdvancedParameterMenu.KIND_LAPIS_NOISE -> slot==0
+                    ? v+"/100 • allowed "+LapisNoiseSourceLogic.MIN_BASELINE+".."+LapisNoiseSourceLogic.MAX_BASELINE
+                    : slot==1
+                    ? "±"+v+"/100 • allowed ±"+LapisNoiseSourceLogic.MIN_NOISE_AMPLITUDE+".."+LapisNoiseSourceLogic.MAX_NOISE_AMPLITUDE
+                    : v+" ticks • allowed "+LapisNoiseSourceLogic.MIN_SAMPLE_PERIOD_TICKS+".."+LapisNoiseSourceLogic.MAX_SAMPLE_PERIOD_TICKS;
             case AdvancedParameterMenu.KIND_LAPIS_RANGE -> v+" blocks";
             case AdvancedParameterMenu.KIND_OPTICAL_EMITTER -> Integer.toString(v);
             default -> Integer.toString(v);
@@ -328,7 +333,11 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
             case AdvancedParameterMenu.KIND_ELECTROMAGNET -> "H[k+1] = clamp(H + heating(V) − cooling, 0,1000); cooling is an operator design parameter.";
             case AdvancedParameterMenu.KIND_RELIEF_VALVE -> "Setpoint and blowdown are independent safety parameters; blowdown prevents rapid open/close chatter.";
             case AdvancedParameterMenu.KIND_SIGNAL_AMPLIFIER -> "Clipping is explicit SATURATED output quality; it does not rewrite a valid input into missing evidence.";
-            case AdvancedParameterMenu.KIND_LAPIS_NOISE -> "Baseline, amplitude and cadence are independent experiment variables. The server writes one deterministic sample per configured 1..64-tick period; a generated sample of 0 remains VALID evidence.";
+            case AdvancedParameterMenu.KIND_LAPIS_NOISE -> "Baseline, amplitude and cadence are independent experiment variables. Exact server ranges are "
+                    +LapisNoiseSourceLogic.MIN_BASELINE+".."+LapisNoiseSourceLogic.MAX_BASELINE+", ±"
+                    +LapisNoiseSourceLogic.MIN_NOISE_AMPLITUDE+".."+LapisNoiseSourceLogic.MAX_NOISE_AMPLITUDE
+                    +", and "+LapisNoiseSourceLogic.MIN_SAMPLE_PERIOD_TICKS+".."+LapisNoiseSourceLogic.MAX_SAMPLE_PERIOD_TICKS
+                    +" ticks. Legacy quick presets map into these same exact parameters; a generated sample of 0 remains VALID evidence.";
             case AdvancedParameterMenu.KIND_LAPIS_RANGE -> "If any scanned cell lies in an unavailable chunk, coverage stops and quality is STALE. Complete clear coverage with no target is NO_SIGNAL; only a found target is VALID.";
             default -> "Configuration affects the authoritative device solver, not a client-only visualization.";
         };
@@ -338,6 +347,7 @@ public final class AdvancedParameterNotebookScreen extends AbstractContainerScre
         return switch(menu.kind()){
             case AdvancedParameterMenu.KIND_SIGNAL_AMPLIFIER -> "Operate separates input quality from output quality, so headroom saturation stays visible even when the numerical output is clamped to 15.";
             case AdvancedParameterMenu.KIND_LAPIS_RANGE -> "Raw distance and measurement quality are synchronized separately; the UI never converts NO_SIGNAL or STALE into a fabricated distance.";
+            case AdvancedParameterMenu.KIND_LAPIS_NOISE -> "Rotating the LAPIS output changes topology only; it never advances, resets or fabricates the deterministic sample. Legacy BlockState presets synchronize the same exact server parameter authority.";
             default -> "All values shown on Operate are synchronized evidence from the real Minecraft world state.";
         };
     }

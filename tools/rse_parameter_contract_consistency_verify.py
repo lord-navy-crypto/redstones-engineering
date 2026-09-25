@@ -351,6 +351,42 @@ require(
 )
 
 require(
+    "src/main/java/dev/redstoneengineering/signal/LapisNoiseSourceLogic.java",
+    "MIN_BASELINE = 0",
+    "MAX_BASELINE = 100",
+    "MIN_NOISE_AMPLITUDE = 0",
+    "MAX_NOISE_AMPLITUDE = 50",
+    "MIN_SAMPLE_PERIOD_TICKS = 1",
+    "MAX_SAMPLE_PERIOD_TICKS = 64",
+    "DEFAULT_SAMPLE_PERIOD_TICKS = 4",
+    "boundedBaseline",
+    "boundedNoiseAmplitude",
+    "boundedSamplePeriod",
+    "baselineForLegacyIndex",
+    "noiseForLegacyIndex",
+    "samplePeriodForLegacyRate",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/LapisNoiseSourceBlock.java",
+    "LapisNoiseSourceLogic.boundedBaseline(stored.a())",
+    "LapisNoiseSourceLogic.boundedNoiseAmplitude(stored.b())",
+    "LapisNoiseSourceLogic.boundedSamplePeriod(stored.c())",
+    "configurationChanged",
+    "Route changes topology only. Never rewrite or advance the deterministic sample.",
+)
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/AdvancedParameterNotebookScreen.java",
+    "LapisNoiseSourceLogic.MIN_BASELINE",
+    "LapisNoiseSourceLogic.MAX_BASELINE",
+    "LapisNoiseSourceLogic.MIN_NOISE_AMPLITUDE",
+    "LapisNoiseSourceLogic.MAX_NOISE_AMPLITUDE",
+    "LapisNoiseSourceLogic.MIN_SAMPLE_PERIOD_TICKS",
+    "LapisNoiseSourceLogic.MAX_SAMPLE_PERIOD_TICKS",
+    "Legacy quick presets map into these same exact parameters",
+    "Rotating the LAPIS output changes topology only",
+)
+
+require(
     "src/main/java/dev/redstoneengineering/signal/HoneyVibrationDamperLogic.java",
     "MIN_ATTENUATION = 1",
     "MAX_ATTENUATION = 15",
@@ -795,6 +831,7 @@ print(" Signal Conditioner pure transfer/range authority: PASS")
 print(" Optical attenuator/filter exact transfer + rigid-route authority: PASS")
 print(" Redstone-Copper exact slew/legacy preset dynamics authority: PASS")
 print(" PWM exact-period/legacy-preset carrier authority: PASS")
+print(" Lapis Noise Source stored/effective + legacy preset authority: PASS")
 print(" Honey Vibration Damper configurable through-loss/local-decay authority: PASS")
 print(" Mechanical Exciter frequency/rate stored-effective authority: PASS")
 print(" Permanent Magnet single scalar-strength parameter authority: PASS")

@@ -14,6 +14,7 @@ import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.EngineeringDeviceParameters;
 import dev.redstoneengineering.physics.EngineeringMath;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.signal.LapisNoiseSourceLogic;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -40,10 +41,18 @@ import java.util.Optional;
  * can never create or rewrite the source's physical sample.</p>
  */
 public class LapisNoiseSourceBlock extends DirectionalDomainSourceBlock implements EngineeringPortProvider {
-    public static final IntegerProperty BASELINE = IntegerProperty.create("baseline", 0, 20);
-    public static final IntegerProperty NOISE = IntegerProperty.create("noise", 0, 10);
-    public static final IntegerProperty RATE = IntegerProperty.create("rate", 0, 3);
-    private static final int[] SAMPLE_PERIODS = {2, 4, 8, 16};
+    public static final IntegerProperty BASELINE = IntegerProperty.create(
+            "baseline",
+            LapisNoiseSourceLogic.MIN_LEGACY_BASELINE_INDEX,
+            LapisNoiseSourceLogic.MAX_LEGACY_BASELINE_INDEX);
+    public static final IntegerProperty NOISE = IntegerProperty.create(
+            "noise",
+            LapisNoiseSourceLogic.MIN_LEGACY_NOISE_INDEX,
+            LapisNoiseSourceLogic.MAX_LEGACY_NOISE_INDEX);
+    public static final IntegerProperty RATE = IntegerProperty.create(
+            "rate",
+            LapisNoiseSourceLogic.MIN_LEGACY_RATE_INDEX,
+            LapisNoiseSourceLogic.MAX_LEGACY_RATE_INDEX);
     private static final String KEY = "lapis_noise";
     private static final int SAMPLE_SLOT = 0;
     private static final int INITIALIZED_SLOT = 1;
@@ -52,9 +61,9 @@ public class LapisNoiseSourceBlock extends DirectionalDomainSourceBlock implemen
     public LapisNoiseSourceBlock(Properties properties) {
         super(properties);
         registerDefaultState(defaultBlockState()
-                .setValue(BASELINE, 10)
-                .setValue(NOISE, 3)
-                .setValue(RATE, 1));
+                .setValue(BASELINE, LapisNoiseSourceLogic.DEFAULT_LEGACY_BASELINE_INDEX)
+                .setValue(NOISE, LapisNoiseSourceLogic.DEFAULT_LEGACY_NOISE_INDEX)
+                .setValue(RATE, LapisNoiseSourceLogic.DEFAULT_LEGACY_RATE_INDEX));
     }
 
     @Override public MapCodec<LapisNoiseSourceBlock> codec() { return RedstoneEngineering.LAPIS_NOISE_SOURCE_CODEC.value(); }
@@ -77,16 +86,18 @@ public class LapisNoiseSourceBlock extends DirectionalDomainSourceBlock implemen
     @Override
     public Optional<EngineeringPortSnapshot> engineeringSnapshot(Level level, BlockPos pos, BlockState state, Direction side) {
         return engineeringPort(state, side).map(port -> new EngineeringPortSnapshot(
-                port, currentValue(level, pos, state), 0.0, 100.0, PortQuality.VALID));
+                port, currentValue(level, pos, state),
+                LapisNoiseSourceLogic.MIN_BASELINE, LapisNoiseSourceLogic.MAX_BASELINE,
+                PortQuality.VALID));
     }
 
     /** Observer-neutral current sample. Before the first server write, configuration is the readback fallback only. */
     public static int currentValue(Level level, BlockPos pos, BlockState state) {
         int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
         if (runtime != null && runtime.length == RUNTIME_SIZE && runtime[INITIALIZED_SLOT] == 1) {
-            return EngineeringMath.clamp(runtime[SAMPLE_SLOT], 0, 100);
+            return LapisNoiseSourceLogic.boundedBaseline(runtime[SAMPLE_SLOT]);
         }
-        return EngineeringMath.clamp(configuredParameters(level, pos, state).a(), 0, 100);
+        return configuredParameters(level, pos, state).a();
     }
 
     public static boolean sampleInitialized(Level level, BlockPos pos) {
@@ -95,17 +106,28 @@ public class LapisNoiseSourceBlock extends DirectionalDomainSourceBlock implemen
     }
 
     public static int samplePeriodTicks(BlockState state) {
-        return SAMPLE_PERIODS[Math.max(0, Math.min(SAMPLE_PERIODS.length - 1, state.getValue(RATE)))];
+        return LapisNoiseSourceLogic.samplePeriodForLegacyRate(state.getValue(RATE));
     }
 
     public static EngineeringDeviceParameters.ExtendedParameters configuredParameters(Level level, BlockPos pos, BlockState state) {
         var fallback = new EngineeringDeviceParameters.ExtendedParameters(
-                state.getValue(BASELINE) * 5,
-                state.getValue(NOISE) * 2,
+                LapisNoiseSourceLogic.baselineForLegacyIndex(state.getValue(BASELINE)),
+                LapisNoiseSourceLogic.noiseForLegacyIndex(state.getValue(NOISE)),
                 samplePeriodTicks(state),
                 0);
         if (level instanceof ServerLevel serverLevel) {
-            return EngineeringDeviceParameters.get(serverLevel).extendedParameters(serverLevel, pos, fallback);
+            var stored = EngineeringDeviceParameters.get(serverLevel)
+                    .extendedParameters(serverLevel, pos, fallback);
+            // Baseline/noise may legitimately be zero. Period zero is the only impossible value,
+            // so treat it as an older-save "unset" slot and fall back to the legacy rate preset.
+            int period = stored.c() <= 0
+                    ? fallback.c()
+                    : LapisNoiseSourceLogic.boundedSamplePeriod(stored.c());
+            return new EngineeringDeviceParameters.ExtendedParameters(
+                    LapisNoiseSourceLogic.boundedBaseline(stored.a()),
+                    LapisNoiseSourceLogic.boundedNoiseAmplitude(stored.b()),
+                    period,
+                    0);
         }
         return fallback;
     }
@@ -114,9 +136,9 @@ public class LapisNoiseSourceBlock extends DirectionalDomainSourceBlock implemen
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof LapisNoiseSourceBlock source)) return false;
         var next = new EngineeringDeviceParameters.ExtendedParameters(
-                EngineeringMath.clamp(baseline, 0, 100),
-                EngineeringMath.clamp(noiseAmplitude, 0, 50),
-                Math.max(1, Math.min(64, samplePeriod)),
+                LapisNoiseSourceLogic.boundedBaseline(baseline),
+                LapisNoiseSourceLogic.boundedNoiseAmplitude(noiseAmplitude),
+                LapisNoiseSourceLogic.boundedSamplePeriod(samplePeriod),
                 0);
         boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(level, pos, next);
         if (changed) {
@@ -140,14 +162,15 @@ public class LapisNoiseSourceBlock extends DirectionalDomainSourceBlock implemen
     /** Authoritative physics write used by placement, the scheduler and deterministic runtime tests. */
     public static void setSample(Level level, BlockPos pos, int sample) {
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
-        runtime[SAMPLE_SLOT] = EngineeringMath.clamp(sample, 0, 100);
+        runtime[SAMPLE_SLOT] = LapisNoiseSourceLogic.boundedBaseline(sample);
         runtime[INITIALIZED_SLOT] = 1;
     }
 
     @Override protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean moved) {
         super.onPlace(state, level, pos, oldState, moved);
         if (!level.isClientSide && !state.is(oldState.getBlock())) {
-            setSample(level, pos, state.getValue(BASELINE) * 5);
+            setSample(level, pos,
+                    LapisNoiseSourceLogic.baselineForLegacyIndex(state.getValue(BASELINE)));
             if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeLapis(serverLevel, pos);
             level.scheduleTick(pos, this, 1);
         }
@@ -166,48 +189,75 @@ public class LapisNoiseSourceBlock extends DirectionalDomainSourceBlock implemen
 
     @Override protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         var parameters = configuredParameters(level, pos, state);
-        int base = EngineeringMath.clamp(parameters.a(), 0, 100);
-        int noise = EngineeringMath.clamp(parameters.b(), 0, 50);
-        int sample = FaultInjectionModel.addDeterministicNoise(base, noise, level.getGameTime(), pos.asLong(), 0, 100);
+        int sample = FaultInjectionModel.addDeterministicNoise(
+                parameters.a(), parameters.b(), level.getGameTime(), pos.asLong(),
+                LapisNoiseSourceLogic.MIN_BASELINE, LapisNoiseSourceLogic.MAX_BASELINE);
         setSample(level, pos, sample);
         DomainNetwork.recomputeLapis(level, pos);
-        level.scheduleTick(pos, this, Math.max(1, Math.min(64, configuredParameters(level, pos, state).c())));
+        level.scheduleTick(pos, this, parameters.c());
     }
 
-    @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+    @Override
+    protected InteractionResult useWithoutItem(
+            BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit
+    ) {
         if (!level.isClientSide) {
             BlockState next = state;
+            boolean configurationChanged = false;
+
             if (player.isShiftKeyDown() && hit.getDirection().getAxis().isHorizontal()) {
+                // Route changes topology only. Never rewrite or advance the deterministic sample.
                 if (rotateOutput(level, pos, true)) {
                     next = level.getBlockState(pos);
-                    if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeLapisAround(serverLevel, pos);
+                    if (level instanceof ServerLevel serverLevel) {
+                        DomainNetwork.recomputeLapisAround(serverLevel, pos);
+                    }
                 }
             } else if (player.isShiftKeyDown()) {
                 if (hit.getDirection() == Direction.UP) {
                     int noise = state.getValue(NOISE);
-                    next = state.setValue(NOISE, noise >= 10 ? 0 : noise + 1);
+                    int nextNoise = noise >= LapisNoiseSourceLogic.MAX_LEGACY_NOISE_INDEX
+                            ? LapisNoiseSourceLogic.MIN_LEGACY_NOISE_INDEX : noise + 1;
+                    next = state.setValue(NOISE, nextNoise);
                 } else {
                     int rate = state.getValue(RATE);
-                    next = state.setValue(RATE, (rate + 1) % SAMPLE_PERIODS.length);
+                    int span = LapisNoiseSourceLogic.MAX_LEGACY_RATE_INDEX
+                            - LapisNoiseSourceLogic.MIN_LEGACY_RATE_INDEX + 1;
+                    int nextRate = LapisNoiseSourceLogic.MIN_LEGACY_RATE_INDEX
+                            + Math.floorMod(rate - LapisNoiseSourceLogic.MIN_LEGACY_RATE_INDEX + 1, span);
+                    next = state.setValue(RATE, nextRate);
                 }
                 level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+                configurationChanged = true;
             } else {
                 int baseline = state.getValue(BASELINE);
-                next = state.setValue(BASELINE, baseline >= 20 ? 0 : baseline + 1);
+                int nextBaseline = baseline >= LapisNoiseSourceLogic.MAX_LEGACY_BASELINE_INDEX
+                        ? LapisNoiseSourceLogic.MIN_LEGACY_BASELINE_INDEX : baseline + 1;
+                next = state.setValue(BASELINE, nextBaseline);
                 level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+                configurationChanged = true;
             }
-            setSample(level, pos, next.getValue(BASELINE) * 5);
-            if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeLapis(serverLevel, pos);
-            level.scheduleTick(pos, this, 1);
+
+            if (configurationChanged && level instanceof ServerLevel serverLevel) {
+                // Legacy quick controls are presets for the same exact server-owned parameters,
+                // not a second configuration authority.
+                setEngineeringParameters(
+                        serverLevel, pos,
+                        LapisNoiseSourceLogic.baselineForLegacyIndex(next.getValue(BASELINE)),
+                        LapisNoiseSourceLogic.noiseForLegacyIndex(next.getValue(NOISE)),
+                        LapisNoiseSourceLogic.samplePeriodForLegacyRate(next.getValue(RATE)));
+            }
+
             int current = currentValue(level, pos, next);
             player.displayClientMessage(Component.literal(
                     "Fault injection [NOISE] | LAPIS OUT=" + outputSide(next).getName().toUpperCase()
-                            + " | baseline=" + String.format("%.2f", next.getValue(BASELINE) * 0.05)
-                            + " | noise=±" + String.format("%.2f", next.getValue(NOISE) * 0.02)
+                            + " | baseline=" + String.format("%.2f",
+                            LapisNoiseSourceLogic.baselineForLegacyIndex(next.getValue(BASELINE)) / 100.0)
+                            + " | noise=±" + String.format("%.2f",
+                            LapisNoiseSourceLogic.noiseForLegacyIndex(next.getValue(NOISE)) / 100.0)
                             + " | rate=" + rateName(next) + " (" + samplePeriodTicks(next) + "t)"
                             + " | now=" + String.format("%.2f", current / 100.0)
                             + " | zero is valid | shift-side=route, shift-UP=noise, shift-DOWN=rate"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
-    }
-}
+    }}
