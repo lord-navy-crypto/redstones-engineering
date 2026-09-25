@@ -117,13 +117,14 @@ require("src/main/java/dev/redstoneengineering/ui/menu/PneumaticSystemMenu.java"
         "DirectionalDomainBlock.rotateRigidSeriesAxis(level, blockPos, clockwise)",
         "changed = rotateDirectional(block, id)")
 pneumatic_menu = read("src/main/java/dev/redstoneengineering/ui/menu/PneumaticSystemMenu.java")
+pneumatic_click = pneumatic_menu[pneumatic_menu.find("public boolean clickMenuButton"):]
 for device, next_device in (
     ("block instanceof PressureRegulatorBlock", "block instanceof PneumaticValveBlock"),
     ("block instanceof PneumaticProportionalValveBlock", "block instanceof PneumaticReceiverBlock"),
 ):
-    start = pneumatic_menu.find(device)
-    end = pneumatic_menu.find(next_device, start)
-    window = pneumatic_menu[start:end] if start >= 0 and end > start else ""
+    start = pneumatic_click.find(device)
+    end = pneumatic_click.find(next_device, start)
+    window = pneumatic_click[start:end] if start >= 0 and end > start else ""
     if "rotateRigidDirectional(id)" not in window:
         errors.append(f"{device}: inline pneumatic route no longer uses rigid whole-axis rotation")
 
