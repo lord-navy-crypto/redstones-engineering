@@ -13,26 +13,68 @@ def req(path,*tokens):
 
 logic="src/main/java/dev/redstoneengineering/signal/ElectromagnetLogic.java"
 block="src/main/java/dev/redstoneengineering/block/ElectromagnetBlock.java"
-menu="src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java"
-screen="src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java"
+menu="src/main/java/dev/redstoneengineering/ui/menu/MagneticSystemMenu.java"
+screen="src/main/java/dev/redstoneengineering/client/ui/MagneticSystemScreen.java"
+opener="src/main/java/dev/redstoneengineering/ui/FieldDeviceUi.java"
 
-req(logic,"stepField","nextThermal","deratedTarget","thermalState")
+req(logic,
+    "MIN_FIELD = 0",
+    "MAX_FIELD = 15",
+    "MIN_RESPONSE_RATE = 1",
+    "MAX_RESPONSE_RATE = 15",
+    "DEFAULT_RISE_RATE = 2",
+    "DEFAULT_FALL_RATE = 3",
+    "MIN_COOLING_RATE = 1",
+    "MAX_COOLING_RATE = 40",
+    "DEFAULT_COOLING_RATE = 20",
+    "MAX_THERMAL_LOAD = 1000",
+    "WARM_DERATE_THRESHOLD = 700",
+    "HOT_DERATE_THRESHOLD = 850",
+    "WARM_FIELD_CAP = 10",
+    "HOT_FIELD_CAP = 6",
+    "boundedField",
+    "boundedResponseRate",
+    "boundedCoolingRate",
+    "boundedThermalLoad",
+    "isThermallyDerated",
+    "stepField","nextThermal","deratedTarget","thermalState")
 req(block,
     "RuntimeIntStore",
     "ElectromagnetLogic.stepField",
     "ElectromagnetLogic.nextThermal",
     "targetField","thermalLoad","trackingError",
-    "runTicks","thermalDerated")
+    "runTicks","thermalDerated",
+    "ElectromagnetLogic.boundedResponseRate",
+    "ElectromagnetLogic.boundedCoolingRate",
+    "ElectromagnetLogic.DEFAULT_RISE_RATE",
+    "ElectromagnetLogic.DEFAULT_FALL_RATE",
+    "ElectromagnetLogic.DEFAULT_COOLING_RATE")
 req(menu,
-    "CONFIG_ELECTROMAGNET",
+    "KIND_ELECTROMAGNET",
+    "ElectromagnetBlock.configuredResponse",
+    "ElectromagnetBlock.setEngineeringParameters",
     "ElectromagnetBlock.targetField",
     "ElectromagnetBlock.thermalLoad",
-    "ElectromagnetBlock.trackingError")
+    "ElectromagnetBlock.trackingError",
+    "ElectromagnetBlock.runTicks")
 req(screen,
-    "ELECTROMAGNET COIL",
-    "Target / actual field",
+    "ELECTROMAGNET",
+    "Field rise rate Rrise",
+    "Field fall rate Rfall",
+    "Cooling rate C",
+    "ElectromagnetLogic.MIN_RESPONSE_RATE",
+    "ElectromagnetLogic.MAX_RESPONSE_RATE",
+    "ElectromagnetLogic.MIN_COOLING_RATE",
+    "ElectromagnetLogic.MAX_COOLING_RATE",
+    "ElectromagnetLogic.MAX_THERMAL_LOAD",
+    "ElectromagnetLogic.WARM_DERATE_THRESHOLD",
+    "ElectromagnetLogic.HOT_DERATE_THRESHOLD",
+    "Target / actual",
     "Thermal load",
     "Tracking error")
+req(opener,
+    "block instanceof ElectromagnetBlock",
+    "new MagneticSystemMenu(id, inv, pos)")
 
 lp=root/logic
 if lp.is_file():
@@ -48,6 +90,12 @@ public final class EmHarness{
   c(ElectromagnetLogic.deratedTarget(15,900)==6,"hot derate");
   c(ElectromagnetLogic.nextThermal(0,15)>ElectromagnetLogic.nextThermal(0,5),"higher excitation heats faster");
   c(ElectromagnetLogic.nextThermal(500,0)<500,"deenergized coil cools");
+  c(ElectromagnetLogic.boundedResponseRate(0)==ElectromagnetLogic.MIN_RESPONSE_RATE,"response lower bound");
+  c(ElectromagnetLogic.boundedResponseRate(99)==ElectromagnetLogic.MAX_RESPONSE_RATE,"response upper bound");
+  c(ElectromagnetLogic.boundedCoolingRate(0)==ElectromagnetLogic.MIN_COOLING_RATE,"cooling lower bound");
+  c(ElectromagnetLogic.boundedCoolingRate(99)==ElectromagnetLogic.MAX_COOLING_RATE,"cooling upper bound");
+  c(ElectromagnetLogic.boundedThermalLoad(5000)==ElectromagnetLogic.MAX_THERMAL_LOAD,"thermal upper bound");
+  c(ElectromagnetLogic.isThermallyDerated(ElectromagnetLogic.WARM_DERATE_THRESHOLD),"derating threshold");
   System.out.println("ElectromagnetLogic semantic harness: PASS");
  }}
 '''
@@ -70,4 +118,5 @@ print("RSE electromagnet engineering-depth verification: PASS")
 print(" finite inductive field response: PASS")
 print(" excitation-dependent thermal accumulation: PASS")
 print(" thermal derating/cooling: PASS")
-print(" HMI coil evidence: PASS")
+print(" dedicated Magnetic HMI parameter/evidence contract: PASS")
+print(" rise/fall/cooling + thermal thresholds share pure-model authority: PASS")

@@ -222,6 +222,47 @@ require(
 )
 
 require(
+    "src/main/java/dev/redstoneengineering/signal/ElectromagnetLogic.java",
+    "MIN_FIELD = 0",
+    "MAX_FIELD = 15",
+    "MIN_RESPONSE_RATE = 1",
+    "MAX_RESPONSE_RATE = 15",
+    "DEFAULT_RISE_RATE = 2",
+    "DEFAULT_FALL_RATE = 3",
+    "MIN_COOLING_RATE = 1",
+    "MAX_COOLING_RATE = 40",
+    "DEFAULT_COOLING_RATE = 20",
+    "MAX_THERMAL_LOAD = 1000",
+    "WARM_DERATE_THRESHOLD = 700",
+    "HOT_DERATE_THRESHOLD = 850",
+    "WARM_FIELD_CAP = 10",
+    "HOT_FIELD_CAP = 6",
+    "boundedResponseRate",
+    "boundedCoolingRate",
+    "boundedThermalLoad",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/ElectromagnetBlock.java",
+    "ElectromagnetLogic.boundedResponseRate",
+    "ElectromagnetLogic.boundedCoolingRate",
+    "ElectromagnetLogic.DEFAULT_RISE_RATE",
+    "ElectromagnetLogic.DEFAULT_FALL_RATE",
+    "ElectromagnetLogic.DEFAULT_COOLING_RATE",
+)
+magnetic_screen = require(
+    "src/main/java/dev/redstoneengineering/client/ui/MagneticSystemScreen.java",
+    "ElectromagnetLogic.MIN_RESPONSE_RATE",
+    "ElectromagnetLogic.MAX_RESPONSE_RATE",
+    "ElectromagnetLogic.MIN_COOLING_RATE",
+    "ElectromagnetLogic.MAX_COOLING_RATE",
+    "ElectromagnetLogic.MAX_THERMAL_LOAD",
+    "ElectromagnetLogic.WARM_DERATE_THRESHOLD",
+    "ElectromagnetLogic.HOT_DERATE_THRESHOLD",
+)
+if "dev.redstoneengineering.physics" in magnetic_screen:
+    errors.append("Magnetic client HMI crossed the persistence/physics authority boundary")
+
+require(
     "src/main/java/dev/redstoneengineering/signal/CopperFuseLogic.java",
     "MIN_RATING = 1",
     "MAX_RATING = 15",
@@ -492,6 +533,7 @@ print("RSE parameter-contract consistency verification: PASS")
 print(" Precision Filter effective 1..4 slew authority: PASS")
 print(" Pulse Shaper threshold/hysteresis/width authority: PASS")
 print(" Signal Conditioner pure transfer/range authority: PASS")
+print(" Electromagnet response/cooling/thermal pure parameter authority: PASS")
 print(" Copper Fuse rating/class/I2t parameter authority: PASS")
 print(" Copper Capacitor baseTau/leakage + rigid axial route authority: PASS")
 print(" Edge Detector exact 1..20 pulse-width authority: PASS")

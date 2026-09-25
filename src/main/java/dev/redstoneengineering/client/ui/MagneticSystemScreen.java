@@ -1,6 +1,7 @@
 package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.signal.ElectromagnetLogic;
 import dev.redstoneengineering.ui.menu.MagneticSystemMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -121,13 +122,23 @@ public final class MagneticSystemScreen extends EngineeringScreen<MagneticSystem
             labelValue(g,"Field rise rate Rrise",menu.engineeringA()+" field/tick",205);
             labelValue(g,"Field fall rate Rfall",menu.engineeringB()+" field/tick",225);
             labelValue(g,"Cooling rate C",menu.engineeringC()+" thermal/tick",245);
-            labelValue(g,"Parameter bounds","Rrise,Rfall=1..15 • C=1..40",265);
+            labelValue(g,"Parameter bounds",
+                    "Rrise,Rfall=" + ElectromagnetLogic.MIN_RESPONSE_RATE + ".."
+                            + ElectromagnetLogic.MAX_RESPONSE_RATE
+                            + " • C=" + ElectromagnetLogic.MIN_COOLING_RATE + ".."
+                            + ElectromagnetLogic.MAX_COOLING_RATE,265);
             labelValue(g,"Target / actual B",menu.auxiliary()+" / "+menu.primary(),285);
             labelValue(g,"Field response","B[k+1]=toward(Btarget, +Rrise / -Rfall)",305);
-            labelValue(g,"Heat proxy","H=max(1,(V²+7)/8) • Cenerg=max(1,C/5)",325);
-            labelValue(g,"Thermal update","θ[k+1]=clamp(θ+H-Cenerg,0..1000)",345);
+            labelValue(g,"Heat proxy","H=max(1,(V²+7)/8) • Cenerg=max(1,C/"
+                    +ElectromagnetLogic.ENERGIZED_COOLING_DIVISOR+")",325);
+            labelValue(g,"Thermal update","θ[k+1]=clamp(θ+H-Cenerg,"
+                    +ElectromagnetLogic.MIN_THERMAL_LOAD+".."+ElectromagnetLogic.MAX_THERMAL_LOAD+")",345);
             labelValue(g,"De-energized cooling","V=0 → θ[k+1]=max(0,θ-C)",365);
-            labelValue(g,"Derating","θ<700: Btarget=V • 700..849: min(V,10) • ≥850: min(V,6)",385);
+            labelValue(g,"Derating","θ<"+ElectromagnetLogic.WARM_DERATE_THRESHOLD
+                    +": Btarget=V • "+ElectromagnetLogic.WARM_DERATE_THRESHOLD+".."
+                    +(ElectromagnetLogic.HOT_DERATE_THRESHOLD-1)+": min(V,"
+                    +ElectromagnetLogic.WARM_FIELD_CAP+") • ≥"+ElectromagnetLogic.HOT_DERATE_THRESHOLD
+                    +": min(V,"+ElectromagnetLogic.HOT_FIELD_CAP+")",385);
             wrappedText(g,"These equations are the actual server model. Copper voltage and evidence come from the world network; the HMI only changes the bounded response rates and cooling parameter.",16,409,620,MUTED);
         }
         else if(menu.kind()==MagneticSystemMenu.KIND_PERMANENT){
@@ -149,7 +160,7 @@ public final class MagneticSystemScreen extends EngineeringScreen<MagneticSystem
         if(menu.kind()==MagneticSystemMenu.KIND_GRADIENT){labelValue(g,"Gradient X / Y / Z",menu.primary()+" / "+menu.secondary()+" / "+menu.tertiary(),126);labelValue(g,"Local field",Integer.toString(menu.auxiliary()),146);labelValue(g,"Coverage",menu.complete()?"COMPLETE":"INCOMPLETE",166);}
         else if(menu.kind()==MagneticSystemMenu.KIND_FIELD_SENSOR){labelValue(g,"Field",Integer.toString(menu.primary()),126);labelValue(g,"Coverage",menu.secondary()+" / "+menu.tertiary(),146);labelValue(g,"Validity",menu.complete()?"VALID":"STALE",166);}
         else if(menu.kind()==MagneticSystemMenu.KIND_COIL){labelValue(g,"Field / EMF",menu.primary()+" / "+menu.secondary(),126);labelValue(g,"Turns",Integer.toString(menu.tertiary()),146);labelValue(g,"Output validity",qualityName(),166);}
-        else if(menu.kind()==MagneticSystemMenu.KIND_ELECTROMAGNET){labelValue(g,"Input V / feeds",menu.secondary()+" / "+menu.tertiary(),126);labelValue(g,"Target / actual / error",menu.auxiliary()+" / "+menu.primary()+" / "+menu.runtimeA(),146);labelValue(g,"Thermal load",menu.extra()+" / 1000",166);labelValue(g,"Response R/F/C",menu.engineeringA()+" / "+menu.engineeringB()+" / "+menu.engineeringC(),184);}
+        else if(menu.kind()==MagneticSystemMenu.KIND_ELECTROMAGNET){labelValue(g,"Input V / feeds",menu.secondary()+" / "+menu.tertiary(),126);labelValue(g,"Target / actual / error",menu.auxiliary()+" / "+menu.primary()+" / "+menu.runtimeA(),146);labelValue(g,"Thermal load",menu.extra()+" / "+ElectromagnetLogic.MAX_THERMAL_LOAD,166);labelValue(g,"Response R/F/C",menu.engineeringA()+" / "+menu.engineeringB()+" / "+menu.engineeringC(),184);}
         else {labelValue(g,"Primary field",Integer.toString(menu.primary()),126);labelValue(g,"Evidence",qualityName(),146);}
         statusLine(g,"Authority","SERVER SYNCHRONIZED",GOOD,198);
     }
@@ -158,7 +169,7 @@ public final class MagneticSystemScreen extends EngineeringScreen<MagneticSystem
         statusBadge(g,"MAGNETIC EVIDENCE",INFO,16,80);
         wrappedText(g,"This HMI exposes current/retained server observations; it does not fabricate field history.",16,108,620,TEXT);
         if(menu.kind()==MagneticSystemMenu.KIND_COIL){labelValue(g,"Current induced EMF",menu.secondary()+" / 15",136);labelValue(g,"Turns",Integer.toString(menu.tertiary()),156);labelValue(g,"Derivative baseline",menu.complete()?"VALID":"STALE / RE-ARM",176);}
-        else if(menu.kind()==MagneticSystemMenu.KIND_ELECTROMAGNET){labelValue(g,"Run ticks",Integer.toString(menu.runtimeB()),136);labelValue(g,"Thermal load",menu.extra()+" / 1000",156);labelValue(g,"Tracking error",Integer.toString(menu.runtimeA()),176);wrappedText(g,"Thermal and run evidence are server-retained runtime state; the HMI does not integrate a second coil model.",16,198,620,MUTED);}
+        else if(menu.kind()==MagneticSystemMenu.KIND_ELECTROMAGNET){labelValue(g,"Run ticks",Integer.toString(menu.runtimeB()),136);labelValue(g,"Thermal load",menu.extra()+" / "+ElectromagnetLogic.MAX_THERMAL_LOAD,156);labelValue(g,"Tracking error",Integer.toString(menu.runtimeA()),176);wrappedText(g,"Thermal and run evidence are server-retained runtime state; the HMI does not integrate a second coil model.",16,198,620,MUTED);}
         else if(menu.kind()==MagneticSystemMenu.KIND_FIELD_SENSOR){labelValue(g,"Coverage",menu.secondary()+" / "+menu.tertiary(),136);}
     }
 

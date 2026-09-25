@@ -42,7 +42,8 @@ import java.util.Optional;
  * coil cools. FIELD remains the external magnetic source consumed by MagneticPhysics.
  */
 public class ElectromagnetBlock extends DomainBlock implements EngineeringPortProvider {
-    public static final IntegerProperty FIELD = IntegerProperty.create("field", 0, 15);
+    public static final IntegerProperty FIELD = IntegerProperty.create(
+            "field", ElectromagnetLogic.MIN_FIELD, ElectromagnetLogic.MAX_FIELD);
 
     private static final String RUNTIME_KEY = "electromagnet";
     private static final int TARGET_FIELD = 0;
@@ -53,7 +54,7 @@ public class ElectromagnetBlock extends DomainBlock implements EngineeringPortPr
 
     public ElectromagnetBlock(Properties properties) {
         super(properties);
-        registerDefaultState(defaultBlockState().setValue(FIELD, 0));
+        registerDefaultState(defaultBlockState().setValue(FIELD, ElectromagnetLogic.MIN_FIELD));
     }
 
     @Override public MapCodec<ElectromagnetBlock> codec() { return RedstoneEngineering.ELECTROMAGNET_CODEC.value(); }
@@ -86,16 +87,19 @@ public class ElectromagnetBlock extends DomainBlock implements EngineeringPortPr
 
     public static int targetField(Level level, BlockPos pos) {
         int[] runtime = snapshot(level, pos);
-        return runtime == null ? 0 : Math.max(0, Math.min(15, runtime[TARGET_FIELD]));
+        return runtime == null ? ElectromagnetLogic.MIN_FIELD
+                : ElectromagnetLogic.boundedField(runtime[TARGET_FIELD]);
     }
 
     public static int thermalLoad(Level level, BlockPos pos) {
         int[] runtime = snapshot(level, pos);
-        return runtime == null ? 0 : Math.max(0, Math.min(1000, runtime[THERMAL_LOAD]));
+        return runtime == null ? ElectromagnetLogic.MIN_THERMAL_LOAD
+                : ElectromagnetLogic.boundedThermalLoad(runtime[THERMAL_LOAD]);
     }
 
     public static int trackingError(Level level, BlockPos pos) {
-        return targetField(level, pos) - Math.max(0, Math.min(15, level.getBlockState(pos).getValue(FIELD)));
+        return targetField(level, pos)
+                - ElectromagnetLogic.boundedField(level.getBlockState(pos).getValue(FIELD));
     }
 
     public static int runTicks(Level level, BlockPos pos) {
@@ -104,17 +108,23 @@ public class ElectromagnetBlock extends DomainBlock implements EngineeringPortPr
     }
 
     public static boolean thermalDerated(Level level, BlockPos pos) {
-        return thermalLoad(level, pos) >= 700;
+        return ElectromagnetLogic.isThermallyDerated(thermalLoad(level, pos));
     }
 
     public static EngineeringDeviceParameters.ExtendedParameters configuredResponse(Level level, BlockPos pos) {
-        var fallback = new EngineeringDeviceParameters.ExtendedParameters(2, 3, 20, 0);
+        var fallback = new EngineeringDeviceParameters.ExtendedParameters(
+                ElectromagnetLogic.DEFAULT_RISE_RATE,
+                ElectromagnetLogic.DEFAULT_FALL_RATE,
+                ElectromagnetLogic.DEFAULT_COOLING_RATE,
+                0);
         if (level instanceof ServerLevel serverLevel) {
             var raw = EngineeringDeviceParameters.get(serverLevel).extendedParameters(serverLevel, pos, fallback);
-            int rise = Math.max(1, Math.min(15, raw.a()));
-            int fall = Math.max(1, Math.min(15, raw.b()));
+            int rise = ElectromagnetLogic.boundedResponseRate(raw.a());
+            int fall = ElectromagnetLogic.boundedResponseRate(raw.b());
             // Alpha 1.0.21 used slot C=0; migrate that to the historical cooling rate of 20.
-            int cooling = raw.c() <= 0 ? 20 : Math.max(1, Math.min(40, raw.c()));
+            int cooling = raw.c() <= 0
+                    ? ElectromagnetLogic.DEFAULT_COOLING_RATE
+                    : ElectromagnetLogic.boundedCoolingRate(raw.c());
             return new EngineeringDeviceParameters.ExtendedParameters(rise, fall, cooling, 0);
         }
         return fallback;
@@ -126,9 +136,9 @@ public class ElectromagnetBlock extends DomainBlock implements EngineeringPortPr
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof ElectromagnetBlock magnet)) return false;
         var next = new EngineeringDeviceParameters.ExtendedParameters(
-                Math.max(1, Math.min(15, rise)),
-                Math.max(1, Math.min(15, fall)),
-                Math.max(1, Math.min(40, coolingRate)),
+                ElectromagnetLogic.boundedResponseRate(rise),
+                ElectromagnetLogic.boundedResponseRate(fall),
+                ElectromagnetLogic.boundedCoolingRate(coolingRate),
                 0);
         boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(level, pos, next);
         if (changed) level.scheduleTick(pos, magnet, 1);
@@ -197,10 +207,10 @@ public class ElectromagnetBlock extends DomainBlock implements EngineeringPortPr
             CopperNetworkSupport.TerminalInput input = CopperNetworkSupport.terminalInput(level, pos);
             player.displayClientMessage(Component.literal(
                     "Electromagnet | V=" + input.voltage() + "/15"
-                            + " targetB=" + targetField(level, pos) + "/15"
-                            + " actualB=" + state.getValue(FIELD) + "/15"
+                            + " targetB=" + targetField(level, pos) + "/" + ElectromagnetLogic.MAX_FIELD
+                            + " actualB=" + state.getValue(FIELD) + "/" + ElectromagnetLogic.MAX_FIELD
                             + " error=" + trackingError(level, pos)
-                            + " | thermal=" + thermalLoad(level, pos) + "/1000"
+                            + " | thermal=" + thermalLoad(level, pos) + "/" + ElectromagnetLogic.MAX_THERMAL_LOAD
                             + " cooling=" + configuredResponse(level, pos).c() + "/tick"
                             + " " + ElectromagnetLogic.thermalState(thermalLoad(level, pos))
                             + " | runTicks=" + runTicks(level, pos)
