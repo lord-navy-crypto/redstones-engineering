@@ -80,7 +80,7 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
             labelValue(g, "Measurement face", inputFace(), 153);
             labelValue(g, "Current evidence", menu.runtimeC() == 1 ? "CURRENT" : menu.primary() > 0 ? "STALE/RETAINED" : "NONE", 171);
         }
-        safeText(g, topologyHint(), 16, 199, MUTED);
+        wrappedText(g, topologyHint(), 16, 199, 760, MUTED);
     }
 
     private void ports(GuiGraphics g) {
@@ -88,7 +88,7 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
         if (menu.kind() == QuartzTimingMenu.KIND_OSCILLATOR) {
             statusLine(g, outputFace(), "OUTPUT • QUARTZ CLOCK", GOOD, 112);
             statusLine(g, "OTHER FACES", "NO DECLARED QUARTZ PORT", MUTED, 140);
-            safeText(g, "This is a single-output source. Route rotates the real physical output face.", 16, 174, INFO);
+            wrappedText(g, "This is a single-output source. Route rotates the real physical output face.", 16, 174, 760, INFO);
         } else if (menu.kind() == QuartzTimingMenu.KIND_DIVIDER) {
             statusLine(g, inputFace(), "INPUT • QUARTZ CLOCK", GOOD, 112);
             statusLine(g, "PROCESS", "CLOCK DIVISION • ÷" + menu.tertiary(), INFO, 140);
@@ -100,7 +100,7 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
         } else {
             statusLine(g, inputFace(), "INPUT • QUARTZ TIMING MEASUREMENT", GOOD, 118);
             statusLine(g, "NETWORK AUTHORITY", "OBSERVE ONLY • NO OUTPUT DRIVER", INFO, 146);
-            safeText(g, "Stability Monitor has one measurement input; the opposite face is not an output.", 16, 176, MUTED);
+            wrappedText(g, "Stability Monitor has one measurement input; the opposite face is not an output.", 16, 176, 760, MUTED);
         }
     }
 
@@ -110,19 +110,19 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
             labelValue(g, "Configured period", menu.secondary() + " ticks", 101);
             labelValue(g, "Effective period", menu.runtimeA() + " ticks", 172);
             labelValue(g, "Apply policy", menu.runtimeB() == 1 ? "LATCH AT NEXT REAL TRANSITION" : "ALREADY LATCHED", 190);
-            safeText(g, "Changing period updates configuration now but does not manufacture an early waveform edge.", 16, 214, MUTED);
+            wrappedText(g, "Changing period updates configuration now but does not manufacture an early waveform edge.", 16, 214, 760, MUTED);
         } else if (menu.kind() == QuartzTimingMenu.KIND_DIVIDER) {
             labelValue(g, "Division", "÷" + menu.tertiary(), 101);
             labelValue(g, "I/O axis", inputFace() + " → " + outputFace(), 172);
-            safeText(g, "Physical I/O direction is controlled only on Route.", 16, 199, MUTED);
+            wrappedText(g, "Physical I/O direction is controlled only on Route. Divider input and output remain opposite because the block is a straight-through timing device.", 16, 199, 760, MUTED);
         } else if (menu.kind() == QuartzTimingMenu.KIND_DELAY) {
             labelValue(g, "Configured edge delay", menu.primary() + " ticks", 101);
             labelValue(g, "Queued / next event", menu.secondary() + " / " + (menu.tertiary() > 0 ? menu.tertiary() + "t" : "NONE"), 172);
-            safeText(g, "Newly captured edges use the new delay; edges already in the queue retain their original remaining time. Physical I/O is controlled only on Route.", 16, 199, MUTED);
+            wrappedText(g, "Newly captured edges use the new delay; edges already in the queue retain their original remaining time. Physical I/O is controlled only on Route, and the input/output faces remain opposite as one rigid series axis.", 16, 199, 760, MUTED);
         } else {
             labelValue(g, "Measurement", menu.primary() + " ticks", 101);
             labelValue(g, "Input face", inputFace(), 172);
-            safeText(g, "Measurement face is controlled only on Route.", 16, 199, MUTED);
+            wrappedText(g, "Measurement face is controlled only on Route.", 16, 199, 760, MUTED);
         }
     }
 
@@ -158,7 +158,7 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
             labelValue(g, "Output face", outputFace(), 176);
         }
         statusLine(g, "Diagnosis", diagnosis(), diagnosisColor(), 232);
-        safeText(g, nextAction(), 16, 252, diagnosisColor());
+        wrappedText(g, nextAction(), 16, 252, 760, diagnosisColor());
     }
 
     private void history(GuiGraphics g) {
@@ -173,26 +173,26 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
             labelValue(g, "Jitter = max - min", menu.runtimeH() + " ticks", 230);
             labelValue(g, "Max |T - Tnom|", menu.runtimeI() + " ticks", 250);
             sectionRule(g, 272);
-            safeText(g, "Window statistics come from up to eight complete server-observed periods; a gap makes retained evidence stale and starts the next valid window fresh.", 16, 286, MUTED);
+            wrappedText(g, "Window statistics come from up to eight complete server-observed periods; a gap makes retained evidence stale and starts the next valid window fresh.", 16, 286, 760, MUTED);
         } else if (menu.kind() == QuartzTimingMenu.KIND_DIVIDER) {
             labelValue(g, "Model", "Tout = clamp(Tin × N, 1, 4096) ticks", 112);
             labelValue(g, "Configured N", Integer.toString(menu.tertiary()), 132);
             labelValue(g, "Counted edges", Integer.toString(menu.runtimeA()), 152);
             labelValue(g, "Phase started", yesNo(menu.runtimeC()), 172);
-            safeText(g, "The first valid observation seeds level only; the next genuine rising edge starts divider phase.", 16, 196, MUTED);
+            wrappedText(g, "The first valid observation seeds level only; the next genuine rising edge starts divider phase.", 16, 196, 760, MUTED);
         } else if (menu.kind() == QuartzTimingMenu.KIND_DELAY) {
             labelValue(g, "Configured delay", menu.primary() + " ticks", 112);
             labelValue(g, "Queued edges", Integer.toString(menu.secondary()), 132);
             labelValue(g, "Next emission", menu.tertiary() > 0 ? menu.tertiary() + " ticks" : "NONE", 152);
             labelValue(g, "Dropped edges", Integer.toString(menu.runtimeA()), 172);
             labelValue(g, "Initialized", yesNo(menu.runtimeB()), 192);
-            safeText(g, "Every captured rising edge owns its own countdown. Queue overflow increments dropped-edge evidence; upstream loss never deletes events already inside the delay line.", 16, 216, MUTED);
+            wrappedText(g, "Every captured rising edge owns its own countdown. Queue overflow increments dropped-edge evidence; upstream loss never deletes events already inside the delay line.", 16, 216, 760, MUTED);
         } else {
             labelValue(g, "Configured period", menu.secondary() + " ticks", 112);
             labelValue(g, "Effective period", menu.runtimeA() + " ticks", 132);
             labelValue(g, "Period change pending", yesNo(menu.runtimeB()), 152);
             labelValue(g, "Real transitions", Integer.toString(menu.runtimeC()), 172);
-            safeText(g, "A period edit changes configuration immediately but becomes effective only on a real oscillator transition.", 16, 196, MUTED);
+            wrappedText(g, "A period edit changes configuration immediately but becomes effective only on a real oscillator transition.", 16, 196, 760, MUTED);
         }
     }
 
