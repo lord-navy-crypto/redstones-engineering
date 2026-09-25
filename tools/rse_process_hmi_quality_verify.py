@@ -82,9 +82,12 @@ if not failed:
         "Output-only LAPIS precision source",
         "Six-face COPPER voltage source",
         "moving TX releases the old Copper driver claim",
-        "onTicks = round((command / 15) × period)",
-        "Partial-duty commands latch only at carrier-cycle boundaries",
-        "0% and 100% endpoint commands apply immediately",
+        "PwmCarrierLogic.MAX_COMMAND",
+        "PwmCarrierLogic.MIN_CONFIGURED_PERIOD_TICKS",
+        "PwmCarrierLogic.MAX_CONFIGURED_PERIOD_TICKS",
+        "PwmCarrierLogic.dutyQuantumPermille",
+        "Partial-duty commands latch only at phase-0 carrier boundaries",
+        "0%/100% endpoints apply immediately",
         "A[k+1] = max(0, A[k] − attenuation)",
         "reduces envelope quality by 20",
         "fixed 4-tick packet TTL",
@@ -112,8 +115,8 @@ if not failed:
 
     for token in (
         "quantizedOnTicks",
-        "Math.round((boundedCommand / 15.0) * boundedPeriod)",
-        "requested <= 0 || requested >= 15",
+        "boundedCommand / (double) MAX_COMMAND",
+        "requested <= MIN_COMMAND || requested >= MAX_COMMAND",
         "phase == 0",
     ):
         if token not in pwm_logic:
@@ -156,5 +159,5 @@ print(" fixed/multi-face devices do not receive fake RX/TX controls: PASS")
 print(" Redstone-Copper driver reroute releases the old Copper claim: PASS")
 print(" output-only Lapis source remains output-only: PASS")
 print(" five-tab Process notebook stays narrow-viewport aware: PASS")
-print(" PWM quantization/latch assumptions match server carrier logic: PASS")
+print(" PWM exact-period quantization/latch assumptions match server carrier logic: PASS")
 print(" damper TTL/quality-decay assumptions match server model: PASS")
