@@ -32,10 +32,10 @@ conversion_screen = UI / "client/ui/MediaConversionScreen.java"
 
 for path in (signal, domain):
     require(path, "physicalPortsDoNotOverlap", "full physical-port collision validation")
-require(signal, "rotateRigidSeriesAxis", "rigid opposite-port signal rotation")
     require(path, "hasAuxiliaryPorts", "dense multi-port fallback classification")
     require(path, "rotateWholeRoute(level, pos, clockwise)", "rigid legal-layout rotation fallback")
     require(path, "INPUT_FACING", "independent configured RX property")
+require(signal, "rotateRigidSeriesAxis", "rigid opposite-port signal rotation")
 
 require(pid_menu, "BUTTON_INPUT_PREVIOUS", "PID RX controls")
 require(pid_menu, "BUTTON_OUTPUT_NEXT", "PID TX controls")
