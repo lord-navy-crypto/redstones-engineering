@@ -31,8 +31,8 @@ public final class PrecisionFilterBlockEntity extends BlockEntity {
     }
 
     public int stepFallRate(boolean forward) {
-        int next = forward ? (fallRate >= 15 ? 1 : fallRate + 1)
-                : (fallRate <= 1 ? 15 : fallRate - 1);
+        int next = forward ? (fallRate >= 4 ? 1 : fallRate + 1)
+                : (fallRate <= 1 ? 4 : fallRate - 1);
         setFallRate(next);
         return fallRate;
     }
@@ -41,7 +41,7 @@ public final class PrecisionFilterBlockEntity extends BlockEntity {
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
         if (tag.contains("fallRate")) {
-            fallRate = Math.max(1, Math.min(15, tag.getInt("fallRate")));
+            fallRate = Math.max(1, Math.min(4, tag.getInt("fallRate")));
         }
     }
 
