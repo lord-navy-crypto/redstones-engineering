@@ -70,7 +70,7 @@ for token in (
     "NO_SIGNAL / STALE / topology evidence remain separate states.",
     "Boundary limiting episodes / last",
     "private static String modelLine",
-    "y = clamp(round(x ×",
+    "y = clamp(x ×",
     "y = min(x,",
     "otherwise y = 0",
     "retain yprev",
