@@ -24,6 +24,22 @@ menu = "src/main/java/dev/redstoneengineering/ui/menu/ProcessParameterMenu.java"
 screen = "src/main/java/dev/redstoneengineering/client/ui/ProcessParameterNotebookScreen.java"
 
 require(logic,
+        "MIN_AMPLITUDE = 0",
+        "MAX_AMPLITUDE = 15",
+        "MIN_CONFIGURED_FREQUENCY = 1",
+        "MAX_CONFIGURED_FREQUENCY = 15",
+        "DEFAULT_CONFIGURED_FREQUENCY = 8",
+        "MIN_RATE = 1",
+        "MAX_RATE = 15",
+        "DEFAULT_AMPLITUDE_RISE = 2",
+        "DEFAULT_AMPLITUDE_FALL = 1",
+        "DEFAULT_FREQUENCY_SLEW = 1",
+        "CONTROL_TICK_TICKS = 1",
+        "boundedAmplitude",
+        "boundedRuntimeFrequency",
+        "boundedConfiguredFrequency",
+        "boundedRate",
+        "fullScaleRampTicks",
         "run-up/coast-down",
         "approachAsymmetric",
         "targetAmp > 0",
@@ -34,6 +50,13 @@ require(block,
         "ACTUAL_FREQUENCY",
         "TARGET_AMPLITUDE",
         "MechanicalExciterLogic.step",
+        "MechanicalExciterLogic.boundedRate(stored.a())",
+        "MechanicalExciterLogic.boundedRate(stored.b())",
+        "MechanicalExciterLogic.boundedRate(stored.c())",
+        "MechanicalExciterLogic.boundedRate(rise)",
+        "MechanicalExciterLogic.boundedRate(fall)",
+        "MechanicalExciterLogic.boundedRate(frequencySlew)",
+        "setConfiguredFrequency",
         "A powered exciter is a continuous mechanical source",
         "VibrationNetwork.propagate(level, pos",
         "level.scheduleTick(pos, this, 1)",
@@ -50,6 +73,7 @@ require(menu,
         "HoneyVibrationDamperBlock.localEnvelopeQuality",
         "HoneyVibrationDamperBlock.localEnvelopeAgeTicks",
         "MechanicalExciterBlock.runTicks",
+        "MechanicalExciterBlock.setConfiguredFrequency",
         "MechanicalExciterBlock.driveObservation",
         "MechanicalExciterBlock.outputQuality")
 require(screen,
@@ -58,6 +82,12 @@ require(screen,
         '"Run ticks"',
         '"Input quality"',
         '"Output quality"',
+        "MechanicalExciterLogic.MIN_CONFIGURED_FREQUENCY",
+        "MechanicalExciterLogic.MAX_CONFIGURED_FREQUENCY",
+        "MechanicalExciterLogic.MIN_RATE",
+        "MechanicalExciterLogic.MAX_RATE",
+        "MechanicalExciterLogic.fullScaleRampTicks",
+        "A[k+1]=toward(Acmd, Rrise/Rfall)",
         "low-quality retained envelope",
         "Actual amplitude may coast toward zero after command loss")
 
@@ -93,6 +123,22 @@ public final class MechanicalExciterHarness {
                 "coast-down must eventually reach rest");
         check(MechanicalExciterLogic.settled(0, 8, f),
                 "rest state must be recognized as settled");
+        check(MechanicalExciterLogic.boundedRate(0) == MechanicalExciterLogic.MIN_RATE,
+                "rate lower bound");
+        check(MechanicalExciterLogic.boundedRate(99) == MechanicalExciterLogic.MAX_RATE,
+                "rate upper bound");
+        check(MechanicalExciterLogic.boundedConfiguredFrequency(0)
+                        == MechanicalExciterLogic.MIN_CONFIGURED_FREQUENCY,
+                "configured frequency lower bound");
+        check(MechanicalExciterLogic.boundedConfiguredFrequency(99)
+                        == MechanicalExciterLogic.MAX_CONFIGURED_FREQUENCY,
+                "configured frequency upper bound");
+        check(MechanicalExciterLogic.fullScaleRampTicks(2) == 8,
+                "15-level full-scale ramp at rate 2 takes 8 ticks");
+        var fast = MechanicalExciterLogic.stepWithRates(
+                15, 15, new MechanicalExciterLogic.State(0, 0), 99, 99, 99);
+        check(fast.amplitude() == 15 && fast.frequency() == 15,
+                "legacy over-range rates clamp to effective model maximum");
 
         System.out.println("MechanicalExciterLogic harness: PASS");
     }
@@ -131,4 +177,6 @@ print(" frequency tracking inertia: PASS")
 print(" sustained-drive continuous propagation contract: PASS")
 print(" runtime cleanup contract: PASS")
 print(" exciter input/output quality + run evidence: PASS")
+print(" configured dynamics stored/effective 1..15 contract: PASS")
+print(" HMI finite-ramp timing derives from pure model authority: PASS")
 print(" damper envelope quality/freshness evidence: PASS")

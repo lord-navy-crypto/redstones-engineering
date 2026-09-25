@@ -41,7 +41,10 @@ import java.util.Optional;
  * four horizontal faces are mechanical-vibration outputs.
  */
 public class MechanicalExciterBlock extends Block implements EngineeringPortProvider {
-    public static final IntegerProperty FREQUENCY = IntegerProperty.create("frequency", 1, 15);
+    public static final IntegerProperty FREQUENCY = IntegerProperty.create(
+            "frequency",
+            MechanicalExciterLogic.MIN_CONFIGURED_FREQUENCY,
+            MechanicalExciterLogic.MAX_CONFIGURED_FREQUENCY);
 
     private static final String RUNTIME_KEY = "mechanical_exciter";
     private static final int ACTUAL_AMPLITUDE = 0;
@@ -58,7 +61,8 @@ public class MechanicalExciterBlock extends Block implements EngineeringPortProv
 
     public MechanicalExciterBlock(Properties properties) {
         super(properties);
-        registerDefaultState(stateDefinition.any().setValue(FREQUENCY, 8));
+        registerDefaultState(stateDefinition.any().setValue(
+                FREQUENCY, MechanicalExciterLogic.DEFAULT_CONFIGURED_FREQUENCY));
     }
 
     @Override
@@ -107,17 +111,17 @@ public class MechanicalExciterBlock extends Block implements EngineeringPortProv
 
     public static int actualAmplitude(Level level, BlockPos pos) {
         int[] runtime = snapshot(level, pos);
-        return runtime == null ? 0 : Math.max(0, Math.min(15, runtime[ACTUAL_AMPLITUDE]));
+        return runtime == null ? 0 : MechanicalExciterLogic.boundedAmplitude(runtime[ACTUAL_AMPLITUDE]);
     }
 
     public static int actualFrequency(Level level, BlockPos pos) {
         int[] runtime = snapshot(level, pos);
-        return runtime == null ? 0 : Math.max(0, Math.min(15, runtime[ACTUAL_FREQUENCY]));
+        return runtime == null ? 0 : MechanicalExciterLogic.boundedRuntimeFrequency(runtime[ACTUAL_FREQUENCY]);
     }
 
     public static int targetAmplitude(Level level, BlockPos pos) {
         int[] runtime = snapshot(level, pos);
-        return runtime == null ? 0 : Math.max(0, Math.min(15, runtime[TARGET_AMPLITUDE]));
+        return runtime == null ? 0 : MechanicalExciterLogic.boundedAmplitude(runtime[TARGET_AMPLITUDE]);
     }
 
     public static int startCount(Level level, BlockPos pos) {
@@ -136,9 +140,19 @@ public class MechanicalExciterBlock extends Block implements EngineeringPortProv
     }
 
     public static EngineeringDeviceParameters.ExtendedParameters configuredDynamics(Level level, BlockPos pos) {
-        var fallback = new EngineeringDeviceParameters.ExtendedParameters(2, 1, 1, 0);
+        var fallback = new EngineeringDeviceParameters.ExtendedParameters(
+                MechanicalExciterLogic.DEFAULT_AMPLITUDE_RISE,
+                MechanicalExciterLogic.DEFAULT_AMPLITUDE_FALL,
+                MechanicalExciterLogic.DEFAULT_FREQUENCY_SLEW,
+                0);
         if (level instanceof ServerLevel serverLevel) {
-            return EngineeringDeviceParameters.get(serverLevel).extendedParameters(serverLevel, pos, fallback);
+            var stored = EngineeringDeviceParameters.get(serverLevel)
+                    .extendedParameters(serverLevel, pos, fallback);
+            return new EngineeringDeviceParameters.ExtendedParameters(
+                    MechanicalExciterLogic.boundedRate(stored.a()),
+                    MechanicalExciterLogic.boundedRate(stored.b()),
+                    MechanicalExciterLogic.boundedRate(stored.c()),
+                    0);
         }
         return fallback;
     }
@@ -147,13 +161,23 @@ public class MechanicalExciterBlock extends Block implements EngineeringPortProv
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof MechanicalExciterBlock exciter)) return false;
         var next = new EngineeringDeviceParameters.ExtendedParameters(
-                Math.max(1, Math.min(15, rise)),
-                Math.max(1, Math.min(15, fall)),
-                Math.max(1, Math.min(15, frequencySlew)),
+                MechanicalExciterLogic.boundedRate(rise),
+                MechanicalExciterLogic.boundedRate(fall),
+                MechanicalExciterLogic.boundedRate(frequencySlew),
                 0);
         boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(level, pos, next);
         if (changed) level.scheduleTick(pos, exciter, 1);
         return changed;
+    }
+
+    public static boolean setConfiguredFrequency(ServerLevel level, BlockPos pos, int frequency) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof MechanicalExciterBlock exciter)) return false;
+        int bounded = MechanicalExciterLogic.boundedConfiguredFrequency(frequency);
+        if (state.getValue(FREQUENCY) == bounded) return false;
+        level.setBlock(pos, state.setValue(FREQUENCY, bounded), Block.UPDATE_CLIENTS);
+        level.scheduleTick(pos, exciter, MechanicalExciterLogic.CONTROL_TICK_TICKS);
+        return true;
     }
 
     @Override
@@ -168,7 +192,8 @@ public class MechanicalExciterBlock extends Block implements EngineeringPortProv
         }
         int amplitude = actualAmplitude(level, pos);
         return Optional.of(new EngineeringPortSnapshot(
-                port.get(), amplitude, 0.0, 15.0, outputQuality(level, pos)));
+                port.get(), amplitude, MechanicalExciterLogic.MIN_AMPLITUDE,
+                MechanicalExciterLogic.MAX_AMPLITUDE, outputQuality(level, pos)));
     }
 
     @Override
@@ -231,7 +256,7 @@ public class MechanicalExciterBlock extends Block implements EngineeringPortProv
 
         if (command > 0 || next.amplitude() > 0
                 || !MechanicalExciterLogic.settled(command, state.getValue(FREQUENCY), next)) {
-            level.scheduleTick(pos, this, 1);
+            level.scheduleTick(pos, this, MechanicalExciterLogic.CONTROL_TICK_TICKS);
         }
     }
 
@@ -267,10 +292,10 @@ public class MechanicalExciterBlock extends Block implements EngineeringPortProv
     ) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (player.isShiftKeyDown()) {
-                int frequency = state.getValue(FREQUENCY) % 15 + 1;
-                BlockState next = state.setValue(FREQUENCY, frequency);
-                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-                scheduleUpdate(level, pos, this);
+                int frequency = state.getValue(FREQUENCY) >= MechanicalExciterLogic.MAX_CONFIGURED_FREQUENCY
+                        ? MechanicalExciterLogic.MIN_CONFIGURED_FREQUENCY
+                        : state.getValue(FREQUENCY) + 1;
+                setConfiguredFrequency((ServerLevel) level, pos, frequency);
                 player.displayClientMessage(Component.literal(
                         "Mechanical exciter | targetA=" + inputAmplitude(level, pos)
                                 + " actualA=" + actualAmplitude(level, pos)

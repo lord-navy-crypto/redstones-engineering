@@ -257,12 +257,8 @@ public final class ProcessParameterMenu extends EngineeringDeviceMenu {
             changed = HoneyVibrationDamperBlock.setConfiguredAttenuation(server, blockPos, p0.get() + delta);
         } else if (block instanceof MechanicalExciterBlock exciter) {
             if (slot == 0) {
-                int next = Math.max(1, Math.min(15, p0.get() + delta));
-                if (next != p0.get()) {
-                    level.setBlock(blockPos, state.setValue(MechanicalExciterBlock.FREQUENCY, next), Block.UPDATE_CLIENTS);
-                    server.scheduleTick(blockPos, exciter, 1);
-                    changed = true;
-                }
+                changed = MechanicalExciterBlock.setConfiguredFrequency(
+                        server, blockPos, p0.get() + delta);
             } else if (slot >= 1 && slot <= 3) {
                 changed = MechanicalExciterBlock.setConfiguredDynamics(server, blockPos,
                         p1.get() + (slot == 1 ? delta : 0),

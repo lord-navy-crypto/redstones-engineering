@@ -222,6 +222,47 @@ require(
 )
 
 require(
+    "src/main/java/dev/redstoneengineering/signal/MechanicalExciterLogic.java",
+    "MIN_AMPLITUDE = 0",
+    "MAX_AMPLITUDE = 15",
+    "MIN_CONFIGURED_FREQUENCY = 1",
+    "MAX_CONFIGURED_FREQUENCY = 15",
+    "DEFAULT_CONFIGURED_FREQUENCY = 8",
+    "MIN_RATE = 1",
+    "MAX_RATE = 15",
+    "DEFAULT_AMPLITUDE_RISE = 2",
+    "DEFAULT_AMPLITUDE_FALL = 1",
+    "DEFAULT_FREQUENCY_SLEW = 1",
+    "CONTROL_TICK_TICKS = 1",
+    "boundedConfiguredFrequency",
+    "boundedRate",
+    "fullScaleRampTicks",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/MechanicalExciterBlock.java",
+    "MechanicalExciterLogic.boundedRate(stored.a())",
+    "MechanicalExciterLogic.boundedRate(stored.b())",
+    "MechanicalExciterLogic.boundedRate(stored.c())",
+    "MechanicalExciterLogic.boundedRate(rise)",
+    "MechanicalExciterLogic.boundedRate(fall)",
+    "MechanicalExciterLogic.boundedRate(frequencySlew)",
+    "setConfiguredFrequency",
+)
+require(
+    "src/main/java/dev/redstoneengineering/ui/menu/ProcessParameterMenu.java",
+    "MechanicalExciterBlock.setConfiguredFrequency",
+    "MechanicalExciterBlock.setConfiguredDynamics",
+)
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/ProcessParameterNotebookScreen.java",
+    "MechanicalExciterLogic.MIN_CONFIGURED_FREQUENCY",
+    "MechanicalExciterLogic.MAX_CONFIGURED_FREQUENCY",
+    "MechanicalExciterLogic.MIN_RATE",
+    "MechanicalExciterLogic.MAX_RATE",
+    "MechanicalExciterLogic.fullScaleRampTicks",
+)
+
+require(
     "src/main/java/dev/redstoneengineering/block/PermanentMagnetBlock.java",
     "MIN_STRENGTH = 1",
     "MAX_STRENGTH = 15",
@@ -587,6 +628,7 @@ print("RSE parameter-contract consistency verification: PASS")
 print(" Precision Filter effective 1..4 slew authority: PASS")
 print(" Pulse Shaper threshold/hysteresis/width authority: PASS")
 print(" Signal Conditioner pure transfer/range authority: PASS")
+print(" Mechanical Exciter frequency/rate stored-effective authority: PASS")
 print(" Permanent Magnet single scalar-strength parameter authority: PASS")
 print(" Induction Coil exact/legacy turns + sampled EMF authority: PASS")
 print(" Electromagnet response/cooling/thermal pure parameter authority: PASS")
