@@ -222,6 +222,59 @@ require(
 )
 
 require(
+    "src/main/java/dev/redstoneengineering/block/EdgeDetectorBlock.java",
+    "MIN_PULSE_WIDTH = 1",
+    "MAX_PULSE_WIDTH = 20",
+)
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/SignalProcessorScreen.java",
+    "EdgeDetectorBlock.MIN_PULSE_WIDTH",
+    "EdgeDetectorBlock.MAX_PULSE_WIDTH",
+)
+
+require(
+    "src/main/java/dev/redstoneengineering/signal/PressureRegulatorLogic.java",
+    "MIN_PRESSURE = 0",
+    "MAX_PRESSURE = 100",
+    "MIN_CONFIGURED_SETPOINT = 1",
+    "MAX_CONFIGURED_SETPOINT = 100",
+    "MIN_RESPONSE_RATE = 1",
+    "MAX_RESPONSE_RATE = 100",
+    "boundedConfiguredSetpoint",
+    "boundedResponseRate",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/PressureRegulatorBlock.java",
+    "PressureRegulatorLogic.boundedConfiguredSetpoint",
+    "PressureRegulatorLogic.boundedResponseRate",
+)
+require(
+    "src/main/java/dev/redstoneengineering/signal/PneumaticProportionalValveLogic.java",
+    "MIN_OPENING = 0",
+    "MAX_OPENING = 15",
+    "MIN_RESPONSE_RATE = 1",
+    "MAX_RESPONSE_RATE = 15",
+    "boundedOpening",
+    "boundedResponseRate",
+)
+require(
+    "src/main/java/dev/redstoneengineering/block/PneumaticProportionalValveBlock.java",
+    "PneumaticProportionalValveLogic.boundedResponseRate",
+    "PneumaticProportionalValveLogic.boundedOpening",
+)
+pneumatic_screen = require(
+    "src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.java",
+    "PressureRegulatorLogic.MIN_CONFIGURED_SETPOINT",
+    "PressureRegulatorLogic.MAX_CONFIGURED_SETPOINT",
+    "PressureRegulatorLogic.MIN_RESPONSE_RATE",
+    "PressureRegulatorLogic.MAX_RESPONSE_RATE",
+    "PneumaticProportionalValveLogic.MIN_RESPONSE_RATE",
+    "PneumaticProportionalValveLogic.MAX_RESPONSE_RATE",
+)
+if "dev.redstoneengineering.physics" in pneumatic_screen:
+    errors.append("Pneumatic client HMI crossed the persistence/physics authority boundary")
+
+require(
     "src/main/java/dev/redstoneengineering/block/QuartzOscillatorBlock.java",
     "MIN_PERIOD_TICKS = 2",
     "MAX_PERIOD_TICKS = 200",
@@ -272,6 +325,9 @@ print("RSE parameter-contract consistency verification: PASS")
 print(" Precision Filter effective 1..4 slew authority: PASS")
 print(" Pulse Shaper threshold/hysteresis/width authority: PASS")
 print(" Signal Conditioner pure transfer/range authority: PASS")
+print(" Edge Detector exact 1..20 pulse-width authority: PASS")
+print(" Pressure Regulator setpoint/response-rate pure authority: PASS")
+print(" Proportional Valve opening/response-rate pure authority: PASS")
 print(" Servo persistent bounds + 2-tick control cycle + client boundary: PASS")
 print(" PID persistent bounds + deadband/integral/cycle + client boundary: PASS")
 print(" Lapis LPF synchronized alpha + 2-tick sample/derived response contract: PASS")

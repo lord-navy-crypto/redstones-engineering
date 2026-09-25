@@ -94,7 +94,11 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
             labelValue(g,"Setpoint / actual ceiling",menu.engineeringA()+" / "+menu.tertiary(),176);
             labelValue(g,"Inlet pressure Pin",menu.primary()+" / 100",196);
             labelValue(g,"Response rate R",menu.engineeringB()+" pressure/tick",216);
-            labelValue(g,"Parameter bounds","Psp=1..100 • R=1..100",236);
+            labelValue(g,"Parameter bounds",
+                    "Psp=" + PressureRegulatorLogic.MIN_CONFIGURED_SETPOINT + ".."
+                            + PressureRegulatorLogic.MAX_CONFIGURED_SETPOINT
+                            + " • R=" + PressureRegulatorLogic.MIN_RESPONSE_RATE + ".."
+                            + PressureRegulatorLogic.MAX_RESPONSE_RATE,236);
             labelValue(g,"Target pressure","Ptarget = min(Pin, Psp) = "+Math.min(menu.primary(),menu.engineeringA()),256);
             labelValue(g,"Tracking error e",Integer.toString(menu.auxiliary()),276);
             labelValue(g,"Response law","P[k+1] = toward(Ptarget, ±R)",296);
@@ -104,7 +108,9 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
         if(isProportional()){
             statusBadge(g,"VALVE SPOOL RESPONSE",INFO,16,80);
             labelValue(g,"Spool rate R",menu.engineeringA()+" opening/tick",158);
-            labelValue(g,"Parameter bounds","R=1..15 opening/tick",178);
+            labelValue(g,"Parameter bounds",
+                    "R=" + PneumaticProportionalValveLogic.MIN_RESPONSE_RATE + ".."
+                            + PneumaticProportionalValveLogic.MAX_RESPONSE_RATE + " opening/tick",178);
             labelValue(g,"Legacy preset",PneumaticProportionalValveLogic.modeName(menu.stateFlag())+" • exact rate override",198);
             labelValue(g,"Command / actual opening",menu.proportionalCommand()+" / "+menu.tertiary(),218);
             labelValue(g,"Tracking error e",Integer.toString(menu.proportionalTrackingError()),238);

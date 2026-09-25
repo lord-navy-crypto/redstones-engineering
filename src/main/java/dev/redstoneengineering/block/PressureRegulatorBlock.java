@@ -69,9 +69,12 @@ public class PressureRegulatorBlock extends DirectionalDomainBlock implements En
     public static int setpointPressure(Level level, BlockPos pos, BlockState state) {
         int fallback = setpointPressure(state);
         if (level instanceof ServerLevel serverLevel) {
-            return Math.max(1, Math.min(100, EngineeringDeviceParameters.get(serverLevel)
-                    .extendedParameters(serverLevel, pos,
-                            new EngineeringDeviceParameters.ExtendedParameters(fallback, PressureRegulatorLogic.responseRate(state.getValue(RESPONSE_MODE)), 0, 0)).a()));
+            return PressureRegulatorLogic.boundedConfiguredSetpoint(
+                    EngineeringDeviceParameters.get(serverLevel)
+                            .extendedParameters(serverLevel, pos,
+                                    new EngineeringDeviceParameters.ExtendedParameters(
+                                            fallback, PressureRegulatorLogic.responseRate(state.getValue(RESPONSE_MODE)), 0, 0))
+                            .a());
         }
         return fallback;
     }
@@ -79,9 +82,12 @@ public class PressureRegulatorBlock extends DirectionalDomainBlock implements En
     public static int responseRate(Level level, BlockPos pos, BlockState state) {
         int fallback = PressureRegulatorLogic.responseRate(state.getValue(RESPONSE_MODE));
         if (level instanceof ServerLevel serverLevel) {
-            return Math.max(1, Math.min(100, EngineeringDeviceParameters.get(serverLevel)
-                    .extendedParameters(serverLevel, pos,
-                            new EngineeringDeviceParameters.ExtendedParameters(setpointPressure(state), fallback, 0, 0)).b()));
+            return PressureRegulatorLogic.boundedResponseRate(
+                    EngineeringDeviceParameters.get(serverLevel)
+                            .extendedParameters(serverLevel, pos,
+                                    new EngineeringDeviceParameters.ExtendedParameters(
+                                            setpointPressure(state), fallback, 0, 0))
+                            .b());
         }
         return fallback;
     }
@@ -89,8 +95,8 @@ public class PressureRegulatorBlock extends DirectionalDomainBlock implements En
     public static boolean setEngineeringParameters(ServerLevel level, BlockPos pos, int setpoint, int rate) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof PressureRegulatorBlock)) return false;
-        int boundedSetpoint = Math.max(1, Math.min(100, setpoint));
-        int boundedRate = Math.max(1, Math.min(100, rate));
+        int boundedSetpoint = PressureRegulatorLogic.boundedConfiguredSetpoint(setpoint);
+        int boundedRate = PressureRegulatorLogic.boundedResponseRate(rate);
         boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
                 level, pos, new EngineeringDeviceParameters.ExtendedParameters(boundedSetpoint, boundedRate, 0, 0));
         if (changed) level.scheduleTick(pos, state.getBlock(), 1);
@@ -104,7 +110,7 @@ public class PressureRegulatorBlock extends DirectionalDomainBlock implements En
 
     public static int actualRegulatedPressure(Level level, BlockPos pos) {
         int[] rt = snapshot(level, pos);
-        return rt == null ? 0 : Math.max(0, Math.min(100, rt[ACTUAL_PRESSURE]));
+        return rt == null ? 0 : PressureRegulatorLogic.boundedPressure(rt[ACTUAL_PRESSURE]);
     }
 
     public static int inletPressure(Level level, BlockPos pos, BlockState state) {

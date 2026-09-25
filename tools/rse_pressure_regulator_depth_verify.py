@@ -18,11 +18,22 @@ network="src/main/java/dev/redstoneengineering/physics/PneumaticNetwork.java"
 menu="src/main/java/dev/redstoneengineering/ui/menu/PneumaticSystemMenu.java"
 screen="src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.java"
 
-require(logic,"targetPressure","stepPressure","responseRate","trackingError")
+require(logic,
+        "MIN_PRESSURE = 0",
+        "MAX_PRESSURE = 100",
+        "MIN_CONFIGURED_SETPOINT = 1",
+        "MAX_CONFIGURED_SETPOINT = 100",
+        "MIN_RESPONSE_RATE = 1",
+        "MAX_RESPONSE_RATE = 100",
+        "boundedConfiguredSetpoint",
+        "boundedResponseRate",
+        "targetPressure","stepPressure","responseRate","trackingError")
 require(block,
         'IntegerProperty.create("setpoint", 1, 10)',
         'IntegerProperty.create("response_mode", 0, 2)',
         "actualRegulatedPressure","trackingError","stepResponseMode",
+        "PressureRegulatorLogic.boundedConfiguredSetpoint",
+        "PressureRegulatorLogic.boundedResponseRate",
         "PressureRegulatorLogic.stepPressure","PneumaticNetwork.recompute")
 require(network,"PressureRegulatorBlock.actualRegulatedPressure")
 require(menu,
@@ -45,7 +56,10 @@ require(screen,
         'menu.engineeringB()+" pressure/tick"',
         "Ptarget = min(Pin, Psp)",
         "P[k+1] = toward(Ptarget, ±R)",
-        "Psp=1..100 • R=1..100",
+        "PressureRegulatorLogic.MIN_CONFIGURED_SETPOINT",
+        "PressureRegulatorLogic.MAX_CONFIGURED_SETPOINT",
+        "PressureRegulatorLogic.MIN_RESPONSE_RATE",
+        "PressureRegulatorLogic.MAX_RESPONSE_RATE",
         "rigid opposite-port axis")
 
 lp=root/logic
@@ -63,6 +77,10 @@ public final class RegHarness{
   c(PressureRegulatorLogic.stepPressure(58,80,60,2)==60,"clamp");
   c(PressureRegulatorLogic.stepPressure(70,30,60,1)==62,"fall response");
   c(PressureRegulatorLogic.trackingError(40,80,60)==20,"tracking");
+  c(PressureRegulatorLogic.boundedConfiguredSetpoint(0)==1,"configured setpoint lower bound");
+  c(PressureRegulatorLogic.boundedConfiguredSetpoint(150)==100,"configured setpoint upper bound");
+  c(PressureRegulatorLogic.boundedResponseRate(0)==1,"response lower bound");
+  c(PressureRegulatorLogic.boundedResponseRate(150)==100,"response upper bound");
   System.out.println("PressureRegulatorLogic semantic harness: PASS");
  }}
 '''
@@ -86,4 +104,5 @@ print(" 10-step calibrated setpoint: PASS")
 print(" finite regulator response: PASS")
 print(" solver consumes actual ceiling: PASS")
 print(" HMI exact setpoint/response-rate authority + response equations: PASS")
+print(" pure regulator parameter bounds shared by Block/HMI/verifier: PASS")
 print(" rigid opposite-port regulator routing: PASS")

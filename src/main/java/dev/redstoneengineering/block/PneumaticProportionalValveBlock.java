@@ -98,9 +98,11 @@ public class PneumaticProportionalValveBlock extends DirectionalDomainBlock impl
     public static int configuredResponseRate(Level level, BlockPos pos, BlockState state) {
         int fallback = PneumaticProportionalValveLogic.responseRate(state.getValue(RESPONSE_MODE));
         if (level instanceof ServerLevel serverLevel) {
-            return Math.max(1, Math.min(15, EngineeringDeviceParameters.get(serverLevel)
-                    .extendedParameters(serverLevel, pos,
-                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
+            return PneumaticProportionalValveLogic.boundedResponseRate(
+                    EngineeringDeviceParameters.get(serverLevel)
+                            .extendedParameters(serverLevel, pos,
+                                    new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0))
+                            .a());
         }
         return fallback;
     }
@@ -108,7 +110,7 @@ public class PneumaticProportionalValveBlock extends DirectionalDomainBlock impl
     public static boolean setConfiguredResponseRate(ServerLevel level, BlockPos pos, int rate) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof PneumaticProportionalValveBlock)) return false;
-        int bounded = Math.max(1, Math.min(15, rate));
+        int bounded = PneumaticProportionalValveLogic.boundedResponseRate(rate);
         boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
                 level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
         if (changed) level.scheduleTick(pos, state.getBlock(), 1);
@@ -128,7 +130,7 @@ public class PneumaticProportionalValveBlock extends DirectionalDomainBlock impl
     /** Actual physical spool opening consumed by PneumaticNetwork. */
     public static int actualOpening(Level level, BlockPos pos) {
         int[] runtime = snapshot(level, pos);
-        return runtime == null ? 0 : Math.max(0, Math.min(15, runtime[ACTUAL_OPENING]));
+        return runtime == null ? 0 : PneumaticProportionalValveLogic.boundedOpening(runtime[ACTUAL_OPENING]);
     }
 
     /** Compatibility alias retained for the pneumatic solver and existing callers. */

@@ -22,13 +22,22 @@ block = "src/main/java/dev/redstoneengineering/block/PneumaticProportionalValveB
 menu = "src/main/java/dev/redstoneengineering/ui/menu/PneumaticSystemMenu.java"
 screen = "src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.java"
 
-require(logic, "stepOpening", "trackingError", "responseRate")
+require(logic,
+        "MIN_OPENING = 0",
+        "MAX_OPENING = 15",
+        "MIN_RESPONSE_RATE = 1",
+        "MAX_RESPONSE_RATE = 15",
+        "boundedOpening",
+        "boundedResponseRate",
+        "stepOpening", "trackingError", "responseRate")
 require(block,
         'IntegerProperty.create("response_mode", 0, 2)',
         "commandedOpening",
         "actualOpening",
         "travel",
         "reversals",
+        "PneumaticProportionalValveLogic.boundedResponseRate",
+        "PneumaticProportionalValveLogic.boundedOpening",
         "PneumaticProportionalValveLogic.stepOpening",
         "PneumaticNetwork.recompute")
 require(menu,
@@ -49,7 +58,8 @@ require(screen,
         "Travel / reversals",
         "Configured spool rate",
         'menu.engineeringA()+" opening/tick"',
-        "R=1..15 opening/tick",
+        "PneumaticProportionalValveLogic.MIN_RESPONSE_RATE",
+        "PneumaticProportionalValveLogic.MAX_RESPONSE_RATE",
         "a[k+1] = toward(u, ±R)",
         "e = u - a",
         "pneumatic solver uses actual a, not command u",
@@ -69,6 +79,10 @@ public final class ValveHarness {
         check(PneumaticProportionalValveLogic.stepOpening(3,0,2)==0,"clamp down");
         check(PneumaticProportionalValveLogic.trackingError(4,10)==6,"positive error");
         check(PneumaticProportionalValveLogic.trackingError(12,3)==-9,"negative error");
+        check(PneumaticProportionalValveLogic.boundedResponseRate(0)==1,"response lower bound");
+        check(PneumaticProportionalValveLogic.boundedResponseRate(99)==15,"response upper bound");
+        check(PneumaticProportionalValveLogic.boundedOpening(-1)==0,"opening lower bound");
+        check(PneumaticProportionalValveLogic.boundedOpening(99)==15,"opening upper bound");
         System.out.println("PneumaticProportionalValveLogic semantic harness: PASS");
     }
 }
@@ -98,4 +112,5 @@ print(" finite spool travel: PASS")
 print(" actual opening drives pneumatic restriction: PASS")
 print(" travel/reversal evidence: PASS")
 print(" HMI exact response-rate authority + spool equations: PASS")
+print(" pure valve parameter bounds shared by Block/HMI/verifier: PASS")
 print(" rigid opposite-port proportional-valve routing: PASS")
