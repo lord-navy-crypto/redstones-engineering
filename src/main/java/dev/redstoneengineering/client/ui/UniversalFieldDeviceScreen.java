@@ -274,7 +274,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "REFERENCE evidence", referenceQuality.name(), 145);
                 labelValue(g, "Process-reference", evidenceUsable ? signed(margin) : "—", 167);
                 labelValue(g, "Decision output", (high ? "HIGH" : "LOW") + (evidenceUsable ? "" : " • HELD"), 189);
-                safeText(g, "Invalid PROCESS or REFERENCE evidence freezes the last decision; comparison resumes only when both live inputs are trustworthy again.", 16, 214, MUTED);
+                wrappedText(g, "Invalid PROCESS or REFERENCE evidence freezes the last decision; comparison resumes only when both live inputs are trustworthy again.", 16, 214, 760, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_SIGNAL_SELECTOR -> {
                 boolean invert = menu.configPrimary() != 0;
@@ -303,7 +303,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Control evidence", selectQuality.name() + (controlHold ? " • HOLD LAST" : ""), 145);
                 labelValue(g, "Payload evidence", payloadQuality.name(), 167);
                 labelValue(g, "Selection changes", Integer.toString(menu.configTertiary()), 189);
-                safeText(g, "Missing SELECT may fall back to the configured default route, but OUT quality remains NO_SIGNAL so a broken control wire cannot look like an explicit LOW command.", 16, 214, MUTED);
+                wrappedText(g, "Missing SELECT may fall back to the configured default route, but OUT quality remains NO_SIGNAL so a broken control wire cannot look like an explicit LOW command.", 16, 214, 760, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_SIGNAL_TAP -> {
                 int packed = menu.configQuaternary();
@@ -320,7 +320,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Input evidence", inputQuality.name() + (evidenceHold ? " • HOLD LAST" : ""), 123);
                 labelValue(g, "Main path", directionName(menu.configSecondary()) + " → " + directionName(menu.configTertiary()), 145);
                 labelValue(g, "Bad evidence episodes", Integer.toString(badEpisodes), 167);
-                safeText(g, "NO_SIGNAL de-energizes the copied outputs. STALE/FAULT/topology evidence retains the last trustworthy level instead of fabricating a new zero.", 16, 194, TEXT);
+                wrappedText(g, "NO_SIGNAL de-energizes the copied outputs. STALE/FAULT/topology evidence retains the last trustworthy level instead of fabricating a new zero.", 16, 194, 760, TEXT);
                 safeText(g, "The TAP port remains one-way and never back-drives the process path.", 16, 216, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_LAPIS_SAMPLER -> {
@@ -328,7 +328,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Held value", String.format(java.util.Locale.ROOT, "%.2f", menu.configPrimary() / 100.0), 101);
                 labelValue(g, "Accepted captures", Integer.toString(menu.configSecondary()), 123);
                 labelValue(g, "Rejected captures", Integer.toString(menu.configTertiary()), 145);
-                safeText(g, "A Quartz rising edge captures the current Lapis precision sample. Invalid input evidence is rejected instead of overwriting the last good held value.", 16, 178, TEXT);
+                wrappedText(g, "A Quartz rising edge captures the current Lapis precision sample. Invalid input evidence is rejected instead of overwriting the last good held value.", 16, 178, 760, TEXT);
                 safeText(g, "Rejected captures invalidate the output evidence until a later valid edge reacquires the sample.", 16, 200, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_SIGNAL_AMPLIFIER -> {
@@ -344,7 +344,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Gain", "x" + gain, 101);
                 labelValue(g, "Clipping", clipping ? "ACTIVE" : "NO", 123);
                 labelValue(g, "Clip episodes", Integer.toString(menu.configTertiary()), 145);
-                safeText(g, "Dedicated gain stage: raises a redstone signal until the 0..15 headroom limit; excess gain clips rather than wrapping.", 16, 178, TEXT);
+                wrappedText(g, "Dedicated gain stage: raises a redstone signal until the 0..15 headroom limit; excess gain clips rather than wrapping.", 16, 178, 760, TEXT);
                 safeText(g, "Use the conditioner for offset, clamp, threshold and deadband behavior; use this block when gain itself is the engineering task.", 16, 200, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_REDUNDANT_VOTER -> {
@@ -357,7 +357,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Tolerance", tolerance + " levels", 101);
                 labelValue(g, "Valid inputs", validInputs + " / 3", 123);
                 labelValue(g, "Current spread", Integer.toString(spread), 145);
-                safeText(g, "The voter uses the median of three redstone measurements and marks the result degraded when redundancy or agreement is lost.", 16, 178, TEXT);
+                wrappedText(g, "The voter uses the median of three redstone measurements and marks the result degraded when redundancy or agreement is lost.", 16, 178, 760, TEXT);
                 safeText(g, "Tolerance controls acceptable disagreement; it does not fabricate a missing channel.", 16, 200, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_SINGLE_RELAY -> {
@@ -418,7 +418,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                                 + SingleRelayBlock.releaseDelayForMode(timingMode) + "t", 145);
                 labelValue(g, "Mechanical state", transition + " • switches " + menu.configTertiary(), 167);
                 labelValue(g, "Evidence", "CTRL=" + controlEvidence + " • PAY=" + payloadEvidence, 189);
-                safeText(g, "Pickup/dropout models coil hysteresis; operate/release timing models finite armature travel. Bad control evidence freezes the actual armature and cancels an unfinished move.", 16, 214, MUTED);
+                wrappedText(g, "Pickup/dropout models coil hysteresis; operate/release timing models finite armature travel. Bad control evidence freezes the actual armature and cancels an unfinished move.", 16, 214, 760, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_TRACE -> {
                 int sources = menu.configSecondary();
@@ -428,7 +428,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Clock period", menu.configPrimary() <= 0 ? "—" : menu.configPrimary() + " ticks", 101);
                 labelValue(g, "Clock sources", Integer.toString(sources), 123);
                 labelValue(g, "Current phase", menu.configTertiary() != 0 ? "HIGH" : "LOW", 145);
-                safeText(g, "This trace distributes timing rather than payload. One authoritative clock source is required; multiple sources become a topology conflict.", 16, 178, TEXT);
+                wrappedText(g, "This trace distributes timing rather than payload. One authoritative clock source is required; multiple sources become a topology conflict.", 16, 178, 760, TEXT);
             }
             case UniversalFieldDeviceMenu.CONFIG_INSTRUMENT_BUS -> {
                 PortQuality evidence = syncedQuality(menu.configQuaternary());
@@ -458,8 +458,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Heartbeat age", menu.configSecondary() + " ticks", 123);
                 labelValue(g, "Source acquired", sourceSeen ? "YES" : "NO", 145);
                 labelValue(g, "Timeout count", Integer.toString(menu.configTertiary()), 167);
-                safeText(g, "Only observed heartbeat transitions refresh supervision; a static level does not fake liveness.", 16, 194, TEXT);
-                safeText(g, "Before a valid source is acquired the watchdog is in a grace window, not a healthy state. Missing or bad evidence continues aging toward TIMEOUT.", 16, 216, MUTED);
+                wrappedText(g, "Only observed heartbeat transitions refresh supervision; a static level does not fake liveness.", 16, 194, 760, TEXT);
+                wrappedText(g, "Before a valid source is acquired the watchdog is in a grace window, not a healthy state. Missing or bad evidence continues aging toward TIMEOUT.", 16, 216, 760, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_DATA_BUS -> {
                 int drivers = menu.configTertiary();
@@ -499,7 +499,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Redstone input", menu.configSecondary() + " / 15", 123);
                 labelValue(g, "Input evidence", inputQuality.name(), 145);
                 labelValue(g, "Driven bit", Integer.toString(menu.configTertiary()), 167);
-                safeText(g, "The input port preserves the original 0..15 redstone measurement; only the differential output is thresholded into a digital bit.", 16, 194, TEXT);
+                wrappedText(g, "The input port preserves the original 0..15 redstone measurement; only the differential output is thresholded into a digital bit.", 16, 194, 760, TEXT);
             }
             case UniversalFieldDeviceMenu.CONFIG_DIFF_PAIR -> {
                 int drivers = menu.configTertiary();
@@ -592,7 +592,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Input evidence", inputEvidence.name(), 145);
                 labelValue(g, "Output decision", outputEvidence.name(), 167);
                 labelValue(g, "Accepted / rejected", menu.configSecondary() + " / " + menu.configTertiary(), 189);
-                safeText(g, "A trustworthy serial source can still be rejected when frame quality falls below the configured regeneration threshold.", 16, 214, MUTED);
+                wrappedText(g, "A trustworthy serial source can still be rejected when frame quality falls below the configured regeneration threshold.", 16, 214, 760, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_BYTE_ENCODER -> {
                 PortQuality evidence = syncedQuality(menu.configQuaternary());
@@ -659,7 +659,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Carrier value", carrier, 123);
                 labelValue(g, "Carrier evidence", evidence.name(), 145);
                 labelValue(g, "Carrier usability", usable ? "USABLE" : "NOT USABLE", 167);
-                safeText(g, "The Junction Point projects the authoritative carrier snapshot for its resolved medium; it routes vertically but never converts domains.", 16, 194, TEXT);
+                wrappedText(g, "The Junction Point projects the authoritative carrier snapshot for its resolved medium; it routes vertically but never converts domains.", 16, 194, 760, TEXT);
                 safeText(g, mismatch
                         ? "Different media on opposite sides become TOPOLOGY_ERROR and fail closed."
                         : "Byte, bit, channel, redstone, optical and copper payloads retain their own evidence semantics.",
@@ -700,7 +700,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Winning source", menu.configSecondary() + " / 15", 123);
                 labelValue(g, "Attenuation loss", Integer.toString(menu.configTertiary()), 145);
                 labelValue(g, "Remaining margin", Math.max(0, 15 - menu.configPrimary()) + " levels", 167);
-                safeText(g, "The cable keeps Minecraft-style 0..15 attenuation, but exposes enough evidence to engineer path length and signal margin.", 16, 197, MUTED);
+                wrappedText(g, "The cable keeps Minecraft-style 0..15 attenuation, but exposes enough evidence to engineer path length and signal margin.", 16, 197, 760, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_CABLE_TERMINAL -> {
                 statusBadge(g, "REDSTONE CABLE TERMINAL", INFO, 16, 80);
@@ -714,7 +714,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 statusBadge(g, "REDSTONE REFERENCE SOURCE", INFO, 16, 80);
                 labelValue(g, "Output level", menu.configPrimary() + " / 15", 101);
                 safeText(g, "Configure sets the authoritative laboratory reference level. Route selects the real output face independently.", 16, 150, TEXT);
-                safeText(g, "Use it to inject known 0..15 values when calibrating conditioners, filters, thresholds, analyzers and control chains.", 16, 178, MUTED);
+                wrappedText(g, "Use it to inject known 0..15 values when calibrating conditioners, filters, thresholds, analyzers and control chains.", 16, 178, 760, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_SIGNAL_PROBE -> {
                 PortQuality evidence = syncedQuality(menu.configQuaternary());
@@ -727,7 +727,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Bus channel", SignalProbeBlock.channelName(menu.configPrimary()), 101);
                 labelValue(g, "Measured redstone", menu.configSecondary() + " / 15", 123);
                 labelValue(g, "Measurement evidence", evidence.name(), 145);
-                safeText(g, "The probe preserves source PortQuality while placing the observed TEST value onto the selected Instrument Bus channel.", 16, 178, TEXT);
+                wrappedText(g, "The probe preserves source PortQuality while placing the observed TEST value onto the selected Instrument Bus channel.", 16, 178, 760, TEXT);
                 safeText(g, "Route changes the physical TEST/BUS axis; channel selection never repairs or hides bad upstream evidence.", 16, 202, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_IRON_CORE -> {
@@ -736,7 +736,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Applied field", menu.configPrimary() + " / 15", 101);
                 labelValue(g, "Remanent field", menu.configSecondary() + " / 15", 123);
                 labelValue(g, "Coverage", complete ? "COMPLETE" : "INCOMPLETE / HOLD", 145);
-                safeText(g, "Soft iron follows applied field with finite magnetization and retains only low, decaying remanence after excitation is removed.", 16, 177, TEXT);
+                wrappedText(g, "Soft iron follows applied field with finite magnetization and retains only low, decaying remanence after excitation is removed.", 16, 177, 760, TEXT);
                 safeText(g, "Degauss explicitly clears retained magnetization; incomplete applied-field evidence freezes material state.", 16, 201, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_ELECTROMAGNET -> {
@@ -748,7 +748,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Tracking error", Integer.toString(menu.configQuaternary()), 123);
                 labelValue(g, "Thermal load", thermal + " / 1000", 145);
                 labelValue(g, "Thermal state", ElectromagnetLogic.thermalState(thermal), 167);
-                safeText(g, "Copper excitation drives a finite inductive field response; sustained high excitation causes thermal derating until the coil cools.", 16, 197, MUTED);
+                wrappedText(g, "Copper excitation drives a finite inductive field response; sustained high excitation causes thermal derating until the coil cools.", 16, 197, 760, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_MAGNETIC_FIELD -> {
                 int radiusMode = menu.configPrimary();
@@ -867,7 +867,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                                 + PwmControllerBlock.effectiveDutyPermille(applied, period) / 10.0 + "%", 145);
                 labelValue(g, "Invert / completed cycles",
                         (menu.configSecondary() != 0 ? "ON" : "OFF") + " • " + cycles, 167);
-                safeText(g, "Partial-duty commands are latched only at the carrier-cycle boundary, preventing a mid-cycle command change from creating a runt pulse. INHIBIT still shuts down immediately.", 16, 194, MUTED);
+                wrappedText(g, "Partial-duty commands are latched only at the carrier-cycle boundary, preventing a mid-cycle command change from creating a runt pulse. INHIBIT still shuts down immediately.", 16, 194, 760, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR -> {
                 boolean armed = menu.configSecondary() != 0;
@@ -893,7 +893,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "SIGNAL evidence", signalQuality.name(), 145);
                 labelValue(g, "ARM evidence", armQuality.name(), 167);
                 labelValue(g, "Activations", Integer.toString(menu.configTertiary()), 189);
-                safeText(g, "Only trustworthy HIGH ARM evidence authorizes injection. Missing or bad ARM evidence forces safe pass-through while remaining visible in OUT quality.", 16, 214, MUTED);
+                wrappedText(g, "Only trustworthy HIGH ARM evidence authorizes injection. Missing or bad ARM evidence forces safe pass-through while remaining visible in OUT quality.", 16, 214, 760, MUTED);
             }
             case UniversalFieldDeviceMenu.CONFIG_SEQUENCE_CONTROLLER -> {
                 PortQuality[] qualities = PortQuality.values();
