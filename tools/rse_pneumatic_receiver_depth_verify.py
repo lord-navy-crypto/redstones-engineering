@@ -16,17 +16,35 @@ menu="src/main/java/dev/redstoneengineering/ui/menu/PneumaticSystemMenu.java"
 screen="src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.java"
 
 require(block,
-        'IntegerProperty.create("range_mode", 0, 2)',
+        "MIN_RANGE_MODE = 0",
+        "MAX_RANGE_MODE = 2",
+        "DEFAULT_RANGE_MODE = 2",
+        "LOW_FULL_SCALE_PRESSURE = 25",
+        "MID_FULL_SCALE_PRESSURE = 50",
+        "HIGH_FULL_SCALE_PRESSURE = 100",
+        "REDSTONE_FULL_SCALE = 15",
+        "boundedRangeMode",
+        "boundedPressureForScale",
         "fullScalePressure","scaledOutput","stepRange",
-        "Math.round((boundedPressure / (double) boundedScale) * 15.0)")
+        "isClipped",
+        "redstoneLevelsPerPressure",
+        "pressurePerRedstoneLevel",
+        "Math.round((boundedPressure / (double) boundedScale) * REDSTONE_FULL_SCALE)")
 require(menu,
         "PneumaticReceiverBlock.RANGE_MODE",
         "PneumaticReceiverBlock.fullScalePressure",
-        "PneumaticReceiverBlock.stepRange")
+        "PneumaticReceiverBlock.stepRange",
+        "changed = rotateRigidDirectional(id)",
+        "DirectionalSignalBlock.rotateRigidSeriesAxis")
 require(screen,
         "RECEIVER CALIBRATION",
-        "Full-scale pressure",
-        "Normalized output")
+        "Full-scale pressure Pfs",
+        "Selectable ranges",
+        "Transfer law",
+        "redstoneLevelsPerPressure",
+        "pressurePerRedstoneLevel",
+        "Clipping",
+        "one rigid converter axis")
 
 if failed:
     print("RSE pneumatic-receiver engineering-depth verification: FAIL")
@@ -35,4 +53,5 @@ if failed:
 print("RSE pneumatic-receiver engineering-depth verification: PASS")
 print(" selectable 25/50/100 full-scale pressure: PASS")
 print(" calibrated pressure-to-redstone scaling: PASS")
-print(" HMI range authority: PASS")
+print(" HMI range authority + gain/resolution/clipping evidence: PASS")
+print(" rigid opposite-port pneumatic-to-redstone converter route: PASS")

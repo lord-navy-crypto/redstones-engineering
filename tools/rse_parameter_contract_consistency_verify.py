@@ -275,6 +275,36 @@ if "dev.redstoneengineering.physics" in pneumatic_screen:
     errors.append("Pneumatic client HMI crossed the persistence/physics authority boundary")
 
 require(
+    "src/main/java/dev/redstoneengineering/block/PneumaticReceiverBlock.java",
+    "MIN_RANGE_MODE = 0",
+    "MAX_RANGE_MODE = 2",
+    "DEFAULT_RANGE_MODE = 2",
+    "LOW_FULL_SCALE_PRESSURE = 25",
+    "MID_FULL_SCALE_PRESSURE = 50",
+    "HIGH_FULL_SCALE_PRESSURE = 100",
+    "REDSTONE_FULL_SCALE = 15",
+    "boundedRangeMode",
+    "boundedPressureForScale",
+    "redstoneLevelsPerPressure",
+    "pressurePerRedstoneLevel",
+)
+require(
+    "src/main/java/dev/redstoneengineering/ui/menu/PneumaticSystemMenu.java",
+    "PneumaticReceiverBlock.stepRange",
+    "changed = rotateRigidDirectional(id)",
+    "DirectionalSignalBlock.rotateRigidSeriesAxis",
+)
+require(
+    "src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.java",
+    "PneumaticReceiverBlock.LOW_FULL_SCALE_PRESSURE",
+    "PneumaticReceiverBlock.MID_FULL_SCALE_PRESSURE",
+    "PneumaticReceiverBlock.HIGH_FULL_SCALE_PRESSURE",
+    "PneumaticReceiverBlock.REDSTONE_FULL_SCALE",
+    "PneumaticReceiverBlock.redstoneLevelsPerPressure",
+    "PneumaticReceiverBlock.pressurePerRedstoneLevel",
+)
+
+require(
     "src/main/java/dev/redstoneengineering/block/QuartzLabOscillatorBlock.java",
     "MIN_PERIOD_INDEX = 0",
     "MAX_PERIOD_INDEX = 4",
@@ -399,6 +429,7 @@ print(" Pressure Regulator setpoint/response-rate pure authority: PASS")
 print(" Proportional Valve opening/response-rate pure authority: PASS")
 print(" Air Compressor bounded ramp-rate persistence authority: PASS")
 print(" Relief Valve setpoint/blowdown pure authority: PASS")
+print(" Pneumatic Receiver 25/50/100 FS calibration + rigid converter authority: PASS")
 print(" Servo persistent bounds + 2-tick control cycle + client boundary: PASS")
 print(" PID persistent bounds + deadband/integral/cycle + client boundary: PASS")
 print(" Lapis LPF synchronized alpha + 2-tick sample/derived response contract: PASS")

@@ -1,5 +1,6 @@
 package dev.redstoneengineering.client.ui;
 
+import dev.redstoneengineering.block.PneumaticReceiverBlock;
 import dev.redstoneengineering.core.diagnostic.CommissioningStatus;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.signal.AirCompressorLogic;
@@ -41,7 +42,7 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
         }else if(isProportional()){
             setPairLabel(prev,next,"Spool "+menu.engineeringA()+"/t");
         }else if(menu.kind()==PneumaticSystemMenu.KIND_RECEIVER){
-            setPairLabel(prev,next,menu.tertiary()+"/100 FS");
+            setPairLabel(prev,next,"Pfs "+menu.tertiary());
         }else if(menu.kind()==PneumaticSystemMenu.KIND_REGULATOR){
             setPairLabel(prev,next,"Setpoint "+menu.engineeringA()+"/100");
             setPairLabel(secondaryPrev,secondaryNext,"Rate "+menu.engineeringB()+"/t");
@@ -87,10 +88,28 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
         }
         if(menu.kind()==PneumaticSystemMenu.KIND_RECEIVER){
             statusBadge(g,"RECEIVER CALIBRATION",INFO,16,80);
-            labelValue(g,"Full-scale pressure",menu.tertiary()+" / 100",104);
-            labelValue(g,"Measured pressure",menu.primary()+" / 100",132);
-            labelValue(g,"Normalized output",menu.secondary()+" / 15",154);
-            wrappedText(g,"The receiver maps configured full-scale pneumatic pressure to redstone 15; values above full scale saturate.",16,190,620,MUTED);
+            labelValue(g,"Full-scale pressure Pfs",menu.tertiary()+" pressure",104);
+            labelValue(g,"Selectable ranges",
+                    PneumaticReceiverBlock.LOW_FULL_SCALE_PRESSURE + " / "
+                            + PneumaticReceiverBlock.MID_FULL_SCALE_PRESSURE + " / "
+                            + PneumaticReceiverBlock.HIGH_FULL_SCALE_PRESSURE,132);
+            labelValue(g,"Measured pressure P",menu.primary()+" pressure",154);
+            labelValue(g,"Redstone output y",menu.secondary()+" / "+PneumaticReceiverBlock.REDSTONE_FULL_SCALE,176);
+            labelValue(g,"Transfer law",
+                    "y = round(clamp(P,0,Pfs) × " + PneumaticReceiverBlock.REDSTONE_FULL_SCALE + " / Pfs)",198);
+            labelValue(g,"Gain",
+                    format3(PneumaticReceiverBlock.redstoneLevelsPerPressure(menu.tertiary()))
+                            + " redstone/pressure",220);
+            labelValue(g,"Pressure per level",
+                    format3(PneumaticReceiverBlock.pressurePerRedstoneLevel(menu.tertiary()))
+                            + " pressure/redstone",242);
+            labelValue(g,"Clipping",
+                    PneumaticReceiverBlock.isClipped(menu.primary(),menu.tertiary())
+                            ? "YES • P exceeds Pfs" : "NO",264);
+            labelValue(g,"Physical axis",route(),286);
+            wrappedText(g,
+                    "Pfs is the only calibration parameter. The receiver quantizes bounded pressure into vanilla redstone 0..15; pressure above full scale saturates at 15 rather than creating a fictitious over-range output. Pneumatic input and redstone output remain opposite on one rigid converter axis.",
+                    16,310,620,MUTED);
             return;
         }
         if(menu.kind()==PneumaticSystemMenu.KIND_REGULATOR){
@@ -316,6 +335,8 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
     private String primaryLabel(){return isCompressor()?"Command":isFlow()?"Flow":isCylinder()?"Pressure":isReservoir()?"Stored":menu.directional()?"Inlet":"Pressure";}private String secondaryLabel(){return isCompressor()?"Target P":isFlow()?"Δ pressure":isCylinder()?"Position":isReservoir()?"Line":menu.directional()?"Outlet":"Aux";}private String thirdLabel(){return isCompressor()?"Actual P":isFlow()?"Inlet P":isCylinder()?"Target":isProportional()?"Opening":"State";}
     private String primaryText(){return menu.primary()+(isCompressor()?" / 15":" / 100");}private String secondaryText(){return menu.secondary()+(isCylinder()?" / 15":" / 100");}private String thirdText(){return menu.tertiary()+(isCylinder()||isProportional()?" / 15":" / 100");}
     private String controlText(){return switch(menu.kind()){case 0->"RAMP "+menu.engineeringA()+"/"+menu.engineeringB();case 3->"SETPOINT "+menu.engineeringA()+"/100 • RATE "+menu.engineeringB();case 9->"RELIEF "+menu.engineeringA()+"/100 • BLOWDOWN "+menu.engineeringB();case 5->menu.stateFlag()==1?"OPEN":"CLOSED";case 8->"SPOOL "+menu.engineeringA()+"/t";default->"NO MANUAL PROCESS PARAMETER";};}
+
+    private String format3(double value){return String.format(java.util.Locale.ROOT,"%.3f",value);}
 
     private void setPairLabel(Button previous,Button next,String value){
         previous.setMessage(Component.literal(fitForWidth("◀ "+value,104)));

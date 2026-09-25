@@ -104,7 +104,7 @@ for rel in (
     require(rel, "player.isShiftKeyDown()", "FieldDeviceUi.open(serverPlayer, pos)")
 
 # Dedicated pneumatic HMI tracks real endpoint faces. Generic pneumatic devices may retain
-# independent endpoint authority, while physically inline regulator/proportional devices are rigid.
+# independent endpoint authority, while physically inline regulator/proportional/receiver devices are rigid.
 require("src/main/java/dev/redstoneengineering/ui/menu/PneumaticSystemMenu.java",
         "block instanceof PressureRegulatorBlock",
         "facing.set(DirectionalDomainBlock.seriesOutputSide(state).ordinal())",
@@ -121,6 +121,7 @@ pneumatic_click = pneumatic_menu[pneumatic_menu.find("public boolean clickMenuBu
 for device, next_device in (
     ("block instanceof PressureRegulatorBlock", "block instanceof PneumaticValveBlock"),
     ("block instanceof PneumaticProportionalValveBlock", "block instanceof PneumaticReceiverBlock"),
+    ("block instanceof PneumaticReceiverBlock", "block instanceof PneumaticCheckValveBlock"),
 ):
     start = pneumatic_click.find(device)
     end = pneumatic_click.find(next_device, start)
@@ -261,6 +262,7 @@ screen = read("src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen
 for token in (
     "PneumaticSystemMenu.KIND_REGULATOR",
     "PneumaticSystemMenu.KIND_PROPORTIONAL",
+    "PneumaticSystemMenu.KIND_RECEIVER",
     "menu instanceof SignalProcessorMenu || menu instanceof SignalConditionerMenu",
 ):
     if token not in screen:
@@ -326,7 +328,7 @@ print(" simple Direction controls preserved for measurement/interface axes: PASS
 print(" redstone reference/source/sensor FieldDevice route authority: PASS")
 print(" endpoint Engineering UI reachability + Shift diagnostics: PASS")
 print(" universal + legacy fallback route authority parity: PASS")
-print(" pneumatic regulator/proportional rigid opposite-port route authority: PASS")
+print(" pneumatic regulator/proportional/receiver rigid opposite-port route authority: PASS")
 print(" range sensor old/new output invalidation on rotation: PASS")
 print(" signal analyzer six-face route + history invalidation: PASS")
 print(" signal probe six-face measurement-axis rotation: PASS")

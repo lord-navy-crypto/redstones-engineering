@@ -294,7 +294,7 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
                 changed = PneumaticReceiverBlock.stepRange(
                         level, blockPos, id == BUTTON_PARAMETER_NEXT);
             } else {
-                changed = rotateDirectional(block, id);
+                changed = rotateRigidDirectional(id);
             }
         } else if (block instanceof PneumaticCheckValveBlock
                 || block instanceof PneumaticFlowMeterBlock
@@ -317,10 +317,18 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
                 && id != BUTTON_OUTPUT_LEFT && id != BUTTON_OUTPUT_RIGHT) {
             return false;
         }
-        // Straight-through regulator/proportional-valve contract. Legacy endpoint button IDs
-        // remain accepted, but they rotate the complete opposite-face axis rather than bending it.
+        // Physically straight-through two-port devices rotate as one rigid opposite-face axis.
+        // Legacy endpoint button IDs remain accepted only as aliases for whole-block rotation.
         boolean clockwise = id == BUTTON_ROTATE_RIGHT || id == BUTTON_INPUT_RIGHT || id == BUTTON_OUTPUT_RIGHT;
-        boolean changed = DirectionalDomainBlock.rotateRigidSeriesAxis(level, blockPos, clockwise);
+        Block block = level.getBlockState(blockPos).getBlock();
+        boolean changed;
+        if (block instanceof DirectionalDomainBlock) {
+            changed = DirectionalDomainBlock.rotateRigidSeriesAxis(level, blockPos, clockwise);
+        } else if (block instanceof DirectionalSignalBlock) {
+            changed = DirectionalSignalBlock.rotateRigidSeriesAxis(level, blockPos, clockwise);
+        } else {
+            return false;
+        }
         if (changed && level instanceof ServerLevel server) PneumaticNetwork.recomputeAround(server, blockPos);
         return changed;
     }

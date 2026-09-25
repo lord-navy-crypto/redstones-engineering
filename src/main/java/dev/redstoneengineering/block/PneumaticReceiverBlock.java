@@ -31,11 +31,19 @@ import java.util.Optional;
 
 /** Pneumatic BACK input -> isolated vanilla redstone FRONT output. The receiver is a terminal, not a pneumatic bridge. */
 public class PneumaticReceiverBlock extends PassiveDirectionalSignalBlock {
-    public static final IntegerProperty RANGE_MODE = IntegerProperty.create("range_mode", 0, 2);
+    public static final int MIN_RANGE_MODE = 0;
+    public static final int MAX_RANGE_MODE = 2;
+    public static final int DEFAULT_RANGE_MODE = 2;
+    public static final int LOW_FULL_SCALE_PRESSURE = 25;
+    public static final int MID_FULL_SCALE_PRESSURE = 50;
+    public static final int HIGH_FULL_SCALE_PRESSURE = 100;
+    public static final int REDSTONE_FULL_SCALE = 15;
+    public static final IntegerProperty RANGE_MODE =
+            IntegerProperty.create("range_mode", MIN_RANGE_MODE, MAX_RANGE_MODE);
 
     public PneumaticReceiverBlock(Properties properties) {
         super(properties);
-        registerDefaultState(defaultBlockState().setValue(RANGE_MODE, 2));
+        registerDefaultState(defaultBlockState().setValue(RANGE_MODE, DEFAULT_RANGE_MODE));
     }
 
     @Override
@@ -44,11 +52,15 @@ public class PneumaticReceiverBlock extends PassiveDirectionalSignalBlock {
         builder.add(RANGE_MODE);
     }
 
+    public static int boundedRangeMode(int mode) {
+        return Math.max(MIN_RANGE_MODE, Math.min(MAX_RANGE_MODE, mode));
+    }
+
     public static int fullScalePressure(int mode) {
-        return switch (Math.max(0, Math.min(2, mode))) {
-            case 0 -> 25;
-            case 1 -> 50;
-            default -> 100;
+        return switch (boundedRangeMode(mode)) {
+            case MIN_RANGE_MODE -> LOW_FULL_SCALE_PRESSURE;
+            case 1 -> MID_FULL_SCALE_PRESSURE;
+            default -> HIGH_FULL_SCALE_PRESSURE;
         };
     }
 
@@ -56,18 +68,37 @@ public class PneumaticReceiverBlock extends PassiveDirectionalSignalBlock {
         return fullScalePressure(state.getValue(RANGE_MODE));
     }
 
+    public static int boundedPressureForScale(int pressure, int fullScale) {
+        int boundedScale = Math.max(1, fullScale);
+        return Math.max(0, Math.min(boundedScale, pressure));
+    }
+
     public static int scaledOutput(int pressure, int fullScale) {
         int boundedScale = Math.max(1, fullScale);
-        int boundedPressure = Math.max(0, Math.min(boundedScale, pressure));
-        return Math.max(0, Math.min(15,
-                (int) Math.round((boundedPressure / (double) boundedScale) * 15.0)));
+        int boundedPressure = boundedPressureForScale(pressure, boundedScale);
+        return Math.max(0, Math.min(REDSTONE_FULL_SCALE,
+                (int) Math.round((boundedPressure / (double) boundedScale) * REDSTONE_FULL_SCALE)));
+    }
+
+    public static boolean isClipped(int pressure, int fullScale) {
+        return pressure > Math.max(1, fullScale);
+    }
+
+    public static double redstoneLevelsPerPressure(int fullScale) {
+        return REDSTONE_FULL_SCALE / (double) Math.max(1, fullScale);
+    }
+
+    public static double pressurePerRedstoneLevel(int fullScale) {
+        return Math.max(1, fullScale) / (double) REDSTONE_FULL_SCALE;
     }
 
     public static boolean stepRange(Level level, BlockPos pos, boolean forward) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof PneumaticReceiverBlock receiver)) return false;
         int mode = state.getValue(RANGE_MODE);
-        int next = Math.floorMod(mode + (forward ? 1 : -1), 3);
+        int span = MAX_RANGE_MODE - MIN_RANGE_MODE + 1;
+        int next = MIN_RANGE_MODE + Math.floorMod(
+                mode - MIN_RANGE_MODE + (forward ? 1 : -1), span);
         level.setBlock(pos, state.setValue(RANGE_MODE, next), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
         if (level instanceof ServerLevel server) server.scheduleTick(pos, receiver, 1);
         return true;
@@ -154,7 +185,12 @@ public class PneumaticReceiverBlock extends PassiveDirectionalSignalBlock {
                         "Pneumatic receiver pressure=" + pressure.pressure()
                                 + "/100 quality=" + pressure.quality()
                                 + " fullScale=" + fullScalePressure(state)
-                                + " output=" + outputValue(level, pos, state) + "/15 | BACK=PNEUMATIC FRONT=REDSTONE"
+                                + " output=" + outputValue(level, pos, state) + "/" + REDSTONE_FULL_SCALE
+                                + " gain=" + String.format(java.util.Locale.ROOT, "%.3f",
+                                redstoneLevelsPerPressure(fullScalePressure(state)))
+                                + " level/pressure"
+                                + (isClipped(pressure.pressure(), fullScalePressure(state)) ? " CLIPPED" : "")
+                                + " | BACK=PNEUMATIC FRONT=REDSTONE"
                 ), true);
             } else {
                 FieldDeviceUi.open(serverPlayer, pos);
