@@ -1,5 +1,6 @@
 package dev.redstoneengineering.client.ui;
 
+import dev.redstoneengineering.block.FaultLatchBlock;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.menu.ReliabilitySystemMenu;
 import net.minecraft.client.gui.GuiGraphics;
