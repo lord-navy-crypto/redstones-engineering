@@ -93,8 +93,8 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock implements Op
     }
 
     public static PortQuality resetInputQuality(Level level, BlockPos pos, BlockState state) {
-        if (!(state.getBlock() instanceof FaultLatchBlock)) return PortQuality.NO_SIGNAL;
-        return observeInput(level, pos, rightOf(outputSide(state))).quality();
+        if (!(state.getBlock() instanceof FaultLatchBlock latch)) return PortQuality.NO_SIGNAL;
+        return observeInput(level, pos, rightOf(latch.outputSide(state))).quality();
     }
 
     /**
@@ -105,7 +105,7 @@ public class FaultLatchBlock extends PassiveDirectionalSignalBlock implements Op
     public static PortQuality operationalEvidenceQuality(Level level, BlockPos pos, BlockState state) {
         if (!(state.getBlock() instanceof FaultLatchBlock latch)) return PortQuality.NO_SIGNAL;
         var fault = observeInput(level, pos, latch.inputSide(state));
-        var reset = observeInput(level, pos, rightOf(outputSide(state)));
+        var reset = observeInput(level, pos, rightOf(latch.outputSide(state)));
         PortQuality quality = fault.quality();
         if (quality == PortQuality.NO_SIGNAL) quality = PortQuality.VALID;
         if (evidenceUnusable(reset.quality())) {
