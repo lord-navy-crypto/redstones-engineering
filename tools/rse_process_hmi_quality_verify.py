@@ -37,8 +37,8 @@ if not failed:
         "BUTTON_OUTPUT_NEXT",
         "DirectionalSignalBlock.rotateSeriesInput",
         "DirectionalSignalBlock.rotateSeriesOutput",
-        "DirectionalDomainBlock.rotateSeriesInput",
-        "DirectionalDomainBlock.rotateSeriesOutput",
+        "DirectionalDomainBlock.rotateRigidSeriesAxis",
+        "public boolean rigidSeriesRoute()",
         "DirectionalDomainSourceBlock.rotateOutput",
         "RedstoneCopperDriverBlock.rotateInput",
         "RedstoneCopperDriverBlock.rotateOutput",
@@ -76,6 +76,8 @@ if not failed:
         "menu.canRouteInput()",
         "menu.canRouteOutput()",
         "RX/TX buttons mutate only declared server-owned physical endpoint properties.",
+        "Rotate block",
+        "endpoints cannot be bent independently",
         "no synthetic single RX/TX pair is created",
         "Output-only LAPIS precision source",
         "Six-face COPPER voltage source",
@@ -149,6 +151,7 @@ print(" PWM fail-safe evidence remains server-backed: PASS")
 print(" device-specific diagnostics page uses synchronized evidence only: PASS")
 print(" diagnostics do not introduce a client-side second solver: PASS")
 print(" Process Routing page mutates only declared server-owned endpoints: PASS")
+print(" axial Copper capacitor/fuse routes stay rigid and opposite: PASS")
 print(" fixed/multi-face devices do not receive fake RX/TX controls: PASS")
 print(" Redstone-Copper driver reroute releases the old Copper claim: PASS")
 print(" output-only Lapis source remains output-only: PASS")
