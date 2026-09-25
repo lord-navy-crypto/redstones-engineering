@@ -58,7 +58,7 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
         statusBadge(g,isFlow()?menu.commissioningStatus().name().replace('_',' '):isCylinder()?cylinderState():isReservoir()?reservoirState():isProportional()?proportionalState():state(),isFlow()?acceptanceColor():isCylinder()?cylinderColor():isReservoir()?reservoirColor():isProportional()?proportionalColor():stateColor(),205,80);
         metricCard(g,primaryLabel(),primaryText(),16,103,88,INFO);metricCard(g,secondaryLabel(),secondaryText(),111,103,88,GOOD);metricCard(g,thirdLabel(),thirdText(),206,103,88,INFO);
         labelValue(g,"Topology",route(),149);labelValue(g,"Input / output evidence",menu.inputQuality().name()+" / "+menu.outputQuality().name(),169);
-        safeText(g,isFlow()?acceptanceSummary():isCylinder()?cylinderDiagnosis():isReservoir()?reservoirDiagnosis():isProportional()?proportionalDiagnosis():"Pressure zero may be valid when observation quality is VALID.",16,196,isFlow()?acceptanceColor():isCylinder()?cylinderColor():isReservoir()?reservoirColor():isProportional()?proportionalColor():MUTED);
+        wrappedText(g,isFlow()?acceptanceSummary():isCylinder()?cylinderDiagnosis():isReservoir()?reservoirDiagnosis():isProportional()?proportionalDiagnosis():"Pressure zero may be valid when observation quality is VALID.",16,196,620,isFlow()?acceptanceColor():isCylinder()?cylinderColor():isReservoir()?reservoirColor():isProportional()?proportionalColor():MUTED);
     }
 
     private void ports(GuiGraphics g){
@@ -66,9 +66,9 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
         if(!menu.directional()){statusLine(g,"NETWORK","PNEUMATIC NETWORK NODE",INFO,112);return;}
         statusLine(g,face(menu.inputDirection()),"INPUT • PNEUMATIC",qualityColor(menu.inputQuality()),112);
         statusLine(g,face(menu.outputDirection()),menu.kind()==PneumaticSystemMenu.KIND_RECEIVER||isCylinder()?"OUTPUT • REDSTONE 0..15":"OUTPUT • PNEUMATIC",qualityColor(menu.outputQuality()),142);
-        if(isFlow())safeText(g,"Commissioning adds one axial witness beyond each meter port.",16,176,MUTED);
-        if(isCylinder())safeText(g,"Cylinder path evidence is retained by the authoritative pneumatic solve; the HMI does not rerun flow physics.",16,176,MUTED);
-        if(isProportional())safeText(g,"Valve loss is the synchronized inlet-to-outlet pressure difference at the configured opening.",16,176,MUTED);
+        if(isFlow())wrappedText(g,"Commissioning adds one axial witness beyond each meter port.",16,176,620,MUTED);
+        if(isCylinder())wrappedText(g,"Cylinder path evidence is retained by the authoritative pneumatic solve; the HMI does not rerun flow physics.",16,176,620,MUTED);
+        if(isProportional())wrappedText(g,"Valve loss is the synchronized inlet-to-outlet pressure difference at the configured opening.",16,176,620,MUTED);
     }
 
     private void configure(GuiGraphics g){
@@ -78,7 +78,7 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
             labelValue(g,"Ramp down",menu.engineeringB()+" pressure/tick",132);
             labelValue(g,"Legacy preset",AirCompressorLogic.modeName(menu.stateFlag())+" • exact rates override",154);
             labelValue(g,"Target / actual",menu.secondary()+" / "+menu.tertiary(),176);
-            safeText(g,"The DOWN redstone command sets a target; the pneumatic source follows it at the configured finite rate.",16,202,MUTED);
+            wrappedText(g,"The DOWN redstone command sets a target; the pneumatic source follows it at the configured finite rate.",16,202,620,MUTED);
             return;
         }
         if(menu.kind()==PneumaticSystemMenu.KIND_RECEIVER){
@@ -86,7 +86,7 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
             labelValue(g,"Full-scale pressure",menu.tertiary()+" / 100",104);
             labelValue(g,"Measured pressure",menu.primary()+" / 100",132);
             labelValue(g,"Normalized output",menu.secondary()+" / 15",154);
-            safeText(g,"The receiver maps configured full-scale pneumatic pressure to redstone 15; values above full scale saturate.",16,190,MUTED);
+            wrappedText(g,"The receiver maps configured full-scale pneumatic pressure to redstone 15; values above full scale saturate.",16,190,620,MUTED);
             return;
         }
         if(menu.kind()==PneumaticSystemMenu.KIND_REGULATOR){
@@ -121,10 +121,10 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
             labelValue(g,"Blowdown",menu.engineeringB()+" pressure units",132);
             labelValue(g,"Reseat pressure",Math.max(0,menu.engineeringA()-menu.engineeringB())+" / 100",154);
             labelValue(g,"Physical route",route(),176);
-            safeText(g,"Blowdown is independent of setpoint and prevents rapid relief chatter after an overpressure event.",16,202,MUTED);
+            wrappedText(g,"Blowdown is independent of setpoint and prevents rapid relief chatter after an overpressure event.",16,202,620,MUTED);
             return;
         }
-        statusBadge(g,"SERVER-SIDE BOUNDED CONTROL",INFO,16,80);labelValue(g,"Control",controlText(),104);labelValue(g,"Physical route",route(),174);safeText(g,"Physical direction is controlled only on Route.",16,202,MUTED);
+        statusBadge(g,"SERVER-SIDE BOUNDED CONTROL",INFO,16,80);labelValue(g,"Control",controlText(),104);labelValue(g,"Physical route",route(),174);wrappedText(g,"Physical direction is controlled only on Route.",16,202,620,MUTED);
     }
 
     private void diagnostics(GuiGraphics g){
@@ -135,7 +135,7 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
             labelValue(g,"Tracking error",Integer.toString(menu.compressorTrackingError()),148);
             labelValue(g,"Ramp up / down",menu.engineeringA()+" / "+menu.engineeringB()+" per tick",170);
             labelValue(g,"Starts / run ticks",menu.auxiliary()+" / "+menu.compressorRunTicks(),192);
-            safeText(g,compressorDiagnosis(),16,216,compressorColor());
+            wrappedText(g,compressorDiagnosis(),16,216,620,compressorColor());
             return;
         }
         if(isFlow()){
@@ -144,7 +144,7 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
             labelValue(g,"Flow / meter ΔP",menu.primary()+" / "+menu.secondary(),106);labelValue(g,"Pin / Pout",menu.tertiary()+" / "+menu.auxiliary(),126);
             labelValue(g,"U / D witness",p(menu.upstreamQuality(),menu.upstreamPressure())+" / "+p(menu.downstreamQuality(),menu.downstreamPressure()),146);
             labelValue(g,"Drops U / M / D",d(r.upstreamDrop())+" / "+r.meterDrop()+" / "+d(r.downstreamDrop()),166);
-            statusLine(g,"Localization",r.localization(),localColor(),188);safeText(g,acceptanceSummary(),16,210,acceptanceColor());return;
+            statusLine(g,"Localization",r.localization(),localColor(),188);wrappedText(g,acceptanceSummary(),16,210,620,acceptanceColor());return;
         }
         if(isCylinder()){
             statusBadge(g,cylinderState(),cylinderColor(),16,80);
@@ -153,14 +153,14 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
             labelValue(g,"Path edges",Integer.toString(menu.cylinderPathEdges()),148);
             labelValue(g,"Position / target / error",menu.secondary()+" / "+menu.tertiary()+" / "+menu.cylinderError(),170);
             labelValue(g,"Response / remaining",menu.cylinderResponsePeriod()+"t per step / ≈"+menu.cylinderRemainingTicks()+"t",192);
-            safeText(g,cylinderNext(),16,216,cylinderColor());return;
+            wrappedText(g,cylinderNext(),16,216,620,cylinderColor());return;
         }
         if(menu.kind()==PneumaticSystemMenu.KIND_RECEIVER){
             statusBadge(g,"RECEIVER CALIBRATION",INFO,16,80);
             labelValue(g,"Pressure / full scale",menu.primary()+" / "+menu.tertiary(),104);
             labelValue(g,"Normalized output",menu.secondary()+" / 15",128);
             labelValue(g,"Input quality",menu.inputQuality().name(),152);
-            safeText(g,"Changing range changes conversion gain; 25 pressure equals full-scale only in 25-FS mode.",16,186,MUTED);
+            wrappedText(g,"Changing range changes conversion gain; 25 pressure equals full-scale only in 25-FS mode.",16,186,620,MUTED);
             return;
         }
         if(menu.kind()==PneumaticSystemMenu.KIND_REGULATOR){
@@ -170,7 +170,7 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
             labelValue(g,"Tracking error",Integer.toString(menu.auxiliary()),148);
             labelValue(g,"Setpoint",menu.engineeringA()+" / 100",170);
             labelValue(g,"Response rate",menu.engineeringB()+" pressure/tick",192);
-            safeText(g,regulatorDiagnosis(),16,216,regulatorColor());return;
+            wrappedText(g,regulatorDiagnosis(),16,216,620,regulatorColor());return;
         }
         if(isReservoir()){
             statusBadge(g,reservoirState(),reservoirColor(),16,80);
@@ -179,7 +179,7 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
             labelValue(g,"Charge headroom",Math.max(0,menu.secondary()-menu.primary())+" pressure units",150);
             labelValue(g,"Storage law","charge ≤5 / 10t • leak 1 / 10t",172);
             statusLine(g,"Diagnosis",reservoirDiagnosis(),reservoirColor(),194);
-            safeText(g,reservoirNext(),16,216,reservoirColor());return;
+            wrappedText(g,reservoirNext(),16,216,620,reservoirColor());return;
         }
         if(isProportional()){
             statusBadge(g,proportionalState(),proportionalColor(),16,80);
@@ -188,7 +188,7 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
             labelValue(g,"Tracking error",Integer.toString(menu.proportionalTrackingError()),148);
             labelValue(g,"Local ΔP",Math.max(0,menu.primary()-menu.secondary())+" / 100",170);
             labelValue(g,"Travel / reversals",menu.proportionalTravel()+" / "+menu.proportionalReversals(),192);
-            safeText(g,proportionalDiagnosis(),16,216,proportionalColor());return;
+            wrappedText(g,proportionalDiagnosis(),16,216,620,proportionalColor());return;
         }
         statusBadge(g,state(),stateColor(),16,80);labelValue(g,primaryLabel(),primaryText(),108);labelValue(g,secondaryLabel(),secondaryText(),128);labelValue(g,thirdLabel(),thirdText(),148);statusLine(g,"Authority","SERVER SYNCHRONIZED",GOOD,192);
     }
@@ -199,32 +199,32 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
             labelValue(g,"Starts / run ticks",menu.auxiliary()+" / "+menu.compressorRunTicks(),108);
             labelValue(g,"Target / actual",menu.secondary()+" / "+menu.tertiary(),130);
             labelValue(g,"Tracking error",Integer.toString(menu.compressorTrackingError()),152);
-            safeText(g,"Start count and run ticks are server-retained runtime evidence; pressure response is finite-rate, not instantaneous.",16,184,MUTED);
+            wrappedText(g,"Start count and run ticks are server-retained runtime evidence; pressure response is finite-rate, not instantaneous.",16,184,620,MUTED);
         }else if(isFlow()){
             PneumaticSectionDiagnostics.Result r=section();labelValue(g,"Samples / acceptance",menu.stateFlag()+" / "+menu.commissioningStatus().name(),108);
             labelValue(g,"U / Pin / Pout / D",p(menu.upstreamQuality(),menu.upstreamPressure())+" / "+menu.tertiary()+" / "+menu.auxiliary()+" / "+p(menu.downstreamQuality(),menu.downstreamPressure()),130);
-            labelValue(g,"Drops U / M / D",d(r.upstreamDrop())+" / "+r.meterDrop()+" / "+d(r.downstreamDrop()),152);statusLine(g,"Dominant local loss",r.localization(),localColor(),177);safeText(g,"Acceptance is server-evaluated; bends beyond witnesses are not inferred.",16,201,MUTED);
+            labelValue(g,"Drops U / M / D",d(r.upstreamDrop())+" / "+r.meterDrop()+" / "+d(r.downstreamDrop()),152);statusLine(g,"Dominant local loss",r.localization(),localColor(),177);wrappedText(g,"Acceptance is server-evaluated; bends beyond witnesses are not inferred.",16,201,620,MUTED);
         }else if(isCylinder()){
             labelValue(g,"Samples / travel",menu.cylinderSamples()+" / "+menu.auxiliary(),108);labelValue(g,"Velocity / error",menu.cylinderVelocity()+" / "+menu.cylinderError(),130);
             labelValue(g,"Stall ticks / reversals",menu.cylinderStallTicks()+" / "+menu.cylinderReversals(),152);labelValue(g,"Supply / path loss",menu.cylinderSupply()+" / "+menu.cylinderObservedLoss(),174);
-            safeText(g,"Response timing is deterministic and pressure-dependent; no continuous CFD or random leak history is fabricated.",16,202,MUTED);
+            wrappedText(g,"Response timing is deterministic and pressure-dependent; no continuous CFD or random leak history is fabricated.",16,202,620,MUTED);
         }else if(menu.kind()==PneumaticSystemMenu.KIND_REGULATOR){
             labelValue(g,"Inlet / setpoint",menu.primary()+" / "+menu.secondary(),110);
             labelValue(g,"Actual ceiling / error",menu.tertiary()+" / "+menu.auxiliary(),132);
             labelValue(g,"Setpoint / response rate",menu.engineeringA()+" / "+menu.engineeringB(),154);
-            safeText(g,"Regulation evidence is finite diaphragm response; exact setpoint/rate are server configuration while actual ceiling remains runtime evidence.",16,186,MUTED);
+            wrappedText(g,"Regulation evidence is finite diaphragm response; exact setpoint/rate are server configuration while actual ceiling remains runtime evidence.",16,186,620,MUTED);
         }else if(isReservoir()){
             labelValue(g,"Stored / line",menu.primary()+" / "+menu.secondary(),110);
-            safeText(g,"Current recovery state is derived from the existing finite-rate reservoir law; no unretained trend history is invented.",16,148,MUTED);
+            wrappedText(g,"Current recovery state is derived from the existing finite-rate reservoir law; no unretained trend history is invented.",16,148,620,MUTED);
         }else if(isProportional()){
             labelValue(g,"Command / actual",menu.proportionalCommand()+" / "+menu.tertiary(),110);
             labelValue(g,"Tracking error",Integer.toString(menu.proportionalTrackingError()),132);
             labelValue(g,"Travel / reversals",menu.proportionalTravel()+" / "+menu.proportionalReversals(),154);
             labelValue(g,"Configured spool rate",menu.engineeringA()+" opening/tick",176);
             labelValue(g,"Current local drop",Integer.toString(Math.max(0,menu.primary()-menu.secondary())),198);
-            safeText(g,"Valve history is real spool travel/reversal evidence; restriction uses actual opening, not the command target.",16,224,MUTED);
-        }else if(menu.kind()==PneumaticSystemMenu.KIND_RELIEF){labelValue(g,"Vent events",Integer.toString(menu.auxiliary()),110);labelValue(g,"Setpoint / blowdown",menu.engineeringA()+" / "+menu.engineeringB(),132);labelValue(g,"Reseat pressure",Integer.toString(Math.max(0,menu.engineeringA()-menu.engineeringB())),154);safeText(g,"VENTING is an operating event, not missing measurement evidence; blowdown defines the retained reset band.",16,180,GOOD);}
-        else safeText(g,"Live server state only; no client-side pneumatic history is fabricated.",16,112,MUTED);
+            wrappedText(g,"Valve history is real spool travel/reversal evidence; restriction uses actual opening, not the command target.",16,224,620,MUTED);
+        }else if(menu.kind()==PneumaticSystemMenu.KIND_RELIEF){labelValue(g,"Vent events",Integer.toString(menu.auxiliary()),110);labelValue(g,"Setpoint / blowdown",menu.engineeringA()+" / "+menu.engineeringB(),132);labelValue(g,"Reseat pressure",Integer.toString(Math.max(0,menu.engineeringA()-menu.engineeringB())),154);wrappedText(g,"VENTING is an operating event, not missing measurement evidence; blowdown defines the retained reset band.",16,180,620,GOOD);}
+        else wrappedText(g,"Live server state only; no client-side pneumatic history is fabricated.",16,112,620,MUTED);
     }
 
     private String cylinderDiagnosis(){
