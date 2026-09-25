@@ -26,6 +26,7 @@ require("src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java"
         'Component.literal("Route")', "routePage", "setRoutePage", "routeActionId(boolean clockwise)", "routeSupported",
         "routePrevious", "routeNext", 'Component.literal("Direction ▲")', 'Component.literal("Direction ▼")',
         "routeInputPrevious", "routeInputNext", "routeOutputPrevious", "routeOutputNext",
+        "isRigidSeriesRoute()", '"Rigid opposite-port axis rotation"', '"Rotate block ◀"', '"Rotate block ▶"',
         'Component.literal("RX ▲")', 'Component.literal("RX ▼")',
         'Component.literal("TX ▲")', 'Component.literal("TX ▼")',
         "routeInputActionId(boolean clockwise)", "routeOutputActionId(boolean clockwise)",
@@ -140,7 +141,11 @@ for stale in ("DirectionalDomainBlock.rotateSeriesInput(level, blockPos", "Direc
         errors.append(f"Amethyst rigid two-port route regressed to independent endpoint control via {stale!r}")
 
 require("src/main/java/dev/redstoneengineering/ui/menu/MagneticSystemMenu.java",
-        "BUTTON_INPUT_LEFT", "BUTTON_OUTPUT_RIGHT", "DirectionalDomainBlock.rotateSeriesInput", "DirectionalDomainBlock.rotateSeriesOutput")
+        "BUTTON_INPUT_LEFT", "BUTTON_OUTPUT_RIGHT", "DirectionalDomainBlock.rotateRigidSeriesAxis")
+magnetic_menu = read("src/main/java/dev/redstoneengineering/ui/menu/MagneticSystemMenu.java")
+for stale in ("DirectionalDomainBlock.rotateSeriesInput(level, blockPos", "DirectionalDomainBlock.rotateSeriesOutput(level, blockPos", "DirectionalDomainBlock.rotateWholeRoute(level, blockPos"):
+    if stale in magnetic_menu:
+        errors.append(f"Magnetic induction-coil route regressed to independently bendable/non-rigid routing via {stale!r}")
 require("src/main/java/dev/redstoneengineering/ui/menu/ReliabilitySystemMenu.java",
         "BUTTON_INPUT_LEFT", "BUTTON_OUTPUT_RIGHT", "routeEndpoint", "routeFaultLatch")
 
@@ -218,7 +223,7 @@ for name in (
         if token in body:
             errors.append(f"{name}: long explanatory text bypasses safeText via {token!r}")
 
-for wrapped_screen in ("RangeSensorScreen.java", "SignalProcessorScreen.java", "RadioLinkScreen.java"):
+for wrapped_screen in ("RangeSensorScreen.java", "SignalProcessorScreen.java", "RadioLinkScreen.java", "MagneticSystemScreen.java"):
     wrapped_body = read("src/main/java/dev/redstoneengineering/client/ui/" + wrapped_screen)
     if "safeText(g," in wrapped_body:
         errors.append(f"{wrapped_screen}: paragraph-style text regressed to single-line safeText rendering")
@@ -286,6 +291,7 @@ print(" six-page responsibility split including dedicated Route page: PASS")
 print(" Configure parameters/modes/actions preserved: PASS")
 print(" specialized Configure pages do not duplicate Route authority: PASS")
 print(" endpoint-driven RX/TX controls on shared Route page: PASS")
+print(" rigid two-port devices use whole-axis rotation without fake independent endpoint controls: PASS")
 print(" simple Direction controls preserved for measurement/interface axes: PASS")
 print(" redstone reference/source/sensor FieldDevice route authority: PASS")
 print(" endpoint Engineering UI reachability + Shift diagnostics: PASS")
