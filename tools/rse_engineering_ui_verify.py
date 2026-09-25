@@ -218,6 +218,12 @@ for name in (
         if token in body:
             errors.append(f"{name}: long explanatory text bypasses safeText via {token!r}")
 
+universal = read("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java")
+if "safeText(g," in universal:
+    errors.append("UniversalFieldDeviceScreen regressed to single-line narrative rendering; paragraph text must use wrappedText")
+if 'int noteY = wrappedText(g,' not in universal:
+    errors.append("UniversalFieldDeviceScreen is missing flow-aware wrapped paragraph layout")
+
 screen = read("src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java")
 for forbidden in ("sharedRotateCcw", "sharedRotateCw", '"SIGNAL ROUTE"', "drawFaceMatrix(", "ROUTE_CONTROL_Y = 160"):
     if forbidden in screen:
