@@ -113,8 +113,8 @@ require(screen, "ReliabilitySystemScreen.java",
         "FaultLatchBlock.thresholdChoicesText()",
         '"FAULT evidence missing/invalid OR value ≥ T → LATCH"',
         '"rising RESET + VALID fault value < T → CLEAR"',
-        '"NO_SIGNAL on FAULT IN is missing evidence, not a measured zero"',
-        '"RESET evidence recovery only reacquires the electrical level"')
+        "NO_SIGNAL on FAULT IN is missing evidence, not a measured zero",
+        "RESET evidence recovery only reacquires the electrical level")
 
 if "if (faultObservation.quality() == PortQuality.NO_SIGNAL) return true;" in latch:
     errors.append("Fault Latch reset permissive regressed to treating NO_SIGNAL as proven-clear fault evidence")
