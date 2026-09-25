@@ -31,6 +31,8 @@ import java.util.Optional;
 
 /** Converts level transitions into bounded redstone event pulses with inspectable transient evidence. */
 public class EdgeDetectorBlock extends DirectionalSignalBlock {
+    public static final int MIN_PULSE_WIDTH = 1;
+    public static final int MAX_PULSE_WIDTH = 20;
     public static final IntegerProperty MODE = IntegerProperty.create("mode", 0, 2);
     private static final String KEY = "redstone_edge_detector";
     private static final int RUNTIME_SIZE = 7;
@@ -76,9 +78,10 @@ public class EdgeDetectorBlock extends DirectionalSignalBlock {
     public static int configuredPulseWidth(Level level, BlockPos pos, BlockState state) {
         int fallback = 2;
         if (level instanceof ServerLevel serverLevel) {
-            return Math.max(1, Math.min(20, EngineeringDeviceParameters.get(serverLevel)
-                    .extendedParameters(serverLevel, pos,
-                            new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
+            return Math.max(MIN_PULSE_WIDTH, Math.min(MAX_PULSE_WIDTH,
+                    EngineeringDeviceParameters.get(serverLevel)
+                            .extendedParameters(serverLevel, pos,
+                                    new EngineeringDeviceParameters.ExtendedParameters(fallback, 0, 0, 0)).a()));
         }
         return fallback;
     }
@@ -86,7 +89,7 @@ public class EdgeDetectorBlock extends DirectionalSignalBlock {
     public static boolean setConfiguredPulseWidth(ServerLevel level, BlockPos pos, int width) {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof EdgeDetectorBlock detector)) return false;
-        int bounded = Math.max(1, Math.min(20, width));
+        int bounded = Math.max(MIN_PULSE_WIDTH, Math.min(MAX_PULSE_WIDTH, width));
         boolean changed = EngineeringDeviceParameters.get(level).setExtendedParameters(
                 level, pos, new EngineeringDeviceParameters.ExtendedParameters(bounded, 0, 0, 0));
         if (changed) level.scheduleTick(pos, detector, 1);

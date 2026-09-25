@@ -37,6 +37,17 @@ for source, method, label in (
     require(source, "Shared authoritative operator action used by both HMI and Shift-right-click.", label)
 
 require(edge, "if (stepMode(level, pos, true))", "EdgeDetectorBlock.java")
+for token in (
+    "MIN_PULSE_WIDTH = 1",
+    "MAX_PULSE_WIDTH = 20",
+    "case 0 -> !last && now",
+    "case 1 -> last && !now",
+    "case 2 -> last != now",
+    "rt[INITIALIZED_SLOT] = 0",
+    "rt[PULSE_TICKS_SLOT] = 0",
+    "REJECTED_INPUT_EPISODES",
+):
+    require(edge, token, "EdgeDetectorBlock.java")
 require(pulse, "if (stepWidth(level, pos, true))", "PulseShaperBlock.java")
 require(precision, "if (stepRate(level, pos, true))", "PrecisionFilterBlock.java")
 
@@ -60,6 +71,19 @@ require(screen, 'case SignalProcessorMenu.KIND_PULSE -> "Pulse width";', "Signal
 require(screen, 'default -> "Rise rate";', "SignalProcessorScreen.java")
 require(screen, 'Component.literal("◀ Pulse width")', "SignalProcessorScreen.java")
 require(screen, '"Rejected evidence episodes"', "SignalProcessorScreen.java")
+for token in (
+    "Pulse width W",
+    "Edge predicate",
+    "Pulse law",
+    "Baseline law",
+    "Bad evidence",
+    "edge = !last && now",
+    "edge = last && !now",
+    "edge = last != now",
+    "EdgeDetectorBlock.MIN_PULSE_WIDTH",
+    "EdgeDetectorBlock.MAX_PULSE_WIDTH",
+):
+    require(screen, token, "SignalProcessorScreen.java")
 require(screen, "case OVERVIEW -> overview(graphics);", "SignalProcessorScreen.java")
 require(screen, "case PORTS -> ports(graphics);", "SignalProcessorScreen.java")
 require(screen, "case CONFIGURE -> configure(graphics);", "SignalProcessorScreen.java")
@@ -92,7 +116,7 @@ if errors:
     sys.exit(1)
 
 print("RSE SIGNAL PROCESSOR HMI VERIFY: PASS")
-print("  Edge Detector: shared mode action + exact pulse-width configuration + rejected-evidence readback")
+print("  Edge Detector: exact edge predicates + 1..20 pulse width + baseline/rejected-evidence state model")
 print("  Pulse Shaper: full-range configured width + threshold/hysteresis/retrigger controls")
 print("  Precision Filter: full-range rise rate + independent fall-rate control")
 print("  legacy Shift shortcuts remain bounded server actions; HMI fine controls remain server-authoritative")

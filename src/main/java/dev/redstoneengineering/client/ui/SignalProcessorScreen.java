@@ -1,5 +1,6 @@
 package dev.redstoneengineering.client.ui;
 
+import dev.redstoneengineering.block.EdgeDetectorBlock;
 import dev.redstoneengineering.signal.PrecisionFilterLogic;
 import dev.redstoneengineering.signal.PulseShaperLogic;
 import dev.redstoneengineering.ui.menu.SignalProcessorMenu;
@@ -189,10 +190,16 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
                     "Rrise and Rfall are exact server-owned slew limits. Legacy over-range stored values are interpreted at the effective 1..4 model boundary; invalid input evidence retains the last physical output instead of becoming numerical zero.",
                     16, 265, 620, MUTED);
         } else {
-            labelValue(g, "Pulse width", menu.secondaryParameter() + " ticks", 181);
-            labelValue(g, "Input face", menu.inputDirection().getName().toUpperCase(), 201);
-            labelValue(g, "Output face", menu.outputDirection().getName().toUpperCase(), 219);
-            wrappedText(g, "Physical direction is controlled only on Route; the series endpoints remain exactly opposite.", 16, 239, 620, MUTED);
+            labelValue(g, "Pulse width W",
+                    menu.secondaryParameter() + " ticks • allowed "
+                            + EdgeDetectorBlock.MIN_PULSE_WIDTH + ".." + EdgeDetectorBlock.MAX_PULSE_WIDTH, 181);
+            labelValue(g, "Edge predicate", edgePredicate(), 201);
+            labelValue(g, "Pulse law", "edge → remaining=W; OUT=15 while remaining>0", 221);
+            labelValue(g, "Baseline law", "first valid sample seeds last only; OUT=0", 241);
+            labelValue(g, "Bad evidence", "initialized=0 • remaining=0 • OUT=0", 261);
+            wrappedText(g,
+                    "A bad-evidence episode increments rejected evidence once, then the next trustworthy sample only reacquires the baseline. That prevents startup, stale recovery, or topology repair from manufacturing a false edge.",
+                    16, 285, 620, MUTED);
         }
     }
 
@@ -292,6 +299,14 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
                     + " • retrigger=" + (menu.modeFlag() ? "YES" : "NO");
             default -> "SLEW LIMIT • rise=" + parameterValue()
                     + " • fall=" + menu.secondaryParameter() + " level/tick";
+        };
+    }
+
+    private String edgePredicate() {
+        return switch (menu.parameter()) {
+            case 0 -> "RISING • edge = !last && now";
+            case 1 -> "FALLING • edge = last && !now";
+            default -> "BOTH • edge = last != now";
         };
     }
 
