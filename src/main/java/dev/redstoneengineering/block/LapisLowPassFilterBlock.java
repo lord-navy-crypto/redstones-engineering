@@ -151,7 +151,8 @@ public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements E
             player.displayClientMessage(Component.literal(
                     "Lapis low-pass | BACK input → FRONT output | alpha=" + alpha(index)
                             + " | output=" + (runtime.valid() ? String.format("%.2f", runtime.output() / 100.0) : runtime.quality())
-                            + " | profile=" + EngineeringParameterProfile.PROFILE_ID\n                            + " | diagnostic readback is observer-neutral"), true);
+                            + " | profile=" + EngineeringParameterProfile.PROFILE_ID
+                            + " | diagnostic readback is observer-neutral"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
