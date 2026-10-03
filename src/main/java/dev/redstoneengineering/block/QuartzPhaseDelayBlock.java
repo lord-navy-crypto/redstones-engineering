@@ -31,7 +31,7 @@ import java.util.Optional;
 
 /** Quartz timing-line edge delay that emits only delayed real post-initialization rising edges. */
 public class QuartzPhaseDelayBlock extends DirectionalDomainBlock implements EngineeringPortProvider {
-    public static final IntegerProperty DELAY = IntegerProperty.create("delay", 1, 8);
+    public static final IntegerProperty DELAY = IntegerProperty.create("delay", EngineeringParameterProfile.QUARTZ_PHASE_DELAY_MIN_TICKS, EngineeringParameterProfile.QUARTZ_PHASE_DELAY_MAX_TICKS);
     private static final String KEY = "quartz_phase_delay";
     private static final int PENDING_SLOT = 0;
     private static final int PREVIOUS_SLOT = 1;
@@ -41,7 +41,7 @@ public class QuartzPhaseDelayBlock extends DirectionalDomainBlock implements Eng
 
     public QuartzPhaseDelayBlock(Properties properties) {
         super(properties);
-        registerDefaultState(defaultBlockState().setValue(DELAY, 2));
+        registerDefaultState(defaultBlockState().setValue(DELAY, EngineeringParameterProfile.QUARTZ_PHASE_DELAY_DEFAULT_TICKS));
     }
 
     @Override public MapCodec<QuartzPhaseDelayBlock> codec() { return RedstoneEngineering.QUARTZ_PHASE_DELAY_CODEC.value(); }
@@ -125,7 +125,7 @@ public class QuartzPhaseDelayBlock extends DirectionalDomainBlock implements Eng
         } else {
             boolean rising = input.active() && runtime[PREVIOUS_SLOT] == 0;
             if (rising && runtime[PENDING_SLOT] == 0 && runtime[OUTPUT_SLOT] == 0) {
-                runtime[PENDING_SLOT] = FaultInjectionModel.latencyTicks(state.getValue(DELAY), 8);
+                runtime[PENDING_SLOT] = FaultInjectionModel.latencyTicks(state.getValue(DELAY), EngineeringParameterProfile.QUARTZ_PHASE_DELAY_MAX_TICKS);
             }
             runtime[PREVIOUS_SLOT] = input.active() ? 1 : 0;
         }
@@ -139,7 +139,7 @@ public class QuartzPhaseDelayBlock extends DirectionalDomainBlock implements Eng
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
             int delay = state.getValue(DELAY);
-            delay = delay >= 8 ? 1 : delay + 1;
+            delay = delay >= EngineeringParameterProfile.QUARTZ_PHASE_DELAY_MAX_TICKS\n                    ? EngineeringParameterProfile.QUARTZ_PHASE_DELAY_MIN_TICKS : delay + 1;
             BlockState next = state.setValue(DELAY, delay);
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
             if (level instanceof ServerLevel serverLevel) {
@@ -149,7 +149,7 @@ public class QuartzPhaseDelayBlock extends DirectionalDomainBlock implements Eng
             level.scheduleTick(pos, this, 1);
             player.displayClientMessage(Component.literal(
                     "Fault injection [LATENCY] | BACK QUARTZ in → FRONT QUARTZ out | rising-edge delay=" + delay
-                            + " ticks | reconnect HIGH only re-arms; it does not fabricate an edge"), true);
+                            + " ticks | profile=" + EngineeringParameterProfile.PROFILE_ID\n                            + " | reconnect HIGH only re-arms; it does not fabricate an edge"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
