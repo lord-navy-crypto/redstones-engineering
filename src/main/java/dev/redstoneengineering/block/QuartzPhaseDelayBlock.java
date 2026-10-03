@@ -139,7 +139,8 @@ public class QuartzPhaseDelayBlock extends DirectionalDomainBlock implements Eng
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
             int delay = state.getValue(DELAY);
-            delay = delay >= EngineeringParameterProfile.QUARTZ_PHASE_DELAY_MAX_TICKS\n                    ? EngineeringParameterProfile.QUARTZ_PHASE_DELAY_MIN_TICKS : delay + 1;
+            delay = delay >= EngineeringParameterProfile.QUARTZ_PHASE_DELAY_MAX_TICKS
+                    ? EngineeringParameterProfile.QUARTZ_PHASE_DELAY_MIN_TICKS : delay + 1;
             BlockState next = state.setValue(DELAY, delay);
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
             if (level instanceof ServerLevel serverLevel) {
@@ -149,7 +150,8 @@ public class QuartzPhaseDelayBlock extends DirectionalDomainBlock implements Eng
             level.scheduleTick(pos, this, 1);
             player.displayClientMessage(Component.literal(
                     "Fault injection [LATENCY] | BACK QUARTZ in → FRONT QUARTZ out | rising-edge delay=" + delay
-                            + " ticks | profile=" + EngineeringParameterProfile.PROFILE_ID\n                            + " | reconnect HIGH only re-arms; it does not fabricate an edge"), true);
+                            + " ticks | profile=" + EngineeringParameterProfile.PROFILE_ID
+                            + " | reconnect HIGH only re-arms; it does not fabricate an edge"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
