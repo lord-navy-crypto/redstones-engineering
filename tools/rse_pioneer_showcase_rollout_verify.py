@@ -47,6 +47,7 @@ for token in (
     "Wave 3:",
     "Wave 4:",
     "Wave 5:",
+    "Wave 6:",
 ):
     if token not in doc:
         errors.append(f"Pioneer standard missing {token!r}")
@@ -236,6 +237,39 @@ for name, (text, tokens) in wave5.items():
     if "dev.redstoneengineering.physics" in text:
         errors.append(f"{name} imports physics directly; client screen must remain presentation-only")
 
+
+wave6_tokens = (
+    "PIONEER PATTERN • RSE DISCRETE TRANSPORT MODEL",
+    "isDiscreteTransportDevice()",
+    "HOP: A_next=max(0,A-1); RETAIN @4t: A←max(0,A-2), Q←max(0,Q-10)",
+    "HOP: A_next=max(0,A-4), node Q=80; RETAIN @4t: A←max(0,A-4), Q←max(0,Q-20)",
+    "Lm={water:1,milk-model:2,lava:3}",
+    "PHONON_THERMAL is a finite-bandwidth event-packet abstraction",
+    "SCULK / CALIBRATED-SENSOR EVENT CODE",
+    "MECHANICAL_VIBRATION • SIX-WAY • LOW-LOSS PACKET",
+    "HYDROACOUSTIC • SIX-WAY • MEDIUM-DEPENDENT LOSS",
+    "PHONON_THERMAL • SIX-WAY • FINITE-BANDWIDTH PACKET",
+)
+for token in wave6_tokens:
+    if token not in enhanced:
+        errors.append(f"EnhancedFieldDeviceScreen missing Wave-6 token {token!r}")
+
+for kind in (
+    "KIND_MECHANICAL_EXCITER",
+    "KIND_SLIME_VIBRATION",
+    "KIND_MECHANICAL_RECEIVER",
+    "KIND_HONEY_DAMPER",
+    "KIND_SCULK_INTERFACE",
+    "KIND_HYDRO_TUBE",
+    "KIND_HYDRO_EXCITER",
+    "KIND_HYDRO_RECEIVER",
+    "KIND_PHONON_CONDUIT",
+    "KIND_THERMAL_ENCODER",
+    "KIND_THERMAL_RECEIVER",
+):
+    if kind not in enhanced:
+        errors.append(f"EnhancedFieldDeviceScreen missing Wave-6 device kind {kind}")
+
 registration_token = "event.register(EngineeringUiRegistration.FIELD_DEVICE.get(), EnhancedFieldDeviceScreen::new);"
 if registration_token not in client_registration:
     errors.append("FIELD_DEVICE is no longer registered to the enhanced shared Pioneer inspector")
@@ -267,6 +301,7 @@ print(" Wave 2 communication / pneumatic / optical / magnetic PASS")
 print(" Wave 3 amethyst / reliability / radio / metrology / operations PASS")
 print(" Wave 4 timing / copper / plant-state / workcell / universal-contract PASS")
 print(" Wave 5 shared field-device inspector / signal processors PASS")
+print(" Wave 6 discrete mechanical / hydro / Sculk / thermal transport PASS")
 print(f" FieldDeviceMenu device-kind taxonomy: {kind_count}")
 print(f" formula-first EngineeringScreen families: {formula_migrated}")
-print(" no client-side second physics solver in Waves 2-5: PASS")
+print(" no client-side second physics solver in Waves 2-6: PASS")
