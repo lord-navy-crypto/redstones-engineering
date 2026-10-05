@@ -66,6 +66,10 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
         evidenceRow(graphics, "Plant configuration", configurationPercent() + "% configured",
                 menu.worldPlantWipPressurePercent() + "% WIP", resourceHealthPercent() + "% resource health", 242);
         wrappedText(graphics, "Quality/reliability/delivery KPIs stay WITHHELD until their world evidence exists. Observer-only: this monitor never drives the plant or fabricates a stopped machine from missing RUN evidence.", 16, 270, workspaceWidth() - 24, MUTED);
+        safeText(graphics, "WORLD PLANT STATE • PLANT KPIs • INCOMPLETE", 16, 296, WARN);
+        safeText(graphics, "Quality / reliability / delivery • WITHHELD • EVIDENCE MISSING", 16, 310, MUTED);
+        safeText(graphics, "FPY / reject / rework — / — / —", 16, 324, MUTED);
+        safeText(graphics, "Availability / failures — / — • Queue/job history is not persisted yet", 16, 338, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
