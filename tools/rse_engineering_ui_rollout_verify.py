@@ -61,7 +61,7 @@ required = {
     "QuartzTimingScreen.java": (
         "FORMULA-FIRST TIMING MODEL",
         "timingEquation()",
-        "T_out = N · T_in",
+        "valid input ⇒ T_out = min(4096, N · max(1,T_in)) ticks",
         "|e_T| = |T_meas - T_upstream|",
         "f_nom = 20 / T  Hz",
     ),

@@ -100,8 +100,9 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
             variableRole(g, "MEASURED", "T_in", menu.primary() + "", "ticks", 134);
             variableRole(g, "ADJUSTABLE", "N", Integer.toString(menu.tertiary()), "division", 152);
             variableRole(g, "DERIVED", "T_out", menu.secondary() + "", "ticks", 170);
-            variableRole(g, "EVIDENCE", "expected", (Math.max(0, menu.primary()) * Math.max(1, menu.tertiary())) + "", "ticks", 188);
-            wrappedText(g, "Route owns the physical RX/TX axis; changing N re-arms divider phase evidence.", 16, 214, workspaceWidth() - 24, MUTED);
+            variableRole(g, "EVIDENCE", "expected", expectedDividerPeriod() + "", "ticks", 188);
+            variableRole(g, "EVIDENCE", "period limit", dividerSaturated() ? "SATURATED @4096" : "IN RANGE", "server clamp", 206);
+            wrappedText(g, "Route owns the physical RX/TX axis; changing N re-arms divider phase evidence. Output period is bounded by the server timing domain.", 16, 232, workspaceWidth() - 24, MUTED);
         } else {
             variableRole(g, "MEASURED", "T_meas", menu.primary() + "", "ticks", 134);
             variableRole(g, "MEASURED", "T_upstream", menu.tertiary() + "", "ticks", 152);
@@ -151,7 +152,7 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
 
     private String timingEquation() {
         return switch (menu.kind()) {
-            case QuartzTimingMenu.KIND_DIVIDER -> "T_out = N · T_in";
+            case QuartzTimingMenu.KIND_DIVIDER -> "valid input ⇒ T_out = min(4096, N · max(1,T_in)) ticks";
             case QuartzTimingMenu.KIND_STABILITY -> "|e_T| = |T_meas - T_upstream|";
             default -> "f_nom = 20 / T  Hz";
         };
@@ -163,7 +164,7 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
         if (menu.quality().name().equals("STALE")) return "STALE TIMING EVIDENCE";
         if (menu.kind() == QuartzTimingMenu.KIND_DIVIDER) {
             if (menu.runtimeB() == 0) return "DIVIDER NOT INITIALIZED";
-            int expected = Math.max(0, menu.primary()) * Math.max(1, menu.tertiary());
+            int expected = expectedDividerPeriod();
             if (menu.primary() > 0 && menu.secondary() != expected) return "DIVISION PERIOD MISMATCH";
             return "DIVIDED CLOCK COHERENT";
         }
@@ -174,6 +175,16 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
             return "TIMING STABILITY NOMINAL";
         }
         return menu.secondary() > 0 ? "CLOCK SOURCE CONFIGURED" : "INVALID ZERO PERIOD";
+    }
+
+    private int expectedDividerPeriod() {
+        if (menu.primary() <= 0) return 0;
+        return Math.min(4096, Math.max(1, menu.primary()) * Math.max(1, menu.tertiary()));
+    }
+
+    private boolean dividerSaturated() {
+        if (menu.primary() <= 0) return false;
+        return (long) Math.max(1, menu.primary()) * Math.max(1, menu.tertiary()) > 4096L;
     }
 
     private String nextAction() {

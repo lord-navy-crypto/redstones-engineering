@@ -125,6 +125,19 @@ Wave 6 adds domain-specific model transparency inside the shared Enhanced Field 
 The shared inspector must label these as **RSE discrete models**. Model indices must not be presented
 as physical Hz or SI heat/acoustic quantities unless the server model actually provides that mapping.
 
+Wave 7:
+- Range Sensor
+- Signal Conditioner
+- Quartz Timing
+- Media Conversion
+
+Wave 7 closes verification debt in the original Wave-1 instrument chain:
+- Range Sensor response equations are cross-checked against the server scan model and swept across every supported range/response mode
+- Signal Conditioner gain/offset/clamp/threshold/deadband transfers are cross-checked against server behavior and swept across their bounded parameter domains
+- Quartz timing exposes the server's 4096-tick divider saturation instead of reporting an unclamped ideal product, preventing false period-mismatch diagnostics
+- Media Conversion preserves exact Redstone-derived codes while explicitly measuring Lapis-to-Redstone quantization loss
+- all four families are CI-protected as Pioneer contracts rather than relying only on historical UI polish
+
 Future waves should prioritize remaining EngineeringScreen families that still lack explicit model
 or variable-role presentation. The target is broad consistency with specialization, not identical
 screens.
