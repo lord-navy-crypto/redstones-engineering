@@ -51,7 +51,8 @@ for token in (
     "Wave 3:",
     "Wave 4:",
     "Wave 5:",
-    "Wave 6:",\n    "Wave 7:",
+    "Wave 6:",
+    "Wave 7:",
 ):
     if token not in doc:
         errors.append(f"Pioneer standard missing {token!r}")
@@ -343,7 +344,8 @@ print(" Wave 2 communication / pneumatic / optical / magnetic PASS")
 print(" Wave 3 amethyst / reliability / radio / metrology / operations PASS")
 print(" Wave 4 timing / copper / plant-state / workcell / universal-contract PASS")
 print(" Wave 5 shared field-device inspector / signal processors PASS")
-print(" Wave 6 discrete mechanical / hydro / Sculk / thermal transport PASS")\nprint(" Wave 7 range / conditioning / quartz / media-conversion contracts PASS")
+print(" Wave 6 discrete mechanical / hydro / Sculk / thermal transport PASS")
+print(" Wave 7 range / conditioning / quartz / media-conversion contracts PASS")
 print(f" FieldDeviceMenu device-kind taxonomy: {kind_count}")
 print(f" formula-first EngineeringScreen families: {formula_migrated}")
 print(" no client-side second physics solver in Waves 2-7: PASS")
