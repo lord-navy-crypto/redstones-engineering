@@ -81,14 +81,16 @@ public final class RseMetrologyGameTests {
             helper.fail("A metrology channel with no authoritative sample must be NOT_READY", MARKER);
             return;
         }
-        if (!MetrologySupport.compactDiagnostics(awaitingFirstSample).startsWith("NOT_READY")) {
-            helper.fail("Operator diagnostics must expose first-sample readiness explicitly", MARKER);
+        if (awaitingFirstSample.hasSample()
+                || !awaitingFirstSample.compact().startsWith("NOT_READY")
+                || !MetrologySupport.compactDiagnostics(awaitingFirstSample).startsWith("NOT_READY")) {
+            helper.fail("Snapshot and operator diagnostics must expose first-sample readiness consistently", MARKER);
             return;
         }
 
         MetrologyTracker tracker = new MetrologyTracker(1.0, 30);
         MeasurementSnapshot firstValid = tracker.sample(0.0, 0.0, false, 10);
-        if (MetrologySupport.portQuality(firstValid) != PortQuality.VALID) {
+        if (!firstValid.hasSample() || MetrologySupport.portQuality(firstValid) != PortQuality.VALID) {
             helper.fail("A completed zero-valued measurement is VALID evidence, not absence of evidence", MARKER);
             return;
         }

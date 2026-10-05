@@ -36,8 +36,13 @@ public record MeasurementSnapshot(
         );
     }
 
+    /** True only after this channel has received at least one authoritative measurement sample. */
+    public boolean hasSample() {
+        return sampleCount > 0;
+    }
+
     public String compact() {
-        if (quality == MeasurementQuality.INVALID) return "NO DATA";
+        if (!hasSample()) return "NOT_READY | awaiting first sample";
         return String.format(
                 java.util.Locale.ROOT,
                 "reading=%.2f repeatability=±%.2f bias=%+.2f drift=%+.2f noise=%.2f resolution=%.2f age=%dt samples=%d uncertainty≈±%.2f quality=%s",
