@@ -49,7 +49,7 @@ public final class IndustrialBufferScreen extends EngineeringScreen<IndustrialBu
 
     private void renderConfigure(GuiGraphics graphics) {
         statusBadge(graphics, "PIONEER PATTERN • OPERATIONS / WIP MODEL", INFO, 16, 78);
-        formulaCard(graphics,"WIP% = 100 · used / capacity ; redstone = round(15 · used / capacity)",105);
+        formulaCard(graphics,"WIP% = 100·used/capacity ; signal = (used=0)?0:clamp(round(15·used/capacity),1,15)",105);
         variableRole(graphics,"MEASURED","used",Integer.toString(menu.usedUnits()),"units",134);
         variableRole(graphics,"PROFILE","capacity",Integer.toString(menu.capacityUnits()),"units",152);
         variableRole(graphics,"DERIVED","free",Integer.toString(menu.availableUnits()),"units",170);
