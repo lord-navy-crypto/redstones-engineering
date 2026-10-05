@@ -107,6 +107,24 @@ Wave 5 shifts from one-screen-per-device rollout to shared leverage:
 Shared rollout must improve breadth without flattening semantics. A common inspector may standardize
 MODEL / ROLE / EVIDENCE / TOPOLOGY / AUTHORITY, but it must not invent one universal physics model.
 
+Wave 6:
+- Mechanical vibration transport
+- Hydroacoustic packet transport
+- Sculk event-code bridge
+- Phonon / thermal pulse transport
+
+Wave 6 adds domain-specific model transparency inside the shared Enhanced Field Device inspector:
+- mechanical Slime and Honey paths distinguish per-hop attenuation from retained-packet time decay
+- mechanical receivers expose amplitude-to-Redstone conversion and retained decay
+- hydroacoustic tubes expose medium-dependent RSE hop loss (water / milk-model / lava) while explicitly remaining a discrete game-domain model
+- hydroacoustic sources/receivers expose packet amplitude/frequency indices without claiming continuous real-world propagation
+- Sculk interface exposes event-code pass-through plus retained event/transition evidence
+- phonon/thermal devices expose finite-bandwidth event packets, hop loss and receiver retention without pretending to solve continuous heat transfer
+- Slime, Honey, Hydro and Phonon transport blocks are classified as six-way physical media in the shared Ports view
+
+The shared inspector must label these as **RSE discrete models**. Model indices must not be presented
+as physical Hz or SI heat/acoustic quantities unless the server model actually provides that mapping.
+
 Future waves should prioritize remaining EngineeringScreen families that still lack explicit model
 or variable-role presentation. The target is broad consistency with specialization, not identical
 screens.
