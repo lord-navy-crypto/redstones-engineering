@@ -355,8 +355,8 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
         label(g, "Evidence state", menu.evidenceStateLabel(), y); y += 18;
         label(g, "Capture confidence", evidenceConfidence() + "% • " + evidenceClass(), y); y += 28;
 
-        channelEvidence(g, 0, "A", y); y += 86;
-        channelEvidence(g, 1, "B", y); y += 92;
+        channelEvidence(g, 0, "A", y); y += 104;
+        channelEvidence(g, 1, "B", y); y += 110;
 
         rule(g, y); y += 14;
         sectionTitle(g, "NEXT ACTION", y); y += 20;
@@ -370,8 +370,9 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
         label(g, "CH " + name + " coverage", menu.coverage(channel) + "%", y);
         label(g, "CH " + name + " min / max / p2p", value(menu.minimum(channel)) + " / " + value(menu.maximum(channel)) + " / " + value(menu.peakToPeak(channel)), y + 18);
         label(g, "CH " + name + " average", decimal100(menu.average100(channel)), y + 36);
-        label(g, "CH " + name + " period", tickValue(menu.periodTicks(channel)) + " • " + observedFrequency(menu.frequencyMilliHz(channel)), y + 54);
-        status(g, "CH " + name + " alias margin", aliasLabel(menu.aliasRisk(channel)), aliasColor(menu.aliasRisk(channel)), y + 72);
+        label(g, "CH " + name + " mean step", decimal100(menu.meanStep100(channel)), y + 54);
+        label(g, "CH " + name + " period", tickValue(menu.periodTicks(channel)) + " • " + observedFrequency(menu.frequencyMilliHz(channel)), y + 72);
+        status(g, "CH " + name + " alias margin", aliasLabel(menu.aliasRisk(channel)), aliasColor(menu.aliasRisk(channel)), y + 90);
     }
 
     private void plotChannel(GuiGraphics g, int channel, int x, int y, int width, int height, int color) {
