@@ -18,6 +18,11 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
     }
 
     @Override
+    protected int virtualContentHeight(Section section) {
+        return section == Section.CONFIGURE ? 430 : super.virtualContentHeight(section);
+    }
+
+    @Override
     protected void renderSection(GuiGraphics graphics, Section section) {
         switch (section) {
             case OVERVIEW -> renderOverview(graphics);
@@ -65,11 +70,20 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
         variableRole(graphics, "DERIVED", "state", menu.state().name(), "server classification", 218);
         evidenceRow(graphics, "Plant configuration", configurationPercent() + "% configured",
                 menu.worldPlantWipPressurePercent() + "% WIP", resourceHealthPercent() + "% resource health", 242);
-        wrappedText(graphics, "Quality/reliability/delivery KPIs stay WITHHELD until their world evidence exists. Observer-only: this monitor never drives the plant or fabricates a stopped machine from missing RUN evidence.", 16, 270, workspaceWidth() - 24, MUTED);
-        safeText(graphics, "WORLD PLANT STATE • PLANT KPIs • INCOMPLETE", 16, 296, WARN);
-        safeText(graphics, "Quality / reliability / delivery • WITHHELD • EVIDENCE MISSING", 16, 310, MUTED);
-        safeText(graphics, "FPY / reject / rework — / — / —", 16, 324, MUTED);
-        safeText(graphics, "Availability / failures — / — • Queue/job history is not persisted yet", 16, 338, MUTED);
+
+        safeText(graphics, "EVIDENCE COVERAGE • " + menu.worldPlantCoverage().name(), 16, 270, worldColor);
+        safeText(graphics, "Workcells configured • CONFIGURATION • " + menu.worldPlantConfiguredWorkcells()
+                + "/" + menu.worldPlantWorkcells() + " • " + configurationPercent() + "%", 16, 286, TEXT);
+        safeText(graphics, "Buffers / WIP • WIP PRESSURE • " + menu.worldPlantUsedBufferUnits()
+                + "/" + menu.worldPlantBufferCapacityUnits() + " • " + menu.worldPlantWipPressurePercent() + "%", 16, 302, TEXT);
+        safeText(graphics, "Bound resources • RESOURCE HEALTH • " + menu.worldPlantValidResources()
+                + "/" + menu.worldPlantBoundResources() + " valid • faults " + menu.worldPlantFaultResources(), 16, 318, TEXT);
+
+        wrappedText(graphics, "Quality/reliability/delivery KPIs stay WITHHELD until their world evidence exists. Observer-only: this monitor never drives the plant or fabricates a stopped machine from missing RUN evidence.", 16, 344, workspaceWidth() - 24, MUTED);
+        safeText(graphics, "WORLD PLANT STATE • PLANT KPIs • INCOMPLETE", 16, 374, WARN);
+        safeText(graphics, "Quality / reliability / delivery • WITHHELD • EVIDENCE MISSING", 16, 388, MUTED);
+        safeText(graphics, "FPY / reject / rework — / — / —", 16, 402, MUTED);
+        safeText(graphics, "Availability / failures — / — • Queue/job history is not persisted yet", 16, 416, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
