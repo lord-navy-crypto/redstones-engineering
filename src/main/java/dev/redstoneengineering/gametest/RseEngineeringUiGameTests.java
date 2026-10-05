@@ -219,20 +219,33 @@ public final class RseEngineeringUiGameTests {
             int modeBefore = scope.triggerMode();
             int levelBefore = scope.triggerLevel();
             int cursorBefore = scope.cursorA();
+            int periodBefore = scope.samplePeriodTicks();
 
             boolean mode = OscilloscopeBlock.applyUiAction(helper.getLevel(), worldPos, OscilloscopeMenu.BUTTON_TRIGGER_MODE);
             boolean level = OscilloscopeBlock.applyUiAction(helper.getLevel(), worldPos, OscilloscopeMenu.BUTTON_TRIGGER_LEVEL);
             boolean cursor = OscilloscopeBlock.applyUiAction(helper.getLevel(), worldPos, OscilloscopeMenu.BUTTON_CURSOR_A);
+            boolean timebase = OscilloscopeBlock.applyUiAction(helper.getLevel(), worldPos, OscilloscopeMenu.BUTTON_SAMPLE_PERIOD);
 
-            if (!mode || !level || !cursor
+            if (!mode || !level || !cursor || !timebase
                     || scope.triggerMode() == modeBefore
                     || scope.triggerLevel() == levelBefore
-                    || scope.cursorA() == cursorBefore) {
-                helper.fail("Oscilloscope UI actions did not update bounded capture configuration", scopePos);
+                    || scope.cursorA() == cursorBefore
+                    || scope.samplePeriodTicks() == periodBefore) {
+                helper.fail("Oscilloscope UI actions did not update bounded capture/timebase configuration", scopePos);
+                return;
+            }
+            if (scope.samplePeriodTicks() != 4
+                    || scope.sampleRateMilliHz() != 5000
+                    || scope.nyquistMilliHz() != 2500) {
+                helper.fail("Oscilloscope 4-tick timebase did not expose fs=5Hz / Nyquist=2.5Hz", scopePos);
+                return;
+            }
+            if (scope.sampleCount() != 0) {
+                helper.fail("Changing oscilloscope timebase mixed samples from incompatible dt values", scopePos);
                 return;
             }
             if (!scope.armed()) {
-                helper.fail("Trigger configuration should re-arm the authoritative capture engine", scopePos);
+                helper.fail("Trigger/timebase configuration should re-arm the authoritative capture engine", scopePos);
                 return;
             }
             helper.succeed();
