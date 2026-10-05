@@ -70,6 +70,7 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
             variableRole(g,"DERIVED","L",Integer.toString(Math.max(0,menu.primary()-menu.secondary())),"intensity steps",206);
         }
         wrappedText(g,"Optical controls remain server-authoritative. The HMI shows carrier/budget evidence but never invents an unobserved path or performs a second optical propagation solve.",16,248,workspaceWidth()-24,MUTED);
+        wrappedText(g,"Direction and physical interface orientation are controlled only on Route.",16,278,workspaceWidth()-24,MUTED);
     }
 
     private void diagnostics(GuiGraphics g){
