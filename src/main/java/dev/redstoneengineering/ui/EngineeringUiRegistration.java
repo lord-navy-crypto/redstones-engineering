@@ -8,6 +8,7 @@ import dev.redstoneengineering.ui.menu.DigitalCommunicationMenu;
 import dev.redstoneengineering.ui.menu.FieldDeviceMenu;
 import dev.redstoneengineering.ui.menu.IndustrialBufferMenu;
 import dev.redstoneengineering.ui.menu.LogicAnalyzerMenu;
+import dev.redstoneengineering.ui.menu.LapisLowPassMenu;
 import dev.redstoneengineering.ui.menu.MagneticSystemMenu;
 import dev.redstoneengineering.ui.menu.MediaConversionMenu;
 import dev.redstoneengineering.ui.menu.OperationsMonitorMenu;
@@ -43,6 +44,7 @@ public final class EngineeringUiRegistration {
     public static final DeferredHolder<MenuType<?>, MenuType<SignalAnalyzerMenu>> SIGNAL_ANALYZER = MENUS.register("signal_analyzer", () -> IMenuTypeExtension.create(SignalAnalyzerMenu::new));
     public static final DeferredHolder<MenuType<?>, MenuType<FieldDeviceMenu>> FIELD_DEVICE = MENUS.register("field_device", () -> IMenuTypeExtension.create(FieldDeviceMenu::new));
     public static final DeferredHolder<MenuType<?>, MenuType<UniversalFieldDeviceMenu>> UNIVERSAL_FIELD_DEVICE = MENUS.register("universal_field_device", () -> IMenuTypeExtension.create(UniversalFieldDeviceMenu::new));
+    public static final DeferredHolder<MenuType<?>, MenuType<LapisLowPassMenu>> LAPIS_LOW_PASS = MENUS.register("lapis_low_pass", () -> IMenuTypeExtension.create(LapisLowPassMenu::new));
     public static final DeferredHolder<MenuType<?>, MenuType<CopperCircuitMeterMenu>> COPPER_CIRCUIT_METER = MENUS.register("copper_circuit_meter", () -> IMenuTypeExtension.create(CopperCircuitMeterMenu::new));
     public static final DeferredHolder<MenuType<?>, MenuType<MediaConversionMenu>> MEDIA_CONVERSION = MENUS.register("media_conversion", () -> IMenuTypeExtension.create(MediaConversionMenu::new));
     public static final DeferredHolder<MenuType<?>, MenuType<RangeSensorMenu>> RANGE_SENSOR = MENUS.register("range_sensor", () -> IMenuTypeExtension.create(RangeSensorMenu::new));
