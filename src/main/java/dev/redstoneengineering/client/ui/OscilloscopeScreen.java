@@ -533,7 +533,7 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
         if (menu.probeCount(0) != 1 || menu.probeCount(1) != 1) return "Connect exactly one probe to each compared channel.";
         if (menu.aliasRisk(0) == 1 || menu.aliasRisk(1) == 1) return "Increase sample rate before trusting observed frequency; then compare with a bandwidth-limited/pre-filtered source if available.";
         if (menu.aliasRisk(0) == 2 || menu.aliasRisk(1) == 2) return "Use a faster timebase for more samples per cycle before interpreting waveform shape.";
-        if (menu.unshieldedExposedNodes() > 0) return "Shield exposed instrument segments or separate them from energized routing.";
+        if (menu.unshieldedExposedNodes() > 0) return "NEXT • shield exposed instrument segments or separate them from energized routing.";
         if (evidenceConfidence() < 70) return "Acquire a longer valid capture before interpreting waveform differences.";
         return "Evidence is coherent; use cursors to quantify time and amplitude differences.";
     }
