@@ -16,7 +16,7 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
     @Override
     protected void addDeviceWidgets() {
         int x = leftPos + 16;
-        int y = topPos + 112;
+        int y = topPos + imageHeight - 90;
         int w = 88;
         int gap = 6;
         addConfigureWidget(Button.builder(Component.literal("Toggle mode"),
@@ -71,15 +71,19 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
     }
 
     private void renderConfigure(GuiGraphics graphics) {
-        labelValue(graphics, "Mode", modeName(), 80);
-        labelValue(graphics, "Calibration offset", signed(menu.calibrationOffset()), 95);
-        safeText(graphics,
-                menu.mode() == SignalAnalyzerBlock.TAP
-                        ? "TAP observes the TEST side without creating a redstone electrical path."
-                        : "INLINE reads TEST and reproduces the RAW sample on the opposite face.",
-                16, 162, TEXT);
-        safeText(graphics, "Calibration changes only the displayed engineering reading.", 16, 177, MUTED);
-        safeText(graphics, "Capture statistics and freshness are synchronized readback; the client never samples the world.", 16, 192, MUTED);
+        statusBadge(graphics,"PIONEER PATTERN • METROLOGY / CALIBRATION",INFO,16,80);
+        formulaCard(graphics,"x_cal = clamp(x_raw + b_cal, 0, 15)",105);
+        variableRole(graphics,"MEASURED","x_raw",Integer.toString(menu.raw()),"Redstone",134);
+        variableRole(graphics,"ADJUSTABLE","b_cal",signed(menu.calibrationOffset()),"display offset",152);
+        variableRole(graphics,"DERIVED","x_cal",Integer.toString(menu.calibrated()),"display only",170);
+        variableRole(graphics,"EVIDENCE","sample age",menu.sampleAgeTicks()<0?"NOT READY":menu.sampleAgeTicks()+"t","",188);
+        variableRole(graphics,"MODE","boundary",modeName(),menu.mode()==SignalAnalyzerBlock.TAP?"non-invasive":"raw pass-through",206);
+        wrappedText(graphics,
+                menu.mode()==SignalAnalyzerBlock.TAP
+                        ? "TAP observes TEST without creating an electrical path. Calibration changes only the displayed engineering reading."
+                        : "INLINE reproduces the RAW sample on the opposite face; calibration still changes only display, never the physical output.",
+                16,232,workspaceWidth()-24,TEXT);
+        wrappedText(graphics,"Rolling statistics and freshness are synchronized server evidence; the client never samples the world or rewrites retained statistics.",16,264,workspaceWidth()-24,MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
