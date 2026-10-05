@@ -10,10 +10,9 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-/** Regression coverage for valid zero-valued range evidence. */
+/** Regression coverage for range measurement evidence semantics. */
 public final class RseRangeSensorEvidenceGameTests {
     private static final String TEMPLATE = "empty5x4x5";
-
     private RseRangeSensorEvidenceGameTests() {}
 
     @PrefixGameTestTemplate(false)
@@ -21,9 +20,16 @@ public final class RseRangeSensorEvidenceGameTests {
     public static void clearCompletedScanPublishesValidZeroEvidence(GameTestHelper helper) {
         BlockPos sensorPos = new BlockPos(1, 1, 2);
         BlockPos worldPos = helper.absolutePos(sensorPos);
-        helper.setBlock(sensorPos, RedstoneEngineering.RANGE_SENSOR.get()
-                .defaultBlockState()
+        helper.setBlock(sensorPos, RedstoneEngineering.RANGE_SENSOR.get().defaultBlockState()
                 .setValue(RangeSensorBlock.FACING, Direction.EAST));
+
+        BlockState initialState = helper.getBlockState(sensorPos);
+        var initialSnapshot = ((RangeSensorBlock) initialState.getBlock()).engineeringSnapshot(
+                helper.getLevel(), worldPos, initialState, RangeSensorBlock.outputSide(initialState));
+        if (initialSnapshot.isEmpty() || initialSnapshot.get().quality() != PortQuality.NOT_READY) {
+            helper.fail("Range sensor must publish NOT_READY before its first authoritative scan", sensorPos);
+            return;
+        }
 
         helper.runAfterDelay(6, () -> {
             BlockState state = helper.getBlockState(sensorPos);
@@ -36,14 +42,9 @@ public final class RseRangeSensorEvidenceGameTests {
                 helper.fail("CLEAR scan must preserve zero as the measurement payload", sensorPos);
                 return;
             }
-
             var snapshot = ((RangeSensorBlock) state.getBlock()).engineeringSnapshot(
                     helper.getLevel(), worldPos, state, RangeSensorBlock.outputSide(state));
-            if (snapshot.isEmpty()) {
-                helper.fail("Range sensor output port did not expose an engineering snapshot", sensorPos);
-                return;
-            }
-            if (snapshot.get().quality() != PortQuality.VALID || snapshot.get().value() != 0.0) {
+            if (snapshot.isEmpty() || snapshot.get().quality() != PortQuality.VALID || snapshot.get().value() != 0.0) {
                 helper.fail("Completed CLEAR scan was not published as VALID zero-valued evidence", sensorPos);
                 return;
             }
