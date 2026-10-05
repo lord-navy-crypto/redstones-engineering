@@ -19,7 +19,7 @@ public final class CopperCircuitMeterScreen extends EngineeringScreen<CopperCirc
 
     @Override
     protected void addDeviceWidgets() {
-        int y = topPos + 118;
+        int y = topPos + imageHeight - 66;
         facePrevious = addConfigureWidget(Button.builder(Component.literal("◀ Measure face"),
                 b -> sendMenuButton(CopperCircuitMeterMenu.BUTTON_FACE_PREVIOUS))
                 .bounds(leftPos + 38, y, 116, 20).build());
@@ -66,10 +66,15 @@ public final class CopperCircuitMeterScreen extends EngineeringScreen<CopperCirc
     }
 
     private void configure(GuiGraphics g) {
-        statusBadge(g, "MEASUREMENT FACE ROUTING", INFO, 16, 80);
-        labelValue(g, "Current face", menu.facing().getName().toUpperCase(), 101);
-        safeText(g, "Changing Route changes the real sampled face and invalidates stale meter history.", 16, 158, TEXT);
-        safeText(g, "No electrical setpoint is configurable: the meter remains observer-only.", 16, 180, MUTED);
+        statusBadge(g, "PIONEER PATTERN • ELECTRICAL MEASUREMENT MODEL", INFO, 16, 80);
+        formulaCard(g, "I = V / R_eq ; P = V · I", 105);
+        variableRole(g, "MEASURED", "V", Integer.toString(menu.voltage()), "V-eq", 134);
+        variableRole(g, "SOLVER", "R_eq", String.format("%.2f", menu.resistance()), "Ω-eq", 152);
+        variableRole(g, "DERIVED", "I", String.format("%.3f", menu.current()), "I-eq", 170);
+        variableRole(g, "DERIVED", "P", String.format("%.2f", menu.power()), "P-eq", 188);
+        variableRole(g, "EVIDENCE", "quality", qualityName(), "", 206);
+        variableRole(g, "EVIDENCE", "commissioning", commissioningLabel(), "", 224);
+        wrappedText(g, "The server computes V, R_eq, I and P from the selected Copper node. Changing Route changes the real sampled face; the meter remains observer-only and has no electrical setpoint.", 16, 248, workspaceWidth() - 24, MUTED);
     }
 
     private void diagnostics(GuiGraphics g) {
