@@ -25,6 +25,11 @@ reliability = read("src/main/java/dev/redstoneengineering/client/ui/ReliabilityS
 radio = read("src/main/java/dev/redstoneengineering/client/ui/RadioLinkScreen.java")
 analyzer = read("src/main/java/dev/redstoneengineering/client/ui/SignalAnalyzerScreen.java")
 buffer = read("src/main/java/dev/redstoneengineering/client/ui/IndustrialBufferScreen.java")
+logic = read("src/main/java/dev/redstoneengineering/client/ui/LogicAnalyzerScreen.java")
+copper = read("src/main/java/dev/redstoneengineering/client/ui/CopperCircuitMeterScreen.java")
+ops = read("src/main/java/dev/redstoneengineering/client/ui/OperationsMonitorScreen.java")
+workcell = read("src/main/java/dev/redstoneengineering/client/ui/WorkcellControllerScreen.java")
+universal = read("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java")
 
 for token in (
     "Pioneer / Showcase blocks",
@@ -36,6 +41,7 @@ for token in (
     "Wave 1:",
     "Wave 2:",
     "Wave 3:",
+    "Wave 4:",
 ):
     if token not in doc:
         errors.append(f"Pioneer standard missing {token!r}")
@@ -151,6 +157,52 @@ for name, (text, tokens) in wave3.items():
     if "dev.redstoneengineering.physics" in text:
         errors.append(f"{name} imports physics directly; client screen must remain presentation-only")
 
+
+wave4 = {
+    "LogicAnalyzerScreen.java": (logic, (
+        "PIONEER PATTERN • DIGITAL TIMING MODEL",
+        "D_ch[n] = (x_ch[n] ≥ T) ? HIGH : LOW",
+        '"Δt_sample"',
+        '"Δt_cursor"',
+        "server capture engine",
+    )),
+    "CopperCircuitMeterScreen.java": (copper, (
+        "PIONEER PATTERN • ELECTRICAL MEASUREMENT MODEL",
+        "I = V / R_eq ; P = V · I",
+        '"commissioning"',
+        "observer-only",
+        "server computes V, R_eq, I and P",
+    )),
+    "OperationsMonitorScreen.java": (ops, (
+        "PIONEER PATTERN • PLANT STATE / KPI AUTHORITY",
+        "QUEUE = max(valid horizontal QUEUE/WIP sources)",
+        '"queue pressure"',
+        '"state"',
+        "KPIs stay WITHHELD",
+    )),
+    "WorkcellControllerScreen.java": (workcell, (
+        "PIONEER PATTERN • WORKCELL ADMISSION GATE",
+        "PERMIT ⇔ valid capacity evidence ∧ no fault ∧ output space ∧ resource capacity",
+        '"admission"',
+        '"reason"',
+        "Operations Binding Tool",
+    )),
+    "UniversalFieldDeviceScreen.java": (universal, (
+        "universalContract(kind)",
+        "Universal HMI rule:",
+        "reset statistics does not disarm",
+        "diagnostics reset never bypasses",
+        "no hidden universal physics",
+    )),
+}
+
+for name, (text, tokens) in wave4.items():
+    for token in tokens:
+        if token not in text:
+            errors.append(f"{name} missing Wave-4 pioneer-rollout token {token!r}")
+    if "dev.redstoneengineering.physics" in text:
+        errors.append(f"{name} imports physics directly; client screen must remain presentation-only")
+
 formula_migrated = 0
 screens_dir = root / "src/main/java/dev/redstoneengineering/client/ui"
 if screens_dir.is_dir():
@@ -159,8 +211,8 @@ if screens_dir.is_dir():
         if "extends EngineeringScreen<" in text and "formulaCard(" in text:
             formula_migrated += 1
 
-if formula_migrated < 13:
-    errors.append(f"expected at least 13 formula-first EngineeringScreen families after Wave 3, found {formula_migrated}")
+if formula_migrated < 18:
+    errors.append(f"expected at least 18 formula-first EngineeringScreen families after Wave 4, found {formula_migrated}")
 
 if errors:
     print("RSE PIONEER SHOWCASE ROLLOUT VERIFY: FAIL")
@@ -172,5 +224,6 @@ print("RSE PIONEER SHOWCASE ROLLOUT VERIFY: PASS")
 print(" showcase pioneer references: low-pass / oscilloscope / PID PASS")
 print(" Wave 2 communication / pneumatic / optical / magnetic PASS")
 print(" Wave 3 amethyst / reliability / radio / metrology / operations PASS")
+print(" Wave 4 timing / copper / plant-state / workcell / universal-contract PASS")
 print(f" formula-first EngineeringScreen families: {formula_migrated}")
-print(" no client-side second physics solver in Waves 2-3: PASS")
+print(" no client-side second physics solver in Waves 2-4: PASS")

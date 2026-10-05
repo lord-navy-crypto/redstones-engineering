@@ -80,6 +80,20 @@ Wave 3 deliberately broadens the pioneer pattern beyond pure transfer-function d
 - metrology exposes calibration and retained statistics while preserving TAP/INLINE semantics
 - operations exposes WIP/capacity relationships while keeping lot/job identity out of analog Redstone
 
+Wave 4:
+- Logic Analyzer
+- Copper Circuit Meter
+- Operations Monitor
+- Workcell Controller
+- Universal Field Device
+
+Wave 4 extends the pioneer pattern into timing, commissioning, plant-state and authority-contract HMIs:
+- logic analysis exposes thresholding, sample cadence, cursor timing and retained capture evidence
+- Copper metrology exposes V / R_eq / I / P while retaining observer-only commissioning semantics
+- Operations monitoring exposes trustworthy RUN/QUEUE evidence, queue pressure and server-classified plant state
+- workcell control exposes explicit admission gating, finite-capacity evidence and HOLD/PERMIT reasons
+- the universal HMI exposes per-device authority contracts instead of pretending every field device shares one physics model
+
 Future waves should prioritize remaining EngineeringScreen families that still lack explicit model
 or variable-role presentation. The target is broad consistency with specialization, not identical
 screens.

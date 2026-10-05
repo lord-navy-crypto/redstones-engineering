@@ -246,6 +246,25 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                         16, 152, lapisPrecisionMeasurementPresent() ? INFO : MUTED);
             }
         }
+        formulaCard(g, universalContract(kind), 218);
+        wrappedText(g, "Universal HMI rule: controls express server intent only; Route owns physical interfaces; diagnostics/history never invent process state that the underlying device does not retain.", 16, 244, workspaceWidth() - 24, MUTED);
+    }
+
+    private String universalContract(int kind) {
+        return switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER -> "MODEL: profile owns sampling / resolution / noise / latency";
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE -> "MODEL: profile + bounded range; changing either invalidates stale sample";
+            case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER -> "ACTION: reset retained measurement history ≠ change fixed aperture";
+            case UniversalFieldDeviceMenu.CONFIG_ALARM -> "STATE: ACK changes operator attention; physical RESET/CLEAR remains external";
+            case UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD -> "STATE: held value changes on configured trigger; CLEAR is explicit operator action";
+            case UniversalFieldDeviceMenu.CONFIG_CALIBRATION -> "MODEL: profile-owned transfer; OBSERVED / REFERENCE / CALIBRATED remain distinct";
+            case UniversalFieldDeviceMenu.CONFIG_PWM -> "MODEL: period profile + polarity inversion; INHIBIT remains physical";
+            case UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR -> "STATE: ARM gates injection; reset statistics does not disarm";
+            case UniversalFieldDeviceMenu.CONFIG_SEQUENCE_CONTROLLER -> "STATE: sequence runtime is server-owned; operator reset returns to IDLE";
+            case UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK -> "STATE: permit follows server permissive evidence; diagnostics reset never bypasses";
+            case UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER -> "EVIDENCE: scan target + counters are observer diagnostics, not topology mutation";
+            default -> "CONTRACT: expose real ports/evidence only; no hidden universal physics";
+        };
     }
 
     private void diagnostics(GuiGraphics g) {

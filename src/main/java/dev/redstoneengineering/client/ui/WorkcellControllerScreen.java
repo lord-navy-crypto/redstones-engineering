@@ -52,15 +52,15 @@ public final class WorkcellControllerScreen extends EngineeringScreen<WorkcellCo
     }
 
     private void renderConfigure(GuiGraphics graphics) {
-        statusBadge(graphics, "EXPLICIT BINDING", INFO, 16, 78);
-        labelValue(graphics, "BOUND RESOURCES", Integer.toString(menu.boundResourceCount()), 100);
-        statusLine(graphics, "INPUT buffer", menu.capacityEvidenceAvailable()
-                ? capacityText(menu.inputBufferUsedUnits(), menu.inputBufferCapacityUnits()) : "MISSING / INVALID", menu.capacityEvidenceAvailable() ? GOOD : WARN, 120);
-        statusLine(graphics, "OUTPUT buffer", menu.capacityEvidenceAvailable()
-                ? capacityText(menu.outputBufferUsedUnits(), menu.outputBufferCapacityUnits()) : "MISSING / INVALID", menu.capacityEvidenceAvailable() ? GOOD : WARN, 140);
-        safeText(graphics, "Use the Operations Binding Tool to select resources and INPUT/OUTPUT buffers.", 16, 166, TEXT);
-        safeText(graphics, "Binding is explicit and server-authoritative; no proximity discovery is performed.", 16, 186, MUTED);
-        safeText(graphics, "This HMI visualizes configuration but cannot rewrite lot, quality, or scheduling state.", 16, 206, MUTED);
+        statusBadge(graphics, "PIONEER PATTERN • WORKCELL ADMISSION GATE", INFO, 16, 78);
+        formulaCard(graphics, "PERMIT ⇔ valid capacity evidence ∧ no fault ∧ output space ∧ resource capacity", 105);
+        variableRole(graphics, "MEASURED", "BOUND RESOURCES", menu.validResourceCount() + "/" + menu.boundResourceCount(), "valid/bound", 134);
+        variableRole(graphics, "MEASURED", "input WIP", menu.capacityEvidenceAvailable() ? menu.inputWipPressurePercent() + "%" : "UNAVAILABLE", "", 152);
+        variableRole(graphics, "MEASURED", "output WIP", menu.capacityEvidenceAvailable() ? menu.outputWipPressurePercent() + "%" : "UNAVAILABLE", "", 170);
+        variableRole(graphics, "DERIVED", "queue pressure", menu.queuePressure() < 0 ? "UNAVAILABLE" : menu.queuePressure() + "/15", "vanilla boundary", 188);
+        variableRole(graphics, "DERIVED", "admission", menu.admissionPermitted() ? "PERMIT" : "HOLD", "", 206);
+        variableRole(graphics, "EVIDENCE", "reason", menu.admissionReason(), "", 224);
+        wrappedText(graphics, "Use the Operations Binding Tool to select resources and INPUT/OUTPUT buffers. Binding and admission are server-authoritative; this HMI cannot rewrite lot, quality, scheduling, setup or maintenance state.", 16, 248, workspaceWidth() - 24, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
