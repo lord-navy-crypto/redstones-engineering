@@ -174,6 +174,34 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             statusLine(g, oppositeFacingName(), "INPUT • FREE-SPACE OPTICAL • CH " + menu.tertiary(), GOOD, y);
             statusLine(g, facingName(), "OUTPUT • REDSTONE 0..15", INFO, y + 20);
             safeText(g, "Optical reception is observational until converted onto the declared wired output.", 16, 198, MUTED);
+        } else if (menu.kind() == FieldDeviceMenu.KIND_MECHANICAL_EXCITER) {
+            statusLine(g, "DOWN", "INPUT • REDSTONE DRIVE", GOOD, y);
+            statusLine(g, "UP + HORIZONTAL", "OUTPUT • MECHANICAL_VIBRATION PACKET", INFO, y + 20);
+            safeText(g, "Source amplitude comes from valid Redstone drive; configured frequency is an RSE model index.", 16, 198, MUTED);
+        } else if (menu.kind() == FieldDeviceMenu.KIND_HYDRO_EXCITER) {
+            statusLine(g, "DOWN", "INPUT • REDSTONE DRIVE", GOOD, y);
+            statusLine(g, "UP + HORIZONTAL", "OUTPUT • HYDROACOUSTIC PACKET", INFO, y + 20);
+            safeText(g, "The source launches the discrete RSE pressure-wave packet model, not a continuous fluid-acoustics solver.", 16, 198, MUTED);
+        } else if (menu.kind() == FieldDeviceMenu.KIND_THERMAL_ENCODER) {
+            statusLine(g, "DOWN", "INPUT • REDSTONE DRIVE", GOOD, y);
+            statusLine(g, "UP + HORIZONTAL", "OUTPUT • PHONON_THERMAL EVENT PACKET", INFO, y + 20);
+            safeText(g, "Encoder output is an event packet with finite retention, not a continuously driven temperature field.", 16, 198, MUTED);
+        } else if (menu.kind() == FieldDeviceMenu.KIND_MECHANICAL_RECEIVER) {
+            statusLine(g, oppositeFacingName(), "INPUT • MECHANICAL_VIBRATION", GOOD, y);
+            statusLine(g, facingName(), "OUTPUT • REDSTONE 0..15", INFO, y + 20);
+            safeText(g, "Receiver maps valid packet amplitude onto the declared Redstone output face.", 16, 198, MUTED);
+        } else if (menu.kind() == FieldDeviceMenu.KIND_HYDRO_RECEIVER) {
+            statusLine(g, oppositeFacingName(), "INPUT • HYDROACOUSTIC", GOOD, y);
+            statusLine(g, facingName(), "OUTPUT • REDSTONE 0..15", INFO, y + 20);
+            safeText(g, "Receiver maps valid pressure-packet amplitude onto the declared Redstone output face.", 16, 198, MUTED);
+        } else if (menu.kind() == FieldDeviceMenu.KIND_THERMAL_RECEIVER) {
+            statusLine(g, oppositeFacingName(), "INPUT • PHONON_THERMAL", GOOD, y);
+            statusLine(g, facingName(), "OUTPUT • REDSTONE 0..15", INFO, y + 20);
+            safeText(g, "Low-bandwidth receiver exposes packet amplitude; invalid/no packet is distinct from valid zero.", 16, 198, MUTED);
+        } else if (menu.kind() == FieldDeviceMenu.KIND_SCULK_INTERFACE) {
+            statusLine(g, oppositeFacingName(), "INPUT • SCULK / CALIBRATED-SENSOR EVENT CODE", GOOD, y);
+            statusLine(g, facingName(), "OUTPUT • RETAINED EVENT-CODE REDSTONE", INFO, y + 20);
+            safeText(g, "Opening the HMI reads retained counters only; it never creates a Sculk event or transition.", 16, 198, MUTED);
         } else if (isDirectionalConverter()) {
             statusLine(g, oppositeFacingName(), "INPUT • " + converterInput(), GOOD, y);
             statusLine(g, facingName(), "OUTPUT • " + converterOutput(), INFO, y + 20);
@@ -210,6 +238,21 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
                 : isObserver() ? "OBSERVER • READ-ONLY"
                 : isPassiveMedium() ? "PASSIVE MEDIUM • READ-ONLY"
                 : "READ-ONLY DEVICE";
+        if (isDiscreteTransportDevice()) {
+            statusBadge(g, "PIONEER PATTERN • RSE DISCRETE TRANSPORT MODEL", INFO, 16, 80);
+            formulaCard(g, discreteTransportEquation(), 105);
+            variableRole(g, "ROLE", "device", deviceRole(), discreteTransportDomain(), 134);
+            variableRole(g, "MEASURED", discretePrimarySymbol(), discretePrimaryValue(), "server packet/event evidence", 152);
+            variableRole(g, "MEASURED", discreteSecondarySymbol(), discreteSecondaryValue(), discreteSecondaryMeaning(), 170);
+            variableRole(g, "EVIDENCE", "quality", menu.qualityPercent() + "%", evidenceState(), 188);
+            variableRole(g, "TOPOLOGY", "ports / links", menu.portCount() + " / " + menu.connectionCount(),
+                    menu.topologyValid() ? "PASS" : "FAIL-CLOSED", 206);
+            variableRole(g, "AUTHORITY", "model", "SERVER ONLY", "client presents synchronized evidence", 224);
+            wrappedText(g, discreteTransportExplanation(), 16, 250, workspaceWidth() - 24,
+                    menu.topologyValid() ? MUTED : BAD);
+            return;
+        }
+
         statusBadge(g, "PIONEER PATTERN • SHARED FIELD DEVICE", adjustable() ? INFO : MUTED, 16, 80);
         formulaCard(g, pioneerContract(), 105);
         variableRole(g, "ROLE", "device", deviceRole(), family(), 134);
@@ -224,6 +267,129 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
         variableRole(g, "AUTHORITY", "policy", policy, "client presentation only", 206);
         wrappedText(g, sharedPioneerExplanation(), 16, 232, workspaceWidth() - 24,
                 menu.topologyValid() ? MUTED : BAD);
+    }
+
+    private boolean isDiscreteTransportDevice() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_MECHANICAL_EXCITER,
+                 FieldDeviceMenu.KIND_SLIME_VIBRATION,
+                 FieldDeviceMenu.KIND_MECHANICAL_RECEIVER,
+                 FieldDeviceMenu.KIND_HONEY_DAMPER,
+                 FieldDeviceMenu.KIND_SCULK_INTERFACE,
+                 FieldDeviceMenu.KIND_HYDRO_TUBE,
+                 FieldDeviceMenu.KIND_HYDRO_EXCITER,
+                 FieldDeviceMenu.KIND_HYDRO_RECEIVER,
+                 FieldDeviceMenu.KIND_PHONON_CONDUIT,
+                 FieldDeviceMenu.KIND_THERMAL_ENCODER,
+                 FieldDeviceMenu.KIND_THERMAL_RECEIVER -> true;
+            default -> false;
+        };
+    }
+
+    private String discreteTransportEquation() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_MECHANICAL_EXCITER ->
+                    "SOURCE: A_emit = A_drive(valid), f = configured index";
+            case FieldDeviceMenu.KIND_SLIME_VIBRATION ->
+                    "HOP: A_next=max(0,A-1); RETAIN @4t: A←max(0,A-2), Q←max(0,Q-10)";
+            case FieldDeviceMenu.KIND_MECHANICAL_RECEIVER ->
+                    "OUT: y_R=valid?min(15,A):0; RETAIN @4t: A←max(0,A-2), Q←max(0,Q-5)";
+            case FieldDeviceMenu.KIND_HONEY_DAMPER ->
+                    "HOP: A_next=max(0,A-4), node Q=80; RETAIN @4t: A←max(0,A-4), Q←max(0,Q-20)";
+            case FieldDeviceMenu.KIND_SCULK_INTERFACE ->
+                    "EVENT: code_out=valid?clamp(code_in,0,15):0; transitions count every code change";
+            case FieldDeviceMenu.KIND_HYDRO_TUBE ->
+                    "HOP: A_next=max(0,A-Lm), Lm={water:1,milk-model:2,lava:3}; RETAIN @4t: A←max(0,A-2), Q←max(0,Q-10)";
+            case FieldDeviceMenu.KIND_HYDRO_EXCITER ->
+                    "SOURCE: A_emit = A_drive(valid), f = configured index";
+            case FieldDeviceMenu.KIND_HYDRO_RECEIVER ->
+                    "OUT: y_R=valid?min(15,A):0; RETAIN @4t: A←max(0,A-1), Q←max(0,Q-5)";
+            case FieldDeviceMenu.KIND_PHONON_CONDUIT ->
+                    "HOP: A_next=max(0,A-1); RETAIN @8t: A←max(0,A-2), Q←max(0,Q-10)";
+            case FieldDeviceMenu.KIND_THERMAL_ENCODER ->
+                    "EVENT: valid Redstone drive → one bounded PHONON_THERMAL packet; source clears after 1t";
+            case FieldDeviceMenu.KIND_THERMAL_RECEIVER ->
+                    "OUT: y_R=valid?min(15,A):0; RETAIN @8t: A←max(0,A-1), Q←max(0,Q-5)";
+            default -> "RSE discrete transport model";
+        };
+    }
+
+    private String discreteTransportDomain() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_MECHANICAL_EXCITER,
+                 FieldDeviceMenu.KIND_SLIME_VIBRATION,
+                 FieldDeviceMenu.KIND_MECHANICAL_RECEIVER,
+                 FieldDeviceMenu.KIND_HONEY_DAMPER -> "MECHANICAL_VIBRATION";
+            case FieldDeviceMenu.KIND_SCULK_INTERFACE -> "SCULK EVENT-CODE BRIDGE";
+            case FieldDeviceMenu.KIND_HYDRO_TUBE,
+                 FieldDeviceMenu.KIND_HYDRO_EXCITER,
+                 FieldDeviceMenu.KIND_HYDRO_RECEIVER -> "HYDROACOUSTIC";
+            default -> "PHONON_THERMAL";
+        };
+    }
+
+    private String discretePrimarySymbol() {
+        return menu.kind() == FieldDeviceMenu.KIND_SCULK_INTERFACE ? "code_now" : "A";
+    }
+
+    private String discretePrimaryValue() {
+        return menu.kind() == FieldDeviceMenu.KIND_SCULK_INTERFACE
+                ? menu.primary() + " / 15"
+                : menu.primary() + " / 15";
+    }
+
+    private String discreteSecondarySymbol() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_SCULK_INTERFACE -> "eventCount";
+            case FieldDeviceMenu.KIND_THERMAL_ENCODER -> "packet";
+            case FieldDeviceMenu.KIND_THERMAL_RECEIVER -> "y_R";
+            case FieldDeviceMenu.KIND_PHONON_CONDUIT -> "packet_aux";
+            default -> "f_idx";
+        };
+    }
+
+    private String discreteSecondaryValue() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_SCULK_INTERFACE -> Integer.toString(menu.secondary());
+            case FieldDeviceMenu.KIND_THERMAL_ENCODER -> "event packet";
+            case FieldDeviceMenu.KIND_THERMAL_RECEIVER -> Integer.toString(menu.secondary());
+            case FieldDeviceMenu.KIND_PHONON_CONDUIT -> Integer.toString(menu.secondary());
+            default -> Integer.toString(menu.secondary());
+        };
+    }
+
+    private String discreteSecondaryMeaning() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_SCULK_INTERFACE ->
+                    "last code " + menu.tertiary() + " • transitions " + menu.driverCount();
+            case FieldDeviceMenu.KIND_HYDRO_TUBE ->
+                    "frequency index • medium=" + hydroMedium(menu.tertiary());
+            case FieldDeviceMenu.KIND_MECHANICAL_RECEIVER,
+                 FieldDeviceMenu.KIND_HYDRO_RECEIVER ->
+                    "frequency index • Redstone out " + menu.tertiary() + "/15";
+            case FieldDeviceMenu.KIND_HONEY_DAMPER -> "frequency index • hop loss 4";
+            case FieldDeviceMenu.KIND_THERMAL_RECEIVER -> "Redstone output /15";
+            case FieldDeviceMenu.KIND_PHONON_CONDUIT -> "packet selector";
+            case FieldDeviceMenu.KIND_THERMAL_ENCODER -> "source packet is event-like, not a level";
+            default -> "RSE model index, not Hz";
+        };
+    }
+
+    private String discreteTransportExplanation() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_HYDRO_TUBE,
+                 FieldDeviceMenu.KIND_HYDRO_EXCITER,
+                 FieldDeviceMenu.KIND_HYDRO_RECEIVER ->
+                    "RSE DISCRETE MODEL: this is a bounded game-domain pressure-packet network. It intentionally does not claim real continuous hydroacoustic spreading, absorption, bathymetry, temperature or salinity physics.";
+            case FieldDeviceMenu.KIND_THERMAL_ENCODER,
+                 FieldDeviceMenu.KIND_THERMAL_RECEIVER,
+                 FieldDeviceMenu.KIND_PHONON_CONDUIT ->
+                    "RSE DISCRETE MODEL: PHONON_THERMAL is a finite-bandwidth event-packet abstraction, not a Fourier heat-transfer or continuously driven temperature-field solver.";
+            case FieldDeviceMenu.KIND_SCULK_INTERFACE ->
+                    "Event counters are retained server evidence. Reading this page never creates an event, transition or network drive.";
+            default ->
+                    "RSE DISCRETE MODEL: amplitude/frequency are bounded packet variables. Hop attenuation and local retained-packet decay are shown separately so propagation loss is not confused with time decay.";
+        };
     }
 
     private String pioneerContract() {
@@ -405,7 +571,10 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
                  FieldDeviceMenu.KIND_PERMANENT_MAGNET,
                  FieldDeviceMenu.KIND_AIR_COMPRESSOR,
                  FieldDeviceMenu.KIND_RADIO_TRANSMITTER,
-                 FieldDeviceMenu.KIND_FREE_OPTICAL_TRANSMITTER -> "SOURCE";
+                 FieldDeviceMenu.KIND_FREE_OPTICAL_TRANSMITTER,
+                 FieldDeviceMenu.KIND_MECHANICAL_EXCITER,
+                 FieldDeviceMenu.KIND_HYDRO_EXCITER,
+                 FieldDeviceMenu.KIND_THERMAL_ENCODER -> "SOURCE";
             case FieldDeviceMenu.KIND_PNEUMATIC_CYLINDER,
                  FieldDeviceMenu.KIND_SERVO_ACTUATOR,
                  FieldDeviceMenu.KIND_ELECTROMAGNET -> "ACTUATOR";
@@ -617,7 +786,11 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
                  FieldDeviceMenu.KIND_LAPIS_LINE,
                  FieldDeviceMenu.KIND_QUARTZ_LINE,
                  FieldDeviceMenu.KIND_AMETHYST_DUST,
-                 FieldDeviceMenu.KIND_OPTICAL_FIBER -> true;
+                 FieldDeviceMenu.KIND_OPTICAL_FIBER,
+                 FieldDeviceMenu.KIND_SLIME_VIBRATION,
+                 FieldDeviceMenu.KIND_HONEY_DAMPER,
+                 FieldDeviceMenu.KIND_HYDRO_TUBE,
+                 FieldDeviceMenu.KIND_PHONON_CONDUIT -> true;
             default -> false;
         };
     }
@@ -646,7 +819,10 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
                  FieldDeviceMenu.KIND_DIFFERENTIAL_DRIVER,
                  FieldDeviceMenu.KIND_DIFFERENTIAL_RECEIVER,
                  FieldDeviceMenu.KIND_PNEUMATIC_RECEIVER,
-                 FieldDeviceMenu.KIND_INDUCTION_COIL -> true;
+                 FieldDeviceMenu.KIND_INDUCTION_COIL,
+                 FieldDeviceMenu.KIND_MECHANICAL_RECEIVER,
+                 FieldDeviceMenu.KIND_HYDRO_RECEIVER,
+                 FieldDeviceMenu.KIND_THERMAL_RECEIVER -> true;
             default -> false;
         };
     }
@@ -683,11 +859,18 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             case FieldDeviceMenu.KIND_QUARTZ_LINE -> "QUARTZ_TIMING";
             case FieldDeviceMenu.KIND_AMETHYST_DUST -> "AMETHYST_RESONANCE";
             case FieldDeviceMenu.KIND_OPTICAL_FIBER -> "OPTICAL";
+            case FieldDeviceMenu.KIND_SLIME_VIBRATION, FieldDeviceMenu.KIND_HONEY_DAMPER -> "MECHANICAL_VIBRATION";
+            case FieldDeviceMenu.KIND_HYDRO_TUBE -> "HYDROACOUSTIC";
+            case FieldDeviceMenu.KIND_PHONON_CONDUIT -> "PHONON_THERMAL";
             default -> "DEVICE I/O";
         };
     }
 
     private String routingContract() {
+        if (menu.kind() == FieldDeviceMenu.KIND_SLIME_VIBRATION) return "MECHANICAL_VIBRATION • SIX-WAY • LOW-LOSS PACKET";
+        if (menu.kind() == FieldDeviceMenu.KIND_HONEY_DAMPER) return "MECHANICAL_VIBRATION • SIX-WAY • HIGH-DAMPING PACKET";
+        if (menu.kind() == FieldDeviceMenu.KIND_HYDRO_TUBE) return "HYDROACOUSTIC • SIX-WAY • MEDIUM-DEPENDENT LOSS";
+        if (menu.kind() == FieldDeviceMenu.KIND_PHONON_CONDUIT) return "PHONON_THERMAL • SIX-WAY • FINITE-BANDWIDTH PACKET";
         if (menu.kind() == FieldDeviceMenu.KIND_DATA_BUS_8) return "BYTE BUS • SAME MEDIUM • NO TRANSLATION";
         if (menu.kind() == FieldDeviceMenu.KIND_SERIAL_LINE) return "SERIAL LINK • SAME MEDIUM • NO TRANSLATION";
         if (menu.kind() == FieldDeviceMenu.KIND_DIFFERENTIAL_PAIR) return "BALANCED PAIR • SAME MEDIUM • NO TRANSLATION";
@@ -737,6 +920,9 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             case FieldDeviceMenu.KIND_DIFFERENTIAL_RECEIVER -> "DIFFERENTIAL";
             case FieldDeviceMenu.KIND_PNEUMATIC_RECEIVER -> "PNEUMATIC";
             case FieldDeviceMenu.KIND_INDUCTION_COIL -> "MAGNETIC FIELD";
+            case FieldDeviceMenu.KIND_MECHANICAL_RECEIVER -> "MECHANICAL_VIBRATION";
+            case FieldDeviceMenu.KIND_HYDRO_RECEIVER -> "HYDROACOUSTIC";
+            case FieldDeviceMenu.KIND_THERMAL_RECEIVER -> "PHONON_THERMAL";
             default -> "DECLARED DOMAIN";
         };
     }
@@ -751,6 +937,9 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             case FieldDeviceMenu.KIND_DIFFERENTIAL_RECEIVER -> "REDSTONE • 0..15";
             case FieldDeviceMenu.KIND_PNEUMATIC_RECEIVER -> "REDSTONE • 0..15";
             case FieldDeviceMenu.KIND_INDUCTION_COIL -> "INDUCED ELECTRICAL";
+            case FieldDeviceMenu.KIND_MECHANICAL_RECEIVER,
+                 FieldDeviceMenu.KIND_HYDRO_RECEIVER,
+                 FieldDeviceMenu.KIND_THERMAL_RECEIVER -> "REDSTONE • 0..15";
             default -> "DECLARED DOMAIN";
         };
     }
@@ -821,6 +1010,15 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             case FieldDeviceMenu.KIND_OPTICAL_POWER_METER -> facingName() + " • OPTICAL PROBE";
             case FieldDeviceMenu.KIND_AMETHYST_SPECTRUM -> "LOCAL NETWORK • RESONANCE SPECTRUM";
             default -> facingName();
+        };
+    }
+
+    private static String hydroMedium(int medium) {
+        return switch (medium) {
+            case 0 -> "water";
+            case 1 -> "milk-model";
+            case 2 -> "lava";
+            default -> "unknown";
         };
     }
 
