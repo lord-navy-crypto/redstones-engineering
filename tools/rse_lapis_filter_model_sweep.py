@@ -9,6 +9,7 @@ import sys
 root = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
 profile_path = root / "src/main/java/dev/redstoneengineering/physics/EngineeringParameterProfile.java"
 block_path = root / "src/main/java/dev/redstoneengineering/block/LapisLowPassFilterBlock.java"
+screen_path = root / "src/main/java/dev/redstoneengineering/client/ui/LapisLowPassScreen.java"
 
 errors = []
 
@@ -16,9 +17,12 @@ if not profile_path.is_file():
     errors.append(f"missing {profile_path.relative_to(root)}")
 if not block_path.is_file():
     errors.append(f"missing {block_path.relative_to(root)}")
+if not screen_path.is_file():
+    errors.append(f"missing {screen_path.relative_to(root)}")
 
 profile = profile_path.read_text(errors="ignore") if profile_path.is_file() else ""
 block = block_path.read_text(errors="ignore") if block_path.is_file() else ""
+screen = screen_path.read_text(errors="ignore") if screen_path.is_file() else ""
 
 def parse_number(name, cast=float):
     match = re.search(rf"{re.escape(name)}\s*=\s*([0-9]+(?:\.[0-9]+)?)", profile)
@@ -106,13 +110,20 @@ if sample_ticks and nominal_tps and alphas:
             break
 
 for token in (
-    "y[n]=y[n-1]+alpha(x[n]-y[n-1])",
     "lapisFilterTimeConstantTicks(index)",
     "lapisFilterCutoffHzNominal(index)",
     "LAPIS_FILTER_SAMPLE_PERIOD_TICKS",
 ):
     if token not in block:
-        errors.append(f"block readback missing {token!r}")
+        errors.append(f"block/profile integration missing {token!r}")
+
+for token in (
+    "y[n] = y[n-1] + α",
+    "LIVE SUBSTITUTION",
+    "PROFILE RESPONSE TABLE",
+):
+    if token not in screen:
+        errors.append(f"formula-first HMI missing {token!r}")
 
 if errors:
     print("RSE LAPIS FILTER MODEL SWEEP: FAIL")
