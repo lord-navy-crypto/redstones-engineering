@@ -189,6 +189,24 @@ The robotics trial is deliberately not a real-world ISO compliance claim. ISO 36
 inform the separation of safety, mission/status, route and localization evidence, while RSE reports
 only the bounded evidence actually implemented by its Minecraft runtime.
 
+Wave 11:
+- Operations → AMR end-to-end material-flow acceptance
+- stable cross-domain correlation identities
+
+Wave 11 closes the evidence gap between dispatch and completed robot motion:
+- OperationTransportBinding owns one stable mission/output/job correlation key plus derived payload/load/unload evidence ids
+- OperationsRobotTransportBridge remains dispatch-only; it still does not select robots, plan routes, admit docks or command material movement
+- the end-to-end evaluator reuses existing dispatch, dock and material-transfer assessments instead of introducing a second robotics solver
+- acceptance correlates completed Operations output → demand/binding → Robotics mission → source dock/load → secured payload → target dock/unload → finished AMR telemetry
+- identity, quantity, source/target and terminal safety evidence fail closed before completion can be accepted
+- completed flows with recovered safe-stop/degraded/route/dock/material holds are MARGINAL instead of silently PASS
+- obstacle waits alone remain visible telemetry but are not treated as an engineering fault
+- this is an internal RSE evidence contract, not an ISO/VDA compliance claim
+
+VDA 5050 3.0 and ISO 21423 reinforce the architectural separation between mission/status
+interoperability and robot-local execution; ISO 21423 explicitly excludes AMR safety requirements.
+RSE therefore keeps Operations correlation/acceptance separate from Robotics safety and motion authority.
+
 Future waves should prioritize remaining EngineeringScreen families that still lack explicit model
 or variable-role presentation. The target is broad consistency with specialization, not identical
 screens.
