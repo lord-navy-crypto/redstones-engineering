@@ -207,7 +207,8 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
         if (!newestTopology.isBlank() && !selectedTopology.isBlank() && !newestTopology.equals(selectedTopology)) {
             return "SAME TARGET • TOPOLOGY CHANGED";
         }
-        return sameEntity ? "SAME AMR • status unchanged" : "SAME TARGET • status unchanged";
+        if (sameEntity) return "SAME AMR • status unchanged";
+        return "SAME TARGET • status unchanged";
     }
 
     private int comparisonColor(List<String> history) {
@@ -243,9 +244,10 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
 
     private void drawStatusBadge(GuiGraphics graphics, String status) {
         String normalized = status == null ? "" : status;
+        boolean topologyIssue = status != null && status.contains("CHECK TOPOLOGY");
         int color;
         if (normalized.contains("FAILED") || normalized.contains("FAULT") || normalized.contains("REGRESSED")) color = BAD;
-        else if (normalized.contains("CHECK") || normalized.contains("SAFE_STOP")
+        else if (topologyIssue || normalized.contains("CHECK") || normalized.contains("SAFE_STOP")
                 || normalized.contains("INCOMPARABLE") || normalized.contains("STALE")) color = WARN;
         else if (normalized.contains("COMPLETE") || normalized.contains("IMPROVED")
                 || normalized.contains("NOMINAL") || normalized.contains("SAME")) color = GOOD;
