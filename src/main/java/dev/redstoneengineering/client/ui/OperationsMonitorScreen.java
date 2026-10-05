@@ -51,35 +51,21 @@ public final class OperationsMonitorScreen extends EngineeringScreen<OperationsM
 
     /** Existing Configure page is the plant observer page; the monitor retains no configuration authority. */
     private void renderConfigure(GuiGraphics graphics) {
-        statusBadge(graphics, "WORLD PLANT STATE", INFO, 16, 72);
+        statusBadge(graphics, "PIONEER PATTERN • PLANT STATE / KPI AUTHORITY", INFO, 16, 72);
+        formulaCard(graphics, "QUEUE = max(valid horizontal QUEUE/WIP sources); KPIs advance only when RUN + QUEUE are trustworthy", 99);
         int worldColor = switch (menu.worldPlantCoverage()) {
             case COMPLETE -> GOOD;
             case PARTIAL, INVALID -> WARN;
         };
-        statusLine(graphics, "EVIDENCE COVERAGE", menu.worldPlantCoverage().name(), worldColor, 90);
-
-        int configured = configurationPercent();
-        labelValue(graphics, "Workcells configured • CONFIGURATION",
-                menu.worldPlantConfiguredWorkcells() + " / " + menu.worldPlantWorkcells() + " • " + configured + "%", 106);
-        drawPlantMetricBar(graphics, 16, 120, 176, configured, configured >= 100 ? GOOD : WARN);
-
-        labelValue(graphics, "Buffers / WIP • WIP PRESSURE", menu.worldPlantBuffers() + " • "
-                + menu.worldPlantUsedBufferUnits() + "/" + menu.worldPlantBufferCapacityUnits()
-                + " • " + menu.worldPlantWipPressurePercent() + "%", 136);
-        int wipColor = menu.worldPlantWipPressurePercent() >= 90 ? BAD
-                : (menu.worldPlantWipPressurePercent() >= 70 ? WARN : GOOD);
-        drawPlantMetricBar(graphics, 16, 150, 176, menu.worldPlantWipPressurePercent(), wipColor);
-
-        int health = resourceHealthPercent();
-        labelValue(graphics, "Bound resources • RESOURCE HEALTH", menu.worldPlantValidResources() + "/" + menu.worldPlantBoundResources()
-                + " valid • faults " + menu.worldPlantFaultResources() + " • " + health + "%", 166);
-        int healthColor = menu.worldPlantFaultResources() > 0 ? BAD : (health >= 100 ? GOOD : WARN);
-        drawPlantMetricBar(graphics, 16, 180, 176, health, healthColor);
-
-        statusBadge(graphics, "PLANT KPIs • INCOMPLETE", WARN, 16, 196);
-        labelValue(graphics, "Quality / reliability / delivery", "WITHHELD • EVIDENCE MISSING", 212);
-        safeText(graphics, "FPY / reject / rework — / — / —", 16, 226, MUTED);
-        safeText(graphics, "Availability / failures — / — • Queue/job history is not persisted yet", 16, 238, MUTED);
+        variableRole(graphics, "EVIDENCE", "coverage", menu.worldPlantCoverage().name(), "", 128);
+        variableRole(graphics, "MEASURED", "queue", menu.queue() + "/15", "current WIP proxy", 146);
+        variableRole(graphics, "DERIVED", "queue pressure", menu.queuePressurePercent() + "%", "", 164);
+        variableRole(graphics, "MEASURED", "throughput", menu.throughput() + "", "cycles/min last60s", 182);
+        variableRole(graphics, "MEASURED", "downtime", formatTicks(menu.downtimeTicks()), "", 200);
+        variableRole(graphics, "DERIVED", "state", menu.state().name(), "server classification", 218);
+        evidenceRow(graphics, "Plant configuration", configurationPercent() + "% configured",
+                menu.worldPlantWipPressurePercent() + "% WIP", resourceHealthPercent() + "% resource health", 242);
+        wrappedText(graphics, "Quality/reliability/delivery KPIs stay WITHHELD until their world evidence exists. Observer-only: this monitor never drives the plant or fabricates a stopped machine from missing RUN evidence.", 16, 270, workspaceWidth() - 24, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
