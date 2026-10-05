@@ -1,6 +1,7 @@
 package dev.redstoneengineering.blockentity;
 
 import dev.redstoneengineering.RedstoneEngineering;
+import dev.redstoneengineering.diagnostics.acceptance.EngineeringAcceptanceStatus;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -30,6 +31,8 @@ public class OscilloscopeBlockEntity extends BlockEntity {
     private int lastB = -1;
     private int samplesSinceTrigger = 0;
     private int samplePeriodIndex = DEFAULT_SAMPLE_PERIOD_INDEX;
+    private OscilloscopeSamplingExperimentRecord experimentBaseline;
+    private OscilloscopeSamplingExperimentRecord experimentCandidate;
 
     public OscilloscopeBlockEntity(BlockPos pos, BlockState state) {
         super(RedstoneEngineering.OSCILLOSCOPE_BLOCK_ENTITY.get(), pos, state);
@@ -166,6 +169,75 @@ public class OscilloscopeBlockEntity extends BlockEntity {
         if (samples <= 2) return 1;
         if (samples <= 4) return 2;
         return 3;
+    }
+
+    /** Freeze the current trigger-channel capture as the experiment baseline. */
+    public void captureExperimentBaseline(long gameTick) {
+        experimentBaseline = OscilloscopeSamplingExperimentRecord.capture(this, triggerChannel, gameTick);
+        experimentCandidate = null;
+        setChanged();
+    }
+
+    /**
+     * Freeze a candidate after the operator changes the timebase and reacquires the waveform.
+     * The baseline channel is retained so a trigger-channel change cannot silently compare
+     * different signals.
+     */
+    public boolean captureExperimentCandidate(long gameTick) {
+        if (experimentBaseline == null) return false;
+        experimentCandidate = OscilloscopeSamplingExperimentRecord.capture(
+                this, experimentBaseline.channel(), gameTick);
+        setChanged();
+        return true;
+    }
+
+    public boolean clearSamplingExperiment() {
+        if (experimentBaseline == null && experimentCandidate == null) return false;
+        experimentBaseline = null;
+        experimentCandidate = null;
+        setChanged();
+        return true;
+    }
+
+    public java.util.Optional<OscilloscopeSamplingExperimentRecord> experimentBaseline() {
+        return java.util.Optional.ofNullable(experimentBaseline);
+    }
+
+    public java.util.Optional<OscilloscopeSamplingExperimentRecord> experimentCandidate() {
+        return java.util.Optional.ofNullable(experimentCandidate);
+    }
+
+    /**
+     * RSE sampling-margin verdict for the frozen candidate.
+     *
+     * <p>PASS means the observed periodic capture has at least five samples/cycle; MARGINAL means
+     * three or four; FAIL means at most two. It is deliberately not an "alias-free" guarantee:
+     * out-of-band content may already have folded before observation.</p>
+     */
+    public EngineeringAcceptanceStatus samplingExperimentStatus() {
+        if (experimentBaseline == null || experimentCandidate == null) return EngineeringAcceptanceStatus.NOT_READY;
+        if (!experimentBaseline.comparisonReady() || !experimentCandidate.comparisonReady()) {
+            return EngineeringAcceptanceStatus.NOT_READY;
+        }
+        return switch (experimentCandidate.aliasRiskCode()) {
+            case 1 -> EngineeringAcceptanceStatus.FAIL;
+            case 2 -> EngineeringAcceptanceStatus.MARGINAL;
+            case 3 -> EngineeringAcceptanceStatus.PASS;
+            default -> EngineeringAcceptanceStatus.NOT_READY;
+        };
+    }
+
+    public int samplingExperimentSamplesPerCycleDelta() {
+        if (experimentBaseline == null || experimentCandidate == null
+                || experimentBaseline.periodSamples() < 0 || experimentCandidate.periodSamples() < 0) return 0;
+        return experimentCandidate.periodSamples() - experimentBaseline.periodSamples();
+    }
+
+    public int samplingExperimentObservedFrequencyDeltaMilliHz() {
+        if (experimentBaseline == null || experimentCandidate == null
+                || experimentBaseline.observedFrequencyMilliHz() < 0
+                || experimentCandidate.observedFrequencyMilliHz() < 0) return 0;
+        return experimentCandidate.observedFrequencyMilliHz() - experimentBaseline.observedFrequencyMilliHz();
     }
 
     public int triggerLevel() {
@@ -393,6 +465,8 @@ public class OscilloscopeBlockEntity extends BlockEntity {
         samplePeriodIndex = tag.contains("samplePeriodIndex")
                 ? Math.max(0, Math.min(SAMPLE_PERIOD_OPTIONS.length - 1, tag.getInt("samplePeriodIndex")))
                 : DEFAULT_SAMPLE_PERIOD_INDEX;
+        experimentBaseline = OscilloscopeSamplingExperimentRecord.load(tag, "experimentBaseline").orElse(null);
+        experimentCandidate = OscilloscopeSamplingExperimentRecord.load(tag, "experimentCandidate").orElse(null);
     }
 
     @Override
@@ -412,5 +486,7 @@ public class OscilloscopeBlockEntity extends BlockEntity {
         tag.putInt("lastB", lastB);
         tag.putInt("samplesSinceTrigger", samplesSinceTrigger);
         tag.putInt("samplePeriodIndex", samplePeriodIndex);
+        if (experimentBaseline != null) experimentBaseline.save(tag, "experimentBaseline");
+        if (experimentCandidate != null) experimentCandidate.save(tag, "experimentCandidate");
     }
 }
