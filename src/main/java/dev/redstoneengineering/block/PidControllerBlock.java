@@ -385,6 +385,7 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof PidControllerBlock)) return null;
         CommissioningSnapshot commissioning = ClosedLoopCommissioning.inspectPid(level, pos);
+        if (!trialEvidenceReady(commissioning)) return null;
         EngineeringAcceptanceSnapshot acceptance = acceptanceSnapshot(level, pos, state, commissioning);
         return CommissioningTrialStore.captureBaseline(
                 level, pos, level.getGameTime(), state.getValue(TUNING), commissioning, acceptance);
@@ -399,6 +400,7 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof PidControllerBlock)) return null;
         CommissioningSnapshot commissioning = ClosedLoopCommissioning.inspectPid(level, pos);
+        if (!trialEvidenceReady(commissioning)) return null;
         EngineeringAcceptanceSnapshot acceptance = acceptanceSnapshot(level, pos, state, commissioning);
         return CommissioningTrialStore.captureCandidate(
                 level, pos, level.getGameTime(), state.getValue(TUNING), commissioning, acceptance).orElse(null);
@@ -410,6 +412,13 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
         if (!(level.getBlockState(pos).getBlock() instanceof PidControllerBlock)) return false;
         CommissioningTrialStore.clear(level, pos);
         return true;
+    }
+
+    private static boolean trialEvidenceReady(CommissioningSnapshot commissioning) {
+        if (commissioning == null || !commissioning.available()) return false;
+        return commissioning.status() == dev.redstoneengineering.diagnostics.CommissioningStatus.PASS
+                || commissioning.status() == dev.redstoneengineering.diagnostics.CommissioningStatus.MARGINAL
+                || commissioning.status() == dev.redstoneengineering.diagnostics.CommissioningStatus.FAIL;
     }
 
     private static EngineeringAcceptanceSnapshot acceptanceSnapshot(
