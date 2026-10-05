@@ -44,8 +44,8 @@ for token in (
     "EngineeringPlot.analogTrace",
     "EngineeringPlot.horizontalMarker",
     "EngineeringPlot.verticalMarker",
-    "plotChannel(graphics, 0",
-    "plotChannel(graphics, 1",
+    "plotChannel(g, 0",
+    "plotChannel(g, 1",
 ):
     if scope and token not in scope:
         errors.append(f"Oscilloscope visualization missing {token!r}")
