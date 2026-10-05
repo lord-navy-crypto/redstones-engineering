@@ -5,6 +5,7 @@ import dev.redstoneengineering.core.port.EngineeringPortProvider;
 import dev.redstoneengineering.core.port.PortCompatibility;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.instrument.InstrumentNetwork;
 import dev.redstoneengineering.instrument.InstrumentShieldingAudit;
 import dev.redstoneengineering.physics.DataBusNetwork;
 import dev.redstoneengineering.physics.DomainNetwork;
@@ -134,6 +135,7 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
     private final DataSlot topologyValid = trackedInt();
     private final DataSlot dataValid = trackedInt();
     private final DataSlot quality = trackedInt();
+    private final DataSlot evidenceQuality = trackedInt();
     private final DataSlot driverCount = trackedInt();
     private final DataSlot seriesConfigurable = trackedInt();
     private final DataSlot inputEndpoint = trackedInt();
@@ -163,6 +165,7 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
         topologyValid.set(1);
         dataValid.set(1);
         quality.set(100);
+        evidenceQuality.set(-1);
         driverCount.set(0);
         seriesConfigurable.set(block instanceof DirectionalSignalBlock
                 || block instanceof DirectionalDomainBlock
@@ -373,17 +376,26 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             facing.set(RangeSensorBlock.sensingSide(state).ordinal());
         } else if (block instanceof LapisSignalLineBlock line) {
             primary.set(LapisSignalLineBlock.value(level, blockPos));
-            dataValid.set(LapisSignalLineBlock.valid(level, blockPos) ? 1 : 0);
-            quality.set(dataValid.get() != 0 ? 100 : 0);
+            PortQuality lineQuality = LapisSignalLineBlock.quality(level, blockPos);
+            dataValid.set(lineQuality == PortQuality.VALID ? 1 : 0);
+            quality.set(portQualityPercent(lineQuality));
+            evidenceQuality.set(lineQuality.ordinal());
+            driverCount.set(LapisSignalLineBlock.sourceCount(level, blockPos));
             fillCompatibleTopology(state, line);
         } else if (block instanceof LapisPrecisionSourceBlock source) {
             primary.set(state.getValue(LapisPrecisionSourceBlock.VALUE));
+            evidenceQuality.set(PortQuality.VALID.ordinal());
+            dataValid.set(1);
+            quality.set(100);
             fillCompatibleTopology(state, source);
         } else if (block instanceof QuartzTimingLineBlock line) {
             primary.set(QuartzTimingLineBlock.active(level, blockPos) ? 1 : 0);
             secondary.set(QuartzTimingLineBlock.period(level, blockPos));
-            dataValid.set(QuartzTimingLineBlock.valid(level, blockPos) ? 1 : 0);
-            quality.set(dataValid.get() != 0 ? 100 : 0);
+            PortQuality lineQuality = QuartzTimingLineBlock.quality(level, blockPos);
+            dataValid.set(lineQuality == PortQuality.VALID ? 1 : 0);
+            quality.set(portQualityPercent(lineQuality));
+            evidenceQuality.set(lineQuality.ordinal());
+            driverCount.set(QuartzTimingLineBlock.sourceCount(level, blockPos));
             fillCompatibleTopology(state, line);
         } else if (block instanceof QuartzOscillatorBlock oscillator) {
             primary.set(state.getValue(QuartzOscillatorBlock.ACTIVE) ? 1 : 0);
@@ -402,29 +414,63 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             facing.set(output.ordinal());
         } else if (block instanceof RedstoneReferenceSourceBlock) {
             primary.set(state.getValue(RedstoneReferenceSourceBlock.POWER));
+            evidenceQuality.set(PortQuality.VALID.ordinal());
             facing.set(state.getValue(DirectionalRedstoneEndpointBlock.FACING).ordinal());
         } else if (block instanceof RedstoneCableTerminalBlock terminal) {
             primary.set(state.getValue(RedstoneCableTerminalBlock.POWER));
             secondary.set(terminal.externalInput(level, blockPos, state));
-            tertiary.set(state.getValue(RedstoneCableTerminalBlock.OUTPUT_MODE) ? 1 : 0);
+            boolean outputMode = state.getValue(RedstoneCableTerminalBlock.OUTPUT_MODE);
+            tertiary.set(outputMode ? 1 : 0);
+            RedstoneCableNetwork.SourceEvidence sourceEvidence = RedstoneCableNetwork.sourceEvidence(level, blockPos);
+            PortQuality terminalQuality;
+            if (outputMode) {
+                terminalQuality = sourceEvidence.quality();
+                driverCount.set(sourceEvidence.sourceCount());
+            } else {
+                boolean present = terminal.externalSourcePresent(level, blockPos, state);
+                terminalQuality = present ? PortQuality.VALID : PortQuality.NO_SIGNAL;
+                driverCount.set(present ? 1 : 0);
+            }
+            evidenceQuality.set(terminalQuality.ordinal());
+            dataValid.set(terminalQuality == PortQuality.VALID ? 1 : 0);
+            quality.set(portQualityPercent(terminalQuality));
             facing.set(state.getValue(RedstoneCableTerminalBlock.FACING).ordinal());
         } else if (block instanceof RedstoneSignalCableBlock cable) {
             primary.set(RedstoneSignalCableBlock.power(level, blockPos));
+            RedstoneCableNetwork.SourceEvidence sourceEvidence = RedstoneCableNetwork.sourceEvidence(level, blockPos);
+            driverCount.set(sourceEvidence.sourceCount());
+            evidenceQuality.set(sourceEvidence.quality().ordinal());
+            dataValid.set(sourceEvidence.quality() == PortQuality.VALID ? 1 : 0);
+            quality.set(portQualityPercent(sourceEvidence.quality()));
             fillCableTopology(state, cable);
         } else if (block instanceof RedstoneCableJunctionBlock junction) {
             primary.set(RedstoneCableJunctionBlock.power(level, blockPos));
+            RedstoneCableNetwork.SourceEvidence sourceEvidence = RedstoneCableNetwork.sourceEvidence(level, blockPos);
+            driverCount.set(sourceEvidence.sourceCount());
+            evidenceQuality.set(sourceEvidence.quality().ordinal());
+            dataValid.set(sourceEvidence.quality() == PortQuality.VALID ? 1 : 0);
+            quality.set(portQualityPercent(sourceEvidence.quality()));
             fillCableTopology(state, junction);
         } else if (block instanceof ShieldedInstrumentCableBlock cable) {
             fillCableTopology(state, cable);
             InstrumentShieldingAudit.ShieldingSnapshot shielding = InstrumentShieldingAudit.inspect(level, blockPos);
+            InstrumentNetwork.ProbeSnapshot bus = InstrumentNetwork.scan(level, blockPos);
             primary.set(shielding.coveragePercent());
             secondary.set(shielding.shieldedNodes());
             tertiary.set(shielding.unshieldedNodes());
-            dataValid.set(shielding.bounded() ? 1 : 0);
-            quality.set(shielding.bounded() ? shielding.coveragePercent() : 0);
+            PortQuality busQuality = bus.qualityForMask(0xF);
+            evidenceQuality.set(busQuality.ordinal());
+            dataValid.set(busQuality == PortQuality.VALID ? 1 : 0);
+            quality.set(bus.bounded() ? bus.interferenceConfidencePercent() : 0);
             driverCount.set(shielding.cableNodes());
         } else if (block instanceof InstrumentCableBlock cable) {
             fillCableTopology(state, cable);
+            InstrumentNetwork.ProbeSnapshot bus = InstrumentNetwork.scan(level, blockPos);
+            PortQuality busQuality = bus.qualityForMask(0xF);
+            evidenceQuality.set(busQuality.ordinal());
+            dataValid.set(busQuality == PortQuality.VALID ? 1 : 0);
+            quality.set(bus.bounded() ? bus.interferenceConfidencePercent() : 0);
+            driverCount.set(bus.activeChannels());
         } else if (block instanceof EightBitDataBusBlock bus) {
             primary.set(DataBusNetwork.sample(level, blockPos));
             DataBusNetwork.Diagnostics diagnostics = DataBusNetwork.getDiagnostics(level, blockPos);
@@ -700,6 +746,10 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             dataValid.set(driverCount.get() == OperationsMonitorBlock.SystemState.FAILED.ordinal() ? 0 : 1);
             quality.set(dataValid.get() != 0 ? 100 : 0);
         }
+
+        if (evidenceQuality.get() < 0) {
+            evidenceQuality.set((dataValid.get() != 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL).ordinal());
+        }
     }
 
     private static boolean endpointRoutable(Block block) {
@@ -720,6 +770,7 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
     private void applyPneumaticEvidence(PneumaticObservationSupport.Observation observation) {
         dataValid.set(observation.valid() ? 1 : 0);
         quality.set(portQualityPercent(observation.quality()));
+        evidenceQuality.set(observation.quality().ordinal());
     }
 
     private static int portQualityPercent(PortQuality quality) {
@@ -1030,6 +1081,11 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
     public boolean topologyValid() { return topologyValid.get() != 0; }
     public boolean dataValid() { return dataValid.get() != 0; }
     public int qualityPercent() { return quality.get(); }
+    public PortQuality evidenceQuality() {
+        PortQuality[] values = PortQuality.values();
+        int index = Math.max(0, Math.min(values.length - 1, evidenceQuality.get()));
+        return values[index];
+    }
     public int driverCount() { return driverCount.get(); }
     public boolean seriesConfigurable() { return seriesConfigurable.get() != 0; }
     public boolean hasInputEndpoint() { return inputEndpoint.get() != 0; }
