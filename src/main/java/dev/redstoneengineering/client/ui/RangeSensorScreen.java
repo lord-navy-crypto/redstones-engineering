@@ -21,7 +21,7 @@ public final class RangeSensorScreen extends EngineeringScreen<RangeSensorMenu> 
 
     @Override
     protected void addDeviceWidgets() {
-        int y = topPos + 104;
+        int y = topPos + imageHeight - 116;
         modePrevious = addConfigureWidget(Button.builder(Component.literal("◀ Detect"),
                 b -> sendMenuButton(RangeSensorMenu.BUTTON_MODE_PREVIOUS)).bounds(leftPos + 16, y, 70, 20).build());
         modeNext = addConfigureWidget(Button.builder(Component.literal("Detect ▶"),
@@ -89,13 +89,14 @@ public final class RangeSensorScreen extends EngineeringScreen<RangeSensorMenu> 
     }
 
     private void configure(GuiGraphics g) {
-        statusBadge(g, "SERVER-SIDE BOUNDED CONTROL", INFO, 16, 80);
-        labelValue(g, "Detect", detectModeName(), 96);
-        labelValue(g, "Range", Integer.toString(menu.configuredRange()), 121);
-        labelValue(g, "Response", responseName(), 146);
-        labelValue(g, "I/O axis", menu.sensingDirection().getName().toUpperCase() + " SENSE → "
-                + menu.outputDirection().getName().toUpperCase() + " OUT", 171);
-        safeText(g, "Physical sensing/output direction is controlled only on Route.", 16, 199, MUTED);
+        statusBadge(g, "FORMULA-FIRST SENSOR RESPONSE", INFO, 16, 80);
+        formulaCard(g, responseEquation(), 105);
+        variableRole(g, "MEASURED", "d", menu.distance() + "", "blocks", 134);
+        variableRole(g, "ADJUSTABLE", "R", menu.configuredRange() + "", "blocks", 152);
+        variableRole(g, "ADJUSTABLE", "mode", responseName(), "", 170);
+        variableRole(g, "DERIVED", "y", menu.output() + " / 15", "Redstone", 188);
+        variableRole(g, "EVIDENCE", "scan", scanStatusName() + " • " + menu.scannedCells() + "/" + menu.configuredRange(), "", 206);
+        wrappedText(g, "A complete CLEAR scan with d=0 is valid evidence. Physical sensing/output direction remains owned by Route.", 16, 232, workspaceWidth() - 24, MUTED);
     }
 
     private void diagnostics(GuiGraphics g) {
@@ -117,6 +118,17 @@ public final class RangeSensorScreen extends EngineeringScreen<RangeSensorMenu> 
         labelValue(g, "Latest progress", menu.scannedCells() + " / " + menu.configuredRange(), 144);
         sectionRule(g, 166);
         safeText(g, "The sensor retains its latest authoritative scan, not a fabricated client history.", 16, 180, MUTED);
+    }
+
+    private String responseEquation() {
+        int range = Math.max(1, menu.configuredRange());
+        return switch (menu.responseMode()) {
+            case 0 -> "y = (d ≤ 0) ? 0 : round(15 · (R - d + 1) / R)";
+            case 1 -> "y = (d ≤ 0) ? 0 : round(15 · d / R)";
+            case 2 -> "y = (d > 0 ∧ d ≤ max(1, floor(R/2))) ? 15 : 0";
+            case 3 -> "y = (max(1,floor(R/3)) ≤ d ≤ max(low,floor(2R/3))) ? 15 : 0";
+            default -> "y = 0";
+        };
     }
 
     private String scanStatusName() {

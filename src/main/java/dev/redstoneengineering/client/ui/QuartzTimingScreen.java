@@ -15,7 +15,7 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
     public QuartzTimingScreen(QuartzTimingMenu menu, Inventory inventory, Component title) { super(menu, inventory, title); }
 
     @Override protected void addDeviceWidgets() {
-        int y = topPos + 116;
+        int y = topPos + imageHeight - 66;
         parameterPrevious = addConfigureWidget(Button.builder(Component.literal("◀ Parameter"), b -> sendMenuButton(QuartzTimingMenu.BUTTON_PARAMETER_PREVIOUS)).bounds(leftPos + 16, y, 110, 20).build());
         parameterNext = addConfigureWidget(Button.builder(Component.literal("Parameter ▶"), b -> sendMenuButton(QuartzTimingMenu.BUTTON_PARAMETER_NEXT)).bounds(leftPos + 194, y, 110, 20).build());
         reset = addConfigureWidget(Button.builder(Component.literal("Reset measurement"), b -> sendMenuButton(QuartzTimingMenu.BUTTON_RESET_MEASUREMENT)).bounds(leftPos + 70, y, 180, 20).build());
@@ -89,18 +89,25 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
     }
 
     private void configure(GuiGraphics g) {
-        statusBadge(g, "SERVER-SIDE BOUNDED CONTROL", INFO, 16, 80);
+        statusBadge(g, "FORMULA-FIRST TIMING MODEL", INFO, 16, 80);
+        formulaCard(g, timingEquation(), 105);
         if (menu.kind() == QuartzTimingMenu.KIND_OSCILLATOR) {
-            labelValue(g, "Period", menu.secondary() + " ticks", 101);
-            labelValue(g, "Topology", "FOUR-WAY SOURCE", 172);
+            variableRole(g, "ADJUSTABLE", "T", menu.secondary() + "", "ticks", 134);
+            variableRole(g, "DERIVED", "f_nom", String.format(java.util.Locale.ROOT, "%.3f", 20.0 / Math.max(1, menu.secondary())), "Hz @20TPS", 152);
+            variableRole(g, "SOLVER", "state", menu.primary() == 1 ? "HIGH" : "LOW", "", 170);
+            variableRole(g, "TOPOLOGY", "OUT", "N/E/S/W", "Quartz source", 188);
         } else if (menu.kind() == QuartzTimingMenu.KIND_DIVIDER) {
-            labelValue(g, "Division", "÷" + menu.tertiary(), 101);
-            labelValue(g, "I/O axis", inputFace() + " → " + outputFace(), 172);
-            safeText(g, "Physical I/O direction is controlled only on Route.", 16, 199, MUTED);
+            variableRole(g, "MEASURED", "T_in", menu.primary() + "", "ticks", 134);
+            variableRole(g, "ADJUSTABLE", "N", Integer.toString(menu.tertiary()), "division", 152);
+            variableRole(g, "DERIVED", "T_out", menu.secondary() + "", "ticks", 170);
+            variableRole(g, "EVIDENCE", "expected", (Math.max(0, menu.primary()) * Math.max(1, menu.tertiary())) + "", "ticks", 188);
+            wrappedText(g, "Route owns the physical RX/TX axis; changing N re-arms divider phase evidence.", 16, 214, workspaceWidth() - 24, MUTED);
         } else {
-            labelValue(g, "Measurement", menu.primary() + " ticks", 101);
-            labelValue(g, "Input face", inputFace(), 172);
-            safeText(g, "Measurement face is controlled only on Route.", 16, 199, MUTED);
+            variableRole(g, "MEASURED", "T_meas", menu.primary() + "", "ticks", 134);
+            variableRole(g, "MEASURED", "T_upstream", menu.tertiary() + "", "ticks", 152);
+            variableRole(g, "DERIVED", "|e_T|", menu.secondary() + "", "ticks", 170);
+            variableRole(g, "EVIDENCE", "current", menu.runtimeC() == 1 ? "YES" : "NO", "", 188);
+            wrappedText(g, "The monitor needs two genuine rising edges; opening the HMI never fabricates timing evidence.", 16, 214, workspaceWidth() - 24, MUTED);
         }
     }
 
@@ -140,6 +147,14 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
             safeText(g, "This device exposes current timing state; it does not fabricate client-side waveform history.", 16, 112, MUTED);
             safeText(g, diagnosis(), 16, 136, diagnosisColor());
         }
+    }
+
+    private String timingEquation() {
+        return switch (menu.kind()) {
+            case QuartzTimingMenu.KIND_DIVIDER -> "T_out = N · T_in";
+            case QuartzTimingMenu.KIND_STABILITY -> "|e_T| = |T_meas - T_upstream|";
+            default -> "f_nom = 20 / T  Hz";
+        };
     }
 
     private String diagnosis() {

@@ -21,8 +21,8 @@ public final class MediaConversionScreen extends EngineeringScreen<MediaConversi
 
     @Override
     protected void addDeviceWidgets() {
-        int y1 = topPos + 118;
-        int y2 = topPos + 144;
+        int y1 = topPos + imageHeight - 90;
+        int y2 = topPos + imageHeight - 65;
         rxPrevious = addConfigureWidget(Button.builder(Component.literal("RX ◀"),
                 b -> sendMenuButton(MediaConversionMenu.BUTTON_RX_PREVIOUS))
                 .bounds(leftPos + 52, y1, 72, 20).build());
@@ -78,11 +78,19 @@ public final class MediaConversionScreen extends EngineeringScreen<MediaConversi
     }
 
     private void configure(GuiGraphics g) {
-        statusBadge(g, "INDEPENDENT RX / TX ROUTING", INFO, 16, 80);
-        labelValue(g, "Conversion", menu.redstoneToLapis() ? "0..15 → 0..100" : "0..100 → 0..15", 100);
-        labelValue(g, "RX / TX", menu.inputFace().getName().toUpperCase() + " / " + menu.outputFace().getName().toUpperCase(), 184);
-        safeText(g, "Route changes are server-authoritative; output relocation clears/notifies the old physical endpoint.", 16, 206, TEXT);
-        safeText(g, "The conversion law itself remains fixed and deterministic.", 16, 226, MUTED);
+        statusBadge(g, "FORMULA-FIRST MEDIA BOUNDARY", INFO, 16, 80);
+        formulaCard(g, conversionEquation(), 105);
+        variableRole(g, "MEASURED", "x", inputText(), menu.redstoneToLapis() ? "Redstone" : "Lapis", 134);
+        variableRole(g, "DERIVED", "y", outputText(), menu.redstoneToLapis() ? "Lapis" : "Redstone", 152);
+        variableRole(g, "EVIDENCE", "quality", menu.inputQuality().name() + " → " + menu.outputQuality().name(), "", 170);
+        variableRole(g, "TOPOLOGY", "RX → TX", menu.inputFace().getName().toUpperCase() + " → " + menu.outputFace().getName().toUpperCase(), "", 188);
+        if (menu.lapisToRedstone()) {
+            variableRole(g, "DERIVED", "x_reconstructed", formatNormalized(menu.reconstructedLapis()), "Lapis", 206);
+            variableRole(g, "DERIVED", "|e_q|", formatNormalized(menu.quantizationLoss()), "Lapis", 224);
+        } else {
+            variableRole(g, "DERIVED", "Δsource", formatNormalized(menu.sourceSpacing()), "Lapis code spacing", 206);
+        }
+        wrappedText(g, identityText(), 16, 250, workspaceWidth() - 24, INFO);
     }
 
     private void diagnostics(GuiGraphics g) {
@@ -108,6 +116,12 @@ public final class MediaConversionScreen extends EngineeringScreen<MediaConversi
         labelValue(g, "Physical route", menu.inputFace().getName().toUpperCase() + " → " + menu.outputFace().getName().toUpperCase(), 182);
         labelValue(g, "Commissioning", commissioningLabel(), 202);
         safeText(g, commissioningMeaning(), 16, 224, commissioningColor());
+    }
+
+    private String conversionEquation() {
+        return menu.redstoneToLapis()
+                ? "y_L = round(100 · x_R / 15)"
+                : "y_R = round(15 · x_L / 100)";
     }
 
     private String modeTitle() {
