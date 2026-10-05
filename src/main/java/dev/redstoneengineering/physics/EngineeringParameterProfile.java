@@ -54,12 +54,37 @@ public final class EngineeringParameterProfile {
     }
 
     /**
-     * Nominal -3 dB cutoff frequency implied by the exponential-equivalent
-     * time constant, assuming the normal 20 game-tick/s cadence.
+     * Continuous-time RC-equivalent pole frequency from tau, at nominal 20 TPS.
+     *
+     * <p>This is provenance for the exponential mapping alpha=1-exp(-dt/tau);
+     * it is not necessarily the sampled filter's actual -3 dB frequency when
+     * the pole approaches Nyquist.</p>
      */
     public static double lapisFilterCutoffHzNominal(int index) {
         double tauTicks = lapisFilterTimeConstantTicks(index);
         if (tauTicks <= 0.0) return Double.POSITIVE_INFINITY;
         return NOMINAL_TICKS_PER_SECOND / (2.0 * Math.PI * tauTicks);
+    }
+
+    /**
+     * Exact -3 dB frequency of the implemented one-pole discrete filter.
+     *
+     * <p>For H(z)=alpha/(1-(1-alpha)z^-1), solve |H(e^jw)|^2=1/2.
+     * Some fast settings never fall by 3 dB before Nyquist; those return NaN
+     * rather than reporting a physically unreachable cutoff.</p>
+     */
+    public static double lapisFilterDiscreteCutoffHzNominal(int index) {
+        double alpha = lapisFilterAlpha(index);
+        if (alpha >= 1.0) return Double.NaN;
+        double pole = 1.0 - alpha;
+        double cosOmega = (1.0 + pole * pole - 2.0 * alpha * alpha) / (2.0 * pole);
+        if (cosOmega < -1.0 || cosOmega > 1.0) return Double.NaN;
+        double omega = Math.acos(cosOmega);
+        double sampleRateHz = NOMINAL_TICKS_PER_SECOND / LAPIS_FILTER_SAMPLE_PERIOD_TICKS;
+        return omega * sampleRateHz / (2.0 * Math.PI);
+    }
+
+    public static double lapisFilterNyquistHzNominal() {
+        return NOMINAL_TICKS_PER_SECOND / (2.0 * LAPIS_FILTER_SAMPLE_PERIOD_TICKS);
     }
 }
