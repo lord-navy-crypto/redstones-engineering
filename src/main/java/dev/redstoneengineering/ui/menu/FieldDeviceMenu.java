@@ -6,7 +6,6 @@ import dev.redstoneengineering.core.port.PortCompatibility;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.instrument.InstrumentNetwork;
-import dev.redstoneengineering.instrument.InstrumentShieldingAudit;
 import dev.redstoneengineering.physics.DataBusNetwork;
 import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.InformationRuntime;
@@ -460,16 +459,15 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             fillCableTopology(state, junction);
         } else if (block instanceof ShieldedInstrumentCableBlock cable) {
             fillCableTopology(state, cable);
-            InstrumentShieldingAudit.ShieldingSnapshot shielding = InstrumentShieldingAudit.inspect(level, blockPos);
             InstrumentNetwork.ProbeSnapshot bus = InstrumentNetwork.scan(level, blockPos);
-            primary.set(shielding.coveragePercent());
-            secondary.set(shielding.shieldedNodes());
-            tertiary.set(shielding.unshieldedNodes());
+            primary.set(bus.shieldingCoveragePercent());
+            secondary.set(bus.shieldedCableNodes());
+            tertiary.set(bus.unshieldedCableNodes());
             PortQuality busQuality = bus.qualityForMask(0xF);
             evidenceQuality.set(busQuality.ordinal());
             dataValid.set(busQuality == PortQuality.VALID ? 1 : 0);
             quality.set(bus.bounded() ? bus.interferenceConfidencePercent() : 0);
-            driverCount.set(shielding.cableNodes());
+            driverCount.set(bus.cableNodes());
         } else if (block instanceof InstrumentCableBlock cable) {
             fillCableTopology(state, cable);
             InstrumentNetwork.ProbeSnapshot bus = InstrumentNetwork.scan(level, blockPos);
