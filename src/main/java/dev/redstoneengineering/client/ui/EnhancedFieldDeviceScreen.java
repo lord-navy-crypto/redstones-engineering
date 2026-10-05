@@ -54,6 +54,7 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             case FieldDeviceMenu.KIND_PROBE,
                  FieldDeviceMenu.KIND_FILTER,
                  FieldDeviceMenu.KIND_REFERENCE,
+                 FieldDeviceMenu.KIND_LAPIS_SOURCE,
                  FieldDeviceMenu.KIND_DIGITAL_REGENERATOR,
                  FieldDeviceMenu.KIND_PRESSURE_REGULATOR,
                  FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE,
@@ -238,6 +239,24 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
                 : isObserver() ? "OBSERVER • READ-ONLY"
                 : isPassiveMedium() ? "PASSIVE MEDIUM • READ-ONLY"
                 : "READ-ONLY DEVICE";
+        if (isSourceMediumIntegrityDevice()) {
+            statusBadge(g, "PIONEER PATTERN • SOURCE / MEDIUM INTEGRITY", INFO, 16, 80);
+            formulaCard(g, sourceMediumContract(), 105);
+            variableRole(g, "ROLE", "device", deviceRole(), sourceMediumDomain(), 134);
+            variableRole(g, adjustable() ? "ADJUSTABLE" : "MEASURED",
+                    sourceMediumPrimarySymbol(), sourceMediumPrimaryValue(), sourceMediumPrimaryMeaning(), 152);
+            variableRole(g, "EVIDENCE", "PortQuality", menu.evidenceQuality().name(),
+                    "quality=" + menu.qualityPercent() + "%", 170);
+            variableRole(g, "EVIDENCE", "sources / drivers", Integer.toString(menu.driverCount()),
+                    sourceOwnershipMeaning(), 188);
+            variableRole(g, "TOPOLOGY", "ports / links", menu.portCount() + " / " + menu.connectionCount(),
+                    menu.topologyValid() ? "PASS" : "FAIL-CLOSED", 206);
+            variableRole(g, "AUTHORITY", "policy", sourceMediumAuthority(), "server synchronized", 224);
+            wrappedText(g, sourceMediumExplanation(), 16, 250, workspaceWidth() - 24,
+                    menu.evidenceQuality().name().equals("VALID") ? MUTED : WARN);
+            return;
+        }
+
         if (isDiscreteTransportDevice()) {
             statusBadge(g, "PIONEER PATTERN • RSE DISCRETE TRANSPORT MODEL", INFO, 16, 80);
             formulaCard(g, discreteTransportEquation(), 105);
@@ -267,6 +286,147 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
         variableRole(g, "AUTHORITY", "policy", policy, "client presentation only", 206);
         wrappedText(g, sharedPioneerExplanation(), 16, 232, workspaceWidth() - 24,
                 menu.topologyValid() ? MUTED : BAD);
+    }
+
+    private boolean isSourceMediumIntegrityDevice() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_REFERENCE,
+                 FieldDeviceMenu.KIND_TERMINAL,
+                 FieldDeviceMenu.KIND_REDSTONE_CABLE,
+                 FieldDeviceMenu.KIND_REDSTONE_JUNCTION,
+                 FieldDeviceMenu.KIND_INSTRUMENT_CABLE,
+                 FieldDeviceMenu.KIND_SHIELDED_INSTRUMENT_CABLE,
+                 FieldDeviceMenu.KIND_DATA_BUS_8,
+                 FieldDeviceMenu.KIND_SERIAL_LINE,
+                 FieldDeviceMenu.KIND_DIFFERENTIAL_PAIR,
+                 FieldDeviceMenu.KIND_LAPIS_LINE,
+                 FieldDeviceMenu.KIND_LAPIS_SOURCE,
+                 FieldDeviceMenu.KIND_QUARTZ_LINE,
+                 FieldDeviceMenu.KIND_AMETHYST_DUST,
+                 FieldDeviceMenu.KIND_OPTICAL_FIBER,
+                 FieldDeviceMenu.KIND_OPTICAL_FIBER_JUNCTION -> true;
+            default -> false;
+        };
+    }
+
+    private String sourceMediumContract() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_REFERENCE ->
+                    "SOURCE: y_R = POWER ∈ [0,15]; configured zero remains VALID evidence";
+            case FieldDeviceMenu.KIND_LAPIS_SOURCE ->
+                    "SOURCE: y_L = VALUE ∈ [0,100] on one configured horizontal LAPIS output";
+            case FieldDeviceMenu.KIND_TERMINAL ->
+                    "BOUNDARY: mode selects VANILLA→CABLE or CABLE→VANILLA; valid zero ≠ no source";
+            case FieldDeviceMenu.KIND_REDSTONE_CABLE, FieldDeviceMenu.KIND_REDSTONE_JUNCTION ->
+                    "NETWORK: strongest attached source wins; cable hop P_next=max(0,P-1); source count retained";
+            case FieldDeviceMenu.KIND_LAPIS_LINE ->
+                    "NETWORK: one LAPIS source → value 0..100; multi-source=TOPOLOGY_ERROR; truncated scan=STALE";
+            case FieldDeviceMenu.KIND_QUARTZ_LINE ->
+                    "NETWORK: one clock source → active+period; multi-source=TOPOLOGY_ERROR; truncated scan=STALE";
+            case FieldDeviceMenu.KIND_INSTRUMENT_CABLE, FieldDeviceMenu.KIND_SHIELDED_INSTRUMENT_CABLE ->
+                    "BUS: 4 measurement channels; duplicate channel or truncated scan invalidates trustworthy evidence";
+            case FieldDeviceMenu.KIND_DATA_BUS_8 ->
+                    "BUS: payload is meaningful only with authoritative driver count + valid topology";
+            case FieldDeviceMenu.KIND_SERIAL_LINE ->
+                    "LINK: byte payload + frame timing + quality must be interpreted together";
+            case FieldDeviceMenu.KIND_DIFFERENTIAL_PAIR ->
+                    "LINK: logic payload is meaningful only with valid balanced-pair quality evidence";
+            case FieldDeviceMenu.KIND_AMETHYST_DUST ->
+                    "NETWORK: resonance amplitude/frequency require ACTIVE evidence; conflict/stale are not zero";
+            case FieldDeviceMenu.KIND_OPTICAL_FIBER, FieldDeviceMenu.KIND_OPTICAL_FIBER_JUNCTION ->
+                    "OPTICAL: intensity/channel require source + topology evidence; service-open means hard isolation";
+            default -> "SOURCE / MEDIUM INTEGRITY";
+        };
+    }
+
+    private String sourceMediumDomain() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_REFERENCE,
+                 FieldDeviceMenu.KIND_TERMINAL,
+                 FieldDeviceMenu.KIND_REDSTONE_CABLE,
+                 FieldDeviceMenu.KIND_REDSTONE_JUNCTION -> "REDSTONE / INSULATED_REDSTONE";
+            case FieldDeviceMenu.KIND_INSTRUMENT_CABLE,
+                 FieldDeviceMenu.KIND_SHIELDED_INSTRUMENT_CABLE -> "INSTRUMENT_BUS";
+            case FieldDeviceMenu.KIND_DATA_BUS_8 -> "DATA_BUS_8";
+            case FieldDeviceMenu.KIND_SERIAL_LINE -> "SERIAL_DATA";
+            case FieldDeviceMenu.KIND_DIFFERENTIAL_PAIR -> "DIFFERENTIAL_DATA";
+            case FieldDeviceMenu.KIND_LAPIS_LINE, FieldDeviceMenu.KIND_LAPIS_SOURCE -> "LAPIS_PRECISION";
+            case FieldDeviceMenu.KIND_QUARTZ_LINE -> "QUARTZ_TIMING";
+            case FieldDeviceMenu.KIND_AMETHYST_DUST -> "AMETHYST_RESONANCE";
+            default -> "OPTICAL";
+        };
+    }
+
+    private String sourceMediumPrimarySymbol() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_REFERENCE -> "POWER";
+            case FieldDeviceMenu.KIND_LAPIS_SOURCE -> "VALUE";
+            case FieldDeviceMenu.KIND_TERMINAL -> "signal";
+            case FieldDeviceMenu.KIND_QUARTZ_LINE -> "clock";
+            case FieldDeviceMenu.KIND_SHIELDED_INSTRUMENT_CABLE -> "shield coverage";
+            default -> metricLabel(0);
+        };
+    }
+
+    private String sourceMediumPrimaryValue() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_REFERENCE -> menu.primary() + " / 15";
+            case FieldDeviceMenu.KIND_LAPIS_SOURCE -> menu.primary() + " / 100";
+            case FieldDeviceMenu.KIND_TERMINAL -> menu.primary() + " / 15";
+            case FieldDeviceMenu.KIND_QUARTZ_LINE -> (menu.primary() != 0 ? "HIGH" : "LOW") + " • " + menu.secondary() + "t";
+            case FieldDeviceMenu.KIND_DATA_BUS_8 -> String.format("0x%02X", menu.primary() & 0xFF);
+            default -> metricValue(0, menu.primary());
+        };
+    }
+
+    private String sourceMediumPrimaryMeaning() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_REFERENCE -> "Redstone reference output";
+            case FieldDeviceMenu.KIND_LAPIS_SOURCE -> "precision source; ± changes by 5";
+            case FieldDeviceMenu.KIND_TERMINAL -> menu.tertiary() == 1 ? "cable-derived output" : "Vanilla-derived input";
+            case FieldDeviceMenu.KIND_REDSTONE_CABLE, FieldDeviceMenu.KIND_REDSTONE_JUNCTION -> "strongest-source propagated signal";
+            case FieldDeviceMenu.KIND_INSTRUMENT_CABLE, FieldDeviceMenu.KIND_SHIELDED_INSTRUMENT_CABLE -> "measurement-bus evidence";
+            default -> "authoritative server readback";
+        };
+    }
+
+    private String sourceOwnershipMeaning() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_REDSTONE_CABLE, FieldDeviceMenu.KIND_REDSTONE_JUNCTION,
+                 FieldDeviceMenu.KIND_LAPIS_LINE, FieldDeviceMenu.KIND_QUARTZ_LINE ->
+                    "source ownership evidence";
+            case FieldDeviceMenu.KIND_TERMINAL ->
+                    menu.tertiary() == 1 ? "cable source count" : "attached Vanilla source present";
+            case FieldDeviceMenu.KIND_DATA_BUS_8 -> "active drivers";
+            case FieldDeviceMenu.KIND_INSTRUMENT_CABLE -> "active channels";
+            case FieldDeviceMenu.KIND_SHIELDED_INSTRUMENT_CABLE -> "cable nodes in shielding audit";
+            default -> "not a source-counted medium";
+        };
+    }
+
+    private String sourceMediumAuthority() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_REFERENCE, FieldDeviceMenu.KIND_LAPIS_SOURCE -> "SERVER SOURCE CONFIG";
+            case FieldDeviceMenu.KIND_TERMINAL -> "SERVER BOUNDARY MODE";
+            default -> "OBSERVER • NETWORK SOLVER OWNS STATE";
+        };
+    }
+
+    private String sourceMediumExplanation() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_TERMINAL ->
+                    "Terminal source presence is explicit: an attached legitimate zero-valued Vanilla source remains different from an empty terminal. Switching direction invalidates cached power before recomputation.";
+            case FieldDeviceMenu.KIND_REDSTONE_CABLE, FieldDeviceMenu.KIND_REDSTONE_JUNCTION ->
+                    "Redstone cable keeps sourceCount as evidence. A truncated bounded traversal clears partial power/source evidence and reports STALE rather than publishing an incomplete answer.";
+            case FieldDeviceMenu.KIND_LAPIS_LINE, FieldDeviceMenu.KIND_QUARTZ_LINE ->
+                    "Source ownership and quality are synchronized from the server network. TOPOLOGY_ERROR means competing sources; STALE means the bounded scan could not prove a complete result.";
+            case FieldDeviceMenu.KIND_INSTRUMENT_CABLE, FieldDeviceMenu.KIND_SHIELDED_INSTRUMENT_CABLE ->
+                    "Instrument quality comes from the authoritative probe scan. Duplicate channels or truncated traversal are topology evidence, while shielding/interference confidence stays a separate deterministic metric.";
+            case FieldDeviceMenu.KIND_REFERENCE, FieldDeviceMenu.KIND_LAPIS_SOURCE ->
+                    "Configured zero is still a real source value. Source orientation and numeric value are server configuration, not inferred from neighboring signal.";
+            default ->
+                    "Interpret payload/value only together with synchronized PortQuality, source/driver evidence and physical topology.";
+        };
     }
 
     private boolean isDiscreteTransportDevice() {
@@ -528,6 +688,7 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             case FieldDeviceMenu.KIND_PROBE -> "Channel";
             case FieldDeviceMenu.KIND_FILTER -> "Slew";
             case FieldDeviceMenu.KIND_REFERENCE -> "Output";
+            case FieldDeviceMenu.KIND_LAPIS_SOURCE -> "Value";
             case FieldDeviceMenu.KIND_DIGITAL_REGENERATOR -> "Threshold";
             case FieldDeviceMenu.KIND_PRESSURE_REGULATOR -> "Setpoint";
             case FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE -> "Relief";
@@ -559,6 +720,7 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
 
     private String deviceRole() {
         if (menu.kind() == FieldDeviceMenu.KIND_REDSTONE_JUNCTION) return "ROUTER";
+        if (menu.kind() == FieldDeviceMenu.KIND_TERMINAL) return "BOUNDARY";
         if (isPassiveMedium()) return "PASSIVE MEDIUM";
         if (isObserver()) return "OBSERVER";
         if (isDirectionalConverter()) return "CONVERTER";
@@ -631,6 +793,8 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
         if (k == FieldDeviceMenu.KIND_QUARTZ_OSCILLATOR) return switch (slot) { case 0 -> "ACTIVE"; case 1 -> "PERIOD"; default -> "PERIOD IDX"; };
         if (k == FieldDeviceMenu.KIND_RANGE_SENSOR) return switch (slot) { case 0 -> "RANGE"; case 1 -> "OUTPUT"; default -> "LIMIT"; };
         if (k == FieldDeviceMenu.KIND_REFERENCE) return switch (slot) { case 0 -> "OUTPUT"; case 1 -> "QUALITY"; default -> "STATE"; };
+        if (k == FieldDeviceMenu.KIND_LAPIS_SOURCE) return switch (slot) { case 0 -> "LAPIS VALUE"; case 1 -> "OUTPUT FACE"; default -> "QUALITY"; };
+        if (k == FieldDeviceMenu.KIND_TERMINAL) return switch (slot) { case 0 -> "BOUNDARY SIGNAL"; case 1 -> "VANILLA INPUT"; default -> "MODE"; };
         if (k == FieldDeviceMenu.KIND_FILTER) return switch (slot) { case 0 -> "INPUT"; case 1 -> "OUTPUT"; default -> "SLEW"; };
         if (k == FieldDeviceMenu.KIND_PROBE) return switch (slot) { case 0 -> "SIGNAL"; case 1 -> "CHANNEL"; default -> "FACING"; };
         if (k >= FieldDeviceMenu.KIND_WATCHDOG && k <= FieldDeviceMenu.KIND_OPERATIONS_MONITOR) return switch (slot) { case 0 -> "PROCESS"; case 1 -> "STATUS"; default -> "SAFETY"; };
@@ -640,6 +804,21 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
 
     private String metricValue(int slot, int value) {
         int k = menu.kind();
+        if (k == FieldDeviceMenu.KIND_REFERENCE) {
+            if (slot == 0) return menu.primary() + " / 15";
+            if (slot == 1) return menu.evidenceQuality().name();
+            return facingName();
+        }
+        if (k == FieldDeviceMenu.KIND_LAPIS_SOURCE) {
+            if (slot == 0) return menu.primary() + " / 100";
+            if (slot == 1) return facingName();
+            return menu.evidenceQuality().name();
+        }
+        if (k == FieldDeviceMenu.KIND_TERMINAL) {
+            if (slot == 0) return menu.primary() + " / 15";
+            if (slot == 1) return menu.secondary() + " / 15";
+            return menu.tertiary() == 1 ? "CABLE → VANILLA" : "VANILLA → CABLE";
+        }
         if (k == FieldDeviceMenu.KIND_REDSTONE_CABLE) {
             if (slot == 0) return menu.primary() + " / 15";
             if (slot == 1) return Integer.toString(menu.connectionCount());
@@ -742,6 +921,7 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
     }
 
     private String controlValueText() {
+        if (menu.kind() == FieldDeviceMenu.KIND_LAPIS_SOURCE) return controlValue() + " / 100";
         if (menu.kind() == FieldDeviceMenu.KIND_INDUCTION_COIL) return controlValue() + " turns";
         if (menu.kind() == FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER) return "CH " + controlValue();
         if (menu.kind() == FieldDeviceMenu.KIND_OPTICAL_EMITTER) return controlValue() + " / 15";
@@ -787,6 +967,7 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
                  FieldDeviceMenu.KIND_QUARTZ_LINE,
                  FieldDeviceMenu.KIND_AMETHYST_DUST,
                  FieldDeviceMenu.KIND_OPTICAL_FIBER,
+                 FieldDeviceMenu.KIND_OPTICAL_FIBER_JUNCTION,
                  FieldDeviceMenu.KIND_SLIME_VIBRATION,
                  FieldDeviceMenu.KIND_HONEY_DAMPER,
                  FieldDeviceMenu.KIND_HYDRO_TUBE,
@@ -887,7 +1068,16 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
     }
 
     private String evidenceState() {
-        return menu.dataValid() ? "VALID • SERVER READBACK" : "NO SIGNAL / INVALID";
+        return switch (menu.evidenceQuality()) {
+            case VALID -> "VALID • SERVER READBACK";
+            case NO_SIGNAL -> "NO SIGNAL / INVALID";
+            case STALE -> "STALE • SERVER EVIDENCE INCOMPLETE";
+            case TOPOLOGY_ERROR -> "TOPOLOGY ERROR • CONFLICT / INVALID PATH";
+            case SATURATED -> "SATURATED • SERVER READBACK";
+            case NOT_READY -> "NOT READY • EVIDENCE PENDING";
+            case FAULT -> "FAULT • SERVER EVIDENCE";
+            case DOMAIN_MISMATCH -> "DOMAIN MISMATCH • FAIL-CLOSED";
+        };
     }
 
     private String communicationContract() {

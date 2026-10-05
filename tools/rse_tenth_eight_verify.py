@@ -113,9 +113,19 @@ require(
     "EdgeDetectorBlock.pulseRemaining",
     "RangeSensorBlock.lastScan",
     "scan.complete()",
-    "LapisSignalLineBlock.valid",
+    "LapisSignalLineBlock.quality",
+    "LapisSignalLineBlock.sourceCount",
+    "QuartzTimingLineBlock.quality",
+    "QuartzTimingLineBlock.sourceCount",
     "QuartzTimingLineBlock.period",
 )
+menu_body = read("src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java")
+if menu_body:
+    if "LapisSignalLineBlock.valid(level, blockPos)" in menu_body:
+        errors.append("FieldDeviceMenu should project authoritative Lapis PortQuality instead of flattening it back to boolean valid")
+    if "QuartzTimingLineBlock.valid(level, blockPos)" in menu_body:
+        errors.append("FieldDeviceMenu should project authoritative Quartz PortQuality instead of flattening it back to boolean valid")
+
 require(
     "src/main/java/dev/redstoneengineering/client/ui/FieldDeviceScreen.java",
     "NON-INVASIVE SIGNAL TAP",
@@ -172,8 +182,8 @@ print("RSE tenth-eight signal foundation verification: PASS")
 print("  edge detector / pulse shaper scheduled lifecycle: PASS")
 print("  three-port non-invasive Signal Tap contract: PASS")
 print("  Range Sensor aperture/output domain separation + complete-scan evidence: PASS")
-print("  four-way Lapis source/trace port contracts: PASS")
-print("  four-way Quartz oscillator/trace port contracts: PASS")
+print("  four-way Lapis source/trace + authoritative quality/source evidence: PASS")
+print("  four-way Quartz oscillator/trace + authoritative quality/source evidence: PASS")
 print("  split-island precision and timing cleanup: PASS")
 print("  Field Device Inspector projection kinds 55-62: PASS")
 print("  eight executable tenth-batch GameTests registered: PASS")

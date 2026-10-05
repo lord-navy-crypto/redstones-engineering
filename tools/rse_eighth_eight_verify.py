@@ -105,7 +105,12 @@ require(
     "KIND_REDUNDANT_VOTER = 44",
     "KIND_FAULT_LATCH = 45",
     "KIND_OPERATIONS_MONITOR = 46",
-    "InstrumentShieldingAudit.inspect",
+    "InstrumentNetwork.scan",
+    "shieldingCoveragePercent",
+    "shieldedCableNodes",
+    "unshieldedCableNodes",
+    "interferenceConfidencePercent",
+    "qualityForMask(0xF)",
     "WatchdogBlock.ageTicks",
     "ServoActuatorBlock.position",
     "RedundantVoterBlock.disagreementCount",
@@ -114,10 +119,28 @@ require(
 )
 menu_body = read("src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java")
 if menu_body:
-    shielded = menu_body.find("if (block instanceof ShieldedInstrumentCableBlock)")
-    generic = menu_body.find("if (block instanceof InstrumentCableBlock)")
+    # Match the actual refreshAuthoritativeSnapshot branches, not the later kindOf() table.
+    shielded = menu_body.find("block instanceof ShieldedInstrumentCableBlock cable")
+    generic = menu_body.find("block instanceof InstrumentCableBlock cable", shielded + 1)
     if shielded < 0 or generic < 0 or shielded > generic:
         errors.append("ShieldedInstrumentCableBlock must be matched before generic InstrumentCableBlock")
+
+    # Wave-8 shared-HMI refinement intentionally reuses one authoritative InstrumentNetwork scan
+    # for channel validity, shielding coverage and deterministic interference confidence. Preserve
+    # the original observer-only shielding contract without forcing a second graph traversal.
+    shield_block = menu_body[shielded:generic] if shielded >= 0 and generic > shielded else ""
+    for token in (
+        "InstrumentNetwork.scan(level, blockPos)",
+        "bus.shieldingCoveragePercent()",
+        "bus.shieldedCableNodes()",
+        "bus.unshieldedCableNodes()",
+        "bus.interferenceConfidencePercent()",
+        "bus.qualityForMask(0xF)",
+    ):
+        if token not in shield_block:
+            errors.append(f"Shielded Instrument Cable shared-HMI projection missing observer evidence {token!r}")
+    if "InstrumentShieldingAudit.inspect" in shield_block:
+        errors.append("Shielded Instrument Cable shared HMI should not duplicate the authoritative instrument graph scan")
 
 require(
     "src/main/java/dev/redstoneengineering/client/ui/FieldDeviceScreen.java",
@@ -192,7 +215,7 @@ if errors:
 print("RSE eighth-eight CPS reliability verification: PASS")
 print("  complete PID multi-port control topology: PASS")
 print("  watchdog heartbeat lifecycle + timeout diagnostics: PASS")
-print("  observer-only instrument shielding coverage audit: PASS")
+print("  observer-only instrument shielding coverage audit / single-scan projection: PASS")
 print("  first-class mechatronic-position feedback domain: PASS")
 print("  servo actuator/sensor lifecycle + electrical-isolation contracts: PASS")
 print("  edge-count voter disagreement + deterministic fault reset: PASS")
