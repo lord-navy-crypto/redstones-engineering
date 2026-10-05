@@ -341,9 +341,9 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
     private String discreteSecondarySymbol() {
         return switch (menu.kind()) {
             case FieldDeviceMenu.KIND_SCULK_INTERFACE -> "eventCount";
-            case FieldDeviceMenu.KIND_THERMAL_ENCODER,
-                 FieldDeviceMenu.KIND_THERMAL_RECEIVER,
-                 FieldDeviceMenu.KIND_PHONON_CONDUIT -> "packet_aux";
+            case FieldDeviceMenu.KIND_THERMAL_ENCODER -> "packet";
+            case FieldDeviceMenu.KIND_THERMAL_RECEIVER -> "y_R";
+            case FieldDeviceMenu.KIND_PHONON_CONDUIT -> "packet_aux";
             default -> "f_idx";
         };
     }
@@ -1010,6 +1010,15 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             case FieldDeviceMenu.KIND_OPTICAL_POWER_METER -> facingName() + " • OPTICAL PROBE";
             case FieldDeviceMenu.KIND_AMETHYST_SPECTRUM -> "LOCAL NETWORK • RESONANCE SPECTRUM";
             default -> facingName();
+        };
+    }
+
+    private static String hydroMedium(int medium) {
+        return switch (medium) {
+            case 0 -> "water";
+            case 1 -> "milk-model";
+            case 2 -> "lava";
+            default -> "unknown";
         };
     }
 
