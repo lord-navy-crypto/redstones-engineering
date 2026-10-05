@@ -30,6 +30,10 @@ copper = read("src/main/java/dev/redstoneengineering/client/ui/CopperCircuitMete
 ops = read("src/main/java/dev/redstoneengineering/client/ui/OperationsMonitorScreen.java")
 workcell = read("src/main/java/dev/redstoneengineering/client/ui/WorkcellControllerScreen.java")
 universal = read("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java")
+enhanced = read("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScreen.java")
+processor = read("src/main/java/dev/redstoneengineering/client/ui/SignalProcessorScreen.java")
+client_registration = read("src/main/java/dev/redstoneengineering/client/ui/EngineeringUiClientRegistration.java")
+field_menu = read("src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java")
 
 for token in (
     "Pioneer / Showcase blocks",
@@ -42,6 +46,7 @@ for token in (
     "Wave 2:",
     "Wave 3:",
     "Wave 4:",
+    "Wave 5:",
 ):
     if token not in doc:
         errors.append(f"Pioneer standard missing {token!r}")
@@ -203,6 +208,42 @@ for name, (text, tokens) in wave4.items():
     if "dev.redstoneengineering.physics" in text:
         errors.append(f"{name} imports physics directly; client screen must remain presentation-only")
 
+
+wave5 = {
+    "EnhancedFieldDeviceScreen.java": (enhanced, (
+        "PIONEER PATTERN • SHARED FIELD DEVICE",
+        "pioneerContract()",
+        "sharedPioneerExplanation()",
+        "TOPOLOGY: connected faces = physical graph edges; medium identity is preserved",
+        "OBSERVE: physical/process state → synchronized evidence; network drive = NONE",
+        "STATE: safety/process state is server-authoritative; invalid evidence fails closed",
+        '"AUTHORITY", "policy"',
+    )),
+    "SignalProcessorScreen.java": (processor, (
+        "PIONEER PATTERN • SIGNAL PROCESSOR MODEL",
+        "processorEquation()",
+        "y[n+1] = y[n] + clamp(x[n]-y[n], -r, +r)",
+        "e[n] = edge_mode(x[n-1], x[n]); e[n] ⇒ y=15 for 2 ticks",
+        "rising edge(x) ⇒ y=15 for W ticks; otherwise y=0",
+        "Observer readback never initializes or retriggers runtime state",
+    )),
+}
+
+for name, (text, tokens) in wave5.items():
+    for token in tokens:
+        if token not in text:
+            errors.append(f"{name} missing Wave-5 pioneer-rollout token {token!r}")
+    if "dev.redstoneengineering.physics" in text:
+        errors.append(f"{name} imports physics directly; client screen must remain presentation-only")
+
+registration_token = "event.register(EngineeringUiRegistration.FIELD_DEVICE.get(), EnhancedFieldDeviceScreen::new);"
+if registration_token not in client_registration:
+    errors.append("FIELD_DEVICE is no longer registered to the enhanced shared Pioneer inspector")
+
+kind_count = field_menu.count("public static final int KIND_")
+if kind_count < 79:
+    errors.append(f"expected FieldDeviceMenu taxonomy to retain at least 79 device kinds, found {kind_count}")
+
 formula_migrated = 0
 screens_dir = root / "src/main/java/dev/redstoneengineering/client/ui"
 if screens_dir.is_dir():
@@ -211,8 +252,8 @@ if screens_dir.is_dir():
         if "extends EngineeringScreen<" in text and "formulaCard(" in text:
             formula_migrated += 1
 
-if formula_migrated < 18:
-    errors.append(f"expected at least 18 formula-first EngineeringScreen families after Wave 4, found {formula_migrated}")
+if formula_migrated < 20:
+    errors.append(f"expected at least 20 formula-first EngineeringScreen families after Wave 5, found {formula_migrated}")
 
 if errors:
     print("RSE PIONEER SHOWCASE ROLLOUT VERIFY: FAIL")
@@ -225,5 +266,7 @@ print(" showcase pioneer references: low-pass / oscilloscope / PID PASS")
 print(" Wave 2 communication / pneumatic / optical / magnetic PASS")
 print(" Wave 3 amethyst / reliability / radio / metrology / operations PASS")
 print(" Wave 4 timing / copper / plant-state / workcell / universal-contract PASS")
+print(" Wave 5 shared field-device inspector / signal processors PASS")
+print(f" FieldDeviceMenu device-kind taxonomy: {kind_count}")
 print(f" formula-first EngineeringScreen families: {formula_migrated}")
-print(" no client-side second physics solver in Waves 2-4: PASS")
+print(" no client-side second physics solver in Waves 2-5: PASS")

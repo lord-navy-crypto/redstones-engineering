@@ -29,7 +29,7 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
 
     @Override
     protected void addDeviceWidgets() {
-        int y = topPos + 111;
+        int y = topPos + imageHeight - 66;
         minus = addConfigureWidget(Button.builder(Component.literal("−"), b -> sendMenuButton(FieldDeviceMenu.BUTTON_PRIMARY_DECREASE))
                 .bounds(leftPos + 16, y, 82, 20).build());
         plus = addConfigureWidget(Button.builder(Component.literal("+"), b -> sendMenuButton(FieldDeviceMenu.BUTTON_PRIMARY_INCREASE))
@@ -210,24 +210,73 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
                 : isObserver() ? "OBSERVER • READ-ONLY"
                 : isPassiveMedium() ? "PASSIVE MEDIUM • READ-ONLY"
                 : "READ-ONLY DEVICE";
-        statusBadge(g, policy, adjustable() ? INFO : MUTED, 16, 80);
-        labelValue(g, "Control axis", adjustmentLabel(), 102);
-        labelValue(g, "Current value", controlValueText(), 158);
-        if (menu.kind() == FieldDeviceMenu.KIND_REDSTONE_JUNCTION) {
-            safeText(g, "Junction Point has no conversion mode and no routing-mode toggle.", 16, 178, WARN);
-            safeText(g, "Its medium is inferred from UP/DOWN physical cables.", 16, 194, MUTED);
-        } else if (isObserver()) {
-            safeText(g, "Observer controls select what to measure; they never create network drive evidence.", 16, 178, INFO);
-            safeText(g, "Any sampled zero remains distinct from missing or invalid evidence.", 16, 194, MUTED);
-        } else if (isDirectionalProcessor()) {
-            safeText(g, "Processing parameter: " + processorParameter(), 16, 178, INFO);
-            safeText(g, "Input and output stay on an explicit directional processing path.", 16, 194, MUTED);
-        } else if (isPassiveMedium()) {
-            safeText(g, "Passive medium: continuity only; this screen never changes routing semantics.", 16, 178, INFO);
-            safeText(g, routingContract(), 16, 194, MUTED);
+        statusBadge(g, "PIONEER PATTERN • SHARED FIELD DEVICE", adjustable() ? INFO : MUTED, 16, 80);
+        formulaCard(g, pioneerContract(), 105);
+        variableRole(g, "ROLE", "device", deviceRole(), family(), 134);
+        if (adjustable()) {
+            variableRole(g, "ADJUSTABLE", adjustmentLabel(), controlValueText(), "server bounded", 152);
         } else {
-            safeText(g, "Buttons send intent to the server; this client never solves device physics.", 16, 184, MUTED);
+            variableRole(g, "MEASURED", metricLabel(0), metricValue(0, menu.primary()), "server snapshot", 152);
         }
+        variableRole(g, "EVIDENCE", "quality", menu.qualityPercent() + "%", evidenceState(), 170);
+        variableRole(g, "TOPOLOGY", "ports / links", menu.portCount() + " / " + menu.connectionCount(),
+                menu.topologyValid() ? "PASS" : "FAIL-CLOSED", 188);
+        variableRole(g, "AUTHORITY", "policy", policy, "client presentation only", 206);
+        wrappedText(g, sharedPioneerExplanation(), 16, 232, workspaceWidth() - 24,
+                menu.topologyValid() ? MUTED : BAD);
+    }
+
+    private String pioneerContract() {
+        if (menu.kind() == FieldDeviceMenu.KIND_REDSTONE_JUNCTION) {
+            return "TOPOLOGY: UP ↔ DOWN only; same medium; conversion = NONE";
+        }
+        if (isPassiveMedium()) {
+            return "TOPOLOGY: connected faces = physical graph edges; medium identity is preserved";
+        }
+        if (isObserver()) {
+            return "OBSERVE: physical/process state → synchronized evidence; network drive = NONE";
+        }
+        if (isDirectionalConverter()) {
+            return "BOUNDARY: " + converterInput() + " → " + converterOutput();
+        }
+        if (isDirectionalProcessor()) {
+            return "PROCESS: " + processorInput() + " → [" + processorFunction() + "] → " + processorOutput();
+        }
+        if (isCommunicationDevice()) {
+            return "LINK: payload is meaningful only with route + quality + source evidence";
+        }
+        if (family().equals("CPS / RELIABILITY")) {
+            return "STATE: safety/process state is server-authoritative; invalid evidence fails closed";
+        }
+        if (family().equals("PNEUMATIC")) {
+            return "PROCESS: command / inlet → server pneumatic solve → realized state";
+        }
+        if (family().equals("MAGNETIC")) {
+            return "FIELD: source / configuration → server field evidence; client does not solve B";
+        }
+        if (family().equals("OPTICAL")) {
+            return "OPTICAL: channel + intensity + topology → authoritative optical state";
+        }
+        return "CONTRACT: server state → synchronized HMI evidence; no hidden client physics";
+    }
+
+    private String sharedPioneerExplanation() {
+        if (menu.kind() == FieldDeviceMenu.KIND_REDSTONE_JUNCTION) {
+            return "Junction Point remains a same-medium vertical riser: no conversion mode, no routing-mode toggle, and mixed media fail closed.";
+        }
+        if (isObserver()) {
+            return "Observer controls can select what to measure, but never create network-drive evidence. A valid measured zero remains distinct from missing or invalid evidence.";
+        }
+        if (isPassiveMedium()) {
+            return "Passive media expose continuity, medium identity, links and quality. Open faces are not virtual ports and the HMI never translates one medium into another.";
+        }
+        if (isDirectionalProcessor()) {
+            return "The processing parameter is configuration; realized input/output and quality are evidence. Physical direction remains an explicit route, never an implied UI shortcut.";
+        }
+        if (isDirectionalConverter()) {
+            return "The conversion boundary is explicit: input and output domains stay distinct and the client only presents the server-authoritative result.";
+        }
+        return "Buttons express operator intent to the server. Runtime state, topology, quality and physical behavior remain authoritative outside the client screen.";
     }
 
     private void diagnostics(GuiGraphics g) {
