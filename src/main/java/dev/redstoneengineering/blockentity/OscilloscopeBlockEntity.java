@@ -334,6 +334,12 @@ public class OscilloscopeBlockEntity extends BlockEntity {
         return samples < 0 ? -1 : samples * samplePeriodTicks();
     }
 
+    /** Observed captured frequency in milliHertz; this cannot prove the source was alias-free. */
+    public int estimatedFrequencyMilliHz(int channel) {
+        int periodTicks = estimatedPeriodTicks(channel);
+        return periodTicks <= 0 ? -1 : (int) Math.round((NOMINAL_TICKS_PER_SECOND * 1000.0) / periodTicks);
+    }
+
     public String captureQuality(int channel) {
         if (!validChannel(channel) || count == 0) return "NO_DATA";
         int coverage = coveragePercent(channel);
