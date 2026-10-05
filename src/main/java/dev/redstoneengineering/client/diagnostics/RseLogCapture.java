@@ -2,6 +2,7 @@ package dev.redstoneengineering.client.diagnostics;
 
 import dev.redstoneengineering.diagnostics.RseDiagnosticSeverity;
 import dev.redstoneengineering.diagnostics.RseDiagnostics;
+import dev.redstoneengineering.diagnostics.RseLiveDiagnostics;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LogEvent;
@@ -46,6 +47,12 @@ public final class RseLogCapture {
                 "RSE diagnostic log capture enabled for this client session.",
                 null
         );
+        RseLiveDiagnostics.recordLogEvent(
+                RseDiagnosticSeverity.INFO,
+                "diagnostics",
+                "RSE diagnostic log capture enabled for this client session.",
+                null
+        );
     }
 
     private static final class RseAppender extends AbstractAppender {
@@ -62,7 +69,9 @@ public final class RseLogCapture {
             Throwable thrown = event.getThrown();
             if (!isRseRelated(loggerName, message, thrown)) return;
 
-            RseDiagnostics.record(mapSeverity(event.getLevel()), loggerName, message, thrown);
+            RseDiagnosticSeverity severity = mapSeverity(event.getLevel());
+            RseDiagnostics.record(severity, loggerName, message, thrown);
+            RseLiveDiagnostics.recordLogEvent(severity, loggerName, message, thrown);
         }
     }
 

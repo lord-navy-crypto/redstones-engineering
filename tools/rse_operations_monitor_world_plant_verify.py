@@ -15,6 +15,7 @@ def read(rel: str) -> str:
 
 
 assessment = read("src/main/java/dev/redstoneengineering/diagnostics/OperationWorldPlantStateAssessment.java")
+persistent = read("src/main/java/dev/redstoneengineering/diagnostics/OperationPersistentPlantRuntimeAssessment.java")
 menu = read("src/main/java/dev/redstoneengineering/ui/menu/OperationsMonitorMenu.java")
 screen = read("src/main/java/dev/redstoneengineering/client/ui/OperationsMonitorScreen.java")
 
@@ -41,7 +42,28 @@ for token in (
         errors.append(f"OperationWorldPlantStateAssessment missing world evidence token {token!r}")
 
 for token in (
+    "class OperationPersistentPlantRuntimeAssessment",
+    "OperationPlantSavedData.get",
+    "retainedJobs",
+    "activeJobs",
+    "completedJobs",
+    "queueEvents",
+    "qualityEvents",
+    "maintenanceEvents",
+    "deliveryEvents",
+    "logisticsEvents",
+    "onTimeDeliveries",
+    "lateDeliveries",
+    "firstPassYieldPercent",
+    "outstandingWithDueDate",
+    "overdueOutstandingJobs",
+):
+    if persistent and token not in persistent:
+        errors.append(f"OperationPersistentPlantRuntimeAssessment missing retained runtime token {token!r}")
+
+for token in (
     "OperationWorldPlantStateAssessment.inspect",
+    "OperationPersistentPlantRuntimeAssessment.inspect",
     "worldPlantCoverage",
     "worldPlantWorkcells",
     "worldPlantConfiguredWorkcells",
@@ -52,16 +74,20 @@ for token in (
     "worldPlantBoundResources",
     "worldPlantValidResources",
     "worldPlantFaultResources",
+    "persistentPlantCoverage",
+    "persistentPlantRetainedJobs",
+    "persistentPlantRetainedEvents",
+    "persistentPlantOnTimeDeliveries",
+    "persistentPlantLateDeliveries",
 ):
     if menu and token not in menu:
-        errors.append(f"OperationsMonitorMenu missing world plant synchronization {token!r}")
+        errors.append(f"OperationsMonitorMenu missing world/persistent plant synchronization {token!r}")
 
 for token in (
     "WORLD PLANT STATE",
     "Workcells configured",
     "Buffers / WIP",
     "Bound resources",
-    "Quality / reliability / delivery",
     "CONFIGURATION",
     "WIP PRESSURE",
     "RESOURCE HEALTH",
@@ -69,11 +95,17 @@ for token in (
     "configurationPercent",
     "resourceHealthPercent",
     "EVIDENCE COVERAGE",
+    "PERSISTENT PLANT RUNTIME",
+    "Jobs active / completed / retained",
+    "FPY/reject/rework",
+    "Due outstanding/overdue",
+    "OTD",
+    "Plant ledger Q/QC/PM/D/L",
 ):
     if screen and token not in screen:
-        errors.append(f"OperationsMonitorScreen missing world plant UI v2 token {token!r}")
+        errors.append(f"OperationsMonitorScreen missing world/persistent plant UI token {token!r}")
 
-combined = assessment + menu + screen
+combined = assessment + persistent + menu + screen
 for forbidden in (
     "OperationDispatchRuntime",
     "OperationQueueRuntime",
@@ -91,14 +123,13 @@ for forbidden in (
     if combined and forbidden in combined:
         errors.append(f"world-backed Operations Monitor must remain observer-only; found {forbidden!r}")
 
-for required in (
+for stale in (
     "PLANT KPIs • INCOMPLETE",
-    "— / — / —",
-    "— / —",
     "WITHHELD • EVIDENCE MISSING",
+    "Queue/job history is not persisted yet",
 ):
-    if screen and required not in screen:
-        errors.append(f"OperationsMonitorScreen must withhold unsupported plant KPIs; missing {required!r}")
+    if screen and stale in screen:
+        errors.append(f"OperationsMonitorScreen still claims obsolete missing persistence: {stale!r}")
 
 if errors:
     print("RSE OPERATIONS MONITOR WORLD PLANT VERIFY: FAIL")
@@ -111,5 +142,5 @@ print(" server-owned workcell/buffer/binding evidence visible in existing Operat
 print(" configuration/WIP/resource-health visual bars use existing synchronized evidence: PASS")
 print(" aggregate WIP/capacity derived from persisted Industrial Buffers: PASS")
 print(" resource validity/fault evidence derived from explicit workcell bindings: PASS")
-print(" unsupported queue/quality/reliability/delivery evidence remains withheld: PASS")
+print(" retained job/queue/quality/maintenance/delivery/logistics evidence visible read-only: PASS")
 print(" monitor control/mutation authority leakage: NONE")

@@ -134,6 +134,27 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
 sourceSets.main.resources.srcDir generateModMetadata
 neoForge.ideSyncTask generateModMetadata
 
+def generateValidationStructures = tasks.register("generateValidationStructures", Exec) {
+    group = "verification"
+    description = "Generate reusable RSE Validation Factory structure templates."
+    workingDir project.projectDir
+    commandLine "python3", "tools/rse_validation_factory.py", "generate"
+    inputs.file("tools/rse_validation_factory.py")
+    outputs.dir("src/generated/resources/data/redstoneengineering/structure/validation")
+}
+
+tasks.named("processResources").configure {
+    dependsOn(generateValidationStructures)
+}
+
+tasks.register("packageValidationWorld", Exec) {
+    group = "verification"
+    description = "Package an existing Minecraft-created RSE Validation Factory save."
+    dependsOn(generateValidationStructures)
+    workingDir project.projectDir
+    commandLine "python3", "tools/rse_validation_factory.py", "package", "--world", "run/saves/RSE Validation Factory"
+}
+
 publishing {
     publications {
         register('mavenJava', MavenPublication) {

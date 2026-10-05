@@ -6,6 +6,7 @@ import dev.redstoneengineering.diagnostics.CopperEvidenceAssessment;
 import dev.redstoneengineering.diagnostics.ElectricalReliabilityAssessment;
 import dev.redstoneengineering.diagnostics.IndustrialOperationsAssessment;
 import dev.redstoneengineering.diagnostics.OperationBottleneckAssessment;
+import dev.redstoneengineering.diagnostics.OperationPersistentPlantRuntimeAssessment;
 import dev.redstoneengineering.diagnostics.OperationPlantViewAssessment;
 import dev.redstoneengineering.diagnostics.OperationWorldPlantStateAssessment;
 import dev.redstoneengineering.diagnostics.OperationsDashboardSnapshot;
@@ -41,7 +42,7 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
     private final DataSlot queueEvidenceSources = trackedInt();
     private final DataSlot cycleEvidenceValid = trackedInt();
 
-    // Full plant KPIs remain withheld until queue/job/quality/reliability/delivery world evidence exists.
+    // Legacy composed Plant View stays conservative until every input assessment is supplied.
     private final DataSlot plantCoverage = trackedInt();
     private final DataSlot plantEvidenceAuthoritative = trackedInt();
     private final DataSlot plantBottleneckPresent = trackedInt();
@@ -54,6 +55,28 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
     private final DataSlot plantFailureCount = trackedInt();
     private final DataSlot plantOverdueOutstandingJobs = trackedInt();
     private final DataSlot plantOutstandingWithDueDate = trackedInt();
+
+    // Persistent Plant Runtime is independent world-backed evidence retained in OperationPlantSavedData.
+    private final DataSlot persistentPlantCoverage = trackedInt();
+    private final DataSlot persistentPlantRetainedJobs = trackedInt();
+    private final DataSlot persistentPlantActiveJobs = trackedInt();
+    private final DataSlot persistentPlantCompletedJobs = trackedInt();
+    private final DataSlot persistentPlantRetainedEvents = trackedInt();
+    private final DataSlot persistentPlantQueueEvents = trackedInt();
+    private final DataSlot persistentPlantQualityEvents = trackedInt();
+    private final DataSlot persistentPlantMaintenanceEvents = trackedInt();
+    private final DataSlot persistentPlantDeliveryEvents = trackedInt();
+    private final DataSlot persistentPlantLogisticsEvents = trackedInt();
+    private final DataSlot persistentPlantOnTimeDeliveries = trackedInt();
+    private final DataSlot persistentPlantLateDeliveries = trackedInt();
+    private final DataSlot persistentPlantUndatedDeliveries = trackedInt();
+    private final DataSlot persistentPlantOnTimeDeliveryPercent = trackedInt();
+    private final DataSlot persistentPlantFirstPassYieldPercent = trackedInt();
+    private final DataSlot persistentPlantRejectRatePercent = trackedInt();
+    private final DataSlot persistentPlantReworkRatePercent = trackedInt();
+    private final DataSlot persistentPlantMaintenanceFaultEvents = trackedInt();
+    private final DataSlot persistentPlantOutstandingWithDueDate = trackedInt();
+    private final DataSlot persistentPlantOverdueOutstandingJobs = trackedInt();
 
     // World Plant State uses only persisted workcell/buffer/binding evidence and is independently visible.
     private final DataSlot worldPlantCoverage = trackedInt();
@@ -133,8 +156,10 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
         OperationPlantViewAssessment.Snapshot plant = OperationPlantViewAssessment.inspect(
                 dashboard, null, null, null, null);
         boolean authoritativePlantEvidence = false;
-        OperationWorldPlantStateAssessment.Snapshot worldPlant = OperationWorldPlantStateAssessment.inspect(
-                level instanceof ServerLevel server ? server : null);
+        ServerLevel serverLevel = level instanceof ServerLevel server ? server : null;
+        OperationWorldPlantStateAssessment.Snapshot worldPlant = OperationWorldPlantStateAssessment.inspect(serverLevel);
+        OperationPersistentPlantRuntimeAssessment.Snapshot persistentPlant =
+                OperationPersistentPlantRuntimeAssessment.inspect(serverLevel);
 
         queue.set(operations.queueNow());
         throughput.set(operations.throughputCyclesPerMinute());
@@ -161,6 +186,27 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
         plantFailureCount.set(plant.failureCount());
         plantOverdueOutstandingJobs.set(plant.overdueOutstandingJobs());
         plantOutstandingWithDueDate.set(plant.outstandingWithDueDate());
+
+        persistentPlantCoverage.set(persistentPlant.coverage().ordinal());
+        persistentPlantRetainedJobs.set(persistentPlant.retainedJobs());
+        persistentPlantActiveJobs.set(persistentPlant.activeJobs());
+        persistentPlantCompletedJobs.set(persistentPlant.completedJobs());
+        persistentPlantRetainedEvents.set(persistentPlant.retainedEvents());
+        persistentPlantQueueEvents.set(persistentPlant.queueEvents());
+        persistentPlantQualityEvents.set(persistentPlant.qualityEvents());
+        persistentPlantMaintenanceEvents.set(persistentPlant.maintenanceEvents());
+        persistentPlantDeliveryEvents.set(persistentPlant.deliveryEvents());
+        persistentPlantLogisticsEvents.set(persistentPlant.logisticsEvents());
+        persistentPlantOnTimeDeliveries.set(persistentPlant.onTimeDeliveries());
+        persistentPlantLateDeliveries.set(persistentPlant.lateDeliveries());
+        persistentPlantUndatedDeliveries.set(persistentPlant.undatedDeliveries());
+        persistentPlantOnTimeDeliveryPercent.set(persistentPlant.onTimeDeliveryPercent());
+        persistentPlantFirstPassYieldPercent.set(persistentPlant.firstPassYieldPercent());
+        persistentPlantRejectRatePercent.set(persistentPlant.rejectRatePercent());
+        persistentPlantReworkRatePercent.set(persistentPlant.reworkRatePercent());
+        persistentPlantMaintenanceFaultEvents.set(persistentPlant.maintenanceFaultEvents());
+        persistentPlantOutstandingWithDueDate.set(persistentPlant.outstandingWithDueDate());
+        persistentPlantOverdueOutstandingJobs.set(persistentPlant.overdueOutstandingJobs());
 
         worldPlantCoverage.set(worldPlant.coverage().ordinal());
         worldPlantWorkcells.set(worldPlant.totalWorkcells());
@@ -265,6 +311,30 @@ public final class OperationsMonitorMenu extends EngineeringDeviceMenu {
     public int plantFailureCount() { return plantFailureCount.get(); }
     public int plantOverdueOutstandingJobs() { return plantOverdueOutstandingJobs.get(); }
     public int plantOutstandingWithDueDate() { return plantOutstandingWithDueDate.get(); }
+
+    public OperationPersistentPlantRuntimeAssessment.Coverage persistentPlantCoverage() {
+        OperationPersistentPlantRuntimeAssessment.Coverage[] values = OperationPersistentPlantRuntimeAssessment.Coverage.values();
+        return values[clampIndex(persistentPlantCoverage.get(), values.length)];
+    }
+    public int persistentPlantRetainedJobs() { return persistentPlantRetainedJobs.get(); }
+    public int persistentPlantActiveJobs() { return persistentPlantActiveJobs.get(); }
+    public int persistentPlantCompletedJobs() { return persistentPlantCompletedJobs.get(); }
+    public int persistentPlantRetainedEvents() { return persistentPlantRetainedEvents.get(); }
+    public int persistentPlantQueueEvents() { return persistentPlantQueueEvents.get(); }
+    public int persistentPlantQualityEvents() { return persistentPlantQualityEvents.get(); }
+    public int persistentPlantMaintenanceEvents() { return persistentPlantMaintenanceEvents.get(); }
+    public int persistentPlantDeliveryEvents() { return persistentPlantDeliveryEvents.get(); }
+    public int persistentPlantLogisticsEvents() { return persistentPlantLogisticsEvents.get(); }
+    public int persistentPlantOnTimeDeliveries() { return persistentPlantOnTimeDeliveries.get(); }
+    public int persistentPlantLateDeliveries() { return persistentPlantLateDeliveries.get(); }
+    public int persistentPlantUndatedDeliveries() { return persistentPlantUndatedDeliveries.get(); }
+    public int persistentPlantOnTimeDeliveryPercent() { return persistentPlantOnTimeDeliveryPercent.get(); }
+    public int persistentPlantFirstPassYieldPercent() { return persistentPlantFirstPassYieldPercent.get(); }
+    public int persistentPlantRejectRatePercent() { return persistentPlantRejectRatePercent.get(); }
+    public int persistentPlantReworkRatePercent() { return persistentPlantReworkRatePercent.get(); }
+    public int persistentPlantMaintenanceFaultEvents() { return persistentPlantMaintenanceFaultEvents.get(); }
+    public int persistentPlantOutstandingWithDueDate() { return persistentPlantOutstandingWithDueDate.get(); }
+    public int persistentPlantOverdueOutstandingJobs() { return persistentPlantOverdueOutstandingJobs.get(); }
 
     public OperationWorldPlantStateAssessment.Coverage worldPlantCoverage() {
         OperationWorldPlantStateAssessment.Coverage[] values = OperationWorldPlantStateAssessment.Coverage.values();

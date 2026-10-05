@@ -2,6 +2,9 @@ package dev.redstoneengineering.ui.menu;
 
 import dev.redstoneengineering.EngineeringSystemsModule;
 import dev.redstoneengineering.block.WorkcellControllerBlock;
+import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.operations.OperationResourceMaintenanceSnapshot;
+import dev.redstoneengineering.operations.world.OperationPlantSavedData;
 import dev.redstoneengineering.operations.world.OperationWorkcellStore;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import net.minecraft.core.BlockPos;
@@ -28,6 +31,10 @@ public final class WorkcellControllerMenu extends EngineeringDeviceMenu {
     private final DataSlot outputWipPressurePercent = trackedInt();
     private final DataSlot setup = trackedInt();
     private final DataSlot maintenance = trackedInt();
+    private final DataSlot maintenanceReadyResources = trackedInt();
+    private final DataSlot maintenanceDueResources = trackedInt();
+    private final DataSlot maintenanceInProgressResources = trackedInt();
+    private final DataSlot maintenanceFaultResources = trackedInt();
 
     public WorkcellControllerMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
         this(containerId, inventory, data.readBlockPos());
@@ -40,12 +47,16 @@ public final class WorkcellControllerMenu extends EngineeringDeviceMenu {
         queuePressure.set(-1);
         setup.set(0);
         maintenance.set(0);
+        maintenanceReadyResources.set(0);
+        maintenanceDueResources.set(0);
+        maintenanceInProgressResources.set(0);
+        maintenanceFaultResources.set(0);
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
     }
 
     @Override
     protected void refreshAuthoritativeSnapshot() {
-        if (!(level instanceof ServerLevel)) return;
+        if (!(level instanceof ServerLevel server)) return;
         WorkcellControllerBlock.Snapshot snapshot = WorkcellControllerBlock.inspect(level, blockPos);
         boundResources.set(snapshot.boundResources());
         validResources.set(snapshot.validResources());
@@ -60,12 +71,42 @@ public final class WorkcellControllerMenu extends EngineeringDeviceMenu {
         inputWipPressurePercent.set(snapshot.inputWipPressurePercent());
         outputWipPressurePercent.set(snapshot.outputWipPressurePercent());
 
-        // These stay explicitly unavailable until their server-owned world state exists.
         // Running resources are not silently relabeled as active Operations assignments.
+        // Setup remains unavailable until a server-owned world setup state exists.
         activeAssignments.set(-1);
         queuePressure.set(snapshot.capacityEvidenceAvailable() ? snapshot.queuePressure() : -1);
         setup.set(0);
-        maintenance.set(0);
+
+        OperationPlantSavedData plant = OperationPlantSavedData.get(server);
+        int validMaintenanceEvidence = 0;
+        int ready = 0;
+        int due = 0;
+        int inProgress = 0;
+        int maintenanceFaults = 0;
+        for (OperationWorkcellStore.ResolvedResource resolved :
+                OperationWorkcellStore.resolveBoundResources(server, workcellId())) {
+            if (resolved.snapshot() == null) continue;
+            OperationResourceMaintenanceSnapshot resourceMaintenance =
+                    plant.maintenanceSnapshot(resolved.snapshot().resourceId());
+            if (resourceMaintenance == null || resourceMaintenance.evidenceQuality() != PortQuality.VALID) continue;
+            validMaintenanceEvidence++;
+            if (resourceMaintenance.faultActive()
+                    || resourceMaintenance.state() == OperationResourceMaintenanceSnapshot.State.FAULTED) {
+                maintenanceFaults++;
+                continue;
+            }
+            switch (resourceMaintenance.state()) {
+                case AVAILABLE -> ready++;
+                case MAINTENANCE_DUE -> due++;
+                case IN_PROGRESS -> inProgress++;
+                case FAULTED -> maintenanceFaults++;
+            }
+        }
+        maintenance.set(snapshot.boundResources() > 0 && validMaintenanceEvidence == snapshot.boundResources() ? 1 : 0);
+        maintenanceReadyResources.set(ready);
+        maintenanceDueResources.set(due);
+        maintenanceInProgressResources.set(inProgress);
+        maintenanceFaultResources.set(maintenanceFaults);
     }
 
     public String workcellId() { return WorkcellControllerBlock.workcellId(blockPos); }
@@ -84,6 +125,10 @@ public final class WorkcellControllerMenu extends EngineeringDeviceMenu {
     public int outputWipPressurePercent() { return outputWipPressurePercent.get(); }
     public boolean setupEvidenceAvailable() { return setup.get() != 0; }
     public boolean maintenanceEvidenceAvailable() { return maintenance.get() != 0; }
+    public int maintenanceReadyResources() { return maintenanceReadyResources.get(); }
+    public int maintenanceDueResources() { return maintenanceDueResources.get(); }
+    public int maintenanceInProgressResources() { return maintenanceInProgressResources.get(); }
+    public int maintenanceFaultResources() { return maintenanceFaultResources.get(); }
 
     public String admissionReason() {
         return switch (admissionCode.get()) {
