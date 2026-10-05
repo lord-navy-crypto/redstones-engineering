@@ -171,6 +171,24 @@ Wave 9 moves Pioneer quality from block-by-block evidence into an explicit syste
 The trial follows BASELINE → intervention/change → wait for trustworthy response → CANDIDATE → compare.
 It is an evidence workflow, not a second control solver.
 
+Wave 10:
+- Autonomous Mobile Robot mission commissioning
+- Diagnostic Tablet entity evidence
+
+Wave 10 extends the explicit experiment pattern from PID control into world-running robotics:
+- AMR mission telemetry records only existing lifecycle boundaries: duration, motion/stationary time, obstacle waits, degraded entries, safe stops, faults, route rejects, dock/material holds, waypoint count and worst localization
+- counters are observer-only and never participate in motion, planning, docking or safety decisions
+- mission runs are frozen only after COMPLETE or terminal FAULT evidence
+- Shift+right-clicking an AMR with the Diagnostic Tablet captures BASELINE then CANDIDATE; a completed pair rolls over to a new baseline
+- baseline/candidate must belong to the same robot, and different start/final-target paths are INCOMPARABLE rather than being ranked by speed
+- safety/fault/localization evidence outranks duration in the deterministic comparison
+- ordinary right-click captures a live AMR observer snapshot without assigning a new target
+- the Diagnostic Tablet is now a responsive, vertically scrollable retained-evidence workspace for both block and robot evidence
+
+The robotics trial is deliberately not a real-world ISO compliance claim. ISO 3691-4 and VDA 5050
+inform the separation of safety, mission/status, route and localization evidence, while RSE reports
+only the bounded evidence actually implemented by its Minecraft runtime.
+
 Future waves should prioritize remaining EngineeringScreen families that still lack explicit model
 or variable-role presentation. The target is broad consistency with specialization, not identical
 screens.
