@@ -134,6 +134,8 @@ public final class LapisLowPassMenu extends EngineeringDeviceMenu {
     public static boolean bypassForIndex(int index) { return EngineeringParameterProfile.lapisFilterBypass(index); }
     public static double timeConstantTicksForIndex(int index) { return EngineeringParameterProfile.lapisFilterTimeConstantTicks(index); }
     public static double cutoffHzForIndex(int index) { return EngineeringParameterProfile.lapisFilterCutoffHzNominal(index); }
+    public static double discreteCutoffHzForIndex(int index) { return EngineeringParameterProfile.lapisFilterDiscreteCutoffHzNominal(index); }
+    public static double nyquistHz() { return EngineeringParameterProfile.lapisFilterNyquistHzNominal(); }
 
     public PortQuality inputQuality() {
         return quality(inputQuality.get());
