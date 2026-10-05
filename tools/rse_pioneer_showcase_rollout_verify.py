@@ -40,6 +40,8 @@ client_registration = read("src/main/java/dev/redstoneengineering/client/ui/Engi
 field_menu = read("src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java")
 tablet = read("src/main/java/dev/redstoneengineering/client/ui/DiagnosticTabletScreen.java")
 robot = read("src/main/java/dev/redstoneengineering/entity/EngineeringMobileRobotEntity.java")
+ops_robot_acceptance = read("src/main/java/dev/redstoneengineering/integration/OperationsRobotMaterialFlowAcceptance.java")
+transport_binding = read("src/main/java/dev/redstoneengineering/integration/OperationTransportBinding.java")
 
 for token in (
     "Pioneer / Showcase blocks",
@@ -58,6 +60,7 @@ for token in (
     "Wave 8:",
     "Wave 9:",
     "Wave 10:",
+    "Wave 11:",
 ):
     if token not in doc:
         errors.append(f"Pioneer standard missing {token!r}")
@@ -338,6 +341,25 @@ for token in (
     if token not in robot:
         errors.append(f"EngineeringMobileRobotEntity missing Wave-10 token {token!r}")
 
+for token in (
+    "END_TO_END_ACCEPTED",
+    "END_TO_END_ACCEPTED_WITH_RECOVERED_HOLDS",
+    "LOAD_TRANSFER_CORRELATION_MISMATCH",
+    "PAYLOAD_CORRELATION_MISMATCH",
+    "UNLOAD_TRANSFER_CORRELATION_MISMATCH",
+):
+    if token not in ops_robot_acceptance:
+        errors.append(f"OperationsRobotMaterialFlowAcceptance missing Wave-11 token {token!r}")
+
+for token in (
+    "correlationKey()",
+    "payloadId()",
+    "loadTransferId()",
+    "unloadTransferId()",
+):
+    if token not in transport_binding:
+        errors.append(f"OperationTransportBinding missing Wave-11 token {token!r}")
+
 registration_token = "event.register(EngineeringUiRegistration.FIELD_DEVICE.get(), EnhancedFieldDeviceScreen::new);"
 if registration_token not in client_registration:
     errors.append("FIELD_DEVICE is no longer registered to the enhanced shared Pioneer inspector")
@@ -374,6 +396,7 @@ print(" Wave 7 range / conditioning / quartz / media-conversion contracts PASS")
 print(" Wave 8 full FieldDevice source / medium integrity closure PASS")
 print(" Wave 9 explicit PID baseline / candidate commissioning trial PASS")
 print(" Wave 10 AMR mission telemetry / Diagnostic Tablet trial PASS")
+print(" Wave 11 Operations → AMR end-to-end material-flow acceptance PASS")
 print(f" FieldDeviceMenu device-kind taxonomy: {kind_count}")
 print(f" formula-first EngineeringScreen families: {formula_migrated}")
-print(" no client-side second physics/robotics solver in Waves 2-10: PASS")
+print(" no client-side second physics/robotics solver in Waves 2-11: PASS")
