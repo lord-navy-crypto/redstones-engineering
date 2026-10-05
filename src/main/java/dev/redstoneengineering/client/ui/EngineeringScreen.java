@@ -386,6 +386,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         super.containerTick();
         syncDeviceWidgetLabels();
         syncRouteControls();
+        clampScroll();
     }
 
     @Override
