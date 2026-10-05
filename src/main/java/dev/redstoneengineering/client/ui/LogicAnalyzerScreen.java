@@ -54,7 +54,11 @@ public final class LogicAnalyzerScreen extends EngineeringScreen<LogicAnalyzerMe
     }
 
     private void renderConfigure(GuiGraphics graphics) {
-        labelValue(graphics, "Digital threshold", menu.threshold() + " / 15", 80);
+        statusBadge(graphics, "PIONEER PATTERN • DIGITAL TIMING MODEL", INFO, 16, 80);
+        formulaCard(graphics, "q[n] = (x[n] >= T) ? HIGH : LOW", 105);
+        variableRole(graphics, "MEASURED", "x[n]", "server capture", "0..15", 134);
+        variableRole(graphics, "ADJUSTABLE", "T", menu.threshold() + "", "redstone 0..15", 152);
+        variableRole(graphics, "EVIDENCE", "capture", menu.sampleCount() + "/32 • " + captureCoverage() + "% valid", "", 170);
         labelValue(graphics, "Trigger channel", "CH " + channelName(menu.triggerChannel()), 95);
         labelValue(graphics, "Trigger edge", edgeName(menu.triggerEdge()), 110);
         labelValue(graphics, "Cursors", "A=" + menu.cursorA() + " B=" + menu.cursorB(), 125);

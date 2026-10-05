@@ -73,7 +73,7 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
     }
 
     private void renderConfigure(GuiGraphics graphics) {
-        statusBadge(graphics, "FORMULA-FIRST SERVER CONTROL", INFO, 16, 80);
+        statusBadge(graphics, "PIONEER PATTERN • CONDITIONING MODEL", INFO, 16, 80);
         formulaCard(graphics, governingEquation(), 105);
         variableRole(graphics, "MEASURED", "x", menu.input() + " / 15", "redstone", 134);
         variableRole(graphics, "ADJUSTABLE", parameterSymbol(menu.mode()), parameterText(menu.mode(), menu.parameter()), parameterRange(menu.mode()), 152);

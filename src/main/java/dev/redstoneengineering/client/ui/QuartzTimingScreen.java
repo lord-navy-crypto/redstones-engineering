@@ -89,7 +89,7 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
     }
 
     private void configure(GuiGraphics g) {
-        statusBadge(g, "FORMULA-FIRST TIMING MODEL", INFO, 16, 80);
+        statusBadge(g, "PIONEER PATTERN • TIMING MODEL", INFO, 16, 80);
         formulaCard(g, timingEquation(), 105);
         if (menu.kind() == QuartzTimingMenu.KIND_OSCILLATOR) {
             variableRole(g, "ADJUSTABLE", "T", menu.secondary() + "", "ticks", 134);

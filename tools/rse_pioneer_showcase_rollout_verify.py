@@ -25,6 +25,9 @@ reliability = read("src/main/java/dev/redstoneengineering/client/ui/ReliabilityS
 radio = read("src/main/java/dev/redstoneengineering/client/ui/RadioLinkScreen.java")
 analyzer = read("src/main/java/dev/redstoneengineering/client/ui/SignalAnalyzerScreen.java")
 buffer = read("src/main/java/dev/redstoneengineering/client/ui/IndustrialBufferScreen.java")
+logic = read("src/main/java/dev/redstoneengineering/client/ui/LogicAnalyzerScreen.java")
+quartz = read("src/main/java/dev/redstoneengineering/client/ui/QuartzTimingScreen.java")
+conditioner = read("src/main/java/dev/redstoneengineering/client/ui/SignalConditionerScreen.java")
 
 for token in (
     "Pioneer / Showcase blocks",
@@ -151,6 +154,36 @@ for name, (text, tokens) in wave3.items():
     if "dev.redstoneengineering.physics" in text:
         errors.append(f"{name} imports physics directly; client screen must remain presentation-only")
 
+wave4 = {
+    "LogicAnalyzerScreen.java": (logic, (
+        "PIONEER PATTERN • DIGITAL TIMING MODEL",
+        "q[n] = (x[n] >= T) ? HIGH : LOW",
+        '"MEASURED", "x[n]"',
+        '"ADJUSTABLE", "T"',
+        '"EVIDENCE", "capture"',
+    )),
+    "QuartzTimingScreen.java": (quartz, (
+        "PIONEER PATTERN • TIMING MODEL",
+        "T_out = N · T_in",
+        '"MEASURED", "T_in"',
+        '"ADJUSTABLE", "N"',
+        '"EVIDENCE", "expected"',
+    )),
+    "SignalConditionerScreen.java": (conditioner, (
+        "PIONEER PATTERN • CONDITIONING MODEL",
+        "governingEquation()",
+        '"MEASURED", "x"',
+        '"ADJUSTABLE", parameterSymbol',
+        '"EVIDENCE", "boundary"',
+    )),
+}
+for name, (screen, tokens) in wave4.items():
+    for token in tokens:
+        if token not in screen:
+            errors.append(f"{name} missing Wave-4 pioneer-rollout token {token!r}")
+    if "dev.redstoneengineering.physics" in screen:
+        errors.append(f"{name} imports physics directly; client screen must remain presentation-only")
+
 formula_migrated = 0
 screens_dir = root / "src/main/java/dev/redstoneengineering/client/ui"
 if screens_dir.is_dir():
@@ -159,7 +192,7 @@ if screens_dir.is_dir():
         if "extends EngineeringScreen<" in text and "formulaCard(" in text:
             formula_migrated += 1
 
-if formula_migrated < 13:
+if formula_migrated < 16:
     errors.append(f"expected at least 13 formula-first EngineeringScreen families after Wave 3, found {formula_migrated}")
 
 if errors:
@@ -172,5 +205,6 @@ print("RSE PIONEER SHOWCASE ROLLOUT VERIFY: PASS")
 print(" showcase pioneer references: low-pass / oscilloscope / PID PASS")
 print(" Wave 2 communication / pneumatic / optical / magnetic PASS")
 print(" Wave 3 amethyst / reliability / radio / metrology / operations PASS")
+print(" Wave 4 logic timing / quartz timing / signal conditioning PASS")
 print(f" formula-first EngineeringScreen families: {formula_migrated}")
 print(" no client-side second physics solver in Waves 2-3: PASS")
