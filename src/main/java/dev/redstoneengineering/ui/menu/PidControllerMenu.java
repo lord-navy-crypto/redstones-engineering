@@ -6,6 +6,9 @@ import dev.redstoneengineering.block.PidControllerBlock;
 import dev.redstoneengineering.diagnostics.ClosedLoopCommissioning;
 import dev.redstoneengineering.diagnostics.CommissioningSnapshot;
 import dev.redstoneengineering.diagnostics.CommissioningStatus;
+import dev.redstoneengineering.diagnostics.CommissioningTrialComparison;
+import dev.redstoneengineering.diagnostics.CommissioningTrialRecord;
+import dev.redstoneengineering.diagnostics.CommissioningTrialStore;
 import dev.redstoneengineering.diagnostics.PidTelemetryStore;
 import dev.redstoneengineering.diagnostics.PneumaticClosedLoopWitness;
 import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceRecord;
@@ -33,6 +36,9 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_OUTPUT_NEXT = 5;
     public static final int BUTTON_CAPTURE_ACCEPTANCE = 6;
     public static final int BUTTON_RESET_RUNTIME_TREND = 7;
+    public static final int BUTTON_TRIAL_BASELINE = 8;
+    public static final int BUTTON_TRIAL_CANDIDATE = 9;
+    public static final int BUTTON_TRIAL_CLEAR = 10;
     public static final int TREND_SAMPLES = PidTelemetryStore.MAX_SAMPLES_PER_CONTROLLER;
 
     private final DataSlot tuning = trackedInt();
@@ -77,6 +83,17 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     private final DataSlot comparisonTrend = trackedInt();
     private final DataSlot scoreDelta = trackedInt();
     private final DataSlot topologyIssueDelta = trackedInt();
+
+    private final DataSlot trialBaselineSequence = trackedInt();
+    private final DataSlot trialCandidateSequence = trackedInt();
+    private final DataSlot trialTrend = trackedInt();
+    private final DataSlot trialRobust = trackedInt();
+    private final DataSlot trialScoreDelta = trackedInt();
+    private final DataSlot trialSettlingDelta = trackedInt();
+    private final DataSlot trialOvershootDelta = trackedInt();
+    private final DataSlot trialSaturationDelta = trackedInt();
+    private final DataSlot trialTopologyIssueDelta = trackedInt();
+
     private final DataSlot trendCount = trackedInt();
     private final DataSlot[] trend = trackedInts(TREND_SAMPLES);
 
@@ -157,6 +174,30 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
             topologyIssueDelta.set(comparison.topologyIssueDelta());
         });
 
+        trialBaselineSequence.set(0);
+        trialCandidateSequence.set(0);
+        trialTrend.set(-1);
+        trialRobust.set(0);
+        trialScoreDelta.set(0);
+        trialSettlingDelta.set(0);
+        trialOvershootDelta.set(0);
+        trialSaturationDelta.set(0);
+        trialTopologyIssueDelta.set(0);
+
+        CommissioningTrialStore.baseline(level, blockPos).ifPresent(record ->
+                trialBaselineSequence.set((int) Math.min(Integer.MAX_VALUE, record.sequence())));
+        CommissioningTrialStore.candidate(level, blockPos).ifPresent(record ->
+                trialCandidateSequence.set((int) Math.min(Integer.MAX_VALUE, record.sequence())));
+        CommissioningTrialStore.comparison(level, blockPos).ifPresent(comparison -> {
+            trialTrend.set(comparison.trend().ordinal());
+            trialRobust.set(comparison.robust() ? 1 : 0);
+            trialScoreDelta.set(comparison.scoreDelta());
+            trialSettlingDelta.set(comparison.settlingDeltaTicks());
+            trialOvershootDelta.set(comparison.overshootDelta());
+            trialSaturationDelta.set(comparison.saturationDelta());
+            trialTopologyIssueDelta.set(comparison.topologyIssueDelta());
+        });
+
         List<Integer> samples = PidTelemetryStore.snapshot(level, blockPos);
         int count = Math.min(TREND_SAMPLES, samples.size());
         int pad = TREND_SAMPLES - count;
@@ -176,6 +217,12 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
             changed = PidControllerBlock.captureAcceptanceEvidence(level, blockPos) != null;
         } else if (id == BUTTON_RESET_RUNTIME_TREND) {
             changed = PidControllerBlock.resetRuntimeAndTrend(level, blockPos);
+        } else if (id == BUTTON_TRIAL_BASELINE) {
+            changed = PidControllerBlock.captureCommissioningTrialBaseline(level, blockPos) != null;
+        } else if (id == BUTTON_TRIAL_CANDIDATE) {
+            changed = PidControllerBlock.captureCommissioningTrialCandidate(level, blockPos) != null;
+        } else if (id == BUTTON_TRIAL_CLEAR) {
+            changed = PidControllerBlock.clearCommissioningTrial(level, blockPos);
         } else if (id == BUTTON_INPUT_PREVIOUS || id == BUTTON_INPUT_NEXT) {
             changed = DirectionalSignalBlock.rotateSeriesInput(level, blockPos, id == BUTTON_INPUT_NEXT);
         } else if (id == BUTTON_OUTPUT_PREVIOUS || id == BUTTON_OUTPUT_NEXT) {
@@ -233,6 +280,21 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     public int latestAcceptanceScore() { return latestAcceptanceScore.get(); }
     public int scoreDelta() { return scoreDelta.get(); }
     public int topologyIssueDelta() { return topologyIssueDelta.get(); }
+
+    public int trialBaselineSequence() { return trialBaselineSequence.get(); }
+    public int trialCandidateSequence() { return trialCandidateSequence.get(); }
+    public boolean trialRobust() { return trialRobust.get() != 0; }
+    public int trialScoreDelta() { return trialScoreDelta.get(); }
+    public int trialSettlingDelta() { return trialSettlingDelta.get(); }
+    public int trialOvershootDelta() { return trialOvershootDelta.get(); }
+    public int trialSaturationDelta() { return trialSaturationDelta.get(); }
+    public int trialTopologyIssueDelta() { return trialTopologyIssueDelta.get(); }
+    public AcceptanceEvidenceTrend trialTrend() {
+        AcceptanceEvidenceTrend[] values = AcceptanceEvidenceTrend.values();
+        int index = trialTrend.get();
+        return index >= 0 && index < values.length ? values[index] : null;
+    }
+
     public int trendCount() { return trendCount.get(); }
 
     public EngineeringAcceptanceStatus latestAcceptanceStatus() {

@@ -54,6 +54,7 @@ for token in (
     "Wave 6:",
     "Wave 7:",
     "Wave 8:",
+    "Wave 9:",
 ):
     if token not in doc:
         errors.append(f"Pioneer standard missing {token!r}")
@@ -81,6 +82,9 @@ for token in (
     "Capture acceptance",
     "historyCount()",
     "AcceptanceEvidenceTrend",
+    "PIONEER WORKFLOW • CLOSED-LOOP COMMISSIONING TRIAL",
+    "Trial baseline",
+    "Trial candidate",
 ):
     if token not in pid:
         errors.append(f"PID pioneer missing acceptance-evidence token {token!r}")
@@ -348,6 +352,7 @@ print(" Wave 5 shared field-device inspector / signal processors PASS")
 print(" Wave 6 discrete mechanical / hydro / Sculk / thermal transport PASS")
 print(" Wave 7 range / conditioning / quartz / media-conversion contracts PASS")
 print(" Wave 8 full FieldDevice source / medium integrity closure PASS")
+print(" Wave 9 explicit PID baseline / candidate commissioning trial PASS")
 print(f" FieldDeviceMenu device-kind taxonomy: {kind_count}")
 print(f" formula-first EngineeringScreen families: {formula_migrated}")
-print(" no client-side second physics solver in Waves 2-8: PASS")
+print(" no client-side second physics solver in Waves 2-9: PASS")

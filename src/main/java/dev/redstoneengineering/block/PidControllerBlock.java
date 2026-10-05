@@ -10,6 +10,8 @@ import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.diagnostics.ClosedLoopCommissioning;
 import dev.redstoneengineering.diagnostics.CommissioningSnapshot;
+import dev.redstoneengineering.diagnostics.CommissioningTrialRecord;
+import dev.redstoneengineering.diagnostics.CommissioningTrialStore;
 import dev.redstoneengineering.diagnostics.PidTelemetryStore;
 import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceComparison;
 import dev.redstoneengineering.diagnostics.acceptance.AcceptanceEvidenceRecord;
@@ -323,6 +325,7 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
             RuntimeIntStore.remove(level, KEY, pos);
             PidTelemetryStore.clear(level, pos);
             AcceptanceEvidenceStore.clear(level, pos);
+            CommissioningTrialStore.clear(level, pos);
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
     }
@@ -370,11 +373,62 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
         if (level.isClientSide) return null;
         BlockState state = level.getBlockState(pos);
         if (!(state.getBlock() instanceof PidControllerBlock)) return null;
-        TopologyVisualizationSnapshot topology = EngineeringTopologyView.inspect(level, pos, state);
         CommissioningSnapshot commissioning = ClosedLoopCommissioning.inspectPid(level, pos);
-        EngineeringAcceptanceSnapshot acceptance = EngineeringAcceptance.evaluate(topology, commissioning);
+        EngineeringAcceptanceSnapshot acceptance = acceptanceSnapshot(level, pos, state, commissioning);
         return AcceptanceEvidenceStore.capture(
                 level, pos, level.getGameTime(), state.getValue(TUNING), acceptance);
+    }
+
+    /** Starts a new explicit baseline→candidate commissioning trial from current authoritative evidence. */
+    public static CommissioningTrialRecord captureCommissioningTrialBaseline(Level level, BlockPos pos) {
+        if (level.isClientSide) return null;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof PidControllerBlock)) return null;
+        CommissioningSnapshot commissioning = ClosedLoopCommissioning.inspectPid(level, pos);
+        if (!trialEvidenceReady(commissioning)) return null;
+        EngineeringAcceptanceSnapshot acceptance = acceptanceSnapshot(level, pos, state, commissioning);
+        return CommissioningTrialStore.captureBaseline(
+                level, pos, level.getGameTime(), state.getValue(TUNING), commissioning, acceptance);
+    }
+
+    /**
+     * Captures the candidate side of the active commissioning trial.
+     * No candidate is created until a baseline has explicitly been captured.
+     */
+    public static CommissioningTrialRecord captureCommissioningTrialCandidate(Level level, BlockPos pos) {
+        if (level.isClientSide) return null;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof PidControllerBlock)) return null;
+        CommissioningSnapshot commissioning = ClosedLoopCommissioning.inspectPid(level, pos);
+        if (!trialEvidenceReady(commissioning)) return null;
+        EngineeringAcceptanceSnapshot acceptance = acceptanceSnapshot(level, pos, state, commissioning);
+        return CommissioningTrialStore.captureCandidate(
+                level, pos, level.getGameTime(), state.getValue(TUNING), commissioning, acceptance).orElse(null);
+    }
+
+    /** Clears only explicit trial evidence; controller runtime, tuning and acceptance history remain unchanged. */
+    public static boolean clearCommissioningTrial(Level level, BlockPos pos) {
+        if (level.isClientSide) return false;
+        if (!(level.getBlockState(pos).getBlock() instanceof PidControllerBlock)) return false;
+        CommissioningTrialStore.clear(level, pos);
+        return true;
+    }
+
+    private static boolean trialEvidenceReady(CommissioningSnapshot commissioning) {
+        if (commissioning == null || !commissioning.available()) return false;
+        return commissioning.status() == dev.redstoneengineering.diagnostics.CommissioningStatus.PASS
+                || commissioning.status() == dev.redstoneengineering.diagnostics.CommissioningStatus.MARGINAL
+                || commissioning.status() == dev.redstoneengineering.diagnostics.CommissioningStatus.FAIL;
+    }
+
+    private static EngineeringAcceptanceSnapshot acceptanceSnapshot(
+            Level level,
+            BlockPos pos,
+            BlockState state,
+            CommissioningSnapshot commissioning
+    ) {
+        TopologyVisualizationSnapshot topology = EngineeringTopologyView.inspect(level, pos, state);
+        return EngineeringAcceptance.evaluate(topology, commissioning);
     }
 
     @Override

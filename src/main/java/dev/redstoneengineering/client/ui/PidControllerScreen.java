@@ -23,17 +23,17 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
 
     @Override
     protected void addDeviceWidgets() {
-        int y = topPos + 111;
+        int tuningY = topPos + imageHeight - 154;
         addConfigureWidget(Button.builder(
                 Component.literal("◀ Preset"),
                 button -> sendMenuButton(PidControllerMenu.BUTTON_TUNING_PREVIOUS)
-        ).bounds(leftPos + 18, y, 92, 20).build());
+        ).bounds(leftPos + 18, tuningY, 92, 20).build());
         addConfigureWidget(Button.builder(
                 Component.literal("Preset ▶"),
                 button -> sendMenuButton(PidControllerMenu.BUTTON_TUNING_NEXT)
-        ).bounds(leftPos + 114, y, 92, 20).build());
+        ).bounds(leftPos + 114, tuningY, 92, 20).build());
 
-        int routeY = topPos + 137;
+        int routeY = topPos + imageHeight - 128;
         addConfigureWidget(Button.builder(Component.literal("RX ▲"),
                 button -> sendMenuButton(PidControllerMenu.BUTTON_INPUT_PREVIOUS))
                 .bounds(leftPos + 18, routeY, 62, 20).build());
@@ -47,13 +47,24 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
                 button -> sendMenuButton(PidControllerMenu.BUTTON_OUTPUT_NEXT))
                 .bounds(leftPos + 216, routeY, 62, 20).build());
 
-        int commissioningY = topPos + 163;
+        int acceptanceY = topPos + imageHeight - 102;
         addConfigureWidget(Button.builder(Component.literal("Capture acceptance"),
                 button -> sendMenuButton(PidControllerMenu.BUTTON_CAPTURE_ACCEPTANCE))
-                .bounds(leftPos + 18, commissioningY, 140, 20).build());
+                .bounds(leftPos + 18, acceptanceY, 140, 20).build());
         addConfigureWidget(Button.builder(Component.literal("Reset runtime + trend"),
                 button -> sendMenuButton(PidControllerMenu.BUTTON_RESET_RUNTIME_TREND))
-                .bounds(leftPos + 162, commissioningY, 140, 20).build());
+                .bounds(leftPos + 162, acceptanceY, 140, 20).build());
+
+        int trialY = topPos + imageHeight - 76;
+        addConfigureWidget(Button.builder(Component.literal("Trial baseline"),
+                button -> sendMenuButton(PidControllerMenu.BUTTON_TRIAL_BASELINE))
+                .bounds(leftPos + 18, trialY, 92, 20).build());
+        addConfigureWidget(Button.builder(Component.literal("Trial candidate"),
+                button -> sendMenuButton(PidControllerMenu.BUTTON_TRIAL_CANDIDATE))
+                .bounds(leftPos + 116, trialY, 92, 20).build());
+        addConfigureWidget(Button.builder(Component.literal("Clear trial"),
+                button -> sendMenuButton(PidControllerMenu.BUTTON_TRIAL_CLEAR))
+                .bounds(leftPos + 214, trialY, 88, 20).build());
     }
 
     @Override
@@ -93,12 +104,22 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
     }
 
     private void renderConfigure(GuiGraphics graphics) {
-        labelValue(graphics, "Tuning preset", tuningName(menu.tuning()), 82);
-        safeText(graphics, tuningDescription(menu.tuning()), 16, 98, TEXT);
+        statusBadge(graphics, "PIONEER WORKFLOW • CLOSED-LOOP COMMISSIONING TRIAL", INFO, 16, 80);
+        labelValue(graphics, "Tuning preset", tuningName(menu.tuning()), 101);
+
+        String baseline = menu.trialBaselineSequence() > 0 ? "#" + menu.trialBaselineSequence() : "NONE";
+        String candidate = menu.trialCandidateSequence() > 0 ? "#" + menu.trialCandidateSequence() : "NONE";
+        labelValue(graphics, "Trial baseline / candidate", baseline + " / " + candidate, 117);
+
+        AcceptanceEvidenceTrend trial = menu.trialTrend();
+        String verdict = trial == null
+                ? (menu.trialBaselineSequence() > 0 ? "BASELINE READY • settle, then candidate" : "START WITH BASELINE")
+                : trial.name() + " • " + (menu.trialRobust() ? "ROBUST" : "CHECK");
+        statusLine(graphics, "Trial verdict", verdict,
+                trial == null ? INFO : (menu.trialRobust() ? GOOD : comparisonColor(trial)), 133);
         safeText(graphics,
-                "Acceptance captures current topology + commissioning evidence; reset keeps retained acceptance history.",
-                16, 191, INFO);
-        safeText(graphics, "All tuning, routing and commissioning actions are server-authoritative.", 16, 207, MUTED);
+                "Captures require settled PASS / MARGINAL / FAIL evidence; detailed deltas are shown on Log.",
+                16, 149, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
@@ -180,6 +201,23 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
             } else {
                 safeText(graphics, "Baseline capture established; capture again after a change to compare.", 16, 197, INFO);
             }
+        }
+
+        AcceptanceEvidenceTrend trial = menu.trialTrend();
+        String trialIds = "B=" + (menu.trialBaselineSequence() > 0 ? "#" + menu.trialBaselineSequence() : "—")
+                + " • C=" + (menu.trialCandidateSequence() > 0 ? "#" + menu.trialCandidateSequence() : "—");
+        statusBadge(graphics, "TRIAL " + trialIds, trial == null ? MUTED : (menu.trialRobust() ? GOOD : WARN), 16, 220);
+        if (trial == null) {
+            safeText(graphics, "Explicit trial comparison appears after Baseline and Candidate are both captured.", 144, 223, MUTED);
+        } else {
+            safeText(graphics,
+                    trial.name() + " • " + (menu.trialRobust() ? "ROBUST" : "CHECK")
+                            + " • Δscore " + signed(menu.trialScoreDelta())
+                            + " • Δsettle " + signed(menu.trialSettlingDelta()) + "t"
+                            + " • Δovershoot " + signed(menu.trialOvershootDelta())
+                            + " • Δsat " + signed(menu.trialSaturationDelta())
+                            + " • Δissues " + signed(menu.trialTopologyIssueDelta()),
+                    16, 242, menu.trialRobust() ? GOOD : comparisonColor(trial));
         }
     }
 
