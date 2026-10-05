@@ -17,7 +17,7 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
 
     @Override
     protected void addDeviceWidgets() {
-        int y = topPos + 116;
+        int y = topPos + imageHeight - 66;
         parameterPrevious = addConfigureWidget(Button.builder(Component.literal("◀ Parameter"),
                 b -> sendMenuButton(SignalProcessorMenu.BUTTON_PARAMETER_PREVIOUS))
                 .bounds(leftPos + 16, y, 110, 20).build());
@@ -66,11 +66,64 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
     }
 
     private void configure(GuiGraphics g) {
-        statusBadge(g, "SERVER-SIDE BOUNDED CONTROL", INFO, 16, 80);
-        labelValue(g, parameterName(), parameterValue(), 101);
-        labelValue(g, "Input face", menu.inputDirection().getName().toUpperCase(), 171);
-        labelValue(g, "Output face", menu.outputDirection().getName().toUpperCase(), 187);
-        safeText(g, "Physical direction is controlled only on Route.", 16, 207, MUTED);
+        statusBadge(g, "PIONEER PATTERN • SIGNAL PROCESSOR MODEL", INFO, 16, 80);
+        formulaCard(g, processorEquation(), 105);
+        variableRole(g, "MEASURED", "x[n]", Integer.toString(menu.input()), "Redstone 0..15", 134);
+        variableRole(g, "DERIVED", "y[n]", Integer.toString(menu.output()), "Redstone 0..15", 152);
+        variableRole(g, "ADJUSTABLE", parameterSymbol(), parameterValue(), parameterMeaning(), 170);
+        if (menu.kind() == SignalProcessorMenu.KIND_FILTER) {
+            variableRole(g, "DERIVED", "|x-y|", Integer.toString(menu.runtimeA()), "lag levels", 188);
+            variableRole(g, "EVIDENCE", "response", menu.runtimeB() == 1 ? "SETTLED" : "SETTLING", "", 206);
+        } else if (menu.kind() == SignalProcessorMenu.KIND_EDGE) {
+            variableRole(g, "RUNTIME", "pulse", menu.runtimeA() + "t remaining", "", 188);
+            variableRole(g, "EVIDENCE", "edges", Integer.toString(menu.runtimeB()),
+                    menu.runtimeC() < 0 ? "no retained edge" : "last age " + menu.runtimeC() + "t", 206);
+        } else {
+            variableRole(g, "RUNTIME", "pulse", menu.runtimeA() + "t remaining", "", 188);
+            variableRole(g, "EVIDENCE", "initialized", menu.initialized() ? "YES" : "NO",
+                    "last input " + menu.runtimeB(), 206);
+        }
+        evidenceRow(g, "Route", menu.inputDirection().getName().toUpperCase(),
+                menu.outputDirection().getName().toUpperCase(), "physical direction lives on Route", 230);
+        wrappedText(g, processorEvidenceContract(), 16, 256, workspaceWidth() - 24, MUTED);
+    }
+
+    private String processorEquation() {
+        return switch (menu.kind()) {
+            case SignalProcessorMenu.KIND_EDGE ->
+                    "e[n] = edge_mode(x[n-1], x[n]); e[n] ⇒ y=15 for 2 ticks";
+            case SignalProcessorMenu.KIND_PULSE ->
+                    "rising edge(x) ⇒ y=15 for W ticks; otherwise y=0";
+            default ->
+                    "y[n+1] = y[n] + clamp(x[n]-y[n], -r, +r)";
+        };
+    }
+
+    private String parameterSymbol() {
+        return switch (menu.kind()) {
+            case SignalProcessorMenu.KIND_EDGE -> "mode";
+            case SignalProcessorMenu.KIND_PULSE -> "W";
+            default -> "r";
+        };
+    }
+
+    private String parameterMeaning() {
+        return switch (menu.kind()) {
+            case SignalProcessorMenu.KIND_EDGE -> "RISING / FALLING / BOTH";
+            case SignalProcessorMenu.KIND_PULSE -> "one-shot width in ticks";
+            default -> "maximum signal change per tick";
+        };
+    }
+
+    private String processorEvidenceContract() {
+        return switch (menu.kind()) {
+            case SignalProcessorMenu.KIND_EDGE ->
+                    "Edge chronology is retained by server runtime; opening diagnostics never initializes the detector or creates a false edge.";
+            case SignalProcessorMenu.KIND_PULSE ->
+                    "The one-shot triggers only on a real LOW→HIGH transition. Observer readback never initializes or retriggers runtime state.";
+            default ->
+                    "The filter owns response speed, not gain or offset: temporary input/output lag is expected until the server-authoritative slew response settles.";
+        };
     }
 
     private void diagnostics(GuiGraphics g) {
