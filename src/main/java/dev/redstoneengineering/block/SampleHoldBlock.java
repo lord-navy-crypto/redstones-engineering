@@ -35,12 +35,13 @@ import java.util.Optional;
 public class SampleHoldBlock extends DirectionalSignalBlock {
     public static final IntegerProperty TRIGGER_MODE = IntegerProperty.create("trigger_mode", 0, 2);
     private static final String KEY = "redstone_sample_hold";
-    private static final int RUNTIME_SIZE = 5;
+    private static final int RUNTIME_SIZE = 6;
     private static final int HELD_SLOT = 0;
     private static final int TRIGGER_STATE_SLOT = 1;
     private static final int INITIALIZED_SLOT = 2;
     private static final int CAPTURE_COUNT = 3;
     private static final int LAST_CAPTURE_TICK = 4;
+    private static final int OUTPUT_READY_SLOT = 5;
 
     public SampleHoldBlock(Properties properties) {
         super(properties); registerDefaultState(defaultBlockState().setValue(TRIGGER_MODE, 0));
@@ -77,11 +78,14 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
         if (port.isEmpty()) return Optional.empty();
         Direction facing = state.getValue(FACING);
         int value;
-        if (side == outputSide(state)) value = state.getValue(OUTPUT);
-        else if (side == inputSide(state)) value = readBackInput(level, pos, state);
+        PortQuality quality = PortQuality.VALID;
+        if (side == outputSide(state)) {
+            value = state.getValue(OUTPUT);
+            quality = outputQuality(level, pos);
+        } else if (side == inputSide(state)) value = readBackInput(level, pos, state);
         else if (side == leftOf(facing) || side == rightOf(facing)) value = readInputFrom(level, pos, side);
         else return Optional.empty();
-        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value, PortQuality.VALID));
+        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), value, quality));
     }
 
     private int[] runtime(Level level, BlockPos pos, BlockState state, boolean triggerNow) {
@@ -109,8 +113,10 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
 
         if (resetNow) {
             rt[HELD_SLOT] = 0;
+            rt[OUTPUT_READY_SLOT] = 1;
         } else if (sample) {
             rt[HELD_SLOT] = readBackInput(level, pos, state);
+            rt[OUTPUT_READY_SLOT] = 1;
             rt[CAPTURE_COUNT]++;
             rt[LAST_CAPTURE_TICK] = boundedTick(level.getGameTime());
         }
@@ -121,6 +127,12 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
     @Override protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved) {
         if (!state.is(newState.getBlock())) RuntimeIntStore.remove(level, KEY, pos);
         super.onRemove(state, level, pos, newState, moved);
+    }
+
+    public static PortQuality outputQuality(Level level, BlockPos pos) {
+        int[] rt = RuntimeIntStore.peek(level, KEY, pos);
+        if (rt == null || rt.length < RUNTIME_SIZE) return PortQuality.STALE;
+        return rt[OUTPUT_READY_SLOT] == 1 ? PortQuality.VALID : PortQuality.NOT_READY;
     }
 
     public static int captureCount(Level level, BlockPos pos) {
@@ -156,6 +168,7 @@ public class SampleHoldBlock extends DirectionalSignalBlock {
         rt[HELD_SLOT] = 0;
         rt[TRIGGER_STATE_SLOT] = triggerNow ? 1 : 0;
         rt[INITIALIZED_SLOT] = 1;
+        rt[OUTPUT_READY_SLOT] = 1;
         updateOutput(level, pos, state, 0);
         return true;
     }

@@ -726,7 +726,7 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
         return switch (quality) {
             case VALID -> 100;
             case SATURATED -> 75;
-            case NO_SIGNAL, STALE, FAULT, DOMAIN_MISMATCH, TOPOLOGY_ERROR -> 0;
+            case NO_SIGNAL, STALE, FAULT, DOMAIN_MISMATCH, TOPOLOGY_ERROR, NOT_READY -> 0;
         };
     }
 

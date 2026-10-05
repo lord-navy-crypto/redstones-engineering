@@ -8,5 +8,7 @@ public enum PortQuality {
     STALE,
     FAULT,
     DOMAIN_MISMATCH,
-    TOPOLOGY_ERROR
+    TOPOLOGY_ERROR,
+    /** Device/runtime exists but has not yet produced authoritative output evidence. */
+    NOT_READY
 }

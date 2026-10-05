@@ -431,7 +431,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private static int qualityColor(PortQuality quality) {
         return switch (quality) {
             case VALID -> GOOD;
-            case SATURATED, STALE, NO_SIGNAL -> WARN;
+            case SATURATED, STALE, NO_SIGNAL, NOT_READY -> WARN;
             case FAULT, DOMAIN_MISMATCH, TOPOLOGY_ERROR -> BAD;
         };
     }

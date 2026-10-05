@@ -54,6 +54,7 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
     public static final int EVIDENCE_FAULT = 5;
     public static final int EVIDENCE_DOMAIN_MISMATCH = 6;
     public static final int EVIDENCE_TOPOLOGY_ERROR = 7;
+    public static final int EVIDENCE_NOT_READY = 8;
 
     protected final Inventory playerInventory;
     protected final Level level;
@@ -156,6 +157,7 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
             case EVIDENCE_FAULT -> "FAULT";
             case EVIDENCE_DOMAIN_MISMATCH -> "DOMAIN MISMATCH";
             case EVIDENCE_TOPOLOGY_ERROR -> "TOPOLOGY ERROR";
+            case EVIDENCE_NOT_READY -> "NOT READY";
             default -> "UNOBSERVED";
         };
     }
@@ -301,6 +303,7 @@ public abstract class EngineeringDeviceMenu extends AbstractContainerMenu {
             case FAULT -> EVIDENCE_FAULT;
             case DOMAIN_MISMATCH -> EVIDENCE_DOMAIN_MISMATCH;
             case TOPOLOGY_ERROR -> EVIDENCE_TOPOLOGY_ERROR;
+            case NOT_READY -> EVIDENCE_NOT_READY;
         };
     }
 

@@ -37,6 +37,7 @@ jobs:
             tools/rse_repo_verify.py \
             tools/rse_source_quality_audit.py \
             tools/rse_reference_model_tests.py \
+            tools/rse_sample_hold_quality_verify.py \
             tools/rse_redstone_verify.py \
             tools/rse_full_audit.py \
             tools/rse_122_block_total_audit.py \

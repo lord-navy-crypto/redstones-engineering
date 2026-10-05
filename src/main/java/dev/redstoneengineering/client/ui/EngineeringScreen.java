@@ -421,7 +421,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         return switch (menu.evidenceState()) {
             case EngineeringDeviceMenu.EVIDENCE_VALID -> GOOD;
             case EngineeringDeviceMenu.EVIDENCE_NO_SIGNAL, EngineeringDeviceMenu.EVIDENCE_UNOBSERVED -> MUTED;
-            case EngineeringDeviceMenu.EVIDENCE_SATURATED, EngineeringDeviceMenu.EVIDENCE_STALE -> WARN;
+            case EngineeringDeviceMenu.EVIDENCE_SATURATED, EngineeringDeviceMenu.EVIDENCE_STALE, EngineeringDeviceMenu.EVIDENCE_NOT_READY -> WARN;
             case EngineeringDeviceMenu.EVIDENCE_FAULT, EngineeringDeviceMenu.EVIDENCE_DOMAIN_MISMATCH, EngineeringDeviceMenu.EVIDENCE_TOPOLOGY_ERROR -> BAD;
             default -> MUTED;
         };
