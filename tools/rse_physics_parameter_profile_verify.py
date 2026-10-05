@@ -20,7 +20,12 @@ for token in (
     'PROFILE_ID = "rse-default-v1"',
     "LAPIS_FILTER_ALPHA_STEPS = 8",
     "LAPIS_FILTER_DEFAULT_INDEX = 2",
+    "LAPIS_FILTER_SAMPLE_PERIOD_TICKS = 2",
+    "NOMINAL_TICKS_PER_SECOND = 20.0",
     "0.05, 0.10, 0.20, 0.35, 0.50, 0.65, 0.80, 1.00",
+    "lapisFilterTimeConstantTicks",
+    "Math.log1p(-alpha)",
+    "lapisFilterCutoffHzNominal",
     "QUARTZ_PHASE_DELAY_MIN_TICKS = 1",
     "QUARTZ_PHASE_DELAY_MAX_TICKS = 16",
     "QUARTZ_PHASE_DELAY_DEFAULT_TICKS = 2",
@@ -33,12 +38,16 @@ for token in (
     "EngineeringParameterProfile.LAPIS_FILTER_ALPHA_STEPS",
     "EngineeringParameterProfile.LAPIS_FILTER_DEFAULT_INDEX",
     "EngineeringParameterProfile.lapisFilterAlpha(index)",
+    "EngineeringParameterProfile.LAPIS_FILTER_SAMPLE_PERIOD_TICKS",
+    "EngineeringParameterProfile.lapisFilterTimeConstantTicks(index)",
+    "EngineeringParameterProfile.lapisFilterCutoffHzNominal(index)",
+    "MODEL: y[n]=y[n-1]+alpha(x[n]-y[n-1])",
     "profile=",
 ):
     if token not in lapis:
         errors.append(f"Lapis filter missing profile-backed token {token!r}")
 
-for forbidden in ("% 4;", "case 0 -> 0.10;", "default -> 0.75;"):
+for forbidden in ("% 4;", "case 0 -> 0.10;", "default -> 0.75;", "scheduleTick(pos, this, 2);"):
     if forbidden in lapis:
         errors.append(f"Lapis filter retains legacy hard-coded alpha behavior {forbidden!r}")
 
