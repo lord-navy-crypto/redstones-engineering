@@ -100,7 +100,8 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
             variableRole(g, "MEASURED", "T_in", menu.primary() + "", "ticks", 134);
             variableRole(g, "ADJUSTABLE", "N", Integer.toString(menu.tertiary()), "division", 152);
             variableRole(g, "DERIVED", "T_out", menu.secondary() + "", "ticks", 170);
-            variableRole(g, "EVIDENCE", "expected", expectedDividerPeriod() + "", "ticks", 188);\n            variableRole(g, "EVIDENCE", "period limit", dividerSaturated() ? "SATURATED @4096" : "IN RANGE", "server clamp", 206);
+            variableRole(g, "EVIDENCE", "expected", expectedDividerPeriod() + "", "ticks", 188);
+            variableRole(g, "EVIDENCE", "period limit", dividerSaturated() ? "SATURATED @4096" : "IN RANGE", "server clamp", 206);
             wrappedText(g, "Route owns the physical RX/TX axis; changing N re-arms divider phase evidence. Output period is bounded by the server timing domain.", 16, 232, workspaceWidth() - 24, MUTED);
         } else {
             variableRole(g, "MEASURED", "T_meas", menu.primary() + "", "ticks", 134);
@@ -176,7 +177,17 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
         return menu.secondary() > 0 ? "CLOCK SOURCE CONFIGURED" : "INVALID ZERO PERIOD";
     }
 
-    private int expectedDividerPeriod() {\n        if (menu.primary() <= 0) return 0;\n        return Math.min(4096, Math.max(1, menu.primary()) * Math.max(1, menu.tertiary()));\n    }\n\n    private boolean dividerSaturated() {\n        if (menu.primary() <= 0) return false;\n        return (long) Math.max(1, menu.primary()) * Math.max(1, menu.tertiary()) > 4096L;\n    }\n\n    private String nextAction() {
+    private int expectedDividerPeriod() {
+        if (menu.primary() <= 0) return 0;
+        return Math.min(4096, Math.max(1, menu.primary()) * Math.max(1, menu.tertiary()));
+    }
+
+    private boolean dividerSaturated() {
+        if (menu.primary() <= 0) return false;
+        return (long) Math.max(1, menu.primary()) * Math.max(1, menu.tertiary()) > 4096L;
+    }
+
+    private String nextAction() {
         String d = diagnosis();
         if (d.contains("CONFLICT")) return "NEXT • isolate competing timing sources before measuring period.";
         if (d.contains("STALE") || d.contains("NO TIMING") || d.contains("NOT CURRENT")) return "NEXT • restore current edge evidence before accepting timing quality.";
