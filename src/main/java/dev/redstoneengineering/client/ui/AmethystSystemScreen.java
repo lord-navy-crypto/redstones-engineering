@@ -15,7 +15,7 @@ public final class AmethystSystemScreen extends EngineeringScreen<AmethystSystem
     public AmethystSystemScreen(AmethystSystemMenu menu, Inventory inventory, Component title) { super(menu, inventory, title); }
 
     @Override protected void addDeviceWidgets() {
-        int y = topPos + 111;
+        int y = topPos + imageHeight - 94;
         primaryPrevious = addConfigureWidget(Button.builder(Component.literal("◀ Primary"), b -> sendMenuButton(AmethystSystemMenu.BUTTON_PRIMARY_PREVIOUS)).bounds(leftPos+16,y,105,20).build());
         primaryNext = addConfigureWidget(Button.builder(Component.literal("Primary ▶"), b -> sendMenuButton(AmethystSystemMenu.BUTTON_PRIMARY_NEXT)).bounds(leftPos+199,y,105,20).build());
         secondaryPrevious = addConfigureWidget(Button.builder(Component.literal("◀ Secondary"), b -> sendMenuButton(AmethystSystemMenu.BUTTON_SECONDARY_PREVIOUS)).bounds(leftPos+16,y+26,105,20).build());
@@ -83,13 +83,32 @@ public final class AmethystSystemScreen extends EngineeringScreen<AmethystSystem
     }
 
     private void configure(GuiGraphics g){
-        statusBadge(g,"SERVER-SIDE BOUNDED CONTROL",INFO,16,80);
-        labelValue(g,"Primary",primaryControl(),98);
-        labelValue(g,"Secondary",secondaryControl(),181);
-        if(menu.directional()) {
-            labelValue(g,"I/O axis",path(),197);
-            safeText(g,"Physical resonance direction is controlled only on Route.",16,216,MUTED);
+        statusBadge(g,"PIONEER PATTERN • RESONANCE MODEL",INFO,16,80);
+        formulaCard(g,resonanceEquation(),105);
+        if(menu.kind()==AmethystSystemMenu.KIND_SOURCE){
+            variableRole(g,"ADJUSTABLE","f_idx",Integer.toString(menu.primary()),"discrete index",134);
+            variableRole(g,"ADJUSTABLE","A",Integer.toString(menu.secondary()),"0..15 amplitude",152);
+            variableRole(g,"ACTION","pulse",menu.stateFlag()==1?"ACTIVE":"IDLE","",170);
+            variableRole(g,"EVIDENCE","quality",qualityName(),"",188);
+        }else if(menu.kind()==AmethystSystemMenu.KIND_FILTER){
+            variableRole(g,"MEASURED","f_in",Integer.toString(menu.primary()),"discrete index",134);
+            variableRole(g,"MEASURED","A_in",Integer.toString(menu.secondary()),"0..15",152);
+            variableRole(g,"ADJUSTABLE","f_target",Integer.toString(menu.tertiary()),"discrete index",170);
+            variableRole(g,"DERIVED","A_out",Integer.toString(menu.auxiliary()),"0..15",188);
+            variableRole(g,"EVIDENCE","decision",menu.stateFlag()==1?"PASS":"REJECT","",206);
+        }else if(menu.kind()==AmethystSystemMenu.KIND_TUNED){
+            variableRole(g,"MEASURED","f_in",Integer.toString(menu.primary()),"discrete index",134);
+            variableRole(g,"ADJUSTABLE","f0",Integer.toString(menu.tertiary()),"natural index",152);
+            variableRole(g,"ADJUSTABLE","Q_idx",Integer.toString(menu.auxiliary()),"1..4",170);
+            variableRole(g,"DERIVED","BW",Integer.toString(menu.extraA()),"± index",188);
+            variableRole(g,"DERIVED","A_out",Integer.toString(menu.extraB()),"0..15",206);
+        }else{
+            variableRole(g,"MEASURED","f_dom",Integer.toString(menu.primary()),"dominant index",134);
+            variableRole(g,"MEASURED","E",Integer.toString(menu.secondary()),"spectrum energy",152);
+            variableRole(g,"MEASURED","bands",Integer.toString(menu.tertiary()),"active",170);
+            variableRole(g,"EVIDENCE","coverage",menu.extraB()+" / "+menu.stateFlag(),"cells",188);
         }
+        wrappedText(g,"Frequency values are deliberate model indices, not fabricated Hz. Physical resonance direction stays on Route; spectrum state is server-observed.",16,232,workspaceWidth()-24,MUTED);
     }
 
     private void diagnostics(GuiGraphics g){
@@ -120,6 +139,19 @@ public final class AmethystSystemScreen extends EngineeringScreen<AmethystSystem
             safeText(g,"Current server resonance evidence is shown; no client-side spectrum/history is invented.",16,112,MUTED);
             safeText(g,diagnosis(),16,136,diagnosisColor());
         }
+    }
+
+    private String resonanceEquation(){
+        if(menu.kind()==AmethystSystemMenu.KIND_FILTER){
+            return "A_out = (f_in = f_target) ? max(0, A_in - 1) : 0";
+        }
+        if(menu.kind()==AmethystSystemMenu.KIND_TUNED){
+            return "BW = 5 - Q ; Δf = |f_in - f0| ; response depends on Δf within BW";
+        }
+        if(menu.kind()==AmethystSystemMenu.KIND_SOURCE){
+            return "carrier = (f_idx, A) on the Amethyst resonance domain";
+        }
+        return "spectrum = dominant index + energy + active-band evidence";
     }
 
     private String diagnosis(){
