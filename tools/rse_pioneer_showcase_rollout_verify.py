@@ -32,6 +32,10 @@ workcell = read("src/main/java/dev/redstoneengineering/client/ui/WorkcellControl
 universal = read("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java")
 enhanced = read("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScreen.java")
 processor = read("src/main/java/dev/redstoneengineering/client/ui/SignalProcessorScreen.java")
+range_sensor = read("src/main/java/dev/redstoneengineering/client/ui/RangeSensorScreen.java")
+conditioner = read("src/main/java/dev/redstoneengineering/client/ui/SignalConditionerScreen.java")
+quartz = read("src/main/java/dev/redstoneengineering/client/ui/QuartzTimingScreen.java")
+media_conversion = read("src/main/java/dev/redstoneengineering/client/ui/MediaConversionScreen.java")
 client_registration = read("src/main/java/dev/redstoneengineering/client/ui/EngineeringUiClientRegistration.java")
 field_menu = read("src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java")
 
@@ -47,7 +51,7 @@ for token in (
     "Wave 3:",
     "Wave 4:",
     "Wave 5:",
-    "Wave 6:",
+    "Wave 6:",\n    "Wave 7:",
 ):
     if token not in doc:
         errors.append(f"Pioneer standard missing {token!r}")
@@ -270,6 +274,44 @@ for kind in (
     if kind not in enhanced:
         errors.append(f"EnhancedFieldDeviceScreen missing Wave-6 device kind {kind}")
 
+wave7 = {
+    "RangeSensorScreen.java": (range_sensor, (
+        "FORMULA-FIRST SENSOR RESPONSE",
+        "y = (d ≤ 0) ? 0 : round(15 · (R - d + 1) / R)",
+        '"EVIDENCE", "scan"',
+        "A complete CLEAR scan with d=0 is valid evidence",
+    )),
+    "SignalConditionerScreen.java": (conditioner, (
+        "FORMULA-FIRST SERVER CONTROL",
+        "y = clamp₀..₁₅(g · x)",
+        "y = (|x - y_prev| ≥ B) ? x : y_prev",
+        '"EVIDENCE", "boundary"',
+    )),
+    "QuartzTimingScreen.java": (quartz, (
+        "FORMULA-FIRST TIMING MODEL",
+        "valid input ⇒ T_out = min(4096, N · max(1,T_in)) ticks",
+        "expectedDividerPeriod()",
+        "SATURATED @4096",
+        "|e_T| = |T_meas - T_upstream|",
+    )),
+    "MediaConversionScreen.java": (media_conversion, (
+        "FORMULA-FIRST MEDIA BOUNDARY",
+        "y_L = round(100 · x_R / 15)",
+        "y_R = round(15 · x_L / 100)",
+        "x_reconstructed",
+        "|e_q|",
+        "NO NEW SOURCE PRECISION",
+    )),
+}
+
+for name, (text, tokens) in wave7.items():
+    for token in tokens:
+        if token not in text:
+            errors.append(f"{name} missing Wave-7 pioneer-rollout token {token!r}")
+    if "dev.redstoneengineering.physics" in text:
+        errors.append(f"{name} imports physics directly; client screen must remain presentation-only")
+
+
 registration_token = "event.register(EngineeringUiRegistration.FIELD_DEVICE.get(), EnhancedFieldDeviceScreen::new);"
 if registration_token not in client_registration:
     errors.append("FIELD_DEVICE is no longer registered to the enhanced shared Pioneer inspector")
@@ -301,7 +343,7 @@ print(" Wave 2 communication / pneumatic / optical / magnetic PASS")
 print(" Wave 3 amethyst / reliability / radio / metrology / operations PASS")
 print(" Wave 4 timing / copper / plant-state / workcell / universal-contract PASS")
 print(" Wave 5 shared field-device inspector / signal processors PASS")
-print(" Wave 6 discrete mechanical / hydro / Sculk / thermal transport PASS")
+print(" Wave 6 discrete mechanical / hydro / Sculk / thermal transport PASS")\nprint(" Wave 7 range / conditioning / quartz / media-conversion contracts PASS")
 print(f" FieldDeviceMenu device-kind taxonomy: {kind_count}")
 print(f" formula-first EngineeringScreen families: {formula_migrated}")
-print(" no client-side second physics solver in Waves 2-6: PASS")
+print(" no client-side second physics solver in Waves 2-7: PASS")
