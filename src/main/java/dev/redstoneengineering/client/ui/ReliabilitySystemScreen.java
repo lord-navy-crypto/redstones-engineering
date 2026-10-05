@@ -136,8 +136,9 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
             variableRole(g,"DERIVED","feedback",menu.secondary()+"/15","redstone",170);
             variableRole(g,"EVIDENCE","samples",Integer.toString(menu.tertiary()),"retained",188);
         }
-        wrappedText(g,"Maintenance is an explicit server action, not a hidden state edit. Routing stays on Route; maintenance actions use the same server methods as Shift-right-click.",16,232,workspaceWidth()-24,MUTED);
-        wrappedText(g,"Numerical zero and missing/invalid evidence remain distinct; safe-state logic is never inferred from UI presentation alone.",16,254,workspaceWidth()-24,MUTED);
+        wrappedText(g,"Maintenance is an explicit server action, not a hidden state edit.",16,232,workspaceWidth()-24,MUTED);
+        wrappedText(g,"Routing stays on Route; maintenance actions use the same server methods as Shift-right-click.",16,248,workspaceWidth()-24,MUTED);
+        wrappedText(g,"Numerical zero and missing/invalid evidence remain distinct; safe-state logic is never inferred from UI presentation alone.",16,270,workspaceWidth()-24,MUTED);
     }
 
     private void diagnostics(GuiGraphics g) {
