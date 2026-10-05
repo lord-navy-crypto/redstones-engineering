@@ -23,32 +23,42 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
     private static final int WARN = 0xFFFFB45C;
     private static final int BAD = 0xFFFF7373;
     private static final int ACCENT = 0xFFE25757;
+    private static final int MIN_WIDTH = 420;
+    private static final int MAX_WIDTH = 720;
+    private static final int MIN_HEIGHT = 300;
+    private static final int MAX_HEIGHT = 460;
     private int page;
+    private int scrollY;
     private Button newerButton;
     private Button olderButton;
 
     public DiagnosticTabletScreen(DiagnosticTabletMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
-        imageWidth = 316;
-        imageHeight = 222;
+        imageWidth = 620;
+        imageHeight = 390;
     }
 
     @Override
     protected void init() {
+        imageWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, width - 20));
+        imageHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, height - 20));
         super.init();
+        scrollY = 0;
         addRenderableWidget(Button.builder(Component.literal("Diagnostics"), button ->
                         Minecraft.getInstance().setScreen(new RseDiagnosticsScreen(this)))
-                .bounds(leftPos + 12, topPos + imageHeight - 28, 88, 20).build());
+                .bounds(leftPos + 12, topPos + imageHeight - 28, 96, 20).build());
         newerButton = addRenderableWidget(Button.builder(Component.literal("Newer"), button -> {
                     page = Math.max(0, page - 1);
+                    scrollY = 0;
                     refreshHistoryButtons();
                 })
-                .bounds(leftPos + imageWidth - 122, topPos + imageHeight - 28, 52, 20).build());
+                .bounds(leftPos + imageWidth - 132, topPos + imageHeight - 28, 56, 20).build());
         olderButton = addRenderableWidget(Button.builder(Component.literal("Older"), button -> {
                     page = Math.min(Math.max(0, menu.history().size() - 1), page + 1);
+                    scrollY = 0;
                     refreshHistoryButtons();
                 })
-                .bounds(leftPos + imageWidth - 64, topPos + imageHeight - 28, 52, 20).build());
+                .bounds(leftPos + imageWidth - 70, topPos + imageHeight - 28, 56, 20).build());
         refreshHistoryButtons();
     }
 
@@ -57,6 +67,41 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
         page = Math.max(0, Math.min(page, lastPage));
         if (newerButton != null) newerButton.active = !menu.history().isEmpty() && page > 0;
         if (olderButton != null) olderButton.active = !menu.history().isEmpty() && page < lastPage;
+        clampScroll();
+    }
+
+    private int contentViewportHeight() {
+        return Math.max(1, imageHeight - 126);
+    }
+
+    private int maxScrollY() {
+        if (menu.history().isEmpty()) return 0;
+        String[] lines = menu.history().get(page).split("\\n");
+        int height = 0;
+        for (int i = 0; i < lines.length; i++) {
+            if (lines[i].startsWith("STATUS:") || lines[i].startsWith("MODE:")) continue;
+            int wrapped = Math.max(1, font.split(Component.literal(lines[i]), imageWidth - 44).size());
+            height += wrapped * 11;
+        }
+        return Math.max(0, height - contentViewportHeight());
+    }
+
+    private void clampScroll() {
+        scrollY = Math.max(0, Math.min(scrollY, maxScrollY()));
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollXDelta, double scrollYDelta) {
+        int x0 = leftPos + 10;
+        int y0 = topPos + 64;
+        int x1 = leftPos + imageWidth - 10;
+        int y1 = topPos + imageHeight - 52;
+        if (mouseX < x0 || mouseX >= x1 || mouseY < y0 || mouseY >= y1) {
+            return super.mouseScrolled(mouseX, mouseY, scrollXDelta, scrollYDelta);
+        }
+        scrollY -= (int) Math.round(scrollYDelta * 24.0);
+        clampScroll();
+        return true;
     }
 
     @Override
@@ -65,17 +110,20 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
         graphics.fill(leftPos + 3, topPos + 3, leftPos + imageWidth - 3, topPos + imageHeight - 3, PANEL);
         graphics.fill(leftPos + 10, topPos + 42, leftPos + imageWidth - 10, topPos + imageHeight - 36, PANEL_2);
         graphics.fill(leftPos + 10, topPos + 35, leftPos + imageWidth - 10, topPos + 37, ACCENT);
+        graphics.fill(leftPos + 10, topPos + imageHeight - 48, leftPos + imageWidth - 10, topPos + imageHeight - 46, BORDER);
     }
 
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
         graphics.drawString(font, "ENGINEERING DIAGNOSTIC TABLET", 14, 13, TEXT, false);
-        graphics.drawString(font, "OBSERVER ONLY • retained snapshots", 14, 25, GOOD, false);
+        graphics.drawString(font, "OBSERVER ONLY • retained block + AMR evidence", 14, 25, GOOD, false);
         List<String> history = menu.history();
         refreshHistoryButtons();
         if (history.isEmpty()) {
             graphics.drawString(font, "No retained snapshots.", 18, 53, MUTED, false);
-            drawWrapped(graphics, "Right-click an RSE or vanilla block with the tablet to capture and open its current identity and EngineeringPort topology evidence. Right-click air to reopen retained history.", 18, 70, imageWidth - 36, INFO, 11);
+            drawWrapped(graphics,
+                    "Right-click an RSE/vanilla block or AMR with the tablet to capture observer evidence. Shift+right-click a finished AMR mission to capture an explicit Baseline/Candidate commissioning trial. Right-click air reopens history.",
+                    18, 70, imageWidth - 36, INFO, 11);
             return;
         }
 
@@ -83,14 +131,28 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
         String status = findLine(lines, "STATUS:");
         drawStatusBadge(graphics, status);
 
+        graphics.enableScissor(
+                leftPos + 10,
+                topPos + 64,
+                leftPos + imageWidth - 10,
+                topPos + imageHeight - 52
+        );
+        graphics.pose().pushPose();
+        graphics.pose().translate(0.0F, -scrollY, 0.0F);
         int y = 68;
-        for (int i = 0; i < lines.length && y < imageHeight - 58; i++) {
+        for (int i = 0; i < lines.length; i++) {
             if (lines[i].startsWith("STATUS:") || lines[i].startsWith("MODE:")) continue;
-            y = drawWrapped(graphics, lines[i], 18, y, imageWidth - 36, lineColor(lines[i], i), 10);
+            y = drawWrapped(graphics, lines[i], 18, y, imageWidth - 44, lineColor(lines[i], i), 11);
         }
-        String footer = "Snapshot " + (page + 1) + " / " + history.size() + " • " + chronologyCue(history);
-        graphics.drawString(font, footer, 108, imageHeight - 48, MUTED, false);
-        graphics.drawString(font, comparisonCue(history), 108, imageHeight - 38, comparisonColor(history), false);
+        graphics.pose().popPose();
+        graphics.disableScissor();
+
+        String footer = "Snapshot " + (page + 1) + " / " + history.size()
+                + " • " + chronologyCue(history)
+                + " • scroll " + scrollY + "/" + maxScrollY();
+        graphics.drawString(font, footer, 120, imageHeight - 43, MUTED, false);
+        String compare = comparisonCue(history);
+        graphics.drawString(font, compare, 120, imageHeight - 31, comparisonColor(history), false);
     }
 
     private String chronologyCue(List<String> history) {
@@ -104,23 +166,36 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
     }
 
     private String comparisonCue(List<String> history) {
-        if (page == 0) return "BASELINE • newest retained evidence";
         String newest = history.get(0);
+        String explicitTrial = lineValue(newest, "TRIAL COMPARE:");
+        if (page == 0 && !explicitTrial.isBlank()) return explicitTrial;
+        if (page == 0) return "BASELINE • newest retained evidence";
+
         String selected = history.get(page);
         SnapshotContext newestContext = snapshotContext(newest);
         SnapshotContext selectedContext = snapshotContext(selected);
+
+        String newestEntity = lineValue(newest, "ENTITY:");
+        String selectedEntity = lineValue(selected, "ENTITY:");
+        boolean sameEntity = newestContext != null
+                && selectedContext != null
+                && newestContext.dimension().equals(selectedContext.dimension())
+                && !newestEntity.isBlank()
+                && newestEntity.equals(selectedEntity);
+
         String newestId = lineValue(newest, "ID:");
         String selectedId = lineValue(selected, "ID:");
         String newestPos = lineValue(newest, "POS:");
         String selectedPos = lineValue(selected, "POS:");
-        boolean sameTarget = newestContext != null
+        boolean sameBlock = newestContext != null
                 && selectedContext != null
                 && newestContext.dimension().equals(selectedContext.dimension())
                 && !newestId.isBlank()
                 && newestId.equals(selectedId)
                 && !newestPos.isBlank()
                 && newestPos.equals(selectedPos);
-        if (!sameTarget) return "OTHER TARGET • independent evidence";
+
+        if (!sameEntity && !sameBlock) return "OTHER TARGET • independent evidence";
 
         String newestStatus = lineValue(newest, "STATUS:");
         String selectedStatus = lineValue(selected, "STATUS:");
@@ -132,6 +207,7 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
         if (!newestTopology.isBlank() && !selectedTopology.isBlank() && !newestTopology.equals(selectedTopology)) {
             return "SAME TARGET • TOPOLOGY CHANGED";
         }
+        if (sameEntity) return "SAME AMR • status unchanged";
         return "SAME TARGET • status unchanged";
     }
 
@@ -167,9 +243,16 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
     private record SnapshotContext(String dimension, long tick) {}
 
     private void drawStatusBadge(GuiGraphics graphics, String status) {
-        boolean issue = status.contains("CHECK TOPOLOGY");
-        int color = issue ? BAD : GOOD;
-        String label = status.isBlank() ? "STATUS • UNKNOWN" : status.replace("STATUS:", "STATUS •").trim();
+        String normalized = status == null ? "" : status;
+        boolean topologyIssue = status != null && status.contains("CHECK TOPOLOGY");
+        int color;
+        if (normalized.contains("FAILED") || normalized.contains("FAULT") || normalized.contains("REGRESSED")) color = BAD;
+        else if (topologyIssue || normalized.contains("CHECK") || normalized.contains("SAFE_STOP")
+                || normalized.contains("INCOMPARABLE") || normalized.contains("STALE")) color = WARN;
+        else if (normalized.contains("COMPLETE") || normalized.contains("IMPROVED")
+                || normalized.contains("NOMINAL") || normalized.contains("SAME")) color = GOOD;
+        else color = INFO;
+        String label = normalized.isBlank() ? "STATUS • UNKNOWN" : normalized.replace("STATUS:", "STATUS •").trim();
         int width = Math.min(imageWidth - 36, font.width(label) + 12);
         graphics.fill(16, 47, 16 + width, 61, 0xAA000000 | (color & 0x00FFFFFF));
         graphics.drawString(font, label, 22, 50, PANEL, false);
@@ -182,19 +265,24 @@ public final class DiagnosticTabletScreen extends AbstractContainerScreen<Diagno
 
     private int lineColor(String line, int index) {
         if (index == 0) return INFO;
-        if (line.startsWith("TARGET FACE:") || line.startsWith("TOPOLOGY:") || line.startsWith("REDSTONE IN:")) return INFO;
-        if (line.startsWith("CONTEXT:") || line.startsWith("ID:") || line.startsWith("POS:") || line.startsWith("SOURCE:") || line.startsWith("STATE:")) return MUTED;
-        if (line.contains("q=FAULT")
-                || line.contains("q=DOMAIN_MISMATCH")
-                || line.contains("q=TOPOLOGY_ERROR")
-                || line.contains("→ DOMAIN_MISMATCH")
+        if (line.startsWith("TARGET FACE:") || line.startsWith("TOPOLOGY:")
+                || line.startsWith("REDSTONE IN:") || line.startsWith("PATH:")
+                || line.startsWith("TRIAL ROLE:") || line.startsWith("TRIAL SEQUENCE:")) return INFO;
+        if (line.startsWith("CONTEXT:") || line.startsWith("ID:") || line.startsWith("ENTITY:")
+                || line.startsWith("POS:") || line.startsWith("SOURCE:") || line.startsWith("STATE:")
+                || line.startsWith("TYPE:")) return MUTED;
+        if (line.contains("REGRESSED") || line.contains("MISSION FAILED")
+                || line.contains("q=FAULT") || line.contains("q=DOMAIN_MISMATCH")
+                || line.contains("q=TOPOLOGY_ERROR") || line.contains("→ DOMAIN_MISMATCH")
                 || line.contains("→ DIRECTION_MISMATCH")) return BAD;
-        if (line.contains("q=NO_SIGNAL")
-                || line.contains("q=SATURATED")
-                || line.contains("q=STALE")
-                || line.contains("→ OPEN")
+        if (line.contains("SAFE_STOP") || line.contains("INCOMPARABLE")
+                || line.contains("q=NO_SIGNAL") || line.contains("q=SATURATED")
+                || line.contains("q=STALE") || line.contains("→ OPEN")
                 || line.contains("→ UNLOADED")) return WARN;
-        if (line.contains("q=VALID") || line.contains("→ CONNECTED")) return GOOD;
+        if (line.contains("IMPROVED") || line.contains("MISSION COMPLETE")
+                || line.contains("q=VALID") || line.contains("→ CONNECTED")) return GOOD;
+        if (line.startsWith("SAFETY:") || line.startsWith("LOCALIZATION:")
+                || line.startsWith("TRIAL COMPARE:")) return INFO;
         return TEXT;
     }
 
