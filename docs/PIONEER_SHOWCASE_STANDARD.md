@@ -94,6 +94,19 @@ Wave 4 extends the pioneer pattern into timing, commissioning, plant-state and a
 - workcell control exposes explicit admission gating, finite-capacity evidence and HOLD/PERMIT reasons
 - the universal HMI exposes per-device authority contracts instead of pretending every field device shares one physics model
 
+Wave 5:
+- Enhanced Field Device shared inspector
+- Signal Processor family
+
+Wave 5 shifts from one-screen-per-device rollout to shared leverage:
+- FIELD_DEVICE is registered to EnhancedFieldDeviceScreen, so fallback devices inherit one Pioneer contract layer
+- the shared inspector selects a truthful contract by role: passive medium, observer, converter, processor, communications, reliability, pneumatic, magnetic or optical
+- the 79-kind FieldDeviceMenu taxonomy remains supported, while dedicated Pioneer screens still take precedence for devices with richer specialized HMIs
+- Precision Filter, Edge Detector and Pulse Shaper expose their actual server equations, runtime evidence and observer-neutral chronology
+
+Shared rollout must improve breadth without flattening semantics. A common inspector may standardize
+MODEL / ROLE / EVIDENCE / TOPOLOGY / AUTHORITY, but it must not invent one universal physics model.
+
 Future waves should prioritize remaining EngineeringScreen families that still lack explicit model
 or variable-role presentation. The target is broad consistency with specialization, not identical
 screens.
