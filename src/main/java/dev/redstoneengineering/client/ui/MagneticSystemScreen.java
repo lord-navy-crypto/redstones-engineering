@@ -105,18 +105,30 @@ public final class MagneticSystemScreen extends EngineeringScreen<MagneticSystem
     }
 
     private void configure(GuiGraphics g) {
-        statusBadge(g,"SERVER-SIDE BOUNDED CONTROL",INFO,16,80);
-        if(menu.kind()==MagneticSystemMenu.KIND_PERMANENT){
-            labelValue(g,"Strength",menu.primary()+" / 15",101);
-            labelValue(g,"N marker",face(menu.facing()),171);
-            safeText(g,"North-marker orientation is controlled only on Route.",16,199,MUTED);
+        statusBadge(g,"PIONEER PATTERN • MAGNETIC MODEL",INFO,16,80);
+        formulaCard(g,magneticEquation(),105);
+        variableRole(g,"MEASURED","B / source",Integer.toString(menu.primary()),"RSE field units",134);
+        if(menu.kind()==MagneticSystemMenu.KIND_COIL){
+            variableRole(g,"ADJUSTABLE","N",Integer.toString(menu.tertiary()),"turn index",152);
+            variableRole(g,"DERIVED","V_ind",Integer.toString(menu.secondary()),"Copper 0..15",170);
+            variableRole(g,"EVIDENCE","baseline",menu.complete()?"VALID":"STALE / RE-ARM","",188);
+            variableRole(g,"TOPOLOGY","RX → TX",face(menu.facing().getOpposite())+" → "+face(menu.facing()),"",206);
+        }else if(menu.kind()==MagneticSystemMenu.KIND_PERMANENT){
+            variableRole(g,"ADJUSTABLE","S",Integer.toString(menu.primary()),"source strength",152);
+            variableRole(g,"ADJUSTABLE","N marker",face(menu.facing()),"orientation",170);
+            variableRole(g,"EVIDENCE","quality",qualityName(),"",188);
+        }else if(menu.kind()==MagneticSystemMenu.KIND_FIELD_SENSOR){
+            variableRole(g,"MEASURED","coverage",menu.secondary()+" / "+menu.tertiary(),"cells",152);
+            variableRole(g,"EVIDENCE","complete",menu.complete()?"YES":"NO","",170);
+        }else if(menu.kind()==MagneticSystemMenu.KIND_GRADIENT){
+            variableRole(g,"MEASURED","Gx/Gy/Gz",menu.primary()+"/"+menu.secondary()+"/"+menu.tertiary(),"field-step",152);
+            variableRole(g,"MEASURED","B_local",Integer.toString(menu.auxiliary()),"RSE field units",170);
+            variableRole(g,"EVIDENCE","complete",menu.complete()?"YES":"NO","",188);
+        }else{
+            variableRole(g,"EVIDENCE","quality",qualityName(),"",152);
+            variableRole(g,"PROFILE","authority",observerOrActuator(),"",170);
         }
-        else if(menu.kind()==MagneticSystemMenu.KIND_COIL){
-            labelValue(g,"Turns index",Integer.toString(menu.tertiary()),101);
-            labelValue(g,"I/O axis",face(menu.facing().getOpposite())+" → "+face(menu.facing()),171);
-            safeText(g,"Physical coil direction is controlled only on Route.",16,199,MUTED);
-        }
-        else {labelValue(g,"Configuration","READ ONLY / PHYSICS-DRIVEN",101);labelValue(g,"Network authority",observerOrActuator(),171);}
+        wrappedText(g,"Magnetic fields use the server's bounded inverse-square-style accumulation. Incomplete chunk coverage is evidence uncertainty, never silently treated as zero field.",16,236,workspaceWidth()-24,MUTED);
     }
 
     private void diagnostics(GuiGraphics g) {
@@ -134,6 +146,12 @@ public final class MagneticSystemScreen extends EngineeringScreen<MagneticSystem
         safeText(g,"This HMI exposes current/retained server observations; it does not fabricate field history.",16,108,TEXT);
         if(menu.kind()==MagneticSystemMenu.KIND_COIL){labelValue(g,"Current induced EMF",menu.secondary()+" / 15",136);labelValue(g,"Derivative baseline",menu.complete()?"VALID":"STALE / RE-ARM",156);}
         else if(menu.kind()==MagneticSystemMenu.KIND_FIELD_SENSOR){labelValue(g,"Coverage",menu.secondary()+" / "+menu.tertiary(),136);}
+    }
+
+    private String magneticEquation(){
+        if(menu.kind()==MagneticSystemMenu.KIND_COIL)return "V_ind = clamp(N · |B[n] - B[n-1]|, 0, 15)";
+        if(menu.kind()==MagneticSystemMenu.KIND_GRADIENT)return "B_local = clamp(round(Σ S_i / max(1,r_i²)), 0, 15) ; G = spatial ΔB";
+        return "B = clamp(round(Σ S_i / max(1,r_i²)), 0, 15)";
     }
 
     private String deviceName(){return switch(menu.kind()){case MagneticSystemMenu.KIND_ELECTROMAGNET->"ELECTROMAGNET";case MagneticSystemMenu.KIND_PERMANENT->"PERMANENT MAGNET";case MagneticSystemMenu.KIND_COIL->"INDUCTION COIL";case MagneticSystemMenu.KIND_FIELD_SENSOR->"MAGNETIC FIELD SENSOR";default->"MAGNETIC GRADIENT METER";};}
