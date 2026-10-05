@@ -133,7 +133,7 @@ public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements E
             runtime[QUALITY_SLOT] = inputQuality.ordinal();
             DomainNetwork.driveLapis(level, outputPos(pos, state), pos, 0, false);
         }
-        level.scheduleTick(pos, this, 2);
+        level.scheduleTick(pos, this, EngineeringParameterProfile.LAPIS_FILTER_SAMPLE_PERIOD_TICKS);
     }
 
     private static PortQuality inputQuality(Level level, BlockPos inputPos, DomainNetwork.LapisSample sample) {
@@ -149,11 +149,24 @@ public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements E
             level.setBlock(pos, next, Block.UPDATE_CLIENTS);
             level.scheduleTick(pos, this, 1);
             FilterState runtime = filterState(level, pos);
+            double selectedAlpha = alpha(index);
+            String model = EngineeringParameterProfile.lapisFilterBypass(index)
+                    ? String.format(
+                            "MODEL: y[n]=x[n] | alpha=%.2f | dt=%dt | mode=BYPASS",
+                            selectedAlpha,
+                            EngineeringParameterProfile.LAPIS_FILTER_SAMPLE_PERIOD_TICKS)
+                    : String.format(
+                            "MODEL: y[n]=y[n-1]+alpha(x[n]-y[n-1]) | alpha=%.2f | dt=%dt | tau≈%.2ft | fc≈%.3fHz@20TPS",
+                            selectedAlpha,
+                            EngineeringParameterProfile.LAPIS_FILTER_SAMPLE_PERIOD_TICKS,
+                            EngineeringParameterProfile.lapisFilterTimeConstantTicks(index),
+                            EngineeringParameterProfile.lapisFilterCutoffHzNominal(index));
+            player.displayClientMessage(Component.literal(model), false);
             player.displayClientMessage(Component.literal(
-                    "Lapis low-pass | BACK input → FRONT output | alpha=" + alpha(index)
-                            + " | output=" + (runtime.valid() ? String.format("%.2f", runtime.output() / 100.0) : runtime.quality())
+                    "STATE: BACK input → FRONT output | output="
+                            + (runtime.valid() ? String.format("%.2f", runtime.output() / 100.0) : runtime.quality())
                             + " | profile=" + EngineeringParameterProfile.PROFILE_ID
-                            + " | diagnostic readback is observer-neutral"), true);
+                            + " | observer-neutral readback"), false);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
