@@ -55,6 +55,15 @@ public class RangeSensorBlock extends Block implements EngineeringPortProvider {
     public record ScanResult(int distance, ScanStatus status, int scannedCells, int configuredRange) {
         public boolean complete() { return status == ScanStatus.TARGET || status == ScanStatus.CLEAR; }
         public boolean targetDetected() { return status == ScanStatus.TARGET && distance > 0; }
+
+        /** Quality of retained measurement evidence, independent of the numeric payload. */
+        public PortQuality quality() {
+            return switch (status) {
+                case TARGET, CLEAR -> PortQuality.VALID;
+                case UNINITIALIZED -> PortQuality.NOT_READY;
+                case INCOMPLETE_UNLOADED -> PortQuality.STALE;
+            };
+        }
     }
 
     public RangeSensorBlock(Properties properties) {
@@ -133,8 +142,7 @@ public class RangeSensorBlock extends Block implements EngineeringPortProvider {
         Optional<EngineeringPort> port = engineeringPort(state, side);
         if (port.isEmpty()) return Optional.empty();
         ScanResult scan = lastScan(level, pos, state);
-        PortQuality quality = scan.complete() ? PortQuality.VALID : PortQuality.NO_SIGNAL;
-        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), state.getValue(OUTPUT), quality));
+        return Optional.of(EngineeringPortSnapshot.redstone(port.get(), state.getValue(OUTPUT), scan.quality()));
     }
 
     @Override

@@ -25,6 +25,14 @@ public final class RseRangeSensorEvidenceGameTests {
                 .defaultBlockState()
                 .setValue(RangeSensorBlock.FACING, Direction.EAST));
 
+        BlockState initialState = helper.getBlockState(sensorPos);
+        var initialSnapshot = ((RangeSensorBlock) initialState.getBlock()).engineeringSnapshot(
+                helper.getLevel(), worldPos, initialState, RangeSensorBlock.outputSide(initialState));
+        if (initialSnapshot.isEmpty() || initialSnapshot.get().quality() != PortQuality.NOT_READY) {
+            helper.fail("Range sensor must publish NOT_READY before its first authoritative scan", sensorPos);
+            return;
+        }
+
         helper.runAfterDelay(6, () -> {
             BlockState state = helper.getBlockState(sensorPos);
             RangeSensorBlock.ScanResult scan = RangeSensorBlock.lastScan(helper.getLevel(), worldPos, state);
