@@ -387,6 +387,7 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             evidenceQuality.set(PortQuality.VALID.ordinal());
             dataValid.set(1);
             quality.set(100);
+            facing.set(DirectionalDomainSourceBlock.outputSide(state).ordinal());
             fillCompatibleTopology(state, source);
         } else if (block instanceof QuartzTimingLineBlock line) {
             primary.set(QuartzTimingLineBlock.active(level, blockPos) ? 1 : 0);
@@ -874,6 +875,15 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             Direction front = next.getValue(DirectionalRedstoneEndpointBlock.FACING);
             level.updateNeighborsAt(blockPos, source);
             level.updateNeighborsAt(blockPos.relative(front), source);
+            changed = true;
+        } else if (block instanceof LapisPrecisionSourceBlock) {
+            int value = state.getValue(LapisPrecisionSourceBlock.VALUE);
+            if (id == BUTTON_PRIMARY_DECREASE) value = Math.max(0, value - 5);
+            else if (id == BUTTON_PRIMARY_INCREASE) value = value >= 100 ? 0 : value + 5;
+            else return false;
+            BlockState next = state.setValue(LapisPrecisionSourceBlock.VALUE, value);
+            level.setBlock(blockPos, next, Block.UPDATE_CLIENTS);
+            if (level instanceof net.minecraft.server.level.ServerLevel server) DomainNetwork.recomputeLapis(server, blockPos);
             changed = true;
         } else if (block instanceof RedstoneCableTerminalBlock terminal) {
             if (id != BUTTON_TOGGLE) return false;
