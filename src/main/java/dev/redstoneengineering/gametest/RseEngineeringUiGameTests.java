@@ -12,6 +12,7 @@ import dev.redstoneengineering.block.SignalConditionerBlock;
 import dev.redstoneengineering.blockentity.LogicAnalyzerBlockEntity;
 import dev.redstoneengineering.blockentity.OscilloscopeBlockEntity;
 import dev.redstoneengineering.diagnostics.PidTelemetryStore;
+import dev.redstoneengineering.diagnostics.acceptance.EngineeringAcceptanceStatus;
 import dev.redstoneengineering.physics.EngineeringParameterProfile;
 import dev.redstoneengineering.ui.menu.LogicAnalyzerMenu;
 import dev.redstoneengineering.ui.menu.OscilloscopeMenu;
@@ -248,6 +249,89 @@ public final class RseEngineeringUiGameTests {
                 helper.fail("Trigger/timebase configuration should re-arm the authoritative capture engine", scopePos);
                 return;
             }
+            helper.succeed();
+        });
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 50)
+    public static void oscilloscopeSamplingExperimentFreezesComparableEvidence(GameTestHelper helper) {
+        BlockPos scopePos = new BlockPos(2, 1, 2);
+        BlockPos worldPos = helper.absolutePos(scopePos);
+        helper.setBlock(scopePos, RedstoneEngineering.OSCILLOSCOPE.get().defaultBlockState());
+
+        helper.runAfterDelay(2, () -> {
+            if (!(helper.getLevel().getBlockEntity(worldPos) instanceof OscilloscopeBlockEntity scope)) {
+                helper.fail("Oscilloscope block entity was not present for experiment test", scopePos);
+                return;
+            }
+
+            // Baseline: a two-sample observed cycle -> explicit RSE sampling-density FAIL.
+            for (int i = 0; i < 14; i++) {
+                scope.addSample((i & 1) == 0 ? 0 : 15, -1);
+            }
+            if (scope.estimatedPeriodSamples(0) != 2 || scope.aliasRiskCode(0) != 1) {
+                helper.fail("Synthetic baseline did not produce the expected two-sample cycle", scopePos);
+                return;
+            }
+            if (!OscilloscopeBlock.applyUiAction(
+                    helper.getLevel(), worldPos, OscilloscopeMenu.BUTTON_EXPERIMENT_BASELINE)) {
+                helper.fail("Oscilloscope rejected baseline experiment capture", scopePos);
+                return;
+            }
+
+            if (!scope.experimentBaseline().isPresent() || scope.experimentCandidate().isPresent()) {
+                helper.fail("Baseline capture did not freeze exactly one server experiment record", scopePos);
+                return;
+            }
+            if (scope.experimentBaseline().get().samplePeriodTicks() != 2
+                    || scope.experimentBaseline().get().aliasRiskCode() != 1) {
+                helper.fail("Baseline experiment record did not preserve timebase/risk evidence", scopePos);
+                return;
+            }
+
+            // Change only the scope timebase; this must invalidate the live capture, not the baseline.
+            if (!OscilloscopeBlock.applyUiAction(
+                    helper.getLevel(), worldPos, OscilloscopeMenu.BUTTON_SAMPLE_PERIOD)) {
+                helper.fail("Oscilloscope rejected timebase change during experiment", scopePos);
+                return;
+            }
+            if (scope.samplePeriodTicks() != 4 || scope.sampleCount() != 0
+                    || scope.experimentBaseline().isEmpty()) {
+                helper.fail("Timebase change did not preserve baseline while invalidating live samples", scopePos);
+                return;
+            }
+
+            // Candidate: six samples/cycle -> RSE observed-margin PASS.
+            for (int i = 0; i < 24; i++) {
+                scope.addSample((i % 6) < 3 ? 0 : 15, -1);
+            }
+            if (scope.estimatedPeriodSamples(0) != 6 || scope.aliasRiskCode(0) != 3) {
+                helper.fail("Synthetic candidate did not produce the expected six-sample cycle", scopePos);
+                return;
+            }
+            if (!OscilloscopeBlock.applyUiAction(
+                    helper.getLevel(), worldPos, OscilloscopeMenu.BUTTON_EXPERIMENT_CANDIDATE)) {
+                helper.fail("Oscilloscope rejected candidate experiment capture", scopePos);
+                return;
+            }
+
+            if (scope.experimentCandidate().isEmpty()
+                    || scope.experimentCandidate().get().samplePeriodTicks() != 4
+                    || scope.samplingExperimentStatus() != EngineeringAcceptanceStatus.PASS
+                    || scope.samplingExperimentSamplesPerCycleDelta() != 4) {
+                helper.fail("Sampling experiment comparison did not preserve candidate/verdict evidence", scopePos);
+                return;
+            }
+
+            if (!OscilloscopeBlock.applyUiAction(
+                    helper.getLevel(), worldPos, OscilloscopeMenu.BUTTON_EXPERIMENT_CLEAR)
+                    || scope.experimentBaseline().isPresent()
+                    || scope.experimentCandidate().isPresent()) {
+                helper.fail("Sampling experiment clear did not remove frozen evidence", scopePos);
+                return;
+            }
+
             helper.succeed();
         });
     }

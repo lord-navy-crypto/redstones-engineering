@@ -21,6 +21,9 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_CURSOR_B = 5;
     public static final int BUTTON_CLEAR = 6;
     public static final int BUTTON_SAMPLE_PERIOD = 7;
+    public static final int BUTTON_EXPERIMENT_BASELINE = 8;
+    public static final int BUTTON_EXPERIMENT_CANDIDATE = 9;
+    public static final int BUTTON_EXPERIMENT_CLEAR = 10;
 
     private final DataSlot sampleCount = trackedInt();
     private final DataSlot triggerMode = trackedInt();
@@ -32,6 +35,29 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     private final DataSlot samplePeriodTicks = trackedInt();
     private final DataSlot sampleRateMilliHz = trackedInt();
     private final DataSlot nyquistMilliHz = trackedInt();
+
+    private final DataSlot experimentStatus = trackedInt();
+    private final DataSlot experimentChannel = trackedInt();
+    private final DataSlot baselinePresent = trackedInt();
+    private final DataSlot candidatePresent = trackedInt();
+    private final DataSlot baselineSamplePeriodTicks = trackedInt();
+    private final DataSlot candidateSamplePeriodTicks = trackedInt();
+    private final DataSlot baselineSampleRateMilliHz = trackedInt();
+    private final DataSlot candidateSampleRateMilliHz = trackedInt();
+    private final DataSlot baselineNyquistMilliHz = trackedInt();
+    private final DataSlot candidateNyquistMilliHz = trackedInt();
+    private final DataSlot baselineCoverage = trackedInt();
+    private final DataSlot candidateCoverage = trackedInt();
+    private final DataSlot baselinePeriodSamples = trackedInt();
+    private final DataSlot candidatePeriodSamples = trackedInt();
+    private final DataSlot baselineFrequencyMilliHz = trackedInt();
+    private final DataSlot candidateFrequencyMilliHz = trackedInt();
+    private final DataSlot baselineAliasRisk = trackedInt();
+    private final DataSlot candidateAliasRisk = trackedInt();
+    private final DataSlot baselineMeanStep100 = trackedInt();
+    private final DataSlot candidateMeanStep100 = trackedInt();
+    private final DataSlot experimentSamplesDelta = trackedInt();
+    private final DataSlot experimentFrequencyDeltaMilliHz = trackedInt();
 
     private final DataSlot[] current = new DataSlot[2];
     private final DataSlot[] coverage = new DataSlot[2];
@@ -89,6 +115,58 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
         samplePeriodTicks.set(scope.samplePeriodTicks());
         sampleRateMilliHz.set(scope.sampleRateMilliHz());
         nyquistMilliHz.set(scope.nyquistMilliHz());
+
+        experimentStatus.set(scope.samplingExperimentStatus().ordinal());
+        experimentSamplesDelta.set(scope.samplingExperimentSamplesPerCycleDelta());
+        experimentFrequencyDeltaMilliHz.set(scope.samplingExperimentObservedFrequencyDeltaMilliHz());
+
+        var baseline = scope.experimentBaseline();
+        baselinePresent.set(baseline.isPresent() ? 1 : 0);
+        if (baseline.isPresent()) {
+            var record = baseline.get();
+            experimentChannel.set(record.channel());
+            baselineSamplePeriodTicks.set(record.samplePeriodTicks());
+            baselineSampleRateMilliHz.set(record.sampleRateMilliHz());
+            baselineNyquistMilliHz.set(record.nyquistMilliHz());
+            baselineCoverage.set(record.coveragePercent());
+            baselinePeriodSamples.set(record.periodSamples());
+            baselineFrequencyMilliHz.set(record.observedFrequencyMilliHz());
+            baselineAliasRisk.set(record.aliasRiskCode());
+            baselineMeanStep100.set(record.meanStep100());
+        } else {
+            experimentChannel.set(scope.triggerChannel());
+            baselineSamplePeriodTicks.set(0);
+            baselineSampleRateMilliHz.set(0);
+            baselineNyquistMilliHz.set(0);
+            baselineCoverage.set(0);
+            baselinePeriodSamples.set(-1);
+            baselineFrequencyMilliHz.set(-1);
+            baselineAliasRisk.set(0);
+            baselineMeanStep100.set(-1);
+        }
+
+        var candidate = scope.experimentCandidate();
+        candidatePresent.set(candidate.isPresent() ? 1 : 0);
+        if (candidate.isPresent()) {
+            var record = candidate.get();
+            candidateSamplePeriodTicks.set(record.samplePeriodTicks());
+            candidateSampleRateMilliHz.set(record.sampleRateMilliHz());
+            candidateNyquistMilliHz.set(record.nyquistMilliHz());
+            candidateCoverage.set(record.coveragePercent());
+            candidatePeriodSamples.set(record.periodSamples());
+            candidateFrequencyMilliHz.set(record.observedFrequencyMilliHz());
+            candidateAliasRisk.set(record.aliasRiskCode());
+            candidateMeanStep100.set(record.meanStep100());
+        } else {
+            candidateSamplePeriodTicks.set(0);
+            candidateSampleRateMilliHz.set(0);
+            candidateNyquistMilliHz.set(0);
+            candidateCoverage.set(0);
+            candidatePeriodSamples.set(-1);
+            candidateFrequencyMilliHz.set(-1);
+            candidateAliasRisk.set(0);
+            candidateMeanStep100.set(-1);
+        }
         for (int channel = 0; channel < 2; channel++) {
             current[channel].set(scope.current(channel)); coverage[channel].set(scope.coveragePercent(channel));
             minimum[channel].set(scope.minimum(channel)); maximum[channel].set(scope.maximum(channel));
@@ -128,6 +206,29 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     public int samplePeriodTicks() { return samplePeriodTicks.get(); }
     public int sampleRateMilliHz() { return sampleRateMilliHz.get(); }
     public int nyquistMilliHz() { return nyquistMilliHz.get(); }
+
+    public int experimentStatus() { return experimentStatus.get(); }
+    public int experimentChannel() { return experimentChannel.get(); }
+    public boolean baselinePresent() { return baselinePresent.get() != 0; }
+    public boolean candidatePresent() { return candidatePresent.get() != 0; }
+    public int baselineSamplePeriodTicks() { return baselineSamplePeriodTicks.get(); }
+    public int candidateSamplePeriodTicks() { return candidateSamplePeriodTicks.get(); }
+    public int baselineSampleRateMilliHz() { return baselineSampleRateMilliHz.get(); }
+    public int candidateSampleRateMilliHz() { return candidateSampleRateMilliHz.get(); }
+    public int baselineNyquistMilliHz() { return baselineNyquistMilliHz.get(); }
+    public int candidateNyquistMilliHz() { return candidateNyquistMilliHz.get(); }
+    public int baselineCoverage() { return baselineCoverage.get(); }
+    public int candidateCoverage() { return candidateCoverage.get(); }
+    public int baselinePeriodSamples() { return baselinePeriodSamples.get(); }
+    public int candidatePeriodSamples() { return candidatePeriodSamples.get(); }
+    public int baselineFrequencyMilliHz() { return baselineFrequencyMilliHz.get(); }
+    public int candidateFrequencyMilliHz() { return candidateFrequencyMilliHz.get(); }
+    public int baselineAliasRisk() { return baselineAliasRisk.get(); }
+    public int candidateAliasRisk() { return candidateAliasRisk.get(); }
+    public int baselineMeanStep100() { return baselineMeanStep100.get(); }
+    public int candidateMeanStep100() { return candidateMeanStep100.get(); }
+    public int experimentSamplesDelta() { return experimentSamplesDelta.get(); }
+    public int experimentFrequencyDeltaMilliHz() { return experimentFrequencyDeltaMilliHz.get(); }
     public int current(int channel) { return current[channel].get(); }
     public int coverage(int channel) { return coverage[channel].get(); }
     public int minimum(int channel) { return minimum[channel].get(); }

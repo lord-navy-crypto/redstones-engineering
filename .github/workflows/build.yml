@@ -123,7 +123,8 @@ jobs:
             tools/rse_physics_parameter_profile_verify.py \
             tools/rse_lapis_filter_model_sweep.py \
             tools/rse_lapis_low_pass_hmi_verify.py \
-            tools/rse_oscilloscope_sampling_verify.py
+            tools/rse_oscilloscope_sampling_verify.py \
+            tools/rse_oscilloscope_sampling_experiment_verify.py
           do
             if [[ -f "$verifier" ]]; then
               echo "==> $verifier" | tee -a .rse-audit/static-verification.log

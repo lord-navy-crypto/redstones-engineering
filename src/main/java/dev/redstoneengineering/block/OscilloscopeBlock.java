@@ -112,6 +112,13 @@ public class OscilloscopeBlock extends Block implements EntityBlock, Engineering
             case OscilloscopeMenu.BUTTON_CURSOR_B -> scope.moveCursorB();
             case OscilloscopeMenu.BUTTON_CLEAR -> scope.clear();
             case OscilloscopeMenu.BUTTON_SAMPLE_PERIOD -> scope.cycleSamplePeriod();
+            case OscilloscopeMenu.BUTTON_EXPERIMENT_BASELINE -> scope.captureExperimentBaseline(level.getGameTime());
+            case OscilloscopeMenu.BUTTON_EXPERIMENT_CANDIDATE -> {
+                if (!scope.captureExperimentCandidate(level.getGameTime())) return false;
+            }
+            case OscilloscopeMenu.BUTTON_EXPERIMENT_CLEAR -> {
+                if (!scope.clearSamplingExperiment()) return false;
+            }
             default -> { return false; }
         }
         return true;
