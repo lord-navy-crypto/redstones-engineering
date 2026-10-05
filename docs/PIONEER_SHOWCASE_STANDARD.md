@@ -157,6 +157,20 @@ The coverage verifier must fail when a new real FieldDevice KIND is added withou
 route or an explicit shared Pioneer classification. Generic fallback is no longer considered
 sufficient evidence of engineering coverage.
 
+Wave 9:
+- PID closed-loop Commissioning Trial
+
+Wave 9 moves Pioneer quality from block-by-block evidence into an explicit system experiment:
+- BASELINE and CANDIDATE are deliberate operator captures, not merely the latest two history rows
+- captures are accepted only when the authoritative commissioning state has complete PASS / MARGINAL / FAIL dynamic evidence
+- the frozen comparison reports score, settling, overshoot, saturation and topology-issue deltas
+- the established ClosedLoopCommissioning robustness thresholds remain the single source of truth
+- starting a new baseline clears the previous candidate; the transient store is bounded to 256 controllers per level
+- trial capture/clear actions never reset controller runtime, tuning, plant state, topology, or ordinary acceptance history
+
+The trial follows BASELINE → intervention/change → wait for trustworthy response → CANDIDATE → compare.
+It is an evidence workflow, not a second control solver.
+
 Future waves should prioritize remaining EngineeringScreen families that still lack explicit model
 or variable-role presentation. The target is broad consistency with specialization, not identical
 screens.
