@@ -39,10 +39,10 @@ if not enum_match:
 else:
     # Remove comments before parsing enum constants so documentation attached
     # to the final constant cannot be mistaken for the constant name.
-    enum_body = re.sub(r"/\\*.*?\\*/|//.*?$", "", enum_match.group("body"), flags=re.S | re.M)
+    enum_body = re.sub(r"/\*.*?\*/|//.*?$", "", enum_match.group("body"), flags=re.S | re.M)
     names = []
     for token in enum_body.split(","):
-        match = re.match(r"\\s*([A-Z][A-Z0-9_]*)", token)
+        match = re.match(r"\s*([A-Z][A-Z0-9_]*)", token)
         if match:
             names.append(match.group(1))
     if not names or names[-1] != "NOT_READY":
