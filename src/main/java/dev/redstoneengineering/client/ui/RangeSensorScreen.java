@@ -123,10 +123,10 @@ public final class RangeSensorScreen extends EngineeringScreen<RangeSensorMenu> 
     private String responseEquation() {
         int range = Math.max(1, menu.configuredRange());
         return switch (menu.responseMode()) {
-            case 0 -> "y = round(15 · (R - d + 1) / R)";
-            case 1 -> "y = round(15 · d / R)";
-            case 2 -> "y = (d ≤ R/2) ? 15 : 0";
-            case 3 -> "y = (R/3 ≤ d ≤ 2R/3) ? 15 : 0";
+            case 0 -> "y = (d ≤ 0) ? 0 : round(15 · (R - d + 1) / R)";
+            case 1 -> "y = (d ≤ 0) ? 0 : round(15 · d / R)";
+            case 2 -> "y = (d > 0 ∧ d ≤ max(1, floor(R/2))) ? 15 : 0";
+            case 3 -> "y = (max(1,floor(R/3)) ≤ d ≤ max(low,floor(2R/3))) ? 15 : 0";
             default -> "y = 0";
         };
     }
