@@ -75,6 +75,33 @@ public final class RseMetrologyGameTests {
 
     @PrefixGameTestTemplate(false)
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE)
+    public static void sharedPortQualityDistinguishesReadinessFromAgedEvidence(GameTestHelper helper) {
+        MeasurementSnapshot awaitingFirstSample = MeasurementSnapshot.invalid(1.0);
+        if (MetrologySupport.portQuality(awaitingFirstSample) != PortQuality.NOT_READY) {
+            helper.fail("A metrology channel with no authoritative sample must be NOT_READY", MARKER);
+            return;
+        }
+        if (!MetrologySupport.compactDiagnostics(awaitingFirstSample).startsWith("NOT_READY")) {
+            helper.fail("Operator diagnostics must expose first-sample readiness explicitly", MARKER);
+            return;
+        }
+
+        MetrologyTracker tracker = new MetrologyTracker(1.0, 30);
+        MeasurementSnapshot firstValid = tracker.sample(0.0, 0.0, false, 10);
+        if (MetrologySupport.portQuality(firstValid) != PortQuality.VALID) {
+            helper.fail("A completed zero-valued measurement is VALID evidence, not absence of evidence", MARKER);
+            return;
+        }
+        MeasurementSnapshot stale = tracker.snapshot(41);
+        if (MetrologySupport.portQuality(stale) != PortQuality.STALE) {
+            helper.fail("A previously valid measurement older than its age limit must be STALE", MARKER);
+            return;
+        }
+        helper.succeed();
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE)
     public static void sharedPortQualityPreservesHardMeasurementStates(GameTestHelper helper) {
         MetrologyTracker tracker = new MetrologyTracker(1.0, 30);
         MeasurementSnapshot saturated = tracker.sample(15.0, 15.0, true, 10);
