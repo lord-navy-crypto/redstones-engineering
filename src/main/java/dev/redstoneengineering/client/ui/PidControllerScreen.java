@@ -106,33 +106,20 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
     private void renderConfigure(GuiGraphics graphics) {
         statusBadge(graphics, "PIONEER WORKFLOW • CLOSED-LOOP COMMISSIONING TRIAL", INFO, 16, 80);
         labelValue(graphics, "Tuning preset", tuningName(menu.tuning()), 101);
-        safeText(graphics, tuningDescription(menu.tuning()), 16, 117, TEXT);
 
         String baseline = menu.trialBaselineSequence() > 0 ? "#" + menu.trialBaselineSequence() : "NONE";
         String candidate = menu.trialCandidateSequence() > 0 ? "#" + menu.trialCandidateSequence() : "NONE";
-        labelValue(graphics, "Trial baseline / candidate", baseline + " / " + candidate, 137);
+        labelValue(graphics, "Trial baseline / candidate", baseline + " / " + candidate, 117);
 
         AcceptanceEvidenceTrend trial = menu.trialTrend();
-        if (trial == null) {
-            statusLine(graphics, "Trial verdict", menu.trialBaselineSequence() > 0
-                    ? "BASELINE READY • change system, settle, capture candidate"
-                    : "START WITH BASELINE", INFO, 157);
-        } else {
-            statusLine(graphics, "Trial verdict",
-                    trial.name() + " • " + (menu.trialRobust() ? "ROBUST" : "CHECK"),
-                    menu.trialRobust() ? GOOD : comparisonColor(trial), 157);
-            safeText(graphics,
-                    "Δscore " + signed(menu.trialScoreDelta())
-                            + " • Δsettle " + signed(menu.trialSettlingDelta()) + "t"
-                            + " • Δovershoot " + signed(menu.trialOvershootDelta())
-                            + " • Δsat " + signed(menu.trialSaturationDelta())
-                            + " • Δissues " + signed(menu.trialTopologyIssueDelta()),
-                    16, 176, menu.trialRobust() ? GOOD : WARN);
-        }
-
-        wrappedText(graphics,
-                "Workflow: capture BASELINE → change tuning or system condition → wait for trustworthy settled evidence → capture CANDIDATE → compare frozen system evidence. Trial actions never drive the plant or reset controller physics.",
-                16, 198, workspaceWidth() - 24, MUTED);
+        String verdict = trial == null
+                ? (menu.trialBaselineSequence() > 0 ? "BASELINE READY • settle, then candidate" : "START WITH BASELINE")
+                : trial.name() + " • " + (menu.trialRobust() ? "ROBUST" : "CHECK");
+        statusLine(graphics, "Trial verdict", verdict,
+                trial == null ? INFO : (menu.trialRobust() ? GOOD : comparisonColor(trial)), 133);
+        safeText(graphics,
+                "Captures require settled PASS / MARGINAL / FAIL evidence; detailed deltas are shown on Log.",
+                16, 149, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
