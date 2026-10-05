@@ -48,12 +48,15 @@ public final class IndustrialBufferScreen extends EngineeringScreen<IndustrialBu
     }
 
     private void renderConfigure(GuiGraphics graphics) {
-        statusBadge(graphics, "WORKCELL ROLES • READ ONLY", INFO, 16, 78);
-        statusLine(graphics, "INPUT TO", menu.inputConsumerWorkcells() + " workcell(s)", menu.inputConsumerWorkcells() > 0 ? GOOD : INFO, 104);
-        statusLine(graphics, "OUTPUT FROM", menu.outputProducerWorkcells() + " workcell(s)", menu.outputProducerWorkcells() > 0 ? GOOD : INFO, 126);
-        safeText(graphics, "Role counts are derived from persisted OperationWorkcellBufferBinding records.", 16, 152, TEXT);
-        safeText(graphics, "Use the Operations Binding Tool to change relationships; this screen cannot mutate them.", 16, 172, MUTED);
-        safeText(graphics, "Capacity and lots remain server-owned Operations state.", 16, 192, MUTED);
+        statusBadge(graphics, "PIONEER PATTERN • OPERATIONS / WIP MODEL", INFO, 16, 78);
+        formulaCard(graphics,"WIP% = 100 · used / capacity ; redstone = round(15 · used / capacity)",105);
+        variableRole(graphics,"MEASURED","used",Integer.toString(menu.usedUnits()),"units",134);
+        variableRole(graphics,"PROFILE","capacity",Integer.toString(menu.capacityUnits()),"units",152);
+        variableRole(graphics,"DERIVED","free",Integer.toString(menu.availableUnits()),"units",170);
+        variableRole(graphics,"DERIVED","WIP",menu.wipPressurePercent()+"%","capacity pressure",188);
+        variableRole(graphics,"DERIVED","signal",menu.wipSignal()+"/15","vanilla boundary",206);
+        evidenceRow(graphics,"Workcell roles",menu.inputConsumerWorkcells()+" consume",menu.outputProducerWorkcells()+" produce","persisted bindings",230);
+        wrappedText(graphics,"OUTPUT/JOB/LOT identity remains server-owned Operations state and never enters analog Redstone. Use the Operations Binding Tool to change relationships; this HMI is read-only.",16,258,workspaceWidth()-24,MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
