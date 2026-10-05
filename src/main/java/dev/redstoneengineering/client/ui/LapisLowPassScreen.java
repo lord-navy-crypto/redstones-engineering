@@ -2,7 +2,6 @@ package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.block.LapisLowPassFilterBlock;
 import dev.redstoneengineering.core.port.PortQuality;
-import dev.redstoneengineering.physics.EngineeringParameterProfile;
 import dev.redstoneengineering.ui.menu.LapisLowPassMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -239,31 +238,31 @@ public final class LapisLowPassScreen extends AbstractContainerScreen<LapisLowPa
         y += 28;
 
         int index = menu.alphaIndex();
-        double alpha = EngineeringParameterProfile.lapisFilterAlpha(index);
+        double alpha = LapisLowPassMenu.alphaForIndex(index);
         int input = menu.inputValue();
         int previous = menu.previousOutput();
-        int predicted = bounded((int) Math.round(previous + alpha * (input - previous)));
+        int predicted = menu.predictedOutput();
 
         label(g, "[MEASURED]  x[n]", input + " precision units", y); y += 18;
         label(g, "[SOLVER]    y[n-1]", previous + " precision units", y); y += 18;
         label(g, "[ADJUSTABLE] α", String.format("%.2f  (profile step %d/%d)", alpha, index + 1,
-                EngineeringParameterProfile.LAPIS_FILTER_ALPHA_STEPS), y); y += 18;
-        label(g, "[PROFILE]   Δt", EngineeringParameterProfile.LAPIS_FILTER_SAMPLE_PERIOD_TICKS
-                + " ticks  ≈ " + String.format("%.3f s nominal", EngineeringParameterProfile.LAPIS_FILTER_SAMPLE_PERIOD_TICKS
-                / EngineeringParameterProfile.NOMINAL_TICKS_PER_SECOND), y); y += 18;
+                LapisLowPassMenu.alphaSteps()), y); y += 18;
+        label(g, "[PROFILE]   Δt", LapisLowPassMenu.samplePeriodTicks()
+                + " ticks  ≈ " + String.format("%.3f s nominal", LapisLowPassMenu.samplePeriodTicks()
+                / LapisLowPassMenu.nominalTicksPerSecond()), y); y += 18;
 
-        if (EngineeringParameterProfile.lapisFilterBypass(index)) {
+        if (LapisLowPassMenu.bypassForIndex(index)) {
             label(g, "[DERIVED]   τ / fc", "BYPASS • y[n] = x[n]", y); y += 22;
         } else {
-            label(g, "[DERIVED]   τ", String.format("%.3f ticks", EngineeringParameterProfile.lapisFilterTimeConstantTicks(index)), y); y += 18;
+            label(g, "[DERIVED]   τ", String.format("%.3f ticks", LapisLowPassMenu.timeConstantTicksForIndex(index)), y); y += 18;
             label(g, "[DERIVED]   fc", String.format("%.4f Hz nominal @ %.0f TPS",
-                    EngineeringParameterProfile.lapisFilterCutoffHzNominal(index),
-                    EngineeringParameterProfile.NOMINAL_TICKS_PER_SECOND), y); y += 22;
+                    LapisLowPassMenu.cutoffHzForIndex(index),
+                    LapisLowPassMenu.nominalTicksPerSecond()), y); y += 22;
         }
 
         rule(g, y); y += 14;
         sectionTitle(g, "LIVE SUBSTITUTION", y); y += 20;
-        String substitution = EngineeringParameterProfile.lapisFilterBypass(index)
+        String substitution = LapisLowPassMenu.bypassForIndex(index)
                 ? String.format("y[n] = x[n] = %d", input)
                 : String.format("y[n] = %d + %.2f · (%d - %d) = %d", previous, alpha, input, previous, predicted);
         equation(g, substitution, y); y += 28;
@@ -287,8 +286,8 @@ public final class LapisLowPassScreen extends AbstractContainerScreen<LapisLowPa
         metric(g, "OUTPUT y[n]", menu.outputValue() + " / 100", menu.outputQuality(), y); y += 48;
         label(g, "RX face", menu.inputDirection().getName().toUpperCase(), y); y += 18;
         label(g, "TX face", menu.outputDirection().getName().toUpperCase(), y); y += 18;
-        label(g, "Profile", EngineeringParameterProfile.PROFILE_ID, y); y += 18;
-        label(g, "Sample period", EngineeringParameterProfile.LAPIS_FILTER_SAMPLE_PERIOD_TICKS + " ticks", y); y += 24;
+        label(g, "Profile", LapisLowPassMenu.profileId(), y); y += 18;
+        label(g, "Sample period", LapisLowPassMenu.samplePeriodTicks() + " ticks", y); y += 24;
         wrapped(g, "The screen never samples the world independently. Values shown here are synchronized evidence from the server-owned device model.",
                 CONTENT_X, y, Math.min(620, contentWidth() - 20), INFO);
     }
@@ -297,10 +296,10 @@ public final class LapisLowPassScreen extends AbstractContainerScreen<LapisLowPa
         int y = CONTENT_Y;
         sectionTitle(g, "RESPONSE CONFIGURATION", y); y += 22;
         int index = menu.alphaIndex();
-        double alpha = EngineeringParameterProfile.lapisFilterAlpha(index);
+        double alpha = LapisLowPassMenu.alphaForIndex(index);
         label(g, "Selected α", String.format("%.2f", alpha), y); y += 18;
-        label(g, "Meaning", EngineeringParameterProfile.lapisFilterBypass(index) ? "BYPASS" : "FIRST-ORDER RESPONSE", y); y += 18;
-        label(g, "Default index", Integer.toString(EngineeringParameterProfile.LAPIS_FILTER_DEFAULT_INDEX), y); y += 28;
+        label(g, "Meaning", LapisLowPassMenu.bypassForIndex(index) ? "BYPASS" : "FIRST-ORDER RESPONSE", y); y += 18;
+        label(g, "Default index", Integer.toString(LapisLowPassMenu.defaultAlphaIndex()), y); y += 28;
 
         sectionTitle(g, "PROFILE RESPONSE TABLE", y); y += 22;
         g.drawString(font, "INDEX", CONTENT_X, y, MUTED, false);
@@ -309,18 +308,18 @@ public final class LapisLowPassScreen extends AbstractContainerScreen<LapisLowPa
         g.drawString(font, "fc nominal", CONTENT_X + 280, y, MUTED, false);
         g.drawString(font, "INTERPRETATION", CONTENT_X + 420, y, MUTED, false);
         y += 16;
-        for (int i = 0; i < EngineeringParameterProfile.LAPIS_FILTER_ALPHA_STEPS; i++) {
-            double a = EngineeringParameterProfile.lapisFilterAlpha(i);
+        for (int i = 0; i < LapisLowPassMenu.alphaSteps(); i++) {
+            double a = LapisLowPassMenu.alphaForIndex(i);
             int color = i == index ? GOOD : TEXT;
             g.drawString(font, (i == index ? "▶ " : "  ") + i, CONTENT_X, y, color, false);
             g.drawString(font, String.format("%.2f", a), CONTENT_X + 80, y, color, false);
-            if (EngineeringParameterProfile.lapisFilterBypass(i)) {
+            if (LapisLowPassMenu.bypassForIndex(i)) {
                 g.drawString(font, "—", CONTENT_X + 160, y, color, false);
                 g.drawString(font, "—", CONTENT_X + 280, y, color, false);
                 g.drawString(font, "BYPASS", CONTENT_X + 420, y, color, false);
             } else {
-                g.drawString(font, String.format("%.2f", EngineeringParameterProfile.lapisFilterTimeConstantTicks(i)), CONTENT_X + 160, y, color, false);
-                g.drawString(font, String.format("%.3f Hz", EngineeringParameterProfile.lapisFilterCutoffHzNominal(i)), CONTENT_X + 280, y, color, false);
+                g.drawString(font, String.format("%.2f", LapisLowPassMenu.timeConstantTicksForIndex(i)), CONTENT_X + 160, y, color, false);
+                g.drawString(font, String.format("%.3f Hz", LapisLowPassMenu.cutoffHzForIndex(i)), CONTENT_X + 280, y, color, false);
                 g.drawString(font, i < 2 ? "SLOW / HEAVY SMOOTHING" : i < 5 ? "BALANCED" : "FAST RESPONSE", CONTENT_X + 420, y, color, false);
             }
             y += 18;
@@ -350,7 +349,7 @@ public final class LapisLowPassScreen extends AbstractContainerScreen<LapisLowPa
         label(g, "Runtime state", menu.runtimePresent() ? "PRESENT" : "NOT READY", y); y += 18;
         label(g, "Authority", "SERVER", y); y += 18;
         label(g, "Readback", "OBSERVER-NEUTRAL", y); y += 18;
-        label(g, "Profile provenance", EngineeringParameterProfile.PROFILE_ID, y); y += 28;
+        label(g, "Profile provenance", LapisLowPassMenu.profileId(), y); y += 28;
         rule(g, y); y += 14;
         sectionTitle(g, "INTERPRETATION", y); y += 20;
         wrapped(g, "VALID means the port has usable physical evidence. NO_SIGNAL means no usable source. NOT_READY means the model has not produced retained evidence yet; it is not the same thing as a measured zero.",
