@@ -138,6 +138,25 @@ Wave 7 closes verification debt in the original Wave-1 instrument chain:
 - Media Conversion preserves exact Redstone-derived codes while explicitly measuring Lapis-to-Redstone quantization loss
 - all four families are CI-protected as Pioneer contracts rather than relying only on historical UI polish
 
+Wave 8:
+- FieldDevice taxonomy coverage closure
+- Redstone Cable Terminal / Reference Source / Lapis Precision Source
+- Redstone / Lapis / Quartz source-ownership evidence
+- Instrument / Data / Optical / Amethyst passive-medium integrity
+
+Wave 8 closes the shared-inspector coverage gap:
+- all 78 real FieldDevice kinds (plus KIND_UNKNOWN) are checked automatically against dedicated routes or explicit Enhanced contracts
+- PortQuality is synchronized as a first-class server state instead of collapsing STALE / TOPOLOGY_ERROR / NO_SIGNAL into a generic zero-percent display
+- Redstone cable/terminal views retain sourceCount and valid-zero semantics
+- Lapis and Quartz traces expose source conflict vs truncated-scan evidence
+- Instrument buses expose authoritative channel/topology quality and deterministic interference confidence without double-scanning the network
+- Data Bus, Optical fiber/junction and Amethyst dust retain their existing conflict/stale classifications
+- Lapis Precision Source receives real server-side ±5 controls for its 0..100 value and a synchronized output face
+
+The coverage verifier must fail when a new real FieldDevice KIND is added without either a dedicated
+route or an explicit shared Pioneer classification. Generic fallback is no longer considered
+sufficient evidence of engineering coverage.
+
 Future waves should prioritize remaining EngineeringScreen families that still lack explicit model
 or variable-role presentation. The target is broad consistency with specialization, not identical
 screens.
