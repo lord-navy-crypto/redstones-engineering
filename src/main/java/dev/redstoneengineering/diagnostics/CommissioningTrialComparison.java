@@ -60,9 +60,13 @@ public record CommissioningTrialComparison(
             else trend = AcceptanceEvidenceTrend.SAME;
         }
 
-        CommissioningComparison dynamic = ClosedLoopCommissioning.compare(
-                baseline.commissioning(), candidate.commissioning());
-        boolean robust = trend != AcceptanceEvidenceTrend.INCOMPARABLE
+        boolean dynamicComparable = baseline.commissioning().available()
+                && candidate.commissioning().available()
+                && trend != AcceptanceEvidenceTrend.INCOMPARABLE;
+        CommissioningComparison dynamic = dynamicComparable
+                ? ClosedLoopCommissioning.compare(baseline.commissioning(), candidate.commissioning())
+                : null;
+        boolean robust = dynamic != null
                 && candidate.acceptance().status() != EngineeringAcceptanceStatus.FAIL
                 && candidate.acceptance().status() != EngineeringAcceptanceStatus.NOT_READY
                 && issueDelta <= 0
