@@ -12,7 +12,9 @@ public class OscilloscopeBlockEntity extends BlockEntity {
     private static final int CHANNELS = 2;
     private static final int CAPACITY = 32;
     public static final int DISPLAY_SAMPLES = 16;
-    public static final int SAMPLE_PERIOD_TICKS = 2;
+    public static final double NOMINAL_TICKS_PER_SECOND = 20.0;
+    public static final int[] SAMPLE_PERIOD_OPTIONS = {1, 2, 4, 8};
+    public static final int DEFAULT_SAMPLE_PERIOD_INDEX = 1;
 
     private final int[][] history = new int[CHANNELS][CAPACITY];
     private int index = 0;
@@ -27,6 +29,7 @@ public class OscilloscopeBlockEntity extends BlockEntity {
     private int lastA = -1;
     private int lastB = -1;
     private int samplesSinceTrigger = 0;
+    private int samplePeriodIndex = DEFAULT_SAMPLE_PERIOD_INDEX;
 
     public OscilloscopeBlockEntity(BlockPos pos, BlockState state) {
         super(RedstoneEngineering.OSCILLOSCOPE_BLOCK_ENTITY.get(), pos, state);
@@ -119,6 +122,52 @@ public class OscilloscopeBlockEntity extends BlockEntity {
         setChanged();
     }
 
+    /**
+     * Cycle the server-owned sampling interval. Changing dt invalidates the old timebase,
+     * so the retained capture is cleared instead of mixing samples from different rates.
+     */
+    public void cycleSamplePeriod() {
+        samplePeriodIndex = (samplePeriodIndex + 1) % SAMPLE_PERIOD_OPTIONS.length;
+        clearHistoryOnly();
+        armed = true;
+        triggered = false;
+        setChanged();
+    }
+
+    public int samplePeriodIndex() {
+        return samplePeriodIndex;
+    }
+
+    public int samplePeriodTicks() {
+        return SAMPLE_PERIOD_OPTIONS[Math.max(0, Math.min(SAMPLE_PERIOD_OPTIONS.length - 1, samplePeriodIndex))];
+    }
+
+    public static int defaultSamplePeriodTicks() {
+        return SAMPLE_PERIOD_OPTIONS[DEFAULT_SAMPLE_PERIOD_INDEX];
+    }
+
+    /** Nominal sample rate in milliHertz, assuming 20 game ticks/s. */
+    public int sampleRateMilliHz() {
+        return (int) Math.round((NOMINAL_TICKS_PER_SECOND * 1000.0) / samplePeriodTicks());
+    }
+
+    /** Nominal Nyquist limit in milliHertz, fs/2. */
+    public int nyquistMilliHz() {
+        return sampleRateMilliHz() / 2;
+    }
+
+    /**
+     * Evidence-based alias margin classification from captured samples per observed cycle.
+     * 0=NOT_READY, 1=RISK (<=2 samples/cycle), 2=MARGINAL (3..4), 3=GOOD (>=5).
+     */
+    public int aliasRiskCode(int channel) {
+        int samples = estimatedPeriodSamples(channel);
+        if (samples < 0) return 0;
+        if (samples <= 2) return 1;
+        if (samples <= 4) return 2;
+        return 3;
+    }
+
     public int triggerLevel() {
         return triggerLevel;
     }
@@ -173,7 +222,7 @@ public class OscilloscopeBlockEntity extends BlockEntity {
     }
 
     public int cursorDeltaTicks() {
-        return cursorDeltaSamples() * SAMPLE_PERIOD_TICKS;
+        return cursorDeltaSamples() * samplePeriodTicks();
     }
 
     public int cursorValue(int channel, boolean second) {
@@ -282,7 +331,13 @@ public class OscilloscopeBlockEntity extends BlockEntity {
 
     public int estimatedPeriodTicks(int channel) {
         int samples = estimatedPeriodSamples(channel);
-        return samples < 0 ? -1 : samples * SAMPLE_PERIOD_TICKS;
+        return samples < 0 ? -1 : samples * samplePeriodTicks();
+    }
+
+    /** Observed captured frequency in milliHertz; this cannot prove the source was alias-free. */
+    public int estimatedFrequencyMilliHz(int channel) {
+        int periodTicks = estimatedPeriodTicks(channel);
+        return periodTicks <= 0 ? -1 : (int) Math.round((NOMINAL_TICKS_PER_SECOND * 1000.0) / periodTicks);
     }
 
     public String captureQuality(int channel) {
@@ -335,6 +390,9 @@ public class OscilloscopeBlockEntity extends BlockEntity {
         lastA = tag.contains("lastA") ? tag.getInt("lastA") : -1;
         lastB = tag.contains("lastB") ? tag.getInt("lastB") : -1;
         samplesSinceTrigger = Math.max(0, Math.min(CAPACITY, tag.getInt("samplesSinceTrigger")));
+        samplePeriodIndex = tag.contains("samplePeriodIndex")
+                ? Math.max(0, Math.min(SAMPLE_PERIOD_OPTIONS.length - 1, tag.getInt("samplePeriodIndex")))
+                : DEFAULT_SAMPLE_PERIOD_INDEX;
     }
 
     @Override
@@ -353,5 +411,6 @@ public class OscilloscopeBlockEntity extends BlockEntity {
         tag.putInt("lastA", lastA);
         tag.putInt("lastB", lastB);
         tag.putInt("samplesSinceTrigger", samplesSinceTrigger);
+        tag.putInt("samplePeriodIndex", samplePeriodIndex);
     }
 }

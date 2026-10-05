@@ -20,6 +20,7 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_CURSOR_A = 4;
     public static final int BUTTON_CURSOR_B = 5;
     public static final int BUTTON_CLEAR = 6;
+    public static final int BUTTON_SAMPLE_PERIOD = 7;
 
     private final DataSlot sampleCount = trackedInt();
     private final DataSlot triggerMode = trackedInt();
@@ -28,6 +29,9 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     private final DataSlot captureState = trackedInt();
     private final DataSlot cursorA = trackedInt();
     private final DataSlot cursorB = trackedInt();
+    private final DataSlot samplePeriodTicks = trackedInt();
+    private final DataSlot sampleRateMilliHz = trackedInt();
+    private final DataSlot nyquistMilliHz = trackedInt();
 
     private final DataSlot[] current = new DataSlot[2];
     private final DataSlot[] coverage = new DataSlot[2];
@@ -37,6 +41,9 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     private final DataSlot[] average100 = new DataSlot[2];
     private final DataSlot[] meanStep100 = new DataSlot[2];
     private final DataSlot[] periodTicks = new DataSlot[2];
+    private final DataSlot[] periodSamples = new DataSlot[2];
+    private final DataSlot[] aliasRisk = new DataSlot[2];
+    private final DataSlot[] frequencyMilliHz = new DataSlot[2];
     private final DataSlot[][] display = new DataSlot[2][OscilloscopeBlockEntity.DISPLAY_SAMPLES];
 
     private final DataSlot cableNodes = trackedInt();
@@ -65,7 +72,9 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
         for (int channel = 0; channel < 2; channel++) {
             current[channel] = trackedInt(); coverage[channel] = trackedInt(); minimum[channel] = trackedInt();
             maximum[channel] = trackedInt(); peakToPeak[channel] = trackedInt(); average100[channel] = trackedInt();
-            meanStep100[channel] = trackedInt(); periodTicks[channel] = trackedInt(); channelProbeCounts[channel] = trackedInt();
+            meanStep100[channel] = trackedInt(); periodTicks[channel] = trackedInt();
+            periodSamples[channel] = trackedInt(); aliasRisk[channel] = trackedInt(); frequencyMilliHz[channel] = trackedInt();
+            channelProbeCounts[channel] = trackedInt();
             for (int slot = 0; slot < OscilloscopeBlockEntity.DISPLAY_SAMPLES; slot++) display[channel][slot] = trackedInt();
         }
         if (!level.isClientSide) refreshAuthoritativeSnapshot();
@@ -77,11 +86,16 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
         sampleCount.set(scope.sampleCount()); triggerMode.set(scope.triggerMode()); triggerChannel.set(scope.triggerChannel());
         triggerLevel.set(scope.triggerLevel()); captureState.set(scope.armed() ? 1 : scope.triggered() ? 2 : 0);
         cursorA.set(scope.cursorA()); cursorB.set(scope.cursorB());
+        samplePeriodTicks.set(scope.samplePeriodTicks());
+        sampleRateMilliHz.set(scope.sampleRateMilliHz());
+        nyquistMilliHz.set(scope.nyquistMilliHz());
         for (int channel = 0; channel < 2; channel++) {
             current[channel].set(scope.current(channel)); coverage[channel].set(scope.coveragePercent(channel));
             minimum[channel].set(scope.minimum(channel)); maximum[channel].set(scope.maximum(channel));
             peakToPeak[channel].set(scope.peakToPeak(channel)); average100[channel].set(scope.average100(channel));
             meanStep100[channel].set(scope.meanStep100(channel)); periodTicks[channel].set(scope.estimatedPeriodTicks(channel));
+            periodSamples[channel].set(scope.estimatedPeriodSamples(channel)); aliasRisk[channel].set(scope.aliasRiskCode(channel));
+            frequencyMilliHz[channel].set(scope.estimatedFrequencyMilliHz(channel));
             for (int slot = 0; slot < OscilloscopeBlockEntity.DISPLAY_SAMPLES; slot++) display[channel][slot].set(scope.displaySample(channel, slot));
         }
 
@@ -111,6 +125,9 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     public int captureState() { return captureState.get(); }
     public int cursorA() { return cursorA.get(); }
     public int cursorB() { return cursorB.get(); }
+    public int samplePeriodTicks() { return samplePeriodTicks.get(); }
+    public int sampleRateMilliHz() { return sampleRateMilliHz.get(); }
+    public int nyquistMilliHz() { return nyquistMilliHz.get(); }
     public int current(int channel) { return current[channel].get(); }
     public int coverage(int channel) { return coverage[channel].get(); }
     public int minimum(int channel) { return minimum[channel].get(); }
@@ -119,6 +136,15 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     public int average100(int channel) { return average100[channel].get(); }
     public int meanStep100(int channel) { return meanStep100[channel].get(); }
     public int periodTicks(int channel) { return periodTicks[channel].get(); }
+    public int periodSamples(int channel) { return periodSamples[channel].get(); }
+    public int aliasRisk(int channel) { return aliasRisk[channel].get(); }
+    public int frequencyMilliHz(int channel) { return frequencyMilliHz[channel].get(); }
+    public static int samplePeriodOptionCount() { return OscilloscopeBlockEntity.SAMPLE_PERIOD_OPTIONS.length; }
+    public static int samplePeriodOptionTicks(int index) {
+        int bounded = Math.max(0, Math.min(OscilloscopeBlockEntity.SAMPLE_PERIOD_OPTIONS.length - 1, index));
+        return OscilloscopeBlockEntity.SAMPLE_PERIOD_OPTIONS[bounded];
+    }
+    public static double nominalTicksPerSecond() { return OscilloscopeBlockEntity.NOMINAL_TICKS_PER_SECOND; }
     public int displaySample(int channel, int slot) { return display[channel][slot].get(); }
     public int cableNodes() { return cableNodes.get(); }
     public int probeNodes() { return probeNodes.get(); }
