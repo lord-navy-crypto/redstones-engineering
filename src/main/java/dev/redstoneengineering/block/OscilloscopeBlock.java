@@ -85,16 +85,20 @@ public class OscilloscopeBlock extends Block implements EntityBlock, Engineering
 
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
-        if (!level.isClientSide && !state.is(oldState.getBlock())) level.scheduleTick(pos, this, OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS);
+        if (!level.isClientSide && !state.is(oldState.getBlock())) {
+            level.scheduleTick(pos, this, OscilloscopeBlockEntity.defaultSamplePeriodTicks());
+        }
     }
 
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         InstrumentNetwork.ProbeSnapshot snapshot = InstrumentNetwork.scan(level, pos);
+        int nextPeriod = OscilloscopeBlockEntity.defaultSamplePeriodTicks();
         if (level.getBlockEntity(pos) instanceof OscilloscopeBlockEntity scope) {
             scope.addSample(snapshot.valueOr(0, -1), snapshot.valueOr(1, -1));
+            nextPeriod = scope.samplePeriodTicks();
         }
-        level.scheduleTick(pos, this, OscilloscopeBlockEntity.SAMPLE_PERIOD_TICKS);
+        level.scheduleTick(pos, this, nextPeriod);
     }
 
     public static boolean applyUiAction(Level level, BlockPos pos, int action) {
@@ -107,6 +111,7 @@ public class OscilloscopeBlock extends Block implements EntityBlock, Engineering
             case OscilloscopeMenu.BUTTON_CURSOR_A -> scope.moveCursorA();
             case OscilloscopeMenu.BUTTON_CURSOR_B -> scope.moveCursorB();
             case OscilloscopeMenu.BUTTON_CLEAR -> scope.clear();
+            case OscilloscopeMenu.BUTTON_SAMPLE_PERIOD -> scope.cycleSamplePeriod();
             default -> { return false; }
         }
         return true;
