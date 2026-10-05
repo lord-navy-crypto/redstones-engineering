@@ -13,7 +13,7 @@ public final class LogicAnalyzerScreen extends EngineeringScreen<LogicAnalyzerMe
     public LogicAnalyzerScreen(LogicAnalyzerMenu menu, Inventory inventory, Component title) { super(menu, inventory, title); }
 
     @Override protected void addDeviceWidgets() {
-        int x = leftPos + 16, y = topPos + 104, w = 88, gap = 6;
+        int x = leftPos + 16, y = topPos + imageHeight - 92, w = 96, gap = 6;
         addConfigureWidget(Button.builder(Component.literal("Arm"), b -> sendMenuButton(LogicAnalyzerMenu.BUTTON_ARM)).bounds(x, y, w, 20).build());
         addConfigureWidget(Button.builder(Component.literal("Threshold −"), b -> sendMenuButton(LogicAnalyzerMenu.BUTTON_THRESHOLD_DECREASE)).bounds(x + w + gap, y, w, 20).build());
         addConfigureWidget(Button.builder(Component.literal("Threshold +"), b -> sendMenuButton(LogicAnalyzerMenu.BUTTON_THRESHOLD_INCREASE)).bounds(x + (w + gap) * 2, y, w, 20).build());
@@ -54,14 +54,15 @@ public final class LogicAnalyzerScreen extends EngineeringScreen<LogicAnalyzerMe
     }
 
     private void renderConfigure(GuiGraphics graphics) {
-        labelValue(graphics, "Digital threshold", menu.threshold() + " / 15", 80);
-        labelValue(graphics, "Trigger channel", "CH " + channelName(menu.triggerChannel()), 95);
-        labelValue(graphics, "Trigger edge", edgeName(menu.triggerEdge()), 110);
-        labelValue(graphics, "Cursors", "A=" + menu.cursorA() + " B=" + menu.cursorB(), 125);
-        labelValue(graphics, "Cursor Δ", Math.abs(menu.cursorB() - menu.cursorA()) + " samples / "
-                + Math.abs(menu.cursorB() - menu.cursorA()) * LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS + "t", 140);
-        safeText(graphics, "Threshold and trigger controls never bypass the server capture engine.", 16, 178, MUTED);
-        safeText(graphics, "Observe/Log pages analyze only the synchronized 32-sample capture buffer.", 16, 193, MUTED);
+        statusBadge(graphics, "PIONEER PATTERN • DIGITAL TIMING MODEL", INFO, 16, 80);
+        formulaCard(graphics, "D_ch[n] = (x_ch[n] ≥ T) ? HIGH : LOW", 105);
+        variableRole(graphics, "MEASURED", "x_ch[n]", "instrument bus sample", "Redstone 0..15", 134);
+        variableRole(graphics, "ADJUSTABLE", "T", Integer.toString(menu.threshold()), "threshold", 152);
+        variableRole(graphics, "PROFILE", "Δt_sample", Integer.toString(LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS), "tick", 170);
+        variableRole(graphics, "ADJUSTABLE", "trigger", "CH " + channelName(menu.triggerChannel()) + " " + edgeName(menu.triggerEdge()), "", 188);
+        variableRole(graphics, "DERIVED", "Δt_cursor", Math.abs(menu.cursorB() - menu.cursorA()) * LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS + "", "ticks", 206);
+        variableRole(graphics, "EVIDENCE", "capture", menu.sampleCount() + "/32 • " + captureCoverage() + "%", "", 224);
+        wrappedText(graphics, "Threshold and trigger controls never bypass the server capture engine. Observe/Log pages analyze only the synchronized retained capture buffer.", 16, 248, workspaceWidth() - 24, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
