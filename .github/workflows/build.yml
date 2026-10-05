@@ -125,7 +125,8 @@ jobs:
             tools/rse_lapis_low_pass_hmi_verify.py \
             tools/rse_oscilloscope_sampling_verify.py \
             tools/rse_oscilloscope_sampling_experiment_verify.py \
-            tools/rse_engineering_ui_rollout_verify.py
+            tools/rse_engineering_ui_rollout_verify.py \
+            tools/rse_pioneer_showcase_rollout_verify.py
           do
             if [[ -f "$verifier" ]]; then
               echo "==> $verifier" | tee -a .rse-audit/static-verification.log
