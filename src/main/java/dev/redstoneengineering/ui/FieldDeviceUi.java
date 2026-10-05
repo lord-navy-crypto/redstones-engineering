@@ -5,6 +5,7 @@ import dev.redstoneengineering.ui.menu.AmethystSystemMenu;
 import dev.redstoneengineering.ui.menu.CopperCircuitMeterMenu;
 import dev.redstoneengineering.ui.menu.DigitalCommunicationMenu;
 import dev.redstoneengineering.ui.menu.FieldDeviceMenu;
+import dev.redstoneengineering.ui.menu.LapisLowPassMenu;
 import dev.redstoneengineering.ui.menu.MagneticSystemMenu;
 import dev.redstoneengineering.ui.menu.MediaConversionMenu;
 import dev.redstoneengineering.ui.menu.OpticalSystemMenu;
@@ -27,6 +28,9 @@ public final class FieldDeviceUi {
         var state = player.level().getBlockState(pos);
         var block = state.getBlock();
         var title = block.getName();
+        if (block instanceof LapisLowPassFilterBlock) {
+            player.openMenu(new SimpleMenuProvider((id, inv, ignored) -> new LapisLowPassMenu(id, inv, pos), title), data -> data.writeBlockPos(pos)); return;
+        }
         if (block instanceof CopperCircuitMeterBlock) {
             player.openMenu(new SimpleMenuProvider((id, inv, ignored) -> new CopperCircuitMeterMenu(id, inv, pos), title), data -> data.writeBlockPos(pos)); return;
         }
