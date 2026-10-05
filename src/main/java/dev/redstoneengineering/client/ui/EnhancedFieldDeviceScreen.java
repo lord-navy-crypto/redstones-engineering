@@ -295,11 +295,11 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             case FieldDeviceMenu.KIND_MECHANICAL_RECEIVER ->
                     "OUT: y_R=valid?min(15,A):0; RETAIN @4t: A←max(0,A-2), Q←max(0,Q-5)";
             case FieldDeviceMenu.KIND_HONEY_DAMPER ->
-                    "HOP: A_next=max(0,A-4); RETAIN @4t: A←max(0,A-4), Q←max(0,Q-20)";
+                    "HOP: A_next=max(0,A-4), node Q=80; RETAIN @4t: A←max(0,A-4), Q←max(0,Q-20)";
             case FieldDeviceMenu.KIND_SCULK_INTERFACE ->
                     "EVENT: code_out=valid?clamp(code_in,0,15):0; transitions count every code change";
             case FieldDeviceMenu.KIND_HYDRO_TUBE ->
-                    "HOP: A_next=max(0,A-Lm), Lm={water:1,milk-model:2,lava:3}; RETAIN @4t: A←A-2";
+                    "HOP: A_next=max(0,A-Lm), Lm={water:1,milk-model:2,lava:3}; RETAIN @4t: A←max(0,A-2), Q←max(0,Q-10)";
             case FieldDeviceMenu.KIND_HYDRO_EXCITER ->
                     "SOURCE: A_emit = A_drive(valid), f = configured index";
             case FieldDeviceMenu.KIND_HYDRO_RECEIVER ->
