@@ -61,7 +61,7 @@ for needle in (
 
 for needle in (
     "VALID", "DEGRADED", "LOST", "STALE",
-    "case NO_SIGNAL, FAULT, DOMAIN_MISMATCH, TOPOLOGY_ERROR -> LOST;",
+    "case NO_SIGNAL, FAULT, DOMAIN_MISMATCH, TOPOLOGY_ERROR, NOT_READY -> LOST;",
     "case SATURATED -> DEGRADED;",
 ):
     req(src["localization"], needle, "RobotLocalizationQuality.java")
