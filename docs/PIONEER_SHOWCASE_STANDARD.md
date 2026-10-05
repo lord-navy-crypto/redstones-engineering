@@ -66,6 +66,20 @@ Wave 2:
 - Optical Systems
 - Magnetic Systems
 
+Wave 3:
+- Amethyst Systems
+- Reliability Systems
+- Radio Link
+- Signal Analyzer
+- Industrial Buffer
+
+Wave 3 deliberately broadens the pioneer pattern beyond pure transfer-function devices:
+- resonance uses discrete-index model transparency without inventing Hz
+- reliability exposes safe-state logic, thresholds, tolerance and maintenance actions
+- radio exposes decode margin and availability without recomputing propagation on the client
+- metrology exposes calibration and retained statistics while preserving TAP/INLINE semantics
+- operations exposes WIP/capacity relationships while keeping lot/job identity out of analog Redstone
+
 Future waves should prioritize remaining EngineeringScreen families that still lack explicit model
 or variable-role presentation. The target is broad consistency with specialization, not identical
 screens.

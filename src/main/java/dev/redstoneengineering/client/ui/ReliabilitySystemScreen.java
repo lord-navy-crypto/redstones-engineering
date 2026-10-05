@@ -17,10 +17,10 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
     }
 
     @Override protected void addDeviceWidgets() {
-        int y = topPos + 116;
+        int y = topPos + imageHeight - 90;
         parameterPrevious = addConfigureWidget(Button.builder(Component.literal("◀ Parameter"), b -> sendMenuButton(ReliabilitySystemMenu.BUTTON_PARAMETER_PREVIOUS)).bounds(leftPos+16,y,105,20).build());
         parameterNext = addConfigureWidget(Button.builder(Component.literal("Parameter ▶"), b -> sendMenuButton(ReliabilitySystemMenu.BUTTON_PARAMETER_NEXT)).bounds(leftPos+199,y,105,20).build());
-        maintenanceAction = addConfigureWidget(Button.builder(Component.literal("Maintenance action"), b -> sendMenuButton(ReliabilitySystemMenu.BUTTON_ACTION)).bounds(leftPos+38,topPos+147,244,20).build());
+        maintenanceAction = addConfigureWidget(Button.builder(Component.literal("Maintenance action"), b -> sendMenuButton(ReliabilitySystemMenu.BUTTON_ACTION)).bounds(leftPos+38,topPos+imageHeight-64,244,20).build());
     }
 
     @Override protected void syncDeviceWidgetLabels() {
@@ -109,11 +109,36 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
     }
 
     private void configure(GuiGraphics g) {
-        statusBadge(g,"SERVER-SIDE BOUNDED CONTROL",INFO,16,80);
-        labelValue(g,"Parameter",parameterText(),101);
-        labelValue(g,"Maintenance",maintenanceActionText(),179);
-        labelValue(g,"Front / primary output",face(menu.facing()),195);
-        safeText(g,"Routing stays on Route; maintenance actions use the same server methods as Shift-right-click.",16,213,MUTED);
+        statusBadge(g,"PIONEER PATTERN • RELIABILITY / SAFE STATE",INFO,16,80);
+        formulaCard(g,reliabilityEquation(),105);
+        variableRole(g,"ADJUSTABLE","parameter",parameterText(),"server bounded",134);
+        if(menu.kind()==ReliabilitySystemMenu.KIND_WATCHDOG){
+            variableRole(g,"MEASURED","age",Integer.toString(menu.primary()),"ticks",152);
+            variableRole(g,"DERIVED","alarm",menu.extraA()+"/15","timeout output",170);
+            variableRole(g,"EVIDENCE","transitions",Integer.toString(menu.auxiliary()),"heartbeat edges",188);
+        }else if(menu.kind()==ReliabilitySystemMenu.KIND_SERVO){
+            variableRole(g,"MEASURED","x",Integer.toString(menu.primary()),"position",152);
+            variableRole(g,"MEASURED","x_cmd",Integer.toString(menu.secondary()),"command",170);
+            variableRole(g,"DERIVED","e",Integer.toString(menu.auxiliary()),"position error",188);
+            variableRole(g,"EVIDENCE","brake",menu.extraA()==1?"ON":"OFF","",206);
+        }else if(menu.kind()==ReliabilitySystemMenu.KIND_VOTER){
+            variableRole(g,"MEASURED","valid",menu.secondary()+"/3","inputs",152);
+            variableRole(g,"DERIVED","spread",Integer.toString(menu.tertiary()),"max-min",170);
+            variableRole(g,"ADJUSTABLE","tol",Integer.toString(menu.auxiliary()),"spread limit",188);
+            variableRole(g,"EVIDENCE","health",menu.extraC()==1?"DEGRADED":"NOMINAL","",206);
+        }else if(menu.kind()==ReliabilitySystemMenu.KIND_FAULT_LATCH){
+            variableRole(g,"ADJUSTABLE","T_fault",Integer.toString(menu.secondary()),"threshold",152);
+            variableRole(g,"EVIDENCE","latched",menu.extraA()==1?"YES":"NO","",170);
+            variableRole(g,"MEASURED","reset",menu.extraB()==1?"HIGH":"LOW","",188);
+            variableRole(g,"DERIVED","alarm",menu.primary()+"/15","",206);
+        }else{
+            variableRole(g,"MEASURED","mechanical",menu.primary()+"/15","input",152);
+            variableRole(g,"DERIVED","feedback",menu.secondary()+"/15","redstone",170);
+            variableRole(g,"EVIDENCE","samples",Integer.toString(menu.tertiary()),"retained",188);
+        }
+        wrappedText(g,"Maintenance is an explicit server action, not a hidden state edit.",16,232,workspaceWidth()-24,MUTED);
+        wrappedText(g,"Routing stays on Route; maintenance actions use the same server methods as Shift-right-click.",16,248,workspaceWidth()-24,MUTED);
+        wrappedText(g,"Numerical zero and missing/invalid evidence remain distinct; safe-state logic is never inferred from UI presentation alone.",16,270,workspaceWidth()-24,MUTED);
     }
 
     private void diagnostics(GuiGraphics g) {
@@ -138,6 +163,16 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
         else if(menu.kind()==ReliabilitySystemMenu.KIND_SERVO){labelValue(g,"Soft-limit hits",Integer.toString(menu.extraB()),110);labelValue(g,"Current error",Integer.toString(menu.auxiliary()),130);}
         else {labelValue(g,"Measurement samples",Integer.toString(menu.tertiary()),110);}
         sectionRule(g,154);safeText(g,"Counters are retained server evidence; opening the HMI never manufactures events.",16,170,MUTED);
+    }
+
+    private String reliabilityEquation(){
+        return switch(menu.kind()){
+            case ReliabilitySystemMenu.KIND_WATCHDOG -> "alarm = (heartbeat seen ∧ age ≥ timeout) ? 15 : 0";
+            case ReliabilitySystemMenu.KIND_SERVO -> "POSITION: e=x_cmd-x, |Δx|≤slew ; VELOCITY: command maps to signed velocity";
+            case ReliabilitySystemMenu.KIND_VOTER -> "vote = median(3 valid) or rounded mean(2 valid) ; healthy ⇔ spread ≤ tolerance";
+            case ReliabilitySystemMenu.KIND_FAULT_LATCH -> "latched ← latched ∨ (fault ≥ threshold) ; reset explicitly clears";
+            default -> "feedback = measured mechanical state → Redstone";
+        };
     }
 
     private String parameterText(){return switch(menu.kind()){case ReliabilitySystemMenu.KIND_WATCHDOG->"TIMEOUT "+menu.secondary()+"t";case ReliabilitySystemMenu.KIND_SERVO->"SLEW STEP "+menu.extraC();case ReliabilitySystemMenu.KIND_VOTER->"TOLERANCE "+menu.auxiliary();case ReliabilitySystemMenu.KIND_FAULT_LATCH->"THRESHOLD "+menu.secondary();default->"READ ONLY";};}

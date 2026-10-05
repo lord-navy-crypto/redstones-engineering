@@ -20,6 +20,11 @@ digital = read("src/main/java/dev/redstoneengineering/client/ui/DigitalCommunica
 pneumatic = read("src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.java")
 optical = read("src/main/java/dev/redstoneengineering/client/ui/OpticalSystemScreen.java")
 magnetic = read("src/main/java/dev/redstoneengineering/client/ui/MagneticSystemScreen.java")
+amethyst = read("src/main/java/dev/redstoneengineering/client/ui/AmethystSystemScreen.java")
+reliability = read("src/main/java/dev/redstoneengineering/client/ui/ReliabilitySystemScreen.java")
+radio = read("src/main/java/dev/redstoneengineering/client/ui/RadioLinkScreen.java")
+analyzer = read("src/main/java/dev/redstoneengineering/client/ui/SignalAnalyzerScreen.java")
+buffer = read("src/main/java/dev/redstoneengineering/client/ui/IndustrialBufferScreen.java")
 
 for token in (
     "Pioneer / Showcase blocks",
@@ -30,6 +35,7 @@ for token in (
     "Do not invent knobs, formulas, history, uncertainty, experiments or hidden physics",
     "Wave 1:",
     "Wave 2:",
+    "Wave 3:",
 ):
     if token not in doc:
         errors.append(f"Pioneer standard missing {token!r}")
@@ -99,6 +105,52 @@ for name, (text, tokens) in wave2.items():
     if "dev.redstoneengineering.physics" in text:
         errors.append(f"{name} imports physics directly; client screen must remain presentation-only")
 
+
+wave3 = {
+    "AmethystSystemScreen.java": (amethyst, (
+        "PIONEER PATTERN • RESONANCE MODEL",
+        "resonanceEquation()",
+        "A_out = (f_in = f_target) ? max(0, A_in - 1) : 0",
+        "BW = 5 - Q",
+        "Frequency values are deliberate model indices, not fabricated Hz",
+    )),
+    "ReliabilitySystemScreen.java": (reliability, (
+        "PIONEER PATTERN • RELIABILITY / SAFE STATE",
+        "reliabilityEquation()",
+        "heartbeat seen ∧ age ≥ timeout",
+        "spread ≤ tolerance",
+        "fault ≥ threshold",
+    )),
+    "RadioLinkScreen.java": (radio, (
+        "PIONEER PATTERN • RADIO LINK BUDGET",
+        "radioEquation()",
+        "M_decode = Q_link - Q_min",
+        "availability = 100 · validSamples / samples",
+        'variableRole(g,"EVIDENCE","path"',
+    )),
+    "SignalAnalyzerScreen.java": (analyzer, (
+        "PIONEER PATTERN • METROLOGY / CALIBRATION",
+        "x_cal = clamp(x_raw + b_cal, 0, 15)",
+        'variableRole(graphics,"ADJUSTABLE","b_cal"',
+        "Calibration changes only the displayed engineering reading",
+        "client never samples the world",
+    )),
+    "IndustrialBufferScreen.java": (buffer, (
+        "PIONEER PATTERN • OPERATIONS / WIP MODEL",
+        "WIP% = 100·used/capacity",
+        "clamp(round(15·used/capacity),1,15)",
+        'evidenceRow(graphics,"Workcell roles"',
+        "LOT identity",
+    )),
+}
+
+for name, (text, tokens) in wave3.items():
+    for token in tokens:
+        if token not in text:
+            errors.append(f"{name} missing Wave-3 pioneer-rollout token {token!r}")
+    if "dev.redstoneengineering.physics" in text:
+        errors.append(f"{name} imports physics directly; client screen must remain presentation-only")
+
 formula_migrated = 0
 screens_dir = root / "src/main/java/dev/redstoneengineering/client/ui"
 if screens_dir.is_dir():
@@ -107,8 +159,8 @@ if screens_dir.is_dir():
         if "extends EngineeringScreen<" in text and "formulaCard(" in text:
             formula_migrated += 1
 
-if formula_migrated < 8:
-    errors.append(f"expected at least 8 formula-first EngineeringScreen families after Wave 2, found {formula_migrated}")
+if formula_migrated < 13:
+    errors.append(f"expected at least 13 formula-first EngineeringScreen families after Wave 3, found {formula_migrated}")
 
 if errors:
     print("RSE PIONEER SHOWCASE ROLLOUT VERIFY: FAIL")
@@ -119,5 +171,6 @@ if errors:
 print("RSE PIONEER SHOWCASE ROLLOUT VERIFY: PASS")
 print(" showcase pioneer references: low-pass / oscilloscope / PID PASS")
 print(" Wave 2 communication / pneumatic / optical / magnetic PASS")
+print(" Wave 3 amethyst / reliability / radio / metrology / operations PASS")
 print(f" formula-first EngineeringScreen families: {formula_migrated}")
-print(" no client-side second physics solver in Wave 2: PASS")
+print(" no client-side second physics solver in Waves 2-3: PASS")
