@@ -121,7 +121,8 @@ jobs:
             tools/rse_system_level_closure_phase1_verify.py \
             tools/rse_system_level_closure_phase2_verify.py \
             tools/rse_physics_parameter_profile_verify.py \
-            tools/rse_lapis_filter_model_sweep.py
+            tools/rse_lapis_filter_model_sweep.py \
+            tools/rse_lapis_low_pass_hmi_verify.py
           do
             if [[ -f "$verifier" ]]; then
               echo "==> $verifier" | tee -a .rse-audit/static-verification.log

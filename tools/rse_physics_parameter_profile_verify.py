@@ -14,6 +14,8 @@ def read(rel):
 
 profile = read("src/main/java/dev/redstoneengineering/physics/EngineeringParameterProfile.java")
 lapis = read("src/main/java/dev/redstoneengineering/block/LapisLowPassFilterBlock.java")
+lapis_menu = read("src/main/java/dev/redstoneengineering/ui/menu/LapisLowPassMenu.java")
+lapis_screen = read("src/main/java/dev/redstoneengineering/client/ui/LapisLowPassScreen.java")
 quartz = read("src/main/java/dev/redstoneengineering/block/QuartzPhaseDelayBlock.java")
 
 for token in (
@@ -41,11 +43,27 @@ for token in (
     "EngineeringParameterProfile.LAPIS_FILTER_SAMPLE_PERIOD_TICKS",
     "EngineeringParameterProfile.lapisFilterTimeConstantTicks(index)",
     "EngineeringParameterProfile.lapisFilterCutoffHzNominal(index)",
-    "MODEL: y[n]=y[n-1]+alpha(x[n]-y[n-1])",
-    "profile=",
 ):
     if token not in lapis:
         errors.append(f"Lapis filter missing profile-backed token {token!r}")
+
+
+for token in (
+    "EngineeringParameterProfile.PROFILE_ID",
+    "EngineeringParameterProfile.lapisFilterAlpha",
+    "EngineeringParameterProfile.lapisFilterTimeConstantTicks",
+    "EngineeringParameterProfile.lapisFilterCutoffHzNominal",
+):
+    if token not in lapis_menu:
+        errors.append(f"Lapis HMI menu missing profile-backed model token {token!r}")
+
+for token in (
+    "y[n] = y[n-1] + α",
+    "profileId()",
+    "LIVE SUBSTITUTION",
+):
+    if token not in lapis_screen:
+        errors.append(f"Lapis HMI screen missing formula/provenance presentation token {token!r}")
 
 for forbidden in ("% 4;", "case 0 -> 0.10;", "default -> 0.75;", "scheduleTick(pos, this, 2);"):
     if forbidden in lapis:

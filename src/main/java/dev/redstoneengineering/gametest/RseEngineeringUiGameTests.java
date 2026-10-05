@@ -3,6 +3,7 @@ package dev.redstoneengineering.gametest;
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.block.DirectionalSignalBlock;
 import dev.redstoneengineering.block.LogicAnalyzerBlock;
+import dev.redstoneengineering.block.LapisLowPassFilterBlock;
 import dev.redstoneengineering.block.OscilloscopeBlock;
 import dev.redstoneengineering.block.PidControllerBlock;
 import dev.redstoneengineering.block.RedstoneReferenceSourceBlock;
@@ -11,6 +12,7 @@ import dev.redstoneengineering.block.SignalConditionerBlock;
 import dev.redstoneengineering.blockentity.LogicAnalyzerBlockEntity;
 import dev.redstoneengineering.blockentity.OscilloscopeBlockEntity;
 import dev.redstoneengineering.diagnostics.PidTelemetryStore;
+import dev.redstoneengineering.physics.EngineeringParameterProfile;
 import dev.redstoneengineering.ui.menu.LogicAnalyzerMenu;
 import dev.redstoneengineering.ui.menu.OscilloscopeMenu;
 import dev.redstoneengineering.ui.menu.PidControllerMenu;
@@ -308,4 +310,38 @@ public final class RseEngineeringUiGameTests {
             helper.succeed();
         });
     }
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 50)
+    public static void lapisLowPassHmiActionsChangeOnlyAuthoritativeConfiguration(GameTestHelper helper) {
+        BlockPos filterPos = new BlockPos(2, 1, 2);
+        BlockPos worldPos = helper.absolutePos(filterPos);
+        helper.setBlock(filterPos, RedstoneEngineering.LAPIS_LOW_PASS_FILTER.get()
+                .defaultBlockState()
+                .setValue(LapisLowPassFilterBlock.ALPHA, EngineeringParameterProfile.LAPIS_FILTER_DEFAULT_INDEX));
+
+        int initial = helper.getBlockState(filterPos).getValue(LapisLowPassFilterBlock.ALPHA);
+        if (!LapisLowPassFilterBlock.adjustAlpha(helper.getLevel(), worldPos, 1)) {
+            helper.fail("Low-pass HMI alpha action was rejected", filterPos);
+            return;
+        }
+        int afterNext = helper.getBlockState(filterPos).getValue(LapisLowPassFilterBlock.ALPHA);
+        if (afterNext != Math.floorMod(initial + 1, EngineeringParameterProfile.LAPIS_FILTER_ALPHA_STEPS)) {
+            helper.fail("Low-pass HMI alpha action did not update authoritative blockstate", filterPos);
+            return;
+        }
+
+        if (!LapisLowPassFilterBlock.resetAlpha(helper.getLevel(), worldPos)) {
+            helper.fail("Low-pass HMI default action was rejected after a configuration change", filterPos);
+            return;
+        }
+        if (helper.getBlockState(filterPos).getValue(LapisLowPassFilterBlock.ALPHA)
+                != EngineeringParameterProfile.LAPIS_FILTER_DEFAULT_INDEX) {
+            helper.fail("Low-pass HMI default action did not restore profile default", filterPos);
+            return;
+        }
+
+        helper.succeed();
+    }
+
+
 }
