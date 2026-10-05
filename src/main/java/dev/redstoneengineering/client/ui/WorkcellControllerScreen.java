@@ -54,7 +54,7 @@ public final class WorkcellControllerScreen extends EngineeringScreen<WorkcellCo
     private void renderConfigure(GuiGraphics graphics) {
         statusBadge(graphics, "PIONEER PATTERN • WORKCELL ADMISSION GATE", INFO, 16, 78);
         formulaCard(graphics, "PERMIT ⇔ valid capacity evidence ∧ no fault ∧ output space ∧ resource capacity", 105);
-        variableRole(graphics, "MEASURED", "resources", menu.validResourceCount() + "/" + menu.boundResourceCount(), "valid/bound", 134);
+        variableRole(graphics, "MEASURED", "BOUND RESOURCES", menu.validResourceCount() + "/" + menu.boundResourceCount(), "valid/bound", 134);
         variableRole(graphics, "MEASURED", "input WIP", menu.capacityEvidenceAvailable() ? menu.inputWipPressurePercent() + "%" : "UNAVAILABLE", "", 152);
         variableRole(graphics, "MEASURED", "output WIP", menu.capacityEvidenceAvailable() ? menu.outputWipPressurePercent() + "%" : "UNAVAILABLE", "", 170);
         variableRole(graphics, "DERIVED", "queue pressure", menu.queuePressure() < 0 ? "UNAVAILABLE" : menu.queuePressure() + "/15", "vanilla boundary", 188);
