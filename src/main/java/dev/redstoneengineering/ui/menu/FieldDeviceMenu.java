@@ -292,8 +292,11 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
         } else if (block instanceof OpticalFiberBlock fiber) {
             primary.set(OpticalFiberBlock.intensity(level, blockPos));
             secondary.set(OpticalFiberBlock.channel(level, blockPos));
-            dataValid.set(OpticalFiberBlock.valid(level, blockPos) ? 1 : 0);
-            quality.set(dataValid.get() != 0 ? 100 : 0);
+            PortQuality fiberQuality = OpticalFiberBlock.quality(level, blockPos, state);
+            evidenceQuality.set(fiberQuality.ordinal());
+            dataValid.set(fiberQuality == PortQuality.VALID ? 1 : 0);
+            quality.set(portQualityPercent(fiberQuality));
+            driverCount.set(OpticalFiberBlock.driverCount(level, blockPos));
             fillCableTopology(state, fiber);
         } else if (block instanceof OpticalEmitterBlock emitter) {
             primary.set(state.getValue(OpticalEmitterBlock.INTENSITY));
@@ -339,8 +342,11 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
         } else if (block instanceof OpticalFiberJunctionBlock junction) {
             primary.set(OpticalFiberJunctionBlock.intensity(level, blockPos));
             secondary.set(OpticalFiberJunctionBlock.channel(level, blockPos));
-            dataValid.set(OpticalFiberJunctionBlock.valid(level, blockPos) ? 1 : 0);
-            quality.set(dataValid.get() != 0 ? 100 : 0);
+            PortQuality junctionQuality = providerQuality(junction, state);
+            evidenceQuality.set(junctionQuality.ordinal());
+            dataValid.set(junctionQuality == PortQuality.VALID ? 1 : 0);
+            quality.set(portQualityPercent(junctionQuality));
+            driverCount.set(OpticalFiberJunctionBlock.driverCount(level, blockPos));
             fillCableTopology(state, junction);
         } else if (block instanceof EdgeDetectorBlock detector) {
             Direction output = DirectionalSignalBlock.seriesOutputSide(state);
@@ -475,8 +481,10 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
         } else if (block instanceof EightBitDataBusBlock bus) {
             primary.set(DataBusNetwork.sample(level, blockPos));
             DataBusNetwork.Diagnostics diagnostics = DataBusNetwork.getDiagnostics(level, blockPos);
-            dataValid.set(DataBusNetwork.valid(level, blockPos) ? 1 : 0);
-            quality.set(DataBusNetwork.valid(level, blockPos) ? 100 : 0);
+            PortQuality busQuality = DataBusNetwork.quality(level, blockPos);
+            evidenceQuality.set(busQuality.ordinal());
+            dataValid.set(busQuality == PortQuality.VALID ? 1 : 0);
+            quality.set(busQuality == PortQuality.VALID ? diagnostics.qualityPercent() : 0);
             driverCount.set(diagnostics.driverCount());
             fillCompatibleTopology(state, bus);
         } else if (block instanceof RedstoneByteEncoderBlock encoder) {
@@ -607,8 +615,15 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
         } else if (block instanceof AmethystResonanceDustBlock dust) {
             primary.set(AmethystResonanceDustBlock.frequency(level, blockPos));
             secondary.set(AmethystResonanceDustBlock.amplitude(level, blockPos));
-            dataValid.set(AmethystResonanceDustBlock.active(level, blockPos) ? 1 : 0);
-            quality.set(dataValid.get() != 0 ? 100 : 0);
+            PortQuality resonanceQuality = switch (AmethystResonanceDustBlock.status(level, blockPos)) {
+                case ACTIVE -> PortQuality.VALID;
+                case FREQUENCY_CONFLICT -> PortQuality.TOPOLOGY_ERROR;
+                case STALE -> PortQuality.STALE;
+                case IDLE -> PortQuality.NO_SIGNAL;
+            };
+            evidenceQuality.set(resonanceQuality.ordinal());
+            dataValid.set(resonanceQuality == PortQuality.VALID ? 1 : 0);
+            quality.set(portQualityPercent(resonanceQuality));
             fillCompatibleTopology(state, dust);
         } else if (block instanceof AmethystFrequencyFilterBlock) {
             Direction output = DirectionalDomainBlock.seriesOutputSide(state);
@@ -784,6 +799,23 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
 
     private int boundedQuality(String channel, BlockPos pos) {
         return Math.max(0, Math.min(100, InformationRuntime.quality(level, channel, pos)));
+    }
+
+    private PortQuality providerQuality(EngineeringPortProvider provider, BlockState state) {
+        PortQuality best = PortQuality.NO_SIGNAL;
+        for (var port : provider.engineeringPorts(state)) {
+            var snapshot = provider.engineeringSnapshot(level, blockPos, state, port.side());
+            if (snapshot.isEmpty()) continue;
+            PortQuality quality = snapshot.get().quality();
+            if (quality == PortQuality.TOPOLOGY_ERROR || quality == PortQuality.DOMAIN_MISMATCH || quality == PortQuality.FAULT) {
+                return quality;
+            }
+            if (quality == PortQuality.STALE) best = PortQuality.STALE;
+            else if (quality == PortQuality.NOT_READY && best == PortQuality.NO_SIGNAL) best = PortQuality.NOT_READY;
+            else if (quality == PortQuality.SATURATED && best != PortQuality.STALE) best = PortQuality.SATURATED;
+            else if (quality == PortQuality.VALID && best == PortQuality.NO_SIGNAL) best = PortQuality.VALID;
+        }
+        return best;
     }
 
     private int providerValue(EngineeringPortProvider provider, BlockState state, Direction side) {
