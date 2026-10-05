@@ -166,7 +166,7 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
     private String reliabilityEquation(){
         return switch(menu.kind()){
             case ReliabilitySystemMenu.KIND_WATCHDOG -> "alarm = (heartbeat seen ∧ age ≥ timeout) ? 15 : 0";
-            case ReliabilitySystemMenu.KIND_SERVO -> "e = x_cmd - x ; v_des = clamp(e, -v_max, +v_max)";
+            case ReliabilitySystemMenu.KIND_SERVO -> "POSITION: e=x_cmd-x, |Δx|≤slew ; VELOCITY: command maps to signed velocity";
             case ReliabilitySystemMenu.KIND_VOTER -> "vote = median(3 valid) or rounded mean(2 valid) ; healthy ⇔ spread ≤ tolerance";
             case ReliabilitySystemMenu.KIND_FAULT_LATCH -> "latched ← latched ∨ (fault ≥ threshold) ; reset explicitly clears";
             default -> "feedback = measured mechanical state → Redstone";
