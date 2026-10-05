@@ -20,6 +20,7 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
     private enum Page {
         WAVEFORM("Waveform"),
         SAMPLING("Sampling"),
+        EXPERIMENT("Experiment"),
         TRIGGER("Trigger"),
         NETWORK("Network"),
         EVIDENCE("Evidence");
@@ -47,6 +48,7 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
 
     private final List<Button> pageButtons = new ArrayList<>();
     private final List<Button> samplingButtons = new ArrayList<>();
+    private final List<Button> experimentButtons = new ArrayList<>();
     private final List<Button> triggerButtons = new ArrayList<>();
     private Page page = Page.WAVEFORM;
     private int scrollX;
@@ -68,6 +70,7 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
 
         pageButtons.clear();
         samplingButtons.clear();
+        experimentButtons.clear();
         triggerButtons.clear();
 
         int gap = 4;
@@ -88,6 +91,19 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
                 Component.literal("Cycle timebase Δt"),
                 b -> sendButton(OscilloscopeMenu.BUTTON_SAMPLE_PERIOD))
                 .bounds(leftPos + 18, controlY, 150, 20).build()));
+
+        experimentButtons.add(addRenderableWidget(Button.builder(
+                Component.literal("Capture baseline"),
+                b -> sendButton(OscilloscopeMenu.BUTTON_EXPERIMENT_BASELINE))
+                .bounds(leftPos + 18, controlY, 128, 20).build()));
+        experimentButtons.add(addRenderableWidget(Button.builder(
+                Component.literal("Capture candidate"),
+                b -> sendButton(OscilloscopeMenu.BUTTON_EXPERIMENT_CANDIDATE))
+                .bounds(leftPos + 152, controlY, 136, 20).build()));
+        experimentButtons.add(addRenderableWidget(Button.builder(
+                Component.literal("Clear experiment"),
+                b -> sendButton(OscilloscopeMenu.BUTTON_EXPERIMENT_CLEAR))
+                .bounds(leftPos + 294, controlY, 126, 20).build()));
 
         int w = 82;
         int smallGap = 5;
@@ -128,6 +144,7 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
     private void updateWidgets() {
         for (int i = 0; i < pageButtons.size(); i++) pageButtons.get(i).active = Page.values()[i] != page;
         for (Button button : samplingButtons) button.visible = page == Page.SAMPLING;
+        for (Button button : experimentButtons) button.visible = page == Page.EXPERIMENT;
         for (Button button : triggerButtons) button.visible = page == Page.TRIGGER;
     }
 
@@ -162,13 +179,15 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
     private int viewportHeight() { return Math.max(1, imageHeight - CONTENT_Y - FOOTER_HEIGHT - 4); }
 
     private int contentWidth() {
-        return page == Page.SAMPLING ? Math.max(viewportWidth(), SAMPLING_CONTENT_WIDTH) : viewportWidth();
+        return page == Page.SAMPLING || page == Page.EXPERIMENT
+                ? Math.max(viewportWidth(), SAMPLING_CONTENT_WIDTH) : viewportWidth();
     }
 
     private int contentHeight() {
         return switch (page) {
             case WAVEFORM -> 360;
             case SAMPLING -> 470;
+            case EXPERIMENT -> 520;
             case TRIGGER -> 350;
             case NETWORK -> 360;
             case EVIDENCE -> 400;
@@ -213,6 +232,7 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
         switch (page) {
             case WAVEFORM -> renderWaveform(g);
             case SAMPLING -> renderSampling(g);
+            case EXPERIMENT -> renderExperiment(g);
             case TRIGGER -> renderTrigger(g);
             case NETWORK -> renderNetwork(g);
             case EVIDENCE -> renderEvidence(g);
@@ -309,6 +329,76 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
         label(g, "CH " + name + " observed frequency", observedFrequency(menu.frequencyMilliHz(channel)), y + 18);
         label(g, "CH " + name + " sampling margin", aliasLabel(menu.aliasRisk(channel)), y + 36);
         wrapped(g, aliasExplanation(menu.aliasRisk(channel)), CONTENT_X + 420, y, 360, aliasColor(menu.aliasRisk(channel)));
+    }
+
+    private void renderExperiment(GuiGraphics g) {
+        int y = CONTENT_Y;
+        sectionTitle(g, "SAMPLING EXPERIMENT", y); y += 20;
+        equation(g, "N_cycle = T_obs / Δt_sample = captured periodSamples", y); y += 28;
+        wrapped(g,
+                "Procedure: acquire a stable periodic Redstone waveform, capture BASELINE, change only the oscilloscope timebase, reacquire the waveform, then capture CANDIDATE. A vanilla Redstone clock is a valid source.",
+                CONTENT_X, y, 760, TEXT);
+        y += 48;
+
+        status(g, "Server verdict", experimentVerdictLabel(), experimentVerdictColor(), y); y += 20;
+        label(g, "Compared channel", "CH " + (menu.experimentChannel() == 0 ? "A" : "B"), y); y += 18;
+        label(g, "Frozen records", (menu.baselinePresent() ? "BASELINE ✓" : "BASELINE —")
+                + "   " + (menu.candidatePresent() ? "CANDIDATE ✓" : "CANDIDATE —"), y); y += 28;
+
+        sectionTitle(g, "FROZEN EVIDENCE COMPARISON", y); y += 20;
+        g.drawString(font, "QUANTITY", CONTENT_X, y, MUTED, false);
+        g.drawString(font, "BASELINE", CONTENT_X + 190, y, MUTED, false);
+        g.drawString(font, "CANDIDATE", CONTENT_X + 390, y, MUTED, false);
+        g.drawString(font, "Δ / NOTE", CONTENT_X + 590, y, MUTED, false);
+        y += 16;
+
+        experimentRow(g, "Δt", experimentTicks(menu.baselinePresent(), menu.baselineSamplePeriodTicks()),
+                experimentTicks(menu.candidatePresent(), menu.candidateSamplePeriodTicks()),
+                menu.baselinePresent() && menu.candidatePresent()
+                        ? signed(menu.candidateSamplePeriodTicks() - menu.baselineSamplePeriodTicks()) + " ticks" : "—", y); y += 18;
+        experimentRow(g, "f_s", experimentHz(menu.baselinePresent(), menu.baselineSampleRateMilliHz()),
+                experimentHz(menu.candidatePresent(), menu.candidateSampleRateMilliHz()),
+                "server-synchronized", y); y += 18;
+        experimentRow(g, "Nyquist f_N", experimentHz(menu.baselinePresent(), menu.baselineNyquistMilliHz()),
+                experimentHz(menu.candidatePresent(), menu.candidateNyquistMilliHz()),
+                "f_s / 2", y); y += 18;
+        experimentRow(g, "Coverage", experimentPercent(menu.baselinePresent(), menu.baselineCoverage()),
+                experimentPercent(menu.candidatePresent(), menu.candidateCoverage()),
+                ">=70% required", y); y += 18;
+        experimentRow(g, "Samples / cycle", experimentInt(menu.baselinePresent(), menu.baselinePeriodSamples()),
+                experimentInt(menu.candidatePresent(), menu.candidatePeriodSamples()),
+                menu.baselinePresent() && menu.candidatePresent()
+                        ? signed(menu.experimentSamplesDelta()) : "—", y); y += 18;
+        experimentRow(g, "Observed f", experimentFrequency(menu.baselinePresent(), menu.baselineFrequencyMilliHz()),
+                experimentFrequency(menu.candidatePresent(), menu.candidateFrequencyMilliHz()),
+                menu.baselinePresent() && menu.candidatePresent()
+                        ? signedMilliHz(menu.experimentFrequencyDeltaMilliHz()) : "—", y); y += 18;
+        experimentRow(g, "Mean step", experimentDecimal(menu.baselinePresent(), menu.baselineMeanStep100()),
+                experimentDecimal(menu.candidatePresent(), menu.candidateMeanStep100()),
+                "waveform-change evidence", y); y += 18;
+        experimentRow(g, "Sampling margin", experimentMargin(menu.baselinePresent(), menu.baselineAliasRisk()),
+                experimentMargin(menu.candidatePresent(), menu.candidateAliasRisk()),
+                "candidate sets verdict", y); y += 28;
+
+        rule(g, y); y += 14;
+        sectionTitle(g, "VERDICT RULE", y); y += 20;
+        equation(g, "≤2 samples/cycle → FAIL   |   3–4 → MARGINAL   |   ≥5 → PASS", y); y += 30;
+        wrapped(g,
+                "This verdict is an RSE sampling-density acceptance rule, not proof that the original source is alias-free. Frequencies above Nyquist may already have folded into a lower observed f. For unknown source bandwidth, increase f_s and/or place a real low-pass stage before sampling.",
+                CONTENT_X, y, 760, INFO);
+        y += 58;
+
+        sectionTitle(g, "EXPERIMENT CONTROL", y); y += 20;
+        wrapped(g,
+                "The buttons below freeze server evidence only. Capturing a record never advances the sampler or changes the waveform. Changing Δt still clears the live capture, so reacquire before capturing the candidate.",
+                CONTENT_X, y, 760, MUTED);
+    }
+
+    private void experimentRow(GuiGraphics g, String quantity, String baseline, String candidate, String note, int y) {
+        g.drawString(font, quantity, CONTENT_X, y, MUTED, false);
+        g.drawString(font, baseline, CONTENT_X + 190, y, TEXT, false);
+        g.drawString(font, candidate, CONTENT_X + 390, y, TEXT, false);
+        g.drawString(font, note, CONTENT_X + 590, y, INFO, false);
     }
 
     private void renderTrigger(GuiGraphics g) {
@@ -455,6 +545,57 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
         String diagnosis = relationshipDiagnosis();
         if (diagnosis.contains("insufficient") || diagnosis.contains("mismatch") || diagnosis.contains("large")) return WARN;
         return diagnosis.contains("closely") ? GOOD : INFO;
+    }
+
+    private String experimentVerdictLabel() {
+        return switch (menu.experimentStatus()) {
+            case 1 -> "PASS • observed candidate has ≥5 samples/cycle";
+            case 2 -> "MARGINAL • observed candidate has 3–4 samples/cycle";
+            case 3 -> "FAIL • observed candidate has ≤2 samples/cycle";
+            default -> "NOT READY • freeze comparable baseline and candidate captures";
+        };
+    }
+
+    private int experimentVerdictColor() {
+        return switch (menu.experimentStatus()) {
+            case 1 -> GOOD;
+            case 2 -> WARN;
+            case 3 -> BAD;
+            default -> MUTED;
+        };
+    }
+
+    private static String experimentTicks(boolean present, int ticks) {
+        return present ? ticks + " ticks" : "—";
+    }
+
+    private static String experimentHz(boolean present, int milliHz) {
+        return present ? hzFromMilli(milliHz) : "—";
+    }
+
+    private static String experimentFrequency(boolean present, int milliHz) {
+        return !present || milliHz < 0 ? "—" : hzFromMilli(milliHz);
+    }
+
+    private static String experimentPercent(boolean present, int percent) {
+        return present ? percent + "%" : "—";
+    }
+
+    private static String experimentInt(boolean present, int value) {
+        return !present || value < 0 ? "—" : Integer.toString(value);
+    }
+
+    private static String experimentDecimal(boolean present, int value) {
+        return !present || value < 0 ? "—" : decimal100(value);
+    }
+
+    private String experimentMargin(boolean present, int code) {
+        return present ? aliasLabel(code) : "—";
+    }
+
+    private static String signedMilliHz(int value) {
+        String prefix = value > 0 ? "+" : "";
+        return prefix + String.format("%.3f Hz", value / 1000.0);
     }
 
     private String aliasLabel(int code) {
