@@ -119,16 +119,16 @@ require(
 )
 menu_body = read("src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java")
 if menu_body:
-    shielded = menu_body.find("if (block instanceof ShieldedInstrumentCableBlock)")
-    generic = menu_body.find("if (block instanceof InstrumentCableBlock)")
+    # Match the actual refreshAuthoritativeSnapshot branches, not the later kindOf() table.
+    shielded = menu_body.find("block instanceof ShieldedInstrumentCableBlock cable")
+    generic = menu_body.find("block instanceof InstrumentCableBlock cable", shielded + 1)
     if shielded < 0 or generic < 0 or shielded > generic:
         errors.append("ShieldedInstrumentCableBlock must be matched before generic InstrumentCableBlock")
 
     # Wave-8 shared-HMI refinement intentionally reuses one authoritative InstrumentNetwork scan
     # for channel validity, shielding coverage and deterministic interference confidence. Preserve
     # the original observer-only shielding contract without forcing a second graph traversal.
-    shield_block_end = menu_body.find("} else if (block instanceof InstrumentCableBlock", shielded)
-    shield_block = menu_body[shielded:shield_block_end] if shielded >= 0 and shield_block_end > shielded else ""
+    shield_block = menu_body[shielded:generic] if shielded >= 0 and generic > shielded else ""
     for token in (
         "InstrumentNetwork.scan(level, blockPos)",
         "bus.shieldingCoveragePercent()",
