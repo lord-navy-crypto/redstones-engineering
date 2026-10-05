@@ -13,10 +13,12 @@ import dev.redstoneengineering.physics.DomainNetwork;
 import dev.redstoneengineering.physics.EngineeringParameterProfile;
 import dev.redstoneengineering.physics.EngineeringMath;
 import dev.redstoneengineering.physics.RuntimeIntStore;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -37,7 +39,8 @@ public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements E
     private static final int OUTPUT_SLOT = 0;
     private static final int VALID_SLOT = 1;
     private static final int QUALITY_SLOT = 2;
-    private static final int RUNTIME_SIZE = 3;
+    private static final int PREVIOUS_OUTPUT_SLOT = 3;
+    private static final int RUNTIME_SIZE = 4;
 
     public record FilterState(int output, boolean valid, PortQuality quality) {}
 
@@ -66,6 +69,38 @@ public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements E
     public static boolean runtimePresent(Level level, BlockPos pos) {
         int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
         return runtime != null && runtime.length == RUNTIME_SIZE;
+    }
+
+    /** Observer-neutral retained y[n-1] used by the most recent physical update. */
+    public static int previousOutput(Level level, BlockPos pos) {
+        int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
+        return runtime == null || runtime.length != RUNTIME_SIZE
+                ? 0 : EngineeringMath.clamp(runtime[PREVIOUS_OUTPUT_SLOT], 0, 100);
+    }
+
+    /** Server-authoritative bounded alpha adjustment shared by the HMI and quick Shift-use path. */
+    public static boolean adjustAlpha(Level level, BlockPos pos, int delta) {
+        if (level.isClientSide || delta == 0) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof LapisLowPassFilterBlock block)) return false;
+        int current = state.getValue(ALPHA);
+        int nextIndex = Math.floorMod(current + delta, EngineeringParameterProfile.LAPIS_FILTER_ALPHA_STEPS);
+        if (nextIndex == current) return false;
+        level.setBlock(pos, state.setValue(ALPHA, nextIndex), Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel serverLevel) serverLevel.scheduleTick(pos, block, 1);
+        return true;
+    }
+
+    /** Restore the engineering profile's declared default without touching runtime evidence directly. */
+    public static boolean resetAlpha(Level level, BlockPos pos) {
+        if (level.isClientSide) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof LapisLowPassFilterBlock block)) return false;
+        int current = state.getValue(ALPHA);
+        if (current == EngineeringParameterProfile.LAPIS_FILTER_DEFAULT_INDEX) return false;
+        level.setBlock(pos, state.setValue(ALPHA, EngineeringParameterProfile.LAPIS_FILTER_DEFAULT_INDEX), Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel serverLevel) serverLevel.scheduleTick(pos, block, 1);
+        return true;
     }
 
     @Override
@@ -122,12 +157,14 @@ public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements E
         int[] runtime = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
         if (input.valid() && inputQuality == PortQuality.VALID) {
             int previous = runtime[VALID_SLOT] == 0 ? input.value() : runtime[OUTPUT_SLOT];
+            runtime[PREVIOUS_OUTPUT_SLOT] = previous;
             runtime[OUTPUT_SLOT] = EngineeringMath.clamp(
                     (int) Math.round(previous + alpha(state.getValue(ALPHA)) * (input.value() - previous)), 0, 100);
             runtime[VALID_SLOT] = 1;
             runtime[QUALITY_SLOT] = PortQuality.VALID.ordinal();
             DomainNetwork.driveLapis(level, outputPos(pos, state), pos, runtime[OUTPUT_SLOT], true);
         } else {
+            runtime[PREVIOUS_OUTPUT_SLOT] = runtime[OUTPUT_SLOT];
             runtime[OUTPUT_SLOT] = 0;
             runtime[VALID_SLOT] = 0;
             runtime[QUALITY_SLOT] = inputQuality.ordinal();
@@ -143,30 +180,23 @@ public class LapisLowPassFilterBlock extends DirectionalDomainBlock implements E
     }
 
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (!level.isClientSide) {
-            int index = (state.getValue(ALPHA) + 1) % EngineeringParameterProfile.LAPIS_FILTER_ALPHA_STEPS;
-            BlockState next = state.setValue(ALPHA, index);
-            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            level.scheduleTick(pos, this, 1);
-            FilterState runtime = filterState(level, pos);
-            double selectedAlpha = alpha(index);
-            String model = EngineeringParameterProfile.lapisFilterBypass(index)
-                    ? String.format(
-                            "MODEL: y[n]=x[n] | alpha=%.2f | dt=%dt | mode=BYPASS",
-                            selectedAlpha,
-                            EngineeringParameterProfile.LAPIS_FILTER_SAMPLE_PERIOD_TICKS)
-                    : String.format(
-                            "MODEL: y[n]=y[n-1]+alpha(x[n]-y[n-1]) | alpha=%.2f | dt=%dt | tau≈%.2ft | fc≈%.3fHz@20TPS",
-                            selectedAlpha,
-                            EngineeringParameterProfile.LAPIS_FILTER_SAMPLE_PERIOD_TICKS,
-                            EngineeringParameterProfile.lapisFilterTimeConstantTicks(index),
-                            EngineeringParameterProfile.lapisFilterCutoffHzNominal(index));
-            player.displayClientMessage(Component.literal(model), false);
-            player.displayClientMessage(Component.literal(
-                    "STATE: BACK input → FRONT output | output="
-                            + (runtime.valid() ? String.format("%.2f", runtime.output() / 100.0) : runtime.quality())
-                            + " | profile=" + EngineeringParameterProfile.PROFILE_ID
-                            + " | observer-neutral readback"), false);
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown()) {
+                adjustAlpha(level, pos, 1);
+                BlockState next = level.getBlockState(pos);
+                int index = next.getValue(ALPHA);
+                double selectedAlpha = alpha(index);
+                String response = EngineeringParameterProfile.lapisFilterBypass(index)
+                        ? String.format("alpha=%.2f | BYPASS | dt=%dt", selectedAlpha,
+                                EngineeringParameterProfile.LAPIS_FILTER_SAMPLE_PERIOD_TICKS)
+                        : String.format("alpha=%.2f | tau≈%.2ft | fc≈%.3fHz@20TPS", selectedAlpha,
+                                EngineeringParameterProfile.lapisFilterTimeConstantTicks(index),
+                                EngineeringParameterProfile.lapisFilterCutoffHzNominal(index));
+                player.displayClientMessage(Component.literal(
+                        "Lapis low-pass quick adjust | " + response + " | normal right-click opens Engineering HMI"), true);
+            } else {
+                FieldDeviceUi.open(serverPlayer, pos);
+            }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
