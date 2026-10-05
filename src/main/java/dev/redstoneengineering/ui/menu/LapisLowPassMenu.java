@@ -3,6 +3,7 @@ package dev.redstoneengineering.ui.menu;
 import dev.redstoneengineering.block.DirectionalDomainBlock;
 import dev.redstoneengineering.block.LapisLowPassFilterBlock;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.EngineeringParameterProfile;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -33,6 +34,7 @@ public final class LapisLowPassMenu extends EngineeringDeviceMenu {
     private final DataSlot previousOutput = trackedInt();
     private final DataSlot inputQuality = trackedInt();
     private final DataSlot outputQuality = trackedInt();
+    private final DataSlot predictedOutput = trackedInt();
     private final DataSlot inputFacing = trackedInt();
     private final DataSlot outputFacing = trackedInt();
     private final DataSlot runtimePresent = trackedInt();
@@ -57,6 +59,7 @@ public final class LapisLowPassMenu extends EngineeringDeviceMenu {
             previousOutput.set(0);
             inputQuality.set(PortQuality.NO_SIGNAL.ordinal());
             outputQuality.set(PortQuality.NO_SIGNAL.ordinal());
+            predictedOutput.set(0);
             inputFacing.set(Direction.SOUTH.ordinal());
             outputFacing.set(Direction.NORTH.ordinal());
             runtimePresent.set(0);
@@ -85,8 +88,12 @@ public final class LapisLowPassMenu extends EngineeringDeviceMenu {
             outputQuality.set(PortQuality.NO_SIGNAL.ordinal());
         });
 
-        previousOutput.set(LapisLowPassFilterBlock.previousOutput(level, blockPos));
+        int previous = LapisLowPassFilterBlock.previousOutput(level, blockPos);
+        previousOutput.set(previous);
         runtimePresent.set(LapisLowPassFilterBlock.runtimePresent(level, blockPos) ? 1 : 0);
+        double alpha = EngineeringParameterProfile.lapisFilterAlpha(state.getValue(LapisLowPassFilterBlock.ALPHA));
+        predictedOutput.set(Math.max(0, Math.min(100,
+                (int) Math.round(previous + alpha * (inputValue.get() - previous)))));
     }
 
     @Override
@@ -114,7 +121,19 @@ public final class LapisLowPassMenu extends EngineeringDeviceMenu {
     public int inputValue() { return inputValue.get(); }
     public int outputValue() { return outputValue.get(); }
     public int previousOutput() { return previousOutput.get(); }
+    public int predictedOutput() { return predictedOutput.get(); }
     public boolean runtimePresent() { return runtimePresent.get() != 0; }
+
+
+    public static int alphaSteps() { return EngineeringParameterProfile.LAPIS_FILTER_ALPHA_STEPS; }
+    public static int defaultAlphaIndex() { return EngineeringParameterProfile.LAPIS_FILTER_DEFAULT_INDEX; }
+    public static int samplePeriodTicks() { return EngineeringParameterProfile.LAPIS_FILTER_SAMPLE_PERIOD_TICKS; }
+    public static double nominalTicksPerSecond() { return EngineeringParameterProfile.NOMINAL_TICKS_PER_SECOND; }
+    public static String profileId() { return EngineeringParameterProfile.PROFILE_ID; }
+    public static double alphaForIndex(int index) { return EngineeringParameterProfile.lapisFilterAlpha(index); }
+    public static boolean bypassForIndex(int index) { return EngineeringParameterProfile.lapisFilterBypass(index); }
+    public static double timeConstantTicksForIndex(int index) { return EngineeringParameterProfile.lapisFilterTimeConstantTicks(index); }
+    public static double cutoffHzForIndex(int index) { return EngineeringParameterProfile.lapisFilterCutoffHzNominal(index); }
 
     public PortQuality inputQuality() {
         return quality(inputQuality.get());
