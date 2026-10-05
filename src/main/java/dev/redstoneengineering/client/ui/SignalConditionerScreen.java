@@ -17,7 +17,7 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
 
     @Override
     protected void addDeviceWidgets() {
-        int y = topPos + 108;
+        int y = topPos + imageHeight - 90;
         addConfigureWidget(Button.builder(Component.literal("◀ Mode"),
                 button -> sendMenuButton(SignalConditionerMenu.BUTTON_MODE_PREVIOUS))
                 .bounds(leftPos + 18, y, 86, 20).build());
@@ -73,13 +73,14 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
     }
 
     private void renderConfigure(GuiGraphics graphics) {
-        statusBadge(graphics, "SERVER-AUTHORITATIVE CONTROL", INFO, 16, 80);
-        labelValue(graphics, "Mode", modeName(menu.mode()), 102);
-        labelValue(graphics, parameterName(menu.mode()), parameterText(menu.mode(), menu.parameter()), 118);
-        labelValue(graphics, "Allowed", parameterRange(menu.mode()), 134);
-        labelValue(graphics, "Input → Output", direction(menu.inputDirection().getName()) + " → " + direction(menu.outputDirection().getName()), 150);
-        safeText(graphics, behaviorLine(menu.mode()), 16, 177, TEXT);
-        safeText(graphics, "Buttons change configuration only; physical direction is controlled on Route.", 16, 194, MUTED);
+        statusBadge(graphics, "FORMULA-FIRST SERVER CONTROL", INFO, 16, 80);
+        formulaCard(graphics, governingEquation(), 105);
+        variableRole(graphics, "MEASURED", "x", menu.input() + " / 15", "redstone", 134);
+        variableRole(graphics, "ADJUSTABLE", parameterSymbol(menu.mode()), parameterText(menu.mode(), menu.parameter()), parameterRange(menu.mode()), 152);
+        variableRole(graphics, "DERIVED", "y", menu.output() + " / 15", "redstone", 170);
+        variableRole(graphics, "EVIDENCE", "boundary", menu.limiting() ? "SATURATED" : "IN RANGE", "", 188);
+        wrappedText(graphics, behaviorLine(menu.mode()), 16, 210, workspaceWidth() - 24, TEXT);
+        wrappedText(graphics, "Controls below change only the server configuration; Route owns physical RX/TX direction.", 16, 240, workspaceWidth() - 24, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
@@ -99,6 +100,28 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
         sectionRule(graphics, 149);
         safeText(graphics, "Current state = input + mode + parameter + output + I/O direction + saturation.", 16, 162, MUTED);
         safeText(graphics, "A valid zero is data; it is never treated as a fault by this screen.", 16, 180, GOOD);
+    }
+
+    private String governingEquation() {
+        return switch (menu.mode()) {
+            case 0 -> "y = clamp₀..₁₅(g · x)";
+            case 1 -> "y = clamp₀..₁₅(x + b)";
+            case 2 -> "y = min(x, c)";
+            case 3 -> "y = (x ≥ T) ? x : 0";
+            case 4 -> "y = (|x - y_prev| ≥ B) ? x : y_prev";
+            default -> "y = x";
+        };
+    }
+
+    private static String parameterSymbol(int mode) {
+        return switch (mode) {
+            case 0 -> "g";
+            case 1 -> "b";
+            case 2 -> "c";
+            case 3 -> "T";
+            case 4 -> "B";
+            default -> "p";
+        };
     }
 
     private String boundaryState() {
