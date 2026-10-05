@@ -37,12 +37,15 @@ enum_match = re.search(r"enum\s+PortQuality\s*\{(?P<body>.*?)\}", port_quality, 
 if not enum_match:
     errors.append("PortQuality.java: could not parse enum body")
 else:
-    names = [
-        token.strip().split()[0]
-        for token in enum_match.group("body").split(",")
-        if token.strip()
-    ]
-    if not names or "NOT_READY" not in names[-1]:
+    # Remove comments before parsing enum constants so documentation attached
+    # to the final constant cannot be mistaken for the constant name.
+    enum_body = re.sub(r"/\\*.*?\\*/|//.*?$", "", enum_match.group("body"), flags=re.S | re.M)
+    names = []
+    for token in enum_body.split(","):
+        match = re.match(r"\\s*([A-Z][A-Z0-9_]*)", token)
+        if match:
+            names.append(match.group(1))
+    if not names or names[-1] != "NOT_READY":
         errors.append("PortQuality.java: NOT_READY must remain the final enum constant")
 
 require(sample_hold, "private static final int RUNTIME_SIZE = 6;", "SampleHoldBlock.java")
