@@ -29,6 +29,7 @@ for token in (
         errors.append(f"parameter profile missing {token!r}")
 
 for token in (
+    "import dev.redstoneengineering.physics.EngineeringParameterProfile;",
     "EngineeringParameterProfile.LAPIS_FILTER_ALPHA_STEPS",
     "EngineeringParameterProfile.LAPIS_FILTER_DEFAULT_INDEX",
     "EngineeringParameterProfile.lapisFilterAlpha(index)",
@@ -42,6 +43,7 @@ for forbidden in ("% 4;", "case 0 -> 0.10;", "default -> 0.75;"):
         errors.append(f"Lapis filter retains legacy hard-coded alpha behavior {forbidden!r}")
 
 for token in (
+    "import dev.redstoneengineering.physics.EngineeringParameterProfile;",
     "EngineeringParameterProfile.QUARTZ_PHASE_DELAY_MIN_TICKS",
     "EngineeringParameterProfile.QUARTZ_PHASE_DELAY_MAX_TICKS",
     "EngineeringParameterProfile.QUARTZ_PHASE_DELAY_DEFAULT_TICKS",
