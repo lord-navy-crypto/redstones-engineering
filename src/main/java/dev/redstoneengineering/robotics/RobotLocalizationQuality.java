@@ -15,7 +15,7 @@ public enum RobotLocalizationQuality {
             case VALID -> VALID;
             case STALE -> STALE;
             case SATURATED -> DEGRADED;
-            case NO_SIGNAL, FAULT, DOMAIN_MISMATCH, TOPOLOGY_ERROR -> LOST;
+            case NO_SIGNAL, FAULT, DOMAIN_MISMATCH, TOPOLOGY_ERROR, NOT_READY -> LOST;
         };
     }
 
