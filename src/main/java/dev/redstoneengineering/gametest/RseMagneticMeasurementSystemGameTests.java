@@ -17,7 +17,7 @@ public final class RseMagneticMeasurementSystemGameTests {
 
     @PrefixGameTestTemplate(false)
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 40)
-    public static void magneticSensorAwaitsFirstSampleAsStaleThenEstablishesValidZero(GameTestHelper helper) {
+    public static void magneticSensorAwaitsFirstSampleAsNotReadyThenEstablishesValidZero(GameTestHelper helper) {
         BlockPos sensor = new BlockPos(2, 1, 2);
         helper.setBlock(sensor, RedstoneEngineering.MAGNETIC_FIELD_SENSOR.get().defaultBlockState());
 
@@ -30,8 +30,8 @@ public final class RseMagneticMeasurementSystemGameTests {
 
         if (initial.initialized() || initial.complete()
                 || initial.field() != 0
-                || initialQuality != PortQuality.STALE) {
-            helper.fail("Magnetic sensor first-sample state must be STALE, not NO_SIGNAL", sensor);
+                || initialQuality != PortQuality.NOT_READY) {
+            helper.fail("Magnetic sensor first-sample state must be NOT_READY until the first authoritative sample", sensor);
             return;
         }
 
@@ -45,7 +45,7 @@ public final class RseMagneticMeasurementSystemGameTests {
                     || sampled.field() != 0
                     || snapshot.quality() != PortQuality.VALID
                     || Math.round(snapshot.value()) != 0) {
-                helper.fail("Magnetic sensor did not transition from STALE to a complete VALID zero sample", sensor);
+                helper.fail("Magnetic sensor did not transition from NOT_READY to a complete VALID zero sample", sensor);
                 return;
             }
             helper.succeed();
