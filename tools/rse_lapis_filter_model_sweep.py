@@ -21,7 +21,7 @@ profile = profile_path.read_text(errors="ignore") if profile_path.is_file() else
 block = block_path.read_text(errors="ignore") if block_path.is_file() else ""
 
 def parse_number(name, cast=float):
-    match = re.search(rf"{re.escape(name)}\\s*=\\s*([0-9]+(?:\\.[0-9]+)?)", profile)
+    match = re.search(rf"{re.escape(name)}\s*=\s*([0-9]+(?:\.[0-9]+)?)", profile)
     if not match:
         errors.append(f"missing numeric constant {name}")
         return None
@@ -31,7 +31,7 @@ sample_ticks = parse_number("LAPIS_FILTER_SAMPLE_PERIOD_TICKS", int)
 nominal_tps = parse_number("NOMINAL_TICKS_PER_SECOND", float)
 
 alpha_match = re.search(
-    r"LAPIS_FILTER_ALPHA\\s*=\\s*\\{([^}]*)\\}",
+    r"LAPIS_FILTER_ALPHA\s*=\s*\{([^}]*)\}",
     profile,
     flags=re.S,
 )
@@ -95,9 +95,6 @@ if sample_ticks and nominal_tps and alphas:
                 errors.append(f"alpha[{i}] sample {sample}: non-monotonic step response ({previous}->{y})")
                 break
             previous = y
-
-        if java_round_positive(alpha * 100.0) != java_round_positive(alpha * 100.0):
-            errors.append(f"alpha[{i}] first-step calculation became non-deterministic")
 
     for i in range(1, len(taus)):
         if not taus[i] < taus[i - 1]:
