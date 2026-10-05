@@ -55,11 +55,21 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
     }
 
     private void configure(GuiGraphics g){
-        statusBadge(g,menu.kind()==OpticalSystemMenu.KIND_METER||menu.kind()==OpticalSystemMenu.KIND_RECEIVER?"READ-ONLY DEVICE":"SERVER-SIDE BOUNDED CONTROL",INFO,16,80);
-        labelValue(g,"Primary",primaryControl(),104);labelValue(g,"Secondary",secondaryControl(),180);
-        if(menu.directional())safeText(g,"Direction and physical interface orientation are controlled only on Route.",16,207,MUTED);
-        else if(menu.kind()==OpticalSystemMenu.KIND_METER)safeText(g,"Measurement face is controlled only on Route.",16,207,MUTED);
-        else if(menu.kind()==OpticalSystemMenu.KIND_RECEIVER)safeText(g,"Receiver budget is observer-only; no path or carrier value is changed by this page.",16,207,MUTED);
+        statusBadge(g,"PIONEER PATTERN • OPTICAL MODEL",INFO,16,80);
+        formulaCard(g,opticalEquation(),105);
+        variableRole(g,"MEASURED","I / state",budget(),"optical evidence",134);
+        variableRole(g,"ADJUSTABLE","primary",primaryControl(),"bounded control",152);
+        variableRole(g,"ADJUSTABLE","secondary",secondaryControl(),"bounded control",170);
+        variableRole(g,"EVIDENCE","quality",qName(),"",188);
+        if(menu.kind()==OpticalSystemMenu.KIND_RECEIVER){
+            variableRole(g,"DERIVED","L_obs",Integer.toString(menu.budgetObservedLoss()),"intensity steps",206);
+            variableRole(g,"DERIVED","H_rx",Integer.toString(menu.budgetReceiverHeadroom()),"above I=1",224);
+        }else if(menu.kind()==OpticalSystemMenu.KIND_SPLITTER){
+            variableRole(g,"DERIVED","q_split",Integer.toString(Math.max(0,menu.auxiliary())),"integer loss",206);
+        }else if(menu.kind()==OpticalSystemMenu.KIND_ATTENUATOR){
+            variableRole(g,"DERIVED","L",Integer.toString(Math.max(0,menu.primary()-menu.secondary())),"intensity steps",206);
+        }
+        wrappedText(g,"Optical controls remain server-authoritative. The HMI shows carrier/budget evidence but never invents an unobserved path or performs a second optical propagation solve.",16,248,workspaceWidth()-24,MUTED);
     }
 
     private void diagnostics(GuiGraphics g){
@@ -100,6 +110,15 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
     private String receiverNext(){return switch(menu.commissioningStatus()){case NOT_READY->"NEXT • restore one bounded guided source and continuous passive fiber path.";case FAIL->"NEXT • isolate source/topology/channel conflict before interpreting optical loss.";case MARGINAL->"NEXT • reduce downstream path loss or upstream splitter/attenuator loss, or raise TX intensity with commissioning evidence.";case PASS->"NEXT • segment budget is coherent; inspect upstream processor budgets only if more margin is required.";};}
     private String acceptanceSummary(){return switch(menu.commissioningStatus()){case NOT_READY->"NOT READY • establish carrier and a connected comparison point.";case PASS->"PASS • same-channel one-hop budget is locally coherent.";case MARGINAL->"MARGINAL • resolve mismatch, incomplete comparison, or elevated local variation.";case FAIL->"FAIL • hard optical fault or severe local attenuation step.";};}
     private int acceptanceColor(){return switch(menu.commissioningStatus()){case PASS->GOOD;case NOT_READY->INFO;case MARGINAL->WARN;case FAIL->BAD;};}
+
+    private String opticalEquation(){
+        if(menu.kind()==OpticalSystemMenu.KIND_ATTENUATOR)return "I_out = max(0, I_in - L)";
+        if(menu.kind()==OpticalSystemMenu.KIND_SPLITTER)return "I_A = floor(I_in/2), I_B = floor(I_in/2), q = I_in - I_A - I_B";
+        if(menu.kind()==OpticalSystemMenu.KIND_FILTER)return "I_out = (CH_in = CH_target) ? I_in : 0";
+        if(menu.kind()==OpticalSystemMenu.KIND_RECEIVER)return "L_obs = I_TX - I_RX ; H_rx = I_RX - 1";
+        if(menu.kind()==OpticalSystemMenu.KIND_EMITTER)return "I_out = I_set on selected channel";
+        return "I_obs = authoritative optical path evidence";
+    }
 
     private String diagnosis(){
         if(menu.quality()==PortQuality.TOPOLOGY_ERROR||menu.quality()==PortQuality.FAULT)return"TOPOLOGY / SOURCE CONFLICT";
