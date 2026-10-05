@@ -84,7 +84,11 @@ require(
 scope_be = "src/main/java/dev/redstoneengineering/blockentity/OscilloscopeBlockEntity.java"
 require(
     scope_be,
-    "SAMPLE_PERIOD_TICKS = 2",
+    "SAMPLE_PERIOD_OPTIONS = {1, 2, 4, 8}",
+    "DEFAULT_SAMPLE_PERIOD_INDEX = 1",
+    "samplePeriodTicks",
+    "sampleRateMilliHz",
+    "nyquistMilliHz",
     "coveragePercent",
     "average100",
     "meanStep100",
@@ -93,6 +97,8 @@ require(
     "cursorDeltaTicks",
     'tag.putInt("samplesSinceTrigger"',
     'tag.getInt("samplesSinceTrigger")',
+    'tag.putInt("samplePeriodIndex"',
+    'tag.getInt("samplePeriodIndex")',
 )
 
 logic_be = "src/main/java/dev/redstoneengineering/blockentity/LogicAnalyzerBlockEntity.java"
@@ -120,11 +126,12 @@ require(
 )
 require(
     "src/main/java/dev/redstoneengineering/client/ui/OscilloscopeScreen.java",
-    "Capture",
-    "coverage=",
-    "meanStep=",
-    "period≈",
-    "Cursor Δ",
+    "CAPTURE",
+    "menu.coverage(channel)",
+    "menu.meanStep100(channel)",
+    "menu.periodTicks(channel)",
+    "Cursor Δt",
+    'SAMPLING("Sampling")',
 )
 require(
     "src/main/java/dev/redstoneengineering/ui/menu/LogicAnalyzerMenu.java",
