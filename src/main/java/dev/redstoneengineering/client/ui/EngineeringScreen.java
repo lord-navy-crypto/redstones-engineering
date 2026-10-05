@@ -56,12 +56,13 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     protected static final int ACCENT = 0xFFE05555;
     protected static final int WHITE_SIGN = 0xFFF3F5F7;
 
-    private static final int CONTENT_LEFT = 16;
-    private static final int CONTENT_RIGHT = 304;
-    private static final int VALUE_X = 154;
-    private static final int FOOTER_TOP = 245;
-    private static final int ROUTE_CONTROL_Y = 196;
-    private static final int ROUTE_ENDPOINT_Y = 174;
+    protected static final int CONTENT_LEFT = 16;
+    private static final int CONTENT_TOP = 76;
+    private static final int FOOTER_HEIGHT = 36;
+    private static final int MIN_WORKSPACE_WIDTH = 420;
+    private static final int MAX_WORKSPACE_WIDTH = 720;
+    private static final int MIN_WORKSPACE_HEIGHT = 300;
+    private static final int MAX_WORKSPACE_HEIGHT = 460;
 
     private Section section = Section.OVERVIEW;
     private boolean routePage;
@@ -74,11 +75,13 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private Button routeInputNext;
     private Button routeOutputPrevious;
     private Button routeOutputNext;
+    private int scrollX;
+    private int scrollY;
 
     protected EngineeringScreen(M menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
-        this.imageWidth = 320;
-        this.imageHeight = 270;
+        this.imageWidth = 620;
+        this.imageHeight = 390;
         this.titleLabelX = 12;
         this.titleLabelY = 10;
         this.inventoryLabelY = 1000;
@@ -86,7 +89,11 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
     @Override
     protected void init() {
+        imageWidth = Math.max(MIN_WORKSPACE_WIDTH, Math.min(MAX_WORKSPACE_WIDTH, width - 20));
+        imageHeight = Math.max(MIN_WORKSPACE_HEIGHT, Math.min(MAX_WORKSPACE_HEIGHT, height - 20));
         super.init();
+        scrollX = 0;
+        scrollY = 0;
         configureWidgets.clear();
         sectionButtons.clear();
         routeTab = null;
@@ -99,8 +106,8 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
         int tabY = topPos + 31;
         int x = leftPos + 8;
-        int tabWidth = 49;
-        int gap = 1;
+        int gap = 2;
+        int tabWidth = Math.max(52, (imageWidth - 16 - gap * 5) / 6);
 
         addSectionTab(Section.OVERVIEW, x, tabY, tabWidth); x += tabWidth + gap;
         addSectionTab(Section.PORTS, x, tabY, tabWidth); x += tabWidth + gap;
@@ -115,6 +122,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         updateWidgetVisibility();
         syncDeviceWidgetLabels();
         syncRouteControls();
+        clampScroll();
     }
 
     private void addSectionTab(Section target, int x, int y, int width) {
@@ -138,30 +146,57 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         }
     }
 
+    private int contentRight() { return imageWidth - 16; }
+    private int valueX() { return Math.max(154, Math.min(contentRight() - 160, (imageWidth * 43) / 100)); }
+    private int footerTop() { return imageHeight - FOOTER_HEIGHT; }
+    private int routeControlY() { return footerTop() - 38; }
+    private int routeEndpointY() { return footerTop() - 62; }
+    private int viewportWidth() { return Math.max(1, imageWidth - 28); }
+    private int viewportHeight() { return Math.max(1, footerTop() - CONTENT_TOP - 8); }
+
+    /** Subclasses can reserve a wider virtual canvas for genuinely wide tables/formulas. */
+    protected int virtualContentWidth(Section section) { return viewportWidth(); }
+
+    /** Subclasses can extend the virtual page when a section needs real vertical scrolling. */
+    protected int virtualContentHeight(Section section) { return viewportHeight(); }
+
+    private int activeVirtualWidth() {
+        return routePage ? viewportWidth() : Math.max(viewportWidth(), virtualContentWidth(section));
+    }
+
+    private int activeVirtualHeight() {
+        return routePage ? viewportHeight() : Math.max(viewportHeight(), virtualContentHeight(section));
+    }
+
+    private void clampScroll() {
+        scrollX = Math.max(0, Math.min(scrollX, Math.max(0, activeVirtualWidth() - viewportWidth())));
+        scrollY = Math.max(0, Math.min(scrollY, Math.max(0, activeVirtualHeight() - viewportHeight())));
+    }
+
     private void addRouteControls() {
-        int width = 136;
+        int width = Math.min(180, Math.max(112, (imageWidth - 48) / 2));
         routePrevious = addRenderableWidget(Button.builder(
                 Component.literal("Direction ▲"), button -> sendMenuButton(routeActionId(false)))
-                .bounds(leftPos + CONTENT_LEFT, topPos + ROUTE_CONTROL_Y, width, 20).build());
+                .bounds(leftPos + CONTENT_LEFT, topPos + routeControlY(), width, 20).build());
         routeNext = addRenderableWidget(Button.builder(
                 Component.literal("Direction ▼"), button -> sendMenuButton(routeActionId(true)))
-                .bounds(leftPos + CONTENT_RIGHT - width, topPos + ROUTE_CONTROL_Y, width, 20).build());
+                .bounds(leftPos + contentRight() - width, topPos + routeControlY(), width, 20).build());
 
-        int endpointWidth = 66;
-        int endpointGap = 6;
+        int endpointGap = 8;
+        int endpointWidth = Math.min(100, Math.max(66, (imageWidth - 56) / 4));
         int x0 = leftPos + CONTENT_LEFT;
         routeInputPrevious = addRenderableWidget(Button.builder(
                 Component.literal("RX ▲"), button -> sendMenuButton(routeInputActionId(false)))
-                .bounds(x0, topPos + ROUTE_ENDPOINT_Y, endpointWidth, 20).build());
+                .bounds(x0, topPos + routeEndpointY(), endpointWidth, 20).build());
         routeInputNext = addRenderableWidget(Button.builder(
                 Component.literal("RX ▼"), button -> sendMenuButton(routeInputActionId(true)))
-                .bounds(x0 + endpointWidth + endpointGap, topPos + ROUTE_ENDPOINT_Y, endpointWidth, 20).build());
+                .bounds(x0 + endpointWidth + endpointGap, topPos + routeEndpointY(), endpointWidth, 20).build());
         routeOutputPrevious = addRenderableWidget(Button.builder(
                 Component.literal("TX ▲"), button -> sendMenuButton(routeOutputActionId(false)))
-                .bounds(x0 + (endpointWidth + endpointGap) * 2, topPos + ROUTE_ENDPOINT_Y, endpointWidth, 20).build());
+                .bounds(x0 + (endpointWidth + endpointGap) * 2, topPos + routeEndpointY(), endpointWidth, 20).build());
         routeOutputNext = addRenderableWidget(Button.builder(
                 Component.literal("TX ▼"), button -> sendMenuButton(routeOutputActionId(true)))
-                .bounds(x0 + (endpointWidth + endpointGap) * 3, topPos + ROUTE_ENDPOINT_Y, endpointWidth, 20).build());
+                .bounds(x0 + (endpointWidth + endpointGap) * 3, topPos + routeEndpointY(), endpointWidth, 20).build());
     }
 
     private int routeActionId(boolean clockwise) {
@@ -294,6 +329,8 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private void setSection(Section target) {
         this.section = target;
         this.routePage = false;
+        this.scrollX = 0;
+        this.scrollY = 0;
         updateWidgetVisibility();
         syncDeviceWidgetLabels();
         syncRouteControls();
@@ -301,6 +338,8 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
     private void setRoutePage() {
         routePage = true;
+        scrollX = 0;
+        scrollY = 0;
         updateWidgetVisibility();
         syncDeviceWidgetLabels();
         syncRouteControls();
@@ -324,6 +363,25 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     public final boolean showsPortVisualization() { return routePage || section == Section.PORTS; }
 
     @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollXDelta, double scrollYDelta) {
+        int x0 = leftPos + 12;
+        int y0 = topPos + CONTENT_TOP;
+        int x1 = leftPos + imageWidth - 12;
+        int y1 = topPos + footerTop() - 8;
+        if (mouseX < x0 || mouseX >= x1 || mouseY < y0 || mouseY >= y1) {
+            return super.mouseScrolled(mouseX, mouseY, scrollXDelta, scrollYDelta);
+        }
+        if (hasShiftDown() || Math.abs(scrollXDelta) > Math.abs(scrollYDelta)) {
+            double delta = scrollXDelta != 0.0 ? scrollXDelta : scrollYDelta;
+            scrollX -= (int) Math.round(delta * 28.0);
+        } else {
+            scrollY -= (int) Math.round(scrollYDelta * 24.0);
+        }
+        clampScroll();
+        return true;
+    }
+
+    @Override
     protected void containerTick() {
         super.containerTick();
         syncDeviceWidgetLabels();
@@ -342,9 +400,9 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         graphics.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, BORDER);
         graphics.fill(leftPos + 2, topPos + 2, leftPos + imageWidth - 2, topPos + imageHeight - 2, PANEL);
         graphics.fill(leftPos + 8, topPos + 27, leftPos + imageWidth - 8, topPos + 29, ACCENT);
-        graphics.fill(leftPos + 8, topPos + 58, leftPos + imageWidth - 8, topPos + FOOTER_TOP - 4, PANEL_2);
-        graphics.fill(leftPos + 8, topPos + FOOTER_TOP, leftPos + imageWidth - 8, topPos + imageHeight - 9, PANEL_3);
-        graphics.fill(leftPos + 8, topPos + 58, leftPos + 11, topPos + FOOTER_TOP - 8, WHITE_SIGN);
+        graphics.fill(leftPos + 8, topPos + 58, leftPos + imageWidth - 8, topPos + footerTop() - 4, PANEL_2);
+        graphics.fill(leftPos + 8, topPos + footerTop(), leftPos + imageWidth - 8, topPos + imageHeight - 9, PANEL_3);
+        graphics.fill(leftPos + 8, topPos + 58, leftPos + 11, topPos + footerTop() - 8, WHITE_SIGN);
     }
 
     @Override
@@ -360,16 +418,25 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         if (routePage) {
             graphics.drawString(font, "ROUTE", 13, 62, TEXT, false);
             graphics.drawString(font, "Direct RX / TX direction control", 92, 62, MUTED, false);
-            renderRoutePage(graphics);
         } else {
             graphics.drawString(font, section.label.toUpperCase(), 13, 62, TEXT, false);
-            graphics.drawString(font, fitForWidth(section.subtitle, 210), 92, 62, MUTED, false);
-            renderSection(graphics, section);
+            graphics.drawString(font, fitForWidth(section.subtitle, Math.max(210, imageWidth - 120)), 92, 62, MUTED, false);
         }
+
+        graphics.enableScissor(leftPos + 12, topPos + CONTENT_TOP, leftPos + imageWidth - 12, topPos + footerTop() - 8);
+        graphics.pose().pushPose();
+        graphics.pose().translate(-scrollX, -scrollY, 0.0F);
+        if (routePage) renderRoutePage(graphics);
+        else renderSection(graphics, section);
+        graphics.pose().popPose();
+        graphics.disableScissor();
 
         String evidence = fitForWidth("EVIDENCE • " + menu.evidenceStateLabel(), 150);
         graphics.drawString(font, evidence, 13, imageHeight - 20, evidenceStateColor(), false);
-        String position = fitForWidth("@ " + menu.blockPos().getX() + ", " + menu.blockPos().getY() + ", " + menu.blockPos().getZ(), 142);
+        String scroll = "SCROLL X " + scrollX + "/" + Math.max(0, activeVirtualWidth() - viewportWidth())
+                + "  Y " + scrollY + "/" + Math.max(0, activeVirtualHeight() - viewportHeight());
+        graphics.drawString(font, scroll, (imageWidth - font.width(scroll)) / 2, imageHeight - 20, MUTED, false);
+        String position = fitForWidth("@ " + menu.blockPos().getX() + ", " + menu.blockPos().getY() + ", " + menu.blockPos().getZ(), 170);
         graphics.drawString(font, position, imageWidth - 13 - font.width(position), imageHeight - 20, MUTED, false);
     }
 
@@ -404,7 +471,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     }
 
     protected final void safeText(GuiGraphics graphics, String text, int x, int y, int color) {
-        int width = Math.max(0, CONTENT_RIGHT - x);
+        int width = Math.max(0, contentRight() - x);
         graphics.drawString(font, fitForWidth(text, width), x, y, color, false);
     }
 
@@ -467,7 +534,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     protected final void labelValue(GuiGraphics graphics, String label, String value, int y) {
         PresentationLine normalized = normalizeLegacyPresentation(label, value);
         graphics.drawString(font, fitForWidth(normalized.label(), 130), CONTENT_LEFT, y, MUTED, false);
-        graphics.drawString(font, fitForWidth(normalized.value(), CONTENT_RIGHT - VALUE_X), VALUE_X, y, TEXT, false);
+        graphics.drawString(font, fitForWidth(normalized.value(), contentRight() - valueX()), valueX(), y, TEXT, false);
     }
 
     protected final void statusLine(GuiGraphics graphics, String label, String value, int color, int y) {
@@ -477,7 +544,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         }
         PresentationLine normalized = normalizeLegacyPresentation(label, value);
         graphics.drawString(font, fitForWidth(normalized.label(), 130), CONTENT_LEFT, y, MUTED, false);
-        graphics.drawString(font, fitForWidth(normalized.value(), CONTENT_RIGHT - VALUE_X), VALUE_X, y, color, false);
+        graphics.drawString(font, fitForWidth(normalized.value(), contentRight() - valueX()), valueX(), y, color, false);
     }
 
     protected final void statusBadge(GuiGraphics graphics, String value, int color, int x, int y) {
@@ -485,7 +552,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             value = authoritativeHealthBadge(value);
             color = operationalHealthColor();
         }
-        int available = Math.max(24, CONTENT_RIGHT - x);
+        int available = Math.max(24, contentRight() - x);
         String compact = fitForWidth(value, Math.max(8, available - 12));
         int width = Math.min(available, font.width(compact) + 12);
         graphics.fill(x, y, x + width, y + 14, PANEL_3);
@@ -494,7 +561,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     }
 
     protected final void metricCard(GuiGraphics graphics, String label, String value, int x, int y, int width, int color) {
-        int safeWidth = Math.max(24, Math.min(width, CONTENT_RIGHT - x));
+        int safeWidth = Math.max(24, Math.min(width, contentRight() - x));
         graphics.fill(x, y, x + safeWidth, y + 31, PANEL_3);
         graphics.fill(x, y, x + 2, y + 31, color);
         graphics.drawString(font, fitForWidth(label.toUpperCase(), safeWidth - 14), x + 7, y + 5, MUTED, false);
@@ -506,13 +573,13 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     }
 
     protected final void sectionRule(GuiGraphics graphics, int y) {
-        graphics.fill(CONTENT_LEFT, y, CONTENT_RIGHT, y + 1, 0xFF3A4650);
+        graphics.fill(CONTENT_LEFT, y, contentRight(), y + 1, 0xFF3A4650);
     }
 
     protected final void signalBar(GuiGraphics graphics, int value, int y) {
         int bounded = Math.max(0, Math.min(15, value));
         int x0 = CONTENT_LEFT;
-        int x1 = 286;
+        int x1 = Math.max(286, contentRight() - 18);
         int interior = x1 - x0 - 2;
         int fillWidth = (bounded * interior) / 15;
         graphics.fill(x0, y, x1, y + 8, PANEL_3);
@@ -525,8 +592,56 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         graphics.drawString(font, "5", x0 + interior / 3 - 2, y + 11, MUTED, false);
         graphics.drawString(font, "10", x0 + (interior * 2) / 3 - 5, y + 11, MUTED, false);
         graphics.drawString(font, "15", x1 - 11, y + 11, MUTED, false);
-        graphics.drawString(font, bounded + " / 15", 245, y - 10, TEXT, false);
+        graphics.drawString(font, bounded + " / 15", x1 - 42, y - 10, TEXT, false);
     }
+
+    /**
+     * Rollout primitive: render a governing equation without truncation.
+     * Long equations intentionally expand the virtual page instead of being collapsed into prose.
+     */
+    protected final void formulaCard(GuiGraphics graphics, String equation, int y) {
+        int width = Math.max(260, Math.min(activeVirtualWidth() - CONTENT_LEFT - 8, font.width(equation) + 24));
+        graphics.fill(CONTENT_LEFT, y - 4, CONTENT_LEFT + width, y + 15, PANEL_3);
+        graphics.fill(CONTENT_LEFT, y - 4, CONTENT_LEFT + 3, y + 15, ACCENT);
+        graphics.drawString(font, equation, CONTENT_LEFT + 10, y, TEXT, false);
+    }
+
+    /** Rollout primitive for explicit variable ownership and engineering units. */
+    protected final void variableRole(
+            GuiGraphics graphics, String role, String symbol, String value, String units, int y
+    ) {
+        String name = "[" + role + "] " + symbol;
+        String rendered = (value == null || value.isBlank() ? "—" : value)
+                + (units == null || units.isBlank() ? "" : " " + units);
+        graphics.drawString(font, name, CONTENT_LEFT, y, MUTED, false);
+        graphics.drawString(font, rendered, valueX(), y, TEXT, false);
+    }
+
+    /** Rollout primitive for baseline/candidate or expected/actual evidence comparisons. */
+    protected final void evidenceRow(
+            GuiGraphics graphics, String label, String leftValue, String rightValue, String note, int y
+    ) {
+        int x1 = valueX();
+        int x2 = x1 + Math.max(120, (contentRight() - x1) / 3);
+        int x3 = x2 + Math.max(120, (contentRight() - x1) / 3);
+        graphics.drawString(font, label, CONTENT_LEFT, y, MUTED, false);
+        graphics.drawString(font, leftValue, x1, y, TEXT, false);
+        graphics.drawString(font, rightValue, x2, y, TEXT, false);
+        graphics.drawString(font, note, x3, y, INFO, false);
+    }
+
+    /** Multi-line text for model/evidence pages; unlike legacy safeText it never inserts ellipses. */
+    protected final int wrappedText(GuiGraphics graphics, String text, int x, int y, int width, int color) {
+        int yy = y;
+        for (var line : font.split(Component.literal(text), Math.max(80, width))) {
+            graphics.drawString(font, line, x, yy, color, false);
+            yy += 11;
+        }
+        return yy;
+    }
+
+    protected final int workspaceRight() { return contentRight(); }
+    protected final int workspaceWidth() { return contentRight() - CONTENT_LEFT; }
 
     protected abstract void renderSection(GuiGraphics graphics, Section section);
 }
