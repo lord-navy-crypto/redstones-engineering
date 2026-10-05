@@ -15,7 +15,7 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
     public PneumaticSystemScreen(PneumaticSystemMenu menu, Inventory inventory, Component title) { super(menu, inventory, title); }
 
     @Override protected void addDeviceWidgets() {
-        int y=topPos+116;
+        int y=topPos+imageHeight-66;
         prev=addConfigureWidget(Button.builder(Component.literal("◀ Setpoint"),b->sendMenuButton(PneumaticSystemMenu.BUTTON_PARAMETER_PREVIOUS)).bounds(leftPos+16,y,95,20).build());
         next=addConfigureWidget(Button.builder(Component.literal("Setpoint ▶"),b->sendMenuButton(PneumaticSystemMenu.BUTTON_PARAMETER_NEXT)).bounds(leftPos+209,y,95,20).build());
         toggle=addConfigureWidget(Button.builder(Component.literal("Toggle valve"),b->sendMenuButton(PneumaticSystemMenu.BUTTON_TOGGLE)).bounds(leftPos+100,y,120,20).build());
@@ -51,7 +51,23 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
     }
 
     private void configure(GuiGraphics g){
-        statusBadge(g,"SERVER-SIDE BOUNDED CONTROL",INFO,16,80);labelValue(g,"Control",controlText(),104);labelValue(g,"Physical route",route(),174);safeText(g,"Physical direction is controlled only on Route.",16,202,MUTED);
+        statusBadge(g,"PIONEER PATTERN • PNEUMATIC MODEL",INFO,16,80);
+        formulaCard(g,pneumaticEquation(),105);
+        variableRole(g,"MEASURED","primary",primaryText(),"server process",134);
+        variableRole(g,"MEASURED","secondary",secondaryText(),"server process",152);
+        variableRole(g,"ADJUSTABLE","control",controlText(),"bounded server control",170);
+        variableRole(g,"EVIDENCE","quality",menu.inputQuality().name()+" → "+menu.outputQuality().name(),"",188);
+        if(isCylinder()){
+            variableRole(g,"DERIVED","ΔP_path",Integer.toString(menu.cylinderObservedLoss()),"pressure units",206);
+            variableRole(g,"DERIVED","e_pos",Integer.toString(menu.cylinderError()),"position units",224);
+        }else if(isProportional()){
+            variableRole(g,"DERIVED","ΔP_local",Integer.toString(Math.max(0,menu.primary()-menu.secondary())),"pressure units",206);
+        }else if(isReservoir()){
+            variableRole(g,"DERIVED","H_charge",Integer.toString(Math.max(0,menu.secondary()-menu.primary())),"pressure units",206);
+        }else if(isFlow()){
+            variableRole(g,"DERIVED","ΔP_meter",Integer.toString(menu.secondary()),"pressure units",206);
+        }
+        wrappedText(g,"The HMI exposes the authoritative pneumatic solve and retained path evidence; it never reruns the network solver locally. Route owns physical direction.",16,248,workspaceWidth()-24,MUTED);
     }
 
     private void diagnostics(GuiGraphics g){
@@ -166,5 +182,14 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
     private int stateColor(){return menu.inputQuality()==PortQuality.FAULT||menu.outputQuality()==PortQuality.FAULT||(menu.kind()==9&&menu.stateFlag()==1)?WARN:GOOD;}
     private String primaryLabel(){return isFlow()?"Flow":isCylinder()?"Pressure":isReservoir()?"Stored":menu.directional()?"Inlet":"Pressure";}private String secondaryLabel(){return isFlow()?"Δ pressure":isCylinder()?"Position":isReservoir()?"Line":menu.directional()?"Outlet":"Aux";}private String thirdLabel(){return isFlow()?"Inlet P":isCylinder()?"Target":isProportional()?"Opening":"State";}
     private String primaryText(){return menu.primary()+(menu.kind()==0?" / 15":" / 100");}private String secondaryText(){return menu.secondary()+(isCylinder()?" / 15":" / 100");}private String thirdText(){return menu.tertiary()+(isCylinder()||isProportional()?" / 15":" / 100");}
+    private String pneumaticEquation(){
+        if(isCylinder())return "ΔP_path = ΔP_line + ΔP_restriction";
+        if(isReservoir())return "H_charge = max(0, P_line - P_stored)";
+        if(isProportional())return "ΔP_local = max(0, P_in - P_out)";
+        if(isFlow())return "ΔP_meter = P_in - P_out";
+        if(menu.directional())return "ΔP = P_in - P_out";
+        return "P_node = authoritative pneumatic network solve";
+    }
+
     private String controlText(){return switch(menu.kind()){case 3->"SETPOINT "+menu.secondary()+"/100";case 9->"RELIEF "+menu.tertiary()+"/100";case 5->menu.stateFlag()==1?"OPEN":"CLOSED";case 8->"EXTERNAL UP COMMAND";default->"NO MANUAL PROCESS PARAMETER";};}
 }
