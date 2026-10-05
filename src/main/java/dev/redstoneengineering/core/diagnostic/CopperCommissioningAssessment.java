@@ -11,7 +11,7 @@ public final class CopperCommissioningAssessment {
         return switch (quality) {
             case VALID -> voltage > 0 ? CommissioningStatus.PASS : CommissioningStatus.MARGINAL;
             case SATURATED -> CommissioningStatus.MARGINAL;
-            case NO_SIGNAL, STALE -> CommissioningStatus.NOT_READY;
+            case NO_SIGNAL, STALE, NOT_READY -> CommissioningStatus.NOT_READY;
             case FAULT, DOMAIN_MISMATCH, TOPOLOGY_ERROR -> CommissioningStatus.FAIL;
         };
     }
