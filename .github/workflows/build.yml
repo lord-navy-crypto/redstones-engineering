@@ -130,7 +130,8 @@ jobs:
             tools/rse_discrete_transport_model_verify.py \
             tools/rse_measurement_chain_model_verify.py \
             tools/rse_field_device_pioneer_coverage_verify.py \
-            tools/rse_closed_loop_commissioning_trial_verify.py
+            tools/rse_closed_loop_commissioning_trial_verify.py \
+            tools/rse_amr_commissioning_trial_verify.py
           do
             if [[ -f "$verifier" ]]; then
               echo "==> $verifier" | tee -a .rse-audit/static-verification.log
