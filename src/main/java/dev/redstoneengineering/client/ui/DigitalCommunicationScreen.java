@@ -16,7 +16,7 @@ public final class DigitalCommunicationScreen extends EngineeringScreen<DigitalC
     public DigitalCommunicationScreen(DigitalCommunicationMenu menu, Inventory inventory, Component title) { super(menu, inventory, title); }
 
     @Override protected void addDeviceWidgets() {
-        int y = topPos + 116;
+        int y = topPos + imageHeight - 66;
         parameterPrevious = addConfigureWidget(Button.builder(Component.literal("◀ Threshold"), b -> sendMenuButton(DigitalCommunicationMenu.BUTTON_PARAMETER_PREVIOUS)).bounds(leftPos + 16, y, 105, 20).build());
         parameterNext = addConfigureWidget(Button.builder(Component.literal("Threshold ▶"), b -> sendMenuButton(DigitalCommunicationMenu.BUTTON_PARAMETER_NEXT)).bounds(leftPos + 199, y, 105, 20).build());
     }
@@ -61,12 +61,26 @@ public final class DigitalCommunicationScreen extends EngineeringScreen<DigitalC
     }
 
     private void configure(GuiGraphics g) {
-        statusBadge(g, "SERVER-SIDE BOUNDED CONTROL", INFO, 16, 80);
-        if (menu.kind() == DigitalCommunicationMenu.KIND_REGENERATOR) labelValue(g, "Min input quality", thresholdPercent() + "%", 101);
-        else labelValue(g, "Device parameter", "FIXED FUNCTION", 101);
-        labelValue(g, "Input face", face(menu.inputDirection()), 171);
-        labelValue(g, "Output face", face(menu.outputDirection()), 187);
-        safeText(g, "Physical input/output direction is controlled only on Route.", 16, 207, MUTED);
+        statusBadge(g, "PIONEER PATTERN • COMMUNICATION MODEL", INFO, 16, 80);
+        formulaCard(g, communicationEquation(), 105);
+        variableRole(g, "MEASURED", "Q_link", mediumQualityText(), "quality", 134);
+        variableRole(g, "MEASURED", "drivers", Integer.toString(menu.mediumDriverCount()), "active", 152);
+        if (menu.mediumDomain() == EngineeringDomain.SERIAL_DATA) {
+            variableRole(g, "DERIVED", "U", menu.mediumMetricB() + "%", "utilization", 170);
+            variableRole(g, "MEASURED", "T_frame", Math.max(1, menu.mediumMetricA()) + "", "ticks", 188);
+        } else if (menu.mediumDomain() == EngineeringDomain.DATA_BUS_8) {
+            variableRole(g, "MEASURED", "nodes", Integer.toString(menu.mediumMetricA()), "bus nodes", 170);
+            variableRole(g, "EVIDENCE", "conflictFrames", Integer.toString(menu.mediumMetricC()), "frames", 188);
+        } else {
+            variableRole(g, "PROFILE", "payload", menu.mediumMetricA() + "", "bit", 170);
+            variableRole(g, "EVIDENCE", "age", mediumAgeText(), "", 188);
+        }
+        if (menu.kind() == DigitalCommunicationMenu.KIND_REGENERATOR) {
+            variableRole(g, "ADJUSTABLE", "Q_min", thresholdPercent() + "%", "regeneration threshold", 206);
+        } else {
+            variableRole(g, "PROFILE", "transform", processName(), "fixed", 206);
+        }
+        wrappedText(g, "The screen presents server-synchronized link evidence only; it does not recalculate bus/serial/differential physics on the client. Route owns physical RX/TX direction.", 16, 232, workspaceWidth() - 24, MUTED);
     }
 
     private void diagnostics(GuiGraphics g) {
@@ -89,6 +103,19 @@ public final class DigitalCommunicationScreen extends EngineeringScreen<DigitalC
         labelValue(g, "Quality / age", mediumQualityText() + " / " + mediumAgeText(), 184);
         labelValue(g, mediumMetricLabel(), mediumMetricValue(), 202);
         safeText(g, mediumTradeoff(), 16, 222, MUTED);
+    }
+
+    private String communicationEquation() {
+        if (menu.mediumDomain() == EngineeringDomain.SERIAL_DATA) {
+            return "U = min(100%, 100 · T_frame / Δt_arrival)";
+        }
+        if (menu.mediumDomain() == EngineeringDomain.DATA_BUS_8) {
+            return "Q_bus = max(35, 100 - loadingPenalty - contentionPenalty)";
+        }
+        if (menu.mediumDomain() == EngineeringDomain.DIFFERENTIAL_DATA) {
+            return "payload = 1 bit ; Q_link = server margin evidence";
+        }
+        return "transform: " + contract();
     }
 
     private String diagnosis() {
