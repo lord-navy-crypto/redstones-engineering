@@ -18,7 +18,7 @@ public final class RadioLinkScreen extends EngineeringScreen<RadioLinkMenu> {
 
     @Override
     protected void addDeviceWidgets() {
-        int y = topPos + 116;
+        int y = topPos + imageHeight - 66;
         channelPrevious = addConfigureWidget(Button.builder(Component.literal("◀ Channel"),
                 b -> sendMenuButton(RadioLinkMenu.BUTTON_CHANNEL_PREVIOUS))
                 .bounds(leftPos + 16, y, 105, 20).build());
@@ -80,14 +80,21 @@ public final class RadioLinkScreen extends EngineeringScreen<RadioLinkMenu> {
     }
 
     private void configure(GuiGraphics g) {
-        statusBadge(g, "SERVER-SIDE BOUNDED CONTROL", INFO, 16, 80);
-        labelValue(g, "Channel", Integer.toString(menu.channel()), 101);
-        if (menu.kind() == RadioLinkMenu.KIND_RECEIVER) {
-            labelValue(g, "Output face", menu.outputDirection().getName().toUpperCase(), 171);
-            safeText(g, "Wired output direction is controlled only on Route; antenna remains UP.", 16, 199, MUTED);
-        } else {
-            labelValue(g, "Antenna", "UP • FIXED", 171);
+        statusBadge(g, "PIONEER PATTERN • RADIO LINK BUDGET", INFO, 16, 80);
+        formulaCard(g, radioEquation(), 105);
+        variableRole(g,"ADJUSTABLE","CH",Integer.toString(menu.channel()),"0..3",134);
+        if(menu.kind()==RadioLinkMenu.KIND_RECEIVER){
+            variableRole(g,"MEASURED","Q_link",menu.linkQuality()+"%","server link quality",152);
+            variableRole(g,"PROFILE","Q_min",RadioLinkMenu.MIN_DECODE_QUALITY+"%","decode threshold",170);
+            variableRole(g,"DERIVED","M_decode",signed(menu.decodeMargin())+"%","Q_link - Q_min",188);
+            variableRole(g,"DERIVED","availability",menu.availabilityPercent()+"%","valid / samples",206);
+            variableRole(g,"EVIDENCE","path",menu.distanceBlocks()+" blocks • "+menu.obstacleHits()+" obstacles • "+menu.adjacentAggressors()+" adjacent","",224);
+        }else{
+            variableRole(g,"MEASURED","payload",Integer.toString(menu.payload()),"Redstone 0..15",152);
+            variableRole(g,"EVIDENCE","quality",qualityName(),"",170);
+            variableRole(g,"PROFILE","antenna","UP","fixed",188);
         }
+        wrappedText(g,"Radio quality remains a server calculation from distance, obstacles, deterministic fading and adjacent-channel interference. The HMI only presents that evidence; receiver wired output direction stays on Route.",16,250,workspaceWidth()-24,MUTED);
     }
 
     private void diagnostics(GuiGraphics g) {
@@ -123,6 +130,12 @@ public final class RadioLinkScreen extends EngineeringScreen<RadioLinkMenu> {
             safeText(g, "Transmitter currently exposes live frame evidence; it does not invent client-side history.", 16, 112, MUTED);
             safeText(g, "Receiver counters provide the authoritative link chronology for a radio path.", 16, 134, INFO);
         }
+    }
+
+    private String radioEquation() {
+        return menu.kind()==RadioLinkMenu.KIND_RECEIVER
+                ? "M_decode = Q_link - Q_min ; availability = 100 · validSamples / samples"
+                : "TX publishes payload on selected channel; antenna orientation is fixed UP";
     }
 
     private String receiverDiagnosis() {
