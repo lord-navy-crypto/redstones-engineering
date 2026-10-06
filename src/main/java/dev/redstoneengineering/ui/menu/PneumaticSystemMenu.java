@@ -40,6 +40,9 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_INPUT_RIGHT = 6;
     public static final int BUTTON_OUTPUT_LEFT = 7;
     public static final int BUTTON_OUTPUT_RIGHT = 8;
+    /** Exact visible pressure setpoint encoded as BASE + pressure (25/50/75/100). */
+    public static final int BUTTON_SETPOINT_DIRECT_BASE = 7000;
+    public static final int BUTTON_SETPOINT_DIRECT_MAX = 7100;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot primary = trackedInt();
@@ -178,7 +181,19 @@ public final class PneumaticSystemMenu extends EngineeringDeviceMenu {
         Block block = state.getBlock();
         boolean changed = false;
 
-        if (block instanceof PressureRegulatorBlock) {
+        if (id >= BUTTON_SETPOINT_DIRECT_BASE && id <= BUTTON_SETPOINT_DIRECT_MAX) {
+            int pressure = id - BUTTON_SETPOINT_DIRECT_BASE;
+            if (pressure < 25 || pressure > 100 || pressure % 25 != 0) return false;
+            if (block instanceof PressureRegulatorBlock) {
+                level.setBlock(blockPos, state.setValue(PressureRegulatorBlock.SETPOINT, pressure / 25), Block.UPDATE_CLIENTS);
+                if (level instanceof ServerLevel server) PneumaticNetwork.recompute(server, blockPos);
+                changed = true;
+            } else if (block instanceof PneumaticReliefValveBlock) {
+                level.setBlock(blockPos, state.setValue(PneumaticReliefValveBlock.SETPOINT, pressure / 25), Block.UPDATE_CLIENTS);
+                if (level instanceof ServerLevel server) PneumaticNetwork.recomputeAround(server, blockPos);
+                changed = true;
+            } else return false;
+        } else if (block instanceof PressureRegulatorBlock) {
             if (id == BUTTON_PARAMETER_PREVIOUS || id == BUTTON_PARAMETER_NEXT) {
                 int value = state.getValue(PressureRegulatorBlock.SETPOINT);
                 value = id == BUTTON_PARAMETER_NEXT ? value % 4 + 1 : value <= 1 ? 4 : value - 1;
