@@ -5,12 +5,15 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.menu.PneumaticSystemMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
 /** Pneumatic HMI with server-synchronized section, actuator-path and storage diagnostics. */
 public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSystemMenu> {
     private Button prev, next, toggle;
+    private EditBox setpointInput;
+    private Button setpointApply;
 
     public PneumaticSystemScreen(PneumaticSystemMenu menu, Inventory inventory, Component title) { super(menu, inventory, title); }
 
@@ -18,6 +21,10 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
         int y=topPos+imageHeight-66;
         prev=addConfigureWidget(Button.builder(Component.literal("◀ Setpoint"),b->sendMenuButton(PneumaticSystemMenu.BUTTON_PARAMETER_PREVIOUS)).bounds(leftPos+16,y,95,20).build());
         next=addConfigureWidget(Button.builder(Component.literal("Setpoint ▶"),b->sendMenuButton(PneumaticSystemMenu.BUTTON_PARAMETER_NEXT)).bounds(leftPos+209,y,95,20).build());
+        setpointInput=addConfigureWidget(new EditBox(this.font,leftPos+16,y,105,20,Component.literal("Pressure setpoint")));
+        setpointInput.setMaxLength(3);
+        setpointInput.setFilter(v->v.isEmpty()||v.chars().allMatch(Character::isDigit));
+        setpointApply=addConfigureWidget(Button.builder(Component.literal("Apply P"),b->submitSetpoint()).bounds(leftPos+199,y,105,20).build());
         toggle=addConfigureWidget(Button.builder(Component.literal("Toggle valve"),b->sendMenuButton(PneumaticSystemMenu.BUTTON_TOGGLE)).bounds(leftPos+100,y,120,20).build());
     }
 
@@ -25,9 +32,37 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
         if(prev==null)return;
         boolean setpoint=menu.kind()==PneumaticSystemMenu.KIND_REGULATOR||menu.kind()==PneumaticSystemMenu.KIND_RELIEF;
         boolean valve=menu.kind()==PneumaticSystemMenu.KIND_VALVE;
-        prev.visible=next.visible=isConfigureSection()&&setpoint;toggle.visible=isConfigureSection()&&valve;
-        if(setpoint){String v=menu.kind()==PneumaticSystemMenu.KIND_REGULATOR?menu.secondary()+"/100":menu.tertiary()+"/100";prev.setMessage(Component.literal("◀ "+v));next.setMessage(Component.literal(v+" ▶"));}
+        boolean configure=isConfigureSection();
+        prev.visible=next.visible=false;
+        toggle.visible=configure&&valve;
+        if(setpointInput!=null){
+            setpointInput.visible=configure&&setpoint;
+            setpointInput.active=configure&&setpoint;
+            if(setpointInput.visible&&!setpointInput.isFocused()){
+                int current=menu.kind()==PneumaticSystemMenu.KIND_REGULATOR?menu.secondary():menu.tertiary();
+                String expected=Integer.toString(current);
+                if(!expected.equals(setpointInput.getValue()))setpointInput.setValue(expected);
+            }
+        }
+        if(setpointApply!=null){
+            setpointApply.visible=configure&&setpoint;
+            setpointApply.active=configure&&setpoint&&setpointValid();
+        }
         if(valve)toggle.setMessage(Component.literal(menu.stateFlag()==1?"Close valve":"Open valve"));
+    }
+
+    private boolean setpointValid(){
+        if(setpointInput==null||setpointInput.getValue().isEmpty())return false;
+        try{
+            int p=Integer.parseInt(setpointInput.getValue());
+            return p>=25&&p<=100&&p%25==0;
+        }catch(NumberFormatException ignored){return false;}
+    }
+
+    private void submitSetpoint(){
+        if(!setpointValid())return;
+        sendMenuButton(PneumaticSystemMenu.BUTTON_SETPOINT_DIRECT_BASE+Integer.parseInt(setpointInput.getValue()));
+        setpointInput.setFocused(false);
     }
 
     @Override protected void renderSection(GuiGraphics g,Section section){switch(section){case OVERVIEW->overview(g);case PORTS->ports(g);case CONFIGURE->configure(g);case DIAGNOSTICS->diagnostics(g);case HISTORY->history(g);}}
@@ -56,6 +91,8 @@ public final class PneumaticSystemScreen extends EngineeringScreen<PneumaticSyst
         variableRole(g,"MEASURED","primary",primaryText(),"server process",134);
         variableRole(g,"MEASURED","secondary",secondaryText(),"server process",152);
         variableRole(g,"ADJUSTABLE","control",controlText(),"bounded server control",170);
+        if(menu.kind()==PneumaticSystemMenu.KIND_REGULATOR||menu.kind()==PneumaticSystemMenu.KIND_RELIEF)
+            variableRole(g,"CONTROL","direct entry","P ∈ {25,50,75,100}","exact pressure value",188);
         variableRole(g,"EVIDENCE","quality",menu.inputQuality().name()+" → "+menu.outputQuality().name(),"",188);
         if(isCylinder()){
             variableRole(g,"DERIVED","ΔP_path",Integer.toString(menu.cylinderObservedLoss()),"pressure units",206);
