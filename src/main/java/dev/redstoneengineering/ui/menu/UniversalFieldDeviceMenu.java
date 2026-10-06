@@ -10,6 +10,8 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.physics.CircuitPhysics;
 import dev.redstoneengineering.physics.CopperNetworkSupport;
 import dev.redstoneengineering.physics.SensorModel;
+import dev.redstoneengineering.physics.SoulFluxNetwork;
+import dev.redstoneengineering.physics.ThermalPhysics;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -66,6 +68,10 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_LAPIS_NOISE = 17;
     public static final int CONFIG_QUARTZ_OSCILLATOR = 18;
     public static final int CONFIG_QUARTZ_PHASE_DELAY = 19;
+    public static final int CONFIG_IRON_CORE = 20;
+    public static final int CONFIG_THERMAL_MASS = 21;
+    public static final int CONFIG_THERMAL_HEATER = 22;
+    public static final int CONFIG_THERMAL_RADIATOR = 23;
 
     public static final int PIONEER_MEASUREMENT_NONE = 0;
     public static final int PIONEER_MEASUREMENT_TEMPERATURE = 1;
@@ -98,6 +104,13 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int PIONEER_PROCESS_SOUL_INJECTOR = 19;
     public static final int PIONEER_PROCESS_SOUL_METER = 20;
     public static final int PIONEER_PROCESS_MOLECULAR_RECEIVER = 21;
+    public static final int PIONEER_PROCESS_IRON_CORE = 22;
+    public static final int PIONEER_PROCESS_THERMAL_MASS = 23;
+    public static final int PIONEER_PROCESS_THERMAL_HEATER = 24;
+    public static final int PIONEER_PROCESS_THERMAL_RADIATOR = 25;
+    public static final int PIONEER_PROCESS_THERMAL_CALORIMETER = 26;
+    public static final int PIONEER_PROCESS_SOUL_CONDUIT = 27;
+    public static final int PIONEER_PROCESS_SOUL_RESERVOIR = 28;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
@@ -238,6 +251,18 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         } else if (block instanceof QuartzPhaseDelayBlock) {
             configKind.set(CONFIG_QUARTZ_PHASE_DELAY);
             configPrimary.set(state.getValue(QuartzPhaseDelayBlock.DELAY));
+        } else if (block instanceof IronCoreBlock) {
+            configKind.set(CONFIG_IRON_CORE);
+            configPrimary.set(state.getValue(IronCoreBlock.MAGNETIZED) ? 1 : 0);
+        } else if (block instanceof ThermalMassBlock) {
+            configKind.set(CONFIG_THERMAL_MASS);
+            configPrimary.set(state.getValue(ThermalMassBlock.HEAT_CAPACITY));
+        } else if (block instanceof ThermalHeaterBlock) {
+            configKind.set(CONFIG_THERMAL_HEATER);
+            configPrimary.set(state.getValue(ThermalHeaterBlock.RESISTANCE_INDEX));
+        } else if (block instanceof ThermalRadiatorBlock) {
+            configKind.set(CONFIG_THERMAL_RADIATOR);
+            configPrimary.set(state.getValue(ThermalRadiatorBlock.COOLING));
         }
 
         declaredPortMask.set(0);
@@ -590,6 +615,106 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             pioneerProcessQuinary.set(MolecularCloudReceiverBlock.gainFor(sensitivity));
             pioneerProcessSenary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
             pioneerProcessEvidenceQuality.set((output == null ? PortQuality.NO_SIGNAL : output.quality()).ordinal());
+            return;
+        }
+
+        if (block instanceof IronCoreBlock) {
+            var applied = IronCoreBlock.appliedFieldSample(level, blockPos);
+            pioneerProcessKind.set(PIONEER_PROCESS_IRON_CORE);
+            pioneerProcessPrimary.set(applied.field());
+            pioneerProcessSecondary.set(IronCoreBlock.magnetizeThreshold());
+            pioneerProcessTertiary.set(IronCoreBlock.appliedFieldRadius());
+            pioneerProcessQuaternary.set(state.getValue(IronCoreBlock.MAGNETIZED) ? 1 : 0);
+            pioneerProcessQuinary.set(applied.complete() ? 1 : 0);
+            pioneerProcessEvidenceQuality.set((applied.complete() ? PortQuality.VALID : PortQuality.STALE).ordinal());
+            return;
+        }
+
+        if (block instanceof ThermalMassBlock) {
+            ThermalMassBlock.ThermalState thermal = ThermalMassBlock.thermalState(level, blockPos, state);
+            pioneerProcessKind.set(PIONEER_PROCESS_THERMAL_MASS);
+            pioneerProcessPrimary.set(thermal.current());
+            pioneerProcessSecondary.set(thermal.environment());
+            pioneerProcessTertiary.set(thermal.neighborAverage());
+            pioneerProcessQuaternary.set(thermal.target());
+            pioneerProcessQuinary.set(thermal.capacity());
+            pioneerProcessSenary.set(thermal.maxStep());
+            pioneerProcessEvidenceQuality.set(PortQuality.VALID.ordinal());
+            return;
+        }
+
+        if (block instanceof ThermalHeaterBlock) {
+            CopperNetworkSupport.TerminalInput input = CopperNetworkSupport.terminalInput(level, blockPos);
+            int voltage = input.quality() == PortQuality.VALID ? input.voltage() : 0;
+            int resistance = ThermalHeaterBlock.resistance(state);
+            pioneerProcessKind.set(PIONEER_PROCESS_THERMAL_HEATER);
+            pioneerProcessPrimary.set(voltage);
+            pioneerProcessSecondary.set(resistance);
+            pioneerProcessTertiary.set(syncNumber(CircuitPhysics.current(voltage, resistance) * 1000.0));
+            pioneerProcessQuaternary.set(syncNumber(CircuitPhysics.power(voltage, resistance) * 1000.0));
+            pioneerProcessQuinary.set(state.getValue(ThermalHeaterBlock.TEMPERATURE));
+            pioneerProcessSenary.set(ThermalHeaterBlock.targetTemperature(voltage, resistance));
+            pioneerProcessEvidenceQuality.set(input.quality().ordinal());
+            return;
+        }
+
+        if (block instanceof ThermalRadiatorBlock) {
+            ThermalRadiatorBlock.CoolingObservation observation = ThermalRadiatorBlock.observation(level, blockPos);
+            pioneerProcessKind.set(PIONEER_PROCESS_THERMAL_RADIATOR);
+            pioneerProcessPrimary.set(state.getValue(ThermalRadiatorBlock.COOLING));
+            pioneerProcessSecondary.set(observation.adjacentMasses());
+            pioneerProcessTertiary.set(observation.averageTemperature());
+            pioneerProcessQuaternary.set(observation.hottestTemperature());
+            pioneerProcessQuinary.set(ThermalPhysics.AMBIENT);
+            pioneerProcessSenary.set(10);
+            pioneerProcessEvidenceQuality.set(
+                    (observation.adjacentMasses() > 0 ? PortQuality.VALID : PortQuality.NO_SIGNAL).ordinal());
+            return;
+        }
+
+        if (block instanceof ThermalCalorimeterBlock) {
+            ThermalCalorimeterBlock.Sample sample = ThermalCalorimeterBlock.sample(level, blockPos);
+            ThermalCalorimeterBlock.History history = ThermalCalorimeterBlock.history(level, blockPos);
+            pioneerProcessKind.set(PIONEER_PROCESS_THERMAL_CALORIMETER);
+            pioneerProcessPrimary.set(sample.temperature());
+            pioneerProcessSecondary.set(history.deltaTemperature());
+            pioneerProcessTertiary.set(sample.heatCapacity());
+            pioneerProcessQuaternary.set(history.deltaTemperature() * sample.heatCapacity());
+            pioneerProcessQuinary.set(sample.bodyCount());
+            pioneerProcessSenary.set(history.initialized() ? 1 : 0);
+            pioneerProcessEvidenceQuality.set(
+                    (sample.bodyCount() == 0 ? PortQuality.NO_SIGNAL
+                            : history.initialized() ? PortQuality.VALID : PortQuality.NOT_READY).ordinal());
+            return;
+        }
+
+        if (block instanceof SoulSoilConduitBlock conduit) {
+            var flux = SoulFluxNetwork.chargeSnapshot(level, blockPos);
+            int charge = Math.max(0, Math.min(100, flux.value()));
+            pioneerProcessKind.set(PIONEER_PROCESS_SOUL_CONDUIT);
+            pioneerProcessPrimary.set(charge);
+            pioneerProcessSecondary.set(flux.ageTicks());
+            pioneerProcessTertiary.set(flux.qualityPercent());
+            pioneerProcessQuaternary.set(SoulSoilConduitBlock.decayPeriodTicks());
+            pioneerProcessQuinary.set(conduit.engineeringPorts(state).size());
+            pioneerProcessEvidenceQuality.set(
+                    (flux.valid() && flux.qualityPercent() > 0 && charge > 0
+                            ? PortQuality.VALID : PortQuality.NO_SIGNAL).ordinal());
+            return;
+        }
+
+        if (block instanceof SoulSandReservoirBlock reservoir) {
+            var stored = SoulFluxNetwork.chargeSnapshot(level, blockPos);
+            int charge = Math.max(0, Math.min(100, stored.value()));
+            pioneerProcessKind.set(PIONEER_PROCESS_SOUL_RESERVOIR);
+            pioneerProcessPrimary.set(charge);
+            pioneerProcessSecondary.set(stored.ageTicks());
+            pioneerProcessTertiary.set(stored.qualityPercent());
+            pioneerProcessQuaternary.set(SoulSandReservoirBlock.decayPeriodTicks());
+            pioneerProcessQuinary.set(reservoir.engineeringPorts(state).size());
+            pioneerProcessEvidenceQuality.set(
+                    (stored.ageTicks() < 0 ? PortQuality.STALE
+                            : stored.valid() ? PortQuality.VALID : PortQuality.FAULT).ordinal());
         }
     }
 
@@ -694,6 +819,9 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         if (block instanceof LapisNoiseSourceBlock noise) return noise.adjustBaseline(level, blockPos, delta);
         if (block instanceof QuartzLabOscillatorBlock oscillator) return oscillator.adjustPeriod(level, blockPos, delta);
         if (block instanceof QuartzPhaseDelayBlock delay) return delay.adjustDelay(level, blockPos, delta);
+        if (block instanceof ThermalMassBlock mass) return mass.adjustHeatCapacity(level, blockPos, delta);
+        if (block instanceof ThermalHeaterBlock heater) return heater.adjustResistance(level, blockPos, delta);
+        if (block instanceof ThermalRadiatorBlock radiator) return radiator.adjustCooling(level, blockPos, delta);
         return false;
     }
 
@@ -715,6 +843,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         if (block instanceof SafetyInterlockBlock interlock) return interlock.resetDiagnostics(level, blockPos);
         if (block instanceof TopologyDebuggerBlock debugger) return debugger.resetDiagnostics(level, blockPos);
         if (block instanceof CopperFuseBlock fuse) return fuse.resetTrip(level, blockPos);
+        if (block instanceof IronCoreBlock core) return core.demagnetize(level, blockPos);
         return false;
     }
 
