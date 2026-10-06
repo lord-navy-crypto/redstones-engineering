@@ -3,6 +3,7 @@ package dev.redstoneengineering.client.ui;
 import dev.redstoneengineering.ui.menu.SignalProcessorMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
@@ -10,6 +11,8 @@ import net.minecraft.world.entity.player.Inventory;
 public final class SignalProcessorScreen extends EngineeringScreen<SignalProcessorMenu> {
     private Button parameterPrevious;
     private Button parameterNext;
+    private EditBox parameterInput;
+    private Button parameterApply;
 
     public SignalProcessorScreen(SignalProcessorMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -20,18 +23,61 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         int y = topPos + imageHeight - 66;
         parameterPrevious = addConfigureWidget(Button.builder(Component.literal("◀ Parameter"),
                 b -> sendMenuButton(SignalProcessorMenu.BUTTON_PARAMETER_PREVIOUS))
-                .bounds(leftPos + 16, y, 110, 20).build());
+                .bounds(leftPos + 16, y, 82, 20).build());
+        parameterInput = addConfigureWidget(new EditBox(this.font, leftPos + 104, y, 82, 20,
+                Component.literal("Exact parameter")));
+        parameterInput.setMaxLength(2);
+        parameterInput.setFilter(value -> value.isEmpty() || value.chars().allMatch(Character::isDigit));
+        parameterApply = addConfigureWidget(Button.builder(Component.literal("Apply"),
+                b -> submitParameter()).bounds(leftPos + 192, y, 54, 20).build());
         parameterNext = addConfigureWidget(Button.builder(Component.literal("Parameter ▶"),
                 b -> sendMenuButton(SignalProcessorMenu.BUTTON_PARAMETER_NEXT))
-                .bounds(leftPos + 194, y, 110, 20).build());
+                .bounds(leftPos + 252, y, 82, 20).build());
     }
 
     @Override
     protected void syncDeviceWidgetLabels() {
-        if (parameterPrevious == null) return;
+        if (parameterPrevious == null || parameterNext == null) return;
         String parameter = parameterName() + " " + parameterValue();
-        parameterPrevious.setMessage(Component.literal(fitForWidth("◀ " + parameter, 94)));
-        parameterNext.setMessage(Component.literal(fitForWidth(parameter + " ▶", 94)));
+        boolean direct = menu.kind() != SignalProcessorMenu.KIND_EDGE;
+        parameterPrevious.visible = !direct;
+        parameterNext.visible = !direct;
+        if (!direct) {
+            parameterPrevious.setMessage(Component.literal(fitForWidth("◀ " + parameter, 66)));
+            parameterNext.setMessage(Component.literal(fitForWidth(parameter + " ▶", 66)));
+        }
+        if (parameterInput != null) {
+            parameterInput.visible = direct;
+            parameterInput.active = direct;
+            if (direct && !parameterInput.isFocused()) {
+                String expected = Integer.toString(menu.parameter());
+                if (!expected.equals(parameterInput.getValue())) parameterInput.setValue(expected);
+            }
+        }
+        if (parameterApply != null) {
+            parameterApply.visible = direct;
+            parameterApply.active = direct && parameterInputValid();
+            parameterApply.setMessage(Component.literal("Apply " + parameterSymbol()));
+        }
+    }
+
+    private boolean parameterInputValid() {
+        if (parameterInput == null || parameterInput.getValue().isEmpty()) return false;
+        try {
+            int value = Integer.parseInt(parameterInput.getValue());
+            return menu.kind() == SignalProcessorMenu.KIND_FILTER
+                    ? value >= 1 && value <= 4
+                    : menu.kind() == SignalProcessorMenu.KIND_PULSE && value >= 1 && value <= 8;
+        } catch (NumberFormatException ignored) {
+            return false;
+        }
+    }
+
+    private void submitParameter() {
+        if (!parameterInputValid()) return;
+        int value = Integer.parseInt(parameterInput.getValue());
+        sendMenuButton(SignalProcessorMenu.BUTTON_PARAMETER_DIRECT_BASE + value);
+        parameterInput.setFocused(false);
     }
 
     @Override
@@ -71,6 +117,11 @@ public final class SignalProcessorScreen extends EngineeringScreen<SignalProcess
         variableRole(g, "MEASURED", "x[n]", Integer.toString(menu.input()), "Redstone 0..15", 134);
         variableRole(g, "DERIVED", "y[n]", Integer.toString(menu.output()), "Redstone 0..15", 152);
         variableRole(g, "ADJUSTABLE", parameterSymbol(), parameterValue(), parameterMeaning(), 170);
+        if (menu.kind() != SignalProcessorMenu.KIND_EDGE) {
+            variableRole(g, "CONTROL", "direct entry",
+                    menu.kind() == SignalProcessorMenu.KIND_FILTER ? "r ∈ 1..4" : "W ∈ 1..8 ticks",
+                    "exact server-backed value", 188);
+        }
         if (menu.kind() == SignalProcessorMenu.KIND_FILTER) {
             variableRole(g, "DERIVED", "|x-y|", Integer.toString(menu.runtimeA()), "lag levels", 188);
             variableRole(g, "EVIDENCE", "response", menu.runtimeB() == 1 ? "SETTLED" : "SETTLING", "", 206);
