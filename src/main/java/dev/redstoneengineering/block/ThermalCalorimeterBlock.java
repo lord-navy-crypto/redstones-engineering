@@ -15,6 +15,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -22,6 +23,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 
 import java.util.Arrays;
 import java.util.List;
@@ -101,18 +103,23 @@ public class ThermalCalorimeterBlock extends DomainBlock implements EngineeringP
     }
 
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (!level.isClientSide) {
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (!player.isShiftKeyDown()) {
+                FieldDeviceUi.openUniversal(serverPlayer, pos);
+                return InteractionResult.sidedSuccess(false);
+            }
             Sample sample = sample(level, pos);
             History history = history(level, pos);
             int relativeHeat = history.deltaTemperature() * sample.heatCapacity();
             player.displayClientMessage(Component.literal("Thermal calorimeter | six-face observer only | T=" + sample.temperature() + "/100 | ΔT/20t=" + history.deltaTemperature()
+                    + " | bodies=" + sample.bodyCount()
                     + " | heat-capacity index=" + sample.heatCapacity() + " | relative C·ΔT=" + relativeHeat
                     + " | " + (history.initialized() ? "VALID HISTORY" : "STALE HISTORY")), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
 
-    private static Sample sample(Level level, BlockPos pos) {
+    public static Sample sample(Level level, BlockPos pos) {
         int sumT = 0;
         int sumC = 0;
         int count = 0;
@@ -124,8 +131,8 @@ public class ThermalCalorimeterBlock extends DomainBlock implements EngineeringP
                 count++;
             }
         }
-        if (count > 0) return new Sample(sumT / count, Math.max(1, sumC / count));
-        return new Sample(ThermalPhysics.environmentTarget(level, pos), 1);
+        if (count > 0) return new Sample(sumT / count, Math.max(1, sumC / count), count);
+        return new Sample(ThermalPhysics.environmentTarget(level, pos), 1, 0);
     }
-    private record Sample(int temperature, int heatCapacity) {}
+    public record Sample(int temperature, int heatCapacity, int bodyCount) {}
 }
