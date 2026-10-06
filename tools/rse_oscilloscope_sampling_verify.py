@@ -92,6 +92,29 @@ for token in (
     if token not in screen:
         errors.append(f"oscilloscope screen missing formula-first sampling token {token!r}")
 
+for token in (
+    "setSamplePeriodTicks(int ticks)",
+    "if (SAMPLE_PERIOD_OPTIONS[i] == ticks)",
+):
+    if token not in be:
+        errors.append(f"oscilloscope block entity missing direct timebase token {token!r}")
+
+for token in (
+    "BUTTON_SAMPLE_PERIOD_DIRECT_BASE = 3000",
+    "scope.setSamplePeriodTicks(id - BUTTON_SAMPLE_PERIOD_DIRECT_BASE)",
+):
+    if token not in menu:
+        errors.append(f"oscilloscope menu missing direct timebase token {token!r}")
+
+for token in (
+    "EditBox",
+    "submitSamplePeriod",
+    "{1, 2, 4, 8} ticks/sample",
+    "BUTTON_SAMPLE_PERIOD_DIRECT_BASE + ticks",
+):
+    if token not in screen:
+        errors.append(f"oscilloscope screen missing direct timebase token {token!r}")
+
 for forbidden in (
     "dev.redstoneengineering.physics",
     "RuntimeIntStore",
@@ -119,6 +142,7 @@ if errors:
 
 print("RSE OSCILLOSCOPE SAMPLING VERIFY: PASS")
 print(" server-owned 1/2/4/8 tick timebase: PASS")
+print(" exact Δt engineering-value entry with authoritative capture invalidation: PASS")
 print(" fs and Nyquist derivation: PASS")
 print(" timebase change invalidates mixed-dt capture: PASS")
 print(" observed period/frequency evidence: PASS")
