@@ -72,6 +72,16 @@ require("src/main/java/dev/redstoneengineering/client/ui/EngineeringIoCompassOve
         "boolean rightFits", "boolean leftFits", "if (!rightFits && !leftFits) return;",
         "screen.height - margin - panelHeight", "connectionMask(menu)", "linkEvidenceKnown",
         '"DECLARED"', '"AIR PATH"', '"LOS PATH"', '"LINKED"', '"OPEN"')
+require("src/main/java/dev/redstoneengineering/client/ui/SignalProcessorScreen.java",
+        "EditBox", "submitParameter", "BUTTON_PARAMETER_DIRECT_BASE",
+        "r ∈ 1..4", "W ∈ 1..8 ticks")
+require("src/main/java/dev/redstoneengineering/ui/menu/SignalProcessorMenu.java",
+        "BUTTON_PARAMETER_DIRECT_BASE", "PrecisionFilterBlock.setRate", "PulseShaperBlock.setWidth")
+require("src/main/java/dev/redstoneengineering/block/PrecisionFilterBlock.java",
+        "setRate(Level level, BlockPos pos, int rate)")
+require("src/main/java/dev/redstoneengineering/block/PulseShaperBlock.java",
+        "setWidth(Level level, BlockPos pos, int width)")
+
 require("src/main/java/dev/redstoneengineering/client/ui/SignalConditionerScreen.java",
         "EditBox", "submitParameter", "BUTTON_PARAM_DIRECT_BASE",
         "visibleFormulaParameter", "Direct entry submits the formula value to the server")
