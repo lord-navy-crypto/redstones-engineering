@@ -41,10 +41,11 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
     private static final int INFO = 0xFF9EC8FF;
     private static final int ACCENT = 0xFFE05555;
 
-    private static final int CONTENT_X = 18;
-    private static final int CONTENT_Y = 72;
-    private static final int FOOTER_HEIGHT = 72;
-    private static final int SAMPLING_CONTENT_WIDTH = 820;
+    private static final int CONTENT_X = 26;
+    private static final int CONTENT_Y = 82;
+    private static final int FOOTER_HEIGHT = 96;
+    private static final int INSTRUMENT_CONTENT_WIDTH = 980;
+    private static final int SAMPLING_CONTENT_WIDTH = 1120;
 
     private final List<Button> pageButtons = new ArrayList<>();
     private final List<Button> samplingButtons = new ArrayList<>();
@@ -64,8 +65,8 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
 
     @Override
     protected void init() {
-        imageWidth = Math.max(390, Math.min(760, width - 20));
-        imageHeight = Math.max(280, Math.min(470, height - 20));
+        imageWidth = Math.max(440, Math.min(800, width - 20));
+        imageHeight = Math.max(320, Math.min(540, height - 20));
         super.init();
 
         pageButtons.clear();
@@ -86,44 +87,55 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
             x += tabWidth + gap;
         }
 
-        int controlY = topPos + imageHeight - 58;
+        int controlY = topPos + imageHeight - 68;
+
+        int singleWidth = Math.min(210, Math.max(150, imageWidth - 120));
         samplingButtons.add(addRenderableWidget(Button.builder(
                 Component.literal("Cycle timebase Δt"),
                 b -> sendButton(OscilloscopeMenu.BUTTON_SAMPLE_PERIOD))
-                .bounds(leftPos + 18, controlY, 150, 20).build()));
+                .bounds(leftPos + (imageWidth - singleWidth) / 2, controlY, singleWidth, 20).build()));
 
+        int experimentGap = 12;
+        int experimentWidth = Math.min(170, Math.max(112, (imageWidth - 88 - experimentGap * 2) / 3));
+        int experimentTotal = experimentWidth * 3 + experimentGap * 2;
+        int experimentX = leftPos + (imageWidth - experimentTotal) / 2;
         experimentButtons.add(addRenderableWidget(Button.builder(
                 Component.literal("Capture baseline"),
                 b -> sendButton(OscilloscopeMenu.BUTTON_EXPERIMENT_BASELINE))
-                .bounds(leftPos + 18, controlY, 128, 20).build()));
+                .bounds(experimentX, controlY, experimentWidth, 20).build()));
         experimentButtons.add(addRenderableWidget(Button.builder(
                 Component.literal("Capture candidate"),
                 b -> sendButton(OscilloscopeMenu.BUTTON_EXPERIMENT_CANDIDATE))
-                .bounds(leftPos + 152, controlY, 136, 20).build()));
+                .bounds(experimentX + experimentWidth + experimentGap, controlY, experimentWidth, 20).build()));
         experimentButtons.add(addRenderableWidget(Button.builder(
                 Component.literal("Clear experiment"),
                 b -> sendButton(OscilloscopeMenu.BUTTON_EXPERIMENT_CLEAR))
-                .bounds(leftPos + 294, controlY, 126, 20).build()));
+                .bounds(experimentX + (experimentWidth + experimentGap) * 2, controlY, experimentWidth, 20).build()));
 
-        int w = 82;
-        int smallGap = 5;
-        int x0 = leftPos + 18;
-        triggerButtons.add(addRenderableWidget(Button.builder(Component.literal("Arm"),
-                b -> sendButton(OscilloscopeMenu.BUTTON_ARM)).bounds(x0, controlY, w, 20).build()));
-        triggerButtons.add(addRenderableWidget(Button.builder(Component.literal("Mode"),
-                b -> sendButton(OscilloscopeMenu.BUTTON_TRIGGER_MODE)).bounds(x0 + (w + smallGap), controlY, w, 20).build()));
-        triggerButtons.add(addRenderableWidget(Button.builder(Component.literal("Source"),
-                b -> sendButton(OscilloscopeMenu.BUTTON_TRIGGER_CHANNEL)).bounds(x0 + (w + smallGap) * 2, controlY, w, 20).build()));
-        triggerButtons.add(addRenderableWidget(Button.builder(Component.literal("Level +"),
-                b -> sendButton(OscilloscopeMenu.BUTTON_TRIGGER_LEVEL)).bounds(x0 + (w + smallGap) * 3, controlY, w, 20).build()));
+        int triggerGap = 10;
+        int triggerWidth = Math.min(135, Math.max(88, (imageWidth - 92 - triggerGap * 3) / 4));
+        int triggerTotal = triggerWidth * 4 + triggerGap * 3;
+        int x0 = leftPos + (imageWidth - triggerTotal) / 2;
+        triggerButtons.add(addRenderableWidget(Button.builder(Component.literal("Arm / Hold"),
+                b -> sendButton(OscilloscopeMenu.BUTTON_ARM)).bounds(x0, controlY, triggerWidth, 20).build()));
+        triggerButtons.add(addRenderableWidget(Button.builder(Component.literal("Trigger mode"),
+                b -> sendButton(OscilloscopeMenu.BUTTON_TRIGGER_MODE)).bounds(x0 + triggerWidth + triggerGap, controlY, triggerWidth, 20).build()));
+        triggerButtons.add(addRenderableWidget(Button.builder(Component.literal("Trigger source"),
+                b -> sendButton(OscilloscopeMenu.BUTTON_TRIGGER_CHANNEL)).bounds(x0 + (triggerWidth + triggerGap) * 2, controlY, triggerWidth, 20).build()));
+        triggerButtons.add(addRenderableWidget(Button.builder(Component.literal("Trigger level +"),
+                b -> sendButton(OscilloscopeMenu.BUTTON_TRIGGER_LEVEL)).bounds(x0 + (triggerWidth + triggerGap) * 3, controlY, triggerWidth, 20).build()));
 
-        int secondY = controlY + 24;
+        int secondY = controlY + 30;
+        int cursorGap = 12;
+        int cursorWidth = Math.min(170, Math.max(112, (imageWidth - 88 - cursorGap * 2) / 3));
+        int cursorTotal = cursorWidth * 3 + cursorGap * 2;
+        int cursorX = leftPos + (imageWidth - cursorTotal) / 2;
         triggerButtons.add(addRenderableWidget(Button.builder(Component.literal("Cursor A +"),
-                b -> sendButton(OscilloscopeMenu.BUTTON_CURSOR_A)).bounds(x0, secondY, w + 18, 20).build()));
+                b -> sendButton(OscilloscopeMenu.BUTTON_CURSOR_A)).bounds(cursorX, secondY, cursorWidth, 20).build()));
         triggerButtons.add(addRenderableWidget(Button.builder(Component.literal("Cursor B +"),
-                b -> sendButton(OscilloscopeMenu.BUTTON_CURSOR_B)).bounds(x0 + w + 23, secondY, w + 18, 20).build()));
+                b -> sendButton(OscilloscopeMenu.BUTTON_CURSOR_B)).bounds(cursorX + cursorWidth + cursorGap, secondY, cursorWidth, 20).build()));
         triggerButtons.add(addRenderableWidget(Button.builder(Component.literal("Clear capture"),
-                b -> sendButton(OscilloscopeMenu.BUTTON_CLEAR)).bounds(x0 + (w + 23) * 2, secondY, 126, 20).build()));
+                b -> sendButton(OscilloscopeMenu.BUTTON_CLEAR)).bounds(cursorX + (cursorWidth + cursorGap) * 2, secondY, cursorWidth, 20).build()));
 
         updateWidgets();
     }
@@ -179,18 +191,20 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
     private int viewportHeight() { return Math.max(1, imageHeight - CONTENT_Y - FOOTER_HEIGHT - 4); }
 
     private int contentWidth() {
-        return page == Page.SAMPLING || page == Page.EXPERIMENT
-                ? Math.max(viewportWidth(), SAMPLING_CONTENT_WIDTH) : viewportWidth();
+        return Math.max(viewportWidth(), switch (page) {
+            case SAMPLING, EXPERIMENT -> SAMPLING_CONTENT_WIDTH;
+            case WAVEFORM, TRIGGER, NETWORK, EVIDENCE -> INSTRUMENT_CONTENT_WIDTH;
+        });
     }
 
     private int contentHeight() {
         return switch (page) {
-            case WAVEFORM -> 360;
-            case SAMPLING -> 470;
-            case EXPERIMENT -> 520;
-            case TRIGGER -> 350;
-            case NETWORK -> 360;
-            case EVIDENCE -> 400;
+            case WAVEFORM -> 500;
+            case SAMPLING -> 620;
+            case EXPERIMENT -> 700;
+            case TRIGGER -> 500;
+            case NETWORK -> 500;
+            case EVIDENCE -> 560;
         };
     }
 
@@ -239,13 +253,43 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
         }
         g.pose().popPose();
         g.disableScissor();
+        renderScrollIndicators(g);
 
         String evidence = "EVIDENCE • " + menu.evidenceStateLabel();
-        g.drawString(font, evidence, 18, imageHeight - 25, evidenceColor(), false);
-        String scroll = "SCROLL X " + scrollX + "/" + Math.max(0, contentWidth() - viewportWidth())
-                + "  Y " + scrollY + "/" + Math.max(0, contentHeight() - viewportHeight());
-        g.drawString(font, scroll, imageWidth - 18 - font.width(scroll), imageHeight - 25, MUTED, false);
-        g.drawString(font, "Wheel: vertical • Shift+wheel: horizontal", 18, imageHeight - 14, MUTED, false);
+        g.drawString(font, evidence, 20, imageHeight - 38, evidenceColor(), false);
+        String scroll = "X " + scrollX + "/" + Math.max(0, contentWidth() - viewportWidth())
+                + "  •  Y " + scrollY + "/" + Math.max(0, contentHeight() - viewportHeight());
+        g.drawString(font, scroll, imageWidth - 20 - font.width(scroll), imageHeight - 38, MUTED, false);
+        g.drawString(font, "Wheel: vertical • Shift+wheel: horizontal", 20, imageHeight - 20, MUTED, false);
+    }
+
+    private void renderScrollIndicators(GuiGraphics g) {
+        int maxX = Math.max(0, contentWidth() - viewportWidth());
+        int maxY = Math.max(0, contentHeight() - viewportHeight());
+
+        if (maxX > 0) {
+            int x0 = 26;
+            int x1 = imageWidth - 26;
+            int y = imageHeight - FOOTER_HEIGHT - 8;
+            int track = Math.max(1, x1 - x0);
+            int thumb = Math.max(30, (int) Math.round(track * (viewportWidth() / (double) contentWidth())));
+            int travel = Math.max(0, track - thumb);
+            int tx = x0 + (int) Math.round(travel * (scrollX / (double) maxX));
+            g.fill(x0, y, x1, y + 3, PANEL_3);
+            g.fill(tx, y, Math.min(x1, tx + thumb), y + 3, INFO);
+        }
+
+        if (maxY > 0) {
+            int x = imageWidth - 12;
+            int y0 = CONTENT_Y;
+            int y1 = imageHeight - FOOTER_HEIGHT - 12;
+            int track = Math.max(1, y1 - y0);
+            int thumb = Math.max(26, (int) Math.round(track * (viewportHeight() / (double) contentHeight())));
+            int travel = Math.max(0, track - thumb);
+            int ty = y0 + (int) Math.round(travel * (scrollY / (double) maxY));
+            g.fill(x, y0, x + 3, y1, PANEL_3);
+            g.fill(x, ty, x + 3, Math.min(y1, ty + thumb), INFO);
+        }
     }
 
     private void renderWaveform(GuiGraphics g) {
@@ -256,9 +300,9 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
         label(g, "Samples", menu.sampleCount() + " / 32", y); y += 18;
         label(g, "Timebase Δt", menu.samplePeriodTicks() + " ticks", y); y += 22;
 
-        int plotX = CONTENT_X + 20;
-        int plotY = y + 4;
-        int plotWidth = Math.max(280, Math.min(610, viewportWidth() - 45));
+        int plotX = CONTENT_X + 24;
+        int plotY = y + 8;
+        int plotWidth = Math.min(760, contentWidth() - CONTENT_X - 90);
         int plotHeight = 118;
         EngineeringPlot.analogFrame(g, plotX, plotY, plotWidth, plotHeight);
         EngineeringPlot.horizontalMarker(g, menu.triggerLevel(), 0, 15, plotX + 3, plotY + 3,
@@ -470,7 +514,7 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
     }
 
     private void equation(GuiGraphics g, String text, int y) {
-        int width = Math.max(280, font.width(text) + 24);
+        int width = Math.max(360, Math.min(contentWidth() - CONTENT_X - 32, font.width(text) + 36));
         g.fill(CONTENT_X, y - 4, CONTENT_X + width, y + 15, PANEL_3);
         g.fill(CONTENT_X, y - 4, CONTENT_X + 3, y + 15, ACCENT);
         g.drawString(font, text, CONTENT_X + 10, y, TEXT, false);
@@ -482,12 +526,12 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
 
     private void label(GuiGraphics g, String name, String value, int y) {
         g.drawString(font, name, CONTENT_X, y, MUTED, false);
-        g.drawString(font, value, CONTENT_X + 220, y, TEXT, false);
+        g.drawString(font, value, CONTENT_X + 270, y, TEXT, false);
     }
 
     private void status(GuiGraphics g, String name, String value, int color, int y) {
         g.drawString(font, name, CONTENT_X, y, MUTED, false);
-        g.drawString(font, value, CONTENT_X + 220, y, color, false);
+        g.drawString(font, value, CONTENT_X + 270, y, color, false);
     }
 
     private void wrapped(GuiGraphics g, String text, int x, int y, int width, int color) {
@@ -499,7 +543,7 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
     }
 
     private void rule(GuiGraphics g, int y) {
-        g.fill(CONTENT_X, y, Math.min(contentWidth() - 18, CONTENT_X + 760), y + 1, BORDER);
+        g.fill(CONTENT_X, y, Math.min(contentWidth() - 30, CONTENT_X + 900), y + 1, BORDER);
     }
 
     private int evidenceConfidence() {
