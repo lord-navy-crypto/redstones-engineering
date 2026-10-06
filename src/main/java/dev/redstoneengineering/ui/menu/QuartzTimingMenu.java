@@ -36,6 +36,9 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_INPUT_RIGHT = 6;
     public static final int BUTTON_OUTPUT_LEFT = 7;
     public static final int BUTTON_OUTPUT_RIGHT = 8;
+    /** Exact visible timing parameter encoded as BASE + engineering value. */
+    public static final int BUTTON_PARAMETER_DIRECT_BASE = 11000;
+    public static final int BUTTON_PARAMETER_DIRECT_MAX = 11032;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot primary = trackedInt();
@@ -130,7 +133,26 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
         Block block = state.getBlock();
         boolean changed = false;
 
-        if (block instanceof QuartzOscillatorBlock oscillator) {
+        if (id >= BUTTON_PARAMETER_DIRECT_BASE && id <= BUTTON_PARAMETER_DIRECT_MAX) {
+            int value = id - BUTTON_PARAMETER_DIRECT_BASE;
+            if (block instanceof QuartzOscillatorBlock oscillator) {
+                int target = -1;
+                for (int i = 0; i < 5; i++) if (QuartzTimingLineBlock.periodTicks(i) == value) target = i;
+                if (target < 0) return false;
+                level.setBlock(blockPos, state.setValue(QuartzOscillatorBlock.PERIOD_INDEX, target), Block.UPDATE_CLIENTS);
+                if (level instanceof ServerLevel server) DomainNetwork.recomputeQuartzAround(server, blockPos);
+                level.scheduleTick(blockPos, oscillator, 1);
+                changed = true;
+            } else if (block instanceof QuartzClockDividerBlock) {
+                int target = value == 2 ? 0 : value == 4 ? 1 : value == 8 ? 2 : value == 16 ? 3 : -1;
+                if (target < 0 || !(level instanceof ServerLevel server)) return false;
+                int guard = 5;
+                while (level.getBlockState(blockPos).getValue(QuartzClockDividerBlock.DIV_INDEX) != target && guard-- > 0) {
+                    QuartzClockDividerBlock.cycleDivision(server, blockPos);
+                }
+                changed = true;
+            } else return false;
+        } else if (block instanceof QuartzOscillatorBlock oscillator) {
             if (id != BUTTON_PARAMETER_PREVIOUS && id != BUTTON_PARAMETER_NEXT) return false;
             int index = state.getValue(QuartzOscillatorBlock.PERIOD_INDEX);
             index = id == BUTTON_PARAMETER_NEXT ? (index + 1) % 5 : Math.floorMod(index - 1, 5);
