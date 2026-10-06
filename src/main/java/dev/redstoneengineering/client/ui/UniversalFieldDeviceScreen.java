@@ -66,7 +66,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         primaryNext = addConfigureWidget(Button.builder(
                 Component.literal("Next ▶"),
                 button -> sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_PRIMARY_NEXT)
-        ).bounds(startX + pairWidth + gap, primaryY, pairWidth, 20).build());
+        ).bounds(startX, primaryY, totalWidth, 20).build());
         secondaryPrevious = addConfigureWidget(Button.builder(
                 Component.literal("◀ Range"),
                 button -> sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_SECONDARY_PREVIOUS)
@@ -74,7 +74,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         secondaryNext = addConfigureWidget(Button.builder(
                 Component.literal("Range ▶"),
                 button -> sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_SECONDARY_NEXT)
-        ).bounds(startX + pairWidth + gap, secondaryY, pairWidth, 20).build());
+        ).bounds(startX, secondaryY, totalWidth, 20).build());
         action = addConfigureWidget(Button.builder(
                 Component.literal("Action"),
                 button -> sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_ACTION)
@@ -159,8 +159,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         }
 
         if (primaryPrevious != null) {
-            primaryPrevious.visible = configure && primary && !directPrimary;
-            primaryPrevious.setMessage(Component.literal("◀ " + primaryName + " • " + primaryValue));
+            primaryPrevious.visible = false;
         }
 
         boolean directSecondary = directSecondaryNumericKind(kind);
@@ -179,19 +178,16 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         }
         if (primaryNext != null) {
             primaryNext.visible = configure && primary && !directPrimary;
-            primaryNext.setMessage(Component.literal(primaryName + " • " + primaryValue + " ▶"));
+            primaryNext.setMessage(Component.literal("Cycle " + primaryName + " • " + primaryValue + " ▶"));
         }
         if (secondaryPrevious != null) {
-            secondaryPrevious.visible = configure && secondary && !directSecondary;
-            if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE) secondaryPrevious.setMessage(Component.literal("◀ Noise"));
-            else if (kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR) secondaryPrevious.setMessage(Component.literal("◀ Jitter"));
-            else secondaryPrevious.setMessage(Component.literal("◀ Range"));
+            secondaryPrevious.visible = false;
         }
         if (secondaryNext != null) {
             secondaryNext.visible = configure && secondary && !directSecondary;
-            if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE) secondaryNext.setMessage(Component.literal("Noise ▶"));
-            else if (kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR) secondaryNext.setMessage(Component.literal("Jitter ▶"));
-            else secondaryNext.setMessage(Component.literal("Range ▶"));
+            if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE) secondaryNext.setMessage(Component.literal("Cycle Noise ▶"));
+            else if (kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR) secondaryNext.setMessage(Component.literal("Cycle Jitter ▶"));
+            else secondaryNext.setMessage(Component.literal("Cycle Range ▶"));
         }
         if (action != null) {
             action.visible = configure && hasAction;
