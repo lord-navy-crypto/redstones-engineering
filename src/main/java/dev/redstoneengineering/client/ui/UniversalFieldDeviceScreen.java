@@ -66,7 +66,12 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD
                 || kind == UniversalFieldDeviceMenu.CONFIG_CALIBRATION
                 || kind == UniversalFieldDeviceMenu.CONFIG_PWM
-                || kind == UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR;
+                || kind == UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR
+                || kind == UniversalFieldDeviceMenu.CONFIG_COPPER_VOLTAGE_SOURCE
+                || kind == UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD
+                || kind == UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR
+                || kind == UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR
+                || kind == UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE;
         boolean range = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE;
         boolean hasAction = kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER
                 || kind == UniversalFieldDeviceMenu.CONFIG_ALARM
@@ -74,7 +79,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR
                 || kind == UniversalFieldDeviceMenu.CONFIG_SEQUENCE_CONTROLLER
                 || kind == UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK
-                || kind == UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER;
+                || kind == UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER
+                || kind == UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE;
         boolean hasToggle = kind == UniversalFieldDeviceMenu.CONFIG_PWM;
 
         if (primaryPrevious != null) primaryPrevious.visible = configure && primary;
@@ -91,6 +97,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             else if (kind == UniversalFieldDeviceMenu.CONFIG_SEQUENCE_CONTROLLER) action.setMessage(Component.literal("Reset sequence to IDLE"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK) action.setMessage(Component.literal("Reset diagnostic counters"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER) action.setMessage(Component.literal("Reset scan counters"));
+            else if (kind == UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE) action.setMessage(Component.literal("Reset fuse latch • re-evaluate next tick"));
         }
         if (toggle != null) {
             toggle.visible = configure && hasToggle;
@@ -138,7 +145,9 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         int kind = menu.pioneerProcessKind();
         PortQuality evidence = menu.pioneerProcessEvidenceQuality();
         statusBadge(g, title.getString().toUpperCase(), qualityColor(evidence), 16, 80);
-        statusBadge(g, "PIONEER WAVE 14 • SIGNAL / TRANSDUCTION", INFO, 207, 80);
+        statusBadge(g, kind >= UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_WIRE
+                ? "PIONEER WAVE 15 • COPPER ELECTRICAL"
+                : "PIONEER WAVE 14 • SIGNAL / TRANSDUCTION", INFO, 207, 80);
         formulaCard(g, processEquation(kind), 108);
 
         switch (kind) {
@@ -181,6 +190,50 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 variableRole(g, "PROFILE", "noise", "±" + menu.pioneerProcessQuinary(), "/100", 201);
                 variableRole(g, "PROFILE", "latency", Integer.toString(menu.pioneerProcessSenary()), "samples", 217);
             }
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_WIRE,
+                 UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_JUNCTION -> {
+                variableRole(g, "MEASURED", "V_node", Integer.toString(menu.pioneerProcessPrimary()), "V-eq", 137);
+                variableRole(g, "EVIDENCE", "drivers", Integer.toString(menu.pioneerProcessSecondary()), "sources", 153);
+                variableRole(g, "TOPOLOGY", "ports", Integer.toString(menu.pioneerProcessTertiary()), "faces", 169);
+                variableRole(g, "EVIDENCE", "quality", evidence.name(), "", 185);
+            }
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_VOLTAGE_SOURCE -> {
+                variableRole(g, "ADJUSTABLE", "V_set", Integer.toString(menu.pioneerProcessPrimary()), "V-eq", 137);
+                variableRole(g, "TOPOLOGY", "output faces", Integer.toString(menu.pioneerProcessSecondary()), "faces", 153);
+                variableRole(g, "DERIVED", "V_out", Integer.toString(menu.pioneerProcessPrimary()), "V-eq", 169);
+                variableRole(g, "EVIDENCE", "quality", evidence.name(), "", 185);
+            }
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_LOAD -> {
+                variableRole(g, "MEASURED", "V", Integer.toString(menu.pioneerProcessPrimary()), "V-eq", 137);
+                variableRole(g, "ADJUSTABLE", "R", Integer.toString(menu.pioneerProcessSecondary()), "R-eq", 153);
+                variableRole(g, "DERIVED", "I", String.format(java.util.Locale.ROOT, "%.3f", menu.pioneerProcessTertiary()/1000.0), "I-eq", 169);
+                variableRole(g, "DERIVED", "P", String.format(java.util.Locale.ROOT, "%.3f", menu.pioneerProcessQuaternary()/1000.0), "P-eq", 185);
+                variableRole(g, "EVIDENCE", "feeds", Integer.toString(menu.pioneerProcessQuinary()), "physical", 201);
+            }
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_SERIES_RESISTOR -> {
+                variableRole(g, "MEASURED", "V_in", Integer.toString(menu.pioneerProcessPrimary()), "V-eq", 137);
+                variableRole(g, "ADJUSTABLE", "R_s", Integer.toString(menu.pioneerProcessSecondary()), "R-eq", 153);
+                variableRole(g, "SOLVER", "R_load", String.format(java.util.Locale.ROOT, "%.3f", menu.pioneerProcessTertiary()/1000.0), "R-eq", 169);
+                variableRole(g, "DERIVED", "V_out", Integer.toString(menu.pioneerProcessQuaternary()), "V-eq", 185);
+                variableRole(g, "DERIVED", "I", String.format(java.util.Locale.ROOT, "%.3f", menu.pioneerProcessQuinary()/1000.0), "I-eq", 201);
+                variableRole(g, "EVIDENCE", "evaluated", menu.pioneerProcessSenary()!=0 ? "YES" : "NO", "", 217);
+            }
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_CAPACITOR -> {
+                variableRole(g, "MEASURED", "V_in", Integer.toString(menu.pioneerProcessPrimary()), "V-eq", 137);
+                variableRole(g, "ADJUSTABLE", "C_index", Integer.toString(menu.pioneerProcessSecondary()), "1..4", 153);
+                variableRole(g, "PROFILE", "τ", Integer.toString(menu.pioneerProcessTertiary()), "ticks", 169);
+                variableRole(g, "SOLVER", "charge", Integer.toString(menu.pioneerProcessQuaternary()), "%", 185);
+                variableRole(g, "DERIVED", "V_out", Integer.toString(menu.pioneerProcessQuinary()), "V-eq", 201);
+                variableRole(g, "EVIDENCE", "evaluated", menu.pioneerProcessSenary()!=0 ? "YES" : "NO", "", 217);
+            }
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_FUSE -> {
+                variableRole(g, "MEASURED", "V_in", Integer.toString(menu.pioneerProcessPrimary()), "V-eq", 137);
+                variableRole(g, "ADJUSTABLE", "I_rating", Integer.toString(menu.pioneerProcessSecondary()), "I-eq", 153);
+                variableRole(g, "SOLVER", "R_eq", String.format(java.util.Locale.ROOT, "%.3f", menu.pioneerProcessTertiary()/1000.0), "R-eq", 169);
+                variableRole(g, "DERIVED", "I", String.format(java.util.Locale.ROOT, "%.3f", menu.pioneerProcessQuaternary()/1000.0), "I-eq", 185);
+                variableRole(g, "DERIVED", "V_out", Integer.toString(menu.pioneerProcessQuinary()), "V-eq", 201);
+                variableRole(g, "STATE", "trip latch", menu.pioneerProcessSenary()!=0 ? "TRIPPED" : "ARMED", "", 217);
+            }
             default -> { }
         }
 
@@ -204,6 +257,20 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                     "MODEL: x=round(100·clamp(I,0,15)/15); y_L = SensorModel.condition(x, profile)";
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_VOLTAGE ->
                     "MODEL: x=round(100·clamp(V,0,15)/15); y_L = SensorModel.condition(x, profile)";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_WIRE ->
+                    "MODEL: V_node = resolved Copper registry value; quality depends on topology, scan completeness and driver count";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_VOLTAGE_SOURCE ->
+                    "MODEL: V_out = V_set on six Copper OUTPUT faces; 0 ≤ V_set ≤ 15";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_LOAD ->
+                    "MODEL: I = V/R; P = V·I; terminal accepts exactly one legitimate Copper feed";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_SERIES_RESISTOR ->
+                    "MODEL: V_out = V_in·R_load/(R_s+R_load); I = V_in/(R_s+R_load)";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_CAPACITOR ->
+                    "MODEL: q_target=round(100·V_in/15); Δq_step=sign(Δq)·max(1,|Δq|/τ); V_out=round(15·q/100)";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_FUSE ->
+                    "MODEL: I=V_in/R_eq; TRIPPED ← TRIPPED ∨ (I>I_rating); V_out=TRIPPED ? 0 : V_in";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_JUNCTION ->
+                    "MODEL: explicit multi-port splice shares one resolved Copper node; >1 driver is TOPOLOGY_ERROR";
             default -> "MODEL: server-authoritative signal transformation";
         };
     }
@@ -224,6 +291,20 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                     "Optical intensity and its source/topology quality are observed on the server before profile conditioning; numeric zero is independent from source validity.";
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_VOLTAGE ->
                     "Copper voltage comes from DomainNetwork while CopperObservationSupport owns source/topology quality. The transducer does not promote an isolated numeric zero to VALID.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_WIRE ->
+                    "Planar wire exposes only real connected faces. Vertical transitions and branch points belong to explicit junction topology; numeric zero is separate from NO_SIGNAL or TOPOLOGY_ERROR.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_VOLTAGE_SOURCE ->
+                    "V_set is the real BlockState control. The source owns six Copper OUTPUT faces; changing it recomputes the authoritative Copper network rather than editing client display state.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_LOAD ->
+                    "The load is INPUT-only and cannot back-drive another sink. Multiple adjacent feeds fail closed as TOPOLOGY_ERROR instead of silently selecting a voltage.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_SERIES_RESISTOR ->
+                    "R_load and current shown here are retained from the last server tick that evaluated the divider. Opening the HMI never performs another load-network scan.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_CAPACITOR ->
+                    "Charge is retained server state and can legitimately source a decaying output after input removal. C_index changes the implemented τ proxy; it does not invent SI capacitance.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_FUSE ->
+                    "Trip state is latched by the authoritative server protection pass. Reset clears the latch request only; safe output is trusted again only after a complete server re-evaluation.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_JUNCTION ->
+                    "The junction is the explicit branch/splice device. Port count is the physical connected-face count; multiple active drivers are visible topology evidence, not merged silently.";
             default -> "Server-authoritative process evidence.";
         };
     }
@@ -480,6 +561,38 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Scan count", Integer.toString(menu.configPrimary()), 101);
                 labelValue(g, "Target mode", menu.configSecondary() != 0 ? "VANILLA REDSTONE" : "ENGINEERING PORTS", 141);
                 safeText(g, "SCAN is opposite alarm TX; reset clears retained scan counters only.", 16, 188, MUTED);
+            }
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_VOLTAGE_SOURCE -> {
+                statusBadge(g, "COPPER SOURCE CONTROL", INFO, 16, 80);
+                labelValue(g, "V_set", menu.configPrimary() + " V-eq", 101);
+                labelValue(g, "Range / step / default", "0..15 / 1 / 12", 141);
+                safeText(g, "Previous clamps at 0; Next wraps 15→0, matching the established block interaction.", 16, 178, MUTED);
+            }
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD -> {
+                statusBadge(g, "COPPER LOAD CONTROL", INFO, 16, 80);
+                labelValue(g, "R", menu.configPrimary() + " R-eq", 101);
+                labelValue(g, "Range / step / default", "1..15 / 1 / 4", 141);
+                safeText(g, "Changing R recomputes connected Copper components on the server.", 16, 178, MUTED);
+            }
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR -> {
+                statusBadge(g, "SERIES RESISTOR CONTROL", INFO, 16, 80);
+                labelValue(g, "R_s", menu.configPrimary() + " R-eq", 101);
+                labelValue(g, "Range / step / default", "1..15 / 1 / 4", 141);
+                safeText(g, "Changing R_s invalidates old V_out/load evidence until the next authoritative evaluation.", 16, 178, MUTED);
+            }
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR -> {
+                statusBadge(g, "RC STORAGE PROFILE", INFO, 16, 80);
+                labelValue(g, "C_index", Integer.toString(menu.configPrimary() + 1), 101);
+                labelValue(g, "τ proxy", menu.pioneerProcessTertiary() + " ticks", 141);
+                labelValue(g, "Profiles / default", "1..4 / default 2", 159);
+                safeText(g, "τ is an RSE discrete response proxy, not an SI capacitance claim.", 16, 190, MUTED);
+            }
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE -> {
+                statusBadge(g, menu.configSecondary()!=0 ? "FUSE • TRIPPED" : "FUSE • ARMED",
+                        menu.configSecondary()!=0 ? BAD : GOOD, 16, 80);
+                labelValue(g, "I_rating", menu.configPrimary() + " I-eq", 101);
+                labelValue(g, "Range / step / default", "1..15 / 1 / 4", 141);
+                safeText(g, "Reset clears the latch request; protection must re-evaluate complete load evidence before READY.", 16, 190, MUTED);
             }
             default -> {
                 boolean rotatable = menu.rotatableSeriesAxis();
