@@ -42,6 +42,14 @@ universal_menu = read("src/main/java/dev/redstoneengineering/ui/menu/UniversalFi
 temperature_sensor = read("src/main/java/dev/redstoneengineering/block/TemperatureSensorBlock.java")
 wave14_tests = read("src/main/java/dev/redstoneengineering/gametest/RsePioneerWave14GameTests.java")
 wave15_tests = read("src/main/java/dev/redstoneengineering/gametest/RsePioneerWave15GameTests.java")
+wave16_tests = read("src/main/java/dev/redstoneengineering/gametest/RsePioneerWave16GameTests.java")
+lapis_noise_block = read("src/main/java/dev/redstoneengineering/block/LapisNoiseSourceBlock.java")
+quartz_oscillator_block = read("src/main/java/dev/redstoneengineering/block/QuartzLabOscillatorBlock.java")
+quartz_phase_delay_block = read("src/main/java/dev/redstoneengineering/block/QuartzPhaseDelayBlock.java")
+quartz_sampler_block = read("src/main/java/dev/redstoneengineering/block/QuartzTriggeredLapisSamplerBlock.java")
+soul_injector_block = read("src/main/java/dev/redstoneengineering/block/SoulFluxInjectorBlock.java")
+soul_meter_block = read("src/main/java/dev/redstoneengineering/block/SoulFluxMeterBlock.java")
+molecular_receiver_block = read("src/main/java/dev/redstoneengineering/block/MolecularCloudReceiverBlock.java")
 copper_wire_block = read("src/main/java/dev/redstoneengineering/block/CopperWireBlock.java")
 copper_source_block = read("src/main/java/dev/redstoneengineering/block/CopperVoltageSourceBlock.java")
 copper_load_block = read("src/main/java/dev/redstoneengineering/block/CopperResistiveLoadBlock.java")
@@ -80,6 +88,8 @@ for token in (
     "Pioneer completion ledger after Wave 14: **94 + 7 = 101 / 122 registered blocks processed; 21 remain.**",
     "Wave 15:",
     "Pioneer completion ledger after Wave 15: **101 + 7 = 108 / 122 registered blocks processed; 14 remain.**",
+    "Wave 16:",
+    "Pioneer completion ledger after Wave 16: **108 + 7 = 115 / 122 registered blocks processed; 7 remain.**",
 ):
     if token not in doc:
         errors.append(f"Pioneer standard missing {token!r}")
@@ -597,6 +607,86 @@ for token in (
 if "event.register(RsePioneerWave15GameTests.class);" not in gametest_registration:
     errors.append("Wave-15 GameTests are not registered")
 
+wave16_menu_tokens = (
+    "PIONEER_PROCESS_LAPIS_NOISE",
+    "PIONEER_PROCESS_QUARTZ_OSCILLATOR",
+    "PIONEER_PROCESS_QUARTZ_PHASE_DELAY",
+    "PIONEER_PROCESS_QUARTZ_LAPIS_SAMPLER",
+    "PIONEER_PROCESS_SOUL_INJECTOR",
+    "PIONEER_PROCESS_SOUL_METER",
+    "PIONEER_PROCESS_MOLECULAR_RECEIVER",
+    "LapisNoiseSourceBlock.currentValue(level, blockPos, state)",
+    "QuartzLabOscillatorBlock.timingEvidence(level, blockPos, state)",
+    "QuartzPhaseDelayBlock.pendingTicks(level, blockPos)",
+    "QuartzTriggeredLapisSamplerBlock.heldValue(level, blockPos)",
+    "SoulFluxInjectorBlock.attachedNodeCount(level, blockPos)",
+    "SoulFluxMeterBlock.inputObservation(level, blockPos, state)",
+    "MolecularCloudReceiverBlock.gainFor(sensitivity)",
+)
+for token in wave16_menu_tokens:
+    if token not in universal_menu:
+        errors.append(f"UniversalFieldDeviceMenu missing Wave-16 active-source token {token!r}")
+
+wave16_screen_tokens = (
+    "PIONEER WAVE 16 • ACTIVE SOURCE / TIMING",
+    "y[n]=clamp(μ + η_det(n,pos),0,100)",
+    "half-interval=max(1,T_nom/2 + j)",
+    "real post-init rising edge ⇒ pending=D",
+    "valid QUARTZ rising edge ⇒ y_hold←x_L",
+    "packet=4u",
+    "floor(15·Q_s/100)",
+    "c_raw=clamp(round(g·Σ r_cloud/(1+d²)),0,15)",
+    'variableRole(g, "ADJUSTABLE", "μ"',
+    'variableRole(g, "EVIDENCE", "jitter offset"',
+    'variableRole(g, "SOLVER", "pending"',
+    'variableRole(g, "SOLVER", "c_filt"',
+)
+for token in wave16_screen_tokens:
+    if token not in universal:
+        errors.append(f"UniversalFieldDeviceScreen missing Wave-16 active-source token {token!r}")
+
+for token in (
+    "Lapis Noise Source",
+    "Quartz Lab Oscillator",
+    "Quartz Phase Delay",
+    "Quartz Triggered Lapis Sampler",
+    "Soul Flux Injector",
+    "Soul Flux Meter",
+    "Molecular Cloud Receiver",
+    "7 remain",
+    "Remaining 7 for Wave 17:",
+    "115 → 122",
+):
+    if token not in doc:
+        errors.append(f"Pioneer standard missing Wave-16 ledger token {token!r}")
+
+for name, text in (
+    ("LapisNoiseSourceBlock", lapis_noise_block),
+    ("QuartzLabOscillatorBlock", quartz_oscillator_block),
+    ("QuartzPhaseDelayBlock", quartz_phase_delay_block),
+    ("QuartzTriggeredLapisSamplerBlock", quartz_sampler_block),
+    ("SoulFluxInjectorBlock", soul_injector_block),
+    ("SoulFluxMeterBlock", soul_meter_block),
+    ("MolecularCloudReceiverBlock", molecular_receiver_block),
+):
+    if "FieldDeviceUi.openUniversal" not in text:
+        errors.append(f"{name} missing Wave-16 Pioneer HMI entry")
+
+for token in (
+    "zeroNoiseSourceProducesValidZeroEvidence",
+    "quartzOscillatorRetainsRealizedIntervalEvidence",
+    "wave16ParameterProfilesRemainBounded",
+    "wave16PortRolesRemainSpecialized",
+):
+    if token not in wave16_tests:
+        errors.append(f"Wave-16 GameTests missing behavioral token {token!r}")
+
+if "event.register(RsePioneerWave16GameTests.class);" not in gametest_registration:
+    errors.append("Wave-16 GameTests are not registered")
+
+if "dev.redstoneengineering.physics" in universal:
+    errors.append("UniversalFieldDeviceScreen imports physics directly; Wave-16 client must remain presentation-only")
+
 registration_token = "event.register(EngineeringUiRegistration.FIELD_DEVICE.get(), EnhancedFieldDeviceScreen::new);"
 if registration_token not in client_registration:
     errors.append("FIELD_DEVICE is no longer registered to the enhanced shared Pioneer inspector")
@@ -638,7 +728,8 @@ print(" Wave 12 Signal Analyzer internal-reference calibration trial PASS")
 print(" Wave 13 seven-block measurement / observer Pioneer rollout PASS")
 print(" Wave 14 seven-block signal / transduction Pioneer rollout PASS")
 print(" Wave 15 seven-block Copper electrical Pioneer rollout PASS")
-print(" Pioneer completion ledger: 108 / 122 processed; 14 remain")
+print(" Wave 16 seven-block active-source / timing Pioneer rollout PASS")
+print(" Pioneer completion ledger: 115 / 122 processed; 7 remain")
 print(f" FieldDeviceMenu device-kind taxonomy: {kind_count}")
 print(f" formula-first EngineeringScreen families: {formula_migrated}")
-print(" no client-side second physics/robotics/metrology/Copper solver in Waves 2-15: PASS")
+print(" no client-side second physics/robotics/metrology/Copper/timing solver in Waves 2-16: PASS")
