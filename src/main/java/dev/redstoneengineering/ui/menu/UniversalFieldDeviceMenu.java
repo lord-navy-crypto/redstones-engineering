@@ -419,7 +419,11 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             return;
         }
 
-        if (block instanceof MolecularCloudReceiverBlock receiver) {
+        if (block instanceof AlarmProcessorBlock alarm) {
+            min = 1; max = 3;
+            current = () -> level.getBlockState(blockPos).getValue(AlarmProcessorBlock.SEVERITY);
+            stepForward = ignored -> alarm.adjustSeverity(level, blockPos, 1);
+        } else         if (block instanceof MolecularCloudReceiverBlock receiver) {
             min = 0; max = 3;
             current = () -> level.getBlockState(blockPos).getValue(MolecularCloudReceiverBlock.SENSITIVITY);
             stepForward = ignored -> receiver.adjustSensitivity(level, blockPos, 1);
