@@ -16,9 +16,14 @@ import dev.redstoneengineering.physics.RuntimeIntStore;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -141,6 +146,16 @@ public class CopperCableJunctionBlock extends ConnectedCableBlock implements Eng
     ) {
         super.neighborChanged(state, level, pos, neighbor, neighborPos, moved);
         if (level instanceof ServerLevel server) DomainNetwork.recomputeCopper(server, pos);
+    }
+
+    @Override
+    protected InteractionResult useWithoutItem(
+            BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit
+    ) {
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            FieldDeviceUi.openUniversal(serverPlayer, pos);
+        }
+        return InteractionResult.sidedSuccess(level.isClientSide);
     }
 
     @Override
