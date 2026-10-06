@@ -84,6 +84,30 @@ require("src/main/java/dev/redstoneengineering/client/ui/MagneticSystemScreen.ja
 require("src/main/java/dev/redstoneengineering/ui/menu/MagneticSystemMenu.java",
         "BUTTON_PRIMARY_DIRECT_BASE", "PermanentMagnetBlock.STRENGTH", "InductionCoilBlock.TURNS")
 
+require("src/main/java/dev/redstoneengineering/client/ui/AmethystSystemScreen.java",
+        "EditBox", "submitPrimary", "submitSecondary",
+        "BUTTON_PRIMARY_DIRECT_BASE", "BUTTON_SECONDARY_DIRECT_BASE",
+        "f_target", "Q_idx")
+require("src/main/java/dev/redstoneengineering/ui/menu/AmethystSystemMenu.java",
+        "BUTTON_PRIMARY_DIRECT_BASE = 15000", "BUTTON_SECONDARY_DIRECT_BASE = 15100",
+        "AmethystResonatorBlock.FREQUENCY", "AmethystResonatorBlock.AMPLITUDE",
+        "AmethystFrequencyFilterBlock.TARGET", "AmethystTunedResonatorBlock.NATURAL",
+        "AmethystTunedResonatorBlock.Q_INDEX")
+
+require("src/main/java/dev/redstoneengineering/client/ui/RadioLinkScreen.java",
+        "EditBox", "submitChannel", "BUTTON_CHANNEL_DIRECT_BASE",
+        "0..3 • direct entry")
+require("src/main/java/dev/redstoneengineering/ui/menu/RadioLinkMenu.java",
+        "BUTTON_CHANNEL_DIRECT_BASE = 14000",
+        "RadioTransmitterBlock.CHANNEL", "RadioReceiverBlock.CHANNEL")
+
+require("src/main/java/dev/redstoneengineering/client/ui/DigitalCommunicationScreen.java",
+        "EditBox", "submitParameter", "BUTTON_PARAMETER_DIRECT_BASE",
+        "{20,40,60}% • direct entry")
+require("src/main/java/dev/redstoneengineering/ui/menu/DigitalCommunicationMenu.java",
+        "BUTTON_PARAMETER_DIRECT_BASE = 13000", "percent == 20 ? 0",
+        "percent == 40 ? 1", "percent == 60 ? 2")
+
 require("src/main/java/dev/redstoneengineering/client/ui/OpticalSystemScreen.java",
         "EditBox", "submitPrimary", "submitSecondary",
         "BUTTON_PRIMARY_DIRECT_BASE", "BUTTON_SECONDARY_DIRECT_BASE")
