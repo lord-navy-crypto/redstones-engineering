@@ -5,23 +5,79 @@ import dev.redstoneengineering.blockentity.LogicAnalyzerBlockEntity;
 import dev.redstoneengineering.ui.menu.LogicAnalyzerMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
 /** Four-channel digital timing UI with real capture, synchronized evidence and channel diagnostics. */
 public final class LogicAnalyzerScreen extends EngineeringScreen<LogicAnalyzerMenu> {
+    private EditBox thresholdInput, cursorAInput, cursorBInput;
+    private Button thresholdApply, cursorAApply, cursorBApply;
     public LogicAnalyzerScreen(LogicAnalyzerMenu menu, Inventory inventory, Component title) { super(menu, inventory, title); }
 
     @Override protected void addDeviceWidgets() {
         int x = leftPos + 16, y = topPos + imageHeight - 92, w = 96, gap = 6;
         addConfigureWidget(Button.builder(Component.literal("Arm"), b -> sendMenuButton(LogicAnalyzerMenu.BUTTON_ARM)).bounds(x, y, w, 20).build());
-        addConfigureWidget(Button.builder(Component.literal("Threshold −"), b -> sendMenuButton(LogicAnalyzerMenu.BUTTON_THRESHOLD_DECREASE)).bounds(x + w + gap, y, w, 20).build());
-        addConfigureWidget(Button.builder(Component.literal("Threshold +"), b -> sendMenuButton(LogicAnalyzerMenu.BUTTON_THRESHOLD_INCREASE)).bounds(x + (w + gap) * 2, y, w, 20).build());
-        addConfigureWidget(Button.builder(Component.literal("Trigger CH"), b -> sendMenuButton(LogicAnalyzerMenu.BUTTON_TRIGGER_CHANNEL)).bounds(x, y + 25, w, 20).build());
-        addConfigureWidget(Button.builder(Component.literal("Trigger edge"), b -> sendMenuButton(LogicAnalyzerMenu.BUTTON_TRIGGER_EDGE)).bounds(x + w + gap, y + 25, w, 20).build());
-        addConfigureWidget(Button.builder(Component.literal("Cursor A +"), b -> sendMenuButton(LogicAnalyzerMenu.BUTTON_CURSOR_A)).bounds(x + (w + gap) * 2, y + 25, w, 20).build());
-        addConfigureWidget(Button.builder(Component.literal("Cursor B +"), b -> sendMenuButton(LogicAnalyzerMenu.BUTTON_CURSOR_B)).bounds(x, y + 50, w, 20).build());
-        addConfigureWidget(Button.builder(Component.literal("Clear capture"), b -> sendMenuButton(LogicAnalyzerMenu.BUTTON_CLEAR)).bounds(x + w + gap, y + 50, w * 2 + gap, 20).build());
+        thresholdInput = addConfigureWidget(new EditBox(this.font,x + w + gap,y,w,20,Component.literal("T 1..15")));
+        thresholdInput.setMaxLength(2);
+        thresholdInput.setFilter(v->v.isEmpty()||v.chars().allMatch(Character::isDigit));
+        thresholdApply = addConfigureWidget(Button.builder(Component.literal("Apply T"),b->submitThreshold()).bounds(x + (w + gap) * 2,y,w,20).build());
+
+        addConfigureWidget(Button.builder(Component.literal("Trigger CH ▶"), b -> sendMenuButton(LogicAnalyzerMenu.BUTTON_TRIGGER_CHANNEL)).bounds(x, y + 25, w, 20).build());
+        addConfigureWidget(Button.builder(Component.literal("Trigger edge ▶"), b -> sendMenuButton(LogicAnalyzerMenu.BUTTON_TRIGGER_EDGE)).bounds(x + w + gap, y + 25, w, 20).build());
+
+        cursorAInput = addConfigureWidget(new EditBox(this.font,x + (w + gap) * 2,y + 25,w,20,Component.literal("Cursor A 0..15")));
+        cursorAInput.setMaxLength(2);
+        cursorAInput.setFilter(v->v.isEmpty()||v.chars().allMatch(Character::isDigit));
+
+        cursorBInput = addConfigureWidget(new EditBox(this.font,x,y + 50,w,20,Component.literal("Cursor B 0..15")));
+        cursorBInput.setMaxLength(2);
+        cursorBInput.setFilter(v->v.isEmpty()||v.chars().allMatch(Character::isDigit));
+        cursorAApply = addConfigureWidget(Button.builder(Component.literal("Apply A"),b->submitCursorA()).bounds(x + w + gap,y + 50,w,20).build());
+        cursorBApply = addConfigureWidget(Button.builder(Component.literal("Apply B"),b->submitCursorB()).bounds(x + (w + gap) * 2,y + 50,w,20).build());
+    }
+
+    @Override protected void containerTick() {
+        super.containerTick();
+        syncExactInputs();
+    }
+
+    private void syncExactInputs() {
+        syncInput(thresholdInput, thresholdApply, menu.threshold(), 1, 15);
+        syncInput(cursorAInput, cursorAApply, menu.cursorA(), 0, LogicAnalyzerBlockEntity.DISPLAY_SAMPLES - 1);
+        syncInput(cursorBInput, cursorBApply, menu.cursorB(), 0, LogicAnalyzerBlockEntity.DISPLAY_SAMPLES - 1);
+    }
+
+    private void syncInput(EditBox input, Button apply, int current, int min, int max) {
+        if (input == null) return;
+        if (!input.isFocused()) {
+            String expected=Integer.toString(current);
+            if(!expected.equals(input.getValue()))input.setValue(expected);
+        }
+        if(apply!=null) apply.active=validInput(input,min,max);
+    }
+
+    private boolean validInput(EditBox input,int min,int max){
+        if(input==null||input.getValue().isEmpty())return false;
+        try{int v=Integer.parseInt(input.getValue());return v>=min&&v<=max;}catch(NumberFormatException ignored){return false;}
+    }
+
+    private void submitThreshold(){
+        if(!validInput(thresholdInput,1,15))return;
+        sendMenuButton(LogicAnalyzerMenu.BUTTON_THRESHOLD_DIRECT_BASE+Integer.parseInt(thresholdInput.getValue()));
+        thresholdInput.setFocused(false);
+    }
+
+    private void submitCursorA(){
+        if(!validInput(cursorAInput,0,LogicAnalyzerBlockEntity.DISPLAY_SAMPLES-1))return;
+        sendMenuButton(LogicAnalyzerMenu.BUTTON_CURSOR_A_DIRECT_BASE+Integer.parseInt(cursorAInput.getValue()));
+        cursorAInput.setFocused(false);
+    }
+
+    private void submitCursorB(){
+        if(!validInput(cursorBInput,0,LogicAnalyzerBlockEntity.DISPLAY_SAMPLES-1))return;
+        sendMenuButton(LogicAnalyzerMenu.BUTTON_CURSOR_B_DIRECT_BASE+Integer.parseInt(cursorBInput.getValue()));
+        cursorBInput.setFocused(false);
     }
 
     @Override protected void renderSection(GuiGraphics graphics, Section section) {
@@ -57,12 +113,13 @@ public final class LogicAnalyzerScreen extends EngineeringScreen<LogicAnalyzerMe
         statusBadge(graphics, "PIONEER PATTERN • DIGITAL TIMING MODEL", INFO, 16, 80);
         formulaCard(graphics, "D_ch[n] = (x_ch[n] ≥ T) ? HIGH : LOW", 105);
         variableRole(graphics, "MEASURED", "x_ch[n]", "instrument bus sample", "Redstone 0..15", 134);
-        variableRole(graphics, "ADJUSTABLE", "T", Integer.toString(menu.threshold()), "threshold", 152);
+        variableRole(graphics, "ADJUSTABLE", "T", Integer.toString(menu.threshold()), "1..15 • direct entry", 152);
         variableRole(graphics, "PROFILE", "Δt_sample", Integer.toString(LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS), "tick", 170);
         variableRole(graphics, "ADJUSTABLE", "trigger", "CH " + channelName(menu.triggerChannel()) + " " + edgeName(menu.triggerEdge()), "", 188);
-        variableRole(graphics, "DERIVED", "Δt_cursor", Math.abs(menu.cursorB() - menu.cursorA()) * LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS + "", "ticks", 206);
-        variableRole(graphics, "EVIDENCE", "capture", menu.sampleCount() + "/32 • " + captureCoverage() + "%", "", 224);
-        wrappedText(graphics, "Threshold and trigger controls never bypass the server capture engine. Observe/Log pages analyze only the synchronized retained capture buffer.", 16, 248, workspaceWidth() - 24, MUTED);
+        variableRole(graphics, "ADJUSTABLE", "cursor A/B", menu.cursorA()+" / "+menu.cursorB(), "0..15 • direct entry", 206);
+        variableRole(graphics, "DERIVED", "Δt_cursor", Math.abs(menu.cursorB() - menu.cursorA()) * LogicAnalyzerBlockEntity.SAMPLE_PERIOD_TICKS + "", "ticks", 224);
+        variableRole(graphics, "EVIDENCE", "capture", menu.sampleCount() + "/32 • " + captureCoverage() + "%", "", 242);
+        wrappedText(graphics, "Threshold/cursor exact entry and trigger cycles stay server-authoritative; retained capture evidence is never fabricated client-side.", 16, 266, workspaceWidth() - 24, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
