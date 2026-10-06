@@ -147,7 +147,8 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
                 "samples=" + menu.totalSamples() + "  measurement coverage=" + menu.validWindowCount() + "/" + menu.windowCount()
                         + "  mode switches=" + menu.modeSwitches()
                         + "  calibration switches=" + menu.calibrationSwitches()
-                        + "  reference switches=" + menu.referenceSwitches(),
+                        + "  reference switches=" + menu.referenceSwitches()
+                        + "  μ=rounded mean",
                 16, 188, MUTED);
 
         SignalCalibrationTrialComparison.Trend trend = menu.trialTrend();
