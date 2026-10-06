@@ -118,13 +118,14 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         boolean hasToggle = kind == UniversalFieldDeviceMenu.CONFIG_PWM;
 
         String primaryName = primaryControlName(kind);
+        String primaryValue = primaryControlValue(kind);
         if (primaryPrevious != null) {
             primaryPrevious.visible = configure && primary;
-            primaryPrevious.setMessage(Component.literal("◀ " + primaryName));
+            primaryPrevious.setMessage(Component.literal("◀ " + primaryName + " • " + primaryValue));
         }
         if (primaryNext != null) {
             primaryNext.visible = configure && primary;
-            primaryNext.setMessage(Component.literal(primaryName + " ▶"));
+            primaryNext.setMessage(Component.literal(primaryName + " • " + primaryValue + " ▶"));
         }
         if (secondaryPrevious != null) {
             secondaryPrevious.visible = configure && secondary;
@@ -905,7 +906,110 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             }
         }
         formulaCard(g, universalContract(kind), 218);
-        wrappedText(g, "Universal HMI rule: controls express server intent only; Route owns physical interfaces; diagnostics/history never invent process state that the underlying device does not retain.", 16, 244, workspaceWidth() - 24, MUTED);
+        renderFormulaParameterWorkbench(g, kind, 252);
+        wrappedText(g, "Universal HMI rule: controls express server intent only; Route owns physical interfaces; diagnostics/history never invent process state that the underlying device does not retain.", 16, 338, workspaceWidth() - 24, MUTED);
+    }
+
+    private void renderFormulaParameterWorkbench(GuiGraphics g, int kind, int y) {
+        String symbol = formulaParameterSymbol(kind);
+        if (symbol.isBlank()) {
+            statusLine(g, "FORMULA PARAMETER WORKBENCH", "READ-ONLY • no model coefficient owned by this HMI", MUTED, y);
+            return;
+        }
+
+        statusLine(g, "FORMULA PARAMETER WORKBENCH",
+                symbol + " = " + primaryControlValue(kind) + " • SERVER-BACKED", INFO, y);
+        safeText(g, "Use the controls above to change this exact variable; the server recomputes/invalidate evidence according to the device contract.",
+                16, y + 22, TEXT);
+        safeText(g, formulaParameterImpact(kind), 16, y + 42, MUTED);
+
+        String secondarySymbol = secondaryFormulaParameterSymbol(kind);
+        if (!secondarySymbol.isBlank()) {
+            statusLine(g, "SECOND PARAMETER",
+                    secondarySymbol + " = " + secondaryControlValue(kind) + " • SERVER-BACKED", INFO, y + 62);
+        }
+    }
+
+    private String formulaParameterSymbol(int kind) {
+        return switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER, UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE -> "profile";
+            case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER -> "sensitivity";
+            case UniversalFieldDeviceMenu.CONFIG_ALARM -> "severity";
+            case UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD -> "trigger edge";
+            case UniversalFieldDeviceMenu.CONFIG_CALIBRATION -> "transfer profile";
+            case UniversalFieldDeviceMenu.CONFIG_PWM -> "T";
+            case UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR -> "fault mode";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_VOLTAGE_SOURCE -> "V_set";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD -> "R";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR -> "R_s";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR -> "C_index";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE -> "I_rating";
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE -> "μ";
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> "T_nom";
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY -> "D";
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_MASS -> "C_index";
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER -> "R";
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR -> "k_cool";
+            default -> "";
+        };
+    }
+
+    private String primaryControlValue(int kind) {
+        return switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_PWM -> menu.pioneerProcessSecondary() + " ticks";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_VOLTAGE_SOURCE -> menu.configPrimary() + " V-eq";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD, UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR -> menu.configPrimary() + " R-eq";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR -> (menu.configPrimary() + 1) + " • τ=" + menu.pioneerProcessTertiary() + " ticks";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE -> menu.configPrimary() + " I-eq";
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE -> String.format(java.util.Locale.ROOT, "%.2f Lapis", menu.configPrimary() * 0.05);
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> menu.pioneerProcessPrimary() + " ticks";
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY -> menu.configPrimary() + " ticks";
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_MASS -> Integer.toString(menu.configPrimary());
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER -> menu.pioneerProcessSecondary() + " R-eq";
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR -> menu.configPrimary() + " index/tick";
+            default -> Integer.toString(menu.configPrimary());
+        };
+    }
+
+    private String secondaryFormulaParameterSymbol(int kind) {
+        return switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE -> "range";
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE -> "|η|max";
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> "J";
+            default -> "";
+        };
+    }
+
+    private String secondaryControlValue(int kind) {
+        return switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE -> menu.configSecondary() + " blocks";
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE -> "±" + String.format(java.util.Locale.ROOT, "%.2f Lapis", menu.configSecondary() * 0.02);
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> "±" + menu.configSecondary() + " ticks";
+            default -> "";
+        };
+    }
+
+    private String formulaParameterImpact(int kind) {
+        return switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_PWM -> "Equation link: T changes PWM quantization, N_on and effective duty cycle.";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_VOLTAGE_SOURCE -> "Equation link: V_set is the source term propagated into the Copper network.";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD -> "Equation link: I=V/R and P=V²/R; changing R changes both derived quantities.";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR -> "Equation link: R_s participates in the divider/load solution for V_out and I.";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR -> "Equation link: C_index selects the discrete τ response profile used by the RC storage model.";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE -> "Equation link: I_rating is the trip threshold evaluated against server-computed current.";
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE -> "Equation link: y[n]=μ+η[n], with η bounded by the secondary noise parameter.";
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> "Equation link: T_nom sets the nominal period; J bounds realized scheduling jitter.";
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY -> "Equation link: D sets the post-edge delay before the output pulse.";
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_MASS -> "Equation link: C_index limits ΔT per update and sets the thermal update cadence.";
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER -> "Equation link: I=V/R and P=V²/R feed the server thermal target.";
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR -> "Equation link: k_cool bounds passive cooling toward the ambient floor.";
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE -> "Model link: profile changes sensor conditioning; range independently bounds spatial sampling.";
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER -> "Model link: profile selects sampling period, resolution, noise and latency.";
+            case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER -> "Model link: sensitivity changes the receiver gain/profile used by the server filter.";
+            case UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD -> "State-equation link: trigger-edge selection determines when y_hold acquires a new sample.";
+            case UniversalFieldDeviceMenu.CONFIG_CALIBRATION -> "Model link: transfer profile selects the server calibration mapping.";
+            default -> "This control changes authoritative device state; downstream values remain server-derived evidence.";
+        };
     }
 
     private String primaryControlName(int kind) {
