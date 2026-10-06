@@ -70,13 +70,13 @@ public final class RseSignalCalibrationTrialGameTests {
         SignalCalibrationTrialStore.clear(level, world);
 
         SignalCalibrationTrialRecord ready = record(1, 8, 0, 0, 800, 0, 0, 0);
-        if (SignalCalibrationTrialStore.captureCandidate(level, world, 20, ready).isPresent()) {
+        if (SignalCalibrationTrialStore.captureCandidate(level, world, ready).isPresent()) {
             helper.fail("Candidate capture must be rejected before a baseline exists", KEY);
             return;
         }
 
         SignalCalibrationTrialRecord baseline = SignalCalibrationTrialStore.captureBaseline(level, world, ready);
-        SignalCalibrationTrialRecord candidate = SignalCalibrationTrialStore.captureCandidate(level, world, 40, ready).orElse(null);
+        SignalCalibrationTrialRecord candidate = SignalCalibrationTrialStore.captureCandidate(level, world, ready).orElse(null);
         if (baseline == null || candidate == null || SignalCalibrationTrialStore.comparison(level, world).isEmpty()) {
             helper.fail("Ready baseline/candidate evidence should produce a fixed comparison", KEY);
             return;
