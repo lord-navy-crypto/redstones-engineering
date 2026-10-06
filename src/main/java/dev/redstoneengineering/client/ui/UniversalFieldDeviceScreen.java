@@ -74,7 +74,10 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE
                 || kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE
                 || kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR
-                || kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY;
+                || kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY
+                || kind == UniversalFieldDeviceMenu.CONFIG_THERMAL_MASS
+                || kind == UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER
+                || kind == UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR;
         boolean secondary = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE
                 || kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE
                 || kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR;
@@ -85,7 +88,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_SEQUENCE_CONTROLLER
                 || kind == UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK
                 || kind == UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER
-                || kind == UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE;
+                || kind == UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE
+                || kind == UniversalFieldDeviceMenu.CONFIG_IRON_CORE;
         boolean hasToggle = kind == UniversalFieldDeviceMenu.CONFIG_PWM;
 
         if (primaryPrevious != null) primaryPrevious.visible = configure && primary;
@@ -113,6 +117,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             else if (kind == UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK) action.setMessage(Component.literal("Reset diagnostic counters"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER) action.setMessage(Component.literal("Reset scan counters"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE) action.setMessage(Component.literal("Reset fuse latch • re-evaluate next tick"));
+            else if (kind == UniversalFieldDeviceMenu.CONFIG_IRON_CORE) action.setMessage(Component.literal("Demagnetize core"));
         }
         if (toggle != null) {
             toggle.visible = configure && hasToggle;
@@ -160,7 +165,9 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         int kind = menu.pioneerProcessKind();
         PortQuality evidence = menu.pioneerProcessEvidenceQuality();
         statusBadge(g, title.getString().toUpperCase(), qualityColor(evidence), 16, 80);
-        statusBadge(g, kind >= UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_NOISE
+        statusBadge(g, kind >= UniversalFieldDeviceMenu.PIONEER_PROCESS_IRON_CORE
+                ? "PIONEER WAVE 17 • MATERIAL / STORAGE / THERMAL"
+                : kind >= UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_NOISE
                 ? "PIONEER WAVE 16 • ACTIVE SOURCE / TIMING"
                 : kind >= UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_WIRE
                 ? "PIONEER WAVE 15 • COPPER ELECTRICAL"
@@ -300,6 +307,59 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 variableRole(g, "PROFILE", "gain", Integer.toString(menu.pioneerProcessQuinary()), "index", 201);
                 variableRole(g, "DERIVED", "y_R", Integer.toString(menu.pioneerProcessSenary()), "redstone", 217);
             }
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_IRON_CORE -> {
+                variableRole(g, "MEASURED", "B_applied", Integer.toString(menu.pioneerProcessPrimary()), "B-index", 137);
+                variableRole(g, "PROFILE", "B_threshold", Integer.toString(menu.pioneerProcessSecondary()), "B-index", 153);
+                variableRole(g, "PROFILE", "scan radius", Integer.toString(menu.pioneerProcessTertiary()), "blocks", 169);
+                variableRole(g, "STATE", "remanence", menu.pioneerProcessQuaternary()!=0 ? "MAGNETIZED" : "SOFT", "", 185);
+                variableRole(g, "EVIDENCE", "coverage", menu.pioneerProcessQuinary()!=0 ? "COMPLETE" : "INCOMPLETE", "", 201);
+            }
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_MASS -> {
+                variableRole(g, "STATE", "T", Integer.toString(menu.pioneerProcessPrimary()), "T-index", 137);
+                variableRole(g, "MEASURED", "T_env", Integer.toString(menu.pioneerProcessSecondary()), "T-index", 153);
+                variableRole(g, "MEASURED", "T_neighbor", Integer.toString(menu.pioneerProcessTertiary()), "T-index", 169);
+                variableRole(g, "SOLVER", "T_target", Integer.toString(menu.pioneerProcessQuaternary()), "T-index", 185);
+                variableRole(g, "ADJUSTABLE", "C_index", Integer.toString(menu.pioneerProcessQuinary()), "1..4", 201);
+                variableRole(g, "DERIVED", "ΔT_max", Integer.toString(menu.pioneerProcessSenary()), "index/tick", 217);
+            }
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_HEATER -> {
+                variableRole(g, "MEASURED", "V", Integer.toString(menu.pioneerProcessPrimary()), "V-eq", 137);
+                variableRole(g, "ADJUSTABLE", "R", Integer.toString(menu.pioneerProcessSecondary()), "R-eq", 153);
+                variableRole(g, "DERIVED", "I", String.format(java.util.Locale.ROOT, "%.3f", menu.pioneerProcessTertiary()/1000.0), "I-eq", 169);
+                variableRole(g, "DERIVED", "P", String.format(java.util.Locale.ROOT, "%.3f", menu.pioneerProcessQuaternary()/1000.0), "P-eq", 185);
+                variableRole(g, "STATE", "T", Integer.toString(menu.pioneerProcessQuinary()), "T-index", 201);
+                variableRole(g, "SOLVER", "T_target", Integer.toString(menu.pioneerProcessSenary()), "T-index", 217);
+            }
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_RADIATOR -> {
+                variableRole(g, "ADJUSTABLE", "k_cool", Integer.toString(menu.pioneerProcessPrimary()), "index/tick", 137);
+                variableRole(g, "MEASURED", "N_mass", Integer.toString(menu.pioneerProcessSecondary()), "bodies", 153);
+                variableRole(g, "MEASURED", "T_avg", Integer.toString(menu.pioneerProcessTertiary()), "T-index", 169);
+                variableRole(g, "MEASURED", "T_hot", Integer.toString(menu.pioneerProcessQuaternary()), "T-index", 185);
+                variableRole(g, "PROFILE", "T_floor", Integer.toString(menu.pioneerProcessQuinary()), "T-index", 201);
+                variableRole(g, "PROFILE", "Δt", Integer.toString(menu.pioneerProcessSenary()), "ticks", 217);
+            }
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_CALORIMETER -> {
+                variableRole(g, "MEASURED", "T", Integer.toString(menu.pioneerProcessPrimary()), "T-index", 137);
+                variableRole(g, "MEASURED", "ΔT_20t", String.format(java.util.Locale.ROOT, "%+d", menu.pioneerProcessSecondary()), "T-index", 153);
+                variableRole(g, "MEASURED", "C_sum", Integer.toString(menu.pioneerProcessTertiary()), "capacity index", 169);
+                variableRole(g, "DERIVED", "C·ΔT", String.format(java.util.Locale.ROOT, "%+d", menu.pioneerProcessQuaternary()), "relative heat", 185);
+                variableRole(g, "EVIDENCE", "bodies", Integer.toString(menu.pioneerProcessQuinary()), "count", 201);
+                variableRole(g, "EVIDENCE", "history", menu.pioneerProcessSenary()!=0 ? "INITIALIZED" : "NOT_READY", "", 217);
+            }
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_CONDUIT -> {
+                variableRole(g, "STATE", "J", Integer.toString(menu.pioneerProcessPrimary()), "flux", 137);
+                variableRole(g, "EVIDENCE", "age", menu.pioneerProcessSecondary()<0 ? "NONE" : Integer.toString(menu.pioneerProcessSecondary()), "ticks", 153);
+                variableRole(g, "EVIDENCE", "quality", Integer.toString(menu.pioneerProcessTertiary()), "%", 169);
+                variableRole(g, "PROFILE", "decay period", Integer.toString(menu.pioneerProcessQuaternary()), "ticks", 185);
+                variableRole(g, "TOPOLOGY", "ports", Integer.toString(menu.pioneerProcessQuinary()), "faces", 201);
+            }
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_RESERVOIR -> {
+                variableRole(g, "STATE", "Q_s", Integer.toString(menu.pioneerProcessPrimary()), "flux", 137);
+                variableRole(g, "EVIDENCE", "age", menu.pioneerProcessSecondary()<0 ? "NONE" : Integer.toString(menu.pioneerProcessSecondary()), "ticks", 153);
+                variableRole(g, "EVIDENCE", "quality", Integer.toString(menu.pioneerProcessTertiary()), "%", 169);
+                variableRole(g, "PROFILE", "decay period", Integer.toString(menu.pioneerProcessQuaternary()), "ticks", 185);
+                variableRole(g, "TOPOLOGY", "ports", Integer.toString(menu.pioneerProcessQuinary()), "faces", 201);
+            }
             default -> { }
         }
 
@@ -351,6 +411,20 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                     "MODEL (fictional): y_R=floor(15·Q_s/100) only when Soul measurement quality is VALID";
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_MOLECULAR_RECEIVER ->
                     "MODEL: c_raw=clamp(round(g·Σ r_cloud/(1+d²)),0,15); c_filt approaches c_raw by 1 every 5 ticks";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_IRON_CORE ->
+                    "MODEL: complete radius-2 scan ∧ B_applied≥8 ⇒ MAGNETIZED; remanence persists until explicit demagnetize";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_MASS ->
+                    "MODEL: T_target=floor((2·T_env+T_neighbor)/3); T←approach(T,T_target,max(1,5-C)); Δt=5C ticks";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_HEATER ->
+                    "MODEL: P=V²/R; T_target=clamp(20+round(P/3),20,100); T←approach(T,T_target,3) every 2 ticks";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_RADIATOR ->
+                    "MODEL: every 10 ticks each adjacent mass T>20 ⇒ T←max(20,T-k_cool)";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_CALORIMETER ->
+                    "MODEL: T=mean(adjacent thermal masses); ΔT_20t=T[n]-T[n-1]; relative heat=C_sum·ΔT";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_CONDUIT ->
+                    "MODEL (fictional): transient Soul Flux J decays by 1 each 20 ticks; zero/absent conduit flux is NO_SIGNAL";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_RESERVOIR ->
+                    "MODEL (fictional): stored Q_s decays by 1 each 40 ticks; initialized empty Q_s=0 remains VALID storage state";
             default -> "MODEL: server-authoritative signal transformation";
         };
     }
@@ -399,6 +473,20 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                     "The meter is observer/converter only. A present zero-charge node is distinct from NO_SIGNAL/STALE evidence, and invalid Soul evidence forces redstone output to zero.";
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_MOLECULAR_RECEIVER ->
                     "The UP free-space aperture is fixed at the implemented radius. Incomplete chunk coverage is STALE and retains the last filtered value; sensitivity changes only the implemented gain.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_IRON_CORE ->
+                    "The core models bounded hysteresis/remanence, not a full B-H curve. Only complete applied-field coverage can magnetize it; inspection never changes state, while Demagnetize is an explicit server action.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_MASS ->
+                    "This is the existing coarse lumped thermal model. Capacity changes both the maximum temperature step and update cadence; temperature remains world state rather than a wire signal.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_HEATER ->
+                    "The heater converts an authoritative Copper terminal observation into bounded thermal state using the existing reduced P=V²/R rule. Invalid electrical evidence contributes zero drive.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_RADIATOR ->
+                    "The radiator is passive: it only reduces adjacent Thermal Mass temperatures above the ambient floor. It never refrigerates a body below the model ambient.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_CALORIMETER ->
+                    "The calorimeter is observer-only. History is retained by the server every 20 ticks; opening the HMI neither samples a new interval nor mutates neighboring thermal bodies.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_CONDUIT ->
+                    "Soul Flux is explicitly Minecraft-fictional. Conduit charge is transient transport state, so decayed/absent zero is NO_SIGNAL rather than a stored zero measurement.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_RESERVOIR ->
+                    "Soul Flux is explicitly Minecraft-fictional. Reservoir zero is a known empty storage state after initialization and therefore remains VALID, unlike absent transient conduit flux.";
             default -> "Server-authoritative process evidence.";
         };
     }
@@ -708,6 +796,31 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Range / step / default", "1..16 / 1 / 2 ticks", 141);
                 safeText(g, "Changing D clears pending/output state; only a later real rising edge can schedule a pulse.", 16, 178, MUTED);
             }
+            case UniversalFieldDeviceMenu.CONFIG_IRON_CORE -> {
+                statusBadge(g, menu.configPrimary()!=0 ? "IRON CORE • REMANENT" : "IRON CORE • SOFT", menu.configPrimary()!=0 ? WARN : INFO, 16, 80);
+                labelValue(g, "Magnetization", menu.configPrimary()!=0 ? "MAGNETIZED" : "SOFT", 101);
+                labelValue(g, "Threshold / radius", menu.pioneerProcessSecondary()+" / "+menu.pioneerProcessTertiary()+" blocks", 141);
+                safeText(g, "Demagnetize is explicit; a complete strong external-field scan may magnetize the core again.", 16, 178, MUTED);
+            }
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_MASS -> {
+                statusBadge(g, "THERMAL MASS CONTROL", INFO, 16, 80);
+                labelValue(g, "Capacity index C", Integer.toString(menu.configPrimary()), 101);
+                labelValue(g, "Range / step / default", "1..4 / 1 / 2", 141);
+                labelValue(g, "Current max step", menu.pioneerProcessSenary()+" T-index", 159);
+                safeText(g, "C also sets the server update cadence to 5C ticks.", 16, 190, MUTED);
+            }
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER -> {
+                statusBadge(g, "THERMAL HEATER CONTROL", INFO, 16, 80);
+                labelValue(g, "Resistance R", menu.pioneerProcessSecondary()+" R-eq", 101);
+                labelValue(g, "Profiles / default", "1 / 2 / 4 / 8 • default 2", 141);
+                safeText(g, "Changing R recomputes the Copper boundary and thermal target on the server.", 16, 178, MUTED);
+            }
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR -> {
+                statusBadge(g, "PASSIVE RADIATOR CONTROL", INFO, 16, 80);
+                labelValue(g, "Cooling coefficient", Integer.toString(menu.configPrimary()), 101);
+                labelValue(g, "Range / step / default", "1..4 / 1 / 2", 141);
+                safeText(g, "Cooling remains bounded by the ambient floor; this control cannot create active refrigeration.", 16, 178, MUTED);
+            }
             default -> {
                 boolean rotatable = menu.rotatableSeriesAxis();
                 statusBadge(g, lapisPrecisionMeasurementPresent() ? "PRECISION OBSERVER • NO PROCESS PARAMETER" : "NO UNIVERSAL PARAMETERS",
@@ -745,6 +858,10 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE -> "MODEL: deterministic bounded source; baseline and noise bound are real server parameters";
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> "MODEL: nominal period + bounded scheduling jitter; realized interval is retained evidence";
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY -> "MODEL: post-init rising-edge delay; configuration change invalidates pending runtime";
+            case UniversalFieldDeviceMenu.CONFIG_IRON_CORE -> "STATE: bounded remanence; explicit demagnetize does not bypass future applied-field evaluation";
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_MASS -> "MODEL: capacity controls bounded step size and update cadence in the lumped thermal state";
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER -> "MODEL: resistance selects the existing Copper→thermal P=V²/R response";
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR -> "MODEL: passive sink cools only above the ambient floor";
             default -> "CONTRACT: expose real ports/evidence only; no hidden universal physics";
         };
     }
