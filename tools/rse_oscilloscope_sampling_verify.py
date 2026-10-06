@@ -60,6 +60,11 @@ for token in (
 for token in (
     'SAMPLING("Sampling")',
     "mouseScrolled",
+    "mouseClicked",
+    "mouseDragged",
+    "mouseReleased",
+    "beginScrollbarDrag",
+    "dragScrollbarTo",
     "hasShiftDown()",
     "enableScissor",
     "Δt = N_ticks / 20 s",
@@ -114,7 +119,7 @@ print(" timebase change invalidates mixed-dt capture: PASS")
 print(" observed period/frequency evidence: PASS")
 print(" alias-margin evidence classification: PASS")
 print(" spacious two-axis formula-first Sampling HMI: PASS")
-print(" visible scrollbars + non-compressed waveform canvas: PASS")
+print(" draggable visible scrollbars + non-compressed waveform canvas: PASS")
 print(" fixed sampling/trigger controls remain outside server model ownership: PASS")
 print(" client/no-second-solver boundary: PASS")
 print(" authoritative sampling GameTest source: PASS")
