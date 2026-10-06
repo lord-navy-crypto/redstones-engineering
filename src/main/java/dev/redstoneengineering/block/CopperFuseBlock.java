@@ -186,6 +186,10 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
         return true;
     }
 
+    /**
+     * Clears only the persisted latch request. READY only after a safe server re-evaluation;
+     * this action never promotes the protected output by itself.
+     */
     public boolean resetTrip(Level level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
         if (!state.is(this)) return false;
