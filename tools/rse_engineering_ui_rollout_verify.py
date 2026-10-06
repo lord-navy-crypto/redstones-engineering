@@ -31,6 +31,12 @@ for token in (
     "MAX_WORKSPACE_HEIGHT = 520",
     "DEFAULT_CANVAS_WIDTH = 1020",
     "DEFAULT_CANVAS_HEIGHT = 980",
+    "FOOTER_HEIGHT = 66",
+    "renderPersistentLiveStateStrip",
+    "LIVE STATE • HEALTH ",
+    "I/O • ",
+    "menu.portRouteLabel()",
+    "configureControlCount()",
     "mouseScrolled",
     "hasShiftDown()",
     "enableScissor",
@@ -144,6 +150,7 @@ print(" responsive large workspace: PASS")
 print(" visible draggable vertical/horizontal deep-canvas scrolling: PASS")
 print(" fixed controls separated from scrollable engineering content: PASS")
 print(" formula-linked controls surfaced in Universal / Enhanced / PID HMIs: PASS")
+print(" persistent Health / Role / Evidence / I-O / Controls state strip: PASS")
 print(" shared formula / variable / evidence primitives: PASS")
 print(" conditioner / quartz / conversion / range-sensor rollout: PASS")
 print(" client/no-second-physics-solver boundary: PASS")
