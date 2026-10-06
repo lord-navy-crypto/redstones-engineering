@@ -3,6 +3,7 @@ package dev.redstoneengineering.client.ui;
 import dev.redstoneengineering.ui.menu.QuartzTimingMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
@@ -11,6 +12,8 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
     private Button parameterPrevious;
     private Button parameterNext;
     private Button reset;
+    private EditBox parameterInput;
+    private Button parameterApply;
 
     public QuartzTimingScreen(QuartzTimingMenu menu, Inventory inventory, Component title) { super(menu, inventory, title); }
 
@@ -19,6 +22,10 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
         parameterPrevious = addConfigureWidget(Button.builder(Component.literal("◀ Parameter"), b -> sendMenuButton(QuartzTimingMenu.BUTTON_PARAMETER_PREVIOUS)).bounds(leftPos + 16, y, 110, 20).build());
         parameterNext = addConfigureWidget(Button.builder(Component.literal("Parameter ▶"), b -> sendMenuButton(QuartzTimingMenu.BUTTON_PARAMETER_NEXT)).bounds(leftPos + 194, y, 110, 20).build());
         reset = addConfigureWidget(Button.builder(Component.literal("Reset measurement"), b -> sendMenuButton(QuartzTimingMenu.BUTTON_RESET_MEASUREMENT)).bounds(leftPos + 70, y, 180, 20).build());
+        parameterInput = addConfigureWidget(new EditBox(this.font,leftPos+16,y,110,20,Component.literal("Exact timing value")));
+        parameterInput.setMaxLength(2);
+        parameterInput.setFilter(v->v.isEmpty()||v.chars().allMatch(Character::isDigit));
+        parameterApply = addConfigureWidget(Button.builder(Component.literal("Apply"),b->submitParameter()).bounds(leftPos+194,y,110,20).build());
     }
 
     @Override protected void syncDeviceWidgetLabels() {
@@ -29,8 +36,23 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
         boolean configure = isConfigureSection();
         parameterPrevious.active = oscillator || divider;
         parameterNext.active = oscillator || divider;
-        parameterPrevious.visible = configure && (oscillator || divider);
-        parameterNext.visible = configure && (oscillator || divider);
+        parameterPrevious.visible = false;
+        parameterNext.visible = false;
+        boolean direct = configure && (oscillator || divider);
+        if(parameterInput!=null){
+            parameterInput.visible=direct;
+            parameterInput.active=direct;
+            if(direct&&!parameterInput.isFocused()){
+                int current=oscillator?menu.secondary():menu.tertiary();
+                String expected=Integer.toString(current);
+                if(!expected.equals(parameterInput.getValue()))parameterInput.setValue(expected);
+            }
+        }
+        if(parameterApply!=null){
+            parameterApply.visible=direct;
+            parameterApply.active=direct&&parameterValid();
+            parameterApply.setMessage(Component.literal(oscillator?"Apply T":"Apply N"));
+        }
         reset.active = stability;
         reset.visible = configure && stability;
         if (oscillator) {
@@ -40,6 +62,22 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
             parameterPrevious.setMessage(Component.literal("◀ ÷" + menu.tertiary()));
             parameterNext.setMessage(Component.literal("÷" + menu.tertiary() + " ▶"));
         } else reset.setMessage(Component.literal("Reset measurement"));
+    }
+
+    private boolean parameterValid(){
+        if(parameterInput==null||parameterInput.getValue().isEmpty())return false;
+        try{
+            int value=Integer.parseInt(parameterInput.getValue());
+            if(menu.kind()==QuartzTimingMenu.KIND_OSCILLATOR)
+                return value==2||value==4||value==8||value==16||value==32;
+            return menu.kind()==QuartzTimingMenu.KIND_DIVIDER&&(value==2||value==4||value==8||value==16);
+        }catch(NumberFormatException ignored){return false;}
+    }
+
+    private void submitParameter(){
+        if(!parameterValid())return;
+        sendMenuButton(QuartzTimingMenu.BUTTON_PARAMETER_DIRECT_BASE+Integer.parseInt(parameterInput.getValue()));
+        parameterInput.setFocused(false);
     }
 
     @Override protected void renderSection(GuiGraphics graphics, Section section) {
@@ -93,12 +131,14 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
         formulaCard(g, timingEquation(), 105);
         if (menu.kind() == QuartzTimingMenu.KIND_OSCILLATOR) {
             variableRole(g, "ADJUSTABLE", "T", menu.secondary() + "", "ticks", 134);
+            variableRole(g, "CONTROL", "direct entry", "T={2,4,8,16,32}", "ticks", 152);
             variableRole(g, "DERIVED", "f_nom", String.format(java.util.Locale.ROOT, "%.3f", 20.0 / Math.max(1, menu.secondary())), "Hz @20TPS", 152);
             variableRole(g, "SOLVER", "state", menu.primary() == 1 ? "HIGH" : "LOW", "", 170);
             variableRole(g, "TOPOLOGY", "OUT", "N/E/S/W", "Quartz source", 188);
         } else if (menu.kind() == QuartzTimingMenu.KIND_DIVIDER) {
             variableRole(g, "MEASURED", "T_in", menu.primary() + "", "ticks", 134);
             variableRole(g, "ADJUSTABLE", "N", Integer.toString(menu.tertiary()), "division", 152);
+            variableRole(g, "CONTROL", "direct entry", "N={2,4,8,16}", "exact divisor", 170);
             variableRole(g, "DERIVED", "T_out", menu.secondary() + "", "ticks", 170);
             variableRole(g, "EVIDENCE", "expected", expectedDividerPeriod() + "", "ticks", 188);
             variableRole(g, "EVIDENCE", "period limit", dividerSaturated() ? "SATURATED @4096" : "IN RANGE", "server clamp", 206);
