@@ -5,6 +5,7 @@ import dev.redstoneengineering.ui.menu.ReliabilitySystemMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
@@ -12,6 +13,8 @@ import net.minecraft.world.entity.player.Inventory;
 /** Dedicated reliability HMI for watchdog, servo, feedback sensor, voter and fault latch. */
 public final class ReliabilitySystemScreen extends EngineeringScreen<ReliabilitySystemMenu> {
     private Button parameterPrevious, parameterNext, maintenanceAction;
+    private EditBox parameterInput;
+    private Button parameterApply;
     private EditBox parameterInput;
     private Button parameterApply;
 
@@ -28,6 +31,10 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
         parameterInput.setFilter(value->value.isEmpty()||value.chars().allMatch(Character::isDigit));
         parameterApply = addConfigureWidget(Button.builder(Component.literal("Apply parameter"), b -> submitParameter()).bounds(leftPos+199,y,105,20).build());
         maintenanceAction = addConfigureWidget(Button.builder(Component.literal("Maintenance action"), b -> sendMenuButton(ReliabilitySystemMenu.BUTTON_ACTION)).bounds(leftPos+38,topPos+imageHeight-64,244,20).build());
+        parameterInput = addConfigureWidget(new EditBox(this.font,leftPos+16,y,105,20,Component.literal("Exact reliability parameter")));
+        parameterInput.setMaxLength(3);
+        parameterInput.setFilter(v->v.isEmpty()||v.chars().allMatch(Character::isDigit));
+        parameterApply = addConfigureWidget(Button.builder(Component.literal("Apply"),b->submitParameter()).bounds(leftPos+199,y,105,20).build());
     }
 
     @Override protected void syncDeviceWidgetLabels() {
@@ -107,6 +114,46 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
             case ReliabilitySystemMenu.KIND_FAULT_LATCH -> "{1,4,8,12} redstone";
             default -> "read only";
         };
+    }
+
+    private int currentParameterValue(){
+        return switch(menu.kind()){
+            case ReliabilitySystemMenu.KIND_WATCHDOG -> menu.secondary();
+            case ReliabilitySystemMenu.KIND_SERVO -> menu.extraC();
+            case ReliabilitySystemMenu.KIND_VOTER -> menu.auxiliary();
+            case ReliabilitySystemMenu.KIND_FAULT_LATCH -> menu.secondary();
+            default -> 0;
+        };
+    }
+
+    private String parameterSymbol(){
+        return switch(menu.kind()){
+            case ReliabilitySystemMenu.KIND_WATCHDOG -> "timeout";
+            case ReliabilitySystemMenu.KIND_SERVO -> "slew";
+            case ReliabilitySystemMenu.KIND_VOTER -> "tol";
+            case ReliabilitySystemMenu.KIND_FAULT_LATCH -> "T_fault";
+            default -> "parameter";
+        };
+    }
+
+    private boolean parameterValid(){
+        if(parameterInput==null||parameterInput.getValue().isEmpty())return false;
+        try{
+            int value=Integer.parseInt(parameterInput.getValue());
+            return switch(menu.kind()){
+                case ReliabilitySystemMenu.KIND_WATCHDOG -> value==20||value==40||value==80||value==160;
+                case ReliabilitySystemMenu.KIND_SERVO -> value>=1&&value<=3;
+                case ReliabilitySystemMenu.KIND_VOTER -> value==0||value==1||value==2||value==4;
+                case ReliabilitySystemMenu.KIND_FAULT_LATCH -> value==1||value==4||value==8||value==12;
+                default -> false;
+            };
+        }catch(NumberFormatException ignored){return false;}
+    }
+
+    private void submitParameter(){
+        if(!parameterValid())return;
+        sendMenuButton(ReliabilitySystemMenu.BUTTON_PARAMETER_DIRECT_BASE+Integer.parseInt(parameterInput.getValue()));
+        parameterInput.setFocused(false);
     }
 
     @Override protected void renderSection(GuiGraphics g, Section section) {
@@ -239,6 +286,14 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
             default -> "feedback = measured mechanical state → Redstone";
         };
     }
+
+    private String parameterRangeText(){return switch(menu.kind()){
+        case ReliabilitySystemMenu.KIND_WATCHDOG -> "{20,40,80,160} ticks";
+        case ReliabilitySystemMenu.KIND_SERVO -> "slew 1..3";
+        case ReliabilitySystemMenu.KIND_VOTER -> "tol {0,1,2,4}";
+        case ReliabilitySystemMenu.KIND_FAULT_LATCH -> "T_fault {1,4,8,12}";
+        default -> "read only";
+    };}
 
     private String parameterText(){return switch(menu.kind()){case ReliabilitySystemMenu.KIND_WATCHDOG->"TIMEOUT "+menu.secondary()+"t";case ReliabilitySystemMenu.KIND_SERVO->"SLEW STEP "+menu.extraC();case ReliabilitySystemMenu.KIND_VOTER->"TOLERANCE "+menu.auxiliary();case ReliabilitySystemMenu.KIND_FAULT_LATCH->"THRESHOLD "+menu.secondary();default->"READ ONLY";};}
     private String maintenanceActionText(){return switch(menu.kind()){case ReliabilitySystemMenu.KIND_WATCHDOG->"Reset watchdog diagnostics";case ReliabilitySystemMenu.KIND_SERVO->"Home / reset trajectory";case ReliabilitySystemMenu.KIND_POSITION_SENSOR->"Reset position metrology";case ReliabilitySystemMenu.KIND_VOTER->"Reset voter diagnostics";default->"Manual reset latch";};}
