@@ -96,7 +96,7 @@ require("src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java",
 
 require("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
         "{6, 9, 12, 16} gain", "{8, 16, 32, 64} blocks",
-        "Cycle " + primaryName, "primaryPrevious.visible = false",
+        '"Cycle " + primaryName', "primaryPrevious.visible = false",
         "secondaryPrevious.visible = false")
 require("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
         "MolecularCloudReceiverBlock.SENSITIVITY",
