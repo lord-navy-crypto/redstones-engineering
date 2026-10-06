@@ -45,31 +45,21 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
 
         int tuningY = topPos + 98;
         addConfigureWidget(Button.builder(
-                Component.literal("◀ Tuning preset"),
-                button -> sendMenuButton(PidControllerMenu.BUTTON_TUNING_PREVIOUS)
-        ).bounds(pairX, tuningY, pairWidth, 20).build());
-        addConfigureWidget(Button.builder(
-                Component.literal("Tuning preset ▶"),
+                Component.literal("Cycle tuning preset ▶"),
                 button -> sendMenuButton(PidControllerMenu.BUTTON_TUNING_NEXT)
-        ).bounds(pairX + pairWidth + pairGap, tuningY, pairWidth, 20).build());
+        ).bounds(leftPos + (imageWidth - Math.min(320, pairTotal)) / 2, tuningY, Math.min(320, pairTotal), 20).build());
 
         int routeY = topPos + 128;
-        int routeGap = 8;
-        int routeWidth = Math.min(110, Math.max(72, (imageWidth - 88 - routeGap * 3) / 4));
-        int routeTotal = routeWidth * 4 + routeGap * 3;
+        int routeGap = 12;
+        int routeWidth = Math.min(190, Math.max(132, (imageWidth - 72 - routeGap) / 2));
+        int routeTotal = routeWidth * 2 + routeGap;
         int routeX = leftPos + (imageWidth - routeTotal) / 2;
-        addConfigureWidget(Button.builder(Component.literal("RX ▲"),
-                button -> sendMenuButton(PidControllerMenu.BUTTON_INPUT_PREVIOUS))
-                .bounds(routeX, routeY, routeWidth, 20).build());
-        addConfigureWidget(Button.builder(Component.literal("RX ▼"),
+        addConfigureWidget(Button.builder(Component.literal("Cycle RX ▶"),
                 button -> sendMenuButton(PidControllerMenu.BUTTON_INPUT_NEXT))
-                .bounds(routeX + routeWidth + routeGap, routeY, routeWidth, 20).build());
-        addConfigureWidget(Button.builder(Component.literal("TX ▲"),
-                button -> sendMenuButton(PidControllerMenu.BUTTON_OUTPUT_PREVIOUS))
-                .bounds(routeX + (routeWidth + routeGap) * 2, routeY, routeWidth, 20).build());
-        addConfigureWidget(Button.builder(Component.literal("TX ▼"),
+                .bounds(routeX, routeY, routeWidth, 20).build());
+        addConfigureWidget(Button.builder(Component.literal("Cycle TX ▶"),
                 button -> sendMenuButton(PidControllerMenu.BUTTON_OUTPUT_NEXT))
-                .bounds(routeX + (routeWidth + routeGap) * 3, routeY, routeWidth, 20).build());
+                .bounds(routeX + routeWidth + routeGap, routeY, routeWidth, 20).build());
 
         int acceptanceY = topPos + 158;
         addConfigureWidget(Button.builder(Component.literal("Capture acceptance"),
