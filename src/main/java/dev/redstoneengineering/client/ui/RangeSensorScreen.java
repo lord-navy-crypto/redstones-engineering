@@ -3,6 +3,7 @@ package dev.redstoneengineering.client.ui;
 import dev.redstoneengineering.ui.menu.RangeSensorMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
@@ -14,6 +15,8 @@ public final class RangeSensorScreen extends EngineeringScreen<RangeSensorMenu> 
     private Button rangeNext;
     private Button responsePrevious;
     private Button responseNext;
+    private EditBox rangeInput;
+    private Button rangeApply;
 
     public RangeSensorScreen(RangeSensorMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -31,6 +34,11 @@ public final class RangeSensorScreen extends EngineeringScreen<RangeSensorMenu> 
                 b -> sendMenuButton(RangeSensorMenu.BUTTON_RANGE_PREVIOUS)).bounds(leftPos + 16, y + 25, 70, 20).build());
         rangeNext = addConfigureWidget(Button.builder(Component.literal("Range ▶"),
                 b -> sendMenuButton(RangeSensorMenu.BUTTON_RANGE_NEXT)).bounds(leftPos + 234, y + 25, 70, 20).build());
+        rangeInput = addConfigureWidget(new EditBox(this.font,leftPos+92,y+25,92,20,Component.literal("R blocks")));
+        rangeInput.setMaxLength(2);
+        rangeInput.setFilter(v->v.isEmpty()||v.chars().allMatch(Character::isDigit));
+        rangeApply = addConfigureWidget(Button.builder(Component.literal("Apply R"),
+                b -> submitRange()).bounds(leftPos+190,y+25,80,20).build());
 
         responsePrevious = addConfigureWidget(Button.builder(Component.literal("◀ Response"),
                 b -> sendMenuButton(RangeSensorMenu.BUTTON_RESPONSE_PREVIOUS)).bounds(leftPos + 16, y + 50, 82, 20).build());
@@ -41,12 +49,36 @@ public final class RangeSensorScreen extends EngineeringScreen<RangeSensorMenu> 
     @Override
     protected void syncDeviceWidgetLabels() {
         if (modePrevious == null) return;
-        modePrevious.setMessage(Component.literal("◀ " + detectModeName()));
-        modeNext.setMessage(Component.literal(detectModeName() + " ▶"));
-        rangePrevious.setMessage(Component.literal("◀ " + menu.configuredRange()));
-        rangeNext.setMessage(Component.literal(menu.configuredRange() + " ▶"));
-        responsePrevious.setMessage(Component.literal("◀ " + responseName()));
-        responseNext.setMessage(Component.literal(responseName() + " ▶"));
+        boolean configure=isConfigureSection();
+        modePrevious.visible=configure;
+        modeNext.visible=false;
+        modePrevious.setMessage(Component.literal("Cycle detect • "+detectModeName()+" ▶"));
+        rangePrevious.visible=false;
+        rangeNext.visible=false;
+        rangeInput.visible=rangeInput.active=configure;
+        rangeApply.visible=configure;
+        rangeApply.active=configure&&rangeInputValid();
+        if(configure&&!rangeInput.isFocused()){
+            String expected=Integer.toString(menu.configuredRange());
+            if(!expected.equals(rangeInput.getValue()))rangeInput.setValue(expected);
+        }
+        responsePrevious.visible=configure;
+        responseNext.visible=false;
+        responsePrevious.setMessage(Component.literal("Cycle response • "+responseName()+" ▶"));
+    }
+
+    private boolean rangeInputValid(){
+        if(rangeInput==null||rangeInput.getValue().isEmpty())return false;
+        try{
+            int value=Integer.parseInt(rangeInput.getValue());
+            return value==4||value==8||value==15;
+        }catch(NumberFormatException ignored){return false;}
+    }
+
+    private void submitRange(){
+        if(!rangeInputValid())return;
+        sendMenuButton(RangeSensorMenu.BUTTON_RANGE_DIRECT_BASE+Integer.parseInt(rangeInput.getValue()));
+        rangeInput.setFocused(false);
     }
 
     @Override
@@ -92,7 +124,7 @@ public final class RangeSensorScreen extends EngineeringScreen<RangeSensorMenu> 
         statusBadge(g, "FORMULA-FIRST SENSOR RESPONSE", INFO, 16, 80);
         formulaCard(g, responseEquation(), 105);
         variableRole(g, "MEASURED", "d", menu.distance() + "", "blocks", 134);
-        variableRole(g, "ADJUSTABLE", "R", menu.configuredRange() + "", "blocks", 152);
+        variableRole(g, "ADJUSTABLE", "R", menu.configuredRange() + "", "{4,8,15} blocks • direct entry", 152);
         variableRole(g, "ADJUSTABLE", "mode", responseName(), "", 170);
         variableRole(g, "DERIVED", "y", menu.output() + " / 15", "Redstone", 188);
         variableRole(g, "EVIDENCE", "scan", scanStatusName() + " • " + menu.scannedCells() + "/" + menu.configuredRange(), "", 206);
