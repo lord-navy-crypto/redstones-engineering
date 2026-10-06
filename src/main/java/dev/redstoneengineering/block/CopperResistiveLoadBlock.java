@@ -13,6 +13,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -22,6 +23,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 
 import java.util.Arrays;
 import java.util.List;
@@ -112,16 +114,30 @@ public class CopperResistiveLoadBlock extends DomainBlock implements Engineering
         }
     }
 
+    public boolean adjustResistance(Level level, BlockPos pos, int delta) {
+        BlockState state = level.getBlockState(pos);
+        if (!state.is(this)) return false;
+        int resistance = state.getValue(RESISTANCE);
+        int nextResistance = Math.floorMod((resistance - 1) + delta, 15) + 1;
+        BlockState next = state.setValue(RESISTANCE, nextResistance);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel serverLevel) CopperNetworkSupport.recomputeAround(serverLevel, pos);
+        level.scheduleTick(pos, this, 1);
+        return true;
+    }
+
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
+            if (player.isShiftKeyDown() && hit.getDirection().getAxis().isVertical()
+                    && player instanceof ServerPlayer serverPlayer) {
+                FieldDeviceUi.openUniversal(serverPlayer, pos);
+                return InteractionResult.sidedSuccess(false);
+            }
             BlockState next = state;
             if (!player.isShiftKeyDown()) {
-                int resistance = state.getValue(RESISTANCE);
-                next = state.setValue(RESISTANCE, resistance >= 15 ? 1 : resistance + 1);
-                level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-                if (level instanceof ServerLevel serverLevel) CopperNetworkSupport.recomputeAround(serverLevel, pos);
-                level.scheduleTick(pos, this, 1);
+                adjustResistance(level, pos, 1);
+                next = level.getBlockState(pos);
             }
             CopperNetworkSupport.TerminalInput terminal = CopperNetworkSupport.terminalInput(level, pos);
             double voltage = terminal.voltage();
