@@ -71,8 +71,13 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD
                 || kind == UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR
                 || kind == UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR
-                || kind == UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE;
-        boolean range = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE;
+                || kind == UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE
+                || kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE
+                || kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR
+                || kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY;
+        boolean secondary = kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE
+                || kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE
+                || kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR;
         boolean hasAction = kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER
                 || kind == UniversalFieldDeviceMenu.CONFIG_ALARM
                 || kind == UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD
@@ -85,8 +90,18 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
 
         if (primaryPrevious != null) primaryPrevious.visible = configure && primary;
         if (primaryNext != null) primaryNext.visible = configure && primary;
-        if (secondaryPrevious != null) secondaryPrevious.visible = configure && range;
-        if (secondaryNext != null) secondaryNext.visible = configure && range;
+        if (secondaryPrevious != null) {
+            secondaryPrevious.visible = configure && secondary;
+            if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE) secondaryPrevious.setMessage(Component.literal("◀ Noise"));
+            else if (kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR) secondaryPrevious.setMessage(Component.literal("◀ Jitter"));
+            else secondaryPrevious.setMessage(Component.literal("◀ Range"));
+        }
+        if (secondaryNext != null) {
+            secondaryNext.visible = configure && secondary;
+            if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE) secondaryNext.setMessage(Component.literal("Noise ▶"));
+            else if (kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR) secondaryNext.setMessage(Component.literal("Jitter ▶"));
+            else secondaryNext.setMessage(Component.literal("Range ▶"));
+        }
         if (action != null) {
             action.visible = configure && hasAction;
             action.active = kind != UniversalFieldDeviceMenu.CONFIG_ALARM || menu.configSecondary() == 2;
@@ -145,7 +160,9 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         int kind = menu.pioneerProcessKind();
         PortQuality evidence = menu.pioneerProcessEvidenceQuality();
         statusBadge(g, title.getString().toUpperCase(), qualityColor(evidence), 16, 80);
-        statusBadge(g, kind >= UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_WIRE
+        statusBadge(g, kind >= UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_NOISE
+                ? "PIONEER WAVE 16 • ACTIVE SOURCE / TIMING"
+                : kind >= UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_WIRE
                 ? "PIONEER WAVE 15 • COPPER ELECTRICAL"
                 : "PIONEER WAVE 14 • SIGNAL / TRANSDUCTION", INFO, 207, 80);
         formulaCard(g, processEquation(kind), 108);
@@ -234,6 +251,55 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 variableRole(g, "DERIVED", "V_out", Integer.toString(menu.pioneerProcessQuinary()), "V-eq", 201);
                 variableRole(g, "STATE", "trip latch", menu.pioneerProcessSenary()!=0 ? "TRIPPED" : "ARMED", "", 217);
             }
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_NOISE -> {
+                variableRole(g, "ADJUSTABLE", "μ", String.format(java.util.Locale.ROOT, "%.2f", menu.pioneerProcessPrimary()/100.0), "Lapis", 137);
+                variableRole(g, "ADJUSTABLE", "|η|max", String.format(java.util.Locale.ROOT, "%.2f", menu.pioneerProcessSecondary()/100.0), "Lapis", 153);
+                variableRole(g, "MEASURED", "y[n]", String.format(java.util.Locale.ROOT, "%.2f", menu.pioneerProcessTertiary()/100.0), "Lapis", 169);
+                variableRole(g, "PROFILE", "Δt_sample", Integer.toString(menu.pioneerProcessQuaternary()), "ticks", 185);
+                variableRole(g, "EVIDENCE", "initialized", menu.pioneerProcessQuinary()!=0 ? "YES" : "NO", "", 201);
+            }
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_OSCILLATOR -> {
+                variableRole(g, "ADJUSTABLE", "T_nom", Integer.toString(menu.pioneerProcessPrimary()), "ticks", 137);
+                variableRole(g, "ADJUSTABLE", "J", "±"+menu.pioneerProcessSecondary(), "ticks", 153);
+                variableRole(g, "MEASURED", "Δt_half,last", menu.pioneerProcessSenary()!=0 ? Integer.toString(menu.pioneerProcessTertiary()) : "NOT_READY", "ticks", 169);
+                variableRole(g, "EVIDENCE", "jitter offset", menu.pioneerProcessSenary()!=0 ? String.format(java.util.Locale.ROOT, "%+d", menu.pioneerProcessQuaternary()) : "N/A", "ticks", 185);
+                variableRole(g, "STATE", "clock", menu.pioneerProcessQuinary()!=0 ? "HIGH" : "LOW", "", 201);
+                variableRole(g, "EVIDENCE", "interval", menu.pioneerProcessSenary()!=0 ? "REALIZED" : "AWAITING", "", 217);
+            }
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_PHASE_DELAY -> {
+                variableRole(g, "MEASURED", "T_in", Integer.toString(menu.pioneerProcessPrimary()), "ticks", 137);
+                variableRole(g, "ADJUSTABLE", "D", Integer.toString(menu.pioneerProcessSecondary()), "ticks", 153);
+                variableRole(g, "SOLVER", "pending", Integer.toString(menu.pioneerProcessTertiary()), "ticks", 169);
+                variableRole(g, "STATE", "pulse_out", menu.pioneerProcessQuaternary()!=0 ? "HIGH" : "LOW", "", 185);
+                variableRole(g, "EVIDENCE", "edge history", menu.pioneerProcessQuinary()!=0 ? "ARMED" : "NOT_READY", "", 201);
+            }
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_LAPIS_SAMPLER -> {
+                variableRole(g, "MEASURED", "x_L", String.format(java.util.Locale.ROOT, "%.2f", menu.pioneerProcessPrimary()/100.0), "Lapis", 137);
+                variableRole(g, "MEASURED", "clock", menu.pioneerProcessSecondary()!=0 ? "HIGH" : "LOW", "", 153);
+                variableRole(g, "SOLVER", "y_hold", String.format(java.util.Locale.ROOT, "%.2f", menu.pioneerProcessTertiary()/100.0), "Lapis", 169);
+                variableRole(g, "EVIDENCE", "held quality", evidence.name(), "", 185);
+            }
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_INJECTOR -> {
+                variableRole(g, "MEASURED", "u_R", Integer.toString(menu.pioneerProcessPrimary()), "redstone", 137);
+                variableRole(g, "DERIVED", "packet", Integer.toString(menu.pioneerProcessSecondary()), "flux", 153);
+                variableRole(g, "TOPOLOGY", "attached nodes", Integer.toString(menu.pioneerProcessTertiary()), "nodes", 169);
+                variableRole(g, "TOPOLOGY", "output faces", Integer.toString(menu.pioneerProcessQuaternary()), "faces", 185);
+                variableRole(g, "EVIDENCE", "command", evidence.name(), "", 201);
+            }
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_METER -> {
+                variableRole(g, "MEASURED", "Q_s", Integer.toString(menu.pioneerProcessPrimary()), "flux", 137);
+                variableRole(g, "DERIVED", "y_R", Integer.toString(menu.pioneerProcessSecondary()), "redstone", 153);
+                variableRole(g, "MODEL", "floor(15·Q_s/100)", Integer.toString(menu.pioneerProcessTertiary()), "redstone", 169);
+                variableRole(g, "EVIDENCE", "source", evidence.name(), "", 185);
+            }
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_MOLECULAR_RECEIVER -> {
+                variableRole(g, "MEASURED", "c_raw", Integer.toString(menu.pioneerProcessPrimary()), "index", 137);
+                variableRole(g, "SOLVER", "c_filt", Integer.toString(menu.pioneerProcessSecondary()), "index", 153);
+                variableRole(g, "EVIDENCE", "peak", Integer.toString(menu.pioneerProcessTertiary()), "index", 169);
+                variableRole(g, "ADJUSTABLE", "sensitivity", Integer.toString(menu.pioneerProcessQuaternary()), "0..3", 185);
+                variableRole(g, "PROFILE", "gain", Integer.toString(menu.pioneerProcessQuinary()), "index", 201);
+                variableRole(g, "DERIVED", "y_R", Integer.toString(menu.pioneerProcessSenary()), "redstone", 217);
+            }
             default -> { }
         }
 
@@ -271,6 +337,20 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                     "MODEL: I=V_in/R_eq; TRIPPED ← TRIPPED ∨ (I>I_rating); V_out=TRIPPED ? 0 : V_in";
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_JUNCTION ->
                     "MODEL: explicit multi-port splice shares one resolved Copper node; >1 driver is TOPOLOGY_ERROR";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_NOISE ->
+                    "MODEL: y[n]=clamp(μ + η_det(n,pos),0,100); |η_det|≤η_max; Δt=4 ticks";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_OSCILLATOR ->
+                    "MODEL: half-interval=max(1,T_nom/2 + j), j∈[-J,+J]; each tick toggles clock state";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_PHASE_DELAY ->
+                    "MODEL: real post-init rising edge ⇒ pending=D; countdown→0 emits one-tick QUARTZ pulse";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_LAPIS_SAMPLER ->
+                    "MODEL: valid QUARTZ rising edge ⇒ y_hold←x_L; otherwise y_hold[n]=y_hold[n-1]";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_INJECTOR ->
+                    "MODEL (fictional): valid UP redstone u>0 ⇒ packet=4u into each attached side Soul node";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_METER ->
+                    "MODEL (fictional): y_R=floor(15·Q_s/100) only when Soul measurement quality is VALID";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_MOLECULAR_RECEIVER ->
+                    "MODEL: c_raw=clamp(round(g·Σ r_cloud/(1+d²)),0,15); c_filt approaches c_raw by 1 every 5 ticks";
             default -> "MODEL: server-authoritative signal transformation";
         };
     }
@@ -305,6 +385,20 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                     "Trip state is latched by the authoritative server protection pass. Reset clears the latch request only; safe output is trusted again only after a complete server re-evaluation.";
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_JUNCTION ->
                     "The junction is the explicit branch/splice device. Port count is the physical connected-face count; multiple active drivers are visible topology evidence, not merged silently.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_NOISE ->
+                    "The deterministic noise source is an intentional commissioning/fault-injection device. Zero is a legitimate sample; μ and η_max are real server controls, not client-only knobs.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_OSCILLATOR ->
+                    "Nominal period and jitter are configuration; last-half and realized offset are retained evidence from an actual server scheduling interval. Changing configuration makes old interval evidence unavailable.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_PHASE_DELAY ->
+                    "Reconnect-high initializes edge history but never fabricates a rising edge. Delay changes clear pending/output runtime so the new configuration must observe a real edge.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_LAPIS_SAMPLER ->
+                    "The sampler has three distinct physical roles: BACK Lapis input, LEFT Quartz trigger, FRONT held Lapis output. Opening the HMI never captures a sample.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_INJECTOR ->
+                    "Soul Flux is explicitly Minecraft-fictional. The injector only writes adjacent loaded Soul nodes when its real UP redstone command is valid; absent side nodes are not virtual outputs.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_METER ->
+                    "The meter is observer/converter only. A present zero-charge node is distinct from NO_SIGNAL/STALE evidence, and invalid Soul evidence forces redstone output to zero.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_MOLECULAR_RECEIVER ->
+                    "The UP free-space aperture is fixed at the implemented radius. Incomplete chunk coverage is STALE and retains the last filtered value; sensitivity changes only the implemented gain.";
             default -> "Server-authoritative process evidence.";
         };
     }
@@ -594,6 +688,26 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 labelValue(g, "Range / step / default", "1..15 / 1 / 4", 141);
                 safeText(g, "Reset clears the latch request; protection must re-evaluate complete load evidence before READY.", 16, 190, MUTED);
             }
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE -> {
+                statusBadge(g, "LAPIS NOISE SOURCE", INFO, 16, 80);
+                labelValue(g, "Baseline μ", String.format(java.util.Locale.ROOT, "%.2f", menu.configPrimary()*0.05), 101);
+                labelValue(g, "Noise bound", "±"+String.format(java.util.Locale.ROOT, "%.2f", menu.configSecondary()*0.02), 141);
+                labelValue(g, "Ranges / defaults", "μ 0..1 step .05 / .50 • noise 0.. .20 step .02 / .06", 159);
+                safeText(g, "Configuration resets the immediate sample to baseline; scheduled deterministic noise resumes server-side.", 16, 190, MUTED);
+            }
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> {
+                statusBadge(g, "QUARTZ LAB SOURCE", INFO, 16, 80);
+                labelValue(g, "Nominal period", menu.pioneerProcessPrimary()+" ticks", 101);
+                labelValue(g, "Jitter bound", "±"+menu.configSecondary()+" ticks", 141);
+                labelValue(g, "Period profiles", "2 / 4 / 8 / 16 / 32 ticks • default 8", 159);
+                safeText(g, "Last realized half-interval is evidence, not a configuration prediction.", 16, 190, MUTED);
+            }
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY -> {
+                statusBadge(g, "QUARTZ EDGE DELAY", INFO, 16, 80);
+                labelValue(g, "Delay D", menu.configPrimary()+" ticks", 101);
+                labelValue(g, "Range / step / default", "1..16 / 1 / 2 ticks", 141);
+                safeText(g, "Changing D clears pending/output state; only a later real rising edge can schedule a pulse.", 16, 178, MUTED);
+            }
             default -> {
                 boolean rotatable = menu.rotatableSeriesAxis();
                 statusBadge(g, lapisPrecisionMeasurementPresent() ? "PRECISION OBSERVER • NO PROCESS PARAMETER" : "NO UNIVERSAL PARAMETERS",
@@ -628,6 +742,9 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.CONFIG_SEQUENCE_CONTROLLER -> "STATE: sequence runtime is server-owned; operator reset returns to IDLE";
             case UniversalFieldDeviceMenu.CONFIG_SAFETY_INTERLOCK -> "STATE: permit follows server permissive evidence; diagnostics reset never bypasses";
             case UniversalFieldDeviceMenu.CONFIG_TOPOLOGY_DEBUGGER -> "EVIDENCE: scan target + counters are observer diagnostics, not topology mutation";
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE -> "MODEL: deterministic bounded source; baseline and noise bound are real server parameters";
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> "MODEL: nominal period + bounded scheduling jitter; realized interval is retained evidence";
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY -> "MODEL: post-init rising-edge delay; configuration change invalidates pending runtime";
             default -> "CONTRACT: expose real ports/evidence only; no hidden universal physics";
         };
     }
