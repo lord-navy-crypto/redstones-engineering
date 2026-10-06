@@ -54,6 +54,12 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
     private final List<Button> triggerButtons = new ArrayList<>();
     private EditBox samplePeriodInput;
     private Button samplePeriodApply;
+    private EditBox triggerLevelInput;
+    private Button triggerLevelApply;
+    private EditBox cursorAInput;
+    private Button cursorAApply;
+    private EditBox cursorBInput;
+    private Button cursorBApply;
     private Page page = Page.WAVEFORM;
     private int scrollX;
     private int scrollY;
@@ -155,6 +161,33 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
         triggerButtons.add(addRenderableWidget(Button.builder(Component.literal("Clear capture"),
                 b -> sendButton(OscilloscopeMenu.BUTTON_CLEAR)).bounds(cursorX + (cursorWidth + cursorGap) * 2, secondY, cursorWidth, 20).build()));
 
+        int directY = secondY + 30;
+        int directGap = 8;
+        int directWidth = Math.min(92, Math.max(70, (imageWidth - 104 - directGap * 5) / 6));
+        int directTotal = directWidth * 6 + directGap * 5;
+        int directX = leftPos + (imageWidth - directTotal) / 2;
+
+        triggerLevelInput = addRenderableWidget(new EditBox(this.font, directX, directY, directWidth, 20,
+                Component.literal("Trigger level 1..15")));
+        triggerLevelInput.setMaxLength(2);
+        triggerLevelInput.setFilter(value -> value.isEmpty() || value.chars().allMatch(Character::isDigit));
+        triggerLevelApply = addRenderableWidget(Button.builder(Component.literal("Apply level"),
+                b -> submitTriggerLevel()).bounds(directX + directWidth + directGap, directY, directWidth, 20).build());
+
+        cursorAInput = addRenderableWidget(new EditBox(this.font, directX + (directWidth + directGap) * 2, directY,
+                directWidth, 20, Component.literal("Cursor A 0..15")));
+        cursorAInput.setMaxLength(2);
+        cursorAInput.setFilter(value -> value.isEmpty() || value.chars().allMatch(Character::isDigit));
+        cursorAApply = addRenderableWidget(Button.builder(Component.literal("Apply A"),
+                b -> submitCursorA()).bounds(directX + (directWidth + directGap) * 3, directY, directWidth, 20).build());
+
+        cursorBInput = addRenderableWidget(new EditBox(this.font, directX + (directWidth + directGap) * 4, directY,
+                directWidth, 20, Component.literal("Cursor B 0..15")));
+        cursorBInput.setMaxLength(2);
+        cursorBInput.setFilter(value -> value.isEmpty() || value.chars().allMatch(Character::isDigit));
+        cursorBApply = addRenderableWidget(Button.builder(Component.literal("Apply B"),
+                b -> submitCursorB()).bounds(directX + (directWidth + directGap) * 5, directY, directWidth, 20).build());
+
         updateWidgets();
     }
 
@@ -190,7 +223,54 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
             samplePeriodApply.active = samplingPage && samplePeriodInputValid();
         }
         for (Button button : experimentButtons) button.visible = page == Page.EXPERIMENT;
-        for (Button button : triggerButtons) button.visible = page == Page.TRIGGER;
+        boolean triggerPage = page == Page.TRIGGER;
+        for (Button button : triggerButtons) button.visible = triggerPage;
+        syncDirectTriggerWidget(triggerLevelInput, triggerLevelApply, menu.triggerLevel(), 1, 15, triggerPage);
+        syncDirectTriggerWidget(cursorAInput, cursorAApply, menu.cursorA(), 0, 15, triggerPage);
+        syncDirectTriggerWidget(cursorBInput, cursorBApply, menu.cursorB(), 0, 15, triggerPage);
+    }
+
+    private void syncDirectTriggerWidget(EditBox input, Button apply, int current, int min, int max, boolean visible) {
+        if (input != null) {
+            input.visible = visible;
+            input.active = visible;
+            if (visible && !input.isFocused()) {
+                String expected = Integer.toString(current);
+                if (!expected.equals(input.getValue())) input.setValue(expected);
+            }
+        }
+        if (apply != null) {
+            apply.visible = visible;
+            apply.active = visible && boundedIntegerInput(input, min, max);
+        }
+    }
+
+    private boolean boundedIntegerInput(EditBox input, int min, int max) {
+        if (input == null || input.getValue().isEmpty()) return false;
+        try {
+            int value = Integer.parseInt(input.getValue());
+            return value >= min && value <= max;
+        } catch (NumberFormatException ignored) {
+            return false;
+        }
+    }
+
+    private void submitTriggerLevel() {
+        if (!boundedIntegerInput(triggerLevelInput, 1, 15)) return;
+        sendButton(OscilloscopeMenu.BUTTON_TRIGGER_LEVEL_DIRECT_BASE + Integer.parseInt(triggerLevelInput.getValue()));
+        triggerLevelInput.setFocused(false);
+    }
+
+    private void submitCursorA() {
+        if (!boundedIntegerInput(cursorAInput, 0, 15)) return;
+        sendButton(OscilloscopeMenu.BUTTON_CURSOR_A_DIRECT_BASE + Integer.parseInt(cursorAInput.getValue()));
+        cursorAInput.setFocused(false);
+    }
+
+    private void submitCursorB() {
+        if (!boundedIntegerInput(cursorBInput, 0, 15)) return;
+        sendButton(OscilloscopeMenu.BUTTON_CURSOR_B_DIRECT_BASE + Integer.parseInt(cursorBInput.getValue()));
+        cursorBInput.setFocused(false);
     }
 
     private boolean samplePeriodInputValid() {
@@ -639,10 +719,12 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
         label(g, "Trigger mode", modeName(menu.triggerMode()), y); y += 18;
         label(g, "Trigger source", "CH " + (menu.triggerChannel() == 0 ? "A" : "B"), y); y += 18;
         label(g, "Trigger level", menu.triggerLevel() + " / 15", y); y += 18;
+        label(g, "[DIRECT ENTRY] trigger", "1..15 • changing level re-arms capture", y); y += 18;
         label(g, "Capture state", captureState(), y); y += 26;
 
         equation(g, "Δt_cursor = |B - A| · Δt_sample", y); y += 28;
         label(g, "Cursor A / B", menu.cursorA() + " / " + menu.cursorB(), y); y += 18;
+        label(g, "[DIRECT ENTRY] cursors", "A,B in 0..15 display samples", y); y += 18;
         label(g, "|B-A|", cursorDeltaSamples() + " samples", y); y += 18;
         label(g, "Δt_cursor", cursorDeltaTicks() + " ticks", y); y += 26;
 
