@@ -102,6 +102,31 @@ require("src/main/java/dev/redstoneengineering/client/ui/ReliabilitySystemScreen
 require("src/main/java/dev/redstoneengineering/ui/menu/ReliabilitySystemMenu.java",
         "BUTTON_PARAMETER_DIRECT_BASE", "value == 160", "value == 12")
 
+require("src/main/java/dev/redstoneengineering/client/ui/OpticalSystemScreen.java",
+        "EditBox", "submitPrimary", "submitSecondary",
+        "BUTTON_PRIMARY_DIRECT_BASE", "BUTTON_SECONDARY_DIRECT_BASE",
+        "CH_target", "I_set")
+require("src/main/java/dev/redstoneengineering/ui/menu/OpticalSystemMenu.java",
+        "BUTTON_PRIMARY_DIRECT_BASE = 9000", "BUTTON_SECONDARY_DIRECT_BASE = 9100",
+        "OpticalEmitterBlock.INTENSITY", "OpticalChannelFilterBlock.TARGET",
+        "OpticalAttenuatorBlock.LOSS", "FreeSpaceOpticalTransmitterBlock.CHANNEL",
+        "FreeSpaceOpticalReceiverBlock.CHANNEL")
+
+require("src/main/java/dev/redstoneengineering/client/ui/ReliabilitySystemScreen.java",
+        "EditBox", "submitParameter", "BUTTON_PARAMETER_DIRECT_BASE",
+        "{20,40,80,160} ticks", "{0,1,2,4} spread", "{1,4,8,12} redstone")
+require("src/main/java/dev/redstoneengineering/ui/menu/ReliabilitySystemMenu.java",
+        "BUTTON_PARAMETER_DIRECT_BASE = 10000", "value == 160 ? 3",
+        "RedundantVoterBlock.TOLERANCE", "FaultLatchBlock.THRESHOLD")
+
+require("src/main/java/dev/redstoneengineering/client/ui/QuartzTimingScreen.java",
+        "EditBox", "submitParameter", "T={2,4,8,16,32}", "N={2,4,8,16}",
+        "BUTTON_PARAMETER_DIRECT_BASE")
+require("src/main/java/dev/redstoneengineering/ui/menu/QuartzTimingMenu.java",
+        "BUTTON_PARAMETER_DIRECT_BASE = 11000", "QuartzClockDividerBlock.setDivision")
+require("src/main/java/dev/redstoneengineering/block/QuartzClockDividerBlock.java",
+        "setDivision(ServerLevel level, BlockPos pos, int divisor)")
+
 require("src/main/java/dev/redstoneengineering/client/ui/SignalProcessorScreen.java",
         "EditBox", "submitParameter", "BUTTON_PARAMETER_DIRECT_BASE",
         "r ∈ 1..4", "W ∈ 1..8 ticks")
