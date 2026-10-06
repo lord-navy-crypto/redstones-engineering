@@ -308,6 +308,37 @@ Wave 15 completes the core Copper electrical path as one Pioneer family:
 
 Pioneer completion ledger after Wave 15: **101 + 7 = 108 / 122 registered blocks processed; 14 remain.**
 
+Wave 16:
+- Lapis Noise Source
+- Quartz Lab Oscillator
+- Quartz Phase Delay
+- Quartz Triggered Lapis Sampler
+- Soul Flux Injector
+- Soul Flux Meter
+- Molecular Cloud Receiver
+
+Wave 16 completes the active-source, timing, sampling, and observer batch:
+- Lapis Noise Source exposes baseline, deterministic bounded noise, current server sample, and initialization evidence; a generated numeric zero remains VALID evidence.
+- Quartz Lab Oscillator exposes nominal period, bounded scheduler jitter, ACTIVE state, and the last realized server half-interval.
+- Quartz Phase Delay exposes the configured 1..16 tick rising-edge delay, pending countdown, input level, and output-pulse state without fabricating edges.
+- Quartz Triggered Lapis Sampler preserves distinct Lapis input, Quartz trigger, and held Lapis output roles and reports the server-held sample quality.
+- Soul Flux Injector preserves one UP Redstone command input and five Soul-Flux outputs while reporting command quality and attached Soul-node coverage.
+- Soul Flux Meter remains an observer/converter that reports Soul charge, quality, and bounded Redstone readout.
+- Molecular Cloud Receiver exposes the implemented fixed radius-8 aperture, sensitivity gain profile, raw/filtered/peak evidence, and Redstone output; the model remains explicitly game-domain rather than SI physics.
+- Source and timing controls bind to existing server methods. The client consumes synchronized snapshots only, and no experiment is invented without retained trial state.
+
+Pioneer completion ledger after Wave 16: **108 + 7 = 115 / 122 registered blocks processed; 7 remain.**
+
+Remaining 7 for Wave 17:
+- Iron Core
+- Thermal Mass
+- Thermal Heater
+- Thermal Radiator
+- Thermal Calorimeter
+- Soul Soil Conduit
+- Soul Sand Reservoir
+
+
 Remaining 14 for Waves 16-17:
 - Iron Core, Thermal Mass
 - Lapis Noise Source, Quartz Lab Oscillator, Quartz Phase Delay
