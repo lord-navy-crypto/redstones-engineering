@@ -41,6 +41,14 @@ field_menu = read("src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu
 universal_menu = read("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java")
 temperature_sensor = read("src/main/java/dev/redstoneengineering/block/TemperatureSensorBlock.java")
 wave14_tests = read("src/main/java/dev/redstoneengineering/gametest/RsePioneerWave14GameTests.java")
+wave15_tests = read("src/main/java/dev/redstoneengineering/gametest/RsePioneerWave15GameTests.java")
+copper_wire_block = read("src/main/java/dev/redstoneengineering/block/CopperWireBlock.java")
+copper_source_block = read("src/main/java/dev/redstoneengineering/block/CopperVoltageSourceBlock.java")
+copper_load_block = read("src/main/java/dev/redstoneengineering/block/CopperResistiveLoadBlock.java")
+copper_series_block = read("src/main/java/dev/redstoneengineering/block/CopperSeriesResistorBlock.java")
+copper_capacitor_block = read("src/main/java/dev/redstoneengineering/block/CopperCapacitorBlock.java")
+copper_fuse_block = read("src/main/java/dev/redstoneengineering/block/CopperFuseBlock.java")
+copper_junction_block = read("src/main/java/dev/redstoneengineering/block/CopperCableJunctionBlock.java")
 gametest_registration = read("src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java")
 tablet = read("src/main/java/dev/redstoneengineering/client/ui/DiagnosticTabletScreen.java")
 robot = read("src/main/java/dev/redstoneengineering/entity/EngineeringMobileRobotEntity.java")
@@ -70,6 +78,8 @@ for token in (
     "Pioneer completion ledger after Wave 13: **87 + 7 = 94 / 122 registered blocks processed; 28 remain.**",
     "Wave 14:",
     "Pioneer completion ledger after Wave 14: **94 + 7 = 101 / 122 registered blocks processed; 21 remain.**",
+    "Wave 15:",
+    "Pioneer completion ledger after Wave 15: **101 + 7 = 108 / 122 registered blocks processed; 14 remain.**",
 ):
     if token not in doc:
         errors.append(f"Pioneer standard missing {token!r}")
@@ -499,6 +509,94 @@ for token in (
 if "event.register(RsePioneerWave14GameTests.class);" not in gametest_registration:
     errors.append("Wave-14 GameTests are not registered")
 
+wave15_menu_tokens = (
+    "PIONEER_PROCESS_COPPER_WIRE",
+    "PIONEER_PROCESS_COPPER_VOLTAGE_SOURCE",
+    "PIONEER_PROCESS_COPPER_LOAD",
+    "PIONEER_PROCESS_COPPER_SERIES_RESISTOR",
+    "PIONEER_PROCESS_COPPER_CAPACITOR",
+    "PIONEER_PROCESS_COPPER_FUSE",
+    "PIONEER_PROCESS_COPPER_JUNCTION",
+    "CopperSeriesResistorBlock.loadResistanceMilli(level, blockPos)",
+    "CopperSeriesResistorBlock.currentMilli(level, blockPos)",
+    "CopperFuseBlock.loadResistanceMilli(level, blockPos)",
+    "CopperFuseBlock.currentMilli(level, blockPos)",
+)
+for token in wave15_menu_tokens:
+    if token not in universal_menu:
+        errors.append(f"UniversalFieldDeviceMenu missing Wave-15 Copper token {token!r}")
+
+wave15_screen_tokens = (
+    "PIONEER WAVE 15 • COPPER ELECTRICAL",
+    "I = V/R; P = V·I",
+    "V_out = V_in·R_load/(R_s+R_load)",
+    "q_target=round(100·V_in/15)",
+    "TRIPPED ← TRIPPED ∨ (I>I_rating)",
+    'variableRole(g, "SOLVER", "R_load"',
+    'variableRole(g, "SOLVER", "charge"',
+    'variableRole(g, "STATE", "trip latch"',
+    "Opening the HMI never performs another load-network scan",
+)
+for token in wave15_screen_tokens:
+    if token not in universal:
+        errors.append(f"UniversalFieldDeviceScreen missing Wave-15 Copper token {token!r}")
+
+for token in (
+    "Copper Wire",
+    "Copper Voltage Source",
+    "Copper Resistive Load",
+    "Copper Series Resistor",
+    "Copper Capacitor",
+    "Copper Fuse",
+    "Copper Cable Junction",
+    "14 remain",
+    "14 → 7 → 0",
+):
+    if token not in doc:
+        errors.append(f"Pioneer standard missing Wave-15 ledger token {token!r}")
+
+for name, text in (
+    ("CopperWireBlock", copper_wire_block),
+    ("CopperVoltageSourceBlock", copper_source_block),
+    ("CopperResistiveLoadBlock", copper_load_block),
+    ("CopperSeriesResistorBlock", copper_series_block),
+    ("CopperCapacitorBlock", copper_capacitor_block),
+    ("CopperFuseBlock", copper_fuse_block),
+    ("CopperCableJunctionBlock", copper_junction_block),
+):
+    if "FieldDeviceUi.openUniversal" not in text:
+        errors.append(f"{name} missing Wave-15 Pioneer HMI entry")
+
+for token in (
+    "LOAD_RESISTANCE_MILLI_SLOT",
+    "CURRENT_MILLI_SLOT",
+    "loadResistanceMilli",
+    "currentMilli",
+):
+    if token not in copper_series_block:
+        errors.append(f"CopperSeriesResistorBlock missing retained Wave-15 evidence token {token!r}")
+
+for token in (
+    "LOAD_RESISTANCE_MILLI",
+    "CURRENT_MILLI",
+    "loadResistanceMilli",
+    "currentMilli",
+):
+    if token not in copper_fuse_block:
+        errors.append(f"CopperFuseBlock missing retained Wave-15 protection token {token!r}")
+
+for token in (
+    "copperDcModelSweepRemainsBounded",
+    "capacitorProfilesExposeImplementedTau",
+    "seriesResistorRetainsSolverEvidenceFromAuthoritativeTick",
+    "fuseRetainsProtectionEvidenceFromAuthoritativeTick",
+):
+    if token not in wave15_tests:
+        errors.append(f"Wave-15 GameTests missing behavioral token {token!r}")
+
+if "event.register(RsePioneerWave15GameTests.class);" not in gametest_registration:
+    errors.append("Wave-15 GameTests are not registered")
+
 registration_token = "event.register(EngineeringUiRegistration.FIELD_DEVICE.get(), EnhancedFieldDeviceScreen::new);"
 if registration_token not in client_registration:
     errors.append("FIELD_DEVICE is no longer registered to the enhanced shared Pioneer inspector")
@@ -539,7 +637,8 @@ print(" Wave 11 Operations → AMR end-to-end material-flow acceptance PASS")
 print(" Wave 12 Signal Analyzer internal-reference calibration trial PASS")
 print(" Wave 13 seven-block measurement / observer Pioneer rollout PASS")
 print(" Wave 14 seven-block signal / transduction Pioneer rollout PASS")
-print(" Pioneer completion ledger: 101 / 122 processed; 21 remain")
+print(" Wave 15 seven-block Copper electrical Pioneer rollout PASS")
+print(" Pioneer completion ledger: 108 / 122 processed; 14 remain")
 print(f" FieldDeviceMenu device-kind taxonomy: {kind_count}")
 print(f" formula-first EngineeringScreen families: {formula_migrated}")
-print(" no client-side second physics/robotics/metrology solver in Waves 2-13: PASS")
+print(" no client-side second physics/robotics/metrology/Copper solver in Waves 2-15: PASS")
