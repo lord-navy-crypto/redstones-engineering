@@ -15,6 +15,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
@@ -23,6 +24,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 
 import java.util.Arrays;
 import java.util.List;
@@ -93,17 +95,31 @@ public class CopperVoltageSourceBlock extends DomainBlock implements Engineering
         }
     }
 
+    public boolean adjustVoltage(Level level, BlockPos pos, int delta) {
+        BlockState state = level.getBlockState(pos);
+        if (!state.is(this)) return false;
+        int voltage = state.getValue(VOLTAGE);
+        int nextVoltage = delta < 0 ? Math.max(0, voltage - 1) : (voltage >= 15 ? 0 : voltage + 1);
+        BlockState next = state.setValue(VOLTAGE, nextVoltage);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeCopper(serverLevel, pos);
+        return true;
+    }
+
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
-            int voltage = state.getValue(VOLTAGE);
-            voltage = player.isShiftKeyDown() ? Math.max(0, voltage - 1) : (voltage >= 15 ? 0 : voltage + 1);
-            BlockState next = state.setValue(VOLTAGE, voltage);
-            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            if (level instanceof ServerLevel serverLevel) DomainNetwork.recomputeCopper(serverLevel, pos);
-            player.displayClientMessage(Component.literal(
-                    "Copper voltage source | six-face COPPER output | V-level=" + voltage + "/15"
-            ), true);
+            if (player.isShiftKeyDown() && hit.getDirection().getAxis().isVertical()
+                    && player instanceof ServerPlayer serverPlayer) {
+                FieldDeviceUi.openUniversal(serverPlayer, pos);
+            } else {
+                adjustVoltage(level, pos, player.isShiftKeyDown() ? -1 : 1);
+                int voltage = level.getBlockState(pos).getValue(VOLTAGE);
+                player.displayClientMessage(Component.literal(
+                        "Copper voltage source | six-face COPPER output | V-level=" + voltage + "/15"
+                                + " | sneak+top/bottom = Pioneer HMI"
+                ), true);
+            }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
