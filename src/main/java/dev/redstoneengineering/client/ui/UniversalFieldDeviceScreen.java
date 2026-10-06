@@ -966,24 +966,37 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
 
     private boolean directPrimaryNumericKind(int kind) {
         return switch (kind) {
-            case UniversalFieldDeviceMenu.CONFIG_COPPER_VOLTAGE_SOURCE,
+            case UniversalFieldDeviceMenu.CONFIG_PWM,
+                 UniversalFieldDeviceMenu.CONFIG_COPPER_VOLTAGE_SOURCE,
                  UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD,
                  UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR,
                  UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE,
                  UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE,
+                 UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR,
                  UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY,
                  UniversalFieldDeviceMenu.CONFIG_THERMAL_MASS,
+                 UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER,
                  UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR -> true;
             default -> false;
         };
     }
 
     private int directPrimaryMinimum(int kind) {
-        return kind == UniversalFieldDeviceMenu.CONFIG_COPPER_VOLTAGE_SOURCE ? 0 : 1;
+        return switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_PWM,
+                 UniversalFieldDeviceMenu.CONFIG_COPPER_VOLTAGE_SOURCE,
+                 UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE,
+                 UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR,
+                 UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER -> 0;
+            default -> 1;
+        };
     }
 
     private int directPrimaryMaximum(int kind) {
         return switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_PWM,
+                 UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER -> 3;
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> 4;
             case UniversalFieldDeviceMenu.CONFIG_COPPER_VOLTAGE_SOURCE,
                  UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD,
                  UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR,
@@ -1031,6 +1044,15 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE) {
             return String.format(java.util.Locale.ROOT, "%.2f", menu.configPrimary() * 0.05);
         }
+        if (kind == UniversalFieldDeviceMenu.CONFIG_PWM) {
+            return Integer.toString(PwmControllerBlock.periodFor(menu.configPrimary()));
+        }
+        if (kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR) {
+            return Integer.toString(menu.pioneerProcessPrimary());
+        }
+        if (kind == UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER) {
+            return Integer.toString(menu.pioneerProcessSecondary());
+        }
         return Integer.toString(menu.configPrimary());
     }
 
@@ -1048,6 +1070,15 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE) {
                 int raw = (int) Math.round(entered / 0.05);
                 return Math.abs(entered - raw * 0.05) < 0.0001 ? raw : null;
+            }
+            if (kind == UniversalFieldDeviceMenu.CONFIG_PWM) {
+                return entered == 4 ? 0 : entered == 8 ? 1 : entered == 16 ? 2 : entered == 32 ? 3 : null;
+            }
+            if (kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR) {
+                return entered == 2 ? 0 : entered == 4 ? 1 : entered == 8 ? 2 : entered == 16 ? 3 : entered == 32 ? 4 : null;
+            }
+            if (kind == UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER) {
+                return entered == 1 ? 0 : entered == 2 ? 1 : entered == 4 ? 2 : entered == 8 ? 3 : null;
             }
             int raw = (int) Math.round(entered);
             return Math.abs(entered - raw) < 0.0001 ? raw : null;
@@ -1101,6 +1132,9 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
 
     private String directPrimaryRangeLabel(int kind) {
         if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE) return "0.00..1.00 Lapis • step 0.05";
+        if (kind == UniversalFieldDeviceMenu.CONFIG_PWM) return "{4, 8, 16, 32} ticks";
+        if (kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR) return "{2, 4, 8, 16, 32} ticks";
+        if (kind == UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER) return "{1, 2, 4, 8} R-eq";
         return directPrimaryMinimum(kind) + ".." + directPrimaryMaximum(kind);
     }
 
