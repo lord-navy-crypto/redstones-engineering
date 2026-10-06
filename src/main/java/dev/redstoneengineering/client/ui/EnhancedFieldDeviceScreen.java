@@ -286,15 +286,19 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             formulaCard(g, sourceMediumContract(), 105);
             variableRole(g, "ROLE", "device", deviceRole(), sourceMediumDomain(), 134);
             variableRole(g, adjustable() ? "ADJUSTABLE" : "MEASURED",
-                    sourceMediumPrimarySymbol(), sourceMediumPrimaryValue(), sourceMediumPrimaryMeaning(), 152);
+                    directEntryKind() ? formulaSymbol() : sourceMediumPrimarySymbol(),
+                    sourceMediumPrimaryValue(), sourceMediumPrimaryMeaning(), 152);
+            if (directEntryKind()) {
+                variableRole(g, "CONTROL", "direct entry", directRangeLabel(), "exact engineering value", 170);
+            }
             variableRole(g, "EVIDENCE", "PortQuality", menu.evidenceQuality().name(),
-                    "quality=" + menu.qualityPercent() + "%", 170);
+                    "quality=" + menu.qualityPercent() + "%", directEntryKind() ? 188 : 170);
             variableRole(g, "EVIDENCE", "sources / drivers", Integer.toString(menu.driverCount()),
-                    sourceOwnershipMeaning(), 188);
+                    sourceOwnershipMeaning(), directEntryKind() ? 206 : 188);
             variableRole(g, "TOPOLOGY", "ports / links", menu.portCount() + " / " + menu.connectionCount(),
-                    menu.topologyValid() ? "PASS" : "FAIL-CLOSED", 206);
-            variableRole(g, "AUTHORITY", "policy", sourceMediumAuthority(), "server synchronized", 224);
-            wrappedText(g, sourceMediumExplanation(), 16, 250, workspaceWidth() - 24,
+                    menu.topologyValid() ? "PASS" : "FAIL-CLOSED", directEntryKind() ? 224 : 206);
+            variableRole(g, "AUTHORITY", "policy", sourceMediumAuthority(), "server synchronized", directEntryKind() ? 242 : 224);
+            wrappedText(g, sourceMediumExplanation(), 16, directEntryKind() ? 268 : 250, workspaceWidth() - 24,
                     menu.evidenceQuality().name().equals("VALID") ? MUTED : WARN);
             return;
         }
