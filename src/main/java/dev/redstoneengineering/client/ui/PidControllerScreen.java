@@ -100,12 +100,7 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
         switch (section) {
             case OVERVIEW -> renderOverview(graphics);
             case PORTS -> renderPorts(graphics);
-            case CONFIGURE -> {
-                graphics.pose().pushPose();
-                graphics.pose().translate(0.0F, 148.0F, 0.0F);
-                renderConfigure(graphics);
-                graphics.pose().popPose();
-            }
+            case CONFIGURE -> renderConfigure(graphics);
             case DIAGNOSTICS -> renderDiagnostics(graphics);
             case HISTORY -> renderHistory(graphics);
         }

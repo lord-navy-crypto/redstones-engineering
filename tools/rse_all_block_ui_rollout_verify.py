@@ -50,9 +50,15 @@ if len(block_facing) < 23:
 
 for token in (
     "DEFAULT_CANVAS_WIDTH = 1020",
-    "DEFAULT_CANVAS_HEIGHT = 760",
+    "DEFAULT_CANVAS_HEIGHT = 980",
     "renderScrollIndicators",
     "renderFunctionSurface",
+    "layoutConfigureWidgets",
+    "CONFIGURE_CONTROL_COLUMNS = 3",
+    "configureContentOffset",
+    "widget.setX",
+    "widget.setY",
+    "widget.setWidth",
     "FUNCTION SURFACE • ALL-BLOCK UI CONTRACT",
     "OPERATOR CONTROLS •",
     "widget.getMessage().getString()",
@@ -87,6 +93,7 @@ standalone_contracts = {
 
 engineering_families = []
 standalone_families = []
+manual_configure_offsets = []
 for menu_name, screen_name in block_facing:
     source_path = UI / f"{screen_name}.java"
     if not source_path.is_file():
@@ -95,6 +102,8 @@ for menu_name, screen_name in block_facing:
     source = source_path.read_text(errors="ignore")
     if "extends EngineeringScreen<" in source:
         engineering_families.append(screen_name)
+        if "graphics.pose().translate(0.0F," in source and "case CONFIGURE" in source:
+            manual_configure_offsets.append(screen_name)
         continue
     required = standalone_contracts.get(screen_name)
     if required is None:
@@ -122,6 +131,12 @@ if len(engineering_families) + len(standalone_families) != len(block_facing):
         "not every block-facing UI family is covered by a deep-canvas presentation contract"
     )
 
+if manual_configure_offsets:
+    errors.append(
+        "EngineeringScreen families still own manual Configure translation instead of the shared control rail: "
+        + ", ".join(sorted(manual_configure_offsets))
+    )
+
 if errors:
     print("RSE ALL-BLOCK UI ROLLOUT VERIFY: FAIL")
     for error in errors:
@@ -135,5 +150,6 @@ print(f" shared EngineeringScreen families: {len(engineering_families)}")
 print(f" standalone deep-canvas instrument families: {len(standalone_families)}")
 print(" global X/Y scroll + spacing contract: PASS")
 print(" global operator-control inventory / function surface: PASS")
+print(" shared 3-column Configure rail + automatic content offset: PASS")
 print(" generic FieldDevice + Universal fallbacks: PASS")
 print(" Pioneer 122/122 closure linkage: PASS")

@@ -107,12 +107,7 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
         switch (section) {
             case OVERVIEW -> overview(graphics);
             case PORTS -> ports(graphics);
-            case CONFIGURE -> {
-                graphics.pose().pushPose();
-                graphics.pose().translate(0.0F, 106.0F, 0.0F);
-                configure(graphics);
-                graphics.pose().popPose();
-            }
+            case CONFIGURE -> configure(graphics);
             case DIAGNOSTICS -> diagnostics(graphics);
             case HISTORY -> history(graphics);
         }

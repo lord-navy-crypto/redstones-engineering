@@ -298,7 +298,7 @@ require(
     "safeText",
     "mouseScrolled",
     "DEFAULT_CANVAS_WIDTH = 1020",
-    "DEFAULT_CANVAS_HEIGHT = 760",
+    "DEFAULT_CANVAS_HEIGHT = 980",
     "renderScrollIndicators",
     "routeControlY()",
     "formulaCard",
