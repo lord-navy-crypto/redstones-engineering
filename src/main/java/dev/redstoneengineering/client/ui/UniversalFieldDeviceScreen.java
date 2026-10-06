@@ -28,31 +28,56 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     }
 
     @Override
+    protected int virtualContentWidth(Section section) {
+        return switch (section) {
+            case OVERVIEW, CONFIGURE -> 1040;
+            case PORTS, DIAGNOSTICS, HISTORY -> 960;
+        };
+    }
+
+    @Override
+    protected int virtualContentHeight(Section section) {
+        return switch (section) {
+            case OVERVIEW -> 620;
+            case PORTS -> 420;
+            case CONFIGURE -> 680;
+            case DIAGNOSTICS, HISTORY -> 560;
+        };
+    }
+
+    @Override
     protected void addDeviceWidgets() {
+        int gap = 14;
+        int pairWidth = Math.min(196, Math.max(132, (imageWidth - 76 - gap) / 2));
+        int totalWidth = pairWidth * 2 + gap;
+        int startX = leftPos + (imageWidth - totalWidth) / 2;
+        int primaryY = topPos + 104;
+        int secondaryY = topPos + 144;
+
         primaryPrevious = addConfigureWidget(Button.builder(
                 Component.literal("◀ Previous"),
                 button -> sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_PRIMARY_PREVIOUS)
-        ).bounds(leftPos + 38, topPos + 118, 116, 20).build());
+        ).bounds(startX, primaryY, pairWidth, 20).build());
         primaryNext = addConfigureWidget(Button.builder(
                 Component.literal("Next ▶"),
                 button -> sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_PRIMARY_NEXT)
-        ).bounds(leftPos + 166, topPos + 118, 116, 20).build());
+        ).bounds(startX + pairWidth + gap, primaryY, pairWidth, 20).build());
         secondaryPrevious = addConfigureWidget(Button.builder(
                 Component.literal("◀ Range"),
                 button -> sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_SECONDARY_PREVIOUS)
-        ).bounds(leftPos + 38, topPos + 158, 116, 20).build());
+        ).bounds(startX, secondaryY, pairWidth, 20).build());
         secondaryNext = addConfigureWidget(Button.builder(
                 Component.literal("Range ▶"),
                 button -> sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_SECONDARY_NEXT)
-        ).bounds(leftPos + 166, topPos + 158, 116, 20).build());
+        ).bounds(startX + pairWidth + gap, secondaryY, pairWidth, 20).build());
         action = addConfigureWidget(Button.builder(
                 Component.literal("Action"),
                 button -> sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_ACTION)
-        ).bounds(leftPos + 38, topPos + 158, 244, 20).build());
+        ).bounds(startX, secondaryY, totalWidth, 20).build());
         toggle = addConfigureWidget(Button.builder(
                 Component.literal("Toggle"),
                 button -> sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_TOGGLE)
-        ).bounds(leftPos + 38, topPos + 158, 244, 20).build());
+        ).bounds(startX, secondaryY, totalWidth, 20).build());
     }
 
     @Override
@@ -92,8 +117,15 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 || kind == UniversalFieldDeviceMenu.CONFIG_IRON_CORE;
         boolean hasToggle = kind == UniversalFieldDeviceMenu.CONFIG_PWM;
 
-        if (primaryPrevious != null) primaryPrevious.visible = configure && primary;
-        if (primaryNext != null) primaryNext.visible = configure && primary;
+        String primaryName = primaryControlName(kind);
+        if (primaryPrevious != null) {
+            primaryPrevious.visible = configure && primary;
+            primaryPrevious.setMessage(Component.literal("◀ " + primaryName));
+        }
+        if (primaryNext != null) {
+            primaryNext.visible = configure && primary;
+            primaryNext.setMessage(Component.literal(primaryName + " ▶"));
+        }
         if (secondaryPrevious != null) {
             secondaryPrevious.visible = configure && secondary;
             if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE) secondaryPrevious.setMessage(Component.literal("◀ Noise"));
@@ -130,7 +162,12 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         switch (section) {
             case OVERVIEW -> overview(graphics);
             case PORTS -> ports(graphics);
-            case CONFIGURE -> configure(graphics);
+            case CONFIGURE -> {
+                graphics.pose().pushPose();
+                graphics.pose().translate(0.0F, 108.0F, 0.0F);
+                configure(graphics);
+                graphics.pose().popPose();
+            }
             case DIAGNOSTICS -> diagnostics(graphics);
             case HISTORY -> history(graphics);
         }
@@ -364,7 +401,41 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         }
 
         evidenceRow(g, "EVIDENCE", evidence.name(), "server snapshot", processEvidenceNote(evidence), 239);
-        wrappedText(g, processInterpretation(kind), 16, 262, workspaceWidth() - 24, MUTED);
+        String controlHint = processControlHint(kind);
+        sectionRule(g, 244);
+        if (!controlHint.isBlank()) {
+            statusLine(g, "FORMULA-LINKED CONTROL", controlHint, INFO, 260);
+            wrappedText(g, processInterpretation(kind), 24, 286, workspaceWidth() - 48, MUTED);
+        } else {
+            statusLine(g, "CONTROL SURFACE", "OBSERVER / PROFILE-OWNED • no fabricated knob", MUTED, 260);
+            wrappedText(g, processInterpretation(kind), 24, 286, workspaceWidth() - 48, MUTED);
+        }
+    }
+
+    private String processControlHint(int kind) {
+        return switch (kind) {
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_CALIBRATION -> "Configure → transfer profile";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SAMPLE_HOLD -> "Configure → trigger edge + clear held value";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_PWM -> "Configure → period T + invert";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_TEMPERATURE,
+                 UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_MAGNETIC,
+                 UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_OPTICAL,
+                 UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_VOLTAGE -> "Configure → conditioning profile";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_VOLTAGE_SOURCE -> "Configure → V_set";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_LOAD -> "Configure → R";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_SERIES_RESISTOR -> "Configure → R_s";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_CAPACITOR -> "Configure → C profile / τ";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_COPPER_FUSE -> "Configure → I_rating + reset latch";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_NOISE -> "Configure → μ + |η|max";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_OSCILLATOR -> "Configure → T_nom + jitter J";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_QUARTZ_PHASE_DELAY -> "Configure → delay D";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_MOLECULAR_RECEIVER -> "Configure → sensitivity + reset history";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_IRON_CORE -> "Configure → explicit demagnetize";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_MASS -> "Configure → capacity index C";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_HEATER -> "Configure → resistance R";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_RADIATOR -> "Configure → cooling coefficient k_cool";
+            default -> "";
+        };
     }
 
     private String processEquation(int kind) {
@@ -840,6 +911,30 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         }
         formulaCard(g, universalContract(kind), 218);
         wrappedText(g, "Universal HMI rule: controls express server intent only; Route owns physical interfaces; diagnostics/history never invent process state that the underlying device does not retain.", 16, 244, workspaceWidth() - 24, MUTED);
+    }
+
+    private String primaryControlName(int kind) {
+        return switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER, UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE -> "Profile";
+            case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER -> "Sensitivity";
+            case UniversalFieldDeviceMenu.CONFIG_ALARM -> "Severity";
+            case UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD -> "Trigger edge";
+            case UniversalFieldDeviceMenu.CONFIG_CALIBRATION -> "Transfer";
+            case UniversalFieldDeviceMenu.CONFIG_PWM -> "Period";
+            case UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR -> "Fault mode";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_VOLTAGE_SOURCE -> "Voltage";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD -> "Resistance";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR -> "R_s";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_CAPACITOR -> "C profile";
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE -> "I rating";
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE -> "Baseline μ";
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> "Period";
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY -> "Delay D";
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_MASS -> "Capacity C";
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER -> "Resistance R";
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR -> "Cooling k";
+            default -> "Parameter";
+        };
     }
 
     private String universalContract(int kind) {

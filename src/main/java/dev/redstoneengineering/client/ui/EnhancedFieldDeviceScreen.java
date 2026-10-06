@@ -28,23 +28,43 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
     }
 
     @Override
-    protected void addDeviceWidgets() {
-        int y = topPos + imageHeight - 66;
-        minus = addConfigureWidget(Button.builder(Component.literal("−"), b -> sendMenuButton(FieldDeviceMenu.BUTTON_PRIMARY_DECREASE))
-                .bounds(leftPos + 16, y, 82, 20).build());
-        plus = addConfigureWidget(Button.builder(Component.literal("+"), b -> sendMenuButton(FieldDeviceMenu.BUTTON_PRIMARY_INCREASE))
-                .bounds(leftPos + 104, y, 82, 20).build());
-        toggle = addConfigureWidget(Button.builder(Component.literal("Toggle"), b -> sendMenuButton(FieldDeviceMenu.BUTTON_TOGGLE))
-                .bounds(leftPos + 192, y, 110, 20).build());
-        p0 = preset(0, leftPos + 16, y + 27, FieldDeviceMenu.BUTTON_PRESET_0);
-        p5 = preset(5, leftPos + 88, y + 27, FieldDeviceMenu.BUTTON_PRESET_5);
-        p10 = preset(10, leftPos + 160, y + 27, FieldDeviceMenu.BUTTON_PRESET_10);
-        p15 = preset(15, leftPos + 232, y + 27, FieldDeviceMenu.BUTTON_PRESET_15);
+    protected int virtualContentWidth(Section section) {
+        return section == Section.PORTS ? 940 : 1000;
     }
 
-    private Button preset(int value, int x, int y, int id) {
+    @Override
+    protected int virtualContentHeight(Section section) {
+        return section == Section.CONFIGURE ? 660 : 540;
+    }
+
+    @Override
+    protected void addDeviceWidgets() {
+        int gap = 10;
+        int controlWidth = Math.min(150, Math.max(104, (imageWidth - 72 - gap * 2) / 3));
+        int total = controlWidth * 3 + gap * 2;
+        int startX = leftPos + (imageWidth - total) / 2;
+        int y = topPos + 100;
+        minus = addConfigureWidget(Button.builder(Component.literal("−"), b -> sendMenuButton(FieldDeviceMenu.BUTTON_PRIMARY_DECREASE))
+                .bounds(startX, y, controlWidth, 20).build());
+        plus = addConfigureWidget(Button.builder(Component.literal("+"), b -> sendMenuButton(FieldDeviceMenu.BUTTON_PRIMARY_INCREASE))
+                .bounds(startX + controlWidth + gap, y, controlWidth, 20).build());
+        toggle = addConfigureWidget(Button.builder(Component.literal("Toggle"), b -> sendMenuButton(FieldDeviceMenu.BUTTON_TOGGLE))
+                .bounds(startX + (controlWidth + gap) * 2, y, controlWidth, 20).build());
+
+        int presetGap = 8;
+        int presetWidth = Math.min(84, Math.max(62, (imageWidth - 80 - presetGap * 3) / 4));
+        int presetTotal = presetWidth * 4 + presetGap * 3;
+        int presetX = leftPos + (imageWidth - presetTotal) / 2;
+        int presetY = y + 34;
+        p0 = preset(0, presetX, presetY, presetWidth, FieldDeviceMenu.BUTTON_PRESET_0);
+        p5 = preset(5, presetX + presetWidth + presetGap, presetY, presetWidth, FieldDeviceMenu.BUTTON_PRESET_5);
+        p10 = preset(10, presetX + (presetWidth + presetGap) * 2, presetY, presetWidth, FieldDeviceMenu.BUTTON_PRESET_10);
+        p15 = preset(15, presetX + (presetWidth + presetGap) * 3, presetY, presetWidth, FieldDeviceMenu.BUTTON_PRESET_15);
+    }
+
+    private Button preset(int value, int x, int y, int width, int id) {
         return addConfigureWidget(Button.builder(Component.literal("Preset " + value), b -> sendMenuButton(id))
-                .bounds(x, y, 66, 20).build());
+                .bounds(x, y, width, 20).build());
     }
 
     @Override
@@ -87,7 +107,12 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
         switch (section) {
             case OVERVIEW -> overview(graphics);
             case PORTS -> ports(graphics);
-            case CONFIGURE -> configure(graphics);
+            case CONFIGURE -> {
+                graphics.pose().pushPose();
+                graphics.pose().translate(0.0F, 106.0F, 0.0F);
+                configure(graphics);
+                graphics.pose().popPose();
+            }
             case DIAGNOSTICS -> diagnostics(graphics);
             case HISTORY -> history(graphics);
         }

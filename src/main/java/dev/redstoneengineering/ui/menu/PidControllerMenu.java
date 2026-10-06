@@ -60,6 +60,19 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     private final DataSlot manualMode = trackedInt();
     private final DataSlot inhibited = trackedInt();
     private final DataSlot modeTransfers = trackedInt();
+    private final DataSlot kp = trackedInt();
+    private final DataSlot kiDiv = trackedInt();
+    private final DataSlot kd = trackedInt();
+    private final DataSlot derivativeSmoothing = trackedInt();
+    private final DataSlot sampleTicks = trackedInt();
+    private final DataSlot integralState = trackedInt();
+    private final DataSlot derivativeState = trackedInt();
+    private final DataSlot bias = trackedInt();
+    private final DataSlot pTerm = trackedInt();
+    private final DataSlot iTerm = trackedInt();
+    private final DataSlot dTerm = trackedInt();
+    private final DataSlot unsaturatedOutput = trackedInt();
+    private final DataSlot antiWindupHolding = trackedInt();
 
     private final DataSlot plantDetected = trackedInt();
     private final DataSlot plantReady = trackedInt();
@@ -138,6 +151,22 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
         manualMode.set(snapshot.manualMode() ? 1 : 0);
         inhibited.set(snapshot.inhibited() ? 1 : 0);
         modeTransfers.set(snapshot.modeTransfers());
+
+        PidControllerBlock.TuningModel model = PidControllerBlock.tuningModel(tuning.get());
+        kp.set(model.kp());
+        kiDiv.set(model.kiDiv());
+        kd.set(model.kd());
+        derivativeSmoothing.set(model.derivativeSmoothing());
+        sampleTicks.set(model.sampleTicks());
+        PidControllerBlock.RuntimeTerms terms = PidControllerBlock.runtimeTerms(level, blockPos, tuning.get(), snapshot.error());
+        integralState.set(terms.integralState());
+        derivativeState.set(terms.derivativeState());
+        bias.set(terms.bias());
+        pTerm.set(terms.pTerm());
+        iTerm.set(terms.iTerm());
+        dTerm.set(terms.dTerm());
+        unsaturatedOutput.set(terms.unsaturatedOutput());
+        antiWindupHolding.set(terms.antiWindupHolding() ? 1 : 0);
 
         PneumaticClosedLoopWitness.Snapshot plant = ClosedLoopCommissioning.inspectPneumaticPlant(level, blockPos);
         plantDetected.set(plant.detected() ? 1 : 0);
@@ -255,6 +284,19 @@ public final class PidControllerMenu extends EngineeringDeviceMenu {
     public boolean manualMode() { return manualMode.get() != 0; }
     public boolean inhibited() { return inhibited.get() != 0; }
     public int modeTransfers() { return modeTransfers.get(); }
+    public int kp() { return kp.get(); }
+    public int kiDiv() { return kiDiv.get(); }
+    public int kd() { return kd.get(); }
+    public int derivativeSmoothing() { return derivativeSmoothing.get(); }
+    public int sampleTicks() { return sampleTicks.get(); }
+    public int integralState() { return integralState.get(); }
+    public int derivativeState() { return derivativeState.get(); }
+    public int bias() { return bias.get(); }
+    public int pTerm() { return pTerm.get(); }
+    public int iTerm() { return iTerm.get(); }
+    public int dTerm() { return dTerm.get(); }
+    public int unsaturatedOutput() { return unsaturatedOutput.get(); }
+    public boolean antiWindupHolding() { return antiWindupHolding.get() != 0; }
 
     public boolean plantDetected() { return plantDetected.get() != 0; }
     public boolean plantReady() { return plantReady.get() != 0; }

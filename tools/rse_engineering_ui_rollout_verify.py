@@ -25,10 +25,12 @@ if len(engineering_screens) < 12:
     errors.append(f"expected broad EngineeringScreen family coverage, found only {len(engineering_screens)} subclasses")
 
 for token in (
-    "MIN_WORKSPACE_WIDTH = 420",
-    "MAX_WORKSPACE_WIDTH = 720",
-    "MIN_WORKSPACE_HEIGHT = 300",
-    "MAX_WORKSPACE_HEIGHT = 460",
+    "MIN_WORKSPACE_WIDTH = 440",
+    "MAX_WORKSPACE_WIDTH = 780",
+    "MIN_WORKSPACE_HEIGHT = 320",
+    "MAX_WORKSPACE_HEIGHT = 520",
+    "DEFAULT_CANVAS_WIDTH = 920",
+    "DEFAULT_CANVAS_HEIGHT = 560",
     "mouseScrolled",
     "hasShiftDown()",
     "enableScissor",
@@ -38,7 +40,8 @@ for token in (
     "variableRole",
     "evidenceRow",
     "wrappedText",
-    "SCROLL X ",
+    "renderScrollIndicators",
+    "wheel=Y  shift+wheel=X",
 ):
     if token not in base:
         errors.append(f"shared engineering workspace missing rollout primitive {token!r}")
@@ -95,6 +98,35 @@ formula_users = [name for name, text in engineering_screens if "formulaCard(" in
 if len(formula_users) < 4:
     errors.append(f"expected formula-first rollout across at least four EngineeringScreen families, found {formula_users}")
 
+for name, required_tokens in {
+    "UniversalFieldDeviceScreen.java": (
+        "virtualContentWidth",
+        "virtualContentHeight",
+        "FORMULA-LINKED CONTROL",
+        "primaryControlName",
+        "graphics.pose().translate(0.0F, 108.0F, 0.0F)",
+    ),
+    "EnhancedFieldDeviceScreen.java": (
+        "virtualContentWidth",
+        "virtualContentHeight",
+        "graphics.pose().translate(0.0F, 106.0F, 0.0F)",
+    ),
+    "PidControllerScreen.java": (
+        "virtualContentWidth",
+        "virtualContentHeight",
+        "Σe_cand=clamp",
+        "u_raw=bias+P+I+D",
+        "graphics.pose().translate(0.0F, 148.0F, 0.0F)",
+    ),
+}.items():
+    text = lookup.get(name, "")
+    if not text:
+        errors.append(f"deep-canvas target screen missing: {name}")
+        continue
+    for token in required_tokens:
+        if token not in text:
+            errors.append(f"{name} missing deep-canvas token {token!r}")
+
 for name, text in engineering_screens:
     if "dev.redstoneengineering.physics" in text:
         errors.append(f"{name} imports physics directly; shared client HMI must remain presentation-only")
@@ -109,7 +141,9 @@ print("RSE ENGINEERING UI ROLLOUT VERIFY: PASS")
 print(f" EngineeringScreen subclasses covered by shared responsive workspace: {len(engineering_screens)}")
 print(f" formula-first migrated families this batch: {len(formula_users)}")
 print(" responsive large workspace: PASS")
-print(" vertical/horizontal scroll foundation: PASS")
+print(" visible vertical/horizontal deep-canvas scrolling: PASS")
+print(" fixed controls separated from scrollable engineering content: PASS")
+print(" formula-linked controls surfaced in Universal / Enhanced / PID HMIs: PASS")
 print(" shared formula / variable / evidence primitives: PASS")
 print(" conditioner / quartz / conversion / range-sensor rollout: PASS")
 print(" client/no-second-physics-solver boundary: PASS")

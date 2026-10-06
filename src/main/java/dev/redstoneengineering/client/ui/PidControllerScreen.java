@@ -22,49 +22,77 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
     }
 
     @Override
-    protected void addDeviceWidgets() {
-        int tuningY = topPos + imageHeight - 154;
-        addConfigureWidget(Button.builder(
-                Component.literal("◀ Preset"),
-                button -> sendMenuButton(PidControllerMenu.BUTTON_TUNING_PREVIOUS)
-        ).bounds(leftPos + 18, tuningY, 92, 20).build());
-        addConfigureWidget(Button.builder(
-                Component.literal("Preset ▶"),
-                button -> sendMenuButton(PidControllerMenu.BUTTON_TUNING_NEXT)
-        ).bounds(leftPos + 114, tuningY, 92, 20).build());
+    protected int virtualContentWidth(Section section) {
+        return section == Section.CONFIGURE || section == Section.HISTORY ? 1080 : 960;
+    }
 
-        int routeY = topPos + imageHeight - 128;
+    @Override
+    protected int virtualContentHeight(Section section) {
+        return switch (section) {
+            case CONFIGURE -> 780;
+            case HISTORY -> 700;
+            case DIAGNOSTICS -> 620;
+            default -> 560;
+        };
+    }
+
+    @Override
+    protected void addDeviceWidgets() {
+        int pairGap = 12;
+        int pairWidth = Math.min(190, Math.max(132, (imageWidth - 72 - pairGap) / 2));
+        int pairTotal = pairWidth * 2 + pairGap;
+        int pairX = leftPos + (imageWidth - pairTotal) / 2;
+
+        int tuningY = topPos + 98;
+        addConfigureWidget(Button.builder(
+                Component.literal("◀ Tuning preset"),
+                button -> sendMenuButton(PidControllerMenu.BUTTON_TUNING_PREVIOUS)
+        ).bounds(pairX, tuningY, pairWidth, 20).build());
+        addConfigureWidget(Button.builder(
+                Component.literal("Tuning preset ▶"),
+                button -> sendMenuButton(PidControllerMenu.BUTTON_TUNING_NEXT)
+        ).bounds(pairX + pairWidth + pairGap, tuningY, pairWidth, 20).build());
+
+        int routeY = topPos + 128;
+        int routeGap = 8;
+        int routeWidth = Math.min(110, Math.max(72, (imageWidth - 88 - routeGap * 3) / 4));
+        int routeTotal = routeWidth * 4 + routeGap * 3;
+        int routeX = leftPos + (imageWidth - routeTotal) / 2;
         addConfigureWidget(Button.builder(Component.literal("RX ▲"),
                 button -> sendMenuButton(PidControllerMenu.BUTTON_INPUT_PREVIOUS))
-                .bounds(leftPos + 18, routeY, 62, 20).build());
+                .bounds(routeX, routeY, routeWidth, 20).build());
         addConfigureWidget(Button.builder(Component.literal("RX ▼"),
                 button -> sendMenuButton(PidControllerMenu.BUTTON_INPUT_NEXT))
-                .bounds(leftPos + 84, routeY, 62, 20).build());
+                .bounds(routeX + routeWidth + routeGap, routeY, routeWidth, 20).build());
         addConfigureWidget(Button.builder(Component.literal("TX ▲"),
                 button -> sendMenuButton(PidControllerMenu.BUTTON_OUTPUT_PREVIOUS))
-                .bounds(leftPos + 150, routeY, 62, 20).build());
+                .bounds(routeX + (routeWidth + routeGap) * 2, routeY, routeWidth, 20).build());
         addConfigureWidget(Button.builder(Component.literal("TX ▼"),
                 button -> sendMenuButton(PidControllerMenu.BUTTON_OUTPUT_NEXT))
-                .bounds(leftPos + 216, routeY, 62, 20).build());
+                .bounds(routeX + (routeWidth + routeGap) * 3, routeY, routeWidth, 20).build());
 
-        int acceptanceY = topPos + imageHeight - 102;
+        int acceptanceY = topPos + 158;
         addConfigureWidget(Button.builder(Component.literal("Capture acceptance"),
                 button -> sendMenuButton(PidControllerMenu.BUTTON_CAPTURE_ACCEPTANCE))
-                .bounds(leftPos + 18, acceptanceY, 140, 20).build());
+                .bounds(pairX, acceptanceY, pairWidth, 20).build());
         addConfigureWidget(Button.builder(Component.literal("Reset runtime + trend"),
                 button -> sendMenuButton(PidControllerMenu.BUTTON_RESET_RUNTIME_TREND))
-                .bounds(leftPos + 162, acceptanceY, 140, 20).build());
+                .bounds(pairX + pairWidth + pairGap, acceptanceY, pairWidth, 20).build());
 
-        int trialY = topPos + imageHeight - 76;
+        int trialY = topPos + 188;
+        int trialGap = 10;
+        int trialWidth = Math.min(145, Math.max(104, (imageWidth - 84 - trialGap * 2) / 3));
+        int trialTotal = trialWidth * 3 + trialGap * 2;
+        int trialX = leftPos + (imageWidth - trialTotal) / 2;
         addConfigureWidget(Button.builder(Component.literal("Trial baseline"),
                 button -> sendMenuButton(PidControllerMenu.BUTTON_TRIAL_BASELINE))
-                .bounds(leftPos + 18, trialY, 92, 20).build());
+                .bounds(trialX, trialY, trialWidth, 20).build());
         addConfigureWidget(Button.builder(Component.literal("Trial candidate"),
                 button -> sendMenuButton(PidControllerMenu.BUTTON_TRIAL_CANDIDATE))
-                .bounds(leftPos + 116, trialY, 92, 20).build());
+                .bounds(trialX + trialWidth + trialGap, trialY, trialWidth, 20).build());
         addConfigureWidget(Button.builder(Component.literal("Clear trial"),
                 button -> sendMenuButton(PidControllerMenu.BUTTON_TRIAL_CLEAR))
-                .bounds(leftPos + 214, trialY, 88, 20).build());
+                .bounds(trialX + (trialWidth + trialGap) * 2, trialY, trialWidth, 20).build());
     }
 
     @Override
@@ -72,7 +100,12 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
         switch (section) {
             case OVERVIEW -> renderOverview(graphics);
             case PORTS -> renderPorts(graphics);
-            case CONFIGURE -> renderConfigure(graphics);
+            case CONFIGURE -> {
+                graphics.pose().pushPose();
+                graphics.pose().translate(0.0F, 148.0F, 0.0F);
+                renderConfigure(graphics);
+                graphics.pose().popPose();
+            }
             case DIAGNOSTICS -> renderDiagnostics(graphics);
             case HISTORY -> renderHistory(graphics);
         }
@@ -106,20 +139,35 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
     private void renderConfigure(GuiGraphics graphics) {
         statusBadge(graphics, "PIONEER WORKFLOW • CLOSED-LOOP COMMISSIONING TRIAL", INFO, 16, 80);
         labelValue(graphics, "Tuning preset", tuningName(menu.tuning()), 101);
+        formulaCard(graphics, "e[n]=SP[n]-PV[n];  P[n]=Kp·e[n]", 117);
+        formulaCard(graphics, "Σe_cand=clamp(Σe[n-1]+e[n],-180,180);  I[n]=KiDiv==0 ? 0 : Σe_cand/KiDiv", 143);
+        formulaCard(graphics, "d_f[n]=d_f[n-1]+(Δe-d_f[n-1])/dSmooth;  D[n]=Kd·d_f[n]", 169);
+        formulaCard(graphics, "u_raw=bias+P+I+D;  u=clamp(u_raw,0,15); saturation may hold the integral", 195);
+        variableRole(graphics, "ADJUSTABLE", "preset", tuningName(menu.tuning()),
+                "Kp=" + menu.kp() + " • KiDiv=" + menu.kiDiv() + " • Kd=" + menu.kd()
+                        + " • dSmooth=" + menu.derivativeSmoothing() + " • Δt=" + menu.sampleTicks() + "t", 226);
+        variableRole(graphics, "MEASURED", "SP / PV / e", menu.setpoint() + " / " + menu.processValue() + " / " + signed(menu.error()),
+                "redstone command / feedback / control error", 248);
+        variableRole(graphics, "SOLVER", "Σe / d_f", menu.integralState() + " / " + menu.derivativeState(),
+                "retained integral / filtered derivative state", 270);
+        variableRole(graphics, "DERIVED", "P / I / D", menu.pTerm() + " / " + menu.iTerm() + " / " + menu.dTerm(),
+                "latest controller terms", 292);
+        variableRole(graphics, "DERIVED", "u_raw → u", menu.unsaturatedOutput() + " → " + menu.controlOutput(),
+                menu.antiWindupHolding() ? "SATURATED • integral hold (anti-windup)" : "bounded 0..15", 314);
 
         String baseline = menu.trialBaselineSequence() > 0 ? "#" + menu.trialBaselineSequence() : "NONE";
         String candidate = menu.trialCandidateSequence() > 0 ? "#" + menu.trialCandidateSequence() : "NONE";
-        labelValue(graphics, "Trial baseline / candidate", baseline + " / " + candidate, 117);
+        labelValue(graphics, "Trial baseline / candidate", baseline + " / " + candidate, 344);
 
         AcceptanceEvidenceTrend trial = menu.trialTrend();
         String verdict = trial == null
                 ? (menu.trialBaselineSequence() > 0 ? "BASELINE READY • settle, then candidate" : "START WITH BASELINE")
                 : trial.name() + " • " + (menu.trialRobust() ? "ROBUST" : "CHECK");
         statusLine(graphics, "Trial verdict", verdict,
-                trial == null ? INFO : (menu.trialRobust() ? GOOD : comparisonColor(trial)), 133);
+                trial == null ? INFO : (menu.trialRobust() ? GOOD : comparisonColor(trial)), 366);
         safeText(graphics,
                 "Captures require settled PASS / MARGINAL / FAIL evidence; detailed deltas are shown on Log.",
-                16, 149, MUTED);
+                24, 394, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {

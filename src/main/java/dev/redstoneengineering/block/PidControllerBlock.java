@@ -64,6 +64,8 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
     private static final int MAX_OUT = 15;
     private static final int DEADBAND = 1;
 
+    // Discrete controller gains. kiDiv=0 disables integral action; otherwise I=integral/kiDiv.
+    // dSmooth is the first-order derivative-state divisor used once per 2-tick controller sample.
     private static final int[][] PRESETS = {
             {1, 0, 0, 2},
             {2, 24, 0, 2},
@@ -71,7 +73,46 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
             {3, 14, 2, 4}
     };
 
-    private static final int RUNTIME_SIZE = 22;
+    public record TuningModel(int kp, int kiDiv, int kd, int derivativeSmoothing, int sampleTicks) {}
+
+    public record RuntimeTerms(
+            boolean available,
+            int integralState,
+            int previousControlError,
+            int derivativeState,
+            int bias,
+            int pTerm,
+            int iTerm,
+            int dTerm,
+            int unsaturatedOutput,
+            int output,
+            boolean saturated,
+            boolean antiWindupHolding
+    ) {}
+
+    /** Read-only coefficients for HMI/model transparency; physics remains preset-driven and server-authoritative. */
+    public static TuningModel tuningModel(int tuning) {
+        int index = clamp(tuning, 0, PRESETS.length - 1);
+        int[] k = PRESETS[index];
+        return new TuningModel(k[0], k[1], k[2], k[3], 2);
+    }
+
+    /** Observer-neutral reconstruction of the terms used by the latest AUTO solve. */
+    public static RuntimeTerms runtimeTerms(Level level, BlockPos pos, int tuning, int currentError) {
+        int[] rt = RuntimeIntStore.peek(level, KEY, pos);
+        if (rt == null || rt.length < RUNTIME_SIZE || rt[21] == 0) {
+            return new RuntimeTerms(false, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, false);
+        }
+        if (rt[26] == 0) {
+            return new RuntimeTerms(false, rt[0], rt[1], rt[2], rt[20], 0, 0, 0, 0, rt[3], false, false);
+        }
+        int unsat = rt[25];
+        int out = rt[3];
+        return new RuntimeTerms(true, rt[0], rt[1], rt[2], rt[20],
+                rt[22], rt[23], rt[24], unsat, out, unsat != out, rt[26] == 2);
+    }
+
+    private static final int RUNTIME_SIZE = 27;
 
     public PidControllerBlock(Properties p) {
         super(p);
@@ -192,12 +233,14 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
 
         // Unknown safety/mode coverage fails safe and must not mutate controller history as a fake zero sample.
         if (inhibitObservation.quality() == PortQuality.STALE || modeObservation.quality() == PortQuality.STALE) {
+            rt[26] = 0;
             rt[3] = 0;
             return 0;
         }
 
         rt[4] = inhibit > 0 ? 1 : 0;
         if (rt[4] != 0) {
+            rt[26] = 0;
             rt[3] = 0;
             if (usable(processObservation)) rt[6] = process;
             return usable(setpointObservation) && usable(processObservation)
@@ -206,10 +249,12 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
 
         // Required signal evidence is mode-dependent. Do not commit mode transfer against fabricated zeroes.
         if (requestedMode == MANUAL_MODE && !usable(manualObservation)) {
+            rt[26] = 0;
             rt[3] = 0;
             return 0;
         }
         if (requestedMode == AUTO_MODE && (!usable(setpointObservation) || !usable(processObservation))) {
+            rt[26] = 0;
             rt[3] = 0;
             return 0;
         }
@@ -232,6 +277,7 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
         rt[18] = manualOutput;
 
         if (requestedMode == MANUAL_MODE) {
+            rt[26] = 0;
             rt[1] = controlError;
             rt[2] = 0;
             rt[3] = manualOutput;
@@ -262,6 +308,13 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
             rt[5]++;
         }
 
+        // Retain the exact terms used by this solve so the HMI never has to re-solve or
+        // infer anti-windup state from post-step integral history.
+        rt[22] = pTerm;
+        rt[23] = iTerm;
+        rt[24] = dTerm;
+        rt[25] = unsat;
+        rt[26] = (saturatedHigh || saturatedLow) ? 2 : 1;
         rt[3] = out;
         rt[6] = process;
         updateStepDiagnostics(level, rt, setpoint, process, rawError);
