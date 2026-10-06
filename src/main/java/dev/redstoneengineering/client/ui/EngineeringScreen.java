@@ -57,7 +57,12 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     protected static final int WHITE_SIGN = 0xFFF3F5F7;
 
     protected static final int CONTENT_LEFT = 24;
-    private static final int CONTENT_TOP = 82;
+    private static final int CONTENT_TOP = 112;
+    private static final int NAV_COLUMNS = 3;
+    private static final int NAV_GAP_X = 8;
+    private static final int NAV_GAP_Y = 6;
+    private static final int NAV_HEIGHT = 20;
+    private static final int NAV_TOP = 34;
     private static final int FOOTER_HEIGHT = 66;
     private static final int MIN_WORKSPACE_WIDTH = 440;
     private static final int MAX_WORKSPACE_WIDTH = 780;
@@ -122,18 +127,21 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         routeOutputPrevious = null;
         routeOutputNext = null;
 
-        int tabY = topPos + 31;
-        int x = leftPos + 8;
-        int gap = 2;
-        int tabWidth = Math.max(52, (imageWidth - 16 - gap * 5) / 6);
+        int navWidth = Math.max(110,
+                (imageWidth - (CONTENT_LEFT * 2) - NAV_GAP_X * (NAV_COLUMNS - 1)) / NAV_COLUMNS);
+        addSectionTab(Section.OVERVIEW, navX(0, navWidth), navY(0), navWidth);
+        addSectionTab(Section.PORTS, navX(1, navWidth), navY(0), navWidth);
+        addSectionTab(Section.CONFIGURE, navX(2, navWidth), navY(0), navWidth);
 
-        addSectionTab(Section.OVERVIEW, x, tabY, tabWidth); x += tabWidth + gap;
-        addSectionTab(Section.PORTS, x, tabY, tabWidth); x += tabWidth + gap;
-        addSectionTab(Section.CONFIGURE, x, tabY, tabWidth); x += tabWidth + gap;
-        routeTab = addRenderableWidget(Button.builder(Component.literal("Route"), button -> setRoutePage())
-                .bounds(x, tabY, tabWidth, 20).build()); x += tabWidth + gap;
-        addSectionTab(Section.DIAGNOSTICS, x, tabY, tabWidth); x += tabWidth + gap;
-        addSectionTab(Section.HISTORY, x, tabY, tabWidth);
+        routeTab = addRenderableWidget(Button.builder(Component.literal("Route"),
+                        button -> setRoutePage())
+                .bounds(navX(0, navWidth), navY(1), navWidth, NAV_HEIGHT)
+                .tooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
+                        "Direct physical RX / TX orientation and routing controls.")))
+                .build());
+
+        addSectionTab(Section.DIAGNOSTICS, navX(1, navWidth), navY(1), navWidth);
+        addSectionTab(Section.HISTORY, navX(2, navWidth), navY(1), navWidth);
 
         addDeviceWidgets();
         layoutConfigureWidgets();
@@ -144,9 +152,22 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         clampScroll();
     }
 
+    private int navX(int column, int width) {
+        int totalWidth = NAV_COLUMNS * width + NAV_GAP_X * (NAV_COLUMNS - 1);
+        int startX = leftPos + (imageWidth - totalWidth) / 2;
+        return startX + column * (width + NAV_GAP_X);
+    }
+
+    private int navY(int row) {
+        return topPos + NAV_TOP + row * (NAV_HEIGHT + NAV_GAP_Y);
+    }
+
     private void addSectionTab(Section target, int x, int y, int width) {
         Button tab = Button.builder(Component.literal(target.label), button -> setSection(target))
-                .bounds(x, y, width, 20).build();
+                .bounds(x, y, width, NAV_HEIGHT)
+                .tooltip(net.minecraft.client.gui.components.Tooltip.create(Component.literal(
+                        target.label + " • " + target.subtitle)))
+                .build();
         sectionButtons.add(addRenderableWidget(tab));
     }
 
@@ -574,9 +595,10 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         graphics.fill(leftPos, topPos, leftPos + imageWidth, topPos + imageHeight, BORDER);
         graphics.fill(leftPos + 2, topPos + 2, leftPos + imageWidth - 2, topPos + imageHeight - 2, PANEL);
         graphics.fill(leftPos + 8, topPos + 27, leftPos + imageWidth - 8, topPos + 29, ACCENT);
-        graphics.fill(leftPos + 8, topPos + 58, leftPos + imageWidth - 8, topPos + footerTop() - 4, PANEL_2);
+        graphics.fill(leftPos + 8, topPos + 30, leftPos + imageWidth - 8, topPos + CONTENT_TOP - 6, PANEL_3);
+        graphics.fill(leftPos + 8, topPos + CONTENT_TOP - 2, leftPos + imageWidth - 8, topPos + footerTop() - 4, PANEL_2);
         graphics.fill(leftPos + 8, topPos + footerTop(), leftPos + imageWidth - 8, topPos + imageHeight - 9, PANEL_3);
-        graphics.fill(leftPos + 8, topPos + 58, leftPos + 11, topPos + footerTop() - 8, WHITE_SIGN);
+        graphics.fill(leftPos + 8, topPos + CONTENT_TOP - 2, leftPos + 11, topPos + footerTop() - 8, WHITE_SIGN);
     }
 
     @Override
@@ -589,12 +611,15 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         graphics.drawString(font, role, 12, 19, INFO, false);
         graphics.drawString(font, health, imageWidth - 12 - font.width(health), 19, operationalHealthColor(), false);
 
+        int pageLabelY = CONTENT_TOP - 18;
         if (routePage) {
-            graphics.drawString(font, "ROUTE", 13, 62, TEXT, false);
-            graphics.drawString(font, "Direct RX / TX direction control", 92, 62, MUTED, false);
+            graphics.drawString(font, "ROUTE", 16, pageLabelY, TEXT, false);
+            graphics.drawString(font, fitForWidth("Direct physical RX / TX direction control", imageWidth - 124),
+                    104, pageLabelY, MUTED, false);
         } else {
-            graphics.drawString(font, section.label.toUpperCase(), 13, 62, TEXT, false);
-            graphics.drawString(font, fitForWidth(section.subtitle, Math.max(210, imageWidth - 120)), 92, 62, MUTED, false);
+            graphics.drawString(font, section.label.toUpperCase(), 16, pageLabelY, TEXT, false);
+            graphics.drawString(font, fitForWidth(section.subtitle, Math.max(210, imageWidth - 132)),
+                    104, pageLabelY, MUTED, false);
         }
 
         graphics.enableScissor(leftPos + 12, topPos + CONTENT_TOP, leftPos + imageWidth - 12, topPos + footerTop() - 8);
