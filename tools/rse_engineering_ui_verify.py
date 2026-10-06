@@ -108,6 +108,12 @@ require("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.
         "LapisPrecisionRangeSensorBlock.RANGE_INDEX",
         "AlarmProcessorBlock.SEVERITY")
 
+require("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
+        '"ADJUSTABLE", "g"', '"FIXED", "gain map"',
+        '"FIXED", "B_threshold"', '"FIXED", "scan radius"',
+        '"FIXED", "T_floor"', "read-only decay law",
+        "server-supported {6,9,12,16} set")
+
 require("src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java",
         "Cycle tuning preset ▶", "Cycle RX ▶", "Cycle TX ▶",
         "BUTTON_TUNING_NEXT", "BUTTON_INPUT_NEXT", "BUTTON_OUTPUT_NEXT")
