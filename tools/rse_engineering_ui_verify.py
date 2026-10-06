@@ -74,12 +74,15 @@ require("src/main/java/dev/redstoneengineering/client/ui/EngineeringIoCompassOve
         '"DECLARED"', '"AIR PATH"', '"LOS PATH"', '"LINKED"', '"OPEN"')
 require("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScreen.java",
         "safeText(g, engineeringHint()", "safeText(g, diagnosticHint()",
-        "fitForWidth(label, 72)", "fitForWidth(value, 72)")
+        "fitForWidth(label, 72)", "fitForWidth(value, 72)",
+        "Exact engineering value", "directEntryKind()", "directRangeLabel()",
+        "BUTTON_PRIMARY_DIRECT_BASE", "Apply " + formulaSymbol())
 
 # Legacy FieldDevice authority must include endpoint-aware RX/TX controls while preserving
 # standalone physical measurement/interface rotation.
 require("src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java",
         "DirectionalRedstoneEndpointBlock", "SignalProbeBlock", "RedstoneCableTerminalBlock",
+        "BUTTON_PRIMARY_DIRECT_BASE", "applyDirectPrimaryEngineeringValue",
         "BUTTON_INPUT_PREVIOUS", "BUTTON_INPUT_NEXT", "BUTTON_OUTPUT_PREVIOUS", "BUTTON_OUTPUT_NEXT",
         "rotateEndpoint(block, input, clockwise)",
         "DirectionalSignalBlock.rotateSeriesInput(level, blockPos, clockwise)",
