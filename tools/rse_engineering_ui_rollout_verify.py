@@ -30,7 +30,7 @@ for token in (
     "MIN_WORKSPACE_HEIGHT = 320",
     "MAX_WORKSPACE_HEIGHT = 520",
     "DEFAULT_CANVAS_WIDTH = 1020",
-    "DEFAULT_CANVAS_HEIGHT = 760",
+    "DEFAULT_CANVAS_HEIGHT = 980",
     "mouseScrolled",
     "hasShiftDown()",
     "enableScissor",
@@ -104,19 +104,19 @@ for name, required_tokens in {
         "virtualContentHeight",
         "FORMULA-LINKED CONTROL",
         "primaryControlName",
-        "graphics.pose().translate(0.0F, 108.0F, 0.0F)",
+        "case CONFIGURE -> configure(graphics);",
     ),
     "EnhancedFieldDeviceScreen.java": (
         "virtualContentWidth",
         "virtualContentHeight",
-        "graphics.pose().translate(0.0F, 106.0F, 0.0F)",
+        "case CONFIGURE -> configure(graphics);",
     ),
     "PidControllerScreen.java": (
         "virtualContentWidth",
         "virtualContentHeight",
         "Σe_cand=clamp",
         "u_raw=bias+P+I+D",
-        "graphics.pose().translate(0.0F, 148.0F, 0.0F)",
+        "case CONFIGURE -> renderConfigure(graphics);",
     ),
 }.items():
     text = lookup.get(name, "")
