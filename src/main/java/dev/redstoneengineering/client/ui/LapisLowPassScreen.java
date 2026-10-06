@@ -44,7 +44,7 @@ public final class LapisLowPassScreen extends AbstractContainerScreen<LapisLowPa
 
     private static final int CONTENT_X = 26;
     private static final int CONTENT_Y = 82;
-    private static final int FOOTER_HEIGHT = 58;
+    private static final int FOOTER_HEIGHT = 92;
     private static final int MODEL_WIDTH = 960;
 
     private final List<Button> pageButtons = new ArrayList<>();
@@ -89,7 +89,7 @@ public final class LapisLowPassScreen extends AbstractContainerScreen<LapisLowPa
             x += tabWidth + gap;
         }
 
-        int bottomY = topPos + imageHeight - 44;
+        int bottomY = topPos + imageHeight - 78;
         int controlGap = 12;
         int alphaWidth = Math.min(150, Math.max(90, (imageWidth - 76 - controlGap * 2) / 3));
         int alphaTotal = alphaWidth * 3 + controlGap * 2;
@@ -317,12 +317,20 @@ public final class LapisLowPassScreen extends AbstractContainerScreen<LapisLowPa
         g.disableScissor();
         renderScrollIndicators(g);
 
-        String evidence = "EVIDENCE • " + menu.evidenceStateLabel();
-        g.drawString(font, evidence, 20, imageHeight - 34, evidenceColor(), false);
+        String state = "LIVE STATE • HEALTH " + menu.operationalHealthLabel()
+                + " • ROLE " + menu.topologyRoleLabel()
+                + " • EVIDENCE " + menu.evidenceStateLabel();
+        g.drawString(font, fit(state, imageWidth - 40), 20, imageHeight - 54, evidenceColor(), false);
+
+        String io = "I/O • " + menu.portRouteLabel()
+                + " • CONTROLS " + configureButtons.size()
+                + " • ROUTE ADJUSTABLE";
+        g.drawString(font, fit(io, imageWidth - 40), 20, imageHeight - 38, INFO, false);
+
         String scroll = "X " + scrollX + "/" + Math.max(0, contentWidth() - viewportWidth())
                 + "  •  Y " + scrollY + "/" + Math.max(0, contentHeight() - viewportHeight());
-        g.drawString(font, scroll, imageWidth - 20 - font.width(scroll), imageHeight - 34, MUTED, false);
-        g.drawString(font, "Drag scrollbars • Wheel: vertical • Shift+wheel: horizontal", 20, imageHeight - 18, MUTED, false);
+        g.drawString(font, fit(scroll, 220), imageWidth - 20 - font.width(fit(scroll, 220)), imageHeight - 54, MUTED, false);
+        g.drawString(font, "Drag scrollbars • Wheel: vertical • Shift+wheel: horizontal", 20, imageHeight - 20, MUTED, false);
     }
 
     private int horizontalTrackX0() { return 26; }
