@@ -106,20 +106,30 @@ public final class PidControllerScreen extends EngineeringScreen<PidControllerMe
     private void renderConfigure(GuiGraphics graphics) {
         statusBadge(graphics, "PIONEER WORKFLOW • CLOSED-LOOP COMMISSIONING TRIAL", INFO, 16, 80);
         labelValue(graphics, "Tuning preset", tuningName(menu.tuning()), 101);
+        formulaCard(graphics, "e=SP-PV; P=Kp*e; I=sum(e)/KiDiv; D=Kd*d_f; u=clamp(bias+P+I+D,0,15)", 117);
+        variableRole(graphics, "ADJUSTABLE", "preset", tuningName(menu.tuning()),
+                "Kp=" + menu.kp() + " • KiDiv=" + menu.kiDiv() + " • Kd=" + menu.kd()
+                        + " • dSmooth=" + menu.derivativeSmoothing() + " • Δt=" + menu.sampleTicks() + "t", 144);
+        variableRole(graphics, "SOLVER", "Σe / d_f", menu.integralState() + " / " + menu.derivativeState(),
+                "retained integral / filtered derivative state", 162);
+        variableRole(graphics, "DERIVED", "P / I / D", menu.pTerm() + " / " + menu.iTerm() + " / " + menu.dTerm(),
+                "latest controller terms", 180);
+        variableRole(graphics, "DERIVED", "u_raw → u", menu.unsaturatedOutput() + " → " + menu.controlOutput(),
+                menu.antiWindupHolding() ? "SATURATED • integral hold (anti-windup)" : "bounded 0..15", 198);
 
         String baseline = menu.trialBaselineSequence() > 0 ? "#" + menu.trialBaselineSequence() : "NONE";
         String candidate = menu.trialCandidateSequence() > 0 ? "#" + menu.trialCandidateSequence() : "NONE";
-        labelValue(graphics, "Trial baseline / candidate", baseline + " / " + candidate, 117);
+        labelValue(graphics, "Trial baseline / candidate", baseline + " / " + candidate, 222);
 
         AcceptanceEvidenceTrend trial = menu.trialTrend();
         String verdict = trial == null
                 ? (menu.trialBaselineSequence() > 0 ? "BASELINE READY • settle, then candidate" : "START WITH BASELINE")
                 : trial.name() + " • " + (menu.trialRobust() ? "ROBUST" : "CHECK");
         statusLine(graphics, "Trial verdict", verdict,
-                trial == null ? INFO : (menu.trialRobust() ? GOOD : comparisonColor(trial)), 133);
+                trial == null ? INFO : (menu.trialRobust() ? GOOD : comparisonColor(trial)), 238);
         safeText(graphics,
                 "Captures require settled PASS / MARGINAL / FAIL evidence; detailed deltas are shown on Log.",
-                16, 149, MUTED);
+                16, 254, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {

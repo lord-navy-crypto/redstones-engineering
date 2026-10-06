@@ -64,12 +64,56 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
     private static final int MAX_OUT = 15;
     private static final int DEADBAND = 1;
 
+    // Discrete controller gains. kiDiv=0 disables integral action; otherwise I=integral/kiDiv.
+    // dSmooth is the first-order derivative-state divisor used once per 2-tick controller sample.
     private static final int[][] PRESETS = {
             {1, 0, 0, 2},
             {2, 24, 0, 2},
             {2, 18, 1, 3},
             {3, 14, 2, 4}
     };
+
+    public record TuningModel(int kp, int kiDiv, int kd, int derivativeSmoothing, int sampleTicks) {}
+
+    public record RuntimeTerms(
+            boolean available,
+            int integralState,
+            int previousControlError,
+            int derivativeState,
+            int bias,
+            int pTerm,
+            int iTerm,
+            int dTerm,
+            int unsaturatedOutput,
+            int output,
+            boolean saturated,
+            boolean antiWindupHolding
+    ) {}
+
+    /** Read-only coefficients for HMI/model transparency; physics remains preset-driven and server-authoritative. */
+    public static TuningModel tuningModel(int tuning) {
+        int index = clamp(tuning, 0, PRESETS.length - 1);
+        int[] k = PRESETS[index];
+        return new TuningModel(k[0], k[1], k[2], k[3], 2);
+    }
+
+    /** Observer-neutral reconstruction of the terms used by the latest AUTO solve. */
+    public static RuntimeTerms runtimeTerms(Level level, BlockPos pos, int tuning, int currentError) {
+        int[] rt = RuntimeIntStore.peek(level, KEY, pos);
+        if (rt == null || rt.length < RUNTIME_SIZE || rt[21] == 0) {
+            return new RuntimeTerms(false, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, false);
+        }
+        TuningModel model = tuningModel(tuning);
+        int controlError = Math.abs(currentError) <= DEADBAND ? 0 : currentError;
+        int p = model.kp() * controlError;
+        int i = model.kiDiv() == 0 ? 0 : rt[0] / model.kiDiv();
+        int d = model.kd() * rt[2];
+        int unsat = rt[20] + p + i + d;
+        int out = clamp(unsat, MIN_OUT, MAX_OUT);
+        boolean saturated = unsat != out;
+        boolean holding = (unsat > MAX_OUT && controlError > 0) || (unsat < MIN_OUT && controlError < 0);
+        return new RuntimeTerms(true, rt[0], rt[1], rt[2], rt[20], p, i, d, unsat, out, saturated, holding);
+    }
 
     private static final int RUNTIME_SIZE = 22;
 
