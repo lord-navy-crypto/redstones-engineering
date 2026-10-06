@@ -115,6 +115,7 @@ if errors:
 print("RSE LAPIS LOW-PASS HMI VERIFY: PASS")
 print(" dedicated server-authoritative menu: PASS")
 print(" formula-first Model page: PASS")
+print(" live RX -> filter -> solver -> TX mechanism flow: PASS")
 print(" live substitution + variable roles: PASS")
 print(" spacious two-axis deep canvas + draggable visible scrollbars: PASS")
 print(" formula/value columns use virtual width rather than viewport compression: PASS")
