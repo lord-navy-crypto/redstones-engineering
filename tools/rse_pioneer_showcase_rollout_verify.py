@@ -421,7 +421,7 @@ for token in (
 
 for token in (
     "FieldDeviceUi.openUniversal(serverPlayer, pos)",
-    '" | target="',
+    "target=",
     "observation.targetTemperature()",
 ):
     if token not in temperature_sensor:
