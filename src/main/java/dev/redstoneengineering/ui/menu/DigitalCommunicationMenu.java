@@ -48,6 +48,8 @@ public final class DigitalCommunicationMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_INPUT_RIGHT = BUTTON_RX_RIGHT;
     public static final int BUTTON_OUTPUT_LEFT = BUTTON_TX_LEFT;
     public static final int BUTTON_OUTPUT_RIGHT = BUTTON_TX_RIGHT;
+    public static final int BUTTON_PARAMETER_DIRECT_BASE = 13000;
+    public static final int BUTTON_PARAMETER_DIRECT_MAX = 13060;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot inputValue = trackedInt();
@@ -229,7 +231,15 @@ public final class DigitalCommunicationMenu extends EngineeringDeviceMenu {
         Block block = state.getBlock();
         boolean changed;
 
-        if (id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT) {
+        if (id >= BUTTON_PARAMETER_DIRECT_BASE && id <= BUTTON_PARAMETER_DIRECT_MAX
+                && block instanceof DigitalRegeneratorBlock regenerator) {
+            int percent = id - BUTTON_PARAMETER_DIRECT_BASE;
+            int threshold = percent == 20 ? 0 : percent == 40 ? 1 : percent == 60 ? 2 : -1;
+            if (threshold < 0) return false;
+            level.setBlock(blockPos, state.setValue(DigitalRegeneratorBlock.THRESHOLD, threshold), Block.UPDATE_CLIENTS);
+            level.scheduleTick(blockPos, regenerator, 1);
+            changed = true;
+        } else if (id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT) {
             boolean clockwise = id == BUTTON_ROTATE_RIGHT;
             if (block instanceof DirectionalDomainBlock) changed = DirectionalDomainBlock.rotateWholeRoute(level, blockPos, clockwise);
             else if (block instanceof DirectionalSignalBlock) changed = DirectionalSignalBlock.rotateWholeRoute(level, blockPos, clockwise);
