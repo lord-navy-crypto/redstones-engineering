@@ -27,8 +27,6 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
             BUTTON_OUTPUT_LEFT = 8, BUTTON_OUTPUT_RIGHT = 9;
     public static final int BUTTON_PRIMARY_DIRECT_BASE = 9000, BUTTON_PRIMARY_DIRECT_MAX = 9015;
     public static final int BUTTON_SECONDARY_DIRECT_BASE = 9100, BUTTON_SECONDARY_DIRECT_MAX = 9115;
-    public static final int BUTTON_PRIMARY_DIRECT_BASE = 9000, BUTTON_PRIMARY_DIRECT_MAX = 9015;
-    public static final int BUTTON_SECONDARY_DIRECT_BASE = 9100, BUTTON_SECONDARY_DIRECT_MAX = 9115;
 
     private final DataSlot kind = trackedInt(), primary = trackedInt(), secondary = trackedInt(), tertiary = trackedInt(), auxiliary = trackedInt();
     private final DataSlot quality = trackedInt(), facing = trackedInt(), inputFacing = trackedInt(), outputFacing = trackedInt();
