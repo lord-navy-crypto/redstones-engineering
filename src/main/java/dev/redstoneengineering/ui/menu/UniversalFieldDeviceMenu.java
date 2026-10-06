@@ -419,15 +419,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             return;
         }
 
-        if (block instanceof AlarmProcessorBlock alarm) {
-            min = 1; max = 3;
-            current = () -> level.getBlockState(blockPos).getValue(AlarmProcessorBlock.SEVERITY);
-            stepForward = ignored -> alarm.adjustSeverity(level, blockPos, 1);
-        } else         if (block instanceof MolecularCloudReceiverBlock receiver) {
-            min = 0; max = 3;
-            current = () -> level.getBlockState(blockPos).getValue(MolecularCloudReceiverBlock.SENSITIVITY);
-            stepForward = ignored -> receiver.adjustSensitivity(level, blockPos, 1);
-        } else         if (block instanceof PwmControllerBlock pwm) {
+        if (block instanceof PwmControllerBlock pwm) {
             pioneerProcessKind.set(PIONEER_PROCESS_PWM);
             PwmControllerBlock.PwmAssessment assessment = pwm.assessment(level, blockPos, state);
             pioneerProcessPrimary.set(assessment.command());
@@ -547,11 +539,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             return;
         }
 
-        if (block instanceof LapisPrecisionRangeSensorBlock range) {
-            min = 0; max = 3;
-            current = () -> level.getBlockState(blockPos).getValue(LapisPrecisionRangeSensorBlock.RANGE_INDEX);
-            stepForward = ignored -> range.adjustRange(level, blockPos, 1);
-        } else         if (block instanceof LapisNoiseSourceBlock noise) {
+        if (block instanceof LapisNoiseSourceBlock noise) {
             pioneerProcessKind.set(PIONEER_PROCESS_LAPIS_NOISE);
             pioneerProcessPrimary.set(state.getValue(LapisNoiseSourceBlock.BASELINE) * 5);
             pioneerProcessSecondary.set(state.getValue(LapisNoiseSourceBlock.NOISE) * 2);
@@ -848,7 +836,15 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         java.util.function.IntSupplier current;
         java.util.function.IntPredicate stepForward;
 
-        if (block instanceof PwmControllerBlock pwm) {
+        if (block instanceof AlarmProcessorBlock alarm) {
+            min = 1; max = 3;
+            current = () -> level.getBlockState(blockPos).getValue(AlarmProcessorBlock.SEVERITY);
+            stepForward = ignored -> alarm.adjustSeverity(level, blockPos, 1);
+        } else if (block instanceof MolecularCloudReceiverBlock receiver) {
+            min = 0; max = 3;
+            current = () -> level.getBlockState(blockPos).getValue(MolecularCloudReceiverBlock.SENSITIVITY);
+            stepForward = ignored -> receiver.adjustSensitivity(level, blockPos, 1);
+        } else if (block instanceof PwmControllerBlock pwm) {
             min = 0; max = 3;
             current = () -> level.getBlockState(blockPos).getValue(PwmControllerBlock.PERIOD_MODE);
             stepForward = ignored -> pwm.adjustPeriodMode(level, blockPos, 1);
@@ -913,7 +909,11 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         java.util.function.IntSupplier current;
         java.util.function.IntPredicate stepForward;
 
-        if (block instanceof LapisNoiseSourceBlock noise) {
+        if (block instanceof LapisPrecisionRangeSensorBlock range) {
+            min = 0; max = 3;
+            current = () -> level.getBlockState(blockPos).getValue(LapisPrecisionRangeSensorBlock.RANGE_INDEX);
+            stepForward = ignored -> range.adjustRange(level, blockPos, 1);
+        } else if (block instanceof LapisNoiseSourceBlock noise) {
             min = 0; max = 10;
             current = () -> level.getBlockState(blockPos).getValue(LapisNoiseSourceBlock.NOISE);
             stepForward = ignored -> noise.adjustNoise(level, blockPos, 1);
