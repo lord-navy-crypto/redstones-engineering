@@ -51,6 +51,15 @@ if len(block_facing) < 23:
 for token in (
     "DEFAULT_CANVAS_WIDTH = 1020",
     "DEFAULT_CANVAS_HEIGHT = 1480",
+    "CONTENT_TOP = 112",
+    "NAV_COLUMNS = 3",
+    "NAV_GAP_X = 8",
+    "NAV_GAP_Y = 6",
+    "NAV_HEIGHT = 20",
+    "NAV_TOP = 34",
+    "navX",
+    "navY",
+    "pageLabelY = CONTENT_TOP - 18",
     "FOOTER_HEIGHT = 66",
     "renderPersistentLiveStateStrip",
     "LIVE STATE • HEALTH ",
@@ -199,6 +208,7 @@ print(" global operator-control inventory / function surface: PASS")
 print(" persistent live Health / Role / Evidence / I-O / Controls strip: PASS")
 print(" global Model / Variables / Evidence engineering contract: PASS")
 print(" reserved shared appendix / no device-content overlap: PASS")
+print(" responsive 3x2 navigation rail + larger tab hit targets: PASS")
 print(" standalone instrument math/evidence equivalence: PASS")
 print(" shared 3-column Configure rail + automatic content offset: PASS")
 print(" generic FieldDevice + Universal fallbacks: PASS")
