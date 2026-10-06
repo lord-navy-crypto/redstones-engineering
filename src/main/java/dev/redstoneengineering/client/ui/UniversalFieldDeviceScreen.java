@@ -19,6 +19,8 @@ import net.minecraft.world.entity.player.Inventory;
 public final class UniversalFieldDeviceScreen extends EngineeringScreen<UniversalFieldDeviceMenu> {
     private EditBox primaryDirectInput;
     private Button primaryDirectApply;
+    private EditBox secondaryDirectInput;
+    private Button secondaryDirectApply;
     private Button primaryPrevious;
     private Button primaryNext;
     private Button secondaryPrevious;
@@ -90,6 +92,15 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 Component.literal("Apply exact value"),
                 button -> submitDirectPrimaryValue()
         ).bounds(startX + pairWidth + gap, primaryY, pairWidth, 20).build());
+
+        secondaryDirectInput = addConfigureWidget(new EditBox(
+                this.font, startX, secondaryY, pairWidth, 20, Component.literal("Secondary formula parameter value")));
+        secondaryDirectInput.setMaxLength(3);
+        secondaryDirectInput.setFilter(value -> value.isEmpty() || value.chars().allMatch(Character::isDigit));
+        secondaryDirectApply = addConfigureWidget(Button.builder(
+                Component.literal("Apply secondary value"),
+                button -> submitDirectSecondaryValue()
+        ).bounds(startX + pairWidth + gap, secondaryY, pairWidth, 20).build());
     }
 
     @Override
@@ -151,6 +162,21 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             primaryPrevious.visible = configure && primary && !directPrimary;
             primaryPrevious.setMessage(Component.literal("◀ " + primaryName + " • " + primaryValue));
         }
+
+        boolean directSecondary = directSecondaryNumericKind(kind);
+        if (secondaryDirectInput != null) {
+            secondaryDirectInput.visible = configure && directSecondary;
+            secondaryDirectInput.active = configure && directSecondary;
+            if (secondaryDirectInput.visible && !secondaryDirectInput.isFocused()) {
+                String expected = Integer.toString(menu.configSecondary());
+                if (!expected.equals(secondaryDirectInput.getValue())) secondaryDirectInput.setValue(expected);
+            }
+        }
+        if (secondaryDirectApply != null) {
+            secondaryDirectApply.visible = configure && directSecondary;
+            secondaryDirectApply.active = configure && directSecondary && directSecondaryInputValid(kind);
+            secondaryDirectApply.setMessage(Component.literal("Apply " + secondaryFormulaParameterSymbol(kind)));
+        }
         if (primaryNext != null) {
             primaryNext.visible = configure && primary && !directPrimary;
             primaryNext.setMessage(Component.literal(primaryName + " • " + primaryValue + " ▶"));
@@ -162,7 +188,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             else secondaryPrevious.setMessage(Component.literal("◀ Range"));
         }
         if (secondaryNext != null) {
-            secondaryNext.visible = configure && secondary;
+            secondaryNext.visible = configure && secondary && !directSecondary;
             if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE) secondaryNext.setMessage(Component.literal("Noise ▶"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR) secondaryNext.setMessage(Component.literal("Jitter ▶"));
             else secondaryNext.setMessage(Component.literal("Range ▶"));
@@ -961,9 +987,27 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                  UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD,
                  UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR,
                  UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE -> 15;
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE -> 20;
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY -> 16;
             case UniversalFieldDeviceMenu.CONFIG_THERMAL_MASS,
                  UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR -> 4;
+            default -> -1;
+        };
+    }
+
+    private boolean directSecondaryNumericKind(int kind) {
+        return kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE
+                || kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR;
+    }
+
+    private int directSecondaryMinimum(int kind) {
+        return 0;
+    }
+
+    private int directSecondaryMaximum(int kind) {
+        return switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE -> 10;
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> 3;
             default -> -1;
         };
     }
@@ -983,12 +1027,35 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 && value >= directPrimaryMinimum(kind) && value <= directPrimaryMaximum(kind);
     }
 
+    private Integer directSecondaryParsedValue() {
+        if (secondaryDirectInput == null) return null;
+        try {
+            return Integer.parseInt(secondaryDirectInput.getValue());
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private boolean directSecondaryInputValid(int kind) {
+        Integer value = directSecondaryParsedValue();
+        return value != null && directSecondaryNumericKind(kind)
+                && value >= directSecondaryMinimum(kind) && value <= directSecondaryMaximum(kind);
+    }
+
     private void submitDirectPrimaryValue() {
         int kind = menu.configKind();
         Integer value = directPrimaryParsedValue();
         if (value == null || !directPrimaryInputValid(kind)) return;
         sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_PRIMARY_DIRECT_BASE + value);
         if (primaryDirectInput != null) primaryDirectInput.setFocused(false);
+    }
+
+    private void submitDirectSecondaryValue() {
+        int kind = menu.configKind();
+        Integer value = directSecondaryParsedValue();
+        if (value == null || !directSecondaryInputValid(kind)) return;
+        sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_SECONDARY_DIRECT_BASE + value);
+        if (secondaryDirectInput != null) secondaryDirectInput.setFocused(false);
     }
 
     private void renderFormulaParameterWorkbench(GuiGraphics g, int kind, int y) {
@@ -1012,6 +1079,10 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         if (!secondarySymbol.isBlank()) {
             statusLine(g, "SECOND PARAMETER",
                     secondarySymbol + " = " + secondaryControlValue(kind) + " • SERVER-BACKED", INFO, y + 82);
+            if (directSecondaryNumericKind(kind)) {
+                safeText(g, "DIRECT ENTRY • " + directSecondaryMinimum(kind) + ".." + directSecondaryMaximum(kind),
+                        16, y + 102, GOOD);
+            }
         }
     }
 
