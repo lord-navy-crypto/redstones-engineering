@@ -228,7 +228,7 @@ public final class RseSixthTenDesignBugGameTests {
 
     @PrefixGameTestTemplate(false)
     @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE, timeoutTicks = 40)
-    public static void engineeringLightSensorIsStaleBeforeFirstSampleAndZeroCanBeValid(GameTestHelper helper) {
+    public static void engineeringLightSensorIsNotReadyBeforeFirstSampleAndZeroCanBeValid(GameTestHelper helper) {
         BlockPos sensor = new BlockPos(2, 1, 2);
         helper.setBlock(sensor, RedstoneEngineering.ENGINEERING_LIGHT_SENSOR.get().defaultBlockState());
         BlockPos world = helper.absolutePos(sensor);
@@ -236,8 +236,8 @@ public final class RseSixthTenDesignBugGameTests {
         Direction front = state.getValue(DirectionalRedstoneEndpointBlock.FACING);
         var initial = RedstoneEngineering.ENGINEERING_LIGHT_SENSOR.get().engineeringSnapshot(
                 helper.getLevel(), world, state, front).orElseThrow();
-        if (initial.quality() != PortQuality.STALE) {
-            helper.fail("Light sensor reported a hard fault before its first scheduled sample", sensor);
+        if (initial.quality() != PortQuality.NOT_READY) {
+            helper.fail("Light sensor must report NOT_READY before its first scheduled sample", sensor);
             return;
         }
         MetrologySupport.sample(helper.getLevel(), "light_sensor", world, 0.0, 0.0, false, 1.0, 30L);

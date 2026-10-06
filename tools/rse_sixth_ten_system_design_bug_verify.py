@@ -123,8 +123,8 @@ if reference.count("new EngineeringPort(") != 1:
 
 require(
     "src/main/java/dev/redstoneengineering/metrology/MetrologySupport.java",
-    "measurement.sampleCount() == 0",
-    "return PortQuality.STALE",
+    "!measurement.hasSample()",
+    "return PortQuality.NOT_READY",
     "awaiting first sample",
 )
 require(
@@ -164,7 +164,7 @@ methods = (
     "redstoneCableDistinguishesDrivenZeroFromUndrivenZeroWithoutObserverMutation",
     "redstoneTerminalModeChangeClearsCachedRoleValue",
     "redstoneReferenceZeroIsValidAndSingleEnded",
-    "engineeringLightSensorIsStaleBeforeFirstSampleAndZeroCanBeValid",
+    "engineeringLightSensorIsNotReadyBeforeFirstSampleAndZeroCanBeValid",
     "tankColumnCoverageSeparatesUnknownFromLoadedEmptyZero",
 )
 for method in methods:
@@ -202,5 +202,5 @@ print("  magnetic zero-gradient + coverage semantics: PASS")
 print("  heater/radiator/calorimeter role boundaries: PASS")
 print("  insulated redstone actual-source/value/terminal lifecycle: PASS")
 print("  reference valid-zero and FRONT-only source: PASS")
-print("  metrology first-sample STALE + tank coverage semantics: PASS")
+print("  metrology first-sample NOT_READY + observer-neutral/tank coverage semantics: PASS")
 print("  registered sixth-ten GameTests: 10 (manual diagnostic / non-blocking)")
