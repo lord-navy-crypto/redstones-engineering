@@ -543,7 +543,11 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             return;
         }
 
-        if (block instanceof LapisNoiseSourceBlock noise) {
+        if (block instanceof LapisPrecisionRangeSensorBlock range) {
+            min = 0; max = 3;
+            current = () -> level.getBlockState(blockPos).getValue(LapisPrecisionRangeSensorBlock.RANGE_INDEX);
+            stepForward = ignored -> range.adjustRange(level, blockPos, 1);
+        } else         if (block instanceof LapisNoiseSourceBlock noise) {
             pioneerProcessKind.set(PIONEER_PROCESS_LAPIS_NOISE);
             pioneerProcessPrimary.set(state.getValue(LapisNoiseSourceBlock.BASELINE) * 5);
             pioneerProcessSecondary.set(state.getValue(LapisNoiseSourceBlock.NOISE) * 2);
