@@ -10,9 +10,7 @@ import net.minecraft.world.entity.player.Inventory;
 
 /** Dedicated HMI for the explicit Redstone ↔ Lapis representation boundary. */
 public final class MediaConversionScreen extends EngineeringScreen<MediaConversionMenu> {
-    private Button rxPrevious;
     private Button rxNext;
-    private Button txPrevious;
     private Button txNext;
 
     public MediaConversionScreen(MediaConversionMenu menu, Inventory inventory, Component title) {
@@ -23,27 +21,25 @@ public final class MediaConversionScreen extends EngineeringScreen<MediaConversi
     protected void addDeviceWidgets() {
         int y1 = topPos + imageHeight - 90;
         int y2 = topPos + imageHeight - 65;
-        rxPrevious = addConfigureWidget(Button.builder(Component.literal("RX ◀"),
-                b -> sendMenuButton(MediaConversionMenu.BUTTON_RX_PREVIOUS))
-                .bounds(leftPos + 52, y1, 72, 20).build());
-        rxNext = addConfigureWidget(Button.builder(Component.literal("RX ▶"),
+        rxNext = addConfigureWidget(Button.builder(Component.literal("Cycle RX ▶"),
                 b -> sendMenuButton(MediaConversionMenu.BUTTON_RX_NEXT))
-                .bounds(leftPos + 132, y1, 72, 20).build());
-        txPrevious = addConfigureWidget(Button.builder(Component.literal("TX ◀"),
-                b -> sendMenuButton(MediaConversionMenu.BUTTON_TX_PREVIOUS))
-                .bounds(leftPos + 52, y2, 72, 20).build());
-        txNext = addConfigureWidget(Button.builder(Component.literal("TX ▶"),
+                .bounds(leftPos + 76, y1, 168, 20).build());
+        txNext = addConfigureWidget(Button.builder(Component.literal("Cycle TX ▶"),
                 b -> sendMenuButton(MediaConversionMenu.BUTTON_TX_NEXT))
-                .bounds(leftPos + 132, y2, 72, 20).build());
+                .bounds(leftPos + 76, y2, 168, 20).build());
     }
 
     @Override
     protected void syncDeviceWidgetLabels() {
         boolean configure = isConfigureSection();
-        if (rxPrevious != null) rxPrevious.visible = configure;
-        if (rxNext != null) rxNext.visible = configure;
-        if (txPrevious != null) txPrevious.visible = configure;
-        if (txNext != null) txNext.visible = configure;
+        if (rxNext != null) {
+            rxNext.visible = configure;
+            rxNext.setMessage(Component.literal("Cycle RX • " + menu.inputFace().getName().toUpperCase() + " ▶"));
+        }
+        if (txNext != null) {
+            txNext.visible = configure;
+            txNext.setMessage(Component.literal("Cycle TX • " + menu.outputFace().getName().toUpperCase() + " ▶"));
+        }
     }
 
     @Override
