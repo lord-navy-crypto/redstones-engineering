@@ -84,6 +84,11 @@ require("src/main/java/dev/redstoneengineering/client/ui/MagneticSystemScreen.ja
 require("src/main/java/dev/redstoneengineering/ui/menu/MagneticSystemMenu.java",
         "BUTTON_PRIMARY_DIRECT_BASE", "PermanentMagnetBlock.STRENGTH", "InductionCoilBlock.TURNS")
 
+require("src/main/java/dev/redstoneengineering/client/ui/CopperCircuitMeterScreen.java",
+        "Cycle measure face ▶", "Cycle face • ")
+require("src/main/java/dev/redstoneengineering/client/ui/MediaConversionScreen.java",
+        "Cycle RX ▶", "Cycle TX ▶", "Cycle RX • ", "Cycle TX • ")
+
 require("src/main/java/dev/redstoneengineering/client/ui/LogicAnalyzerScreen.java",
         "EditBox", "submitThreshold", "submitCursorA", "submitCursorB",
         "BUTTON_THRESHOLD_DIRECT_BASE", "BUTTON_CURSOR_A_DIRECT_BASE", "BUTTON_CURSOR_B_DIRECT_BASE",
