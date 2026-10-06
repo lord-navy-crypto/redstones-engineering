@@ -468,7 +468,11 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             return;
         }
 
-        if (block instanceof CopperVoltageSourceBlock source) {
+        if (block instanceof PwmControllerBlock pwm) {
+            min = 0; max = 3;
+            current = () -> level.getBlockState(blockPos).getValue(PwmControllerBlock.PERIOD_MODE);
+            stepForward = ignored -> pwm.adjustPeriodMode(level, blockPos, 1);
+        } else if (block instanceof CopperVoltageSourceBlock source) {
             pioneerProcessKind.set(PIONEER_PROCESS_COPPER_VOLTAGE_SOURCE);
             pioneerProcessPrimary.set(state.getValue(CopperVoltageSourceBlock.VOLTAGE));
             pioneerProcessSecondary.set(source.engineeringPorts(state).size());
@@ -856,10 +860,18 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             min = 0; max = 20;
             current = () -> level.getBlockState(blockPos).getValue(LapisNoiseSourceBlock.BASELINE);
             stepForward = ignored -> noise.adjustBaseline(level, blockPos, 1);
+        } else if (block instanceof QuartzLabOscillatorBlock oscillator) {
+            min = 0; max = 4;
+            current = () -> level.getBlockState(blockPos).getValue(QuartzLabOscillatorBlock.PERIOD_INDEX);
+            stepForward = ignored -> oscillator.adjustPeriod(level, blockPos, 1);
         } else if (block instanceof QuartzPhaseDelayBlock delay) {
             min = 1; max = 16;
             current = () -> level.getBlockState(blockPos).getValue(QuartzPhaseDelayBlock.DELAY);
             stepForward = ignored -> delay.adjustDelay(level, blockPos, 1);
+        } else if (block instanceof ThermalHeaterBlock heater) {
+            min = 0; max = 3;
+            current = () -> level.getBlockState(blockPos).getValue(ThermalHeaterBlock.RESISTANCE_INDEX);
+            stepForward = ignored -> heater.adjustResistance(level, blockPos, 1);
         } else if (block instanceof ThermalMassBlock mass) {
             min = 1; max = 4;
             current = () -> level.getBlockState(blockPos).getValue(ThermalMassBlock.HEAT_CAPACITY);
