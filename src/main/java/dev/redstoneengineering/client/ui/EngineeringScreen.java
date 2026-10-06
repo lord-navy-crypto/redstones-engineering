@@ -64,7 +64,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private static final int MIN_WORKSPACE_HEIGHT = 320;
     private static final int MAX_WORKSPACE_HEIGHT = 520;
     private static final int DEFAULT_CANVAS_WIDTH = 1020;
-    private static final int DEFAULT_CANVAS_HEIGHT = 980;
+    private static final int DEFAULT_CANVAS_HEIGHT = 1180;
     private static final int CONFIGURE_CONTROL_COLUMNS = 3;
     private static final int CONFIGURE_CONTROL_GAP_X = 10;
     private static final int CONFIGURE_CONTROL_GAP_Y = 8;
@@ -609,6 +609,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
                 renderSection(graphics, section);
             }
             renderFunctionSurface(graphics);
+            renderGlobalEngineeringContract(graphics);
         }
         graphics.pose().popPose();
         graphics.disableScissor();
@@ -757,6 +758,66 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         graphics.drawString(font, "Ports • explicit engineering I/O contract", x + 12, y + 65, TEXT, false);
         graphics.drawString(font, "Observe • synchronized signals / topology / health", x + 12, y + 82, TEXT, false);
         graphics.drawString(font, "Log • retained evidence where the backend actually owns history", x + 12, y + 99, TEXT, false);
+    }
+
+    /**
+     * Global Model / Variables / Evidence contract.
+     *
+     * This is intentionally generic and truthful: every block-facing engineering UI exposes
+     * server authority, variable roles and evidence semantics, while closed-form equations
+     * remain device-specific and are shown only when that server model actually defines one.
+     */
+    private void renderGlobalEngineeringContract(GuiGraphics graphics) {
+        int x = CONTENT_LEFT;
+        int y = section == Section.CONFIGURE ? 910 : 770;
+        int width = Math.max(460, Math.min(920, canvasRight() - x - 24));
+        int height = 250;
+        int controlCount = configureControlCount();
+
+        graphics.fill(x, y, x + width, y + height, PANEL_3);
+        graphics.fill(x, y, x + 4, y + height, ACCENT);
+        graphics.drawString(font, "ENGINEERING CONTRACT • MODEL / VARIABLES / EVIDENCE", x + 12, y + 10, ACCENT, false);
+
+        graphics.drawString(font, "MODEL AUTHORITY", x + 12, y + 31, MUTED, false);
+        graphics.drawString(font, "SERVER-AUTHORITATIVE • client is presentation / operator surface only",
+                x + 190, y + 31, GOOD, false);
+
+        graphics.drawString(font, "MODEL TYPE", x + 12, y + 49, MUTED, false);
+        String modelType = controlCount > 0
+                ? "PARAMETRIC / OPERATOR-CONFIGURABLE"
+                : "OBSERVATIONAL / TOPOLOGICAL / FIXED-CONTRACT";
+        graphics.drawString(font, modelType, x + 190, y + 49, controlCount > 0 ? INFO : MUTED, false);
+
+        graphics.drawString(font, "FORMULA POLICY", x + 12, y + 67, MUTED, false);
+        wrappedText(graphics,
+                "Closed-form equations appear in the device-specific model page only when the implemented server model exposes one. Passive, observer and topology devices are not given invented equations.",
+                x + 190, y + 67, width - 214, TEXT);
+
+        int rowY = y + 105;
+        graphics.drawString(font, "VARIABLE ROLES", x + 12, rowY, INFO, false);
+        rowY += 19;
+        graphics.drawString(font, "[MEASURED] RX / TX engineering observations", x + 20, rowY, TEXT, false);
+        graphics.drawString(font, menu.portRouteLabel(), x + 360, rowY, TEXT, false);
+        rowY += 17;
+        graphics.drawString(font, "[STATE] health / topology", x + 20, rowY, TEXT, false);
+        graphics.drawString(font,
+                menu.operationalHealthLabel() + " / " + menu.topologyRoleLabel(),
+                x + 360, rowY, operationalHealthColor(), false);
+        rowY += 17;
+        graphics.drawString(font, "[EVIDENCE] synchronized quality", x + 20, rowY, TEXT, false);
+        graphics.drawString(font, menu.evidenceStateLabel(), x + 360, rowY, evidenceStateColor(), false);
+        rowY += 17;
+        graphics.drawString(font, "[ADJUSTABLE] server-routed controls", x + 20, rowY, TEXT, false);
+        graphics.drawString(font,
+                controlCount == 0 ? "0 • READ-ONLY / OBSERVER" : controlCount + " • Configure rail",
+                x + 360, rowY, controlCount == 0 ? MUTED : GOOD, false);
+        rowY += 25;
+
+        graphics.drawString(font, "EVIDENCE CONTRACT", x + 12, rowY, INFO, false);
+        rowY += 18;
+        wrappedText(graphics,
+                "Displayed values are synchronized from server-owned state. VALID means the current observation supports interpretation; NO SIGNAL / STALE / NOT READY / SATURATED / FAULT remain visible instead of being silently converted into a plausible number.",
+                x + 20, rowY, width - 40, MUTED);
     }
 
     private void renderRoutePage(GuiGraphics graphics) {
