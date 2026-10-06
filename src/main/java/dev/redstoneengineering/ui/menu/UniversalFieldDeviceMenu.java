@@ -10,6 +10,7 @@ import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.DataSlot;
@@ -54,11 +55,26 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_SAFETY_INTERLOCK = 10;
     public static final int CONFIG_TOPOLOGY_DEBUGGER = 11;
 
+    public static final int PIONEER_MEASUREMENT_NONE = 0;
+    public static final int PIONEER_MEASUREMENT_TEMPERATURE = 1;
+    public static final int PIONEER_MEASUREMENT_LIGHT = 2;
+    public static final int PIONEER_MEASUREMENT_TANK = 3;
+    public static final int PIONEER_MEASUREMENT_ENTITY_DENSITY = 4;
+    public static final int PIONEER_MEASUREMENT_LAPIS_METER = 5;
+    public static final int PIONEER_MEASUREMENT_LAPIS_RANGE = 6;
+    public static final int PIONEER_MEASUREMENT_ANALOG_INDICATOR = 7;
+
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
     private final DataSlot configKind = trackedInt();
     private final DataSlot configPrimary = trackedInt();
     private final DataSlot configSecondary = trackedInt();
+    private final DataSlot pioneerMeasurementKind = trackedInt();
+    private final DataSlot pioneerPrimary = trackedInt();
+    private final DataSlot pioneerSecondary = trackedInt();
+    private final DataSlot pioneerTertiary = trackedInt();
+    private final DataSlot pioneerQuaternary = trackedInt();
+    private final DataSlot pioneerEvidenceQuality = trackedInt();
     private final DataSlot declaredPortMask = trackedInt();
     private final DataSlot inputMask = trackedInt();
     private final DataSlot outputMask = trackedInt();
@@ -92,6 +108,13 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         configKind.set(CONFIG_NONE);
         configPrimary.set(0);
         configSecondary.set(0);
+        pioneerMeasurementKind.set(PIONEER_MEASUREMENT_NONE);
+        pioneerPrimary.set(0);
+        pioneerSecondary.set(0);
+        pioneerTertiary.set(0);
+        pioneerQuaternary.set(0);
+        pioneerEvidenceQuality.set(-1);
+        fillPioneerMeasurementSnapshot(block, state);
 
         if (block instanceof LapisPrecisionRangeSensorBlock) {
             configKind.set(CONFIG_LAPIS_RANGE);
@@ -179,6 +202,78 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         inputMask.set(inputs);
         outputMask.set(outputs);
         bidirectionalMask.set(bidirectional);
+    }
+
+    private void fillPioneerMeasurementSnapshot(Block block, BlockState state) {
+        if (block instanceof TemperatureSensorBlock) {
+            TemperatureSensorBlock.ThermalObservation observation = TemperatureSensorBlock.observe(level, blockPos);
+            pioneerMeasurementKind.set(PIONEER_MEASUREMENT_TEMPERATURE);
+            pioneerPrimary.set(state.getValue(TemperatureSensorBlock.TEMPERATURE));
+            pioneerSecondary.set(observation.targetTemperature());
+            pioneerTertiary.set(observation.thermalBodies());
+            pioneerQuaternary.set(observation.loadedFaces());
+            pioneerEvidenceQuality.set((observation.complete() ? PortQuality.VALID : PortQuality.STALE).ordinal());
+            return;
+        }
+        if (block instanceof EngineeringLightSensorBlock sensor) {
+            pioneerMeasurementKind.set(PIONEER_MEASUREMENT_LIGHT);
+            pioneerPrimary.set(level.getMaxLocalRawBrightness(blockPos.above()));
+            pioneerSecondary.set(state.getValue(DirectionalRedstoneSensorBlock.POWER));
+            pioneerTertiary.set(1); // BALANCED profile
+            pioneerQuaternary.set(10); // scheduled sample period
+            pioneerEvidenceQuality.set(sensor.engineeringSnapshot(level, blockPos, state, Direction.UP)
+                    .map(snapshot -> snapshot.quality().ordinal()).orElse(PortQuality.NO_SIGNAL.ordinal()));
+            return;
+        }
+        if (block instanceof TankLevelSensorBlock) {
+            TankLevelSensorBlock.ColumnSample sample = TankLevelSensorBlock.columnSample(level, blockPos);
+            pioneerMeasurementKind.set(PIONEER_MEASUREMENT_TANK);
+            pioneerPrimary.set(sample.fluidBlocks());
+            pioneerSecondary.set(sample.scannedCells());
+            pioneerTertiary.set(sample.expectedCells());
+            pioneerQuaternary.set(state.getValue(DirectionalRedstoneSensorBlock.POWER));
+            pioneerEvidenceQuality.set(sample.quality().ordinal());
+            return;
+        }
+        if (block instanceof EntityDensitySensorBlock) {
+            EntityDensitySensorBlock.DensitySample sample = EntityDensitySensorBlock.densitySample(level, blockPos);
+            pioneerMeasurementKind.set(PIONEER_MEASUREMENT_ENTITY_DENSITY);
+            pioneerPrimary.set(sample.physicalCount());
+            pioneerSecondary.set(sample.complete() ? 1 : 0);
+            pioneerTertiary.set(state.getValue(DirectionalRedstoneSensorBlock.POWER));
+            pioneerQuaternary.set(4); // horizontal aperture radius
+            pioneerEvidenceQuality.set(sample.quality().ordinal());
+            return;
+        }
+        if (block instanceof LapisPrecisionMeterBlock) {
+            LapisPrecisionMeterBlock.MeterReading reading = LapisPrecisionMeterBlock.reading(level, blockPos, state);
+            pioneerMeasurementKind.set(PIONEER_MEASUREMENT_LAPIS_METER);
+            pioneerPrimary.set(reading.value());
+            pioneerSecondary.set(state.getValue(LapisPrecisionMeterBlock.FACING).ordinal());
+            pioneerTertiary.set(0);
+            pioneerQuaternary.set(100);
+            pioneerEvidenceQuality.set(reading.quality().ordinal());
+            return;
+        }
+        if (block instanceof LapisPrecisionRangeSensorBlock range && level instanceof ServerLevel server) {
+            LapisPrecisionRangeSensorBlock.RangeSample sample = LapisPrecisionRangeSensorBlock.rangeSample(server, blockPos, state);
+            pioneerMeasurementKind.set(PIONEER_MEASUREMENT_LAPIS_RANGE);
+            pioneerPrimary.set(sample.distance());
+            pioneerSecondary.set(sample.maxRange());
+            pioneerTertiary.set(range.output(level, blockPos));
+            pioneerQuaternary.set(state.getValue(AbstractLapisTransducerBlock.PROFILE));
+            pioneerEvidenceQuality.set(sample.quality().ordinal());
+            return;
+        }
+        if (block instanceof AnalogIndicatorBlock indicator) {
+            AnalogIndicatorBlock.InputObservation observation = indicator.inputObservation(level, blockPos, state);
+            pioneerMeasurementKind.set(PIONEER_MEASUREMENT_ANALOG_INDICATOR);
+            pioneerPrimary.set(observation.value());
+            pioneerSecondary.set(state.getValue(AnalogIndicatorBlock.LEVEL));
+            pioneerTertiary.set(0);
+            pioneerQuaternary.set(15);
+            pioneerEvidenceQuality.set(observation.quality().ordinal());
+        }
     }
 
     private static int routeKind(Block block) {
@@ -313,6 +408,16 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public int configKind() { return configKind.get(); }
     public int configPrimary() { return configPrimary.get(); }
     public int configSecondary() { return configSecondary.get(); }
+    public int pioneerMeasurementKind() { return pioneerMeasurementKind.get(); }
+    public int pioneerPrimary() { return pioneerPrimary.get(); }
+    public int pioneerSecondary() { return pioneerSecondary.get(); }
+    public int pioneerTertiary() { return pioneerTertiary.get(); }
+    public int pioneerQuaternary() { return pioneerQuaternary.get(); }
+    public PortQuality pioneerEvidenceQuality() {
+        int ordinal = pioneerEvidenceQuality.get();
+        PortQuality[] all = PortQuality.values();
+        return ordinal < 0 || ordinal >= all.length ? PortQuality.NO_SIGNAL : all[ordinal];
+    }
     public int declaredPortMask() { return declaredPortMask.get(); }
     public boolean hasPort(Direction side) { return (declaredPortMask.get() & (1 << side.ordinal())) != 0; }
     public boolean isInput(Direction side) { return (inputMask.get() & (1 << side.ordinal())) != 0; }
