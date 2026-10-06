@@ -5,11 +5,14 @@ import dev.redstoneengineering.diagnostics.SignalCalibrationTrialComparison;
 import dev.redstoneengineering.ui.menu.SignalAnalyzerMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
 /** Metrology-focused analyzer panel with rolling history, synchronization health and explicit TAP/INLINE semantics. */
 public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzerMenu> {
+    private EditBox calibrationInput, referenceInput;
+    private Button calibrationApply, referenceApply;
     public SignalAnalyzerScreen(SignalAnalyzerMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
     }
@@ -23,15 +26,17 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
 
         addConfigureWidget(Button.builder(Component.literal("Toggle mode"),
                 b -> sendMenuButton(SignalAnalyzerMenu.BUTTON_MODE_TOGGLE)).bounds(x, y, w, 20).build());
-        addConfigureWidget(Button.builder(Component.literal("Calibration −"),
-                b -> sendMenuButton(SignalAnalyzerMenu.BUTTON_CALIBRATION_DECREASE)).bounds(x + w + gap, y, w, 20).build());
-        addConfigureWidget(Button.builder(Component.literal("Calibration +"),
-                b -> sendMenuButton(SignalAnalyzerMenu.BUTTON_CALIBRATION_INCREASE)).bounds(x + (w + gap) * 2, y, w, 20).build());
+        calibrationInput = addConfigureWidget(new EditBox(this.font,x + w + gap,y,w,20,Component.literal("b_cal -2..2")));
+        calibrationInput.setMaxLength(2);
+        calibrationInput.setFilter(v->v.isEmpty()||v.equals("-")||v.matches("-?\\d+"));
+        calibrationApply = addConfigureWidget(Button.builder(Component.literal("Apply b_cal"),
+                b -> submitCalibration()).bounds(x + (w + gap) * 2, y, w, 20).build());
 
-        addConfigureWidget(Button.builder(Component.literal("Reference −"),
-                b -> sendMenuButton(SignalAnalyzerMenu.BUTTON_REFERENCE_DECREASE)).bounds(x, y + 26, w, 20).build());
-        addConfigureWidget(Button.builder(Component.literal("Reference +"),
-                b -> sendMenuButton(SignalAnalyzerMenu.BUTTON_REFERENCE_INCREASE)).bounds(x + w + gap, y + 26, w, 20).build());
+        referenceInput = addConfigureWidget(new EditBox(this.font,x,y + 26,w,20,Component.literal("x_ref 0..15")));
+        referenceInput.setMaxLength(2);
+        referenceInput.setFilter(v->v.isEmpty()||v.chars().allMatch(Character::isDigit));
+        referenceApply = addConfigureWidget(Button.builder(Component.literal("Apply x_ref"),
+                b -> submitReference()).bounds(x + w + gap, y + 26, w, 20).build());
         addConfigureWidget(Button.builder(Component.literal("Reset statistics"),
                 b -> sendMenuButton(SignalAnalyzerMenu.BUTTON_RESET_HISTORY)).bounds(x + (w + gap) * 2, y + 26, w, 20).build());
 
@@ -41,6 +46,47 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
                 b -> sendMenuButton(SignalAnalyzerMenu.BUTTON_TRIAL_CANDIDATE)).bounds(x + w + gap, y + 52, w, 20).build());
         addConfigureWidget(Button.builder(Component.literal("Clear trial"),
                 b -> sendMenuButton(SignalAnalyzerMenu.BUTTON_TRIAL_CLEAR)).bounds(x + (w + gap) * 2, y + 52, w, 20).build());
+    }
+
+    @Override protected void containerTick() {
+        super.containerTick();
+        syncExactInputs();
+    }
+
+    private void syncExactInputs() {
+        if (calibrationInput != null && !calibrationInput.isFocused()) {
+            String expected=Integer.toString(menu.calibrationOffset());
+            if(!expected.equals(calibrationInput.getValue()))calibrationInput.setValue(expected);
+        }
+        if (referenceInput != null && !referenceInput.isFocused()) {
+            String expected=Integer.toString(menu.reference());
+            if(!expected.equals(referenceInput.getValue()))referenceInput.setValue(expected);
+        }
+        if(calibrationApply!=null) calibrationApply.active=calibrationValid();
+        if(referenceApply!=null) referenceApply.active=referenceValid();
+    }
+
+    private boolean calibrationValid(){
+        if(calibrationInput==null||calibrationInput.getValue().isEmpty()||calibrationInput.getValue().equals("-"))return false;
+        try{int v=Integer.parseInt(calibrationInput.getValue());return v>=-2&&v<=2;}catch(NumberFormatException ignored){return false;}
+    }
+
+    private boolean referenceValid(){
+        if(referenceInput==null||referenceInput.getValue().isEmpty())return false;
+        try{int v=Integer.parseInt(referenceInput.getValue());return v>=0&&v<=15;}catch(NumberFormatException ignored){return false;}
+    }
+
+    private void submitCalibration(){
+        if(!calibrationValid())return;
+        int offset=Integer.parseInt(calibrationInput.getValue());
+        sendMenuButton(SignalAnalyzerMenu.BUTTON_CALIBRATION_DIRECT_BASE + offset + 2);
+        calibrationInput.setFocused(false);
+    }
+
+    private void submitReference(){
+        if(!referenceValid())return;
+        sendMenuButton(SignalAnalyzerMenu.BUTTON_REFERENCE_DIRECT_BASE + Integer.parseInt(referenceInput.getValue()));
+        referenceInput.setFocused(false);
     }
 
     @Override
@@ -91,8 +137,8 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
         statusBadge(graphics,"PIONEER WORKFLOW • INTERNAL REFERENCE CALIBRATION TRIAL",INFO,16,80);
         formulaCard(graphics,"x_cal = clamp(x_raw + b_cal, 0, 15) ; e_ref = mean(clamp(x_raw + b_cal,0,15)) - x_ref",105);
         variableRole(graphics,"MEASURED","x_raw",Integer.toString(menu.raw()),"Redstone",132);
-        variableRole(graphics,"ADJUSTABLE","b_cal",signed(menu.calibrationOffset()),"display offset",148);
-        variableRole(graphics,"REFERENCE","x_ref",Integer.toString(menu.reference()),"internal 0..15",164);
+        variableRole(graphics,"ADJUSTABLE","b_cal",signed(menu.calibrationOffset()),"-2..+2 • direct entry",148);
+        variableRole(graphics,"REFERENCE","x_ref",Integer.toString(menu.reference()),"0..15 • direct entry",164);
 
         String b = menu.trialBaselineSequence() > 0 ? "#" + menu.trialBaselineSequence() : "—";
         String d = menu.trialCandidateSequence() > 0 ? "#" + menu.trialCandidateSequence() : "—";
