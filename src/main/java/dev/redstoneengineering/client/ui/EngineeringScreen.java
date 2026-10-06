@@ -63,8 +63,8 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private static final int MAX_WORKSPACE_WIDTH = 780;
     private static final int MIN_WORKSPACE_HEIGHT = 320;
     private static final int MAX_WORKSPACE_HEIGHT = 520;
-    private static final int DEFAULT_CANVAS_WIDTH = 920;
-    private static final int DEFAULT_CANVAS_HEIGHT = 560;
+    private static final int DEFAULT_CANVAS_WIDTH = 1020;
+    private static final int DEFAULT_CANVAS_HEIGHT = 760;
 
     private Section section = Section.OVERVIEW;
     private boolean routePage;
@@ -170,11 +170,13 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     }
 
     private int activeVirtualWidth() {
-        return routePage ? viewportWidth() : Math.max(viewportWidth(), virtualContentWidth(section));
+        return routePage ? viewportWidth()
+                : Math.max(Math.max(viewportWidth(), DEFAULT_CANVAS_WIDTH), virtualContentWidth(section));
     }
 
     private int activeVirtualHeight() {
-        return routePage ? viewportHeight() : Math.max(viewportHeight(), virtualContentHeight(section));
+        return routePage ? viewportHeight()
+                : Math.max(Math.max(viewportHeight(), DEFAULT_CANVAS_HEIGHT), virtualContentHeight(section));
     }
 
     /** Right edge of the scrollable engineering canvas, distinct from the physical window edge. */
@@ -446,8 +448,12 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         graphics.enableScissor(leftPos + 12, topPos + CONTENT_TOP, leftPos + imageWidth - 12, topPos + footerTop() - 8);
         graphics.pose().pushPose();
         graphics.pose().translate(-scrollX, -scrollY, 0.0F);
-        if (routePage) renderRoutePage(graphics);
-        else renderSection(graphics, section);
+        if (routePage) {
+            renderRoutePage(graphics);
+        } else {
+            renderSection(graphics, section);
+            renderFunctionSurface(graphics);
+        }
         graphics.pose().popPose();
         graphics.disableScissor();
         renderScrollIndicators(graphics);
@@ -490,6 +496,78 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             graphics.fill(trackX, trackY0, trackX + 3, trackY1, PANEL_3);
             graphics.fill(trackX, thumbY, trackX + 3, Math.min(trackY1, thumbY + thumbHeight), INFO);
         }
+    }
+
+    /**
+     * Global all-block rollout surface.
+     *
+     * Every EngineeringScreen family gets the same capability inventory automatically, so
+     * server-backed controls and read-only/operator boundaries cannot remain hidden in code.
+     * The panel lives below the device-specific page and is reached by ordinary Y scrolling.
+     */
+    private void renderFunctionSurface(GuiGraphics graphics) {
+        int x = CONTENT_LEFT;
+        int y = 590;
+        int width = Math.max(420, Math.min(920, canvasRight() - x - 24));
+        int height = section == Section.CONFIGURE ? 150 : 118;
+
+        graphics.fill(x, y, x + width, y + height, PANEL_3);
+        graphics.fill(x, y, x + 4, y + height, INFO);
+        graphics.drawString(font, "FUNCTION SURFACE • ALL-BLOCK UI CONTRACT", x + 12, y + 10, INFO, false);
+
+        int controlCount = 0;
+        List<AbstractWidget> operatorControls = new ArrayList<>();
+        for (AbstractWidget widget : configureWidgets) {
+            if (isLegacyRouteWidget(widget)) continue;
+            controlCount++;
+            operatorControls.add(widget);
+        }
+
+        if (section == Section.CONFIGURE) {
+            String summary = controlCount == 0
+                    ? "OPERATOR CONTROLS • READ-ONLY / OBSERVER DEVICE"
+                    : "OPERATOR CONTROLS • " + controlCount + " server-routed actions";
+            graphics.drawString(font, summary, x + 12, y + 29, controlCount == 0 ? MUTED : GOOD, false);
+
+            if (operatorControls.isEmpty()) {
+                wrappedText(graphics,
+                        "No adjustable parameter is fabricated for this device. Model, ports, evidence and retained state remain inspectable through the other pages.",
+                        x + 12, y + 49, width - 24, MUTED);
+            } else {
+                int rowY = y + 49;
+                int columnWidth = Math.max(190, (width - 36) / 2);
+                int shown = Math.min(operatorControls.size(), 12);
+                for (int i = 0; i < shown; i++) {
+                    AbstractWidget widget = operatorControls.get(i);
+                    int column = i >= 6 ? 1 : 0;
+                    int row = i % 6;
+                    int xx = x + 12 + column * (columnWidth + 12);
+                    int yy = rowY + row * 15;
+                    String state = widget.active ? "ACTIVE" : "LOCKED";
+                    int color = widget.active ? TEXT : MUTED;
+                    String label = widget.getMessage().getString();
+                    graphics.drawString(font,
+                            fitForWidth("[" + state + "] " + label, columnWidth),
+                            xx, yy, color, false);
+                }
+                if (operatorControls.size() > shown) {
+                    graphics.drawString(font, "+" + (operatorControls.size() - shown)
+                                    + " additional controls remain visible in the fixed control rail.",
+                            x + 12, y + 139, MUTED, false);
+                }
+            }
+            return;
+        }
+
+        graphics.drawString(font,
+                "Configure • " + controlCount + (controlCount == 1 ? " server action" : " server actions"),
+                x + 12, y + 31, controlCount == 0 ? MUTED : GOOD, false);
+        graphics.drawString(font,
+                "Route • " + (routeSupported() ? "SERVER-ROUTED / ADJUSTABLE" : "FIXED PHYSICAL INTERFACE"),
+                x + 12, y + 48, routeSupported() ? INFO : MUTED, false);
+        graphics.drawString(font, "Ports • explicit engineering I/O contract", x + 12, y + 65, TEXT, false);
+        graphics.drawString(font, "Observe • synchronized signals / topology / health", x + 12, y + 82, TEXT, false);
+        graphics.drawString(font, "Log • retained evidence where the backend actually owns history", x + 12, y + 99, TEXT, false);
     }
 
     private void renderRoutePage(GuiGraphics graphics) {
