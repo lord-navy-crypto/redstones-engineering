@@ -15,6 +15,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -22,6 +23,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 
 import java.util.Arrays;
 import java.util.List;
@@ -34,6 +36,8 @@ public class SoulSandReservoirBlock extends Block implements EngineeringPortProv
     public SoulSandReservoirBlock(Properties properties) {
         super(properties);
     }
+
+    public static int decayPeriodTicks() { return DECAY_PERIOD_TICKS; }
 
     @Override
     public MapCodec<SoulSandReservoirBlock> codec() {
@@ -100,13 +104,18 @@ public class SoulSandReservoirBlock extends Block implements EngineeringPortProv
     protected InteractionResult useWithoutItem(
             BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit
     ) {
-        if (!level.isClientSide) {
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (!player.isShiftKeyDown()) {
+                FieldDeviceUi.openUniversal(serverPlayer, pos);
+                return InteractionResult.sidedSuccess(false);
+            }
             InformationRuntime.Snapshot stored = SoulFluxNetwork.chargeSnapshot(level, pos);
             player.displayClientMessage(Component.literal(
                     "Soul reservoir | six-face SOUL_FLUX storage | Qs="
                             + Math.max(0, Math.min(100, stored.value()))
                             + "/100 | quality=" + (stored.valid() ? "VALID" : "STALE")
-                            + " | slow decay=" + DECAY_PERIOD_TICKS + "t | Minecraft-fictional physics"), true);
+                            + " | age=" + stored.ageTicks()
+                            + "t | slow decay=" + DECAY_PERIOD_TICKS + "t | Minecraft-fictional physics"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
