@@ -226,7 +226,7 @@ wave4 = {
         "D_ch[n] = (x_ch[n] ≥ T) ? HIGH : LOW",
         '"Δt_sample"',
         '"Δt_cursor"',
-        "server capture engine",
+        "server-authoritative",
     )),
     "CopperCircuitMeterScreen.java": (copper, (
         "PIONEER PATTERN • ELECTRICAL MEASUREMENT MODEL",
