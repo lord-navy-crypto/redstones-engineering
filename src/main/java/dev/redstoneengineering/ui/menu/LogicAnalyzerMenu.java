@@ -22,6 +22,12 @@ public final class LogicAnalyzerMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_CURSOR_A = 5;
     public static final int BUTTON_CURSOR_B = 6;
     public static final int BUTTON_CLEAR = 7;
+    public static final int BUTTON_THRESHOLD_DIRECT_BASE = 17000;
+    public static final int BUTTON_THRESHOLD_DIRECT_MAX = 17015;
+    public static final int BUTTON_CURSOR_A_DIRECT_BASE = 17100;
+    public static final int BUTTON_CURSOR_A_DIRECT_MAX = 17115;
+    public static final int BUTTON_CURSOR_B_DIRECT_BASE = 17200;
+    public static final int BUTTON_CURSOR_B_DIRECT_MAX = 17215;
 
     private final DataSlot threshold = trackedInt();
     private final DataSlot sampleCount = trackedInt();
@@ -100,7 +106,24 @@ public final class LogicAnalyzerMenu extends EngineeringDeviceMenu {
     public boolean clickMenuButton(Player player, int id) {
         if (level.isClientSide) return true;
         if (!stillValid(player)) return false;
-        boolean changed = LogicAnalyzerBlock.applyUiAction(level, blockPos, id);
+        boolean changed;
+        if (id >= BUTTON_THRESHOLD_DIRECT_BASE && id <= BUTTON_THRESHOLD_DIRECT_MAX) {
+            int value = id - BUTTON_THRESHOLD_DIRECT_BASE;
+            if (value < 1 || value > 15) return false;
+            BlockState state = level.getBlockState(blockPos);
+            if (!(state.getBlock() instanceof LogicAnalyzerBlock block)) return false;
+            level.setBlock(blockPos, state.setValue(LogicAnalyzerBlock.THRESHOLD, value), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
+            level.scheduleTick(blockPos, block, 1);
+            changed = true;
+        } else if (id >= BUTTON_CURSOR_A_DIRECT_BASE && id <= BUTTON_CURSOR_A_DIRECT_MAX
+                && level.getBlockEntity(blockPos) instanceof LogicAnalyzerBlockEntity analyzer) {
+            changed = analyzer.setCursorA(id - BUTTON_CURSOR_A_DIRECT_BASE);
+        } else if (id >= BUTTON_CURSOR_B_DIRECT_BASE && id <= BUTTON_CURSOR_B_DIRECT_MAX
+                && level.getBlockEntity(blockPos) instanceof LogicAnalyzerBlockEntity analyzer) {
+            changed = analyzer.setCursorB(id - BUTTON_CURSOR_B_DIRECT_BASE);
+        } else {
+            changed = LogicAnalyzerBlock.applyUiAction(level, blockPos, id);
+        }
         if (changed) { refreshAuthoritativeSnapshot(); broadcastChanges(); }
         return changed;
     }
