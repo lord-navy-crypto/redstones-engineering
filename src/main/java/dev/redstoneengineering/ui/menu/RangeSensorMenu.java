@@ -28,6 +28,8 @@ public final class RangeSensorMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_RESPONSE_NEXT = 5;
     public static final int BUTTON_ROTATE_LEFT = 6;
     public static final int BUTTON_ROTATE_RIGHT = 7;
+    public static final int BUTTON_RANGE_DIRECT_BASE = 16000;
+    public static final int BUTTON_RANGE_DIRECT_MAX = 16015;
 
     private final DataSlot distance = trackedInt();
     private final DataSlot scanStatus = trackedInt();
@@ -86,6 +88,19 @@ public final class RangeSensorMenu extends EngineeringDeviceMenu {
         if (!stillValid(player)) return false;
         BlockState state = level.getBlockState(blockPos);
         if (!(state.getBlock() instanceof RangeSensorBlock sensor)) return false;
+
+        if (id >= BUTTON_RANGE_DIRECT_BASE && id <= BUTTON_RANGE_DIRECT_MAX) {
+            int range = id - BUTTON_RANGE_DIRECT_BASE;
+            int mode = range == 4 ? 0 : range == 8 ? 1 : range == 15 ? 2 : -1;
+            if (mode < 0) return false;
+            BlockState next = state.setValue(RangeSensorBlock.RANGE_MODE, mode);
+            level.setBlock(blockPos, next, Block.UPDATE_CLIENTS);
+            level.updateNeighborsAt(blockPos, sensor);
+            level.scheduleTick(blockPos, sensor, 1);
+            refreshAuthoritativeSnapshot();
+            broadcastChanges();
+            return true;
+        }
 
         if (id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT) {
             boolean changed = RangeSensorBlock.rotateSensingAxis(level, blockPos, id == BUTTON_ROTATE_RIGHT);
