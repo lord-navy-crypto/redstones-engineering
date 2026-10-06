@@ -47,25 +47,28 @@ public final class RsePioneerWave14GameTests {
             return;
         }
 
-        assertTransducer(helper, RedstoneEngineering.LAPIS_TEMPERATURE_TRANSDUCER.get(), EngineeringDomain.THERMAL);
-        assertTransducer(helper, RedstoneEngineering.LAPIS_MAGNETIC_TRANSDUCER.get(), EngineeringDomain.IRON_MAGNETIC);
-        assertTransducer(helper, RedstoneEngineering.LAPIS_OPTICAL_TRANSDUCER.get(), EngineeringDomain.OPTICAL);
-        assertTransducer(helper, RedstoneEngineering.LAPIS_VOLTAGE_TRANSDUCER.get(), EngineeringDomain.COPPER);
-        if (helper.getLevel() == null) return;
+        if (!assertTransducer(helper, RedstoneEngineering.LAPIS_TEMPERATURE_TRANSDUCER.get(), EngineeringDomain.THERMAL)
+                || !assertTransducer(helper, RedstoneEngineering.LAPIS_MAGNETIC_TRANSDUCER.get(), EngineeringDomain.IRON_MAGNETIC)
+                || !assertTransducer(helper, RedstoneEngineering.LAPIS_OPTICAL_TRANSDUCER.get(), EngineeringDomain.OPTICAL)
+                || !assertTransducer(helper, RedstoneEngineering.LAPIS_VOLTAGE_TRANSDUCER.get(), EngineeringDomain.COPPER)) {
+            return;
+        }
         helper.succeed();
     }
 
-    private static void assertTransducer(GameTestHelper helper, Block block, EngineeringDomain inputDomain) {
+    private static boolean assertTransducer(GameTestHelper helper, Block block, EngineeringDomain inputDomain) {
         if (!(block instanceof AbstractLapisTransducerBlock transducer)) {
             helper.fail("Wave 14 transducer registry entry lost AbstractLapisTransducerBlock contract", MARKER);
-            return;
+            return false;
         }
         var ports = transducer.engineeringPorts(transducer.defaultBlockState());
         boolean input = ports.stream().anyMatch(p -> p.direction() == PortDirection.INPUT && p.domain() == inputDomain);
         boolean output = ports.stream().anyMatch(p -> p.direction() == PortDirection.OUTPUT && p.domain() == EngineeringDomain.LAPIS);
         if (!input || !output) {
             helper.fail("Wave 14 transducer must preserve physical input domain and isolated Lapis output", MARKER);
+            return false;
         }
+        return true;
     }
 
     @PrefixGameTestTemplate(false)
