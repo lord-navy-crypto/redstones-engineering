@@ -1,6 +1,7 @@
 package dev.redstoneengineering.client.ui;
 
 import dev.redstoneengineering.block.SignalAnalyzerBlock;
+import dev.redstoneengineering.diagnostics.SignalCalibrationTrialComparison;
 import dev.redstoneengineering.ui.menu.SignalAnalyzerMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -16,17 +17,30 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
     @Override
     protected void addDeviceWidgets() {
         int x = leftPos + 16;
-        int y = topPos + imageHeight - 90;
+        int y = topPos + imageHeight - 116;
         int w = 88;
         int gap = 6;
+
         addConfigureWidget(Button.builder(Component.literal("Toggle mode"),
                 b -> sendMenuButton(SignalAnalyzerMenu.BUTTON_MODE_TOGGLE)).bounds(x, y, w, 20).build());
         addConfigureWidget(Button.builder(Component.literal("Calibration −"),
                 b -> sendMenuButton(SignalAnalyzerMenu.BUTTON_CALIBRATION_DECREASE)).bounds(x + w + gap, y, w, 20).build());
         addConfigureWidget(Button.builder(Component.literal("Calibration +"),
                 b -> sendMenuButton(SignalAnalyzerMenu.BUTTON_CALIBRATION_INCREASE)).bounds(x + (w + gap) * 2, y, w, 20).build());
+
+        addConfigureWidget(Button.builder(Component.literal("Reference −"),
+                b -> sendMenuButton(SignalAnalyzerMenu.BUTTON_REFERENCE_DECREASE)).bounds(x, y + 26, w, 20).build());
+        addConfigureWidget(Button.builder(Component.literal("Reference +"),
+                b -> sendMenuButton(SignalAnalyzerMenu.BUTTON_REFERENCE_INCREASE)).bounds(x + w + gap, y + 26, w, 20).build());
         addConfigureWidget(Button.builder(Component.literal("Reset statistics"),
-                b -> sendMenuButton(SignalAnalyzerMenu.BUTTON_RESET_HISTORY)).bounds(x, y + 26, w * 3 + gap * 2, 20).build());
+                b -> sendMenuButton(SignalAnalyzerMenu.BUTTON_RESET_HISTORY)).bounds(x + (w + gap) * 2, y + 26, w, 20).build());
+
+        addConfigureWidget(Button.builder(Component.literal("Trial baseline"),
+                b -> sendMenuButton(SignalAnalyzerMenu.BUTTON_TRIAL_BASELINE)).bounds(x, y + 52, w, 20).build());
+        addConfigureWidget(Button.builder(Component.literal("Trial candidate"),
+                b -> sendMenuButton(SignalAnalyzerMenu.BUTTON_TRIAL_CANDIDATE)).bounds(x + w + gap, y + 52, w, 20).build());
+        addConfigureWidget(Button.builder(Component.literal("Clear trial"),
+                b -> sendMenuButton(SignalAnalyzerMenu.BUTTON_TRIAL_CLEAR)).bounds(x + (w + gap) * 2, y + 52, w, 20).build());
     }
 
     @Override
@@ -44,16 +58,16 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
         statusBadge(graphics, modeName(), menu.mode() == SignalAnalyzerBlock.TAP ? INFO : GOOD, 16, 80);
         labelValue(graphics, "Raw measurement", menu.raw() + " / 15", 101);
         labelValue(graphics, "Calibrated display", menu.calibrated() + " / 15", 116);
-        labelValue(graphics, "Calibration", signed(menu.calibrationOffset()), 131);
-        labelValue(graphics, "World output", menu.mode() == SignalAnalyzerBlock.INLINE ? menu.output() + " / 15 RAW" : "DISCONNECTED", 146);
+        labelValue(graphics, "Calibration / reference", signed(menu.calibrationOffset()) + " / " + menu.reference(), 131);
+        labelValue(graphics, "Measurement evidence", menu.measurementQuality().name() + " • coverage " + menu.coveragePercent() + "%", 146);
         graphics.drawString(font, "ROLLING WINDOW", 16, 164, MUTED, false);
         EngineeringPlot.analogFrame(graphics, 98, 160, 200, 22);
         plotTrace(graphics, 100, 162, 196, 18, INFO);
         InstrumentDiagnostics.Summary summary = summary();
         safeText(graphics, "avg=" + decimal100(menu.average100()) + "  p2p=" + menu.peakToPeak()
                 + "  sync=" + InstrumentDiagnostics.freshnessLabel(menu.sampleAgeTicks()), 16, 187, TEXT);
-        if (summary.invalidSamples() > 0) {
-            safeText(graphics, "coverage=" + summary.coveragePercent() + "%", 244, 187, WARN);
+        if (menu.validWindowCount() < menu.windowCount()) {
+            safeText(graphics, "measurement coverage=" + menu.validWindowCount() + "/" + menu.windowCount(), 218, 187, WARN);
         }
     }
 
@@ -71,19 +85,17 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
     }
 
     private void renderConfigure(GuiGraphics graphics) {
-        statusBadge(graphics,"PIONEER PATTERN • METROLOGY / CALIBRATION",INFO,16,80);
-        formulaCard(graphics,"x_cal = clamp(x_raw + b_cal, 0, 15)",105);
-        variableRole(graphics,"MEASURED","x_raw",Integer.toString(menu.raw()),"Redstone",134);
-        variableRole(graphics,"ADJUSTABLE","b_cal",signed(menu.calibrationOffset()),"display offset",152);
-        variableRole(graphics,"DERIVED","x_cal",Integer.toString(menu.calibrated()),"display only",170);
-        variableRole(graphics,"EVIDENCE","sample age",menu.sampleAgeTicks()<0?"NOT READY":menu.sampleAgeTicks()+"t","",188);
-        variableRole(graphics,"MODE","boundary",modeName(),menu.mode()==SignalAnalyzerBlock.TAP?"non-invasive":"raw pass-through",206);
-        wrappedText(graphics,
-                menu.mode()==SignalAnalyzerBlock.TAP
-                        ? "TAP observes TEST without creating an electrical path. Calibration changes only the displayed engineering reading."
-                        : "INLINE reproduces the RAW sample on the opposite face; calibration still changes only display, never the physical output.",
-                16,232,workspaceWidth()-24,TEXT);
-        wrappedText(graphics,"Rolling statistics and freshness are synchronized server evidence; the client never samples the world or rewrites retained statistics.",16,264,workspaceWidth()-24,MUTED);
+        statusBadge(graphics,"PIONEER WORKFLOW • INTERNAL REFERENCE CALIBRATION TRIAL",INFO,16,80);
+        formulaCard(graphics,"e_ref = mean(clamp(x_raw + b_cal,0,15)) - x_ref",105);
+        variableRole(graphics,"MEASURED","x_raw",Integer.toString(menu.raw()),"Redstone",132);
+        variableRole(graphics,"ADJUSTABLE","b_cal",signed(menu.calibrationOffset()),"display offset",148);
+        variableRole(graphics,"REFERENCE","x_ref",Integer.toString(menu.reference()),"internal 0..15",164);
+
+        String b = menu.trialBaselineSequence() > 0 ? "#" + menu.trialBaselineSequence() : "—";
+        String d = menu.trialCandidateSequence() > 0 ? "#" + menu.trialCandidateSequence() : "—";
+        SignalCalibrationTrialComparison.Trend trend = menu.trialTrend();
+        String trial = trend == null ? "B=" + b + " • C=" + d : "B=" + b + " • C=" + d + " • " + trend.name();
+        statusLine(graphics,"Trial",trial,trialColor(trend),178);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
@@ -93,14 +105,15 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
                         + (menu.sampleAgeTicks() < 0 ? "—" : menu.sampleAgeTicks() + "t"),
                 freshnessColor(), 78);
         statusLine(graphics, "Window diagnosis", InstrumentDiagnostics.analogDiagnosis(summary), diagnosisColor(summary), 98);
-        labelValue(graphics, "Window min / max", summary.validSamples() == 0 ? "—" : summary.minimum() + " / " + summary.maximum(), 118);
-        labelValue(graphics, "Window avg / span", summary.validSamples() == 0 ? "—" : decimal100(summary.average100()) + " / " + summary.span(), 134);
-        labelValue(graphics, "Evidence coverage", summary.coveragePercent() + "% • " + summary.validSamples() + " valid", 150);
-        labelValue(graphics, "Lifetime min / max", menu.lifeMin() + " / " + menu.lifeMax(), 166);
-        labelValue(graphics, "Changes / edges", menu.changes() + " • ↑" + menu.rising() + " ↓" + menu.falling(), 182);
-        labelValue(graphics, "Last / max Δ", menu.lastDelta() + " / " + menu.maxDelta(), 198);
+        labelValue(graphics, "Measurement quality", menu.measurementQuality().name(), 114);
+        labelValue(graphics, "Window min / max", summary.validSamples() == 0 ? "—" : summary.minimum() + " / " + summary.maximum(), 130);
+        labelValue(graphics, "Window avg / span", summary.validSamples() == 0 ? "—" : decimal100(summary.average100()) + " / " + summary.span(), 146);
+        labelValue(graphics, "Evidence coverage", menu.coveragePercent() + "% • " + menu.validWindowCount() + "/" + menu.windowCount() + " valid", 162);
+        labelValue(graphics, "Lifetime min / max", menu.lifeMin() + " / " + menu.lifeMax(), 178);
+        labelValue(graphics, "Changes / edges", menu.changes() + " • ↑" + menu.rising() + " ↓" + menu.falling(), 194);
+        labelValue(graphics, "Last / max Δ", menu.lastDelta() + " / " + menu.maxDelta(), 210);
         safeText(graphics, "Stable " + menu.stableAgeTicks() + "t • variation=" + stabilityClass()
-                + " • diagnosis uses synchronized retained samples only.", 16, 219, MUTED);
+                + " • a valid numeric zero remains distinct from an empty aperture.", 16, 231, MUTED);
     }
 
     private void renderHistory(GuiGraphics graphics) {
@@ -131,9 +144,35 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
                         + "  p2p=" + menu.peakToPeak() + "  meanStep=" + decimal100(menu.meanStep100()),
                 16, 175, TEXT);
         safeText(graphics,
-                "samples=" + menu.totalSamples() + "  coverage=" + summary.coveragePercent() + "%  mode switches=" + menu.modeSwitches()
-                        + "  calibration switches=" + menu.calibrationSwitches() + "  μ=rounded mean",
+                "samples=" + menu.totalSamples() + "  measurement coverage=" + menu.validWindowCount() + "/" + menu.windowCount()
+                        + "  mode switches=" + menu.modeSwitches()
+                        + "  calibration switches=" + menu.calibrationSwitches()
+                        + "  reference switches=" + menu.referenceSwitches(),
                 16, 188, MUTED);
+
+        SignalCalibrationTrialComparison.Trend trend = menu.trialTrend();
+        String b = menu.trialBaselineSequence() > 0 ? "#" + menu.trialBaselineSequence() : "—";
+        String d = menu.trialCandidateSequence() > 0 ? "#" + menu.trialCandidateSequence() : "—";
+        statusBadge(graphics, "CAL TRIAL B=" + b + " • C=" + d, trend == null ? MUTED : trialColor(trend), 16, 208);
+        if (trend == null) {
+            safeText(graphics,
+                    menu.trialBaselineSequence() > 0
+                            ? "Baseline frozen. Keep reference/mode/measurement face fixed, collect a fresh 16/16 window, then capture Candidate."
+                            : "Capture requires fresh VALID evidence and a complete 16/16 measurement window.",
+                    16, 230, INFO);
+        } else {
+            safeText(graphics,
+                    trend.name()
+                            + " • Δ|error|=" + decimal100(menu.trialErrorDelta100())
+                            + " • Δclip=" + signed(menu.trialClippingDelta())
+                            + " • Δspan=" + signed(menu.trialSpanDelta())
+                            + " • ΔmeanStep=" + decimal100(menu.trialMeanStepDelta100())
+                            + " • Δcal=" + signed(menu.trialCalibrationDelta()),
+                    16, 230, trialColor(trend));
+        }
+        safeText(graphics,
+                "Internal RSE reference comparison only; this does not establish external metrological traceability.",
+                16, 247, MUTED);
     }
 
     private void plotTrace(GuiGraphics graphics, int x, int y, int width, int height, int color) {
@@ -169,8 +208,19 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
     }
 
     private int diagnosisColor(InstrumentDiagnostics.Summary summary) {
-        if (summary.validSamples() == 0 || summary.coveragePercent() < 75) return WARN;
+        if (menu.measurementQuality() != dev.redstoneengineering.core.port.PortQuality.VALID) return WARN;
+        if (summary.validSamples() == 0 || menu.coveragePercent() < 75) return WARN;
         return summary.span() >= 8 ? WARN : summary.span() >= 3 ? INFO : GOOD;
+    }
+
+    private int trialColor(SignalCalibrationTrialComparison.Trend trend) {
+        if (trend == null) return INFO;
+        return switch (trend) {
+            case IMPROVED -> GOOD;
+            case SAME -> INFO;
+            case REGRESSED -> BAD;
+            case INCOMPARABLE -> WARN;
+        };
     }
 
     private String modeName() {
