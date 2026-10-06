@@ -3,6 +3,7 @@ package dev.redstoneengineering.client.ui;
 import dev.redstoneengineering.ui.menu.OscilloscopeMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
@@ -51,6 +52,8 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
     private final List<Button> samplingButtons = new ArrayList<>();
     private final List<Button> experimentButtons = new ArrayList<>();
     private final List<Button> triggerButtons = new ArrayList<>();
+    private EditBox samplePeriodInput;
+    private Button samplePeriodApply;
     private Page page = Page.WAVEFORM;
     private int scrollX;
     private int scrollY;
@@ -93,11 +96,22 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
 
         int controlY = topPos + imageHeight - 112;
 
-        int singleWidth = Math.min(210, Math.max(150, imageWidth - 120));
+        int samplingGap = 10;
+        int samplingWidth = Math.min(150, Math.max(104, (imageWidth - 92 - samplingGap * 2) / 3));
+        int samplingTotal = samplingWidth * 3 + samplingGap * 2;
+        int samplingX = leftPos + (imageWidth - samplingTotal) / 2;
+        samplePeriodInput = addRenderableWidget(new EditBox(
+                this.font, samplingX, controlY, samplingWidth, 20, Component.literal("Δt ticks/sample")));
+        samplePeriodInput.setMaxLength(1);
+        samplePeriodInput.setFilter(value -> value.isEmpty() || value.chars().allMatch(Character::isDigit));
+        samplePeriodApply = addRenderableWidget(Button.builder(
+                Component.literal("Apply Δt"),
+                b -> submitSamplePeriod())
+                .bounds(samplingX + samplingWidth + samplingGap, controlY, samplingWidth, 20).build());
         samplingButtons.add(addRenderableWidget(Button.builder(
-                Component.literal("Cycle timebase Δt"),
+                Component.literal("Cycle Δt"),
                 b -> sendButton(OscilloscopeMenu.BUTTON_SAMPLE_PERIOD))
-                .bounds(leftPos + (imageWidth - singleWidth) / 2, controlY, singleWidth, 20).build()));
+                .bounds(samplingX + (samplingWidth + samplingGap) * 2, controlY, samplingWidth, 20).build()));
 
         int experimentGap = 12;
         int experimentWidth = Math.min(170, Math.max(112, (imageWidth - 88 - experimentGap * 2) / 3));
@@ -161,9 +175,41 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
 
     private void updateWidgets() {
         for (int i = 0; i < pageButtons.size(); i++) pageButtons.get(i).active = Page.values()[i] != page;
-        for (Button button : samplingButtons) button.visible = page == Page.SAMPLING;
+        boolean samplingPage = page == Page.SAMPLING;
+        for (Button button : samplingButtons) button.visible = samplingPage;
+        if (samplePeriodInput != null) {
+            samplePeriodInput.visible = samplingPage;
+            samplePeriodInput.active = samplingPage;
+            if (samplingPage && !samplePeriodInput.isFocused()) {
+                String expected = Integer.toString(menu.samplePeriodTicks());
+                if (!expected.equals(samplePeriodInput.getValue())) samplePeriodInput.setValue(expected);
+            }
+        }
+        if (samplePeriodApply != null) {
+            samplePeriodApply.visible = samplingPage;
+            samplePeriodApply.active = samplingPage && samplePeriodInputValid();
+        }
         for (Button button : experimentButtons) button.visible = page == Page.EXPERIMENT;
         for (Button button : triggerButtons) button.visible = page == Page.TRIGGER;
+    }
+
+    private boolean samplePeriodInputValid() {
+        if (samplePeriodInput == null || samplePeriodInput.getValue().isEmpty()) return false;
+        try {
+            int value = Integer.parseInt(samplePeriodInput.getValue());
+            for (int i = 0; i < OscilloscopeMenu.samplePeriodOptionCount(); i++) {
+                if (OscilloscopeMenu.samplePeriodOptionTicks(i) == value) return true;
+            }
+        } catch (NumberFormatException ignored) {
+        }
+        return false;
+    }
+
+    private void submitSamplePeriod() {
+        if (!samplePeriodInputValid()) return;
+        int ticks = Integer.parseInt(samplePeriodInput.getValue());
+        sendButton(OscilloscopeMenu.BUTTON_SAMPLE_PERIOD_DIRECT_BASE + ticks);
+        samplePeriodInput.setFocused(false);
     }
 
     @Override
@@ -437,6 +483,7 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
         equation(g, "f_N = f_s / 2", y); y += 32;
 
         label(g, "[ADJUSTABLE] N_ticks", menu.samplePeriodTicks() + " ticks/sample", y); y += 18;
+        label(g, "[DIRECT ENTRY]", "{1, 2, 4, 8} ticks/sample • changing Δt clears old capture + re-arms", y); y += 18;
         label(g, "[DERIVED] Δt", String.format("%.3f s nominal", menu.samplePeriodTicks() / OscilloscopeMenu.nominalTicksPerSecond()), y); y += 18;
         label(g, "[DERIVED] f_s", hzFromMilli(menu.sampleRateMilliHz()), y); y += 18;
         label(g, "[DERIVED] f_N", hzFromMilli(menu.nyquistMilliHz()), y); y += 28;
