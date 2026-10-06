@@ -52,6 +52,13 @@ for token in (
     "DEFAULT_CANVAS_WIDTH = 1020",
     "DEFAULT_CANVAS_HEIGHT = 980",
     "renderScrollIndicators",
+    "mouseClicked",
+    "mouseDragged",
+    "mouseReleased",
+    "beginScrollbarDrag",
+    "dragScrollbarTo",
+    "draggingHorizontalScroll",
+    "draggingVerticalScroll",
     "renderFunctionSurface",
     "layoutConfigureWidgets",
     "CONFIGURE_CONTROL_COLUMNS = 3",
@@ -74,11 +81,16 @@ for token in (
 standalone_contracts = {
     "LapisLowPassScreen": (
         "mouseScrolled",
+        "mouseClicked",
+        "mouseDragged",
+        "mouseReleased",
+        "beginScrollbarDrag",
+        "dragScrollbarTo",
         "scrollX",
         "scrollY",
         "renderScrollIndicators",
         "MODEL_WIDTH = 960",
-        "Wheel: vertical • Shift+wheel: horizontal",
+        "Drag scrollbars • Wheel: vertical • Shift+wheel: horizontal",
     ),
     "OscilloscopeScreen": (
         "mouseScrolled",
@@ -87,7 +99,7 @@ standalone_contracts = {
         "renderScrollIndicators",
         "INSTRUMENT_CONTENT_WIDTH = 980",
         "SAMPLING_CONTENT_WIDTH = 1120",
-        "Wheel: vertical • Shift+wheel: horizontal",
+        "Drag scrollbars • Wheel: vertical • Shift+wheel: horizontal",
     ),
 }
 
@@ -148,7 +160,7 @@ print(f" registered blocks reconciled: {len(registered_blocks)} / 122")
 print(f" block-facing UI families: {len(block_facing)}")
 print(f" shared EngineeringScreen families: {len(engineering_families)}")
 print(f" standalone deep-canvas instrument families: {len(standalone_families)}")
-print(" global X/Y scroll + spacing contract: PASS")
+print(" global X/Y wheel + draggable scrollbar contract: PASS")
 print(" global operator-control inventory / function surface: PASS")
 print(" shared 3-column Configure rail + automatic content offset: PASS")
 print(" generic FieldDevice + Universal fallbacks: PASS")

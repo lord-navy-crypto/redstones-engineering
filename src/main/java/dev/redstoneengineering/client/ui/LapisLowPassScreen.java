@@ -53,6 +53,10 @@ public final class LapisLowPassScreen extends AbstractContainerScreen<LapisLowPa
     private Page page = Page.MODEL;
     private int scrollX;
     private int scrollY;
+    private boolean draggingHorizontalScroll;
+    private boolean draggingVerticalScroll;
+    private double horizontalDragOffset;
+    private double verticalDragOffset;
 
     public LapisLowPassScreen(LapisLowPassMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -130,6 +134,8 @@ public final class LapisLowPassScreen extends AbstractContainerScreen<LapisLowPa
         page = next;
         scrollX = 0;
         scrollY = 0;
+        draggingHorizontalScroll = false;
+        draggingVerticalScroll = false;
         updateWidgets();
     }
 
@@ -145,6 +151,82 @@ public final class LapisLowPassScreen extends AbstractContainerScreen<LapisLowPa
     protected void containerTick() {
         super.containerTick();
         updateWidgets();
+        clampScroll();
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0 && beginScrollbarDrag(mouseX, mouseY)) return true;
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (button == 0 && (draggingHorizontalScroll || draggingVerticalScroll)) {
+            dragScrollbarTo(mouseX, mouseY);
+            return true;
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        boolean handled = draggingHorizontalScroll || draggingVerticalScroll;
+        draggingHorizontalScroll = false;
+        draggingVerticalScroll = false;
+        if (handled && button == 0) return true;
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    private boolean beginScrollbarDrag(double mouseX, double mouseY) {
+        double localX = mouseX - leftPos;
+        double localY = mouseY - topPos;
+
+        int maxX = Math.max(0, contentWidth() - viewportWidth());
+        if (maxX > 0 && localX >= horizontalTrackX0() && localX <= horizontalTrackX1()
+                && localY >= horizontalTrackY() - 4 && localY <= horizontalTrackY() + 7) {
+            int thumbX = horizontalThumbX();
+            int thumbWidth = horizontalThumbWidth();
+            draggingHorizontalScroll = true;
+            horizontalDragOffset = (localX < thumbX || localX > thumbX + thumbWidth)
+                    ? thumbWidth / 2.0 : localX - thumbX;
+            dragScrollbarTo(mouseX, mouseY);
+            return true;
+        }
+
+        int maxY = Math.max(0, contentHeight() - viewportHeight());
+        if (maxY > 0 && localX >= verticalTrackX() - 5 && localX <= verticalTrackX() + 8
+                && localY >= verticalTrackY0() && localY <= verticalTrackY1()) {
+            int thumbY = verticalThumbY();
+            int thumbHeight = verticalThumbHeight();
+            draggingVerticalScroll = true;
+            verticalDragOffset = (localY < thumbY || localY > thumbY + thumbHeight)
+                    ? thumbHeight / 2.0 : localY - thumbY;
+            dragScrollbarTo(mouseX, mouseY);
+            return true;
+        }
+        return false;
+    }
+
+    private void dragScrollbarTo(double mouseX, double mouseY) {
+        if (draggingHorizontalScroll) {
+            int maxX = Math.max(0, contentWidth() - viewportWidth());
+            int thumbWidth = horizontalThumbWidth();
+            int travel = Math.max(1, horizontalTrackX1() - horizontalTrackX0() - thumbWidth);
+            double localX = mouseX - leftPos;
+            double thumbX = Math.max(horizontalTrackX0(),
+                    Math.min(horizontalTrackX1() - thumbWidth, localX - horizontalDragOffset));
+            scrollX = (int) Math.round(((thumbX - horizontalTrackX0()) / travel) * maxX);
+        }
+        if (draggingVerticalScroll) {
+            int maxY = Math.max(0, contentHeight() - viewportHeight());
+            int thumbHeight = verticalThumbHeight();
+            int travel = Math.max(1, verticalTrackY1() - verticalTrackY0() - thumbHeight);
+            double localY = mouseY - topPos;
+            double thumbY = Math.max(verticalTrackY0(),
+                    Math.min(verticalTrackY1() - thumbHeight, localY - verticalDragOffset));
+            scrollY = (int) Math.round(((thumbY - verticalTrackY0()) / travel) * maxY);
+        }
         clampScroll();
     }
 
@@ -240,7 +322,32 @@ public final class LapisLowPassScreen extends AbstractContainerScreen<LapisLowPa
         String scroll = "X " + scrollX + "/" + Math.max(0, contentWidth() - viewportWidth())
                 + "  •  Y " + scrollY + "/" + Math.max(0, contentHeight() - viewportHeight());
         g.drawString(font, scroll, imageWidth - 20 - font.width(scroll), imageHeight - 34, MUTED, false);
-        g.drawString(font, "Wheel: vertical • Shift+wheel: horizontal", 20, imageHeight - 18, MUTED, false);
+        g.drawString(font, "Drag scrollbars • Wheel: vertical • Shift+wheel: horizontal", 20, imageHeight - 18, MUTED, false);
+    }
+
+    private int horizontalTrackX0() { return 26; }
+    private int horizontalTrackX1() { return imageWidth - 26; }
+    private int horizontalTrackY() { return imageHeight - FOOTER_HEIGHT - 8; }
+    private int horizontalThumbWidth() {
+        int track = Math.max(1, horizontalTrackX1() - horizontalTrackX0());
+        return Math.max(30, (int) Math.round(track * (viewportWidth() / (double) contentWidth())));
+    }
+    private int horizontalThumbX() {
+        int maxX = Math.max(0, contentWidth() - viewportWidth());
+        int travel = Math.max(0, horizontalTrackX1() - horizontalTrackX0() - horizontalThumbWidth());
+        return horizontalTrackX0() + (maxX == 0 ? 0 : (int) Math.round(travel * (scrollX / (double) maxX)));
+    }
+    private int verticalTrackX() { return imageWidth - 12; }
+    private int verticalTrackY0() { return CONTENT_Y; }
+    private int verticalTrackY1() { return imageHeight - FOOTER_HEIGHT - 12; }
+    private int verticalThumbHeight() {
+        int track = Math.max(1, verticalTrackY1() - verticalTrackY0());
+        return Math.max(26, (int) Math.round(track * (viewportHeight() / (double) contentHeight())));
+    }
+    private int verticalThumbY() {
+        int maxY = Math.max(0, contentHeight() - viewportHeight());
+        int travel = Math.max(0, verticalTrackY1() - verticalTrackY0() - verticalThumbHeight());
+        return verticalTrackY0() + (maxY == 0 ? 0 : (int) Math.round(travel * (scrollY / (double) maxY)));
     }
 
     private void renderScrollIndicators(GuiGraphics g) {
@@ -248,27 +355,19 @@ public final class LapisLowPassScreen extends AbstractContainerScreen<LapisLowPa
         int maxY = Math.max(0, contentHeight() - viewportHeight());
 
         if (maxX > 0) {
-            int x0 = 26;
-            int x1 = imageWidth - 26;
-            int y = imageHeight - FOOTER_HEIGHT - 8;
-            int track = Math.max(1, x1 - x0);
-            int thumb = Math.max(30, (int) Math.round(track * (viewportWidth() / (double) contentWidth())));
-            int travel = Math.max(0, track - thumb);
-            int tx = x0 + (int) Math.round(travel * (scrollX / (double) maxX));
-            g.fill(x0, y, x1, y + 3, PANEL_3);
-            g.fill(tx, y, Math.min(x1, tx + thumb), y + 3, INFO);
+            int thumbX = horizontalThumbX();
+            int thumbWidth = horizontalThumbWidth();
+            g.fill(horizontalTrackX0(), horizontalTrackY(), horizontalTrackX1(), horizontalTrackY() + 3, PANEL_3);
+            g.fill(thumbX, horizontalTrackY(), Math.min(horizontalTrackX1(), thumbX + thumbWidth),
+                    horizontalTrackY() + 3, draggingHorizontalScroll ? GOOD : INFO);
         }
 
         if (maxY > 0) {
-            int x = imageWidth - 12;
-            int y0 = CONTENT_Y;
-            int y1 = imageHeight - FOOTER_HEIGHT - 12;
-            int track = Math.max(1, y1 - y0);
-            int thumb = Math.max(26, (int) Math.round(track * (viewportHeight() / (double) contentHeight())));
-            int travel = Math.max(0, track - thumb);
-            int ty = y0 + (int) Math.round(travel * (scrollY / (double) maxY));
-            g.fill(x, y0, x + 3, y1, PANEL_3);
-            g.fill(x, ty, x + 3, Math.min(y1, ty + thumb), INFO);
+            int thumbY = verticalThumbY();
+            int thumbHeight = verticalThumbHeight();
+            g.fill(verticalTrackX(), verticalTrackY0(), verticalTrackX() + 3, verticalTrackY1(), PANEL_3);
+            g.fill(verticalTrackX(), thumbY, verticalTrackX() + 3,
+                    Math.min(verticalTrackY1(), thumbY + thumbHeight), draggingVerticalScroll ? GOOD : INFO);
         }
     }
 

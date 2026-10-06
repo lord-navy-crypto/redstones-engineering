@@ -54,6 +54,11 @@ for token in (
     'ROUTE("Route")',
     'EVIDENCE("Evidence")',
     "mouseScrolled",
+    "mouseClicked",
+    "mouseDragged",
+    "mouseReleased",
+    "beginScrollbarDrag",
+    "dragScrollbarTo",
     "hasShiftDown()",
     "enableScissor",
     "y[n] = y[n-1] + α",
@@ -64,7 +69,7 @@ for token in (
     "[DERIVED]   τ",
     "LIVE SUBSTITUTION",
     "PROFILE RESPONSE TABLE",
-    "Wheel: vertical • Shift+wheel: horizontal",
+    "Drag scrollbars • Wheel: vertical • Shift+wheel: horizontal",
     "MODEL_WIDTH = 960",
     "renderScrollIndicators",
     'Component.literal("Restore default α")',
@@ -106,7 +111,7 @@ print("RSE LAPIS LOW-PASS HMI VERIFY: PASS")
 print(" dedicated server-authoritative menu: PASS")
 print(" formula-first Model page: PASS")
 print(" live substitution + variable roles: PASS")
-print(" spacious two-axis deep canvas + visible scrollbars: PASS")
+print(" spacious two-axis deep canvas + draggable visible scrollbars: PASS")
 print(" formula/value columns use virtual width rather than viewport compression: PASS")
 print(" fixed alpha/route controls retain server authority without covering model text: PASS")
 print(" real alpha + route controls: PASS")
