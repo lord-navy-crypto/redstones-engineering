@@ -27,6 +27,12 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     /** Exact Δt selection encoded as BASE + ticks/sample. */
     public static final int BUTTON_SAMPLE_PERIOD_DIRECT_BASE = 3000;
     public static final int BUTTON_SAMPLE_PERIOD_DIRECT_MAX = 3008;
+    public static final int BUTTON_TRIGGER_LEVEL_DIRECT_BASE = 3100;
+    public static final int BUTTON_TRIGGER_LEVEL_DIRECT_MAX = 3115;
+    public static final int BUTTON_CURSOR_A_DIRECT_BASE = 3200;
+    public static final int BUTTON_CURSOR_A_DIRECT_MAX = 3215;
+    public static final int BUTTON_CURSOR_B_DIRECT_BASE = 3300;
+    public static final int BUTTON_CURSOR_B_DIRECT_MAX = 3315;
 
     private final DataSlot sampleCount = trackedInt();
     private final DataSlot triggerMode = trackedInt();
@@ -198,6 +204,15 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
         if (id >= BUTTON_SAMPLE_PERIOD_DIRECT_BASE && id <= BUTTON_SAMPLE_PERIOD_DIRECT_MAX
                 && level.getBlockEntity(blockPos) instanceof OscilloscopeBlockEntity scope) {
             changed = scope.setSamplePeriodTicks(id - BUTTON_SAMPLE_PERIOD_DIRECT_BASE);
+        } else if (id >= BUTTON_TRIGGER_LEVEL_DIRECT_BASE && id <= BUTTON_TRIGGER_LEVEL_DIRECT_MAX
+                && level.getBlockEntity(blockPos) instanceof OscilloscopeBlockEntity scope) {
+            changed = scope.setTriggerLevel(id - BUTTON_TRIGGER_LEVEL_DIRECT_BASE);
+        } else if (id >= BUTTON_CURSOR_A_DIRECT_BASE && id <= BUTTON_CURSOR_A_DIRECT_MAX
+                && level.getBlockEntity(blockPos) instanceof OscilloscopeBlockEntity scope) {
+            changed = scope.setCursorA(id - BUTTON_CURSOR_A_DIRECT_BASE);
+        } else if (id >= BUTTON_CURSOR_B_DIRECT_BASE && id <= BUTTON_CURSOR_B_DIRECT_MAX
+                && level.getBlockEntity(blockPos) instanceof OscilloscopeBlockEntity scope) {
+            changed = scope.setCursorB(id - BUTTON_CURSOR_B_DIRECT_BASE);
         } else {
             changed = OscilloscopeBlock.applyUiAction(level, blockPos, id);
         }
