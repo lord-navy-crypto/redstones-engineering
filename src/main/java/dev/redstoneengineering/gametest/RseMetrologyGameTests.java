@@ -5,6 +5,7 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.metrology.MeasurementQuality;
 import dev.redstoneengineering.metrology.MeasurementSnapshot;
 import dev.redstoneengineering.metrology.MetrologySupport;
+import dev.redstoneengineering.metrology.MetrologyStore;
 import dev.redstoneengineering.metrology.MetrologyTracker;
 import dev.redstoneengineering.visualization.MechatronicsVisualState;
 import net.minecraft.core.BlockPos;
@@ -70,6 +71,46 @@ public final class RseMetrologyGameTests {
             helper.fail("Measurement older than stale threshold must report STALE with sample age", MARKER);
             return;
         }
+        helper.succeed();
+    }
+
+    @PrefixGameTestTemplate(false)
+    @GameTest(templateNamespace = RedstoneEngineering.MOD_ID, template = TEMPLATE)
+    public static void observerReadinessDoesNotManufactureMeasurementEvidence(GameTestHelper helper) {
+        String channel = "gametest:observer_neutrality";
+        BlockPos worldPos = helper.absolutePos(MARKER);
+        MetrologyStore.remove(helper.getLevel(), channel, worldPos);
+
+        int entriesBefore = MetrologyStore.entryCount(helper.getLevel());
+        MeasurementSnapshot awaitingFirstSample = MetrologySupport.snapshot(
+                helper.getLevel(), channel, worldPos, 1.0, 30);
+        int entriesAfterObserverRead = MetrologyStore.entryCount(helper.getLevel());
+
+        if (entriesAfterObserverRead != entriesBefore) {
+            helper.fail("Observer-only metrology snapshot must not allocate measurement state", MARKER);
+            return;
+        }
+        if (awaitingFirstSample.hasSample()
+                || MetrologySupport.portQuality(awaitingFirstSample) != PortQuality.NOT_READY
+                || !awaitingFirstSample.compact().startsWith("NOT_READY")
+                || !MetrologySupport.compactDiagnostics(awaitingFirstSample).startsWith("NOT_READY")) {
+            helper.fail("Unsampled observer must consistently report NOT_READY without fabricated evidence", MARKER);
+            return;
+        }
+
+        MeasurementSnapshot authoritativeZero = MetrologySupport.sample(
+                helper.getLevel(), channel, worldPos, 0.0, 0.0, false, 1.0, 30);
+        MeasurementSnapshot observedZero = MetrologySupport.snapshot(
+                helper.getLevel(), channel, worldPos, 1.0, 30);
+        if (!authoritativeZero.hasSample()
+                || !observedZero.hasSample()
+                || MetrologySupport.portQuality(observedZero) != PortQuality.VALID
+                || Math.abs(observedZero.reading()) > 1.0e-9) {
+            helper.fail("Authoritative zero-valued sample must become VALID evidence and remain observer-readable", MARKER);
+            return;
+        }
+
+        MetrologyStore.remove(helper.getLevel(), channel, worldPos);
         helper.succeed();
     }
 
