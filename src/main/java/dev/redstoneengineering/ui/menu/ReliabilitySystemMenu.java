@@ -30,6 +30,9 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_OUTPUT_LEFT = 6;
     public static final int BUTTON_OUTPUT_RIGHT = 7;
     public static final int BUTTON_ACTION = 8;
+    /** Exact visible engineering parameter encoded as BASE + value. */
+    public static final int BUTTON_PARAMETER_DIRECT_BASE = 10000;
+    public static final int BUTTON_PARAMETER_DIRECT_MAX = 10160;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot primary = trackedInt();
@@ -149,7 +152,34 @@ public final class ReliabilitySystemMenu extends EngineeringDeviceMenu {
         Block block = state.getBlock();
         boolean changed = false;
 
-        if (id == BUTTON_ACTION) {
+        if (id >= BUTTON_PARAMETER_DIRECT_BASE && id <= BUTTON_PARAMETER_DIRECT_MAX) {
+            int value = id - BUTTON_PARAMETER_DIRECT_BASE;
+            if (block instanceof WatchdogBlock watchdog) {
+                int index = value == 20 ? 0 : value == 40 ? 1 : value == 80 ? 2 : value == 160 ? 3 : -1;
+                if (index < 0) return false;
+                level.setBlock(blockPos, state.setValue(WatchdogBlock.TIMEOUT, index), Block.UPDATE_CLIENTS);
+                level.scheduleTick(blockPos, watchdog, 1);
+                changed = true;
+            } else if (block instanceof ServoActuatorBlock servo) {
+                int index = value >= 1 && value <= 3 ? value - 1 : -1;
+                if (index < 0) return false;
+                level.setBlock(blockPos, state.setValue(ServoActuatorBlock.SLEW, index), Block.UPDATE_CLIENTS);
+                level.scheduleTick(blockPos, servo, 1);
+                changed = true;
+            } else if (block instanceof RedundantVoterBlock voter) {
+                int index = value == 0 ? 0 : value == 1 ? 1 : value == 2 ? 2 : value == 4 ? 3 : -1;
+                if (index < 0) return false;
+                level.setBlock(blockPos, state.setValue(RedundantVoterBlock.TOLERANCE, index), Block.UPDATE_CLIENTS);
+                level.scheduleTick(blockPos, voter, 1);
+                changed = true;
+            } else if (block instanceof FaultLatchBlock latch) {
+                int index = value == 1 ? 0 : value == 4 ? 1 : value == 8 ? 2 : value == 12 ? 3 : -1;
+                if (index < 0) return false;
+                level.setBlock(blockPos, state.setValue(FaultLatchBlock.THRESHOLD, index), Block.UPDATE_CLIENTS);
+                level.scheduleTick(blockPos, latch, 1);
+                changed = true;
+            } else return false;
+        } else if (id == BUTTON_ACTION) {
             changed = runMaintenanceAction(block);
         } else if (id == BUTTON_INPUT_LEFT || id == BUTTON_INPUT_RIGHT || id == BUTTON_OUTPUT_LEFT || id == BUTTON_OUTPUT_RIGHT) {
             changed = routeEndpoint(block, id);
