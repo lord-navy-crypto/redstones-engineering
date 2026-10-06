@@ -371,15 +371,16 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             }
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_INJECTOR -> {
                 variableRole(g, "MEASURED", "u_R", Integer.toString(menu.pioneerProcessPrimary()), "redstone", 137);
-                variableRole(g, "DERIVED", "packet", Integer.toString(menu.pioneerProcessSecondary()), "flux", 153);
-                variableRole(g, "TOPOLOGY", "attached nodes", Integer.toString(menu.pioneerProcessTertiary()), "nodes", 169);
-                variableRole(g, "TOPOLOGY", "output faces", Integer.toString(menu.pioneerProcessQuaternary()), "faces", 185);
-                variableRole(g, "EVIDENCE", "command", evidence.name(), "", 201);
+                variableRole(g, "FIXED", "packet gain", "4×", "packet = 4·u_R • read-only law", 153);
+                variableRole(g, "DERIVED", "packet", Integer.toString(menu.pioneerProcessSecondary()), "flux", 169);
+                variableRole(g, "TOPOLOGY", "attached nodes", Integer.toString(menu.pioneerProcessTertiary()), "nodes", 185);
+                variableRole(g, "TOPOLOGY", "output faces", Integer.toString(menu.pioneerProcessQuaternary()), "faces", 201);
+                variableRole(g, "EVIDENCE", "command", evidence.name(), "", 217);
             }
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_METER -> {
                 variableRole(g, "MEASURED", "Q_s", Integer.toString(menu.pioneerProcessPrimary()), "flux", 137);
-                variableRole(g, "DERIVED", "y_R", Integer.toString(menu.pioneerProcessSecondary()), "redstone", 153);
-                variableRole(g, "MODEL", "floor(15·Q_s/100)", Integer.toString(menu.pioneerProcessTertiary()), "redstone", 169);
+                variableRole(g, "FIXED", "readout scale", "15/100", "y_R=floor(15·Q_s/100) • read-only", 153);
+                variableRole(g, "DERIVED", "y_R", Integer.toString(menu.pioneerProcessSecondary()), "redstone", 169);
                 variableRole(g, "EVIDENCE", "source", evidence.name(), "", 185);
             }
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_MOLECULAR_RECEIVER -> {
