@@ -212,6 +212,7 @@ print(" formula-linked controls surfaced in Universal / Enhanced / PID HMIs: PAS
 print(" Universal formula parameter workbench is server-backed and value-visible: PASS")
 print(" bounded primary/secondary numeric entry uses the authoritative container/menu channel: PASS")
 print(" direct entry is expressed in visible engineering units, not hidden raw indices: PASS")
+print(" EnhancedFieldDevice rollout exposes exact engineering-value entry across lightweight configurable devices: PASS")
 print(" discrete formula parameters accept only legal engineering-value sets: PASS")
 print(" persistent Health / Role / Evidence / I-O / Controls state strip: PASS")
 print(" global Model / Variables / Evidence engineering contract: PASS")
