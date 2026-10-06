@@ -76,7 +76,7 @@ require("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScre
         "safeText(g, engineeringHint()", "safeText(g, diagnosticHint()",
         "fitForWidth(label, 72)", "fitForWidth(value, 72)",
         "Exact engineering value", "directEntryKind()", "directRangeLabel()",
-        "BUTTON_PRIMARY_DIRECT_BASE", "Apply " + formulaSymbol())
+        "BUTTON_PRIMARY_DIRECT_BASE", '"Apply " + formulaSymbol()')
 
 # Legacy FieldDevice authority must include endpoint-aware RX/TX controls while preserving
 # standalone physical measurement/interface rotation.
