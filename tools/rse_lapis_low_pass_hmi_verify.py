@@ -66,7 +66,6 @@ for token in (
     "PROFILE RESPONSE TABLE",
     "Wheel: vertical • Shift+wheel: horizontal",
     "MODEL_WIDTH = 960",
-    "MIN_WORKSPACE_WIDTH", 
     "renderScrollIndicators",
     'Component.literal("Restore default α")',
     "case LIVE, EVIDENCE -> 900",
