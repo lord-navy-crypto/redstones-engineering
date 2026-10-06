@@ -11,6 +11,7 @@ import dev.redstoneengineering.physics.RuntimeIntStore;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -20,6 +21,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 
 /** Axial copper RC storage element: BACK input, FRONT output. */
 public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
@@ -43,7 +45,7 @@ public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
         builder.add(C_INDEX);
     }
 
-    private static int tau(int index) {
+    public static int tauTicks(int index) {
         return switch (index) {
             case 0 -> 2;
             case 1 -> 4;
@@ -79,7 +81,7 @@ public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
         int delta = targetCharge - runtime[CHARGE_SLOT];
         int step = delta == 0
                 ? 0
-                : (int) Math.copySign(Math.max(1, Math.abs(delta) / tau(state.getValue(C_INDEX))), delta);
+                : (int) Math.copySign(Math.max(1, Math.abs(delta) / tauTicks(state.getValue(C_INDEX))), delta);
 
         runtime[CHARGE_SLOT] = EngineeringMath.clamp(runtime[CHARGE_SLOT] + step, 0, 100);
         runtime[INITIALIZED_SLOT] = 1;
@@ -129,16 +131,28 @@ public class CopperCapacitorBlock extends DirectionalCopperProcessorBlock {
     @Override protected int observedOutputVoltage(Level level, BlockPos pos, BlockState state) { return outputVoltage(level, pos); }
     @Override protected PortQuality observedOutputQuality(Level level, BlockPos pos, BlockState state) { return outputQuality(level, pos); }
 
+    public boolean adjustCapacitance(Level level, BlockPos pos, int delta) {
+        BlockState state = level.getBlockState(pos);
+        if (!state.is(this)) return false;
+        int nextIndex = Math.floorMod(state.getValue(C_INDEX) + delta, 4);
+        level.setBlock(pos, state.setValue(C_INDEX, nextIndex), Block.UPDATE_CLIENTS);
+        level.scheduleTick(pos, this, 1);
+        return true;
+    }
+
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
-            int capacitanceIndex = (state.getValue(C_INDEX) + 1) % 4;
-            BlockState next = state.setValue(C_INDEX, capacitanceIndex);
-            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            level.scheduleTick(pos, this, 1);
+            if (player.isShiftKeyDown() && hit.getDirection().getAxis().isVertical()
+                    && player instanceof ServerPlayer serverPlayer) {
+                FieldDeviceUi.openUniversal(serverPlayer, pos);
+                return InteractionResult.sidedSuccess(false);
+            }
+            adjustCapacitance(level, pos, 1);
+            int capacitanceIndex = level.getBlockState(pos).getValue(C_INDEX);
             player.displayClientMessage(Component.literal(
                     "Copper capacitor | BACK input -> FRONT output | C-index=" + (capacitanceIndex + 1)
-                            + " | RC time-constant proxy=" + tau(capacitanceIndex) + " ticks"
+                            + " | RC time-constant proxy=" + tauTicks(capacitanceIndex) + " ticks"
                             + " | charge=" + chargePercent(level, pos) + "%"
                             + " | Vout=" + outputVoltage(level, pos)
                             + " | quality=" + outputQuality(level, pos)
