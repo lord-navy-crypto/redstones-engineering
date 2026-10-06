@@ -50,7 +50,7 @@ if len(block_facing) < 23:
 
 for token in (
     "DEFAULT_CANVAS_WIDTH = 1020",
-    "DEFAULT_CANVAS_HEIGHT = 1180",
+    "DEFAULT_CANVAS_HEIGHT = 1480",
     "FOOTER_HEIGHT = 66",
     "renderPersistentLiveStateStrip",
     "LIVE STATE • HEALTH ",
@@ -59,6 +59,13 @@ for token in (
     "configureControlCount()",
     "renderGlobalEngineeringContract",
     "ENGINEERING CONTRACT • MODEL / VARIABLES / EVIDENCE",
+    "SHARED_APPENDIX_TOP = 960",
+    "CONFIGURE_APPENDIX_TOP = 1080",
+    "SHARED_APPENDIX_GAP = 44",
+    "sharedAppendixTop",
+    "engineeringContractTop",
+    "renderAppendixDivider",
+    "SHARED ENGINEERING APPENDIX • BELOW DEVICE-SPECIFIC CONTENT",
     "MODEL AUTHORITY",
     "MODEL TYPE",
     "FORMULA POLICY",
@@ -191,6 +198,7 @@ print(" global X/Y wheel + draggable scrollbar contract: PASS")
 print(" global operator-control inventory / function surface: PASS")
 print(" persistent live Health / Role / Evidence / I-O / Controls strip: PASS")
 print(" global Model / Variables / Evidence engineering contract: PASS")
+print(" reserved shared appendix / no device-content overlap: PASS")
 print(" standalone instrument math/evidence equivalence: PASS")
 print(" shared 3-column Configure rail + automatic content offset: PASS")
 print(" generic FieldDevice + Universal fallbacks: PASS")
