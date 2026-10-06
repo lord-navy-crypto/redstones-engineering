@@ -47,7 +47,7 @@ require("src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java"
         "isConfigureSection()", "showsPortVisualization", "canvasRight() - canvasValueX()",
         "MIN_WORKSPACE_WIDTH = 440", "MAX_WORKSPACE_WIDTH = 780",
         "MIN_WORKSPACE_HEIGHT = 320", "MAX_WORKSPACE_HEIGHT = 520",
-        "mouseScrolled", "DEFAULT_CANVAS_WIDTH = 1020", "DEFAULT_CANVAS_HEIGHT = 760",
+        "mouseScrolled", "DEFAULT_CANVAS_WIDTH = 1020", "DEFAULT_CANVAS_HEIGHT = 980",
         "renderScrollIndicators", "virtualContentWidth", "virtualContentHeight",
         "formulaCard", "variableRole", "evidenceRow", "wrappedText",
         '"Parameters, modes and actions"', '"Direct RX / TX direction control"',
