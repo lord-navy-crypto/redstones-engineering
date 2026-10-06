@@ -176,10 +176,7 @@ public final class ReliabilitySystemScreen extends EngineeringScreen<Reliability
     private void configure(GuiGraphics g) {
         statusBadge(g,"PIONEER PATTERN • RELIABILITY / SAFE STATE",INFO,16,80);
         formulaCard(g,reliabilityEquation(),105);
-        variableRole(g,"ADJUSTABLE",parameterSymbol(),parameterText(),parameterRange(),134);
-        if(menu.kind()!=ReliabilitySystemMenu.KIND_POSITION_SENSOR){
-            variableRole(g,"CONTROL","direct entry",parameterRange(),"exact server-backed value",152);
-        }
+        variableRole(g,"ADJUSTABLE",parameterSymbol(),parameterText(),parameterRange()+" • direct entry",134);
         if(menu.kind()==ReliabilitySystemMenu.KIND_WATCHDOG){
             variableRole(g,"MEASURED","age",Integer.toString(menu.primary()),"ticks",152);
             variableRole(g,"DERIVED","alarm",menu.extraA()+"/15","timeout output",170);
