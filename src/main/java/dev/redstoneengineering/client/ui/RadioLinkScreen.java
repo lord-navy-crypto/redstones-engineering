@@ -4,6 +4,7 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.menu.RadioLinkMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
@@ -11,6 +12,8 @@ import net.minecraft.world.entity.player.Inventory;
 public final class RadioLinkScreen extends EngineeringScreen<RadioLinkMenu> {
     private Button channelPrevious;
     private Button channelNext;
+    private EditBox channelInput;
+    private Button channelApply;
 
     public RadioLinkScreen(RadioLinkMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -25,13 +28,39 @@ public final class RadioLinkScreen extends EngineeringScreen<RadioLinkMenu> {
         channelNext = addConfigureWidget(Button.builder(Component.literal("Channel ▶"),
                 b -> sendMenuButton(RadioLinkMenu.BUTTON_CHANNEL_NEXT))
                 .bounds(leftPos + 199, y, 105, 20).build());
+        channelInput = addConfigureWidget(new EditBox(this.font,leftPos+16,y,105,20,Component.literal("Radio channel 0..3")));
+        channelInput.setMaxLength(1);
+        channelInput.setFilter(v->v.isEmpty()||v.chars().allMatch(Character::isDigit));
+        channelApply = addConfigureWidget(Button.builder(Component.literal("Apply CH"),b->submitChannel()).bounds(leftPos+199,y,105,20).build());
     }
 
     @Override
     protected void syncDeviceWidgetLabels() {
         if (channelPrevious == null) return;
-        channelPrevious.setMessage(Component.literal("◀ CH " + menu.channel()));
-        channelNext.setMessage(Component.literal("CH " + menu.channel() + " ▶"));
+        boolean configure=isConfigureSection();
+        channelPrevious.visible=false;
+        channelNext.visible=false;
+        channelInput.visible=channelInput.active=configure;
+        channelApply.visible=configure;
+        channelApply.active=configure&&channelInputValid();
+        if(configure&&!channelInput.isFocused()){
+            String expected=Integer.toString(menu.channel());
+            if(!expected.equals(channelInput.getValue()))channelInput.setValue(expected);
+        }
+    }
+
+    private boolean channelInputValid(){
+        if(channelInput==null||channelInput.getValue().isEmpty())return false;
+        try{
+            int ch=Integer.parseInt(channelInput.getValue());
+            return ch>=0&&ch<=3;
+        }catch(NumberFormatException ignored){return false;}
+    }
+
+    private void submitChannel(){
+        if(!channelInputValid())return;
+        sendMenuButton(RadioLinkMenu.BUTTON_CHANNEL_DIRECT_BASE+Integer.parseInt(channelInput.getValue()));
+        channelInput.setFocused(false);
     }
 
     @Override
@@ -82,7 +111,7 @@ public final class RadioLinkScreen extends EngineeringScreen<RadioLinkMenu> {
     private void configure(GuiGraphics g) {
         statusBadge(g, "PIONEER PATTERN • RADIO LINK BUDGET", INFO, 16, 80);
         formulaCard(g, radioEquation(), 105);
-        variableRole(g,"ADJUSTABLE","CH",Integer.toString(menu.channel()),"0..3",134);
+        variableRole(g,"ADJUSTABLE","CH",Integer.toString(menu.channel()),"0..3 • direct entry",134);
         if(menu.kind()==RadioLinkMenu.KIND_RECEIVER){
             variableRole(g,"MEASURED","Q_link",menu.linkQuality()+"%","server link quality",152);
             variableRole(g,"PROFILE","Q_min",RadioLinkMenu.MIN_DECODE_QUALITY+"%","decode threshold",170);
