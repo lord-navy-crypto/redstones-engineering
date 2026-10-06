@@ -27,6 +27,9 @@ public final class LapisLowPassMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_INPUT_RIGHT = 4;
     public static final int BUTTON_OUTPUT_LEFT = 5;
     public static final int BUTTON_OUTPUT_RIGHT = 6;
+    /** Exact supported α profile encoded as BASE + alpha index. */
+    public static final int BUTTON_ALPHA_DIRECT_BASE = 4000;
+    public static final int BUTTON_ALPHA_DIRECT_MAX = 4007;
 
     private final DataSlot alphaIndex = trackedInt();
     private final DataSlot inputValue = trackedInt();
@@ -100,7 +103,10 @@ public final class LapisLowPassMenu extends EngineeringDeviceMenu {
     public boolean clickMenuButton(Player player, int id) {
         if (level.isClientSide) return true;
         if (!stillValid(player)) return false;
-        boolean changed = switch (id) {
+        boolean changed;
+        if (id >= BUTTON_ALPHA_DIRECT_BASE && id <= BUTTON_ALPHA_DIRECT_MAX) {
+            changed = LapisLowPassFilterBlock.setAlphaIndex(level, blockPos, id - BUTTON_ALPHA_DIRECT_BASE);
+        } else changed = switch (id) {
             case BUTTON_ALPHA_PREVIOUS -> LapisLowPassFilterBlock.adjustAlpha(level, blockPos, -1);
             case BUTTON_ALPHA_NEXT -> LapisLowPassFilterBlock.adjustAlpha(level, blockPos, 1);
             case BUTTON_ALPHA_DEFAULT -> LapisLowPassFilterBlock.resetAlpha(level, blockPos);
