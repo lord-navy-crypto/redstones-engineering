@@ -966,7 +966,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
 
     private boolean directPrimaryNumericKind(int kind) {
         return switch (kind) {
-            case UniversalFieldDeviceMenu.CONFIG_PWM,
+            case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER,
+                 UniversalFieldDeviceMenu.CONFIG_PWM,
                  UniversalFieldDeviceMenu.CONFIG_COPPER_VOLTAGE_SOURCE,
                  UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD,
                  UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR,
@@ -983,7 +984,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
 
     private int directPrimaryMinimum(int kind) {
         return switch (kind) {
-            case UniversalFieldDeviceMenu.CONFIG_PWM,
+            case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER,
+                 UniversalFieldDeviceMenu.CONFIG_PWM,
                  UniversalFieldDeviceMenu.CONFIG_COPPER_VOLTAGE_SOURCE,
                  UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE,
                  UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR,
@@ -994,7 +996,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
 
     private int directPrimaryMaximum(int kind) {
         return switch (kind) {
-            case UniversalFieldDeviceMenu.CONFIG_PWM,
+            case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER,
+                 UniversalFieldDeviceMenu.CONFIG_PWM,
                  UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER -> 3;
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> 4;
             case UniversalFieldDeviceMenu.CONFIG_COPPER_VOLTAGE_SOURCE,
@@ -1041,6 +1044,9 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     }
 
     private String directPrimaryDisplayValue(int kind) {
+        if (kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER) {
+            return Integer.toString(menu.pioneerProcessQuinary());
+        }
         if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE) {
             return String.format(java.util.Locale.ROOT, "%.2f", menu.configPrimary() * 0.05);
         }
@@ -1067,6 +1073,9 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         if (primaryDirectInput == null) return null;
         try {
             double entered = Double.parseDouble(primaryDirectInput.getValue());
+            if (kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER) {
+                return entered == 6 ? 0 : entered == 9 ? 1 : entered == 12 ? 2 : entered == 16 ? 3 : null;
+            }
             if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE) {
                 int raw = (int) Math.round(entered / 0.05);
                 return Math.abs(entered - raw * 0.05) < 0.0001 ? raw : null;
@@ -1131,6 +1140,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     }
 
     private String directPrimaryRangeLabel(int kind) {
+        if (kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER) return "{6, 9, 12, 16} gain";
         if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE) return "0.00..1.00 Lapis • step 0.05";
         if (kind == UniversalFieldDeviceMenu.CONFIG_PWM) return "{4, 8, 16, 32} ticks";
         if (kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR) return "{2, 4, 8, 16, 32} ticks";
@@ -1175,7 +1185,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private String formulaParameterSymbol(int kind) {
         return switch (kind) {
             case UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER, UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE -> "profile";
-            case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER -> "sensitivity";
+            case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER -> "g";
             case UniversalFieldDeviceMenu.CONFIG_ALARM -> "severity";
             case UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD -> "trigger edge";
             case UniversalFieldDeviceMenu.CONFIG_CALIBRATION -> "transfer profile";
@@ -1209,6 +1219,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.CONFIG_THERMAL_MASS -> Integer.toString(menu.configPrimary());
             case UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER -> menu.pioneerProcessSecondary() + " R-eq";
             case UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR -> menu.configPrimary() + " index/tick";
+            case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER -> menu.pioneerProcessQuinary() + " gain";
             default -> Integer.toString(menu.configPrimary());
         };
     }
@@ -1247,7 +1258,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR -> "Equation link: k_cool bounds passive cooling toward the ambient floor.";
             case UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE -> "Model link: profile changes sensor conditioning; range independently bounds spatial sampling.";
             case UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER -> "Model link: profile selects sampling period, resolution, noise and latency.";
-            case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER -> "Model link: sensitivity changes the receiver gain/profile used by the server filter.";
+            case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER -> "Model link: g is the visible receiver gain; the server maps it to the supported sensitivity profile.";
             case UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD -> "State-equation link: trigger-edge selection determines when y_hold acquires a new sample.";
             case UniversalFieldDeviceMenu.CONFIG_CALIBRATION -> "Model link: transfer profile selects the server calibration mapping.";
             default -> "This control changes authoritative device state; downstream values remain server-derived evidence.";
@@ -1257,7 +1268,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private String primaryControlName(int kind) {
         return switch (kind) {
             case UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER, UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE -> "Profile";
-            case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER -> "Sensitivity";
+            case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER -> "Gain";
             case UniversalFieldDeviceMenu.CONFIG_ALARM -> "Severity";
             case UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD -> "Trigger edge";
             case UniversalFieldDeviceMenu.CONFIG_CALIBRATION -> "Transfer";
