@@ -4,6 +4,7 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.menu.MagneticSystemMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
@@ -11,6 +12,8 @@ import net.minecraft.world.entity.player.Inventory;
 /** Dedicated magnetic HMI separating source, actuator, converter and observer responsibilities. */
 public final class MagneticSystemScreen extends EngineeringScreen<MagneticSystemMenu> {
     private Button primaryPrevious, primaryNext;
+    private EditBox primaryInput;
+    private Button primaryApply;
 
     public MagneticSystemScreen(MagneticSystemMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -20,6 +23,10 @@ public final class MagneticSystemScreen extends EngineeringScreen<MagneticSystem
         int y = topPos + 116;
         primaryPrevious = addConfigureWidget(Button.builder(Component.literal("◀ Parameter"), b -> sendMenuButton(MagneticSystemMenu.BUTTON_PRIMARY_PREVIOUS)).bounds(leftPos+16,y,105,20).build());
         primaryNext = addConfigureWidget(Button.builder(Component.literal("Parameter ▶"), b -> sendMenuButton(MagneticSystemMenu.BUTTON_PRIMARY_NEXT)).bounds(leftPos+199,y,105,20).build());
+        primaryInput = addConfigureWidget(new EditBox(this.font,leftPos+16,y,105,20,Component.literal("Exact magnetic parameter")));
+        primaryInput.setMaxLength(2);
+        primaryInput.setFilter(v->v.isEmpty()||v.chars().allMatch(Character::isDigit));
+        primaryApply = addConfigureWidget(Button.builder(Component.literal("Apply"),b->submitPrimary()).bounds(leftPos+199,y,105,20).build());
     }
 
     @Override protected void syncDeviceWidgetLabels() {
@@ -30,8 +37,22 @@ public final class MagneticSystemScreen extends EngineeringScreen<MagneticSystem
         boolean configure = isConfigureSection();
         primaryPrevious.active = configurable;
         primaryNext.active = configurable;
-        primaryPrevious.visible = configure && configurable;
-        primaryNext.visible = configure && configurable;
+        primaryPrevious.visible = false;
+        primaryNext.visible = false;
+        if(primaryInput!=null){
+            primaryInput.visible=configure&&configurable;
+            primaryInput.active=configure&&configurable;
+            if(primaryInput.visible&&!primaryInput.isFocused()){
+                int current=permanent?menu.primary():menu.tertiary();
+                String expected=Integer.toString(current);
+                if(!expected.equals(primaryInput.getValue()))primaryInput.setValue(expected);
+            }
+        }
+        if(primaryApply!=null){
+            primaryApply.visible=configure&&configurable;
+            primaryApply.active=configure&&configurable&&primaryValid();
+            primaryApply.setMessage(Component.literal(permanent?"Apply S":"Apply N"));
+        }
         if (permanent) {
             primaryPrevious.setMessage(Component.literal("◀ B " + menu.primary()));
             primaryNext.setMessage(Component.literal("B " + menu.primary() + " ▶"));
@@ -39,6 +60,22 @@ public final class MagneticSystemScreen extends EngineeringScreen<MagneticSystem
             primaryPrevious.setMessage(Component.literal("◀ N×" + menu.tertiary()));
             primaryNext.setMessage(Component.literal("N×" + menu.tertiary() + " ▶"));
         }
+    }
+
+    private boolean primaryValid(){
+        if(primaryInput==null||primaryInput.getValue().isEmpty())return false;
+        try{
+            int value=Integer.parseInt(primaryInput.getValue());
+            return menu.kind()==MagneticSystemMenu.KIND_PERMANENT
+                    ? value>=1&&value<=15
+                    : menu.kind()==MagneticSystemMenu.KIND_COIL&&value>=1&&value<=4;
+        }catch(NumberFormatException ignored){return false;}
+    }
+
+    private void submitPrimary(){
+        if(!primaryValid())return;
+        sendMenuButton(MagneticSystemMenu.BUTTON_PRIMARY_DIRECT_BASE+Integer.parseInt(primaryInput.getValue()));
+        primaryInput.setFocused(false);
     }
 
     @Override protected void renderSection(GuiGraphics g, Section section) {
@@ -109,12 +146,14 @@ public final class MagneticSystemScreen extends EngineeringScreen<MagneticSystem
         formulaCard(g,magneticEquation(),105);
         variableRole(g,"MEASURED","B / source",Integer.toString(menu.primary()),"RSE field units",134);
         if(menu.kind()==MagneticSystemMenu.KIND_COIL){
-            variableRole(g,"ADJUSTABLE","N",Integer.toString(menu.tertiary()),"turn index",152);
+            variableRole(g,"ADJUSTABLE","N",Integer.toString(menu.tertiary()),"turn count",152);
+            variableRole(g,"CONTROL","direct entry","N = 1..4","exact server-backed value",170);
             variableRole(g,"DERIVED","V_ind",Integer.toString(menu.secondary()),"Copper 0..15",170);
             variableRole(g,"EVIDENCE","baseline",menu.complete()?"VALID":"STALE / RE-ARM","",188);
             variableRole(g,"TOPOLOGY","RX → TX",face(menu.facing().getOpposite())+" → "+face(menu.facing()),"",206);
         }else if(menu.kind()==MagneticSystemMenu.KIND_PERMANENT){
             variableRole(g,"ADJUSTABLE","S",Integer.toString(menu.primary()),"source strength",152);
+            variableRole(g,"CONTROL","direct entry","S = 1..15","exact server-backed value",170);
             variableRole(g,"ADJUSTABLE","N marker",face(menu.facing()),"orientation",170);
             variableRole(g,"EVIDENCE","quality",qualityName(),"",188);
         }else if(menu.kind()==MagneticSystemMenu.KIND_FIELD_SENSOR){
