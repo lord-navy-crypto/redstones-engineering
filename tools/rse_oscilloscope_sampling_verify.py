@@ -72,6 +72,12 @@ for token in (
     "TIMEBASE TABLE",
     "aliasLabel(menu.aliasRisk(channel))",
     "Nyquist gives a theoretical boundary, not proof",
+    "INSTRUMENT_CONTENT_WIDTH = 980",
+    "SAMPLING_CONTENT_WIDTH = 1120",
+    "renderScrollIndicators",
+    'Component.literal("Arm / Hold")',
+    'Component.literal("Trigger source")',
+    "int plotWidth = Math.min(760, contentWidth() - CONTENT_X - 90)",
 ):
     if token not in screen:
         errors.append(f"oscilloscope screen missing formula-first sampling token {token!r}")
@@ -107,6 +113,8 @@ print(" fs and Nyquist derivation: PASS")
 print(" timebase change invalidates mixed-dt capture: PASS")
 print(" observed period/frequency evidence: PASS")
 print(" alias-margin evidence classification: PASS")
-print(" large scrollable formula-first Sampling HMI: PASS")
+print(" spacious two-axis formula-first Sampling HMI: PASS")
+print(" visible scrollbars + non-compressed waveform canvas: PASS")
+print(" fixed sampling/trigger controls remain outside server model ownership: PASS")
 print(" client/no-second-solver boundary: PASS")
 print(" authoritative sampling GameTest source: PASS")
