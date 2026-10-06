@@ -126,6 +126,7 @@ jobs:
             tools/rse_oscilloscope_sampling_verify.py \
             tools/rse_oscilloscope_sampling_experiment_verify.py \
             tools/rse_engineering_ui_rollout_verify.py \
+            tools/rse_all_block_ui_rollout_verify.py \
             tools/rse_pioneer_showcase_rollout_verify.py \
             tools/rse_discrete_transport_model_verify.py \
             tools/rse_measurement_chain_model_verify.py \
