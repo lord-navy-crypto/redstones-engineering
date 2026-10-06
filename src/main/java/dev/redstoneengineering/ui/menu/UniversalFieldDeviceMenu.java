@@ -41,6 +41,9 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     /** Encodes an explicit primary numeric target as BASE + value through the vanilla container-button channel. */
     public static final int BUTTON_CONFIG_PRIMARY_DIRECT_BASE = 1000;
     public static final int BUTTON_CONFIG_PRIMARY_DIRECT_MAX = 1063;
+    /** Encodes an explicit secondary numeric target as BASE + value through the same server-authoritative channel. */
+    public static final int BUTTON_CONFIG_SECONDARY_DIRECT_BASE = 1100;
+    public static final int BUTTON_CONFIG_SECONDARY_DIRECT_MAX = 1163;
 
     public static final int ROUTE_NONE = 0;
     public static final int ROUTE_SERIES_AXIS = 1;
@@ -791,6 +794,14 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             }
             return changed;
         }
+        if (id >= BUTTON_CONFIG_SECONDARY_DIRECT_BASE && id <= BUTTON_CONFIG_SECONDARY_DIRECT_MAX) {
+            boolean changed = applyDirectSecondaryTarget(id - BUTTON_CONFIG_SECONDARY_DIRECT_BASE);
+            if (changed) {
+                refreshAuthoritativeSnapshot();
+                broadcastChanges();
+            }
+            return changed;
+        }
         boolean changed = switch (id) {
             case BUTTON_ROTATE_LEFT -> rotate(false);
             case BUTTON_ROTATE_RIGHT -> rotate(true);
@@ -841,6 +852,10 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             min = 1; max = 15;
             current = () -> level.getBlockState(blockPos).getValue(CopperFuseBlock.RATING);
             stepForward = ignored -> fuse.adjustRating(level, blockPos, 1);
+        } else if (block instanceof LapisNoiseSourceBlock noise) {
+            min = 0; max = 20;
+            current = () -> level.getBlockState(blockPos).getValue(LapisNoiseSourceBlock.BASELINE);
+            stepForward = ignored -> noise.adjustBaseline(level, blockPos, 1);
         } else if (block instanceof QuartzPhaseDelayBlock delay) {
             min = 1; max = 16;
             current = () -> level.getBlockState(blockPos).getValue(QuartzPhaseDelayBlock.DELAY);
@@ -853,6 +868,35 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             min = 1; max = 4;
             current = () -> level.getBlockState(blockPos).getValue(ThermalRadiatorBlock.COOLING);
             stepForward = ignored -> radiator.adjustCooling(level, blockPos, 1);
+        } else {
+            return false;
+        }
+
+        if (target < min || target > max) return false;
+        int guard = max - min + 2;
+        boolean changed = false;
+        while (current.getAsInt() != target && guard-- > 0) {
+            if (!stepForward.test(1)) return changed;
+            changed = true;
+        }
+        return changed || current.getAsInt() == target;
+    }
+
+    private boolean applyDirectSecondaryTarget(int target) {
+        Block block = level.getBlockState(blockPos).getBlock();
+        int min;
+        int max;
+        java.util.function.IntSupplier current;
+        java.util.function.IntPredicate stepForward;
+
+        if (block instanceof LapisNoiseSourceBlock noise) {
+            min = 0; max = 10;
+            current = () -> level.getBlockState(blockPos).getValue(LapisNoiseSourceBlock.NOISE);
+            stepForward = ignored -> noise.adjustNoise(level, blockPos, 1);
+        } else if (block instanceof QuartzLabOscillatorBlock oscillator) {
+            min = 0; max = 3;
+            current = () -> level.getBlockState(blockPos).getValue(QuartzLabOscillatorBlock.JITTER);
+            stepForward = ignored -> oscillator.adjustJitter(level, blockPos, 1);
         } else {
             return false;
         }
