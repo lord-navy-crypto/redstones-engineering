@@ -63,6 +63,9 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_COPPER_SERIES_RESISTOR = 14;
     public static final int CONFIG_COPPER_CAPACITOR = 15;
     public static final int CONFIG_COPPER_FUSE = 16;
+    public static final int CONFIG_LAPIS_NOISE = 17;
+    public static final int CONFIG_QUARTZ_OSCILLATOR = 18;
+    public static final int CONFIG_QUARTZ_PHASE_DELAY = 19;
 
     public static final int PIONEER_MEASUREMENT_NONE = 0;
     public static final int PIONEER_MEASUREMENT_TEMPERATURE = 1;
@@ -88,6 +91,13 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int PIONEER_PROCESS_COPPER_CAPACITOR = 12;
     public static final int PIONEER_PROCESS_COPPER_FUSE = 13;
     public static final int PIONEER_PROCESS_COPPER_JUNCTION = 14;
+    public static final int PIONEER_PROCESS_LAPIS_NOISE = 15;
+    public static final int PIONEER_PROCESS_QUARTZ_OSCILLATOR = 16;
+    public static final int PIONEER_PROCESS_QUARTZ_PHASE_DELAY = 17;
+    public static final int PIONEER_PROCESS_QUARTZ_LAPIS_SAMPLER = 18;
+    public static final int PIONEER_PROCESS_SOUL_INJECTOR = 19;
+    public static final int PIONEER_PROCESS_SOUL_METER = 20;
+    public static final int PIONEER_PROCESS_MOLECULAR_RECEIVER = 21;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
@@ -217,6 +227,17 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configKind.set(CONFIG_COPPER_FUSE);
             configPrimary.set(state.getValue(CopperFuseBlock.RATING));
             configSecondary.set(state.getValue(CopperFuseBlock.TRIPPED) ? 1 : 0);
+        } else if (block instanceof LapisNoiseSourceBlock) {
+            configKind.set(CONFIG_LAPIS_NOISE);
+            configPrimary.set(state.getValue(LapisNoiseSourceBlock.BASELINE));
+            configSecondary.set(state.getValue(LapisNoiseSourceBlock.NOISE));
+        } else if (block instanceof QuartzLabOscillatorBlock) {
+            configKind.set(CONFIG_QUARTZ_OSCILLATOR);
+            configPrimary.set(state.getValue(QuartzLabOscillatorBlock.PERIOD_INDEX));
+            configSecondary.set(state.getValue(QuartzLabOscillatorBlock.JITTER));
+        } else if (block instanceof QuartzPhaseDelayBlock) {
+            configKind.set(CONFIG_QUARTZ_PHASE_DELAY);
+            configPrimary.set(state.getValue(QuartzPhaseDelayBlock.DELAY));
         }
 
         declaredPortMask.set(0);
@@ -484,6 +505,91 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             pioneerProcessSecondary.set(CopperCableJunctionBlock.driverCount(level, blockPos));
             pioneerProcessTertiary.set(junction.engineeringPorts(state).size());
             pioneerProcessEvidenceQuality.set(CopperCableJunctionBlock.quality(level, blockPos, state).ordinal());
+            return;
+        }
+
+        if (block instanceof LapisNoiseSourceBlock noise) {
+            pioneerProcessKind.set(PIONEER_PROCESS_LAPIS_NOISE);
+            pioneerProcessPrimary.set(state.getValue(LapisNoiseSourceBlock.BASELINE) * 5);
+            pioneerProcessSecondary.set(state.getValue(LapisNoiseSourceBlock.NOISE) * 2);
+            pioneerProcessTertiary.set(LapisNoiseSourceBlock.currentValue(level, blockPos, state));
+            pioneerProcessQuaternary.set(4);
+            pioneerProcessQuinary.set(LapisNoiseSourceBlock.sampleInitialized(level, blockPos) ? 1 : 0);
+            pioneerProcessEvidenceQuality.set((LapisNoiseSourceBlock.sampleInitialized(level, blockPos)
+                    ? PortQuality.VALID : PortQuality.NOT_READY).ordinal());
+            return;
+        }
+
+        if (block instanceof QuartzLabOscillatorBlock oscillator) {
+            QuartzLabOscillatorBlock.TimingEvidence timing = QuartzLabOscillatorBlock.timingEvidence(level, blockPos, state);
+            pioneerProcessKind.set(PIONEER_PROCESS_QUARTZ_OSCILLATOR);
+            pioneerProcessPrimary.set(timing.nominalPeriod());
+            pioneerProcessSecondary.set(state.getValue(QuartzLabOscillatorBlock.JITTER));
+            pioneerProcessTertiary.set(timing.lastHalfInterval());
+            pioneerProcessQuaternary.set(timing.lastJitterOffset());
+            pioneerProcessQuinary.set(state.getValue(QuartzLabOscillatorBlock.ACTIVE) ? 1 : 0);
+            pioneerProcessSenary.set(timing.available() ? 1 : 0);
+            pioneerProcessEvidenceQuality.set((timing.available() ? PortQuality.VALID : PortQuality.NOT_READY).ordinal());
+            return;
+        }
+
+        if (block instanceof QuartzPhaseDelayBlock delay) {
+            EngineeringPortSnapshot input = snapshotByDirection(delay, state, PortDirection.INPUT);
+            pioneerProcessKind.set(PIONEER_PROCESS_QUARTZ_PHASE_DELAY);
+            pioneerProcessPrimary.set(input == null ? 0 : syncNumber(input.value()));
+            pioneerProcessSecondary.set(state.getValue(QuartzPhaseDelayBlock.DELAY));
+            pioneerProcessTertiary.set(QuartzPhaseDelayBlock.pendingTicks(level, blockPos));
+            pioneerProcessQuaternary.set(QuartzPhaseDelayBlock.outputPulse(level, blockPos) ? 1 : 0);
+            pioneerProcessQuinary.set(QuartzPhaseDelayBlock.initialized(level, blockPos) ? 1 : 0);
+            pioneerProcessEvidenceQuality.set((input == null ? PortQuality.NO_SIGNAL : input.quality()).ordinal());
+            return;
+        }
+
+        if (block instanceof QuartzTriggeredLapisSamplerBlock sampler) {
+            EngineeringPortSnapshot input = snapshotByLabel(sampler, state, "LAPIS INPUT");
+            EngineeringPortSnapshot trigger = snapshotByLabel(sampler, state, "QUARTZ TRIGGER");
+            pioneerProcessKind.set(PIONEER_PROCESS_QUARTZ_LAPIS_SAMPLER);
+            pioneerProcessPrimary.set(input == null ? 0 : syncNumber(input.value() * 100.0));
+            pioneerProcessSecondary.set(trigger == null ? 0 : syncNumber(trigger.value()));
+            pioneerProcessTertiary.set(QuartzTriggeredLapisSamplerBlock.heldValue(level, blockPos));
+            pioneerProcessQuaternary.set(QuartzTriggeredLapisSamplerBlock.heldQuality(level, blockPos).ordinal());
+            pioneerProcessEvidenceQuality.set(QuartzTriggeredLapisSamplerBlock.heldQuality(level, blockPos).ordinal());
+            return;
+        }
+
+        if (block instanceof SoulFluxInjectorBlock injector) {
+            var command = SoulFluxInjectorBlock.commandObservation(level, blockPos);
+            pioneerProcessKind.set(PIONEER_PROCESS_SOUL_INJECTOR);
+            pioneerProcessPrimary.set(command.value());
+            pioneerProcessSecondary.set(command.valid() ? command.value() * 4 : 0);
+            pioneerProcessTertiary.set(SoulFluxInjectorBlock.attachedNodeCount(level, blockPos));
+            pioneerProcessQuaternary.set(5);
+            pioneerProcessEvidenceQuality.set(command.quality().ordinal());
+            return;
+        }
+
+        if (block instanceof SoulFluxMeterBlock meter) {
+            SoulFluxMeterBlock.ChargeObservation observation = SoulFluxMeterBlock.inputObservation(level, blockPos, state);
+            pioneerProcessKind.set(PIONEER_PROCESS_SOUL_METER);
+            pioneerProcessPrimary.set(observation.value());
+            pioneerProcessSecondary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+            pioneerProcessTertiary.set(Math.min(15, (observation.value() * 15) / 100));
+            pioneerProcessEvidenceQuality.set(observation.quality().ordinal());
+            return;
+        }
+
+        if (block instanceof MolecularCloudReceiverBlock molecular) {
+            MolecularCloudReceiverBlock.CloudSample sample = MolecularCloudReceiverBlock.sample(level, blockPos, state);
+            EngineeringPortSnapshot output = snapshotByDirection(molecular, state, PortDirection.OUTPUT);
+            int sensitivity = state.getValue(MolecularCloudReceiverBlock.SENSITIVITY);
+            pioneerProcessKind.set(PIONEER_PROCESS_MOLECULAR_RECEIVER);
+            pioneerProcessPrimary.set(sample.value());
+            pioneerProcessSecondary.set(MolecularCloudReceiverBlock.filtered(level, blockPos));
+            pioneerProcessTertiary.set(MolecularCloudReceiverBlock.peak(level, blockPos));
+            pioneerProcessQuaternary.set(sensitivity);
+            pioneerProcessQuinary.set(MolecularCloudReceiverBlock.gainFor(sensitivity));
+            pioneerProcessSenary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+            pioneerProcessEvidenceQuality.set((output == null ? PortQuality.NO_SIGNAL : output.quality()).ordinal());
         }
     }
 
@@ -521,7 +627,8 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
                 || block instanceof CalibrationModuleBlock
                 || block instanceof PwmControllerBlock
                 || block instanceof FaultInjectorBlock
-                || block instanceof QuartzTriggeredLapisSamplerBlock) return ROUTE_MULTI_PORT_LAYOUT;
+                || block instanceof QuartzTriggeredLapisSamplerBlock
+                || block instanceof SoulFluxInjectorBlock) return ROUTE_MULTI_PORT_LAYOUT;
         if (block instanceof DirectionalSignalBlock || block instanceof DirectionalDomainBlock) return ROUTE_SERIES_AXIS;
         return ROUTE_NONE;
     }
@@ -584,12 +691,18 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         if (block instanceof CopperSeriesResistorBlock resistor) return resistor.adjustResistance(level, blockPos, delta);
         if (block instanceof CopperCapacitorBlock capacitor) return capacitor.adjustCapacitance(level, blockPos, delta);
         if (block instanceof CopperFuseBlock fuse) return fuse.adjustRating(level, blockPos, delta);
+        if (block instanceof LapisNoiseSourceBlock noise) return noise.adjustBaseline(level, blockPos, delta);
+        if (block instanceof QuartzLabOscillatorBlock oscillator) return oscillator.adjustPeriod(level, blockPos, delta);
+        if (block instanceof QuartzPhaseDelayBlock delay) return delay.adjustDelay(level, blockPos, delta);
         return false;
     }
 
     private boolean adjustSecondary(int delta) {
         Block block = level.getBlockState(blockPos).getBlock();
-        return block instanceof LapisPrecisionRangeSensorBlock range && range.adjustRange(level, blockPos, delta);
+        if (block instanceof LapisPrecisionRangeSensorBlock range) return range.adjustRange(level, blockPos, delta);
+        if (block instanceof LapisNoiseSourceBlock noise) return noise.adjustNoise(level, blockPos, delta);
+        if (block instanceof QuartzLabOscillatorBlock oscillator) return oscillator.adjustJitter(level, blockPos, delta);
+        return false;
     }
 
     private boolean runAction() {
