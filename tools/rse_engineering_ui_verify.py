@@ -88,7 +88,8 @@ require("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScre
         "KIND_MECHANICAL_EXCITER", "KIND_HYDRO_EXCITER",
         "1..15 frequency index", '-> "f"',
         "discreteExciterAdjustable()", "exact server-backed frequency",
-        "read-only implemented model", "finite-bandwidth phonon packet")
+        "read-only implemented model", "TTL=8t; retain A−2, Q−10",
+        "event packet; source clears after 1t")
 require("src/main/java/dev/redstoneengineering/block/MechanicalExciterBlock.java",
         "setFrequency(Level level, BlockPos pos, int frequency)")
 require("src/main/java/dev/redstoneengineering/block/HydroacousticExciterBlock.java",
@@ -112,7 +113,9 @@ require("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScr
         '"ADJUSTABLE", "g"', '"FIXED", "gain map"',
         '"FIXED", "B_threshold"', '"FIXED", "scan radius"',
         '"FIXED", "T_floor"', "read-only decay law",
-        "server-supported {6,9,12,16} set")
+        "server-supported {6,9,12,16} set",
+        "packet = 4·u_R • read-only law",
+        "y_R=floor(15·Q_s/100) • read-only")
 
 require("src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java",
         "Cycle tuning preset ▶", "Cycle RX ▶", "Cycle TX ▶",
