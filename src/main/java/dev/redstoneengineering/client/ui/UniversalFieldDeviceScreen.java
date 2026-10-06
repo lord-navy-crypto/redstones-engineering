@@ -87,7 +87,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         primaryDirectInput = addConfigureWidget(new EditBox(
                 this.font, startX, primaryY, pairWidth, 20, Component.literal("Formula parameter value")));
         primaryDirectInput.setMaxLength(3);
-        primaryDirectInput.setFilter(value -> value.isEmpty() || value.chars().allMatch(Character::isDigit));
+        primaryDirectInput.setFilter(this::numericEntryText);
         primaryDirectApply = addConfigureWidget(Button.builder(
                 Component.literal("Apply exact value"),
                 button -> submitDirectPrimaryValue()
@@ -96,7 +96,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         secondaryDirectInput = addConfigureWidget(new EditBox(
                 this.font, startX, secondaryY, pairWidth, 20, Component.literal("Secondary formula parameter value")));
         secondaryDirectInput.setMaxLength(3);
-        secondaryDirectInput.setFilter(value -> value.isEmpty() || value.chars().allMatch(Character::isDigit));
+        secondaryDirectInput.setFilter(this::numericEntryText);
         secondaryDirectApply = addConfigureWidget(Button.builder(
                 Component.literal("Apply secondary value"),
                 button -> submitDirectSecondaryValue()
@@ -148,7 +148,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             primaryDirectInput.visible = configure && directPrimary;
             primaryDirectInput.active = configure && directPrimary;
             if (primaryDirectInput.visible && !primaryDirectInput.isFocused()) {
-                String expected = Integer.toString(menu.configPrimary());
+                String expected = directPrimaryDisplayValue(kind);
                 if (!expected.equals(primaryDirectInput.getValue())) primaryDirectInput.setValue(expected);
             }
         }
@@ -168,7 +168,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             secondaryDirectInput.visible = configure && directSecondary;
             secondaryDirectInput.active = configure && directSecondary;
             if (secondaryDirectInput.visible && !secondaryDirectInput.isFocused()) {
-                String expected = Integer.toString(menu.configSecondary());
+                String expected = directSecondaryDisplayValue(kind);
                 if (!expected.equals(secondaryDirectInput.getValue())) secondaryDirectInput.setValue(expected);
             }
         }
@@ -182,7 +182,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             primaryNext.setMessage(Component.literal(primaryName + " • " + primaryValue + " ▶"));
         }
         if (secondaryPrevious != null) {
-            secondaryPrevious.visible = configure && secondary;
+            secondaryPrevious.visible = configure && secondary && !directSecondary;
             if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE) secondaryPrevious.setMessage(Component.literal("◀ Noise"));
             else if (kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR) secondaryPrevious.setMessage(Component.literal("◀ Jitter"));
             else secondaryPrevious.setMessage(Component.literal("◀ Range"));
@@ -970,6 +970,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                  UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD,
                  UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR,
                  UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE,
+                 UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE,
                  UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY,
                  UniversalFieldDeviceMenu.CONFIG_THERMAL_MASS,
                  UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR -> true;
@@ -1012,39 +1013,79 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         };
     }
 
-    private Integer directPrimaryParsedValue() {
+    private boolean numericEntryText(String value) {
+        if (value.isEmpty()) return true;
+        int dots = 0;
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (c == '.') {
+                if (++dots > 1) return false;
+            } else if (!Character.isDigit(c)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private String directPrimaryDisplayValue(int kind) {
+        if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE) {
+            return String.format(java.util.Locale.ROOT, "%.2f", menu.configPrimary() * 0.05);
+        }
+        return Integer.toString(menu.configPrimary());
+    }
+
+    private String directSecondaryDisplayValue(int kind) {
+        if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE) {
+            return String.format(java.util.Locale.ROOT, "%.2f", menu.configSecondary() * 0.02);
+        }
+        return Integer.toString(menu.configSecondary());
+    }
+
+    private Integer directPrimaryParsedValue(int kind) {
         if (primaryDirectInput == null) return null;
         try {
-            return Integer.parseInt(primaryDirectInput.getValue());
+            double entered = Double.parseDouble(primaryDirectInput.getValue());
+            if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE) {
+                int raw = (int) Math.round(entered / 0.05);
+                return Math.abs(entered - raw * 0.05) < 0.0001 ? raw : null;
+            }
+            int raw = (int) Math.round(entered);
+            return Math.abs(entered - raw) < 0.0001 ? raw : null;
         } catch (NumberFormatException ignored) {
             return null;
         }
     }
 
     private boolean directPrimaryInputValid(int kind) {
-        Integer value = directPrimaryParsedValue();
+        Integer value = directPrimaryParsedValue(kind);
         return value != null && directPrimaryNumericKind(kind)
                 && value >= directPrimaryMinimum(kind) && value <= directPrimaryMaximum(kind);
     }
 
-    private Integer directSecondaryParsedValue() {
+    private Integer directSecondaryParsedValue(int kind) {
         if (secondaryDirectInput == null) return null;
         try {
-            return Integer.parseInt(secondaryDirectInput.getValue());
+            double entered = Double.parseDouble(secondaryDirectInput.getValue());
+            if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE) {
+                int raw = (int) Math.round(entered / 0.02);
+                return Math.abs(entered - raw * 0.02) < 0.0001 ? raw : null;
+            }
+            int raw = (int) Math.round(entered);
+            return Math.abs(entered - raw) < 0.0001 ? raw : null;
         } catch (NumberFormatException ignored) {
             return null;
         }
     }
 
     private boolean directSecondaryInputValid(int kind) {
-        Integer value = directSecondaryParsedValue();
+        Integer value = directSecondaryParsedValue(kind);
         return value != null && directSecondaryNumericKind(kind)
                 && value >= directSecondaryMinimum(kind) && value <= directSecondaryMaximum(kind);
     }
 
     private void submitDirectPrimaryValue() {
         int kind = menu.configKind();
-        Integer value = directPrimaryParsedValue();
+        Integer value = directPrimaryParsedValue(kind);
         if (value == null || !directPrimaryInputValid(kind)) return;
         sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_PRIMARY_DIRECT_BASE + value);
         if (primaryDirectInput != null) primaryDirectInput.setFocused(false);
@@ -1052,10 +1093,21 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
 
     private void submitDirectSecondaryValue() {
         int kind = menu.configKind();
-        Integer value = directSecondaryParsedValue();
+        Integer value = directSecondaryParsedValue(kind);
         if (value == null || !directSecondaryInputValid(kind)) return;
         sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_SECONDARY_DIRECT_BASE + value);
         if (secondaryDirectInput != null) secondaryDirectInput.setFocused(false);
+    }
+
+    private String directPrimaryRangeLabel(int kind) {
+        if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE) return "0.00..1.00 Lapis • step 0.05";
+        return directPrimaryMinimum(kind) + ".." + directPrimaryMaximum(kind);
+    }
+
+    private String directSecondaryRangeLabel(int kind) {
+        if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE) return "0.00..0.20 Lapis • step 0.02";
+        if (kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR) return "0..3 ticks";
+        return directSecondaryMinimum(kind) + ".." + directSecondaryMaximum(kind);
     }
 
     private void renderFormulaParameterWorkbench(GuiGraphics g, int kind, int y) {
@@ -1068,7 +1120,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         statusLine(g, "FORMULA PARAMETER WORKBENCH",
                 symbol + " = " + primaryControlValue(kind) + " • SERVER-BACKED", INFO, y);
         String editMode = directPrimaryNumericKind(kind)
-                ? "DIRECT ENTRY • " + directPrimaryMinimum(kind) + ".." + directPrimaryMaximum(kind)
+                ? "DIRECT ENTRY • " + directPrimaryRangeLabel(kind)
                 : "DISCRETE / PROFILE • cycle valid states";
         safeText(g, editMode, 16, y + 22, directPrimaryNumericKind(kind) ? GOOD : INFO);
         safeText(g, "Changing this variable sends operator intent to the server; derived values and evidence remain server-computed.",
@@ -1080,7 +1132,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             statusLine(g, "SECOND PARAMETER",
                     secondarySymbol + " = " + secondaryControlValue(kind) + " • SERVER-BACKED", INFO, y + 82);
             if (directSecondaryNumericKind(kind)) {
-                safeText(g, "DIRECT ENTRY • " + directSecondaryMinimum(kind) + ".." + directSecondaryMaximum(kind),
+                safeText(g, "DIRECT ENTRY • " + directSecondaryRangeLabel(kind),
                         16, y + 102, GOOD);
             }
         }
