@@ -419,7 +419,11 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             return;
         }
 
-        if (block instanceof PwmControllerBlock pwm) {
+        if (block instanceof MolecularCloudReceiverBlock receiver) {
+            min = 0; max = 3;
+            current = () -> level.getBlockState(blockPos).getValue(MolecularCloudReceiverBlock.SENSITIVITY);
+            stepForward = ignored -> receiver.adjustSensitivity(level, blockPos, 1);
+        } else         if (block instanceof PwmControllerBlock pwm) {
             pioneerProcessKind.set(PIONEER_PROCESS_PWM);
             PwmControllerBlock.PwmAssessment assessment = pwm.assessment(level, blockPos, state);
             pioneerProcessPrimary.set(assessment.command());
