@@ -56,13 +56,15 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     protected static final int ACCENT = 0xFFE05555;
     protected static final int WHITE_SIGN = 0xFFF3F5F7;
 
-    protected static final int CONTENT_LEFT = 16;
-    private static final int CONTENT_TOP = 76;
-    private static final int FOOTER_HEIGHT = 36;
-    private static final int MIN_WORKSPACE_WIDTH = 420;
-    private static final int MAX_WORKSPACE_WIDTH = 720;
-    private static final int MIN_WORKSPACE_HEIGHT = 300;
-    private static final int MAX_WORKSPACE_HEIGHT = 460;
+    protected static final int CONTENT_LEFT = 24;
+    private static final int CONTENT_TOP = 82;
+    private static final int FOOTER_HEIGHT = 44;
+    private static final int MIN_WORKSPACE_WIDTH = 440;
+    private static final int MAX_WORKSPACE_WIDTH = 780;
+    private static final int MIN_WORKSPACE_HEIGHT = 320;
+    private static final int MAX_WORKSPACE_HEIGHT = 520;
+    private static final int DEFAULT_CANVAS_WIDTH = 920;
+    private static final int DEFAULT_CANVAS_HEIGHT = 560;
 
     private Section section = Section.OVERVIEW;
     private boolean routePage;
@@ -154,11 +156,18 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private int viewportWidth() { return Math.max(1, imageWidth - 28); }
     private int viewportHeight() { return Math.max(1, footerTop() - CONTENT_TOP - 8); }
 
-    /** Subclasses can reserve a wider virtual canvas for genuinely wide tables/formulas. */
-    protected int virtualContentWidth(Section section) { return viewportWidth(); }
+    /**
+     * Every engineering page gets a real virtual canvas rather than being forced into the visible viewport.
+     * Subclasses can still return a larger value for exceptionally wide formula tables or long evidence pages.
+     */
+    protected int virtualContentWidth(Section section) {
+        return Math.max(viewportWidth(), DEFAULT_CANVAS_WIDTH);
+    }
 
-    /** Subclasses can extend the virtual page when a section needs real vertical scrolling. */
-    protected int virtualContentHeight(Section section) { return viewportHeight(); }
+    /** Give every engineering page real vertical headroom for detailed model/evidence presentation. */
+    protected int virtualContentHeight(Section section) {
+        return Math.max(viewportHeight(), DEFAULT_CANVAS_HEIGHT);
+    }
 
     private int activeVirtualWidth() {
         return routePage ? viewportWidth() : Math.max(viewportWidth(), virtualContentWidth(section));
@@ -166,6 +175,16 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
     private int activeVirtualHeight() {
         return routePage ? viewportHeight() : Math.max(viewportHeight(), virtualContentHeight(section));
+    }
+
+    /** Right edge of the scrollable engineering canvas, distinct from the physical window edge. */
+    private int canvasRight() {
+        return Math.max(contentRight(), activeVirtualWidth() - 24);
+    }
+
+    /** Keep the primary value column initially visible while giving long values room to extend into X-scroll space. */
+    private int canvasValueX() {
+        return Math.max(190, valueX() + 24);
     }
 
     private void clampScroll() {
@@ -431,14 +450,46 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         else renderSection(graphics, section);
         graphics.pose().popPose();
         graphics.disableScissor();
+        renderScrollIndicators(graphics);
 
-        String evidence = fitForWidth("EVIDENCE • " + menu.evidenceStateLabel(), 150);
-        graphics.drawString(font, evidence, 13, imageHeight - 20, evidenceStateColor(), false);
-        String scroll = "SCROLL X " + scrollX + "/" + Math.max(0, activeVirtualWidth() - viewportWidth())
-                + "  Y " + scrollY + "/" + Math.max(0, activeVirtualHeight() - viewportHeight());
-        graphics.drawString(font, scroll, (imageWidth - font.width(scroll)) / 2, imageHeight - 20, MUTED, false);
-        String position = fitForWidth("@ " + menu.blockPos().getX() + ", " + menu.blockPos().getY() + ", " + menu.blockPos().getZ(), 170);
-        graphics.drawString(font, position, imageWidth - 13 - font.width(position), imageHeight - 20, MUTED, false);
+        String evidence = fitForWidth("EVIDENCE • " + menu.evidenceStateLabel(), 170);
+        graphics.drawString(font, evidence, 16, imageHeight - 28, evidenceStateColor(), false);
+        String position = fitForWidth("@ " + menu.blockPos().getX() + ", " + menu.blockPos().getY() + ", " + menu.blockPos().getZ(), 190);
+        graphics.drawString(font, position, imageWidth - 16 - font.width(position), imageHeight - 28, MUTED, false);
+        String scroll = "X " + scrollX + "/" + Math.max(0, activeVirtualWidth() - viewportWidth())
+                + "  •  Y " + scrollY + "/" + Math.max(0, activeVirtualHeight() - viewportHeight())
+                + "  •  wheel=Y  shift+wheel=X";
+        String compactScroll = fitForWidth(scroll, imageWidth - 32);
+        graphics.drawString(font, compactScroll, (imageWidth - font.width(compactScroll)) / 2, imageHeight - 15, MUTED, false);
+    }
+
+    private void renderScrollIndicators(GuiGraphics graphics) {
+        int maxX = Math.max(0, activeVirtualWidth() - viewportWidth());
+        int maxY = Math.max(0, activeVirtualHeight() - viewportHeight());
+
+        if (maxX > 0) {
+            int trackX0 = 24;
+            int trackX1 = imageWidth - 24;
+            int trackY = footerTop() - 8;
+            int trackWidth = Math.max(1, trackX1 - trackX0);
+            int thumbWidth = Math.max(28, (int) Math.round(trackWidth * (viewportWidth() / (double) activeVirtualWidth())));
+            int travel = Math.max(0, trackWidth - thumbWidth);
+            int thumbX = trackX0 + (maxX == 0 ? 0 : (int) Math.round(travel * (scrollX / (double) maxX)));
+            graphics.fill(trackX0, trackY, trackX1, trackY + 3, PANEL_3);
+            graphics.fill(thumbX, trackY, Math.min(trackX1, thumbX + thumbWidth), trackY + 3, INFO);
+        }
+
+        if (maxY > 0) {
+            int trackX = imageWidth - 11;
+            int trackY0 = CONTENT_TOP;
+            int trackY1 = footerTop() - 12;
+            int trackHeight = Math.max(1, trackY1 - trackY0);
+            int thumbHeight = Math.max(24, (int) Math.round(trackHeight * (viewportHeight() / (double) activeVirtualHeight())));
+            int travel = Math.max(0, trackHeight - thumbHeight);
+            int thumbY = trackY0 + (maxY == 0 ? 0 : (int) Math.round(travel * (scrollY / (double) maxY)));
+            graphics.fill(trackX, trackY0, trackX + 3, trackY1, PANEL_3);
+            graphics.fill(trackX, thumbY, trackX + 3, Math.min(trackY1, thumbY + thumbHeight), INFO);
+        }
     }
 
     private void renderRoutePage(GuiGraphics graphics) {
@@ -472,7 +523,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     }
 
     protected final void safeText(GuiGraphics graphics, String text, int x, int y, int color) {
-        int width = Math.max(0, contentRight() - x);
+        int width = Math.max(0, canvasRight() - x);
         graphics.drawString(font, fitForWidth(text, width), x, y, color, false);
     }
 
@@ -534,8 +585,8 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
     protected final void labelValue(GuiGraphics graphics, String label, String value, int y) {
         PresentationLine normalized = normalizeLegacyPresentation(label, value);
-        graphics.drawString(font, fitForWidth(normalized.label(), 130), CONTENT_LEFT, y, MUTED, false);
-        graphics.drawString(font, fitForWidth(normalized.value(), contentRight() - valueX()), valueX(), y, TEXT, false);
+        graphics.drawString(font, fitForWidth(normalized.label(), 150), CONTENT_LEFT, y, MUTED, false);
+        graphics.drawString(font, fitForWidth(normalized.value(), canvasRight() - canvasValueX()), canvasValueX(), y, TEXT, false);
     }
 
     protected final void statusLine(GuiGraphics graphics, String label, String value, int color, int y) {
@@ -544,8 +595,8 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             color = operationalHealthColor();
         }
         PresentationLine normalized = normalizeLegacyPresentation(label, value);
-        graphics.drawString(font, fitForWidth(normalized.label(), 130), CONTENT_LEFT, y, MUTED, false);
-        graphics.drawString(font, fitForWidth(normalized.value(), contentRight() - valueX()), valueX(), y, color, false);
+        graphics.drawString(font, fitForWidth(normalized.label(), 150), CONTENT_LEFT, y, MUTED, false);
+        graphics.drawString(font, fitForWidth(normalized.value(), canvasRight() - canvasValueX()), canvasValueX(), y, color, false);
     }
 
     protected final void statusBadge(GuiGraphics graphics, String value, int color, int x, int y) {
@@ -553,7 +604,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
             value = authoritativeHealthBadge(value);
             color = operationalHealthColor();
         }
-        int available = Math.max(24, contentRight() - x);
+        int available = Math.max(24, canvasRight() - x);
         String compact = fitForWidth(value, Math.max(8, available - 12));
         int width = Math.min(available, font.width(compact) + 12);
         graphics.fill(x, y, x + width, y + 14, PANEL_3);
@@ -562,7 +613,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     }
 
     protected final void metricCard(GuiGraphics graphics, String label, String value, int x, int y, int width, int color) {
-        int safeWidth = Math.max(24, Math.min(width, contentRight() - x));
+        int safeWidth = Math.max(24, Math.min(width, canvasRight() - x));
         graphics.fill(x, y, x + safeWidth, y + 31, PANEL_3);
         graphics.fill(x, y, x + 2, y + 31, color);
         graphics.drawString(font, fitForWidth(label.toUpperCase(), safeWidth - 14), x + 7, y + 5, MUTED, false);
@@ -574,13 +625,13 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     }
 
     protected final void sectionRule(GuiGraphics graphics, int y) {
-        graphics.fill(CONTENT_LEFT, y, contentRight(), y + 1, 0xFF3A4650);
+        graphics.fill(CONTENT_LEFT, y, canvasRight(), y + 1, 0xFF3A4650);
     }
 
     protected final void signalBar(GuiGraphics graphics, int value, int y) {
         int bounded = Math.max(0, Math.min(15, value));
         int x0 = CONTENT_LEFT;
-        int x1 = Math.max(286, contentRight() - 18);
+        int x1 = Math.max(286, Math.min(canvasRight() - 24, CONTENT_LEFT + 700));
         int interior = x1 - x0 - 2;
         int fillWidth = (bounded * interior) / 15;
         graphics.fill(x0, y, x1, y + 8, PANEL_3);
@@ -601,7 +652,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
      * Long equations intentionally expand the virtual page instead of being collapsed into prose.
      */
     protected final void formulaCard(GuiGraphics graphics, String equation, int y) {
-        int width = Math.max(260, Math.min(activeVirtualWidth() - CONTENT_LEFT - 8, font.width(equation) + 24));
+        int width = Math.max(320, Math.min(activeVirtualWidth() - CONTENT_LEFT - 24, font.width(equation) + 32));
         graphics.fill(CONTENT_LEFT, y - 4, CONTENT_LEFT + width, y + 15, PANEL_3);
         graphics.fill(CONTENT_LEFT, y - 4, CONTENT_LEFT + 3, y + 15, ACCENT);
         graphics.drawString(font, equation, CONTENT_LEFT + 10, y, TEXT, false);
@@ -615,16 +666,17 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         String rendered = (value == null || value.isBlank() ? "—" : value)
                 + (units == null || units.isBlank() ? "" : " " + units);
         graphics.drawString(font, name, CONTENT_LEFT, y, MUTED, false);
-        graphics.drawString(font, rendered, valueX(), y, TEXT, false);
+        graphics.drawString(font, rendered, canvasValueX(), y, TEXT, false);
     }
 
     /** Rollout primitive for baseline/candidate or expected/actual evidence comparisons. */
     protected final void evidenceRow(
             GuiGraphics graphics, String label, String leftValue, String rightValue, String note, int y
     ) {
-        int x1 = valueX();
-        int x2 = x1 + Math.max(120, (contentRight() - x1) / 3);
-        int x3 = x2 + Math.max(120, (contentRight() - x1) / 3);
+        int x1 = canvasValueX();
+        int available = Math.max(360, canvasRight() - x1);
+        int x2 = x1 + Math.max(120, available / 3);
+        int x3 = x2 + Math.max(120, available / 3);
         graphics.drawString(font, label, CONTENT_LEFT, y, MUTED, false);
         graphics.drawString(font, leftValue, x1, y, TEXT, false);
         graphics.drawString(font, rightValue, x2, y, TEXT, false);
@@ -641,8 +693,8 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         return yy;
     }
 
-    protected final int workspaceRight() { return contentRight(); }
-    protected final int workspaceWidth() { return contentRight() - CONTENT_LEFT; }
+    protected final int workspaceRight() { return canvasRight(); }
+    protected final int workspaceWidth() { return canvasRight() - CONTENT_LEFT; }
 
     protected abstract void renderSection(GuiGraphics graphics, Section section);
 }
