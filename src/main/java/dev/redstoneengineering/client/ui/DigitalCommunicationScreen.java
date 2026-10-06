@@ -5,6 +5,7 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.menu.DigitalCommunicationMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
@@ -12,6 +13,8 @@ import net.minecraft.world.entity.player.Inventory;
 public final class DigitalCommunicationScreen extends EngineeringScreen<DigitalCommunicationMenu> {
     private Button parameterPrevious;
     private Button parameterNext;
+    private EditBox parameterInput;
+    private Button parameterApply;
 
     public DigitalCommunicationScreen(DigitalCommunicationMenu menu, Inventory inventory, Component title) { super(menu, inventory, title); }
 
@@ -19,6 +22,10 @@ public final class DigitalCommunicationScreen extends EngineeringScreen<DigitalC
         int y = topPos + imageHeight - 66;
         parameterPrevious = addConfigureWidget(Button.builder(Component.literal("◀ Threshold"), b -> sendMenuButton(DigitalCommunicationMenu.BUTTON_PARAMETER_PREVIOUS)).bounds(leftPos + 16, y, 105, 20).build());
         parameterNext = addConfigureWidget(Button.builder(Component.literal("Threshold ▶"), b -> sendMenuButton(DigitalCommunicationMenu.BUTTON_PARAMETER_NEXT)).bounds(leftPos + 199, y, 105, 20).build());
+        parameterInput = addConfigureWidget(new EditBox(this.font,leftPos+16,y,105,20,Component.literal("Q_min %")));
+        parameterInput.setMaxLength(2);
+        parameterInput.setFilter(v->v.isEmpty()||v.chars().allMatch(Character::isDigit));
+        parameterApply = addConfigureWidget(Button.builder(Component.literal("Apply Q_min"),b->submitParameter()).bounds(leftPos+199,y,105,20).build());
     }
 
     @Override protected void syncDeviceWidgetLabels() {
@@ -27,13 +34,31 @@ public final class DigitalCommunicationScreen extends EngineeringScreen<DigitalC
         boolean configure = isConfigureSection();
         parameterPrevious.active = regenerator;
         parameterNext.active = regenerator;
-        parameterPrevious.visible = configure && regenerator;
-        parameterNext.visible = configure && regenerator;
-        if (regenerator) {
-            int threshold = thresholdPercent();
-            parameterPrevious.setMessage(Component.literal("◀ " + threshold + "%"));
-            parameterNext.setMessage(Component.literal(threshold + "% ▶"));
+        parameterPrevious.visible = false;
+        parameterNext.visible = false;
+        boolean direct = configure && regenerator;
+        parameterInput.visible = parameterInput.active = direct;
+        parameterApply.visible = direct;
+        parameterApply.active = direct && parameterInputValid();
+        if(direct&&!parameterInput.isFocused()){
+            String expected=Integer.toString(thresholdPercent());
+            if(!expected.equals(parameterInput.getValue()))parameterInput.setValue(expected);
         }
+        parameterApply.setMessage(Component.literal("Apply Q_min"));
+    }
+
+    private boolean parameterInputValid(){
+        if(parameterInput==null||parameterInput.getValue().isEmpty())return false;
+        try{
+            int v=Integer.parseInt(parameterInput.getValue());
+            return v==20||v==40||v==60;
+        }catch(NumberFormatException ignored){return false;}
+    }
+
+    private void submitParameter(){
+        if(!parameterInputValid())return;
+        sendMenuButton(DigitalCommunicationMenu.BUTTON_PARAMETER_DIRECT_BASE+Integer.parseInt(parameterInput.getValue()));
+        parameterInput.setFocused(false);
     }
 
     @Override protected void renderSection(GuiGraphics graphics, Section section) {
@@ -76,7 +101,7 @@ public final class DigitalCommunicationScreen extends EngineeringScreen<DigitalC
             variableRole(g, "EVIDENCE", "age", mediumAgeText(), "", 188);
         }
         if (menu.kind() == DigitalCommunicationMenu.KIND_REGENERATOR) {
-            variableRole(g, "ADJUSTABLE", "Q_min", thresholdPercent() + "%", "regeneration threshold", 206);
+            variableRole(g, "ADJUSTABLE", "Q_min", thresholdPercent() + "%", "{20,40,60}% • direct entry", 206);
         } else {
             variableRole(g, "PROFILE", "transform", processName(), "fixed", 206);
         }
