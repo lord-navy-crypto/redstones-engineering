@@ -144,13 +144,8 @@ public final class QuartzTimingMenu extends EngineeringDeviceMenu {
                 level.scheduleTick(blockPos, oscillator, 1);
                 changed = true;
             } else if (block instanceof QuartzClockDividerBlock) {
-                int target = value == 2 ? 0 : value == 4 ? 1 : value == 8 ? 2 : value == 16 ? 3 : -1;
-                if (target < 0 || !(level instanceof ServerLevel server)) return false;
-                int guard = 5;
-                while (level.getBlockState(blockPos).getValue(QuartzClockDividerBlock.DIV_INDEX) != target && guard-- > 0) {
-                    QuartzClockDividerBlock.cycleDivision(server, blockPos);
-                }
-                changed = true;
+                if (!(level instanceof ServerLevel server)) return false;
+                changed = QuartzClockDividerBlock.setDivision(server, blockPos, value);
             } else return false;
         } else if (block instanceof QuartzOscillatorBlock oscillator) {
             if (id != BUTTON_PARAMETER_PREVIOUS && id != BUTTON_PARAMETER_NEXT) return false;
