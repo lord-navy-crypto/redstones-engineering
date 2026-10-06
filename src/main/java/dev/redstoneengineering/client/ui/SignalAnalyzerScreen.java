@@ -69,6 +69,9 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
         if (menu.validWindowCount() < menu.windowCount()) {
             safeText(graphics, "measurement coverage=" + menu.validWindowCount() + "/" + menu.windowCount(), 218, 187, WARN);
         }
+        safeText(graphics, "PIONEER PATTERN • METROLOGY / CALIBRATION", 16, 205, INFO);
+        safeText(graphics, "Calibration changes only the displayed engineering reading; INLINE output remains RAW.", 16, 219, MUTED);
+        safeText(graphics, "Rolling statistics are synchronized server evidence; the client never samples the world.", 16, 233, MUTED);
     }
 
     private void renderPorts(GuiGraphics graphics) {
@@ -86,7 +89,7 @@ public final class SignalAnalyzerScreen extends EngineeringScreen<SignalAnalyzer
 
     private void renderConfigure(GuiGraphics graphics) {
         statusBadge(graphics,"PIONEER WORKFLOW • INTERNAL REFERENCE CALIBRATION TRIAL",INFO,16,80);
-        formulaCard(graphics,"e_ref = mean(clamp(x_raw + b_cal,0,15)) - x_ref",105);
+        formulaCard(graphics,"x_cal = clamp(x_raw + b_cal, 0, 15) ; e_ref = mean(clamp(x_raw + b_cal,0,15)) - x_ref",105);
         variableRole(graphics,"MEASURED","x_raw",Integer.toString(menu.raw()),"Redstone",132);
         variableRole(graphics,"ADJUSTABLE","b_cal",signed(menu.calibrationOffset()),"display offset",148);
         variableRole(graphics,"REFERENCE","x_ref",Integer.toString(menu.reference()),"internal 0..15",164);
