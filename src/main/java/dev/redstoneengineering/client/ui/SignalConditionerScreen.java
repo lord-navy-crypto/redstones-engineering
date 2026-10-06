@@ -3,13 +3,14 @@ package dev.redstoneengineering.client.ui;
 import dev.redstoneengineering.ui.menu.SignalConditionerMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
 /** Full engineering panel for the series signal conditioner. */
 public final class SignalConditionerScreen extends EngineeringScreen<SignalConditionerMenu> {
-    private Button parameterDecrease;
-    private Button parameterIncrease;
+    private EditBox parameterInput;
+    private Button parameterApply;
 
     public SignalConditionerScreen(SignalConditionerMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -24,20 +25,51 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
         addConfigureWidget(Button.builder(Component.literal("Mode ▶"),
                 button -> sendMenuButton(SignalConditionerMenu.BUTTON_MODE_NEXT))
                 .bounds(leftPos + 108, y, 86, 20).build());
-        parameterDecrease = addConfigureWidget(Button.builder(Component.literal("− Parameter"),
-                button -> sendMenuButton(SignalConditionerMenu.BUTTON_PARAM_DECREASE))
-                .bounds(leftPos + 18, y + 25, 86, 20).build());
-        parameterIncrease = addConfigureWidget(Button.builder(Component.literal("Parameter +"),
-                button -> sendMenuButton(SignalConditionerMenu.BUTTON_PARAM_INCREASE))
+        parameterInput = addConfigureWidget(new EditBox(this.font, leftPos + 18, y + 25, 86, 20,
+                Component.literal("Formula parameter")));
+        parameterInput.setMaxLength(3);
+        parameterInput.setFilter(value -> value.isEmpty() || value.equals("-") || value.matches("-?\\d+"));
+        parameterApply = addConfigureWidget(Button.builder(Component.literal("Apply parameter"),
+                button -> submitParameter())
                 .bounds(leftPos + 108, y + 25, 86, 20).build());
     }
 
     @Override
     protected void syncDeviceWidgetLabels() {
-        if (parameterDecrease == null || parameterIncrease == null) return;
-        String shortName = parameterShortName(menu.mode());
-        parameterDecrease.setMessage(Component.literal("− " + shortName));
-        parameterIncrease.setMessage(Component.literal(shortName + " +"));
+        if (parameterInput == null || parameterApply == null) return;
+        int visibleValue = visibleFormulaParameter(menu.mode(), menu.parameter());
+        if (!parameterInput.isFocused()) {
+            String expected = Integer.toString(visibleValue);
+            if (!expected.equals(parameterInput.getValue())) parameterInput.setValue(expected);
+        }
+        parameterApply.setMessage(Component.literal("Apply " + parameterSymbol(menu.mode())));
+        parameterApply.active = parameterInputValid();
+    }
+
+    private static int visibleFormulaParameter(int mode, int rawParam) {
+        return mode == 1 ? Math.min(10, rawParam) - 5 : rawParam;
+    }
+
+    private boolean parameterInputValid() {
+        if (parameterInput == null || parameterInput.getValue().isEmpty() || parameterInput.getValue().equals("-")) return false;
+        try {
+            int value = Integer.parseInt(parameterInput.getValue());
+            return switch (menu.mode()) {
+                case 0, 4 -> value >= 1 && value <= 4;
+                case 1 -> value >= -5 && value <= 5;
+                case 2, 3 -> value >= 1 && value <= 15;
+                default -> false;
+            };
+        } catch (NumberFormatException ignored) {
+            return false;
+        }
+    }
+
+    private void submitParameter() {
+        if (!parameterInputValid()) return;
+        int value = Integer.parseInt(parameterInput.getValue());
+        sendMenuButton(SignalConditionerMenu.BUTTON_PARAM_DIRECT_BASE + value + 16);
+        parameterInput.setFocused(false);
     }
 
     @Override
@@ -77,10 +109,11 @@ public final class SignalConditionerScreen extends EngineeringScreen<SignalCondi
         formulaCard(graphics, governingEquation(), 105);
         variableRole(graphics, "MEASURED", "x", menu.input() + " / 15", "redstone", 134);
         variableRole(graphics, "ADJUSTABLE", parameterSymbol(menu.mode()), parameterText(menu.mode(), menu.parameter()), parameterRange(menu.mode()), 152);
-        variableRole(graphics, "DERIVED", "y", menu.output() + " / 15", "redstone", 170);
-        variableRole(graphics, "EVIDENCE", "boundary", menu.limiting() ? "SATURATED" : "IN RANGE", "", 188);
-        wrappedText(graphics, behaviorLine(menu.mode()), 16, 210, workspaceWidth() - 24, TEXT);
-        wrappedText(graphics, "Controls below change only the server configuration; Route owns physical RX/TX direction.", 16, 240, workspaceWidth() - 24, MUTED);
+        variableRole(graphics, "CONTROL", "direct entry", "enter " + parameterSymbol(menu.mode()) + " exactly", parameterRange(menu.mode()), 170);
+        variableRole(graphics, "DERIVED", "y", menu.output() + " / 15", "redstone", 188);
+        variableRole(graphics, "EVIDENCE", "boundary", menu.limiting() ? "SATURATED" : "IN RANGE", "", 206);
+        wrappedText(graphics, behaviorLine(menu.mode()), 16, 228, workspaceWidth() - 24, TEXT);
+        wrappedText(graphics, "Direct entry submits the formula value to the server; Route owns physical RX/TX direction.", 16, 258, workspaceWidth() - 24, MUTED);
     }
 
     private void renderDiagnostics(GuiGraphics graphics) {
