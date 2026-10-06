@@ -27,6 +27,8 @@ public final class RadioLinkMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_CHANNEL_NEXT = 1;
     public static final int BUTTON_OUTPUT_LEFT = 2;
     public static final int BUTTON_OUTPUT_RIGHT = 3;
+    public static final int BUTTON_CHANNEL_DIRECT_BASE = 14000;
+    public static final int BUTTON_CHANNEL_DIRECT_MAX = 14003;
 
     private static final String RX_DIAG_KEY = "radio_rx_diag";
     private static final int RX_DIAG_SIZE = 10;
@@ -151,7 +153,29 @@ public final class RadioLinkMenu extends EngineeringDeviceMenu {
         Block block = state.getBlock();
         boolean changed = false;
 
-        if (block instanceof RadioTransmitterBlock) {
+        if (id >= BUTTON_CHANNEL_DIRECT_BASE && id <= BUTTON_CHANNEL_DIRECT_MAX) {
+            int selected = id - BUTTON_CHANNEL_DIRECT_BASE;
+            if (block instanceof RadioTransmitterBlock) {
+                BlockState next = state.setValue(RadioTransmitterBlock.CHANNEL, selected);
+                level.setBlock(blockPos, next, Block.UPDATE_CLIENTS);
+                RadioTransmitterBlock.PayloadObservation observation = RadioTransmitterBlock.payloadObservation(level, blockPos);
+                if (observation.valid()) RadioKernel.updateTransmitter(level, blockPos, selected, observation.value());
+                else RadioKernel.removeTransmitter(level, blockPos);
+                changed = true;
+            } else if (block instanceof RadioReceiverBlock receiver) {
+                int old = state.getValue(RadioReceiverBlock.CHANNEL);
+                RadioKernel.Reception reception = RadioKernel.receivePacket(level, blockPos, selected);
+                BlockState next = state.setValue(RadioReceiverBlock.CHANNEL, selected)
+                        .setValue(DirectionalSignalBlock.OUTPUT, Math.max(0, Math.min(15, reception.value())));
+                level.setBlock(blockPos, next, Block.UPDATE_CLIENTS);
+                level.updateNeighborsAt(blockPos, receiver);
+                int[] diagnostic = RuntimeIntStore.get(level, RX_DIAG_KEY, blockPos, RX_DIAG_SIZE);
+                if (selected != old) diagnostic[5]++;
+                diagnostic[9] = selected;
+                level.scheduleTick(blockPos, receiver, 1);
+                changed = true;
+            } else return false;
+        } else if (block instanceof RadioTransmitterBlock) {
             if (id != BUTTON_CHANNEL_PREVIOUS && id != BUTTON_CHANNEL_NEXT) return false;
             int selected = state.getValue(RadioTransmitterBlock.CHANNEL);
             selected = id == BUTTON_CHANNEL_NEXT ? (selected + 1) % 4 : Math.floorMod(selected - 1, 4);
