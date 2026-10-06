@@ -285,3 +285,35 @@ Remaining 21 for Waves 15-17:
 
 Future waves should prioritize the remaining ledger in coherent seven-block families. The target is broad
 consistency with specialization, not identical screens, and the remaining count must move 21 → 14 → 7 → 0.
+
+Wave 15:
+- Copper Wire
+- Copper Voltage Source
+- Copper Resistive Load
+- Copper Series Resistor
+- Copper Capacitor
+- Copper Fuse
+- Copper Cable Junction
+
+Wave 15 completes the core Copper electrical path as one Pioneer family:
+- Copper Wire and Copper Cable Junction expose resolved node voltage, active-driver count, physical connected-face count and PortQuality; planar wire remains distinct from explicit branch topology
+- Copper Voltage Source exposes the real 0..15 server-owned V_set control and six OUTPUT faces
+- Copper Resistive Load exposes I=V/R and P=VI from one legitimate terminal feed; INPUT-only loads never back-drive another sink and multi-feed ambiguity remains TOPOLOGY_ERROR
+- Copper Series Resistor exposes V_out=V_in·R_load/(R_s+R_load) and I=V_in/(R_s+R_load), with R_load/current retained from the authoritative server tick rather than recomputed by opening the HMI
+- Copper Capacitor exposes its discrete charge law, charge %, V_out and the implemented tau profile 2/4/8/16 ticks without claiming SI capacitance
+- Copper Fuse exposes retained R_eq/current evidence, rating, trip latch and protected output; reset never declares READY until a complete server protection re-evaluation
+- configurable Copper blocks use real server-bound controls with stated ranges/defaults, while wire/junction remain evidence/topology instruments with no decorative knobs
+- sneak+top/bottom opens the Pioneer workspace on legacy click-configured blocks so established normal interaction remains available
+- no Copper physical transfer law or vanilla-facing Redstone behavior is changed by this rollout; the work adds retained diagnostics, truthful controls and formula-first presentation
+
+Pioneer completion ledger after Wave 15: **101 + 7 = 108 / 122 registered blocks processed; 14 remain.**
+
+Remaining 14 for Waves 16-17:
+- Iron Core, Thermal Mass
+- Lapis Noise Source, Quartz Lab Oscillator, Quartz Phase Delay
+- Thermal Heater, Thermal Radiator, Thermal Calorimeter
+- Quartz Triggered Lapis Sampler
+- Soul Soil Conduit, Soul Sand Reservoir, Soul Flux Injector, Soul Flux Meter, Molecular Cloud Receiver
+
+Future waves should prioritize the remaining ledger in coherent seven-block families. The target is broad
+consistency with specialization, not identical screens, and the remaining count must move 14 → 7 → 0.

@@ -7,6 +7,8 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.CircuitPhysics;
+import dev.redstoneengineering.physics.CopperNetworkSupport;
 import dev.redstoneengineering.physics.SensorModel;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import net.minecraft.core.BlockPos;
@@ -56,6 +58,11 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int CONFIG_SEQUENCE_CONTROLLER = 9;
     public static final int CONFIG_SAFETY_INTERLOCK = 10;
     public static final int CONFIG_TOPOLOGY_DEBUGGER = 11;
+    public static final int CONFIG_COPPER_VOLTAGE_SOURCE = 12;
+    public static final int CONFIG_COPPER_LOAD = 13;
+    public static final int CONFIG_COPPER_SERIES_RESISTOR = 14;
+    public static final int CONFIG_COPPER_CAPACITOR = 15;
+    public static final int CONFIG_COPPER_FUSE = 16;
 
     public static final int PIONEER_MEASUREMENT_NONE = 0;
     public static final int PIONEER_MEASUREMENT_TEMPERATURE = 1;
@@ -74,6 +81,13 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int PIONEER_PROCESS_LAPIS_MAGNETIC = 5;
     public static final int PIONEER_PROCESS_LAPIS_OPTICAL = 6;
     public static final int PIONEER_PROCESS_LAPIS_VOLTAGE = 7;
+    public static final int PIONEER_PROCESS_COPPER_WIRE = 8;
+    public static final int PIONEER_PROCESS_COPPER_VOLTAGE_SOURCE = 9;
+    public static final int PIONEER_PROCESS_COPPER_LOAD = 10;
+    public static final int PIONEER_PROCESS_COPPER_SERIES_RESISTOR = 11;
+    public static final int PIONEER_PROCESS_COPPER_CAPACITOR = 12;
+    public static final int PIONEER_PROCESS_COPPER_FUSE = 13;
+    public static final int PIONEER_PROCESS_COPPER_JUNCTION = 14;
 
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
@@ -187,6 +201,22 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             configKind.set(CONFIG_TOPOLOGY_DEBUGGER);
             configPrimary.set(TopologyDebuggerBlock.scanCount(level, blockPos));
             configSecondary.set(TopologyDebuggerBlock.targetsVanillaRedstone(level, blockPos, state) ? 1 : 0);
+        } else if (block instanceof CopperVoltageSourceBlock) {
+            configKind.set(CONFIG_COPPER_VOLTAGE_SOURCE);
+            configPrimary.set(state.getValue(CopperVoltageSourceBlock.VOLTAGE));
+        } else if (block instanceof CopperResistiveLoadBlock) {
+            configKind.set(CONFIG_COPPER_LOAD);
+            configPrimary.set(state.getValue(CopperResistiveLoadBlock.RESISTANCE));
+        } else if (block instanceof CopperSeriesResistorBlock) {
+            configKind.set(CONFIG_COPPER_SERIES_RESISTOR);
+            configPrimary.set(state.getValue(CopperSeriesResistorBlock.RESISTANCE));
+        } else if (block instanceof CopperCapacitorBlock) {
+            configKind.set(CONFIG_COPPER_CAPACITOR);
+            configPrimary.set(state.getValue(CopperCapacitorBlock.C_INDEX));
+        } else if (block instanceof CopperFuseBlock) {
+            configKind.set(CONFIG_COPPER_FUSE);
+            configPrimary.set(state.getValue(CopperFuseBlock.RATING));
+            configSecondary.set(state.getValue(CopperFuseBlock.TRIPPED) ? 1 : 0);
         }
 
         declaredPortMask.set(0);
@@ -374,6 +404,86 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             pioneerProcessSenary.set(SensorModel.latencySamples(profile));
             pioneerProcessEvidenceQuality.set(
                     (output == null ? transducer.outputQuality(level, blockPos) : output.quality()).ordinal());
+            return;
+        }
+
+        if (block instanceof CopperWireBlock wire) {
+            pioneerProcessKind.set(PIONEER_PROCESS_COPPER_WIRE);
+            pioneerProcessPrimary.set(CopperWireBlock.voltage(level, blockPos));
+            pioneerProcessSecondary.set(CopperWireBlock.driverCount(level, blockPos));
+            pioneerProcessTertiary.set(wire.engineeringPorts(state).size());
+            pioneerProcessEvidenceQuality.set(CopperWireBlock.quality(level, blockPos, state).ordinal());
+            return;
+        }
+
+        if (block instanceof CopperVoltageSourceBlock source) {
+            pioneerProcessKind.set(PIONEER_PROCESS_COPPER_VOLTAGE_SOURCE);
+            pioneerProcessPrimary.set(state.getValue(CopperVoltageSourceBlock.VOLTAGE));
+            pioneerProcessSecondary.set(source.engineeringPorts(state).size());
+            pioneerProcessEvidenceQuality.set(PortQuality.VALID.ordinal());
+            return;
+        }
+
+        if (block instanceof CopperResistiveLoadBlock load) {
+            CopperNetworkSupport.TerminalInput terminal = CopperNetworkSupport.terminalInput(level, blockPos);
+            double voltage = terminal.voltage();
+            double resistance = state.getValue(CopperResistiveLoadBlock.RESISTANCE);
+            pioneerProcessKind.set(PIONEER_PROCESS_COPPER_LOAD);
+            pioneerProcessPrimary.set((int) Math.round(voltage));
+            pioneerProcessSecondary.set((int) Math.round(resistance));
+            pioneerProcessTertiary.set(syncNumber(CircuitPhysics.current(voltage, resistance) * 1000.0));
+            pioneerProcessQuaternary.set(syncNumber(CircuitPhysics.power(voltage, resistance) * 1000.0));
+            pioneerProcessQuinary.set(terminal.connectedFeeds());
+            pioneerProcessEvidenceQuality.set(terminal.quality().ordinal());
+            return;
+        }
+
+        if (block instanceof CopperSeriesResistorBlock resistor) {
+            EngineeringPortSnapshot input = snapshotByDirection(resistor, state, PortDirection.INPUT);
+            pioneerProcessKind.set(PIONEER_PROCESS_COPPER_SERIES_RESISTOR);
+            pioneerProcessPrimary.set(input == null ? 0 : syncNumber(input.value()));
+            pioneerProcessSecondary.set(state.getValue(CopperSeriesResistorBlock.RESISTANCE));
+            pioneerProcessTertiary.set(CopperSeriesResistorBlock.loadResistanceMilli(level, blockPos));
+            pioneerProcessQuaternary.set(CopperSeriesResistorBlock.outputVoltage(level, blockPos));
+            pioneerProcessQuinary.set(CopperSeriesResistorBlock.currentMilli(level, blockPos));
+            pioneerProcessSenary.set(CopperSeriesResistorBlock.outputInitialized(level, blockPos) ? 1 : 0);
+            pioneerProcessEvidenceQuality.set(CopperSeriesResistorBlock.outputQuality(level, blockPos).ordinal());
+            return;
+        }
+
+        if (block instanceof CopperCapacitorBlock capacitor) {
+            EngineeringPortSnapshot input = snapshotByDirection(capacitor, state, PortDirection.INPUT);
+            int index = state.getValue(CopperCapacitorBlock.C_INDEX);
+            pioneerProcessKind.set(PIONEER_PROCESS_COPPER_CAPACITOR);
+            pioneerProcessPrimary.set(input == null ? 0 : syncNumber(input.value()));
+            pioneerProcessSecondary.set(index + 1);
+            pioneerProcessTertiary.set(CopperCapacitorBlock.tauTicks(index));
+            pioneerProcessQuaternary.set(CopperCapacitorBlock.chargePercent(level, blockPos));
+            pioneerProcessQuinary.set(CopperCapacitorBlock.outputVoltage(level, blockPos));
+            pioneerProcessSenary.set(CopperCapacitorBlock.outputInitialized(level, blockPos) ? 1 : 0);
+            pioneerProcessEvidenceQuality.set(CopperCapacitorBlock.outputQuality(level, blockPos).ordinal());
+            return;
+        }
+
+        if (block instanceof CopperFuseBlock fuse) {
+            EngineeringPortSnapshot input = snapshotByDirection(fuse, state, PortDirection.INPUT);
+            pioneerProcessKind.set(PIONEER_PROCESS_COPPER_FUSE);
+            pioneerProcessPrimary.set(input == null ? 0 : syncNumber(input.value()));
+            pioneerProcessSecondary.set(state.getValue(CopperFuseBlock.RATING));
+            pioneerProcessTertiary.set(CopperFuseBlock.loadResistanceMilli(level, blockPos));
+            pioneerProcessQuaternary.set(CopperFuseBlock.currentMilli(level, blockPos));
+            pioneerProcessQuinary.set(CopperFuseBlock.outputVoltage(level, blockPos));
+            pioneerProcessSenary.set(state.getValue(CopperFuseBlock.TRIPPED) ? 1 : 0);
+            pioneerProcessEvidenceQuality.set(CopperFuseBlock.outputQuality(level, blockPos, state).ordinal());
+            return;
+        }
+
+        if (block instanceof CopperCableJunctionBlock junction) {
+            pioneerProcessKind.set(PIONEER_PROCESS_COPPER_JUNCTION);
+            pioneerProcessPrimary.set(CopperCableJunctionBlock.voltage(level, blockPos));
+            pioneerProcessSecondary.set(CopperCableJunctionBlock.driverCount(level, blockPos));
+            pioneerProcessTertiary.set(junction.engineeringPorts(state).size());
+            pioneerProcessEvidenceQuality.set(CopperCableJunctionBlock.quality(level, blockPos, state).ordinal());
         }
     }
 
@@ -469,6 +579,11 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         if (block instanceof CalibrationModuleBlock calibration) return calibration.adjustProfile(level, blockPos, delta);
         if (block instanceof PwmControllerBlock pwm) return pwm.adjustPeriodMode(level, blockPos, delta);
         if (block instanceof FaultInjectorBlock faultInjector) return faultInjector.adjustMode(level, blockPos, delta);
+        if (block instanceof CopperVoltageSourceBlock source) return source.adjustVoltage(level, blockPos, delta);
+        if (block instanceof CopperResistiveLoadBlock load) return load.adjustResistance(level, blockPos, delta);
+        if (block instanceof CopperSeriesResistorBlock resistor) return resistor.adjustResistance(level, blockPos, delta);
+        if (block instanceof CopperCapacitorBlock capacitor) return capacitor.adjustCapacitance(level, blockPos, delta);
+        if (block instanceof CopperFuseBlock fuse) return fuse.adjustRating(level, blockPos, delta);
         return false;
     }
 
@@ -486,6 +601,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         if (block instanceof SequenceControllerBlock sequence) return sequence.operatorReset(level, blockPos);
         if (block instanceof SafetyInterlockBlock interlock) return interlock.resetDiagnostics(level, blockPos);
         if (block instanceof TopologyDebuggerBlock debugger) return debugger.resetDiagnostics(level, blockPos);
+        if (block instanceof CopperFuseBlock fuse) return fuse.resetTrip(level, blockPos);
         return false;
     }
 

@@ -11,6 +11,7 @@ import dev.redstoneengineering.physics.RuntimeIntStore;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -20,6 +21,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 
 /** Axial copper resistor: BACK input, FRONT output. */
 public class CopperSeriesResistorBlock extends DirectionalCopperProcessorBlock {
@@ -28,7 +30,9 @@ public class CopperSeriesResistorBlock extends DirectionalCopperProcessorBlock {
     private static final int OUTPUT_VOLTAGE_SLOT = 0;
     private static final int INITIALIZED_SLOT = 1;
     private static final int INPUT_QUALITY_SLOT = 2;
-    private static final int RUNTIME_SIZE = 3;
+    private static final int LOAD_RESISTANCE_MILLI_SLOT = 3;
+    private static final int CURRENT_MILLI_SLOT = 4;
+    private static final int RUNTIME_SIZE = 5;
 
     public CopperSeriesResistorBlock(Properties properties) {
         super(properties);
@@ -74,6 +78,9 @@ public class CopperSeriesResistorBlock extends DirectionalCopperProcessorBlock {
         runtime[OUTPUT_VOLTAGE_SLOT] = outputVoltage;
         runtime[INITIALIZED_SLOT] = 1;
         runtime[INPUT_QUALITY_SLOT] = input.quality().ordinal();
+        runtime[LOAD_RESISTANCE_MILLI_SLOT] = (int) Math.round(loadResistance * 1000.0);
+        runtime[CURRENT_MILLI_SLOT] = (int) Math.round(
+                CircuitPhysics.current(inputVoltage, state.getValue(RESISTANCE) + loadResistance) * 1000.0);
         DomainNetwork.driveCopper(
                 level,
                 outputPos(pos, state),
@@ -106,32 +113,49 @@ public class CopperSeriesResistorBlock extends DirectionalCopperProcessorBlock {
         return runtime != null && runtime[INITIALIZED_SLOT] == 1;
     }
 
+    public static int loadResistanceMilli(Level level, BlockPos pos) {
+        int[] runtime = snapshot(level, pos);
+        return runtime == null ? 0 : Math.max(0, runtime[LOAD_RESISTANCE_MILLI_SLOT]);
+    }
+
+    public static int currentMilli(Level level, BlockPos pos) {
+        int[] runtime = snapshot(level, pos);
+        return runtime == null ? 0 : Math.max(0, runtime[CURRENT_MILLI_SLOT]);
+    }
+
+    public boolean adjustResistance(Level level, BlockPos pos, int delta) {
+        BlockState state = level.getBlockState(pos);
+        if (!state.is(this)) return false;
+        int resistance = state.getValue(RESISTANCE);
+        int nextResistance = Math.floorMod((resistance - 1) + delta, 15) + 1;
+        BlockState next = state.setValue(RESISTANCE, nextResistance);
+
+        RuntimeIntStore.remove(level, KEY, pos);
+        if (level instanceof ServerLevel serverLevel) {
+            DomainNetwork.driveCopper(serverLevel, outputPos(pos, state), pos, 0, false);
+        }
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        level.scheduleTick(pos, this, 1);
+        return true;
+    }
+
     @Override protected int observedOutputVoltage(Level level, BlockPos pos, BlockState state) { return outputVoltage(level, pos); }
     @Override protected PortQuality observedOutputQuality(Level level, BlockPos pos, BlockState state) { return outputQuality(level, pos); }
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
-            int resistance = state.getValue(RESISTANCE);
-            resistance = resistance >= 15 ? 1 : resistance + 1;
-            BlockState next = state.setValue(RESISTANCE, resistance);
-
-            // Rs is a memoryless transfer parameter. Once it changes, the old
-            // derived Vout and its exact Copper registry claim no longer belong
-            // to the current configuration epoch. Fail closed until the next
-            // real server tick observes the input/load under the new Rs.
-            RuntimeIntStore.remove(level, KEY, pos);
-            if (level instanceof ServerLevel serverLevel) {
-                DomainNetwork.driveCopper(serverLevel, outputPos(pos, state), pos, 0, false);
+            if (player.isShiftKeyDown() && hit.getDirection().getAxis().isVertical()
+                    && player instanceof ServerPlayer serverPlayer) {
+                FieldDeviceUi.openUniversal(serverPlayer, pos);
+                return InteractionResult.sidedSuccess(false);
             }
-
-            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            level.scheduleTick(pos, this, 1);
-
-            double load = CircuitPhysics.equivalentLoadResistance(level, outputPos(pos, next), 128);
+            adjustResistance(level, pos, 1);
+            int resistance = level.getBlockState(pos).getValue(RESISTANCE);
             player.displayClientMessage(Component.literal(String.format(
-                    "Copper series resistor | BACK input -> FRONT output | Rs=%d | estimated Rload=%.2f | Vout=%d | quality=%s",
-                    resistance, load, outputVoltage(level, pos), outputQuality(level, pos)
+                    "Copper series resistor | BACK input -> FRONT output | Rs=%d | retained Rload=%.3f | retained I≈%.3f | Vout=%d | quality=%s | sneak+top/bottom = Pioneer HMI",
+                    resistance, loadResistanceMilli(level, pos) / 1000.0, currentMilli(level, pos) / 1000.0,
+                    outputVoltage(level, pos), outputQuality(level, pos)
             )), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);

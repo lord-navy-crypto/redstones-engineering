@@ -17,12 +17,14 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -159,6 +161,11 @@ public class CopperWireBlock extends ConnectedCableBlock implements EngineeringP
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
+            if (player.isShiftKeyDown() && hit.getDirection().getAxis().isVertical()
+                    && player instanceof ServerPlayer serverPlayer) {
+                FieldDeviceUi.openUniversal(serverPlayer, pos);
+                return InteractionResult.sidedSuccess(false);
+            }
             player.displayClientMessage(Component.literal(
                     (topologyValid(state) ? "Copper Electrical Cable" : "TOPOLOGY ERROR — use Copper Junction for branches")
                             + " | " + PortDiagnostics.connectedCable(level, pos, state, PortDiagnostics.Domain.COPPER)
@@ -168,6 +175,7 @@ public class CopperWireBlock extends ConnectedCableBlock implements EngineeringP
                             + " | ports=" + engineeringPorts(state).size()
                             + " | routing=PLANAR; vertical via Junction Point"
                             + " | " + NetworkKernel.summary(level, "copper")
+                            + " | sneak+top/bottom = Pioneer HMI"
             ), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
