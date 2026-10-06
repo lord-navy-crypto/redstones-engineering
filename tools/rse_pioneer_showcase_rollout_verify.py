@@ -38,6 +38,8 @@ quartz = read("src/main/java/dev/redstoneengineering/client/ui/QuartzTimingScree
 media_conversion = read("src/main/java/dev/redstoneengineering/client/ui/MediaConversionScreen.java")
 client_registration = read("src/main/java/dev/redstoneengineering/client/ui/EngineeringUiClientRegistration.java")
 field_menu = read("src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java")
+universal_menu = read("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java")
+temperature_sensor = read("src/main/java/dev/redstoneengineering/block/TemperatureSensorBlock.java")
 tablet = read("src/main/java/dev/redstoneengineering/client/ui/DiagnosticTabletScreen.java")
 robot = read("src/main/java/dev/redstoneengineering/entity/EngineeringMobileRobotEntity.java")
 ops_robot_acceptance = read("src/main/java/dev/redstoneengineering/integration/OperationsRobotMaterialFlowAcceptance.java")
@@ -62,6 +64,8 @@ for token in (
     "Wave 10:",
     "Wave 11:",
     "Wave 12:",
+    "Wave 13:",
+    "Pioneer completion ledger after Wave 13: **87 + 7 = 94 / 122 registered blocks processed; 28 remain.**",
 ):
     if token not in doc:
         errors.append(f"Pioneer standard missing {token!r}")
@@ -361,6 +365,67 @@ for token in (
     if token not in transport_binding:
         errors.append(f"OperationTransportBinding missing Wave-11 token {token!r}")
 
+wave13_menu_tokens = (
+    "PIONEER_MEASUREMENT_TEMPERATURE",
+    "PIONEER_MEASUREMENT_LIGHT",
+    "PIONEER_MEASUREMENT_TANK",
+    "PIONEER_MEASUREMENT_ENTITY_DENSITY",
+    "PIONEER_MEASUREMENT_LAPIS_METER",
+    "PIONEER_MEASUREMENT_LAPIS_RANGE",
+    "PIONEER_MEASUREMENT_ANALOG_INDICATOR",
+    "fillPioneerMeasurementSnapshot(block, state)",
+    "TemperatureSensorBlock.observe(level, blockPos)",
+    "TankLevelSensorBlock.columnSample(level, blockPos)",
+    "EntityDensitySensorBlock.densitySample(level, blockPos)",
+    "LapisPrecisionMeterBlock.reading(level, blockPos, state)",
+    "LapisPrecisionRangeSensorBlock.rangeSample(server, blockPos, state)",
+    "indicator.inputObservation(level, blockPos, state)",
+)
+for token in wave13_menu_tokens:
+    if token not in universal_menu:
+        errors.append(f"UniversalFieldDeviceMenu missing Wave-13 measurement token {token!r}")
+
+wave13_screen_tokens = (
+    "PIONEER WAVE 13 • MEASUREMENT",
+    "T_target = N>0 ? floor(ΣT_body / N) : T_environment",
+    "condition(B_local, BALANCED)",
+    "contiguous loaded fluid cells above",
+    "living entities in AABB inflate(4,2,4)",
+    "m = unique Lapis sample on selected face",
+    "target ⇒ x = round(100·d/R)",
+    "display = clamp(x_back,0,15)",
+    'variableRole(g, "MEASURED"',
+    'variableRole(g, "EVIDENCE"',
+    "no experiment tab is invented",
+)
+# The no-experiment rule is documented rather than duplicated in client prose.
+for token in wave13_screen_tokens[:-1]:
+    if token not in universal:
+        errors.append(f"UniversalFieldDeviceScreen missing Wave-13 measurement token {token!r}")
+if wave13_screen_tokens[-1] not in doc:
+    errors.append("Pioneer standard lost the Wave-13 no-invented-experiment rule")
+
+for token in (
+    "Temperature Sensor",
+    "Engineering Light Sensor",
+    "Tank Level Sensor",
+    "Entity Density Sensor",
+    "Lapis Precision Meter",
+    "Lapis Precision Range Sensor",
+    "Analog Indicator",
+    "28 remain",
+    "28 → 21 → 14 → 7 → 0",
+):
+    if token not in doc:
+        errors.append(f"Pioneer standard missing Wave-13 ledger token {token!r}")
+
+for token in (
+    "FieldDeviceUi.openUniversal(serverPlayer, pos)",
+    "target=" + " observation.targetTemperature()",
+):
+    if token not in temperature_sensor:
+        errors.append(f"TemperatureSensorBlock missing Wave-13 HMI token {token!r}")
+
 registration_token = "event.register(EngineeringUiRegistration.FIELD_DEVICE.get(), EnhancedFieldDeviceScreen::new);"
 if registration_token not in client_registration:
     errors.append("FIELD_DEVICE is no longer registered to the enhanced shared Pioneer inspector")
@@ -399,6 +464,8 @@ print(" Wave 9 explicit PID baseline / candidate commissioning trial PASS")
 print(" Wave 10 AMR mission telemetry / Diagnostic Tablet trial PASS")
 print(" Wave 11 Operations → AMR end-to-end material-flow acceptance PASS")
 print(" Wave 12 Signal Analyzer internal-reference calibration trial PASS")
+print(" Wave 13 seven-block measurement / observer Pioneer rollout PASS")
+print(" Pioneer completion ledger: 94 / 122 processed; 28 remain")
 print(f" FieldDeviceMenu device-kind taxonomy: {kind_count}")
 print(f" formula-first EngineeringScreen families: {formula_migrated}")
-print(" no client-side second physics/robotics/metrology solver in Waves 2-12: PASS")
+print(" no client-side second physics/robotics/metrology solver in Waves 2-13: PASS")
