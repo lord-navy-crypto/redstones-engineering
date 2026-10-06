@@ -421,7 +421,7 @@ for token in (
 
 for token in (
     "FieldDeviceUi.openUniversal(serverPlayer, pos)",
-    "target=" + " observation.targetTemperature()",
+    '" | target=" + observation.targetTemperature()',
 ):
     if token not in temperature_sensor:
         errors.append(f"TemperatureSensorBlock missing Wave-13 HMI token {token!r}")
