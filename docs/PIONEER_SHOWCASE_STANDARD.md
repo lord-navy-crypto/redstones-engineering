@@ -224,6 +224,36 @@ Wave 12 turns the Analyzer's rolling measurement window into a repeatable metrol
 NIST measurement-process guidance motivates comparison against a stated reference plus repeatability/stability evidence,
 but RSE reports only its internal game-domain reference and does not claim SI/NIST traceability.
 
-Future waves should prioritize remaining EngineeringScreen families that still lack explicit model
-or variable-role presentation. The target is broad consistency with specialization, not identical
-screens.
+Wave 13:
+- Temperature Sensor
+- Engineering Light Sensor
+- Tank Level Sensor
+- Entity Density Sensor
+- Lapis Precision Meter
+- Lapis Precision Range Sensor
+- Analog Indicator
+
+Wave 13 starts the final 35-block Pioneer completion campaign with a coherent measurement/observer batch:
+- all seven use the responsive Universal Field Device workspace as a shared measurement Pioneer surface rather than seven copied desktop-style screens
+- each block exposes its actual implemented model first, explicit MEASURED / SOLVER / PROFILE / ADJUSTABLE / DERIVED / EVIDENCE roles where they really exist, synchronized live values and server-owned quality
+- Temperature Sensor exposes six-face thermal coverage and cached-vs-target temperature; incomplete coverage retains the last trustworthy cached value
+- Light / Tank / Entity Density preserve raw physical evidence separately from conditioned Redstone output and keep valid numeric zero distinct from missing/stale evidence
+- Lapis Precision Meter remains observer-only; Lapis Precision Range exposes its real bounded range/profile controls without moving the range scan to the client
+- Analog Indicator exposes source quality independently of its 0..15 display and retains stale readout instead of manufacturing a new value
+- no experiment tab is invented for these live observers because none of the seven retains a baseline/candidate experiment backend
+
+Pioneer completion ledger after Wave 13: **87 + 7 = 94 / 122 registered blocks processed; 28 remain.**
+
+Remaining 28 for Waves 14-17:
+- Calibration Module, Sample & Hold, PWM Controller
+- Copper Wire, Copper Voltage Source, Copper Resistive Load, Iron Core, Thermal Mass
+- Lapis Noise Source, Quartz Lab Oscillator, Quartz Phase Delay
+- Copper Series Resistor, Copper Capacitor, Copper Fuse
+- Thermal Heater, Thermal Radiator, Thermal Calorimeter
+- Copper Cable Junction
+- Lapis Temperature / Magnetic / Optical / Voltage Transducers
+- Quartz Triggered Lapis Sampler
+- Soul Soil Conduit, Soul Sand Reservoir, Soul Flux Injector, Soul Flux Meter, Molecular Cloud Receiver
+
+Future waves should prioritize the remaining ledger in coherent seven-block families. The target is broad
+consistency with specialization, not identical screens, and the remaining count must move 28 → 21 → 14 → 7 → 0.
