@@ -51,6 +51,12 @@ if len(block_facing) < 23:
 for token in (
     "DEFAULT_CANVAS_WIDTH = 1020",
     "DEFAULT_CANVAS_HEIGHT = 980",
+    "FOOTER_HEIGHT = 66",
+    "renderPersistentLiveStateStrip",
+    "LIVE STATE • HEALTH ",
+    "I/O • ",
+    "menu.portRouteLabel()",
+    "configureControlCount()",
     "renderScrollIndicators",
     "mouseClicked",
     "mouseDragged",
@@ -91,6 +97,9 @@ standalone_contracts = {
         "renderScrollIndicators",
         "MODEL_WIDTH = 960",
         "Drag scrollbars • Wheel: vertical • Shift+wheel: horizontal",
+        "LIVE STATE • HEALTH ",
+        "I/O • ",
+        "menu.portRouteLabel()",
     ),
     "OscilloscopeScreen": (
         "mouseScrolled",
@@ -162,6 +171,7 @@ print(f" shared EngineeringScreen families: {len(engineering_families)}")
 print(f" standalone deep-canvas instrument families: {len(standalone_families)}")
 print(" global X/Y wheel + draggable scrollbar contract: PASS")
 print(" global operator-control inventory / function surface: PASS")
+print(" persistent live Health / Role / Evidence / I-O / Controls strip: PASS")
 print(" shared 3-column Configure rail + automatic content offset: PASS")
 print(" generic FieldDevice + Universal fallbacks: PASS")
 print(" Pioneer 122/122 closure linkage: PASS")
