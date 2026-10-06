@@ -48,6 +48,8 @@ require("src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java"
         "MIN_WORKSPACE_WIDTH = 440", "MAX_WORKSPACE_WIDTH = 780",
         "MIN_WORKSPACE_HEIGHT = 320", "MAX_WORKSPACE_HEIGHT = 520",
         "mouseScrolled", "DEFAULT_CANVAS_WIDTH = 1020", "DEFAULT_CANVAS_HEIGHT = 1480",
+        "CONTENT_TOP = 112", "NAV_COLUMNS = 3", "NAV_GAP_X = 8", "NAV_GAP_Y = 6",
+        "NAV_HEIGHT = 20", "NAV_TOP = 34", "navX", "navY", "pageLabelY = CONTENT_TOP - 18",
         "renderGlobalEngineeringContract", "ENGINEERING CONTRACT • MODEL / VARIABLES / EVIDENCE",
     "SHARED_APPENDIX_TOP = 960",
     "CONFIGURE_APPENDIX_TOP = 1080",
