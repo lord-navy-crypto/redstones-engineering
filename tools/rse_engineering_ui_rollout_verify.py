@@ -150,6 +150,10 @@ for name, required_tokens in {
         "FORMULA-LINKED CONTROL",
         "FORMULA PARAMETER WORKBENCH",
         "SERVER-BACKED",
+        "EditBox",
+        "submitDirectPrimaryValue",
+        "DIRECT ENTRY",
+        "BUTTON_CONFIG_PRIMARY_DIRECT_BASE",
         "formulaParameterSymbol",
         "primaryControlValue",
         "secondaryFormulaParameterSymbol",
@@ -196,6 +200,7 @@ print(" visible draggable vertical/horizontal deep-canvas scrolling: PASS")
 print(" fixed controls separated from scrollable engineering content: PASS")
 print(" formula-linked controls surfaced in Universal / Enhanced / PID HMIs: PASS")
 print(" Universal formula parameter workbench is server-backed and value-visible: PASS")
+print(" bounded direct numeric entry uses the authoritative container/menu channel: PASS")
 print(" persistent Health / Role / Evidence / I-O / Controls state strip: PASS")
 print(" global Model / Variables / Evidence engineering contract: PASS")
 print(" live RX -> model -> state -> TX mechanism flow: PASS")
