@@ -30,6 +30,8 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_INPUT_RIGHT = 5;
     public static final int BUTTON_OUTPUT_LEFT = 6;
     public static final int BUTTON_OUTPUT_RIGHT = 7;
+    public static final int BUTTON_PARAMETER_DIRECT_BASE = 6000;
+    public static final int BUTTON_PARAMETER_DIRECT_MAX = 6015;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot input = trackedInt();
@@ -110,6 +112,19 @@ public final class SignalProcessorMenu extends EngineeringDeviceMenu {
         if (!stillValid(player)) return false;
         BlockState state = level.getBlockState(blockPos);
         Block block = state.getBlock();
+
+        if (id >= BUTTON_PARAMETER_DIRECT_BASE && id <= BUTTON_PARAMETER_DIRECT_MAX) {
+            int value = id - BUTTON_PARAMETER_DIRECT_BASE;
+            boolean changed;
+            if (block instanceof PrecisionFilterBlock) changed = PrecisionFilterBlock.setRate(level, blockPos, value);
+            else if (block instanceof PulseShaperBlock) changed = PulseShaperBlock.setWidth(level, blockPos, value);
+            else changed = false;
+            if (changed) {
+                refreshAuthoritativeSnapshot();
+                broadcastChanges();
+            }
+            return changed;
+        }
 
         boolean routed = switch (id) {
             case BUTTON_ROTATE_LEFT -> DirectionalSignalBlock.rotateWholeRoute(level, blockPos, false);
