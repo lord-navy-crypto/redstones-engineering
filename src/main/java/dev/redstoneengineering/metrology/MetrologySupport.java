@@ -64,11 +64,11 @@ public final class MetrologySupport {
     /**
      * PortQuality has fewer states than MeasurementQuality. An observer that has
      * not received its first server-side sample is awaiting data, not broken, so
-     * sampleCount==0 maps to STALE. Hard INVALID after a measurement exists still
+     * hasSample()==false maps to NOT_READY. Hard INVALID after a measurement exists still
      * maps to FAULT.
      */
     public static PortQuality portQuality(MeasurementSnapshot measurement) {
-        if (measurement.sampleCount() == 0) return PortQuality.STALE;
+        if (!measurement.hasSample()) return PortQuality.NOT_READY;
         return switch (measurement.quality()) {
             case SATURATED -> PortQuality.SATURATED;
             case STALE -> PortQuality.STALE;
@@ -78,7 +78,7 @@ public final class MetrologySupport {
     }
 
     public static String compactDiagnostics(MeasurementSnapshot m) {
-        if (m.sampleCount() == 0) return "STALE | awaiting first sample";
+        if (!m.hasSample()) return "NOT_READY | awaiting first sample";
         return String.format(
                 Locale.ROOT,
                 "%s | reading=%.2f repeatability=±%.2f bias=%+.2f drift=%+.2f noise=%.2f resolution=%.2f age=%dt samples=%d uncertainty≈±%.2f",
