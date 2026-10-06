@@ -38,6 +38,9 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_CONFIG_SECONDARY_NEXT = 113;
     public static final int BUTTON_CONFIG_ACTION = 114;
     public static final int BUTTON_CONFIG_TOGGLE = 115;
+    /** Encodes an explicit primary numeric target as BASE + value through the vanilla container-button channel. */
+    public static final int BUTTON_CONFIG_PRIMARY_DIRECT_BASE = 1000;
+    public static final int BUTTON_CONFIG_PRIMARY_DIRECT_MAX = 1063;
 
     public static final int ROUTE_NONE = 0;
     public static final int ROUTE_SERIES_AXIS = 1;
@@ -780,6 +783,14 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public boolean clickMenuButton(Player player, int id) {
         if (level.isClientSide) return true;
         if (!stillValid(player)) return false;
+        if (id >= BUTTON_CONFIG_PRIMARY_DIRECT_BASE && id <= BUTTON_CONFIG_PRIMARY_DIRECT_MAX) {
+            boolean changed = applyDirectPrimaryTarget(id - BUTTON_CONFIG_PRIMARY_DIRECT_BASE);
+            if (changed) {
+                refreshAuthoritativeSnapshot();
+                broadcastChanges();
+            }
+            return changed;
+        }
         boolean changed = switch (id) {
             case BUTTON_ROTATE_LEFT -> rotate(false);
             case BUTTON_ROTATE_RIGHT -> rotate(true);
@@ -800,6 +811,60 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             broadcastChanges();
         }
         return changed;
+    }
+
+    /**
+     * Direct numeric entry remains server-authoritative: the client only sends a bounded integer intent.
+     * We deliberately reuse each block's existing adjustment method so all invalidation, recomputation,
+     * scheduling and evidence semantics remain in one place.
+     */
+    private boolean applyDirectPrimaryTarget(int target) {
+        Block block = level.getBlockState(blockPos).getBlock();
+        int min;
+        int max;
+        java.util.function.IntSupplier current;
+        java.util.function.IntPredicate stepForward;
+
+        if (block instanceof CopperVoltageSourceBlock source) {
+            min = 0; max = 15;
+            current = () -> level.getBlockState(blockPos).getValue(CopperVoltageSourceBlock.VOLTAGE);
+            stepForward = ignored -> source.adjustVoltage(level, blockPos, 1);
+        } else if (block instanceof CopperResistiveLoadBlock load) {
+            min = 1; max = 15;
+            current = () -> level.getBlockState(blockPos).getValue(CopperResistiveLoadBlock.RESISTANCE);
+            stepForward = ignored -> load.adjustResistance(level, blockPos, 1);
+        } else if (block instanceof CopperSeriesResistorBlock resistor) {
+            min = 1; max = 15;
+            current = () -> level.getBlockState(blockPos).getValue(CopperSeriesResistorBlock.RESISTANCE);
+            stepForward = ignored -> resistor.adjustResistance(level, blockPos, 1);
+        } else if (block instanceof CopperFuseBlock fuse) {
+            min = 1; max = 15;
+            current = () -> level.getBlockState(blockPos).getValue(CopperFuseBlock.RATING);
+            stepForward = ignored -> fuse.adjustRating(level, blockPos, 1);
+        } else if (block instanceof QuartzPhaseDelayBlock delay) {
+            min = 1; max = 16;
+            current = () -> level.getBlockState(blockPos).getValue(QuartzPhaseDelayBlock.DELAY);
+            stepForward = ignored -> delay.adjustDelay(level, blockPos, 1);
+        } else if (block instanceof ThermalMassBlock mass) {
+            min = 1; max = 4;
+            current = () -> level.getBlockState(blockPos).getValue(ThermalMassBlock.HEAT_CAPACITY);
+            stepForward = ignored -> mass.adjustHeatCapacity(level, blockPos, 1);
+        } else if (block instanceof ThermalRadiatorBlock radiator) {
+            min = 1; max = 4;
+            current = () -> level.getBlockState(blockPos).getValue(ThermalRadiatorBlock.COOLING);
+            stepForward = ignored -> radiator.adjustCooling(level, blockPos, 1);
+        } else {
+            return false;
+        }
+
+        if (target < min || target > max) return false;
+        int guard = max - min + 2;
+        boolean changed = false;
+        while (current.getAsInt() != target && guard-- > 0) {
+            if (!stepForward.test(1)) return changed;
+            changed = true;
+        }
+        return changed || current.getAsInt() == target;
     }
 
     private boolean adjustPrimary(int delta) {
