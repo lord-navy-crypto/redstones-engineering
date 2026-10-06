@@ -544,6 +544,17 @@ public final class LapisLowPassScreen extends AbstractContainerScreen<LapisLowPa
         g.fill(CONTENT_X, y, Math.min(contentWidth() - 18, CONTENT_X + 700), y + 1, BORDER);
     }
 
+    private String fit(String text, int maxWidth) {
+        if (text == null || text.isBlank()) return "—";
+        if (maxWidth <= 0) return "";
+        if (font.width(text) <= maxWidth) return text;
+        String compact = text;
+        while (compact.length() > 1 && font.width(compact + "…") > maxWidth) {
+            compact = compact.substring(0, compact.length() - 1);
+        }
+        return compact + "…";
+    }
+
     private int evidenceColor() {
         return switch (menu.evidenceState()) {
             case 1 -> GOOD;
