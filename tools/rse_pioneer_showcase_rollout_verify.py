@@ -43,6 +43,14 @@ temperature_sensor = read("src/main/java/dev/redstoneengineering/block/Temperatu
 wave14_tests = read("src/main/java/dev/redstoneengineering/gametest/RsePioneerWave14GameTests.java")
 wave15_tests = read("src/main/java/dev/redstoneengineering/gametest/RsePioneerWave15GameTests.java")
 wave16_tests = read("src/main/java/dev/redstoneengineering/gametest/RsePioneerWave16GameTests.java")
+wave17_tests = read("src/main/java/dev/redstoneengineering/gametest/RsePioneerWave17GameTests.java")
+iron_core_block = read("src/main/java/dev/redstoneengineering/block/IronCoreBlock.java")
+thermal_mass_block = read("src/main/java/dev/redstoneengineering/block/ThermalMassBlock.java")
+thermal_heater_block = read("src/main/java/dev/redstoneengineering/block/ThermalHeaterBlock.java")
+thermal_radiator_block = read("src/main/java/dev/redstoneengineering/block/ThermalRadiatorBlock.java")
+thermal_calorimeter_block = read("src/main/java/dev/redstoneengineering/block/ThermalCalorimeterBlock.java")
+soul_conduit_block = read("src/main/java/dev/redstoneengineering/block/SoulSoilConduitBlock.java")
+soul_reservoir_block = read("src/main/java/dev/redstoneengineering/block/SoulSandReservoirBlock.java")
 lapis_noise_block = read("src/main/java/dev/redstoneengineering/block/LapisNoiseSourceBlock.java")
 quartz_oscillator_block = read("src/main/java/dev/redstoneengineering/block/QuartzLabOscillatorBlock.java")
 quartz_phase_delay_block = read("src/main/java/dev/redstoneengineering/block/QuartzPhaseDelayBlock.java")
@@ -90,6 +98,9 @@ for token in (
     "Pioneer completion ledger after Wave 15: **101 + 7 = 108 / 122 registered blocks processed; 14 remain.**",
     "Wave 16:",
     "Pioneer completion ledger after Wave 16: **108 + 7 = 115 / 122 registered blocks processed; 7 remain.**",
+    "Wave 17:",
+    "Pioneer completion ledger after Wave 17: **115 + 7 = 122 / 122 registered blocks processed; 0 remain.**",
+    "**Pioneer broad-rollout campaign complete: 122 / 122.**",
 ):
     if token not in doc:
         errors.append(f"Pioneer standard missing {token!r}")
@@ -684,8 +695,84 @@ for token in (
 if "event.register(RsePioneerWave16GameTests.class);" not in gametest_registration:
     errors.append("Wave-16 GameTests are not registered")
 
+
+wave17_menu_tokens = (
+    "PIONEER_PROCESS_IRON_CORE",
+    "PIONEER_PROCESS_THERMAL_MASS",
+    "PIONEER_PROCESS_THERMAL_HEATER",
+    "PIONEER_PROCESS_THERMAL_RADIATOR",
+    "PIONEER_PROCESS_THERMAL_CALORIMETER",
+    "PIONEER_PROCESS_SOUL_CONDUIT",
+    "PIONEER_PROCESS_SOUL_RESERVOIR",
+    "IronCoreBlock.appliedFieldSample(level, blockPos)",
+    "ThermalMassBlock.thermalState(level, blockPos, state)",
+    "ThermalHeaterBlock.targetTemperature(voltage, resistance)",
+    "ThermalRadiatorBlock.observation(level, blockPos)",
+    "ThermalCalorimeterBlock.history(level, blockPos)",
+    "SoulFluxNetwork.chargeSnapshot(level, blockPos)",
+)
+for token in wave17_menu_tokens:
+    if token not in universal_menu:
+        errors.append(f"UniversalFieldDeviceMenu missing Wave-17 closure token {token!r}")
+
+wave17_screen_tokens = (
+    "PIONEER WAVE 17 • MATERIAL / STORAGE / THERMAL",
+    "complete radius-2 scan ∧ B_applied≥8",
+    "T_target=floor((2·T_env+T_neighbor)/3)",
+    "P=V²/R",
+    "every 10 ticks each adjacent mass T>20",
+    "ΔT_20t=T[n]-T[n-1]",
+    "transient Soul Flux J decays by 1 each 20 ticks",
+    "stored Q_s decays by 1 each 40 ticks",
+    'variableRole(g, "STATE", "remanence"',
+    'variableRole(g, "ADJUSTABLE", "C_index"',
+    'variableRole(g, "DERIVED", "C·ΔT"',
+)
+for token in wave17_screen_tokens:
+    if token not in universal:
+        errors.append(f"UniversalFieldDeviceScreen missing Wave-17 closure token {token!r}")
+
+for token in (
+    "Iron Core",
+    "Thermal Mass",
+    "Thermal Heater",
+    "Thermal Radiator",
+    "Thermal Calorimeter",
+    "Soul Soil Conduit",
+    "Soul Sand Reservoir",
+    "0 remain",
+    "122 / 122",
+):
+    if token not in doc:
+        errors.append(f"Pioneer standard missing Wave-17 closure token {token!r}")
+
+for name, text in (
+    ("IronCoreBlock", iron_core_block),
+    ("ThermalMassBlock", thermal_mass_block),
+    ("ThermalHeaterBlock", thermal_heater_block),
+    ("ThermalRadiatorBlock", thermal_radiator_block),
+    ("ThermalCalorimeterBlock", thermal_calorimeter_block),
+    ("SoulSoilConduitBlock", soul_conduit_block),
+    ("SoulSandReservoirBlock", soul_reservoir_block),
+):
+    if "FieldDeviceUi.openUniversal" not in text:
+        errors.append(f"{name} missing final Pioneer HMI entry")
+
+for token in (
+    "finalSevenParameterProfilesMatchImplementedModels",
+    "thermalMassCapacityChangesBoundedResponse",
+    "calorimeterHistoryIsServerRetainedObserverEvidence",
+    "soulReservoirValidZeroDiffersFromAbsentConduitFlux",
+    "finalSevenPortRolesRemainSpecialized",
+):
+    if token not in wave17_tests:
+        errors.append(f"Wave-17 GameTests missing behavioral token {token!r}")
+
+if "event.register(RsePioneerWave17GameTests.class);" not in gametest_registration:
+    errors.append("Wave-17 GameTests are not registered")
+
 if "dev.redstoneengineering.physics" in universal:
-    errors.append("UniversalFieldDeviceScreen imports physics directly; Wave-16 client must remain presentation-only")
+    errors.append("UniversalFieldDeviceScreen imports physics directly; final client must remain presentation-only")
 
 registration_token = "event.register(EngineeringUiRegistration.FIELD_DEVICE.get(), EnhancedFieldDeviceScreen::new);"
 if registration_token not in client_registration:
@@ -729,7 +816,8 @@ print(" Wave 13 seven-block measurement / observer Pioneer rollout PASS")
 print(" Wave 14 seven-block signal / transduction Pioneer rollout PASS")
 print(" Wave 15 seven-block Copper electrical Pioneer rollout PASS")
 print(" Wave 16 seven-block active-source / timing Pioneer rollout PASS")
-print(" Pioneer completion ledger: 115 / 122 processed; 7 remain")
+print(" Wave 17 final seven-block material / storage / thermal rollout PASS")
+print(" Pioneer completion ledger: 122 / 122 processed; 0 remain")
 print(f" FieldDeviceMenu device-kind taxonomy: {kind_count}")
 print(f" formula-first EngineeringScreen families: {formula_migrated}")
-print(" no client-side second physics/robotics/metrology/Copper/timing solver in Waves 2-16: PASS")
+print(" no client-side second physics/robotics/metrology/Copper/timing/thermal solver in Waves 2-17: PASS")
