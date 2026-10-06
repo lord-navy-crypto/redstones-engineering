@@ -16,6 +16,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -24,6 +25,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -120,6 +122,16 @@ public class SoulFluxInjectorBlock extends Block implements EngineeringPortProvi
         return commandObservation(level, pos).value();
     }
 
+    public static int attachedNodeCount(Level level, BlockPos pos) {
+        int count = 0;
+        for (Direction direction : Direction.values()) {
+            if (direction == Direction.UP) continue;
+            BlockPos target = pos.relative(direction);
+            if (level.hasChunkAt(target) && SoulFluxNetwork.isNode(level, target)) count++;
+        }
+        return count;
+    }
+
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
@@ -152,13 +164,18 @@ public class SoulFluxInjectorBlock extends Block implements EngineeringPortProvi
     protected InteractionResult useWithoutItem(
             BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit
     ) {
-        if (!level.isClientSide) {
-            RedstoneObservationSupport.Observation command = commandObservation(level, pos);
-            player.displayClientMessage(Component.literal(
-                    "Soul Flux injector | UP REDSTONE command=" + command.value() + "/15"
-                            + " [" + command.quality().name() + "]"
-                            + " → packet=" + (command.valid() ? command.value() * 4 : 0) + "/60"
-                            + " | five-face SOUL_FLUX output | Minecraft-fictional physics"), true);
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown()) {
+                RedstoneObservationSupport.Observation command = commandObservation(level, pos);
+                player.displayClientMessage(Component.literal(
+                        "Soul Flux injector | UP REDSTONE command=" + command.value() + "/15"
+                                + " [" + command.quality().name() + "]"
+                                + " → packet=" + (command.valid() ? command.value() * 4 : 0) + "/60"
+                                + " | attached soul nodes=" + attachedNodeCount(level, pos)
+                                + " | Minecraft-fictional physics"), true);
+            } else {
+                FieldDeviceUi.openUniversal(serverPlayer, pos);
+            }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
