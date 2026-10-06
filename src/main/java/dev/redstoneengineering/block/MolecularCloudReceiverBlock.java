@@ -111,6 +111,15 @@ public class MolecularCloudReceiverBlock extends PassiveDirectionalSignalBlock {
         return sample(level, pos, state).value();
     }
 
+    public static int gainFor(int sensitivity) {
+        int bounded = Math.max(0, Math.min(GAIN.length - 1, sensitivity));
+        return GAIN[bounded];
+    }
+
+    public static double apertureRadiusBlocks() {
+        return APERTURE_RADIUS;
+    }
+
     /** Observer-only retained reading; inspection never allocates sensor runtime. */
     public static int filtered(Level level, BlockPos pos) {
         int[] runtime = RuntimeIntStore.peek(level, KEY, pos);
