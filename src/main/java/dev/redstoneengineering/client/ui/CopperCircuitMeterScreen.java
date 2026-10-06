@@ -10,7 +10,6 @@ import net.minecraft.world.entity.player.Inventory;
 
 /** Dedicated electrical HMI for the observer-only Copper Circuit Meter. */
 public final class CopperCircuitMeterScreen extends EngineeringScreen<CopperCircuitMeterMenu> {
-    private Button facePrevious;
     private Button faceNext;
 
     public CopperCircuitMeterScreen(CopperCircuitMeterMenu menu, Inventory inventory, Component title) {
@@ -20,19 +19,18 @@ public final class CopperCircuitMeterScreen extends EngineeringScreen<CopperCirc
     @Override
     protected void addDeviceWidgets() {
         int y = topPos + imageHeight - 66;
-        facePrevious = addConfigureWidget(Button.builder(Component.literal("◀ Measure face"),
-                b -> sendMenuButton(CopperCircuitMeterMenu.BUTTON_FACE_PREVIOUS))
-                .bounds(leftPos + 38, y, 116, 20).build());
-        faceNext = addConfigureWidget(Button.builder(Component.literal("Measure face ▶"),
+        faceNext = addConfigureWidget(Button.builder(Component.literal("Cycle measure face ▶"),
                 b -> sendMenuButton(CopperCircuitMeterMenu.BUTTON_FACE_NEXT))
-                .bounds(leftPos + 166, y, 116, 20).build());
+                .bounds(leftPos + 82, y, 156, 20).build());
     }
 
     @Override
     protected void syncDeviceWidgetLabels() {
         boolean configure = isConfigureSection();
-        if (facePrevious != null) facePrevious.visible = configure;
-        if (faceNext != null) faceNext.visible = configure;
+        if (faceNext != null) {
+            faceNext.visible = configure;
+            faceNext.setMessage(Component.literal("Cycle face • " + menu.facing().getName().toUpperCase() + " ▶"));
+        }
     }
 
     @Override
