@@ -92,7 +92,9 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
                  FieldDeviceMenu.KIND_INDUCTION_COIL,
                  FieldDeviceMenu.KIND_OPTICAL_EMITTER,
                  FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER,
-                 FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR -> true;
+                 FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR,
+                 FieldDeviceMenu.KIND_MECHANICAL_EXCITER,
+                 FieldDeviceMenu.KIND_HYDRO_EXCITER -> true;
             default -> false;
         };
         minus.active = adjustable;
@@ -752,6 +754,8 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
                 case FieldDeviceMenu.KIND_OPTICAL_EMITTER,
                      FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER -> value >= 0 && value <= 15;
                 case FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR -> value >= 0 && value <= 8;
+                case FieldDeviceMenu.KIND_MECHANICAL_EXCITER,
+                     FieldDeviceMenu.KIND_HYDRO_EXCITER -> value >= 1 && value <= 15;
                 default -> false;
             };
         } catch (NumberFormatException ignored) {
@@ -780,6 +784,8 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             case FieldDeviceMenu.KIND_OPTICAL_EMITTER -> "I_emit";
             case FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER -> "channel";
             case FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR -> "loss";
+            case FieldDeviceMenu.KIND_MECHANICAL_EXCITER,
+                 FieldDeviceMenu.KIND_HYDRO_EXCITER -> "f";
             default -> adjustmentLabel();
         };
     }
@@ -798,6 +804,8 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             case FieldDeviceMenu.KIND_OPTICAL_EMITTER -> "0..15 intensity";
             case FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER -> "channel 0..15";
             case FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR -> "loss 0..8";
+            case FieldDeviceMenu.KIND_MECHANICAL_EXCITER,
+                 FieldDeviceMenu.KIND_HYDRO_EXCITER -> "1..15 frequency index";
             default -> "";
         };
     }
@@ -813,6 +821,8 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             case FieldDeviceMenu.KIND_REFERENCE -> menu.primary();
             case FieldDeviceMenu.KIND_DIGITAL_REGENERATOR -> menu.tertiary();
             case FieldDeviceMenu.KIND_PRESSURE_REGULATOR -> menu.secondary();
+            case FieldDeviceMenu.KIND_MECHANICAL_EXCITER,
+                 FieldDeviceMenu.KIND_HYDRO_EXCITER -> menu.secondary();
             default -> menu.tertiary() != 0 ? menu.tertiary() : menu.primary();
         };
     }
@@ -831,6 +841,8 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             case FieldDeviceMenu.KIND_OPTICAL_EMITTER -> "Intensity";
             case FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER -> "Channel";
             case FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR -> "Loss";
+            case FieldDeviceMenu.KIND_MECHANICAL_EXCITER,
+                 FieldDeviceMenu.KIND_HYDRO_EXCITER -> "Frequency";
             default -> "Readback";
         };
     }
