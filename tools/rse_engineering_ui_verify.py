@@ -86,7 +86,9 @@ require("src/main/java/dev/redstoneengineering/ui/menu/MagneticSystemMenu.java",
 
 require("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScreen.java",
         "KIND_MECHANICAL_EXCITER", "KIND_HYDRO_EXCITER",
-        "1..15 frequency index", '-> "f"')
+        "1..15 frequency index", '-> "f"',
+        "discreteExciterAdjustable()", "exact server-backed frequency",
+        "read-only implemented model", "finite-bandwidth phonon packet")
 require("src/main/java/dev/redstoneengineering/block/MechanicalExciterBlock.java",
         "setFrequency(Level level, BlockPos pos, int frequency)")
 require("src/main/java/dev/redstoneengineering/block/HydroacousticExciterBlock.java",
