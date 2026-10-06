@@ -1013,7 +1013,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     }
 
     private boolean directSecondaryNumericKind(int kind) {
-        return kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE
+        return kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE
+                || kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE
                 || kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR;
     }
 
@@ -1023,6 +1024,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
 
     private int directSecondaryMaximum(int kind) {
         return switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE -> 3;
             case UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE -> 10;
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> 3;
             default -> -1;
@@ -1063,6 +1065,9 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     }
 
     private String directSecondaryDisplayValue(int kind) {
+        if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE) {
+            return Integer.toString(menu.configSecondary());
+        }
         if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE) {
             return String.format(java.util.Locale.ROOT, "%.2f", menu.configSecondary() * 0.02);
         }
@@ -1106,6 +1111,9 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         if (secondaryDirectInput == null) return null;
         try {
             double entered = Double.parseDouble(secondaryDirectInput.getValue());
+            if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE) {
+                return entered == 8 ? 0 : entered == 16 ? 1 : entered == 32 ? 2 : entered == 64 ? 3 : null;
+            }
             if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE) {
                 int raw = (int) Math.round(entered / 0.02);
                 return Math.abs(entered - raw * 0.02) < 0.0001 ? raw : null;
@@ -1149,6 +1157,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     }
 
     private String directSecondaryRangeLabel(int kind) {
+        if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE) return "{8, 16, 32, 64} blocks";
         if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE) return "0.00..0.20 Lapis • step 0.02";
         if (kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR) return "0..3 ticks";
         return directSecondaryMinimum(kind) + ".." + directSecondaryMaximum(kind);
