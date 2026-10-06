@@ -110,6 +110,10 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     }
 
     private void overview(GuiGraphics g) {
+        if (menu.pioneerProcessKind() != UniversalFieldDeviceMenu.PIONEER_PROCESS_NONE) {
+            processPioneerOverview(g);
+            return;
+        }
         if (menu.pioneerMeasurementKind() != UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_NONE) {
             measurementPioneerOverview(g);
             return;
@@ -127,6 +131,133 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                         ? "Lapis measurement uses the 0..100 precision-information domain; valid zero remains real evidence."
                         : "Use Ports for physical faces, Configure for parameters, and Route for real orientation.",
                 16, 191, lapisPrecisionMeasurementPresent() ? INFO : MUTED);
+    }
+
+
+    private void processPioneerOverview(GuiGraphics g) {
+        int kind = menu.pioneerProcessKind();
+        PortQuality evidence = menu.pioneerProcessEvidenceQuality();
+        statusBadge(g, title.getString().toUpperCase(), qualityColor(evidence), 16, 80);
+        statusBadge(g, "PIONEER WAVE 14 • SIGNAL / TRANSDUCTION", INFO, 207, 80);
+        formulaCard(g, processEquation(kind), 108);
+
+        switch (kind) {
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_CALIBRATION -> {
+                variableRole(g, "MEASURED", "x_obs", Integer.toString(menu.pioneerProcessPrimary()), "redstone", 137);
+                variableRole(g, "MEASURED", "x_ref", Integer.toString(menu.pioneerProcessSecondary()), "redstone", 153);
+                variableRole(g, "DERIVED", "y", Integer.toString(menu.pioneerProcessTertiary()), "redstone", 169);
+                variableRole(g, "ADJUSTABLE", "profile", CalibrationModuleBlock.profileName(menu.pioneerProcessQuaternary()), "", 185);
+                variableRole(g, "EVIDENCE", "bias", String.format(java.util.Locale.ROOT, "%+d", menu.pioneerProcessQuinary()), "redstone", 201);
+                variableRole(g, "EVIDENCE", "samples", Integer.toString(menu.pioneerProcessSenary()), "count", 217);
+            }
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SAMPLE_HOLD -> {
+                variableRole(g, "SOLVER", "y_hold", Integer.toString(menu.pioneerProcessPrimary()), "redstone", 137);
+                variableRole(g, "EVIDENCE", "captures", Integer.toString(menu.pioneerProcessSecondary()), "count", 153);
+                variableRole(g, "EVIDENCE", "age", menu.pioneerProcessTertiary() < 0 ? "NONE" : Integer.toString(menu.pioneerProcessTertiary()), "ticks", 169);
+                variableRole(g, "ADJUSTABLE", "edge", SampleHoldBlock.modeName(menu.pioneerProcessQuaternary()), "", 185);
+                variableRole(g, "MEASURED", "trigger", Integer.toString(menu.pioneerProcessQuinary()), "redstone", 201);
+                variableRole(g, "MEASURED", "reset", Integer.toString(menu.pioneerProcessSenary()), "redstone", 217);
+            }
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_PWM -> {
+                variableRole(g, "MEASURED", "u", Integer.toString(menu.pioneerProcessPrimary()), "redstone", 137);
+                variableRole(g, "ADJUSTABLE", "T", Integer.toString(menu.pioneerProcessSecondary()), "ticks", 153);
+                variableRole(g, "DERIVED", "N_on", Integer.toString(menu.pioneerProcessTertiary()), "ticks", 169);
+                variableRole(g, "DERIVED", "D_eff", String.format(java.util.Locale.ROOT, "%.1f", menu.pioneerProcessQuaternary() / 10.0), "%", 185);
+                variableRole(g, "EVIDENCE", "e_q", String.format(java.util.Locale.ROOT, "%+.1f", menu.pioneerProcessQuinary() / 10.0), "%", 201);
+                variableRole(g, "SOLVER", "phase", Integer.toString(menu.pioneerProcessSenary()), "ticks", 217);
+            }
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_TEMPERATURE,
+                 UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_MAGNETIC,
+                 UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_OPTICAL,
+                 UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_VOLTAGE -> {
+                variableRole(g, "MEASURED", processInputSymbol(kind),
+                        String.format(java.util.Locale.ROOT, "%.2f", menu.pioneerProcessPrimary() / 100.0),
+                        processInputUnit(kind), 137);
+                variableRole(g, "DERIVED", "y_L",
+                        String.format(java.util.Locale.ROOT, "%.2f", menu.pioneerProcessSecondary() / 100.0),
+                        "Lapis", 153);
+                variableRole(g, "PROFILE", "Δt_sample", Integer.toString(menu.pioneerProcessTertiary()), "ticks", 169);
+                variableRole(g, "PROFILE", "resolution", Integer.toString(menu.pioneerProcessQuaternary()), "/100", 185);
+                variableRole(g, "PROFILE", "noise", "±" + menu.pioneerProcessQuinary(), "/100", 201);
+                variableRole(g, "PROFILE", "latency", Integer.toString(menu.pioneerProcessSenary()), "samples", 217);
+            }
+            default -> { }
+        }
+
+        evidenceRow(g, "EVIDENCE", evidence.name(), "server snapshot", processEvidenceNote(evidence), 239);
+        wrappedText(g, processInterpretation(kind), 16, 262, workspaceWidth() - 24, MUTED);
+    }
+
+    private String processEquation(int kind) {
+        return switch (kind) {
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_CALIBRATION ->
+                    "MODEL: y = profile(x_obs); residual = y - x_ref; profile ∈ {FULL, LOW, MID, HIGH, INVERT}";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SAMPLE_HOLD ->
+                    "MODEL: configured trigger edge ⇒ y_hold ← x; otherwise y_hold[n]=y_hold[n-1]; RESET ⇒ 0";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_PWM ->
+                    "MODEL: N_on=round((u/15)·T); PWM=15 when phase<N_on else 0; INHIBIT ⇒ 0";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_TEMPERATURE ->
+                    "MODEL: x=clamp(T_index,0,100); y_L = SensorModel.condition(x, profile)";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_MAGNETIC ->
+                    "MODEL: x=round(100·clamp(B,0,15)/15); y_L = SensorModel.condition(x, profile)";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_OPTICAL ->
+                    "MODEL: x=round(100·clamp(I,0,15)/15); y_L = SensorModel.condition(x, profile)";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_VOLTAGE ->
+                    "MODEL: x=round(100·clamp(V,0,15)/15); y_L = SensorModel.condition(x, profile)";
+            default -> "MODEL: server-authoritative signal transformation";
+        };
+    }
+
+    private String processInterpretation(int kind) {
+        return switch (kind) {
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_CALIBRATION ->
+                    "OBSERVED and REFERENCE remain separate physical inputs. The selected profile changes only the calibrated transfer; residual evidence compares the calibrated output against the reference.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_SAMPLE_HOLD ->
+                    "Capture state is server-owned. Reading the HMI never creates an edge or capture; Clear held value is an explicit action and physical TRIGGER/RESET ports remain authoritative.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_PWM ->
+                    "Duty-cycle quantization is visible as realized on-ticks and e_q. Period and invert are real server controls; INHIBIT remains a separate physical safety input.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_TEMPERATURE ->
+                    "Thermal input is normalized directly on the server, then the selected SensorModel profile applies sampling period, resolution, noise and latency before driving Lapis.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_MAGNETIC ->
+                    "Magnetic field magnitude uses the existing radius-6 coverage-aware server sample. Incomplete field coverage remains STALE rather than becoming a fabricated zero.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_OPTICAL ->
+                    "Optical intensity and its source/topology quality are observed on the server before profile conditioning; numeric zero is independent from source validity.";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_VOLTAGE ->
+                    "Copper voltage comes from DomainNetwork while CopperObservationSupport owns source/topology quality. The transducer does not promote an isolated numeric zero to VALID.";
+            default -> "Server-authoritative process evidence.";
+        };
+    }
+
+    private String processInputSymbol(int kind) {
+        return switch (kind) {
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_TEMPERATURE -> "T_norm";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_MAGNETIC -> "B_norm";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_OPTICAL -> "I_norm";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_VOLTAGE -> "V_norm";
+            default -> "x";
+        };
+    }
+
+    private String processInputUnit(int kind) {
+        return switch (kind) {
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_TEMPERATURE -> "T-index /100";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_MAGNETIC -> "B-level norm";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_OPTICAL -> "intensity norm";
+            case UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_VOLTAGE -> "V-level norm";
+            default -> "";
+        };
+    }
+
+    private String processEvidenceNote(PortQuality quality) {
+        return switch (quality) {
+            case VALID -> "trust current server transformation";
+            case SATURATED -> "bounded result; inspect range/profile";
+            case NOT_READY -> "await first authoritative runtime result";
+            case STALE -> "restore source/coverage and reacquire";
+            case NO_SIGNAL -> "no trustworthy physical source";
+            case TOPOLOGY_ERROR -> "resolve competing/invalid topology";
+            default -> "repair evidence before use";
+        };
     }
 
     private void measurementPioneerOverview(GuiGraphics g) {
@@ -269,8 +400,17 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER -> {
                 statusBadge(g, "MEASUREMENT CONDITIONING", INFO, 16, 80);
                 labelValue(g, "Profile", lapisProfileName(menu.configPrimary()) + " (" + menu.configPrimary() + ")", 101);
-                safeText(g, "Profile changes sampling period, resolution, noise and latency on the server.", 16, 148, TEXT);
-                safeText(g, "Direction belongs on Route; no routing control is duplicated here.", 16, 168, MUTED);
+                if (menu.pioneerProcessKind() >= UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_TEMPERATURE
+                        && menu.pioneerProcessKind() <= UniversalFieldDeviceMenu.PIONEER_PROCESS_LAPIS_VOLTAGE) {
+                    labelValue(g, "Sample period", menu.pioneerProcessTertiary() + " ticks", 141);
+                    labelValue(g, "Resolution / noise", menu.pioneerProcessQuaternary() + "/100 • ±"
+                            + menu.pioneerProcessQuinary() + "/100", 159);
+                    labelValue(g, "Latency", menu.pioneerProcessSenary() + " sample(s)", 177);
+                    safeText(g, "All four quantities are synchronized from the server profile; Route owns the physical sensing boundary.", 16, 203, MUTED);
+                } else {
+                    safeText(g, "Profile changes sampling period, resolution, noise and latency on the server.", 16, 148, TEXT);
+                    safeText(g, "Direction belongs on Route; no routing control is duplicated here.", 16, 168, MUTED);
+                }
             }
             case UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE -> {
                 statusBadge(g, "RANGE MEASUREMENT CONDITIONING", INFO, 16, 80);

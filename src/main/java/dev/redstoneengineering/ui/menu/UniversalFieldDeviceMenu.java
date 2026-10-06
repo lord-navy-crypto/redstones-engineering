@@ -3,9 +3,11 @@ package dev.redstoneengineering.ui.menu;
 import dev.redstoneengineering.block.*;
 import dev.redstoneengineering.core.domain.EngineeringDomain;
 import dev.redstoneengineering.core.port.EngineeringPortProvider;
+import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.physics.SensorModel;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -64,6 +66,15 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public static final int PIONEER_MEASUREMENT_LAPIS_RANGE = 6;
     public static final int PIONEER_MEASUREMENT_ANALOG_INDICATOR = 7;
 
+    public static final int PIONEER_PROCESS_NONE = 0;
+    public static final int PIONEER_PROCESS_CALIBRATION = 1;
+    public static final int PIONEER_PROCESS_SAMPLE_HOLD = 2;
+    public static final int PIONEER_PROCESS_PWM = 3;
+    public static final int PIONEER_PROCESS_LAPIS_TEMPERATURE = 4;
+    public static final int PIONEER_PROCESS_LAPIS_MAGNETIC = 5;
+    public static final int PIONEER_PROCESS_LAPIS_OPTICAL = 6;
+    public static final int PIONEER_PROCESS_LAPIS_VOLTAGE = 7;
+
     private final DataSlot facing = trackedInt();
     private final DataSlot routeKind = trackedInt();
     private final DataSlot configKind = trackedInt();
@@ -75,6 +86,14 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     private final DataSlot pioneerTertiary = trackedInt();
     private final DataSlot pioneerQuaternary = trackedInt();
     private final DataSlot pioneerEvidenceQuality = trackedInt();
+    private final DataSlot pioneerProcessKind = trackedInt();
+    private final DataSlot pioneerProcessPrimary = trackedInt();
+    private final DataSlot pioneerProcessSecondary = trackedInt();
+    private final DataSlot pioneerProcessTertiary = trackedInt();
+    private final DataSlot pioneerProcessQuaternary = trackedInt();
+    private final DataSlot pioneerProcessQuinary = trackedInt();
+    private final DataSlot pioneerProcessSenary = trackedInt();
+    private final DataSlot pioneerProcessEvidenceQuality = trackedInt();
     private final DataSlot declaredPortMask = trackedInt();
     private final DataSlot inputMask = trackedInt();
     private final DataSlot outputMask = trackedInt();
@@ -114,7 +133,16 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         pioneerTertiary.set(0);
         pioneerQuaternary.set(0);
         pioneerEvidenceQuality.set(-1);
+        pioneerProcessKind.set(PIONEER_PROCESS_NONE);
+        pioneerProcessPrimary.set(0);
+        pioneerProcessSecondary.set(0);
+        pioneerProcessTertiary.set(0);
+        pioneerProcessQuaternary.set(0);
+        pioneerProcessQuinary.set(0);
+        pioneerProcessSenary.set(0);
+        pioneerProcessEvidenceQuality.set(-1);
         fillPioneerMeasurementSnapshot(block, state);
+        fillPioneerProcessSnapshot(block, state);
 
         if (block instanceof LapisPrecisionRangeSensorBlock) {
             configKind.set(CONFIG_LAPIS_RANGE);
@@ -276,6 +304,99 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         }
     }
 
+
+    private void fillPioneerProcessSnapshot(Block block, BlockState state) {
+        if (block instanceof CalibrationModuleBlock calibration) {
+            pioneerProcessKind.set(PIONEER_PROCESS_CALIBRATION);
+            EngineeringPortSnapshot observed = snapshotByLabel(calibration, state, "OBSERVED");
+            EngineeringPortSnapshot reference = snapshotByLabel(calibration, state, "REFERENCE");
+            EngineeringPortSnapshot output = snapshotByLabel(calibration, state, "CALIBRATED");
+            var measurement = CalibrationModuleBlock.measurement(level, blockPos);
+            pioneerProcessPrimary.set(observed == null ? 0 : syncNumber(observed.value()));
+            pioneerProcessSecondary.set(reference == null ? 0 : syncNumber(reference.value()));
+            pioneerProcessTertiary.set(output == null ? state.getValue(DirectionalSignalBlock.OUTPUT) : syncNumber(output.value()));
+            pioneerProcessQuaternary.set(state.getValue(CalibrationModuleBlock.PROFILE));
+            pioneerProcessQuinary.set(measurement.hasSample() ? syncNumber(measurement.bias()) : 0);
+            pioneerProcessSenary.set(measurement.sampleCount());
+            pioneerProcessEvidenceQuality.set(
+                    dev.redstoneengineering.metrology.MetrologySupport.portQuality(measurement).ordinal());
+            return;
+        }
+
+        if (block instanceof SampleHoldBlock sampleHold) {
+            pioneerProcessKind.set(PIONEER_PROCESS_SAMPLE_HOLD);
+            pioneerProcessPrimary.set(state.getValue(DirectionalSignalBlock.OUTPUT));
+            pioneerProcessSecondary.set(SampleHoldBlock.captureCount(level, blockPos));
+            pioneerProcessTertiary.set(SampleHoldBlock.sampleAgeTicks(level, blockPos));
+            pioneerProcessQuaternary.set(state.getValue(SampleHoldBlock.TRIGGER_MODE));
+            EngineeringPortSnapshot trigger = snapshotByLabel(sampleHold, state, "TRIGGER");
+            EngineeringPortSnapshot reset = snapshotByLabel(sampleHold, state, "RESET");
+            pioneerProcessQuinary.set(trigger == null ? 0 : syncNumber(trigger.value()));
+            pioneerProcessSenary.set(reset == null ? 0 : syncNumber(reset.value()));
+            pioneerProcessEvidenceQuality.set(SampleHoldBlock.outputQuality(level, blockPos).ordinal());
+            return;
+        }
+
+        if (block instanceof PwmControllerBlock pwm) {
+            pioneerProcessKind.set(PIONEER_PROCESS_PWM);
+            PwmControllerBlock.PwmAssessment assessment = pwm.assessment(level, blockPos, state);
+            pioneerProcessPrimary.set(assessment.command());
+            pioneerProcessSecondary.set(assessment.periodTicks());
+            pioneerProcessTertiary.set(assessment.onTicks());
+            pioneerProcessQuaternary.set(assessment.effectiveDutyPermille());
+            pioneerProcessQuinary.set(assessment.quantizationErrorPermille());
+            pioneerProcessSenary.set(assessment.phase());
+            pioneerProcessEvidenceQuality.set(PortQuality.VALID.ordinal());
+            return;
+        }
+
+        if (block instanceof AbstractLapisTransducerBlock transducer) {
+            if (block instanceof LapisTemperatureTransducerBlock) {
+                pioneerProcessKind.set(PIONEER_PROCESS_LAPIS_TEMPERATURE);
+            } else if (block instanceof LapisMagneticTransducerBlock) {
+                pioneerProcessKind.set(PIONEER_PROCESS_LAPIS_MAGNETIC);
+            } else if (block instanceof LapisOpticalTransducerBlock) {
+                pioneerProcessKind.set(PIONEER_PROCESS_LAPIS_OPTICAL);
+            } else if (block instanceof LapisVoltageTransducerBlock) {
+                pioneerProcessKind.set(PIONEER_PROCESS_LAPIS_VOLTAGE);
+            } else {
+                return;
+            }
+
+            EngineeringPortSnapshot input = snapshotByDirection(transducer, state, PortDirection.INPUT);
+            EngineeringPortSnapshot output = snapshotByDirection(transducer, state, PortDirection.OUTPUT);
+            int profile = state.getValue(AbstractLapisTransducerBlock.PROFILE);
+            pioneerProcessPrimary.set(input == null ? 0 : syncNumber(input.value() * 100.0));
+            pioneerProcessSecondary.set(output == null ? 0 : syncNumber(output.value() * 100.0));
+            pioneerProcessTertiary.set(SensorModel.samplePeriod(profile));
+            pioneerProcessQuaternary.set(SensorModel.resolutionStep(profile));
+            pioneerProcessQuinary.set(SensorModel.noiseAmplitude(profile));
+            pioneerProcessSenary.set(SensorModel.latencySamples(profile));
+            pioneerProcessEvidenceQuality.set(
+                    (output == null ? transducer.outputQuality(level, blockPos) : output.quality()).ordinal());
+        }
+    }
+
+    private EngineeringPortSnapshot snapshotByLabel(
+            EngineeringPortProvider provider, BlockState state, String label
+    ) {
+        for (var port : provider.engineeringPorts(state)) {
+            if (!label.equals(port.label())) continue;
+            return provider.engineeringSnapshot(level, blockPos, state, port.side()).orElse(null);
+        }
+        return null;
+    }
+
+    private EngineeringPortSnapshot snapshotByDirection(
+            EngineeringPortProvider provider, BlockState state, PortDirection direction
+    ) {
+        for (var port : provider.engineeringPorts(state)) {
+            if (port.direction() != direction) continue;
+            return provider.engineeringSnapshot(level, blockPos, state, port.side()).orElse(null);
+        }
+        return null;
+    }
+
     private static int routeKind(Block block) {
         if (block instanceof LapisPrecisionMeterBlock || block instanceof CopperCircuitMeterBlock) return ROUTE_MEASUREMENT_FACE;
         if (block instanceof MolecularCloudReceiverBlock) return ROUTE_FIXED_APERTURE_OUTPUT_FRONT;
@@ -409,6 +530,18 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
     public int configPrimary() { return configPrimary.get(); }
     public int configSecondary() { return configSecondary.get(); }
     public int pioneerMeasurementKind() { return pioneerMeasurementKind.get(); }
+    public int pioneerProcessKind() { return pioneerProcessKind.get(); }
+    public int pioneerProcessPrimary() { return pioneerProcessPrimary.get(); }
+    public int pioneerProcessSecondary() { return pioneerProcessSecondary.get(); }
+    public int pioneerProcessTertiary() { return pioneerProcessTertiary.get(); }
+    public int pioneerProcessQuaternary() { return pioneerProcessQuaternary.get(); }
+    public int pioneerProcessQuinary() { return pioneerProcessQuinary.get(); }
+    public int pioneerProcessSenary() { return pioneerProcessSenary.get(); }
+    public PortQuality pioneerProcessEvidenceQuality() {
+        int ordinal = pioneerProcessEvidenceQuality.get();
+        PortQuality[] all = PortQuality.values();
+        return ordinal < 0 || ordinal >= all.length ? PortQuality.NO_SIGNAL : all[ordinal];
+    }
     public int pioneerPrimary() { return pioneerPrimary.get(); }
     public int pioneerSecondary() { return pioneerSecondary.get(); }
     public int pioneerTertiary() { return pioneerTertiary.get(); }
