@@ -74,6 +74,19 @@ public class QuartzClockDividerBlock extends DirectionalDomainBlock implements E
         return division(index);
     }
 
+    /** Exact divisor selection using the visible engineering value, preserving phase invalidation. */
+    public static boolean setDivision(ServerLevel level, BlockPos pos, int divisor) {
+        int index = divisor == 2 ? 0 : divisor == 4 ? 1 : divisor == 8 ? 2 : divisor == 16 ? 3 : -1;
+        if (index < 0) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof QuartzClockDividerBlock divider)) return false;
+        level.setBlock(pos, state.setValue(DIV_INDEX, index), Block.UPDATE_CLIENTS);
+        DomainNetwork.driveQuartz(level, divider.outputPos(pos, state), pos, false, 1, false);
+        RuntimeIntStore.remove(level, KEY, pos);
+        level.scheduleTick(pos, divider, 1);
+        return true;
+    }
+
     @Override
     public List<EngineeringPort> engineeringPorts(BlockState state) {
         return List.of(
