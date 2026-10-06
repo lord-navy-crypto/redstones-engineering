@@ -963,6 +963,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private boolean directPrimaryNumericKind(int kind) {
         return switch (kind) {
             case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER,
+                 UniversalFieldDeviceMenu.CONFIG_ALARM,
                  UniversalFieldDeviceMenu.CONFIG_PWM,
                  UniversalFieldDeviceMenu.CONFIG_COPPER_VOLTAGE_SOURCE,
                  UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD,
@@ -993,6 +994,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     private int directPrimaryMaximum(int kind) {
         return switch (kind) {
             case UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER,
+                 UniversalFieldDeviceMenu.CONFIG_ALARM,
                  UniversalFieldDeviceMenu.CONFIG_PWM,
                  UniversalFieldDeviceMenu.CONFIG_THERMAL_HEATER -> 3;
             case UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR -> 4;
@@ -1145,6 +1147,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
 
     private String directPrimaryRangeLabel(int kind) {
         if (kind == UniversalFieldDeviceMenu.CONFIG_MOLECULAR_RECEIVER) return "{6, 9, 12, 16} gain";
+        if (kind == UniversalFieldDeviceMenu.CONFIG_ALARM) return "1..3 severity";
         if (kind == UniversalFieldDeviceMenu.CONFIG_LAPIS_NOISE) return "0.00..1.00 Lapis • step 0.05";
         if (kind == UniversalFieldDeviceMenu.CONFIG_PWM) return "{4, 8, 16, 32} ticks";
         if (kind == UniversalFieldDeviceMenu.CONFIG_QUARTZ_OSCILLATOR) return "{2, 4, 8, 16, 32} ticks";
