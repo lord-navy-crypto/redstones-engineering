@@ -25,6 +25,8 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
             BUTTON_ROTATE_LEFT = 4, BUTTON_ROTATE_RIGHT = 5,
             BUTTON_INPUT_LEFT = 6, BUTTON_INPUT_RIGHT = 7,
             BUTTON_OUTPUT_LEFT = 8, BUTTON_OUTPUT_RIGHT = 9;
+    public static final int BUTTON_PRIMARY_DIRECT_BASE = 9000, BUTTON_PRIMARY_DIRECT_MAX = 9015;
+    public static final int BUTTON_SECONDARY_DIRECT_BASE = 9100, BUTTON_SECONDARY_DIRECT_MAX = 9115;
 
     private final DataSlot kind = trackedInt(), primary = trackedInt(), secondary = trackedInt(), tertiary = trackedInt(), auxiliary = trackedInt();
     private final DataSlot quality = trackedInt(), facing = trackedInt(), inputFacing = trackedInt(), outputFacing = trackedInt();
@@ -112,6 +114,45 @@ public final class OpticalSystemMenu extends EngineeringDeviceMenu {
     @Override public boolean clickMenuButton(Player player, int id) {
         if (level.isClientSide) return true; if (!stillValid(player)) return false;
         BlockState state = level.getBlockState(blockPos); Block block = state.getBlock(); boolean changed;
+
+        if (id >= BUTTON_PRIMARY_DIRECT_BASE && id <= BUTTON_PRIMARY_DIRECT_MAX) {
+            int value = id - BUTTON_PRIMARY_DIRECT_BASE;
+            if (block instanceof OpticalEmitterBlock) {
+                level.setBlock(blockPos, state.setValue(OpticalEmitterBlock.INTENSITY, value), Block.UPDATE_CLIENTS);
+                if (level instanceof ServerLevel server) DomainNetwork.recomputeOptical(server, blockPos);
+                changed = true;
+            } else if (block instanceof OpticalChannelFilterBlock) {
+                BlockState next = state.setValue(OpticalChannelFilterBlock.TARGET, value);
+                level.setBlock(blockPos, next, Block.UPDATE_CLIENTS);
+                if (level instanceof ServerLevel server) OpticalChannelFilterBlock.configurationChanged(server, blockPos, next);
+                changed = true;
+            } else if (block instanceof OpticalAttenuatorBlock && value <= 8) {
+                BlockState next = state.setValue(OpticalAttenuatorBlock.LOSS, value);
+                level.setBlock(blockPos, next, Block.UPDATE_CLIENTS);
+                if (level instanceof ServerLevel server) OpticalAttenuatorBlock.configurationChanged(server, blockPos, next);
+                changed = true;
+            } else return false;
+            refreshAuthoritativeSnapshot(); broadcastChanges(); return changed;
+        }
+
+        if (id >= BUTTON_SECONDARY_DIRECT_BASE && id <= BUTTON_SECONDARY_DIRECT_MAX) {
+            int value = id - BUTTON_SECONDARY_DIRECT_BASE;
+            if (block instanceof OpticalEmitterBlock) {
+                level.setBlock(blockPos, state.setValue(OpticalEmitterBlock.CHANNEL, value), Block.UPDATE_CLIENTS);
+                if (level instanceof ServerLevel server) DomainNetwork.recomputeOptical(server, blockPos);
+                changed = true;
+            } else if (block instanceof FreeSpaceOpticalTransmitterBlock transmitter && value <= 3) {
+                level.setBlock(blockPos, state.setValue(FreeSpaceOpticalTransmitterBlock.CHANNEL, value), Block.UPDATE_CLIENTS);
+                level.scheduleTick(blockPos, transmitter, 1);
+                changed = true;
+            } else if (block instanceof FreeSpaceOpticalReceiverBlock receiver && value <= 3) {
+                level.setBlock(blockPos, state.setValue(FreeSpaceOpticalReceiverBlock.CHANNEL, value), Block.UPDATE_CLIENTS);
+                level.scheduleTick(blockPos, receiver, 1);
+                changed = true;
+            } else return false;
+            refreshAuthoritativeSnapshot(); broadcastChanges(); return changed;
+        }
+
         if (block instanceof OpticalEmitterBlock) {
             if (id == BUTTON_PRIMARY_PREVIOUS || id == BUTTON_PRIMARY_NEXT) {
                 int value = state.getValue(OpticalEmitterBlock.INTENSITY); value = id == BUTTON_PRIMARY_NEXT ? (value + 1) % 16 : Math.floorMod(value - 1, 16); state = state.setValue(OpticalEmitterBlock.INTENSITY, value);
