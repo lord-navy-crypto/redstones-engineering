@@ -614,7 +614,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         int pageLabelY = CONTENT_TOP - 18;
         if (routePage) {
             graphics.drawString(font, "ROUTE", 16, pageLabelY, TEXT, false);
-            graphics.drawString(font, fitForWidth("Direct physical RX / TX direction control", imageWidth - 124),
+            graphics.drawString(font, fitForWidth("Direct RX / TX direction control", imageWidth - 124),
                     104, pageLabelY, MUTED, false);
         } else {
             graphics.drawString(font, section.label.toUpperCase(), 16, pageLabelY, TEXT, false);
