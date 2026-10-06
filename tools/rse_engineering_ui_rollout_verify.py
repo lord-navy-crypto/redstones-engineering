@@ -30,13 +30,22 @@ for token in (
     "MIN_WORKSPACE_HEIGHT = 320",
     "MAX_WORKSPACE_HEIGHT = 520",
     "DEFAULT_CANVAS_WIDTH = 1020",
-    "DEFAULT_CANVAS_HEIGHT = 980",
+    "DEFAULT_CANVAS_HEIGHT = 1180",
     "FOOTER_HEIGHT = 66",
     "renderPersistentLiveStateStrip",
     "LIVE STATE • HEALTH ",
     "I/O • ",
     "menu.portRouteLabel()",
     "configureControlCount()",
+    "renderGlobalEngineeringContract",
+    "ENGINEERING CONTRACT • MODEL / VARIABLES / EVIDENCE",
+    "MODEL AUTHORITY",
+    "MODEL TYPE",
+    "FORMULA POLICY",
+    "VARIABLE ROLES",
+    "EVIDENCE CONTRACT",
+    "SERVER-AUTHORITATIVE • client is presentation / operator surface only",
+    "Closed-form equations appear in the device-specific model page only",
     "mouseScrolled",
     "hasShiftDown()",
     "enableScissor",
@@ -151,6 +160,8 @@ print(" visible draggable vertical/horizontal deep-canvas scrolling: PASS")
 print(" fixed controls separated from scrollable engineering content: PASS")
 print(" formula-linked controls surfaced in Universal / Enhanced / PID HMIs: PASS")
 print(" persistent Health / Role / Evidence / I-O / Controls state strip: PASS")
+print(" global Model / Variables / Evidence engineering contract: PASS")
+print(" closed-form-only formula policy / no fabricated equations: PASS")
 print(" shared formula / variable / evidence primitives: PASS")
 print(" conditioner / quartz / conversion / range-sensor rollout: PASS")
 print(" client/no-second-physics-solver boundary: PASS")
