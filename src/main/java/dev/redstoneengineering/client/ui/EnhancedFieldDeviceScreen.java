@@ -310,12 +310,18 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             formulaCard(g, discreteTransportEquation(), 105);
             variableRole(g, "ROLE", "device", deviceRole(), discreteTransportDomain(), 134);
             variableRole(g, "MEASURED", discretePrimarySymbol(), discretePrimaryValue(), "server packet/event evidence", 152);
-            variableRole(g, "MEASURED", discreteSecondarySymbol(), discreteSecondaryValue(), discreteSecondaryMeaning(), 170);
-            variableRole(g, "EVIDENCE", "quality", menu.qualityPercent() + "%", evidenceState(), 188);
+            if (discreteExciterAdjustable()) {
+                variableRole(g, "ADJUSTABLE", "f", discreteSecondaryValue(), "1..15 model frequency index", 170);
+                variableRole(g, "CONTROL", "direct entry", "1..15", "exact server-backed frequency", 188);
+            } else {
+                variableRole(g, "MEASURED", discreteSecondarySymbol(), discreteSecondaryValue(), discreteSecondaryMeaning(), 170);
+                variableRole(g, "FIXED", "transport law", discreteFixedModelValue(), "read-only implemented model", 188);
+            }
+            variableRole(g, "EVIDENCE", "quality", menu.qualityPercent() + "%", evidenceState(), 206);
             variableRole(g, "TOPOLOGY", "ports / links", menu.portCount() + " / " + menu.connectionCount(),
-                    menu.topologyValid() ? "PASS" : "FAIL-CLOSED", 206);
-            variableRole(g, "AUTHORITY", "model", "SERVER ONLY", "client presents synchronized evidence", 224);
-            wrappedText(g, discreteTransportExplanation(), 16, 250, workspaceWidth() - 24,
+                    menu.topologyValid() ? "PASS" : "FAIL-CLOSED", 224);
+            variableRole(g, "AUTHORITY", "model", "SERVER ONLY", "client presents synchronized evidence", 242);
+            wrappedText(g, discreteTransportExplanation(), 16, 268, workspaceWidth() - 24,
                     menu.topologyValid() ? MUTED : BAD);
             return;
         }
@@ -494,6 +500,26 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
                  FieldDeviceMenu.KIND_THERMAL_ENCODER,
                  FieldDeviceMenu.KIND_THERMAL_RECEIVER -> true;
             default -> false;
+        };
+    }
+
+    private boolean discreteExciterAdjustable() {
+        return menu.kind() == FieldDeviceMenu.KIND_MECHANICAL_EXCITER
+                || menu.kind() == FieldDeviceMenu.KIND_HYDRO_EXCITER;
+    }
+
+    private String discreteFixedModelValue() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_SLIME_VIBRATION -> "hop −1 A; retain −2 A / 4t";
+            case FieldDeviceMenu.KIND_HONEY_DAMPER -> "hop −4 A; retain −4 A / 4t";
+            case FieldDeviceMenu.KIND_MECHANICAL_RECEIVER -> "receiver clamp to Redstone 0..15";
+            case FieldDeviceMenu.KIND_SCULK_INTERFACE -> "event-code bridge";
+            case FieldDeviceMenu.KIND_HYDRO_TUBE -> "medium-dependent packet loss";
+            case FieldDeviceMenu.KIND_HYDRO_RECEIVER -> "receiver clamp to Redstone 0..15";
+            case FieldDeviceMenu.KIND_PHONON_CONDUIT -> "finite-bandwidth phonon packet";
+            case FieldDeviceMenu.KIND_THERMAL_ENCODER -> "event packet encoder";
+            case FieldDeviceMenu.KIND_THERMAL_RECEIVER -> "event packet → Redstone";
+            default -> "fixed transport semantics";
         };
     }
 
