@@ -317,3 +317,36 @@ Remaining 14 for Waves 16-17:
 
 Future waves should prioritize the remaining ledger in coherent seven-block families. The target is broad
 consistency with specialization, not identical screens, and the remaining count must move 14 → 7 → 0.
+
+Wave 16:
+- Lapis Noise Source
+- Quartz Lab Oscillator
+- Quartz Phase Delay
+- Quartz Triggered Lapis Sampler
+- Soul Flux Injector
+- Soul Flux Meter
+- Molecular Cloud Receiver
+
+Wave 16 advances the active-source / timing / sampled-observer family through the shared Universal Field Device workspace:
+- Lapis Noise Source exposes its real deterministic bounded source law, baseline μ, noise bound, current sample, 4-tick cadence and initialization evidence; zero remains a valid generated sample
+- Quartz Lab Oscillator separates nominal 2/4/8/16/32-tick period and bounded jitter configuration from the last realized server scheduling interval
+- Quartz Phase Delay exposes its 1..16-tick authoritative latency parameter, pending countdown, one-tick output pulse and edge-history readiness; reconnect-high never fabricates a new rising edge
+- Quartz Triggered Lapis Sampler preserves distinct BACK Lapis input / LEFT Quartz trigger / FRONT held-output roles and captures only on a real valid Quartz rising edge
+- Soul Flux Injector is explicitly Minecraft-fictional: a valid UP redstone command u injects packet=4u into loaded adjacent Soul nodes on its five non-UP faces; absent nodes are not virtual outputs
+- Soul Flux Meter keeps Soul node presence/quality separate from charge value and maps valid Q_s to floor(15·Q_s/100) redstone readout
+- Molecular Cloud Receiver exposes the implemented radius-8 aperture, gain profile {6,9,12,16}, raw/filtered/peak evidence and one-step-per-5-tick filter without claiming real atmospheric sensing physics
+- all configurable controls remain server-bound; opening the HMI never creates a clock edge, captures a Lapis sample, injects Soul Flux or advances molecular filter history
+- no new physical model is introduced in this wave; formula-first UI documents and synchronizes the already-implemented game-domain models
+
+Pioneer completion ledger after Wave 16: **108 + 7 = 115 / 122 registered blocks processed; 7 remain.**
+
+Remaining 7 for Wave 17:
+- Iron Core
+- Thermal Mass
+- Thermal Heater
+- Thermal Radiator
+- Thermal Calorimeter
+- Soul Soil Conduit
+- Soul Sand Reservoir
+
+The final wave should close this exact seven-block material / storage / thermal family and move the ledger 115 → 122 with zero remaining.
