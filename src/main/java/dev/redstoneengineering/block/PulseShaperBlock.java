@@ -89,6 +89,15 @@ public class PulseShaperBlock extends DirectionalSignalBlock {
         return true;
     }
 
+    public static boolean setWidth(Level level, BlockPos pos, int width) {
+        if (width < 1 || width > 8) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof PulseShaperBlock shaper)) return false;
+        level.setBlock(pos, state.setValue(WIDTH, width), Block.UPDATE_CLIENTS);
+        level.scheduleTick(pos, shaper, 1);
+        return true;
+    }
+
     @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             if (!player.isShiftKeyDown()) {
