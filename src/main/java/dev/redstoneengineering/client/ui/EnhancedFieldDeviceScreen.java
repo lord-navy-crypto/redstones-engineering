@@ -516,8 +516,8 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             case FieldDeviceMenu.KIND_SCULK_INTERFACE -> "event-code bridge";
             case FieldDeviceMenu.KIND_HYDRO_TUBE -> "medium-dependent packet loss";
             case FieldDeviceMenu.KIND_HYDRO_RECEIVER -> "receiver clamp to Redstone 0..15";
-            case FieldDeviceMenu.KIND_PHONON_CONDUIT -> "finite-bandwidth phonon packet";
-            case FieldDeviceMenu.KIND_THERMAL_ENCODER -> "event packet encoder";
+            case FieldDeviceMenu.KIND_PHONON_CONDUIT -> "TTL=8t; retain A−2, Q−10";
+            case FieldDeviceMenu.KIND_THERMAL_ENCODER -> "event packet; source clears after 1t";
             case FieldDeviceMenu.KIND_THERMAL_RECEIVER -> "event packet → Redstone";
             default -> "fixed transport semantics";
         };
