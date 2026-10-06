@@ -70,6 +70,11 @@ for token in (
     "LIVE SUBSTITUTION",
     "PROFILE RESPONSE TABLE",
     "Drag scrollbars • Wheel: vertical • Shift+wheel: horizontal",
+    "FOOTER_HEIGHT = 92",
+    "LIVE STATE • HEALTH ",
+    "I/O • ",
+    "menu.portRouteLabel()",
+    "CONTROLS ",
     "MODEL_WIDTH = 960",
     "renderScrollIndicators",
     'Component.literal("Restore default α")',
@@ -114,6 +119,7 @@ print(" live substitution + variable roles: PASS")
 print(" spacious two-axis deep canvas + draggable visible scrollbars: PASS")
 print(" formula/value columns use virtual width rather than viewport compression: PASS")
 print(" fixed alpha/route controls retain server authority without covering model text: PASS")
+print(" persistent live Health / Role / Evidence / I-O / Controls strip: PASS")
 print(" real alpha + route controls: PASS")
 print(" observer-neutral evidence boundary: PASS")
 print(" authoritative action GameTest source: PASS")
