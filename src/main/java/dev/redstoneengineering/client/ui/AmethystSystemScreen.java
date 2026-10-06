@@ -4,6 +4,7 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.menu.AmethystSystemMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
@@ -11,6 +12,8 @@ import net.minecraft.world.entity.player.Inventory;
 /** Dedicated HMI for amethyst source, exact filtering, tuned response, and spectrum observation. */
 public final class AmethystSystemScreen extends EngineeringScreen<AmethystSystemMenu> {
     private Button primaryPrevious, primaryNext, secondaryPrevious, secondaryNext, pulse;
+    private EditBox primaryInput, secondaryInput;
+    private Button primaryApply, secondaryApply;
 
     public AmethystSystemScreen(AmethystSystemMenu menu, Inventory inventory, Component title) { super(menu, inventory, title); }
 
@@ -21,6 +24,14 @@ public final class AmethystSystemScreen extends EngineeringScreen<AmethystSystem
         secondaryPrevious = addConfigureWidget(Button.builder(Component.literal("◀ Secondary"), b -> sendMenuButton(AmethystSystemMenu.BUTTON_SECONDARY_PREVIOUS)).bounds(leftPos+16,y+26,105,20).build());
         secondaryNext = addConfigureWidget(Button.builder(Component.literal("Secondary ▶"), b -> sendMenuButton(AmethystSystemMenu.BUTTON_SECONDARY_NEXT)).bounds(leftPos+199,y+26,105,20).build());
         pulse = addConfigureWidget(Button.builder(Component.literal("Pulse"), b -> sendMenuButton(AmethystSystemMenu.BUTTON_PULSE)).bounds(leftPos+70,y+52,180,20).build());
+        primaryInput = addConfigureWidget(new EditBox(this.font,leftPos+16,y,105,20,Component.literal("Exact primary value")));
+        primaryInput.setMaxLength(2);
+        primaryInput.setFilter(v->v.isEmpty()||v.chars().allMatch(Character::isDigit));
+        primaryApply = addConfigureWidget(Button.builder(Component.literal("Apply primary"),b->submitPrimary()).bounds(leftPos+199,y,105,20).build());
+        secondaryInput = addConfigureWidget(new EditBox(this.font,leftPos+16,y+26,105,20,Component.literal("Exact secondary value")));
+        secondaryInput.setMaxLength(2);
+        secondaryInput.setFilter(v->v.isEmpty()||v.chars().allMatch(Character::isDigit));
+        secondaryApply = addConfigureWidget(Button.builder(Component.literal("Apply secondary"),b->submitSecondary()).bounds(leftPos+199,y+26,105,20).build());
     }
 
     @Override protected void syncDeviceWidgetLabels() {
@@ -33,12 +44,28 @@ public final class AmethystSystemScreen extends EngineeringScreen<AmethystSystem
         boolean secondary = source || tuned;
         primaryPrevious.active = primary;
         primaryNext.active = primary;
-        primaryPrevious.visible = configure && primary;
-        primaryNext.visible = configure && primary;
+        primaryPrevious.visible = false;
+        primaryNext.visible = false;
         secondaryPrevious.active = secondary;
         secondaryNext.active = secondary;
-        secondaryPrevious.visible = configure && secondary;
-        secondaryNext.visible = configure && secondary;
+        secondaryPrevious.visible = false;
+        secondaryNext.visible = false;
+        primaryInput.visible=primaryInput.active=configure&&primary;
+        primaryApply.visible=configure&&primary;
+        primaryApply.active=configure&&primary&&primaryInputValid();
+        secondaryInput.visible=secondaryInput.active=configure&&secondary;
+        secondaryApply.visible=configure&&secondary;
+        secondaryApply.active=configure&&secondary&&secondaryInputValid();
+        if(configure&&primary&&!primaryInput.isFocused()){
+            String expected=Integer.toString(primaryVisibleValue());
+            if(!expected.equals(primaryInput.getValue()))primaryInput.setValue(expected);
+        }
+        if(configure&&secondary&&!secondaryInput.isFocused()){
+            String expected=Integer.toString(secondaryVisibleValue());
+            if(!expected.equals(secondaryInput.getValue()))secondaryInput.setValue(expected);
+        }
+        primaryApply.setMessage(Component.literal("Apply "+primarySymbol()));
+        secondaryApply.setMessage(Component.literal("Apply "+secondarySymbol()));
         pulse.active = source;
         pulse.visible = configure && source;
         if (source) {
@@ -51,6 +78,56 @@ public final class AmethystSystemScreen extends EngineeringScreen<AmethystSystem
             primaryPrevious.setMessage(Component.literal("◀ F0 " + menu.tertiary())); primaryNext.setMessage(Component.literal("F0 " + menu.tertiary() + " ▶"));
             secondaryPrevious.setMessage(Component.literal("◀ Q " + menu.auxiliary())); secondaryNext.setMessage(Component.literal("Q " + menu.auxiliary() + " ▶"));
         }
+    }
+
+    private int primaryVisibleValue(){
+        return switch(menu.kind()){
+            case AmethystSystemMenu.KIND_SOURCE -> menu.primary();
+            case AmethystSystemMenu.KIND_FILTER, AmethystSystemMenu.KIND_TUNED -> menu.tertiary();
+            default -> 0;
+        };
+    }
+
+    private int secondaryVisibleValue(){
+        return menu.kind()==AmethystSystemMenu.KIND_SOURCE?menu.secondary():menu.auxiliary();
+    }
+
+    private String primarySymbol(){
+        return switch(menu.kind()){
+            case AmethystSystemMenu.KIND_SOURCE -> "f_idx";
+            case AmethystSystemMenu.KIND_FILTER -> "f_target";
+            case AmethystSystemMenu.KIND_TUNED -> "f0";
+            default -> "value";
+        };
+    }
+
+    private String secondarySymbol(){
+        return menu.kind()==AmethystSystemMenu.KIND_SOURCE?"A":"Q_idx";
+    }
+
+    private boolean primaryInputValid(){
+        if(primaryInput==null||primaryInput.getValue().isEmpty())return false;
+        try{int v=Integer.parseInt(primaryInput.getValue());return v>=1&&v<=15;}catch(NumberFormatException ignored){return false;}
+    }
+
+    private boolean secondaryInputValid(){
+        if(secondaryInput==null||secondaryInput.getValue().isEmpty())return false;
+        try{
+            int v=Integer.parseInt(secondaryInput.getValue());
+            return menu.kind()==AmethystSystemMenu.KIND_SOURCE?v>=1&&v<=15:menu.kind()==AmethystSystemMenu.KIND_TUNED&&v>=1&&v<=4;
+        }catch(NumberFormatException ignored){return false;}
+    }
+
+    private void submitPrimary(){
+        if(!primaryInputValid())return;
+        sendMenuButton(AmethystSystemMenu.BUTTON_PRIMARY_DIRECT_BASE+Integer.parseInt(primaryInput.getValue()));
+        primaryInput.setFocused(false);
+    }
+
+    private void submitSecondary(){
+        if(!secondaryInputValid())return;
+        sendMenuButton(AmethystSystemMenu.BUTTON_SECONDARY_DIRECT_BASE+Integer.parseInt(secondaryInput.getValue()));
+        secondaryInput.setFocused(false);
     }
 
     @Override protected void renderSection(GuiGraphics g, Section section) {
@@ -86,20 +163,20 @@ public final class AmethystSystemScreen extends EngineeringScreen<AmethystSystem
         statusBadge(g,"PIONEER PATTERN • RESONANCE MODEL",INFO,16,80);
         formulaCard(g,resonanceEquation(),105);
         if(menu.kind()==AmethystSystemMenu.KIND_SOURCE){
-            variableRole(g,"ADJUSTABLE","f_idx",Integer.toString(menu.primary()),"discrete index",134);
-            variableRole(g,"ADJUSTABLE","A",Integer.toString(menu.secondary()),"0..15 amplitude",152);
+            variableRole(g,"ADJUSTABLE","f_idx",Integer.toString(menu.primary()),"1..15 discrete index • direct entry",134);
+            variableRole(g,"ADJUSTABLE","A",Integer.toString(menu.secondary()),"1..15 amplitude • direct entry",152);
             variableRole(g,"ACTION","pulse",menu.stateFlag()==1?"ACTIVE":"IDLE","",170);
             variableRole(g,"EVIDENCE","quality",qualityName(),"",188);
         }else if(menu.kind()==AmethystSystemMenu.KIND_FILTER){
             variableRole(g,"MEASURED","f_in",Integer.toString(menu.primary()),"discrete index",134);
             variableRole(g,"MEASURED","A_in",Integer.toString(menu.secondary()),"0..15",152);
-            variableRole(g,"ADJUSTABLE","f_target",Integer.toString(menu.tertiary()),"discrete index",170);
+            variableRole(g,"ADJUSTABLE","f_target",Integer.toString(menu.tertiary()),"1..15 discrete index • direct entry",170);
             variableRole(g,"DERIVED","A_out",Integer.toString(menu.auxiliary()),"0..15",188);
             variableRole(g,"EVIDENCE","decision",menu.stateFlag()==1?"PASS":"REJECT","",206);
         }else if(menu.kind()==AmethystSystemMenu.KIND_TUNED){
             variableRole(g,"MEASURED","f_in",Integer.toString(menu.primary()),"discrete index",134);
-            variableRole(g,"ADJUSTABLE","f0",Integer.toString(menu.tertiary()),"natural index",152);
-            variableRole(g,"ADJUSTABLE","Q_idx",Integer.toString(menu.auxiliary()),"1..4",170);
+            variableRole(g,"ADJUSTABLE","f0",Integer.toString(menu.tertiary()),"1..15 natural index • direct entry",152);
+            variableRole(g,"ADJUSTABLE","Q_idx",Integer.toString(menu.auxiliary()),"1..4 • direct entry",170);
             variableRole(g,"DERIVED","BW",Integer.toString(menu.extraA()),"± index",188);
             variableRole(g,"DERIVED","A_out",Integer.toString(menu.extraB()),"0..15",206);
         }else{
