@@ -10,12 +10,15 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.menu.UniversalFieldDeviceMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 
 /** Universal six-face engineering HMI backed only by synchronized server snapshots. */
 public final class UniversalFieldDeviceScreen extends EngineeringScreen<UniversalFieldDeviceMenu> {
+    private EditBox primaryDirectInput;
+    private Button primaryDirectApply;
     private Button primaryPrevious;
     private Button primaryNext;
     private Button secondaryPrevious;
@@ -53,6 +56,15 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         int startX = leftPos + (imageWidth - totalWidth) / 2;
         int primaryY = topPos + 104;
         int secondaryY = topPos + 144;
+
+        primaryDirectInput = addConfigureWidget(new EditBox(
+                this.font, startX, primaryY, pairWidth, 20, Component.literal("Formula parameter value")));
+        primaryDirectInput.setMaxLength(3);
+        primaryDirectInput.setFilter(value -> value.isEmpty() || value.chars().allMatch(Character::isDigit));
+        primaryDirectApply = addConfigureWidget(Button.builder(
+                Component.literal("Apply exact value"),
+                button -> submitDirectPrimaryValue()
+        ).bounds(startX + pairWidth + gap, primaryY, pairWidth, 20).build());
 
         primaryPrevious = addConfigureWidget(Button.builder(
                 Component.literal("◀ Previous"),
@@ -119,12 +131,28 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
 
         String primaryName = primaryControlName(kind);
         String primaryValue = primaryControlValue(kind);
+        boolean directPrimary = directPrimaryNumericKind(kind);
+
+        if (primaryDirectInput != null) {
+            primaryDirectInput.visible = configure && directPrimary;
+            primaryDirectInput.active = configure && directPrimary;
+            if (primaryDirectInput.visible && !primaryDirectInput.isFocused()) {
+                String expected = Integer.toString(menu.configPrimary());
+                if (!expected.equals(primaryDirectInput.getValue())) primaryDirectInput.setValue(expected);
+            }
+        }
+        if (primaryDirectApply != null) {
+            primaryDirectApply.visible = configure && directPrimary;
+            primaryDirectApply.active = configure && directPrimary && directPrimaryInputValid(kind);
+            primaryDirectApply.setMessage(Component.literal("Apply " + formulaParameterSymbol(kind)));
+        }
+
         if (primaryPrevious != null) {
-            primaryPrevious.visible = configure && primary;
+            primaryPrevious.visible = configure && primary && !directPrimary;
             primaryPrevious.setMessage(Component.literal("◀ " + primaryName + " • " + primaryValue));
         }
         if (primaryNext != null) {
-            primaryNext.visible = configure && primary;
+            primaryNext.visible = configure && primary && !directPrimary;
             primaryNext.setMessage(Component.literal(primaryName + " • " + primaryValue + " ▶"));
         }
         if (secondaryPrevious != null) {
@@ -910,6 +938,59 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         wrappedText(g, "Universal HMI rule: controls express server intent only; Route owns physical interfaces; diagnostics/history never invent process state that the underlying device does not retain.", 16, 338, workspaceWidth() - 24, MUTED);
     }
 
+    private boolean directPrimaryNumericKind(int kind) {
+        return switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_VOLTAGE_SOURCE,
+                 UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD,
+                 UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR,
+                 UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE,
+                 UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY,
+                 UniversalFieldDeviceMenu.CONFIG_THERMAL_MASS,
+                 UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR -> true;
+            default -> false;
+        };
+    }
+
+    private int directPrimaryMinimum(int kind) {
+        return kind == UniversalFieldDeviceMenu.CONFIG_COPPER_VOLTAGE_SOURCE ? 0 : 1;
+    }
+
+    private int directPrimaryMaximum(int kind) {
+        return switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_COPPER_VOLTAGE_SOURCE,
+                 UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD,
+                 UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR,
+                 UniversalFieldDeviceMenu.CONFIG_COPPER_FUSE -> 15;
+            case UniversalFieldDeviceMenu.CONFIG_QUARTZ_PHASE_DELAY -> 16;
+            case UniversalFieldDeviceMenu.CONFIG_THERMAL_MASS,
+                 UniversalFieldDeviceMenu.CONFIG_THERMAL_RADIATOR -> 4;
+            default -> -1;
+        };
+    }
+
+    private Integer directPrimaryParsedValue() {
+        if (primaryDirectInput == null) return null;
+        try {
+            return Integer.parseInt(primaryDirectInput.getValue());
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private boolean directPrimaryInputValid(int kind) {
+        Integer value = directPrimaryParsedValue();
+        return value != null && directPrimaryNumericKind(kind)
+                && value >= directPrimaryMinimum(kind) && value <= directPrimaryMaximum(kind);
+    }
+
+    private void submitDirectPrimaryValue() {
+        int kind = menu.configKind();
+        Integer value = directPrimaryParsedValue();
+        if (value == null || !directPrimaryInputValid(kind)) return;
+        sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_PRIMARY_DIRECT_BASE + value);
+        if (primaryDirectInput != null) primaryDirectInput.setFocused(false);
+    }
+
     private void renderFormulaParameterWorkbench(GuiGraphics g, int kind, int y) {
         String symbol = formulaParameterSymbol(kind);
         if (symbol.isBlank()) {
@@ -919,14 +1000,18 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
 
         statusLine(g, "FORMULA PARAMETER WORKBENCH",
                 symbol + " = " + primaryControlValue(kind) + " • SERVER-BACKED", INFO, y);
-        safeText(g, "Use the controls above to change this exact variable; the server recomputes/invalidate evidence according to the device contract.",
-                16, y + 22, TEXT);
-        safeText(g, formulaParameterImpact(kind), 16, y + 42, MUTED);
+        String editMode = directPrimaryNumericKind(kind)
+                ? "DIRECT ENTRY • " + directPrimaryMinimum(kind) + ".." + directPrimaryMaximum(kind)
+                : "DISCRETE / PROFILE • cycle valid states";
+        safeText(g, editMode, 16, y + 22, directPrimaryNumericKind(kind) ? GOOD : INFO);
+        safeText(g, "Changing this variable sends operator intent to the server; derived values and evidence remain server-computed.",
+                16, y + 42, TEXT);
+        safeText(g, formulaParameterImpact(kind), 16, y + 62, MUTED);
 
         String secondarySymbol = secondaryFormulaParameterSymbol(kind);
         if (!secondarySymbol.isBlank()) {
             statusLine(g, "SECOND PARAMETER",
-                    secondarySymbol + " = " + secondaryControlValue(kind) + " • SERVER-BACKED", INFO, y + 62);
+                    secondarySymbol + " = " + secondaryControlValue(kind) + " • SERVER-BACKED", INFO, y + 82);
         }
     }
 
