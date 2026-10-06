@@ -84,6 +84,10 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private Button routeOutputNext;
     private int scrollX;
     private int scrollY;
+    private boolean draggingHorizontalScroll;
+    private boolean draggingVerticalScroll;
+    private double horizontalDragOffset;
+    private double verticalDragOffset;
 
     protected EngineeringScreen(M menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -101,6 +105,10 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         super.init();
         scrollX = 0;
         scrollY = 0;
+        draggingHorizontalScroll = false;
+        draggingVerticalScroll = false;
+        horizontalDragOffset = 0.0;
+        verticalDragOffset = 0.0;
         configureWidgets.clear();
         sectionButtons.clear();
         routeTab = null;
@@ -435,6 +443,96 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     public final boolean showsPortVisualization() { return routePage || section == Section.PORTS; }
 
     @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0 && beginScrollbarDrag(mouseX, mouseY)) return true;
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (button == 0 && (draggingHorizontalScroll || draggingVerticalScroll)) {
+            dragScrollbarTo(mouseX, mouseY);
+            return true;
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        boolean handled = draggingHorizontalScroll || draggingVerticalScroll;
+        draggingHorizontalScroll = false;
+        draggingVerticalScroll = false;
+        if (handled && button == 0) return true;
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    private boolean beginScrollbarDrag(double mouseX, double mouseY) {
+        double localX = mouseX - leftPos;
+        double localY = mouseY - topPos;
+
+        int maxX = Math.max(0, activeVirtualWidth() - viewportWidth());
+        if (maxX > 0) {
+            int thumbX = horizontalThumbX();
+            int thumbWidth = horizontalThumbWidth();
+            int trackY = horizontalTrackY();
+            if (localX >= horizontalTrackX0() && localX <= horizontalTrackX1()
+                    && localY >= trackY - 4 && localY <= trackY + 7) {
+                if (localX < thumbX || localX > thumbX + thumbWidth) {
+                    horizontalDragOffset = thumbWidth / 2.0;
+                    draggingHorizontalScroll = true;
+                    dragScrollbarTo(mouseX, mouseY);
+                } else {
+                    horizontalDragOffset = localX - thumbX;
+                    draggingHorizontalScroll = true;
+                }
+                return true;
+            }
+        }
+
+        int maxY = Math.max(0, activeVirtualHeight() - viewportHeight());
+        if (maxY > 0) {
+            int thumbY = verticalThumbY();
+            int thumbHeight = verticalThumbHeight();
+            int trackX = verticalTrackX();
+            if (localX >= trackX - 5 && localX <= trackX + 8
+                    && localY >= verticalTrackY0() && localY <= verticalTrackY1()) {
+                if (localY < thumbY || localY > thumbY + thumbHeight) {
+                    verticalDragOffset = thumbHeight / 2.0;
+                    draggingVerticalScroll = true;
+                    dragScrollbarTo(mouseX, mouseY);
+                } else {
+                    verticalDragOffset = localY - thumbY;
+                    draggingVerticalScroll = true;
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void dragScrollbarTo(double mouseX, double mouseY) {
+        if (draggingHorizontalScroll) {
+            int maxX = Math.max(0, activeVirtualWidth() - viewportWidth());
+            int thumbWidth = horizontalThumbWidth();
+            int travel = Math.max(1, horizontalTrackX1() - horizontalTrackX0() - thumbWidth);
+            double localX = mouseX - leftPos;
+            double thumbX = Math.max(horizontalTrackX0(),
+                    Math.min(horizontalTrackX1() - thumbWidth, localX - horizontalDragOffset));
+            scrollX = (int) Math.round(((thumbX - horizontalTrackX0()) / travel) * maxX);
+        }
+        if (draggingVerticalScroll) {
+            int maxY = Math.max(0, activeVirtualHeight() - viewportHeight());
+            int thumbHeight = verticalThumbHeight();
+            int travel = Math.max(1, verticalTrackY1() - verticalTrackY0() - thumbHeight);
+            double localY = mouseY - topPos;
+            double thumbY = Math.max(verticalTrackY0(),
+                    Math.min(verticalTrackY1() - thumbHeight, localY - verticalDragOffset));
+            scrollY = (int) Math.round(((thumbY - verticalTrackY0()) / travel) * maxY);
+        }
+        clampScroll();
+    }
+
+    @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollXDelta, double scrollYDelta) {
         int x0 = leftPos + 12;
         int y0 = topPos + CONTENT_TOP;
@@ -522,9 +620,34 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         graphics.drawString(font, position, imageWidth - 16 - font.width(position), imageHeight - 28, MUTED, false);
         String scroll = "X " + scrollX + "/" + Math.max(0, activeVirtualWidth() - viewportWidth())
                 + "  •  Y " + scrollY + "/" + Math.max(0, activeVirtualHeight() - viewportHeight())
-                + "  •  wheel=Y  shift+wheel=X";
+                + "  •  drag bars  •  wheel=Y  shift+wheel=X";
         String compactScroll = fitForWidth(scroll, imageWidth - 32);
         graphics.drawString(font, compactScroll, (imageWidth - font.width(compactScroll)) / 2, imageHeight - 15, MUTED, false);
+    }
+
+    private int horizontalTrackX0() { return 24; }
+    private int horizontalTrackX1() { return imageWidth - 24; }
+    private int horizontalTrackY() { return footerTop() - 8; }
+    private int horizontalThumbWidth() {
+        int trackWidth = Math.max(1, horizontalTrackX1() - horizontalTrackX0());
+        return Math.max(28, (int) Math.round(trackWidth * (viewportWidth() / (double) activeVirtualWidth())));
+    }
+    private int horizontalThumbX() {
+        int maxX = Math.max(0, activeVirtualWidth() - viewportWidth());
+        int travel = Math.max(0, horizontalTrackX1() - horizontalTrackX0() - horizontalThumbWidth());
+        return horizontalTrackX0() + (maxX == 0 ? 0 : (int) Math.round(travel * (scrollX / (double) maxX)));
+    }
+    private int verticalTrackX() { return imageWidth - 11; }
+    private int verticalTrackY0() { return CONTENT_TOP; }
+    private int verticalTrackY1() { return footerTop() - 12; }
+    private int verticalThumbHeight() {
+        int trackHeight = Math.max(1, verticalTrackY1() - verticalTrackY0());
+        return Math.max(24, (int) Math.round(trackHeight * (viewportHeight() / (double) activeVirtualHeight())));
+    }
+    private int verticalThumbY() {
+        int maxY = Math.max(0, activeVirtualHeight() - viewportHeight());
+        int travel = Math.max(0, verticalTrackY1() - verticalTrackY0() - verticalThumbHeight());
+        return verticalTrackY0() + (maxY == 0 ? 0 : (int) Math.round(travel * (scrollY / (double) maxY)));
     }
 
     private void renderScrollIndicators(GuiGraphics graphics) {
@@ -532,27 +655,19 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         int maxY = Math.max(0, activeVirtualHeight() - viewportHeight());
 
         if (maxX > 0) {
-            int trackX0 = 24;
-            int trackX1 = imageWidth - 24;
-            int trackY = footerTop() - 8;
-            int trackWidth = Math.max(1, trackX1 - trackX0);
-            int thumbWidth = Math.max(28, (int) Math.round(trackWidth * (viewportWidth() / (double) activeVirtualWidth())));
-            int travel = Math.max(0, trackWidth - thumbWidth);
-            int thumbX = trackX0 + (maxX == 0 ? 0 : (int) Math.round(travel * (scrollX / (double) maxX)));
-            graphics.fill(trackX0, trackY, trackX1, trackY + 3, PANEL_3);
-            graphics.fill(thumbX, trackY, Math.min(trackX1, thumbX + thumbWidth), trackY + 3, INFO);
+            int thumbX = horizontalThumbX();
+            int thumbWidth = horizontalThumbWidth();
+            graphics.fill(horizontalTrackX0(), horizontalTrackY(), horizontalTrackX1(), horizontalTrackY() + 3, PANEL_3);
+            graphics.fill(thumbX, horizontalTrackY(), Math.min(horizontalTrackX1(), thumbX + thumbWidth),
+                    horizontalTrackY() + 3, draggingHorizontalScroll ? GOOD : INFO);
         }
 
         if (maxY > 0) {
-            int trackX = imageWidth - 11;
-            int trackY0 = CONTENT_TOP;
-            int trackY1 = footerTop() - 12;
-            int trackHeight = Math.max(1, trackY1 - trackY0);
-            int thumbHeight = Math.max(24, (int) Math.round(trackHeight * (viewportHeight() / (double) activeVirtualHeight())));
-            int travel = Math.max(0, trackHeight - thumbHeight);
-            int thumbY = trackY0 + (maxY == 0 ? 0 : (int) Math.round(travel * (scrollY / (double) maxY)));
-            graphics.fill(trackX, trackY0, trackX + 3, trackY1, PANEL_3);
-            graphics.fill(trackX, thumbY, trackX + 3, Math.min(trackY1, thumbY + thumbHeight), INFO);
+            int thumbY = verticalThumbY();
+            int thumbHeight = verticalThumbHeight();
+            graphics.fill(verticalTrackX(), verticalTrackY0(), verticalTrackX() + 3, verticalTrackY1(), PANEL_3);
+            graphics.fill(verticalTrackX(), thumbY, verticalTrackX() + 3,
+                    Math.min(verticalTrackY1(), thumbY + thumbHeight), draggingVerticalScroll ? GOOD : INFO);
         }
     }
 
