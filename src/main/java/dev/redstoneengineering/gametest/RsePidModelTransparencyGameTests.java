@@ -43,11 +43,17 @@ public final class RsePidModelTransparencyGameTests {
             return;
         }
 
-        int[] rt = RuntimeIntStore.get(helper.getLevel(), "pid", world, 22);
+        int[] rt = RuntimeIntStore.get(helper.getLevel(), "pid", world, 27);
         rt[21] = 1;
         rt[0] = 36;
         rt[2] = 2;
+        rt[3] = 15;
         rt[20] = 8;
+        rt[22] = 8;
+        rt[23] = 2;
+        rt[24] = 2;
+        rt[25] = 20;
+        rt[26] = 2;
         PidControllerBlock.RuntimeTerms terms = PidControllerBlock.runtimeTerms(helper.getLevel(), world, 2, 4);
         if (!terms.available() || terms.pTerm() != 8 || terms.iTerm() != 2 || terms.dTerm() != 2
                 || terms.unsaturatedOutput() != 20 || terms.output() != 15

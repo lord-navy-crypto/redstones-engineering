@@ -103,19 +103,16 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
         if (rt == null || rt.length < RUNTIME_SIZE || rt[21] == 0) {
             return new RuntimeTerms(false, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, false);
         }
-        TuningModel model = tuningModel(tuning);
-        int controlError = Math.abs(currentError) <= DEADBAND ? 0 : currentError;
-        int p = model.kp() * controlError;
-        int i = model.kiDiv() == 0 ? 0 : rt[0] / model.kiDiv();
-        int d = model.kd() * rt[2];
-        int unsat = rt[20] + p + i + d;
-        int out = clamp(unsat, MIN_OUT, MAX_OUT);
-        boolean saturated = unsat != out;
-        boolean holding = (unsat > MAX_OUT && controlError > 0) || (unsat < MIN_OUT && controlError < 0);
-        return new RuntimeTerms(true, rt[0], rt[1], rt[2], rt[20], p, i, d, unsat, out, saturated, holding);
+        if (rt[26] == 0) {
+            return new RuntimeTerms(false, rt[0], rt[1], rt[2], rt[20], 0, 0, 0, 0, rt[3], false, false);
+        }
+        int unsat = rt[25];
+        int out = rt[3];
+        return new RuntimeTerms(true, rt[0], rt[1], rt[2], rt[20],
+                rt[22], rt[23], rt[24], unsat, out, unsat != out, rt[26] == 2);
     }
 
-    private static final int RUNTIME_SIZE = 22;
+    private static final int RUNTIME_SIZE = 27;
 
     public PidControllerBlock(Properties p) {
         super(p);
@@ -236,12 +233,14 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
 
         // Unknown safety/mode coverage fails safe and must not mutate controller history as a fake zero sample.
         if (inhibitObservation.quality() == PortQuality.STALE || modeObservation.quality() == PortQuality.STALE) {
+            rt[26] = 0;
             rt[3] = 0;
             return 0;
         }
 
         rt[4] = inhibit > 0 ? 1 : 0;
         if (rt[4] != 0) {
+            rt[26] = 0;
             rt[3] = 0;
             if (usable(processObservation)) rt[6] = process;
             return usable(setpointObservation) && usable(processObservation)
@@ -250,10 +249,12 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
 
         // Required signal evidence is mode-dependent. Do not commit mode transfer against fabricated zeroes.
         if (requestedMode == MANUAL_MODE && !usable(manualObservation)) {
+            rt[26] = 0;
             rt[3] = 0;
             return 0;
         }
         if (requestedMode == AUTO_MODE && (!usable(setpointObservation) || !usable(processObservation))) {
+            rt[26] = 0;
             rt[3] = 0;
             return 0;
         }
@@ -276,6 +277,7 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
         rt[18] = manualOutput;
 
         if (requestedMode == MANUAL_MODE) {
+            rt[26] = 0;
             rt[1] = controlError;
             rt[2] = 0;
             rt[3] = manualOutput;
@@ -306,6 +308,13 @@ public class PidControllerBlock extends PassiveDirectionalSignalBlock {
             rt[5]++;
         }
 
+        // Retain the exact terms used by this solve so the HMI never has to re-solve or
+        // infer anti-windup state from post-step integral history.
+        rt[22] = pTerm;
+        rt[23] = iTerm;
+        rt[24] = dTerm;
+        rt[25] = unsat;
+        rt[26] = (saturatedHigh || saturatedLow) ? 2 : 1;
         rt[3] = out;
         rt[6] = process;
         updateStepDiagnostics(level, rt, setpoint, process, rawError);
