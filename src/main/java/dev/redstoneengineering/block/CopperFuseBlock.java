@@ -14,6 +14,7 @@ import dev.redstoneengineering.physics.RuntimeIntStore;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -24,6 +25,7 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 
 import java.util.Locale;
 
@@ -38,7 +40,9 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
     // quality evidence is intentionally stored under a separate runtime key.
     private static final int RUNTIME_SIZE = 3;
     private static final int INPUT_QUALITY = 0;
-    private static final int QUALITY_RUNTIME_SIZE = 1;
+    private static final int LOAD_RESISTANCE_MILLI = 1;
+    private static final int CURRENT_MILLI = 2;
+    private static final int QUALITY_RUNTIME_SIZE = 3;
     public static final IntegerProperty RATING = IntegerProperty.create("rating", 1, 15);
     public static final BooleanProperty TRIPPED = BooleanProperty.create("tripped");
 
@@ -82,6 +86,8 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
         // closed, preserve an already-latched trip, and wait for a complete scan to re-evaluate.
         if (loadTruncated) {
             qualityRuntime[INPUT_QUALITY] = PortQuality.STALE.ordinal();
+            qualityRuntime[LOAD_RESISTANCE_MILLI] = 0;
+            qualityRuntime[CURRENT_MILLI] = 0;
             runtime[OUTPUT_VOLTAGE] = 0;
             DomainNetwork.driveCopper(level, outputPos(pos, state), pos, 0);
             level.scheduleTick(pos, this, 2);
@@ -89,6 +95,8 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
         }
 
         double current = CircuitPhysics.current(inputVoltage, loadResistance);
+        qualityRuntime[LOAD_RESISTANCE_MILLI] = (int) Math.round(loadResistance * 1000.0);
+        qualityRuntime[CURRENT_MILLI] = (int) Math.round(current * 1000.0);
         boolean tripped = state.getValue(TRIPPED) || current > state.getValue(RATING);
         int tripState = tripped ? 1 : 0;
 
@@ -156,6 +164,36 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
         return runtime != null && runtime[PROTECTION_STATE_INITIALIZED] == 1;
     }
 
+    public static int loadResistanceMilli(Level level, BlockPos pos) {
+        int[] quality = qualitySnapshot(level, pos);
+        return quality == null ? 0 : Math.max(0, quality[LOAD_RESISTANCE_MILLI]);
+    }
+
+    public static int currentMilli(Level level, BlockPos pos) {
+        int[] quality = qualitySnapshot(level, pos);
+        return quality == null ? 0 : Math.max(0, quality[CURRENT_MILLI]);
+    }
+
+    public boolean adjustRating(Level level, BlockPos pos, int delta) {
+        if (!(level instanceof ServerLevel serverLevel)) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!state.is(this)) return false;
+        int rating = state.getValue(RATING);
+        int nextRating = Math.floorMod((rating - 1) + delta, 15) + 1;
+        BlockState next = state.setValue(RATING, nextRating);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        invalidateProtectionOutput(serverLevel, pos, next);
+        return true;
+    }
+
+    public boolean resetTrip(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (!state.is(this)) return false;
+        level.setBlock(pos, state.setValue(TRIPPED, false), Block.UPDATE_CLIENTS);
+        level.scheduleTick(pos, this, 1);
+        return true;
+    }
+
     @Override protected int observedOutputVoltage(Level level, BlockPos pos, BlockState state) { return outputVoltage(level, pos); }
     @Override protected PortQuality observedOutputQuality(Level level, BlockPos pos, BlockState state) { return outputQuality(level, pos, state); }
 
@@ -182,41 +220,25 @@ public class CopperFuseBlock extends DirectionalCopperProcessorBlock {
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
         if (!level.isClientSide) {
-            BlockState next = state;
-            boolean ratingChanged = !player.isShiftKeyDown();
-            if (player.isShiftKeyDown()) {
-                next = state.setValue(TRIPPED, false);
-            } else {
-                int rating = state.getValue(RATING);
-                next = state.setValue(RATING, rating >= 15 ? 1 : rating + 1);
+            if (player.isShiftKeyDown() && hit.getDirection().getAxis().isVertical()
+                    && player instanceof ServerPlayer serverPlayer) {
+                FieldDeviceUi.openUniversal(serverPlayer, pos);
+                return InteractionResult.sidedSuccess(false);
             }
-            level.setBlock(pos, next, Block.UPDATE_CLIENTS);
-            if (ratingChanged && level instanceof ServerLevel serverLevel) {
-                // A rating change starts a new protection-evidence epoch. The old safe output was
-                // proven against a different threshold, so it must not remain authoritative until
-                // the server performs a complete load scan under the new rating.
-                invalidateProtectionOutput(serverLevel, pos, next);
-            } else {
-                level.scheduleTick(pos, this, 1);
-            }
-
-            CopperObservationSupport.Observation input = CopperObservationSupport.observe(level, inputPos(pos, next), pos);
-            int inputVoltage = input.quality() == PortQuality.VALID ? input.voltage() : 0;
-            double loadResistance = CircuitPhysics.equivalentLoadResistance(level, outputPos(pos, next), 128);
-            boolean loadTruncated = NetworkKernel.stats(level, "copper_load").lastTruncated();
-            double current = loadTruncated ? 0.0 : CircuitPhysics.current(inputVoltage, loadResistance);
+            if (player.isShiftKeyDown()) resetTrip(level, pos);
+            else adjustRating(level, pos, 1);
+            BlockState next = level.getBlockState(pos);
+            PortQuality quality = outputQuality(level, pos, next);
             player.displayClientMessage(Component.literal(String.format(Locale.ROOT,
-                    "Copper fuse | BACK input -> FRONT protected output | rating=%d | V=%d | Req=%s | I≈%s | %s | inputQuality=%s | outputQuality=%s%s",
+                    "Copper fuse | rating=%d | retained Req=%.3f | retained I≈%.3f | %s | outputQuality=%s%s",
                     next.getValue(RATING),
-                    inputVoltage,
-                    loadTruncated ? "STALE" : String.format(Locale.ROOT, "%.3f", loadResistance),
-                    loadTruncated ? "STALE" : String.format(Locale.ROOT, "%.3f", current),
+                    loadResistanceMilli(level, pos) / 1000.0,
+                    currentMilli(level, pos) / 1000.0,
                     next.getValue(TRIPPED) ? "TRIPPED" : "armed",
-                    input.quality(),
-                    outputQuality(level, pos, next),
+                    quality,
                     player.isShiftKeyDown()
-                            ? " | reset requested; protection re-evaluates next tick; READY only after a safe server re-evaluation"
-                            : ""
+                            ? " | reset requested; protection re-evaluates next tick"
+                            : " | sneak+top/bottom = Pioneer HMI"
             )), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
