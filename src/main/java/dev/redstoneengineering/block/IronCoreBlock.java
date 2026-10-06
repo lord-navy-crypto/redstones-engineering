@@ -30,7 +30,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-/** Soft iron core with intentionally persistent remanence until manually demagnetized. */
+/**
+ * Soft iron core with intentionally persistent remanence until manually demagnetized.
+ * It remains a free-space magnetic material in the RSE magnetic-domain contract.
+ */
 public class IronCoreBlock extends DomainBlock implements EngineeringPortProvider {
     public static final BooleanProperty MAGNETIZED = BooleanProperty.create("magnetized");
     private static final int MAGNETIZE_THRESHOLD = 8;
