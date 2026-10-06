@@ -132,17 +132,17 @@ public final class QuartzTimingScreen extends EngineeringScreen<QuartzTimingMenu
         if (menu.kind() == QuartzTimingMenu.KIND_OSCILLATOR) {
             variableRole(g, "ADJUSTABLE", "T", menu.secondary() + "", "ticks", 134);
             variableRole(g, "CONTROL", "direct entry", "T={2,4,8,16,32}", "ticks", 152);
-            variableRole(g, "DERIVED", "f_nom", String.format(java.util.Locale.ROOT, "%.3f", 20.0 / Math.max(1, menu.secondary())), "Hz @20TPS", 152);
-            variableRole(g, "SOLVER", "state", menu.primary() == 1 ? "HIGH" : "LOW", "", 170);
-            variableRole(g, "TOPOLOGY", "OUT", "N/E/S/W", "Quartz source", 188);
+            variableRole(g, "DERIVED", "f_nom", String.format(java.util.Locale.ROOT, "%.3f", 20.0 / Math.max(1, menu.secondary())), "Hz @20TPS", 170);
+            variableRole(g, "SOLVER", "state", menu.primary() == 1 ? "HIGH" : "LOW", "", 188);
+            variableRole(g, "TOPOLOGY", "OUT", "N/E/S/W", "Quartz source", 206);
         } else if (menu.kind() == QuartzTimingMenu.KIND_DIVIDER) {
             variableRole(g, "MEASURED", "T_in", menu.primary() + "", "ticks", 134);
             variableRole(g, "ADJUSTABLE", "N", Integer.toString(menu.tertiary()), "division", 152);
             variableRole(g, "CONTROL", "direct entry", "N={2,4,8,16}", "exact divisor", 170);
-            variableRole(g, "DERIVED", "T_out", menu.secondary() + "", "ticks", 170);
-            variableRole(g, "EVIDENCE", "expected", expectedDividerPeriod() + "", "ticks", 188);
-            variableRole(g, "EVIDENCE", "period limit", dividerSaturated() ? "SATURATED @4096" : "IN RANGE", "server clamp", 206);
-            wrappedText(g, "Route owns the physical RX/TX axis; changing N re-arms divider phase evidence. Output period is bounded by the server timing domain.", 16, 232, workspaceWidth() - 24, MUTED);
+            variableRole(g, "DERIVED", "T_out", menu.secondary() + "", "ticks", 188);
+            variableRole(g, "EVIDENCE", "expected", expectedDividerPeriod() + "", "ticks", 206);
+            variableRole(g, "EVIDENCE", "period limit", dividerSaturated() ? "SATURATED @4096" : "IN RANGE", "server clamp", 224);
+            wrappedText(g, "Route owns the physical RX/TX axis; changing N re-arms divider phase evidence. Output period is bounded by the server timing domain.", 16, 250, workspaceWidth() - 24, MUTED);
         } else {
             variableRole(g, "MEASURED", "T_meas", menu.primary() + "", "ticks", 134);
             variableRole(g, "MEASURED", "T_upstream", menu.tertiary() + "", "ticks", 152);
