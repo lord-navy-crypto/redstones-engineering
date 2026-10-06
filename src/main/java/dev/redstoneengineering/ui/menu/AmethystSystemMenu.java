@@ -33,6 +33,10 @@ public final class AmethystSystemMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_INPUT_RIGHT = 8;
     public static final int BUTTON_OUTPUT_LEFT = 9;
     public static final int BUTTON_OUTPUT_RIGHT = 10;
+    public static final int BUTTON_PRIMARY_DIRECT_BASE = 15000;
+    public static final int BUTTON_PRIMARY_DIRECT_MAX = 15015;
+    public static final int BUTTON_SECONDARY_DIRECT_BASE = 15100;
+    public static final int BUTTON_SECONDARY_DIRECT_MAX = 15115;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot primary = trackedInt();
@@ -103,7 +107,36 @@ public final class AmethystSystemMenu extends EngineeringDeviceMenu {
         Block block = state.getBlock();
         boolean changed = false;
 
-        if (block instanceof AmethystResonatorBlock resonator) {
+        if (id >= BUTTON_PRIMARY_DIRECT_BASE && id <= BUTTON_PRIMARY_DIRECT_MAX) {
+            int value = id - BUTTON_PRIMARY_DIRECT_BASE;
+            if (value < 1 || value > 15) return false;
+            if (block instanceof AmethystResonatorBlock) {
+                level.setBlock(blockPos, state.setValue(AmethystResonatorBlock.FREQUENCY, value), Block.UPDATE_CLIENTS);
+                if (level instanceof ServerLevel server) DomainNetwork.recomputeAmethyst(server, blockPos);
+                changed = true;
+            } else if (block instanceof AmethystFrequencyFilterBlock filter) {
+                level.setBlock(blockPos, state.setValue(AmethystFrequencyFilterBlock.TARGET, value), Block.UPDATE_CLIENTS);
+                level.scheduleTick(blockPos, filter, 1);
+                changed = true;
+            } else if (block instanceof AmethystTunedResonatorBlock tuned) {
+                level.setBlock(blockPos, state.setValue(AmethystTunedResonatorBlock.NATURAL, value), Block.UPDATE_CLIENTS);
+                level.scheduleTick(blockPos, tuned, 1);
+                changed = true;
+            } else return false;
+        } else if (id >= BUTTON_SECONDARY_DIRECT_BASE && id <= BUTTON_SECONDARY_DIRECT_MAX) {
+            int value = id - BUTTON_SECONDARY_DIRECT_BASE;
+            if (block instanceof AmethystResonatorBlock) {
+                if (value < 1 || value > 15) return false;
+                level.setBlock(blockPos, state.setValue(AmethystResonatorBlock.AMPLITUDE, value), Block.UPDATE_CLIENTS);
+                if (level instanceof ServerLevel server) DomainNetwork.recomputeAmethyst(server, blockPos);
+                changed = true;
+            } else if (block instanceof AmethystTunedResonatorBlock tuned) {
+                if (value < 1 || value > 4) return false;
+                level.setBlock(blockPos, state.setValue(AmethystTunedResonatorBlock.Q_INDEX, value), Block.UPDATE_CLIENTS);
+                level.scheduleTick(blockPos, tuned, 1);
+                changed = true;
+            } else return false;
+        } else if (block instanceof AmethystResonatorBlock resonator) {
             if (id == BUTTON_PRIMARY_PREVIOUS || id == BUTTON_PRIMARY_NEXT) {
                 int f = state.getValue(AmethystResonatorBlock.FREQUENCY);
                 f = id == BUTTON_PRIMARY_NEXT ? (f >= 15 ? 1 : f + 1) : (f <= 1 ? 15 : f - 1);
