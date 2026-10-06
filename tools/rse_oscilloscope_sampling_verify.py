@@ -115,6 +115,35 @@ for token in (
     if token not in screen:
         errors.append(f"oscilloscope screen missing direct timebase token {token!r}")
 
+for token in (
+    "setTriggerLevel(int level)",
+    "setCursorA(int slot)",
+    "setCursorB(int slot)",
+):
+    if token not in be:
+        errors.append(f"oscilloscope block entity missing exact trigger/cursor token {token!r}")
+
+for token in (
+    "BUTTON_TRIGGER_LEVEL_DIRECT_BASE = 3100",
+    "BUTTON_CURSOR_A_DIRECT_BASE = 3200",
+    "BUTTON_CURSOR_B_DIRECT_BASE = 3300",
+    "scope.setTriggerLevel",
+    "scope.setCursorA",
+    "scope.setCursorB",
+):
+    if token not in menu:
+        errors.append(f"oscilloscope menu missing direct trigger/cursor token {token!r}")
+
+for token in (
+    "submitTriggerLevel",
+    "submitCursorA",
+    "submitCursorB",
+    "[DIRECT ENTRY] trigger",
+    "[DIRECT ENTRY] cursors",
+):
+    if token not in screen:
+        errors.append(f"oscilloscope screen missing direct trigger/cursor token {token!r}")
+
 for forbidden in (
     "dev.redstoneengineering.physics",
     "RuntimeIntStore",
@@ -143,6 +172,7 @@ if errors:
 print("RSE OSCILLOSCOPE SAMPLING VERIFY: PASS")
 print(" server-owned 1/2/4/8 tick timebase: PASS")
 print(" exact Δt engineering-value entry with authoritative capture invalidation: PASS")
+print(" exact trigger level and cursor engineering-value entry: PASS")
 print(" fs and Nyquist derivation: PASS")
 print(" timebase change invalidates mixed-dt capture: PASS")
 print(" observed period/frequency evidence: PASS")
