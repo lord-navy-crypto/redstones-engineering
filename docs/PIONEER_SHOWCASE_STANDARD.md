@@ -255,5 +255,33 @@ Remaining 28 for Waves 14-17:
 - Quartz Triggered Lapis Sampler
 - Soul Soil Conduit, Soul Sand Reservoir, Soul Flux Injector, Soul Flux Meter, Molecular Cloud Receiver
 
+Wave 14:
+- Calibration Module
+- Sample & Hold
+- PWM Controller
+- Lapis Temperature Transducer
+- Lapis Magnetic Transducer
+- Lapis Optical Transducer
+- Lapis Voltage Transducer
+
+Wave 14 advances a coherent signal-conditioning / sampled-data / transduction chain through the shared Universal Field Device workspace:
+- Calibration Module exposes OBSERVED and REFERENCE as separate measured inputs, the profile-owned transfer, calibrated output, signed residual bias and measurement sample count
+- Sample & Hold exposes its actual edge-triggered hold law, held output, trigger/reset levels, capture count and sample age without fabricating retained waveform history
+- PWM Controller exposes the implemented discrete duty law N_on=round((u/15)·T), realized duty-cycle quantization error, server phase, period and the independent physical INHIBIT path
+- all four Lapis transducers preserve their distinct physical input domains while sharing the real SensorModel profile quantities: sample period, resolution step, deterministic noise amplitude and sample latency
+- Temperature, magnetic, optical and copper-voltage normalization formulas remain device-specific; the client only renders synchronized server snapshots and never becomes a second sensor/physics solver
+- profile changes remain real server actions and invalidate/reacquire transducer output through the existing runtime path; numeric zero remains independent from PortQuality
+- no baseline/candidate experiment is invented because these seven devices expose live transformation/conditioning state rather than a retained commissioning-trial backend
+
+Pioneer completion ledger after Wave 14: **94 + 7 = 101 / 122 registered blocks processed; 21 remain.**
+
+Remaining 21 for Waves 15-17:
+- Copper Wire, Copper Voltage Source, Copper Resistive Load, Iron Core, Thermal Mass
+- Lapis Noise Source, Quartz Lab Oscillator, Quartz Phase Delay
+- Copper Series Resistor, Copper Capacitor, Copper Fuse
+- Thermal Heater, Thermal Radiator, Thermal Calorimeter
+- Copper Cable Junction, Quartz Triggered Lapis Sampler
+- Soul Soil Conduit, Soul Sand Reservoir, Soul Flux Injector, Soul Flux Meter, Molecular Cloud Receiver
+
 Future waves should prioritize the remaining ledger in coherent seven-block families. The target is broad
-consistency with specialization, not identical screens, and the remaining count must move 28 → 21 → 14 → 7 → 0.
+consistency with specialization, not identical screens, and the remaining count must move 21 → 14 → 7 → 0.
