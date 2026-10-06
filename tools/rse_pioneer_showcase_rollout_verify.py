@@ -40,6 +40,8 @@ client_registration = read("src/main/java/dev/redstoneengineering/client/ui/Engi
 field_menu = read("src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java")
 universal_menu = read("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java")
 temperature_sensor = read("src/main/java/dev/redstoneengineering/block/TemperatureSensorBlock.java")
+wave14_tests = read("src/main/java/dev/redstoneengineering/gametest/RsePioneerWave14GameTests.java")
+gametest_registration = read("src/main/java/dev/redstoneengineering/gametest/RseGameTestRegistration.java")
 tablet = read("src/main/java/dev/redstoneengineering/client/ui/DiagnosticTabletScreen.java")
 robot = read("src/main/java/dev/redstoneengineering/entity/EngineeringMobileRobotEntity.java")
 ops_robot_acceptance = read("src/main/java/dev/redstoneengineering/integration/OperationsRobotMaterialFlowAcceptance.java")
@@ -66,6 +68,8 @@ for token in (
     "Wave 12:",
     "Wave 13:",
     "Pioneer completion ledger after Wave 13: **87 + 7 = 94 / 122 registered blocks processed; 28 remain.**",
+    "Wave 14:",
+    "Pioneer completion ledger after Wave 14: **94 + 7 = 101 / 122 registered blocks processed; 21 remain.**",
 ):
     if token not in doc:
         errors.append(f"Pioneer standard missing {token!r}")
@@ -427,6 +431,75 @@ for token in (
     if token not in temperature_sensor:
         errors.append(f"TemperatureSensorBlock missing Wave-13 HMI token {token!r}")
 
+
+wave14_menu_tokens = (
+    "PIONEER_PROCESS_CALIBRATION",
+    "PIONEER_PROCESS_SAMPLE_HOLD",
+    "PIONEER_PROCESS_PWM",
+    "PIONEER_PROCESS_LAPIS_TEMPERATURE",
+    "PIONEER_PROCESS_LAPIS_MAGNETIC",
+    "PIONEER_PROCESS_LAPIS_OPTICAL",
+    "PIONEER_PROCESS_LAPIS_VOLTAGE",
+    "fillPioneerProcessSnapshot(block, state)",
+    "CalibrationModuleBlock.measurement(level, blockPos)",
+    "SampleHoldBlock.captureCount(level, blockPos)",
+    "pwm.assessment(level, blockPos, state)",
+    "SensorModel.samplePeriod(profile)",
+    "SensorModel.resolutionStep(profile)",
+    "SensorModel.noiseAmplitude(profile)",
+    "SensorModel.latencySamples(profile)",
+)
+for token in wave14_menu_tokens:
+    if token not in universal_menu:
+        errors.append(f"UniversalFieldDeviceMenu missing Wave-14 process token {token!r}")
+
+wave14_screen_tokens = (
+    "PIONEER WAVE 14 • SIGNAL / TRANSDUCTION",
+    "y = profile(x_obs); residual = y - x_ref",
+    "configured trigger edge ⇒ y_hold ← x",
+    "N_on=round((u/15)·T)",
+    "x=clamp(T_index,0,100)",
+    "100·clamp(B,0,15)/15",
+    "100·clamp(I,0,15)/15",
+    "100·clamp(V,0,15)/15",
+    'variableRole(g, "PROFILE", "Δt_sample"',
+    'variableRole(g, "PROFILE", "resolution"',
+    'variableRole(g, "PROFILE", "noise"',
+    'variableRole(g, "PROFILE", "latency"',
+)
+for token in wave14_screen_tokens:
+    if token not in universal:
+        errors.append(f"UniversalFieldDeviceScreen missing Wave-14 process token {token!r}")
+
+for token in (
+    "Calibration Module",
+    "Sample & Hold",
+    "PWM Controller",
+    "Lapis Temperature Transducer",
+    "Lapis Magnetic Transducer",
+    "Lapis Optical Transducer",
+    "Lapis Voltage Transducer",
+    "21 remain",
+    "21 → 14 → 7 → 0",
+):
+    if token not in doc:
+        errors.append(f"Pioneer standard missing Wave-14 ledger token {token!r}")
+
+for token in (
+    "wave14PortRolesRemainDeviceSpecific",
+    "pwmQuantizationSweepIsBoundedAndEndpointExact",
+    "transducerProfilesExposeRealSamplingQuantities",
+    "EngineeringDomain.THERMAL",
+    "EngineeringDomain.IRON_MAGNETIC",
+    "EngineeringDomain.OPTICAL",
+    "EngineeringDomain.COPPER",
+):
+    if token not in wave14_tests:
+        errors.append(f"Wave-14 GameTests missing behavioral token {token!r}")
+
+if "event.register(RsePioneerWave14GameTests.class);" not in gametest_registration:
+    errors.append("Wave-14 GameTests are not registered")
+
 registration_token = "event.register(EngineeringUiRegistration.FIELD_DEVICE.get(), EnhancedFieldDeviceScreen::new);"
 if registration_token not in client_registration:
     errors.append("FIELD_DEVICE is no longer registered to the enhanced shared Pioneer inspector")
@@ -466,7 +539,8 @@ print(" Wave 10 AMR mission telemetry / Diagnostic Tablet trial PASS")
 print(" Wave 11 Operations → AMR end-to-end material-flow acceptance PASS")
 print(" Wave 12 Signal Analyzer internal-reference calibration trial PASS")
 print(" Wave 13 seven-block measurement / observer Pioneer rollout PASS")
-print(" Pioneer completion ledger: 94 / 122 processed; 28 remain")
+print(" Wave 14 seven-block signal / transduction Pioneer rollout PASS")
+print(" Pioneer completion ledger: 101 / 122 processed; 21 remain")
 print(f" FieldDeviceMenu device-kind taxonomy: {kind_count}")
 print(f" formula-first EngineeringScreen families: {formula_migrated}")
 print(" no client-side second physics/robotics/metrology solver in Waves 2-13: PASS")
