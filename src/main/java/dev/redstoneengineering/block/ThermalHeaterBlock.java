@@ -49,6 +49,11 @@ public class ThermalHeaterBlock extends DomainBlock implements EngineeringPortPr
         return R_VALUES[state.getValue(RESISTANCE_INDEX)];
     }
 
+    public static int targetTemperature(int voltage, int resistance) {
+        double power = CircuitPhysics.power(voltage, resistance);
+        return EngineeringMath.clamp(20 + (int) Math.round(power / 3.0), 20, 100);
+    }
+
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
         builder.add(RESISTANCE_INDEX, TEMPERATURE);
@@ -110,8 +115,7 @@ public class ThermalHeaterBlock extends DomainBlock implements EngineeringPortPr
         CopperNetworkSupport.TerminalInput input = CopperNetworkSupport.terminalInput(level, pos);
         int voltage = input.quality() == dev.redstoneengineering.core.port.PortQuality.VALID ? input.voltage() : 0;
         int resistance = resistance(state);
-        double power = CircuitPhysics.power(voltage, resistance);
-        int target = EngineeringMath.clamp(20 + (int) Math.round(power / 3.0), 20, 100);
+        int target = targetTemperature(voltage, resistance);
         int current = state.getValue(TEMPERATURE);
         int next = EngineeringMath.approach(current, target, 3);
         BlockState updated = state.setValue(TEMPERATURE, next);
