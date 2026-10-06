@@ -5,6 +5,7 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.menu.OpticalSystemMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
@@ -12,6 +13,8 @@ import net.minecraft.world.entity.player.Inventory;
 /** Compact optical HMI with topology-aware commissioning evidence and acceptance. */
 public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMenu> {
     private Button p0,p1,s0,s1;
+    private EditBox primaryInput, secondaryInput;
+    private Button primaryApply, secondaryApply;
     public OpticalSystemScreen(OpticalSystemMenu m, Inventory i, Component t){super(m,i,t);}
 
     @Override protected void addDeviceWidgets(){
@@ -20,17 +23,86 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
         p1=addConfigureWidget(Button.builder(Component.literal("Primary ▶"),b->sendMenuButton(OpticalSystemMenu.BUTTON_PRIMARY_NEXT)).bounds(leftPos+199,y,105,20).build());
         s0=addConfigureWidget(Button.builder(Component.literal("◀ Secondary"),b->sendMenuButton(OpticalSystemMenu.BUTTON_SECONDARY_PREVIOUS)).bounds(leftPos+16,y+26,105,20).build());
         s1=addConfigureWidget(Button.builder(Component.literal("Secondary ▶"),b->sendMenuButton(OpticalSystemMenu.BUTTON_SECONDARY_NEXT)).bounds(leftPos+199,y+26,105,20).build());
+
+        primaryInput=addConfigureWidget(new EditBox(this.font,leftPos+16,y,105,20,Component.literal("Primary exact value")));
+        primaryInput.setMaxLength(2);
+        primaryInput.setFilter(value->value.isEmpty()||value.chars().allMatch(Character::isDigit));
+        primaryApply=addConfigureWidget(Button.builder(Component.literal("Apply primary"),b->submitPrimary()).bounds(leftPos+199,y,105,20).build());
+
+        secondaryInput=addConfigureWidget(new EditBox(this.font,leftPos+16,y+26,105,20,Component.literal("Secondary exact value")));
+        secondaryInput.setMaxLength(2);
+        secondaryInput.setFilter(value->value.isEmpty()||value.chars().allMatch(Character::isDigit));
+        secondaryApply=addConfigureWidget(Button.builder(Component.literal("Apply secondary"),b->submitSecondary()).bounds(leftPos+199,y+26,105,20).build());
     }
 
     @Override protected void syncDeviceWidgetLabels(){
         if(p0==null)return;
         boolean e=menu.kind()==OpticalSystemMenu.KIND_EMITTER,f=menu.kind()==OpticalSystemMenu.KIND_FILTER,a=menu.kind()==OpticalSystemMenu.KIND_ATTENUATOR;
         boolean tx=menu.kind()==OpticalSystemMenu.KIND_FREE_SPACE_TX,rx=menu.kind()==OpticalSystemMenu.KIND_FREE_SPACE_RX,c=isConfigureSection();
-        p0.visible=p1.visible=c&&(e||f||a); s0.visible=s1.visible=c&&(e||tx||rx);
-        if(e){p0.setMessage(Component.literal("◀ I "+menu.primary()));p1.setMessage(Component.literal("I "+menu.primary()+" ▶"));s0.setMessage(Component.literal("◀ CH "+menu.secondary()));s1.setMessage(Component.literal("CHANNEL " + menu.secondary()));}
-        else if(f){p0.setMessage(Component.literal("◀ CH "+menu.secondary()));p1.setMessage(Component.literal("CHANNEL " + menu.secondary()));}
-        else if(a){p0.setMessage(Component.literal("◀ LOSS "+menu.secondary()));p1.setMessage(Component.literal("LOSS "+menu.secondary()+" ▶"));}
-        else if(tx||rx){s0.setMessage(Component.literal("◀ CH "+menu.secondary()));s1.setMessage(Component.literal("CHANNEL " + menu.secondary()));}
+        boolean directPrimary=c&&(e||f||a),directSecondary=c&&(e||tx||rx);
+        p0.visible=p1.visible=false; s0.visible=s1.visible=false;
+
+        primaryInput.visible=primaryInput.active=directPrimary;
+        primaryApply.visible=directPrimary;
+        primaryApply.active=directPrimary&&primaryInputValid();
+        secondaryInput.visible=secondaryInput.active=directSecondary;
+        secondaryApply.visible=directSecondary;
+        secondaryApply.active=directSecondary&&secondaryInputValid();
+
+        if(directPrimary&&!primaryInput.isFocused()){
+            String expected=Integer.toString(primaryValue());
+            if(!expected.equals(primaryInput.getValue()))primaryInput.setValue(expected);
+        }
+        if(directSecondary&&!secondaryInput.isFocused()){
+            String expected=Integer.toString(menu.secondary());
+            if(!expected.equals(secondaryInput.getValue()))secondaryInput.setValue(expected);
+        }
+
+        primaryApply.setMessage(Component.literal("Apply "+primarySymbol()));
+        secondaryApply.setMessage(Component.literal("Apply CH"));
+    }
+
+    private int primaryValue(){
+        return menu.kind()==OpticalSystemMenu.KIND_EMITTER?menu.primary():menu.secondary();
+    }
+
+    private String primarySymbol(){
+        return switch(menu.kind()){
+            case OpticalSystemMenu.KIND_EMITTER->"I_set";
+            case OpticalSystemMenu.KIND_FILTER->"CH_target";
+            case OpticalSystemMenu.KIND_ATTENUATOR->"L";
+            default->"value";
+        };
+    }
+
+    private boolean primaryInputValid(){
+        if(primaryInput==null||primaryInput.getValue().isEmpty())return false;
+        try{
+            int value=Integer.parseInt(primaryInput.getValue());
+            if(menu.kind()==OpticalSystemMenu.KIND_ATTENUATOR)return value>=0&&value<=8;
+            return (menu.kind()==OpticalSystemMenu.KIND_EMITTER||menu.kind()==OpticalSystemMenu.KIND_FILTER)&&value>=0&&value<=15;
+        }catch(NumberFormatException ignored){return false;}
+    }
+
+    private boolean secondaryInputValid(){
+        if(secondaryInput==null||secondaryInput.getValue().isEmpty())return false;
+        try{
+            int value=Integer.parseInt(secondaryInput.getValue());
+            if(menu.kind()==OpticalSystemMenu.KIND_EMITTER)return value>=0&&value<=15;
+            return (menu.kind()==OpticalSystemMenu.KIND_FREE_SPACE_TX||menu.kind()==OpticalSystemMenu.KIND_FREE_SPACE_RX)&&value>=0&&value<=3;
+        }catch(NumberFormatException ignored){return false;}
+    }
+
+    private void submitPrimary(){
+        if(!primaryInputValid())return;
+        sendMenuButton(OpticalSystemMenu.BUTTON_PRIMARY_DIRECT_BASE+Integer.parseInt(primaryInput.getValue()));
+        primaryInput.setFocused(false);
+    }
+
+    private void submitSecondary(){
+        if(!secondaryInputValid())return;
+        sendMenuButton(OpticalSystemMenu.BUTTON_SECONDARY_DIRECT_BASE+Integer.parseInt(secondaryInput.getValue()));
+        secondaryInput.setFocused(false);
     }
 
     @Override protected void renderSection(GuiGraphics g,Section s){switch(s){case OVERVIEW->overview(g);case PORTS->ports(g);case CONFIGURE->configure(g);case DIAGNOSTICS->diagnostics(g);case HISTORY->history(g);}}
@@ -58,8 +130,8 @@ public final class OpticalSystemScreen extends EngineeringScreen<OpticalSystemMe
         statusBadge(g,"PIONEER PATTERN • OPTICAL MODEL",INFO,16,80);
         formulaCard(g,opticalEquation(),105);
         variableRole(g,"MEASURED","I / state",budget(),"optical evidence",134);
-        variableRole(g,"ADJUSTABLE","primary",primaryControl(),"bounded control",152);
-        variableRole(g,"ADJUSTABLE","secondary",secondaryControl(),"bounded control",170);
+        variableRole(g,"ADJUSTABLE",primarySymbol(),primaryControl(),"exact server-backed value",152);
+        variableRole(g,"ADJUSTABLE","channel",secondaryControl(),"exact server-backed value",170);
         variableRole(g,"EVIDENCE","quality",qName(),"",188);
         if(menu.kind()==OpticalSystemMenu.KIND_RECEIVER){
             variableRole(g,"DERIVED","L_obs",Integer.toString(menu.budgetObservedLoss()),"intensity steps",206);
