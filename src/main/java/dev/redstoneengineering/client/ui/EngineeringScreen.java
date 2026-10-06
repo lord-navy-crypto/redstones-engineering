@@ -64,7 +64,10 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private static final int MIN_WORKSPACE_HEIGHT = 320;
     private static final int MAX_WORKSPACE_HEIGHT = 520;
     private static final int DEFAULT_CANVAS_WIDTH = 1020;
-    private static final int DEFAULT_CANVAS_HEIGHT = 1180;
+    private static final int DEFAULT_CANVAS_HEIGHT = 1480;
+    private static final int SHARED_APPENDIX_TOP = 960;
+    private static final int CONFIGURE_APPENDIX_TOP = 1080;
+    private static final int SHARED_APPENDIX_GAP = 44;
     private static final int CONFIGURE_CONTROL_COLUMNS = 3;
     private static final int CONFIGURE_CONTROL_GAP_X = 10;
     private static final int CONFIGURE_CONTROL_GAP_Y = 8;
@@ -694,11 +697,32 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
      * server-backed controls and read-only/operator boundaries cannot remain hidden in code.
      * The panel lives below the device-specific page and is reached by ordinary Y scrolling.
      */
+    private int sharedAppendixTop() {
+        return section == Section.CONFIGURE ? CONFIGURE_APPENDIX_TOP : SHARED_APPENDIX_TOP;
+    }
+
+    private int functionSurfaceHeight() {
+        return section == Section.CONFIGURE ? 168 : 118;
+    }
+
+    private int engineeringContractTop() {
+        return sharedAppendixTop() + functionSurfaceHeight() + SHARED_APPENDIX_GAP;
+    }
+
+    private void renderAppendixDivider(GuiGraphics graphics) {
+        int y = sharedAppendixTop() - 28;
+        int right = Math.min(canvasRight() - 24, CONTENT_LEFT + 920);
+        graphics.fill(CONTENT_LEFT, y, right, y + 1, 0xFF3A4650);
+        graphics.drawString(font, "SHARED ENGINEERING APPENDIX • BELOW DEVICE-SPECIFIC CONTENT",
+                CONTENT_LEFT, y + 8, MUTED, false);
+    }
+
     private void renderFunctionSurface(GuiGraphics graphics) {
+        renderAppendixDivider(graphics);
         int x = CONTENT_LEFT;
-        int y = section == Section.CONFIGURE ? 720 : 620;
+        int y = sharedAppendixTop();
         int width = Math.max(420, Math.min(920, canvasRight() - x - 24));
-        int height = section == Section.CONFIGURE ? 168 : 118;
+        int height = functionSurfaceHeight();
 
         graphics.fill(x, y, x + width, y + height, PANEL_3);
         graphics.fill(x, y, x + 4, y + height, INFO);
@@ -769,7 +793,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
      */
     private void renderGlobalEngineeringContract(GuiGraphics graphics) {
         int x = CONTENT_LEFT;
-        int y = section == Section.CONFIGURE ? 910 : 770;
+        int y = engineeringContractTop();
         int width = Math.max(460, Math.min(920, canvasRight() - x - 24));
         int height = 250;
         int controlCount = configureControlCount();
