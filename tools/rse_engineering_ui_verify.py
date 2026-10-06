@@ -89,7 +89,11 @@ require("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScre
         "1..15 frequency index", '-> "f"',
         "discreteExciterAdjustable()", "exact server-backed frequency",
         "read-only implemented model", "TTL=8t; retain A−2, Q−10",
-        "event packet; source clears after 1t")
+        "event packet; source clears after 1t",
+        "8-bit payload • 0..255",
+        "byte-frame transport • fixed link timing",
+        "1-bit balanced logic",
+        "read-only transport contract")
 require("src/main/java/dev/redstoneengineering/block/MechanicalExciterBlock.java",
         "setFrequency(Level level, BlockPos pos, int frequency)")
 require("src/main/java/dev/redstoneengineering/block/HydroacousticExciterBlock.java",
