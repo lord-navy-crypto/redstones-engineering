@@ -14,6 +14,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -23,6 +24,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 
 import java.util.Arrays;
 import java.util.List;
@@ -97,16 +99,25 @@ public class ThermalMassBlock extends DomainBlock implements EngineeringPortProv
         level.scheduleTick(pos, this, 5 * thermal.capacity());
     }
 
+    public boolean adjustHeatCapacity(Level level, BlockPos pos, int delta) {
+        if (!(level instanceof ServerLevel)) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!state.is(this)) return false;
+        int nextCapacity = 1 + Math.floorMod(state.getValue(HEAT_CAPACITY) - 1 + delta, 4);
+        level.setBlock(pos, state.setValue(HEAT_CAPACITY, nextCapacity), Block.UPDATE_CLIENTS);
+        level.scheduleTick(pos, this, 1);
+        return true;
+    }
+
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (!level.isClientSide) {
-            if (!player.isShiftKeyDown()) {
-                int capacity = state.getValue(HEAT_CAPACITY);
-                capacity = capacity >= 4 ? 1 : capacity + 1;
-                state = state.setValue(HEAT_CAPACITY, capacity);
-                level.setBlock(pos, state, Block.UPDATE_CLIENTS);
-                level.scheduleTick(pos, this, 1);
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown()) {
+                FieldDeviceUi.openUniversal(serverPlayer, pos);
+                return InteractionResult.sidedSuccess(false);
             }
+            adjustHeatCapacity(level, pos, 1);
+            state = level.getBlockState(pos);
             ThermalState thermal = thermalState(level, pos, state);
             player.displayClientMessage(Component.literal(
                     "Thermal mass | T=" + thermal.current() + "/100"
@@ -114,7 +125,8 @@ public class ThermalMassBlock extends DomainBlock implements EngineeringPortProv
                             + " | neighbor=" + thermal.neighborAverage()
                             + " | target=" + thermal.target()
                             + " | capacity=" + thermal.capacity()
-                            + " | max-step=" + thermal.maxStep()), true);
+                            + " | max-step=" + thermal.maxStep()
+                            + " | shift=Pioneer HMI"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }

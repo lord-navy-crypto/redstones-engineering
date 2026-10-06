@@ -15,6 +15,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -22,6 +23,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 
 import java.util.Arrays;
 import java.util.List;
@@ -34,6 +36,8 @@ public class SoulSoilConduitBlock extends Block implements EngineeringPortProvid
     public SoulSoilConduitBlock(Properties properties) {
         super(properties);
     }
+
+    public static int decayPeriodTicks() { return DECAY_PERIOD_TICKS; }
 
     @Override
     public MapCodec<SoulSoilConduitBlock> codec() {
@@ -93,11 +97,17 @@ public class SoulSoilConduitBlock extends Block implements EngineeringPortProvid
     protected InteractionResult useWithoutItem(
             BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit
     ) {
-        if (!level.isClientSide) {
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (!player.isShiftKeyDown()) {
+                FieldDeviceUi.openUniversal(serverPlayer, pos);
+                return InteractionResult.sidedSuccess(false);
+            }
+            InformationRuntime.Snapshot flux = SoulFluxNetwork.chargeSnapshot(level, pos);
             player.displayClientMessage(Component.literal(
                     "Soul Flux conduit | six-face SOUL_FLUX bus | J≈"
-                            + SoulFluxNetwork.charge(level, pos)
-                            + "/100 | transient decay=" + DECAY_PERIOD_TICKS + "t | Minecraft-fictional physics"), true);
+                            + Math.max(0, Math.min(100, flux.value()))
+                            + "/100 | age=" + flux.ageTicks()
+                            + "t | transient decay=" + DECAY_PERIOD_TICKS + "t | Minecraft-fictional physics"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }

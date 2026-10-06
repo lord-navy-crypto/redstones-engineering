@@ -381,3 +381,28 @@ Remaining 7 for Wave 17:
 - Soul Sand Reservoir
 
 The final wave should close this exact seven-block material / storage / thermal family and move the ledger 115 → 122 with zero remaining.
+
+
+Wave 17:
+- Iron Core
+- Thermal Mass
+- Thermal Heater
+- Thermal Radiator
+- Thermal Calorimeter
+- Soul Soil Conduit
+- Soul Sand Reservoir
+
+Wave 17 closes the Pioneer rollout with the material / storage / thermal family:
+- Iron Core exposes the implemented radius-2 applied-field scan, B-index threshold 8, remanent state and coverage evidence; only a complete strong-field scan can magnetize it, while demagnetize remains an explicit server action
+- Thermal Mass exposes the existing lumped target T_target=floor((2·T_env+T_neighbor)/3), real heat-capacity index, bounded step size and 5C-tick update cadence
+- Thermal Heater exposes its real Copper input evidence, 1/2/4/8 resistance profile, P=V²/R response, bounded target temperature and current thermal state
+- Thermal Radiator exposes adjacent-body count, average/hottest temperature, 1..4 cooling coefficient, ambient floor and 10-tick passive cooling cadence; it never refrigerates below ambient
+- Thermal Calorimeter exposes adjacent-body sample count, retained 20-tick ΔT history, capacity sum and relative C·ΔT evidence while remaining observer-only
+- Soul Soil Conduit remains Minecraft-fictional transient transport: six-face bidirectional Soul-Flux bus, 20-tick decay cadence, and absent/decayed zero classified as NO_SIGNAL
+- Soul Sand Reservoir remains Minecraft-fictional storage: six-face bidirectional storage, 40-tick decay cadence, and initialized empty Q_s=0 retained as a VALID known storage state
+- all adjustable controls bind to existing server state/actions; the Universal client renders synchronized snapshots only and never becomes a thermal, magnetic or Soul-Flux solver
+- no new physical law, SI mapping or external compliance claim is introduced by this closure wave
+
+Pioneer completion ledger after Wave 17: **115 + 7 = 122 / 122 registered blocks processed; 0 remain.**
+
+**Pioneer broad-rollout campaign complete: 122 / 122.**

@@ -16,6 +16,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -25,6 +26,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 
 import java.util.Arrays;
 import java.util.List;
@@ -45,6 +47,11 @@ public class ThermalHeaterBlock extends DomainBlock implements EngineeringPortPr
 
     public static int resistance(BlockState state) {
         return R_VALUES[state.getValue(RESISTANCE_INDEX)];
+    }
+
+    public static int targetTemperature(int voltage, int resistance) {
+        double power = CircuitPhysics.power(voltage, resistance);
+        return EngineeringMath.clamp(20 + (int) Math.round(power / 3.0), 20, 100);
     }
 
     @Override
@@ -108,8 +115,7 @@ public class ThermalHeaterBlock extends DomainBlock implements EngineeringPortPr
         CopperNetworkSupport.TerminalInput input = CopperNetworkSupport.terminalInput(level, pos);
         int voltage = input.quality() == dev.redstoneengineering.core.port.PortQuality.VALID ? input.voltage() : 0;
         int resistance = resistance(state);
-        double power = CircuitPhysics.power(voltage, resistance);
-        int target = EngineeringMath.clamp(20 + (int) Math.round(power / 3.0), 20, 100);
+        int target = targetTemperature(voltage, resistance);
         int current = state.getValue(TEMPERATURE);
         int next = EngineeringMath.approach(current, target, 3);
         BlockState updated = state.setValue(TEMPERATURE, next);
@@ -117,23 +123,34 @@ public class ThermalHeaterBlock extends DomainBlock implements EngineeringPortPr
         level.scheduleTick(pos, this, 2);
     }
 
+    public boolean adjustResistance(Level level, BlockPos pos, int delta) {
+        if (!(level instanceof ServerLevel serverLevel)) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!state.is(this)) return false;
+        int nextIndex = Math.floorMod(state.getValue(RESISTANCE_INDEX) + delta, R_VALUES.length);
+        BlockState next = state.setValue(RESISTANCE_INDEX, nextIndex);
+        level.setBlock(pos, next, Block.UPDATE_CLIENTS);
+        level.scheduleTick(pos, this, 1);
+        CopperNetworkSupport.recomputeAround(serverLevel, pos);
+        return true;
+    }
+
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (!level.isClientSide) {
-            if (!player.isShiftKeyDown()) {
-                int next = (state.getValue(RESISTANCE_INDEX) + 1) % R_VALUES.length;
-                state = state.setValue(RESISTANCE_INDEX, next);
-                level.setBlock(pos, state, Block.UPDATE_CLIENTS);
-                level.scheduleTick(pos, this, 1);
-                if (level instanceof ServerLevel serverLevel) CopperNetworkSupport.recomputeAround(serverLevel, pos);
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown()) {
+                FieldDeviceUi.openUniversal(serverPlayer, pos);
+                return InteractionResult.sidedSuccess(false);
             }
+            adjustResistance(level, pos, 1);
+            state = level.getBlockState(pos);
             CopperNetworkSupport.TerminalInput input = CopperNetworkSupport.terminalInput(level, pos);
             int voltage = input.voltage();
             int resistance = resistance(state);
             double current = CircuitPhysics.current(voltage, resistance);
             double power = CircuitPhysics.power(voltage, resistance);
             player.displayClientMessage(Component.literal(String.format(
-                    "Thermal heater | COPPER terminal converter | V=%d | quality=%s | R=%d | I=%.2f | P=%.2f | T-index=%d/100",
+                    "Thermal heater | V=%d | quality=%s | R=%d | I=%.2f | P=%.2f | T-index=%d/100 | shift=Pioneer HMI",
                     voltage, input.quality(), resistance, current, power, state.getValue(TEMPERATURE))), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
