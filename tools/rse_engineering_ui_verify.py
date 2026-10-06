@@ -84,6 +84,14 @@ require("src/main/java/dev/redstoneengineering/client/ui/MagneticSystemScreen.ja
 require("src/main/java/dev/redstoneengineering/ui/menu/MagneticSystemMenu.java",
         "BUTTON_PRIMARY_DIRECT_BASE", "PermanentMagnetBlock.STRENGTH", "InductionCoilBlock.TURNS")
 
+require("src/main/java/dev/redstoneengineering/client/ui/RangeSensorScreen.java",
+        "EditBox", "submitRange", "BUTTON_RANGE_DIRECT_BASE",
+        "{4,8,15} blocks • direct entry",
+        "Cycle detect • ", "Cycle response • ")
+require("src/main/java/dev/redstoneengineering/ui/menu/RangeSensorMenu.java",
+        "BUTTON_RANGE_DIRECT_BASE = 16000",
+        "range == 4 ? 0", "range == 8 ? 1", "range == 15 ? 2")
+
 require("src/main/java/dev/redstoneengineering/client/ui/AmethystSystemScreen.java",
         "EditBox", "submitPrimary", "submitSecondary",
         "BUTTON_PRIMARY_DIRECT_BASE", "BUTTON_SECONDARY_DIRECT_BASE",
