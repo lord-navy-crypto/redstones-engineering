@@ -137,6 +137,25 @@ public class OscilloscopeBlockEntity extends BlockEntity {
         setChanged();
     }
 
+    /** Exact server-authoritative sampling interval selection in visible engineering ticks/sample. */
+    public boolean setSamplePeriodTicks(int ticks) {
+        int nextIndex = -1;
+        for (int i = 0; i < SAMPLE_PERIOD_OPTIONS.length; i++) {
+            if (SAMPLE_PERIOD_OPTIONS[i] == ticks) {
+                nextIndex = i;
+                break;
+            }
+        }
+        if (nextIndex < 0) return false;
+        if (samplePeriodIndex == nextIndex) return true;
+        samplePeriodIndex = nextIndex;
+        clearHistoryOnly();
+        armed = true;
+        triggered = false;
+        setChanged();
+        return true;
+    }
+
     public int samplePeriodIndex() {
         return samplePeriodIndex;
     }
