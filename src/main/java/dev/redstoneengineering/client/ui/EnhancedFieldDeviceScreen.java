@@ -5,6 +5,7 @@ import dev.redstoneengineering.block.TransmissionTopology;
 import dev.redstoneengineering.ui.menu.FieldDeviceMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
@@ -15,6 +16,8 @@ import net.minecraft.world.level.block.state.BlockState;
  * It renders only synchronized menu data and client-synchronized BlockState metadata.
  */
 public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDeviceMenu> {
+    private EditBox directInput;
+    private Button directApply;
     private Button minus;
     private Button plus;
     private Button toggle;
@@ -44,6 +47,13 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
         int total = controlWidth * 3 + gap * 2;
         int startX = leftPos + (imageWidth - total) / 2;
         int y = topPos + 100;
+        directInput = addConfigureWidget(new EditBox(this.font, startX, y, controlWidth, 20,
+                Component.literal("Exact engineering value")));
+        directInput.setMaxLength(3);
+        directInput.setFilter(value -> value.isEmpty() || value.chars().allMatch(Character::isDigit));
+        directApply = addConfigureWidget(Button.builder(Component.literal("Apply exact value"),
+                b -> submitDirectValue()).bounds(startX + controlWidth + gap, y, controlWidth, 20).build());
+
         minus = addConfigureWidget(Button.builder(Component.literal("−"), b -> sendMenuButton(FieldDeviceMenu.BUTTON_PRIMARY_DECREASE))
                 .bounds(startX, y, controlWidth, 20).build());
         plus = addConfigureWidget(Button.builder(Component.literal("+"), b -> sendMenuButton(FieldDeviceMenu.BUTTON_PRIMARY_INCREASE))
@@ -95,6 +105,18 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
         p10.active = presets;
         p15.active = presets;
         String axis = adjustmentLabel();
+        boolean direct = directEntryKind();
+        directInput.visible = direct;
+        directInput.active = direct;
+        if (direct && !directInput.isFocused()) {
+            String expected = Integer.toString(controlValue());
+            if (!expected.equals(directInput.getValue())) directInput.setValue(expected);
+        }
+        directApply.visible = direct;
+        directApply.active = direct && directInputValid();
+        directApply.setMessage(Component.literal("Apply " + formulaSymbol()));
+        minus.visible = adjustable && !direct;
+        plus.visible = adjustable && !direct;
         minus.setMessage(Component.literal("− " + axis));
         plus.setMessage(Component.literal(axis + " +"));
         toggle.setMessage(Component.literal(menu.kind() == FieldDeviceMenu.KIND_PNEUMATIC_VALVE
@@ -296,15 +318,18 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
         formulaCard(g, pioneerContract(), 105);
         variableRole(g, "ROLE", "device", deviceRole(), family(), 134);
         if (adjustable()) {
-            variableRole(g, "ADJUSTABLE", adjustmentLabel(), controlValueText(), "server bounded", 152);
+            variableRole(g, "ADJUSTABLE", formulaSymbol(), controlValueText(), "server bounded", 152);
+            if (directEntryKind()) {
+                variableRole(g, "CONTROL", "direct entry", directRangeLabel(), "exact engineering value", 170);
+            }
         } else {
             variableRole(g, "MEASURED", metricLabel(0), metricValue(0, menu.primary()), "server snapshot", 152);
         }
-        variableRole(g, "EVIDENCE", "quality", menu.qualityPercent() + "%", evidenceState(), 170);
+        variableRole(g, "EVIDENCE", "quality", menu.qualityPercent() + "%", evidenceState(), directEntryKind() ? 188 : 170);
         variableRole(g, "TOPOLOGY", "ports / links", menu.portCount() + " / " + menu.connectionCount(),
-                menu.topologyValid() ? "PASS" : "FAIL-CLOSED", 188);
-        variableRole(g, "AUTHORITY", "policy", policy, "client presentation only", 206);
-        wrappedText(g, sharedPioneerExplanation(), 16, 232, workspaceWidth() - 24,
+                menu.topologyValid() ? "PASS" : "FAIL-CLOSED", directEntryKind() ? 206 : 188);
+        variableRole(g, "AUTHORITY", "policy", policy, "client presentation only", directEntryKind() ? 224 : 206);
+        wrappedText(g, sharedPioneerExplanation(), 16, directEntryKind() ? 250 : 232, workspaceWidth() - 24,
                 menu.topologyValid() ? MUTED : BAD);
     }
 
@@ -688,8 +713,93 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
                 ? "BLOCKED • MIXED MEDIA" : "PASS-THROUGH • NO CONVERSION", color, y + 16);
     }
 
+    private boolean directEntryKind() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_PROBE,
+                 FieldDeviceMenu.KIND_FILTER,
+                 FieldDeviceMenu.KIND_REFERENCE,
+                 FieldDeviceMenu.KIND_LAPIS_SOURCE,
+                 FieldDeviceMenu.KIND_DIGITAL_REGENERATOR,
+                 FieldDeviceMenu.KIND_PRESSURE_REGULATOR,
+                 FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE,
+                 FieldDeviceMenu.KIND_PERMANENT_MAGNET,
+                 FieldDeviceMenu.KIND_INDUCTION_COIL,
+                 FieldDeviceMenu.KIND_OPTICAL_EMITTER,
+                 FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER,
+                 FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR -> true;
+            default -> false;
+        };
+    }
+
+    private boolean directInputValid() {
+        if (!directEntryKind() || directInput == null || directInput.getValue().isEmpty()) return false;
+        try {
+            int value = Integer.parseInt(directInput.getValue());
+            return switch (menu.kind()) {
+                case FieldDeviceMenu.KIND_PROBE -> value >= 0 && value <= 3;
+                case FieldDeviceMenu.KIND_FILTER -> value >= 1 && value <= 4;
+                case FieldDeviceMenu.KIND_REFERENCE -> value >= 0 && value <= 15;
+                case FieldDeviceMenu.KIND_LAPIS_SOURCE -> value >= 0 && value <= 100 && value % 5 == 0;
+                case FieldDeviceMenu.KIND_DIGITAL_REGENERATOR -> value >= 0 && value <= 2;
+                case FieldDeviceMenu.KIND_PRESSURE_REGULATOR,
+                     FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE -> value >= 25 && value <= 100 && value % 25 == 0;
+                case FieldDeviceMenu.KIND_PERMANENT_MAGNET -> value >= 1 && value <= 15;
+                case FieldDeviceMenu.KIND_INDUCTION_COIL -> value >= 1 && value <= 4;
+                case FieldDeviceMenu.KIND_OPTICAL_EMITTER,
+                     FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER -> value >= 0 && value <= 15;
+                case FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR -> value >= 0 && value <= 8;
+                default -> false;
+            };
+        } catch (NumberFormatException ignored) {
+            return false;
+        }
+    }
+
+    private void submitDirectValue() {
+        if (!directInputValid()) return;
+        int value = Integer.parseInt(directInput.getValue());
+        sendMenuButton(FieldDeviceMenu.BUTTON_PRIMARY_DIRECT_BASE + value);
+        directInput.setFocused(false);
+    }
+
+    private String formulaSymbol() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_PROBE -> "channel";
+            case FieldDeviceMenu.KIND_FILTER -> "Δmax";
+            case FieldDeviceMenu.KIND_REFERENCE -> "y_R";
+            case FieldDeviceMenu.KIND_LAPIS_SOURCE -> "y_L";
+            case FieldDeviceMenu.KIND_DIGITAL_REGENERATOR -> "threshold";
+            case FieldDeviceMenu.KIND_PRESSURE_REGULATOR -> "P_set";
+            case FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE -> "P_relief";
+            case FieldDeviceMenu.KIND_PERMANENT_MAGNET -> "B_src";
+            case FieldDeviceMenu.KIND_INDUCTION_COIL -> "N_turns";
+            case FieldDeviceMenu.KIND_OPTICAL_EMITTER -> "I_emit";
+            case FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER -> "channel";
+            case FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR -> "loss";
+            default -> adjustmentLabel();
+        };
+    }
+
+    private String directRangeLabel() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_PROBE -> "0..3";
+            case FieldDeviceMenu.KIND_FILTER -> "1..4 /sample";
+            case FieldDeviceMenu.KIND_REFERENCE -> "0..15 redstone";
+            case FieldDeviceMenu.KIND_LAPIS_SOURCE -> "0..100 Lapis • step 5";
+            case FieldDeviceMenu.KIND_DIGITAL_REGENERATOR -> "0..2 threshold profile";
+            case FieldDeviceMenu.KIND_PRESSURE_REGULATOR,
+                 FieldDeviceMenu.KIND_PNEUMATIC_RELIEF_VALVE -> "{25, 50, 75, 100} pressure";
+            case FieldDeviceMenu.KIND_PERMANENT_MAGNET -> "1..15 B-index";
+            case FieldDeviceMenu.KIND_INDUCTION_COIL -> "1..4 turns";
+            case FieldDeviceMenu.KIND_OPTICAL_EMITTER -> "0..15 intensity";
+            case FieldDeviceMenu.KIND_OPTICAL_CHANNEL_FILTER -> "channel 0..15";
+            case FieldDeviceMenu.KIND_OPTICAL_ATTENUATOR -> "loss 0..8";
+            default -> "";
+        };
+    }
+
     private boolean adjustable() {
-        return minus != null && minus.active;
+        return directEntryKind() || (minus != null && minus.active);
     }
 
     private int controlValue() {
