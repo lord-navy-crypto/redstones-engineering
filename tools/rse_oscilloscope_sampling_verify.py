@@ -77,6 +77,11 @@ for token in (
     "TIMEBASE TABLE",
     "aliasLabel(menu.aliasRisk(channel))",
     "Nyquist gives a theoretical boundary, not proof",
+    "FOOTER_HEIGHT = 132",
+    "LIVE STATE • HEALTH ",
+    "I/O • ",
+    "menu.portRouteLabel()",
+    "CONTROLS ",
     "INSTRUMENT_CONTENT_WIDTH = 980",
     "SAMPLING_CONTENT_WIDTH = 1120",
     "renderScrollIndicators",
@@ -121,5 +126,6 @@ print(" alias-margin evidence classification: PASS")
 print(" spacious two-axis formula-first Sampling HMI: PASS")
 print(" draggable visible scrollbars + non-compressed waveform canvas: PASS")
 print(" fixed sampling/trigger controls remain outside server model ownership: PASS")
+print(" persistent live Health / Role / Evidence / I-O / Controls strip: PASS")
 print(" client/no-second-solver boundary: PASS")
 print(" authoritative sampling GameTest source: PASS")

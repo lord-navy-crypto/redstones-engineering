@@ -58,7 +58,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
 
     protected static final int CONTENT_LEFT = 24;
     private static final int CONTENT_TOP = 82;
-    private static final int FOOTER_HEIGHT = 44;
+    private static final int FOOTER_HEIGHT = 66;
     private static final int MIN_WORKSPACE_WIDTH = 440;
     private static final int MAX_WORKSPACE_WIDTH = 780;
     private static final int MIN_WORKSPACE_HEIGHT = 320;
@@ -614,15 +614,30 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         graphics.disableScissor();
         renderScrollIndicators(graphics);
 
-        String evidence = fitForWidth("EVIDENCE • " + menu.evidenceStateLabel(), 170);
-        graphics.drawString(font, evidence, 16, imageHeight - 28, evidenceStateColor(), false);
-        String position = fitForWidth("@ " + menu.blockPos().getX() + ", " + menu.blockPos().getY() + ", " + menu.blockPos().getZ(), 190);
-        graphics.drawString(font, position, imageWidth - 16 - font.width(position), imageHeight - 28, MUTED, false);
+        renderPersistentLiveStateStrip(graphics);
+
         String scroll = "X " + scrollX + "/" + Math.max(0, activeVirtualWidth() - viewportWidth())
                 + "  •  Y " + scrollY + "/" + Math.max(0, activeVirtualHeight() - viewportHeight())
                 + "  •  drag bars  •  wheel=Y  shift+wheel=X";
         String compactScroll = fitForWidth(scroll, imageWidth - 32);
-        graphics.drawString(font, compactScroll, (imageWidth - font.width(compactScroll)) / 2, imageHeight - 15, MUTED, false);
+        graphics.drawString(font, compactScroll, (imageWidth - font.width(compactScroll)) / 2, imageHeight - 14, MUTED, false);
+    }
+
+    private void renderPersistentLiveStateStrip(GuiGraphics graphics) {
+        String state = "LIVE STATE • HEALTH " + menu.operationalHealthLabel()
+                + " • ROLE " + menu.topologyRoleLabel()
+                + " • EVIDENCE " + menu.evidenceStateLabel();
+        String compactState = fitForWidth(state, imageWidth - 32);
+        graphics.drawString(font, compactState, 16, imageHeight - 49, evidenceStateColor(), false);
+
+        String io = "I/O • " + menu.portRouteLabel()
+                + " • CONTROLS " + configureControlCount()
+                + " • ROUTE " + (routeSupported() ? "ADJUSTABLE" : "FIXED");
+        String compactIo = fitForWidth(io, imageWidth - 32);
+        graphics.drawString(font, compactIo, 16, imageHeight - 33, routeSupported() ? INFO : MUTED, false);
+
+        String position = fitForWidth("@ " + menu.blockPos().getX() + ", " + menu.blockPos().getY() + ", " + menu.blockPos().getZ(), 190);
+        graphics.drawString(font, position, imageWidth - 16 - font.width(position), imageHeight - 49, MUTED, false);
     }
 
     private int horizontalTrackX0() { return 24; }

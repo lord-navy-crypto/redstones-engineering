@@ -349,7 +349,7 @@ require(
 )
 require(
     "src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java",
-    "HEALTH • ", "operationalHealthColor", "EVIDENCE • ", "menu.evidenceStateLabel()", "evidenceStateColor",
+    "HEALTH • ", "operationalHealthColor", "LIVE STATE • HEALTH ", "I/O • ", "menu.evidenceStateLabel()", "menu.portRouteLabel()", "evidenceStateColor",
 )
 require(
     "src/main/java/dev/redstoneengineering/block/FaultLatchBlock.java",

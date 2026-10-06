@@ -43,7 +43,7 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
 
     private static final int CONTENT_X = 26;
     private static final int CONTENT_Y = 82;
-    private static final int FOOTER_HEIGHT = 96;
+    private static final int FOOTER_HEIGHT = 132;
     private static final int INSTRUMENT_CONTENT_WIDTH = 980;
     private static final int SAMPLING_CONTENT_WIDTH = 1120;
 
@@ -91,7 +91,7 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
             x += tabWidth + gap;
         }
 
-        int controlY = topPos + imageHeight - 68;
+        int controlY = topPos + imageHeight - 112;
 
         int singleWidth = Math.min(210, Math.max(150, imageWidth - 120));
         samplingButtons.add(addRenderableWidget(Button.builder(
@@ -337,12 +337,22 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
         g.disableScissor();
         renderScrollIndicators(g);
 
-        String evidence = "EVIDENCE • " + menu.evidenceStateLabel();
-        g.drawString(font, evidence, 20, imageHeight - 38, evidenceColor(), false);
+        String state = "LIVE STATE • HEALTH " + menu.operationalHealthLabel()
+                + " • ROLE " + menu.topologyRoleLabel()
+                + " • EVIDENCE " + menu.evidenceStateLabel();
+        g.drawString(font, fit(state, imageWidth - 40), 20, imageHeight - 58, evidenceColor(), false);
+
+        int controlCount = samplingButtons.size() + experimentButtons.size() + triggerButtons.size();
+        String io = "I/O • " + menu.portRouteLabel()
+                + " • CONTROLS " + controlCount
+                + " • ROUTE FIXED";
+        g.drawString(font, fit(io, imageWidth - 40), 20, imageHeight - 42, INFO, false);
+
         String scroll = "X " + scrollX + "/" + Math.max(0, contentWidth() - viewportWidth())
                 + "  •  Y " + scrollY + "/" + Math.max(0, contentHeight() - viewportHeight());
-        g.drawString(font, scroll, imageWidth - 20 - font.width(scroll), imageHeight - 38, MUTED, false);
-        g.drawString(font, "Drag scrollbars • Wheel: vertical • Shift+wheel: horizontal", 20, imageHeight - 20, MUTED, false);
+        String compactScroll = fit(scroll, 230);
+        g.drawString(font, compactScroll, imageWidth - 20 - font.width(compactScroll), imageHeight - 58, MUTED, false);
+        g.drawString(font, "Drag scrollbars • Wheel: vertical • Shift+wheel: horizontal", 20, imageHeight - 22, MUTED, false);
     }
 
     private int horizontalTrackX0() { return 26; }
@@ -660,6 +670,17 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
         if (confidence >= 70) return "USABLE";
         if (confidence >= 40) return "MARGINAL";
         return "INSUFFICIENT";
+    }
+
+    private String fit(String text, int maxWidth) {
+        if (text == null || text.isBlank()) return "—";
+        if (maxWidth <= 0) return "";
+        if (font.width(text) <= maxWidth) return text;
+        String compact = text;
+        while (compact.length() > 1 && font.width(compact + "…") > maxWidth) {
+            compact = compact.substring(0, compact.length() - 1);
+        }
+        return compact + "…";
     }
 
     private int evidenceColor() {
