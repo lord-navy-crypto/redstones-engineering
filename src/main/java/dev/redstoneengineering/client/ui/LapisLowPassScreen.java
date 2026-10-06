@@ -42,10 +42,10 @@ public final class LapisLowPassScreen extends AbstractContainerScreen<LapisLowPa
     private static final int INFO = 0xFF9EC8FF;
     private static final int ACCENT = 0xFFE05555;
 
-    private static final int CONTENT_X = 18;
-    private static final int CONTENT_Y = 72;
-    private static final int FOOTER_HEIGHT = 42;
-    private static final int MODEL_WIDTH = 760;
+    private static final int CONTENT_X = 26;
+    private static final int CONTENT_Y = 82;
+    private static final int FOOTER_HEIGHT = 58;
+    private static final int MODEL_WIDTH = 960;
 
     private final List<Button> pageButtons = new ArrayList<>();
     private final List<Button> configureButtons = new ArrayList<>();
@@ -64,8 +64,8 @@ public final class LapisLowPassScreen extends AbstractContainerScreen<LapisLowPa
 
     @Override
     protected void init() {
-        imageWidth = Math.max(360, Math.min(700, width - 20));
-        imageHeight = Math.max(250, Math.min(430, height - 20));
+        imageWidth = Math.max(420, Math.min(780, width - 20));
+        imageHeight = Math.max(300, Math.min(500, height - 20));
         super.init();
 
         pageButtons.clear();
@@ -85,29 +85,37 @@ public final class LapisLowPassScreen extends AbstractContainerScreen<LapisLowPa
             x += tabWidth + gap;
         }
 
-        int bottomY = topPos + imageHeight - 35;
+        int bottomY = topPos + imageHeight - 44;
+        int controlGap = 12;
+        int alphaWidth = Math.min(150, Math.max(90, (imageWidth - 76 - controlGap * 2) / 3));
+        int alphaTotal = alphaWidth * 3 + controlGap * 2;
+        int alphaX = leftPos + (imageWidth - alphaTotal) / 2;
         configureButtons.add(addRenderableWidget(Button.builder(Component.literal("α ◀"),
                 b -> sendButton(LapisLowPassMenu.BUTTON_ALPHA_PREVIOUS))
-                .bounds(leftPos + 18, bottomY, 70, 20).build()));
-        configureButtons.add(addRenderableWidget(Button.builder(Component.literal("Default α"),
+                .bounds(alphaX, bottomY, alphaWidth, 20).build()));
+        configureButtons.add(addRenderableWidget(Button.builder(Component.literal("Restore default α"),
                 b -> sendButton(LapisLowPassMenu.BUTTON_ALPHA_DEFAULT))
-                .bounds(leftPos + 94, bottomY, 92, 20).build()));
+                .bounds(alphaX + alphaWidth + controlGap, bottomY, alphaWidth, 20).build()));
         configureButtons.add(addRenderableWidget(Button.builder(Component.literal("α ▶"),
                 b -> sendButton(LapisLowPassMenu.BUTTON_ALPHA_NEXT))
-                .bounds(leftPos + 192, bottomY, 70, 20).build()));
+                .bounds(alphaX + (alphaWidth + controlGap) * 2, bottomY, alphaWidth, 20).build()));
 
+        int routeGap = 10;
+        int routeWidth = Math.min(120, Math.max(76, (imageWidth - 84 - routeGap * 3) / 4));
+        int routeTotal = routeWidth * 4 + routeGap * 3;
+        int routeX = leftPos + (imageWidth - routeTotal) / 2;
         routeButtons.add(addRenderableWidget(Button.builder(Component.literal("RX ◀"),
                 b -> sendButton(LapisLowPassMenu.BUTTON_INPUT_LEFT))
-                .bounds(leftPos + 18, bottomY, 70, 20).build()));
+                .bounds(routeX, bottomY, routeWidth, 20).build()));
         routeButtons.add(addRenderableWidget(Button.builder(Component.literal("RX ▶"),
                 b -> sendButton(LapisLowPassMenu.BUTTON_INPUT_RIGHT))
-                .bounds(leftPos + 94, bottomY, 70, 20).build()));
+                .bounds(routeX + routeWidth + routeGap, bottomY, routeWidth, 20).build()));
         routeButtons.add(addRenderableWidget(Button.builder(Component.literal("TX ◀"),
                 b -> sendButton(LapisLowPassMenu.BUTTON_OUTPUT_LEFT))
-                .bounds(leftPos + 176, bottomY, 70, 20).build()));
+                .bounds(routeX + (routeWidth + routeGap) * 2, bottomY, routeWidth, 20).build()));
         routeButtons.add(addRenderableWidget(Button.builder(Component.literal("TX ▶"),
                 b -> sendButton(LapisLowPassMenu.BUTTON_OUTPUT_RIGHT))
-                .bounds(leftPos + 252, bottomY, 70, 20).build()));
+                .bounds(routeX + (routeWidth + routeGap) * 3, bottomY, routeWidth, 20).build()));
 
         updateWidgets();
     }
@@ -164,16 +172,20 @@ public final class LapisLowPassScreen extends AbstractContainerScreen<LapisLowPa
     private int viewportHeight() { return Math.max(1, imageHeight - CONTENT_Y - FOOTER_HEIGHT - 4); }
 
     private int contentWidth() {
-        return page == Page.MODEL || page == Page.CONFIGURE ? Math.max(viewportWidth(), MODEL_WIDTH) : viewportWidth();
+        return Math.max(viewportWidth(), switch (page) {
+            case MODEL, CONFIGURE -> MODEL_WIDTH;
+            case LIVE, EVIDENCE -> 900;
+            case ROUTE -> 840;
+        });
     }
 
     private int contentHeight() {
         return switch (page) {
-            case MODEL -> 430;
-            case LIVE -> 300;
-            case CONFIGURE -> 420;
-            case ROUTE -> 260;
-            case EVIDENCE -> 330;
+            case MODEL -> 560;
+            case LIVE -> 430;
+            case CONFIGURE -> 540;
+            case ROUTE -> 390;
+            case EVIDENCE -> 470;
         };
     }
 
@@ -221,13 +233,43 @@ public final class LapisLowPassScreen extends AbstractContainerScreen<LapisLowPa
         }
         g.pose().popPose();
         g.disableScissor();
+        renderScrollIndicators(g);
 
         String evidence = "EVIDENCE • " + menu.evidenceStateLabel();
-        g.drawString(font, evidence, 18, imageHeight - 25, evidenceColor(), false);
-        String scroll = "SCROLL X " + scrollX + " / " + Math.max(0, contentWidth() - viewportWidth())
-                + "   Y " + scrollY + " / " + Math.max(0, contentHeight() - viewportHeight());
-        g.drawString(font, scroll, imageWidth - 18 - font.width(scroll), imageHeight - 25, MUTED, false);
-        g.drawString(font, "Wheel: vertical • Shift+wheel: horizontal", 18, imageHeight - 14, MUTED, false);
+        g.drawString(font, evidence, 20, imageHeight - 34, evidenceColor(), false);
+        String scroll = "X " + scrollX + "/" + Math.max(0, contentWidth() - viewportWidth())
+                + "  •  Y " + scrollY + "/" + Math.max(0, contentHeight() - viewportHeight());
+        g.drawString(font, scroll, imageWidth - 20 - font.width(scroll), imageHeight - 34, MUTED, false);
+        g.drawString(font, "Wheel: vertical • Shift+wheel: horizontal", 20, imageHeight - 18, MUTED, false);
+    }
+
+    private void renderScrollIndicators(GuiGraphics g) {
+        int maxX = Math.max(0, contentWidth() - viewportWidth());
+        int maxY = Math.max(0, contentHeight() - viewportHeight());
+
+        if (maxX > 0) {
+            int x0 = 26;
+            int x1 = imageWidth - 26;
+            int y = imageHeight - FOOTER_HEIGHT - 8;
+            int track = Math.max(1, x1 - x0);
+            int thumb = Math.max(30, (int) Math.round(track * (viewportWidth() / (double) contentWidth())));
+            int travel = Math.max(0, track - thumb);
+            int tx = x0 + (int) Math.round(travel * (scrollX / (double) maxX));
+            g.fill(x0, y, x1, y + 3, PANEL_3);
+            g.fill(tx, y, Math.min(x1, tx + thumb), y + 3, INFO);
+        }
+
+        if (maxY > 0) {
+            int x = imageWidth - 12;
+            int y0 = CONTENT_Y;
+            int y1 = imageHeight - FOOTER_HEIGHT - 12;
+            int track = Math.max(1, y1 - y0);
+            int thumb = Math.max(26, (int) Math.round(track * (viewportHeight() / (double) contentHeight())));
+            int travel = Math.max(0, track - thumb);
+            int ty = y0 + (int) Math.round(travel * (scrollY / (double) maxY));
+            g.fill(x, y0, x + 3, y1, PANEL_3);
+            g.fill(x, ty, x + 3, Math.min(y1, ty + thumb), INFO);
+        }
     }
 
     private void renderModel(GuiGraphics g) {
@@ -363,7 +405,7 @@ public final class LapisLowPassScreen extends AbstractContainerScreen<LapisLowPa
     }
 
     private void equation(GuiGraphics g, String text, int y) {
-        int width = Math.max(260, font.width(text) + 22);
+        int width = Math.max(340, Math.min(contentWidth() - CONTENT_X - 30, font.width(text) + 34));
         g.fill(CONTENT_X, y - 4, CONTENT_X + width, y + 15, PANEL_3);
         g.fill(CONTENT_X, y - 4, CONTENT_X + 3, y + 15, ACCENT);
         g.drawString(font, text, CONTENT_X + 10, y, TEXT, false);
@@ -371,16 +413,16 @@ public final class LapisLowPassScreen extends AbstractContainerScreen<LapisLowPa
 
     private void label(GuiGraphics g, String name, String value, int y) {
         g.drawString(font, name, CONTENT_X, y, MUTED, false);
-        g.drawString(font, value, CONTENT_X + 210, y, TEXT, false);
+        g.drawString(font, value, CONTENT_X + 250, y, TEXT, false);
     }
 
     private void metric(GuiGraphics g, String name, String value, PortQuality quality, int y) {
         int color = qualityColor(quality);
-        g.fill(CONTENT_X, y, CONTENT_X + 340, y + 32, PANEL_3);
-        g.fill(CONTENT_X, y, CONTENT_X + 3, y + 32, color);
-        g.drawString(font, name, CONTENT_X + 10, y + 6, MUTED, false);
-        g.drawString(font, value, CONTENT_X + 150, y + 6, TEXT, false);
-        g.drawString(font, quality.name(), CONTENT_X + 245, y + 18, color, false);
+        g.fill(CONTENT_X, y, CONTENT_X + 430, y + 36, PANEL_3);
+        g.fill(CONTENT_X, y, CONTENT_X + 3, y + 36, color);
+        g.drawString(font, name, CONTENT_X + 14, y + 7, MUTED, false);
+        g.drawString(font, value, CONTENT_X + 190, y + 7, TEXT, false);
+        g.drawString(font, quality.name(), CONTENT_X + 315, y + 21, color, false);
     }
 
     private void wrapped(GuiGraphics g, String text, int x, int y, int width, int color) {

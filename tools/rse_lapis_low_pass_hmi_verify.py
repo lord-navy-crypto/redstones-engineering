@@ -65,6 +65,10 @@ for token in (
     "LIVE SUBSTITUTION",
     "PROFILE RESPONSE TABLE",
     "Wheel: vertical • Shift+wheel: horizontal",
+    "MODEL_WIDTH = 960",
+    "renderScrollIndicators",
+    'Component.literal("Restore default α")',
+    "case LIVE, EVIDENCE -> 900",
 ):
     if token not in screen:
         errors.append(f"low-pass screen missing {token!r}")
@@ -102,7 +106,9 @@ print("RSE LAPIS LOW-PASS HMI VERIFY: PASS")
 print(" dedicated server-authoritative menu: PASS")
 print(" formula-first Model page: PASS")
 print(" live substitution + variable roles: PASS")
-print(" responsive large workspace + vertical/horizontal scrolling: PASS")
+print(" spacious two-axis deep canvas + visible scrollbars: PASS")
+print(" formula/value columns use virtual width rather than viewport compression: PASS")
+print(" fixed alpha/route controls retain server authority without covering model text: PASS")
 print(" real alpha + route controls: PASS")
 print(" observer-neutral evidence boundary: PASS")
 print(" authoritative action GameTest source: PASS")
