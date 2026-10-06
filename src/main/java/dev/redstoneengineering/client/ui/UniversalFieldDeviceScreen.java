@@ -1216,6 +1216,11 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
 
     private String primaryControlValue(int kind) {
         return switch (kind) {
+            case UniversalFieldDeviceMenu.CONFIG_LAPIS_TRANSDUCER,
+                 UniversalFieldDeviceMenu.CONFIG_LAPIS_RANGE -> lapisProfileName(menu.configPrimary());
+            case UniversalFieldDeviceMenu.CONFIG_SAMPLE_HOLD -> SampleHoldBlock.modeName(menu.configPrimary());
+            case UniversalFieldDeviceMenu.CONFIG_CALIBRATION -> CalibrationModuleBlock.profileName(menu.configPrimary());
+            case UniversalFieldDeviceMenu.CONFIG_FAULT_INJECTOR -> FaultInjectorBlock.modeLabelFor(menu.configPrimary());
             case UniversalFieldDeviceMenu.CONFIG_PWM -> menu.pioneerProcessSecondary() + " ticks";
             case UniversalFieldDeviceMenu.CONFIG_COPPER_VOLTAGE_SOURCE -> menu.configPrimary() + " V-eq";
             case UniversalFieldDeviceMenu.CONFIG_COPPER_LOAD, UniversalFieldDeviceMenu.CONFIG_COPPER_SERIES_RESISTOR -> menu.configPrimary() + " R-eq";
