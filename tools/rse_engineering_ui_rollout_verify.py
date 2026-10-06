@@ -214,6 +214,7 @@ print(" bounded primary/secondary numeric entry uses the authoritative container
 print(" direct entry is expressed in visible engineering units, not hidden raw indices: PASS")
 print(" EnhancedFieldDevice rollout exposes exact engineering-value entry across lightweight configurable devices: PASS")
 print(" Oscilloscope sampling Δt has exact server-backed engineering-value entry: PASS")
+print(" Lapis low-pass α has exact visible-value server-backed entry: PASS")
 print(" discrete formula parameters accept only legal engineering-value sets: PASS")
 print(" persistent Health / Role / Evidence / I-O / Controls state strip: PASS")
 print(" global Model / Variables / Evidence engineering contract: PASS")
