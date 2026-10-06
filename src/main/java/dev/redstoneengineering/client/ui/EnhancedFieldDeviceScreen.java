@@ -290,17 +290,21 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             variableRole(g, adjustable() ? "ADJUSTABLE" : "MEASURED",
                     directEntryKind() ? formulaSymbol() : sourceMediumPrimarySymbol(),
                     sourceMediumPrimaryValue(), sourceMediumPrimaryMeaning(), 152);
+            boolean fixedProtocol = !sourceMediumFixedProtocol().isBlank();
+            int offset = directEntryKind() || fixedProtocol ? 18 : 0;
             if (directEntryKind()) {
                 variableRole(g, "CONTROL", "direct entry", directRangeLabel(), "exact engineering value", 170);
+            } else if (fixedProtocol) {
+                variableRole(g, "FIXED", "protocol", sourceMediumFixedProtocol(), "read-only transport contract", 170);
             }
             variableRole(g, "EVIDENCE", "PortQuality", menu.evidenceQuality().name(),
-                    "quality=" + menu.qualityPercent() + "%", directEntryKind() ? 188 : 170);
+                    "quality=" + menu.qualityPercent() + "%", 170 + offset);
             variableRole(g, "EVIDENCE", "sources / drivers", Integer.toString(menu.driverCount()),
-                    sourceOwnershipMeaning(), directEntryKind() ? 206 : 188);
+                    sourceOwnershipMeaning(), 188 + offset);
             variableRole(g, "TOPOLOGY", "ports / links", menu.portCount() + " / " + menu.connectionCount(),
-                    menu.topologyValid() ? "PASS" : "FAIL-CLOSED", directEntryKind() ? 224 : 206);
-            variableRole(g, "AUTHORITY", "policy", sourceMediumAuthority(), "server synchronized", directEntryKind() ? 242 : 224);
-            wrappedText(g, sourceMediumExplanation(), 16, directEntryKind() ? 268 : 250, workspaceWidth() - 24,
+                    menu.topologyValid() ? "PASS" : "FAIL-CLOSED", 206 + offset);
+            variableRole(g, "AUTHORITY", "policy", sourceMediumAuthority(), "server synchronized", 224 + offset);
+            wrappedText(g, sourceMediumExplanation(), 16, 250 + offset, workspaceWidth() - 24,
                     menu.evidenceQuality().name().equals("VALID") ? MUTED : WARN);
             return;
         }
@@ -411,6 +415,18 @@ public final class EnhancedFieldDeviceScreen extends EngineeringScreen<FieldDevi
             case FieldDeviceMenu.KIND_QUARTZ_LINE -> "QUARTZ_TIMING";
             case FieldDeviceMenu.KIND_AMETHYST_DUST -> "AMETHYST_RESONANCE";
             default -> "OPTICAL";
+        };
+    }
+
+    private String sourceMediumFixedProtocol() {
+        return switch (menu.kind()) {
+            case FieldDeviceMenu.KIND_INSTRUMENT_CABLE,
+                 FieldDeviceMenu.KIND_SHIELDED_INSTRUMENT_CABLE -> "4 measurement channels";
+            case FieldDeviceMenu.KIND_DATA_BUS_8 -> "8-bit payload • 0..255";
+            case FieldDeviceMenu.KIND_SERIAL_LINE -> "byte-frame transport • fixed link timing";
+            case FieldDeviceMenu.KIND_DIFFERENTIAL_PAIR -> "1-bit balanced logic";
+            case FieldDeviceMenu.KIND_QUARTZ_LINE -> "period evidence from source clock";
+            default -> "";
         };
     }
 
