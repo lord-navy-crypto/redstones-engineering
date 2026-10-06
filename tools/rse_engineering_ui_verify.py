@@ -95,12 +95,13 @@ require("src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java",
         "MechanicalExciterBlock.setFrequency", "HydroacousticExciterBlock.setFrequency")
 
 require("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
-        "{6, 9, 12, 16} gain", "{8, 16, 32, 64} blocks",
+        "{6, 9, 12, 16} gain", "{8, 16, 32, 64} blocks", "1..3 severity",
         '"Cycle " + primaryName', "primaryPrevious.visible = false",
         "secondaryPrevious.visible = false")
 require("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
         "MolecularCloudReceiverBlock.SENSITIVITY",
-        "LapisPrecisionRangeSensorBlock.RANGE_INDEX")
+        "LapisPrecisionRangeSensorBlock.RANGE_INDEX",
+        "AlarmProcessorBlock.SEVERITY")
 
 require("src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java",
         "Cycle tuning preset ▶", "Cycle RX ▶", "Cycle TX ▶",
