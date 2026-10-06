@@ -51,6 +51,10 @@ for token in (
     "ENGINEERING CONTRACT • MODEL / VARIABLES / EVIDENCE",
     "renderMechanismFlow",
     "MECHANISM FLOW • LIVE SERVER STRUCTURE",
+    "Cycle direction ▶",
+    "Cycle RX ▶",
+    "Cycle TX ▶",
+    "One-button route control",
     "RX / INPUT",
     "MODEL",
     "STATE",
@@ -197,6 +201,7 @@ print(" global Model / Variables / Evidence engineering contract: PASS")
 print(" live RX -> model -> state -> TX mechanism flow: PASS")
 print(" reserved shared appendix / no device-content overlap: PASS")
 print(" responsive 3x2 navigation rail + header/content separation: PASS")
+print(" one-button cyclic direction routing: PASS")
 print(" closed-form-only formula policy / no fabricated equations: PASS")
 print(" shared formula / variable / evidence primitives: PASS")
 print(" conditioner / quartz / conversion / range-sensor rollout: PASS")
