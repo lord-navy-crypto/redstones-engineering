@@ -69,7 +69,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private static final int MIN_WORKSPACE_HEIGHT = 320;
     private static final int MAX_WORKSPACE_HEIGHT = 520;
     private static final int DEFAULT_CANVAS_WIDTH = 1020;
-    private static final int DEFAULT_CANVAS_HEIGHT = 1480;
+    private static final int DEFAULT_CANVAS_HEIGHT = 1820;
     private static final int SHARED_APPENDIX_TOP = 960;
     private static final int CONFIGURE_APPENDIX_TOP = 1080;
     private static final int SHARED_APPENDIX_GAP = 44;
@@ -637,6 +637,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
                 renderSection(graphics, section);
             }
             renderFunctionSurface(graphics);
+            renderMechanismFlow(graphics);
             renderGlobalEngineeringContract(graphics);
         }
         graphics.pose().popPose();
@@ -730,8 +731,16 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         return section == Section.CONFIGURE ? 168 : 118;
     }
 
-    private int engineeringContractTop() {
+    private int mechanismFlowTop() {
         return sharedAppendixTop() + functionSurfaceHeight() + SHARED_APPENDIX_GAP;
+    }
+
+    private int mechanismFlowHeight() {
+        return 142;
+    }
+
+    private int engineeringContractTop() {
+        return mechanismFlowTop() + mechanismFlowHeight() + SHARED_APPENDIX_GAP;
     }
 
     private void renderAppendixDivider(GuiGraphics graphics) {
@@ -807,6 +816,67 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         graphics.drawString(font, "Ports • explicit engineering I/O contract", x + 12, y + 65, TEXT, false);
         graphics.drawString(font, "Observe • synchronized signals / topology / health", x + 12, y + 82, TEXT, false);
         graphics.drawString(font, "Log • retained evidence where the backend actually owns history", x + 12, y + 99, TEXT, false);
+    }
+
+    private void renderMechanismFlow(GuiGraphics graphics) {
+        int x = CONTENT_LEFT;
+        int y = mechanismFlowTop();
+        int width = Math.max(520, Math.min(920, canvasRight() - x - 24));
+        int height = mechanismFlowHeight();
+        int controlCount = configureControlCount();
+
+        graphics.fill(x, y, x + width, y + height, PANEL_3);
+        graphics.fill(x, y, x + 4, y + height, GOOD);
+        graphics.drawString(font, "MECHANISM FLOW • LIVE SERVER STRUCTURE", x + 12, y + 10, GOOD, false);
+
+        int gap = 12;
+        int innerX = x + 12;
+        int boxY = y + 34;
+        int boxHeight = 48;
+        int boxWidth = Math.max(150, (width - 24 - gap * 3) / 4);
+
+        mechanismBox(graphics, "RX / INPUT", menu.receivePortFacesLabel(),
+                innerX, boxY, boxWidth, boxHeight, INFO);
+        mechanismArrow(graphics, innerX + boxWidth, boxY + 22, gap);
+
+        String model = controlCount > 0 ? "PARAMETRIC SERVER MODEL" : "FIXED / OBSERVER MODEL";
+        mechanismBox(graphics, "MODEL", model,
+                innerX + (boxWidth + gap), boxY, boxWidth, boxHeight, ACCENT);
+        mechanismArrow(graphics, innerX + (boxWidth + gap) * 2 - gap, boxY + 22, gap);
+
+        mechanismBox(graphics, "STATE",
+                menu.operationalHealthLabel() + " • " + menu.topologyRoleLabel(),
+                innerX + (boxWidth + gap) * 2, boxY, boxWidth, boxHeight, evidenceStateColor());
+        mechanismArrow(graphics, innerX + (boxWidth + gap) * 3 - gap, boxY + 22, gap);
+
+        mechanismBox(graphics, "TX / OUTPUT", menu.transmitPortFacesLabel(),
+                innerX + (boxWidth + gap) * 3, boxY, boxWidth, boxHeight, INFO);
+
+        String evidence = "EVIDENCE • " + menu.evidenceStateLabel();
+        String authority = controlCount == 0
+                ? "OPERATOR • READ-ONLY / OBSERVER"
+                : "OPERATOR • " + controlCount + " SERVER-ROUTED CONTROL" + (controlCount == 1 ? "" : "S");
+        graphics.drawString(font, fitForWidth(evidence, width / 2 - 24),
+                x + 18, y + 98, evidenceStateColor(), false);
+        graphics.drawString(font, fitForWidth(authority, width / 2 - 24),
+                x + width / 2 + 6, y + 98, controlCount == 0 ? MUTED : GOOD, false);
+        graphics.drawString(font,
+                fitForWidth("PATH • " + menu.portRouteLabel(), width - 36),
+                x + 18, y + 119, TEXT, false);
+    }
+
+    private void mechanismBox(GuiGraphics graphics, String title, String value,
+                              int x, int y, int width, int height, int color) {
+        graphics.fill(x, y, x + width, y + height, PANEL_2);
+        graphics.fill(x, y, x + 3, y + height, color);
+        graphics.drawString(font, title, x + 9, y + 8, MUTED, false);
+        graphics.drawString(font, fitForWidth(value, width - 18), x + 9, y + 26, color, false);
+    }
+
+    private void mechanismArrow(GuiGraphics graphics, int x, int y, int gap) {
+        String arrow = "→";
+        int arrowX = x + Math.max(0, (gap - font.width(arrow)) / 2);
+        graphics.drawString(font, arrow, arrowX, y, MUTED, false);
     }
 
     /**

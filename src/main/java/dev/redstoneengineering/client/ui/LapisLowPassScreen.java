@@ -263,7 +263,7 @@ public final class LapisLowPassScreen extends AbstractContainerScreen<LapisLowPa
 
     private int contentHeight() {
         return switch (page) {
-            case MODEL -> 560;
+            case MODEL -> 760;
             case LIVE -> 430;
             case CONFIGURE -> 540;
             case ROUTE -> 390;
@@ -425,6 +425,11 @@ public final class LapisLowPassScreen extends AbstractContainerScreen<LapisLowPa
         wrapped(g, "α • adjustable response coefficient • larger α reacts faster and passes more high-frequency change.", CONTENT_X, y, 700, TEXT); y += 32;
         wrapped(g, "Δt • profile-owned sample interval • currently fixed by rse-default-v1, not by the client GUI.", CONTENT_X, y, 700, TEXT); y += 32;
         wrapped(g, "τ and fc • derived engineering quantities • they explain the physical meaning of α rather than adding decorative controls.", CONTENT_X, y, 700, INFO);
+        y += 52;
+
+        rule(g, y); y += 14;
+        sectionTitle(g, "MECHANISM FLOW • LIVE SERVER STRUCTURE", y); y += 22;
+        mechanismFlow(g, y);
     }
 
     private void renderLive(GuiGraphics g) {
@@ -505,6 +510,32 @@ public final class LapisLowPassScreen extends AbstractContainerScreen<LapisLowPa
                 CONTENT_X, y, Math.min(650, contentWidth() - 20), TEXT); y += 52;
         wrapped(g, "The HMI is intentionally a viewer/controller of the server model. Opening, scrolling, or changing pages cannot create samples, advance the filter, or rewrite diagnostic history.",
                 CONTENT_X, y, Math.min(650, contentWidth() - 20), INFO);
+    }
+
+    private void mechanismFlow(GuiGraphics g, int y) {
+        int boxWidth = 190;
+        int gap = 14;
+        int x = CONTENT_X;
+        mechanismBox(g, "RX / INPUT", menu.receivePortFacesLabel(), x, y, boxWidth, INFO);
+        g.drawString(font, "→", x + boxWidth + 4, y + 19, MUTED, false);
+        mechanismBox(g, "FILTER MODEL", "α=" + String.format("%.2f", LapisLowPassMenu.alphaForIndex(menu.alphaIndex())),
+                x + boxWidth + gap, y, boxWidth, ACCENT);
+        g.drawString(font, "→", x + (boxWidth + gap) * 2 - 10, y + 19, MUTED, false);
+        mechanismBox(g, "SOLVER STATE", "y[n-1]=" + menu.previousOutput(),
+                x + (boxWidth + gap) * 2, y, boxWidth, menu.runtimePresent() ? GOOD : MUTED);
+        g.drawString(font, "→", x + (boxWidth + gap) * 3 - 10, y + 19, MUTED, false);
+        mechanismBox(g, "TX / OUTPUT", menu.transmitPortFacesLabel(),
+                x + (boxWidth + gap) * 3, y, boxWidth, INFO);
+
+        label(g, "Evidence", menu.evidenceStateLabel(), y + 58);
+        label(g, "Operator authority", "α + RX/TX route • SERVER", y + 76);
+    }
+
+    private void mechanismBox(GuiGraphics g, String title, String value, int x, int y, int width, int color) {
+        g.fill(x, y, x + width, y + 46, PANEL_3);
+        g.fill(x, y, x + 3, y + 46, color);
+        g.drawString(font, title, x + 9, y + 8, MUTED, false);
+        g.drawString(font, fit(value, width - 18), x + 9, y + 26, color, false);
     }
 
     private void sectionTitle(GuiGraphics g, String text, int y) {

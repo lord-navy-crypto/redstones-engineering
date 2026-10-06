@@ -50,7 +50,7 @@ if len(block_facing) < 23:
 
 for token in (
     "DEFAULT_CANVAS_WIDTH = 1020",
-    "DEFAULT_CANVAS_HEIGHT = 1480",
+    "DEFAULT_CANVAS_HEIGHT = 1820",
     "CONTENT_TOP = 112",
     "NAV_COLUMNS = 3",
     "NAV_GAP_X = 8",
@@ -68,6 +68,14 @@ for token in (
     "configureControlCount()",
     "renderGlobalEngineeringContract",
     "ENGINEERING CONTRACT • MODEL / VARIABLES / EVIDENCE",
+    "renderMechanismFlow",
+    "MECHANISM FLOW • LIVE SERVER STRUCTURE",
+    "RX / INPUT",
+    "MODEL",
+    "STATE",
+    "TX / OUTPUT",
+    "menu.receivePortFacesLabel()",
+    "menu.transmitPortFacesLabel()",
     "SHARED_APPENDIX_TOP = 960",
     "CONFIGURE_APPENDIX_TOP = 1080",
     "SHARED_APPENDIX_GAP = 44",
@@ -125,6 +133,11 @@ standalone_contracts = {
         "I/O • ",
         "menu.portRouteLabel()",
         "GOVERNING EQUATION",
+        "MECHANISM FLOW • LIVE SERVER STRUCTURE",
+        "RX / INPUT",
+        "FILTER MODEL",
+        "SOLVER STATE",
+        "TX / OUTPUT",
         "VARIABLE ROLES",
         "MEASUREMENT / MODEL EVIDENCE",
         "[ADJUSTABLE] α",
@@ -139,6 +152,11 @@ standalone_contracts = {
         "SAMPLING_CONTENT_WIDTH = 1120",
         "Drag scrollbars • Wheel: vertical • Shift+wheel: horizontal",
         "SAMPLING MODEL",
+        "MECHANISM FLOW • LIVE SERVER STRUCTURE",
+        "PROBES / RX",
+        "SAMPLER",
+        "CAPTURE STATE",
+        "DISPLAY / EVIDENCE",
         "[ADJUSTABLE] N_ticks",
         "[DERIVED] Δt",
         "CAPTURE EVIDENCE",
@@ -207,6 +225,7 @@ print(" global X/Y wheel + draggable scrollbar contract: PASS")
 print(" global operator-control inventory / function surface: PASS")
 print(" persistent live Health / Role / Evidence / I-O / Controls strip: PASS")
 print(" global Model / Variables / Evidence engineering contract: PASS")
+print(" live mechanism-flow structure across all block-facing UI: PASS")
 print(" reserved shared appendix / no device-content overlap: PASS")
 print(" responsive 3x2 navigation rail + larger tab hit targets: PASS")
 print(" standalone instrument math/evidence equivalence: PASS")

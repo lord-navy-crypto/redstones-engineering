@@ -282,7 +282,7 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
     private int contentHeight() {
         return switch (page) {
             case WAVEFORM -> 500;
-            case SAMPLING -> 620;
+            case SAMPLING -> 820;
             case EXPERIMENT -> 700;
             case TRIGGER -> 500;
             case NETWORK -> 500;
@@ -474,6 +474,11 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
         y += 12;
         wrapped(g, "Nyquist gives a theoretical boundary, not proof that a captured waveform is alias-free. A high-frequency source can already have folded into a lower observed frequency. Increase sample rate and/or limit source bandwidth before sampling when the true source spectrum is uncertain.",
                 CONTENT_X, y, 760, INFO);
+        y += 64;
+
+        rule(g, y); y += 14;
+        sectionTitle(g, "MECHANISM FLOW • LIVE SERVER STRUCTURE", y); y += 22;
+        mechanismFlow(g, y);
     }
 
     private void samplingChannel(GuiGraphics g, int channel, String name, int y) {
@@ -545,6 +550,33 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
         wrapped(g,
                 "The buttons below freeze server evidence only. Capturing a record never advances the sampler or changes the waveform. Changing Δt still clears the live capture, so reacquire before capturing the candidate.",
                 CONTENT_X, y, 760, MUTED);
+    }
+
+    private void mechanismFlow(GuiGraphics g, int y) {
+        int boxWidth = 190;
+        int gap = 14;
+        int x = CONTENT_X;
+        mechanismBox(g, "PROBES / RX", menu.receivePortFacesLabel(), x, y, boxWidth, INFO);
+        g.drawString(font, "→", x + boxWidth + 4, y + 19, MUTED, false);
+        mechanismBox(g, "SAMPLER", "Δt=" + menu.samplePeriodTicks() + " ticks",
+                x + boxWidth + gap, y, boxWidth, ACCENT);
+        g.drawString(font, "→", x + (boxWidth + gap) * 2 - 10, y + 19, MUTED, false);
+        int captureColor = menu.captureState() == 2 ? GOOD : menu.captureState() == 1 ? INFO : MUTED;
+        mechanismBox(g, "CAPTURE STATE", captureState(),
+                x + (boxWidth + gap) * 2, y, boxWidth, captureColor);
+        g.drawString(font, "→", x + (boxWidth + gap) * 3 - 10, y + 19, MUTED, false);
+        mechanismBox(g, "DISPLAY / EVIDENCE", menu.evidenceStateLabel(),
+                x + (boxWidth + gap) * 3, y, boxWidth, evidenceColor());
+
+        label(g, "Path", menu.portRouteLabel(), y + 58);
+        label(g, "Operator authority", "timebase + trigger + cursors + evidence capture • SERVER", y + 76);
+    }
+
+    private void mechanismBox(GuiGraphics g, String title, String value, int x, int y, int width, int color) {
+        g.fill(x, y, x + width, y + 46, PANEL_3);
+        g.fill(x, y, x + 3, y + 46, color);
+        g.drawString(font, title, x + 9, y + 8, MUTED, false);
+        g.drawString(font, fit(value, width - 18), x + 9, y + 26, color, false);
     }
 
     private void experimentRow(GuiGraphics g, String quantity, String baseline, String candidate, String note, int y) {

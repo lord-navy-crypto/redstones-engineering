@@ -30,7 +30,7 @@ for token in (
     "MIN_WORKSPACE_HEIGHT = 320",
     "MAX_WORKSPACE_HEIGHT = 520",
     "DEFAULT_CANVAS_WIDTH = 1020",
-    "DEFAULT_CANVAS_HEIGHT = 1480",
+    "DEFAULT_CANVAS_HEIGHT = 1820",
     "CONTENT_TOP = 112",
     "NAV_COLUMNS = 3",
     "NAV_GAP_X = 8",
@@ -49,6 +49,15 @@ for token in (
     "configureControlCount()",
     "renderGlobalEngineeringContract",
     "ENGINEERING CONTRACT • MODEL / VARIABLES / EVIDENCE",
+    "renderMechanismFlow",
+    "MECHANISM FLOW • LIVE SERVER STRUCTURE",
+    "RX / INPUT",
+    "MODEL",
+    "STATE",
+    "TX / OUTPUT",
+    "menu.receivePortFacesLabel()",
+    "menu.transmitPortFacesLabel()",
+    "OPERATOR • ",
     "SHARED_APPENDIX_TOP = 960",
     "CONFIGURE_APPENDIX_TOP = 1080",
     "SHARED_APPENDIX_GAP = 44",
@@ -178,6 +187,7 @@ print(" fixed controls separated from scrollable engineering content: PASS")
 print(" formula-linked controls surfaced in Universal / Enhanced / PID HMIs: PASS")
 print(" persistent Health / Role / Evidence / I-O / Controls state strip: PASS")
 print(" global Model / Variables / Evidence engineering contract: PASS")
+print(" live RX -> model -> state -> TX mechanism flow: PASS")
 print(" reserved shared appendix / no device-content overlap: PASS")
 print(" responsive 3x2 navigation rail + header/content separation: PASS")
 print(" closed-form-only formula policy / no fabricated equations: PASS")
