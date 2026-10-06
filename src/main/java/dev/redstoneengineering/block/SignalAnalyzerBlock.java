@@ -9,6 +9,8 @@ import dev.redstoneengineering.core.port.EngineeringPortSnapshot;
 import dev.redstoneengineering.core.port.PortDirection;
 import dev.redstoneengineering.core.port.PortKind;
 import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.diagnostics.SignalCalibrationTrialRecord;
+import dev.redstoneengineering.diagnostics.SignalCalibrationTrialStore;
 import dev.redstoneengineering.physics.RuntimeIntStore;
 import dev.redstoneengineering.signal.EngineeringSignal;
 import dev.redstoneengineering.ui.menu.SignalAnalyzerMenu;
@@ -50,6 +52,7 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
     public static final IntegerProperty MODE = IntegerProperty.create("mode", 0, 1);
     public static final IntegerProperty OUTPUT = IntegerProperty.create("output", 0, 15);
     public static final IntegerProperty CALIBRATION = IntegerProperty.create("calibration", 0, 4);
+    public static final IntegerProperty REFERENCE = IntegerProperty.create("reference", 0, 15);
 
     public static final int TAP = 0;
     public static final int INLINE = 1;
@@ -62,7 +65,8 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
     private static final int SAMPLE_PERIOD_TICKS = 2;
     private static final int WINDOW = DISPLAY_SAMPLES;
     private static final int WINDOW_BASE = 17;
-    private static final int RUNTIME_SIZE = WINDOW_BASE + WINDOW;
+    private static final int QUALITY_WINDOW_BASE = WINDOW_BASE + WINDOW;
+    private static final int RUNTIME_SIZE = QUALITY_WINDOW_BASE + WINDOW;
 
     public SignalAnalyzerBlock(Properties properties) {
         super(properties);
@@ -70,12 +74,13 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
                 .setValue(FACING, Direction.NORTH)
                 .setValue(MODE, TAP)
                 .setValue(OUTPUT, 0)
-                .setValue(CALIBRATION, 2));
+                .setValue(CALIBRATION, 2)
+                .setValue(REFERENCE, 8));
     }
 
     @Override public MapCodec<SignalAnalyzerBlock> codec() { return RedstoneEngineering.SIGNAL_ANALYZER_CODEC.value(); }
     @Override public BlockState getStateForPlacement(BlockPlaceContext context) { return defaultBlockState().setValue(FACING, context.getClickedFace().getOpposite()); }
-    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { builder.add(FACING, MODE, OUTPUT, CALIBRATION); }
+    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { builder.add(FACING, MODE, OUTPUT, CALIBRATION, REFERENCE); }
 
     private static Direction testSide(BlockState state) { return state.getValue(FACING); }
     private static Direction inlineOutputSide(BlockState state) { return testSide(state).getOpposite(); }
@@ -144,7 +149,8 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         int measured = sampleTarget(level, pos, state);
-        recordSample(level, pos, measured);
+        boolean present = measurementPresent(level, pos, state, measured);
+        recordSample(level, pos, measured, present);
         int requestedOutput = state.getValue(MODE) == INLINE ? measured : 0;
         if (state.getValue(OUTPUT) != requestedOutput) {
             BlockState next = state.setValue(OUTPUT, requestedOutput);
@@ -159,6 +165,7 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock())) {
             RuntimeIntStore.remove(level, KEY, pos);
+            SignalCalibrationTrialStore.clear(level, pos);
             if (state.getValue(MODE) == INLINE) {
                 level.updateNeighborsAt(pos, this);
                 level.updateNeighborsAt(pos.relative(inlineOutputSide(state)), this);
@@ -174,7 +181,7 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
     }
 
     /** Runtime: totals/latest/min/max/edges/timestamps + 16-sample ring at 17..32. */
-    private static void recordSample(Level level, BlockPos pos, int measured) {
+    private static void recordSample(Level level, BlockPos pos, int measured, boolean present) {
         int[] r = RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE);
         int now = (int) Math.min(Integer.MAX_VALUE, level.getGameTime());
         r[0]++;
@@ -200,6 +207,7 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
         }
         int write = Math.floorMod(r[12], WINDOW);
         r[WINDOW_BASE + write] = measured;
+        r[QUALITY_WINDOW_BASE + write] = present ? 1 : 0;
         r[12] = (write + 1) % WINDOW;
         r[13] = Math.min(WINDOW, r[13] + 1);
     }
@@ -207,6 +215,8 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
     public record UiSnapshot(
             int mode,
             int calibrationOffset,
+            int reference,
+            int facingOrdinal,
             int raw,
             int calibrated,
             int output,
@@ -218,6 +228,7 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
             int lastDelta,
             int maxDelta,
             int windowCount,
+            int validWindowCount,
             int average100,
             int peakToPeak,
             int meanStep100,
@@ -226,6 +237,8 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
             int totalSamples,
             int modeSwitches,
             int calibrationSwitches,
+            int referenceSwitches,
+            PortQuality measurementQuality,
             int[] samples
     ) {}
 
@@ -234,8 +247,8 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
         if (!(state.getBlock() instanceof SignalAnalyzerBlock)) {
             int[] empty = new int[DISPLAY_SAMPLES];
             java.util.Arrays.fill(empty, -1);
-            return new UiSnapshot(TAP, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, -1, 0, 0, 0, empty);
+            return new UiSnapshot(TAP, 0, 8, Direction.NORTH.ordinal(), 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, PortQuality.NO_SIGNAL, empty);
         }
 
         int raw = sampleTarget(level, pos, state);
@@ -247,13 +260,29 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
         int padding = DISPLAY_SAMPLES - count;
         for (int i = 0; i < count; i++) samples[padding + i] = rollingSample(r, count, i);
 
+        PortQuality measurementQuality = measurementPresent(level, pos, state, raw)
+                ? PortQuality.VALID : PortQuality.NO_SIGNAL;
         return new UiSnapshot(
-                state.getValue(MODE), calibrationOffset(state), raw, calibratedReading(state, raw), state.getValue(OUTPUT),
-                r[8] == 0 ? raw : r[2], r[8] == 0 ? raw : r[3], r[4], r[5], r[6], r[9], r[10], count,
-                rollingAverage100(r, count), rollingPeakToPeak(r, count), rollingMeanStep100(r, count),
+                state.getValue(MODE),
+                calibrationOffset(state),
+                state.getValue(REFERENCE),
+                state.getValue(FACING).ordinal(),
+                raw,
+                calibratedReading(state, raw),
+                state.getValue(OUTPUT),
+                r[8] == 0 ? raw : r[2],
+                r[8] == 0 ? raw : r[3],
+                r[4], r[5], r[6], r[9], r[10],
+                count,
+                rollingValidCount(r, count),
+                rollingAverage100(r, count),
+                rollingPeakToPeak(r, count),
+                rollingMeanStep100(r, count),
                 r[8] == 0 ? 0 : Math.max(0, now - r[7]),
                 r[8] == 0 ? -1 : Math.max(0, now - r[14]),
-                r[0], r[11], r[15], samples
+                r[0], r[11], r[15], r[16],
+                measurementQuality,
+                samples
         );
     }
 
@@ -314,6 +343,20 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
                 level.setBlock(pos, state.setValue(CALIBRATION, encoded), Block.UPDATE_CLIENTS);
                 RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE)[15]++;
             }
+            case SignalAnalyzerMenu.BUTTON_REFERENCE_DECREASE -> {
+                int current = state.getValue(REFERENCE);
+                int next = Math.max(0, current - 1);
+                if (next == current) return false;
+                level.setBlock(pos, state.setValue(REFERENCE, next), Block.UPDATE_CLIENTS);
+                RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE)[16]++;
+            }
+            case SignalAnalyzerMenu.BUTTON_REFERENCE_INCREASE -> {
+                int current = state.getValue(REFERENCE);
+                int next = Math.min(15, current + 1);
+                if (next == current) return false;
+                level.setBlock(pos, state.setValue(REFERENCE, next), Block.UPDATE_CLIENTS);
+                RuntimeIntStore.get(level, KEY, pos, RUNTIME_SIZE)[16]++;
+            }
             case SignalAnalyzerMenu.BUTTON_RESET_HISTORY -> RuntimeIntStore.remove(level, KEY, pos);
             default -> { return false; }
         }
@@ -335,6 +378,88 @@ public class SignalAnalyzerBlock extends Block implements EngineeringPortProvide
             }
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
+    }
+
+    public static SignalCalibrationTrialRecord captureCalibrationBaseline(Level level, BlockPos pos) {
+        if (level.isClientSide) return null;
+        SignalCalibrationTrialRecord evidence = calibrationEvidence(level, pos);
+        return SignalCalibrationTrialStore.captureBaseline(level, pos, evidence);
+    }
+
+    public static SignalCalibrationTrialRecord captureCalibrationCandidate(Level level, BlockPos pos) {
+        if (level.isClientSide) return null;
+        SignalCalibrationTrialRecord evidence = calibrationEvidence(level, pos);
+        return SignalCalibrationTrialStore.captureCandidate(level, pos, evidence).orElse(null);
+    }
+
+    public static boolean clearCalibrationTrial(Level level, BlockPos pos) {
+        if (level.isClientSide || !(level.getBlockState(pos).getBlock() instanceof SignalAnalyzerBlock)) return false;
+        SignalCalibrationTrialStore.clear(level, pos);
+        return true;
+    }
+
+    private static SignalCalibrationTrialRecord calibrationEvidence(Level level, BlockPos pos) {
+        UiSnapshot snapshot = uiSnapshot(level, pos);
+        int[] samples = snapshot.samples();
+        int count = 0;
+        int sumRaw = 0;
+        int sumCalibrated = 0;
+        int minCalibrated = 15;
+        int maxCalibrated = 0;
+        int totalStep = 0;
+        int clipping = 0;
+        int previousCalibrated = -1;
+
+        for (int raw : samples) {
+            if (raw < 0) continue;
+            int unbounded = raw + snapshot.calibrationOffset();
+            int calibrated = EngineeringSignal.clamp(unbounded);
+            if (unbounded != calibrated) clipping++;
+            sumRaw += raw;
+            sumCalibrated += calibrated;
+            minCalibrated = Math.min(minCalibrated, calibrated);
+            maxCalibrated = Math.max(maxCalibrated, calibrated);
+            if (previousCalibrated >= 0) totalStep += Math.abs(calibrated - previousCalibrated);
+            previousCalibrated = calibrated;
+            count++;
+        }
+
+        int rawAverage100 = count == 0 ? 0 : (sumRaw * 100 + count / 2) / count;
+        int calibratedAverage100 = count == 0 ? 0 : (sumCalibrated * 100 + count / 2) / count;
+        int reference100 = snapshot.reference() * 100;
+        int error100 = Math.abs(calibratedAverage100 - reference100);
+        int span = count == 0 ? 0 : maxCalibrated - minCalibrated;
+        int meanStep100 = count < 2 ? 0 : (totalStep * 100 + (count - 1) / 2) / (count - 1);
+
+        return new SignalCalibrationTrialRecord(
+                1,
+                Math.max(0L, level.getGameTime()),
+                snapshot.reference(),
+                snapshot.mode(),
+                snapshot.facingOrdinal(),
+                snapshot.calibrationOffset(),
+                rawAverage100,
+                calibratedAverage100,
+                error100,
+                span,
+                meanStep100,
+                clipping,
+                snapshot.windowCount(),
+                snapshot.validWindowCount(),
+                snapshot.sampleAgeTicks(),
+                snapshot.measurementQuality()
+        );
+    }
+
+    private static int rollingValidCount(int[] r, int count) {
+        int valid = 0;
+        if (count <= 0) return valid;
+        int oldest = Math.floorMod(r[12] - count, WINDOW);
+        for (int i = 0; i < count; i++) {
+            int slot = (oldest + i) % WINDOW;
+            if (r[QUALITY_WINDOW_BASE + slot] != 0) valid++;
+        }
+        return valid;
     }
 
     private static int rollingAverage100(int[] r, int count) {

@@ -2,6 +2,9 @@ package dev.redstoneengineering.ui.menu;
 
 import dev.redstoneengineering.RedstoneEngineering;
 import dev.redstoneengineering.block.SignalAnalyzerBlock;
+import dev.redstoneengineering.core.port.PortQuality;
+import dev.redstoneengineering.diagnostics.SignalCalibrationTrialComparison;
+import dev.redstoneengineering.diagnostics.SignalCalibrationTrialStore;
 import dev.redstoneengineering.ui.EngineeringUiRegistration;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -17,9 +20,16 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_RESET_HISTORY = 3;
     public static final int BUTTON_ROTATE_LEFT = 4;
     public static final int BUTTON_ROTATE_RIGHT = 5;
+    public static final int BUTTON_REFERENCE_DECREASE = 6;
+    public static final int BUTTON_REFERENCE_INCREASE = 7;
+    public static final int BUTTON_TRIAL_BASELINE = 8;
+    public static final int BUTTON_TRIAL_CANDIDATE = 9;
+    public static final int BUTTON_TRIAL_CLEAR = 10;
 
     private final DataSlot mode = trackedInt();
     private final DataSlot calibrationOffset = trackedInt();
+    private final DataSlot reference = trackedInt();
+    private final DataSlot facing = trackedInt();
     private final DataSlot raw = trackedInt();
     private final DataSlot calibrated = trackedInt();
     private final DataSlot output = trackedInt();
@@ -31,6 +41,8 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
     private final DataSlot lastDelta = trackedInt();
     private final DataSlot maxDelta = trackedInt();
     private final DataSlot windowCount = trackedInt();
+    private final DataSlot validWindowCount = trackedInt();
+    private final DataSlot measurementQuality = trackedInt();
     private final DataSlot average100 = trackedInt();
     private final DataSlot peakToPeak = trackedInt();
     private final DataSlot meanStep100 = trackedInt();
@@ -39,6 +51,17 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
     private final DataSlot totalSamples = trackedInt();
     private final DataSlot modeSwitches = trackedInt();
     private final DataSlot calibrationSwitches = trackedInt();
+    private final DataSlot referenceSwitches = trackedInt();
+
+    private final DataSlot trialBaselineSequence = trackedInt();
+    private final DataSlot trialCandidateSequence = trackedInt();
+    private final DataSlot trialTrend = trackedInt();
+    private final DataSlot trialErrorDelta100 = trackedInt();
+    private final DataSlot trialClippingDelta = trackedInt();
+    private final DataSlot trialSpanDelta = trackedInt();
+    private final DataSlot trialMeanStepDelta100 = trackedInt();
+    private final DataSlot trialCalibrationDelta = trackedInt();
+
     private final DataSlot[] samples = new DataSlot[SignalAnalyzerBlock.DISPLAY_SAMPLES];
 
     public SignalAnalyzerMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf data) {
@@ -62,6 +85,8 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
         SignalAnalyzerBlock.UiSnapshot snapshot = SignalAnalyzerBlock.uiSnapshot(level, blockPos);
         mode.set(snapshot.mode());
         calibrationOffset.set(snapshot.calibrationOffset());
+        reference.set(snapshot.reference());
+        facing.set(snapshot.facingOrdinal());
         raw.set(snapshot.raw());
         calibrated.set(snapshot.calibrated());
         output.set(snapshot.output());
@@ -73,6 +98,8 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
         lastDelta.set(snapshot.lastDelta());
         maxDelta.set(snapshot.maxDelta());
         windowCount.set(snapshot.windowCount());
+        validWindowCount.set(snapshot.validWindowCount());
+        measurementQuality.set(snapshot.measurementQuality().ordinal());
         average100.set(snapshot.average100());
         peakToPeak.set(snapshot.peakToPeak());
         meanStep100.set(snapshot.meanStep100());
@@ -81,6 +108,30 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
         totalSamples.set(snapshot.totalSamples());
         modeSwitches.set(snapshot.modeSwitches());
         calibrationSwitches.set(snapshot.calibrationSwitches());
+        referenceSwitches.set(snapshot.referenceSwitches());
+
+        trialBaselineSequence.set(0);
+        trialCandidateSequence.set(0);
+        trialTrend.set(-1);
+        trialErrorDelta100.set(0);
+        trialClippingDelta.set(0);
+        trialSpanDelta.set(0);
+        trialMeanStepDelta100.set(0);
+        trialCalibrationDelta.set(0);
+
+        SignalCalibrationTrialStore.baseline(level, blockPos).ifPresent(record ->
+                trialBaselineSequence.set((int) Math.min(Integer.MAX_VALUE, record.sequence())));
+        SignalCalibrationTrialStore.candidate(level, blockPos).ifPresent(record ->
+                trialCandidateSequence.set((int) Math.min(Integer.MAX_VALUE, record.sequence())));
+        SignalCalibrationTrialStore.comparison(level, blockPos).ifPresent(comparison -> {
+            trialTrend.set(comparison.trend().ordinal());
+            trialErrorDelta100.set(comparison.errorDelta100());
+            trialClippingDelta.set(comparison.clippingDelta());
+            trialSpanDelta.set(comparison.spanDelta());
+            trialMeanStepDelta100.set(comparison.meanStepDelta100());
+            trialCalibrationDelta.set(comparison.calibrationOffsetDelta());
+        });
+
         for (int i = 0; i < samples.length; i++) samples[i].set(snapshot.samples()[i]);
     }
 
@@ -88,9 +139,18 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
     public boolean clickMenuButton(Player player, int id) {
         if (level.isClientSide) return true;
         if (!stillValid(player)) return false;
-        boolean changed = id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT
-                ? SignalAnalyzerBlock.rotateMeasurementAxis(level, blockPos, id == BUTTON_ROTATE_RIGHT)
-                : SignalAnalyzerBlock.applyUiAction(level, blockPos, id);
+        boolean changed;
+        if (id == BUTTON_TRIAL_BASELINE) {
+            changed = SignalAnalyzerBlock.captureCalibrationBaseline(level, blockPos) != null;
+        } else if (id == BUTTON_TRIAL_CANDIDATE) {
+            changed = SignalAnalyzerBlock.captureCalibrationCandidate(level, blockPos) != null;
+        } else if (id == BUTTON_TRIAL_CLEAR) {
+            changed = SignalAnalyzerBlock.clearCalibrationTrial(level, blockPos);
+        } else if (id == BUTTON_ROTATE_LEFT || id == BUTTON_ROTATE_RIGHT) {
+            changed = SignalAnalyzerBlock.rotateMeasurementAxis(level, blockPos, id == BUTTON_ROTATE_RIGHT);
+        } else {
+            changed = SignalAnalyzerBlock.applyUiAction(level, blockPos, id);
+        }
         if (changed) {
             refreshAuthoritativeSnapshot();
             broadcastChanges();
@@ -100,6 +160,8 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
 
     public int mode() { return mode.get(); }
     public int calibrationOffset() { return calibrationOffset.get(); }
+    public int reference() { return reference.get(); }
+    public int facingOrdinal() { return facing.get(); }
     public int raw() { return raw.get(); }
     public int calibrated() { return calibrated.get(); }
     public int output() { return output.get(); }
@@ -111,6 +173,16 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
     public int lastDelta() { return lastDelta.get(); }
     public int maxDelta() { return maxDelta.get(); }
     public int windowCount() { return windowCount.get(); }
+    public int validWindowCount() { return validWindowCount.get(); }
+    public int coveragePercent() {
+        int count = windowCount();
+        return count <= 0 ? 0 : Math.max(0, Math.min(100, (validWindowCount() * 100) / count));
+    }
+    public PortQuality measurementQuality() {
+        PortQuality[] values = PortQuality.values();
+        int ordinal = measurementQuality.get();
+        return ordinal < 0 || ordinal >= values.length ? PortQuality.NO_SIGNAL : values[ordinal];
+    }
     public int average100() { return average100.get(); }
     public int peakToPeak() { return peakToPeak.get(); }
     public int meanStep100() { return meanStep100.get(); }
@@ -119,5 +191,20 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
     public int totalSamples() { return totalSamples.get(); }
     public int modeSwitches() { return modeSwitches.get(); }
     public int calibrationSwitches() { return calibrationSwitches.get(); }
+    public int referenceSwitches() { return referenceSwitches.get(); }
+
+    public int trialBaselineSequence() { return trialBaselineSequence.get(); }
+    public int trialCandidateSequence() { return trialCandidateSequence.get(); }
+    public int trialErrorDelta100() { return trialErrorDelta100.get(); }
+    public int trialClippingDelta() { return trialClippingDelta.get(); }
+    public int trialSpanDelta() { return trialSpanDelta.get(); }
+    public int trialMeanStepDelta100() { return trialMeanStepDelta100.get(); }
+    public int trialCalibrationDelta() { return trialCalibrationDelta.get(); }
+    public SignalCalibrationTrialComparison.Trend trialTrend() {
+        SignalCalibrationTrialComparison.Trend[] values = SignalCalibrationTrialComparison.Trend.values();
+        int ordinal = trialTrend.get();
+        return ordinal < 0 || ordinal >= values.length ? null : values[ordinal];
+    }
+
     public int sample(int slot) { return samples[slot].get(); }
 }

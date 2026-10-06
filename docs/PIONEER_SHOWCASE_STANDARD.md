@@ -207,6 +207,23 @@ VDA 5050 3.0 and ISO 21423 reinforce the architectural separation between missio
 interoperability and robot-local execution; ISO 21423 explicitly excludes AMR safety requirements.
 RSE therefore keeps Operations correlation/acceptance separate from Robotics safety and motion authority.
 
+Wave 12:
+- Signal Analyzer internal-reference calibration trial
+- per-sample measurement-presence evidence in the retained 16-sample window
+
+Wave 12 turns the Analyzer's rolling measurement window into a repeatable metrology experiment:
+- an explicit internal reference x_ref in 0..15 is configured independently of the physical signal path
+- calibration offset remains display-only; INLINE output continues to reproduce the raw measured value
+- each retained sample now records whether a real measurement target was present, so valid numeric zero is no longer confused with an empty aperture
+- BASELINE and CANDIDATE require a fresh 16/16 VALID measurement window
+- fixed comparison requires the same reference, TAP/INLINE mode and measurement face
+- absolute error to the internal reference is ranked first, followed by clipping, span and mean-step stability evidence
+- no external traceability claim and no invented absolute pass/fail tolerance are attached to the result
+- trial storage remains bounded to one baseline/candidate pair per analyzer and 256 analyzers per level
+
+NIST measurement-process guidance motivates comparison against a stated reference plus repeatability/stability evidence,
+but RSE reports only its internal game-domain reference and does not claim SI/NIST traceability.
+
 Future waves should prioritize remaining EngineeringScreen families that still lack explicit model
 or variable-role presentation. The target is broad consistency with specialization, not identical
 screens.

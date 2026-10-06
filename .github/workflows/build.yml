@@ -132,7 +132,8 @@ jobs:
             tools/rse_field_device_pioneer_coverage_verify.py \
             tools/rse_closed_loop_commissioning_trial_verify.py \
             tools/rse_amr_commissioning_trial_verify.py \
-            tools/rse_operations_amr_material_flow_acceptance_verify.py
+            tools/rse_operations_amr_material_flow_acceptance_verify.py \
+            tools/rse_signal_calibration_trial_verify.py
           do
             if [[ -f "$verifier" ]]; then
               echo "==> $verifier" | tee -a .rse-audit/static-verification.log
