@@ -161,6 +161,9 @@ for name, required_tokens in {
         "directSecondaryDisplayValue",
         "0.00..1.00 Lapis • step 0.05",
         "0.00..0.20 Lapis • step 0.02",
+        "{4, 8, 16, 32} ticks",
+        "{2, 4, 8, 16, 32} ticks",
+        "{1, 2, 4, 8} R-eq",
         "formulaParameterSymbol",
         "primaryControlValue",
         "secondaryFormulaParameterSymbol",
@@ -209,6 +212,7 @@ print(" formula-linked controls surfaced in Universal / Enhanced / PID HMIs: PAS
 print(" Universal formula parameter workbench is server-backed and value-visible: PASS")
 print(" bounded primary/secondary numeric entry uses the authoritative container/menu channel: PASS")
 print(" direct entry is expressed in visible engineering units, not hidden raw indices: PASS")
+print(" discrete formula parameters accept only legal engineering-value sets: PASS")
 print(" persistent Health / Role / Evidence / I-O / Controls state strip: PASS")
 print(" global Model / Variables / Evidence engineering contract: PASS")
 print(" live RX -> model -> state -> TX mechanism flow: PASS")
