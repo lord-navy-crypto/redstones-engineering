@@ -50,13 +50,21 @@ if len(block_facing) < 23:
 
 for token in (
     "DEFAULT_CANVAS_WIDTH = 1020",
-    "DEFAULT_CANVAS_HEIGHT = 980",
+    "DEFAULT_CANVAS_HEIGHT = 1180",
     "FOOTER_HEIGHT = 66",
     "renderPersistentLiveStateStrip",
     "LIVE STATE • HEALTH ",
     "I/O • ",
     "menu.portRouteLabel()",
     "configureControlCount()",
+    "renderGlobalEngineeringContract",
+    "ENGINEERING CONTRACT • MODEL / VARIABLES / EVIDENCE",
+    "MODEL AUTHORITY",
+    "MODEL TYPE",
+    "FORMULA POLICY",
+    "VARIABLE ROLES",
+    "EVIDENCE CONTRACT",
+    "SERVER-AUTHORITATIVE • client is presentation / operator surface only",
     "renderScrollIndicators",
     "mouseClicked",
     "mouseDragged",
@@ -100,6 +108,11 @@ standalone_contracts = {
         "LIVE STATE • HEALTH ",
         "I/O • ",
         "menu.portRouteLabel()",
+        "GOVERNING EQUATION",
+        "VARIABLE ROLES",
+        "MEASUREMENT / MODEL EVIDENCE",
+        "[ADJUSTABLE] α",
+        "[MEASURED]  x[n]",
     ),
     "OscilloscopeScreen": (
         "mouseScrolled",
@@ -109,6 +122,11 @@ standalone_contracts = {
         "INSTRUMENT_CONTENT_WIDTH = 980",
         "SAMPLING_CONTENT_WIDTH = 1120",
         "Drag scrollbars • Wheel: vertical • Shift+wheel: horizontal",
+        "SAMPLING MODEL",
+        "[ADJUSTABLE] N_ticks",
+        "[DERIVED] Δt",
+        "CAPTURE EVIDENCE",
+        "TRIGGER / CURSOR MODEL",
     ),
 }
 
@@ -172,6 +190,8 @@ print(f" standalone deep-canvas instrument families: {len(standalone_families)}"
 print(" global X/Y wheel + draggable scrollbar contract: PASS")
 print(" global operator-control inventory / function surface: PASS")
 print(" persistent live Health / Role / Evidence / I-O / Controls strip: PASS")
+print(" global Model / Variables / Evidence engineering contract: PASS")
+print(" standalone instrument math/evidence equivalence: PASS")
 print(" shared 3-column Configure rail + automatic content offset: PASS")
 print(" generic FieldDevice + Universal fallbacks: PASS")
 print(" Pioneer 122/122 closure linkage: PASS")
