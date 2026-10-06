@@ -1038,6 +1038,12 @@ public final class FieldDeviceMenu extends EngineeringDeviceMenu {
             if (level instanceof net.minecraft.server.level.ServerLevel server) DomainNetwork.recomputeLapis(server, blockPos);
             return true;
         }
+        if (block instanceof MechanicalExciterBlock) {
+            return MechanicalExciterBlock.setFrequency(level, blockPos, value);
+        }
+        if (block instanceof HydroacousticExciterBlock) {
+            return HydroacousticExciterBlock.setFrequency(level, blockPos, value);
+        }
         if (block instanceof DigitalRegeneratorBlock regenerator) {
             if (value < 0 || value > 2) return false;
             level.setBlock(blockPos, state.setValue(DigitalRegeneratorBlock.THRESHOLD, value), Block.UPDATE_CLIENTS);
