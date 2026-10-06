@@ -157,6 +157,10 @@ for name, required_tokens in {
         "BUTTON_CONFIG_PRIMARY_DIRECT_BASE",
         "BUTTON_CONFIG_SECONDARY_DIRECT_BASE",
         "directSecondaryNumericKind",
+        "directPrimaryDisplayValue",
+        "directSecondaryDisplayValue",
+        "0.00..1.00 Lapis • step 0.05",
+        "0.00..0.20 Lapis • step 0.02",
         "formulaParameterSymbol",
         "primaryControlValue",
         "secondaryFormulaParameterSymbol",
@@ -204,6 +208,7 @@ print(" fixed controls separated from scrollable engineering content: PASS")
 print(" formula-linked controls surfaced in Universal / Enhanced / PID HMIs: PASS")
 print(" Universal formula parameter workbench is server-backed and value-visible: PASS")
 print(" bounded primary/secondary numeric entry uses the authoritative container/menu channel: PASS")
+print(" direct entry is expressed in visible engineering units, not hidden raw indices: PASS")
 print(" persistent Health / Role / Evidence / I-O / Controls state strip: PASS")
 print(" global Model / Variables / Evidence engineering contract: PASS")
 print(" live RX -> model -> state -> TX mechanism flow: PASS")
