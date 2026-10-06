@@ -24,10 +24,11 @@ def require(rel: str, *tokens: str) -> None:
 require("src/main/java/dev/redstoneengineering/client/ui/EngineeringScreen.java",
         "OVERVIEW", "PORTS", "CONFIGURE", "DIAGNOSTICS", "HISTORY",
         'Component.literal("Route")', "routePage", "setRoutePage", "routeActionId(boolean clockwise)", "routeSupported",
-        "routePrevious", "routeNext", 'Component.literal("Direction ▲")', 'Component.literal("Direction ▼")',
-        "routeInputPrevious", "routeInputNext", "routeOutputPrevious", "routeOutputNext",
-        'Component.literal("RX ▲")', 'Component.literal("RX ▼")',
-        'Component.literal("TX ▲")', 'Component.literal("TX ▼")',
+        "routeNext", 'Component.literal("Cycle direction ▶")',
+        "routeInputNext", "routeOutputNext",
+        'Component.literal("Cycle RX ▶")',
+        'Component.literal("Cycle TX ▶")',
+        "One-button route control",
         "routeInputActionId(boolean clockwise)", "routeOutputActionId(boolean clockwise)",
         "hasRouteInputEndpoint()", "hasRouteOutputEndpoint()",
         "DigitalCommunicationMenu.BUTTON_INPUT_LEFT", "DigitalCommunicationMenu.BUTTON_INPUT_RIGHT",
@@ -277,8 +278,8 @@ print("RSE Engineering UI verification: PASS")
 print(" six-page responsibility split including dedicated Route page: PASS")
 print(" Configure parameters/modes/actions preserved: PASS")
 print(" specialized Configure pages do not duplicate Route authority: PASS")
-print(" endpoint-driven RX/TX controls on shared Route page: PASS")
-print(" simple Direction controls preserved for measurement/interface axes: PASS")
+print(" one-button endpoint-driven RX/TX controls on shared Route page: PASS")
+print(" one-button Direction cycle preserved for measurement/interface axes: PASS")
 print(" redstone reference/source/sensor FieldDevice route authority: PASS")
 print(" endpoint Engineering UI reachability + Shift diagnostics: PASS")
 print(" universal + legacy fallback route authority parity: PASS")
