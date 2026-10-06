@@ -14,6 +14,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -23,6 +24,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.phys.BlockHitResult;
+import dev.redstoneengineering.ui.FieldDeviceUi;
 
 import java.util.Arrays;
 import java.util.List;
@@ -96,16 +98,50 @@ public class ThermalRadiatorBlock extends DomainBlock implements EngineeringPort
         level.scheduleTick(pos, this, 10);
     }
 
-    @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
-        if (!level.isClientSide) {
-            int cooling = state.getValue(COOLING);
-            if (!player.isShiftKeyDown()) {
-                cooling = cooling >= 4 ? 1 : cooling + 1;
-                state = state.setValue(COOLING, cooling);
-                level.setBlock(pos, state, Block.UPDATE_CLIENTS);
-                level.scheduleTick(pos, this, 1);
+    public record CoolingObservation(int adjacentMasses, int averageTemperature, int hottestTemperature) {}
+
+    public static CoolingObservation observation(Level level, BlockPos pos) {
+        int count = 0;
+        int sum = 0;
+        int hottest = ThermalPhysics.AMBIENT;
+        for (Direction direction : Direction.values()) {
+            BlockState target = level.getBlockState(pos.relative(direction));
+            if (target.getBlock() instanceof ThermalMassBlock) {
+                int t = target.getValue(ThermalMassBlock.TEMPERATURE);
+                count++;
+                sum += t;
+                hottest = Math.max(hottest, t);
             }
-            player.displayClientMessage(Component.literal("Thermal radiator | six-face passive THERMAL sink | cooling coefficient=" + cooling + " | ambient floor=" + ThermalPhysics.AMBIENT), true);
+        }
+        return new CoolingObservation(count, count == 0 ? ThermalPhysics.AMBIENT : sum / count, hottest);
+    }
+
+    public boolean adjustCooling(Level level, BlockPos pos, int delta) {
+        if (!(level instanceof ServerLevel)) return false;
+        BlockState state = level.getBlockState(pos);
+        if (!state.is(this)) return false;
+        int nextCooling = 1 + Math.floorMod(state.getValue(COOLING) - 1 + delta, 4);
+        level.setBlock(pos, state.setValue(COOLING, nextCooling), Block.UPDATE_CLIENTS);
+        level.scheduleTick(pos, this, 1);
+        return true;
+    }
+
+    @Override protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
+            if (player.isShiftKeyDown()) {
+                FieldDeviceUi.openUniversal(serverPlayer, pos);
+                return InteractionResult.sidedSuccess(false);
+            }
+            adjustCooling(level, pos, 1);
+            int cooling = level.getBlockState(pos).getValue(COOLING);
+            CoolingObservation observation = observation(level, pos);
+            player.displayClientMessage(Component.literal(
+                    "Thermal radiator | cooling=" + cooling
+                            + " | masses=" + observation.adjacentMasses()
+                            + " | average T=" + observation.averageTemperature()
+                            + " | hottest T=" + observation.hottestTemperature()
+                            + " | ambient floor=" + ThermalPhysics.AMBIENT
+                            + " | shift=Pioneer HMI"), true);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
