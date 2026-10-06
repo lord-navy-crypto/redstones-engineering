@@ -24,6 +24,9 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_EXPERIMENT_BASELINE = 8;
     public static final int BUTTON_EXPERIMENT_CANDIDATE = 9;
     public static final int BUTTON_EXPERIMENT_CLEAR = 10;
+    /** Exact Δt selection encoded as BASE + ticks/sample. */
+    public static final int BUTTON_SAMPLE_PERIOD_DIRECT_BASE = 3000;
+    public static final int BUTTON_SAMPLE_PERIOD_DIRECT_MAX = 3008;
 
     private final DataSlot sampleCount = trackedInt();
     private final DataSlot triggerMode = trackedInt();
@@ -191,7 +194,13 @@ public final class OscilloscopeMenu extends EngineeringDeviceMenu {
     public boolean clickMenuButton(Player player, int id) {
         if (level.isClientSide) return true;
         if (!stillValid(player)) return false;
-        boolean changed = OscilloscopeBlock.applyUiAction(level, blockPos, id);
+        boolean changed;
+        if (id >= BUTTON_SAMPLE_PERIOD_DIRECT_BASE && id <= BUTTON_SAMPLE_PERIOD_DIRECT_MAX
+                && level.getBlockEntity(blockPos) instanceof OscilloscopeBlockEntity scope) {
+            changed = scope.setSamplePeriodTicks(id - BUTTON_SAMPLE_PERIOD_DIRECT_BASE);
+        } else {
+            changed = OscilloscopeBlock.applyUiAction(level, blockPos, id);
+        }
         if (changed) { refreshAuthoritativeSnapshot(); broadcastChanges(); }
         return changed;
     }
