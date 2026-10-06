@@ -672,6 +672,17 @@ public final class OscilloscopeScreen extends AbstractContainerScreen<Oscillosco
         return "INSUFFICIENT";
     }
 
+    private String fit(String text, int maxWidth) {
+        if (text == null || text.isBlank()) return "—";
+        if (maxWidth <= 0) return "";
+        if (font.width(text) <= maxWidth) return text;
+        String compact = text;
+        while (compact.length() > 1 && font.width(compact + "…") > maxWidth) {
+            compact = compact.substring(0, compact.length() - 1);
+        }
+        return compact + "…";
+    }
+
     private int evidenceColor() {
         int confidence = evidenceConfidence();
         if (confidence >= 90) return GOOD;
