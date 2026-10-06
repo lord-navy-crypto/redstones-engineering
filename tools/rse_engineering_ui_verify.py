@@ -72,6 +72,36 @@ require("src/main/java/dev/redstoneengineering/client/ui/EngineeringIoCompassOve
         "boolean rightFits", "boolean leftFits", "if (!rightFits && !leftFits) return;",
         "screen.height - margin - panelHeight", "connectionMask(menu)", "linkEvidenceKnown",
         '"DECLARED"', '"AIR PATH"', '"LOS PATH"', '"LINKED"', '"OPEN"')
+require("src/main/java/dev/redstoneengineering/client/ui/PneumaticSystemScreen.java",
+        "EditBox", "submitSetpoint", "BUTTON_SETPOINT_DIRECT_BASE",
+        "P ∈ {25,50,75,100}")
+require("src/main/java/dev/redstoneengineering/ui/menu/PneumaticSystemMenu.java",
+        "BUTTON_SETPOINT_DIRECT_BASE", "pressure % 25")
+
+require("src/main/java/dev/redstoneengineering/client/ui/MagneticSystemScreen.java",
+        "EditBox", "submitPrimary", "BUTTON_PRIMARY_DIRECT_BASE",
+        "S = 1..15", "N = 1..4")
+require("src/main/java/dev/redstoneengineering/ui/menu/MagneticSystemMenu.java",
+        "BUTTON_PRIMARY_DIRECT_BASE", "PermanentMagnetBlock.STRENGTH", "InductionCoilBlock.TURNS")
+
+require("src/main/java/dev/redstoneengineering/client/ui/OpticalSystemScreen.java",
+        "EditBox", "submitPrimary", "submitSecondary",
+        "BUTTON_PRIMARY_DIRECT_BASE", "BUTTON_SECONDARY_DIRECT_BASE")
+require("src/main/java/dev/redstoneengineering/ui/menu/OpticalSystemMenu.java",
+        "BUTTON_PRIMARY_DIRECT_BASE", "BUTTON_SECONDARY_DIRECT_BASE")
+
+require("src/main/java/dev/redstoneengineering/client/ui/QuartzTimingScreen.java",
+        "EditBox", "submitParameter", "BUTTON_PARAMETER_DIRECT_BASE",
+        "T={2,4,8,16,32}", "N={2,4,8,16}")
+require("src/main/java/dev/redstoneengineering/ui/menu/QuartzTimingMenu.java",
+        "BUTTON_PARAMETER_DIRECT_BASE", "QuartzClockDividerBlock.cycleDivision")
+
+require("src/main/java/dev/redstoneengineering/client/ui/ReliabilitySystemScreen.java",
+        "EditBox", "submitParameter", "BUTTON_PARAMETER_DIRECT_BASE",
+        "{20,40,80,160} ticks", "tol {0,1,2,4}", "T_fault {1,4,8,12}")
+require("src/main/java/dev/redstoneengineering/ui/menu/ReliabilitySystemMenu.java",
+        "BUTTON_PARAMETER_DIRECT_BASE", "value == 160", "value == 12")
+
 require("src/main/java/dev/redstoneengineering/client/ui/SignalProcessorScreen.java",
         "EditBox", "submitParameter", "BUTTON_PARAMETER_DIRECT_BASE",
         "r ∈ 1..4", "W ∈ 1..8 ticks")
