@@ -25,6 +25,10 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_TRIAL_BASELINE = 8;
     public static final int BUTTON_TRIAL_CANDIDATE = 9;
     public static final int BUTTON_TRIAL_CLEAR = 10;
+    public static final int BUTTON_CALIBRATION_DIRECT_BASE = 18000;
+    public static final int BUTTON_CALIBRATION_DIRECT_MAX = 18004;
+    public static final int BUTTON_REFERENCE_DIRECT_BASE = 18100;
+    public static final int BUTTON_REFERENCE_DIRECT_MAX = 18115;
 
     private final DataSlot mode = trackedInt();
     private final DataSlot calibrationOffset = trackedInt();
@@ -140,7 +144,11 @@ public final class SignalAnalyzerMenu extends EngineeringDeviceMenu {
         if (level.isClientSide) return true;
         if (!stillValid(player)) return false;
         boolean changed;
-        if (id == BUTTON_TRIAL_BASELINE) {
+        if (id >= BUTTON_CALIBRATION_DIRECT_BASE && id <= BUTTON_CALIBRATION_DIRECT_MAX) {
+            changed = SignalAnalyzerBlock.setCalibrationOffset(level, blockPos, (id - BUTTON_CALIBRATION_DIRECT_BASE) - 2);
+        } else if (id >= BUTTON_REFERENCE_DIRECT_BASE && id <= BUTTON_REFERENCE_DIRECT_MAX) {
+            changed = SignalAnalyzerBlock.setReference(level, blockPos, id - BUTTON_REFERENCE_DIRECT_BASE);
+        } else if (id == BUTTON_TRIAL_BASELINE) {
             changed = SignalAnalyzerBlock.captureCalibrationBaseline(level, blockPos) != null;
         } else if (id == BUTTON_TRIAL_CANDIDATE) {
             changed = SignalAnalyzerBlock.captureCalibrationCandidate(level, blockPos) != null;
