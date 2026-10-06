@@ -386,14 +386,14 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 variableRole(g, "MEASURED", "c_raw", Integer.toString(menu.pioneerProcessPrimary()), "index", 137);
                 variableRole(g, "SOLVER", "c_filt", Integer.toString(menu.pioneerProcessSecondary()), "index", 153);
                 variableRole(g, "EVIDENCE", "peak", Integer.toString(menu.pioneerProcessTertiary()), "index", 169);
-                variableRole(g, "ADJUSTABLE", "sensitivity", Integer.toString(menu.pioneerProcessQuaternary()), "0..3", 185);
-                variableRole(g, "PROFILE", "gain", Integer.toString(menu.pioneerProcessQuinary()), "index", 201);
+                variableRole(g, "ADJUSTABLE", "g", Integer.toString(menu.pioneerProcessQuinary()), "{6,9,12,16} • direct entry", 185);
+                variableRole(g, "FIXED", "gain map", "{6,9,12,16}", "server-supported discrete set", 201);
                 variableRole(g, "DERIVED", "y_R", Integer.toString(menu.pioneerProcessSenary()), "redstone", 217);
             }
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_IRON_CORE -> {
                 variableRole(g, "MEASURED", "B_applied", Integer.toString(menu.pioneerProcessPrimary()), "B-index", 137);
-                variableRole(g, "PROFILE", "B_threshold", Integer.toString(menu.pioneerProcessSecondary()), "B-index", 153);
-                variableRole(g, "PROFILE", "scan radius", Integer.toString(menu.pioneerProcessTertiary()), "blocks", 169);
+                variableRole(g, "FIXED", "B_threshold", Integer.toString(menu.pioneerProcessSecondary()), "B-index • implemented threshold", 153);
+                variableRole(g, "FIXED", "scan radius", Integer.toString(menu.pioneerProcessTertiary()), "blocks • coverage radius", 169);
                 variableRole(g, "STATE", "remanence", menu.pioneerProcessQuaternary()!=0 ? "MAGNETIZED" : "SOFT", "", 185);
                 variableRole(g, "EVIDENCE", "coverage", menu.pioneerProcessQuinary()!=0 ? "COMPLETE" : "INCOMPLETE", "", 201);
             }
@@ -418,8 +418,8 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 variableRole(g, "MEASURED", "N_mass", Integer.toString(menu.pioneerProcessSecondary()), "bodies", 153);
                 variableRole(g, "MEASURED", "T_avg", Integer.toString(menu.pioneerProcessTertiary()), "T-index", 169);
                 variableRole(g, "MEASURED", "T_hot", Integer.toString(menu.pioneerProcessQuaternary()), "T-index", 185);
-                variableRole(g, "PROFILE", "T_floor", Integer.toString(menu.pioneerProcessQuinary()), "T-index", 201);
-                variableRole(g, "PROFILE", "Δt", Integer.toString(menu.pioneerProcessSenary()), "ticks", 217);
+                variableRole(g, "FIXED", "T_floor", Integer.toString(menu.pioneerProcessQuinary()), "T-index • ambient floor", 201);
+                variableRole(g, "FIXED", "Δt", Integer.toString(menu.pioneerProcessSenary()), "ticks • server update cadence", 217);
             }
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_CALORIMETER -> {
                 variableRole(g, "MEASURED", "T", Integer.toString(menu.pioneerProcessPrimary()), "T-index", 137);
@@ -433,7 +433,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 variableRole(g, "STATE", "J", Integer.toString(menu.pioneerProcessPrimary()), "flux", 137);
                 variableRole(g, "EVIDENCE", "age", menu.pioneerProcessSecondary()<0 ? "NONE" : Integer.toString(menu.pioneerProcessSecondary()), "ticks", 153);
                 variableRole(g, "EVIDENCE", "quality", Integer.toString(menu.pioneerProcessTertiary()), "%", 169);
-                variableRole(g, "PROFILE", "decay period", Integer.toString(menu.pioneerProcessQuaternary()), "ticks", 185);
+                variableRole(g, "FIXED", "decay period", Integer.toString(menu.pioneerProcessQuaternary()), "ticks • read-only decay law", 185);
                 variableRole(g, "TOPOLOGY", "ports", Integer.toString(menu.pioneerProcessQuinary()), "faces", 201);
             }
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_RESERVOIR -> {
@@ -589,7 +589,7 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_SOUL_METER ->
                     "The meter is observer/converter only. A present zero-charge node is distinct from NO_SIGNAL/STALE evidence, and invalid Soul evidence forces redstone output to zero.";
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_MOLECULAR_RECEIVER ->
-                    "The UP free-space aperture is fixed at the implemented radius. Incomplete chunk coverage is STALE and retains the last filtered value; sensitivity changes only the implemented gain.";
+                    "The UP free-space aperture is fixed at the implemented radius. Incomplete chunk coverage is STALE and retains the last filtered value; visible gain g selects only the server-supported {6,9,12,16} set.";
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_IRON_CORE ->
                     "The core models bounded hysteresis/remanence, not a full B-H curve. Only complete applied-field coverage can magnetize it; inspection never changes state, while Demagnetize is an explicit server action.";
             case UniversalFieldDeviceMenu.PIONEER_PROCESS_THERMAL_MASS ->
