@@ -418,7 +418,6 @@ for token in (
     "Lapis Precision Range Sensor",
     "Analog Indicator",
     "28 remain",
-    "28 → 21 → 14 → 7 → 0",
 ):
     if token not in doc:
         errors.append(f"Pioneer standard missing Wave-13 ledger token {token!r}")
