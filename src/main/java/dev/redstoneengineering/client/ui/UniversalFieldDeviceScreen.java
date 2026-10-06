@@ -110,6 +110,10 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
     }
 
     private void overview(GuiGraphics g) {
+        if (menu.pioneerMeasurementKind() != UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_NONE) {
+            measurementPioneerOverview(g);
+            return;
+        }
         int declared = Integer.bitCount(menu.declaredPortMask());
         int attention = attentionCount();
         statusBadge(g, title.getString().toUpperCase(), attention == 0 ? GOOD : WARN, 16, 80);
@@ -123,6 +127,114 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                         ? "Lapis measurement uses the 0..100 precision-information domain; valid zero remains real evidence."
                         : "Use Ports for physical faces, Configure for parameters, and Route for real orientation.",
                 16, 191, lapisPrecisionMeasurementPresent() ? INFO : MUTED);
+    }
+
+    private void measurementPioneerOverview(GuiGraphics g) {
+        int kind = menu.pioneerMeasurementKind();
+        PortQuality evidence = menu.pioneerEvidenceQuality();
+        statusBadge(g, title.getString().toUpperCase(), qualityColor(evidence), 16, 80);
+        statusBadge(g, "PIONEER WAVE 13 • MEASUREMENT", INFO, 207, 80);
+        formulaCard(g, measurementEquation(kind), 108);
+
+        switch (kind) {
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_TEMPERATURE -> {
+                variableRole(g, "MEASURED", "T_target", Integer.toString(menu.pioneerSecondary()), "T-index", 137);
+                variableRole(g, "SOLVER", "T_cached", Integer.toString(menu.pioneerPrimary()), "T-index", 153);
+                variableRole(g, "MEASURED", "N_bodies", Integer.toString(menu.pioneerTertiary()), "thermal bodies", 169);
+                variableRole(g, "EVIDENCE", "coverage", menu.pioneerQuaternary() + "/6", "faces", 185);
+            }
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_LIGHT -> {
+                variableRole(g, "MEASURED", "B_local", Integer.toString(menu.pioneerPrimary()), "light", 137);
+                variableRole(g, "DERIVED", "y", Integer.toString(menu.pioneerSecondary()), "redstone", 153);
+                variableRole(g, "PROFILE", "sensor profile", "BALANCED (" + menu.pioneerTertiary() + ")", "", 169);
+                variableRole(g, "SOLVER", "Δt_sample", Integer.toString(menu.pioneerQuaternary()), "ticks", 185);
+            }
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_TANK -> {
+                variableRole(g, "MEASURED", "h", Integer.toString(menu.pioneerPrimary()), "fluid blocks", 137);
+                variableRole(g, "EVIDENCE", "coverage", menu.pioneerSecondary() + "/" + menu.pioneerTertiary(), "cells", 153);
+                variableRole(g, "DERIVED", "y", Integer.toString(menu.pioneerQuaternary()), "redstone", 169);
+                variableRole(g, "PROFILE", "conditioning", "PRECISION", "", 185);
+            }
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_ENTITY_DENSITY -> {
+                variableRole(g, "MEASURED", "N", Integer.toString(menu.pioneerPrimary()), "living entities", 137);
+                variableRole(g, "EVIDENCE", "coverage", menu.pioneerSecondary() != 0 ? "COMPLETE" : "INCOMPLETE", "", 153);
+                variableRole(g, "DERIVED", "y", Integer.toString(menu.pioneerTertiary()), "redstone", 169);
+                variableRole(g, "SOLVER", "r_xy", Integer.toString(menu.pioneerQuaternary()), "blocks", 185);
+            }
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_LAPIS_METER -> {
+                variableRole(g, "MEASURED", "m", String.format(java.util.Locale.ROOT, "%.2f", menu.pioneerPrimary() / 100.0), "Lapis", 137);
+                variableRole(g, "EVIDENCE", "quality", evidence.name(), "", 153);
+                variableRole(g, "PROFILE", "range", "0.00..1.00", "Lapis", 169);
+                variableRole(g, "DERIVED", "display resolution", "0.01", "Lapis", 185);
+            }
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_LAPIS_RANGE -> {
+                String distance = menu.pioneerPrimary() < 0 ? "NO TARGET" : Integer.toString(menu.pioneerPrimary());
+                variableRole(g, "MEASURED", "d", distance, "blocks", 137);
+                variableRole(g, "ADJUSTABLE", "R", Integer.toString(menu.pioneerSecondary()), "blocks", 153);
+                variableRole(g, "DERIVED", "y_L", String.format(java.util.Locale.ROOT, "%.2f", menu.pioneerTertiary() / 100.0), "Lapis", 169);
+                variableRole(g, "PROFILE", "conditioning", lapisProfileName(menu.pioneerQuaternary()), "", 185);
+            }
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_ANALOG_INDICATOR -> {
+                variableRole(g, "MEASURED", "x_back", Integer.toString(menu.pioneerPrimary()), "redstone", 137);
+                variableRole(g, "DERIVED", "display", Integer.toString(menu.pioneerSecondary()), "redstone", 153);
+                variableRole(g, "EVIDENCE", "source quality", evidence.name(), "", 169);
+                variableRole(g, "PROFILE", "range", "0..15", "redstone", 185);
+            }
+            default -> { }
+        }
+
+        evidenceRow(g, "EVIDENCE", evidence.name(), "server snapshot", measurementEvidenceNote(kind, evidence), 207);
+        wrappedText(g, measurementInterpretation(kind), 16, 230, workspaceWidth() - 24, MUTED);
+    }
+
+    private String measurementEquation(int kind) {
+        return switch (kind) {
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_TEMPERATURE ->
+                    "MODEL: T_target = N>0 ? floor(ΣT_body / N) : T_environment; update only with 6/6 coverage";
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_LIGHT ->
+                    "MODEL: y = round(condition(B_local, BALANCED)), 0 ≤ y ≤ 15";
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_TANK ->
+                    "MODEL: h = contiguous loaded fluid cells above; y = condition(min(15,h), PRECISION)";
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_ENTITY_DENSITY ->
+                    "MODEL: N = living entities in AABB inflate(4,2,4); y = condition(min(15,N), BALANCED)";
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_LAPIS_METER ->
+                    "MODEL: m = unique Lapis sample on selected face; display = m / 100";
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_LAPIS_RANGE ->
+                    "MODEL: target ⇒ x = round(100·d/R); no target=NO_SIGNAL; incomplete aperture=STALE";
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_ANALOG_INDICATOR ->
+                    "MODEL: display = clamp(x_back,0,15); source quality remains independent of numeric zero";
+            default -> "MODEL: synchronized server measurement evidence";
+        };
+    }
+
+    private String measurementInterpretation(int kind) {
+        return switch (kind) {
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_TEMPERATURE ->
+                    "Six-face thermal coverage is part of the evidence. Incomplete chunk coverage retains the last trustworthy cached temperature rather than manufacturing an ambient reading.";
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_LIGHT ->
+                    "UP is the physical light aperture. Conditioning is server-owned; the FRONT redstone output is a bounded representation, not the raw brightness source itself.";
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_TANK ->
+                    "The scan stops at the first loaded empty cell or the 16-block ceiling. Unloaded cells are unknown coverage, never an inferred empty boundary.";
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_ENTITY_DENSITY ->
+                    "The occupancy query is accepted only when every chunk touched by the aperture is loaded. Counts above 15 remain SATURATED evidence rather than silently becoming an ordinary 15.";
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_LAPIS_METER ->
+                    "This block is observer-only. A real zero-valued Lapis sample is valid evidence; conflict or stale aperture evidence is reported separately from the numeric value.";
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_LAPIS_RANGE ->
+                    "R is a real server-bound range control. Changing range/profile invalidates prior sampled output before reacquisition; the client does not recompute the range scan.";
+            case UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_ANALOG_INDICATOR ->
+                    "The indicator is readout-only. STALE evidence preserves the previous display, while a connected source configured to zero remains a valid zero measurement.";
+            default -> "Server-authoritative measurement evidence.";
+        };
+    }
+
+    private String measurementEvidenceNote(int kind, PortQuality quality) {
+        if (quality == PortQuality.VALID) return "trust current measurement";
+        if (quality == PortQuality.SATURATED) return "value is bounded; inspect range";
+        if (quality == PortQuality.NOT_READY) return "await first authoritative sample";
+        if (quality == PortQuality.STALE) return "restore coverage / reacquire";
+        if (quality == PortQuality.NO_SIGNAL) return kind == UniversalFieldDeviceMenu.PIONEER_MEASUREMENT_LAPIS_RANGE
+                ? "no target inside selected range" : "no trustworthy source";
+        return "repair evidence before use";
     }
 
     private void ports(GuiGraphics g) {
