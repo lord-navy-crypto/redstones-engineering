@@ -31,6 +31,8 @@ public final class MagneticSystemMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_INPUT_RIGHT = 5;
     public static final int BUTTON_OUTPUT_LEFT = 6;
     public static final int BUTTON_OUTPUT_RIGHT = 7;
+    public static final int BUTTON_PRIMARY_DIRECT_BASE = 8000;
+    public static final int BUTTON_PRIMARY_DIRECT_MAX = 8015;
 
     private final DataSlot kind = trackedInt();
     private final DataSlot primary = trackedInt();
@@ -120,7 +122,19 @@ public final class MagneticSystemMenu extends EngineeringDeviceMenu {
         Block block = state.getBlock();
         boolean changed = false;
 
-        if (block instanceof PermanentMagnetBlock) {
+        if (id >= BUTTON_PRIMARY_DIRECT_BASE && id <= BUTTON_PRIMARY_DIRECT_MAX) {
+            int value = id - BUTTON_PRIMARY_DIRECT_BASE;
+            if (block instanceof PermanentMagnetBlock) {
+                if (value < 1 || value > 15) return false;
+                level.setBlock(blockPos, state.setValue(PermanentMagnetBlock.STRENGTH, value), Block.UPDATE_CLIENTS);
+                changed = true;
+            } else if (block instanceof InductionCoilBlock coil) {
+                if (value < 1 || value > 4) return false;
+                level.setBlock(blockPos, state.setValue(InductionCoilBlock.TURNS, value), Block.UPDATE_CLIENTS);
+                level.scheduleTick(blockPos, coil, 1);
+                changed = true;
+            } else return false;
+        } else if (block instanceof PermanentMagnetBlock) {
             if (id == BUTTON_PRIMARY_PREVIOUS || id == BUTTON_PRIMARY_NEXT) {
                 int strength = state.getValue(PermanentMagnetBlock.STRENGTH);
                 strength = id == BUTTON_PRIMARY_NEXT ? (strength >= 15 ? 1 : strength + 1) : (strength <= 1 ? 15 : strength - 1);
