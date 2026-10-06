@@ -468,11 +468,7 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
             return;
         }
 
-        if (block instanceof PwmControllerBlock pwm) {
-            min = 0; max = 3;
-            current = () -> level.getBlockState(blockPos).getValue(PwmControllerBlock.PERIOD_MODE);
-            stepForward = ignored -> pwm.adjustPeriodMode(level, blockPos, 1);
-        } else if (block instanceof CopperVoltageSourceBlock source) {
+        if (block instanceof CopperVoltageSourceBlock source) {
             pioneerProcessKind.set(PIONEER_PROCESS_COPPER_VOLTAGE_SOURCE);
             pioneerProcessPrimary.set(state.getValue(CopperVoltageSourceBlock.VOLTAGE));
             pioneerProcessSecondary.set(source.engineeringPorts(state).size());
@@ -840,7 +836,11 @@ public final class UniversalFieldDeviceMenu extends EngineeringDeviceMenu {
         java.util.function.IntSupplier current;
         java.util.function.IntPredicate stepForward;
 
-        if (block instanceof CopperVoltageSourceBlock source) {
+        if (block instanceof PwmControllerBlock pwm) {
+            min = 0; max = 3;
+            current = () -> level.getBlockState(blockPos).getValue(PwmControllerBlock.PERIOD_MODE);
+            stepForward = ignored -> pwm.adjustPeriodMode(level, blockPos, 1);
+        } else if (block instanceof CopperVoltageSourceBlock source) {
             min = 0; max = 15;
             current = () -> level.getBlockState(blockPos).getValue(CopperVoltageSourceBlock.VOLTAGE);
             stepForward = ignored -> source.adjustVoltage(level, blockPos, 1);
