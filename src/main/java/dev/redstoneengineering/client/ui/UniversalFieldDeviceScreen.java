@@ -57,15 +57,6 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
         int primaryY = topPos + 104;
         int secondaryY = topPos + 144;
 
-        primaryDirectInput = addConfigureWidget(new EditBox(
-                this.font, startX, primaryY, pairWidth, 20, Component.literal("Formula parameter value")));
-        primaryDirectInput.setMaxLength(3);
-        primaryDirectInput.setFilter(value -> value.isEmpty() || value.chars().allMatch(Character::isDigit));
-        primaryDirectApply = addConfigureWidget(Button.builder(
-                Component.literal("Apply exact value"),
-                button -> submitDirectPrimaryValue()
-        ).bounds(startX + pairWidth + gap, primaryY, pairWidth, 20).build());
-
         primaryPrevious = addConfigureWidget(Button.builder(
                 Component.literal("◀ Previous"),
                 button -> sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_PRIMARY_PREVIOUS)
@@ -90,6 +81,15 @@ public final class UniversalFieldDeviceScreen extends EngineeringScreen<Universa
                 Component.literal("Toggle"),
                 button -> sendMenuButton(UniversalFieldDeviceMenu.BUTTON_CONFIG_TOGGLE)
         ).bounds(startX, secondaryY, totalWidth, 20).build());
+
+        primaryDirectInput = addConfigureWidget(new EditBox(
+                this.font, startX, primaryY, pairWidth, 20, Component.literal("Formula parameter value")));
+        primaryDirectInput.setMaxLength(3);
+        primaryDirectInput.setFilter(value -> value.isEmpty() || value.chars().allMatch(Character::isDigit));
+        primaryDirectApply = addConfigureWidget(Button.builder(
+                Component.literal("Apply exact value"),
+                button -> submitDirectPrimaryValue()
+        ).bounds(startX + pairWidth + gap, primaryY, pairWidth, 20).build());
     }
 
     @Override
