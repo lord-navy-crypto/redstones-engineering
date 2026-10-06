@@ -84,6 +84,24 @@ require("src/main/java/dev/redstoneengineering/client/ui/MagneticSystemScreen.ja
 require("src/main/java/dev/redstoneengineering/ui/menu/MagneticSystemMenu.java",
         "BUTTON_PRIMARY_DIRECT_BASE", "PermanentMagnetBlock.STRENGTH", "InductionCoilBlock.TURNS")
 
+require("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScreen.java",
+        "KIND_MECHANICAL_EXCITER", "KIND_HYDRO_EXCITER",
+        "1..15 frequency index", '-> "f"')
+require("src/main/java/dev/redstoneengineering/block/MechanicalExciterBlock.java",
+        "setFrequency(Level level, BlockPos pos, int frequency)")
+require("src/main/java/dev/redstoneengineering/block/HydroacousticExciterBlock.java",
+        "setFrequency(Level level, BlockPos pos, int frequency)")
+require("src/main/java/dev/redstoneengineering/ui/menu/FieldDeviceMenu.java",
+        "MechanicalExciterBlock.setFrequency", "HydroacousticExciterBlock.setFrequency")
+
+require("src/main/java/dev/redstoneengineering/client/ui/UniversalFieldDeviceScreen.java",
+        "{6, 9, 12, 16} gain", "{8, 16, 32, 64} blocks",
+        "Cycle " + primaryName, "primaryPrevious.visible = false",
+        "secondaryPrevious.visible = false")
+require("src/main/java/dev/redstoneengineering/ui/menu/UniversalFieldDeviceMenu.java",
+        "MolecularCloudReceiverBlock.SENSITIVITY",
+        "LapisPrecisionRangeSensorBlock.RANGE_INDEX")
+
 require("src/main/java/dev/redstoneengineering/client/ui/PidControllerScreen.java",
         "Cycle tuning preset ▶", "Cycle RX ▶", "Cycle TX ▶",
         "BUTTON_TUNING_NEXT", "BUTTON_INPUT_NEXT", "BUTTON_OUTPUT_NEXT")
