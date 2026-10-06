@@ -72,6 +72,15 @@ require("src/main/java/dev/redstoneengineering/client/ui/EngineeringIoCompassOve
         "boolean rightFits", "boolean leftFits", "if (!rightFits && !leftFits) return;",
         "screen.height - margin - panelHeight", "connectionMask(menu)", "linkEvidenceKnown",
         '"DECLARED"', '"AIR PATH"', '"LOS PATH"', '"LINKED"', '"OPEN"')
+require("src/main/java/dev/redstoneengineering/client/ui/SignalConditionerScreen.java",
+        "EditBox", "submitParameter", "BUTTON_PARAM_DIRECT_BASE",
+        "visibleFormulaParameter", "Direct entry submits the formula value to the server")
+require("src/main/java/dev/redstoneengineering/block/SignalConditionerBlock.java",
+        "setFormulaParameter(Level level, BlockPos pos, int formulaValue)",
+        "formulaValue + 5")
+require("src/main/java/dev/redstoneengineering/ui/menu/SignalConditionerMenu.java",
+        "BUTTON_PARAM_DIRECT_BASE", "setFormulaParameter(level, blockPos")
+
 require("src/main/java/dev/redstoneengineering/client/ui/EnhancedFieldDeviceScreen.java",
         "safeText(g, engineeringHint()", "safeText(g, diagnosticHint()",
         "fitForWidth(label, 72)", "fitForWidth(value, 72)",
