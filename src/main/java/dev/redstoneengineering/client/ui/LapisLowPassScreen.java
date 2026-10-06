@@ -5,6 +5,7 @@ import dev.redstoneengineering.core.port.PortQuality;
 import dev.redstoneengineering.ui.menu.LapisLowPassMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
@@ -50,6 +51,8 @@ public final class LapisLowPassScreen extends AbstractContainerScreen<LapisLowPa
     private final List<Button> pageButtons = new ArrayList<>();
     private final List<Button> configureButtons = new ArrayList<>();
     private final List<Button> routeButtons = new ArrayList<>();
+    private EditBox alphaInput;
+    private Button alphaApply;
     private Page page = Page.MODEL;
     private int scrollX;
     private int scrollY;
@@ -94,14 +97,14 @@ public final class LapisLowPassScreen extends AbstractContainerScreen<LapisLowPa
         int alphaWidth = Math.min(150, Math.max(90, (imageWidth - 76 - controlGap * 2) / 3));
         int alphaTotal = alphaWidth * 3 + controlGap * 2;
         int alphaX = leftPos + (imageWidth - alphaTotal) / 2;
-        configureButtons.add(addRenderableWidget(Button.builder(Component.literal("α ◀"),
-                b -> sendButton(LapisLowPassMenu.BUTTON_ALPHA_PREVIOUS))
-                .bounds(alphaX, bottomY, alphaWidth, 20).build()));
+        alphaInput = addRenderableWidget(new EditBox(this.font, alphaX, bottomY, alphaWidth, 20,
+                Component.literal("α exact value")));
+        alphaInput.setMaxLength(4);
+        alphaInput.setFilter(value -> value.isEmpty() || value.matches("\\d*(\\.\\d*)?"));
+        alphaApply = addRenderableWidget(Button.builder(Component.literal("Apply α"),
+                b -> submitAlpha()).bounds(alphaX + alphaWidth + controlGap, bottomY, alphaWidth, 20).build());
         configureButtons.add(addRenderableWidget(Button.builder(Component.literal("Restore default α"),
                 b -> sendButton(LapisLowPassMenu.BUTTON_ALPHA_DEFAULT))
-                .bounds(alphaX + alphaWidth + controlGap, bottomY, alphaWidth, 20).build()));
-        configureButtons.add(addRenderableWidget(Button.builder(Component.literal("α ▶"),
-                b -> sendButton(LapisLowPassMenu.BUTTON_ALPHA_NEXT))
                 .bounds(alphaX + (alphaWidth + controlGap) * 2, bottomY, alphaWidth, 20).build()));
 
         int routeGap = 10;
@@ -143,8 +146,40 @@ public final class LapisLowPassScreen extends AbstractContainerScreen<LapisLowPa
         for (int i = 0; i < pageButtons.size(); i++) {
             pageButtons.get(i).active = Page.values()[i] != page;
         }
-        for (Button button : configureButtons) button.visible = page == Page.CONFIGURE;
+        boolean configurePage = page == Page.CONFIGURE;
+        for (Button button : configureButtons) button.visible = configurePage;
+        if (alphaInput != null) {
+            alphaInput.visible = configurePage;
+            alphaInput.active = configurePage;
+            if (configurePage && !alphaInput.isFocused()) {
+                String expected = String.format(java.util.Locale.ROOT, "%.2f", LapisLowPassMenu.alphaForIndex(menu.alphaIndex()));
+                if (!expected.equals(alphaInput.getValue())) alphaInput.setValue(expected);
+            }
+        }
+        if (alphaApply != null) {
+            alphaApply.visible = configurePage;
+            alphaApply.active = configurePage && alphaInputIndex() >= 0;
+        }
         for (Button button : routeButtons) button.visible = page == Page.ROUTE;
+    }
+
+    private int alphaInputIndex() {
+        if (alphaInput == null || alphaInput.getValue().isEmpty()) return -1;
+        try {
+            double entered = Double.parseDouble(alphaInput.getValue());
+            for (int i = 0; i < LapisLowPassMenu.alphaSteps(); i++) {
+                if (Math.abs(entered - LapisLowPassMenu.alphaForIndex(i)) < 0.0001) return i;
+            }
+        } catch (NumberFormatException ignored) {
+        }
+        return -1;
+    }
+
+    private void submitAlpha() {
+        int index = alphaInputIndex();
+        if (index < 0) return;
+        sendButton(LapisLowPassMenu.BUTTON_ALPHA_DIRECT_BASE + index);
+        alphaInput.setFocused(false);
     }
 
     @Override
@@ -452,6 +487,7 @@ public final class LapisLowPassScreen extends AbstractContainerScreen<LapisLowPa
         int index = menu.alphaIndex();
         double alpha = LapisLowPassMenu.alphaForIndex(index);
         label(g, "Selected α", String.format("%.2f", alpha), y); y += 18;
+        label(g, "[DIRECT ENTRY] α", "{0.05,0.10,0.20,0.35,0.50,0.65,0.80,1.00}", y); y += 18;
         label(g, "Meaning", LapisLowPassMenu.bypassForIndex(index) ? "BYPASS" : "FIRST-ORDER RESPONSE", y); y += 18;
         label(g, "Default index", Integer.toString(LapisLowPassMenu.defaultAlphaIndex()), y); y += 28;
 
