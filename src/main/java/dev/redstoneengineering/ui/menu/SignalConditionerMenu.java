@@ -25,6 +25,9 @@ public final class SignalConditionerMenu extends EngineeringDeviceMenu {
     public static final int BUTTON_INPUT_RIGHT = 7;
     public static final int BUTTON_OUTPUT_LEFT = 8;
     public static final int BUTTON_OUTPUT_RIGHT = 9;
+    /** Formula parameter value encoded as BASE + (value + 16), supporting signed offset mode. */
+    public static final int BUTTON_PARAM_DIRECT_BASE = 5000;
+    public static final int BUTTON_PARAM_DIRECT_MAX = 5031;
 
     private final DataSlot mode = trackedInt();
     private final DataSlot parameter = trackedInt();
@@ -63,7 +66,9 @@ public final class SignalConditionerMenu extends EngineeringDeviceMenu {
         if (!stillValid(player)) return false;
 
         boolean changed;
-        if (id == BUTTON_INPUT_LEFT || id == BUTTON_INPUT_RIGHT) {
+        if (id >= BUTTON_PARAM_DIRECT_BASE && id <= BUTTON_PARAM_DIRECT_MAX) {
+            changed = SignalConditionerBlock.setFormulaParameter(level, blockPos, (id - BUTTON_PARAM_DIRECT_BASE) - 16);
+        } else if (id == BUTTON_INPUT_LEFT || id == BUTTON_INPUT_RIGHT) {
             changed = DirectionalSignalBlock.rotateSeriesInput(level, blockPos, id == BUTTON_INPUT_RIGHT);
         } else if (id == BUTTON_OUTPUT_LEFT || id == BUTTON_OUTPUT_RIGHT) {
             changed = DirectionalSignalBlock.rotateSeriesOutput(level, blockPos, id == BUTTON_OUTPUT_RIGHT);
