@@ -64,7 +64,12 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     private static final int MIN_WORKSPACE_HEIGHT = 320;
     private static final int MAX_WORKSPACE_HEIGHT = 520;
     private static final int DEFAULT_CANVAS_WIDTH = 1020;
-    private static final int DEFAULT_CANVAS_HEIGHT = 760;
+    private static final int DEFAULT_CANVAS_HEIGHT = 980;
+    private static final int CONFIGURE_CONTROL_COLUMNS = 3;
+    private static final int CONFIGURE_CONTROL_GAP_X = 10;
+    private static final int CONFIGURE_CONTROL_GAP_Y = 8;
+    private static final int CONFIGURE_CONTROL_HEIGHT = 20;
+    private static final int CONFIGURE_CONTROL_TOP = 88;
 
     private Section section = Section.OVERVIEW;
     private boolean routePage;
@@ -120,6 +125,7 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         addSectionTab(Section.HISTORY, x, tabY, tabWidth);
 
         addDeviceWidgets();
+        layoutConfigureWidgets();
         addRouteControls();
         updateWidgetVisibility();
         syncDeviceWidgetLabels();
@@ -136,9 +142,54 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
     protected void addDeviceWidgets() {}
     protected void syncDeviceWidgetLabels() {}
 
+    /** Shared all-family Configure rail metadata for UI verifiers and human inspection. */
+    protected final int configureControlCount() { return configureWidgets.size(); }
+
     protected final <T extends AbstractWidget> T addConfigureWidget(T widget) {
         configureWidgets.add(widget);
         return addRenderableWidget(widget);
+    }
+
+    /**
+     * Global Configure control rail.
+     *
+     * Device screens may still declare controls in their natural semantic order, but final
+     * position and width are owned here so no family can regress to cramped hand-written
+     * coordinates or cover the scrollable engineering content.
+     */
+    private void layoutConfigureWidgets() {
+        if (configureWidgets.isEmpty()) return;
+
+        int controlCount = configureWidgets.size();
+        int rows = configureControlRows();
+        int availableWidth = imageWidth - (CONTENT_LEFT * 2);
+        int controlWidth = Math.max(92,
+                (availableWidth - CONFIGURE_CONTROL_GAP_X * (CONFIGURE_CONTROL_COLUMNS - 1))
+                        / CONFIGURE_CONTROL_COLUMNS);
+
+        for (int index = 0; index < controlCount; index++) {
+            int row = index / CONFIGURE_CONTROL_COLUMNS;
+            int column = index % CONFIGURE_CONTROL_COLUMNS;
+            int rowStart = row * CONFIGURE_CONTROL_COLUMNS;
+            int rowCount = Math.min(CONFIGURE_CONTROL_COLUMNS, controlCount - rowStart);
+            int rowWidth = rowCount * controlWidth + (rowCount - 1) * CONFIGURE_CONTROL_GAP_X;
+            int rowX = leftPos + (imageWidth - rowWidth) / 2;
+            AbstractWidget widget = configureWidgets.get(index);
+            widget.setX(rowX + column * (controlWidth + CONFIGURE_CONTROL_GAP_X));
+            widget.setY(topPos + CONFIGURE_CONTROL_TOP + row * (CONFIGURE_CONTROL_HEIGHT + CONFIGURE_CONTROL_GAP_Y));
+            widget.setWidth(controlWidth);
+            widget.setHeight(CONFIGURE_CONTROL_HEIGHT);
+        }
+    }
+
+    private int configureControlRows() {
+        return Math.max(1,
+                (configureWidgets.size() + CONFIGURE_CONTROL_COLUMNS - 1) / CONFIGURE_CONTROL_COLUMNS);
+    }
+
+    private int configureContentOffset() {
+        if (configureWidgets.isEmpty()) return 0;
+        return 28 + configureControlRows() * (CONFIGURE_CONTROL_HEIGHT + CONFIGURE_CONTROL_GAP_Y);
     }
 
     protected final void sendMenuButton(int buttonId) {
@@ -451,7 +502,14 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         if (routePage) {
             renderRoutePage(graphics);
         } else {
-            renderSection(graphics, section);
+            if (section == Section.CONFIGURE && !configureWidgets.isEmpty()) {
+                graphics.pose().pushPose();
+                graphics.pose().translate(0.0F, configureContentOffset(), 0.0F);
+                renderSection(graphics, section);
+                graphics.pose().popPose();
+            } else {
+                renderSection(graphics, section);
+            }
             renderFunctionSurface(graphics);
         }
         graphics.pose().popPose();
@@ -507,9 +565,9 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
      */
     private void renderFunctionSurface(GuiGraphics graphics) {
         int x = CONTENT_LEFT;
-        int y = 590;
+        int y = section == Section.CONFIGURE ? 720 : 620;
         int width = Math.max(420, Math.min(920, canvasRight() - x - 24));
-        int height = section == Section.CONFIGURE ? 150 : 118;
+        int height = section == Section.CONFIGURE ? 168 : 118;
 
         graphics.fill(x, y, x + width, y + height, PANEL_3);
         graphics.fill(x, y, x + 4, y + height, INFO);
@@ -560,7 +618,8 @@ public abstract class EngineeringScreen<M extends EngineeringDeviceMenu> extends
         }
 
         graphics.drawString(font,
-                "Configure • " + controlCount + (controlCount == 1 ? " server action" : " server actions"),
+                "Configure • " + controlCount + (controlCount == 1 ? " server action" : " server actions")
+                        + " • shared control rail " + configureControlRows() + " row" + (configureControlRows() == 1 ? "" : "s"),
                 x + 12, y + 31, controlCount == 0 ? MUTED : GOOD, false);
         graphics.drawString(font,
                 "Route • " + (routeSupported() ? "SERVER-ROUTED / ADJUSTABLE" : "FIXED PHYSICAL INTERFACE"),
