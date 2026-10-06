@@ -125,8 +125,9 @@ for token in (
 for token in (
     "PIONEER WORKFLOW • INTERNAL REFERENCE CALIBRATION TRIAL",
     "e_ref = mean(clamp(x_raw + b_cal,0,15)) - x_ref",
-    "Reference −",
-    "Reference +",
+    "x_ref 0..15",
+    "submitReference",
+    "BUTTON_REFERENCE_DIRECT_BASE",
     "Trial baseline",
     "Trial candidate",
     "Clear trial",
