@@ -84,6 +84,27 @@ require("src/main/java/dev/redstoneengineering/client/ui/MagneticSystemScreen.ja
 require("src/main/java/dev/redstoneengineering/ui/menu/MagneticSystemMenu.java",
         "BUTTON_PRIMARY_DIRECT_BASE", "PermanentMagnetBlock.STRENGTH", "InductionCoilBlock.TURNS")
 
+require("src/main/java/dev/redstoneengineering/client/ui/LogicAnalyzerScreen.java",
+        "EditBox", "submitThreshold", "submitCursorA", "submitCursorB",
+        "BUTTON_THRESHOLD_DIRECT_BASE", "BUTTON_CURSOR_A_DIRECT_BASE", "BUTTON_CURSOR_B_DIRECT_BASE",
+        "1..15 • direct entry", "0..15 • direct entry")
+require("src/main/java/dev/redstoneengineering/ui/menu/LogicAnalyzerMenu.java",
+        "BUTTON_THRESHOLD_DIRECT_BASE = 17000", "BUTTON_CURSOR_A_DIRECT_BASE = 17100",
+        "BUTTON_CURSOR_B_DIRECT_BASE = 17200", "setCursorA", "setCursorB")
+require("src/main/java/dev/redstoneengineering/blockentity/LogicAnalyzerBlockEntity.java",
+        "setCursorA(int slot)", "setCursorB(int slot)")
+
+require("src/main/java/dev/redstoneengineering/client/ui/SignalAnalyzerScreen.java",
+        "EditBox", "submitCalibration", "submitReference",
+        "BUTTON_CALIBRATION_DIRECT_BASE", "BUTTON_REFERENCE_DIRECT_BASE",
+        "-2..+2 • direct entry", "0..15 • direct entry")
+require("src/main/java/dev/redstoneengineering/ui/menu/SignalAnalyzerMenu.java",
+        "BUTTON_CALIBRATION_DIRECT_BASE = 18000", "BUTTON_REFERENCE_DIRECT_BASE = 18100",
+        "setCalibrationOffset", "setReference")
+require("src/main/java/dev/redstoneengineering/block/SignalAnalyzerBlock.java",
+        "setCalibrationOffset(Level level, BlockPos pos, int offset)",
+        "setReference(Level level, BlockPos pos, int reference)")
+
 require("src/main/java/dev/redstoneengineering/client/ui/RangeSensorScreen.java",
         "EditBox", "submitRange", "BUTTON_RANGE_DIRECT_BASE",
         "{4,8,15} blocks • direct entry",
